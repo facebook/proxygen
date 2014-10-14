@@ -64,8 +64,8 @@ struct SSLContextConfig {
   typedef std::function<bool(char const* server_name)> SNINoMatchFn;
 
   std::vector<CertificateInfo> certificates;
-  apache::thrift::transport::SSLContext::SSLVersion sslVersion{
-    apache::thrift::transport::SSLContext::TLSv1};
+  folly::SSLContext::SSLVersion sslVersion{
+    folly::SSLContext::SSLv3};
   bool sessionCacheEnabled{true};
   bool sessionTicketEnabled{true};
   bool clientHelloParsingEnabled{false};
@@ -80,7 +80,7 @@ struct SSLContextConfig {
   // Ciphers to negotiate if TLS version >= 1.1
   std::string tls11Ciphers{""};
   // Weighted lists of NPN strings to advertise
-  std::list<apache::thrift::transport::SSLContext::NextProtocolsItem>
+  std::list<folly::SSLContext::NextProtocolsItem>
       nextProtocols;
   bool isLocalPrivateKey{true};
   // Should this SSLContextConfig be the default for SNI purposes

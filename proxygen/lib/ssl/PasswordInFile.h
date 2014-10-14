@@ -13,7 +13,7 @@
 
 namespace proxygen {
 
-class PasswordInFile: public apache::thrift::transport::PasswordCollector {
+class PasswordInFile: public folly::PasswordCollector {
  public:
   explicit PasswordInFile(const std::string& file);
   ~PasswordInFile();

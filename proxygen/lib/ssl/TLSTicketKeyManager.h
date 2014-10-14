@@ -57,7 +57,7 @@ class SSLStats;
 class TLSTicketKeyManager : private boost::noncopyable {
  public:
 
-  explicit TLSTicketKeyManager(apache::thrift::transport::SSLContext* ctx,
+  explicit TLSTicketKeyManager(folly::SSLContext* ctx,
                                SSLStats* stats);
 
   virtual ~TLSTicketKeyManager();
@@ -188,7 +188,7 @@ class TLSTicketKeyManager : private boost::noncopyable {
   // Key sources that can be used for encryption
   TLSActiveKeyList activeKeys_;
 
-  apache::thrift::transport::SSLContext* ctx_;
+  folly::SSLContext* ctx_;
   uint32_t randState_;
   SSLStats* stats_{nullptr};
 
