@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/session/HTTPErrorPage.h>
 #include <proxygen/lib/http/session/SimpleController.h>
 #include <proxygen/lib/services/HTTPAcceptor.h>
+#include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
 
 namespace proxygen {
 
@@ -94,10 +95,21 @@ protected:
 
   // Acceptor methods
   void onNewConnection(
-      apache::thrift::async::TAsyncSocket::UniquePtr sock,
+    folly::AsyncSocket::UniquePtr sock,
       const folly::SocketAddress* address,
       const std::string& nextProtocol,
-      const TransportInfo& tinfo) override;
+      const folly::TransportInfo& tinfo) override;
+
+  virtual folly::AsyncSocket::UniquePtr makeNewAsyncSocket(folly::EventBase* base, int fd) {
+    return folly::AsyncSocket::UniquePtr(new apache::thrift::async::TAsyncSocket(base, fd));
+  }
+
+  virtual folly::AsyncSSLSocket::UniquePtr makeNewAsyncSSLSocket(
+    const std::shared_ptr<folly::SSLContext>& ctx,
+    folly::EventBase* base, int fd) {
+    return folly::AsyncSSLSocket::UniquePtr(
+      new apache::thrift::async::TAsyncSSLSocket(ctx, base, fd));
+  }
 
 private:
   HTTPSessionAcceptor(const HTTPSessionAcceptor&) = delete;

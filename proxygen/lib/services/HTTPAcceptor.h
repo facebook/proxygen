@@ -9,12 +9,14 @@
  */
 #pragma once
 
-#include <proxygen/lib/services/Acceptor.h>
 #include <proxygen/lib/services/AcceptorConfiguration.h>
+#include <folly/experimental/wangle/acceptor/Acceptor.h>
+#include <thrift/lib/cpp/async/TAsyncServerSocket.h>
+#include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
 namespace proxygen {
 
-class HTTPAcceptor : public Acceptor {
+class HTTPAcceptor : public folly::Acceptor {
  public:
   explicit HTTPAcceptor(const AcceptorConfiguration& accConfig)
     : Acceptor(accConfig)

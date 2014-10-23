@@ -18,8 +18,6 @@
 
 namespace proxygen {
 
-struct HTTPHeaderSize;
-
 class HTTP1xCodec : public HTTPCodec {
  public:
   explicit HTTP1xCodec(TransportDirection direction,

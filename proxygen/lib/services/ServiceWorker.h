@@ -10,10 +10,11 @@
 #pragma once
 
 #include <folly/io/async/AsyncServerSocket.h>
+#include <folly/experimental/wangle/acceptor/Acceptor.h>
+#include <folly/experimental/wangle/acceptor/ConnectionCounter.h>
+
 #include <list>
 #include <memory>
-#include <proxygen/lib/services/Acceptor.h>
-#include <proxygen/lib/services/ConnectionCounter.h>
 
 namespace proxygen {
 
@@ -45,7 +46,7 @@ class ServiceWorker {
     return service_;
   }
 
-  void addServiceAcceptor(std::unique_ptr<Acceptor> acceptor) {
+  void addServiceAcceptor(std::unique_ptr<folly::Acceptor> acceptor) {
     acceptors_.emplace_back(std::move(acceptor));
   }
 
@@ -53,7 +54,7 @@ class ServiceWorker {
     return worker_;
   }
 
-  const std::list<std::unique_ptr<Acceptor>>& getAcceptors() {
+  const std::list<std::unique_ptr<folly::Acceptor>>& getAcceptors() {
     return acceptors_;
   }
 
@@ -66,14 +67,14 @@ class ServiceWorker {
     acceptors_.clear();
   }
 
-  IConnectionCounter* getConnectionCounter() {
+  folly::IConnectionCounter* getConnectionCounter() {
     return &connectionCounter_;
   }
 
   virtual void forceStop() {}
 
  protected:
-  SimpleConnectionCounter connectionCounter_;
+  folly::SimpleConnectionCounter connectionCounter_;
 
  private:
   // Forbidden copy constructor and assignment operator
@@ -95,7 +96,7 @@ class ServiceWorker {
    * A list of the Acceptor objects specific to this worker thread, one
    * Acceptor per VIP.
    */
-  std::list<std::unique_ptr<Acceptor>> acceptors_;
+  std::list<std::unique_ptr<folly::Acceptor>> acceptors_;
 };
 
 } // proxygen

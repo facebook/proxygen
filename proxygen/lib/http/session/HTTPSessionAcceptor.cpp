@@ -52,12 +52,14 @@ const HTTPErrorPage* HTTPSessionAcceptor::getErrorPage(
 }
 
 void HTTPSessionAcceptor::onNewConnection(
-    TAsyncSocket::UniquePtr sock,
+  folly::AsyncSocket::UniquePtr ssock,
     const SocketAddress* peerAddress,
     const string& nextProtocol,
-    const TransportInfo& tinfo) {
+  const folly::TransportInfo& tinfo) {
   unique_ptr<HTTPCodec> codec;
   SPDYVersion spdyVersion;
+
+  TAsyncSocket::UniquePtr sock(dynamic_cast<TAsyncSocket*>(ssock.release()));
 
   if (!isSSL() && alwaysUseSPDYVersion_) {
     codec = folly::make_unique<SPDYCodec>(

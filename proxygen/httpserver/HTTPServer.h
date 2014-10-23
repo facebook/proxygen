@@ -12,7 +12,7 @@
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBase.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
-#include <proxygen/lib/ssl/SSLContextConfig.h>
+#include <folly/experimental/wangle/ssl/SSLContextConfig.h>
 #include <thread>
 
 namespace proxygen {
@@ -42,7 +42,7 @@ class HTTPServer final {
 
     folly::SocketAddress address;
     Protocol protocol;
-    std::vector<SSLContextConfig> sslConfigs;
+    std::vector<folly::SSLContextConfig> sslConfigs;
   };
 
   /**

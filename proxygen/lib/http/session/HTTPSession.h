@@ -21,7 +21,7 @@
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-#include <proxygen/lib/services/TransportInfo.h>
+#include <folly/experimental/wangle/acceptor/TransportInfo.h>
 #include <proxygen/lib/utils/Time.h>
 #include <queue>
 #include <set>
@@ -273,7 +273,7 @@ class HTTPSession:
       const folly::SocketAddress& peerAddr,
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
-      const TransportInfo& tinfo,
+      const folly::TransportInfo& tinfo,
       InfoCallback* infoCallback = nullptr);
 
   virtual ~HTTPSession();
@@ -468,9 +468,9 @@ class HTTPSession:
   const folly::SocketAddress& getPeerAddress()
     const noexcept;
 
-  TransportInfo& getSetupTransportInfo() noexcept;
-  const TransportInfo& getSetupTransportInfo() const noexcept override;
-  bool getCurrentTransportInfo(TransportInfo* tinfo) override;
+  folly::TransportInfo& getSetupTransportInfo() noexcept;
+  const folly::TransportInfo& getSetupTransportInfo() const noexcept override;
+  bool getCurrentTransportInfo(folly::TransportInfo* tinfo) override;
   HTTPCodec& getCodec() noexcept {
     return *CHECK_NOTNULL(codec_.call());
   }
@@ -670,7 +670,7 @@ class HTTPSession:
 
   HTTPSessionStats* sessionStats_{nullptr};
 
-  TransportInfo transportInfo_;
+  folly::TransportInfo transportInfo_;
 
   /**
    * Connection level flow control for SPDY >= 3.1 and HTTP/2

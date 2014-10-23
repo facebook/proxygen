@@ -13,7 +13,7 @@
 #include <fcntl.h>
 #include <folly/String.h>
 #include <list>
-#include <proxygen/lib/services/ServerSocketConfig.h>
+#include <folly/experimental/wangle/acceptor/ServerSocketConfig.h>
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -29,7 +29,7 @@ namespace proxygen {
  * behavior that may make sense to configure on a per-VIP basis (e.g. which
  * cert(s) we use, etc).
  */
-struct AcceptorConfiguration : public ServerSocketConfig {
+struct AcceptorConfiguration : public folly::ServerSocketConfig {
   /**
    * Determines if the VIP should accept traffic from only internal or
    * external clients. Internal VIPs have different behavior

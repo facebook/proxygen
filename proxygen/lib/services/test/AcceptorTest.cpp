@@ -10,11 +10,10 @@
 #include <folly/io/async/EventBase.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
-#include <proxygen/lib/services/Acceptor.h>
+#include <folly/experimental/wangle/acceptor/Acceptor.h>
+#include <folly/io/async/EventBase.h>
 
-using namespace apache::thrift::async;
 using namespace folly;
-using namespace proxygen;
 
 class TestConnection : public folly::wangle::ManagedConnection {
  public:
@@ -41,7 +40,7 @@ class TestAcceptor : public Acceptor {
       : Acceptor(accConfig) {}
 
   virtual void onNewConnection(
-      apache::thrift::async::TAsyncSocket::UniquePtr sock,
+      folly::AsyncSocket::UniquePtr sock,
       const folly::SocketAddress* address,
       const std::string& nextProtocolName,
       const TransportInfo& tinfo) {
@@ -69,7 +68,7 @@ TEST(AcceptorTest, Basic) {
 
   socket->startAccepting();
 
-  auto client_socket = TAsyncSocket::newSocket(
+  auto client_socket = AsyncSocket::newSocket(
     &base, addy);
 
   base.loopForever();

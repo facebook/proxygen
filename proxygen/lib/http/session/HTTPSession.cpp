@@ -16,7 +16,7 @@
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
-#include <proxygen/lib/utils/SocketOptions.h>
+#include <folly/experimental/wangle/acceptor/SocketOptions.h>
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
 
 using apache::thrift::async::TAsyncSSLSocket;
@@ -27,6 +27,7 @@ using apache::thrift::async::WriteFlags;
 using apache::thrift::transport::TTransportException;
 using folly::IOBuf;
 using folly::SocketAddress;
+using folly::TransportInfo;
 using std::pair;
 using std::set;
 using std::string;

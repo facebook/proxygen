@@ -10,8 +10,9 @@
 #pragma once
 
 #include <folly/io/async/SSLContext.h>
-#include <proxygen/lib/services/TransportInfo.h>
+#include <folly/experimental/wangle/acceptor/TransportInfo.h>
 #include <proxygen/lib/utils/Time.h>
+
 #include <thrift/lib/cpp/async/TAsyncSocket.h>
 #include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
@@ -142,7 +143,7 @@ class HTTPConnector:
   Callback* cb_;
   apache::thrift::async::TAsyncTimeoutSet* timeoutSet_;
   apache::thrift::async::TAsyncSocket::UniquePtr socket_;
-  TransportInfo transportInfo_;
+  folly::TransportInfo transportInfo_;
   std::string plaintextProtocol_;
   TimePoint connectStart_;
   bool forceHTTP1xCodecTo1_1_;

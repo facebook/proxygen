@@ -33,10 +33,10 @@ class MockResponseHandler : public ResponseHandler {
   GMOCK_METHOD0_(, noexcept,, refreshTimeout, void());
   GMOCK_METHOD0_(, noexcept,, pauseIngress, void());
   GMOCK_METHOD0_(, noexcept,, resumeIngress, void());
-  const TransportInfo& getSetupTransportInfo() const noexcept {
+  const folly::TransportInfo& getSetupTransportInfo() const noexcept {
     return transportInfo;
   }
-  MOCK_CONST_METHOD1(getCurrentTransportInfo, void(TransportInfo*));
+  MOCK_CONST_METHOD1(getCurrentTransportInfo, void(folly::TransportInfo*));
 
   void sendBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
     if (body) {
@@ -46,7 +46,7 @@ class MockResponseHandler : public ResponseHandler {
     }
   }
 
-  TransportInfo transportInfo;
+  folly::TransportInfo transportInfo;
 };
 
 class MockRequestHandler : public RequestHandler {

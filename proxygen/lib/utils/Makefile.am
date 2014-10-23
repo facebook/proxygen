@@ -28,14 +28,12 @@ nobase_libutils_HEADERS = \
 	CobHelper.h \
 	CryptUtil.h \
 	DestructorCheck.h \
-	DomainNameMisc.h \
 	Exception.h \
 	FilterChain.h \
 	HTTPTime.h \
 	NullTraceEventObserver.h \
 	ParseURL.h \
 	Result.h \
-	SocketOptions.h \
 	StateMachine.h \
 	TestUtils.h \
 	Time.h \
@@ -53,7 +51,6 @@ libutils_la_SOURCES = \
 	HTTPTime.cpp \
 	NullTraceEventObserver.cpp \
 	ParseURL.cpp \
-	SocketOptions.cpp \
 	TraceEvent.cpp \
 	TraceEventType.cpp \
 	TraceEventType.cpp \

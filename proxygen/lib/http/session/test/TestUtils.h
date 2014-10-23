@@ -17,7 +17,7 @@
 
 namespace proxygen {
 
-extern const TransportInfo mockTransportInfo;
+extern const folly::TransportInfo mockTransportInfo;
 extern const folly::SocketAddress localAddr;
 extern const folly::SocketAddress peerAddr;
 

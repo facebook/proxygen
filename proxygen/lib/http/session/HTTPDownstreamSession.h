@@ -31,7 +31,7 @@ class HTTPDownstreamSession final: public HTTPSession {
       const folly::SocketAddress& peerAddr,
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
-      const TransportInfo& tinfo,
+      const folly::TransportInfo& tinfo,
       InfoCallback* infoCallback = nullptr):
     HTTPSession(transactionTimeouts, std::move(sock), localAddr, peerAddr,
                 CHECK_NOTNULL(controller), std::move(codec), tinfo,

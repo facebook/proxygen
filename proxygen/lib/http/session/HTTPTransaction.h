@@ -22,7 +22,7 @@
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
-#include <proxygen/lib/services/TransportInfo.h>
+#include <folly/experimental/wangle/acceptor/TransportInfo.h>
 #include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
 namespace proxygen {
@@ -288,9 +288,9 @@ class HTTPTransaction :
 
     virtual void describe(std::ostream&) const = 0;
 
-    virtual const TransportInfo& getSetupTransportInfo() const noexcept = 0;
+    virtual const folly::TransportInfo& getSetupTransportInfo() const noexcept = 0;
 
-    virtual bool getCurrentTransportInfo(TransportInfo* tinfo) = 0;
+    virtual bool getCurrentTransportInfo(folly::TransportInfo* tinfo) = 0;
 
     virtual const HTTPCodec& getCodec() const noexcept = 0;
 
@@ -423,11 +423,11 @@ class HTTPTransaction :
     return transport_.getPeerAddress();
   }
 
-  const TransportInfo& getSetupTransportInfo() const noexcept {
+  const folly::TransportInfo& getSetupTransportInfo() const noexcept {
     return transport_.getSetupTransportInfo();
   }
 
-  void getCurrentTransportInfo(TransportInfo* tinfo) const {
+  void getCurrentTransportInfo(folly::TransportInfo* tinfo) const {
     transport_.getCurrentTransportInfo(tinfo);
   }
 
