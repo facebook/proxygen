@@ -14,7 +14,7 @@
 
 #include <list>
 #include <memory>
-#include <thrift/lib/cpp/async/TAsyncServerSocket.h>
+#include <folly/io/async/AsyncServerSocket.h>
 
 namespace proxygen {
 

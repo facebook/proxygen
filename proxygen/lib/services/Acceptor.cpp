@@ -27,7 +27,7 @@
 #include <unistd.h>
 
 using apache::thrift::async::TAsyncSSLSocket;
-using apache::thrift::async::TAsyncServerSocket;
+using folly::AsyncServerSocket;
 using apache::thrift::async::TAsyncSocket;
 using apache::thrift::async::TAsyncTimeoutSet;
 using apache::thrift::transport::SSLContext;
@@ -169,7 +169,7 @@ Acceptor::Acceptor(const ServerSocketConfig& accConfig) :
 }
 
 void
-Acceptor::init(TAsyncServerSocket* serverSocket,
+Acceptor::init(AsyncServerSocket* serverSocket,
                EventBase* eventBase) {
   CHECK(nullptr == this->base_);
 
@@ -358,7 +358,7 @@ Acceptor::sslConnectionError() {
 void
 Acceptor::acceptError(const std::exception& ex) noexcept {
   // An error occurred.
-  // The most likely error is out of FDs.  TAsyncServerSocket will back off
+  // The most likely error is out of FDs.  AsyncServerSocket will back off
   // briefly if we are out of FDs, then continue accepting later.
   // Just log a message here.
   LOG(ERROR) << "error accepting on acceptor socket: " << ex.what();

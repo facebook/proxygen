@@ -19,7 +19,7 @@
 #include <event.h>
 #include <folly/experimental/wangle/ConnectionManager.h>
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
-#include <thrift/lib/cpp/async/TAsyncServerSocket.h>
+#include <folly/io/async/AsyncServerSocket.h>
 #include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
 namespace folly {
@@ -58,7 +58,7 @@ class SSLContextManager;
  * also tracks all outstanding connections that it has accepted.
  */
 class Acceptor :
-  public apache::thrift::async::TAsyncServerSocket::AcceptCallback,
+  public folly::AsyncServerSocket::AcceptCallback,
   public folly::wangle::ConnectionManager::Callback {
  public:
 
@@ -83,12 +83,12 @@ class Acceptor :
 
   /**
    * Initialize the Acceptor to run in the specified EventBase
-   * thread, receiving connections from the specified TAsyncServerSocket.
+   * thread, receiving connections from the specified AsyncServerSocket.
    *
-   * This method will be called from the TAsyncServerSocket's primary thread,
+   * This method will be called from the AsyncServerSocket's primary thread,
    * not the specified EventBase thread.
    */
-  virtual void init(apache::thrift::async::TAsyncServerSocket* serverSocket,
+  virtual void init(folly::AsyncServerSocket* serverSocket,
                     folly::EventBase* eventBase);
 
   /**
@@ -258,7 +258,7 @@ class Acceptor :
    */
   virtual void onConnectionsDrained() {}
 
-  // TAsyncServerSocket::AcceptCallback methods
+  // AsyncServerSocket::AcceptCallback methods
   void connectionAccepted(int fd,
       const folly::SocketAddress& clientAddr)
       noexcept;

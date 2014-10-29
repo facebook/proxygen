@@ -12,9 +12,9 @@
 #include "proxygen/httpserver/HTTPServerOptions.h"
 #include "proxygen/lib/ssl/SSLContextConfig.h"
 
+#include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBase.h>
 #include <thread>
-#include <thrift/lib/cpp/async/TAsyncServerSocket.h>
 
 namespace proxygen {
 
@@ -110,7 +110,7 @@ class HTTPServer final {
   /**
    * Server socket
    */
-  std::vector<apache::thrift::async::TAsyncServerSocket::UniquePtr>
+  std::vector<folly::AsyncServerSocket::UniquePtr>
       serverSockets_;
 
   /**

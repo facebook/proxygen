@@ -34,7 +34,7 @@ class HTTPAcceptor : public Acceptor {
     return transactionTimeouts_.get();
   }
 
-  virtual void init(apache::thrift::async::TAsyncServerSocket* serverSocket,
+  virtual void init(folly::AsyncServerSocket* serverSocket,
                     folly::EventBase* eventBase) {
     Acceptor::init(serverSocket, eventBase);
     transactionTimeouts_.reset(new apache::thrift::async::TAsyncTimeoutSet(

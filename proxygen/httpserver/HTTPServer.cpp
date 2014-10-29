@@ -17,7 +17,7 @@
 #include <folly/ThreadName.h>
 #include <folly/io/async/EventBaseManager.h>
 
-using apache::thrift::async::TAsyncServerSocket;
+using folly::AsyncServerSocket;
 using folly::EventBase;
 using folly::EventBaseManager;
 using folly::SocketAddress;
@@ -49,7 +49,7 @@ void HTTPServer::bind(std::vector<IPConfig>& addrs) {
 
   auto evb = EventBaseManager::get()->getEventBase();
   for (auto& addr: addrs) {
-    serverSockets_.emplace_back(new TAsyncServerSocket(evb));
+    serverSockets_.emplace_back(new AsyncServerSocket(evb));
     serverSockets_.back()->bind(addr.address);
 
     // Use might have asked to register with some ephemeral port

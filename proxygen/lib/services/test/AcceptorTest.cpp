@@ -54,7 +54,7 @@ class TestAcceptor : public Acceptor {
 TEST(AcceptorTest, Basic) {
 
   EventBase base;
-  auto socket = TAsyncServerSocket::newSocket(&base);
+  auto socket = AsyncServerSocket::newSocket(&base);
   ServerSocketConfig config;
 
   TestAcceptor acceptor(config);
