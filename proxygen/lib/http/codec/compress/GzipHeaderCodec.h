@@ -40,11 +40,10 @@ class GzipHeaderCodec : public HeaderCodec {
   folly::IOBuf& getHeaderBuf();
 
   /**
-   * Parse the decompressed name/value header block. Note that this function can
-   * throw std::out_of_range
+   * Parse the decompressed name/value header block.
    */
   Result<size_t, HeaderDecodeError>
-  parseNameValues(const folly::IOBuf&);
+  parseNameValues(const folly::IOBuf&) noexcept;
 
   const SPDYVersionSettings& versionSettings_;
   z_stream deflater_;

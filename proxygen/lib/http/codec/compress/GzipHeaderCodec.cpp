@@ -309,15 +309,11 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   }
 
   size_t expandedHeaderLineBytes = 0;
-  try {
-    auto result = parseNameValues(uncompressed);
-    if (result.isError()) {
-      return result.error();
-    }
-    expandedHeaderLineBytes = result.ok();
-  } catch (const std::out_of_range& ex) {
-    return HeaderDecodeError::BAD_ENCODING;
+  auto result = parseNameValues(uncompressed);
+  if (result.isError()) {
+    return result.error();
   }
+  expandedHeaderLineBytes = result.ok();
 
   if (UNLIKELY(expandedHeaderLineBytes > kMaxExpandedHeaderLineBytes)) {
     LOG(ERROR) << "expanded headers too large";
@@ -328,29 +324,45 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
 }
 
 Result<size_t, HeaderDecodeError>
-GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed) {
+GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed) noexcept {
 
   size_t expandedHeaderLineBytes = 0;
   Cursor headerCursor(&uncompressed);
-  uint32_t numNV = versionSettings_.parseSizeFun(&headerCursor);
+  uint32_t numNV = 0;
   const HeaderPiece* headerName = nullptr;
 
+  try {
+    numNV = versionSettings_.parseSizeFun(&headerCursor);
+  } catch (const std::out_of_range& ex) {
+    return HeaderDecodeError::BAD_ENCODING;
+  }
+
   for (uint32_t i = 0; i < numNV * 2; i++) {
-    uint32_t len = versionSettings_.parseSizeFun(&headerCursor);
+    uint32_t len = 0;
+    try {
+      len = versionSettings_.parseSizeFun(&headerCursor);
+    } catch (const std::out_of_range& ex) {
+      return HeaderDecodeError::BAD_ENCODING;
+    }
+
     if (len == 0 && !headerName) {
       LOG(ERROR) << "empty header name";
       return HeaderDecodeError::EMPTY_HEADER_NAME;
     }
     auto next = headerCursor.peek();
-    if (next.second >= len) {
-      // string is contiguous, just put a pointer into the headers structure
-      outHeaders_.emplace_back((char *)next.first, len, false, false);
-      headerCursor.skip(len);
-    } else {
-      // string is not contiguous, allocate a buffer and pull into it
-      unique_ptr<char[]> data (new char[len]);
-      headerCursor.pull(data.get(), len);
-      outHeaders_.emplace_back(data.release(), len, true, false);
+    try {
+      if (next.second >= len) {
+        // string is contiguous, just put a pointer into the headers structure
+        outHeaders_.emplace_back((char *)next.first, len, false, false);
+        headerCursor.skip(len);
+      } else {
+        // string is not contiguous, allocate a buffer and pull into it
+        unique_ptr<char[]> data (new char[len]);
+        headerCursor.pull(data.get(), len);
+        outHeaders_.emplace_back(data.release(), len, true, false);
+      }
+    } catch (const std::out_of_range& ex) {
+      return HeaderDecodeError::BAD_ENCODING;
     }
     if (i % 2 == 0) {
       headerName = &outHeaders_.back();
