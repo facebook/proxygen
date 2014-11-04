@@ -1,0 +1,98 @@
+/*
+ * Trace Event Meta Data Fields, please follow the pattern when you add new one.
+ */
+
+/* ---- Error Fields ---- */
+ErrorStage, "error_stage"
+Error, "error_description"
+ProxygenError, "proxygen_error"
+HTTPStatus, "http_status"
+DirectionError, "error_direction"
+CodecError, "codec_error"
+
+/* ---- Used in RequestExchange ---- */
+Uri, "uri"
+IsSecure, "is_secure"
+UsingProxy, "using_proxy"
+StatusCode, "status_code"
+ServerAddr, "server_address"
+ServerPort, "server_port"
+Protocol, "protocol"
+ContentType, "content_type"
+UsingSpdy, "using_spdy"
+ReqHeaderSize, "request_header_size"
+ReqBodySize, "request_body_size"
+RspHeaderSize, "response_header_size"
+RedirectLocation, "redirect_location"
+NumRedirects, "num_redirects"
+RedirectResponseCode, "redirect_response_code"
+NumRetries, "num_retries"
+
+/* ---- Used in ResponseBodyRead ---- */
+RspBodySize, "response_body_size"
+RspIntvlAvg, "response_interval_average"
+RspIntvlStdDev, "response_interval_stddev"
+RspNumOnBody, "response_number_on_body"
+ServerQuality, "response_server_quality"
+
+/* ---- Used in PreConnect ---- */
+NewConnection, "new_connection"
+SessionManagerType, "sess_mgr_type"
+InFlightConns, "in_flight_conns"
+
+/* ---- Used in PostConnect ---- */
+NewSession, "new_session"
+OriginalParentID, "original_parent_id"
+NumWaiting, "num_waiting"
+
+/* ---- Used in DnsResolution ---- */
+HostName, "host_name"
+IpAddr, "ip_address"
+Port, "port"
+CNameRedirects, "cname_redirects"
+RedirectTime, "redirect_time"
+NumberResolvers, "number_resolvers"
+RequestFamily, "request_family"
+NumberAnswers, "number_answers"
+
+/* ---- Used in TlsSetup ---- */
+TLSReused, "tls_reused"
+TLSCacheHit, "tls_cache_hit"
+CipherName, "cipher_name"
+TLSVersion, "ssl_version"
+
+/* ---- Used in Decompression ---- */
+CompressedSizeKey, "compressed_size"
+UncompressedSizeKey, "uncompressed_size"
+CompressionType, "compression_type"
+
+/* ---- Used in CertVerification ---- */
+VerifiedSuccess, "verified_success"
+VerifiedChain, "verified_chain"
+VerifiedParams, "verified_params"
+VerifiedTime, "verified_time"
+VerifiedServerAddress, "verified_server_address"
+VerifiedProxyAddress, "verified_proxy_address"
+VerifiedError, "verified_error"
+VerifiedReason, "verified_reason"
+VerifiedHostname, "verified_hostname"
+
+/* ---- Used in ProxyConnect ---- */
+ProxyHost, "proxy_host"
+ProxyPort, "proxy_port"
+
+/* ---- Used in ReadSocket ---- */
+ReadBytes, "read_bytes"
+
+/* ---- Used in WriteSocket ---- */
+WriteBytes, "write_bytes"
+
+/* ---- Used in Scheduling ---- */
+SchedulerType, "scheduler_type"
+InitialPriority, "initial_priority"
+SizeOfQueue, "size_of_queue"
+
+/* ---- Used in NetworkChange ---- */
+PreviousState, "previous_state"
+CurrentState, "current_state"
+NetworkID, "network_id"

@@ -1,0 +1,62 @@
+SUBDIRS = . test
+
+BUILT_SOURCES = TraceEventType.h TraceEventType.cpp TraceFieldType.h TraceFieldType.cpp
+
+TraceGen: TraceEventType.txt TraceFieldType.txt
+	python gen_trace_event_constants.py \
+	--output_type=cpp \
+	--input_files=TraceEventType.txt,TraceFieldType.txt \
+	--output_scope=proxygen \
+	--header_path=proxygen/lib/utils \
+	--install_dir=$(srcdir) \
+	--fbcode_dir=$(srcdir)
+	touch TraceGen
+
+TraceEventType.h: TraceGen
+
+TraceEventType.cpp: TraceGen
+
+TraceFieldType.h: TraceGen
+
+TraceFieldType.cpp: TraceGen
+
+noinst_LTLIBRARIES = libutils.la
+
+# We put the generated files first so that we create them first
+libutilsdir = $(includedir)/proxygen/lib/utils
+nobase_libutils_HEADERS = \
+	CobHelper.h \
+	CryptUtil.h \
+	DestructorCheck.h \
+	DomainNameMisc.h \
+	Exception.h \
+	FilterChain.h \
+	HTTPTime.h \
+	NullTraceEventObserver.h \
+	ParseURL.h \
+	Result.h \
+	SocketOptions.h \
+	StateMachine.h \
+	TestUtils.h \
+	Time.h \
+	TraceEvent.h \
+	TraceEventContext.h \
+	TraceEventObserver.h \
+	TraceEventType.h \
+	TraceFieldType.h \
+	UtilInl.h
+
+# We put the generated files first so that we create them first
+libutils_la_SOURCES = \
+	../../external/http_parser/http_parser_cpp.cpp \
+	Exception.cpp \
+	HTTPTime.cpp \
+	NullTraceEventObserver.cpp \
+	ParseURL.cpp \
+	SocketOptions.cpp \
+	TraceEvent.cpp \
+	TraceEventType.cpp \
+	TraceEventType.cpp \
+	TraceFieldType.cpp \
+	TraceFieldType.cpp \
+  CryptUtil.cpp

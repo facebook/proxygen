@@ -1,0 +1,192 @@
+/*
+ *  Copyright (c) 2014, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ *
+ */
+#pragma once
+
+#include "proxygen/httpserver/HTTPServer.h"
+#include "proxygen/httpserver/ResponseBuilder.h"
+
+#include <boost/thread.hpp>
+#include <folly/ThreadName.h>
+
+namespace proxygen {
+
+template <typename HandlerType>
+class ScopedHandler : public RequestHandler {
+ public:
+  explicit ScopedHandler(HandlerType* ptr): handlerPtr_(ptr) {
+  }
+
+  void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
+    request_ = std::move(headers);
+  }
+
+  void onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
+    requestBody_.append(std::move(body));
+  }
+
+  void onUpgrade(proxygen::UpgradeProtocol proto) noexcept {
+  }
+
+  void onEOM() noexcept {
+    try {
+      ResponseBuilder r(downstream_);
+      (*handlerPtr_)(*request_, requestBody_.move(), r);
+      r.sendWithEOM();
+    } catch (const std::exception& ex) {
+      ResponseBuilder(downstream_)
+          .status(500, "Internal Server Error")
+          .body(ex.what())
+          .sendWithEOM();
+    } catch (...) {
+      ResponseBuilder(downstream_)
+          .status(500, "Internal Server Error")
+          .body("Unknown exception thrown")
+          .sendWithEOM();
+    }
+  }
+
+  void requestComplete() noexcept {
+    delete this;
+  }
+
+  void onError(ProxygenError err) noexcept {
+    delete this;
+  }
+ private:
+  HandlerType* const handlerPtr_{nullptr};
+
+  std::unique_ptr<HTTPMessage> request_;
+  folly::IOBufQueue requestBody_;
+};
+
+template <typename HandlerType>
+class ScopedHandlerFactory : public RequestHandlerFactory {
+ public:
+  explicit ScopedHandlerFactory(HandlerType handler): handler_(handler) {
+  }
+
+  void onServerStart() noexcept override {
+  }
+
+  void onServerStop() noexcept override {
+  }
+
+  RequestHandler* onRequest(RequestHandler*, HTTPMessage*) noexcept {
+    return new ScopedHandler<HandlerType>(&handler_);
+  }
+ private:
+  HandlerType handler_;
+};
+
+/**
+ * A basic server that can be used for testing http clients. Since most such
+ * servers are short lived, this server takes care of starting and stopping
+ * automatically.
+ */
+class ScopedHTTPServer final {
+ public:
+  /**
+   * Start a server listening on the requested `port`.
+   * If `port` is 0, it will choose a random port.
+   */
+  template <typename HandlerType>
+  static std::unique_ptr<ScopedHTTPServer> start(HandlerType handler,
+                                                 int port = 0,
+                                                 int numThreads = 4);
+
+  /**
+   * Get the port the server is listening on. This is helpful if the port was
+   * randomly chosen.
+   */
+  int getPort() const {
+    auto addresses = server_->addresses();
+    CHECK(!addresses.empty());
+    return addresses[0].address.getPort();
+  }
+
+  ~ScopedHTTPServer() {
+    server_->stop();
+    thread_.join();
+  }
+
+ private:
+  ScopedHTTPServer(std::thread thread,
+                   std::unique_ptr<HTTPServer> server)
+      : thread_(std::move(thread)),
+        server_(std::move(server)) {
+  }
+
+  std::thread thread_;
+  std::unique_ptr<HTTPServer> server_;
+};
+
+template <typename HandlerType>
+inline std::unique_ptr<ScopedHTTPServer> ScopedHTTPServer::start(
+    HandlerType handler,
+    int port,
+    int numThreads) {
+
+  std::unique_ptr<RequestHandlerFactory> f =
+      folly::make_unique<ScopedHandlerFactory<HandlerType>>(handler);
+  return start(std::move(f), port, numThreads);
+}
+
+template <>
+inline std::unique_ptr<ScopedHTTPServer>
+ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
+    std::unique_ptr<RequestHandlerFactory> f,
+    int port,
+    int numThreads) {
+
+  // This will handle both IPv4 and IPv6 cases
+  folly::SocketAddress addr;
+  addr.setFromLocalPort(port);
+
+  std::vector<HTTPServer::IPConfig> IPs = {
+    {addr, HTTPServer::Protocol::HTTP}
+  };
+
+  HTTPServerOptions options;
+  options.threads = numThreads;
+
+  options.handlerFactories.push_back(std::move(f));
+
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  server->bind(IPs);
+
+  // Start the server
+  std::exception_ptr eptr;
+  auto barrier = std::make_shared<boost::barrier>(2);
+
+  std::thread t = std::thread([&, barrier] () {
+    server->start(
+      [&, barrier] () {
+        folly::setThreadName("http-acceptor");
+        barrier->wait();
+      },
+      [&, barrier] (std::exception_ptr ex) {
+        eptr = ex;
+        barrier->wait();
+      });
+    });
+
+  // Wait for server to start
+  barrier->wait();
+  if (eptr) {
+    t.join();
+
+    std::rethrow_exception(eptr);
+  }
+
+  return std::unique_ptr<ScopedHTTPServer>(
+      new ScopedHTTPServer(std::move(t), std::move(server)));
+}
+
+}

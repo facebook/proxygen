@@ -1,0 +1,312 @@
+/*
+ *  Copyright (c) 2014, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ *
+ */
+#include "proxygen/lib/http/codec/compress/Huffman.h"
+#include "proxygen/lib/http/codec/compress/Logging.h"
+
+#include <folly/io/Cursor.h>
+#include <folly/io/IOBufQueue.h>
+#include <gtest/gtest.h>
+#include <memory>
+
+using namespace folly::io;
+using namespace folly;
+using namespace proxygen::huffman;
+using namespace proxygen;
+using namespace std;
+using namespace testing;
+
+class HuffmanTests : public testing::Test {
+};
+
+TEST_F(HuffmanTests, codes) {
+  uint32_t code;
+  uint8_t bits;
+  // check 'e' for both requests and responses
+  code = huffman::getCode('e', HPACK::MessageType::REQ, &bits);
+  EXPECT_EQ(code, 0x01);
+  EXPECT_EQ(bits, 4);
+  code = huffman::getCode('e', HPACK::MessageType::RESP, &bits);
+  EXPECT_EQ(code, 0x10);
+  EXPECT_EQ(bits, 5);
+  // some extreme cases
+  code = huffman::getCode(0, HPACK::MessageType::REQ, &bits);
+  EXPECT_EQ(code, 0x7ffffba);
+  EXPECT_EQ(bits, 27);
+  code = huffman::getCode(255, HPACK::MessageType::REQ, &bits);
+  EXPECT_EQ(code, 0x3ffffdb);
+  EXPECT_EQ(bits, 26);
+
+  code = huffman::getCode(0, HPACK::MessageType::RESP, &bits);
+  EXPECT_EQ(code, 0x1ffffbc);
+  EXPECT_EQ(bits, 25);
+  code = huffman::getCode(255, HPACK::MessageType::RESP, &bits);
+  EXPECT_EQ(code, 0xffffdc);
+  EXPECT_EQ(bits, 24);
+}
+
+TEST_F(HuffmanTests, size) {
+  uint32_t size;
+  string onebyte("/e");
+  size = huffman::getSize(onebyte, HPACK::MessageType::REQ);
+  EXPECT_EQ(size, 1);
+
+  string accept("accept-encoding");
+  size = huffman::getSize(accept, HPACK::MessageType::REQ);
+  EXPECT_EQ(size, 10);
+  size = huffman::getSize(accept, HPACK::MessageType::RESP);
+  EXPECT_EQ(size, 11);
+}
+
+TEST_F(HuffmanTests, encode) {
+  uint32_t size;
+  // this is going to fit perfectly into 3 bytes
+  string gzip("gzip");
+  IOBufQueue bufQueue;
+  QueueAppender appender(&bufQueue, 512);
+  // force the allocation
+  appender.ensure(512);
+
+  size = huffman::encode(gzip, HPACK::MessageType::REQ, appender);
+  EXPECT_EQ(size, 3);
+  const IOBuf* buf = bufQueue.front();
+  const uint8_t* data = buf->data();
+  EXPECT_EQ(data[0], 203); // 11001011
+  EXPECT_EQ(data[1], 213); // 11010101
+  EXPECT_EQ(data[2], 78);  // 01001110
+
+  // size must equal with the actual encoding
+  string accept("accept-encoding");
+  size = huffman::getSize(accept, HPACK::MessageType::REQ);
+  uint32_t encodedSize = huffman::encode(accept, HPACK::MessageType::REQ,
+                                         appender);
+  EXPECT_EQ(size, encodedSize);
+}
+
+TEST_F(HuffmanTests, decode) {
+  uint8_t buffer[3];
+  // simple test with one byte
+  buffer[0] = 1; // 0000 0001
+  string literal;
+  huffman::decode(HPACK::MessageType::REQ, buffer, 1, literal);
+  CHECK_EQ(literal, "/e");
+
+  // simple test with "gzip"
+  buffer[0] = 203;
+  buffer[1] = 213;
+  buffer[2] = 78;
+  literal.clear();
+  huffman::decode(HPACK::MessageType::REQ, buffer, 3, literal);
+  EXPECT_EQ(literal, "gzip");
+
+  // something with padding
+  buffer[0] = 200;
+  buffer[1] = 127;
+  literal.clear();
+  huffman::decode(HPACK::MessageType::REQ, buffer, 2, literal);
+  EXPECT_EQ(literal, "ge");
+}
+
+/*
+ * non-printable characters, that use 3 levels
+ */
+TEST_F(HuffmanTests, non_printable_decode) {
+  // character code 1 and 46 (.) that have 27 + 5 = 32 bits
+  uint8_t buffer1[4] = {
+    0xFF, 0xFF, 0xF7, 0x64
+  };
+  string literal;
+  huffman::decode(HPACK::MessageType::REQ, buffer1, 4, literal);
+  EXPECT_EQ(literal.size(), 2);
+  EXPECT_EQ((uint8_t)literal[0], 1);
+  EXPECT_EQ((uint8_t)literal[1], 46);
+
+  // two weird characters and padding
+  // 1 and 240 will have 27 + 26 = 53 bits + 3 bits padding
+  uint8_t buffer2[7] = {
+    0xFF, 0xFF, 0xF7, 0x7F, 0xFF, 0xFE, 0x67
+  };
+  literal.clear();
+  huffman::decode(HPACK::MessageType::REQ, buffer2, 7, literal);
+  EXPECT_EQ(literal.size(), 2);
+  EXPECT_EQ((uint8_t) literal[0], 1);
+  EXPECT_EQ((uint8_t) literal[1], 240);
+}
+
+TEST_F(HuffmanTests, example_com) {
+  // interesting case of one bit with value 0 in the last byte
+  IOBufQueue bufQueue;
+  QueueAppender appender(&bufQueue, 512);
+  appender.ensure(512);
+
+  string example("www.example.com");
+  uint32_t size = huffman::getSize(example, HPACK::MessageType::REQ);
+  EXPECT_EQ(size, 11);
+  uint32_t encodedSize =
+    huffman::encode(example, HPACK::MessageType::REQ, appender);
+  EXPECT_EQ(size, encodedSize);
+
+  string decoded;
+  huffman::decode(HPACK::MessageType::REQ,
+                  bufQueue.front()->data(), size, decoded);
+  CHECK_EQ(example, decoded);
+}
+
+TEST_F(HuffmanTests, user_agent) {
+  string user_agent(
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) AppleWebKit/537.51"
+    ".1 (KHTML, like Gecko) Mobile/11B554a [FBAN/FBIOS;FBAV/6.7;FBBV/566055;FBD"
+    "V/iPhone5,1;FBMD/iPhone;FBSN/iPhone OS;FBSV/7.0.4;FBSS/2; FBCR/AT&T;FBID/p"
+    "hone;FBLC/en_US;FBOP/5]");
+  for (int i = 0; i < 2; i++) {
+    IOBufQueue bufQueue;
+    QueueAppender appender(&bufQueue, 512);
+    appender.ensure(512);
+    HPACK::MessageType msgType = (HPACK::MessageType)i;
+    uint32_t size = huffman::getSize(user_agent, msgType);
+    uint32_t encodedSize = huffman::encode(user_agent, msgType, appender);
+    EXPECT_EQ(size, encodedSize);
+
+    string decoded;
+    huffman::decode(msgType, bufQueue.front()->data(), size, decoded);
+    CHECK_EQ(user_agent, decoded);
+  }
+}
+
+/*
+ * this test is verifying the CHECK for length at the end of huffman::encode()
+ */
+TEST_F(HuffmanTests, fit_in_buffer) {
+  IOBufQueue bufQueue;
+  QueueAppender appender(&bufQueue, 128);
+
+  // call with an empty string
+  string literal("");
+  huffman::encode(literal, HPACK::MessageType::REQ, appender);
+
+  // allow just 1 byte
+  appender.ensure(128);
+  appender.append(appender.length() - 1);
+  literal = "g";
+  huffman::encode(literal, HPACK::MessageType::REQ, appender);
+  CHECK_EQ(appender.length(), 0);
+}
+
+/*
+ * sanity checks of each node in decode tree performed by a depth first search
+ *
+ * allSnodes is an array of up to 46 SuperHuffNode's, the 46 is hardcoded
+ * in creation
+ * nodeIndex is the current SuperHuffNode being visited
+ * depth is the depth of the current SuperHuffNode being visited
+ * fullCode remembers the code from parent HuffNodes
+ * eosCode stores the code for End-Of-String characters which the tables
+ *   do not store
+ * eosCodeBits stores the number of bits for the End-Of-String character
+ *   codes
+ */
+uint32_t treeDfs(
+    const SuperHuffNode *allSnodes,
+    const uint32_t &snodeIndex,
+    const uint32_t &depth,
+    const uint32_t &fullCode,
+    const uint32_t &eosCode,
+    const uint32_t &eosCodeBits) {
+
+  EXPECT_TRUE(depth < 4);
+
+  unordered_set<uint32_t> leaves;
+  uint32_t subtreeLeafCount = 0;
+
+  for (uint32_t i = 0; i < 256; i++) {
+    const HuffNode& node = allSnodes[snodeIndex].index[i];
+
+    uint32_t newFullCode = fullCode ^ (i << (24 - 8 * depth));
+    uint32_t eosCodeDepth = (eosCodeBits - 1) / 8;
+
+    if(eosCodeDepth == depth
+        && (newFullCode >> (32 - eosCodeBits)) == eosCode) {
+
+      // this condition corresponds to an EOS code
+      // this should be a leaf that doesn't have supernode or bits set
+
+      EXPECT_TRUE(node.isLeaf());
+      EXPECT_TRUE(node.superNode == 0);
+      EXPECT_TRUE(node.bits == 0);
+    } else if (node.isLeaf()) {
+
+      // this condition is a normal leaf
+      // this should have bits set but superNode should be 0
+
+      EXPECT_TRUE(node.superNode == 0);
+      EXPECT_TRUE(node.bits > 0);
+
+      EXPECT_TRUE(node.bits <= 8);
+
+      // used to count unique leaves at this node
+      leaves.insert(node.ch);
+    } else {
+
+      // this condition is a branching node
+      // this should have the superNode set but not bits should be set
+
+      EXPECT_TRUE(node.superNode > 0);
+      EXPECT_TRUE(node.bits == 0);
+
+      EXPECT_TRUE(node.superNode < 46);
+
+      // keep track of leaf counts for this subtree
+      subtreeLeafCount += treeDfs(
+          allSnodes,
+          node.superNode,
+          depth + 1,
+          newFullCode,
+          eosCode,
+          eosCodeBits);
+    }
+  }
+  return subtreeLeafCount + leaves.size();
+}
+
+/**
+ * Class used in testing to expose the internal tables for requests
+ * and responses
+ */
+class TestingHuffTree : public HuffTree {
+ public:
+
+  explicit TestingHuffTree(const HuffTree& tree) : HuffTree(tree) {}
+
+  const SuperHuffNode* getInternalTable() {
+    return table_;
+  }
+
+  static TestingHuffTree getReqHuffTree() {
+    TestingHuffTree reqTree(reqHuffTree());
+    return reqTree;
+  }
+
+  static TestingHuffTree getRespHuffTree() {
+    TestingHuffTree respTree(respHuffTree());
+    return respTree;
+  }
+
+};
+
+TEST_F(HuffmanTests, sanity_checks) {
+  TestingHuffTree reqTree = TestingHuffTree::getReqHuffTree();
+  const SuperHuffNode* allSnodesReq = reqTree.getInternalTable();
+  uint32_t totalReqChars = treeDfs(allSnodesReq, 0, 0, 0, 0x3ffffdc, 26);
+  EXPECT_EQ(totalReqChars, 256);
+
+  TestingHuffTree respTree = TestingHuffTree::getRespHuffTree();
+  const SuperHuffNode* allSnodesResp = respTree.getInternalTable();
+  uint32_t totalRespChars = treeDfs(allSnodesResp, 0, 0, 0, 0xffffdd, 24);
+  EXPECT_EQ(totalRespChars, 256);
+}

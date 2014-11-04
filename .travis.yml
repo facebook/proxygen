@@ -1,0 +1,9 @@
+language: cpp
+compiler: gcc
+install:
+  - sudo apt-get update -qq
+before_script:
+  - cd proxygen
+  - ./deps.sh
+script:
+  - make check

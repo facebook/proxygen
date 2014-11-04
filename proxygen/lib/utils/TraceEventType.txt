@@ -1,0 +1,18 @@
+/*
+ * Trace Event Type, please follow the pattern when you add new one.
+ */
+
+RequestExchange, "HTTPRequestExchange"
+ResponseBodyRead, "HTTPResponseBodyRead"
+PreConnect, "PreConnect"
+PostConnect, "PostConnect"
+DnsResolution, "DNSResolution"
+TcpConnect, "TCPConnect"
+TlsSetup, "TLSSetup"
+Decompression, "decompression_filter"
+CertVerification, "cert_verification"
+ProxyConnect, "proxy_connect"
+ReadSocket, "read_socket"
+WriteSocket, "write_socket"
+Scheduling, "scheduling"
+NetworkChange, "network_change"

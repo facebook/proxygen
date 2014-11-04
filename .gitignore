@@ -1,0 +1,30 @@
+*~
+\#*\#
+
+# downloaded dependencies
+/proxygen/fbthrift/
+/proxygen/lib/test/gmock*
+
+# autoreconf artifacts
+Makefile.in
+/proxygen/aclocal.m4
+/proxygen/autom4te.cache/
+/proxygen/build-aux/
+/proxygen/config.guess
+/proxygen/config.hin
+/proxygen/configure
+
+# Configure artifacts
+.deps
+.dirstamp
+_configs.sed
+Makefile
+
+# Build artifacts
+.libs
+*.o
+*.lo
+*.a
+*.la
+gen-cpp
+gen-cpp2
