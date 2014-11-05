@@ -47,8 +47,12 @@ using std::string;
 
 namespace proxygen {
 
+#ifndef NO_LIB_GFLAGS
 DEFINE_int32(shutdown_idle_grace_ms, 5000, "milliseconds to wait before "
              "closing idle conns");
+#else
+const int32_t FLAGS_shutdown_idle_grace_ms = 5000;
+#endif
 
 static const std::string empty_string;
 std::atomic<uint64_t> Acceptor::totalNumPendingSSLConns_{0};

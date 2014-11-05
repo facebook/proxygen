@@ -32,7 +32,11 @@ const int MIN_SESSION_ID_LENGTH = 16;
 
 }
 
+#ifndef NO_LIB_GFLAGS
 DEFINE_bool(dcache_unit_test, false, "All VIPs share one session cache");
+#else
+const bool FLAGS_dcache_unit_test = false;
+#endif
 
 namespace proxygen {
 
