@@ -21,7 +21,8 @@ sudo apt-get install \
     gperf \
     autoconf-archive \
     libevent-dev \
-    libgoogle-glog-dev
+    libgoogle-glog-dev \
+    wget
 
 git clone https://github.com/facebook/fbthrift || true
 cd fbthrift/thrift
