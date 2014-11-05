@@ -13,6 +13,7 @@
 #include "proxygen/lib/http/codec/SPDYConstants.h"
 
 #include <folly/Memory.h>
+#include <folly/Portability.h>
 #include <folly/String.h>
 #include <folly/ThreadLocal.h>
 #include <folly/io/IOBuf.h>
@@ -33,21 +34,6 @@ namespace {
 
 // Maximum size of header names+values after expanding multi-value headers
 const size_t kMaxExpandedHeaderLineBytes = 80 * 1024;
-
-folly::IOBuf& getStaticHeaderBufSpace(size_t size) {
-  static ThreadLocalPtr<IOBuf> buf;
-  if (!buf) {
-    buf.reset(new IOBuf(IOBuf::CREATE, size));
-  } else {
-    if (size > buf->capacity()) {
-      buf.reset(new IOBuf(IOBuf::CREATE, size));
-    } else {
-      buf->clear();
-    }
-  }
-  DCHECK(!buf->isShared());
-  return *buf;
-}
 
 void appendString(uint8_t*& dst, const string& str) {
   size_t len = str.length();
@@ -81,7 +67,31 @@ GzipHeaderCodec::~GzipHeaderCodec() {
 }
 
 folly::IOBuf& GzipHeaderCodec::getHeaderBuf() {
-  return getStaticHeaderBufSpace(maxUncompressed_);
+#if defined(__ANDROID__) || TARGET_OS_IPHONE
+  // ThreadLocal is unrealiable on iOS, so we're using a simple static IOBuf
+  // on both Android and iOS, since all the codec operations are running in the
+  // eventbase thread.
+  static unique_ptr<IOBuf> headerBuf = IOBuf::create(maxUncompressed_);
+  if (maxUncompressed_ > headerBuf->capacity()) {
+    headerBuf = IOBuf::create(maxUncompressed_);
+  }
+  headerBuf->clear();
+  return *headerBuf;
+#else
+  // on server-side we want to use thread-local buffers for efficiency reasons
+  static ThreadLocalPtr<IOBuf> buf;
+  if (!buf) {
+    buf.reset(new IOBuf(IOBuf::CREATE, maxUncompressed_));
+  } else {
+    if (maxUncompressed_ > buf->capacity()) {
+      buf.reset(new IOBuf(IOBuf::CREATE, maxUncompressed_));
+    } else {
+      buf->clear();
+    }
+  }
+  DCHECK(!buf->isShared());
+  return *buf;
+#endif
 }
 
 const GzipHeaderCodec::ZlibContext* GzipHeaderCodec::getZlibContext(
@@ -245,7 +255,6 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
     return HeaderDecodeResult{outHeaders_, 0};
   }
 
-  // Get the thread local buffer space to use
   auto& uncompressed = getHeaderBuf();
   uint32_t consumed = 0;
   // Decompress the headers
