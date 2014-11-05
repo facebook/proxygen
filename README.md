@@ -10,6 +10,9 @@ provide a simple, performant, and modern C++ HTTP library.
 
 We have a Google group for general discussions at https://groups.google.com/d/forum/facebook-proxygen.
 
+The [original blog post](https://code.facebook.com/posts/1503205539947302)
+also has more background on the project.
+
 Build Status: [![Build Status](https://travis-ci.org/facebook/proxygen.png?branch=master)](https://travis-ci.org/facebook/proxygen)
 
 ### Installing
