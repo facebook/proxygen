@@ -66,7 +66,7 @@ it a transaction identifier. The codec then calls into `HTTPSession` which
 is responsible for maintaining the mapping between transaction identifier
 and `HTTPTransaction` objects. Each HTTP request/response pair has a
 separate `HTTPTransaction` object. Finally, `HTTPTransaction` forwards the
-call to a handler object which implements `HTTPTransation::Handler`. The
+call to a handler object which implements `HTTPTransaction::Handler`. The
 handler is responsible for implementing business logic for the request or
 response.
 
