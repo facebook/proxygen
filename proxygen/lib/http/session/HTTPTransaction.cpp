@@ -922,10 +922,6 @@ void HTTPTransaction::setReceiveWindow(uint32_t capacity) {
     return;
   }
   recvToAck_ += delta;
-  if (recvToAck_ > 0) {
-    transport_.sendWindowUpdate(this, recvToAck_);
-    recvToAck_ = 0;
-  }
 }
 
 std::ostream&
