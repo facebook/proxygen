@@ -52,6 +52,7 @@ namespace proxygen {
     x(Shutdown),                                \
     x(IngressStateTransition),                  \
     x(ClientSilent),                            \
+    x(Canceled),                                \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63
