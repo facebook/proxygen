@@ -26,19 +26,16 @@ dependencies.
 
 ##### Easy Install
 
-Just run `./deps.sh` from the `proxygen/` directory to get all the
-dependencies and build proxygen. This will also install folly, fbthrift,
-and proxygen on your machine.
+Just run `./deps.sh` from the `proxygen/` directory to get and build all
+the dependencies and proxygen. It will also run all the tests. Then run
+`./reinstall.sh` to install it. You can run `./deps.sh && ./reinstall.sh`
+whenever to rebase the dependencies, and then rebuild and reinstall proxygen.
 
 A note on compatibility: this project relies on system installed fbthrift
 and folly. If you rebase proxygen and `make` starts to fail, you likely
-need to update to the latest version of fbthrift and folly. First try to
-uninstall, rebase, and reinstall fbthrift and folly. We are still working
-on a solution to make upgrading less painful.
-
-For now, you can rerun `./deps.sh` after fetching and rebasing
-proxygen. This will update the installed fbthrift and folly libraries to
-the correct (latest) version.
+need to update to the latest version of fbthrift and folly. Running
+`./deps.sh && ./reinstall.sh` will do this for you. We are still working
+on a solution to manage depencies more predictably.
 
 ##### Other Platforms
 
