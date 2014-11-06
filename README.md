@@ -46,13 +46,15 @@ packages first. Proxygen, fbthrift, and folly are all autotools based projects.
 
 Directory structure and contents:
 
-* `proxygen/external/` Contains non-installed 3rd-party code proxygen depends on.
-* `proxygen/lib/` Core networking abstractions.
-* `proxygen/lib/http/` HTTP specific code.
-* `proxygen/lib/services/` Connection management and server code.
-* `proxygen/lib/ssl/` TLS abstractions and OpenSSL wrappers.
-* `proxygen/lib/utils/` Miscellaneous helper code.
-* `proxygen/httpserver/` Contains code wrapping `proxygen/lib/` for building simple C++ http servers. We recommend building on top of these APIs.
+| Directory                  | Purpose                                                                |
+|----------------------------|------------------------------------------------------------------------|
+| `proxygen/external/`       | Contains non-installed 3rd-party code proxygen depends on.             |
+| `proxygen/lib/`            | Core networking abstractions.                                          |
+| `proxygen/lib/http/`       | HTTP specific code.                                                    |
+| `proxygen/lib/services/`   | Connection management and server code.                                 |
+| `proxygen/lib/ssl/`        | LS abstractions and OpenSSL wrappers.                                  |
+| `proxygen/lib/utils/`      | Miscellaneous helper code.                                             |
+| `proxygen/httpserver/`     | Contains code wrapping `proxygen/lib/` for building simple C++ http servers. We recommend              building on top of these APIs.                                                                        |
 
 ### Architecture
 
@@ -66,7 +68,7 @@ it a transaction identifier. The codec then calls into `HTTPSession` which
 is responsible for maintaining the mapping between transaction identifier
 and `HTTPTransaction` objects. Each HTTP request/response pair has a
 separate `HTTPTransaction` object. Finally, `HTTPTransaction` forwards the
-call to a handler object which implements `HTTPTransation::Handler`. The
+call to a handler object which implements `HTTPTransaction::Handler`. The
 handler is responsible for implementing business logic for the request or
 response.
 
@@ -133,6 +135,15 @@ We use Doxygen for Proxygen's internal documentation. You can generate a
 copy of these docs by running `doxygen Doxyfile` from the project
 root. You'll want to look at `html/namespaceproxygen.html` to start. This
 will also generate folly and thrift documentation.
+
+### Contributing
+Contribututions to Proxygen are more than welcome.
+
+1. Make sure you've [signed the CLA](https://code.facebook.com/cla).
+2. Fork this repository.
+3. Create a new branch, eg: `git checkout -b my-new-feature`.
+4. Commit your changes.
+5. Send in a pull request outlining your changes.
 
 ### Whitehat
 
