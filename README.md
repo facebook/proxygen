@@ -108,7 +108,17 @@ liner:
 g++ -std=c++11 -o my_echo EchoServer.cpp EchoHandler.cpp -lproxygenhttpserver -lfolly -lglog -lgflags -pthread
 </code>
 
-After running `./my_echo`, we can verify it works using curl in a different terminal (you may need to run with `LD_LIBRARY_PATH=/usr/local/lib ./my_echo` to specify the path to libproxygenhttpserver.so):
+Run
+<code>
+./my_echo
+</code>
+or 
+<code>
+LD_LIBRARY_PATH=/usr/local/lib ./my_echo
+</code>
+(if it can't find libproxygenhttpserver.so)
+
+After running `./my_echo`, we can verify it works using curl in a different terminal:
 ```shell
 $ curl -v http://localhost:11000/
 *   Trying 127.0.0.1...
