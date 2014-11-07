@@ -79,7 +79,8 @@ class HTTPDownstreamTest : public testing::Test {
   void SetUp() {
   }
 
-  void addSingleByteReads(const char* data, int64_t delay=0) {
+  void addSingleByteReads(const char* data,
+                          std::chrono::milliseconds delay={}) {
     for (const char* p = data; *p != '\0'; ++p) {
       transport_->addReadEvent(p, 1, delay);
     }
@@ -122,7 +123,7 @@ TEST_F(HTTPDownstreamSessionTest, immediate_eof) {
   EXPECT_CALL(mockController_, getRequestHandler(_, _)).Times(0);
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEOF(0);
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -154,7 +155,8 @@ TEST_F(HTTPDownstreamSessionTest, http_1_0_no_headers) {
 
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEvent("GET / HTTP/1.0\r\n\r\n", 0);
+  transport_->addReadEvent("GET / HTTP/1.0\r\n\r\n",
+                           std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -187,8 +189,8 @@ TEST_F(HTTPDownstreamSessionTest, http_1_0_no_headers_eof) {
   EXPECT_CALL(mockController_, detachSession(_));
 
   transport_->addReadEvent("GET http://example.com/foo?bar HTTP/1.0\r\n\r\n",
-                           0);
-  transport_->addReadEOF(0);
+                           std::chrono::milliseconds(0));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -228,7 +230,7 @@ TEST_F(HTTPDownstreamSessionTest, single_bytes) {
                      "Host: example.com\r\n"
                      "Connection: close\r\n"
                      "\r\n");
-  transport_->addReadEOF(0);
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -277,7 +279,7 @@ TEST_F(HTTPDownstreamSessionTest, single_bytes_with_body) {
                      "Content-Length: 5\r\n"
                      "\r\n"
                      "12345");
-  transport_->addReadEOF(0);
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -310,9 +312,9 @@ TEST_F(HTTPDownstreamSessionTest, split_body) {
                            "Host: example.com\r\n"
                            "Content-Length: 10\r\n"
                            "\r\n"
-                           "12345", 0);
-  transport_->addReadEvent("abcde", 5);
-  transport_->addReadEOF(0);
+                           "12345", std::chrono::milliseconds(0));
+  transport_->addReadEvent("abcde", std::chrono::milliseconds(5));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -364,10 +366,10 @@ TEST_F(HTTPDownstreamSessionTest, post_chunked) {
   transport_->addReadEvent("POST http://example.com/cgi-bin/foo.aspx?abc&def "
                            "HTTP/1.1\r\n"
                            "Host: example.com\r\n"
-                           "Content-Type: text/pla", 0);
+                           "Content-Type: text/pla", std::chrono::milliseconds(0));
   transport_->addReadEvent("in; charset=utf-8\r\n"
                            "Transfer-encoding: chunked\r\n"
-                           "\r", 2);
+                           "\r", std::chrono::milliseconds(2));
   transport_->addReadEvent("\n"
                            "3\r\n"
                            "bar\r\n"
@@ -375,10 +377,10 @@ TEST_F(HTTPDownstreamSessionTest, post_chunked) {
                            "0123456789abcdef\n"
                            "fedcba9876543210\n"
                            "\r\n"
-                           "3\r", 3);
+                           "3\r", std::chrono::milliseconds(3));
   transport_->addReadEvent("\n"
                            "foo\r\n"
-                           "0\r\n\r\n", 1);
+                           "0\r\n\r\n", std::chrono::milliseconds(1));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -422,18 +424,18 @@ TEST_F(HTTPDownstreamSessionTest, multi_message) {
                            "Host: example.com\r\n"
                            "Content-Length: 10\r\n"
                            "\r\n"
-                           "foo", 0);
+                           "foo", std::chrono::milliseconds(0));
   transport_->addReadEvent("bar9876"
                            "POST /foo HTTP/1.1\r\n"
-                           "Host: exa", 2);
+                           "Host: exa", std::chrono::milliseconds(2));
   transport_->addReadEvent("mple.com\r\n"
                            "Connection: close\r\n"
-                           "Trans", 0);
+                           "Trans", std::chrono::milliseconds(0));
   transport_->addReadEvent("fer-encoding: chunked\r\n"
-                           "\r\n", 2);
-  transport_->addReadEvent("a\r\nsome ", 0);
-  transport_->addReadEvent("data\n\r\n0\r\n\r\n", 2);
-  transport_->addReadEOF(0);
+                           "\r\n", std::chrono::milliseconds(2));
+  transport_->addReadEvent("a\r\nsome ", std::chrono::milliseconds(0));
+  transport_->addReadEvent("data\n\r\n0\r\n\r\n", std::chrono::milliseconds(2));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -469,9 +471,9 @@ TEST_F(HTTPDownstreamSessionTest, connect) {
 
   transport_->addReadEvent("CONNECT test HTTP/1.1\r\n"
                            "\r\n"
-                           "12345", 0);
-  transport_->addReadEvent("abcde", 5);
-  transport_->addReadEOF(0);
+                           "12345", std::chrono::milliseconds(0));
+  transport_->addReadEvent("abcde", std::chrono::milliseconds(5));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -501,9 +503,9 @@ TEST_F(HTTPDownstreamSessionTest, connect_rejected) {
 
   transport_->addReadEvent("CONNECT test HTTP/1.1\r\n"
                            "\r\n"
-                           "12345", 0);
-  transport_->addReadEvent("abcde", 5);
-  transport_->addReadEOF(0);
+                           "12345", std::chrono::milliseconds(0));
+  transport_->addReadEvent("abcde", std::chrono::milliseconds(5));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -540,8 +542,8 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade) {
   transport_->addReadEvent("GET /upgrade HTTP/1.1\r\n"
                            "Upgrade: TEST/1.0\r\n"
                            "Connection: upgrade\r\n"
-                           "\r\n", 0);
-  transport_->addReadEOF(0);
+                           "\r\n", std::chrono::milliseconds(0));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -623,8 +625,8 @@ void HTTPDownstreamTest<C>::testChunks(bool trailers) {
   EXPECT_CALL(handler, detachTransaction());
 
   transport_->addReadEvent("GET / HTTP/1.1\r\n"
-                           "\r\n", 0);
-  transport_->addReadEOF(0);
+                           "\r\n", std::chrono::milliseconds(0));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   HTTPSession::DestructorGuard g(httpSession_);
   eventBase_.loop();
@@ -695,9 +697,9 @@ TEST_F(HTTPDownstreamSessionTest, http_drain) {
   EXPECT_CALL(mockController_, detachSession(_));
 
   transport_->addReadEvent("GET / HTTP/1.1\r\n"
-                           "\r\n", 0);
+                           "\r\n", std::chrono::milliseconds(0));
   transport_->addReadEvent("GET / HTTP/1.1\r\n"
-                           "\r\n", 0);
+                           "\r\n", std::chrono::milliseconds(0));
 
   transport_->startReadEvents();
   eventBase_.loop();
@@ -736,7 +738,7 @@ TEST_F(HTTPDownstreamSessionTest, http_drain_long_running) {
   EXPECT_CALL(mockController_, detachSession(_));
 
   transport_->addReadEvent("GET / HTTP/1.1\r\n"
-                           "\r\n", 0);
+                           "\r\n", std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -764,7 +766,7 @@ TEST_F(HTTPDownstreamSessionTest, early_abort) {
                      "Host: example.com\r\n"
                      "Connection: close\r\n"
                      "\r\n");
-  transport_->addReadEOF(0);
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -801,7 +803,7 @@ TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
         }));
   EXPECT_CALL(handler1, detachTransaction());
 
-  transport_->addReadEvent(requests, 10);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -845,7 +847,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout) {
 
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEvent(requests, 0);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -886,7 +888,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
   EXPECT_CALL(handler1, detachTransaction());
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEvent(buf, 0);
+  transport_->addReadEvent(buf, std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -918,7 +920,7 @@ TEST_F(HTTPDownstreamSessionTest, body_packetization) {
 
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEvent(requests, 0);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(0));
   transport_->startReadEvents();
 
   // Keep the session around even after the event base loop completes so we can
@@ -935,8 +937,9 @@ TEST_F(HTTPDownstreamSessionTest, http_malformed_pkt1) {
 
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEvent(data.c_str(), data.length(), 0);
-  transport_->addReadEOF(0);
+  transport_->addReadEvent(data.c_str(), data.length(),
+                           std::chrono::milliseconds(0));
+  transport_->addReadEOF(std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -974,7 +977,7 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
 
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEvent(requests, 0);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(0));
   transport_->startReadEvents();
 
   // Keep the session around even after the event base loop completes so we can
@@ -1030,7 +1033,8 @@ void HTTPDownstreamTest<C>::testPriorities(
 
   unique_ptr<IOBuf> head = requests.move();
   head->coalesce();
-  transport_->addReadEvent(head->data(), head->length(), 0);
+  transport_->addReadEvent(head->data(), head->length(),
+                           std::chrono::milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();
 
@@ -1124,7 +1128,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
   EXPECT_CALL(*handler2, detachTransaction())
     .WillOnce(InvokeWithoutArgs([handler2] { delete handler2; }));
 
-  transport_->addReadEvent(requests, 10);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -1164,7 +1168,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
         }));
   EXPECT_CALL(handler, detachTransaction());
 
-  transport_->addReadEvent(requests, 10);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   transport_->startReadEvents();
   eventBase_.loop();
 }
@@ -1198,7 +1202,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
   EXPECT_CALL(handler1, onError(_));
   EXPECT_CALL(handler1, detachTransaction());
 
-  this->transport_->addReadEvent(requests, 10);
+  this->transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   this->transport_->startReadEvents();
   this->eventBase_.loop();
 }
@@ -1234,7 +1238,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testChromeShutdownPaused) {
   EXPECT_CALL(handler1, onError(_));
   EXPECT_CALL(handler1, detachTransaction());
 
-  this->transport_->addReadEvent(requests, 0);
+  this->transport_->addReadEvent(requests, std::chrono::milliseconds(0));
   this->transport_->startReadEvents();
   this->eventBase_.loop();
 }
@@ -1288,7 +1292,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testChromeShutdownOnError) {
   EXPECT_CALL(handler1, onEgressPaused());
   EXPECT_CALL(handler1, detachTransaction());
 
-  this->transport_->addReadEvent(requests, 0);
+  this->transport_->addReadEvent(requests, std::chrono::milliseconds(0));
   this->transport_->startReadEvents();
   this->eventBase_.loop();
 }
@@ -1349,9 +1353,9 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 
   EXPECT_CALL(mockController_, detachSession(_));
 
-  transport_->addReadEvent(requests, 10);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   transport_->startReadEvents();
-  transport_->addReadEOF(10);
+  transport_->addReadEOF(std::chrono::milliseconds(10));
 
   eventBase_.loop();
 }

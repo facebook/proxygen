@@ -15,6 +15,8 @@
 #include <folly/io/async/AsyncTimeout.h>
 #include <thrift/lib/cpp/async/TAsyncTransport.h>
 
+#include "proxygen/lib/utils/Time.h"
+
 class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
                            private folly::AsyncTimeout {
  public:
@@ -23,7 +25,7 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
     static std::shared_ptr<WriteEvent> newEvent(const struct iovec* vec,
                                                   size_t count);
 
-    int64_t getTime() const {
+    proxygen::TimePoint getTime() const {
       return time_;
     }
     const struct iovec* getIoVec() const {
@@ -36,10 +38,10 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
    private:
     static void destroyEvent(WriteEvent* event);
 
-    WriteEvent(int64_t time, size_t count);
+    WriteEvent(proxygen::TimePoint time, size_t count);
     ~WriteEvent();
 
-    int64_t time_;
+    proxygen::TimePoint time_;
     size_t count_;
     struct iovec vec_[];
   };
@@ -82,13 +84,14 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
 
   // Methods to control read events
   void addReadEvent(const void* buf, size_t buflen,
-                    int64_t delayFromPrevious);
+                    std::chrono::milliseconds delayFromPrevious);
   void addReadEvent(folly::IOBufQueue& chain,
-                    int64_t delayFromPrevious);
-  void addReadEvent(const char* buf, int64_t delayFromPrevious);
-  void addReadEOF(int64_t delayFromPrevious);
+                    std::chrono::milliseconds delayFromPrevious);
+  void addReadEvent(const char* buf,
+                    std::chrono::milliseconds delayFromPrevious);
+  void addReadEOF(std::chrono::milliseconds delayFromPrevious);
   void addReadError(const apache::thrift::transport::TTransportException& ex,
-                    int64_t delayFromPrevious);
+                    std::chrono::milliseconds delayFromPrevious);
   void startReadEvents();
 
   void pauseWrites();
@@ -132,7 +135,7 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
   TestAsyncTransport& operator=(TestAsyncTransport const&);
 
   void addReadEvent(const std::shared_ptr<ReadEvent>& event);
-  void scheduleNextReadEvent(int64_t now);
+  void scheduleNextReadEvent(proxygen::TimePoint now);
   void fireNextReadEvent();
   void fireOneReadEvent();
   void failPendingWrites();
@@ -144,8 +147,8 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
   ReadCallback* readCallback_;
   uint32_t sendTimeout_;
 
-  int64_t prevReadEventTime_;
-  int64_t nextReadEventTime_;
+  proxygen::TimePoint prevReadEventTime_{};
+  proxygen::TimePoint nextReadEventTime_{};
   StateEnum readState_;
   StateEnum writeState_;
   std::deque< std::shared_ptr<ReadEvent> > readEvents_;
