@@ -25,3 +25,6 @@ sudo make install
 cd ../..
 sudo make uninstall
 sudo make install
+
+# Make sure the libraries are available
+sudo /sbin/ldconfig
