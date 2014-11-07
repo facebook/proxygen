@@ -13,7 +13,7 @@
 
 #include <folly/io/async/EventBase.h>
 #include <gtest/gtest.h>
-#include <thrift/lib/cpp/async/TimeoutManager.h>
+#include <folly/io/async/TimeoutManager.h>
 #include <thrift/lib/cpp/test/MockTAsyncTransport.h>
 
 namespace proxygen {

@@ -24,7 +24,7 @@
 #include <gtest/gtest.h>
 #include <string>
 #include <strstream>
-#include <thrift/lib/cpp/async/TimeoutManager.h>
+#include <folly/io/async/TimeoutManager.h>
 #include <thrift/lib/cpp/test/MockTAsyncTransport.h>
 #include <vector>
 
