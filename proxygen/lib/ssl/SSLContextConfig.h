@@ -65,7 +65,7 @@ struct SSLContextConfig {
 
   std::vector<CertificateInfo> certificates;
   folly::SSLContext::SSLVersion sslVersion{
-    folly::SSLContext::SSLv3};
+    folly::SSLContext::TLSv1};
   bool sessionCacheEnabled{true};
   bool sessionTicketEnabled{true};
   bool clientHelloParsingEnabled{false};
