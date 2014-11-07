@@ -12,7 +12,7 @@
 #include "proxygen/lib/http/session/HTTPSession.h"
 #include "proxygen/lib/http/session/HTTPSessionStats.h"
 
-#include <thrift/lib/cpp/transport/TSSLSocket.h>
+#include <folly/io/async/SSLContext.h>
 
 namespace proxygen {
 

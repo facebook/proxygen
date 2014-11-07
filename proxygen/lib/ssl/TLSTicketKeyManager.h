@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <thrift/lib/cpp/transport/TSSLSocket.h>
+#include <folly/io/async/SSLContext.h>
 #include <folly/io/async/EventBase.h>
 
 namespace proxygen {

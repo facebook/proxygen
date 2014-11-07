@@ -22,7 +22,7 @@
 using std::string;
 using apache::thrift::async::TAsyncTimeout;
 using folly::EventBase;
-using apache::thrift::transport::SSLContext;
+using folly::SSLContext;
 
 namespace {
 

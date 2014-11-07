@@ -17,7 +17,7 @@
 
 using std::string;
 using std::shared_ptr;
-using apache::thrift::transport::SSLContext;
+using folly::SSLContext;
 using folly::EventBase;
 using apache::thrift::async::TAsyncSSLSocket;
 using apache::thrift::async::TDelayedDestruction;

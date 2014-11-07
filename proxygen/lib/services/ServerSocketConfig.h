@@ -26,7 +26,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <thrift/lib/cpp/async/TAsyncSocket.h>
-#include <thrift/lib/cpp/transport/TSSLSocket.h>
+#include <folly/io/async/SSLContext.h>
 
 namespace proxygen {
 

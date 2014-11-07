@@ -20,7 +20,7 @@ using namespace proxygen;
 using namespace testing;
 
 using apache::thrift::async::TAsyncSSLSocket;
-using apache::thrift::transport::SSLContext;
+using folly::SSLContext;
 using folly::AsyncServerSocket;
 using folly::EventBaseManager;
 using folly::SocketAddress;

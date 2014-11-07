@@ -36,7 +36,7 @@ do { \
 
 using std::string;
 using std::shared_ptr;
-using apache::thrift::transport::SSLContext;
+using folly::SSLContext;
 using apache::thrift::async::TAsyncSSLSocket;
 
 /**
@@ -107,7 +107,7 @@ void set_key_from_curve(SSL_CTX* ctx, const std::string& curveName) {
 // Helper to create TLSTicketKeyManger and aware of the needed openssl
 // version/feature.
 std::unique_ptr<TLSTicketKeyManager> createTicketManagerHelper(
-  std::shared_ptr<apache::thrift::transport::SSLContext> ctx,
+  std::shared_ptr<folly::SSLContext> ctx,
   const TLSTicketKeySeeds* ticketSeeds,
   const SSLContextConfig& ctxConfig,
   SSLStats* stats) {
@@ -412,7 +412,7 @@ SSLContextManager::serverNameCallback(SSL* ssl) {
 // Consolidate all SSL_CTX setup which depends on openssl version/feature
 void
 SSLContextManager::ctxSetupByOpensslFeature(
-  shared_ptr<apache::thrift::transport::SSLContext> sslCtx,
+  shared_ptr<folly::SSLContext> sslCtx,
   const SSLContextConfig& ctxConfig) {
   // Disable compression - profiling shows this to be very expensive in
   // terms of CPU and memory consumption.

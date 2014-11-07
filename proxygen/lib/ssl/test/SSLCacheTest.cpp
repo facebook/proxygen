@@ -19,7 +19,7 @@ using namespace std;
 
 using apache::thrift::async::TAsyncSSLSocket;
 using apache::thrift::async::TAsyncSocket;
-using apache::thrift::transport::SSLContext;
+using folly::SSLContext;
 using apache::thrift::transport::TTransportException;
 using folly::EventBase;
 using folly::SocketAddress;

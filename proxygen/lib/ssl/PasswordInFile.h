@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <thrift/lib/cpp/transport/TSSLSocket.h> // PasswordCollector
+#include <folly/io/async/SSLContext.h> // PasswordCollector
 
 namespace proxygen {
 

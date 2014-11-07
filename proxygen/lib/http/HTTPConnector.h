@@ -14,7 +14,7 @@
 
 #include <thrift/lib/cpp/async/TAsyncSocket.h>
 #include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
-#include <thrift/lib/cpp/transport/TSSLSocket.h>
+#include <folly/io/async/SSLContext.h>
 
 namespace proxygen {
 
@@ -115,7 +115,7 @@ class HTTPConnector:
   void connectSSL(
     folly::EventBase* eventBase,
     const folly::SocketAddress& connectAddr,
-    const std::shared_ptr<apache::thrift::transport::SSLContext>& ctx,
+    const std::shared_ptr<folly::SSLContext>& ctx,
     SSL_SESSION* session = nullptr,
     std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
     const apache::thrift::async::TAsyncSocket::OptionMap& socketOptions =

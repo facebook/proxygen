@@ -13,9 +13,9 @@
 #include <folly/io/async/EventBase.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
-#include <thrift/lib/cpp/transport/TSSLSocket.h>
+#include <folly/io/async/SSLContext.h>
 
-using apache::thrift::transport::SSLContext;
+using folly::SSLContext;
 using folly::EventBase;
 using proxygen::DNString;
 using proxygen::SSLContextManager;

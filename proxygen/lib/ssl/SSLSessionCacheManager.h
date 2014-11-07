@@ -195,7 +195,7 @@ class SSLSessionCacheManager : private boost::noncopyable {
   SSLSessionCacheManager(
     uint32_t maxCacheSize,
     uint32_t cacheCullSize,
-    apache::thrift::transport::SSLContext* ctx,
+    folly::SSLContext* ctx,
     const folly::SocketAddress& sockaddr,
     const std::string& context,
     folly::EventBase* eventBase,
@@ -228,7 +228,7 @@ class SSLSessionCacheManager : private boost::noncopyable {
 
  private:
 
-  apache::thrift::transport::SSLContext* ctx_;
+  folly::SSLContext* ctx_;
   std::shared_ptr<ShardedLocalSSLSessionCache> localCache_;
   PendingLookupMap pendingLookups_;
   SSLStats* stats_{nullptr};
