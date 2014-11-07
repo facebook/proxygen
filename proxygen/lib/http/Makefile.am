@@ -58,6 +58,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
 	codec/compress/StaticHeaderTable.h \
+	session/AckLatencyEvent.h \
 	session/ByteEventTracker.h \
 	session/ByteEvents.h \
 	session/CodecErrorResponseHandler.h \
@@ -74,6 +75,7 @@ nobase_libproxygenhttp_HEADERS = \
 	session/HTTPTransactionIngressSM.h \
 	session/HTTPUpstreamSession.h \
 	session/SimpleController.h \
+	session/TTLBAStats.h \
 	session/TransportFilter.h
 
 libproxygenhttp_la_SOURCES = \
