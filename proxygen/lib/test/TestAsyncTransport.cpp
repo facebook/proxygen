@@ -15,7 +15,7 @@
 #include <thrift/lib/cpp/concurrency/Util.h>
 #include <thrift/lib/cpp/transport/TTransportException.h>
 
-using apache::thrift::async::TAsyncTimeout;
+using folly::AsyncTimeout;
 using apache::thrift::async::WriteFlags;
 using apache::thrift::concurrency::Util;
 using apache::thrift::transport::TTransportException;
@@ -167,7 +167,7 @@ TestAsyncTransport::WriteEvent::destroyEvent(WriteEvent* event) {
  */
 
 TestAsyncTransport::TestAsyncTransport(EventBase* eventBase)
-  : TAsyncTimeout(eventBase),
+  : AsyncTimeout(eventBase),
     eventBase_(eventBase),
     readCallback_(nullptr),
     sendTimeout_(0),

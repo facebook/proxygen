@@ -12,11 +12,11 @@
 #include <deque>
 #include <folly/SocketAddress.h>
 #include <folly/io/IOBufQueue.h>
-#include <thrift/lib/cpp/async/TAsyncTimeout.h>
+#include <folly/io/async/AsyncTimeout.h>
 #include <thrift/lib/cpp/async/TAsyncTransport.h>
 
 class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
-                           private apache::thrift::async::TAsyncTimeout {
+                           private folly::AsyncTimeout {
  public:
   class WriteEvent {
    public:
@@ -137,7 +137,7 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
   void fireOneReadEvent();
   void failPendingWrites();
 
-  // TAsyncTimeout methods
+  // AsyncTimeout methods
   virtual void timeoutExpired() noexcept;
 
   folly::EventBase* eventBase_;

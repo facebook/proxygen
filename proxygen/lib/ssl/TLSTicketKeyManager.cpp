@@ -16,11 +16,11 @@
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
-#include <thrift/lib/cpp/async/TAsyncTimeout.h>
+#include <folly/io/async/AsyncTimeout.h>
 
 #ifdef SSL_CTRL_SET_TLSEXT_TICKET_KEY_CB
 using std::string;
-using apache::thrift::async::TAsyncTimeout;
+using folly::AsyncTimeout;
 using folly::EventBase;
 using folly::SSLContext;
 
