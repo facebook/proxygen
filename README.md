@@ -42,6 +42,11 @@ on a solution to manage depencies more predictably.
 If you are running on another platform, you may need to install several
 packages first. Proxygen, fbthrift, and folly are all autotools based projects.
 
+##### Build with docker
+
+By executing `sudo docker build` on docker host, it will build `proxigen` with all the dependencies from the latest `master` branch.
+Another way to create a `proxygen` container is by simply pull unofficial pre-built `docker` image from `docker hub`, one of the image can be pulled by executing `docker pull rezacute/proxygen-image`
+
 ### Introduction
 
 Directory structure and contents:
