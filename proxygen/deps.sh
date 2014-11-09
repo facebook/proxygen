@@ -63,7 +63,7 @@ then
 	if [ ! -e double-conversion ]; then
 		git clone https://code.google.com/p/double-conversion double-conversion
 		cd double-conversion
-		cmake .
+		cmake . -DBUILD_SHARED_LIBS=ON
 		sudo make install
 		cd ..
 	fi
