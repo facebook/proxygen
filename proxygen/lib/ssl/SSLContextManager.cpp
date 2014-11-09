@@ -353,7 +353,7 @@ void SSLContextManager::addSSLContextConfig(
 
 }
 
-#ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
+#ifdef PROXYGEN_HAVE_SERVERNAMECALLBACK
 SSLContext::ServerNameCallbackResult
 SSLContextManager::serverNameCallback(SSL* ssl) {
   shared_ptr<SSLContext> ctx;
@@ -439,7 +439,7 @@ SSLContextManager::ctxSetupByOpensslFeature(
 
   // Specify cipher(s) to be used for TLS1.1 client
   if (!ctxConfig.tls11Ciphers.empty()) {
-#ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
+#ifdef PROXYGEN_HAVE_SERVERNAMECALLBACK
     // Specified TLS1.1 ciphers are valid
     sslCtx->addClientHelloCallback(
       std::bind(
@@ -464,7 +464,7 @@ SSLContextManager::ctxSetupByOpensslFeature(
   }
 
   // SNI
-#ifdef SSL_CTRL_SET_TLSEXT_SERVERNAME_CB
+#ifdef PROXYGEN_HAVE_SERVERNAMECALLBACK
   noMatchFn_ = ctxConfig.sniNoMatchFn;
   if (ctxConfig.isDefault) {
     if (defaultCtx_) {

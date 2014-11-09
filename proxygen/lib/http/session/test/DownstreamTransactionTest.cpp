@@ -149,57 +149,15 @@ TEST_F(DownstreamTransactionTest, window_increase) {
 
   // use a higher window
   uint32_t perStreamWindow = spdy::kInitialWindow + 1024 * 1024;
-
-  // we expect the difference from the per stream window and the initial window
-  uint32_t expectedWindowUpdate =
-    perStreamWindow - spdy::kInitialWindow;
-  EXPECT_CALL(transport_, sendWindowUpdate(_, expectedWindowUpdate));
-
   txn->setReceiveWindow(perStreamWindow);
 
+  // we expect the difference from the per stream window and the initial window,
+  // together with the bytes sent in the request
+  uint32_t expectedWindowUpdate =
+    perStreamWindow - spdy::kInitialWindow + reqSize;
+  EXPECT_CALL(transport_, sendWindowUpdate(_, expectedWindowUpdate));
+
   txn->onIngressHeadersComplete(makeGetRequest());
-  eventBase_.loop();
-}
-
-/*
- * Testing window update is sent when the transaction resumed from stalling
- */
-TEST_F(DownstreamTransactionTest, stalled) {
-  auto txn = new HTTPTransaction(
-    TransportDirection::DOWNSTREAM,
-    HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get(),
-    nullptr,
-    true, // flow control enabled
-    spdy::kInitialWindow,
-    spdy::kInitialWindow);
-
-  EXPECT_CALL(transport_, describe(_))
-    .WillRepeatedly(Return());
-  EXPECT_CALL(handler_, setTransaction(txn));
-  EXPECT_CALL(handler_, detachTransaction());
-  EXPECT_CALL(transport_, detach(txn));
-  EXPECT_CALL(handler_, onHeadersComplete(_));
-  EXPECT_CALL(transport_, sendHeaders(txn, _, _));
-  EXPECT_CALL(transport_, sendEOM(txn));
-  EXPECT_CALL(handler_, onBody(_));
-  EXPECT_CALL(handler_, onEOM());
-  EXPECT_CALL(transport_, notifyPendingEgress());
-
-  txn->setHandler(&handler_);
-  // Pause the transaction
-  txn->setReceiveWindow(0);
-  txn->onIngressHeadersComplete(makeGetRequest());
-  auto response = makeResponse(200);
-  txn->sendHeaders(*response.get());
-  txn->sendEOM();
-  // Saturating the ingress window
-  txn->onIngressBody(makeBuf(spdy::kInitialWindow));
-
-  // sendWindowUpdate should be called when we setReceiveWindow back
-  EXPECT_CALL(transport_, sendWindowUpdate(_, spdy::kInitialWindow));
-  txn->setReceiveWindow(spdy::kInitialWindow);
-  txn->onIngressEOM();
   eventBase_.loop();
 }
 

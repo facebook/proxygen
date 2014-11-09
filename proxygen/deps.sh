@@ -1,5 +1,9 @@
 #!/bin/bash
 
+## Run this script to build proxygen and run the tests. If you want to
+## install proxygen to use in another C++ project on this machine, run
+## the sibling file `reinstall.sh`.
+
 set -e
 start_dir=`pwd`
 trap "cd $start_dir" EXIT
@@ -21,44 +25,30 @@ sudo apt-get install \
     gperf \
     autoconf-archive \
     libevent-dev \
-    libgoogle-glog-dev
+    libgoogle-glog-dev \
+    wget
 
 git clone https://github.com/facebook/fbthrift || true
 cd fbthrift/thrift
 
-# Rebase and uninstall in case we've already downloaded thrift and folly
+# Rebase in case we've already downloaded thrift and folly
 git fetch && git rebase origin/master
-sudo make uninstall || true
 if [ -e folly/folly ]; then
     # We have folly already downloaded
     cd folly/folly
     git fetch && git rebase origin/master
-    sudo make uninstall || true
     cd ../..
 fi
 
 # Build folly and fbthrift
 ./deps.sh
 
-# Install folly
-cd folly/folly
-sudo make install
-
-# Install fbthrift
-cd ../..
-sudo make install
-
 # Build proxygen
-sudo /sbin/ldconfig
 cd ../..
 autoreconf -ivf
-./configure
+CPPFLAGS=" -I`pwd`/fbthrift/thrift/folly/ -I`pwd`/fbthrift/" \
+    LDFLAGS="-L`pwd`/fbthrift/thrift/lib/cpp/.libs/ -L`pwd`/fbthrift/thrift/lib/cpp2/.libs/ -L`pwd`/fbthrift/thrift/folly/folly/.libs/" ./configure
 make -j8
 
 # Run tests
 make check
-
-# Install
-sudo make install
-
-sudo /sbin/ldconfig
