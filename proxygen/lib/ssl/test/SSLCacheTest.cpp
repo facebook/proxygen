@@ -7,6 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <folly/Portability.h>
 #include <folly/io/async/EventBase.h>
 #include <gflags/gflags.h>
 #include <iostream>
@@ -96,10 +97,10 @@ public:
 int
 main(int argc, char* argv[])
 {
-  google::SetUsageMessage(std::string("\n\n"
+  gflags::SetUsageMessage(std::string("\n\n"
 "usage: sslcachetest [options] -c <clients> -t <threads> servers\n"
 ));
-  google::ParseCommandLineFlags(&argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
   int reqs = 0;
   int hits = 0;
   int miss = 0;
