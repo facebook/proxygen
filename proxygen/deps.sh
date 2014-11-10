@@ -12,7 +12,7 @@ trap "cd $start_dir" EXIT
 cd "$(dirname "$0")"
 
 # Some extra dependencies for Ubuntu 13.10 and 14.04
-sudo apt-get install \
+sudo apt-get install -yq \
     flex \
     bison \
     libkrb5-dev \
