@@ -44,8 +44,27 @@ packages first. Proxygen, fbthrift, and folly are all autotools based projects.
 
 ##### Build with docker
 
-By executing `sudo docker build` on docker host, it will build `proxigen` with all the dependencies from the latest `master` branch.
-Another way to create a `proxygen` container is by simply pull unofficial pre-built `docker` image from `docker hub`, one of the image can be pulled by executing `docker pull rezacute/proxygen-image`
+You can setup `docker` container for developing proxygen with steps bellow.
+
+1. Install `docker` ([Windows] (http://docs.docker.com/installation/windows/) , [Mac OSX] (http://docs.docker.com/installation/mac/)) 
+2. Run `boot2docker`
+3. Go to repository and run `docker build -t proxygen-image`
+4. Run the sample
+
+   ```bash
+   sudo docker run -d -p 11000:11000 proxygen-image /home/proxygen/proxygen/httpserver/samples/echo/my_echo
+   curl -v http://localhost:11000/
+   ```
+
+##### Using prebuilt docker image
+
+You can run snippet bellow for running `my_echo` sample 
+from unoficial prebuilt docker image.
+
+```bash
+sudo docker run -d -p 11000:11000 rezacute/proxygen-image /home/proxygen/proxygen/httpserver/samples/echo/my_echo
+curl -v http://localhost:11000/
+```
 
 ### Introduction
 
