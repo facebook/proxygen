@@ -132,7 +132,7 @@ class ShardedLocalSSLSessionCache : private boost::noncopyable {
 /* A socket/DestructorGuard pair */
 typedef std::pair<
   apache::thrift::async::TAsyncSSLSocket *,
-  std::unique_ptr<apache::thrift::async::TDelayedDestruction::DestructorGuard>>
+  std::unique_ptr<folly::DelayedDestruction::DestructorGuard>>
   AttachedLookup;
 
 /**

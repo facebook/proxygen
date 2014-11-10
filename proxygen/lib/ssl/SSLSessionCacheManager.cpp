@@ -20,7 +20,7 @@ using std::shared_ptr;
 using folly::SSLContext;
 using folly::EventBase;
 using apache::thrift::async::TAsyncSSLSocket;
-using apache::thrift::async::TDelayedDestruction;
+using folly::DelayedDestruction;
 
 namespace {
 
@@ -249,8 +249,8 @@ SSL_SESSION* SSLSessionCacheManager::getSession(SSL* ssl,
           VLOG(4) << "Get SSL session [Pending]: Request in progess: attach; "
             "fd=" << sslSocket->getFd() << " id=" <<
             SSLUtil::hexlify(sessionId);
-          std::unique_ptr<TDelayedDestruction::DestructorGuard> dg(
-            new TDelayedDestruction::DestructorGuard(sslSocket));
+          std::unique_ptr<DelayedDestruction::DestructorGuard> dg(
+            new DelayedDestruction::DestructorGuard(sslSocket));
           pit->second.waiters.push_back(
             std::make_pair(sslSocket, std::move(dg)));
           *copyflag = SSL_SESSION_CB_WOULD_BLOCK;
@@ -305,7 +305,7 @@ bool SSLSessionCacheManager::lookupCacheRecord(const string& sessionId,
   cacheCtx->session = nullptr;
   cacheCtx->sslSocket = sslSocket;
   cacheCtx->guard.reset(
-      new TDelayedDestruction::DestructorGuard(cacheCtx->sslSocket));
+      new DelayedDestruction::DestructorGuard(cacheCtx->sslSocket));
   cacheCtx->manager = this;
   bool res = externalCache_->getAsync(sessionId, cacheCtx);
   if (!res) {

@@ -30,7 +30,7 @@ public:
     SSLSessionCacheManager* manager;
     apache::thrift::async::TAsyncSSLSocket* sslSocket;
     std::unique_ptr<
-      apache::thrift::async::TDelayedDestruction::DestructorGuard> guard;
+      folly::DelayedDestruction::DestructorGuard> guard;
   } CacheContext;
 
   virtual ~SSLCacheProvider() {}
