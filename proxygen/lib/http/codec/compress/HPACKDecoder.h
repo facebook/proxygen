@@ -28,6 +28,7 @@ class HPACKDecoder : public HPACKContext {
     INVALID_HUFFMAN_CODE = 2,
     INVALID_ENCODING = 3,
     BUFFER_OVERFLOW = 4,
+    INVALID_TABLE_SIZE = 5,
   };
 
   explicit HPACKDecoder(HPACK::MessageType msgType,
@@ -40,9 +41,9 @@ class HPACKDecoder : public HPACKContext {
    * given a Cursor and a total amount of bytes we can consume from it,
    * decode headers into the given vector.
    */
-  uint32_t decode(folly::io::Cursor& cursor,
-                  uint32_t totalBytes,
-                  headers_t& headers);
+  virtual uint32_t decode(folly::io::Cursor& cursor,
+                          uint32_t totalBytes,
+                          headers_t& headers);
   /**
    * given a compressed header block as an IOBuf chain, decode all the
    * headers and return them. This is just a convenience wrapper around
@@ -58,16 +59,16 @@ class HPACKDecoder : public HPACKContext {
     return err_ != Error::NONE;
   }
 
- private:
+ protected:
   bool isValid(uint32_t index);
 
   void emitRefset(headers_t& emitted);
 
   void emit(const HPACKHeader& header, headers_t& emitted);
 
-  void decodeIndexedHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
+  virtual void decodeIndexedHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
 
-  void decodeLiteralHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
+  virtual void decodeLiteralHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
 
   void decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
 

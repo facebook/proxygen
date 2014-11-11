@@ -137,7 +137,7 @@ void HPACKEncoder::encodeHeader(const HPACKHeader& header) {
       encodeAsIndex(index);
       // insert the static header in the dynamic header table
       // to take advantage of the delta compression
-      if (table_.add(StaticHeaderTable::get()[index - table_.size()])) {
+      if (table_.add(getStaticTable()[index - table_.size()])) {
         table_.addReference(1);
       }
     } else if (!table_.inReferenceSet(index)) {

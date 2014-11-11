@@ -44,7 +44,7 @@ class HPACKEncoder : public HPACKContext {
  private:
   void encodeHeader(const HPACKHeader& header);
 
-  void encodeAsLiteral(const HPACKHeader& header);
+  virtual void encodeAsLiteral(const HPACKHeader& header);
 
   void encodeAsIndex(uint32_t index);
 
@@ -68,6 +68,7 @@ class HPACKEncoder : public HPACKContext {
   void clearReferenceSet();
 
   bool huffman_;
+ protected:
   HPACKEncodeBuffer buffer_;
 };
 

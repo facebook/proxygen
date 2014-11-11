@@ -127,7 +127,7 @@ void HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
   }
   // a static index cannot be part of the reference set
   if (isStatic(index)) {
-    auto& header = StaticHeaderTable::get()[index - table_.size()];
+    auto& header = getStaticTable()[index - table_.size()];
     emit(header, emitted);
     if (table_.add(header)) {
       table_.addReference(1);
@@ -146,7 +146,7 @@ bool HPACKDecoder::isValid(uint32_t index) {
   if (index <= table_.size()) {
     return table_.isValid(index);
   }
-  return StaticHeaderTable::get().isValid(index - table_.size());
+  return getStaticTable().isValid(index - table_.size());
 }
 
 void HPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted) {

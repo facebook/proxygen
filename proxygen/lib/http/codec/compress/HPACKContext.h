@@ -51,6 +51,10 @@ class HPACKContext {
   }
 
  protected:
+  virtual const HeaderTable& getStaticTable() const {
+    return StaticHeaderTable::get();
+  }
+
   HeaderTable table_;
   HPACK::MessageType msgType_;
 };
