@@ -84,7 +84,7 @@ fi
 
 # Build folly and fbthrift
 if ! ./deps.sh; then
-	echo "fatal: Build failing"
+	echo "fatal: fbthrift+folly build failed"
 	exit -1
 fi
 
