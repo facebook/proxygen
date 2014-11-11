@@ -42,6 +42,30 @@ on a solution to manage depencies more predictably.
 If you are running on another platform, you may need to install several
 packages first. Proxygen, fbthrift, and folly are all autotools based projects.
 
+##### Build with docker
+
+You can setup `docker` container for developing proxygen with steps bellow.
+
+1. Install `docker` ([Windows] (http://docs.docker.com/installation/windows/) , [Mac OSX] (http://docs.docker.com/installation/mac/)) 
+1. Run `boot2docker`.
+1. Go to repository and run `docker build -t proxygen-image`.
+1. Run the sample.
+
+   ```bash
+   sudo docker run -d -p 11000:11000 proxygen-image /home/proxygen/proxygen/httpserver/samples/echo/my_echo
+   curl -v http://localhost:11000/
+   ```
+
+##### Using pre-built docker image
+
+You can run snippet bellow to run `my_echo` sample 
+from unofficial pre-built docker image.
+
+```bash
+sudo docker run -d -p 11000:11000 rezacute/proxygen-image /home/proxygen/proxygen/httpserver/samples/echo/my_echo
+curl -v http://localhost:11000/
+```
+
 ### Introduction
 
 Directory structure and contents:
