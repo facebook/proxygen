@@ -59,7 +59,7 @@ You can setup `docker` container for developing proxygen with steps bellow.
 ##### Using pre-built docker image
 
 You can run snippet bellow to run `my_echo` sample 
-from unoficial pre-built docker image.
+from unofficial pre-built docker image.
 
 ```bash
 sudo docker run -d -p 11000:11000 rezacute/proxygen-image /home/proxygen/proxygen/httpserver/samples/echo/my_echo
