@@ -12,8 +12,8 @@
 #include <arpa/inet.h>
 
 using folly::IOBuf;
-using std::string;
 using std::pair;
+using std::string;
 
 namespace proxygen { namespace huffman {
 

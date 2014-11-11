@@ -8,8 +8,8 @@
  *
  */
 #include <boost/thread.hpp>
-#include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/AsyncSSLSocket.h>
+#include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <gtest/gtest.h>
 #include <proxygen/httpserver/HTTPServer.h>
@@ -20,9 +20,9 @@ using namespace proxygen;
 using namespace testing;
 
 using folly::AsyncSSLSocket;
-using folly::SSLContext;
 using folly::AsyncServerSocket;
 using folly::EventBaseManager;
+using folly::SSLContext;
 using folly::SSLContext;
 using folly::SocketAddress;
 

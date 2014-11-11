@@ -81,8 +81,8 @@ class DownstreamTransactionTest : public testing::Test {
 
  protected:
   folly::EventBase eventBase_;
-  TAsyncTimeoutSet::UniquePtr transactionTimeouts_{
-    new TAsyncTimeoutSet(&eventBase_, std::chrono::milliseconds(500))};
+  AsyncTimeoutSet::UniquePtr transactionTimeouts_{
+    new AsyncTimeoutSet(&eventBase_, std::chrono::milliseconds(500))};
   MockHTTPTransactionTransport transport_;
   StrictMock<MockHTTPHandler> handler_;
   HTTPTransaction::PriorityQueue txnEgressQueue_;

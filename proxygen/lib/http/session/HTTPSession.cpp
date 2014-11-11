@@ -11,17 +11,16 @@
 
 #include <chrono>
 #include <folly/experimental/wangle/ConnectionManager.h>
+#include <folly/experimental/wangle/acceptor/SocketOptions.h>
 #include <openssl/err.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
-#include <folly/experimental/wangle/acceptor/SocketOptions.h>
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
 
 using apache::thrift::async::TAsyncSSLSocket;
 using apache::thrift::async::TAsyncSocket;
-using apache::thrift::async::TAsyncTimeoutSet;
 using apache::thrift::async::TAsyncTransport;
 using apache::thrift::async::WriteFlags;
 using apache::thrift::transport::TTransportException;
@@ -101,7 +100,7 @@ HTTPSession::WriteSegment::writeError(size_t bytesWritten,
 }
 
 HTTPSession::HTTPSession(
-  TAsyncTimeoutSet* transactionTimeouts,
+  AsyncTimeoutSet* transactionTimeouts,
   TAsyncTransport::UniquePtr sock,
   const SocketAddress& localAddr,
   const SocketAddress& peerAddr,

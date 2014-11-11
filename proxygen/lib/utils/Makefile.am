@@ -25,6 +25,7 @@ noinst_LTLIBRARIES = libutils.la
 # We put the generated files first so that we create them first
 libutilsdir = $(includedir)/proxygen/lib/utils
 nobase_libutils_HEADERS = \
+	AsyncTimeoutSet.h \
 	CobHelper.h \
 	CryptUtil.h \
 	DestructorCheck.h \
@@ -47,6 +48,7 @@ nobase_libutils_HEADERS = \
 # We put the generated files first so that we create them first
 libutils_la_SOURCES = \
 	../../external/http_parser/http_parser_cpp.cpp \
+	AsyncTimeoutSet.cpp \
 	Exception.cpp \
 	HTTPTime.cpp \
 	NullTraceEventObserver.cpp \

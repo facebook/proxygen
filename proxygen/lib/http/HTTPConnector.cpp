@@ -9,12 +9,11 @@
  */
 #include <proxygen/lib/http/HTTPConnector.h>
 
-
+#include <folly/experimental/wangle/ssl/SSLUtil.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
-#include <folly/experimental/wangle/ssl/SSLUtil.h>
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
 
 using namespace apache::thrift::async;
@@ -49,7 +48,7 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
 
 HTTPConnector::HTTPConnector(
   Callback* callback,
-  TAsyncTimeoutSet* timeoutSet,
+  AsyncTimeoutSet* timeoutSet,
   const string& plaintextProtocol,
   bool forceHTTP1xCodecTo1_1):
     cb_(CHECK_NOTNULL(callback)),

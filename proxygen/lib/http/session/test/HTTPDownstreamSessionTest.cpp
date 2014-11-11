@@ -109,7 +109,7 @@ class HTTPDownstreamTest : public testing::Test {
  protected:
   EventBase eventBase_;
   TestAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
-  TAsyncTimeoutSet::UniquePtr transactionTimeouts_;
+  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   StrictMock<MockController> mockController_;
   HTTPDownstreamSession* httpSession_;
 };
@@ -1278,7 +1278,6 @@ typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair> ParallelCodecs;
 INSTANTIATE_TYPED_TEST_CASE_P(ParallelCodecs,
                               HTTPDownstreamTest,
                               ParallelCodecs);
-
 
 class SPDY31DownstreamTest : public HTTPDownstreamTest<SPDY3_1CodecPair> {
  public:

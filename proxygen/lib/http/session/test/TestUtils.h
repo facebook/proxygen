@@ -21,10 +21,10 @@ extern const folly::TransportInfo mockTransportInfo;
 extern const folly::SocketAddress localAddr;
 extern const folly::SocketAddress peerAddr;
 
-apache::thrift::async::TAsyncTimeoutSet::UniquePtr
+AsyncTimeoutSet::UniquePtr
 makeInternalTimeoutSet(folly::EventBase* evb);
 
-apache::thrift::async::TAsyncTimeoutSet::UniquePtr
+AsyncTimeoutSet::UniquePtr
 makeTimeoutSet(folly::EventBase* evb);
 
 testing::NiceMock<apache::thrift::test::MockTAsyncTransport>*

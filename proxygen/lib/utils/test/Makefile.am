@@ -2,6 +2,7 @@ SUBDIRS = .
 
 check_PROGRAMS = UtilTests
 UtilTests_SOURCES = \
+	AsyncTimeoutSetTest.cpp \
 	GenericFilterTest.cpp \
 	HTTPTimeTest.cpp \
 	ParseURLTest.cpp \

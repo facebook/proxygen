@@ -11,9 +11,9 @@
 #include <folly/io/IOBufQueue.h>
 #include <gtest/gtest.h>
 #include <memory>
-#include <tuple>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
+#include <tuple>
 
 using namespace folly::io;
 using namespace folly;

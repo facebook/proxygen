@@ -9,12 +9,11 @@
  */
 #pragma once
 
-#include <folly/io/async/SSLContext.h>
 #include <folly/experimental/wangle/acceptor/TransportInfo.h>
+#include <folly/io/async/SSLContext.h>
+#include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <proxygen/lib/utils/Time.h>
-
 #include <thrift/lib/cpp/async/TAsyncSocket.h>
-#include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
 namespace proxygen {
 
@@ -58,7 +57,7 @@ class HTTPConnector:
    *                             only serialize messages as HTTP/1.1.
    */
   HTTPConnector(Callback* callback,
-                apache::thrift::async::TAsyncTimeoutSet* timeoutSet,
+                AsyncTimeoutSet* timeoutSet,
                 const std::string& plaintextProto = "",
                 bool forceHTTP1xCodecTo11 = false);
 
@@ -141,7 +140,7 @@ class HTTPConnector:
     noexcept override;
 
   Callback* cb_;
-  apache::thrift::async::TAsyncTimeoutSet* timeoutSet_;
+  AsyncTimeoutSet* timeoutSet_;
   apache::thrift::async::TAsyncSocket::UniquePtr socket_;
   folly::TransportInfo transportInfo_;
   std::string plaintextProtocol_;

@@ -11,8 +11,8 @@
 
 #include <folly/IntrusiveList.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <proxygen/lib/utils/Time.h>
-#include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
 namespace proxygen {
 
@@ -54,7 +54,7 @@ class TransactionByteEvent : public ByteEvent {
 };
 
 class AckTimeout
-    : public apache::thrift::async::TAsyncTimeoutSet::Callback {
+    : public AsyncTimeoutSet::Callback {
  public:
   /**
    * The instances of AckTimeout::Callback *MUST* outlive the AckTimeout it is

@@ -15,9 +15,9 @@
 #include <proxygen/lib/http/codec/compress/Logging.h>
 
 using folly::IOBuf;
+using proxygen::huffman::HuffTree;
 using std::string;
 using std::unique_ptr;
-using proxygen::huffman::HuffTree;
 
 namespace proxygen {
 

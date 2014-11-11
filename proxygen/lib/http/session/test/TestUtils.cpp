@@ -20,15 +20,15 @@ const TransportInfo mockTransportInfo = TransportInfo();
 const SocketAddress localAddr{"127.0.0.1", 80};
 const SocketAddress peerAddr{"127.0.0.1", 12345};
 
-TAsyncTimeoutSet::UniquePtr makeInternalTimeoutSet(EventBase* evb) {
-  return TAsyncTimeoutSet::UniquePtr(
-    new TAsyncTimeoutSet(evb, TimeoutManager::InternalEnum::INTERNAL,
+AsyncTimeoutSet::UniquePtr makeInternalTimeoutSet(EventBase* evb) {
+  return AsyncTimeoutSet::UniquePtr(
+    new AsyncTimeoutSet(evb, TimeoutManager::InternalEnum::INTERNAL,
                          std::chrono::milliseconds(500)));
 }
 
-TAsyncTimeoutSet::UniquePtr makeTimeoutSet(EventBase* evb) {
-  return TAsyncTimeoutSet::UniquePtr(
-    new TAsyncTimeoutSet(evb, std::chrono::milliseconds(500)));
+AsyncTimeoutSet::UniquePtr makeTimeoutSet(EventBase* evb) {
+  return AsyncTimeoutSet::UniquePtr(
+    new AsyncTimeoutSet(evb, std::chrono::milliseconds(500)));
 }
 
 testing::NiceMock<MockTAsyncTransport>* newMockTransport(EventBase* evb) {

@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include <proxygen/lib/services/AcceptorConfiguration.h>
 #include <folly/experimental/wangle/acceptor/Acceptor.h>
-#include <thrift/lib/cpp/async/TAsyncServerSocket.h>
-#include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
+#include <folly/io/async/AsyncServerSocket.h>
+#include <proxygen/lib/services/AcceptorConfiguration.h>
+#include <proxygen/lib/utils/AsyncTimeoutSet.h>
 
 namespace proxygen {
 
@@ -32,14 +32,14 @@ class HTTPAcceptor : public folly::Acceptor {
    /**
    * Access the general-purpose timeout manager for transactions.
    */
-  virtual apache::thrift::async::TAsyncTimeoutSet* getTransactionTimeoutSet() {
+  virtual AsyncTimeoutSet* getTransactionTimeoutSet() {
     return transactionTimeouts_.get();
   }
 
   virtual void init(folly::AsyncServerSocket* serverSocket,
                     folly::EventBase* eventBase) {
     Acceptor::init(serverSocket, eventBase);
-    transactionTimeouts_.reset(new apache::thrift::async::TAsyncTimeoutSet(
+    transactionTimeouts_.reset(new AsyncTimeoutSet(
                                  eventBase, accConfig_.transactionIdleTimeout));
 
   }
@@ -49,8 +49,8 @@ class HTTPAcceptor : public folly::Acceptor {
  protected:
   AcceptorConfiguration accConfig_;
  private:
-  apache::thrift::async::TAsyncTimeoutSet::UniquePtr transactionTimeouts_;
-  apache::thrift::async::TAsyncTimeoutSet::UniquePtr tcpEventsTimeouts_;
+  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
+  AsyncTimeoutSet::UniquePtr tcpEventsTimeouts_;
 };
 
 }

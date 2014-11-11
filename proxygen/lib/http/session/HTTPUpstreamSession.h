@@ -27,7 +27,7 @@ class HTTPUpstreamSession final: public HTTPSession {
    *                     whatever HTTP-like wire format this session needs.
    */
   HTTPUpstreamSession(
-      apache::thrift::async::TAsyncTimeoutSet* transactionTimeouts,
+      AsyncTimeoutSet* transactionTimeouts,
       apache::thrift::async::TAsyncTransport::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,

@@ -12,6 +12,7 @@
 #include <boost/heap/d_ary_heap.hpp>
 #include <climits>
 #include <folly/SocketAddress.h>
+#include <folly/experimental/wangle/acceptor/TransportInfo.h>
 #include <ostream>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
@@ -22,8 +23,8 @@
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
-#include <folly/experimental/wangle/acceptor/TransportInfo.h>
-#include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
+#include <proxygen/lib/utils/AsyncTimeoutSet.h>
+#include <set>
 
 namespace proxygen {
 
@@ -235,7 +236,7 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
 };
 
 class HTTPTransaction :
-      public apache::thrift::async::TAsyncTimeoutSet::Callback {
+      public AsyncTimeoutSet::Callback {
  public:
   typedef HTTPTransactionHandler Handler;
   typedef HTTPPushTransactionHandler PushHandler;
@@ -356,7 +357,7 @@ class HTTPTransaction :
                   uint32_t seqNo,
                   Transport& transport,
                   PriorityQueue& egressQueue,
-                  apache::thrift::async::TAsyncTimeoutSet* transactionTimeouts,
+                  AsyncTimeoutSet* transactionTimeouts,
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
                   uint32_t receiveInitialWindowSize = 0,
@@ -1060,7 +1061,7 @@ class HTTPTransaction :
     HTTPTransactionEgressSM::getNewInstance()};
   HTTPTransactionIngressSM::State ingressState_{
     HTTPTransactionIngressSM::getNewInstance()};
-  apache::thrift::async::TAsyncTimeoutSet* transactionTimeouts_{nullptr};
+  AsyncTimeoutSet* transactionTimeouts_{nullptr};
   HTTPSessionStats* stats_{nullptr};
 
   /**

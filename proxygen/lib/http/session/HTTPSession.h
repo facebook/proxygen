@@ -11,6 +11,7 @@
 
 #include <folly/IntrusiveList.h>
 #include <folly/experimental/wangle/ManagedConnection.h>
+#include <folly/experimental/wangle/acceptor/TransportInfo.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/EventBase.h>
 #include <proxygen/lib/http/HTTPConstants.h>
@@ -21,7 +22,6 @@
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-#include <folly/experimental/wangle/acceptor/TransportInfo.h>
 #include <proxygen/lib/utils/Time.h>
 #include <queue>
 #include <set>
@@ -75,7 +75,7 @@ class HTTPSession:
   };
 
   class WriteTimeout :
-      public apache::thrift::async::TAsyncTimeoutSet::Callback {
+      public AsyncTimeoutSet::Callback {
    public:
     explicit WriteTimeout(HTTPSession* session) : session_(session) {}
     virtual ~WriteTimeout() {}
@@ -294,7 +294,7 @@ class HTTPSession:
    *                               lifecycle events.
    */
   HTTPSession(
-      apache::thrift::async::TAsyncTimeoutSet* transactionTimeouts,
+      AsyncTimeoutSet* transactionTimeouts,
       apache::thrift::async::TAsyncTransport::UniquePtr sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
@@ -695,7 +695,7 @@ class HTTPSession:
 
   WriteTimeout writeTimeout_;
 
-  apache::thrift::async::TAsyncTimeoutSet* transactionTimeouts_{nullptr};
+  AsyncTimeoutSet* transactionTimeouts_{nullptr};
 
   HTTPSessionStats* sessionStats_{nullptr};
 

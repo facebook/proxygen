@@ -64,7 +64,7 @@ class ByteEventTracker {
 
   virtual bool setMaxTcpAckTracked(
     uint32_t maxAckTracked,
-    apache::thrift::async::TAsyncTimeoutSet* ackLatencyTimeouts,
+    AsyncTimeoutSet* ackLatencyTimeouts,
     apache::thrift::async::TAsyncTransport* transport) { return false; }
 
   virtual void setTTLBAStats(TTLBAStats* stats) {}

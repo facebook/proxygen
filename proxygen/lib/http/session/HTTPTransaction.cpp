@@ -15,7 +15,6 @@
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 
-using apache::thrift::async::TAsyncTimeoutSet;
 using folly::IOBuf;
 using std::unique_ptr;
 
@@ -29,7 +28,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t seqNo,
                                  Transport& transport,
                                  PriorityQueue& egressQueue,
-                                 TAsyncTimeoutSet* transactionTimeouts,
+                                 AsyncTimeoutSet* transactionTimeouts,
                                  HTTPSessionStats* stats,
                                  bool useFlowControl,
                                  uint32_t receiveInitialWindowSize,

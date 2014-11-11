@@ -10,8 +10,8 @@
 #pragma once
 
 #include <folly/experimental/wangle/acceptor/Acceptor.h>
-#include <thrift/lib/cpp/transport/TSocketAddress.h>
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
+#include <thrift/lib/cpp/transport/TSocketAddress.h>
 
 // This is a hack until hphp third-party can be updated.
 
@@ -69,7 +69,7 @@ class Acceptor {
 
  public:
   typedef folly::Acceptor::State State;
-  Acceptor(const folly::ServerSocketConfig& config)
+  explicit Acceptor(const folly::ServerSocketConfig& config)
     : acceptor_(config, this) {}
 
   uint32_t getNumConnections() const {

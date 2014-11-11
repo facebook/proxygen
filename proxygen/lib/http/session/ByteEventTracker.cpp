@@ -15,7 +15,6 @@
 #include <string>
 
 using apache::thrift::async::TAsyncSocket;
-using apache::thrift::async::TAsyncTimeoutSet;
 using apache::thrift::async::TAsyncTransport;
 using std::string;
 using std::vector;

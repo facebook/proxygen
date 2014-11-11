@@ -145,7 +145,7 @@ class MockCodecDownstreamTest: public testing::Test {
   HTTPCodec::Callback* codecCallback_{nullptr};
   NiceMock<MockTAsyncTransport>* transport_;
   TAsyncTransport::ReadCallback* transportCb_;
-  TAsyncTimeoutSet::UniquePtr transactionTimeouts_;
+  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   StrictMock<MockController> mockController_;
   HTTPDownstreamSession* httpSession_;
   HTTPCodec::StreamID pushStreamID_{0};

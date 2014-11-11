@@ -62,7 +62,7 @@ class HTTPUpstreamTest: public testing::Test,
       : eventBase_(),
         transport_(new NiceMock<MockTAsyncTransport>()),
         transactionTimeouts_(
-          new TAsyncTimeoutSet(&eventBase_,
+          new AsyncTimeoutSet(&eventBase_,
                                TimeoutManager::InternalEnum::INTERNAL,
                                std::chrono::milliseconds(500))) {
   }
@@ -189,7 +189,7 @@ class HTTPUpstreamTest: public testing::Test,
   EventBase eventBase_;
   MockTAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
   TAsyncTransport::ReadCallback* readCallback_{nullptr};
-  TAsyncTimeoutSet::UniquePtr transactionTimeouts_;
+  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   TransportInfo mockTransportInfo_;
   SocketAddress localAddr_{"127.0.0.1", 80};
   SocketAddress peerAddr_{"127.0.0.1", 12345};
@@ -205,7 +205,7 @@ class TimeoutableHTTPUpstreamTest: public HTTPUpstreamTest<C> {
   TimeoutableHTTPUpstreamTest(): HTTPUpstreamTest<C>() {
     // make it non-internal for this test class
     HTTPUpstreamTest<C>::transactionTimeouts_.reset(
-      new TAsyncTimeoutSet(&this->HTTPUpstreamTest<C>::eventBase_,
+      new AsyncTimeoutSet(&this->HTTPUpstreamTest<C>::eventBase_,
                            std::chrono::milliseconds(500)));
   }
 };
