@@ -10,7 +10,6 @@
 #pragma once
 
 #include <proxygen/lib/http/session/HTTPSessionController.h>
-
 #include <string>
 
 namespace proxygen {

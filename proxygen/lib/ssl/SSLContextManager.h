@@ -9,16 +9,15 @@
  */
 #pragma once
 
+#include <folly/io/async/EventBase.h>
+#include <folly/io/async/SSLContext.h>
+#include <glog/logging.h>
+#include <list>
+#include <memory>
 #include <proxygen/lib/ssl/SSLContextConfig.h>
 #include <proxygen/lib/ssl/SSLSessionCacheManager.h>
 #include <proxygen/lib/ssl/TLSTicketKeySeeds.h>
 #include <proxygen/lib/utils/DomainNameMisc.h>
-
-#include <glog/logging.h>
-#include <list>
-#include <memory>
-#include <folly/io/async/EventBase.h>
-#include <folly/io/async/SSLContext.h>
 #include <vector>
 
 namespace folly {
@@ -165,7 +164,6 @@ class SSLContextManager {
   std::vector<std::unique_ptr<SSLSessionCacheManager>>
     sessionCacheManagers_;
   std::vector<std::unique_ptr<TLSTicketKeyManager>> ticketManagers_;
-
 
   std::shared_ptr<folly::SSLContext> defaultCtx_;
 

@@ -7,14 +7,13 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <folly/io/async/EventBase.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
-
-#include <folly/io/async/EventBase.h>
 #include <thrift/lib/cpp/test/MockTAsyncTransport.h>
 
 using namespace apache::thrift::async;

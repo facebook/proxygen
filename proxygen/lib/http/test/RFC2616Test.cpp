@@ -7,9 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/RFC2616.h>
-
 #include <gtest/gtest.h>
+#include <proxygen/lib/http/RFC2616.h>
 
 using namespace proxygen;
 

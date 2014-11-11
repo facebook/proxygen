@@ -9,12 +9,6 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/HTTPHeaderSize.h>
-#include <proxygen/lib/http/HTTPHeaders.h>
-#include <proxygen/lib/http/HTTPMethod.h>
-#include <proxygen/lib/utils/ParseURL.h>
-#include <proxygen/lib/utils/Time.h>
-
 #include <array>
 #include <boost/variant.hpp>
 #include <folly/Conv.h>
@@ -24,6 +18,11 @@
 #include <glog/logging.h>
 #include <map>
 #include <mutex>
+#include <proxygen/lib/http/HTTPHeaderSize.h>
+#include <proxygen/lib/http/HTTPHeaders.h>
+#include <proxygen/lib/http/HTTPMethod.h>
+#include <proxygen/lib/utils/ParseURL.h>
+#include <proxygen/lib/utils/Time.h>
 #include <string>
 
 namespace proxygen {

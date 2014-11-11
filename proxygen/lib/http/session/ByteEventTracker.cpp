@@ -9,10 +9,9 @@
  */
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 
+#include <folly/io/async/DelayedDestruction.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
-
-#include <folly/io/async/DelayedDestruction.h>
 #include <string>
 
 using apache::thrift::async::TAsyncSocket;

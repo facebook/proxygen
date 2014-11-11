@@ -20,9 +20,9 @@ using namespace std;
 
 using apache::thrift::async::TAsyncSSLSocket;
 using apache::thrift::async::TAsyncSocket;
-using folly::SSLContext;
 using apache::thrift::transport::TTransportException;
 using folly::EventBase;
+using folly::SSLContext;
 using folly::SocketAddress;
 
 DEFINE_int32(clients, 1, "Number of simulated SSL clients");

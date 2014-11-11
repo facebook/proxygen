@@ -7,14 +7,13 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <gtest/gtest.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/codec/SPDYVersionSettings.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
-
-#include <gtest/gtest.h>
 #include <random>
 
 using namespace folly;

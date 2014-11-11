@@ -9,10 +9,9 @@
  */
 #pragma once
 
+#include <glog/logging.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
-
-#include <glog/logging.h>
 
 namespace proxygen {
 

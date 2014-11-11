@@ -9,9 +9,8 @@
  */
 #pragma once
 
-#include <proxygen/lib/utils/FilterChain.h>
-
 #include <folly/io/async/EventBase.h>
+#include <proxygen/lib/utils/FilterChain.h>
 #include <thrift/lib/cpp/async/TAsyncTransport.h>
 
 namespace proxygen {

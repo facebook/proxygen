@@ -7,10 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/utils/Result.h>
-
 #include <gtest/gtest.h>
 #include <memory>
+#include <proxygen/lib/utils/Result.h>
 
 using namespace proxygen;
 using namespace std;

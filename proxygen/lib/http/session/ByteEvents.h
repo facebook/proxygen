@@ -9,10 +9,9 @@
  */
 #pragma once
 
+#include <folly/IntrusiveList.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/Time.h>
-
-#include <folly/IntrusiveList.h>
 #include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
 namespace proxygen {

@@ -9,10 +9,9 @@
  */
 #pragma once
 
-#include <proxygen/lib/services/WorkerThread.h>
-
 #include <cstdint>
 #include <map>
+#include <proxygen/lib/services/WorkerThread.h>
 
 namespace proxygen {
 

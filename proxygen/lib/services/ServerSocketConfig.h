@@ -9,24 +9,23 @@
  */
 #pragma once
 
-#include <proxygen/lib/ssl/SSLCacheOptions.h>
-#include <proxygen/lib/ssl/SSLContextConfig.h>
-#include <proxygen/lib/ssl/SSLUtil.h>
-#include <proxygen/lib/ssl/TLSTicketKeySeeds.h>
-#include <proxygen/lib/utils/SocketOptions.h>
-
 #include <boost/optional.hpp>
 #include <chrono>
 #include <fcntl.h>
 #include <folly/Random.h>
 #include <folly/SocketAddress.h>
 #include <folly/String.h>
+#include <folly/io/async/SSLContext.h>
 #include <list>
+#include <proxygen/lib/ssl/SSLCacheOptions.h>
+#include <proxygen/lib/ssl/SSLContextConfig.h>
+#include <proxygen/lib/ssl/SSLUtil.h>
+#include <proxygen/lib/ssl/TLSTicketKeySeeds.h>
+#include <proxygen/lib/utils/SocketOptions.h>
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <thrift/lib/cpp/async/TAsyncSocket.h>
-#include <folly/io/async/SSLContext.h>
 
 namespace proxygen {
 

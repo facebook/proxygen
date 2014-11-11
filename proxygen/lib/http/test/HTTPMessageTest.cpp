@@ -7,9 +7,6 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/utils/TestUtils.h>
-
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <gtest/gtest.h>
@@ -18,6 +15,8 @@
 #include <list>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/utils/TestUtils.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>

@@ -7,15 +7,15 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "EchoHandler.h"
-#include "EchoStats.h"
+#include <folly/Memory.h>
+#include <folly/Portability.h>
+#include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-
-#include <folly/Portability.h>
-#include <folly/Memory.h>
-#include <folly/io/async/EventBaseManager.h>
 #include <unistd.h>
+
+#include "EchoHandler.h"
+#include "EchoStats.h"
 
 using namespace EchoService;
 using namespace proxygen;

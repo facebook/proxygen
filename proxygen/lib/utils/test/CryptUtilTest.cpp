@@ -7,9 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/utils/CryptUtil.h>
-
 #include <gtest/gtest.h>
+#include <proxygen/lib/utils/CryptUtil.h>
 #include <string>
 
 using namespace proxygen;

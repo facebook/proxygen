@@ -9,13 +9,12 @@
  */
 #pragma once
 
+#include <folly/Memory.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/TransportDirection.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
-
-#include <folly/Memory.h>
 
 template <class MyCodec, class Version>
 typename std::enable_if<

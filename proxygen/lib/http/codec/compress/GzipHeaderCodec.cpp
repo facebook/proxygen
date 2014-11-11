@@ -9,14 +9,13 @@
  */
 #include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 
-#include <proxygen/lib/http/codec/SPDYCodec.h>
-#include <proxygen/lib/http/codec/SPDYConstants.h>
-
 #include <folly/Memory.h>
 #include <folly/Portability.h>
 #include <folly/String.h>
 #include <folly/ThreadLocal.h>
 #include <folly/io/IOBuf.h>
+#include <proxygen/lib/http/codec/SPDYCodec.h>
+#include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <string>
 
 using folly::IOBuf;

@@ -9,9 +9,8 @@
  */
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 
-#include <proxygen/lib/http/RFC2616.h>
-
 #include <folly/ThreadLocal.h>
+#include <proxygen/lib/http/RFC2616.h>
 
 namespace proxygen {
 

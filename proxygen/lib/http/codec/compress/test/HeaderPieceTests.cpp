@@ -7,10 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/compress/HeaderPiece.h>
-
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <proxygen/lib/http/codec/compress/HeaderPiece.h>
 
 using namespace proxygen::compress;
 using namespace testing;

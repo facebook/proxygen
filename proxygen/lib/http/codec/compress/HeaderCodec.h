@@ -9,12 +9,11 @@
  */
 #pragma once
 
+#include <memory>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 #include <proxygen/lib/http/codec/compress/HeaderPiece.h>
 #include <proxygen/lib/utils/Result.h>
-
-#include <memory>
 #include <vector>
 
 namespace folly {

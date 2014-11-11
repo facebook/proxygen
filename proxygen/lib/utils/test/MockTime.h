@@ -9,9 +9,8 @@
  */
 #pragma once
 
-#include <proxygen/lib/utils/Time.h>
-
 #include <glog/logging.h>
+#include <proxygen/lib/utils/Time.h>
 
 namespace proxygen {
 

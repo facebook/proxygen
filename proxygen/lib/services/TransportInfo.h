@@ -9,12 +9,11 @@
  */
 #pragma once
 
+#include <chrono>
+#include <netinet/tcp.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/ssl/SSLUtil.h>
 #include <proxygen/lib/utils/Time.h>
-
-#include <chrono>
-#include <netinet/tcp.h>
 #include <string>
 
 namespace apache { namespace thrift { namespace async {

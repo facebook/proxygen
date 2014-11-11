@@ -10,7 +10,6 @@
 #pragma once
 
 #include <proxygen/lib/http/HTTPHeaders.h>
-
 #include <string>
 
 namespace proxygen { namespace compress {

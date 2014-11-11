@@ -10,7 +10,6 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/SPDYVersion.h>
-
 #include <string>
 
 namespace folly { namespace io {

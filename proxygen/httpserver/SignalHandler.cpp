@@ -9,9 +9,8 @@
  */
 #include <proxygen/httpserver/SignalHandler.h>
 
-#include <proxygen/httpserver/HTTPServer.h>
-
 #include <folly/io/async/EventBaseManager.h>
+#include <proxygen/httpserver/HTTPServer.h>
 #include <signal.h>
 
 using folly::EventBaseManager;

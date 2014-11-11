@@ -9,12 +9,11 @@
  */
 #pragma once
 
-#include <proxygen/lib/services/Acceptor.h>
-#include <proxygen/lib/services/ConnectionCounter.h>
-
+#include <folly/io/async/AsyncServerSocket.h>
 #include <list>
 #include <memory>
-#include <folly/io/async/AsyncServerSocket.h>
+#include <proxygen/lib/services/Acceptor.h>
+#include <proxygen/lib/services/ConnectionCounter.h>
 
 namespace proxygen {
 

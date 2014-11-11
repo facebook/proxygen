@@ -9,9 +9,8 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
-
 #include <list>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

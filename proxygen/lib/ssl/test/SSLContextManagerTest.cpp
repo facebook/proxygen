@@ -7,16 +7,15 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <folly/io/async/EventBase.h>
+#include <folly/io/async/SSLContext.h>
+#include <glog/logging.h>
+#include <gtest/gtest.h>
 #include <proxygen/lib/ssl/SSLContextManager.h>
 #include <proxygen/lib/utils/DomainNameMisc.h>
 
-#include <folly/io/async/EventBase.h>
-#include <glog/logging.h>
-#include <gtest/gtest.h>
-#include <folly/io/async/SSLContext.h>
-
-using folly::SSLContext;
 using folly::EventBase;
+using folly::SSLContext;
 using proxygen::DNString;
 using proxygen::SSLContextManager;
 using std::shared_ptr;

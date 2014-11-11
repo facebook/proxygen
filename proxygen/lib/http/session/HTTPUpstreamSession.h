@@ -9,10 +9,9 @@
  */
 #pragma once
 
+#include <folly/io/async/SSLContext.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
-
-#include <folly/io/async/SSLContext.h>
 
 namespace proxygen {
 

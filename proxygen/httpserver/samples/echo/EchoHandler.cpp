@@ -9,9 +9,10 @@
  */
 #include "EchoHandler.h"
 
-#include "EchoStats.h"
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+
+#include "EchoStats.h"
 
 using namespace proxygen;
 

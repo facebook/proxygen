@@ -7,15 +7,14 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/compress/HPACKContext.h>
-#include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
-#include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
-#include <proxygen/lib/http/codec/compress/Logging.h>
-
 #include <folly/Conv.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <memory>
+#include <proxygen/lib/http/codec/compress/HPACKContext.h>
+#include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/Logging.h>
 
 using namespace folly;
 using namespace proxygen;

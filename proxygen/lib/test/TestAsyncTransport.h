@@ -13,9 +13,8 @@
 #include <folly/SocketAddress.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/AsyncTimeout.h>
+#include <proxygen/lib/utils/Time.h>
 #include <thrift/lib/cpp/async/TAsyncTransport.h>
-
-#include "proxygen/lib/utils/Time.h"
 
 class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
                            private folly::AsyncTimeout {

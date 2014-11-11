@@ -9,11 +9,11 @@
  */
 #include <proxygen/lib/utils/ParseURL.h>
 
-#include "proxygen/external/http_parser/http_parser.h"
-#include <proxygen/lib/utils/UtilInl.h>
-
 #include <algorithm>
 #include <arpa/inet.h>
+#include <proxygen/lib/utils/UtilInl.h>
+
+#include "proxygen/external/http_parser/http_parser.h"
 
 using folly::fbstring;
 using std::string;

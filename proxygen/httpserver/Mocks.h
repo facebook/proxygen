@@ -9,10 +9,9 @@
  */
 #pragma once
 
+#include <gmock/gmock.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseHandler.h>
-
-#include <gmock/gmock.h>
 
 namespace proxygen {
 

@@ -9,11 +9,10 @@
  */
 #pragma once
 
+#include <folly/dynamic.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEventType.h>
 #include <proxygen/lib/utils/TraceFieldType.h>
-
-#include <folly/dynamic.h>
 #include <string>
 
 namespace proxygen {

@@ -7,13 +7,12 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/utils/FilterChain.h>
-
 #include <deque>
 #include <folly/Memory.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <map>
+#include <proxygen/lib/utils/FilterChain.h>
 #include <stdlib.h>
 
 using namespace folly;

@@ -7,6 +7,11 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <folly/Foreach.h>
+#include <folly/io/Cursor.h>
+#include <folly/io/async/EventBase.h>
+#include <folly/io/async/TimeoutManager.h>
+#include <gtest/gtest.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
@@ -14,13 +19,7 @@
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
-
-#include <folly/Foreach.h>
-#include <folly/io/Cursor.h>
-#include <folly/io/async/EventBase.h>
-#include <gtest/gtest.h>
 #include <string>
-#include <folly/io/async/TimeoutManager.h>
 #include <thrift/lib/cpp/test/MockTAsyncTransport.h>
 #include <vector>
 

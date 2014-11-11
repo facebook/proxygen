@@ -9,13 +9,12 @@
  */
 #pragma once
 
-#include <proxygen/lib/services/NetworkAddress.h>
-
 #include <chrono>
 #include <folly/Range.h>
 #include <folly/SocketAddress.h>
 #include <glog/logging.h>
 #include <list>
+#include <proxygen/lib/services/NetworkAddress.h>
 #include <set>
 #include <string>
 

@@ -9,13 +9,12 @@
  */
 #include <proxygen/httpserver/HTTPServer.h>
 
-#include <proxygen/httpserver/HTTPServerAcceptor.h>
-#include <proxygen/httpserver/SignalHandler.h>
-#include <proxygen/httpserver/filters/RejectConnectFilter.h>
-
 #include <boost/thread.hpp>
 #include <folly/ThreadName.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <proxygen/httpserver/HTTPServerAcceptor.h>
+#include <proxygen/httpserver/SignalHandler.h>
+#include <proxygen/httpserver/filters/RejectConnectFilter.h>
 
 using folly::AsyncServerSocket;
 using folly::EventBase;

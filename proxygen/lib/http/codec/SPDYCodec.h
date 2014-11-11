@@ -9,6 +9,9 @@
  */
 #pragma once
 
+#include <bitset>
+#include <boost/optional/optional.hpp>
+#include <deque>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
@@ -16,10 +19,6 @@
 #include <proxygen/lib/http/codec/SPDYVersionSettings.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
-
-#include <bitset>
-#include <boost/optional/optional.hpp>
-#include <deque>
 #include <zlib.h>
 
 namespace folly { namespace io {

@@ -9,10 +9,9 @@
  */
 #pragma once
 
+#include <boost/optional/optional.hpp>
 #include <proxygen/lib/http/codec/ErrorCode.h>
 #include <proxygen/lib/http/codec/SettingsId.h>
-
-#include <boost/optional/optional.hpp>
 #include <string>
 
 namespace proxygen { namespace spdy {

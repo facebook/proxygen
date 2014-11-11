@@ -9,11 +9,10 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
-
 #include <algorithm>
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
 using folly::IOBuf;
 using folly::io::Cursor;

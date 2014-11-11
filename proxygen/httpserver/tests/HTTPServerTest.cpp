@@ -7,22 +7,21 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/httpserver/HTTPServer.h>
-#include <proxygen/httpserver/ResponseBuilder.h>
-#include <proxygen/lib/utils/TestUtils.h>
-
 #include <boost/thread.hpp>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <gtest/gtest.h>
+#include <proxygen/httpserver/HTTPServer.h>
+#include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/lib/utils/TestUtils.h>
 
 using namespace proxygen;
 using namespace testing;
 
 using apache::thrift::async::TAsyncSSLSocket;
-using folly::SSLContext;
 using folly::AsyncServerSocket;
 using folly::EventBaseManager;
+using folly::SSLContext;
 using folly::SocketAddress;
 
 namespace {

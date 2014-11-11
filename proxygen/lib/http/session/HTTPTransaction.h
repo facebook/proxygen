@@ -9,6 +9,10 @@
  */
 #pragma once
 
+#include <boost/heap/d_ary_heap.hpp>
+#include <climits>
+#include <folly/SocketAddress.h>
+#include <ostream>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
@@ -19,11 +23,6 @@
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 #include <proxygen/lib/services/TransportInfo.h>
-
-#include <boost/heap/d_ary_heap.hpp>
-#include <climits>
-#include <folly/SocketAddress.h>
-#include <ostream>
 #include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>
 
 namespace proxygen {

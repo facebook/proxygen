@@ -7,13 +7,12 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/compress/Huffman.h>
-#include <proxygen/lib/http/codec/compress/Logging.h>
-
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 #include <gtest/gtest.h>
 #include <memory>
+#include <proxygen/lib/http/codec/compress/Huffman.h>
+#include <proxygen/lib/http/codec/compress/Logging.h>
 
 using namespace folly::io;
 using namespace folly;

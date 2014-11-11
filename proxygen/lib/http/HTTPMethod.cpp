@@ -9,9 +9,8 @@
  */
 #include <proxygen/lib/http/HTTPMethod.h>
 
-#include <proxygen/lib/http/HTTPHeaders.h>
-
 #include <folly/Foreach.h>
+#include <proxygen/lib/http/HTTPHeaders.h>
 #include <vector>
 
 #define HTTP_METHOD_STR(method) #method

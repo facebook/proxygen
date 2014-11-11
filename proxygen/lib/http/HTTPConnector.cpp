@@ -14,7 +14,6 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/ssl/SSLUtil.h>
-
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
 
 using namespace apache::thrift::async;

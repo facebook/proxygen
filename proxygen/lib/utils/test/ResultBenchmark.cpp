@@ -7,9 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "folly/Benchmark.h"
+#include <folly/Benchmark.h>
 #include <proxygen/lib/utils/Result.h>
-
 #include <type_traits>
 
 using namespace folly;

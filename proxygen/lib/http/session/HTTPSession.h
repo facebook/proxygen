@@ -9,6 +9,10 @@
  */
 #pragma once
 
+#include <folly/IntrusiveList.h>
+#include <folly/experimental/wangle/ManagedConnection.h>
+#include <folly/io/IOBufQueue.h>
+#include <folly/io/async/EventBase.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
@@ -19,11 +23,6 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/services/TransportInfo.h>
 #include <proxygen/lib/utils/Time.h>
-
-#include <folly/IntrusiveList.h>
-#include <folly/experimental/wangle/ManagedConnection.h>
-#include <folly/io/IOBufQueue.h>
-#include <folly/io/async/EventBase.h>
 #include <queue>
 #include <set>
 #include <thrift/lib/cpp/async/TAsyncSocket.h>

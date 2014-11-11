@@ -9,10 +9,9 @@
  */
 #pragma once
 
+#include <folly/SocketAddress.h>
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-
-#include <folly/SocketAddress.h>
 #include <signal.h>
 
 namespace proxygen {

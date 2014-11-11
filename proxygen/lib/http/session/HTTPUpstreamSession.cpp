@@ -9,10 +9,9 @@
  */
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
-#include <proxygen/lib/http/session/HTTPTransaction.h>
-
 #include <boost/cast.hpp>
 #include <folly/experimental/wangle/ConnectionManager.h>
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
 

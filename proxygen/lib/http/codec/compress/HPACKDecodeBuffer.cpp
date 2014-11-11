@@ -9,9 +9,8 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 
-#include <proxygen/lib/http/codec/compress/Huffman.h>
-
 #include <memory>
+#include <proxygen/lib/http/codec/compress/Huffman.h>
 
 using folly::IOBuf;
 using std::unique_ptr;

@@ -9,11 +9,10 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
 
-#include <proxygen/lib/http/codec/compress/HPACKConstants.h>
-#include <proxygen/lib/http/codec/compress/Logging.h>
-
 #include <ctype.h>
 #include <memory>
+#include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/http/codec/compress/Logging.h>
 
 using folly::IOBuf;
 using std::string;

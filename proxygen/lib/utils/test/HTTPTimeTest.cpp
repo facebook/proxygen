@@ -7,9 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/utils/HTTPTime.h>
-
 #include <gtest/gtest.h>
+#include <proxygen/lib/utils/HTTPTime.h>
 
 using proxygen::parseHTTPDateTime;
 

@@ -10,7 +10,6 @@
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/utils/TestUtils.h>
-
 #include <thrift/lib/cpp/test/MockTAsyncServerSocket.h>
 #include <thrift/lib/cpp/test/MockTAsyncSocket.h>
 

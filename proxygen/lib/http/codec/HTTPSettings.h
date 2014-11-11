@@ -9,9 +9,8 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/SettingsId.h>
-
 #include <initializer_list>
+#include <proxygen/lib/http/codec/SettingsId.h>
 #include <vector>
 
 namespace proxygen {

@@ -13,7 +13,6 @@
 #include <proxygen/lib/http/session/ByteEvents.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/Time.h>
-
 #include <thrift/lib/cpp/async/TAsyncSocket.h>
 
 namespace proxygen {

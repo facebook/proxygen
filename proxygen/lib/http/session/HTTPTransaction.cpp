@@ -9,12 +9,11 @@
  */
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
+#include <algorithm>
+#include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
-
-#include <algorithm>
-#include <glog/logging.h>
 
 using apache::thrift::async::TAsyncTimeoutSet;
 using folly::IOBuf;

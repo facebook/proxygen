@@ -9,10 +9,9 @@
  */
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 
+#include <boost/algorithm/string.hpp>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
-
-#include <boost/algorithm/string.hpp>
 
 namespace proxygen {
 

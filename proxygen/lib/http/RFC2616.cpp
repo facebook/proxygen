@@ -9,10 +9,9 @@
  */
 #include <proxygen/lib/http/RFC2616.h>
 
-#include <proxygen/lib/http/HTTPHeaders.h>
-
 #include <folly/String.h>
 #include <folly/ThreadLocal.h>
+#include <proxygen/lib/http/HTTPHeaders.h>
 
 namespace proxygen { namespace RFC2616 {
 

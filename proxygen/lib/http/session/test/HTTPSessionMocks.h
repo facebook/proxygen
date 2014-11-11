@@ -9,12 +9,11 @@
  */
 #pragma once
 
+#include <gmock/gmock.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-
-#include <gmock/gmock.h>
 
 #define GMOCK_NOEXCEPT_METHOD0(m, F) GMOCK_METHOD0_(, noexcept,, m, F)
 #define GMOCK_NOEXCEPT_METHOD1(m, F) GMOCK_METHOD1_(, noexcept,, m, F)

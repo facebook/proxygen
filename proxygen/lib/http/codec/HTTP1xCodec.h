@@ -9,12 +9,12 @@
  */
 #pragma once
 
-#include "proxygen/external/http_parser/http_parser.h"
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/TransportDirection.h>
-
 #include <string>
+
+#include "proxygen/external/http_parser/http_parser.h"
 
 namespace proxygen {
 
