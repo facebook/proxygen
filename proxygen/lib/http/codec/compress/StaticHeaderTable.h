@@ -9,6 +9,9 @@
  */
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 
 namespace proxygen {
@@ -16,7 +19,8 @@ namespace proxygen {
 class StaticHeaderTable : public HeaderTable {
 
  public:
-  StaticHeaderTable();
+  explicit StaticHeaderTable(
+    const std::vector<std::vector<std::string>>& entries);
 
   static const HeaderTable& get();
 };

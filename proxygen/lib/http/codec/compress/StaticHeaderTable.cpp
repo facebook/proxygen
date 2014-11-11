@@ -13,18 +13,32 @@
 #include <list>
 
 using std::list;
+using std::string;
+using std::vector;
 
 namespace proxygen {
 
-namespace {
-
-// instantiate the static table
-StaticHeaderTable table;
-
+StaticHeaderTable::StaticHeaderTable(const vector<vector<string>>& entries)
+    : HeaderTable() {
+  // calculate the size
+  list<HPACKHeader> hlist;
+  uint32_t byteCount = 0;
+  for (const auto& entry : entries) {
+    hlist.push_back(HPACKHeader(entry[0], entry[1]));
+    byteCount += hlist.back().bytes();
+  }
+  // initialize with a capacity that will exactly fit the static headers
+  init(byteCount);
+  hlist.reverse();
+  for (auto& header : hlist) {
+    add(header);
+  }
+  // the static table is not involved in the delta compression
+  clearReferenceSet();
 }
 
-StaticHeaderTable::StaticHeaderTable() : HeaderTable() {
-  static const char* STATIC_TABLE[][2] {
+const HeaderTable& StaticHeaderTable::get() {
+  static vector<vector<string>> entries = {
     {":authority", ""},
     {":method", "GET"},
     {":method", "POST"},
@@ -86,25 +100,7 @@ StaticHeaderTable::StaticHeaderTable() : HeaderTable() {
     {"via", ""},
     {"www-authenticate", ""}
   };
-
-  // calculate the size
-  list<HPACKHeader> hlist;
-  uint32_t byteCount = 0;
-  for (size_t i = 0; i < sizeof(STATIC_TABLE) / sizeof(STATIC_TABLE[0]); i++) {
-    hlist.push_back(HPACKHeader(STATIC_TABLE[i][0], STATIC_TABLE[i][1]));
-    byteCount += hlist.back().bytes();
-  }
-  // initialize with a capacity that will exactly fit the static headers
-  init(byteCount);
-  hlist.reverse();
-  for (auto& header : hlist) {
-    add(header);
-  }
-  // the static table is not involved in the delta compression
-  clearReferenceSet();
-}
-
-const HeaderTable& StaticHeaderTable::get() {
+  static StaticHeaderTable table(entries);
   return table;
 }
 
