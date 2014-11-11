@@ -7,9 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/ByteEvents.h"
+#include <proxygen/lib/http/session/ByteEvents.h>
 
-#include "proxygen/lib/utils/Time.h"
+#include <proxygen/lib/utils/Time.h>
 
 namespace proxygen {
 

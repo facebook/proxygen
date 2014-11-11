@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/utils/Time.h"
+#include <proxygen/lib/utils/Time.h>
 
 #include <glog/logging.h>
 

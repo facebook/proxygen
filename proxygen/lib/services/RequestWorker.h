@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/services/WorkerThread.h"
+#include <proxygen/lib/services/WorkerThread.h>
 
 #include <cstdint>
 #include <map>

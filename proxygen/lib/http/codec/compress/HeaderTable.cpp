@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/codec/compress/HeaderTable.h"
+#include <proxygen/lib/http/codec/compress/HeaderTable.h>
 
 #include <glog/logging.h>
 

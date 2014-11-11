@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/services/AcceptorConfiguration.h"
+#include <proxygen/lib/services/AcceptorConfiguration.h>
 
 namespace proxygen {
 

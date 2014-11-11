@@ -9,11 +9,11 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/HTTP1xCodec.h"
-#include "proxygen/lib/http/codec/SPDYCodec.h"
-#include "proxygen/lib/http/codec/TransportDirection.h"
-#include "proxygen/lib/http/codec/test/MockHTTPCodec.h"
-#include "proxygen/lib/http/session/test/HTTPSessionMocks.h"
+#include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/SPDYCodec.h>
+#include <proxygen/lib/http/codec/TransportDirection.h>
+#include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
+#include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 
 #include <folly/Memory.h>
 

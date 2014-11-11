@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/utils/HTTPTime.h"
+#include <proxygen/lib/utils/HTTPTime.h>
 
 #include <ctime>
 #include <glog/logging.h>

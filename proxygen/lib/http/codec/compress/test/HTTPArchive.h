@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/HPACKHeader.h"
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
 #include <folly/Memory.h>
 #include <folly/dynamic.h>

@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/utils/SocketOptions.h"
+#include <proxygen/lib/utils/SocketOptions.h>
 
 #include <netinet/tcp.h>
 #include <sys/socket.h>

@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/utils/TraceEvent.h"
+#include <proxygen/lib/utils/TraceEvent.h>
 
 #include <folly/DynamicConverter.h>
 #include <folly/ThreadLocal.h>

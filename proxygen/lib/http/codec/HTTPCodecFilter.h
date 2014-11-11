@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/HTTPCodec.h"
-#include "proxygen/lib/utils/FilterChain.h"
+#include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/utils/FilterChain.h>
 
 namespace proxygen {
 

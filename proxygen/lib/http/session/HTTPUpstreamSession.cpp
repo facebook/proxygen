@@ -7,9 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/HTTPUpstreamSession.h"
+#include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
-#include "proxygen/lib/http/session/HTTPTransaction.h"
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 
 #include <boost/cast.hpp>
 #include <folly/experimental/wangle/ConnectionManager.h>

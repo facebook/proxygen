@@ -7,10 +7,10 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/utils/ParseURL.h"
+#include <proxygen/lib/utils/ParseURL.h>
 
 #include "proxygen/external/http_parser/http_parser.h"
-#include "proxygen/lib/utils/UtilInl.h"
+#include <proxygen/lib/utils/UtilInl.h>
 
 #include <algorithm>
 #include <arpa/inet.h>

@@ -7,9 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/httpserver/SignalHandler.h"
+#include <proxygen/httpserver/SignalHandler.h>
 
-#include "proxygen/httpserver/HTTPServer.h"
+#include <proxygen/httpserver/HTTPServer.h>
 
 #include <folly/io/async/EventBaseManager.h>
 #include <signal.h>

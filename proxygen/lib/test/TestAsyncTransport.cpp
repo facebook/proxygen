@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/test/TestAsyncTransport.h"
+#include <proxygen/lib/test/TestAsyncTransport.h>
 
 #include <folly/SocketAddress.h>
 #include <folly/io/IOBuf.h>

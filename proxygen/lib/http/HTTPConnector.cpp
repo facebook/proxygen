@@ -7,13 +7,13 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/HTTPConnector.h"
+#include <proxygen/lib/http/HTTPConnector.h>
 
-#include "proxygen/lib/http/codec/HTTP1xCodec.h"
-#include "proxygen/lib/http/codec/SPDYCodec.h"
-#include "proxygen/lib/http/session/HTTPTransaction.h"
-#include "proxygen/lib/http/session/HTTPUpstreamSession.h"
-#include "proxygen/lib/ssl/SSLUtil.h"
+#include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/SPDYCodec.h>
+#include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/ssl/SSLUtil.h>
 
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
 

@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/session/HTTPTransaction.h"
-#include "proxygen/lib/utils/DestructorCheck.h"
+#include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/DestructorCheck.h>
 
 #include <folly/Memory.h>
 

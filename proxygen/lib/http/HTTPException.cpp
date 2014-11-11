@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/HTTPException.h"
+#include <proxygen/lib/http/HTTPException.h>
 
 namespace proxygen {
 

@@ -7,9 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/httpserver/HTTPServer.h"
-#include "proxygen/httpserver/ResponseBuilder.h"
-#include "proxygen/lib/utils/TestUtils.h"
+#include <proxygen/httpserver/HTTPServer.h>
+#include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/lib/utils/TestUtils.h>
 
 #include <boost/thread.hpp>
 #include <folly/io/async/AsyncServerSocket.h>

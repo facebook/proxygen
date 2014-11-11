@@ -7,9 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/HTTPHeaderSize.h"
-#include "proxygen/lib/http/HTTPMessage.h"
-#include "proxygen/lib/http/codec/HTTP1xCodec.h"
+#include <proxygen/lib/http/HTTPHeaderSize.h>
+#include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/codec/HTTP1xCodec.h>
 
 #include <gtest/gtest.h>
 

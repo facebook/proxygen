@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/test/MockHTTPCodec.h"
-#include "proxygen/lib/http/session/HTTPTransaction.h"
+#include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 
 #include <gmock/gmock.h>
 

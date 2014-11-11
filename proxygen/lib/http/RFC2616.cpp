@@ -7,9 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/RFC2616.h"
+#include <proxygen/lib/http/RFC2616.h>
 
-#include "proxygen/lib/http/HTTPHeaders.h"
+#include <proxygen/lib/http/HTTPHeaders.h>
 
 #include <folly/String.h>
 #include <folly/ThreadLocal.h>

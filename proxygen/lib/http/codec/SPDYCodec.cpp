@@ -7,15 +7,15 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/codec/SPDYCodec.h"
+#include <proxygen/lib/http/codec/SPDYCodec.h>
 
-#include "proxygen/lib/http/HTTPHeaderSize.h"
-#include "proxygen/lib/http/HTTPMessage.h"
-#include "proxygen/lib/http/codec/CodecDictionaries.h"
-#include "proxygen/lib/http/codec/SPDYUtil.h"
-#include "proxygen/lib/http/codec/compress/GzipHeaderCodec.h"
-#include "proxygen/lib/http/codec/compress/HPACKCodec.h"
-#include "proxygen/lib/utils/ParseURL.h"
+#include <proxygen/lib/http/HTTPHeaderSize.h>
+#include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/codec/CodecDictionaries.h>
+#include <proxygen/lib/http/codec/SPDYUtil.h>
+#include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKCodec.h>
+#include <proxygen/lib/utils/ParseURL.h>
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>

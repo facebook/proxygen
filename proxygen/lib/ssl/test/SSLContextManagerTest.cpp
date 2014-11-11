@@ -7,8 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/ssl/SSLContextManager.h"
-#include "proxygen/lib/utils/DomainNameMisc.h"
+#include <proxygen/lib/ssl/SSLContextManager.h>
+#include <proxygen/lib/utils/DomainNameMisc.h>
 
 #include <folly/io/async/EventBase.h>
 #include <glog/logging.h>

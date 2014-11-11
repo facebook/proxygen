@@ -7,9 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/services/RequestWorker.h"
+#include <proxygen/lib/services/RequestWorker.h>
 
-#include "proxygen/lib/services/ServiceWorker.h"
+#include <proxygen/lib/services/ServiceWorker.h>
 
 #include <folly/io/async/EventBaseManager.h>
 

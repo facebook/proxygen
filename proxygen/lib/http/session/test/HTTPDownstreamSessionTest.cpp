@@ -7,15 +7,15 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/codec/test/MockHTTPCodec.h"
-#include "proxygen/lib/http/codec/test/TestUtils.h"
-#include "proxygen/lib/http/session/HTTPDirectResponseHandler.h"
-#include "proxygen/lib/http/session/HTTPDownstreamSession.h"
-#include "proxygen/lib/http/session/HTTPSession.h"
-#include "proxygen/lib/http/session/test/HTTPSessionMocks.h"
-#include "proxygen/lib/http/session/test/HTTPSessionTest.h"
-#include "proxygen/lib/http/session/test/TestUtils.h"
-#include "proxygen/lib/test/TestAsyncTransport.h"
+#include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
+#include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
+#include <proxygen/lib/http/session/HTTPDownstreamSession.h>
+#include <proxygen/lib/http/session/HTTPSession.h>
+#include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
+#include <proxygen/lib/http/session/test/HTTPSessionTest.h>
+#include <proxygen/lib/http/session/test/TestUtils.h>
+#include <proxygen/lib/test/TestAsyncTransport.h>
 
 #include <folly/Foreach.h>
 #include <folly/experimental/wangle/ConnectionManager.h>

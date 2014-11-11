@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/utils/FilterChain.h"
+#include <proxygen/lib/utils/FilterChain.h>
 
 #include <folly/io/async/EventBase.h>
 #include <thrift/lib/cpp/async/TAsyncTransport.h>

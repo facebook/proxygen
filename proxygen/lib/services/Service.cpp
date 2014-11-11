@@ -7,10 +7,10 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/services/Service.h"
+#include <proxygen/lib/services/Service.h>
 
-#include "proxygen/lib/services/RequestWorker.h"
-#include "proxygen/lib/services/ServiceWorker.h"
+#include <proxygen/lib/services/RequestWorker.h>
+#include <proxygen/lib/services/ServiceWorker.h>
 
 namespace proxygen {
 

@@ -7,10 +7,10 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/HTTPSessionAcceptor.h"
+#include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 
-#include "proxygen/lib/http/codec/HTTP1xCodec.h"
-#include "proxygen/lib/http/session/HTTPDirectResponseHandler.h"
+#include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
 using apache::thrift::async::TAsyncSocket;
 using folly::SocketAddress;

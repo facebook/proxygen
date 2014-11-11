@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/session/HTTPSession.h"
+#include <proxygen/lib/http/session/HTTPSession.h>
 
 namespace proxygen {
 

@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/services/WorkerThread.h"
+#include <proxygen/lib/services/WorkerThread.h>
 
 #include <boost/thread.hpp>
 #include <folly/String.h>

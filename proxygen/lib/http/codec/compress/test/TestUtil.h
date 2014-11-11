@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/HPACKDecoder.h"
-#include "proxygen/lib/http/codec/compress/HPACKEncoder.h"
+#include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 
 #include <folly/io/IOBuf.h>
 #include <memory>

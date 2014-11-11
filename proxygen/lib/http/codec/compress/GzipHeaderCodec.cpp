@@ -7,10 +7,10 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/codec/compress/GzipHeaderCodec.h"
+#include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 
-#include "proxygen/lib/http/codec/SPDYCodec.h"
-#include "proxygen/lib/http/codec/SPDYConstants.h"
+#include <proxygen/lib/http/codec/SPDYCodec.h>
+#include <proxygen/lib/http/codec/SPDYConstants.h>
 
 #include <folly/Memory.h>
 #include <folly/Portability.h>

@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/utils/TraceEventObserver.h"
+#include <proxygen/lib/utils/TraceEventObserver.h>
 
 namespace proxygen {
 

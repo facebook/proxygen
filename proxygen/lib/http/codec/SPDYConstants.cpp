@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/codec/SPDYConstants.h"
+#include <proxygen/lib/http/codec/SPDYConstants.h>
 
 namespace proxygen { namespace spdy {
 

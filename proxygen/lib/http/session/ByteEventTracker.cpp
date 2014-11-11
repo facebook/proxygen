@@ -7,10 +7,10 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/ByteEventTracker.h"
+#include <proxygen/lib/http/session/ByteEventTracker.h>
 
-#include "proxygen/lib/http/session/HTTPSession.h"
-#include "proxygen/lib/http/session/HTTPSessionStats.h"
+#include <proxygen/lib/http/session/HTTPSession.h>
+#include <proxygen/lib/http/session/HTTPSessionStats.h>
 
 #include <folly/io/async/DelayedDestruction.h>
 #include <string>

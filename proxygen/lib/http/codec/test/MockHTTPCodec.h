@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/HTTPCodec.h"
+#include <proxygen/lib/http/codec/HTTPCodec.h>
 
 #include <gmock/gmock.h>
 

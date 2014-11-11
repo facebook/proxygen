@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/httpserver/HTTPServerOptions.h"
-#include "proxygen/lib/ssl/SSLContextConfig.h"
+#include <proxygen/httpserver/HTTPServerOptions.h>
+#include <proxygen/lib/ssl/SSLContextConfig.h>
 
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBase.h>

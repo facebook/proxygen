@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/HTTPMethod.h"
+#include <proxygen/lib/http/HTTPMethod.h>
 
 #include <folly/Range.h>
 #include <string>

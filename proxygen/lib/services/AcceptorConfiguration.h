@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/services/ServerSocketConfig.h"
+#include <proxygen/lib/services/ServerSocketConfig.h>
 
 #include <chrono>
 #include <fcntl.h>

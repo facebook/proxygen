@@ -7,10 +7,10 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/HTTPDownstreamSession.h"
+#include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 
-#include "proxygen/lib/http/session/HTTPSessionController.h"
-#include "proxygen/lib/http/session/HTTPTransaction.h"
+#include <proxygen/lib/http/session/HTTPSessionController.h>
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
 

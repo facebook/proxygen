@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/SPDYVersionSettings.h"
-#include "proxygen/lib/http/codec/compress/HeaderCodec.h"
+#include <proxygen/lib/http/codec/SPDYVersionSettings.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 
 #include <folly/ThreadLocal.h>
 #include <folly/io/Cursor.h>

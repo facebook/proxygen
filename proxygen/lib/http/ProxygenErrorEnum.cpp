@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/ProxygenErrorEnum.h"
+#include <proxygen/lib/http/ProxygenErrorEnum.h>
 
 #define PROXYGEN_ERROR_STR(error) #error
 

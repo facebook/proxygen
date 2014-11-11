@@ -7,11 +7,11 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/httpserver/HTTPServer.h"
+#include <proxygen/httpserver/HTTPServer.h>
 
-#include "proxygen/httpserver/HTTPServerAcceptor.h"
-#include "proxygen/httpserver/SignalHandler.h"
-#include "proxygen/httpserver/filters/RejectConnectFilter.h"
+#include <proxygen/httpserver/HTTPServerAcceptor.h>
+#include <proxygen/httpserver/SignalHandler.h>
+#include <proxygen/httpserver/filters/RejectConnectFilter.h>
 
 #include <boost/thread.hpp>
 #include <folly/ThreadName.h>

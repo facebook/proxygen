@@ -11,8 +11,8 @@
 
 #include <folly/FBVector.h>
 #include <folly/Range.h>
-#include "proxygen/lib/http/HTTPCommonHeaders.h"
-#include "proxygen/lib/utils/UtilInl.h"
+#include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <proxygen/lib/utils/UtilInl.h>
 
 #include <bitset>
 #include <cstring>

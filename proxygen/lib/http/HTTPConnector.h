@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/services/TransportInfo.h"
-#include "proxygen/lib/utils/Time.h"
+#include <proxygen/lib/services/TransportInfo.h>
+#include <proxygen/lib/utils/Time.h>
 
 #include <thrift/lib/cpp/async/TAsyncSocket.h>
 #include <thrift/lib/cpp/async/TAsyncTimeoutSet.h>

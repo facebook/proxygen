@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/httpserver/ResponseHandler.h"
-#include "proxygen/lib/http/session/HTTPTransaction.h"
+#include <proxygen/httpserver/ResponseHandler.h>
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
 

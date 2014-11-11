@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/TransportFilter.h"
+#include <proxygen/lib/http/session/TransportFilter.h>
 
 using namespace apache::thrift::async;
 using namespace apache::thrift::transport;

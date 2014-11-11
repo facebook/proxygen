@@ -8,7 +8,7 @@
  *
  */
 #define PROXYGEN_HTTPHEADERS_IMPL
-#include "proxygen/lib/http/HTTPHeaders.h"
+#include <proxygen/lib/http/HTTPHeaders.h>
 
 #include <glog/logging.h>
 #include <vector>

@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/HeaderTable.h"
+#include <proxygen/lib/http/codec/compress/HeaderTable.h>
 
 namespace proxygen {
 

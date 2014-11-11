@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/services/TransportInfo.h"
+#include <proxygen/lib/services/TransportInfo.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>

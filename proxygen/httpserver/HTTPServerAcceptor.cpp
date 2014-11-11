@@ -7,12 +7,12 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/httpserver/HTTPServerAcceptor.h"
+#include <proxygen/httpserver/HTTPServerAcceptor.h>
 
-#include "proxygen/httpserver/RequestHandlerAdaptor.h"
-#include "proxygen/httpserver/RequestHandlerFactory.h"
-#include "proxygen/lib/http/codec/HTTP1xCodec.h"
-#include "proxygen/lib/http/session/HTTPDownstreamSession.h"
+#include <proxygen/httpserver/RequestHandlerAdaptor.h>
+#include <proxygen/httpserver/RequestHandlerFactory.h>
+#include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 
 using folly::SocketAddress;
 

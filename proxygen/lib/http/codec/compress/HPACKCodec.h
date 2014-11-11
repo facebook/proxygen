@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/TransportDirection.h"
-#include "proxygen/lib/http/codec/compress/HPACKDecoder.h"
-#include "proxygen/lib/http/codec/compress/HPACKEncoder.h"
-#include "proxygen/lib/http/codec/compress/HeaderCodec.h"
+#include <proxygen/lib/http/codec/TransportDirection.h>
+#include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 
 #include <memory>
 #include <string>

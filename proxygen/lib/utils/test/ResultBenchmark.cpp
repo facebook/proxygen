@@ -8,7 +8,7 @@
  *
  */
 #include "folly/Benchmark.h"
-#include "proxygen/lib/utils/Result.h"
+#include <proxygen/lib/utils/Result.h>
 
 #include <type_traits>
 

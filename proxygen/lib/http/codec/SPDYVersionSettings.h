@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/SPDYVersion.h"
+#include <proxygen/lib/http/codec/SPDYVersion.h>
 
 #include <string>
 

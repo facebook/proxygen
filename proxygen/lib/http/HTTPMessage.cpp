@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/HTTPMessage.h"
+#include <proxygen/lib/http/HTTPMessage.h>
 
 #include <array>
 #include <boost/algorithm/string.hpp>

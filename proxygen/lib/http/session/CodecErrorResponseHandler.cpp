@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/CodecErrorResponseHandler.h"
+#include <proxygen/lib/http/session/CodecErrorResponseHandler.h>
 
 #include <folly/Conv.h>
 

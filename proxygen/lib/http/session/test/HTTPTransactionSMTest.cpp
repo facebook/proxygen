@@ -7,8 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/HTTPTransactionEgressSM.h"
-#include "proxygen/lib/http/session/HTTPTransactionIngressSM.h"
+#include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
+#include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 
 #include <gtest/gtest.h>
 

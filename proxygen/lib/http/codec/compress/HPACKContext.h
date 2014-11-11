@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/HPACKConstants.h"
-#include "proxygen/lib/http/codec/compress/HeaderTable.h"
-#include "proxygen/lib/http/codec/compress/StaticHeaderTable.h"
+#include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/http/codec/compress/HeaderTable.h>
+#include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
 
 namespace proxygen {
 

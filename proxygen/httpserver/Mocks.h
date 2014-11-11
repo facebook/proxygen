@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/httpserver/RequestHandler.h"
-#include "proxygen/httpserver/ResponseHandler.h"
+#include <proxygen/httpserver/RequestHandler.h>
+#include <proxygen/httpserver/ResponseHandler.h>
 
 #include <gmock/gmock.h>
 

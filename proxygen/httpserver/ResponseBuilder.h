@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include "proxygen/httpserver/ResponseHandler.h"
+#include <proxygen/httpserver/ResponseHandler.h>
 
 #include <folly/ScopeGuard.h>
 

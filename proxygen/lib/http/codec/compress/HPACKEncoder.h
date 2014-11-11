@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/HPACKConstants.h"
-#include "proxygen/lib/http/codec/compress/HPACKContext.h"
-#include "proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h"
-#include "proxygen/lib/http/codec/compress/HeaderTable.h"
+#include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/http/codec/compress/HPACKContext.h>
+#include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
+#include <proxygen/lib/http/codec/compress/HeaderTable.h>
 
 #include <folly/io/IOBuf.h>
 #include <list>

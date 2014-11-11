@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/ssl/SSLCacheProvider.h"
-#include "proxygen/lib/ssl/SSLStats.h"
+#include <proxygen/lib/ssl/SSLCacheProvider.h>
+#include <proxygen/lib/ssl/SSLStats.h>
 
 #include <folly/EvictingCacheMap.h>
 #include <mutex>

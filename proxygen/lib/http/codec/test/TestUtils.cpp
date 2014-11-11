@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/codec/test/TestUtils.h"
+#include <proxygen/lib/http/codec/test/TestUtils.h>
 
 #include <folly/Random.h>
 #include <folly/io/Cursor.h>

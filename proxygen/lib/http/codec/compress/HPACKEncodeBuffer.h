@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/HPACKConstants.h"
-#include "proxygen/lib/http/codec/compress/Huffman.h"
+#include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/http/codec/compress/Huffman.h>
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>

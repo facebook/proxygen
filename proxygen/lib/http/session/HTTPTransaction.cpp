@@ -7,11 +7,11 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "proxygen/lib/http/session/HTTPTransaction.h"
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 
-#include "proxygen/lib/http/HTTPHeaderSize.h"
-#include "proxygen/lib/http/codec/SPDYConstants.h"
-#include "proxygen/lib/http/session/HTTPSessionStats.h"
+#include <proxygen/lib/http/HTTPHeaderSize.h>
+#include <proxygen/lib/http/codec/SPDYConstants.h>
+#include <proxygen/lib/http/session/HTTPSessionStats.h>
 
 #include <algorithm>
 #include <glog/logging.h>
