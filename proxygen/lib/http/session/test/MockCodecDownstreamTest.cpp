@@ -116,12 +116,18 @@ class MockCodecDownstreamTest: public testing::Test {
     eventBase_.loop();
   }
 
-  // Pass a function to execute inside Codec::onIngress(). This function also
-  // takes care of passing an empty ingress buffer to the codec.
+  // Pass a function to execute inside HTTPCodec::onIngress(). This
+  // function also takes care of passing an empty ingress buffer to the codec.
   template<class T>
   void onIngressImpl(T f) {
     EXPECT_CALL(*codec_, onIngress(_))
-      .WillOnce(Invoke(f));
+      .WillOnce(Invoke([&f] (const IOBuf& buf) {
+            CHECK_GT(buf.computeChainDataLength(), 0);
+            // The test should be independent of the dummy buffer,
+            // so don't pass it in.
+            f();
+            return buf.computeChainDataLength();
+          }));
 
     void* buf;
     size_t bufSize;
@@ -1342,10 +1348,10 @@ TEST_F(MockCodecDownstreamTest, send_goaway_idle) {
 
 TEST_F(MockCodecDownstreamTest, shutdown_then_error) {
   // Test that we ignore any errors after we shutdown the socket in HTTPSession.
-  onIngressImpl([&] (const IOBuf& buf) {
+  onIngressImpl([&] {
       // This executes as the implementation of HTTPCodec::onIngress()
-
       InSequence dummy;
+
       HTTPException err(HTTPException::Direction::INGRESS, "foo");
       err.setHttpStatusCode(400);
       HTTPMessage req = getGetRequest();
@@ -1362,6 +1368,24 @@ TEST_F(MockCodecDownstreamTest, shutdown_then_error) {
       httpSession_->shutdownTransport();
 
       codecCallback_->onError(1, err, false);
-      return buf.computeChainDataLength();
+    });
+}
+
+TEST_F(MockCodecDownstreamTest, ping_during_shutdown) {
+  onIngressImpl([&] {
+      InSequence dummy;
+
+      // Shutdown writes only. Since the session is empty, this normally
+      // causes the session to close, but it is held open since we are in
+      // the middle of parsing ingress.
+      httpSession_->shutdownTransport(false, true);
+
+      // We read a ping off the wire, which makes us enqueue a ping reply
+      EXPECT_CALL(*codec_, generatePingReply(_, _))
+        .WillOnce(Return(10));
+      codecCallback_->onPingRequest(1);
+
+      // When this function returns, the controller gets detachSession()
+      EXPECT_CALL(mockController_, detachSession(_));
     });
 }

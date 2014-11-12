@@ -23,7 +23,7 @@ using std::vector;
 namespace proxygen {
 
 ByteEventTracker::~ByteEventTracker() {
-  CHECK(byteEvents_.empty());
+  drainByteEvents();
 }
 
 ByteEventTracker::ByteEventTracker(ByteEventTracker&& other) noexcept {
@@ -31,7 +31,6 @@ ByteEventTracker::ByteEventTracker(ByteEventTracker&& other) noexcept {
   other.nextLastByteEvent_ = nullptr;
 
   byteEvents_ = std::move(other.byteEvents_);
-  CHECK(other.byteEvents_.empty());
 }
 
 void ByteEventTracker::processByteEvents(uint64_t bytesWritten,
