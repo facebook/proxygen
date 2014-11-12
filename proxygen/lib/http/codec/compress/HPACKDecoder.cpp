@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <folly/Memory.h>
+#include <proxygen/lib/http/codec/compress/Huffman.h>
 
 using folly::IOBuf;
 using folly::io::Cursor;
@@ -33,7 +34,9 @@ unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
 uint32_t HPACKDecoder::decode(Cursor& cursor,
                               uint32_t totalBytes,
                               headers_t& headers) {
-  HPACKDecodeBuffer dbuf(msgType_, cursor, totalBytes);
+  auto& huffmanTree = msgType_ == HPACK::MessageType::REQ ?
+    huffman::reqHuffTree05() : huffman::respHuffTree05();
+  HPACKDecodeBuffer dbuf(huffmanTree, cursor, totalBytes);
   while (!hasError() && !dbuf.empty()) {
     decodeHeader(dbuf, headers);
   }

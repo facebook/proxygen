@@ -21,6 +21,26 @@ using std::vector;
 
 namespace proxygen {
 
+HPACKEncoder::HPACKEncoder(HPACK::MessageType msgType,
+                           bool huffman,
+                           uint32_t tableSize) :
+    HPACKContext(msgType, tableSize),
+    huffman_(huffman),
+    buffer_(kBufferGrowth,
+            (msgType == HPACK::MessageType::REQ) ?
+            huffman::reqHuffTree05() : huffman::respHuffTree05(),
+            huffman) {
+}
+
+HPACKEncoder::HPACKEncoder(const huffman::HuffTree& huffmanTree,
+                           bool huffman,
+                           uint32_t tableSize) :
+    // since we already have the huffman tree, msgType doesn't matter
+    HPACKContext(HPACK::MessageType::REQ, tableSize),
+    huffman_(huffman),
+    buffer_(kBufferGrowth, huffmanTree, huffman) {
+}
+
 unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
                                        uint32_t headroom) {
   table_.clearSkippedReferences();

@@ -13,6 +13,7 @@
 
 using folly::IOBuf;
 using std::string;
+using std::pair;
 
 namespace proxygen { namespace huffman {
 
@@ -127,6 +128,81 @@ void HuffTree::buildTable() {
   }
 }
 
+uint32_t HuffTree::encode(const std::string& literal,
+                          folly::io::QueueAppender& buf) const {
+  uint32_t code;  // the huffman code of a given character
+  uint8_t bits;   // on how many bits code is represented
+  uint32_t w = 0; // 4-byte word used for packing bits and write it to memory
+  uint8_t wbits = 0;  // how many bits we have in 'w'
+  uint32_t* wdata = (uint32_t*) buf.writableData();
+  uint32_t totalBytes = 0;
+  for (size_t i = 0; i < literal.size(); i++) {
+    uint8_t ch = literal[i];
+    code = codes_[ch];
+    bits = bits_[ch];
+
+    if (wbits + bits < 32) {
+      w = (w << bits) | code;
+      wbits += bits;
+    } else {
+      uint8_t xbits = wbits + bits - 32;
+      w = (w << (bits - xbits)) | (code >> xbits);
+      // write the word into the buffer by converting to network order, which
+      // takes care of the endianness problems
+      *wdata = htonl(w);
+      ++wdata;
+      totalBytes += 4;
+      // carry for next batch
+      wbits = xbits;
+      w = code & ((1 << xbits) - 1);
+    }
+  }
+  // we might have some padding at the byte level
+  if (wbits & 0x7) {
+    // padding bits
+    uint8_t padbits = 8 - (wbits & 0x7);
+    w = (w << padbits) | ((1 << padbits) - 1);
+
+    wbits += padbits;
+  }
+  // we need to write the leftover bytes, from 1 to 4 bytes
+  if (wbits > 0) {
+    uint8_t bytes = wbits >> 3;
+    // align the bits to the MSB
+    w = w << (32 - wbits);
+    // set the bytes in the network order and copy w[0], w[1]...
+    w = htonl(w);
+    // we need to use memcpy because we might write less than 4 bytes
+    memcpy(wdata, &w, bytes);
+    totalBytes += bytes;
+  }
+  // in this point we know if we corrupted memory or not
+  CHECK(totalBytes <= buf.length());
+  if (totalBytes > 0) {
+    buf.append(totalBytes);
+  }
+  return totalBytes;
+}
+
+uint32_t HuffTree::getEncodeSize(const std::string& literal) const {
+  uint32_t totalBits = 0;
+  uint8_t bits;
+  for (size_t i = 0; i < literal.size(); i++) {
+    // we just need the number of bits
+    uint8_t ch = literal[i];
+    totalBits += bits_[ch];
+  }
+  uint32_t size = totalBits >> 3;
+  if (totalBits & 0x07) {
+    ++size;
+  }
+  return size;
+}
+
+pair<uint32_t, uint8_t> HuffTree::getCode(uint8_t ch) const {
+  return std::make_pair(codes_[ch], bits_[ch]);
+}
+
 /**
  * static tables for Huffman encoding specific to HTTP requests and responses:
  *http://tools.ietf.org/html/draft-ietf-httpbis-header-compression-05#appendix-C
@@ -134,7 +210,7 @@ void HuffTree::buildTable() {
 
 // use static functions to instantiate the trees to problems related to
 // initialization order
-const HuffTree& reqHuffTree() {
+const HuffTree& reqHuffTree05() {
   static const uint32_t requestCodes[256] = {
     0x7ffffba, 0x7ffffbb, 0x7ffffbc, 0x7ffffbd, 0x7ffffbe, 0x7ffffbf, 0x7ffffc0,
     0x7ffffc1, 0x7ffffc2, 0x7ffffc3, 0x7ffffc4, 0x7ffffc5, 0x7ffffc6, 0x7ffffc7,
@@ -190,7 +266,7 @@ const HuffTree& reqHuffTree() {
   return huffTree;
 }
 
-const HuffTree& respHuffTree() {
+const HuffTree& respHuffTree05() {
   static const uint32_t responseCodes[256] = {
     0x1ffffbc, 0x1ffffbd, 0x1ffffbe, 0x1ffffbf, 0x1ffffc0, 0x1ffffc1, 0x1ffffc2,
     0x1ffffc3, 0x1ffffc4, 0x1ffffc5, 0x1ffffc6, 0x1ffffc7, 0x1ffffc8, 0x1ffffc9,
@@ -244,102 +320,6 @@ const HuffTree& respHuffTree() {
 
   static const HuffTree huffTree(responseCodes, responseBits);
   return huffTree;
-}
-
-void decode(HPACK::MessageType msgType,
-            const uint8_t* buf,
-            uint32_t size,
-            std::string& literal) {
-  if (msgType == HPACK::MessageType::REQ) {
-    reqHuffTree().decode(buf, size, literal);
-  } else {
-    respHuffTree().decode(buf, size, literal);
-  }
-}
-
-uint32_t encode(const std::string& literal,
-                HPACK::MessageType msgType,
-                folly::io::QueueAppender& buf) {
-  uint32_t code;  // the huffman code of a given character
-  uint8_t bits;   // on how many bits code is represented
-  uint32_t w = 0; // 4-byte word used for packing bits and write it to memory
-  uint8_t wbits = 0;  // how many bits we have in 'w'
-  uint32_t* wdata = (uint32_t*) buf.writableData();
-  uint32_t totalBytes = 0;
-  for (size_t i = 0; i < literal.size(); i++) {
-    code = getCode(literal[i], msgType, &bits);
-
-    if (wbits + bits < 32) {
-      w = (w << bits) | code;
-      wbits += bits;
-    } else {
-      uint8_t xbits = wbits + bits - 32;
-      w = (w << (bits - xbits)) | (code >> xbits);
-      // write the word into the buffer by converting to network order, which
-      // takes care of the endianness problems
-      *wdata = htonl(w);
-      ++wdata;
-      totalBytes += 4;
-      // carry for next batch
-      wbits = xbits;
-      w = code & ((1 << xbits) - 1);
-    }
-  }
-  // we might have some padding at the byte level
-  if (wbits & 0x7) {
-    // padding bits
-    uint8_t padbits = 8 - (wbits & 0x7);
-    w = (w << padbits) | ((1 << padbits) - 1);
-
-    wbits += padbits;
-  }
-  // we need to write the leftover bytes, from 1 to 4 bytes
-  if (wbits > 0) {
-    uint8_t bytes = wbits >> 3;
-    // align the bits to the MSB
-    w = w << (32 - wbits);
-    // set the bytes in the network order and copy w[0], w[1]...
-    w = htonl(w);
-    // we need to use memcpy because we might write less than 4 bytes
-    memcpy(wdata, &w, bytes);
-    totalBytes += bytes;
-  }
-  // in this point we know if we corrupted memory or not
-  CHECK(totalBytes <= buf.length());
-  if (totalBytes > 0) {
-    buf.append(totalBytes);
-  }
-  return totalBytes;
-}
-
-// Note: maybe templatize the Huffman class based on message type
-
-uint32_t getCode(uint8_t ch, HPACK::MessageType msgType, uint8_t* bits) {
-  // Request
-  if (msgType == HPACK::MessageType::REQ) {
-    auto& huffTree = reqHuffTree();
-    *bits = huffTree.bitsTable()[ch];
-    return huffTree.codesTable()[ch];
-  }
-  // Response
-  auto& huffTree = respHuffTree();
-  *bits = huffTree.bitsTable()[ch];
-  return huffTree.codesTable()[ch];
-}
-
-uint32_t getSize(const std::string& literal, HPACK::MessageType msgType) {
-  uint32_t totalBits = 0;
-  uint8_t bits;
-  for (size_t i = 0; i < literal.size(); i++) {
-    // we just need the number of bits
-    getCode(literal[i], msgType, &bits);
-    totalBits += bits;
-  }
-  uint32_t size = totalBits >> 3;
-  if (totalBits & 0x07) {
-    ++size;
-  }
-  return size;
 }
 
 }}

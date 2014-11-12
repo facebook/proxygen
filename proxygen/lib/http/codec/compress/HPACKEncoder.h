@@ -24,11 +24,11 @@ class HPACKEncoder : public HPACKContext {
  public:
   HPACKEncoder(HPACK::MessageType msgType,
                bool huffman,
-               uint32_t tableSize=HPACK::kTableSize) :
-      HPACKContext(msgType, tableSize),
-      huffman_(huffman),
-      buffer_(kBufferGrowth, msgType, huffman) {
-  }
+               uint32_t tableSize=HPACK::kTableSize);
+
+  HPACKEncoder(const huffman::HuffTree& huffmanTree,
+               bool huffman,
+               uint32_t tableSize=HPACK::kTableSize);
 
   /**
    * Size of a new IOBuf which is added to the chain

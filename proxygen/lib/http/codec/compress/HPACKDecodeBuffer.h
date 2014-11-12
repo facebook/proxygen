@@ -12,15 +12,16 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/http/codec/compress/Huffman.h>
 
 namespace proxygen {
 
 class HPACKDecodeBuffer {
  public:
-  explicit HPACKDecodeBuffer(HPACK::MessageType msgType,
+  explicit HPACKDecodeBuffer(const huffman::HuffTree& huffmanTree,
                              folly::io::Cursor& cursorVal,
                              uint32_t totalBytes)
-      : msgType_(msgType),
+      : huffmanTree_(huffmanTree),
         cursor_(cursorVal),
         totalBytes_(totalBytes),
         remainingBytes_(totalBytes) {}
@@ -74,7 +75,7 @@ class HPACKDecodeBuffer {
   bool decodeLiteral(std::string& literal);
 
 private:
-  HPACK::MessageType msgType_;
+  const huffman::HuffTree& huffmanTree_;
   folly::io::Cursor& cursor_;
   uint32_t totalBytes_;
   uint32_t remainingBytes_;

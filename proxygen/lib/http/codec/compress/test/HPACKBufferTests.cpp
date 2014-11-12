@@ -27,7 +27,7 @@ class HPACKBufferTests : public testing::Test {
    * a queue with one IOBuf of 512 bytes in it
    */
   HPACKBufferTests() : encoder_(512),
-                       decoder_(HPACK::MessageType::REQ, cursor_, 0) {
+                       decoder_(huffman::reqHuffTree05(), cursor_, 0) {
   }
 
  protected:
@@ -103,7 +103,7 @@ TEST_F(HPACKBufferTests, encode_plain_literal) {
 
 TEST_F(HPACKBufferTests, encode_huffman_literal) {
   string accept("accept-encoding");
-  HPACKEncodeBuffer encoder(512, HPACK::MessageType::REQ, true);
+  HPACKEncodeBuffer encoder(512, huffman::reqHuffTree05(), true);
   uint32_t size = encoder.encodeLiteral(accept);
   EXPECT_EQ(size, 11);
   releaseData(encoder);
@@ -336,7 +336,7 @@ TEST_F(HPACKBufferTests, empty_iobuf_literal) {
 
   uint32_t size = first->next()->length();
   Cursor cursor(first.get());
-  HPACKDecodeBuffer decoder(HPACK::MessageType::REQ, cursor, size);
+  HPACKDecodeBuffer decoder(huffman::reqHuffTree05(), cursor, size);
   string decoded;
   decoder.decodeLiteral(decoded);
 

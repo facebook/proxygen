@@ -19,10 +19,13 @@ namespace proxygen {
 class HPACKEncodeBuffer {
 
  public:
-  explicit HPACKEncodeBuffer(
+  HPACKEncodeBuffer(
     uint32_t growthSize,
-    HPACK::MessageType msgType = HPACK::MessageType::REQ,
-    bool huffman = false);
+    const huffman::HuffTree& huffmanTree,
+    bool huffmanEnabled);
+
+  explicit HPACKEncodeBuffer(uint32_t growthSize);
+
   ~HPACKEncodeBuffer() {}
 
   /**
@@ -86,8 +89,8 @@ class HPACKEncodeBuffer {
   uint32_t growthSize_;
   folly::IOBufQueue bufQueue_;
   folly::io::QueueAppender buf_;
-  HPACK::MessageType msgType_;
-  bool huffman_;
+  const huffman::HuffTree& huffmanTree_;
+  bool huffmanEnabled_;
 };
 
 }

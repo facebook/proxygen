@@ -11,6 +11,7 @@
 #include <folly/io/IOBufQueue.h>
 #include <gtest/gtest.h>
 #include <memory>
+#include <tuple>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 
@@ -22,30 +23,33 @@ using namespace std;
 using namespace testing;
 
 class HuffmanTests : public testing::Test {
+ protected:
+  const HuffTree& reqTree_ = reqHuffTree05();
+  const HuffTree& respTree_ = respHuffTree05();
 };
 
 TEST_F(HuffmanTests, codes) {
   uint32_t code;
   uint8_t bits;
   // check 'e' for both requests and responses
-  code = huffman::getCode('e', HPACK::MessageType::REQ, &bits);
+  tie(code, bits) = reqTree_.getCode('e');
   EXPECT_EQ(code, 0x01);
   EXPECT_EQ(bits, 4);
-  code = huffman::getCode('e', HPACK::MessageType::RESP, &bits);
+  tie(code, bits) = respTree_.getCode('e');
   EXPECT_EQ(code, 0x10);
   EXPECT_EQ(bits, 5);
   // some extreme cases
-  code = huffman::getCode(0, HPACK::MessageType::REQ, &bits);
+  tie(code, bits) = reqTree_.getCode(0);
   EXPECT_EQ(code, 0x7ffffba);
   EXPECT_EQ(bits, 27);
-  code = huffman::getCode(255, HPACK::MessageType::REQ, &bits);
+  tie(code, bits) = reqTree_.getCode(255);
   EXPECT_EQ(code, 0x3ffffdb);
   EXPECT_EQ(bits, 26);
 
-  code = huffman::getCode(0, HPACK::MessageType::RESP, &bits);
+  tie(code, bits) = respTree_.getCode(0);
   EXPECT_EQ(code, 0x1ffffbc);
   EXPECT_EQ(bits, 25);
-  code = huffman::getCode(255, HPACK::MessageType::RESP, &bits);
+  tie(code, bits) = respTree_.getCode(255);
   EXPECT_EQ(code, 0xffffdc);
   EXPECT_EQ(bits, 24);
 }
@@ -53,13 +57,13 @@ TEST_F(HuffmanTests, codes) {
 TEST_F(HuffmanTests, size) {
   uint32_t size;
   string onebyte("/e");
-  size = huffman::getSize(onebyte, HPACK::MessageType::REQ);
+  size = reqTree_.getEncodeSize(onebyte);
   EXPECT_EQ(size, 1);
 
   string accept("accept-encoding");
-  size = huffman::getSize(accept, HPACK::MessageType::REQ);
+  size = reqTree_.getEncodeSize(accept);
   EXPECT_EQ(size, 10);
-  size = huffman::getSize(accept, HPACK::MessageType::RESP);
+  size = respTree_.getEncodeSize(accept);
   EXPECT_EQ(size, 11);
 }
 
@@ -72,7 +76,7 @@ TEST_F(HuffmanTests, encode) {
   // force the allocation
   appender.ensure(512);
 
-  size = huffman::encode(gzip, HPACK::MessageType::REQ, appender);
+  size = reqTree_.encode(gzip, appender);
   EXPECT_EQ(size, 3);
   const IOBuf* buf = bufQueue.front();
   const uint8_t* data = buf->data();
@@ -82,9 +86,8 @@ TEST_F(HuffmanTests, encode) {
 
   // size must equal with the actual encoding
   string accept("accept-encoding");
-  size = huffman::getSize(accept, HPACK::MessageType::REQ);
-  uint32_t encodedSize = huffman::encode(accept, HPACK::MessageType::REQ,
-                                         appender);
+  size = reqTree_.getEncodeSize(accept);
+  uint32_t encodedSize = reqTree_.encode(accept, appender);
   EXPECT_EQ(size, encodedSize);
 }
 
@@ -93,7 +96,7 @@ TEST_F(HuffmanTests, decode) {
   // simple test with one byte
   buffer[0] = 1; // 0000 0001
   string literal;
-  huffman::decode(HPACK::MessageType::REQ, buffer, 1, literal);
+  reqTree_.decode(buffer, 1, literal);
   CHECK_EQ(literal, "/e");
 
   // simple test with "gzip"
@@ -101,14 +104,14 @@ TEST_F(HuffmanTests, decode) {
   buffer[1] = 213;
   buffer[2] = 78;
   literal.clear();
-  huffman::decode(HPACK::MessageType::REQ, buffer, 3, literal);
+  reqTree_.decode(buffer, 3, literal);
   EXPECT_EQ(literal, "gzip");
 
   // something with padding
   buffer[0] = 200;
   buffer[1] = 127;
   literal.clear();
-  huffman::decode(HPACK::MessageType::REQ, buffer, 2, literal);
+  reqTree_.decode(buffer, 2, literal);
   EXPECT_EQ(literal, "ge");
 }
 
@@ -121,7 +124,7 @@ TEST_F(HuffmanTests, non_printable_decode) {
     0xFF, 0xFF, 0xF7, 0x64
   };
   string literal;
-  huffman::decode(HPACK::MessageType::REQ, buffer1, 4, literal);
+  reqTree_.decode(buffer1, 4, literal);
   EXPECT_EQ(literal.size(), 2);
   EXPECT_EQ((uint8_t)literal[0], 1);
   EXPECT_EQ((uint8_t)literal[1], 46);
@@ -132,7 +135,7 @@ TEST_F(HuffmanTests, non_printable_decode) {
     0xFF, 0xFF, 0xF7, 0x7F, 0xFF, 0xFE, 0x67
   };
   literal.clear();
-  huffman::decode(HPACK::MessageType::REQ, buffer2, 7, literal);
+  reqTree_.decode(buffer2, 7, literal);
   EXPECT_EQ(literal.size(), 2);
   EXPECT_EQ((uint8_t) literal[0], 1);
   EXPECT_EQ((uint8_t) literal[1], 240);
@@ -145,15 +148,13 @@ TEST_F(HuffmanTests, example_com) {
   appender.ensure(512);
 
   string example("www.example.com");
-  uint32_t size = huffman::getSize(example, HPACK::MessageType::REQ);
+  uint32_t size = reqTree_.getEncodeSize(example);
   EXPECT_EQ(size, 11);
-  uint32_t encodedSize =
-    huffman::encode(example, HPACK::MessageType::REQ, appender);
+  uint32_t encodedSize = reqTree_.encode(example, appender);
   EXPECT_EQ(size, encodedSize);
 
   string decoded;
-  huffman::decode(HPACK::MessageType::REQ,
-                  bufQueue.front()->data(), size, decoded);
+  reqTree_.decode(bufQueue.front()->data(), size, decoded);
   CHECK_EQ(example, decoded);
 }
 
@@ -167,13 +168,13 @@ TEST_F(HuffmanTests, user_agent) {
     IOBufQueue bufQueue;
     QueueAppender appender(&bufQueue, 512);
     appender.ensure(512);
-    HPACK::MessageType msgType = (HPACK::MessageType)i;
-    uint32_t size = huffman::getSize(user_agent, msgType);
-    uint32_t encodedSize = huffman::encode(user_agent, msgType, appender);
+    const HuffTree& tree = (i == 0) ? reqHuffTree05() : respHuffTree05();
+    uint32_t size = tree.getEncodeSize(user_agent);
+    uint32_t encodedSize = tree.encode(user_agent, appender);
     EXPECT_EQ(size, encodedSize);
 
     string decoded;
-    huffman::decode(msgType, bufQueue.front()->data(), size, decoded);
+    tree.decode(bufQueue.front()->data(), size, decoded);
     CHECK_EQ(user_agent, decoded);
   }
 }
@@ -187,13 +188,13 @@ TEST_F(HuffmanTests, fit_in_buffer) {
 
   // call with an empty string
   string literal("");
-  huffman::encode(literal, HPACK::MessageType::REQ, appender);
+  reqTree_.encode(literal, appender);
 
   // allow just 1 byte
   appender.ensure(128);
   appender.append(appender.length() - 1);
   literal = "g";
-  huffman::encode(literal, HPACK::MessageType::REQ, appender);
+  reqTree_.encode(literal, appender);
   CHECK_EQ(appender.length(), 0);
 }
 
@@ -287,12 +288,12 @@ class TestingHuffTree : public HuffTree {
   }
 
   static TestingHuffTree getReqHuffTree() {
-    TestingHuffTree reqTree(reqHuffTree());
+    TestingHuffTree reqTree(reqHuffTree05());
     return reqTree;
   }
 
   static TestingHuffTree getRespHuffTree() {
-    TestingHuffTree respTree(respHuffTree());
+    TestingHuffTree respTree(respHuffTree05());
     return respTree;
   }
 

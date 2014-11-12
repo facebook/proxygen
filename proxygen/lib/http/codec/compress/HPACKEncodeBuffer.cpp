@@ -17,17 +17,25 @@
 using folly::IOBuf;
 using std::string;
 using std::unique_ptr;
+using proxygen::huffman::HuffTree;
 
 namespace proxygen {
 
 HPACKEncodeBuffer::HPACKEncodeBuffer(
   uint32_t growthSize,
-  HPACK::MessageType msgType,
-  bool huffman) :
+  const HuffTree& huffmanTree,
+  bool huffmanEnabled) :
     growthSize_(growthSize),
     buf_(&bufQueue_, growthSize),
-    msgType_(msgType),
-    huffman_(huffman) {
+    huffmanTree_(huffmanTree),
+    huffmanEnabled_(huffmanEnabled) {
+}
+
+HPACKEncodeBuffer::HPACKEncodeBuffer(uint32_t growthSize) :
+    growthSize_(growthSize),
+    buf_(&bufQueue_, growthSize),
+    huffmanTree_(huffman::reqHuffTree05()),
+    huffmanEnabled_(false) {
 }
 
 void HPACKEncodeBuffer::addHeadroom(uint32_t headroom) {
@@ -80,17 +88,17 @@ uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t prefix,
 }
 
 uint32_t HPACKEncodeBuffer::encodeHuffman(const std::string& literal) {
-  uint32_t size = huffman::getSize(literal, msgType_);
+  uint32_t size = huffmanTree_.getEncodeSize(literal);
   // add the length
   uint32_t count = encodeInteger(size, HPACK::LiteralEncoding::HUFFMAN, 7);
   // ensure we have enough bytes before performing the encoding
   buf_.ensure(size);
-  count += huffman::encode(literal, msgType_, buf_);
+  count += huffmanTree_.encode(literal, buf_);
   return count;
 }
 
 uint32_t HPACKEncodeBuffer::encodeLiteral(const std::string& literal) {
-  if (huffman_) {
+  if (huffmanEnabled_) {
     return encodeHuffman(literal);
   }
   // otherwise use simple layout

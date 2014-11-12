@@ -68,7 +68,7 @@ bool HPACKDecodeBuffer::decodeLiteral(std::string& literal) {
     data = tmpbuf->data();
   }
   if (huffman) {
-    huffman::decode(msgType_, data, size, literal);
+    huffmanTree_.decode(data, size, literal);
   } else {
     literal.append((const char *)data, size);
   }
