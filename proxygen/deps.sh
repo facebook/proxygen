@@ -28,8 +28,10 @@ sudo apt-get install \
     wget
 
 # Adding support for Ubuntu 12.04.x
-# Needs libdouble-conversion-dev, google-gflags and double-conversion
+# Needs glog, snappy, google-gflags and double-conversion
 # deps.sh in fbthrift and folly builds anyways (no trap there)
+sudo apt-get install libsnappy-dev
+
 if ! sudo apt-get install libgoogle-glog-dev; 
 then
 	echo "fetching glog from svn (apt-get fails)"
