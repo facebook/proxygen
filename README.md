@@ -37,6 +37,26 @@ need to update to the latest version of fbthrift and folly. Running
 `./deps.sh && ./reinstall.sh` will do this for you. We are still working
 on a solution to manage depencies more predictably.
 
+##### Easy Install on Ubuntu 12.04 (Experimental)
+
+Installation on Ubuntu 12.04 requires installing a updated compiler (gcc 4.8+/clang)
+and Boost with C++11 support, neither of which are installed by default.
+12.04 also has a earlier version of automake, so you either need to update it
+(much easier) or make some edits in the code because of [this issue](https://issues.apache.org/jira/browse/THRIFT-1614)
+
+To run on Ubuntu 12.04,
+
+- Install a updated gcc (there are many blog posts for that)
+- (Check your gcc version)
+- Compile Boost with C++11
+- Run ./deps.sh
+- If you're running an older automake, compilation will fail with an error
+  `fatal error: thrift/compiler/thrifty.hh: No such file or directory`
+  Change fbthrift/thrift/compiler/Makefile.am line 90 from
+  `libparse_la_CPPFLAGS = $(AM_CPPFLAGS) -DTHRIFTY_HH=\"thrift/compiler/thrifty.hh\"`
+  to `libparse_la_CPPFLAGS = $(AM_CPPFLAGS) -DTHRIFTY_HH=\"thrift/compiler/thrifty.h\"`
+
+
 ##### Other Platforms
 
 If you are running on another platform, you may need to install several

@@ -25,8 +25,52 @@ sudo apt-get install -yq \
     gperf \
     autoconf-archive \
     libevent-dev \
-    libgoogle-glog-dev \
     wget
+
+# Adding support for Ubuntu 12.04.x
+# Needs glog, snappy, google-gflags and double-conversion
+# deps.sh in fbthrift and folly builds anyways (no trap there)
+sudo apt-get install libsnappy-dev
+
+if ! sudo apt-get install libgoogle-glog-dev; 
+then
+	echo "fetching glog from svn (apt-get fails)"
+	if [ ! -e google-glog ]; then
+		svn checkout http://google-glog.googlecode.com/svn/trunk/ google-glog
+		cd google-glog
+		./configure
+		make
+		sudo make install
+		cd ..
+	fi
+fi
+
+if ! sudo apt-get install libgflags-dev; 
+then
+	if [ ! -e google-gflags ]; then
+		echo "Fetching and building libgflags"
+		wget https://github.com/schuhschuh/gflags/archive/v2.0.tar.gz
+		mkdir google-gflags
+		tar xf v2.0.tar.gz -C google-gflags
+		cd google-gflags/gflags-2.0/
+		./configure
+		make
+		sudo make install
+		cd ../../
+	fi
+fi
+
+if  ! sudo apt-get install libdouble-conversion-dev; 
+then
+	if [ ! -e double-conversion ]; then
+		git clone https://code.google.com/p/double-conversion double-conversion
+		cd double-conversion
+		cmake . -DBUILD_SHARED_LIBS=ON
+		sudo make install
+		cd ..
+	fi
+fi
+
 
 git clone https://github.com/facebook/fbthrift || true
 cd fbthrift/thrift
@@ -41,7 +85,10 @@ if [ -e folly/folly ]; then
 fi
 
 # Build folly and fbthrift
-./deps.sh
+if ! ./deps.sh; then
+	echo "fatal: fbthrift+folly build failed"
+	exit -1
+fi
 
 # Build proxygen
 cd ../..
