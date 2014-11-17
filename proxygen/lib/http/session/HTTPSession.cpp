@@ -207,7 +207,8 @@ void HTTPSession::setSessionStats(HTTPSessionStats* stats) {
 }
 
 void HTTPSession::setFlowControl(size_t initialReceiveWindow,
-                                 size_t receiveStreamWindowSize) {
+                                 size_t receiveStreamWindowSize,
+                                 size_t receiveSessionWindowSize) {
   CHECK(!started_);
   initialReceiveWindow_ = initialReceiveWindow;
   receiveStreamWindowSize_ = receiveStreamWindowSize;
@@ -215,6 +216,10 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
   if (settings) {
     settings->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                          initialReceiveWindow_);
+  }
+  if (connFlowControl_) {
+    connFlowControl_->setReceiveWindowSize(writeBuf_, receiveSessionWindowSize);
+    scheduleWrite();
   }
 }
 

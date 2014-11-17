@@ -59,7 +59,7 @@ struct SPDY3_1CodecPair {
 template <typename C>
 class HTTPDownstreamTest : public testing::Test {
  public:
-  HTTPDownstreamTest()
+  explicit HTTPDownstreamTest(uint32_t sessionWindowSize = spdy::kInitialWindow)
     : eventBase_(),
       transport_(new TestAsyncTransport(&eventBase_)),
       transactionTimeouts_(makeTimeoutSet(&eventBase_)) {
@@ -72,6 +72,8 @@ class HTTPDownstreamTest : public testing::Test {
       std::move(makeServerCodec<typename C::Codec>(
                   C::version)),
       mockTransportInfo /* no stats for now */);
+    httpSession_->setFlowControl(spdy::kInitialWindow, spdy::kInitialWindow,
+                                 sessionWindowSize);
     httpSession_->startNow();
   }
 
@@ -1368,3 +1370,21 @@ typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair> ParallelCodecs;
 INSTANTIATE_TYPED_TEST_CASE_P(ParallelCodecs,
                               HTTPDownstreamTest,
                               ParallelCodecs);
+
+
+class SPDY31DownstreamTest : public HTTPDownstreamTest<SPDY3_1CodecPair> {
+ public:
+  SPDY31DownstreamTest()
+      : HTTPDownstreamTest<SPDY3_1CodecPair>(2 * spdy::kInitialWindow) {}
+};
+
+TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
+  eventBase_.loopOnce();
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  SPDYCodec clientCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3_1);
+
+  EXPECT_CALL(callbacks, onWindowUpdate(0, spdy::kInitialWindow));
+  clientCodec.setCallback(&callbacks);
+  parseOutput(clientCodec);
+}

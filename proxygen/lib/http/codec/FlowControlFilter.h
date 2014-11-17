@@ -52,6 +52,16 @@ class FlowControlFilter:
                     uint32_t recvCapacity);
 
   /**
+   * Modify the session receive window
+   *
+   * @param writeBuf     The buffer to write egress on. This constructor
+   *                     may generate a window update frame on this buffer.
+   * @param capacity     The initial size of the conn-level recv window.
+   *                     It must be >= 65536.
+   */
+  void setReceiveWindowSize(folly::IOBufQueue& writeBuf, uint32_t capacity);
+
+  /**
    * Notify the flow control filter that some ingress bytes were
    * processed. If the number of bytes to acknowledge exceeds half the
    * receive window's capacity, a WINDOW_UPDATE frame will be written.

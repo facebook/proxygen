@@ -41,6 +41,25 @@ FlowControlFilter::FlowControlFilter(Callback& callback,
   }
 }
 
+void FlowControlFilter::setReceiveWindowSize(folly::IOBufQueue& writeBuf,
+                                             uint32_t capacity) {
+  if (capacity < spdy::kInitialWindow) {
+    VLOG(4) << "Ignoring low conn-level recv window size of " << capacity;
+    return;
+  }
+  int32_t delta = capacity - recvWindow_.getCapacity();
+  VLOG(4) << "Incrementing default conn-level recv window by " << delta;
+  if (!recvWindow_.setCapacity(capacity)) {
+    VLOG(2) << "Failed setting conn-level recv window capacity to " << capacity;
+    return;
+  }
+  toAck_ += delta;
+  if (toAck_ > 0) {
+    call_->generateWindowUpdate(writeBuf, 0, delta);
+    toAck_ = 0;
+  }
+}
+
 bool FlowControlFilter::ingressBytesProcessed(folly::IOBufQueue& writeBuf,
                                               uint32_t delta) {
   toAck_ += delta;

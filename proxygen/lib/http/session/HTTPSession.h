@@ -179,12 +179,15 @@ class HTTPSession:
    * @param initialReceiveWindow      size of initial receive window
    *                                  for all ingress streams; set via
    *                                  the initial SETTINGS frame
-   * @param receiveStreamWindowSize   per-stream receive window; sent
+   * @param receiveStreamWindowSize   per-stream receive window for NEW streams;
+   *                                  sent via a WINDOW_UPDATE frame
+   * @param receiveSessionWindowSize  per-session receive window; sent
    *                                  via a WINDOW_UPDATE frame
    */
   void setFlowControl(
    size_t initialReceiveWindow,
-   size_t receiveStreamWindowSize);
+   size_t receiveStreamWindowSize,
+   size_t receiveSessionWindowSize);
 
   /**
    * Set the maximum number of outgoing transactions this session can open
