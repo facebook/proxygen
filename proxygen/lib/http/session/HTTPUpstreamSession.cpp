@@ -68,25 +68,14 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler,
     startNow();
   }
 
-  HTTPCodec::StreamID streamID = codec_->createStream();
-  HTTPTransaction* txn = new HTTPTransaction(
-    codec_->getTransportDirection(), streamID, transactionSeqNo_, *this,
-    txnEgressQueue_, transactionTimeouts_, sessionStats_,
-    codec_->supportsStreamFlowControl(),
-    initialReceiveWindow_,
-    getCodecSendWindowSize(),
-    priority);
+  auto txn = createTransaction(codec_->createStream(),
+                               0,
+                               priority);
 
-  if (!addTransaction(txn)) {
-    delete txn;
-    return nullptr;
+  if (txn) {
+    txn->setHandler(handler);
+    setNewTransactionPauseState(txn);
   }
-
-  transactionSeqNo_++;
-
-  txn->setReceiveWindow(receiveStreamWindowSize_);
-  txn->setHandler(handler);
-  setNewTransactionPauseState(txn);
   return txn;
 }
 
@@ -104,8 +93,8 @@ HTTPUpstreamSession::getTransactionTimeoutHandler(HTTPTransaction* txn) {
 }
 
 bool HTTPUpstreamSession::allTransactionsStarted() const {
-  for (const auto txn: transactions_) {
-    if (!txn.second->isPushed() && !txn.second->isEgressStarted()) {
+  for (const auto& txn: transactions_) {
+    if (!txn.second.isPushed() && !txn.second.isEgressStarted()) {
       return false;
     }
   }

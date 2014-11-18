@@ -731,7 +731,6 @@ HTTPTransaction::checkForCompletion() {
       transport_.notifyIngressBodyProcessed(bytesBuffered);
     }
     transport_.detach(this);
-    delete this;
   }
 }
 

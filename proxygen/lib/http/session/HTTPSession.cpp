@@ -456,23 +456,13 @@ HTTPSession::newPushedTransaction(HTTPCodec::StreamID assocStreamId,
     return nullptr;
   }
 
-  HTTPCodec::StreamID streamID = codec_->createStream();
-  HTTPTransaction* txn = new HTTPTransaction(
-    direction_, streamID, transactionSeqNo_, *this,
-    txnEgressQueue_, transactionTimeouts_, sessionStats_,
-    codec_->supportsStreamFlowControl(),
-    initialReceiveWindow_,
-    getCodecSendWindowSize(),
-    priority, assocStreamId);
-
-  if (!addTransaction(txn)) {
-    delete txn;
+  HTTPTransaction* txn = createTransaction(codec_->createStream(),
+                                           assocStreamId,
+                                           priority);
+  if (!txn) {
     return nullptr;
   }
 
-  transactionSeqNo_++;
-
-  txn->setReceiveWindow(receiveStreamWindowSize_);
   txn->setHandler(handler);
   setNewTransactionPauseState(txn);
   return txn;
@@ -535,47 +525,36 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
   if (assocStreamID > 0) {
     assocStream = findTransaction(assocStreamID);
     if (!assocStream || assocStream->isIngressEOMSeen()) {
-      VLOG(1) << "Can't find assoc txn=" << assocStreamID << ", or assoc txn "
-        "cannot push";
+      VLOG(1) << "Can't find assoc txn=" << assocStreamID
+              << ", or assoc txn cannot push";
       invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
       return nullptr;
     }
   }
 
-  bool useFlowControl = codec_->supportsStreamFlowControl();
-  txn = new HTTPTransaction(
-    direction_, streamID, transactionSeqNo_, *this,
-    txnEgressQueue_, transactionTimeouts_, sessionStats_,
-    useFlowControl,
-    initialReceiveWindow_,
-    getCodecSendWindowSize(),
-    msg ? msg->getPriority() : 0, assocStreamID);
-  txn->setReceiveWindow(receiveStreamWindowSize_);
+  txn = createTransaction(streamID,
+                          assocStreamID,
+                          msg ? msg->getPriority() : 0);
+
+  if (!txn) {
+    // This could happen if the socket is bad.
+    return nullptr;
+  }
+
   if (assocStream && !assocStream->onPushedTransaction(txn)) {
     VLOG(1) << "Failed to add pushed transaction " << streamID << " on "
             << *this;
-    delete txn;
-    txn = nullptr;
-  }
-  if (txn && !addTransaction(txn)) {
-    VLOG(1) << "Cannot add stream ID " << streamID << " on " << *this;
-    delete txn;
-    txn = nullptr;
-  }
-  if (!txn) {
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS);
     ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
     onError(streamID, ex, true);
     return nullptr;
   }
-  // move the sequence number index
-  ++transactionSeqNo_;
 
   if (!codec_->supportsParallelRequests() && transactions_.size() > 1) {
     // The previous transaction hasn't completed yet. Pause reads until
     // it completes; this requires pausing both transactions.
     DCHECK(transactions_.size() == 2);
-    auto prevTxn = transactions_.begin()->second;
+    auto prevTxn = &transactions_.begin()->second;
     if (!prevTxn->isIngressPaused()) {
       DCHECK(prevTxn->isIngressComplete());
       prevTxn->pauseIngress();
@@ -878,7 +857,7 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // successfully at the remote end. Upstream transactions are created
   // with odd transaction IDs and downstream transactions with even IDs.
   vector<HTTPCodec::StreamID> ids;
-  for (auto txn: transactions_) {
+  for (const auto& txn: transactions_) {
     auto streamID = txn.first;
     if (((bool)(streamID & 0x01) == isUpstream()) &&
         (streamID > lastGoodStreamID)) {
@@ -1226,8 +1205,8 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
       assocTxn->removePushedTransaction(streamID);
     }
   }
-  transactions_.erase(it);
   decrementTransactionCount(txn, true, true);
+  transactions_.erase(it);
   if (infoCallback_) {
     if (transactions_.empty()) {
       infoCallback_->onDeactivateConnection(*this);
@@ -1240,10 +1219,10 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
       // If we had more than one transaction, then someone tried to pipeline and
       // we paused reads
       DCHECK(transactions_.size() == 1);
-      auto next_txn = transactions_.begin()->second;
-      DCHECK(next_txn->isIngressPaused());
-      DCHECK(!next_txn->isIngressComplete());
-      next_txn->resumeIngress();
+      auto& nextTxn = transactions_.begin()->second;
+      DCHECK(nextTxn.isIngressPaused());
+      DCHECK(!nextTxn.isIngressComplete());
+      nextTxn.resumeIngress();
       return;
     } else {
       // this will resume reads if they were paused (eg: 0 HTTP transactions)
@@ -1722,27 +1701,46 @@ HTTPSession::findTransaction(HTTPCodec::StreamID streamID) {
   if (it == transactions_.end()) {
     return nullptr;
   } else {
-    return it->second;
+    return &it->second;
   }
 }
 
-bool
-HTTPSession::addTransaction(HTTPTransaction* txn) {
-  if (!sock_->good()) {
-    // Refuse to add a transaction on a closing session
-    return false;
+HTTPTransaction*
+HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
+                               HTTPCodec::StreamID assocStreamID,
+                               int8_t priority) {
+  if (!sock_->good() || transactions_.count(streamID)) {
+    // Refuse to add a transaction on a closing session or if a
+    // transaction of that ID already exists.
+    return nullptr;
   }
 
   if (transactions_.empty() && infoCallback_) {
     infoCallback_->onActivateConnection(*this);
   }
 
-  auto match_pair = transactions_.emplace(txn->getID(), txn);
-  if (match_pair.second) {
-    VLOG(4) << *this << " adding streamID=" << txn->getID()
-            << ", liveTransactions was " << liveTransactions_;
-    liveTransactions_++;
-  }
+  auto matchPair = transactions_.emplace(
+    std::piecewise_construct,
+    std::forward_as_tuple(streamID),
+    std::forward_as_tuple(
+      direction_, streamID, transactionSeqNo_, *this,
+      txnEgressQueue_, transactionTimeouts_, sessionStats_,
+      codec_->supportsStreamFlowControl(),
+      initialReceiveWindow_,
+      getCodecSendWindowSize(),
+      priority, assocStreamID));
+
+  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
+    "existence check.";
+
+  HTTPTransaction* txn = &matchPair.first->second;
+
+  VLOG(4) << *this << " adding streamID=" << txn->getID()
+          << ", liveTransactions was " << liveTransactions_;
+
+  ++liveTransactions_;
+  ++transactionSeqNo_;
+  txn->setReceiveWindow(receiveStreamWindowSize_);
 
   if ((isUpstream() && !txn->isPushed()) ||
       (isDownstream() && txn->isPushed())) {
@@ -1755,7 +1753,7 @@ HTTPSession::addTransaction(HTTPTransaction* txn) {
     pushedTxns_++;
   }
 
-  return match_pair.second;
+  return txn;
 }
 
 void
@@ -1935,7 +1933,7 @@ HTTPSession::hasMoreWrites() const {
 
 void HTTPSession::errorOnAllTransactions(ProxygenError err) {
   std::vector<HTTPCodec::StreamID> ids;
-  for (auto txn: transactions_) {
+  for (const auto& txn: transactions_) {
     ids.push_back(txn.first);
   }
   errorOnTransactionIds(ids, err);

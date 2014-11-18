@@ -96,13 +96,13 @@ class DownstreamTransactionTest : public testing::Test {
   */
 TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
   // flow control is disabled
-  auto txn = new HTTPTransaction(
+  HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
     txnEgressQueue_, transactionTimeouts_.get());
-  setupRequestResponseFlow(txn, 100);
+  setupRequestResponseFlow(&txn, 100);
 
-  txn->onIngressHeadersComplete(makeGetRequest());
+  txn.onIngressHeadersComplete(makeGetRequest());
   eventBase_.loop();
 }
 
@@ -110,7 +110,7 @@ TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
  * Testing that we're sending a window update for simple requests
  */
 TEST_F(DownstreamTransactionTest, regular_window_update) {
-  auto txn = new HTTPTransaction(
+  HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
     txnEgressQueue_, transactionTimeouts_.get(),
@@ -119,13 +119,13 @@ TEST_F(DownstreamTransactionTest, regular_window_update) {
     400,
     spdy::kInitialWindow);
   uint32_t reqBodySize = 220;
-  setupRequestResponseFlow(txn, reqBodySize);
+  setupRequestResponseFlow(&txn, reqBodySize);
 
   // test that the window update is generated
   EXPECT_CALL(transport_, sendWindowUpdate(_, reqBodySize));
 
   // run the test
-  txn->onIngressHeadersComplete(makeGetRequest());
+  txn.onIngressHeadersComplete(makeGetRequest());
   eventBase_.loop();
 }
 
@@ -135,7 +135,7 @@ TEST_F(DownstreamTransactionTest, regular_window_update) {
  */
 TEST_F(DownstreamTransactionTest, window_increase) {
   // set initial window size higher than per-stream window
-  auto txn = new HTTPTransaction(
+  HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
     txnEgressQueue_, transactionTimeouts_.get(),
@@ -144,9 +144,8 @@ TEST_F(DownstreamTransactionTest, window_increase) {
     spdy::kInitialWindow,
     spdy::kInitialWindow);
   uint32_t reqSize = 500;
-  setupRequestResponseFlow(txn, reqSize);
+  setupRequestResponseFlow(&txn, reqSize);
 
-  // use a higher window
   // we expect the difference from the per stream window and the initial window,
   // together with the bytes sent in the request
   uint32_t perStreamWindow = spdy::kInitialWindow + 1024 * 1024;
@@ -154,9 +153,10 @@ TEST_F(DownstreamTransactionTest, window_increase) {
     perStreamWindow - spdy::kInitialWindow;
   EXPECT_CALL(transport_, sendWindowUpdate(_, expectedWindowUpdate));
 
-  txn->setReceiveWindow(perStreamWindow);
+  // use a higher window
+  txn.setReceiveWindow(perStreamWindow);
 
-  txn->onIngressHeadersComplete(makeGetRequest());
+  txn.onIngressHeadersComplete(makeGetRequest());
   eventBase_.loop();
 }
 
@@ -166,7 +166,7 @@ TEST_F(DownstreamTransactionTest, window_increase) {
  */
 TEST_F(DownstreamTransactionTest, window_decrease) {
   // set initial window size higher than per-stream window
-  auto txn = new HTTPTransaction(
+  HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
     txnEgressQueue_, transactionTimeouts_.get(),
@@ -174,7 +174,7 @@ TEST_F(DownstreamTransactionTest, window_decrease) {
     true, // flow control enabled
     spdy::kInitialWindow,
     spdy::kInitialWindow);
-  setupRequestResponseFlow(txn, 500);
+  setupRequestResponseFlow(&txn, 500);
 
   // in this case, there should be no window update, as we decrease the window
   // below the number of bytes we're sending
@@ -182,9 +182,9 @@ TEST_F(DownstreamTransactionTest, window_decrease) {
 
   // use a smaller window
   uint32_t perStreamWindow = spdy::kInitialWindow - 1000;
-  txn->setReceiveWindow(perStreamWindow);
+  txn.setReceiveWindow(perStreamWindow);
 
-  txn->onIngressHeadersComplete(makeGetRequest());
+  txn.onIngressHeadersComplete(makeGetRequest());
   eventBase_.loop();
 }
 
@@ -193,7 +193,7 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   // callback. This is possible because codecs are stateless between
   // frames.
 
-  auto txn = new HTTPTransaction(
+  HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
     txnEgressQueue_, transactionTimeouts_.get());
@@ -203,7 +203,7 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
 
   InSequence dummy;
 
-  EXPECT_CALL(handler_, setTransaction(txn));
+  EXPECT_CALL(handler_, setTransaction(&txn));
   EXPECT_CALL(handler_, onError(_))
     .WillOnce(Invoke([] (const HTTPException& ex) {
           ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
@@ -212,14 +212,14 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   // onEOM() is suppressed since ingress is complete after ingress onError()
   EXPECT_CALL(transport_, sendAbort(_, _));
   EXPECT_CALL(handler_, detachTransaction());
-  EXPECT_CALL(transport_, detach(txn));
+  EXPECT_CALL(transport_, detach(&txn));
 
-  txn->setHandler(&handler_);
-  txn->onError(err);
+  txn.setHandler(&handler_);
+  txn.onError(err);
   // Since the transaction is already closed for ingress, giving it
   // ingress body causes the transaction to be aborted and closed
   // immediately.
-  txn->onIngressBody(makeBuf(10));
+  txn.onIngressBody(makeBuf(10));
 
   eventBase_.loop();
 }

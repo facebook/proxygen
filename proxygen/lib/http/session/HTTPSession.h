@@ -534,11 +534,13 @@ class HTTPSession:
   HTTPTransaction* findTransaction(HTTPCodec::StreamID streamID);
 
   /**
-   * Add a new transaction.
-   * @return true on success, or false if a transaction with the same
-   *         ID already exists
+   * Create a new transaction.
+   * @return pointer to the transaction on success, or else nullptr if it
+   * already exists
    */
-  bool addTransaction(HTTPTransaction* txn);
+  HTTPTransaction* createTransaction(HTTPCodec::StreamID streamID,
+                                     HTTPCodec::StreamID assocStreamID,
+                                     int8_t priority);
 
   /** Invoked by WriteSegment on completion of a write. */
   void onWriteSuccess(uint64_t bytesWritten);
@@ -592,7 +594,7 @@ class HTTPSession:
                                Args2&&... args) {
     DestructorGuard g(this);
     std::vector<HTTPCodec::StreamID> ids;
-    for (auto txn: transactions_) {
+    for (const auto& txn: transactions_) {
       ids.push_back(txn.first);
     }
     for (auto idit = ids.begin(); idit != ids.end() && !transactions_.empty();
@@ -637,7 +639,7 @@ class HTTPSession:
   /** Priority queue of transactions with egress pending */
   HTTPTransaction::PriorityQueue txnEgressQueue_;
 
-  std::map<HTTPCodec::StreamID, HTTPTransaction*> transactions_;
+  std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
 
   /** Count of transactions awaiting input */
   uint32_t liveTransactions_{0};
