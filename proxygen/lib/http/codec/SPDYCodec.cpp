@@ -243,13 +243,6 @@ void SPDYCodec::initPerHopHeaders() {
   perHopHeaderCodes_[HTTP_HEADER_UPGRADE] = true;
 }
 
-const string& SPDYCodec::getHpackNpn() {
-  static const std::string hpackNpn = "spdy/3.1-fb-"
-    + folly::to<string>(kHPACKMajorVersion) + "."
-    + folly::to<string>(kHPACKMinorVersion);
-  return hpackNpn;
-}
-
 const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
   // Indexed by SPDYVersion
   static const SPDYVersionSettings spdyVersions[] = {
@@ -1564,7 +1557,7 @@ SPDYCodec::getVersion(const std::string& protocol) {
     return boost::none;
   }
 
-  if (protocol == getHpackNpn()) {
+  if (protocol == kHpackNpn) {
     return SPDYVersion::SPDY3_1_HPACK;
   }
   if (protocol == "spdy/3.1") {

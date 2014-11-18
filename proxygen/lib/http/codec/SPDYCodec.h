@@ -41,8 +41,6 @@ public:
 
   static const SPDYVersionSettings& getVersionSettings(SPDYVersion version);
 
-  static const std::string& getHpackNpn();
-
   // HTTPCodec API
   CodecProtocol getProtocol() const override;
   TransportDirection getTransportDirection() const override {

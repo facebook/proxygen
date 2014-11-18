@@ -32,6 +32,7 @@ class HPACKHeader;
  */
 const uint8_t kHPACKMajorVersion = 0; // while is still in draft
 const uint8_t kHPACKMinorVersion = 5; // based on HPACK draft 5
+extern const std::string kHpackNpn; // NPN string for SPDY w/ HPACK
 
 class HPACKCodec : public HeaderCodec {
  public:
