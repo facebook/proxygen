@@ -42,7 +42,6 @@ InFlightConns, "in_flight_conns"
 
 /* ---- Used in PostConnect ---- */
 NewSession, "new_session"
-OriginalParentID, "original_parent_id"
 NumWaiting, "num_waiting"
 
 /* ---- Used in DnsResolution ---- */
