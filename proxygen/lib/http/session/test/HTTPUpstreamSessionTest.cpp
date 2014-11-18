@@ -749,6 +749,7 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
             nextOutgoingTxn_ += 2;
             return ret;
           }));
+
     commonSetUp(std::move(codec));
   }
 
@@ -772,7 +773,22 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
   uint32_t nextOutgoingTxn_{1};
 };
 
-TEST_F(MockHTTPUpstreamTest, parse_error_no_txn) {
+class MockHTTP2UpstreamTest: public MockHTTPUpstreamTest {
+ public:
+  void SetUp() override {
+    MockHTTPUpstreamTest::SetUp();
+
+    // This class assumes we are doing a test for SPDY or HTTP/2+ where
+    // this function is *not* a no-op. Indicate this via a positive number
+    // of bytes being generated for writing RST_STREAM.
+
+    ON_CALL(*codecPtr_, generateRstStream(_, _, _))
+      .WillByDefault(Return(1));
+  }
+};
+
+
+TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
   // 1) Create streamID == 1
   // 2) Send request
   // 3) Detach handler
@@ -782,8 +798,7 @@ TEST_F(MockHTTPUpstreamTest, parse_error_no_txn) {
   // Setup the codec expectations.
   EXPECT_CALL(*codecPtr_, generateEOM(_, _))
     .WillOnce(Return(20));
-  EXPECT_CALL(*codecPtr_, generateRstStream(_, 1, _))
-    .WillOnce(Return(1));
+  EXPECT_CALL(*codecPtr_, generateRstStream(_, 1, _));
 
   // 1)
   NiceMock<MockHTTPHandler> handler;
@@ -1185,7 +1200,7 @@ TEST_F(MockHTTPUpstreamTest, drain_before_send_headers) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTPUpstreamTest, receive_double_goaway) {
+TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
   // Test that we handle receiving two goaways correctly
 
   InSequence enforceOrder;
@@ -1213,7 +1228,7 @@ TEST_F(MockHTTPUpstreamTest, receive_double_goaway) {
   handler1->txn_->sendAbort();
 }
 
-TEST_F(MockHTTPUpstreamTest, server_push_invalid_assoc) {
+TEST_F(MockHTTP2UpstreamTest, server_push_invalid_assoc) {
   // Test that protocol error is generated on server push
   // with invalid assoc stream id
   InSequence enforceOrder;
@@ -1225,8 +1240,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_invalid_assoc) {
   int badAssocID = streamID + 2;
 
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, pushID, ErrorCode::PROTOCOL_ERROR))
-    .WillOnce(Return(1));
+              generateRstStream(_, pushID, ErrorCode::PROTOCOL_ERROR));
   EXPECT_CALL(*codecPtr_,
               generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
     .Times(2);
@@ -1249,8 +1263,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_invalid_assoc) {
   codecCb_->onMessageComplete(streamID, false);
 
   // Cleanup
-  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _))
-    .Times(1);
+  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
   EXPECT_CALL(*handler, detachTransaction());
   handler->terminate();
 
@@ -1258,7 +1271,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_invalid_assoc) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTPUpstreamTest, server_push_after_fin) {
+TEST_F(MockHTTP2UpstreamTest, server_push_after_fin) {
   // Test that protocol error is generated on server push
   // after FIN is received on regular response on the stream
   InSequence enforceOrder;
@@ -1297,8 +1310,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_after_fin) {
   codecCb_->onMessageComplete(pushID, false);
 
   // Cleanup
-  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _))
-    .Times(1);
+  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
   EXPECT_CALL(*handler, detachTransaction());
   handler->terminate();
 
@@ -1306,7 +1318,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_after_fin) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTPUpstreamTest, server_push_handler_install_fail) {
+TEST_F(MockHTTP2UpstreamTest, server_push_handler_install_fail) {
   // Test that REFUSED_STREAM error is generated when the session
   // fails to install the server push handler
   InSequence enforceOrder;
@@ -1322,8 +1334,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_handler_install_fail) {
             txn->setHandler(nullptr);
           }));
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, pushID, ErrorCode::REFUSED_STREAM))
-    .WillOnce(Return(1));
+              generateRstStream(_, pushID, ErrorCode::REFUSED_STREAM));
   EXPECT_CALL(*codecPtr_,
               generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
     .Times(2);
@@ -1350,8 +1361,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_handler_install_fail) {
   codecCb_->onMessageComplete(streamID, false);
 
   // Cleanup
-  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _))
-    .Times(1);
+  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
   EXPECT_CALL(*handler, detachTransaction());
   handler->terminate();
 
@@ -1359,7 +1369,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_handler_install_fail) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTPUpstreamTest, server_push_unhandled_assoc) {
+TEST_F(MockHTTP2UpstreamTest, server_push_unhandled_assoc) {
   // Test that REFUSED_STREAM error is generated when the assoc txn
   // is unhandled
   InSequence enforceOrder;
@@ -1373,8 +1383,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_unhandled_assoc) {
   handler->txn_->setHandler(nullptr);
 
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, pushID, ErrorCode::REFUSED_STREAM))
-    .WillOnce(Return(1));
+              generateRstStream(_, pushID, ErrorCode::REFUSED_STREAM));
   EXPECT_CALL(*codecPtr_,
               generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
     .Times(2);
@@ -1387,8 +1396,7 @@ TEST_F(MockHTTPUpstreamTest, server_push_unhandled_assoc) {
   codecCb_->onMessageComplete(pushID, false);
 
   // Cleanup
-  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _))
-    .Times(1);
+  EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
   handler->terminate();
 
   EXPECT_TRUE(!httpSession_->hasActiveTransactions());
@@ -1400,7 +1408,6 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   auto handler = openTransaction();
   handler->txn_->sendHeaders(req);
 
-  // Now receive 2 replies on the same stream (illegal!)
   EXPECT_CALL(*handler, onHeadersComplete(_));
   EXPECT_CALL(*handler, onBody(_));
   // After getting the second headers, transaction will detach the handler
@@ -1410,6 +1417,7 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   codecCb_->onMessageBegin(1, resp.get());
   codecCb_->onHeadersComplete(1, std::move(resp));
   codecCb_->onBody(1, makeBuf(20));
+  // Now receive headers again, on the same stream (illegal!)
   codecCb_->onHeadersComplete(1, makeResponse(200));
 }
 
