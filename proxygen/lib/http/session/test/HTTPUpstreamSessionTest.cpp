@@ -1253,6 +1253,9 @@ TEST_F(MockHTTPUpstreamTest, server_push_invalid_assoc) {
     .Times(1);
   EXPECT_CALL(*handler, detachTransaction());
   handler->terminate();
+
+  EXPECT_TRUE(!httpSession_->hasActiveTransactions());
+  httpSession_->destroy();
 }
 
 TEST_F(MockHTTPUpstreamTest, server_push_after_fin) {
@@ -1298,6 +1301,9 @@ TEST_F(MockHTTPUpstreamTest, server_push_after_fin) {
     .Times(1);
   EXPECT_CALL(*handler, detachTransaction());
   handler->terminate();
+
+  EXPECT_TRUE(!httpSession_->hasActiveTransactions());
+  httpSession_->destroy();
 }
 
 TEST_F(MockHTTPUpstreamTest, server_push_handler_install_fail) {
@@ -1348,6 +1354,9 @@ TEST_F(MockHTTPUpstreamTest, server_push_handler_install_fail) {
     .Times(1);
   EXPECT_CALL(*handler, detachTransaction());
   handler->terminate();
+
+  EXPECT_TRUE(!httpSession_->hasActiveTransactions());
+  httpSession_->destroy();
 }
 
 TEST_F(MockHTTPUpstreamTest, server_push_unhandled_assoc) {
@@ -1381,6 +1390,9 @@ TEST_F(MockHTTPUpstreamTest, server_push_unhandled_assoc) {
   EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _))
     .Times(1);
   handler->terminate();
+
+  EXPECT_TRUE(!httpSession_->hasActiveTransactions());
+  httpSession_->destroy();
 }
 
 TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
