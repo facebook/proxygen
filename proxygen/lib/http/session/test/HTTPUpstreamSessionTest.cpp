@@ -1421,6 +1421,21 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   codecCb_->onHeadersComplete(1, makeResponse(200));
 }
 
+TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
+  auto handler = openTransaction();
+  handler->txn_->setReceiveWindow(1000000); // One miiiillion
+
+  InSequence dummy;
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateWindowUpdate(_, _, _));
+
+  HTTPMessage req = getGetRequest();
+  handler->txn_->sendHeaders(req);
+  EXPECT_CALL(*handler, detachTransaction());
+  handler->txn_->sendAbort();
+  httpSession_->destroy();
+}
+
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
                            immediate_eof/*[, other_test]*/);

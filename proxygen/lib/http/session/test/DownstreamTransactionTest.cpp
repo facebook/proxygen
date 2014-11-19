@@ -147,14 +147,14 @@ TEST_F(DownstreamTransactionTest, window_increase) {
   setupRequestResponseFlow(txn, reqSize);
 
   // use a higher window
-  uint32_t perStreamWindow = spdy::kInitialWindow + 1024 * 1024;
-  txn->setReceiveWindow(perStreamWindow);
-
   // we expect the difference from the per stream window and the initial window,
   // together with the bytes sent in the request
+  uint32_t perStreamWindow = spdy::kInitialWindow + 1024 * 1024;
   uint32_t expectedWindowUpdate =
-    perStreamWindow - spdy::kInitialWindow + reqSize;
+    perStreamWindow - spdy::kInitialWindow;
   EXPECT_CALL(transport_, sendWindowUpdate(_, expectedWindowUpdate));
+
+  txn->setReceiveWindow(perStreamWindow);
 
   txn->onIngressHeadersComplete(makeGetRequest());
   eventBase_.loop();

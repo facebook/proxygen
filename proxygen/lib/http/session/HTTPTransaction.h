@@ -1032,6 +1032,12 @@ class HTTPTransaction :
   bool validateIngressStateTransition(HTTPTransactionIngressSM::Event);
 
   /**
+   * Flushes any pending window updates.  This can happen from setReceiveWindow
+   * or sendHeaders depending on transaction state.
+   */
+  void flushWindowUpdate();
+
+  /**
    * Queue to hold any events that we receive from the Transaction
    * while the ingress is supposed to be paused.
    */

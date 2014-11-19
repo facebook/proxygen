@@ -172,13 +172,8 @@ void HTTPTransaction::processIngressBody(unique_ptr<IOBuf> chain, size_t len) {
           // closed
           divisor = 1;
         }
-        if (recvToAck_ >= 0 &&
-            uint32_t(recvToAck_) >= (recvWindow_.getCapacity() / divisor)) {
-          VLOG(4) << *this << " recv_window is " << recvWindow_.getSize()
-                  << " / " << recvWindow_.getCapacity() << " after acking "
-                  << recvToAck_;
-          transport_.sendWindowUpdate(this, recvToAck_);
-          recvToAck_ = 0;
+        if (uint32_t(recvToAck_) >= (recvWindow_.getCapacity() / divisor)) {
+          flushWindowUpdate();
         }
       }
     } // else don't care about window updates
@@ -527,6 +522,7 @@ void HTTPTransaction::sendHeaders(const HTTPMessage& headers) {
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
   }
+  flushWindowUpdate();
 }
 
 void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
@@ -921,6 +917,21 @@ void HTTPTransaction::setReceiveWindow(uint32_t capacity) {
     return;
   }
   recvToAck_ += delta;
+  flushWindowUpdate();
+}
+
+void HTTPTransaction::flushWindowUpdate() {
+
+  if (recvToAck_ > 0 &&
+      (direction_ == TransportDirection::DOWNSTREAM ||
+       egressState_ != HTTPTransactionEgressSM::State::Start)) {
+    // Down egress upstream window updates until after headers
+    VLOG(4) << *this << " recv_window is " << recvWindow_.getSize()
+            << " / " << recvWindow_.getCapacity() << " after acking "
+            << recvToAck_;
+    transport_.sendWindowUpdate(this, recvToAck_);
+    recvToAck_ = 0;
+  }
 }
 
 std::ostream&
