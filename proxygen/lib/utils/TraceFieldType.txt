@@ -95,3 +95,7 @@ SizeOfQueue, "size_of_queue"
 PreviousState, "previous_state"
 CurrentState, "current_state"
 NetworkID, "network_id"
+
+/* ---- Used in HappyEyeballs ---- */
+Ipv4Succeeded, "ipv4_succeeded"
+Ipv6Succeeded, "ipv6_succeeded"
