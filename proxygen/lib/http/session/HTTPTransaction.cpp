@@ -913,6 +913,12 @@ void HTTPTransaction::setReceiveWindow(uint32_t capacity) {
   // Depending on whether delta is positive or negative it will cause the
   // window to either increase or decrease.
   int32_t delta = capacity - recvWindow_.getCapacity();
+  if (delta < 0) {
+    // For now, we're disallowing shrinking the window, since it can lead
+    // to FLOW_CONTROL_ERRORs if there is data in flight.
+    VLOG(4) << "Refusing to shrink the recv window";
+    return;
+  }
   if (!recvWindow_.setCapacity(capacity)) {
     return;
   }

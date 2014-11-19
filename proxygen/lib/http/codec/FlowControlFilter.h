@@ -99,7 +99,7 @@ class FlowControlFilter:
   Callback& notify_;
   Window recvWindow_;
   Window sendWindow_;
-  uint32_t toAck_{0};
+  int32_t toAck_{0};
   bool error_:1;
   bool sendsBlocked_:1;
 };

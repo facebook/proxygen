@@ -48,6 +48,12 @@ void FlowControlFilter::setReceiveWindowSize(folly::IOBufQueue& writeBuf,
     return;
   }
   int32_t delta = capacity - recvWindow_.getCapacity();
+  if (delta < 0) {
+    // For now, we're disallowing shrinking the window, since it can lead
+    // to FLOW_CONTROL_ERRORs if there is data in flight.
+    VLOG(4) << "Refusing to shrink the recv window";
+    return;
+  }
   VLOG(4) << "Incrementing default conn-level recv window by " << delta;
   if (!recvWindow_.setCapacity(capacity)) {
     VLOG(2) << "Failed setting conn-level recv window capacity to " << capacity;
@@ -63,7 +69,7 @@ void FlowControlFilter::setReceiveWindowSize(folly::IOBufQueue& writeBuf,
 bool FlowControlFilter::ingressBytesProcessed(folly::IOBufQueue& writeBuf,
                                               uint32_t delta) {
   toAck_ += delta;
-  if (toAck_ > recvWindow_.getCapacity() / 2) {
+  if (toAck_ > 0 && uint32_t(toAck_) > recvWindow_.getCapacity() / 2) {
     CHECK(recvWindow_.free(toAck_));
     call_->generateWindowUpdate(writeBuf, 0, toAck_);
     toAck_ = 0;
