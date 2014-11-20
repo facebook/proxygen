@@ -15,6 +15,7 @@
 #include <folly/io/IOBuf.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
+#include <proxygen/lib/utils/UnionBasedStatic.h>
 #include <string>
 
 using folly::IOBuf;
@@ -33,19 +34,20 @@ namespace {
 // Maximum size of header names+values after expanding multi-value headers
 const size_t kMaxExpandedHeaderLineBytes = 80 * 1024;
 
+DEFINE_UNION_STATIC(ThreadLocalPtr<IOBuf>, IOBuf, s_buf);
+
 folly::IOBuf& getStaticHeaderBufSpace(size_t size) {
-  static ThreadLocalPtr<IOBuf> buf;
-  if (!buf) {
-    buf.reset(new IOBuf(IOBuf::CREATE, size));
+  if (!s_buf.data) {
+    s_buf.data.reset(new IOBuf(IOBuf::CREATE, size));
   } else {
-    if (size > buf->capacity()) {
-      buf.reset(new IOBuf(IOBuf::CREATE, size));
+    if (size > s_buf.data->capacity()) {
+      s_buf.data.reset(new IOBuf(IOBuf::CREATE, size));
     } else {
-      buf->clear();
+      s_buf.data->clear();
     }
   }
-  DCHECK(!buf->isShared());
-  return *buf;
+  DCHECK(!s_buf.data->isShared());
+  return *s_buf.data;
 }
 
 void appendString(uint8_t*& dst, const string& str) {

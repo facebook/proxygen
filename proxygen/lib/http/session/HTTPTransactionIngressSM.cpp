@@ -9,6 +9,8 @@
  */
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 
+#include <proxygen/lib/utils/UnionBasedStatic.h>
+
 namespace proxygen {
 
 namespace {
@@ -17,15 +19,7 @@ typedef typename HTTPTransactionIngressSMData::State State;
 typedef typename HTTPTransactionIngressSMData::Event Event;
 typedef std::map<std::pair<State, Event>, State> TransitionTable;
 
-// Since clients may call exit() directly it's not safe to use a non-trivial
-// global static. Instead, we use a union with placement new to provide similar
-// semantics to static initialization but prevent the destructor from ever
-// being called.
-union TableUnion {
-  TransitionTable data;
-  TableUnion() {}
-  ~TableUnion() {}
-} const s_transitions;
+DEFINE_UNION_STATIC_CONST_NO_INIT(TransitionTable, Table, s_transitions);
 
 //             +--> ChunkHeaderReceived -> ChunkBodyReceived
 //             |        ^                     v
