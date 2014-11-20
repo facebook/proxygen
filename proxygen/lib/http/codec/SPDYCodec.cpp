@@ -279,18 +279,9 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
 
 SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
                      int spdyCompressionLevel /* = Z_NO_COMPRESSION */)
-  : callback_(nullptr),
+  : versionSettings_(getVersionSettings(version)),
     transportDirection_(direction),
-    lastStreamID_(0),
-    versionSettings_(getVersionSettings(version)),
-    maxFrameLength_(spdy::kMaxFrameLength),
-    currentIngressBuf_(nullptr),
     frameState_(FrameState::FRAME_HEADER),
-    version_(0),
-    type_(0xffff),
-    streamId_(0),
-    length_(0),
-    flags_(0),
     sessionClosing_(ClosingState::OPEN),
     printer_(false),
     ctrl_(false) {

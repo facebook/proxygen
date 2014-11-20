@@ -149,13 +149,6 @@ public:
 
   static void initPerHopHeaders() __attribute__ ((__constructor__));
 
-  // SPDY Frame parsing state
-  enum class FrameState {
-    FRAME_HEADER = 0,
-    CTRL_FRAME_DATA = 1,
-    DATA_FRAME_DATA = 2,
-  };
-
   /**
    * Generates a frame of type SYN_STREAM
    */
@@ -328,20 +321,8 @@ public:
    */
   bool rstStatusSupported(int statusCode) const;
 
-  HTTPCodec::Callback* callback_;
-  TransportDirection transportDirection_;
-  StreamID nextEgressStreamID_;
-  StreamID nextEgressPingID_;
-  StreamID lastStreamID_;
-  // StreamID's are 31 bit unsigned integers, so all received goaways will
-  // be lower than this.
-  StreamID ingressGoawayAck_{std::numeric_limits<uint32_t>::max()};
   folly::fbvector<StreamID> closedStreams_;
   const SPDYVersionSettings& versionSettings_;
-  uint32_t maxFrameLength_;
-
-  const folly::IOBuf* currentIngressBuf_;
-  std::unique_ptr<HTTPMessage> partialMsg_;
 
   HTTPSettings ingressSettings_{
     {SettingsId::MAX_CONCURRENT_STREAMS, spdy::kMaxConcurrentStreams},
@@ -352,20 +333,38 @@ public:
     {SettingsId::INITIAL_WINDOW_SIZE, spdy::kInitialWindow}
   };
 
-  FrameState frameState_;
-  uint16_t version_;
-  uint16_t type_;
-  uint32_t streamId_;
-  uint32_t length_;
-  uint8_t flags_;
+  std::unique_ptr<HTTPMessage> partialMsg_;
+  HTTPCodec::Callback* callback_{nullptr};
+  const folly::IOBuf* currentIngressBuf_{nullptr};
+
+  StreamID nextEgressStreamID_;
+  StreamID nextEgressPingID_;
+  StreamID lastStreamID_{0};
+  // StreamID's are 31 bit unsigned integers, so all received goaways will
+  // be lower than this.
+  StreamID ingressGoawayAck_{std::numeric_limits<uint32_t>::max()};
+  uint32_t maxFrameLength_{spdy::kMaxFrameLength};
+  uint32_t streamId_{0};
+  uint32_t length_{0};
+  uint16_t version_{0};
+  uint16_t type_{0xffff};
+  uint8_t flags_{0};
+  TransportDirection transportDirection_;
+
+  // SPDY Frame parsing state
+  enum FrameState {
+    FRAME_HEADER = 0,
+    CTRL_FRAME_DATA = 1,
+    DATA_FRAME_DATA = 2,
+  } frameState_:2;
 
   enum ClosingState {
     OPEN = 0,
     OPEN_WITH_GRACEFUL_DRAIN_ENABLED = 1,
     FIRST_GOAWAY_SENT = 2,
     CLOSING = 3,
-  };
-  ClosingState sessionClosing_:2;
+  } sessionClosing_:2;
+
   bool printer_:1;
   bool ctrl_:1;
 
