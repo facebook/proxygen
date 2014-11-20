@@ -28,8 +28,8 @@ bool HTTPUpstreamSession::isReusable() const {
     << ", pendingWriteSize_=" << pendingWriteSize_
     << ", numActiveWrites_=" << numActiveWrites_
     << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
-    << ", readsShutdown_=" << readsShutdown_
-    << ", writesShutdown_=" << writesShutdown_
+    << ", readsShutdown()=" << readsShutdown()
+    << ", writesShutdown()=" << writesShutdown()
     << ", writesDraining_=" << writesDraining_
     << ", resetAfterDrainingWrites_=" << resetAfterDrainingWrites_
     << ", ingressError_=" << ingressError_
@@ -42,8 +42,8 @@ bool HTTPUpstreamSession::isReusable() const {
     codec_->isReusable() &&
     !draining_ &&
     !codec_->isBusy() &&
-    !readsShutdown_ &&
-    !writesShutdown_ &&
+    !readsShutdown() &&
+    !writesShutdown() &&
     !writesDraining_ &&
     !resetAfterDrainingWrites_ &&
     !ingressError_ &&

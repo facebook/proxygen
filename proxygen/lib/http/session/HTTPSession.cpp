@@ -119,13 +119,11 @@ HTTPSession::HTTPSession(
     transactionTimeouts_(CHECK_NOTNULL(transactionTimeouts)),
     transportInfo_(tinfo),
     direction_(codec_->getTransportDirection()),
+    reads_(SocketState::PAUSED),
+    writes_(SocketState::UNPAUSED),
     draining_(false),
     ingressUpgraded_(false),
     started_(false),
-    readsPaused_(true),
-    readsShutdown_(false),
-    writesPaused_(false),
-    writesShutdown_(false),
     writesDraining_(false),
     resetAfterDrainingWrites_(false),
     ingressError_(false),
@@ -320,7 +318,7 @@ HTTPSession::closeWhenIdle() {
 void
 HTTPSession::dropConnection() {
   VLOG(4) << "dropping " << *this;
-  if (!sock_ || (readsShutdown_ && writesShutdown_)) {
+  if (!sock_ || (readsShutdown() && writesShutdown())) {
     VLOG(4) << *this << " already shutdown";
     return;
   }
@@ -378,8 +376,7 @@ HTTPSession::processReadData() {
   // SSL traffic and not enough to decrypt a whole record.  Later we invoke
   // this function from the loop callback.
   while (!ingressError_ &&
-         !readsPaused_ &&
-         !readsShutdown_ &&
+         readsUnpaused() &&
          ((currentReadBuf = readBuf_.front()) != nullptr &&
           currentReadBuf->length() != 0)) {
     // We're about to parse, make sure the parser is not paused
@@ -477,7 +474,7 @@ size_t HTTPSession::getCodecSendWindowSize() const {
 
 void
 HTTPSession::setNewTransactionPauseState(HTTPTransaction* txn) {
-  if (writesPaused_) {
+  if (writesPaused()) {
     // If writes are paused, start this txn off in the egress paused state
     VLOG(4) << *this << " starting streamID=" << txn->getID()
             << " egress paused. pendingWriteSize_=" << pendingWriteSize_
@@ -1060,7 +1057,7 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
     infoCallback_->onRequestEnd(*this, txn->getMaxDeferredSize());
   }
   decrementTransactionCount(txn, false, true);
-  if (withRST || ((!codec_->isReusable() || readsShutdown_) &&
+  if (withRST || ((!codec_->isReusable() || readsShutdown()) &&
                   transactions_.size() == 1)) {
     // We should shutdown reads if we are closing with RST or we aren't
     // interested in any further messages (ie if we are a downstream session).
@@ -1192,7 +1189,7 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
       infoCallback_->onTransactionDetached(*this);
     }
   }
-  if (!readsShutdown_) {
+  if (!readsShutdown()) {
     if (!codec_->supportsParallelRequests() && !transactions_.empty()) {
       // If we had more than one transaction, then someone tried to pipeline and
       // we paused reads
@@ -1220,7 +1217,7 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
     }
     // Handle the case where we are draining writes but all remaining
     // transactions terminated with no egress.
-    if (writesDraining_ && !writesShutdown_ && !hasMoreWrites()) {
+    if (writesDraining_ && !writesShutdown() && !hasMoreWrites()) {
       shutdownTransport(false, true);
       return;
     }
@@ -1307,9 +1304,9 @@ void HTTPSession::setByteEventTracker(
 unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
   // limit ourselves to one outstanding write at a time (onWriteSuccess calls
   // scheduleWrite)
-  if (numActiveWrites_ > 0 || writesShutdown_) {
+  if (numActiveWrites_ > 0 || writesShutdown()) {
     VLOG(4) << "skipping write during this loop, numActiveWrites_=" <<
-      numActiveWrites_ << " writesShutdown_=" << writesShutdown_;
+      numActiveWrites_ << " writesShutdown()=" << writesShutdown();
     return nullptr;
   }
 
@@ -1408,16 +1405,16 @@ HTTPSession::runLoopCallback() noexcept {
     }
     // writeChain can result in a writeError and trigger the shutdown code path
   }
-  if (numActiveWrites_ == 0 && !writesShutdown_ && hasMoreWrites() &&
+  if (numActiveWrites_ == 0 && !writesShutdown() && hasMoreWrites() &&
       (!connFlowControl_ || connFlowControl_->getAvailableSend())) {
     scheduleWrite();
   }
 
-  if (!readsPaused_ && !readsShutdown_) {
+  if (readsUnpaused()) {
     processReadData();
 
     // Install the read callback if necessary
-    if (!readsPaused_ && !readsShutdown_ && !sock_->getReadCallback()) {
+    if (readsUnpaused() && !sock_->getReadCallback()) {
       sock_->setReadCallback(this);
     }
   }
@@ -1446,15 +1443,15 @@ HTTPSession::updateWriteBufSize(int64_t delta) {
   DCHECK(delta >= 0 || uint64_t(-delta) <= pendingWriteSize_);
   pendingWriteSize_ += delta;
 
-  if (egressLimitExceeded() && !writesPaused_) {
+  if (egressLimitExceeded() && writesUnpaused()) {
     // Exceeded limit. Pause reading on the incoming stream.
     VLOG(3) << "Pausing egress for " << *this;
-    writesPaused_ = true;
+    writes_ = SocketState::PAUSED;
     invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
-  } else if (!egressLimitExceeded() && writesPaused_ && !writesShutdown_) {
+  } else if (!egressLimitExceeded() && writesPaused()) {
     // Dropped below limit. Resume reading on the incoming stream if needed.
     VLOG(3) << "Resuming egress for " << *this;
-    writesPaused_ = false;
+    writes_ = SocketState::UNPAUSED;
     invokeOnAllTransactions(&HTTPTransaction::resumeEgress);
   }
 }
@@ -1467,10 +1464,10 @@ HTTPSession::shutdownTransport(bool shutdownReads,
   // shutdowns not accounted for, shouldn't see any
   setCloseReason(ConnectionCloseReason::UNKNOWN);
 
-  VLOG(4) << "shutdown request for " << *this <<
-    ": reads=" << shutdownReads << " (currently " << readsShutdown_ <<
-    "), writes=" << shutdownWrites << " (currently " << writesShutdown_ <<
-    ")";
+  VLOG(4) << "shutdown request for " << *this << ": reads="
+          << shutdownReads << " (currently " << readsShutdown()
+          << "), writes=" << shutdownWrites << " (currently "
+          << writesShutdown() << ")";
 
   bool notifyEgressShutdown = false;
   bool notifyIngressShutdown = false;
@@ -1491,7 +1488,7 @@ HTTPSession::shutdownTransport(bool shutdownReads,
     error = kErrorEOF;
   }
 
-  if (shutdownWrites && !writesShutdown_) {
+  if (shutdownWrites && !writesShutdown()) {
     if (codec_->generateGoaway(writeBuf_,
                                codec_->getLastIncomingStreamID(),
                                ErrorCode::NO_ERROR)) {
@@ -1499,7 +1496,7 @@ HTTPSession::shutdownTransport(bool shutdownReads,
     }
     if (!hasMoreWrites() &&
         (transactions_.empty() || codec_->closeOnEgressComplete())) {
-      writesShutdown_ = true;
+      writes_ = SocketState::SHUTDOWN;
       if (byteEventTracker_) {
         byteEventTracker_->drainByteEvents();
       }
@@ -1518,11 +1515,11 @@ HTTPSession::shutdownTransport(bool shutdownReads,
     } // else writes are already draining; don't double notify
   }
 
-  if (shutdownReads && !readsShutdown_) {
+  if (shutdownReads && !readsShutdown()) {
     notifyIngressShutdown = true;
     // TODO: send an RST if readBuf_ is non empty?
     sock_->setReadCallback(nullptr);
-    readsShutdown_ = true;
+    reads_ = SocketState::SHUTDOWN;
     if (!transactions_.empty() && error == kErrorConnectionReset) {
       if (infoCallback_ != nullptr) {
         infoCallback_->onIngressError(*this, error);
@@ -1555,12 +1552,12 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
   if (isLoopCallbackScheduled()) {
     cancelLoopCallback();
   }
-  if (!readsShutdown_) {
+  if (!readsShutdown()) {
     sock_->setReadCallback(nullptr);
-    readsShutdown_ = true;
+    reads_ = SocketState::SHUTDOWN;
   }
-  if (!writesShutdown_) {
-    writesShutdown_ = true;
+  if (!writesShutdown()) {
+    writes_ = SocketState::SHUTDOWN;
     IOBuf::destroy(writeBuf_.move());
     while (!pendingWrites_.empty()) {
       pendingWrites_.front().detach();
@@ -1583,18 +1580,18 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
 
 void
 HTTPSession::checkForShutdown() {
-  VLOG(10) << *this << " checking for shutdown, readShutdown=" <<
-      readsShutdown_ << ", writesShutdown=" << writesShutdown_ <<
-      ", transaction set empty=" << transactions_.empty();
+  VLOG(10) << *this << " checking for shutdown, readShutdown="
+           << readsShutdown() << ", writesShutdown=" << writesShutdown()
+           << ", transaction set empty=" << transactions_.empty();
 
   // Two conditions are required to destroy the HTTPSession:
   //   * All writes have been finished.
   //   * There are no transactions remaining on the session.
-  if (writesShutdown_ && transactions_.empty() &&
+  if (writesShutdown() && transactions_.empty() &&
       !isLoopCallbackScheduled()) {
     VLOG(4) << "destroying " << *this;
     sock_->setReadCallback(nullptr);
-    readsShutdown_ = true;
+    reads_ = SocketState::SHUTDOWN;
     sock_->closeNow();
     destroy();
   }
@@ -1733,7 +1730,7 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
                                          sock_->isEorTrackingEnabled());
   }
 
-  if ((!codec_->isReusable() || readsShutdown_) && (transactions_.empty())) {
+  if ((!codec_->isReusable() || readsShutdown()) && (transactions_.empty())) {
     if (!codec_->isReusable()) {
       // Shouldn't happen unless there is a bug. This can only happen when
       // someone calls shutdownTransport, but did not specify a reason before.
@@ -1840,7 +1837,7 @@ HTTPSession::pauseReads() {
   // Make sure the parser is paused.  Note that if reads are shutdown
   // before they are paused, we never make it past the if.
   codec_->setParserPaused(true);
-  if (readsShutdown_ || readsPaused_ ||
+  if (!readsUnpaused() ||
       (codec_->supportsParallelRequests() &&
        pendingReadSize_ <= kDefaultReadBufLimit)) {
     return;
@@ -1851,19 +1848,19 @@ HTTPSession::pauseReads() {
   }
   cancelTimeout();
   sock_->setReadCallback(nullptr);
-  readsPaused_ = true;
+  reads_ = SocketState::PAUSED;
 }
 
 void
 HTTPSession::resumeReads() {
-  if (readsShutdown_ || !readsPaused_ ||
+  if (!readsPaused() ||
       (codec_->supportsParallelRequests() &&
        pendingReadSize_ > kDefaultReadBufLimit)) {
     return;
   }
   VLOG(4) << *this << ": resuming reads";
   resetTimeout();
-  readsPaused_ = false;
+  reads_ = SocketState::UNPAUSED;
   codec_->setParserPaused(false);
   if (!isLoopCallbackScheduled()) {
     sock_->getEventBase()->runInLoop(this);
@@ -1949,7 +1946,7 @@ uint64_t HTTPSession::getRawBytesWritten() noexcept {
 }
 
 void HTTPSession::onDeleteAckEvent() {
-  if (readsShutdown_) {
+  if (readsShutdown()) {
     shutdownTransport(true, transactions_.empty());
   }
 }

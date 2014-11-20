@@ -136,6 +136,30 @@ class HTTPSession:
     return maxConcurrentPushTransactions_;
   }
 
+  bool readsUnpaused() const {
+    return reads_ == SocketState::UNPAUSED;
+  }
+
+  bool readsPaused() const {
+    return reads_ == SocketState::PAUSED;
+  }
+
+  bool readsShutdown() const {
+    return reads_ == SocketState::SHUTDOWN;
+  }
+
+  bool writesUnpaused() const {
+    return writes_ == SocketState::UNPAUSED;
+  }
+
+  bool writesPaused() const {
+    return writes_ == SocketState::PAUSED;
+  }
+
+  bool writesShutdown() const {
+    return writes_ == SocketState::SHUTDOWN;
+  }
+
   bool writesDraining() const {
     return writesDraining_;
   }
@@ -758,6 +782,15 @@ class HTTPSession:
 
   const TransportDirection direction_;
 
+  enum SocketState {
+    UNPAUSED = 0,
+    PAUSED = 1,
+    SHUTDOWN = 2,
+  };
+
+  SocketState reads_:2;
+  SocketState writes_:2;
+
   /**
    * Indicates if the session is waiting for existing transactions to close.
    * Once all transactions close, the session will be deleted.
@@ -770,10 +803,7 @@ class HTTPSession:
   bool ingressUpgraded_:1;
 
   bool started_:1;
-  bool readsPaused_:1;
-  bool readsShutdown_:1;
-  bool writesPaused_:1;
-  bool writesShutdown_:1;
+
   bool writesDraining_:1;
   bool resetAfterDrainingWrites_:1;
   // indicates a fatal error that prevents further ingress data processing
