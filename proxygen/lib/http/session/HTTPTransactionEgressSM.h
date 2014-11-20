@@ -46,17 +46,7 @@ class HTTPTransactionEgressSMData {
     return State::Start;
   }
 
-  static std::pair<State, bool> find(State s, Event e) {
-    auto it = transitions.find(std::make_pair(s, e));
-    if (it == transitions.end()) {
-      return std::make_pair(s, false);
-    }
-
-    return std::make_pair(it->second, true);
-  }
- private:
-  typedef std::map<std::pair<State, Event>, State> TransitionTable;
-  static const TransitionTable transitions;
+  static std::pair<State, bool> find(State s, Event e);
 };
 
 std::ostream& operator<<(std::ostream& os,

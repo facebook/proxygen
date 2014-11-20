@@ -11,6 +11,22 @@
 
 namespace proxygen {
 
+namespace {
+
+typedef typename HTTPTransactionEgressSMData::State State;
+typedef typename HTTPTransactionEgressSMData::Event Event;
+typedef std::map<std::pair<State, Event>, State> TransitionTable;
+
+// Since clients may call exit() directly it's not safe to use a non-trivial
+// global static. Instead, we use a union with placement new to provide similar
+// semantics to static initialization but prevent the destructor from ever
+// being called.
+union TableUnion {
+  TransitionTable data;
+  TableUnion() {}
+  ~TableUnion() {}
+} const s_transitions;
+
 //             +--> ChunkHeaderSent -> ChunkBodySent
 //             |      ^                    v
 //             |      |   ChunkTerminatorSent -> TrailersSent
@@ -19,37 +35,52 @@ namespace proxygen {
 // Start -> HeadersSent                   +----> EOMQueued --> SendingDone
 //             |                                     ^
 //             +------------> RegularBodySent -------+
+__attribute__((__constructor__))
+void initTableUnion() {
+  // Use const_cast for the placement new initialization since we want this to
+  // be const after construction.
+  new (const_cast<TransitionTable*>(&s_transitions.data)) TransitionTable {
+    {{State::Start, Event::sendHeaders}, State::HeadersSent},
 
-const HTTPTransactionEgressSMData::TransitionTable
-HTTPTransactionEgressSMData::transitions =
-{
-  {{State::Start, Event::sendHeaders}, State::HeadersSent},
+    // For HTTP sending 100 response, then a regular response
+    {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
 
-  // For HTTP sending 100 response, then a regular response
-  {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
+    {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
+    {{State::HeadersSent, Event::sendChunkHeader}, State::ChunkHeaderSent},
+    {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
 
-  {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
-  {{State::HeadersSent, Event::sendChunkHeader}, State::ChunkHeaderSent},
-  {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
+    {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
+    {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
 
-  {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
-  {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
+    {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
 
-  {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
+    {{State::ChunkBodySent, Event::sendBody}, State::ChunkBodySent},
+    {{State::ChunkBodySent, Event::sendChunkTerminator},
+     State::ChunkTerminatorSent},
 
-  {{State::ChunkBodySent, Event::sendBody}, State::ChunkBodySent},
-  {{State::ChunkBodySent, Event::sendChunkTerminator},
-   State::ChunkTerminatorSent},
+    {{State::ChunkTerminatorSent, Event::sendChunkHeader},
+     State::ChunkHeaderSent},
+    {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
+    {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
 
-  {{State::ChunkTerminatorSent, Event::sendChunkHeader},
-   State::ChunkHeaderSent},
-  {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
-  {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
+    {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
 
-  {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
+    {{State::EOMQueued, Event::eomFlushed}, State::SendingDone},
+  };
+}
 
-  {{State::EOMQueued, Event::eomFlushed}, State::SendingDone},
-};
+} // namespace
+
+std::pair<HTTPTransactionEgressSMData::State, bool>
+HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
+                                  HTTPTransactionEgressSMData::Event e) {
+  auto const &it = s_transitions.data.find(std::make_pair(s, e));
+  if (it == s_transitions.data.end()) {
+    return std::make_pair(s, false);
+  }
+
+  return std::make_pair(it->second, true);
+}
 
 std::ostream& operator<<(std::ostream& os,
                          HTTPTransactionEgressSMData::State s) {
