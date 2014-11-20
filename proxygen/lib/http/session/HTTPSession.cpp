@@ -120,7 +120,6 @@ HTTPSession::HTTPSession(
     transportInfo_(tinfo),
     direction_(codec_->getTransportDirection()),
     draining_(false),
-    needsChromeWorkaround_(false),
     ingressUpgraded_(false),
     started_(false),
     readsPaused_(true),
@@ -587,27 +586,6 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   }
   msg->setSecureInfo(transportInfo_.sslVersion, transportInfo_.sslCipher);
   msg->setSecure(transportInfo_.ssl);
-
-  // TODO: remove this once the percent of Chrome < 28 traffic is less
-  // than 0.1%
-  if (txn->getSequenceNumber() == 0 && codec_->supportsParallelRequests()) {
-    auto& agent = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_USER_AGENT);
-    static const string search = "Chrome/";
-    auto found = agent.find(search);
-    VLOG(4) << "The agent is " << agent << " and found is " << found;
-    if (found != string::npos) {
-      auto startNum = found + search.length();
-      // Versions of Chrome under 28 need this workaround
-      if (agent.length() > startNum + 3 &&
-          ((agent[startNum] == '1' && agent[startNum + 1] >= '0' &&
-            agent[startNum + 1] <= '9') ||
-           (agent[startNum] == '2' && agent[startNum + 1] >= '0' &&
-            agent[startNum + 1] < '8')) && agent[startNum + 2] == '.') {
-        VLOG(4) << *this << " Using chrome spdy GOAWAY workaround";
-        needsChromeWorkaround_ = true;
-      }
-    }
-  }
 
   setupOnHeadersComplete(txn, msg.get());
 
@@ -1234,20 +1212,6 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
     resetTimeout();
   }
 
-  if (transactions_.empty() &&
-      draining_ &&
-      allTransactionsStarted() &&
-      needsChromeWorkaround_ &&
-      !writesShutdown_ &&
-      codec_->isReusable()) {
-    VLOG(4) << *this << "Writing out delayed abort for Chrome workaround";
-    codec_->generateGoaway(writeBuf_,
-                           codec_->getLastIncomingStreamID(),
-                           ErrorCode::NO_ERROR);
-    scheduleWrite();
-    return;
-  }
-
   // It's possible that this is the last transaction in the session,
   // so check whether the conditions for shutdown are satisfied.
   if (transactions_.empty()) {
@@ -1660,21 +1624,9 @@ HTTPSession::drain() {
 void HTTPSession::drainImpl() {
   if (codec_->isReusable() || codec_->isWaitingToDrain()) {
     setCloseReason(ConnectionCloseReason::SHUTDOWN);
-    if (needsChromeWorkaround_) {
-      // Delay writing out the GOAWAY for chrome < 28
-      VLOG(3) << *this << " setting max parallel transactions to zero "
-        "for chrome workaround";
-      HTTPSettings* settings = codec_->getEgressSettings();
-      if (settings) {
-        settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS,
-                             maxConcurrentIncomingStreams_);
-      }
-      codec_->generateSettings(writeBuf_);
-    } else {
-      codec_->generateGoaway(writeBuf_,
-                             getGracefulGoawayAck(),
-                             ErrorCode::NO_ERROR);
-    }
+    codec_->generateGoaway(writeBuf_,
+                           getGracefulGoawayAck(),
+                           ErrorCode::NO_ERROR);
     scheduleWrite();
   }
 }

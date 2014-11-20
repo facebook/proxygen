@@ -764,10 +764,6 @@ class HTTPSession:
    */
   bool draining_:1;
 
-  // TODO: remove this once the percent of Chrome < 28 traffic is less
-  // than 0.1%
-  bool needsChromeWorkaround_:1;
-
   /**
    * Indicates whether an upgrade request has been received from the codec.
    */

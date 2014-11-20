@@ -1208,96 +1208,6 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
   this->eventBase_.loop();
 }
 
-TYPED_TEST_P(HTTPDownstreamTest, testChromeShutdownPaused) {
-  IOBufQueue requests;
-  MockHTTPHandler handler1;
-  HTTPMessage req = getPostRequest();
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "Chrome/26.0");
-  auto clientCodec =
-    makeClientCodec<typename TypeParam::Codec>(TypeParam::version);
-  auto streamID = HTTPCodec::StreamID(1);
-  clientCodec->generateHeader(requests, streamID, req);
-
-  EXPECT_CALL(this->mockController_, getRequestHandler(_, _))
-    .WillOnce(Return(&handler1));
-  EXPECT_CALL(this->mockController_, detachSession(_));
-
-  InSequence handlerSequence;
-  EXPECT_CALL(handler1, setTransaction(_))
-    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
-          handler1.txn_ = txn; }));
-  EXPECT_CALL(handler1, onHeadersComplete(_))
-    .WillOnce(InvokeWithoutArgs([&handler1, this] {
-          this->transport_->pauseWrites();
-          ((ManagedConnection *)this->httpSession_)->notifyPendingShutdown();
-          // simulate forced shutdown
-          this->eventBase_.runAfterDelay([this] {
-              ((ManagedConnection *)this->httpSession_)->dropConnection(); },
-            50);
-        }));
-  EXPECT_CALL(handler1, onEgressPaused());
-  EXPECT_CALL(handler1, onError(_));
-  EXPECT_CALL(handler1, detachTransaction());
-
-  this->transport_->addReadEvent(requests, std::chrono::milliseconds(0));
-  this->transport_->startReadEvents();
-  this->eventBase_.loop();
-}
-
-// Pause writes, send reply
-// Force a socket error in the same event loop cycle as the write timeout
-// expiration
-TYPED_TEST_P(HTTPDownstreamTest, testChromeShutdownOnError) {
-  IOBufQueue requests;
-  MockHTTPHandler handler1;
-  HTTPMessage req = getGetRequest();
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "Chrome/26.0");
-  auto clientCodec =
-    makeClientCodec<typename TypeParam::Codec>(TypeParam::version);
-  auto streamID = HTTPCodec::StreamID(1);
-  clientCodec->generateHeader(requests, streamID, req);
-  clientCodec->generateEOM(requests, streamID);
-
-  EXPECT_CALL(this->mockController_, getRequestHandler(_, _))
-    .WillOnce(Return(&handler1));
-  EXPECT_CALL(this->mockController_, detachSession(_));
-
-  InSequence handlerSequence;
-  EXPECT_CALL(handler1, setTransaction(_))
-    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
-          handler1.txn_ = txn; }));
-  EXPECT_CALL(handler1, onHeadersComplete(_));
-
-  class SockShutdownTimeout: public TAsyncTimeoutSet::Callback {
-   public:
-    explicit SockShutdownTimeout(TestAsyncTransport* transport)
-    : transport_(transport) {}
-
-    void timeoutExpired() noexcept {
-      VLOG(4) << "mytimeout expired";
-      transport_->shutdownWriteNow();
-    }
-    TestAsyncTransport* transport_;
-  };
-
-  SockShutdownTimeout t(this->transport_);
-  EXPECT_CALL(handler1, onEOM())
-    .WillOnce(InvokeWithoutArgs([&handler1, this, &t] {
-          this->transport_->pauseWrites();
-          ((ManagedConnection *)this->httpSession_)->notifyPendingShutdown();
-          // This has potential to be flaky false negative (the timeout could
-          // first too early, missing the test condition).
-          this->transactionTimeouts_->scheduleTimeout(&t);
-          handler1.sendReplyWithBody(200, 1000);
-        }));
-  EXPECT_CALL(handler1, onEgressPaused());
-  EXPECT_CALL(handler1, detachTransaction());
-
-  this->transport_->addReadEvent(requests, std::chrono::milliseconds(0));
-  this->transport_->startReadEvents();
-  this->eventBase_.loop();
-}
-
 // Set max streams=1
 // send two spdy requests a few ms apart.
 // Block writes
@@ -1362,9 +1272,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
-                           testWritesDraining,
-                           testChromeShutdownPaused,
-                           testChromeShutdownOnError);
+                           testWritesDraining);
 
 typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair> ParallelCodecs;
 INSTANTIATE_TYPED_TEST_CASE_P(ParallelCodecs,
