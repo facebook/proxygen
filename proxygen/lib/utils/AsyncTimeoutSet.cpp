@@ -8,14 +8,12 @@
  *
  */
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
-#include <thrift/lib/cpp/concurrency/Util.h>
 
 #include <cassert>
 #include <folly/ScopeGuard.h>
 #include <folly/io/async/Request.h>
 
 using std::chrono::milliseconds;
-using namespace apache::thrift::concurrency;
 
 namespace proxygen {
 

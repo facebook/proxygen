@@ -9,9 +9,9 @@
  */
 #pragma once
 
+#include <folly/SocketAddress.h>
 #include <folly/experimental/wangle/acceptor/Acceptor.h>
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
-#include <thrift/lib/cpp/transport/TSocketAddress.h>
 
 // This is a hack until hphp third-party can be updated.
 
