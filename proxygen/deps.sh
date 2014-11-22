@@ -34,7 +34,7 @@ if ! sudo apt-get install libgoogle-glog-dev;
 then
 	echo "fetching glog from svn (apt-get fails)"
 	if [ ! -e google-glog ]; then
-		svn checkout http://google-glog.googlecode.com/svn/trunk/ google-glog
+		svn checkout https://google-glog.googlecode.com/svn/trunk/ google-glog
 		cd google-glog
 		./configure
 		make
