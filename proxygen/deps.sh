@@ -59,8 +59,8 @@ fi
 if  ! sudo apt-get install libdouble-conversion-dev;
 then
 	if [ ! -e double-conversion ]; then
-                echo "Fetching double-conversion from svn (apt-get failed)"
-		git clone https://code.google.com/p/double-conversion double-conversion
+                echo "Fetching double-conversion from git (apt-get failed)"
+		git clone https://github.com/floitsch/double-conversion.git double-conversion
 		cd double-conversion
 		cmake . -DBUILD_SHARED_LIBS=ON
 		sudo make install
