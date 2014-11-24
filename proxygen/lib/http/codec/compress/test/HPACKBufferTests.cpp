@@ -320,6 +320,56 @@ TEST_F(HPACKBufferTests, integer_encode_decode) {
 }
 
 /**
+ * really large integers
+ */
+TEST_F(HPACKBufferTests, integer_overflow) {
+  uint32_t integer;
+  buf_ = IOBuf::create(128);
+  uint8_t *wdata = buf_->writableData();
+
+  // enough headroom for both cases
+  buf_->append(7);
+  // overflow the accumulated value
+  wdata[0] = 0xFF;
+  wdata[1] = 0xFF;
+  wdata[2] = 0xFF;
+  wdata[3] = 0xFF;
+  wdata[4] = 0xFF;
+  wdata[5] = 0x0F;
+  resetDecoder();
+  EXPECT_FALSE(decoder_.decodeInteger(8, integer));
+
+  // overflow the factorizer
+  wdata[0] = 0xFF;
+  wdata[1] = 0x80;
+  wdata[2] = 0x80;
+  wdata[3] = 0x80;
+  wdata[4] = 0x80;
+  wdata[5] = 0x80;
+  wdata[6] = 0x01;
+  resetDecoder();
+  EXPECT_FALSE(decoder_.decodeInteger(8, integer));
+}
+
+/**
+ * test that we're able to decode the max integer
+ */
+TEST_F(HPACKBufferTests, integer_max) {
+  releaseData();
+  // encoding with all the bit prefixes
+  for (uint8_t bitprefix = 1; bitprefix <= 8; bitprefix++) {
+    uint32_t size = encoder_.encodeInteger(std::numeric_limits<uint32_t>::max(),
+                                           0, bitprefix);
+    // take the encoded data and shove it in the decoder
+    releaseData();
+    resetDecoder();
+    uint32_t integer = 0;
+    EXPECT_TRUE(decoder_.decodeInteger(bitprefix, integer));
+    EXPECT_EQ(integer, std::numeric_limits<uint32_t>::max());
+  }
+}
+
+/**
  * making sure we're calling peek() before deferencing the first byte
  * to figure out if it's a huffman encoding or not
  */

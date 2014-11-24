@@ -9,6 +9,7 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 
+#include <limits>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 
@@ -90,13 +91,24 @@ bool HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint32_t& integer) {
     return true;
   }
   uint32_t f = 1;
+  uint32_t fexp = 0;
   do {
     if (remainingBytes_ == 0) {
       return false;
     }
     byte = next();
-    integer += (byte & 127) * f;
+    if (fexp > 32) {
+      // overflow in factorizer, f > 2^32
+      return false;
+    }
+    uint32_t add = (byte & 127) * f;
+    if (std::numeric_limits<uint32_t>::max() - integer < add) {
+      // overflow detected
+      return false;
+    }
+    integer += add;
     f = f << 7;
+    fexp += 7;
   } while (byte & 128);
   return true;
 }
