@@ -392,3 +392,19 @@ TEST_F(HPACKBufferTests, empty_iobuf_literal) {
 
   EXPECT_EQ(literal, decoded);
 }
+
+/**
+ * the that we enforce a limit on the literal size
+ */
+TEST_F(HPACKBufferTests, large_literal_error) {
+  uint32_t largeSize = 10 + HPACK::kMaxLiteralSize;
+  // encode a large string
+  string largeLiteral;
+  largeLiteral.append(largeSize, 'x');
+  EXPECT_TRUE(encoder_.encodeLiteral(largeLiteral));
+  releaseData();
+  resetDecoder();
+  string decoded = "";
+  EXPECT_FALSE(decoder_.decodeLiteral(decoded));
+  EXPECT_EQ(decoded.size(), 0);
+}

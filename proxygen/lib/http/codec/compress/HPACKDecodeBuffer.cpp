@@ -52,7 +52,7 @@ bool HPACKDecodeBuffer::decodeLiteral(std::string& literal) {
   if (!decodeInteger(7, size)) {
     return false;
   }
-  if (size > remainingBytes_) {
+  if (size > remainingBytes_ || size > HPACK::kMaxLiteralSize) {
     return false;
   }
   const uint8_t* data;
