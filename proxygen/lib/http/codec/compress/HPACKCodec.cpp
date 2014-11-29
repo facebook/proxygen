@@ -75,6 +75,9 @@ HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
     if (stats_) {
       stats_->recordDecodeError(Type::HPACK);
     }
+    if (decoder_->getError() == HPACKDecoder::Error::HEADERS_TOO_LARGE) {
+      return HeaderDecodeError::HEADERS_TOO_LARGE;
+    }
     return HeaderDecodeError::BAD_ENCODING;
   }
   // convert to HeaderPieceList

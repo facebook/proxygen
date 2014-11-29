@@ -29,6 +29,7 @@ class HPACKDecoder : public HPACKContext {
     INVALID_ENCODING = 3,
     BUFFER_OVERFLOW = 4,
     INVALID_TABLE_SIZE = 5,
+    HEADERS_TOO_LARGE = 6,
   };
 
   explicit HPACKDecoder(HPACK::MessageType msgType,
@@ -67,15 +68,17 @@ class HPACKDecoder : public HPACKContext {
  protected:
   bool isValid(uint32_t index);
 
-  void emitRefset(headers_t& emitted);
+  uint32_t emitRefset(headers_t& emitted);
 
-  void emit(const HPACKHeader& header, headers_t& emitted);
+  uint32_t emit(const HPACKHeader& header, headers_t& emitted);
 
-  virtual void decodeIndexedHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
+  virtual uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
+                                       headers_t& emitted);
 
-  virtual void decodeLiteralHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
+  virtual uint32_t decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
+                                       headers_t& emitted);
 
-  void decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
+  uint32_t decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
 
   Error err_{Error::NONE};
   uint32_t maxTableSize_;

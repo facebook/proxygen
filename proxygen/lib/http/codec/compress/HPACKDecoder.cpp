@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <folly/Memory.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 
 using folly::IOBuf;
@@ -36,15 +37,29 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
                               headers_t& headers) {
   auto& huffmanTree = msgType_ == HPACK::MessageType::REQ ?
     huffman::reqHuffTree05() : huffman::respHuffTree05();
+  uint32_t emittedSize = 0;
   HPACKDecodeBuffer dbuf(huffmanTree, cursor, totalBytes);
   while (!hasError() && !dbuf.empty()) {
-    decodeHeader(dbuf, headers);
+    emittedSize += decodeHeader(dbuf, headers);
+    if (emittedSize > HeaderCodec::kMaxUncompressed) {
+      LOG(ERROR) << "exceeded uncompressed size limit of "
+                 << HeaderCodec::kMaxUncompressed << " bytes";
+      err_ = Error::HEADERS_TOO_LARGE;
+      return dbuf.consumedBytes();
+    }
   }
-  emitRefset(headers);
+  emittedSize += emitRefset(headers);
+  // the emitted bytes from the refset are bounded by the size of the table,
+  // but adding the check just for uniformity
+  if (emittedSize > HeaderCodec::kMaxUncompressed) {
+    LOG(ERROR) << "exceeded uncompressed size limit of "
+               << HeaderCodec::kMaxUncompressed << " bytes";
+    err_ = Error::HEADERS_TOO_LARGE;
+  }
   return dbuf.consumedBytes();
 }
 
-void HPACKDecoder::emitRefset(headers_t& emitted) {
+uint32_t HPACKDecoder::emitRefset(headers_t& emitted) {
   // emit the reference set
   std::sort(emitted.begin(), emitted.end());
   list<uint32_t> refset = table_.referenceSet();
@@ -60,13 +75,15 @@ void HPACKDecoder::emitRefset(headers_t& emitted) {
   }
   // try to avoid multiple resizing of the headers vector
   emitted.reserve(emitted.size() + refset.size());
+  uint32_t emittedSize = 0;
   for (const auto& index : refset) {
-    emit(getDynamicHeader(dynamicToGlobalIndex(index)), emitted);
+    emittedSize += emit(getDynamicHeader(dynamicToGlobalIndex(index)), emitted);
   }
+  return emittedSize;
 }
 
-void HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
-                                       headers_t& emitted) {
+uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
+                                           headers_t& emitted) {
   uint8_t byte = dbuf.peek();
   bool indexing = !(byte & HPACK::HeaderEncoding::LITERAL_NO_INDEXING);
   HPACKHeader header;
@@ -77,13 +94,13 @@ void HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
     if (!dbuf.decodeInteger(6, index)) {
       LOG(ERROR) << "buffer overflow decoding index";
       err_ = Error::BUFFER_OVERFLOW;
-      return;
+      return 0;
     }
     // validate the index
     if (!isValid(index)) {
       LOG(ERROR) << "received invalid index: " << index;
       err_ = Error::INVALID_INDEX;
-      return;
+      return 0;
     }
     header.name = getHeader(index).name;
   } else {
@@ -92,46 +109,48 @@ void HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
     if (!dbuf.decodeLiteral(header.name)) {
       LOG(ERROR) << "buffer overflow decoding header name";
       err_ = Error::BUFFER_OVERFLOW;
-      return;
+      return 0;
     }
   }
   // value
   if (!dbuf.decodeLiteral(header.value)) {
     LOG(ERROR) << "buffer overflow decoding header value";
     err_ = Error::BUFFER_OVERFLOW;
-    return;
+    return 0;
   }
 
-  emit(header, emitted);
+  uint32_t emittedSize = emit(header, emitted);
 
   if (indexing && table_.add(header)) {
     // only add it to the refset if the header fit in the table
     table_.addReference(1);
   }
+  return emittedSize;
 }
 
-void HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
-                                       headers_t& emitted) {
+uint32_t HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
+                                           headers_t& emitted) {
   uint32_t index;
   if (!dbuf.decodeInteger(7, index)) {
     LOG(ERROR) << "buffer overflow decoding index";
     err_ = Error::BUFFER_OVERFLOW;
-    return;
+    return 0;
   }
   if (index == 0) {
     table_.clearReferenceSet();
-    return;
+    return 0;
   }
   // validate the index
   if (!isValid(index)) {
     LOG(ERROR) << "received invalid index: " << index;
     err_ = Error::INVALID_INDEX;
-    return;
+    return 0;
   }
+  uint32_t emittedSize = 0;
   // a static index cannot be part of the reference set
   if (isStatic(index)) {
     auto& header = getStaticHeader(index);
-    emit(header, emitted);
+    emittedSize = emit(header, emitted);
     if (table_.add(header)) {
       table_.addReference(1);
     }
@@ -140,9 +159,10 @@ void HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
     table_.removeReference(globalToDynamicIndex(index));
   } else {
     auto& header = getDynamicHeader(index);
-    emit(header, emitted);
+    emittedSize = emit(header, emitted);
     table_.addReference(globalToDynamicIndex(index));
   }
+  return emittedSize;
 }
 
 bool HPACKDecoder::isValid(uint32_t index) {
@@ -152,19 +172,21 @@ bool HPACKDecoder::isValid(uint32_t index) {
   return getStaticTable().isValid(globalToStaticIndex(index));
 }
 
-void HPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted) {
+uint32_t HPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf,
+                                    headers_t& emitted) {
   uint8_t byte = dbuf.peek();
   if (byte & HPACK::HeaderEncoding::INDEXED) {
-    decodeIndexedHeader(dbuf, emitted);
+    return decodeIndexedHeader(dbuf, emitted);
   } else  {
     // LITERAL_NO_INDEXING or LITERAL_INCR_INDEXING
-    decodeLiteralHeader(dbuf, emitted);
+    return decodeLiteralHeader(dbuf, emitted);
   }
 }
 
-void HPACKDecoder::emit(const HPACKHeader& header,
+uint32_t HPACKDecoder::emit(const HPACKHeader& header,
                         headers_t& emitted) {
   emitted.push_back(header);
+  return header.bytes();
 }
 
 }

@@ -280,3 +280,27 @@ TEST_F(HPACKCodecTests, header_codec_stats) {
   EXPECT_EQ(stats.encodedBytesUncompr, 0);
   client.setStats(nullptr);
 }
+
+/**
+ * check that we're enforcing the limit on total uncompressed size
+ */
+TEST_F(HPACKCodecTests, uncompressed_size_limit) {
+  vector<vector<string>> headers;
+  // generate lots of small headers
+  string contentLength = "Content-Length";
+  for (int i = 0; i < 10000; i++) {
+    string value = folly::to<string>(i);
+    vector<string> header = {contentLength, value};
+    headers.push_back(header);
+  }
+  vector<Header> req = headersFromArray(headers);
+  unique_ptr<IOBuf> encoded = server.encode(req);
+  Cursor cursor(encoded.get());
+  uint32_t len = 0;
+  if (encoded) {
+    len = encoded->computeChainDataLength();
+  }
+  auto result = client.decode(cursor, len);
+  EXPECT_TRUE(result.isError());
+  EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
+}
