@@ -69,7 +69,7 @@ class HTTPHeaders {
    * separator used to concatenate multiple values of the same header
    * check out sections 4.2 and 14.45 from rfc2616
    */
-  const std::string COMBINE_SEPARATOR = ", ";
+  static const std::string COMBINE_SEPARATOR;
 
   HTTPHeaders();
   ~HTTPHeaders();
@@ -121,7 +121,8 @@ class HTTPHeaders {
    * combine all the value for this header into a string
    */
   template <typename T>
-  std::string combine(const T& header) const;
+  std::string combine(const T& header,
+                      const std::string& separator=COMBINE_SEPARATOR) const;
 
   /**
    * Process the list of all headers, in the order that they were seen:
@@ -358,13 +359,14 @@ bool HTTPHeaders::forEachValueOfHeader(HTTPHeaderCode code,
 }
 
 template <typename T>
-std::string HTTPHeaders::combine(const T& header) const {
+std::string HTTPHeaders::combine(const T& header,
+                                 const std::string& separator) const {
   std::string combined = "";
   forEachValueOfHeader(header, [&] (const std::string& value) -> bool {
       if (combined.empty()) {
         combined.append(value);
       } else {
-        combined.append(COMBINE_SEPARATOR).append(value);
+        combined.append(separator).append(value);
       }
       return false;
     });

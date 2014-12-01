@@ -20,6 +20,7 @@ using std::vector;
 namespace proxygen {
 
 const string empty_string;
+const std::string HTTPHeaders::COMBINE_SEPARATOR = ", ";
 
 bitset<256>& HTTPHeaders::perHopHeaderCodes() {
   static bitset<256> perHopHeaderCodes;
