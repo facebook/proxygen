@@ -319,6 +319,15 @@ class HTTPCodec {
   virtual bool supportsPushTransactions() const = 0;
 
   /**
+   * Generate a connection preface, if there is any for this protocol.
+   *
+   * @return size of the generated message
+   */
+  virtual size_t generateConnectionPreface(folly::IOBufQueue& writeBuf) {
+    return 0;
+  }
+
+  /**
    * Write an egress message header.  For pushed streams, you must specify
    * the assocStream.
    * @retval size the size of the generated message, both the actual size

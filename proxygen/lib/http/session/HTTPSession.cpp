@@ -186,6 +186,7 @@ HTTPSession::~HTTPSession() {
 void HTTPSession::startNow() {
   CHECK(!started_);
   started_ = true;
+  codec_->generateConnectionPreface(writeBuf_);
   codec_->generateSettings(writeBuf_);
   scheduleWrite();
   resumeReads();
