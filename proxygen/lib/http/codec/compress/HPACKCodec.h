@@ -48,6 +48,14 @@ class HPACKCodec : public HeaderCodec {
   Result<HeaderDecodeResult, HeaderDecodeError>
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
 
+  void setEncoderHeaderTableSize(uint32_t size) {
+    encoder_->setHeaderTableSize(size);
+  }
+
+  void setDecoderHeaderTableMaxSize(uint32_t size) {
+    decoder_->setHeaderTableMaxSize(size);
+  }
+
  protected:
   std::unique_ptr<HPACKEncoder> encoder_;
   std::unique_ptr<HPACKDecoder> decoder_;

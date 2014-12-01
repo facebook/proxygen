@@ -133,6 +133,11 @@ void HeaderTable::removeLast() {
   --size_;
 }
 
+void HeaderTable::setCapacity(uint32_t capacity) {
+  capacity_ = capacity;
+  evict(0);
+}
+
 uint32_t HeaderTable::evict(uint32_t needed) {
   uint32_t evicted = 0;
   while (size_ > 0 && (bytes_ + needed > capacity_)) {

@@ -138,6 +138,12 @@ class HeaderTable {
   }
 
   /**
+   * Sets the current capacity of the header table, and evicts entries
+   * if needed.  capacity must not be larger than currect capacity.
+   */
+  void setCapacity(uint32_t capacity);
+
+  /**
    * @return number of entries
    */
   uint32_t size() const {

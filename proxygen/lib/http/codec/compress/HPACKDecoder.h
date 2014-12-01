@@ -33,7 +33,8 @@ class HPACKDecoder : public HPACKContext {
 
   explicit HPACKDecoder(HPACK::MessageType msgType,
                         uint32_t tableSize=HPACK::kTableSize)
-      : HPACKContext(msgType, tableSize) {}
+      : HPACKContext(msgType, tableSize),
+        maxTableSize_(tableSize) {}
 
   typedef std::vector<HPACKHeader> headers_t;
 
@@ -59,6 +60,10 @@ class HPACKDecoder : public HPACKContext {
     return err_ != Error::NONE;
   }
 
+  void setHeaderTableMaxSize(uint32_t maxSize) {
+    maxTableSize_ = maxSize;
+  }
+
  protected:
   bool isValid(uint32_t index);
 
@@ -73,6 +78,7 @@ class HPACKDecoder : public HPACKContext {
   void decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
 
   Error err_{Error::NONE};
+  uint32_t maxTableSize_;
 };
 
 }

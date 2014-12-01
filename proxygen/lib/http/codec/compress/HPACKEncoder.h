@@ -38,8 +38,14 @@ class HPACKEncoder : public HPACKContext {
   /**
    * Encode the given headers and return the buffer
    */
-  std::unique_ptr<folly::IOBuf> encode(const std::vector<HPACKHeader>& headers,
-                                       uint32_t headroom = 0);
+  virtual std::unique_ptr<folly::IOBuf> encode(
+    const std::vector<HPACKHeader>& headers,
+    uint32_t headroom = 0);
+
+  void setHeaderTableSize(uint32_t size) {
+    table_.setCapacity(size);
+    pendingContextUpdate_ = true;
+  }
 
  private:
   void encodeHeader(const HPACKHeader& header);
@@ -70,6 +76,7 @@ class HPACKEncoder : public HPACKContext {
   bool huffman_;
  protected:
   HPACKEncodeBuffer buffer_;
+  bool pendingContextUpdate_{false};
 };
 
 }
