@@ -3,6 +3,7 @@ FROM ubuntu
 RUN apt-get update
 RUN apt-get install -yq git
 RUN apt-get install -yq curl
+RUN apt-get install -yq cmake build-essential
 RUN apt-get install -yq \
     flex \
     bison \
