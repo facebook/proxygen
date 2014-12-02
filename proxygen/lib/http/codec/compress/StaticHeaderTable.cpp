@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
+#include <proxygen/lib/utils/UnionBasedStatic.h>
 
 #include <glog/logging.h>
 #include <list>
@@ -17,6 +18,79 @@ using std::string;
 using std::vector;
 
 namespace proxygen {
+
+/**
+ * we're using a union to prevent the static object destruction when
+ * calling exit() from a different thread, common on mobile
+ */
+DEFINE_UNION_STATIC_CONST_NO_INIT(StaticHeaderTable, StaticTable, s_table);
+
+__attribute__((__constructor__))
+void initStaticTable() {
+  // use placement new to initialize the static table
+  new (const_cast<StaticHeaderTable*>(&s_table.data)) StaticHeaderTable ({
+      {":authority", ""},
+      {":method", "GET"},
+      {":method", "POST"},
+      {":path", "/"},
+      {":path", "/index.html"},
+      {":scheme", "http"},
+      {":scheme", "https"},
+      {":status", "200"},
+      {":status", "500"},
+      {":status", "404"},
+      {":status", "403"},
+      {":status", "400"},
+      {":status", "401"},
+      {"accept-charset", ""},
+      {"accept-encoding", ""},
+      {"accept-language", ""},
+      {"accept-ranges", ""},
+      {"accept", ""},
+      {"access-control-allow-origin", ""},
+      {"age", ""},
+      {"allow", ""},
+      {"authorization", ""},
+      {"cache-control", ""},
+      {"content-disposition", ""},
+      {"content-encoding", ""},
+      {"content-language", ""},
+      {"content-length", ""},
+      {"content-location", ""},
+      {"content-range", ""},
+      {"content-type", ""},
+      {"cookie", ""},
+      {"date", ""},
+      {"etag", ""},
+      {"expect", ""},
+      {"expires", ""},
+      {"from", ""},
+      {"host", ""},
+      {"if-match", ""},
+      {"if-modified-since", ""},
+      {"if-none-match", ""},
+      {"if-range", ""},
+      {"if-unmodified-since", ""},
+      {"last-modified", ""},
+      {"link", ""},
+      {"location", ""},
+      {"max-forwards", ""},
+      {"proxy-authenticate", ""},
+      {"proxy-authorization", ""},
+      {"range", ""},
+      {"referer", ""},
+      {"refresh", ""},
+      {"retry-after", ""},
+      {"server", ""},
+      {"set-cookie", ""},
+      {"strict-transport-security", ""},
+      {"transfer-encoding", ""},
+      {"user-agent", ""},
+      {"vary", ""},
+      {"via", ""},
+      {"www-authenticate", ""}
+    });
+}
 
 StaticHeaderTable::StaticHeaderTable(const vector<vector<string>>& entries)
     : HeaderTable() {
@@ -30,7 +104,7 @@ StaticHeaderTable::StaticHeaderTable(const vector<vector<string>>& entries)
   // initialize with a capacity that will exactly fit the static headers
   init(byteCount);
   hlist.reverse();
-  for (auto& header : hlist) {
+  for (const auto& header : hlist) {
     add(header);
   }
   // the static table is not involved in the delta compression
@@ -38,70 +112,7 @@ StaticHeaderTable::StaticHeaderTable(const vector<vector<string>>& entries)
 }
 
 const HeaderTable& StaticHeaderTable::get() {
-  static vector<vector<string>> entries = {
-    {":authority", ""},
-    {":method", "GET"},
-    {":method", "POST"},
-    {":path", "/"},
-    {":path", "/index.html"},
-    {":scheme", "http"},
-    {":scheme", "https"},
-    {":status", "200"},
-    {":status", "500"},
-    {":status", "404"},
-    {":status", "403"},
-    {":status", "400"},
-    {":status", "401"},
-    {"accept-charset", ""},
-    {"accept-encoding", ""},
-    {"accept-language", ""},
-    {"accept-ranges", ""},
-    {"accept", ""},
-    {"access-control-allow-origin", ""},
-    {"age", ""},
-    {"allow", ""},
-    {"authorization", ""},
-    {"cache-control", ""},
-    {"content-disposition", ""},
-    {"content-encoding", ""},
-    {"content-language", ""},
-    {"content-length", ""},
-    {"content-location", ""},
-    {"content-range", ""},
-    {"content-type", ""},
-    {"cookie", ""},
-    {"date", ""},
-    {"etag", ""},
-    {"expect", ""},
-    {"expires", ""},
-    {"from", ""},
-    {"host", ""},
-    {"if-match", ""},
-    {"if-modified-since", ""},
-    {"if-none-match", ""},
-    {"if-range", ""},
-    {"if-unmodified-since", ""},
-    {"last-modified", ""},
-    {"link", ""},
-    {"location", ""},
-    {"max-forwards", ""},
-    {"proxy-authenticate", ""},
-    {"proxy-authorization", ""},
-    {"range", ""},
-    {"referer", ""},
-    {"refresh", ""},
-    {"retry-after", ""},
-    {"server", ""},
-    {"set-cookie", ""},
-    {"strict-transport-security", ""},
-    {"transfer-encoding", ""},
-    {"user-agent", ""},
-    {"vary", ""},
-    {"via", ""},
-    {"www-authenticate", ""}
-  };
-  static StaticHeaderTable table(entries);
-  return table;
+  return s_table.data;
 }
 
 }
