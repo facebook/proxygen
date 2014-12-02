@@ -125,6 +125,7 @@ HTTPSession::HTTPSession(
     started_(false),
     writesDraining_(false),
     resetAfterDrainingWrites_(false),
+    resetSocketOnShutdown_(false),
     ingressError_(false),
     inLoopCallback_(false) {
 
@@ -1502,7 +1503,7 @@ HTTPSession::shutdownTransport(bool shutdownReads,
       }
       if (resetAfterDrainingWrites_) {
         VLOG(4) << *this << " writes drained, sending RST";
-        sock_->closeWithReset();
+        resetSocketOnShutdown_ = true;
         shutdownReads = true;
       } else {
         VLOG(4) << *this << " writes drained, closing";
@@ -1542,6 +1543,12 @@ HTTPSession::shutdownTransport(bool shutdownReads,
     invokeOnAllTransactions(&HTTPTransaction::onError, ex);
   }
 
+  // Close the socket only after the onError() callback on the txns
+  // and handler has been detached.
+  if (resetSocketOnShutdown_) {
+    sock_->closeWithReset();
+  }
+
   checkForShutdown();
 }
 
@@ -1556,6 +1563,7 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
     sock_->setReadCallback(nullptr);
     reads_ = SocketState::SHUTDOWN;
   }
+
   if (!writesShutdown()) {
     writes_ = SocketState::SHUTDOWN;
     IOBuf::destroy(writeBuf_.move());
@@ -1565,8 +1573,9 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
     }
     VLOG(4) << *this << " cancel write timer";
     writeTimeout_.cancelTimeout();
-    sock_->closeWithReset();
+    resetSocketOnShutdown_ = true;
   }
+
   errorOnAllTransactions(errorCode);
   // drainByteEvents() can call detach(txn), which can in turn call
   // shutdownTransport if we were already draining. To prevent double
@@ -1575,6 +1584,14 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
   if (byteEventTracker_) {
     byteEventTracker_->drainByteEvents();
   }
+
+  // onError() callbacks or drainByteEvents() could result in txns detaching
+  // due to CallbackGuards going out of scope. Close the socket only after
+  // the txns are detached.
+  if (resetSocketOnShutdown_) {
+    sock_->closeWithReset();
+  }
+
   checkForShutdown();
 }
 
@@ -1592,7 +1609,11 @@ HTTPSession::checkForShutdown() {
     VLOG(4) << "destroying " << *this;
     sock_->setReadCallback(nullptr);
     reads_ = SocketState::SHUTDOWN;
-    sock_->closeNow();
+    if (resetSocketOnShutdown_) {
+      sock_->closeWithReset();
+    } else {
+      sock_->closeNow();
+    }
     destroy();
   }
 }

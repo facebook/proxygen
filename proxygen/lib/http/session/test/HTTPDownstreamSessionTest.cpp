@@ -20,6 +20,7 @@
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
+#include <proxygen/lib/http/session/test/MockByteEventTracker.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <string>
@@ -595,6 +596,41 @@ TEST(HTTPDownstreamTest, parse_error_no_txn) {
   codecCallback->onError(HTTPCodec::StreamID(1), ex, true);
 
   // cleanup
+  session->shutdownTransportWithReset(kErrorConnectionReset);
+  evb.loop();
+}
+
+TEST(HTTPDownstreamTest, byte_events_drained) {
+  // Test that byte events are drained before socket is closed
+  EventBase evb;
+
+  NiceMock<MockController> mockController;
+  auto codec = makeDownstreamParallelCodec();
+  auto byteEventTracker = new MockByteEventTracker(nullptr);
+  auto transport = newMockTransport(&evb);
+  auto transactionTimeouts = makeInternalTimeoutSet(&evb);
+
+  // Create the downstream session
+  auto session = new HTTPDownstreamSession(
+    transactionTimeouts.get(),
+    TAsyncTransport::UniquePtr(transport),
+    localAddr, peerAddr,
+    &mockController, std::move(codec),
+    mockTransportInfo);
+  session->setByteEventTracker(
+      std::unique_ptr<ByteEventTracker>(byteEventTracker));
+
+  InSequence dummy;
+
+  session->startNow();
+
+  // Byte events should be drained first
+  EXPECT_CALL(*byteEventTracker, drainByteEvents())
+    .Times(1);
+  EXPECT_CALL(*transport, closeWithReset())
+    .Times(AtLeast(1));
+
+  // Close the socket
   session->shutdownTransportWithReset(kErrorConnectionReset);
   evb.loop();
 }

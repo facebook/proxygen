@@ -806,6 +806,7 @@ class HTTPSession:
 
   bool writesDraining_:1;
   bool resetAfterDrainingWrites_:1;
+  bool resetSocketOnShutdown_:1;
   // indicates a fatal error that prevents further ingress data processing
   bool ingressError_:1;
   bool inLoopCallback_:1;

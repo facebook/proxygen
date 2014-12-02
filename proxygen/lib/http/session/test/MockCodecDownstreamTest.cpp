@@ -1317,7 +1317,8 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
 
   EXPECT_CALL(mockController_, detachSession(_));
   if (dropConnection) {
-    EXPECT_CALL(*transport_, closeNow())
+    EXPECT_CALL(*transport_, closeWithReset())
+      .Times(AtLeast(1))
       .WillOnce(DoAll(Assign(&transportGood_, false),
                       Invoke([cb] {
                           cb->writeError(0, TTransportException());
