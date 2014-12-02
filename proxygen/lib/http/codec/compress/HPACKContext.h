@@ -39,7 +39,7 @@ class HPACKContext {
   /**
    * @return true if the given index points to a static header entry
    */
-  bool isStatic(uint32_t index) const;
+  virtual bool isStatic(uint32_t index) const;
 
   /**
    * @return header at the given index by composing dynamic and static tables
@@ -53,6 +53,23 @@ class HPACKContext {
  protected:
   virtual const HeaderTable& getStaticTable() const {
     return StaticHeaderTable::get();
+  }
+
+  const HPACKHeader& getStaticHeader(uint32_t index);
+
+  const HPACKHeader& getDynamicHeader(uint32_t index);
+
+  virtual uint32_t globalToDynamicIndex(uint32_t index) const {
+    return index;
+  }
+  virtual uint32_t globalToStaticIndex(uint32_t index) const {
+    return index - table_.size();
+  }
+  virtual uint32_t dynamicToGlobalIndex(uint32_t index) const {
+    return index;
+  }
+  virtual uint32_t staticToGlobalIndex(uint32_t index) const {
+    return index + table_.size();
   }
 
   HeaderTable table_;

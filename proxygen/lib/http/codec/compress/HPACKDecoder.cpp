@@ -51,7 +51,7 @@ void HPACKDecoder::emitRefset(headers_t& emitted) {
   // remove the refset entries that have already been emitted
   list<uint32_t>::iterator refit = refset.begin();
   while (refit != refset.end()) {
-    const HPACKHeader& header = table_[*refit];
+    const HPACKHeader& header = getDynamicHeader(dynamicToGlobalIndex(*refit));
     if (std::binary_search(emitted.begin(), emitted.end(), header)) {
       refit = refset.erase(refit);
     } else {
@@ -61,7 +61,7 @@ void HPACKDecoder::emitRefset(headers_t& emitted) {
   // try to avoid multiple resizing of the headers vector
   emitted.reserve(emitted.size() + refset.size());
   for (const auto& index : refset) {
-    emit(table_[index], emitted);
+    emit(getDynamicHeader(dynamicToGlobalIndex(index)), emitted);
   }
 }
 
@@ -130,26 +130,26 @@ void HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
   }
   // a static index cannot be part of the reference set
   if (isStatic(index)) {
-    auto& header = getStaticTable()[index - table_.size()];
+    auto& header = getStaticHeader(index);
     emit(header, emitted);
     if (table_.add(header)) {
       table_.addReference(1);
     }
-  } else if (table_.inReferenceSet(index)) {
+  } else if (table_.inReferenceSet(globalToDynamicIndex(index))) {
     // index remove operation
-    table_.removeReference(index);
+    table_.removeReference(globalToDynamicIndex(index));
   } else {
-    auto& header = table_[index];
+    auto& header = getDynamicHeader(index);
     emit(header, emitted);
-    table_.addReference(index);
+    table_.addReference(globalToDynamicIndex(index));
   }
 }
 
 bool HPACKDecoder::isValid(uint32_t index) {
-  if (index <= table_.size()) {
-    return table_.isValid(index);
+  if (!isStatic(index)) {
+    return table_.isValid(globalToDynamicIndex(index));
   }
-  return getStaticTable().isValid(index - table_.size());
+  return getStaticTable().isValid(globalToStaticIndex(index));
 }
 
 void HPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted) {

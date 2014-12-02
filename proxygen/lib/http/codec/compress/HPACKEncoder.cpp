@@ -70,9 +70,9 @@ void HPACKEncoder::encodeEvictedReferences(const HPACKHeader& header) {
     // double encode only if the element is in the reference set
     if (table_.isSkippedReference(index)) {
       // 1. this will remove the entry from the refset
-      encodeAsIndex(index);
+      encodeAsIndex(dynamicToGlobalIndex(index));
       // 2. this will add the same entry to the refset and emit it
-      encodeAsIndex(index);
+      encodeAsIndex(dynamicToGlobalIndex(index));
     }
     bytes -= table_[index].bytes();
     index--;
@@ -110,7 +110,7 @@ void HPACKEncoder::encodeDelta(const vector<HPACKHeader>& headers) {
       clearReferenceSet();
     } else {
       for (auto index : toRemove) {
-        encodeAsIndex(index);
+        encodeAsIndex(dynamicToGlobalIndex(index));
         table_.removeReference(index);
       }
     }
@@ -157,15 +157,15 @@ void HPACKEncoder::encodeHeader(const HPACKHeader& header) {
       encodeAsIndex(index);
       // insert the static header in the dynamic header table
       // to take advantage of the delta compression
-      if (table_.add(getStaticTable()[index - table_.size()])) {
+      if (table_.add(getStaticHeader(index))) {
         table_.addReference(1);
       }
-    } else if (!table_.inReferenceSet(index)) {
-      table_.addReference(index);
+    } else if (!table_.inReferenceSet(globalToDynamicIndex(index))) {
+      table_.addReference(globalToDynamicIndex(index));
       encodeAsIndex(index);
     } else {
       // there's nothing to encode, but keep a record for it in case of eviction
-      table_.addSkippedReference(index);
+      table_.addSkippedReference(globalToDynamicIndex(index));
     }
   } else {
     encodeAsLiteral(header);

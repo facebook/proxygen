@@ -22,11 +22,11 @@ HPACKContext::HPACKContext(HPACK::MessageType msgType, uint32_t tableSize) :
 uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
   uint32_t index = table_.getIndex(header);
   if (index) {
-    return index;
+    return dynamicToGlobalIndex(index);
   }
   index = getStaticTable().getIndex(header);
   if (index) {
-    return table_.size() + index;
+    return staticToGlobalIndex(index);
   }
   return 0;
 }
@@ -34,11 +34,11 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
 uint32_t HPACKContext::nameIndex(const string& name) const {
   uint32_t index = table_.nameIndex(name);
   if (index) {
-    return index;
+    return dynamicToGlobalIndex(index);
   }
   index = getStaticTable().nameIndex(name);
   if (index) {
-    return table_.size() + index;
+    return staticToGlobalIndex(index);
   }
   return 0;
 }
@@ -49,11 +49,21 @@ bool HPACKContext::isStatic(uint32_t index) const {
     && index <= table_.size() + getStaticTable().size();
 }
 
+const HPACKHeader& HPACKContext::getStaticHeader(uint32_t index) {
+  DCHECK(isStatic(index));
+  return getStaticTable()[globalToStaticIndex(index)];
+}
+
+const HPACKHeader& HPACKContext::getDynamicHeader(uint32_t index) {
+  DCHECK(!isStatic(index));
+  return table_[globalToDynamicIndex(index)];
+}
+
 const HPACKHeader& HPACKContext::getHeader(uint32_t index) {
   if (isStatic(index)) {
-    return getStaticTable()[index - table_.size()];
+    return getStaticHeader(index);
   }
-  return table_[index];
+  return getDynamicHeader(index);
 }
 
 }
