@@ -24,11 +24,21 @@ union name##Union {                                                           \
   ~name##Union() {}                                                           \
 }
 
+#define DECLARE_UNION_STATIC_UNION_ARRAY_IMPL(type, size, name)               \
+union name##Union {                                                           \
+  type data[size];                                                            \
+  name##Union() {}                                                            \
+  ~name##Union() {}                                                           \
+}
+
 #define DEFINE_UNION_STATIC_UNION_IMPL(type, name, var)                       \
 DECLARE_UNION_STATIC_UNION_IMPL(type, name) var;
 
 #define DEFINE_UNION_STATIC_UNION_CONST_IMPL(type, name, var)                 \
 DECLARE_UNION_STATIC_UNION_IMPL(type, name) const var;
+
+#define DEFINE_UNION_STATIC_UNION_CONST_ARRAY_IMPL(type, size, name, var)     \
+DECLARE_UNION_STATIC_UNION_ARRAY_IMPL(type, size, name) const var;
 
 // The const_casts are only needed if creating a const union but it's a
 // no-op otherwise so keep it to avoid creating even more macro helpers.
@@ -71,6 +81,9 @@ DEFINE_UNION_STATIC_CONSTRUCTOR_ARG_IMPL(type, name, var, __VA_ARGS__)
 
 #define DEFINE_UNION_STATIC_CONST_NO_INIT(type, name, var)                    \
 DEFINE_UNION_STATIC_UNION_CONST_IMPL(type, name, var)
+
+#define DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(type, size, name, var)        \
+DEFINE_UNION_STATIC_UNION_CONST_ARRAY_IMPL(type, size, name, var)
 
 // Use these if you need to extern one of these in a header and then
 // define it in a .cpp file. For example:

@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/Huffman.h>
+#include <proxygen/lib/utils/UnionBasedStatic.h>
 
 #include <arpa/inet.h>
 
@@ -17,14 +18,14 @@ using std::string;
 
 namespace proxygen { namespace huffman {
 
-HuffTree::HuffTree(const uint32_t* codes, const uint8_t* bits) :
-    codes_(codes), bits_(bits) {
-  buildTable();
+HuffTree::HuffTree(const uint32_t* codes, const uint8_t* bits)
+    : codes_(codes), bits_(bits) {
+  buildTree();
 }
 
 HuffTree::HuffTree(const HuffTree& tree) :
     codes_(tree.codes_), bits_(tree.bits_) {
-  buildTable();
+  buildTree();
 }
 
 bool HuffTree::decode(const uint8_t* buf, uint32_t size, string& literal)
@@ -121,7 +122,7 @@ void HuffTree::fillIndex(SuperHuffNode& snode, uint32_t code, uint8_t bits,
 /**
  * initializes and builds the huffman tree
  */
-void HuffTree::buildTable() {
+void HuffTree::buildTree() {
   // create the indexed table
   for (uint32_t i = 0; i < 256; i++) {
     insert(codes_[i], bits_[i], i);
@@ -208,10 +209,23 @@ pair<uint32_t, uint8_t> HuffTree::getCode(uint8_t ch) const {
  *http://tools.ietf.org/html/draft-ietf-httpbis-header-compression-05#appendix-C
  */
 
-// use static functions to instantiate the trees to problems related to
-// initialization order
-const HuffTree& reqHuffTree05() {
-  static const uint32_t requestCodes[256] = {
+/**
+ * use unions and placement new to initialize the static variables
+ */
+DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, ReqHuffTree, s_reqHuffTree05);
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, 256, ReqCodesTable,
+                                        s_reqCodesTable05);
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, 256, ReqBitsTable,
+                                        s_reqBitsTable05);
+DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, RespHuffTree, s_respHuffTree05);
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, 256, RespCodesTable,
+                                        s_respCodesTable05);
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, 256, RespBitsTable,
+                                        s_respBitsTable05);
+
+__attribute__((__constructor__))
+void initReqHuffTree05() {
+  new (const_cast<uint32_t(*)[256]>(&s_reqCodesTable05.data)) uint32_t[256] {
     0x7ffffba, 0x7ffffbb, 0x7ffffbc, 0x7ffffbd, 0x7ffffbe, 0x7ffffbf, 0x7ffffc0,
     0x7ffffc1, 0x7ffffc2, 0x7ffffc3, 0x7ffffc4, 0x7ffffc5, 0x7ffffc6, 0x7ffffc7,
     0x7ffffc8, 0x7ffffc9, 0x7ffffca, 0x7ffffcb, 0x7ffffcc, 0x7ffffcd, 0x7ffffce,
@@ -246,7 +260,7 @@ const HuffTree& reqHuffTree05() {
     0x3ffffd9, 0x3ffffda, 0x3ffffdb
   };
 
-  static const uint8_t requestBits[256] = {
+  new (const_cast<uint8_t(*)[256]>(&s_reqBitsTable05.data)) uint8_t[256] {
     27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27,
     27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 8, 12, 14, 15, 15, 6,
     7, 15, 11, 11, 10, 11, 8, 6, 5, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 9, 8, 18,
@@ -262,12 +276,18 @@ const HuffTree& reqHuffTree05() {
     26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26
   };
 
-  static const HuffTree huffTree(requestCodes, requestBits);
-  return huffTree;
+  // constructing the tree in-place
+  new (const_cast<HuffTree*>(&s_reqHuffTree05.data))
+    HuffTree(s_reqCodesTable05.data, s_reqBitsTable05.data);
 }
 
-const HuffTree& respHuffTree05() {
-  static const uint32_t responseCodes[256] = {
+const HuffTree& reqHuffTree05() {
+  return s_reqHuffTree05.data;
+}
+
+__attribute__((__constructor__))
+void initRespHuffTree05() {
+  new (const_cast<uint32_t(*)[256]>(&s_respCodesTable05.data)) uint32_t[256] {
     0x1ffffbc, 0x1ffffbd, 0x1ffffbe, 0x1ffffbf, 0x1ffffc0, 0x1ffffc1, 0x1ffffc2,
     0x1ffffc3, 0x1ffffc4, 0x1ffffc5, 0x1ffffc6, 0x1ffffc7, 0x1ffffc8, 0x1ffffc9,
     0x1ffffca, 0x1ffffcb, 0x1ffffcc, 0x1ffffcd, 0x1ffffce, 0x1ffffcf, 0x1ffffd0,
@@ -302,7 +322,7 @@ const HuffTree& respHuffTree05() {
     0xffffda, 0xffffdb, 0xffffdc
   };
 
-  static const uint8_t responseBits[256] = {
+  new (const_cast<uint8_t(*)[256]>(&s_respBitsTable05.data)) uint8_t[256] {
     25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25,
     25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 4, 12, 7, 13, 14, 9, 10,
     13, 9, 9, 12, 11, 6, 6, 6, 7, 4, 4, 4, 5, 5, 5, 6, 6, 5, 5, 5, 9, 16, 7, 13,
@@ -318,8 +338,12 @@ const HuffTree& respHuffTree05() {
     24, 24, 24, 24, 24, 24, 24, 24, 24, 24
   };
 
-  static const HuffTree huffTree(responseCodes, responseBits);
-  return huffTree;
+  new (const_cast<HuffTree*>(&s_respHuffTree05.data))
+    HuffTree(s_respCodesTable05.data, s_respBitsTable05.data);
+}
+
+const HuffTree& respHuffTree05() {
+  return s_respHuffTree05.data;
 }
 
 }}

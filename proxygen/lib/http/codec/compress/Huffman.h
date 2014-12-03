@@ -70,6 +70,10 @@ struct SuperHuffNode {
  */
 class HuffTree {
  public:
+  /**
+   * the constructor assumes the codes and bits tables will not be freed,
+   * ideally they are static
+   */
   explicit HuffTree(const uint32_t* codes, const uint8_t* bits);
   ~HuffTree() {}
 
@@ -121,7 +125,7 @@ class HuffTree {
  private:
   void fillIndex(SuperHuffNode& snode, uint32_t code, uint8_t bits, uint8_t ch,
      uint8_t level);
-  void buildTable();
+  void buildTree();
   void insert(uint32_t code, uint8_t bits, uint8_t ch);
 
   uint32_t nodes_{0};
