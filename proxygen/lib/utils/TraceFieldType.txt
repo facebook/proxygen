@@ -44,7 +44,7 @@ InFlightConns, "in_flight_conns"
 NewSession, "new_session"
 NumWaiting, "num_waiting"
 
-/* ---- Used in DnsResolution ---- */
+/* ---- Used in DnsResolution and DNSCache ---- */
 HostName, "host_name"
 IpAddr, "ip_address"
 Port, "port"
@@ -53,6 +53,11 @@ RedirectTime, "redirect_time"
 NumberResolvers, "number_resolvers"
 RequestFamily, "request_family"
 NumberAnswers, "number_answers"
+
+/* ---- Used in DNSCache only ---- */
+DNSCacheHit, "dns_cache_hit"
+DNSCacheStale, "dns_cache_stale"
+DNSCacheInflight, "dns_cache_inflight"
 
 /* ---- Used in TlsSetup ---- */
 TLSReused, "tls_reused"
