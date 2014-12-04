@@ -32,9 +32,9 @@ sudo apt-get install -yq \
 # deps.sh in fbthrift and folly builds anyways (no trap there)
 if ! sudo apt-get install libgoogle-glog-dev; 
 then
-	echo "fetching glog from svn (apt-get fails)"
 	if [ ! -e google-glog ]; then
-		svn checkout http://google-glog.googlecode.com/svn/trunk/ google-glog
+    echo "fetching glog from svn (apt-get failed)"
+		svn checkout https://google-glog.googlecode.com/svn/trunk/ google-glog
 		cd google-glog
 		./configure
 		make
@@ -43,25 +43,24 @@ then
 	fi
 fi
 
-if ! sudo apt-get install libgflags-dev; 
+if ! sudo apt-get install libgflags-dev;
 then
 	if [ ! -e google-gflags ]; then
-		echo "Fetching and building libgflags"
-		wget https://github.com/schuhschuh/gflags/archive/v2.0.tar.gz
-		mkdir google-gflags
-		tar xf v2.0.tar.gz -C google-gflags
-		cd google-gflags/gflags-2.0/
-		./configure
-		make
-		sudo make install
-		cd ../../
+    echo "Fetching gflags from svn (apt-get failed)"
+    svn checkout https://google-gflags.googlecode.com/svn/trunk/ google-gflags
+    cd google-gflags
+    ./configure
+    make
+    sudo make install
+    cd ..
 	fi
 fi
 
-if  ! sudo apt-get install libdouble-conversion-dev; 
+if  ! sudo apt-get install libdouble-conversion-dev;
 then
 	if [ ! -e double-conversion ]; then
-		git clone https://code.google.com/p/double-conversion double-conversion
+    echo "Fetching double-conversion from git (apt-get failed)"
+		git clone https://github.com/floitsch/double-conversion.git double-conversion
 		cd double-conversion
 		cmake . -DBUILD_SHARED_LIBS=ON
 		sudo make install
