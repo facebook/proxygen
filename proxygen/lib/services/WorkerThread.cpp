@@ -61,7 +61,9 @@ void WorkerThread::stopWhenIdle() {
     if (state_ == State::RUNNING) {
       state_ = State::STOP_WHEN_IDLE;
       eventBase_.terminateLoopSoon();
-    } else if (state_ != State::STOP_WHEN_IDLE) {
+    // state_ could be IDLE if we don't execute this callback until the
+    // EventBase is destroyed in the WorkerThread destructor
+    } else if (state_ != State::IDLE && state_ != State::STOP_WHEN_IDLE) {
       LOG(FATAL) << "stopWhenIdle() called in unexpected state " <<
           static_cast<int>(state_);
     }
@@ -73,18 +75,13 @@ void WorkerThread::forceStop() {
   // worker thread.
   //
   // This way we don't have to synchronize access to state_.
-  //
-  // This also has the benefit of preserving ordering between functions already
-  // scheduled with runInEventBaseThread() and the actual stop.  Functions
-  // already scheduled before forceStop() was called are guaranteed to be run
-  // before the thread stops.  (If we called terminateLoopSoon() from the
-  // current thread, the worker thread may stop before running functions
-  // already scheduled via runInEventBaseThread().)
   eventBase_.runInEventBaseThread([this] {
     if (state_ == State::RUNNING || state_ == State::STOP_WHEN_IDLE) {
       state_ = State::FORCE_STOP;
       eventBase_.terminateLoopSoon();
-    } else {
+    // state_ could be IDLE if we don't execute this callback until the
+    // EventBase is destroyed in the WorkerThread destructor
+    } else if (state_ != State::IDLE) {
       LOG(FATAL) << "forceStop() called in unexpected state " <<
           static_cast<int>(state_);
     }
