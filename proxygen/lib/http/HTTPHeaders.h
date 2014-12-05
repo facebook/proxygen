@@ -299,7 +299,7 @@ void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
     ptr = (HTTPHeaderCode*) memchr((void*)ptr, (Code), \
                             codes_.size() - (ptr - codes_.data())); \
     if (ptr == nullptr) break; \
-    const int pos = ptr - codes_.data(); \
+    const size_t pos = ptr - codes_.data(); \
     {Block} \
     ptr++; \
   } \

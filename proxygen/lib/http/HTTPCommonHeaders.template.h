@@ -42,7 +42,7 @@ enum HTTPHeaderCode : uint8_t {
 class HTTPCommonHeaders {
  public:
   // Perfect hash function to match common HTTP header names
-  static HTTPHeaderCode hash(const char* name, unsigned len);
+  static HTTPHeaderCode hash(const char* name, size_t len);
 
   inline static HTTPHeaderCode hash(const std::string& name) {
     return hash(name.data(), name.length());
