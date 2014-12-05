@@ -43,9 +43,9 @@ class HPACKDecoder : public HPACKContext {
    * given a Cursor and a total amount of bytes we can consume from it,
    * decode headers into the given vector.
    */
-  virtual uint32_t decode(folly::io::Cursor& cursor,
-                          uint32_t totalBytes,
-                          headers_t& headers);
+  uint32_t decode(folly::io::Cursor& cursor,
+                  uint32_t totalBytes,
+                  headers_t& headers);
   /**
    * given a compressed header block as an IOBuf chain, decode all the
    * headers and return them. This is just a convenience wrapper around
@@ -68,7 +68,9 @@ class HPACKDecoder : public HPACKContext {
  protected:
   bool isValid(uint32_t index);
 
-  uint32_t emitRefset(headers_t& emitted);
+  virtual uint32_t emitRefset(headers_t& emitted);
+
+  virtual const huffman::HuffTree& getHuffmanTree() const;
 
   uint32_t emit(const HPACKHeader& header, headers_t& emitted);
 

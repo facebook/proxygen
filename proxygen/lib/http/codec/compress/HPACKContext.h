@@ -27,14 +27,14 @@ class HPACKContext {
    *
    * @return 0 if cannot be found
    */
-  uint32_t getIndex(const HPACKHeader& header) const;
+  virtual uint32_t getIndex(const HPACKHeader& header) const;
 
   /**
    * index of a header entry with the given name from dynamic or static table
    *
    * @return 0 if name not found
    */
-  uint32_t nameIndex(const std::string& name) const;
+  virtual uint32_t nameIndex(const std::string& name) const;
 
   /**
    * @return true if the given index points to a static header entry

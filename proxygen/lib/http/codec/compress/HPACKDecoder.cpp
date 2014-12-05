@@ -32,13 +32,16 @@ unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
   return std::move(headers);
 }
 
+const huffman::HuffTree& HPACKDecoder::getHuffmanTree() const {
+  return (msgType_ == HPACK::MessageType::REQ) ?
+    huffman::reqHuffTree05() : huffman::respHuffTree05();
+}
+
 uint32_t HPACKDecoder::decode(Cursor& cursor,
                               uint32_t totalBytes,
                               headers_t& headers) {
-  auto& huffmanTree = msgType_ == HPACK::MessageType::REQ ?
-    huffman::reqHuffTree05() : huffman::respHuffTree05();
   uint32_t emittedSize = 0;
-  HPACKDecodeBuffer dbuf(huffmanTree, cursor, totalBytes);
+  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, headers);
     if (emittedSize > HeaderCodec::kMaxUncompressed) {

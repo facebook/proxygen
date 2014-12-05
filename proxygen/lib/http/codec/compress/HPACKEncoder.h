@@ -47,12 +47,13 @@ class HPACKEncoder : public HPACKContext {
     pendingContextUpdate_ = true;
   }
 
+ protected:
+  void encodeAsIndex(uint32_t index);
+
  private:
-  void encodeHeader(const HPACKHeader& header);
+  virtual void encodeHeader(const HPACKHeader& header);
 
   virtual void encodeAsLiteral(const HPACKHeader& header);
-
-  void encodeAsIndex(uint32_t index);
 
   void addHeader(const HPACKHeader& header);
 
