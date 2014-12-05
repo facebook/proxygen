@@ -72,6 +72,7 @@ HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   decodedHeaders_.clear();
   auto consumed = decoder_->decode(cursor, length, decodedHeaders_);
   if (decoder_->hasError()) {
+    LOG(ERROR) << "decoder state: " << decoder_->getTable();
     if (stats_) {
       stats_->recordDecodeError(Type::HPACK);
     }
