@@ -82,20 +82,17 @@ HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   }
   // convert to HeaderPieceList
   uint32_t uncompressed = 0;
-  // sort the headers to detect duplicates/multi-valued headers
-  // * this is really unrelated to HPACK, just a need to mimic GzipHeaderCodec
-  sort(decodedHeaders_.begin(), decodedHeaders_.end());
-
   for (uint32_t i = 0; i < decodedHeaders_.size(); i++) {
     const HPACKHeader& h = decodedHeaders_[i];
-    bool multiValued =
-      (i > 0 && decodedHeaders_[i - 1].name == h.name) ||
-      (i < decodedHeaders_.size() - 1 && decodedHeaders_[i + 1].name == h.name);
+    // SPDYCodec uses this 'multi-valued' flag to detect illegal duplicates
+    // Since HPACK does not preclude duplicates, pretend everything is
+    // multi-valued
+    bool multiValued = true;
     // one entry for the name and one for the value
-    outHeaders_.push_back(HeaderPiece((char *)h.name.c_str(), h.name.size(),
-                                     false, multiValued));
-    outHeaders_.push_back(HeaderPiece((char *)h.value.c_str(), h.value.size(),
-                                     false, multiValued));
+    outHeaders_.emplace_back((char *)h.name.c_str(), h.name.size(),
+                             false, multiValued);
+    outHeaders_.emplace_back((char *)h.value.c_str(), h.value.size(),
+                             false, multiValued);
     uncompressed += h.name.size() + h.value.size() + 2;
   }
   decodedSize_.compressed = consumed;
