@@ -153,6 +153,33 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     return messageBegin;
   }
 
+  void expectMessage(bool eom, int32_t headerCount,
+                     const std::string& url) const {
+    expectMessageHelper(eom, headerCount, url, -1);
+  }
+  void expectMessage(bool eom, int32_t headerCount,
+                     int32_t statusCode) const {
+    expectMessageHelper(eom, headerCount, "", statusCode);
+  }
+
+  void expectMessageHelper(bool eom, int32_t headerCount,
+                           const std::string& url, int32_t statusCode) const {
+    EXPECT_EQ(messageBegin, 1);
+    EXPECT_EQ(headersComplete, 1);
+    EXPECT_EQ(messageComplete, eom ? 1 : 0);
+    EXPECT_EQ(streamErrors, 0);
+    EXPECT_EQ(sessionErrors, 0);
+    EXPECT_NE(msg, nullptr);
+    if (headerCount >= 0) {
+      EXPECT_EQ(msg->getHeaders().size(), headerCount);
+    }
+    if (!url.empty()) {
+      EXPECT_EQ(msg->getURL(), url);
+    } else if (statusCode > 0) {
+      EXPECT_EQ(msg->getStatusCode(), statusCode);
+    }
+  }
+
   void reset() {
     assocStreamId = 0;
     messageBegin = 0;
