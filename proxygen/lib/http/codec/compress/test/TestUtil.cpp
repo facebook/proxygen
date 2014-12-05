@@ -43,13 +43,17 @@ unique_ptr<IOBuf> encodeDecode(
   CHECK(!decoder.hasError());
 
   EXPECT_EQ(headers.size(), decodedHeaders->size());
-  CHECK(headers.size() == decodedHeaders->size());
   sort(decodedHeaders->begin(), decodedHeaders->end());
   sort(headers.begin(), headers.end());
   if (headers.size() != decodedHeaders->size()) {
-    printDelta(*decodedHeaders, headers);
+    std::cerr << printDelta(*decodedHeaders, headers);
+    CHECK(false) << "Mismatched headers size";
   }
   EXPECT_EQ(headers, *decodedHeaders);
+  if (headers != *decodedHeaders) {
+    std::cerr << printDelta(headers, *decodedHeaders);
+    CHECK(false) << "Mismatched headers";
+  }
   // header tables should look the same
   CHECK(encoder.getTable() == decoder.getTable());
   EXPECT_EQ(encoder.getTable(), decoder.getTable());

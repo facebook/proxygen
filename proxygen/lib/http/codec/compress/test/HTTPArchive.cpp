@@ -26,8 +26,7 @@ using std::vector;
 
 namespace proxygen {
 
-unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
-  unique_ptr<HTTPArchive> har = folly::make_unique<HTTPArchive>();
+std::unique_ptr<IOBuf> readFileToIOBuf(const std::string& filename) {
   // read the contents of the file
   ifstream file(filename);
   if (!file.is_open()) {
@@ -50,7 +49,15 @@ unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
                << file.gcount() << " bytes out of " << size;
     return nullptr;
   }
+  return buffer;
+}
 
+unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
+  unique_ptr<HTTPArchive> har = folly::make_unique<HTTPArchive>();
+  auto buffer = readFileToIOBuf(filename);
+  if (!buffer) {
+    return nullptr;
+  }
   folly::dynamic jsonObj = folly::parseJson((const char *)buffer->data());
   auto entries = jsonObj["log"]["entries"];
   vector<HPACKHeader> msg;
@@ -84,6 +91,21 @@ void HTTPArchive::extractHeaders(folly::dynamic& obj,
   }
 }
 
+void HTTPArchive::extractHeadersFromPublic(folly::dynamic& obj,
+                                           vector<HPACKHeader> &msg) {
+  msg.clear();
+  auto& headersObj = obj["headers"];
+  for (size_t i = 0; i < headersObj.size(); i++) {
+    auto& headerObj = headersObj[i];
+    for (auto& k: headerObj.keys()) {
+      string name = k.asString().toStdString();
+      string value = headerObj[name].asString().toStdString();
+      std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+      msg.push_back(HPACKHeader(name, value));
+    }
+  }
+}
+
 uint32_t HTTPArchive::getSize(const vector<HPACKHeader> &headers) {
   uint32_t size = 0;
 
@@ -91,6 +113,26 @@ uint32_t HTTPArchive::getSize(const vector<HPACKHeader> &headers) {
     size += header.name.size() + header.value.size() + 2;
   }
   return size;
+}
+
+unique_ptr<HTTPArchive> HTTPArchive::fromPublicFile(const string& filename) {
+  unique_ptr<HTTPArchive> har = folly::make_unique<HTTPArchive>();
+  auto buffer = readFileToIOBuf(filename);
+  if (!buffer) {
+    return nullptr;
+  }
+  folly::dynamic jsonObj = folly::parseJson((const char *)buffer->data());
+  auto entries = jsonObj["cases"];
+  vector<HPACKHeader> msg;
+  // go over all the transactions
+  for (size_t i = 0; i < entries.size(); i++) {
+    extractHeadersFromPublic(entries[i], msg);
+    if (!msg.empty()) {
+      har->requests.push_back(msg);
+    }
+  }
+
+  return std::move(har);
 }
 
 }

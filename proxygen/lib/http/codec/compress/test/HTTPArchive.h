@@ -26,9 +26,14 @@ class HTTPArchive {
 
   static std::unique_ptr<HTTPArchive> fromFile(const std::string& filename);
 
+  static std::unique_ptr<HTTPArchive> fromPublicFile(const std::string& fname);
+
   // helper function for extracting a list of headers from a json array
   static void extractHeaders(folly::dynamic& obj,
                              std::vector<HPACKHeader>& msg);
+
+  static void extractHeadersFromPublic(folly::dynamic& obj,
+                                       std::vector<HPACKHeader>& msg);
 
   static uint32_t getSize(const std::vector<HPACKHeader>& headers);
 };
