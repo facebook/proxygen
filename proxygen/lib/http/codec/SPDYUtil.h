@@ -44,6 +44,9 @@ class SPDYUtil {
   }
 
   static bool validateHeaderName(folly::ByteRange name) {
+    if (name.size() == 0) {
+      return false;
+    }
     for (auto p: name) {
       if (p < 0x80 && http_tokens[(uint8_t)p] != p) {
         return false;

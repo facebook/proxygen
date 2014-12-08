@@ -1173,7 +1173,6 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
           callback_->onMessageBegin(streamID, nullptr);
         }
       }
-      headers.add(name, value);
       partialMsg_ = std::move(msg);
       throw SPDYStreamFailed(false, streamID, 400, "Bad header value");
     }
