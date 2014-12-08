@@ -9,6 +9,7 @@
  */
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
 using apache::thrift::async::TAsyncSocket;
@@ -73,6 +74,8 @@ void HTTPSessionAcceptor::onNewConnection(
       TransportDirection::DOWNSTREAM,
       *version,
       accConfig_.spdyCompressionLevel);
+  } else if (nextProtocol == "h2-14") {
+    codec = folly::make_unique<HTTP2Codec>(TransportDirection::DOWNSTREAM);
   } else {
     // Either we advertised a protocol we don't support or the
     // client requested a protocol we didn't advertise.
