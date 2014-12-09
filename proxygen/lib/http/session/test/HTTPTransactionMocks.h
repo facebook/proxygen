@@ -146,7 +146,7 @@ class MockHTTPTransactionTransportCallback:
   MockHTTPTransactionTransportCallback() {}
   GMOCK_METHOD0_(, noexcept,, firstByteFlushed, void());
   GMOCK_METHOD1_(, noexcept,, headerBytesGenerated, void(HTTPHeaderSize&));
-  GMOCK_METHOD1_(, noexcept,, bodyBytesGenerated, void(uint32_t));
+  GMOCK_METHOD1_(, noexcept,, bodyBytesGenerated, void(size_t));
 };
 
 }

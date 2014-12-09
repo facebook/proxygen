@@ -320,9 +320,9 @@ class HTTPTransaction :
 
     virtual void headerBytesReceived(const HTTPHeaderSize& size) noexcept = 0;
 
-    virtual void bodyBytesGenerated(uint32_t nbytes) noexcept = 0;
+    virtual void bodyBytesGenerated(size_t nbytes) noexcept = 0;
 
-    virtual void bodyBytesReceived(uint32_t size) noexcept = 0;
+    virtual void bodyBytesReceived(size_t size) noexcept = 0;
 
     virtual ~TransportCallback() {};
   };
