@@ -13,6 +13,8 @@
 
 namespace proxygen { namespace huffman {
 
+const uint32_t kEOSHpack09 = 0x3fffffff;
+
 const HuffTree& huffTree09();
 
 }}

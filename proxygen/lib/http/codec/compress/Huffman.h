@@ -16,6 +16,14 @@
 
 namespace proxygen { namespace huffman {
 
+// size of the huffman tables (codes and bits)
+const uint32_t kTableSize = 256;
+
+// not used explicitly, since the prefixes are all 1's and they are
+// used only for padding of up to 7 bits
+const uint32_t kEOSReqHpack05 = 0x3ffffdc;
+const uint32_t kEOSRespHpack05 = 0xffffdd;
+
 /**
  * node from the huffman tree
  *

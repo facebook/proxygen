@@ -18,15 +18,16 @@ namespace proxygen { namespace huffman {
  * use unions and placement new to initialize the static variables
  */
 DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, HuffTree09, s_huffTree09);
-DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, 257, CodesTable,
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, kTableSize, CodesTable,
                                         s_codesTable09);
-DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, 257, BitsTable,
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, kTableSize, BitsTable,
                                         s_bitsTable09);
 
 __attribute__((__constructor__))
 void initHuffTree09() {
 // Note: the 257th element is EOM character and it's not explicitly used
-  new (const_cast<uint32_t(*)[257]>(&s_codesTable09.data)) uint32_t[257] {
+  new (const_cast<uint32_t(*)[kTableSize]>(&s_codesTable09.data))
+      uint32_t[kTableSize] {
     0x1ff8, 0x7fffd8, 0xfffffe2, 0xfffffe3, 0xfffffe4, 0xfffffe5, 0xfffffe6,
     0xfffffe7, 0xfffffe8, 0xffffea, 0x3ffffffc, 0xfffffe9, 0xfffffea,
     0x3ffffffd, 0xfffffeb, 0xfffffec, 0xfffffed, 0xfffffee, 0xfffffef,
@@ -58,10 +59,11 @@ void initHuffTree09() {
     0x3fffea, 0x3fffeb, 0x1ffffee, 0x1ffffef, 0xfffff4, 0xfffff5, 0x3ffffea,
     0x7ffff4, 0x3ffffeb, 0x7ffffe6, 0x3ffffec, 0x3ffffed, 0x7ffffe7, 0x7ffffe8,
     0x7ffffe9, 0x7ffffea, 0x7ffffeb, 0xffffffe, 0x7ffffec, 0x7ffffed, 0x7ffffee,
-    0x7ffffef, 0x7fffff0, 0x3ffffee, 0x3fffffff
+    0x7ffffef, 0x7fffff0, 0x3ffffee
   };
 
-  new (const_cast<uint8_t(*)[257]>(&s_bitsTable09.data)) uint8_t[257] {
+  new (const_cast<uint8_t(*)[kTableSize]>(&s_bitsTable09.data))
+      uint8_t[kTableSize] {
     13, 23, 28, 28, 28, 28, 28, 28, 28, 24, 30, 28, 28, 30, 28, 28, 28, 28, 28,
     28, 28, 28, 30, 28, 28, 28, 28, 28, 28, 28, 28, 28, 6, 10, 10, 12, 13, 6, 8,
     11, 10, 10, 8, 11, 8, 6, 6, 6, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 8, 15, 6,
@@ -74,7 +76,7 @@ void initHuffTree09() {
     22, 22, 23, 26, 26, 20, 19, 22, 23, 22, 25, 26, 26, 26, 27, 27, 26, 24, 25,
     19, 21, 26, 27, 27, 26, 27, 24, 21, 21, 26, 26, 28, 27, 27, 27, 20, 24, 20,
     21, 22, 21, 21, 23, 22, 22, 25, 25, 24, 24, 26, 23, 26, 27, 26, 26, 27, 27,
-    27, 27, 27, 28, 27, 27, 27, 27, 27, 26, 30
+    27, 27, 27, 28, 27, 27, 27, 27, 27, 26
   };
 
   new (const_cast<HuffTree*>(&s_huffTree09.data))

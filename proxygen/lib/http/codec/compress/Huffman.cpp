@@ -124,7 +124,7 @@ void HuffTree::fillIndex(SuperHuffNode& snode, uint32_t code, uint8_t bits,
  */
 void HuffTree::buildTree() {
   // create the indexed table
-  for (uint32_t i = 0; i < 256; i++) {
+  for (uint32_t i = 0; i < kTableSize; i++) {
     insert(codes_[i], bits_[i], i);
   }
 }
@@ -213,19 +213,20 @@ pair<uint32_t, uint8_t> HuffTree::getCode(uint8_t ch) const {
  * use unions and placement new to initialize the static variables
  */
 DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, ReqHuffTree, s_reqHuffTree05);
-DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, 256, ReqCodesTable,
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, kTableSize, ReqCodesTable,
                                         s_reqCodesTable05);
-DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, 256, ReqBitsTable,
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, kTableSize, ReqBitsTable,
                                         s_reqBitsTable05);
 DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, RespHuffTree, s_respHuffTree05);
-DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, 256, RespCodesTable,
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint32_t, kTableSize, RespCodesTable,
                                         s_respCodesTable05);
-DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, 256, RespBitsTable,
+DEFINE_UNION_STATIC_CONST_ARRAY_NO_INIT(uint8_t, kTableSize, RespBitsTable,
                                         s_respBitsTable05);
 
 __attribute__((__constructor__))
 void initReqHuffTree05() {
-  new (const_cast<uint32_t(*)[256]>(&s_reqCodesTable05.data)) uint32_t[256] {
+  new (const_cast<uint32_t(*)[kTableSize]>(&s_reqCodesTable05.data))
+     uint32_t[kTableSize] {
     0x7ffffba, 0x7ffffbb, 0x7ffffbc, 0x7ffffbd, 0x7ffffbe, 0x7ffffbf, 0x7ffffc0,
     0x7ffffc1, 0x7ffffc2, 0x7ffffc3, 0x7ffffc4, 0x7ffffc5, 0x7ffffc6, 0x7ffffc7,
     0x7ffffc8, 0x7ffffc9, 0x7ffffca, 0x7ffffcb, 0x7ffffcc, 0x7ffffcd, 0x7ffffce,
@@ -260,7 +261,8 @@ void initReqHuffTree05() {
     0x3ffffd9, 0x3ffffda, 0x3ffffdb
   };
 
-  new (const_cast<uint8_t(*)[256]>(&s_reqBitsTable05.data)) uint8_t[256] {
+  new (const_cast<uint8_t(*)[kTableSize]>(&s_reqBitsTable05.data))
+      uint8_t[kTableSize] {
     27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27,
     27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 27, 8, 12, 14, 15, 15, 6,
     7, 15, 11, 11, 10, 11, 8, 6, 5, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 9, 8, 18,
@@ -287,7 +289,8 @@ const HuffTree& reqHuffTree05() {
 
 __attribute__((__constructor__))
 void initRespHuffTree05() {
-  new (const_cast<uint32_t(*)[256]>(&s_respCodesTable05.data)) uint32_t[256] {
+  new (const_cast<uint32_t(*)[kTableSize]>(&s_respCodesTable05.data))
+      uint32_t[kTableSize] {
     0x1ffffbc, 0x1ffffbd, 0x1ffffbe, 0x1ffffbf, 0x1ffffc0, 0x1ffffc1, 0x1ffffc2,
     0x1ffffc3, 0x1ffffc4, 0x1ffffc5, 0x1ffffc6, 0x1ffffc7, 0x1ffffc8, 0x1ffffc9,
     0x1ffffca, 0x1ffffcb, 0x1ffffcc, 0x1ffffcd, 0x1ffffce, 0x1ffffcf, 0x1ffffd0,
@@ -322,7 +325,8 @@ void initRespHuffTree05() {
     0xffffda, 0xffffdb, 0xffffdc
   };
 
-  new (const_cast<uint8_t(*)[256]>(&s_respBitsTable05.data)) uint8_t[256] {
+  new (const_cast<uint8_t(*)[kTableSize]>(&s_respBitsTable05.data))
+      uint8_t[kTableSize] {
     25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25,
     25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 4, 12, 7, 13, 14, 9, 10,
     13, 9, 9, 12, 11, 6, 6, 6, 7, 4, 4, 4, 5, 5, 5, 6, 6, 5, 5, 5, 9, 16, 7, 13,
