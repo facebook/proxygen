@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/Conv.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
@@ -29,7 +30,7 @@ class HPACKDecodeBuffer {
   ~HPACKDecodeBuffer() {}
 
   void reset(folly::io::Cursor& cursorVal) {
-    reset(cursorVal, cursorVal.totalLength());
+    reset(cursorVal, folly::to<uint32_t>(cursorVal.totalLength()));
   }
 
   void reset(folly::io::Cursor& cursorVal,

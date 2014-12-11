@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/Conv.h>
 #include <ostream>
 #include <string>
 
@@ -29,7 +30,7 @@ class HPACKHeader {
    * size in bytes of the header entry, as defined in the HPACK spec
    */
   uint32_t bytes() const {
-    return 32 + name.size() + value.size();
+    return folly::to<uint32_t>(32 + name.size() + value.size());
   }
 
   bool operator==(const HPACKHeader& other) const {
