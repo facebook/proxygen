@@ -13,7 +13,6 @@
 using proxygen::parseHTTPDateTime;
 
 TEST(HTTPTimeTests, InvalidTimeTest) {
-  uint64_t a;
   EXPECT_FALSE(parseHTTPDateTime("Hello, World").hasValue());
   EXPECT_FALSE(parseHTTPDateTime("Sun, 33 Nov 1994 08:49:37 GMT").hasValue());
   EXPECT_FALSE(parseHTTPDateTime("Sun, 06 Nov 1800").hasValue());
