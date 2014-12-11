@@ -58,6 +58,16 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
 	codec/compress/StaticHeaderTable.h \
+	codec/compress/experimental/hpack9/HPACKCodec.h \
+	codec/compress/experimental/hpack9/HPACKConstants.h \
+	codec/compress/experimental/hpack9/HPACKContextImpl.h \
+	codec/compress/experimental/hpack9/HPACKDecoder.h \
+	codec/compress/experimental/hpack9/HPACKEncoder.h \
+	codec/compress/experimental/hpack9/Huffman.h \
+	codec/compress/experimental/hpack9/StaticHeaderTable.h \
+	codec/experimental/HTTP2Codec.h \
+	codec/experimental/HTTP2Constants.h \
+	codec/experimental/HTTP2Framer.h \
 	session/AckLatencyEvent.h \
 	session/ByteEventTracker.h \
 	session/ByteEvents.h \
@@ -93,7 +103,15 @@ libproxygenhttp_la_SOURCES = \
 	codec/compress/Huffman.cpp \
 	codec/compress/Logging.cpp \
 	codec/compress/StaticHeaderTable.cpp \
+	codec/compress/experimental/hpack9/HPACKCodec.cpp \
+	codec/compress/experimental/hpack9/HPACKDecoder.cpp \
+	codec/compress/experimental/hpack9/HPACKEncoder.cpp \
+	codec/compress/experimental/hpack9/Huffman.cpp \
+	codec/compress/experimental/hpack9/StaticHeaderTable.cpp \
 	codec/ErrorCode.cpp \
+	codec/experimental/HTTP2Codec.cpp \
+	codec/experimental/HTTP2Constants.cpp \
+	codec/experimental/HTTP2Framer.cpp \
 	codec/FlowControlFilter.cpp \
 	codec/HTTP1xCodec.cpp \
 	codec/HTTPChecks.cpp \
