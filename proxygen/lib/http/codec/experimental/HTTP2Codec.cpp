@@ -442,10 +442,10 @@ HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest) {
       }
       bool nameOk = SPDYUtil::validateHeaderName(name.str);
       bool valueOk = SPDYUtil::validateHeaderValue(value.str, SPDYUtil::STRICT);
-      headers.add(name.str, value.str);
       if (!nameOk || !valueOk) {
         return string("Bad header value");
       }
+      headers.add(name.str, value.str);
     }
   }
   if (isRequest) {
