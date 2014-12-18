@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-#include "folly/experimental/wangle/acceptor/TransportInfo.h"
+#include "folly/wangle/acceptor/TransportInfo.h"
 
 namespace proxygen {
 

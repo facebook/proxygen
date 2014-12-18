@@ -10,8 +10,8 @@
 #include <proxygen/lib/http/session/HTTPSession.h>
 
 #include <chrono>
-#include <folly/experimental/wangle/ConnectionManager.h>
-#include <folly/experimental/wangle/acceptor/SocketOptions.h>
+#include <folly/wangle/acceptor/ConnectionManager.h>
+#include <folly/wangle/acceptor/SocketOptions.h>
 #include <openssl/err.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>

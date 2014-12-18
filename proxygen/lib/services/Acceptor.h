@@ -10,7 +10,7 @@
 #pragma once
 
 #include <folly/SocketAddress.h>
-#include <folly/experimental/wangle/acceptor/Acceptor.h>
+#include <folly/wangle/acceptor/Acceptor.h>
 #include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
 
 // This is a hack until hphp third-party can be updated.

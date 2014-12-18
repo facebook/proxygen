@@ -10,8 +10,8 @@
 #pragma once
 
 #include <folly/IntrusiveList.h>
-#include <folly/experimental/wangle/ManagedConnection.h>
-#include <folly/experimental/wangle/acceptor/TransportInfo.h>
+#include <folly/wangle/acceptor/ManagedConnection.h>
+#include <folly/wangle/acceptor/TransportInfo.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/EventBase.h>
 #include <proxygen/lib/http/HTTPConstants.h>
