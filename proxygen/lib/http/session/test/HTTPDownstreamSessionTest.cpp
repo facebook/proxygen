@@ -42,6 +42,11 @@ struct HTTP1xCodecPair {
   static const int version = 1;
 };
 
+struct HTTP2CodecPair {
+  typedef HTTP2Codec Codec;
+  static const int version = 2;
+};
+
 struct SPDY2CodecPair {
   typedef SPDYCodec Codec;
   static const SPDYVersion version = SPDYVersion::SPDY2;
@@ -814,6 +819,7 @@ TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
   MockHTTPHandler handler1;
   HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
   auto streamID = HTTPCodec::StreamID(0);
+  clientCodec.generateConnectionPreface(requests);
   clientCodec.generateHeader(requests, streamID, req);
   clientCodec.generateEOM(requests, streamID);
   clientCodec.generateHeader(requests, streamID, req);
@@ -855,6 +861,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout) {
   req.setHTTPVersion(1, 0);
   HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
   auto streamID = HTTPCodec::StreamID(0);
+  clientCodec.generateConnectionPreface(requests);
   clientCodec.generateHeader(requests, streamID, req);
   clientCodec.generateEOM(requests, streamID);
 
@@ -938,6 +945,7 @@ TEST_F(HTTPDownstreamSessionTest, body_packetization) {
   req.setWantsKeepalive(false);
   HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
   auto streamID = HTTPCodec::StreamID(0);
+  clientCodec.generateConnectionPreface(requests);
   clientCodec.generateHeader(requests, streamID, req);
   clientCodec.generateEOM(requests, streamID);
 
@@ -988,6 +996,7 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
   HTTPMessage req = getGetRequest();
   HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
   auto streamID = HTTPCodec::StreamID(0);
+  clientCodec.generateConnectionPreface(requests);
   clientCodec.generateHeader(requests, streamID, req);
   clientCodec.generateEOM(requests, streamID);
   MockHTTPHandler handler;
@@ -1045,6 +1054,7 @@ void HTTPDownstreamTest<C>::testPriorities(
   uint32_t maxPriority = numPriorities - 1;
   HTTPMessage req = getGetRequest();
   auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
   for (int pri = numPriorities - 1; pri >= 0; pri--) {
     req.setPriority(pri);
     for (auto i = 0; i < iterations; i++) {
@@ -1113,6 +1123,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
   HTTPMessage req = getGetRequest();
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3);
+  clientCodec.generateConnectionPreface(requests);
   for (auto streamID = HTTPCodec::StreamID(1); streamID <= 3; streamID += 2) {
     clientCodec.generateHeader(requests, streamID, req);
     clientCodec.generateEOM(requests, streamID);
@@ -1178,6 +1189,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3);
   auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
   clientCodec.getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                                               500);
   clientCodec.generateSettings(requests);
@@ -1220,6 +1232,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
   auto badCodec =
     makeServerCodec<typename TypeParam::Codec>(TypeParam::version);
   auto streamID = HTTPCodec::StreamID(1);
+  clientCodec->generateConnectionPreface(requests);
   clientCodec->generateHeader(requests, streamID, req);
   clientCodec->generateEOM(requests, streamID);
   streamID += 1;
@@ -1259,6 +1272,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3);
   auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
   clientCodec.generateHeader(requests, streamID, req);
   clientCodec.generateEOM(requests, streamID);
   streamID += 2;
@@ -1310,7 +1324,8 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
                            testWritesDraining);
 
-typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair> ParallelCodecs;
+typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair, SPDY3_1CodecPair,
+                         HTTP2CodecPair> ParallelCodecs;
 INSTANTIATE_TYPED_TEST_CASE_P(ParallelCodecs,
                               HTTPDownstreamTest,
                               ParallelCodecs);
