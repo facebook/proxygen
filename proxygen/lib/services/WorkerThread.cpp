@@ -35,20 +35,17 @@ void WorkerThread::start() {
   CHECK(state_ == State::IDLE);
   state_ = State::STARTING;
 
-  auto barrier = std::make_shared<boost::barrier>(2);
   {
     // because you could theoretically call wait in parallel with start,
     // why are you in such a hurry anyways?
     std::lock_guard<std::mutex> guard(joinLock_);
-    thread_ = std::thread([&, barrier]() mutable {
+    thread_ = std::thread([&]() mutable {
         this->setup();
-        barrier->wait();
-        barrier.reset();
         this->runLoop();
         this->cleanup();
       });
   }
-  barrier->wait();
+  eventBase_.waitUntilRunning();
   // The server has been set up and is now in the loop implementation
 }
 
