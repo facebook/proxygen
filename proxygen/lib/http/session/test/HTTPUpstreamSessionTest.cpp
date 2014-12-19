@@ -67,12 +67,12 @@ class HTTPUpstreamTest: public testing::Test,
                                std::chrono::milliseconds(500))) {
   }
 
-  virtual void onWriteChain(TAsyncTransport::WriteCallback* callback,
+  virtual void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
                             std::shared_ptr<IOBuf> iob,
                             WriteFlags flags) {
     if (failWrites_) {
-      TTransportException ex;
-      callback->writeError(0, ex);
+      AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
+      callback->writeErr(0, ex);
     } else {
       if (writeInLoop_) {
         eventBase_.runInLoop([&] {
@@ -91,9 +91,9 @@ class HTTPUpstreamTest: public testing::Test,
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));
-    EXPECT_CALL(*transport_, setReadCallback(_))
+    EXPECT_CALL(*transport_, setReadCB(_))
       .WillRepeatedly(SaveArg<0>(&readCallback_));
-    EXPECT_CALL(*transport_, getReadCallback())
+    EXPECT_CALL(*transport_, getReadCB())
       .WillRepeatedly(Return(readCallback_));
     EXPECT_CALL(*transport_, getEventBase())
       .WillRepeatedly(Return(&eventBase_));
@@ -188,7 +188,7 @@ class HTTPUpstreamTest: public testing::Test,
 
   EventBase eventBase_;
   MockTAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
-  TAsyncTransport::ReadCallback* readCallback_{nullptr};
+  folly::AsyncTransportWrapper::ReadCallback* readCallback_{nullptr};
   AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   TransportInfo mockTransportInfo_;
   SocketAddress localAddr_{"127.0.0.1", 80};
@@ -647,7 +647,7 @@ TEST_F(HTTPUpstreamSessionTest, 101_upgrade) {
 
 class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
  public:
-  void onWriteChain(TAsyncTransport::WriteCallback* callback,
+  void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
                     std::shared_ptr<IOBuf> iob,
                     WriteFlags flags) override {
     if (!timesCalled_++) {

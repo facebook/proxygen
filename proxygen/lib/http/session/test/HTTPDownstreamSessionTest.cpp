@@ -580,7 +580,7 @@ TEST(HTTPDownstreamTest, parse_error_no_txn) {
   EXPECT_CALL(*transport, closeNow())
     .WillRepeatedly(Assign(&transportGood, false));
   EXPECT_CALL(*transport, writeChain(_, _, _))
-    .WillRepeatedly(Invoke([&] (TAsyncTransport::WriteCallback* callback,
+    .WillRepeatedly(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                 const shared_ptr<IOBuf> iob,
                                 WriteFlags flags) {
                              callback->writeSuccess();

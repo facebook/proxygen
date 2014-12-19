@@ -54,7 +54,7 @@ class MockCodecDownstreamTest: public testing::Test {
       .WillRepeatedly(Assign(&transportGood_, false));
     EXPECT_CALL(*transport_, getEventBase())
       .WillRepeatedly(Return(&eventBase_));
-    EXPECT_CALL(*transport_, setReadCallback(_))
+    EXPECT_CALL(*transport_, setReadCB(_))
       .WillRepeatedly(SaveArg<0>(&transportCb_));
     EXPECT_CALL(mockController_, attachSession(_));
     EXPECT_CALL(*codec_, setCallback(_))
@@ -144,7 +144,7 @@ class MockCodecDownstreamTest: public testing::Test {
   StrictMock<MockHTTPCodec>* codec_;
   HTTPCodec::Callback* codecCallback_{nullptr};
   NiceMock<MockTAsyncTransport>* transport_;
-  TAsyncTransport::ReadCallback* transportCb_;
+  folly::AsyncTransportWrapper::ReadCallback* transportCb_;
   AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   StrictMock<MockController> mockController_;
   HTTPDownstreamSession* httpSession_;
@@ -585,7 +585,7 @@ TEST_F(MockCodecDownstreamTest, read_timeout) {
             ConnectionCloseReason::kMAX_REASON);
 
   EXPECT_CALL(*transport_, writeChain(_, _, _))
-    .WillRepeatedly(Invoke([] (TAsyncTransport::WriteCallback* callback,
+    .WillRepeatedly(Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                std::shared_ptr<folly::IOBuf> iob,
                                apache::thrift::async::WriteFlags flags) {
                              callback->writeSuccess();
@@ -667,7 +667,7 @@ TEST_F(MockCodecDownstreamTest, buffering) {
         }));
 
   EXPECT_CALL(*transport_, writeChain(_, _, _))
-    .WillRepeatedly(Invoke([&] (TAsyncTransport::WriteCallback* callback,
+    .WillRepeatedly(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                 const shared_ptr<IOBuf> iob,
                                 WriteFlags flags) {
                              callback->writeSuccess();
@@ -765,7 +765,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
   EXPECT_CALL(mockController_, detachSession(_));
 
   EXPECT_CALL(*transport_, writeChain(_, _, _))
-    .WillRepeatedly(Invoke([] (TAsyncTransport::WriteCallback* callback,
+    .WillRepeatedly(Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                std::shared_ptr<folly::IOBuf> iob,
                                apache::thrift::async::WriteFlags flags) {
                              callback->writeSuccess();
@@ -818,7 +818,7 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
   EXPECT_CALL(mockController_, detachSession(_));
 
   EXPECT_CALL(*transport_, writeChain(_, _, _))
-    .WillRepeatedly(Invoke([] (TAsyncTransport::WriteCallback* callback,
+    .WillRepeatedly(Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                std::shared_ptr<folly::IOBuf> iob,
                                apache::thrift::async::WriteFlags flags) {
                              callback->writeSuccess();
@@ -838,7 +838,7 @@ TEST(HTTPDownstreamTest, new_txn_egress_paused) {
   // The first txn should complete first
   HTTPCodec::StreamID curId(1);
   std::array<NiceMock<MockHTTPHandler>, 2> handlers;
-  TAsyncTransport::WriteCallback* delayedWrite = nullptr;
+  folly::AsyncTransportWrapper::WriteCallback* delayedWrite = nullptr;
   EventBase evb;
 
   // Setup the controller and its expecations.
@@ -912,14 +912,14 @@ TEST(HTTPDownstreamTest, new_txn_egress_paused) {
   // We expect the writes to come in this order:
   // txn1 headers -> txn1 eom -> txn2 headers -> txn2 eom
   EXPECT_CALL(*transport, writeChain(_, _, _))
-    .WillOnce(Invoke([&] (TAsyncTransport::WriteCallback* callback,
+    .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
                           const shared_ptr<IOBuf> iob,
                           WriteFlags flags) {
                        CHECK_EQ(iob->computeChainDataLength(), header1Len);
                        delayedWrite = callback;
                        CHECK(delayedWrite != nullptr);
                      }))
-    .WillOnce(Invoke([&] (TAsyncTransport::WriteCallback* callback,
+    .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
                           const shared_ptr<IOBuf> iob,
                           WriteFlags flags) {
                        CHECK(delayedWrite == nullptr);
@@ -931,7 +931,7 @@ TEST(HTTPDownstreamTest, new_txn_egress_paused) {
                                 header2Len + body1Len);
                        callback->writeSuccess();
                      }))
-    .WillOnce(Invoke([&] (TAsyncTransport::WriteCallback* callback,
+    .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
                           const shared_ptr<IOBuf> iob,
                           WriteFlags flags) {
                        CHECK_EQ(iob->computeChainDataLength(), body2Len);
@@ -1301,9 +1301,9 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
     codecCallback_->onMessageComplete(1, false);
   }
 
-  TAsyncTransport::WriteCallback* cb = nullptr;
+  folly::AsyncTransportWrapper::WriteCallback* cb = nullptr;
   EXPECT_CALL(*transport_, writeChain(_, _, _))
-    .WillOnce(Invoke([&] (TAsyncTransport::WriteCallback* callback,
+    .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
                           const shared_ptr<IOBuf> iob,
                           WriteFlags flags) {
                        // don't immediately flush the goaway
@@ -1321,7 +1321,9 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
       .Times(AtLeast(1))
       .WillOnce(DoAll(Assign(&transportGood_, false),
                       Invoke([cb] {
-                          cb->writeError(0, TTransportException());
+                          AsyncSocketException ex(
+                            AsyncSocketException::UNKNOWN, "");
+                          cb->writeErr(0, ex);
                         })));
 
     httpSession_->dropConnection();

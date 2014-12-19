@@ -48,17 +48,17 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
   explicit TestAsyncTransport(folly::EventBase* eventBase);
 
   // TAsyncTransport methods
-  void setReadCallback(ReadCallback* callback) override;
+  void setReadCB(AsyncTransportWrapper::ReadCallback* callback) override;
   ReadCallback* getReadCallback() const override;
-  void write(WriteCallback* callback,
+  void write(AsyncTransportWrapper::WriteCallback* callback,
              const void* buf, size_t bytes,
              apache::thrift::async::WriteFlags flags =
              apache::thrift::async::WriteFlags::NONE) override;
-  void writev(WriteCallback* callback,
+  void writev(AsyncTransportWrapper::WriteCallback* callback,
               const struct iovec* vec, size_t count,
               apache::thrift::async::WriteFlags flags =
               apache::thrift::async::WriteFlags::NONE) override;
-  void writeChain(WriteCallback* callback,
+  void writeChain(AsyncTransportWrapper::WriteCallback* callback,
                   std::unique_ptr<folly::IOBuf>&& iob,
                   apache::thrift::async::WriteFlags flags =
                   apache::thrift::async::WriteFlags::NONE) override;
@@ -89,7 +89,7 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
   void addReadEvent(const char* buf,
                     std::chrono::milliseconds delayFromPrevious);
   void addReadEOF(std::chrono::milliseconds delayFromPrevious);
-  void addReadError(const apache::thrift::transport::TTransportException& ex,
+  void addReadError(const folly::AsyncSocketException& ex,
                     std::chrono::milliseconds delayFromPrevious);
   void startReadEvents();
 
@@ -143,7 +143,7 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
   virtual void timeoutExpired() noexcept;
 
   folly::EventBase* eventBase_;
-  ReadCallback* readCallback_;
+  folly::AsyncTransportWrapper::ReadCallback* readCallback_;
   uint32_t sendTimeout_;
 
   proxygen::TimePoint prevReadEventTime_{};
@@ -152,7 +152,7 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
   StateEnum writeState_;
   std::deque< std::shared_ptr<ReadEvent> > readEvents_;
   std::deque< std::shared_ptr<WriteEvent> > writeEvents_;
-  std::deque< std::pair<std::shared_ptr<WriteEvent>, WriteCallback*>>
+  std::deque< std::pair<std::shared_ptr<WriteEvent>, AsyncTransportWrapper::WriteCallback*>>
     pendingWriteEvents_;
 
   uint32_t eorCount_{0};

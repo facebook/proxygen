@@ -51,19 +51,19 @@ PassThroughTransportFilter::getReadCallback() const {
 }
 
 void PassThroughTransportFilter::write(
-    TAsyncTransport::WriteCallback* callback,
+    AsyncTransportWrapper::WriteCallback* callback,
     const void* buf, size_t bytes, WriteFlags flags) {
   call_->write(callback, buf, bytes, flags);
 }
 
 void PassThroughTransportFilter::writev(
-    TAsyncTransport::WriteCallback* callback, const iovec* vec, size_t count,
+    AsyncTransportWrapper::WriteCallback* callback, const iovec* vec, size_t count,
     WriteFlags flags) {
   call_->writev(callback, vec, count, flags);
 }
 
 void PassThroughTransportFilter::writeChain(
-    TAsyncTransport::WriteCallback* callback,
+    AsyncTransportWrapper::WriteCallback* callback,
     std::unique_ptr<folly::IOBuf>&& iob, WriteFlags flags) {
   call_->writeChain(callback, std::move(iob), flags);
 }

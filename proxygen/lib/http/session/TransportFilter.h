@@ -56,16 +56,16 @@ class PassThroughTransportFilter: public TransportFilter {
   apache::thrift::async::TAsyncTransport::ReadCallback* getReadCallback()
     const override;
 
-  void write(apache::thrift::async::TAsyncTransport::WriteCallback* callback,
+  void write(folly::AsyncTransportWrapper::WriteCallback* callback,
              const void* buf, size_t bytes,
              apache::thrift::async::WriteFlags flags) override;
 
-  void writev(apache::thrift::async::TAsyncTransport::WriteCallback* callback,
+  void writev(folly::AsyncTransportWrapper::WriteCallback* callback,
               const iovec* vec, size_t count,
               apache::thrift::async::WriteFlags flags) override;
 
   void writeChain(
-    apache::thrift::async::TAsyncTransport::WriteCallback* callback,
+    folly::AsyncTransportWrapper::WriteCallback* callback,
     std::unique_ptr<folly::IOBuf>&& iob,
     apache::thrift::async::WriteFlags flags) override;
 
