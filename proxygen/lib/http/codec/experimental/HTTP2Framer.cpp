@@ -701,6 +701,9 @@ const char* getFrameTypeString(FrameType type) {
     case FrameType::WINDOW_UPDATE: return "WINDOW_UPDATE";
     case FrameType::CONTINUATION: return "CONTINUATION";
     case FrameType::ALTSVC: return "ALTSVC";
+    default:
+      // can happen when type was cast from uint8_t
+      return "Unknown";
   }
   LOG(FATAL) << "Unreachable";
   return "";

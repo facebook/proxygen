@@ -134,8 +134,9 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
         expectedContinuationStream_ != curHeader_.stream)) {
     VLOG(4) << "Expected CONTINUATION with stream="
             << expectedContinuationStream_ << " got type="
-            <<  getFrameTypeString(curHeader_.type)
-            << " stream=" << curHeader_.stream;
+            << getFrameTypeString(curHeader_.type) << "("
+            << folly::to<string>(curHeader_.type)
+            << ") stream=" << curHeader_.stream;
     return ErrorCode::PROTOCOL_ERROR;
   }
   if ((expectedContinuationStream_ == 0 &&

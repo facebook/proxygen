@@ -332,14 +332,45 @@ TEST_F(HTTP2CodecTest, MissingContinuation) {
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
 
-  // empirically determined the header block will be 16 bytes, so split at N-1
-  HTTP2Codec::setHeaderSplitSize(15);
+  // empirically determined the header block will be 20 bytes, so split at N-1
+  HTTP2Codec::setHeaderSplitSize(19);
+  size_t prevLen = output_.chainLength();
   upstreamCodec_.generateHeader(output_, 1, req, 0);
+  EXPECT_EQ(output_.chainLength() - prevLen, 20 + 2 * 9);
   // strip the continuation frame (1 byte payload)
   output_.trimEnd(http2::kFrameHeaderSize + 1);
 
   // insert a non-continuation (but otherwise valid) frame
   http2::writeGoaway(output_, 17, ErrorCode::ENHANCE_YOUR_CALM);
+
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+#ifndef NDEBUG
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 2);
+#endif
+}
+
+TEST_F(HTTP2CodecTest, MissingContinuationBadFrame) {
+  IOBufQueue output(IOBufQueue::cacheChainLength());
+  HTTPMessage req = getGetRequest();
+  req.getHeaders().add("user-agent", "coolio");
+
+  // empirically determined the header block will be 20 bytes, so split at N-1
+  HTTP2Codec::setHeaderSplitSize(19);
+  size_t prevLen = output_.chainLength();
+  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  EXPECT_EQ(output_.chainLength() - prevLen, 20 + 2 * 9);
+  // strip the continuation frame (1 byte payload)
+  output_.trimEnd(http2::kFrameHeaderSize + 1);
+
+  // insert an invalid frame
+  auto frame = makeBuf(9);
+  *((uint32_t *)frame->writableData()) = 0xfa000000;
+  output_.append(std::move(frame));
 
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 1);
