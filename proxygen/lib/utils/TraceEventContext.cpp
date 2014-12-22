@@ -7,10 +7,16 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/utils/NullTraceEventObserver.h>
+
+#include <proxygen/lib/utils/TraceEventContext.h>
+#include <proxygen/lib/utils/TraceEventObserver.h>
 
 namespace proxygen {
 
-NullTraceEventObserver NullTraceEventObserver::nullObserver;
+void TraceEventContext::traceEventAvailable(TraceEvent event) {
+  for (const auto observer : observers_) {
+    observer->traceEventAvailable(event);
+  }
+}
 
 }
