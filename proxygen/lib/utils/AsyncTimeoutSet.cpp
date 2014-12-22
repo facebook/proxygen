@@ -17,6 +17,19 @@ using std::chrono::milliseconds;
 
 namespace proxygen {
 
+class SimpleTimeoutClock : public AsyncTimeoutSet::TimeoutClock {
+ public:
+  std::chrono::milliseconds millisecondsSinceEpoch() override {
+    return proxygen::millisecondsSinceEpoch();
+  }
+};
+
+AsyncTimeoutSet::TimeoutClock& getTimeoutClock() {
+  static SimpleTimeoutClock timeoutClock;
+
+  return timeoutClock;
+}
+
 AsyncTimeoutSet::Callback::~Callback() {
   if (isScheduled()) {
     cancelTimeout();
@@ -33,7 +46,8 @@ void AsyncTimeoutSet::Callback::setScheduled(AsyncTimeoutSet* timeoutSet,
   timeoutSet_ = timeoutSet;
   prev_ = prev;
   next_ = nullptr;
-  expiration_ = millisecondsSinceEpoch() + timeoutSet_->getInterval();
+  expiration_ = timeoutSet->timeoutClock_.millisecondsSinceEpoch() +
+    timeoutSet_->getInterval();
 }
 
 void AsyncTimeoutSet::Callback::cancelTimeoutImpl() {
@@ -62,8 +76,10 @@ void AsyncTimeoutSet::Callback::cancelTimeoutImpl() {
 
 AsyncTimeoutSet::AsyncTimeoutSet(folly::TimeoutManager* timeoutManager,
                                  milliseconds intervalMS,
-                                 milliseconds atMostEveryN)
+                                 milliseconds atMostEveryN,
+                                 TimeoutClock* timeoutClock)
     : folly::AsyncTimeout(timeoutManager),
+      timeoutClock_(timeoutClock ? *timeoutClock : getTimeoutClock()),
       head_(nullptr),
       tail_(nullptr),
       interval_(intervalMS),
@@ -75,6 +91,7 @@ AsyncTimeoutSet::AsyncTimeoutSet(folly::TimeoutManager* timeoutManager,
                                  milliseconds intervalMS,
                                  milliseconds atMostEveryN)
     : folly::AsyncTimeout(timeoutManager, internal),
+      timeoutClock_(getTimeoutClock()),
       head_(nullptr),
       tail_(nullptr),
       interval_(intervalMS),
@@ -150,7 +167,7 @@ void AsyncTimeoutSet::headChanged() {
     this->folly::AsyncTimeout::cancelTimeout();
   } else {
     milliseconds delta =
-      head_->getTimeRemaining(millisecondsSinceEpoch());
+      head_->getTimeRemaining(timeoutClock_.millisecondsSinceEpoch());
     this->folly::AsyncTimeout::scheduleTimeout(delta.count());
   }
 }
@@ -184,7 +201,7 @@ void AsyncTimeoutSet::timeoutExpired() noexcept {
   // end up rescheduling the next timeoutExpired() call a bit late if now gets
   // stale.  If we find that this becomes a problem in practice we could be
   // more smart about when we recompute the current time.
-  auto now = millisecondsSinceEpoch();
+  auto now = timeoutClock_.millisecondsSinceEpoch();
 
   while (head_ != nullptr) {
     milliseconds delta = head_->getTimeRemaining(now);

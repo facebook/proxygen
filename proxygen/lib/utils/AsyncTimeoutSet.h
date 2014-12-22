@@ -108,12 +108,28 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
   };
 
   /**
+   * Clock interface.  Can be used for different time implementations (eg:
+   * monotonic, system) or mocking.
+   */
+  class TimeoutClock {
+   public:
+    TimeoutClock() {}
+
+    virtual ~TimeoutClock() {}
+
+    virtual std::chrono::milliseconds millisecondsSinceEpoch() = 0;
+  };
+
+  /**
    * Create a new AsyncTimeoutSet with the specified interval.
+   *
+   * If timeout clock is unspecified, it will use the default (system clock)
    */
   AsyncTimeoutSet(folly::TimeoutManager* timeoutManager,
                   std::chrono::milliseconds intervalMS,
                   std::chrono::milliseconds atMostEveryN =
-                      std::chrono::milliseconds(0));
+                      std::chrono::milliseconds(0),
+                  TimeoutClock* timeoutClock = nullptr);
 
   /**
    * Create a new AsyncTimeoutSet with the given 'internal' settting. For
@@ -190,6 +206,7 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
   // Methods inherited from TAsyncTimeout
   virtual void timeoutExpired() noexcept;
 
+  TimeoutClock& timeoutClock_;
   Callback* head_;
   Callback* tail_;
   std::chrono::milliseconds interval_;
