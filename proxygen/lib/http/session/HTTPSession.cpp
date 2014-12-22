@@ -1545,10 +1545,6 @@ HTTPSession::shutdownTransport(bool shutdownReads,
 
   // Close the socket only after the onError() callback on the txns
   // and handler has been detached.
-  if (resetSocketOnShutdown_) {
-    sock_->closeWithReset();
-  }
-
   checkForShutdown();
 }
 
@@ -1588,10 +1584,6 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
   // onError() callbacks or drainByteEvents() could result in txns detaching
   // due to CallbackGuards going out of scope. Close the socket only after
   // the txns are detached.
-  if (resetSocketOnShutdown_) {
-    sock_->closeWithReset();
-  }
-
   checkForShutdown();
 }
 
