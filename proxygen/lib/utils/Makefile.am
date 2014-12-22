@@ -32,7 +32,6 @@ nobase_libutils_HEADERS = \
 	Exception.h \
 	FilterChain.h \
 	HTTPTime.h \
-	NullTraceEventObserver.h \
 	ParseURL.h \
 	Result.h \
 	StateMachine.h \
@@ -51,7 +50,7 @@ libutils_la_SOURCES = \
 	AsyncTimeoutSet.cpp \
 	Exception.cpp \
 	HTTPTime.cpp \
-	NullTraceEventObserver.cpp \
+	TraceEventContext.cpp \
 	ParseURL.cpp \
 	TraceEvent.cpp \
 	TraceEventType.cpp \
