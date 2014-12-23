@@ -45,6 +45,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   GMOCK_METHOD2_(, noexcept,, sendWindowUpdate, size_t(HTTPTransaction*,
                                                         uint32_t));
   GMOCK_METHOD1_(, noexcept,, notifyIngressBodyProcessed, void(uint32_t));
+  GMOCK_METHOD1_(, noexcept,, notifyEgressBodyBuffered, void(uint32_t));
   GMOCK_METHOD0_(, noexcept,, getLocalAddressNonConst,
                  const folly::SocketAddress&());
   GMOCK_METHOD3_(, noexcept,, newPushedTransaction,

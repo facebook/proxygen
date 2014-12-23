@@ -234,6 +234,10 @@ class HTTPSession:
     return kPendingWriteMax;
   }
 
+  static void setPendingWriteMax(uint64_t max) {
+    kPendingWriteMax = max;
+  }
+
   /**
    * Start reading from the transport and send any introductory messages
    * to the remote side. This function must be called once per session to
@@ -485,6 +489,7 @@ class HTTPSession:
                           uint32_t bytes) noexcept override;
   void notifyPendingEgress() noexcept override;
   void notifyIngressBodyProcessed(uint32_t bytes) noexcept override;
+  void notifyEgressBodyBuffered(uint32_t bytes) noexcept override;
   HTTPTransaction* newPushedTransaction(HTTPCodec::StreamID assocStreamId,
                                         HTTPTransaction::PushHandler* handler,
                                         int8_t priority) noexcept override;
@@ -530,6 +535,7 @@ class HTTPSession:
    * Update the size of the unwritten egress data and invoke
    * callbacks if the size has crossed the buffering limit.
    */
+  void updateWriteCount();
   void updateWriteBufSize(int64_t delta);
 
   /**
