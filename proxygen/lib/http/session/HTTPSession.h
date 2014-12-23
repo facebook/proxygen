@@ -227,14 +227,14 @@ class HTTPSession:
   void setMaxConcurrentPushTransactions(uint32_t num);
 
   /**
-   * Get the number of egress bytes this session will buffer before
+   * Get/Set the number of egress bytes this session will buffer before
    * pausing all transactions' egress.
    */
-  static uint64_t getPendingWriteMax() {
+  static uint32_t getPendingWriteMax() {
     return kPendingWriteMax;
   }
 
-  static void setPendingWriteMax(uint64_t max) {
+  static void setPendingWriteMax(uint32_t max) {
     kPendingWriteMax = max;
   }
 
