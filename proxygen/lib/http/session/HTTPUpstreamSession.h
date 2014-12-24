@@ -59,6 +59,11 @@ class HTTPUpstreamSession final: public HTTPSession {
   bool isReusable() const;
 
   /**
+   * Returns true if the session is shutting down
+   */
+  bool isClosing() const;
+
+  /**
    * Drains the current transactions and prevents new transactions from being
    * created on this session. When the number of transactions reaches zero, this
    * session will shutdown the transport and delete itself.

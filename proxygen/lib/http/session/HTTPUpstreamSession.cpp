@@ -20,38 +20,45 @@ HTTPUpstreamSession::~HTTPUpstreamSession() {}
 bool HTTPUpstreamSession::isReusable() const {
   VLOG(4) << "isReusable: " << *this
     << ", liveTransactions_=" << liveTransactions_
-    << ", sock_->good()=" << sock_->good()
+    << ", isClosing()=" << isClosing()
     << ", sock_->connecting()=" << sock_->connecting()
-    << ", draining_=" << draining_
     << ", codec_->isReusable()=" << codec_->isReusable()
     << ", codec_->isBusy()=" << codec_->isBusy()
     << ", pendingWriteSize_=" << pendingWriteSize_
     << ", numActiveWrites_=" << numActiveWrites_
     << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
-    << ", readsShutdown()=" << readsShutdown()
-    << ", writesShutdown()=" << writesShutdown()
-    << ", writesDraining_=" << writesDraining_
-    << ", resetAfterDrainingWrites_=" << resetAfterDrainingWrites_
     << ", ingressError_=" << ingressError_
     << ", hasMoreWrites()=" << hasMoreWrites()
     << ", codec_->supportsParallelRequests()="
          << codec_->supportsParallelRequests();
   return
-    sock_->good() &&
+    !isClosing() &&
     !sock_->connecting() &&
     codec_->isReusable() &&
-    !draining_ &&
     !codec_->isBusy() &&
-    !readsShutdown() &&
-    !writesShutdown() &&
-    !writesDraining_ &&
-    !resetAfterDrainingWrites_ &&
     !ingressError_ &&
     (codec_->supportsParallelRequests() || (
       // These conditions only apply to serial codec sessions
       !hasMoreWrites() &&
       liveTransactions_ == 0 &&
       !writeTimeout_.isScheduled()));
+}
+
+bool HTTPUpstreamSession::isClosing() const {
+  VLOG(4) << "isClosing: " << *this
+    << ", sock_->good()=" << sock_->good()
+    << ", draining_=" << draining_
+    << ", readsShutdown()=" << readsShutdown()
+    << ", writesShutdown()=" << writesShutdown()
+    << ", writesDraining_=" << writesDraining_
+    << ", resetAfterDrainingWrites_=" << resetAfterDrainingWrites_;
+  return
+    !sock_->good() ||
+    draining_ ||
+    readsShutdown() ||
+    writesShutdown() ||
+    writesDraining_ ||
+    resetAfterDrainingWrites_;
 }
 
 HTTPTransaction*
