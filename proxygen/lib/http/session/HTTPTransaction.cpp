@@ -21,6 +21,7 @@ using std::unique_ptr;
 namespace proxygen {
 
 uint64_t HTTPTransaction::egressBodySizeLimit_ = 4096;
+uint64_t HTTPTransaction::egressBufferLimit_ = 8192;
 
 HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  HTTPCodec::StreamID id,
@@ -526,10 +527,6 @@ void HTTPTransaction::sendHeaders(const HTTPMessage& headers) {
 void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendBody));
-  if (body) {
-    size_t bodyLen = body->computeChainDataLength();
-    transport_.notifyEgressBodyBuffered(bodyLen);
-  }
   deferredEgressBody_.append(std::move(body));
   notifyTransportPendingEgress();
 }
@@ -553,7 +550,7 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
   // the send window is closed
   CHECK((deferredEgressBody_.chainLength() > 0 ||
          isEgressEOMQueued()) &&
-        sendWindow > 0);
+        !egressPaused_ && sendWindow > 0);
 
   const size_t bytesLeft = deferredEgressBody_.chainLength();
   size_t canSend = std::min<size_t>(sendWindow, bytesLeft);
@@ -838,7 +835,8 @@ void HTTPTransaction::resumeEgress() {
 }
 
 void HTTPTransaction::notifyTransportPendingEgress() {
-  if ((deferredEgressBody_.chainLength() > 0 ||
+  if (!egressPaused_ &&
+      (deferredEgressBody_.chainLength() > 0 ||
        isEgressEOMQueued()) &&
       (!useFlowControl_ || sendWindow_.getSize() > 0)) {
     if (isEnqueued()) {
@@ -859,7 +857,8 @@ void HTTPTransaction::notifyTransportPendingEgress() {
 
 void HTTPTransaction::updateHandlerPauseState() {
   bool handlerShouldBePaused = egressPaused_ ||
-    (useFlowControl_ && sendWindow_.getSize() <= 0);
+    (useFlowControl_ && sendWindow_.getSize() <= 0) ||
+    (deferredEgressBody_.chainLength() >= egressBufferLimit_);
   if (handler_ && handlerShouldBePaused != handlerEgressPaused_) {
     if (handlerShouldBePaused) {
       handlerEgressPaused_ = true;
