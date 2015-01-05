@@ -1436,6 +1436,17 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
   httpSession_->destroy();
 }
 
+TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
+  StrictMock<MockHTTPHandler> handler;
+  EXPECT_CALL(handler, setTransaction(_))
+    .WillOnce(Invoke([&] (HTTPTransaction* txn) {
+          httpSession_->shutdownTransportWithReset(kErrorNone);
+        }));
+  EXPECT_CALL(handler, onError(_));
+  EXPECT_CALL(handler, detachTransaction());
+  auto txn = httpSession_->newTransaction(&handler);
+}
+
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
                            immediate_eof/*[, other_test]*/);

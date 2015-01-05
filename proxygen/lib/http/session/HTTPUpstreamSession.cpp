@@ -80,8 +80,10 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler,
                                priority);
 
   if (txn) {
+    DestructorGuard dg(this);
+    auto txnID = txn->getID();
     txn->setHandler(handler);
-    setNewTransactionPauseState(txn);
+    setNewTransactionPauseState(txnID);
   }
   return txn;
 }

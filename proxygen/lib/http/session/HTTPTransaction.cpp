@@ -352,6 +352,7 @@ void HTTPTransaction::markIngressComplete() {
 }
 
 void HTTPTransaction::markEgressComplete() {
+  VLOG(4) << "Marking egress complete on " << *this;
   deferredEgressBody_.move();
   if (isEnqueued()) {
     dequeue();

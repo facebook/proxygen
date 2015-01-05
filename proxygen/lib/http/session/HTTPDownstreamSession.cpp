@@ -34,8 +34,10 @@ HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
   handler = controller_->getRequestHandler(*txn, msg);
   CHECK(handler);
 
+  DestructorGuard dg(this);
+  auto txnID = txn->getID();
   txn->setHandler(handler);
-  setNewTransactionPauseState(txn);
+  setNewTransactionPauseState(txnID);
 }
 
 HTTPTransaction::Handler*

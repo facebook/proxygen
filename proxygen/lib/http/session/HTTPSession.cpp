@@ -460,8 +460,10 @@ HTTPSession::newPushedTransaction(HTTPCodec::StreamID assocStreamId,
     return nullptr;
   }
 
+  DestructorGuard dg(this);
+  auto txnID = txn->getID();
   txn->setHandler(handler);
-  setNewTransactionPauseState(txn);
+  setNewTransactionPauseState(txnID);
   return txn;
 }
 
@@ -474,8 +476,13 @@ size_t HTTPSession::getCodecSendWindowSize() const {
 }
 
 void
-HTTPSession::setNewTransactionPauseState(HTTPTransaction* txn) {
-  if (writesPaused()) {
+HTTPSession::setNewTransactionPauseState(HTTPCodec::StreamID streamID) {
+  if (!writesPaused()) {
+    return;
+  }
+
+  auto txn = findTransaction(streamID);
+  if (txn) {
     // If writes are paused, start this txn off in the egress paused state
     VLOG(4) << *this << " starting streamID=" << txn->getID()
             << " egress paused. pendingWriteSize_=" << pendingWriteSize_

@@ -334,7 +334,7 @@ class HTTPSession:
 
   virtual bool allTransactionsStarted() const = 0;
 
-  void setNewTransactionPauseState(HTTPTransaction* txn);
+  void setNewTransactionPauseState(HTTPCodec::StreamID streamID);
 
   /**
    * Invoked when the transaction finishes sending a message and
