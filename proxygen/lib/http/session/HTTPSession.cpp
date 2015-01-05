@@ -582,7 +582,10 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
     invalidStream(streamID);
     return;
   }
-  msg->setSecureInfo(transportInfo_.sslVersion, transportInfo_.sslCipher);
+
+  const char* sslCipher =
+      transportInfo_.sslCipher ? transportInfo_.sslCipher->c_str() : nullptr;
+  msg->setSecureInfo(transportInfo_.sslVersion, sslCipher);
   msg->setSecure(transportInfo_.ssl);
 
   setupOnHeadersComplete(txn, msg.get());
