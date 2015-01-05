@@ -149,8 +149,6 @@ public:
 
   // Current frame state
   http2::FrameHeader curHeader_;
-  bool needConnectionPreface_{true};
-  bool needHeader_{true};
   StreamID expectedContinuationStream_{0};
   folly::IOBufQueue curHeaderBlock_{folly::IOBufQueue::cacheChainLength()};
   HTTPSettings ingressSettings_{
@@ -169,6 +167,12 @@ public:
   uint32_t egressGoawayAck_{std::numeric_limits<uint32_t>::max()};
   uint64_t receivedFrameCount_{0};
 #endif
+  enum FrameState {
+    CONNECTION_PREFACE = 0,
+    FRAME_HEADER = 1,
+    FRAME_DATA = 2,
+  };
+  FrameState frameState_:2;
   enum ClosingState {
     OPEN = 0,
     FIRST_GOAWAY_SENT = 1,

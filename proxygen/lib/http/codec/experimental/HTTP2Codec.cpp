@@ -40,6 +40,7 @@ void HTTP2Codec::initPerHopHeaders() {
 HTTP2Codec::HTTP2Codec(TransportDirection direction)
     : transportDirection_(direction),
       headerCodec_(direction),
+      frameState_(FrameState::CONNECTION_PREFACE),
       sessionClosing_(ClosingState::OPEN) {
 
   VLOG(4) << "creating " << getTransportDirectionString(direction)
@@ -86,26 +87,26 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
   for (auto bufLen = cursor.totalLength();
        connError == ErrorCode::NO_ERROR;
        bufLen = cursor.totalLength()) {
-    if (needConnectionPreface_) {
+    if (frameState_ == FrameState::CONNECTION_PREFACE) {
       if (bufLen >= http2::kConnectionPreface.length()) {
         auto test = cursor.readFixedString(http2::kConnectionPreface.length());
         parsed += http2::kConnectionPreface.length();
         if (test != http2::kConnectionPreface) {
           connError = ErrorCode::PROTOCOL_ERROR;
         }
-        needConnectionPreface_ = false;
+        frameState_ = FrameState::FRAME_HEADER;
       } else {
         break;
       }
-    } else if (needHeader_) {
+    } else if (frameState_ == FrameState::FRAME_HEADER) {
       // Waiting to parse the common frame header
       if (bufLen >= http2::kFrameHeaderSize) {
-        needHeader_ = false;
         connError = parseFrameHeader(cursor, curHeader_);
         parsed += http2::kFrameHeaderSize;
         if (curHeader_.length > maxRecvFrameSize()) {
           connError = ErrorCode::FRAME_SIZE_ERROR;
         }
+        frameState_ = FrameState::FRAME_DATA;
 #ifndef NDEBUG
         receivedFrameCount_++;
 #endif
@@ -116,9 +117,9 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
       // Already parsed the common frame header
       const auto frameLen = curHeader_.length;
       if (bufLen >= frameLen) {
-        needHeader_ = true;
         connError = parseFrame(cursor);
         parsed += frameLen;
+        frameState_ = FrameState::FRAME_HEADER;
       } else {
         break;
       }
