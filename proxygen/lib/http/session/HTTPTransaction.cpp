@@ -653,7 +653,8 @@ void
 HTTPTransaction::sendEOM() {
   CallbackGuard guard(*this);
   CHECK(HTTPTransactionEgressSM::transit(
-      egressState_, HTTPTransactionEgressSM::Event::sendEOM));
+      egressState_, HTTPTransactionEgressSM::Event::sendEOM))
+    << ", " << *this;
   if (deferredEgressBody_.chainLength() == 0 && chunkHeaders_.empty()) {
     // there is nothing left to send, egress the EOM directly.  For SPDY
     // this will jump the txn queue
