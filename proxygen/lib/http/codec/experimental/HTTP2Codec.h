@@ -150,6 +150,7 @@ public:
   // Current frame state
   http2::FrameHeader curHeader_;
   StreamID expectedContinuationStream_{0};
+  bool pendingEndStreamHandling_{false};
   folly::IOBufQueue curHeaderBlock_{folly::IOBufQueue::cacheChainLength()};
   HTTPSettings ingressSettings_{
     { SettingsId::HEADER_TABLE_SIZE, 4096 },

@@ -140,11 +140,16 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
             << ") stream=" << curHeader_.stream;
     return ErrorCode::PROTOCOL_ERROR;
   }
-  if ((expectedContinuationStream_ == 0 &&
-       curHeader_.type == http2::FrameType::CONTINUATION)) {
+  if (expectedContinuationStream_ == 0 &&
+      curHeader_.type == http2::FrameType::CONTINUATION) {
     VLOG(4) << "Unexpected CONTINUATION stream=" << curHeader_.stream;
     return ErrorCode::PROTOCOL_ERROR;
   }
+
+  expectedContinuationStream_ =
+    (frameAffectsCompression(curHeader_.type) &&
+     !(curHeader_.flags & http2::END_HEADERS)) ? curHeader_.stream : 0;
+
   ErrorCode err = ErrorCode::NO_ERROR;
   switch (curHeader_.type) {
     case http2::FrameType::DATA: err = parseData(cursor); break;
@@ -165,17 +170,24 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
       VLOG(2) << "Skipping unknown frame type=" << (uint8_t)curHeader_.type;
       cursor.skip(curHeader_.length);
   }
-  expectedContinuationStream_ =
-    (frameAffectsCompression(curHeader_.type) &&
-     !(curHeader_.flags & http2::END_HEADERS)) ? curHeader_.stream : 0;
   return err;
 }
 
 ErrorCode HTTP2Codec::handleEndStream() {
+  if (curHeader_.type != http2::FrameType::HEADERS &&
+      curHeader_.type != http2::FrameType::CONTINUATION &&
+      curHeader_.type != http2::FrameType::DATA) {
+    return ErrorCode::NO_ERROR;
+  }
+
   // do we need to handle case where this stream has already aborted via
   // another callback (onHeadersComplete/onBody)?
-  if (curHeader_.flags & http2::END_STREAM && callback_) {
-    callback_->onMessageComplete(StreamID(curHeader_.stream), false);
+  pendingEndStreamHandling_ |= (curHeader_.flags & http2::END_STREAM);
+  if (pendingEndStreamHandling_ && expectedContinuationStream_ == 0) {
+    pendingEndStreamHandling_ = false;
+    if (callback_) {
+      callback_->onMessageComplete(StreamID(curHeader_.stream), false);
+    }
   }
   return ErrorCode::NO_ERROR;
 }

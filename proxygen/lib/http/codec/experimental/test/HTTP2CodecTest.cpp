@@ -311,6 +311,36 @@ TEST_F(HTTP2CodecTest, BasicContinuation) {
 #endif
   const auto& headers = callbacks_.msg->getHeaders();
   EXPECT_EQ("coolio", headers.getSingleOrEmpty("user-agent"));
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, BasicContinuationEndStream) {
+  // CONTINUATION with END_STREAM flag set on the preceding HEADERS frame
+  HTTPMessage req = getGetRequest();
+  req.getHeaders().add("user-agent", "coolio");
+  HTTP2Codec::setHeaderSplitSize(1);
+  upstreamCodec_.generateHeader(output_, 1, req, 0);
+
+  parse([] (IOBuf *ingress) {
+      // for now, hack the END_STREAM flag in
+      ingress->writableData()[4 + http2::kConnectionPreface.length()] |=
+        http2::END_STREAM;
+    });
+  callbacks_.expectMessage(true, -1, "/");
+#ifndef NDEBUG
+  EXPECT_GT(downstreamCodec_.getReceivedFrameCount(), 1);
+#endif
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ("coolio", headers.getSingleOrEmpty("user-agent"));
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
 TEST_F(HTTP2CodecTest, BadContinuation) {
