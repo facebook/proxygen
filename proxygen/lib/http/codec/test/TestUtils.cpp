@@ -110,11 +110,12 @@ makeResponse(uint16_t statusCode, size_t len) {
 
 void fakeMockCodec(MockHTTPCodec& codec) {
   // For each generate* function, write some data to the chain
-  EXPECT_CALL(codec, generateHeader(_, _, _, _, _))
+  EXPECT_CALL(codec, generateHeader(_, _, _, _, _, _))
     .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
                                HTTPCodec::StreamID stream,
                                const HTTPMessage& msg,
                                HTTPCodec::StreamID assocStream,
+                               bool eom,
                                HTTPHeaderSize* size) {
                              writeBuf.append(makeBuf(10));
                            }));

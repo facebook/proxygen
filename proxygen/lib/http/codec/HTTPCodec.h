@@ -338,6 +338,7 @@ class HTTPCodec {
                               StreamID stream,
                               const HTTPMessage& msg,
                               StreamID assocStream = NoStream,
+                              bool eom = false,
                               HTTPHeaderSize* size = nullptr) = 0;
 
   /**

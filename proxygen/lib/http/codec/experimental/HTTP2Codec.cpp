@@ -686,6 +686,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
                                 StreamID stream,
                                 const HTTPMessage& msg,
                                 StreamID assocStream,
+                                bool eom,
                                 HTTPHeaderSize* size) {
   VLOG(4) << "generating " << ((assocStream != 0) ? "PUSH_PROMISE" : "HEADERS")
           << " for stream=" << stream;
@@ -759,10 +760,11 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
                           stream,
                           boost::none,
                           http2::kNoPadding,
-                          false, // TODO optimize including EOM in headers
+                          eom,
                           endHeaders);
     } else {
       DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
+      DCHECK(!eom);
       http2::writePushPromise(writeBuf,
                               assocStream,
                               stream,

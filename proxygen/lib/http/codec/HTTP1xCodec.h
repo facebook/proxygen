@@ -48,6 +48,7 @@ class HTTP1xCodec : public HTTPCodec {
                       StreamID txn,
                       const HTTPMessage& msg,
                       StreamID assocStream = 0,
+                      bool eom = false,
                       HTTPHeaderSize* size = nullptr) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID txn,

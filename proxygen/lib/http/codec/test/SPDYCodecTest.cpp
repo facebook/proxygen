@@ -299,9 +299,10 @@ unique_ptr<folly::IOBuf> getSynStream(Codec& egressCodec,
                                       uint32_t streamID,
                                       const HTTPMessage& msg,
                                       uint32_t assocStreamId = 0,
+                                      bool eom = false,
                                       HTTPHeaderSize* size = nullptr) {
   folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
-  egressCodec.generateHeader(output, streamID, msg, assocStreamId, size);
+  egressCodec.generateHeader(output, streamID, msg, assocStreamId, eom, size);
   return output.move();
 }
 
@@ -393,7 +394,7 @@ void doEmptyHeaderValueTest(Codec1& ingressCodec, Codec2& egressCodec) {
   headers.set("Pragma", "");
   headers.set("X-Test1", "yup");
   HTTPHeaderSize size;
-  auto toParse = getSynStream(egressCodec, 1, toSend, 0, &size);
+  auto toParse = getSynStream(egressCodec, 1, toSend, 0, false, &size);
   ingressCodec.onIngress(*toParse);
 
   EXPECT_EQ(callbacks.sessionErrors, 0);
@@ -543,6 +544,28 @@ TEST(SPDYCodecTest, InvalidSettings) {
   EXPECT_EQ(callbacks.messageComplete, 0);
   EXPECT_EQ(callbacks.streamErrors, 0);
   EXPECT_EQ(callbacks.sessionErrors, 1);
+}
+
+TEST(SPDYCodecTest, HeaderWithFin) {
+  FakeHTTPCodecCallback callbacks;
+  SPDYCodec egressCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3);
+  SPDYCodec ingressCodec(TransportDirection::DOWNSTREAM,
+                         SPDYVersion::SPDY3);
+  ingressCodec.setCallback(&callbacks);
+
+  HTTPMessage req;
+  req.setMethod("GET");
+  req.getHeaders().set("HOST", "www.foo.com");
+  req.setURL("https://www.foo.com/");
+  auto syn = getSynStream(egressCodec, 1, req, 0, true /* eom */);
+  ingressCodec.onIngress(*syn);
+  EXPECT_EQ(callbacks.messageBegin, 1);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(callbacks.streamErrors, 0);
+  EXPECT_EQ(callbacks.sessionErrors, 0);
+  EXPECT_EQ(callbacks.assocStreamId, 0);
 }
 
 TEST(SPDYCodecTest, ServerPush) {

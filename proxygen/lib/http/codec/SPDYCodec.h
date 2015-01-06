@@ -63,6 +63,7 @@ public:
                       StreamID stream,
                       const HTTPMessage& msg,
                       StreamID assocStream = 0,
+                      bool eom = false,
                       HTTPHeaderSize* size = nullptr) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
@@ -156,6 +157,7 @@ public:
                          StreamID assocStream,
                          folly::IOBufQueue& writeBuf,
                          const HTTPMessage& msg,
+                         bool eom,
                          HTTPHeaderSize* size);
   /**
    * Generates a frame of type SYN_REPLY
@@ -163,6 +165,7 @@ public:
   void generateSynReply(StreamID stream,
                         folly::IOBufQueue& writeBuf,
                         const HTTPMessage& msg,
+                        bool eom,
                         HTTPHeaderSize* size);
 
   /**

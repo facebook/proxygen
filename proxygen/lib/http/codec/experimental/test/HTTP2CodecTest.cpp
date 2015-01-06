@@ -65,13 +65,9 @@ TEST_F(HTTP2CodecTest, BasicHeader) {
   // Connection header will get dropped
   req.getHeaders().add("Connection", "Love");
   req.setSecure(true);
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
 
-  parse([] (IOBuf *ingress) {
-      // for now, hack the END_STREAM flag in
-      ingress->writableData()[4 + http2::kConnectionPreface.length()] |=
-        http2::END_STREAM;
-    });
+  parse();
   callbacks_.expectMessage(true, 2, "/guacamole");
   EXPECT_TRUE(callbacks_.msg->isSecure());
   const auto& headers = callbacks_.msg->getHeaders();
@@ -323,13 +319,9 @@ TEST_F(HTTP2CodecTest, BasicContinuationEndStream) {
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
   HTTP2Codec::setHeaderSplitSize(1);
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
 
-  parse([] (IOBuf *ingress) {
-      // for now, hack the END_STREAM flag in
-      ingress->writableData()[4 + http2::kConnectionPreface.length()] |=
-        http2::END_STREAM;
-    });
+  parse();
   callbacks_.expectMessage(true, -1, "/");
 #ifndef NDEBUG
   EXPECT_GT(downstreamCodec_.getReceivedFrameCount(), 1);

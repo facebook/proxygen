@@ -279,6 +279,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
                             StreamID txn,
                             const HTTPMessage& msg,
                             StreamID assocStream,
+                            bool eom,
                             HTTPHeaderSize* size) {
   CHECK(assocStream == 0) << "HTTP does not support pushed transactions, "
     "assocStream=" << assocStream;
@@ -478,6 +479,9 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     appendString(writeBuf, len, CRLF);
   }
   appendLiteral(writeBuf, len, CRLF);
+  if (eom) {
+    len += generateEOM(writeBuf, txn);
+  }
 
   if (size) {
     size->compressed = 0;

@@ -223,14 +223,14 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   HTTPMessage push;
   push.getHeaders().set("HOST", "www.foo.com");
   push.setURL("https://www.foo.com/");
-  egressCodec.generateHeader(output, 2, push, 1, nullptr);
+  egressCodec.generateHeader(output, 2, push, 1, false, nullptr);
   auto buf = makeBuf(100);
   egressCodec.generateBody(output, 2, std::move(buf), true /* eom */);
 
   HTTPMessage resp;
   resp.setStatusCode(200);
   resp.setStatusMessage("Ohai");
-  egressCodec.generateHeader(output, 1, resp, 0, nullptr);
+  egressCodec.generateHeader(output, 1, resp, 0, false, nullptr);
   buf = makeBuf(100);
   egressCodec.generateBody(output, 1, std::move(buf), true /* eom */);
 
@@ -1025,7 +1025,7 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
 
   InSequence dummy;
 
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateBody(_, _, _, true));
 
   auto txn = httpSession_->newTransaction(&handler);
@@ -1062,7 +1062,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
 
     EXPECT_CALL(handler, setTransaction(_))
       .WillOnce(SaveArg<0>(&handler.txn_));
-    EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+    EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
     if (stage > 0) {
       EXPECT_CALL(handler, onHeadersComplete(_));
@@ -1152,7 +1152,7 @@ TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
 
   EXPECT_CALL(handler, setTransaction(_))
     .WillOnce(SaveArg<0>(&handler.txn_));
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
   auto txn = httpSession_->newTransaction(&handler);
   const auto streamID = txn->getID();
@@ -1185,7 +1185,7 @@ TEST_F(MockHTTPUpstreamTest, drain_before_send_headers) {
 
   EXPECT_CALL(handler, setTransaction(_))
     .WillOnce(SaveArg<0>(&handler.txn_));
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
   EXPECT_CALL(handler, onHeadersComplete(_));
   EXPECT_CALL(handler, detachTransaction());
@@ -1426,7 +1426,7 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
   handler->txn_->setReceiveWindow(1000000); // One miiiillion
 
   InSequence dummy;
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateWindowUpdate(_, _, _));
 
   HTTPMessage req = getGetRequest();

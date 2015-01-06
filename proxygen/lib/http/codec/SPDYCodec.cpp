@@ -781,12 +781,13 @@ void SPDYCodec::generateHeader(folly::IOBufQueue& writeBuf,
                                StreamID stream,
                                const HTTPMessage& msg,
                                StreamID assocStream,
+                               bool eom,
                                HTTPHeaderSize* size) {
   if (transportDirection_ == TransportDirection::UPSTREAM ||
       assocStream != HTTPCodec::NoStream) {
-    generateSynStream(stream, assocStream, writeBuf, msg, size);
+    generateSynStream(stream, assocStream, writeBuf, msg, eom, size);
   } else {
-    generateSynReply(stream, writeBuf, msg, size);
+    generateSynReply(stream, writeBuf, msg, eom, size);
   }
 }
 
@@ -794,6 +795,7 @@ void SPDYCodec::generateSynStream(StreamID stream,
                                   StreamID assocStream,
                                   folly::IOBufQueue& writeBuf,
                                   const HTTPMessage& msg,
+                                  bool eom,
                                   HTTPHeaderSize* size) {
   // Pushed streams must have an even streamId and an odd assocStream
   CHECK((assocStream == HTTPCodec::NoStream && (stream % 2 == 1)) ||
@@ -823,8 +825,13 @@ void SPDYCodec::generateSynStream(StreamID stream,
   // Generate a control frame header of type SYN_STREAM within
   // the headroom that serializeRequestHeaders() reserved for us
   // at the start of the IOBuf.
-  uint8_t flags = (assocStream != HTTPCodec::NoStream) ?
-    spdy::CTRL_FLAG_UNIDIRECTIONAL : spdy::CTRL_FLAG_NONE;
+  uint8_t flags = spdy::CTRL_FLAG_NONE;
+  if (assocStream != HTTPCodec::NoStream) {
+    flags |= spdy::CTRL_FLAG_UNIDIRECTIONAL;
+  }
+  if (eom) {
+    flags |= spdy::CTRL_FLAG_FIN;
+  }
   out->prepend(headroom);
   RWPrivateCursor cursor(out.get());
   cursor.writeBE(versionSettings_.controlVersion);
@@ -843,6 +850,7 @@ void SPDYCodec::generateSynStream(StreamID stream,
 void SPDYCodec::generateSynReply(StreamID stream,
                                  folly::IOBufQueue& writeBuf,
                                  const HTTPMessage& msg,
+                                 bool eom,
                                  HTTPHeaderSize* size) {
   // Serialize the compressed representation of the headers
   // first because we need to write its length.  The
@@ -864,11 +872,12 @@ void SPDYCodec::generateSynReply(StreamID stream,
   // Generate a control frame header of type SYN_REPLY within
   // the headroom that we serializeResponseHeaders() reserved for us
   // at the start of the IOBuf.1
+  uint8_t flags = eom ? spdy::CTRL_FLAG_FIN : spdy::CTRL_FLAG_NONE;
   out->prepend(headroom);
   RWPrivateCursor cursor(out.get());
   cursor.writeBE(versionSettings_.controlVersion);
   cursor.writeBE(uint16_t(spdy::SYN_REPLY));
-  cursor.writeBE(flagsAndLength(0, len));
+  cursor.writeBE(flagsAndLength(flags, len));
   cursor.writeBE(uint32_t(stream)); // TODO: stream should never be bigger than 2^31
   if (versionSettings_.majorVersion == 2) {
     cursor.writeBE(uint16_t(0));

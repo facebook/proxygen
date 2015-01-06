@@ -32,6 +32,7 @@ class HTTPChecks: public PassThroughHTTPCodecFilter {
                       StreamID stream,
                       const HTTPMessage& msg,
                       StreamID assocStream,
+                      bool eom,
                       HTTPHeaderSize* sizeOut) override;
 };
 

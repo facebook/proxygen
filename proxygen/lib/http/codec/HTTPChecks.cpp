@@ -35,6 +35,7 @@ void HTTPChecks::generateHeader(folly::IOBufQueue& writeBuf,
                                 StreamID stream,
                                 const HTTPMessage& msg,
                                 StreamID assocStream,
+                                bool eom,
                                 HTTPHeaderSize* sizeOut) {
   if (msg.isRequest() && RFC2616::bodyImplied(msg.getHeaders())) {
     CHECK(RFC2616::isRequestBodyAllowed(msg.getMethod()) !=
@@ -43,7 +44,7 @@ void HTTPChecks::generateHeader(folly::IOBufQueue& writeBuf,
     // requests here too.
   }
 
-  call_->generateHeader(writeBuf, stream, msg, assocStream, sizeOut);
+  call_->generateHeader(writeBuf, stream, msg, assocStream, eom, sizeOut);
 }
 
 }

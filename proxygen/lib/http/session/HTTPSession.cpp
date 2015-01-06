@@ -985,6 +985,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
                          txn->getID(),
                          headers,
                          txn->getAssocTxnId(),
+                         false, // eom
                          size);
   const uint64_t newOffset = sessionByteOffset();
 

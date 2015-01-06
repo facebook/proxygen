@@ -165,8 +165,9 @@ void PassThroughHTTPCodecFilter::generateHeader(folly::IOBufQueue& writeBuf,
                                                 StreamID stream,
                                                 const HTTPMessage& msg,
                                                 StreamID assocStream,
+                                                bool eom,
                                                 HTTPHeaderSize* size) {
-  return call_->generateHeader(writeBuf, stream, msg, assocStream, size);
+  return call_->generateHeader(writeBuf, stream, msg, assocStream, eom, size);
 }
 
 size_t PassThroughHTTPCodecFilter::generateBody(

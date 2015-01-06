@@ -1194,7 +1194,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
   clientCodec.getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                                               500);
   clientCodec.generateSettings(requests);
-  clientCodec.generateHeader(requests, streamID, req, 0, nullptr);
+  clientCodec.generateHeader(requests, streamID, req, 0, false, nullptr);
   clientCodec.generateEOM(requests, streamID);
   StrictMock<MockHTTPHandler> handler;
 

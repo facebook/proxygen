@@ -114,6 +114,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                       StreamID stream,
                       const HTTPMessage& msg,
                       StreamID assocStream,
+                      bool eom,
                       HTTPHeaderSize* size) override;
 
   size_t generateBody(folly::IOBufQueue& writeBuf,

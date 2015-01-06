@@ -107,7 +107,7 @@ TEST(HTTP1xCodecTest, TestChunkedUpstream) {
   HTTPHeaderSize size;
 
   folly::IOBufQueue buf(folly::IOBufQueue::cacheChainLength());
-  codec.generateHeader(buf, txnID, msg, 0, &size);
+  codec.generateHeader(buf, txnID, msg, 0, false, &size);
   auto headerFromBuf = buf.split(buf.chainLength());
 
   string req1("Hello");
