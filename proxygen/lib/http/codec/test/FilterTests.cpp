@@ -146,7 +146,15 @@ TEST_F(BigWindow, recv_too_much) {
 
   InSequence enforceSequence;
   EXPECT_CALL(callback_, onBody(_, _));
-  EXPECT_CALL(callback_, onError(0, IsFlowException(), _));
+  EXPECT_CALL(callback_, onError(0, IsFlowException(), _))
+    .WillOnce(Invoke([] (HTTPCodec::StreamID,
+                         std::shared_ptr<HTTPException> exc,
+                         bool newTxn) {
+                       ASSERT_EQ(
+                         "Failed to reserve receive window, window size=0, "
+                         "amount=1",
+                         std::string(exc->what()));
+        }));
 
   // Receive the max amount advertised
   callbackStart_->onBody(1, makeBuf(recvWindow_));
@@ -177,7 +185,15 @@ TEST_F(BigWindow, remote_increase) {
   ASSERT_EQ(filter_->getAvailableSend(), std::numeric_limits<int32_t>::max());
 
   // Now overflow it by 1
-  EXPECT_CALL(callback_, onError(0, IsFlowException(), _));
+  EXPECT_CALL(callback_, onError(0, IsFlowException(), _))
+    .WillOnce(Invoke([] (HTTPCodec::StreamID,
+                         std::shared_ptr<HTTPException> exc,
+                         bool newTxn) {
+                       ASSERT_EQ(
+                         "Failed to update send window, outstanding=0, "
+                         "amount=1",
+                         std::string(exc->what()));
+        }));
   callbackStart_->onWindowUpdate(0, 1);
   ASSERT_FALSE(chain_->isReusable());
 }
@@ -212,6 +228,9 @@ TEST_F(HTTPChecksTest, recv_trace_body) {
                          bool newTxn) {
                        ASSERT_TRUE(newTxn);
                        ASSERT_EQ(exc->getHttpStatusCode(), 400);
+                       ASSERT_EQ(0,
+                         strcmp("RFC2616: Request Body Not Allowed",
+                                exc->what()));
         }));
 
   auto msg = makePostRequest();

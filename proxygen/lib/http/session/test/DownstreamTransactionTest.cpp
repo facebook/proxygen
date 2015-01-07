@@ -198,7 +198,7 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
     HTTPCodec::StreamID(1), 1, transport_,
     txnEgressQueue_, transactionTimeouts_.get());
 
-  HTTPException err(HTTPException::Direction::INGRESS);
+  HTTPException err(HTTPException::Direction::INGRESS, "test");
   err.setHttpStatusCode(400);
 
   InSequence dummy;
@@ -207,6 +207,7 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   EXPECT_CALL(handler_, onError(_))
     .WillOnce(Invoke([] (const HTTPException& ex) {
           ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
+          ASSERT_EQ(std::string(ex.what()), "test");
         }));
   // onBody() is suppressed since ingress is complete after ingress onError()
   // onEOM() is suppressed since ingress is complete after ingress onError()

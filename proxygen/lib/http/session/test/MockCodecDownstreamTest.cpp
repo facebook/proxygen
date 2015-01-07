@@ -196,6 +196,10 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
   EXPECT_CALL(handler2, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
+          ASSERT_EQ(
+            folly::to<std::string>("WriteTimeout on transaction id: ",
+              handler2.txn_->getID()),
+            std::string(ex.what()));
         }));
   EXPECT_CALL(handler2, detachTransaction());
 
@@ -317,6 +321,10 @@ TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
           EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+          ASSERT_EQ(
+            folly::to<std::string>("StreamUnacknowledged on transaction id: ",
+              pushHandler2.txn_->getID()),
+            std::string(err.what()));
         }));
   EXPECT_CALL(pushHandler2, detachTransaction());
 
@@ -388,6 +396,9 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
           EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
+          ASSERT_EQ(
+            "Stream aborted, streamID=2, code=CANCEL",
+            std::string(err.what()));
         }));
   EXPECT_CALL(pushHandler1, detachTransaction());
 
@@ -457,6 +468,9 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
           EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
+          ASSERT_EQ(
+            "Stream aborted, streamID=1, code=CANCEL",
+            std::string(err.what()));
         }));
   EXPECT_CALL(pushHandler1, detachTransaction());
 
@@ -467,6 +481,9 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
           EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
+          ASSERT_EQ(
+            "Stream aborted, streamID=1, code=CANCEL",
+            std::string(err.what()));
         }));
   EXPECT_CALL(pushHandler2, detachTransaction());
 
@@ -474,6 +491,9 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
           EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
+          ASSERT_EQ(
+            "Stream aborted, streamID=1, code=CANCEL",
+            std::string(err.what()));
         }));
   EXPECT_CALL(handler, detachTransaction());
 
@@ -523,6 +543,9 @@ TEST_F(MockCodecDownstreamTest, server_push_client_message) {
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           EXPECT_TRUE(ex.hasCodecStatusCode());
           EXPECT_EQ(ex.getCodecStatusCode(), ErrorCode::STREAM_CLOSED);
+          ASSERT_EQ(
+            "Downstream attempts to send ingress, abort.",
+            std::string(ex.what()));
         }));
   EXPECT_CALL(pushHandler, detachTransaction());
 

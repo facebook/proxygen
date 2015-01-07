@@ -7,6 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <folly/Conv.h>
 #include <folly/Foreach.h>
 #include <folly/wangle/acceptor/ConnectionManager.h>
 #include <folly/io/Cursor.h>
@@ -842,6 +843,10 @@ TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
   EXPECT_CALL(handler1, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
+          ASSERT_EQ(
+            folly::to<std::string>("WriteTimeout on transaction id: ",
+              handler1.txn_->getID()),
+            std::string(ex.what()));
           handler1.txn_->sendAbort();
         }));
   EXPECT_CALL(handler1, detachTransaction());
@@ -885,6 +890,10 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout) {
   EXPECT_CALL(handler1, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
+          ASSERT_EQ(
+            folly::to<std::string>("WriteTimeout on transaction id: ",
+              handler1.txn_->getID()),
+            std::string(ex.what()));
         }));
   EXPECT_CALL(handler1, detachTransaction());
 
@@ -925,6 +934,10 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
   EXPECT_CALL(handler1, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
+          ASSERT_EQ(
+            folly::to<std::string>("WriteTimeout on transaction id: ",
+              handler1.txn_->getID()),
+            std::string(ex.what()));
           handler1.txn_->sendAbort();
         }));
   EXPECT_CALL(handler1, detachTransaction());
@@ -1214,6 +1227,9 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
   EXPECT_CALL(handler, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
+          ASSERT_EQ(
+            folly::to<std::string>("ingress timeout, streamID=", streamID),
+            std::string(ex.what()));
           handler.terminate();
         }));
   EXPECT_CALL(handler, detachTransaction());
@@ -1250,7 +1266,11 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
           handler1.txn_ = txn; }));
   EXPECT_CALL(handler1, onHeadersComplete(_));
   EXPECT_CALL(handler1, onEOM());
-  EXPECT_CALL(handler1, onError(_));
+  EXPECT_CALL(handler1, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getProxygenError(), kErrorEOF);
+          ASSERT_EQ("Shutdown transport: EOF", std::string(ex.what()));
+        }));
   EXPECT_CALL(handler1, detachTransaction());
 
   this->transport_->addReadEvent(requests, std::chrono::milliseconds(10));

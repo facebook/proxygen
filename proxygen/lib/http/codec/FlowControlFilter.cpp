@@ -14,8 +14,8 @@
 namespace proxygen {
 
 namespace {
-HTTPException getException() {
-  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS);
+HTTPException getException(const std::string& msg) {
+  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, msg);
   ex.setCodecStatusCode(ErrorCode::FLOW_CONTROL_ERROR);
   return ex;
 }
@@ -91,9 +91,13 @@ bool FlowControlFilter::isReusable() const {
 
 void FlowControlFilter::onBody(StreamID stream,
                                std::unique_ptr<folly::IOBuf> chain) {
-  if (!recvWindow_.reserve(chain->computeChainDataLength())) {
+  uint64_t amount = chain->computeChainDataLength();
+  if (!recvWindow_.reserve(amount)) {
     error_ = true;
-    HTTPException ex = getException();
+    HTTPException ex = getException(
+      folly::to<std::string>(
+        "Failed to reserve receive window, window size=",
+        recvWindow_.getSize(), ", amount=", amount));
     callback_->onError(0, ex, false);
   } else {
     callback_->onBody(stream, std::move(chain));
@@ -109,7 +113,10 @@ void FlowControlFilter::onWindowUpdate(StreamID stream, uint32_t amount) {
       // If something went wrong applying the flow control change, abort
       // the entire session.
       error_ = true;
-      HTTPException ex = getException();
+      HTTPException ex = getException(
+        folly::to<std::string>(
+          "Failed to update send window, outstanding=",
+          sendWindow_.getOutstanding(), ", amount=", amount));
       callback_->onError(stream, ex, false);
     }
     if (sendsBlocked_ && sendWindow_.getNonNegativeSize()) {

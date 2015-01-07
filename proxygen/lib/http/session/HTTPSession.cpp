@@ -517,7 +517,8 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     if (isDownstream() && txn->isPushed()) {
       // Push streams are unidirectional (half-closed). If the downstream
       // attempts to send ingress, abort with STREAM_CLOSED error.
-      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS);
+      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+        "Downstream attempts to send ingress, abort.");
       ex.setCodecStatusCode(ErrorCode::STREAM_CLOSED);
       txn->onError(ex);
     }
@@ -548,7 +549,8 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
   if (assocStream && !assocStream->onPushedTransaction(txn)) {
     VLOG(1) << "Failed to add pushed transaction " << streamID << " on "
             << *this;
-    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS);
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+      "Failed to add pushed transaction ", streamID);
     ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
     onError(streamID, ex, true);
     return nullptr;
@@ -814,7 +816,8 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
       << streamID;
     return;
   }
-  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS);
+  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+    "Stream aborted, streamID=", streamID, ", code=", getErrorCodeString(code));
   ex.setProxygenError(kErrorStreamAbort);
   DestructorGuard dg(this);
   if (isDownstream() && txn->getAssocTxnId() == 0 &&
@@ -1573,7 +1576,7 @@ HTTPSession::shutdownTransport(bool shutdownReads,
       HTTPException::Direction::INGRESS_AND_EGRESS :
       (notifyIngressShutdown ? HTTPException::Direction::INGRESS :
          HTTPException::Direction::EGRESS);
-    HTTPException ex(dir);
+    HTTPException ex(dir, "Shutdown transport: ", getErrorString(error));
     ex.setProxygenError(error);
     invokeOnAllTransactions(&HTTPTransaction::onError, ex);
   }
@@ -1944,7 +1947,8 @@ void HTTPSession::errorOnTransactionIds(
   for (auto id: ids) {
     auto txn = findTransaction(id);
     if (txn != nullptr) {
-      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS);
+      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+        getErrorString(err), " on transaction id: ", id);
       ex.setProxygenError(err);
       txn->onError(ex);
     }

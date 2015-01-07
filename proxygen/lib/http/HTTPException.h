@@ -44,9 +44,10 @@ class HTTPException : public proxygen::Exception {
       : Exception(msg),
         dir_(dir) {}
 
-  template<typename... Args>
-  explicit HTTPException(Direction dir, Args&&... args)
-      : Exception(std::forward<Args>(args)...),
+  // require at least 1 argument, so exception description is not empty
+  template<typename T, typename... Args>
+  explicit HTTPException(Direction dir, T&& t, Args&&... args)
+      : Exception(std::forward<T>(t), std::forward<Args>(args)...),
         dir_(dir) {}
 
   HTTPException(const HTTPException& ex) :

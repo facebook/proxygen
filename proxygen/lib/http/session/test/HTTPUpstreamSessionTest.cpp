@@ -308,6 +308,10 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
           EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+          ASSERT_EQ(
+            folly::to<std::string>("StreamUnacknowledged on transaction id: ",
+              txn->getID()),
+            std::string(err.what()));
         }));
   EXPECT_CALL(handler, detachTransaction())
     .WillOnce(InvokeWithoutArgs([this] {
@@ -515,7 +519,8 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   HTTPMessage req = getPostRequest();
 
   InSequence dummy;
-  EXPECT_CALL(handler, setTransaction(_));
+  EXPECT_CALL(handler, setTransaction(_))
+    .WillOnce(SaveArg<0>(&(handler.txn_)));
   EXPECT_CALL(handler, onHeadersComplete(_))
     .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
           EXPECT_TRUE(msg->getIsChunked());
@@ -531,6 +536,10 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
           ASSERT_EQ(err.getDirection(),
                     HTTPException::Direction::INGRESS_AND_EGRESS);
           EXPECT_EQ(err.getProxygenError(), kErrorWriteTimeout);
+          ASSERT_EQ(
+            folly::to<std::string>("WriteTimeout on transaction id: ",
+              handler.txn_->getID()),
+            std::string(err.what()));
         }));
   EXPECT_CALL(handler, detachTransaction());
 
@@ -1217,7 +1226,15 @@ TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
   handler1->txn_->sendHeaders(req);
 
   // Second goaway acks the only the current outstanding transaction
-  EXPECT_CALL(*handler2, onError(_));
+  EXPECT_CALL(*handler2, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& err) {
+          EXPECT_TRUE(err.hasProxygenError());
+          EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+          ASSERT_EQ(
+            folly::to<std::string>("StreamUnacknowledged on transaction id: ",
+              handler2->txn_->getID()),
+            std::string(err.what()));
+        }));
   EXPECT_CALL(*handler2, detachTransaction());
   codecCb_->onGoaway(handler1->txn_->getID(), ErrorCode::NO_ERROR);
 
@@ -1411,7 +1428,15 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   EXPECT_CALL(*handler, onHeadersComplete(_));
   EXPECT_CALL(*handler, onBody(_));
   // After getting the second headers, transaction will detach the handler
-  EXPECT_CALL(*handler, onError(_));
+  EXPECT_CALL(*handler, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& err) {
+          EXPECT_TRUE(err.hasProxygenError());
+          EXPECT_EQ(err.getProxygenError(), kErrorIngressStateTransition);
+          ASSERT_EQ(
+            "Invalid ingress state transition, state=RegularBodyReceived, "
+            "event=onHeaders, streamID=1",
+            std::string(err.what()));
+        }));
   EXPECT_CALL(*handler, detachTransaction());
   auto resp = makeResponse(200);
   codecCb_->onMessageBegin(1, resp.get());
@@ -1439,10 +1464,19 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
 TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
   StrictMock<MockHTTPHandler> handler;
   EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(Invoke([&] (HTTPTransaction* txn) {
+    .WillOnce(DoAll(
+      SaveArg<0>(&(handler.txn_)),
+      Invoke([&] (HTTPTransaction* txn) {
           httpSession_->shutdownTransportWithReset(kErrorNone);
+        })));
+  EXPECT_CALL(handler, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& err) {
+          EXPECT_FALSE(err.hasProxygenError());
+          ASSERT_EQ(
+            folly::to<std::string>("None on transaction id: ",
+              handler.txn_->getID()),
+            std::string(err.what()));
         }));
-  EXPECT_CALL(handler, onError(_));
   EXPECT_CALL(handler, detachTransaction());
   auto txn = httpSession_->newTransaction(&handler);
 }

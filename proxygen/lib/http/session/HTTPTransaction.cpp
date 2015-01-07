@@ -364,7 +364,11 @@ bool HTTPTransaction::validateIngressStateTransition(
   CallbackGuard guard(*this);
 
   if (!HTTPTransactionIngressSM::transit(ingressState_, event)) {
-    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS);
+    std::stringstream ss;
+    ss << "Invalid ingress state transition, state=" << ingressState_ <<
+      ", event=" << event << ", streamID=" << id_;
+
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, ss.str());
     ex.setProxygenError(kErrorIngressStateTransition);
     ex.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
     // This will invoke sendAbort() and also inform the handler of the
@@ -435,7 +439,8 @@ void HTTPTransaction::onIngressTimeout() {
   pauseIngress();
   markIngressComplete();
   if (handler_) {
-    HTTPException ex(HTTPException::Direction::INGRESS);
+    HTTPException ex(HTTPException::Direction::INGRESS,
+      "ingress timeout, streamID=", id_);
     ex.setProxygenError(kErrorTimeout);
     handler_->onError(ex);
   } else {
@@ -473,7 +478,8 @@ void HTTPTransaction::onEgressTimeout() {
   CallbackGuard guard(*this);
   VLOG(4) << "egress timeout on " << *this;
   if (handler_) {
-    HTTPException ex(HTTPException::Direction::EGRESS);
+    HTTPException ex(HTTPException::Direction::EGRESS,
+      "egress timeout, streamID=", id_);
     ex.setProxygenError(kErrorTimeout);
     handler_->onError(ex);
   } else {
