@@ -4,7 +4,6 @@ noinst_LTLIBRARIES = libproxygenservices.la
 
 libproxygenservicesdir = $(includedir)/proxygen/lib/services
 nobase_libproxygenservices_HEADERS = \
-	Acceptor.h \
 	AcceptorConfiguration.h \
 	HTTPAcceptor.h \
 	RequestWorker.h \
