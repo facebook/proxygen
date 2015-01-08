@@ -105,3 +105,9 @@ NetworkID, "network_id"
 /* ---- Used in HappyEyeballs ---- */
 Ipv4Succeeded, "ipv4_succeeded"
 Ipv6Succeeded, "ipv6_succeeded"
+HECacheHit, "happy_eyeballs_cache_hit"
+
+/* ---- Used in MultiConnector ---- */
+NumConnAttempts, "number_connection_attempts"
+AttemptAddrs, "attempt_addresses"
+AttemptAddrFamily, "attempt_address_family"
