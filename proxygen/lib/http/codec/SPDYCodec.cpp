@@ -64,6 +64,8 @@ const size_t kFrameSizeNameValuev3 = 4;    // The size in bytes of a
 const size_t kPriShiftv2 = 6;              // How many bits to shift pri, v2
 const size_t kPriShiftv3 = 5;              // How many bits to shift pri, v3
 
+const size_t kMaxUncompressed = 1 << 17;   // 128kb should be enough for anyone
+
 #define CTRL_MASK 0x80
 #define FLAGS_MASK 0xff000000
 #define STREAM_ID_MASK 0x7fffffff
@@ -293,8 +295,8 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
   } else {
     headerCodec_ = folly::make_unique<GzipHeaderCodec>(
       spdyCompressionLevel, versionSettings_);
-    // Use the default value.
-    headerCodec_->setMaxUncompressed(proxygen::spdy::kMaxFrameLength);
+    // Limit uncompressed headers to 128kb
+    headerCodec_->setMaxUncompressed(kMaxUncompressed);
   }
 
   switch (transportDirection_) {
