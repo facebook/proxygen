@@ -15,12 +15,14 @@ nobase_libproxygenhttpserver_HEADERS = \
 	ResponseBuilder.h \
 	ResponseHandler.h \
 	ScopedHTTPServer.h \
+	WebSocket.h \
 	SignalHandler.h
 
 libproxygenhttpserver_la_SOURCES = \
 	HTTPServer.cpp \
 	HTTPServerAcceptor.cpp \
 	RequestHandlerAdaptor.cpp \
+	WebSocket.cpp \
 	SignalHandler.cpp
 
 libproxygenhttpserver_la_LIBADD = \

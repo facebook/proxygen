@@ -11,6 +11,7 @@
 
 #include <folly/Memory.h>
 #include <proxygen/httpserver/RequestHandler.h>
+#include <proxygen/httpserver/WebSocket.h>
 
 namespace proxygen {
 class ResponseHandler;
@@ -37,10 +38,13 @@ class EchoHandler : public proxygen::RequestHandler {
 
   void onError(proxygen::ProxygenError err) noexcept override;
 
+  void onWebSocketFrame(std::unique_ptr<proxygen::WebSocketFrame> frame);
+
  private:
   EchoStats* const stats_{nullptr};
 
   std::unique_ptr<folly::IOBuf> body_;
+  unique_ptr<proxygen::WebSocket> websocket_ = {nullptr};
 };
 
 }
