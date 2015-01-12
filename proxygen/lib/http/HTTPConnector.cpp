@@ -140,7 +140,7 @@ void HTTPConnector::connectSuccess() noexcept {
     transportInfo_.sslNextProtocol = string(npnProto, npnProtoLen);
     transportInfo_.sslSetupTime = millisecondsSince(connectStart_);
     transportInfo_.sslCipher = sslSocket->getNegotiatedCipherName() ?
-      std::make_shared<std::string>(sslSocket->getNegotiatedCipherName()) :
+      sslSocket->getNegotiatedCipherName() :
       nullptr;
     transportInfo_.sslVersion = sslSocket->getSSLVersion();
     transportInfo_.sslResume = SSLUtil::getResumeState(sslSocket);
