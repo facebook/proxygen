@@ -593,7 +593,7 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   }
 
   const char* sslCipher =
-      transportInfo_.sslCipher ? transportInfo_.sslCipher->c_str() : nullptr;
+    transportInfo_.sslCipher ? transportInfo_.sslCipher : nullptr;
   msg->setSecureInfo(transportInfo_.sslVersion, sslCipher);
   msg->setSecure(transportInfo_.ssl);
 
