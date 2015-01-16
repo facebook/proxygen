@@ -10,7 +10,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <iostream>
 #include <libgen.h>
 #include <list>
 #include <netdb.h>
@@ -344,15 +343,15 @@ TEST(HTTPMessage, TestMethod) {
 
   msg.setMethod(HTTPMethod::GET);
   EXPECT_EQ("GET", msg.getMethodString());
-  EXPECT_EQ(HTTPMethod::GET, msg.getMethod());
+  EXPECT_EQ(HTTPMethod::GET == msg.getMethod(), true);
 
   msg.setMethod("FOO");
   EXPECT_EQ("FOO", msg.getMethodString());
-  EXPECT_EQ(boost::none, msg.getMethod());
+  EXPECT_EQ(boost::none == msg.getMethod(), true);
 
   msg.setMethod(HTTPMethod::CONNECT);
   EXPECT_EQ("CONNECT", msg.getMethodString());
-  EXPECT_EQ(HTTPMethod::CONNECT, msg.getMethod());
+  EXPECT_EQ(HTTPMethod::CONNECT == msg.getMethod(), true);
 }
 
 void testPathAndQuery(const string& url,

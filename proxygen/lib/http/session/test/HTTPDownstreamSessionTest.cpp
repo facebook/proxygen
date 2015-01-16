@@ -104,7 +104,7 @@ class HTTPDownstreamTest : public testing::Test {
     auto writeEvents = transport_->getWriteEvents();
     for (auto event: *writeEvents) {
       auto vec = event->getIoVec();
-      for (auto i = 0; i < event->getCount(); i++) {
+      for (size_t i = 0; i < event->getCount(); i++) {
         unique_ptr<IOBuf> buf(
           std::move(IOBuf::wrapBuffer(vec[i].iov_base, vec[i].iov_len)));
         stream.append(std::move(buf));
@@ -1068,7 +1068,7 @@ void HTTPDownstreamTest<C>::testPriorities(
   clientCodec.generateConnectionPreface(requests);
   for (int pri = numPriorities - 1; pri >= 0; pri--) {
     req.setPriority(pri);
-    for (auto i = 0; i < iterations; i++) {
+    for (uint32_t i = 0; i < iterations; i++) {
       clientCodec.generateHeader(requests, streamID, req);
       clientCodec.generateEOM(requests, streamID);
       MockHTTPHandler* handler = new MockHTTPHandler();
@@ -1119,7 +1119,7 @@ void HTTPDownstreamTest<C>::testPriorities(
   for (int band = maxPriority; band >= 0; band--) {
     auto upperID = iterations * 2 * (band + 1);
     auto lowerID = iterations * 2 * band;
-    for (auto i = 0; i < iterations; i++) {
+    for (uint32_t i = 0; i < iterations; i++) {
       EXPECT_LE(lowerID, (uint32_t)*txn);
       EXPECT_GE(upperID, (uint32_t)*txn);
       ++txn;

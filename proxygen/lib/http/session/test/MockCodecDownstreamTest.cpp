@@ -252,7 +252,7 @@ TEST_F(MockCodecDownstreamTest, server_push) {
           pushHandler.txn_ = txn; }));
 
   EXPECT_CALL(*codec_, generateHeader(_, 2, _, _, _, _));
-  EXPECT_CALL(*codec_, generateBody(_, 2, PtrBufHasLen(100), true));
+  EXPECT_CALL(*codec_, generateBody(_, 2, PtrBufHasLen(uint64_t(100)), true));
   EXPECT_CALL(pushHandler, detachTransaction());
 
   EXPECT_CALL(handler, onEOM())
@@ -262,7 +262,7 @@ TEST_F(MockCodecDownstreamTest, server_push) {
         }));
 
   EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
-  EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(100), true));
+  EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(uint64_t(100)), true));
   EXPECT_CALL(handler, detachTransaction());
 
   codecCallback_->onMessageBegin(HTTPCodec::StreamID(1), req.get());
@@ -560,7 +560,7 @@ TEST_F(MockCodecDownstreamTest, server_push_client_message) {
           eventBase_.loop(); // flush the response to the assoc request
         }));
   EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
-  EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(100), true));
+  EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(uint64_t(100)), true));
   EXPECT_CALL(handler, detachTransaction());
 
   // Complete the assoc request/response
@@ -918,7 +918,7 @@ TEST_F(MockCodecDownstreamTest, conn_flow_control_blocked) {
   // Give a connection level window update of 10 bytes -- this should allow 10
   // bytes of the txn1 response to be written
   codecCallback_->onWindowUpdate(0, 10);
-  EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(10), false));
+  EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(uint64_t(10)), false));
   eventBase_.loop();
 
   // Just tear everything down now.
