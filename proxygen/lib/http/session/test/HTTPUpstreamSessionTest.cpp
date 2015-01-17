@@ -89,7 +89,6 @@ class HTTPUpstreamTest: public testing::Test,
   }
 
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
-    HTTPSession::setPendingWriteMax(65536);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));
     EXPECT_CALL(*transport_, setReadCB(_))
@@ -530,6 +529,7 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   EXPECT_CALL(handler, onEOM());
   EXPECT_CALL(*transport_, writeChain(_, _, _))
     .WillRepeatedly(Return());  // ignore write -> write timeout
+  EXPECT_CALL(handler, onEgressPaused());
   EXPECT_CALL(handler, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());

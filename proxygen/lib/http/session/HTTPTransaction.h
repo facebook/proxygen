@@ -281,8 +281,6 @@ class HTTPTransaction :
 
     virtual void notifyIngressBodyProcessed(uint32_t bytes) noexcept = 0;
 
-    virtual void notifyEgressBodyBuffered(uint32_t bytes) noexcept = 0;
-
     virtual const folly::SocketAddress& getLocalAddress()
       const noexcept = 0;
 
