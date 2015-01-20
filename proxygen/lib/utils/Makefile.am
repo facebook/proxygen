@@ -42,7 +42,8 @@ nobase_libutils_HEADERS = \
 	TraceEventObserver.h \
 	TraceEventType.h \
 	TraceFieldType.h \
-	UtilInl.h
+	UtilInl.h \
+	Logging.h
 
 # We put the generated files first so that we create them first
 libutils_la_SOURCES = \
@@ -57,4 +58,5 @@ libutils_la_SOURCES = \
 	TraceEventType.cpp \
 	TraceFieldType.cpp \
 	TraceFieldType.cpp \
+	Logging.cpp \
   CryptUtil.cpp
