@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <inttypes.h>
 #include <proxygen/lib/http/session/TTLBAStats.h>
 
 namespace proxygen {
@@ -20,6 +21,7 @@ class HTTPSessionStats : public TTLBAStats {
 
   virtual void recordTransactionOpened() noexcept = 0;
   virtual void recordTransactionClosed() noexcept = 0;
+  virtual void recordTransactionsServed(uint64_t) noexcept = 0;
 };
 
 }

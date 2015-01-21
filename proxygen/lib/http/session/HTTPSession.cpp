@@ -1709,6 +1709,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
     "existence check.";
 
+  ++numTxnServed_;
   HTTPTransaction* txn = &matchPair.first->second;
 
   VLOG(4) << *this << " adding streamID=" << txn->getID()

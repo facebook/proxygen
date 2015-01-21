@@ -268,6 +268,10 @@ class HTTPSession:
   bool isUpstream() const;
   bool isDownstream() const;
 
+  uint64_t getNumTxnServed() const {
+    return numTxnServed_;
+  }
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated
@@ -775,6 +779,12 @@ class HTTPSession:
    * Number of bytes scheduled so far.
    */
   uint64_t bytesScheduled_{0};
+
+  /**
+   * Number of HTTP Transcations created on this HTTP Session, including the
+   * ongoing and finished ones. This helps the understanding of session re-usage
+   */
+  uint64_t numTxnServed_{0};
 
   // Flow control settings
   size_t initialReceiveWindow_{65536};
