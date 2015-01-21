@@ -360,7 +360,8 @@ parseGoaway(Cursor& cursor,
     return ErrorCode::PROTOCOL_ERROR;
   }
   outLastStreamID = parseUint31(cursor);
-  RETURN_IF_ERROR(parseErrorCode(cursor, outCode));
+  auto err = parseErrorCode(cursor, outCode);
+  RETURN_IF_ERROR(err);
   header.length -= kFrameGoawaySize;
   if (header.length > 0) {
     cursor.clone(outDebugData, header.length);

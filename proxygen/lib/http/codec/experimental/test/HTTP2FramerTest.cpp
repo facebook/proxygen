@@ -204,6 +204,35 @@ TEST_F(HTTP2FramerTest, GoawayDebugData) {
   EXPECT_EQ(outDebugData->moveToFbString(), data);
 }
 
+// An invalid error code. Used to test a bug where
+// a macro expansion caused us to read the error code twice
+TEST_F(HTTP2FramerTest, GoawayDoubleRead) {
+    writeFrameHeaderManual(
+      queue_,
+      kFrameGoawaySize,
+      static_cast<uint8_t>(FrameType::GOAWAY),
+      0,
+      0);
+
+    QueueAppender appender(&queue_, kFrameGoawaySize);
+    appender.writeBE<uint32_t>(0);
+    // Here's the invalid value:
+    appender.writeBE<uint32_t>(static_cast<uint32_t>(0xffffffff));
+
+    uint32_t outLastStreamID;
+    ErrorCode outCode;
+    std::unique_ptr<IOBuf> outDebugData;
+    FrameHeader outHeader;
+    Cursor cursor(queue_.front());
+
+    auto ret1 = parseFrameHeader(cursor, outHeader);
+    ASSERT_EQ(ErrorCode::NO_ERROR, ret1);
+    ASSERT_EQ(FrameType::GOAWAY, outHeader.type);
+    auto ret2 = parseGoaway(cursor, outHeader, outLastStreamID,
+                            outCode, outDebugData);
+    ASSERT_EQ(ErrorCode::PROTOCOL_ERROR, ret2);
+}
+
 TEST_F(HTTP2FramerTest, Priority) {
   writePriority(queue_, 102, {0, false, 30});
 
