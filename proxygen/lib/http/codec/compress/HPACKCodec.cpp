@@ -46,12 +46,13 @@ unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   // convert to HPACK API format
   uint32_t uncompressed = 0;
   for (const auto& h : headers) {
-    HPACKHeader header(*h.name, *h.value);
+    converted.emplace_back(*h.name, *h.value);
     // This is ugly but since we're not changing the size
     // of the string I'm assuming this is OK
+    auto& header = converted.back();
     char* mutableName = const_cast<char*>(header.name.data());
     folly::toLowerAscii(mutableName, header.name.size());
-    converted.push_back(header);
+
     uncompressed += header.name.size() + header.value.size() + 2;
   }
   auto buf = encoder_->encode(converted, encodeHeadroom_);
