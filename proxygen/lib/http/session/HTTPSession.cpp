@@ -1199,6 +1199,7 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   transactions_.erase(it);
   if (infoCallback_) {
     if (transactions_.empty()) {
+      latestActive_ = getCurrentTime();
       infoCallback_->onDeactivateConnection(*this);
     } else {
       infoCallback_->onTransactionDetached(*this);

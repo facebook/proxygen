@@ -272,6 +272,12 @@ class HTTPSession:
     return numTxnServed_;
   }
 
+  std::chrono::seconds getLatestIdleTime() const {
+    DCHECK(numTxnServed_ > 0) << "No idle time for the first transcation";
+    DCHECK(latestActive_ > TimePoint::min());
+    return secondsSince(latestActive_);
+  }
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated
@@ -785,6 +791,11 @@ class HTTPSession:
    * ongoing and finished ones. This helps the understanding of session re-usage
    */
   uint64_t numTxnServed_{0};
+
+  /**
+   * The latest time when this session became idle status
+   */
+  TimePoint latestActive_{};
 
   // Flow control settings
   size_t initialReceiveWindow_{65536};
