@@ -22,6 +22,7 @@ class HTTPSessionStats : public TTLBAStats {
   virtual void recordTransactionOpened() noexcept = 0;
   virtual void recordTransactionClosed() noexcept = 0;
   virtual void recordTransactionsServed(uint64_t) noexcept = 0;
+  virtual void recordSessionReused() noexcept = 0;
 };
 
 }

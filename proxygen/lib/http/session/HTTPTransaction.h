@@ -432,6 +432,10 @@ class HTTPTransaction :
     transport_.getCurrentTransportInfo(tinfo);
   }
 
+  HTTPSessionStats* getSessionStats() const {
+    return stats_;
+  }
+
   /**
    * Check whether more response is expected. One or more 1xx status
    * responses can be received prior to the regular response.
