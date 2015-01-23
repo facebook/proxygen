@@ -121,3 +121,7 @@ AttemptAddrs, "attempt_addresses"
 AttemptAddrFamily, "attempt_address_family"
 SucceededAddr, "succeeded_address"
 SucceededConnTime, "succeeded_conn_time"
+
+/* ---- Used in FBLigerProtocol ---- */
+RequestID, "request_id"
+HumanReadableName, "human_readable_name"
