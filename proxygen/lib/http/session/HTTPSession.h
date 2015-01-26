@@ -275,7 +275,7 @@ class HTTPSession:
   std::chrono::seconds getLatestIdleTime() const {
     DCHECK(numTxnServed_ > 0) << "No idle time for the first transcation";
     DCHECK(latestActive_ > TimePoint::min());
-    return secondsSince(latestActive_);
+    return latestIdleDuration_;
   }
 
  protected:
@@ -796,6 +796,11 @@ class HTTPSession:
    * The latest time when this session became idle status
    */
   TimePoint latestActive_{};
+
+  /**
+   * The idle duration between latest two consecutive active status
+   */
+  std::chrono::seconds latestIdleDuration_{};
 
   // Flow control settings
   size_t initialReceiveWindow_{65536};

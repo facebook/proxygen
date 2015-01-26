@@ -1694,6 +1694,10 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
 
   if (transactions_.empty() && infoCallback_) {
     infoCallback_->onActivateConnection(*this);
+    if (numTxnServed_ >= 1) {
+      // idle duration only exists since the 2nd transaction in the session
+      latestIdleDuration_ = secondsSince(latestActive_);
+    }
   }
 
   auto matchPair = transactions_.emplace(
