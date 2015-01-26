@@ -113,6 +113,8 @@ TEST(ParseURL, InvalidURL) {
   testParseURL("#?hello", "", "", "", 0, "", false);
   testParseURL("[::1/foo?bar", "", "", "", 0, "", false);
   testParseURL("", "", "", "", 0, "", false);
+  testParseURL("http://tel:198433511/test\n", "", "", "", 0, "", false);
+  testParseURL("/test\n", "", "", "", 0, "", false);
 }
 
 TEST(ParseURL, IsHostIPAddress) {

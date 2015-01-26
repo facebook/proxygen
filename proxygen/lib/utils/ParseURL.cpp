@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <arpa/inet.h>
+#include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/utils/UtilInl.h>
 
 #include "proxygen/external/http_parser/http_parser.h"
@@ -64,6 +65,12 @@ void ParseURL::parse() noexcept {
 
 void ParseURL::parseNonFully() noexcept {
   if (url_.empty()) {
+    valid_ = false;
+    return;
+  }
+
+  // Check if the URL has only printable characters and no control character.
+  if (!SPDYUtil::validateURL(url_)) {
     valid_ = false;
     return;
   }
