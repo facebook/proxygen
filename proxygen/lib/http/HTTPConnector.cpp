@@ -137,7 +137,8 @@ void HTTPConnector::connectSuccess() noexcept {
     sslSocket->getSelectedNextProtocol(
       reinterpret_cast<const unsigned char**>(&npnProto), &npnProtoLen);
 
-    transportInfo_.sslNextProtocol = string(npnProto, npnProtoLen);
+    transportInfo_.sslNextProtocol =
+        std::make_shared<std::string>(npnProto, npnProtoLen);
     transportInfo_.sslSetupTime = millisecondsSince(connectStart_);
     transportInfo_.sslCipher = sslSocket->getNegotiatedCipherName() ?
       std::make_shared<std::string>(sslSocket->getNegotiatedCipherName()) :
@@ -145,7 +146,7 @@ void HTTPConnector::connectSuccess() noexcept {
     transportInfo_.sslVersion = sslSocket->getSSLVersion();
     transportInfo_.sslResume = SSLUtil::getResumeState(sslSocket);
 
-    codec = makeCodec(transportInfo_.sslNextProtocol, forceHTTP1xCodecTo1_1_);
+    codec = makeCodec(*transportInfo_.sslNextProtocol, forceHTTP1xCodecTo1_1_);
   } else {
     codec = makeCodec(plaintextProtocol_, forceHTTP1xCodecTo1_1_);
   }
