@@ -227,6 +227,11 @@ class HTTPSession:
   void setMaxConcurrentPushTransactions(uint32_t num);
 
   /**
+   * Set the maximum number of transactions the remote can open at once.
+   */
+  void setMaxConcurrentIncomingStreams(uint32_t num);
+
+  /**
    * Get/Set the number of egress bytes this session will buffer before
    * pausing all transactions' egress.
    */

@@ -98,6 +98,10 @@ void HTTPSessionAcceptor::onNewConnection(
     new HTTPDownstreamSession(getTransactionTimeoutSet(), std::move(sock),
                               localAddress, *peerAddress,
                               controller, std::move(codec), tinfo, this);
+  if (accConfig_.maxConcurrentIncomingStreams) {
+    session->setMaxConcurrentIncomingStreams(
+        accConfig_.maxConcurrentIncomingStreams);
+  }
   session->setSessionStats(downstreamSessionStats_);
   Acceptor::addConnection(session);
   session->startNow();

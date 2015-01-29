@@ -235,6 +235,18 @@ void HTTPSession::setMaxConcurrentPushTransactions(uint32_t num) {
   }
 }
 
+void HTTPSession::setMaxConcurrentIncomingStreams(uint32_t num) {
+  CHECK(!started_);
+  if (codec_->supportsParallelRequests()) {
+    maxConcurrentIncomingStreams_ = num;
+    HTTPSettings* settings = codec_->getEgressSettings();
+    if (settings) {
+      settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS,
+                           maxConcurrentIncomingStreams_);
+    }
+  }
+}
+
 void
 HTTPSession::readTimeoutExpired() noexcept {
   VLOG(3) << "session-level timeout on " << *this;

@@ -53,6 +53,11 @@ struct AcceptorConfiguration : public folly::ServerSocketConfig {
    */
   std::string plaintextProtocol;
 
+  /**
+   * The maximum number of transactions the remote could initiate
+   * per connection on protocols that allow multiplexing.
+   */
+  uint32_t maxConcurrentIncomingStreams{0};
 };
 
 } // proxygen
