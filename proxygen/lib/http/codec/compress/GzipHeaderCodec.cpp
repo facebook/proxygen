@@ -123,7 +123,7 @@ const GzipHeaderCodec::ZlibContext* GzipHeaderCodec::getZlibContext(
     newContext->inflater.opaque = Z_NULL;
     newContext->inflater.avail_in = 0;
     newContext->inflater.next_in = Z_NULL;
-    r = inflateInit(&(newContext->inflater));
+    r = inflateInit2(&(newContext->inflater), 0);
     CHECK(r == Z_OK);
 
     auto result = newContext.get();
