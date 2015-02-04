@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 #include <algorithm>
+#include <folly/io/async/EventBaseManager.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
@@ -22,6 +23,11 @@ namespace proxygen {
 
 uint64_t HTTPTransaction::egressBodySizeLimit_ = 4096;
 uint64_t HTTPTransaction::egressBufferLimit_ = 8192;
+
+namespace {
+  const int64_t kApproximateMTU = 1400;
+  const int64_t kRateLimitMaxDelayMs = 10000;
+}
 
 HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  HTTPCodec::StreamID id,
@@ -50,6 +56,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     ingressPaused_(false),
     egressPaused_(false),
     handlerEgressPaused_(false),
+    egressRateLimited_(false),
     useFlowControl_(useFlowControl),
     aborted_(false),
     deleting_(false),
@@ -71,6 +78,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
   if (stats_) {
     stats_->recordTransactionOpened();
   }
+
+  cancelled_.reset(new bool(false));
 }
 
 HTTPTransaction::~HTTPTransaction() {
@@ -80,6 +89,7 @@ HTTPTransaction::~HTTPTransaction() {
   if (isEnqueued()) {
     dequeue();
   }
+  *cancelled_ = true;
 }
 
 void HTTPTransaction::onIngressHeadersComplete(
@@ -560,7 +570,14 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
         !egressPaused_ && sendWindow > 0);
 
   const size_t bytesLeft = deferredEgressBody_.chainLength();
+
   size_t canSend = std::min<size_t>(sendWindow, bytesLeft);
+
+  if (maybeDelayForRateLimit()) {
+    // Timeout will call notifyTransportPendingEgress again
+    return 0;
+  }
+
   size_t curLen = 0;
   size_t nbytes = 0;
   bool willSendEOM = false;
@@ -618,6 +635,67 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
   return nbytes;
 }
 
+bool HTTPTransaction::maybeDelayForRateLimit() {
+  if (egressLimitBytesPerMs_ <= 0) {
+    // No rate limiting
+    return false;
+  }
+
+  if (numLimitedBytesEgressed_ == 0) {
+    // If we haven't egressed any bytes yet, don't delay.
+    return false;
+  }
+
+  int64_t limitedDurationMs = (int64_t) millisecondsBetween(
+    getCurrentTime(),
+    startRateLimit_
+  ).count();
+
+  // Algebra!  Try to figure out the next time send where we'll
+  // be allowed to send at least 1 full packet's worth.  The
+  // formula we're using is:
+  //   (bytesSoFar + packetSize) / (timeSoFar + delay) == targetRateLimit
+  int64_t requiredDelayMs = (
+    (
+     ((int64_t)numLimitedBytesEgressed_ + kApproximateMTU) -
+     ((int64_t)egressLimitBytesPerMs_ * limitedDurationMs)
+    ) / (int64_t)egressLimitBytesPerMs_
+  );
+
+  if (requiredDelayMs <= 0) {
+    // No delay required
+    return false;
+  }
+
+  if (requiredDelayMs > kRateLimitMaxDelayMs) {
+    // The delay should never be this long
+    VLOG(4) << "ratelim: Required delay too long (" << requiredDelayMs
+      << "ms), ignoring";
+    return false;
+  }
+
+  // Delay required
+
+  egressRateLimited_ = true;
+
+  // Make a reference first so we only end up making one copy of the ptr
+  std::shared_ptr<bool> &cancelled = cancelled_;
+
+  folly::EventBaseManager::get()->getEventBase()->runAfterDelay(
+    [this, cancelled]() {
+      if (*cancelled) {
+        return;
+      }
+      egressRateLimited_ = false;
+      notifyTransportPendingEgress();
+    },
+    requiredDelayMs
+  );
+
+  notifyTransportPendingEgress();
+  return true;
+}
+
 size_t HTTPTransaction::sendEOMNow() {
   size_t nbytes = 0;
   VLOG(4) << "egress EOM on " << *this;
@@ -652,6 +730,9 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   }
   updateReadTimeout();
   nbytes = transport_.sendBody(this, std::move(body), sendEom);
+  if (egressLimitBytesPerMs_ > 0) {
+    numLimitedBytesEgressed_ += nbytes;
+  }
   return nbytes;
 }
 
@@ -842,11 +923,23 @@ void HTTPTransaction::resumeEgress() {
   notifyTransportPendingEgress();
 }
 
+void HTTPTransaction::setEgressRateLimit(uint64_t bitsPerSecond) {
+  egressLimitBytesPerMs_ = bitsPerSecond / 8000;
+  if (bitsPerSecond > 0 && egressLimitBytesPerMs_ == 0) {
+    VLOG(4) << "ratelim: Limit too low (" << bitsPerSecond << "), ignoring";
+  }
+  startRateLimit_ = getCurrentTime();
+  numLimitedBytesEgressed_ = 0;
+}
+
 void HTTPTransaction::notifyTransportPendingEgress() {
   if (!egressPaused_ &&
+      !egressRateLimited_ &&
       (deferredEgressBody_.chainLength() > 0 ||
        isEgressEOMQueued()) &&
       (!useFlowControl_ || sendWindow_.getSize() > 0)) {
+    // Egress isn't paused, we have something to send, and flow
+    // control isn't blocking us.
     if (isEnqueued()) {
       // We're already in the queue, jiggle our priority
       priority_ ^= 0x3;
@@ -858,6 +951,7 @@ void HTTPTransaction::notifyTransportPendingEgress() {
       transport_.notifyPendingEgress();
     }
   } else if (isEnqueued()) {
+    // Nothing to send, or not allowed to send right now.
     dequeue();
   }
   updateHandlerPauseState();

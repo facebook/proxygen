@@ -12,6 +12,7 @@
 #include <folly/wangle/acceptor/ConnectionManager.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/async/EventBase.h>
+#include <folly/io/async/EventBaseManager.h>
 #include <folly/io/async/TimeoutManager.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
@@ -85,6 +86,7 @@ class HTTPDownstreamTest : public testing::Test {
   }
 
   void SetUp() {
+    folly::EventBaseManager::get()->clearEventBase();
   }
 
   void addSingleByteReads(const char* data,
@@ -852,6 +854,170 @@ TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
   EXPECT_CALL(handler1, detachTransaction());
 
   transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->startReadEvents();
+  eventBase_.loop();
+}
+
+TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
+  // The rate-limiting code grabs the event base from the EventBaseManager,
+  // so we need to set it.
+  folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
+
+  // Create a request
+  IOBufQueue requests;
+  HTTPMessage req = getGetRequest();
+  MockHTTPHandler handler1;
+  HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
+  auto streamID = HTTPCodec::StreamID(0);
+  clientCodec.generateConnectionPreface(requests);
+  clientCodec.generateHeader(requests, streamID, req);
+  clientCodec.generateEOM(requests, streamID);
+
+  // The controller should return the handler when asked
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillRepeatedly(Return(&handler1));
+
+  // Set a low rate-limit on the transaction
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+      uint32_t rateLimit_kbps = 64;
+      txn->setEgressRateLimit(rateLimit_kbps * 1024);
+      handler1.txn_ = txn;
+    }));
+
+  // Send a somewhat big response that we know will get rate-limited
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM())
+    .WillOnce(InvokeWithoutArgs([&handler1, this] {
+          // At 64kbps, this should take slightly over 1 second
+          uint32_t rspLengthBytes = 10000;
+          handler1.sendHeaders(200, rspLengthBytes);
+          handler1.sendBody(rspLengthBytes);
+          handler1.txn_->sendEOM();
+        }));
+  EXPECT_CALL(handler1, onEgressPaused());
+  EXPECT_CALL(handler1, onEgressResumed());
+  EXPECT_CALL(handler1, detachTransaction());
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->startReadEvents();
+
+  // Keep the session around even after the event base loop completes so we can
+  // read the counters on a valid object.
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+
+  proxygen::TimePoint timeFirstWrite =
+    transport_->getWriteEvents()->front()->getTime();
+  proxygen::TimePoint timeLastWrite =
+    transport_->getWriteEvents()->back()->getTime();
+  int64_t writeDuration =
+    (int64_t)millisecondsBetween(timeLastWrite, timeFirstWrite).count();
+  EXPECT_GT(writeDuration, 1000);
+}
+
+TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
+  // The rate-limiting code grabs the event base from the EventBaseManager,
+  // so we need to set it.
+  folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
+
+  IOBufQueue requests;
+  HTTPMessage req = getGetRequest();
+  MockHTTPHandler handler1;
+  SPDYCodec clientCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3);
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
+  clientCodec.generateHeader(requests, streamID, req);
+  clientCodec.generateEOM(requests, streamID);
+
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillRepeatedly(Return(&handler1));
+  EXPECT_CALL(mockController_, detachSession(_));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+      uint32_t rateLimit_kbps = 64;
+      txn->setEgressRateLimit(rateLimit_kbps * 1024);
+      handler1.txn_ = txn;
+    }));
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM())
+    .WillOnce(InvokeWithoutArgs([&handler1, this] {
+          // At 64kbps, this should take slightly over 1 second
+          uint32_t rspLengthBytes = 10000;
+          handler1.sendHeaders(200, rspLengthBytes);
+          handler1.sendBody(rspLengthBytes);
+          handler1.txn_->sendEOM();
+        }));
+  EXPECT_CALL(handler1, detachTransaction());
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->addReadEOF(std::chrono::milliseconds(50));
+  transport_->startReadEvents();
+
+  // Keep the session around even after the event base loop completes so we can
+  // read the counters on a valid object.
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+
+  proxygen::TimePoint timeFirstWrite =
+    transport_->getWriteEvents()->front()->getTime();
+  proxygen::TimePoint timeLastWrite =
+    transport_->getWriteEvents()->back()->getTime();
+  int64_t writeDuration =
+    (int64_t)millisecondsBetween(timeLastWrite, timeFirstWrite).count();
+  EXPECT_GT(writeDuration, 1000);
+}
+
+/**
+ * This test will reset the connection while the server is waiting around
+ * to send more bytes (so as to keep under the rate limit).
+ */
+TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
+  // The rate-limiting code grabs the event base from the EventBaseManager,
+  // so we need to set it.
+  folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
+
+  IOBufQueue requests;
+  IOBufQueue rst;
+  HTTPMessage req = getGetRequest();
+  MockHTTPHandler handler1;
+  SPDYCodec clientCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3);
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
+  clientCodec.generateHeader(requests, streamID, req);
+  clientCodec.generateEOM(requests, streamID);
+  clientCodec.generateRstStream(rst, streamID, ErrorCode::CANCEL);
+
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillRepeatedly(Return(&handler1));
+  EXPECT_CALL(mockController_, detachSession(_));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+      uint32_t rateLimit_kbps = 64;
+      txn->setEgressRateLimit(rateLimit_kbps * 1024);
+      handler1.txn_ = txn;
+    }));
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM())
+    .WillOnce(InvokeWithoutArgs([&handler1, this] {
+          uint32_t rspLengthBytes = 10000;
+          handler1.sendHeaders(200, rspLengthBytes);
+          handler1.sendBody(rspLengthBytes);
+          handler1.txn_->sendEOM();
+        }));
+  EXPECT_CALL(handler1, onError(_));
+  EXPECT_CALL(handler1, detachTransaction());
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->addReadEvent(rst, std::chrono::milliseconds(10));
+  transport_->addReadEOF(std::chrono::milliseconds(50));
   transport_->startReadEvents();
   eventBase_.loop();
 }

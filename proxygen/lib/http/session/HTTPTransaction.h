@@ -24,6 +24,7 @@
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
+#include <proxygen/lib/utils/Time.h>
 #include <set>
 
 namespace proxygen {
@@ -796,6 +797,14 @@ class HTTPTransaction :
   void resumeEgress();
 
   /**
+   * Specify a rate limit for egressing bytes.
+   * The transaction will buffer extra bytes if doing so would cause it to go
+   * over the specified rate limit.  Setting to a value of 0 will cause no
+   * rate-limiting to occur.
+   */
+  void setEgressRateLimit(uint64_t bitsPerSecond);
+
+  /**
    * @return true iff egress processing is paused for the handler
    */
   bool isEgressPaused() const { return handlerEgressPaused_; }
@@ -1000,6 +1009,8 @@ class HTTPTransaction :
 
   size_t sendDeferredBody(uint32_t maxEgress);
 
+  bool maybeDelayForRateLimit();
+
   bool isEnqueued() const { return enqueued_; }
 
   void dequeue() {
@@ -1144,6 +1155,7 @@ class HTTPTransaction :
   bool ingressPaused_:1;
   bool egressPaused_:1;
   bool handlerEgressPaused_:1;
+  bool egressRateLimited_:1;
   bool useFlowControl_:1;
   bool aborted_:1;
   bool deleting_:1;
@@ -1155,6 +1167,13 @@ class HTTPTransaction :
 
   static uint64_t egressBodySizeLimit_;
   static uint64_t egressBufferLimit_;
+
+  uint64_t egressLimitBytesPerMs_{0};
+  proxygen::TimePoint startRateLimit_;
+  uint64_t numLimitedBytesEgressed_{0};
+
+  // Used by pending callbacks to see if the transaction has been deleted
+  std::shared_ptr<bool> cancelled_;
 };
 
 /**
