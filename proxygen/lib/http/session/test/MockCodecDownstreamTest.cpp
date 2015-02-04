@@ -713,11 +713,11 @@ TEST_F(MockCodecDownstreamTest, buffering) {
 
   EXPECT_CALL(handler, detachTransaction());
 
-  eventBase_.runAfterDelay([&handler, this] {
+  eventBase_.tryRunAfterDelay([&handler, this] {
       handler.txn_->resumeIngress();
       handler.sendReplyWithBody(200, 100);
     }, 30);
-  eventBase_.runAfterDelay([&handler, this] {
+  eventBase_.tryRunAfterDelay([&handler, this] {
       httpSession_->shutdownTransportWithReset(
         ProxygenError::kErrorConnectionReset);
     }, 50);
@@ -824,7 +824,7 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
   EXPECT_CALL(handler1, onHeadersComplete(_))
     .WillOnce(InvokeWithoutArgs([&handler1, this] {
           handler1.txn_->pauseIngress();
-          eventBase_.runAfterDelay([&handler1] {
+          eventBase_.tryRunAfterDelay([&handler1] {
               handler1.txn_->resumeIngress();
             }, 50);
         }));

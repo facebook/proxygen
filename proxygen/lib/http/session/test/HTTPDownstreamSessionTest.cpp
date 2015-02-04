@@ -770,11 +770,11 @@ TEST_F(HTTPDownstreamSessionTest, http_drain_long_running) {
   EXPECT_CALL(handler, onHeadersComplete(_))
     .WillOnce(Invoke([this, &handler] (std::shared_ptr<HTTPMessage> msg) {
           httpSession_->notifyPendingShutdown();
-          eventBase_.runAfterDelay([this] {
+          eventBase_.tryRunAfterDelay([this] {
               // simulate read timeout
               httpSession_->timeoutExpired();
             }, 100);
-          eventBase_.runAfterDelay([&handler] {
+          eventBase_.tryRunAfterDelay([&handler] {
               handler.sendReplyWithBody(200, 100);
             }, 200);
         }));
@@ -1113,7 +1113,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout) {
   EXPECT_CALL(handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler1, this] {
           handler1.sendHeaders(200, 100);
-          eventBase_.runAfterDelay([&handler1, this] {
+          eventBase_.tryRunAfterDelay([&handler1, this] {
               transport_->pauseWrites();
               handler1.sendBody(100);
               handler1.txn_->sendEOM();
@@ -1157,7 +1157,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
   EXPECT_CALL(handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler1, this] {
           handler1.sendHeaders(200, 100);
-          eventBase_.runAfterDelay([&handler1, this] {
+          eventBase_.tryRunAfterDelay([&handler1, this] {
               transport_->pauseWrites();
               handler1.sendBody(100);
               handler1.txn_->sendEOM();
@@ -1403,7 +1403,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
           // This transaction should start egress paused.  We've received the
           // EOM, so the timeout shouldn't be running delay 400ms and resume
           // writes, this keeps txn1 from getting a write timeout
-          eventBase_.runAfterDelay([this] {
+          eventBase_.tryRunAfterDelay([this] {
               transport_->resumeWrites();
             }, 400);
         }));
@@ -1413,7 +1413,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
     .WillOnce(InvokeWithoutArgs([handler2, this] {
           // delay an additional 200ms.  The total 600ms delay shouldn't fire
           // onTimeout
-          eventBase_.runAfterDelay([handler2] {
+          eventBase_.tryRunAfterDelay([handler2] {
               handler2->sendReplyWithBody(200, 400); }, 200
             );
         }));

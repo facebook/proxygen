@@ -991,7 +991,7 @@ TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
                        EXPECT_LT(len, sendWindow);
                        toSend -= len;
                        EXPECT_EQ(toSend, 0);
-                       eventBase_.runAfterDelay([this, streamID, len] {
+                       eventBase_.tryRunAfterDelay([this, streamID, len] {
                            failWrites_ = true;
                            auto respBody = makeBuf(len);
                            codecCb_->onBody(streamID, std::move(respBody));
