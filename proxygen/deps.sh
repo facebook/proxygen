@@ -30,7 +30,7 @@ sudo apt-get install -yq \
 # Adding support for Ubuntu 12.04.x
 # Needs libdouble-conversion-dev, google-gflags and double-conversion
 # deps.sh in fbthrift and folly builds anyways (no trap there)
-if ! sudo apt-get install libgoogle-glog-dev; 
+if ! sudo apt-get install -y libgoogle-glog-dev; 
 then
 	if [ ! -e google-glog ]; then
     echo "fetching glog from svn (apt-get failed)"
@@ -43,7 +43,7 @@ then
 	fi
 fi
 
-if ! sudo apt-get install libgflags-dev;
+if ! sudo apt-get install -y libgflags-dev;
 then
 	if [ ! -e google-gflags ]; then
     echo "Fetching gflags from svn (apt-get failed)"
@@ -56,7 +56,7 @@ then
 	fi
 fi
 
-if  ! sudo apt-get install libdouble-conversion-dev;
+if  ! sudo apt-get install -y libdouble-conversion-dev;
 then
 	if [ ! -e double-conversion ]; then
     echo "Fetching double-conversion from git (apt-get failed)"
