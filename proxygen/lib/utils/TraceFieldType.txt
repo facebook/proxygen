@@ -15,8 +15,6 @@ Uri, "uri"
 IsSecure, "is_secure"
 UsingProxy, "using_proxy"
 StatusCode, "status_code"
-ServerAddr, "server_address"
-ServerPort, "server_port"
 Protocol, "protocol"
 ContentType, "content_type"
 UsingSpdy, "using_spdy"
@@ -44,6 +42,10 @@ ConnsStarted, "conns_started"
 RequestsWaited, "requests_waited"
 TotalRequestsWaited, "total_requests_waited",
 TotalConnsStarted, "total_conns_started"
+
+/* ---- Used in TcpConnect ---- */
+ServerAddr, "server_address"
+ServerPort, "server_port"
 
 /* ---- Used in PostConnect ---- */
 NewSession, "new_session"
