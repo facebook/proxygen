@@ -747,7 +747,9 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
   allHeaders.reserve(headers.size() + 6);
 
   const string& method = msg.getMethodString();
-  const string& scheme = msg.isSecure() ? spdy::https : spdy::http;
+  static const string https("https");
+  static const string http("http");
+  const string& scheme = msg.isSecure() ? https : http;
   string path = msg.getURL();
 
   if (versionSettings_.majorVersion == 2 && path[0] == '/') {

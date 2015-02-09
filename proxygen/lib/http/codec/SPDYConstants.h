@@ -121,8 +121,6 @@ extern const std::string kNamePathv3;
 extern const std::string kNameSchemev2;
 extern const std::string kNameSchemev3;
 extern const std::string kNameHostv3;
-extern const std::string https;
-extern const std::string http;
 
 extern const size_t SPDY_PRIO_SHIFT_FACTOR;
 

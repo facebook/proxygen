@@ -145,8 +145,6 @@ const std::string kNamePathv3(":path");
 const std::string kNameSchemev2("scheme");
 const std::string kNameSchemev3(":scheme");
 const std::string kNameHostv3(":host"); // SPDY v3 only
-const std::string https("https");
-const std::string http("http");
 
 // In the future, we may be shifting the SPDY wire priority
 // by this much so we can easily use the lower bits to do our
