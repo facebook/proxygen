@@ -113,6 +113,8 @@ def gen_cpp_header(items, class_name, install_dir, output_scope):
         outf.write('extern const std::string& get%sString(%s);\n'
                    % (class_name, class_name))
 
+        outf.write('extern %s get%sFromString(const std::string&);\n'
+                   % (class_name, class_name))
         for ns in namespaces:
             outf.write('}')
         outf.write('\n\n')
@@ -135,17 +137,17 @@ def gen_cpp_source(items, class_name, install_dir, header_path, output_scope):
             outf.write('namespace %s { ' % ns)
         outf.write('\n\n')
 
+        # const string names
+        for item in items:
+            outf.write('static const std::string k%s%s = "%s";\n' %
+                       (class_name, item[0], item[1]))
+
         # generate enum to string convert function
         outf.write('const std::string& get%sString(%s type) {\n' %
                    (class_name, class_name))
 
         outf.write('  static const std::string k%sInvalidType = "";\n' %
                    class_name)
-
-        # const string names
-        for item in items:
-            outf.write('  static const std::string k%s%s = "%s";\n' %
-                       (class_name, item[0], item[1]))
 
         outf.write('\n  switch (type) {\n')
         for item in items:
@@ -155,6 +157,16 @@ def gen_cpp_source(items, class_name, install_dir, header_path, output_scope):
         outf.write('  return k%sInvalidType;\n' % class_name)
         outf.write('};\n\n')
 
+        outf.write('  %s get%sFromString(const std::string& str) {\n'
+                   % (class_name, class_name))
+        for item in items:
+            outf.write('  if (str == k%s%s)  return %s::%s;\n' %
+                       (class_name, item[0], class_name, item[0]))
+        outf.write(' throw std::invalid_argument'
+               ' ("No matching %s from string");\n'
+                % (class_name))
+        outf.write('};\n')
+        outf.write('\n\n')
         for ns in namespaces:
             outf.write('}')
         outf.write('\n\n')
