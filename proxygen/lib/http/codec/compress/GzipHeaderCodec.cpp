@@ -123,6 +123,9 @@ const GzipHeaderCodec::ZlibContext* GzipHeaderCodec::getZlibContext(
     newContext->inflater.opaque = Z_NULL;
     newContext->inflater.avail_in = 0;
     newContext->inflater.next_in = Z_NULL;
+    // set zlib's reserved flag to allocate smaller initial sliding window, then
+    // double it if necessary
+    newContext->inflater.reserved = 0x01;
     r = inflateInit2(&(newContext->inflater), 0);
     CHECK(r == Z_OK);
 
