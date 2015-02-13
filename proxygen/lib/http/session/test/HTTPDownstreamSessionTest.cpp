@@ -880,7 +880,7 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
   // Set a low rate-limit on the transaction
   EXPECT_CALL(handler1, setTransaction(_))
     .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
-      uint32_t rateLimit_kbps = 64;
+      uint32_t rateLimit_kbps = 640;
       txn->setEgressRateLimit(rateLimit_kbps * 1024);
       handler1.txn_ = txn;
     }));
@@ -890,8 +890,8 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
   EXPECT_CALL(handler1, onHeadersComplete(_));
   EXPECT_CALL(handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler1, this] {
-          // At 64kbps, this should take slightly over 1 second
-          uint32_t rspLengthBytes = 10000;
+          // At 640kbps, this should take slightly over 800ms
+          uint32_t rspLengthBytes = 100000;
           handler1.sendHeaders(200, rspLengthBytes);
           handler1.sendBody(rspLengthBytes);
           handler1.txn_->sendEOM();
@@ -914,7 +914,7 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
     transport_->getWriteEvents()->back()->getTime();
   int64_t writeDuration =
     (int64_t)millisecondsBetween(timeLastWrite, timeFirstWrite).count();
-  EXPECT_GT(writeDuration, 1000);
+  EXPECT_GT(writeDuration, 800);
 }
 
 TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
@@ -929,6 +929,9 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
                         SPDYVersion::SPDY3);
   auto streamID = HTTPCodec::StreamID(1);
   clientCodec.generateConnectionPreface(requests);
+  clientCodec.getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
+                                              100000);
+  clientCodec.generateSettings(requests);
   clientCodec.generateHeader(requests, streamID, req);
   clientCodec.generateEOM(requests, streamID);
 
@@ -939,15 +942,15 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
   InSequence handlerSequence;
   EXPECT_CALL(handler1, setTransaction(_))
     .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
-      uint32_t rateLimit_kbps = 64;
+      uint32_t rateLimit_kbps = 640;
       txn->setEgressRateLimit(rateLimit_kbps * 1024);
       handler1.txn_ = txn;
     }));
   EXPECT_CALL(handler1, onHeadersComplete(_));
   EXPECT_CALL(handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler1, this] {
-          // At 64kbps, this should take slightly over 1 second
-          uint32_t rspLengthBytes = 10000;
+          // At 640kbps, this should take slightly over 800ms
+          uint32_t rspLengthBytes = 100000;
           handler1.sendHeaders(200, rspLengthBytes);
           handler1.sendBody(rspLengthBytes);
           handler1.txn_->sendEOM();
@@ -969,7 +972,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
     transport_->getWriteEvents()->back()->getTime();
   int64_t writeDuration =
     (int64_t)millisecondsBetween(timeLastWrite, timeFirstWrite).count();
-  EXPECT_GT(writeDuration, 1000);
+  EXPECT_GT(writeDuration, 800);
 }
 
 /**
@@ -989,6 +992,9 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
                         SPDYVersion::SPDY3);
   auto streamID = HTTPCodec::StreamID(1);
   clientCodec.generateConnectionPreface(requests);
+  clientCodec.getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
+                                              100000);
+  clientCodec.generateSettings(requests);
   clientCodec.generateHeader(requests, streamID, req);
   clientCodec.generateEOM(requests, streamID);
   clientCodec.generateRstStream(rst, streamID, ErrorCode::CANCEL);
@@ -1000,14 +1006,14 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
   InSequence handlerSequence;
   EXPECT_CALL(handler1, setTransaction(_))
     .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
-      uint32_t rateLimit_kbps = 64;
+      uint32_t rateLimit_kbps = 640;
       txn->setEgressRateLimit(rateLimit_kbps * 1024);
       handler1.txn_ = txn;
     }));
   EXPECT_CALL(handler1, onHeadersComplete(_));
   EXPECT_CALL(handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler1, this] {
-          uint32_t rspLengthBytes = 10000;
+          uint32_t rspLengthBytes = 100000;
           handler1.sendHeaders(200, rspLengthBytes);
           handler1.sendBody(rspLengthBytes);
           handler1.txn_->sendEOM();
@@ -1210,7 +1216,7 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
   HTTPSession::DestructorGuard g(httpSession_);
   eventBase_.loop();
 
-  EXPECT_GT(transport_->getWriteEvents()->size(), 3000);
+  EXPECT_GT(transport_->getWriteEvents()->size(), 250);
 }
 
 TEST_F(SPDY2DownstreamSessionTest, spdy_prio) {

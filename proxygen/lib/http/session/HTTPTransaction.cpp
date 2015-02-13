@@ -21,7 +21,6 @@ using std::unique_ptr;
 
 namespace proxygen {
 
-uint64_t HTTPTransaction::egressBodySizeLimit_ = 4096;
 uint64_t HTTPTransaction::egressBufferLimit_ = 8192;
 
 namespace {
@@ -583,8 +582,7 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
   bool willSendEOM = false;
 
   if (chunkHeaders_.empty()) {
-    // limit this txn to egressBodySizeLimit_ at a time
-    curLen = std::min<size_t>(canSend, egressBodySizeLimit_);
+    curLen = canSend;
     std::unique_ptr<IOBuf> body = deferredEgressBody_.split(curLen);
     willSendEOM = hasPendingEOM();
     DCHECK(curLen > 0 || willSendEOM);
@@ -604,7 +602,6 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
         nbytes += transport_.sendChunkHeader(this, chunk.length);
         chunk.headerSent = true;
       }
-      canSend = std::min<size_t>(canSend, egressBodySizeLimit_);
       curLen = std::min<size_t>(chunk.length, canSend);
       std::unique_ptr<folly::IOBuf> cur = deferredEgressBody_.split(curLen);
       VLOG(4) << "sending " << curLen << " fin=false";

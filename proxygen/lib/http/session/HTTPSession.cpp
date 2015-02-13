@@ -36,6 +36,7 @@ using std::vector;
 namespace {
 static const uint32_t kMinReadSize = 1460;
 static const uint32_t kMaxReadSize = 4000;
+static const uint32_t kWriteReadyMax = 65536;
 
 // Lower = higher latency, better prioritization
 // Higher = lower latency, less prioritization
@@ -46,6 +47,7 @@ static const uint32_t kMaxWritesPerLoop = 32;
 namespace proxygen {
 
 uint32_t HTTPSession::kDefaultReadBufLimit = 65536;
+uint64_t HTTPSession::egressBodySizeLimit_ = 4096;
 uint32_t HTTPSession::kPendingWriteMax = 8192;
 
 HTTPSession::WriteSegment::WriteSegment(
@@ -1341,9 +1343,10 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
   // We always tack on at least one body packet to the current write buf
   // This ensures that a short HTTPS response will go out in a single SSL record
   while (!txnEgressQueue_.empty()) {
-    uint32_t allowed = std::numeric_limits<uint32_t>::max();
+    uint32_t allowed = txnEgressQueue_.size() > 1 ? egressBodySizeLimit_ :
+      kWriteReadyMax;
     if (connFlowControl_) {
-      allowed = connFlowControl_->getAvailableSend();
+      allowed = std::min(allowed, connFlowControl_->getAvailableSend());
       if (allowed == 0) {
         VLOG(4) << "Session-level send window is full, skipping "
                 << "body writes this loop";

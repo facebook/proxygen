@@ -95,6 +95,14 @@ class HTTPSession:
     VLOG(1) << "read buffer limit: " << int(limit / 1000) << "KB";
   }
 
+  /**
+   * Set the maximum egress body size for any outbound body bytes per loop,
+   * when there are > 1 transactions.
+   */
+  static void setFlowControlledBodySizeLimit(uint64_t limit) {
+    egressBodySizeLimit_ = limit;
+  }
+
   void setInfoCallback(InfoCallback* callback);
 
   void setSessionStats(HTTPSessionStats* stats);
@@ -847,6 +855,12 @@ class HTTPSession:
    * transactions for this single session/connection.
    */
   static uint32_t kDefaultReadBufLimit;
+
+  /**
+   * Maximum number of bytes to egress per loop when there are > 1
+   * transactions.  Otherwise defaults to kPendingWriteMax.
+   */
+  static uint64_t egressBodySizeLimit_;
 
   /**
    * Maximum number of bytes that can be buffered in sock_ before

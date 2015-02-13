@@ -923,13 +923,6 @@ class HTTPTransaction :
   void describe(std::ostream& os) const;
 
   /**
-   * Set the maximum egress body size for any outbound body bytes
-   */
-  static void setFlowControlledBodySizeLimit(uint64_t limit) {
-    egressBodySizeLimit_ = limit;
-  }
-
-  /**
    * Helper class that:
    * 1. Increments callbackDepth_ to prevent destruction
    *    within a scope, and
@@ -1165,7 +1158,6 @@ class HTTPTransaction :
   bool inResume_:1;
   bool inActiveSet_:1;
 
-  static uint64_t egressBodySizeLimit_;
   static uint64_t egressBufferLimit_;
 
   uint64_t egressLimitBytesPerMs_{0};
