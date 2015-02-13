@@ -13,11 +13,8 @@
 
 namespace proxygen { namespace HPACK09 {
 
-DEFINE_UNION_STATIC_CONST_NO_INIT(StaticHeaderTable, StaticTable, s_table);
-
-__attribute__((__constructor__))
-void initStaticTable() {
-  new (const_cast<StaticHeaderTable*>(&s_table.data)) StaticHeaderTable ({
+// array of static header table entires pair
+const char* s_tableEntries[][2] = {
       {":authority", ""},
       {":method", "GET"},
       {":method", "POST"},
@@ -79,7 +76,21 @@ void initStaticTable() {
       {"vary", ""},
       {"via", ""},
       {"www-authenticate", ""}
-    });
+    };
+
+const int kEntriesSize = sizeof(s_tableEntries) / (2 * sizeof(const char*));
+
+/**
+ * we're using a union to prevent the static object destruction when
+ * calling exit() from a different thread, common on mobile
+ */
+DEFINE_UNION_STATIC_CONST_NO_INIT(StaticHeaderTable, StaticTable, s_table);
+
+__attribute__((__constructor__))
+void initStaticTable() {
+  // use placement new to initialize the static table
+  new (const_cast<StaticHeaderTable*>(&s_table.data))
+    StaticHeaderTable(s_tableEntries, kEntriesSize);
 }
 
 const HeaderTable& getStaticTable() {

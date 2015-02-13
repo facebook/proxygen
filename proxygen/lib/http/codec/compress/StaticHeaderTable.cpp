@@ -19,16 +19,8 @@ using std::vector;
 
 namespace proxygen {
 
-/**
- * we're using a union to prevent the static object destruction when
- * calling exit() from a different thread, common on mobile
- */
-DEFINE_UNION_STATIC_CONST_NO_INIT(StaticHeaderTable, StaticTable, s_table);
-
-__attribute__((__constructor__))
-void initStaticTable() {
-  // use placement new to initialize the static table
-  new (const_cast<StaticHeaderTable*>(&s_table.data)) StaticHeaderTable ({
+// array of static header table entires pair
+const char* s_tableEntries[][2] = {
       {":authority", ""},
       {":method", "GET"},
       {":method", "POST"},
@@ -89,16 +81,32 @@ void initStaticTable() {
       {"vary", ""},
       {"via", ""},
       {"www-authenticate", ""}
-    });
+    };
+
+const int kEntriesSize = sizeof(s_tableEntries) / (2 * sizeof(const char*));
+
+/**
+ * we're using a union to prevent the static object destruction when
+ * calling exit() from a different thread, common on mobile
+ */
+DEFINE_UNION_STATIC_CONST_NO_INIT(StaticHeaderTable, StaticTable, s_table);
+
+__attribute__((__constructor__))
+void initStaticTable() {
+  // use placement new to initialize the static table
+  new (const_cast<StaticHeaderTable*>(&s_table.data))
+    StaticHeaderTable(s_tableEntries, kEntriesSize);
 }
 
-StaticHeaderTable::StaticHeaderTable(const vector<vector<string>>& entries)
+StaticHeaderTable::StaticHeaderTable(
+    const char* entries[][2],
+    int size)
     : HeaderTable() {
   // calculate the size
   list<HPACKHeader> hlist;
   uint32_t byteCount = 0;
-  for (const auto& entry : entries) {
-    hlist.push_back(HPACKHeader(entry[0], entry[1]));
+  for (int i = 0; i < size; ++i) {
+    hlist.push_back(HPACKHeader(entries[i][0], entries[i][1]));
     byteCount += hlist.back().bytes();
   }
   // initialize with a capacity that will exactly fit the static headers

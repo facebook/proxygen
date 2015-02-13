@@ -19,7 +19,8 @@ class StaticHeaderTable : public HeaderTable {
 
  public:
   explicit StaticHeaderTable(
-    const std::vector<std::vector<std::string>>& entries);
+    const char* entries[][2],
+    int size);
 
   static const HeaderTable& get();
 };
