@@ -71,6 +71,8 @@ fi
 
 git clone https://github.com/facebook/fbthrift || true
 cd fbthrift/thrift
+git fetch
+git checkout v0.20.0
 
 # Rebase in case we've already downloaded thrift and folly
 git fetch && git rebase origin/master
