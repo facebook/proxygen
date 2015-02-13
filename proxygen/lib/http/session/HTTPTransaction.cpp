@@ -21,8 +21,6 @@ using std::unique_ptr;
 
 namespace proxygen {
 
-uint64_t HTTPTransaction::egressBufferLimit_ = 8192;
-
 namespace {
   const int64_t kApproximateMTU = 1400;
   const int64_t kRateLimitMaxDelayMs = 10000;
@@ -362,6 +360,9 @@ void HTTPTransaction::markIngressComplete() {
 
 void HTTPTransaction::markEgressComplete() {
   VLOG(4) << "Marking egress complete on " << *this;
+  if (deferredEgressBody_.chainLength()) {
+    transport_.notifyEgressBodyBuffered(-deferredEgressBody_.chainLength());
+  }
   deferredEgressBody_.move();
   if (isEnqueued()) {
     dequeue();
@@ -543,6 +544,10 @@ void HTTPTransaction::sendHeaders(const HTTPMessage& headers) {
 void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendBody));
+  if (body) {
+    size_t bodyLen = body->computeChainDataLength();
+    transport_.notifyEgressBodyBuffered(bodyLen);
+  }
   deferredEgressBody_.append(std::move(body));
   notifyTransportPendingEgress();
 }
@@ -566,7 +571,7 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
   // the send window is closed
   CHECK((deferredEgressBody_.chainLength() > 0 ||
          isEgressEOMQueued()) &&
-        !egressPaused_ && sendWindow > 0);
+        sendWindow > 0);
 
   const size_t bytesLeft = deferredEgressBody_.chainLength();
 
@@ -930,8 +935,7 @@ void HTTPTransaction::setEgressRateLimit(uint64_t bitsPerSecond) {
 }
 
 void HTTPTransaction::notifyTransportPendingEgress() {
-  if (!egressPaused_ &&
-      !egressRateLimited_ &&
+  if (!egressRateLimited_ &&
       (deferredEgressBody_.chainLength() > 0 ||
        isEgressEOMQueued()) &&
       (!useFlowControl_ || sendWindow_.getSize() > 0)) {
@@ -956,8 +960,7 @@ void HTTPTransaction::notifyTransportPendingEgress() {
 
 void HTTPTransaction::updateHandlerPauseState() {
   bool handlerShouldBePaused = egressPaused_ ||
-    (useFlowControl_ && sendWindow_.getSize() <= 0) ||
-    (deferredEgressBody_.chainLength() >= egressBufferLimit_);
+    (useFlowControl_ && sendWindow_.getSize() <= 0);
   if (handler_ && handlerShouldBePaused != handlerEgressPaused_) {
     if (handlerShouldBePaused) {
       handlerEgressPaused_ = true;

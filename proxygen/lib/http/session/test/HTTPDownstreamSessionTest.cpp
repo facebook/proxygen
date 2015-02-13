@@ -87,6 +87,7 @@ class HTTPDownstreamTest : public testing::Test {
 
   void SetUp() {
     folly::EventBaseManager::get()->clearEventBase();
+    HTTPSession::setPendingWriteMax(65536);
   }
 
   void addSingleByteReads(const char* data,
@@ -816,6 +817,68 @@ TEST_F(HTTPDownstreamSessionTest, early_abort) {
   eventBase_.loop();
 }
 
+TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
+  IOBufQueue requests;
+  IOBufQueue rst;
+  HTTPMessage req = getGetRequest();
+  MockHTTPHandler handler1;
+  MockHTTPHandler handler2;
+  SPDYCodec clientCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3);
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
+  clientCodec.generateHeader(requests, streamID, req);
+  clientCodec.generateEOM(requests, streamID);
+  clientCodec.generateRstStream(rst, streamID, ErrorCode::CANCEL);
+  streamID += 2;
+  clientCodec.generateHeader(requests, streamID, req);
+  clientCodec.generateEOM(requests, streamID);
+
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler1))
+    .WillOnce(Return(&handler2));
+  EXPECT_CALL(mockController_, detachSession(_));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+          handler1.txn_ = txn; }));
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM())
+    .WillOnce(InvokeWithoutArgs([&handler1, this] {
+          transport_->pauseWrites();
+          handler1.sendHeaders(200, 65536 * 2);
+          handler1.sendBody(65536 * 2);
+        }));
+  EXPECT_CALL(handler1, onEgressPaused());
+  EXPECT_CALL(handler2, setTransaction(_))
+    .WillOnce(Invoke([&handler2] (HTTPTransaction* txn) {
+          handler2.txn_ = txn; }));
+  EXPECT_CALL(handler2, onEgressPaused());
+  EXPECT_CALL(handler2, onHeadersComplete(_));
+  EXPECT_CALL(handler2, onEOM());
+  EXPECT_CALL(handler1, onEgressResumed());
+  EXPECT_CALL(handler2, onEgressResumed())
+    .WillOnce(Invoke([&] () {
+          handler2.sendReplyWithBody(200, 32768);
+        }));
+  EXPECT_CALL(handler1, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getProxygenError(), kErrorStreamAbort);
+          eventBase_.runInLoop([this] {
+              transport_->resumeWrites();
+            });
+        }));
+  EXPECT_CALL(handler1, detachTransaction());
+
+  EXPECT_CALL(handler2, detachTransaction());
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->addReadEvent(rst, std::chrono::milliseconds(10));
+  transport_->addReadEOF(std::chrono::milliseconds(50));
+  transport_->startReadEvents();
+  eventBase_.loop();
+}
 TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
   IOBufQueue requests;
   HTTPMessage req = getGetRequest();
@@ -841,7 +904,6 @@ TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
           transport_->pauseWrites();
           handler1.sendHeaders(200, 1000);
         }));
-  EXPECT_CALL(handler1, onEgressPaused());
   EXPECT_CALL(handler1, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
@@ -1059,7 +1121,6 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout) {
               handler1.txn_->sendEOM();
             }, 50);
         }));
-  EXPECT_CALL(handler1, onEgressPaused());
   EXPECT_CALL(handler1, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
@@ -1104,7 +1165,6 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
               handler1.txn_->sendEOM();
             }, 50);
         }));
-  EXPECT_CALL(handler1, onEgressPaused());
   EXPECT_CALL(handler1, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
@@ -1316,6 +1376,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
   MockHTTPHandler* handler1 = new StrictMock<MockHTTPHandler>();
   MockHTTPHandler* handler2 = new StrictMock<MockHTTPHandler>();
 
+  HTTPSession::setPendingWriteMax(512);
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
     .WillOnce(Return(handler1))
     .WillOnce(Return(handler2));
@@ -1329,8 +1390,10 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
   EXPECT_CALL(*handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([handler1] {
           handler1->sendHeaders(200, 1000);
-          handler1->sendBody(100);
+          handler1->sendBody(1000);
         }));
+  EXPECT_CALL(*handler1, onEgressPaused());
+  EXPECT_CALL(*handler1, onEgressResumed());
   EXPECT_CALL(*handler1, onEgressPaused());
   EXPECT_CALL(*handler2, setTransaction(_))
     .WillOnce(Invoke([handler2] (HTTPTransaction* txn) {
@@ -1353,7 +1416,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
           // delay an additional 200ms.  The total 600ms delay shouldn't fire
           // onTimeout
           eventBase_.runAfterDelay([handler2] {
-              handler2->sendReplyWithBody(200, 1000); }, 200
+              handler2->sendReplyWithBody(200, 400); }, 200
             );
         }));
   EXPECT_CALL(*handler1, detachTransaction())
@@ -1487,11 +1550,9 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
           transport_->pauseWrites();
           handler1.sendReplyWithBody(200, 100);
         }));
-  EXPECT_CALL(handler1, onEgressPaused());
   EXPECT_CALL(handler2, setTransaction(_))
     .WillOnce(Invoke([&handler2] (HTTPTransaction* txn) {
           handler2.txn_ = txn; }));
-  EXPECT_CALL(handler2, onEgressPaused());
   EXPECT_CALL(handler2, onHeadersComplete(_));
   EXPECT_CALL(handler2, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler2, this] {
@@ -1501,7 +1562,6 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
             });
         }));
   EXPECT_CALL(handler1, detachTransaction());
-  EXPECT_CALL(handler2, onEgressResumed());
   EXPECT_CALL(handler2, detachTransaction());
 
   EXPECT_CALL(mockController_, detachSession(_));
@@ -1537,4 +1597,95 @@ TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
   EXPECT_CALL(callbacks, onWindowUpdate(0, spdy::kInitialWindow));
   clientCodec.setCallback(&callbacks);
   parseOutput(clientCodec);
+}
+
+TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
+  // Send 1 request with prio=0
+  // Have egress pause while sending the first response
+  // Send a second request with prio=1
+  //   -- the new txn should start egress paused
+  // Finish the body and eom both responses
+  // Unpause egress
+  // The first txn should complete first
+  std::array<StrictMock<MockHTTPHandler>, 2> handlers;
+
+  IOBufQueue requests;
+  HTTPMessage req = getGetRequest();
+  SPDYCodec clientCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3);
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
+  req.setPriority(0);
+  clientCodec.generateHeader(requests, streamID, req, 0, nullptr);
+  clientCodec.generateEOM(requests, streamID);
+  streamID += 2;
+  req.setPriority(1);
+  clientCodec.generateHeader(requests, streamID, req, 0, nullptr);
+  clientCodec.generateEOM(requests, streamID);
+
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handlers[0]))
+    .WillOnce(Return(&handlers[1]));
+
+  HTTPSession::setPendingWriteMax(200); // lower the per session buffer limit
+  {
+    InSequence handlerSequence;
+    EXPECT_CALL(handlers[0], setTransaction(_))
+      .WillOnce(Invoke([&handlers] (HTTPTransaction* txn) {
+            handlers[0].txn_ = txn; }));
+    EXPECT_CALL(handlers[0], onHeadersComplete(_));
+    EXPECT_CALL(handlers[0], onEOM())
+      .WillOnce(Invoke([this, &handlers] {
+            this->transport_->pauseWrites();
+            handlers[0].sendHeaders(200, 1000);
+            handlers[0].sendBody(100); // headers + 100 bytes - over the limit
+          }));
+    EXPECT_CALL(handlers[0], onEgressPaused())
+      .WillOnce(InvokeWithoutArgs([] {
+            LOG(INFO) << "paused 1";
+          }));
+
+    EXPECT_CALL(handlers[1], setTransaction(_))
+      .WillOnce(Invoke([&handlers] (HTTPTransaction* txn) {
+            handlers[1].txn_ = txn; }));
+    EXPECT_CALL(handlers[1], onEgressPaused()); // starts paused
+    EXPECT_CALL(handlers[1], onHeadersComplete(_));
+    EXPECT_CALL(handlers[1], onEOM())
+      .WillOnce(InvokeWithoutArgs([&handlers, this] {
+            // Technically shouldn't send while handler is egress
+            // paused, but meh.
+            handlers[0].sendBody(900);
+            handlers[0].txn_->sendEOM();
+            handlers[1].sendReplyWithBody(200, 1000);
+            eventBase_.runInLoop([this] {
+                transport_->resumeWrites();
+              });
+          }));
+    EXPECT_CALL(handlers[0], detachTransaction());
+    // no op egress resume, since this txn is already egress complete
+    EXPECT_CALL(handlers[1], onEgressResumed());
+    EXPECT_CALL(handlers[1], detachTransaction());
+  }
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->startReadEvents();
+  transport_->addReadEOF(std::chrono::milliseconds(10));
+
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+
+  NiceMock<MockHTTPCodecCallback> callbacks;
+
+  std::list<HTTPCodec::StreamID> streams;
+  EXPECT_CALL(callbacks, onMessageBegin(_, _))
+    .Times(2);
+  EXPECT_CALL(callbacks, onHeadersComplete(_, _))
+    .Times(2);
+  // body is variable and hence ignored;
+  EXPECT_CALL(callbacks, onMessageComplete(_, _))
+    .WillRepeatedly(Invoke([&] (HTTPCodec::StreamID stream, bool upgrade) {
+          streams.push_back(stream);
+        }));
+  clientCodec.setCallback(&callbacks);
+  parseOutput(clientCodec);
+  EXPECT_CALL(mockController_, detachSession(_));
 }

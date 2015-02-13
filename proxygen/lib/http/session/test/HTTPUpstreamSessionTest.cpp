@@ -89,6 +89,7 @@ class HTTPUpstreamTest: public testing::Test,
   }
 
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
+    HTTPSession::setPendingWriteMax(65536);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));
     EXPECT_CALL(*transport_, setReadCB(_))
@@ -529,7 +530,6 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   EXPECT_CALL(handler, onEOM());
   EXPECT_CALL(*transport_, writeChain(_, _, _))
     .WillRepeatedly(Return());  // ignore write -> write timeout
-  EXPECT_CALL(handler, onEgressPaused());
   EXPECT_CALL(handler, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
@@ -724,6 +724,7 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
           // This time it is invoked by the session on all transactions
           httpSession_->shutdownTransportWithReset(kErrorTimeout);
         }));
+  EXPECT_CALL(handler2, onEgressResumed());
   auto txn1 = httpSession_->newTransaction(&handler1);
   auto txn2 = httpSession_->newTransaction(&handler2);
   auto txn3 = httpSession_->newTransaction(&handler3);

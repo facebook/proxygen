@@ -116,6 +116,10 @@ class MockCodecDownstreamTest: public testing::Test {
     eventBase_.loop();
   }
 
+  void SetUp() override {
+    HTTPSession::setPendingWriteMax(65536);
+  }
+
   // Pass a function to execute inside HTTPCodec::onIngress(). This
   // function also takes care of passing an empty ingress buffer to the codec.
   template<class T>
@@ -178,7 +182,6 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
           handler1.sendHeaders(200, 100);
           handler1.sendBody(100);
         }));
-  EXPECT_CALL(handler1, onEgressPaused());
   EXPECT_CALL(handler1, onError(_)).Times(2);
   EXPECT_CALL(handler1, detachTransaction());
   EXPECT_CALL(handler2, setTransaction(_))
@@ -189,7 +192,6 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
           handler2.sendHeaders(200, 100);
           handler2.sendBody(100);
         }));
-  EXPECT_CALL(handler2, onEgressPaused());
   EXPECT_CALL(*transport_, writeChain(_, _, _));
   EXPECT_CALL(handler2, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
@@ -856,187 +858,6 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
 
   eventBase_.loop();
   httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
-}
-
-TEST(HTTPDownstreamTest, new_txn_egress_paused) {
-  // Send 1 request with prio=0
-  // Have egress pause while sending the first response
-  // Send a second request with prio=1
-  //   -- the new txn should start egress paused
-  // Finish the body and eom both responses
-  // Unpause egress
-  // The first txn should complete first
-  HTTPCodec::StreamID curId(1);
-  std::array<NiceMock<MockHTTPHandler>, 2> handlers;
-  folly::AsyncTransportWrapper::WriteCallback* delayedWrite = nullptr;
-  EventBase evb;
-
-  // Setup the controller and its expecations.
-  NiceMock<MockController> mockController;
-  EXPECT_CALL(mockController, getRequestHandler(_, _))
-    .WillOnce(Return(&handlers[0]))
-    .WillOnce(Return(&handlers[1]));
-
-  // Setup the codec, its callbacks, and its expectations.
-  auto codec = makeDownstreamParallelCodec();
-  HTTPCodec::Callback* codecCallback = nullptr;
-  EXPECT_CALL(*codec, setCallback(_))
-    .WillRepeatedly(SaveArg<0>(&codecCallback));
-  // Let the codec generate a huge header for the first txn
-  static const uint64_t header1Len = HTTPSession::getPendingWriteMax();
-  static const uint64_t header2Len = 20;
-  static const uint64_t body1Len = 30;
-  static const uint64_t body2Len = 40;
-  EXPECT_CALL(*codec, generateHeader(_, _, _, _, _, _))
-    .WillOnce(Invoke([&] (IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID stream,
-                          const HTTPMessage& msg,
-                          HTTPCodec::StreamID assocStream,
-                          bool eom,
-                          HTTPHeaderSize* size) {
-                       CHECK_EQ(stream, HTTPCodec::StreamID(1));
-                       writeBuf.append(makeBuf(header1Len));
-                       if (size) {
-                         size->uncompressed = header1Len;
-                       }
-                     }))
-    // Let the codec generate a regular sized header for the second txn
-    .WillOnce(Invoke([&] (IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID stream,
-                          const HTTPMessage& msg,
-                          HTTPCodec::StreamID ascocStream,
-                          bool eom,
-                          HTTPHeaderSize* size) {
-                       CHECK_EQ(stream, HTTPCodec::StreamID(2));
-                       writeBuf.append(makeBuf(header2Len));
-                       if (size) {
-                         size->uncompressed = header2Len;
-                       }
-                     }));
-  EXPECT_CALL(*codec, generateBody(_, _, _, _))
-    .WillOnce(Invoke([&] (IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID stream,
-                          shared_ptr<IOBuf> chain,
-                          bool eom) {
-                       CHECK_EQ(stream, HTTPCodec::StreamID(1));
-                       CHECK_EQ(chain->computeChainDataLength(), body1Len);
-                       CHECK(eom);
-                       writeBuf.append(chain->clone());
-                       return body1Len;
-                     }))
-    .WillOnce(Invoke([&] (IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID stream,
-                          shared_ptr<IOBuf> chain,
-                          bool eom) {
-                       CHECK_EQ(stream, HTTPCodec::StreamID(2));
-                       CHECK_EQ(chain->computeChainDataLength(), body2Len);
-                       CHECK(eom);
-                       writeBuf.append(chain->clone());
-                       return body2Len;
-                     }));
-
-  bool transportGood = true;
-  auto transport = newMockTransport(&evb);
-  EXPECT_CALL(*transport, good())
-    .WillRepeatedly(ReturnPointee(&transportGood));
-  EXPECT_CALL(*transport, closeNow())
-    .WillRepeatedly(Assign(&transportGood, false));
-  // We expect the writes to come in this order:
-  // txn1 headers -> txn1 eom -> txn2 headers -> txn2 eom
-  EXPECT_CALL(*transport, writeChain(_, _, _))
-    .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                          const shared_ptr<IOBuf> iob,
-                          WriteFlags flags) {
-                       CHECK_EQ(iob->computeChainDataLength(), header1Len);
-                       delayedWrite = callback;
-                       CHECK(delayedWrite != nullptr);
-                     }))
-    .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                          const shared_ptr<IOBuf> iob,
-                          WriteFlags flags) {
-                       CHECK(delayedWrite == nullptr);
-                       // Make sure the second txn has started
-                       CHECK(handlers[1].txn_ != nullptr);
-                       // Headers from txn 2 jump the queue and get lumped into
-                       // this write
-                       CHECK_EQ(iob->computeChainDataLength(),
-                                header2Len + body1Len);
-                       callback->writeSuccess();
-                     }))
-    .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                          const shared_ptr<IOBuf> iob,
-                          WriteFlags flags) {
-                       CHECK_EQ(iob->computeChainDataLength(), body2Len);
-                       callback->writeSuccess();
-                     }));
-
-  // Create the downstream session, thus initializing codecCallback
-  auto transactionTimeouts = makeInternalTimeoutSet(&evb);
-  auto session = new HTTPDownstreamSession(
-    transactionTimeouts.get(),
-    TAsyncTransport::UniquePtr(transport),
-    localAddr, peerAddr,
-    &mockController, std::move(codec),
-    mockTransportInfo);
-  session->startNow();
-
-  for (auto& handler: handlers) {
-    // Note that order of expecatations doesn't matter here
-    EXPECT_CALL(handler, setTransaction(_))
-      .WillOnce(SaveArg<0>(&handler.txn_));
-    EXPECT_CALL(handler, onHeadersComplete(_))
-      .WillOnce(InvokeWithoutArgs([&] {
-            CHECK(handler.txn_->isEgressPaused() ==
-                  (handler.txn_->getID() == HTTPCodec::StreamID(2)));
-          }));
-    EXPECT_CALL(handler, onEOM())
-      .WillOnce(InvokeWithoutArgs([&] {
-            CHECK(handler.txn_->isEgressPaused() ==
-                  (handler.txn_->getID() == HTTPCodec::StreamID(2)));
-            const HTTPMessage response;
-            handler.txn_->sendHeaders(response);
-          }));
-    EXPECT_CALL(handler, detachTransaction())
-      .WillOnce(InvokeWithoutArgs([&] {
-            handler.txn_ = nullptr;
-          }));
-    EXPECT_CALL(handler, onEgressPaused());
-  }
-
-  auto p0Msg = getPriorityMessage(0);
-  auto p1Msg = getPriorityMessage(1);
-
-  codecCallback->onMessageBegin(curId, p0Msg.get());
-  codecCallback->onHeadersComplete(curId, std::move(p0Msg));
-  codecCallback->onMessageComplete(curId, false);
-  ASSERT_FALSE(handlers[0].txn_->isEgressPaused());
-  // looping the evb should pause egress when the huge header gets written out
-  evb.loop();
-  // Start the second transaction
-  codecCallback->onMessageBegin(++curId, p1Msg.get());
-  codecCallback->onHeadersComplete(curId, std::move(p1Msg));
-  codecCallback->onMessageComplete(curId, false);
-  // Make sure both txns have egress paused
-  CHECK(handlers[0].txn_ != nullptr);
-  ASSERT_TRUE(handlers[0].txn_->isEgressPaused());
-  CHECK(handlers[1].txn_ != nullptr);
-  ASSERT_TRUE(handlers[1].txn_->isEgressPaused());
-  // Send body on the second transaction first, then 1st, but the asserts we
-  // have set up check that the first transaction writes out first.
-  handlers[1].txn_->sendBody(makeBuf(body2Len));
-  handlers[1].txn_->sendEOM();
-  handlers[0].txn_->sendBody(makeBuf(body1Len));
-  handlers[0].txn_->sendEOM();
-  // Now lets ack the first delayed write
-  auto tmp = delayedWrite;
-  delayedWrite = nullptr;
-  tmp->writeSuccess();
-  ASSERT_TRUE(handlers[0].txn_ == nullptr);
-  ASSERT_TRUE(handlers[1].txn_ == nullptr);
-
-  // Cleanup
-  session->shutdownTransport();
-  evb.loop();
 }
 
 TEST_F(MockCodecDownstreamTest, conn_flow_control_blocked) {

@@ -48,7 +48,7 @@ namespace proxygen {
 
 uint32_t HTTPSession::kDefaultReadBufLimit = 65536;
 uint64_t HTTPSession::egressBodySizeLimit_ = 4096;
-uint32_t HTTPSession::kPendingWriteMax = 8192;
+uint32_t HTTPSession::kPendingWriteMax = 65536;
 
 HTTPSession::WriteSegment::WriteSegment(
     HTTPSession* session,
@@ -491,7 +491,7 @@ size_t HTTPSession::getCodecSendWindowSize() const {
 
 void
 HTTPSession::setNewTransactionPauseState(HTTPCodec::StreamID streamID) {
-  if (!writesPaused()) {
+  if (!egressLimitExceeded()) {
     return;
   }
 
@@ -1027,10 +1027,14 @@ HTTPSession::sendBody(HTTPTransaction* txn,
                       std::unique_ptr<folly::IOBuf> body,
                       bool includeEOM) noexcept {
   uint64_t offset = sessionByteOffset();
+  size_t bodyLen = body ? body->computeChainDataLength(): 0;
   size_t encodedSize = codec_->generateBody(writeBuf_,
                                             txn->getID(),
                                             std::move(body),
                                             includeEOM);
+  // In the rare case we are within bodyLen over the limit, and this
+  // write will block the socket, then this txn will see resume and pause.
+  updateWriteBufSize(-bodyLen);
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent() && byteEventTracker_) {
     byteEventTracker_->addFirstBodyByteEvent(offset, txn);
   }
@@ -1283,6 +1287,11 @@ HTTPSession::notifyIngressBodyProcessed(uint32_t bytes) noexcept {
   }
 }
 
+void
+HTTPSession::notifyEgressBodyBuffered(int64_t bytes) noexcept {
+  updateWriteBufSize(bytes);
+}
+
 const SocketAddress& HTTPSession::getLocalAddress() const noexcept {
   return localAddr_;
 }
@@ -1431,6 +1440,7 @@ HTTPSession::runLoopCallback() noexcept {
     bytesScheduled_ += len;
     sock_->writeChain(segment, std::move(writeBuf), segment->getFlags());
     if (numActiveWrites_ > 0) {
+      updateWriteCount();
       updateWriteBufSize(len);
       break;
     }
@@ -1466,23 +1476,37 @@ HTTPSession::scheduleWrite() {
 }
 
 bool HTTPSession::egressLimitExceeded() const {
-  return pendingWriteSize_ >= kPendingWriteMax || numActiveWrites_ > 0;
+  return pendingWriteSize_ >= kPendingWriteMax;
+}
+
+void
+HTTPSession::updateWriteCount() {
+  if (numActiveWrites_ > 0 && writesUnpaused()) {
+    // Exceeded limit. Pause reading on the incoming stream.
+    VLOG(3) << "Pausing egress for " << *this;
+    writes_ = SocketState::PAUSED;
+  } else if (numActiveWrites_ == 0 && writesPaused()) {
+    // Dropped below limit. Resume reading on the incoming stream if needed.
+    VLOG(3) << "Resuming egress for " << *this;
+    writes_ = SocketState::UNPAUSED;
+  }
 }
 
 void
 HTTPSession::updateWriteBufSize(int64_t delta) {
+  // This is the sum of body bytes buffered within transactions_ and in
+  // the sock_'s write buffer.
   DCHECK(delta >= 0 || uint64_t(-delta) <= pendingWriteSize_);
+  bool wasExceeded = egressLimitExceeded();
   pendingWriteSize_ += delta;
 
-  if (egressLimitExceeded() && writesUnpaused()) {
+  if (egressLimitExceeded() && !wasExceeded) {
     // Exceeded limit. Pause reading on the incoming stream.
-    VLOG(3) << "Pausing egress for " << *this;
-    writes_ = SocketState::PAUSED;
+    VLOG(3) << "Pausing txn egress for " << *this;
     invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
-  } else if (!egressLimitExceeded() && writesPaused()) {
+  } else if (!egressLimitExceeded() && wasExceeded) {
     // Dropped below limit. Resume reading on the incoming stream if needed.
-    VLOG(3) << "Resuming egress for " << *this;
-    writes_ = SocketState::UNPAUSED;
+    VLOG(3) << "Resuming txn egress for " << *this;
     invokeOnAllTransactions(&HTTPTransaction::resumeEgress);
   }
 }
@@ -1796,6 +1820,7 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
   }
   numActiveWrites_--;
   if (!inLoopCallback_) {
+    updateWriteCount();
     updateWriteBufSize(-bytesWritten);
     // PRIO_FIXME: this is done because of the corking business...
     //             in the future we may want to have a pull model
