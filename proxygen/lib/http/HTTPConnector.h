@@ -56,10 +56,7 @@ class HTTPConnector:
    *                             a session using an HTTP1xCodec, that codec will
    *                             only serialize messages as HTTP/1.1.
    */
-  HTTPConnector(Callback* callback,
-                AsyncTimeoutSet* timeoutSet,
-                const std::string& plaintextProto = "",
-                bool forceHTTP1xCodecTo11 = false);
+  HTTPConnector(Callback* callback, AsyncTimeoutSet* timeoutSet);
 
   /**
    * Clients may delete the connector at any time to cancel it. No
@@ -73,6 +70,18 @@ class HTTPConnector:
    * function returns, isBusy() will return false.
    */
   void reset();
+
+  /**
+   * Sets the plain text protocol to use after the connection
+   * is established.
+   */
+  void setPlaintextProtocol(const std::string& plaintextProto);
+
+  /**
+   * Overrides the HTTP version to always use the latest and greatest
+   * version we support.
+   */
+  void setHTTPVersionOverride(bool enabled);
 
   /**
    * Begin the process of getting a plaintext connection to the server
@@ -145,7 +154,7 @@ class HTTPConnector:
   folly::TransportInfo transportInfo_;
   std::string plaintextProtocol_;
   TimePoint connectStart_;
-  bool forceHTTP1xCodecTo1_1_;
+  bool forceHTTP1xCodecTo1_1_{false};
 };
 
 }

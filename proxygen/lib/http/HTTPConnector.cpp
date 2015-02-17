@@ -46,15 +46,8 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
 
 }
 
-HTTPConnector::HTTPConnector(
-  Callback* callback,
-  AsyncTimeoutSet* timeoutSet,
-  const string& plaintextProtocol,
-  bool forceHTTP1xCodecTo1_1):
-    cb_(CHECK_NOTNULL(callback)),
-    timeoutSet_(timeoutSet),
-    plaintextProtocol_(plaintextProtocol),
-    forceHTTP1xCodecTo1_1_(forceHTTP1xCodecTo1_1) {}
+HTTPConnector::HTTPConnector(Callback* callback, AsyncTimeoutSet* timeoutSet)
+    : cb_(CHECK_NOTNULL(callback)), timeoutSet_(timeoutSet) {}
 
 HTTPConnector::~HTTPConnector() {
   reset();
@@ -67,6 +60,14 @@ void HTTPConnector::reset() {
     socket_.reset(); // This invokes connectError() but will be ignored
     cb_ = cb;
   }
+}
+
+void HTTPConnector::setPlaintextProtocol(const std::string& plaintextProto) {
+  plaintextProtocol_ = plaintextProto;
+}
+
+void HTTPConnector::setHTTPVersionOverride(bool enabled) {
+  forceHTTP1xCodecTo1_1_ = enabled;
 }
 
 void HTTPConnector::connect(
