@@ -681,10 +681,6 @@ TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
   auto txn1 = httpSession_->newTransaction(&handler1);
   txn1->sendHeaders(req);
   Mock::VerifyAndClearExpectations(&handler1);
-  // This happens when the body write fills the txn egress queue
-  EXPECT_CALL(handler1, onEgressPaused());
-  // This gets called once the txn egress queue is moved to the session
-  EXPECT_CALL(handler1, onEgressResumed());
   // The session pauses all txns since no writeSuccess for too many bytes
   EXPECT_CALL(handler1, onEgressPaused());
   // Send a body big enough to pause egress
@@ -724,14 +720,14 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
           // This time it is invoked by the session on all transactions
           httpSession_->shutdownTransportWithReset(kErrorTimeout);
         }));
-  EXPECT_CALL(handler2, onEgressResumed());
   auto txn1 = httpSession_->newTransaction(&handler1);
   auto txn2 = httpSession_->newTransaction(&handler2);
   auto txn3 = httpSession_->newTransaction(&handler3);
   txn2->sendHeaders(req);
   // This happens when the body write fills the txn egress queue
   // Send a body big enough to pause egress
-  txn2->sendBody(makeBuf(HTTPSession::getPendingWriteMax()));
+  txn2->onIngressWindowUpdate(100);
+  txn2->sendBody(makeBuf(HTTPSession::getPendingWriteMax() + 1));
   eventBase_.loop();
 }
 

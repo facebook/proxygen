@@ -857,11 +857,6 @@ TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
   EXPECT_CALL(handler2, onEgressPaused());
   EXPECT_CALL(handler2, onHeadersComplete(_));
   EXPECT_CALL(handler2, onEOM());
-  EXPECT_CALL(handler1, onEgressResumed());
-  EXPECT_CALL(handler2, onEgressResumed())
-    .WillOnce(Invoke([&] () {
-          handler2.sendReplyWithBody(200, 32768);
-        }));
   EXPECT_CALL(handler1, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorStreamAbort);
@@ -870,7 +865,10 @@ TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
             });
         }));
   EXPECT_CALL(handler1, detachTransaction());
-
+  EXPECT_CALL(handler2, onEgressResumed())
+    .WillOnce(Invoke([&] () {
+          handler2.sendReplyWithBody(200, 32768);
+        }));
   EXPECT_CALL(handler2, detachTransaction());
 
   transport_->addReadEvent(requests, std::chrono::milliseconds(10));
