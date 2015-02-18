@@ -25,17 +25,17 @@ public:
     forceConnectionClose_ = close;
   }
   // HTTPTransaction::Handler methods
-  void setTransaction(HTTPTransaction* txn) noexcept;
-  void detachTransaction() noexcept;
-  void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept;
-  void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept;
-  void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept;
-  void onEOM() noexcept;
+  void setTransaction(HTTPTransaction* txn) noexcept override;
+  void detachTransaction() noexcept override;
+  void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override;
+  void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override;
+  void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override;
+  void onEOM() noexcept override;
   void onUpgrade(UpgradeProtocol protocol) noexcept override;
-  void onError(const HTTPException& error) noexcept;
+  void onError(const HTTPException& error) noexcept override;
   // These are no-ops since the direct response is already in memory
-  void onEgressPaused() noexcept {};
-  void onEgressResumed() noexcept {};
+  void onEgressPaused() noexcept override {};
+  void onEgressResumed() noexcept override {};
 
 private:
   ~HTTPDirectResponseHandler();

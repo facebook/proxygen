@@ -49,7 +49,7 @@ public:
   bool closeOnEgressComplete() const override { return false; }
   bool supportsParallelRequests() const override { return true; }
   bool supportsPushTransactions() const override { return true; }
-  size_t generateConnectionPreface(folly::IOBufQueue& writeBuf);
+  size_t generateConnectionPreface(folly::IOBufQueue& writeBuf) override;
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       const HTTPMessage& msg,

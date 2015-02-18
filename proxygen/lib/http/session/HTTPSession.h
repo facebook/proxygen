@@ -272,7 +272,7 @@ class HTTPSession:
   size_t sendPing();
 
   // ManagedConnection methods
-  void timeoutExpired() noexcept {
+  void timeoutExpired() noexcept override {
     readTimeoutExpired();
   }
   void describe(std::ostream& os) const override;
@@ -456,39 +456,39 @@ class HTTPSession:
   void writeTimeoutExpired() noexcept;
 
   // TAsyncTransport::ReadCallback methods
-  void getReadBuffer(void** buf, size_t* bufSize);
-  void readDataAvailable(size_t readSize) noexcept;
+  void getReadBuffer(void** buf, size_t* bufSize) override;
+  void readDataAvailable(size_t readSize) noexcept override;
   void processReadData();
-  void readEOF() noexcept;
+  void readEOF() noexcept override;
   void readError(
-      const apache::thrift::transport::TTransportException&) noexcept;
+      const apache::thrift::transport::TTransportException&) noexcept override;
 
   // HTTPCodec::Callback methods
-  void onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg);
+  void onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg) override;
   void onPushMessageBegin(HTTPCodec::StreamID streamID,
                           HTTPCodec::StreamID assocStreamID,
-                          HTTPMessage* msg);
+                          HTTPMessage* msg) override;
   void onHeadersComplete(HTTPCodec::StreamID streamID,
-                         std::unique_ptr<HTTPMessage> msg);
+                         std::unique_ptr<HTTPMessage> msg) override;
   void onBody(HTTPCodec::StreamID streamID,
-      std::unique_ptr<folly::IOBuf> chain);
-  void onChunkHeader(HTTPCodec::StreamID stream, size_t length);
-  void onChunkComplete(HTTPCodec::StreamID stream);
+      std::unique_ptr<folly::IOBuf> chain) override;
+  void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override;
+  void onChunkComplete(HTTPCodec::StreamID stream) override;
   void onTrailersComplete(HTTPCodec::StreamID streamID,
-      std::unique_ptr<HTTPHeaders> trailers);
-  void onMessageComplete(HTTPCodec::StreamID streamID, bool upgrade);
+      std::unique_ptr<HTTPHeaders> trailers) override;
+  void onMessageComplete(HTTPCodec::StreamID streamID, bool upgrade) override;
   void onError(HTTPCodec::StreamID streamID,
-               const HTTPException& error, bool newTxn);
+               const HTTPException& error, bool newTxn) override;
   void onAbort(HTTPCodec::StreamID streamID,
-               ErrorCode code);
+               ErrorCode code) override;
   void onGoaway(uint64_t lastGoodStreamID,
-                ErrorCode code);
-  void onPingRequest(uint64_t uniqueID);
-  void onPingReply(uint64_t uniqueID);
-  void onWindowUpdate(HTTPCodec::StreamID stream, uint32_t amount);
-  void onSettings(const SettingsList& settings);
-  uint32_t numOutgoingStreams() const { return outgoingStreams_; }
-  uint32_t numIncomingStreams() const { return incomingStreams_; }
+                ErrorCode code) override;
+  void onPingRequest(uint64_t uniqueID) override;
+  void onPingReply(uint64_t uniqueID) override;
+  void onWindowUpdate(HTTPCodec::StreamID stream, uint32_t amount) override;
+  void onSettings(const SettingsList& settings) override;
+  uint32_t numOutgoingStreams() const override { return outgoingStreams_; }
+  uint32_t numIncomingStreams() const override { return incomingStreams_; }
 
   // HTTPTransaction::Transport methods
   void pauseIngress(HTTPTransaction* txn) noexcept override;
@@ -521,7 +521,7 @@ class HTTPSession:
   const folly::SocketAddress& getLocalAddress()
     const noexcept override;
   const folly::SocketAddress& getPeerAddress()
-    const noexcept;
+    const noexcept override;
 
   folly::TransportInfo& getSetupTransportInfo() noexcept;
   const folly::TransportInfo& getSetupTransportInfo() const noexcept override;

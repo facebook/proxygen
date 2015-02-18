@@ -78,7 +78,7 @@ class ScopedHandlerFactory : public RequestHandlerFactory {
   void onServerStop() noexcept override {
   }
 
-  RequestHandler* onRequest(RequestHandler*, HTTPMessage*) noexcept {
+  RequestHandler* onRequest(RequestHandler*, HTTPMessage*) noexcept override {
     return new ScopedHandler<HandlerType>(&handler_);
   }
  private:

@@ -915,7 +915,7 @@ class HTTPTransaction :
    * Timeout callback for this transaction.  The timer is active while
    * until the ingress message is complete or terminated by error.
    */
-  void timeoutExpired() noexcept {
+  void timeoutExpired() noexcept override {
     transport_.transactionTimeout(this);
   }
 

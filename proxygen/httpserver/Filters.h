@@ -67,11 +67,11 @@ class Filter : public RequestHandler, public ResponseHandler {
     delete this;
   }
 
-  void onEgressPaused() noexcept {
+  void onEgressPaused() noexcept override {
     upstream_->onEgressPaused();
   }
 
-  void onEgressResumed() noexcept {
+  void onEgressResumed() noexcept override {
     upstream_->onEgressResumed();
   }
 

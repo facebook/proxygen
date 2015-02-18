@@ -102,11 +102,13 @@ public:
    * settings are set by the remote end, it doesn't make sense for these
    * to be mutable outside the codec.
    */
-  const HTTPSettings* getIngressSettings() const { return &ingressSettings_; }
+  const HTTPSettings* getIngressSettings() const override {
+    return &ingressSettings_;
+  }
   /**
    * Returns a reference to the egress settings
    */
-  HTTPSettings* getEgressSettings() { return &egressSettings_; }
+  HTTPSettings* getEgressSettings() override { return &egressSettings_; }
 
   uint8_t getVersion() const;
 
