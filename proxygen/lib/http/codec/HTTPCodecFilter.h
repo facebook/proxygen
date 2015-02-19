@@ -110,6 +110,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   bool supportsPushTransactions() const override;
 
+  size_t generateConnectionPreface(folly::IOBufQueue& writeBuf) override;
+
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       const HTTPMessage& msg,

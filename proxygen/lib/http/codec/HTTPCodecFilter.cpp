@@ -161,6 +161,12 @@ bool PassThroughHTTPCodecFilter::supportsPushTransactions() const {
   return call_->supportsPushTransactions();
 }
 
+size_t PassThroughHTTPCodecFilter::generateConnectionPreface(
+  folly::IOBufQueue& writeBuf) {
+  return call_->generateConnectionPreface(writeBuf);
+}
+
+
 void PassThroughHTTPCodecFilter::generateHeader(folly::IOBufQueue& writeBuf,
                                                 StreamID stream,
                                                 const HTTPMessage& msg,

@@ -40,7 +40,9 @@ void HTTP2Codec::initPerHopHeaders() {
 HTTP2Codec::HTTP2Codec(TransportDirection direction)
     : transportDirection_(direction),
       headerCodec_(direction),
-      frameState_(FrameState::CONNECTION_PREFACE),
+      frameState_(direction == TransportDirection::DOWNSTREAM ?
+                  FrameState::CONNECTION_PREFACE :
+                  FrameState::FRAME_HEADER),
       sessionClosing_(ClosingState::OPEN) {
 
   VLOG(4) << "creating " << getTransportDirectionString(direction)
@@ -678,8 +680,12 @@ bool HTTP2Codec::isWaitingToDrain() const {
 }
 
 size_t HTTP2Codec::generateConnectionPreface(folly::IOBufQueue& writeBuf) {
-  writeBuf.append(http2::kConnectionPreface);
-  return http2::kConnectionPreface.length();
+  if (transportDirection_ == TransportDirection::UPSTREAM) {
+    VLOG(4) << "generating connection preface";
+    writeBuf.append(http2::kConnectionPreface);
+    return http2::kConnectionPreface.length();
+  }
+  return 0;
 }
 
 void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,

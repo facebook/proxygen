@@ -28,7 +28,7 @@ class HTTP2CodecTest : public testing::Test {
     upstreamCodec_.setCallback(&callbacks_);
     // they share the output_ and connection preface is the same for upstream
     // and downstream, so just do this once
-    downstreamCodec_.generateConnectionPreface(output_);
+    upstreamCodec_.generateConnectionPreface(output_);
   }
 
   bool parse(std::function<void(IOBuf*)> hackIngress =
@@ -216,6 +216,7 @@ TEST_F(HTTP2CodecTest, EmptyHeaderName) {
 }
 
 TEST_F(HTTP2CodecTest, BasicHeaderReply) {
+  output_.move(); // clear upstream connection preface
   HTTPMessage resp;
   resp.setStatusCode(200);
   resp.setStatusMessage("nifty-nice");
@@ -574,6 +575,7 @@ TEST_F(HTTP2CodecTest, BadGoaway) {
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoaway) {
+  output_.move(); // clear upstream connection preface
   downstreamCodec_.generateGoaway(output_, std::numeric_limits<int32_t>::max(),
                                   ErrorCode::NO_ERROR);
   EXPECT_TRUE(downstreamCodec_.isWaitingToDrain());
@@ -590,6 +592,7 @@ TEST_F(HTTP2CodecTest, DoubleGoaway) {
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoawayWithError) {
+  output_.move(); // clear upstream connection preface
   downstreamCodec_.generateGoaway(output_, std::numeric_limits<int32_t>::max(),
                                   ErrorCode::ENHANCE_YOUR_CALM);
   EXPECT_FALSE(downstreamCodec_.isWaitingToDrain());
@@ -708,6 +711,7 @@ TEST_F(HTTP2CodecTest, BasicPriority) {
 }
 
 TEST_F(HTTP2CodecTest, BasicPushPromise) {
+  output_.move(); // clear upstream connection preface
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
   downstreamCodec_.generateHeader(output_, 2, req, 1);
@@ -720,6 +724,7 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
 }
 
 TEST_F(HTTP2CodecTest, BadPushPromise) {
+  output_.move(); // clear upstream connection preface
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
   downstreamCodec_.generateHeader(output_, 2, req, 1);

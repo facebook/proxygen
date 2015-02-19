@@ -471,7 +471,7 @@ writeHeaders(IOBufQueue& queue,
              bool endHeaders) noexcept {
   DCHECK_NE(0, stream);
   DCHECK_NE(0, 0x1 & stream);
-  const auto dataLen =(headers) ? headers->computeChainDataLength() : 0;
+  const auto dataLen = (headers) ? headers->computeChainDataLength() : 0;
   uint32_t flags = 0;
   if (priority) {
     flags |= PRIORITY;
