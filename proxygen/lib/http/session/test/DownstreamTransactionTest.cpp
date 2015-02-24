@@ -224,3 +224,40 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
 
   eventBase_.loop();
 }
+
+TEST_F(DownstreamTransactionTest, detach_from_notify) {
+  unique_ptr<StrictMock<MockHTTPHandler>> handler(
+    new StrictMock<MockHTTPHandler>);
+
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get());
+
+  InSequence dummy;
+
+  EXPECT_CALL(*handler, setTransaction(&txn));
+  EXPECT_CALL(*handler, onHeadersComplete(_))
+    .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> msg) {
+          auto response = makeResponse(200);
+          txn.sendHeaders(*response.get());
+          txn.sendBody(std::move(makeBuf(10)));
+        }));
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _))
+    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused) {
+          EXPECT_EQ(headers.getStatusCode(), 200);
+        }));
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(10));
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(-10))
+    .WillOnce(InvokeWithoutArgs([&] () {
+          txn.setHandler(nullptr);
+          handler.reset();
+        }));
+  EXPECT_CALL(transport_, detach(&txn));
+
+  HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS, "test");
+
+  txn.setHandler(handler.get());
+  txn.onIngressHeadersComplete(makeGetRequest());
+  txn.onError(err);
+}

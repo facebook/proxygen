@@ -396,7 +396,7 @@ void HTTPTransaction::onError(const HTTPException& error) {
   const bool wasAborted = aborted_; // see comment below
   const bool wasEgressComplete = isEgressComplete();
   const bool wasIngressComplete = isIngressComplete();
-  auto notify = handler_;
+  bool notify = (handler_);
 
   if (error.getProxygenError() == kErrorStreamAbort) {
     DCHECK(error.getDirection() ==
@@ -419,13 +419,13 @@ void HTTPTransaction::onError(const HTTPException& error) {
           // an explicit callback function and set egress complete after last
           // byte flushes (or egress error occurs), see #3912823
           (error.getProxygenError() != kErrorWriteTimeout || wasAborted)) {
-        notify = nullptr;
+        notify = false;
       }
       break;
     case HTTPException::Direction::EGRESS:
       markEgressComplete();
       if (wasEgressComplete) {
-        notify = nullptr;
+        notify = false;
       }
       break;
     case HTTPException::Direction::INGRESS:
@@ -435,12 +435,13 @@ void HTTPTransaction::onError(const HTTPException& error) {
       }
       markIngressComplete();
       if (wasIngressComplete) {
-        notify = nullptr;
+        notify = false;
       }
       break;
   }
-  if (notify) {
-    notify->onError(error);
+  if (notify && handler_) {
+    // mark egress complete may result in handler detaching
+    handler_->onError(error);
   }
 }
 
