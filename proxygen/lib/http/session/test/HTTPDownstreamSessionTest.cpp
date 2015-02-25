@@ -1202,7 +1202,7 @@ TEST_F(HTTPDownstreamSessionTest, body_packetization) {
   EXPECT_CALL(handler1, onHeadersComplete(_));
   EXPECT_CALL(handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler1, this] {
-          handler1.sendReplyWithBody(200, 100);
+          handler1.sendReplyWithBody(200, 32768);
         }));
   EXPECT_CALL(handler1, detachTransaction());
 
@@ -1510,6 +1510,66 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
   this->eventBase_.loop();
 }
 
+TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
+  IOBufQueue requests;
+  HTTPMessage req = getGetRequest();
+  auto clientCodec =
+    makeClientCodec<typename TypeParam::Codec>(TypeParam::version);
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec->generateConnectionPreface(requests);
+  clientCodec->generateHeader(requests, streamID, req);
+  clientCodec->generateEOM(requests, streamID);
+  streamID += 2;
+  clientCodec->generateHeader(requests, streamID, req, 0);
+  clientCodec->generateEOM(requests, streamID);
+  MockHTTPHandler handler1;
+  MockHTTPHandler handler2;
+
+  EXPECT_CALL(this->mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler1))
+    .WillOnce(Return(&handler2));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+          handler1.txn_ = txn; }));
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM());
+  EXPECT_CALL(handler2, setTransaction(_))
+    .WillOnce(Invoke([&handler2] (HTTPTransaction* txn) {
+          handler2.txn_ = txn; }));
+  EXPECT_CALL(handler2, onHeadersComplete(_));
+  EXPECT_CALL(handler2, onEOM())
+    .WillOnce(InvokeWithoutArgs([&] {
+          handler1.sendReplyWithBody(200, 5000);
+          handler2.sendReplyWithBody(200, 5000);
+        }));
+  EXPECT_CALL(handler1, detachTransaction());
+  EXPECT_CALL(handler2, detachTransaction());
+
+  this->transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  this->transport_->startReadEvents();
+  this->eventBase_.loop();
+
+  NiceMock<MockHTTPCodecCallback> callbacks;
+
+  std::list<HTTPCodec::StreamID> streams;
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onHeadersComplete(1, _));
+  EXPECT_CALL(callbacks, onMessageBegin(3, _));
+  EXPECT_CALL(callbacks, onHeadersComplete(3, _));
+  EXPECT_CALL(callbacks, onBody(1, _));
+  EXPECT_CALL(callbacks, onBody(3, _));
+  EXPECT_CALL(callbacks, onBody(1, _));
+  EXPECT_CALL(callbacks, onMessageComplete(1, _));
+  EXPECT_CALL(callbacks, onBody(3, _));
+  EXPECT_CALL(callbacks, onMessageComplete(3, _));
+
+  clientCodec->setCallback(&callbacks);
+  this->parseOutput(*clientCodec);
+
+}
+
 // Set max streams=1
 // send two spdy requests a few ms apart.
 // Block writes
@@ -1572,7 +1632,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
-                           testWritesDraining);
+                           testWritesDraining, testBodySizeLimit);
 
 typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair, SPDY3_1CodecPair,
                          HTTP2CodecPair> ParallelCodecs;

@@ -274,7 +274,7 @@ TestAsyncTransport::writeChain(AsyncTransportWrapper::WriteCallback* callback,
   const IOBuf* next = head;
   unsigned i = 0;
   do {
-    vec[i].iov_base = const_cast<uint8_t *>(next->buffer());
+    vec[i].iov_base = const_cast<uint8_t *>(next->data());
     vec[i++].iov_len = next->length();
     next = next->next();
   } while (next != head);
