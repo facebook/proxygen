@@ -30,12 +30,17 @@ const uint32_t kEOSRespHpack05 = 0xffffdd;
  * A leaf has no index table, or index == nullptr
  */
 struct HuffNode {
-  uint8_t ch{0};   // leafs hold characters
-  uint8_t bits{0}; // how many bits are used for representing ch
-  uint8_t superNode{0};
+  union {
+    uint8_t ch;   // leafs hold characters
+    uint8_t superNodeIndex;
+  } data{0};
+  struct {
+    uint8_t bits:4; // how many bits are used for representing ch, range is 0-8
+    bool isSuperNode:1;
+  } metadata{0,false};
 
   bool isLeaf() const {
-    return superNode == 0;
+    return !metadata.isSuperNode;
   }
 };
 

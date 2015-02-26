@@ -56,13 +56,13 @@ bool HuffTree::decode(const uint8_t* buf, uint32_t size, string& literal)
     const HuffNode& node = snode->index[key];
     if (node.isLeaf()) {
       // final node, we can emit the character
-      literal.push_back(node.ch);
-      wbits -= node.bits;
+      literal.push_back(node.data.ch);
+      wbits -= node.metadata.bits;
       snode = &table_[0];
     } else {
       // this is a branch, so we just need to move one level
       wbits -= 8;
-      snode = &table_[node.superNode];
+      snode = &table_[node.data.superNodeIndex];
     }
     // remove what we've just used
     w = w & ((1 << wbits) - 1);
@@ -80,12 +80,13 @@ void HuffTree::insert(uint32_t code, uint8_t bits, uint8_t ch) {
   while (bits > 8) {
     uint32_t x = (code & mask) >> (bits - 8);
     // mark this node as branch
-    if (snode->index[x].superNode == 0) {
+    if (snode->index[x].isLeaf()) {
       nodes_++;
       HuffNode& node = snode->index[x];
-      node.superNode = nodes_;
+      node.metadata.isSuperNode = true;
+      node.data.superNodeIndex = nodes_;
     }
-    snode = &table_[snode->index[x].superNode];
+    snode = &table_[snode->index[x].data.superNodeIndex];
     bits -= 8;
     code = code & ~mask;
     mask = mask >> 8;
@@ -108,8 +109,8 @@ const uint8_t* HuffTree::bitsTable() const {
 void HuffTree::fillIndex(SuperHuffNode& snode, uint32_t code, uint8_t bits,
     uint8_t ch, uint8_t level) {
   if (level == 8) {
-    snode.index[code].ch = ch;
-    snode.index[code].bits = bits;
+    snode.index[code].data.ch = ch;
+    snode.index[code].metadata.bits = bits;
     return;
   }
   // generate the bit at the current level

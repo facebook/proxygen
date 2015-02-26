@@ -223,34 +223,32 @@ uint32_t treeDfs(
       // this should be a leaf that doesn't have supernode or bits set
 
       EXPECT_TRUE(node.isLeaf());
-      EXPECT_TRUE(node.superNode == 0);
-      EXPECT_TRUE(node.bits == 0);
+      EXPECT_TRUE(node.metadata.bits == 0);
     } else if (node.isLeaf()) {
 
       // this condition is a normal leaf
-      // this should have bits set but superNode should be 0
+      // this should have bits set
 
-      EXPECT_TRUE(node.superNode == 0);
-      EXPECT_TRUE(node.bits > 0);
-
-      EXPECT_TRUE(node.bits <= 8);
+      EXPECT_TRUE(node.isLeaf());
+      EXPECT_TRUE(node.metadata.bits > 0);
+      EXPECT_TRUE(node.metadata.bits <= 8);
 
       // used to count unique leaves at this node
-      leaves.insert(node.ch);
+      leaves.insert(node.data.ch);
     } else {
 
       // this condition is a branching node
-      // this should have the superNode set but not bits should be set
+      // this should have the superNodeIndex set but not bits should be set
 
-      EXPECT_TRUE(node.superNode > 0);
-      EXPECT_TRUE(node.bits == 0);
-
-      EXPECT_TRUE(node.superNode < 46);
+      EXPECT_TRUE(!node.isLeaf());
+      EXPECT_TRUE(node.data.superNodeIndex > 0);
+      EXPECT_TRUE(node.metadata.bits == 0);
+      EXPECT_TRUE(node.data.superNodeIndex < 46);
 
       // keep track of leaf counts for this subtree
       subtreeLeafCount += treeDfs(
           allSnodes,
-          node.superNode,
+          node.data.superNodeIndex,
           depth + 1,
           newFullCode,
           eosCode,
