@@ -556,9 +556,19 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
 bool HTTPTransaction::onWriteReady(const uint32_t maxEgress) {
   CallbackGuard guard(*this);
   DCHECK(isEnqueued());
-  // this txn is being serviced so lower it's priority -> higher numerical value
-  priority_ |= 0x2;
   sendDeferredBody(maxEgress);
+  if (isEnqueued()) {
+    // Within a given band there are two tiers of priority
+    //  LSB = 0: New egress via sendBody/sendEOM but has not yet been serviced
+    //  LSB = 1: pending egress but has been serviced at least once
+    //
+    // This makes it so that unserviced transactions will get the first shot
+    // before entering the round robin.
+    priority_ |= 0x01;
+    // Updating when the priority hasn't change effectively moves this txn
+    // to the end of the current band
+    egressQueue_.update(queueHandle_);
+  }
   return isEnqueued();
 }
 
@@ -942,12 +952,12 @@ void HTTPTransaction::notifyTransportPendingEgress() {
       (!useFlowControl_ || sendWindow_.getSize() > 0)) {
     // Egress isn't paused, we have something to send, and flow
     // control isn't blocking us.
-    if (isEnqueued()) {
-      // We're already in the queue, jiggle our priority
-      priority_ ^= 0x3;
-      egressQueue_.update(queueHandle_);
-    } else {
+    if (!isEnqueued()) {
       // Insert into the queue and let the session know we've got something
+
+      // Clear the last bit of priority on enqueue, so it will be at
+      // the top of the priority band.
+      priority_ &= ~(0x01);
       queueHandle_ = egressQueue_.push(this);
       enqueued_ = true;
       transport_.notifyPendingEgress();
