@@ -1606,9 +1606,6 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
   DestructorGuard guard(this);
   VLOG(4) << "shutdownTransportWithReset";
 
-  if (isLoopCallbackScheduled()) {
-    cancelLoopCallback();
-  }
   if (!readsShutdown()) {
     sock_->setReadCallback(nullptr);
     reads_ = SocketState::SHUTDOWN;
@@ -1635,6 +1632,11 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
     byteEventTracker_->drainByteEvents();
   }
 
+  // HTTPTransaction::onError could theoretically schedule more callbacks,
+  // so do this last.
+  if (isLoopCallbackScheduled()) {
+    cancelLoopCallback();
+  }
   // onError() callbacks or drainByteEvents() could result in txns detaching
   // due to CallbackGuards going out of scope. Close the socket only after
   // the txns are detached.
