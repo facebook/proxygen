@@ -812,6 +812,12 @@ class HTTPSession:
   uint64_t numTxnServed_{0};
 
   /**
+   * The net change this event loop in the amount of buffered bytes
+   * for all this session's txns and socket write buffer.
+   */
+  int64_t pendingWriteSizeDelta_{0};
+
+  /**
    * The latest time when this session became idle status
    */
   TimePoint latestActive_{};

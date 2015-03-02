@@ -713,8 +713,6 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
   EXPECT_CALL(handler1, setTransaction(_));
   EXPECT_CALL(handler2, setTransaction(_));
   EXPECT_CALL(handler3, setTransaction(_));
-  EXPECT_CALL(handler2, onEgressPaused());
-  EXPECT_CALL(handler2, onEgressResumed());
   EXPECT_CALL(handler2, onEgressPaused())
     .WillOnce(InvokeWithoutArgs([this] {
           // This time it is invoked by the session on all transactions

@@ -1032,9 +1032,8 @@ HTTPSession::sendBody(HTTPTransaction* txn,
                                             txn->getID(),
                                             std::move(body),
                                             includeEOM);
-  // In the rare case we are within bodyLen over the limit, and this
-  // write will block the socket, then this txn will see resume and pause.
-  updateWriteBufSize(-bodyLen);
+  CHECK(inLoopCallback_);
+  pendingWriteSizeDelta_ -= bodyLen;
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent() && byteEventTracker_) {
     byteEventTracker_->addFirstBodyByteEvent(offset, txn);
   }
@@ -1289,7 +1288,12 @@ HTTPSession::notifyIngressBodyProcessed(uint32_t bytes) noexcept {
 
 void
 HTTPSession::notifyEgressBodyBuffered(int64_t bytes) noexcept {
-  updateWriteBufSize(bytes);
+  pendingWriteSizeDelta_ += bytes;
+  // any net change requires us to update pause/resume state in the
+  // loop callback
+  if (!isLoopCallbackScheduled()) {
+    sock_->getEventBase()->runInLoop(this);
+  }
 }
 
 const SocketAddress& HTTPSession::getLocalAddress() const noexcept {
@@ -1404,8 +1408,14 @@ HTTPSession::runLoopCallback() noexcept {
   //   * Reads have become unpaused (see resumeReads())
   DestructorGuard dg(this);
   inLoopCallback_ = true;
-  folly::ScopeGuard scopeg = folly::makeGuard(
-    [this] { inLoopCallback_ = false;});
+  folly::ScopeGuard scopeg = folly::makeGuard([this] {
+      inLoopCallback_ = false;
+      // This ScopeGuard needs to be under the above DestructorGuard
+      if (pendingWriteSizeDelta_) {
+        updateWriteBufSize(0);
+      }
+      checkForShutdown();
+    });
   VLOG(4) << *this << " in loop callback";
 
   for (uint32_t i = 0; i < kMaxWritesPerLoop; ++i) {
@@ -1441,7 +1451,8 @@ HTTPSession::runLoopCallback() noexcept {
     sock_->writeChain(segment, std::move(writeBuf), segment->getFlags());
     if (numActiveWrites_ > 0) {
       updateWriteCount();
-      updateWriteBufSize(len);
+      pendingWriteSizeDelta_ += len;
+      // updateWriteBufSize called in scope guard
       break;
     }
     // writeChain can result in a writeError and trigger the shutdown code path
@@ -1459,7 +1470,7 @@ HTTPSession::runLoopCallback() noexcept {
       sock_->setReadCallback(this);
     }
   }
-  checkForShutdown();
+  // checkForShutdown is now in ScopeGuard
 }
 
 void
@@ -1496,6 +1507,8 @@ void
 HTTPSession::updateWriteBufSize(int64_t delta) {
   // This is the sum of body bytes buffered within transactions_ and in
   // the sock_'s write buffer.
+  delta += pendingWriteSizeDelta_;
+  pendingWriteSizeDelta_ = 0;
   DCHECK(delta >= 0 || uint64_t(-delta) <= pendingWriteSize_);
   bool wasExceeded = egressLimitExceeded();
   pendingWriteSize_ += delta;
@@ -1823,7 +1836,7 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
   numActiveWrites_--;
   if (!inLoopCallback_) {
     updateWriteCount();
-    updateWriteBufSize(-bytesWritten);
+    updateWriteBufSize(-bytesWritten); // safe to resume here
     // PRIO_FIXME: this is done because of the corking business...
     //             in the future we may want to have a pull model
     //             whereby the socket asks us for a given amount of

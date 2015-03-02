@@ -956,8 +956,6 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
           handler1.sendBody(rspLengthBytes);
           handler1.txn_->sendEOM();
         }));
-  EXPECT_CALL(handler1, onEgressPaused());
-  EXPECT_CALL(handler1, onEgressResumed());
   EXPECT_CALL(handler1, detachTransaction());
 
   transport_->addReadEvent(requests, std::chrono::milliseconds(10));
@@ -1260,8 +1258,6 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
           handler.txn_->sendChunkTerminator();
           handler.txn_->sendEOM();
         }));
-  EXPECT_CALL(handler, onEgressPaused());
-  EXPECT_CALL(handler, onEgressResumed());
   EXPECT_CALL(handler, detachTransaction());
 
   EXPECT_CALL(mockController_, detachSession(_));
@@ -1390,8 +1386,6 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
           handler1->sendHeaders(200, 1000);
           handler1->sendBody(1000);
         }));
-  EXPECT_CALL(*handler1, onEgressPaused());
-  EXPECT_CALL(*handler1, onEgressResumed());
   EXPECT_CALL(*handler1, onEgressPaused());
   EXPECT_CALL(*handler2, setTransaction(_))
     .WillOnce(Invoke([handler2] (HTTPTransaction* txn) {
@@ -1570,6 +1564,84 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
 
 }
 
+TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
+  HTTPSession::setPendingWriteMax(12000);
+  IOBufQueue requests;
+  HTTPMessage req = getGetRequest();
+  req.setPriority(1);
+  auto clientCodec =
+    makeClientCodec<typename TypeParam::Codec>(TypeParam::version);
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec->generateConnectionPreface(requests);
+  clientCodec->getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
+                                              1000000);
+  clientCodec->generateSettings(requests);
+  clientCodec->generateWindowUpdate(requests, 0, 1000000);
+  clientCodec->generateHeader(requests, streamID, req);
+  clientCodec->generateEOM(requests, streamID);
+  streamID += 2;
+  clientCodec->generateHeader(requests, streamID, req, 0);
+  clientCodec->generateEOM(requests, streamID);
+  StrictMock<MockHTTPHandler> handler1;
+  StrictMock<MockHTTPHandler> handler2;
+
+  EXPECT_CALL(this->mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler1))
+    .WillOnce(Return(&handler2));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+          handler1.txn_ = txn; }));
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM());
+  EXPECT_CALL(handler2, setTransaction(_))
+    .WillOnce(Invoke([&handler2] (HTTPTransaction* txn) {
+          handler2.txn_ = txn; }));
+  EXPECT_CALL(handler2, onHeadersComplete(_));
+  EXPECT_CALL(handler2, onEOM())
+    .WillOnce(InvokeWithoutArgs([&] {
+          handler1.sendHeaders(200, 24000);
+          // triggers pause of all txns
+          this->transport_->pauseWrites();
+          handler1.txn_->sendBody(std::move(makeBuf(12000)));
+          this->eventBase_.runAfterDelay([this] {
+              this->transport_->resumeWrites();
+            }, 50);
+        }));
+  EXPECT_CALL(handler1, onEgressPaused());
+  EXPECT_CALL(handler2, onEgressPaused());
+  EXPECT_CALL(handler1, onEgressResumed())
+    .WillOnce(InvokeWithoutArgs([&] {
+          // resume does not trigger another pause,
+          handler1.txn_->sendBody(std::move(makeBuf(12000)));
+        }));
+  EXPECT_CALL(handler2, onEgressResumed())
+    .WillOnce(InvokeWithoutArgs([&] {
+          handler2.sendHeaders(200, 12000);
+          handler2.txn_->sendBody(std::move(makeBuf(12000)));
+          this->transport_->pauseWrites();
+          this->eventBase_.runAfterDelay([this] {
+              this->transport_->resumeWrites();
+            }, 50);
+        }));
+
+  EXPECT_CALL(handler1, onEgressPaused());
+  EXPECT_CALL(handler2, onEgressPaused());
+  EXPECT_CALL(handler1, onEgressResumed());
+  EXPECT_CALL(handler2, onEgressResumed())
+    .WillOnce(InvokeWithoutArgs([&] {
+          handler1.txn_->sendEOM();
+          handler2.txn_->sendEOM();
+        }));
+  EXPECT_CALL(handler1, detachTransaction());
+  EXPECT_CALL(handler2, detachTransaction());
+
+  this->transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  this->transport_->startReadEvents();
+  this->eventBase_.loop();
+}
+
 // Set max streams=1
 // send two spdy requests a few ms apart.
 // Block writes
@@ -1632,7 +1704,8 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
-                           testWritesDraining, testBodySizeLimit);
+                           testWritesDraining, testBodySizeLimit,
+                           testUniformPauseState);
 
 typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair, SPDY3_1CodecPair,
                          HTTP2CodecPair> ParallelCodecs;
@@ -1720,8 +1793,6 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
               });
           }));
     EXPECT_CALL(handlers[0], detachTransaction());
-    // no op egress resume, since this txn is already egress complete
-    EXPECT_CALL(handlers[1], onEgressResumed());
     EXPECT_CALL(handlers[1], detachTransaction());
   }
   transport_->addReadEvent(requests, std::chrono::milliseconds(10));
