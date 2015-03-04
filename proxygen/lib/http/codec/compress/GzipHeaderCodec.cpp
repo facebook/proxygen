@@ -130,6 +130,7 @@ const GzipHeaderCodec::ZlibContext* GzipHeaderCodec::getZlibContext(
     newContext->inflater.opaque = Z_NULL;
     newContext->inflater.avail_in = 0;
     newContext->inflater.next_in = Z_NULL;
+// TODO (t6405700): Port the zlib optimization forward to 1.2.8 for gcc 4.9
 #if ZLIB_VERNUM == 0x1250
     // set zlib's reserved flag to allocate smaller initial sliding window, then
     // double it if necessary
