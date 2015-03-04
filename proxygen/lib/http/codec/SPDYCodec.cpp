@@ -25,6 +25,7 @@
 #include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/utils/ParseURL.h>
+#include <proxygen/lib/utils/UtilInl.h>
 #include <vector>
 
 using folly::IOBuf;
@@ -659,13 +660,13 @@ bool SPDYCodec::isWaitingToDrain() const {
 bool SPDYCodec::isSPDYReserved(const std::string& name) {
   return (versionSettings_.majorVersion == 2 &&
           ((transportDirection_ == TransportDirection::DOWNSTREAM &&
-            (boost::iequals(name, spdy::kNameStatusv2) ||
-             boost::iequals(name, spdy::kNameVersionv2))) ||
+            (caseInsensitiveEqual(name, spdy::kNameStatusv2) ||
+             caseInsensitiveEqual(name, spdy::kNameVersionv2))) ||
            (transportDirection_ == TransportDirection::UPSTREAM &&
-            (boost::iequals(name, spdy::kNameMethodv2) ||
-             boost::iequals(name, spdy::kNameSchemev2) ||
-             boost::iequals(name, spdy::kNamePathv2) ||
-             boost::iequals(name, spdy::kNameVersionv2)))));
+            (caseInsensitiveEqual(name, spdy::kNameMethodv2) ||
+             caseInsensitiveEqual(name, spdy::kNameSchemev2) ||
+             caseInsensitiveEqual(name, spdy::kNamePathv2) ||
+             caseInsensitiveEqual(name, spdy::kNameVersionv2)))));
 }
 
 // Add the SPDY-specific header fields that hold the
