@@ -20,37 +20,16 @@ using folly::AsyncServerSocket;
 using folly::EventBase;
 using folly::EventBaseManager;
 using folly::SocketAddress;
-using folly::wangle::IOThreadPoolExecutor;
-using folly::wangle::ThreadPoolExecutor;
 
 namespace proxygen {
 
-class AcceptorFactory : public folly::AcceptorFactory {
- public:
-  AcceptorFactory(std::shared_ptr<HTTPServerOptions> options,
-                  AcceptorConfiguration config) :
-      options_(options),
-      config_(config)  {}
-  virtual std::shared_ptr<folly::Acceptor> newAcceptor(
-      folly::EventBase* eventBase) {
-    auto acc = std::shared_ptr<HTTPServerAcceptor>(
-      HTTPServerAcceptor::make(config_, *options_).release());
-    acc->init(nullptr, eventBase);
-    return acc;
-  }
-
- private:
-  std::shared_ptr<HTTPServerOptions> options_;
-  AcceptorConfiguration config_;
-};
-
 HTTPServer::HTTPServer(HTTPServerOptions options):
-    options_(std::make_shared<HTTPServerOptions>(std::move(options))) {
+    options_(std::move(options)) {
 
   // Insert a filter to fail all the CONNECT request, if required
-  if (!options_->supportsConnect) {
-    options_->handlerFactories.insert(
-        options_->handlerFactories.begin(),
+  if (!options_.supportsConnect) {
+    options_.handlerFactories.insert(
+        options_.handlerFactories.begin(),
         folly::make_unique<RejectConnectFilterFactory>());
   }
 }
@@ -60,50 +39,116 @@ HTTPServer::~HTTPServer() {
 }
 
 void HTTPServer::bind(std::vector<IPConfig>& addrs) {
+  CHECK(serverSockets_.empty()) << "Server sockets are already bound";
+
+  // Set a scope guard that brings us to unintialized state
+  folly::ScopeGuard g = folly::makeGuard([&] {
+    serverSockets_.clear();
+  });
+
+  auto evb = EventBaseManager::get()->getEventBase();
+  for (auto& addr: addrs) {
+    serverSockets_.emplace_back(new AsyncServerSocket(evb));
+    serverSockets_.back()->bind(addr.address);
+
+    // Use might have asked to register with some ephemeral port
+    serverSockets_.back()->getAddress(&addr.address);
+  }
+
+  // If everything succeeded, dismiss the cleanup guard
+  g.dismiss();
   addresses_ = addrs;
 }
 
-class HandlerCallbacks : public ThreadPoolExecutor::Observer {
- public:
-  explicit HandlerCallbacks(std::shared_ptr<HTTPServerOptions> options) : options_(options) {}
+void HTTPServer::start(std::function<void()> onSuccess,
+                       std::function<void(std::exception_ptr)> onError) {
+  // Step 1: Check that server sockets are bound
+  CHECK(!serverSockets_.empty()) << "Need to call `bind()` before `start()`";
 
-  void threadStarted(ThreadPoolExecutor::ThreadHandle* h) {
-    IOThreadPoolExecutor::getEventBase(h)->runInEventBaseThread([&](){
-      for (auto& factory: options_->handlerFactories) {
+  // Global Event base manager that will be used to create all the worker
+  // threads eventbases
+  auto manager = EventBaseManager::get();
+  mainEventBase_ = manager->getEventBase();
+
+  // Will be used to make sure that all the event loops are running
+  // before we proceed
+  boost::barrier barrier(2);
+
+  // Step 2: Setup handler threads
+  handlerThreads_ = std::vector<HandlerThread>(options_.threads);
+
+  std::vector<AcceptorConfiguration> accConfigs;
+  FOR_EACH_RANGE (i, 0, addresses_.size()) {
+    accConfigs.emplace_back(HTTPServerAcceptor::makeConfig(addresses_[i],
+                                                           options_));
+  }
+
+  for (auto& handlerThread: handlerThreads_) {
+    handlerThread.thread = std::thread([&] () {
+      folly::setThreadName("http-worker");
+      handlerThread.eventBase = manager->getEventBase();
+      barrier.wait();
+
+      handlerThread.eventBase->loopForever();
+
+      // Call loop() again to drain all the events
+      handlerThread.eventBase->loop();
+    });
+
+    // Wait for eventbase pointer to be set
+    barrier.wait();
+
+    // Make sure event loop is running before we proceed
+    handlerThread.eventBase->runInEventBaseThread([&] () {
+      barrier.wait();
+      for (auto& factory: options_.handlerFactories) {
         factory->onServerStart();
       }
     });
+    barrier.wait();
+
+    // Create acceptors
+    FOR_EACH_RANGE (i, 0, accConfigs.size()) {
+      auto acc = HTTPServerAcceptor::make(accConfigs[i], options_);
+      acc->init(serverSockets_[i].get(), handlerThread.eventBase);
+      ++handlerThread.acceptorsRunning;
+
+      // Set completion callback such that it invokes onServerStop when
+      // all acceptors are drained
+      HandlerThread* ptr = &handlerThread;
+      acc->setCompletionCallback([ptr, this] () {
+        --ptr->acceptorsRunning;
+
+        if (ptr->acceptorsRunning == 0) {
+          for (auto& factory: options_.handlerFactories) {
+            factory->onServerStop();
+          }
+        }
+      });
+
+      handlerThread.acceptors.push_back(std::move(acc));
+    }
   }
-  void threadStopped(ThreadPoolExecutor::ThreadHandle* h) {
-    IOThreadPoolExecutor::getEventBase(h)->runInEventBaseThread([&](){
-      for (auto& factory: options_->handlerFactories) {
-        factory->onServerStop();
-      }
-    });
+
+  // Step 3: Install signal handler if required
+  if (!options_.shutdownOn.empty()) {
+    signalHandler_ = folly::make_unique<SignalHandler>(this);
+    signalHandler_->install(options_.shutdownOn);
   }
 
- private:
-  std::shared_ptr<HTTPServerOptions> options_;
-};
+  // Step 4: Switch the server socket eventbase (bind may have been invoked
+  //         in a separate thread).
+  for (auto& serverSocket: serverSockets_) {
+    serverSocket->detachEventBase();
+    serverSocket->attachEventBase(mainEventBase_);
+  }
 
-
-void HTTPServer::start(std::function<void()> onSuccess,
-                       std::function<void(std::exception_ptr)> onError) {
-  mainEventBase_ = EventBaseManager::get()->getEventBase();
-
-  auto accExe = std::make_shared<IOThreadPoolExecutor>(1);
-  auto exe = std::make_shared<IOThreadPoolExecutor>(options_->threads);
-  auto exeObserver = std::make_shared<HandlerCallbacks>(options_);
-
+  // Step 5: Start listening for connections. This can throw if somebody else
+  //         binds to same address and calls listen before this.
   try {
-    FOR_EACH_RANGE (i, 0, addresses_.size()) {
-      auto factory = std::make_shared<AcceptorFactory>(
-        options_,
-        HTTPServerAcceptor::makeConfig(addresses_[i], *options_));
-      bootstrap_.push_back(folly::ServerBootstrap<folly::DefaultPipeline>());
-      bootstrap_[i].childHandler(factory);
-      bootstrap_[i].group(accExe, exe);
-      bootstrap_[i].bind(addresses_[i].address);
+    for (auto& serverSocket: serverSockets_) {
+      serverSocket->listen(options_.listenBacklog);
+      serverSocket->startAccepting();
     }
   } catch (...) {
     stop();
@@ -116,30 +161,44 @@ void HTTPServer::start(std::function<void()> onSuccess,
     throw;
   }
 
-  // Install signal handler if required
-  if (!options_->shutdownOn.empty()) {
-    signalHandler_ = folly::make_unique<SignalHandler>(this);
-    signalHandler_->install(options_->shutdownOn);
+  // Step 6: Start the main event loop
+  if (onSuccess) {
+    mainEventBase_->runInEventBaseThread([onSuccess] () {
+      onSuccess();
+    });
   }
 
-  // Start the main event loop
-  if (onSuccess) {
-    onSuccess();
-  }
-  exe->addObserver(exeObserver);
   mainEventBase_->loopForever();
 }
 
 void HTTPServer::stop() {
   CHECK(mainEventBase_);
 
-  for (auto& bootstrap : bootstrap_) {
-    bootstrap.stop();
+  if (!mainEventBase_->isInEventBaseThread()) {
+    auto barrier = std::make_shared<boost::barrier>(2);
+    mainEventBase_->runInEventBaseThread([this, barrier] () {
+      stop();
+      barrier->wait();
+    });
+
+    barrier->wait();
+    return;
   }
 
   signalHandler_.reset();
+  serverSockets_.clear();
   mainEventBase_->terminateLoopSoon();
   mainEventBase_ = nullptr;
+
+  for (auto& handlerThread: handlerThreads_) {
+    handlerThread.eventBase->terminateLoopSoon();
+  }
+
+  for (auto& handlerThread: handlerThreads_) {
+    handlerThread.thread.join();
+  }
+
+  handlerThreads_.clear();
 }
 
 }
