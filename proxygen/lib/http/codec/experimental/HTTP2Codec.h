@@ -93,7 +93,8 @@ public:
 
   // Returns HTTPMessage or error string
   static Result<std::unique_ptr<HTTPMessage>, std::string>
-  parseHeaderList(const compress::HeaderPieceList& list, bool isRequest);
+  parseHeaderList(const compress::HeaderPieceList& list, bool isRequest,
+                 bool& needsChromeWorkaround);
 
 #ifndef NDEBUG
   uint64_t getReceivedFrameCount() const {
@@ -152,6 +153,7 @@ public:
   http2::FrameHeader curHeader_;
   StreamID expectedContinuationStream_{0};
   bool pendingEndStreamHandling_{false};
+  bool needsChromeWorkaround_{false};
   folly::IOBufQueue curHeaderBlock_{folly::IOBufQueue::cacheChainLength()};
   HTTPSettings ingressSettings_{
     { SettingsId::HEADER_TABLE_SIZE, 4096 },

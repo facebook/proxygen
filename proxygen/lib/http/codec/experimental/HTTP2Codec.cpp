@@ -24,7 +24,7 @@ using std::string;
 
 namespace proxygen {
 
-uint32_t HTTP2Codec::kHeaderSplitSize{http2::kMaxFramePayloadLength};
+uint32_t HTTP2Codec::kHeaderSplitSize{http2::kMaxFramePayloadLengthMin};
 
 std::bitset<256> HTTP2Codec::perHopHeaderCodes_;
 
@@ -232,6 +232,21 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
 ErrorCode HTTP2Codec::parseContinuation(Cursor& cursor) {
   std::unique_ptr<IOBuf> headerBuf;
   VLOG(4) << "parsing CONTINUATION frame for stream=" << curHeader_.stream;
+  if (transportDirection_ == TransportDirection::DOWNSTREAM &&
+      (needsChromeWorkaround_ || (
+        lastStreamID_ == 1 &&
+        curHeaderBlock_.chainLength() > 0 &&
+        curHeaderBlock_.chainLength() %
+         http2::kMaxFramePayloadLengthMin != 0)) &&
+       curHeader_.length == 1024) {
+    // It's possible we do not yet know the user-agent for the first header
+    // block on this session.  If that's the case, use the heuristic that only
+    // chrome breaks HEADERS frames at less than kMaxFramePayloadLength.  Note
+    // it is entirely possible for this heuristic to be abused (for example
+    // by sending exactly 17kb of *compressed* header data).  But this should
+    // be rare.  TODO: remove when Chrome 42 is < 1% of traffic?
+    curHeader_.length -= http2::kFrameHeaderSize;
+  }
   auto err = http2::parseContinuation(cursor, curHeader_, headerBuf);
   RETURN_IF_ERROR(err);
   err = parseHeadersImpl(cursor, std::move(headerBuf),
@@ -261,7 +276,10 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     // Parse headers
     bool isRequest = (transportDirection_ == TransportDirection::DOWNSTREAM ||
                       promisedStream);
-    auto parseResult = parseHeaderList(result.ok().headers, isRequest);
+    bool dummy = true;
+    auto parseResult = parseHeaderList(result.ok().headers, isRequest,
+                                       lastStreamID_ == 1 ?
+                                       needsChromeWorkaround_ : dummy);
     if (parseResult.isError()) {
       HTTPException err(HTTPException::Direction::INGRESS,
                         folly::to<std::string>(
@@ -395,7 +413,8 @@ class HTTPRequestVerifier {
 
 
 Result<std::unique_ptr<HTTPMessage>, string>
-HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest) {
+HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest,
+                            bool& needsChromeWorkaround) {
   auto msg = folly::make_unique<HTTPMessage>();
   HTTPHeaders& headers = msg->getHeaders();
   HTTPRequestVerifier verifier(*msg);
@@ -462,6 +481,24 @@ HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest) {
       bool valueOk = SPDYUtil::validateHeaderValue(value.str, SPDYUtil::STRICT);
       if (!nameOk || !valueOk) {
         return string("Bad header value");
+      }
+      if (!needsChromeWorkaround && name.str == "user-agent") {
+        static const string search = "Chrome/";
+        const auto& agent = value.str;
+        auto found = agent.find(search);
+        VLOG(5) << "The agent is " << agent << " and found is " << found;
+        if (found != string::npos) {
+          auto startNum = found + search.length();
+          // Versions of Chrome under 45? need this workaround
+          if (agent.size() > startNum + 3) {
+            uint8_t num = (agent[startNum] - '0') * 10 +
+              (agent[startNum + 1] - '0');
+            needsChromeWorkaround = (num < 45);
+            if (needsChromeWorkaround) {
+              VLOG(4) << "Using chrome http/2 continuation workaround";
+            }
+          }
+        }
       }
       headers.add(name.str, value.str);
     }

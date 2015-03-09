@@ -528,7 +528,7 @@ TEST_F(HTTP2CodecTest, BasicPing) {
   uint64_t pingReq;
   parse([&] (IOBuf* ingress) {
       folly::io::Cursor c(ingress);
-      c.skip(9 + http2::kConnectionPreface.length());
+      c.skip(http2::kFrameHeaderSize + http2::kConnectionPreface.length());
       pingReq = c.read<uint64_t>();
     });
 
@@ -737,4 +737,180 @@ TEST_F(HTTP2CodecTest, BadPushPromise) {
   EXPECT_EQ(callbacks_.assocStreamId, 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 1);
+}
+
+/**
+ * Mostly ripped from HTTP2Codec::generateHeader.  This writes out frames
+ * like Chrome does, breaking on 1024 - frame header, with some of the not
+ * needed cases removed.  It's specialized to write only a single continuation
+ * frame with optionally malformed length
+ */
+void generateHeaderChrome(HPACKCodec09& headerCodec,
+                          folly::IOBufQueue& writeBuf,
+                          HTTPCodec::StreamID stream,
+                          const HTTPMessage& msg,
+                          HTTPCodec::StreamID assocStream,
+                          bool eom,
+                          HTTPHeaderSize* size,
+                          bool malformed) {
+  VLOG(4) << "generating " << ((assocStream != 0) ? "PUSH_PROMISE" : "HEADERS")
+          << " for stream=" << stream;
+  std::vector<proxygen::compress::Header> allHeaders;
+
+  const string& method = msg.getMethodString();
+  const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
+  const string& path = msg.getURL();
+  const HTTPHeaders& headers = msg.getHeaders();
+  const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
+  allHeaders.emplace_back(http2::kMethod, method);
+  allHeaders.emplace_back(http2::kScheme, scheme);
+  allHeaders.emplace_back(http2::kPath, path);
+  if (!host.empty()) {
+    allHeaders.emplace_back(http2::kAuthority, host);
+  }
+
+  // Add the HTTP headers supplied by the caller, but skip
+  // any per-hop headers that aren't supported in HTTP/2.
+  msg.getHeaders().forEachWithCode(
+    [&] (HTTPHeaderCode code,
+         const string& name,
+         const string& value) {
+
+      // Note this code will not drop headers named by Connection.  That's the
+      // caller's job
+
+      // see HTTP/2 spec, 8.1.2
+      DCHECK(name != "TE" || value == "trailers");
+      if ((name.size() > 0 && name[0] != ':') &&
+          code != HTTP_HEADER_HOST) {
+        allHeaders.emplace_back(code, name, value);
+      }
+    });
+
+  headerCodec.setEncodeHeadroom(http2::kFrameHeadersBaseMaxSize);
+  auto out = headerCodec.encode(allHeaders);
+  if (size) {
+    *size = headerCodec.getEncodedSize();
+  }
+
+  IOBufQueue queue(IOBufQueue::cacheChainLength());
+  queue.append(std::move(out));
+  if (queue.chainLength() > 0) {
+
+    auto chunk = queue.split(std::min((size_t)(1024 - 14),
+                                      queue.chainLength()));
+
+    bool endHeaders = queue.chainLength() == 0;
+    CHECK(assocStream == 0);
+    http2::writeHeaders(writeBuf,
+                        std::move(chunk),
+                        stream,
+                        http2::PriorityUpdate({0, false, 16}),
+                        http2::kNoPadding,
+                        eom,
+                        endHeaders);
+    while (!endHeaders) {
+      CHECK(queue.chainLength() == 1015);
+      chunk = queue.split(std::min(size_t(1024 - http2::kFrameHeaderSize),
+                                   queue.chainLength()));
+      endHeaders = queue.chainLength() == 0;
+      CHECK(endHeaders);
+      VLOG(4) << "generating CONTINUATION for stream=" << stream;
+      writeFrameHeaderManual(writeBuf,
+                             malformed ? 1024 : chunk->computeChainDataLength(),
+                             9,
+                             http2::END_HEADERS,
+                             stream);
+      writeBuf.append(std::move(chunk));
+    }
+  }
+}
+
+class ChromeHTTP2Test : public HTTP2CodecTest,
+                 public ::testing::WithParamInterface<string> {
+};
+
+
+const string agent1("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/42.0.2311.11 Safari/537.36");
+const string agent2("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/45.0.2311.11 Safari/537.36");;
+
+// Chrome < 45? can generate malformed CONTINUATION frames
+TEST_P(ChromeHTTP2Test, ChromeContinuation) {
+  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req = getGetRequest();
+  string agent = GetParam();
+  req.getHeaders().add("user-agent", agent);
+  string bigval(954, '!');
+  bigval.append(954, ' ');
+  req.getHeaders().add("x-header", bigval);
+  generateHeaderChrome(headerCodec, output_, 1, req, 0, false, nullptr,
+                       agent.find("Chrome/45") == string::npos);
+  upstreamCodec_.generateSettingsAck(output_);
+
+  parse();
+  callbacks_.expectMessage(false, -1, "/");
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ(agent, headers.getSingleOrEmpty("user-agent"));
+  EXPECT_EQ(bigval, headers.getSingleOrEmpty("x-header"));
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.settingsAcks, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_P(ChromeHTTP2Test, ChromeContinuationSecondStream) {
+  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req = getGetRequest();
+  string agent = GetParam();
+  req.getHeaders().add("user-agent", agent);
+  generateHeaderChrome(headerCodec, output_, 1, req, 0, false, nullptr,
+                       false);
+  string bigval(1004, '!');
+  bigval.append(1004, ' ');
+  req.getHeaders().add("x-headerx", bigval);
+  generateHeaderChrome(headerCodec, output_, 3, req, 0, false, nullptr,
+                       agent.find("Chrome/45") == string::npos);
+  upstreamCodec_.generateSettingsAck(output_);
+
+  parse();
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ(agent, headers.getSingleOrEmpty("user-agent"));
+  EXPECT_EQ(bigval, headers.getSingleOrEmpty("x-headerx"));
+  EXPECT_EQ(callbacks_.messageBegin, 2);
+  EXPECT_EQ(callbacks_.headersComplete, 2);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.settingsAcks, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+INSTANTIATE_TEST_CASE_P(AgentTest,
+                        ChromeHTTP2Test,
+                        ::testing::Values(agent1, agent2));
+
+TEST_F(HTTP2CodecTest, Normal1024Continuation) {
+  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req = getGetRequest();
+  string bigval(8691, '!');
+  bigval.append(8691, ' ');
+  req.getHeaders().add("x-headr", bigval);
+  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateSettingsAck(output_);
+
+  parse();
+  callbacks_.expectMessage(false, -1, "/");
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ(bigval, headers.getSingleOrEmpty("x-headr"));
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.settingsAcks, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
