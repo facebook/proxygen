@@ -376,10 +376,10 @@ bool HTTPTransaction::validateIngressStateTransition(
   CallbackGuard guard(*this);
 
   if (!HTTPTransactionIngressSM::transit(ingressState_, event)) {
-    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-      folly::to<std::string>(
-        "Invalid ingress state transition, state=", ingressState_,
-        ", event=", event, ", streamID=", id_));
+    std::stringstream ss;
+    ss << "Invalid ingress state transition, state=" << ingressState_ <<
+      ", event=" << event << ", streamID=" << id_;
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, ss.str());
     ex.setProxygenError(kErrorIngressStateTransition);
     ex.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
     // This will invoke sendAbort() and also inform the handler of the
