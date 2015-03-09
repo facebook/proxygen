@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/session/HTTPSession.h>
 
 #include <chrono>
+#include <folly/Conv.h>
 #include <folly/wangle/acceptor/ConnectionManager.h>
 #include <folly/wangle/acceptor/SocketOptions.h>
 #include <openssl/err.h>
@@ -564,7 +565,7 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     VLOG(1) << "Failed to add pushed transaction " << streamID << " on "
             << *this;
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-      "Failed to add pushed transaction ", streamID);
+      folly::to<std::string>("Failed to add pushed transaction ", streamID));
     ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
     onError(streamID, ex, true);
     return nullptr;
@@ -831,7 +832,8 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
     return;
   }
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-    "Stream aborted, streamID=", streamID, ", code=", getErrorCodeString(code));
+    folly::to<std::string>("Stream aborted, streamID=",
+      streamID, ", code=", getErrorCodeString(code)));
   ex.setProxygenError(kErrorStreamAbort);
   DestructorGuard dg(this);
   if (isDownstream() && txn->getAssocTxnId() == 0 &&
@@ -1605,7 +1607,8 @@ HTTPSession::shutdownTransport(bool shutdownReads,
       HTTPException::Direction::INGRESS_AND_EGRESS :
       (notifyIngressShutdown ? HTTPException::Direction::INGRESS :
          HTTPException::Direction::EGRESS);
-    HTTPException ex(dir, "Shutdown transport: ", getErrorString(error));
+    HTTPException ex(dir,
+      folly::to<std::string>("Shutdown transport: ", getErrorString(error)));
     ex.setProxygenError(error);
     invokeOnAllTransactions(&HTTPTransaction::onError, ex);
   }
@@ -1991,7 +1994,8 @@ void HTTPSession::errorOnTransactionIds(
     auto txn = findTransaction(id);
     if (txn != nullptr) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-        getErrorString(err), " on transaction id: ", id);
+        folly::to<std::string>(getErrorString(err),
+          " on transaction id: ", id));
       ex.setProxygenError(err);
       txn->onError(ex);
     }
@@ -2020,7 +2024,7 @@ void HTTPSession::invalidStream(HTTPCodec::StreamID stream, ErrorCode code) {
   }
 
   HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS,
-                    "invalid stream=", stream);
+                    folly::to<std::string>("invalid stream=", stream));
   // TODO: Below line will change for HTTP/2 -- just call a const getter
   // function for the status code.
   err.setCodecStatusCode(code);

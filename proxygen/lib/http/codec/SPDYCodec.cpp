@@ -1508,8 +1508,8 @@ void SPDYCodec::failStream(bool newStream, StreamID streamID,
     code >= 100 ?
     HTTPException::Direction::INGRESS :
     HTTPException::Direction::INGRESS_AND_EGRESS,
-    "SPDYCodec stream error: stream=",
-    streamID, " status=", code, " exception: ", excStr);
+    folly::to<std::string>("SPDYCodec stream error: stream=",
+      streamID, " status=", code, " exception: ", excStr));
   if (code >= 100) {
     err.setHttpStatusCode(code);
   } else {
@@ -1530,8 +1530,8 @@ void SPDYCodec::failStream(bool newStream, StreamID streamID,
 void SPDYCodec::failSession(uint32_t code) {
   HTTPException err(
     HTTPException::Direction::INGRESS_AND_EGRESS,
-    "SPDYCodec session error "
-    "lastGoodStream=", lastStreamID_, " status=", code);
+    folly::to<std::string>("SPDYCodec session error: "
+      "lastGoodStream=", lastStreamID_, " status=", code));
   err.setCodecStatusCode(spdy::goawayToErrorCode(spdy::GoawayStatusCode(code)));
   err.setProxygenError(kErrorParseHeader);
 

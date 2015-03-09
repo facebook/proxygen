@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 
+#include <folly/Conv.h>
 #include <folly/io/Cursor.h>
 #include <folly/Random.h>
 
@@ -263,9 +264,10 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     auto parseResult = parseHeaderList(result.ok().headers, isRequest);
     if (parseResult.isError()) {
       HTTPException err(HTTPException::Direction::INGRESS,
-                        "HTTP2Codec stream error: stream=",
-                        curHeader_.stream, " status=", 400,
-                        " error: ", parseResult.error());
+                        folly::to<std::string>(
+                          "HTTP2Codec stream error: stream=",
+                          curHeader_.stream, " status=", 400,
+                          " error: ", parseResult.error()));
       err.setHttpStatusCode(400);
       callback_->onError(curHeader_.stream, err, true);
       return ErrorCode::NO_ERROR;
