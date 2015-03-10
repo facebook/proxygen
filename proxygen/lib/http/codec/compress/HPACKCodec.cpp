@@ -74,6 +74,11 @@ HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   auto consumed = decoder_->decode(cursor, length, decodedHeaders_);
   if (decoder_->hasError()) {
     LOG(ERROR) << "decoder state: " << decoder_->getTable();
+    LOG(ERROR) << "partial headers: ";
+    for (const auto& hdr: decodedHeaders_) {
+      LOG(ERROR) << "name=" << hdr.name.c_str()
+                 << " value=" << hdr.value.c_str();
+    }
     if (stats_) {
       stats_->recordDecodeError(Type::HPACK);
     }

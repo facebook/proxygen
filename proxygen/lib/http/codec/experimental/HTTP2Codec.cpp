@@ -22,6 +22,19 @@ using namespace folly;
 
 using std::string;
 
+namespace {
+
+string iobuf2hex(const IOBuf* buf) {
+  auto cur = buf;
+  string res;
+  do {
+    res.append((const char *)cur->data(), cur->length());
+    cur = cur->next();
+  } while (cur != buf);
+  return folly::hexDump(res.data(), res.length());
+}
+
+}
 namespace proxygen {
 
 uint32_t HTTP2Codec::kHeaderSplitSize{http2::kMaxFramePayloadLengthMin};
@@ -128,7 +141,7 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
       }
     }
   }
-  checkConnectionError(connError);
+  checkConnectionError(connError, &buf);
   return parsed;
 }
 
@@ -197,7 +210,8 @@ ErrorCode HTTP2Codec::handleEndStream() {
 
 ErrorCode HTTP2Codec::parseData(Cursor& cursor) {
   std::unique_ptr<IOBuf> outData;
-  VLOG(10) << "parsing DATA frame for stream=" << curHeader_.stream;
+  VLOG(10) << "parsing DATA frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   auto ret = http2::parseData(cursor, curHeader_, outData);
   RETURN_IF_ERROR(ret);
 
@@ -210,7 +224,8 @@ ErrorCode HTTP2Codec::parseData(Cursor& cursor) {
 ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
   http2::PriorityUpdate priority;
   std::unique_ptr<IOBuf> headerBuf;
-  VLOG(4) << "parsing HEADERS frame for stream=" << curHeader_.stream;
+  VLOG(4) << "parsing HEADERS frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   auto err = http2::parseHeaders(cursor, curHeader_, priority, headerBuf);
   RETURN_IF_ERROR(err);
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
@@ -231,7 +246,8 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
 
 ErrorCode HTTP2Codec::parseContinuation(Cursor& cursor) {
   std::unique_ptr<IOBuf> headerBuf;
-  VLOG(4) << "parsing CONTINUATION frame for stream=" << curHeader_.stream;
+  VLOG(4) << "parsing CONTINUATION frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   if (transportDirection_ == TransportDirection::DOWNSTREAM &&
       (needsChromeWorkaround_ || (
         lastStreamID_ == 1 &&
@@ -267,10 +283,14 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     Cursor headerCursor(curHeaderBlock_.front());
     auto result = headerCodec_.decode(headerCursor,
                                       curHeaderBlock_.chainLength());
-    curHeaderBlock_.move();
+    // Saving this in case we need to log it on error
+    folly::ScopeGuard g = folly::makeGuard([this] {
+        curHeaderBlock_.move();
+      });
     if (result.isError()) {
-      VLOG(4) << "Failed decoding header block for stream="
-              << curHeader_.stream;
+      LOG(ERROR) << "Failed decoding header block for stream="
+                 << curHeader_.stream << " header block=" << std::endl
+                 << iobuf2hex(curHeaderBlock_.front());;
       return ErrorCode::COMPRESSION_ERROR;
     }
     // Parse headers
@@ -281,6 +301,9 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
                                        lastStreamID_ == 1 ?
                                        needsChromeWorkaround_ : dummy);
     if (parseResult.isError()) {
+      LOG(ERROR) << "Failed parsing header list for stream="
+                 << curHeader_.stream << " header block=" << std::endl
+                 << iobuf2hex(curHeaderBlock_.front());;
       HTTPException err(HTTPException::Direction::INGRESS,
                         folly::to<std::string>(
                           "HTTP2Codec stream error: stream=",
@@ -520,14 +543,16 @@ HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest,
 
 ErrorCode HTTP2Codec::parsePriority(Cursor& cursor) {
   // will implement callbacks in subsequent diff
-  VLOG(4) << "parsing PRIORITY frame for stream=" << curHeader_.stream;
+  VLOG(4) << "parsing PRIORITY frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   http2::PriorityUpdate pri;
   return http2::parsePriority(cursor, curHeader_, pri);
 }
 
 ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
   // rst for stream in idle state - protocol error
-  VLOG(4) << "parsing RST_STREAM frame for stream=" << curHeader_.stream;
+  VLOG(4) << "parsing RST_STREAM frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   ErrorCode statusCode = ErrorCode::NO_ERROR;
   auto err = http2::parseRstStream(cursor, curHeader_, statusCode);
   RETURN_IF_ERROR(err);
@@ -538,7 +563,8 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::parseSettings(Cursor& cursor) {
-  VLOG(4) << "parsing SETTINGS frame for stream=" << curHeader_.stream;
+  VLOG(4) << "parsing SETTINGS frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   std::deque<SettingPair> settings;
   auto err = http2::parseSettings(cursor, curHeader_, settings);
   RETURN_IF_ERROR(err);
@@ -614,7 +640,8 @@ ErrorCode HTTP2Codec::parsePushPromise(Cursor& cursor) {
     VLOG(2) << "Received PUSH_PROMISE on codec with push disabled";
     return ErrorCode::PROTOCOL_ERROR;
   }
-  VLOG(4) << "parsing PUSH_PROMISE frame for stream=" << curHeader_.stream;
+  VLOG(4) << "parsing PUSH_PROMISE frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   uint32_t promisedStream;
   std::unique_ptr<IOBuf> headerBlockFragment;
   auto err = http2::parsePushPromise(cursor, curHeader_, promisedStream,
@@ -632,7 +659,7 @@ ErrorCode HTTP2Codec::parsePushPromise(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::parsePing(Cursor& cursor) {
-  VLOG(4) << "parsing PING frame=";
+  VLOG(4) << "parsing PING frame length=" << curHeader_.length;
   uint64_t opaqueData = 0;
   auto err = http2::parsePing(cursor, curHeader_, opaqueData);
   RETURN_IF_ERROR(err);
@@ -647,7 +674,7 @@ ErrorCode HTTP2Codec::parsePing(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::parseGoaway(Cursor& cursor) {
-  VLOG(4) << "parsing GOAWAY frame";
+  VLOG(4) << "parsing GOAWAY frame length=" << curHeader_.length;
   uint32_t lastGoodStream = 0;
   ErrorCode statusCode = ErrorCode::NO_ERROR;
   std::unique_ptr<IOBuf> debugData;
@@ -669,7 +696,8 @@ ErrorCode HTTP2Codec::parseGoaway(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
-  VLOG(4) << "parsing WINDOW_UPDATE frame for stream=" << curHeader_.stream;
+  VLOG(4) << "parsing WINDOW_UPDATE frame for stream=" << curHeader_.stream <<
+    " length=" << curHeader_.length;
   uint32_t delta = 0;
   auto err = http2::parseWindowUpdate(cursor, curHeader_, delta);
   RETURN_IF_ERROR(err);
@@ -960,8 +988,10 @@ size_t HTTP2Codec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   return http2::writeWindowUpdate(writeBuf, stream, delta);
 }
 
-bool HTTP2Codec::checkConnectionError(ErrorCode err) {
+bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
   if (err != ErrorCode::NO_ERROR) {
+    LOG(ERROR) << "Connection error with ingress=" << std::endl
+               << iobuf2hex(buf);
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        "Connection error");

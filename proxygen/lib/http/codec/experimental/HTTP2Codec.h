@@ -134,7 +134,7 @@ public:
 
   ErrorCode handleEndStream();
   ErrorCode checkNewStream(uint32_t stream);
-  bool checkConnectionError(ErrorCode);
+  bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
   uint32_t maxSendFrameSize() const {
     return ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                        http2::kMaxFramePayloadLengthMin);
