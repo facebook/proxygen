@@ -1202,6 +1202,34 @@ TEST_F(MockCodecDownstreamTest, send_goaway_idle) {
   testGoaway(false, false);
 }
 
+TEST_F(MockCodecDownstreamTest, drop_connection) {
+  NiceMock<MockHTTPHandler> handler;
+  MockHTTPHandler pushHandler;
+
+  liveGoaways_ = true;
+
+  EXPECT_CALL(*codec_, onIngressEOF());
+  EXPECT_CALL(mockController_, detachSession(_));
+  EXPECT_CALL(*transport_, closeWithReset())
+    .Times(AtLeast(1))
+    .WillOnce(Assign(&transportGood_, false));
+  httpSession_->dropConnection();
+}
+
+TEST_F(MockCodecDownstreamTest, drop_connection_nogoaway) {
+  NiceMock<MockHTTPHandler> handler;
+  MockHTTPHandler pushHandler;
+
+  liveGoaways_ = false;
+
+  EXPECT_CALL(*codec_, onIngressEOF());
+  EXPECT_CALL(mockController_, detachSession(_));
+  EXPECT_CALL(*transport_, closeNow())
+    .Times(AtLeast(1))
+    .WillOnce(Assign(&transportGood_, false));
+  httpSession_->dropConnection();
+}
+
 TEST_F(MockCodecDownstreamTest, shutdown_then_error) {
   // Test that we ignore any errors after we shutdown the socket in HTTPSession.
   onIngressImpl([&] {

@@ -341,10 +341,16 @@ HTTPSession::dropConnection() {
 
   setCloseReason(ConnectionCloseReason::SHUTDOWN);
   if (transactions_.empty() && !hasMoreWrites()) {
+    DestructorGuard dg(this);
     shutdownTransport(true, true);
-  } else {
-    shutdownTransportWithReset(kErrorDropped);
+    // shutdownTransport might have generated a write (goaway)
+    // If so, writes will not be shutdown, so fall through to
+    // shutdownTransportWithReset.
+    if (readsShutdown() && writesShutdown()) {
+      return;
+    }
   }
+  shutdownTransportWithReset(kErrorDropped);
 }
 
 void
@@ -2013,6 +2019,7 @@ HTTPCodec::StreamID HTTPSession::getGracefulGoawayAck() const {
     // is shared between HTTP/2 and SPDY
     return codec_->getLastIncomingStreamID();
   }
+  VLOG(4) << *this << " getGracefulGoawayAck is reusable and not draining";
   // return the maximum possible stream id
   return std::numeric_limits<int32_t>::max();
 }
