@@ -25,13 +25,13 @@ class MockEchoStats : public EchoStats {
 
 class EchoHandlerFixture : public testing::Test {
  public:
-  void SetUp() {
+  void SetUp() override {
     handler = new EchoHandler(&stats);
     responseHandler = folly::make_unique<MockResponseHandler>(handler);
     handler->setResponseHandler(responseHandler.get());
   }
 
-  void TearDown() {
+  void TearDown() override {
     Mock::VerifyAndClear(&stats);
     Mock::VerifyAndClear(responseHandler.get());
 
