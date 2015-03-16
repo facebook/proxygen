@@ -134,7 +134,7 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
       const auto frameLen = curHeader_.length;
       if (bufLen >= frameLen) {
         connError = parseFrame(cursor);
-        parsed += frameLen;
+        parsed += curHeader_.length;
         frameState_ = FrameState::FRAME_HEADER;
       } else {
         break;
