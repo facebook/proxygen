@@ -59,6 +59,11 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
                   FrameState::FRAME_HEADER),
       sessionClosing_(ClosingState::OPEN) {
 
+  headerCodec_.setDecoderHeaderTableMaxSize(
+    egressSettings_.getSetting(SettingsId::HEADER_TABLE_SIZE, 0));
+  headerCodec_.setMaxUncompressed(
+    egressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE, 0));
+
   VLOG(4) << "creating " << getTransportDirectionString(direction)
           << " HTTP/2 codec";
 
@@ -108,6 +113,7 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
         auto test = cursor.readFixedString(http2::kConnectionPreface.length());
         parsed += http2::kConnectionPreface.length();
         if (test != http2::kConnectionPreface) {
+          VLOG(4) << "missing connection preface";
           connError = ErrorCode::PROTOCOL_ERROR;
         }
         frameState_ = FrameState::FRAME_HEADER;
@@ -120,6 +126,7 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
         connError = parseFrameHeader(cursor, curHeader_);
         parsed += http2::kFrameHeaderSize;
         if (curHeader_.length > maxRecvFrameSize()) {
+          VLOG(4) << "Excessively large frame len=" << curHeader_.length;
           connError = ErrorCode::FRAME_SIZE_ERROR;
         }
         frameState_ = FrameState::FRAME_DATA;
@@ -159,6 +166,21 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
   if (expectedContinuationStream_ == 0 &&
       curHeader_.type == http2::FrameType::CONTINUATION) {
     VLOG(4) << "Unexpected CONTINUATION stream=" << curHeader_.stream;
+    return ErrorCode::PROTOCOL_ERROR;
+  }
+  if (frameAffectsCompression(curHeader_.type) &&
+      curHeaderBlock_.chainLength() + curHeader_.length >
+      egressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE, 0)) {
+    // this may be off by up to the padding length (max 255), but
+    // these numbers are already so generous, and we're comparing the
+    // max-uncompressed to the actual compressed size.  Let's fail
+    // before buffering.
+
+    // TODO(t6513634): it would be nicer to stream-process this header
+    // block to keep the connection state consistent without consuming
+    // memory, and fail just the request per the HTTP/2 spec (section
+    // 10.3)
+    LOG(ERROR) << "Failing connection due to excessively large headers";
     return ErrorCode::PROTOCOL_ERROR;
   }
 
@@ -820,6 +842,14 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
     *size = headerCodec_.getEncodedSize();
   }
 
+  if (headerCodec_.getEncodedSize().uncompressed >
+      ingressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE,
+                                  std::numeric_limits<uint32_t>::max())) {
+    // The remote side told us they don't want headers this large...
+    // but this function has no mechanism to fail
+    LOG(ERROR) << "generating HEADERS frame larger than peer maximum";
+  }
+
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(out));
   if (queue.chainLength() > 0) {
@@ -969,6 +999,8 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
       settings.push_back(SettingPair(setting.id, setting.value));
       if (setting.id == SettingsId::HEADER_TABLE_SIZE) {
         headerCodec_.setDecoderHeaderTableMaxSize(setting.value);
+      } else if (setting.id == SettingsId::MAX_HEADER_LIST_SIZE) {
+        headerCodec_.setMaxUncompressed(setting.value);
       }
     }
   }

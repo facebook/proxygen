@@ -44,9 +44,9 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
   HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, headers);
-    if (emittedSize > HeaderCodec::kMaxUncompressed) {
+    if (emittedSize > maxUncompressed_) {
       LOG(ERROR) << "exceeded uncompressed size limit of "
-                 << HeaderCodec::kMaxUncompressed << " bytes";
+                 << maxUncompressed_ << " bytes";
       err_ = Error::HEADERS_TOO_LARGE;
       return dbuf.consumedBytes();
     }
@@ -54,9 +54,9 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
   emittedSize += emitRefset(headers);
   // the emitted bytes from the refset are bounded by the size of the table,
   // but adding the check just for uniformity
-  if (emittedSize > HeaderCodec::kMaxUncompressed) {
+  if (emittedSize > maxUncompressed_) {
     LOG(ERROR) << "exceeded uncompressed size limit of "
-               << HeaderCodec::kMaxUncompressed << " bytes";
+               << maxUncompressed_ << " bytes";
     err_ = Error::HEADERS_TOO_LARGE;
   }
   return dbuf.consumedBytes();

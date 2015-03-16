@@ -38,7 +38,8 @@ HPACKCodec::HPACKCodec(TransportDirection direction) {
     encoderType = HPACK::MessageType::REQ;
   }
   encoder_ = folly::make_unique<HPACKEncoder>(encoderType, true);
-  decoder_ = folly::make_unique<HPACKDecoder>(decoderType);
+  decoder_ = folly::make_unique<HPACKDecoder>(decoderType, HPACK::kTableSize,
+                                              maxUncompressed_);
 }
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {

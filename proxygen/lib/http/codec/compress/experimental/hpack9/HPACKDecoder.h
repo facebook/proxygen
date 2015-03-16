@@ -18,8 +18,10 @@ namespace proxygen {
 
 class HPACKDecoder09 : public HPACKDecoder {
 public:
-  explicit HPACKDecoder09(uint32_t tableSize=HPACK::kTableSize)
-      : HPACKDecoder(HPACK::MessageType::RESP, tableSize) {}
+  explicit HPACKDecoder09(
+    uint32_t tableSize=HPACK::kTableSize,
+    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
+      : HPACKDecoder(HPACK::MessageType::RESP, tableSize, maxUncompressed) {}
 
   void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf);
 

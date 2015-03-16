@@ -50,6 +50,7 @@ class HTTP2CodecTest : public testing::Test {
     return (parsed == ingress->computeChainDataLength());
   }
 
+  void testBigHeader(bool continuation);
 
 
  protected:
@@ -213,6 +214,37 @@ TEST_F(HTTP2CodecTest, EmptyHeaderName) {
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 1);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+void HTTP2CodecTest::testBigHeader(bool continuation) {
+  if (continuation) {
+    HTTP2Codec::setHeaderSplitSize(1);
+  }
+  auto settings = downstreamCodec_.getEgressSettings();
+  settings->setSetting(SettingsId::MAX_HEADER_LIST_SIZE, 37);
+  IOBufQueue dummy;
+  downstreamCodec_.generateSettings(dummy);
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add("user-agent", "coolio");
+  req.getHeaders().add("x-long-long-header",
+                       "supercalafragalisticexpialadoshus");
+  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+
+  parse();
+  // session error
+  EXPECT_EQ(callbacks_.messageBegin, continuation ? 1 : 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+}
+
+TEST_F(HTTP2CodecTest, BigHeader) {
+  testBigHeader(false);
+}
+
+TEST_F(HTTP2CodecTest, BigHeaderContinuation) {
+  testBigHeader(true);
 }
 
 TEST_F(HTTP2CodecTest, BasicHeaderReply) {

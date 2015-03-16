@@ -107,6 +107,10 @@ class HeaderCodec {
     maxUncompressed_ = maxUncompressed;
   }
 
+  uint32_t getMaxUncompressed() const {
+    return maxUncompressed_;
+  }
+
   /**
    * set the stats object
    */

@@ -13,6 +13,7 @@
 #include <folly/io/IOBuf.h>
 #include <list>
 #include <memory>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
@@ -32,10 +33,13 @@ class HPACKDecoder : public HPACKContext {
     HEADERS_TOO_LARGE = 6,
   };
 
-  explicit HPACKDecoder(HPACK::MessageType msgType,
-                        uint32_t tableSize=HPACK::kTableSize)
+  explicit HPACKDecoder(
+    HPACK::MessageType msgType,
+    uint32_t tableSize=HPACK::kTableSize,
+    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
       : HPACKContext(msgType, tableSize),
-        maxTableSize_(tableSize) {}
+        maxTableSize_(tableSize),
+        maxUncompressed_(maxUncompressed) {}
 
   typedef std::vector<HPACKHeader> headers_t;
 
@@ -84,6 +88,7 @@ class HPACKDecoder : public HPACKContext {
 
   Error err_{Error::NONE};
   uint32_t maxTableSize_;
+  uint32_t maxUncompressed_;
 };
 
 }
