@@ -879,13 +879,40 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // successfully at the remote end. Upstream transactions are created
   // with odd transaction IDs and downstream transactions with even IDs.
   vector<HTTPCodec::StreamID> ids;
+  HTTPCodec::StreamID firstStream = HTTPCodec::NoStream;
+
   for (const auto& txn: transactions_) {
     auto streamID = txn.first;
     if (((bool)(streamID & 0x01) == isUpstream()) &&
         (streamID > lastGoodStreamID)) {
+      if (firstStream == HTTPCodec::NoStream) {
+        // transactions_ is a set so it should be sorted by stream id.
+        // We will defer adding the firstStream to the id list until
+        // we can determine whether we have a codec error code.
+        firstStream = streamID;
+        continue;
+      }
+
       ids.push_back(streamID);
     }
   }
+
+
+  if (firstStream != HTTPCodec::NoStream && code != ErrorCode::NO_ERROR) {
+    // If we get a codec error, we will attempt to blame the first stream
+    // by delivering a specific error to it a let the rest of the stream
+    // get a normal unacknowledged stream error.
+    ProxygenError err = kErrorStreamUnacknowledged;
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+      folly::to<std::string>(getErrorString(err),
+        " on transaction id: ", firstStream,
+        " with codec error: ", getErrorCodeString(code)));
+    ex.setProxygenError(err);
+    errorOnTransactionId(firstStream, std::move(ex));
+  } else if (firstStream != HTTPCodec::NoStream) {
+    ids.push_back(firstStream);
+  }
+
   errorOnTransactionIds(ids, kErrorStreamUnacknowledged);
 }
 
@@ -2019,14 +2046,20 @@ void HTTPSession::errorOnTransactionIds(
   ProxygenError err) {
 
   for (auto id: ids) {
-    auto txn = findTransaction(id);
-    if (txn != nullptr) {
-      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-        folly::to<std::string>(getErrorString(err),
-          " on transaction id: ", id));
-      ex.setProxygenError(err);
-      txn->onError(ex);
-    }
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+      folly::to<std::string>(getErrorString(err),
+        " on transaction id: ", id));
+    ex.setProxygenError(err);
+    errorOnTransactionId(id, std::move(ex));
+  }
+}
+
+void HTTPSession::errorOnTransactionId(
+    HTTPCodec::StreamID id,
+    HTTPException ex) {
+  auto txn = findTransaction(id);
+  if (txn != nullptr) {
+    txn->onError(std::move(ex));
   }
 }
 

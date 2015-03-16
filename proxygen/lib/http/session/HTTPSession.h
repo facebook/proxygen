@@ -682,6 +682,8 @@ class HTTPSession:
   void errorOnTransactionIds(const std::vector<HTTPCodec::StreamID>& ids,
                              ProxygenError err);
 
+  void errorOnTransactionId(HTTPCodec::StreamID id, HTTPException ex);
+
   void setCloseReason(ConnectionCloseReason reason) {
     if (closeReason_ == ConnectionCloseReason::kMAX_REASON) {
       closeReason_ = reason;

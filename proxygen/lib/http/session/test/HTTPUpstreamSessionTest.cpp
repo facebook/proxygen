@@ -342,6 +342,56 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
   // Session will delete itself after the abort
 }
 
+TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
+  // Tests whether the session aborts the streams which are not created
+  // at the remote end which have error codes.
+  MockHTTPHandler handler;
+  HTTPTransaction* txn;
+
+  // Create SPDY buf for GOAWAY with last good stream as 0 (no streams created)
+  SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
+                        SPDYVersion::SPDY3);
+  folly::IOBufQueue respBuf;
+  egressCodec.generateGoaway(respBuf, 0, ErrorCode::PROTOCOL_ERROR);
+  std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
+  goawayFrame->coalesce();
+
+  InSequence dummy;
+
+  EXPECT_CALL(handler, setTransaction(_))
+    .WillOnce(SaveArg<0>(&txn));
+  EXPECT_CALL(handler, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& err) {
+          EXPECT_TRUE(err.hasProxygenError());
+          EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+          ASSERT_EQ(
+            folly::to<std::string>("StreamUnacknowledged on transaction id: ",
+              txn->getID(),
+              " with codec error: PROTOCOL_ERROR"),
+            std::string(err.what()));
+        }));
+  EXPECT_CALL(handler, detachTransaction())
+    .WillOnce(InvokeWithoutArgs([this] {
+          // Make sure the session can't create any more transactions.
+          MockHTTPHandler handler2;
+          EXPECT_EQ(httpSession_->newTransaction(&handler2), nullptr);
+        }));
+
+  // Create new transaction
+  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
+  CHECK_EQ(txn, txn2);
+
+  // Send the GET request
+  HTTPMessage req = getGetRequest();
+  txn->sendHeaders(req);
+  txn->sendEOM();
+
+  // Receive GOAWAY frame while waiting for SYN_REPLY
+  readAndLoop(goawayFrame->data(), goawayFrame->length());
+
+  // Session will delete itself after the abort
+}
+
 TYPED_TEST_P(HTTPUpstreamTest, immediate_eof) {
   // Receive an EOF without any request data
   this->readCallback_->readEOF();
