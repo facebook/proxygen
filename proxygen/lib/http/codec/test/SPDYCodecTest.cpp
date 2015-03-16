@@ -1056,6 +1056,37 @@ TEST(SPDYCodecTest, DoubleGoawayClient) {
   EXPECT_EQ(2, callbacks.goaways);
 }
 
+
+TEST(SPDYCodecTest, SingleGoawayClient) {
+  FakeHTTPCodecCallback callbacks;
+  SPDYCodec egressCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3);
+  SPDYCodec ingressCodec(TransportDirection::DOWNSTREAM,
+                         SPDYVersion::SPDY3);
+
+  ingressCodec.setCallback(&callbacks);
+  egressCodec.setCallback(&callbacks);
+
+  unsigned ack = 0;
+  auto f = [&] () {
+    folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+    egressCodec.generateGoaway(output, ack, ErrorCode::NO_ERROR);
+    auto ingress = output.move();
+    ingressCodec.onIngress(*ingress);
+    ack -= 2;
+  };
+
+  EXPECT_TRUE(egressCodec.isReusable());
+  EXPECT_TRUE(egressCodec.isWaitingToDrain());
+  f();
+  // client spdy codec not reusable after the first goaway
+  EXPECT_FALSE(egressCodec.isReusable());
+  EXPECT_FALSE(egressCodec.isWaitingToDrain());
+  EXPECT_FALSE(ingressCodec.isReusable());
+
+  EXPECT_EQ(1, callbacks.goaways);
+}
+
 // Two packets:
 //  - first one has an invalid header nanme
 //  - second one has an empty header block

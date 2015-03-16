@@ -654,7 +654,8 @@ bool SPDYCodec::isReusable() const {
 }
 
 bool SPDYCodec::isWaitingToDrain() const {
-  return sessionClosing_ == ClosingState::FIRST_GOAWAY_SENT;
+  return sessionClosing_ == ClosingState::OPEN ||
+    sessionClosing_ == ClosingState::FIRST_GOAWAY_SENT;
 }
 
 bool SPDYCodec::isSPDYReserved(const std::string& name) {

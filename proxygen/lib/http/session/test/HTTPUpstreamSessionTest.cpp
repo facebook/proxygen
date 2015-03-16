@@ -70,6 +70,11 @@ class HTTPUpstreamTest: public testing::Test,
   virtual void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
                             std::shared_ptr<IOBuf> iob,
                             WriteFlags flags) {
+    if (saveWrites_) {
+      auto mybuf = iob->clone();
+      mybuf->unshare();
+      writes_.append(std::move(mybuf));
+    }
     if (failWrites_) {
       AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
       callback->writeErr(0, ex);
@@ -195,6 +200,8 @@ class HTTPUpstreamTest: public testing::Test,
   SocketAddress localAddr_{"127.0.0.1", 80};
   SocketAddress peerAddr_{"127.0.0.1", 12345};
   HTTPUpstreamSession* httpSession_{nullptr};
+  IOBufQueue writes_;
+  bool saveWrites_{false};
   bool failWrites_{false};
   bool writeInLoop_{false};
 };
@@ -742,10 +749,18 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
       .WillRepeatedly(SaveArg<0>(&codecCb_));
     EXPECT_CALL(*codec, isReusable())
       .WillRepeatedly(ReturnPointee(&reusable_));
+    EXPECT_CALL(*codec, isWaitingToDrain())
+      .WillRepeatedly(ReturnPointee(&reusable_));
     EXPECT_CALL(*codec, generateGoaway(_, _, _))
-      .WillRepeatedly(InvokeWithoutArgs([&] {
-            reusable_ = false;
-            return 1;
+      .WillRepeatedly(Invoke([&] (IOBufQueue& writeBuf,
+                                  HTTPCodec::StreamID lastStream,
+                                  ErrorCode code){
+            EXPECT_LT(lastStream, std::numeric_limits<int32_t>::max());
+            if (reusable_) {
+              writeBuf.append("GOAWAY", 6);
+              reusable_ = false;
+            }
+            return 6;
           }));
     EXPECT_CALL(*codec, createStream())
       .WillRepeatedly(Invoke([&] {
@@ -937,6 +952,55 @@ TEST_F(MockHTTPUpstreamTest, goaway) {
   }
   eventBase_.loop();
 
+  // Session will delete itself after drain completes
+}
+
+TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
+  // Make sure existing txns complete successfully even if we drain the
+  // upstream session
+  MockHTTPHandler handler;
+
+  InSequence dummy;
+  saveWrites_ = true;
+
+  EXPECT_CALL(handler, setTransaction(_))
+    .WillOnce(SaveArg<0>(&handler.txn_));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
+    .WillOnce(Invoke([&] (IOBufQueue& writeBuf,
+                          HTTPCodec::StreamID stream,
+                          const HTTPMessage& msg,
+                          HTTPCodec::StreamID assocStream,
+                          bool eom,
+                          HTTPHeaderSize* size) {
+                       writeBuf.append("HEADERS", 7);
+                     }));
+  EXPECT_CALL(handler, onHeadersComplete(_))
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+          EXPECT_FALSE(msg->getIsUpgraded());
+          EXPECT_EQ(200, msg->getStatusCode());
+        }));
+  httpSession_->newTransaction(&handler);
+  httpSession_->drain();
+
+  // Send the GET request
+  HTTPMessage req = getGetRequest();
+  handler.txn_->sendHeaders(req);
+  handler.txn_->sendEOM();
+
+  // Receive 200 OK
+  auto resp = makeResponse(200);
+  codecCb_->onMessageBegin(handler.txn_->getID(), resp.get());
+  codecCb_->onHeadersComplete(handler.txn_->getID(), std::move(resp));
+
+  codecCb_->onGoaway(1, ErrorCode::NO_ERROR);
+  EXPECT_CALL(handler, onEOM());
+  EXPECT_CALL(handler, detachTransaction());
+  codecCb_->onMessageComplete(1, false);
+  eventBase_.loop();
+
+  auto buf = writes_.move();
+  ASSERT_TRUE(buf != nullptr);
+  EXPECT_EQ(buf->moveToFbString().data(), string("HEADERSGOAWAY"));
   // Session will delete itself after drain completes
 }
 
@@ -1238,6 +1302,7 @@ TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
   EXPECT_CALL(*codecPtr_, generateRstStream(_, handler1->txn_->getID(), _));
   EXPECT_CALL(*handler1, detachTransaction());
   handler1->txn_->sendAbort();
+  eventBase_.loop();
 }
 
 TEST_F(MockHTTP2UpstreamTest, server_push_invalid_assoc) {
@@ -1439,6 +1504,7 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   codecCb_->onBody(1, makeBuf(20));
   // Now receive headers again, on the same stream (illegal!)
   codecCb_->onHeadersComplete(1, makeResponse(200));
+  eventBase_.loop();
 }
 
 TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {

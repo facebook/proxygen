@@ -743,7 +743,8 @@ bool HTTP2Codec::isReusable() const {
 }
 
 bool HTTP2Codec::isWaitingToDrain() const {
-  return sessionClosing_ == ClosingState::FIRST_GOAWAY_SENT;
+  return sessionClosing_ == ClosingState::OPEN ||
+    sessionClosing_ == ClosingState::FIRST_GOAWAY_SENT;
 }
 
 size_t HTTP2Codec::generateConnectionPreface(folly::IOBufQueue& writeBuf) {

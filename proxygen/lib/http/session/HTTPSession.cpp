@@ -1000,9 +1000,14 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
                               const HTTPMessage& headers,
                               HTTPHeaderSize* size) noexcept {
   CHECK(started_);
+  unique_ptr<IOBuf> goawayBuf;
   if (shouldShutdown()) {
     // For HTTP/1.1, add Connection: close
+    // For SPDY, save the goaway for AFTER the request
+    auto writeBuf = writeBuf_.move();
     drainImpl();
+    goawayBuf = writeBuf_.move();
+    writeBuf_.append(std::move(writeBuf));
   }
   const bool wasReusable = codec_->isReusable();
   const uint64_t oldOffset = sessionByteOffset();
@@ -1025,6 +1030,10 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
   if (size) {
     VLOG(4) << *this << " sending headers, size=" << size->compressed
             << ", uncompressedSize=" << size->uncompressed;
+  }
+  if (goawayBuf) {
+    VLOG(4) << *this << " moved GOAWAY to end of writeBuf";
+    writeBuf_.append(std::move(goawayBuf));
   }
   scheduleWrite();
   onHeadersSent(headers, wasReusable);
