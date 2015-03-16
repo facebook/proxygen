@@ -141,6 +141,7 @@ size_t FlowControlFilter::generateBody(folly::IOBufQueue& writeBuf,
   if (sendWindow_.getNonNegativeSize() == 0) {
     // Need to inform when the send window is no longer full
     sendsBlocked_ = true;
+    notify_.onConnectionSendWindowClosed();
   }
 
   return call_->generateBody(writeBuf, stream, std::move(chain), eom);

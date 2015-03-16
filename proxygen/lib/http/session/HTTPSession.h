@@ -87,6 +87,18 @@ class HTTPSession:
     HTTPSession* session_;
   };
 
+  class FlowControlTimeout : public AsyncTimeoutSet::Callback {
+   public:
+    explicit FlowControlTimeout(HTTPSession* session) : session_(session) {}
+    virtual ~FlowControlTimeout() {}
+
+    void timeoutExpired() noexcept {
+      session_->flowControlTimeoutExpired();
+    }
+   private:
+    HTTPSession* session_;
+  };
+
   /**
    * Set the read buffer limit to be used for all new HTTPSession objects.
    */
@@ -454,6 +466,7 @@ class HTTPSession:
 
   void readTimeoutExpired() noexcept;
   void writeTimeoutExpired() noexcept;
+  void flowControlTimeoutExpired() noexcept;
 
   // TAsyncTransport::ReadCallback methods
   void getReadBuffer(void** buf, size_t* bufSize) override;
@@ -724,6 +737,8 @@ class HTTPSession:
 
   WriteTimeout writeTimeout_;
 
+  FlowControlTimeout flowControlTimeout_;
+
   AsyncTimeoutSet* transactionTimeouts_{nullptr};
 
   HTTPSessionStats* sessionStats_{nullptr};
@@ -894,6 +909,7 @@ class HTTPSession:
    * becomes not full.
    */
   void onConnectionSendWindowOpen() override;
+  void onConnectionSendWindowClosed() override;
 
   /**
    * Get the id of the stream we should ack in a graceful GOAWAY

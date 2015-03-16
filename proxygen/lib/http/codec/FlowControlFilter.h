@@ -30,9 +30,10 @@ class FlowControlFilter:
    public:
     virtual ~Callback() {}
     /**
-     * Notification channel to alert when the send window is no longer full.
+     * Notification channel to alert when the send window state changes.
      */
     virtual void onConnectionSendWindowOpen() = 0;
+    virtual void onConnectionSendWindowClosed() = 0;
   };
 
   /**

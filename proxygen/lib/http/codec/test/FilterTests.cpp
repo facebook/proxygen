@@ -25,6 +25,7 @@ using namespace testing;
 class MockFlowControlCallback: public FlowControlFilter::Callback {
  public:
   MOCK_METHOD0(onConnectionSendWindowOpen, void());
+  MOCK_METHOD0(onConnectionSendWindowClosed, void());
 };
 
 class FilterTest : public testing::Test {
@@ -113,6 +114,7 @@ TEST_F(DefaultFlowControl, flow_control_construct) {
   callbackStart_->onWindowUpdate(0, 1);
 
   // Now fill the window (2 more bytes)
+  EXPECT_CALL(flowCallback_, onConnectionSendWindowClosed());
   chain_->generateBody(writeBuf_, 1, makeBuf(2), false);
   // get the callback informing the window is open once we get a window update
   EXPECT_CALL(flowCallback_, onConnectionSendWindowOpen());
@@ -173,6 +175,7 @@ TEST_F(BigWindow, remote_increase) {
   callbackStart_->onWindowUpdate(0, 10);
   ASSERT_EQ(filter_->getAvailableSend(), spdy::kInitialWindow + 10);
 
+  EXPECT_CALL(flowCallback_, onConnectionSendWindowClosed());
   chain_->generateBody(writeBuf_, 1,
                        makeBuf(spdy::kInitialWindow + 10), false);
   ASSERT_EQ(filter_->getAvailableSend(), 0);

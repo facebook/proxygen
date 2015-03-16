@@ -118,6 +118,7 @@ HTTPSession::HTTPSession(
     codec_(std::move(codec)),
     infoCallback_(infoCallback),
     writeTimeout_(this),
+    flowControlTimeout_(this),
     transactionTimeouts_(CHECK_NOTNULL(transactionTimeouts)),
     transportInfo_(tinfo),
     direction_(codec_->getTransportDirection()),
@@ -289,6 +290,16 @@ HTTPSession::writeTimeoutExpired() noexcept {
 
   setCloseReason(ConnectionCloseReason::TIMEOUT);
   shutdownTransportWithReset(kErrorWriteTimeout);
+}
+
+void
+HTTPSession::flowControlTimeoutExpired() noexcept {
+  VLOG(4) << "Flow control timeout for " << *this;
+
+  DestructorGuard g(this);
+
+  setCloseReason(ConnectionCloseReason::TIMEOUT);
+  shutdownTransport(true, true);
 }
 
 void
@@ -1569,6 +1580,8 @@ HTTPSession::shutdownTransport(bool shutdownReads,
       error = kErrorConnectionReset;
     }
     shutdownWrites = true;
+  } else if (closeReason_ == ConnectionCloseReason::TIMEOUT) {
+    error = kErrorTimeout;
   } else {
     error = kErrorEOF;
   }
@@ -2018,8 +2031,14 @@ void HTTPSession::errorOnTransactionIds(
 }
 
 void HTTPSession::onConnectionSendWindowOpen() {
+  flowControlTimeout_.cancelTimeout();
   // We can write more now. Schedule a write.
   scheduleWrite();
+}
+
+void HTTPSession::onConnectionSendWindowClosed() {
+  DCHECK(!flowControlTimeout_.isScheduled());
+  transactionTimeouts_->scheduleTimeout(&flowControlTimeout_);
 }
 
 HTTPCodec::StreamID HTTPSession::getGracefulGoawayAck() const {

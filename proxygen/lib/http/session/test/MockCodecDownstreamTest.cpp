@@ -141,6 +141,8 @@ class MockCodecDownstreamTest: public testing::Test {
 
   void testGoaway(bool doubleGoaway, bool dropConnection);
 
+  void testConnFlowControlBlocked(bool timeout);
+
  protected:
 
   EventBase eventBase_;
@@ -860,7 +862,7 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
   httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
 }
 
-TEST_F(MockCodecDownstreamTest, conn_flow_control_blocked) {
+void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   // Let the connection level flow control window fill and then make sure
   // control frames still can be processed
   InSequence enforceOrder;
@@ -915,21 +917,50 @@ TEST_F(MockCodecDownstreamTest, conn_flow_control_blocked) {
 
   eventBase_.loop();
 
-  // Give a connection level window update of 10 bytes -- this should allow 10
-  // bytes of the txn1 response to be written
-  codecCallback_->onWindowUpdate(0, 10);
-  EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(uint64_t(10)), false));
-  eventBase_.loop();
+  if (timeout) {
+    // don't send a window update, the handlers will get timeouts
+    EXPECT_CALL(handler1, onError(_))
+      .WillOnce(Invoke([] (const HTTPException& ex) {
+            EXPECT_EQ(ex.getProxygenError(), kErrorTimeout);
+          }));
+    EXPECT_CALL(handler2, onError(_))
+      .WillOnce(Invoke([] (const HTTPException& ex) {
+            EXPECT_EQ(ex.getProxygenError(), kErrorTimeout);
+          }));
+    EXPECT_CALL(mockController_, detachSession(_));
+    // send a window update to refresh the stream level timeout
+    codecCallback_->onWindowUpdate(1, 1);
+    // silly, the timeout set is internal and there's no fd, so hold the
+    // eventBase open until the timeout can fire
+    eventBase_.runAfterDelay([] {}, 500);
+  } else {
+    // Give a connection level window update of 10 bytes -- this
+    // should allow 10 bytes of the txn1 response to be written
+    codecCallback_->onWindowUpdate(0, 10);
+    EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(uint64_t(10)),
+                                      false));
+    eventBase_.loop();
 
-  // Just tear everything down now.
-  EXPECT_CALL(handler1, detachTransaction());
-  codecCallback_->onAbort(handler1.txn_->getID(), ErrorCode::INTERNAL_ERROR);
-  eventBase_.loop();
+    // Just tear everything down now.
+    EXPECT_CALL(handler1, detachTransaction());
+    codecCallback_->onAbort(handler1.txn_->getID(),
+                            ErrorCode::INTERNAL_ERROR);
+    eventBase_.loop();
 
-  EXPECT_CALL(handler2, detachTransaction());
-  EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+    EXPECT_CALL(handler2, detachTransaction());
+    EXPECT_CALL(mockController_, detachSession(_));
+    httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  }
+
   eventBase_.loop();
+}
+
+TEST_F(MockCodecDownstreamTest, conn_flow_control_blocked) {
+  testConnFlowControlBlocked(false);
+}
+
+TEST_F(MockCodecDownstreamTest, conn_flow_control_timeout) {
+  testConnFlowControlBlocked(true);
 }
 
 TEST_F(MockCodecDownstreamTest, unpaused_large_post) {
