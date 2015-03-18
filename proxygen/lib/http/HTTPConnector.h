@@ -103,7 +103,7 @@ class HTTPConnector:
     const apache::thrift::async::TAsyncSocket::OptionMap& socketOptions =
       apache::thrift::async::TAsyncSocket::emptyOptionMap,
     const folly::SocketAddress& bindAddr =
-      apache::thrift::async::TAsyncSocket::anyAddress);
+      apache::thrift::async::TAsyncSocket::anyAddress());
 
   /**
    * Begin the process of getting a secure connection to the server
@@ -129,7 +129,7 @@ class HTTPConnector:
     const apache::thrift::async::TAsyncSocket::OptionMap& socketOptions =
       apache::thrift::async::TAsyncSocket::emptyOptionMap,
     const folly::SocketAddress& bindAddr =
-      apache::thrift::async::TAsyncSocket::anyAddress);
+      apache::thrift::async::TAsyncSocket::anyAddress());
 
   /**
    * @returns the number of milliseconds since connecting began, or
