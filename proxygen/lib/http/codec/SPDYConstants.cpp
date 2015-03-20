@@ -26,6 +26,7 @@ GoawayStatusCode errorCodeToGoaway(ErrorCode code) {
     case ErrorCode::CONNECT_ERROR:        break;
     case ErrorCode::ENHANCE_YOUR_CALM:    break;
     case ErrorCode::INADEQUATE_SECURITY:  break;
+    case ErrorCode::HTTP_1_1_REQUIRED:    break;
     case ErrorCode::_SPDY_INVALID_STREAM: break;
   }
   return GOAWAY_PROTOCOL_ERROR;
@@ -46,6 +47,7 @@ ResetStatusCode errorCodeToReset(ErrorCode code) {
     case ErrorCode::CONNECT_ERROR: break;
     case ErrorCode::ENHANCE_YOUR_CALM: break;
     case ErrorCode::INADEQUATE_SECURITY: return RST_INVALID_CREDENTIALS;
+    case ErrorCode::HTTP_1_1_REQUIRED: break;
     case ErrorCode::_SPDY_INVALID_STREAM: return RST_INVALID_STREAM;
   }
   return RST_PROTOCOL_ERROR;

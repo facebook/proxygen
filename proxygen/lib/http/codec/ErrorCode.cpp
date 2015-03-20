@@ -30,6 +30,7 @@ const char* getErrorCodeString(ErrorCode error) {
     case ErrorCode::CONNECT_ERROR: return "CONNECT_ERROR";
     case ErrorCode::ENHANCE_YOUR_CALM: return "ENHANCE_YOUR_CALM";
     case ErrorCode::INADEQUATE_SECURITY: return "INADEQUATE_SECURITY";
+    case ErrorCode::HTTP_1_1_REQUIRED: return "HTTP_1_1_REQUIRED";
     case ErrorCode::_SPDY_INVALID_STREAM: return "_SPDY_INVALID_STREAM";
   }
   LOG(FATAL) << "Unreachable";
