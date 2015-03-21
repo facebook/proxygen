@@ -58,6 +58,10 @@ struct AcceptorConfiguration : public folly::ServerSocketConfig {
    * per connection on protocols that allow multiplexing.
    */
   uint32_t maxConcurrentIncomingStreams{0};
+
+  size_t initialReceiveWindow{65536};
+  size_t receiveStreamWindowSize{65536};
+  size_t receiveSessionWindowSize{65536};
 };
 
 } // proxygen

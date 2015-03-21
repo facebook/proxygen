@@ -102,6 +102,10 @@ void HTTPSessionAcceptor::onNewConnection(
     session->setMaxConcurrentIncomingStreams(
         accConfig_.maxConcurrentIncomingStreams);
   }
+  // set flow control parameters
+  session->setFlowControl(accConfig_.initialReceiveWindow,
+                          accConfig_.receiveStreamWindowSize,
+                          accConfig_.receiveSessionWindowSize);
   session->setSessionStats(downstreamSessionStats_);
   Acceptor::addConnection(session);
   session->startNow();
