@@ -173,9 +173,10 @@ public:
   uint64_t receivedFrameCount_{0};
 #endif
   enum FrameState {
-    CONNECTION_PREFACE = 0,
-    FRAME_HEADER = 1,
-    FRAME_DATA = 2,
+    UPSTREAM_CONNECTION_PREFACE = 0,
+    DOWNSTREAM_CONNECTION_PREFACE = 1,
+    FRAME_HEADER = 2,
+    FRAME_DATA = 3,
   };
   FrameState frameState_:2;
   enum ClosingState {

@@ -26,9 +26,15 @@ class HTTP2CodecTest : public testing::Test {
     HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
     downstreamCodec_.setCallback(&callbacks_);
     upstreamCodec_.setCallback(&callbacks_);
-    // they share the output_ and connection preface is the same for upstream
-    // and downstream, so just do this once
+    // Most tests are downstream tests, so generate the upstream conn preface
+    // by default
     upstreamCodec_.generateConnectionPreface(output_);
+  }
+
+  void SetUpUpstreamTest() {
+    output_.move();
+    downstreamCodec_.generateConnectionPreface(output_); // no-op
+    downstreamCodec_.generateSettings(output_);
   }
 
   bool parse(std::function<void(IOBuf*)> hackIngress =
@@ -248,7 +254,7 @@ TEST_F(HTTP2CodecTest, BigHeaderContinuation) {
 }
 
 TEST_F(HTTP2CodecTest, BasicHeaderReply) {
-  output_.move(); // clear upstream connection preface
+  SetUpUpstreamTest();
   HTTPMessage resp;
   resp.setStatusCode(200);
   resp.setStatusMessage("nifty-nice");
@@ -607,7 +613,7 @@ TEST_F(HTTP2CodecTest, BadGoaway) {
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoaway) {
-  output_.move(); // clear upstream connection preface
+  SetUpUpstreamTest();
   downstreamCodec_.generateGoaway(output_, std::numeric_limits<int32_t>::max(),
                                   ErrorCode::NO_ERROR);
   EXPECT_TRUE(downstreamCodec_.isWaitingToDrain());
@@ -624,7 +630,7 @@ TEST_F(HTTP2CodecTest, DoubleGoaway) {
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoawayWithError) {
-  output_.move(); // clear upstream connection preface
+  SetUpUpstreamTest();
   downstreamCodec_.generateGoaway(output_, std::numeric_limits<int32_t>::max(),
                                   ErrorCode::ENHANCE_YOUR_CALM);
   EXPECT_FALSE(downstreamCodec_.isWaitingToDrain());
@@ -690,8 +696,7 @@ TEST_F(HTTP2CodecTest, SettingsTableSize) {
   resp.setStatusCode(200);
   resp.setStatusMessage("nifty-nice");
   resp.getHeaders().add("content-type", "x-coolio");
-  output_.move();
-  downstreamCodec_.generateConnectionPreface(output_);
+  SetUpUpstreamTest();
   downstreamCodec_.generateHeader(output_, 1, resp, 0);
 
   parseUpstream();
@@ -723,8 +728,7 @@ TEST_F(HTTP2CodecTest, BadSettingsTableSize) {
   resp.setStatusCode(200);
   resp.setStatusMessage("nifty-nice");
   resp.getHeaders().add("content-type", "x-coolio");
-  output_.move();
-  downstreamCodec_.generateConnectionPreface(output_);
+  SetUpUpstreamTest();
   downstreamCodec_.generateHeader(output_, 1, resp, 0);
 
   parseUpstream();
@@ -743,7 +747,7 @@ TEST_F(HTTP2CodecTest, BasicPriority) {
 }
 
 TEST_F(HTTP2CodecTest, BasicPushPromise) {
-  output_.move(); // clear upstream connection preface
+  SetUpUpstreamTest();
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
   downstreamCodec_.generateHeader(output_, 2, req, 1);
@@ -756,12 +760,24 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
 }
 
 TEST_F(HTTP2CodecTest, BadPushPromise) {
-  output_.move(); // clear upstream connection preface
+  SetUpUpstreamTest();
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
   downstreamCodec_.generateHeader(output_, 2, req, 1);
 
   upstreamCodec_.getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 0);
+  parseUpstream();
+  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.assocStreamId, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+}
+
+TEST_F(HTTP2CodecTest, BadServerPreface) {
+  output_.move();
+  downstreamCodec_.generateWindowUpdate(output_, 0, 10);
   parseUpstream();
   EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);

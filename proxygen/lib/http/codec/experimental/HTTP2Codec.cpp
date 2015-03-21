@@ -55,8 +55,8 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
     : transportDirection_(direction),
       headerCodec_(direction),
       frameState_(direction == TransportDirection::DOWNSTREAM ?
-                  FrameState::CONNECTION_PREFACE :
-                  FrameState::FRAME_HEADER),
+                  FrameState::UPSTREAM_CONNECTION_PREFACE :
+                  FrameState::DOWNSTREAM_CONNECTION_PREFACE),
       sessionClosing_(ClosingState::OPEN) {
 
   headerCodec_.setDecoderHeaderTableMaxSize(
@@ -108,7 +108,7 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
   for (auto bufLen = cursor.totalLength();
        connError == ErrorCode::NO_ERROR;
        bufLen = cursor.totalLength()) {
-    if (frameState_ == FrameState::CONNECTION_PREFACE) {
+    if (frameState_ == FrameState::UPSTREAM_CONNECTION_PREFACE) {
       if (bufLen >= http2::kConnectionPreface.length()) {
         auto test = cursor.readFixedString(http2::kConnectionPreface.length());
         parsed += http2::kConnectionPreface.length();
@@ -120,11 +120,19 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
       } else {
         break;
       }
-    } else if (frameState_ == FrameState::FRAME_HEADER) {
+    } else if (frameState_ == FrameState::FRAME_HEADER ||
+               frameState_ == FrameState::DOWNSTREAM_CONNECTION_PREFACE) {
       // Waiting to parse the common frame header
       if (bufLen >= http2::kFrameHeaderSize) {
         connError = parseFrameHeader(cursor, curHeader_);
         parsed += http2::kFrameHeaderSize;
+        if (frameState_ == FrameState::DOWNSTREAM_CONNECTION_PREFACE &&
+            curHeader_.type != http2::FrameType::SETTINGS) {
+          VLOG(4) << "Invalid connection preface frame type="
+                  << getFrameTypeString(curHeader_.type) << "("
+                  << folly::to<string>(curHeader_.type) << ")";
+          connError = ErrorCode::PROTOCOL_ERROR;
+        }
         if (curHeader_.length > maxRecvFrameSize()) {
           VLOG(4) << "Excessively large frame len=" << curHeader_.length;
           connError = ErrorCode::FRAME_SIZE_ERROR;
