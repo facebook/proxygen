@@ -1725,6 +1725,8 @@ TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3_1);
 
+  InSequence sequence;
+  EXPECT_CALL(callbacks, onSettings(_));
   EXPECT_CALL(callbacks, onWindowUpdate(0, spdy::kInitialWindow));
   clientCodec.setCallback(&callbacks);
   parseOutput(clientCodec);

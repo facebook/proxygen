@@ -847,6 +847,7 @@ class HTTPSession:
   // Flow control settings
   size_t initialReceiveWindow_{65536};
   size_t receiveStreamWindowSize_{65536};
+  size_t receiveSessionWindowSize_{65536};
 
   const TransportDirection direction_;
 

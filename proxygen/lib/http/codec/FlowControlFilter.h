@@ -36,6 +36,8 @@ class FlowControlFilter:
     virtual void onConnectionSendWindowClosed() = 0;
   };
 
+  static const uint32_t kDefaultCapacity;
+
   /**
    * Construct a flow control filter.
    * @param callback     A channel to be notified when the window is not
@@ -44,13 +46,15 @@ class FlowControlFilter:
    *                     may generate a window update frame on this buffer.
    * @param codec        The codec implementation.
    * @param recvCapacity The initial size of the conn-level recv window.
-   *                     It must be >= 65536.
+   *                     It must be >= 65536.  If greater than 65536 it
+   *                     will generate an immediate window update into
+   *                     writeBuf.
    */
   explicit
   FlowControlFilter(Callback& callback,
                     folly::IOBufQueue& writeBuf,
                     HTTPCodec* codec,
-                    uint32_t recvCapacity);
+                    uint32_t recvCapacity = kDefaultCapacity);
 
   /**
    * Modify the session receive window

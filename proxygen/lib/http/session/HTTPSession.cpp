@@ -146,11 +146,11 @@ HTTPSession::HTTPSession(
     settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS,
                          maxConcurrentIncomingStreams_);
   }
+
+  codec_->generateConnectionPreface(writeBuf_);
+
   if (codec_->supportsSessionFlowControl()) {
-    connFlowControl_ = new FlowControlFilter(*this,
-                                             writeBuf_,
-                                             codec_.call(),
-                                             kDefaultReadBufLimit);
+    connFlowControl_ = new FlowControlFilter(*this, writeBuf_, codec_.call());
     codec_.addFilters(std::unique_ptr<FlowControlFilter>(connFlowControl_));
   }
 
@@ -191,8 +191,11 @@ HTTPSession::~HTTPSession() {
 void HTTPSession::startNow() {
   CHECK(!started_);
   started_ = true;
-  codec_->generateConnectionPreface(writeBuf_);
   codec_->generateSettings(writeBuf_);
+  if (connFlowControl_) {
+    connFlowControl_->setReceiveWindowSize(writeBuf_,
+                                           receiveSessionWindowSize_);
+  }
   scheduleWrite();
   resumeReads();
 }
@@ -214,14 +217,12 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
   CHECK(!started_);
   initialReceiveWindow_ = initialReceiveWindow;
   receiveStreamWindowSize_ = receiveStreamWindowSize;
+  // TODO(t6558522): line up kDefaultReadBufLimit and receiveSessionWindowSize
+  receiveSessionWindowSize_ = receiveSessionWindowSize;
   HTTPSettings* settings = codec_->getEgressSettings();
   if (settings) {
     settings->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                          initialReceiveWindow_);
-  }
-  if (connFlowControl_) {
-    connFlowControl_->setReceiveWindowSize(writeBuf_, receiveSessionWindowSize);
-    scheduleWrite();
   }
 }
 

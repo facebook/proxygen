@@ -22,6 +22,8 @@ HTTPException getException(const std::string& msg) {
 
 }
 
+const uint32_t FlowControlFilter::kDefaultCapacity = spdy::kInitialWindow;
+
 FlowControlFilter::FlowControlFilter(Callback& callback,
                                      folly::IOBufQueue& writeBuf,
                                      HTTPCodec* codec,
