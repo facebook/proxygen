@@ -818,8 +818,8 @@ TEST_F(HTTPDownstreamSessionTest, early_abort) {
 }
 
 TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
-  IOBufQueue requests;
-  IOBufQueue rst;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
+  IOBufQueue rst{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   MockHTTPHandler handler1;
   MockHTTPHandler handler2;
@@ -878,7 +878,7 @@ TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
   eventBase_.loop();
 }
 TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   MockHTTPHandler handler1;
   HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
@@ -924,7 +924,7 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
 
   // Create a request
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   MockHTTPHandler handler1;
   HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
@@ -980,7 +980,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
   // so we need to set it.
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
 
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   MockHTTPHandler handler1;
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
@@ -1042,8 +1042,8 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
   // so we need to set it.
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
 
-  IOBufQueue requests;
-  IOBufQueue rst;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
+  IOBufQueue rst{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   MockHTTPHandler handler1;
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
@@ -1090,7 +1090,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
 // socket, and let it timeout.  shutdownTransportWithReset will result in a call
 // to removeTransaction with writesDraining_=true
 TEST_F(HTTPDownstreamSessionTest, write_timeout) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   MockHTTPHandler handler1;
   HTTPMessage req = getGetRequest();
   req.setHTTPVersion(1, 0);
@@ -1136,7 +1136,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout) {
 
 // Send an abort from the write timeout path while pipelining
 TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   MockHTTPHandler handler1;
 
   HTTPMessage req = getGetRequest();
@@ -1179,7 +1179,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
 }
 
 TEST_F(HTTPDownstreamSessionTest, body_packetization) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   MockHTTPHandler handler1;
   HTTPMessage req = getGetRequest();
   req.setHTTPVersion(1, 0);
@@ -1233,7 +1233,7 @@ TEST_F(HTTPDownstreamSessionTest, http_malformed_pkt1) {
 TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
   // even when the handler does a massive write, the transport only gets small
   // writes
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   HTTP1xCodec clientCodec(TransportDirection::UPSTREAM);
   auto streamID = HTTPCodec::StreamID(0);
@@ -1288,7 +1288,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
 template <class C>
 void HTTPDownstreamTest<C>::testPriorities(
   HTTPCodec& clientCodec, uint32_t numPriorities) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   uint32_t iterations = 10;
   uint32_t maxPriority = numPriorities - 1;
   HTTPMessage req = getGetRequest();
@@ -1358,7 +1358,7 @@ void HTTPDownstreamTest<C>::testPriorities(
 // Verifies that the read timeout is not running when no ingress is expected/
 // required to proceed
 TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3);
@@ -1424,7 +1424,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
 // Verifies that the read timer is running while a transaction is blocked
 // on a window update
 TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3);
@@ -1468,7 +1468,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
 TYPED_TEST_CASE_P(HTTPDownstreamTest);
 
 TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   auto clientCodec =
     makeClientCodec<typename TypeParam::Codec>(TypeParam::version);
@@ -1505,7 +1505,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
 }
 
 TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   auto clientCodec =
     makeClientCodec<typename TypeParam::Codec>(TypeParam::version);
@@ -1566,7 +1566,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
 
 TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
   HTTPSession::setPendingWriteMax(12000);
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   req.setPriority(1);
   auto clientCodec =
@@ -1648,7 +1648,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
 // generate a complete response for txn=1 before parsing txn=3
 // HTTPSession should allow the txn=3 to be served rather than refusing it
 TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   StrictMock<MockHTTPHandler> handler1;
   StrictMock<MockHTTPHandler> handler2;
   HTTPMessage req = getGetRequest();
@@ -1742,7 +1742,7 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
   // The first txn should complete first
   std::array<StrictMock<MockHTTPHandler>, 2> handlers;
 
-  IOBufQueue requests;
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
   HTTPMessage req = getGetRequest();
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3);

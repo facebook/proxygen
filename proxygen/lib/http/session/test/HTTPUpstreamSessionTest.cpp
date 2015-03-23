@@ -200,7 +200,7 @@ class HTTPUpstreamTest: public testing::Test,
   SocketAddress localAddr_{"127.0.0.1", 80};
   SocketAddress peerAddr_{"127.0.0.1", 12345};
   HTTPUpstreamSession* httpSession_{nullptr};
-  IOBufQueue writes_;
+  IOBufQueue writes_{IOBufQueue::cacheChainLength()};
   bool saveWrites_{false};
   bool failWrites_{false};
   bool writeInLoop_{false};
@@ -302,7 +302,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
   // Create SPDY buf for GOAWAY with last good stream as 0 (no streams created)
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
                         SPDYVersion::SPDY3);
-  folly::IOBufQueue respBuf;
+  folly::IOBufQueue respBuf{IOBufQueue::cacheChainLength()};
   egressCodec.generateGoaway(respBuf, 0, ErrorCode::NO_ERROR);
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
@@ -351,7 +351,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
   // Create SPDY buf for GOAWAY with last good stream as 0 (no streams created)
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
                         SPDYVersion::SPDY3);
-  folly::IOBufQueue respBuf;
+  folly::IOBufQueue respBuf{IOBufQueue::cacheChainLength()};
   egressCodec.generateGoaway(respBuf, 0, ErrorCode::PROTOCOL_ERROR);
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
