@@ -12,6 +12,7 @@
 #include <folly/wangle/ssl/SSLContextConfig.h>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBase.h>
+#include <folly/wangle/bootstrap/ServerBootstrap.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
 #include <thread>
 
@@ -99,33 +100,12 @@ class HTTPServer final {
   }
 
  private:
-  HTTPServerOptions options_;
+  std::shared_ptr<HTTPServerOptions> options_;
 
   /**
    * Event base in which we binded server sockets.
    */
   folly::EventBase* mainEventBase_{nullptr};
-
-  /**
-   * Server socket
-   */
-  std::vector<folly::AsyncServerSocket::UniquePtr>
-      serverSockets_;
-
-  /**
-   * Struct to hold info about handle threads
-   */
-  struct HandlerThread {
-    std::thread thread;
-
-    folly::EventBase* eventBase{nullptr};
-
-    std::vector<std::unique_ptr<HTTPServerAcceptor>> acceptors;
-
-    uint32_t acceptorsRunning{0};
-  };
-
-  std::vector<HandlerThread> handlerThreads_;
 
   /**
    * Optional signal handlers on which we should shutdown server
@@ -136,6 +116,7 @@ class HTTPServer final {
    * Addresses we are listening on
    */
   std::vector<IPConfig> addresses_;
+  std::vector<folly::ServerBootstrap<folly::DefaultPipeline>> bootstrap_;
 };
 
 }
