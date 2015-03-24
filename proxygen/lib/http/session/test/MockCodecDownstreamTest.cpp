@@ -365,6 +365,8 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
   HTTPTransaction* pushTxn1 = nullptr;
   HTTPTransaction* pushTxn2 = nullptr;
 
+  fakeMockCodec(*codec_);
+
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
     .WillOnce(Return(&handler));
 
