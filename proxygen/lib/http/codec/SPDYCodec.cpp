@@ -30,7 +30,7 @@
 
 using folly::IOBuf;
 using folly::IOBufQueue;
-using folly::io::Appender;
+using folly::io::QueueAppender;
 using folly::io::Cursor;
 using folly::io::RWPrivateCursor;
 using proxygen::compress::Header;
@@ -909,8 +909,7 @@ size_t SPDYCodec::generateBody(folly::IOBufQueue& writeBuf,
   CHECK(len < (1 << 24));
 
   uint8_t flags = (eom) ? kFlagFin : 0;
-  generateDataFrame(writeBuf, uint32_t(stream), flags, len);
-  writeBuf.append(std::move(chain));
+  generateDataFrame(writeBuf, uint32_t(stream), flags, len, std::move(chain));
   return len;
 }
 
@@ -939,7 +938,7 @@ size_t SPDYCodec::generateTrailers(folly::IOBufQueue& writeBuf,
 size_t SPDYCodec::generateEOM(folly::IOBufQueue& writeBuf,
                               StreamID stream) {
   VLOG(4) << "sending EOM for stream=" << stream;
-  generateDataFrame(writeBuf, uint32_t(stream), kFlagFin, 0);
+  generateDataFrame(writeBuf, uint32_t(stream), kFlagFin, 0, nullptr);
   return 8; // size of data frame header
 }
 
@@ -956,35 +955,34 @@ size_t SPDYCodec::generateRstStream(IOBufQueue& writeBuf,
   }
 
   const uint32_t statusCode = (uint32_t) spdy::errorCodeToReset(code);
-  unique_ptr<IOBuf> frame = IOBuf::create(kFrameSizeControlCommon +
-                                          kFrameSizeRstStream);
-  size_t written = 0;
-  Appender appender(frame.get(), 0);
+  const size_t frameSize = kFrameSizeControlCommon + kFrameSizeRstStream;
+  const size_t expectedLength = writeBuf.chainLength() + frameSize;
+  QueueAppender appender(&writeBuf, frameSize);
   appender.writeBE(versionSettings_.controlVersion);
   appender.writeBE(uint16_t(spdy::RST_STREAM));
   appender.writeBE(flagsAndLength(0, kFrameSizeRstStream));
   appender.writeBE(uint32_t(stream));
   appender.writeBE(rstStatusSupported(statusCode) ?
                    statusCode : spdy::RST_PROTOCOL_ERROR);
-  written = frame->length();
-  writeBuf.append(std::move(frame));
-  return written;
+  DCHECK_EQ(writeBuf.chainLength(), expectedLength);
+  return frameSize;
 }
 
 size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
                                  StreamID lastStream,
                                  ErrorCode code) {
   const uint32_t statusCode = (uint32_t) spdy::errorCodeToGoaway(code);
-  unique_ptr<IOBuf> frame = IOBuf::create(kFrameSizeControlCommon +
-                                          (size_t)versionSettings_.goawaySize);
-  size_t written = 0;
-  Appender appender(frame.get(), 0);
-  appender.writeBE(versionSettings_.controlVersion);
+  const size_t frameSize = kFrameSizeControlCommon +
+    (size_t)versionSettings_.goawaySize;
 
   if (sessionClosing_ == ClosingState::CLOSING) {
     VLOG(4) << "Not sending GOAWAY for closed session";
     return 0;
   }
+  const size_t expectedLength = writeBuf.chainLength() + frameSize;
+  QueueAppender appender(&writeBuf, frameSize);
+  appender.writeBE(versionSettings_.controlVersion);
+
   if (code != ErrorCode::NO_ERROR) {
     sessionClosing_ = ClosingState::CLOSING;
   }
@@ -1017,9 +1015,8 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
     case ClosingState::CLOSING:
       break;
   }
-  written = frame->length();
-  writeBuf.append(std::move(frame));
-  return written;
+  DCHECK_EQ(writeBuf.chainLength(), expectedLength);
+  return frameSize;
 }
 
 size_t SPDYCodec::generatePingRequest(IOBufQueue& writeBuf) {
@@ -1035,25 +1032,24 @@ size_t SPDYCodec::generatePingReply(IOBufQueue& writeBuf, uint64_t uniqueID) {
 }
 
 size_t SPDYCodec::generatePingCommon(IOBufQueue& writeBuf, uint64_t uniqueID) {
-  unique_ptr<IOBuf> frame = IOBuf::create(kFrameSizeControlCommon +
-                                          kFrameSizePing);
-  Appender appender(frame.get(), 0);
+  const size_t frameSize = kFrameSizeControlCommon + kFrameSizePing;
+  const size_t expectedLength = writeBuf.chainLength() + frameSize;
+  QueueAppender appender(&writeBuf, frameSize);
   appender.writeBE(versionSettings_.controlVersion);
   appender.writeBE(uint16_t(spdy::PING));
   appender.writeBE(flagsAndLength(0, kFrameSizePing));
   appender.writeBE(uint32_t(uniqueID));
-  size_t encodedSize = frame->length();
-  writeBuf.append(std::move(frame));
-  return encodedSize;
+  DCHECK_EQ(writeBuf.chainLength(), expectedLength);
+  return frameSize;
 }
 
 size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
   auto numSettings = egressSettings_.getNumSettings();
   VLOG(4) << "generating " << (unsigned)numSettings << " settings";
-  unique_ptr<IOBuf> frame = IOBuf::create(
-      kFrameSizeControlCommon + kFrameSizeSettings +
-      (kFrameSizeSettingsEntry * numSettings));
-  Appender appender(frame.get(), 0);
+  const size_t frameSize = kFrameSizeControlCommon + kFrameSizeSettings +
+    (kFrameSizeSettingsEntry * numSettings);
+  const size_t expectedLength = writeBuf.chainLength() + frameSize;
+  QueueAppender appender(&writeBuf, frameSize);
   appender.writeBE(versionSettings_.controlVersion);
   appender.writeBE(uint16_t(spdy::SETTINGS));
   appender.writeBE(flagsAndLength(spdy::FLAG_SETTINGS_CLEAR_SETTINGS,
@@ -1081,9 +1077,8 @@ size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
     }
     appender.writeBE(setting.value);
   }
-  size_t written = frame->length();
-  writeBuf.append(std::move(frame));
-  return written;
+  DCHECK_EQ(writeBuf.chainLength(), expectedLength);
+  return frameSize;
 }
 
 size_t SPDYCodec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
@@ -1097,17 +1092,16 @@ size_t SPDYCodec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
 
   VLOG(4) << "generating window update for stream=" << stream
           << ": Processed " << delta << " bytes";
-  unique_ptr<IOBuf> frame = IOBuf::create(kFrameSizeControlCommon +
-                                          kFrameSizeWindowUpdate);
-  Appender appender(frame.get(), 0);
+  const size_t frameSize = kFrameSizeControlCommon + kFrameSizeWindowUpdate;
+  const size_t expectedLength = writeBuf.chainLength() + frameSize;
+  QueueAppender appender(&writeBuf, frameSize);
   appender.writeBE(versionSettings_.controlVersion);
   appender.writeBE(uint16_t(spdy::WINDOW_UPDATE));
   appender.writeBE(flagsAndLength(0, kFrameSizeWindowUpdate));
   appender.writeBE(uint32_t(stream)); // TODO: ensure stream < 2^31
   appender.writeBE(delta); // TODO: delta should never be bigger than 2^31
-  size_t written = frame->length();
-  writeBuf.append(std::move(frame));
-  return written;
+  DCHECK_EQ(writeBuf.chainLength(), expectedLength);
+  return frameSize;
 }
 
 void SPDYCodec::enableDoubleGoawayDrain() {
@@ -1124,16 +1118,30 @@ uint8_t SPDYCodec::getMinorVersion() const {
 }
 
 size_t SPDYCodec::generateDataFrame(folly::IOBufQueue& writeBuf,
-    uint32_t streamID, uint8_t flags, uint32_t length) {
+                                    uint32_t streamID, uint8_t flags,
+                                    uint32_t length,
+                                    unique_ptr<IOBuf> payload) {
   const size_t frameSize = kFrameSizeDataCommon;
-  unique_ptr<IOBuf> frame = IOBuf::create(frameSize);
-  frame->append(frameSize);
-  RWPrivateCursor cursor(frame.get());
+  uint64_t payloadLength = 0;
+  if (payload && !payload->isSharedOne() &&
+      payload->headroom() >= frameSize &&
+      writeBuf.tailroom() < frameSize) {
+    // Use the headroom in payload for the frame header.
+    // Make it appear that the payload IOBuf is empty and retreat so
+    // appender can access the headroom
+    payloadLength = payload->length();
+    payload->trimEnd(payloadLength);
+    payload->retreat(frameSize);
+    auto tail = payload->pop();
+    writeBuf.append(std::move(payload));
+    payload = std::move(tail);
+  }
+  QueueAppender cursor(&writeBuf, frameSize);
   cursor.writeBE(uint32_t(streamID));
   cursor.writeBE(flagsAndLength(flags, length));
-  size_t encodedSize = frame->length();
-  writeBuf.append(std::move(frame));
-  return encodedSize;
+  writeBuf.postallocate(payloadLength);
+  writeBuf.append(std::move(payload));
+  return kFrameSizeDataCommon + length;
 }
 
 unique_ptr<HTTPMessage>

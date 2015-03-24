@@ -255,11 +255,13 @@ public:
    * @param flags    Bitmap of flags, as defined in the SPDY spec.
    * @param length   Length of the data, in bytes.
    * @return length  Length of the encoded bytes
+   * @return payload data payload
    */
   size_t generateDataFrame(folly::IOBufQueue& writeBuf,
                            uint32_t streamID,
                            uint8_t flags,
-                           uint32_t length);
+                           uint32_t length,
+                           std::unique_ptr<folly::IOBuf> payload);
 
   /**
    * Serializes headers for requests (aka SYN_STREAM)
