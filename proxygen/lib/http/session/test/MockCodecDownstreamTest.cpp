@@ -365,8 +365,6 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
   HTTPTransaction* pushTxn1 = nullptr;
   HTTPTransaction* pushTxn2 = nullptr;
 
-  fakeMockCodec(*codec_);
-
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
     .WillOnce(Return(&handler));
 
@@ -670,6 +668,40 @@ TEST_F(MockCodecDownstreamTest, ping) {
   //EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
   httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+}
+
+TEST_F(MockCodecDownstreamTest, flow_control_abort) {
+  MockHTTPHandler handler1;
+  auto req1 = makePostRequest();
+
+  InSequence enforceOrder;
+
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler1));
+
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+          handler1.txn_ = txn; }));
+  EXPECT_CALL(handler1, onHeadersComplete(_))
+    .WillOnce(InvokeWithoutArgs([&handler1] () {
+          handler1.txn_->sendAbort();
+        }));
+
+  // Header egresses immediately
+  EXPECT_CALL(handler1, detachTransaction());
+
+  codecCallback_->onMessageBegin(HTTPCodec::StreamID(1), req1.get());
+  codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req1));
+  EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, spdy::kInitialWindow));
+  codecCallback_->onBody(HTTPCodec::StreamID(1), makeBuf(spdy::kInitialWindow));
+  EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, spdy::kInitialWindow));
+  codecCallback_->onBody(HTTPCodec::StreamID(1), makeBuf(spdy::kInitialWindow));
+
+  eventBase_.loop();
+
+  EXPECT_CALL(*codec_, onIngressEOF());
+  EXPECT_CALL(mockController_, detachSession(_));
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, buffering) {

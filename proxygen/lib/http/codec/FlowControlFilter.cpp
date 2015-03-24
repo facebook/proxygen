@@ -71,8 +71,11 @@ void FlowControlFilter::setReceiveWindowSize(folly::IOBufQueue& writeBuf,
 bool FlowControlFilter::ingressBytesProcessed(folly::IOBufQueue& writeBuf,
                                               uint32_t delta) {
   toAck_ += delta;
+  VLOG(4) << "processed " << toAck_ << " bytes, recv capacity="
+          << recvWindow_.getCapacity();
   if (toAck_ > 0 && uint32_t(toAck_) > recvWindow_.getCapacity() / 2) {
     CHECK(recvWindow_.free(toAck_));
+    VLOG(4) << "recvWindow=" << recvWindow_.getSize();
     call_->generateWindowUpdate(writeBuf, 0, toAck_);
     toAck_ = 0;
     return true;
@@ -102,6 +105,8 @@ void FlowControlFilter::onBody(StreamID stream,
         recvWindow_.getSize(), ", amount=", amount));
     callback_->onError(0, ex, false);
   } else {
+    VLOG(4) << "Received " << amount << " bytes, recvWindow=" <<
+      recvWindow_.getSize();
     callback_->onBody(stream, std::move(chain));
   }
 }
@@ -109,6 +114,8 @@ void FlowControlFilter::onBody(StreamID stream,
 void FlowControlFilter::onWindowUpdate(StreamID stream, uint32_t amount) {
   if (!stream) {
     bool success = sendWindow_.free(amount);
+    VLOG(4) << "Remote side ack'd " << amount << " bytes, sendWindow=" <<
+      sendWindow_.getSize();
     if (!success) {
       LOG(WARNING) << "Remote side sent connection-level WINDOW_UPDATE "
                    << "that could not be applied. Aborting session.";
@@ -122,6 +129,7 @@ void FlowControlFilter::onWindowUpdate(StreamID stream, uint32_t amount) {
       callback_->onError(stream, ex, false);
     }
     if (sendsBlocked_ && sendWindow_.getNonNegativeSize()) {
+      VLOG(4) << "Send window opened";
       sendsBlocked_ = false;
       notify_.onConnectionSendWindowOpen();
     }
@@ -136,12 +144,16 @@ size_t FlowControlFilter::generateBody(folly::IOBufQueue& writeBuf,
                                        std::unique_ptr<folly::IOBuf> chain,
                                        bool eom) {
   bool success = sendWindow_.reserve(chain->computeChainDataLength());
+  VLOG(4) << "Sending " << chain->computeChainDataLength()
+          << " bytes, sendWindow=" << sendWindow_.getSize();
+
   // In the future, maybe make this DCHECK
   CHECK(success) << "Session-level send window underflowed! "
                  << "Too much data sent without WINDOW_UPDATES!";
 
   if (sendWindow_.getNonNegativeSize() == 0) {
     // Need to inform when the send window is no longer full
+    VLOG(4) << "Send window closed";
     sendsBlocked_ = true;
     notify_.onConnectionSendWindowClosed();
   }

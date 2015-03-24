@@ -655,13 +655,18 @@ HTTPSession::onBody(HTTPCodec::StreamID streamID,
   DestructorGuard dg(this);
   // The codec's parser detected part of the ingress message's
   // entity-body.
+  uint64_t length = chain->computeChainDataLength();
   HTTPTransaction* txn = findTransaction(streamID);
   if (!txn) {
+    if (connFlowControl_ &&
+        connFlowControl_->ingressBytesProcessed(writeBuf_, length)) {
+      scheduleWrite();
+    }
     invalidStream(streamID);
     return;
   }
   auto oldSize = pendingReadSize_;
-  pendingReadSize_ += chain->computeChainDataLength();
+  pendingReadSize_ += length;
   txn->onIngressBody(std::move(chain));
   if (oldSize < pendingReadSize_) {
     // Transaction must have buffered something and not called
