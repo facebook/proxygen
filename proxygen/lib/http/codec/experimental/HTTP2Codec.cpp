@@ -844,7 +844,8 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
       }
     });
 
-  headerCodec_.setEncodeHeadroom(http2::kFrameHeadersBaseMaxSize);
+  headerCodec_.setEncodeHeadroom(http2::kFrameHeaderSize +
+                                 http2::kFrameHeadersBaseMaxSize);
   auto out = headerCodec_.encode(allHeaders);
   if (size) {
     *size = headerCodec_.getEncodedSize();
