@@ -32,8 +32,10 @@ class HPACKEncoder : public HPACKContext {
 
   /**
    * Size of a new IOBuf which is added to the chain
+   *
+   * jemalloc will round up to 4k - overhead
    */
-  static const uint32_t kBufferGrowth = 4096;
+  static const uint32_t kBufferGrowth = 4000;
 
   /**
    * Encode the given headers and return the buffer

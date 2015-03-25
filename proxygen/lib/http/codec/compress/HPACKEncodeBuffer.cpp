@@ -49,10 +49,7 @@ void HPACKEncodeBuffer::addHeadroom(uint32_t headroom) {
 }
 
 void HPACKEncodeBuffer::append(uint8_t byte) {
-  buf_.ensure(1);
-  uint8_t* data = buf_.writableData();
-  *data = byte;
-  buf_.append(1);
+  buf_.push(&byte, 1);
 }
 
 uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t prefix,
@@ -93,7 +90,6 @@ uint32_t HPACKEncodeBuffer::encodeHuffman(const std::string& literal) {
   // add the length
   uint32_t count = encodeInteger(size, HPACK::LiteralEncoding::HUFFMAN, 7);
   // ensure we have enough bytes before performing the encoding
-  buf_.ensure(size);
   count += huffmanTree_.encode(literal, buf_);
   return count;
 }
@@ -106,9 +102,7 @@ uint32_t HPACKEncodeBuffer::encodeLiteral(const std::string& literal) {
   uint32_t count =
     encodeInteger(literal.size(), HPACK::LiteralEncoding::PLAIN, 7);
   // copy the entire string
-  buf_.ensure(literal.size());
-  memcpy(buf_.writableData(), literal.c_str(), literal.size());
-  buf_.append(literal.size());
+  buf_.push((uint8_t*)literal.c_str(), literal.size());
   count += literal.size();
   return count;
 }

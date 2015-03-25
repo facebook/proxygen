@@ -136,7 +136,6 @@ uint32_t HuffTree::encode(const std::string& literal,
   uint8_t bits;   // on how many bits code is represented
   uint32_t w = 0; // 4-byte word used for packing bits and write it to memory
   uint8_t wbits = 0;  // how many bits we have in 'w'
-  uint32_t* wdata = (uint32_t*) buf.writableData();
   uint32_t totalBytes = 0;
   for (size_t i = 0; i < literal.size(); i++) {
     uint8_t ch = literal[i];
@@ -151,8 +150,7 @@ uint32_t HuffTree::encode(const std::string& literal,
       w = (w << (bits - xbits)) | (code >> xbits);
       // write the word into the buffer by converting to network order, which
       // takes care of the endianness problems
-      *wdata = htonl(w);
-      ++wdata;
+      buf.writeBE<uint32_t>(w);
       totalBytes += 4;
       // carry for next batch
       wbits = xbits;
@@ -175,13 +173,8 @@ uint32_t HuffTree::encode(const std::string& literal,
     // set the bytes in the network order and copy w[0], w[1]...
     w = htonl(w);
     // we need to use memcpy because we might write less than 4 bytes
-    memcpy(wdata, &w, bytes);
+    buf.push((uint8_t*)&w, bytes);
     totalBytes += bytes;
-  }
-  // in this point we know if we corrupted memory or not
-  CHECK(totalBytes <= buf.length());
-  if (totalBytes > 0) {
-    buf.append(totalBytes);
   }
   return totalBytes;
 }
