@@ -361,7 +361,7 @@ void HTTPTransaction::markIngressComplete() {
 
 void HTTPTransaction::markEgressComplete() {
   VLOG(4) << "Marking egress complete on " << *this;
-  if (deferredEgressBody_.chainLength()) {
+  if (deferredEgressBody_.chainLength() && isEnqueued()) {
     transport_.notifyEgressBodyBuffered(-deferredEgressBody_.chainLength());
   }
   deferredEgressBody_.move();
@@ -545,7 +545,7 @@ void HTTPTransaction::sendHeaders(const HTTPMessage& headers) {
 void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendBody));
-  if (body) {
+  if (body && isEnqueued()) {
     size_t bodyLen = body->computeChainDataLength();
     transport_.notifyEgressBodyBuffered(bodyLen);
   }
@@ -640,7 +640,6 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
 
   // Update the handler's pause state
   notifyTransportPendingEgress();
-  updateHandlerPauseState();
 
   if (transportCallback_) {
     transportCallback_->bodyBytesGenerated(nbytes);
@@ -961,9 +960,11 @@ void HTTPTransaction::notifyTransportPendingEgress() {
       queueHandle_ = egressQueue_.push(this);
       enqueued_ = true;
       transport_.notifyPendingEgress();
+      transport_.notifyEgressBodyBuffered(deferredEgressBody_.chainLength());
     }
   } else if (isEnqueued()) {
     // Nothing to send, or not allowed to send right now.
+    transport_.notifyEgressBodyBuffered(-deferredEgressBody_.chainLength());
     dequeue();
   }
   updateHandlerPauseState();
@@ -971,7 +972,7 @@ void HTTPTransaction::notifyTransportPendingEgress() {
 
 void HTTPTransaction::updateHandlerPauseState() {
   bool handlerShouldBePaused = egressPaused_ ||
-    (useFlowControl_ && sendWindow_.getSize() <= 0);
+    (useFlowControl_ && sendWindow_.getSize() <= 0) || egressRateLimited_;
   if (handler_ && handlerShouldBePaused != handlerEgressPaused_) {
     if (handlerShouldBePaused) {
       handlerEgressPaused_ = true;

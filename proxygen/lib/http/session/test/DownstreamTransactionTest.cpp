@@ -261,3 +261,58 @@ TEST_F(DownstreamTransactionTest, detach_from_notify) {
   txn.onIngressHeadersComplete(makeGetRequest());
   txn.onError(err);
 }
+
+TEST_F(DownstreamTransactionTest, deferred_egress) {
+  EXPECT_CALL(transport_, describe(_))
+    .WillRepeatedly(Return());
+  EXPECT_CALL(transport_, notifyPendingEgress())
+    .WillRepeatedly(Return());
+
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(), nullptr, true, 10, 10);
+
+  InSequence dummy;
+
+  EXPECT_CALL(handler_, setTransaction(&txn));
+  EXPECT_CALL(handler_, onHeadersComplete(_))
+    .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> msg) {
+          auto response = makeResponse(200);
+          txn.sendHeaders(*response.get());
+          txn.sendBody(std::move(makeBuf(10)));
+          txn.sendBody(std::move(makeBuf(20)));
+        }));
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _))
+    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused) {
+          EXPECT_EQ(headers.getStatusCode(), 200);
+        }));
+
+  // when enqueued
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(10));
+  // sendBody
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(20));
+
+  txn.setHandler(&handler_);
+  txn.onIngressHeadersComplete(makeGetRequest());
+
+  // onWriteReady, send, then dequeue
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
+  EXPECT_CALL(handler_, onEgressPaused());
+
+  EXPECT_EQ(txn.onWriteReady(20), false);
+
+  // enqueued after window update
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(20));
+  EXPECT_CALL(handler_, onEgressResumed());
+
+  txn.onIngressWindowUpdate(20);
+
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
+  EXPECT_CALL(handler_, onError(_));
+  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(transport_, detach(&txn));
+
+  HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS, "test");
+  txn.onError(err);
+}
