@@ -897,7 +897,6 @@ TEST_P(ChromeHTTP2Test, ChromeContinuation) {
   req.getHeaders().add("x-header", bigval);
   generateHeaderChrome(headerCodec, output_, 1, req, 0, false, nullptr,
                        agent.find("Chrome/45") == string::npos);
-  upstreamCodec_.generateSettingsAck(output_);
 
   parse();
   callbacks_.expectMessage(false, -1, "/");
@@ -907,9 +906,12 @@ TEST_P(ChromeHTTP2Test, ChromeContinuation) {
   EXPECT_EQ(callbacks_.messageBegin, 1);
   EXPECT_EQ(callbacks_.headersComplete, 1);
   EXPECT_EQ(callbacks_.messageComplete, 0);
-  EXPECT_EQ(callbacks_.settingsAcks, 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+
+  upstreamCodec_.generateSettingsAck(output_);
+  parse();
+  EXPECT_EQ(callbacks_.settingsAcks, 1);
 }
 
 TEST_P(ChromeHTTP2Test, ChromeContinuationSecondStream) {
@@ -924,7 +926,6 @@ TEST_P(ChromeHTTP2Test, ChromeContinuationSecondStream) {
   req.getHeaders().add("x-headerx", bigval);
   generateHeaderChrome(headerCodec, output_, 3, req, 0, false, nullptr,
                        agent.find("Chrome/45") == string::npos);
-  upstreamCodec_.generateSettingsAck(output_);
 
   parse();
   const auto& headers = callbacks_.msg->getHeaders();
@@ -933,9 +934,12 @@ TEST_P(ChromeHTTP2Test, ChromeContinuationSecondStream) {
   EXPECT_EQ(callbacks_.messageBegin, 2);
   EXPECT_EQ(callbacks_.headersComplete, 2);
   EXPECT_EQ(callbacks_.messageComplete, 0);
-  EXPECT_EQ(callbacks_.settingsAcks, 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+
+  upstreamCodec_.generateSettingsAck(output_);
+  parse();
+  EXPECT_EQ(callbacks_.settingsAcks, 1);
 }
 
 INSTANTIATE_TEST_CASE_P(AgentTest,
@@ -949,7 +953,6 @@ TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   bigval.append(8691, ' ');
   req.getHeaders().add("x-headr", bigval);
   upstreamCodec_.generateHeader(output_, 1, req, 0);
-  upstreamCodec_.generateSettingsAck(output_);
 
   parse();
   callbacks_.expectMessage(false, -1, "/");
@@ -958,7 +961,10 @@ TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   EXPECT_EQ(callbacks_.messageBegin, 1);
   EXPECT_EQ(callbacks_.headersComplete, 1);
   EXPECT_EQ(callbacks_.messageComplete, 0);
-  EXPECT_EQ(callbacks_.settingsAcks, 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+
+  upstreamCodec_.generateSettingsAck(output_);
+  parse();
+  EXPECT_EQ(callbacks_.settingsAcks, 1);
 }

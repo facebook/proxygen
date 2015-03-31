@@ -138,6 +138,25 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
           connError = ErrorCode::FRAME_SIZE_ERROR;
         }
         frameState_ = FrameState::FRAME_DATA;
+        if (connError == ErrorCode::NO_ERROR &&
+            curHeader_.type == http2::FrameType::CONTINUATION &&
+            transportDirection_ == TransportDirection::DOWNSTREAM &&
+            (needsChromeWorkaround_ || (
+              lastStreamID_ == 1 &&
+              curHeaderBlock_.chainLength() > 0 &&
+              curHeaderBlock_.chainLength() %
+              http2::kMaxFramePayloadLengthMin != 0)) &&
+            curHeader_.length == 1024) {
+          // It's possible we do not yet know the user-agent for the
+          // first header block on this session.  If that's the case,
+          // use the heuristic that only chrome breaks HEADERS frames
+          // at less than kMaxFramePayloadLength.  Note it is entirely
+          // possible for this heuristic to be abused (for example by
+          // sending exactly 17kb of *compressed* header data).  But
+          // this should be rare.  TODO: remove when Chrome 42 is < 1%
+          // of traffic?
+          curHeader_.length -= http2::kFrameHeaderSize;
+        }
 #ifndef NDEBUG
         receivedFrameCount_++;
 #endif
@@ -278,21 +297,6 @@ ErrorCode HTTP2Codec::parseContinuation(Cursor& cursor) {
   std::unique_ptr<IOBuf> headerBuf;
   VLOG(4) << "parsing CONTINUATION frame for stream=" << curHeader_.stream <<
     " length=" << curHeader_.length;
-  if (transportDirection_ == TransportDirection::DOWNSTREAM &&
-      (needsChromeWorkaround_ || (
-        lastStreamID_ == 1 &&
-        curHeaderBlock_.chainLength() > 0 &&
-        curHeaderBlock_.chainLength() %
-         http2::kMaxFramePayloadLengthMin != 0)) &&
-       curHeader_.length == 1024) {
-    // It's possible we do not yet know the user-agent for the first header
-    // block on this session.  If that's the case, use the heuristic that only
-    // chrome breaks HEADERS frames at less than kMaxFramePayloadLength.  Note
-    // it is entirely possible for this heuristic to be abused (for example
-    // by sending exactly 17kb of *compressed* header data).  But this should
-    // be rare.  TODO: remove when Chrome 42 is < 1% of traffic?
-    curHeader_.length -= http2::kFrameHeaderSize;
-  }
   auto err = http2::parseContinuation(cursor, curHeader_, headerBuf);
   RETURN_IF_ERROR(err);
   err = parseHeadersImpl(cursor, std::move(headerBuf),
