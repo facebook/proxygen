@@ -608,6 +608,25 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
               "0\r\n\r\n");
 }
 
+TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
+  // Test that setting a new timeout on the transaction will cancel
+  // the old one.
+  MockHTTPHandler handler;
+  AsyncTimeoutSet::UniquePtr timeoutSet(
+      new AsyncTimeoutSet(&eventBase_, std::chrono::milliseconds(500)));
+
+  EXPECT_CALL(handler, setTransaction(_));
+  EXPECT_CALL(handler, detachTransaction());
+
+  auto txn = httpSession_->newTransaction(&handler);
+  txn->setTransactionIdleTimeouts(timeoutSet.get());
+  EXPECT_TRUE(txn->isScheduled());
+  EXPECT_FALSE(transactionTimeouts_->front());
+  EXPECT_TRUE(timeoutSet->front());
+  txn->sendAbort();
+  eventBase_.loop();
+}
+
 TEST_F(HTTPUpstreamSessionTest, 100_continue_keepalive) {
   // Test a request with 100 continue on a keepalive connection. Then make
   // another request.

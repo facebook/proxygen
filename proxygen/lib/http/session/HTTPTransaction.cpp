@@ -32,7 +32,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t seqNo,
                                  Transport& transport,
                                  PriorityQueue& egressQueue,
-                                 AsyncTimeoutSet* transactionTimeouts,
+                                 AsyncTimeoutSet* transactionIdleTimeouts,
                                  HTTPSessionStats* stats,
                                  bool useFlowControl,
                                  uint32_t receiveInitialWindowSize,
@@ -44,7 +44,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     id_(id),
     seqNo_(seqNo),
     transport_(transport),
-    transactionTimeouts_(transactionTimeouts),
+    transactionIdleTimeouts_(transactionIdleTimeouts),
     stats_(stats),
     recvWindow_(receiveInitialWindowSize),
     sendWindow_(sendInitialWindowSize),
@@ -1008,6 +1008,18 @@ bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
   }
   pushedTransactions_.insert(pushTxn->getID());
   return true;
+}
+
+void HTTPTransaction::setTransactionIdleTimeouts(
+    AsyncTimeoutSet* transactionIdleTimeouts) {
+  bool previouslyScheduled = isScheduled();
+  if (previouslyScheduled) {
+    cancelTimeout();
+  }
+  transactionIdleTimeouts_ = transactionIdleTimeouts;
+  if (previouslyScheduled) {
+    refreshTimeout();
+  }
 }
 
 void

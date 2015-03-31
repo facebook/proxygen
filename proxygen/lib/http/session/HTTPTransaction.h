@@ -360,7 +360,7 @@ class HTTPTransaction :
                   uint32_t seqNo,
                   Transport& transport,
                   PriorityQueue& egressQueue,
-                  AsyncTimeoutSet* transactionTimeouts,
+                  AsyncTimeoutSet* transactionIdleTimeouts,
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
                   uint32_t receiveInitialWindowSize = 0,
@@ -855,6 +855,14 @@ class HTTPTransaction :
   }
 
   /**
+   * Sets the time for which a transaction can have no activity over it before
+   * it will error out.
+   * The previous timeout will be canceled and the new timeout will be
+   * scheduled on the timeout set if it had been previously scheduled.
+   */
+  void setTransactionIdleTimeouts(AsyncTimeoutSet* transactionIdleTimeouts);
+
+  /**
    * Returns the associated transaction ID for pushed transactions, 0 otherwise
    */
   HTTPCodec::StreamID getAssocTxnId() const {
@@ -880,8 +888,8 @@ class HTTPTransaction :
    * Schedule or refresh the timeout for this transaction
    */
   void refreshTimeout() {
-    if (transactionTimeouts_) {
-      transactionTimeouts_->scheduleTimeout(this);
+    if (transactionIdleTimeouts_) {
+      transactionIdleTimeouts_->scheduleTimeout(this);
     }
   }
 
@@ -1071,7 +1079,7 @@ class HTTPTransaction :
     HTTPTransactionEgressSM::getNewInstance()};
   HTTPTransactionIngressSM::State ingressState_{
     HTTPTransactionIngressSM::getNewInstance()};
-  AsyncTimeoutSet* transactionTimeouts_{nullptr};
+  AsyncTimeoutSet* transactionIdleTimeouts_{nullptr};
   HTTPSessionStats* stats_{nullptr};
 
   /**
