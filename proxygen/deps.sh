@@ -21,7 +21,6 @@ sudo apt-get install -yq \
     pkg-config \
     libssl-dev \
     libcap-dev \
-    ruby \
     gperf \
     autoconf-archive \
     libevent-dev \

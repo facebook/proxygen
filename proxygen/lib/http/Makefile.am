@@ -2,13 +2,11 @@ SUBDIRS = . codec session test
 
 BUILT_SOURCES = HTTPCommonHeaders.h HTTPCommonHeaders.cpp
 
-CommonHeadersGen: HTTPCommonHeaders.template.h HTTPCommonHeaders.template.gperf HTTPCommonHeaders.txt
-	INSTALLED_GPERF=1 FBCODE_DIR=$(top_srcdir)/.. INSTALL_DIR=$(srcdir) ruby generate_http_gperfs.rb
-	touch CommonHeadersGen
+HTTPCommonHeaders.h: HTTPCommonHeaders.template.h HTTPCommonHeaders.txt
+	FBCODE_DIR=$(top_srcdir)/.. INSTALL_DIR=$(srcdir) HEADERS_LIST=$(srcdir)/HTTPCommonHeaders.txt gen_HTTPCommonHeaders.h.sh
 
-HTTPCommonHeaders.h: CommonHeadersGen
-
-HTTPCommonHeaders.cpp: CommonHeadersGen
+HTTPCommonHeaders.cpp: HTTPCommonHeaders.template.gperf HTTPCommonHeaders.txt
+	FBCODE_DIR=$(top_srcdir)/.. INSTALL_DIR=$(srcdir) HEADERS_LIST=$(srcdir)/HTTPCommonHeaders.txt gen_HTTPCommonHeaders.cpp.sh
 
 noinst_LTLIBRARIES = libproxygenhttp.la
 

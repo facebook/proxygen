@@ -210,15 +210,10 @@ AC_CHECK_FUNCS([gettimeofday \
                 dup2 \
                 ftruncate])
 
-# Check for python, ruby, and gperf (needed for auto generated code)
+# Check for python and gperf (needed for auto generated code)
 AC_CHECK_PROG(HAVE_PYTHON, python, yes)
 if test x"$HAVE_PYTHON" != x"yes"; then
    AC_MSG_ERROR([Please install python first.])
-fi
-
-AC_CHECK_PROG(HAVE_RUBY, ruby, yes)
-if test x"$HAVE_RUBY" != x"yes"; then
-   AC_MSG_ERROR([Please install ruby first.])
 fi
 
 AC_CHECK_PROG(HAVE_GPERF, gperf, yes)
