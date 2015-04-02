@@ -21,6 +21,7 @@
 using folly::IOBuf;
 using folly::ThreadLocalPtr;
 using folly::io::Cursor;
+using namespace proxygen;
 using proxygen::compress::Header;
 using proxygen::compress::HeaderPiece;
 using proxygen::compress::HeaderPieceList;
@@ -37,7 +38,46 @@ static const uint32_t kZlibBlockHeaderSize = 5;
 // Maximum size of header names+values after expanding multi-value headers
 const size_t kMaxExpandedHeaderLineBytes = 80 * 1024;
 
+// Pre-initialized compression contexts seeded with the
+// starting dictionary for different SPDY versions - cloning
+// one of these is faster than initializing and seeding a
+// brand new deflate context.
+struct ZlibConfig {
+
+  ZlibConfig(SPDYVersion inVersion, int inCompressionLevel)
+      : version(inVersion), compressionLevel(inCompressionLevel) {}
+
+  bool operator==(const ZlibConfig& lhs) const {
+    return (version == lhs.version) &&
+      (compressionLevel == lhs.compressionLevel);
+  }
+
+  bool operator<(const ZlibConfig& lhs) const {
+    return (version < lhs.version) ||
+        ((version == lhs.version) &&
+         (compressionLevel < lhs.compressionLevel));
+  }
+  SPDYVersion version;
+  int compressionLevel;
+};
+
+struct ZlibContext {
+  ~ZlibContext() {
+    deflateEnd(&deflater);
+    inflateEnd(&inflater);
+  }
+
+  z_stream deflater;
+  z_stream inflater;
+};
+
+
+typedef std::map<ZlibConfig, std::unique_ptr<ZlibContext>> ZlibContextMap;
+
 DEFINE_UNION_STATIC(ThreadLocalPtr<IOBuf>, IOBuf, s_buf);
+DEFINE_UNION_STATIC(folly::ThreadLocal<ZlibContextMap>,
+                    ThreadLocalContextMap,
+                    s_zlibContexts);
 
 folly::IOBuf& getStaticHeaderBufSpace(size_t size) {
   if (!s_buf.data) {
@@ -59,45 +99,14 @@ void appendString(uint8_t*& dst, const string& str) {
   dst += len;
 }
 
-} // anonymous namespace
-
-namespace proxygen {
-
-GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
-                                 const SPDYVersionSettings& versionSettings)
-    : versionSettings_(versionSettings), compressionLevel_(compressionLevel) {
-  // Create compression and decompression contexts by cloning thread-local
-  // copies of the initial SPDY compression state
-  auto context = getZlibContext(versionSettings, compressionLevel);
-  if (compressionLevel_ != Z_NO_COMPRESSION) {
-    deflateCopy(&deflater_, const_cast<z_stream*>(&(context->deflater)));
-  }
-  inflateCopy(&inflater_, const_cast<z_stream*>(&(context->inflater)));
-}
-
-GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
-                                 SPDYVersion version)
-    : GzipHeaderCodec(
-        compressionLevel,
-        SPDYCodec::getVersionSettings(version)) {}
-
-GzipHeaderCodec::~GzipHeaderCodec() {
-  if (compressionLevel_ != Z_NO_COMPRESSION) {
-    deflateEnd(&deflater_);
-  }
-  inflateEnd(&inflater_);
-}
-
-folly::IOBuf& GzipHeaderCodec::getHeaderBuf() {
-  return getStaticHeaderBufSpace(maxUncompressed_);
-}
-
-const GzipHeaderCodec::ZlibContext* GzipHeaderCodec::getZlibContext(
-    SPDYVersionSettings versionSettings, int compressionLevel) {
-  static folly::ThreadLocal<ZlibContextMap> zlibContexts_;
+/**
+ * get the thread local cached zlib context
+ */
+static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
+                                         int compressionLevel) {
   ZlibConfig zlibConfig(versionSettings.version, compressionLevel);
-  auto match = zlibContexts_->find(zlibConfig);
-  if (match != zlibContexts_->end()) {
+  auto match = s_zlibContexts.data->find(zlibConfig);
+  if (match != s_zlibContexts.data->end()) {
     return match->second.get();
   } else {
     // This is the first request for the specified SPDY version and compression
@@ -140,9 +149,42 @@ const GzipHeaderCodec::ZlibContext* GzipHeaderCodec::getZlibContext(
     CHECK(r == Z_OK);
 
     auto result = newContext.get();
-    zlibContexts_->emplace(zlibConfig, std::move(newContext));
+    s_zlibContexts.data->emplace(zlibConfig, std::move(newContext));
     return result;
   }
+}
+
+} // anonymous namespace
+
+namespace proxygen {
+
+GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
+                                 const SPDYVersionSettings& versionSettings)
+    : versionSettings_(versionSettings), compressionLevel_(compressionLevel) {
+  // Create compression and decompression contexts by cloning thread-local
+  // copies of the initial SPDY compression state
+  auto context = getZlibContext(versionSettings, compressionLevel);
+  if (compressionLevel_ != Z_NO_COMPRESSION) {
+    deflateCopy(&deflater_, const_cast<z_stream*>(&(context->deflater)));
+  }
+  inflateCopy(&inflater_, const_cast<z_stream*>(&(context->inflater)));
+}
+
+GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
+                                 SPDYVersion version)
+    : GzipHeaderCodec(
+        compressionLevel,
+        SPDYCodec::getVersionSettings(version)) {}
+
+GzipHeaderCodec::~GzipHeaderCodec() {
+  if (compressionLevel_ != Z_NO_COMPRESSION) {
+    deflateEnd(&deflater_);
+  }
+  inflateEnd(&inflater_);
+}
+
+folly::IOBuf& GzipHeaderCodec::getHeaderBuf() {
+  return getStaticHeaderBufSpace(maxUncompressed_);
 }
 
 void GzipHeaderCodec::pushZlibHeader(folly::io::Appender& appender,

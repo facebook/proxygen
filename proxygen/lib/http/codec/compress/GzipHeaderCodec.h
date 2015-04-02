@@ -59,46 +59,5 @@ class GzipHeaderCodec : public HeaderCodec {
   int compressionLevel_;
   bool firstHeader_{true};
 
-  // Pre-initialized compression contexts seeded with the
-  // starting dictionary for different SPDY versions - cloning
-  // one of these is faster than initializing and seeding a
-  // brand new deflate context.
-  struct ZlibConfig {
-
-    ZlibConfig(SPDYVersion inVersion, int inCompressionLevel)
-        : version(inVersion), compressionLevel(inCompressionLevel) {}
-
-    bool operator==(const ZlibConfig& lhs) const {
-      return (version == lhs.version) &&
-        (compressionLevel == lhs.compressionLevel);
-    }
-
-    bool operator<(const ZlibConfig& lhs) const {
-      return (version < lhs.version) ||
-          ((version == lhs.version) &&
-           (compressionLevel < lhs.compressionLevel));
-    }
-    SPDYVersion version;
-    int compressionLevel;
-  };
-
-  struct ZlibContext {
-    ~ZlibContext() {
-      deflateEnd(&deflater);
-      inflateEnd(&inflater);
-    }
-
-    z_stream deflater;
-    z_stream inflater;
-  };
-
-  /**
-   * get the thread local cached zlib context
-   */
-  static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
-                                           int compressionLevel);
-
-  typedef std::map<ZlibConfig, std::unique_ptr<ZlibContext>> ZlibContextMap;
 };
-
 }
