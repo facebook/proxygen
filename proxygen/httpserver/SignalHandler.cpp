@@ -18,7 +18,7 @@ using folly::EventBaseManager;
 namespace proxygen {
 
 SignalHandler::SignalHandler(HTTPServer* server)
-    : TAsyncSignalHandler(EventBaseManager::get()->getEventBase()),
+    : folly::AsyncSignalHandler(EventBaseManager::get()->getEventBase()),
       server_(server) {
 }
 

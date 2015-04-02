@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <thrift/lib/cpp/async/TAsyncSignalHandler.h>
+#include <folly/io/async/AsyncSignalHandler.h>
 #include <vector>
 
 namespace proxygen {
@@ -22,13 +22,13 @@ class HTTPServer;
  *
  * Note: Should only be created from the thread invoking `HTTPServer::start()`.
  */
-class SignalHandler: private apache::thrift::async::TAsyncSignalHandler {
+class SignalHandler: private folly::AsyncSignalHandler {
  public:
   explicit SignalHandler(HTTPServer* server);
 
   void install(const std::vector<int>& signals);
  private:
-  // TAsyncSignalHandler
+  // AsyncSignalHandler
   void signalReceived(int signum) noexcept override;
 
   HTTPServer* const server_{nullptr};
