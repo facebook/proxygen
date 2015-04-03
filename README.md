@@ -31,16 +31,16 @@ the dependencies and proxygen. It will also run all the tests. Then run
 `./reinstall.sh` to install it. You can run `./deps.sh && ./reinstall.sh`
 whenever to rebase the dependencies, and then rebuild and reinstall proxygen.
 
-A note on compatibility: this project relies on system installed fbthrift
-and folly. If you rebase proxygen and `make` starts to fail, you likely
-need to update to the latest version of fbthrift and folly. Running
+A note on compatibility: this project relies on system installed
+folly. If you rebase proxygen and `make` starts to fail, you likely
+need to update to the latest version of folly. Running
 `./deps.sh && ./reinstall.sh` will do this for you. We are still working
 on a solution to manage depencies more predictably.
 
 ##### Other Platforms
 
 If you are running on another platform, you may need to install several
-packages first. Proxygen, fbthrift, and folly are all autotools based projects.
+packages first. Proxygen and folly are all autotools based projects.
 
 ### Introduction
 
@@ -134,7 +134,7 @@ $ curl -v http://localhost:11000/
 We use Doxygen for Proxygen's internal documentation. You can generate a
 copy of these docs by running `doxygen Doxyfile` from the project
 root. You'll want to look at `html/namespaceproxygen.html` to start. This
-will also generate folly and thrift documentation.
+will also generate folly documentation.
 
 ### Contributing
 Contribututions to Proxygen are more than welcome. [Read the guidelines in CONTRIBUTING.md](CONTRIBUTING.md).
