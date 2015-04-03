@@ -9,9 +9,8 @@
  */
 #include <proxygen/lib/http/session/test/TestUtils.h>
 
-using namespace apache::thrift::async;
-using namespace apache::thrift::test;
-using namespace apache::thrift::transport;
+using folly::test::MockAsyncTransport;
+
 using namespace folly;
 
 namespace proxygen {
@@ -31,8 +30,8 @@ AsyncTimeoutSet::UniquePtr makeTimeoutSet(EventBase* evb) {
     new AsyncTimeoutSet(evb, std::chrono::milliseconds(500)));
 }
 
-testing::NiceMock<MockTAsyncTransport>* newMockTransport(EventBase* evb) {
-  auto transport = new testing::NiceMock<MockTAsyncTransport>();
+testing::NiceMock<MockAsyncTransport>* newMockTransport(EventBase* evb) {
+  auto transport = new testing::NiceMock<MockAsyncTransport>();
   EXPECT_CALL(*transport, getEventBase())
     .WillRepeatedly(testing::Return(evb));
   return transport;

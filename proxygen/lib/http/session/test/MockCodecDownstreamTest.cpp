@@ -24,12 +24,11 @@
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <string>
 #include <strstream>
-#include <thrift/lib/cpp/test/MockTAsyncTransport.h>
+#include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
 
-using namespace apache::thrift::async;
-using namespace apache::thrift::test;
-using namespace apache::thrift::transport;
+using folly::test::MockAsyncTransport;
+
 using namespace folly::wangle;
 using namespace folly;
 using namespace proxygen;
@@ -45,7 +44,7 @@ class MockCodecDownstreamTest: public testing::Test {
   MockCodecDownstreamTest()
     : eventBase_(),
       codec_(new StrictMock<MockHTTPCodec>()),
-      transport_(new NiceMock<MockTAsyncTransport>()),
+      transport_(new NiceMock<MockAsyncTransport>()),
       transactionTimeouts_(makeInternalTimeoutSet(&eventBase_)) {
 
     EXPECT_CALL(*transport_, good())
@@ -107,7 +106,7 @@ class MockCodecDownstreamTest: public testing::Test {
 
     httpSession_ = new HTTPDownstreamSession(
       transactionTimeouts_.get(),
-      std::move(TAsyncTransport::UniquePtr(transport_)),
+      std::move(AsyncTransportWrapper::UniquePtr(transport_)),
       localAddr, peerAddr,
       &mockController_,
       std::unique_ptr<HTTPCodec>(codec_),
@@ -149,7 +148,7 @@ class MockCodecDownstreamTest: public testing::Test {
   // invalid once httpSession_ is destroyed
   StrictMock<MockHTTPCodec>* codec_;
   HTTPCodec::Callback* codecCallback_{nullptr};
-  NiceMock<MockTAsyncTransport>* transport_;
+  NiceMock<MockAsyncTransport>* transport_;
   folly::AsyncTransportWrapper::ReadCallback* transportCb_;
   AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   StrictMock<MockController> mockController_;
@@ -614,7 +613,7 @@ TEST_F(MockCodecDownstreamTest, read_timeout) {
   EXPECT_CALL(*transport_, writeChain(_, _, _))
     .WillRepeatedly(Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                std::shared_ptr<folly::IOBuf> iob,
-                               apache::thrift::async::WriteFlags flags) {
+                               folly::WriteFlags flags) {
                              callback->writeSuccess();
                            }));
 
@@ -835,7 +834,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
   EXPECT_CALL(*transport_, writeChain(_, _, _))
     .WillRepeatedly(Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                std::shared_ptr<folly::IOBuf> iob,
-                               apache::thrift::async::WriteFlags flags) {
+                               folly::WriteFlags flags) {
                              callback->writeSuccess();
                            }));
   eventBase_.loop();
@@ -888,7 +887,7 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
   EXPECT_CALL(*transport_, writeChain(_, _, _))
     .WillRepeatedly(Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
                                std::shared_ptr<folly::IOBuf> iob,
-                               apache::thrift::async::WriteFlags flags) {
+                               folly::WriteFlags flags) {
                              callback->writeSuccess();
                            }));
 

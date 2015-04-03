@@ -13,7 +13,7 @@
 #include <folly/io/async/SSLContext.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <proxygen/lib/utils/Time.h>
-#include <thrift/lib/cpp/async/TAsyncSocket.h>
+#include <folly/io/async/AsyncSocket.h>
 
 namespace proxygen {
 
@@ -25,7 +25,7 @@ class HTTPUpstreamSession;
  * service setting up one connection at a time.
  */
 class HTTPConnector:
-      private apache::thrift::async::TAsyncSocket::ConnectCallback {
+      private folly::AsyncSocket::ConnectCallback {
  public:
   /**
    * This class defines the pure virtual interface on which to receive the
@@ -36,7 +36,7 @@ class HTTPConnector:
     virtual ~Callback() {}
     virtual void connectSuccess(HTTPUpstreamSession* session) = 0;
     virtual void connectError(
-      const apache::thrift::transport::TTransportException& ex) = 0;
+      const folly::AsyncSocketException& ex) = 0;
   };
 
   /**
@@ -100,10 +100,10 @@ class HTTPConnector:
     folly::EventBase* eventBase,
     const folly::SocketAddress& connectAddr,
     std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
-    const apache::thrift::async::TAsyncSocket::OptionMap& socketOptions =
-      apache::thrift::async::TAsyncSocket::emptyOptionMap,
+    const folly::AsyncSocket::OptionMap& socketOptions =
+      folly::AsyncSocket::emptyOptionMap,
     const folly::SocketAddress& bindAddr =
-      apache::thrift::async::TAsyncSocket::anyAddress());
+      folly::AsyncSocket::anyAddress());
 
   /**
    * Begin the process of getting a secure connection to the server
@@ -126,10 +126,10 @@ class HTTPConnector:
     const std::shared_ptr<folly::SSLContext>& ctx,
     SSL_SESSION* session = nullptr,
     std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
-    const apache::thrift::async::TAsyncSocket::OptionMap& socketOptions =
-      apache::thrift::async::TAsyncSocket::emptyOptionMap,
+    const folly::AsyncSocket::OptionMap& socketOptions =
+      folly::AsyncSocket::emptyOptionMap,
     const folly::SocketAddress& bindAddr =
-      apache::thrift::async::TAsyncSocket::anyAddress());
+      folly::AsyncSocket::anyAddress());
 
   /**
    * @returns the number of milliseconds since connecting began, or
@@ -145,12 +145,12 @@ class HTTPConnector:
 
  private:
   void connectSuccess() noexcept override;
-  void connectError(const apache::thrift::transport::TTransportException& ex)
+  void connectErr(const folly::AsyncSocketException& ex)
     noexcept override;
 
   Callback* cb_;
   AsyncTimeoutSet* timeoutSet_;
-  apache::thrift::async::TAsyncSocket::UniquePtr socket_;
+  folly::AsyncSocket::UniquePtr socket_;
   folly::TransportInfo transportInfo_;
   std::string plaintextProtocol_;
   TimePoint connectStart_;

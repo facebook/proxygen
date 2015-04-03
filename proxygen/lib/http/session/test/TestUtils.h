@@ -13,7 +13,7 @@
 #include <folly/io/async/TimeoutManager.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
-#include <thrift/lib/cpp/test/MockTAsyncTransport.h>
+#include <folly/io/async/test/MockAsyncTransport.h>
 
 namespace proxygen {
 
@@ -27,7 +27,7 @@ makeInternalTimeoutSet(folly::EventBase* evb);
 AsyncTimeoutSet::UniquePtr
 makeTimeoutSet(folly::EventBase* evb);
 
-testing::NiceMock<apache::thrift::test::MockTAsyncTransport>*
+testing::NiceMock<folly::test::MockAsyncTransport>*
 newMockTransport(folly::EventBase* evb);
 
 }

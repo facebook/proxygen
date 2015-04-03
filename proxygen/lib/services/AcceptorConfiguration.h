@@ -17,7 +17,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <thrift/lib/cpp/async/TAsyncSocket.h>
+#include <folly/io/async/AsyncSocket.h>
 #include <zlib.h>
 
 namespace proxygen {

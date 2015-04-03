@@ -18,13 +18,14 @@
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
-#include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
+#include <folly/io/async/AsyncSSLSocket.h>
 
-using apache::thrift::async::TAsyncSSLSocket;
-using apache::thrift::async::TAsyncSocket;
-using apache::thrift::async::TAsyncTransport;
-using apache::thrift::async::WriteFlags;
-using apache::thrift::transport::TTransportException;
+using folly::AsyncSSLSocket;
+using folly::AsyncSocket;
+using folly::AsyncTransportWrapper;
+using folly::AsyncTransport;
+using folly::WriteFlags;
+using folly::AsyncSocketException;
 using folly::IOBuf;
 using folly::SocketAddress;
 using folly::TransportInfo;
@@ -82,16 +83,16 @@ HTTPSession::WriteSegment::writeSuccess() noexcept {
 
   // session_ should never be nullptr for a successful write
   // The session is only cleared after a write error or timeout, and all
-  // TAsyncTransport write failures are fatal.  If session_ is nullptr at this
-  // point it means the TAsyncTransport implementation is not failing
+  // AsyncTransport write failures are fatal.  If session_ is nullptr at this
+  // point it means the AsyncTransport implementation is not failing
   // subsequent writes correctly after an error.
   session_->onWriteSuccess(length_);
   delete this;
 }
 
 void
-HTTPSession::WriteSegment::writeError(size_t bytesWritten,
-                                      const TTransportException& ex) noexcept {
+HTTPSession::WriteSegment::writeErr(size_t bytesWritten,
+                                    const AsyncSocketException& ex) noexcept {
   // After one segment fails to write, we clear the session_
   // pointer in all subsequent write segments, so we ignore their
   // writeError() callbacks.
@@ -104,7 +105,7 @@ HTTPSession::WriteSegment::writeError(size_t bytesWritten,
 
 HTTPSession::HTTPSession(
   AsyncTimeoutSet* transactionTimeouts,
-  TAsyncTransport::UniquePtr sock,
+  AsyncTransportWrapper::UniquePtr sock,
   const SocketAddress& localAddr,
   const SocketAddress& peerAddr,
   HTTPSessionController* controller,
@@ -406,7 +407,7 @@ HTTPSession::processReadData() {
   // will invoke various methods of the HTTPSession as callbacks.
   const IOBuf* currentReadBuf;
   // It's possible for the last buffer in a chain to be empty here.
-  // TAsyncTransport saw fd activity so asked for a read buffer, but it was
+  // AsyncTransport saw fd activity so asked for a read buffer, but it was
   // SSL traffic and not enough to decrypt a whole record.  Later we invoke
   // this function from the loop callback.
   while (!ingressError_ &&
@@ -446,14 +447,13 @@ HTTPSession::readEOF() noexcept {
 }
 
 void
-HTTPSession::readError(
-    const TTransportException& ex) noexcept {
+HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
   DestructorGuard guard(this);
   VLOG(4) << "read error on " << *this << ": " << ex.what();
   if (infoCallback_ && (
         ERR_GET_LIB(ex.getErrno()) == ERR_LIB_USER &&
         ERR_GET_REASON(ex.getErrno()) ==
-        (int)TAsyncSSLSocket::SSL_CLIENT_RENEGOTIATION_ATTEMPT)) {
+        (int)AsyncSSLSocket::SSL_CLIENT_RENEGOTIATION_ATTEMPT)) {
     infoCallback_->onIngressError(*this, kErrorClientRenegotiation);
   }
 
@@ -1374,7 +1374,7 @@ const TransportInfo& HTTPSession::getSetupTransportInfo() const noexcept {
 }
 
 bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
-  TAsyncSocket* sock = dynamic_cast<TAsyncSocket*>(sock_.get());
+  AsyncSocket* sock = dynamic_cast<AsyncSocket*>(sock_.get());
   if (sock) {
     tinfo->initWithSocket(sock);
     // some fields are the same with the setup transport info
@@ -1528,7 +1528,7 @@ HTTPSession::runLoopCallback() noexcept {
 
     // Install the read callback if necessary
     if (readsUnpaused() && !sock_->getReadCallback()) {
-      sock_->setReadCallback(this);
+      sock_->setReadCB(this);
     }
   }
   // checkForShutdown is now in ScopeGuard
@@ -1649,7 +1649,7 @@ HTTPSession::shutdownTransport(bool shutdownReads,
   if (shutdownReads && !readsShutdown()) {
     notifyIngressShutdown = true;
     // TODO: send an RST if readBuf_ is non empty?
-    sock_->setReadCallback(nullptr);
+    sock_->setReadCB(nullptr);
     reads_ = SocketState::SHUTDOWN;
     if (!transactions_.empty() && error == kErrorConnectionReset) {
       if (infoCallback_ != nullptr) {
@@ -1684,7 +1684,7 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
   VLOG(4) << "shutdownTransportWithReset";
 
   if (!readsShutdown()) {
-    sock_->setReadCallback(nullptr);
+    sock_->setReadCB(nullptr);
     reads_ = SocketState::SHUTDOWN;
   }
 
@@ -1732,7 +1732,7 @@ HTTPSession::checkForShutdown() {
   if (writesShutdown() && transactions_.empty() &&
       !isLoopCallbackScheduled()) {
     VLOG(4) << "destroying " << *this;
-    sock_->setReadCallback(nullptr);
+    sock_->setReadCB(nullptr);
     reads_ = SocketState::SHUTDOWN;
     if (resetSocketOnShutdown_) {
       sock_->closeWithReset();
@@ -1914,7 +1914,7 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
 
 void
 HTTPSession::onWriteError(size_t bytesWritten,
-                          const TTransportException& ex) {
+                          const AsyncSocketException& ex) {
   VLOG(4) << *this << " write error: " << ex.what();
   if (infoCallback_) {
     infoCallback_->onWrite(*this, bytesWritten);
@@ -2006,7 +2006,7 @@ HTTPSession::pauseReads() {
     infoCallback_->onIngressPaused(*this);
   }
   cancelTimeout();
-  sock_->setReadCallback(nullptr);
+  sock_->setReadCB(nullptr);
   reads_ = SocketState::PAUSED;
 }
 

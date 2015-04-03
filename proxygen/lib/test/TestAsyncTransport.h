@@ -14,9 +14,9 @@
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/AsyncTimeout.h>
 #include <proxygen/lib/utils/Time.h>
-#include <thrift/lib/cpp/async/TAsyncTransport.h>
+#include <folly/io/async/AsyncTransport.h>
 
-class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
+class TestAsyncTransport : public folly::AsyncTransportWrapper,
                            private folly::AsyncTimeout {
  public:
   class WriteEvent {
@@ -47,21 +47,21 @@ class TestAsyncTransport : public apache::thrift::async::TAsyncTransport,
 
   explicit TestAsyncTransport(folly::EventBase* eventBase);
 
-  // TAsyncTransport methods
+  // AsyncTransport methods
   void setReadCB(AsyncTransportWrapper::ReadCallback* callback) override;
   ReadCallback* getReadCallback() const override;
   void write(AsyncTransportWrapper::WriteCallback* callback,
              const void* buf, size_t bytes,
-             apache::thrift::async::WriteFlags flags =
-             apache::thrift::async::WriteFlags::NONE) override;
+             folly::WriteFlags flags =
+             folly::WriteFlags::NONE) override;
   void writev(AsyncTransportWrapper::WriteCallback* callback,
               const struct iovec* vec, size_t count,
-              apache::thrift::async::WriteFlags flags =
-              apache::thrift::async::WriteFlags::NONE) override;
+              folly::WriteFlags flags =
+              folly::WriteFlags::NONE) override;
   void writeChain(AsyncTransportWrapper::WriteCallback* callback,
                   std::unique_ptr<folly::IOBuf>&& iob,
-                  apache::thrift::async::WriteFlags flags =
-                  apache::thrift::async::WriteFlags::NONE) override;
+                  folly::WriteFlags flags =
+                  folly::WriteFlags::NONE) override;
   void close() override;
   void closeNow() override;
   void shutdownWrite() override;

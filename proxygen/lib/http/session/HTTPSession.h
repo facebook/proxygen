@@ -25,7 +25,7 @@
 #include <proxygen/lib/utils/Time.h>
 #include <queue>
 #include <set>
-#include <thrift/lib/cpp/async/TAsyncSocket.h>
+#include <folly/io/async/AsyncSocket.h>
 #include <vector>
 
 namespace proxygen {
@@ -39,7 +39,7 @@ class HTTPSession:
   private folly::EventBase::LoopCallback,
   public ByteEventTracker::Callback,
   public HTTPTransaction::Transport,
-  public apache::thrift::async::TAsyncTransport::ReadCallback,
+  public folly::AsyncTransportWrapper::ReadCallback,
   public folly::wangle::ManagedConnection {
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
@@ -119,11 +119,11 @@ class HTTPSession:
 
   void setSessionStats(HTTPSessionStats* stats);
 
-  apache::thrift::async::TAsyncTransport* getTransport() {
+  folly::AsyncTransportWrapper* getTransport() {
     return sock_.get();
   }
 
-  const apache::thrift::async::TAsyncTransport* getTransport() const {
+  const folly::AsyncTransportWrapper* getTransport() const {
     return sock_.get();
   }
 
@@ -334,7 +334,7 @@ class HTTPSession:
    */
   HTTPSession(
       AsyncTimeoutSet* transactionTimeouts,
-      apache::thrift::async::TAsyncTransport::UniquePtr sock,
+      folly::AsyncTransportWrapper::UniquePtr sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
       HTTPSessionController* controller,
@@ -408,23 +408,23 @@ class HTTPSession:
    * can be deleted.
    */
   class WriteSegment :
-    public apache::thrift::async::TAsyncTransport::WriteCallback {
+    public folly::AsyncTransportWrapper::WriteCallback {
    public:
     WriteSegment(HTTPSession* session, uint64_t length);
 
     void setCork(bool cork) {
       if (cork) {
-        flags_ = flags_ | apache::thrift::async::WriteFlags::CORK;
+        flags_ = flags_ | folly::WriteFlags::CORK;
       } else {
-        unSet(flags_, apache::thrift::async::WriteFlags::CORK);
+        unSet(flags_, folly::WriteFlags::CORK);
       }
     }
 
     void setEOR(bool eor) {
       if (eor) {
-        flags_ = flags_ | apache::thrift::async::WriteFlags::EOR;
+        flags_ = flags_ | folly::WriteFlags::EOR;
       } else {
-        unSet(flags_, apache::thrift::async::WriteFlags::EOR);
+        unSet(flags_, folly::WriteFlags::EOR);
       }
     }
 
@@ -434,7 +434,7 @@ class HTTPSession:
      */
     void detach();
 
-    apache::thrift::async::WriteFlags getFlags() {
+    folly::WriteFlags getFlags() {
       return flags_;
     }
 
@@ -442,11 +442,11 @@ class HTTPSession:
       return length_;
     }
 
-    // TAsyncTransport::WriteCallback methods
-    virtual void writeSuccess() noexcept;
-    virtual void writeError(
+    // AsyncTransport::WriteCallback methods
+    void writeSuccess() noexcept override;
+    void writeErr(
         size_t bytesWritten,
-        const apache::thrift::transport::TTransportException&) noexcept;
+        const folly::AsyncSocketException&) noexcept override;
 
     folly::IntrusiveListHook listHook;
    private:
@@ -458,8 +458,8 @@ class HTTPSession:
 
     HTTPSession* session_;
     uint64_t length_;
-    apache::thrift::async::WriteFlags flags_{
-      apache::thrift::async::WriteFlags::NONE};
+    folly::WriteFlags flags_{
+      folly::WriteFlags::NONE};
   };
   typedef folly::IntrusiveList<WriteSegment, &WriteSegment::listHook>
     WriteSegmentList;
@@ -468,13 +468,13 @@ class HTTPSession:
   void writeTimeoutExpired() noexcept;
   void flowControlTimeoutExpired() noexcept;
 
-  // TAsyncTransport::ReadCallback methods
+  // AsyncTransportWrapper::ReadCallback methods
   void getReadBuffer(void** buf, size_t* bufSize) override;
   void readDataAvailable(size_t readSize) noexcept override;
   void processReadData();
   void readEOF() noexcept override;
-  void readError(
-      const apache::thrift::transport::TTransportException&) noexcept override;
+  void readErr(
+      const folly::AsyncSocketException&) noexcept override;
 
   // HTTPCodec::Callback methods
   void onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg) override;
@@ -613,7 +613,7 @@ class HTTPSession:
 
   /** Invoked by WriteSegment on write failure. */
   void onWriteError(size_t bytesWritten,
-      const apache::thrift::transport::TTransportException& ex);
+      const folly::AsyncSocketException& ex);
 
   /** Check whether to shut down the transport after a write completes. */
   void onWriteCompleted();
@@ -723,7 +723,7 @@ class HTTPSession:
 
   WriteSegmentList pendingWrites_;
 
-  apache::thrift::async::TAsyncTransport::UniquePtr sock_;
+  folly::AsyncTransportWrapper::UniquePtr sock_;
 
   HTTPSessionController* controller_{nullptr};
 

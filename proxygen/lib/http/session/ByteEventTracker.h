@@ -13,7 +13,7 @@
 #include <proxygen/lib/http/session/ByteEvents.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/Time.h>
-#include <thrift/lib/cpp/async/TAsyncSocket.h>
+#include <folly/io/async/AsyncSocket.h>
 
 namespace proxygen {
 
@@ -65,7 +65,7 @@ class ByteEventTracker {
   virtual bool setMaxTcpAckTracked(
     uint32_t maxAckTracked,
     AsyncTimeoutSet* ackLatencyTimeouts,
-    apache::thrift::async::TAsyncTransport* transport) { return false; }
+    folly::AsyncTransportWrapper* transport) { return false; }
 
   virtual void setTTLBAStats(TTLBAStats* stats) {}
 

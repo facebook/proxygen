@@ -26,7 +26,7 @@ class HTTPDownstreamSession final: public HTTPSession {
    */
   HTTPDownstreamSession(
       AsyncTimeoutSet* transactionTimeouts,
-      apache::thrift::async::TAsyncTransport::UniquePtr&& sock,
+      folly::AsyncTransportWrapper::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
       HTTPSessionController* controller,

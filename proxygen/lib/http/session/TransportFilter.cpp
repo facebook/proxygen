@@ -9,13 +9,13 @@
  */
 #include <proxygen/lib/http/session/TransportFilter.h>
 
-using namespace apache::thrift::async;
-using namespace apache::thrift::transport;
+
+
 using namespace folly;
 
 namespace proxygen {
 
-// TAsyncTransport::ReadCallback methods
+// AsyncTransportWrapper::ReadCallback methods
 void PassThroughTransportFilter::getReadBuffer(void** bufReturn,
                                                size_t* lenReturn) {
   callback_->getReadBuffer(bufReturn, lenReturn);
@@ -30,22 +30,22 @@ void PassThroughTransportFilter::readEOF() noexcept {
   destroy();
 }
 
-void PassThroughTransportFilter::readError(
-    const TTransportException& ex) noexcept {
-  callback_->readError(ex);
+void PassThroughTransportFilter::readErr(
+    const AsyncSocketException& ex) noexcept {
+  callback_->readErr(ex);
   destroy();
 }
 
-// TAsyncTransport methods
+// AsyncTransport methods
 
-void PassThroughTransportFilter::setReadCallback(
-    TAsyncTransport::ReadCallback* callback) {
+void PassThroughTransportFilter::setReadCB(
+    AsyncTransportWrapper::ReadCallback* callback) {
   // Important! The filter must call setCallbackInternal in its base class and
   // it must not forward the call.
   setCallbackInternal(callback);
 }
 
-TAsyncTransport::ReadCallback*
+AsyncTransportWrapper::ReadCallback*
 PassThroughTransportFilter::getReadCallback() const {
   return call_->getReadCallback();
 }

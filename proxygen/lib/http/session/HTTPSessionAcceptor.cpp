@@ -12,7 +12,7 @@
 #include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
-using apache::thrift::async::TAsyncSocket;
+using folly::AsyncSocket;
 using folly::SocketAddress;
 using std::list;
 using std::string;
@@ -59,7 +59,7 @@ void HTTPSessionAcceptor::onNewConnection(
   unique_ptr<HTTPCodec> codec;
   SPDYVersion spdyVersion;
 
-  TAsyncSocket::UniquePtr sock(dynamic_cast<TAsyncSocket*>(ssock.release()));
+  AsyncSocket::UniquePtr sock(dynamic_cast<AsyncSocket*>(ssock.release()));
 
   if (!isSSL() && alwaysUseSPDYVersion_) {
     codec = folly::make_unique<SPDYCodec>(

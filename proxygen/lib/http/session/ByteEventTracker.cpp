@@ -14,8 +14,8 @@
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <string>
 
-using apache::thrift::async::TAsyncSocket;
-using apache::thrift::async::TAsyncTransport;
+using folly::AsyncSocket;
+using folly::AsyncTransportWrapper;
 using std::string;
 using std::vector;
 

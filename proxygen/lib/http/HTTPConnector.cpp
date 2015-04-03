@@ -14,10 +14,10 @@
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
-#include <thrift/lib/cpp/async/TAsyncSSLSocket.h>
+#include <folly/io/async/AsyncSSLSocket.h>
 
-using namespace apache::thrift::async;
-using namespace apache::thrift::transport;
+
+
 using namespace folly;
 using namespace std;
 
@@ -74,13 +74,13 @@ void HTTPConnector::connect(
   EventBase* eventBase,
   const folly::SocketAddress& connectAddr,
   chrono::milliseconds timeoutMs,
-  const TAsyncSocket::OptionMap& socketOptions,
+  const AsyncSocket::OptionMap& socketOptions,
   const folly::SocketAddress& bindAddr) {
 
   DCHECK(!isBusy());
   transportInfo_ = TransportInfo();
   transportInfo_.ssl = false;
-  socket_.reset(new TAsyncSocket(eventBase));
+  socket_.reset(new AsyncSocket(eventBase));
   connectStart_ = getCurrentTime();
   socket_->connect(this, connectAddr, timeoutMs.count(),
                    socketOptions, bindAddr);
@@ -92,13 +92,13 @@ void HTTPConnector::connectSSL(
   const shared_ptr<SSLContext>& context,
   SSL_SESSION* session,
   chrono::milliseconds timeoutMs,
-  const TAsyncSocket::OptionMap& socketOptions,
+  const AsyncSocket::OptionMap& socketOptions,
   const folly::SocketAddress& bindAddr) {
 
   DCHECK(!isBusy());
   transportInfo_ = TransportInfo();
   transportInfo_.ssl = true;
-  auto sslSock = new TAsyncSSLSocket(context, eventBase);
+  auto sslSock = new AsyncSSLSocket(context, eventBase);
   if (session) {
     sslSock->setSSLSession(session, true /* take ownership */);
   }
@@ -131,7 +131,7 @@ void HTTPConnector::connectSuccess() noexcept {
 
   transportInfo_.acceptTime = getCurrentTime();
   if (transportInfo_.ssl) {
-    TAsyncSSLSocket* sslSocket = static_cast<TAsyncSSLSocket*>(socket_.get());
+    AsyncSSLSocket* sslSocket = dynamic_cast<AsyncSSLSocket*>(socket_.get());
 
     const char* npnProto;
     unsigned npnProtoLen;
@@ -160,7 +160,7 @@ void HTTPConnector::connectSuccess() noexcept {
   cb_->connectSuccess(session);
 }
 
-void HTTPConnector::connectError(const TTransportException& ex) noexcept {
+void HTTPConnector::connectErr(const AsyncSocketException& ex) noexcept {
   socket_.reset();
   if (cb_) {
     cb_->connectError(ex);

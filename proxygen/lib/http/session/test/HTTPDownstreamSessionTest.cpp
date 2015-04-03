@@ -27,12 +27,12 @@
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <string>
 #include <strstream>
-#include <thrift/lib/cpp/test/MockTAsyncTransport.h>
+#include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
 
-using namespace apache::thrift::async;
-using namespace apache::thrift::test;
-using namespace apache::thrift::transport;
+
+
+
 using namespace folly::wangle;
 using namespace folly;
 using namespace proxygen;
@@ -74,7 +74,7 @@ class HTTPDownstreamTest : public testing::Test {
     EXPECT_CALL(mockController_, attachSession(_));
     httpSession_ = new HTTPDownstreamSession(
       transactionTimeouts_.get(),
-      std::move(TAsyncTransport::UniquePtr(transport_)),
+      std::move(AsyncTransportWrapper::UniquePtr(transport_)),
       localAddr, peerAddr,
       &mockController_,
       std::move(makeServerCodec<typename C::Codec>(
@@ -594,7 +594,7 @@ TEST(HTTPDownstreamTest, parse_error_no_txn) {
   auto transactionTimeouts = makeInternalTimeoutSet(&evb);
   auto session = new HTTPDownstreamSession(
     transactionTimeouts.get(),
-    TAsyncTransport::UniquePtr(transport),
+    AsyncTransportWrapper::UniquePtr(transport),
     localAddr, peerAddr,
     &mockController, std::move(codec),
     mockTransportInfo);
@@ -622,7 +622,7 @@ TEST(HTTPDownstreamTest, byte_events_drained) {
   // Create the downstream session
   auto session = new HTTPDownstreamSession(
     transactionTimeouts.get(),
-    TAsyncTransport::UniquePtr(transport),
+    AsyncTransportWrapper::UniquePtr(transport),
     localAddr, peerAddr,
     &mockController, std::move(codec),
     mockTransportInfo);

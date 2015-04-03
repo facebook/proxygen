@@ -12,10 +12,10 @@
 #include <folly/SocketAddress.h>
 #include <folly/io/IOBuf.h>
 #include <folly/io/async/EventBase.h>
-#include <thrift/lib/cpp/transport/TTransportException.h>
+#include <folly/io/async/AsyncSocketException.h>
 
-using apache::thrift::async::WriteFlags;
-using apache::thrift::transport::TTransportException;
+using folly::WriteFlags;
+using folly::AsyncSocketException;
 using folly::AsyncTimeout;
 using folly::EventBase;
 using folly::IOBuf;
@@ -195,7 +195,7 @@ TestAsyncTransport::setReadCB(AsyncTransportWrapper::ReadCallback* callback) {
     return;
   } else if (readState_ == kStateError) {
     folly::AsyncSocketException ex(folly::AsyncSocketException::NOT_OPEN,
-                           "setReadCallback() called with socket in "
+                           "setReadCB() called with socket in "
                            "invalid state");
     callback->readErr(ex);
     return;
@@ -246,11 +246,11 @@ TestAsyncTransport::writev(AsyncTransportWrapper::WriteCallback* callback,
     eorCount_++;
   }
   if (!writesAllowed()) {
-    TTransportException ex(TTransportException::NOT_OPEN,
+    AsyncSocketException ex(AsyncSocketException::NOT_OPEN,
                            "write() called on non-open TestAsyncTransport");
     auto cb = dynamic_cast<WriteCallback*>(callback);
     DCHECK(cb);
-    cb->writeError(0, ex);
+    cb->writeErr(0, ex);
     return;
   }
 
@@ -413,11 +413,11 @@ TestAsyncTransport::failPendingWrites() {
   while (!pendingWriteEvents_.empty()) {
     auto event = pendingWriteEvents_.front();
     pendingWriteEvents_.pop_front();
-    TTransportException ex(TTransportException::NOT_OPEN,
+    AsyncSocketException ex(AsyncSocketException::NOT_OPEN,
                            "Transport closed locally");
     auto cb = dynamic_cast<WriteCallback*>(event.second);
     DCHECK(cb);
-    cb->writeError(0, ex);
+    cb->writeErr(0, ex);
   }
 }
 
@@ -550,8 +550,8 @@ TestAsyncTransport::fireOneReadEvent() {
   const shared_ptr<ReadEvent>& event = readEvents_.front();
 
   // Note that we call getReadBuffer() here even if we know the next event may
-  // be an EOF or an error.  This matches the behavior of TAsyncSocket.
-  // (Because TAsyncSocket merely gets notification that the socket is readable,
+  // be an EOF or an error.  This matches the behavior of AsyncSocket.
+  // (Because AsyncSocket merely gets notification that the socket is readable,
   // and has to call getReadBuffer() before it can make the actual read call to
   // get an error or EOF.)
   void* buf;
@@ -559,7 +559,7 @@ TestAsyncTransport::fireOneReadEvent() {
   try {
     readCallback_->getReadBuffer(&buf, &buflen);
   } catch (...) {
-    // TODO: we should convert the error to a TTransportException and call
+    // TODO: we should convert the error to a AsyncSocketException and call
     // readError() here.
     LOG(FATAL) << "readCallback_->getReadBuffer() threw an error";
   }

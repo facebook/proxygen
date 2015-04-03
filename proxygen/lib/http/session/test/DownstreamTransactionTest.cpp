@@ -14,10 +14,10 @@
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
-#include <thrift/lib/cpp/test/MockTAsyncTransport.h>
+#include <folly/io/async/test/MockAsyncTransport.h>
 
-using namespace apache::thrift::async;
-using namespace apache::thrift::transport;
+
+
 using namespace proxygen;
 using namespace testing;
 

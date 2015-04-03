@@ -20,12 +20,11 @@
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <string>
-#include <thrift/lib/cpp/test/MockTAsyncTransport.h>
+#include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
 
-using namespace apache::thrift::async;
-using namespace apache::thrift::test;
-using namespace apache::thrift::transport;
+using folly::test::MockAsyncTransport;
+
 using namespace folly;
 using namespace proxygen;
 using namespace testing;
@@ -60,7 +59,7 @@ class HTTPUpstreamTest: public testing::Test,
  public:
   HTTPUpstreamTest()
       : eventBase_(),
-        transport_(new NiceMock<MockTAsyncTransport>()),
+        transport_(new NiceMock<MockAsyncTransport>()),
         transactionTimeouts_(
           new AsyncTimeoutSet(&eventBase_,
                                TimeoutManager::InternalEnum::INTERNAL,
@@ -109,7 +108,7 @@ class HTTPUpstreamTest: public testing::Test,
       .WillRepeatedly(Assign(&transportGood_, false));
     httpSession_ = new HTTPUpstreamSession(
       transactionTimeouts_.get(),
-      std::move(TAsyncTransport::UniquePtr(transport_)),
+      std::move(AsyncTransportWrapper::UniquePtr(transport_)),
       localAddr_, peerAddr_,
       std::move(codec),
       mockTransportInfo_, this);
@@ -193,7 +192,7 @@ class HTTPUpstreamTest: public testing::Test,
   bool transportGood_{true};
 
   EventBase eventBase_;
-  MockTAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
+  MockAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
   folly::AsyncTransportWrapper::ReadCallback* readCallback_{nullptr};
   AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   TransportInfo mockTransportInfo_;
