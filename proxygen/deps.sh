@@ -28,8 +28,8 @@ sudo apt-get install -yq \
 
 # Adding support for Ubuntu 12.04.x
 # Needs libdouble-conversion-dev, google-gflags and double-conversion
-# deps.sh in fbthrift and folly builds anyways (no trap there)
-if ! sudo apt-get install -y libgoogle-glog-dev; 
+# deps.sh in folly builds anyways (no trap there)
+if ! sudo apt-get install -y libgoogle-glog-dev;
 then
 	if [ ! -e google-glog ]; then
     echo "fetching glog from svn (apt-get failed)"
@@ -68,31 +68,28 @@ then
 fi
 
 
-git clone https://github.com/facebook/fbthrift || true
-cd fbthrift/thrift
-git fetch
-git checkout v0.24.0
-
-# Rebase in case we've already downloaded thrift and folly
-git fetch && git rebase origin/master
-if [ -e folly/folly ]; then
-    # We have folly already downloaded
-    cd folly/folly
-    git fetch && git rebase origin/master
-    cd ../..
+if [ ! -e folly/folly ]; then
+    echo "Cloning folly"
+    git clone https://github.com/facebook/folly
 fi
+cd folly/folly
+git fetch
+git checkout v0.34.0
 
-# Build folly and fbthrift
-if ! ./deps.sh; then
-	echo "fatal: fbthrift+folly build failed"
+# Build folly
+autoreconf --install
+./configure
+make -j8
+
+if test $? -ne 0; then
+	echo "fatal: folly build failed"
 	exit -1
 fi
 
 # Build proxygen
 cd ../..
 autoreconf -ivf
-CPPFLAGS=" -I`pwd`/fbthrift/thrift/folly/ -I`pwd`/fbthrift/" \
-    LDFLAGS="-L`pwd`/fbthrift/thrift/lib/cpp/.libs/ -L`pwd`/fbthrift/thrift/lib/cpp2/.libs/ -L`pwd`/fbthrift/thrift/folly/folly/.libs/" ./configure
+CPPFLAGS=" -I`pwd`/folly/" LDFLAGS="-L`pwd`/folly/folly/.libs/" ./configure
 make -j8
 
 # Run tests

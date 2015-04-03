@@ -76,11 +76,6 @@ AC_CHECK_HEADER([folly/Likely.h], [], [AC_MSG_ERROR(
 [Couldn't find folly, please download from https://github.com/facebook/folly]
 )], [])
 
-AC_CHECK_LIB([thriftcpp2], [main], [], [AC_MSG_ERROR(
-[Unable to find thriftcpp2, you need to install FBThrift: https://github.com/facebook/fbthrift])])
-AC_CHECK_LIB([thrift], [main], [], [AC_MSG_ERROR(
-[Unable to find thrift, you need to install FBThrift: https://github.com/facebook/fbthrift])])
-
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST
