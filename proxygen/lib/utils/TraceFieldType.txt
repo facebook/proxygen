@@ -60,6 +60,7 @@ Port, "port"
 CNameRedirects, "cname_redirects"
 RedirectTime, "redirect_time"
 NumberResolvers, "number_resolvers"
+ResolversSerialized, "resolvers_serialized"
 RequestFamily, "request_family"
 NumberAnswers, "number_answers"
 
