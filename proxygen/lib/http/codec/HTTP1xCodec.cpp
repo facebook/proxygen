@@ -378,7 +378,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       (!msg.wantsKeepalive() ||
        version.first < 1 ||
        (downstream && version == HTTPMessage::kHTTPVersion10 &&
-        keepaliveRequested_ != KeepaliveRequested::YES))) {
+        keepaliveRequested_ != KeepaliveRequested::ENABLED))) {
     // Disable keepalive if
     //  - the message asked to turn it off
     //  - it's HTTP/0.9
@@ -802,10 +802,10 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
     // Remember whether this was an HTTP 1.0 request with keepalive enabled
     if (msgKeepalive && msg_->isHTTP1_0() &&
           (keepaliveRequested_ == KeepaliveRequested::UNSET ||
-           keepaliveRequested_ == KeepaliveRequested::YES)) {
-      keepaliveRequested_ = KeepaliveRequested::YES;
+           keepaliveRequested_ == KeepaliveRequested::ENABLED)) {
+      keepaliveRequested_ = KeepaliveRequested::ENABLED;
     } else {
-      keepaliveRequested_ = KeepaliveRequested::NO;
+      keepaliveRequested_ = KeepaliveRequested::DISABLED;
     }
   }
 

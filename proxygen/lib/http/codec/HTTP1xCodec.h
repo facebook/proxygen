@@ -93,8 +93,8 @@ class HTTP1xCodec : public HTTPCodec {
    * where keep-alive is disabled unless the client requested it. */
   enum class KeepaliveRequested : uint8_t {
     UNSET,
-    YES,  // incoming message requested keepalive
-    NO,   // incoming message disabled keepalive
+    ENABLED,  // incoming message requested keepalive
+    DISABLED,   // incoming message disabled keepalive
   };
 
   void addDateHeader(folly::IOBufQueue& writeBuf, size_t& len);
