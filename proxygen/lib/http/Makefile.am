@@ -3,10 +3,10 @@ SUBDIRS = . codec session test
 BUILT_SOURCES = HTTPCommonHeaders.h HTTPCommonHeaders.cpp
 
 HTTPCommonHeaders.h: HTTPCommonHeaders.template.h HTTPCommonHeaders.txt
-	FBCODE_DIR=$(top_srcdir)/.. INSTALL_DIR=$(srcdir) HEADERS_LIST=$(srcdir)/HTTPCommonHeaders.txt gen_HTTPCommonHeaders.h.sh
+	FBCODE_DIR=$(top_srcdir)/.. INSTALL_DIR=$(srcdir) HEADERS_LIST=$(srcdir)/HTTPCommonHeaders.txt ./gen_HTTPCommonHeaders.h.sh
 
 HTTPCommonHeaders.cpp: HTTPCommonHeaders.template.gperf HTTPCommonHeaders.txt
-	FBCODE_DIR=$(top_srcdir)/.. INSTALL_DIR=$(srcdir) HEADERS_LIST=$(srcdir)/HTTPCommonHeaders.txt gen_HTTPCommonHeaders.cpp.sh
+	FBCODE_DIR=$(top_srcdir)/.. INSTALL_DIR=$(srcdir) HEADERS_LIST=$(srcdir)/HTTPCommonHeaders.txt ./gen_HTTPCommonHeaders.cpp.sh
 
 noinst_LTLIBRARIES = libproxygenhttp.la
 
