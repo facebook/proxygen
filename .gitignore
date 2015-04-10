@@ -2,7 +2,7 @@
 \#*\#
 
 # downloaded dependencies
-/proxygen/fbthrift/
+/proxygen/folly/
 /proxygen/lib/test/gmock*
 
 # autoreconf artifacts
