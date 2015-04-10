@@ -12,12 +12,7 @@ trap "cd $start_dir" EXIT
 cd "$(dirname "$0")"
 
 # Install folly
-cd fbthrift/thrift/folly/folly
-sudo make uninstall
-sudo make install
-
-# Install fbthrift
-cd ../..
+cd folly/folly
 sudo make uninstall
 sudo make install
 
