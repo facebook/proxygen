@@ -151,6 +151,7 @@ public:
   static std::bitset<256> perHopHeaderCodes_;
 
   static void initPerHopHeaders() __attribute__ ((__constructor__));
+  static void initVersionSettings() __attribute__ ((__constructor__));
 
   /**
    * Generates a frame of type SYN_STREAM

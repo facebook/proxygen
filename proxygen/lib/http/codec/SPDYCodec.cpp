@@ -25,6 +25,7 @@
 #include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/utils/ParseURL.h>
+#include <proxygen/lib/utils/UnionBasedStatic.h>
 #include <proxygen/lib/utils/UtilInl.h>
 #include <vector>
 
@@ -78,6 +79,12 @@ const size_t kMaxUncompressed = 1 << 17;   // 128kb should be enough for anyone
 
 // SPDY flags
 const uint8_t kFlagFin = 0x01;
+
+// SPDY version settings configuration. This is a union-based static because
+// the header manipulation code relies on pointers to strings and these strings
+// need to still be alive after exit() is called to avoid crashing.
+typedef std::vector<SPDYVersionSettings> SPDYVSVector;
+DEFINE_UNION_STATIC_CONST_NO_INIT(SPDYVSVector, Vector, s_settings);
 
 /**
  * Convenience function to pack SPDY's 8-bit flags field and
@@ -246,9 +253,9 @@ void SPDYCodec::initPerHopHeaders() {
   perHopHeaderCodes_[HTTP_HEADER_UPGRADE] = true;
 }
 
-const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
+void SPDYCodec::initVersionSettings() {
   // Indexed by SPDYVersion
-  static const SPDYVersionSettings spdyVersions[] = {
+  new (const_cast<SPDYVSVector*>(&s_settings.data)) SPDYVSVector {
   // SPDY2
     {spdy::kNameVersionv2, spdy::kNameStatusv2, spdy::kNameMethodv2,
     spdy::kNamePathv2, spdy::kNameSchemev2, "",
@@ -271,13 +278,16 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
     0x8003, kFrameSizeSynReplyv3, kFrameSizeNameValuev3,
      kFrameSizeGoawayv3, kPriShiftv3, 3, 1, SPDYVersion::SPDY3_1}
   };
+}
+
+const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
   // SPDY3_1_HPACK is identical to SPDY3 in terms of version settings structure
   if (version == SPDYVersion::SPDY3_1_HPACK) {
     version = SPDYVersion::SPDY3_1;
   }
   auto intVersion = static_cast<unsigned>(version);
-  CHECK(intVersion < (sizeof(spdyVersions) / sizeof(SPDYVersionSettings)));
-  return spdyVersions[intVersion];
+  CHECK(intVersion < s_settings.data.size());
+  return s_settings.data[intVersion];
 }
 
 SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
