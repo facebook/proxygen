@@ -247,8 +247,12 @@ void SPDYCodec::initPerHopHeaders() {
 }
 
 const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
+  // XXX: We new and leak the static here intentionally so it doesn't get
+  // destroyed during a call to exit() when threads are still processing
+  // requests resulting in spurious shutdown crashes.
+
   // Indexed by SPDYVersion
-  static const SPDYVersionSettings spdyVersions[] = {
+  static const auto spdyVersions = new std::vector<SPDYVersionSettings> {
   // SPDY2
     {spdy::kNameVersionv2, spdy::kNameStatusv2, spdy::kNameMethodv2,
     spdy::kNamePathv2, spdy::kNameSchemev2, "",
@@ -276,8 +280,8 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
     version = SPDYVersion::SPDY3_1;
   }
   auto intVersion = static_cast<unsigned>(version);
-  CHECK(intVersion < (sizeof(spdyVersions) / sizeof(SPDYVersionSettings)));
-  return spdyVersions[intVersion];
+  CHECK(intVersion < spdyVersions->size());
+  return (*spdyVersions)[intVersion];
 }
 
 SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
