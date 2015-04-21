@@ -92,14 +92,6 @@ class TraceEvent {
   bool addMeta(TraceFieldType key, folly::dynamic&& value);
 
   template<typename T>
-  bool increaseIntMeta(TraceFieldType key, const T delta) {
-    T value = 0;
-    readIntMeta(key, value);
-    value += delta;
-    return addMeta(key, value);
-  };
-
-  template<typename T>
   bool readIntMeta(TraceFieldType key, T& dest) const {
     if (getMetaData().count(key)) {
       DCHECK(getMetaData().at(key).isInt());
