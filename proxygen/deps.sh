@@ -13,6 +13,7 @@ cd "$(dirname "$0")"
 
 # Some extra dependencies for Ubuntu 13.10 and 14.04
 sudo apt-get install -yq \
+    g++ \
     flex \
     bison \
     libkrb5-dev \
@@ -24,6 +25,10 @@ sudo apt-get install -yq \
     gperf \
     autoconf-archive \
     libevent-dev \
+    libtool \
+    libboost-all-dev \
+    libjemalloc-dev \
+    libsnappy-dev \
     wget
 
 # Adding support for Ubuntu 12.04.x
