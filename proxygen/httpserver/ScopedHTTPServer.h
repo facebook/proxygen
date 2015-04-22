@@ -108,9 +108,16 @@ class ScopedHTTPServer final {
    * randomly chosen.
    */
   int getPort() const {
+    return getAddresses()[0].address.getPort();
+  }
+
+  /**
+   * Get the addresses for the server.
+   */
+  std::vector<HTTPServer::IPConfig> getAddresses() const {
     auto addresses = server_->addresses();
     CHECK(!addresses.empty());
-    return addresses[0].address.getPort();
+    return addresses;
   }
 
   ~ScopedHTTPServer() {
