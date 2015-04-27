@@ -486,7 +486,7 @@ class HTTPMessage {
   void setPriority(int8_t pri) {
     if (pri > kMaxPriority || pri < -kMaxPriority) {
       // outside [-7, 7] => highest priority
-      pri = kMaxPriority - 1;
+      pri = kMaxPriority;
     } else if (pri < 0) {
       pri = pri + kMaxPriority + 1;
     }
