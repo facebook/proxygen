@@ -572,6 +572,7 @@ HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest,
   if (!verifier.error.empty()) {
     return verifier.error;
   }
+  msg->setAdvancedProtocolString(http2::kProtocolString);
   return std::move(msg);
 }
 
