@@ -849,8 +849,9 @@ void SPDYCodec::generateSynStream(StreamID stream,
   cursor.writeBE(flagsAndLength(flags, len));
   cursor.writeBE(uint32_t(stream));
   cursor.writeBE(uint32_t(assocStream));
-  cursor.writeBE(uint16_t(
-                   msg.getPriority() << (versionSettings_.priShift + 8)));
+  // halve priority for SPDY/2
+  uint8_t pri = msg.getPriority() >> (3 - versionSettings_.majorVersion);
+  cursor.writeBE(uint16_t(pri << (versionSettings_.priShift + 8)));
 
   // Now that we have a complete SYN_STREAM control frame, append
   // it to the writeBuf.
@@ -1318,7 +1319,8 @@ void SPDYCodec::onSynCommon(StreamID streamID,
   msg->setIngressHeaderSize(size);
 
   msg->setSPDY(version_);
-  msg->setPriority(pri);
+  // Normalize priority to 3 bits in HTTPMessage.
+  msg->setPriority(pri << (3 - versionSettings_.majorVersion));
   if (assocStreamID) {
     callback_->onPushMessageBegin(streamID, assocStreamID, msg.get());
   } else {

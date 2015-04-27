@@ -40,6 +40,7 @@ std::locale defaultLocale;
 
 namespace proxygen {
 
+const int8_t HTTPMessage::kMaxPriority = 7;
 std::mutex HTTPMessage::mutexDump_;
 
 const pair<uint8_t, uint8_t> HTTPMessage::kHTTPVersion10(1, 0);

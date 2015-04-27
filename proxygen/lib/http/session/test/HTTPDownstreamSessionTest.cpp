@@ -1295,7 +1295,7 @@ void HTTPDownstreamTest<C>::testPriorities(
   auto streamID = HTTPCodec::StreamID(1);
   clientCodec.generateConnectionPreface(requests);
   for (int pri = numPriorities - 1; pri >= 0; pri--) {
-    req.setPriority(pri);
+    req.setPriority(pri * (8 / numPriorities));
     for (uint32_t i = 0; i < iterations; i++) {
       clientCodec.generateHeader(requests, streamID, req);
       clientCodec.generateEOM(requests, streamID);

@@ -71,22 +71,4 @@ extern bool isSpdyCodecProtocol(CodecProtocol protocol) {
          protocol == CodecProtocol::SPDY_3_1_HPACK;
 }
 
-extern uint8_t maxProtocolPriority(CodecProtocol protocol) {
-  // Priorities per protocol
-  switch (protocol) {
-    case CodecProtocol::SPDY_2:
-      // SPDY 2 Max Priority
-      return 3;
-    case CodecProtocol::SPDY_3:
-    case CodecProtocol::SPDY_3_1:
-    case CodecProtocol::SPDY_3_1_HPACK:
-      // SPDY 3 Max Priority
-      return 7;
-    case CodecProtocol::HTTP_1_1:
-    case CodecProtocol::HTTP_2:
-      //HTTP doesn't support priorities
-      return 0;
-  }
-  return 0;
-}
 }

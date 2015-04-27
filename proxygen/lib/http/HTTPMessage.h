@@ -467,23 +467,26 @@ class HTTPMessage {
   bool isSPDY() const { return spdy_; }
   uint16_t getSPDYVersion() const { return spdy_; }
 
-  /* Setter and getter for the SPDY priority value.
+  /* Setter and getter for the SPDY priority value (0 - 7).  When serialized
+   * to SPDY/2, Codecs will collpase 0,1 -> 0, 2,3 -> 1, etc.
    *
    * Negative values of pri are interpreted much like negative array
    * indexes in python, so -1 will be the largest numerical priority
    * value for this SPDY version (i.e. 3 for SPDY/2 or 7 for SPDY/3),
    * -2 the second largest (i.e. 2 for SPDY/2 or 6 for SPDY/3).
    */
-  void setPriority(int8_t pri) { pri_ = pri; }
-  uint8_t getPriority() const {
-    int8_t pri = pri_;
+  const static int8_t kMaxPriority;
 
-    if (pri < 0) {
-      pri += (getSPDYVersion() > 2) ? 8 : 4;
+  void setPriority(int8_t pri) {
+    if (pri > kMaxPriority || pri < -kMaxPriority) {
+      // outside [-7, 7] => highest priority
+      pri = kMaxPriority - 1;
+    } else if (pri < 0) {
+      pri = pri + kMaxPriority + 1;
     }
-
-    return pri;
+    pri_ = pri;
   }
+  uint8_t getPriority() const { return pri_; }
 
   /**
    * get and setter for transaction sequence number

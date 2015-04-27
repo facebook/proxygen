@@ -43,9 +43,4 @@ extern CodecProtocol getCodecProtocolFromStr(const std::string& protocolStr);
  * Check if the given protocol is SPDY.
  */
 extern bool isSpdyCodecProtocol(CodecProtocol protocol);
-
-/**
- * Returns the maximum priority for the given protocol.
- */
-extern uint8_t maxProtocolPriority(CodecProtocol);
 }
