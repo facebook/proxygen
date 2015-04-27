@@ -463,9 +463,15 @@ class HTTPMessage {
     // cipher is a static const char* provided and managed by openssl lib
     sslVersion_ = ver; sslCipher_ = cipher;
   }
-  void setSPDY(uint16_t spdyVersion) { spdy_ = spdyVersion; }
-  bool isSPDY() const { return spdy_; }
-  uint16_t getSPDYVersion() const { return spdy_; }
+  void setAdvancedProtocolString(const std::string& protocol) {
+    protoStr_ = &protocol;
+  }
+  bool isAdvancedProto() const {
+    return protoStr_ != nullptr;
+  }
+  const std::string* getAdvancedProtocolString() const {
+    return protoStr_;
+  }
 
   /* Setter and getter for the SPDY priority value (0 - 7).  When serialized
    * to SPDY/2, Codecs will collpase 0,1 -> 0, 2,3 -> 1, etc.
@@ -690,7 +696,7 @@ class HTTPMessage {
 
   int sslVersion_;
   const char* sslCipher_;
-  uint16_t spdy_; // == 0 - no SPDY; > 0 - SPDY Version
+  const std::string* protoStr_;
   uint8_t pri_;
 
   mutable bool parsedCookies_:1;

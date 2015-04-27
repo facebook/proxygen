@@ -148,6 +148,10 @@ const std::string kNameSchemev2("scheme");
 const std::string kNameSchemev3(":scheme");
 const std::string kNameHostv3(":host"); // SPDY v3 only
 
+const std::string kVersionStrv2("spdy/2");
+const std::string kVersionStrv3("spdy/3");
+const std::string kVersionStrv31("spdy/3.1");
+
 // In the future, we may be shifting the SPDY wire priority
 // by this much so we can easily use the lower bits to do our
 // own priority queueing within the bands defined by the SPDY

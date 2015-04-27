@@ -259,21 +259,24 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
      spdy::kSessionProtoNameSPDY2, parseUint16, appendUint16,
     (const unsigned char*)kSPDYv2Dictionary, sizeof(kSPDYv2Dictionary),
     0x8002, kFrameSizeSynReplyv2, kFrameSizeNameValuev2,
-     kFrameSizeGoawayv2, kPriShiftv2, 2, 0, SPDYVersion::SPDY2},
+     kFrameSizeGoawayv2, kPriShiftv2, 2, 0, SPDYVersion::SPDY2,
+     spdy::kVersionStrv2},
   // SPDY3
     {spdy::kNameVersionv3, spdy::kNameStatusv3, spdy::kNameMethodv3,
     spdy::kNamePathv3, spdy::kNameSchemev3, spdy::kNameHostv3,
     spdy::kSessionProtoNameSPDY3, parseUint32, appendUint32,
     (const unsigned char*)kSPDYv3Dictionary, sizeof(kSPDYv3Dictionary),
     0x8003, kFrameSizeSynReplyv3, kFrameSizeNameValuev3,
-     kFrameSizeGoawayv3, kPriShiftv3, 3, 0, SPDYVersion::SPDY3},
+     kFrameSizeGoawayv3, kPriShiftv3, 3, 0, SPDYVersion::SPDY3,
+     spdy::kVersionStrv3},
   // SPDY3.1
     {spdy::kNameVersionv3, spdy::kNameStatusv3, spdy::kNameMethodv3,
     spdy::kNamePathv3, spdy::kNameSchemev3, spdy::kNameHostv3,
     spdy::kSessionProtoNameSPDY3, parseUint32, appendUint32,
     (const unsigned char*)kSPDYv3Dictionary, sizeof(kSPDYv3Dictionary),
     0x8003, kFrameSizeSynReplyv3, kFrameSizeNameValuev3,
-     kFrameSizeGoawayv3, kPriShiftv3, 3, 1, SPDYVersion::SPDY3_1}
+     kFrameSizeGoawayv3, kPriShiftv3, 3, 1, SPDYVersion::SPDY3_1,
+     spdy::kVersionStrv31}
   };
   // SPDY3_1_HPACK is identical to SPDY3 in terms of version settings structure
   if (version == SPDYVersion::SPDY3_1_HPACK) {
@@ -1318,7 +1321,7 @@ void SPDYCodec::onSynCommon(StreamID streamID,
                                              streamID, assocStreamID, headers);
   msg->setIngressHeaderSize(size);
 
-  msg->setSPDY(version_);
+  msg->setAdvancedProtocolString(versionSettings_.protocolVersionString);
   // Normalize priority to 3 bits in HTTPMessage.
   msg->setPriority(pri << (3 - versionSettings_.majorVersion));
   if (assocStreamID) {

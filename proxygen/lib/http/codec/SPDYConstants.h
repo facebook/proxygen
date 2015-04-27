@@ -122,6 +122,10 @@ extern const std::string kNameSchemev2;
 extern const std::string kNameSchemev3;
 extern const std::string kNameHostv3;
 
+extern const std::string kVersionStrv2;
+extern const std::string kVersionStrv3;
+extern const std::string kVersionStrv31;
+
 extern const size_t SPDY_PRIO_SHIFT_FACTOR;
 
 }}

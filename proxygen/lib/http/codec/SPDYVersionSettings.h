@@ -41,6 +41,7 @@ struct SPDYVersionSettings {
   uint8_t majorVersion;
   uint8_t minorVersion;
   SPDYVersion version;
+  const std::string& protocolVersionString;
 };
 
 }

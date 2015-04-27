@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/http/codec/SPDYConstants.h>
 
 #include <folly/Random.h>
 #include <folly/io/Cursor.h>
@@ -25,7 +26,7 @@ const HTTPSettings kDefaultIngressSettings{
 
 std::unique_ptr<HTTPMessage> getPriorityMessage(uint8_t priority) {
   auto ret = folly::make_unique<HTTPMessage>();
-  ret->setSPDY(2);
+  ret->setAdvancedProtocolString(spdy::kVersionStrv2);
   ret->setPriority(priority);
   return ret;
 }
