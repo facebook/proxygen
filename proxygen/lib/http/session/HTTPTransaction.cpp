@@ -62,7 +62,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     firstByteSent_(false),
     firstHeaderByteSent_(false),
     inResume_(false),
-    inActiveSet_(true) {
+    inActiveSet_(true),
+    ingressErrorSeen_(false) {
 
   if (assocStreamId_) {
     if (isUpstream()) {
@@ -424,13 +425,20 @@ void HTTPTransaction::onError(const HTTPException& error) {
       break;
     case HTTPException::Direction::EGRESS:
       markEgressComplete();
+      if (!wasEgressComplete && isIngressEOMSeen() && ingressErrorSeen_) {
+        // we've already seen an ingress error but we ignored it, hoping the
+        // handler would resume and read our queued EOM.  Now both sides are
+        // dead and we need to kill this transaction.
+        markIngressComplete();
+      }
       if (wasEgressComplete) {
         notify = false;
       }
       break;
     case HTTPException::Direction::INGRESS:
       if (isIngressEOMSeen()) {
-        // Not an error
+        // Not an error, for now
+        ingressErrorSeen_ = true;
         return;
       }
       markIngressComplete();

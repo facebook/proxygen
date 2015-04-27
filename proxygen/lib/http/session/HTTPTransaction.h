@@ -1167,6 +1167,7 @@ class HTTPTransaction :
   bool firstHeaderByteSent_:1;
   bool inResume_:1;
   bool inActiveSet_:1;
+  bool ingressErrorSeen_:1;
 
   static uint64_t egressBufferLimit_;
 
