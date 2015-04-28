@@ -118,8 +118,9 @@ void AsyncTimeoutSet::destroy() {
   // callbacks remaining.  Otherwise they need to implement their own code to
   // take care of cleaning up the callbacks that will never be invoked.
 
-  while (head_ != nullptr) {
-    head_->cancelTimeout();
+  // cancel from tail to head, to avoid extra calls to headChanged
+  while (tail_ != nullptr) {
+    tail_->cancelTimeout();
   }
 
   DelayedDestruction::destroy();
