@@ -9,7 +9,6 @@
  */
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
-#include <boost/cast.hpp>
 #include <folly/wangle/acceptor/ConnectionManager.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
