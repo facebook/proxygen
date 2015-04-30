@@ -40,22 +40,21 @@ HTTPHeaderCode HTTPCommonHeaders::hash(const char* name, size_t len) {
   return (match == nullptr) ? HTTP_HEADER_OTHER : HTTPHeaderCode(match->code);
 }
 
-std::string* HTTPCommonHeaders::headerNames_;
-
-void HTTPCommonHeaders::initHeaderNames() {
+std::string* HTTPCommonHeaders::initHeaderNames() {
   DCHECK_LE(MAX_HASH_VALUE, 255);
-  headerNames_ = new std::string[256];
+  auto headerNames = new std::string[256];
   for (int j = MIN_HASH_VALUE; j <= MAX_HASH_VALUE; ++j) {
     uint8_t code = wordlist[j].code;
     const uint8_t OFFSET = 2; // first 2 values are reserved for special cases
     if (code >= OFFSET && code < TOTAL_KEYWORDS + OFFSET
                        && wordlist[j].name[0] != '\0') {
-      DCHECK_EQ(headerNames_[code], std::string());
+      DCHECK_EQ(headerNames[code], std::string());
       // this would mean a duplicate header code in the .gperf file
 
-      headerNames_[code] = wordlist[j].name;
+      headerNames[code] = wordlist[j].name;
     }
   }
+  return headerNames;
 }
 
 } // proxygen

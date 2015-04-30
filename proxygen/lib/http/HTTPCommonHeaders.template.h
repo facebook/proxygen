@@ -48,14 +48,13 @@ class HTTPCommonHeaders {
     return hash(name.data(), name.length());
   }
 
-  static void initHeaderNames();
+  static std::string* initHeaderNames();
 
   inline static const std::string* getPointerToHeaderName(HTTPHeaderCode code) {
-    return headerNames_ + code;
-  }
+    static const auto headerNames = initHeaderNames();
 
- private:
-  static std::string* headerNames_;
+    return headerNames + code;
+  }
 };
 
 } // proxygen

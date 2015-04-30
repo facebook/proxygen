@@ -29,8 +29,6 @@ bitset<256>& HTTPHeaders::perHopHeaderCodes() {
 
 void
 HTTPHeaders::initGlobals() {
-  HTTPCommonHeaders::initHeaderNames();
-
   auto& perHopHeaders = perHopHeaderCodes();
   perHopHeaders[HTTP_HEADER_CONNECTION] = true;
   perHopHeaders[HTTP_HEADER_KEEP_ALIVE] = true;
