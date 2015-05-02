@@ -1,12 +1,17 @@
 #!/bin/bash
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  SED=${SED:-gsed}
+else
+  SED=${SED:-sed}
+fi
 
-sed "`
+${SED} "`
   {
     echo -n 's/%%%%%/%%\n';
     cat ${HEADERS_LIST?} | sort | uniq \
-      | sed 's/.*/\0, HTTP_HEADER_\U\0/' \
-      | sed -e ':loop' -e 's/ \([^-]*\)-/ \1_/' -e 't loop' \
-      | sed 's/$/\\\\n/' \
+      | ${SED} 's/.*/\0, HTTP_HEADER_\U\0/' \
+      | ${SED} -e ':loop' -e 's/ \([^-]*\)-/ \1_/' -e 't loop' \
+      | ${SED} 's/$/\\\\n/' \
       | tr -d '\n';
     echo -n '%%/';
   } \

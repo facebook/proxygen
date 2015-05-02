@@ -1,22 +1,27 @@
 #!/bin/bash
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  SED=${SED:-gsed}
+else
+  SED=${SED:-sed}
+fi
 
-sed "`
+${SED} "`
   {
     echo -n 's/%%%%%/';
     cat ${HEADERS_LIST?} | sort | uniq \
-      | sed 's/-/_/g' \
-      | sed 's/.*/  HTTP_HEADER_\U\0 = @@VAL_TOKEN@@,/' \
+      | ${SED} 's/-/_/g' \
+      | ${SED} 's/.*/  HTTP_HEADER_\U\0 = @@VAL_TOKEN@@,/' \
       | (
         IFS='';
         N=1;
         while read line; do \
           if (echo $line | grep -q '@@VAL_TOKEN@@'); then \
-            N=$((++N)) && echo $line | sed "s/@@VAL_TOKEN@@/$N/";
+            N=$((++N)) && echo $line | ${SED} "s/@@VAL_TOKEN@@/$N/";
           else \
             echo $line;
           fi;
         done;) \
-      | sed 's/$/\\\\n/' \
+      | ${SED} 's/$/\\\\n/' \
       | tr -d '\n';
     echo -n '/';
   } \
