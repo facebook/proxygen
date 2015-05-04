@@ -9,7 +9,9 @@
  */
 #pragma once
 
-#include <folly/dynamic.h>
+#include <boost/variant.hpp>
+#include <folly/Conv.h>
+#include <map>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEventType.h>
 #include <proxygen/lib/utils/TraceFieldType.h>
@@ -23,7 +25,83 @@ namespace proxygen {
  */
 class TraceEvent {
  public:
-  typedef std::map<TraceFieldType, folly::dynamic> MetaDataMap;
+  struct MetaData {
+   public:
+    typedef boost::variant<int64_t, std::string> MetaDataType;
+
+    template <typename T,
+              typename = typename std::enable_if<std::is_integral<T>::value,
+                                                 void>::type>
+    /* implicit */ MetaData(T value)
+        : value_(folly::to<int64_t>(value)) {}
+
+    /* implicit */ MetaData(const std::string& value) :
+      value_(value) {
+    }
+
+    /* implicit */ MetaData(std::string&& value) :
+      value_(std::move(value)) {
+    }
+
+    /* implicit */ MetaData(const char* value) :
+      value_(std::string(value)) {
+    }
+
+    /* implicit */ MetaData(const folly::fbstring& value) :
+      value_(value.toStdString()) {
+    }
+
+    template<typename T>
+    T getValueAs() const {
+      ConvVisitor<T> visitor;
+      return boost::apply_visitor(visitor, value_);
+    }
+
+     template<typename T>
+     struct ConvVisitor : boost::static_visitor<T> {
+      template<typename U>
+       T operator()(U& operand) const {
+         return folly::to<T>(operand);
+       }
+     };
+
+     MetaDataType value_;
+  };
+
+  typedef std::map<TraceFieldType, MetaData> MetaDataMap;
+
+  class Iterator {
+   public:
+    explicit Iterator(const TraceEvent& event) :
+      event_(event),
+      itr_(event.metaData_.begin()) {
+    }
+
+    ~Iterator() {}
+
+    void next() {
+      ++itr_;
+    }
+
+    bool isValid() const {
+      return itr_ != event_.metaData_.end();
+    }
+
+    TraceFieldType getKey() const {
+      return itr_->first;
+    }
+
+    template<typename T>
+    T getValueAs() const {
+      return itr_->second.getValueAs<T>();
+    }
+
+    private:
+     const TraceEvent& event_;
+     MetaDataMap::const_iterator itr_;
+
+  };
+
 
   explicit TraceEvent(TraceEventType type, uint32_t parentID = 0);
 
@@ -81,6 +159,17 @@ class TraceEvent {
     return parentID_;
   }
 
+  bool hasTraceField(TraceFieldType field) const {
+    return metaData_.count(field);
+  }
+
+  template<typename T>
+  T getTraceFieldDataAs(TraceFieldType field) const {
+    const auto itr = metaData_.find(field);
+    CHECK(itr != metaData_.end());
+    return itr->second.getValueAs<T>();
+  }
+
   void setMetaData(MetaDataMap&& input) {
     metaData_ = input;
   }
@@ -89,16 +178,27 @@ class TraceEvent {
     return metaData_;
   }
 
-  bool addMeta(TraceFieldType key, folly::dynamic&& value);
+  Iterator getMetaDataItr() const {
+    return Iterator(*this);
+  }
+
+  template<typename T>
+  bool addMeta(TraceFieldType key, T&& value) {
+    MetaData val(std::forward<T>(value));
+    return addMetaInternal(key, std::move(val));
+  }
+
+  template<typename T>
+  bool addMeta(TraceFieldType key, const T& value) {
+    MetaData val(value);
+    return addMetaInternal(key, std::move(val));
+  }
 
   template<typename T>
   bool readIntMeta(TraceFieldType key, T& dest) const {
-    if (getMetaData().count(key)) {
-      DCHECK(getMetaData().at(key).isInt());
-      dest = getMetaData().at(key).asInt();
-      return true;
-    }
-    return false;
+    static_assert(std::is_integral<T>::value && !std::is_same<T, bool>::value,
+        "readIntMeta should take an intergral type of paremeter");
+    return readMeta(key, dest);
   };
 
   bool readBoolMeta(TraceFieldType key, bool& dest) const;
@@ -110,7 +210,24 @@ class TraceEvent {
   friend std::ostream& operator << (std::ostream& out,
                                     const TraceEvent& event);
 
+  friend class Iterator;
+
  private:
+  template<typename T>
+  bool readMeta(TraceFieldType key, T& dest) const {
+    const auto itr = metaData_.find(key);
+    if (itr != metaData_.end()) {
+      try {
+        dest = itr->second.getValueAs<T>();
+        return true;
+      } catch (const std::exception& e) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  bool addMetaInternal(TraceFieldType key, MetaData&& val);
 
   enum State {
     NOT_STARTED = 0,
@@ -125,6 +242,7 @@ class TraceEvent {
   TimePoint start_;
   TimePoint end_;
   MetaDataMap metaData_;
+
 };
 
 }

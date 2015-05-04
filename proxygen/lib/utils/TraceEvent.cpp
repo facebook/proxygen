@@ -10,7 +10,6 @@
 #include <proxygen/lib/utils/TraceEvent.h>
 #include <proxygen/lib/utils/UnionBasedStatic.h>
 
-#include <folly/DynamicConverter.h>
 #include <folly/ThreadLocal.h>
 #include <random>
 #include <sstream>
@@ -86,7 +85,14 @@ bool TraceEvent::hasEnded() const {
   return stateFlags_ & State::ENDED;
 }
 
-bool TraceEvent::addMeta(TraceFieldType key, folly::dynamic&& value) {
+bool TraceEvent::readBoolMeta(TraceFieldType key, bool& dest) const {
+  return readMeta(key, dest);
+}
+
+bool TraceEvent::readStrMeta(TraceFieldType key, std::string& dest) const {
+  return readMeta(key, dest);
+}
+bool TraceEvent::addMetaInternal(TraceFieldType key, MetaData&& value) {
   auto rc = metaData_.emplace(key, value);
 
   // replace if key already exist
@@ -95,24 +101,6 @@ bool TraceEvent::addMeta(TraceFieldType key, folly::dynamic&& value) {
   }
 
   return rc.second;
-}
-
-bool TraceEvent::readBoolMeta(TraceFieldType key, bool& dest) const {
-  if (metaData_.count(key)) {
-    DCHECK(metaData_.at(key).isBool());
-    dest = metaData_.at(key).asBool();
-    return true;
-  }
-  return false;
-}
-
-bool TraceEvent::readStrMeta(TraceFieldType key, std::string& dest) const {
-  if (metaData_.count(key)) {
-    // no need to check if value is string type
-    dest = metaData_.at(key).asString().toStdString();
-    return true;
-  }
-  return false;
 }
 
 std::string TraceEvent::toString() const {
@@ -128,9 +116,11 @@ std::string TraceEvent::toString() const {
   out << "start='" << startSinceEpoch << "', ";
   out << "end='" << endSinceEpoch << "', ";
   out << "metaData='{";
-  for (auto data : metaData_) {
-    out << getTraceFieldTypeString(data.first) << ": "
-        << folly::convertTo<std::string>(data.second) << ", ";
+  auto itr = getMetaDataItr();
+  while (itr.isValid()) {
+    out << getTraceFieldTypeString(itr.getKey()) << ": "
+        << itr.getValueAs<std::string>() << ", ";
+    itr.next();
   }
   out << "}')";
   return out.str();
