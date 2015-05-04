@@ -1,23 +1,22 @@
 #!/bin/bash
 
-sed "`
+# gen_HTTPCommonHeaders.cpp.sh contains a substantially similar pipeline and
+# awk script -- see comments there.
+cat ${HEADERS_LIST?} | sort | uniq \
+| awk '
+  NR == FNR {
+    n[FNR] = $1;
+    next
+  }
+  $1 == "%%%%%" {
+    for (i in n) {
+      h = n[i];
+      gsub("-", "_", h);
+      print "  HTTP_HEADER_" toupper(h) " = " i+1 ","
+    };
+    next
+  }
   {
-    echo -n 's/%%%%%/';
-    cat ${HEADERS_LIST?} | sort | uniq \
-      | sed 's/-/_/g' \
-      | sed 's/.*/  HTTP_HEADER_\U\0 = @@VAL_TOKEN@@,/' \
-      | (
-        IFS='';
-        N=1;
-        while read line; do \
-          if (echo $line | grep -q '@@VAL_TOKEN@@'); then \
-            N=$((++N)) && echo $line | sed "s/@@VAL_TOKEN@@/$N/";
-          else \
-            echo $line;
-          fi;
-        done;) \
-      | sed 's/$/\\\\n/' \
-      | tr -d '\n';
-    echo -n '/';
-  } \
-`" "${FBCODE_DIR?}/proxygen/lib/http/HTTPCommonHeaders.template.h" > "${INSTALL_DIR?}/HTTPCommonHeaders.h"
+    print
+  }
+' - "${FBCODE_DIR?}/proxygen/lib/http/HTTPCommonHeaders.template.h" > "${INSTALL_DIR?}/HTTPCommonHeaders.h"
