@@ -1275,14 +1275,18 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   }
   decrementTransactionCount(txn, true, true);
   transactions_.erase(it);
-  if (infoCallback_) {
-    if (transactions_.empty()) {
-      latestActive_ = getCurrentTime();
+
+  if (transactions_.empty()) {
+    latestActive_ = getCurrentTime();
+    if (infoCallback_) {
       infoCallback_->onDeactivateConnection(*this);
-    } else {
+    }
+  } else {
+    if (infoCallback_) {
       infoCallback_->onTransactionDetached(*this);
     }
   }
+
   if (!readsShutdown()) {
     if (!codec_->supportsParallelRequests() && !transactions_.empty()) {
       // If we had more than one transaction, then someone tried to pipeline and
@@ -1810,8 +1814,10 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
     return nullptr;
   }
 
-  if (transactions_.empty() && infoCallback_) {
-    infoCallback_->onActivateConnection(*this);
+  if (transactions_.empty()) {
+    if (infoCallback_) {
+      infoCallback_->onActivateConnection(*this);
+    }
     if (numTxnServed_ >= 1) {
       // idle duration only exists since the 2nd transaction in the session
       latestIdleDuration_ = secondsSince(latestActive_);
