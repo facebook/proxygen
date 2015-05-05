@@ -43,7 +43,9 @@ nobase_libutils_HEADERS = \
 	TraceEventType.h \
 	TraceFieldType.h \
 	UtilInl.h \
-	Logging.h
+	Logging.h \ 
+	ZlibStreamCompressor.h \
+	ZlibStreamDecompressor.h
 
 # We put the generated files first so that we create them first
 libutils_la_SOURCES = \
@@ -59,4 +61,6 @@ libutils_la_SOURCES = \
 	TraceFieldType.cpp \
 	TraceFieldType.cpp \
 	Logging.cpp \
-  CryptUtil.cpp
+  	CryptUtil.cpp \
+  	ZlibStreamCompressor.cpp \
+	ZlibStreamDecompressor.cpp

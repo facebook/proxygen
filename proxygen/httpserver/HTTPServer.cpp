@@ -15,6 +15,7 @@
 #include <proxygen/httpserver/HTTPServerAcceptor.h>
 #include <proxygen/httpserver/SignalHandler.h>
 #include <proxygen/httpserver/filters/RejectConnectFilter.h>
+#include <proxygen/httpserver/filters/ZlibServerFilter.h>
 
 using folly::AsyncServerSocket;
 using folly::EventBase;
@@ -52,6 +53,17 @@ HTTPServer::HTTPServer(HTTPServerOptions options):
     options_->handlerFactories.insert(
         options_->handlerFactories.begin(),
         folly::make_unique<RejectConnectFilterFactory>());
+  }
+
+  // Add Content Compression filter (gzip), if needed. Should be
+  // final filter
+  if (options_->enableContentCompression) {
+    options_->handlerFactories.insert(
+        options_->handlerFactories.begin(),
+        folly::make_unique<ZlibServerFilterFactory>(
+          options_->contentCompressionLevel,
+          options_->contentCompressionMinimumSize,
+          options_->contentCompressionTypes));
   }
 }
 

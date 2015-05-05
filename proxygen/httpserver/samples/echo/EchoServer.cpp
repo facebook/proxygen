@@ -69,6 +69,7 @@ int main(int argc, char* argv[]) {
   options.threads = static_cast<size_t>(FLAGS_threads);
   options.idleTimeout = std::chrono::milliseconds(60000);
   options.shutdownOn = {SIGINT, SIGTERM};
+  options.enableContentCompression = true;
   options.handlerFactories = RequestHandlerChain()
       .addThen<EchoHandlerFactory>()
       .build();
