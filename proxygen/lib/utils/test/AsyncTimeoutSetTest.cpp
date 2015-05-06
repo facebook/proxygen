@@ -361,7 +361,6 @@ TEST_F(TimeoutTest, AtMostEveryN) {
 
   // Create a scheduler timeout to add the timeouts 1ms apart.
   // Note, these will start firing partway through scheduling them
-  uint32_t index = 0;
   for (uint32_t index = 0; index < numTimeouts; index++) {
     setClock(milliseconds(index));
     timeouts[index].timeoutExpired();

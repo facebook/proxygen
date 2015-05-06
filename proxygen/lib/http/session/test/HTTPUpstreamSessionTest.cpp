@@ -765,7 +765,7 @@ TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
 
   EXPECT_CALL(handler2, setTransaction(_));
   EXPECT_CALL(handler2, onEgressPaused());
-  auto txn2 = httpSession_->newTransaction(&handler2);
+  (void)httpSession_->newTransaction(&handler2);
   eventBase_.loop();
   Mock::VerifyAndClearExpectations(&handler2);
 
@@ -793,9 +793,9 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
           // This time it is invoked by the session on all transactions
           httpSession_->shutdownTransportWithReset(kErrorTimeout);
         }));
-  auto txn1 = httpSession_->newTransaction(&handler1);
+  /*auto txn1 =*/(void)httpSession_->newTransaction(&handler1);
   auto txn2 = httpSession_->newTransaction(&handler2);
-  auto txn3 = httpSession_->newTransaction(&handler3);
+  /*auto txn3 =*/(void)httpSession_->newTransaction(&handler3);
   txn2->sendHeaders(req);
   // This happens when the body write fills the txn egress queue
   // Send a body big enough to pause egress
@@ -1607,7 +1607,7 @@ TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
             std::string(err.what()));
         }));
   EXPECT_CALL(handler, detachTransaction());
-  auto txn = httpSession_->newTransaction(&handler);
+  (void)httpSession_->newTransaction(&handler);
 }
 
 // Register and instantiate all our type-paramterized tests
