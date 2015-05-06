@@ -227,7 +227,7 @@ AM_CONDITIONAL([HAVE_BITS_FUNCTEXCEPT], [test "$ac_cv_header_bits_functexcept" =
 
 # Include directory that contains "proxygen" so #include "proxygen/Foo.h" works
 # Also add includes for gmock and gtest
-AM_CPPFLAGS='-I$(top_srcdir)/.. -I$(top_srcdir)/lib/test/gmock-1.6.0/include -I$(top_srcdir)/lib/test/gmock-1.6.0/gtest/include'
+AM_CPPFLAGS='-I$(top_srcdir)/.. -I$(top_srcdir)/lib/test/gmock-1.7.0/include -I$(top_srcdir)/lib/test/gmock-1.7.0/gtest/include'
 AM_CPPFLAGS="$AM_CPPFLAGS $CXX_FLAGS $BOOST_CPPFLAGS"
 AC_SUBST([AM_CPPFLAGS])
 
