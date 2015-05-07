@@ -491,7 +491,6 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
 }
 
 void SPDYCodec::onControlFrame(Cursor& cursor) {
-  uint32_t stream_id = 0;
   switch (type_) {
     case spdy::SYN_STREAM:
     {
@@ -971,7 +970,7 @@ size_t SPDYCodec::generateRstStream(IOBufQueue& writeBuf,
   appender.writeBE(flagsAndLength(0, kFrameSizeRstStream));
   appender.writeBE(uint32_t(stream));
   appender.writeBE(rstStatusSupported(statusCode) ?
-                   statusCode : spdy::RST_PROTOCOL_ERROR);
+                   statusCode : (uint32_t)spdy::RST_PROTOCOL_ERROR);
   DCHECK_EQ(writeBuf.chainLength(), expectedLength);
   return frameSize;
 }

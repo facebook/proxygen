@@ -89,7 +89,8 @@ bool HTTPHeaders::exists(HTTPHeaderCode code) const {
 size_t HTTPHeaders::getNumberOfValues(HTTPHeaderCode code) const {
   size_t count = 0;
   ITERATE_OVER_CODES(code, {
-    ++count;
+      (void)pos;
+      ++count;
   });
   return count;
 }

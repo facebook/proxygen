@@ -57,7 +57,6 @@ void HTTPSessionAcceptor::onNewConnection(
     const string& nextProtocol,
   const folly::TransportInfo& tinfo) {
   unique_ptr<HTTPCodec> codec;
-  SPDYVersion spdyVersion;
 
   AsyncSocket::UniquePtr sock(dynamic_cast<AsyncSocket*>(ssock.release()));
 

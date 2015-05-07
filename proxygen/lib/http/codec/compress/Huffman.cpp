@@ -181,7 +181,6 @@ uint32_t HuffTree::encode(const std::string& literal,
 
 uint32_t HuffTree::getEncodeSize(const std::string& literal) const {
   uint32_t totalBits = 0;
-  uint8_t bits;
   for (size_t i = 0; i < literal.size(); i++) {
     // we just need the number of bits
     uint8_t ch = literal[i];

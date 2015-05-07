@@ -588,14 +588,14 @@ writeSettings(IOBufQueue& queue,
 
 size_t
 writeSettingsAck(IOBufQueue& queue) {
-  const auto frameLen = writeFrameHeader(queue,
-                                         0,
-                                         FrameType::SETTINGS,
-                                         ACK,
-                                         0,
-                                         kNoPadding,
-                                         boost::none,
-                                         nullptr);
+  writeFrameHeader(queue,
+                   0,
+                   FrameType::SETTINGS,
+                   ACK,
+                   0,
+                   kNoPadding,
+                   boost::none,
+                   nullptr);
   return kFrameHeaderSize;
 }
 

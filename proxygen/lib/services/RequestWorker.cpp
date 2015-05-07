@@ -26,8 +26,8 @@ uint64_t RequestWorker::nextRequestId() {
 
 void RequestWorker::flushStats() {
   CHECK(getEventBase()->isInEventBaseThread());
-  FOR_EACH_KV (service, worker, serviceWorkers_) {
-    worker->flushStats();
+  for (auto& p: serviceWorkers_) {
+    p.second->flushStats();
   }
 }
 
