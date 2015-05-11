@@ -7,6 +7,7 @@ SessionTests_SOURCES = \
 	HTTPDownstreamSessionTest.cpp \
 	HTTPSessionAcceptorTest.cpp \
 	HTTPUpstreamSessionTest.cpp \
+	HTTP2PriorityQueueTest.cpp \
 	MockCodecDownstreamTest.cpp \
 	TestUtils.cpp
 
