@@ -58,6 +58,7 @@ class HeaderCodec {
     virtual void recordEncode(Type type, HTTPHeaderSize& size) = 0;
     virtual void recordDecode(Type type, HTTPHeaderSize& size) = 0;
     virtual void recordDecodeError(Type type) = 0;
+    virtual void recordDecodeTooLarge(Type type) = 0;
   };
 
   HeaderCodec() {}

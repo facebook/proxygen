@@ -55,6 +55,11 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
     errors++;
   }
 
+  void recordDecodeTooLarge(HeaderCodec::Type type) override {
+    EXPECT_EQ(type, HeaderCodec::Type::HPACK);
+    errors++; //?
+  }
+
   void reset() {
     encodes = 0;
     decodes = 0;

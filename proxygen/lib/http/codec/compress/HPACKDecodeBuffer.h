@@ -19,6 +19,7 @@ namespace proxygen {
 
 class HPACKDecodeBuffer {
  public:
+
   explicit HPACKDecodeBuffer(const huffman::HuffTree& huffmanTree,
                              folly::io::Cursor& cursorVal,
                              uint32_t totalBytes)
@@ -68,12 +69,12 @@ class HPACKDecodeBuffer {
    * decode an integer from the current position, given a nbit prefix
    * that basically needs to be ignored
    */
-  bool decodeInteger(uint8_t nbit, uint32_t& integer);
+  HPACK::DecodeError decodeInteger(uint8_t nbit, uint32_t& integer);
 
   /**
    * decode a literal starting from the current position
    */
-  bool decodeLiteral(std::string& literal);
+  HPACK::DecodeError decodeLiteral(std::string& literal);
 
 private:
   const huffman::HuffTree& huffmanTree_;

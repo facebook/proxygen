@@ -80,11 +80,16 @@ HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
       LOG(ERROR) << "name=" << hdr.name.c_str()
                  << " value=" << hdr.value.c_str();
     }
+    auto err = decoder_->getError();
+    if (err == HPACK::DecodeError::HEADERS_TOO_LARGE ||
+        err == HPACK::DecodeError::LITERAL_TOO_LARGE) {
+      if (stats_) {
+        stats_->recordDecodeTooLarge(Type::HPACK);
+      }
+      return HeaderDecodeError::HEADERS_TOO_LARGE;
+    }
     if (stats_) {
       stats_->recordDecodeError(Type::HPACK);
-    }
-    if (decoder_->getError() == HPACKDecoder::Error::HEADERS_TOO_LARGE) {
-      return HeaderDecodeError::HEADERS_TOO_LARGE;
     }
     return HeaderDecodeError::BAD_ENCODING;
   }

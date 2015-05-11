@@ -20,6 +20,7 @@ using namespace folly;
 using namespace proxygen;
 using namespace std;
 using namespace testing;
+using proxygen::HPACK::DecodeError;
 
 class HPACKBufferTests : public testing::Test {
  public:
@@ -121,23 +122,23 @@ TEST_F(HPACKBufferTests, decode_single_byte) {
   *wdata = 67;
   resetDecoder();
   uint32_t integer;
-  CHECK_EQ(decoder_.decodeInteger(7, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
   CHECK_EQ(integer, 67);
 
   resetDecoder();
 
-  CHECK_EQ(decoder_.decodeInteger(6, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(6, integer), DecodeError::NONE);
   CHECK_EQ(integer, 3);
 
   // set a bit in the prefix - it should not affect the decoded value
   *wdata = 195;  // 195 = 128 + 67
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(7, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
   CHECK_EQ(integer, 67);
 
   // 8-bit prefix - the entire byte
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(8, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(8, integer), DecodeError::NONE);
   CHECK_EQ(integer, 195);
 }
 
@@ -150,14 +151,14 @@ TEST_F(HPACKBufferTests, decode_multi_byte) {
   wdata[1] = 0;
   resetDecoder();
   uint32_t integer;
-  CHECK_EQ(decoder_.decodeInteger(2, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
   CHECK_EQ(integer, 3);
   CHECK_EQ(decoder_.cursor().length(), 0);
   // edge case - encode 130 = 127 + 3 on 2-bit prefix
   wdata[0] = 3;
   wdata[1] = 127;
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(2, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
   CHECK_EQ(integer, 130);
   CHECK_EQ(decoder_.cursor().length(), 0);
   // edge case - encode 131 = 128 + 3
@@ -166,7 +167,7 @@ TEST_F(HPACKBufferTests, decode_multi_byte) {
   wdata[1] = 128;
   wdata[2] = 1;
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(2, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
   CHECK_EQ(integer, 131);
   CHECK_EQ(decoder_.cursor().length(), 0);
   // encode the value from the RFC example - 1337
@@ -174,7 +175,7 @@ TEST_F(HPACKBufferTests, decode_multi_byte) {
   wdata[1] = 154;
   wdata[2] = 10;
   resetDecoder();
-  CHECK_EQ(decoder_.decodeInteger(5, integer), true);
+  CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::NONE);
   CHECK_EQ(integer, 1337);
   CHECK_EQ(decoder_.cursor().length(), 0);
 }
@@ -184,7 +185,7 @@ TEST_F(HPACKBufferTests, decode_integer_error) {
   resetDecoder();
   // empty buffer
   uint32_t integer;
-  CHECK_EQ(decoder_.decodeInteger(5, integer), false);
+  CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::BUFFER_UNDERFLOW);
 
   // incomplete buffer
   buf_->append(2);
@@ -192,7 +193,7 @@ TEST_F(HPACKBufferTests, decode_integer_error) {
   wdata[0] = 31;
   wdata[1] = 154;
   // wdata[2] = 10 missing
-  CHECK_EQ(decoder_.decodeInteger(5, integer), false);
+  CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::BUFFER_UNDERFLOW);
 }
 
 TEST_F(HPACKBufferTests, decode_literal_error) {
@@ -205,14 +206,14 @@ TEST_F(HPACKBufferTests, decode_literal_error) {
   wdata[1] = 'a';
   wdata[2] = 'b';
   string literal;
-  CHECK_EQ(decoder_.decodeLiteral(literal), false);
+  CHECK_EQ(decoder_.decodeLiteral(literal), DecodeError::BUFFER_UNDERFLOW);
 
   resetDecoder();
   // error decoding the size of the literal
   wdata[0] = 0xFF;
   wdata[1] = 0x80;
   wdata[2] = 0x80;
-  EXPECT_EQ(decoder_.decodeLiteral(literal), false);
+  EXPECT_EQ(decoder_.decodeLiteral(literal), DecodeError::BUFFER_UNDERFLOW);
 }
 
 TEST_F(HPACKBufferTests, decode_literal_multi_buffer) {
@@ -239,7 +240,7 @@ TEST_F(HPACKBufferTests, decode_literal_multi_buffer) {
   // decode
   resetDecoder(buf1.get());
   string literal;
-  EXPECT_EQ(decoder_.decodeLiteral(literal), true);
+  EXPECT_EQ(decoder_.decodeLiteral(literal), DecodeError::NONE);
   EXPECT_EQ(literal.size(), size);
   EXPECT_EQ(literal[0], 'x');
   EXPECT_EQ(literal[literal.size() - 1], 'y');
@@ -276,7 +277,7 @@ TEST_F(HPACKBufferTests, decode_huffman_literal_multi_buffer) {
   // decode
   resetDecoder(buf1.get());
   string literal;
-  EXPECT_EQ(decoder_.decodeLiteral(literal), true);
+  EXPECT_EQ(decoder_.decodeLiteral(literal), DecodeError::NONE);
   EXPECT_EQ(literal.size(), 4 * (size / 3));
   EXPECT_EQ(literal.find("gzip"), 0);
   EXPECT_EQ(literal.rfind("gzip"), literal.size() - 4);
@@ -307,7 +308,7 @@ TEST_F(HPACKBufferTests, integer_encode_decode) {
   EXPECT_EQ(decoder_.cursor().length(), 4);
   // now decode
   uint32_t integer;
-  EXPECT_EQ(decoder_.decodeInteger(5, integer), true);
+  EXPECT_EQ(decoder_.decodeInteger(5, integer), DecodeError::NONE);
   EXPECT_EQ(integer, value);
   EXPECT_EQ(decoder_.cursor().length(), 0);
 
@@ -316,7 +317,7 @@ TEST_F(HPACKBufferTests, integer_encode_decode) {
   encoder.encodeInteger(value, 64, 6);
   releaseData(encoder);
   resetDecoder();
-  EXPECT_EQ(decoder_.decodeInteger(6, integer), true);
+  EXPECT_EQ(decoder_.decodeInteger(6, integer), DecodeError::NONE);
   EXPECT_EQ(integer, value);
 }
 

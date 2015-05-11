@@ -23,16 +23,6 @@ namespace proxygen {
 
 class HPACKDecoder : public HPACKContext {
  public:
-  enum Error : uint8_t {
-    NONE = 0,
-    INVALID_INDEX = 1,
-    INVALID_HUFFMAN_CODE = 2,
-    INVALID_ENCODING = 3,
-    BUFFER_OVERFLOW = 4,
-    INVALID_TABLE_SIZE = 5,
-    HEADERS_TOO_LARGE = 6,
-  };
-
   explicit HPACKDecoder(
     HPACK::MessageType msgType,
     uint32_t tableSize=HPACK::kTableSize,
@@ -57,12 +47,12 @@ class HPACKDecoder : public HPACKContext {
    */
   std::unique_ptr<headers_t> decode(const folly::IOBuf* buffer);
 
-  Error getError() const {
+  HPACK::DecodeError getError() const {
     return err_;
   }
 
   bool hasError() const {
-    return err_ != Error::NONE;
+    return err_ != HPACK::DecodeError::NONE;
   }
 
   void setHeaderTableMaxSize(uint32_t maxSize) {
@@ -86,7 +76,7 @@ class HPACKDecoder : public HPACKContext {
 
   uint32_t decodeHeader(HPACKDecodeBuffer& dbuf, headers_t& emitted);
 
-  Error err_{Error::NONE};
+  HPACK::DecodeError err_{HPACK::DecodeError::NONE};
   uint32_t maxTableSize_;
   uint32_t maxUncompressed_;
 };

@@ -160,7 +160,7 @@ TEST_F(HPACKContextTests, decoder_invalid_literal_peek) {
 /**
  * testing various error cases in HPACKDecoder::decodeLiterHeader()
  */
-void checkError(const IOBuf* buf, const HPACKDecoder::Error err) {
+void checkError(const IOBuf* buf, const HPACK::DecodeError err) {
   HPACKDecoder decoder(HPACK::MessageType::REQ);
   auto decoded = decoder.decode(buf);
   EXPECT_TRUE(decoder.hasError());
@@ -174,28 +174,38 @@ TEST_F(HPACKContextTests, decode_errors) {
   // we try to encode index 65
   buf->writableData()[0] = 0x3F;
   buf->append(1);  // intentionally omit the second byte
-  checkError(buf.get(), HPACKDecoder::Error::BUFFER_OVERFLOW);
+  checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // 2. invalid index for indexed header name
   buf->writableData()[1] = 0xFF;
   buf->writableData()[2] = 0x7F;
   buf->append(2);
-  checkError(buf.get(), HPACKDecoder::Error::INVALID_INDEX);
+  checkError(buf.get(), HPACK::DecodeError::INVALID_INDEX);
 
   // 3. buffer overflow when decoding literal header name
   buf->writableData()[0] = 0x00;  // this will activate the non-indexed branch
-  checkError(buf.get(), HPACKDecoder::Error::BUFFER_OVERFLOW);
+  checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // 4. buffer overflow when decoding a header value
   // size for header name size and the actual header name
   buf->writableData()[1] = 0x01;
   buf->writableData()[2] = 'h';
-  checkError(buf.get(), HPACKDecoder::Error::BUFFER_OVERFLOW);
+  checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // 5. buffer overflow decoding the index of an indexed header
   buf->writableData()[0] = 0xFF; // first bit is 1 to mark indexed header
   buf->writableData()[1] = 0x80; // first bit is 1 to continue the
                                  // variable-length encoding
   buf->writableData()[2] = 0x80;
-  checkError(buf.get(), HPACKDecoder::Error::BUFFER_OVERFLOW);
+  checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
+
+  // 7. integer overflow decoding the index of an indexed header
+  buf->writableData()[0] = 0xFF; // first bit is 1 to mark indexed header
+  buf->writableData()[1] = 0xFF;
+  buf->writableData()[2] = 0xFF;
+  buf->writableData()[3] = 0xFF;
+  buf->writableData()[4] = 0xFF;
+  buf->writableData()[5] = 0x7F;
+  buf->append(3);
+  checkError(buf.get(), HPACK::DecodeError::INTEGER_OVERFLOW);
 }

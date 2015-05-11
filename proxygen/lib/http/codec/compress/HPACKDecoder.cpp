@@ -20,6 +20,7 @@ using std::list;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+using proxygen::HPACK::DecodeError;
 
 namespace proxygen {
 
@@ -47,7 +48,7 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
     if (emittedSize > maxUncompressed_) {
       LOG(ERROR) << "exceeded uncompressed size limit of "
                  << maxUncompressed_ << " bytes";
-      err_ = Error::HEADERS_TOO_LARGE;
+      err_ = DecodeError::HEADERS_TOO_LARGE;
       return dbuf.consumedBytes();
     }
   }
@@ -57,7 +58,7 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
   if (emittedSize > maxUncompressed_) {
     LOG(ERROR) << "exceeded uncompressed size limit of "
                << maxUncompressed_ << " bytes";
-    err_ = Error::HEADERS_TOO_LARGE;
+    err_ = DecodeError::HEADERS_TOO_LARGE;
   }
   return dbuf.consumedBytes();
 }
@@ -94,31 +95,32 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
   const uint8_t indexMask = 0x3F;  // 0011 1111
   if (byte & indexMask) {
     uint32_t index;
-    if (!dbuf.decodeInteger(6, index)) {
-      LOG(ERROR) << "buffer overflow decoding index";
-      err_ = Error::BUFFER_OVERFLOW;
+    err_ = dbuf.decodeInteger(6, index);
+    if (err_ != DecodeError::NONE) {
+      LOG(ERROR) << "Decode error decoding literal index err_=" << err_;
       return 0;
     }
     // validate the index
     if (!isValid(index)) {
       LOG(ERROR) << "received invalid index: " << index;
-      err_ = Error::INVALID_INDEX;
+      err_ = DecodeError::INVALID_INDEX;
       return 0;
     }
     header.name = getHeader(index).name;
   } else {
     // skip current byte
     dbuf.next();
-    if (!dbuf.decodeLiteral(header.name)) {
-      LOG(ERROR) << "buffer overflow decoding header name";
-      err_ = Error::BUFFER_OVERFLOW;
+    err_ = dbuf.decodeLiteral(header.name);
+    if (err_ != DecodeError::NONE) {
+      LOG(ERROR) << "Error decoding header name err_=" << err_;
       return 0;
     }
   }
   // value
-  if (!dbuf.decodeLiteral(header.value)) {
-    LOG(ERROR) << "buffer overflow decoding header value";
-    err_ = Error::BUFFER_OVERFLOW;
+  err_ = dbuf.decodeLiteral(header.value);
+  if (err_ != DecodeError::NONE) {
+    LOG(ERROR) << "Error decoding header value name=" << header.name
+               << " err_=" << err_;
     return 0;
   }
 
@@ -134,9 +136,9 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
 uint32_t HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
                                            headers_t& emitted) {
   uint32_t index;
-  if (!dbuf.decodeInteger(7, index)) {
-    LOG(ERROR) << "buffer overflow decoding index";
-    err_ = Error::BUFFER_OVERFLOW;
+  err_ = dbuf.decodeInteger(7, index);
+  if (err_ != DecodeError::NONE) {
+    LOG(ERROR) << "Decode error decoding header index err_=" << err_;
     return 0;
   }
   if (index == 0) {
@@ -146,7 +148,7 @@ uint32_t HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
   // validate the index
   if (!isValid(index)) {
     LOG(ERROR) << "received invalid index: " << index;
-    err_ = Error::INVALID_INDEX;
+    err_ = DecodeError::INVALID_INDEX;
     return 0;
   }
   uint32_t emittedSize = 0;
