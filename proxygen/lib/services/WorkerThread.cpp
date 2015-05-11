@@ -9,7 +9,6 @@
  */
 #include <proxygen/lib/services/WorkerThread.h>
 
-#include <boost/thread.hpp>
 #include <folly/String.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <glog/logging.h>

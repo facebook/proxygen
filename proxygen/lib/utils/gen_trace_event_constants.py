@@ -33,7 +33,7 @@ def main(argv):
     file_names = options.input_files.split(",")
     for file_name in file_names:
         # strip the file extension and use the file name for class name
-        class_name = file_name.split(".")[0]
+        class_name = os.path.basename(file_name).split(".")[0]
 
         # parse items from source
         items = []
