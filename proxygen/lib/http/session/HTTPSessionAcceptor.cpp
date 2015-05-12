@@ -110,4 +110,10 @@ void HTTPSessionAcceptor::onNewConnection(
   session->startNow();
 }
 
+size_t HTTPSessionAcceptor::dropIdleConnections(size_t num) {
+  // release in batch for more efficiency
+  VLOG(4) << "attempt to reelease resource";
+  return downstreamConnectionManager_->dropIdleConnections(num);
+}
+
 } // proxygen

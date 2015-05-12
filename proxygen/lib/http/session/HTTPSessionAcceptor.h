@@ -114,6 +114,8 @@ protected:
       new folly::AsyncSSLSocket(ctx, base, fd));
   }
 
+  virtual size_t dropIdleConnections(size_t num);
+
 private:
   HTTPSessionAcceptor(const HTTPSessionAcceptor&) = delete;
   HTTPSessionAcceptor& operator=(const HTTPSessionAcceptor&) = delete;

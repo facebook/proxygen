@@ -1315,6 +1315,9 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
     if (infoCallback_) {
       infoCallback_->onDeactivateConnection(*this);
     }
+    if (getConnectionManager()) {
+      getConnectionManager()->onDeactivated(*this);
+    }
   } else {
     if (infoCallback_) {
       infoCallback_->onTransactionDetached(*this);
@@ -1854,6 +1857,9 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
   if (transactions_.empty()) {
     if (infoCallback_) {
       infoCallback_->onActivateConnection(*this);
+    }
+    if (getConnectionManager()) {
+      getConnectionManager()->onActivated(*this);
     }
     if (numTxnServed_ >= 1) {
       // idle duration only exists since the 2nd transaction in the session

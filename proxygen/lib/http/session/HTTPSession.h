@@ -191,6 +191,17 @@ class HTTPSession:
   HTTPSessionController* getController() { return controller_; }
 
   /**
+   * ManagedConnection::getIdleTime()
+   */
+  std::chrono::milliseconds getIdleTime() const override {
+    if (timePointInitialized(latestActive_)) {
+      return secondsSince(latestActive_);
+    } else {
+      return std::chrono::milliseconds(0);
+    }
+  }
+
+  /**
    * Start closing the socket.
    * @param shutdownReads  Whether to close the read side of the
    * socket. All transactions which are not ingress complete will receive
