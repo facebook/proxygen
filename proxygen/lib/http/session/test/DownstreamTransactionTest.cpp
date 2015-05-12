@@ -31,9 +31,12 @@ class DownstreamTransactionTest : public testing::Test {
  public:
   DownstreamTransactionTest() {}
 
-  void setupRequestResponseFlow(HTTPTransaction* txn, uint32_t size) {
+  void SetUp() override {
     EXPECT_CALL(transport_, describe(_))
       .WillRepeatedly(Return());
+  }
+
+  void setupRequestResponseFlow(HTTPTransaction* txn, uint32_t size) {
     EXPECT_CALL(handler_, setTransaction(txn));
     EXPECT_CALL(handler_, detachTransaction());
     EXPECT_CALL(transport_, detach(txn));
@@ -315,4 +318,36 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
 
   HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS, "test");
   txn.onError(err);
+}
+
+TEST_F(DownstreamTransactionTest, internal_error) {
+  unique_ptr<StrictMock<MockHTTPHandler>> handler(
+    new StrictMock<MockHTTPHandler>);
+
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get());
+
+  InSequence dummy;
+
+  EXPECT_CALL(*handler, setTransaction(&txn));
+  EXPECT_CALL(*handler, onHeadersComplete(_))
+    .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> msg) {
+          auto response = makeResponse(200);
+          txn.sendHeaders(*response.get());
+        }));
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _))
+    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused) {
+          EXPECT_EQ(headers.getStatusCode(), 200);
+        }));
+  EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::INTERNAL_ERROR));
+  EXPECT_CALL(*handler, detachTransaction());
+  EXPECT_CALL(transport_, detach(&txn));
+
+  HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS, "test");
+
+  txn.setHandler(handler.get());
+  txn.onIngressHeadersComplete(makeGetRequest());
+  txn.sendAbort();
 }

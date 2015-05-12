@@ -183,7 +183,7 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
           handler1.sendHeaders(200, 100);
           handler1.sendBody(100);
         }));
-  EXPECT_CALL(handler1, onError(_)).Times(2);
+  EXPECT_CALL(handler1, onError(_));
   EXPECT_CALL(handler1, detachTransaction());
   EXPECT_CALL(handler2, setTransaction(_))
     .WillOnce(Invoke([&handler2] (HTTPTransaction* txn) {

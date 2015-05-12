@@ -382,7 +382,7 @@ bool HTTPTransaction::validateIngressStateTransition(
       ", event=" << event << ", streamID=" << id_;
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, ss.str());
     ex.setProxygenError(kErrorIngressStateTransition);
-    ex.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
+    ex.setCodecStatusCode(ErrorCode::INTERNAL_ERROR);
     // This will invoke sendAbort() and also inform the handler of the
     // error and detach the handler.
     onError(ex);
@@ -457,13 +457,24 @@ void HTTPTransaction::onIngressTimeout() {
   CallbackGuard guard(*this);
   VLOG(4) << "ingress timeout on " << *this;
   pauseIngress();
-  markIngressComplete();
+  bool windowUpdateTimeout = !isEgressComplete() &&
+    useFlowControl_ && sendWindow_.getSize() <= 0;
   if (handler_) {
-    HTTPException ex(HTTPException::Direction::INGRESS,
-      folly::to<std::string>("ingress timeout, streamID=", id_));
-    ex.setProxygenError(kErrorTimeout);
-    handler_->onError(ex);
+    if (windowUpdateTimeout) {
+      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+          folly::to<std::string>("ingress timeout, streamID=", id_));
+      ex.setProxygenError(kErrorWriteTimeout);
+      // This is a protocol error
+      ex.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
+      onError(ex);
+    } else {
+      HTTPException ex(HTTPException::Direction::INGRESS,
+          folly::to<std::string>("ingress timeout, streamID=", id_));
+      ex.setProxygenError(kErrorTimeout);
+      onError(ex);
+    }
   } else {
+    markIngressComplete();
     markEgressComplete();
   }
 }
@@ -797,7 +808,7 @@ HTTPTransaction::sendEOM() {
 
 void HTTPTransaction::sendAbort() {
   sendAbort(isUpstream() ? ErrorCode::CANCEL
-                         : ErrorCode::PROTOCOL_ERROR);
+                         : ErrorCode::INTERNAL_ERROR);
 }
 
 void HTTPTransaction::sendAbort(ErrorCode statusCode) {

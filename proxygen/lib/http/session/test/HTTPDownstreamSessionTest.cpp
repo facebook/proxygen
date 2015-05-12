@@ -1452,7 +1452,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
   EXPECT_CALL(handler, onEgressPaused());
   EXPECT_CALL(handler, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
-          ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
+          ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
           ASSERT_EQ(
             folly::to<std::string>("ingress timeout, streamID=", streamID),
             std::string(ex.what()));
