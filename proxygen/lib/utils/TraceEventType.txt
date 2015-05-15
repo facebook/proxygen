@@ -18,7 +18,6 @@ ReadSocket, "read_socket"
 WriteSocket, "write_socket"
 Scheduling, "scheduling"
 NetworkChange, "network_change"
-HappyEyeballs, "happy_eyeballs"
 MultiConnector, "multi_connector"
 SingleConnector, "single_connector"
 

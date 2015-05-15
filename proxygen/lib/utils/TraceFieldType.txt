@@ -48,6 +48,7 @@ TotalConnsStarted, "total_conns_started"
 /* ---- Used in TcpConnect ---- */
 ServerAddr, "server_address"
 ServerPort, "server_port"
+CachedFamily, "cached_family"
 
 /* ---- Used in PostConnect ---- */
 NewSession, "new_session"
@@ -112,15 +113,10 @@ PreviousState, "previous_state"
 CurrentState, "current_state"
 NetworkID, "network_id"
 
-/* ---- Used in HappyEyeballs ---- */
-CachedFamily, "cached_family"
-SucceededFamily, "succeeded_family"
-
 /* ---- Used in MultiConnector ---- */
 NumConnAttempts, "number_conn_attempts"
 AttemptAddrs, "attempt_addresses"
 AttemptAddrFamily, "attempt_address_family"
-SucceededAddr, "succeeded_address"
 SucceededConnTime, "succeeded_conn_time"
 
 /* ---- Used in FBLigerProtocol ---- */
