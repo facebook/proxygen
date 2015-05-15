@@ -29,7 +29,7 @@ class HTTPSessionAcceptor:
   private HTTPSession::InfoCallback {
 public:
   explicit HTTPSessionAcceptor(const AcceptorConfiguration& accConfig);
-  virtual ~HTTPSessionAcceptor();
+  ~HTTPSessionAcceptor() override;
 
   /**
    * Set the default error page generator.
@@ -100,15 +100,16 @@ protected:
       const std::string& nextProtocol,
       const folly::TransportInfo& tinfo) override;
 
-  virtual folly::AsyncSocket::UniquePtr makeNewAsyncSocket(
-      folly::EventBase* base, int fd) override {
+  folly::AsyncSocket::UniquePtr makeNewAsyncSocket(folly::EventBase* base,
+                                                   int fd) override {
     return folly::AsyncSocket::UniquePtr(
       new folly::AsyncSocket(base, fd));
   }
 
-  virtual folly::AsyncSSLSocket::UniquePtr makeNewAsyncSSLSocket(
-    const std::shared_ptr<folly::SSLContext>& ctx,
-    folly::EventBase* base, int fd) override {
+  folly::AsyncSSLSocket::UniquePtr makeNewAsyncSSLSocket(
+      const std::shared_ptr<folly::SSLContext>& ctx,
+      folly::EventBase* base,
+      int fd) override {
     return folly::AsyncSSLSocket::UniquePtr(
       new folly::AsyncSSLSocket(ctx, base, fd));
   }

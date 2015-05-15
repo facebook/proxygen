@@ -31,8 +31,8 @@ class AcceptorFactory : public folly::AcceptorFactory {
                   AcceptorConfiguration config) :
       options_(options),
       config_(config)  {}
-  virtual std::shared_ptr<folly::Acceptor> newAcceptor(
-      folly::EventBase* eventBase) {
+  std::shared_ptr<folly::Acceptor> newAcceptor(
+      folly::EventBase* eventBase) override {
     auto acc = std::shared_ptr<HTTPServerAcceptor>(
       HTTPServerAcceptor::make(config_, *options_).release());
     acc->init(nullptr, eventBase);
@@ -78,14 +78,14 @@ class HandlerCallbacks : public ThreadPoolExecutor::Observer {
  public:
   explicit HandlerCallbacks(std::shared_ptr<HTTPServerOptions> options) : options_(options) {}
 
-  void threadStarted(ThreadPoolExecutor::ThreadHandle* h) {
+  void threadStarted(ThreadPoolExecutor::ThreadHandle* h) override {
     IOThreadPoolExecutor::getEventBase(h)->runInEventBaseThread([&](){
       for (auto& factory: options_->handlerFactories) {
         factory->onServerStart();
       }
     });
   }
-  void threadStopped(ThreadPoolExecutor::ThreadHandle* h) {
+  void threadStopped(ThreadPoolExecutor::ThreadHandle* h) override {
     IOThreadPoolExecutor::getEventBase(h)->runInEventBaseThread([&](){
       for (auto& factory: options_->handlerFactories) {
         factory->onServerStop();

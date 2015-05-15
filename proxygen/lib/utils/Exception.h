@@ -32,7 +32,7 @@ class Exception : public std::exception {
   ~Exception(void) noexcept override {}
 
   // std::exception methods
-  virtual const char* what(void) const noexcept override;
+  const char* what(void) const noexcept override;
 
   void setCode(int code) { code_ = code; }
 

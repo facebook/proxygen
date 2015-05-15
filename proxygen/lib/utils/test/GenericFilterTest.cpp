@@ -428,9 +428,7 @@ class TestFilterOddDeleteDo: public TestFilter<false> {
   explicit TestFilterOddDeleteDo(int* deletions):
       TestFilter<false>(true, true),
       deletions_(CHECK_NOTNULL(deletions)) {}
-  ~TestFilterOddDeleteDo() {
-    ++*deletions_;
-  }
+  ~TestFilterOddDeleteDo() override { ++*deletions_; }
 
   void doA() override {
     auto call = call_;
@@ -469,9 +467,7 @@ class TestFilterOddDeleteOn: public TestFilter<Owned> {
  public:
   explicit TestFilterOddDeleteOn(int* deletions):
       deletions_(CHECK_NOTNULL(deletions)) {}
-  ~TestFilterOddDeleteOn() {
-    ++*deletions_;
-  }
+  ~TestFilterOddDeleteOn() override { ++*deletions_; }
 
   void onA() override {
     auto callback = this->callback_;

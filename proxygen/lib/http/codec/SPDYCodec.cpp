@@ -143,11 +143,9 @@ class SPDYStreamFailed : public std::exception {
                                      inMsg);
   }
 
-  ~SPDYStreamFailed() throw() {}
+  ~SPDYStreamFailed() throw() override {}
 
-  virtual const char* what() const throw() {
-    return message.c_str();
-  }
+  const char* what() const throw() override { return message.c_str(); }
 
   bool isNew;
   uint32_t streamID;

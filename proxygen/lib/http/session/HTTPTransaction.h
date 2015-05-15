@@ -200,7 +200,7 @@ class HTTPTransactionHandler {
 
 class HTTPPushTransactionHandler : public HTTPTransactionHandler {
  public:
-  virtual ~HTTPPushTransactionHandler() {}
+  ~HTTPPushTransactionHandler() override {}
 
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept final {
     LOG(FATAL) << "push txn received headers";
@@ -368,7 +368,7 @@ class HTTPTransaction :
                   int8_t priority = -1,
                   HTTPCodec::StreamID assocStreamId = 0);
 
-  virtual ~HTTPTransaction() override;
+  ~HTTPTransaction() override;
 
   HTTPCodec::StreamID getID() const { return id_; }
 

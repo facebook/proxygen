@@ -57,11 +57,9 @@ public:
     return HPACKContextImpl::nameIndex(name, getStaticTable(), table_);
   }
 
-  virtual uint32_t emitRefset(headers_t& emitted) override {
-    return 0;
-  }
+  uint32_t emitRefset(headers_t& emitted) override { return 0; }
 
-  virtual const huffman::HuffTree& getHuffmanTree() const override;
+  const huffman::HuffTree& getHuffmanTree() const override;
 
   uint32_t decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
                                headers_t& emitted) override;

@@ -69,7 +69,7 @@ class AckTimeout
   AckTimeout(Callback* callback, uint64_t byteNo)
       : callback_(callback), byteNo_(byteNo) {}
 
-  void timeoutExpired() noexcept {
+  void timeoutExpired() noexcept override {
     callback_->ackTimeoutExpired(byteNo_);
   }
 

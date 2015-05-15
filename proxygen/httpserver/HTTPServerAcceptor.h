@@ -30,7 +30,7 @@ class HTTPServerAcceptor final : public HTTPSessionAcceptor {
    */
   void setCompletionCallback(std::function<void()> f);
 
-  ~HTTPServerAcceptor();
+  ~HTTPServerAcceptor() override;
 
  private:
   HTTPServerAcceptor(const AcceptorConfiguration& conf,

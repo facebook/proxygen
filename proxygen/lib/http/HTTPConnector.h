@@ -62,7 +62,7 @@ class HTTPConnector:
    * Clients may delete the connector at any time to cancel it. No
    * callbacks will be received.
    */
-  ~HTTPConnector();
+  ~HTTPConnector() override;
 
   /**
    * Reset the object so that it can begin a new connection. No callbacks

@@ -23,18 +23,17 @@ class ScopedHandler : public RequestHandler {
   explicit ScopedHandler(HandlerType* ptr): handlerPtr_(ptr) {
   }
 
-  void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
+  void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept override {
     request_ = std::move(headers);
   }
 
-  void onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
+  void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
     requestBody_.append(std::move(body));
   }
 
-  void onUpgrade(proxygen::UpgradeProtocol proto) noexcept {
-  }
+  void onUpgrade(proxygen::UpgradeProtocol proto) noexcept override {}
 
-  void onEOM() noexcept {
+  void onEOM() noexcept override {
     try {
       ResponseBuilder r(downstream_);
       (*handlerPtr_)(*request_, requestBody_.move(), r);
@@ -52,13 +51,9 @@ class ScopedHandler : public RequestHandler {
     }
   }
 
-  void requestComplete() noexcept {
-    delete this;
-  }
+  void requestComplete() noexcept override { delete this; }
 
-  void onError(ProxygenError err) noexcept {
-    delete this;
-  }
+  void onError(ProxygenError err) noexcept override { delete this; }
  private:
   HandlerType* const handlerPtr_{nullptr};
 

@@ -85,7 +85,7 @@ class HTTPDownstreamTest : public testing::Test {
     httpSession_->startNow();
   }
 
-  void SetUp() {
+  void SetUp() override {
     folly::EventBaseManager::get()->clearEventBase();
     HTTPSession::setPendingWriteMax(65536);
   }

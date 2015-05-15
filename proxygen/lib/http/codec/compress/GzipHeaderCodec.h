@@ -27,7 +27,7 @@ class GzipHeaderCodec : public HeaderCodec {
                   const SPDYVersionSettings& versionSettings);
   explicit GzipHeaderCodec(int compressionLevel,
                            SPDYVersion version = SPDYVersion::SPDY3_1);
-  virtual ~GzipHeaderCodec();
+  ~GzipHeaderCodec() override;
 
   std::unique_ptr<folly::IOBuf> encode(
     std::vector<compress::Header>& headers) noexcept override;

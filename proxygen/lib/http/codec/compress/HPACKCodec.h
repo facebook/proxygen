@@ -40,7 +40,7 @@ extern const std::string kHpackNpn; // NPN string for SPDY w/ HPACK
 class HPACKCodec : public HeaderCodec {
  public:
   explicit HPACKCodec(TransportDirection direction);
-  virtual ~HPACKCodec() {}
+  ~HPACKCodec() override {}
 
   std::unique_ptr<folly::IOBuf> encode(
     std::vector<compress::Header>& headers) noexcept override;

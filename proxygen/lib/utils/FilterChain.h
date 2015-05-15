@@ -231,9 +231,7 @@ class FilterChain: private FilterType {
    * Set the callback for this entire filter chain. Setting this to null will
    * uninstall the callback from the concrete object at the end of the chain.
    */
-  void setCallback(T2* cb) {
-    this->setCallbackInternalImpl(cb, cb);
-  }
+  void setCallback(T2* cb) override { this->setCallbackInternalImpl(cb, cb); }
 
   /**
    * Returns the head of the call chain. Do* not* call T1::set_callback() on

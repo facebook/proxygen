@@ -19,24 +19,25 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
  public:
   HTTP1xCodecCallback() {}
 
-  void onMessageBegin(HTTPCodec::StreamID stream, HTTPMessage* msg) {}
+  void onMessageBegin(HTTPCodec::StreamID stream, HTTPMessage* msg) override {}
   void onPushMessageBegin(HTTPCodec::StreamID stream,
                           HTTPCodec::StreamID assocStream,
-                          HTTPMessage* msg) {}
+                          HTTPMessage* msg) override {}
   void onHeadersComplete(HTTPCodec::StreamID stream,
-                         std::unique_ptr<HTTPMessage> msg) {
+                         std::unique_ptr<HTTPMessage> msg) override {
     headersComplete++;
     headerSize = msg->getIngressHeaderSize();
   }
   void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain) {}
-  void onChunkHeader(HTTPCodec::StreamID stream, size_t length) {}
-  void onChunkComplete(HTTPCodec::StreamID stream) {}
+              std::unique_ptr<folly::IOBuf> chain) override {}
+  void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override {}
+  void onChunkComplete(HTTPCodec::StreamID stream) override {}
   void onTrailersComplete(HTTPCodec::StreamID stream,
-                          std::unique_ptr<HTTPHeaders> trailers) {}
-  void onMessageComplete(HTTPCodec::StreamID stream, bool upgrade) {}
+                          std::unique_ptr<HTTPHeaders> trailers) override {}
+  void onMessageComplete(HTTPCodec::StreamID stream, bool upgrade) override {}
   void onError(HTTPCodec::StreamID stream,
-               const HTTPException& error, bool newTxn) {
+               const HTTPException& error,
+               bool newTxn) override {
     LOG(ERROR) << "parse error";
   }
 

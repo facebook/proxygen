@@ -51,7 +51,7 @@ class TestTimeout : public AsyncTimeoutSet::Callback {
     addTimeout(std::forward<Args>(args)...);
   }
 
-  virtual void timeoutExpired() noexcept {
+  void timeoutExpired() noexcept override {
     timestamps.emplace_back(clock_->millisecondsSinceEpoch());
     _scheduleNext();
     if (fn) {

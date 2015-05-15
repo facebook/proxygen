@@ -38,7 +38,7 @@ public:
   void onEgressResumed() noexcept override {};
 
 private:
-  ~HTTPDirectResponseHandler();
+ ~HTTPDirectResponseHandler() override;
 
   HTTPTransaction* txn_;
   const HTTPErrorPage* errorPage_;

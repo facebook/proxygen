@@ -71,7 +71,7 @@ class HTTPSessionAcceptorTestBase :
     config_.sslContextConfigs.emplace_back(sslCtxConfig_);
   }
 
-  void SetUp() {
+  void SetUp() override {
     SocketAddress address("127.0.0.1", 0);
     config_.bindAddress = address;
     setupSSL();
@@ -97,7 +97,7 @@ class HTTPSessionAcceptorTestNPN :
 class HTTPSessionAcceptorTestNPNPlaintext :
     public HTTPSessionAcceptorTestBase {
  public:
-  void setupSSL() {}
+  void setupSSL() override {}
 };
 class HTTPSessionAcceptorTestNPNJunk :
     public HTTPSessionAcceptorTestBase {};

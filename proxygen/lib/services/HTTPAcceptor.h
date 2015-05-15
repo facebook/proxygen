@@ -36,8 +36,8 @@ class HTTPAcceptor : public folly::Acceptor {
     return transactionTimeouts_.get();
   }
 
-  virtual void init(folly::AsyncServerSocket* serverSocket,
-                    folly::EventBase* eventBase) {
+  void init(folly::AsyncServerSocket* serverSocket,
+            folly::EventBase* eventBase) override {
     Acceptor::init(serverSocket, eventBase);
     transactionTimeouts_.reset(new AsyncTimeoutSet(
                                  eventBase, accConfig_.transactionIdleTimeout));

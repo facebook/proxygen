@@ -54,19 +54,19 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   }
 
   // These HTTPTransaction::Handler callbacks cannot be overrwritten
-  void setTransaction(HTTPTransaction* txn) noexcept override final {
+  void setTransaction(HTTPTransaction* txn) noexcept final {
     nextTransactionHandler_->setTransaction(txn);
   }
-  void detachTransaction() noexcept override final {
+  void detachTransaction() noexcept final {
     nextTransactionHandler_->detachTransaction();
   }
-  void onEgressPaused() noexcept override final {
+  void onEgressPaused() noexcept final {
     nextTransactionHandler_->onEgressPaused();
   }
-  void onEgressResumed() noexcept override final {
+  void onEgressResumed() noexcept final {
     nextTransactionHandler_->onEgressResumed();
   }
-  void onPushedTransaction(HTTPTransaction* txn) noexcept override final {
+  void onPushedTransaction(HTTPTransaction* txn) noexcept final {
     nextTransactionHandler_->onPushedTransaction(txn);
   }
  protected:

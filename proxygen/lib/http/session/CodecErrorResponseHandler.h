@@ -34,7 +34,7 @@ public:
   void onEgressResumed() noexcept override {};
 
 private:
-  ~CodecErrorResponseHandler();
+ ~CodecErrorResponseHandler() override;
 
   HTTPTransaction* txn_;
 };

@@ -78,11 +78,9 @@ class HTTPSession:
       public AsyncTimeoutSet::Callback {
    public:
     explicit WriteTimeout(HTTPSession* session) : session_(session) {}
-    virtual ~WriteTimeout() {}
+    ~WriteTimeout() override {}
 
-    void timeoutExpired() noexcept {
-      session_->writeTimeoutExpired();
-    }
+    void timeoutExpired() noexcept override { session_->writeTimeoutExpired(); }
    private:
     HTTPSession* session_;
   };
@@ -90,9 +88,9 @@ class HTTPSession:
   class FlowControlTimeout : public AsyncTimeoutSet::Callback {
    public:
     explicit FlowControlTimeout(HTTPSession* session) : session_(session) {}
-    virtual ~FlowControlTimeout() {}
+    ~FlowControlTimeout() override {}
 
-    void timeoutExpired() noexcept {
+    void timeoutExpired() noexcept override {
       session_->flowControlTimeoutExpired();
     }
    private:
@@ -342,7 +340,7 @@ class HTTPSession:
       const folly::TransportInfo& tinfo,
       InfoCallback* infoCallback = nullptr);
 
-  virtual ~HTTPSession();
+  ~HTTPSession() override;
 
   /**
    * Called by onHeadersComplete(). This function allows downstream and

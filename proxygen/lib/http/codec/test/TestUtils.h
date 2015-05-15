@@ -65,42 +65,40 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
  public:
   FakeHTTPCodecCallback() {}
 
-  void onMessageBegin(HTTPCodec::StreamID stream, HTTPMessage*) {
+  void onMessageBegin(HTTPCodec::StreamID stream, HTTPMessage*) override {
     messageBegin++;
   }
   void onPushMessageBegin(HTTPCodec::StreamID stream,
                           HTTPCodec::StreamID assocStream,
-                          HTTPMessage*) {
+                          HTTPMessage*) override {
     messageBegin++;
     assocStreamId = assocStream;
   }
   void onHeadersComplete(HTTPCodec::StreamID stream,
-                         std::unique_ptr<HTTPMessage> inMsg) {
+                         std::unique_ptr<HTTPMessage> inMsg) override {
     headersComplete++;
     msg = std::move(inMsg);
   }
   void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain) {
+              std::unique_ptr<folly::IOBuf> chain) override {
     bodyCalls++;
     bodyLength += chain->computeChainDataLength();
     data.append(std::move(chain));
   }
-  void onChunkHeader(HTTPCodec::StreamID stream, size_t length) {
+  void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override {
     chunkHeaders++;
   }
-  void onChunkComplete(HTTPCodec::StreamID stream) {
-    chunkComplete++;
-  }
+  void onChunkComplete(HTTPCodec::StreamID stream) override { chunkComplete++; }
   void onTrailersComplete(HTTPCodec::StreamID stream,
-                          std::unique_ptr<HTTPHeaders> inTrailers) {
+                          std::unique_ptr<HTTPHeaders> inTrailers) override {
     trailers++;
   }
-  void onMessageComplete(HTTPCodec::StreamID stream, bool upgrade) {
+  void onMessageComplete(HTTPCodec::StreamID stream, bool upgrade) override {
     messageComplete++;
   }
   void onError(HTTPCodec::StreamID stream,
                const HTTPException& error,
-               bool newStream) {
+               bool newStream) override {
     if (stream) {
       streamErrors++;
     } else {
@@ -109,11 +107,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastParseError = folly::make_unique<HTTPException>(error);
   }
 
-  void onAbort(HTTPCodec::StreamID stream, ErrorCode code) {
+  void onAbort(HTTPCodec::StreamID stream, ErrorCode code) override {
     ++aborts;
   }
 
-  void onGoaway(uint64_t lastGoodStreamID, ErrorCode code) {
+  void onGoaway(uint64_t lastGoodStreamID, ErrorCode code) override {
     ++goaways;
   }
 

@@ -151,7 +151,7 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
    * them.  If you destroy a AsyncTimeoutSet with callbacks pending, your
    * callback code needs to be aware that the callbacks will never be invoked.
    */
-  virtual void destroy();
+  void destroy() override;
 
   /**
    * Get the interval for this AsyncTimeoutSet.
@@ -193,7 +193,7 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
    * Use destroy() instead.  See the comments in TDelayedDestruction for more
    * details.
    */
-  virtual ~AsyncTimeoutSet();
+  ~AsyncTimeoutSet() override;
 
  private:
   // Forbidden copy constructor and assignment operator
@@ -204,7 +204,7 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
   void headChanged();
 
   // Methods inherited from TAsyncTimeout
-  virtual void timeoutExpired() noexcept;
+  void timeoutExpired() noexcept override;
 
   TimeoutClock& timeoutClock_;
   Callback* head_;

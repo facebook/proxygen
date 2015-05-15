@@ -108,15 +108,14 @@ class MockHTTPHandler : public HTTPHandlerBase,
 
   GMOCK_NOEXCEPT_METHOD0(detachTransaction, void());
 
-  virtual void onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
-    noexcept override {
+  void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
     onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
   }
 
   GMOCK_NOEXCEPT_METHOD1(onHeadersComplete,
                          void(std::shared_ptr<HTTPMessage> msg));
 
-  virtual void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
+  void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
   GMOCK_NOEXCEPT_METHOD1(onBody, void(std::shared_ptr<folly::IOBuf> chain));
@@ -125,8 +124,7 @@ class MockHTTPHandler : public HTTPHandlerBase,
 
   GMOCK_NOEXCEPT_METHOD0(onChunkComplete, void());
 
-  virtual void onTrailers(std::unique_ptr<HTTPHeaders> trailers)
-    noexcept override {
+  void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
     onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
 

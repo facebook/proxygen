@@ -109,12 +109,12 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
     return corkCount_;
   }
 
-  size_t getAppBytesWritten() const { return 0; }
-  size_t getRawBytesWritten() const { return 0; }
-  size_t getAppBytesReceived() const { return 0; }
-  size_t getRawBytesReceived() const { return 0; }
-  bool isEorTrackingEnabled() const { return false; }
-  void setEorTracking(bool) { return; }
+  size_t getAppBytesWritten() const override { return 0; }
+  size_t getRawBytesWritten() const override { return 0; }
+  size_t getAppBytesReceived() const override { return 0; }
+  size_t getRawBytesReceived() const override { return 0; }
+  bool isEorTrackingEnabled() const override { return false; }
+  void setEorTracking(bool) override { return; }
 
  private:
   enum StateEnum {
@@ -140,7 +140,7 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
   void failPendingWrites();
 
   // AsyncTimeout methods
-  virtual void timeoutExpired() noexcept;
+  void timeoutExpired() noexcept override;
 
   folly::EventBase* eventBase_;
   folly::AsyncTransportWrapper::ReadCallback* readCallback_;

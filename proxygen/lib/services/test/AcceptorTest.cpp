@@ -16,21 +16,13 @@ using namespace folly;
 
 class TestConnection : public folly::wangle::ManagedConnection {
  public:
-  void timeoutExpired() noexcept {
-  }
-  void describe(std::ostream& os) const {
-  }
-  bool isBusy() const {
-    return false;
-  }
-  void notifyPendingShutdown() {
-  }
-  void closeWhenIdle() {
-  }
-  void dropConnection() {
-  }
-  void dumpConnectionState(uint8_t loglevel) {
-  }
+  void timeoutExpired() noexcept override {}
+  void describe(std::ostream& os) const override {}
+  bool isBusy() const override { return false; }
+  void notifyPendingShutdown() override {}
+  void closeWhenIdle() override {}
+  void dropConnection() override {}
+  void dumpConnectionState(uint8_t loglevel) override {}
 };
 
 class TestAcceptor : public Acceptor {
@@ -38,11 +30,10 @@ class TestAcceptor : public Acceptor {
   explicit TestAcceptor(const ServerSocketConfig& accConfig)
       : Acceptor(accConfig) {}
 
-  virtual void onNewConnection(
-      folly::AsyncSocket::UniquePtr sock,
-      const folly::SocketAddress* address,
-      const std::string& nextProtocolName,
-      const TransportInfo& tinfo) {
+  void onNewConnection(folly::AsyncSocket::UniquePtr sock,
+                       const folly::SocketAddress* address,
+                       const std::string& nextProtocolName,
+                       const TransportInfo& tinfo) override {
     addConnection(new TestConnection);
 
     getEventBase()->terminateLoopSoon();
