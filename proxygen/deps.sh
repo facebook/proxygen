@@ -79,7 +79,7 @@ if [ ! -e folly/folly ]; then
 fi
 cd folly/folly
 git fetch
-git checkout v0.38.0
+git checkout v0.39.0
 
 # Build folly
 autoreconf --install
