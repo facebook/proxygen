@@ -26,6 +26,7 @@ noinst_LTLIBRARIES = libutils.la
 libutilsdir = $(includedir)/proxygen/lib/utils
 nobase_libutils_HEADERS = \
 	AsyncTimeoutSet.h \
+	ChromeUtils.h \
 	CobHelper.h \
 	CryptUtil.h \
 	DestructorCheck.h \
@@ -51,6 +52,7 @@ nobase_libutils_HEADERS = \
 libutils_la_SOURCES = \
 	../../external/http_parser/http_parser_cpp.cpp \
 	AsyncTimeoutSet.cpp \
+	ChromeUtils.cpp \
 	Exception.cpp \
 	HTTPTime.cpp \
 	TraceEventContext.cpp \

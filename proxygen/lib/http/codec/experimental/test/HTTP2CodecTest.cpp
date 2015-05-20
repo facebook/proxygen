@@ -884,9 +884,9 @@ const string agent1("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
                     "Chrome/42.0.2311.11 Safari/537.36");
 const string agent2("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/45.0.2311.11 Safari/537.36");;
+                    "Chrome/43.0.2311.11 Safari/537.36");;
 
-// Chrome < 45? can generate malformed CONTINUATION frames
+// Chrome < 43 can generate malformed CONTINUATION frames
 TEST_P(ChromeHTTP2Test, ChromeContinuation) {
   HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
   HTTPMessage req = getGetRequest();
@@ -896,7 +896,7 @@ TEST_P(ChromeHTTP2Test, ChromeContinuation) {
   bigval.append(954, ' ');
   req.getHeaders().add("x-header", bigval);
   generateHeaderChrome(headerCodec, output_, 1, req, 0, false, nullptr,
-                       agent.find("Chrome/45") == string::npos);
+                       agent.find("Chrome/43") == string::npos);
 
   parse();
   callbacks_.expectMessage(false, -1, "/");
@@ -925,7 +925,7 @@ TEST_P(ChromeHTTP2Test, ChromeContinuationSecondStream) {
   bigval.append(1004, ' ');
   req.getHeaders().add("x-headerx", bigval);
   generateHeaderChrome(headerCodec, output_, 3, req, 0, false, nullptr,
-                       agent.find("Chrome/45") == string::npos);
+                       agent.find("Chrome/43") == string::npos);
 
   parse();
   const auto& headers = callbacks_.msg->getHeaders();

@@ -11,6 +11,7 @@
 
 #include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
+#include <proxygen/lib/utils/ChromeUtils.h>
 
 #include <folly/Conv.h>
 #include <folly/io/Cursor.h>
@@ -541,21 +542,11 @@ HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest,
                                  "value=", value.str);
       }
       if (!needsChromeWorkaround && name.str == "user-agent") {
-        static const string search = "Chrome/";
-        const auto& agent = value.str;
-        auto found = agent.find(search);
-        VLOG(5) << "The agent is " << agent << " and found is " << found;
-        if (found != string::npos) {
-          auto startNum = found + search.length();
-          // Versions of Chrome under 45? need this workaround
-          if (agent.size() > startNum + 3) {
-            uint8_t num = (agent[startNum] - '0') * 10 +
-              (agent[startNum + 1] - '0');
-            needsChromeWorkaround = (num < 45);
-            if (needsChromeWorkaround) {
-              VLOG(4) << "Using chrome http/2 continuation workaround";
-            }
-          }
+        int8_t version = getChromeVersion(value.str);
+        // Versions of Chrome under 43 need this workaround
+        if (version > 0 && version < 43) {
+            needsChromeWorkaround = true;
+            VLOG(4) << "Using chrome http/2 continuation workaround";
         }
       }
       headers.add(name.str, value.str);
