@@ -1107,7 +1107,7 @@ HTTPSession::sendBody(HTTPTransaction* txn,
                                           sock_->isEorTrackingEnabled());
     }
 
-    VLOG(4) << *this << " sending EOM in body for streamID=" << txn->getID();
+    VLOG(5) << *this << " sending EOM in body for streamID=" << txn->getID();
     onEgressMessageFinished(txn);
   }
   return encodedSize;
@@ -1481,7 +1481,7 @@ HTTPSession::runLoopCallback() noexcept {
       }
       checkForShutdown();
     });
-  VLOG(4) << *this << " in loop callback";
+  VLOG(5) << *this << " in loop callback";
 
   for (uint32_t i = 0; i < kMaxWritesPerLoop; ++i) {
     bool cork = true;
@@ -1546,7 +1546,7 @@ HTTPSession::scheduleWrite() {
   // as well as saving a few system calls.
   if (!isLoopCallbackScheduled() &&
       (writeBuf_.front() || !txnEgressQueue_.empty())) {
-    VLOG(4) << *this << " scheduling write callback";
+    VLOG(5) << *this << " scheduling write callback";
     sock_->getEventBase()->runInLoop(this);
   }
 }
@@ -1848,7 +1848,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
   }
   ++numTxnServed_;
 
-  VLOG(4) << *this << " adding streamID=" << txn->getID()
+  VLOG(5) << *this << " adding streamID=" << txn->getID()
           << ", liveTransactions was " << liveTransactions_;
 
   ++liveTransactions_;

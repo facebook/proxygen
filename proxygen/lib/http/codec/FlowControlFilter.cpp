@@ -71,11 +71,12 @@ void FlowControlFilter::setReceiveWindowSize(folly::IOBufQueue& writeBuf,
 bool FlowControlFilter::ingressBytesProcessed(folly::IOBufQueue& writeBuf,
                                               uint32_t delta) {
   toAck_ += delta;
-  VLOG(4) << "processed " << toAck_ << " bytes, recv capacity="
-          << recvWindow_.getCapacity();
-  if (toAck_ > 0 && uint32_t(toAck_) > recvWindow_.getCapacity() / 2) {
+  bool willAck = (toAck_ > 0 &&
+                  uint32_t(toAck_) > recvWindow_.getCapacity() / 2);
+  VLOG(4) << "processed " << delta << " toAck_=" << toAck_
+          << " bytes, will ack=" << willAck;
+  if (willAck) {
     CHECK(recvWindow_.free(toAck_));
-    VLOG(4) << "recvWindow=" << recvWindow_.getSize();
     call_->generateWindowUpdate(writeBuf, 0, toAck_);
     toAck_ = 0;
     return true;
@@ -105,8 +106,9 @@ void FlowControlFilter::onBody(StreamID stream,
         recvWindow_.getSize(), ", amount=", amount));
     callback_->onError(0, ex, false);
   } else {
-    VLOG(4) << "Received " << amount << " bytes, recvWindow=" <<
-      recvWindow_.getSize();
+    if (VLOG_IS_ON(4) && recvWindow_.getSize() == 0) {
+      VLOG(4) << "recvWindow full";
+    }
     callback_->onBody(stream, std::move(chain));
   }
 }
@@ -144,7 +146,7 @@ size_t FlowControlFilter::generateBody(folly::IOBufQueue& writeBuf,
                                        std::unique_ptr<folly::IOBuf> chain,
                                        bool eom) {
   bool success = sendWindow_.reserve(chain->computeChainDataLength());
-  VLOG(4) << "Sending " << chain->computeChainDataLength()
+  VLOG(5) << "Sending " << chain->computeChainDataLength()
           << " bytes, sendWindow=" << sendWindow_.getSize();
 
   // In the future, maybe make this DCHECK

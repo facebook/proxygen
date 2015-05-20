@@ -289,7 +289,7 @@ HTTPHeaders::stripPerHopHeaders(HTTPHeaders& strippedHeaders) {
       strippedHeaders.headerValues_.push_back(headerValues_[i]);
       codes_[i] = HTTP_HEADER_NONE;
       ++deletedCount_;
-      VLOG(3) << "Stripped hop-by-hop header " << *headerNames_[i];
+      VLOG(5) << "Stripped hop-by-hop header " << *headerNames_[i];
     }
   }
 }

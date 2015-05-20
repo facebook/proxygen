@@ -44,7 +44,7 @@ bool HTTPUpstreamSession::isReusable() const {
 }
 
 bool HTTPUpstreamSession::isClosing() const {
-  VLOG(4) << "isClosing: " << *this
+  VLOG(5) << "isClosing: " << *this
     << ", sock_->good()=" << sock_->good()
     << ", draining_=" << draining_
     << ", readsShutdown()=" << readsShutdown()

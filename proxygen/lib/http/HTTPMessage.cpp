@@ -565,9 +565,9 @@ void HTTPMessage::splitNameValue(
 }
 
 void HTTPMessage::dumpMessage(int vlogLevel) const {
-  VLOG(vlogLevel) << "Version: " << versionStr_
-                  << ", chunked: " << chunked_
-                  << ", upgraded: " << upgraded_;
+  VLOG(vlogLevel) << ", chunked: " << chunked_
+                  << ", upgraded: " << upgraded_
+                  << ", Fields for message:";
 
   // Common fields to both requests and responses.
   std::vector<std::pair<const char*, const std::string*>> fields {{
@@ -593,7 +593,6 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
     fields.push_back(make_pair("status_msg", &resp.statusMsg_));
   }
 
-  VLOG(vlogLevel) << "Fields for message: ";
   for (auto field : fields) {
     if (!field.second->empty()) {
       VLOG(vlogLevel) << " " << field.first
@@ -601,9 +600,9 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
     }
   }
 
-  VLOG(vlogLevel) << "Headers for message: ";
   headers_.forEach([&] (const string& h, const string& v) {
-    VLOG(vlogLevel) << " " << stripCntrlChars(h) << ": " << stripCntrlChars(v);
+    VLOG(vlogLevel) << " " << stripCntrlChars(h) << ": "
+                    << stripCntrlChars(v);
   });
 }
 

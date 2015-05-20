@@ -284,7 +284,7 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
   // have already reserved the maximum legal amount of space for
   // uncompressed headers.
 
-  VLOG(4) << "reserving " << maxUncompressedSize
+  VLOG(5) << "reserving " << maxUncompressedSize
           << " bytes for uncompressed headers";
   uncompressed.reserve(0, maxUncompressedSize);
 

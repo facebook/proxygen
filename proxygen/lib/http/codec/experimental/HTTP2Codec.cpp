@@ -482,7 +482,7 @@ HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest,
     const auto& name = list[i];
     const auto& value = list[i+1];
 
-    VLOG(4) << "processing header name=" << name.str
+    VLOG(5) << "processing header name=" << name.str
             << " value=" << value.str;
     if (name.str.startsWith(':')) {
       if (regularHeaderSeen) {
@@ -537,7 +537,8 @@ HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest,
       bool nameOk = SPDYUtil::validateHeaderName(name.str);
       bool valueOk = SPDYUtil::validateHeaderValue(value.str, SPDYUtil::STRICT);
       if (!nameOk || !valueOk) {
-        return string("Bad header value");
+        return folly::to<string>("Bad header value: name=", name.str,
+                                 "value=", value.str);
       }
       if (!needsChromeWorkaround && name.str == "user-agent") {
         static const string search = "Chrome/";

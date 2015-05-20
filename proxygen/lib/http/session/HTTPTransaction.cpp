@@ -745,16 +745,18 @@ size_t HTTPTransaction::sendEOMNow() {
 
 size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                                     size_t bodyLen, bool sendEom) {
+  static const std::string noneStr = "None";
   DCHECK(body);
   DCHECK(bodyLen > 0);
   size_t nbytes = 0;
-  VLOG(4) << *this << " Sending " << bodyLen << " bytes of body. eom="
-          << ((sendEom) ? "yes" : "no");
   if (useFlowControl_) {
     CHECK(sendWindow_.reserve(bodyLen));
-    VLOG(4) << *this << " send_window is "
-            << sendWindow_.getSize() << " / " << sendWindow_.getCapacity();
   }
+  VLOG(4) << *this << " Sending " << bodyLen << " bytes of body. eom="
+          << ((sendEom) ? "yes" : "no") << " send_window is "
+          << ( useFlowControl_ ?
+               folly::to<std::string>(sendWindow_.getSize(), " / ",
+                                      sendWindow_.getCapacity()) : noneStr);
   if (sendEom) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
@@ -893,7 +895,7 @@ void HTTPTransaction::resumeIngress() {
   // the transaction.
   while (!ingressPaused_ && deferredIngress_ && !deferredIngress_->empty()) {
     HTTPEvent& callback(deferredIngress_->front());
-    VLOG(4) << *this << " Processing deferred ingress callback of type " <<
+    VLOG(5) << *this << " Processing deferred ingress callback of type " <<
       callback.getEvent();
     switch (callback.getEvent()) {
       case HTTPEvent::Type::MESSAGE_BEGIN:
