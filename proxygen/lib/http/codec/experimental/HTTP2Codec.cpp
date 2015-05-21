@@ -8,7 +8,6 @@
  *
  */
 #include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
-
 #include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/utils/ChromeUtils.h>
@@ -58,7 +57,8 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
       frameState_(direction == TransportDirection::DOWNSTREAM ?
                   FrameState::UPSTREAM_CONNECTION_PREFACE :
                   FrameState::DOWNSTREAM_CONNECTION_PREFACE),
-      sessionClosing_(ClosingState::OPEN) {
+      sessionClosing_(ClosingState::OPEN),
+      decodeInfo_(std::move(HTTPRequestVerifier())) {
 
   headerCodec_.setDecoderHeaderTableMaxSize(
     egressSettings_.getSetting(SettingsId::HEADER_TABLE_SIZE, 0));
@@ -311,44 +311,42 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
   boost::optional<http2::PriorityUpdate> priority,
   boost::optional<uint32_t> promisedStream) {
   curHeaderBlock_.append(std::move(headerBuf));
-
   std::unique_ptr<HTTPMessage> msg;
   if (curHeader_.flags & http2::END_HEADERS) {
     // decompress headers
     Cursor headerCursor(curHeaderBlock_.front());
-    auto result = headerCodec_.decode(headerCursor,
-                                      curHeaderBlock_.chainLength());
+    bool isRequest = (transportDirection_ == TransportDirection::DOWNSTREAM ||
+                      promisedStream);
+    msg = folly::make_unique<HTTPMessage>();
+    decodeInfo_.init(msg.get(), isRequest);
+    headerCodec_.decodeStreaming(headerCursor,
+                                 curHeaderBlock_.chainLength(),
+                                 this);
     // Saving this in case we need to log it on error
     folly::ScopeGuard g = folly::makeGuard([this] {
         curHeaderBlock_.move();
       });
-    if (result.isError()) {
+    // Check decoding error
+    if (decodeInfo_.decodeError != HeaderDecodeError::NONE) {
       LOG(ERROR) << "Failed decoding header block for stream="
                  << curHeader_.stream << " header block=" << std::endl
                  << iobuf2hex(curHeaderBlock_.front());;
       return ErrorCode::COMPRESSION_ERROR;
     }
-    // Parse headers
-    bool isRequest = (transportDirection_ == TransportDirection::DOWNSTREAM ||
-                      promisedStream);
-    bool dummy = true;
-    auto parseResult = parseHeaderList(result.ok().headers, isRequest,
-                                       lastStreamID_ == 1 ?
-                                       needsChromeWorkaround_ : dummy);
-    if (parseResult.isError()) {
+    // Check parsing error
+    if (decodeInfo_.parsingError != "") {
       LOG(ERROR) << "Failed parsing header list for stream="
                  << curHeader_.stream << " header block=" << std::endl
-                 << iobuf2hex(curHeaderBlock_.front());;
+                 << iobuf2hex(curHeaderBlock_.front())
+                 << " error=" << decodeInfo_.parsingError;
       HTTPException err(HTTPException::Direction::INGRESS,
                         folly::to<std::string>(
                           "HTTP2Codec stream error: stream=",
                           curHeader_.stream, " status=", 400,
-                          " error: ", parseResult.error()));
+                          " error: ", decodeInfo_.parsingError));
       err.setHttpStatusCode(400);
       callback_->onError(curHeader_.stream, err, true);
       return ErrorCode::NO_ERROR;
-    } else {
-      msg = std::move(parseResult.ok());
     }
   } else {
     curHeaderBlock_.append(std::move(headerBuf));
@@ -377,195 +375,123 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
   return ErrorCode::NO_ERROR;
 }
 
-class HTTPRequestVerifier {
- public:
-  explicit HTTPRequestVerifier(HTTPMessage& msg)
-      :msg_(msg) {}
-
-  bool setMethod(StringPiece method) {
-    if (hasMethod_) {
-      error = "Duplicate method";
-      return false;
-    }
-    if (!SPDYUtil::validateMethod(method)) {
-      error = "Invalid method";
-      return false;
-    }
-    hasMethod_ = true;
-    msg_.setMethod(method);
-    return true;
+void HTTP2Codec::onHeader(const std::string& name,
+                          const std::string& value) {
+  // Refuse decoding other headers if an error is already found
+  if (decodeInfo_.decodeError != HeaderDecodeError::NONE
+      || decodeInfo_.parsingError != "") {
+    return;
   }
+  folly::StringPiece nameSp(name);
+  folly::StringPiece valueSp(value);
 
-  bool setPath(StringPiece path) {
-    if (hasPath_) {
-      error = "Duplicate path";
-      return false;
+  HTTPRequestVerifier& verifier = decodeInfo_.verifier;
+  if (nameSp.startsWith(':')) {
+    if (decodeInfo_.regularHeaderSeen) {
+      decodeInfo_.parsingError =
+        folly::to<string>("Illegal pseudo header name=", nameSp);
+      return;
     }
-    if (!SPDYUtil::validateURL(path)) {
-      error = "Invalid url";
-      return false;
-    }
-    hasPath_ = true;
-    msg_.setURL(path.str());
-    return true;
-  }
-
-  bool setScheme(StringPiece scheme) {
-    if (hasScheme_) {
-      error = "Duplicate scheme";
-      return false;
-    }
-    // This just checks for alpha chars
-    if (!SPDYUtil::validateMethod(scheme)) {
-      error = "Invalid scheme";
-      return false;
-    }
-    hasScheme_ = true;
-    // TODO support non http/https schemes
-    if (scheme == http2::kHttps) {
-      msg_.setSecure(true);
-    }
-    return true;
-  }
-
-  bool setAuthority(StringPiece authority) {
-    if (hasAuthority_) {
-      error = "Duplicate authority";
-      return false;
-    }
-    if (!SPDYUtil::validateHeaderValue(authority, SPDYUtil::STRICT)) {
-      error = "Invalid authority";
-      return false;
-    }
-    hasAuthority_ = true;
-    msg_.getHeaders().add(HTTP_HEADER_HOST, authority.str());
-    return true;
-  }
-
-  bool validate() {
-    if (error.size()) {
-      return false;
-    }
-    if (msg_.getMethod() == HTTPMethod::CONNECT &&
-        (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_)) {
-      error = folly::to<string>("Malformed CONNECT request m/a/s/p=",
-                                hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_);
-    } else if (!hasMethod_ || !hasScheme_ || !hasPath_) {
-      error = folly::to<string>("Malformed request m/a/s/p=",
-                                hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_);
-    }
-    return error.empty();
-  }
-
-  string error;
-
- private:
-  HTTPMessage& msg_;
-  bool hasMethod_{false};
-  bool hasPath_{false};
-  bool hasScheme_{false};
-  bool hasAuthority_{false};
-};
-
-
-Result<std::unique_ptr<HTTPMessage>, string>
-HTTP2Codec::parseHeaderList(const HeaderPieceList& list, bool isRequest,
-                            bool& needsChromeWorkaround) {
-  auto msg = folly::make_unique<HTTPMessage>();
-  HTTPHeaders& headers = msg->getHeaders();
-  HTTPRequestVerifier verifier(*msg);
-  bool hasStatus = false;
-  bool regularHeaderSeen = false;
-
-  for (unsigned i = 0; i < list.size(); i += 2) {
-    const auto& name = list[i];
-    const auto& value = list[i+1];
-
-    VLOG(5) << "processing header name=" << name.str
-            << " value=" << value.str;
-    if (name.str.startsWith(':')) {
-      if (regularHeaderSeen) {
-        return folly::to<string>("Illegal pseudo header name=", name.str);
-      }
-      if (isRequest) {
-        if (name.str == http2::kMethod) {
-          if (!verifier.setMethod(value.str)) {
-            break;
-          }
-        } else if (name.str == http2::kScheme) {
-          if (!verifier.setScheme(value.str)) {
-            break;
-          }
-        } else if (name.str == http2::kAuthority) {
-          if (!verifier.setAuthority(value.str)) {
-            break;
-          }
-        } else if (name.str == http2::kPath) {
-          if (!verifier.setPath(value.str)) {
-            break;
-          }
-        } else {
-          return folly::to<string>("Invalid header name=", name.str);
+    if (decodeInfo_.isRequest) {
+      if (nameSp == http2::kMethod) {
+        if (!verifier.setMethod(valueSp)) {
+          return;
+        }
+      } else if (nameSp == http2::kScheme) {
+        if (!verifier.setScheme(valueSp)) {
+          return;
+        }
+      } else if (nameSp == http2::kAuthority) {
+        if (!verifier.setAuthority(valueSp)) {
+          return;
+        }
+      } else if (nameSp == http2::kPath) {
+        if (!verifier.setPath(valueSp)) {
+          return;
         }
       } else {
-        if (name.str == http2::kStatus) {
-          if (hasStatus) {
-            return string("Duplicate status");
-          }
-          hasStatus = true;
-          int32_t code = -1;
-          try {
-            code = folly::to<unsigned int>(value.str);
-          } catch (const std::range_error& ex) {
-          }
-          if (code >= 100 && code <= 999) {
-            msg->setStatusCode(code);
-            msg->setStatusMessage(HTTPMessage::getDefaultReason(code));
-          } else {
-            return folly::to<string>("Malformed status code=", value.str);
-          }
-        } else {
-          return folly::to<string>("Invalid header name=", name.str);
-        }
+        decodeInfo_.parsingError =
+          folly::to<string>("Invalid header name=", nameSp);
+        return;
       }
     } else {
-      regularHeaderSeen = true;
-      if (name.str == "connection") {
-        return string("HTTP/2 Message with Connection header");
-      }
-      bool nameOk = SPDYUtil::validateHeaderName(name.str);
-      bool valueOk = SPDYUtil::validateHeaderValue(value.str, SPDYUtil::STRICT);
-      if (!nameOk || !valueOk) {
-        return folly::to<string>("Bad header value: name=", name.str,
-                                 "value=", value.str);
-      }
-      if (!needsChromeWorkaround && name.str == "user-agent") {
-        int8_t version = getChromeVersion(value.str);
-        // Versions of Chrome under 43 need this workaround
-        if (version > 0 && version < 43) {
-            needsChromeWorkaround = true;
-            VLOG(4) << "Using chrome http/2 continuation workaround";
+      if (nameSp == http2::kStatus) {
+        if (decodeInfo_.hasStatus) {
+          decodeInfo_.parsingError = string("Duplicate status");
+          return;
         }
+        decodeInfo_.hasStatus = true;
+        int32_t code = -1;
+        try {
+          code = folly::to<unsigned int>(valueSp);
+        } catch (const std::range_error& ex) {
+        }
+        if (code >= 100 && code <= 999) {
+          decodeInfo_.msg->setStatusCode(code);
+          decodeInfo_.msg->setStatusMessage(
+              HTTPMessage::getDefaultReason(code));
+        } else {
+          decodeInfo_.parsingError =
+            folly::to<string>("Malformed status code=", valueSp);
+          return;
+        }
+      } else {
+        decodeInfo_.parsingError =
+          folly::to<string>("Invalid header name=", nameSp);
+        return;
       }
-      headers.add(name.str, value.str);
     }
+  } else {
+    decodeInfo_.regularHeaderSeen = true;
+    if (nameSp == "connection") {
+      decodeInfo_.parsingError =
+        string("HTTP/2 Message with Connection header");
+      return;
+    }
+    bool nameOk = SPDYUtil::validateHeaderName(nameSp);
+    bool valueOk = SPDYUtil::validateHeaderValue(valueSp, SPDYUtil::STRICT);
+    if (!nameOk || !valueOk) {
+      decodeInfo_.parsingError = folly::to<string>("Bad header value: name=",
+          nameSp, " value=", valueSp);
+      return;
+    }
+    if (!needsChromeWorkaround_ && nameSp == "user-agent") {
+      int8_t version = getChromeVersion(valueSp);
+      // Versions of Chrome under 43 need this workaround
+      if (version > 0 && version < 43) {
+          needsChromeWorkaround_ = true;
+          VLOG(4) << "Using chrome http/2 continuation workaround";
+      }
+    }
+    // Add the (name, value) pair to headers
+    decodeInfo_.msg->getHeaders().add(nameSp, valueSp);
   }
-  if (isRequest) {
+}
+
+void HTTP2Codec::onHeadersComplete() {
+  HTTPHeaders& headers = decodeInfo_.msg->getHeaders();
+  HTTPRequestVerifier& verifier = decodeInfo_.verifier;
+
+  if (decodeInfo_.isRequest) {
     auto combinedCookie = headers.combine(HTTP_HEADER_COOKIE, "; ");
     if (!combinedCookie.empty()) {
       headers.set(HTTP_HEADER_COOKIE, combinedCookie);
     }
     verifier.validate();
-  } else if (!hasStatus) {
-    return string("Malformed response, missing :status");
+  } else if (!decodeInfo_.hasStatus) {
+    decodeInfo_.parsingError =
+      string("Malformed response, missing :status");
+    return;
   }
   if (!verifier.error.empty()) {
-    return verifier.error;
+    decodeInfo_.parsingError = verifier.error;
+    return;
   }
-  msg->setAdvancedProtocolString(http2::kProtocolString);
-  return std::move(msg);
+  decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
+}
+
+void HTTP2Codec::onDecodeError(HeaderDecodeError decodeError) {
+  decodeInfo_.decodeError = decodeError;
 }
 
 ErrorCode HTTP2Codec::parsePriority(Cursor& cursor) {

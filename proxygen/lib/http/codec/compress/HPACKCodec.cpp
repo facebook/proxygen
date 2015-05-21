@@ -116,4 +116,43 @@ HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   return HeaderDecodeResult{outHeaders_, consumed};
 }
 
+void HPACKCodec::decodeStreaming(
+    Cursor& cursor,
+    uint32_t length,
+    HeaderCodec::StreamingCallback* streamingCb) noexcept {
+  decodedSize_.uncompressed = 0;
+  streamingCb_ = streamingCb;
+  auto consumed = decoder_->decodeStreaming(cursor, length, this);
+  if (decoder_->hasError()) {
+    onDecodeError(HeaderDecodeError::NONE);
+    return;
+  }
+  decodedSize_.compressed = consumed;
+  onHeadersComplete();
+}
+
+void HPACKCodec::onHeader(const std::string& name, const std::string& value) {
+  assert(streamingCb_ != nullptr);
+  decodedSize_.uncompressed += name.size() + value.size() + 2;
+  streamingCb_->onHeader(name, value);
+}
+
+void HPACKCodec::onHeadersComplete() {
+  assert(streamingCb_ != nullptr);
+  if (stats_) {
+    stats_->recordDecode(Type::HPACK, decodedSize_);
+  }
+  streamingCb_->onHeadersComplete();
+}
+
+void HPACKCodec::onDecodeError(HeaderDecodeError decodeError) {
+  assert(streamingCb_ != nullptr);
+  if (stats_) {
+    stats_->recordDecodeError(Type::HPACK);
+  }
+  if (decoder_->getError() == HPACK::DecodeError::HEADERS_TOO_LARGE) {
+    streamingCb_->onDecodeError(HeaderDecodeError::HEADERS_TOO_LARGE);
+  }
+  streamingCb_->onDecodeError(HeaderDecodeError::BAD_ENCODING);
+}
 }

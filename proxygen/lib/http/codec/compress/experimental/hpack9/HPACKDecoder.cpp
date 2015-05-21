@@ -36,7 +36,7 @@ void HPACKDecoder09::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf) {
 }
 
 uint32_t HPACKDecoder09::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
-                                             headers_t& emitted) {
+                                             headers_t* emitted) {
   uint8_t byte = dbuf.peek();
   bool indexing = byte & HPACK09::HeaderEncoding::LITERAL_INCR_INDEXING;
   HPACKHeader header;
@@ -95,7 +95,7 @@ uint32_t HPACKDecoder09::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
 }
 
 uint32_t HPACKDecoder09::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
-                                             headers_t& emitted) {
+                                             headers_t* emitted) {
   uint32_t index;
   err_ = dbuf.decodeInteger(7, index);
   if (err_ != HPACK::DecodeError::NONE) {

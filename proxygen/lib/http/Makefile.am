@@ -63,6 +63,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/experimental/hpack9/HPACKEncoder.h \
 	codec/compress/experimental/hpack9/Huffman.h \
 	codec/compress/experimental/hpack9/StaticHeaderTable.h \
+	codec/experimental/HTTPRequestVerifier.h \
 	codec/experimental/HTTP2Codec.h \
 	codec/experimental/HTTP2Constants.h \
 	codec/experimental/HTTP2Framer.h \

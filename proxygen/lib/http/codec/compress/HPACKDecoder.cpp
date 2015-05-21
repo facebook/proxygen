@@ -44,13 +44,16 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
   uint32_t emittedSize = 0;
   HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes);
   while (!hasError() && !dbuf.empty()) {
-    emittedSize += decodeHeader(dbuf, headers);
+    emittedSize += decodeHeader(dbuf, &headers);
     if (emittedSize > maxUncompressed_) {
       LOG(ERROR) << "exceeded uncompressed size limit of "
                  << maxUncompressed_ << " bytes";
       err_ = DecodeError::HEADERS_TOO_LARGE;
       return dbuf.consumedBytes();
     }
+  }
+  if (version_ != Version::HPACK05) {
+    return dbuf.consumedBytes();
   }
   emittedSize += emitRefset(headers);
   // the emitted bytes from the refset are bounded by the size of the table,
@@ -60,6 +63,31 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
                << maxUncompressed_ << " bytes";
     err_ = DecodeError::HEADERS_TOO_LARGE;
   }
+  return dbuf.consumedBytes();
+}
+
+uint32_t HPACKDecoder::decodeStreaming(
+    Cursor& cursor,
+    uint32_t totalBytes,
+    HeaderCodec::StreamingCallback* streamingCb) {
+
+  uint32_t emittedSize = 0;
+  streamingCb_ = streamingCb;
+  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes);
+  while (!hasError() && !dbuf.empty()) {
+    emittedSize += decodeHeader(dbuf, nullptr);
+
+    if (emittedSize > maxUncompressed_) {
+      LOG(ERROR) << "exceeded uncompressed size limit of "
+                 << maxUncompressed_ << " bytes";
+      err_ = HPACK::DecodeError::HEADERS_TOO_LARGE;
+      return dbuf.consumedBytes();
+    }
+  }
+
+  // decodeStreaming doesn't work for HPACK Version 05
+  CHECK(version_ != Version::HPACK05);
+
   return dbuf.consumedBytes();
 }
 
@@ -81,13 +109,14 @@ uint32_t HPACKDecoder::emitRefset(headers_t& emitted) {
   emitted.reserve(emitted.size() + refset.size());
   uint32_t emittedSize = 0;
   for (const auto& index : refset) {
-    emittedSize += emit(getDynamicHeader(dynamicToGlobalIndex(index)), emitted);
+    emittedSize += emit(getDynamicHeader(dynamicToGlobalIndex(index)),
+                        &emitted);
   }
   return emittedSize;
 }
 
 uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
-                                           headers_t& emitted) {
+                                           headers_t* emitted) {
   uint8_t byte = dbuf.peek();
   bool indexing = !(byte & HPACK::HeaderEncoding::LITERAL_NO_INDEXING);
   HPACKHeader header;
@@ -134,7 +163,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
 }
 
 uint32_t HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
-                                           headers_t& emitted) {
+                                           headers_t* emitted) {
   uint32_t index;
   err_ = dbuf.decodeInteger(7, index);
   if (err_ != DecodeError::NONE) {
@@ -178,19 +207,21 @@ bool HPACKDecoder::isValid(uint32_t index) {
 }
 
 uint32_t HPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf,
-                                    headers_t& emitted) {
+                                    headers_t* emitted) {
   uint8_t byte = dbuf.peek();
   if (byte & HPACK::HeaderEncoding::INDEXED) {
     return decodeIndexedHeader(dbuf, emitted);
-  } else  {
-    // LITERAL_NO_INDEXING or LITERAL_INCR_INDEXING
-    return decodeLiteralHeader(dbuf, emitted);
   }
+  // LITERAL_NO_INDEXING or LITERAL_INCR_INDEXING
+  return decodeLiteralHeader(dbuf, emitted);
 }
 
-uint32_t HPACKDecoder::emit(const HPACKHeader& header,
-                        headers_t& emitted) {
-  emitted.push_back(header);
+uint32_t HPACKDecoder::emit(const HPACKHeader& header, headers_t* emitted) {
+  if (streamingCb_) {
+    streamingCb_->onHeader(header.name, header.value);
+  } else if (emitted) {
+    emitted->push_back(header);
+  }
   return header.bytes();
 }
 

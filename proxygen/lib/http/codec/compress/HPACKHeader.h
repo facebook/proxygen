@@ -17,6 +17,7 @@ namespace proxygen {
 
 class HPACKHeader {
   public:
+  static const uint32_t kMinLength = 32;
 
   HPACKHeader() {}
 
@@ -30,7 +31,7 @@ class HPACKHeader {
    * size in bytes of the header entry, as defined in the HPACK spec
    */
   uint32_t bytes() const {
-    return folly::to<uint32_t>(32 + name.size() + value.size());
+    return folly::to<uint32_t>(kMinLength + name.size() + value.size());
   }
 
   bool operator==(const HPACKHeader& other) const {

@@ -448,6 +448,13 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   return HeaderDecodeResult{outHeaders_, consumed};
 }
 
+void GzipHeaderCodec::decodeStreaming(
+    Cursor& cursor,
+    uint32_t length,
+    HeaderCodec::StreamingCallback* streamingCb) noexcept {
+  // TODO: to implement, never called
+}
+
 Result<size_t, HeaderDecodeError>
 GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed) noexcept {
 

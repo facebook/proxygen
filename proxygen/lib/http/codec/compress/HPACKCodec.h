@@ -37,7 +37,7 @@ class HPACKHeader;
  */
 extern const std::string kHpackNpn; // NPN string for SPDY w/ HPACK
 
-class HPACKCodec : public HeaderCodec {
+class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
  public:
   explicit HPACKCodec(TransportDirection direction);
   ~HPACKCodec() override {}
@@ -47,6 +47,16 @@ class HPACKCodec : public HeaderCodec {
 
   Result<HeaderDecodeResult, HeaderDecodeError>
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
+
+  // Callbacks that handle Codec-level stats and errors
+  void onHeader(const std::string& name, const std::string& value) override;
+  void onHeadersComplete() override;
+  void onDecodeError(HeaderDecodeError decodeError) override;
+
+  void decodeStreaming(
+      folly::io::Cursor& cursor,
+      uint32_t length,
+      HeaderCodec::StreamingCallback* streamingCb) noexcept override;
 
   void setEncoderHeaderTableSize(uint32_t size) {
     encoder_->setHeaderTableSize(size);

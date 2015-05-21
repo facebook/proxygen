@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <proxygen/lib/http/codec/experimental/HTTPRequestVerifier.h>
 #include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
@@ -24,8 +25,13 @@ namespace proxygen {
  * An implementation of the framing layer for HTTP/2. Instances of this
  * class must not be used from multiple threads concurrently.
  */
-class HTTP2Codec: public HTTPCodec {
+class HTTP2Codec: public HTTPCodec, HeaderCodec::StreamingCallback {
 public:
+  void onHeader(const std::string& name,
+                const std::string& value) override;
+  void onHeadersComplete() override;
+  void onDecodeError(HeaderDecodeError decodeError) override;
+
   explicit HTTP2Codec(TransportDirection direction);
   ~HTTP2Codec() override;
 
@@ -91,11 +97,6 @@ public:
 
   //HTTP2Codec specific API
 
-  // Returns HTTPMessage or error string
-  static Result<std::unique_ptr<HTTPMessage>, std::string>
-  parseHeaderList(const compress::HeaderPieceList& list, bool isRequest,
-                 bool& needsChromeWorkaround);
-
 #ifndef NDEBUG
   uint64_t getReceivedFrameCount() const {
     return receivedFrameCount_;
@@ -107,6 +108,36 @@ public:
   }
 
  private:
+  class HeaderDecodeInfo {
+   public:
+    explicit HeaderDecodeInfo(HTTPRequestVerifier v)
+    : verifier(v) {}
+
+    void init(HTTPMessage* msgIn, bool isRequestIn) {
+      msg = msgIn;
+      isRequest = isRequestIn;
+      hasStatus = false;
+      regularHeaderSeen = false;
+      parsingError = "";
+      decodeError = HeaderDecodeError::NONE;
+      verifier.error = "";
+      verifier.setMessage(msg);
+      verifier.setHasMethod(false);
+      verifier.setHasPath(false);
+      verifier.setHasScheme(false);
+      verifier.setHasAuthority(false);
+    }
+    // Change this to a map of decoded header blocks when we decide
+    // to concurrently decode partial header blocks
+    HTTPMessage* msg{nullptr};
+    HTTPRequestVerifier verifier;
+    bool isRequest{false};
+    bool hasStatus{false};
+    bool regularHeaderSeen{false};
+    std::string parsingError;
+    HeaderDecodeError decodeError{HeaderDecodeError::NONE};
+  };
+
   /**
    * Determines whether header with a given code is on the SPDY per-hop
    * header blacklist.
@@ -187,6 +218,7 @@ public:
   ClosingState sessionClosing_:2;
 
   static uint32_t kHeaderSplitSize;
+  HeaderDecodeInfo decodeInfo_;
 };
 
 } // proxygen

@@ -35,6 +35,11 @@ class GzipHeaderCodec : public HeaderCodec {
   Result<HeaderDecodeResult, HeaderDecodeError>
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
 
+  void decodeStreaming(
+      folly::io::Cursor& cursor,
+      uint32_t length,
+      HeaderCodec::StreamingCallback* streamingCb) noexcept override;
+
  private:
   void pushZlibHeader(folly::io::Appender& appender,
                      uint16_t windowBits,

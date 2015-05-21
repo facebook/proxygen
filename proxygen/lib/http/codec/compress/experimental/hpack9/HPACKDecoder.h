@@ -21,7 +21,10 @@ public:
   explicit HPACKDecoder09(
     uint32_t tableSize=HPACK::kTableSize,
     uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
-      : HPACKDecoder(HPACK::MessageType::RESP, tableSize, maxUncompressed) {}
+      : HPACKDecoder(HPACK::MessageType::RESP,
+                     tableSize,
+                     maxUncompressed,
+                     Version::HPACK09) {}
 
   void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf);
 
@@ -62,9 +65,9 @@ public:
   const huffman::HuffTree& getHuffmanTree() const override;
 
   uint32_t decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
-                               headers_t& emitted) override;
+                               headers_t* emitted) override;
   uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
-                               headers_t& emitted) override;
+                               headers_t* emitted) override;
 };
 
 }
