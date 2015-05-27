@@ -992,6 +992,12 @@ class HTTPTransaction :
    */
   void sendAbort(ErrorCode statusCode);
 
+  /**
+   * Used when HTTPTransaction internally detects an abort worthy condition
+   */
+  void sendAbortInternal(ProxygenError err, ErrorCode statusCode,
+                         const std::string& msg);
+
   // Internal implementations of the ingress-related callbacks
   // that work whether the ingress events are immediate or deferred.
   void processIngressHeadersComplete(std::unique_ptr<HTTPMessage> msg);

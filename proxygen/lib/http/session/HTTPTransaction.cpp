@@ -129,7 +129,8 @@ void HTTPTransaction::processIngressHeadersComplete(
 
 void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain) {
   if (isIngressEOMSeen()) {
-    sendAbort(ErrorCode::STREAM_CLOSED);
+    sendAbortInternal(kErrorProtocol, ErrorCode::STREAM_CLOSED,
+                      "Received body after EOM");
     return;
   }
   auto len = chain->computeChainDataLength();
@@ -146,7 +147,8 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain) {
   if (mustQueueIngress()) {
     // register the bytes in the receive window
     if (!recvWindow_.reserve(len, useFlowControl_)) {
-      sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+      sendAbortInternal(kErrorProtocol, ErrorCode::FLOW_CONTROL_ERROR,
+                       "Flow control error, peer exceeded window");
     } else {
       checkCreateDeferredIngress();
       deferredIngress_->emplace(id_, HTTPEvent::Type::BODY,
@@ -295,7 +297,8 @@ void HTTPTransaction::processIngressUpgrade(UpgradeProtocol protocol) {
 void HTTPTransaction::onIngressEOM() {
   if (isIngressEOMSeen()) {
     // This can happen when HTTPSession calls onIngressEOF()
-    sendAbort(ErrorCode::STREAM_CLOSED);
+    sendAbortInternal(kErrorProtocol, ErrorCode::STREAM_CLOSED,
+                      "Double EOM detected");
     return;
   }
   // TODO: change the codec to not give an EOM callback after a 100 response?
@@ -489,7 +492,8 @@ void HTTPTransaction::onIngressWindowUpdate(const uint32_t amount) {
   if (sendWindow_.free(amount)) {
     notifyTransportPendingEgress();
   } else {
-    sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+    sendAbortInternal(kErrorProtocol, ErrorCode::FLOW_CONTROL_ERROR,
+                      "Invalid window update received");
   }
 }
 
@@ -501,7 +505,8 @@ void HTTPTransaction::onIngressSetSendWindow(const uint32_t newWindowSize) {
   if (sendWindow_.setCapacity(newWindowSize)) {
     notifyTransportPendingEgress();
   } else {
-    sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+    sendAbortInternal(kErrorProtocol, ErrorCode::FLOW_CONTROL_ERROR,
+                      "Illegal window value");
   }
 }
 
@@ -811,6 +816,15 @@ HTTPTransaction::sendEOM() {
 void HTTPTransaction::sendAbort() {
   sendAbort(isUpstream() ? ErrorCode::CANCEL
                          : ErrorCode::INTERNAL_ERROR);
+}
+
+void HTTPTransaction::sendAbortInternal(ProxygenError err,
+                                        ErrorCode statusCode,
+                                        const std::string& msg) {
+  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, msg);
+  ex.setProxygenError(err);
+  ex.setCodecStatusCode(statusCode);
+  onError(ex);
 }
 
 void HTTPTransaction::sendAbort(ErrorCode statusCode) {

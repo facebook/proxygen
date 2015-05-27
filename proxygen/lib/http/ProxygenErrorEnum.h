@@ -54,6 +54,7 @@ namespace proxygen {
     x(ClientSilent),                            \
     x(Canceled),                                \
     x(ParseResponse),                           \
+    x(Protocol),                                \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63

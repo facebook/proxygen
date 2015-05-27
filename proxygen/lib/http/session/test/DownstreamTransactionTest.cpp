@@ -215,11 +215,17 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   // onBody() is suppressed since ingress is complete after ingress onError()
   // onEOM() is suppressed since ingress is complete after ingress onError()
   EXPECT_CALL(transport_, sendAbort(_, _));
+  EXPECT_CALL(handler_, onError(_))
+    .WillOnce(Invoke([] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getDirection(),
+                    HTTPException::Direction::INGRESS_AND_EGRESS);
+        }));
   EXPECT_CALL(handler_, detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
   txn.setHandler(&handler_);
   txn.onError(err);
+
   // Since the transaction is already closed for ingress, giving it
   // ingress body causes the transaction to be aborted and closed
   // immediately.
