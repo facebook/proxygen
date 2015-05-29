@@ -394,25 +394,41 @@ void doEmptyHeaderValueTest(Codec1& ingressCodec, Codec2& egressCodec) {
   headers.set("Pragma", "");
   headers.set("X-Test1", "yup");
   HTTPHeaderSize size;
-  auto toParse = getSynStream(egressCodec, 1, toSend, 0, false, &size);
-  ingressCodec.onIngress(*toParse);
+  std::string pragmaValue;
+  HTTPCodec::StreamID id(1);
 
-  EXPECT_EQ(callbacks.sessionErrors, 0);
-  EXPECT_EQ(callbacks.streamErrors, 0);
-  ASSERT_NE(callbacks.msg.get(), nullptr);
-  const auto& parsed = callbacks.msg->getHeaders();
-  EXPECT_EQ(parsed.exists("Pragma"), emptyAllowed);
-  EXPECT_EQ(parsed.exists("pragma"), emptyAllowed);
-  EXPECT_EQ(parsed.getSingleOrEmpty("X-Test1"), "yup");
-  // All codecs add the accept-encoding header
-  EXPECT_EQ(parsed.exists("accept-encoding"), true);
-  // SPDY/2 subtracts the Host header, but it should infer it from the host:port
-  // portion of the requested url and present it in the headers
-  EXPECT_EQ(parsed.exists("host"), true);
-  EXPECT_EQ(callbacks.msg->getURL(), "http://www.foo.com");
-  EXPECT_EQ(parsed.size(), emptyAllowed ? 4 : 3);
-  EXPECT_TRUE(size.uncompressed > 0);
-  EXPECT_TRUE(size.compressed > 0);
+  for (auto i = 0; i < 3; i++) {
+    auto toParse = getSynStream(egressCodec, id + 2 * i,
+                                toSend, 0, false, &size);
+    ingressCodec.onIngress(*toParse);
+
+    EXPECT_EQ(callbacks.sessionErrors, 0);
+    EXPECT_EQ(callbacks.streamErrors, 0);
+    ASSERT_NE(callbacks.msg.get(), nullptr);
+    const auto& parsed = callbacks.msg->getHeaders();
+    EXPECT_EQ(parsed.exists("Pragma"), emptyAllowed);
+    EXPECT_EQ(parsed.exists("pragma"), emptyAllowed);
+    EXPECT_EQ(parsed.getSingleOrEmpty("Pragma"), pragmaValue);
+    EXPECT_EQ(parsed.getSingleOrEmpty("X-Test1"), "yup");
+    // All codecs add the accept-encoding header
+    EXPECT_EQ(parsed.exists("accept-encoding"), true);
+    // SPDY/2 subtracts the Host header, but it should infer it from the
+    // host:port portion of the requested url and present it in the headers
+    EXPECT_EQ(parsed.exists("host"), true);
+    EXPECT_EQ(callbacks.msg->getURL(), "http://www.foo.com");
+    EXPECT_EQ(parsed.size(), emptyAllowed ? 4 : 3);
+    EXPECT_TRUE(size.uncompressed > 0);
+    EXPECT_TRUE(size.compressed > 0);
+
+    if (i == 0) {
+      headers.add("Pragma", "");
+    }
+    if (i == 1) {
+      pragmaValue = "foo";
+      headers.add("Pragma", pragmaValue);
+      emptyAllowed = true; // SPDY/2 better have it now too
+    }
+  }
 }
 
 TEST(SPDYCodecTest, EmptyHeaderValue) {
