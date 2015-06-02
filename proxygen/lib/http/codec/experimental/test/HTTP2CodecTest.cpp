@@ -7,6 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/experimental/test/HTTP2FramerTest.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
@@ -18,6 +19,7 @@
 
 using namespace proxygen;
 using namespace folly;
+using namespace folly::io;
 using namespace std;
 
 class HTTP2CodecTest : public testing::Test {
@@ -47,6 +49,10 @@ class HTTP2CodecTest : public testing::Test {
     return parseImpl(upstreamCodec_, hackIngress);
   }
 
+  /*
+   * hackIngress is used to keep the codec's strict checks while having
+   * separate checks for tests
+   */
   bool parseImpl(HTTP2Codec& codec, std::function<void(IOBuf*)> hackIngress) {
     auto ingress = output_.move();
     if (hackIngress) {
@@ -595,6 +601,23 @@ TEST_F(HTTP2CodecTest, BasicWindow) {
             std::vector<uint32_t>({12, http2::kMaxWindowUpdateSize}));
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, ZeroWindow) {
+  auto streamID = HTTPCodec::StreamID(1);
+  // First generate a frame with delta=1 so as to pass the checks, and then
+  // hack the frame so that delta=0 without modifying other checks
+  upstreamCodec_.generateWindowUpdate(output_, streamID, 1);
+  output_.trimEnd(http2::kFrameWindowUpdateSize);
+  QueueAppender appender(&output_, http2::kFrameWindowUpdateSize);
+  appender.writeBE<uint32_t>(0);
+
+  parse();
+  // This test doesn't ensure that RST_STREAM is generated
+  EXPECT_EQ(callbacks_.windowUpdateCalls, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getCodecStatusCode(),
+      ErrorCode::PROTOCOL_ERROR);
 }
 
 TEST_F(HTTP2CodecTest, BasicGoaway) {

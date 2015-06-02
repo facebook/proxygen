@@ -659,8 +659,17 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
     if (curHeader_.stream == 0) {
       return ErrorCode::PROTOCOL_ERROR;
     } else {
-      // todo rst stream/protocol error
-      return ErrorCode::NO_ERROR;
+      // Parsing a zero delta window update should cause a protocol error
+      // and send a rst stream
+      VLOG(4) << "parseWindowUpdate Invalid 0 length";
+      HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS,
+                        folly::to<std::string>(
+                          "HTTP2Codec stream error: stream=",
+                          curHeader_.stream,
+                          " window update delta=", delta));
+      error.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
+      callback_->onError(curHeader_.stream, error, false);
+      return ErrorCode::PROTOCOL_ERROR;
     }
   }
   if (callback_) {

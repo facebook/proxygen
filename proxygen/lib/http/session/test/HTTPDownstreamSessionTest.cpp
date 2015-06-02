@@ -33,6 +33,7 @@
 
 
 
+using namespace folly::io;
 using namespace folly::wangle;
 using namespace folly;
 using namespace proxygen;
@@ -126,6 +127,7 @@ class HTTPDownstreamTest : public testing::Test {
 
 // Uses TestAsyncTransport
 typedef HTTPDownstreamTest<HTTP1xCodecPair> HTTPDownstreamSessionTest;
+typedef HTTPDownstreamTest<HTTP2CodecPair> HTTP2DownstreamSessionTest;
 typedef HTTPDownstreamTest<SPDY2CodecPair> SPDY2DownstreamSessionTest;
 typedef HTTPDownstreamTest<SPDY3CodecPair> SPDY3DownstreamSessionTest;
 
@@ -1819,4 +1821,43 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
   clientCodec.setCallback(&callbacks);
   parseOutput(clientCodec);
   EXPECT_CALL(mockController_, detachSession(_));
+}
+
+TEST_F(HTTP2DownstreamSessionTest, zero_delta_window_update) {
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
+  HTTPMessage req = getGetRequest();
+  HTTP2Codec clientCodec(TransportDirection::UPSTREAM);
+
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
+  // generateHeader() will create a session and a transaction
+  clientCodec.generateHeader(requests, streamID, req, 0, false, nullptr);
+  // First generate a frame with delta=1 so as to pass the checks, and then
+  // hack the frame so that delta=0 without modifying other checks
+  clientCodec.generateWindowUpdate(requests, streamID, 1);
+  requests.trimEnd(http2::kFrameWindowUpdateSize);
+  QueueAppender appender(&requests, http2::kFrameWindowUpdateSize);
+  appender.writeBE<uint32_t>(0);
+
+  StrictMock<MockHTTPHandler> handler;
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler, setTransaction(_))
+    .WillOnce(Invoke([&] (HTTPTransaction* txn) {
+          handler.txn_ = txn; }));
+  EXPECT_CALL(handler, onHeadersComplete(_));
+  EXPECT_CALL(handler, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getCodecStatusCode(), ErrorCode::PROTOCOL_ERROR);
+          ASSERT_EQ("HTTP2Codec stream error: stream=1 window update delta=0",
+              std::string(ex.what()));
+        }));
+  EXPECT_CALL(handler, detachTransaction());
+  EXPECT_CALL(mockController_, detachSession(_));
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->startReadEvents();
+  eventBase_.loop();
 }
