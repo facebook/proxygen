@@ -235,7 +235,8 @@ parseFrameHeader(Cursor& cursor,
 ErrorCode
 parseData(Cursor& cursor,
           FrameHeader header,
-          std::unique_ptr<IOBuf>& outBuf) noexcept {
+          std::unique_ptr<IOBuf>& outBuf,
+          uint16_t& outPadding) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream == 0) {
     return ErrorCode::PROTOCOL_ERROR;
@@ -247,6 +248,9 @@ parseData(Cursor& cursor,
   if (header.length < padding) {
     return ErrorCode::PROTOCOL_ERROR;
   }
+  // outPadding is the total number of flow-controlled pad bytes, which
+  // includes the length byte, if present.
+  outPadding = padding + ((header.flags & PADDED) ? 1 : 0);
   cursor.clone(outBuf, header.length - padding);
   return skipPadding(cursor, padding, kStrictPadding);
 }

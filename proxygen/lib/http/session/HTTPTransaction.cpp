@@ -127,7 +127,8 @@ void HTTPTransaction::processIngressHeadersComplete(
   }
 }
 
-void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain) {
+void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
+                                    uint16_t padding) {
   if (isIngressEOMSeen()) {
     sendAbortInternal(kErrorProtocol, ErrorCode::STREAM_CLOSED,
                       "Received body after EOM");
@@ -146,10 +147,12 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain) {
   }
   if (mustQueueIngress()) {
     // register the bytes in the receive window
-    if (!recvWindow_.reserve(len, useFlowControl_)) {
+    if (!recvWindow_.reserve(len + padding, useFlowControl_)) {
       sendAbortInternal(kErrorProtocol, ErrorCode::FLOW_CONTROL_ERROR,
                        "Flow control error, peer exceeded window");
     } else {
+      CHECK(recvWindow_.free(padding));
+      recvToAck_ += padding;
       checkCreateDeferredIngress();
       deferredIngress_->emplace(id_, HTTPEvent::Type::BODY,
                                std::move(chain));

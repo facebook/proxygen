@@ -86,13 +86,15 @@ class FlowControlFilter:
 
   bool isReusable() const override;
 
-  void onBody(StreamID stream, std::unique_ptr<folly::IOBuf> chain) override;
+  void onBody(StreamID stream, std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override;
 
   void onWindowUpdate(StreamID stream, uint32_t amount) override;
 
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,
+                      boost::optional<uint8_t> padding,
                       bool eom) override;
 
   size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,

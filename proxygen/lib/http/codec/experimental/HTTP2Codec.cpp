@@ -260,13 +260,15 @@ ErrorCode HTTP2Codec::handleEndStream() {
 
 ErrorCode HTTP2Codec::parseData(Cursor& cursor) {
   std::unique_ptr<IOBuf> outData;
+  uint16_t padding = 0;
   VLOG(10) << "parsing DATA frame for stream=" << curHeader_.stream <<
     " length=" << curHeader_.length;
-  auto ret = http2::parseData(cursor, curHeader_, outData);
+  auto ret = http2::parseData(cursor, curHeader_, outData, padding);
   RETURN_IF_ERROR(ret);
 
   if (callback_) {
-    callback_->onBody(StreamID(curHeader_.stream), std::move(outData));
+    callback_->onBody(StreamID(curHeader_.stream), std::move(outData),
+                      padding);
   }
   return handleEndStream();
 }
@@ -835,6 +837,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
 size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
                                 StreamID stream,
                                 std::unique_ptr<folly::IOBuf> chain,
+                                boost::optional<uint8_t> padding,
                                 bool eom) {
   // todo: generate random padding for everything?
   size_t written = 0;
@@ -844,11 +847,11 @@ size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
   while (queue.chainLength() > maxSendFrameSize()) {
     auto chunk = queue.split(maxSendFrameSize());
     written += http2::writeData(writeBuf, std::move(chunk), stream,
-                                http2::kNoPadding, false);
+                                padding, false);
   }
 
   return written + http2::writeData(writeBuf, queue.move(), stream,
-                                    http2::kNoPadding, eom);
+                                    padding, eom);
 }
 
 size_t HTTP2Codec::generateChunkHeader(folly::IOBufQueue& writeBuf,

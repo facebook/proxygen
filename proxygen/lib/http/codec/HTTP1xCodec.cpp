@@ -155,7 +155,7 @@ HTTP1xCodec::onIngress(const IOBuf& buf) {
   if (parserError_) {
     return 0;
   } else if (ingressUpgradeComplete_) {
-    callback_->onBody(ingressTxnID_, buf.clone());
+    callback_->onBody(ingressTxnID_, buf.clone(), 0);
     return buf.computeChainDataLength();
   } else {
     // Callers responsibility to prevent calling onIngress from a callback
@@ -493,6 +493,7 @@ size_t
 HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
                           StreamID txn,
                           unique_ptr<IOBuf> chain,
+                          boost::optional<uint8_t> padding,
                           bool eom) {
   DCHECK(txn == egressTxnID_);
   if (!chain) {
@@ -849,7 +850,7 @@ HTTP1xCodec::onBody(const char* buf, size_t len) {
   unique_ptr<IOBuf> clone(currentIngressBuf_->clone());
   clone->trimStart(buf - dataStart);
   clone->trimEnd(dataEnd - (buf + len));
-  callback_->onBody(ingressTxnID_, std::move(clone));
+  callback_->onBody(ingressTxnID_, std::move(clone), 0);
   return 0;
 }
 

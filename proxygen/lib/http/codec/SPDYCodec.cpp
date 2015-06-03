@@ -473,7 +473,7 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
       toClone = std::min(toClone, length_);
       std::unique_ptr<IOBuf> chunk;
       cursor.clone(chunk, toClone);
-      callback_->onBody(StreamID(streamId_), std::move(chunk));
+      callback_->onBody(StreamID(streamId_), std::move(chunk), 0);
       length_ -= toClone;
     }
 
@@ -902,6 +902,7 @@ void SPDYCodec::generateSynReply(StreamID stream,
 size_t SPDYCodec::generateBody(folly::IOBufQueue& writeBuf,
                                StreamID stream,
                                std::unique_ptr<folly::IOBuf> chain,
+                               boost::optional<uint8_t> padding,
                                bool eom) {
   size_t len = chain->computeChainDataLength();
   if (len == 0) {

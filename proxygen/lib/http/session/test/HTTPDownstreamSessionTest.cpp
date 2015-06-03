@@ -688,7 +688,7 @@ void HTTPDownstreamTest<C>::testChunks(bool trailers) {
     .Times(1);
   for (int i = 0; i < 6; i++) {
     EXPECT_CALL(callbacks, onChunkHeader(1, _));
-    EXPECT_CALL(callbacks, onBody(1, _));
+    EXPECT_CALL(callbacks, onBody(1, _, _));
     EXPECT_CALL(callbacks, onChunkComplete(1));
   }
   if (trailers) {
@@ -1554,11 +1554,11 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
   EXPECT_CALL(callbacks, onHeadersComplete(1, _));
   EXPECT_CALL(callbacks, onMessageBegin(3, _));
   EXPECT_CALL(callbacks, onHeadersComplete(3, _));
-  EXPECT_CALL(callbacks, onBody(1, _));
-  EXPECT_CALL(callbacks, onBody(3, _));
-  EXPECT_CALL(callbacks, onBody(1, _));
+  EXPECT_CALL(callbacks, onBody(1, _, _));
+  EXPECT_CALL(callbacks, onBody(3, _, _));
+  EXPECT_CALL(callbacks, onBody(1, _, _));
   EXPECT_CALL(callbacks, onMessageComplete(1, _));
-  EXPECT_CALL(callbacks, onBody(3, _));
+  EXPECT_CALL(callbacks, onBody(3, _, _));
   EXPECT_CALL(callbacks, onMessageComplete(3, _));
 
   clientCodec->setCallback(&callbacks);
@@ -1860,4 +1860,58 @@ TEST_F(HTTP2DownstreamSessionTest, zero_delta_window_update) {
   transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   transport_->startReadEvents();
   eventBase_.loop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, padding_flow_control) {
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
+  HTTPMessage req = getGetRequest();
+  HTTP2Codec clientCodec(TransportDirection::UPSTREAM);
+
+  auto streamID = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(requests);
+  // generateHeader() will create a session and a transaction
+  clientCodec.generateHeader(requests, streamID, req, 0, false, nullptr);
+  // This sends a total of 33kb including padding, so we should get a session
+  // and stream window update
+  for (auto i = 0; i < 129; i++) {
+    clientCodec.generateBody(requests, streamID, makeBuf(1), 255, false);
+  }
+
+  StrictMock<MockHTTPHandler> handler;
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler, setTransaction(_))
+    .WillOnce(Invoke([&] (HTTPTransaction* txn) {
+          handler.txn_ = txn; }));
+  EXPECT_CALL(handler, onHeadersComplete(_))
+    .WillOnce(InvokeWithoutArgs([&] {
+          handler.txn_->pauseIngress();
+          eventBase_.runAfterDelay([&] { handler.txn_->resumeIngress(); },
+                                   100);
+        }));
+  EXPECT_CALL(handler, onBody(_))
+    .Times(129);
+  EXPECT_CALL(handler, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+        }));
+  EXPECT_CALL(handler, detachTransaction());
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(0));
+  clientCodec.generateRstStream(requests, streamID, ErrorCode::CANCEL);
+  clientCodec.generateGoaway(requests, 0, ErrorCode::NO_ERROR);
+  transport_->addReadEvent(requests, std::chrono::milliseconds(110));
+  transport_->startReadEvents();
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+
+  NiceMock<MockHTTPCodecCallback> callbacks;
+
+  std::list<HTTPCodec::StreamID> streams;
+  EXPECT_CALL(callbacks, onWindowUpdate(0, _));
+  EXPECT_CALL(callbacks, onWindowUpdate(1, _));
+  clientCodec.setCallback(&callbacks);
+  parseOutput(clientCodec);
+  EXPECT_CALL(mockController_, detachSession(_));
 }

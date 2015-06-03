@@ -522,7 +522,8 @@ TEST_F(HTTP2CodecTest, JunkAfterConnError) {
 TEST_F(HTTP2CodecTest, BasicData) {
   string data("abcde");
   auto buf = folly::IOBuf::copyBuffer(data.data(), data.length());
-  upstreamCodec_.generateBody(output_, 2, std::move(buf), true);
+  upstreamCodec_.generateBody(output_, 2, std::move(buf),
+                              HTTPCodec::NoPadding, true);
 
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 0);
@@ -540,7 +541,8 @@ TEST_F(HTTP2CodecTest, LongData) {
   HTTPSettings* settings = (HTTPSettings*)upstreamCodec_.getIngressSettings();
   settings->setSetting(SettingsId::MAX_FRAME_SIZE, 16);
   auto buf = makeBuf(100);
-  upstreamCodec_.generateBody(output_, 1, std::move(buf->clone()), true);
+  upstreamCodec_.generateBody(output_, 1, std::move(buf->clone()),
+                              HTTPCodec::NoPadding, true);
 
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 0);

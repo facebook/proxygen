@@ -651,7 +651,7 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
 
 void
 HTTPSession::onBody(HTTPCodec::StreamID streamID,
-                    unique_ptr<IOBuf> chain) {
+                    unique_ptr<IOBuf> chain, uint16_t padding) {
   DestructorGuard dg(this);
   // The codec's parser detected part of the ingress message's
   // entity-body.
@@ -666,8 +666,8 @@ HTTPSession::onBody(HTTPCodec::StreamID streamID,
     return;
   }
   auto oldSize = pendingReadSize_;
-  pendingReadSize_ += length;
-  txn->onIngressBody(std::move(chain));
+  pendingReadSize_ += length + padding;
+  txn->onIngressBody(std::move(chain), padding);
   if (oldSize < pendingReadSize_) {
     // Transaction must have buffered something and not called
     // notifyBodyProcessed() on it.
@@ -1092,6 +1092,7 @@ HTTPSession::sendBody(HTTPTransaction* txn,
   size_t encodedSize = codec_->generateBody(writeBuf_,
                                             txn->getID(),
                                             std::move(body),
+                                            HTTPCodec::NoPadding,
                                             includeEOM);
   CHECK(inLoopCallback_);
   pendingWriteSizeDelta_ -= bodyLen;

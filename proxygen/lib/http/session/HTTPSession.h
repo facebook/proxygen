@@ -486,7 +486,7 @@ class HTTPSession:
   void onHeadersComplete(HTTPCodec::StreamID streamID,
                          std::unique_ptr<HTTPMessage> msg) override;
   void onBody(HTTPCodec::StreamID streamID,
-      std::unique_ptr<folly::IOBuf> chain) override;
+              std::unique_ptr<folly::IOBuf> chain, uint16_t padding) override;
   void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override;
   void onChunkComplete(HTTPCodec::StreamID stream) override;
   void onTrailersComplete(HTTPCodec::StreamID streamID,

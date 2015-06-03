@@ -216,14 +216,16 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   push.setURL("https://www.foo.com/");
   egressCodec.generateHeader(output, 2, push, 1, false, nullptr);
   auto buf = makeBuf(100);
-  egressCodec.generateBody(output, 2, std::move(buf), true /* eom */);
+  egressCodec.generateBody(output, 2, std::move(buf), HTTPCodec::NoPadding,
+                           true /* eom */);
 
   HTTPMessage resp;
   resp.setStatusCode(200);
   resp.setStatusMessage("Ohai");
   egressCodec.generateHeader(output, 1, resp, 0, false, nullptr);
   buf = makeBuf(100);
-  egressCodec.generateBody(output, 1, std::move(buf), true /* eom */);
+  egressCodec.generateBody(output, 1, std::move(buf), HTTPCodec::NoPadding,
+                           true /* eom */);
 
   std::unique_ptr<folly::IOBuf> input = output.move();
   input->coalesce();
@@ -1109,7 +1111,7 @@ TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
                        eventBase_.tryRunAfterDelay([this, streamID, len] {
                            failWrites_ = true;
                            auto respBody = makeBuf(len);
-                           codecCb_->onBody(streamID, std::move(respBody));
+                           codecCb_->onBody(streamID, std::move(respBody), 0);
                            codecCb_->onMessageComplete(streamID, false);
                          }, 50);
 
@@ -1132,7 +1134,7 @@ TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
     auto respBody = makeBuf(len);
     toSend -= len;
     outstanding += len;
-    codecCb_->onBody(streamID, std::move(respBody));
+    codecCb_->onBody(streamID, std::move(respBody), 0);
   }
 
   eventBase_.loop();
@@ -1147,7 +1149,7 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
   InSequence dummy;
 
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
-  EXPECT_CALL(*codecPtr_, generateBody(_, _, _, true));
+  EXPECT_CALL(*codecPtr_, generateBody(_, _, _, _, true));
 
   auto txn = httpSession_->newTransaction(&handler);
   txn->sendHeaders(req);
@@ -1230,7 +1232,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
     if (stage == 2) {
       doAbort();
     }
-    codecCb_->onBody(streamID, std::move(respBody));
+    codecCb_->onBody(streamID, std::move(respBody), 0);
     if (stage == 3) {
       doAbort();
     }
@@ -1554,7 +1556,7 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   auto resp = makeResponse(200);
   codecCb_->onMessageBegin(1, resp.get());
   codecCb_->onHeadersComplete(1, std::move(resp));
-  codecCb_->onBody(1, makeBuf(20));
+  codecCb_->onBody(1, makeBuf(20), 0);
   // Now receive headers again, on the same stream (illegal!)
   codecCb_->onHeadersComplete(1, makeResponse(200));
   eventBase_.loop();

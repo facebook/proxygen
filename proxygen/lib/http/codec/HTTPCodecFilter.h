@@ -44,7 +44,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                          std::unique_ptr<HTTPMessage> msg) override;
 
   void onBody(StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain) override;
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override;
 
   void onChunkHeader(StreamID stream, size_t length) override;
 
@@ -122,6 +123,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,
+                      boost::optional<uint8_t> padding,
                       bool eom) override;
 
   size_t generateChunkHeader(folly::IOBufQueue& writeBuf,

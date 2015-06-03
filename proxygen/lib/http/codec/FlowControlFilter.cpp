@@ -96,9 +96,10 @@ bool FlowControlFilter::isReusable() const {
 }
 
 void FlowControlFilter::onBody(StreamID stream,
-                               std::unique_ptr<folly::IOBuf> chain) {
+                               std::unique_ptr<folly::IOBuf> chain,
+                               uint16_t padding) {
   uint64_t amount = chain->computeChainDataLength();
-  if (!recvWindow_.reserve(amount)) {
+  if (!recvWindow_.reserve(amount + padding)) {
     error_ = true;
     HTTPException ex = getException(
       folly::to<std::string>(
@@ -109,7 +110,9 @@ void FlowControlFilter::onBody(StreamID stream,
     if (VLOG_IS_ON(4) && recvWindow_.getSize() == 0) {
       VLOG(4) << "recvWindow full";
     }
-    callback_->onBody(stream, std::move(chain));
+    toAck_ += padding;
+    CHECK(recvWindow_.free(padding));
+    callback_->onBody(stream, std::move(chain), padding);
   }
 }
 
@@ -144,8 +147,11 @@ void FlowControlFilter::onWindowUpdate(StreamID stream, uint32_t amount) {
 size_t FlowControlFilter::generateBody(folly::IOBufQueue& writeBuf,
                                        StreamID stream,
                                        std::unique_ptr<folly::IOBuf> chain,
+                                       boost::optional<uint8_t> padding,
                                        bool eom) {
-  bool success = sendWindow_.reserve(chain->computeChainDataLength());
+  uint8_t padLen = padding ? *padding : 0;
+  bool success = sendWindow_.reserve(
+    chain->computeChainDataLength() + padLen);
   VLOG(5) << "Sending " << chain->computeChainDataLength()
           << " bytes, sendWindow=" << sendWindow_.getSize();
 
@@ -160,7 +166,8 @@ size_t FlowControlFilter::generateBody(folly::IOBufQueue& writeBuf,
     notify_.onConnectionSendWindowClosed();
   }
 
-  return call_->generateBody(writeBuf, stream, std::move(chain), eom);
+  return call_->generateBody(writeBuf, stream, std::move(chain), padding,
+                             eom);
 }
 
 size_t FlowControlFilter::generateWindowUpdate(folly::IOBufQueue& writeBuf,

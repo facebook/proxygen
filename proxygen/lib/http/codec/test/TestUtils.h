@@ -80,7 +80,8 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     msg = std::move(inMsg);
   }
   void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain) override {
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override {
     bodyCalls++;
     bodyLength += chain->computeChainDataLength();
     data.append(std::move(chain));

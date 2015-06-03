@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/CodecProtocol.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
 
 #include <glog/logging.h>
 
@@ -70,5 +71,7 @@ extern bool isSpdyCodecProtocol(CodecProtocol protocol) {
          protocol == CodecProtocol::SPDY_3_1 ||
          protocol == CodecProtocol::SPDY_3_1_HPACK;
 }
+
+const boost::none_t HTTPCodec::NoPadding = boost::none;
 
 }

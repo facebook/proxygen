@@ -48,6 +48,8 @@ class HTTPCodec {
 
   static const StreamID NoStream{0};
 
+  static const boost::none_t NoPadding;
+
   /**
    * Callback interface that users of HTTPCodec must implement
    */
@@ -87,9 +89,11 @@ class HTTPCodec {
      * @param chain   One or more buffers of body data. The codec will
      *                remove any protocol framing, such as HTTP/1.1 chunk
      *                headers, from the buffers before calling this function.
+     * @param padding Number of pad bytes that came with the data segment
      */
     virtual void onBody(StreamID stream,
-                        std::unique_ptr<folly::IOBuf> chain) = 0;
+                        std::unique_ptr<folly::IOBuf> chain,
+                        uint16_t padding) = 0;
 
     /**
      * Called for each HTTP chunk header.
@@ -348,6 +352,7 @@ class HTTPCodec {
    * if necessary (e.g. you haven't manually sent a chunk header and the
    * message should be chunked).
    *
+   * @param padding Optionally add padding bytes to the body if possible
    * @param eom implicitly generate the EOM marker with this body frame
    *
    * @return number of bytes written
@@ -355,6 +360,7 @@ class HTTPCodec {
   virtual size_t generateBody(folly::IOBufQueue& writeBuf,
                               StreamID stream,
                               std::unique_ptr<folly::IOBuf> chain,
+                              boost::optional<uint8_t> padding,
                               bool eom) = 0;
 
   /**

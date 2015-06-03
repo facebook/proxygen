@@ -61,7 +61,7 @@ class DownstreamTransactionTest : public testing::Test {
     EXPECT_CALL(transport_, sendEOM(txn))
       .WillOnce(InvokeWithoutArgs([=]() {
             CHECK_EQ(sent_, size);
-            txn->onIngressBody(makeBuf(size));
+            txn->onIngressBody(makeBuf(size), 0);
             txn->onIngressEOM();
             return 5;
           }));
@@ -229,7 +229,7 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   // Since the transaction is already closed for ingress, giving it
   // ingress body causes the transaction to be aborted and closed
   // immediately.
-  txn.onIngressBody(makeBuf(10));
+  txn.onIngressBody(makeBuf(10), 0);
 
   eventBase_.loop();
 }

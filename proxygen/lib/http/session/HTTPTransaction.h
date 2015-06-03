@@ -479,7 +479,7 @@ class HTTPTransaction :
    * Invoked by the session when some or all of the ingress entity-body has
    * been parsed.
    */
-  void onIngressBody(std::unique_ptr<folly::IOBuf> chain);
+  void onIngressBody(std::unique_ptr<folly::IOBuf> chain, uint16_t padding);
 
   /**
    * Invoked by the session when a chunk header has been parsed.

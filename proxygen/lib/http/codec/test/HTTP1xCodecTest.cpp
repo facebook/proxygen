@@ -29,7 +29,8 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
     headerSize = msg->getIngressHeaderSize();
   }
   void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain) override {}
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override {}
   void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override {}
   void onChunkComplete(HTTPCodec::StreamID stream) override {}
   void onTrailersComplete(HTTPCodec::StreamID stream,
@@ -117,12 +118,14 @@ TEST(HTTP1xCodecTest, TestChunkedUpstream) {
   string req2("World");
   auto body2 = folly::IOBuf::copyBuffer(req2);
 
-  codec.generateBody(buf, txnID, std::move(body1), false);
+  codec.generateBody(buf, txnID, std::move(body1), HTTPCodec::NoPadding,
+                     false);
 
   auto bodyFromBuf = buf.split(buf.chainLength());
   ASSERT_EQ("5\r\nHello\r\n", bodyFromBuf->moveToFbString());
 
-  codec.generateBody(buf, txnID, std::move(body2), true);
+  codec.generateBody(buf, txnID, std::move(body2), HTTPCodec::NoPadding,
+                     true);
   LOG(WARNING) << "len chain" << buf.chainLength();
 
   auto eomFromBuf = buf.split(buf.chainLength());

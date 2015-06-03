@@ -94,16 +94,18 @@ parseFrameHeader(folly::io::Cursor& cursor,
  * outBuf. It pulls header.length bytes from the cursor, so it is the
  * caller's responsibility to ensure there is enough data available.
  *
- * @param cursor The cursor to pull data from.
- * @param header The frame header for the frame being parsed.
- * @param outBuf The buf to fill with body data.
+ * @param cursor  The cursor to pull data from.
+ * @param header  The frame header for the frame being parsed.
+ * @param outBuf  The buf to fill with body data.
+ * @param padding The number of padding bytes in this data frame
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
 extern ErrorCode
 parseData(folly::io::Cursor& cursor,
           FrameHeader header,
-          std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
+          std::unique_ptr<folly::IOBuf>& outBuf,
+          uint16_t& padding) noexcept;
 
 /**
  * This function parses the section of the HEADERS frame after the common
