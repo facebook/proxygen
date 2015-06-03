@@ -140,3 +140,8 @@ SucceededConnTime, "succeeded_conn_time"
 /* ---- Used in FBLigerProtocol ---- */
 RequestID, "request_id"
 HumanReadableName, "human_readable_name"
+
+/* ---- Used in SessionTransactions ---- */
+CurrentTransactions, "current_txns"
+HistoricalMaximumTransactions, "historical_max_txns"
+PermittedMaximumTransactions, "permitted_max_txns"

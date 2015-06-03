@@ -141,6 +141,10 @@ class HTTPSession:
     return outgoingStreams_;
   }
 
+  uint32_t getHistoricalMaxOutgoingStreams() const {
+    return historicalMaxOutgoingStreams_;
+  }
+
   uint32_t getNumIncomingStreams() const {
     return incomingStreams_;
   }
@@ -792,6 +796,11 @@ class HTTPSession:
    * The number concurrent transactions initiated by this session
    */
   uint32_t outgoingStreams_{0};
+
+  /**
+   * The maximum number concurrent transactions in the history of this session
+   */
+  uint32_t historicalMaxOutgoingStreams_{0};
 
   /**
    * The number of concurrent transactions initiated by this sessions's peer
