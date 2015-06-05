@@ -101,7 +101,7 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
     zlibStream_.avail_out = appender.length();
     status_ = inflate(&zlibStream_, Z_PARTIAL_FLUSH);
     if (status_ != Z_OK && status_ != Z_STREAM_END) {
-      LOG(ERROR) << "error uncompressing buffer: r=" << status_;
+      LOG(INFO) << "error uncompressing buffer: r=" << status_;
       return nullptr;
     }
 
