@@ -15,6 +15,11 @@
 
 namespace proxygen {
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#endif
+
 class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
  public:
   MockHTTPTransactionTransport() {}
@@ -149,5 +154,9 @@ class MockHTTPTransactionTransportCallback:
   GMOCK_METHOD1_(, noexcept,, headerBytesGenerated, void(HTTPHeaderSize&));
   GMOCK_METHOD1_(, noexcept,, bodyBytesGenerated, void(size_t));
 };
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 
 }
