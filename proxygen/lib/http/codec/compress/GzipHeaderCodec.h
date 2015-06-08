@@ -41,15 +41,6 @@ class GzipHeaderCodec : public HeaderCodec {
       HeaderCodec::StreamingCallback* streamingCb) noexcept override;
 
  private:
-  void pushZlibHeader(folly::io::Appender& appender,
-                     uint16_t windowBits,
-                     uint16_t memLevel) noexcept;
-
-  void pushZlibBlockHeader(folly::io::Appender& appender,
-                          uint16_t blockSize) noexcept;
-
-  unique_ptr<folly::IOBuf> encodeNoCompression(folly::IOBuf& buf) noexcept;
-
   folly::IOBuf& getHeaderBuf();
 
   /**
@@ -61,8 +52,5 @@ class GzipHeaderCodec : public HeaderCodec {
   const SPDYVersionSettings& versionSettings_;
   z_stream deflater_;
   z_stream inflater_;
-  int compressionLevel_;
-  bool firstHeader_{true};
-
 };
 }

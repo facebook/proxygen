@@ -32,9 +32,6 @@ using std::vector;
 
 namespace {
 
-static const uint32_t kZlibHeaderSize = 2;
-static const uint32_t kZlibBlockHeaderSize = 5;
-
 // Maximum size of header names+values after expanding multi-value headers
 const size_t kMaxExpandedHeaderLineBytes = 80 * 1024;
 
@@ -160,13 +157,11 @@ namespace proxygen {
 
 GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
                                  const SPDYVersionSettings& versionSettings)
-    : versionSettings_(versionSettings), compressionLevel_(compressionLevel) {
+    : versionSettings_(versionSettings) {
   // Create compression and decompression contexts by cloning thread-local
   // copies of the initial SPDY compression state
   auto context = getZlibContext(versionSettings, compressionLevel);
-  if (compressionLevel_ != Z_NO_COMPRESSION) {
-    deflateCopy(&deflater_, const_cast<z_stream*>(&(context->deflater)));
-  }
+  deflateCopy(&deflater_, const_cast<z_stream*>(&(context->deflater)));
   inflateCopy(&inflater_, const_cast<z_stream*>(&(context->inflater)));
 }
 
@@ -177,84 +172,12 @@ GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
         SPDYCodec::getVersionSettings(version)) {}
 
 GzipHeaderCodec::~GzipHeaderCodec() {
-  if (compressionLevel_ != Z_NO_COMPRESSION) {
-    deflateEnd(&deflater_);
-  }
+  deflateEnd(&deflater_);
   inflateEnd(&inflater_);
 }
 
 folly::IOBuf& GzipHeaderCodec::getHeaderBuf() {
   return getStaticHeaderBufSpace(maxUncompressed_);
-}
-
-void GzipHeaderCodec::pushZlibHeader(folly::io::Appender& appender,
-                                    uint16_t windowBits,
-                                    uint16_t memLevel) noexcept {
-  uint16_t level_flags;
-  if (memLevel < 2) {
-    level_flags = 0;
-  } else if (memLevel < 6) {
-    level_flags = 1;
-  }  else if (memLevel == 6) {
-    level_flags = 2;
-  } else {
-    level_flags = 3;
-  }
-
-  uint16_t header = (Z_DEFLATED + ((windowBits - 8)<<4)) << 8;
-  header |= (level_flags << 6);
-  header += 31 - (header % 31);
-  appender.writeBE<uint16_t>(header);
-}
-
-void GzipHeaderCodec::pushZlibBlockHeader(folly::io::Appender& appender,
-                                         uint16_t blockSize) noexcept {
-  /*
-   * 3.2.4. Non-compressed blocks (BTYPE=00)
-   *
-   *   Any bits of input up to the next byte boundary are ignored.  The rest of
-   *   the block consists of the following information:
-   *
-   *      0   1   2   3   4...
-   *    +---+---+---+---+================================+
-   *    |  LEN  | NLEN  |... LEN bytes of literal data...|
-   *    +---+---+---+---+================================+
-   *
-   *  LEN is the number of data bytes in the block.  NLEN is the one's
-   *  complement of LEN.
-   */
-
-  // block type is always zero if the flush mode is Z_SYNC_FLUSH
-  appender.write<uint8_t>(0);
-  appender.write<uint16_t>(blockSize);
-  appender.write<uint16_t>(~blockSize);
-}
-
-unique_ptr<IOBuf>
-GzipHeaderCodec::encodeNoCompression(folly::IOBuf& buf) noexcept {
-  auto uncompressedLen = buf.length();
-  size_t maxDeflatedSize = firstHeader_ ? kZlibHeaderSize : 0;
-  maxDeflatedSize += kZlibBlockHeaderSize + uncompressedLen
-    + kZlibBlockHeaderSize + encodeHeadroom_;
-  unique_ptr<IOBuf> encoded = IOBuf::create(maxDeflatedSize);
-  encoded->advance(encodeHeadroom_);
-  folly::io::Appender appender(encoded.get(), 0);
-  if (firstHeader_) {
-    pushZlibHeader(appender,
-                   9,    // log2 of the compression window size, negative value
-                         // means raw deflate output format w/o libz header
-                   1     // memory size for internal compression state, 1-9
-                  );
-    firstHeader_ = false;
-  }
-
-  pushZlibBlockHeader(appender, uncompressedLen);
-  appender.push(buf.writableData(), uncompressedLen);
-  // compressed data ends with a empty block, it works as zlib footer.
-  pushZlibBlockHeader(appender, 0);
-
-  DCHECK_EQ(maxDeflatedSize - encodeHeadroom_, encoded->length());
-  return std::move(encoded);
 }
 
 unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
@@ -337,29 +260,22 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
   dst = uncompressed.writableData();
   versionSettings_.appendSizeFun(dst, numHeaders);
 
-  uncompressed.append(uncompressedLen);
+  // Allocate a contiguous space big enough to hold the compressed headers,
+  // plus any headroom requested by the caller.
+  size_t maxDeflatedSize = deflateBound(&deflater_, uncompressedLen);
+  unique_ptr<IOBuf> out(IOBuf::create(maxDeflatedSize + encodeHeadroom_));
+  out->advance(encodeHeadroom_);
 
-  unique_ptr<IOBuf> out;
-  size_t maxDeflatedSize = 0;
-  if (compressionLevel_ == Z_NO_COMPRESSION) {
-    out  = encodeNoCompression(uncompressed);
-  } else {
-    // Allocate a contiguous space big enough to hold the compressed headers,
-    // plus any headroom requested by the caller.
-    maxDeflatedSize = deflateBound(&deflater_, uncompressedLen);
-    out = IOBuf::create(maxDeflatedSize + encodeHeadroom_);
-    out->advance(encodeHeadroom_);
+  // Compress
+  deflater_.next_in = uncompressed.writableData();
+  deflater_.avail_in = uncompressedLen;
+  deflater_.next_out = out->writableData();
+  deflater_.avail_out = maxDeflatedSize;
+  int r = deflate(&deflater_, Z_SYNC_FLUSH);
+  CHECK(r == Z_OK);
+  CHECK(deflater_.avail_in == 0);
+  out->append(maxDeflatedSize - deflater_.avail_out);
 
-    // Compress
-    deflater_.next_in = uncompressed.writableData();
-    deflater_.avail_in = uncompressedLen;
-    deflater_.next_out = out->writableData();
-    deflater_.avail_out = maxDeflatedSize;
-    int r = deflate(&deflater_, Z_SYNC_FLUSH);
-    CHECK(r == Z_OK);
-    CHECK(deflater_.avail_in == 0);
-    out->append(maxDeflatedSize - deflater_.avail_out);
-  }
   VLOG(4) << "header size orig=" << uncompressedLen
           << ", max deflated=" << maxDeflatedSize
           << ", actual deflated=" << out->length();
