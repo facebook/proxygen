@@ -196,7 +196,7 @@ public:
     { SettingsId::HEADER_TABLE_SIZE, 4096 },
     { SettingsId::ENABLE_PUSH, 1 },
     { SettingsId::MAX_FRAME_SIZE, 16384 },
-    { SettingsId::MAX_HEADER_LIST_SIZE, 80 * 1024 },
+    { SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17 }, // same as SPDYCodec
   };
   StreamID lastStreamID_{0};
   uint32_t ingressGoawayAck_{std::numeric_limits<uint32_t>::max()};

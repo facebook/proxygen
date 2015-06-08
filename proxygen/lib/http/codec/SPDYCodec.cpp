@@ -301,9 +301,9 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
   } else {
     headerCodec_ = folly::make_unique<GzipHeaderCodec>(
       spdyCompressionLevel, versionSettings_);
-    // Limit uncompressed headers to 128kb
-    headerCodec_->setMaxUncompressed(kMaxUncompressed);
   }
+  // Limit uncompressed headers to 128kb
+  headerCodec_->setMaxUncompressed(kMaxUncompressed);
 
   switch (transportDirection_) {
   case TransportDirection::DOWNSTREAM:

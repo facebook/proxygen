@@ -43,7 +43,7 @@ struct HeaderDecodeResult {
 
 class HeaderCodec {
  public:
-  const static uint32_t kMaxUncompressed = 80 * 1024;
+  const static uint32_t kMaxUncompressed = 128 * 1024;
 
   enum class Type : uint8_t {
     GZIP = 0,
