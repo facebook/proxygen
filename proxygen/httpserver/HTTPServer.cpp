@@ -105,6 +105,8 @@ void HTTPServer::start(std::function<void()> onSuccess,
   auto accExe = std::make_shared<IOThreadPoolExecutor>(1);
   auto exe = std::make_shared<IOThreadPoolExecutor>(options_->threads);
   auto exeObserver = std::make_shared<HandlerCallbacks>(options_);
+  // Observer has to be set before bind(), so onServerStart() callbacks run
+  exe->addObserver(exeObserver);
 
   try {
     FOR_EACH_RANGE (i, 0, addresses_.size()) {
@@ -137,7 +139,6 @@ void HTTPServer::start(std::function<void()> onSuccess,
   if (onSuccess) {
     onSuccess();
   }
-  exe->addObserver(exeObserver);
   mainEventBase_->loopForever();
 }
 
@@ -151,6 +152,7 @@ void HTTPServer::stop() {
   for (auto& bootstrap : bootstrap_) {
     bootstrap.join();
   }
+
   signalHandler_.reset();
   mainEventBase_->terminateLoopSoon();
   mainEventBase_ = nullptr;
