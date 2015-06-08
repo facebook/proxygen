@@ -490,6 +490,7 @@ void HTTP2Codec::onHeadersComplete() {
     return;
   }
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
+  decodeInfo_.msg->setIngressHeaderSize(headerCodec_.getDecodedSize());
 }
 
 void HTTP2Codec::onDecodeError(HeaderDecodeError decodeError) {
