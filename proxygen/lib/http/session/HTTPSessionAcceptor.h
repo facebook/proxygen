@@ -133,7 +133,8 @@ private:
   void onIngressLimitExceeded(const HTTPSession&) override {}
   void onIngressPaused(const HTTPSession&) override {}
   void onTransactionDetached(const HTTPSession&) override {}
-  void onPingReply(int64_t latency) override {}
+  void onPingReplySent(int64_t latency) override {}
+  void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
   void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
 

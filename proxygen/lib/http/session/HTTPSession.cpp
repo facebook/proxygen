@@ -943,6 +943,9 @@ void HTTPSession::onPingRequest(uint64_t uniqueID) {
 
 void HTTPSession::onPingReply(uint64_t uniqueID) {
   VLOG(4) << *this << " got ping reply with id=" << uniqueID;
+  if (infoCallback_) {
+    infoCallback_->onPingReplyReceived();
+  }
 }
 
 void HTTPSession::onWindowUpdate(HTTPCodec::StreamID streamID,
@@ -2118,7 +2121,7 @@ void HTTPSession::invalidStream(HTTPCodec::StreamID stream, ErrorCode code) {
 
 void HTTPSession::onPingReplyLatency(int64_t latency) noexcept {
   if (infoCallback_ && latency >= 0) {
-    infoCallback_->onPingReply(latency);
+    infoCallback_->onPingReplySent(latency);
   }
 }
 

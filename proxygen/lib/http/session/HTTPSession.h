@@ -69,7 +69,8 @@ class HTTPSession:
     virtual void onIngressLimitExceeded(const HTTPSession&) = 0;
     virtual void onIngressPaused(const HTTPSession&) = 0;
     virtual void onTransactionDetached(const HTTPSession&) = 0;
-    virtual void onPingReply(int64_t latency) = 0;
+    virtual void onPingReplySent(int64_t latency) = 0;
+    virtual void onPingReplyReceived() = 0;
     virtual void onSettingsOutgoingStreamsFull(const HTTPSession&) = 0;
     virtual void onSettingsOutgoingStreamsNotFull(const HTTPSession&) = 0;
   };

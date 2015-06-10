@@ -162,7 +162,8 @@ class HTTPUpstreamTest: public testing::Test,
   void onIngressLimitExceeded(const HTTPSession& sess) override {}
   void onIngressPaused(const HTTPSession& sess) override {}
   void onTransactionDetached(const HTTPSession& sess) override {}
-  void onPingReply(int64_t latency) override {}
+  void onPingReplySent(int64_t latency) override {}
+  void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {
     transactionsFull_ = true;
   }
