@@ -684,7 +684,7 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId) {
-  if (streamId == 0 || streamId < lastStreamID_) {
+  if (streamId == 0 || streamId <= lastStreamID_) {
     VLOG(4) << "Invalid new stream=" << streamId;
     return ErrorCode::PROTOCOL_ERROR;
   }

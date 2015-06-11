@@ -208,6 +208,23 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HTTP2CodecTest, DuplicateHeaders) {
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add("user-agent", "coolio");
+  req.setSecure(true);
+  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  writeFrameHeaderManual(output_, 0, (uint8_t)http2::FrameType::HEADERS,
+                         http2::END_STREAM, 1);
+
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+}
+
+
 /**
  * Ingress bytes with an empty header name
  */
