@@ -9,34 +9,117 @@
  */
 #include <proxygen/lib/utils/Logging.h>
 
+#include <folly/Memory.h>
+#include <folly/String.h>
+
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
+#include <vector>
 #include <sys/stat.h>
 
+using folly::IOBuf;
 using std::ostream;
 using std::string;
 using std::stringstream;
+using std::unique_ptr;
+using std::vector;
+
+namespace {
+proxygen::HexFollyPrinter hexFollyPrinter;
+proxygen::Hex16Printer hex16Printer;
+proxygen::ChainInfoPrinter chainInfoPrinter;
+proxygen::BinPrinter binPrinter;
+
+vector<proxygen::IOBufPrinter*> printers = {
+  &hexFollyPrinter,
+  &hex16Printer,
+  &chainInfoPrinter,
+  &binPrinter
+};
+}
 
 namespace proxygen {
 
-ostream& operator<<(ostream& os, const folly::IOBuf* buf) {
+string HexFollyPrinter::print(const IOBuf* buf) {
+  return folly::hexDump(buf->data(), buf->length());
+}
+
+string Hex16Printer::print(const IOBuf* buf) {
+  stringstream out;
   const uint8_t* data = buf->data();
   char tmp[24];
   for (size_t i = 0; i < buf->length(); i++) {
-    sprintf(tmp, "%02x", data[i]);
-    os << tmp;
+    snprintf(tmp, 3, "%02x", data[i]);
+    out << tmp;
     if ((i + 1) % 2 == 0) {
-      os << ' ';
+      out << ' ';
     }
     if ((i + 1) % 16 == 0) {
-      os << std::endl;
+      out << std::endl;
     }
   }
-  return os;
+  return out.str();
 }
 
-void dumpBinToFile(const std::string& filename, const folly::IOBuf* buf) {
+string ChainInfoPrinter::print(const IOBuf* buf) {
+  stringstream out;
+  out << "iobuf of size " << buf->length()
+      << " tailroom " << buf->tailroom();
+  return out.str();
+}
+
+string BinPrinter::print(const IOBuf* buf) {
+  static uint8_t bytesPerLine = 8;
+  string out;
+  const uint8_t* data = buf->data();
+  for (size_t i = 0; i < buf->length(); i++) {
+    for (int b = 7; b >= 0; b--) {
+      out += data[i] & 1 << b ? '1' : '0';
+    }
+    out += ' ';
+    out += isprint(data[i]) ? data[i] : ' ';
+    if ((i + 1) % bytesPerLine == 0) {
+      out += '\n';
+    } else {
+      out += ' ';
+    }
+  }
+  out += '\n';
+  return out;
+}
+
+string IOBufPrinter::printChain(const IOBuf* buf,
+                                Format format,
+                                bool coalesce) {
+  uint8_t index = (uint8_t) format;
+  if (printers.size() <= index) {
+    LOG(ERROR) << "invalid format: " << index;
+    return "";
+  }
+  auto printer = printers[index];
+  // empty chain
+  if (!buf) {
+    return "";
+  }
+
+  unique_ptr<IOBuf> cbuf = nullptr;
+  if (coalesce) {
+    cbuf = buf->clone();
+    cbuf->coalesce();
+    buf = cbuf.get();
+  }
+  auto b = buf;
+  string res;
+  do {
+    res += printer->print(b);
+    b = b->next();
+  } while (b != buf);
+  return res;
+}
+
+void dumpBinToFile(const string& filename, const IOBuf* buf) {
   struct stat fstat;
   bool exists = (stat(filename.c_str(), &fstat) == 0);
   if (exists) {
@@ -52,50 +135,14 @@ void dumpBinToFile(const std::string& filename, const folly::IOBuf* buf) {
     file.close();
     return;
   }
-  const folly::IOBuf* first = buf;
+  const IOBuf* first = buf;
   do {
     file.write((const char *)buf->data(), buf->length());
     buf = buf->next();
   } while (buf != first);
   file.close();
-  LOG(INFO) << "wrote chain " << dumpChain(buf) << " to " << filename;
-}
-
-string dumpChain(const folly::IOBuf* buf) {
-  stringstream out;
-  auto b = buf;
-  do {
-    out << "iobuf of size " << b->length()
-        << " tailroom " << b->tailroom();
-    b = b->next();
-  } while (b != buf);
-  return out.str();
-}
-
-string dumpBin(const folly::IOBuf* buf, uint8_t bytesPerLine) {
-  string out;
-  const folly::IOBuf* first = buf;
-  if (!buf) {
-    return out;
-  }
-  do {
-    const uint8_t* data = buf->data();
-    for (size_t i = 0; i < buf->length(); i++) {
-      for (int b = 7; b >= 0; b--) {
-        out += data[i] & 1 << b ? '1' : '0';
-      }
-      out += ' ';
-      out += isprint(data[i]) ? data[i] : ' ';
-      if ((i + 1) % bytesPerLine == 0) {
-        out += '\n';
-      } else {
-        out += ' ';
-      }
-    }
-    out += '\n';
-    buf = buf->next();
-  } while (buf != first);
-  return out;
+  LOG(INFO) << "wrote chain " << IOBufPrinter::printChainInfo(buf)
+            << " to " << filename;
 }
 
 }

@@ -107,8 +107,8 @@ uint32_t HPACKEncodeBuffer::encodeLiteral(const std::string& literal) {
   return count;
 }
 
-string HPACKEncodeBuffer::toBin(uint8_t bytesPerLine) {
-  return dumpBin(bufQueue_.front(), bytesPerLine);
+string HPACKEncodeBuffer::toBin() {
+  return IOBufPrinter::printBin(bufQueue_.front());
 }
 
 }

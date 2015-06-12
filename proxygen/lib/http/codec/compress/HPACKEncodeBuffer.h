@@ -77,7 +77,7 @@ class HPACKEncodeBuffer {
   /**
    * prints the content of an IOBuf in binary format. Useful for debugging.
    */
-  std::string toBin(uint8_t bytesPerLine=8);
+  std::string toBin();
 
  private:
 

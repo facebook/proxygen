@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/utils/ChromeUtils.h>
+#include <proxygen/lib/utils/Logging.h>
 
 #include <folly/Conv.h>
 #include <folly/io/Cursor.h>
@@ -22,19 +23,6 @@ using namespace folly;
 
 using std::string;
 
-namespace {
-
-string iobuf2hex(const IOBuf* buf) {
-  auto cur = buf;
-  string res;
-  do {
-    res.append((const char *)cur->data(), cur->length());
-    cur = cur->next();
-  } while (cur != buf);
-  return folly::hexDump(res.data(), res.length());
-}
-
-}
 namespace proxygen {
 
 uint32_t HTTP2Codec::kHeaderSplitSize{http2::kMaxFramePayloadLengthMin};
@@ -332,14 +320,14 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     if (decodeInfo_.decodeError != HeaderDecodeError::NONE) {
       LOG(ERROR) << "Failed decoding header block for stream="
                  << curHeader_.stream << " header block=" << std::endl
-                 << iobuf2hex(curHeaderBlock_.front());;
+                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);;
       return ErrorCode::COMPRESSION_ERROR;
     }
     // Check parsing error
     if (decodeInfo_.parsingError != "") {
       LOG(ERROR) << "Failed parsing header list for stream="
                  << curHeader_.stream << " header block=" << std::endl
-                 << iobuf2hex(curHeaderBlock_.front())
+                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true)
                  << " error=" << decodeInfo_.parsingError;
       HTTPException err(HTTPException::Direction::INGRESS,
                         folly::to<std::string>(
@@ -969,7 +957,7 @@ size_t HTTP2Codec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
 bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
   if (err != ErrorCode::NO_ERROR) {
     LOG(ERROR) << "Connection error with ingress=" << std::endl
-               << iobuf2hex(buf);
+               << IOBufPrinter::printHexFolly(buf, true);
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        "Connection error");
