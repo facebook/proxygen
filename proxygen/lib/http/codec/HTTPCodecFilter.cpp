@@ -55,6 +55,14 @@ void PassThroughHTTPCodecFilter::onMessageComplete(StreamID stream,
   callback_->onMessageComplete(stream, upgrade);
 }
 
+void PassThroughHTTPCodecFilter::onFrameHeader(
+    uint32_t stream_id,
+    uint8_t flags,
+    uint32_t length,
+    uint16_t version) {
+  callback_->onFrameHeader(stream_id, flags, length, version);
+}
+
 void PassThroughHTTPCodecFilter::onError(
     StreamID stream,
     const HTTPException& error,

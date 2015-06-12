@@ -158,6 +158,19 @@ class HTTPCodec {
                          ErrorCode code) {}
 
     /**
+     * Called upon receipt of a frame header.
+     * @param stream_id The stream ID
+     * @param flags     The flags field of frame header
+     * @param length    The length field of frame header
+     * @param version   The version of frame (SPDY only)
+     * @note Not all protocols have frames. SPDY does, but HTTP/1.1 doesn't.
+     */
+    virtual void onFrameHeader(uint32_t stream_id,
+                               uint8_t flags,
+                               uint32_t length,
+                               uint16_t version = 0) {}
+
+    /**
      * Called upon receipt of a goaway.
      * @param lastGoodStreamID  Last successful stream created by the receiver
      * @param code              The code the connection was aborted with

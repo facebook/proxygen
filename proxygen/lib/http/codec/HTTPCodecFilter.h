@@ -56,6 +56,11 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   void onMessageComplete(StreamID stream, bool upgrade) override;
 
+  void onFrameHeader(uint32_t stream_id,
+                     uint8_t flags,
+                     uint32_t length,
+                     uint16_t version = 0) override;
+
   void onError(StreamID stream,
                const HTTPException& error,
                bool newStream = false) override;

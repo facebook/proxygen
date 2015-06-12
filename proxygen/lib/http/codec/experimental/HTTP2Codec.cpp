@@ -145,6 +145,11 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
           // this should be rare.  TODO: remove when Chrome 42 is < 1%
           // of traffic?
           curHeader_.length -= http2::kFrameHeaderSize;
+          if (callback_) {
+            callback_->onFrameHeader(curHeader_.stream,
+                                     curHeader_.flags,
+                                     curHeader_.length);
+          }
         }
 #ifndef NDEBUG
         receivedFrameCount_++;

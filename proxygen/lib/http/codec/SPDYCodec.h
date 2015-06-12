@@ -96,8 +96,6 @@ public:
   void enableDoubleGoawayDrain() override;
   StreamID getLastIncomingStreamID() const override { return lastStreamID_; }
 
-  // SPDYCodec specific API
-  void setPrinter(bool printer) { printer_ = printer; }
   /**
    * Returns a const reference to the ingress settings. Since ingress
    * settings are set by the remote end, it doesn't make sense for these
@@ -373,7 +371,6 @@ public:
     CLOSING = 3,
   } sessionClosing_:2;
 
-  bool printer_:1;
   bool ctrl_:1;
 
   std::unique_ptr<HeaderCodec> headerCodec_;

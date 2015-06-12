@@ -32,6 +32,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/HTTPChecks.h \
 	codec/HTTPCodec.h \
 	codec/HTTPCodecFilter.h \
+	codec/HTTPCodecPrinter.h \
 	codec/HTTPSettings.h \
 	codec/SPDYCodec.h \
 	codec/SPDYConstants.h \
@@ -115,6 +116,7 @@ libproxygenhttp_la_SOURCES = \
 	codec/HTTP1xCodec.cpp \
 	codec/HTTPChecks.cpp \
 	codec/HTTPCodecFilter.cpp \
+	codec/HTTPCodecPrinter.cpp \
 	codec/HTTPSettings.cpp \
 	codec/SPDYCodec.cpp \
 	codec/SPDYConstants.cpp \

@@ -153,83 +153,6 @@ class SPDYStreamFailed : public std::exception {
   std::string message;
 };
 
-void printCtrlHeader(uint16_t version, uint8_t flags, uint32_t length) {
-  std::cout << "CTRL FRAME: version=" << version << ", flags="
-            <<  std::hex << folly::to<unsigned int>(flags) << std::dec
-            << ", length=" << length << std::endl;
-}
-
-void printNV(const compress::HeaderPieceList& headers) {
-  for (size_t i = 0; i < headers.size(); i += 2) {
-    std::cout << "\t" << headers[i].str << ": "
-              << headers[i + 1].str << std::endl;
-  }
-}
-
-void printHeaders(uint32_t stream_id,
-                  const compress::HeaderPieceList& headers) {
-  std::cout << "HEADERS: stream_id=" << stream_id
-            << "numHeaders=" << headers.size() / 2 << std::endl;
-  printNV(headers);
-}
-
-void printSynStream(uint32_t stream_id, uint32_t assocStream, uint8_t pri,
-                    uint8_t slot,
-                    const compress::HeaderPieceList& headers) {
-  std::cout << "SYN_STREAM: stream_id=" << stream_id << ", assocStream="
-            << assocStream << ", pri=" << folly::to<unsigned int>(pri)
-            << ", slot=" << folly::to<unsigned int>(slot)
-            << ", numHeaders=" << (headers.size() / 2) << std::endl;
-  printNV(headers);
-}
-
-void printSynReply(uint32_t stream_id,
-                   const compress::HeaderPieceList& headers) {
-  std::cout << "SYN_REPLY: stream_id=" << stream_id
-            << ", numHeaders=" << headers.size() / 2 << std::endl;
-
-  printNV(headers);
-}
-
-void printRstStream(uint32_t stream_id, uint32_t statusCode) {
-  std::cout << "RST_STREAM: stream_id=" << stream_id << ", statusCode="
-            << statusCode << std::endl;
-}
-
-void printSettings(const SPDYCodec::SettingList& settings) {
-  std::cout << "SETTINGS: num=" << settings.size() << std::endl;
-  for (const auto& setting: settings) {
-    std::cout << "\tflags="
-              << std::hex << folly::to<unsigned int>(setting.flags) << std::dec
-              << ", id=" << setting.id
-              << ", value=" << setting.value << std::endl;
-  }
-}
-
-void printPing(uint32_t unique_id) {
-  std::cout << "PING: unique_id=" << unique_id << std::endl;
-}
-
-void printGoaway(uint32_t lastGoodStream, uint32_t statusCode) {
-  std::cout << "GOAWAY: lastGoodStream=" << lastGoodStream
-            << ", statusCode=" << statusCode << std::endl;
-}
-
-void printWindowUpdate(uint32_t stream_id, uint32_t delta) {
-  std::cout << "WINDOW_UPDATE: stream_id=" << stream_id
-            << "delta_window_size=" << delta << std::endl;
-}
-
-void printDataFrame(uint32_t stream_id, uint8_t flags, uint32_t length) {
-  std::cout << "DATA: stream_id=" << stream_id << ", flags="
-            << std::hex << folly::to<unsigned int>(flags) << std::dec
-            << ", length=" << length << std::endl;
-}
-
-void printException(const std::exception& ex) {
-  std::cout << "Exception: " << folly::exceptionStr(ex) << std::endl;
-}
-
 } // anonynous namespace
 
 std::bitset<256> SPDYCodec::perHopHeaderCodes_;
@@ -291,7 +214,6 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
     transportDirection_(direction),
     frameState_(FrameState::FRAME_HEADER),
     sessionClosing_(ClosingState::OPEN),
-    printer_(false),
     ctrl_(false) {
   VLOG(4) << "creating SPDY/" << static_cast<int>(versionSettings_.majorVersion)
           << "." << static_cast<int>(versionSettings_.minorVersion)
@@ -385,9 +307,6 @@ size_t SPDYCodec::onIngress(const folly::IOBuf& buf) {
   try {
     bytesParsed = parseIngress(buf);
   } catch (const SPDYSessionFailed& ex) {
-    if (printer_) {
-      printException(ex);
-    }
     failSession(ex.statusCode);
     bytesParsed = buf.computeChainDataLength();
   }
@@ -438,14 +357,10 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
           throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
         }
         frameState_ = FrameState::CTRL_FRAME_DATA;
-        if (printer_) {
-          printCtrlHeader(version_, flags_, length_);
-        }
+        callback_->onFrameHeader(0, flags_, length_, version_);
       } else {
         frameState_ = FrameState::DATA_FRAME_DATA;
-        if (printer_) {
-          printDataFrame(streamId_, flags_, length_);
-        }
+        callback_->onFrameHeader(streamId_, flags_, length_);
       }
     } else if (frameState_ == FrameState::CTRL_FRAME_DATA) {
       if (avail < length_) {
@@ -458,9 +373,6 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
       try {
         onControlFrame(cursor);
       } catch (const SPDYStreamFailed& ex) {
-        if (printer_) {
-          printException(ex);
-        }
         failStream(ex.isNew, ex.streamID, ex.statusCode, ex.what());
       }
       frameState_ = FrameState::FRAME_HEADER;
@@ -1337,9 +1249,6 @@ void SPDYCodec::onSynStream(uint32_t assocStream,
                             const HTTPHeaderSize& size) {
   VLOG(4) << "Got SYN_STREAM, stream=" << streamId_
           << " pri=" << folly::to<int>(pri);
-  if (printer_) {
-    printSynStream(streamId_, assocStream, pri, slot, headers);
-  }
   if (sessionClosing_ == ClosingState::CLOSING) {
     VLOG(4) << "Dropping SYN_STREAM after final GOAWAY, stream=" << streamId_;
     // Suppress any EOM callback for the current frame.
@@ -1380,9 +1289,6 @@ void SPDYCodec::onSynStream(uint32_t assocStream,
 void SPDYCodec::onSynReply(const HeaderPieceList& headers,
                            const HTTPHeaderSize& size) {
   VLOG(4) << "Got SYN_REPLY, stream=" << streamId_;
-  if (printer_) {
-    printSynReply(streamId_, headers);
-  }
   if (transportDirection_ == TransportDirection::DOWNSTREAM ||
       (streamId_ & 0x1) == 0) {
     throw SPDYStreamFailed(true, streamId_, spdy::RST_PROTOCOL_ERROR);
@@ -1398,9 +1304,6 @@ void SPDYCodec::onSynReply(const HeaderPieceList& headers,
 void SPDYCodec::onRstStream(uint32_t statusCode) noexcept {
   VLOG(4) << "Got RST_STREAM, stream=" << streamId_
           << ", status=" << statusCode;
-  if (printer_) {
-    printRstStream(streamId_, statusCode);
-  }
   StreamID streamID(streamId_);
   callback_->onAbort(streamID,
                      spdy::rstToErrorCode(spdy::ResetStatusCode(statusCode)));
@@ -1410,9 +1313,6 @@ void SPDYCodec::onSettings(const SettingList& settings) {
   VLOG(4) << "Got " << settings.size() << " settings with "
           << "version=" << version_ << " and flags="
           << std::hex << folly::to<unsigned int>(flags_) << std::dec;
-  if (printer_) {
-    printSettings(settings);
-  }
   SettingsList settingsList;
   for (const SettingData& cur: settings) {
     // For now, we never ask for anything to be persisted, so ignore anything
@@ -1455,9 +1355,6 @@ void SPDYCodec::onSettings(const SettingList& settings) {
 }
 
 void SPDYCodec::onPing(uint32_t uniqueID) noexcept {
-  if (printer_) {
-    printPing(uniqueID);
-  }
   bool odd = uniqueID & 0x1;
   bool isReply = true;
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
@@ -1482,9 +1379,6 @@ void SPDYCodec::onPing(uint32_t uniqueID) noexcept {
 
 void SPDYCodec::onGoaway(uint32_t lastGoodStream,
                          uint32_t statusCode) noexcept {
-  if (printer_) {
-    printGoaway(lastGoodStream, statusCode);
-  }
   VLOG(4) << "Got GOAWAY, lastGoodStream=" << lastGoodStream
           << ", statusCode=" << statusCode;
 
@@ -1500,16 +1394,10 @@ void SPDYCodec::onGoaway(uint32_t lastGoodStream,
 }
 
 void SPDYCodec::onHeaders(const HeaderPieceList& headers) noexcept {
-  if (printer_) {
-    printHeaders(streamId_, headers);
-  }
   VLOG(3) << "onHeaders is unimplemented.";
 }
 
 void SPDYCodec::onWindowUpdate(uint32_t delta) noexcept {
-  if (printer_) {
-    printWindowUpdate(streamId_, delta);
-  }
   callback_->onWindowUpdate(streamId_, delta);
 }
 
