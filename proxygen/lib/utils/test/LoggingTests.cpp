@@ -40,8 +40,8 @@ TEST_F(LoggingTests, print_hex_iobuf) {
   }
   buf->append(16);
   EXPECT_TRUE(IOBufPrinter::printHexFolly(buf.get()) != "");
-  EXPECT_EQ(IOBufPrinter::printChainInfo(buf.get()),
-            "iobuf of size 20 tailroom 140");
+  string info = IOBufPrinter::printChainInfo(buf.get());
+  EXPECT_TRUE(info.find("iobuf of size 20 tailroom ") != string::npos);
   EXPECT_EQ(IOBufPrinter::printHex16(buf.get()),
             "0cff 0010 fefe fefe fefe fefe fefe fefe \nfefe fefe ");
 }
