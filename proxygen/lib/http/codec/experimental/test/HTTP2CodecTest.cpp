@@ -722,6 +722,24 @@ TEST_F(HTTP2CodecTest, BadSettings) {
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
+TEST_F(HTTP2CodecTest, BadPushSettings) {
+  auto settings = downstreamCodec_.getEgressSettings();
+  settings->clearSettings();
+  settings->setSetting(SettingsId::ENABLE_PUSH, 0);
+  SetUpUpstreamTest();
+
+  parseUpstream([&] (IOBuf* ingress) {
+      // set ENABLE_PUSH to 1
+      folly::io::RWPrivateCursor c(ingress);
+      c.skip(http2::kFrameHeaderSize + sizeof(uint16_t));
+      c.writeBE<uint32_t>(1);
+    });
+  EXPECT_EQ(callbacks_.settings, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+}
+
+
 TEST_F(HTTP2CodecTest, SettingsTableSize) {
   auto settings = upstreamCodec_.getEgressSettings();
   settings->setSetting(SettingsId::HEADER_TABLE_SIZE, 8192);
@@ -789,6 +807,8 @@ TEST_F(HTTP2CodecTest, BasicPriority) {
 }
 
 TEST_F(HTTP2CodecTest, BasicPushPromise) {
+  auto settings = upstreamCodec_.getEgressSettings();
+  settings->setSetting(SettingsId::ENABLE_PUSH, 1);
   SetUpUpstreamTest();
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
@@ -802,12 +822,12 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
 }
 
 TEST_F(HTTP2CodecTest, BadPushPromise) {
+  // ENABLE_PUSH is now 0 by default
   SetUpUpstreamTest();
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
   downstreamCodec_.generateHeader(output_, 2, req, 1);
 
-  upstreamCodec_.getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 0);
   parseUpstream();
   EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);

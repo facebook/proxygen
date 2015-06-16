@@ -194,7 +194,7 @@ public:
   };
   HTTPSettings egressSettings_{
     { SettingsId::HEADER_TABLE_SIZE, 4096 },
-    { SettingsId::ENABLE_PUSH, 1 },
+    { SettingsId::ENABLE_PUSH, 0 },
     { SettingsId::MAX_FRAME_SIZE, 16384 },
     { SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17 }, // same as SPDYCodec
   };

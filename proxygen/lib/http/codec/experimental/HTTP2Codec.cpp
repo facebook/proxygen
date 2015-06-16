@@ -534,7 +534,9 @@ ErrorCode HTTP2Codec::parseSettings(Cursor& cursor) {
         headerCodec_.setEncoderHeaderTableSize(setting.second);
         break;
       case SettingsId::ENABLE_PUSH:
-        if (setting.second != 0 && setting.second != 1) {
+        if ((setting.second != 0 && setting.second != 1) ||
+            (setting.second == 1 &&
+             transportDirection_ == TransportDirection::UPSTREAM)) {
           VLOG(4) << "Invalid ENABLE_PUSH setting=" << setting.second;
           return ErrorCode::PROTOCOL_ERROR;
         }
@@ -934,12 +936,19 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
   std::deque<SettingPair> settings;
   for (auto& setting: egressSettings_.getAllSettings()) {
     if (setting.isSet) {
-      settings.push_back(SettingPair(setting.id, setting.value));
       if (setting.id == SettingsId::HEADER_TABLE_SIZE) {
         headerCodec_.setDecoderHeaderTableMaxSize(setting.value);
       } else if (setting.id == SettingsId::MAX_HEADER_LIST_SIZE) {
         headerCodec_.setMaxUncompressed(setting.value);
+      } else if (setting.id == SettingsId::ENABLE_PUSH) {
+        if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+          // HTTP/2 spec says downstream must not enable push
+          CHECK_EQ(setting.value, 0);
+        } else {
+          CHECK(setting.value == 0 || setting.value == 1);
+        }
       }
+      settings.push_back(SettingPair(setting.id, setting.value));
     }
   }
   VLOG(4) << "generating " << (unsigned)settings.size() << " settings";
