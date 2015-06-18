@@ -209,6 +209,12 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
     (frameAffectsCompression(curHeader_.type) &&
      !(curHeader_.flags & http2::END_HEADERS)) ? curHeader_.stream : 0;
 
+  if (callback_) {
+    callback_->onFrameHeader(curHeader_.stream,
+                             curHeader_.flags,
+                             curHeader_.length);
+  }
+
   ErrorCode err = ErrorCode::NO_ERROR;
   switch (curHeader_.type) {
     case http2::FrameType::DATA: err = parseData(cursor); break;

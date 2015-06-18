@@ -52,11 +52,25 @@ void HTTPCodecPrinter::onError(StreamID stream,
   callback_->onError(stream, error, newStream);
 }
 
+void HTTPCodecPrinter::onBody(StreamID stream,
+                              std::unique_ptr<folly::IOBuf> chain,
+                              uint16_t padding) {
+  std::cout << "DataChunk: stream_id=" << stream
+            << ", length=" << chain->length()
+            << ", padding=" << padding << std::endl;
+  callback_->onBody(stream, std::move(chain), padding);
+}
+
+void HTTPCodecPrinter::onMessageComplete(StreamID stream, bool upgrade) {
+  std::cout << "DataComplete: stream_id=" << stream << std::endl;
+  callback_->onMessageComplete(stream, upgrade);
+}
+
 void HTTPCodecPrinter::onHeadersComplete(
     StreamID stream,
     std::unique_ptr<HTTPMessage> msg) {
   std::cout << "HEADERS: stream_id=" << stream
-            << "numHeaders=" << msg->getHeaders().size() << std::endl;
+            << ", numHeaders=" << msg->getHeaders().size() << std::endl;
   msg->getHeaders().forEach([&] (
         const std::string& header,
         const std::string& val) {
@@ -79,7 +93,7 @@ void HTTPCodecPrinter::onGoaway(uint64_t lastGoodStream, ErrorCode code) {
 
 void HTTPCodecPrinter::onWindowUpdate(StreamID stream, uint32_t amount) {
   std::cout << "WINDOW_UPDATE: stream_id=" << stream
-            << "delta_window_size=" << amount << std::endl;
+            << ", delta_window_size=" << amount << std::endl;
   callback_->onWindowUpdate(stream, amount);
 }
 
@@ -90,6 +104,11 @@ void HTTPCodecPrinter::onSettings(const SettingsList& settings) {
               << ", value=" << setting.value << std::endl;
   }
   callback_->onSettings(settings);
+}
+
+void HTTPCodecPrinter::onSettingsAck() {
+  std::cout << "SETTINGS_ACK" << std::endl;
+  callback_->onSettingsAck();
 }
 
 void HTTPCodecPrinter::onPingRequest(uint64_t unique_id) {

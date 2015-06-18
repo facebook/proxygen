@@ -40,6 +40,20 @@ class HTTPCodecPrinter: public PassThroughHTTPCodecFilter {
                bool newStream = false) override;
 
   /*
+   * Called from SPDYCodec::parseIngress()
+   *             HTTP2Codec::parseData()
+   */
+  void onBody(StreamID stream,
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override;
+
+  /*
+   * Called from SPDYCodec::parseIngress()
+   *             HTTP2Codec::handleEndStream()
+   */
+  void onMessageComplete(StreamID stream, bool upgrade) override;
+
+  /*
    * Called from SPDYCodec::onSynCommon()
    *             HTTP2Codec::HTTP2Codec::parseHeadersImpl()
    */
@@ -63,6 +77,11 @@ class HTTPCodecPrinter: public PassThroughHTTPCodecFilter {
    *             HTTP2Codec::parseSettings()
    */
   void onSettings(const SettingsList& settings) override;
+
+  /*
+   * Called from HTTP2Codec::parseSettings()
+   */
+  void onSettingsAck() override;
 
   /*
    * Called from SPDYCodec::onGoaway() with different arguments

@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/Logging.h>
 
 #include <gtest/gtest.h>
 #include <random>
@@ -54,12 +55,28 @@ class HTTP2CodecTest : public testing::Test {
    * separate checks for tests
    */
   bool parseImpl(HTTP2Codec& codec, std::function<void(IOBuf*)> hackIngress) {
+    dumpToFile(codec.getTransportDirection() == TransportDirection::UPSTREAM);
     auto ingress = output_.move();
     if (hackIngress) {
       hackIngress(ingress.get());
     }
     size_t parsed = codec.onIngress(*ingress);
     return (parsed == ingress->computeChainDataLength());
+  }
+
+  /*
+   * dumpToFile dumps binary frames to files ("/tmp/http2_*.bin"),
+   * allowing debugging individual frames, e.g., used by ti/tools/spdyprint
+   * @note: assign true to dump_ to turn on dumpToFile
+   */
+  void dumpToFile(bool isUpstream=false) {
+    if (!dump_) {
+      return;
+    }
+    auto endpoint = isUpstream ? "client" : "server";
+    auto filename = folly::to<std::string>(
+        "/tmp/http2_", endpoint, "_", testInfo_->name(), ".bin");
+    dumpBinToFile(filename, output_.front());
   }
 
   void testBigHeader(bool continuation);
@@ -70,6 +87,9 @@ class HTTP2CodecTest : public testing::Test {
   HTTP2Codec upstreamCodec_{TransportDirection::UPSTREAM};
   HTTP2Codec downstreamCodec_{TransportDirection::DOWNSTREAM};
   IOBufQueue output_{IOBufQueue::cacheChainLength()};
+  const testing::TestInfo*
+    testInfo_{testing::UnitTest::GetInstance()->current_test_info()};
+  bool dump_{false};
 };
 
 TEST_F(HTTP2CodecTest, BasicHeader) {
