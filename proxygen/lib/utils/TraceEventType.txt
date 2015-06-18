@@ -28,3 +28,13 @@ TCPInfo, "TCPInfo"
  *      wrappers :(
  */
 FBLigerProtocol, "FBLigerProtocol"
+
+/*
+ * MQTT Client
+ */
+MQTTClient, "MQTTClient"
+
+/*
+ * MQTT Message
+ */
+MQTTMessage, "MQTTMessage"

@@ -154,3 +154,9 @@ TotalRetx, "total_retx"
 PacketLoss, "packet_loss"
 RTT, "rtt"
 RTTVar, "rtt_deviation"
+
+/* --- Used in MQTT Client --- */
+MQTTConnAttempts, "mqtt_conn_attempts"
+
+/* --- Used in MQTTMessage --- */
+MQTTMsgRemainingLength, "mqtt_msg_remaining_length"
