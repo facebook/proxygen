@@ -34,6 +34,7 @@ RspIntvlAvg, "response_interval_average"
 RspIntvlStdDev, "response_interval_stddev"
 RspNumOnBody, "response_number_on_body"
 ServerQuality, "response_server_quality"
+ServerRtt, "server_rtt"
 
 /* ---- Used in PreConnect ---- */
 NewConnection, "new_connection"
