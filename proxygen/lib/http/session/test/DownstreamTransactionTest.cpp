@@ -293,24 +293,24 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
 
   // when enqueued
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(10));
+  EXPECT_CALL(handler_, onEgressPaused());
   // sendBody
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(20));
 
   txn.setHandler(&handler_);
   txn.onIngressHeadersComplete(makeGetRequest());
 
-  // onWriteReady, send, then dequeue
+  // onWriteReady, send, then dequeue (SPDY window now full)
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
-  EXPECT_CALL(handler_, onEgressPaused());
 
   EXPECT_EQ(txn.onWriteReady(20), false);
 
   // enqueued after window update
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(20));
-  EXPECT_CALL(handler_, onEgressResumed());
 
   txn.onIngressWindowUpdate(20);
 
+  // Buffer released on error
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
   EXPECT_CALL(handler_, onError(_));
   EXPECT_CALL(handler_, detachTransaction());

@@ -795,32 +795,34 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
     EXPECT_CALL(handler1, onEgressPaused())
       .WillOnce(InvokeWithoutArgs([&handler1, this] () {
             eventBase_.runInLoop([this] {
+                // triggers 4k send, 8kb buffered, handler still paused
                 codecCallback_->onWindowUpdate(1, 4000);
               });
-            // triggers 4k send, 8k buffered, resume
+            eventBase_.runAfterDelay([this] {
+                // triggers 6k send, 2kb buffered, handler still paused
+                codecCallback_->onWindowUpdate(1, 6000);
+              }, 10);
+            eventBase_.runAfterDelay([this] {
+                // triggers 2kb send, 0 buffered, 2k window => resume
+                codecCallback_->onWindowUpdate(1, 4000);
+              }, 20);
           }));
     EXPECT_CALL(handler1, onEgressResumed())
       .WillOnce(InvokeWithoutArgs([&handler1, this] () {
             handler1.sendBody(4000);
-            // 12kb buffered -> pause upstream
+            // 2kb send, 2kb buffered => pause upstream
           }));
     EXPECT_CALL(handler1, onEgressPaused())
       .WillOnce(InvokeWithoutArgs([&handler1, this] () {
             eventBase_.runInLoop([this] {
-                codecCallback_->onWindowUpdate(1, 8000);
+                // triggers 2kb send, resume
+                codecCallback_->onWindowUpdate(1, 4000);
               });
-            // triggers 8kb send
           }));
     EXPECT_CALL(handler1, onEgressResumed())
       .WillOnce(InvokeWithoutArgs([&handler1, this] () {
             handler1.txn_->sendEOM();
-            eventBase_.runInLoop([this] {
-                codecCallback_->onWindowUpdate(1, 4000);
-              });
           }));
-
-    // Somewhat bogus pause, the handler is done sending at this point
-    EXPECT_CALL(handler1, onEgressPaused());
 
     EXPECT_CALL(handler1, detachTransaction());
 

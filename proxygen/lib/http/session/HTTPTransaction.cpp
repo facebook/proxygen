@@ -995,8 +995,11 @@ void HTTPTransaction::notifyTransportPendingEgress() {
 }
 
 void HTTPTransaction::updateHandlerPauseState() {
-  bool handlerShouldBePaused = egressPaused_ ||
-    (useFlowControl_ && sendWindow_.getSize() <= 0) || egressRateLimited_;
+  int64_t availWindow =
+    sendWindow_.getSize() - deferredEgressBody_.chainLength();
+  bool flowControlPaused = useFlowControl_ && availWindow <= 0;
+  bool handlerShouldBePaused = egressPaused_ || flowControlPaused ||
+    egressRateLimited_;
   if (handler_ && handlerShouldBePaused != handlerEgressPaused_) {
     if (handlerShouldBePaused) {
       handlerEgressPaused_ = true;
