@@ -1058,10 +1058,11 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
   }
   const bool wasReusable = codec_->isReusable();
   const uint64_t oldOffset = sessionByteOffset();
+  // Only PUSH_PROMISE (not push response) has an associated stream
   codec_->generateHeader(writeBuf_,
                          txn->getID(),
                          headers,
-                         txn->getAssocTxnId(),
+                         headers.isRequest() ? txn->getAssocTxnId() : 0,
                          false, // eom
                          size);
   const uint64_t newOffset = sessionByteOffset();
@@ -1854,7 +1855,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
   ++numTxnServed_;
 
   VLOG(5) << *this << " adding streamID=" << txn->getID()
-          << ", liveTransactions was " << liveTransactions_;
+          << ", liveTransactions_ was " << liveTransactions_;
 
   ++liveTransactions_;
   ++transactionSeqNo_;

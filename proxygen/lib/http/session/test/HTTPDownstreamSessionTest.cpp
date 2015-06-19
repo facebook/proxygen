@@ -1915,3 +1915,85 @@ TEST_F(HTTP2DownstreamSessionTest, padding_flow_control) {
   parseOutput(clientCodec);
   EXPECT_CALL(mockController_, detachSession(_));
 }
+
+/*
+ * The sequence of streams are generated in the following order:
+ * - [client --> server] request 1st stream (getGetRequest())
+ * - [server --> client] respond 1st stream (res with length 100)
+ * - [server --> client] request 2nd stream (req)
+ * - [server --> client] respond 2nd stream (res with length 200 + EOM)
+ * - [client --> server] RST_STREAM on the 1st stream
+ */
+TEST_F(HTTP2DownstreamSessionTest, server_push) {
+  HTTP2Codec serverCodec(TransportDirection::DOWNSTREAM);
+  HTTP2Codec clientCodec(TransportDirection::UPSTREAM);
+  IOBufQueue output{IOBufQueue::cacheChainLength()};
+  IOBufQueue input{IOBufQueue::cacheChainLength()};
+
+  // Create a dummy request and a dummy response messages
+  HTTPMessage req, res;
+  req.getHeaders().set("HOST", "www.foo.com");
+  req.setURL("https://www.foo.com/");
+  res.setStatusCode(200);
+  res.setStatusMessage("Ohai");
+
+  // Construct data sent from client to server
+  auto assocStreamId = HTTPCodec::StreamID(1);
+  clientCodec.generateConnectionPreface(output);
+  clientCodec.generateSettings(output);
+  // generateHeader() will create a session and a transaction
+  clientCodec.generateHeader(output, assocStreamId, getGetRequest(),
+                             0, false, nullptr);
+
+  StrictMock<MockHTTPHandler> handler;
+  StrictMock<MockHTTPPushHandler> pushHandler;
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler, setTransaction(_))
+    .WillOnce(Invoke([&] (HTTPTransaction* txn) {
+          handler.txn_ = txn; }));
+  EXPECT_CALL(handler, onHeadersComplete(_))
+    .WillOnce(InvokeWithoutArgs([&] {
+          // Generate response for the associated stream
+          handler.txn_->sendHeaders(res);
+          handler.txn_->sendBody(std::move(makeBuf(100)));
+          handler.txn_->pauseIngress();
+
+          auto* pushTxn = handler.txn_->newPushedTransaction(
+              &pushHandler,
+              handler.txn_->getPriority());
+          // Generate a push request (PUSH_PROMISE)
+          pushTxn->sendHeaders(req);
+          // Generate a push response
+          pushTxn->sendHeaders(res);
+          pushTxn->sendBody(std::move(makeBuf(200)));
+          pushTxn->sendEOM();
+
+          eventBase_.runAfterDelay([&] { handler.txn_->resumeIngress(); },
+                                   100);
+        }));
+  EXPECT_CALL(pushHandler, setTransaction(_))
+    .WillOnce(Invoke([&] (HTTPTransaction* txn) {
+          pushHandler.txn_ = txn; }));
+  EXPECT_CALL(pushHandler, detachTransaction());
+  EXPECT_CALL(handler, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+        }));
+  EXPECT_CALL(handler, detachTransaction());
+
+  transport_->addReadEvent(output, std::chrono::milliseconds(0));
+  clientCodec.generateRstStream(output, assocStreamId, ErrorCode::CANCEL);
+  clientCodec.generateGoaway(output, 0, ErrorCode::NO_ERROR);
+  transport_->addReadEvent(output, std::chrono::milliseconds(200));
+  transport_->startReadEvents();
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+
+  NiceMock<MockHTTPCodecCallback> callbacks;
+
+  clientCodec.setCallback(&callbacks);
+  parseOutput(clientCodec);
+  EXPECT_CALL(mockController_, detachSession(_));
+}
