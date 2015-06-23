@@ -60,8 +60,6 @@ libutils_la_SOURCES = \
 	ParseURL.cpp \
 	TraceEvent.cpp \
 	TraceEventType.cpp \
-	TraceEventType.cpp \
-	TraceFieldType.cpp \
 	TraceFieldType.cpp \
 	RendezvousHash.cpp \
 	Logging.cpp \
