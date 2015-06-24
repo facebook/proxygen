@@ -1751,11 +1751,11 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
   auto streamID = HTTPCodec::StreamID(1);
   clientCodec.generateConnectionPreface(requests);
   req.setPriority(0);
-  clientCodec.generateHeader(requests, streamID, req, 0, nullptr);
+  clientCodec.generateHeader(requests, streamID, req, 0, false, nullptr);
   clientCodec.generateEOM(requests, streamID);
   streamID += 2;
   req.setPriority(1);
-  clientCodec.generateHeader(requests, streamID, req, 0, nullptr);
+  clientCodec.generateHeader(requests, streamID, req, 0, false, nullptr);
   clientCodec.generateEOM(requests, streamID);
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
