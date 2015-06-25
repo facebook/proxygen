@@ -153,7 +153,7 @@ NonRTORetx, "non_rto_retx"
 TotalRetx, "total_retx"
 PacketLoss, "packet_loss"
 RTT, "rtt"
-RTTVar, "rtt_deviation"
+RTTVar, "rtt_variance"
 
 /* --- Used in MQTT Client --- */
 MQTTConnAttempts, "mqtt_conn_attempts"
