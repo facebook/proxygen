@@ -474,6 +474,8 @@ class HTTPSession:
   // AsyncTransportWrapper::ReadCallback methods
   void getReadBuffer(void** buf, size_t* bufSize) override;
   void readDataAvailable(size_t readSize) noexcept override;
+  bool isBufferMovable() noexcept override;
+  void readBufferAvailable(std::unique_ptr<folly::IOBuf>) noexcept override;
   void processReadData();
   void readEOF() noexcept override;
   void readErr(

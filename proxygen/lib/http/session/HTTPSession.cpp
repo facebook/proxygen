@@ -401,8 +401,37 @@ HTTPSession::readDataAvailable(size_t readSize) noexcept {
   processReadData();
 }
 
+bool
+HTTPSession::isBufferMovable() noexcept {
+  return kOpenSslModeMoveBufferOwnership;
+}
+
+void
+HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
+  CHECK(kOpenSslModeMoveBufferOwnership);
+
+  size_t readSize = readBuf->length();
+  VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
+
+  DestructorGuard dg(this);
+  resetTimeout();
+  readBuf_.append(std::move(readBuf));
+
+  if (infoCallback_) {
+    infoCallback_->onRead(*this, readSize);
+  }
+
+  processReadData();
+}
+
 void
 HTTPSession::processReadData() {
+  // skip the empty IOBuf before feeding CODEC.
+  while(kOpenSslModeMoveBufferOwnership &&
+        readBuf_.front() != nullptr && readBuf_.front()->length() == 0) {
+    readBuf_.pop_front();
+  }
+
   // Pass the ingress data through the codec to parse it. The codec
   // will invoke various methods of the HTTPSession as callbacks.
   const IOBuf* currentReadBuf;
