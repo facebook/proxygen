@@ -566,7 +566,8 @@ bool SPDYCodec::isReusable() const {
           sessionClosing_ == ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED ||
           (transportDirection_ == TransportDirection::DOWNSTREAM &&
            isWaitingToDrain()))
-    && (ingressGoawayAck_ == std::numeric_limits<uint32_t>::max());
+    && (ingressGoawayAck_ == std::numeric_limits<uint32_t>::max())
+    && (nextEgressStreamID_ <= std::numeric_limits<int32_t>::max()-2);
 }
 
 bool SPDYCodec::isWaitingToDrain() const {

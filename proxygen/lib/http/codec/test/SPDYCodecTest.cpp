@@ -1320,3 +1320,14 @@ TEST(SPDYCodecTest, EmptyHeaderName) {
   EXPECT_EQ(callbacks.streamErrors, 1);
   EXPECT_EQ(callbacks.sessionErrors, 0);
 }
+
+TEST(SPDYCodecTest, StreamIdOverflow) {
+  SPDYCodec codec(TransportDirection::UPSTREAM,
+                  SPDYVersion::SPDY3_1_HPACK);
+
+  HTTPCodec::StreamID streamId;
+  while( codec.isReusable() ) {
+    streamId = codec.createStream();
+  }
+  EXPECT_EQ(streamId, pow(2,31)-3);
+}

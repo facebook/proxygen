@@ -1050,3 +1050,13 @@ TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   parse();
   EXPECT_EQ(callbacks_.settingsAcks, 1);
 }
+
+TEST_F(HTTP2CodecTest, StreamIdOverflow) {
+  HTTP2Codec codec(TransportDirection::UPSTREAM);
+
+  HTTPCodec::StreamID streamId;
+  while( codec.isReusable() ) {
+    streamId = codec.createStream();
+  }
+  EXPECT_EQ(streamId, pow(2,31)-3);
+}

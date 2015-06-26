@@ -704,7 +704,8 @@ bool HTTP2Codec::isReusable() const {
   return (sessionClosing_ == ClosingState::OPEN ||
           (transportDirection_ == TransportDirection::DOWNSTREAM &&
            isWaitingToDrain()))
-    && (ingressGoawayAck_ == std::numeric_limits<uint32_t>::max());
+    && (ingressGoawayAck_ == std::numeric_limits<uint32_t>::max())
+    && (nextEgressStreamID_ <= std::numeric_limits<int32_t>::max()-2);
 }
 
 bool HTTP2Codec::isWaitingToDrain() const {
