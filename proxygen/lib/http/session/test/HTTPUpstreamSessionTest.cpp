@@ -93,6 +93,7 @@ class HTTPUpstreamTest: public testing::Test,
   }
 
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
+    HTTPSession::setDefaultReadBufferLimit(65536);
     HTTPSession::setPendingWriteMax(65536);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));

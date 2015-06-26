@@ -104,6 +104,7 @@ class MockCodecDownstreamTest: public testing::Test {
     EXPECT_CALL(*codec_, generateRstStream(_, _, _))
       .WillRepeatedly(Return(1));
 
+    HTTPSession::setDefaultReadBufferLimit(65536);
     httpSession_ = new HTTPDownstreamSession(
       transactionTimeouts_.get(),
       std::move(AsyncTransportWrapper::UniquePtr(transport_)),

@@ -73,6 +73,7 @@ class HTTPDownstreamTest : public testing::Test {
       transport_(new TestAsyncTransport(&eventBase_)),
       transactionTimeouts_(makeTimeoutSet(&eventBase_)) {
     EXPECT_CALL(mockController_, attachSession(_));
+    HTTPSession::setDefaultReadBufferLimit(65536);
     httpSession_ = new HTTPDownstreamSession(
       transactionTimeouts_.get(),
       std::move(AsyncTransportWrapper::UniquePtr(transport_)),
