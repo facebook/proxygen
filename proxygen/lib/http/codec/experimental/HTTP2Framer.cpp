@@ -258,7 +258,7 @@ parseData(Cursor& cursor,
 ErrorCode
 parseHeaders(Cursor& cursor,
              FrameHeader header,
-             PriorityUpdate& outPriority,
+             boost::optional<PriorityUpdate>& outPriority,
              std::unique_ptr<IOBuf>& outBuf) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream == 0 || !(header.stream & 0x1)) {
@@ -274,6 +274,8 @@ parseHeaders(Cursor& cursor,
     }
     outPriority = parsePriorityCommon(cursor);
     header.length -= kFramePrioritySize;
+  } else {
+    outPriority = boost::none;
   }
   if (header.length < padding) {
     return ErrorCode::PROTOCOL_ERROR;

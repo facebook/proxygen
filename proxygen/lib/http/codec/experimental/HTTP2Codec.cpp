@@ -273,7 +273,7 @@ ErrorCode HTTP2Codec::parseData(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
-  http2::PriorityUpdate priority;
+  boost::optional<http2::PriorityUpdate> priority;
   std::unique_ptr<IOBuf> headerBuf;
   VLOG(4) << "parsing HEADERS frame for stream=" << curHeader_.stream <<
     " length=" << curHeader_.length;
@@ -290,8 +290,7 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
             << curHeader_.stream;
     return ErrorCode::NO_ERROR;
   }
-  err = parseHeadersImpl(cursor, std::move(headerBuf),
-                         priority, boost::none);
+  err = parseHeadersImpl(cursor, std::move(headerBuf), priority, boost::none);
   return err;
 }
 

@@ -260,7 +260,7 @@ TEST_F(HTTP2FramerTest, HeadersWithPaddingAndPriority) {
                false, false);
 
   FrameHeader header;
-  PriorityUpdate priority;
+  boost::optional<PriorityUpdate> priority;
   std::unique_ptr<IOBuf> outBuf;
   parse(&parseHeaders, header, priority, outBuf);
 
@@ -269,9 +269,9 @@ TEST_F(HTTP2FramerTest, HeadersWithPaddingAndPriority) {
   ASSERT_TRUE(PRIORITY & header.flags);
   ASSERT_FALSE(END_STREAM & header.flags);
   ASSERT_FALSE(END_HEADERS & header.flags);
-  ASSERT_EQ(0, priority.streamDependency);
-  ASSERT_TRUE(priority.exclusive);
-  ASSERT_EQ(12, priority.weight);
+  ASSERT_EQ(0, priority->streamDependency);
+  ASSERT_TRUE(priority->exclusive);
+  ASSERT_EQ(12, priority->weight);
   EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
 }
 

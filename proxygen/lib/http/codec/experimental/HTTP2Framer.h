@@ -124,7 +124,7 @@ parseData(folly::io::Cursor& cursor,
 extern ErrorCode
 parseHeaders(folly::io::Cursor& cursor,
              FrameHeader header,
-             PriorityUpdate& outPriority,
+             boost::optional<PriorityUpdate>& outPriority,
              std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
 /**
