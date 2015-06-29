@@ -4,6 +4,8 @@
 ## install proxygen to use in another C++ project on this machine, run
 ## the sibling file `reinstall.sh`.
 
+FOLLY_VERSION='v0.48.0'
+
 # Parse args
 JOBS=8
 USAGE="./deps.sh [-j num_jobs]"
@@ -93,7 +95,7 @@ if [ ! -e folly/folly ]; then
 fi
 cd folly/folly
 git fetch
-git checkout v0.47.0
+git checkout $FOLLY_VERSION
 
 # Build folly
 autoreconf --install
