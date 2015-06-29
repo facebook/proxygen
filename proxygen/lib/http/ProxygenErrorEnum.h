@@ -11,9 +11,6 @@
 
 namespace proxygen {
 
-// TODO #5101452 remove all references to "read" and "write" since that
-// should be indicated by the direction field of HTTPException
-
 // Max must be the last one.
 #define PROXYGEN_ERROR_GEN(x)                   \
     x(None),                                    \

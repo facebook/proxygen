@@ -887,6 +887,7 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
     folly::to<std::string>("Stream aborted, streamID=",
       streamID, ", code=", getErrorCodeString(code)));
   ex.setProxygenError(kErrorStreamAbort);
+  ex.setCodecStatusCode(code);
   DestructorGuard dg(this);
   if (isDownstream() && txn->getAssocTxnId() == 0 &&
       code == ErrorCode::CANCEL) {
