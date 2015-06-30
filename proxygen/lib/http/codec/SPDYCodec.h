@@ -14,6 +14,7 @@
 #include <deque>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/http/codec/HTTPParallelCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/codec/SPDYVersionSettings.h>
@@ -32,7 +33,7 @@ namespace proxygen {
  * SPDY. Instances of this class must not be used from multiple threads
  * concurrently.
  */
-class SPDYCodec: public HTTPCodec {
+class SPDYCodec: public HTTPParallelCodec {
 public:
   explicit SPDYCodec(TransportDirection direction,
                      SPDYVersion version,
@@ -43,22 +44,9 @@ public:
 
   // HTTPCodec API
   CodecProtocol getProtocol() const override;
-  TransportDirection getTransportDirection() const override {
-    return transportDirection_;
-  }
   bool supportsStreamFlowControl() const override;
   bool supportsSessionFlowControl() const override;
-  StreamID createStream() override;
-  void setCallback(Callback* callback) override { callback_ = callback; }
-  bool isBusy() const override;
-  void setParserPaused(bool paused) override;
   size_t onIngress(const folly::IOBuf& buf) override;
-  void onIngressEOF() override;
-  bool isReusable() const override;
-  bool isWaitingToDrain() const override;
-  bool closeOnEgressComplete() const override { return false; }
-  bool supportsParallelRequests() const override { return true; }
-  bool supportsPushTransactions() const override { return true; }
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       const HTTPMessage& msg,
@@ -340,22 +328,18 @@ public:
   };
 
   std::unique_ptr<HTTPMessage> partialMsg_;
-  HTTPCodec::Callback* callback_{nullptr};
   const folly::IOBuf* currentIngressBuf_{nullptr};
 
-  StreamID nextEgressStreamID_;
   StreamID nextEgressPingID_;
-  StreamID lastStreamID_{0};
   // StreamID's are 31 bit unsigned integers, so all received goaways will
   // be lower than this.
-  StreamID ingressGoawayAck_{std::numeric_limits<uint32_t>::max()};
+
   uint32_t maxFrameLength_{spdy::kMaxFrameLength};
   uint32_t streamId_{0};
   uint32_t length_{0};
   uint16_t version_{0};
   uint16_t type_{0xffff};
   uint8_t flags_{0};
-  TransportDirection transportDirection_;
 
   // SPDY Frame parsing state
   enum FrameState {
@@ -363,13 +347,6 @@ public:
     CTRL_FRAME_DATA = 1,
     DATA_FRAME_DATA = 2,
   } frameState_:2;
-
-  enum ClosingState {
-    OPEN = 0,
-    OPEN_WITH_GRACEFUL_DRAIN_ENABLED = 1,
-    FIRST_GOAWAY_SENT = 2,
-    CLOSING = 3,
-  } sessionClosing_:2;
 
   bool ctrl_:1;
 

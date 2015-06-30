@@ -40,12 +40,11 @@ void HTTP2Codec::initPerHopHeaders() {
 }
 
 HTTP2Codec::HTTP2Codec(TransportDirection direction)
-    : transportDirection_(direction),
+    : HTTPParallelCodec(direction),
       headerCodec_(direction),
       frameState_(direction == TransportDirection::DOWNSTREAM ?
                   FrameState::UPSTREAM_CONNECTION_PREFACE :
                   FrameState::DOWNSTREAM_CONNECTION_PREFACE),
-      sessionClosing_(ClosingState::OPEN),
       decodeInfo_(std::move(HTTPRequestVerifier())) {
 
   headerCodec_.setDecoderHeaderTableMaxSize(
@@ -55,38 +54,11 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
 
   VLOG(4) << "creating " << getTransportDirectionString(direction)
           << " HTTP/2 codec";
-
-  switch (transportDirection_) {
-    case TransportDirection::DOWNSTREAM:
-      nextEgressStreamID_ = 2;
-      break;
-    case TransportDirection::UPSTREAM:
-      nextEgressStreamID_ = 1;
-      break;
-  }
 }
 
 HTTP2Codec::~HTTP2Codec() {}
 
 // HTTPCodec API
-
-bool HTTP2Codec::supportsStreamFlowControl() const {
-  return true;
-}
-
-bool HTTP2Codec::supportsSessionFlowControl() const {
-  return true;
-}
-
-HTTPCodec::StreamID HTTP2Codec::createStream() {
-  auto ret = nextEgressStreamID_;
-  nextEgressStreamID_ += 2;
-  return ret;
-}
-
-bool HTTP2Codec::isBusy() const {
-  return false;
-}
 
 size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
   // TODO: ensure only 1 parse at a time on stack.
@@ -721,19 +693,6 @@ ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId) {
   }
 }
 
-bool HTTP2Codec::isReusable() const {
-  return (sessionClosing_ == ClosingState::OPEN ||
-          (transportDirection_ == TransportDirection::DOWNSTREAM &&
-           isWaitingToDrain()))
-    && (ingressGoawayAck_ == std::numeric_limits<uint32_t>::max())
-    && (nextEgressStreamID_ <= std::numeric_limits<int32_t>::max()-2);
-}
-
-bool HTTP2Codec::isWaitingToDrain() const {
-  return sessionClosing_ == ClosingState::OPEN ||
-    sessionClosing_ == ClosingState::FIRST_GOAWAY_SENT;
-}
-
 size_t HTTP2Codec::generateConnectionPreface(folly::IOBufQueue& writeBuf) {
   if (transportDirection_ == TransportDirection::UPSTREAM) {
     VLOG(4) << "generating connection preface";
@@ -935,6 +894,8 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
     case ClosingState::FIRST_GOAWAY_SENT:
       sessionClosing_ = ClosingState::CLOSED;
       break;
+    case ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED:
+    case ClosingState::CLOSING:
     case ClosingState::CLOSED:
       LOG(FATAL) << "unreachable";
   }

@@ -210,10 +210,9 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
 
 SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
                      int spdyCompressionLevel /* = Z_NO_COMPRESSION */)
-  : versionSettings_(getVersionSettings(version)),
-    transportDirection_(direction),
+  : HTTPParallelCodec(direction),
+    versionSettings_(getVersionSettings(version)),
     frameState_(FrameState::FRAME_HEADER),
-    sessionClosing_(ClosingState::OPEN),
     ctrl_(false) {
   VLOG(4) << "creating SPDY/" << static_cast<int>(versionSettings_.majorVersion)
           << "." << static_cast<int>(versionSettings_.minorVersion)
@@ -226,19 +225,7 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
   }
   // Limit uncompressed headers to 128kb
   headerCodec_->setMaxUncompressed(kMaxUncompressed);
-
-  switch (transportDirection_) {
-  case TransportDirection::DOWNSTREAM:
-    nextEgressStreamID_ = 2;
-    nextEgressPingID_ = 2;
-    break;
-  case TransportDirection::UPSTREAM:
-    nextEgressStreamID_ = 1;
-    nextEgressPingID_ = 1;
-    break;
-  default:
-    LOG(FATAL) << "Unknown transport direction.";
-  }
+  nextEgressPingID_ = nextEgressStreamID_;
 }
 
 SPDYCodec::~SPDYCodec() {
@@ -270,20 +257,6 @@ bool SPDYCodec::supportsStreamFlowControl() const {
 bool SPDYCodec::supportsSessionFlowControl() const {
   return versionSettings_.majorVersion > 3 ||
     (versionSettings_.majorVersion == 3 && versionSettings_.minorVersion > 0);
-}
-
-HTTPCodec::StreamID SPDYCodec::createStream() {
-  auto ret = nextEgressStreamID_;
-  nextEgressStreamID_ += 2;
-  return ret;
-}
-
-bool SPDYCodec::isBusy() const {
-  return false;
-}
-
-void SPDYCodec::setParserPaused(bool paused) {
-  // Not applicable
 }
 
 void SPDYCodec::checkLength(uint32_t expectedLength, const std::string& msg) {
@@ -552,27 +525,6 @@ HeaderDecodeResult SPDYCodec::decodeHeaders(Cursor& cursor) {
 
   length_ -= result.ok().bytesConsumed;
   return result.ok();
-}
-
-void SPDYCodec::onIngressEOF() {
-  // SPDY does not report errors for partial frames
-}
-
-bool SPDYCodec::isReusable() const {
-  // This codec can process new streams if it is open, or if it is a
-  // server and it has only sent the first of two goaways.
-  // TODO move ingressGoawayAck_ into ClosingState and simplify this logic.
-  return (sessionClosing_ == ClosingState::OPEN ||
-          sessionClosing_ == ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED ||
-          (transportDirection_ == TransportDirection::DOWNSTREAM &&
-           isWaitingToDrain()))
-    && (ingressGoawayAck_ == std::numeric_limits<uint32_t>::max())
-    && (nextEgressStreamID_ <= std::numeric_limits<int32_t>::max()-2);
-}
-
-bool SPDYCodec::isWaitingToDrain() const {
-  return sessionClosing_ == ClosingState::OPEN ||
-    sessionClosing_ == ClosingState::FIRST_GOAWAY_SENT;
 }
 
 bool SPDYCodec::isSPDYReserved(const std::string& name) {
@@ -932,6 +884,9 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
       sessionClosing_ = ClosingState::CLOSING;
       break;
     case ClosingState::CLOSING:
+      break;
+    case ClosingState::CLOSED:
+      LOG(FATAL) << "unreachable";
       break;
   }
   DCHECK_EQ(writeBuf.chainLength(), expectedLength);
