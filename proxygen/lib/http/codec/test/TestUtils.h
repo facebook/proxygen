@@ -110,6 +110,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   void onAbort(HTTPCodec::StreamID stream, ErrorCode code) override {
     ++aborts;
+    lastErrorCode = code;
   }
 
   void onGoaway(uint64_t lastGoodStreamID, ErrorCode code) override {
@@ -204,6 +205,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     data.move();
     msg.reset();
     lastParseError.reset();
+    lastErrorCode = ErrorCode::NO_ERROR;
   }
 
   HTTPCodec::StreamID assocStreamId{0};
@@ -231,6 +233,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   std::unique_ptr<HTTPMessage> msg;
   std::unique_ptr<HTTPException> lastParseError;
+  ErrorCode lastErrorCode;
 };
 
 MATCHER_P(PtrBufHasLen, n, "") {

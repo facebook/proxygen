@@ -185,7 +185,10 @@ public:
   http2::FrameHeader curHeader_;
   StreamID expectedContinuationStream_{0};
   bool pendingEndStreamHandling_{false};
-  bool needsChromeWorkaround_{false};
+  bool needsChromeWorkaround_{false}; // malformed continuation
+  bool needsChromeWorkaround2_{false}; // rst on 16kb
+  std::set<HTTPCodec::StreamID> expectedChromeResets_;
+
   folly::IOBufQueue curHeaderBlock_{folly::IOBufQueue::cacheChainLength()};
   HTTPSettings ingressSettings_{
     { SettingsId::HEADER_TABLE_SIZE, 4096 },

@@ -348,6 +348,13 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       callback_->onError(curHeader_.stream, err, true);
       return ErrorCode::NO_ERROR;
     }
+    if (needsChromeWorkaround2_ &&
+        curHeaderBlock_.chainLength() + http2::kFrameHeaderSize * 16 >= 16384) {
+      // chrome will send a RST_STREAM/protocol error for this, convert to
+      // RST_STREAM/NO_ERROR.  Note we may be off a couple bytes if the headers
+      // were padded or contained a priority.
+      expectedChromeResets_.insert(curHeader_.stream);
+    }
   } else {
     curHeaderBlock_.append(std::move(headerBuf));
   }
@@ -457,10 +464,16 @@ void HTTP2Codec::onHeader(const std::string& name,
     }
     if (!needsChromeWorkaround_ && nameSp == "user-agent") {
       int8_t version = getChromeVersion(valueSp);
-      // Versions of Chrome under 43 need this workaround
-      if (version > 0 && version < 43) {
+      if (version > 0) {
+        if (version < 43) {
+          // Versions of Chrome under 43 need continuation this workaround
           needsChromeWorkaround_ = true;
           VLOG(4) << "Using chrome http/2 continuation workaround";
+        }
+        if (version < 45) {
+          needsChromeWorkaround2_ = true;
+          VLOG(4) << "Using chrome http/2 16kb workaround";
+        }
       }
     }
     // Add the (name, value) pair to headers
@@ -510,6 +523,14 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
   ErrorCode statusCode = ErrorCode::NO_ERROR;
   auto err = http2::parseRstStream(cursor, curHeader_, statusCode);
   RETURN_IF_ERROR(err);
+  if (needsChromeWorkaround2_ && statusCode == ErrorCode::PROTOCOL_ERROR) {
+    auto it = expectedChromeResets_.find(curHeader_.stream);
+    if (it != expectedChromeResets_.end()) {
+      // convert to NO_ERROR and remove from set
+      statusCode = ErrorCode::NO_ERROR;
+      expectedChromeResets_.erase(it);
+    }
+  }
   if (callback_) {
     callback_->onAbort(curHeader_.stream, statusCode);
   }

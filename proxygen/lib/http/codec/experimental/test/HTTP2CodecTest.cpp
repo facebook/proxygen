@@ -967,6 +967,9 @@ const string agent1("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
 const string agent2("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/43.0.2311.11 Safari/537.36");;
+const string agent3("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/45.0.2311.11 Safari/537.36");;
 
 // Chrome < 43 can generate malformed CONTINUATION frames
 TEST_P(ChromeHTTP2Test, ChromeContinuation) {
@@ -1029,7 +1032,6 @@ INSTANTIATE_TEST_CASE_P(AgentTest,
                         ::testing::Values(agent1, agent2));
 
 TEST_F(HTTP2CodecTest, Normal1024Continuation) {
-  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
   HTTPMessage req = getGetRequest();
   string bigval(8691, '!');
   bigval.append(8691, ' ');
@@ -1045,6 +1047,32 @@ TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+
+  upstreamCodec_.generateSettingsAck(output_);
+  parse();
+  EXPECT_EQ(callbacks_.settingsAcks, 1);
+}
+
+TEST_F(HTTP2CodecTest, Chrome16kb) {
+  HTTPMessage req = getGetRequest();
+  string bigval(8691, '!');
+  bigval.append(8691, ' ');
+  req.getHeaders().add("x-headr", bigval);
+  req.getHeaders().add("user-agent", agent2);
+  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateRstStream(output_, 1, ErrorCode::PROTOCOL_ERROR);
+
+  parse();
+  callbacks_.expectMessage(false, -1, "/");
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ(bigval, headers.getSingleOrEmpty("x-headr"));
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  EXPECT_EQ(callbacks_.aborts, 1);
+  EXPECT_EQ(callbacks_.lastErrorCode, ErrorCode::NO_ERROR);
 
   upstreamCodec_.generateSettingsAck(output_);
   parse();
