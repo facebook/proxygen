@@ -12,13 +12,19 @@
 #include <folly/Hash.h>
 #include <glog/logging.h>
 #include <map>
+#include <algorithm>
 #include <vector>
 #include <limits>
 #include <math.h>       /* pow */
 
 namespace proxygen {
-void RendezvousHash::insert(const std::string& key, uint64_t weight) {
-  weights_.emplace_back(computeHash(key.c_str(), key.size()), weight);
+void RendezvousHash::build(std::vector<std::pair<
+                           std::string, uint64_t> >&nodes) {
+  for (auto it = nodes.begin(); it != nodes.end(); ++it) {
+    std::string key = it->first;
+    uint64_t weight = it->second;
+    weights_.emplace_back(computeHash(key.c_str(), key.size()), weight);
+  }
 }
 
 /*
@@ -119,34 +125,25 @@ void RendezvousHash::insert(const std::string& key, uint64_t weight) {
  *                   Cluster
  *
  */
-std::pair<uint64_t, size_t> RendezvousHash::get(const uint64_t hash) const {
-  double maxScaleWeight = 0;
-  int maxIndex = 0;
-  int maxWeight = 0;
-  // we use the formula to scale the weight:
-  // scaledWeight = pow(hash/max_int, 1/weight)
+size_t RendezvousHash::get(const uint64_t key, const size_t rank) const {
+  size_t modRank = rank % weights_.size();
+
+  std::vector<std::pair<double, size_t>> scaledWeights;
   FOR_EACH_ENUMERATE(i, entry, weights_) {
     // combine the hash with the cluster together
-    double combinedHash = computeHash(entry->first + hash);
+    double combinedHash = computeHash(entry->first + key);
     double scaledHash = (double)combinedHash /
       std::numeric_limits<uint64_t>::max();
     double scaledWeight = 0;
     if (entry->second != 0) {
       scaledWeight = pow(scaledHash, (double)1/entry->second);
     }
-    if (scaledWeight > maxScaleWeight) {
-      maxScaleWeight = scaledWeight;
-      maxIndex = i;
-      maxWeight = entry->second;
-    }
+    scaledWeights.emplace_back(scaledWeight, i);
   }
-  return std::make_pair(maxWeight, maxIndex);
-}
-
-std::pair<uint64_t, size_t> RendezvousHash::get(const char* data,
-    size_t len) const {
-  const uint64_t hash = computeHash(data, len);
-  return get(hash);
+  std::nth_element(scaledWeights.begin(), scaledWeights.begin()+modRank,
+                   scaledWeights.end(),
+                   std::greater<std::pair<double, size_t>>());
+  return scaledWeights[modRank].second;
 }
 
 uint64_t RendezvousHash::computeHash(const char* data, size_t len) const {

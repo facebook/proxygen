@@ -11,32 +11,22 @@
 
 #include <string>
 #include <vector>
+#include <proxygen/lib/utils/ConsistentHash.h>
 
 namespace proxygen {
 
-class RendezvousHash {
+class RendezvousHash : public ConsistentHash {
  public:
-  explicit RendezvousHash() {}
 
-  void insert(const std::string& key, uint64_t weight);
+  void build(std::vector<std::pair<std::string, uint64_t> >&);
 
-  std::pair<uint64_t, size_t> get(const uint64_t hash) const;
+  size_t get(const uint64_t key, const size_t rank = 0) const;
 
-  std::pair<uint64_t, size_t> get(const char* data, size_t len) const;
-
-  std::pair<uint64_t, size_t> get(const std::string& s) const {
-    return get(s.data(), s.length());
-  }
-
+ private:
   uint64_t computeHash(const char* data, size_t len) const;
-
-  uint64_t computeHash(const std::string& s) const {
-    return computeHash(s.data(), s.length());
-  }
 
   uint64_t computeHash(uint64_t i) const;
 
- private:
   std::vector<std::pair<uint64_t, uint64_t>> weights_;
 };
 
