@@ -403,7 +403,7 @@ HTTPSession::readDataAvailable(size_t readSize) noexcept {
 
 bool
 HTTPSession::isBufferMovable() noexcept {
-  return kOpenSslModeMoveBufferOwnership;
+  return false;
 }
 
 void
