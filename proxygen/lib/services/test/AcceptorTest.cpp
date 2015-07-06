@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <folly/wangle/acceptor/Acceptor.h>
+#include <wangle/acceptor/Acceptor.h>
 #include <folly/io/async/EventBase.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>

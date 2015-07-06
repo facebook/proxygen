@@ -113,7 +113,8 @@ void HTTPServer::start(std::function<void()> onSuccess,
       auto factory = std::make_shared<AcceptorFactory>(
         options_,
         HTTPServerAcceptor::makeConfig(addresses_[i], *options_));
-      bootstrap_.push_back(folly::ServerBootstrap<folly::DefaultPipeline>());
+      bootstrap_.push_back(
+          folly::ServerBootstrap<folly::wangle::DefaultPipeline>());
       bootstrap_[i].childHandler(factory);
       bootstrap_[i].group(accExe, exe);
       bootstrap_[i].bind(addresses_[i].address);

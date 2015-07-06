@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
-#include <folly/wangle/acceptor/ConnectionManager.h>
+#include <wangle/acceptor/ConnectionManager.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {

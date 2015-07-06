@@ -8,7 +8,7 @@
  *
  */
 #include <folly/Foreach.h>
-#include <folly/wangle/acceptor/ConnectionManager.h>
+#include <wangle/acceptor/ConnectionManager.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/TimeoutManager.h>

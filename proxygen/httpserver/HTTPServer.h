@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include <folly/wangle/ssl/SSLContextConfig.h>
+#include <wangle/ssl/SSLContextConfig.h>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBase.h>
-#include <folly/wangle/bootstrap/ServerBootstrap.h>
+#include <wangle/bootstrap/ServerBootstrap.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
 #include <thread>
 
@@ -116,7 +116,7 @@ class HTTPServer final {
    * Addresses we are listening on
    */
   std::vector<IPConfig> addresses_;
-  std::vector<folly::ServerBootstrap<folly::DefaultPipeline>> bootstrap_;
+  std::vector<folly::ServerBootstrap<folly::wangle::DefaultPipeline>> bootstrap_;
 };
 
 }

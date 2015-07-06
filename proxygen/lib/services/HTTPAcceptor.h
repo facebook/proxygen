@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <folly/wangle/acceptor/Acceptor.h>
+#include <wangle/acceptor/Acceptor.h>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <proxygen/lib/services/AcceptorConfiguration.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>

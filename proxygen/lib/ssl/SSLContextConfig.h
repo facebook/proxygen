@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <folly/wangle/ssl/SSLContextConfig.h>
+#include <wangle/ssl/SSLContextConfig.h>
 
 namespace proxygen {
   typedef folly::SSLContextConfig SSLContextConfig;

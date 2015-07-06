@@ -12,7 +12,7 @@
 #include <boost/heap/d_ary_heap.hpp>
 #include <climits>
 #include <folly/SocketAddress.h>
-#include <folly/wangle/acceptor/TransportInfo.h>
+#include <wangle/acceptor/TransportInfo.h>
 #include <ostream>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>

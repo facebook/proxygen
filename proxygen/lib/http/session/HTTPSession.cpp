@@ -11,8 +11,8 @@
 
 #include <chrono>
 #include <folly/Conv.h>
-#include <folly/wangle/acceptor/ConnectionManager.h>
-#include <folly/wangle/acceptor/SocketOptions.h>
+#include <wangle/acceptor/ConnectionManager.h>
+#include <wangle/acceptor/SocketOptions.h>
 #include <openssl/err.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>

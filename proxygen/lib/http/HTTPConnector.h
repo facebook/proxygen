@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <folly/wangle/acceptor/TransportInfo.h>
+#include <wangle/acceptor/TransportInfo.h>
 #include <folly/io/async/SSLContext.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <proxygen/lib/utils/Time.h>

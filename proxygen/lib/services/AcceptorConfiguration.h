@@ -12,7 +12,7 @@
 #include <chrono>
 #include <fcntl.h>
 #include <folly/String.h>
-#include <folly/wangle/acceptor/ServerSocketConfig.h>
+#include <wangle/acceptor/ServerSocketConfig.h>
 #include <list>
 #include <string>
 #include <sys/stat.h>

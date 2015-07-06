@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/HTTPConnector.h>
 
-#include <folly/wangle/ssl/SSLUtil.h>
+#include <wangle/ssl/SSLUtil.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
