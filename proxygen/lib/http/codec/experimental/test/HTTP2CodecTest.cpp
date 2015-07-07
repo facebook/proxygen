@@ -66,7 +66,7 @@ class HTTP2CodecTest : public testing::Test {
 
   /*
    * dumpToFile dumps binary frames to files ("/tmp/http2_*.bin"),
-   * allowing debugging individual frames, e.g., used by ti/tools/spdyprint
+   * allowing debugging individual frames.
    * @note: assign true to dump_ to turn on dumpToFile
    */
   void dumpToFile(bool isUpstream=false) {
