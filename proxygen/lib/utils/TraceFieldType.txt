@@ -150,9 +150,8 @@ PermittedMaximumTransactions, "permitted_max_txns"
 /* ---- TCP Info --- */
 Cwnd, "cwnd"
 CwndBytes, "cwnd_bytes"
-NonRTORetx, "non_rto_retx"
 TotalRetx, "total_retx"
-PacketLoss, "packet_loss"
+InflightPacketLoss, "inflight_packet_loss"
 RTT, "rtt"
 RTTVar, "rtt_variance"
 
