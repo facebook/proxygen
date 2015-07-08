@@ -494,6 +494,17 @@ class HTTPMessage {
   }
   uint8_t getPriority() const { return pri_; }
 
+  typedef std::tuple<uint32_t, bool, uint8_t> HTTPPriority;
+
+  boost::optional<HTTPPriority> getHTTP2Priority()
+    const {
+    return h2Pri_;
+  }
+
+  void setHTTP2Priority(HTTPPriority h2Pri) {
+    h2Pri_ = h2Pri;
+  }
+
   /**
    * get and setter for transaction sequence number
    */
@@ -698,6 +709,7 @@ class HTTPMessage {
   const char* sslCipher_;
   const std::string* protoStr_;
   uint8_t pri_;
+  boost::optional<HTTPPriority> h2Pri_;
 
   mutable bool parsedCookies_:1;
   mutable bool parsedQueryParams_:1;

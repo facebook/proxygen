@@ -290,6 +290,11 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     bool isRequest = (transportDirection_ == TransportDirection::DOWNSTREAM ||
                       promisedStream);
     msg = folly::make_unique<HTTPMessage>();
+    if (priority) {
+      msg->setHTTP2Priority(std::make_tuple(priority->streamDependency,
+                                            priority->exclusive,
+                                            priority->weight));
+    }
     decodeInfo_.init(msg.get(), isRequest);
     headerCodec_.decodeStreaming(headerCursor,
                                  curHeaderBlock_.chainLength(),
@@ -784,10 +789,15 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
 
     bool endHeaders = queue.chainLength() == 0;
     if (assocStream == 0) {
+      boost::optional<http2::PriorityUpdate> pri;
+      auto res = msg.getHTTP2Priority();
+      if (res) {
+        pri = {std::get<0>(*res), std::get<1>(*res), std::get<2>(*res)};
+      }
       http2::writeHeaders(writeBuf,
                           std::move(chunk),
                           stream,
-                          boost::none,
+                          pri,
                           http2::kNoPadding,
                           eom,
                           endHeaders);

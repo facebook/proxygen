@@ -50,6 +50,8 @@ class HTTPCodec {
 
   static const boost::none_t NoPadding;
 
+  static const StreamID MAX_STREAM_ID = 1 << 31;
+
   /**
    * Callback interface that users of HTTPCodec must implement
    */

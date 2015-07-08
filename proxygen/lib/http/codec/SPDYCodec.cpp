@@ -714,6 +714,8 @@ void SPDYCodec::generateSynStream(StreamID stream,
   cursor.writeBE(flagsAndLength(flags, len));
   cursor.writeBE(uint32_t(stream));
   cursor.writeBE(uint32_t(assocStream));
+  // If the message set HTTP/2 priority instead of SPDY priority, we lose
+  // priority information since we can't collapse it.
   // halve priority for SPDY/2
   uint8_t pri = msg.getPriority() >> (3 - versionSettings_.majorVersion);
   cursor.writeBE(uint16_t(pri << (versionSettings_.priShift + 8)));
@@ -1189,7 +1191,10 @@ void SPDYCodec::onSynCommon(StreamID streamID,
 
   msg->setAdvancedProtocolString(versionSettings_.protocolVersionString);
   // Normalize priority to 3 bits in HTTPMessage.
-  msg->setPriority(pri << (3 - versionSettings_.majorVersion));
+  pri <<= (3 - versionSettings_.majorVersion);
+  msg->setPriority(pri);
+  msg->setHTTP2Priority(std::make_tuple(HTTPCodec::MAX_STREAM_ID + pri,
+                                        false, 16));
   if (assocStreamID) {
     callback_->onPushMessageBegin(streamID, assocStreamID, msg.get());
   } else {
