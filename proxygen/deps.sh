@@ -4,7 +4,7 @@
 ## install proxygen to use in another C++ project on this machine, run
 ## the sibling file `reinstall.sh`.
 
-FOLLY_VERSION='v0.48.0'
+FOLLY_VERSION='v0.50.0'
 
 # Parse args
 JOBS=8
