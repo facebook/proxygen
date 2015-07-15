@@ -66,6 +66,8 @@ NumberResolvers, "number_resolvers"
 ResolversSerialized, "resolvers_serialized"
 RequestFamily, "request_family"
 NumberAnswers, "number_answers"
+NumberRetries, "number_retries"
+ResolvedSuccess, "resolved_success"
 
 /* ---- Used in DNSCache only ---- */
 DNSCacheHit, "dns_cache_hit"
