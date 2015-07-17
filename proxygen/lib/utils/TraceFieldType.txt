@@ -119,12 +119,6 @@ VerifiedTimeMerge, "verified_time_merge"
 ProxyHost, "proxy_host"
 ProxyPort, "proxy_port"
 
-/* ---- Used in ReadSocket ---- */
-ReadBytes, "read_bytes"
-
-/* ---- Used in WriteSocket ---- */
-WriteBytes, "write_bytes"
-
 /* ---- Used in Scheduling ---- */
 SchedulerType, "scheduler_type"
 InitialPriority, "initial_priority"
