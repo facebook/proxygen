@@ -4,7 +4,8 @@
 ## install proxygen to use in another C++ project on this machine, run
 ## the sibling file `reinstall.sh`.
 
-FOLLY_VERSION='v0.50.0'
+FOLLY_VERSION='v0.51.0'
+WANGLE_VERSION='0fb27ca8d270b906eed795059ed772cf9015c62f'
 
 # Parse args
 JOBS=8
@@ -29,6 +30,7 @@ cd "$(dirname "$0")"
 
 # Some extra dependencies for Ubuntu 13.10 and 14.04
 sudo apt-get install -yq \
+    cmake \
     g++ \
     flex \
     bison \
@@ -89,6 +91,7 @@ then
 fi
 
 
+# Get folly
 if [ ! -e folly/folly ]; then
     echo "Cloning folly"
     git clone https://github.com/facebook/folly
@@ -106,11 +109,30 @@ if test $? -ne 0; then
 	echo "fatal: folly build failed"
 	exit -1
 fi
+cd ../..
+
+# Get wangle
+if [ ! -e wangle/wangle ]; then
+    echo "Cloning wangle"
+    git clone https://github.com/facebook/wangle
+fi
+cd wangle/wangle
+git fetch
+git checkout $WANGLE_VERSION
+
+# Build wangle
+cmake -DBUILD_TESTS=OFF -DFOLLY_LIBRARYDIR="`pwd`/folly/folly/.libs/" -DFOLLY_INCLUDEDIR="`pwd`/folly/" .
+make -j$JOBS
+
+if test $? -ne 0; then
+	echo "fatal: wangle build failed"
+	exit -1
+fi
+cd ../..
 
 # Build proxygen
-cd ../..
 autoreconf -ivf
-CPPFLAGS=" -I`pwd`/folly/" LDFLAGS="-L`pwd`/folly/folly/.libs/" ./configure
+CPPFLAGS=" -I`pwd`/folly/ -I`pwd`/wangle" LDFLAGS="-L`pwd`/folly/folly/.libs/ -L`pwd`/wangle/wangle/.libs" ./configure
 make -j$JOBS
 
 # Run tests
