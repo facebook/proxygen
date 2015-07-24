@@ -151,6 +151,9 @@ TotalRetx, "total_retx"
 InflightPacketLoss, "inflight_packet_loss"
 RTT, "rtt"
 RTTVar, "rtt_variance"
+MSS, "sending_mss"
+MTU, "mtu"
+RcvWnd, "recv_window"
 UpstreamCapacity, "upstream_capacity"
 
 /* --- Used in MQTT Client --- */
