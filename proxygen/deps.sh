@@ -104,6 +104,7 @@ git checkout $FOLLY_VERSION
 autoreconf --install
 ./configure
 make -j$JOBS
+sudo make install
 
 if test $? -ne 0; then
 	echo "fatal: folly build failed"
@@ -121,8 +122,9 @@ git fetch
 git checkout $WANGLE_VERSION
 
 # Build wangle
-cmake -DBUILD_TESTS=OFF -DFOLLY_LIBRARYDIR="`pwd`/folly/folly/.libs/" -DFOLLY_INCLUDEDIR="`pwd`/folly/" .
+cmake .
 make -j$JOBS
+sudo make install
 
 if test $? -ne 0; then
 	echo "fatal: wangle build failed"
@@ -132,8 +134,11 @@ cd ../..
 
 # Build proxygen
 autoreconf -ivf
-CPPFLAGS=" -I`pwd`/folly/ -I`pwd`/wangle" LDFLAGS="-L`pwd`/folly/folly/.libs/ -L`pwd`/wangle/wangle/.libs" ./configure
+CPPFLAGS=" -I`pwd`/folly/ -I`pwd`/wangle" ./configure
 make -j$JOBS
 
 # Run tests
 make check
+
+# Install the libs
+sudo make install
