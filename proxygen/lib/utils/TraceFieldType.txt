@@ -79,6 +79,7 @@ TLSReused, "tls_reused"
 TLSCacheHit, "tls_cache_hit"
 CipherName, "cipher_name"
 TLSVersion, "ssl_version"
+OpenSSLVersion, "openssl_version"
 TLSCachePersistence, "tls_cache_persistence"
 
 /* ---- Used in Decompression ---- */
