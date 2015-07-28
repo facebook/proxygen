@@ -253,6 +253,19 @@ uint16_t HTTPMessage::getStatusCode() const {
   return response().status_;
 }
 
+void HTTPMessage::setPushStatusCode(uint16_t status) {
+  request().pushStatus_ = status;
+  request().pushStatusStr_ = folly::to<string>(status);
+}
+
+const std::string& HTTPMessage::getPushStatusStr() const{
+  return request().pushStatusStr_;
+}
+
+uint16_t HTTPMessage::getPushStatusCode() const{
+  return request().pushStatus_;
+}
+
 void
 HTTPMessage::constructDirectResponse(const pair<uint8_t,uint8_t>& version,
                                      const int statusCode,
@@ -586,6 +599,7 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
     fields.push_back(make_pair("path", &req.path_));
     fields.push_back(make_pair("query", &req.query_));
     fields.push_back(make_pair("url", &req.url_));
+    fields.push_back(make_pair("push_status", &req.pushStatusStr_));
   } else if (fields_.type() == typeid(Response)) {
     // Response fields.
     const Response& resp = response();
@@ -634,6 +648,7 @@ void HTTPMessage::dumpMessageToSink(google::LogSink* logSink) const {
     fields.push_back(make_pair("path", &req.path_));
     fields.push_back(make_pair("query", &req.query_));
     fields.push_back(make_pair("url", &req.url_));
+    fields.push_back(make_pair("push_status", &req.pushStatusStr_));
   } else if (fields_.type() == typeid(Response)) {
     // Response fields.
     const Response& resp = response();

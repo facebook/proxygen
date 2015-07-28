@@ -605,6 +605,29 @@ TEST(SPDYCodecTest, ServerPush) {
   EXPECT_EQ(callbacks.assocStreamId, 1);
 }
 
+TEST(SPDYCodecTest, ServerPushWithStatus) {
+  FakeHTTPCodecCallback callbacks;
+  SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
+                        SPDYVersion::SPDY3);
+  SPDYCodec ingressCodec(TransportDirection::UPSTREAM,
+                         SPDYVersion::SPDY3);
+  ingressCodec.setCallback(&callbacks);
+
+  HTTPMessage push;
+  push.getHeaders().set("HOST", "www.foo.com");
+  push.setURL("https://www.foo.com/");
+  push.setPushStatusCode(200);
+  auto syn = getSynStream(egressCodec, 2, push, 1);
+  ingressCodec.onIngress(*syn);
+  EXPECT_EQ(callbacks.messageBegin, 1);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.messageComplete, 0);
+  EXPECT_EQ(callbacks.streamErrors, 0);
+  EXPECT_EQ(callbacks.sessionErrors, 0);
+  EXPECT_EQ(callbacks.assocStreamId, 1);
+  EXPECT_EQ(callbacks.msg->getPushStatusCode(), 200);
+}
+
 /**
  * A push stream with Host header missing
  */

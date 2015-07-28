@@ -313,6 +313,13 @@ class HTTPMessage {
   uint16_t getStatusCode() const;
 
   /**
+   * Access the push status code
+   */
+  void setPushStatusCode(const uint16_t status);
+  const std::string& getPushStatusStr() const;
+  uint16_t getPushStatusCode() const;
+
+  /**
    * Fill in the fields for a response message header that the server will
    * send directly to the client.
    *
@@ -637,6 +644,9 @@ class HTTPMessage {
     std::string path_;
     std::string query_;
     std::string url_;
+
+    uint16_t pushStatus_;
+    std::string pushStatusStr_;
   };
 
   struct Response {

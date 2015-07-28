@@ -632,12 +632,12 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
       url.append(host);
       url.append(path);
       path = std::move(url);
-    } // oh well. roll the dice
+    } // oh well. roll the dice <-- That. Doesn't sound reassuring.
   }
 
   if (isPushed) {
-    static const string ok("200");
-    allHeaders.emplace_back(versionSettings_.statusStr, ok);
+    const string& pushString = msg.getPushStatusStr();
+    allHeaders.emplace_back(versionSettings_.statusStr, pushString);
   } else {
     allHeaders.emplace_back(versionSettings_.methodStr, method);
   }
@@ -1107,6 +1107,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
           try {
             code = folly::to<unsigned int>(codePiece);
           } catch (const std::range_error& ex) {
+            // Toss out the range error cause the exception will get it
           }
           if (code >= 100 && code <= 999) {
             msg->setStatusCode(code);
@@ -1123,7 +1124,23 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
           if (version_ == 2) {
             headers.add("Status", value);
           }
-        } // else eat the status header because it fails a check in HTTPMessage
+        } else { // is a push status since there is an assocStreamID?
+          // If there exists a push status, save it.
+          // If there does not, for now, we *eat* the push status.
+          if (value.size() > 0) {
+            int16_t code = -1;
+            try {
+              code = folly::to<uint16_t>(value);
+            } catch (const std::range_error& ex) {
+              // eat the push status
+            }
+            if (code >= 100 && code <= 999) {
+              msg->setPushStatusCode(code);
+            } else {
+              // eat the push status.
+            }
+          }
+        }
       } else if (version_ == 2) {
         add = true;
       }
