@@ -1719,7 +1719,9 @@ HTTPSession::shutdownTransport(bool shutdownReads,
   checkForShutdown();
 }
 
-void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
+void HTTPSession::shutdownTransportWithReset(
+    ProxygenError errorCode,
+    const std::string& errorMsg) {
   DestructorGuard guard(this);
   VLOG(4) << "shutdownTransportWithReset";
 
@@ -1740,7 +1742,7 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode) {
     resetSocketOnShutdown_ = true;
   }
 
-  errorOnAllTransactions(errorCode);
+  errorOnAllTransactions(errorCode, errorMsg);
   // drainByteEvents() can call detach(txn), which can in turn call
   // shutdownTransport if we were already draining. To prevent double
   // calling onError() to the transactions, we call drainByteEvents()
@@ -1971,7 +1973,7 @@ HTTPSession::onWriteError(size_t bytesWritten,
   }
 
   setCloseReason(ConnectionCloseReason::IO_WRITE_ERROR);
-  shutdownTransportWithReset(kErrorWrite);
+  shutdownTransportWithReset(kErrorWrite, ex.what());
 }
 
 void
@@ -2084,22 +2086,30 @@ HTTPSession::hasMoreWrites() const {
     !txnEgressQueue_.empty();
 }
 
-void HTTPSession::errorOnAllTransactions(ProxygenError err) {
+void HTTPSession::errorOnAllTransactions(
+    ProxygenError err,
+    const std::string& errorMsg) {
   std::vector<HTTPCodec::StreamID> ids;
   for (const auto& txn: transactions_) {
     ids.push_back(txn.first);
   }
-  errorOnTransactionIds(ids, err);
+  errorOnTransactionIds(ids, err, errorMsg);
 }
 
 void HTTPSession::errorOnTransactionIds(
   const std::vector<HTTPCodec::StreamID>& ids,
-  ProxygenError err) {
+  ProxygenError err,
+  const std::string& errorMsg) {
+  std::string extraErrorMsg;
+  if (!errorMsg.empty()) {
+    extraErrorMsg = folly::to<std::string>(". ", errorMsg);
+  }
 
   for (auto id: ids) {
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
       folly::to<std::string>(getErrorString(err),
-        " on transaction id: ", id));
+        " on transaction id: ", id,
+        extraErrorMsg));
     ex.setProxygenError(err);
     errorOnTransactionId(id, std::move(ex));
   }

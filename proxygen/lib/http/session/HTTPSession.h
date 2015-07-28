@@ -209,8 +209,10 @@ class HTTPSession:
    * All transactions receive onWriteError.
    *
    * @param errorCode  Error code sent with the onWriteError to transactions.
+   * @param errorMsg   Error string included in the final error msg.
    */
-  void shutdownTransportWithReset(ProxygenError errorCode);
+  void shutdownTransportWithReset(ProxygenError errorCode,
+                                  const std::string& errorMsg = "");
 
   ConnectionCloseReason getConnectionCloseReason() const {
     return closeReason_;
@@ -682,10 +684,11 @@ class HTTPSession:
    * but runs in O(n*log n) and if the callback *adds* transactions,
    * they will not get the callback.
    */
-  void errorOnAllTransactions(ProxygenError err);
+  void errorOnAllTransactions(ProxygenError err, const std::string& errorMsg);
 
   void errorOnTransactionIds(const std::vector<HTTPCodec::StreamID>& ids,
-                             ProxygenError err);
+                             ProxygenError err,
+                             const std::string& extraErrorMsg = "");
 
   void errorOnTransactionId(HTTPCodec::StreamID id, HTTPException ex);
 
