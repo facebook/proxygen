@@ -1083,8 +1083,9 @@ TEST_F(HTTP2CodecTest, StreamIdOverflow) {
   HTTP2Codec codec(TransportDirection::UPSTREAM);
 
   HTTPCodec::StreamID streamId;
-  while( codec.isReusable() ) {
+  codec.setNextEgressStreamId(std::numeric_limits<int32_t>::max() - 10);
+  while (codec.isReusable()) {
     streamId = codec.createStream();
   }
-  EXPECT_EQ(streamId, pow(2,31)-3);
+  EXPECT_EQ(streamId, std::numeric_limits<int32_t>::max() - 2);
 }

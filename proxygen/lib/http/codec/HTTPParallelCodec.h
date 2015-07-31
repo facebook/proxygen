@@ -49,6 +49,14 @@ public:
   bool isReusable() const override;
   bool isWaitingToDrain() const override;
 
+  void setNextEgressStreamId(StreamID nextEgressStreamID) {
+    if (nextEgressStreamID > nextEgressStreamID_ &&
+        (nextEgressStreamID & 0x1) == (nextEgressStreamID_ & 0x1) &&
+        nextEgressStreamID_ < std::numeric_limits<int32_t>::max()) {
+      nextEgressStreamID_ = nextEgressStreamID;
+    }
+  }
+
 protected:
   TransportDirection transportDirection_;
   StreamID nextEgressStreamID_;
