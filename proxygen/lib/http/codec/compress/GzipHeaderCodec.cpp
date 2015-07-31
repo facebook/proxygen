@@ -15,6 +15,7 @@
 #include <folly/io/IOBuf.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
+#include <proxygen/lib/utils/Logging.h>
 #include <proxygen/lib/utils/UnionBasedStatic.h>
 #include <string>
 
@@ -354,7 +355,7 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   }
 
   size_t expandedHeaderLineBytes = 0;
-  auto result = parseNameValues(uncompressed);
+  auto result = parseNameValues(uncompressed, decodedSize_.uncompressed);
   if (result.isError()) {
     return result.error();
   }
@@ -376,7 +377,8 @@ void GzipHeaderCodec::decodeStreaming(
 }
 
 Result<size_t, HeaderDecodeError>
-GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed) noexcept {
+GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
+                                 uint32_t uncompressedLength) noexcept {
 
   size_t expandedHeaderLineBytes = 0;
   Cursor headerCursor(&uncompressed);
@@ -393,6 +395,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed) noexcept {
     uint32_t len = 0;
     try {
       len = versionSettings_.parseSizeFun(&headerCursor);
+      uncompressedLength -= versionSettings_.nameValueSize;
     } catch (const std::out_of_range& ex) {
       return HeaderDecodeError::BAD_ENCODING;
     }
@@ -403,7 +406,11 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed) noexcept {
     }
     auto next = headerCursor.peek();
     try {
-      if (next.second >= len) {
+      if (len > uncompressedLength) {
+        throw std::out_of_range(
+          folly::to<string>("bad length=", len, " uncompressedLength=",
+                            uncompressedLength));
+      } else if (next.second >= len) {
         // string is contiguous, just put a pointer into the headers structure
         outHeaders_.emplace_back((char *)next.first, len, false, false);
         headerCursor.skip(len);
@@ -413,7 +420,11 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed) noexcept {
         headerCursor.pull(data.get(), len);
         outHeaders_.emplace_back(data.release(), len, true, false);
       }
+      uncompressedLength -= len;
     } catch (const std::out_of_range& ex) {
+      LOG(ERROR) << "bad encoding for nv=" << i << ": "
+                 << folly::exceptionStr(ex);
+      LOG(ERROR) << IOBufPrinter::printHexFolly(&uncompressed, true);
       return HeaderDecodeError::BAD_ENCODING;
     }
     if (i % 2 == 0) {

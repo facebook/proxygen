@@ -1355,3 +1355,27 @@ TEST(SPDYCodecTest, StreamIdOverflow) {
   }
   EXPECT_EQ(streamId, std::numeric_limits<int32_t>::max() - 2);
 }
+
+const uint8_t kBufBadNVBlock[] = {
+ 0x80, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x1c,
+ 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+ 0x00, 0x00, 0x78, 0xbb, 0xe3, 0xc6, 0xa7, 0xc2,
+ 0x02, 0xa6, 0x23, 0xc6, 0xff, 0x40, 0x00, 0x00,
+ 0x00, 0x00, 0xff, 0xff
+};
+
+/**
+ * Test case where nv item length is greater than total frame length
+ */
+TEST(SPDYCodecTest, BadNVBlock) {
+  FakeHTTPCodecCallback callbacks;
+  SPDYCodec ingressCodec(TransportDirection::DOWNSTREAM,
+                         SPDYVersion::SPDY3_1);
+
+  auto testBuf = IOBuf::copyBuffer(kBufBadNVBlock, sizeof(kBufBadNVBlock));
+  ingressCodec.setCallback(&callbacks);
+  ingressCodec.onIngress(*testBuf);
+  EXPECT_EQ(callbacks.headersComplete, 0);
+  EXPECT_EQ(callbacks.streamErrors, 0);
+  EXPECT_EQ(callbacks.sessionErrors, 1);
+}
