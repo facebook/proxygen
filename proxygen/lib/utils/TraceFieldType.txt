@@ -144,6 +144,9 @@ HumanReadableName, "human_readable_name"
 CurrentTransactions, "current_txns"
 HistoricalMaximumTransactions, "historical_max_txns"
 PermittedMaximumTransactions, "permitted_max_txns"
+NumberTransactionsServed, "number_txns_served"
+TotalPingsSent, "total_pings_sent"
+TotalPingRepliesReceived, "total_ping_replies_received"
 
 /* ---- TCP Info --- */
 Cwnd, "cwnd"
