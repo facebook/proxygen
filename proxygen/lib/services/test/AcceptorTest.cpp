@@ -21,7 +21,9 @@ class TestConnection : public folly::wangle::ManagedConnection {
   bool isBusy() const override { return false; }
   void notifyPendingShutdown() override {}
   void closeWhenIdle() override {}
-  void dropConnection() override {}
+  void dropConnection() override {
+    delete this;
+  }
   void dumpConnectionState(uint8_t loglevel) override {}
 };
 
