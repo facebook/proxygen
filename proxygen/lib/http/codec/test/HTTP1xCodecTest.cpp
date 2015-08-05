@@ -63,6 +63,30 @@ TEST(HTTP1xCodecTest, TestSimpleHeaders) {
   EXPECT_EQ(callbacks.headerSize.compressed, 0);
 }
 
+TEST(HTTP1xCodecTest, TestHeadRequestChunkedResponse) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto txnID = codec.createStream();
+
+  // Generate a HEAD request
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "HEAD /www.facebook.com HTTP/1.1\nHost: www.facebook.com\n\n");
+  codec.onIngress(*reqBuf);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+
+  // Generate chunked response with no body
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(200);
+  resp.setIsChunked(true);
+  resp.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  folly::IOBufQueue respBuf(folly::IOBufQueue::cacheChainLength());
+  codec.generateHeader(respBuf, txnID, resp, 0, true);
+  auto respStr = respBuf.move()->moveToFbString();
+  EXPECT_TRUE(respStr.find("0\r\n") == string::npos);
+}
+
 unique_ptr<folly::IOBuf> getChunkedRequest1st() {
   string req("GET /aha HTTP/1.1\n");
   auto buffer = folly::IOBuf::copyBuffer(req);

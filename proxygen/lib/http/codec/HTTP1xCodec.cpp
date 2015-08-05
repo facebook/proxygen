@@ -500,10 +500,13 @@ HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
     return 0;
   }
   size_t buflen = chain->computeChainDataLength();
-  if (buflen == 0) {
-    return buflen;
-  }
   size_t totLen = buflen;
+  if (totLen == 0) {
+    if (eom) {
+      totLen += generateEOM(writeBuf, txn);
+    }
+    return totLen;
+  }
 
   if (egressChunked_ && !inChunk_) {
     char chunkLenBuf[32];
@@ -587,11 +590,19 @@ size_t HTTP1xCodec::generateEOM(IOBufQueue& writeBuf, StreamID txn) {
   size_t len = 0;
   if (egressChunked_) {
     CHECK(!inChunk_);
-    if (!lastChunkWritten_) {
+    if (headRequest_ && transportDirection_ == TransportDirection::DOWNSTREAM) {
       lastChunkWritten_ = true;
-      appendLiteral(writeBuf, len, "0\r\n");
+    } else {
+      // appending a 0\r\n only if it's not a HEAD and downstream request
+      if (!lastChunkWritten_) {
+        lastChunkWritten_ = true;
+        if (!(headRequest_ &&
+              transportDirection_ == TransportDirection::DOWNSTREAM)) {
+          appendLiteral(writeBuf, len, "0\r\n");
+        }
+      }
+      appendLiteral(writeBuf, len, CRLF);
     }
-    appendLiteral(writeBuf, len, CRLF);
   }
   switch (transportDirection_) {
   case TransportDirection::DOWNSTREAM:
