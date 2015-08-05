@@ -15,8 +15,10 @@
 
 namespace proxygen {
 
-typedef std::chrono::steady_clock ClockType;
-typedef ClockType::time_point TimePoint;
+using SteadyClock = std::chrono::steady_clock;
+using SystemClock = std::chrono::system_clock;
+using TimePoint = SteadyClock::time_point;
+using SystemTimePoint = SystemClock::time_point;
 
 template <typename T>
 bool durationInitialized(const T& duration) {
@@ -30,15 +32,16 @@ bool timePointInitialized(const T& time) {
   return time > epoch;
 }
 
-inline TimePoint getCurrentTime() {
-  static_assert(ClockType::is_steady, "");
+template <typename ClockType = SteadyClock>
+inline std::chrono::time_point<ClockType> getCurrentTime() {
   return ClockType::now();
 }
 
-inline std::chrono::system_clock::time_point toSystemTimePoint(TimePoint t) {
+inline std::chrono::system_clock::time_point
+toSystemTimePoint(TimePoint t) {
   return std::chrono::system_clock::now() +
     std::chrono::duration_cast<std::chrono::system_clock::duration>(
-      t - std::chrono::steady_clock::now());
+      t - SteadyClock::now());
 }
 
 inline time_t toTimeT(TimePoint t) {
@@ -65,31 +68,38 @@ inline std::chrono::seconds secondsSinceEpoch(TimePoint t) {
     toSystemTimePoint(t).time_since_epoch());
 }
 
-inline std::chrono::milliseconds
-millisecondsBetween(TimePoint finish, TimePoint start) {
+template <typename ClockType = SteadyClock>
+inline std::chrono::milliseconds millisecondsBetween(
+    std::chrono::time_point<ClockType> finish,
+    std::chrono::time_point<ClockType> start) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
     finish - start);
 }
 
-inline std::chrono::seconds
-secondsBetween(TimePoint finish, TimePoint start) {
+template <typename ClockType = SteadyClock>
+inline std::chrono::seconds secondsBetween(
+    std::chrono::time_point<ClockType> finish,
+    std::chrono::time_point<ClockType> start) {
   return std::chrono::duration_cast<std::chrono::seconds>(
     finish - start);
 }
 
-inline std::chrono::milliseconds millisecondsSince(TimePoint t) {
-  return millisecondsBetween(getCurrentTime(), t);
+template <typename ClockType = SteadyClock>
+inline std::chrono::milliseconds millisecondsSince(
+    std::chrono::time_point<ClockType> t) {
+  return millisecondsBetween(getCurrentTime<ClockType>(), t);
 }
 
-inline std::chrono::seconds secondsSince(TimePoint t) {
-  return secondsBetween(getCurrentTime(), t);
+template <typename ClockType = SteadyClock>
+inline std::chrono::seconds secondsSince(std::chrono::time_point<ClockType> t) {
+  return secondsBetween(getCurrentTime<ClockType>(), t);
 }
 
 /**
  * Get the current date and time in string formats: %Y-%m-%d and %H:%M:%S.
  */
 inline void getDateTimeStr(char datebuf[32], char timebuf[32]) {
-  time_t now = toTimeT(getCurrentTime());
+  time_t now = toTimeT(getCurrentTime<SteadyClock>());
   struct tm now_tm;
   localtime_r(&now, &now_tm);
   if (datebuf) {
@@ -103,16 +113,17 @@ inline void getDateTimeStr(char datebuf[32], char timebuf[32]) {
 /**
  * Class used to get steady time. We use a separate class to mock it easier.
  */
-class TimeUtil {
+template <typename ClockType = SteadyClock>
+class TimeUtilGeneric {
  public:
-  virtual ~TimeUtil() {}
+  virtual ~TimeUtilGeneric() {}
 
-  virtual TimePoint now() const {
-    return getCurrentTime();
+  virtual std::chrono::time_point<ClockType> now() const {
+    return getCurrentTime<ClockType>();
   }
 
-  static const TimePoint& getZeroTimePoint() {
-    const static TimePoint kZeroTimePoint{};
+  static const std::chrono::time_point<ClockType>& getZeroTimePoint() {
+    const static std::chrono::time_point<ClockType> kZeroTimePoint{};
     return kZeroTimePoint;
   }
 
@@ -124,5 +135,9 @@ class TimeUtil {
     return millisecondsSinceEpoch().count();
   }
 };
+
+// Typedef so as to not disrupting callers who use 'TimeUtil' before we
+// made it TimeUtilGeneric
+using TimeUtil = TimeUtilGeneric<>;
 
 }
