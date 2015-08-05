@@ -15,6 +15,19 @@
 
 using namespace std::placeholders;
 
+namespace {
+static char* fakeTxn = (char*)0xface0000;
+
+proxygen::HTTPTransaction* makeFakeTxn(proxygen::HTTPCodec::StreamID id) {
+  return (proxygen::HTTPTransaction*)(fakeTxn + id);
+}
+
+proxygen::HTTPCodec::StreamID getTxnID(proxygen::HTTPTransaction* txn) {
+  return (proxygen::HTTPCodec::StreamID)((char*)txn - fakeTxn);
+}
+
+}
+
 namespace proxygen {
 
 typedef std::list<std::pair<HTTPCodec::StreamID, uint8_t>> IDList;
@@ -25,8 +38,9 @@ class QueueTest : public testing::Test {
 
  protected:
   void addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri) {
-    HTTP2PriorityQueue::Handle h = q_.addTransaction(id, pri, nullptr);
+    HTTP2PriorityQueue::Handle h = q_.addTransaction(id, pri, makeFakeTxn(id));
     handles_.insert(std::make_pair(id, h));
+    signalEgress(id, 1);
   }
 
   void removeTransaction(HTTPCodec::StreamID id) {
@@ -64,10 +78,12 @@ class QueueTest : public testing::Test {
                [] { return false; }, true);
   }
 
-  void dumpBFS() {
+  void nextEgress() {
+    auto res = q_.nextEgress();
     nodes_.clear();
-    q_.iterateBFS(std::bind(&QueueTest::visitNode, this, _1, _2, _3),
-                  [] { return false; }, true);
+    for (auto p: res) {
+      nodes_.push_back(std::make_pair(getTxnID(p.first), p.second * 100));
+    }
   }
 
   HTTP2PriorityQueue q_;
@@ -199,23 +215,55 @@ TEST_F(QueueTest, AddUnknown) {
 TEST_F(QueueTest, Misc) {
   buildSimpleTree();
 
-  signalEgress(1, true);
   EXPECT_FALSE(q_.empty());
-  EXPECT_EQ(q_.numPendingEgress(), 1);
+  EXPECT_EQ(q_.numPendingEgress(), 5);
   signalEgress(1, false);
-  EXPECT_EQ(q_.numPendingEgress(), 0);
-  EXPECT_TRUE(q_.empty());
+  EXPECT_EQ(q_.numPendingEgress(), 4);
+  EXPECT_FALSE(q_.empty());
   removeTransaction(9);
   removeTransaction(1);
   dump();
   EXPECT_EQ(nodes_, IDList({{3, 25}, {5, 25}, {7, 50}}));
 }
 
-TEST_F(QueueTest, BreadthFirst) {
+TEST_F(QueueTest, nextEgress) {
   buildSimpleTree();
 
-  dumpBFS();
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {5, 25}, {7, 50}, {9, 100}}));
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{1, 100}}));
+
+  addTransaction(11, {7, false, 16});
+  signalEgress(1, false);
+
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {5, 25}}));
+
+  signalEgress(5, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {9, 25}}));
+  signalEgress(5, true);
+
+  signalEgress(3, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 66}, {5, 33}}));
+
+  signalEgress(5, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 66}, {9, 33}}));
+
+  signalEgress(7, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{11, 66}, {9, 33}}));
+
+  signalEgress(9, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{11, 100}}));
+
+  signalEgress(3, true);
+  signalEgress(7, true);
+  signalEgress(9, true);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {9, 25}}));
 }
 
 
