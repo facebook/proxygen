@@ -122,7 +122,6 @@ HTTPSession::HTTPSession(
     flowControlTimeout_(this),
     transactionTimeouts_(CHECK_NOTNULL(transactionTimeouts)),
     transportInfo_(tinfo),
-    direction_(codec_->getTransportDirection()),
     reads_(SocketState::PAUSED),
     writes_(SocketState::UNPAUSED),
     draining_(false),
@@ -371,11 +370,11 @@ HTTPSession::dumpConnectionState(uint8_t loglevel) {
 }
 
 bool HTTPSession::isUpstream() const {
-  return direction_ == TransportDirection::UPSTREAM;
+  return codec_->getTransportDirection() == TransportDirection::UPSTREAM;
 }
 
 bool HTTPSession::isDownstream() const {
-  return direction_ == TransportDirection::DOWNSTREAM;
+  return codec_->getTransportDirection() == TransportDirection::DOWNSTREAM;
 }
 
 void
@@ -1866,7 +1865,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
     std::piecewise_construct,
     std::forward_as_tuple(streamID),
     std::forward_as_tuple(
-      direction_, streamID, transactionSeqNo_, *this,
+      codec_->getTransportDirection(), streamID, transactionSeqNo_, *this,
       txnEgressQueue_, transactionTimeouts_, sessionStats_,
       codec_->supportsStreamFlowControl(),
       initialReceiveWindow_,

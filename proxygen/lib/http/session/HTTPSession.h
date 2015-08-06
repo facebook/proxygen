@@ -862,8 +862,6 @@ class HTTPSession:
   size_t receiveStreamWindowSize_{65536};
   size_t receiveSessionWindowSize_{65536};
 
-  const TransportDirection direction_;
-
   enum SocketState {
     UNPAUSED = 0,
     PAUSED = 1,
