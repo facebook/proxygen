@@ -92,6 +92,11 @@ class HTTPDownstreamTest : public testing::Test {
     HTTPSession::setPendingWriteMax(65536);
   }
 
+  void cleanup() {
+    EXPECT_CALL(mockController_, detachSession(_));
+    httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  }
+
   void addSingleByteReads(const char* data,
                           std::chrono::milliseconds delay={}) {
     for (const char* p = data; *p != '\0'; ++p) {
@@ -976,6 +981,8 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
   int64_t writeDuration =
     (int64_t)millisecondsBetween(timeLastWrite, timeFirstWrite).count();
   EXPECT_GT(writeDuration, 800);
+
+  cleanup();
 }
 
 TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
@@ -1280,12 +1287,16 @@ TEST_F(SPDY2DownstreamSessionTest, spdy_prio) {
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY2);
   testPriorities(clientCodec, 4);
+
+  cleanup();
 }
 
 TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
   SPDYCodec clientCodec(TransportDirection::UPSTREAM,
                         SPDYVersion::SPDY3);
   testPriorities(clientCodec, 8);
+
+  cleanup();
 }
 
 template <class C>
@@ -1422,6 +1433,8 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
   transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   transport_->startReadEvents();
   eventBase_.loop();
+
+  cleanup();
 }
 
 // Verifies that the read timer is running while a transaction is blocked
@@ -1466,6 +1479,8 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
   transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   transport_->startReadEvents();
   eventBase_.loop();
+
+  cleanup();
 }
 
 TYPED_TEST_CASE_P(HTTPDownstreamTest);
@@ -1565,6 +1580,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
   clientCodec->setCallback(&callbacks);
   this->parseOutput(*clientCodec);
 
+  this->cleanup();
 }
 
 TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
@@ -1643,6 +1659,8 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
   this->transport_->addReadEvent(requests, std::chrono::milliseconds(10));
   this->transport_->startReadEvents();
   this->eventBase_.loop();
+
+  this->cleanup();
 }
 
 // Set max streams=1
@@ -1733,6 +1751,8 @@ TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
   EXPECT_CALL(callbacks, onWindowUpdate(0, spdy::kInitialWindow));
   clientCodec.setCallback(&callbacks);
   parseOutput(clientCodec);
+
+  cleanup();
 }
 
 TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
@@ -1821,7 +1841,8 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
         }));
   clientCodec.setCallback(&callbacks);
   parseOutput(clientCodec);
-  EXPECT_CALL(mockController_, detachSession(_));
+
+  cleanup();
 }
 
 TEST_F(HTTP2DownstreamSessionTest, zero_delta_window_update) {
