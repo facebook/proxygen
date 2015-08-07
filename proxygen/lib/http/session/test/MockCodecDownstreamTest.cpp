@@ -47,6 +47,8 @@ class MockCodecDownstreamTest: public testing::Test {
       transport_(new NiceMock<MockAsyncTransport>()),
       transactionTimeouts_(makeInternalTimeoutSet(&eventBase_)) {
 
+    EXPECT_CALL(*transport_, writeChain(_, _, _))
+      .WillRepeatedly(Invoke(this, &MockCodecDownstreamTest::onWriteChain));
     EXPECT_CALL(*transport_, good())
       .WillRepeatedly(ReturnPointee(&transportGood_));
     EXPECT_CALL(*transport_, closeNow())
@@ -116,6 +118,19 @@ class MockCodecDownstreamTest: public testing::Test {
     eventBase_.loop();
   }
 
+  void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
+                    std::shared_ptr<IOBuf> iob,
+                    WriteFlags flags) {
+    cbs_.push_back(callback);
+  }
+
+  ~MockCodecDownstreamTest() {
+    AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
+    for (auto& cb : cbs_) {
+      cb->writeErr(0, ex);
+    }
+  }
+
   void SetUp() override {
     HTTPSession::setPendingWriteMax(65536);
   }
@@ -160,6 +175,7 @@ class MockCodecDownstreamTest: public testing::Test {
   bool drainPending_{false};
   bool doubleGoaway_{false};
   bool liveGoaways_{false};
+  std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
 };
 
 TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
@@ -194,7 +210,6 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
           handler2.sendHeaders(200, 100);
           handler2.sendBody(100);
         }));
-  EXPECT_CALL(*transport_, writeChain(_, _, _));
   EXPECT_CALL(handler2, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);

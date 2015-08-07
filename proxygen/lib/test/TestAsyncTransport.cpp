@@ -416,8 +416,9 @@ TestAsyncTransport::failPendingWrites() {
     AsyncSocketException ex(AsyncSocketException::NOT_OPEN,
                            "Transport closed locally");
     auto cb = dynamic_cast<WriteCallback*>(event.second);
-    DCHECK(cb);
-    cb->writeErr(0, ex);
+    if (cb) {
+      cb->writeErr(0, ex);
+    }
   }
 }
 

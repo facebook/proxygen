@@ -69,6 +69,10 @@ class HTTPUpstreamTest: public testing::Test,
   virtual void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
                             std::shared_ptr<IOBuf> iob,
                             WriteFlags flags) {
+    if (timeoutWrites_) {
+      cbs_.push_back(callback);
+      return;  // let write requests timeout
+    }
     if (saveWrites_) {
       auto mybuf = iob->clone();
       mybuf->unshare();
@@ -171,6 +175,14 @@ class HTTPUpstreamTest: public testing::Test,
   void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {
     transactionsFull_ = false;
   }
+
+  void TearDown() override {
+    AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
+    for (auto& cb : cbs_) {
+      cb->writeErr(0, ex);
+    }
+  }
+
  protected:
   bool sessionCreated_{false};
   bool sessionDestroyed_{false};
@@ -187,8 +199,10 @@ class HTTPUpstreamTest: public testing::Test,
   SocketAddress peerAddr_{"127.0.0.1", 12345};
   HTTPUpstreamSession* httpSession_{nullptr};
   IOBufQueue writes_{IOBufQueue::cacheChainLength()};
+  std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
   bool saveWrites_{false};
   bool failWrites_{false};
+  bool timeoutWrites_{false};
   bool writeInLoop_{false};
 };
 TYPED_TEST_CASE_P(HTTPUpstreamTest);
@@ -560,6 +574,7 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   // Test where the upstream session times out while writing the request
   // to the server, but after the server has already sent back a full
   // response.
+  timeoutWrites_ = true;
   MockHTTPHandler handler;
   HTTPMessage req = getPostRequest();
 
@@ -573,8 +588,6 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
           EXPECT_EQ(200, msg->getStatusCode());
         }));
   EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(*transport_, writeChain(_, _, _))
-    .WillRepeatedly(Return());  // ignore write -> write timeout
   EXPECT_CALL(handler, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& err) {
           EXPECT_TRUE(err.hasProxygenError());
@@ -725,11 +738,21 @@ class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
                     WriteFlags flags) override {
     if (!timesCalled_++) {
       callback->writeSuccess();
+    } else {
+      cbs_.push_back(callback);
     }
     // do nothing -- let unacked egress build up
   }
+
+  ~NoFlushUpstreamSessionTest() {
+    AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
+    for (auto& cb : cbs_) {
+      cb->writeErr(0, ex);
+    }
+  }
  private:
   uint32_t timesCalled_{0};
+  std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
 };
 
 TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
