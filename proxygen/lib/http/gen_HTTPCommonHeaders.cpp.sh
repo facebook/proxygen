@@ -1,5 +1,20 @@
 #!/bin/bash
 
+if [ "x$1" != "x" ];then
+	export HEADERS_LIST="$1"
+fi
+if [ "x$2" != "x" ];then
+	export FBCODE_DIR="$2"
+fi
+if [ "x$3" != "x" ];then
+	export INSTALL_DIR="$3"
+fi
+if [ "x$4" != "x" ];then
+	export GPERF="$4"
+else
+	export GPERF="gperf"
+fi
+
 # Some fun stuff going on here.
 #
 # 1) The `cat` here isn't useless, despite what it may seem. Also, the

@@ -1,5 +1,15 @@
 #!/bin/bash
 
+if [ "x$1" != "x" ];then
+	export HEADERS_LIST="$1"
+fi
+if [ "x$2" != "x" ];then
+	export FBCODE_DIR="$2"
+fi
+if [ "x$3" != "x" ];then
+	export INSTALL_DIR="$3"
+fi
+
 # gen_HTTPCommonHeaders.cpp.sh contains a substantially similar pipeline and
 # awk script -- see comments there.
 cat ${HEADERS_LIST?} | sort | uniq \
