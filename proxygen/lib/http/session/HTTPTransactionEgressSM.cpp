@@ -15,8 +15,8 @@ namespace proxygen {
 
 namespace {
 
-typedef typename HTTPTransactionEgressSMData::State State;
-typedef typename HTTPTransactionEgressSMData::Event Event;
+typedef HTTPTransactionEgressSMData::State State;
+typedef HTTPTransactionEgressSMData::Event Event;
 typedef std::map<std::pair<State, Event>, State> TransitionTable;
 
 DEFINE_UNION_STATIC_CONST_NO_INIT(TransitionTable, Table, s_transitions);
