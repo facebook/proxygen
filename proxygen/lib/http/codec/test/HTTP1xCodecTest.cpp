@@ -87,6 +87,48 @@ TEST(HTTP1xCodecTest, TestHeadRequestChunkedResponse) {
   EXPECT_TRUE(respStr.find("0\r\n") == string::npos);
 }
 
+TEST(HTTP1xCodecTest, TestGetRequestChunkedResponse) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto txnID = codec.createStream();
+
+  // Generate a GET request
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "GET /www.facebook.com HTTP/1.1\nHost: www.facebook.com\n\n");
+  codec.onIngress(*reqBuf);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+
+  // Generate chunked response with body
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(200);
+  resp.setIsChunked(true);
+  resp.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  folly::IOBufQueue respBuf(folly::IOBufQueue::cacheChainLength());
+  codec.generateHeader(respBuf, txnID, resp, 0, false);
+
+  auto headerFromBuf = respBuf.split(respBuf.chainLength());
+
+  string resp1("Hello");
+  auto body1 = folly::IOBuf::copyBuffer(resp1);
+
+  string resp2("");
+  auto body2 = folly::IOBuf::copyBuffer(resp2);
+
+  codec.generateBody(respBuf, txnID, std::move(body1), HTTPCodec::NoPadding,
+                     false);
+
+  auto bodyFromBuf = respBuf.split(respBuf.chainLength());
+  ASSERT_EQ("5\r\nHello\r\n", bodyFromBuf->moveToFbString());
+
+  codec.generateBody(respBuf, txnID, std::move(body2), HTTPCodec::NoPadding,
+                     true);
+
+  bodyFromBuf = respBuf.split(respBuf.chainLength());
+  ASSERT_EQ("0\r\n\r\n", bodyFromBuf->moveToFbString());
+}
+
 unique_ptr<folly::IOBuf> getChunkedRequest1st() {
   string req("GET /aha HTTP/1.1\n");
   auto buffer = folly::IOBuf::copyBuffer(req);
