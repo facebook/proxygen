@@ -18,6 +18,8 @@ namespace proxygen {
 class RendezvousHash : public ConsistentHash {
  public:
 
+  double getMaxErrorRate() const;
+
   void build(std::vector<std::pair<std::string, uint64_t> >&);
 
   size_t get(const uint64_t key, const size_t rank = 0) const;
