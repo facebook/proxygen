@@ -16,7 +16,7 @@
 
 namespace proxygen {
 
-class HTTPAcceptor : public folly::Acceptor {
+class HTTPAcceptor : public wangle::Acceptor {
  public:
   explicit HTTPAcceptor(const AcceptorConfiguration& accConfig)
     : Acceptor(accConfig)

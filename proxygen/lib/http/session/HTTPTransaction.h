@@ -292,9 +292,9 @@ class HTTPTransaction :
 
     virtual void describe(std::ostream&) const = 0;
 
-    virtual const folly::TransportInfo& getSetupTransportInfo() const noexcept = 0;
+    virtual const wangle::TransportInfo& getSetupTransportInfo() const noexcept = 0;
 
-    virtual bool getCurrentTransportInfo(folly::TransportInfo* tinfo) = 0;
+    virtual bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) = 0;
 
     virtual const HTTPCodec& getCodec() const noexcept = 0;
 
@@ -427,11 +427,11 @@ class HTTPTransaction :
     return transport_.getPeerAddress();
   }
 
-  const folly::TransportInfo& getSetupTransportInfo() const noexcept {
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept {
     return transport_.getSetupTransportInfo();
   }
 
-  void getCurrentTransportInfo(folly::TransportInfo* tinfo) const {
+  void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const {
     transport_.getCurrentTransportInfo(tinfo);
   }
 

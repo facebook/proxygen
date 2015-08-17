@@ -112,11 +112,11 @@ class Filter : public RequestHandler, public ResponseHandler {
     downstream_->resumeIngress();
   }
 
-  const folly::TransportInfo& getSetupTransportInfo() const noexcept override {
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
     return downstream_->getSetupTransportInfo();
   }
 
-  void getCurrentTransportInfo(folly::TransportInfo* tinfo) const override {
+  void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override {
     downstream_->getCurrentTransportInfo(tinfo);
   }
 

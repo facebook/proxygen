@@ -55,7 +55,7 @@ void HTTPSessionAcceptor::onNewConnection(
   folly::AsyncSocket::UniquePtr ssock,
     const SocketAddress* peerAddress,
     const string& nextProtocol,
-  const folly::TransportInfo& tinfo) {
+  const wangle::TransportInfo& tinfo) {
   unique_ptr<HTTPCodec> codec;
 
   AsyncSocket::UniquePtr sock(dynamic_cast<AsyncSocket*>(ssock.release()));

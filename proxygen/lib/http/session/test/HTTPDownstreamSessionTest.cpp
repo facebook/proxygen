@@ -34,7 +34,7 @@
 
 
 using namespace folly::io;
-using namespace folly::wangle;
+using namespace wangle;
 using namespace folly;
 using namespace proxygen;
 using namespace std;

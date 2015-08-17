@@ -96,7 +96,7 @@ class ScopedHTTPServer final {
     HandlerType handler,
     int port = 0,
     int numThreads = 4,
-    std::unique_ptr<folly::SSLContextConfig> sslCfg = nullptr);
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg = nullptr);
 
   /**
    * Get the port the server is listening on. This is helpful if the port was
@@ -136,7 +136,7 @@ inline std::unique_ptr<ScopedHTTPServer> ScopedHTTPServer::start(
     HandlerType handler,
     int port,
     int numThreads,
-    std::unique_ptr<folly::SSLContextConfig> sslCfg) {
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg) {
 
   std::unique_ptr<RequestHandlerFactory> f =
       folly::make_unique<ScopedHandlerFactory<HandlerType>>(handler);
@@ -149,7 +149,7 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
     std::unique_ptr<RequestHandlerFactory> f,
     int port,
     int numThreads,
-    std::unique_ptr<folly::SSLContextConfig> sslCfg) {
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg) {
   // This will handle both IPv4 and IPv6 cases
   folly::SocketAddress addr;
   addr.setFromLocalPort(port);

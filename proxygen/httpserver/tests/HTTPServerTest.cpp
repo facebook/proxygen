@@ -109,7 +109,7 @@ TEST(SSL, SSLTest) {
   HTTPServer::IPConfig cfg{
     folly::SocketAddress("127.0.0.1", 0),
       HTTPServer::Protocol::HTTP};
-  folly::SSLContextConfig sslCfg;
+  wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
     kTestDir + "certs/test_cert1.pem",

@@ -15,7 +15,7 @@ using namespace folly;
 
 namespace proxygen {
 
-const TransportInfo mockTransportInfo = TransportInfo();
+const wangle::TransportInfo mockTransportInfo = wangle::TransportInfo();
 const SocketAddress localAddr{"127.0.0.1", 80};
 const SocketAddress peerAddr{"127.0.0.1", 12345};
 

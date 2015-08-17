@@ -40,7 +40,7 @@ class HTTPSession:
   public ByteEventTracker::Callback,
   public HTTPTransaction::Transport,
   public folly::AsyncTransportWrapper::ReadCallback,
-  public folly::wangle::ManagedConnection {
+  public wangle::ManagedConnection {
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
 
@@ -344,7 +344,7 @@ class HTTPSession:
       const folly::SocketAddress& peerAddr,
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
-      const folly::TransportInfo& tinfo,
+      const wangle::TransportInfo& tinfo,
       InfoCallback* infoCallback = nullptr);
 
   ~HTTPSession() override;
@@ -543,9 +543,9 @@ class HTTPSession:
   const folly::SocketAddress& getPeerAddress()
     const noexcept override;
 
-  folly::TransportInfo& getSetupTransportInfo() noexcept;
-  const folly::TransportInfo& getSetupTransportInfo() const noexcept override;
-  bool getCurrentTransportInfo(folly::TransportInfo* tinfo) override;
+  wangle::TransportInfo& getSetupTransportInfo() noexcept;
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
+  bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
   HTTPCodec& getCodec() noexcept {
     return *CHECK_NOTNULL(codec_.call());
   }
@@ -753,7 +753,7 @@ class HTTPSession:
 
   HTTPSessionStats* sessionStats_{nullptr};
 
-  folly::TransportInfo transportInfo_;
+  wangle::TransportInfo transportInfo_;
 
   /**
    * Connection level flow control for SPDY >= 3.1 and HTTP/2

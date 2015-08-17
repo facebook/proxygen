@@ -15,6 +15,6 @@
 
 namespace proxygen {
 
-typedef folly::HTTPHeaderSize HTTPHeaderSize;
+typedef wangle::HTTPHeaderSize HTTPHeaderSize;
 
 }

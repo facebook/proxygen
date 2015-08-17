@@ -13,8 +13,9 @@
 #include <gtest/gtest.h>
 
 using namespace folly;
+using namespace wangle;
 
-class TestConnection : public folly::wangle::ManagedConnection {
+class TestConnection : public wangle::ManagedConnection {
  public:
   void timeoutExpired() noexcept override {}
   void describe(std::ostream& os) const override {}

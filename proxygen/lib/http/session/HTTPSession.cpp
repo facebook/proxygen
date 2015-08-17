@@ -28,7 +28,7 @@ using folly::WriteFlags;
 using folly::AsyncSocketException;
 using folly::IOBuf;
 using folly::SocketAddress;
-using folly::TransportInfo;
+using wangle::TransportInfo;
 using std::pair;
 using std::set;
 using std::string;

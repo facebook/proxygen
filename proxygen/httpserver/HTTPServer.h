@@ -43,7 +43,7 @@ class HTTPServer final {
 
     folly::SocketAddress address;
     Protocol protocol;
-    std::vector<folly::SSLContextConfig> sslConfigs;
+    std::vector<wangle::SSLContextConfig> sslConfigs;
   };
 
   /**
@@ -116,7 +116,7 @@ class HTTPServer final {
    * Addresses we are listening on
    */
   std::vector<IPConfig> addresses_;
-  std::vector<folly::ServerBootstrap<folly::wangle::DefaultPipeline>> bootstrap_;
+  std::vector<wangle::ServerBootstrap<wangle::DefaultPipeline>> bootstrap_;
 };
 
 }

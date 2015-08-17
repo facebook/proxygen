@@ -98,7 +98,7 @@ protected:
     folly::AsyncSocket::UniquePtr sock,
       const folly::SocketAddress* address,
       const std::string& nextProtocol,
-      const folly::TransportInfo& tinfo) override;
+      const wangle::TransportInfo& tinfo) override;
 
   folly::AsyncSocket::UniquePtr makeNewAsyncSocket(folly::EventBase* base,
                                                    int fd) override {

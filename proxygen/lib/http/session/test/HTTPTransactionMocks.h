@@ -71,13 +71,13 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   }
   MOCK_CONST_METHOD1(describe, void(std::ostream&));
   GMOCK_METHOD0_(, noexcept,, getSetupTransportInfoNonConst,
-                 const folly::TransportInfo&());
-  const folly::TransportInfo& getSetupTransportInfo() const noexcept override {
+                 const wangle::TransportInfo&());
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
       ->getSetupTransportInfoNonConst();
   }
 
-  MOCK_METHOD1(getCurrentTransportInfo, bool(folly::TransportInfo*));
+  MOCK_METHOD1(getCurrentTransportInfo, bool(wangle::TransportInfo*));
   GMOCK_METHOD0_(, noexcept,, getCodecNonConst, const HTTPCodec&());
   const HTTPCodec& getCodec() const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
@@ -143,7 +143,7 @@ class MockHTTPTransaction : public HTTPTransaction {
   testing::NiceMock<MockHTTPTransactionTransport> mockTransport_;
   const folly::SocketAddress defaultAddress_;
   MockHTTPCodec mockCodec_;
-  folly::TransportInfo setupTransportInfo_;
+  wangle::TransportInfo setupTransportInfo_;
 };
 
 class MockHTTPTransactionTransportCallback:

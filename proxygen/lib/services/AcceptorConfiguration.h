@@ -29,7 +29,7 @@ namespace proxygen {
  * behavior that may make sense to configure on a per-VIP basis (e.g. which
  * cert(s) we use, etc).
  */
-struct AcceptorConfiguration : public folly::ServerSocketConfig {
+struct AcceptorConfiguration : public wangle::ServerSocketConfig {
   /**
    * Determines if the VIP should accept traffic from only internal or
    * external clients. Internal VIPs have different behavior

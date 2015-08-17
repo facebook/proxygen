@@ -38,12 +38,12 @@ class MockResponseHandler : public ResponseHandler {
   GMOCK_METHOD0_(, noexcept, , pauseIngress, void());
   GMOCK_METHOD0_(, noexcept, , resumeIngress, void());
 
-  MOCK_CONST_METHOD1(getCurrentTransportInfo, void(folly::TransportInfo*));
+  MOCK_CONST_METHOD1(getCurrentTransportInfo, void(wangle::TransportInfo*));
 #ifdef __clang__
 # pragma clang diagnostic pop
 #endif
 
-  const folly::TransportInfo& getSetupTransportInfo() const noexcept override {
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
     return transportInfo;
   }
 
@@ -55,7 +55,7 @@ class MockResponseHandler : public ResponseHandler {
     }
   }
 
-  folly::TransportInfo transportInfo;
+  wangle::TransportInfo transportInfo;
 };
 
 class MockRequestHandler : public RequestHandler {

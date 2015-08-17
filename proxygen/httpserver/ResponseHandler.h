@@ -73,9 +73,9 @@ class ResponseHandler {
   virtual void resumeIngress() noexcept = 0;
 
   // Accessors for Transport/Connection information
-  virtual const folly::TransportInfo& getSetupTransportInfo() const noexcept = 0;
+  virtual const wangle::TransportInfo& getSetupTransportInfo() const noexcept = 0;
 
-  virtual void getCurrentTransportInfo(folly::TransportInfo* tinfo) const = 0;
+  virtual void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const = 0;
 
  protected:
   RequestHandler* upstream_{nullptr};

@@ -46,7 +46,7 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
   void connectionReady(AsyncSocket::UniquePtr sock,
                        const SocketAddress& clientAddr,
                        const std::string& nextProtocolName,
-                       folly::TransportInfo& tinfo) {
+                       wangle::TransportInfo& tinfo) {
     HTTPSessionAcceptor::connectionReady(std::move(sock),
                                          clientAddr,
                                          nextProtocolName,
@@ -86,7 +86,7 @@ class HTTPSessionAcceptorTestBase :
 
  protected:
   AcceptorConfiguration config_;
-  folly::SSLContextConfig sslCtxConfig_;
+  wangle::SSLContextConfig sslCtxConfig_;
   std::unique_ptr<HTTPTargetSessionAcceptor> acceptor_;
   folly::EventBase eventBase_;
   folly::test::MockAsyncServerSocket mockServerSocket_;
@@ -113,7 +113,7 @@ TEST_P(HTTPSessionAcceptorTestNPN, npn) {
 
   AsyncSocket::UniquePtr sock(new AsyncSocket(&eventBase_));
   SocketAddress clientAddress;
-  folly::TransportInfo tinfo;
+  wangle::TransportInfo tinfo;
   acceptor_->connectionReady(std::move(sock), clientAddress, proto, tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
@@ -131,7 +131,7 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
   acceptor_->expectedProto_ = proto;
   AsyncSocket::UniquePtr sock(new AsyncSocket(&eventBase_));
   SocketAddress clientAddress;
-  folly::TransportInfo tinfo;
+  wangle::TransportInfo tinfo;
   acceptor_->connectionReady(std::move(sock), clientAddress, "", tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
@@ -146,7 +146,7 @@ TEST_F(HTTPSessionAcceptorTestNPNJunk, npn) {
   std::string proto("/http/1.1");
   MockAsyncSocket::UniquePtr sock(new MockAsyncSocket(&eventBase_));
   SocketAddress clientAddress;
-  folly::TransportInfo tinfo;
+  wangle::TransportInfo tinfo;
   EXPECT_CALL(*sock.get(), closeNow());
   acceptor_->connectionReady(std::move(sock), clientAddress, proto, tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 0);

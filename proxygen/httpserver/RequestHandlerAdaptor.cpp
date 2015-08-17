@@ -167,13 +167,13 @@ void RequestHandlerAdaptor::resumeIngress() noexcept {
   txn_->resumeIngress();
 }
 
-const folly::TransportInfo&
+const wangle::TransportInfo&
 RequestHandlerAdaptor::getSetupTransportInfo() const noexcept {
   return txn_->getSetupTransportInfo();
 }
 
 void RequestHandlerAdaptor::getCurrentTransportInfo(
-  folly::TransportInfo* tinfo) const {
+  wangle::TransportInfo* tinfo) const {
   txn_->getCurrentTransportInfo(tinfo);
 }
 

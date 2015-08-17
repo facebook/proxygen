@@ -32,7 +32,7 @@ class HTTPUpstreamSession final: public HTTPSession {
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
       std::unique_ptr<HTTPCodec> codec,
-      const folly::TransportInfo& tinfo,
+      const wangle::TransportInfo& tinfo,
       InfoCallback* infoCallback):
     HTTPSession(transactionTimeouts, std::move(sock), localAddr, peerAddr,
                 nullptr, std::move(codec), tinfo, infoCallback) {

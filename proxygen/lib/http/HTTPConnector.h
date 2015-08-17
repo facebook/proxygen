@@ -151,7 +151,7 @@ class HTTPConnector:
   Callback* cb_;
   AsyncTimeoutSet* timeoutSet_;
   folly::AsyncSocket::UniquePtr socket_;
-  folly::TransportInfo transportInfo_;
+  wangle::TransportInfo transportInfo_;
   std::string plaintextProtocol_;
   TimePoint connectStart_;
   bool forceHTTP1xCodecTo1_1_{false};

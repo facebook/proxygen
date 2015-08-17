@@ -12,5 +12,5 @@
 #include <wangle/ssl/SSLContextConfig.h>
 
 namespace proxygen {
-  typedef folly::SSLContextConfig SSLContextConfig;
+  typedef wangle::SSLContextConfig SSLContextConfig;
 }

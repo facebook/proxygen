@@ -20,18 +20,18 @@ using folly::AsyncServerSocket;
 using folly::EventBase;
 using folly::EventBaseManager;
 using folly::SocketAddress;
-using folly::wangle::IOThreadPoolExecutor;
-using folly::wangle::ThreadPoolExecutor;
+using wangle::IOThreadPoolExecutor;
+using wangle::ThreadPoolExecutor;
 
 namespace proxygen {
 
-class AcceptorFactory : public folly::AcceptorFactory {
+class AcceptorFactory : public wangle::AcceptorFactory {
  public:
   AcceptorFactory(std::shared_ptr<HTTPServerOptions> options,
                   AcceptorConfiguration config) :
       options_(options),
       config_(config)  {}
-  std::shared_ptr<folly::Acceptor> newAcceptor(
+  std::shared_ptr<wangle::Acceptor> newAcceptor(
       folly::EventBase* eventBase) override {
     auto acc = std::shared_ptr<HTTPServerAcceptor>(
       HTTPServerAcceptor::make(config_, *options_).release());
@@ -114,7 +114,7 @@ void HTTPServer::start(std::function<void()> onSuccess,
         options_,
         HTTPServerAcceptor::makeConfig(addresses_[i], *options_));
       bootstrap_.push_back(
-          folly::ServerBootstrap<folly::wangle::DefaultPipeline>());
+          wangle::ServerBootstrap<wangle::DefaultPipeline>());
       bootstrap_[i].childHandler(factory);
       bootstrap_[i].group(accExe, exe);
       bootstrap_[i].bind(addresses_[i].address);

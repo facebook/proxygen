@@ -78,7 +78,7 @@ void HTTPConnector::connect(
   const folly::SocketAddress& bindAddr) {
 
   DCHECK(!isBusy());
-  transportInfo_ = TransportInfo();
+  transportInfo_ = wangle::TransportInfo();
   transportInfo_.ssl = false;
   socket_.reset(new AsyncSocket(eventBase));
   connectStart_ = getCurrentTime();
@@ -96,7 +96,7 @@ void HTTPConnector::connectSSL(
   const folly::SocketAddress& bindAddr) {
 
   DCHECK(!isBusy());
-  transportInfo_ = TransportInfo();
+  transportInfo_ = wangle::TransportInfo();
   transportInfo_.ssl = true;
   auto sslSock = new AsyncSSLSocket(context, eventBase);
   if (session) {
@@ -145,7 +145,7 @@ void HTTPConnector::connectSuccess() noexcept {
       std::make_shared<std::string>(sslSocket->getNegotiatedCipherName()) :
       nullptr;
     transportInfo_.sslVersion = sslSocket->getSSLVersion();
-    transportInfo_.sslResume = SSLUtil::getResumeState(sslSocket);
+    transportInfo_.sslResume = wangle::SSLUtil::getResumeState(sslSocket);
 
     codec = makeCodec(*transportInfo_.sslNextProtocol, forceHTTP1xCodecTo1_1_);
   } else {

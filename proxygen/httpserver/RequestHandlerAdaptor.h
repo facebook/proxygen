@@ -60,8 +60,8 @@ class RequestHandlerAdaptor
   void refreshTimeout() noexcept override;
   void pauseIngress() noexcept override;
   void resumeIngress() noexcept override;
-  const folly::TransportInfo& getSetupTransportInfo() const noexcept override;
-  void getCurrentTransportInfo(folly::TransportInfo* tinfo) const override;
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
+  void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override;
 
   // Helper method
   void setError(ProxygenError err) noexcept;

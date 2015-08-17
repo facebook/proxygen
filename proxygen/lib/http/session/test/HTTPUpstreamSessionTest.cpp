@@ -194,7 +194,7 @@ class HTTPUpstreamTest: public testing::Test,
   MockAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
   folly::AsyncTransportWrapper::ReadCallback* readCallback_{nullptr};
   AsyncTimeoutSet::UniquePtr transactionTimeouts_;
-  TransportInfo mockTransportInfo_;
+  wangle::TransportInfo mockTransportInfo_;
   SocketAddress localAddr_{"127.0.0.1", 80};
   SocketAddress peerAddr_{"127.0.0.1", 12345};
   HTTPUpstreamSession* httpSession_{nullptr};
