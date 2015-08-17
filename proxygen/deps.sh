@@ -4,8 +4,8 @@
 ## install proxygen to use in another C++ project on this machine, run
 ## the sibling file `reinstall.sh`.
 
-FOLLY_VERSION='v0.53.0'
-WANGLE_VERSION='v0.9.0'
+FOLLY_VERSION='v0.54.0'
+WANGLE_VERSION='v0.10.0'
 
 # Parse args
 JOBS=8
@@ -134,11 +134,11 @@ cd ../..
 
 # Build proxygen
 autoreconf -ivf
-CPPFLAGS=" -I`pwd`/folly/ -I`pwd`/wangle" ./configure
+./configure
 make -j$JOBS
 
 # Run tests
-make check
+LD_LIBRARY_PATH=/usr/local/lib make check
 
 # Install the libs
 sudo make install
