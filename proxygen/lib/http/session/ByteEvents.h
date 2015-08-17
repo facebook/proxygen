@@ -43,14 +43,16 @@ class TransactionByteEvent : public ByteEvent {
  public:
   TransactionByteEvent(uint64_t byteNo,
                        EventType eventType,
-                       HTTPTransaction::CallbackGuard cg)
-      : ByteEvent(byteNo, eventType), cg_(cg) {}
+                       HTTPTransaction* txn)
+      : ByteEvent(byteNo, eventType), txn_(txn),
+        g_(HTTPTransaction::DestructorGuard(txn)) {}
 
   HTTPTransaction* getTransaction() override {
-    return &(cg_.peekTransaction());
+    return txn_;
   }
 
-  HTTPTransaction::CallbackGuard cg_; // refcounted transaction
+  HTTPTransaction* txn_;
+  HTTPTransaction::DestructorGuard g_; // refcounted transaction
 };
 
 class AckTimeout
@@ -83,8 +85,8 @@ class AckByteEvent : public TransactionByteEvent {
   AckByteEvent(AckTimeout::Callback* callback,
                uint64_t byteNo,
                EventType eventType,
-               HTTPTransaction::CallbackGuard cg)
-      : TransactionByteEvent(byteNo, eventType, cg),
+               HTTPTransaction* txn)
+      : TransactionByteEvent(byteNo, eventType, txn),
         timeout(callback, byteNo) {}
 
   AckTimeout timeout;

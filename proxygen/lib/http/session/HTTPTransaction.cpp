@@ -57,13 +57,30 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     egressRateLimited_(false),
     useFlowControl_(useFlowControl),
     aborted_(false),
-    deleting_(false),
     enqueued_(false),
     firstByteSent_(false),
     firstHeaderByteSent_(false),
     inResume_(false),
     inActiveSet_(true),
     ingressErrorSeen_(false) {
+
+  onDestroy_ = [this] (bool delayed) {
+    if (!isEgressComplete() || !isIngressComplete() || isEnqueued()) {
+      return;
+    }
+    VLOG(4) << "destroying transaction " << *this;
+    if (handler_) {
+      handler_->detachTransaction();
+      handler_ = nullptr;
+    }
+    transportCallback_ = nullptr;
+    const auto bytesBuffered = recvWindow_.getOutstanding();
+    if (bytesBuffered) {
+      transport_.notifyIngressBodyProcessed(bytesBuffered);
+    }
+    transport_.detach(this);
+    (void)delayed; // prevent unused variable warnings
+  };
 
   if (assocStreamId_) {
     if (isUpstream()) {
@@ -117,7 +134,7 @@ void HTTPTransaction::onIngressHeadersComplete(
 
 void HTTPTransaction::processIngressHeadersComplete(
     std::unique_ptr<HTTPMessage> msg) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (aborted_) {
     return;
   }
@@ -163,7 +180,7 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
 }
 
 void HTTPTransaction::processIngressBody(unique_ptr<IOBuf> chain, size_t len) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (aborted_) {
     return;
   }
@@ -207,7 +224,7 @@ void HTTPTransaction::onIngressChunkHeader(size_t length) {
 }
 
 void HTTPTransaction::processIngressChunkHeader(size_t length) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (aborted_) {
     return;
   }
@@ -233,7 +250,7 @@ void HTTPTransaction::onIngressChunkComplete() {
 }
 
 void HTTPTransaction::processIngressChunkComplete() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (aborted_) {
     return;
   }
@@ -260,7 +277,7 @@ void HTTPTransaction::onIngressTrailers(unique_ptr<HTTPHeaders> trailers) {
 }
 
 void HTTPTransaction::processIngressTrailers(unique_ptr<HTTPHeaders> trailers) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (aborted_) {
     return;
   }
@@ -286,7 +303,7 @@ void HTTPTransaction::onIngressUpgrade(UpgradeProtocol protocol) {
 }
 
 void HTTPTransaction::processIngressUpgrade(UpgradeProtocol protocol) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (aborted_) {
     return;
   }
@@ -322,7 +339,7 @@ void HTTPTransaction::onIngressEOM() {
 }
 
 void HTTPTransaction::processIngressEOM() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (aborted_) {
     return;
   }
@@ -377,7 +394,7 @@ void HTTPTransaction::markEgressComplete() {
 
 bool HTTPTransaction::validateIngressStateTransition(
     HTTPTransactionIngressSM::Event event) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
 
   if (!HTTPTransactionIngressSM::transit(ingressState_, event)) {
     std::stringstream ss;
@@ -395,7 +412,7 @@ bool HTTPTransaction::validateIngressStateTransition(
 }
 
 void HTTPTransaction::onError(const HTTPException& error) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
 
   const bool wasAborted = aborted_; // see comment below
   const bool wasEgressComplete = isEgressComplete();
@@ -419,9 +436,9 @@ void HTTPTransaction::onError(const HTTPException& error) {
       if (wasEgressComplete && wasIngressComplete &&
           // We mark egress complete before we get acknowledgement of the
           // write segment finishing successfully.
-          // TODO: instead of using CallbackGuard hacks to keep txn around, use
-          // an explicit callback function and set egress complete after last
-          // byte flushes (or egress error occurs), see #3912823
+          // TODO: instead of using DestructorGuard hacks to keep txn around,
+          // use an explicit callback function and set egress complete after
+          // last byte flushes (or egress error occurs), see #3912823
           (error.getProxygenError() != kErrorWriteTimeout || wasAborted)) {
         notify = false;
       }
@@ -457,7 +474,7 @@ void HTTPTransaction::onError(const HTTPException& error) {
 }
 
 void HTTPTransaction::onIngressTimeout() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   VLOG(4) << "ingress timeout on " << *this;
   pauseIngress();
   bool windowUpdateTimeout = !isEgressComplete() &&
@@ -486,7 +503,7 @@ void HTTPTransaction::onIngressWindowUpdate(const uint32_t amount) {
   if (!useFlowControl_) {
     return;
   }
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   VLOG(4) << *this << " Remote side ack'd " << amount << " bytes";
   updateReadTimeout();
   if (sendWindow_.free(amount)) {
@@ -509,7 +526,7 @@ void HTTPTransaction::onIngressSetSendWindow(const uint32_t newWindowSize) {
 }
 
 void HTTPTransaction::onEgressTimeout() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   VLOG(4) << "egress timeout on " << *this;
   if (handler_) {
     HTTPException ex(HTTPException::Direction::EGRESS,
@@ -522,28 +539,28 @@ void HTTPTransaction::onEgressTimeout() {
 }
 
 void HTTPTransaction::onEgressHeaderFirstByte() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (transportCallback_) {
     transportCallback_->firstHeaderByteFlushed();
   }
 }
 
 void HTTPTransaction::onEgressBodyFirstByte() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (transportCallback_) {
     transportCallback_->firstByteFlushed();
   }
 }
 
 void HTTPTransaction::onEgressBodyLastByte() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (transportCallback_) {
     transportCallback_->lastByteFlushed();
   }
 }
 
 void HTTPTransaction::onEgressLastByteAck(std::chrono::milliseconds latency) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (transportCallback_) {
     transportCallback_->lastByteAcked(latency);
   }
@@ -576,7 +593,7 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
 }
 
 bool HTTPTransaction::onWriteReady(const uint32_t maxEgress) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   DCHECK(isEnqueued());
   sendDeferredBody(maxEgress);
   if (isEnqueued()) {
@@ -774,7 +791,7 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
 
 void
 HTTPTransaction::sendEOM() {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendEOM))
     << ", " << *this;
@@ -817,7 +834,7 @@ void HTTPTransaction::sendAbort() {
 }
 
 void HTTPTransaction::sendAbort(ErrorCode statusCode) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   markIngressComplete();
   markEgressComplete();
   if (aborted_) {
@@ -836,31 +853,9 @@ void HTTPTransaction::sendAbort(ErrorCode statusCode) {
   }
 }
 
-void
-HTTPTransaction::checkForCompletion() {
-  DCHECK(callbackDepth_ == 0);
-  if (deleting_) {
-    return;
-  }
-  if (isEgressComplete() && isIngressComplete() && !isEnqueued()) {
-    VLOG(4) << "destroying transaction " << *this;
-    deleting_ = true;
-    if (handler_) {
-      handler_->detachTransaction();
-      handler_ = nullptr;
-    }
-    transportCallback_ = nullptr;
-    const auto bytesBuffered = recvWindow_.getOutstanding();
-    if (bytesBuffered) {
-      transport_.notifyIngressBodyProcessed(bytesBuffered);
-    }
-    transport_.detach(this);
-  }
-}
-
 void HTTPTransaction::pauseIngress() {
   VLOG(4) << *this << " pauseIngress request";
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (ingressPaused_) {
     VLOG(4) << *this << " can't pause ingress; ingressPaused=" <<
         ingressPaused_;
@@ -873,7 +868,7 @@ void HTTPTransaction::pauseIngress() {
 
 void HTTPTransaction::resumeIngress() {
   VLOG(4) << *this << " resumeIngress request";
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (!ingressPaused_ || isIngressComplete()) {
     VLOG(4) << *this << " can't resume ingress; ingressPaused="
             << ingressPaused_ << ", ingressComplete="
@@ -939,7 +934,7 @@ void HTTPTransaction::resumeIngress() {
 
 void HTTPTransaction::pauseEgress() {
   VLOG(4) << *this << " asked to pause egress";
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (egressPaused_) {
     VLOG(4) << *this << " egress already paused";
     return;
@@ -950,7 +945,7 @@ void HTTPTransaction::pauseEgress() {
 
 void HTTPTransaction::resumeEgress() {
   VLOG(4) << *this << " asked to resume egress";
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   if (!egressPaused_) {
     VLOG(4) << *this << " egress already not paused";
     return;
@@ -1022,7 +1017,7 @@ void HTTPTransaction::checkCreateDeferredIngress() {
 }
 
 bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
-  CallbackGuard guard(*this);
+  DestructorGuard g(this);
   CHECK(pushTxn->assocStreamId_ == id_);
   if (!handler_) {
     VLOG(1) << "Cannot add a pushed txn to an unhandled txn";

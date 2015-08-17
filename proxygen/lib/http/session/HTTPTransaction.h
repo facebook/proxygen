@@ -12,6 +12,7 @@
 #include <boost/heap/d_ary_heap.hpp>
 #include <climits>
 #include <folly/SocketAddress.h>
+#include <folly/io/async/DelayedDestructionBase.h>
 #include <wangle/acceptor/TransportInfo.h>
 #include <ostream>
 #include <proxygen/lib/http/HTTPConstants.h>
@@ -237,7 +238,8 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
 };
 
 class HTTPTransaction :
-      public AsyncTimeoutSet::Callback {
+      public AsyncTimeoutSet::Callback,
+      public folly::DelayedDestructionBase {
  public:
   typedef HTTPTransactionHandler Handler;
   typedef HTTPPushTransactionHandler PushHandler;
@@ -932,46 +934,9 @@ class HTTPTransaction :
    */
   void describe(std::ostream& os) const;
 
-  /**
-   * Helper class that:
-   * 1. Increments callbackDepth_ to prevent destruction
-   *    within a scope, and
-   * 2. calls checkForCompletion() at the end of the scope.
-   *
-   * Every method except the constructor, destructor, and
-   * checkForCompletion() should instantiate a CallbackGuard
-   * as a local variable.
-   */
-  class CallbackGuard {
-   public:
-    explicit CallbackGuard(HTTPTransaction& txn):
-    txn_(txn) {
-      ++txn_.callbackDepth_;
-    }
-    CallbackGuard(CallbackGuard const & other): txn_(other.txn_) {
-      ++txn_.callbackDepth_;
-    }
-    ~CallbackGuard() {
-      if (0 == --txn_.callbackDepth_) {
-        txn_.checkForCompletion();
-      }
-    }
-
-    HTTPTransaction& peekTransaction() { return txn_; }
-   private:
-    HTTPTransaction& txn_;
-  };
-
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
-
-  /**
-   * Check whether the ingress and egress messages are both complete;
-   * if they are, detach from the Transport and Handler and delete this
-   * HTTPTransaction.
-   */
-  void checkForCompletion();
 
   /**
    * Invokes the handler's onEgressPaused/Resumed if the handler's pause
@@ -1097,13 +1062,6 @@ class HTTPTransaction :
   TransportCallback* transportCallback_{nullptr};
 
   /**
-   * Number of callbacks currently active.  Used to prevent destruction
-   * while in a callback that might turn around and invoke some method
-   * of this object.
-   */
-  unsigned callbackDepth_{0};
-
-  /**
    * Trailers to send, if any.
    */
   std::unique_ptr<HTTPHeaders> trailers_;
@@ -1161,7 +1119,6 @@ class HTTPTransaction :
   bool egressRateLimited_:1;
   bool useFlowControl_:1;
   bool aborted_:1;
-  bool deleting_:1;
   bool enqueued_:1;
   bool firstByteSent_:1;
   bool firstHeaderByteSent_:1;

@@ -95,7 +95,7 @@ void ByteEventTracker::addLastByteEvent(
     bool eorTrackingEnabled) noexcept {
   VLOG(5) << " adding last byte event for " << byteNo;
   TransactionByteEvent* event = new TransactionByteEvent(
-      byteNo, ByteEvent::LAST_BYTE, HTTPTransaction::CallbackGuard(*txn));
+      byteNo, ByteEvent::LAST_BYTE, txn);
   byteEvents_.push_back(*event);
 
   if (eorTrackingEnabled && !nextLastByteEvent_) {
@@ -152,7 +152,8 @@ void ByteEventTracker::addFirstBodyByteEvent(uint64_t offset,
                                              HTTPTransaction* txn) {
   byteEvents_.push_back(
       *new TransactionByteEvent(
-          offset, ByteEvent::FIRST_BYTE, HTTPTransaction::CallbackGuard(*txn)));
+          offset, ByteEvent::FIRST_BYTE,
+          txn));
 }
 
 void ByteEventTracker::addFirstHeaderByteEvent(uint64_t offset,
@@ -162,7 +163,7 @@ void ByteEventTracker::addFirstHeaderByteEvent(uint64_t offset,
   byteEvents_.push_back(
       *new TransactionByteEvent(offset,
                                 ByteEvent::FIRST_HEADER_BYTE,
-                                HTTPTransaction::CallbackGuard(*txn)));
+                                txn));
 }
 
 } // proxygen
