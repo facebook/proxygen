@@ -5,7 +5,7 @@
 ## the sibling file `reinstall.sh`.
 
 FOLLY_VERSION='v0.54.0'
-WANGLE_VERSION='v0.10.0'
+WANGLE_VERSION='v0.11.0'
 
 # Parse args
 JOBS=8
