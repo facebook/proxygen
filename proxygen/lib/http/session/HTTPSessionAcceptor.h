@@ -96,22 +96,15 @@ protected:
   // Acceptor methods
   void onNewConnection(
     folly::AsyncSocket::UniquePtr sock,
-      const folly::SocketAddress* address,
-      const std::string& nextProtocol,
-      const wangle::TransportInfo& tinfo) override;
+    const folly::SocketAddress* address,
+    const std::string& nextProtocol,
+    SecureTransportType secureTransportType,
+    const wangle::TransportInfo& tinfo) override;
 
   folly::AsyncSocket::UniquePtr makeNewAsyncSocket(folly::EventBase* base,
                                                    int fd) override {
     return folly::AsyncSocket::UniquePtr(
       new folly::AsyncSocket(base, fd));
-  }
-
-  folly::AsyncSSLSocket::UniquePtr makeNewAsyncSSLSocket(
-      const std::shared_ptr<folly::SSLContext>& ctx,
-      folly::EventBase* base,
-      int fd) override {
-    return folly::AsyncSSLSocket::UniquePtr(
-      new folly::AsyncSSLSocket(ctx, base, fd));
   }
 
   virtual size_t dropIdleConnections(size_t num);

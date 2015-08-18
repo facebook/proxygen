@@ -36,6 +36,7 @@ class TestAcceptor : public Acceptor {
   void onNewConnection(folly::AsyncSocket::UniquePtr sock,
                        const folly::SocketAddress* address,
                        const std::string& nextProtocolName,
+                       SecureTransportType secureTransportType,
                        const TransportInfo& tinfo) override {
     addConnection(new TestConnection);
 

@@ -46,10 +46,12 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
   void connectionReady(AsyncSocket::UniquePtr sock,
                        const SocketAddress& clientAddr,
                        const std::string& nextProtocolName,
+                       SecureTransportType secureTransportType,
                        wangle::TransportInfo& tinfo) {
     HTTPSessionAcceptor::connectionReady(std::move(sock),
                                          clientAddr,
                                          nextProtocolName,
+                                         secureTransportType,
                                          tinfo);
   }
 
@@ -114,7 +116,12 @@ TEST_P(HTTPSessionAcceptorTestNPN, npn) {
   AsyncSocket::UniquePtr sock(new AsyncSocket(&eventBase_));
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
-  acceptor_->connectionReady(std::move(sock), clientAddress, proto, tinfo);
+  acceptor_->connectionReady(
+      std::move(sock),
+      clientAddress,
+      proto,
+      SecureTransportType::TLS,
+      tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
 
@@ -132,7 +139,12 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
   AsyncSocket::UniquePtr sock(new AsyncSocket(&eventBase_));
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
-  acceptor_->connectionReady(std::move(sock), clientAddress, "", tinfo);
+  acceptor_->connectionReady(
+      std::move(sock),
+      clientAddress,
+      "",
+      SecureTransportType::TLS,
+      tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
 
@@ -148,6 +160,11 @@ TEST_F(HTTPSessionAcceptorTestNPNJunk, npn) {
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
   EXPECT_CALL(*sock.get(), closeNow());
-  acceptor_->connectionReady(std::move(sock), clientAddress, proto, tinfo);
+  acceptor_->connectionReady(
+      std::move(sock),
+      clientAddress,
+      proto,
+      SecureTransportType::TLS,
+      tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 0);
 }

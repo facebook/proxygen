@@ -53,8 +53,9 @@ const HTTPErrorPage* HTTPSessionAcceptor::getErrorPage(
 
 void HTTPSessionAcceptor::onNewConnection(
   folly::AsyncSocket::UniquePtr ssock,
-    const SocketAddress* peerAddress,
-    const string& nextProtocol,
+  const SocketAddress* peerAddress,
+  const string& nextProtocol,
+  SecureTransportType secureTransportType,
   const wangle::TransportInfo& tinfo) {
   unique_ptr<HTTPCodec> codec;
 
