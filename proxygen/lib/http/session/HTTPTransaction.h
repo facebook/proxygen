@@ -1119,6 +1119,7 @@ class HTTPTransaction :
   bool egressRateLimited_:1;
   bool useFlowControl_:1;
   bool aborted_:1;
+  bool deleting_:1;
   bool enqueued_:1;
   bool firstByteSent_:1;
   bool firstHeaderByteSent_:1;

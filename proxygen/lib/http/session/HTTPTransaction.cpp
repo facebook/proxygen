@@ -57,6 +57,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     egressRateLimited_(false),
     useFlowControl_(useFlowControl),
     aborted_(false),
+    deleting_(false),
     enqueued_(false),
     firstByteSent_(false),
     firstHeaderByteSent_(false),
@@ -65,10 +66,12 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     ingressErrorSeen_(false) {
 
   onDestroy_ = [this] (bool delayed) {
-    if (!isEgressComplete() || !isIngressComplete() || isEnqueued()) {
+    if (!isEgressComplete() || !isIngressComplete() || isEnqueued()
+        || deleting_) {
       return;
     }
     VLOG(4) << "destroying transaction " << *this;
+    deleting_ = true;
     if (handler_) {
       handler_->detachTransaction();
       handler_ = nullptr;
