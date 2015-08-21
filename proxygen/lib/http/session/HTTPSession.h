@@ -567,6 +567,14 @@ class HTTPSession:
   void setByteEventTracker(std::unique_ptr<ByteEventTracker> byteEventTracker);
   ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
 
+  /**
+   * If the connection is closed by remote end
+   */
+  bool connCloseByRemote() {
+    return closeReason_ == ConnectionCloseReason::READ_EOF
+      || closeReason_ == ConnectionCloseReason::IO_READ_ERROR;
+  }
+
  protected:
 
   /**
