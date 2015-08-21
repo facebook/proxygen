@@ -52,7 +52,7 @@ class HTTPException : public proxygen::Exception {
       codecStatusCode_(ex.codecStatusCode_),
       errno_(ex.errno_) {
     if (ex.currentIngressBuf_) {
-      currentIngressBuf_ = std::move(ex.currentIngressBuf_->clone());
+      currentIngressBuf_ = ex.currentIngressBuf_->clone();
     }
     if (ex.partialMsg_) {
       partialMsg_ = folly::make_unique<HTTPMessage>(*ex.partialMsg_.get());
