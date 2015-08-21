@@ -115,10 +115,9 @@ class HTTP2PriorityQueue {
     }
 
     Handle reparent(Node* newParent, bool exclusive) {
-      Node* oldParent = parent_;
       auto self = parent_->detachChild(this);
       parent_ = newParent;
-      auto result = newParent->emplaceNode(std::move(self), exclusive);
+      (void)newParent->emplaceNode(std::move(self), exclusive);
       return this;
     }
 
