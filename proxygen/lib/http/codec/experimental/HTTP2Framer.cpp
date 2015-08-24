@@ -175,7 +175,7 @@ ErrorCode
 parsePadding(Cursor& cursor,
              FrameHeader& header,
              uint8_t& padding) noexcept {
-  if (header.flags & PADDED) {
+  if (frameHasPadding(header)) {
     if (header.length < 1) {
       return ErrorCode::FRAME_SIZE_ERROR;
     }
@@ -215,6 +215,10 @@ bool frameAffectsCompression(FrameType t) {
     t == FrameType::CONTINUATION;
 }
 
+bool frameHasPadding(const FrameHeader& header) {
+  return header.flags & PADDED;
+}
+
 //// Parsing ////
 
 ErrorCode
@@ -250,9 +254,35 @@ parseData(Cursor& cursor,
   }
   // outPadding is the total number of flow-controlled pad bytes, which
   // includes the length byte, if present.
-  outPadding = padding + ((header.flags & PADDED) ? 1 : 0);
+  outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
   cursor.clone(outBuf, header.length - padding);
   return skipPadding(cursor, padding, kStrictPadding);
+}
+
+ErrorCode
+parseDataBegin(Cursor& cursor,
+               FrameHeader header,
+               size_t& parsed,
+               uint16_t& outPadding) noexcept {
+  uint8_t padding = 0;
+  const auto err = http2::parsePadding(cursor, header, padding);
+  RETURN_IF_ERROR(err);
+  if (header.length < padding) {
+    return ErrorCode::PROTOCOL_ERROR;
+  }
+  // outPadding is the total number of flow-controlled pad bytes, which
+  // includes the length byte, if present.
+  outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
+  return ErrorCode::NO_ERROR;
+}
+
+ErrorCode
+parseDataEnd(Cursor& cursor,
+             const size_t bufLen,
+             const size_t pendingDataFramePaddingBytes,
+             size_t& toSkip) noexcept {
+    toSkip = std::min(pendingDataFramePaddingBytes, bufLen);
+    return skipPadding(cursor, toSkip, kStrictPadding);
 }
 
 ErrorCode

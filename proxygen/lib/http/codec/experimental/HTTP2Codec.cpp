@@ -98,7 +98,8 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
           VLOG(4) << "Excessively large frame len=" << curHeader_.length;
           connError = ErrorCode::FRAME_SIZE_ERROR;
         }
-        frameState_ = FrameState::FRAME_DATA;
+        frameState_ = (curHeader_.type == http2::FrameType::DATA) ?
+          FrameState::DATA_FRAME_DATA : FrameState::FRAME_DATA;
         if (connError == ErrorCode::NO_ERROR &&
             curHeader_.type == http2::FrameType::CONTINUATION &&
             transportDirection_ == TransportDirection::DOWNSTREAM &&
@@ -123,13 +124,31 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
                                      curHeader_.length);
           }
         }
+        pendingDataFrameBytes_ = curHeader_.length;
+        pendingDataFramePaddingBytes_ = 0;
 #ifndef NDEBUG
         receivedFrameCount_++;
 #endif
       } else {
         break;
       }
-    } else {
+    } else if (frameState_ == FrameState::DATA_FRAME_DATA && bufLen > 0 &&
+               (bufLen < curHeader_.length ||
+                pendingDataFrameBytes_ < curHeader_.length)) {
+      // FrameState::DATA_FRAME_DATA with partial data only
+      size_t dataParsed = 0;
+      connError = parseDataFrameData(cursor, bufLen, dataParsed);
+      if (dataParsed == 0 && pendingDataFrameBytes_ > 0) {
+        // We received only the padding byte, we will wait for more
+        break;
+      } else {
+        parsed += dataParsed;
+        if (pendingDataFrameBytes_ == 0) {
+          frameState_ = FrameState::FRAME_HEADER;
+        }
+      }
+    } else { // FrameState::FRAME_DATA
+             // or FrameState::DATA_FRAME_DATA with all data available
       // Already parsed the common frame header
       const auto frameLen = curHeader_.length;
       if (bufLen >= frameLen) {
@@ -189,7 +208,7 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
 
   ErrorCode err = ErrorCode::NO_ERROR;
   switch (curHeader_.type) {
-    case http2::FrameType::DATA: err = parseData(cursor); break;
+    case http2::FrameType::DATA: err = parseAllData(cursor); break;
     case http2::FrameType::HEADERS: err = parseHeaders(cursor); break;
     case http2::FrameType::PRIORITY: err = parsePriority(cursor); break;
     case http2::FrameType::RST_STREAM: err = parseRstStream(cursor); break;
@@ -229,20 +248,94 @@ ErrorCode HTTP2Codec::handleEndStream() {
   return ErrorCode::NO_ERROR;
 }
 
-ErrorCode HTTP2Codec::parseData(Cursor& cursor) {
+ErrorCode HTTP2Codec::parseAllData(Cursor& cursor) {
   std::unique_ptr<IOBuf> outData;
   uint16_t padding = 0;
-  VLOG(10) << "parsing DATA frame for stream=" << curHeader_.stream <<
+  VLOG(10) << "parsing all frame DATA bytes for stream=" << curHeader_.stream <<
     " length=" << curHeader_.length;
   auto ret = http2::parseData(cursor, curHeader_, outData, padding);
   RETURN_IF_ERROR(ret);
 
-  if (callback_) {
+  if (callback_ && (padding > 0 || (outData && !outData->empty()))) {
     callback_->onBody(StreamID(curHeader_.stream), std::move(outData),
                       padding);
   }
   return handleEndStream();
 }
+
+ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
+                                         size_t bufLen,
+                                         size_t& parsed) {
+  if (bufLen == 0) {
+    VLOG(10) << "No data to parse";
+    return ErrorCode::NO_ERROR;
+  }
+
+  std::unique_ptr<IOBuf> outData;
+  uint16_t padding = 0;
+  VLOG(10) << "parsing DATA frame data for stream=" << curHeader_.stream <<
+    " frame data length=" << curHeader_.length << " pendingDataFrameBytes_=" <<
+    pendingDataFrameBytes_ << " pendingDataFramePaddingBytes_=" <<
+    pendingDataFramePaddingBytes_ << " bufLen=" << bufLen <<
+    " parsed=" << parsed;
+  // Parse the padding information only the first time
+  if (pendingDataFrameBytes_ == curHeader_.length &&
+    pendingDataFramePaddingBytes_ == 0) {
+    if (frameHasPadding(curHeader_) && bufLen == 1) {
+      // We need to wait for more bytes otherwise we won't be able to pass
+      // the correct padding to the first onBody call
+      return ErrorCode::NO_ERROR;
+    }
+    http2::parseDataBegin(cursor, curHeader_, parsed, padding);
+    if (padding > 0) {
+      pendingDataFramePaddingBytes_ = padding - 1;
+      pendingDataFrameBytes_--;
+      bufLen--;
+      parsed++;
+    }
+    VLOG(10) << "out padding=" << padding << " pendingDataFrameBytes_=" <<
+      pendingDataFrameBytes_ << " pendingDataFramePaddingBytes_=" <<
+      pendingDataFramePaddingBytes_ << " bufLen=" << bufLen <<
+      " parsed=" << parsed;
+  }
+  if (bufLen > 0) {
+    // Check if we have application data to parse
+    if (pendingDataFrameBytes_ > pendingDataFramePaddingBytes_) {
+      const size_t pendingAppData =
+        pendingDataFrameBytes_ - pendingDataFramePaddingBytes_;
+      const size_t toClone = std::min(pendingAppData, bufLen);
+      cursor.clone(outData, toClone);
+      bufLen -= toClone;
+      pendingDataFrameBytes_ -= toClone;
+      parsed += toClone;
+      VLOG(10) << "parsed some app data, pendingDataFrameBytes_=" <<
+        pendingDataFrameBytes_ << " pendingDataFramePaddingBytes_=" <<
+        pendingDataFramePaddingBytes_ << " bufLen=" << bufLen <<
+        " parsed=" << parsed;
+    }
+    // Check if we have padding bytes to parse
+    if (bufLen > 0 && pendingDataFramePaddingBytes_ > 0) {
+      size_t toSkip = 0;
+      auto ret = http2::parseDataEnd(cursor, bufLen,
+                                     pendingDataFramePaddingBytes_, toSkip);
+      RETURN_IF_ERROR(ret);
+      pendingDataFrameBytes_ -= toSkip;
+      pendingDataFramePaddingBytes_ -= toSkip;
+      parsed += toSkip;
+      VLOG(10) << "parsed some padding, pendingDataFrameBytes_=" <<
+        pendingDataFrameBytes_ << " pendingDataFramePaddingBytes_=" <<
+        pendingDataFramePaddingBytes_ << " bufLen=" << bufLen <<
+        " parsed=" << parsed;
+    }
+  }
+
+  if (callback_ && (padding > 0 || (outData && !outData->empty()))) {
+    callback_->onBody(StreamID(curHeader_.stream), std::move(outData),
+                      padding);
+  }
+  return (pendingDataFrameBytes_ > 0) ? ErrorCode::NO_ERROR : handleEndStream();
+}
+
 
 ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
   boost::optional<http2::PriorityUpdate> priority;

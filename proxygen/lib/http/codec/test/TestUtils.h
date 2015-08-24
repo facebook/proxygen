@@ -83,6 +83,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
               std::unique_ptr<folly::IOBuf> chain,
               uint16_t padding) override {
     bodyCalls++;
+    paddingBytes += padding;
     bodyLength += chain->computeChainDataLength();
     data.append(std::move(chain));
   }
@@ -187,6 +188,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     messageComplete = 0;
     bodyCalls = 0;
     bodyLength = 0;
+    paddingBytes = 0;
     chunkHeaders = 0;
     chunkComplete = 0;
     trailers = 0;
@@ -214,6 +216,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint32_t messageComplete{0};
   uint32_t bodyCalls{0};
   uint32_t bodyLength{0};
+  uint32_t paddingBytes{0};
   uint32_t chunkHeaders{0};
   uint32_t chunkComplete{0};
   uint32_t trailers{0};

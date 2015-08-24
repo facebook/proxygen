@@ -135,7 +135,11 @@ public:
   static void initPerHopHeaders() __attribute__ ((__constructor__));
 
   ErrorCode parseFrame(folly::io::Cursor& cursor);
-  ErrorCode parseData(folly::io::Cursor& cursor);
+  ErrorCode parseAllData(folly::io::Cursor& cursor);
+  ErrorCode parseDataFrameData(
+    folly::io::Cursor& cursor,
+    size_t bufLen,
+    size_t& parsed);
   ErrorCode parseHeaders(folly::io::Cursor& cursor);
   ErrorCode parsePriority(folly::io::Cursor& cursor);
   ErrorCode parseRstStream(folly::io::Cursor& cursor);
@@ -194,8 +198,12 @@ public:
     DOWNSTREAM_CONNECTION_PREFACE = 1,
     FRAME_HEADER = 2,
     FRAME_DATA = 3,
+    DATA_FRAME_DATA = 4,
   };
-  FrameState frameState_:2;
+  FrameState frameState_:3;
+
+  size_t pendingDataFrameBytes_{0};
+  size_t pendingDataFramePaddingBytes_{0};
 
   static uint32_t kHeaderSplitSize;
   HeaderDecodeInfo decodeInfo_;

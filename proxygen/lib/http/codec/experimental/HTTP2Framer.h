@@ -73,6 +73,14 @@ struct PriorityUpdate {
 
 extern bool frameAffectsCompression(FrameType t);
 
+/**
+ * This function returns true if the padding bit is set in the header
+ *
+ * @param header The frame header.
+ * @return true if the padding bit is set, false otherwise.
+ */
+extern bool frameHasPadding(const FrameHeader& header);
+
 //// Parsing ////
 
 /**
@@ -106,6 +114,18 @@ parseData(folly::io::Cursor& cursor,
           FrameHeader header,
           std::unique_ptr<folly::IOBuf>& outBuf,
           uint16_t& padding) noexcept;
+
+ErrorCode
+parseDataBegin(folly::io::Cursor& cursor,
+               FrameHeader header,
+               size_t& parsed,
+               uint16_t& outPadding) noexcept;
+
+extern ErrorCode
+parseDataEnd(folly::io::Cursor& cursor,
+             const size_t bufLen,
+             const size_t pendingDataFramePaddingBytes,
+             size_t& toSkip) noexcept;
 
 /**
  * This function parses the section of the HEADERS frame after the common
