@@ -14,6 +14,7 @@
 #include <wangle/acceptor/TransportInfo.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/EventBase.h>
+#include <folly/io/async/HHWheelTimer.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
@@ -76,7 +77,7 @@ class HTTPSession:
   };
 
   class WriteTimeout :
-      public AsyncTimeoutSet::Callback {
+      public folly::HHWheelTimer::Callback {
    public:
     explicit WriteTimeout(HTTPSession* session) : session_(session) {}
     ~WriteTimeout() override {}
@@ -86,7 +87,7 @@ class HTTPSession:
     HTTPSession* session_;
   };
 
-  class FlowControlTimeout : public AsyncTimeoutSet::Callback {
+  class FlowControlTimeout : public folly::HHWheelTimer::Callback {
    public:
     explicit FlowControlTimeout(HTTPSession* session) : session_(session) {}
     ~FlowControlTimeout() override {}
@@ -349,7 +350,7 @@ class HTTPSession:
    *                               lifecycle events.
    */
   HTTPSession(
-      AsyncTimeoutSet* transactionTimeouts,
+      folly::HHWheelTimer* transactionTimeouts,
       folly::AsyncTransportWrapper::UniquePtr sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
@@ -768,7 +769,7 @@ class HTTPSession:
 
   FlowControlTimeout flowControlTimeout_;
 
-  AsyncTimeoutSet* transactionTimeouts_{nullptr};
+  folly::HHWheelTimer* transactionTimeouts_{nullptr};
 
   HTTPSessionStats* sessionStats_{nullptr};
 

@@ -46,7 +46,8 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
 
 }
 
-HTTPConnector::HTTPConnector(Callback* callback, AsyncTimeoutSet* timeoutSet)
+HTTPConnector::HTTPConnector(Callback* callback,
+                             folly::HHWheelTimer* timeoutSet)
     : cb_(CHECK_NOTNULL(callback)), timeoutSet_(timeoutSet) {}
 
 HTTPConnector::~HTTPConnector() {

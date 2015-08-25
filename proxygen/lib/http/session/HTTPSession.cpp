@@ -104,7 +104,7 @@ HTTPSession::WriteSegment::writeErr(size_t bytesWritten,
 }
 
 HTTPSession::HTTPSession(
-  AsyncTimeoutSet* transactionTimeouts,
+  folly::HHWheelTimer* transactionTimeouts,
   AsyncTransportWrapper::UniquePtr sock,
   const SocketAddress& localAddr,
   const SocketAddress& peerAddr,
@@ -178,6 +178,14 @@ HTTPSession::~HTTPSession() {
   CHECK(transactions_.empty());
   CHECK(txnEgressQueue_.empty());
   DCHECK(!sock_->getReadCallback());
+
+  if (writeTimeout_.isScheduled()) {
+    writeTimeout_.cancelTimeout();
+  }
+
+  if (flowControlTimeout_.isScheduled()) {
+    flowControlTimeout_.cancelTimeout();
+  }
 
   if (infoCallback_) {
     infoCallback_->onDestroy(*this);

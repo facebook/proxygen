@@ -32,7 +32,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t seqNo,
                                  Transport& transport,
                                  PriorityQueue& egressQueue,
-                                 AsyncTimeoutSet* transactionIdleTimeouts,
+                                 folly::HHWheelTimer* transactionIdleTimeouts,
                                  HTTPSessionStats* stats,
                                  bool useFlowControl,
                                  uint32_t receiveInitialWindowSize,
@@ -102,6 +102,11 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
 }
 
 HTTPTransaction::~HTTPTransaction() {
+  // Cancel transaction timeout if still scheduled.
+  if (isScheduled()) {
+    cancelTimeout();
+  }
+
   if (stats_) {
     stats_->recordTransactionClosed();
   }
@@ -1036,7 +1041,7 @@ bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
 }
 
 void HTTPTransaction::setTransactionIdleTimeouts(
-    AsyncTimeoutSet* transactionIdleTimeouts) {
+    folly::HHWheelTimer* transactionIdleTimeouts) {
   bool previouslyScheduled = isScheduled();
   if (previouslyScheduled) {
     cancelTimeout();

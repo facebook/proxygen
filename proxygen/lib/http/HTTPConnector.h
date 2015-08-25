@@ -11,7 +11,7 @@
 
 #include <wangle/acceptor/TransportInfo.h>
 #include <folly/io/async/SSLContext.h>
-#include <proxygen/lib/utils/AsyncTimeoutSet.h>
+#include <folly/io/async/HHWheelTimer.h>
 #include <proxygen/lib/utils/Time.h>
 #include <folly/io/async/AsyncSocket.h>
 
@@ -56,7 +56,7 @@ class HTTPConnector:
    *                             a session using an HTTP1xCodec, that codec will
    *                             only serialize messages as HTTP/1.1.
    */
-  HTTPConnector(Callback* callback, AsyncTimeoutSet* timeoutSet);
+  HTTPConnector(Callback* callback, folly::HHWheelTimer* timeoutSet);
 
   /**
    * Clients may delete the connector at any time to cancel it. No
@@ -149,7 +149,7 @@ class HTTPConnector:
     noexcept override;
 
   Callback* cb_;
-  AsyncTimeoutSet* timeoutSet_;
+  folly::HHWheelTimer* timeoutSet_;
   folly::AsyncSocket::UniquePtr socket_;
   wangle::TransportInfo transportInfo_;
   std::string plaintextProtocol_;

@@ -19,15 +19,22 @@ const wangle::TransportInfo mockTransportInfo = wangle::TransportInfo();
 const SocketAddress localAddr{"127.0.0.1", 80};
 const SocketAddress peerAddr{"127.0.0.1", 12345};
 
-AsyncTimeoutSet::UniquePtr makeInternalTimeoutSet(EventBase* evb) {
-  return AsyncTimeoutSet::UniquePtr(
-    new AsyncTimeoutSet(evb, TimeoutManager::InternalEnum::INTERNAL,
-                         std::chrono::milliseconds(500)));
+folly::HHWheelTimer::UniquePtr makeInternalTimeoutSet(EventBase* evb) {
+  return folly::HHWheelTimer::UniquePtr(
+    new folly::HHWheelTimer(evb,
+                            std::chrono::milliseconds(
+                              folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+                            TimeoutManager::InternalEnum::INTERNAL,
+                            std::chrono::milliseconds(500)));
 }
 
-AsyncTimeoutSet::UniquePtr makeTimeoutSet(EventBase* evb) {
-  return AsyncTimeoutSet::UniquePtr(
-    new AsyncTimeoutSet(evb, std::chrono::milliseconds(500)));
+folly::HHWheelTimer::UniquePtr makeTimeoutSet(EventBase* evb) {
+  return folly::HHWheelTimer::UniquePtr(
+    new folly::HHWheelTimer(evb,
+                            std::chrono::milliseconds(
+                              folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+                            folly::AsyncTimeout::InternalEnum::NORMAL,
+                            std::chrono::milliseconds(500)));
 }
 
 testing::NiceMock<MockAsyncTransport>* newMockTransport(EventBase* evb) {

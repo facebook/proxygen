@@ -13,6 +13,7 @@
 #include <folly/io/async/AsyncServerSocket.h>
 #include <proxygen/lib/services/AcceptorConfiguration.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
+#include <folly/io/async/HHWheelTimer.h>
 
 namespace proxygen {
 
@@ -32,15 +33,19 @@ class HTTPAcceptor : public wangle::Acceptor {
    /**
    * Access the general-purpose timeout manager for transactions.
    */
-  virtual AsyncTimeoutSet* getTransactionTimeoutSet() {
+  virtual folly::HHWheelTimer* getTransactionTimeoutSet() {
     return transactionTimeouts_.get();
   }
 
   void init(folly::AsyncServerSocket* serverSocket,
             folly::EventBase* eventBase) override {
     Acceptor::init(serverSocket, eventBase);
-    transactionTimeouts_.reset(new AsyncTimeoutSet(
-                                 eventBase, accConfig_.transactionIdleTimeout));
+    transactionTimeouts_ =
+       folly::make_unique<folly::HHWheelTimer, folly::HHWheelTimer::Destructor>(
+        eventBase,
+        std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+        folly::AsyncTimeout::InternalEnum::NORMAL,
+        accConfig_.transactionIdleTimeout);
 
   }
 
@@ -49,8 +54,8 @@ class HTTPAcceptor : public wangle::Acceptor {
  protected:
   AcceptorConfiguration accConfig_;
  private:
-  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
   AsyncTimeoutSet::UniquePtr tcpEventsTimeouts_;
+  folly::HHWheelTimer::UniquePtr transactionTimeouts_;
 };
 
 }

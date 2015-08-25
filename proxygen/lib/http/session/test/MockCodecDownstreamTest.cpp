@@ -166,7 +166,7 @@ class MockCodecDownstreamTest: public testing::Test {
   HTTPCodec::Callback* codecCallback_{nullptr};
   NiceMock<MockAsyncTransport>* transport_;
   folly::AsyncTransportWrapper::ReadCallback* transportCb_;
-  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
+  folly::HHWheelTimer::UniquePtr transactionTimeouts_;
   StrictMock<MockController> mockController_;
   HTTPDownstreamSession* httpSession_;
   HTTPCodec::StreamID pushStreamID_{0};
@@ -990,6 +990,8 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
     // silly, the timeout set is internal and there's no fd, so hold the
     // eventBase open until the timeout can fire
     eventBase_.runAfterDelay([] {}, 500);
+
+    transactionTimeouts_->cancelAll();
   } else {
     // Give a connection level window update of 10 bytes -- this
     // should allow 10 bytes of the txn1 response to be written

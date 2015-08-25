@@ -25,7 +25,7 @@ class HTTPDownstreamSession final: public HTTPSession {
    *                     whatever HTTP-like wire format this session needs.
    */
   HTTPDownstreamSession(
-      AsyncTimeoutSet* transactionTimeouts,
+      folly::HHWheelTimer* transactionTimeouts,
       folly::AsyncTransportWrapper::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,

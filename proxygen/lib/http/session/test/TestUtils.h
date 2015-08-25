@@ -21,10 +21,10 @@ extern const wangle::TransportInfo mockTransportInfo;
 extern const folly::SocketAddress localAddr;
 extern const folly::SocketAddress peerAddr;
 
-AsyncTimeoutSet::UniquePtr
+folly::HHWheelTimer::UniquePtr
 makeInternalTimeoutSet(folly::EventBase* evb);
 
-AsyncTimeoutSet::UniquePtr
+folly::HHWheelTimer::UniquePtr
 makeTimeoutSet(folly::EventBase* evb);
 
 testing::NiceMock<folly::test::MockAsyncTransport>*

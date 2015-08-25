@@ -84,8 +84,12 @@ class DownstreamTransactionTest : public testing::Test {
 
  protected:
   folly::EventBase eventBase_;
-  AsyncTimeoutSet::UniquePtr transactionTimeouts_{
-    new AsyncTimeoutSet(&eventBase_, std::chrono::milliseconds(500))};
+  folly::HHWheelTimer::UniquePtr transactionTimeouts_{
+    new folly::HHWheelTimer(&eventBase_,
+                            std::chrono::milliseconds(
+                              folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+                            folly::AsyncTimeout::InternalEnum::NORMAL,
+                            std::chrono::milliseconds(500))};
   MockHTTPTransactionTransport transport_;
   StrictMock<MockHTTPHandler> handler_;
   HTTPTransaction::PriorityQueue txnEgressQueue_;

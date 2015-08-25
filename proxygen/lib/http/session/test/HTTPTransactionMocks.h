@@ -92,7 +92,7 @@ class MockHTTPTransaction : public HTTPTransaction {
                       HTTPCodec::StreamID id,
                       uint32_t seqNo,
                       PriorityQueue& egressQueue,
-                      AsyncTimeoutSet* timeouts,
+                      folly::HHWheelTimer* timeouts,
                       HTTPSessionStats* stats = nullptr,
                       bool useFlowControl = false,
                       uint32_t receiveInitialWindowSize = 0,

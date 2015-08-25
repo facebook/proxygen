@@ -61,9 +61,11 @@ class HTTPUpstreamTest: public testing::Test,
       : eventBase_(),
         transport_(new NiceMock<MockAsyncTransport>()),
         transactionTimeouts_(
-          new AsyncTimeoutSet(&eventBase_,
-                               TimeoutManager::InternalEnum::INTERNAL,
-                               std::chrono::milliseconds(500))) {
+          new folly::HHWheelTimer(&eventBase_,
+                                  std::chrono::milliseconds(
+                                    folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+                                  TimeoutManager::InternalEnum::INTERNAL,
+                                  std::chrono::milliseconds(500))) {
   }
 
   virtual void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
@@ -193,7 +195,7 @@ class HTTPUpstreamTest: public testing::Test,
   EventBase eventBase_;
   MockAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
   folly::AsyncTransportWrapper::ReadCallback* readCallback_{nullptr};
-  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
+  folly::HHWheelTimer::UniquePtr transactionTimeouts_;
   wangle::TransportInfo mockTransportInfo_;
   SocketAddress localAddr_{"127.0.0.1", 80};
   SocketAddress peerAddr_{"127.0.0.1", 12345};
@@ -212,9 +214,12 @@ class TimeoutableHTTPUpstreamTest: public HTTPUpstreamTest<C> {
  public:
   TimeoutableHTTPUpstreamTest(): HTTPUpstreamTest<C>() {
     // make it non-internal for this test class
-    HTTPUpstreamTest<C>::transactionTimeouts_.reset(
-      new AsyncTimeoutSet(&this->HTTPUpstreamTest<C>::eventBase_,
-                           std::chrono::milliseconds(500)));
+    HTTPUpstreamTest<C>::transactionTimeouts_ =
+      folly::make_unique<folly::HHWheelTimer, folly::HHWheelTimer::Destructor>(
+        &this->HTTPUpstreamTest<C>::eventBase_,
+        std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+        folly::AsyncTimeout::InternalEnum::NORMAL,
+        std::chrono::milliseconds(500));
   }
 };
 
@@ -613,8 +618,12 @@ TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   // Test that setting a new timeout on the transaction will cancel
   // the old one.
   MockHTTPHandler handler;
-  AsyncTimeoutSet::UniquePtr timeoutSet(
-      new AsyncTimeoutSet(&eventBase_, std::chrono::milliseconds(500)));
+  folly::HHWheelTimer::UniquePtr timeoutSet(
+      new folly::HHWheelTimer(&eventBase_,
+                              std::chrono::milliseconds(
+                                folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+                              folly::AsyncTimeout::InternalEnum::NORMAL,
+                              std::chrono::milliseconds(500)));
 
   EXPECT_CALL(handler, setTransaction(_));
   EXPECT_CALL(handler, detachTransaction());
@@ -622,8 +631,8 @@ TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   auto txn = httpSession_->newTransaction(&handler);
   txn->setTransactionIdleTimeouts(timeoutSet.get());
   EXPECT_TRUE(txn->isScheduled());
-  EXPECT_FALSE(transactionTimeouts_->front());
-  EXPECT_TRUE(timeoutSet->front());
+  EXPECT_EQ(transactionTimeouts_->count(), 0);
+  EXPECT_GT(timeoutSet->count(), 0);
   txn->sendAbort();
   eventBase_.loop();
 }

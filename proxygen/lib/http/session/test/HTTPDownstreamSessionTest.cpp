@@ -126,7 +126,7 @@ class HTTPDownstreamTest : public testing::Test {
  protected:
   EventBase eventBase_;
   TestAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
-  AsyncTimeoutSet::UniquePtr transactionTimeouts_;
+  folly::HHWheelTimer::UniquePtr transactionTimeouts_;
   StrictMock<MockController> mockController_;
   HTTPDownstreamSession* httpSession_;
 };

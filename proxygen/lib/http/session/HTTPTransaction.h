@@ -13,6 +13,7 @@
 #include <climits>
 #include <folly/SocketAddress.h>
 #include <folly/io/async/DelayedDestructionBase.h>
+#include <folly/io/async/HHWheelTimer.h>
 #include <wangle/acceptor/TransportInfo.h>
 #include <ostream>
 #include <proxygen/lib/http/HTTPConstants.h>
@@ -24,7 +25,6 @@
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
-#include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <proxygen/lib/utils/Time.h>
 #include <set>
 
@@ -238,7 +238,7 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
 };
 
 class HTTPTransaction :
-      public AsyncTimeoutSet::Callback,
+      public folly::HHWheelTimer::Callback,
       public folly::DelayedDestructionBase {
  public:
   typedef HTTPTransactionHandler Handler;
@@ -362,7 +362,7 @@ class HTTPTransaction :
                   uint32_t seqNo,
                   Transport& transport,
                   PriorityQueue& egressQueue,
-                  AsyncTimeoutSet* transactionIdleTimeouts,
+                  folly::HHWheelTimer* transactionIdleTimeouts,
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
                   uint32_t receiveInitialWindowSize = 0,
@@ -862,7 +862,7 @@ class HTTPTransaction :
    * The previous timeout will be canceled and the new timeout will be
    * scheduled on the timeout set if it had been previously scheduled.
    */
-  void setTransactionIdleTimeouts(AsyncTimeoutSet* transactionIdleTimeouts);
+  void setTransactionIdleTimeouts(folly::HHWheelTimer* transactionIdleTimeouts);
 
   /**
    * Returns the associated transaction ID for pushed transactions, 0 otherwise
@@ -1044,7 +1044,7 @@ class HTTPTransaction :
     HTTPTransactionEgressSM::getNewInstance()};
   HTTPTransactionIngressSM::State ingressState_{
     HTTPTransactionIngressSM::getNewInstance()};
-  AsyncTimeoutSet* transactionIdleTimeouts_{nullptr};
+  folly::HHWheelTimer* transactionIdleTimeouts_{nullptr};
   HTTPSessionStats* stats_{nullptr};
 
   /**
