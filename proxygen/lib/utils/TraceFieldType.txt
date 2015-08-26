@@ -116,6 +116,10 @@ PinningHost, "verified_pinning_host"
 PinningSuccess, "verified_pinning_success"
 VerifiedTimeMerge, "verified_time_merge"
 
+/* ---- Used in Cert Revocation ---- */
+RevokeReason, "verified_revoke_reason"
+RevokeSuccess, "verified_revoke_success"
+
 /* ---- Used in ProxyConnect ---- */
 ProxyHost, "proxy_host"
 ProxyPort, "proxy_port"
