@@ -336,6 +336,10 @@ void HTTPTransaction::onIngressEOM() {
         HTTPTransactionIngressSM::Event::onEOM)) {
     return;
   }
+  // We need to update the read timeout here.  We're not likely to be
+  // expecting any more ingress, and the timer should be cancelled
+  // immediately.  If we are expecting more, this will reset the timer.
+  updateReadTimeout();
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::MESSAGE_COMPLETE);
