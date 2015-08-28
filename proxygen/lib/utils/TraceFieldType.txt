@@ -165,6 +165,10 @@ MTU, "mtu"
 RcvWnd, "recv_window"
 UpstreamCapacity, "upstream_capacity"
 
+/* ---- Used in ConnInfo ----*/
+ReqsStarted, "reqs_started"
+ReqsFinished, "reqs_finished"
+
 /* --- Used in MQTT Client --- */
 MQTTConnAttempts, "mqtt_conn_attempts"
 IsForeground, "is_foreground"

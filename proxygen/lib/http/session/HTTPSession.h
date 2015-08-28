@@ -576,6 +576,20 @@ class HTTPSession:
       || closeReason_ == ConnectionCloseReason::IO_READ_ERROR;
   }
 
+  /**
+   * get total count of Transactions started
+   */
+  uint32_t getStartedTransactions() const noexcept {
+    return startedTransactions_;
+  }
+
+  /**
+   * get total count of Transactions finished
+   */
+  uint32_t getFinishedTransactions() const noexcept {
+    return finishedTransactions_;
+  }
+
  protected:
 
   /**
@@ -742,6 +756,10 @@ class HTTPSession:
 
   /** Transaction sequence number */
   uint32_t transactionSeqNo_{0};
+
+  /** Count of transactions started / finished on this session */
+  uint32_t startedTransactions_{0};
+  uint32_t finishedTransactions_{0};
 
   /** Address of this end of the TCP connection */
   folly::SocketAddress localAddr_;

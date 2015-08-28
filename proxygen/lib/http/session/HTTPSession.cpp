@@ -578,6 +578,7 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
                                 HTTPCodec::StreamID assocStreamID,
                                 HTTPMessage* msg) {
   VLOG(4) << "processing new message on " << *this << ", streamID=" << streamID;
+
   if (infoCallback_) {
     infoCallback_->onRequestBegin(*this);
   }
@@ -637,6 +638,8 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     DCHECK(liveTransactions_ == 1);
     txn->pauseIngress();
   }
+
+  ++startedTransactions_;
   return txn;
 }
 
@@ -1188,6 +1191,8 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
   // to be read or sent on this connection, close the socket in one or
   // more directions.
   CHECK(!transactions_.empty());
+  ++finishedTransactions_;
+
   if (infoCallback_) {
     infoCallback_->onRequestEnd(*this, txn->getMaxDeferredSize());
   }
