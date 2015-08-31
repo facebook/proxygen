@@ -118,16 +118,17 @@ HTTPTransaction::~HTTPTransaction() {
 
 void HTTPTransaction::onIngressHeadersComplete(
   std::unique_ptr<HTTPMessage> msg) {
+  DestructorGuard g(this);
   msg->setSeqNo(seqNo_);
-  if (transportCallback_) {
-    transportCallback_->headerBytesReceived(msg->getIngressHeaderSize());
-  }
   if (isUpstream() && !isPushed()) {
     lastResponseStatus_ = msg->getStatusCode();
   }
   if (!validateIngressStateTransition(
         HTTPTransactionIngressSM::Event::onHeaders)) {
     return;
+  }
+  if (transportCallback_) {
+    transportCallback_->headerBytesReceived(msg->getIngressHeaderSize());
   }
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
@@ -154,6 +155,7 @@ void HTTPTransaction::processIngressHeadersComplete(
 
 void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
                                     uint16_t padding) {
+  DestructorGuard g(this);
   if (isIngressEOMSeen()) {
     sendAbort(ErrorCode::STREAM_CLOSED);
     return;
@@ -162,12 +164,12 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
   if (len == 0) {
     return;
   }
-  if (transportCallback_) {
-    transportCallback_->bodyBytesReceived(len);
-  }
   if (!validateIngressStateTransition(
         HTTPTransactionIngressSM::Event::onBody)) {
     return;
+  }
+  if (transportCallback_) {
+    transportCallback_->bodyBytesReceived(len);
   }
   if (mustQueueIngress()) {
     // register the bytes in the receive window
