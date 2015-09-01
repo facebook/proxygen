@@ -11,6 +11,7 @@
 
 #include <boost/heap/d_ary_heap.hpp>
 #include <climits>
+#include <folly/Optional.h>
 #include <folly/SocketAddress.h>
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/HHWheelTimer.h>
@@ -857,12 +858,26 @@ class HTTPTransaction :
   }
 
   /**
-   * Sets the time for which a transaction can have no activity over it before
-   * it will error out.
-   * The previous timeout will be canceled and the new timeout will be
-   * scheduled on the timeout set if it had been previously scheduled.
+   * Sets a transaction timeout value. If such a timeout was set, this
+   * timeout will be used instead of the default timeout interval configured
+   * in transactionIdleTimeouts_.
    */
-  void setTransactionIdleTimeouts(folly::HHWheelTimer* transactionIdleTimeouts);
+  void setIdleTimeout(std::chrono::milliseconds transactionTimeout);
+
+  /**
+   * Does this transaction have an idle timeout set?
+   */
+  bool hasIdleTimeout() const {
+    return transactionTimeout_.hasValue();
+  }
+
+  /**
+   * Returns the transaction timeout if exists. An OptionalEmptyException is
+   * raised if the timeout isn't set.
+   */
+  std::chrono::milliseconds getIdleTimeout() const {
+    return transactionTimeout_.value();
+  }
 
   /**
    * Returns the associated transaction ID for pushed transactions, 0 otherwise
@@ -891,7 +906,11 @@ class HTTPTransaction :
    */
   void refreshTimeout() {
     if (transactionIdleTimeouts_) {
-      transactionIdleTimeouts_->scheduleTimeout(this);
+      if (hasIdleTimeout()) {
+        transactionIdleTimeouts_->scheduleTimeout(this, getIdleTimeout());
+      } else {
+        transactionIdleTimeouts_->scheduleTimeout(this);
+      }
     }
   }
 
@@ -1135,6 +1154,11 @@ class HTTPTransaction :
 
   // Used by pending callbacks to see if the transaction has been deleted
   std::shared_ptr<bool> cancelled_;
+
+  /**
+   * Optional transaction timeout value.
+   */
+  folly::Optional<std::chrono::milliseconds> transactionTimeout_;
 };
 
 /**

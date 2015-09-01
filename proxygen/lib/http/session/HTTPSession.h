@@ -302,7 +302,7 @@ class HTTPSession:
 
   // ManagedConnection methods
   void timeoutExpired() noexcept override {
-    readTimeoutExpired();
+      readTimeoutExpired();
   }
   void describe(std::ostream& os) const override;
   bool isBusy() const override;

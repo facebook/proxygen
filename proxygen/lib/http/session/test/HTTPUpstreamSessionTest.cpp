@@ -618,21 +618,16 @@ TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   // Test that setting a new timeout on the transaction will cancel
   // the old one.
   MockHTTPHandler handler;
-  folly::HHWheelTimer::UniquePtr timeoutSet(
-      new folly::HHWheelTimer(&eventBase_,
-                              std::chrono::milliseconds(
-                                folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-                              folly::AsyncTimeout::InternalEnum::NORMAL,
-                              std::chrono::milliseconds(500)));
 
   EXPECT_CALL(handler, setTransaction(_));
   EXPECT_CALL(handler, detachTransaction());
 
   auto txn = httpSession_->newTransaction(&handler);
-  txn->setTransactionIdleTimeouts(timeoutSet.get());
+  EXPECT_FALSE(txn->hasIdleTimeout());
+  txn->setIdleTimeout(std::chrono::milliseconds(747));
+  EXPECT_TRUE(txn->hasIdleTimeout());
   EXPECT_TRUE(txn->isScheduled());
-  EXPECT_EQ(transactionTimeouts_->count(), 0);
-  EXPECT_GT(timeoutSet->count(), 0);
+  EXPECT_EQ(transactionTimeouts_->count(), 1);
   txn->sendAbort();
   eventBase_.loop();
 }

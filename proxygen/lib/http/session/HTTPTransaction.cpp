@@ -1046,20 +1046,17 @@ bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
   return true;
 }
 
-void HTTPTransaction::setTransactionIdleTimeouts(
-    folly::HHWheelTimer* transactionIdleTimeouts) {
-  bool previouslyScheduled = isScheduled();
-  if (previouslyScheduled) {
-    cancelTimeout();
-  }
-  transactionIdleTimeouts_ = transactionIdleTimeouts;
-  if (previouslyScheduled) {
-    refreshTimeout();
-  }
+void HTTPTransaction::setIdleTimeout(
+    std::chrono::milliseconds transactionTimeout) {
+  transactionTimeout_ = transactionTimeout;
+  VLOG(4) << "HTTPTransaction: transaction timeout is set to  "
+          << std::chrono::duration_cast<std::chrono::milliseconds>(
+                 transactionTimeout)
+                 .count();
+  refreshTimeout();
 }
 
-void
-HTTPTransaction::describe(std::ostream& os) const {
+void HTTPTransaction::describe(std::ostream& os) const {
   transport_.describe(os);
   os << " streamID=" << id_;
 }
