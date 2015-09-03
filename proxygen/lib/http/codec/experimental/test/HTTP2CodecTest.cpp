@@ -592,6 +592,61 @@ TEST_F(HTTP2CodecTest, LongData) {
   EXPECT_EQ(callbacks_.data.move()->moveToFbString(), buf->moveToFbString());
 }
 
+TEST_F(HTTP2CodecTest, MalformedPaddingLength) {
+  const uint8_t badInput[] = {0x50, 0x52, 0x49, 0x20, 0x2a, 0x20, 0x48, 0x54,
+                              0x54, 0x50, 0x2f, 0x32, 0x2e, 0x30, 0x0d, 0x0a,
+                              0x0d, 0x0a, 0x53, 0x4d, 0x0d, 0x0a, 0x0d, 0x0a,
+                              0x00, 0x00, 0x7e, 0x00, 0x6f, 0x6f, 0x6f, 0x6f,
+                              // The padding length byte below is 0x82 (130
+                              // in decimal) which is greater than the length
+                              // specified by the header's length field, 126
+                              0x01, 0x82, 0x87, 0x44, 0x87, 0x92, 0x97, 0x92,
+                              0x92, 0x92, 0x7a, 0x0b, 0x41, 0x89, 0xf1, 0xe3,
+                              0xc0, 0xf2, 0x9c, 0xdd, 0x90, 0xf4, 0xff, 0x40,
+                              0x80, 0x84, 0x2d, 0x35, 0xa7, 0xd7};
+  output_.clear();
+  output_.append(badInput, sizeof(badInput));
+  EXPECT_EQ(output_.chainLength(), sizeof(badInput));
+
+  bool caughtException = false;
+  bool parseResult = true;
+  try {
+    parseResult = parse();
+  } catch (const std::exception &e) {
+    caughtException = true;
+  }
+  EXPECT_FALSE(caughtException);
+  EXPECT_FALSE(parseResult);
+}
+
+TEST_F(HTTP2CodecTest, NoAppByte) {
+  const uint8_t noAppByte[] = {0x50, 0x52, 0x49, 0x20, 0x2a, 0x20, 0x48, 0x54,
+                               0x54, 0x50, 0x2f, 0x32, 0x2e, 0x30, 0x0d, 0x0a,
+                               0x0d, 0x0a, 0x53, 0x4d, 0x0d, 0x0a, 0x0d, 0x0a,
+                               0x00, 0x00, 0x56, 0x00, 0x5d, 0x00, 0x00, 0x00,
+                               0x01, 0x55, 0x00};
+  output_.clear();
+  output_.append(noAppByte, sizeof(noAppByte));
+  EXPECT_EQ(output_.chainLength(), sizeof(noAppByte));
+
+  bool caughtException = false;
+  bool parseResult = false;
+  try {
+    parseResult = parse();
+  } catch (const std::exception &e) {
+    caughtException = true;
+  }
+  EXPECT_FALSE(caughtException);
+  EXPECT_TRUE(parseResult);
+  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.bodyCalls, 1);
+  EXPECT_EQ(callbacks_.bodyLength, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 TEST_F(HTTP2CodecTest, DataFramePartialDataWithNoAppByte) {
   const size_t bufSize = 10;
   auto buf = makeBuf(bufSize);

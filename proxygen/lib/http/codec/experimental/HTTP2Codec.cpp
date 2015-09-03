@@ -257,6 +257,9 @@ ErrorCode HTTP2Codec::parseAllData(Cursor& cursor) {
   RETURN_IF_ERROR(ret);
 
   if (callback_ && (padding > 0 || (outData && !outData->empty()))) {
+    if (!outData) {
+      outData = folly::make_unique<IOBuf>();
+    }
     callback_->onBody(StreamID(curHeader_.stream), std::move(outData),
                       padding);
   }
@@ -286,7 +289,8 @@ ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
       // the correct padding to the first onBody call
       return ErrorCode::NO_ERROR;
     }
-    http2::parseDataBegin(cursor, curHeader_, parsed, padding);
+    const auto ret = http2::parseDataBegin(cursor, curHeader_, parsed, padding);
+    RETURN_IF_ERROR(ret);
     if (padding > 0) {
       pendingDataFramePaddingBytes_ = padding - 1;
       pendingDataFrameBytes_--;
@@ -330,6 +334,9 @@ ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
   }
 
   if (callback_ && (padding > 0 || (outData && !outData->empty()))) {
+    if (!outData) {
+      outData = folly::make_unique<IOBuf>();
+    }
     callback_->onBody(StreamID(curHeader_.stream), std::move(outData),
                       padding);
   }
