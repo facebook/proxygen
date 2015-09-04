@@ -18,6 +18,7 @@ namespace proxygen { namespace http2 {
 
 const uint8_t kMaxFrameType = static_cast<uint8_t>(FrameType::ALTSVC);
 const boost::optional<uint8_t> kNoPadding;
+const PriorityUpdate DefaultPriority{0, false, 16};
 
 namespace {
 

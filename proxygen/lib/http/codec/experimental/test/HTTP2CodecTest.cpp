@@ -1024,7 +1024,7 @@ void generateHeaderChrome(HPACKCodec09& headerCodec,
     http2::writeHeaders(writeBuf,
                         std::move(chunk),
                         stream,
-                        http2::PriorityUpdate({0, false, 16}),
+                        http2::DefaultPriority,
                         http2::kNoPadding,
                         eom,
                         endHeaders);

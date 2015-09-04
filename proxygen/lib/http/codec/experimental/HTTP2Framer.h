@@ -69,6 +69,10 @@ struct PriorityUpdate {
   uint8_t weight;
 };
 
+//////// Bonus Constant ////////
+
+extern const PriorityUpdate DefaultPriority;
+
 //////// Functions ////////
 
 extern bool frameAffectsCompression(FrameType t);
