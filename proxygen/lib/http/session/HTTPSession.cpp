@@ -1500,7 +1500,7 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
         // split the next EOM chunk
         VLOG(5) << *this << " splitting " << needed << " bytes out of a "
                 << writeBuf_.chainLength() << " bytes IOBuf";
-        *cork = !txnEgressQueue_.empty();
+        *cork = true;
         if (sessionStats_) {
           sessionStats_->recordTTLBAIOBSplitByEom();
         }
