@@ -62,14 +62,16 @@ class HTTPSession:
     virtual void onRequestEnd(const HTTPSession&,
                               uint32_t maxIngressQueueSize) = 0;
     virtual void onActivateConnection(const HTTPSession&) = 0;
-    virtual void onDeactivateConnection(const HTTPSession&) = 0;
+    virtual void onDeactivateConnection(const HTTPSession&,
+                                        const TransactionInfo&) = 0;
     // Note: you must not start any asynchronous work from onDestroy()
     virtual void onDestroy(const HTTPSession&) = 0;
     virtual void onIngressMessage(const HTTPSession&,
                                   const HTTPMessage&) = 0;
     virtual void onIngressLimitExceeded(const HTTPSession&) = 0;
     virtual void onIngressPaused(const HTTPSession&) = 0;
-    virtual void onTransactionDetached(const HTTPSession&) = 0;
+    virtual void onTransactionDetached(const HTTPSession&,
+                                       const TransactionInfo&) = 0;
     virtual void onPingReplySent(int64_t latency) = 0;
     virtual void onPingReplyReceived() = 0;
     virtual void onSettingsOutgoingStreamsFull(const HTTPSession&) = 0;

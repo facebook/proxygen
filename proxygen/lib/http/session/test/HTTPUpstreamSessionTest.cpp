@@ -162,13 +162,15 @@ class HTTPUpstreamTest: public testing::Test,
   void onRequestEnd(const HTTPSession& sess,
                     uint32_t maxIngressQueueSize) override {}
   void onActivateConnection(const HTTPSession& sess) override {}
-  void onDeactivateConnection(const HTTPSession& sess) override {}
+  void onDeactivateConnection(const HTTPSession& sess,
+                              const TransactionInfo& info) override {}
   void onDestroy(const HTTPSession& sess) override { sessionDestroyed_ = true; }
   void onIngressMessage(const HTTPSession& sess,
                         const HTTPMessage& msg) override {}
   void onIngressLimitExceeded(const HTTPSession& sess) override {}
   void onIngressPaused(const HTTPSession& sess) override {}
-  void onTransactionDetached(const HTTPSession& sess) override {}
+  void onTransactionDetached(const HTTPSession& sess,
+                             const TransactionInfo& info) override {}
   void onPingReplySent(int64_t latency) override {}
   void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {

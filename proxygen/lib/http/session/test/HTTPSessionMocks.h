@@ -208,13 +208,15 @@ class MockHTTPSessionInfoCallback: public HTTPSession::InfoCallback {
   MOCK_METHOD1(onRequestBegin, void(const HTTPSession&));
   MOCK_METHOD2(onRequestEnd, void(const HTTPSession&, uint32_t));
   MOCK_METHOD1(onActivateConnection, void(const HTTPSession&));
-  MOCK_METHOD1(onDeactivateConnection, void(const HTTPSession&));
+  MOCK_METHOD2(onDeactivateConnection, void(const HTTPSession&,
+                                            const TransactionInfo&));
   MOCK_METHOD1(onDestroy, void(const HTTPSession&));
   MOCK_METHOD2(onIngressMessage, void(const HTTPSession&,
                                       const HTTPMessage&));
   MOCK_METHOD1(onIngressLimitExceeded, void(const HTTPSession&));
   MOCK_METHOD1(onIngressPaused, void(const HTTPSession&));
-  MOCK_METHOD1(onTransactionDetached, void(const HTTPSession&));
+  MOCK_METHOD2(onTransactionDetached, void(const HTTPSession&,
+                                           const TransactionInfo&));
   MOCK_METHOD1(onPingReplySent, void(int64_t));
   MOCK_METHOD0(onPingReplyReceived, void());
   MOCK_METHOD1(onSettingsOutgoingStreamsFull, void(const HTTPSession&));

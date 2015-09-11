@@ -1304,6 +1304,10 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   HTTPCodec::StreamID streamID = txn->getID();
   auto it = transactions_.find(txn->getID());
   DCHECK(it != transactions_.end());
+  TransactionInfo txnInfo;
+  if (txn->getHandler()) {
+    txnInfo = std::move(txn->getHandler()->getTransactionInfo());
+  }
   if (!txn->isIngressPaused()) {
     VLOG(4) << *this << " removing streamID=" << streamID <<
         ", liveTransactions was " << liveTransactions_;
@@ -1326,14 +1330,14 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   if (transactions_.empty()) {
     latestActive_ = getCurrentTime();
     if (infoCallback_) {
-      infoCallback_->onDeactivateConnection(*this);
+      infoCallback_->onDeactivateConnection(*this, txnInfo);
     }
     if (getConnectionManager()) {
       getConnectionManager()->onDeactivated(*this);
     }
   } else {
     if (infoCallback_) {
-      infoCallback_->onTransactionDetached(*this);
+      infoCallback_->onTransactionDetached(*this, txnInfo);
     }
   }
 
