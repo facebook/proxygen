@@ -167,8 +167,10 @@ RcvWnd, "recv_window"
 UpstreamCapacity, "upstream_capacity"
 
 /* ---- Used in ConnInfo ----*/
-ReqsStarted, "reqs_started"
-ReqsFinished, "reqs_finished"
+ReqsSucceed, "reqs_succeed"
+ReqsFailed, "reqs_failed"
+TTFB, "ttfb"
+TTLB, "ttlb"
 
 /* --- Used in MQTT Client --- */
 MQTTConnAttempts, "mqtt_conn_attempts"
