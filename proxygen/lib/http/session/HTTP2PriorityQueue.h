@@ -228,21 +228,23 @@ class HTTP2PriorityQueue {
                                           HTTPTransaction *, double)>& fn,
                   bool all,
                   PendingList& pendingNodes) {
-      bool stop = false;
-      if (parent_ != nullptr && (all || isEnqueued())) {
-        stop = fn(id_, txn_,
-                  relativeParentWeight * getRelativeEnqueuedWeight());
-        if (!all || stop) {
-          return stop;
+      bool invoke = (parent_ != nullptr && (all || isEnqueued()));
+
+      // Add children when all==true, or for any not invoked node with
+      // pending children
+      if (all || (!invoke && totalEnqueuedWeight_ > 0)) {
+        for (auto& child: children_) {
+          pendingNodes.push_back({child->id_,
+                relativeParentWeight * getRelativeEnqueuedWeight()});
         }
       }
-      if (!all && totalEnqueuedWeight_ == 0) {
-        return stop;
+
+      // Invoke fn last in case it deletes this node
+      if (invoke && fn(id_, txn_,
+                       relativeParentWeight * getRelativeEnqueuedWeight())) {
+        return true;
       }
-      for (auto& child: children_) {
-        pendingNodes.push_back({child->id_,
-              relativeParentWeight * getRelativeEnqueuedWeight()});
-      }
+
       return false;
     }
 
