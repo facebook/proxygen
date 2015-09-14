@@ -78,6 +78,12 @@ class QueueTest : public testing::Test {
                [] { return false; }, true);
   }
 
+  void dumpBFS(const std::function<bool()>& stopFn) {
+    nodes_.clear();
+    q_.iterateBFS(std::bind(&QueueTest::visitNode, this, _1, _2, _3),
+                  stopFn, true);
+  }
+
   void nextEgress() {
     auto res = q_.nextEgress();
     nodes_.clear();
@@ -224,6 +230,17 @@ TEST_F(QueueTest, Misc) {
   removeTransaction(1);
   dump();
   EXPECT_EQ(nodes_, IDList({{3, 25}, {5, 25}, {7, 50}}));
+}
+
+TEST_F(QueueTest, iterateBFS) {
+  buildSimpleTree();
+
+  auto stopFn = [this] {
+    return nodes_.size() > 2;
+  };
+
+  dumpBFS(stopFn);
+  EXPECT_EQ(nodes_, IDList({{1, 0}, {3, 0}, {5, 0}, {7, 0}}));
 }
 
 TEST_F(QueueTest, nextEgress) {

@@ -363,18 +363,24 @@ class HTTP2PriorityQueue {
     root_.iterate(fn, stopFn, all);
   }
 
+  // stopFn is only evaluated once per level
   void iterateBFS(const std::function<bool(HTTPCodec::StreamID,
                                            HTTPTransaction *, double)>& fn,
                   const std::function<bool()>& stopFn, bool all) {
     Node::PendingList pendingNodes{{0, 1.0}};
+    Node::PendingList newPendingNodes;
     bool stop = false;
     while (!stop && !stopFn() && !pendingNodes.empty()) {
-      Node* node = findInternal(pendingNodes.front().first);
-      if (node) {
-        stop = node->visitBFS(pendingNodes.front().second, fn, all,
-                              pendingNodes);
+      CHECK(newPendingNodes.empty());
+      while (!stop && !pendingNodes.empty()) {
+        Node* node = findInternal(pendingNodes.front().first);
+        if (node) {
+          stop = node->visitBFS(pendingNodes.front().second, fn, all,
+                                newPendingNodes);
+        }
+        pendingNodes.pop_front();
       }
-      pendingNodes.pop_front();
+      std::swap(pendingNodes, newPendingNodes);
     }
   }
 
