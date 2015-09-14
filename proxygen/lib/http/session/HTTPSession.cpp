@@ -1513,8 +1513,8 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
     }
   }
 
-  // cork if there are txns with pending egress
-  *cork = !txnEgressQueue_.empty();
+  // cork if there are txns with pending egress and room to send them
+  *cork = !txnEgressQueue_.empty() && !isConnWindowFull();
   return writeBuf_.move();
 }
 

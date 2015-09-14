@@ -959,6 +959,10 @@ class HTTPSession:
   void invalidStream(HTTPCodec::StreamID stream,
                      ErrorCode code = ErrorCode::_SPDY_INVALID_STREAM);
 
+  bool isConnWindowFull() const {
+    return connFlowControl_ && connFlowControl_->getAvailableSend() == 0;
+  }
+
   //ByteEventTracker::Callback functions
   void onPingReplyLatency(int64_t latency) noexcept override;
   uint64_t getAppBytesWritten() noexcept override;
