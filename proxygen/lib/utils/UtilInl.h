@@ -18,7 +18,8 @@ inline bool caseInsensitiveEqual(folly::StringPiece s, folly::StringPiece t) {
   if (s.size() != t.size()) {
     return false;
   }
-  return std::equal(s.begin(), s.end(), t.begin(), folly::asciiCaseInsensitive);
+  return std::equal(
+      s.begin(), s.end(), t.begin(), folly::AsciiCaseInsensitive());
 }
 
 }
