@@ -1429,18 +1429,10 @@ const TransportInfo& HTTPSession::getSetupTransportInfo() const noexcept {
   return transportInfo_;
 }
 
-bool HTTPSession::getCurrentTransportInfoWithoutUpdate(
-    TransportInfo* tinfo) const {
+bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
   AsyncSocket* sock = dynamic_cast<AsyncSocket*>(sock_.get());
   if (sock) {
     tinfo->initWithSocket(sock);
-    return true;
-  }
-  return false;
-}
-
-bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
-  if (getCurrentTransportInfoWithoutUpdate(tinfo)) {
     // some fields are the same with the setup transport info
     tinfo->setupTime = transportInfo_.setupTime;
     tinfo->ssl = transportInfo_.ssl;
