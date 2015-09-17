@@ -25,7 +25,10 @@
 #define HTTP_PARSER_VERSION_MINOR 0
 
 #include <sys/types.h>
-#if defined(_WIN32) && !defined(__MINGW32__)
+#if defined(_WIN32) && !defined(__MINGW32__) && \
+  (!defined(_MSC_VER) || _MSC_VER<1600) && !defined(__WINE__)
+#include <BaseTsd.h>
+#include <stddef.h>
 typedef __int8 int8_t;
 typedef unsigned __int8 uint8_t;
 typedef __int16 int16_t;
@@ -34,9 +37,6 @@ typedef __int32 int32_t;
 typedef unsigned __int32 uint32_t;
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
-
-typedef unsigned int size_t;
-typedef int ssize_t;
 #else
 #include <stdint.h>
 #endif
