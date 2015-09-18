@@ -46,6 +46,14 @@ TEST_F(LoggingTests, print_hex_iobuf) {
             "0cff 0010 fefe fefe fefe fefe fefe fefe \nfefe fefe ");
 }
 
+TEST_F(LoggingTests, hex_string) {
+  uint8_t buf[] = {
+    0x03, 0x04, 0x11, 0x22, 0xBB, 0xAA
+  };
+  string s((const char *)buf, sizeof(buf));
+  EXPECT_EQ("03041122bbaa", hexStr(s));
+}
+
 TEST_F(LoggingTests, dump_bin) {
   // null IOBuf
   EXPECT_EQ(IOBufPrinter::printBin(nullptr), "");

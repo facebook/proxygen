@@ -9,9 +9,9 @@
  */
 #include <proxygen/lib/utils/Logging.h>
 
+#include <folly/Format.h>
 #include <folly/Memory.h>
 #include <folly/String.h>
-
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 
 using folly::IOBuf;
+using folly::StringPiece;
 using std::ostream;
 using std::string;
 using std::stringstream;
@@ -41,6 +42,14 @@ vector<proxygen::IOBufPrinter*> printers = {
 }
 
 namespace proxygen {
+
+string hexStr(StringPiece sp) {
+  string out;
+  for (auto ch : sp) {
+    out.append(folly::sformat("{:02x}", (uint8_t) ch));
+  }
+  return out;
+}
 
 string HexFollyPrinter::print(const IOBuf* buf) {
   return folly::hexDump(buf->data(), buf->length());

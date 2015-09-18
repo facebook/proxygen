@@ -76,4 +76,10 @@ class BinPrinter : public IOBufPrinter {
  */
 void dumpBinToFile(const std::string& filename, const folly::IOBuf* buf);
 
+/**
+ * helper functions for printing in hex a byte array
+ * see unit test for example
+ */
+std::string hexStr(folly::StringPiece sp);
+
 }
