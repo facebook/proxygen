@@ -560,6 +560,8 @@ class HTTPSession:
   wangle::TransportInfo& getSetupTransportInfo() noexcept;
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
   bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
+  virtual bool getCurrentTransportInfoWithoutUpdate(
+      wangle::TransportInfo* tinfo) const;
   HTTPCodec& getCodec() noexcept {
     return *CHECK_NOTNULL(codec_.call());
   }
