@@ -76,6 +76,7 @@ class HTTPSession:
     virtual void onPingReplyReceived() = 0;
     virtual void onSettingsOutgoingStreamsFull(const HTTPSession&) = 0;
     virtual void onSettingsOutgoingStreamsNotFull(const HTTPSession&) = 0;
+    virtual void onFlowControlWindowClosed(const HTTPSession&) = 0;
   };
 
   class WriteTimeout :

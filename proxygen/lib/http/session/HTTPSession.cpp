@@ -2160,6 +2160,9 @@ void HTTPSession::onConnectionSendWindowOpen() {
 
 void HTTPSession::onConnectionSendWindowClosed() {
   DCHECK(!flowControlTimeout_.isScheduled());
+  if (infoCallback_) {
+    infoCallback_->onFlowControlWindowClosed(*this);
+  }
   transactionTimeouts_->scheduleTimeout(&flowControlTimeout_);
 }
 

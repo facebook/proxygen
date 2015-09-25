@@ -134,6 +134,7 @@ private:
   void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
   void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
+  void onFlowControlWindowClosed(const HTTPSession&) override {}
 
   /** General-case error page generator */
   std::unique_ptr<HTTPErrorPage> defaultErrorPage_;
