@@ -24,7 +24,7 @@ namespace proxygen {
 
 namespace {
   const int64_t kApproximateMTU = 1400;
-  const int64_t kRateLimitMaxDelayMs = 10000;
+  const std::chrono::seconds kRateLimitMaxDelay(10);
 }
 
 HTTPTransaction::HTTPTransaction(TransportDirection direction,
@@ -97,8 +97,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
   if (stats_) {
     stats_->recordTransactionOpened();
   }
-
-  cancelled_.reset(new bool(false));
 }
 
 HTTPTransaction::~HTTPTransaction() {
@@ -113,7 +111,6 @@ HTTPTransaction::~HTTPTransaction() {
   if (isEnqueued()) {
     dequeue();
   }
-  *cancelled_ = true;
 }
 
 void HTTPTransaction::onIngressHeadersComplete(
@@ -720,21 +717,21 @@ bool HTTPTransaction::maybeDelayForRateLimit() {
   // be allowed to send at least 1 full packet's worth.  The
   // formula we're using is:
   //   (bytesSoFar + packetSize) / (timeSoFar + delay) == targetRateLimit
-  int64_t requiredDelayMs = (
+  std::chrono::milliseconds requiredDelay(
     (
      ((int64_t)numLimitedBytesEgressed_ + kApproximateMTU) -
      ((int64_t)egressLimitBytesPerMs_ * limitedDurationMs)
     ) / (int64_t)egressLimitBytesPerMs_
   );
 
-  if (requiredDelayMs <= 0) {
+  if (requiredDelay.count() <= 0) {
     // No delay required
     return false;
   }
 
-  if (requiredDelayMs > kRateLimitMaxDelayMs) {
+  if (requiredDelay > kRateLimitMaxDelay) {
     // The delay should never be this long
-    VLOG(4) << "ratelim: Required delay too long (" << requiredDelayMs
+    VLOG(4) << "ratelim: Required delay too long (" << requiredDelay.count()
       << "ms), ignoring";
     return false;
   }
@@ -743,22 +740,14 @@ bool HTTPTransaction::maybeDelayForRateLimit() {
 
   egressRateLimited_ = true;
 
-  // Make a reference first so we only end up making one copy of the ptr
-  std::shared_ptr<bool> &cancelled = cancelled_;
-
-  folly::EventBaseManager::get()->getEventBase()->runAfterDelay(
-    [this, cancelled]() {
-      if (*cancelled) {
-        return;
-      }
-      egressRateLimited_ = false;
-      notifyTransportPendingEgress();
-    },
-    requiredDelayMs
-  );
-
+  transactionIdleTimeouts_->scheduleTimeout(&rateLimitCallback_, requiredDelay);
   notifyTransportPendingEgress();
   return true;
+}
+
+void HTTPTransaction::rateLimitTimeoutExpired() {
+  egressRateLimited_ = false;
+  notifyTransportPendingEgress();
 }
 
 size_t HTTPTransaction::sendEOMNow() {

@@ -1088,6 +1088,25 @@ class HTTPTransaction :
    */
   void flushWindowUpdate();
 
+  void rateLimitTimeoutExpired();
+
+  class RateLimitCallback : public folly::HHWheelTimer::Callback {
+   public:
+    explicit RateLimitCallback(HTTPTransaction& txn)
+        : txn_(txn) {}
+
+    void timeoutExpired() noexcept override {
+      txn_.rateLimitTimeoutExpired();
+    }
+    void callbackCanceled() noexcept override {
+      // no op
+    }
+   private:
+    HTTPTransaction& txn_;
+  };
+
+  RateLimitCallback rateLimitCallback_{*this};
+
   /**
    * Queue to hold any events that we receive from the Transaction
    * while the ingress is supposed to be paused.
@@ -1199,9 +1218,6 @@ class HTTPTransaction :
   uint64_t egressLimitBytesPerMs_{0};
   proxygen::TimePoint startRateLimit_;
   uint64_t numLimitedBytesEgressed_{0};
-
-  // Used by pending callbacks to see if the transaction has been deleted
-  std::shared_ptr<bool> cancelled_;
 
   /**
    * Optional transaction timeout value.
