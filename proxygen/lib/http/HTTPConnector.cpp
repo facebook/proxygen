@@ -12,6 +12,7 @@
 #include <wangle/ssl/SSLUtil.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
+#include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <folly/io/async/AsyncSSLSocket.h>
@@ -31,6 +32,8 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
   if (spdyVersion) {
     return folly::make_unique<SPDYCodec>(TransportDirection::UPSTREAM,
                                          *spdyVersion);
+  } else if (chosenProto == proxygen::http2::kProtocolString) {
+    return folly::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
   } else {
     if (!chosenProto.empty() &&
         !HTTP1xCodec::supportsNextProtocol(chosenProto)) {
