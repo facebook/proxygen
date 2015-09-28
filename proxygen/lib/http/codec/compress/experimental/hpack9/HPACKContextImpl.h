@@ -18,7 +18,7 @@ namespace proxygen {
 class HPACKContextImpl {
  public:
   static bool isStatic(uint32_t index, size_t staticTableSize) {
-    return index < staticTableSize;
+    return index <= staticTableSize;
   }
 
   static uint32_t globalToDynamicIndex(uint32_t index, size_t staticTableSize) {
