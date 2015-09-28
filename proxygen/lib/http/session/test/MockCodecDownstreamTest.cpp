@@ -22,10 +22,11 @@
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
+#include <sstream>
 #include <string>
-#include <strstream>
 #include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
+#include <boost/optional/optional_io.hpp>
 
 using folly::test::MockAsyncTransport;
 
@@ -846,9 +847,10 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
     codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req1));
     codecCallback_->onMessageComplete(HTTPCodec::StreamID(1), false);
     // Pad coverage numbers
-    std::ostrstream stream;
-    stream << *handler1.txn_ << httpSession_
-           << httpSession_->getLocalAddress() << httpSession_->getPeerAddress();
+    std::ostringstream stream;
+    stream << *handler1.txn_ << *httpSession_
+           << httpSession_->getLocalAddress()
+           << httpSession_->getPeerAddress();
     EXPECT_TRUE(httpSession_->isBusy());
 
     EXPECT_CALL(mockController_, detachSession(_));

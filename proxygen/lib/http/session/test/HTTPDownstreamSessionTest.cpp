@@ -26,7 +26,6 @@
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <string>
-#include <strstream>
 #include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
 
