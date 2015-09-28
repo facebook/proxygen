@@ -28,6 +28,7 @@ NumRedirects, "num_redirects"
 RedirectResponseCode, "redirect_response_code"
 NumRetries, "num_retries"
 PriorityChanges, "priority_changes"
+UsingHTTP2, "using_http2"
 
 /* ---- Used in ResponseBodyRead ---- */
 RspBodySize, "response_body_size"
