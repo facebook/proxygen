@@ -43,4 +43,15 @@ extern CodecProtocol getCodecProtocolFromStr(const std::string& protocolStr);
  * Check if the given protocol is SPDY.
  */
 extern bool isSpdyCodecProtocol(CodecProtocol protocol);
+
+/**
+ * Check if the given protocol is HTTP2.
+ */
+extern bool isHTTP2CodecProtocol(CodecProtocol protocol);
+
+/**
+ * Check if the given protocol supports paraellel requests
+ */
+extern bool isParallelCodecProtocol(CodecProtocol protocol);
+
 }

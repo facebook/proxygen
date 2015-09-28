@@ -72,6 +72,14 @@ extern bool isSpdyCodecProtocol(CodecProtocol protocol) {
          protocol == CodecProtocol::SPDY_3_1_HPACK;
 }
 
+extern bool isHTTP2CodecProtocol(CodecProtocol protocol) {
+  return protocol == CodecProtocol::HTTP_2;
+}
+
+extern bool isParallelCodecProtocol(CodecProtocol protocol) {
+  return isSpdyCodecProtocol(protocol) || isHTTP2CodecProtocol(protocol);
+}
+
 const boost::none_t HTTPCodec::NoPadding = boost::none;
 
 }
