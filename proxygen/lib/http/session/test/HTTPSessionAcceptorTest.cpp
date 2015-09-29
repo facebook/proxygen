@@ -109,6 +109,8 @@ TEST_P(HTTPSessionAcceptorTestNPN, npn) {
   std::string proto(GetParam());
   if (proto == "") {
     acceptor_->expectedProto_ = "http/1.1";
+  } else if (proto.find("h2") != std::string::npos) {
+    acceptor_->expectedProto_ = "http/2";
   } else {
     acceptor_->expectedProto_ = proto;
   }
@@ -125,7 +127,8 @@ TEST_P(HTTPSessionAcceptorTestNPN, npn) {
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
 
-char const* protos1[] = { "spdy/3", "spdy/2", "http/1.1", "" };
+char const* protos1[] = { "h2-14", "h2", "spdy/3.1", "spdy/3", "spdy/2",
+                          "http/1.1", "" };
 INSTANTIATE_TEST_CASE_P(NPNPositive,
                         HTTPSessionAcceptorTestNPN,
                         ::testing::ValuesIn(protos1));

@@ -74,7 +74,7 @@ void HTTPSessionAcceptor::onNewConnection(
       TransportDirection::DOWNSTREAM,
       *version,
       accConfig_.spdyCompressionLevel);
-  } else if (nextProtocol == "h2-14") {
+  } else if (nextProtocol == http2::kProtocolString || nextProtocol == "h2") {
     codec = folly::make_unique<HTTP2Codec>(TransportDirection::DOWNSTREAM);
   } else {
     // Either we advertised a protocol we don't support or the
