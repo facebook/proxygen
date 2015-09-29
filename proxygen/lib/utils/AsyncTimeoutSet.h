@@ -45,8 +45,8 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
   /**
    * A callback to be notified when a timeout has expired.
    *
-   * AsyncTimeoutSet::Callback is very similar to TAsyncTimeout.  The primary
-   * distinction is that TAsyncTimeout can choose its timeout interval each
+   * AsyncTimeoutSet::Callback is very similar to AsyncTimeout.  The primary
+   * distinction is that AsyncTimeout can choose its timeout interval each
    * time it is scheduled.  On the other hand, AsyncTimeoutSet::Callback
    * always uses the timeout interval defined by the AsyncTimeoutSet where it
    * is scheduled.
@@ -134,7 +134,7 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
   /**
    * Create a new AsyncTimeoutSet with the given 'internal' settting. For
    * details on what the InternalEnum specifies, see the documentation in
-   * TAsyncTimeout.h
+   * AsyncTimeout.h
    */
   AsyncTimeoutSet(folly::TimeoutManager* timeoutManager,
                   InternalEnum internal,
@@ -190,7 +190,7 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
   /**
    * Protected destructor.
    *
-   * Use destroy() instead.  See the comments in TDelayedDestruction for more
+   * Use destroy() instead.  See the comments in DelayedDestruction for more
    * details.
    */
   ~AsyncTimeoutSet() override;
@@ -203,7 +203,7 @@ class AsyncTimeoutSet : private folly::AsyncTimeout,
   // Private methods to be invoked by AsyncTimeoutSet::Callback
   void headChanged();
 
-  // Methods inherited from TAsyncTimeout
+  // Methods inherited from AsyncTimeout
   void timeoutExpired() noexcept override;
 
   TimeoutClock& timeoutClock_;
