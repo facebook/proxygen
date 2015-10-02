@@ -577,8 +577,7 @@ class HTTPSession:
    * If the connection is closed by remote end
    */
   bool connCloseByRemote() {
-    return closeReason_ == ConnectionCloseReason::READ_EOF
-      || closeReason_ == ConnectionCloseReason::IO_READ_ERROR;
+    return dynamic_cast<folly::AsyncSocket*>(sock_.get())->isClosedByPeer();
   }
 
  protected:
