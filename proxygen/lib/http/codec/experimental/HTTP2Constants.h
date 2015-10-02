@@ -43,4 +43,5 @@ extern const std::string kHttps;
 extern const std::string kConnectionPreface;
 
 extern const std::string kProtocolString;
+extern const std::string kProtocolCleartextString;
 }}

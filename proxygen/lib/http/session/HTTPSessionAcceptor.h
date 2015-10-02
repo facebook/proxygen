@@ -143,6 +143,7 @@ private:
   std::unique_ptr<HTTPErrorPage> diagnosticErrorPage_;
 
   folly::Optional<SPDYVersion> alwaysUseSPDYVersion_{};
+  folly::Optional<bool> alwaysUseHTTP2_{};
 
   SimpleController simpleController_;
 

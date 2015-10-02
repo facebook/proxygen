@@ -138,7 +138,11 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
   std::string proto(GetParam());
   config_.plaintextProtocol = proto;
   newAcceptor();
-  acceptor_->expectedProto_ = proto;
+  if (proto == "h2c") {
+    acceptor_->expectedProto_ = "http/2";
+  } else {
+    acceptor_->expectedProto_ = proto;
+  }
   AsyncSocket::UniquePtr sock(new AsyncSocket(&eventBase_));
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
@@ -151,7 +155,7 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
 
-char const* protos2[] = { "spdy/3", "spdy/2" };
+char const* protos2[] = { "spdy/3", "spdy/2", "h2c" };
 INSTANTIATE_TEST_CASE_P(NPNPlaintext,
                         HTTPSessionAcceptorTestNPNPlaintext,
                         ::testing::ValuesIn(protos2));

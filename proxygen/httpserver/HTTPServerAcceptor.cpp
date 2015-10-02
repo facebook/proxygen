@@ -12,6 +12,7 @@
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 
 using folly::SocketAddress;
@@ -29,6 +30,8 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
 
   if (ipConfig.protocol == HTTPServer::Protocol::SPDY) {
     conf.plaintextProtocol = "spdy/3.1";
+  } else if (ipConfig.protocol == HTTPServer::Protocol::HTTP2) {
+    conf.plaintextProtocol = http2::kProtocolCleartextString;
   }
 
   conf.sslContextConfigs = ipConfig.sslConfigs;

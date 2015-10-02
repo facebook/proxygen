@@ -40,4 +40,5 @@ const std::string kHttps("https");
 const std::string kConnectionPreface("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
 const std::string kProtocolString("h2-14");
+const std::string kProtocolCleartextString("h2c");
 }}

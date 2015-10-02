@@ -30,6 +30,8 @@ HTTPSessionAcceptor::HTTPSessionAcceptor(
     auto version = SPDYCodec::getVersion(accConfig.plaintextProtocol);
     if (version) {
       alwaysUseSPDYVersion_ = *version;
+    } else if (accConfig.plaintextProtocol == http2::kProtocolCleartextString) {
+      alwaysUseHTTP2_ = true;
     }
   }
 }
@@ -66,6 +68,8 @@ void HTTPSessionAcceptor::onNewConnection(
       TransportDirection::DOWNSTREAM,
       alwaysUseSPDYVersion_.value(),
       accConfig_.spdyCompressionLevel);
+  } else if (!isSSL() && alwaysUseHTTP2_) {
+    codec = folly::make_unique<HTTP2Codec>(TransportDirection::DOWNSTREAM);
   } else if (nextProtocol.empty() ||
              HTTP1xCodec::supportsNextProtocol(nextProtocol)) {
     codec = folly::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM);
