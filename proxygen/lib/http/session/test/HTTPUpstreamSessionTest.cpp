@@ -218,7 +218,7 @@ class TimeoutableHTTPUpstreamTest: public HTTPUpstreamTest<C> {
   TimeoutableHTTPUpstreamTest(): HTTPUpstreamTest<C>() {
     // make it non-internal for this test class
     HTTPUpstreamTest<C>::transactionTimeouts_ =
-      folly::make_unique<folly::HHWheelTimer, folly::HHWheelTimer::Destructor>(
+      folly::HHWheelTimer::newTimer(
         &this->HTTPUpstreamTest<C>::eventBase_,
         std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
         folly::AsyncTimeout::InternalEnum::NORMAL,
