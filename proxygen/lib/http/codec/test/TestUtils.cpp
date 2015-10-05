@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 
+#include <boost/optional/optional_io.hpp>
 #include <folly/Random.h>
 #include <folly/io/Cursor.h>
 
