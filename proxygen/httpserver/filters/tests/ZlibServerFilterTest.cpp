@@ -51,8 +51,8 @@ class ZlibServerFilterTest : public Test {
  protected:
   ZlibServerFilter* filter_{nullptr};
   MockRequestHandler* requestHandler_;
-  unique_ptr<MockResponseHandler> responseHandler_;
-  unique_ptr<ZlibStreamDecompressor> zd_;
+  std::unique_ptr<MockResponseHandler> responseHandler_;
+  std::unique_ptr<ZlibStreamDecompressor> zd_;
   ResponseHandler* downstream_{nullptr};
 
   void exercise_compression(bool expectCompression,
@@ -61,7 +61,7 @@ class ZlibServerFilterTest : public Test {
                             std::string expectedEncoding,
                             std::string originalRequestBody,
                             std::string responseContentType,
-                            unique_ptr<folly::IOBuf> originalResponseBody,
+                            std::unique_ptr<folly::IOBuf> originalResponseBody,
                             int32_t compressionLevel = 4,
                             uint32_t minimumCompressionSize = 1) {
 
@@ -190,7 +190,7 @@ class ZlibServerFilterTest : public Test {
 
   // Helper method to convert a vector of strings to an IOBuf chain
   // specificaly create a chain because the chain pieces are chunks
-  unique_ptr<folly::IOBuf> createResponseChain(
+  std::unique_ptr<folly::IOBuf> createResponseChain(
       std::vector<std::string> const& bodyStrings) {
 
     std::unique_ptr<folly::IOBuf> responseBodyChain;
