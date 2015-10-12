@@ -444,6 +444,10 @@ class HTTPTransaction :
     return priority_;
   }
 
+  TransactionInfo getTransactionInfo() const {
+    return txnInfo_;
+  }
+
   HTTPTransactionEgressSM::State getEgressState() const {
     return egressState_;
   }
@@ -1121,6 +1125,7 @@ class HTTPTransaction :
    */
   folly::IOBufQueue deferredEgressBody_{folly::IOBufQueue::cacheChainLength()};
 
+  TransactionInfo txnInfo_;
   const TransportDirection direction_;
   HTTPCodec::StreamID id_;
   uint32_t seqNo_;

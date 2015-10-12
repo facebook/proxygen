@@ -1302,10 +1302,8 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   HTTPCodec::StreamID streamID = txn->getID();
   auto it = transactions_.find(txn->getID());
   DCHECK(it != transactions_.end());
-  TransactionInfo txnInfo;
-  if (txn->getHandler()) {
-    txnInfo = std::move(txn->getHandler()->getTransactionInfo());
-  }
+  TransactionInfo txnInfo = txn->getTransactionInfo();
+
   if (!txn->isIngressPaused()) {
     VLOG(4) << *this << " removing streamID=" << streamID <<
         ", liveTransactions was " << liveTransactions_;
