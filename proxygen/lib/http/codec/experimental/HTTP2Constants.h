@@ -11,8 +11,12 @@
 
 #include <cstdint>
 #include <string>
+#include <proxygen/lib/http/codec/ErrorCode.h>
 
 namespace proxygen { namespace http2 {
+
+extern ErrorCode errorCodeToGoaway(ErrorCode code);
+extern ErrorCode errorCodeToReset(ErrorCode code);
 
 extern const uint32_t kFrameHeaderSize;
 extern const uint32_t kFrameHeadersBaseMaxSize;
