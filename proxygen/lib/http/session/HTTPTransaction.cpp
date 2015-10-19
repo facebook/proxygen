@@ -827,9 +827,6 @@ HTTPTransaction::sendEOM() {
     VLOG(4) << "Queued egress EOM on " << *this;
     notifyTransportPendingEgress();
   }
-  if (ingressPaused_ && !isIngressComplete()) {
-    resumeIngress();
-  }
 }
 
 void HTTPTransaction::sendAbort() {

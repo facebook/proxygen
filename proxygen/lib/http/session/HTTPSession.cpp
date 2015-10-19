@@ -1304,14 +1304,18 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   DCHECK(it != transactions_.end());
   TransactionInfo txnInfo = txn->getTransactionInfo();
 
-  if (!txn->isIngressPaused()) {
-    VLOG(4) << *this << " removing streamID=" << streamID <<
-        ", liveTransactions was " << liveTransactions_;
-    CHECK(liveTransactions_ > 0);
-    liveTransactions_--;
-  } else {
-    VLOG(4) << *this << " removing streamID=" << streamID;
+  if (txn->isIngressPaused()) {
+    // Someone detached a transaction that was paused.  Make the resumeIngress
+    // call to keep liveTransactions_ in order
+    VLOG(4) << *this << " detached paused transaction=" << streamID;
+    resumeIngress(txn);
   }
+
+  VLOG(4) << *this << " removing streamID=" << streamID <<
+    ", liveTransactions was " << liveTransactions_;
+  CHECK(liveTransactions_ > 0);
+  liveTransactions_--;
+
   if (txn->isPushed()) {
     CHECK(pushedTxns_ > 0);
     pushedTxns_--;
