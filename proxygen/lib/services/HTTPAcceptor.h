@@ -40,12 +40,12 @@ class HTTPAcceptor : public wangle::Acceptor {
   void init(folly::AsyncServerSocket* serverSocket,
             folly::EventBase* eventBase) override {
     Acceptor::init(serverSocket, eventBase);
-    transactionTimeouts_ =
-       folly::make_unique<folly::HHWheelTimer, folly::HHWheelTimer::Destructor>(
+    transactionTimeouts_ = std::unique_ptr<folly::HHWheelTimer, folly::HHWheelTimer::Destructor>(
+      new folly::HHWheelTimer(
         eventBase,
         std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
         folly::AsyncTimeout::InternalEnum::NORMAL,
-        accConfig_.transactionIdleTimeout);
+        accConfig_.transactionIdleTimeout));
 
   }
 
