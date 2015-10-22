@@ -178,6 +178,11 @@ TTLB, "ttlb"
 ConnIdleDuration, "connection_idle_duration"
 ConnLifeSpan, "connection_life_span"
 
+/* ---- Used in ZeroSetup ---- */
+SCFGCacheHit, "scfg_cache_hit"
+InitialAppBytesWritten, "initial_app_bytes_written"
+TimeToInitial, "time_to_initial"
+
 /* --- Used in MQTT Client --- */
 MQTTConnAttempts, "mqtt_conn_attempts"
 IsForeground, "is_foreground"

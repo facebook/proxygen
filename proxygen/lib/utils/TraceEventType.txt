@@ -22,6 +22,7 @@ SingleConnector, "single_connector"
 SessionTransactions, "SessionTransactions"
 TCPInfo, "TCPInfo"
 ConnInfo, "ConnInfo"
+ZeroSetup, "ZeroSetup"
 
 /*
  * XXX: Too bad we have to define events in Liger core for the platform
