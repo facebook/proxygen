@@ -190,6 +190,10 @@ MQTTBytesWritten, "mqtt_bytes_written"
 MQTTBytesRead, "mqtt_bytes_read"
 RawBytesWritten, "raw_bytes_written"
 RawBytesRead, "raw_bytes_read"
+EventLoopTimeAvg, "event_loop_time_avg"
 
 /* --- Used in MQTTMessage --- */
 MQTTMsgRemainingLength, "mqtt_msg_remaining_length"
+MsgType, "msg_type"
+IsMsgRecv, "is_msg_received"
+ConnectReturnCode, "connect_return_code"

@@ -31,11 +31,8 @@ ZeroSetup, "ZeroSetup"
 FBLigerProtocol, "FBLigerProtocol"
 
 /*
- * MQTT Client
+ * MQTT Client events
  */
 MQTTClient, "MQTTClient"
-
-/*
- * MQTT Message
- */
 MQTTMessage, "MQTTMessage"
+MQTTConnect, "MQTTConnect"
