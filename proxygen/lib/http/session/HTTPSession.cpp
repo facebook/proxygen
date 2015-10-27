@@ -1686,6 +1686,14 @@ HTTPSession::shutdownTransport(bool shutdownReads,
     error = kErrorEOF;
   }
 
+  if (shutdownReads && !shutdownWrites && flowControlTimeout_.isScheduled()) {
+    // reads are dead and writes are blocked on a window update that will never
+    // come.  shutdown writes too.
+    VLOG(4) << *this << " Converting read shutdown to read/write due to"
+      " flow control";
+    shutdownWrites = true;
+  }
+
   if (shutdownWrites && !writesShutdown()) {
     if (codec_->generateGoaway(writeBuf_,
                                codec_->getLastIncomingStreamID(),

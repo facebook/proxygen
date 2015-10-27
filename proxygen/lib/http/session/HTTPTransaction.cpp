@@ -430,6 +430,18 @@ void HTTPTransaction::onError(const HTTPException& error) {
   const bool wasEgressComplete = isEgressComplete();
   const bool wasIngressComplete = isIngressComplete();
   bool notify = (handler_);
+  HTTPException::Direction direction = error.getDirection();
+
+  if (direction == HTTPException::Direction::INGRESS &&
+      isIngressEOMSeen() && isExpectingIngress()) {
+    // we got an ingress error, we've seen the entire message, but we're
+    // expecting more (window updates).  These aren't coming, convert to
+    // INGRESS_AND_EGRESS
+    VLOG(4) << *this << " Converting ingress error to ingress+egress due to"
+      " flow control, and aborting";
+    direction = HTTPException::Direction::INGRESS_AND_EGRESS;
+    sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+  }
 
   if (error.getProxygenError() == kErrorStreamAbort) {
     DCHECK(error.getDirection() ==
@@ -441,7 +453,7 @@ void HTTPTransaction::onError(const HTTPException& error) {
     sendAbort(error.getCodecStatusCode());
   }
 
-  switch (error.getDirection()) {
+  switch (direction) {
     case HTTPException::Direction::INGRESS_AND_EGRESS:
       markEgressComplete();
       markIngressComplete();

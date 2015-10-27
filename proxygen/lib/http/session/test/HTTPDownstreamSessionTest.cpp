@@ -1754,6 +1754,109 @@ TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
   cleanup();
 }
 
+TEST_F(SPDY3DownstreamSessionTest, testEOFOnBlockedStream) {
+  HTTPMessage req = getGetRequest();
+  HTTPCodec::StreamID streamID(1);
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
+  SPDYCodec clientCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3_1);
+  clientCodec.generateHeader(requests, streamID, req, 0, true, nullptr);
+
+  StrictMock<MockHTTPHandler> handler1;
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler1));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+          handler1.txn_ = txn; }));
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM())
+    .WillOnce(InvokeWithoutArgs([&handler1, this] {
+          handler1.sendReplyWithBody(200, 80000);
+        }));
+  EXPECT_CALL(handler1, onEgressPaused());
+
+  EXPECT_CALL(handler1, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+          // Not optimal to have a different error code here than the session
+          // flow control case, but HTTPException direction is immutable and
+          // building another one seems not future proof.
+          EXPECT_EQ(ex.getDirection(),
+                    HTTPException::Direction::INGRESS);
+        }));
+  EXPECT_CALL(handler1, detachTransaction());
+
+  EXPECT_CALL(mockController_, detachSession(_));
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->startReadEvents();
+
+  transport_->addReadEOF(std::chrono::milliseconds(10));
+
+  eventBase_.loop();
+}
+
+TEST_F(SPDY31DownstreamTest, testEOFOnBlockedSession) {
+  HTTPMessage req = getGetRequest();
+  HTTPCodec::StreamID streamID(1);
+  IOBufQueue requests{IOBufQueue::cacheChainLength()};
+  SPDYCodec clientCodec(TransportDirection::UPSTREAM,
+                        SPDYVersion::SPDY3_1);
+  clientCodec.generateHeader(requests, streamID, req, 0, true, nullptr);
+  streamID += 2;
+  clientCodec.generateHeader(requests, streamID, req, 0, true, nullptr);
+
+  StrictMock<MockHTTPHandler> handler1;
+  StrictMock<MockHTTPHandler> handler2;
+  EXPECT_CALL(mockController_, getRequestHandler(_, _))
+    .WillOnce(Return(&handler1))
+    .WillOnce(Return(&handler2));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(handler1, setTransaction(_))
+    .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
+          handler1.txn_ = txn; }));
+  EXPECT_CALL(handler1, onHeadersComplete(_));
+  EXPECT_CALL(handler1, onEOM())
+    .WillOnce(InvokeWithoutArgs([&handler1, this] {
+          handler1.sendHeaders(200, 40000);
+          handler1.sendBody(32768);
+        }));
+  EXPECT_CALL(handler2, setTransaction(_))
+    .WillOnce(Invoke([&handler2] (HTTPTransaction* txn) {
+          handler2.txn_ = txn; }));
+  EXPECT_CALL(handler2, onHeadersComplete(_));
+  EXPECT_CALL(handler2, onEOM())
+    .WillOnce(InvokeWithoutArgs([&handler2, this] {
+          handler2.sendHeaders(200, 40000);
+          handler2.sendBody(32768);
+        }));
+
+  EXPECT_CALL(handler1, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+          EXPECT_EQ(ex.getDirection(),
+                    HTTPException::Direction::INGRESS_AND_EGRESS);
+        }));
+  EXPECT_CALL(handler1, detachTransaction());
+  EXPECT_CALL(handler2, onError(_))
+    .WillOnce(Invoke([&] (const HTTPException& ex) {
+          EXPECT_EQ(ex.getDirection(),
+                    HTTPException::Direction::INGRESS_AND_EGRESS);
+        }));
+  EXPECT_CALL(handler2, detachTransaction());
+
+  EXPECT_CALL(mockController_, detachSession(_));
+
+  transport_->addReadEvent(requests, std::chrono::milliseconds(10));
+  transport_->startReadEvents();
+
+  transport_->addReadEOF(std::chrono::milliseconds(10));
+
+  eventBase_.loop();
+}
+
+
 TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
   // Send 1 request with prio=0
   // Have egress pause while sending the first response
