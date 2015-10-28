@@ -371,10 +371,13 @@ void HTTPTransaction::processIngressEOM() {
   updateReadTimeout();
 }
 
+bool HTTPTransaction::isExpectingWindowUpdate() const {
+  return (useFlowControl_ && sendWindow_.getSize() <= 0);
+}
+
 bool HTTPTransaction::isExpectingIngress() const {
   return (!ingressPaused_ &&
-          (!isIngressEOMSeen() ||
-           (useFlowControl_ && sendWindow_.getSize() <= 0)));
+          (!isIngressEOMSeen() || isExpectingWindowUpdate()));
 }
 
 void HTTPTransaction::updateReadTimeout() {
@@ -433,7 +436,7 @@ void HTTPTransaction::onError(const HTTPException& error) {
   HTTPException::Direction direction = error.getDirection();
 
   if (direction == HTTPException::Direction::INGRESS &&
-      isIngressEOMSeen() && isExpectingIngress()) {
+      isIngressEOMSeen() && isExpectingWindowUpdate()) {
     // we got an ingress error, we've seen the entire message, but we're
     // expecting more (window updates).  These aren't coming, convert to
     // INGRESS_AND_EGRESS
@@ -501,8 +504,7 @@ void HTTPTransaction::onIngressTimeout() {
   DestructorGuard g(this);
   VLOG(4) << "ingress timeout on " << *this;
   pauseIngress();
-  bool windowUpdateTimeout = !isEgressComplete() &&
-    useFlowControl_ && sendWindow_.getSize() <= 0;
+  bool windowUpdateTimeout = !isEgressComplete() && isExpectingWindowUpdate();
   if (handler_) {
     if (windowUpdateTimeout) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
@@ -796,6 +798,16 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   if (sendEom) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
+  } else if (ingressErrorSeen_ && isExpectingWindowUpdate()) {
+    // I don't know how we got here but we're in trouble.  We need a window
+    // update to continue but we've already seen an ingress error.
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+                     folly::to<std::string>("window blocked with ingress error,"
+                                            " streamID=", id_));
+    ex.setProxygenError(kErrorEOF);
+    ex.setCodecStatusCode(ErrorCode::FLOW_CONTROL_ERROR);
+    onError(ex);
+    return 0;
   }
   updateReadTimeout();
   nbytes = transport_.sendBody(this, std::move(body), sendEom);

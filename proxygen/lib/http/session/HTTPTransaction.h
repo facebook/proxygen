@@ -1065,6 +1065,8 @@ class HTTPTransaction :
 
   bool isExpectingIngress() const;
 
+  bool isExpectingWindowUpdate() const;
+
   void updateReadTimeout();
 
   /**
