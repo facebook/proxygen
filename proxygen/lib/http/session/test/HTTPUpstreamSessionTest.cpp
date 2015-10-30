@@ -68,10 +68,18 @@ class HTTPUpstreamTest: public testing::Test,
                                   std::chrono::milliseconds(500))) {
   }
 
+  void resumeWrites() {
+    pauseWrites_ = false;
+    for (auto cb: cbs_) {
+      handleWrite(cb);
+    }
+    cbs_.clear();
+  }
+
   virtual void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
                             std::shared_ptr<IOBuf> iob,
                             WriteFlags flags) {
-    if (timeoutWrites_) {
+    if (pauseWrites_) {
       cbs_.push_back(callback);
       return;  // let write requests timeout
     }
@@ -80,6 +88,10 @@ class HTTPUpstreamTest: public testing::Test,
       mybuf->unshare();
       writes_.append(std::move(mybuf));
     }
+    handleWrite(callback);
+  }
+
+  void handleWrite(folly::AsyncTransportWrapper::WriteCallback* callback) {
     if (failWrites_) {
       AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
       callback->writeErr(0, ex);
@@ -233,7 +245,7 @@ class HTTPUpstreamTest: public testing::Test,
   std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
   bool saveWrites_{false};
   bool failWrites_{false};
-  bool timeoutWrites_{false};
+  bool pauseWrites_{false};
   bool writeInLoop_{false};
 };
 TYPED_TEST_CASE_P(HTTPUpstreamTest);
@@ -395,6 +407,32 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
   // Session will delete itself after the abort
 }
 
+TEST_F(SPDY3UpstreamSessionTest, test_under_limit_on_write_error) {
+  InSequence enforceOrder;
+  auto handler = openTransaction();
+
+  auto req = getPostRequest();
+  handler->txn_->sendHeaders(req);
+  // pause writes
+  pauseWrites_ = true;
+  handler->expectEgressPaused();
+
+  // send body
+  handler->txn_->sendBody(makeBuf(70000));
+  eventBase_.loopOnce();
+
+  // but no expectEgressResumed
+  handler->expectError();
+  handler->expectDetachTransaction();
+  failWrites_ = true;
+  resumeWrites();
+
+  this->eventBase_.loop();
+  EXPECT_EQ(this->sessionDestroyed_, true);
+}
+
+
+
 TYPED_TEST_P(HTTPUpstreamTest, immediate_eof) {
   // Receive an EOF without any request data
   this->readCallback_->readEOF();
@@ -537,7 +575,7 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   // Test where the upstream session times out while writing the request
   // to the server, but after the server has already sent back a full
   // response.
-  timeoutWrites_ = true;
+  pauseWrites_ = true;
   HTTPMessage req = getPostRequest();
 
   InSequence enforceOrder;
@@ -1510,7 +1548,7 @@ TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
 
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
-                           immediate_eof/*[, other_test]*/);
+                           immediate_eof);
 
 typedef ::testing::Types<HTTP1xCodecPair, SPDY2CodecPair,
                          SPDY3CodecPair> AllTypes;
