@@ -131,9 +131,9 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     windowUpdates[stream].push_back(amount);
   }
 
-  void onSettings(const SettingsList& settings) override {
-    this->settings++;
-    for (auto& setting: settings) {
+  void onSettings(const SettingsList& inSettings) override {
+    settings++;
+    for (auto& setting: inSettings) {
       if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
         windowSize = setting.value;
       } else if (setting.id == SettingsId::MAX_CONCURRENT_STREAMS) {

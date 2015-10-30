@@ -188,6 +188,32 @@ class HTTPUpstreamTest: public testing::Test,
     }
   }
 
+  std::unique_ptr<StrictMock<MockHTTPHandler>> openTransaction(
+    bool expectStartPaused = false) {
+    // Returns a mock handler with txn_ field set in it
+    auto handler = folly::make_unique<StrictMock<MockHTTPHandler>>();
+    handler->expectTransaction();
+    if (expectStartPaused) {
+      handler->expectEgressPaused();
+    }
+    auto txn = httpSession_->newTransaction(handler.get());
+    EXPECT_EQ(txn, handler->txn_);
+    return std::move(handler);
+  }
+
+  std::unique_ptr<NiceMock<MockHTTPHandler>> openNiceTransaction(
+    bool expectStartPaused = false) {
+    // Returns a mock handler with txn_ field set in it
+    auto handler = folly::make_unique<NiceMock<MockHTTPHandler>>();
+    handler->expectTransaction();
+    if (expectStartPaused) {
+      handler->expectEgressPaused();
+    }
+    auto txn = httpSession_->newTransaction(handler.get());
+    EXPECT_EQ(txn, handler->txn_);
+    return std::move(handler);
+  }
+
  protected:
   bool sessionCreated_{false};
   bool sessionDestroyed_{false};
@@ -254,15 +280,12 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   std::unique_ptr<folly::IOBuf> input = output.move();
   input->coalesce();
 
-  MockHTTPHandler handler;
   MockHTTPHandler pushHandler;
-  HTTPTransaction* txn;
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onPushedTransaction(_))
+  auto handler = openTransaction();
+  EXPECT_CALL(*handler, onPushedTransaction(_))
     .WillOnce(Invoke([this, &pushHandler] (HTTPTransaction* pushTxn) {
           pushTxn->setHandler(&pushHandler);
         }));
@@ -280,23 +303,15 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   EXPECT_CALL(pushHandler, onEOM());
   EXPECT_CALL(pushHandler, detachTransaction());
 
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onBody(_));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  EXPECT_CALL(*handler, onBody(_));
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
-
-  HTTPMessage req = getGetRequest();
-
-  txn->sendHeaders(req);
-  txn->sendEOM();
-
+  handler->sendRequest();
   readAndLoop(input->data(), input->length());
 
   EXPECT_EQ(httpSession_->getNumIncomingStreams(), 0);
@@ -306,8 +321,6 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
 TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
   // Tests whether the session aborts the streams which are not created
   // at the remote end.
-  MockHTTPHandler handler;
-  HTTPTransaction* txn;
 
   // Create SPDY buf for GOAWAY with last good stream as 0 (no streams created)
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
@@ -317,34 +330,25 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onError(_))
-    .WillOnce(Invoke([&] (const HTTPException& err) {
-          EXPECT_TRUE(err.hasProxygenError());
-          EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
-          ASSERT_EQ(
-            folly::to<std::string>("StreamUnacknowledged on transaction id: ",
-              txn->getID()),
-            std::string(err.what()));
-        }));
-  EXPECT_CALL(handler, detachTransaction())
-    .WillOnce(InvokeWithoutArgs([this] {
-          // Make sure the session can't create any more transactions.
-          MockHTTPHandler handler2;
-          EXPECT_EQ(httpSession_->newTransaction(&handler2), nullptr);
-        }));
-
-  // Create new transaction
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
+  auto handler = openTransaction();
+  handler->expectError([&] (const HTTPException& err) {
+      EXPECT_TRUE(err.hasProxygenError());
+      EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+      ASSERT_EQ(
+        folly::to<std::string>("StreamUnacknowledged on transaction id: ",
+                               handler->txn_->getID()),
+        std::string(err.what()));
+    });
+  handler->expectDetachTransaction([this] {
+      // Make sure the session can't create any more transactions.
+      MockHTTPHandler handler2;
+      EXPECT_EQ(httpSession_->newTransaction(&handler2), nullptr);
+    });
 
   // Send the GET request
-  HTTPMessage req = getGetRequest();
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
 
   // Receive GOAWAY frame while waiting for SYN_REPLY
   readAndLoop(goawayFrame->data(), goawayFrame->length());
@@ -355,8 +359,6 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
 TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
   // Tests whether the session aborts the streams which are not created
   // at the remote end which have error codes.
-  MockHTTPHandler handler;
-  HTTPTransaction* txn;
 
   // Create SPDY buf for GOAWAY with last good stream as 0 (no streams created)
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
@@ -366,35 +368,26 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onError(_))
-    .WillOnce(Invoke([&] (const HTTPException& err) {
-          EXPECT_TRUE(err.hasProxygenError());
-          EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
-          ASSERT_EQ(
-            folly::to<std::string>("StreamUnacknowledged on transaction id: ",
-              txn->getID(),
-              " with codec error: PROTOCOL_ERROR"),
-            std::string(err.what()));
-        }));
-  EXPECT_CALL(handler, detachTransaction())
-    .WillOnce(InvokeWithoutArgs([this] {
-          // Make sure the session can't create any more transactions.
-          MockHTTPHandler handler2;
-          EXPECT_EQ(httpSession_->newTransaction(&handler2), nullptr);
-        }));
-
-  // Create new transaction
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
+  auto handler = openTransaction();
+  handler->expectError([&] (const HTTPException& err) {
+      EXPECT_TRUE(err.hasProxygenError());
+      EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+      ASSERT_EQ(
+        folly::to<std::string>("StreamUnacknowledged on transaction id: ",
+                               handler->txn_->getID(),
+                               " with codec error: PROTOCOL_ERROR"),
+        std::string(err.what()));
+    });
+  handler->expectDetachTransaction([this] {
+      // Make sure the session can't create any more transactions.
+      MockHTTPHandler handler2;
+      EXPECT_EQ(httpSession_->newTransaction(&handler2), nullptr);
+    });
 
   // Send the GET request
-  HTTPMessage req = getGetRequest();
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
 
   // Receive GOAWAY frame while waiting for SYN_REPLY
   readAndLoop(goawayFrame->data(), goawayFrame->length());
@@ -411,27 +404,18 @@ TYPED_TEST_P(HTTPUpstreamTest, immediate_eof) {
 
 template <class CodecPair>
 void HTTPUpstreamTest<CodecPair>::testBasicRequest() {
-  MockHTTPHandler handler;
-  HTTPTransaction* txn;
-  HTTPMessage req = getGetRequest();
+  InSequence enforceOrder;
 
-  InSequence dummy;
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_TRUE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_TRUE(msg->getIsChunked());
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
-
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
   readAndLoop("HTTP/1.1 200 OK\r\n"
               "Transfer-Encoding: chunked\r\n\r\n"
               "0\r\n\r\n");
@@ -460,32 +444,25 @@ TEST_F(HTTPUpstreamSessionTest, 10_requests) {
 
 template <class CodecPair>
 void HTTPUpstreamTest<CodecPair>::testBasicRequestHttp10(bool keepalive) {
-  MockHTTPHandler handler;
-  HTTPTransaction* txn = nullptr;
   HTTPMessage req = getGetRequest();
   req.setHTTPVersion(1, 0);
   if (keepalive) {
     req.getHeaders().set(HTTP_HEADER_CONNECTION, "Keep-Alive");
   }
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_EQ(200, msg->getStatusCode());
-          EXPECT_EQ(keepalive ? "keep-alive" : "close",
-            msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION));
-        }));
-  EXPECT_CALL(handler, onBody(_));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(200, msg->getStatusCode());
+      EXPECT_EQ(keepalive ? "keep-alive" : "close",
+                msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION));
+    });
+  EXPECT_CALL(*handler, onBody(_));
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
   if (keepalive) {
     readAndLoop("HTTP/1.0 200 OK\r\n"
                 "Connection: keep-alive\r\n"
@@ -505,28 +482,19 @@ TEST_F(HTTPUpstreamSessionTest, http10_keepalive) {
 }
 
 TEST_F(HTTPUpstreamSessionTest, basic_trailers) {
-  MockHTTPHandler handler;
-  HTTPTransaction* txn;
-  HTTPMessage req = getGetRequest();
+  InSequence enforceOrder;
 
-  InSequence dummy;
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_TRUE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  EXPECT_CALL(*handler, onTrailers(_));
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_TRUE(msg->getIsChunked());
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onTrailers(_));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
-
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
   readAndLoop("HTTP/1.1 200 OK\r\n"
               "Transfer-Encoding: chunked\r\n\r\n"
               "0\r\n"
@@ -539,32 +507,19 @@ TEST_F(HTTPUpstreamSessionTest, basic_trailers) {
 }
 
 TEST_F(HTTPUpstreamSessionTest, two_requests_with_pause) {
-  MockHTTPHandler handler;
-  HTTPTransaction* txn;
-  HTTPMessage req = getGetRequest();
+  InSequence enforceOrder;
 
-  InSequence dummy;
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_TRUE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_TRUE(msg->getIsChunked());
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
+  handler->expectEOM([&] () { handler->txn_->pauseIngress(); });
+  handler->expectDetachTransaction();
 
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
-
-  EXPECT_CALL(handler, onEOM())
-    .WillOnce(InvokeWithoutArgs([&] () {
-          txn->pauseIngress();
-        }));
-  EXPECT_CALL(handler, detachTransaction());
-
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
   readAndLoop("HTTP/1.1 200 OK\r\n"
               "Transfer-Encoding: chunked\r\n\r\n"
               "0\r\n\r\n");
@@ -583,34 +538,29 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   // to the server, but after the server has already sent back a full
   // response.
   timeoutWrites_ = true;
-  MockHTTPHandler handler;
   HTTPMessage req = getPostRequest();
 
-  InSequence dummy;
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&(handler.txn_)));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_TRUE(msg->getIsChunked());
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, onError(_))
-    .WillOnce(Invoke([&] (const HTTPException& err) {
-          EXPECT_TRUE(err.hasProxygenError());
-          ASSERT_EQ(err.getDirection(),
-                    HTTPException::Direction::INGRESS_AND_EGRESS);
-          EXPECT_EQ(err.getProxygenError(), kErrorWriteTimeout);
-          ASSERT_EQ(
-            folly::to<std::string>("WriteTimeout on transaction id: ",
-              handler.txn_->getID()),
-            std::string(err.what()));
-        }));
-  EXPECT_CALL(handler, detachTransaction());
+  InSequence enforceOrder;
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_TRUE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
+  handler->expectError([&] (const HTTPException& err) {
+      EXPECT_TRUE(err.hasProxygenError());
+      ASSERT_EQ(err.getDirection(),
+                HTTPException::Direction::INGRESS_AND_EGRESS);
+      EXPECT_EQ(err.getProxygenError(), kErrorWriteTimeout);
+      ASSERT_EQ(
+        folly::to<std::string>("WriteTimeout on transaction id: ",
+                               handler->txn_->getID()),
+        std::string(err.what()));
+    });
+  handler->expectDetachTransaction();
 
-  HTTPTransaction* txn = httpSession_->newTransaction(&handler);
-  txn->sendHeaders(req);
+  handler->txn_->sendHeaders(req);
   // Don't send the body, but get a response immediately
   readAndLoop("HTTP/1.1 200 OK\r\n"
               "Transfer-Encoding: chunked\r\n\r\n"
@@ -620,48 +570,41 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
 TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   // Test that setting a new timeout on the transaction will cancel
   // the old one.
-  MockHTTPHandler handler;
+  auto handler = openTransaction();
+  handler->expectDetachTransaction();
 
-  EXPECT_CALL(handler, setTransaction(_));
-  EXPECT_CALL(handler, detachTransaction());
-
-  auto txn = httpSession_->newTransaction(&handler);
-  EXPECT_FALSE(txn->hasIdleTimeout());
-  txn->setIdleTimeout(std::chrono::milliseconds(747));
-  EXPECT_TRUE(txn->hasIdleTimeout());
-  EXPECT_TRUE(txn->isScheduled());
+  EXPECT_FALSE(handler->txn_->hasIdleTimeout());
+  handler->txn_->setIdleTimeout(std::chrono::milliseconds(747));
+  EXPECT_TRUE(handler->txn_->hasIdleTimeout());
+  EXPECT_TRUE(handler->txn_->isScheduled());
   EXPECT_EQ(transactionTimeouts_->count(), 1);
-  txn->sendAbort();
+  handler->txn_->sendAbort();
   eventBase_.loop();
 }
 
 TEST_F(HTTPUpstreamSessionTest, 100_continue_keepalive) {
   // Test a request with 100 continue on a keepalive connection. Then make
   // another request.
-  MockHTTPHandler handler;
   HTTPMessage req = getGetRequest();
   req.getHeaders().set(HTTP_HEADER_EXPECT, "100-continue");
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsChunked());
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(100, msg->getStatusCode());
-        }))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_TRUE(msg->getIsChunked());
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(100, msg->getStatusCode());
+    });
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_TRUE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  auto txn = httpSession_->newTransaction(&handler);
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest(req);
   readAndLoop("HTTP/1.1 100 Continue\r\n\r\n"
               "HTTP/1.1 200 OK\r\n"
               "Transfer-Encoding: chunked\r\n\r\n"
@@ -675,25 +618,21 @@ TEST_F(HTTPUpstreamSessionTest, 100_continue_keepalive) {
 TEST_F(HTTPUpstreamSessionTest, 417_keepalive) {
   // Test a request with 100 continue on a keepalive connection. Then make
   // another request after the expectation fails.
-  MockHTTPHandler handler;
   HTTPMessage req = getGetRequest();
   req.getHeaders().set(HTTP_HEADER_EXPECT, "100-continue");
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsChunked());
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(417, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(417, msg->getStatusCode());
+    });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  auto txn = httpSession_->newTransaction(&handler);
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest(req);
   readAndLoop("HTTP/1.1 417 Expectation Failed\r\n"
               "Content-Length: 0\r\n\r\n");
 
@@ -706,27 +645,23 @@ TEST_F(HTTPUpstreamSessionTest, 417_keepalive) {
 TEST_F(HTTPUpstreamSessionTest, 101_upgrade) {
   // Test an upgrade request with sending 101 response. Then send
   // some data and check the onBody callback contents
-  MockHTTPHandler handler;
   HTTPMessage req = getGetRequest();
   req.getHeaders().set(HTTP_HEADER_UPGRADE, "http/2.0");
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsChunked());
-          EXPECT_EQ(101, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onUpgrade(_));
-  EXPECT_CALL(handler, onBody(_))
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsChunked());
+      EXPECT_EQ(101, msg->getStatusCode());
+    });
+  EXPECT_CALL(*handler, onUpgrade(_));
+  EXPECT_CALL(*handler, onBody(_))
     .WillOnce(ExpectString("Test Body\r\n"));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  auto txn = httpSession_->newTransaction(&handler);
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest(req);
   eventBase_.loop();
   readAndLoop("HTTP/1.1 101 Switching Protocols\r\n"
               "Upgrade: http/2.0\r\n\r\n"
@@ -765,61 +700,48 @@ class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
 TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
   // If the session is paused, new upstream transactions should start
   // paused too.
-  NiceMock<MockHTTPHandler> handler1;
-  NiceMock<MockHTTPHandler> handler2;
   HTTPMessage req = getGetRequest();
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler1, setTransaction(_));
-  auto txn1 = httpSession_->newTransaction(&handler1);
-  txn1->sendHeaders(req);
-  Mock::VerifyAndClearExpectations(&handler1);
+  auto handler1 = openNiceTransaction();
+  handler1->txn_->sendHeaders(req);
+  Mock::VerifyAndClearExpectations(handler1.get());
   // The session pauses all txns since no writeSuccess for too many bytes
-  EXPECT_CALL(handler1, onEgressPaused());
+  handler1->expectEgressPaused();
   // Send a body big enough to pause egress
-  txn1->sendBody(makeBuf(HTTPSession::getPendingWriteMax()));
+  handler1->txn_->sendBody(makeBuf(HTTPSession::getPendingWriteMax()));
   eventBase_.loop();
-  Mock::VerifyAndClearExpectations(&handler1);
+  Mock::VerifyAndClearExpectations(handler1.get());
 
-  EXPECT_CALL(handler2, setTransaction(_));
-  EXPECT_CALL(handler2, onEgressPaused());
-  (void)httpSession_->newTransaction(&handler2);
+  auto handler2 = openNiceTransaction(true /* expect start paused */);
   eventBase_.loop();
-  Mock::VerifyAndClearExpectations(&handler2);
+  Mock::VerifyAndClearExpectations(handler2.get());
 
   httpSession_->shutdownTransportWithReset(kErrorTimeout);
 }
 
 TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
-  // Test where the handler gets onEgressResumed() and aborts itself and
-  // creates another transaction on the SPDY session inside that
-  // callback. This used to invalidate the transactions iterator inside
-  // HTTPSession and cause a crash
+  // Test where the handler gets onEgressPaused() and triggers another
+  // HTTPSession call to iterate over all transactions (to ensure nested
+  // iteration works).
 
-  NiceMock<MockHTTPHandler> handler1;
-  NiceMock<MockHTTPHandler> handler2;
-  NiceMock<MockHTTPHandler> handler3;
   HTTPMessage req = getGetRequest();
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler1, setTransaction(_));
-  EXPECT_CALL(handler2, setTransaction(_));
-  EXPECT_CALL(handler3, setTransaction(_));
-  EXPECT_CALL(handler2, onEgressPaused())
-    .WillOnce(InvokeWithoutArgs([this] {
-          // This time it is invoked by the session on all transactions
-          httpSession_->shutdownTransportWithReset(kErrorTimeout);
-        }));
-  /*auto txn1 =*/(void)httpSession_->newTransaction(&handler1);
-  auto txn2 = httpSession_->newTransaction(&handler2);
-  /*auto txn3 =*/(void)httpSession_->newTransaction(&handler3);
-  txn2->sendHeaders(req);
+  auto handler1 = openNiceTransaction();
+  auto handler2 = openNiceTransaction();
+  auto handler3 = openNiceTransaction();
+  handler2->expectEgressPaused([this] {
+      // This time it is invoked by the session on all transactions
+      httpSession_->shutdownTransportWithReset(kErrorTimeout);
+    });
+  handler2->txn_->sendHeaders(req);
   // This happens when the body write fills the txn egress queue
   // Send a body big enough to pause egress
-  txn2->onIngressWindowUpdate(100);
-  txn2->sendBody(makeBuf(HTTPSession::getPendingWriteMax() + 1));
+  handler2->txn_->onIngressWindowUpdate(100);
+  handler2->txn_->sendBody(makeBuf(HTTPSession::getPendingWriteMax() + 1));
   eventBase_.loop();
 }
 
@@ -866,8 +788,7 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
   std::unique_ptr<StrictMock<MockHTTPHandler>> openTransaction() {
     // Returns a mock handler with txn_ field set in it
     auto handler = folly::make_unique<StrictMock<MockHTTPHandler>>();
-    EXPECT_CALL(*handler, setTransaction(_))
-      .WillOnce(SaveArg<0>(&handler->txn_));
+    handler->expectTransaction();
     auto txn = httpSession_->newTransaction(handler.get());
     EXPECT_EQ(txn, handler->txn_);
     return std::move(handler);
@@ -902,22 +823,25 @@ TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
   // Expect that the codec should be asked to generate an abort on streamID==1
 
   // Setup the codec expectations.
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
+    .WillOnce(Invoke([] (folly::IOBufQueue& writeBuf, HTTPCodec::StreamID,
+                         const HTTPMessage&, HTTPCodec::StreamID, bool,
+                         HTTPHeaderSize*) {
+                       writeBuf.append("1", 1);
+                     }));
   EXPECT_CALL(*codecPtr_, generateEOM(_, _))
     .WillOnce(Return(20));
   EXPECT_CALL(*codecPtr_, generateRstStream(_, 1, _));
 
   // 1)
-  NiceMock<MockHTTPHandler> handler;
-  auto txn = httpSession_->newTransaction(&handler);
+  auto handler = openTransaction();
 
   // 2)
-  auto req = getPostRequest();
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest(getPostRequest());
 
   // 3) Note this sendAbort() doesn't destroy the txn since byte events are
   // enqueued
-  txn->sendAbort();
+  handler->txn_->sendAbort();
 
   // 4)
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, "foo");
@@ -926,6 +850,7 @@ TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
   codecCb_->onError(1, ex, true);
 
   // cleanup
+  handler->expectDetachTransaction();
   httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
   eventBase_.loop();
 }
@@ -961,36 +886,26 @@ TEST_F(MockHTTPUpstreamTest, outgoing_txn_settings) {
 TEST_F(MockHTTPUpstreamTest, ingress_goaway_drain) {
   // Tests whether the session drains existing transactions and
   // deletes itself after receiving a GOAWAY.
-  MockHTTPHandler handler;
-  HTTPTransaction* txn;
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
-
-  // Create new transaction
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-  CHECK_EQ(txn, txn2);
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
   // Send the GET request
-  HTTPMessage req = getGetRequest();
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
 
   // Receive GOAWAY frame with last good stream as 1
   codecCb_->onGoaway(1, ErrorCode::NO_ERROR);
 
   // New transactions cannot be created afrer goaway
   EXPECT_FALSE(httpSession_->isReusable());
-  EXPECT_EQ(httpSession_->newTransaction(&handler), nullptr);
+  EXPECT_EQ(httpSession_->newTransaction(handler.get()), nullptr);
 
   // Receive 200 OK
   auto resp = makeResponse(200);
@@ -1008,22 +923,18 @@ TEST_F(MockHTTPUpstreamTest, goaway) {
   const unsigned numTxns = 10;
   MockHTTPHandler handler[numTxns];
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   for (unsigned i = 0; i < numTxns; ++i) {
-    EXPECT_CALL(handler[i], setTransaction(_))
-      .WillOnce(SaveArg<0>(&handler[i].txn_));
-    EXPECT_CALL(handler[i], onHeadersComplete(_))
-      .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-            EXPECT_FALSE(msg->getIsUpgraded());
-            EXPECT_EQ(200, msg->getStatusCode());
-          }));
+    handler[i].expectTransaction();
+    handler[i].expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+        EXPECT_FALSE(msg->getIsUpgraded());
+        EXPECT_EQ(200, msg->getStatusCode());
+      });
     httpSession_->newTransaction(&handler[i]);
 
     // Send the GET request
-    HTTPMessage req = getGetRequest();
-    handler[i].txn_->sendHeaders(req);
-    handler[i].txn_->sendEOM();
+    handler[i].sendRequest();
 
     // Receive 200 OK
     auto resp = makeResponse(200);
@@ -1033,8 +944,8 @@ TEST_F(MockHTTPUpstreamTest, goaway) {
 
   codecCb_->onGoaway(numTxns * 2 + 1, ErrorCode::NO_ERROR);
   for (unsigned i = 0; i < numTxns; ++i) {
-    EXPECT_CALL(handler[i], onEOM());
-    EXPECT_CALL(handler[i], detachTransaction());
+    handler[i].expectEOM();
+    handler[i].expectDetachTransaction();
     codecCb_->onMessageComplete(i*2 + 1, false);
   }
   eventBase_.loop();
@@ -1047,11 +958,10 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
   // upstream session
   MockHTTPHandler handler;
 
-  InSequence dummy;
+  InSequence enforceOrder;
   saveWrites_ = true;
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&handler.txn_));
+  handler.expectTransaction();
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
     .WillOnce(Invoke([&] (IOBufQueue& writeBuf,
                           HTTPCodec::StreamID stream,
@@ -1061,18 +971,15 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
                           HTTPHeaderSize* size) {
                        writeBuf.append("HEADERS", 7);
                      }));
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
+  handler.expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
   httpSession_->newTransaction(&handler);
   httpSession_->drain();
 
   // Send the GET request
-  HTTPMessage req = getGetRequest();
-  handler.txn_->sendHeaders(req);
-  handler.txn_->sendEOM();
+  handler.sendRequest();
 
   // Receive 200 OK
   auto resp = makeResponse(200);
@@ -1080,8 +987,8 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
   codecCb_->onHeadersComplete(handler.txn_->getID(), std::move(resp));
 
   codecCb_->onGoaway(1, ErrorCode::NO_ERROR);
-  EXPECT_CALL(handler, onEOM());
-  EXPECT_CALL(handler, detachTransaction());
+  handler.expectEOM();
+  handler.expectDetachTransaction();
   codecCb_->onMessageComplete(1, false);
   eventBase_.loop();
 
@@ -1092,36 +999,24 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
 }
 
 TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
-  MockHTTPHandler handler;
-  HTTPTransaction* txn;
-
   EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
     .WillRepeatedly(Return(true));
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&txn));
+  auto handler = openTransaction();
 
-  HTTPTransaction* txn2 = httpSession_->newTransaction(&handler);
-
-  HTTPMessage req = getGetRequest();
-
-  txn->sendHeaders(req);
-  txn->sendEOM();
+  handler->sendRequest();
   httpSession_->drain();
-  auto streamID = txn->getID();
+  auto streamID = handler->txn_->getID();
 
-  EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(handler, onBody(_))
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  EXPECT_CALL(*handler, onBody(_))
     .Times(3);
-  EXPECT_CALL(handler, onEOM());
+  handler->expectEOM();
 
-  EXPECT_CALL(handler, detachTransaction());
-
-  CHECK_EQ(txn, txn2);
+  handler->expectDetachTransaction();
 
   uint32_t outstanding = 0;
   uint32_t sendWindow = 65536;
@@ -1178,7 +1073,7 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
   HTTPMessage req = getGetRequest();
   req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "10");
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateBody(_, _, _, _, true));
@@ -1215,12 +1110,11 @@ class TestAbortPost : public MockHTTPUpstreamTest {
     std::unique_ptr<folly::IOBuf> respBody;
     std::tie(resp, respBody) = makeResponse(200, 50);
 
-    EXPECT_CALL(handler, setTransaction(_))
-      .WillOnce(SaveArg<0>(&handler.txn_));
+    handler.expectTransaction();
     EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
     if (stage > 0) {
-      EXPECT_CALL(handler, onHeadersComplete(_));
+      handler.expectHeaders();
     }
     if (stage > 1) {
       EXPECT_CALL(handler, onChunkHeader(_));
@@ -1235,7 +1129,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
       EXPECT_CALL(handler, onTrailers(_));
     }
     if (stage > 5) {
-      EXPECT_CALL(handler, onEOM());
+      handler.expectEOM();
     }
 
     auto txn = httpSession_->newTransaction(&handler);
@@ -1245,7 +1139,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
 
     auto doAbort = [&] {
       EXPECT_CALL(*codecPtr_, generateRstStream(_, txn->getID(), _));
-      EXPECT_CALL(handler, detachTransaction());
+      handler.expectDetachTransaction();
       const auto id = txn->getID();
       txn->sendAbort();
       EXPECT_CALL(*codecPtr_,
@@ -1305,8 +1199,7 @@ TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
 
   std::unique_ptr<HTTPMessage> resp = makeResponse(200);
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&handler.txn_));
+  handler.expectTransaction();
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
   auto txn = httpSession_->newTransaction(&handler);
@@ -1314,11 +1207,11 @@ TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
   txn->sendHeaders(req);
   txn->sendBody(makeBuf(5)); // only send half the body
 
-  EXPECT_CALL(handler, onHeadersComplete(_));
+  handler.expectHeaders();
   codecCb_->onHeadersComplete(streamID, std::move(resp));
 
   EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
-  EXPECT_CALL(handler, detachTransaction());
+  handler.expectDetachTransaction();
   EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID,
                                             ErrorCode::_SPDY_INVALID_STREAM));
   txn->sendAbort();
@@ -1334,23 +1227,19 @@ TEST_F(MockHTTPUpstreamTest, drain_before_send_headers) {
   // Test that drain on session before sendHeaders() is called on open txn
 
   InSequence enforceOrder;
-  NiceMock<MockHTTPHandler> handler;
   MockHTTPHandler pushHandler;
-  auto req = makeGetRequest();
 
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(SaveArg<0>(&handler.txn_));
+  auto handler = openTransaction();
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
-  EXPECT_CALL(handler, onHeadersComplete(_));
-  EXPECT_CALL(handler, detachTransaction());
+  handler->expectHeaders();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
 
-  auto txn = httpSession_->newTransaction(&handler);
   httpSession_->drain();
-  txn->sendHeaders(*req);
-  txn->sendEOM();
-  codecCb_->onHeadersComplete(txn->getID(), makeResponse(200));
-  codecCb_->onMessageComplete(txn->getID(), false); // eom
+  handler->sendRequest();
+  codecCb_->onHeadersComplete(handler->txn_->getID(), makeResponse(200));
+  codecCb_->onMessageComplete(handler->txn_->getID(), false); // eom
 
   eventBase_.loop();
 }
@@ -1372,22 +1261,21 @@ TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
   handler1->txn_->sendHeaders(req);
 
   // Second goaway acks the only the current outstanding transaction
-  EXPECT_CALL(*handler2, onError(_))
-    .WillOnce(Invoke([&] (const HTTPException& err) {
-          EXPECT_TRUE(err.hasProxygenError());
-          EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
-          ASSERT_EQ(
-            folly::to<std::string>("StreamUnacknowledged on transaction id: ",
-              handler2->txn_->getID()),
-            std::string(err.what()));
-        }));
-  EXPECT_CALL(*handler2, detachTransaction());
+  handler2->expectError([&] (const HTTPException& err) {
+      EXPECT_TRUE(err.hasProxygenError());
+      EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
+      ASSERT_EQ(
+        folly::to<std::string>("StreamUnacknowledged on transaction id: ",
+                               handler2->txn_->getID()),
+        std::string(err.what()));
+    });
+  handler2->expectDetachTransaction();
   codecCb_->onGoaway(handler1->txn_->getID(), ErrorCode::NO_ERROR);
 
   // Clean up
   httpSession_->drain();
   EXPECT_CALL(*codecPtr_, generateRstStream(_, handler1->txn_->getID(), _));
-  EXPECT_CALL(*handler1, detachTransaction());
+  handler1->expectDetachTransaction();
   handler1->txn_->sendAbort();
   eventBase_.loop();
 }
@@ -1414,12 +1302,11 @@ TEST_F(MockHTTP2UpstreamTest, server_push_invalid_assoc) {
   codecCb_->onHeadersComplete(pushID, std::move(resp));
   codecCb_->onMessageComplete(pushID, false);
 
-  EXPECT_CALL(*handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(*handler, onEOM());
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
 
   resp = makeResponse(200);
   codecCb_->onMessageBegin(streamID, resp.get());
@@ -1445,12 +1332,11 @@ TEST_F(MockHTTP2UpstreamTest, server_push_after_fin) {
   int streamID = handler->txn_->getID();
   int pushID = streamID + 1;
 
-  EXPECT_CALL(*handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(*handler, onEOM());
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
 
   auto resp = makeResponse(200);
   codecCb_->onMessageBegin(streamID, resp.get());
@@ -1510,12 +1396,11 @@ TEST_F(MockHTTP2UpstreamTest, server_push_handler_install_fail) {
   codecCb_->onHeadersComplete(pushID, std::move(resp));
   codecCb_->onMessageComplete(pushID, false);
 
-  EXPECT_CALL(*handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
-          EXPECT_FALSE(msg->getIsUpgraded());
-          EXPECT_EQ(200, msg->getStatusCode());
-        }));
-  EXPECT_CALL(*handler, onEOM());
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
 
   resp = folly::make_unique<HTTPMessage>();
   resp->setStatusCode(200);
@@ -1572,19 +1457,17 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   auto handler = openTransaction();
   handler->txn_->sendHeaders(req);
 
-  EXPECT_CALL(*handler, onHeadersComplete(_));
+  handler->expectHeaders();
   EXPECT_CALL(*handler, onBody(_));
   // After getting the second headers, transaction will detach the handler
-  EXPECT_CALL(*handler, onError(_))
-    .WillOnce(Invoke([&] (const HTTPException& err) {
-          EXPECT_TRUE(err.hasProxygenError());
-          EXPECT_EQ(err.getProxygenError(), kErrorIngressStateTransition);
-          ASSERT_EQ(
-            "Invalid ingress state transition, state=RegularBodyReceived, "
-            "event=onHeaders, streamID=1",
-            std::string(err.what()));
-        }));
-  EXPECT_CALL(*handler, detachTransaction());
+  handler->expectError([&] (const HTTPException& err) {
+      EXPECT_TRUE(err.hasProxygenError());
+      EXPECT_EQ(err.getProxygenError(), kErrorIngressStateTransition);
+      ASSERT_EQ("Invalid ingress state transition, state=RegularBodyReceived, "
+                "event=onHeaders, streamID=1",
+                std::string(err.what()));
+    });
+  handler->expectDetachTransaction();
   auto resp = makeResponse(200);
   codecCb_->onMessageBegin(1, resp.get());
   codecCb_->onHeadersComplete(1, std::move(resp));
@@ -1598,34 +1481,30 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
   auto handler = openTransaction();
   handler->txn_->setReceiveWindow(1000000); // One miiiillion
 
-  InSequence dummy;
+  InSequence enforceOrder;
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateWindowUpdate(_, _, _));
 
   HTTPMessage req = getGetRequest();
   handler->txn_->sendHeaders(req);
-  EXPECT_CALL(*handler, detachTransaction());
+  handler->expectDetachTransaction();
   handler->txn_->sendAbort();
   httpSession_->destroy();
 }
 
 TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
   StrictMock<MockHTTPHandler> handler;
-  EXPECT_CALL(handler, setTransaction(_))
-    .WillOnce(DoAll(
-      SaveArg<0>(&(handler.txn_)),
-      Invoke([&] (HTTPTransaction* txn) {
-          httpSession_->shutdownTransportWithReset(kErrorNone);
-        })));
-  EXPECT_CALL(handler, onError(_))
-    .WillOnce(Invoke([&] (const HTTPException& err) {
-          EXPECT_FALSE(err.hasProxygenError());
-          ASSERT_EQ(
-            folly::to<std::string>("None on transaction id: ",
-              handler.txn_->getID()),
-            std::string(err.what()));
-        }));
-  EXPECT_CALL(handler, detachTransaction());
+  handler.expectTransaction([&] (HTTPTransaction* txn) {
+      handler.txn_ = txn;
+      httpSession_->shutdownTransportWithReset(kErrorNone);
+    });
+  handler.expectError([&] (const HTTPException& err) {
+      EXPECT_FALSE(err.hasProxygenError());
+      ASSERT_EQ(folly::to<std::string>("None on transaction id: ",
+                                       handler.txn_->getID()),
+        std::string(err.what()));
+    });
+  handler.expectDetachTransaction();
   (void)httpSession_->newTransaction(&handler);
 }
 

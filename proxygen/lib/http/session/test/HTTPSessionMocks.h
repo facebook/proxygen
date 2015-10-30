@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/http/codec/test/TestUtils.h>
 
 #define GMOCK_NOEXCEPT_METHOD0(m, F) GMOCK_METHOD0_(, noexcept,, m, F)
 #define GMOCK_NOEXCEPT_METHOD1(m, F) GMOCK_METHOD1_(, noexcept,, m, F)
@@ -29,6 +30,16 @@ class HTTPHandlerBase {
 
   void terminate() {
     txn_->sendAbort();
+  }
+
+  void sendRequest() {
+    sendRequest(getGetRequest());
+  }
+
+  void sendRequest(HTTPMessage req) {
+    // this copies but it's test code meh
+    txn_->sendHeaders(req);
+    txn_->sendEOM();
   }
 
   void sendHeaders(uint32_t code, uint32_t content_length,
@@ -143,6 +154,17 @@ class MockHTTPHandler : public HTTPHandlerBase,
 
   GMOCK_NOEXCEPT_METHOD1(onPushedTransaction,
                          void(HTTPTransaction*));
+
+  void expectTransaction(std::function<void(HTTPTransaction *txn)> callback) {
+    EXPECT_CALL(*this, setTransaction(testing::_))
+      .WillOnce(testing::Invoke(callback))
+      .RetiresOnSaturation();
+  }
+
+  void expectTransaction(HTTPTransaction** pTxn = nullptr) {
+    EXPECT_CALL(*this, setTransaction(testing::_))
+      .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &txn_));
+  }
 
   void expectHeaders(std::function<void()> callback = std::function<void()>()) {
     if (callback) {
