@@ -143,6 +143,86 @@ class MockHTTPHandler : public HTTPHandlerBase,
 
   GMOCK_NOEXCEPT_METHOD1(onPushedTransaction,
                          void(HTTPTransaction*));
+
+  void expectHeaders(std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onHeadersComplete(testing::_))
+        .WillOnce(testing::InvokeWithoutArgs(callback))
+        .RetiresOnSaturation();
+    } else {
+      EXPECT_CALL(*this, onHeadersComplete(testing::_));
+    }
+  }
+
+  void expectHeaders(std::function<void(std::shared_ptr<HTTPMessage>)> cb) {
+    EXPECT_CALL(*this, onHeadersComplete(testing::_))
+      .WillOnce(testing::Invoke(cb))
+      .RetiresOnSaturation();
+  }
+
+  void expectBody(std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onBody(testing::_))
+        .WillOnce(testing::InvokeWithoutArgs(callback));
+    } else {
+      EXPECT_CALL(*this, onBody(testing::_));
+    }
+  }
+
+  void expectBody(std::function<void(std::shared_ptr<folly::IOBuf>)> callback) {
+    EXPECT_CALL(*this, onBody(testing::_))
+      .WillOnce(testing::Invoke(callback));
+  }
+
+  void expectEOM(std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onEOM())
+        .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onEOM());
+    }
+  }
+
+  void expectEgressPaused(std::function<void()> callback =
+                          std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onEgressPaused())
+        .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onEgressPaused());
+    }
+  }
+
+  void expectEgressResumed(std::function<void()> callback =
+                           std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onEgressResumed())
+        .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onEgressResumed());
+    }
+  }
+
+  void expectError(std::function<void(const HTTPException& ex)> callback =
+                   std::function<void(const HTTPException& ex)>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onError(testing::_))
+        .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onError(testing::_));
+    }
+  }
+
+  void expectDetachTransaction(
+    std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, detachTransaction())
+        .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, detachTransaction());
+    }
+  }
+
 };
 
 class MockHTTPPushHandler : public HTTPHandlerBase,
