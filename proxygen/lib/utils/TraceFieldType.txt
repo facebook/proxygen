@@ -10,6 +10,12 @@ HTTPStatus, "http_status"
 DirectionError, "error_direction"
 CodecError, "codec_error"
 
+/* ---- Gateway Ping Fields ---- */
+LastPingSentOffset, "last_ping_sent_time_offset"
+LastPingRecvOffset, "last_ping_recv_time_offset"
+RecentPingSentCount, "recent_ping_sent_count"
+RecentPingRecvCount, "recent_ping_recv_count"
+
 /* ---- Used in RequestExchange ---- */
 Uri, "uri"
 IsSecure, "is_secure"
