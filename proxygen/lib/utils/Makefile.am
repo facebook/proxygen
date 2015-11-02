@@ -31,6 +31,7 @@ nobase_libutils_HEADERS = \
 	CryptUtil.h \
 	DestructorCheck.h \
 	Exception.h \
+	Export.h \
 	FilterChain.h \
 	HTTPTime.h \
 	ParseURL.h \

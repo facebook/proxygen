@@ -11,6 +11,7 @@
 
 #include <folly/Conv.h>
 #include <folly/String.h>
+#include <proxygen/lib/utils/Export.h>
 #include <string>
 
 namespace proxygen {
@@ -90,7 +91,7 @@ class ParseURL {
   void stripBrackets() noexcept;
 
  private:
-  void parse() noexcept;
+  FB_EXPORT void parse() noexcept;
 
   void parseNonFully() noexcept;
 
