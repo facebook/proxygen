@@ -48,7 +48,7 @@ size_t parse(T* codec,
         len = lenDistribution(rng);
       }
       uint32_t chunkLen = std::min(length, len);
-      input.append(std::move(folly::IOBuf::copyBuffer(start, chunkLen)));
+      input.append(folly::IOBuf::copyBuffer(start, chunkLen));
       start += chunkLen;
       length -= chunkLen;
     }

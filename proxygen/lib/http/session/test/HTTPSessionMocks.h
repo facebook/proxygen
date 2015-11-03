@@ -67,7 +67,7 @@ class HTTPHandlerBase {
       uint32_t toSend = std::min(content_length, uint32_t(4096));
       char buf[toSend];
       memset(buf, 'a', toSend);
-      txn_->sendBody(std::move(folly::IOBuf::copyBuffer(buf, toSend)));
+      txn_->sendBody(folly::IOBuf::copyBuffer(buf, toSend));
       content_length -= toSend;
     }
   }
@@ -91,7 +91,7 @@ class HTTPHandlerBase {
       char buf[toSend];
       memset(buf, 'a', toSend);
       txn_->sendChunkHeader(toSend);
-      txn_->sendBody(std::move(folly::IOBuf::copyBuffer(buf, toSend)));
+      txn_->sendBody(folly::IOBuf::copyBuffer(buf, toSend));
       txn_->sendChunkTerminator();
       content_length -= toSend;
     }
