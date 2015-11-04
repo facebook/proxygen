@@ -1433,7 +1433,7 @@ const TransportInfo& HTTPSession::getSetupTransportInfo() const noexcept {
 
 bool HTTPSession::getCurrentTransportInfoWithoutUpdate(
     TransportInfo* tinfo) const {
-  AsyncSocket* sock = dynamic_cast<AsyncSocket*>(sock_.get());
+  auto sock = getSocketFromTransport(sock_.get());
   if (sock) {
     tinfo->initWithSocket(sock);
     return true;

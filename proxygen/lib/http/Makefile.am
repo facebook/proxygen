@@ -154,4 +154,5 @@ libproxygenhttp_la_SOURCES = \
 libproxygenhttp_la_LIBADD = \
 	../services/libproxygenservices.la \
 	../ssl/libproxygenssl.la \
+	../transport/libproxygentransport.la \
 	../utils/libutils.la
