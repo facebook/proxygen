@@ -65,7 +65,7 @@ unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   if (stats_) {
     stats_->recordEncode(Type::HPACK, encodedSize_);
   }
-  return std::move(buf);
+  return buf;
 }
 
 Result<HeaderDecodeResult, HeaderDecodeError>

@@ -287,7 +287,7 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
     stats_->recordEncode(Type::GZIP, encodedSize_);
   }
 
-  return std::move(out);
+  return out;
 }
 
 Result<HeaderDecodeResult, HeaderDecodeError>

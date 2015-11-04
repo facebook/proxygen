@@ -600,7 +600,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(
   // See comment above regarding status
   string date;
   if (!headers.exists(HTTP_HEADER_DATE)) {
-    date = std::move(HTTPMessage::formatDateHeader());
+    date = HTTPMessage::formatDateHeader();
     allHeaders.emplace_back(HTTP_HEADER_DATE, date);
   }
 
@@ -1189,7 +1189,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
       }
     }
   }
-  return std::move(msg);
+  return msg;
 }
 
 void SPDYCodec::onSynCommon(StreamID streamID,
@@ -1404,7 +1404,7 @@ void SPDYCodec::failStream(bool newStream, StreamID streamID,
   }
   // store the ingress buffer
   if (currentIngressBuf_) {
-    err.setCurrentIngressBuf(std::move(currentIngressBuf_->clone()));
+    err.setCurrentIngressBuf(currentIngressBuf_->clone());
   }
   callback_->onError(streamID, err, newStream);
 }
@@ -1419,7 +1419,7 @@ void SPDYCodec::failSession(uint32_t code) {
 
   // store the ingress buffer
   if (currentIngressBuf_) {
-    err.setCurrentIngressBuf(std::move(currentIngressBuf_->clone()));
+    err.setCurrentIngressBuf(currentIngressBuf_->clone());
   }
   callback_->onError(0, err);
 }

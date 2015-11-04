@@ -30,7 +30,7 @@ unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
   uint32_t totalBytes = buffer ? cursor.totalLength() : 0;
   decode(cursor, totalBytes, *headers);
   // release ownership of the set of headers
-  return std::move(headers);
+  return headers;
 }
 
 const huffman::HuffTree& HPACKDecoder::getHuffmanTree() const {
