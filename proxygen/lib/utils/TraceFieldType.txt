@@ -37,6 +37,10 @@ RedirectResponseCode, "redirect_response_code"
 NumRetries, "num_retries"
 PriorityChanges, "priority_changes"
 UsingHTTP2, "using_http2"
+BodyGenerated, "body_generated"
+FirstBodyByteFlushed, "first_body_byte_flushed"
+LastBodyByteFlushed, "last_body_byte_flushed"
+HeaderGenerated, "header_generated"
 
 /* ---- Used in ResponseBodyRead ---- */
 RspBodySize, "response_body_size"
