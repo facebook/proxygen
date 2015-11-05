@@ -1114,4 +1114,16 @@ operator<<(std::ostream& os, const HTTPTransaction& txn) {
   return os;
 }
 
+void HTTPTransaction::changePriority(int8_t newPriority) {
+  // Shift
+  newPriority <<= spdy::SPDY_PRIO_SHIFT_FACTOR;
+  // Copy over the lowest bit of current priority
+  newPriority |= (priority_ & 0x01);
+  // Assign, and update queue position if necessary
+  priority_ = newPriority;
+  if (isEnqueued()) {
+    egressQueue_.update(queueHandle_);
+  }
+}
+
 } // proxygen

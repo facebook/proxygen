@@ -1005,6 +1005,11 @@ class HTTPTransaction :
    */
   void describe(std::ostream& os) const;
 
+  /**
+   * Change the priority of this transaction
+   */
+  void changePriority(int8_t newPriority);
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
