@@ -1468,8 +1468,10 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
 void HTTPSession::setByteEventTracker(
     std::unique_ptr<ByteEventTracker> byteEventTracker) {
   byteEventTracker_ = std::move(byteEventTracker);
-  byteEventTracker_->setCallback(this);
-  byteEventTracker_->setTTLBAStats(sessionStats_);
+  if (byteEventTracker_) {
+    byteEventTracker_->setCallback(this);
+    byteEventTracker_->setTTLBAStats(sessionStats_);
+  }
 }
 
 unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
