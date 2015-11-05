@@ -51,6 +51,10 @@ namespace proxygen {
     x(ClientSilent),                            \
     x(Canceled),                                \
     x(ParseResponse),                           \
+    x(ConnRefused),                             \
+    x(DNSOtherServer),                          \
+    x(DNSOtherClient),                          \
+    x(DNSOtherCancelled),                       \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63
