@@ -48,6 +48,7 @@ public:
   void onIngressEOF() override {}
   bool isReusable() const override;
   bool isWaitingToDrain() const override;
+  StreamID getLastIncomingStreamID() const override { return lastStreamID_; }
 
   void setNextEgressStreamId(StreamID nextEgressStreamID) {
     if (nextEgressStreamID > nextEgressStreamID_ &&

@@ -85,6 +85,7 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_METHOD0(getEgressSettings, HTTPSettings*());
   MOCK_CONST_METHOD0(getIngressSettings, const HTTPSettings*());
   MOCK_METHOD0(enableDoubleGoawayDrain, void());
+  MOCK_CONST_METHOD0(getDefaultWindowSize, uint32_t());
  };
 
 class MockHTTPCodecCallback: public HTTPCodec::Callback {

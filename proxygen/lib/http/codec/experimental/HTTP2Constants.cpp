@@ -42,6 +42,7 @@ const uint32_t kFrameAltSvcSizeBase = 8;
 const uint32_t kMaxFramePayloadLengthMin = (1u << 14);
 const uint32_t kMaxFramePayloadLength = (1u << 24) - 1;
 const uint32_t kMaxStreamID = (1u << 31) - 1;
+const uint32_t kInitialWindow = (1u << 16) - 1;
 const uint32_t kMaxWindowUpdateSize = (1u << 31) - 1;
 
 const std::string kAuthority(":authority");

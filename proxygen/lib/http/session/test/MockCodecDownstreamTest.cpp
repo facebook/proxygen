@@ -81,6 +81,8 @@ class MockCodecDownstreamTest: public testing::Test {
     EXPECT_CALL(*codec_, isWaitingToDrain())
       .WillRepeatedly(ReturnPointee(&drainPending_));
     EXPECT_CALL(*codec_, generateSettings(_));
+    EXPECT_CALL(*codec_, getDefaultWindowSize())
+      .WillRepeatedly(Return(65536));
     EXPECT_CALL(*codec_, createStream())
       .WillRepeatedly(InvokeWithoutArgs([&] {
             return pushStreamID_ += 2;

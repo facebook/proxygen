@@ -33,6 +33,7 @@ extern const uint32_t kFrameAltSvcSizeBase;
 extern const uint32_t kMaxFramePayloadLengthMin;
 extern const uint32_t kMaxFramePayloadLength;
 extern const uint32_t kMaxStreamID;
+extern const uint32_t kInitialWindow;
 extern const uint32_t kMaxWindowUpdateSize;
 
 extern const std::string kAuthority;

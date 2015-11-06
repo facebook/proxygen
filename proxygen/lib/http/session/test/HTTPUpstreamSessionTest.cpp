@@ -798,6 +798,8 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
       .WillRepeatedly(ReturnPointee(&reusable_));
     EXPECT_CALL(*codec, isWaitingToDrain())
       .WillRepeatedly(ReturnPointee(&reusable_));
+    EXPECT_CALL(*codec, getDefaultWindowSize())
+      .WillRepeatedly(Return(65536));
     EXPECT_CALL(*codec, generateGoaway(_, _, _))
       .WillRepeatedly(Invoke([&] (IOBufQueue& writeBuf,
                                   HTTPCodec::StreamID lastStream,

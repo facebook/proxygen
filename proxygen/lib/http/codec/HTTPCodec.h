@@ -493,6 +493,11 @@ class HTTPCodec {
    * Get the identifier of the last stream started by the remote.
    */
   virtual StreamID getLastIncomingStreamID() const { return NoStream; }
+
+  /**
+   * Get the default size of flow control windows for this protocol
+   */
+  virtual uint32_t getDefaultWindowSize() const { return 0; }
 };
 
 }

@@ -13,7 +13,6 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
-#include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <random>
@@ -21,6 +20,10 @@
 using namespace proxygen;
 using namespace std;
 using namespace testing;
+
+namespace {
+const uint32_t kInitialCapacity = 12345;
+}
 
 class MockFlowControlCallback: public FlowControlFilter::Callback {
  public:
@@ -57,11 +60,14 @@ template <int initSize>
 class FlowControlFilterTest: public FilterTest {
  public:
   void SetUp() override {
-    if (initSize > spdy::kInitialWindow) {
+    EXPECT_CALL(*codec_, getDefaultWindowSize())
+      .WillRepeatedly(Return(kInitialCapacity));
+
+    if (initSize > kInitialCapacity) {
       // If the initial size is bigger than the default, a window update
       // will immediately be generated
       EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, initSize -
-                                                spdy::kInitialWindow))
+                                                kInitialCapacity))
         .WillOnce(InvokeWithoutArgs([this] () {
               writeBuf_.append(makeBuf(10));
               return 10;
@@ -80,8 +86,9 @@ class FlowControlFilterTest: public FilterTest {
     EXPECT_CALL(*codec_, isReusable()).WillRepeatedly(Return(true));
 
     // Construct flow control filter with capacity of 0, which will be
-    // overridden to 65536, which is the minimum
-    filter_ = new FlowControlFilter(flowCallback_, writeBuf_, codec_, initSize);
+    // overridden to the codec default, which is the minimum
+    filter_ = new FlowControlFilter(flowCallback_, writeBuf_, codec_,
+                                    initSize);
     chain_.addFilters(std::unique_ptr<FlowControlFilter>(filter_));
   }
   StrictMock<MockFlowControlCallback> flowCallback_;
@@ -100,15 +107,15 @@ MATCHER(IsFlowException, "") {
 }
 
 TEST_F(DefaultFlowControl, flow_control_construct) {
-  // Constructing the filter with a low capacity defaults to spdy's
+  // Constructing the filter with a low capacity defaults to kInitialCapacity
   // initial capacity, so no window update should have been generated in
   // the constructor
   InSequence enforceSequence;
   ASSERT_EQ(writeBuf_.chainLength(), 0);
 
-  // Our send window is limited to spdy::kInitialWindow
+  // Our send window is limited to kInitialCapacity
   chain_->generateBody(writeBuf_, 1,
-                       makeBuf(spdy::kInitialWindow - 1),
+                       makeBuf(kInitialCapacity - 1),
                        HTTPCodec::NoPadding, false);
 
   // the window isn't full yet, so getting a window update shouldn't give a
@@ -135,12 +142,12 @@ TEST_F(DefaultFlowControl, send_update) {
     .WillRepeatedly(Return());
 
   // Have half the window outstanding
-  callbackStart_->onBody(1, makeBuf(spdy::kInitialWindow / 2 + 1), 0);
-  filter_->ingressBytesProcessed(writeBuf_, spdy::kInitialWindow / 2);
+  callbackStart_->onBody(1, makeBuf(kInitialCapacity / 2 + 1), 0);
+  filter_->ingressBytesProcessed(writeBuf_, kInitialCapacity / 2);
 
   // It should wait until the "+1" is ack'd to generate the coallesced update
   EXPECT_CALL(*codec_,
-              generateWindowUpdate(_, 0, spdy::kInitialWindow / 2 + 1));
+              generateWindowUpdate(_, 0, kInitialCapacity / 2 + 1));
   filter_->ingressBytesProcessed(writeBuf_, 1);
 }
 
@@ -174,13 +181,13 @@ TEST_F(BigWindow, remote_increase) {
   // available window
   InSequence enforceSequence;
 
-  ASSERT_EQ(filter_->getAvailableSend(), spdy::kInitialWindow);
+  ASSERT_EQ(filter_->getAvailableSend(), kInitialCapacity);
   callbackStart_->onWindowUpdate(0, 10);
-  ASSERT_EQ(filter_->getAvailableSend(), spdy::kInitialWindow + 10);
+  ASSERT_EQ(filter_->getAvailableSend(), kInitialCapacity + 10);
 
   EXPECT_CALL(flowCallback_, onConnectionSendWindowClosed());
   chain_->generateBody(writeBuf_, 1,
-                       makeBuf(spdy::kInitialWindow + 10),
+                       makeBuf(kInitialCapacity + 10),
                        HTTPCodec::NoPadding, false);
   ASSERT_EQ(filter_->getAvailableSend(), 0);
 

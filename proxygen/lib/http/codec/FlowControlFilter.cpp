@@ -9,8 +9,6 @@
  */
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
 
-#include <proxygen/lib/http/codec/SPDYConstants.h>
-
 namespace proxygen {
 
 namespace {
@@ -22,30 +20,30 @@ HTTPException getException(const std::string& msg) {
 
 }
 
-const uint32_t FlowControlFilter::kDefaultCapacity = spdy::kInitialWindow;
-
 FlowControlFilter::FlowControlFilter(Callback& callback,
                                      folly::IOBufQueue& writeBuf,
                                      HTTPCodec* codec,
                                      uint32_t recvCapacity):
     notify_(callback),
-    recvWindow_(spdy::kInitialWindow),
-    sendWindow_(spdy::kInitialWindow),
+    recvWindow_(codec->getDefaultWindowSize()),
+    sendWindow_(codec->getDefaultWindowSize()),
     error_(false),
     sendsBlocked_(false) {
-  if (recvCapacity < spdy::kInitialWindow) {
-    VLOG(4) << "Ignoring low conn-level recv window size of " << recvCapacity;
-  } else if (recvCapacity > spdy::kInitialWindow) {
-    auto delta = recvCapacity - spdy::kInitialWindow;
-    VLOG(4) << "Incrementing default conn-level recv window by " << delta;
-    CHECK(recvWindow_.setCapacity(recvCapacity));
-    codec->generateWindowUpdate(writeBuf, 0, delta);
+  if (recvCapacity > 0) {
+    if (recvCapacity < codec->getDefaultWindowSize()) {
+      VLOG(4) << "Ignoring low conn-level recv window size of " << recvCapacity;
+    } else if (recvCapacity > codec->getDefaultWindowSize()) {
+      auto delta = recvCapacity - codec->getDefaultWindowSize();
+      VLOG(4) << "Incrementing default conn-level recv window by " << delta;
+      CHECK(recvWindow_.setCapacity(recvCapacity));
+      codec->generateWindowUpdate(writeBuf, 0, delta);
+    }
   }
 }
 
 void FlowControlFilter::setReceiveWindowSize(folly::IOBufQueue& writeBuf,
                                              uint32_t capacity) {
-  if (capacity < spdy::kInitialWindow) {
+  if (capacity < recvWindow_.getCapacity()) {
     VLOG(4) << "Ignoring low conn-level recv window size of " << capacity;
     return;
   }

@@ -133,6 +133,9 @@ HTTPSession::HTTPSession(
     ingressError_(false),
     inLoopCallback_(false) {
 
+  initialReceiveWindow_ = receiveStreamWindowSize_ =
+    receiveSessionWindowSize_ = codec_->getDefaultWindowSize();
+
   codec_.add<HTTPChecks>();
 
   if (!codec_->supportsParallelRequests()) {
@@ -539,9 +542,10 @@ HTTPSession::newPushedTransaction(HTTPCodec::StreamID assocStreamId,
 size_t HTTPSession::getCodecSendWindowSize() const {
   const HTTPSettings* settings = codec_->getIngressSettings();
   if (settings) {
-    return settings->getSetting(SettingsId::INITIAL_WINDOW_SIZE, 65536);
+    return settings->getSetting(SettingsId::INITIAL_WINDOW_SIZE,
+                                codec_->getDefaultWindowSize());
   }
-  return 65536;
+  return codec_->getDefaultWindowSize();
 }
 
 void

@@ -81,8 +81,10 @@ class HTTPDownstreamTest : public testing::Test {
       std::move(makeServerCodec<typename C::Codec>(
                   C::version)),
       mockTransportInfo /* no stats for now */);
-    httpSession_->setFlowControl(spdy::kInitialWindow, spdy::kInitialWindow,
-                                 sessionWindowSize);
+    httpSession_->setFlowControl(
+      httpSession_->getCodec().getDefaultWindowSize(),
+      httpSession_->getCodec().getDefaultWindowSize(),
+      sessionWindowSize);
     httpSession_->startNow();
     clientCodec_ = makeClientCodec<typename C::Codec>(C::version);
     clientCodec_->generateConnectionPreface(requests_);
@@ -228,9 +230,15 @@ class HTTPDownstreamTest : public testing::Test {
 
 // Uses TestAsyncTransport
 typedef HTTPDownstreamTest<HTTP1xCodecPair> HTTPDownstreamSessionTest;
-typedef HTTPDownstreamTest<HTTP2CodecPair> HTTP2DownstreamSessionTest;
 typedef HTTPDownstreamTest<SPDY2CodecPair> SPDY2DownstreamSessionTest;
 typedef HTTPDownstreamTest<SPDY3CodecPair> SPDY3DownstreamSessionTest;
+namespace {
+class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
+ public:
+  HTTP2DownstreamSessionTest()
+      : HTTPDownstreamTest<HTTP2CodecPair>(http2::kInitialWindow) {}
+};
+}
 
 TEST_F(HTTPDownstreamSessionTest, immediate_eof) {
   // Send EOF without any request data

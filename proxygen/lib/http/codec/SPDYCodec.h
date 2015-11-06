@@ -82,7 +82,6 @@ public:
                               StreamID stream,
                               uint32_t delta) override;
   void enableDoubleGoawayDrain() override;
-  StreamID getLastIncomingStreamID() const override { return lastStreamID_; }
 
   /**
    * Returns a const reference to the ingress settings. Since ingress
@@ -96,6 +95,9 @@ public:
    * Returns a reference to the egress settings
    */
   HTTPSettings* getEgressSettings() override { return &egressSettings_; }
+  uint32_t getDefaultWindowSize() const override {
+    return spdy::kInitialWindow;
+  }
 
   uint8_t getVersion() const;
 

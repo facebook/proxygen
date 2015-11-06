@@ -278,4 +278,9 @@ PassThroughHTTPCodecFilter::getLastIncomingStreamID() const {
   return call_->getLastIncomingStreamID();
 }
 
+uint32_t PassThroughHTTPCodecFilter::getDefaultWindowSize() const {
+  return call_->getDefaultWindowSize();
+}
+
+
 }

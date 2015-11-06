@@ -82,6 +82,9 @@ public:
     return &ingressSettings_;
   }
   HTTPSettings* getEgressSettings() override { return &egressSettings_; }
+  uint32_t getDefaultWindowSize() const override {
+    return http2::kInitialWindow;
+  }
 
   //HTTP2Codec specific API
 

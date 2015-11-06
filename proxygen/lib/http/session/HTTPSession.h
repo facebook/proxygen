@@ -887,9 +887,9 @@ class HTTPSession:
   std::chrono::seconds latestIdleDuration_{};
 
   // Flow control settings
-  size_t initialReceiveWindow_{65536};
-  size_t receiveStreamWindowSize_{65536};
-  size_t receiveSessionWindowSize_{65536};
+  size_t initialReceiveWindow_{0};
+  size_t receiveStreamWindowSize_{0};
+  size_t receiveSessionWindowSize_{0};
 
   enum SocketState {
     UNPAUSED = 0,
