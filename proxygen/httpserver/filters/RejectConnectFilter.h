@@ -85,7 +85,7 @@ class RejectConnectFilter : public Filter {
 
 class RejectConnectFilterFactory : public RequestHandlerFactory {
  public:
-  void onServerStart() noexcept override {
+  void onServerStart(folly::EventBase* evb) noexcept override {
   }
 
   void onServerStop() noexcept override {

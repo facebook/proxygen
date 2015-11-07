@@ -79,9 +79,10 @@ class HandlerCallbacks : public ThreadPoolExecutor::Observer {
   explicit HandlerCallbacks(std::shared_ptr<HTTPServerOptions> options) : options_(options) {}
 
   void threadStarted(ThreadPoolExecutor::ThreadHandle* h) override {
-    IOThreadPoolExecutor::getEventBase(h)->runInEventBaseThread([&](){
+    auto evb = IOThreadPoolExecutor::getEventBase(h);
+    evb->runInEventBaseThread([=](){
       for (auto& factory: options_->handlerFactories) {
-        factory->onServerStart();
+        factory->onServerStart(evb);
       }
     });
   }

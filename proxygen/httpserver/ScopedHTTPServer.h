@@ -67,7 +67,7 @@ class ScopedHandlerFactory : public RequestHandlerFactory {
   explicit ScopedHandlerFactory(HandlerType handler): handler_(handler) {
   }
 
-  void onServerStart() noexcept override {
+  void onServerStart(folly::EventBase* evb) noexcept override {
   }
 
   void onServerStop() noexcept override {
