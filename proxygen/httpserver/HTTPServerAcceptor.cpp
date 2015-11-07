@@ -27,6 +27,9 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   conf.bindAddress = ipConfig.address;
   conf.connectionIdleTimeout = opts.idleTimeout;
   conf.transactionIdleTimeout = opts.idleTimeout;
+  conf.initialReceiveWindow = opts.initialReceiveWindow;
+  conf.receiveStreamWindowSize = opts.receiveStreamWindowSize;
+  conf.receiveSessionWindowSize = opts.receiveSessionWindowSize;
 
   if (ipConfig.protocol == HTTPServer::Protocol::SPDY) {
     conf.plaintextProtocol = "spdy/3.1";

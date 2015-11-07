@@ -82,6 +82,13 @@ class HTTPServerOptions {
   bool supportsConnect{false};
 
   /**
+   * Flow control configuration for the acceptor
+   */
+  size_t initialReceiveWindow{65536};
+  size_t receiveStreamWindowSize{65536};
+  size_t receiveSessionWindowSize{65536};
+
+  /**
    * Set to true to enable gzip content compression. Currently false for
    * backwards compatibility.
    */
