@@ -199,7 +199,7 @@ class HTTPDownstreamTest : public testing::Test {
       auto vec = event->getIoVec();
       for (size_t i = 0; i < event->getCount(); i++) {
         unique_ptr<IOBuf> buf(
-          std::move(IOBuf::wrapBuffer(vec[i].iov_base, vec[i].iov_len)));
+            IOBuf::wrapBuffer(vec[i].iov_base, vec[i].iov_len));
         stream.append(std::move(buf));
         uint32_t consumed = clientCodec.onIngress(*stream.front());
         stream.split(consumed);
@@ -1579,7 +1579,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   handler->expectHeaders([&] {
       // Generate response for the associated stream
       handler->txn_->sendHeaders(res);
-      handler->txn_->sendBody(std::move(makeBuf(100)));
+      handler->txn_->sendBody(makeBuf(100));
       handler->txn_->pauseIngress();
 
       auto* pushTxn = handler->txn_->newPushedTransaction(
@@ -1589,7 +1589,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
       pushTxn->sendHeaders(req);
       // Generate a push response
       pushTxn->sendHeaders(res);
-      pushTxn->sendBody(std::move(makeBuf(200)));
+      pushTxn->sendBody(makeBuf(200));
       pushTxn->sendEOM();
 
       eventBase_.runAfterDelay([&] { handler->txn_->resumeIngress(); },

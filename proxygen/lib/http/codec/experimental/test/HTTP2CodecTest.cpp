@@ -578,8 +578,8 @@ TEST_F(HTTP2CodecTest, LongData) {
   HTTPSettings* settings = (HTTPSettings*)upstreamCodec_.getIngressSettings();
   settings->setSetting(SettingsId::MAX_FRAME_SIZE, 16);
   auto buf = makeBuf(100);
-  upstreamCodec_.generateBody(output_, 1, std::move(buf->clone()),
-                              HTTPCodec::NoPadding, true);
+  upstreamCodec_.generateBody(output_, 1, buf->clone(), HTTPCodec::NoPadding,
+                              true);
 
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 0);
@@ -651,8 +651,7 @@ TEST_F(HTTP2CodecTest, DataFramePartialDataWithNoAppByte) {
   const size_t bufSize = 10;
   auto buf = makeBuf(bufSize);
   const size_t padding = 10;
-  upstreamCodec_.generateBody(output_, 1, std::move(buf->clone()),
-                              padding, true);
+  upstreamCodec_.generateBody(output_, 1, buf->clone(), padding, true);
   EXPECT_EQ(output_.chainLength(), 54);
 
   auto ingress = output_.move();

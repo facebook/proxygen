@@ -42,10 +42,10 @@ void HTTP2Codec::initPerHopHeaders() {
 HTTP2Codec::HTTP2Codec(TransportDirection direction)
     : HTTPParallelCodec(direction),
       headerCodec_(direction),
-      frameState_(direction == TransportDirection::DOWNSTREAM ?
-                  FrameState::UPSTREAM_CONNECTION_PREFACE :
-                  FrameState::DOWNSTREAM_CONNECTION_PREFACE),
-      decodeInfo_(std::move(HTTPRequestVerifier())) {
+      frameState_(direction == TransportDirection::DOWNSTREAM
+                      ? FrameState::UPSTREAM_CONNECTION_PREFACE
+                      : FrameState::DOWNSTREAM_CONNECTION_PREFACE),
+      decodeInfo_(HTTPRequestVerifier()) {
 
   headerCodec_.setDecoderHeaderTableMaxSize(
     egressSettings_.getSetting(SettingsId::HEADER_TABLE_SIZE, 0));

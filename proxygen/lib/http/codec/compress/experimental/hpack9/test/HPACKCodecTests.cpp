@@ -87,7 +87,7 @@ class HPACKCodecTests : public testing::Test {
     for (auto& ha : a) {
       headers.push_back(Header(ha[0], ha[1]));
     }
-    return std::move(headers);
+    return headers;
   }
 
   HPACKCodec09 client{TransportDirection::UPSTREAM};

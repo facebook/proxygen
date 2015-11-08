@@ -58,7 +58,7 @@ unique_ptr<IOBuf> encodeDecode(
   CHECK(encoder.getTable() == decoder.getTable());
   EXPECT_EQ(encoder.getTable(), decoder.getTable());
 
-  return std::move(encoded);
+  return encoded;
 }
 
 }}

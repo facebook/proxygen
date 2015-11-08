@@ -925,7 +925,7 @@ void HTTPTransaction::resumeIngress() {
         LOG(FATAL) << "unreachable";
         break;
       case HTTPEvent::Type::HEADERS_COMPLETE:
-        processIngressHeadersComplete(std::move(callback.getHeaders()));
+        processIngressHeadersComplete(callback.getHeaders());
         break;
       case HTTPEvent::Type::BODY: {
         unique_ptr<IOBuf> data = callback.getBody();

@@ -73,7 +73,7 @@ unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
     }
   }
 
-  return std::move(har);
+  return har;
 }
 
 void HTTPArchive::extractHeaders(folly::dynamic& obj,
@@ -132,7 +132,7 @@ unique_ptr<HTTPArchive> HTTPArchive::fromPublicFile(const string& filename) {
     }
   }
 
-  return std::move(har);
+  return har;
 }
 
 }

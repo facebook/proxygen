@@ -167,7 +167,7 @@ class ZlibServerFilterTest : public Test {
       crtBuf = originalResponseBody.get();
 
       do {
-        ResponseBuilder(downstream_).body(std::move(crtBuf->cloneOne())).send();
+        ResponseBuilder(downstream_).body(crtBuf->cloneOne()).send();
         crtBuf = crtBuf->next();
       } while (crtBuf != originalResponseBody.get());
 
@@ -179,7 +179,7 @@ class ZlibServerFilterTest : public Test {
       ResponseBuilder(downstream_)
           .status(200, "OK")
           .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
-          .body(std::move(originalResponseBody->clone()))
+          .body(originalResponseBody->clone())
           .sendWithEOM();
     }
 
@@ -204,7 +204,7 @@ class ZlibServerFilterTest : public Test {
       }
     }
 
-    return std::move(responseBodyChain);
+    return responseBodyChain;
   }
 };
 

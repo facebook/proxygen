@@ -339,7 +339,7 @@ unique_ptr<folly::IOBuf> getVersionedSpdyFrame(const uint8_t* bytes,
   auto frame = folly::IOBuf::copyBuffer(bytes, len);
   uint8_t* data = frame->writableData();
   data[1] = version; /* Set the version */
-  return std::move(frame);
+  return frame;
 }
 
 template <typename Codec1, typename Codec2>

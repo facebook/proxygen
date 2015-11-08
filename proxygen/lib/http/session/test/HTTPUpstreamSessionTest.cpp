@@ -210,7 +210,7 @@ class HTTPUpstreamTest: public testing::Test,
     }
     auto txn = httpSession_->newTransaction(handler.get());
     EXPECT_EQ(txn, handler->txn_);
-    return std::move(handler);
+    return handler;
   }
 
   std::unique_ptr<NiceMock<MockHTTPHandler>> openNiceTransaction(
@@ -223,7 +223,7 @@ class HTTPUpstreamTest: public testing::Test,
     }
     auto txn = httpSession_->newTransaction(handler.get());
     EXPECT_EQ(txn, handler->txn_);
-    return std::move(handler);
+    return handler;
   }
 
  protected:
@@ -831,7 +831,7 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
     handler->expectTransaction();
     auto txn = httpSession_->newTransaction(handler.get());
     EXPECT_EQ(txn, handler->txn_);
-    return std::move(handler);
+    return handler;
   }
 
   MockHTTPCodec* codecPtr_{nullptr};

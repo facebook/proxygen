@@ -111,12 +111,10 @@ class MockCodecDownstreamTest: public testing::Test {
 
     HTTPSession::setDefaultReadBufferLimit(65536);
     httpSession_ = new HTTPDownstreamSession(
-      transactionTimeouts_.get(),
-      std::move(AsyncTransportWrapper::UniquePtr(transport_)),
-      localAddr, peerAddr,
-      &mockController_,
-      std::unique_ptr<HTTPCodec>(codec_),
-      mockTransportInfo);
+        transactionTimeouts_.get(),
+        AsyncTransportWrapper::UniquePtr(transport_), localAddr, peerAddr,
+        &mockController_, std::unique_ptr<HTTPCodec>(codec_),
+        mockTransportInfo);
     httpSession_->startNow();
     eventBase_.loop();
   }

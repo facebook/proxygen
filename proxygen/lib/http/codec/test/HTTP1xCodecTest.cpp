@@ -49,7 +49,7 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
 unique_ptr<folly::IOBuf> getSimpleRequestData() {
   string req("GET /yeah HTTP/1.1\nHost: www.facebook.com\n\n");
   auto buffer = folly::IOBuf::copyBuffer(req);
-  return std::move(buffer);
+  return buffer;
 }
 
 TEST(HTTP1xCodecTest, TestSimpleHeaders) {
@@ -132,13 +132,13 @@ TEST(HTTP1xCodecTest, TestGetRequestChunkedResponse) {
 unique_ptr<folly::IOBuf> getChunkedRequest1st() {
   string req("GET /aha HTTP/1.1\n");
   auto buffer = folly::IOBuf::copyBuffer(req);
-  return std::move(buffer);
+  return buffer;
 }
 
 unique_ptr<folly::IOBuf> getChunkedRequest2nd() {
   string req("Host: m.facebook.com\nAccept-Encoding: meflate\n\n");
   auto buffer = folly::IOBuf::copyBuffer(req);
-  return std::move(buffer);
+  return buffer;
 }
 
 TEST(HTTP1xCodecTest, TestChunkedHeaders) {
