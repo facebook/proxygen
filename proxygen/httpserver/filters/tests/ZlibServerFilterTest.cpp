@@ -217,7 +217,7 @@ TEST_F(ZlibServerFilterTest, nonchunked_compression) {
                          std::string("gzip"),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -230,7 +230,7 @@ TEST_F(ZlibServerFilterTest, chunked_compression) {
                          std::string("gzip"),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(createResponseChain(chunks)));
+                         createResponseChain(chunks));
   });
 }
 
@@ -242,7 +242,7 @@ TEST_F(ZlibServerFilterTest, parameterized_contenttype) {
                          std::string("gzip"),
                          std::string("Hello World"),
                          std::string("text/html; param1"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -254,7 +254,7 @@ TEST_F(ZlibServerFilterTest, mixedcase_contenttype) {
                          std::string("gzip"),
                          std::string("Hello World"),
                          std::string("Text/Html; param1"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -267,7 +267,7 @@ TEST_F(ZlibServerFilterTest, multiple_accepted_encodings) {
                          std::string("gzip"),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -279,7 +279,7 @@ TEST_F(ZlibServerFilterTest, multiple_accepted_encodings_qvalues) {
                          std::string("gzip"),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -291,7 +291,7 @@ TEST_F(ZlibServerFilterTest, no_compressible_accepted_encodings) {
                          std::string(""),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -303,7 +303,7 @@ TEST_F(ZlibServerFilterTest, missing_accepted_encodings) {
                          std::string(""),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -316,7 +316,7 @@ TEST_F(ZlibServerFilterTest, uncompressible_contenttype) {
                          std::string(""),
                          std::string("Hello World"),
                          std::string("image/jpeg"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -328,7 +328,7 @@ TEST_F(ZlibServerFilterTest, uncompressible_contenttype_param) {
                          std::string(""),
                          std::string("Hello World"),
                          std::string("application/jpeg; param1"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")));
+                         folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
@@ -341,7 +341,7 @@ TEST_F(ZlibServerFilterTest, too_small_to_compress) {
                          std::string(""),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(folly::IOBuf::copyBuffer("Hello World")),
+                         folly::IOBuf::copyBuffer("Hello World"),
                          4,
                          1000);
   });
@@ -358,7 +358,7 @@ TEST_F(ZlibServerFilterTest, small_chunks_compress) {
                          std::string("gzip"),
                          std::string("Hello World"),
                          std::string("text/html"),
-                         std::move(createResponseChain(chunks)),
+                         createResponseChain(chunks),
                          4,
                          1000);
   });
