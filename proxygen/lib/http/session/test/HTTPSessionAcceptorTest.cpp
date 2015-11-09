@@ -127,7 +127,7 @@ TEST_P(HTTPSessionAcceptorTestNPN, npn) {
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
 
-char const* protos1[] = { "h2-14", "h2", "spdy/3.1", "spdy/3", "spdy/2",
+char const* protos1[] = { "h2-14", "h2", "spdy/3.1", "spdy/3",
                           "http/1.1", "" };
 INSTANTIATE_TEST_CASE_P(NPNPositive,
                         HTTPSessionAcceptorTestNPN,
@@ -155,7 +155,7 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
 }
 
-char const* protos2[] = { "spdy/3", "spdy/2", "h2c" };
+char const* protos2[] = { "spdy/3", "h2c" };
 INSTANTIATE_TEST_CASE_P(NPNPlaintext,
                         HTTPSessionAcceptorTestNPNPlaintext,
                         ::testing::ValuesIn(protos2));

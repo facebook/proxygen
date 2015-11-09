@@ -16,7 +16,6 @@ namespace proxygen {
 
 namespace {
 static const std::string http_1_1 = "http/1.1";
-static const std::string spdy_2 = "spdy/2";
 static const std::string spdy_3 = "spdy/3";
 static const std::string spdy_3_1 = "spdy/3.1";
 static const std::string spdy_3_1_hpack = "spdy/3.1-hpack";
@@ -27,7 +26,6 @@ static const std::string empty = "";
 extern const std::string& getCodecProtocolString(CodecProtocol proto) {
   switch (proto) {
     case CodecProtocol::HTTP_1_1: return http_1_1;
-    case CodecProtocol::SPDY_2: return spdy_2;
     case CodecProtocol::SPDY_3: return spdy_3;
     case CodecProtocol::SPDY_3_1: return spdy_3_1;
     case CodecProtocol::SPDY_3_1_HPACK: return spdy_3_1_hpack;
@@ -39,7 +37,6 @@ extern const std::string& getCodecProtocolString(CodecProtocol proto) {
 
 extern bool isValidCodecProtocolStr(const std::string& protocolStr) {
   return protocolStr == http_1_1 ||
-         protocolStr == spdy_2 ||
          protocolStr == spdy_3 ||
          protocolStr == spdy_3_1 ||
          protocolStr == spdy_3_1_hpack ||
@@ -49,8 +46,6 @@ extern bool isValidCodecProtocolStr(const std::string& protocolStr) {
 extern CodecProtocol getCodecProtocolFromStr(const std::string& protocolStr) {
   if (protocolStr == http_1_1) {
     return CodecProtocol::HTTP_1_1;
-  } else if (protocolStr == spdy_2) {
-    return CodecProtocol::SPDY_2;
   } else if (protocolStr == spdy_3) {
     return CodecProtocol::SPDY_3;
   } else if (protocolStr == spdy_3_1) {
@@ -66,8 +61,7 @@ extern CodecProtocol getCodecProtocolFromStr(const std::string& protocolStr) {
 }
 
 extern bool isSpdyCodecProtocol(CodecProtocol protocol) {
-  return protocol == CodecProtocol::SPDY_2 ||
-         protocol == CodecProtocol::SPDY_3 ||
+  return protocol == CodecProtocol::SPDY_3 ||
          protocol == CodecProtocol::SPDY_3_1 ||
          protocol == CodecProtocol::SPDY_3_1_HPACK;
 }

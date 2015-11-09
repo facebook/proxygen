@@ -444,7 +444,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
       while(pos < stop) {
         if (*pos == '\0') {
           if (pos - valueStart == 0) {
-            LOG(ERROR) << "empty header value";
+            LOG(ERROR) << "empty header value for header=" << headerName;
             return HeaderDecodeError::EMPTY_HEADER_VALUE;
           }
           if (first) {
@@ -465,7 +465,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
       if (!first) {
         // value contained at least one \0, add the last value
         if (pos - valueStart == 0) {
-          LOG(ERROR) << "empty header value";
+          LOG(ERROR) << "empty header value for header=" << headerName;
           return HeaderDecodeError::EMPTY_HEADER_VALUE;
         }
         outHeaders_.emplace_back(headerName->str.data(),

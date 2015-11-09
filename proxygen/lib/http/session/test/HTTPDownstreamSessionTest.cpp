@@ -49,11 +49,6 @@ struct HTTP2CodecPair {
   static const int version = 2;
 };
 
-struct SPDY2CodecPair {
-  typedef SPDYCodec Codec;
-  static const SPDYVersion version = SPDYVersion::SPDY2;
-};
-
 struct SPDY3CodecPair {
   typedef SPDYCodec Codec;
   static const SPDYVersion version = SPDYVersion::SPDY3;
@@ -230,7 +225,6 @@ class HTTPDownstreamTest : public testing::Test {
 
 // Uses TestAsyncTransport
 typedef HTTPDownstreamTest<HTTP1xCodecPair> HTTPDownstreamSessionTest;
-typedef HTTPDownstreamTest<SPDY2CodecPair> SPDY2DownstreamSessionTest;
 typedef HTTPDownstreamTest<SPDY3CodecPair> SPDY3DownstreamSessionTest;
 namespace {
 class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
@@ -1056,12 +1050,6 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
   EXPECT_GT(transport_->getWriteEvents()->size(), 250);
 }
 
-TEST_F(SPDY2DownstreamSessionTest, spdy_prio) {
-  testPriorities(4);
-
-  cleanup();
-}
-
 TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
   testPriorities(8);
 
@@ -1341,7 +1329,7 @@ REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
                            testWritesDraining, testBodySizeLimit,
                            testUniformPauseState);
 
-typedef ::testing::Types<SPDY2CodecPair, SPDY3CodecPair, SPDY3_1CodecPair,
+typedef ::testing::Types<SPDY3CodecPair, SPDY3_1CodecPair,
                          HTTP2CodecPair> ParallelCodecs;
 INSTANTIATE_TYPED_TEST_CASE_P(ParallelCodecs,
                               HTTPDownstreamTest,

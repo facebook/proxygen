@@ -27,7 +27,8 @@ template<class T>
 size_t parse(T* codec,
              const uint8_t* inputData,
              uint32_t length,
-             int32_t atOnce = 0) {
+             int32_t atOnce = 0,
+             std::function<bool()> stopFn = [] { return false; }) {
 
   const uint8_t* start = inputData;
   size_t consumed = 0;
@@ -39,7 +40,7 @@ size_t parse(T* codec,
   }
 
   folly::IOBufQueue input(folly::IOBufQueue::cacheChainLength());
-  while (length > 0) {
+  while (length > 0 && !stopFn()) {
     if (consumed == 0) {
       // Parser wants more data
       uint32_t len = atOnce;
@@ -179,6 +180,14 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     } else if (statusCode > 0) {
       EXPECT_EQ(msg->getStatusCode(), statusCode);
     }
+  }
+
+  bool sessionError() const {
+    return sessionErrors > 0;
+  }
+
+  std::function<bool()> getStopFn() {
+    return std::bind(&FakeHTTPCodecCallback::sessionError, this);
   }
 
   void reset() {

@@ -17,7 +17,6 @@ void HTTPCodecPrinter::onFrameHeader(
     uint32_t length,
     uint16_t version) {
   switch (call_->getProtocol()) {
-    case CodecProtocol::SPDY_2:
     case CodecProtocol::SPDY_3:
     case CodecProtocol::SPDY_3_1:
     case CodecProtocol::SPDY_3_1_HPACK:

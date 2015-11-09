@@ -94,23 +94,9 @@ uint32_t flagsAndLength(uint8_t flags, uint32_t length) {
   return length;
 }
 
-void appendUint16(uint8_t*& dst, size_t value) {
-  *(uint16_t*)dst = htons(uint16_t(value));
-  dst += 2;
-}
-
 void appendUint32(uint8_t*& dst, size_t value) {
   *(uint32_t*)dst = htonl(uint32_t(value));
   dst += 4;
-}
-
-uint32_t parseUint16(Cursor* cursor) {
-  auto chunk = cursor->peek();
-  if (LIKELY(chunk.second >= sizeof(uint16_t))) {
-    cursor->skip(sizeof(uint16_t));
-    return ntohs(*(uint16_t*)chunk.first);
-  }
-  return cursor->readBE<uint16_t>();
 }
 
 uint32_t parseUint32(Cursor* cursor) {
@@ -174,14 +160,7 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
 
   // Indexed by SPDYVersion
   static const auto spdyVersions = new std::vector<SPDYVersionSettings> {
-  // SPDY2
-    {spdy::kNameVersionv2, spdy::kNameStatusv2, spdy::kNameMethodv2,
-    spdy::kNamePathv2, spdy::kNameSchemev2, "",
-     spdy::kSessionProtoNameSPDY2, parseUint16, appendUint16,
-    (const unsigned char*)kSPDYv2Dictionary, sizeof(kSPDYv2Dictionary),
-    0x8002, kFrameSizeSynReplyv2, kFrameSizeNameValuev2,
-     kFrameSizeGoawayv2, kPriShiftv2, 2, 0, SPDYVersion::SPDY2,
-     spdy::kVersionStrv2},
+  // SPDY2 no longer supported
   // SPDY3
     {spdy::kNameVersionv3, spdy::kNameStatusv3, spdy::kNameMethodv3,
     spdy::kNamePathv3, spdy::kNameSchemev3, spdy::kNameHostv3,
@@ -241,7 +220,6 @@ void SPDYCodec::setMaxUncompressedHeaders(uint32_t maxUncompressed) {
 
 CodecProtocol SPDYCodec::getProtocol() const {
   switch (versionSettings_.version) {
-    case SPDYVersion::SPDY2: return CodecProtocol::SPDY_2;
     case SPDYVersion::SPDY3: return CodecProtocol::SPDY_3;
     case SPDYVersion::SPDY3_1: return CodecProtocol::SPDY_3_1;
     case SPDYVersion::SPDY3_1_HPACK: return CodecProtocol::SPDY_3_1_HPACK;
@@ -623,17 +601,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
   const string& scheme = msg.isSecure() ? https : http;
   string path = msg.getURL();
 
-  if (versionSettings_.majorVersion == 2 && path[0] == '/') {
-    // We don't send the host header, SPDY/2 requires absolute URLs
-    const string& host = msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST);
-    if (!host.empty()) {
-      string url = scheme;
-      url.append("://");
-      url.append(host);
-      url.append(path);
-      path = std::move(url);
-    } // oh well. roll the dice <-- That. Doesn't sound reassuring.
-  }
+  CHECK(versionSettings_.majorVersion > 2) << "SPDY/2 no longer supported";
 
   if (isPushed) {
     const string& pushString = msg.getPushStatusStr();
@@ -1451,9 +1419,6 @@ SPDYCodec::getVersion(const std::string& protocol) {
   }
   if (protocol == "spdy/3") {
     return SPDYVersion::SPDY3;
-  }
-  if (protocol == "spdy/2") {
-    return SPDYVersion::SPDY2;
   }
 
   return boost::none;

@@ -38,11 +38,6 @@ struct HTTP1xCodecPair {
   static const int version = 1;
 };
 
-struct SPDY2CodecPair {
-  typedef SPDYCodec Codec;
-  static const SPDYVersion version = SPDYVersion::SPDY2;
-};
-
 struct SPDY3CodecPair {
   typedef SPDYCodec Codec;
   static const SPDYVersion version = SPDYVersion::SPDY3;
@@ -265,7 +260,6 @@ class TimeoutableHTTPUpstreamTest: public HTTPUpstreamTest<C> {
 };
 
 typedef HTTPUpstreamTest<HTTP1xCodecPair> HTTPUpstreamSessionTest;
-typedef HTTPUpstreamTest<SPDY2CodecPair> SPDY2UpstreamSessionTest;
 typedef HTTPUpstreamTest<SPDY3CodecPair> SPDY3UpstreamSessionTest;
 
 TEST_F(SPDY3UpstreamSessionTest, server_push) {
@@ -1552,6 +1546,5 @@ TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
                            immediate_eof);
 
-typedef ::testing::Types<HTTP1xCodecPair, SPDY2CodecPair,
-                         SPDY3CodecPair> AllTypes;
+typedef ::testing::Types<HTTP1xCodecPair, SPDY3CodecPair> AllTypes;
 INSTANTIATE_TYPED_TEST_CASE_P(AllTypesPrefix, HTTPUpstreamTest, AllTypes);
