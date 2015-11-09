@@ -219,6 +219,30 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastErrorCode = ErrorCode::NO_ERROR;
   }
 
+  void dumpCounters(int verbosity) const {
+    VLOG(verbosity) << "Dumping HTTP codec callback counters";
+    VLOG(verbosity) << "assocStreamId: " << assocStreamId;
+    VLOG(verbosity) << "messageBegin: " << messageBegin;
+    VLOG(verbosity) << "headersComplete: " << headersComplete;
+    VLOG(verbosity) << "bodyCalls: " << bodyCalls;
+    VLOG(verbosity) << "bodyLength: " << bodyLength;
+    VLOG(verbosity) << "paddingBytes: " << paddingBytes;
+    VLOG(verbosity) << "chunkHeaders: " << chunkHeaders;
+    VLOG(verbosity) << "chunkComplete: " << chunkComplete;
+    VLOG(verbosity) << "trailers: " << trailers;
+    VLOG(verbosity) << "aborts: " << aborts;
+    VLOG(verbosity) << "goaways: " << goaways;
+    VLOG(verbosity) << "sessionErrors: " << sessionErrors;
+    VLOG(verbosity) << "streamErrors: " << streamErrors;
+    VLOG(verbosity) << "recvPingRequest: " << recvPingRequest;
+    VLOG(verbosity) << "recvPingReply: " << recvPingReply;
+    VLOG(verbosity) << "windowUpdateCalls: " << windowUpdateCalls;
+    VLOG(verbosity) << "settings: " << settings;
+    VLOG(verbosity) << "settingsAcks: " << settingsAcks;
+    VLOG(verbosity) << "windowSize: " << windowSize;
+    VLOG(verbosity) << "maxStreams: " << maxStreams;
+  }
+
   HTTPCodec::StreamID assocStreamId{0};
   uint32_t messageBegin{0};
   uint32_t headersComplete{0};

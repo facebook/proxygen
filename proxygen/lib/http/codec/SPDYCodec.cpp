@@ -1020,6 +1020,10 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
           (version_ == 3 && off && name == "path")) {
         valueOk = SPDYUtil::validateURL(value);
         isPath = true;
+        if (hasPath) {
+          throw SPDYStreamFailed(false, streamID, 400,
+             "Multiple paths in header");
+        }
         hasPath = true;
       } else if ((version_ == 2 || off) && name == "method") {
         valueOk = SPDYUtil::validateMethod(value);
