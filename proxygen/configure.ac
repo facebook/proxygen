@@ -241,6 +241,7 @@ AC_CONFIG_FILES([Makefile
                  lib/utils/test/Makefile
                  lib/ssl/Makefile
                  lib/services/Makefile
+                 lib/transport/Makefile
                  lib/http/Makefile
                  lib/http/codec/Makefile
                  lib/http/codec/test/Makefile
