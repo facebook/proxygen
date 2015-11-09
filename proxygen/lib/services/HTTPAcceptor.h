@@ -38,7 +38,8 @@ class HTTPAcceptor : public wangle::Acceptor {
   }
 
   void init(folly::AsyncServerSocket* serverSocket,
-            folly::EventBase* eventBase) override {
+            folly::EventBase* eventBase,
+            wangle::SSLStats* stat=nullptr) override {
     Acceptor::init(serverSocket, eventBase);
     transactionTimeouts_ =
        folly::HHWheelTimer::newTimer(
