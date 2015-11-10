@@ -131,7 +131,9 @@ HTTPSession::HTTPSession(
     resetAfterDrainingWrites_(false),
     resetSocketOnShutdown_(false),
     ingressError_(false),
-    inLoopCallback_(false) {
+    inLoopCallback_(false),
+    inResume_(false),
+    pendingPause_(false) {
 
   initialReceiveWindow_ = receiveStreamWindowSize_ =
     receiveSessionWindowSize_ = codec_->getDefaultWindowSize();
@@ -1414,7 +1416,10 @@ HTTPSession::notifyEgressBodyBuffered(int64_t bytes) noexcept {
   pendingWriteSizeDelta_ += bytes;
   // any net change requires us to update pause/resume state in the
   // loop callback
-  if (!isLoopCallbackScheduled()) {
+  if (pendingWriteSizeDelta_ > 0) {
+    // pause inline, resume in loop
+    updateWriteBufSize(0);
+  } else if (!isLoopCallbackScheduled()) {
     sock_->getEventBase()->runInLoop(this);
   }
 }
@@ -1649,12 +1654,26 @@ HTTPSession::updateWriteBufSize(int64_t delta) {
 
   if (egressLimitExceeded() && !wasExceeded) {
     // Exceeded limit. Pause reading on the incoming stream.
-    VLOG(3) << "Pausing txn egress for " << *this;
-    invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
+    if (inResume_) {
+      VLOG(3) << "Pausing txn egress for " << *this << " deferred";
+      pendingPause_ = true;
+    } else {
+      VLOG(3) << "Pausing txn egress for " << *this;
+      invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
+    }
   } else if (!egressLimitExceeded() && wasExceeded) {
     // Dropped below limit. Resume reading on the incoming stream if needed.
-    VLOG(3) << "Resuming txn egress for " << *this;
-    invokeOnAllTransactions(&HTTPTransaction::resumeEgress);
+    if (inResume_) {
+      if (pendingPause_) {
+        VLOG(3) << "Cancel deferred txn egress pause for " << *this;
+        pendingPause_ = false;
+      } else {
+        VLOG(3) << "Ignoring redundant resume for " << *this;
+      }
+    } else {
+      VLOG(3) << "Resuming txn egress for " << *this;
+      resumeTransactions();
+    }
   }
 }
 
@@ -2165,6 +2184,50 @@ void HTTPSession::errorOnTransactionId(
   auto txn = findTransaction(id);
   if (txn != nullptr) {
     txn->onError(std::move(ex));
+  }
+}
+
+void HTTPSession::resumeTransactions() {
+  struct PriCmp {
+    bool operator()(const std::pair<HTTPCodec::StreamID, uint32_t>& t1,
+                    const std::pair<HTTPCodec::StreamID, uint32_t>& t2) {
+      return t1.second < t2.second;
+    }
+  };
+
+  CHECK(!inResume_);
+  inResume_ = true;
+  DestructorGuard g(this);
+  std::vector<std::pair<HTTPCodec::StreamID, uint8_t>> ids;
+  for (const auto& txn: transactions_) {
+    ids.push_back(std::make_pair(txn.first, txn.second.getPriority()));
+  }
+  // resume transactions in priority order, as long as we can take more
+  // egress
+  std::sort(ids.begin(), ids.end(), PriCmp());
+  int8_t egressPri = -1;
+  for (auto id: ids) {
+    if (transactions_.empty()) {
+      break;
+    }
+    if (egressLimitExceeded()) {
+      CHECK(egressPri >= 0); // how can we already exceed the limit
+      if (id.second != (uint8_t)egressPri) {
+        break;
+      }
+      // resume this transaction if it's at the same priority
+    }
+    auto txn = findTransaction(id.first);
+    if (txn != nullptr) {
+      txn->resumeEgress();
+      egressPri = id.second;
+    }
+  }
+  inResume_ = false;
+  if (pendingPause_) {
+    VLOG(3) << "Pausing txn egress for " << *this;
+    pendingPause_ = false;
+    invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
   }
 }
 

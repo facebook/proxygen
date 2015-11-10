@@ -440,9 +440,7 @@ class HTTPTransaction :
     return handler_;
   }
 
-  uint32_t getPriority() const {
-    return priority_;
-  }
+  uint8_t getPriority() const;
 
   TransactionInfo getTransactionInfo() const {
     return txnInfo_;

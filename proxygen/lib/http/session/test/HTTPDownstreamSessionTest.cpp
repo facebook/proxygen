@@ -1239,6 +1239,9 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
   this->cleanup();
 }
 
+#define IF_HTTP2(X) \
+  if (this->clientCodec_->getProtocol() == CodecProtocol::HTTP_2) { X; }
+
 TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
   HTTPSession::setPendingWriteMax(12000);
   this->clientCodec_->getEgressSettings()->setSetting(
@@ -1247,6 +1250,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
   this->clientCodec_->generateWindowUpdate(this->requests_, 0, 1000000);
   this->sendRequest("/", 1);
   this->sendRequest("/", 1);
+  this->sendRequest("/", 2);
 
   InSequence handlerSequence;
   auto handler1 = this->addSimpleStrictHandler();
@@ -1263,24 +1267,47 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
     });
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
+  auto handler3 = this->addSimpleStrictHandler();
+  handler3->expectEgressPaused();
+  handler3->expectHeaders();
+  handler3->expectEOM();
+
   handler1->expectEgressResumed([&] {
       // resume does not trigger another pause,
       handler1->txn_->sendBody(std::move(makeBuf(12000)));
     });
+  // handler2 gets a fair shot, handler3 is not resumed
+  // HTTP/2 priority is not implemented, so handler3 is like another 0 pri txn
+  handler2->expectEgressResumed();
+  IF_HTTP2(handler3->expectEgressResumed());
+  handler1->expectEgressPaused();
+  handler2->expectEgressPaused();
+  IF_HTTP2(handler3->expectEgressPaused());
+
+  handler1->expectEgressResumed();
   handler2->expectEgressResumed([&] {
       handler2->sendHeaders(200, 12000);
       handler2->txn_->sendBody(std::move(makeBuf(12000)));
       this->transport_->pauseWrites();
       this->resumeWritesAfterDelay(milliseconds(50));
     });
+  // handler3 not resumed
+  IF_HTTP2(handler3->expectEgressResumed());
 
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
+  IF_HTTP2(handler3->expectEgressPaused());
+
   handler1->expectEgressResumed();
   handler2->expectEgressResumed([&] {
       handler1->txn_->sendEOM();
       handler2->txn_->sendEOM();
     });
+  handler3->expectEgressResumed([&] {
+      handler3->txn_->sendAbort();
+    });
+
+  handler3->expectDetachTransaction();
   handler1->expectDetachTransaction();
   handler2->expectDetachTransaction();
 

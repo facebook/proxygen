@@ -114,6 +114,10 @@ HTTPTransaction::~HTTPTransaction() {
   }
 }
 
+uint8_t HTTPTransaction::getPriority() const {
+  return priority_ >> spdy::SPDY_PRIO_SHIFT_FACTOR;
+}
+
 void HTTPTransaction::onIngressHeadersComplete(
   std::unique_ptr<HTTPMessage> msg) {
   DestructorGuard g(this);
@@ -608,6 +612,7 @@ void HTTPTransaction::sendHeaders(const HTTPMessage& headers) {
 }
 
 void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
+  DestructorGuard guard(this);
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendBody));
   if (body && isEnqueued()) {
@@ -989,6 +994,7 @@ void HTTPTransaction::setEgressRateLimit(uint64_t bitsPerSecond) {
 }
 
 void HTTPTransaction::notifyTransportPendingEgress() {
+  DestructorGuard guard(this);
   if (!egressRateLimited_ &&
       (deferredEgressBody_.chainLength() > 0 ||
        isEgressEOMQueued()) &&

@@ -708,6 +708,8 @@ class HTTPSession:
     }
   }
 
+  void resumeTransactions();
+
   /**
    * This function invokes a callback on all transactions. It is safe,
    * but runs in O(n*log n) and if the callback *adds* transactions,
@@ -919,6 +921,8 @@ class HTTPSession:
   // indicates a fatal error that prevents further ingress data processing
   bool ingressError_:1;
   bool inLoopCallback_:1;
+  bool inResume_:1;
+  bool pendingPause_:1;
 
   /**
    * Maximum number of ingress body bytes that can be buffered across all
