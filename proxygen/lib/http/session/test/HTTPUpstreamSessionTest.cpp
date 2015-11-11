@@ -71,9 +71,11 @@ class HTTPUpstreamTest: public testing::Test,
     cbs_.clear();
   }
 
-  virtual void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
-                            std::shared_ptr<IOBuf> iob,
-                            WriteFlags flags) {
+  virtual void onWriteChain(
+      folly::AsyncTransportWrapper::WriteCallback* callback,
+      std::shared_ptr<IOBuf> iob,
+      WriteFlags,
+      folly::AsyncTransportWrapper::BufferCallback*) {
     if (pauseWrites_) {
       cbs_.push_back(callback);
       return;  // let write requests timeout
@@ -108,7 +110,7 @@ class HTTPUpstreamTest: public testing::Test,
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
     HTTPSession::setDefaultReadBufferLimit(65536);
     HTTPSession::setPendingWriteMax(65536);
-    EXPECT_CALL(*transport_, writeChain(_, _, _))
+    EXPECT_CALL(*transport_, writeChain(_, _, _, _))
       .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));
     EXPECT_CALL(*transport_, setReadCB(_))
       .WillRepeatedly(SaveArg<0>(&readCallback_));
@@ -707,9 +709,11 @@ TEST_F(HTTPUpstreamSessionTest, 101_upgrade) {
 
 class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
  public:
-  void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
-                    std::shared_ptr<IOBuf> iob,
-                    WriteFlags flags) override {
+  void onWriteChain(
+      folly::AsyncTransportWrapper::WriteCallback* callback,
+      std::shared_ptr<IOBuf>,
+      WriteFlags,
+      folly::AsyncTransportWrapper::BufferCallback*) override {
     if (!timesCalled_++) {
       callback->writeSuccess();
     } else {

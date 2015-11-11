@@ -229,17 +229,19 @@ TestAsyncTransport::getReadCallback() const {
 void
 TestAsyncTransport::write(AsyncTransportWrapper::WriteCallback* callback,
                           const void* buf, size_t bytes,
-                          WriteFlags flags) {
+                          WriteFlags flags,
+                          AsyncTransportWrapper::BufferCallback* bufCB) {
   iovec op;
   op.iov_base = const_cast<void*>(buf);
   op.iov_len = bytes;
-  this->writev(callback, &op, 1, flags);
+  this->writev(callback, &op, 1, flags, bufCB);
 }
 
 void
 TestAsyncTransport::writev(AsyncTransportWrapper::WriteCallback* callback,
                            const iovec* vec, size_t count,
-                           WriteFlags flags) {
+                           WriteFlags flags,
+                           AsyncTransportWrapper::BufferCallback*) {
   if (isSet(flags, WriteFlags::CORK)) {
     corkCount_++;
   } else if (isSet(flags, WriteFlags::EOR)) {
@@ -267,7 +269,8 @@ TestAsyncTransport::writev(AsyncTransportWrapper::WriteCallback* callback,
 void
 TestAsyncTransport::writeChain(AsyncTransportWrapper::WriteCallback* callback,
                                std::unique_ptr<folly::IOBuf>&& iob,
-                               WriteFlags flags) {
+                               WriteFlags flags,
+                               AsyncTransportWrapper::BufferCallback* bufCB) {
   size_t count = iob->countChainElements();
   iovec vec[count];
   const IOBuf* head = iob.get();
@@ -278,7 +281,7 @@ TestAsyncTransport::writeChain(AsyncTransportWrapper::WriteCallback* callback,
     vec[i++].iov_len = next->length();
     next = next->next();
   } while (next != head);
-  this->writev(callback, vec, count, flags);
+  this->writev(callback, vec, count, flags, bufCB);
 }
 
 void

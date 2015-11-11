@@ -56,18 +56,23 @@ class PassThroughTransportFilter: public TransportFilter {
   folly::AsyncTransportWrapper::ReadCallback* getReadCallback()
     const override;
 
-  void write(folly::AsyncTransportWrapper::WriteCallback* callback,
-             const void* buf, size_t bytes,
-             folly::WriteFlags flags) override;
+  void write(
+      folly::AsyncTransportWrapper::WriteCallback* callback,
+      const void* buf, size_t bytes,
+      folly::WriteFlags flags,
+      folly::AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override;
 
-  void writev(folly::AsyncTransportWrapper::WriteCallback* callback,
-              const iovec* vec, size_t count,
-              folly::WriteFlags flags) override;
+  void writev(
+      folly::AsyncTransportWrapper::WriteCallback* callback,
+      const iovec* vec, size_t count,
+      folly::WriteFlags flags,
+      folly::AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override;
 
   void writeChain(
     folly::AsyncTransportWrapper::WriteCallback* callback,
     std::unique_ptr<folly::IOBuf>&& iob,
-    folly::WriteFlags flags) override;
+    folly::WriteFlags flags,
+    folly::AsyncTransportWrapper::BufferCallback* bufCB) override;
 
   void close() override;
 

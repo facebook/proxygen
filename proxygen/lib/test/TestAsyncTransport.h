@@ -53,15 +53,19 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
   void write(AsyncTransportWrapper::WriteCallback* callback,
              const void* buf, size_t bytes,
              folly::WriteFlags flags =
-             folly::WriteFlags::NONE) override;
+             folly::WriteFlags::NONE,
+             AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override;
   void writev(AsyncTransportWrapper::WriteCallback* callback,
               const struct iovec* vec, size_t count,
               folly::WriteFlags flags =
-              folly::WriteFlags::NONE) override;
-  void writeChain(AsyncTransportWrapper::WriteCallback* callback,
-                  std::unique_ptr<folly::IOBuf>&& iob,
-                  folly::WriteFlags flags =
-                  folly::WriteFlags::NONE) override;
+              folly::WriteFlags::NONE,
+              AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override;
+  void writeChain(
+      AsyncTransportWrapper::WriteCallback* callback,
+      std::unique_ptr<folly::IOBuf>&& iob,
+      folly::WriteFlags flags =
+      folly::WriteFlags::NONE,
+      AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override;
   void close() override;
   void closeNow() override;
   void shutdownWrite() override;

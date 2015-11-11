@@ -563,10 +563,11 @@ TEST(HTTPDownstreamTest, parse_error_no_txn) {
     .WillRepeatedly(ReturnPointee(&transportGood));
   EXPECT_CALL(*transport, closeNow())
     .WillRepeatedly(Assign(&transportGood, false));
-  EXPECT_CALL(*transport, writeChain(_, _, _))
+  EXPECT_CALL(*transport, writeChain(_, _, _, _))
     .WillRepeatedly(
       Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                  const shared_ptr<IOBuf>, WriteFlags) {
+                  const shared_ptr<IOBuf>&, WriteFlags,
+                  folly::AsyncTransportWrapper::BufferCallback*) {
                callback->writeSuccess();
              }));
 
