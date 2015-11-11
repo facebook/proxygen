@@ -13,6 +13,8 @@
 #include <chrono>
 #include <cinttypes>
 
+#include <folly/CPortability.h>
+
 namespace proxygen {
 
 using SteadyClock = std::chrono::steady_clock;

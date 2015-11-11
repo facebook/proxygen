@@ -10,7 +10,7 @@
 #include <proxygen/lib/utils/ParseURL.h>
 
 #include <algorithm>
-#include <arpa/inet.h>
+#include <folly/SocketPortability.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/utils/UtilInl.h>
 
