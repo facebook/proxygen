@@ -70,11 +70,13 @@ const uint8_t s_bitsTable09[kTableSize] = {
  */
 DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, HuffTree09, s_huffTree09);
 
-__attribute__((__constructor__))
-void initHuffTree09() {
-  new (const_cast<HuffTree*>(&s_huffTree09.data))
-    HuffTree(s_codesTable09, s_bitsTable09);
-}
+static struct InitHuffTree09 {
+public:
+  InitHuffTree09() {
+    new (const_cast<HuffTree*>(&s_huffTree09.data))
+      HuffTree(s_codesTable09, s_bitsTable09);
+  }
+} s_InitHuffTree09;
 
 const HuffTree& huffTree09() {
   return s_huffTree09.data;

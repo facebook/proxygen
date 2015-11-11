@@ -1065,19 +1065,21 @@ HTTP1xCodec::onMessageCompleteCB(http_parser* parser) {
   }
 }
 
-void
-HTTP1xCodec::initParserSettings() {
-  kParserSettings.on_message_begin = HTTP1xCodec::onMessageBeginCB;
-  kParserSettings.on_url = HTTP1xCodec::onUrlCB;
-  kParserSettings.on_header_field = HTTP1xCodec::onHeaderFieldCB;
-  kParserSettings.on_header_value = HTTP1xCodec::onHeaderValueCB;
-  kParserSettings.on_headers_complete = HTTP1xCodec::onHeadersCompleteCB;
-  kParserSettings.on_body = HTTP1xCodec::onBodyCB;
-  kParserSettings.on_message_complete = HTTP1xCodec::onMessageCompleteCB;
-  kParserSettings.on_reason = HTTP1xCodec::onReasonCB;
-  kParserSettings.on_chunk_header = HTTP1xCodec::onChunkHeaderCB;
-  kParserSettings.on_chunk_complete = HTTP1xCodec::onChunkCompleteCB;
-}
+static struct HTTP1xCodecInitParserSettings {
+public:
+  HTTP1xCodecInitParserSettings() {
+    HTTP1xCodec::kParserSettings.on_message_begin = HTTP1xCodec::onMessageBeginCB;
+    HTTP1xCodec::kParserSettings.on_url = HTTP1xCodec::onUrlCB;
+    HTTP1xCodec::kParserSettings.on_header_field = HTTP1xCodec::onHeaderFieldCB;
+    HTTP1xCodec::kParserSettings.on_header_value = HTTP1xCodec::onHeaderValueCB;
+    HTTP1xCodec::kParserSettings.on_headers_complete = HTTP1xCodec::onHeadersCompleteCB;
+    HTTP1xCodec::kParserSettings.on_body = HTTP1xCodec::onBodyCB;
+    HTTP1xCodec::kParserSettings.on_message_complete = HTTP1xCodec::onMessageCompleteCB;
+    HTTP1xCodec::kParserSettings.on_reason = HTTP1xCodec::onReasonCB;
+    HTTP1xCodec::kParserSettings.on_chunk_header = HTTP1xCodec::onChunkHeaderCB;
+    HTTP1xCodec::kParserSettings.on_chunk_complete = HTTP1xCodec::onChunkCompleteCB;
+  }
+} s_HTTP1xCodecInitParserSettings;
 
 bool HTTP1xCodec::supportsNextProtocol(const std::string& npn) {
   return npn.length() == 8 && (npn == "http/1.0" || npn == "http/1.1");
