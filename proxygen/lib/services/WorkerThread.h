@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <folly/Portability.h>
 #include <folly/io/async/EventBase.h>
 #include <mutex>
 #include <thread>
@@ -120,7 +121,7 @@ class WorkerThread {
   folly::EventBaseManager* eventBaseManager_{nullptr};
 
   // A thread-local pointer to the current WorkerThread for this thread
-  static __thread WorkerThread* currentWorker_;
+  static FOLLY_TLS WorkerThread* currentWorker_;
 
   // A count of the number of WorkerThreads that have been constructed
   static std::atomic_uint objectCounter_;
