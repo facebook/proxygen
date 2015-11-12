@@ -30,6 +30,7 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   conf.initialReceiveWindow = opts.initialReceiveWindow;
   conf.receiveStreamWindowSize = opts.receiveStreamWindowSize;
   conf.receiveSessionWindowSize = opts.receiveSessionWindowSize;
+  conf.acceptBacklog = opts.listenBacklog;
 
   if (ipConfig.protocol == HTTPServer::Protocol::SPDY) {
     conf.plaintextProtocol = "spdy/3.1";
