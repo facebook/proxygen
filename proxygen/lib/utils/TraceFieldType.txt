@@ -193,6 +193,7 @@ ConnLifeSpan, "connection_life_span"
 SCFGCacheHit, "scfg_cache_hit"
 InitialAppBytesWritten, "initial_app_bytes_written"
 TimeToInitial, "time_to_initial"
+SCFGExpired, "zero_scfg_expired"
 
 /* --- Used in MQTT Client --- */
 MQTTConnAttempts, "mqtt_conn_attempts"
