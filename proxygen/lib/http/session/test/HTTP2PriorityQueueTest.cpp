@@ -85,9 +85,10 @@ class QueueTest : public testing::Test {
   }
 
   void nextEgress() {
-    auto res = q_.nextEgress();
+    HTTP2PriorityQueue::NextEgressResult nextEgressResults;
+    q_.nextEgress(nextEgressResults);
     nodes_.clear();
-    for (auto p: res) {
+    for (auto p: nextEgressResults) {
       nodes_.push_back(std::make_pair(getTxnID(p.first), p.second * 100));
     }
   }

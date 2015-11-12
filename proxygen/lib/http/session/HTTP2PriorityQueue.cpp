@@ -16,4 +16,7 @@ int foo() {
   return 0;
 }
 
+folly::ThreadLocalPtr<HTTP2PriorityQueue::NextEgressResult>
+  HTTP2PriorityQueue::nextEgressResults_;
+
 }

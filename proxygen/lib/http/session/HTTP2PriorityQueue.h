@@ -11,8 +11,10 @@
 
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
+#include <folly/ThreadLocal.h>
 
 #include <list>
+#include <deque>
 
 namespace proxygen {
 
@@ -222,7 +224,14 @@ class HTTP2PriorityQueue {
       return stop;
     }
 
-    typedef std::list<std::pair<HTTPCodec::StreamID, double>> PendingList;
+    struct PendingNode {
+      HTTPCodec::StreamID id;
+      Node* node;
+      double ratio;
+      PendingNode(HTTPCodec::StreamID i, Node* n, double r) :
+          id(i), node(n), ratio(r) {}
+    };
+    typedef std::deque<PendingNode> PendingList;
     bool visitBFS(double relativeParentWeight,
                   const std::function<bool(HTTPCodec::StreamID,
                                           HTTPTransaction *, double)>& fn,
@@ -234,8 +243,8 @@ class HTTP2PriorityQueue {
       // pending children
       if (all || (!invoke && totalEnqueuedWeight_ > 0)) {
         for (auto& child: children_) {
-          pendingNodes.push_back({child->id_,
-                relativeParentWeight * getRelativeEnqueuedWeight()});
+          pendingNodes.emplace_back(child->id_, child.get(),
+                relativeParentWeight * getRelativeEnqueuedWeight());
         }
       }
 
@@ -286,6 +295,7 @@ class HTTP2PriorityQueue {
     if (!h->isEnqueued()) {
       h->signalPendingEgress();
       activeCount_++;
+      pendingWeightChange_ = true;
     }
   }
 
@@ -295,6 +305,7 @@ class HTTP2PriorityQueue {
     // clear does a CHECK on h->isEnqueued()
     h->clearPendingEgress();
     activeCount_--;
+    pendingWeightChange_ = true;
   }
 
   // adds new transaction (possibly nullptr) to the priority tree
@@ -314,12 +325,14 @@ class HTTP2PriorityQueue {
     }
     auto node = folly::make_unique<Node>(parent, id, pri.weight, txn);
     auto result = parent->emplaceNode(std::move(node), pri.exclusive);
+    pendingWeightChange_ = true;
     return result;
   }
 
   // update the priority of an existing node
   Handle updatePriority(Handle handle, http2::PriorityUpdate pri) {
     Node* node = handle;
+    pendingWeightChange_ = true;
     node->updateWeight(pri.weight);
     if (pri.streamDependency == node->parentID() && !pri.exclusive) {
       // no move
@@ -340,6 +353,7 @@ class HTTP2PriorityQueue {
   // Remove the transaction from the priority tree
   void removeTransaction(Handle handle) {
     Node* node = handle;
+    pendingWeightChange_ = true;
     // TODO: or require the node to do it?
     if (node->isEnqueued()) {
       clearPendingEgress(handle);
@@ -367,15 +381,15 @@ class HTTP2PriorityQueue {
   void iterateBFS(const std::function<bool(HTTPCodec::StreamID,
                                            HTTPTransaction *, double)>& fn,
                   const std::function<bool()>& stopFn, bool all) {
-    Node::PendingList pendingNodes{{0, 1.0}};
+    Node::PendingList pendingNodes{{0, &root_, 1.0}};
     Node::PendingList newPendingNodes;
     bool stop = false;
     while (!stop && !stopFn() && !pendingNodes.empty()) {
       CHECK(newPendingNodes.empty());
       while (!stop && !pendingNodes.empty()) {
-        Node* node = findInternal(pendingNodes.front().first);
+        Node* node = findInternal(pendingNodes.front().id);
         if (node) {
-          stop = node->visitBFS(pendingNodes.front().second, fn, all,
+          stop = node->visitBFS(pendingNodes.front().ratio, fn, all,
                                 newPendingNodes);
         }
         pendingNodes.pop_front();
@@ -392,28 +406,38 @@ class HTTP2PriorityQueue {
   };
 
 
-  std::list<std::pair<HTTPTransaction*, double>> nextEgress() {
-    std::list<std::pair<HTTPTransaction*, double>> result;
-    auto fn = [&result] (HTTPCodec::StreamID id, HTTPTransaction* txn,
-                         double r) {
-      result.push_back({txn, r});
-      return false;
-    };
+  static bool nextEgressResult(HTTPCodec::StreamID id, HTTPTransaction* txn,
+                               double r) {
+    nextEgressResults_.get()->emplace_back(txn, r);
+    return false;
+  }
 
-    root_.updateEnqueuedWeight();
+  typedef std::vector<std::pair<HTTPTransaction*, double>> NextEgressResult;
 
-    Node::PendingList pendingNodes{{0, 1.0}};
-    bool stop = false;
-    while (!stop && !pendingNodes.empty()) {
-      Node* node = findInternal(pendingNodes.front().first);
-      if (node) {
-        stop = node->visitBFS(pendingNodes.front().second, fn, false,
-                              pendingNodes);
-      }
-      pendingNodes.pop_front();
+  void nextEgress(NextEgressResult& result) {
+    result.reserve(activeCount_);
+    nextEgressResults_.reset(&result);
+
+    if (pendingWeightChange_) {
+      root_.updateEnqueuedWeight();
+      pendingWeightChange_ = false;
     }
-    result.sort(WeightCmp());
-    return result;
+
+    static folly::ThreadLocal<Node::PendingList> tlPendingNodes;
+    auto pendingNodes = tlPendingNodes.get();
+    pendingNodes->clear();
+    pendingNodes->emplace_back(0, &root_, 1.0);
+    bool stop = false;
+    while (!stop && !pendingNodes->empty()) {
+      Node* node = pendingNodes->front().node;
+      if (node) {
+        stop = node->visitBFS(pendingNodes->front().ratio, nextEgressResult,
+                              false, *pendingNodes);
+      }
+      pendingNodes->pop_front();
+    }
+    std::sort(result.begin(), result.end(), WeightCmp());
+    nextEgressResults_.release();
   }
 
  private:
@@ -426,6 +450,8 @@ class HTTP2PriorityQueue {
 
   Node root_{nullptr, 0, 1, nullptr};
   uint64_t activeCount_{0};
+  bool pendingWeightChange_{false};
+  static folly::ThreadLocalPtr<NextEgressResult> nextEgressResults_;
 };
 
 
