@@ -585,6 +585,12 @@ class HTTPSession:
     return false;
   }
 
+  /**
+   * Turn on or off the persistentCork_ flag in the underlying AsyncSocket
+   * @note this also immediately turn on or off TCP_CORK of the socket
+   */
+  void setPersistentCork(bool cork);
+
  protected:
 
   /**

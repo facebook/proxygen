@@ -2290,4 +2290,11 @@ void HTTPSession::onDeleteAckEvent() {
   }
 }
 
+void HTTPSession::setPersistentCork(bool cork) {
+  auto sock = getSocketFromTransport(sock_.get());
+  if (sock) {
+    sock->setPersistentCork(cork);
+  }
+}
+
 } // proxygen
