@@ -195,9 +195,9 @@ InitialAppBytesWritten, "zero_initial_app_bytes_written"
 TimeToInitial, "zero_time_to_initial"
 SCFGExpired, "zero_scfg_expired"
 
-/* ---- Used in ZeroVerification ---- */
-ZeroVerifiedSuccess "zero_verified_success"
-ZeroVerifiedError "zero_verified_error"
+/* --- Used in ZeroVerification --- */
+ZeroVerifiedSuccess, "zero_verified_success"
+ZeroVerifiedError, "zero_verified_error"
 
 /* --- Used in MQTT Client --- */
 MQTTConnAttempts, "mqtt_conn_attempts"
