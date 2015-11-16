@@ -445,6 +445,13 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       }
 
       // callback checks total number of streams is smaller than settings max
+      if (callback_->numIncomingStreams() >=
+          egressSettings_.getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
+                                     std::numeric_limits<int32_t>::max())) {
+        streamError(folly::to<string>("Exceeded max_concurrent_streams"),
+                    ErrorCode::REFUSED_STREAM, true);
+        return ErrorCode::NO_ERROR;
+      }
       callback_->onMessageBegin(curHeader_.stream, msg.get());
     } else if (curHeader_.type == http2::FrameType::PUSH_PROMISE) {
       DCHECK(promisedStream);
@@ -464,8 +471,11 @@ void HTTP2Codec::onHeader(const std::string& name,
   // Refuse decoding other headers if an error is already found
   if (decodeInfo_.decodeError != HeaderDecodeError::NONE
       || decodeInfo_.parsingError != "") {
+    VLOG(4) << "Ignoring header=" << name << " value=" << value <<
+      " due to parser error=" << decodeInfo_.parsingError;
     return;
   }
+  VLOG(5) << "Processing header=" << name << " value=" << value;
   folly::StringPiece nameSp(name);
   folly::StringPiece valueSp(value);
 
@@ -578,6 +588,7 @@ void HTTP2Codec::onHeadersComplete() {
     return;
   }
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
+  decodeInfo_.msg->setHTTPVersion(1, 1);
   decodeInfo_.msg->setIngressHeaderSize(headerCodec_.getDecodedSize());
 }
 
@@ -763,13 +774,10 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
       // Parsing a zero delta window update should cause a protocol error
       // and send a rst stream
       VLOG(4) << "parseWindowUpdate Invalid 0 length";
-      HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS,
-                        folly::to<std::string>(
-                          "HTTP2Codec stream error: stream=",
-                          curHeader_.stream,
-                          " window update delta=", delta));
-      error.setCodecStatusCode(ErrorCode::PROTOCOL_ERROR);
-      callback_->onError(curHeader_.stream, error, false);
+      streamError(folly::to<std::string>(
+                    "HTTP2Codec stream error: stream=",
+                    curHeader_.stream,
+                    " window update delta=", delta), ErrorCode::PROTOCOL_ERROR);
       return ErrorCode::PROTOCOL_ERROR;
     }
   }
@@ -1081,6 +1089,14 @@ bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
     return true;
   }
   return false;
+}
+
+void HTTP2Codec::streamError(const std::string& msg, ErrorCode code,
+                             bool newTxn) {
+  HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS,
+                      msg);
+  error.setCodecStatusCode(code);
+  callback_->onError(curHeader_.stream, error, newTxn);
 }
 
 }

@@ -169,6 +169,7 @@ public:
     return egressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                       http2::kMaxFramePayloadLengthMin);
   }
+  void streamError(const std::string& msg, ErrorCode error, bool newTxn=false);
 
   HPACKCodec09 headerCodec_;
 

@@ -1317,6 +1317,41 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
   this->cleanup();
 }
 
+// Test exceeding the MAX_CONCURRENT_STREAMS setting.  The txn should get
+// REFUSED_STREAM, and other streams can complete normally
+TYPED_TEST_P(HTTPDownstreamTest, testMaxTxns) {
+  auto settings = this->httpSession_->getCodec().getEgressSettings();
+  auto maxTxns = settings->getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
+                                      100);
+  std::list<unique_ptr<StrictMock<MockHTTPHandler>>> handlers;
+  {
+    InSequence enforceOrder;
+    for (auto i = 0; i < maxTxns; i++) {
+      this->sendRequest();
+      auto handler = this->addSimpleStrictHandler();
+      handler->expectHeaders();
+      handler->expectEOM();
+      handlers.push_back(std::move(handler));
+    }
+    auto streamID = this->sendRequest();
+    this->clientCodec_->generateGoaway(this->requests_, 0, ErrorCode::NO_ERROR);
+
+    this->flushRequestsAndLoop();
+
+    EXPECT_CALL(this->callbacks_, onSettings(_));
+    EXPECT_CALL(this->callbacks_, onAbort(streamID, ErrorCode::REFUSED_STREAM));
+
+    this->parseOutput(*this->clientCodec_);
+  }
+  // handlers can finish out of order?
+  for (auto &handler: handlers) {
+    handler->sendReplyWithBody(200, 100);
+    handler->expectDetachTransaction();
+  }
+  this->expectDetachSession();
+  this->eventBase_.loop();
+}
+
 // Set max streams=1
 // send two spdy requests a few ms apart.
 // Block writes
@@ -1355,7 +1390,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
                            testWritesDraining, testBodySizeLimit,
-                           testUniformPauseState);
+                           testUniformPauseState, testMaxTxns);
 
 typedef ::testing::Types<SPDY3CodecPair, SPDY3_1CodecPair,
                          HTTP2CodecPair> ParallelCodecs;
