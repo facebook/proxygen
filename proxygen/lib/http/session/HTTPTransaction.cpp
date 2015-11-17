@@ -970,7 +970,7 @@ void HTTPTransaction::pauseEgress() {
     return;
   }
   egressPaused_ = true;
-  notifyTransportPendingEgress();
+  updateHandlerPauseState();
 }
 
 void HTTPTransaction::resumeEgress() {
@@ -981,7 +981,7 @@ void HTTPTransaction::resumeEgress() {
     return;
   }
   egressPaused_ = false;
-  notifyTransportPendingEgress();
+  updateHandlerPauseState();
 }
 
 void HTTPTransaction::setEgressRateLimit(uint64_t bitsPerSecond) {
