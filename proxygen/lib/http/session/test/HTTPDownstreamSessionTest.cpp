@@ -1326,7 +1326,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testMaxTxns) {
   std::list<unique_ptr<StrictMock<MockHTTPHandler>>> handlers;
   {
     InSequence enforceOrder;
-    for (auto i = 0; i < maxTxns; i++) {
+    for (auto i = 0U; i < maxTxns; i++) {
       this->sendRequest();
       auto handler = this->addSimpleStrictHandler();
       handler->expectHeaders();
