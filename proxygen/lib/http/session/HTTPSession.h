@@ -23,7 +23,6 @@
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-#include <proxygen/lib/transport/HTTPSessionTransportUtils.h>
 #include <proxygen/lib/utils/Time.h>
 #include <queue>
 #include <set>
@@ -578,7 +577,7 @@ class HTTPSession:
    * If the connection is closed by remote end
    */
   bool connCloseByRemote() {
-    auto sock = getSocketFromTransport(getTransport());
+    auto sock = getTransport()->getUnderlyingTransport<folly::AsyncSocket>();
     if (sock) {
       return sock->isClosedByPeer();
     }

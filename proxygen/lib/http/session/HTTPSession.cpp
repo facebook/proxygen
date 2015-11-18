@@ -1442,7 +1442,7 @@ const TransportInfo& HTTPSession::getSetupTransportInfo() const noexcept {
 
 bool HTTPSession::getCurrentTransportInfoWithoutUpdate(
     TransportInfo* tinfo) const {
-  auto sock = getSocketFromTransport(sock_.get());
+  auto sock = sock_->getUnderlyingTransport<AsyncSocket>();
   if (sock) {
     tinfo->initWithSocket(sock);
     return true;
@@ -2291,7 +2291,7 @@ void HTTPSession::onDeleteAckEvent() {
 }
 
 void HTTPSession::setPersistentCork(bool cork) {
-  auto sock = getSocketFromTransport(sock_.get());
+  auto sock = sock_->getUnderlyingTransport<AsyncSocket>();
   if (sock) {
     sock->setPersistentCork(cork);
   }
