@@ -31,6 +31,11 @@ void RequestWorker::flushStats() {
   }
 }
 
+void RequestWorker::setup() {
+  WorkerThread::setup();
+  callback_.workerStarted(this);
+}
+
 void RequestWorker::cleanup() {
   WorkerThread::cleanup();
   callback_.workerFinished(this);

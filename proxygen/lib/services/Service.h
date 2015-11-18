@@ -83,6 +83,14 @@ class Service {
   virtual void forceStop() {}
 
   /**
+   * Perform per-thread init.
+   *
+   * This method will be called once for each RequestWorker thread, just after
+   * the worker thread started.
+   */
+  virtual void initWorkerState(RequestWorker*) {}
+
+  /**
    * Perform per-thread cleanup.
    *
    * This method will be called once for each RequestWorker thread, just before
