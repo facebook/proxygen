@@ -11,8 +11,6 @@ if [ "x$3" != "x" ];then
 fi
 if [ "x$4" != "x" ];then
 	export GPERF="$4"
-else
-	export GPERF="gperf"
 fi
 
 # Some fun stuff going on here.
