@@ -193,9 +193,7 @@ class HTTPDownstreamTest : public testing::Test {
     for (auto event: *writeEvents) {
       auto vec = event->getIoVec();
       for (size_t i = 0; i < event->getCount(); i++) {
-        unique_ptr<IOBuf> buf(
-            IOBuf::wrapBuffer(vec[i].iov_base, vec[i].iov_len));
-        stream.append(std::move(buf));
+        stream.append(IOBuf::wrapBuffer(vec[i].iov_base, vec[i].iov_len));
         uint32_t consumed = clientCodec.onIngress(*stream.front());
         stream.split(consumed);
       }
