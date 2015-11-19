@@ -427,7 +427,55 @@ TEST_F(SPDY3UpstreamSessionTest, test_under_limit_on_write_error) {
   EXPECT_EQ(this->sessionDestroyed_, true);
 }
 
+TEST_F(SPDY3UpstreamSessionTest, test_overlimit_resume) {
+  InSequence enforceOrder;
+  auto handler1 = openTransaction();
+  auto handler2 = openTransaction();
 
+  // Disable stream flow control for this test
+  handler1->txn_->onIngressWindowUpdate(80000);
+  handler2->txn_->onIngressWindowUpdate(80000);
+
+  auto req = getPostRequest();
+  handler1->txn_->sendHeaders(req);
+  handler2->txn_->sendHeaders(req);
+  // pause writes
+  pauseWrites_ = true;
+  handler1->expectEgressPaused();
+  handler2->expectEgressPaused();
+
+  // send body
+  handler1->txn_->sendBody(makeBuf(70000));
+  handler2->txn_->sendBody(makeBuf(70000));
+  eventBase_.loopOnce();
+
+  // when this handler is resumed, re-pause the pipe
+  handler1->expectEgressResumed([&] {
+      handler1->txn_->sendBody(makeBuf(70000));
+    });
+  // handler2 will get a shot
+  handler2->expectEgressResumed();
+
+  // both handlers will be paused
+  handler1->expectEgressPaused();
+  handler2->expectEgressPaused();
+  resumeWrites();
+
+  // They both get resumed
+  handler1->expectEgressResumed([&] { handler1->txn_->sendEOM(); });
+  handler2->expectEgressResumed([&] { handler2->txn_->sendEOM(); });
+
+  this->eventBase_.loop();
+
+  // less than graceful shutdown
+  handler1->expectError();
+  handler1->expectDetachTransaction();
+  handler2->expectError();
+  handler2->expectDetachTransaction();
+
+  httpSession_->shutdownTransportWithReset(kErrorTimeout);
+  EXPECT_EQ(this->sessionDestroyed_, true);
+}
 
 TYPED_TEST_P(HTTPUpstreamTest, immediate_eof) {
   // Receive an EOF without any request data

@@ -490,14 +490,18 @@ class HTTPMessage {
    */
   const static int8_t kMaxPriority;
 
-  void setPriority(int8_t pri) {
+  static uint8_t normalizePriority(int8_t pri) {
     if (pri > kMaxPriority || pri < -kMaxPriority) {
       // outside [-7, 7] => highest priority
-      pri = kMaxPriority;
+      return kMaxPriority;
     } else if (pri < 0) {
-      pri = pri + kMaxPriority + 1;
+      return pri + kMaxPriority + 1;
     }
-    pri_ = pri;
+    return pri;
+  }
+
+  void setPriority(int8_t pri) {
+    pri_ = normalizePriority(pri);
   }
   uint8_t getPriority() const { return pri_; }
 

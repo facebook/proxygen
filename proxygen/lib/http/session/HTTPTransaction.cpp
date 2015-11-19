@@ -50,7 +50,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     sendWindow_(sendInitialWindowSize),
     egressQueue_(egressQueue),
     assocStreamId_(assocId),
-    priority_(priority << spdy::SPDY_PRIO_SHIFT_FACTOR),
+    priority_(
+      HTTPMessage::normalizePriority(priority) << spdy::SPDY_PRIO_SHIFT_FACTOR),
     ingressPaused_(false),
     egressPaused_(false),
     handlerEgressPaused_(false),
@@ -64,7 +65,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     inResume_(false),
     inActiveSet_(true),
     ingressErrorSeen_(false) {
-
   onDestroy_ = [this] (bool delayed) {
     if (!isEgressComplete() || !isIngressComplete() || isEnqueued()
         || deleting_) {
@@ -1122,6 +1122,7 @@ operator<<(std::ostream& os, const HTTPTransaction& txn) {
 
 void HTTPTransaction::changePriority(int8_t newPriority) {
   // Shift
+  newPriority = HTTPMessage::normalizePriority(newPriority);
   newPriority <<= spdy::SPDY_PRIO_SHIFT_FACTOR;
   // Copy over the lowest bit of current priority
   newPriority |= (priority_ & 0x01);
