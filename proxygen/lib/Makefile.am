@@ -1,4 +1,4 @@
-SUBDIRS = test utils ssl services transport http
+SUBDIRS = test utils ssl services http
 
 lib_LTLIBRARIES = libproxygenlib.la
 
