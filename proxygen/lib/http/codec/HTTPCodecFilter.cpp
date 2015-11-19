@@ -282,5 +282,19 @@ uint32_t PassThroughHTTPCodecFilter::getDefaultWindowSize() const {
   return call_->getDefaultWindowSize();
 }
 
+void
+PassThroughHTTPCodecFilter::addPriorityNodes(PriorityQueue& queue) {
+  call_->addPriorityNodes(queue);
+}
+
+HTTPCodec::StreamID
+PassThroughHTTPCodecFilter::mapPriorityToDependency(uint8_t priority) const {
+  return call_->mapPriorityToDependency(priority);
+}
+
+int8_t
+PassThroughHTTPCodecFilter::mapDependencyToPriority(StreamID parent) const {
+  return call_->mapDependencyToPriority(parent);
+}
 
 }

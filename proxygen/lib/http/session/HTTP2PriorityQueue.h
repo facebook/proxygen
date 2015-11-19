@@ -20,7 +20,7 @@ namespace proxygen {
 
 class HTTPTransaction;
 
-class HTTP2PriorityQueue {
+class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
  private:
   class Node;
@@ -306,6 +306,11 @@ class HTTP2PriorityQueue {
     h->clearPendingEgress();
     activeCount_--;
     pendingWeightChange_ = true;
+  }
+
+  void addPriorityNode(HTTPCodec::StreamID id,
+                       HTTPCodec::StreamID parent) override{
+    addTransaction(id, {parent, false, 1}, nullptr);
   }
 
   // adds new transaction (possibly nullptr) to the priority tree

@@ -953,6 +953,14 @@ void SPDYCodec::enableDoubleGoawayDrain() {
   sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
 }
 
+void SPDYCodec::addPriorityNodes(PriorityQueue& queue) {
+  HTTPCodec::StreamID parent = 0;
+  for (uint8_t pri = 0; pri < 8; pri++) {
+    queue.addPriorityNode(HTTPCodec::MAX_STREAM_ID + pri, parent);
+    parent = HTTPCodec::MAX_STREAM_ID + pri;
+  }
+}
+
 uint8_t SPDYCodec::getVersion() const {
   return versionSettings_.majorVersion;
 }
@@ -1183,7 +1191,7 @@ void SPDYCodec::onSynCommon(StreamID streamID,
   pri <<= (3 - versionSettings_.majorVersion);
   msg->setPriority(pri);
   msg->setHTTP2Priority(std::make_tuple(HTTPCodec::MAX_STREAM_ID + pri,
-                                        false, 16));
+                                        false, 255));
   if (assocStreamID) {
     callback_->onPushMessageBegin(streamID, assocStreamID, msg.get());
   } else {

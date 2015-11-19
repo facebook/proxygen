@@ -1203,6 +1203,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
 }
 
 TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
+  this->clientCodec_->generateWindowUpdate(this->requests_, 0, 65536);
   this->sendRequest();
   this->sendRequest();
 
@@ -1213,8 +1214,8 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
   auto handler2 = this->addSimpleNiceHandler();
   handler2->expectHeaders();
   handler2->expectEOM([&] {
-      handler1->sendReplyWithBody(200, 5000);
-      handler2->sendReplyWithBody(200, 5000);
+      handler1->sendReplyWithBody(200, 33000);
+      handler2->sendReplyWithBody(200, 33000);
     });
   handler1->expectDetachTransaction();
   handler2->expectDetachTransaction();
@@ -1226,8 +1227,10 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
   EXPECT_CALL(this->callbacks_, onHeadersComplete(1, _));
   EXPECT_CALL(this->callbacks_, onMessageBegin(3, _));
   EXPECT_CALL(this->callbacks_, onHeadersComplete(3, _));
-  EXPECT_CALL(this->callbacks_, onBody(1, _, _));
-  EXPECT_CALL(this->callbacks_, onBody(3, _, _));
+  EXPECT_CALL(this->callbacks_, onBody(1, _, _))
+    .Times(AtLeast(2));
+  EXPECT_CALL(this->callbacks_, onBody(3, _, _))
+    .Times(AtLeast(2));
   EXPECT_CALL(this->callbacks_, onBody(1, _, _));
   EXPECT_CALL(this->callbacks_, onMessageComplete(1, _));
   EXPECT_CALL(this->callbacks_, onBody(3, _, _));

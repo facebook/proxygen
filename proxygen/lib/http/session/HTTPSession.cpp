@@ -152,6 +152,8 @@ HTTPSession::HTTPSession(
                          maxConcurrentIncomingStreams_);
   }
 
+  nextEgressResults_.reserve(maxConcurrentIncomingStreams_);
+
   codec_->generateConnectionPreface(writeBuf_);
 
   if (codec_->supportsSessionFlowControl()) {
@@ -175,6 +177,8 @@ HTTPSession::HTTPSession(
   if (controller_) {
     controller_->attachSession(this);
   }
+
+  codec_->addPriorityNodes(txnEgressQueue_);
 }
 
 HTTPSession::~HTTPSession() {
@@ -510,9 +514,10 @@ HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
 }
 
 HTTPTransaction*
-HTTPSession::newPushedTransaction(HTTPCodec::StreamID assocStreamId,
-                                  HTTPTransaction::PushHandler* handler,
-                                  int8_t priority) noexcept {
+HTTPSession::newPushedTransaction(
+  HTTPCodec::StreamID assocStreamId,
+  HTTPTransaction::PushHandler* handler,
+  http2::PriorityUpdate priority) noexcept {
   if (!codec_->supportsPushTransactions()) {
     return nullptr;
   }
@@ -613,9 +618,16 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     }
   }
 
-  txn = createTransaction(streamID,
-                          assocStreamID,
-                          msg ? msg->getPriority() : 0);
+  http2::PriorityUpdate h2Pri = http2::DefaultPriority;
+  if (msg) {
+    auto res = msg->getHTTP2Priority();
+    if (res) {
+      h2Pri.streamDependency = std::get<0>(*res);
+      h2Pri.exclusive = std::get<1>(*res);
+      h2Pri.weight = std::get<2>(*res);
+    }
+  }
+  txn = createTransaction(streamID, assocStreamID, h2Pri);
 
   if (!txn) {
     // This could happen if the socket is bad.
@@ -1492,22 +1504,59 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
     return nullptr;
   }
 
+  bool connWindowFull =
+    connFlowControl_ && connFlowControl_->getAvailableSend() == 0;
+
   // We always tack on at least one body packet to the current write buf
   // This ensures that a short HTTPS response will go out in a single SSL record
   while (!txnEgressQueue_.empty()) {
-    uint32_t allowed = txnEgressQueue_.size() > 1 ? egressBodySizeLimit_ :
-      kWriteReadyMax;
-    if (connFlowControl_) {
-      allowed = std::min(allowed, connFlowControl_->getAvailableSend());
-      if (allowed == 0) {
-        VLOG(4) << "Session-level send window is full, skipping "
-                << "body writes this loop";
-        break;
-      }
+    uint32_t allowed = kWriteReadyMax;
+    if (connWindowFull) {
+      VLOG(4) << "Session-level send window is full, skipping remaining "
+              << "body writes this loop";
+      break;
     }
-    auto txn = txnEgressQueue_.top();
-    // returns true if there is more egress pending for this txn
-    if (txn->onWriteReady(allowed) || writeBuf_.front()) {
+    txnEgressQueue_.nextEgress(nextEgressResults_);
+    CHECK(!nextEgressResults_.empty()); // Queue was non empty, so this must be
+    int8_t egressBand = -1;
+    // split allowed by relative weight, with some minimum
+    for (auto txnPair: nextEgressResults_) {
+      if (connFlowControl_) {
+        allowed = std::min(allowed, connFlowControl_->getAvailableSend());
+        if (allowed == 0) {
+          connWindowFull = true;
+          break;
+        }
+      }
+
+      // For SPDYCodec, we only egress transactions with the highest priority
+      // in any single call to getNextToSend.  Due to the SPDY->H2 priority
+      // mapping, lower pri transactions get a comically small slice of allowed
+      // egress (based on virtual priority node weight, set in
+      // SPDYCodec::addPriorityNodes.  We detect this and break the loop early.
+      int8_t band = codec_->mapDependencyToPriority(
+        txnPair.first->getPriority().streamDependency);
+      if (band >= 0) {
+        if (egressBand < 0) {
+          egressBand = band;
+        } else if (band != egressBand) {
+          VLOG(4) << "Breaking egress loop band=" << (int32_t)band
+                  << " != egressBand=" << (int32_t)egressBand;
+          break;
+        }
+      }
+
+      VLOG(4) << *this << " egressing txnID=" << txnPair.first->getID() <<
+        " allowed=" << allowed << " scaled=" <<
+        (uint64_t)(allowed * txnPair.second);
+      uint32_t min = std::min(allowed, (uint32_t)(egressBodySizeLimit_ / 4));
+      uint32_t txnAllowed = std::max(min, uint32_t(allowed * txnPair.second));
+      txnPair.first->onWriteReady(txnAllowed);
+    }
+    nextEgressResults_.clear();
+    // it can be empty because of HTTPTransaction rate limiting.  We should
+    // change rate limiting to clearPendingEgress while waiting.
+    if (!writeBuf_.empty()) {
       break;
     }
   }
@@ -1905,7 +1954,7 @@ HTTPSession::findTransaction(HTTPCodec::StreamID streamID) {
 HTTPTransaction*
 HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
                                HTTPCodec::StreamID assocStreamID,
-                               int8_t priority) {
+                               http2::PriorityUpdate priority) {
   if (!sock_->good() || transactions_.count(streamID)) {
     // Refuse to add a transaction on a closing session or if a
     // transaction of that ID already exists.
@@ -2188,41 +2237,20 @@ void HTTPSession::errorOnTransactionId(
 }
 
 void HTTPSession::resumeTransactions() {
-  struct PriCmp {
-    bool operator()(const std::pair<HTTPCodec::StreamID, uint32_t>& t1,
-                    const std::pair<HTTPCodec::StreamID, uint32_t>& t2) {
-      return t1.second < t2.second;
-    }
-  };
-
   CHECK(!inResume_);
   inResume_ = true;
   DestructorGuard g(this);
-  std::vector<std::pair<HTTPCodec::StreamID, uint8_t>> ids;
-  for (const auto& txn: transactions_) {
-    ids.push_back(std::make_pair(txn.first, txn.second.getPriority()));
-  }
-  // resume transactions in priority order, as long as we can take more
-  // egress
-  std::sort(ids.begin(), ids.end(), PriCmp());
-  int8_t egressPri = -1;
-  for (auto id: ids) {
-    if (transactions_.empty()) {
-      break;
-    }
-    if (egressLimitExceeded()) {
-      CHECK(egressPri >= 0); // how can we already exceed the limit
-      if (id.second != (uint8_t)egressPri) {
-        break;
-      }
-      // resume this transaction if it's at the same priority
-    }
-    auto txn = findTransaction(id.first);
-    if (txn != nullptr) {
+  auto resumeFn = [] (HTTPCodec::StreamID, HTTPTransaction *txn, double) {
+    if (txn) {
       txn->resumeEgress();
-      egressPri = id.second;
     }
-  }
+    return false;
+  };
+  auto stopFn = [this] {
+    return (transactions_.empty() || egressLimitExceeded());
+  };
+
+  txnEgressQueue_.iterateBFS(resumeFn, stopFn, true /* all */);
   inResume_ = false;
   if (pendingPause_) {
     VLOG(3) << "Pausing txn egress for " << *this;

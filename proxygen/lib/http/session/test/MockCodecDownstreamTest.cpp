@@ -123,7 +123,12 @@ class MockCodecDownstreamTest: public testing::Test {
                     std::shared_ptr<IOBuf> iob,
                     WriteFlags,
                     folly::AsyncTransportWrapper::BufferCallback*) {
-    cbs_.push_back(callback);
+    writeCount_++;
+    if (invokeWriteSuccess_) {
+      callback->writeSuccess();
+    } else {
+      cbs_.push_back(callback);
+    }
   }
 
   ~MockCodecDownstreamTest() {
@@ -177,6 +182,8 @@ class MockCodecDownstreamTest: public testing::Test {
   bool drainPending_{false};
   bool doubleGoaway_{false};
   bool liveGoaways_{false};
+  bool invokeWriteSuccess_{false};
+  uint32_t writeCount_{0};
   std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
 };
 
@@ -198,7 +205,7 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
     .WillOnce(Invoke([&handler1] (HTTPTransaction* txn) {
           handler1.txn_ = txn; }));
   EXPECT_CALL(handler1, onHeadersComplete(_))
-    .WillOnce(Invoke([&handler1] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&handler1] (std::shared_ptr<HTTPMessage>) {
           handler1.sendHeaders(200, 100);
           handler1.sendBody(100);
         }));
@@ -208,7 +215,7 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
     .WillOnce(Invoke([&handler2] (HTTPTransaction* txn) {
           handler2.txn_ = txn; }));
   EXPECT_CALL(handler2, onHeadersComplete(_))
-    .WillOnce(Invoke([&handler2] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&handler2] (std::shared_ptr<HTTPMessage>) {
           handler2.sendHeaders(200, 100);
           handler2.sendBody(100);
         }));
@@ -258,7 +265,7 @@ TEST_F(MockCodecDownstreamTest, server_push) {
     .WillOnce(SaveArg<0>(&handler.txn_));
 
   EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler, handler.txn_->getPriority());
           pushHandler.sendPushHeaders("/foo", "www.foo.com", 100);
@@ -313,7 +320,7 @@ TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
     .WillOnce(Invoke([&handler] (HTTPTransaction* txn) {
           handler.txn_ = txn; }));
   EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           // Initiate server push transactions.
           pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler1, handler.txn_->getPriority());
@@ -393,7 +400,7 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
     .WillOnce(Invoke([&handler] (HTTPTransaction* txn) {
           handler.txn_ = txn; }));
   EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           // Initiate server push transactions
           pushTxn1 = handler.txn_->newPushedTransaction(
             &pushHandler1, handler.txn_->getPriority());
@@ -464,7 +471,7 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
     .WillOnce(Invoke([&handler] (HTTPTransaction* txn) {
           handler.txn_ = txn; }));
   EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           // Initiate server push transactions
           auto pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler1, handler.txn_->getPriority());
@@ -547,7 +554,7 @@ TEST_F(MockCodecDownstreamTest, server_push_client_message) {
     .WillOnce(SaveArg<0>(&handler.txn_));
 
   EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler, handler.txn_->getPriority());
         }));
@@ -943,19 +950,28 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   resp1->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, wantToWriteStr);
   auto resp2 = makeResponse(200);
   resp2->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, wantToWriteStr);
+  invokeWriteSuccess_ = true;
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
     .WillOnce(Return(&handler1));
   EXPECT_CALL(handler1, setTransaction(_))
     .WillOnce(SaveArg<0>(&handler1.txn_));
   EXPECT_CALL(handler1, onHeadersComplete(_));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _))
+    .WillOnce(Invoke([] (folly::IOBufQueue& writeBuf,
+                         HTTPCodec::StreamID,
+                         const HTTPMessage&,
+                         HTTPCodec::StreamID,
+                         bool,
+                         HTTPHeaderSize*) {
+                       writeBuf.append("", 1);
+                     }));
   unsigned bodyLen = 0;
   EXPECT_CALL(*codec_, generateBody(_, 1, _, _, false))
     .WillRepeatedly(Invoke([&] (folly::IOBufQueue& writeBuf,
-                                HTTPCodec::StreamID stream,
+                                HTTPCodec::StreamID,
                                 std::shared_ptr<folly::IOBuf> chain,
-                                boost::optional<uint8_t> padding,
+                                boost::optional<uint8_t>,
                                 bool eom) {
                              bodyLen += chain->computeChainDataLength();
                              return 0; // don't want byte events
@@ -976,7 +992,17 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   EXPECT_CALL(handler2, setTransaction(_))
     .WillOnce(SaveArg<0>(&handler2.txn_));
   EXPECT_CALL(handler2, onHeadersComplete(_));
-  EXPECT_CALL(*codec_, generateHeader(_, 3, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 3, _, _, _, _))
+    .WillOnce(Invoke([] (folly::IOBufQueue& writeBuf,
+                         HTTPCodec::StreamID,
+                         const HTTPMessage&,
+                         HTTPCodec::StreamID,
+                         bool,
+                         HTTPHeaderSize*) {
+                       writeBuf.append("", 1);
+                     }));
+
+  auto writeCount = writeCount_;
 
   // Make sure we can send headers of response to a second request
   codecCallback_->onMessageBegin(3, req2.get());
@@ -984,6 +1010,8 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   handler2.txn_->sendHeaders(*resp2);
 
   eventBase_.loop();
+
+  EXPECT_EQ(writeCount + 1, writeCount_);
 
   if (timeout) {
     // don't send a window update, the handlers will get timeouts
@@ -1097,10 +1125,10 @@ TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
   EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codec_, generateBody(_, _, _, _, _))
     .WillRepeatedly(
-      Invoke([&] (folly::IOBufQueue& writeBuf,
-                  HTTPCodec::StreamID stream,
+      Invoke([&] (folly::IOBufQueue&,
+                  HTTPCodec::StreamID,
                   std::shared_ptr<folly::IOBuf> chain,
-                  boost::optional<uint8_t> padding,
+                  boost::optional<uint8_t>,
                   bool eom) {
                auto len = chain->computeChainDataLength();
                written += len;
@@ -1142,7 +1170,7 @@ TEST_F(MockCodecDownstreamTest, shutdown_then_send_push_headers) {
     .WillOnce(SaveArg<0>(&handler.txn_));
 
   EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           auto pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler, handler.txn_->getPriority());
           // start shutdown process
@@ -1259,7 +1287,7 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
   folly::AsyncTransportWrapper::WriteCallback* cb = nullptr;
   EXPECT_CALL(*transport_, writeChain(_, _, _, _))
     .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                          const shared_ptr<IOBuf> iob,
+                          const shared_ptr<IOBuf>,
                           WriteFlags,
                           folly::AsyncTransportWrapper::BufferCallback*) {
                        // don't immediately flush the goaway

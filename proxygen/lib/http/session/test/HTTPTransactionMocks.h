@@ -56,7 +56,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   GMOCK_METHOD3_(, noexcept,, newPushedTransaction,
                  HTTPTransaction*(HTTPCodec::StreamID assocStreamId,
                                   HTTPTransaction::PushHandler* handler,
-                                  int8_t));
+                                  http2::PriorityUpdate));
   const folly::SocketAddress& getLocalAddress()
     const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
@@ -91,13 +91,13 @@ class MockHTTPTransaction : public HTTPTransaction {
   MockHTTPTransaction(TransportDirection direction,
                       HTTPCodec::StreamID id,
                       uint32_t seqNo,
-                      PriorityQueue& egressQueue,
+                      HTTP2PriorityQueue& egressQueue,
                       folly::HHWheelTimer* timeouts,
                       HTTPSessionStats* stats = nullptr,
                       bool useFlowControl = false,
                       uint32_t receiveInitialWindowSize = 0,
                       uint32_t sendInitialWindowSize = 0,
-                      int8_t priority = -1) :
+                      http2::PriorityUpdate priority = http2::DefaultPriority) :
       HTTPTransaction(direction, id, seqNo, mockTransport_, egressQueue,
                       timeouts, stats, useFlowControl,
                       receiveInitialWindowSize,
@@ -131,7 +131,8 @@ class MockHTTPTransaction : public HTTPTransaction {
   MOCK_METHOD0(resumeIngress, void());
   MOCK_CONST_METHOD0(handlerEgressPaused, bool());
   MOCK_METHOD2(newPushedTransaction,
-               HTTPTransaction*(HTTPPushTransactionHandler*, uint8_t));
+               HTTPTransaction*(HTTPPushTransactionHandler*,
+                                http2::PriorityUpdate));
   MOCK_METHOD1(setReceiveWindow, void(uint32_t));
   MOCK_CONST_METHOD0(getReceiveWindow, const Window&());
 

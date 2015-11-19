@@ -52,6 +52,13 @@ class HTTPCodec {
 
   static const StreamID MAX_STREAM_ID = 1 << 31;
 
+  class PriorityQueue {
+   public:
+    virtual ~PriorityQueue() {}
+
+    virtual void addPriorityNode(StreamID id, StreamID parent) = 0;
+  };
+
   /**
    * Callback interface that users of HTTPCodec must implement
    */
@@ -498,6 +505,23 @@ class HTTPCodec {
    * Get the default size of flow control windows for this protocol
    */
   virtual uint32_t getDefaultWindowSize() const { return 0; }
+
+  /**
+   * Some protocols (SPDY) have a linear priority structure which must be
+   * simulated in the HTTP/2 tree structure with "virtual" nodes representing
+   * different priority bands.
+   */
+  virtual void addPriorityNodes(PriorityQueue& queue) {}
+
+  /**
+   * Map the given linear priority to the correct parent node dependency
+   */
+  virtual StreamID mapPriorityToDependency(uint8_t priority) const { return 0; }
+
+  /**
+   * Map the parent back to the priority, -1 if this doesn't make sense.
+   */
+  virtual int8_t mapDependencyToPriority(StreamID parent) const { return -1; }
 };
 
 }

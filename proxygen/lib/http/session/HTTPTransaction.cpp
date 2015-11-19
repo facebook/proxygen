@@ -31,13 +31,13 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  HTTPCodec::StreamID id,
                                  uint32_t seqNo,
                                  Transport& transport,
-                                 PriorityQueue& egressQueue,
+                                 HTTP2PriorityQueue& egressQueue,
                                  folly::HHWheelTimer* transactionIdleTimeouts,
                                  HTTPSessionStats* stats,
                                  bool useFlowControl,
                                  uint32_t receiveInitialWindowSize,
                                  uint32_t sendInitialWindowSize,
-                                 int8_t priority,
+                                 http2::PriorityUpdate priority,
                                  HTTPCodec::StreamID assocId):
     deferredEgressBody_(folly::IOBufQueue::cacheChainLength()),
     direction_(direction),
@@ -50,8 +50,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     sendWindow_(sendInitialWindowSize),
     egressQueue_(egressQueue),
     assocStreamId_(assocId),
-    priority_(
-      HTTPMessage::normalizePriority(priority) << spdy::SPDY_PRIO_SHIFT_FACTOR),
+    priority_(priority),
     ingressPaused_(false),
     egressPaused_(false),
     handlerEgressPaused_(false),
@@ -59,7 +58,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     useFlowControl_(useFlowControl),
     aborted_(false),
     deleting_(false),
-    enqueued_(false),
     firstByteSent_(false),
     firstHeaderByteSent_(false),
     inResume_(false),
@@ -98,6 +96,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
   if (stats_) {
     stats_->recordTransactionOpened();
   }
+
+  queueHandle_ = egressQueue_.addTransaction(id_, priority, this);
 }
 
 HTTPTransaction::~HTTPTransaction() {
@@ -112,10 +112,9 @@ HTTPTransaction::~HTTPTransaction() {
   if (isEnqueued()) {
     dequeue();
   }
-}
-
-uint8_t HTTPTransaction::getPriority() const {
-  return priority_ >> spdy::SPDY_PRIO_SHIFT_FACTOR;
+  // TODO: handle the case where the priority node hangs out longer than
+  // the transaction
+  egressQueue_.removeTransaction(queueHandle_);
 }
 
 void HTTPTransaction::onIngressHeadersComplete(
@@ -627,18 +626,6 @@ bool HTTPTransaction::onWriteReady(const uint32_t maxEgress) {
   DestructorGuard g(this);
   DCHECK(isEnqueued());
   sendDeferredBody(maxEgress);
-  if (isEnqueued()) {
-    // Within a given band there are two tiers of priority
-    //  LSB = 0: New egress via sendBody/sendEOM but has not yet been serviced
-    //  LSB = 1: pending egress but has been serviced at least once
-    //
-    // This makes it so that unserviced transactions will get the first shot
-    // before entering the round robin.
-    priority_ |= 0x01;
-    // Updating when the priority hasn't change effectively moves this txn
-    // to the end of the current band
-    egressQueue_.update(queueHandle_);
-  }
   return isEnqueued();
 }
 
@@ -849,7 +836,7 @@ HTTPTransaction::sendEOM() {
         << "egressPaused=" << egressPaused_ << ", "
         << "ingressPaused=" << ingressPaused_ << ", "
         << "aborted=" << aborted_ << ", "
-        << "enqueued=" << enqueued_ << ", "
+        << "enqueued=" << isEnqueued() << ", "
         << "chainLength=" << deferredEgressBody_.chainLength() << "]";
     }
   } else {
@@ -1003,19 +990,14 @@ void HTTPTransaction::notifyTransportPendingEgress() {
     // control isn't blocking us.
     if (!isEnqueued()) {
       // Insert into the queue and let the session know we've got something
-
-      // Clear the last bit of priority on enqueue, so it will be at
-      // the top of the priority band.
-      priority_ &= ~(0x01);
-      queueHandle_ = egressQueue_.push(this);
-      enqueued_ = true;
+      egressQueue_.signalPendingEgress(queueHandle_);
       transport_.notifyPendingEgress();
       transport_.notifyEgressBodyBuffered(deferredEgressBody_.chainLength());
     }
   } else if (isEnqueued()) {
     // Nothing to send, or not allowed to send right now.
     transport_.notifyEgressBodyBuffered(-deferredEgressBody_.chainLength());
-    dequeue();
+    egressQueue_.clearPendingEgress(queueHandle_);
   }
   updateHandlerPauseState();
 }
@@ -1121,16 +1103,11 @@ operator<<(std::ostream& os, const HTTPTransaction& txn) {
 }
 
 void HTTPTransaction::changePriority(int8_t newPriority) {
-  // Shift
   newPriority = HTTPMessage::normalizePriority(newPriority);
-  newPriority <<= spdy::SPDY_PRIO_SHIFT_FACTOR;
-  // Copy over the lowest bit of current priority
-  newPriority |= (priority_ & 0x01);
-  // Assign, and update queue position if necessary
-  priority_ = newPriority;
-  if (isEnqueued()) {
-    egressQueue_.update(queueHandle_);
-  }
+  CHECK_GE(newPriority, 0);
+  priority_.streamDependency =
+    transport_.getCodec().mapPriorityToDependency(newPriority);
+  egressQueue_.updatePriority(queueHandle_, priority_);
 }
 
 } // proxygen

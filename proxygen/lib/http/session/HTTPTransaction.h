@@ -23,6 +23,7 @@
 #include <proxygen/lib/http/ProxygenErrorEnum.h>
 #include <proxygen/lib/http/Window.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
@@ -354,7 +355,7 @@ class HTTPTransaction :
     virtual HTTPTransaction* newPushedTransaction(
       HTTPCodec::StreamID assocStreamId,
       HTTPTransaction::PushHandler* handler,
-      int8_t priority) noexcept = 0;
+      http2::PriorityUpdate  priority) noexcept = 0;
   };
 
   /**
@@ -381,22 +382,6 @@ class HTTPTransaction :
     virtual ~TransportCallback() {};
   };
 
-  struct LessP {
-    bool operator()(const HTTPTransaction* left,
-                    const HTTPTransaction* right) const {
-      // larger values are logically smaller
-      return left->priority_ > right->priority_;
-    }
-  };
-
-  typedef boost::heap::d_ary_heap<HTTPTransaction*,
-                                  boost::heap::arity<2>,
-                                  boost::heap::stable<false>,
-                                  boost::heap::compare<LessP>,
-                                  boost::heap::mutable_<true>,
-                                  boost::heap::constant_time_size<true>
-                                  > PriorityQueue;
-
   /**
    * readBufLimit and sendWindow are only used if useFlowControl is
    * true. Furthermore, if flow control is enabled, no guarantees can be
@@ -410,13 +395,13 @@ class HTTPTransaction :
                   HTTPCodec::StreamID id,
                   uint32_t seqNo,
                   Transport& transport,
-                  PriorityQueue& egressQueue,
+                  HTTP2PriorityQueue& egressQueue,
                   folly::HHWheelTimer* transactionIdleTimeouts,
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
                   uint32_t receiveInitialWindowSize = 0,
                   uint32_t sendInitialWindowSize = 0,
-                  int8_t priority = -1,
+                  http2::PriorityUpdate = http2::DefaultPriority,
                   HTTPCodec::StreamID assocStreamId = 0);
 
   ~HTTPTransaction() override;
@@ -440,7 +425,9 @@ class HTTPTransaction :
     return handler_;
   }
 
-  uint8_t getPriority() const;
+  http2::PriorityUpdate getPriority() const {
+    return priority_;
+  }
 
   TransactionInfo getTransactionInfo() const {
     return txnInfo_;
@@ -881,7 +868,8 @@ class HTTPTransaction :
    * transaction is impossible right now.
    */
   virtual HTTPTransaction* newPushedTransaction(
-    HTTPPushTransactionHandler* handler, uint8_t priority) {
+    HTTPPushTransactionHandler* handler,
+    http2::PriorityUpdate priority) {
     if (isEgressEOMSeen()) {
       return nullptr;
     }
@@ -1053,12 +1041,11 @@ class HTTPTransaction :
 
   bool maybeDelayForRateLimit();
 
-  bool isEnqueued() const { return enqueued_; }
+  bool isEnqueued() const { return queueHandle_->isEnqueued(); }
 
   void dequeue() {
     DCHECK(isEnqueued());
-    egressQueue_.erase(queueHandle_);
-    enqueued_ = false;
+    egressQueue_.clearPendingEgress(queueHandle_);
   }
 
   bool hasPendingEOM() const {
@@ -1172,13 +1159,12 @@ class HTTPTransaction :
   /**
    * Reference to our priority queue
    */
-  PriorityQueue& egressQueue_;
+  HTTP2PriorityQueue& egressQueue_;
 
   /**
-   * Handle to our position in the priority queue. Only valid when
-   * enqueued_ == true
+   * Handle to our position in the priority queue.
    */
-  PriorityQueue::handle_type queueHandle_;
+  HTTP2PriorityQueue::Handle queueHandle_;
 
   /**
    * bytes we need to acknowledge to the remote end using a window update
@@ -1196,9 +1182,9 @@ class HTTPTransaction :
   std::set<HTTPCodec::StreamID> pushedTransactions_;
 
   /**
-   * SPDY priority in the high bits, randomness in the low bits
+   * Priority of this transaction
    */
-  uint32_t priority_;
+  http2::PriorityUpdate priority_;
 
   /**
    * If this transaction represents a request (ie, it is backed by an
@@ -1216,7 +1202,6 @@ class HTTPTransaction :
   bool useFlowControl_:1;
   bool aborted_:1;
   bool deleting_:1;
-  bool enqueued_:1;
   bool firstByteSent_:1;
   bool firstHeaderByteSent_:1;
   bool inResume_:1;

@@ -114,6 +114,19 @@ public:
     headerCodec_->setStats(stats);
   }
 
+  void addPriorityNodes(PriorityQueue& queue) override;
+
+  StreamID mapPriorityToDependency(uint8_t priority) const override {
+    return MAX_STREAM_ID + priority;
+  }
+
+  int8_t mapDependencyToPriority(StreamID parent) const override {
+    if (parent >= MAX_STREAM_ID) {
+      return parent - MAX_STREAM_ID;
+    }
+    return -1;
+  }
+
   struct SettingData {
     SettingData(uint8_t inFlags, uint32_t inId, uint32_t inValue)
         : flags(inFlags),

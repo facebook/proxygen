@@ -548,9 +548,10 @@ class HTTPSession:
   void notifyPendingEgress() noexcept override;
   void notifyIngressBodyProcessed(uint32_t bytes) noexcept override;
   void notifyEgressBodyBuffered(int64_t bytes) noexcept override;
-  HTTPTransaction* newPushedTransaction(HTTPCodec::StreamID assocStreamId,
-                                        HTTPTransaction::PushHandler* handler,
-                                        int8_t priority) noexcept override;
+  HTTPTransaction* newPushedTransaction(
+    HTTPCodec::StreamID assocStreamId,
+    HTTPTransaction::PushHandler* handler,
+    http2::PriorityUpdate priority) noexcept override;
 
  public:
   const folly::SocketAddress& getLocalAddress()
@@ -645,9 +646,10 @@ class HTTPSession:
    * @return pointer to the transaction on success, or else nullptr if it
    * already exists
    */
-  HTTPTransaction* createTransaction(HTTPCodec::StreamID streamID,
-                                     HTTPCodec::StreamID assocStreamID,
-                                     int8_t priority);
+  HTTPTransaction* createTransaction(
+    HTTPCodec::StreamID streamID,
+    HTTPCodec::StreamID assocStreamID,
+    http2::PriorityUpdate priority);
 
   /** Invoked by WriteSegment on completion of a write. */
   void onWriteSuccess(uint64_t bytesWritten);
@@ -748,8 +750,8 @@ class HTTPSession:
   /** Queue of egress IOBufs */
   folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
 
-  /** Priority queue of transactions with egress pending */
-  HTTPTransaction::PriorityQueue txnEgressQueue_;
+  /** Priority tree of transactions */
+  HTTP2PriorityQueue txnEgressQueue_;
 
   std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
 
@@ -892,6 +894,11 @@ class HTTPSession:
    * The idle duration between latest two consecutive active status
    */
   std::chrono::seconds latestIdleDuration_{};
+
+  /**
+   * Container to hold the results of HTTP2PriorityQueue::nextEgress
+   */
+  HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
 
   // Flow control settings
   size_t initialReceiveWindow_{0};

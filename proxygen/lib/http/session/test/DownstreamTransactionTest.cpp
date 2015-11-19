@@ -92,7 +92,7 @@ class DownstreamTransactionTest : public testing::Test {
                             std::chrono::milliseconds(500))};
   MockHTTPTransactionTransport transport_;
   StrictMock<MockHTTPHandler> handler_;
-  HTTPTransaction::PriorityQueue txnEgressQueue_;
+  HTTP2PriorityQueue txnEgressQueue_;
   uint32_t received_{0};
   uint32_t sent_{0};
 };

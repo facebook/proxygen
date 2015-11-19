@@ -74,9 +74,10 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler,
     startNow();
   }
 
-  auto txn = createTransaction(codec_->createStream(),
-                               0,
-                               priority);
+  auto txn = createTransaction(
+    codec_->createStream(), 0,
+    {codec_->mapPriorityToDependency(HTTPMessage::normalizePriority(priority)),
+        false, 16});
 
   if (txn) {
     DestructorGuard dg(this);
