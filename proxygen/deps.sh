@@ -4,7 +4,7 @@
 ## install proxygen to use in another C++ project on this machine, run
 ## the sibling file `reinstall.sh`.
 
-FOLLY_VERSION='b0193e80a8b1a9a74d5e90a51d2490b68cbdf69a'
+FOLLY_VERSION='a74ba58b99f13b0390ea901d0e7aa60a0e241cee'
 WANGLE_VERSION='8ff03eb8f356809820850f0e2add8cc8f3daa931'
 
 # Parse args
