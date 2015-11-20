@@ -97,7 +97,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     stats_->recordTransactionOpened();
   }
 
-  queueHandle_ = egressQueue_.addTransaction(id_, priority, this);
+  queueHandle_ = egressQueue_.addTransaction(id_, priority, this,
+                                             &insertDepth_);
 }
 
 HTTPTransaction::~HTTPTransaction() {
@@ -622,9 +623,11 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
   notifyTransportPendingEgress();
 }
 
-bool HTTPTransaction::onWriteReady(const uint32_t maxEgress) {
+bool HTTPTransaction::onWriteReady(const uint32_t maxEgress, double ratio) {
   DestructorGuard g(this);
   DCHECK(isEnqueued());
+  cumulativeRatio_ += ratio;
+  egressCalls_++;
   sendDeferredBody(maxEgress);
   return isEnqueued();
 }

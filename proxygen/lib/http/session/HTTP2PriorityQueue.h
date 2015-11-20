@@ -164,13 +164,16 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     }
 
     // Find the node for the given stream ID in the priority tree
-    Node* findInTree(HTTPCodec::StreamID id) {
+    Node* findInTree(HTTPCodec::StreamID id, uint64_t* depth) {
       if (id_ == id) {
         return this;
       }
+      if (depth) {
+        *depth += 1;
+      }
       Node* res = nullptr;
       for (auto& child: children_) {
-        res = child->findInTree(id);
+        res = child->findInTree(id, depth);
         if (res) {
           break;
         }
@@ -283,11 +286,11 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   HTTP2PriorityQueue() {}
 
   // Find the node in priority tree
-  Node* find(HTTPCodec::StreamID id) {
+  Node* find(HTTPCodec::StreamID id, uint64_t* depth = nullptr) {
     if (id == 0) {
       return nullptr;
     }
-    return root_.findInTree(id);
+    return root_.findInTree(id, depth);
   }
 
   // Notify the queue when a transaction has egress
@@ -315,12 +318,15 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   // adds new transaction (possibly nullptr) to the priority tree
   Handle addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
-                        HTTPTransaction *txn) {
+                        HTTPTransaction *txn, uint64_t* depth = nullptr) {
     CHECK_NE(id, 0);
 
     Node* parent = &root_;
+    if (depth) {
+      *depth = 0;
+    }
     if (pri.streamDependency != 0) {
-      Node* dep = find(pri.streamDependency);
+      Node* dep = find(pri.streamDependency, depth);
       if (dep == nullptr) {
         // specified a missing parent (timed out an idle node)?
         VLOG(4) << "assigning default priority to txn=" << id;
@@ -450,7 +456,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     if (id == 0) {
       return &root_;
     }
-    return root_.findInTree(id);
+    return root_.findInTree(id, nullptr);
   }
 
   Node root_{nullptr, 0, 1, nullptr};

@@ -1551,7 +1551,7 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
         (uint64_t)(allowed * txnPair.second);
       uint32_t min = std::min(allowed, (uint32_t)(egressBodySizeLimit_ / 4));
       uint32_t txnAllowed = std::max(min, uint32_t(allowed * txnPair.second));
-      txnPair.first->onWriteReady(txnAllowed);
+      txnPair.first->onWriteReady(txnAllowed, txnPair.second);
     }
     nextEgressResults_.clear();
     // it can be empty because of HTTPTransaction rate limiting.  We should

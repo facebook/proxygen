@@ -75,7 +75,7 @@ class DownstreamTransactionTest : public testing::Test {
           }));
     EXPECT_CALL(transport_, notifyPendingEgress())
       .WillOnce(InvokeWithoutArgs([=] {
-            txn->onWriteReady(size);
+            txn->onWriteReady(size, 1);
           }))
       .WillOnce(DoDefault()); // The second call is for sending the eom
 
@@ -307,7 +307,7 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
   // onWriteReady, send, then dequeue (SPDY window now full)
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
 
-  EXPECT_EQ(txn.onWriteReady(20), false);
+  EXPECT_EQ(txn.onWriteReady(20, 1), false);
 
   // enqueued after window update
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(20));
