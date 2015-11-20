@@ -189,6 +189,7 @@ class HTTPUpstreamTest: public testing::Test,
     transactionsFull_ = false;
   }
   void onFlowControlWindowClosed(const HTTPSession&) override {}
+  void onEgressBuffered(const HTTPSession&) override {}
 
   void TearDown() override {
     AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
