@@ -323,7 +323,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
       Node* dep = find(pri.streamDependency);
       if (dep == nullptr) {
         // specified a missing parent (timed out an idle node)?
-        LOG(INFO) << "assigning default priority to txn=" << id;
+        VLOG(4) << "assigning default priority to txn=" << id;
       } else {
         parent = dep;
       }
