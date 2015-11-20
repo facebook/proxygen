@@ -24,7 +24,7 @@ bool HPACKDecodeBuffer::empty() {
 }
 
 uint8_t HPACKDecodeBuffer::next() {
-  CHECK(remainingBytes_ > 0);
+  CHECK_GT(remainingBytes_, 0);
   // in case we are the end of an IOBuf, peek() will move to the next one
   uint8_t byte = peek();
   cursor_.skip(1);
@@ -34,7 +34,7 @@ uint8_t HPACKDecodeBuffer::next() {
 }
 
 uint8_t HPACKDecodeBuffer::peek() {
-  CHECK(remainingBytes_ > 0);
+  CHECK_GT(remainingBytes_, 0);
   if (cursor_.length() == 0) {
     cursor_.peek();
   }

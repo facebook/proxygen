@@ -183,7 +183,7 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
     version = SPDYVersion::SPDY3_1;
   }
   auto intVersion = static_cast<unsigned>(version);
-  CHECK(intVersion < spdyVersions->size());
+  CHECK_LT(intVersion, spdyVersions->size());
   return (*spdyVersions)[intVersion];
 }
 
@@ -601,7 +601,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
   const string& scheme = msg.isSecure() ? https : http;
   string path = msg.getURL();
 
-  CHECK(versionSettings_.majorVersion > 2) << "SPDY/2 no longer supported";
+  CHECK_GT(versionSettings_.majorVersion, 2) << "SPDY/2 no longer supported";
 
   if (isPushed) {
     const string& pushString = msg.getPushStatusStr();
@@ -747,7 +747,7 @@ size_t SPDYCodec::generateBody(folly::IOBufQueue& writeBuf,
   // TODO if the data length is 2^24 or greater, split it into
   // multiple data frames.  Proxygen should never be writing that
   // much data at once, but other apps that use this codec might.
-  CHECK(len < (1 << 24));
+  CHECK_LT(len, (1 << 24));
 
   uint8_t flags = (eom) ? kFlagFin : 0;
   generateDataFrame(writeBuf, uint32_t(stream), flags, len, std::move(chain));
@@ -786,7 +786,7 @@ size_t SPDYCodec::generateEOM(folly::IOBufQueue& writeBuf,
 size_t SPDYCodec::generateRstStream(IOBufQueue& writeBuf,
                                     StreamID stream,
                                     ErrorCode code) {
-  DCHECK(stream > 0);
+  DCHECK_GT(stream, 0);
   VLOG(4) << "sending RST_STREAM for stream=" << stream
           << " with code=" << getErrorCodeString(code);
 
@@ -1008,7 +1008,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
   bool hasPath = false;
 
   // Number of fields must be even
-  CHECK((inHeaders.size() & 1) == 0);
+  CHECK_EQ((inHeaders.size() & 1), 0);
   for (unsigned i = 0; i < inHeaders.size(); i += 2) {
     uint8_t off = 0;
     uint32_t len = inHeaders[i].str.size();

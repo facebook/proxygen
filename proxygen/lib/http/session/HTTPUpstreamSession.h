@@ -36,7 +36,7 @@ class HTTPUpstreamSession final: public HTTPSession {
       InfoCallback* infoCallback):
     HTTPSession(transactionTimeouts, std::move(sock), localAddr, peerAddr,
                 nullptr, std::move(codec), tinfo, infoCallback) {
-    CHECK(codec_->getTransportDirection() == TransportDirection::UPSTREAM);
+    CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
   }
 
   /**

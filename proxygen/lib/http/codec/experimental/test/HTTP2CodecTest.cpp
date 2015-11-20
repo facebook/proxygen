@@ -1031,7 +1031,7 @@ void generateHeaderChrome(HPACKCodec09& headerCodec,
                                       queue.chainLength()));
 
     bool endHeaders = queue.chainLength() == 0;
-    CHECK(assocStream == 0);
+    CHECK_EQ(assocStream, 0);
     http2::writeHeaders(writeBuf,
                         std::move(chunk),
                         stream,
@@ -1040,7 +1040,7 @@ void generateHeaderChrome(HPACKCodec09& headerCodec,
                         eom,
                         endHeaders);
     while (!endHeaders) {
-      CHECK(queue.chainLength() == 1015);
+      CHECK_EQ(queue.chainLength(), 1015);
       chunk = queue.split(std::min(size_t(1024 - http2::kFrameHeaderSize),
                                    queue.chainLength()));
       endHeaders = queue.chainLength() == 0;

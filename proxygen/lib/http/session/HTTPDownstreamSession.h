@@ -36,7 +36,7 @@ class HTTPDownstreamSession final: public HTTPSession {
     HTTPSession(transactionTimeouts, std::move(sock), localAddr, peerAddr,
                 CHECK_NOTNULL(controller), std::move(codec), tinfo,
                 infoCallback) {
-      CHECK(codec_->getTransportDirection() == TransportDirection::DOWNSTREAM);
+      CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
   }
 
  private:

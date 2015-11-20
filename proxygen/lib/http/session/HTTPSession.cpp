@@ -647,13 +647,13 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
   if (!codec_->supportsParallelRequests() && transactions_.size() > 1) {
     // The previous transaction hasn't completed yet. Pause reads until
     // it completes; this requires pausing both transactions.
-    DCHECK(transactions_.size() == 2);
+    DCHECK_EQ(transactions_.size(), 2);
     auto prevTxn = &transactions_.begin()->second;
     if (!prevTxn->isIngressPaused()) {
       DCHECK(prevTxn->isIngressComplete());
       prevTxn->pauseIngress();
     }
-    DCHECK(liveTransactions_ == 1);
+    DCHECK_EQ(liveTransactions_, 1);
     txn->pauseIngress();
   }
 
@@ -1055,7 +1055,7 @@ void HTTPSession::onSetMaxInitiatedStreams(uint32_t maxTxns) {
 void HTTPSession::pauseIngress(HTTPTransaction* txn) noexcept {
   VLOG(4) << *this << " pausing streamID=" << txn->getID() <<
     ", liveTransactions_ was " << liveTransactions_;
-  CHECK(liveTransactions_ > 0);
+  CHECK_GT(liveTransactions_, 0);
   --liveTransactions_;
   if (liveTransactions_ == 0) {
     pauseReads();
@@ -1331,11 +1331,11 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
 
   VLOG(4) << *this << " removing streamID=" << streamID <<
     ", liveTransactions was " << liveTransactions_;
-  CHECK(liveTransactions_ > 0);
+  CHECK_GT(liveTransactions_, 0);
   liveTransactions_--;
 
   if (txn->isPushed()) {
-    CHECK(pushedTxns_ > 0);
+    CHECK_GT(pushedTxns_, 0);
     pushedTxns_--;
     auto assocTxn = findTransaction(txn->getAssocTxnId());
     if (assocTxn) {
@@ -1363,7 +1363,7 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
     if (!codec_->supportsParallelRequests() && !transactions_.empty()) {
       // If we had more than one transaction, then someone tried to pipeline and
       // we paused reads
-      DCHECK(transactions_.size() == 1);
+      DCHECK_EQ(transactions_.size(), 1);
       auto& nextTxn = transactions_.begin()->second;
       DCHECK(nextTxn.isIngressPaused());
       DCHECK(!nextTxn.isIngressComplete());
@@ -1407,7 +1407,7 @@ HTTPSession::sendWindowUpdate(HTTPTransaction* txn,
 
 void
 HTTPSession::notifyIngressBodyProcessed(uint32_t bytes) noexcept {
-  CHECK(pendingReadSize_ >= bytes);
+  CHECK_GE(pendingReadSize_, bytes);
   auto oldSize = pendingReadSize_;
   pendingReadSize_ -= bytes;
   VLOG(4) << *this << " Dequeued " << bytes << " bytes of ingress. "
@@ -1578,7 +1578,7 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
         }
         return writeBuf_.split(needed);
       } else {
-        CHECK(needed == writeBuf_.chainLength());
+        CHECK_EQ(needed, writeBuf_.chainLength());
       }
     }
   }

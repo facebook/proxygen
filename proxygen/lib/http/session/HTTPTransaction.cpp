@@ -685,7 +685,7 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
         nbytes += transport_.sendChunkTerminator(this);
         chunkHeaders_.pop_front();
       } else {
-        DCHECK(canSend == 0);
+        DCHECK_EQ(canSend, 0);
       }
     }
     willSendEOM = hasPendingEOM();
@@ -777,7 +777,7 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                                     size_t bodyLen, bool sendEom) {
   static const std::string noneStr = "None";
   DCHECK(body);
-  DCHECK(bodyLen > 0);
+  DCHECK_GT(bodyLen, 0);
   size_t nbytes = 0;
   if (useFlowControl_) {
     CHECK(sendWindow_.reserve(bodyLen));
@@ -1031,7 +1031,7 @@ void HTTPTransaction::checkCreateDeferredIngress() {
 
 bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
   DestructorGuard g(this);
-  CHECK(pushTxn->assocStreamId_ == id_);
+  CHECK_EQ(pushTxn->assocStreamId_, id_);
   if (!handler_) {
     VLOG(1) << "Cannot add a pushed txn to an unhandled txn";
     return false;

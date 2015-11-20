@@ -844,7 +844,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
       allHeaders.emplace_back(http2::kAuthority, host);
     }
   } else {
-    DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
+    DCHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
     status = folly::to<string>(msg.getStatusCode());
     allHeaders.emplace_back(http2::kStatus, status);
     // HEADERS frames do not include a version or reason string.
@@ -858,8 +858,8 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
          const string& value) {
 
       if (perHopHeaderCodes_[code] || name.size() == 0 || name[0] == ':') {
-        DCHECK(name.size() > 0) << "Empty header";
-        DCHECK(name[0] != ':') << "Invalid header=" << name;
+        DCHECK_GT(name.size(), 0) << "Empty header";
+        DCHECK_NE(name[0], ':') << "Invalid header=" << name;
         return;
       }
       // Note this code will not drop headers named by Connection.  That's the
@@ -910,7 +910,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
                           eom,
                           endHeaders);
     } else {
-      DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
+      DCHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
       DCHECK(!eom);
       http2::writePushPromise(writeBuf,
                               assocStream,
@@ -992,7 +992,7 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
                                   StreamID lastStream,
                                   ErrorCode statusCode) {
 #ifndef NDEBUG
-  CHECK(lastStream <= egressGoawayAck_) << "Cannot increase last good stream";
+  CHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
   egressGoawayAck_ = lastStream;
 #endif
   if (sessionClosing_ == ClosingState::CLOSED) {

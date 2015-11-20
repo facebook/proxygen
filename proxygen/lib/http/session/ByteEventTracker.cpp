@@ -128,7 +128,7 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
     byteEvents_.push_back(*be);
   } else {
     --i;
-    CHECK(i->byteOffset_ > bytesScheduled);
+    CHECK_GT(i->byteOffset_, bytesScheduled);
     byteEvents_.insert(i.base(), *be);
   }
 }
@@ -138,7 +138,7 @@ uint64_t ByteEventTracker::preSend(bool* cork,
                                    uint64_t bytesWritten) {
   if (nextLastByteEvent_) {
     uint64_t nextLastByteNo = nextLastByteEvent_->byteOffset_;
-    CHECK(nextLastByteNo > bytesWritten);
+    CHECK_GT(nextLastByteNo, bytesWritten);
     uint64_t needed = nextLastByteNo - bytesWritten;
     VLOG(5) << "needed: " << needed << "(" << nextLastByteNo << "-"
             << bytesWritten << ")";

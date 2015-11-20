@@ -301,7 +301,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   // Notify the queue when a transaction no longer has egress
   void clearPendingEgress(Handle h) {
-    CHECK(activeCount_ > 0);
+    CHECK_GT(activeCount_, 0);
     // clear does a CHECK on h->isEnqueued()
     h->clearPendingEgress();
     activeCount_--;
@@ -316,7 +316,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   // adds new transaction (possibly nullptr) to the priority tree
   Handle addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
                         HTTPTransaction *txn) {
-    CHECK(id != 0);
+    CHECK_NE(id, 0);
 
     Node* parent = &root_;
     if (pri.streamDependency != 0) {

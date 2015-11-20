@@ -260,7 +260,7 @@ TestAsyncTransport::writev(AsyncTransportWrapper::WriteCallback* callback,
   if (writeState_ == kStatePaused || pendingWriteEvents_.size() > 0)  {
     pendingWriteEvents_.push_back(std::make_pair(event, callback));
   } else {
-    CHECK(writeState_ == kStateOpen);
+    CHECK_EQ(writeState_, kStateOpen);
     writeEvents_.push_back(event);
     callback->writeSuccess();
   }
@@ -521,7 +521,7 @@ void
 TestAsyncTransport::fireNextReadEvent() {
   DestructorGuard dg(this);
   CHECK(!readEvents_.empty());
-  CHECK(readCallback_ != nullptr);
+  CHECK_NOTNULL(readCallback_);
 
   // maxReadAtOnce prevents us from starving other users of this EventBase
   unsigned int const maxReadAtOnce = 30;
@@ -549,7 +549,7 @@ TestAsyncTransport::fireNextReadEvent() {
 void
 TestAsyncTransport::fireOneReadEvent() {
   CHECK(!readEvents_.empty());
-  CHECK(readCallback_ != nullptr);
+  CHECK_NOTNULL(readCallback_);
 
   const shared_ptr<ReadEvent>& event = readEvents_.front();
 

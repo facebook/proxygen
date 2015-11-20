@@ -281,7 +281,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
                             StreamID assocStream,
                             bool eom,
                             HTTPHeaderSize* size) {
-  CHECK(assocStream == 0) << "HTTP does not support pushed transactions, "
+  CHECK_EQ(assocStream, 0) << "HTTP does not support pushed transactions, "
     "assocStream=" << assocStream;
   if (keepalive_ && disableKeepalivePending_) {
     keepalive_ = false;
@@ -289,7 +289,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   const bool upstream = (transportDirection_ == TransportDirection::UPSTREAM);
   const bool downstream = !upstream;
   if (upstream) {
-    DCHECK(txn == egressTxnID_);
+    DCHECK_EQ(txn, egressTxnID_);
     requestPending_ = true;
     responsePending_ = true;
     connectRequest_ = (msg.getMethod() == HTTPMethod::CONNECT);
@@ -434,7 +434,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     dst += value.length();
     *dst++ = '\r';
     *dst = '\n';
-    DCHECK(size_t(++dst - (char*)writable.first) == lineLen);
+    DCHECK_EQ(size_t(++dst - (char*)writable.first), lineLen);
     writeBuf.postallocate(lineLen);
     len += lineLen;
   });
@@ -495,7 +495,7 @@ HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
                           unique_ptr<IOBuf> chain,
                           boost::optional<uint8_t> padding,
                           bool eom) {
-  DCHECK(txn == egressTxnID_);
+  DCHECK_EQ(txn, egressTxnID_);
   if (!chain) {
     return 0;
   }
@@ -511,8 +511,8 @@ HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
   if (egressChunked_ && !inChunk_) {
     char chunkLenBuf[32];
     int rc = snprintf(chunkLenBuf, sizeof(chunkLenBuf), "%zx\r\n", buflen);
-    CHECK(rc > 0);
-    CHECK(size_t(rc) < sizeof(chunkLenBuf));
+    CHECK_GT(rc, 0);
+    CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
 
     writeBuf.append(chunkLenBuf, rc);
     totLen += rc;
@@ -544,8 +544,8 @@ size_t HTTP1xCodec::generateChunkHeader(IOBufQueue& writeBuf,
     inChunk_ = true;
     char chunkLenBuf[32];
     int rc = snprintf(chunkLenBuf, sizeof(chunkLenBuf), "%zx\r\n", length);
-    CHECK(rc > 0);
-    CHECK(size_t(rc) < sizeof(chunkLenBuf));
+    CHECK_GT(rc, 0);
+    CHECK_LT(size_t(rc), sizeof(chunkLenBuf));
 
     writeBuf.append(chunkLenBuf, rc);
     return rc;
@@ -569,7 +569,7 @@ size_t
 HTTP1xCodec::generateTrailers(IOBufQueue& writeBuf,
                               StreamID txn,
                               const HTTPHeaders& trailers) {
-  DCHECK(txn == egressTxnID_);
+  DCHECK_EQ(txn, egressTxnID_);
   size_t len = 0;
   if (egressChunked_) {
     CHECK(!inChunk_);
@@ -586,7 +586,7 @@ HTTP1xCodec::generateTrailers(IOBufQueue& writeBuf,
 }
 
 size_t HTTP1xCodec::generateEOM(IOBufQueue& writeBuf, StreamID txn) {
-  DCHECK(txn == egressTxnID_);
+  DCHECK_EQ(txn, egressTxnID_);
   size_t len = 0;
   if (egressChunked_) {
     CHECK(!inChunk_);
@@ -853,7 +853,7 @@ int
 HTTP1xCodec::onBody(const char* buf, size_t len) {
   DCHECK(!isParsingHeaders());
   DCHECK(!inRecvLastChunk_);
-  CHECK(currentIngressBuf_ != nullptr);
+  CHECK_NOTNULL(currentIngressBuf_);
   const char* dataStart = (const char*)currentIngressBuf_->data();
   const char* dataEnd = dataStart + currentIngressBuf_->length();
   DCHECK_GE(buf, dataStart);

@@ -324,14 +324,14 @@ TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
           // Initiate server push transactions.
           pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler1, handler.txn_->getPriority());
-          CHECK(pushTxn->getID() == HTTPCodec::StreamID(2));
+          CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
           pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
           pushHandler1.sendBody(100);
           pushTxn->sendEOM();
           // Initiate the second push transaction which will be aborted
           pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler2, handler.txn_->getPriority());
-          CHECK(pushTxn->getID() == HTTPCodec::StreamID(4));
+          CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
           pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100);
           pushHandler2.sendBody(100);
           pushTxn->sendEOM();
@@ -404,13 +404,13 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
           // Initiate server push transactions
           pushTxn1 = handler.txn_->newPushedTransaction(
             &pushHandler1, handler.txn_->getPriority());
-          CHECK(pushTxn1->getID() == HTTPCodec::StreamID(2));
+          CHECK_EQ(pushTxn1->getID(), HTTPCodec::StreamID(2));
           pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
           pushHandler1.sendBody(100);
 
           pushTxn2 = handler.txn_->newPushedTransaction(
             &pushHandler2, handler.txn_->getPriority());
-          CHECK(pushTxn2->getID() == HTTPCodec::StreamID(4));
+          CHECK_EQ(pushTxn2->getID(), HTTPCodec::StreamID(4));
           pushHandler2.sendPushHeaders("/bar", "www.bar.com", 200);
           pushHandler2.sendBody(200);
           pushTxn2->sendEOM();
@@ -475,14 +475,14 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
           // Initiate server push transactions
           auto pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler1, handler.txn_->getPriority());
-          CHECK(pushTxn->getID() == HTTPCodec::StreamID(2));
+          CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
           pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
           pushHandler1.sendBody(100);
           eventBase_.loop();
 
           pushTxn = handler.txn_->newPushedTransaction(
             &pushHandler2, handler.txn_->getPriority());
-          CHECK(pushTxn->getID() == HTTPCodec::StreamID(4));
+          CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
           pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100);
           pushHandler2.sendBody(100);
           eventBase_.loop();

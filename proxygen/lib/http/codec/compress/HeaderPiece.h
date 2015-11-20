@@ -39,7 +39,7 @@ class HeaderPiece {
 
   ~HeaderPiece() {
     if (owner) {
-      CHECK(str.data() != nullptr);
+      CHECK_NOTNULL(str.data());
       delete[] str.data();
     }
   }

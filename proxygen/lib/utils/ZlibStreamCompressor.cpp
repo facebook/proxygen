@@ -144,7 +144,7 @@ std::unique_ptr<IOBuf> ZlibStreamCompressor::compress(const IOBuf* in,
       auto outMove = chunkSize - zlibStream_.avail_out;
       appender.append(outMove);
     } while (zlibStream_.avail_out == 0);
-    DCHECK(zlibStream_.avail_in == 0);
+    DCHECK_EQ(zlibStream_.avail_in, 0);
 
     // Adjust the input offset ahead
     auto inConsumed = origAvailIn - zlibStream_.avail_in;

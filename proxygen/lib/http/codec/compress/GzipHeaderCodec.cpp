@@ -125,11 +125,11 @@ static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
                     // means raw deflate output format w/o libz header
         1,          // memory size for internal compression state, 1-9
         Z_DEFAULT_STRATEGY);
-    CHECK(r == Z_OK);
+    CHECK_EQ(r, Z_OK);
     if (compressionLevel != Z_NO_COMPRESSION) {
       r = deflateSetDictionary(&(newContext->deflater), versionSettings.dict,
                                versionSettings.dictSize);
-      CHECK(r == Z_OK);
+      CHECK_EQ(r, Z_OK);
     }
 
     newContext->inflater.zalloc = Z_NULL;
@@ -144,7 +144,7 @@ static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
     newContext->inflater.reserved = 0x01;
 #endif
     r = inflateInit2(&(newContext->inflater), 0);
-    CHECK(r == Z_OK);
+    CHECK_EQ(r, Z_OK);
 
     auto result = newContext.get();
     s_zlibContexts.data->emplace(zlibConfig, std::move(newContext));
@@ -273,8 +273,8 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
   deflater_.next_out = out->writableData();
   deflater_.avail_out = maxDeflatedSize;
   int r = deflate(&deflater_, Z_SYNC_FLUSH);
-  CHECK(r == Z_OK);
-  CHECK(deflater_.avail_in == 0);
+  CHECK_EQ(r, Z_OK);
+  CHECK_EQ(deflater_.avail_in, 0);
   out->append(maxDeflatedSize - deflater_.avail_out);
 
   VLOG(4) << "header size orig=" << uncompressedLen

@@ -322,7 +322,7 @@ class HTTPSession:
   }
 
   std::chrono::seconds getLatestIdleTime() const {
-    DCHECK(numTxnServed_ > 0) << "No idle time for the first transcation";
+    DCHECK_GT(numTxnServed_, 0) << "No idle time for the first transcation";
     DCHECK(latestActive_ > TimePoint::min());
     return latestIdleDuration_;
   }
