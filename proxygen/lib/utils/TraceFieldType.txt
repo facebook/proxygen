@@ -188,6 +188,7 @@ TTFB, "ttfb"
 TTLB, "ttlb"
 ConnIdleDuration, "connection_idle_duration"
 ConnLifeSpan, "connection_life_span"
+EgressBuffered, "egress_buffered"
 
 /* ---- Used in ZeroSetup ---- */
 SCFGCacheHit, "zero_scfg_cache_hit"
