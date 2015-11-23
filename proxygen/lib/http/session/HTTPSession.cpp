@@ -516,8 +516,7 @@ HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
 HTTPTransaction*
 HTTPSession::newPushedTransaction(
   HTTPCodec::StreamID assocStreamId,
-  HTTPTransaction::PushHandler* handler,
-  http2::PriorityUpdate priority) noexcept {
+  HTTPTransaction::PushHandler* handler) noexcept {
   if (!codec_->supportsPushTransactions()) {
     return nullptr;
   }
@@ -533,8 +532,7 @@ HTTPSession::newPushedTransaction(
   }
 
   HTTPTransaction* txn = createTransaction(codec_->createStream(),
-                                           assocStreamId,
-                                           priority);
+                                           assocStreamId);
   if (!txn) {
     return nullptr;
   }
@@ -570,6 +568,24 @@ HTTPSession::setNewTransactionPauseState(HTTPCodec::StreamID streamID) {
             << ", kPendingWriteMax=" << kPendingWriteMax;
     txn->pauseEgress();
   }
+}
+
+http2::PriorityUpdate
+HTTPSession::getMessagePriority(const HTTPMessage* msg) {
+  http2::PriorityUpdate h2Pri = http2::DefaultPriority;
+  if (msg) {
+    auto res = msg->getHTTP2Priority();
+    if (res) {
+      h2Pri.streamDependency = std::get<0>(*res);
+      h2Pri.exclusive = std::get<1>(*res);
+      h2Pri.weight = std::get<2>(*res);
+    } else {
+      // HTTPMessage with setPriority called explicitly
+      h2Pri.streamDependency =
+        codec_->mapPriorityToDependency(msg->getPriority());
+    }
+  }
+  return h2Pri;
 }
 
 void
@@ -618,17 +634,7 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     }
   }
 
-  http2::PriorityUpdate h2Pri = http2::DefaultPriority;
-  if (msg) {
-    auto res = msg->getHTTP2Priority();
-    if (res) {
-      h2Pri.streamDependency = std::get<0>(*res);
-      h2Pri.exclusive = std::get<1>(*res);
-      h2Pri.weight = std::get<2>(*res);
-    }
-  }
-  txn = createTransaction(streamID, assocStreamID, h2Pri);
-
+  txn = createTransaction(streamID, assocStreamID, getMessagePriority(msg));
   if (!txn) {
     // This could happen if the socket is bad.
     return nullptr;
@@ -1113,6 +1119,12 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     goawayBuf = writeBuf_.move();
     writeBuf_.append(std::move(writeBuf));
   }
+  if (isUpstream() || (txn->isPushed() && headers.isResponse())) {
+    // upstream picks priority
+    auto pri = getMessagePriority(&headers);
+    txn->updatePriority(pri);
+  }
+
   const bool wasReusable = codec_->isReusable();
   const uint64_t oldOffset = sessionByteOffset();
   // Only PUSH_PROMISE (not push response) has an associated stream

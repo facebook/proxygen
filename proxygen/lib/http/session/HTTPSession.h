@@ -573,8 +573,7 @@ class HTTPSession:
   void notifyEgressBodyBuffered(int64_t bytes) noexcept override;
   HTTPTransaction* newPushedTransaction(
     HTTPCodec::StreamID assocStreamId,
-    HTTPTransaction::PushHandler* handler,
-    http2::PriorityUpdate priority) noexcept override;
+    HTTPTransaction::PushHandler* handler) noexcept override;
 
  public:
   const folly::SocketAddress& getLocalAddress()
@@ -672,7 +671,7 @@ class HTTPSession:
   HTTPTransaction* createTransaction(
     HTTPCodec::StreamID streamID,
     HTTPCodec::StreamID assocStreamID,
-    http2::PriorityUpdate priority);
+    http2::PriorityUpdate priority = http2::DefaultPriority);
 
   /** Invoked by WriteSegment on completion of a write. */
   void onWriteSuccess(uint64_t bytesWritten);
@@ -1004,6 +1003,8 @@ class HTTPSession:
    */
   void invalidStream(HTTPCodec::StreamID stream,
                      ErrorCode code = ErrorCode::_SPDY_INVALID_STREAM);
+
+  http2::PriorityUpdate getMessagePriority(const HTTPMessage* msg);
 
   bool isConnWindowFull() const {
     return connFlowControl_ && connFlowControl_->getAvailableSend() == 0;

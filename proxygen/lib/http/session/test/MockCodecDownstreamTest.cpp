@@ -266,9 +266,9 @@ TEST_F(MockCodecDownstreamTest, server_push) {
 
   EXPECT_CALL(handler, onHeadersComplete(_))
     .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
-          pushTxn = handler.txn_->newPushedTransaction(
-            &pushHandler, handler.txn_->getPriority());
-          pushHandler.sendPushHeaders("/foo", "www.foo.com", 100);
+          pushTxn = handler.txn_->newPushedTransaction(&pushHandler);
+          pushHandler.sendPushHeaders("/foo", "www.foo.com", 100,
+                                      handler.txn_->getPriority());
           pushHandler.sendBody(100);
           pushTxn->sendEOM();
           eventBase_.loop(); // flush the push txn's body
@@ -322,17 +322,17 @@ TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
   EXPECT_CALL(handler, onHeadersComplete(_))
     .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           // Initiate server push transactions.
-          pushTxn = handler.txn_->newPushedTransaction(
-            &pushHandler1, handler.txn_->getPriority());
+          pushTxn = handler.txn_->newPushedTransaction(&pushHandler1);
           CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
-          pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
+          pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100,
+                                       handler.txn_->getPriority());
           pushHandler1.sendBody(100);
           pushTxn->sendEOM();
           // Initiate the second push transaction which will be aborted
-          pushTxn = handler.txn_->newPushedTransaction(
-            &pushHandler2, handler.txn_->getPriority());
+          pushTxn = handler.txn_->newPushedTransaction(&pushHandler2);
           CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
-          pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100);
+          pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100,
+                                       handler.txn_->getPriority());
           pushHandler2.sendBody(100);
           pushTxn->sendEOM();
         }));
@@ -370,8 +370,7 @@ TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
 
   // New server pushed transaction cannot be created after goaway
   MockHTTPPushHandler pushHandler3;
-  EXPECT_EQ(handler.txn_->newPushedTransaction(&pushHandler3,
-        handler.txn_->getPriority()), nullptr);
+  EXPECT_EQ(handler.txn_->newPushedTransaction(&pushHandler3), nullptr);
 
   // Send response to the initial client request and this destroys the session
   handler.sendReplyWithBody(200, 100);
@@ -402,16 +401,16 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
   EXPECT_CALL(handler, onHeadersComplete(_))
     .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           // Initiate server push transactions
-          pushTxn1 = handler.txn_->newPushedTransaction(
-            &pushHandler1, handler.txn_->getPriority());
+          pushTxn1 = handler.txn_->newPushedTransaction(&pushHandler1);
           CHECK_EQ(pushTxn1->getID(), HTTPCodec::StreamID(2));
-          pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
+          pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100,
+                                      handler.txn_->getPriority());
           pushHandler1.sendBody(100);
 
-          pushTxn2 = handler.txn_->newPushedTransaction(
-            &pushHandler2, handler.txn_->getPriority());
+          pushTxn2 = handler.txn_->newPushedTransaction(&pushHandler2);
           CHECK_EQ(pushTxn2->getID(), HTTPCodec::StreamID(4));
-          pushHandler2.sendPushHeaders("/bar", "www.bar.com", 200);
+          pushHandler2.sendPushHeaders("/bar", "www.bar.com", 200,
+                                       handler.txn_->getPriority());
           pushHandler2.sendBody(200);
           pushTxn2->sendEOM();
         }));
@@ -473,17 +472,17 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
   EXPECT_CALL(handler, onHeadersComplete(_))
     .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
           // Initiate server push transactions
-          auto pushTxn = handler.txn_->newPushedTransaction(
-            &pushHandler1, handler.txn_->getPriority());
+          auto pushTxn = handler.txn_->newPushedTransaction(&pushHandler1);
           CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(2));
-          pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100);
+          pushHandler1.sendPushHeaders("/foo", "www.foo.com", 100,
+                                       handler.txn_->getPriority());
           pushHandler1.sendBody(100);
           eventBase_.loop();
 
-          pushTxn = handler.txn_->newPushedTransaction(
-            &pushHandler2, handler.txn_->getPriority());
+          pushTxn = handler.txn_->newPushedTransaction(&pushHandler2);
           CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
-          pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100);
+          pushHandler2.sendPushHeaders("/foo", "www.foo.com", 100,
+                                       handler.txn_->getPriority());
           pushHandler2.sendBody(100);
           eventBase_.loop();
         }));
@@ -554,9 +553,11 @@ TEST_F(MockCodecDownstreamTest, server_push_client_message) {
     .WillOnce(SaveArg<0>(&handler.txn_));
 
   EXPECT_CALL(handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
-          pushTxn = handler.txn_->newPushedTransaction(
-            &pushHandler, handler.txn_->getPriority());
+    .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
+          pushTxn = handler.txn_->newPushedTransaction(&pushHandler);
+          auto pri = handler.txn_->getPriority();
+          msg->setHTTP2Priority(std::make_tuple(pri.streamDependency,
+                                                pri.exclusive, pri.weight));
         }));
   EXPECT_CALL(pushHandler, setTransaction(_))
     .WillOnce(Invoke([&pushHandler] (HTTPTransaction* txn) {
@@ -1171,13 +1172,13 @@ TEST_F(MockCodecDownstreamTest, shutdown_then_send_push_headers) {
 
   EXPECT_CALL(handler, onHeadersComplete(_))
     .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage>) {
-          auto pushTxn = handler.txn_->newPushedTransaction(
-            &pushHandler, handler.txn_->getPriority());
+          auto pushTxn = handler.txn_->newPushedTransaction(&pushHandler);
           // start shutdown process
           httpSession_->notifyPendingShutdown();
           // we should be able to process new requests
           EXPECT_TRUE(codec_->isReusable());
-          pushHandler.sendPushHeaders("/foo", "www.foo.com", 0);
+          pushHandler.sendPushHeaders("/foo", "www.foo.com", 0,
+                                      handler.txn_->getPriority());
           // we should* still* be able to process new requests
           EXPECT_TRUE(codec_->isReusable());
           pushTxn->sendEOM();

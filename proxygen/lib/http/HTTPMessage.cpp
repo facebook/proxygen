@@ -94,6 +94,8 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     sslVersion_(message.sslVersion_),
     sslCipher_(message.sslCipher_),
     protoStr_(message.protoStr_),
+    pri_(message.pri_),
+    h2Pri_(message.h2Pri_),
     parsedCookies_(message.parsedCookies_),
     parsedQueryParams_(message.parsedQueryParams_),
     chunked_(message.chunked_),
@@ -126,6 +128,8 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   sslVersion_ = message.sslVersion_;
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
+  pri_ = message.pri_;
+  h2Pri_ = message.h2Pri_;
   parsedCookies_ = message.parsedCookies_;
   parsedQueryParams_ = message.parsedQueryParams_;
   chunked_ = message.chunked_;

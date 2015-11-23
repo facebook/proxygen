@@ -61,8 +61,7 @@ bool HTTPUpstreamSession::isClosing() const {
 }
 
 HTTPTransaction*
-HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler,
-                                    int8_t priority) {
+HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
   CHECK_NOTNULL(handler);
 
   if (!supportsMoreTransactions() || draining_) {
@@ -74,10 +73,7 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler,
     startNow();
   }
 
-  auto txn = createTransaction(
-    codec_->createStream(), 0,
-    {codec_->mapPriorityToDependency(HTTPMessage::normalizePriority(priority)),
-        false, 16});
+  auto txn = createTransaction(codec_->createStream(), 0);
 
   if (txn) {
     DestructorGuard dg(this);

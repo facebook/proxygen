@@ -354,8 +354,7 @@ class HTTPTransaction :
 
     virtual HTTPTransaction* newPushedTransaction(
       HTTPCodec::StreamID assocStreamId,
-      HTTPTransaction::PushHandler* handler,
-      http2::PriorityUpdate  priority) noexcept = 0;
+      HTTPTransaction::PushHandler* handler) noexcept = 0;
   };
 
   /**
@@ -851,6 +850,15 @@ class HTTPTransaction :
    */
   void setEgressRateLimit(uint64_t bitsPerSecond);
 
+
+  /**
+   * Update this transaction's priority to the specified value
+   */
+  void updatePriority(http2::PriorityUpdate pri) {
+    priority_ = pri;
+    egressQueue_.updatePriority(queueHandle_, pri);
+  }
+
   /**
    * @return true iff egress processing is paused for the handler
    */
@@ -873,12 +881,11 @@ class HTTPTransaction :
    * transaction is impossible right now.
    */
   virtual HTTPTransaction* newPushedTransaction(
-    HTTPPushTransactionHandler* handler,
-    http2::PriorityUpdate priority) {
+    HTTPPushTransactionHandler* handler) {
     if (isEgressEOMSeen()) {
       return nullptr;
     }
-    auto txn = transport_.newPushedTransaction(id_, handler, priority);
+    auto txn = transport_.newPushedTransaction(id_, handler);
     if (txn) {
       pushedTransactions_.insert(txn->getID());
     }

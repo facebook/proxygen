@@ -502,6 +502,7 @@ class HTTPMessage {
 
   void setPriority(int8_t pri) {
     pri_ = normalizePriority(pri);
+    h2Pri_ = boost::none;
   }
   uint8_t getPriority() const { return pri_; }
 
