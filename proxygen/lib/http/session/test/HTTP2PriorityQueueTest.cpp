@@ -60,11 +60,11 @@ class QueueTest : public testing::Test {
   }
 
   void buildSimpleTree() {
-    addTransaction(1, {0, false, 16});
-    addTransaction(3, {1, false, 4});
-    addTransaction(5, {1, false, 4});
-    addTransaction(7, {1, false, 8});
-    addTransaction(9, {5, false, 8});
+    addTransaction(1, {0, false, 15});
+    addTransaction(3, {1, false, 3});
+    addTransaction(5, {1, false, 3});
+    addTransaction(7, {1, false, 7});
+    addTransaction(9, {5, false, 7});
   }
 
   bool visitNode(HTTPCodec::StreamID id, HTTPTransaction* txn, double r) {
@@ -126,7 +126,7 @@ TEST_F(QueueTest, RemoveParent) {
 TEST_F(QueueTest, UpdateWeight) {
   buildSimpleTree();
 
-  updatePriority(5, {1, false, 8});
+  updatePriority(5, {1, false, 7});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 20}, {5, 40}, {9, 100}, {7, 40}}));
@@ -135,7 +135,7 @@ TEST_F(QueueTest, UpdateWeight) {
 TEST_F(QueueTest, UpdateWeightExcl) {
   buildSimpleTree();
 
-  updatePriority(5, {1, true, 8});
+  updatePriority(5, {1, true, 7});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{1, 100}, {5, 100}, {9, 40}, {3, 20}, {7, 40}}));
@@ -144,7 +144,7 @@ TEST_F(QueueTest, UpdateWeightExcl) {
 TEST_F(QueueTest, UpdateParentSibling) {
   buildSimpleTree();
 
-  updatePriority(5, {3, false, 4});
+  updatePriority(5, {3, false, 3});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 33}, {5, 100},
@@ -154,7 +154,7 @@ TEST_F(QueueTest, UpdateParentSibling) {
 TEST_F(QueueTest, UpdateParentSiblingExcl) {
   buildSimpleTree();
 
-  updatePriority(7, {5, true, 4});
+  updatePriority(7, {5, true, 3});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 50}, {5, 50},
@@ -164,7 +164,7 @@ TEST_F(QueueTest, UpdateParentSiblingExcl) {
 TEST_F(QueueTest, UpdateParentAncestor) {
   buildSimpleTree();
 
-  updatePriority(9, {0, false, 16});
+  updatePriority(9, {0, false, 15});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 25}, {5, 25}, {7, 50}, {9, 50}}));
@@ -173,7 +173,7 @@ TEST_F(QueueTest, UpdateParentAncestor) {
 TEST_F(QueueTest, UpdateParentAncestorExcl) {
   buildSimpleTree();
 
-  updatePriority(9, {0, true, 16});
+  updatePriority(9, {0, true, 15});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{9, 100}, {1, 100}, {3, 25}, {5, 25}, {7, 50}}));
@@ -182,7 +182,7 @@ TEST_F(QueueTest, UpdateParentAncestorExcl) {
 TEST_F(QueueTest, UpdateParentDescendant) {
   buildSimpleTree();
 
-  updatePriority(1, {5, false, 8});
+  updatePriority(1, {5, false, 7});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{5, 100}, {9, 50}, {1, 50}, {3, 33}, {7, 66}}));
@@ -191,7 +191,7 @@ TEST_F(QueueTest, UpdateParentDescendant) {
 TEST_F(QueueTest, UpdateParentDescendantExcl) {
   buildSimpleTree();
 
-  updatePriority(1, {5, true, 8});
+  updatePriority(1, {5, true, 7});
   dump();
 
   EXPECT_EQ(nodes_, IDList({{5, 100}, {1, 100}, {3, 20}, {7, 40}, {9, 40}}));
@@ -211,12 +211,19 @@ TEST_F(QueueTest, ExclusiveAdd) {
 TEST_F(QueueTest, AddUnknown) {
   buildSimpleTree();
 
-  addTransaction(11, {75, false, 16});
+  addTransaction(11, {75, false, 15});
 
   dump();
   EXPECT_EQ(nodes_, IDList({
         {1, 50}, {3, 25}, {5, 25}, {9, 100}, {7, 50}, {11, 50}
       }));
+}
+
+TEST_F(QueueTest, AddMax) {
+  addTransaction(1, {0, false, 255});
+
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{1, 100}}));
 }
 
 TEST_F(QueueTest, Misc) {
@@ -250,7 +257,7 @@ TEST_F(QueueTest, nextEgress) {
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{1, 100}}));
 
-  addTransaction(11, {7, false, 16});
+  addTransaction(11, {7, false, 15});
   signalEgress(1, false);
 
   nextEgress();

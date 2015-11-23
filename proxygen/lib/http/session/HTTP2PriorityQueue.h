@@ -34,10 +34,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   class Node {
    public:
     Node(Node* inParent, HTTPCodec::StreamID id,
-         uint32_t weight, HTTPTransaction *txn)
+         uint8_t weight, HTTPTransaction *txn)
       : parent_(inParent),
         id_(id),
-        weight_(weight),
+        weight_(weight + 1),
         txn_(txn) {
     }
 
@@ -151,8 +151,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     // Set a new weight for this node
     void updateWeight(uint8_t weight) {
-      int16_t delta = weight - weight_;
-      weight_ = weight;
+      int16_t delta = weight - weight_ + 1;
+      weight_ = weight + 1;
       parent_->totalChildWeight_ += delta;
     }
 
@@ -266,6 +266,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
         child->updateEnqueuedWeight();
       }
       if (totalEnqueuedWeight_ == 0 && !isEnqueued()) {
+        // Must only be called with activeCount_ > 0, root cannot be dequeued
+        CHECK_NOTNULL(parent_);
         parent_->totalEnqueuedWeight_ -= weight_;
       }
     }
@@ -273,7 +275,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
    private:
     Node *parent_{nullptr};
     HTTPCodec::StreamID id_{0};
-    uint8_t weight_{16};
+    uint16_t weight_{16};
     HTTPTransaction *txn_{nullptr};
     bool enqueued_{false};
     uint64_t totalEnqueuedWeight_{0};
@@ -313,7 +315,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   void addPriorityNode(HTTPCodec::StreamID id,
                        HTTPCodec::StreamID parent) override{
-    addTransaction(id, {parent, false, 1}, nullptr);
+    addTransaction(id, {parent, false, 0}, nullptr);
   }
 
   // adds new transaction (possibly nullptr) to the priority tree
