@@ -33,7 +33,7 @@ class TestAcceptor : public Acceptor {
   explicit TestAcceptor(const ServerSocketConfig& accConfig)
       : Acceptor(accConfig) {}
 
-  void onNewConnection(folly::AsyncSocket::UniquePtr sock,
+  void onNewConnection(folly::AsyncTransportWrapper::UniquePtr sock,
                        const folly::SocketAddress* address,
                        const std::string& nextProtocolName,
                        SecureTransportType secureTransportType,

@@ -54,14 +54,12 @@ const HTTPErrorPage* HTTPSessionAcceptor::getErrorPage(
 }
 
 void HTTPSessionAcceptor::onNewConnection(
-  folly::AsyncSocket::UniquePtr ssock,
+  folly::AsyncTransportWrapper::UniquePtr sock,
   const SocketAddress* peerAddress,
   const string& nextProtocol,
   SecureTransportType secureTransportType,
   const wangle::TransportInfo& tinfo) {
   unique_ptr<HTTPCodec> codec;
-
-  AsyncSocket::UniquePtr sock(dynamic_cast<AsyncSocket*>(ssock.release()));
 
   if (!isSSL() && alwaysUseSPDYVersion_) {
     codec = folly::make_unique<SPDYCodec>(
