@@ -104,7 +104,7 @@ HTTPSession::WriteSegment::writeErr(size_t bytesWritten,
 }
 
 HTTPSession::HTTPSession(
-  folly::HHWheelTimer* transactionTimeouts,
+  folly::HHWheelTimer::SharedPtr transactionTimeouts,
   AsyncTransportWrapper::UniquePtr sock,
   const SocketAddress& localAddr,
   const SocketAddress& peerAddr,
@@ -120,7 +120,7 @@ HTTPSession::HTTPSession(
     infoCallback_(infoCallback),
     writeTimeout_(this),
     flowControlTimeout_(this),
-    transactionTimeouts_(CHECK_NOTNULL(transactionTimeouts)),
+    transactionTimeouts_(transactionTimeouts),
     transportInfo_(tinfo),
     reads_(SocketState::PAUSED),
     writes_(SocketState::UNPAUSED),
@@ -1979,7 +1979,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
     std::forward_as_tuple(streamID),
     std::forward_as_tuple(
       codec_->getTransportDirection(), streamID, transactionSeqNo_, *this,
-      txnEgressQueue_, transactionTimeouts_, sessionStats_,
+      txnEgressQueue_, transactionTimeouts_.get(), sessionStats_,
       codec_->supportsStreamFlowControl(),
       initialReceiveWindow_,
       getCodecSendWindowSize(),

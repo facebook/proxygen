@@ -358,7 +358,7 @@ class HTTPSession:
    *                               lifecycle events.
    */
   HTTPSession(
-      folly::HHWheelTimer* transactionTimeouts,
+      folly::HHWheelTimer::SharedPtr transactionTimeouts,
       folly::AsyncTransportWrapper::UniquePtr sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
@@ -366,6 +366,24 @@ class HTTPSession:
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
       InfoCallback* infoCallback = nullptr);
+
+  HTTPSession(
+      folly::HHWheelTimer* transactionTimeouts,
+      folly::AsyncTransportWrapper::UniquePtr sock,
+      const folly::SocketAddress& localAddr,
+      const folly::SocketAddress& peerAddr,
+      HTTPSessionController* controller,
+      std::unique_ptr<HTTPCodec> codec,
+      const wangle::TransportInfo& tinfo,
+      InfoCallback* infoCallback = nullptr)
+    : HTTPSession(folly::HHWheelTimer::SharedPtr(transactionTimeouts),
+                  std::move(sock),
+                  localAddr,
+                  peerAddr,
+                  controller,
+                  std::move(codec),
+                  tinfo,
+                  infoCallback) {}
 
   ~HTTPSession() override;
 
@@ -792,7 +810,7 @@ class HTTPSession:
 
   FlowControlTimeout flowControlTimeout_;
 
-  folly::HHWheelTimer* transactionTimeouts_{nullptr};
+  folly::HHWheelTimer::SharedPtr transactionTimeouts_{nullptr};
 
   HTTPSessionStats* sessionStats_{nullptr};
 
