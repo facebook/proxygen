@@ -4,9 +4,6 @@
 ## install proxygen to use in another C++ project on this machine, run
 ## the sibling file `reinstall.sh`.
 
-FOLLY_VERSION='6bafdff6699540b1e65a665b6d924a35ccafcd9c'
-WANGLE_VERSION='b70de7d24810f48c8a71589cbaab30d704647a7b'
-
 # Parse args
 JOBS=8
 USAGE="./deps.sh [-j num_jobs]"
@@ -98,7 +95,7 @@ if [ ! -e folly/folly ]; then
 fi
 cd folly/folly
 git fetch
-git checkout $FOLLY_VERSION
+git checkout master
 
 # Build folly
 autoreconf --install
@@ -119,7 +116,7 @@ if [ ! -e wangle/wangle ]; then
 fi
 cd wangle/wangle
 git fetch
-git checkout $WANGLE_VERSION
+git checkout master
 
 # Build wangle
 cmake .
