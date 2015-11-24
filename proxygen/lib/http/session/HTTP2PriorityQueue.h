@@ -322,6 +322,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   Handle addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
                         HTTPTransaction *txn, uint64_t* depth = nullptr) {
     CHECK_NE(id, 0);
+    CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
 
     Node* parent = &root_;
     if (depth) {
@@ -347,6 +348,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     Node* node = handle;
     pendingWeightChange_ = true;
     node->updateWeight(pri.weight);
+    CHECK_NE(pri.streamDependency, node->getID()) <<
+      "Tried to create a loop in the tree";;
     if (pri.streamDependency == node->parentID() && !pri.exclusive) {
       // no move
       return handle;
