@@ -160,4 +160,18 @@ void HTTPServer::stop() {
   mainEventBase_ = nullptr;
 }
 
+const std::vector<const folly::AsyncSocketBase*>
+  HTTPServer::getSockets() const {
+
+  std::vector<const folly::AsyncSocketBase*> sockets;
+  FOR_EACH_RANGE(i, 0, bootstrap_.size()) {
+    auto& bootstrapSockets = bootstrap_[i].getSockets();
+    FOR_EACH_RANGE(j, 0, bootstrapSockets.size()) {
+      sockets.push_back(bootstrapSockets[j].get());
+    }
+  }
+
+  return sockets;
+}
+
 }

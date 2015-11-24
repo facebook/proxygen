@@ -100,6 +100,11 @@ class HTTPServer final {
     return addresses_;
   }
 
+  /**
+   * Get the sockets the server is currently bound to.
+   */
+  const std::vector<const folly::AsyncSocketBase*> getSockets() const;
+
  private:
   std::shared_ptr<HTTPServerOptions> options_;
 
