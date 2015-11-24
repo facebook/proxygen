@@ -88,6 +88,7 @@ DNSCacheHit, "dns_cache_hit"
 DNSCacheStale, "dns_cache_stale"
 DNSCacheInflight, "dns_cache_inflight"
 DNSCacheUseFallback, "dns_cache_fallback"
+DNSPreconnectDomain, "dns_preconnect_domain"
 
 /* ---- Used in TlsSetup ---- */
 TLSReused, "tls_reused"
