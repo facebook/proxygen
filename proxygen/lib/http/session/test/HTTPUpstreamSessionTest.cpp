@@ -33,21 +33,6 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
-struct HTTP1xCodecPair {
-  typedef HTTP1xCodec Codec;
-  static const int version = 1;
-};
-
-struct SPDY3CodecPair {
-  typedef SPDYCodec Codec;
-  static const SPDYVersion version = SPDYVersion::SPDY3;
-};
-
-struct MockHTTPCodecPair {
-  typedef MockHTTPCodec Codec;
-  static const int version = 0;
-};
-
 template <class C>
 class HTTPUpstreamTest: public testing::Test,
                         public HTTPSession::InfoCallback {

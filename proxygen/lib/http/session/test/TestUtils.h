@@ -14,6 +14,10 @@
 #include <gtest/gtest.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <folly/io/async/test/MockAsyncTransport.h>
+#include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
+#include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/SPDYCodec.h>
+#include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
 
 namespace proxygen {
 
@@ -29,5 +33,32 @@ makeTimeoutSet(folly::EventBase* evb);
 
 testing::NiceMock<folly::test::MockAsyncTransport>*
 newMockTransport(folly::EventBase* evb);
+
+struct HTTP1xCodecPair {
+  using Codec=HTTP1xCodec;
+  static const int version = 1;
+};
+
+struct SPDY3CodecPair {
+  using Codec=SPDYCodec;
+  static const SPDYVersion version = SPDYVersion::SPDY3;
+};
+
+struct SPDY3_1CodecPair {
+  using Codec=SPDYCodec;
+  static const SPDYVersion version = SPDYVersion::SPDY3_1;
+};
+
+struct HTTP2CodecPair {
+  using Codec=HTTP2Codec;
+  static const int version = 2;
+};
+
+struct MockHTTPCodecPair {
+  using Codec=MockHTTPCodec;
+  static const int version = 0;
+};
+
+
 
 }

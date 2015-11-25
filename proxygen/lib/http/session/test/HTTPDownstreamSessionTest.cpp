@@ -16,7 +16,6 @@
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/io/async/TimeoutManager.h>
 #include <gtest/gtest.h>
-#include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
@@ -38,26 +37,6 @@ using namespace proxygen;
 using namespace std;
 using namespace testing;
 using namespace std::chrono;
-
-struct HTTP1xCodecPair {
-  typedef HTTP1xCodec Codec;
-  static const int version = 1;
-};
-
-struct HTTP2CodecPair {
-  typedef HTTP2Codec Codec;
-  static const int version = 2;
-};
-
-struct SPDY3CodecPair {
-  typedef SPDYCodec Codec;
-  static const SPDYVersion version = SPDYVersion::SPDY3;
-};
-
-struct SPDY3_1CodecPair {
-  typedef SPDYCodec Codec;
-  static const SPDYVersion version = SPDYVersion::SPDY3_1;
-};
 
 template <typename C>
 class HTTPDownstreamTest : public testing::Test {
