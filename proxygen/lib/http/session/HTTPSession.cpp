@@ -49,7 +49,7 @@ static const uint32_t kMaxWritesPerLoop = 32;
 namespace proxygen {
 
 uint32_t HTTPSession::kDefaultReadBufLimit = 65536;
-uint64_t HTTPSession::egressBodySizeLimit_ = 4096;
+uint32_t HTTPSession::egressBodySizeLimit_ = 4096;
 uint32_t HTTPSession::kPendingWriteMax = 65536;
 
 HTTPSession::WriteSegment::WriteSegment(
@@ -1516,29 +1516,44 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
     return nullptr;
   }
 
-  bool connWindowFull =
-    connFlowControl_ && connFlowControl_->getAvailableSend() == 0;
-
   // We always tack on at least one body packet to the current write buf
   // This ensures that a short HTTPS response will go out in a single SSL record
   while (!txnEgressQueue_.empty()) {
-    uint32_t allowed = kWriteReadyMax;
-    if (connWindowFull) {
-      VLOG(4) << "Session-level send window is full, skipping remaining "
-              << "body writes this loop";
-      break;
+    uint32_t toSend = kWriteReadyMax;
+    if (connFlowControl_) {
+      if (connFlowControl_->getAvailableSend() == 0) {
+        VLOG(4) << "Session-level send window is full, skipping remaining "
+                << "body writes this loop";
+        break;
+      }
+      toSend = std::min(toSend, connFlowControl_->getAvailableSend());
     }
     txnEgressQueue_.nextEgress(nextEgressResults_);
     CHECK(!nextEgressResults_.empty()); // Queue was non empty, so this must be
+    // The maximum we will send for any transaction in this loop
+    uint32_t txnMaxToSend = toSend * nextEgressResults_.front().second;
+    if (txnMaxToSend == 0) {
+      // toSend is smaller than the number of transactions.  Give all egress
+      // to the first transaction
+      nextEgressResults_.erase(++nextEgressResults_.begin(),
+                               nextEgressResults_.end());
+      txnMaxToSend = std::min(toSend, egressBodySizeLimit_);
+      nextEgressResults_.front().second = 1;
+    }
+    if (nextEgressResults_.size() > 1 && txnMaxToSend > egressBodySizeLimit_) {
+      // Cap the max to egressBodySizeLimit_, and recompute toSend accordingly
+      txnMaxToSend = egressBodySizeLimit_;
+      toSend = txnMaxToSend / nextEgressResults_.front().second;
+    }
     int8_t egressBand = -1;
     // split allowed by relative weight, with some minimum
     for (auto txnPair: nextEgressResults_) {
+      uint32_t txnAllowed = txnPair.second * toSend;
+      if (nextEgressResults_.size() > 1) {
+        CHECK_LE(txnAllowed, egressBodySizeLimit_);
+      }
       if (connFlowControl_) {
-        allowed = std::min(allowed, connFlowControl_->getAvailableSend());
-        if (allowed == 0) {
-          connWindowFull = true;
-          break;
-        }
+        CHECK_LE(txnAllowed, connFlowControl_->getAvailableSend());
       }
 
       // For SPDYCodec, we only egress transactions with the highest priority
@@ -1559,10 +1574,7 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
       }
 
       VLOG(4) << *this << " egressing txnID=" << txnPair.first->getID() <<
-        " allowed=" << allowed << " scaled=" <<
-        (uint64_t)(allowed * txnPair.second);
-      uint32_t min = std::min(allowed, (uint32_t)(egressBodySizeLimit_ / 4));
-      uint32_t txnAllowed = std::max(min, uint32_t(allowed * txnPair.second));
+        " allowed=" << txnAllowed;
       txnPair.first->onWriteReady(txnAllowed, txnPair.second);
     }
     nextEgressResults_.clear();

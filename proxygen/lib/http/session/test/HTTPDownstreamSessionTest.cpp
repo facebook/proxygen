@@ -1206,10 +1206,10 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
   EXPECT_CALL(this->callbacks_, onHeadersComplete(1, _));
   EXPECT_CALL(this->callbacks_, onMessageBegin(3, _));
   EXPECT_CALL(this->callbacks_, onHeadersComplete(3, _));
-  EXPECT_CALL(this->callbacks_, onBody(1, _, _))
-    .Times(AtLeast(2));
-  EXPECT_CALL(this->callbacks_, onBody(3, _, _))
-    .Times(AtLeast(2));
+  for (uint32_t i = 0; i < 8; i++) {
+    EXPECT_CALL(this->callbacks_, onBody(1, _, _));
+    EXPECT_CALL(this->callbacks_, onBody(3, _, _));
+  }
   EXPECT_CALL(this->callbacks_, onBody(1, _, _));
   EXPECT_CALL(this->callbacks_, onMessageComplete(1, _));
   EXPECT_CALL(this->callbacks_, onBody(3, _, _));

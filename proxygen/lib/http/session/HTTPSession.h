@@ -116,7 +116,7 @@ class HTTPSession:
    * Set the maximum egress body size for any outbound body bytes per loop,
    * when there are > 1 transactions.
    */
-  static void setFlowControlledBodySizeLimit(uint64_t limit) {
+  static void setFlowControlledBodySizeLimit(uint32_t limit) {
     egressBodySizeLimit_ = limit;
   }
 
@@ -968,7 +968,7 @@ class HTTPSession:
    * Maximum number of bytes to egress per loop when there are > 1
    * transactions.  Otherwise defaults to kPendingWriteMax.
    */
-  static uint64_t egressBodySizeLimit_;
+  static uint32_t egressBodySizeLimit_;
 
   /**
    * Maximum number of bytes that can be buffered in sock_ before
