@@ -14,6 +14,7 @@
 #include <folly/io/async/EventBase.h>
 #include <wangle/bootstrap/ServerBootstrap.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
+#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <thread>
 
 namespace proxygen {
@@ -38,12 +39,15 @@ class HTTPServer final {
 
   struct IPConfig {
     IPConfig(folly::SocketAddress a,
-             Protocol p)
+             Protocol p,
+             std::shared_ptr<HTTPCodecFactory> c = nullptr)
         : address(a),
-          protocol(p) {}
+          protocol(p),
+          codecFactory(c) {}
 
     folly::SocketAddress address;
     Protocol protocol;
+    std::shared_ptr<HTTPCodecFactory> codecFactory;
     std::vector<wangle::SSLContextConfig> sslConfigs;
   };
 

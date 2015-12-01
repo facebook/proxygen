@@ -44,7 +44,8 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
 
 std::unique_ptr<HTTPServerAcceptor> HTTPServerAcceptor::make(
   const AcceptorConfiguration& conf,
-  const HTTPServerOptions& opts) {
+  const HTTPServerOptions& opts,
+  const std::shared_ptr<HTTPCodecFactory>& codecFactory) {
   // Create a copy of the filter chain in reverse order since we need to create
   // Handlers in that order.
   std::vector<RequestHandlerFactory*> handlerFactories;
@@ -54,13 +55,14 @@ std::unique_ptr<HTTPServerAcceptor> HTTPServerAcceptor::make(
   std::reverse(handlerFactories.begin(), handlerFactories.end());
 
   return std::unique_ptr<HTTPServerAcceptor>(
-      new HTTPServerAcceptor(conf, handlerFactories));
+      new HTTPServerAcceptor(conf, codecFactory, handlerFactories));
 }
 
 HTTPServerAcceptor::HTTPServerAcceptor(
     const AcceptorConfiguration& conf,
+    const std::shared_ptr<HTTPCodecFactory>& codecFactory,
     std::vector<RequestHandlerFactory*> handlerFactories)
-    : HTTPSessionAcceptor(conf),
+    : HTTPSessionAcceptor(conf, codecFactory),
       handlerFactories_(handlerFactories) {
 }
 

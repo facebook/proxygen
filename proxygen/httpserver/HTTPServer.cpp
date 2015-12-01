@@ -28,19 +28,22 @@ namespace proxygen {
 class AcceptorFactory : public wangle::AcceptorFactory {
  public:
   AcceptorFactory(std::shared_ptr<HTTPServerOptions> options,
+                  std::shared_ptr<HTTPCodecFactory> codecFactory,
                   AcceptorConfiguration config) :
       options_(options),
+      codecFactory_(codecFactory),
       config_(config)  {}
   std::shared_ptr<wangle::Acceptor> newAcceptor(
       folly::EventBase* eventBase) override {
     auto acc = std::shared_ptr<HTTPServerAcceptor>(
-      HTTPServerAcceptor::make(config_, *options_).release());
+      HTTPServerAcceptor::make(config_, *options_, codecFactory_).release());
     acc->init(nullptr, eventBase);
     return acc;
   }
 
  private:
   std::shared_ptr<HTTPServerOptions> options_;
+  std::shared_ptr<HTTPCodecFactory> codecFactory_;
   AcceptorConfiguration config_;
 };
 
@@ -111,8 +114,10 @@ void HTTPServer::start(std::function<void()> onSuccess,
 
   try {
     FOR_EACH_RANGE (i, 0, addresses_.size()) {
+      auto codecFactory = addresses_[i].codecFactory;
       auto factory = std::make_shared<AcceptorFactory>(
         options_,
+        codecFactory,
         HTTPServerAcceptor::makeConfig(addresses_[i], *options_));
       bootstrap_.push_back(
           wangle::ServerBootstrap<wangle::DefaultPipeline>());
