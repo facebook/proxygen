@@ -139,6 +139,9 @@ RevokeSuccess, "verified_revoke_success"
 /* ---- Used in ProxyConnect ---- */
 ProxyHost, "proxy_host"
 ProxyPort, "proxy_port"
+ProxyRespStatus, "proxy_response_status"
+ProxyRespBody, "proxy_response_body"
+ProxyUpstreamDest, "proxy_upstream_dest"
 
 /* ---- Used in Scheduling ---- */
 SchedulerType, "scheduler_type"
