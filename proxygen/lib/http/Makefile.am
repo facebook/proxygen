@@ -31,6 +31,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/HTTP1xCodec.h \
 	codec/HTTPChecks.h \
 	codec/HTTPCodec.h \
+	codec/HTTPCodecFactory.h \
 	codec/HTTPCodecFilter.h \
 	codec/HTTPCodecPrinter.h \
 	codec/HTTPSettings.h \
