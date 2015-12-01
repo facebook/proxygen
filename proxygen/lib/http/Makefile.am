@@ -74,6 +74,7 @@ nobase_libproxygenhttp_HEADERS = \
 	session/ByteEventTracker.h \
 	session/ByteEvents.h \
 	session/CodecErrorResponseHandler.h \
+	session/HTTPDefaultSessionCodecFactory.h \
 	session/HTTPDirectResponseHandler.h \
 	session/HTTPDownstreamSession.h \
 	session/HTTPErrorPage.h \
@@ -136,6 +137,7 @@ libproxygenhttp_la_SOURCES = \
 	RFC2616.cpp \
 	session/ByteEvents.cpp \
 	session/CodecErrorResponseHandler.cpp \
+	session/HTTPDefaultSessionCodecFactory.cpp \
 	session/HTTPDirectResponseHandler.cpp \
 	session/HTTPDownstreamSession.cpp \
 	session/HTTPErrorPage.cpp \

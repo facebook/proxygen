@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
+#include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
 using folly::AsyncSocket;
@@ -22,17 +23,17 @@ namespace proxygen {
 
 const SocketAddress HTTPSessionAcceptor::unknownSocketAddress_("0.0.0.0", 0);
 
+HTTPSessionAcceptor::HTTPSessionAcceptor(const AcceptorConfiguration& accConfig)
+    : HTTPSessionAcceptor(accConfig, nullptr) {}
+
 HTTPSessionAcceptor::HTTPSessionAcceptor(
-  const AcceptorConfiguration& accConfig):
+  const AcceptorConfiguration& accConfig,
+  std::shared_ptr<HTTPCodecFactory> codecFactory):
     HTTPAcceptor(accConfig),
+    codecFactory_(codecFactory),
     simpleController_(this) {
-  if (!isSSL()) {
-    auto version = SPDYCodec::getVersion(accConfig.plaintextProtocol);
-    if (version) {
-      alwaysUseSPDYVersion_ = *version;
-    } else if (accConfig.plaintextProtocol == http2::kProtocolCleartextString) {
-      alwaysUseHTTP2_ = true;
-    }
+  if (!codecFactory_) {
+    codecFactory_ = std::make_shared<HTTPDefaultSessionCodecFactory>(accConfig);
   }
 }
 
@@ -59,33 +60,14 @@ void HTTPSessionAcceptor::onNewConnection(
   const string& nextProtocol,
   SecureTransportType secureTransportType,
   const wangle::TransportInfo& tinfo) {
-  unique_ptr<HTTPCodec> codec;
 
-  if (!isSSL() && alwaysUseSPDYVersion_) {
-    codec = folly::make_unique<SPDYCodec>(
-      TransportDirection::DOWNSTREAM,
-      alwaysUseSPDYVersion_.value(),
-      accConfig_.spdyCompressionLevel);
-  } else if (!isSSL() && alwaysUseHTTP2_) {
-    codec = folly::make_unique<HTTP2Codec>(TransportDirection::DOWNSTREAM);
-  } else if (nextProtocol.empty() ||
-             HTTP1xCodec::supportsNextProtocol(nextProtocol)) {
-    codec = folly::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM);
-  } else if (auto version = SPDYCodec::getVersion(nextProtocol)) {
-    codec = folly::make_unique<SPDYCodec>(
-      TransportDirection::DOWNSTREAM,
-      *version,
-      accConfig_.spdyCompressionLevel);
-  } else if (nextProtocol == http2::kProtocolString || nextProtocol == "h2") {
-    codec = folly::make_unique<HTTP2Codec>(TransportDirection::DOWNSTREAM);
-  } else {
-    // Either we advertised a protocol we don't support or the
-    // client requested a protocol we didn't advertise.
-    VLOG(2) << "Client requested unrecognized next protocol " << nextProtocol;
+  unique_ptr<HTTPCodec> codec
+      = codecFactory_->getCodec(nextProtocol, TransportDirection::DOWNSTREAM);
+
+  if (!codec) {
+    VLOG(2) << "codecFactory_ failed to provide codec";
     return;
   }
-
-  CHECK(codec);
 
   auto controller = getController();
   SocketAddress localAddress;

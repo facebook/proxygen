@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPErrorPage.h>
@@ -29,6 +30,8 @@ class HTTPSessionAcceptor:
   private HTTPSession::InfoCallback {
 public:
   explicit HTTPSessionAcceptor(const AcceptorConfiguration& accConfig);
+  explicit HTTPSessionAcceptor(const AcceptorConfiguration& accConfig,
+                               std::shared_ptr<HTTPCodecFactory> codecFactory);
   ~HTTPSessionAcceptor() override;
 
   /**
@@ -69,6 +72,13 @@ public:
    */
   virtual const HTTPErrorPage* getErrorPage(
       const folly::SocketAddress& addr) const;
+
+  /**
+   * Set the codec factory for this session
+   */
+  void setCodecFactory(std::shared_ptr<HTTPCodecFactory> codecFactory) {
+    codecFactory_ = codecFactory;
+  }
 
   /**
    * Create a Handler for a new transaction.  The transaction and HTTP message
@@ -143,8 +153,7 @@ private:
   /** Generator of more detailed error pages for internal clients */
   std::unique_ptr<HTTPErrorPage> diagnosticErrorPage_;
 
-  folly::Optional<SPDYVersion> alwaysUseSPDYVersion_{};
-  folly::Optional<bool> alwaysUseHTTP2_{};
+  std::shared_ptr<HTTPCodecFactory> codecFactory_{};
 
   SimpleController simpleController_;
 
