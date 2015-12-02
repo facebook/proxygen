@@ -29,14 +29,19 @@ class AcceptorFactory : public wangle::AcceptorFactory {
  public:
   AcceptorFactory(std::shared_ptr<HTTPServerOptions> options,
                   std::shared_ptr<HTTPCodecFactory> codecFactory,
-                  AcceptorConfiguration config) :
+                  AcceptorConfiguration config,
+                  HTTPSession::InfoCallback* sessionInfoCb) :
       options_(options),
       codecFactory_(codecFactory),
-      config_(config)  {}
+      config_(config),
+      sessionInfoCb_(sessionInfoCb) {}
   std::shared_ptr<wangle::Acceptor> newAcceptor(
       folly::EventBase* eventBase) override {
     auto acc = std::shared_ptr<HTTPServerAcceptor>(
       HTTPServerAcceptor::make(config_, *options_, codecFactory_).release());
+    if (sessionInfoCb_) {
+      acc->setSessionInfoCallback(sessionInfoCb_);
+    }
     acc->init(nullptr, eventBase);
     return acc;
   }
@@ -45,6 +50,7 @@ class AcceptorFactory : public wangle::AcceptorFactory {
   std::shared_ptr<HTTPServerOptions> options_;
   std::shared_ptr<HTTPCodecFactory> codecFactory_;
   AcceptorConfiguration config_;
+  HTTPSession::InfoCallback* sessionInfoCb_;
 };
 
 HTTPServer::HTTPServer(HTTPServerOptions options):
@@ -118,7 +124,8 @@ void HTTPServer::start(std::function<void()> onSuccess,
       auto factory = std::make_shared<AcceptorFactory>(
         options_,
         codecFactory,
-        HTTPServerAcceptor::makeConfig(addresses_[i], *options_));
+        HTTPServerAcceptor::makeConfig(addresses_[i], *options_),
+        sessionInfoCb_);
       bootstrap_.push_back(
           wangle::ServerBootstrap<wangle::DefaultPipeline>());
       bootstrap_[i].childHandler(factory);

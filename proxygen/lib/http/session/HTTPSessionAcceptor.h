@@ -90,6 +90,14 @@ public:
   virtual HTTPTransaction::Handler* newHandler(
     HTTPTransaction& txn, HTTPMessage* msg) noexcept = 0;
 
+  /**
+   * Set an HTTPSession::InfoCallback to use for each session instead of the
+   * acceptor object.
+   */
+  void setSessionInfoCallback(HTTPSession::InfoCallback* cb) {
+    sessionInfoCb_ = cb;
+  }
+
 protected:
   /**
    * This function is invoked when a new session is created to get the
@@ -156,6 +164,8 @@ private:
   std::shared_ptr<HTTPCodecFactory> codecFactory_{};
 
   SimpleController simpleController_;
+
+  HTTPSession::InfoCallback* sessionInfoCb_{nullptr};
 
   /**
    * 0.0.0.0:0, a valid address to use if getsockname() or getpeername() fails

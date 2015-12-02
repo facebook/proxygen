@@ -77,11 +77,13 @@ void HTTPSessionAcceptor::onNewConnection(
     VLOG(3) << "couldn't get local address for socket";
     localAddress = unknownSocketAddress_;
   }
+  auto sessionInfoCb = sessionInfoCb_ ? sessionInfoCb_ : this;
   VLOG(4) << "Created new session for peer " << *peerAddress;
   HTTPDownstreamSession* session =
     new HTTPDownstreamSession(getTransactionTimeoutSet(), std::move(sock),
                               localAddress, *peerAddress,
-                              controller, std::move(codec), tinfo, this);
+                              controller, std::move(codec), tinfo,
+                              sessionInfoCb);
   if (accConfig_.maxConcurrentIncomingStreams) {
     session->setMaxConcurrentIncomingStreams(
         accConfig_.maxConcurrentIncomingStreams);

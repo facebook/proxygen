@@ -15,6 +15,7 @@
 #include <wangle/bootstrap/ServerBootstrap.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
+#include <proxygen/lib/http/session/HTTPSession.h>
 #include <thread>
 
 namespace proxygen {
@@ -109,6 +110,10 @@ class HTTPServer final {
    */
   const std::vector<const folly::AsyncSocketBase*> getSockets() const;
 
+  void setSessionInfoCallback(HTTPSession::InfoCallback* cb) {
+    sessionInfoCb_ = cb;
+  }
+
  private:
   std::shared_ptr<HTTPServerOptions> options_;
 
@@ -127,6 +132,11 @@ class HTTPServer final {
    */
   std::vector<IPConfig> addresses_;
   std::vector<wangle::ServerBootstrap<wangle::DefaultPipeline>> bootstrap_;
+
+  /**
+   * Callback for session create/destruction
+   */
+  HTTPSession::InfoCallback* sessionInfoCb_{nullptr};
 };
 
 }
