@@ -60,6 +60,10 @@ RequestsWaited, "requests_waited"
 TotalRequestsWaited, "total_requests_waited",
 TotalConnsStarted, "total_conns_started",
 SessionCacheHitType, "session_cache_hit_type"
+PerDomainLimit, "per_domain_limit"
+MaxConnectionRetryCount, "max_connection_retry_count"
+MaxIdleHTTPSessions, "max_idle_http_sessions"
+MaxIdleSPDYSessions, "max_idle_spdy_sessions"
 
 /* ---- Used in TcpConnect ---- */
 ServerAddr, "server_address"
