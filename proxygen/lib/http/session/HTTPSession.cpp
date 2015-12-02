@@ -1555,6 +1555,11 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
       if (connFlowControl_) {
         CHECK_LE(txnAllowed, connFlowControl_->getAvailableSend());
       }
+      if (txnAllowed == 0) {
+        // The ratio * toSend was so small this txn gets nothing.
+        VLOG(4) << *this << " breaking egress loop on 0 txnAllowed";
+        break;
+      }
 
       // For SPDYCodec, we only egress transactions with the highest priority
       // in any single call to getNextToSend.  Due to the SPDY->H2 priority

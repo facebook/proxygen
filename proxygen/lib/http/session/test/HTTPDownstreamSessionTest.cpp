@@ -1646,3 +1646,56 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   parseOutput(clientCodec);
   expectDetachSession();
 }
+
+TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
+  // Create a transaction with egress and a ratio small enough that
+  // ratio*4096 < 1.
+  //
+  //     root
+  //     /  \                                                 level 1
+  //   256   1 (no egress)
+  //        / \                                               level 2
+  //      256  1  <-- has ratio (1/257)^2
+  InSequence enforceOrder;
+  auto req1 = getGetRequest();
+  auto req2 = getGetRequest();
+  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 255});
+  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 0});
+
+  auto id1 = sendRequest(req1);
+  auto id2 = sendRequest(req2);
+  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{id2, false, 255});
+  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{id2, false, 0});
+  auto id3 = sendRequest(req1);
+  auto id4 = sendRequest(req2);
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&] {
+      handler1->sendReplyWithBody(200, 4 * 1024);
+    });
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM();
+  auto handler3 = addSimpleStrictHandler();
+  handler3->expectHeaders();
+  handler3->expectEOM([&] {
+      handler3->sendReplyWithBody(200, 15);
+    });
+  auto handler4 = addSimpleStrictHandler();
+  handler4->expectHeaders();
+  handler4->expectEOM([&] {
+      handler4->sendReplyWithBody(200, 1);
+    });
+
+  handler1->expectDetachTransaction();
+  handler3->expectDetachTransaction();
+  handler4->expectDetachTransaction([&] {
+      handler2->txn_->sendAbort();
+    });
+  handler2->expectDetachTransaction();
+  flushRequestsAndLoop();
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  eventBase_.loop();
+}
