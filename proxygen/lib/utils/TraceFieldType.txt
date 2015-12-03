@@ -53,6 +53,7 @@ ServerRtt, "server_rtt"
 /* ---- Used in PreConnect ---- */
 NewConnection, "new_connection"
 SessionManagerType, "sess_mgr_type"
+NewConnTimeout, "new_conn_timeout"
 InFlightConns, "in_flight_conns"
 CachedSessions, "cached_sessions"
 ConnsStarted, "conns_started"
