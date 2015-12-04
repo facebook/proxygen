@@ -23,7 +23,7 @@ class DecoratedAsyncTransportWrapper : public folly::AsyncTransportWrapper {
   explicit DecoratedAsyncTransportWrapper(typename T::UniquePtr transport):
     transport_(std::move(transport)) {}
 
-  AsyncTransportWrapper* getWrappedTransport() override {
+  const AsyncTransportWrapper* getWrappedTransport() const override {
     return transport_.get();
   }
 
