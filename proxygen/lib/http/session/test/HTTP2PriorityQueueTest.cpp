@@ -141,6 +141,17 @@ TEST_F(QueueTest, UpdateWeightExcl) {
   EXPECT_EQ(nodes_, IDList({{1, 100}, {5, 100}, {9, 40}, {3, 20}, {7, 40}}));
 }
 
+TEST_F(QueueTest, UpdateWeightExclDequeued) {
+  buildSimpleTree();
+
+  signalEgress(5, false);
+  updatePriority(5, {1, true, 7});
+  signalEgress(1, false);
+  nextEgress();
+
+  EXPECT_EQ(nodes_, IDList({{9, 40}, {7, 40}, {3, 20}}));
+}
+
 TEST_F(QueueTest, UpdateParentSibling) {
   buildSimpleTree();
 
@@ -248,7 +259,7 @@ TEST_F(QueueTest, iterateBFS) {
   };
 
   dumpBFS(stopFn);
-  EXPECT_EQ(nodes_, IDList({{1, 0}, {3, 0}, {5, 0}, {7, 0}}));
+  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {5, 25}, {7, 50}}));
 }
 
 TEST_F(QueueTest, nextEgress) {

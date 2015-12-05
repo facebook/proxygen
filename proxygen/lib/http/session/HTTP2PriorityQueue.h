@@ -66,6 +66,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   void iterate(const std::function<bool(HTTPCodec::StreamID,
                                         HTTPTransaction *, double)>& fn,
                const std::function<bool()>& stopFn, bool all) {
+    updateEnqueuedWeight();
     root_.iterate(fn, stopFn, all);
   }
 
@@ -92,6 +93,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   static bool nextEgressResult(HTTPCodec::StreamID id, HTTPTransaction* txn,
                                double r);
 
+  void updateEnqueuedWeight();
+
  private:
 
   class Node {
@@ -99,7 +102,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     Node(Node* inParent, HTTPCodec::StreamID id,
          uint8_t weight, HTTPTransaction *txn);
 
-    Node* parent() const {
+    Node* getParent() const {
       return parent_;
     }
 
@@ -188,9 +191,9 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
                   const std::function<bool(HTTPCodec::StreamID,
                                           HTTPTransaction *, double)>& fn,
                   bool all,
-                  PendingList& pendingNodes);
+                  PendingList& pendingNodes, bool enqueuedChildren);
 
-    void updateEnqueuedWeight();
+    void updateEnqueuedWeight(bool activeNodes);
 
    private:
     Handle addChild(std::unique_ptr<Node> child);
@@ -201,16 +204,29 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     std::unique_ptr<Node> detachChild(Node* node);
 
+    void addEnqueuedChild(HTTP2PriorityQueue::Node* node);
+
+    void removeEnqueuedChild(HTTP2PriorityQueue::Node* node);
+
+    static void propagatePendingEgressSignal(Node *node);
+
+    static void propagatePendingEgressClear(Node* node);
+
    private:
     Node *parent_{nullptr};
     HTTPCodec::StreamID id_{0};
     uint16_t weight_{16};
     HTTPTransaction *txn_{nullptr};
     bool enqueued_{false};
+#ifndef NDEBUG
+    uint64_t totalEnqueuedWeightCheck_{0};
+#endif
     uint64_t totalEnqueuedWeight_{0};
     uint64_t totalChildWeight_{0};
     std::list<std::unique_ptr<Node>> children_;
     std::list<std::unique_ptr<Node>>::iterator self_;
+    std::list<Node*> enqueuedChildren_;
+    std::list<Node*>::iterator enqueuedIter_;
   };
 
   Node root_{nullptr, 0, 1, nullptr};
