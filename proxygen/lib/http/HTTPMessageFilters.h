@@ -15,6 +15,8 @@
 
 namespace proxygen {
 
+static const std::string kMessageFilterDefaultName_ = "Unknown";
+
 class HTTPMessageFilter: public HTTPTransaction::Handler,
                          public DestructorCheck {
  public:
@@ -68,6 +70,9 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   }
   void onPushedTransaction(HTTPTransaction* txn) noexcept final {
     nextTransactionHandler_->onPushedTransaction(txn);
+  }
+  virtual const std::string& getFilterName() noexcept {
+    return kMessageFilterDefaultName_;
   }
  protected:
   void nextOnHeadersComplete(std::unique_ptr<HTTPMessage> msg) {
