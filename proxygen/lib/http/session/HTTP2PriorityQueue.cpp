@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
+#include <proxygen/lib/utils/UnionBasedStatic.h>
 
 using std::list;
 using std::unique_ptr;
@@ -460,18 +461,16 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result) {
   nextEgressResults_.reset(&result);
 
   updateEnqueuedWeight();
-  static folly::ThreadLocal<Node::PendingList> tlPendingNodes;
-  auto pendingNodes = tlPendingNodes.get();
-  pendingNodes->clear();
-  pendingNodes->emplace_back(0, &root_, 1.0);
+  Node::PendingList pendingNodes;
+  pendingNodes.emplace_back(0, &root_, 1.0);
   bool stop = false;
-  while (!stop && !pendingNodes->empty()) {
-    Node* node = pendingNodes->front().node;
+  while (!stop && !pendingNodes.empty()) {
+    Node* node = pendingNodes.front().node;
     if (node) {
-      stop = node->visitBFS(pendingNodes->front().ratio, nextEgressResult,
-                            false, *pendingNodes, true /* enqueued children */);
+      stop = node->visitBFS(pendingNodes.front().ratio, nextEgressResult,
+                            false, pendingNodes, true /* enqueued children */);
     }
-    pendingNodes->pop_front();
+    pendingNodes.pop_front();
   }
   std::sort(result.begin(), result.end(), WeightCmp());
   nextEgressResults_.release();
