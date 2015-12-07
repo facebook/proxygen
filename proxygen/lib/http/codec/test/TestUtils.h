@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/utils/TestUtils.h>
+#include <boost/optional/optional_io.hpp>
 
 namespace proxygen {
 
