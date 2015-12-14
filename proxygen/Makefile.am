@@ -1,1 +1,1 @@
-SUBDIRS = lib httpserver
+SUBDIRS = lib httpserver httpclient

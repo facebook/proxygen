@@ -49,12 +49,6 @@ class HTTPConnector:
    *                 connector and MUST NOT be null.
    * @param timeoutSet The timeout set to be used for the transactions
    *                   that are opened on the session.
-   * @param plaintextProto An optional protocol string to specify the
-   *                       next protocol to use for unsecure connections.
-   *                       If omitted, http/1.1 will be assumed.
-   * @param forceHTTP1xCodecTo11 If true and this connector creates
-   *                             a session using an HTTP1xCodec, that codec will
-   *                             only serialize messages as HTTP/1.1.
    */
   HTTPConnector(Callback* callback, folly::HHWheelTimer* timeoutSet);
 
