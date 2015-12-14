@@ -41,8 +41,7 @@ class HTTPSession:
   public ByteEventTracker::Callback,
   public HTTPTransaction::Transport,
   public folly::AsyncTransportWrapper::ReadCallback,
-  public wangle::ManagedConnection,
-  public folly::AsyncTransportWrapper::BufferCallback {
+  public wangle::ManagedConnection{
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
 
@@ -328,9 +327,6 @@ class HTTPSession:
     DCHECK(latestActive_ > TimePoint::min());
     return latestIdleDuration_;
   }
-
-  // from AsyncTransport::BufferCallback
-  virtual void onEgressBuffered() override;
 
  protected:
   /**

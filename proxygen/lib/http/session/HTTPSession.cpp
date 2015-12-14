@@ -1665,7 +1665,7 @@ HTTPSession::runLoopCallback() noexcept {
     VLOG(4) << *this << " writing " << len << ", activeWrites="
              << numActiveWrites_ << " cork=" << cork << " eom=" << eom;
     bytesScheduled_ += len;
-    sock_->writeChain(segment, std::move(writeBuf), segment->getFlags(), this);
+    sock_->writeChain(segment, std::move(writeBuf), segment->getFlags());
     if (numActiveWrites_ > 0) {
       updateWriteCount();
       pendingWriteSizeDelta_ += len;
@@ -2351,12 +2351,6 @@ void HTTPSession::setPersistentCork(bool cork) {
   auto sock = sock_->getUnderlyingTransport<AsyncSocket>();
   if (sock) {
     sock->setPersistentCork(cork);
-  }
-}
-
-void HTTPSession::onEgressBuffered() {
-  if (infoCallback_) {
-    infoCallback_->onEgressBuffered(*this);
   }
 }
 

@@ -41,26 +41,23 @@ class DecoratedAsyncTransportWrapper : public folly::AsyncTransportWrapper {
       folly::AsyncTransportWrapper::WriteCallback* callback,
       const void* buf,
       size_t bytes,
-      folly::WriteFlags flags = folly::WriteFlags::NONE,
-      folly::AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override {
-    transport_->write(callback, buf, bytes, flags, bufCB);
+      folly::WriteFlags flags = folly::WriteFlags::NONE) override {
+    transport_->write(callback, buf, bytes, flags);
   }
 
   virtual void writeChain(
       folly::AsyncTransportWrapper::WriteCallback* callback,
       std::unique_ptr<folly::IOBuf>&& buf,
-      folly::WriteFlags flags = folly::WriteFlags::NONE,
-      folly::AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override {
-    transport_->writeChain(callback, std::move(buf), flags, bufCB);
+      folly::WriteFlags flags = folly::WriteFlags::NONE) override {
+    transport_->writeChain(callback, std::move(buf), flags);
   }
 
   virtual void writev(
       folly::AsyncTransportWrapper::WriteCallback* callback,
       const iovec* vec,
       size_t bytes,
-      folly::WriteFlags flags = folly::WriteFlags::NONE,
-      folly::AsyncTransportWrapper::BufferCallback* bufCB = nullptr) override {
-    transport_->writev(callback, vec, bytes, flags, bufCB);
+      folly::WriteFlags flags = folly::WriteFlags::NONE) override {
+    transport_->writev(callback, vec, bytes, flags);
   }
 
   // folly::AsyncSocketBase

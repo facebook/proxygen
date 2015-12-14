@@ -48,7 +48,7 @@ class MockCodecDownstreamTest: public testing::Test {
       transport_(new NiceMock<MockAsyncTransport>()),
       transactionTimeouts_(makeInternalTimeoutSet(&eventBase_)) {
 
-    EXPECT_CALL(*transport_, writeChain(_, _, _, _))
+    EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(this, &MockCodecDownstreamTest::onWriteChain));
     EXPECT_CALL(*transport_, good())
       .WillRepeatedly(ReturnPointee(&transportGood_));
@@ -121,8 +121,7 @@ class MockCodecDownstreamTest: public testing::Test {
 
   void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
                     std::shared_ptr<IOBuf> iob,
-                    WriteFlags,
-                    folly::AsyncTransportWrapper::BufferCallback*) {
+                    WriteFlags) {
     writeCount_++;
     if (invokeWriteSuccess_) {
       callback->writeSuccess();
@@ -639,14 +638,13 @@ TEST_F(MockCodecDownstreamTest, read_timeout) {
   EXPECT_EQ(httpSession_->getConnectionCloseReason(),
             ConnectionCloseReason::kMAX_REASON);
 
-  EXPECT_CALL(*transport_, writeChain(_, _, _, _))
-    .WillRepeatedly(
-        Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                   std::shared_ptr<folly::IOBuf>,
-                   folly::WriteFlags,
-                   folly::AsyncTransportWrapper::BufferCallback*) {
+  EXPECT_CALL(*transport_, writeChain(_, _, _))
+    .WillRepeatedly(Invoke([] (
+            folly::AsyncTransportWrapper::WriteCallback* callback,
+            std::shared_ptr<folly::IOBuf>,
+            folly::WriteFlags) {
           callback->writeSuccess();
-        }));
+          }));
 
   EXPECT_CALL(handler1, detachTransaction());
 
@@ -759,14 +757,13 @@ TEST_F(MockCodecDownstreamTest, buffering) {
           handler.txn_->pauseIngress();
         }));
 
-  EXPECT_CALL(*transport_, writeChain(_, _, _, _))
-    .WillRepeatedly(
-        Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                    const shared_ptr<IOBuf>&,
-                    WriteFlags,
-                    folly::AsyncTransportWrapper::BufferCallback*) {
+  EXPECT_CALL(*transport_, writeChain(_, _, _))
+    .WillRepeatedly(Invoke([&] (
+            folly::AsyncTransportWrapper::WriteCallback* callback,
+            const shared_ptr<IOBuf>&,
+            WriteFlags) {
           callback->writeSuccess();
-        }));
+          }));
 
   codecCallback_->onMessageBegin(HTTPCodec::StreamID(1), req1.get());
   codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req1));
@@ -869,14 +866,13 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
     EXPECT_CALL(mockController_, detachSession(_));
   }
 
-  EXPECT_CALL(*transport_, writeChain(_, _, _, _))
-    .WillRepeatedly(
-        Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                   std::shared_ptr<folly::IOBuf>,
-                   folly::WriteFlags,
-                   folly::AsyncTransportWrapper::BufferCallback*) {
+  EXPECT_CALL(*transport_, writeChain(_, _, _))
+    .WillRepeatedly(Invoke([] (
+            folly::AsyncTransportWrapper::WriteCallback* callback,
+            std::shared_ptr<folly::IOBuf>,
+            folly::WriteFlags) {
           callback->writeSuccess();
-        }));
+          }));
   eventBase_.loop();
   httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
 }
@@ -924,14 +920,13 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
 
   EXPECT_CALL(mockController_, detachSession(_));
 
-  EXPECT_CALL(*transport_, writeChain(_, _, _, _))
-    .WillRepeatedly(
-        Invoke([] (folly::AsyncTransportWrapper::WriteCallback* callback,
-                   std::shared_ptr<folly::IOBuf>,
-                   folly::WriteFlags,
-                   folly::AsyncTransportWrapper::BufferCallback*) {
+  EXPECT_CALL(*transport_, writeChain(_, _, _))
+    .WillRepeatedly(Invoke([] (
+            folly::AsyncTransportWrapper::WriteCallback* callback,
+            std::shared_ptr<folly::IOBuf>,
+            folly::WriteFlags) {
           callback->writeSuccess();
-        }));
+          }));
 
   eventBase_.loop();
   httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
@@ -1286,11 +1281,10 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
   }
 
   folly::AsyncTransportWrapper::WriteCallback* cb = nullptr;
-  EXPECT_CALL(*transport_, writeChain(_, _, _, _))
+  EXPECT_CALL(*transport_, writeChain(_, _, _))
     .WillOnce(Invoke([&] (folly::AsyncTransportWrapper::WriteCallback* callback,
                           const shared_ptr<IOBuf>,
-                          WriteFlags,
-                          folly::AsyncTransportWrapper::BufferCallback*) {
+                          WriteFlags) {
                        // don't immediately flush the goaway
                        cb = callback;
                      }));
