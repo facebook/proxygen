@@ -287,6 +287,30 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
   }
 };
 
+/**
+ * Callback interface to be notified of events on the byte stream.
+ */
+class HTTPTransactionTransportCallback {
+ public:
+  virtual void firstHeaderByteFlushed() noexcept = 0;
+
+  virtual void firstByteFlushed() noexcept = 0;
+
+  virtual void lastByteFlushed() noexcept = 0;
+
+  virtual void lastByteAcked(std::chrono::milliseconds latency) noexcept = 0;
+
+  virtual void headerBytesGenerated(HTTPHeaderSize& size) noexcept = 0;
+
+  virtual void headerBytesReceived(const HTTPHeaderSize& size) noexcept = 0;
+
+  virtual void bodyBytesGenerated(size_t nbytes) noexcept = 0;
+
+  virtual void bodyBytesReceived(size_t size) noexcept = 0;
+
+  virtual ~HTTPTransactionTransportCallback() {};
+};
+
 class HTTPTransaction :
       public folly::HHWheelTimer::Callback,
       public folly::DelayedDestructionBase {
@@ -357,29 +381,7 @@ class HTTPTransaction :
       HTTPTransaction::PushHandler* handler) noexcept = 0;
   };
 
-  /**
-   * Callback interface to be notified of events on the byte stream.
-   */
-  class TransportCallback {
-   public:
-    virtual void firstHeaderByteFlushed() noexcept = 0;
-
-    virtual void firstByteFlushed() noexcept = 0;
-
-    virtual void lastByteFlushed() noexcept = 0;
-
-    virtual void lastByteAcked(std::chrono::milliseconds latency) noexcept = 0;
-
-    virtual void headerBytesGenerated(HTTPHeaderSize& size) noexcept = 0;
-
-    virtual void headerBytesReceived(const HTTPHeaderSize& size) noexcept = 0;
-
-    virtual void bodyBytesGenerated(size_t nbytes) noexcept = 0;
-
-    virtual void bodyBytesReceived(size_t size) noexcept = 0;
-
-    virtual ~TransportCallback() {};
-  };
+  typedef HTTPTransactionTransportCallback TransportCallback;
 
   /**
    * readBufLimit and sendWindow are only used if useFlowControl is
