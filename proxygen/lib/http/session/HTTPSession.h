@@ -41,7 +41,8 @@ class HTTPSession:
   public ByteEventTracker::Callback,
   public HTTPTransaction::Transport,
   public folly::AsyncTransportWrapper::ReadCallback,
-  public wangle::ManagedConnection{
+  public wangle::ManagedConnection,
+  public folly::AsyncTransport::BufferCallback {
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
 
@@ -78,6 +79,7 @@ class HTTPSession:
     virtual void onSettingsOutgoingStreamsNotFull(const HTTPSession&) = 0;
     virtual void onFlowControlWindowClosed(const HTTPSession&) = 0;
     virtual void onEgressBuffered(const HTTPSession&) = 0;
+    virtual void onEgressBufferCleared(const HTTPSession&) = 0;
   };
 
   class WriteTimeout :
@@ -327,6 +329,10 @@ class HTTPSession:
     DCHECK(latestActive_ > TimePoint::min());
     return latestIdleDuration_;
   }
+
+  // from folly::AsyncTransport::BufferCallback
+  virtual void onEgressBuffered() override;
+  virtual void onEgressBufferCleared() override;
 
  protected:
   /**

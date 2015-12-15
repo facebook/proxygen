@@ -328,6 +328,7 @@ class MockHTTPSessionInfoCallback: public HTTPSession::InfoCallback {
   MOCK_METHOD1(onSettingsOutgoingStreamsNotFull, void(const HTTPSession&));
   MOCK_METHOD1(onFlowControlWindowClosed, void(const HTTPSession&));
   MOCK_METHOD1(onEgressBuffered, void(const HTTPSession&));
+  MOCK_METHOD1(onEgressBufferCleared, void(const HTTPSession&));
 };
 
 }

@@ -36,6 +36,10 @@ class HTTPUpstreamSession final: public HTTPSession {
       InfoCallback* infoCallback):
     HTTPSession(transactionTimeouts, std::move(sock), localAddr, peerAddr,
                 nullptr, std::move(codec), tinfo, infoCallback) {
+    auto asyncSocket = sock->getUnderlyingTransport<folly::AsyncSocket>();
+    if (asyncSocket) {
+      asyncSocket->setBufferCallback(this);
+    }
     CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
   }
 

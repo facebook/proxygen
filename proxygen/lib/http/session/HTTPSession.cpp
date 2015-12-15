@@ -2354,4 +2354,16 @@ void HTTPSession::setPersistentCork(bool cork) {
   }
 }
 
+void HTTPSession::onEgressBuffered() {
+  if (infoCallback_) {
+    infoCallback_->onEgressBuffered(*this);
+  }
+}
+
+void HTTPSession::onEgressBufferCleared() {
+  if (infoCallback_) {
+    infoCallback_->onEgressBufferCleared(*this);
+  }
+}
+
 } // proxygen

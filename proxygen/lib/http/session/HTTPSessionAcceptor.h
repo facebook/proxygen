@@ -154,6 +154,7 @@ private:
   void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
   void onFlowControlWindowClosed(const HTTPSession&) override {}
   void onEgressBuffered(const HTTPSession&) override {}
+  void onEgressBufferCleared(const HTTPSession&) override {}
 
   /** General-case error page generator */
   std::unique_ptr<HTTPErrorPage> defaultErrorPage_;
