@@ -78,6 +78,14 @@ class DecoratedAsyncTransportWrapper : public folly::AsyncTransportWrapper {
     transport_->closeNow();
   }
 
+  virtual void closeWithReset() override {
+    transport_->closeWithReset();
+
+    // This will likely result in 2 closeNow() calls on the decorated transport,
+    // but otherwise it is very easy to miss the derived class's closeNow().
+    closeNow();
+  }
+
   virtual bool connecting() const override {
     return transport_->connecting();
   }
