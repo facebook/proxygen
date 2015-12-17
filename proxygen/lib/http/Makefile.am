@@ -87,6 +87,7 @@ nobase_libproxygenhttp_HEADERS = \
 	session/HTTPTransactionEgressSM.h \
 	session/HTTPTransactionIngressSM.h \
 	session/HTTPUpstreamSession.h \
+	session/HTTP2PriorityQueue.h \
 	session/SimpleController.h \
 	session/TTLBAStats.h \
 	session/TransportFilter.h
