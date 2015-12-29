@@ -11,9 +11,9 @@
 
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
-#include <proxygen/httpclient/URL.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/URL.h>
 
 namespace CurlService {
 
@@ -22,7 +22,7 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
 
  public:
   CurlClient(folly::EventBase* evb, proxygen::HTTPMethod httpMethod,
-      const proxygen::httpclient::URL& url, const std::string& inputFilename);
+      const proxygen::URL& url, const std::string& inputFilename);
   ~CurlClient() override;
 
   // initial SSL related structures
@@ -54,7 +54,7 @@ protected:
   proxygen::HTTPTransaction* txn_{nullptr};
   folly::EventBase* evb_{nullptr};
   proxygen::HTTPMethod httpMethod_;
-  proxygen::httpclient::URL url_;
+  proxygen::URL url_;
   const std::string inputFilename_;
   folly::SSLContextPtr sslContext_;
 };

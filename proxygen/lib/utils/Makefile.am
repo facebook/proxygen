@@ -46,6 +46,7 @@ nobase_libutils_HEADERS = \
 	TraceFieldType.h \
 	RendezvousHash.h \
 	ConsistentHash.h \
+	URL.h \
 	UtilInl.h \
 	Logging.h \
 	ZlibStreamCompressor.h \

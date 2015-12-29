@@ -12,7 +12,6 @@
 
 using namespace folly;
 using namespace proxygen;
-using namespace proxygen::httpclient;
 using namespace std;
 
 namespace CurlService {

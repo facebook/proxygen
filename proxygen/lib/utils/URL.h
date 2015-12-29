@@ -1,9 +1,17 @@
-// Copyright 2004-present Facebook.  All rights reserved.
+/*
+ *  Copyright (c) 2015, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ *
+ */
 #pragma once
 
 #include <proxygen/lib/utils/ParseURL.h>
 
-namespace proxygen { namespace httpclient {
+namespace proxygen {
 
 /**
  * Struct representing a URL.
@@ -24,7 +32,10 @@ class URL {
     url_ = parseUrl.url().str();
 
     scheme_ = parseUrl.scheme().str();
-
+    std::transform(scheme_.begin(),
+                   scheme_.end(),
+                   scheme_.begin(),
+                   ::tolower);
     valid_ = (scheme_ == "http" || scheme_ == "https");
 
     if (parseUrl.port()) {
@@ -54,7 +65,7 @@ class URL {
 
   URL(const std::string scheme,
       const std::string host,
-      uint16_t port,
+      uint16_t port = 0,
       const std::string path = "",
       const std::string query = "",
       const std::string fragment = "") noexcept :
@@ -70,7 +81,12 @@ class URL {
                    scheme_.end(),
                    scheme_.begin(),
                    ::tolower);
+
     valid_ = (scheme == "http" || scheme == "https");
+
+    if (port_ == 0) {
+      port_ = isSecure() ? 443 : 80;
+    }
   }
 
   bool isValid() const noexcept {
@@ -131,4 +147,4 @@ class URL {
   bool valid_{false};
 };
 
-}}  // namespace proxygen::httpclient
+}  // namespace proxygen
