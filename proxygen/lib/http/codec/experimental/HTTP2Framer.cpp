@@ -122,6 +122,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
     appender.writeBE<uint8_t>(padding.get());
   }
   if (priority) {
+    DCHECK_NE(priority->streamDependency, stream) << "Circular dependecy";
     writePriorityBody(queue,
                       priority->streamDependency,
                       priority->exclusive,

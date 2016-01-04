@@ -391,6 +391,13 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
                       promisedStream);
     msg = folly::make_unique<HTTPMessage>();
     if (priority) {
+      if (curHeader_.stream == priority->streamDependency) {
+        streamError(folly::to<string>("Circular dependency for txn=",
+                                      curHeader_.stream),
+                    ErrorCode::PROTOCOL_ERROR, true);
+        return ErrorCode::NO_ERROR;
+      }
+
       msg->setHTTP2Priority(std::make_tuple(priority->streamDependency,
                                             priority->exclusive,
                                             priority->weight));
