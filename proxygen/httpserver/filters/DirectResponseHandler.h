@@ -10,6 +10,7 @@
 #pragma once
 
 #include <proxygen/httpserver/RequestHandler.h>
+#include <proxygen/httpserver/ResponseBuilder.h>
 
 namespace proxygen {
 
