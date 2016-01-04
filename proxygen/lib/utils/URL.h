@@ -133,6 +133,20 @@ class URL {
     return fragment_;
   }
 
+  friend bool operator==(const URL& lhs, const URL& rhs) {
+    return lhs.getScheme() == rhs.getScheme() &&
+      lhs.getHost() == rhs.getHost() &&
+      lhs.getPort() == rhs.getPort() &&
+      lhs.getPath() == rhs.getPath() &&
+      lhs.getQuery() == rhs.getQuery() &&
+      lhs.getFragment() == rhs.getFragment() &&
+      lhs.getUrl() == rhs.getUrl();
+  }
+
+  friend bool operator!=(const URL& lhs, const URL& rhs) {
+    return !(lhs == rhs);
+  }
+
  private:
   std::string scheme_;
   std::string host_;
