@@ -45,6 +45,7 @@ class QueueTest : public testing::Test {
 
   void removeTransaction(HTTPCodec::StreamID id) {
     q_.removeTransaction(handles_[id]);
+    handles_.erase(id);
   }
 
   void updatePriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri) {
@@ -139,6 +140,9 @@ TEST_F(QueueTest, UpdateWeightExcl) {
   dump();
 
   EXPECT_EQ(nodes_, IDList({{1, 100}, {5, 100}, {9, 40}, {3, 20}, {7, 40}}));
+  signalEgress(1, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{5, 100}}));
 }
 
 TEST_F(QueueTest, UpdateWeightExclDequeued) {
@@ -160,6 +164,9 @@ TEST_F(QueueTest, UpdateParentSibling) {
 
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 33}, {5, 100},
                                {9, 100}, {7, 66}}));
+  signalEgress(1, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 66}, {3, 33}}));
 }
 
 TEST_F(QueueTest, UpdateParentSiblingExcl) {
@@ -170,6 +177,11 @@ TEST_F(QueueTest, UpdateParentSiblingExcl) {
 
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 50}, {5, 50},
                               {7, 100}, {9, 100}}));
+  signalEgress(1, false);
+  signalEgress(3, false);
+  signalEgress(5, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 100}}));
 }
 
 TEST_F(QueueTest, UpdateParentAncestor) {
@@ -179,6 +191,8 @@ TEST_F(QueueTest, UpdateParentAncestor) {
   dump();
 
   EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 25}, {5, 25}, {7, 50}, {9, 50}}));
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{1, 50}, {9, 50}}));
 }
 
 TEST_F(QueueTest, UpdateParentAncestorExcl) {
@@ -188,6 +202,8 @@ TEST_F(QueueTest, UpdateParentAncestorExcl) {
   dump();
 
   EXPECT_EQ(nodes_, IDList({{9, 100}, {1, 100}, {3, 25}, {5, 25}, {7, 50}}));
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{9, 100}}));
 }
 
 TEST_F(QueueTest, UpdateParentDescendant) {
@@ -197,6 +213,11 @@ TEST_F(QueueTest, UpdateParentDescendant) {
   dump();
 
   EXPECT_EQ(nodes_, IDList({{5, 100}, {9, 50}, {1, 50}, {3, 33}, {7, 66}}));
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{5, 100}}));
+  signalEgress(5, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{9, 50}, {1, 50}}));
 }
 
 TEST_F(QueueTest, UpdateParentDescendantExcl) {
@@ -206,6 +227,12 @@ TEST_F(QueueTest, UpdateParentDescendantExcl) {
   dump();
 
   EXPECT_EQ(nodes_, IDList({{5, 100}, {1, 100}, {3, 20}, {7, 40}, {9, 40}}));
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{5, 100}}));
+  signalEgress(5, false);
+  signalEgress(1, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 40}, {9, 40}, {3, 20}}));
 }
 
 TEST_F(QueueTest, ExclusiveAdd) {
@@ -300,6 +327,48 @@ TEST_F(QueueTest, nextEgress) {
   signalEgress(9, true);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {9, 25}}));
+}
+
+TEST_F(QueueTest, nextEgressExclusiveAdd) {
+  buildSimpleTree();
+
+  // clear all egress
+  signalEgress(1, false);
+  signalEgress(3, false);
+  signalEgress(5, false);
+  signalEgress(7, false);
+  signalEgress(9, false);
+
+  // Add a transaction with exclusive dependency, clear its egress
+  addTransaction(11, {1, true, 100});
+  signalEgress(11, false);
+
+  // signal egress for a child that got moved via exclusive dep
+  signalEgress(3, true);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{3, 100}}));
+}
+
+TEST_F(QueueTest, nextEgressRemoveParent) {
+  buildSimpleTree();
+
+  // Clear egress for all except txn=9
+  signalEgress(1, false);
+  signalEgress(3, false);
+  signalEgress(5, false);
+  signalEgress(7, false);
+
+  // Remove parent of 9 (5)
+  removeTransaction(5);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{9, 100}}));
+
+  // signal egress for 9's new siblings to verify weights
+  signalEgress(3, true);
+  signalEgress(7, true);
+
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{9, 40}, {7, 40}, {3, 20}}));
 }
 
 

@@ -144,6 +144,12 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
       return (txn_ != nullptr && enqueued_);
     }
 
+    // True if this Node is in the egress tree even if the node itself is
+    // virtual but has enqueued descendants.
+    bool inEgressTree() const {
+      return isEnqueued() || totalEnqueuedWeight_ > 0;
+    }
+
     // Find the node for the given stream ID in the priority tree
     Node* findInTree(HTTPCodec::StreamID id, uint64_t* depth);
 

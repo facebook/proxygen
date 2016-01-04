@@ -59,6 +59,8 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
       child->parent_->removeEnqueuedChild(child.get());
       child->enqueuedIter_ = enqueuedChildren_.end();
       addEnqueuedChild(child.get());
+    } else {
+      child->enqueuedIter_ = enqueuedChildren_.end();
     }
     addChild(std::move(child));
   }
@@ -175,7 +177,7 @@ HTTP2PriorityQueue::Node::propagatePendingEgressSignal(
   // long as node state changed from no-egress-in-subtree to
   // egress-in-subtree
   while (parent && !stop) {
-    stop = (parent->totalEnqueuedWeight_ > 0 || parent->isEnqueued());
+    stop = parent->inEgressTree();
     parent->totalEnqueuedWeight_ += node->weight_;
     parent->addEnqueuedChild(node);
     node = parent;
@@ -202,7 +204,7 @@ HTTP2PriorityQueue::Node::propagatePendingEgressClear(
     CHECK_GE(parent->totalEnqueuedWeight_, node->weight_);
     parent->totalEnqueuedWeight_ -= node->weight_;
     parent->removeEnqueuedChild(node);
-    stop = (parent->totalEnqueuedWeight_ > 0 || parent->isEnqueued());
+    stop = parent->inEgressTree();
     node = parent;
     parent = parent->parent_;
   }
@@ -223,12 +225,14 @@ HTTP2PriorityQueue::Node::updateWeight(uint8_t weight) {
 void
 HTTP2PriorityQueue::Node::removeFromTree() {
   CHECK(!isEnqueued());
-  if (totalEnqueuedWeight_ > 0 && parent_) {
-    // move(children) below bypasses clearing egress, so subtract weight_
-    // here.  addChildren will update parent's totalEnqueuedWeight_ if
-    // needed
-    parent_->totalEnqueuedWeight_ -= weight_;
-    parent_->removeEnqueuedChild(this);
+  if (inEgressTree()) {
+    // Gah this is tricky.
+    // The children of this node are moving to this node's parent.  We need the
+    // tree in a consistent state before calling addChildren, so mark the
+    // current node's totalEnqueuedWeight_ as 0 and propagate the clear upwards.
+    // addChildren will handle re-signalling egress.
+    totalEnqueuedWeight_ = 0;
+    propagatePendingEgressClear(this);
   }
 
   // move my children to my parent
