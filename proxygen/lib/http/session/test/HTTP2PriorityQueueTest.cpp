@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -133,6 +133,18 @@ TEST_F(QueueTest, UpdateWeight) {
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 20}, {5, 40}, {9, 100}, {7, 40}}));
 }
 
+TEST_F(QueueTest, UpdateWeightNotEnqueued) {
+  addTransaction(1, {0, false, 7});
+  addTransaction(3, {0, false, 7});
+
+  signalEgress(1, false);
+  signalEgress(3, false);
+  updatePriority(1, {3, false, 7});
+  dump();
+
+  EXPECT_EQ(nodes_, IDList({{3, 100}, {1, 100}}));
+}
+
 TEST_F(QueueTest, UpdateWeightExcl) {
   buildSimpleTree();
 
@@ -167,6 +179,17 @@ TEST_F(QueueTest, UpdateParentSibling) {
   signalEgress(1, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 66}, {3, 33}}));
+
+  // Clear 5's egress (so it is only in the tree because 9 has egress) and move
+  // it back.  Hit's a slightly different code path in reparent
+  signalEgress(5, false);
+  updatePriority(5, {1, false, 3});
+  dump();
+
+  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {7, 50}, {5, 25}, {9, 100}}));
+
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {9, 25}}));
 }
 
 TEST_F(QueueTest, UpdateParentSiblingExcl) {
@@ -345,6 +368,22 @@ TEST_F(QueueTest, nextEgressExclusiveAdd) {
 
   // signal egress for a child that got moved via exclusive dep
   signalEgress(3, true);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{3, 100}}));
+}
+
+TEST_F(QueueTest, nextEgressExclusiveAddWithEgress) {
+  buildSimpleTree();
+
+  // clear all egress, except 3
+  signalEgress(1, false);
+  signalEgress(5, false);
+  signalEgress(7, false);
+  signalEgress(9, false);
+
+  // Add a transaction with exclusive dependency, clear its egress
+  addTransaction(11, {1, true, 100});
+  signalEgress(11, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{3, 100}}));
 }

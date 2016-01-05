@@ -39,13 +39,17 @@ HTTP2PriorityQueue::Node::emplaceNode(
     // this->children become new node's children
     std::swap(children, children_);
     totalChildWeight_ = 0;
+    bool wasInEgressTree = inEgressTree();
     totalEnqueuedWeight_ = 0;
 #ifndef NDEBUG
     totalEnqueuedWeightCheck_ = 0;
 #endif
+    if (wasInEgressTree && !inEgressTree()) {
+      propagatePendingEgressClear(this);
+    }
   }
-  node->addChildren(std::move(children));
   auto res = addChild(std::move(node));
+  res->addChildren(std::move(children));
   return res;
 }
 
@@ -97,6 +101,7 @@ HTTP2PriorityQueue::Node::detachChild(Node* node) {
   auto it = node->self_;
   auto res = std::move(*node->self_);
   children_.erase(it);
+  node->parent_ = nullptr;
   return res;
 }
 
@@ -105,29 +110,24 @@ HTTP2PriorityQueue::Node::reparent(HTTP2PriorityQueue::Node* newParent,
                                    bool exclusive) {
   // Save enqueued_ and totalEnqueuedWeight_, clear them and restore
   // after reparenting
+  bool wasInEgressTree = inEgressTree();
   bool enqueued = enqueued_;
   uint64_t totalEnqueuedWeight = totalEnqueuedWeight_;
   totalEnqueuedWeight_ = 0;
-  if (isEnqueued()) {
-    clearPendingEgress();
-  } else if (totalEnqueuedWeight > 0) {
-    // else if is ok because totalEnqueuedWeight_ is 0, so clearPendingEgress
-    // will completely dequeue this node.
+  enqueued_ = false;
+  if (wasInEgressTree) {
     propagatePendingEgressClear(this);
   }
 
   auto self = parent_->detachChild(this);
-  parent_ = newParent;
   (void)newParent->emplaceNode(std::move(self), exclusive);
 
   // Restore state
-  if (enqueued) {
-    signalPendingEgress();
-  }
-  if (totalEnqueuedWeight > 0) {
-    totalEnqueuedWeight_ += totalEnqueuedWeight;
+  enqueued_ = enqueued;
+  if (wasInEgressTree) {
     propagatePendingEgressSignal(this);
   }
+  totalEnqueuedWeight_ += totalEnqueuedWeight;
 
   return this;
 }
@@ -196,7 +196,7 @@ void
 HTTP2PriorityQueue::Node::propagatePendingEgressClear(
   HTTP2PriorityQueue::Node* node) {
   Node* parent = node->parent_;
-  bool stop = node->totalEnqueuedWeight_ > 0;
+  bool stop = node->inEgressTree();
   // Continue subtracting node->weight_ from parent_->totalEnqueuedWeight_
   // as long as node state changes from egress-in-subtree to
   // no-egress-in-subtree
