@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -1092,12 +1092,23 @@ HTTPSession::transactionTimeout(HTTPTransaction* txn) noexcept {
 
   if (!txn->getHandler() &&
       txn->getEgressState() == HTTPTransactionEgressSM::State::Start) {
-    VLOG(4) << *this << " creating direct error handler";
-    auto handler = getTransactionTimeoutHandler(txn);
-    txn->setHandler(handler);
+    VLOG(4) << *this << " Timed out receiving headers";
     if (infoCallback_) {
       infoCallback_->onIngressError(*this, kErrorTimeout);
     }
+    if (codec_->supportsParallelRequests()) {
+      // This can only happen with HTTP/2 where the HEADERS frame is incomplete
+      // and we time out waiting for the CONTINUATION.  Abort the request.
+      //
+      // It would maybe be a little nicer to use the timeout handler for these
+      // also.
+      txn->sendAbort();
+      return;
+    }
+
+    VLOG(4) << *this << " creating direct error handler";
+    auto handler = getTransactionTimeoutHandler(txn);
+    txn->setHandler(handler);
   }
 
   // Tell the transaction about the timeout.  The transaction will

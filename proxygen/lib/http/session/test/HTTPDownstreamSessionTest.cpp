@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -208,6 +208,11 @@ class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
  public:
   HTTP2DownstreamSessionTest()
       : HTTPDownstreamTest<HTTP2CodecPair>(http2::kInitialWindow) {}
+
+  void SetUp() override {
+    HTTPDownstreamTest<HTTP2CodecPair>::SetUp();
+    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
+  }
 };
 }
 
@@ -1697,4 +1702,29 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   httpSession_->closeWhenIdle();
   expectDetachSession();
   eventBase_.loop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, continuation_timeout) {
+  // Split the headers at 15 bytes to force a CONTINUATION frame
+  HTTP2Codec::setHeaderSplitSize(15);
+  auto req = getGetRequest();
+  req.getHeaders().add("x", "ZZZZZZZ");
+  sendRequest(req);
+
+  HTTPSession::DestructorGuard g(httpSession_);
+  // Send the Connection Preface and HEADERS immediately
+  auto buf = requests_.split(40);
+  buf->coalesce();
+  transport_->addReadEvent(buf->data(), buf->length(), milliseconds(0));
+  // Delay the CONTINUATION by the read timeout.
+  flushRequestsAndLoop(false, milliseconds(0),
+                       transactionTimeouts_->getDefaultTimeout());
+
+  EXPECT_CALL(callbacks_, onSettings(_));
+  // We get 1 INTERNAL_ERROR on the timeout
+  EXPECT_CALL(callbacks_, onAbort(1, ErrorCode::INTERNAL_ERROR));
+  // And a STREAM_CLOSED when the in-flight CONTINUATION gets parsed.
+  EXPECT_CALL(callbacks_, onAbort(1, ErrorCode::STREAM_CLOSED));
+  parseOutput(*clientCodec_);
+  cleanup();
 }

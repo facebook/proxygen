@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -991,6 +991,12 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
                                      ErrorCode statusCode) {
   VLOG(4) << "sending RST_STREAM for stream=" << stream
           << " with code=" << getErrorCodeString(statusCode);
+  // Suppress any EOM callback for the current frame.
+  if (stream == curHeader_.stream) {
+    curHeader_.flags &= ~http2::END_STREAM;
+    pendingEndStreamHandling_ = false;
+  }
+
   auto code = http2::errorCodeToReset(statusCode);
   return http2::writeRstStream(writeBuf, stream, code);
 }
