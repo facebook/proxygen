@@ -44,7 +44,8 @@ sudo apt-get install -yq \
     libboost-all-dev \
     libjemalloc-dev \
     libsnappy-dev \
-    wget
+    wget \
+    unzip
 
 # Adding support for Ubuntu 12.04.x
 # Needs libdouble-conversion-dev, google-gflags and double-conversion
