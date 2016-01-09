@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -62,7 +62,7 @@ class ZlibServerFilter : public Filter {
 
   void sendChunkHeader(size_t len) noexcept override {
     // The headers should have always been sent since the message is chunked
-    DCHECK(header_ = true);
+    DCHECK_EQ(header_, true) << "Headers should have already been sent.";
 
     // If not compressing, pass downstream, otherwise "swallow" it
     // to send after compressing the body.
