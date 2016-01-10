@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -33,7 +33,7 @@ HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::Node::emplaceNode(
   unique_ptr<HTTP2PriorityQueue::Node> node, bool exclusive) {
   CHECK(!node->isEnqueued());
-  node->enqueuedIter_ = enqueuedChildren_.end();
+  node->enqueuedNext_ = nullptr;
   list<unique_ptr<Node>> children;
   if (exclusive) {
     // this->children become new node's children
@@ -61,10 +61,10 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
     if (child->isEnqueued()) {
       totalEnqueuedWeight += child->weight_;
       child->parent_->removeEnqueuedChild(child.get());
-      child->enqueuedIter_ = enqueuedChildren_.end();
+      CHECK(child->enqueuedNext_ == nullptr);
       addEnqueuedChild(child.get());
     } else {
-      child->enqueuedIter_ = enqueuedChildren_.end();
+      CHECK(child->enqueuedNext_ == nullptr);
     }
     addChild(std::move(child));
   }
@@ -150,16 +150,33 @@ HTTP2PriorityQueue::Node::isDescendantOf(HTTP2PriorityQueue::Node *node) {
 
 void
 HTTP2PriorityQueue::Node::addEnqueuedChild(HTTP2PriorityQueue::Node* node) {
-  CHECK(node->enqueuedIter_ == enqueuedChildren_.end());
-  node->enqueuedIter_ = enqueuedChildren_.insert(enqueuedChildren_.end(),
-                                                 node);
+  CHECK(node->enqueuedNext_ == nullptr);
+  if (!enqueuedChildren_) {
+    node->enqueuedNext_ = node;
+    node->enqueuedPrev_ = node;
+    enqueuedChildren_ = node;
+  } else {
+    node->enqueuedNext_ = enqueuedChildren_;
+    node->enqueuedPrev_ = enqueuedChildren_->enqueuedPrev_;
+    node->enqueuedPrev_->enqueuedNext_ = node;
+    enqueuedChildren_->enqueuedPrev_ = node;
+  }
 }
 
 void
 HTTP2PriorityQueue::Node::removeEnqueuedChild(HTTP2PriorityQueue::Node* node) {
-  CHECK(node->enqueuedIter_ != enqueuedChildren_.end());
-  enqueuedChildren_.erase(node->enqueuedIter_);
-  node->enqueuedIter_ = enqueuedChildren_.end();
+  CHECK(node->enqueuedNext_ != nullptr);
+  if (node->enqueuedNext_ == node) {
+    enqueuedChildren_ = nullptr;
+  } else {
+    node->enqueuedNext_->enqueuedPrev_ = node->enqueuedPrev_;
+    node->enqueuedPrev_->enqueuedNext_ = node->enqueuedNext_;
+    if (node == enqueuedChildren_) {
+      enqueuedChildren_ = enqueuedChildren_->enqueuedNext_;
+    }
+  }
+  node->enqueuedNext_ = nullptr;
+  node->enqueuedPrev_ = nullptr;
 }
 
 void
@@ -300,8 +317,12 @@ HTTP2PriorityQueue::Node::visitBFS(
   if (all || (!invoke && totalEnqueuedWeight_ > 0)) {
     double newRelWeight = relativeParentWeight * relativeEnqueuedWeight;
     if (enqueuedChildren) {
-      for (auto child: enqueuedChildren_) {
+      for (auto child = enqueuedChildren_; child != nullptr;
+           child = child->enqueuedNext_) {
         pendingNodes.emplace_back(child->id_, child, newRelWeight);
+        if (child->enqueuedNext_ == enqueuedChildren_) {
+          break;
+        }
       }
     } else {
       for (auto& child: children_) {
@@ -332,7 +353,7 @@ HTTP2PriorityQueue::Node::updateEnqueuedWeight(bool activeNodes) {
       CHECK_NOTNULL(parent_);
       parent_->totalEnqueuedWeightCheck_ -= weight_;
     } else {
-      CHECK(enqueuedIter_ != parent_->enqueuedChildren_.end());
+      CHECK(parent_ == nullptr || enqueuedNext_ != nullptr);
     }
   } else {
     totalEnqueuedWeightCheck_ = 0;

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -231,8 +231,9 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     uint64_t totalChildWeight_{0};
     std::list<std::unique_ptr<Node>> children_;
     std::list<std::unique_ptr<Node>>::iterator self_;
-    std::list<Node*> enqueuedChildren_;
-    std::list<Node*>::iterator enqueuedIter_;
+    Node* enqueuedNext_{nullptr};
+    Node* enqueuedPrev_{nullptr};
+    Node* enqueuedChildren_{nullptr};
   };
 
   Node root_{nullptr, 0, 1, nullptr};
