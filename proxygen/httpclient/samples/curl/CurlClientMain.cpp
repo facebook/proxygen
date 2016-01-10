@@ -34,6 +34,8 @@ DEFINE_int32(http_client_connect_timeout, 1000,
     "connect timeout in milliseconds");
 DEFINE_string(cert_path, "/etc/ssl/certs/ca-certificates.crt",
     "Path to trusted cert to authenticate with");  // default for Ubuntu 14.04
+DEFINE_string(next_protos, "h2,h2-14,spdy/3.1,spdy/3,http/1.1",
+    "Next protocol string for NPN/ALPN");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -76,7 +78,7 @@ int main(int argc, char* argv[]) {
   static const AsyncSocket::OptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
 
   if (url.isSecure()) {
-    curlClient.initializeSsl(FLAGS_cert_path);
+    curlClient.initializeSsl(FLAGS_cert_path, FLAGS_next_protos);
     connector.connectSSL(&evb, addr, curlClient.getSSLContext(), nullptr,
         std::chrono::milliseconds(FLAGS_http_client_connect_timeout), opts);
   } else {

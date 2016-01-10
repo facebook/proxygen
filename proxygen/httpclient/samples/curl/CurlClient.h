@@ -26,7 +26,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   ~CurlClient() override;
 
   // initial SSL related structures
-  void initializeSsl(const std::string& certPath);
+  void initializeSsl(const std::string& certPath,
+                     const std::string& nextProtos);
   void sslHandshakeFollowup(proxygen::HTTPUpstreamSession* session) noexcept;
 
   // HTTPConnector methods

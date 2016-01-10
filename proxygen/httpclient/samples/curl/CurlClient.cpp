@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include <folly/FileUtil.h>
+#include <folly/String.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/ssl/SSLContextConfig.h>
@@ -26,12 +27,17 @@ CurlClient::~CurlClient() {
 }
 
 
-void CurlClient::initializeSsl(const string& certPath) {
+void CurlClient::initializeSsl(const string& certPath,
+                               const string& nextProtos) {
   sslContext_ = std::make_shared<folly::SSLContext>();
   sslContext_->setOptions(SSL_OP_NO_COMPRESSION);
   SSLContextConfig config;
   sslContext_->ciphers(config.sslCiphers);
   sslContext_->loadTrustedCertificates(certPath.c_str());
+  list<string> nextProtoList;
+  folly::splitTo<string>(',', nextProtos, std::inserter(nextProtoList,
+                                                        nextProtoList.begin()));
+  sslContext_->setAdvertisedNextProtocols(nextProtoList);
 }
 
 
