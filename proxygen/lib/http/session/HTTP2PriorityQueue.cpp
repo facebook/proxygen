@@ -58,7 +58,7 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
   list<unique_ptr<Node>> emptyChilden;
   uint64_t totalEnqueuedWeight = 0;
   for (auto& child: children) {
-    if (child->isEnqueued()) {
+    if (child->inEgressTree()) {
       totalEnqueuedWeight += child->weight_;
       child->parent_->removeEnqueuedChild(child.get());
       CHECK(child->enqueuedNext_ == nullptr);
@@ -70,7 +70,9 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
   }
   std::swap(children, emptyChilden);
   if (totalEnqueuedWeight > 0) {
-    propagatePendingEgressSignal(this);
+    if (!inEgressTree()) {
+      propagatePendingEgressSignal(this);
+    }
     totalEnqueuedWeight_ += totalEnqueuedWeight;
   }
 }

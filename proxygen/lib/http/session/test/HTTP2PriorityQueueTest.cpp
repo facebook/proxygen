@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
 
 using namespace std::placeholders;
+using folly::Random;
 
 namespace {
 static char* fakeTxn = (char*)0xface0000;
@@ -25,6 +26,15 @@ proxygen::HTTPTransaction* makeFakeTxn(proxygen::HTTPCodec::StreamID id) {
 proxygen::HTTPCodec::StreamID getTxnID(proxygen::HTTPTransaction* txn) {
   return (proxygen::HTTPCodec::StreamID)((char*)txn - fakeTxn);
 }
+
+// folly::Random::rand32 is broken because it takes RNG by value
+uint32_t rand32(uint32_t max, folly::Random::DefaultGenerator& rng) {
+    if (max == 0) {
+      return 0;
+    }
+
+    return std::uniform_int_distribution<uint32_t>(0, max - 1)(rng);
+  }
 
 }
 
@@ -370,6 +380,7 @@ TEST_F(QueueTest, nextEgressExclusiveAdd) {
   signalEgress(3, true);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{3, 100}}));
+  EXPECT_EQ(q_.numPendingEgress(), 1);
 }
 
 TEST_F(QueueTest, nextEgressExclusiveAddWithEgress) {
@@ -386,6 +397,7 @@ TEST_F(QueueTest, nextEgressExclusiveAddWithEgress) {
   signalEgress(11, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{3, 100}}));
+  EXPECT_EQ(q_.numPendingEgress(), 1);
 }
 
 TEST_F(QueueTest, nextEgressRemoveParent) {
@@ -408,6 +420,120 @@ TEST_F(QueueTest, nextEgressRemoveParent) {
 
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{9, 40}, {7, 40}, {3, 20}}));
+}
+
+TEST_F(QueueTest, addExclusiveDescendantEnqueued) {
+  addTransaction(1, {0, false, 100});
+  addTransaction(3, {1, false, 100});
+  addTransaction(5, {3, false, 100});
+  signalEgress(1, false);
+  signalEgress(3, false);
+  // add a new exclusive child of 1.  1's child 3 is not enqueued but is in the
+  // the egress tree.
+  addTransaction(7, {1, true, 100});
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 100}}));
+}
+
+TEST_F(QueueTest, nextEgressRemoveParentEnqueued) {
+  addTransaction(1, {0, false, 100});
+  addTransaction(3, {1, false, 100});
+  addTransaction(5, {3, false, 100});
+  signalEgress(3, false);
+  // When 3's children (5) are added to 1, both are already in the egress tree
+  // and the signal does not need to propagate
+  removeTransaction(3);
+  signalEgress(1, false);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{5, 100}}));
+}
+
+TEST_F(QueueTest, nextEgressRemoveParentEnqueuedIndirect) {
+  addTransaction(1, {0, false, 100});
+  addTransaction(3, {1, false, 100});
+  addTransaction(5, {3, false, 100});
+  addTransaction(7, {1, false, 100});
+  signalEgress(3, false);
+  signalEgress(1, false);
+  // When 3's children (5) are added to 1, both are already in the egress tree
+  // and the signal does not need to propagate
+  removeTransaction(3);
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{7, 50}, {5, 50}}));
+}
+
+TEST_F(QueueTest, ChromeTest) {
+  // Tries to simulate Chrome's current behavior by performing pseudo-random
+  // add-exclusive, signal, clear and remove with 3 insertion points
+  // (hi,mid,low).  Note the test uses rand32() with a particular seed so the
+  // output is predictable.
+  HTTPCodec::StreamID pris[3] = {1, 3, 5};
+  addTransaction(1, {0, true, 99});
+  signalEgress(1, false);
+  addTransaction(3, {1, true, 99});
+  signalEgress(3, false);
+  addTransaction(5, {3, true, 99});
+  signalEgress(5, false);
+
+  std::vector<HTTPCodec::StreamID> txns;
+  std::vector<HTTPCodec::StreamID> active;
+  std::vector<HTTPCodec::StreamID> inactive;
+  HTTPCodec::StreamID txn = 0;
+  uint64_t idx = 0;
+  HTTPCodec::StreamID nextId = 7;
+  auto gen = Random::create();
+  gen.seed(12345); // luggage combo
+  for (auto i = 4; i < 1000; i++) {
+    uint8_t action = rand32(4, gen);
+    if (action == 0) {
+      // add exclusive on pseudo-random priority anchor
+      uint8_t pri = rand32(3, gen);
+      HTTPCodec::StreamID dep = pris[pri];
+      txn = nextId;
+      nextId += 2;
+      VLOG(2) << "Adding txn=" << txn << " with dep=" << dep;
+      addTransaction(txn, {dep, true, 99});
+      txns.push_back(txn);
+      active.push_back(txn);
+    } else if (action == 1 && !inactive.empty()) {
+      // signal an inactive txn
+      idx = rand32(inactive.size(), gen);
+      txn = inactive[idx];
+      VLOG(2) << "Activating txn=" << txn;
+      signalEgress(txn, true);
+      inactive.erase(inactive.begin() + idx);
+      active.push_back(txn);
+    } else if (action == 2 && !active.empty()) {
+      // clear an active transaction
+      idx = rand32(active.size(), gen);
+      txn = active[idx];
+      VLOG(2) << "Deactivating txn=" << txn;
+      signalEgress(txn, false);
+      active.erase(active.begin() + idx);
+      inactive.push_back(txn);
+    } else if (action == 3 && !txns.empty()) {
+      // remove a transaction
+      idx = rand32(txns.size(), gen);
+      txn = txns[idx];
+      VLOG(2) << "Removing txn=" << txn;
+      removeTransaction(txn);
+      txns.erase(txns.begin() + idx);
+      auto it = std::find(active.begin(), active.end(), txn);
+      if (it != active.end()) {
+        active.erase(it);
+      }
+      it = std::find(inactive.begin(), inactive.end(), txn);
+      if (it != inactive.end()) {
+        inactive.erase(it);
+      }
+    }
+    VLOG(2) << "Active nodes=" << q_.numPendingEgress();
+    if (!q_.empty()) {
+      nextEgress();
+      EXPECT_GT(nodes_.size(), 0);
+    }
+
+  }
 }
 
 
