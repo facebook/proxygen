@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
 #include <folly/ThreadLocal.h>
+#include <folly/IntrusiveList.h>
 
 #include <list>
 #include <deque>
@@ -206,8 +207,6 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     void addChildren(std::list<std::unique_ptr<Node>>&& children);
 
-    std::list<std::unique_ptr<Node>>::iterator lastChild();
-
     std::unique_ptr<Node> detachChild(Node* node);
 
     void addEnqueuedChild(HTTP2PriorityQueue::Node* node);
@@ -231,9 +230,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     uint64_t totalChildWeight_{0};
     std::list<std::unique_ptr<Node>> children_;
     std::list<std::unique_ptr<Node>>::iterator self_;
-    Node* enqueuedNext_{nullptr};
-    Node* enqueuedPrev_{nullptr};
-    Node* enqueuedChildren_{nullptr};
+    folly::IntrusiveListHook enqueuedHook_;
+    folly::IntrusiveList<Node, &Node::enqueuedHook_> enqueuedChildren_;
   };
 
   Node root_{nullptr, 0, 1, nullptr};

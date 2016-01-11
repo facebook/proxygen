@@ -33,7 +33,6 @@ HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::Node::emplaceNode(
   unique_ptr<HTTP2PriorityQueue::Node> node, bool exclusive) {
   CHECK(!node->isEnqueued());
-  node->enqueuedNext_ = nullptr;
   list<unique_ptr<Node>> children;
   if (exclusive) {
     // this->children become new node's children
@@ -61,10 +60,10 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
     if (child->inEgressTree()) {
       totalEnqueuedWeight += child->weight_;
       child->parent_->removeEnqueuedChild(child.get());
-      CHECK(child->enqueuedNext_ == nullptr);
+      CHECK(!child->enqueuedHook_.is_linked());
       addEnqueuedChild(child.get());
     } else {
-      CHECK(child->enqueuedNext_ == nullptr);
+      CHECK(!child->enqueuedHook_.is_linked());
     }
     addChild(std::move(child));
   }
@@ -83,17 +82,8 @@ HTTP2PriorityQueue::Node::addChild(
   child->parent_ = this;
   totalChildWeight_ += child->weight_;
   Node* raw = child.get();
-  children_.push_back(std::move(child));
-  raw->self_ = lastChild();
+  raw->self_ = children_.insert(children_.end(), std::move(child));
   return raw;
-}
-
-list<unique_ptr<HTTP2PriorityQueue::Node>>::iterator
-HTTP2PriorityQueue::Node::lastChild() {
-  auto it = children_.rbegin();
-  it++;
-  list<unique_ptr<Node>>::iterator result = it.base();
-  return result;
 }
 
 unique_ptr<HTTP2PriorityQueue::Node>
@@ -152,33 +142,14 @@ HTTP2PriorityQueue::Node::isDescendantOf(HTTP2PriorityQueue::Node *node) {
 
 void
 HTTP2PriorityQueue::Node::addEnqueuedChild(HTTP2PriorityQueue::Node* node) {
-  CHECK(node->enqueuedNext_ == nullptr);
-  if (!enqueuedChildren_) {
-    node->enqueuedNext_ = node;
-    node->enqueuedPrev_ = node;
-    enqueuedChildren_ = node;
-  } else {
-    node->enqueuedNext_ = enqueuedChildren_;
-    node->enqueuedPrev_ = enqueuedChildren_->enqueuedPrev_;
-    node->enqueuedPrev_->enqueuedNext_ = node;
-    enqueuedChildren_->enqueuedPrev_ = node;
-  }
+  CHECK(!node->enqueuedHook_.is_linked());
+  enqueuedChildren_.push_back(*node);
 }
 
 void
 HTTP2PriorityQueue::Node::removeEnqueuedChild(HTTP2PriorityQueue::Node* node) {
-  CHECK(node->enqueuedNext_ != nullptr);
-  if (node->enqueuedNext_ == node) {
-    enqueuedChildren_ = nullptr;
-  } else {
-    node->enqueuedNext_->enqueuedPrev_ = node->enqueuedPrev_;
-    node->enqueuedPrev_->enqueuedNext_ = node->enqueuedNext_;
-    if (node == enqueuedChildren_) {
-      enqueuedChildren_ = enqueuedChildren_->enqueuedNext_;
-    }
-  }
-  node->enqueuedNext_ = nullptr;
-  node->enqueuedPrev_ = nullptr;
+  CHECK(node->enqueuedHook_.is_linked());
+  enqueuedChildren_.erase(enqueuedChildren_.iterator_to(*node));
 }
 
 void
@@ -319,12 +290,10 @@ HTTP2PriorityQueue::Node::visitBFS(
   if (all || (!invoke && totalEnqueuedWeight_ > 0)) {
     double newRelWeight = relativeParentWeight * relativeEnqueuedWeight;
     if (enqueuedChildren) {
-      for (auto child = enqueuedChildren_; child != nullptr;
-           child = child->enqueuedNext_) {
-        pendingNodes.emplace_back(child->id_, child, newRelWeight);
-        if (child->enqueuedNext_ == enqueuedChildren_) {
-          break;
-        }
+      for (auto child = enqueuedChildren_.begin();
+           child != enqueuedChildren_.end();
+           child++) {
+        pendingNodes.emplace_back(child->id_, &(*child), newRelWeight);
       }
     } else {
       for (auto& child: children_) {
@@ -355,7 +324,7 @@ HTTP2PriorityQueue::Node::updateEnqueuedWeight(bool activeNodes) {
       CHECK_NOTNULL(parent_);
       parent_->totalEnqueuedWeightCheck_ -= weight_;
     } else {
-      CHECK(parent_ == nullptr || enqueuedNext_ != nullptr);
+      CHECK(parent_ == nullptr || enqueuedHook_.is_linked());
     }
   } else {
     totalEnqueuedWeightCheck_ = 0;
