@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -593,6 +593,10 @@ class HTTPSession:
   }
   const HTTPCodec& getCodec() const noexcept override {
     return *CHECK_NOTNULL(codec_.call());
+  }
+
+  std::string getSecurityProtocol() const override {
+    return sock_->getSecurityProtocol();
   }
 
   void setByteEventTracker(std::unique_ptr<ByteEventTracker> byteEventTracker);

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -156,6 +156,14 @@ class DecoratedAsyncTransportWrapper : public folly::AsyncTransportWrapper {
 
   virtual void shutdownWriteNow() override {
     transport_->shutdownWriteNow();
+  }
+
+  virtual std::string getApplicationProtocol() noexcept override {
+    return transport_->getApplicationProtocol();
+  }
+
+  virtual std::string getSecurityProtocol() const override {
+    return transport_->getSecurityProtocol();
   }
 
  protected:

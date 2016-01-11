@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -83,6 +83,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
       ->getCodecNonConst();
   }
   MOCK_CONST_METHOD0(isDraining, bool());
+  MOCK_CONST_METHOD0(getSecurityProtocol, std::string());
 };
 
 class MockHTTPTransaction : public HTTPTransaction {
