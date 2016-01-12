@@ -101,6 +101,12 @@ void PassThroughHTTPCodecFilter::onSettingsAck() {
   callback_->onSettingsAck();
 }
 
+void PassThroughHTTPCodecFilter::onPriority(
+  StreamID stream,
+  const HTTPMessage::HTTPPriority& pri) {
+  callback_->onPriority(stream, pri);
+}
+
 uint32_t PassThroughHTTPCodecFilter::numOutgoingStreams() const {
   return callback_->numOutgoingStreams();
 }
@@ -255,6 +261,14 @@ size_t PassThroughHTTPCodecFilter::generateWindowUpdate(
   uint32_t delta) {
   return call_->generateWindowUpdate(buf, stream, delta);
 }
+
+size_t PassThroughHTTPCodecFilter::generatePriority(
+  folly::IOBufQueue& writeBuf,
+  StreamID stream,
+  const HTTPMessage::HTTPPriority& pri) {
+  return call_->generatePriority(writeBuf, stream, pri);
+}
+
 
 HTTPSettings* PassThroughHTTPCodecFilter::getEgressSettings() {
   return call_->getEgressSettings();

@@ -223,6 +223,13 @@ class HTTPCodec {
     virtual void onSettingsAck() {}
 
     /**
+     * Called upon receipt of a priority frame, for protocols that support
+     * dynamic priority
+     */
+    virtual void onPriority(StreamID stream,
+                            const HTTPMessage::HTTPPriority& pri) {}
+
+    /**
      * Return the number of open streams started by this codec callback.
      * Parallel codecs with a maximum number of streams will invoke this
      * to determine if a new stream exceeds the limit.
@@ -472,6 +479,14 @@ class HTTPCodec {
     return 0;
   }
 
+  /*
+   * Generate a PRIORITY message, if supported
+   */
+  virtual size_t generatePriority(folly::IOBufQueue& writeBuf,
+                                  StreamID stream,
+                                  const HTTPMessage::HTTPPriority& pri) {
+    return 0;
+  }
   /*
    * The below interfaces need only be implemented if the codec supports
    * settings

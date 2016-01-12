@@ -78,6 +78,10 @@ public:
   size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,
                               StreamID stream,
                               uint32_t delta) override;
+  size_t generatePriority(folly::IOBufQueue& writeBuf,
+                          StreamID stream,
+                          const HTTPMessage::HTTPPriority& pri) override;
+
   const HTTPSettings* getIngressSettings() const override {
     return &ingressSettings_;
   }

@@ -81,6 +81,9 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   void onSettingsAck() override;
 
+  void onPriority(StreamID stream,
+                  const HTTPMessage::HTTPPriority& pri) override;
+
   uint32_t numOutgoingStreams() const override;
 
   uint32_t numIncomingStreams() const override;
@@ -163,6 +166,10 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,
                               StreamID stream,
                               uint32_t delta) override;
+
+  size_t generatePriority(folly::IOBufQueue& writeBuf,
+                          StreamID stream,
+                          const HTTPMessage::HTTPPriority& pri) override;
 
   HTTPSettings* getEgressSettings() override;
 

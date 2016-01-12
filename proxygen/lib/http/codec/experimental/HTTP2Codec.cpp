@@ -394,7 +394,8 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       if (curHeader_.stream == priority->streamDependency) {
         streamError(folly::to<string>("Circular dependency for txn=",
                                       curHeader_.stream),
-                    ErrorCode::PROTOCOL_ERROR, true);
+                    ErrorCode::PROTOCOL_ERROR,
+                    curHeader_.type == http2::FrameType::HEADERS);
         return ErrorCode::NO_ERROR;
       }
 
@@ -604,11 +605,24 @@ void HTTP2Codec::onDecodeError(HeaderDecodeError decodeError) {
 }
 
 ErrorCode HTTP2Codec::parsePriority(Cursor& cursor) {
-  // will implement callbacks in subsequent diff
   VLOG(4) << "parsing PRIORITY frame for stream=" << curHeader_.stream <<
     " length=" << curHeader_.length;
   http2::PriorityUpdate pri;
-  return http2::parsePriority(cursor, curHeader_, pri);
+  auto err = http2::parsePriority(cursor, curHeader_, pri);
+  RETURN_IF_ERROR(err);
+  if (curHeader_.stream == pri.streamDependency) {
+    streamError(folly::to<string>("Circular dependency for txn=",
+                                  curHeader_.stream),
+                ErrorCode::PROTOCOL_ERROR, false);
+    return ErrorCode::NO_ERROR;
+  }
+  if (callback_) {
+    callback_->onPriority(curHeader_.stream,
+                          std::make_tuple(pri.streamDependency,
+                                          pri.exclusive,
+                                          pri.weight));
+  }
+  return ErrorCode::NO_ERROR;
 }
 
 ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
@@ -1089,6 +1103,15 @@ size_t HTTP2Codec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   return http2::writeWindowUpdate(writeBuf, stream, delta);
 }
 
+size_t HTTP2Codec::generatePriority(folly::IOBufQueue& writeBuf,
+                                    StreamID stream,
+                                    const HTTPMessage::HTTPPriority& pri) {
+  VLOG(4) << "generating priority for stream=" << stream;
+  return http2::writePriority(writeBuf, stream,
+                              {std::get<0>(pri), std::get<1>(pri),
+                                  std::get<2>(pri)});
+}
+
 bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
   if (err != ErrorCode::NO_ERROR) {
     LOG(ERROR) << "Connection error with ingress=" << std::endl
@@ -1109,7 +1132,9 @@ void HTTP2Codec::streamError(const std::string& msg, ErrorCode code,
   HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS,
                       msg);
   error.setCodecStatusCode(code);
-  callback_->onError(curHeader_.stream, error, newTxn);
+  if (callback_) {
+    callback_->onError(curHeader_.stream, error, newTxn);
+  }
 }
 
 }
