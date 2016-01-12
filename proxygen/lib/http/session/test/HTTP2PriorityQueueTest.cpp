@@ -131,7 +131,19 @@ TEST_F(QueueTest, RemoveParent) {
   removeTransaction(5);
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 20}, {7, 40}, {9, 40}}));
+  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {7, 50}, {9, 25}}));
+}
+
+TEST_F(QueueTest, RemoveParentWeights) {
+  // weight_ / totalChildWeight_ < 1
+  addTransaction(1, {0, false, 0});
+  addTransaction(3, {1, false, 255});
+  addTransaction(5, {1, false, 255});
+
+  removeTransaction(1);
+  dump();
+
+  EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
 }
 
 TEST_F(QueueTest, UpdateWeight) {
@@ -419,7 +431,7 @@ TEST_F(QueueTest, nextEgressRemoveParent) {
   signalEgress(7, true);
 
   nextEgress();
-  EXPECT_EQ(nodes_, IDList({{9, 40}, {7, 40}, {3, 20}}));
+  EXPECT_EQ(nodes_, IDList({{7, 50}, {9, 25}, {3, 25}}));
 }
 
 TEST_F(QueueTest, addExclusiveDescendantEnqueued) {

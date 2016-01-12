@@ -214,6 +214,16 @@ HTTP2PriorityQueue::Node::updateWeight(uint8_t weight) {
 // Removes the node from the tree
 void
 HTTP2PriorityQueue::Node::removeFromTree() {
+  if (!children_.empty()) {
+    // update child weights so they sum to (approximately) this node's weight.
+    double r = double(weight_) / totalChildWeight_;
+    for (auto& child: children_) {
+      uint64_t newWeight = std::max(uint64_t(child->weight_ * r), uint64_t(1));
+      CHECK_LE(newWeight, 256);
+      child->updateWeight(uint8_t(newWeight) - 1);
+    }
+  }
+
   CHECK(!isEnqueued());
   if (inEgressTree()) {
     // Gah this is tricky.
