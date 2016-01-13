@@ -97,7 +97,8 @@ void HTTPConnector::connectSSL(
   SSL_SESSION* session,
   chrono::milliseconds timeoutMs,
   const AsyncSocket::OptionMap& socketOptions,
-  const folly::SocketAddress& bindAddr) {
+  const folly::SocketAddress& bindAddr,
+  const std::string& serverName) {
 
   DCHECK(!isBusy());
   transportInfo_ = wangle::TransportInfo();
@@ -106,6 +107,7 @@ void HTTPConnector::connectSSL(
   if (session) {
     sslSock->setSSLSession(session, true /* take ownership */);
   }
+  sslSock->setServerName(serverName);
   socket_.reset(sslSock);
   connectStart_ = getCurrentTime();
   socket_->connect(this, connectAddr, timeoutMs.count(),

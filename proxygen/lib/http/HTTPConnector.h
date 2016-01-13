@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015, Facebook, Inc.
+ *  Copyright (c) 2016, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -18,6 +18,7 @@
 namespace proxygen {
 
 class HTTPUpstreamSession;
+extern const std::string empty_string;
 
 /**
  * This class establishes new connections to HTTP or HTTPS servers. It
@@ -123,7 +124,8 @@ class HTTPConnector:
     const folly::AsyncSocket::OptionMap& socketOptions =
       folly::AsyncSocket::emptyOptionMap,
     const folly::SocketAddress& bindAddr =
-      folly::AsyncSocket::anyAddress());
+    folly::AsyncSocket::anyAddress(),
+    const std::string& serverName = empty_string);
 
   /**
    * @returns the number of milliseconds since connecting began, or
