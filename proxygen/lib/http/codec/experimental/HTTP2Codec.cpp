@@ -353,14 +353,14 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
   RETURN_IF_ERROR(err);
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
     RETURN_IF_ERROR(checkNewStream(curHeader_.stream));
+    if (sessionClosing_ == ClosingState::CLOSED) {
+      VLOG(4) << "Dropping HEADERS after final GOAWAY, stream="
+              << curHeader_.stream;
+      return ErrorCode::NO_ERROR;
+    }
   } else if ((curHeader_.stream & 0x1) == 0) {
     VLOG(4) << "Invalid HEADERS(reply) stream=" << curHeader_.stream;
     return ErrorCode::PROTOCOL_ERROR;
-  }
-  if (sessionClosing_ == ClosingState::CLOSED) {
-    VLOG(4) << "Dropping HEADERS after final GOAWAY, stream="
-            << curHeader_.stream;
-    return ErrorCode::NO_ERROR;
   }
   err = parseHeadersImpl(cursor, std::move(headerBuf), priority, boost::none);
   return err;
