@@ -358,9 +358,6 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
               << curHeader_.stream;
       return ErrorCode::NO_ERROR;
     }
-  } else if ((curHeader_.stream & 0x1) == 0) {
-    VLOG(4) << "Invalid HEADERS(reply) stream=" << curHeader_.stream;
-    return ErrorCode::PROTOCOL_ERROR;
   }
   err = parseHeadersImpl(cursor, std::move(headerBuf), priority, boost::none);
   return err;

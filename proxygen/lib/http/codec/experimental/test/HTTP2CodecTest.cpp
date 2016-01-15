@@ -981,6 +981,7 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
   auto settings = upstreamCodec_.getEgressSettings();
   settings->setSetting(SettingsId::ENABLE_PUSH, 1);
   SetUpUpstreamTest();
+  // Push promise
   HTTPMessage req = getGetRequest();
   req.getHeaders().add("user-agent", "coolio");
   downstreamCodec_.generateHeader(output_, 2, req, 1);
@@ -988,8 +989,21 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
   parseUpstream();
   callbacks_.expectMessage(false, 2, "/"); // + host
   EXPECT_EQ(callbacks_.assocStreamId, 1);
-  const auto& headers = callbacks_.msg->getHeaders();
+  auto& headers = callbacks_.msg->getHeaders();
   EXPECT_EQ("coolio", headers.getSingleOrEmpty("user-agent"));
+  callbacks_.reset();
+
+  // Actual reply headers
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.getHeaders().add("content-type", "text/plain");
+  downstreamCodec_.generateHeader(output_, 2, resp, 0);
+
+  parseUpstream();
+  callbacks_.expectMessage(false, 1, 200);
+  EXPECT_EQ(callbacks_.assocStreamId, 0);
+  EXPECT_EQ("text/plain",
+            callbacks_.msg->getHeaders().getSingleOrEmpty("content-type"));
 }
 
 TEST_F(HTTP2CodecTest, BadPushPromise) {

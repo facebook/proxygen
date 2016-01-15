@@ -293,7 +293,7 @@ parseHeaders(Cursor& cursor,
              boost::optional<PriorityUpdate>& outPriority,
              std::unique_ptr<IOBuf>& outBuf) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
-  if (header.stream == 0 || !(header.stream & 0x1)) {
+  if (header.stream == 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
   uint8_t padding;
