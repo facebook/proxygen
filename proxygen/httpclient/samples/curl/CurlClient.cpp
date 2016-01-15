@@ -18,9 +18,12 @@ using namespace std;
 namespace CurlService {
 
 CurlClient::CurlClient(EventBase* evb, HTTPMethod httpMethod, const URL& url,
-    const string& inputFilename):
+                       const HTTPHeaders& headers, const string& inputFilename):
     evb_(evb), httpMethod_(httpMethod), url_(url),
     inputFilename_(inputFilename) {
+  headers.forEach([this] (const string& header, const string& val) {
+      request_.getHeaders().add(header, val);
+    });
 }
 
 CurlClient::~CurlClient() {
@@ -68,16 +71,23 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   }
 
   txn_ = session->newTransaction(this);
-  HTTPMessage msg;
-  msg.setMethod(httpMethod_);
-  msg.setHTTPVersion(1, 1);
-  msg.getHeaders().add("User-Agent", "proxygen_curl");
-  msg.getHeaders().add("Host", url_.getHostAndPort());
-  msg.getHeaders().add("Accept", "*/*");
-  msg.setURL(url_.getUrl());
-  msg.setSecure(url_.isSecure());
+  request_.setMethod(httpMethod_);
+  request_.setHTTPVersion(1, 1);
+  request_.setURL(url_.makeRelativeURL());
+  request_.setSecure(url_.isSecure());
 
-  txn_->sendHeaders(msg);
+  if (!request_.getHeaders().getNumberOfValues(HTTP_HEADER_USER_AGENT)) {
+    request_.getHeaders().add(HTTP_HEADER_USER_AGENT, "proxygen_curl");
+  }
+  if (!request_.getHeaders().getNumberOfValues(HTTP_HEADER_HOST)) {
+    request_.getHeaders().add(HTTP_HEADER_HOST, url_.getHostAndPort());
+  }
+  if (!request_.getHeaders().getNumberOfValues(HTTP_HEADER_ACCEPT)) {
+    request_.getHeaders().add("Accept", "*/*");
+  }
+  request_.dumpMessage(4);
+
+  txn_->sendHeaders(request_);
 
   unique_ptr<IOBuf> buf;
   if (httpMethod_ == HTTPMethod::POST) {

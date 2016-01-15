@@ -23,6 +23,8 @@
 using namespace CurlService;
 using namespace folly;
 using namespace proxygen;
+using std::vector;
+using std::string;
 
 DEFINE_string(http_method, "GET",
     "HTTP method to use. GET or POST are supported");
@@ -36,6 +38,7 @@ DEFINE_string(cert_path, "/etc/ssl/certs/ca-certificates.crt",
     "Path to trusted cert to authenticate with");  // default for Ubuntu 14.04
 DEFINE_string(next_protos, "h2,h2-14,spdy/3.1,spdy/3,http/1.1",
     "Next protocol string for NPN/ALPN");
+DEFINE_string(headers, "", "List of N=V headers separated by ,");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -61,7 +64,26 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  CurlClient curlClient(&evb, httpMethod, url, FLAGS_input_filename);
+  vector<StringPiece> headerList;
+  HTTPHeaders headers;
+  folly::split("|", FLAGS_headers, headerList);
+  for (const auto& headerPair: headerList) {
+    vector<StringPiece> nv;
+    folly::split(':', headerPair, nv);
+    if (nv.size() > 0) {
+      if (nv[0].empty()) {
+        continue;
+      }
+      StringPiece value("");
+      if (nv.size() > 1) {
+        value = nv[1];
+      } // trim anything else
+      headers.add(nv[0], value);
+    }
+  }
+
+  CurlClient curlClient(&evb, httpMethod, url, headers,
+                        FLAGS_input_filename);
 
   SocketAddress addr(url.getHost(), url.getPort(), true);
   LOG(INFO) << "Trying to connect to " << addr;

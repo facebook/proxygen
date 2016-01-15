@@ -133,6 +133,14 @@ class URL {
     return fragment_;
   }
 
+  std::string makeRelativeURL() noexcept {
+    return folly::to<std::string>(
+      path_.empty() ? "/" : path_,
+      query_.empty() ? "" : folly::to<std::string>('?', query_),
+      fragment_.empty() ? "" : folly::to<std::string>('#', fragment_));
+
+  }
+
   friend bool operator==(const URL& lhs, const URL& rhs) {
     return lhs.getScheme() == rhs.getScheme() &&
       lhs.getHost() == rhs.getHost() &&
