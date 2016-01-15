@@ -79,8 +79,10 @@ int main(int argc, char* argv[]) {
 
   if (url.isSecure()) {
     curlClient.initializeSsl(FLAGS_cert_path, FLAGS_next_protos);
-    connector.connectSSL(&evb, addr, curlClient.getSSLContext(), nullptr,
-        std::chrono::milliseconds(FLAGS_http_client_connect_timeout), opts);
+    connector.connectSSL(
+      &evb, addr, curlClient.getSSLContext(), nullptr,
+      std::chrono::milliseconds(FLAGS_http_client_connect_timeout), opts,
+      folly::AsyncSocket::anyAddress(), curlClient.getServerName());
   } else {
     connector.connect(&evb, addr,
         std::chrono::milliseconds(FLAGS_http_client_connect_timeout), opts);

@@ -157,4 +157,12 @@ void CurlClient::onEgressResumed() noexcept {
   LOG(INFO) << "Egress resumed";
 }
 
+const string& CurlClient::getServerName() const {
+  const string& res = request_.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST);
+  if (res.empty()) {
+    return url_.getHost();
+  }
+  return res;
+}
+
 }  // namespace CurlService

@@ -51,6 +51,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   // Getters
   folly::SSLContextPtr getSSLContext() { return sslContext_; }
 
+  const std::string& getServerName() const;
+
 protected:
   proxygen::HTTPTransaction* txn_{nullptr};
   folly::EventBase* evb_{nullptr};
