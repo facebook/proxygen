@@ -989,6 +989,7 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
   parseUpstream();
   callbacks_.expectMessage(false, 2, "/"); // + host
   EXPECT_EQ(callbacks_.assocStreamId, 1);
+  EXPECT_EQ(callbacks_.headersCompleteId, 2);
   auto& headers = callbacks_.msg->getHeaders();
   EXPECT_EQ("coolio", headers.getSingleOrEmpty("user-agent"));
   callbacks_.reset();
@@ -1001,6 +1002,7 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
 
   parseUpstream();
   callbacks_.expectMessage(false, 1, 200);
+  EXPECT_EQ(callbacks_.headersCompleteId, 2);
   EXPECT_EQ(callbacks_.assocStreamId, 0);
   EXPECT_EQ("text/plain",
             callbacks_.msg->getHeaders().getSingleOrEmpty("content-type"));

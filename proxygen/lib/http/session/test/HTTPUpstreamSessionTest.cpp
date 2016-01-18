@@ -249,6 +249,7 @@ class TimeoutableHTTPUpstreamTest: public HTTPUpstreamTest<C> {
 
 typedef HTTPUpstreamTest<HTTP1xCodecPair> HTTPUpstreamSessionTest;
 typedef HTTPUpstreamTest<SPDY3CodecPair> SPDY3UpstreamSessionTest;
+typedef HTTPUpstreamTest<HTTP2CodecPair> HTTP2UpstreamSessionTest;
 
 TEST_F(SPDY3UpstreamSessionTest, server_push) {
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
@@ -869,6 +870,81 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
   bool reusable_{true};
   uint32_t nextOutgoingTxn_{1};
 };
+
+TEST_F(HTTP2UpstreamSessionTest, server_push) {
+  httpSession_->getCodec().getEgressSettings()->
+    setSetting(SettingsId::ENABLE_PUSH, true);
+
+  auto egressCodec = makeServerCodec();
+  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+
+  HTTPMessage push;
+  push.getHeaders().set("HOST", "www.foo.com");
+  push.setURL("https://www.foo.com/");
+  egressCodec->generateSettings(output);
+  // PUSH_PROMISE
+  egressCodec->generateHeader(output, 2, push, 1);
+
+  // Pushed resource
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.getHeaders().set("ohai", "push");
+  egressCodec->generateHeader(output, 2, resp, 0);
+  auto buf = makeBuf(100);
+  egressCodec->generateBody(output, 2, std::move(buf), HTTPCodec::NoPadding,
+                            true /* eom */);
+
+  // Original resource
+  resp.getHeaders().set("ohai", "orig");
+  egressCodec->generateHeader(output, 1, resp, 0);
+  buf = makeBuf(100);
+  egressCodec->generateBody(output, 1, std::move(buf), HTTPCodec::NoPadding,
+                           true /* eom */);
+
+  std::unique_ptr<folly::IOBuf> input = output.move();
+  input->coalesce();
+
+  MockHTTPHandler pushHandler;
+
+  InSequence enforceOrder;
+
+  auto handler = openTransaction();
+  EXPECT_CALL(*handler, onPushedTransaction(_))
+    .WillOnce(Invoke([this, &pushHandler] (HTTPTransaction* pushTxn) {
+          pushTxn->setHandler(&pushHandler);
+        }));
+  EXPECT_CALL(pushHandler, setTransaction(_));
+  pushHandler.expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(httpSession_->getNumIncomingStreams(), 1);
+      EXPECT_FALSE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(msg->getPath(), "/");
+      EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
+                "www.foo.com");
+    });
+  pushHandler.expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(msg->getStatusCode(), 200);
+      EXPECT_EQ(msg->getHeaders().getSingleOrEmpty("ohai"), "push");
+    });
+  pushHandler.expectBody();
+  pushHandler.expectEOM();
+  pushHandler.expectDetachTransaction();
+
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+      EXPECT_EQ(msg->getHeaders().getSingleOrEmpty("ohai"), "orig");
+    });
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  handler->sendRequest();
+  readAndLoop(input->data(), input->length());
+
+  EXPECT_EQ(httpSession_->getNumIncomingStreams(), 0);
+  httpSession_->destroy();
+}
 
 class MockHTTP2UpstreamTest: public MockHTTPUpstreamTest {
  public:

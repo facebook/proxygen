@@ -122,7 +122,7 @@ void HTTPTransaction::onIngressHeadersComplete(
   std::unique_ptr<HTTPMessage> msg) {
   DestructorGuard g(this);
   msg->setSeqNo(seqNo_);
-  if (isUpstream() && !isPushed()) {
+  if (isUpstream() && !isPushed() && msg->isResponse()) {
     lastResponseStatus_ = msg->getStatusCode();
   }
   if (!validateIngressStateTransition(

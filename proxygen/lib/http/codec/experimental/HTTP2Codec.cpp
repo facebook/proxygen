@@ -443,6 +443,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
 
   // Report back what we've parsed
   if (callback_) {
+    uint32_t headersCompleteStream = curHeader_.stream;
     if (curHeader_.type == http2::FrameType::HEADERS) {
       if (curHeader_.flags & http2::PRIORITY) {
         DCHECK(priority);
@@ -462,9 +463,10 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       DCHECK(promisedStream);
       callback_->onPushMessageBegin(*promisedStream, curHeader_.stream,
                                     msg.get());
+      headersCompleteStream = *promisedStream;
     }
     if (curHeader_.flags & http2::END_HEADERS && msg) {
-      callback_->onHeadersComplete(curHeader_.stream, std::move(msg));
+      callback_->onHeadersComplete(headersCompleteStream, std::move(msg));
     }
     return handleEndStream();
   }
