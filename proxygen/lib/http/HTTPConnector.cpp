@@ -32,7 +32,8 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
   if (spdyVersion) {
     return folly::make_unique<SPDYCodec>(TransportDirection::UPSTREAM,
                                          *spdyVersion);
-  } else if (chosenProto == proxygen::http2::kProtocolString) {
+  } else if (chosenProto == proxygen::http2::kProtocolString ||
+             chosenProto == proxygen::http2::kProtocolDraftString) {
     return folly::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
   } else {
     if (!chosenProto.empty() &&

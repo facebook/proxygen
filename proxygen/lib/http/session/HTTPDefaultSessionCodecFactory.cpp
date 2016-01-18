@@ -43,7 +43,8 @@ std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
   } else if (auto version = SPDYCodec::getVersion(nextProtocol)) {
     return folly::make_unique<SPDYCodec>(direction, *version,
                                          accConfig_.spdyCompressionLevel);
-  } else if (nextProtocol == http2::kProtocolString || nextProtocol == "h2") {
+  } else if (nextProtocol == http2::kProtocolString ||
+             nextProtocol == http2::kProtocolDraftString) {
     return folly::make_unique<HTTP2Codec>(direction);
   } else {
     VLOG(2) << "Client requested unrecognized next protocol " << nextProtocol;
