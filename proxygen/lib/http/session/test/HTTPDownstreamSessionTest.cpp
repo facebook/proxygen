@@ -213,6 +213,10 @@ class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
     HTTPDownstreamTest<HTTP2CodecPair>::SetUp();
     HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
   }
+
+  void TearDown() override {
+    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
+  }
 };
 }
 
