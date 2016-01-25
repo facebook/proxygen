@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/ChromeUtils.h>
 #include <proxygen/lib/utils/Logging.h>
 
 #include <gtest/gtest.h>
@@ -1133,13 +1134,17 @@ const string agent1("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
                     "Chrome/42.0.2311.11 Safari/537.36");
 const string agent2("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/43.0.2311.11 Safari/537.36");;
-const string agent3("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5) "
+                    "Chrome/43.0.2311.11 Safari/537.36");
+const string agent3("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/45.0.2311.11 Safari/537.36");;
+                    "Chrome/42.0.2311.135 Safari/537.36 Edge/12.10240");
 
 // Chrome < 43 can generate malformed CONTINUATION frames
 TEST_P(ChromeHTTP2Test, ChromeContinuation) {
+  EXPECT_EQ(getChromeVersion(agent1), 42);
+  EXPECT_EQ(getChromeVersion(agent2), 43);
+  EXPECT_EQ(getChromeVersion(agent3), -1);
+
   HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
   HTTPMessage req = getGetRequest();
   string agent = GetParam();
