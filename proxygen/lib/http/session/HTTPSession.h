@@ -275,6 +275,12 @@ class HTTPSession:
   void setMaxConcurrentIncomingStreams(uint32_t num);
 
   /**
+   * Set the maximum number of bytes allowed to be egressed in the session
+   * before cutting it off
+   */
+  void setEgressBytesLimit(uint64_t bytesLimit);
+
+  /**
    * Get/Set the number of egress bytes this session will buffer before
    * pausing all transactions' egress.
    */
@@ -927,6 +933,11 @@ class HTTPSession:
    * Container to hold the results of HTTP2PriorityQueue::nextEgress
    */
   HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
+
+  /**
+   * Max number of bytes to egress per session
+   */
+  uint64_t egressBytesLimit_{0};
 
   // Flow control settings
   size_t initialReceiveWindow_{0};

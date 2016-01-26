@@ -269,6 +269,11 @@ void HTTPSession::setMaxConcurrentIncomingStreams(uint32_t num) {
   }
 }
 
+void HTTPSession::setEgressBytesLimit(uint64_t bytesLimit) {
+  CHECK(!started_);
+  egressBytesLimit_ = bytesLimit;
+}
+
 void
 HTTPSession::readTimeoutExpired() noexcept {
   VLOG(3) << "session-level timeout on " << *this;
@@ -2109,6 +2114,13 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
     }
   }
   onWriteCompleted();
+
+  if (egressBytesLimit_ > 0 && bytesWritten_ >= egressBytesLimit_) {
+    VLOG(4) << "Egress limit reached, shutting down "
+      "session (egressed " << bytesWritten_ << ", limit set to "
+      << egressBytesLimit_ << ")";
+    shutdownTransport(true, true);
+  }
 }
 
 void
