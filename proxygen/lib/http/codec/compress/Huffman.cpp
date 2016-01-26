@@ -76,8 +76,8 @@ bool HuffTree::decode(const uint8_t* buf, uint32_t size, string& literal)
  */
 void HuffTree::insert(uint32_t code, uint8_t bits, uint8_t ch) {
   SuperHuffNode* snode = &table_[0];
-  uint32_t mask = 0xFF << (bits - 8);
   while (bits > 8) {
+    uint32_t mask = 0xFF << (bits - 8);
     uint32_t x = (code & mask) >> (bits - 8);
     // mark this node as branch
     if (snode->index[x].isLeaf()) {
@@ -89,7 +89,6 @@ void HuffTree::insert(uint32_t code, uint8_t bits, uint8_t ch) {
     snode = &table_[snode->index[x].data.superNodeIndex];
     bits -= 8;
     code = code & ~mask;
-    mask = mask >> 8;
   }
   // fill the node with all the suffixes
   fillIndex(*snode, code, bits, ch, bits);
