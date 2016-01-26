@@ -70,6 +70,11 @@ void HTTPCodecPrinter::onHeadersComplete(
     std::unique_ptr<HTTPMessage> msg) {
   std::cout << "HEADERS: stream_id=" << stream
             << ", numHeaders=" << msg->getHeaders().size() << std::endl;
+  if (msg->isRequest()) {
+    std::cout << "URL=" << msg->getURL() << std::endl;
+  } else {
+    std::cout << "Status=" << msg->getStatusCode() << std::endl;
+  }
   msg->getHeaders().forEach([&] (
         const std::string& header,
         const std::string& val) {
@@ -99,7 +104,7 @@ void HTTPCodecPrinter::onWindowUpdate(StreamID stream, uint32_t amount) {
 void HTTPCodecPrinter::onSettings(const SettingsList& settings) {
   std::cout << "SETTINGS: num=" << settings.size() << std::endl;
   for (const auto& setting: settings) {
-    std::cout << "\tid=" << folly::to<uint8_t>(setting.id)
+    std::cout << "\tid=" << folly::to<uint16_t>(setting.id)
               << ", value=" << setting.value << std::endl;
   }
   callback_->onSettings(settings);
