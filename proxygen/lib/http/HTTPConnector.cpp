@@ -109,6 +109,7 @@ void HTTPConnector::connectSSL(
     sslSock->setSSLSession(session, true /* take ownership */);
   }
   sslSock->setServerName(serverName);
+  sslSock->forceCacheAddrOnFailure(true);
   socket_.reset(sslSock);
   connectStart_ = getCurrentTime();
   socket_->connect(this, connectAddr, timeoutMs.count(),
