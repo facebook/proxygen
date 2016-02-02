@@ -20,7 +20,7 @@
 namespace proxygen {
 
 /**
- * Simple structure to track timming of event in request flow then we can
+ * Simple structure to track timing of event in request flow then we can
  * report back to the application.
  */
 class TraceEvent {
@@ -106,7 +106,7 @@ class TraceEvent {
   explicit TraceEvent(TraceEventType type, uint32_t parentID = 0);
 
   /**
-   * Sets the end time to the current time according to the TimeUtil.
+   * Sets the start time to the current time according to the TimeUtil.
    */
   void start(const TimeUtil& tm);
 
