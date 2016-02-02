@@ -209,6 +209,7 @@ public:
     DATA_FRAME_DATA = 4,
   };
   FrameState frameState_:3;
+  std::string userAgent_;
 
   size_t pendingDataFrameBytes_{0};
   size_t pendingDataFramePaddingBytes_{0};

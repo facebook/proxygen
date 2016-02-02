@@ -176,6 +176,9 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
   if (mustQueueIngress()) {
     // register the bytes in the receive window
     if (!recvWindow_.reserve(len + padding, useFlowControl_)) {
+      LOG(ERROR) << *this << "recvWindow_.reserve failed with len=" << len <<
+        " padding=" << padding << " capacity=" << recvWindow_.getCapacity() <<
+        " outstanding=" << recvWindow_.getOutstanding();
       sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
     } else {
       CHECK(recvWindow_.free(padding));
@@ -539,6 +542,9 @@ void HTTPTransaction::onIngressWindowUpdate(const uint32_t amount) {
   if (sendWindow_.free(amount)) {
     notifyTransportPendingEgress();
   } else {
+    LOG(ERROR) << *this << "sendWindow_.free failed with amount=" << amount <<
+      " capacity=" << sendWindow_.getCapacity() <<
+      " outstanding=" << sendWindow_.getOutstanding();
     sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
   }
 }
@@ -551,6 +557,9 @@ void HTTPTransaction::onIngressSetSendWindow(const uint32_t newWindowSize) {
   if (sendWindow_.setCapacity(newWindowSize)) {
     notifyTransportPendingEgress();
   } else {
+    LOG(ERROR) << *this << "sendWindow_.setCapacity failed with newWindowSize="
+               << newWindowSize << " capacity=" << sendWindow_.getCapacity()
+               << " outstanding=" << sendWindow_.getOutstanding();
     sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
   }
 }

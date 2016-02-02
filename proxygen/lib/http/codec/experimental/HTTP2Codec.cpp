@@ -556,7 +556,9 @@ void HTTP2Codec::onHeader(const std::string& name,
           nameSp, " value=", valueSp);
       return;
     }
-    if (!needsChromeWorkaround_ && nameSp == "user-agent") {
+    if (!needsChromeWorkaround_ && nameSp == "user-agent" &&
+        userAgent_.empty()) {
+      userAgent_ = valueSp.str();
       int8_t version = getChromeVersion(valueSp);
       if (version > 0) {
         if (version < 43) {
@@ -638,6 +640,11 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
       statusCode = ErrorCode::NO_ERROR;
       expectedChromeResets_.erase(it);
     }
+  }
+  if (statusCode == ErrorCode::PROTOCOL_ERROR) {
+    VLOG(2) << "RST_STREAM stream=" << curHeader_.stream << " code="
+            << getErrorCodeString(statusCode) << " user-agent="
+            << userAgent_;
   }
   if (callback_) {
     callback_->onAbort(curHeader_.stream, statusCode);
@@ -766,6 +773,13 @@ ErrorCode HTTP2Codec::parseGoaway(Cursor& cursor) {
 
   auto err = http2::parseGoaway(cursor, curHeader_, lastGoodStream, statusCode,
                                 debugData);
+  if (statusCode != ErrorCode::NO_ERROR) {
+    VLOG(2) << "Goaway error lastStream=" << lastGoodStream <<
+      " statusCode=" << getErrorCodeString(statusCode) <<
+      " user-agent=" << userAgent_ <<  " debugData=" <<
+      ((debugData) ? string((char*)debugData->data(), debugData->length()):
+       empty_string);
+  }
   RETURN_IF_ERROR(err);
   if (lastGoodStream < ingressGoawayAck_) {
     ingressGoawayAck_ = lastGoodStream;
@@ -1010,6 +1024,11 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
     pendingEndStreamHandling_ = false;
   }
 
+  if (statusCode == ErrorCode::PROTOCOL_ERROR) {
+    VLOG(2) << "sending RST_STREAM for stream=" << stream
+            << " with code=" << getErrorCodeString(statusCode)
+            << " user-agent=" << userAgent_;
+  }
   auto code = http2::errorCodeToReset(statusCode);
   return http2::writeRstStream(writeBuf, stream, code);
 }
@@ -1047,6 +1066,11 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
 
   VLOG(4) << "Sending GOAWAY with last acknowledged stream="
           << lastStream << " with code=" << getErrorCodeString(statusCode);
+  if (statusCode == ErrorCode::PROTOCOL_ERROR) {
+    VLOG(2) << "sending GOAWAY with last acknowledged stream=" << lastStream
+            << " with code=" << getErrorCodeString(statusCode)
+            << " user-agent=" << userAgent_;
+  }
 
   auto code = http2::errorCodeToGoaway(statusCode);
   return http2::writeGoaway(writeBuf, lastStream, code, nullptr);
