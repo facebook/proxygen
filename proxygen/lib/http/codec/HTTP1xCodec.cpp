@@ -649,7 +649,9 @@ HTTP1xCodec::onMessageBegin() {
       !is1xxResponse_) {
     ++ingressTxnID_;
   }
-  is1xxResponse_ = false;
+  if (transportDirection_ == TransportDirection::UPSTREAM) {
+    is1xxResponse_ = false;
+  }
   callback_->onMessageBegin(ingressTxnID_, msg_.get());
   return 0;
 }

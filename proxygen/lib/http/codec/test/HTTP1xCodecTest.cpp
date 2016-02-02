@@ -11,9 +11,11 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 
 using namespace proxygen;
 using namespace std;
+using namespace testing;
 
 class HTTP1xCodecCallback : public HTTPCodec::Callback {
  public:
@@ -193,4 +195,51 @@ TEST(HTTP1xCodecTest, TestChunkedUpstream) {
 
   auto eomFromBuf = buf.split(buf.chainLength());
   ASSERT_EQ("5\r\nWorld\r\n0\r\n\r\n", eomFromBuf->moveToFbString());
+}
+
+TEST(HTTP1xCodecTest, TestBadPost100) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+
+  InSequence enforceOrder;
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onHeadersComplete(1, _))
+    .WillOnce(InvokeWithoutArgs([&] {
+          HTTPMessage cont;
+          cont.setStatusCode(100);
+          cont.setStatusMessage("Continue");
+          codec.generateHeader(writeBuf, 1, cont);
+        }));
+
+  EXPECT_CALL(callbacks, onBody(1, _, _));
+  EXPECT_CALL(callbacks, onMessageComplete(1, _));
+  EXPECT_CALL(callbacks, onMessageBegin(2, _))
+    .WillOnce(InvokeWithoutArgs([&] {
+          // simulate HTTPSession's aversion to pipelining
+          codec.setParserPaused(true);
+
+          // Trigger the response to the POST
+          HTTPMessage resp;
+          resp.setStatusCode(200);
+          resp.setStatusMessage("OK");
+          codec.generateHeader(writeBuf, 1, resp);
+          codec.generateEOM(writeBuf, 1);
+          codec.setParserPaused(false);
+        }));
+  EXPECT_CALL(callbacks, onError(2, _, _))
+    .WillOnce(InvokeWithoutArgs([&] {
+          HTTPMessage resp;
+          resp.setStatusCode(400);
+          resp.setStatusMessage("Bad");
+          codec.generateHeader(writeBuf, 2, resp);
+          codec.generateEOM(writeBuf, 2);
+        }));
+  // Generate a POST request with a bad content-length
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
+      "Expect: 100-Continue\r\nContent-Length: 5\r\n\r\nabcdefghij");
+  codec.onIngress(*reqBuf);
+
 }
