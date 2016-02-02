@@ -31,6 +31,12 @@ HTTP2PriorityQueue::Node::Node(HTTP2PriorityQueue& queue,
       txn_(txn) {
 }
 
+HTTP2PriorityQueue::Node::~Node() {
+  if (!txn_) {
+    queue_.numVirtualNodes_--;
+  }
+}
+
 // Add a new node as a child of this node
 HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::Node::emplaceNode(
@@ -372,6 +378,12 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   CHECK_NE(id, 0);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
   CHECK(!txn || !permanent);
+  if (!txn) {
+    if (numVirtualNodes_ >= maxVirtualNodes_) {
+      return nullptr;
+    }
+    numVirtualNodes_++;
+  }
 
   Node* parent = &root_;
   if (depth) {
@@ -436,8 +448,9 @@ HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
   if (node->isEnqueued()) {
     clearPendingEgress(handle);
   }
-  if (allowDanglingNodes()) {
+  if (allowDanglingNodes() && numVirtualNodes_ < maxVirtualNodes_) {
     node->clearTransaction();
+    numVirtualNodes_++;
     scheduleNodeExpiration(node);
   } else {
     node->removeFromTree();

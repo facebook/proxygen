@@ -37,6 +37,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     root_.setPermanent();
   }
 
+  void setMaxVirtualNodes(uint32_t maxVirtualNodes) {
+    maxVirtualNodes_ = maxVirtualNodes;
+  }
+
   // Notify the queue when a transaction has egress
   void signalPendingEgress(Handle h);
 
@@ -125,6 +129,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
    public:
     Node(HTTP2PriorityQueue& queue, Node* inParent, HTTPCodec::StreamID id,
          uint8_t weight, HTTPTransaction *txn);
+
+    ~Node();
 
     void setPermanent() {
       isPermanent_ = true;
@@ -281,6 +287,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   Node root_{*this, nullptr, 0, 1, nullptr};
   uint64_t activeCount_{0};
+  uint32_t maxVirtualNodes_{200};
+  uint32_t numVirtualNodes_{0};
   bool pendingWeightChange_{false};
   folly::HHWheelTimer* timer_{nullptr};
   static std::chrono::milliseconds kNodeLifetime_;

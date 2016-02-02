@@ -634,4 +634,18 @@ TEST_F(DanglingQueueTest, refresh) {
   EXPECT_EQ(nodes_, IDList({{3, 100}}));
 }
 
+TEST_F(DanglingQueueTest, max) {
+  buildSimpleTree();
+  q_.setMaxVirtualNodes(3);
+  for (auto i = 1; i <= 9; i += 2) {
+    removeTransaction(i);
+  }
+
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 50}, {5, 50}}));
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList());
+}
+
 }
