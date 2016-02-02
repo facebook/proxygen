@@ -12,6 +12,7 @@
 #include <list>
 #include <map>
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
+#include <folly/io/async/test/UndelayedDestruction.h>
 
 using namespace std::placeholders;
 using folly::Random;
@@ -44,18 +45,23 @@ typedef std::list<std::pair<HTTPCodec::StreamID, uint8_t>> IDList;
 
 class QueueTest : public testing::Test {
  public:
-  QueueTest() {}
+  explicit QueueTest(folly::HHWheelTimer* timer=nullptr)
+      : q_(timer) {
+  }
 
  protected:
-  void addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri) {
-    HTTP2PriorityQueue::Handle h = q_.addTransaction(id, pri, makeFakeTxn(id));
+  void addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
+                     bool pnode=false) {
+    HTTP2PriorityQueue::Handle h =
+      q_.addTransaction(id, pri, pnode ? nullptr : makeFakeTxn(id), false);
     handles_.insert(std::make_pair(id, h));
-    signalEgress(id, 1);
+    if (!pnode) {
+      signalEgress(id, 1);
+    }
   }
 
   void removeTransaction(HTTPCodec::StreamID id) {
     q_.removeTransaction(handles_[id]);
-    handles_.erase(id);
   }
 
   void updatePriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri) {
@@ -548,5 +554,84 @@ TEST_F(QueueTest, ChromeTest) {
   }
 }
 
+class DanglingQueueTest : public QueueTest {
+ public:
+  DanglingQueueTest() :
+      QueueTest(&timer_) {
+    HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(30));
+    timer_.setCatchupEveryN(1);
+  }
+
+  void expireNodes() {
+    eventBase_.runAfterDelay([&] {
+        eventBase_.terminateLoopSoon();
+      }, 45);
+    eventBase_.loop();
+  }
+
+ protected:
+
+  folly::EventBase eventBase_;
+  folly::UndelayedDestruction<folly::HHWheelTimer> timer_{&eventBase_};
+};
+
+TEST_F(DanglingQueueTest, basic) {
+  addTransaction(1, {0, false, 15});
+  removeTransaction(1);
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 100}}));
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({}));
+}
+
+TEST_F(DanglingQueueTest, chain) {
+  addTransaction(1, {0, false, 15}, true);
+  addTransaction(3, {1, false, 15}, true);
+  addTransaction(5, {3, false, 15}, true);
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 100}, {5, 100}}));
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 100}}));
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 100}}));
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({}));
+}
+
+TEST_F(DanglingQueueTest, drop) {
+  addTransaction(1, {0, false, 15}, true);
+  addTransaction(3, {0, false, 15}, true);
+  addTransaction(5, {1, false, 15}, true);
+  dump();
+  q_.dropPriorityNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({}));
+}
+
+TEST_F(DanglingQueueTest, refresh) {
+  addTransaction(1, {0, false, 15});
+  addTransaction(3, {0, false, 15});
+  // 1 is now virtual
+  removeTransaction(1);
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 50}}));
+  // before 1 times out, change it's priority, should still be there
+  eventBase_.runAfterDelay([&] {
+      updatePriority(1, {0, false, 3});
+      dump();
+      EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
+    }, 20);
+
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({{3, 100}}));
+}
 
 }

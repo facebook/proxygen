@@ -17,12 +17,15 @@ namespace proxygen {
 
 folly::ThreadLocalPtr<HTTP2PriorityQueue::NextEgressResult>
 HTTP2PriorityQueue::nextEgressResults_;
+std::chrono::milliseconds HTTP2PriorityQueue::kNodeLifetime_ =
+  std::chrono::seconds(60);
 
-
-HTTP2PriorityQueue::Node::Node(HTTP2PriorityQueue::Node* inParent,
+HTTP2PriorityQueue::Node::Node(HTTP2PriorityQueue& queue,
+                               HTTP2PriorityQueue::Node* inParent,
                                HTTPCodec::StreamID id,
                                uint8_t weight, HTTPTransaction *txn)
-    : parent_(inParent),
+    : queue_(queue),
+      parent_(inParent),
       id_(id),
       weight_(weight + 1),
       txn_(txn) {
@@ -83,6 +86,7 @@ HTTP2PriorityQueue::Node::addChild(
   totalChildWeight_ += child->weight_;
   Node* raw = child.get();
   raw->self_ = children_.insert(children_.end(), std::move(child));
+  cancelTimeout();
   return raw;
 }
 
@@ -94,6 +98,9 @@ HTTP2PriorityQueue::Node::detachChild(Node* node) {
   auto res = std::move(*node->self_);
   children_.erase(it);
   node->parent_ = nullptr;
+  if (children_.empty() && !txn_ && !isPermanent_) {
+    queue_.scheduleNodeExpiration(this);
+  }
   return res;
 }
 
@@ -126,7 +133,7 @@ HTTP2PriorityQueue::Node::reparent(HTTP2PriorityQueue::Node* newParent,
 
 // Returns true if this is a descendant of node
 bool
-HTTP2PriorityQueue::Node::isDescendantOf(HTTP2PriorityQueue::Node *node) {
+HTTP2PriorityQueue::Node::isDescendantOf(HTTP2PriorityQueue::Node *node) const {
   Node* cur = parent_;
   while (cur) {
     if (cur->id_ == node->id_) {
@@ -209,6 +216,7 @@ HTTP2PriorityQueue::Node::updateWeight(uint8_t weight) {
   if (isEnqueued()) {
     parent_->totalEnqueuedWeight_ += delta;
   }
+  refreshTimeout();
 }
 
 // Removes the node from the tree
@@ -342,15 +350,28 @@ HTTP2PriorityQueue::Node::updateEnqueuedWeight(bool activeNodes) {
 }
 #endif
 
+void
+HTTP2PriorityQueue::Node::dropPriorityNodes() {
+  for (auto it = children_.begin(); it != children_.end(); ) {
+    auto& child = *it++;
+    child->dropPriorityNodes();
+  }
+  if (!txn_ && !isPermanent_) {
+    removeFromTree();
+  }
+}
+
 /// class HTTP2PriorityQueue
 
 HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
                                    http2::PriorityUpdate pri,
                                    HTTPTransaction *txn,
+                                   bool permanent,
                                    uint64_t* depth) {
   CHECK_NE(id, 0);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
+  CHECK(!txn || !permanent);
 
   Node* parent = &root_;
   if (depth) {
@@ -365,7 +386,14 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
       parent = dep;
     }
   }
-  auto node = folly::make_unique<Node>(parent, id, pri.weight, txn);
+  VLOG(4) << "Adding id=" << id << " with parent=" << parent->getID() <<
+    " and weight=" << ((uint16_t)pri.weight + 1);
+  auto node = folly::make_unique<Node>(*this, parent, id, pri.weight, txn);
+  if (permanent) {
+    node->setPermanent();
+  } else if (!txn) {
+    scheduleNodeExpiration(node.get());
+  }
   auto result = parent->emplaceNode(std::move(node), pri.exclusive);
   pendingWeightChange_ = true;
   return result;
@@ -376,6 +404,8 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
                                    http2::PriorityUpdate pri) {
   Node* node = handle;
   pendingWeightChange_ = true;
+  VLOG(4) << "Updating id=" << node->getID() << " with parent=" <<
+    pri.streamDependency << " and weight=" << ((uint16_t)pri.weight + 1);
   node->updateWeight(pri.weight);
   CHECK_NE(pri.streamDependency, node->getID()) <<
     "Tried to create a loop in the tree";;
@@ -387,6 +417,9 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
   Node* newParent = find(pri.streamDependency);
   if (!newParent) {
     newParent = &root_;
+    VLOG(4) << "updatePriority missing parent, assigning root for txn="
+            << node->getID();
+
   }
 
   if (newParent->isDescendantOf(node)) {
@@ -403,7 +436,12 @@ HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
   if (node->isEnqueued()) {
     clearPendingEgress(handle);
   }
-  node->removeFromTree();
+  if (allowDanglingNodes()) {
+    node->clearTransaction();
+    scheduleNodeExpiration(node);
+  } else {
+    node->removeFromTree();
+  }
 }
 
 void

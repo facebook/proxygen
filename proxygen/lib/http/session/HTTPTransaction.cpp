@@ -97,7 +97,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     stats_->recordTransactionOpened();
   }
 
-  queueHandle_ = egressQueue_.addTransaction(id_, priority, this,
+  queueHandle_ = egressQueue_.addTransaction(id_, priority, this, false,
                                              &insertDepth_);
 }
 

@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
 #include <folly/ThreadLocal.h>
 #include <folly/IntrusiveList.h>
+#include <folly/io/async/HHWheelTimer.h>
 
 #include <list>
 #include <deque>
@@ -31,7 +32,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   typedef Node* Handle;
 
  public:
-  HTTP2PriorityQueue() {}
+  explicit HTTP2PriorityQueue(folly::HHWheelTimer* timer = nullptr)
+      : timer_(timer) {
+    root_.setPermanent();
+  }
 
   // Notify the queue when a transaction has egress
   void signalPendingEgress(Handle h);
@@ -41,12 +45,17 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   void addPriorityNode(HTTPCodec::StreamID id,
                        HTTPCodec::StreamID parent) override{
-    addTransaction(id, {parent, false, 0}, nullptr);
+    addTransaction(id, {parent, false, 0}, nullptr, true);
+  }
+
+  void dropPriorityNodes() {
+    root_.dropPriorityNodes();
   }
 
   // adds new transaction (possibly nullptr) to the priority tree
   Handle addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
-                        HTTPTransaction *txn, uint64_t* depth = nullptr);
+                        HTTPTransaction *txn, bool permanent = false,
+                        uint64_t* depth = nullptr);
 
   // update the priority of an existing node
   Handle updatePriority(Handle handle, http2::PriorityUpdate pri);
@@ -80,6 +89,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   void nextEgress(NextEgressResult& result);
 
+  static void setNodeLifetime(std::chrono::milliseconds lifetime) {
+    kNodeLifetime_ = lifetime;
+  }
+
  private:
   // Find the node in priority tree
   Handle find(HTTPCodec::StreamID id, uint64_t* depth = nullptr);
@@ -91,17 +104,31 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     return root_.findInTree(id, nullptr);
   }
 
+  bool allowDanglingNodes() const {
+    return timer_ && kNodeLifetime_.count() > 0;
+  }
+
+  void scheduleNodeExpiration(Node *node) {
+    if (timer_) {
+      DCHECK_GT(kNodeLifetime_.count(), 0);
+      timer_->scheduleTimeout(node, kNodeLifetime_);
+    }
+  }
+
   static bool nextEgressResult(HTTPCodec::StreamID id, HTTPTransaction* txn,
                                double r);
 
   void updateEnqueuedWeight();
 
  private:
-
-  class Node {
+  class Node : public folly::HHWheelTimer::Callback {
    public:
-    Node(Node* inParent, HTTPCodec::StreamID id,
+    Node(HTTP2PriorityQueue& queue, Node* inParent, HTTPCodec::StreamID id,
          uint8_t weight, HTTPTransaction *txn);
+
+    void setPermanent() {
+      isPermanent_ = true;
+    }
 
     Node* getParent() const {
       return parent_;
@@ -122,6 +149,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
       return txn_;
     }
 
+    void clearTransaction() {
+      txn_ = nullptr;
+    }
+
     // Add a new node as a child of this node
     Handle emplaceNode(std::unique_ptr<Node> node, bool exclusive);
 
@@ -138,7 +169,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     Handle reparent(Node* newParent, bool exclusive);
 
     // Returns true if this is a descendant of node
-    bool isDescendantOf(Node *node);
+    bool isDescendantOf(Node *node) const;
 
     // True if this Node is in the egress queue
     bool isEnqueued() const {
@@ -202,6 +233,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     void updateEnqueuedWeight(bool activeNodes);
 
+    void dropPriorityNodes();
+
    private:
     Handle addChild(std::unique_ptr<Node> child);
 
@@ -217,11 +250,23 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     static void propagatePendingEgressClear(Node* node);
 
-   private:
+    void timeoutExpired() noexcept override {
+      CHECK(txn_ == nullptr);
+      removeFromTree();
+    }
+
+    void refreshTimeout() {
+      if (!txn_ && !isPermanent_ && isScheduled()) {
+        queue_.scheduleNodeExpiration(this);
+      }
+    }
+
+    HTTP2PriorityQueue& queue_;
     Node *parent_{nullptr};
     HTTPCodec::StreamID id_{0};
     uint16_t weight_{16};
     HTTPTransaction *txn_{nullptr};
+    bool isPermanent_{false};
     bool enqueued_{false};
 #ifndef NDEBUG
     uint64_t totalEnqueuedWeightCheck_{0};
@@ -234,9 +279,11 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     folly::IntrusiveList<Node, &Node::enqueuedHook_> enqueuedChildren_;
   };
 
-  Node root_{nullptr, 0, 1, nullptr};
+  Node root_{*this, nullptr, 0, 1, nullptr};
   uint64_t activeCount_{0};
   bool pendingWeightChange_{false};
+  folly::HHWheelTimer* timer_{nullptr};
+  static std::chrono::milliseconds kNodeLifetime_;
   static folly::ThreadLocalPtr<NextEgressResult> nextEgressResults_;
 };
 
