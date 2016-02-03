@@ -8,11 +8,11 @@
  *
  */
 #include <folly/io/async/EventBase.h>
+#include <folly/io/async/test/MockTimeoutManager.h>
 #include <folly/io/async/test/UndelayedDestruction.h>
 #include <folly/io/async/test/Util.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
-#include <proxygen/lib/utils/test/MockTimeoutManager.h>
 #include <boost/container/flat_map.hpp>
 #include <vector>
 
@@ -20,6 +20,7 @@
 using namespace proxygen;
 using namespace testing;
 using folly::AsyncTimeout;
+using folly::test::MockTimeoutManager;
 using std::chrono::milliseconds;
 
 typedef folly::UndelayedDestruction<AsyncTimeoutSet> StackTimeoutSet;
