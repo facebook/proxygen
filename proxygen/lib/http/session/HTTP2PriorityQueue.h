@@ -114,6 +114,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   void scheduleNodeExpiration(Node *node) {
     if (timer_) {
+      VLOG(5) << "scheduling expiration for node=" << node->getID();
       DCHECK_GT(kNodeLifetime_.count(), 0);
       timer_->scheduleTimeout(node, kNodeLifetime_);
     }
@@ -257,6 +258,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     static void propagatePendingEgressClear(Node* node);
 
     void timeoutExpired() noexcept override {
+      VLOG(5) << "Node=" << id_ << " expired";
       CHECK(txn_ == nullptr);
       removeFromTree();
     }

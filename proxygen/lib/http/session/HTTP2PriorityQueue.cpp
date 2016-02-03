@@ -453,6 +453,7 @@ HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
     numVirtualNodes_++;
     scheduleNodeExpiration(node);
   } else {
+    VLOG(5) << "Deleting dangling node over max id=" << handle->getID();
     node->removeFromTree();
   }
 }

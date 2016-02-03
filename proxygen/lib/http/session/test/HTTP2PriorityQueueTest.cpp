@@ -12,10 +12,14 @@
 #include <list>
 #include <map>
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
+#include <folly/io/async/test/MockTimeoutManager.h>
 #include <folly/io/async/test/UndelayedDestruction.h>
 
 using namespace std::placeholders;
+using namespace testing;
 using folly::Random;
+using folly::HHWheelTimer;
+using folly::test::MockTimeoutManager;
 
 namespace {
 static char* fakeTxn = (char*)0xface0000;
@@ -45,7 +49,7 @@ typedef std::list<std::pair<HTTPCodec::StreamID, uint8_t>> IDList;
 
 class QueueTest : public testing::Test {
  public:
-  explicit QueueTest(folly::HHWheelTimer* timer=nullptr)
+  explicit QueueTest(HHWheelTimer* timer=nullptr)
       : q_(timer) {
   }
 
@@ -558,21 +562,36 @@ class DanglingQueueTest : public QueueTest {
  public:
   DanglingQueueTest() :
       QueueTest(&timer_) {
-    HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(30));
-    timer_.setCatchupEveryN(1);
+    // Just under two ticks
+    HTTP2PriorityQueue::setNodeLifetime(
+      std::chrono::milliseconds(2 * HHWheelTimer::DEFAULT_TICK_INTERVAL - 1));
+    EXPECT_CALL(timeoutManager_, scheduleTimeout(_, _))
+      .WillRepeatedly(Invoke([this] (folly::AsyncTimeout* timeout,
+                                     std::chrono::milliseconds) {
+                               timeouts_.push_back(timeout);
+                               return true;
+                             }));
   }
 
   void expireNodes() {
-    eventBase_.runAfterDelay([&] {
-        eventBase_.terminateLoopSoon();
-      }, 45);
-    eventBase_.loop();
+    // Node lifetime it just under two ticks, so firing twice expires all nodes
+    tick();
+    tick();
+  }
+
+  void tick() {
+    std::list<folly::AsyncTimeout*> timeouts;
+    std::swap(timeouts_, timeouts);
+    for (auto timeout: timeouts) {
+      timeout->timeoutExpired();
+    }
   }
 
  protected:
 
-  folly::EventBase eventBase_;
-  folly::UndelayedDestruction<folly::HHWheelTimer> timer_{&eventBase_};
+  testing::NiceMock<MockTimeoutManager> timeoutManager_;
+  folly::UndelayedDestruction<HHWheelTimer> timer_{&timeoutManager_};
+  std::list<folly::AsyncTimeout*> timeouts_;
 };
 
 TEST_F(DanglingQueueTest, basic) {
@@ -612,21 +631,29 @@ TEST_F(DanglingQueueTest, drop) {
   EXPECT_EQ(nodes_, IDList({}));
 }
 
+class DummyTimeout: public HHWheelTimer::Callback {
+  void timeoutExpired() noexcept override {
+  }
+};
+
 TEST_F(DanglingQueueTest, refresh) {
+  // Having a long running timeout prevents HHWheelTimer::Callback::setScheduled
+  // from checking the real time
+  DummyTimeout t;
+  timer_.scheduleTimeout(&t, std::chrono::seconds(300));
   addTransaction(1, {0, false, 15});
   addTransaction(3, {0, false, 15});
   // 1 is now virtual
   removeTransaction(1);
   dump();
   EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 50}}));
+  tick();
   // before 1 times out, change it's priority, should still be there
-  eventBase_.runAfterDelay([&] {
-      updatePriority(1, {0, false, 3});
-      dump();
-      EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
-    }, 20);
+  updatePriority(1, {0, false, 3});
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
 
-  expireNodes();
+  tick();
   dump();
   EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
   expireNodes();
@@ -640,9 +667,12 @@ TEST_F(DanglingQueueTest, max) {
   for (auto i = 1; i <= 9; i += 2) {
     removeTransaction(i);
   }
-
   dump();
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 50}, {5, 50}}));
+  // 1 expires first and it re-weights 3 and 5, which extends their lifetime
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
   expireNodes();
   dump();
   EXPECT_EQ(nodes_, IDList());
