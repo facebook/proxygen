@@ -12,7 +12,7 @@ fi
 
 # gen_HTTPCommonHeaders.cpp.sh contains a substantially similar pipeline and
 # awk script -- see comments there.
-cat ${HEADERS_LIST?} | sort | uniq \
+cat ${HEADERS_LIST?} | LC_ALL=C sort | uniq \
 | awk '
   NR == FNR {
     n[FNR] = $1;
