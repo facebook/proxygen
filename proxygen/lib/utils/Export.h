@@ -11,19 +11,12 @@
 
 // From https://gcc.gnu.org/wiki/Visibility
 #if defined _WIN32 || defined __CYGWIN__
-  #ifdef BUILDING_DLL
-    #ifdef __GNUC__
-      #define FB_EXPORT __attribute__ ((dllexport))
-    #else
-      #define FB_EXPORT __declspec(dllexport)
-    #endif
-  #else
-    #ifdef __GNUC__
-      #define FB_EXPORT __attribute__ ((dllimport))
-    #else
-      #define FB_EXPORT __declspec(dllimport)
-    #endif
-  #endif
+  // The current uses of this doesn't actually
+  // have any need to be present on Windows,
+  // and building proxygen as a dynamic lib
+  // under Windows is not currently supported.
+  // HHVM builds Proxygen as a static library.
+  #define FB_EXPORT
   #define FB_LOCAL
 #else
   #if __GNUC__ >= 4
