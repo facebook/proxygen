@@ -10,13 +10,14 @@
 #include <proxygen/lib/services/WorkerThread.h>
 
 #include <folly/String.h>
+#include <folly/Portability.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <glog/logging.h>
 #include <signal.h>
 
 namespace proxygen {
 
-__thread WorkerThread* WorkerThread::currentWorker_ = nullptr;
+FOLLY_TLS WorkerThread* WorkerThread::currentWorker_ = nullptr;
 
 std::atomic_uint WorkerThread::objectCounter_;
 
@@ -92,6 +93,7 @@ void WorkerThread::wait() {
 }
 
 void WorkerThread::setup() {
+#ifndef _MSC_VER
   sigset_t ss;
 
   // Ignore some signals
@@ -107,6 +109,7 @@ void WorkerThread::setup() {
   sigaddset(&ss, SIGCHLD);
   sigaddset(&ss, SIGIO);
   PCHECK(pthread_sigmask(SIG_BLOCK, &ss, nullptr) == 0);
+#endif
 
   // Update the currentWorker_ thread-local pointer
   CHECK(nullptr == currentWorker_);

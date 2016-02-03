@@ -10,6 +10,8 @@
 #include <proxygen/lib/utils/HTTPTime.h>
 
 #include <ctime>
+#include <iomanip>
+#include <sstream>
 #include <glog/logging.h>
 
 namespace proxygen {
@@ -22,17 +24,22 @@ folly::Optional<int64_t> parseHTTPDateTime(const std::string& s) {
   }
 
   // Sun, 06 Nov 1994 08:49:37 GMT  ; RFC 822, updated by RFC 1123
-  if (strptime(s.c_str(), "%a, %d %b %Y %H:%M:%S %Z", &tm) != nullptr) {
+  std::istringstream input(s);
+  if (input >> std::get_time(&tm, "%a, %d %b %Y %H:%M:%S %Z")) {
     return folly::Optional<int64_t>(mktime(&tm));
   }
+  input.clear();
 
   // Sunday, 06-Nov-94 08:49:37 GMT ; RFC 850, obsoleted by RFC 1036
-  if (strptime(s.c_str(), "%a, %d-%b-%y %H:%M:%S %Z", &tm) != nullptr) {
+  input.seekg(0);
+  if (input >> std::get_time(&tm, "%a, %d-%b-%y %H:%M:%S %Z")) {
     return folly::Optional<int64_t>(mktime(&tm));
   }
+  input.clear();
 
   // Sun Nov  6 08:49:37 1994       ; ANSI C's asctime() format
-  if(strptime(s.c_str(), "%a %b %d %H:%M:%S %Y", &tm) != nullptr) {
+  input.seekg(0);
+  if(input >> std::get_time(&tm, "%a %b %d %H:%M:%S %Y")) {
     return folly::Optional<int64_t>(mktime(&tm));
   }
 
