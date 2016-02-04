@@ -10,7 +10,7 @@
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 #include <proxygen/lib/utils/UnionBasedStatic.h>
 
-#include <arpa/inet.h>
+#include <folly/SocketPortability.h>
 
 using folly::IOBuf;
 using std::pair;
