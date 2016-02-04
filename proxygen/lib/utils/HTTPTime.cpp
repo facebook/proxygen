@@ -10,6 +10,7 @@
 #include <proxygen/lib/utils/HTTPTime.h>
 
 #include <ctime>
+#include <folly/CPortability.h>
 #include <glog/logging.h>
 
 namespace proxygen {
