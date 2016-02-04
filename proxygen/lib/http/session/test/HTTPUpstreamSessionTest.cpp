@@ -64,11 +64,9 @@ class HTTPUpstreamTest: public testing::Test,
       cbs_.push_back(callback);
       return;  // let write requests timeout
     }
-    if (saveWrites_) {
-      auto mybuf = iob->clone();
-      mybuf->unshare();
-      writes_.append(std::move(mybuf));
-    }
+    auto mybuf = iob->clone();
+    mybuf->unshare();
+    writes_.append(std::move(mybuf));
     handleWrite(callback);
   }
 
@@ -120,6 +118,15 @@ class HTTPUpstreamTest: public testing::Test,
 
   unique_ptr<typename C::Codec> makeServerCodec() {
     return ::makeServerCodec<typename C::Codec>(C::version);
+  }
+
+  void parseOutput(HTTPCodec& serverCodec) {
+    uint32_t consumed = std::numeric_limits<uint32_t>::max();
+    while (!writes_.empty() && consumed > 0) {
+      consumed = serverCodec.onIngress(*writes_.front());
+      writes_.split(consumed);
+    }
+    EXPECT_TRUE(writes_.empty());
   }
 
   void readAndLoop(const char* input) {
@@ -227,7 +234,6 @@ class HTTPUpstreamTest: public testing::Test,
   HTTPUpstreamSession* httpSession_{nullptr};
   IOBufQueue writes_{IOBufQueue::cacheChainLength()};
   std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
-  bool saveWrites_{false};
   bool failWrites_{false};
   bool pauseWrites_{false};
   bool writeInLoop_{false};
@@ -463,6 +469,50 @@ TEST_F(SPDY3UpstreamSessionTest, test_overlimit_resume) {
 
   httpSession_->shutdownTransportWithReset(kErrorTimeout);
   EXPECT_EQ(this->sessionDestroyed_, true);
+}
+
+TEST_F(HTTP2UpstreamSessionTest, test_priority) {
+  InSequence enforceOrder;
+  // virtual priority node with pri=8
+  auto priGroupID = httpSession_->sendPriority({0, false, 7});
+  auto handler = openTransaction();
+
+  auto req = getGetRequest();
+  // send request with maximal weight
+  req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 255));
+  handler->sendRequest(req);
+  auto id = handler->txn_->getID();
+
+  // update handler to be in the pri-group
+  handler->txn_->updateAndSendPriority(
+    http2::PriorityUpdate{priGroupID, false, 15});
+
+  // Change pri-group weight to max
+  httpSession_->sendPriority(priGroupID, http2::PriorityUpdate{0, false, 255});
+  eventBase_.loop();
+
+  auto serverCodec = makeServerCodec();
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  serverCodec->setCallback(&callbacks);
+  EXPECT_CALL(callbacks, onPriority(priGroupID,
+                                    HTTPMessage::HTTPPriority(0, false, 7)));
+  EXPECT_CALL(callbacks, onHeadersComplete(id, _))
+    .WillOnce(Invoke([&] (HTTPCodec::StreamID,
+                          std::shared_ptr<HTTPMessage> msg) {
+          EXPECT_EQ(*(msg->getHTTP2Priority()),
+                    HTTPMessage::HTTPPriority(0, false, 255));
+        }));
+  EXPECT_CALL(callbacks,
+              onPriority(id, HTTPMessage::HTTPPriority(priGroupID, false, 15)));
+  EXPECT_CALL(callbacks,
+              onPriority(priGroupID, HTTPMessage::HTTPPriority(0, false, 255)));
+  parseOutput(*serverCodec);
+
+  handler->expectError();
+  handler->expectDetachTransaction();
+  httpSession_->shutdownTransportWithReset(kErrorTimeout);
+  eventBase_.loop();
+  EXPECT_EQ(sessionDestroyed_, true);
 }
 
 TYPED_TEST_P(HTTPUpstreamTest, immediate_eof) {
@@ -1106,7 +1156,6 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
   MockHTTPHandler handler;
 
   InSequence enforceOrder;
-  saveWrites_ = true;
 
   handler.expectTransaction();
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))

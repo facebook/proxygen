@@ -368,6 +368,19 @@ HTTP2PriorityQueue::Node::dropPriorityNodes() {
 }
 
 /// class HTTP2PriorityQueue
+void
+HTTP2PriorityQueue::addOrUpdatePriorityNode(HTTPCodec::StreamID id,
+                                            http2::PriorityUpdate pri) {
+  auto handle = find(id);
+  if (handle) {
+    // already added
+    CHECK(handle->getTransaction() == nullptr);
+    updatePriority(handle, pri);
+  } else {
+    // brand new
+    addTransaction(id, pri, nullptr, false /* not permanent */);
+  }
+}
 
 HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,

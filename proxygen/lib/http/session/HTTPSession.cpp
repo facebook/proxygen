@@ -112,6 +112,7 @@ HTTPSession::HTTPSession(
   unique_ptr<HTTPCodec> codec,
   const TransportInfo& tinfo,
   InfoCallback* infoCallback):
+    txnEgressQueue_(transactionTimeouts.get()),
     localAddr_(localAddr),
     peerAddr_(peerAddr),
     sock_(std::move(sock)),
@@ -185,6 +186,7 @@ HTTPSession::~HTTPSession() {
   VLOG(4) << *this << " closing";
 
   CHECK(transactions_.empty());
+  txnEgressQueue_.dropPriorityNodes();
   CHECK(txnEgressQueue_.empty());
   DCHECK(!sock_->getReadCallback());
 
@@ -1043,6 +1045,20 @@ void HTTPSession::onSettings(const SettingsList& settings) {
   }
 }
 
+void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
+                             const HTTPMessage::HTTPPriority& pri) {
+  http2::PriorityUpdate h2Pri{std::get<0>(pri), std::get<1>(pri),
+      std::get<2>(pri)};
+  HTTPTransaction* txn = findTransaction(streamID);
+  if (txn) {
+    // existing txn, change pri
+    txn->onPriorityUpdate(h2Pri);
+  } else {
+    // virtual node
+    txnEgressQueue_.addOrUpdatePriorityNode(streamID, h2Pri);
+  }
+}
+
 void HTTPSession::onSetSendWindow(uint32_t windowSize) {
   VLOG(4) << *this << " got send window size adjustment. new=" << windowSize;
   invokeOnAllTransactions(&HTTPTransaction::onIngressSetSendWindow,
@@ -1138,7 +1154,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
   if (isUpstream() || (txn->isPushed() && headers.isResponse())) {
     // upstream picks priority
     auto pri = getMessagePriority(&headers);
-    txn->updatePriority(pri);
+    txn->onPriorityUpdate(pri);
   }
 
   const bool wasReusable = codec_->isReusable();
@@ -1325,6 +1341,11 @@ size_t HTTPSession::sendAbort(HTTPTransaction* txn,
   // fall back to closing the transport with a TCP level RST
   onEgressMessageFinished(txn, !encodedSize);
   return encodedSize;
+}
+
+size_t HTTPSession::sendPriority(HTTPTransaction* txn,
+                                 const http2::PriorityUpdate& pri) noexcept {
+  return sendPriorityImpl(txn->getID(), pri);
 }
 
 void
@@ -1980,6 +2001,37 @@ bool HTTPSession::shouldShutdown() const {
 
 size_t HTTPSession::sendPing() {
   const size_t bytes = codec_->generatePingRequest(writeBuf_);
+  if (bytes) {
+    scheduleWrite();
+  }
+  return bytes;
+}
+
+HTTPCodec::StreamID HTTPSession::sendPriority(http2::PriorityUpdate pri) {
+  if (!codec_->supportsParallelRequests()) {
+    // For HTTP/1.1, don't call createStream()
+    return 0;
+  }
+  auto id = codec_->createStream();
+  sendPriority(id, pri);
+  return id;
+}
+
+size_t HTTPSession::sendPriority(HTTPCodec::StreamID id,
+                                 http2::PriorityUpdate pri) {
+  auto res = sendPriorityImpl(id, pri);
+  txnEgressQueue_.addOrUpdatePriorityNode(id, pri);
+  return res;
+}
+
+
+size_t HTTPSession::sendPriorityImpl(HTTPCodec::StreamID id,
+                                     http2::PriorityUpdate pri) {
+  CHECK_NE(id, 0);
+  const size_t bytes = codec_->generatePriority(
+    writeBuf_, id, std::make_tuple(pri.streamDependency,
+                                   pri.exclusive,
+                                   pri.weight));
   if (bytes) {
     scheduleWrite();
   }

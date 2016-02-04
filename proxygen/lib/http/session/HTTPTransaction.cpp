@@ -1114,12 +1114,24 @@ operator<<(std::ostream& os, const HTTPTransaction& txn) {
   return os;
 }
 
-void HTTPTransaction::changePriority(int8_t newPriority) {
+void HTTPTransaction::updateAndSendPriority(int8_t newPriority) {
   newPriority = HTTPMessage::normalizePriority(newPriority);
   CHECK_GE(newPriority, 0);
   priority_.streamDependency =
     transport_.getCodec().mapPriorityToDependency(newPriority);
-  egressQueue_.updatePriority(queueHandle_, priority_);
+  queueHandle_ = egressQueue_.updatePriority(queueHandle_, priority_);
+  transport_.sendPriority(this, priority_);
+}
+
+void HTTPTransaction::updateAndSendPriority(
+  const http2::PriorityUpdate& newPriority) {
+  onPriorityUpdate(newPriority);
+  transport_.sendPriority(this, priority_);
+}
+
+void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
+  priority_ = priority;
+  queueHandle_ = egressQueue_.updatePriority(queueHandle_, priority_);
 }
 
 } // proxygen

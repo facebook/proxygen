@@ -558,6 +558,16 @@ TEST_F(QueueTest, ChromeTest) {
   }
 }
 
+TEST_F(QueueTest, addOrUpdate) {
+  q_.addOrUpdatePriorityNode(1, {0, false, 15});
+  q_.addOrUpdatePriorityNode(3, {0, false, 15});
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 50}}));
+  q_.addOrUpdatePriorityNode(1, {0, false, 3});
+  dump();
+  EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
+}
+
 class DanglingQueueTest : public QueueTest {
  public:
   DanglingQueueTest() :

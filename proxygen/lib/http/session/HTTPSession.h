@@ -312,6 +312,19 @@ class HTTPSession:
    */
   size_t sendPing();
 
+  /**
+   * Sends a priority message on this session.  If the underlying protocol
+   * doesn't support priority, this is a no-op.  A new stream identifier will
+   * be selected and returned.
+   */
+  HTTPCodec::StreamID sendPriority(http2::PriorityUpdate pri);
+
+  /**
+   * As above, but updates an existing priority node.  Do not use for
+   * real nodes, prefer HTTPTransaction::changePriority.
+   */
+  size_t sendPriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri);
+
   // ManagedConnection methods
   void timeoutExpired() noexcept override {
       readTimeoutExpired();
@@ -455,6 +468,14 @@ class HTTPSession:
   void drain();
 
   /**
+   * Sends a priority message on this session.  If the underlying protocol
+   * doesn't support priority, this is a no-op.  Returns the number of bytes
+   * written on the transport
+   */
+  size_t sendPriorityImpl(HTTPCodec::StreamID streamID,
+                          http2::PriorityUpdate pri);
+
+  /**
    * Helper class to track write buffers until they have been fully written and
    * can be deleted.
    */
@@ -553,6 +574,8 @@ class HTTPSession:
   void onPingReply(uint64_t uniqueID) override;
   void onWindowUpdate(HTTPCodec::StreamID stream, uint32_t amount) override;
   void onSettings(const SettingsList& settings) override;
+  void onPriority(HTTPCodec::StreamID stream,
+                  const HTTPMessage::HTTPPriority&) override;
   uint32_t numOutgoingStreams() const override { return outgoingStreams_; }
   uint32_t numIncomingStreams() const override { return incomingStreams_; }
 
@@ -573,6 +596,8 @@ class HTTPSession:
   size_t sendEOM(HTTPTransaction* txn) noexcept override;
   size_t sendAbort(HTTPTransaction* txn,
                    ErrorCode statusCode) noexcept override;
+  size_t sendPriority(HTTPTransaction* txn,
+                      const http2::PriorityUpdate& pri) noexcept override;
   void detach(HTTPTransaction* txn) noexcept override;
   size_t sendWindowUpdate(HTTPTransaction* txn,
                           uint32_t bytes) noexcept override;

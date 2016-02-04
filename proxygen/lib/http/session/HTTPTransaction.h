@@ -349,6 +349,9 @@ class HTTPTransaction :
     virtual size_t sendAbort(HTTPTransaction* txn,
                              ErrorCode statusCode) noexcept = 0;
 
+    virtual size_t sendPriority(HTTPTransaction* txn,
+                                const http2::PriorityUpdate& pri) noexcept = 0;
+
     virtual size_t sendWindowUpdate(HTTPTransaction* txn,
                                     uint32_t bytes) noexcept = 0;
 
@@ -854,15 +857,6 @@ class HTTPTransaction :
    */
   void setEgressRateLimit(uint64_t bitsPerSecond);
 
-
-  /**
-   * Update this transaction's priority to the specified value
-   */
-  void updatePriority(http2::PriorityUpdate pri) {
-    priority_ = pri;
-    egressQueue_.updatePriority(queueHandle_, pri);
-  }
-
   /**
    * @return true iff egress processing is paused for the handler
    */
@@ -1008,9 +1002,15 @@ class HTTPTransaction :
   void describe(std::ostream& os) const;
 
   /**
-   * Change the priority of this transaction
+   * Change the priority of this transaction, may generate a PRIORITY frame
    */
-  void changePriority(int8_t newPriority);
+  void updateAndSendPriority(int8_t newPriority);
+  void updateAndSendPriority(const http2::PriorityUpdate& pri);
+
+  /**
+   * Notify of priority change, will not generate a PRIORITY frame
+   */
+  void onPriorityUpdate(const http2::PriorityUpdate& priority);
 
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;

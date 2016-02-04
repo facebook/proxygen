@@ -52,6 +52,9 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     addTransaction(id, {parent, false, 0}, nullptr, true);
   }
 
+  void addOrUpdatePriorityNode(HTTPCodec::StreamID id,
+                               http2::PriorityUpdate pri);
+
   void dropPriorityNodes() {
     root_.dropPriorityNodes();
   }

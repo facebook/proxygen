@@ -20,21 +20,25 @@ const SocketAddress localAddr{"127.0.0.1", 80};
 const SocketAddress peerAddr{"127.0.0.1", 12345};
 
 folly::HHWheelTimer::UniquePtr makeInternalTimeoutSet(EventBase* evb) {
-  return folly::HHWheelTimer::UniquePtr(
+  folly::HHWheelTimer::UniquePtr t(
     new folly::HHWheelTimer(evb,
                             std::chrono::milliseconds(
                               folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
                             TimeoutManager::InternalEnum::INTERNAL,
                             std::chrono::milliseconds(500)));
+  t->setCatchupEveryN(1);
+  return t;
 }
 
 folly::HHWheelTimer::UniquePtr makeTimeoutSet(EventBase* evb) {
-  return folly::HHWheelTimer::UniquePtr(
+  folly::HHWheelTimer::UniquePtr t(
     new folly::HHWheelTimer(evb,
                             std::chrono::milliseconds(
                               folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
                             folly::AsyncTimeout::InternalEnum::NORMAL,
                             std::chrono::milliseconds(500)));
+  t->setCatchupEveryN(1);
+  return t;
 }
 
 testing::NiceMock<MockAsyncTransport>* newMockTransport(EventBase* evb) {

@@ -303,6 +303,10 @@ ACTION_P(ExpectString, expected) {
   EXPECT_EQ(bodystr, expected);
 }
 
+ACTION_P(ExpectBodyLen, expectedLen) {
+  EXPECT_EQ(arg1->computeChainDataLength(), expectedLen);
+}
+
 class MockHTTPSessionInfoCallback: public HTTPSession::InfoCallback {
  public:
   MOCK_METHOD1(onCreate, void(const HTTPSession&));

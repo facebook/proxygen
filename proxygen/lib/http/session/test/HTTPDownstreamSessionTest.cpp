@@ -88,6 +88,7 @@ class HTTPDownstreamTest : public testing::Test {
   void SetUp() override {
     folly::EventBaseManager::get()->clearEventBase();
     HTTPSession::setPendingWriteMax(65536);
+    HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
   }
 
   void cleanup() {
@@ -151,6 +152,24 @@ class HTTPDownstreamTest : public testing::Test {
     bool eof=false, milliseconds eofDelay=milliseconds(0),
     milliseconds initialDelay=milliseconds(0),
     std::function<void()> extraEventsFn = std::function<void()>()) {
+    flushRequests(eof, eofDelay, initialDelay, extraEventsFn);
+    eventBase_.loop();
+  }
+
+  void flushRequestsAndLoopN(uint64_t n,
+    bool eof=false, milliseconds eofDelay=milliseconds(0),
+    milliseconds initialDelay=milliseconds(0),
+    std::function<void()> extraEventsFn = std::function<void()>()) {
+    flushRequests(eof, eofDelay, initialDelay, extraEventsFn);
+    for (uint64_t i = 0; i < n; i++) {
+      eventBase_.loopOnce();
+    }
+  }
+
+  void flushRequests(
+    bool eof=false, milliseconds eofDelay=milliseconds(0),
+    milliseconds initialDelay=milliseconds(0),
+    std::function<void()> extraEventsFn = std::function<void()>()) {
     transport_->addReadEvent(requests_, initialDelay);
     if (extraEventsFn) {
       extraEventsFn();
@@ -159,7 +178,6 @@ class HTTPDownstreamTest : public testing::Test {
       transport_->addReadEOF(eofDelay);
     }
     transport_->startReadEvents();
-    eventBase_.loop();
   }
 
   void testPriorities(uint32_t numPriorities);
@@ -178,6 +196,7 @@ class HTTPDownstreamTest : public testing::Test {
       }
     }
     EXPECT_EQ(stream.chainLength(), 0);
+    writeEvents->clear();
   }
 
   void resumeWritesInLoop() {
@@ -1731,4 +1750,142 @@ TEST_F(HTTP2DownstreamSessionTest, continuation_timeout) {
   EXPECT_CALL(callbacks_, onAbort(1, ErrorCode::STREAM_CLOSED));
   parseOutput(*clientCodec_);
   cleanup();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_priority_weights) {
+  InSequence enforceOrder;
+  // virtual priority node with pri=4
+  auto priGroupID = clientCodec_->createStream();
+  clientCodec_->generatePriority(
+    requests_, priGroupID, HTTPMessage::HTTPPriority(0, false, 3));
+  // Both txn's are at equal pri=16
+  auto id1 = sendRequest();
+  auto id2 = sendRequest();
+
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectEOM([&] {
+      handler1->sendHeaders(200, 12 * 1024);
+      handler1->txn_->sendBody(makeBuf(4 * 1024));
+    });
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&] {
+      handler2->sendHeaders(200, 12 * 1024);
+      handler2->txn_->sendBody(makeBuf(4 * 1024));
+    });
+
+  // twice- once to send and once to receive
+  flushRequestsAndLoopN(2);
+  EXPECT_CALL(callbacks_, onSettings(_));
+  EXPECT_CALL(callbacks_, onMessageBegin(id1, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(id1, _));
+  EXPECT_CALL(callbacks_, onMessageBegin(id2, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(id2, _));
+  EXPECT_CALL(callbacks_, onBody(id1, _, _))
+    .WillOnce(ExpectBodyLen(4 * 1024));
+  EXPECT_CALL(callbacks_, onBody(id2, _, _))
+    .WillOnce(ExpectBodyLen(4 * 1024));
+  parseOutput(*clientCodec_);
+
+  // update handler2 to be in the pri-group (which has lower weight)
+  clientCodec_->generatePriority(
+    requests_, id2, HTTPMessage::HTTPPriority(priGroupID, false, 15));
+
+  eventBase_.runInLoop([&] {
+      handler1->txn_->sendBody(makeBuf(4 * 1024));
+      handler2->txn_->sendBody(makeBuf(4 * 1024));
+    });
+  flushRequestsAndLoopN(2);
+
+  EXPECT_CALL(callbacks_, onBody(id1, _, _))
+    .WillOnce(ExpectBodyLen(4 * 1024));
+  EXPECT_CALL(callbacks_, onBody(id2, _, _))
+    .WillOnce(ExpectBodyLen(1 * 1024))
+    .WillOnce(ExpectBodyLen(3 * 1024));
+  parseOutput(*clientCodec_);
+
+  // update vnode weight to match txn1 weight
+  clientCodec_->generatePriority(requests_, priGroupID,
+                                 HTTPMessage::HTTPPriority(0, false, 15));
+  eventBase_.runInLoop([&] {
+      handler1->txn_->sendBody(makeBuf(4 * 1024));
+      handler1->txn_->sendEOM();
+      handler2->txn_->sendBody(makeBuf(4 * 1024));
+      handler2->txn_->sendEOM();
+    });
+  handler1->expectDetachTransaction();
+  handler2->expectDetachTransaction();
+  flushRequestsAndLoopN(2);
+
+  // expect 32/32
+  EXPECT_CALL(callbacks_, onBody(id1, _, _))
+    .WillOnce(ExpectBodyLen(4 * 1024));
+  EXPECT_CALL(callbacks_, onMessageComplete(id1, _));
+  EXPECT_CALL(callbacks_, onBody(id2, _, _))
+    .WillOnce(ExpectBodyLen(4 * 1024));
+  EXPECT_CALL(callbacks_, onMessageComplete(id2, _));
+  parseOutput(*clientCodec_);
+
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  this->eventBase_.loop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_window) {
+  HTTPSession::setPendingWriteMax(2 * 65536);
+  InSequence enforceOrder;
+  auto id1 = sendRequest();
+  auto id2 = sendRequest();
+
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectEOM([&] {
+      handler1->sendReplyWithBody(200, 32 * 1024);
+    });
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&] {
+      handler2->sendReplyWithBody(200, 32 * 1024);
+    });
+
+  handler1->expectDetachTransaction();
+
+  // twice- once to send and once to receive
+  flushRequestsAndLoopN(2);
+  EXPECT_CALL(callbacks_, onSettings(_));
+  EXPECT_CALL(callbacks_, onMessageBegin(id1, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(id1, _));
+  EXPECT_CALL(callbacks_, onMessageBegin(id2, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(id2, _));
+  for (auto i = 0; i < 7; i++) {
+    EXPECT_CALL(callbacks_, onBody(id1, _, _))
+      .WillOnce(ExpectBodyLen(4 * 1024));
+    EXPECT_CALL(callbacks_, onBody(id2, _, _))
+      .WillOnce(ExpectBodyLen(4 * 1024));
+  }
+  EXPECT_CALL(callbacks_, onBody(id1, _, _))
+    .WillOnce(ExpectBodyLen(4 * 1024 - 1));
+  EXPECT_CALL(callbacks_, onBody(id2, _, _))
+    .WillOnce(ExpectBodyLen(4 * 1024 - 1));
+  EXPECT_CALL(callbacks_, onBody(id1, _, _))
+    .WillOnce(ExpectBodyLen(1));
+  EXPECT_CALL(callbacks_, onMessageComplete(id1, _));
+  parseOutput(*clientCodec_);
+
+  // open the window
+  clientCodec_->generateWindowUpdate(requests_, 0, 100);
+  handler2->expectDetachTransaction();
+  flushRequestsAndLoopN(2);
+
+  EXPECT_CALL(callbacks_, onBody(id2, _, _))
+    .WillOnce(ExpectBodyLen(1));
+  EXPECT_CALL(callbacks_, onMessageComplete(id2, _));
+  parseOutput(*clientCodec_);
+
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  this->eventBase_.loop();
 }
