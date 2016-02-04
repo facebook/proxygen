@@ -89,6 +89,13 @@ public:
   uint32_t getDefaultWindowSize() const override {
     return http2::kInitialWindow;
   }
+  bool supportsPushTransactions() const override {
+    return
+      (transportDirection_ == TransportDirection::DOWNSTREAM &&
+       ingressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1)) ||
+      (transportDirection_ == TransportDirection::UPSTREAM &&
+       egressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1));
+  }
 
   //HTTP2Codec specific API
 

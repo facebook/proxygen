@@ -868,14 +868,15 @@ TEST_F(HTTP2CodecTest, BadPushSettings) {
   SetUpUpstreamTest();
 
   parseUpstream([&] (IOBuf* ingress) {
-      // set ENABLE_PUSH to 1
-      folly::io::RWPrivateCursor c(ingress);
-      c.skip(http2::kFrameHeaderSize + sizeof(uint16_t));
-      c.writeBE<uint32_t>(1);
+      EXPECT_EQ(ingress->computeChainDataLength(), http2::kFrameHeaderSize);
     });
-  EXPECT_EQ(callbacks_.settings, 0);
+  EXPECT_FALSE(upstreamCodec_.supportsPushTransactions());
+  // Only way to disable push for downstreamCodec_ is to read
+  // ENABLE_PUSH:0 from client
+  EXPECT_TRUE(downstreamCodec_.supportsPushTransactions());
+  EXPECT_EQ(callbacks_.settings, 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
-  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
 
@@ -979,8 +980,18 @@ TEST_F(HTTP2CodecTest, BadPriority) {
 }
 
 TEST_F(HTTP2CodecTest, BasicPushPromise) {
+  upstreamCodec_.generateSettings(output_);
+  parse();
+  EXPECT_FALSE(upstreamCodec_.supportsPushTransactions());
+  EXPECT_FALSE(downstreamCodec_.supportsPushTransactions());
+
   auto settings = upstreamCodec_.getEgressSettings();
   settings->setSetting(SettingsId::ENABLE_PUSH, 1);
+  upstreamCodec_.generateSettings(output_);
+  parse();
+  EXPECT_TRUE(upstreamCodec_.supportsPushTransactions());
+  EXPECT_TRUE(downstreamCodec_.supportsPushTransactions());
+
   SetUpUpstreamTest();
   // Push promise
   HTTPMessage req = getGetRequest();

@@ -47,6 +47,7 @@ public:
   bool supportsStreamFlowControl() const override;
   bool supportsSessionFlowControl() const override;
   size_t onIngress(const folly::IOBuf& buf) override;
+  bool supportsPushTransactions() const override { return true; }
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       const HTTPMessage& msg,

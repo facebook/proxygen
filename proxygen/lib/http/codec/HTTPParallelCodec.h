@@ -41,7 +41,6 @@ public:
   bool supportsStreamFlowControl() const override { return true; }
   bool supportsSessionFlowControl() const override { return true; }
   bool supportsParallelRequests() const override { return true; }
-  bool supportsPushTransactions() const override { return true; }
   bool closeOnEgressComplete() const override { return false; }
   void setCallback(Callback* callback) override { callback_ = callback; }
   void setParserPaused(bool paused) override {}

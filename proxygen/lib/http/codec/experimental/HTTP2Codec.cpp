@@ -1100,8 +1100,9 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
         headerCodec_.setMaxUncompressed(setting.value);
       } else if (setting.id == SettingsId::ENABLE_PUSH) {
         if (transportDirection_ == TransportDirection::DOWNSTREAM) {
-          // HTTP/2 spec says downstream must not enable push
-          CHECK_EQ(setting.value, 0);
+          // HTTP/2 spec says downstream must not send this flag
+          // HTTP2Codec uses it to determine if push features are enabled
+          continue;
         } else {
           CHECK(setting.value == 0 || setting.value == 1);
         }

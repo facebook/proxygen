@@ -1624,6 +1624,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
 
   // Construct data sent from client to server
   auto assocStreamId = HTTPCodec::StreamID(1);
+  clientCodec.getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
   clientCodec.generateConnectionPreface(output);
   clientCodec.generateSettings(output);
   // generateHeader() will create a session and a transaction
@@ -1641,6 +1642,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
       handler->txn_->pauseIngress();
 
       auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+      ASSERT_NE(pushTxn, nullptr);
       // Generate a push request (PUSH_PROMISE)
       pushTxn->sendHeaders(req);
       // Generate a push response
