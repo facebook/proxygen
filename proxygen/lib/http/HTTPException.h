@@ -12,7 +12,6 @@
 #include <folly/Memory.h>
 #include <folly/io/IOBufQueue.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/ProxygenErrorEnum.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
 #include <proxygen/lib/utils/Exception.h>
 
@@ -47,7 +46,6 @@ class HTTPException : public proxygen::Exception {
   HTTPException(const HTTPException& ex) :
       Exception(static_cast<const Exception&>(ex)),
       dir_(ex.dir_),
-      proxygenError_(ex.proxygenError_),
       httpStatusCode_(ex.httpStatusCode_),
       codecStatusCode_(ex.codecStatusCode_),
       errno_(ex.errno_) {
@@ -78,19 +76,6 @@ class HTTPException : public proxygen::Exception {
   bool isEgressException() const {
     return dir_ == Direction::EGRESS ||
       dir_ == Direction::INGRESS_AND_EGRESS;
-  }
-
-  // Accessors for ProxygenError
-  bool hasProxygenError() const {
-    return (proxygenError_ != kErrorNone);
-  }
-
-  void setProxygenError(ProxygenError proxygenError) {
-    proxygenError_ = proxygenError;
-  }
-
-  ProxygenError getProxygenError() const {
-    return proxygenError_;
   }
 
   // Accessors for HTTP error codes
@@ -148,7 +133,6 @@ class HTTPException : public proxygen::Exception {
  private:
 
   Direction dir_;
-  ProxygenError proxygenError_{kErrorNone};
   uint32_t httpStatusCode_{0};
   folly::Optional<ErrorCode> codecStatusCode_;
   uint32_t errno_{0};
