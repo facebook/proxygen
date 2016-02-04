@@ -34,7 +34,7 @@ fi
 # (and less hairy honestly) than the massive `sed` pipeline which used to be
 # here. And it really isn't that bad, this is the sort of thing `awk` was
 # designed for.
-cat ${HEADERS_LIST?} | sort | uniq \
+cat ${HEADERS_LIST?} | LC_ALL=C sort | uniq \
 | awk '
   NR == FNR {
     n[FNR] = $1;
