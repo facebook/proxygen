@@ -112,7 +112,8 @@ HTTPSession::HTTPSession(
   unique_ptr<HTTPCodec> codec,
   const TransportInfo& tinfo,
   InfoCallback* infoCallback):
-    txnEgressQueue_(transactionTimeouts.get()),
+    txnEgressQueue_(isHTTP2CodecProtocol(codec->getProtocol()) ?
+                    transactionTimeouts.get() : nullptr ),
     localAddr_(localAddr),
     peerAddr_(peerAddr),
     sock_(std::move(sock)),
