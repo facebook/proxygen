@@ -162,10 +162,6 @@ HTTPSession::HTTPSession(
     codec_.addFilters(std::unique_ptr<FlowControlFilter>(connFlowControl_));
   }
 
-  if (!codec_->supportsPushTransactions()) {
-    maxConcurrentPushTransactions_ = 0;
-  }
-
   // If we receive IPv4-mapped IPv6 addresses, convert them to IPv4.
   localAddr_.tryConvertToIPv4();
   peerAddr_.tryConvertToIPv4();
@@ -249,13 +245,6 @@ void HTTPSession::setMaxConcurrentOutgoingStreams(uint32_t num) {
   CHECK(!started_);
   if (codec_->supportsParallelRequests()) {
     maxConcurrentOutgoingStreamsConfig_ = num;
-  }
-}
-
-void HTTPSession::setMaxConcurrentPushTransactions(uint32_t num) {
-  CHECK(!started_);
-  if (codec_->supportsPushTransactions()) {
-    maxConcurrentPushTransactions_ = num;
   }
 }
 
@@ -529,7 +518,7 @@ HTTPSession::newPushedTransaction(
   }
   CHECK(isDownstream());
   CHECK_NOTNULL(handler);
-  if (draining_ || (pushedTxns_ >= maxConcurrentPushTransactions_)) {
+  if (draining_ || (outgoingStreams_ >= maxConcurrentOutgoingStreamsRemote_)) {
     // This session doesn't support any more push transactions
     // This could be an actual problem - since a single downstream SPDY session
     // might be connected to N upstream hosts, each of which send M pushes,
@@ -1384,8 +1373,6 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   liveTransactions_--;
 
   if (txn->isPushed()) {
-    CHECK_GT(pushedTxns_, 0);
-    pushedTxns_--;
     auto assocTxn = findTransaction(txn->getAssocTxnId());
     if (assocTxn) {
       assocTxn->removePushedTransaction(streamID);
@@ -2093,10 +2080,6 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
     }
   } else {
     incomingStreams_++;
-  }
-
-  if (txn->isPushed()) {
-    pushedTxns_++;
   }
 
   return txn;

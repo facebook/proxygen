@@ -162,10 +162,6 @@ class HTTPSession:
                     maxConcurrentOutgoingStreamsRemote_);
   }
 
-  uint32_t getMaxConcurrentPushTransactions() const {
-    return maxConcurrentPushTransactions_;
-  }
-
   bool readsUnpaused() const {
     return reads_ == SocketState::UNPAUSED;
   }
@@ -262,12 +258,6 @@ class HTTPSession:
    * since the remote side can change this value.
    */
   void setMaxConcurrentOutgoingStreams(uint32_t num);
-
-  /*
-   * The maximum number of concurrent push transactions that can be supported
-   * on this session.
-   */
-  void setMaxConcurrentPushTransactions(uint32_t num);
 
   /**
    * Set the maximum number of transactions the remote can open at once.
@@ -856,17 +846,6 @@ class HTTPSession:
    * Connection level flow control for SPDY >= 3.1 and HTTP/2
    */
   FlowControlFilter* connFlowControl_{nullptr};
-
-  /**
-   * The maximum number of concurrent push transactions that can be supported
-   * on this session
-   */
-  uint32_t maxConcurrentPushTransactions_{100};
-
-  /**
-   * The number of open push transactions
-   */
-  uint32_t pushedTxns_{0};
 
   /**
    * Bytes of egress data sent to the socket but not yet written
