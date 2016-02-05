@@ -1565,7 +1565,8 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
       }
       toSend = std::min(toSend, connFlowControl_->getAvailableSend());
     }
-    txnEgressQueue_.nextEgress(nextEgressResults_);
+    txnEgressQueue_.nextEgress(nextEgressResults_,
+                               isSpdyCodecProtocol(codec_->getProtocol()));
     CHECK(!nextEgressResults_.empty()); // Queue was non empty, so this must be
     // The maximum we will send for any transaction in this loop
     uint32_t txnMaxToSend = toSend * nextEgressResults_.front().second;
@@ -1582,7 +1583,6 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
       txnMaxToSend = egressBodySizeLimit_;
       toSend = txnMaxToSend / nextEgressResults_.front().second;
     }
-    int8_t egressBand = -1;
     // split allowed by relative weight, with some minimum
     for (auto txnPair: nextEgressResults_) {
       uint32_t txnAllowed = txnPair.second * toSend;
@@ -1596,23 +1596,6 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
         // The ratio * toSend was so small this txn gets nothing.
         VLOG(4) << *this << " breaking egress loop on 0 txnAllowed";
         break;
-      }
-
-      // For SPDYCodec, we only egress transactions with the highest priority
-      // in any single call to getNextToSend.  Due to the SPDY->H2 priority
-      // mapping, lower pri transactions get a comically small slice of allowed
-      // egress (based on virtual priority node weight, set in
-      // SPDYCodec::addPriorityNodes.  We detect this and break the loop early.
-      int8_t band = codec_->mapDependencyToPriority(
-        txnPair.first->getPriority().streamDependency);
-      if (band >= 0) {
-        if (egressBand < 0) {
-          egressBand = band;
-        } else if (band != egressBand) {
-          VLOG(4) << "Breaking egress loop band=" << (int32_t)band
-                  << " != egressBand=" << (int32_t)egressBand;
-          break;
-        }
       }
 
       VLOG(4) << *this << " egressing txnID=" << txnPair.first->getID() <<

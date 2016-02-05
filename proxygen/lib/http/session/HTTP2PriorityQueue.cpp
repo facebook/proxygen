@@ -520,7 +520,8 @@ HTTP2PriorityQueue::nextEgressResult(HTTPCodec::StreamID id,
 }
 
 void
-HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result) {
+HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
+                               bool spdyMode) {
   struct WeightCmp {
     bool operator()(const std::pair<HTTPTransaction*, double>& t1,
                     const std::pair<HTTPTransaction*, double>& t2) {
@@ -533,16 +534,34 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result) {
 
   updateEnqueuedWeight();
   Node::PendingList pendingNodes;
+  Node::PendingList pendingNodesTmp;
   pendingNodes.emplace_back(0, &root_, 1.0);
   bool stop = false;
-  while (!stop && !pendingNodes.empty()) {
-    Node* node = pendingNodes.front().node;
-    if (node) {
-      stop = node->visitBFS(pendingNodes.front().ratio, nextEgressResult,
-                            false, pendingNodes, true /* enqueued children */);
+  do {
+    while (!stop && !pendingNodes.empty()) {
+      Node* node = pendingNodes.front().node;
+      if (node) {
+        stop = node->visitBFS(pendingNodes.front().ratio, nextEgressResult,
+                              false, pendingNodesTmp,
+                              true /* enqueued children */);
+      }
+      pendingNodes.pop_front();
     }
-    pendingNodes.pop_front();
-  }
+    // In SPDY mode, we stop as soon one level of the tree produces results,
+    // then normalize the ratios.
+    if (spdyMode && !result.empty() && !pendingNodesTmp.empty()) {
+      double totalRatio = 0;
+      for (auto &txnPair: result) {
+        totalRatio += txnPair.second;
+      }
+      CHECK_GT(totalRatio, 0);
+      for (auto &txnPair: result) {
+        txnPair.second = txnPair.second / totalRatio;
+      }
+      break;
+    }
+    std::swap(pendingNodes, pendingNodesTmp);
+  } while (!stop && !pendingNodes.empty());
   std::sort(result.begin(), result.end(), WeightCmp());
   nextEgressResults_.release();
 }

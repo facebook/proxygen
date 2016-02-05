@@ -105,9 +105,9 @@ class QueueTest : public testing::Test {
                   stopFn, true);
   }
 
-  void nextEgress() {
+  void nextEgress(bool spdyMode=false) {
     HTTP2PriorityQueue::NextEgressResult nextEgressResults;
-    q_.nextEgress(nextEgressResults);
+    q_.nextEgress(nextEgressResults, spdyMode);
     nodes_.clear();
     for (auto p: nextEgressResults) {
       nodes_.push_back(std::make_pair(getTxnID(p.first), p.second * 100));
@@ -556,6 +556,29 @@ TEST_F(QueueTest, ChromeTest) {
     }
 
   }
+}
+
+TEST_F(QueueTest, nextEgressSpdy) {
+  // 1 and 3 are vnodes representing pri 0 and 1
+  addTransaction(1, {0, false, 0}, true);
+  addTransaction(3, {1, false, 0}, true);
+
+  // 7 and 9 are pri 0, 11 and 13 are pri 1
+  addTransaction(7, {1, false, 15});
+  addTransaction(9, {1, false, 15});
+  addTransaction(11, {3, false, 15});
+  addTransaction(13, {3, false, 15});
+
+  nextEgress(true);
+  EXPECT_EQ(nodes_, IDList({{7, 50}, {9, 50}}));
+
+  signalEgress(7, false);
+  nextEgress(true);
+  EXPECT_EQ(nodes_, IDList({{9, 100}}));
+
+  signalEgress(9, false);
+  nextEgress(true);
+  EXPECT_EQ(nodes_, IDList({{11, 50}, {13, 50}}));
 }
 
 TEST_F(QueueTest, addOrUpdate) {

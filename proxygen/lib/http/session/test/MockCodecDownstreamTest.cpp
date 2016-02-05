@@ -70,6 +70,8 @@ class MockCodecDownstreamTest: public testing::Test {
     EXPECT_CALL(*codec_, getEgressSettings());
     EXPECT_CALL(*codec_, supportsStreamFlowControl())
       .WillRepeatedly(Return(true));
+    EXPECT_CALL(*codec_, getProtocol())
+      .WillRepeatedly(Return(CodecProtocol::SPDY_3_1));
     EXPECT_CALL(*codec_, setParserPaused(_))
       .WillRepeatedly(Return());
     EXPECT_CALL(*codec_, supportsSessionFlowControl())

@@ -94,7 +94,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   typedef std::vector<std::pair<HTTPTransaction*, double>> NextEgressResult;
 
-  void nextEgress(NextEgressResult& result);
+  void nextEgress(NextEgressResult& result, bool spdyMode = false);
 
   static void setNodeLifetime(std::chrono::milliseconds lifetime) {
     kNodeLifetime_ = lifetime;
