@@ -51,6 +51,8 @@ makeMockParallelCodec(TransportDirection dir) {
   auto codec = folly::make_unique<testing::NiceMock<MockHTTPCodec>>();
   EXPECT_CALL(*codec, supportsParallelRequests())
     .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*codec, getProtocol())
+    .WillRepeatedly(testing::Return(CodecProtocol::SPDY_3_1));
   EXPECT_CALL(*codec, isReusable())
     .WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*codec, getTransportDirection())
