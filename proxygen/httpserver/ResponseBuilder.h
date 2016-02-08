@@ -66,7 +66,15 @@ class ResponseBuilder {
   explicit ResponseBuilder(ResponseHandler* txn): txn_(txn) {
   }
 
-  ResponseBuilder& status(uint16_t code, std::string message) {
+  ResponseBuilder& promise(const std::string& url, const std::string& host) {
+    headers_ = folly::make_unique<HTTPMessage>();
+    headers_->setHTTPVersion(1, 1);
+    headers_->setURL(url);
+    headers_->getHeaders().set(HTTP_HEADER_HOST, host);
+    return *this;
+  }
+
+  ResponseBuilder& status(uint16_t code, const std::string& message) {
     headers_ = folly::make_unique<HTTPMessage>();
     headers_->setHTTPVersion(1, 1);
     headers_->setStatusCode(code);
@@ -129,7 +137,7 @@ class ResponseBuilder {
 
     if (headers_) {
       // We don't need to add Content-Length or Encoding for 1xx responses
-      if (headers_->getStatusCode() >= 200) {
+      if (headers_->isResponse() && headers_->getStatusCode() >= 200) {
         if (chunked) {
           headers_->setIsChunked(true);
         } else {

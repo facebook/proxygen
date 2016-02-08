@@ -12,6 +12,7 @@ nobase_libproxygenhttpserver_HEADERS = \
 	HTTPServerAcceptor.h \
 	HTTPServerOptions.h \
 	Mocks.h \
+	PushHandler.h \
 	RequestHandler.h \
 	RequestHandlerAdaptor.h \
 	RequestHandlerFactory.h \

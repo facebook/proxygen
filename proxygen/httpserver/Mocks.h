@@ -37,6 +37,8 @@ class MockResponseHandler : public ResponseHandler {
   GMOCK_METHOD0_(, noexcept, , refreshTimeout, void());
   GMOCK_METHOD0_(, noexcept, , pauseIngress, void());
   GMOCK_METHOD0_(, noexcept, , resumeIngress, void());
+  GMOCK_METHOD1_(, noexcept, , newPushedResponse,
+                 ResponseHandler*(PushHandler*));
 
   MOCK_CONST_METHOD1(getCurrentTransportInfo, void(wangle::TransportInfo*));
 #ifdef __clang__

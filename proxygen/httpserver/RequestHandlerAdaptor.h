@@ -15,6 +15,7 @@
 namespace proxygen {
 
 class RequestHandler;
+class PushHandler;
 
 /**
  * An adaptor that converts HTTPTransactionHandler to RequestHandler.
@@ -60,6 +61,8 @@ class RequestHandlerAdaptor
   void refreshTimeout() noexcept override;
   void pauseIngress() noexcept override;
   void resumeIngress() noexcept override;
+  ResponseHandler* newPushedResponse(
+    PushHandler* pushHandler) noexcept override;
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override;
 

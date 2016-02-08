@@ -112,6 +112,10 @@ class Filter : public RequestHandler, public ResponseHandler {
     downstream_->resumeIngress();
   }
 
+  ResponseHandler* newPushedResponse(PushHandler* handler) noexcept override {
+    return downstream_->newPushedResponse(handler);
+  }
+
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
     return downstream_->getSetupTransportInfo();
   }

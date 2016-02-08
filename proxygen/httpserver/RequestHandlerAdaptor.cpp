@@ -10,6 +10,7 @@
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 
 #include <boost/algorithm/string.hpp>
+#include <proxygen/httpserver/PushHandler.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 
@@ -165,6 +166,18 @@ void RequestHandlerAdaptor::pauseIngress() noexcept {
 
 void RequestHandlerAdaptor::resumeIngress() noexcept {
   txn_->resumeIngress();
+}
+
+ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
+  PushHandler* pushHandler) noexcept {
+  auto pushTxn = txn_->newPushedTransaction(pushHandler->getHandler());
+  if (!pushTxn) {
+    // Codec doesn't support push
+    return nullptr;;
+  }
+  auto pushHandlerAdaptor = new RequestHandlerAdaptor(pushHandler);
+  pushHandlerAdaptor->setTransaction(pushTxn);
+  return pushHandlerAdaptor;
 }
 
 const wangle::TransportInfo&
