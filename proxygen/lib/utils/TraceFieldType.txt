@@ -44,7 +44,6 @@ LastBodyByteFlushed, "last_body_byte_flushed"
 HeaderGenerated, "header_generated"
 
 /* ---- Used in ResponseBodyRead ---- */
-RspBodySize, "response_body_size"
 RspIntvlAvg, "response_interval_average"
 RspIntvlStdDev, "response_interval_stddev"
 RspNumOnBody, "response_number_on_body"
@@ -106,8 +105,8 @@ OpenSSLVersion, "openssl_version"
 TLSCachePersistence, "tls_cache_persistence"
 
 /* ---- Used in Decompression ---- */
-CompressedSizeKey, "compressed_size"
-UncompressedSizeKey, "uncompressed_size"
+RspBodySize, "response_body_size"
+RspBodyCompSize, "response_body_compressed_size"
 CompressionType, "compression_type"
 
 /* ---- Used in CertVerification ---- */
