@@ -146,14 +146,13 @@ public:
   static boost::optional<SPDYVersion> getVersion(const std::string& protocol);
 
  private:
+   friend struct SPDYCodecInitPerHopHeaders;
 
   /**
    * Determines whether header with a given code is on the SPDY per-hop
    * header blacklist.
    */
   static std::bitset<256> perHopHeaderCodes_;
-
-  static void initPerHopHeaders() __attribute__ ((__constructor__));
 
   /**
    * Generates a frame of type SYN_STREAM

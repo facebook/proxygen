@@ -143,15 +143,18 @@ class SPDYStreamFailed : public std::exception {
 
 std::bitset<256> SPDYCodec::perHopHeaderCodes_;
 
-void SPDYCodec::initPerHopHeaders() {
-  // SPDY per-hop headers
-  perHopHeaderCodes_[HTTP_HEADER_CONNECTION] = true;
-  perHopHeaderCodes_[HTTP_HEADER_HOST] = true;
-  perHopHeaderCodes_[HTTP_HEADER_KEEP_ALIVE] = true;
-  perHopHeaderCodes_[HTTP_HEADER_PROXY_CONNECTION] = true;
-  perHopHeaderCodes_[HTTP_HEADER_TRANSFER_ENCODING] = true;
-  perHopHeaderCodes_[HTTP_HEADER_UPGRADE] = true;
-}
+static struct SPDYCodecInitPerHopHeaders {
+public:
+  SPDYCodecInitPerHopHeaders() {
+    // SPDY per-hop headers
+    SPDYCodec::perHopHeaderCodes_[HTTP_HEADER_CONNECTION] = true;
+    SPDYCodec::perHopHeaderCodes_[HTTP_HEADER_HOST] = true;
+    SPDYCodec::perHopHeaderCodes_[HTTP_HEADER_KEEP_ALIVE] = true;
+    SPDYCodec::perHopHeaderCodes_[HTTP_HEADER_PROXY_CONNECTION] = true;
+    SPDYCodec::perHopHeaderCodes_[HTTP_HEADER_TRANSFER_ENCODING] = true;
+    SPDYCodec::perHopHeaderCodes_[HTTP_HEADER_UPGRADE] = true;
+  }
+} s_SPDYCodecInitPerHopHeaders;
 
 const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
   // XXX: We new and leak the static here intentionally so it doesn't get

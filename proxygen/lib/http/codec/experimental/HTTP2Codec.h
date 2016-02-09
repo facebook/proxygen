@@ -110,6 +110,8 @@ public:
   }
 
  private:
+  friend struct HTTP2CodecInitPerHopHeaders;
+
   class HeaderDecodeInfo {
    public:
     explicit HeaderDecodeInfo(HTTPRequestVerifier v)
@@ -145,8 +147,6 @@ public:
    * header blacklist.
    */
   static std::bitset<256> perHopHeaderCodes_;
-
-  static void initPerHopHeaders() __attribute__ ((__constructor__));
 
   ErrorCode parseFrame(folly::io::Cursor& cursor);
   ErrorCode parseAllData(folly::io::Cursor& cursor);

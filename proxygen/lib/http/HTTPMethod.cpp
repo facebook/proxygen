@@ -24,12 +24,14 @@ namespace {
 typedef std::vector<std::string> StringVector;
 DEFINE_UNION_STATIC_CONST_NO_INIT(StringVector, Vector, s_methodStrings);
 
-__attribute__((__constructor__))
-void initMethodStrings() {
-  new (const_cast<StringVector*>(&s_methodStrings.data)) StringVector {
-    HTTP_METHOD_GEN(HTTP_METHOD_STR)
-  };
-}
+static struct InitMethodStrings {
+public:
+  InitMethodStrings() {
+    new (const_cast<StringVector*>(&s_methodStrings.data)) StringVector{
+      HTTP_METHOD_GEN(HTTP_METHOD_STR)
+    };
+  }
+} s_InitMethodStrings;
 
 }
 

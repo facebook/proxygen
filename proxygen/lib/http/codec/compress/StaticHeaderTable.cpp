@@ -91,12 +91,14 @@ const int kEntriesSize = sizeof(s_tableEntries) / (2 * sizeof(const char*));
  */
 DEFINE_UNION_STATIC_CONST_NO_INIT(StaticHeaderTable, StaticTable, s_table);
 
-__attribute__((__constructor__))
-void initStaticTable() {
-  // use placement new to initialize the static table
-  new (const_cast<StaticHeaderTable*>(&s_table.data))
-    StaticHeaderTable(s_tableEntries, kEntriesSize);
-}
+static struct InitStaticTable {
+public:
+  InitStaticTable() {
+    // use placement new to initialize the static table
+    new (const_cast<StaticHeaderTable*>(&s_table.data))
+      StaticHeaderTable(s_tableEntries, kEntriesSize);
+  }
+} s_InitStaticTable;
 
 StaticHeaderTable::StaticHeaderTable(
     const char* entries[][2],

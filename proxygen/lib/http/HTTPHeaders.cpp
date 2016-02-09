@@ -27,19 +27,21 @@ bitset<256>& HTTPHeaders::perHopHeaderCodes() {
   return perHopHeaderCodes;
 }
 
-void
-HTTPHeaders::initGlobals() {
-  auto& perHopHeaders = perHopHeaderCodes();
-  perHopHeaders[HTTP_HEADER_CONNECTION] = true;
-  perHopHeaders[HTTP_HEADER_KEEP_ALIVE] = true;
-  perHopHeaders[HTTP_HEADER_PROXY_AUTHENTICATE] = true;
-  perHopHeaders[HTTP_HEADER_PROXY_AUTHORIZATION] = true;
-  perHopHeaders[HTTP_HEADER_PROXY_CONNECTION] = true;
-  perHopHeaders[HTTP_HEADER_TE] = true;
-  perHopHeaders[HTTP_HEADER_TRAILER] = true;
-  perHopHeaders[HTTP_HEADER_TRANSFER_ENCODING] = true;
-  perHopHeaders[HTTP_HEADER_UPGRADE] = true;
-}
+static struct HTTPHeadersInitGlobals {
+public:
+  HTTPHeadersInitGlobals() {
+    auto& perHopHeaders = HTTPHeaders::perHopHeaderCodes();
+    perHopHeaders[HTTP_HEADER_CONNECTION] = true;
+    perHopHeaders[HTTP_HEADER_KEEP_ALIVE] = true;
+    perHopHeaders[HTTP_HEADER_PROXY_AUTHENTICATE] = true;
+    perHopHeaders[HTTP_HEADER_PROXY_AUTHORIZATION] = true;
+    perHopHeaders[HTTP_HEADER_PROXY_CONNECTION] = true;
+    perHopHeaders[HTTP_HEADER_TE] = true;
+    perHopHeaders[HTTP_HEADER_TRAILER] = true;
+    perHopHeaders[HTTP_HEADER_TRANSFER_ENCODING] = true;
+    perHopHeaders[HTTP_HEADER_UPGRADE] = true;
+  }
+} s_HTTPHeadersInitGlobals;
 
 HTTPHeaders::HTTPHeaders() :
   deletedCount_(0) {

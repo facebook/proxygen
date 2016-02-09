@@ -43,16 +43,20 @@ DECLARE_UNION_STATIC_UNION_ARRAY_IMPL(type, size, name) const var;
 // The const_casts are only needed if creating a const union but it's a
 // no-op otherwise so keep it to avoid creating even more macro helpers.
 #define DEFINE_UNION_STATIC_CONSTRUCTOR_IMPL(type, name, var)                 \
-__attribute__((__constructor__))                                              \
-void init##name##Union() {                                                    \
-  new (const_cast<type*>(&var.data)) type();                                  \
-}
+static struct Init##name##Union {                                             \
+public:                                                                       \
+  Init##name##Union() {                                                       \
+    new (const_cast<type*>(&var.data)) type();                                \
+  }                                                                           \
+} s_Init##name##Union;
 
 #define DEFINE_UNION_STATIC_CONSTRUCTOR_ARG_IMPL(type, name, var, ...)        \
-__attribute__((__constructor__))                                              \
-void init##name##Union() {                                                    \
-  new (const_cast<type*>(&var.data)) type(__VA_ARGS__);                       \
-}
+static struct Init##name##Union {                                             \
+public:                                                                       \
+  Init##name##Union() {                                                       \
+    new (const_cast<type*>(&var.data)) type(__VA_ARGS__);                     \
+  }                                                                           \
+} s_Init##name##Union;
 // END IMPLEMENTATION MACROS
 
 // Use var.data to access the actual member of interest. Zero and argument

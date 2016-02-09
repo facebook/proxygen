@@ -78,6 +78,8 @@ class HTTP1xCodec : public HTTPCodec {
   static bool supportsNextProtocol(const std::string& npn);
 
  private:
+  friend struct HTTP1xCodecInitParserSettings;
+
   /** Simple state model used to track the parsing of HTTP headers */
   enum class HeaderParseState : uint8_t {
     kParsingHeaderIdle,
@@ -187,8 +189,6 @@ class HTTP1xCodec : public HTTPCodec {
   static int onChunkHeaderCB(http_parser* parser);
   static int onChunkCompleteCB(http_parser* parser);
   static int onMessageCompleteCB(http_parser* parser);
-
-  static void initParserSettings() __attribute__ ((__constructor__));
 
   static http_parser_settings kParserSettings;
 };
