@@ -10,6 +10,7 @@
 #include <folly/Conv.h>
 #include <folly/Foreach.h>
 #include <folly/MoveWrapper.h>
+#include <folly/futures/Promise.h>
 #include <wangle/acceptor/ConnectionManager.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/async/EventBase.h>
@@ -37,6 +38,7 @@ using namespace proxygen;
 using namespace std;
 using namespace testing;
 using namespace std::chrono;
+using folly::Promise;
 
 template <typename C>
 class HTTPDownstreamTest : public testing::Test {
@@ -83,6 +85,18 @@ class HTTPDownstreamTest : public testing::Test {
 
   HTTPCodec::StreamID sendHeader() {
     return sendRequest("/", 0, false);
+  }
+
+  Promise<Unit> sendRequestLater(HTTPMessage req, bool eof=false) {
+    Promise<Unit> reqp;
+    reqp.getFuture().then(&eventBase_, [=] {
+        sendRequest(req);
+        transport_->addReadEvent(requests_, milliseconds(0));
+        if (eof) {
+          transport_->addReadEOF(milliseconds(0));
+        }
+      });
+    return reqp;
   }
 
   void SetUp() override {
@@ -1369,7 +1383,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
   req.setHTTPVersion(1, 0);
   req.setWantsKeepalive(false);
   sendRequest(req);
-  sendRequest(req);
+  auto req2p = sendRequestLater(req, true);
 
   httpSession_->getCodecFilterChain()->getEgressSettings()->setSetting(
     SettingsId::MAX_CONCURRENT_STREAMS, 1);
@@ -1377,9 +1391,10 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
   InSequence handlerSequence;
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
-  handler1->expectEOM([&handler1, this] {
+  handler1->expectEOM([&handler1, req, this, &req2p] {
       transport_->pauseWrites();
       handler1->sendReplyWithBody(200, 100);
+      req2p.setValue();
     });
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
@@ -1392,7 +1407,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 
   expectDetachSession();
 
-  flushRequestsAndLoop(true, milliseconds(10), milliseconds(10));
+  flushRequestsAndLoop();
 }
 
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
@@ -1492,7 +1507,9 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
   // The first txn should complete first
 
   sendRequest("/", 0);
-  sendRequest("/", 1);
+  auto req2 = getGetRequest();
+  req2.setPriority(1);
+  auto req2p = sendRequestLater(req2, true);
 
   unique_ptr<StrictMock<MockHTTPHandler>> handler1;
   unique_ptr<StrictMock<MockHTTPHandler>> handler2;
@@ -1502,10 +1519,11 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
     InSequence handlerSequence;
     handler1 = addSimpleStrictHandler();
     handler1->expectHeaders();
-    handler1->expectEOM([&handler1, this] {
+    handler1->expectEOM([&handler1, this, &req2p] {
         this->transport_->pauseWrites();
         handler1->sendHeaders(200, 1000);
         handler1->sendBody(100); // headers + 100 bytes - over the limit
+        req2p.setValue();
       });
     handler1->expectEgressPaused([] { LOG(INFO) << "paused 1"; });
 
@@ -1523,7 +1541,7 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
     handler2->expectDetachTransaction();
   }
   HTTPSession::DestructorGuard g(httpSession_);
-  flushRequestsAndLoop(true, milliseconds(10), milliseconds(10));
+  flushRequestsAndLoop();
 
   std::list<HTTPCodec::StreamID> streams;
   EXPECT_CALL(callbacks_, onMessageBegin(_, _))
