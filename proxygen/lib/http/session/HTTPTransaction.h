@@ -863,6 +863,12 @@ class HTTPTransaction :
   bool isEgressPaused() const { return handlerEgressPaused_; }
 
   /**
+   * @return true iff egress processing is paused due to flow control
+   * to the handler
+   */
+  bool isFlowControlPaused() const { return flowControlPaused_; }
+
+  /**
    * @return true iff this transaction can be used to push resources to
    * the remote side.
    */
@@ -1224,6 +1230,7 @@ class HTTPTransaction :
 
   bool ingressPaused_:1;
   bool egressPaused_:1;
+  bool flowControlPaused_:1;
   bool handlerEgressPaused_:1;
   bool egressRateLimited_:1;
   bool useFlowControl_:1;

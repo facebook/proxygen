@@ -53,6 +53,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     priority_(priority),
     ingressPaused_(false),
     egressPaused_(false),
+    flowControlPaused_(false),
     handlerEgressPaused_(false),
     egressRateLimited_(false),
     useFlowControl_(useFlowControl),
@@ -1017,8 +1018,8 @@ void HTTPTransaction::notifyTransportPendingEgress() {
 void HTTPTransaction::updateHandlerPauseState() {
   int64_t availWindow =
     sendWindow_.getSize() - deferredEgressBody_.chainLength();
-  bool flowControlPaused = useFlowControl_ && availWindow <= 0;
-  bool handlerShouldBePaused = egressPaused_ || flowControlPaused ||
+  flowControlPaused_ = useFlowControl_ && availWindow <= 0;
+  bool handlerShouldBePaused = egressPaused_ || flowControlPaused_ ||
     egressRateLimited_;
   if (handler_ && handlerShouldBePaused != handlerEgressPaused_) {
     if (handlerShouldBePaused) {
