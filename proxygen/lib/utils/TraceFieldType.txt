@@ -42,6 +42,7 @@ BodyGenerated, "body_generated"
 FirstBodyByteFlushed, "first_body_byte_flushed"
 LastBodyByteFlushed, "last_body_byte_flushed"
 HeaderGenerated, "header_generated"
+FlowControlPauses, "flow_control_pauses"
 
 /* ---- Used in ResponseBodyRead ---- */
 RspIntvlAvg, "response_interval_average"
