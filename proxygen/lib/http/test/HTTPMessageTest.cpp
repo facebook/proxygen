@@ -459,3 +459,14 @@ TEST(HTTPMessage, SetQueryParamTests) {
                     "localhost:80/foo?param2=b#qqq",
                     "param2=b");
 }
+
+TEST(HTTPMessage, TestCheckForHeaderToken) {
+  HTTPMessage msg;
+  HTTPHeaders& headers = msg.getHeaders();
+
+  headers.add(HTTP_HEADER_CONNECTION, "HTTP2-Settings");
+  EXPECT_TRUE(msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "HTTP2-Settings",
+                                      false));
+  EXPECT_FALSE(msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "http2-settings",
+                                       true));
+}

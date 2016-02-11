@@ -715,6 +715,12 @@ bool HTTPMessage::checkForHeaderToken(const HTTPHeaderCode headerCode,
                                       char const* token,
                                       bool caseSensitive) const {
   StringPiece tokenPiece(token);
+  string lowerToken;
+  if (!caseSensitive) {
+    lowerToken = token;
+    boost::to_lower(lowerToken, defaultLocale);
+    tokenPiece.reset(lowerToken);
+  }
   // Search through all of the headers with this name.
   // forEachValueOfHeader will return true iff it was "broken" prematurely
   // with "return true" in the lambda-function
