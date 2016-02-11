@@ -12,7 +12,7 @@
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
-#include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 
 using folly::SocketAddress;

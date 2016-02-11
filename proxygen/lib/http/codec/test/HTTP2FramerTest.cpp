@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/experimental/test/HTTP2FramerTest.h>
+#include <proxygen/lib/http/codec/test/HTTP2FramerTest.h>
 
 #include <folly/Random.h>
 #include <gtest/gtest.h>
@@ -16,7 +16,7 @@
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <random>
 
-#include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
+#include <proxygen/lib/http/codec/HTTP2Framer.h>
 
 using namespace folly::io;
 using namespace folly;

@@ -17,7 +17,7 @@
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
-#include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
 
 namespace proxygen {
 

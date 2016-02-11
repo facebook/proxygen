@@ -10,7 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/HTTPCodec.h>
-#include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
+#include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <folly/ThreadLocal.h>
 #include <folly/IntrusiveList.h>
 #include <folly/io/async/HHWheelTimer.h>

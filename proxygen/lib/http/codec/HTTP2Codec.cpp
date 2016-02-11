@@ -7,8 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
-#include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/utils/ChromeUtils.h>
 #include <proxygen/lib/utils/Logging.h>

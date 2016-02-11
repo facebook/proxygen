@@ -18,7 +18,7 @@
 #include <proxygen/lib/http/codec/SettingsId.h>
 #include <string.h>
 
-#include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HTTP2Constants.h>
 
 namespace proxygen { namespace http2 {
 

@@ -8,8 +8,8 @@
  *
  */
 #include <folly/io/Cursor.h>
-#include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
-#include <proxygen/lib/http/codec/experimental/test/HTTP2FramerTest.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/http/codec/test/HTTP2FramerTest.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>

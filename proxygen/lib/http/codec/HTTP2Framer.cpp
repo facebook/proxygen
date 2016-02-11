@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
+#include <proxygen/lib/http/codec/HTTP2Framer.h>
 
 #include <cstdint>
 

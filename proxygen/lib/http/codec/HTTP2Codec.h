@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/experimental/HTTPRequestVerifier.h>
-#include <proxygen/lib/http/codec/experimental/HTTP2Framer.h>
+#include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
+#include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPParallelCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>

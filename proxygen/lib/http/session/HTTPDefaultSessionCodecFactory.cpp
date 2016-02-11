@@ -9,8 +9,8 @@
  */
 #include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
 
-#include <proxygen/lib/http/codec/experimental/HTTP2Constants.h>
-#include <proxygen/lib/http/codec/experimental/HTTP2Codec.h>
+#include <proxygen/lib/http/codec/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 
