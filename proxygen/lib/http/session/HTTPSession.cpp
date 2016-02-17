@@ -507,7 +507,7 @@ HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
     transportInfo_.sslError = ERR_GET_REASON(ex.getErrno());
   }
   setCloseReason(ConnectionCloseReason::IO_READ_ERROR);
-  shutdownTransport(true, transactions_.empty());
+  shutdownTransport(true, transactions_.empty(), ex.what());
 }
 
 HTTPTransaction*
@@ -1765,7 +1765,8 @@ HTTPSession::updateWriteBufSize(int64_t delta) {
 
 void
 HTTPSession::shutdownTransport(bool shutdownReads,
-                               bool shutdownWrites) {
+                               bool shutdownWrites,
+                               const std::string& errorMsg) {
   DestructorGuard guard(this);
 
   // shutdowns not accounted for, shouldn't see any
@@ -1854,8 +1855,9 @@ HTTPSession::shutdownTransport(bool shutdownReads,
       HTTPException::Direction::INGRESS_AND_EGRESS :
       (notifyIngressShutdown ? HTTPException::Direction::INGRESS :
          HTTPException::Direction::EGRESS);
-    HTTPException ex(dir,
-      folly::to<std::string>("Shutdown transport: ", getErrorString(error)));
+    HTTPException ex(dir, folly::to<std::string>(
+        "Shutdown transport: ", getErrorString(error),
+        errorMsg.empty() ? "" : " ", errorMsg));
     ex.setProxygenError(error);
     invokeOnAllTransactions(&HTTPTransaction::onError, ex);
   }

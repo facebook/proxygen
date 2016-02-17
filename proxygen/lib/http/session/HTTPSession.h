@@ -212,9 +212,11 @@ class HTTPSession:
    * @param shutdownWrites Whether to close the write side of the
    * socket. All transactions which are not egress complete will receive
    * an error.
+   * @param errorMsg additional error information to pass to each transaction
    */
   void shutdownTransport(bool shutdownReads = true,
-                         bool shutdownWrites = true);
+                         bool shutdownWrites = true,
+                         const std::string& errorMsg = "");
 
   /**
    * Immediately close the socket in both directions, discarding any
