@@ -953,12 +953,17 @@ void SPDYCodec::enableDoubleGoawayDrain() {
   sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
 }
 
-void SPDYCodec::addPriorityNodes(PriorityQueue& queue) {
+size_t SPDYCodec::addPriorityNodes(
+    PriorityQueue& queue,
+    folly::IOBufQueue&,
+    uint8_t) {
   HTTPCodec::StreamID parent = 0;
+  // For SPDY, we always create 8 virtual nodes regardless of maxLevel
   for (uint8_t pri = 0; pri < 8; pri++) {
     queue.addPriorityNode(HTTPCodec::MAX_STREAM_ID + pri, parent);
     parent = HTTPCodec::MAX_STREAM_ID + pri;
   }
+  return 0;
 }
 
 uint8_t SPDYCodec::getVersion() const {

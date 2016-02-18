@@ -19,12 +19,14 @@ class HTTPSessionStats;
 class HTTPUpstreamSession final: public HTTPSession {
  public:
   /**
-   * @param sock       An open socket on which any applicable TLS handshaking
-   *                     has been completed already.
-   * @param localAddr  Address and port of the local end of the socket.
-   * @param peerAddr   Address and port of the remote end of the socket.
-   * @param codec      A codec with which to parse/generate messages in
-   *                     whatever HTTP-like wire format this session needs.
+   * @param sock           An open socket on which any applicable TLS
+   *                         handshaking has been completed already.
+   * @param localAddr      Address and port of the local end of the socket.
+   * @param peerAddr       Address and port of the remote end of the socket.
+   * @param codec          A codec with which to parse/generate messages in
+   *                         whatever HTTP-like wire format this session needs.
+   * @param maxVirtualPri  Number of virtual priority nodes to represent fixed
+   *                         priority levels.
    */
   HTTPUpstreamSession(
       folly::HHWheelTimer* transactionTimeouts,
@@ -33,15 +35,26 @@ class HTTPUpstreamSession final: public HTTPSession {
       const folly::SocketAddress& peerAddr,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback):
-    HTTPSession(transactionTimeouts, std::move(sock), localAddr, peerAddr,
-                nullptr, std::move(codec), tinfo, infoCallback) {
+      InfoCallback* infoCallback,
+      uint8_t maxVirtualPri = 0):
+    HTTPSession(
+        transactionTimeouts,
+        std::move(sock),
+        localAddr,
+        peerAddr,
+        nullptr,
+        std::move(codec),
+        tinfo,
+        infoCallback),
+    maxVirtualPriorityLevel_(maxVirtualPri) {
     auto asyncSocket = sock->getUnderlyingTransport<folly::AsyncSocket>();
     if (asyncSocket) {
       asyncSocket->setBufferCallback(this);
     }
     CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
   }
+
+  void startNow() override;
 
   /**
    * Creates a new transaction on this upstream session. Invoking this function
@@ -94,6 +107,8 @@ class HTTPUpstreamSession final: public HTTPSession {
     HTTPTransaction* txn) override;
 
   bool allTransactionsStarted() const override;
+
+  uint8_t maxVirtualPriorityLevel_{0};
 };
 
 } // proxygen

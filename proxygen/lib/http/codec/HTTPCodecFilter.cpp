@@ -296,9 +296,12 @@ uint32_t PassThroughHTTPCodecFilter::getDefaultWindowSize() const {
   return call_->getDefaultWindowSize();
 }
 
-void
-PassThroughHTTPCodecFilter::addPriorityNodes(PriorityQueue& queue) {
-  call_->addPriorityNodes(queue);
+size_t
+PassThroughHTTPCodecFilter::addPriorityNodes(
+    PriorityQueue& queue,
+    folly::IOBufQueue& writeBuf,
+    uint8_t maxLevel) {
+  return call_->addPriorityNodes(queue, writeBuf, maxLevel);
 }
 
 HTTPCodec::StreamID

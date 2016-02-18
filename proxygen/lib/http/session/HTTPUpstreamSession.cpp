@@ -60,6 +60,20 @@ bool HTTPUpstreamSession::isClosing() const {
     resetAfterDrainingWrites_;
 }
 
+void HTTPUpstreamSession::startNow() {
+  // startNow in base class CHECKs this session has not started.
+  HTTPSession::startNow();
+  // Upstream specific:
+  // create virtual priority nodes and send Priority frames to peer if necessary
+  auto bytes = codec_->addPriorityNodes(
+      txnEgressQueue_,
+      writeBuf_,
+      maxVirtualPriorityLevel_);
+  if (bytes) {
+    scheduleWrite();
+  }
+}
+
 HTTPTransaction*
 HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
   CHECK_NOTNULL(handler);

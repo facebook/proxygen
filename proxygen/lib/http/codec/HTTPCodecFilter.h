@@ -183,7 +183,10 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   uint32_t getDefaultWindowSize() const override;
 
-  void addPriorityNodes(PriorityQueue& queue) override;
+  size_t addPriorityNodes(
+      PriorityQueue& queue,
+      folly::IOBufQueue& writeBuf,
+      uint8_t maxLevel) override;
 
   StreamID mapPriorityToDependency(uint8_t priority) const override;
 

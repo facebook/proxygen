@@ -115,7 +115,10 @@ public:
     headerCodec_->setStats(stats);
   }
 
-  void addPriorityNodes(PriorityQueue& queue) override;
+  size_t addPriorityNodes(
+      PriorityQueue& queue,
+      folly::IOBufQueue& writeBuf,
+      uint8_t maxLevel) override;
 
   StreamID mapPriorityToDependency(uint8_t priority) const override {
     return MAX_STREAM_ID + priority;

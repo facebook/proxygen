@@ -289,7 +289,7 @@ class HTTPSession:
    * to the remote side. This function must be called once per session to
    * begin reads.
    */
-  void startNow();
+  virtual void startNow();
 
   /**
    * Returns true if this session is draining. This can happen if drain()

@@ -18,6 +18,15 @@ HTTPDownstreamSession::~HTTPDownstreamSession() {
 }
 
 void
+HTTPDownstreamSession::startNow() {
+  // Create virtual nodes should happen before startNow since ingress may come
+  // before we can finish startNow. Since maxLevel = 0, this is a no-op unless
+  // SPDY is used. And no frame will be sent to peer, so ignore returned value.
+  codec_->addPriorityNodes(txnEgressQueue_, writeBuf_, 0);
+  HTTPSession::startNow();
+}
+
+void
 HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
                                               HTTPMessage* msg) {
   CHECK(!txn->getHandler());

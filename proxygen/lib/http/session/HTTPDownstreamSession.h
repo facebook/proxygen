@@ -39,6 +39,8 @@ class HTTPDownstreamSession final: public HTTPSession {
       CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
   }
 
+  void startNow() override;
+
  private:
   ~HTTPDownstreamSession() override;
 

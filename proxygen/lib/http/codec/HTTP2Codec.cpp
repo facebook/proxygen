@@ -626,6 +626,22 @@ ErrorCode HTTP2Codec::parsePriority(Cursor& cursor) {
   return ErrorCode::NO_ERROR;
 }
 
+size_t HTTP2Codec::addPriorityNodes(
+    PriorityQueue& queue,
+    folly::IOBufQueue& writeBuf,
+    uint8_t maxLevel) {
+  HTTPCodec::StreamID parent = 0;
+  size_t bytes = 0;
+  while (maxLevel--) {
+    auto id = createStream();
+    virtualPriorityNodes_.push_back(id);
+    queue.addPriorityNode(id, parent);
+    bytes += generatePriority(writeBuf, id, std::make_tuple(parent, false, 0));
+    parent = id;
+  }
+  return bytes;
+}
+
 ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
   // rst for stream in idle state - protocol error
   VLOG(4) << "parsing RST_STREAM frame for stream=" << curHeader_.stream <<
@@ -1159,6 +1175,14 @@ void HTTP2Codec::streamError(const std::string& msg, ErrorCode code,
   if (callback_) {
     callback_->onError(curHeader_.stream, error, newTxn);
   }
+}
+
+HTTPCodec::StreamID
+HTTP2Codec::mapPriorityToDependency(uint8_t priority) const {
+  if (priority < virtualPriorityNodes_.size()) {
+    return virtualPriorityNodes_[priority];
+  }
+  return 0;
 }
 
 }

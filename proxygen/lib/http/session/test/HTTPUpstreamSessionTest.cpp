@@ -507,12 +507,113 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   EXPECT_CALL(callbacks,
               onPriority(priGroupID, HTTPMessage::HTTPPriority(0, false, 255)));
   parseOutput(*serverCodec);
+  eventBase_.loop();
 
   handler->expectError();
   handler->expectDetachTransaction();
   httpSession_->shutdownTransportWithReset(kErrorTimeout);
   eventBase_.loop();
   EXPECT_EQ(sessionDestroyed_, true);
+}
+
+class HTTP2UpstreamSessionWithVirtualNodesTest:
+  public HTTPUpstreamTest<MockHTTPCodecPair> {
+ public:
+  void SetUp() override {
+    auto codec = folly::make_unique<NiceMock<MockHTTPCodec>>();
+    codecPtr_ = codec.get();
+    EXPECT_CALL(*codec, supportsParallelRequests())
+      .WillRepeatedly(Return(true));
+    EXPECT_CALL(*codec, getTransportDirection())
+      .WillRepeatedly(Return(TransportDirection::UPSTREAM));
+    EXPECT_CALL(*codec, getProtocol())
+      .WillRepeatedly(Return(CodecProtocol::HTTP_2));
+    EXPECT_CALL(*codec, setCallback(_))
+      .WillRepeatedly(SaveArg<0>(&codecCb_));
+    EXPECT_CALL(*codec, createStream())
+      .WillRepeatedly(Invoke([&] {
+            auto ret = nextOutgoingTxn_;
+            nextOutgoingTxn_ += 2;
+            return ret;
+          }));
+    commonSetUp(std::move(codec));
+  }
+
+  void commonSetUp(unique_ptr<HTTPCodec> codec) {
+    HTTPSession::setDefaultReadBufferLimit(65536);
+    HTTPSession::setPendingWriteMax(65536);
+    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
+    EXPECT_CALL(*transport_, writeChain(_, _, _))
+      .WillRepeatedly(Invoke(
+            this,
+            &HTTPUpstreamTest<MockHTTPCodecPair>::onWriteChain));
+    EXPECT_CALL(*transport_, setReadCB(_))
+      .WillRepeatedly(SaveArg<0>(&readCallback_));
+    EXPECT_CALL(*transport_, getReadCB())
+      .WillRepeatedly(Return(readCallback_));
+    EXPECT_CALL(*transport_, getEventBase())
+      .WillRepeatedly(Return(&eventBase_));
+    EXPECT_CALL(*transport_, good())
+      .WillRepeatedly(ReturnPointee(&transportGood_));
+    EXPECT_CALL(*transport_, closeNow())
+      .WillRepeatedly(Assign(&transportGood_, false));
+    AsyncTransportWrapper::UniquePtr transportPtr(transport_);
+    httpSession_ = new HTTPUpstreamSession(
+      transactionTimeouts_.get(),
+      std::move(transportPtr),
+      localAddr_, peerAddr_,
+      std::move(codec),
+      mockTransportInfo_, this, level_);
+    eventBase_.loop();
+    ASSERT_EQ(this->sessionDestroyed_, false);
+  }
+
+  void TearDown() override {
+    EXPECT_TRUE(sessionDestroyed_);
+  }
+
+ protected:
+  MockHTTPCodec* codecPtr_{nullptr};
+  HTTPCodec::Callback* codecCb_{nullptr};
+  uint32_t nextOutgoingTxn_{1};
+  std::vector<HTTPCodec::StreamID> dependencies;
+  uint8_t level_{3};
+};
+
+TEST_F(HTTP2UpstreamSessionWithVirtualNodesTest, virtual_nodes) {
+  InSequence enforceOrder;
+
+  HTTPCodec::StreamID deps[] = {11, 13, 15};
+  EXPECT_CALL(*codecPtr_, addPriorityNodes(_, _, _))
+    .Times(1)
+    .WillOnce(Invoke([&] (
+            HTTPCodec::PriorityQueue&,
+            folly::IOBufQueue&,
+            uint8_t maxLevel) {
+          for (size_t i = 0; i < maxLevel; i++) {
+            dependencies.push_back(deps[i]);
+          }
+          return 123;
+        }));
+  httpSession_->startNow();
+
+  EXPECT_EQ(level_, dependencies.size());
+  StrictMock<MockHTTPHandler> handler;
+  handler.expectTransaction();
+  auto txn = httpSession_->newTransaction(&handler);
+
+  EXPECT_CALL(*codecPtr_, mapPriorityToDependency(_))
+    .Times(1)
+    .WillOnce(Invoke([&] (uint8_t priority) {
+            return dependencies[priority];
+          }));
+  txn->updateAndSendPriority(0);
+
+  handler.expectError();
+  handler.expectDetachTransaction();
+  httpSession_->shutdownTransportWithReset(kErrorNone);
+
+  eventBase_.loop();
 }
 
 TYPED_TEST_P(HTTPUpstreamTest, immediate_eof) {

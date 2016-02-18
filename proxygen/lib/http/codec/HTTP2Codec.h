@@ -96,6 +96,11 @@ public:
       (transportDirection_ == TransportDirection::UPSTREAM &&
        egressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1));
   }
+  size_t addPriorityNodes(
+      PriorityQueue& queue,
+      folly::IOBufQueue& writeBuf,
+      uint8_t maxLevel) override;
+  HTTPCodec::StreamID mapPriorityToDependency(uint8_t priority) const override;
 
   //HTTP2Codec specific API
 
@@ -223,6 +228,7 @@ public:
 
   static uint32_t kHeaderSplitSize;
   HeaderDecodeInfo decodeInfo_;
+  std::vector<StreamID> virtualPriorityNodes_;
 };
 
 } // proxygen

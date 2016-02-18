@@ -522,11 +522,25 @@ class HTTPCodec {
   virtual uint32_t getDefaultWindowSize() const { return 0; }
 
   /**
-   * Some protocols (SPDY) have a linear priority structure which must be
-   * simulated in the HTTP/2 tree structure with "virtual" nodes representing
-   * different priority bands.
+   * Create virtual nodes in HTTP/2 priority tree. Some protocols (SPDY) have a
+   * linear priority structure which must be simulated in the HTTP/2 tree
+   * structure with "virtual" nodes representing different priority bands.
+   * There are other cases we simply want a "plain" linear priority structure
+   * even with HTTP/2. In that case a Priority frame will also be sent out for
+   * each virtual node created so that peer will have the same linear structure.
+   *
+   * @param queue     the priority queue to add nodes
+   * @param writeBuf  IOBufQueue to append priority frames to send. For SPDY,
+   *                    the writeBuf will be ignored.
+   * @param maxLavel  the max level of virtual priority nodes to create. For
+   *                    SPDY, this value will be ignored.
    */
-  virtual void addPriorityNodes(PriorityQueue& queue) {}
+  virtual size_t addPriorityNodes(
+      PriorityQueue& queue,
+      folly::IOBufQueue& writeBuf,
+      uint8_t maxLevel) {
+    return 0;
+  }
 
   /**
    * Map the given linear priority to the correct parent node dependency

@@ -86,6 +86,10 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_CONST_METHOD0(getIngressSettings, const HTTPSettings*());
   MOCK_METHOD0(enableDoubleGoawayDrain, void());
   MOCK_CONST_METHOD0(getDefaultWindowSize, uint32_t());
+  MOCK_METHOD3(
+      addPriorityNodes,
+      size_t(PriorityQueue&, folly::IOBufQueue&, uint8_t));
+  MOCK_CONST_METHOD1(mapPriorityToDependency, HTTPCodec::StreamID(uint8_t));
  };
 
 class MockHTTPCodecCallback: public HTTPCodec::Callback {

@@ -175,8 +175,6 @@ HTTPSession::HTTPSession(
   if (controller_) {
     controller_->attachSession(this);
   }
-
-  codec_->addPriorityNodes(txnEgressQueue_);
 }
 
 HTTPSession::~HTTPSession() {

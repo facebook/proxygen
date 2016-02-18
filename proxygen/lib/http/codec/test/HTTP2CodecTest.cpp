@@ -979,6 +979,33 @@ TEST_F(HTTP2CodecTest, BadPriority) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+class DummyQueue: public HTTPCodec::PriorityQueue {
+ public:
+  DummyQueue() {}
+  virtual ~DummyQueue() {}
+  virtual void addPriorityNode(
+      HTTPCodec::StreamID id,
+      HTTPCodec::StreamID) override {
+    nodes_.push_back(id);
+  }
+
+  std::vector<HTTPCodec::StreamID> nodes_;
+};
+
+TEST_F(HTTP2CodecTest, VirtualNodes) {
+  DummyQueue queue;
+  uint8_t level = 30;
+  upstreamCodec_.addPriorityNodes(queue, output_, level);
+
+  EXPECT_TRUE(parse());
+  for (int i = 0; i < level; i++) {
+    EXPECT_EQ(queue.nodes_[i], upstreamCodec_.mapPriorityToDependency(i));
+  }
+
+  EXPECT_EQ(0, upstreamCodec_.mapPriorityToDependency(level));
+  EXPECT_EQ(0, upstreamCodec_.mapPriorityToDependency(level + 1));
+}
+
 TEST_F(HTTP2CodecTest, BasicPushPromise) {
   upstreamCodec_.generateSettings(output_);
   parse();
