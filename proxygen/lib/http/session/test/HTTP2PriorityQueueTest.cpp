@@ -88,20 +88,21 @@ class QueueTest : public testing::Test {
     addTransaction(9, {5, false, 7});
   }
 
-  bool visitNode(HTTPCodec::StreamID id, HTTPTransaction* txn, double r) {
+  bool visitNode(HTTP2PriorityQueue&, HTTPCodec::StreamID id,
+                 HTTPTransaction*, double r) {
     nodes_.push_back(std::make_pair(id, r * 100));
     return false;
   }
 
   void dump() {
     nodes_.clear();
-    q_.iterate(std::bind(&QueueTest::visitNode, this, _1, _2, _3),
+    q_.iterate(std::bind(&QueueTest::visitNode, this, std::ref(q_), _1, _2, _3),
                [] { return false; }, true);
   }
 
   void dumpBFS(const std::function<bool()>& stopFn) {
     nodes_.clear();
-    q_.iterateBFS(std::bind(&QueueTest::visitNode, this, _1, _2, _3),
+    q_.iterateBFS(std::bind(&QueueTest::visitNode, this, _1, _2, _3, _4),
                   stopFn, true);
   }
 

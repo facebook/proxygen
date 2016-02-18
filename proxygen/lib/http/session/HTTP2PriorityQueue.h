@@ -11,7 +11,6 @@
 
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
-#include <folly/ThreadLocal.h>
 #include <folly/IntrusiveList.h>
 #include <folly/io/async/HHWheelTimer.h>
 
@@ -88,7 +87,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   }
 
   // stopFn is only evaluated once per level
-  void iterateBFS(const std::function<bool(HTTPCodec::StreamID,
+  void iterateBFS(const std::function<bool(HTTP2PriorityQueue&,
+                                           HTTPCodec::StreamID,
                                            HTTPTransaction *, double)>& fn,
                   const std::function<bool()>& stopFn, bool all);
 
@@ -123,7 +123,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     }
   }
 
-  static bool nextEgressResult(HTTPCodec::StreamID id, HTTPTransaction* txn,
+  static bool nextEgressResult(HTTP2PriorityQueue& queue,
+                               HTTPCodec::StreamID id, HTTPTransaction* txn,
                                double r);
 
   void updateEnqueuedWeight();
@@ -236,8 +237,9 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     typedef std::deque<PendingNode> PendingList;
     bool visitBFS(double relativeParentWeight,
-                  const std::function<bool(HTTPCodec::StreamID,
-                                          HTTPTransaction *, double)>& fn,
+                  const std::function<bool(HTTP2PriorityQueue& queue,
+                                           HTTPCodec::StreamID,
+                                           HTTPTransaction *, double)>& fn,
                   bool all,
                   PendingList& pendingNodes, bool enqueuedChildren);
 
@@ -296,8 +298,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   uint32_t numVirtualNodes_{0};
   bool pendingWeightChange_{false};
   folly::HHWheelTimer* timer_{nullptr};
+  NextEgressResult* nextEgressResults_{nullptr};
   static std::chrono::milliseconds kNodeLifetime_;
-  static folly::ThreadLocalPtr<NextEgressResult> nextEgressResults_;
 };
 
 

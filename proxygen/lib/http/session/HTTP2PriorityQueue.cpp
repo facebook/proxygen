@@ -15,8 +15,6 @@ using std::unique_ptr;
 
 namespace proxygen {
 
-folly::ThreadLocalPtr<HTTP2PriorityQueue::NextEgressResult>
-HTTP2PriorityQueue::nextEgressResults_;
 std::chrono::milliseconds HTTP2PriorityQueue::kNodeLifetime_ =
   std::chrono::seconds(60);
 
@@ -300,7 +298,8 @@ HTTP2PriorityQueue::Node::iterate(
 bool
 HTTP2PriorityQueue::Node::visitBFS(
   double relativeParentWeight,
-  const std::function<bool(HTTPCodec::StreamID, HTTPTransaction *, double)>& fn,
+  const std::function<bool(HTTP2PriorityQueue& queue, HTTPCodec::StreamID,
+                           HTTPTransaction *, double)>& fn,
   bool all,
   PendingList& pendingNodes, bool enqueuedChildren) {
   bool invoke = (parent_ != nullptr && (all || isEnqueued()));
@@ -327,7 +326,7 @@ HTTP2PriorityQueue::Node::visitBFS(
   }
 
   // Invoke fn last in case it deletes this node
-  if (invoke && fn(id_, txn_,
+  if (invoke && fn(queue_, id_, txn_,
                    relativeParentWeight * relativeEnqueuedWeight)) {
     return true;
   }
@@ -491,7 +490,8 @@ HTTP2PriorityQueue::clearPendingEgress(Handle h) {
 
 void
 HTTP2PriorityQueue::iterateBFS(
-  const std::function<bool(HTTPCodec::StreamID, HTTPTransaction *, double)>& fn,
+  const std::function<bool(HTTP2PriorityQueue&, HTTPCodec::StreamID,
+                           HTTPTransaction *, double)>& fn,
   const std::function<bool()>& stopFn, bool all) {
   Node::PendingList pendingNodes{{0, &root_, 1.0}};
   Node::PendingList newPendingNodes;
@@ -513,9 +513,10 @@ HTTP2PriorityQueue::iterateBFS(
 }
 
 bool
-HTTP2PriorityQueue::nextEgressResult(HTTPCodec::StreamID id,
+HTTP2PriorityQueue::nextEgressResult(HTTP2PriorityQueue& queue,
+                                     HTTPCodec::StreamID,
                                      HTTPTransaction* txn, double r) {
-  nextEgressResults_.get()->emplace_back(txn, r);
+  queue.nextEgressResults_->emplace_back(txn, r);
   return false;
 }
 
@@ -530,7 +531,7 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
   };
 
   result.reserve(activeCount_);
-  nextEgressResults_.reset(&result);
+  nextEgressResults_ = &result;
 
   updateEnqueuedWeight();
   Node::PendingList pendingNodes;
@@ -563,7 +564,7 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
     std::swap(pendingNodes, pendingNodesTmp);
   } while (!stop && !pendingNodes.empty());
   std::sort(result.begin(), result.end(), WeightCmp());
-  nextEgressResults_.release();
+  nextEgressResults_ = nullptr;
 }
 
 HTTP2PriorityQueue::Node*

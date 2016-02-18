@@ -2311,7 +2311,8 @@ void HTTPSession::resumeTransactions() {
   CHECK(!inResume_);
   inResume_ = true;
   DestructorGuard g(this);
-  auto resumeFn = [] (HTTPCodec::StreamID, HTTPTransaction *txn, double) {
+  auto resumeFn = [] (HTTP2PriorityQueue&, HTTPCodec::StreamID,
+                      HTTPTransaction *txn, double) {
     if (txn) {
       txn->resumeEgress();
     }
