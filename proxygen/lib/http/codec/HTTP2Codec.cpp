@@ -712,6 +712,7 @@ ErrorCode HTTP2Codec::parseSettings(Cursor& cursor) {
           VLOG(4) << "Invalid MAX_FRAME_SIZE size=" << setting.second;
           return ErrorCode::PROTOCOL_ERROR;
         }
+        kHeaderSplitSize = setting.second;
         break;
       case SettingsId::MAX_HEADER_LIST_SIZE:
         break;
@@ -941,17 +942,19 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(out));
   if (queue.chainLength() > 0) {
-
-    auto chunk = queue.split(std::min(size_t(kHeaderSplitSize),
-                                      queue.chainLength()));
+    boost::optional<http2::PriorityUpdate> pri;
+    auto res = msg.getHTTP2Priority();
+    size_t split = kHeaderSplitSize;
+    if (res) {
+      pri = {std::get<0>(*res), std::get<1>(*res), std::get<2>(*res)};
+      if (split > http2::kFramePrioritySize) {
+        split -= http2::kFramePrioritySize;
+      }
+    }
+    auto chunk = queue.split(std::min(split, queue.chainLength()));
 
     bool endHeaders = queue.chainLength() == 0;
     if (assocStream == 0) {
-      boost::optional<http2::PriorityUpdate> pri;
-      auto res = msg.getHTTP2Priority();
-      if (res) {
-        pri = {std::get<0>(*res), std::get<1>(*res), std::get<2>(*res)};
-      }
       http2::writeHeaders(writeBuf,
                           std::move(chunk),
                           stream,
