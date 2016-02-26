@@ -26,9 +26,10 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   GMOCK_METHOD1_(, noexcept,, pauseIngress, void(HTTPTransaction*));
   GMOCK_METHOD1_(, noexcept,, resumeIngress, void(HTTPTransaction*));
   GMOCK_METHOD1_(, noexcept,, transactionTimeout, void(HTTPTransaction*));
-  GMOCK_METHOD3_(, noexcept,, sendHeaders, void(HTTPTransaction*,
+  GMOCK_METHOD4_(, noexcept,, sendHeaders, void(HTTPTransaction*,
                                                  const HTTPMessage&,
-                                                 HTTPHeaderSize*));
+                                                 HTTPHeaderSize*,
+                                                 bool));
   GMOCK_METHOD3_(, noexcept,, sendBody,
                  size_t(HTTPTransaction*, std::shared_ptr<folly::IOBuf>, bool));
 

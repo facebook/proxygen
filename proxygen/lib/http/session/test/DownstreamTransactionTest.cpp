@@ -47,8 +47,8 @@ class DownstreamTransactionTest : public testing::Test {
             txn->sendBody(makeBuf(size));
             txn->sendEOM();
           }));
-    EXPECT_CALL(transport_, sendHeaders(txn, _, _))
-      .WillOnce(Invoke([=](Unused, const HTTPMessage& headers, Unused) {
+    EXPECT_CALL(transport_, sendHeaders(txn, _, _, _))
+      .WillOnce(Invoke([=](Unused, const HTTPMessage& headers, Unused, Unused) {
             EXPECT_EQ(headers.getStatusCode(), 200);
           }));
     EXPECT_CALL(transport_, sendBody(txn, _, false))
@@ -250,8 +250,8 @@ TEST_F(DownstreamTransactionTest, detach_from_notify) {
           txn.sendHeaders(*response.get());
           txn.sendBody(makeBuf(10));
         }));
-  EXPECT_CALL(transport_, sendHeaders(&txn, _, _))
-    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused) {
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _, _))
+    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused, Unused) {
           EXPECT_EQ(headers.getStatusCode(), 200);
         }));
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(10));
@@ -290,8 +290,8 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
           txn.sendBody(makeBuf(10));
           txn.sendBody(makeBuf(20));
         }));
-  EXPECT_CALL(transport_, sendHeaders(&txn, _, _))
-    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused) {
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _, _))
+    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused, Unused) {
           EXPECT_EQ(headers.getStatusCode(), 200);
         }));
 
@@ -341,8 +341,8 @@ TEST_F(DownstreamTransactionTest, internal_error) {
           auto response = makeResponse(200);
           txn.sendHeaders(*response.get());
         }));
-  EXPECT_CALL(transport_, sendHeaders(&txn, _, _))
-    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused) {
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _, _))
+    .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused, Unused) {
           EXPECT_EQ(headers.getStatusCode(), 200);
         }));
   EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::INTERNAL_ERROR));

@@ -1128,7 +1128,8 @@ HTTPSession::transactionTimeout(HTTPTransaction* txn) noexcept {
 
 void HTTPSession::sendHeaders(HTTPTransaction* txn,
                               const HTTPMessage& headers,
-                              HTTPHeaderSize* size) noexcept {
+                              HTTPHeaderSize* size,
+                              bool includeEOM) noexcept {
   CHECK(started_);
   unique_ptr<IOBuf> goawayBuf;
   if (shouldShutdown()) {
@@ -1152,7 +1153,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
                          txn->getID(),
                          headers,
                          headers.isRequest() ? txn->getAssocTxnId() : 0,
-                         false, // eom
+                         includeEOM,
                          size);
   const uint64_t newOffset = sessionByteOffset();
 
@@ -1172,8 +1173,37 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     VLOG(4) << *this << " moved GOAWAY to end of writeBuf";
     writeBuf_.append(std::move(goawayBuf));
   }
+  if (includeEOM) {
+    commonEom(txn, 0, true);
+  }
   scheduleWrite();
   onHeadersSent(headers, wasReusable);
+}
+
+void
+HTTPSession::commonEom(
+    HTTPTransaction* txn,
+    size_t encodedSize,
+    bool piggybacked) noexcept {
+  // TODO: sort out the TransportCallback for all the EOM handling cases.
+  //  Current code has the same behavior as before when there wasn't commonEom.
+  //  The issue here is onEgressBodyLastByte can be called twice, depending on
+  //  the encodedSize. E.g., when codec actually write to buffer in sendEOM.
+  if (!txn->testAndSetFirstByteSent()) {
+    txn->onEgressBodyFirstByte();
+  }
+  if (!piggybacked) {
+    txn->onEgressBodyLastByte();
+  }
+  // in case encodedSize == 0 we won't get TTLBA which is acceptable
+  // noting the fact that we don't have a response body
+  if (byteEventTracker_ && (encodedSize > 0)) {
+     byteEventTracker_->addLastByteEvent(
+        txn,
+        sessionByteOffset(),
+        sock_->isEorTrackingEnabled());
+  }
+  onEgressMessageFinished(txn);
 }
 
 size_t
@@ -1193,16 +1223,8 @@ HTTPSession::sendBody(HTTPTransaction* txn,
     byteEventTracker_->addFirstBodyByteEvent(offset, txn);
   }
   if (includeEOM) {
-    if (!txn->testAndSetFirstByteSent()) {
-      txn->onEgressBodyFirstByte();
-    }
-    if (encodedSize > 0 && byteEventTracker_) {
-      byteEventTracker_->addLastByteEvent(txn, sessionByteOffset(),
-                                          sock_->isEorTrackingEnabled());
-    }
-
     VLOG(5) << *this << " sending EOM in body for streamID=" << txn->getID();
-    onEgressMessageFinished(txn);
+    commonEom(txn, encodedSize, true);
   }
   return encodedSize;
 }
@@ -1288,18 +1310,7 @@ HTTPSession::sendEOM(HTTPTransaction* txn) noexcept {
   VLOG(4) << *this << " sending EOM for streamID=" << txn->getID();
   size_t encodedSize = codec_->generateEOM(writeBuf_, txn->getID());
   // PRIO_TODO: boost this transaction's priority? evaluate impact...
-  if (!txn->testAndSetFirstByteSent()) {
-    txn->onEgressBodyFirstByte();
-  }
-  txn->onEgressBodyLastByte();
-  if (encodedSize > 0 && byteEventTracker_) {
-    byteEventTracker_->addLastByteEvent(txn, sessionByteOffset(),
-                                        sock_->isEorTrackingEnabled());
-  }
-  // in case encodedSize == 0 we won't get TTLBA which is acceptable
-  // noting the fact that we don't have a response body
-
-  onEgressMessageFinished(txn);
+  commonEom(txn, encodedSize, false);
   return encodedSize;
 }
 

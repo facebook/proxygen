@@ -606,7 +606,9 @@ void HTTPTransaction::onEgressLastByteAck(std::chrono::milliseconds latency) {
   }
 }
 
-void HTTPTransaction::sendHeaders(const HTTPMessage& headers) {
+void HTTPTransaction::sendHeadersWithOptionalEOM(
+    const HTTPMessage& headers,
+    bool eom) {
   CHECK(HTTPTransactionEgressSM::transit(
           egressState_, HTTPTransactionEgressSM::Event::sendHeaders));
   DCHECK(!isEgressComplete());
@@ -614,11 +616,30 @@ void HTTPTransaction::sendHeaders(const HTTPMessage& headers) {
     lastResponseStatus_ = headers.getStatusCode();
   }
   HTTPHeaderSize size;
-  transport_.sendHeaders(this, headers, &size);
+  transport_.sendHeaders(this, headers, &size, eom);
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
   }
+  if (eom) {
+    CHECK(HTTPTransactionEgressSM::transit(
+          egressState_, HTTPTransactionEgressSM::Event::sendEOM));
+    // trailers are supported in this case:
+    // trailers are for chunked encoding-transfer of a body
+    if (transportCallback_) {
+      transportCallback_->bodyBytesGenerated(0);
+    }
+    CHECK(HTTPTransactionEgressSM::transit(
+          egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
+  }
   flushWindowUpdate();
+}
+
+void HTTPTransaction::sendHeadersWithEOM(const HTTPMessage& header) {
+  sendHeadersWithOptionalEOM(header, true);
+}
+
+void HTTPTransaction::sendHeaders(const HTTPMessage& header) {
+  sendHeadersWithOptionalEOM(header, false);
 }
 
 void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {

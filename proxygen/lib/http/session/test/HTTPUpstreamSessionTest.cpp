@@ -1386,6 +1386,18 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
   httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
 }
 
+TEST_F(MockHTTPUpstreamTest, header_with_eom) {
+  NiceMock<MockHTTPHandler> handler;
+  HTTPMessage req = getGetRequest();
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, true, _));
+
+  auto txn = httpSession_->newTransaction(&handler);
+  txn->sendHeadersWithEOM(req);
+  eventBase_.loop();
+  EXPECT_TRUE(txn->isEgressComplete());
+  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+}
+
 template <int stage>
 class TestAbortPost : public MockHTTPUpstreamTest {
  public:

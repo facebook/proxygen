@@ -330,7 +330,8 @@ class HTTPTransaction :
 
     virtual void sendHeaders(HTTPTransaction* txn,
                              const HTTPMessage& headers,
-                             HTTPHeaderSize* size) noexcept = 0;
+                             HTTPHeaderSize* size,
+                             bool eom) noexcept = 0;
 
     virtual size_t sendBody(HTTPTransaction* txn,
                             std::unique_ptr<folly::IOBuf>,
@@ -708,9 +709,14 @@ class HTTPTransaction :
    * Note: This method should be called once per message unless the first
    * headers sent indicate a 1xx status.
    *
+   * sendHeaders will not set EOM flag in header frame, whereas
+   * sendHeadersWithEOM will. sendHeadersWithOptionalEOM backs both of them.
+   *
    * @param headers  Message headers
    */
   virtual void sendHeaders(const HTTPMessage& headers);
+  virtual void sendHeadersWithEOM(const HTTPMessage& headers);
+  virtual void sendHeadersWithOptionalEOM(const HTTPMessage& headers, bool eom);
 
   /**
    * Send part or all of the egress message body to the Transport. If flow
