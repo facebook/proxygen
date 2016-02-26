@@ -784,7 +784,10 @@ TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
   auto handler2 = addSimpleNiceHandler();
   handler2->expectEgressPaused();
   handler2->expectHeaders();
-  handler2->expectEOM();
+  handler2->expectEOM([&] {
+      eventBase_.runInLoop([&] {
+          transport_->addReadEvent(rst, milliseconds(0)); });
+    });
   handler1->expectError([&] (const HTTPException& ex) {
       ASSERT_EQ(ex.getProxygenError(), kErrorStreamAbort);
       resumeWritesInLoop();
@@ -793,12 +796,12 @@ TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
   handler2->expectEgressResumed([&] {
       handler2->sendReplyWithBody(200, 32768);
     });
-  handler2->expectDetachTransaction();
+  handler2->expectDetachTransaction([this] {
+      eventBase_.runInLoop([&] { transport_->addReadEOF(milliseconds(0)); });
+    });
   expectDetachSession();
 
-  flushRequestsAndLoop(true, milliseconds(50), milliseconds(10), [&] {
-      transport_->addReadEvent(rst, milliseconds(10));
-    });
+  flushRequestsAndLoop();
 }
 
 TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
@@ -1478,8 +1481,13 @@ TEST_F(SPDY31DownstreamTest, testEOFOnBlockedSession) {
   handler2->expectEOM([&handler2, this] {
       handler2->sendHeaders(200, 40000);
       handler2->sendBody(32768);
+      eventBase_.runInLoop([this] { transport_->addReadEOF(milliseconds(0)); });
     });
 
+  handler1->expectEgressPaused();
+  handler2->expectEgressPaused();
+  handler1->expectEgressResumed();
+  handler2->expectEgressResumed();
   handler1->expectError([&] (const HTTPException& ex) {
       EXPECT_EQ(ex.getDirection(),
                 HTTPException::Direction::INGRESS_AND_EGRESS);
@@ -1493,7 +1501,7 @@ TEST_F(SPDY31DownstreamTest, testEOFOnBlockedSession) {
 
   expectDetachSession();
 
-  flushRequestsAndLoop(true, milliseconds(10), milliseconds(10));
+  flushRequestsAndLoop();
 }
 
 

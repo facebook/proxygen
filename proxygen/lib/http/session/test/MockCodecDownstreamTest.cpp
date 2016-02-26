@@ -789,11 +789,10 @@ TEST_F(MockCodecDownstreamTest, buffering) {
   eventBase_.tryRunAfterDelay([&handler, this] {
       handler.txn_->resumeIngress();
       handler.sendReplyWithBody(200, 100);
+      eventBase_.runInLoop([this] {
+          httpSession_->shutdownTransportWithReset(
+            ProxygenError::kErrorConnectionReset); });
     }, 30);
-  eventBase_.tryRunAfterDelay([&handler, this] {
-      httpSession_->shutdownTransportWithReset(
-        ProxygenError::kErrorConnectionReset);
-    }, 50);
 
   EXPECT_CALL(mockController_, detachSession(_));
   eventBase_.loop();
