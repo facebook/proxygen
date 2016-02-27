@@ -119,6 +119,7 @@ libproxygenhttp_la_SOURCES = \
 	codec/FlowControlFilter.cpp \
 	codec/HTTP1xCodec.cpp \
 	codec/HTTPChecks.cpp \
+	codec/HTTPCodecFactory.cpp \
 	codec/HTTPCodecFilter.cpp \
 	codec/HTTPCodecPrinter.cpp \
 	codec/HTTPSettings.cpp \

@@ -99,6 +99,16 @@ std::unique_ptr<HTTPMessage> makePostRequest() {
   return folly::make_unique<HTTPMessage>(getPostRequest());
 }
 
+HTTPMessage getResponse(uint32_t code, uint32_t bodyLen) {
+  HTTPMessage resp;
+  resp.setStatusCode(code);
+  if (bodyLen > 0) {
+    resp.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                          folly::to<string>(bodyLen));
+  }
+  return resp;
+}
+
 std::unique_ptr<HTTPMessage> makeResponse(uint16_t statusCode) {
   auto resp = folly::make_unique<HTTPMessage>();
   resp->setStatusCode(statusCode);
@@ -110,6 +120,18 @@ makeResponse(uint16_t statusCode, size_t len) {
   auto resp = makeResponse(statusCode);
   resp->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, folly::to<string>(len));
   return std::make_pair(std::move(resp), makeBuf(len));
+}
+
+HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
+                              HTTPMethod method, uint32_t bodyLen) {
+  HTTPMessage req = getGetRequest();
+  req.setMethod(method);
+  req.getHeaders().set(HTTP_HEADER_UPGRADE, upgradeHeader);
+  if (bodyLen > 0) {
+    req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                         folly::to<std::string>(bodyLen));
+  }
+  return req;
 }
 
 void fakeMockCodec(MockHTTPCodec& codec) {

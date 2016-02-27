@@ -154,6 +154,13 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     settingsAcks++;
   }
 
+  bool onNativeProtocolUpgrade(HTTPCodec::StreamID,
+                               CodecProtocol,
+                               const std::string&,
+                               HTTPMessage&) override {
+     return true;
+  }
+
   uint32_t numOutgoingStreams() const override {
     return 0;
   }
@@ -300,6 +307,11 @@ makeUpstreamParallelCodec();
 
 HTTPMessage getGetRequest(const std::string& url = std::string("/"));
 HTTPMessage getPostRequest();
+HTTPMessage getResponse(uint32_t code, uint32_t bodyLen = 0);
+HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
+                              HTTPMethod method = HTTPMethod::GET,
+                              uint32_t bodyLen = 0);
+
 std::unique_ptr<HTTPMessage> makeGetRequest();
 std::unique_ptr<HTTPMessage> makePostRequest();
 std::unique_ptr<HTTPMessage> makeResponse(uint16_t statusCode);

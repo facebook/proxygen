@@ -230,6 +230,17 @@ class HTTPCodec {
                             const HTTPMessage::HTTPPriority& pri) {}
 
     /**
+     * Called upon receipt of a valid protocol switch.  Return false if
+     * protocol switch could not be completed.
+     */
+    virtual bool onNativeProtocolUpgrade(StreamID stream,
+                                         CodecProtocol protocol,
+                                         const std::string& protocolString,
+                                         HTTPMessage& msg) {
+      return false;
+    }
+
+    /**
      * Return the number of open streams started by this codec callback.
      * Parallel codecs with a maximum number of streams will invoke this
      * to determine if a new stream exceeds the limit.

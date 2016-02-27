@@ -19,6 +19,7 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <folly/io/async/AsyncSSLSocket.h>
+#include <folly/MoveWrapper.h>
 
 using folly::AsyncSSLSocket;
 using folly::AsyncSocket;
@@ -142,6 +143,24 @@ HTTPSession::HTTPSession(
 
   codec_.add<HTTPChecks>();
 
+  setupCodec();
+
+  nextEgressResults_.reserve(maxConcurrentIncomingStreams_);
+
+  // If we receive IPv4-mapped IPv6 addresses, convert them to IPv4.
+  localAddr_.tryConvertToIPv4();
+  peerAddr_.tryConvertToIPv4();
+
+  if (infoCallback_) {
+    infoCallback_->onCreate(*this);
+  }
+
+  if (controller_) {
+    controller_->attachSession(this);
+  }
+}
+
+void HTTPSession::setupCodec() {
   if (!codec_->supportsParallelRequests()) {
     // until we support upstream pipelining
     maxConcurrentIncomingStreams_ = 1;
@@ -153,28 +172,16 @@ HTTPSession::HTTPSession(
     settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS,
                          maxConcurrentIncomingStreams_);
   }
-
-  nextEgressResults_.reserve(maxConcurrentIncomingStreams_);
-
   codec_->generateConnectionPreface(writeBuf_);
 
-  if (codec_->supportsSessionFlowControl()) {
+  if (codec_->supportsSessionFlowControl() && !connFlowControl_) {
     connFlowControl_ = new FlowControlFilter(*this, writeBuf_, codec_.call());
     codec_.addFilters(std::unique_ptr<FlowControlFilter>(connFlowControl_));
+    // if we really support switching from spdy <-> h2, we need to update
+    // existing flow control filter
   }
 
-  // If we receive IPv4-mapped IPv6 addresses, convert them to IPv4.
-  localAddr_.tryConvertToIPv4();
-  peerAddr_.tryConvertToIPv4();
-
-  if (infoCallback_) {
-    infoCallback_->onCreate(*this);
-  }
   codec_.setCallback(this);
-
-  if (controller_) {
-    controller_->attachSession(this);
-  }
 }
 
 HTTPSession::~HTTPSession() {
@@ -850,6 +857,7 @@ HTTPSession::onMessageComplete(HTTPCodec::StreamID streamID,
 
 void HTTPSession::onError(HTTPCodec::StreamID streamID,
                           const HTTPException& error, bool newTxn) {
+  DestructorGuard dg(this);
   // The codec detected an error in the ingress stream, possibly bad
   // syntax, a truncated message, or bad semantics in the frame.  If reads
   // are paused, queue up the event; otherwise, process it now.
@@ -863,6 +871,7 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
     // this error should only prevent us from reading/handling more errors
     // on serial streams
     ingressError_ = true;
+    setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
   }
   if ((streamID == 0) && infoCallback_) {
     infoCallback_->onIngressError(*this, kErrorMessage);
@@ -899,6 +908,10 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
   }
 
   txn->onError(error);
+  if (!codec_->isReusable() && transactions_.empty()) {
+    VLOG(4) << *this << "shutdown from onError";
+    shutdownTransport(true, true);
+  }
 }
 
 void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
@@ -1047,6 +1060,39 @@ void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
   }
 }
 
+bool HTTPSession::onNativeProtocolUpgradeImpl(
+  HTTPCodec::StreamID streamID, std::unique_ptr<HTTPCodec> codec) {
+  CHECK_EQ(streamID, 1);
+  HTTPTransaction* txn = findTransaction(streamID);
+  CHECK(txn);
+  // only HTTP1xCodec calls onNativeProtocolUpgrade
+  CHECK(!codec_->supportsParallelRequests());
+
+  // Reset to defaults
+  maxConcurrentIncomingStreams_ = 100;
+  maxConcurrentOutgoingStreamsConfig_ = 100;
+
+  // overwrite destination, delay current codec deletion until the end
+  // of the event loop
+  auto oldCodec = codec_.setDestination(std::move(codec));
+  folly::MoveWrapper<std::unique_ptr<HTTPCodec>> wrapper(std::move(oldCodec));
+  sock_->getEventBase()->runInLoop([wrapper] () {});
+
+  setupCodec();
+
+  // txn will be streamID=1, have to make a placeholder
+  (void)codec_->createStream();
+
+  // trigger settings frame that would have gone out in startNow()
+  sendSettings();
+
+  // Convert the transaction that contained the Upgrade header
+  txn->reset(codec_->supportsStreamFlowControl(),
+             initialReceiveWindow_,
+             getCodecSendWindowSize());
+  return true;
+}
+
 void HTTPSession::onSetSendWindow(uint32_t windowSize) {
   VLOG(4) << *this << " got send window size adjustment. new=" << windowSize;
   invokeOnAllTransactions(&HTTPTransaction::onIngressSetSendWindow,
@@ -1065,6 +1111,12 @@ void HTTPSession::onSetMaxInitiatedStreams(uint32_t maxTxns) {
       infoCallback_->onSettingsOutgoingStreamsNotFull(*this);
     }
   }
+}
+
+size_t HTTPSession::sendSettings() {
+  size_t size = codec_->generateSettings(writeBuf_);
+  scheduleWrite();
+  return size;
 }
 
 void HTTPSession::pauseIngress(HTTPTransaction* txn) noexcept {

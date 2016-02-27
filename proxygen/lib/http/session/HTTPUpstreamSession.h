@@ -108,7 +108,13 @@ class HTTPUpstreamSession final: public HTTPSession {
 
   bool allTransactionsStarted() const override;
 
+  bool onNativeProtocolUpgrade(
+    HTTPCodec::StreamID streamID, CodecProtocol protocol,
+    const std::string& protocolString,
+    HTTPMessage& msg) override;
+
   uint8_t maxVirtualPriorityLevel_{0};
+
 };
 
 } // proxygen

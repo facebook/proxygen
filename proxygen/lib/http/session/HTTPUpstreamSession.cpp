@@ -11,6 +11,7 @@
 
 #include <wangle/acceptor/ConnectionManager.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 
 namespace proxygen {
 
@@ -118,6 +119,31 @@ bool HTTPUpstreamSession::allTransactionsStarted() const {
     }
   }
   return true;
+}
+
+bool HTTPUpstreamSession::onNativeProtocolUpgrade(
+  HTTPCodec::StreamID streamID, CodecProtocol protocol,
+  const std::string& protocolString,
+  HTTPMessage&) {
+
+  VLOG(4) << *this << " onNativeProtocolUpgrade streamID=" << streamID <<
+    " protocol=" << protocolString;
+
+  // Create the new Codec
+  auto codec = HTTPCodecFactory::getCodec(protocol,
+                                          TransportDirection::UPSTREAM);
+  CHECK(codec);
+  bool ret = onNativeProtocolUpgradeImpl(streamID, std::move(codec));
+  if (ret) {
+    auto bytes = codec_->addPriorityNodes(
+      txnEgressQueue_,
+      writeBuf_,
+      maxVirtualPriorityLevel_);
+    if (bytes) {
+      scheduleWrite();
+    }
+  }
+  return ret;
 }
 
 } // proxygen

@@ -413,6 +413,10 @@ class HTTPTransaction :
 
   ~HTTPTransaction() override;
 
+  void reset(bool useFlowControl,
+             uint32_t receiveInitialWindowSize,
+             uint32_t sendInitialWindowSize);
+
   HTTPCodec::StreamID getID() const { return id_; }
 
   uint32_t getSequenceNumber() const { return seqNo_; }

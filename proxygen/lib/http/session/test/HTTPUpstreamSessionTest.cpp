@@ -13,6 +13,7 @@
 #include <folly/io/async/TimeoutManager.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
+#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
@@ -32,6 +33,44 @@ using namespace testing;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+
+namespace {
+HTTPMessage getUpgradePostRequest(uint32_t bodyLen,
+                                  const std::string& upgradeHeader,
+                                  bool expect100 = false) {
+  HTTPMessage req = getPostRequest();
+  req.getHeaders().set(HTTP_HEADER_UPGRADE, upgradeHeader);
+  req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, folly::to<string>(bodyLen));
+  if (expect100) {
+    req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  }
+  return req;
+}
+
+std::unique_ptr<folly::IOBuf>
+getResponseBuf(CodecProtocol protocol, HTTPCodec::StreamID id,
+               uint32_t code, uint32_t bodyLen, bool include100 = false) {
+  auto egressCodec =
+    HTTPCodecFactory::getCodec(protocol, TransportDirection::DOWNSTREAM);
+  folly::IOBufQueue respBufQ{folly::IOBufQueue::cacheChainLength()};
+  egressCodec->generateSettings(respBufQ);
+  if (include100) {
+    HTTPMessage msg;
+    msg.setStatusCode(100);
+    msg.setStatusMessage("continue");
+    egressCodec->generateHeader(respBufQ, id, msg);
+  }
+  HTTPMessage resp = getResponse(code, bodyLen);
+  egressCodec->generateHeader(respBufQ, id, resp);
+  if (bodyLen > 0) {
+    auto buf = makeBuf(bodyLen);
+    egressCodec->generateBody(respBufQ, id, std::move(buf),
+                              boost::none, true /* eom */);
+  }
+  return respBufQ.move();
+}
+
+}
 
 template <class C>
 class HTTPUpstreamTest: public testing::Test,
@@ -129,8 +168,13 @@ class HTTPUpstreamTest: public testing::Test,
     EXPECT_TRUE(writes_.empty());
   }
 
-  void readAndLoop(const char* input) {
-    readAndLoop((const uint8_t *)input, strlen(input));
+  void readAndLoop(const std::string& input) {
+    readAndLoop((const uint8_t *)input.data(), input.length());
+  }
+
+  void readAndLoop(IOBuf* buf) {
+    buf->coalesce();
+    readAndLoop(buf->data(), buf->length());
   }
 
   void readAndLoop(const uint8_t* input, size_t length) {
@@ -216,6 +260,10 @@ class HTTPUpstreamTest: public testing::Test,
     EXPECT_EQ(txn, handler->txn_);
     return handler;
   }
+
+  void testSimpleUpgrade(const std::string& upgradeReqHeader,
+                         const std::string& upgradeRespHeader,
+                         CodecProtocol respCodecVersion);
 
  protected:
   bool sessionCreated_{false};
@@ -893,6 +941,207 @@ TEST_F(HTTPUpstreamSessionTest, 101_upgrade) {
   CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
   httpSession_->destroy();
 }
+
+// ===== Upgrade Tests ====
+
+template <class CodecPair>
+void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
+  const std::string& upgradeReqHeader,
+  const std::string& upgradeRespHeader,
+  CodecProtocol respCodecVersion) {
+  InSequence dummy;
+  auto handler = openTransaction();
+
+  handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  auto txn = handler->txn_;
+  HTTPMessage req = getUpgradeRequest(upgradeReqHeader);
+  txn->sendHeaders(req);
+  txn->sendEOM();
+  readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
+                                "Upgrade: ", upgradeRespHeader, "\r\n"
+                                "\r\n"));
+  readAndLoop(getResponseBuf(respCodecVersion, txn->getID(), 200, 100).get());
+
+  httpSession_->destroy();
+}
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_3) {
+  testSimpleUpgrade("spdy/3", "spdy/3", CodecProtocol::SPDY_3);
+}
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_3_1) {
+  testSimpleUpgrade("spdy/3.1", "spdy/3.1", CodecProtocol::SPDY_3_1);
+}
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_h2) {
+  testSimpleUpgrade("h2c", "h2c", CodecProtocol::HTTP_2);
+}
+
+// Upgrade to SPDY/3.1 with a non-native proto in the list
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_unknown) {
+  testSimpleUpgrade("blarf, spdy/3", "spdy/3", CodecProtocol::SPDY_3);
+}
+
+// Upgrade header with extra whitespace
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_whitespace) {
+  testSimpleUpgrade("blarf, \tspdy/3\t, xyz", "spdy/3",
+                    CodecProtocol::SPDY_3);
+}
+
+// Upgrade header with random junk
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_junk) {
+  testSimpleUpgrade(",,,,   ,,\t~^%$(*&@(@$^^*(,spdy/3", "spdy/3",
+                    CodecProtocol::SPDY_3);
+}
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_unexpected) {
+  InSequence dummy;
+  auto handler = openTransaction();
+
+  EXPECT_CALL(*handler, onError(_));
+  handler->expectDetachTransaction();
+
+  handler->sendRequest();
+  eventBase_.loop();
+  readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
+                                "Upgrade: spdy/3\r\n"
+                                "\r\n"));
+  EXPECT_EQ(readCallback_, nullptr);
+  EXPECT_TRUE(sessionDestroyed_);
+}
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_missing_upgrade) {
+  InSequence dummy;
+  auto handler = openTransaction();
+
+  EXPECT_CALL(*handler, onError(_));
+  handler->expectDetachTransaction();
+
+  handler->sendRequest(getUpgradeRequest("spdy/3"));
+  readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
+                                "\r\n"));
+  EXPECT_EQ(readCallback_, nullptr);
+  EXPECT_TRUE(sessionDestroyed_);
+}
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_bogus_header) {
+  InSequence dummy;
+  auto handler = openTransaction();
+
+  EXPECT_CALL(*handler, onError(_));
+  handler->expectDetachTransaction();
+
+  handler->sendRequest(getUpgradeRequest("spdy/3"));
+  eventBase_.loop();
+  readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
+                                "Upgrade: blarf\r\n"
+                                "\r\n"));
+  EXPECT_EQ(readCallback_, nullptr);
+  EXPECT_TRUE(sessionDestroyed_);
+}
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100) {
+  InSequence dummy;
+  auto handler = openTransaction();
+
+  handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(100, msg->getStatusCode());
+    });
+  handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  auto txn = handler->txn_;
+  HTTPMessage req = getUpgradePostRequest(100, "spdy/3", true /* 100 */);
+  txn->sendHeaders(req);
+  auto buf = makeBuf(100);
+  txn->sendBody(std::move(buf));
+  txn->sendEOM();
+  eventBase_.loop();
+  readAndLoop(folly::to<string>("HTTP/1.1 100 Continue\r\n"
+                                "\r\n"
+                                "HTTP/1.1 101 Switching Protocols\r\n"
+                                "Upgrade: spdy/3\r\n"
+                                "\r\n"));
+  readAndLoop(
+    getResponseBuf(CodecProtocol::SPDY_3, txn->getID(), 200, 100).get());
+  httpSession_->destroy();
+}
+
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_spdy) {
+  InSequence dummy;
+  auto handler = openTransaction();
+
+  handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(100, msg->getStatusCode());
+    });
+  handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  auto txn = handler->txn_;
+  HTTPMessage req = getUpgradePostRequest(100, "spdy/3");
+  txn->sendHeaders(req);
+  auto buf = makeBuf(100);
+  txn->sendBody(std::move(buf));
+  txn->sendEOM();
+  eventBase_.loop();
+  readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
+                                "Upgrade: spdy/3\r\n"
+                                "\r\n"));
+  readAndLoop(getResponseBuf(CodecProtocol::SPDY_3,
+                             txn->getID(), 200, 100, true).get());
+  httpSession_->destroy();
+}
+
+
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_on_txn2) {
+  InSequence dummy;
+  auto handler1 = openTransaction();
+
+  handler1->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler1->expectBody();
+  handler1->expectEOM();
+  handler1->expectDetachTransaction();
+
+  auto txn = handler1->txn_;
+  HTTPMessage req = getUpgradeRequest("spdy/3");
+  txn->sendHeaders(req);
+  txn->sendEOM();
+  readAndLoop("HTTP/1.1 200 Ok\r\n"
+              "Content-Length: 10\r\n"
+              "\r\n"
+              "abcdefghij");
+  eventBase_.loop();
+
+  auto handler2 = openTransaction();
+
+  txn = handler2->txn_;
+  txn->sendHeaders(req);
+  txn->sendEOM();
+
+  handler2->expectHeaders();
+  handler2->expectEOM();
+  handler2->expectDetachTransaction();
+  readAndLoop("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+  httpSession_->destroy();
+}
+
 
 class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
  public:

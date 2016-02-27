@@ -145,6 +145,7 @@ class HTTP1xCodec : public HTTPCodec {
   std::string currentHeaderValue_;
   std::string url_;
   std::string reason_;
+  std::string upgradeHeader_;
   HTTPHeaderSize headerSize_;
   HeaderParseState headerParseState_;
   TransportDirection transportDirection_;
@@ -171,6 +172,7 @@ class HTTP1xCodec : public HTTPCodec {
   bool ingressUpgrade_:1;
   bool ingressUpgradeComplete_:1;
   bool egressUpgrade_:1;
+  bool nativeUpgrade_:1;
   bool headersComplete_:1;
 
   // C-callable wrappers for the http_parser callbacks

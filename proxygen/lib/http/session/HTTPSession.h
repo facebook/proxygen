@@ -292,6 +292,11 @@ class HTTPSession:
   virtual void startNow();
 
   /**
+   * Send a settings frame
+   */
+  size_t sendSettings();
+
+  /**
    * Returns true if this session is draining. This can happen if drain()
    * is called explicitly, if a GOAWAY frame is received, or during shutdown.
    */
@@ -466,6 +471,9 @@ class HTTPSession:
    */
   size_t sendPriorityImpl(HTTPCodec::StreamID streamID,
                           http2::PriorityUpdate pri);
+
+  bool onNativeProtocolUpgradeImpl(HTTPCodec::StreamID txn,
+                                   std::unique_ptr<HTTPCodec> codec);
 
   /**
    * Helper class to track write buffers until they have been fully written and
@@ -1001,6 +1009,7 @@ class HTTPSession:
   static uint32_t kPendingWriteMax;
 
  private:
+  void setupCodec();
   void onSetSendWindow(uint32_t windowSize);
   void onSetMaxInitiatedStreams(uint32_t maxTxns);
 

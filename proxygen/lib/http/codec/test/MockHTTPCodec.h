@@ -138,6 +138,9 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
   MOCK_METHOD0(onSettingsAck, void());
   MOCK_METHOD2(onPriority, void(HTTPCodec::StreamID,
                                 const HTTPMessage::HTTPPriority&));
+  MOCK_METHOD4(onNativeProtocolUpgrade, bool(HTTPCodec::StreamID, CodecProtocol,
+                                             const std::string&,
+                                             HTTPMessage&));
   MOCK_CONST_METHOD0(numOutgoingStreams, uint32_t());
   MOCK_CONST_METHOD0(numIncomingStreams, uint32_t());
 };

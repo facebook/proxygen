@@ -27,6 +27,9 @@ class HTTPCodecFactory {
    */
   virtual std::unique_ptr<HTTPCodec> getCodec(const std::string& protocolHint,
                                               TransportDirection direction) = 0;
+
+  static std::unique_ptr<HTTPCodec> getCodec(CodecProtocol protocol,
+                                             TransportDirection direction);
 };
 
 } // proxygen

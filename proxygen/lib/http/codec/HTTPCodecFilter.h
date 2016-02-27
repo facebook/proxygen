@@ -84,6 +84,11 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   void onPriority(StreamID stream,
                   const HTTPMessage::HTTPPriority& pri) override;
 
+  bool onNativeProtocolUpgrade(StreamID stream,
+                               CodecProtocol protocol,
+                               const std::string& protocolString,
+                               HTTPMessage& msg) override;
+
   uint32_t numOutgoingStreams() const override;
 
   uint32_t numIncomingStreams() const override;

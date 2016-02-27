@@ -12,6 +12,7 @@
 #include <folly/Memory.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/RFC2616.h>
+#include <proxygen/lib/http/codec/CodecProtocol.h>
 
 using folly::IOBuf;
 using folly::IOBufQueue;
@@ -105,6 +106,7 @@ HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool forceUpstream1_1)
     ingressUpgrade_(false),
     ingressUpgradeComplete_(false),
     egressUpgrade_(false),
+    nativeUpgrade_(false),
     headersComplete_(false) {
   switch (direction) {
   case TransportDirection::DOWNSTREAM:
@@ -259,7 +261,7 @@ HTTP1xCodec::onParserError(const char* what) {
 
 bool
 HTTP1xCodec::isReusable() const {
-  return keepalive_ && !egressUpgrade_ && !ingressUpgrade_;
+  return keepalive_ && !egressUpgrade_ && !ingressUpgrade_ && !parserError_;
 }
 
 bool
@@ -372,6 +374,10 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     appendLiteral(writeBuf, len, ".");
     appendUint(writeBuf, len, version.second);
     mayChunkEgress_ = (version.first == 1) && (version.second >= 1);
+    if (!upgradeHeader_.empty()) {
+      LOG(DFATAL) << "Attempted to pipeline HTTP request with pending upgrade";
+      upgradeHeader_.clear();
+    }
     break;
   }
   if (keepalive_ &&
@@ -407,6 +413,9 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       }
       // We'll generate a new Connection header based on the keepalive_ state
       return;
+    } else if (code == HTTP_HEADER_UPGRADE && upstream && txn == 1) {
+      // save in case we get a 101 Switching Protocols
+      upgradeHeader_ = value;
     } else if (!hasTransferEncodingChunked &&
                code == HTTP_HEADER_TRANSFER_ENCODING) {
       static const string kChunked = "chunked";
@@ -783,6 +792,14 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
     reason_.clear();
   }
 
+  folly::ScopeGuard g = folly::makeGuard([this] {
+      // Always clear the outbound upgrade header after we receive a response
+      if (transportDirection_ == TransportDirection::UPSTREAM &&
+          parser_.status_code != 100) {
+        upgradeHeader_.clear();
+      }
+    });
+  headerParseState_ = HeaderParseState::kParsingHeadersComplete;
   if (transportDirection_ == TransportDirection::UPSTREAM) {
     if (connectRequest_ &&
         (parser_.status_code >= 200 && parser_.status_code < 300)) {
@@ -791,8 +808,38 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
       ingressUpgrade_ = true;
     } else if (parser_.status_code == 101) {
       // Set the upgrade flags if the server has upgraded.
-      ingressUpgrade_ = true;
-      egressUpgrade_ = true;
+      const std::string& serverUpgrade =
+        msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE);
+      if (serverUpgrade.empty() ||
+          upgradeHeader_.empty()) {
+        LOG(ERROR) << "Invalid 101 response, empty upgrade headers";
+        return -1;
+      }
+      auto result = checkForProtocolUpgrade(upgradeHeader_,
+                                            serverUpgrade,
+                                            false /* client mode */);
+      if (result) {
+        ingressUpgrade_ = true;
+        egressUpgrade_ = true;
+        if (result->first != CodecProtocol::HTTP_1_1) {
+          bool success = callback_->onNativeProtocolUpgrade(
+            ingressTxnID_, result->first, result->second, *msg_);
+          if (success) {
+            nativeUpgrade_ = true;
+            msg_->setIsUpgraded(ingressUpgrade_);
+            return 1;  // no message body if successful
+          }
+        } else if (result->second == getCodecProtocolString(result->first)) {
+          // someone upgraded to http/1.1?  Reset upgrade flags
+          ingressUpgrade_ = false;
+          egressUpgrade_ = false;
+        }
+        // else, there's some non-native upgrade
+      } else {
+        LOG(ERROR) << "Invalid 101 response, client/server upgrade mismatch "
+          "client=" << upgradeHeader_ << " server=" << serverUpgrade;
+        return -1;
+      }
     }
   }
   else {
@@ -807,7 +854,6 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
   }
   msg_->setIsUpgraded(ingressUpgrade_);
 
-  headerParseState_ = HeaderParseState::kParsingHeadersComplete;
   bool msgKeepalive = msg_->computeKeepalive();
   if (!msgKeepalive) {
      keepalive_ = false;
@@ -910,7 +956,11 @@ int HTTP1xCodec::onMessageComplete() {
     responsePending_ = is1xxResponse_;
   }
 
-  callback_->onMessageComplete(ingressTxnID_, ingressUpgrade_);
+  if (!nativeUpgrade_) {
+    callback_->onMessageComplete(ingressTxnID_, ingressUpgrade_);
+  }
+  // else we suppressed onHeadersComplete, suppress onMessageComplete also.
+  // The new codec will handle these callbacks with the real message
 
   if (ingressUpgrade_) {
     ingressUpgradeComplete_ = true;
