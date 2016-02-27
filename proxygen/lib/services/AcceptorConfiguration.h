@@ -54,11 +54,25 @@ struct AcceptorConfiguration : public wangle::ServerSocketConfig {
   std::string plaintextProtocol;
 
   /**
+   * Comma separated string of protocols that can be upgraded to from HTTP/1.1
+   */
+  std::list<std::string> allowedPlaintextUpgradeProtocols;
+
+  /**
    * The maximum number of transactions the remote could initiate
    * per connection on protocols that allow multiplexing.
    */
   uint32_t maxConcurrentIncomingStreams{0};
 
+  /**
+   * Flow control parameters.
+   *
+   *  initialReceiveWindow     = amount to advertise to peer via SETTINGS
+   *  receiveStreamWindowSize  = amount to increase per-stream window via
+   *                             WINDOW_UPDATE
+   *  receiveSessionWindowSize = amount to increase per-session window via
+   *                             WINDOW_UPDATE
+   */
   size_t initialReceiveWindow{65536};
   size_t receiveStreamWindowSize{65536};
   size_t receiveSessionWindowSize{65536};

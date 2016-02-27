@@ -114,6 +114,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   void onIngressEOF() override;
 
+  bool onIngressUpgradeMessage(const HTTPMessage& msg) override;
+
   bool isReusable() const override;
 
   bool isWaitingToDrain() const override;

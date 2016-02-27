@@ -72,6 +72,8 @@ class HTTP1xCodec : public HTTPCodec {
                         StreamID lastStream,
                         ErrorCode statusCode) override;
 
+  void setAllowedUpgradeProtocols(std::list<std::string> protocols);
+
   /**
    * @returns true if the codec supports the given NPN protocol.
    */
@@ -139,17 +141,20 @@ class HTTP1xCodec : public HTTPCodec {
   http_parser parser_;
   const folly::IOBuf* currentIngressBuf_;
   std::unique_ptr<HTTPMessage> msg_;
+  std::unique_ptr<HTTPMessage> upgradeRequest_;
   std::unique_ptr<HTTPHeaders> trailers_;
   std::string currentHeaderName_;
   folly::StringPiece currentHeaderNameStringPiece_;
   std::string currentHeaderValue_;
   std::string url_;
   std::string reason_;
-  std::string upgradeHeader_;
+  std::string upgradeHeader_; // last sent/received client upgrade header
+  std::string allowedNativeUpgrades_; // DOWNSTREAM only
   HTTPHeaderSize headerSize_;
   HeaderParseState headerParseState_;
   TransportDirection transportDirection_;
   KeepaliveRequested keepaliveRequested_; // only used in DOWNSTREAM mode
+  std::pair<CodecProtocol, std::string> upgradeResult_; // DOWNSTREAM only
   bool forceUpstream1_1_:1; // Use HTTP/1.1 upstream even if msg is 1.0
   bool parserActive_:1;
   bool pendingEOF_:1;

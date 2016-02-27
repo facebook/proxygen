@@ -39,7 +39,12 @@ std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
     return folly::make_unique<HTTP2Codec>(direction);
   } else if (nextProtocol.empty() ||
              HTTP1xCodec::supportsNextProtocol(nextProtocol)) {
-    return folly::make_unique<HTTP1xCodec>(direction);
+    auto codec = folly::make_unique<HTTP1xCodec>(direction);
+    if (!isSSL_) {
+      codec->setAllowedUpgradeProtocols(
+        accConfig_.allowedPlaintextUpgradeProtocols);
+    }
+    return std::move(codec);
   } else if (auto version = SPDYCodec::getVersion(nextProtocol)) {
     return folly::make_unique<SPDYCodec>(direction, *version,
                                          accConfig_.spdyCompressionLevel);

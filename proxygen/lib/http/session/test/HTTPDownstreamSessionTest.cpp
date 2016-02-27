@@ -18,6 +18,7 @@
 #include <folly/io/async/TimeoutManager.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
@@ -65,6 +66,11 @@ class HTTPDownstreamTest : public testing::Test {
     clientCodec_ = makeClientCodec<typename C::Codec>(C::version);
     clientCodec_->generateConnectionPreface(requests_);
     clientCodec_->setCallback(&callbacks_);
+  }
+
+  typename C::Codec& getCodec() {
+    return
+      (typename C::Codec&)httpSession_->getCodecFilterChain().getChainEnd();
   }
 
   HTTPCodec::StreamID sendRequest(const std::string& url = "/",
@@ -194,23 +200,108 @@ class HTTPDownstreamTest : public testing::Test {
     transport_->startReadEvents();
   }
 
+  void testSimpleUpgrade(
+    const std::string& upgradeHeader,
+    CodecProtocol expectedProtocol,
+    const std::string& expectedUpgradeHeader);
+
   void testPriorities(uint32_t numPriorities);
 
   void testChunks(bool trailers);
 
-  void parseOutput(HTTPCodec& clientCodec) {
-    IOBufQueue stream(IOBufQueue::cacheChainLength());
-    auto writeEvents = transport_->getWriteEvents();
-    for (auto event: *writeEvents) {
-      auto vec = event->getIoVec();
-      for (size_t i = 0; i < event->getCount(); i++) {
-        stream.append(IOBuf::wrapBuffer(vec[i].iov_base, vec[i].iov_len));
-        uint32_t consumed = clientCodec.onIngress(*stream.front());
-        stream.split(consumed);
-      }
+  void expect101(const std::string& expectedUpgrade,
+                 bool expect100 = false) {
+    NiceMock<MockHTTPCodecCallback> callbacks;
+
+    EXPECT_CALL(callbacks, onMessageBegin(_, _));
+    EXPECT_CALL(callbacks, onNativeProtocolUpgrade(_, _, _, _))
+      .WillOnce(
+        Invoke([this, expectedUpgrade] (HTTPCodec::StreamID,
+                                        CodecProtocol,
+                                        const std::string&,
+                                        HTTPMessage& msg) {
+             EXPECT_EQ(msg.getStatusCode(), 101);
+             EXPECT_EQ(msg.getStatusMessage(), "Switching Protocols");
+             EXPECT_EQ(msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE),
+                       expectedUpgrade);
+             // also connection and date
+             EXPECT_EQ(msg.getHeaders().size(), 3);
+             breakParseOutput_ = true;
+             return true;
+               }));
+    // this comes before 101, but due to gmock this is backwards
+    if (expect100) {
+      EXPECT_CALL(callbacks, onMessageBegin(_, _))
+        .RetiresOnSaturation();
+      EXPECT_CALL(callbacks, onHeadersComplete(_, _))
+        .WillOnce(Invoke([] (HTTPCodec::StreamID,
+                             std::shared_ptr<HTTPMessage> msg) {
+                 LOG(INFO) << "100 headers";
+                 EXPECT_EQ(msg->getStatusCode(), 100);
+                         }))
+        .RetiresOnSaturation();
+      EXPECT_CALL(callbacks, onMessageComplete(_, _))
+        .RetiresOnSaturation();
     }
-    EXPECT_EQ(stream.chainLength(), 0);
-    writeEvents->clear();
+    clientCodec_->setCallback(&callbacks);
+    parseOutput(*clientCodec_);
+  }
+
+  void expectResponse(CodecProtocol expectedProtocol, uint32_t code = 200,
+                      ErrorCode errorCode = ErrorCode::NO_ERROR,
+                      bool expect100 = false) {
+    NiceMock<MockHTTPCodecCallback> callbacks;
+    auto codec = HTTPCodecFactory::getCodec(expectedProtocol,
+                                            TransportDirection::UPSTREAM);
+    codec->setCallback(&callbacks);
+    uint8_t times = (expect100) ? 2 : 1;
+    EXPECT_CALL(callbacks, onMessageBegin(_, _))
+      .Times(times);
+    EXPECT_CALL(callbacks, onHeadersComplete(_, _))
+      .WillOnce(Invoke([code] (HTTPCodec::StreamID,
+                               std::shared_ptr<HTTPMessage> msg) {
+                         EXPECT_EQ(msg->getStatusCode(), code);
+                       }));
+    if (expect100) {
+      EXPECT_CALL(callbacks, onHeadersComplete(_, _))
+        .WillOnce(Invoke([] (HTTPCodec::StreamID,
+                             std::shared_ptr<HTTPMessage> msg) {
+                           EXPECT_EQ(msg->getStatusCode(), 100);
+                         }))
+        .RetiresOnSaturation();
+    }
+    if (errorCode != ErrorCode::NO_ERROR) {
+      EXPECT_CALL(callbacks, onAbort(_, _))
+        .WillOnce(Invoke([errorCode] (HTTPCodec::StreamID,
+                                      ErrorCode error) {
+                           EXPECT_EQ(error, errorCode);
+                         }));
+    }
+    EXPECT_CALL(callbacks, onBody(_, _, _));
+    EXPECT_CALL(callbacks, onMessageComplete(_, _));
+    parseOutput(*codec);
+  }
+
+  void parseOutput(HTTPCodec& clientCodec) {
+    auto writeEvents = transport_->getWriteEvents();
+    while (!breakParseOutput_ &&
+           (!writeEvents->empty() || !parseOutputStream_.empty())) {
+      if (!writeEvents->empty()) {
+        auto event = writeEvents->front();
+        writeEvents->pop_front();
+        auto vec = event->getIoVec();
+        for (size_t i = 0; i < event->getCount(); i++) {
+          parseOutputStream_.append(
+            IOBuf::copyBuffer(vec[i].iov_base, vec[i].iov_len));
+        }
+      }
+      uint32_t consumed = clientCodec.onIngress(*parseOutputStream_.front());
+      parseOutputStream_.split(consumed);
+    }
+    if (!breakParseOutput_) {
+      EXPECT_EQ(parseOutputStream_.chainLength(), 0);
+    }
+    breakParseOutput_ = false;
   }
 
   void resumeWritesInLoop() {
@@ -231,6 +322,8 @@ class HTTPDownstreamTest : public testing::Test {
   IOBufQueue requests_{IOBufQueue::cacheChainLength()};
   unique_ptr<HTTPCodec> clientCodec_;
   NiceMock<MockHTTPCodecCallback> callbacks_;
+  IOBufQueue parseOutputStream_{IOBufQueue::cacheChainLength()};
+  bool breakParseOutput_{false};
 };
 
 // Uses TestAsyncTransport
@@ -1071,6 +1164,266 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
 
   EXPECT_GT(transport_->getWriteEvents()->size(), 250);
 }
+
+
+// ==== upgrade tests ====
+
+// Test upgrade to a protocol unknown to HTTPSession
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native) {
+  auto handler = addSimpleStrictHandler();
+
+  handler->expectHeaders([this, &handler] {
+      handler->sendHeaders(101, 0, true, {{"Upgrade", "blarf"}});
+    });
+  EXPECT_CALL(*handler, onUpgrade(UpgradeProtocol::TCP));
+  handler->expectEOM([this, &handler] {
+      handler->txn_->sendEOM();
+    });
+  handler->expectDetachTransaction();
+
+  sendRequest(getUpgradeRequest("blarf"));
+  expectDetachSession();
+  flushRequestsAndLoop(true);
+}
+
+// Test upgrade to a protocol unknown to HTTPSession, but don't switch
+// protocols
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_ignore) {
+  auto handler = addSimpleStrictHandler();
+
+  handler->expectHeaders([this, &handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  sendRequest(getUpgradeRequest("blarf"));
+
+  expectDetachSession();
+  flushRequestsAndLoop(true);
+}
+
+
+// Test upgrade to a protocol unknown to HTTPSession
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_pipeline) {
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders([this, &handler1] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE),
+                "blarf");
+      handler1->sendReplyWithBody(200, 100);
+    });
+  handler1->expectEOM();
+  handler1->expectDetachTransaction();
+
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders([this, &handler2] {
+      handler2->sendReplyWithBody(200, 100);
+    });
+  handler2->expectEOM();
+  handler2->expectDetachTransaction();
+
+  sendRequest(getUpgradeRequest("blarf"));
+  transport_->addReadEvent("GET / HTTP/1.1\r\n"
+                           "\r\n");
+  expectDetachSession();
+  flushRequestsAndLoop(true);
+}
+
+// Helper that does a simple upgrade test - request an upgrade, receive a 101
+// and an upgraded response
+template <class C>
+void HTTPDownstreamTest<C>::testSimpleUpgrade(
+  const std::string& upgradeHeader,
+  CodecProtocol expectedProtocol,
+  const std::string& expectedUpgradeHeader) {
+  this->getCodec().setAllowedUpgradeProtocols({expectedUpgradeHeader});
+
+  auto handler = addSimpleStrictHandler();
+
+  handler->expectHeaders();
+  handler->expectEOM([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectDetachTransaction();
+
+  sendRequest(getUpgradeRequest(upgradeHeader));
+  flushRequestsAndLoop();
+
+  expect101(expectedUpgradeHeader);
+  expectResponse(expectedProtocol);
+}
+
+// Upgrade to SPDY/3
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_3) {
+  testSimpleUpgrade("spdy/3", CodecProtocol::SPDY_3, "spdy/3");
+}
+
+// Upgrade to SPDY/3.1
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_3_1) {
+  testSimpleUpgrade("spdy/3.1", CodecProtocol::SPDY_3_1, "spdy/3.1");
+}
+
+// Upgrade to HTTP/2
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_h2) {
+  testSimpleUpgrade("h2c", CodecProtocol::HTTP_2, "h2c");
+}
+
+// Upgrade to SPDY/3.1 with a non-native proto in the list
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_unknown) {
+  // This is maybe weird, the client asked for non-native as first choice,
+  // but we go native
+  testSimpleUpgrade("blarf, spdy/3.1, spdy/3",
+                    CodecProtocol::SPDY_3_1, "spdy/3.1");
+}
+
+// Upgrade header with extra whitespace
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_whitespace) {
+  testSimpleUpgrade(" \tspdy/3.1\t , spdy/3",
+                    CodecProtocol::SPDY_3_1, "spdy/3.1");
+}
+
+// Upgrade header with random junk
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_junk) {
+  testSimpleUpgrade(",,,,   ,,\t~^%$(*&@(@$^^*(,spdy/3",
+                    CodecProtocol::SPDY_3, "spdy/3");
+}
+
+// Attempt to upgrade on second txn
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_txn_2) {
+  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1] {
+      handler1->sendReplyWithBody(200, 100);
+    });
+  handler1->expectDetachTransaction();
+  sendRequest(getGetRequest());
+  flushRequestsAndLoop();
+  expectResponse(CodecProtocol::HTTP_1_1);
+
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&handler2] {
+      handler2->sendReplyWithBody(200, 100);
+    });
+  handler2->expectDetachTransaction();
+
+  sendRequest(getUpgradeRequest("spdy/3"));
+  flushRequestsAndLoop();
+  expectResponse(CodecProtocol::HTTP_1_1);
+}
+
+// Upgrade on POST
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
+  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectEOM([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectDetachTransaction();
+
+  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(10),
+                             boost::none, true);
+  // cheat and not sending EOM, it's a no-op
+  flushRequestsAndLoop();
+  expect101("spdy/3");
+  expectResponse(CodecProtocol::SPDY_3);
+}
+
+// Upgrade on POST with a reply that comes before EOM, don't switch protocols
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
+  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(10),
+                             boost::none, true);
+  flushRequestsAndLoop();
+  expectResponse(CodecProtocol::HTTP_1_1);
+}
+
+// Upgrade but with a pipelined HTTP request.  It is parsed as SPDY and
+// rejected
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {
+  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectDetachTransaction();
+
+  sendRequest(getUpgradeRequest("spdy/3"));
+  // It's a fatal to send this out on the HTTP1xCodec, so hack it manually
+  transport_->addReadEvent("GET / HTTP/1.1\r\n"
+                           "Upgrade: spdy/3\r\n"
+                           "\r\n");
+  flushRequestsAndLoop();
+  expect101("spdy/3");
+  expectResponse(CodecProtocol::SPDY_3, 200, ErrorCode::_SPDY_INVALID_STREAM);
+}
+
+// Upgrade on POST with Expect: 100-Continue.  If the 100 goes out
+// before the EOM is parsed, the 100 will be in HTTP.  This should be the normal
+// case since the client *should* wait a bit for the 100 continue to come back
+// before sending the POST.  But if the 101 is delayed beyond EOM, the 101
+// will come via SPDY.
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
+  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&handler] {
+      handler->sendHeaders(100, 0);
+    });
+  handler->expectBody();
+  handler->expectEOM([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectDetachTransaction();
+
+  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(10),
+                             boost::none, true);
+  flushRequestsAndLoop();
+  expect101("spdy/3", true /* expect 100 continue */);
+  expectResponse(CodecProtocol::SPDY_3);
+}
+
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
+  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectEOM([&handler] {
+      handler->sendHeaders(100, 0);
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectDetachTransaction();
+
+  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(10),
+                             boost::none, true);
+  flushRequestsAndLoop();
+  expect101("spdy/3");
+  expectResponse(CodecProtocol::SPDY_3, 200, ErrorCode::NO_ERROR,
+                 true /* expect 100 via SPDY */);
+}
+
 
 TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
   testPriorities(8);

@@ -642,6 +642,16 @@ size_t HTTP1xCodec::generateGoaway(IOBufQueue& writeBuf,
   return 0;
 }
 
+void HTTP1xCodec::setAllowedUpgradeProtocols(std::list<std::string> protocols) {
+  CHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
+  for (const auto& proto: protocols) {
+    allowedNativeUpgrades_ += folly::to<string>(proto, ",");
+  }
+  if (!allowedNativeUpgrades_.empty()) {
+    allowedNativeUpgrades_.erase(allowedNativeUpgrades_.size() - 1);
+  }
+}
+
 int
 HTTP1xCodec::onMessageBegin() {
   headersComplete_ = false;
@@ -850,6 +860,19 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
       // we will start forwarding data to the proxy without waiting for
       // the response from the proxy server.
       ingressUpgrade_ = true;
+    } else if (!allowedNativeUpgrades_.empty() && ingressTxnID_ == 1) {
+      upgradeHeader_ = msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE);
+      if (!upgradeHeader_.empty() && !allowedNativeUpgrades_.empty()) {
+        auto result = checkForProtocolUpgrade(upgradeHeader_,
+                                              allowedNativeUpgrades_,
+                                              true /* server mode */);
+        if (result && result->first != CodecProtocol::HTTP_1_1) {
+          upgradeResult_ = *result;
+          // unfortunately have to copy because msg_ is passed to
+          // onHeadersComplete
+          upgradeRequest_ = folly::make_unique<HTTPMessage>(*msg_);
+        }
+      }
     }
   }
   msg_->setIsUpgraded(ingressUpgrade_);
@@ -950,8 +973,18 @@ int HTTP1xCodec::onMessageComplete() {
 
   switch (transportDirection_) {
   case TransportDirection::DOWNSTREAM:
+  {
     requestPending_ = false;
+    if (upgradeRequest_) {
+      ingressUpgrade_ = callback_->onNativeProtocolUpgrade(
+        ingressTxnID_, upgradeResult_.first, upgradeResult_.second,
+        *upgradeRequest_);
+      upgradeRequest_.reset();
+    }
+    // else there was no match, OR we upgraded to http/1.1 OR someone specified
+    // a non-native protocol in the setAllowedUpgradeProtocols.  No-ops
     break;
+  }
   case TransportDirection::UPSTREAM:
     responsePending_ = is1xxResponse_;
   }

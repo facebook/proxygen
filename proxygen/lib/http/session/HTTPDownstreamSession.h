@@ -70,6 +70,11 @@ class HTTPDownstreamSession final: public HTTPSession {
                      bool codecWasReusable) override;
 
   bool allTransactionsStarted() const override;
+
+  bool onNativeProtocolUpgrade(
+    HTTPCodec::StreamID streamID, CodecProtocol protocol,
+    const std::string& protocolString,
+    HTTPMessage& msg) override;
 };
 
 } // proxygen

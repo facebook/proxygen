@@ -42,14 +42,18 @@ class HTTPHandlerBase {
     txn_->sendEOM();
   }
 
+  using HeaderMap = std::map<std::string, std::string>;
   void sendHeaders(uint32_t code, uint32_t content_length,
-                   bool keepalive=true) {
+                   bool keepalive=true, HeaderMap headers=HeaderMap()) {
     HTTPMessage reply;
     reply.setStatusCode(code);
     reply.setHTTPVersion(1, 1);
     reply.setWantsKeepalive(keepalive);
     reply.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH,
                            folly::to<std::string>(content_length));
+    for (auto& nv: headers) {
+      reply.getHeaders().add(nv.first, nv.second);
+    }
     txn_->sendHeaders(reply);
   }
 

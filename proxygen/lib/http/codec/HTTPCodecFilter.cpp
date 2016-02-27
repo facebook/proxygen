@@ -163,6 +163,11 @@ void PassThroughHTTPCodecFilter::onIngressEOF() {
   call_->onIngressEOF();
 }
 
+bool PassThroughHTTPCodecFilter::onIngressUpgradeMessage(
+  const HTTPMessage& msg) {
+  return call_->onIngressUpgradeMessage(msg);
+}
+
 bool PassThroughHTTPCodecFilter::isReusable() const {
   return call_->isReusable();
 }
