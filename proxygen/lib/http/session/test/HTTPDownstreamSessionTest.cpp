@@ -210,11 +210,19 @@ class HTTPDownstreamTest : public testing::Test {
     CodecProtocol expectedProtocol,
     const std::string& expectedUpgradeHeader);
 
+  void gracefulShutdown() {
+    folly::DelayedDestruction::DestructorGuard g(httpSession_);
+    clientCodec_->generateGoaway(this->requests_, 0, ErrorCode::NO_ERROR);
+    expectDetachSession();
+    flushRequestsAndLoop(true);
+  }
+
   void testPriorities(uint32_t numPriorities);
 
   void testChunks(bool trailers);
 
-  void expect101(const std::string& expectedUpgrade,
+  void expect101(CodecProtocol expectedProtocol,
+                 const std::string& expectedUpgrade,
                  bool expect100 = false) {
     NiceMock<MockHTTPCodecCallback> callbacks;
 
@@ -250,16 +258,16 @@ class HTTPDownstreamTest : public testing::Test {
     }
     clientCodec_->setCallback(&callbacks);
     parseOutput(*clientCodec_);
+    clientCodec_ = HTTPCodecFactory::getCodec(expectedProtocol,
+                                              TransportDirection::UPSTREAM);
   }
 
-  void expectResponse(CodecProtocol expectedProtocol, uint32_t code = 200,
+  void expectResponse(uint32_t code = 200,
                       ErrorCode errorCode = ErrorCode::NO_ERROR,
                       bool expect100 = false) {
     NiceMock<MockHTTPCodecCallback> callbacks;
-    auto codec = HTTPCodecFactory::getCodec(expectedProtocol,
-                                            TransportDirection::UPSTREAM);
-    codec->setCallback(&callbacks);
-    if (isParallelCodecProtocol(expectedProtocol)) {
+    clientCodec_->setCallback(&callbacks);
+    if (isParallelCodecProtocol(clientCodec_->getProtocol())) {
       EXPECT_CALL(callbacks, onSettings(_))
         .WillOnce(Invoke([this] (const SettingsList& settings) {
               if (flowControl_[0] > 0) {
@@ -272,16 +280,17 @@ class HTTPDownstreamTest : public testing::Test {
             }));
     }
     if (flowControl_[2] > 0) {
-      int64_t sessionDelta = flowControl_[2] - codec->getDefaultWindowSize();
-      if (codec->supportsSessionFlowControl() && sessionDelta) {
+      int64_t sessionDelta =
+        flowControl_[2] - clientCodec_->getDefaultWindowSize();
+      if (clientCodec_->supportsSessionFlowControl() && sessionDelta) {
         EXPECT_CALL(callbacks, onWindowUpdate(0, sessionDelta));
       }
     }
     if (flowControl_[1] > 0) {
       size_t initWindow = flowControl_[0] > 0 ?
-        flowControl_[0] : codec->getDefaultWindowSize();
+        flowControl_[0] : clientCodec_->getDefaultWindowSize();
       int64_t streamDelta = flowControl_[1] - initWindow;
-      if (codec->supportsStreamFlowControl() && streamDelta) {
+      if (clientCodec_->supportsStreamFlowControl() && streamDelta) {
         EXPECT_CALL(callbacks, onWindowUpdate(1, streamDelta));
       }
     }
@@ -311,7 +320,7 @@ class HTTPDownstreamTest : public testing::Test {
     }
     EXPECT_CALL(callbacks, onBody(_, _, _));
     EXPECT_CALL(callbacks, onMessageComplete(_, _));
-    parseOutput(*codec);
+    parseOutput(*clientCodec_);
   }
 
   void parseOutput(HTTPCodec& clientCodec) {
@@ -1283,8 +1292,9 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
   sendRequest(getUpgradeRequest(upgradeHeader));
   flushRequestsAndLoop();
 
-  expect101(expectedUpgradeHeader);
-  expectResponse(expectedProtocol);
+  expect101(expectedProtocol, expectedUpgradeHeader);
+  expectResponse();
+  gracefulShutdown();
 }
 
 // Upgrade to SPDY/3
@@ -1345,7 +1355,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_txn_2) {
   handler1->expectDetachTransaction();
   sendRequest(getGetRequest());
   flushRequestsAndLoop();
-  expectResponse(CodecProtocol::HTTP_1_1);
+  expectResponse();
 
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
@@ -1356,7 +1366,8 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_txn_2) {
 
   sendRequest(getUpgradeRequest("spdy/3"));
   flushRequestsAndLoop();
-  expectResponse(CodecProtocol::HTTP_1_1);
+  expectResponse();
+  gracefulShutdown();
 }
 
 // Upgrade on POST
@@ -1376,8 +1387,9 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
                              boost::none, true);
   // cheat and not sending EOM, it's a no-op
   flushRequestsAndLoop();
-  expect101("spdy/3");
-  expectResponse(CodecProtocol::SPDY_3);
+  expect101(CodecProtocol::SPDY_3, "spdy/3");
+  expectResponse();
+  gracefulShutdown();
 }
 
 // Upgrade on POST with a reply that comes before EOM, don't switch protocols
@@ -1396,7 +1408,8 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
                              boost::none, true);
   flushRequestsAndLoop();
-  expectResponse(CodecProtocol::HTTP_1_1);
+  expectResponse();
+  gracefulShutdown();
 }
 
 // Upgrade but with a pipelined HTTP request.  It is parsed as SPDY and
@@ -1416,8 +1429,9 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {
                            "Upgrade: spdy/3\r\n"
                            "\r\n");
   flushRequestsAndLoop();
-  expect101("spdy/3");
-  expectResponse(CodecProtocol::SPDY_3, 200, ErrorCode::_SPDY_INVALID_STREAM);
+  expect101(CodecProtocol::SPDY_3, "spdy/3");
+  expectResponse(200, ErrorCode::_SPDY_INVALID_STREAM);
+  gracefulShutdown();
 }
 
 // Upgrade on POST with Expect: 100-Continue.  If the 100 goes out
@@ -1443,8 +1457,9 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
                              boost::none, true);
   flushRequestsAndLoop();
-  expect101("spdy/3", true /* expect 100 continue */);
-  expectResponse(CodecProtocol::SPDY_3);
+  expect101(CodecProtocol::SPDY_3, "spdy/3", true /* expect 100 continue */);
+  expectResponse();
+  gracefulShutdown();
 }
 
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
@@ -1464,9 +1479,9 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
                              boost::none, true);
   flushRequestsAndLoop();
-  expect101("spdy/3");
-  expectResponse(CodecProtocol::SPDY_3, 200, ErrorCode::NO_ERROR,
-                 true /* expect 100 via SPDY */);
+  expect101(CodecProtocol::SPDY_3, "spdy/3");
+  expectResponse(200, ErrorCode::NO_ERROR, true /* expect 100 via SPDY */);
+  gracefulShutdown();
 }
 
 
