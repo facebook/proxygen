@@ -1085,10 +1085,16 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
 
   // trigger settings frame that would have gone out in startNow()
   sendSettings();
+  if (connFlowControl_) {
+    connFlowControl_->setReceiveWindowSize(writeBuf_,
+                                           receiveSessionWindowSize_);
+    scheduleWrite();
+  }
 
   // Convert the transaction that contained the Upgrade header
   txn->reset(codec_->supportsStreamFlowControl(),
              initialReceiveWindow_,
+             receiveStreamWindowSize_,
              getCodecSendWindowSize());
   return true;
 }

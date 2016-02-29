@@ -76,7 +76,7 @@ template <class C>
 class HTTPUpstreamTest: public testing::Test,
                         public HTTPSession::InfoCallback {
  public:
-  HTTPUpstreamTest()
+  explicit HTTPUpstreamTest(std::vector<int64_t> flowControl = {-1, -1, -1})
       : eventBase_(),
         transport_(new NiceMock<MockAsyncTransport>()),
         transactionTimeouts_(
@@ -84,7 +84,8 @@ class HTTPUpstreamTest: public testing::Test,
                                   std::chrono::milliseconds(
                                     folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
                                   TimeoutManager::InternalEnum::INTERNAL,
-                                  std::chrono::milliseconds(500))) {
+                                  std::chrono::milliseconds(500))),
+        flowControl_(flowControl) {
   }
 
   void resumeWrites() {
@@ -150,6 +151,13 @@ class HTTPUpstreamTest: public testing::Test,
       localAddr_, peerAddr_,
       std::move(codec),
       mockTransportInfo_, this);
+    for (auto& param: flowControl_) {
+      if (param < 0) {
+        param = httpSession_->getCodec().getDefaultWindowSize();
+      }
+    }
+    httpSession_->setFlowControl(flowControl_[0], flowControl_[1],
+                                 flowControl_[2]);
     httpSession_->startNow();
     eventBase_.loop();
     ASSERT_EQ(this->sessionDestroyed_, false);
@@ -276,6 +284,7 @@ class HTTPUpstreamTest: public testing::Test,
   MockAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
   folly::AsyncTransportWrapper::ReadCallback* readCallback_{nullptr};
   folly::HHWheelTimer::UniquePtr transactionTimeouts_;
+  std::vector<int64_t> flowControl_;
   wangle::TransportInfo mockTransportInfo_;
   SocketAddress localAddr_{"127.0.0.1", 80};
   SocketAddress peerAddr_{"127.0.0.1", 12345};
@@ -963,6 +972,8 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
   HTTPMessage req = getUpgradeRequest(upgradeReqHeader);
   txn->sendHeaders(req);
   txn->sendEOM();
+  eventBase_.loopOnce(); // force HTTP/1.1 writes
+  writes_.move(); // clear them out
   readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
                                 "Upgrade: ", upgradeRespHeader, "\r\n"
                                 "\r\n"));
@@ -1142,6 +1153,37 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_on_txn2) {
   httpSession_->destroy();
 }
 
+
+class HTTPUpstreamRecvStreamTest : public HTTPUpstreamSessionTest {
+ public:
+  HTTPUpstreamRecvStreamTest()
+      : HTTPUpstreamTest({100000, 105000, 110000}) {}
+};
+
+TEST_F(HTTPUpstreamRecvStreamTest, upgrade_flow_control) {
+  InSequence dummy;
+  testSimpleUpgrade("h2c", "h2c", CodecProtocol::HTTP_2);
+
+  HTTP2Codec serverCodec(TransportDirection::DOWNSTREAM);
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  serverCodec.setCallback(&callbacks);
+  EXPECT_CALL(callbacks, onSettings(_))
+    .WillOnce(Invoke([this] (const SettingsList& settings) {
+          if (flowControl_[0] > 0) {
+            for (const auto& setting: settings) {
+              if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
+                EXPECT_EQ(flowControl_[0], setting.value);
+              }
+            }
+          }
+        }));
+  EXPECT_CALL(callbacks, onWindowUpdate(0, flowControl_[2] -
+                                        serverCodec.getDefaultWindowSize()));
+  size_t initWindow = flowControl_[0] > 0 ?
+    flowControl_[0] : serverCodec.getDefaultWindowSize();
+  EXPECT_CALL(callbacks, onWindowUpdate(1, flowControl_[1] - initWindow));
+  parseOutput(serverCodec);
+}
 
 class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
  public:

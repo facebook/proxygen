@@ -44,10 +44,12 @@ using folly::Promise;
 template <typename C>
 class HTTPDownstreamTest : public testing::Test {
  public:
-  explicit HTTPDownstreamTest(uint32_t sessionWindowSize = spdy::kInitialWindow)
+  explicit HTTPDownstreamTest(
+    std::vector<int64_t> flowControl = { -1, -1, -1 })
     : eventBase_(),
       transport_(new TestAsyncTransport(&eventBase_)),
-      transactionTimeouts_(makeTimeoutSet(&eventBase_)) {
+      transactionTimeouts_(makeTimeoutSet(&eventBase_)),
+      flowControl_(flowControl) {
     EXPECT_CALL(mockController_, attachSession(_));
     HTTPSession::setDefaultReadBufferLimit(65536);
     httpSession_ = new HTTPDownstreamSession(
@@ -58,10 +60,13 @@ class HTTPDownstreamTest : public testing::Test {
       std::move(makeServerCodec<typename C::Codec>(
                   C::version)),
       mockTransportInfo /* no stats for now */);
-    httpSession_->setFlowControl(
-      httpSession_->getCodec().getDefaultWindowSize(),
-      httpSession_->getCodec().getDefaultWindowSize(),
-      sessionWindowSize);
+    for (auto& param: flowControl) {
+      if (param < 0) {
+        param = httpSession_->getCodec().getDefaultWindowSize();
+      }
+    }
+    httpSession_->setFlowControl(flowControl[0], flowControl[1],
+                                 flowControl[2]);
     httpSession_->startNow();
     clientCodec_ = makeClientCodec<typename C::Codec>(C::version);
     clientCodec_->generateConnectionPreface(requests_);
@@ -254,6 +259,33 @@ class HTTPDownstreamTest : public testing::Test {
     auto codec = HTTPCodecFactory::getCodec(expectedProtocol,
                                             TransportDirection::UPSTREAM);
     codec->setCallback(&callbacks);
+    if (isParallelCodecProtocol(expectedProtocol)) {
+      EXPECT_CALL(callbacks, onSettings(_))
+        .WillOnce(Invoke([this] (const SettingsList& settings) {
+              if (flowControl_[0] > 0) {
+                for (const auto& setting: settings) {
+                  if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
+                    EXPECT_EQ(flowControl_[0], setting.value);
+                  }
+                }
+              }
+            }));
+    }
+    if (flowControl_[2] > 0) {
+      int64_t sessionDelta = flowControl_[2] - codec->getDefaultWindowSize();
+      if (codec->supportsSessionFlowControl() && sessionDelta) {
+        EXPECT_CALL(callbacks, onWindowUpdate(0, sessionDelta));
+      }
+    }
+    if (flowControl_[1] > 0) {
+      size_t initWindow = flowControl_[0] > 0 ?
+        flowControl_[0] : codec->getDefaultWindowSize();
+      int64_t streamDelta = flowControl_[1] - initWindow;
+      if (codec->supportsStreamFlowControl() && streamDelta) {
+        EXPECT_CALL(callbacks, onWindowUpdate(1, streamDelta));
+      }
+    }
+
     uint8_t times = (expect100) ? 2 : 1;
     EXPECT_CALL(callbacks, onMessageBegin(_, _))
       .Times(times);
@@ -317,6 +349,7 @@ class HTTPDownstreamTest : public testing::Test {
   EventBase eventBase_;
   TestAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
   folly::HHWheelTimer::UniquePtr transactionTimeouts_;
+  std::vector<int64_t> flowControl_;
   StrictMock<MockController> mockController_;
   HTTPDownstreamSession* httpSession_;
   IOBufQueue requests_{IOBufQueue::cacheChainLength()};
@@ -333,7 +366,7 @@ namespace {
 class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
  public:
   HTTP2DownstreamSessionTest()
-      : HTTPDownstreamTest<HTTP2CodecPair>(http2::kInitialWindow) {}
+      : HTTPDownstreamTest<HTTP2CodecPair>() {}
 
   void SetUp() override {
     HTTPDownstreamTest<HTTP2CodecPair>::SetUp();
@@ -1269,6 +1302,18 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_h2) {
   testSimpleUpgrade("h2c", CodecProtocol::HTTP_2, "h2c");
 }
 
+class HTTPDownstreamSessionUpgradeFlowControlTest :
+      public HTTPDownstreamSessionTest {
+ public:
+  HTTPDownstreamSessionUpgradeFlowControlTest()
+      : HTTPDownstreamSessionTest({100000, 105000, 110000}) {}
+};
+
+// Upgrade to HTTP/2, with non-default flow control settings
+TEST_F(HTTPDownstreamSessionUpgradeFlowControlTest, upgrade_h2_flowcontrol) {
+  testSimpleUpgrade("h2c", CodecProtocol::HTTP_2, "h2c");
+}
+
 // Upgrade to SPDY/3.1 with a non-native proto in the list
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_unknown) {
   // This is maybe weird, the client asked for non-native as first choice,
@@ -1779,7 +1824,8 @@ INSTANTIATE_TYPED_TEST_CASE_P(ParallelCodecs,
 class SPDY31DownstreamTest : public HTTPDownstreamTest<SPDY3_1CodecPair> {
  public:
   SPDY31DownstreamTest()
-      : HTTPDownstreamTest<SPDY3_1CodecPair>(2 * spdy::kInitialWindow) {}
+      : HTTPDownstreamTest<SPDY3_1CodecPair>({-1, -1,
+            2 * spdy::kInitialWindow}) {}
 };
 
 TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
