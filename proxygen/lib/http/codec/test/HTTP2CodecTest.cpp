@@ -1002,8 +1002,11 @@ TEST_F(HTTP2CodecTest, VirtualNodes) {
     EXPECT_EQ(queue.nodes_[i], upstreamCodec_.mapPriorityToDependency(i));
   }
 
-  EXPECT_EQ(0, upstreamCodec_.mapPriorityToDependency(level));
-  EXPECT_EQ(0, upstreamCodec_.mapPriorityToDependency(level + 1));
+  // Out-of-range priorites are mapped to the lowest level of virtual nodes.
+  EXPECT_EQ(queue.nodes_[level - 1],
+            upstreamCodec_.mapPriorityToDependency(level));
+  EXPECT_EQ(queue.nodes_[level - 1],
+            upstreamCodec_.mapPriorityToDependency(level + 1));
 }
 
 TEST_F(HTTP2CodecTest, BasicPushPromise) {
