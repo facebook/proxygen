@@ -910,6 +910,7 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
   txn->onError(error);
   if (!codec_->isReusable() && transactions_.empty()) {
     VLOG(4) << *this << "shutdown from onError";
+    setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
     shutdownTransport(true, true);
   }
 }
