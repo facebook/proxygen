@@ -183,10 +183,12 @@ class HTTPCodec {
      * Called upon receipt of a goaway.
      * @param lastGoodStreamID  Last successful stream created by the receiver
      * @param code              The code the connection was aborted with
+     * @param debugData         The additional debug data for diagnostic purpose
      * @note Not all protocols have goaways. SPDY does, but HTTP/1.1 doesn't.
      */
     virtual void onGoaway(uint64_t lastGoodStreamID,
-                          ErrorCode code) {}
+                          ErrorCode code,
+                          std::unique_ptr<folly::IOBuf> debugData = nullptr) {}
 
     /**
      * Called upon receipt of a ping request
@@ -453,9 +455,11 @@ class HTTPCodec {
    * Generate any protocol framing needed to abort a stream.
    * @return number of bytes written
    */
-  virtual size_t generateGoaway(folly::IOBufQueue& writeBuf,
-                                StreamID lastStream,
-                                ErrorCode code) = 0;
+  virtual size_t generateGoaway(
+    folly::IOBufQueue& writeBuf,
+    StreamID lastStream,
+    ErrorCode code,
+    std::unique_ptr<folly::IOBuf> debugData = nullptr) = 0;
 
   /**
    * If the protocol supports it, generate a ping message that the other

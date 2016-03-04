@@ -91,10 +91,12 @@ class MockCodecDownstreamTest: public testing::Test {
           }));
     EXPECT_CALL(*codec_, enableDoubleGoawayDrain())
       .WillRepeatedly(Invoke([&] { doubleGoaway_ = true; }));
-    EXPECT_CALL(*codec_, generateGoaway(_, _, _))
-      .WillRepeatedly(Invoke([this] (IOBufQueue& writeBuf,
-                                     HTTPCodec::StreamID lastStream,
-                                     ErrorCode code) {
+    EXPECT_CALL(*codec_, generateGoaway(_, _, _, _))
+      .WillRepeatedly(Invoke([this] (
+                               IOBufQueue& writeBuf,
+                               HTTPCodec::StreamID lastStream,
+                               ErrorCode,
+                               std::shared_ptr<folly::IOBuf>) {
             if (reusable_) {
               reusable_ = false;
               drainPending_ = doubleGoaway_;

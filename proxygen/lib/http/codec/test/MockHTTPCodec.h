@@ -72,9 +72,18 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_METHOD3(generateRstStream, size_t(folly::IOBufQueue&,
                                          HTTPCodec::StreamID,
                                          ErrorCode));
-  MOCK_METHOD3(generateGoaway, size_t(folly::IOBufQueue&,
+  MOCK_METHOD4(generateGoaway, size_t(folly::IOBufQueue&,
                                       StreamID,
-                                      ErrorCode));
+                                      ErrorCode,
+                                      std::shared_ptr<folly::IOBuf>));
+  size_t generateGoaway(folly::IOBufQueue& writeBuf,
+                        StreamID lastStream,
+                        ErrorCode statusCode,
+                        std::unique_ptr<folly::IOBuf> debugData) override {
+    return generateGoaway(writeBuf, lastStream, statusCode,
+                          std::shared_ptr<folly::IOBuf>(debugData.release()));
+  }
+
   MOCK_METHOD1(generatePingRequest, size_t(folly::IOBufQueue&));
   MOCK_METHOD2(generatePingReply, size_t(folly::IOBufQueue&,
                                          uint64_t));
@@ -87,8 +96,8 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_METHOD0(enableDoubleGoawayDrain, void());
   MOCK_CONST_METHOD0(getDefaultWindowSize, uint32_t());
   MOCK_METHOD3(
-      addPriorityNodes,
-      size_t(PriorityQueue&, folly::IOBufQueue&, uint8_t));
+    addPriorityNodes,
+    size_t(PriorityQueue&, folly::IOBufQueue&, uint8_t));
   MOCK_CONST_METHOD1(mapPriorityToDependency, HTTPCodec::StreamID(uint8_t));
  };
 
@@ -130,7 +139,13 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
             newStream);
   }
   MOCK_METHOD2(onAbort, void(HTTPCodec::StreamID, ErrorCode));
-  MOCK_METHOD2(onGoaway, void(uint64_t, ErrorCode));
+  MOCK_METHOD3(onGoaway,
+               void(uint64_t, ErrorCode, std::shared_ptr<folly::IOBuf>));
+  void onGoaway(uint64_t lastGoodStreamID, ErrorCode code,
+                std::unique_ptr<folly::IOBuf> debugData) override {
+    onGoaway(lastGoodStreamID, code,
+             std::shared_ptr<folly::IOBuf>(debugData.release()));
+  }
   MOCK_METHOD1(onPingRequest, void(uint64_t));
   MOCK_METHOD1(onPingReply, void(uint64_t));
   MOCK_METHOD2(onWindowUpdate, void(HTTPCodec::StreamID, uint32_t));

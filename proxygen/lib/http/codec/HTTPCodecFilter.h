@@ -69,7 +69,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                ErrorCode code) override;
 
   void onGoaway(uint64_t lastGoodStreamID,
-                ErrorCode code) override;
+                ErrorCode code,
+                std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
   void onPingRequest(uint64_t uniqueID) override;
 
@@ -159,9 +160,11 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                            StreamID stream,
                            ErrorCode statusCode) override;
 
-  size_t generateGoaway(folly::IOBufQueue& writeBuf,
-                        StreamID lastStream,
-                        ErrorCode statusCode) override;
+  size_t generateGoaway(
+    folly::IOBufQueue& writeBuf,
+    StreamID lastStream,
+    ErrorCode statusCode,
+    std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
   size_t generatePingRequest(folly::IOBufQueue& writeBuf) override;
 

@@ -63,6 +63,7 @@ protected:
   StreamID lastStreamID_{0};
   HTTPCodec::Callback* callback_{nullptr};
   StreamID ingressGoawayAck_{std::numeric_limits<uint32_t>::max()};
+  std::string goawayErrorMessage_;
 
   enum ClosingState {
     OPEN = 0,

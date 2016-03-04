@@ -811,7 +811,8 @@ size_t SPDYCodec::generateRstStream(IOBufQueue& writeBuf,
 
 size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
                                  StreamID lastStream,
-                                 ErrorCode code) {
+                                 ErrorCode code,
+                                 std::unique_ptr<folly::IOBuf> debugData) {
   const uint32_t statusCode = (uint32_t) spdy::errorCodeToGoaway(code);
   const size_t frameSize = kFrameSizeControlCommon +
     (size_t)versionSettings_.goawaySize;
@@ -828,8 +829,12 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
     sessionClosing_ = ClosingState::CLOSING;
   }
 
+  string debugInfo = (debugData) ?
+    folly::to<string>(" with debug info=",
+                      (char*)debugData->data()) : "";
   VLOG(4) << "Sending GOAWAY with last acknowledged stream="
-          << lastStream << " with code=" << getErrorCodeString(code);
+          << lastStream << " with code=" << getErrorCodeString(code)
+          << debugInfo;
 
   appender.writeBE(uint16_t(spdy::GOAWAY));
   appender.writeBE(flagsAndLength(0, versionSettings_.goawaySize));

@@ -72,9 +72,11 @@ public:
   size_t generateRstStream(folly::IOBufQueue& writeBuf,
                            StreamID txn,
                            ErrorCode statusCode) override;
-  size_t generateGoaway(folly::IOBufQueue& writeBuf,
-                        StreamID lastStream,
-                        ErrorCode statusCode) override;
+  size_t generateGoaway(
+    folly::IOBufQueue& writeBuf,
+    StreamID lastStream,
+    ErrorCode statusCode,
+    std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
   size_t generatePingRequest(folly::IOBufQueue& writeBuf) override;
   size_t generatePingReply(folly::IOBufQueue& writeBuf,
                            uint64_t uniqueID) override;

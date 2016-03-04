@@ -195,10 +195,11 @@ void fakeMockCodec(MockHTTPCodec& codec) {
                              return 6;
                            }));
 
-  EXPECT_CALL(codec, generateGoaway(_, _, _))
+  EXPECT_CALL(codec, generateGoaway(_, _, _, _))
     .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
                                uint32_t lastStream,
-                               ErrorCode code) {
+                               ErrorCode,
+                               std::shared_ptr<folly::IOBuf>) {
                              writeBuf.append(makeBuf(6));
                              return 6;
                            }));

@@ -68,9 +68,11 @@ class HTTP1xCodec : public HTTPCodec {
   size_t generateRstStream(folly::IOBufQueue& writeBuf,
                            StreamID txn,
                            ErrorCode statusCode) override;
-  size_t generateGoaway(folly::IOBufQueue& writeBuf,
-                        StreamID lastStream,
-                        ErrorCode statusCode) override;
+  size_t generateGoaway(
+    folly::IOBufQueue& writeBuf,
+    StreamID lastStream,
+    ErrorCode statusCode,
+    std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
   void setAllowedUpgradeProtocols(std::list<std::string> protocols);
 

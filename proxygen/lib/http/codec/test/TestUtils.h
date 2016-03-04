@@ -117,8 +117,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastErrorCode = code;
   }
 
-  void onGoaway(uint64_t lastGoodStreamID, ErrorCode code) override {
+  void onGoaway(uint64_t,
+                ErrorCode,
+                std::unique_ptr<folly::IOBuf> debugData) override {
     ++goaways;
+    data.append(std::move(debugData));
   }
 
   void onPingRequest(uint64_t uniqueID) override {

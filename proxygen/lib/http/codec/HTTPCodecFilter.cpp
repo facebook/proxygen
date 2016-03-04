@@ -75,9 +75,11 @@ void PassThroughHTTPCodecFilter::onAbort(StreamID stream,
   callback_->onAbort(stream, code);
 }
 
-void PassThroughHTTPCodecFilter::onGoaway(uint64_t lastGoodStreamID,
-                                          ErrorCode code) {
-  callback_->onGoaway(lastGoodStreamID, code);
+void PassThroughHTTPCodecFilter::onGoaway(
+  uint64_t lastGoodStreamID,
+  ErrorCode code,
+  std::unique_ptr<folly::IOBuf> debugData) {
+  callback_->onGoaway(lastGoodStreamID, code, std::move(debugData));
 }
 
 void PassThroughHTTPCodecFilter::onPingRequest(uint64_t uniqueID) {
@@ -248,8 +250,10 @@ size_t PassThroughHTTPCodecFilter::generateRstStream(
 size_t PassThroughHTTPCodecFilter::generateGoaway(
     folly::IOBufQueue& writeBuf,
     StreamID lastStream,
-    ErrorCode statusCode) {
-  return call_->generateGoaway(writeBuf, lastStream, statusCode);
+    ErrorCode statusCode,
+    std::unique_ptr<folly::IOBuf> debugData) {
+  return call_->generateGoaway(writeBuf, lastStream, statusCode,
+                               std::move(debugData));
 }
 
 size_t PassThroughHTTPCodecFilter::generatePingRequest(

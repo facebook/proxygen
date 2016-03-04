@@ -89,10 +89,13 @@ void HTTPCodecPrinter::onAbort(StreamID stream, ErrorCode code) {
   callback_->onAbort(stream, code);
 }
 
-void HTTPCodecPrinter::onGoaway(uint64_t lastGoodStream, ErrorCode code) {
+void HTTPCodecPrinter::onGoaway(uint64_t lastGoodStream, ErrorCode code,
+                                std::unique_ptr<folly::IOBuf> debugData) {
+  std::string debugInfo = (debugData) ? ", debug info=" +
+    std::string((char*)debugData->data(), debugData->length()) : "";
   std::cout << "GOAWAY: lastGoodStream=" << lastGoodStream
-            << ", error=" << getErrorCodeString(code) << std::endl;
-  callback_->onGoaway(lastGoodStream, code);
+            << ", error=" << getErrorCodeString(code) << debugInfo << std::endl;
+  callback_->onGoaway(lastGoodStream, code, std::move(debugData));
 }
 
 void HTTPCodecPrinter::onWindowUpdate(StreamID stream, uint32_t amount) {

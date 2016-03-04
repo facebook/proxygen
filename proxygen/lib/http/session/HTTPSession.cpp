@@ -944,7 +944,8 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
 }
 
 void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
-                           ErrorCode code) {
+                           ErrorCode code,
+                           std::unique_ptr<folly::IOBuf> debugData) {
   DestructorGuard g(this);
   VLOG(4) << "GOAWAY on " << *this << ", code=" << getErrorCodeString(code);
 
@@ -981,10 +982,13 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
     // by delivering a specific error to it a let the rest of the stream
     // get a normal unacknowledged stream error.
     ProxygenError err = kErrorStreamUnacknowledged;
+    string debugInfo = (debugData) ?
+      folly::to<string>(" with debug info: ", (char*)debugData->data()) : "";
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
       folly::to<std::string>(getErrorString(err),
         " on transaction id: ", firstStream,
-        " with codec error: ", getErrorCodeString(code)));
+        " with codec error: ", getErrorCodeString(code),
+        debugInfo));
     ex.setProxygenError(err);
     errorOnTransactionId(firstStream, std::move(ex));
   } else if (firstStream != HTTPCodec::NoStream) {
@@ -2251,9 +2255,13 @@ HTTPSession::onWriteCompleted() {
 void HTTPSession::onSessionParseError(const HTTPException& error) {
   VLOG(4) << *this << " session layer parse error. Terminate the session.";
   if (error.hasCodecStatusCode()) {
+    std::unique_ptr<folly::IOBuf> errorMsg =
+      folly::IOBuf::copyBuffer(error.what());
     codec_->generateGoaway(writeBuf_,
                            codec_->getLastIncomingStreamID(),
-                           error.getCodecStatusCode());
+                           error.getCodecStatusCode(),
+                           isHTTP2CodecProtocol(codec_->getProtocol()) ?
+                           std::move(errorMsg) : nullptr);
     scheduleWrite();
   }
   setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);

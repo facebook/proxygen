@@ -1276,10 +1276,11 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
       .WillRepeatedly(Return(65536));
     EXPECT_CALL(*codec, getProtocol())
       .WillRepeatedly(Return(CodecProtocol::SPDY_3_1));
-    EXPECT_CALL(*codec, generateGoaway(_, _, _))
+    EXPECT_CALL(*codec, generateGoaway(_, _, _, _))
       .WillRepeatedly(Invoke([&] (IOBufQueue& writeBuf,
                                   HTTPCodec::StreamID lastStream,
-                                  ErrorCode code){
+                                  ErrorCode,
+                                  std::shared_ptr<folly::IOBuf>) {
             EXPECT_LT(lastStream, std::numeric_limits<int32_t>::max());
             if (reusable_) {
               writeBuf.append("GOAWAY", 6);

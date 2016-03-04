@@ -633,9 +633,11 @@ size_t HTTP1xCodec::generateRstStream(IOBufQueue& writeBuf,
   return 0;
 }
 
-size_t HTTP1xCodec::generateGoaway(IOBufQueue& writeBuf,
-                                   StreamID lastStream,
-                                   ErrorCode statusCode) {
+size_t HTTP1xCodec::generateGoaway(
+  IOBufQueue&,
+  StreamID,
+  ErrorCode,
+  std::unique_ptr<folly::IOBuf>) {
   // statusCode ignored for HTTP/1.1
   // We won't be able to send anything else on the transport after this.
   disableKeepalivePending_ = true;
