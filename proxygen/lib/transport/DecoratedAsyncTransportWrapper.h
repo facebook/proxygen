@@ -170,6 +170,15 @@ class DecoratedAsyncTransportWrapper : public folly::AsyncTransportWrapper {
     return transport_->getSecurityProtocol();
   }
 
+  virtual bool isReplaySafe() const override {
+    return transport_->isReplaySafe();
+  }
+
+  virtual void setReplaySafetyCallback(
+      folly::AsyncTransport::ReplaySafetyCallback* callback) override {
+    transport_->setReplaySafetyCallback(callback);
+  }
+
  protected:
   virtual ~DecoratedAsyncTransportWrapper() {}
 
