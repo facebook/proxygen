@@ -2468,13 +2468,6 @@ void HTTPSession::onDeleteAckEvent() {
   }
 }
 
-void HTTPSession::setPersistentCork(bool cork) {
-  auto sock = sock_->getUnderlyingTransport<AsyncSocket>();
-  if (sock) {
-    sock->setPersistentCork(cork);
-  }
-}
-
 void HTTPSession::onEgressBuffered() {
   if (infoCallback_) {
     infoCallback_->onEgressBuffered(*this);
