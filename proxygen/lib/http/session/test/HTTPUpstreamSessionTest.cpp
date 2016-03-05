@@ -960,6 +960,10 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
   CodecProtocol respCodecVersion) {
   InSequence dummy;
   auto handler = openTransaction();
+  NiceMock<MockUpstreamController> controller;
+
+  httpSession_->setController(&controller);
+  EXPECT_CALL(controller, onSessionCodecChange(httpSession_));
 
   handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(200, msg->getStatusCode());

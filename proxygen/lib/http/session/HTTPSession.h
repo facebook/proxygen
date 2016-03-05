@@ -192,6 +192,9 @@ class HTTPSession:
 
   const HTTPSessionController* getController() const { return controller_; }
   HTTPSessionController* getController() { return controller_; }
+  void setController(HTTPSessionController* controller) {
+    controller_ = controller;
+  }
 
   /**
    * ManagedConnection::getIdleTime()

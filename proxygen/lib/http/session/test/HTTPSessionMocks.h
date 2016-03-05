@@ -300,6 +300,14 @@ class MockController : public HTTPSessionController {
 
   MOCK_METHOD1(attachSession, void(HTTPSession*));
   MOCK_METHOD1(detachSession, void(const HTTPSession*));
+  MOCK_METHOD1(onSessionCodecChange, void(HTTPSession*));
+};
+
+class MockUpstreamController : public HTTPUpstreamSessionController {
+ public:
+  MOCK_METHOD1(attachSession, void(HTTPSession*));
+  MOCK_METHOD1(detachSession, void(const HTTPSession*));
+  MOCK_METHOD1(onSessionCodecChange, void(HTTPSession*));
 };
 
 ACTION_P(ExpectString, expected) {

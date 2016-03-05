@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <glog/logging.h>
+
 namespace folly {
 class SocketAddress;
 }
@@ -66,6 +68,44 @@ class HTTPSessionController {
    * Informed at the end when the given HTTPSession is going away.
    */
   virtual void detachSession(const HTTPSession* session) = 0;
+
+  /**
+   * Inform the controller that the session's codec changed
+   */
+  virtual void onSessionCodecChange(HTTPSession* session) {}
+};
+
+
+class HTTPUpstreamSessionController : public HTTPSessionController {
+  HTTPTransactionHandler* getRequestHandler(
+    HTTPTransaction& txn, HTTPMessage* msg) override final {
+    LOG(FATAL) << "Unreachable";
+    return nullptr;
+  }
+
+  /**
+   * Will be invoked when HTTPSession is unable to parse a new request
+   * on the connection because of bad input.
+   *
+   * error contains specific information about what went wrong
+   */
+  HTTPTransactionHandler* getParseErrorHandler(
+    HTTPTransaction* txn,
+    const HTTPException& error,
+    const folly::SocketAddress& localAddress) override final {
+    LOG(FATAL) << "Unreachable";
+    return nullptr;
+  }
+
+  /**
+   * Will be invoked when HTTPSession times out parsing a new request.
+   */
+  HTTPTransactionHandler* getTransactionTimeoutHandler(
+    HTTPTransaction* txn,
+    const folly::SocketAddress& localAddress) override final {
+    LOG(FATAL) << "Unreachable";
+    return nullptr;
+  }
 };
 
 } // proxygen

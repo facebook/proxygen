@@ -1284,6 +1284,7 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
   auto handler = addSimpleStrictHandler();
 
   handler->expectHeaders();
+  EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM([&handler] {
       handler->sendReplyWithBody(200, 100);
     });
@@ -1376,6 +1377,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectBody();
+  EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM([&handler] {
       handler->sendReplyWithBody(200, 100);
     });
@@ -1418,6 +1420,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {
   this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
+  EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM([&handler] {
       handler->sendReplyWithBody(200, 100);
     });
@@ -1446,6 +1449,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
       handler->sendHeaders(100, 0);
     });
   handler->expectBody();
+  EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM([&handler] {
       handler->sendReplyWithBody(200, 100);
     });
@@ -1467,6 +1471,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectBody();
+  EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM([&handler] {
       handler->sendHeaders(100, 0);
       handler->sendReplyWithBody(200, 100);

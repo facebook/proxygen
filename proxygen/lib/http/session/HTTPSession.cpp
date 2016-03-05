@@ -1083,6 +1083,10 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   folly::MoveWrapper<std::unique_ptr<HTTPCodec>> wrapper(std::move(oldCodec));
   sock_->getEventBase()->runInLoop([wrapper] () {});
 
+  if (controller_) {
+    controller_->onSessionCodecChange(this);
+  }
+
   setupCodec();
 
   // txn will be streamID=1, have to make a placeholder
