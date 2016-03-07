@@ -38,6 +38,8 @@ DEFINE_string(cert_path, "/etc/ssl/certs/ca-certificates.crt",
     "Path to trusted cert to authenticate with");  // default for Ubuntu 14.04
 DEFINE_string(next_protos, "h2,h2-14,spdy/3.1,spdy/3,http/1.1",
     "Next protocol string for NPN/ALPN");
+DEFINE_string(plaintext_proto, "", "plaintext protocol");
+DEFINE_int32(recv_window, 65536, "Flow control receive window for h2/spdy");
 DEFINE_string(headers, "", "List of N=V headers separated by ,");
 
 int main(int argc, char* argv[]) {
@@ -97,6 +99,9 @@ int main(int argc, char* argv[]) {
         AsyncTimeout::InternalEnum::NORMAL,
         std::chrono::milliseconds(5000))};
   HTTPConnector connector(&curlClient, timer.get());
+  if (!FLAGS_plaintext_proto.empty()) {
+    connector.setPlaintextProtocol(FLAGS_plaintext_proto);
+  }
   static const AsyncSocket::OptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
 
   if (url.isSecure()) {

@@ -15,6 +15,8 @@ using namespace folly;
 using namespace proxygen;
 using namespace std;
 
+DECLARE_int32(recv_window);
+
 namespace CurlService {
 
 CurlClient::CurlClient(EventBase* evb, HTTPMethod httpMethod, const URL& url,
@@ -69,6 +71,9 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   if (url_.isSecure()) {
     sslHandshakeFollowup(session);
   }
+
+  session->setFlowControl(FLAGS_recv_window, FLAGS_recv_window,
+                          FLAGS_recv_window);
 
   txn_ = session->newTransaction(this);
   request_.setMethod(httpMethod_);
