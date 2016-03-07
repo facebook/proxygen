@@ -476,7 +476,8 @@ class HTTPSession:
                           http2::PriorityUpdate pri);
 
   bool onNativeProtocolUpgradeImpl(HTTPCodec::StreamID txn,
-                                   std::unique_ptr<HTTPCodec> codec);
+                                   std::unique_ptr<HTTPCodec> codec,
+                                   const std::string& protocolString);
 
   /**
    * Helper class to track write buffers until they have been fully written and

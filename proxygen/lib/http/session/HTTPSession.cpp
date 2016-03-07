@@ -1066,7 +1066,8 @@ void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
 }
 
 bool HTTPSession::onNativeProtocolUpgradeImpl(
-  HTTPCodec::StreamID streamID, std::unique_ptr<HTTPCodec> codec) {
+  HTTPCodec::StreamID streamID, std::unique_ptr<HTTPCodec> codec,
+  const std::string& protocolString) {
   CHECK_EQ(streamID, 1);
   HTTPTransaction* txn = findTransaction(streamID);
   CHECK(txn);
@@ -1105,6 +1106,14 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
              initialReceiveWindow_,
              receiveStreamWindowSize_,
              getCodecSendWindowSize());
+
+  if (!transportInfo_.ssl &&
+      (!transportInfo_.sslNextProtocol ||
+       transportInfo_.sslNextProtocol->empty())) {
+    transportInfo_.sslNextProtocol = std::make_shared<string>(
+      protocolString);
+  }
+
   return true;
 }
 

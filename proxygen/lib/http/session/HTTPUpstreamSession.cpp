@@ -133,7 +133,8 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   auto codec = HTTPCodecFactory::getCodec(protocol,
                                           TransportDirection::UPSTREAM);
   CHECK(codec);
-  bool ret = onNativeProtocolUpgradeImpl(streamID, std::move(codec));
+  bool ret = onNativeProtocolUpgradeImpl(streamID, std::move(codec),
+                                         protocolString);
   if (ret) {
     auto bytes = codec_->addPriorityNodes(
       txnEgressQueue_,

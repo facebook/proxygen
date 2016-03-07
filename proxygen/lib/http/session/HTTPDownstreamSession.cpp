@@ -131,7 +131,7 @@ HTTPDownstreamSession::onNativeProtocolUpgrade(
 
     // This will actually switch the protocol
     bool ret = HTTPSession::onNativeProtocolUpgradeImpl(
-      streamID, std::move(codec));
+      streamID, std::move(codec), protocolString);
     if (ret) {
       codec_->addPriorityNodes(txnEgressQueue_, writeBuf_, 0);
     }
