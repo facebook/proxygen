@@ -50,7 +50,7 @@ typedef std::list<std::pair<HTTPCodec::StreamID, uint8_t>> IDList;
 class QueueTest : public testing::Test {
  public:
   explicit QueueTest(HHWheelTimer* timer=nullptr)
-      : q_(timer) {
+      : q_(WheelTimerInstance(timer)) {
   }
 
  protected:

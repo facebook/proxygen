@@ -106,7 +106,7 @@ TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get());
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
   setupRequestResponseFlow(&txn, 100);
 
   txn.onIngressHeadersComplete(makeGetRequest());
@@ -120,7 +120,7 @@ TEST_F(DownstreamTransactionTest, regular_window_update) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get(),
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
     nullptr,
     true, // flow control enabled
     400,
@@ -145,7 +145,7 @@ TEST_F(DownstreamTransactionTest, window_increase) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get(),
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
     nullptr,
     true, // flow control enabled
     spdy::kInitialWindow,
@@ -176,7 +176,7 @@ TEST_F(DownstreamTransactionTest, window_decrease) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get(),
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
     nullptr,
     true, // flow control enabled
     spdy::kInitialWindow,
@@ -203,7 +203,7 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get());
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
 
   HTTPException err(HTTPException::Direction::INGRESS, "test");
   err.setHttpStatusCode(400);
@@ -239,7 +239,7 @@ TEST_F(DownstreamTransactionTest, detach_from_notify) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get());
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
 
   InSequence dummy;
 
@@ -278,7 +278,8 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get(), nullptr, true, 10, 10);
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    nullptr, true, 10, 10);
 
   InSequence dummy;
 
@@ -331,7 +332,7 @@ TEST_F(DownstreamTransactionTest, internal_error) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, transactionTimeouts_.get());
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
 
   InSequence dummy;
 

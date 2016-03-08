@@ -105,7 +105,21 @@ HTTPSession::WriteSegment::writeErr(size_t bytesWritten,
 }
 
 HTTPSession::HTTPSession(
-  folly::HHWheelTimer::SharedPtr transactionTimeouts,
+  folly::HHWheelTimer* transactionTimeouts,
+  AsyncTransportWrapper::UniquePtr sock,
+  const SocketAddress& localAddr,
+  const SocketAddress& peerAddr,
+  HTTPSessionController* controller,
+  unique_ptr<HTTPCodec> codec,
+  const TransportInfo& tinfo,
+  InfoCallback* infoCallback):
+    HTTPSession(WheelTimerInstance(transactionTimeouts), std::move(sock),
+        localAddr, peerAddr, controller, std::move(codec),
+        tinfo, infoCallback) {
+}
+
+HTTPSession::HTTPSession(
+  const WheelTimerInstance& timeout,
   AsyncTransportWrapper::UniquePtr sock,
   const SocketAddress& localAddr,
   const SocketAddress& peerAddr,
@@ -114,7 +128,8 @@ HTTPSession::HTTPSession(
   const TransportInfo& tinfo,
   InfoCallback* infoCallback):
     txnEgressQueue_(isHTTP2CodecProtocol(codec->getProtocol()) ?
-                    transactionTimeouts.get() : nullptr ),
+                    WheelTimerInstance(timeout) :
+                    WheelTimerInstance()),
     localAddr_(localAddr),
     peerAddr_(peerAddr),
     sock_(std::move(sock)),
@@ -123,7 +138,7 @@ HTTPSession::HTTPSession(
     infoCallback_(infoCallback),
     writeTimeout_(this),
     flowControlTimeout_(this),
-    transactionTimeouts_(transactionTimeouts),
+    timeout_(timeout),
     transportInfo_(tinfo),
     reads_(SocketState::PAUSED),
     writes_(SocketState::UNPAUSED),
@@ -1752,7 +1767,7 @@ HTTPSession::runLoopCallback() noexcept {
     pendingWrites_.push_back(*segment);
     if (!writeTimeout_.isScheduled()) {
       // Any performance concern here?
-      transactionTimeouts_->scheduleTimeout(&writeTimeout_);
+      timeout_.scheduleTimeout(&writeTimeout_);
     }
     numActiveWrites_++;
     VLOG(4) << *this << " writing " << len << ", activeWrites="
@@ -2134,7 +2149,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
     std::forward_as_tuple(streamID),
     std::forward_as_tuple(
       codec_->getTransportDirection(), streamID, transactionSeqNo_, *this,
-      txnEgressQueue_, transactionTimeouts_.get(), sessionStats_,
+      txnEgressQueue_, timeout_, sessionStats_,
       codec_->supportsStreamFlowControl(),
       initialReceiveWindow_,
       getCodecSendWindowSize(),
@@ -2184,7 +2199,7 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
     writeTimeout_.cancelTimeout();
   } else {
     VLOG(10) << "Refresh write timer on writeSuccess";
-    transactionTimeouts_->scheduleTimeout(&writeTimeout_);
+    timeout_.scheduleTimeout(&writeTimeout_);
   }
 
   if (infoCallback_) {
@@ -2433,7 +2448,7 @@ void HTTPSession::onConnectionSendWindowClosed() {
   if (infoCallback_) {
     infoCallback_->onFlowControlWindowClosed(*this);
   }
-  transactionTimeouts_->scheduleTimeout(&flowControlTimeout_);
+  timeout_.scheduleTimeout(&flowControlTimeout_);
 }
 
 HTTPCodec::StreamID HTTPSession::getGracefulGoawayAck() const {

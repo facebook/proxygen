@@ -14,6 +14,7 @@
 #include <folly/io/async/HHWheelTimer.h>
 #include <proxygen/lib/utils/Time.h>
 #include <folly/io/async/AsyncSocket.h>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 
 namespace proxygen {
 
@@ -52,6 +53,8 @@ class HTTPConnector:
    *                   that are opened on the session.
    */
   HTTPConnector(Callback* callback, folly::HHWheelTimer* timeoutSet);
+
+  HTTPConnector(Callback* callback, const WheelTimerInstance& timeout);
 
   /**
    * Clients may delete the connector at any time to cancel it. No
@@ -145,7 +148,7 @@ class HTTPConnector:
     noexcept override;
 
   Callback* cb_;
-  folly::HHWheelTimer* timeoutSet_;
+  WheelTimerInstance timeout_;
   folly::AsyncSocket::UniquePtr socket_;
   wangle::TransportInfo transportInfo_;
   std::string plaintextProtocol_;

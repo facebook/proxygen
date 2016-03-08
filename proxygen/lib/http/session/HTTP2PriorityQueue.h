@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <folly/IntrusiveList.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 
 #include <list>
 #include <deque>
@@ -31,8 +32,13 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   typedef Node* Handle;
 
  public:
-  explicit HTTP2PriorityQueue(folly::HHWheelTimer* timer = nullptr)
-      : timer_(timer) {
+
+  HTTP2PriorityQueue() {
+    root_.setPermanent();
+  }
+
+  explicit HTTP2PriorityQueue(const WheelTimerInstance& timeout)
+    : timeout_(timeout) {
     root_.setPermanent();
   }
 
@@ -112,14 +118,14 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   }
 
   bool allowDanglingNodes() const {
-    return timer_ && kNodeLifetime_.count() > 0;
+    return timeout_ && kNodeLifetime_.count() > 0;
   }
 
   void scheduleNodeExpiration(Node *node) {
-    if (timer_) {
+    if (timeout_) {
       VLOG(5) << "scheduling expiration for node=" << node->getID();
       DCHECK_GT(kNodeLifetime_.count(), 0);
-      timer_->scheduleTimeout(node, kNodeLifetime_);
+      timeout_.scheduleTimeout(node, kNodeLifetime_);
     }
   }
 
@@ -297,10 +303,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   uint32_t maxVirtualNodes_{200};
   uint32_t numVirtualNodes_{0};
   bool pendingWeightChange_{false};
-  folly::HHWheelTimer* timer_{nullptr};
+  WheelTimerInstance timeout_;
+
   NextEgressResult* nextEgressResults_{nullptr};
   static std::chrono::milliseconds kNodeLifetime_;
 };
-
 
 }

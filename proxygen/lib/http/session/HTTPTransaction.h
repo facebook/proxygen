@@ -28,6 +28,7 @@
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 #include <proxygen/lib/utils/Time.h>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 #include <set>
 
 namespace proxygen {
@@ -403,7 +404,7 @@ class HTTPTransaction :
                   uint32_t seqNo,
                   Transport& transport,
                   HTTP2PriorityQueue& egressQueue,
-                  folly::HHWheelTimer* transactionIdleTimeouts,
+                  const WheelTimerInstance& timeout,
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
                   uint32_t receiveInitialWindowSize = 0,
@@ -970,12 +971,10 @@ class HTTPTransaction :
    * Schedule or refresh the timeout for this transaction
    */
   void refreshTimeout() {
-    if (transactionIdleTimeouts_) {
-      if (hasIdleTimeout()) {
-        transactionIdleTimeouts_->scheduleTimeout(this, getIdleTimeout());
-      } else {
-        transactionIdleTimeouts_->scheduleTimeout(this);
-      }
+    if (hasIdleTimeout()) {
+      timeout_.scheduleTimeout(this, getIdleTimeout());
+    } else {
+      timeout_.scheduleTimeout(this);
     }
   }
 
@@ -1160,7 +1159,7 @@ class HTTPTransaction :
     HTTPTransactionEgressSM::getNewInstance()};
   HTTPTransactionIngressSM::State ingressState_{
     HTTPTransactionIngressSM::getNewInstance()};
-  folly::HHWheelTimer* transactionIdleTimeouts_{nullptr};
+  WheelTimerInstance timeout_;
   HTTPSessionStats* stats_{nullptr};
 
   /**

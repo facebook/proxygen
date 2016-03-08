@@ -9,11 +9,12 @@
  */
 #pragma once
 
+#include <memory>
 #include <wangle/acceptor/Acceptor.h>
-#include <folly/io/async/AsyncServerSocket.h>
 #include <proxygen/lib/services/AcceptorConfiguration.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
-#include <folly/io/async/HHWheelTimer.h>
+#include <folly/io/async/AsyncServerSocket.h>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 
 namespace proxygen {
 
@@ -33,21 +34,16 @@ class HTTPAcceptor : public wangle::Acceptor {
    /**
    * Access the general-purpose timeout manager for transactions.
    */
-  virtual folly::HHWheelTimer* getTransactionTimeoutSet() {
-    return transactionTimeouts_.get();
+  virtual const WheelTimerInstance& getTransactionTimeoutSet() {
+    return *timer_;
   }
 
   void init(folly::AsyncServerSocket* serverSocket,
             folly::EventBase* eventBase,
             wangle::SSLStats* stat=nullptr) override {
+    timer_ = folly::make_unique<WheelTimerInstance>(
+        accConfig_.transactionIdleTimeout, eventBase);
     Acceptor::init(serverSocket, eventBase);
-    transactionTimeouts_ =
-       folly::HHWheelTimer::newTimer(
-        eventBase,
-        std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-        folly::AsyncTimeout::InternalEnum::NORMAL,
-        accConfig_.transactionIdleTimeout);
-
   }
 
   const AcceptorConfiguration& getConfig() const { return accConfig_; }
@@ -56,7 +52,7 @@ class HTTPAcceptor : public wangle::Acceptor {
   AcceptorConfiguration accConfig_;
  private:
   AsyncTimeoutSet::UniquePtr tcpEventsTimeouts_;
-  folly::HHWheelTimer::UniquePtr transactionTimeouts_;
+  std::unique_ptr<WheelTimerInstance> timer_;
 };
 
 }

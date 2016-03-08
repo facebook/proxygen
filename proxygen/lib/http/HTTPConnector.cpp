@@ -17,8 +17,6 @@
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 
-
-
 using namespace folly;
 using namespace std;
 
@@ -52,8 +50,13 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
 }
 
 HTTPConnector::HTTPConnector(Callback* callback,
-                             folly::HHWheelTimer* timeoutSet)
-    : cb_(CHECK_NOTNULL(callback)), timeoutSet_(timeoutSet) {}
+    folly::HHWheelTimer* timeoutSet) :
+  HTTPConnector(callback, WheelTimerInstance(timeoutSet)) {
+}
+
+HTTPConnector::HTTPConnector(Callback* callback,
+                             const WheelTimerInstance& timeout)
+    : cb_(CHECK_NOTNULL(callback)), timeout_(timeout) {}
 
 HTTPConnector::~HTTPConnector() {
   reset();
@@ -162,7 +165,7 @@ void HTTPConnector::connectSuccess() noexcept {
   }
 
   HTTPUpstreamSession* session = new HTTPUpstreamSession(
-    timeoutSet_,
+    timeout_,
     std::move(socket_), localAddress, peerAddress,
     std::move(codec), transportInfo_, nullptr);
 

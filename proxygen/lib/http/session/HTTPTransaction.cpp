@@ -32,7 +32,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t seqNo,
                                  Transport& transport,
                                  HTTP2PriorityQueue& egressQueue,
-                                 folly::HHWheelTimer* transactionIdleTimeouts,
+                                 const WheelTimerInstance& timeout,
                                  HTTPSessionStats* stats,
                                  bool useFlowControl,
                                  uint32_t receiveInitialWindowSize,
@@ -44,7 +44,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     id_(id),
     seqNo_(seqNo),
     transport_(transport),
-    transactionIdleTimeouts_(transactionIdleTimeouts),
+    timeout_(timeout),
     stats_(stats),
     recvWindow_(receiveInitialWindowSize),
     sendWindow_(sendInitialWindowSize),
@@ -791,7 +791,8 @@ bool HTTPTransaction::maybeDelayForRateLimit() {
 
   egressRateLimited_ = true;
 
-  transactionIdleTimeouts_->scheduleTimeout(&rateLimitCallback_, requiredDelay);
+  timeout_.scheduleTimeout(&rateLimitCallback_, requiredDelay);
+
   notifyTransportPendingEgress();
   return true;
 }

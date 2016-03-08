@@ -29,7 +29,7 @@ class HTTPUpstreamSession final: public HTTPSession {
    *                         priority levels.
    */
   HTTPUpstreamSession(
-      folly::HHWheelTimer* transactionTimeouts,
+      const WheelTimerInstance& timeout,
       folly::AsyncTransportWrapper::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
@@ -38,7 +38,7 @@ class HTTPUpstreamSession final: public HTTPSession {
       InfoCallback* infoCallback,
       uint8_t maxVirtualPri = 0):
     HTTPSession(
-        transactionTimeouts,
+        timeout,
         std::move(sock),
         localAddr,
         peerAddr,
@@ -53,6 +53,21 @@ class HTTPUpstreamSession final: public HTTPSession {
     }
     CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
   }
+
+  // uses folly::HHWheelTimer instance which is used on client side & thrift
+  HTTPUpstreamSession(
+      folly::HHWheelTimer* timeout,
+      folly::AsyncTransportWrapper::UniquePtr&& sock,
+      const folly::SocketAddress& localAddr,
+      const folly::SocketAddress& peerAddr,
+      std::unique_ptr<HTTPCodec> codec,
+      const wangle::TransportInfo& tinfo,
+      InfoCallback* infoCallback,
+      uint8_t maxVirtualPri = 0):
+    HTTPUpstreamSession(WheelTimerInstance(timeout), std::move(sock), localAddr,
+        peerAddr, std::move(codec), tinfo, infoCallback, maxVirtualPri) {
+  }
+
 
   void startNow() override;
 

@@ -28,6 +28,7 @@
 #include <set>
 #include <folly/io/async/AsyncSocket.h>
 #include <vector>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 
 namespace proxygen {
 
@@ -379,7 +380,7 @@ class HTTPSession:
    *                               lifecycle events.
    */
   HTTPSession(
-      folly::HHWheelTimer::SharedPtr transactionTimeouts,
+      const WheelTimerInstance& timeout,
       folly::AsyncTransportWrapper::UniquePtr sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
@@ -388,6 +389,7 @@ class HTTPSession:
       const wangle::TransportInfo& tinfo,
       InfoCallback* infoCallback = nullptr);
 
+  // thrift uses WheelTimer
   HTTPSession(
       folly::HHWheelTimer* transactionTimeouts,
       folly::AsyncTransportWrapper::UniquePtr sock,
@@ -396,15 +398,7 @@ class HTTPSession:
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback = nullptr)
-    : HTTPSession(folly::HHWheelTimer::SharedPtr(transactionTimeouts),
-                  std::move(sock),
-                  localAddr,
-                  peerAddr,
-                  controller,
-                  std::move(codec),
-                  tinfo,
-                  infoCallback) {}
+      InfoCallback* infoCallback = nullptr);
 
   ~HTTPSession() override;
 
@@ -846,7 +840,7 @@ class HTTPSession:
 
   FlowControlTimeout flowControlTimeout_;
 
-  folly::HHWheelTimer::SharedPtr transactionTimeouts_{nullptr};
+  WheelTimerInstance timeout_;
 
   HTTPSessionStats* sessionStats_{nullptr};
 
