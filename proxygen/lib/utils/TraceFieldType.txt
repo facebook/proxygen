@@ -16,6 +16,9 @@ LastPingRecvOffset, "last_ping_recv_time_offset"
 RecentPingSentCount, "recent_ping_sent_count"
 RecentPingRecvCount, "recent_ping_recv_count"
 
+/* ---- Used in TotalRequest ---- */
+CallPath, "call_path"
+
 /* ---- Used in RequestExchange ---- */
 Uri, "uri"
 IsSecure, "is_secure"

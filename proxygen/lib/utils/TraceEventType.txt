@@ -2,6 +2,7 @@
  * Trace Event Type, please follow the pattern when you add new one.
  */
 
+TotalRequest, "TotalRequest"
 RequestExchange, "HTTPRequestExchange"
 ResponseBodyRead, "HTTPResponseBodyRead"
 PreConnect, "PreConnect"
