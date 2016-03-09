@@ -43,7 +43,8 @@ class HTTPSession:
   public HTTPTransaction::Transport,
   public folly::AsyncTransportWrapper::ReadCallback,
   public wangle::ManagedConnection,
-  public folly::AsyncTransport::BufferCallback {
+  public folly::AsyncTransport::BufferCallback,
+  private folly::AsyncTransport::ReplaySafetyCallback {
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
 
@@ -1057,6 +1058,44 @@ class HTTPSession:
 
   std::unique_ptr<ByteEventTracker> byteEventTracker_{
     folly::make_unique<ByteEventTracker>(this)};
+
+  /**
+   * Add a ReplaySafetyCallback requesting notification when the transport has
+   * replay protection.
+   *
+   * Most transport-layer security protocols (like TLS) provide protection
+   * against an eavesdropper capturing data, and later replaying it to the
+   * server. However, 0-RTT security protocols allow initial data to be sent
+   * without replay protection before the security handshake completes. This
+   * function can be used when a HTTP session is in that initial non-replay safe
+   * stage, but a request requires a replay safe transport. Will trigger
+   * callback synchronously if the transport is already replay safe.
+   */
+  void addWaitingForReplaySafety(
+      ReplaySafetyCallback* callback) noexcept override {
+    if (sock_->isReplaySafe()) {
+      callback->onReplaySafe();
+    } else {
+      waitingForReplaySafety_.push_back(callback);
+    }
+  }
+
+  /**
+   * Remove a ReplaySafetyCallback that had been waiting for replay safety
+   * (eg if a transaction waiting for replay safety is canceled).
+   */
+  void removeWaitingForReplaySafety(
+      ReplaySafetyCallback* callback) noexcept override {
+    waitingForReplaySafety_.remove(callback);
+  }
+
+  /**
+   * Callback from the transport to this HTTPSession to signal when the
+   * transport has become replay safe.
+   */
+  void onReplaySafe() noexcept override;
+
+  std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
 };
 
 } // proxygen

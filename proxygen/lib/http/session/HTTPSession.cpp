@@ -173,6 +173,10 @@ HTTPSession::HTTPSession(
   if (controller_) {
     controller_->attachSession(this);
   }
+
+  if (!sock_->isReplaySafe()) {
+    sock_->setReplaySafetyCallback(this);
+  }
 }
 
 void HTTPSession::setupCodec() {
@@ -2506,6 +2510,14 @@ void HTTPSession::onEgressBufferCleared() {
   if (infoCallback_) {
     infoCallback_->onEgressBufferCleared(*this);
   }
+}
+
+void HTTPSession::onReplaySafe() noexcept {
+  sock_->setReplaySafetyCallback(nullptr);
+  for (auto callback : waitingForReplaySafety_) {
+    callback->onReplaySafe();
+  }
+  waitingForReplaySafety_.clear();
 }
 
 } // proxygen

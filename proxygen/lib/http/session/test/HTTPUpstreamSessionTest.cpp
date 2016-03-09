@@ -145,6 +145,10 @@ class HTTPUpstreamTest: public testing::Test,
       .WillRepeatedly(ReturnPointee(&transportGood_));
     EXPECT_CALL(*transport_, closeNow())
       .WillRepeatedly(Assign(&transportGood_, false));
+    EXPECT_CALL(*transport_, isReplaySafe())
+      .WillOnce(Return(false));
+    EXPECT_CALL(*transport_, setReplaySafetyCallback(_))
+      .WillRepeatedly(SaveArg<0>(&replaySafetyCallback_));
     httpSession_ = new HTTPUpstreamSession(
       transactionTimeouts_.get(),
       std::move(AsyncTransportWrapper::UniquePtr(transport_)),
@@ -283,6 +287,7 @@ class HTTPUpstreamTest: public testing::Test,
   EventBase eventBase_;
   MockAsyncTransport* transport_;  // invalid once httpSession_ is destroyed
   folly::AsyncTransportWrapper::ReadCallback* readCallback_{nullptr};
+  folly::AsyncTransport::ReplaySafetyCallback* replaySafetyCallback_{nullptr};
   folly::HHWheelTimer::UniquePtr transactionTimeouts_;
   std::vector<int64_t> flowControl_;
   wangle::TransportInfo mockTransportInfo_;
@@ -2113,6 +2118,42 @@ TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
     });
   handler.expectDetachTransaction();
   (void)httpSession_->newTransaction(&handler);
+}
+
+TEST_F(HTTP2UpstreamSessionTest, test_replay_safety_callback) {
+  auto sock = dynamic_cast<HTTPTransaction::Transport*>(httpSession_);
+
+  StrictMock<folly::test::MockReplaySafetyCallback> cb1;
+  StrictMock<folly::test::MockReplaySafetyCallback> cb2;
+  StrictMock<folly::test::MockReplaySafetyCallback> cb3;
+
+  EXPECT_CALL(*transport_, isReplaySafe())
+    .WillRepeatedly(Return(false));
+  sock->addWaitingForReplaySafety(&cb1);
+  sock->addWaitingForReplaySafety(&cb2);
+  sock->addWaitingForReplaySafety(&cb3);
+  sock->removeWaitingForReplaySafety(&cb2);
+
+  ON_CALL(*transport_, isReplaySafe())
+    .WillByDefault(Return(true));
+  EXPECT_CALL(cb1, onReplaySafe());
+  EXPECT_CALL(cb3, onReplaySafe());
+  replaySafetyCallback_->onReplaySafe();
+
+  httpSession_->destroy();
+}
+
+TEST_F(HTTP2UpstreamSessionTest, test_already_replay_safe) {
+  auto sock = dynamic_cast<HTTPTransaction::Transport*>(httpSession_);
+
+  StrictMock<folly::test::MockReplaySafetyCallback> cb;
+
+  EXPECT_CALL(*transport_, isReplaySafe())
+    .WillRepeatedly(Return(true));
+  EXPECT_CALL(cb, onReplaySafe());
+  sock->addWaitingForReplaySafety(&cb);
+
+  httpSession_->destroy();
 }
 
 // Register and instantiate all our type-paramterized tests

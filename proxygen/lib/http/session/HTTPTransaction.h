@@ -386,6 +386,12 @@ class HTTPTransaction :
       HTTPTransaction::PushHandler* handler) noexcept = 0;
 
     virtual std::string getSecurityProtocol() const = 0;
+
+    virtual void addWaitingForReplaySafety(
+        folly::AsyncTransport::ReplaySafetyCallback* callback) noexcept = 0;
+
+    virtual void removeWaitingForReplaySafety(
+        folly::AsyncTransport::ReplaySafetyCallback* callback) noexcept = 0;
   };
 
   typedef HTTPTransactionTransportCallback TransportCallback;
@@ -427,7 +433,7 @@ class HTTPTransaction :
 
   Transport& getTransport() { return transport_; }
 
-  void setHandler(Handler* handler) {
+  virtual void setHandler(Handler* handler) {
     handler_ = handler;
     if (handler_) {
       handler_->setTransaction(this);
@@ -1027,6 +1033,23 @@ class HTTPTransaction :
    * Notify of priority change, will not generate a PRIORITY frame
    */
   void onPriorityUpdate(const http2::PriorityUpdate& priority);
+
+  /**
+   * Add a callback waiting for this transaction to have a transport with
+   * replay protection.
+   */
+  virtual void addWaitingForReplaySafety(
+      folly::AsyncTransport::ReplaySafetyCallback* callback) {
+    transport_.addWaitingForReplaySafety(callback);
+  }
+
+  /**
+   * Remove a callback waiting for replay protection (if it was canceled).
+   */
+  virtual void removeWaitingForReplaySafety(
+      folly::AsyncTransport::ReplaySafetyCallback* callback) {
+    transport_.removeWaitingForReplaySafety(callback);
+  }
 
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;

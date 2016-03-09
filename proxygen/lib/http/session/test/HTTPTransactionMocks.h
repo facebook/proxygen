@@ -87,6 +87,11 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   }
   MOCK_CONST_METHOD0(isDraining, bool());
   MOCK_CONST_METHOD0(getSecurityProtocol, std::string());
+
+  GMOCK_METHOD1_(, noexcept,, addWaitingForReplaySafety,
+      void(folly::AsyncTransport::ReplaySafetyCallback*));
+  GMOCK_METHOD1_(, noexcept,, removeWaitingForReplaySafety,
+      void(folly::AsyncTransport::ReplaySafetyCallback*));
 };
 
 class MockHTTPTransaction : public HTTPTransaction {
@@ -115,9 +120,22 @@ class MockHTTPTransaction : public HTTPTransaction {
       .WillRepeatedly(testing::ReturnRef(mockCodec_));
     EXPECT_CALL(mockTransport_, getSetupTransportInfoNonConst())
       .WillRepeatedly(testing::ReturnRef(setupTransportInfo_));
+
+    // Some tests unfortunately require a half-mocked HTTPTransaction.
+    ON_CALL(*this, setHandler(testing::_))
+      .WillByDefault(testing::Invoke([this] (HTTPTransactionHandler* handler) {
+            this->setHandlerUnmocked(handler);
+        }));
+
   }
 
   MOCK_CONST_METHOD0(extraResponseExpected, bool());
+
+  MOCK_METHOD1(setHandler, void(HTTPTransactionHandler*));
+
+  void setHandlerUnmocked(HTTPTransactionHandler* handler) {
+    HTTPTransaction::setHandler(handler);
+  }
 
   MOCK_METHOD1(sendHeaders, void(const HTTPMessage& headers));
   MOCK_METHOD1(sendBody, void(std::shared_ptr<folly::IOBuf>));
@@ -137,6 +155,11 @@ class MockHTTPTransaction : public HTTPTransaction {
                HTTPTransaction*(HTTPPushTransactionHandler*));
   MOCK_METHOD1(setReceiveWindow, void(uint32_t));
   MOCK_CONST_METHOD0(getReceiveWindow, const Window&());
+
+  MOCK_METHOD1(addWaitingForReplaySafety,
+      void(folly::AsyncTransport::ReplaySafetyCallback*));
+  MOCK_METHOD1(removeWaitingForReplaySafety,
+      void(folly::AsyncTransport::ReplaySafetyCallback*));
 
   void enablePush() {
     EXPECT_CALL(mockCodec_, supportsPushTransactions())
