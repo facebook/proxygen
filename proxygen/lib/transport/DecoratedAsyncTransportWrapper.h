@@ -114,7 +114,7 @@ class DecoratedAsyncTransportWrapper : public folly::AsyncTransportWrapper {
     return transport_->getPeerAddress(address);
   }
 
-  virtual folly::X509_UniquePtr getPeerCert() const override {
+  virtual folly::ssl::X509UniquePtr getPeerCert() const override {
     return transport_->getPeerCert();
   }
 
