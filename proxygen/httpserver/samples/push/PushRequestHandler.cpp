@@ -22,6 +22,15 @@ namespace PushService {
 const std::string kPushFileName("proxygen/httpserver/samples/push/pusheen.txt");
 std::string gPushBody;
 
+// Create a large body so we can give time for the push request to be made
+std::string createLargeBody() {
+  std::string data = gPushBody;
+  while(data.size() < 1000*1000) {
+    data += gPushBody;
+  }
+  return data;
+}
+
 PushRequestHandler::PushRequestHandler(PushStats* stats): stats_(stats) {
   if (gPushBody.empty()) {
     CHECK(folly::readFile(kPushFileName.c_str(), gPushBody))
@@ -38,15 +47,32 @@ void PushRequestHandler::onRequest(
       // can't push
       return;
     }
-    ResponseBuilder(downstreamPush_)
-      .promise("/pusheen",
-               headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST))
-      .send();
 
-    ResponseBuilder(downstreamPush_)
-      .status(200, "OK")
-      .body(gPushBody)
-      .sendWithEOM();
+    if(headers->getPath() == "/requestLargePush") {
+      LOG(INFO) << "sending large push ";
+
+      ResponseBuilder(downstreamPush_)
+        .promise("/largePush",
+                 headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST))
+        .send();
+
+      ResponseBuilder(downstreamPush_)
+        .status(200, "OK")
+        .body(createLargeBody())
+        .sendWithEOM();
+    } else {
+      LOG(INFO) << "sending small push ";
+
+      ResponseBuilder(downstreamPush_)
+        .promise("/pusheen",
+                 headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST))
+        .send();
+
+      ResponseBuilder(downstreamPush_)
+        .status(200, "OK")
+        .body(gPushBody)
+        .sendWithEOM();
+    }
   }
 }
 
