@@ -173,6 +173,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   size_t generateSettings(folly::IOBufQueue& writeBuf) override;
 
+  size_t generateSettingsAck(folly::IOBufQueue& writeBuf) override;
+
   size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,
                               StreamID stream,
                               uint32_t delta) override;

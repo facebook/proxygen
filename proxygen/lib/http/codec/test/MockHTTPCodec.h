@@ -88,6 +88,7 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_METHOD2(generatePingReply, size_t(folly::IOBufQueue&,
                                          uint64_t));
   MOCK_METHOD1(generateSettings, size_t(folly::IOBufQueue&));
+  MOCK_METHOD1(generateSettingsAck, size_t(folly::IOBufQueue&));
   MOCK_METHOD3(generateWindowUpdate, size_t(folly::IOBufQueue&,
                                             StreamID,
                                             uint32_t));

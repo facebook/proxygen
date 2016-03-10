@@ -574,6 +574,7 @@ class HTTPSession:
   void onPingReply(uint64_t uniqueID) override;
   void onWindowUpdate(HTTPCodec::StreamID stream, uint32_t amount) override;
   void onSettings(const SettingsList& settings) override;
+  void onSettingsAck()  override;
   void onPriority(HTTPCodec::StreamID stream,
                   const HTTPMessage::HTTPPriority&) override;
   uint32_t numOutgoingStreams() const override { return outgoingStreams_; }

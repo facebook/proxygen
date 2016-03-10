@@ -578,6 +578,26 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   EXPECT_EQ(sessionDestroyed_, true);
 }
 
+TEST_F(HTTP2UpstreamSessionTest, test_settings_ack) {
+  auto serverCodec = makeServerCodec();
+  folly::IOBufQueue buf{IOBufQueue::cacheChainLength()};
+  serverCodec->generateSettings(buf);
+  auto settingsFrame = buf.move();
+  settingsFrame->coalesce();
+
+  InSequence enforceOrder;
+
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  serverCodec->setCallback(&callbacks);
+  EXPECT_CALL(callbacks, onSettings(_));
+  EXPECT_CALL(callbacks, onSettingsAck());
+
+  readAndLoop(settingsFrame.get());
+  parseOutput(*serverCodec);
+  httpSession_->dropConnection();
+  EXPECT_EQ(sessionDestroyed_, true);
+}
+
 class HTTP2UpstreamSessionWithVirtualNodesTest:
   public HTTPUpstreamTest<MockHTTPCodecPair> {
  public:

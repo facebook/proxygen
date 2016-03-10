@@ -271,6 +271,10 @@ size_t PassThroughHTTPCodecFilter::generateSettings(folly::IOBufQueue& buf) {
   return call_->generateSettings(buf);
 }
 
+size_t PassThroughHTTPCodecFilter::generateSettingsAck(folly::IOBufQueue& buf) {
+  return call_->generateSettingsAck(buf);
+}
+
 size_t PassThroughHTTPCodecFilter::generateWindowUpdate(
   folly::IOBufQueue& buf,
   StreamID stream,

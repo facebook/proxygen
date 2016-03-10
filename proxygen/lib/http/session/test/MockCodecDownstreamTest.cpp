@@ -820,6 +820,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
             codecCallback_->onSettings(
               {{SettingsId::INITIAL_WINDOW_SIZE, 4000}});
           }));
+    EXPECT_CALL(*codec_, generateSettingsAck(_));
     EXPECT_CALL(handler1, onEOM())
       .WillOnce(InvokeWithoutArgs([&handler1] () {
             handler1.sendHeaders(200, 16000);
@@ -1405,4 +1406,13 @@ TEST_F(MockCodecDownstreamTest, ping_during_shutdown) {
       // When this function returns, the controller gets detachSession()
       EXPECT_CALL(mockController_, detachSession(_));
     });
+}
+
+TEST_F(MockCodecDownstreamTest, settings_ack) {
+  EXPECT_CALL(*codec_, generateSettingsAck(_));
+  codecCallback_->onSettings(
+    {{SettingsId::INITIAL_WINDOW_SIZE, 4000}});
+  EXPECT_CALL(*codec_, onIngressEOF());
+  EXPECT_CALL(mockController_, detachSession(_));
+  httpSession_->dropConnection();
 }

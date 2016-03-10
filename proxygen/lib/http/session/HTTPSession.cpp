@@ -1061,6 +1061,7 @@ void HTTPSession::onWindowUpdate(HTTPCodec::StreamID streamID,
 }
 
 void HTTPSession::onSettings(const SettingsList& settings) {
+  DestructorGuard g(this);
   for (auto& setting: settings) {
     if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
       onSetSendWindow(setting.value);
@@ -1068,6 +1069,13 @@ void HTTPSession::onSettings(const SettingsList& settings) {
       onSetMaxInitiatedStreams(setting.value);
     }
   }
+  if (codec_->generateSettingsAck(writeBuf_) > 0) {
+    scheduleWrite();
+  }
+}
+
+void HTTPSession::onSettingsAck() {
+  VLOG(4) << *this << " received settings ack";
 }
 
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
