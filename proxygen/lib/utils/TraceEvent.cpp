@@ -40,6 +40,18 @@ class TraceEventIDGenerator {
 
 namespace proxygen {
 
+  // Helpers used to make TraceEventType/TraceFieldType can be used with GLOG
+std::ostream& operator<<(std::ostream& os, TraceEventType eventType) {
+  os << getTraceEventTypeString(eventType);
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, TraceFieldType fieldType) {
+  os << getTraceFieldTypeString(fieldType);
+  return os;
+}
+
+
 DEFINE_UNION_STATIC_UNION_IMPL(folly::ThreadLocal<TraceEventIDGenerator>,
                     TraceEventIDGenerator,
                     s_idGenerator);

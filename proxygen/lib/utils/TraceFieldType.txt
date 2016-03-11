@@ -232,3 +232,8 @@ MQTTMsgRemainingLength, "mqtt_msg_remaining_length"
 MsgType, "msg_type"
 IsMsgRecv, "is_msg_received"
 ConnectReturnCode, "connect_return_code"
+
+/* ---- Used in Push ----*/
+IsPushRequest, "is_push_request"
+PushConnectedInFlight, "push_connected_in_flight"
+PushOrphaned, "push_orphined"

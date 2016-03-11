@@ -11,6 +11,7 @@
 
 #include <boost/variant.hpp>
 #include <folly/Conv.h>
+#include <iostream>
 #include <map>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEventType.h>
@@ -18,6 +19,9 @@
 #include <string>
 
 namespace proxygen {
+  // Helpers used to make TraceEventType/TraceFieldType can be used with GLOG
+  std::ostream& operator<<(std::ostream& os, TraceEventType eventType);
+  std::ostream& operator<<(std::ostream& os, TraceFieldType fieldType);
 
 /**
  * Simple structure to track timing of event in request flow then we can
