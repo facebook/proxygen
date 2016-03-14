@@ -65,7 +65,7 @@ const size_t kFrameSizeNameValuev3 = 4;    // The size in bytes of a
 const size_t kPriShiftv2 = 6;              // How many bits to shift pri, v2
 const size_t kPriShiftv3 = 5;              // How many bits to shift pri, v3
 
-const size_t kMaxUncompressed = 1 << 17;   // 128kb should be enough for anyone
+const size_t kMaxUncompressed = 96 * 1024; // 96kb ought be enough for anyone
 
 #define CTRL_MASK 0x80
 #define FLAGS_MASK 0xff000000
