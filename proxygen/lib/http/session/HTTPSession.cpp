@@ -594,7 +594,10 @@ HTTPSession::setNewTransactionPauseState(HTTPCodec::StreamID streamID) {
 http2::PriorityUpdate
 HTTPSession::getMessagePriority(const HTTPMessage* msg) {
   http2::PriorityUpdate h2Pri = http2::DefaultPriority;
-  if (msg) {
+
+  // if HTTP2 priorities are enabled, get them from the message
+  // and ignore otherwise
+  if (getHTTP2PrioritiesEnabled() && msg) {
     auto res = msg->getHTTP2Priority();
     if (res) {
       h2Pri.streamDependency = std::get<0>(*res);
@@ -655,7 +658,8 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     }
   }
 
-  txn = createTransaction(streamID, assocStreamID, getMessagePriority(msg));
+  http2::PriorityUpdate messagePriority = getMessagePriority(msg);
+  txn = createTransaction(streamID, assocStreamID, messagePriority);
   if (!txn) {
     // This could happen if the socket is bad.
     return nullptr;

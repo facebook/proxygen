@@ -2178,6 +2178,42 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   eventBase_.loop();
 }
 
+TEST_F(HTTP2DownstreamSessionTest, test_disable_priorities) {
+  // turn off HTTP2 priorities
+  httpSession_->setHTTP2PrioritiesEnabled(false);
+
+  InSequence enforceOrder;
+  HTTPMessage req1 = getGetRequest();
+  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 0});
+  sendRequest(req1);
+
+  HTTPMessage req2 = getGetRequest();
+  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 255});
+  sendRequest(req2);
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&] {
+      handler1->sendReplyWithBody(200, 4 * 1024);
+    });
+
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&] {
+      handler2->sendReplyWithBody(200, 4 * 1024);
+    });
+
+  // expecting handler 1 to finish first irrespective of
+  // request 2 having higher weight
+  handler1->expectDetachTransaction();
+  handler2->expectDetachTransaction();
+
+  flushRequestsAndLoop();
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  eventBase_.loop();
+}
+
 TEST_F(HTTP2DownstreamSessionTest, continuation_timeout) {
   // Split the headers at 15 bytes to force a CONTINUATION frame
   HTTP2Codec::setHeaderSplitSize(15);

@@ -260,6 +260,17 @@ class HTTPSession:
    size_t receiveSessionWindowSize);
 
   /**
+  * Global flag for turning HTTP2 priorities off
+  **/
+  void setHTTP2PrioritiesEnabled(bool enabled) {
+    h2PrioritiesEnabled_ = enabled;
+  }
+
+  bool getHTTP2PrioritiesEnabled() {
+    return h2PrioritiesEnabled_;
+  }
+
+  /**
    * Set the maximum number of outgoing transactions this session can open
    * at once. Note: you can only call function before startNow() is called
    * since the remote side can change this value.
@@ -807,6 +818,8 @@ class HTTPSession:
 
   /** Priority tree of transactions */
   HTTP2PriorityQueue txnEgressQueue_;
+
+  bool h2PrioritiesEnabled_{true};
 
   std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
 

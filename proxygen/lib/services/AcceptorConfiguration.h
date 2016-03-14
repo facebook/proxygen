@@ -38,6 +38,11 @@ struct AcceptorConfiguration : public wangle::ServerSocketConfig {
   bool internal{false};
 
   /**
+  * Determines if connection should respect HTTP2 priorities
+  **/
+  bool HTTP2PrioritiesEnabled{true};
+
+  /**
    * The number of milliseconds a transaction can be idle before we close it.
    */
   std::chrono::milliseconds transactionIdleTimeout{600000};
