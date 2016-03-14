@@ -22,6 +22,10 @@ using namespace std;
 using namespace testing;
 using proxygen::HPACK::DecodeError;
 
+namespace {
+const uint32_t kMaxLiteralSize = 1 << 17;
+}
+
 class HPACKBufferTests : public testing::Test {
  public:
   /*
@@ -29,7 +33,8 @@ class HPACKBufferTests : public testing::Test {
    * a queue with one IOBuf of 512 bytes in it
    */
   HPACKBufferTests() : encoder_(512),
-                       decoder_(huffman::huffTree09(), cursor_, 0) {
+                       decoder_(huffman::huffTree09(), cursor_, 0,
+                                kMaxLiteralSize) {
   }
 
  protected:
@@ -338,7 +343,8 @@ TEST_F(HPACKBufferTests, empty_iobuf_literal) {
 
   uint32_t size = first->next()->length();
   Cursor cursor(first.get());
-  HPACKDecodeBuffer decoder(huffman::huffTree09(), cursor, size);
+  HPACKDecodeBuffer decoder(huffman::huffTree09(), cursor, size,
+                            kMaxLiteralSize);
   string decoded;
   decoder.decodeLiteral(decoded);
 

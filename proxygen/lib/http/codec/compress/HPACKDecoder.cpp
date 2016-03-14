@@ -42,7 +42,8 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
                               uint32_t totalBytes,
                               headers_t& headers) {
   uint32_t emittedSize = 0;
-  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes);
+  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
+                         maxUncompressed_);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, &headers);
     if (emittedSize > maxUncompressed_) {
@@ -73,7 +74,8 @@ uint32_t HPACKDecoder::decodeStreaming(
 
   uint32_t emittedSize = 0;
   streamingCb_ = streamingCb;
-  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes);
+  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
+                         maxUncompressed_);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, nullptr);
 

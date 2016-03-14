@@ -17,7 +17,6 @@ namespace proxygen {
 namespace HPACK {
 
 const uint32_t kTableSize = 4096;
-const uint32_t kMaxLiteralSize = 96 * 1024;
 
 const uint8_t NBIT_MASKS[9] = {
   0xFF,  // 11111111, not used

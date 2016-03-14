@@ -61,7 +61,7 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(std::string& literal) {
                << size << " remainingBytes_=" << remainingBytes_;
     return DecodeError::BUFFER_UNDERFLOW;
   }
-  if (size > HPACK::kMaxLiteralSize) {
+  if (size > maxLiteralSize_) {
     LOG(ERROR) << "Literal too large, size=" << size;
     return DecodeError::LITERAL_TOO_LARGE;
   }

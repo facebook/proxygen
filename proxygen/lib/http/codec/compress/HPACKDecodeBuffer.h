@@ -22,11 +22,13 @@ class HPACKDecodeBuffer {
 
   explicit HPACKDecodeBuffer(const huffman::HuffTree& huffmanTree,
                              folly::io::Cursor& cursorVal,
-                             uint32_t totalBytes)
+                             uint32_t totalBytes,
+                             uint32_t maxLiteralSize)
       : huffmanTree_(huffmanTree),
         cursor_(cursorVal),
         totalBytes_(totalBytes),
-        remainingBytes_(totalBytes) {}
+        remainingBytes_(totalBytes),
+        maxLiteralSize_(maxLiteralSize) {}
 
   ~HPACKDecodeBuffer() {}
 
@@ -81,6 +83,7 @@ private:
   folly::io::Cursor& cursor_;
   uint32_t totalBytes_;
   uint32_t remainingBytes_;
+  uint32_t maxLiteralSize_{std::numeric_limits<uint32_t>::max()};
 };
 
 }
