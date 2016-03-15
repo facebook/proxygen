@@ -440,13 +440,11 @@ HTTPSession::readDataAvailable(size_t readSize) noexcept {
 
 bool
 HTTPSession::isBufferMovable() noexcept {
-  return false;
+  return true;
 }
 
 void
 HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
-  CHECK(kOpenSslModeMoveBufferOwnership);
-
   size_t readSize = readBuf->length();
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
 
@@ -463,9 +461,8 @@ HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
 
 void
 HTTPSession::processReadData() {
-  // skip the empty IOBuf before feeding CODEC.
-  while(kOpenSslModeMoveBufferOwnership &&
-        readBuf_.front() != nullptr && readBuf_.front()->length() == 0) {
+  // skip any empty IOBufs before feeding CODEC.
+  while (readBuf_.front() != nullptr && readBuf_.front()->length() == 0) {
     readBuf_.pop_front();
   }
 
