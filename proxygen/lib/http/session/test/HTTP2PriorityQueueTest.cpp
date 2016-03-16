@@ -55,9 +55,10 @@ class QueueTest : public testing::Test {
 
  protected:
   void addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
-                     bool pnode=false) {
+                     bool pnode=false, uint64_t* depth = nullptr) {
     HTTP2PriorityQueue::Handle h =
-      q_.addTransaction(id, pri, pnode ? nullptr : makeFakeTxn(id), false);
+      q_.addTransaction(
+        id, pri, pnode ? nullptr : makeFakeTxn(id), false, depth);
     handles_.insert(std::make_pair(id, h));
     if (!pnode) {
       signalEgress(id, 1);
@@ -125,6 +126,11 @@ TEST_F(QueueTest, Basic) {
   buildSimpleTree();
   dump();
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {5, 25}, {9, 100}, {7, 50}}));
+
+  // Add another node, make sure we get the correct depth.
+  uint64_t depth;
+  addTransaction(11, {7, false, 15}, false, &depth);
+  EXPECT_EQ(depth, 2);
 }
 
 TEST_F(QueueTest, RemoveLeaf) {

@@ -268,6 +268,9 @@ HTTP2PriorityQueue::Node::findInTree(HTTPCodec::StreamID id, uint64_t* depth) {
       break;
     }
   }
+  if (depth && !res) {
+    *depth -= 1;
+  }
   return res;
 }
 
