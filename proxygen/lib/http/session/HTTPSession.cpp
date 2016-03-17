@@ -1958,6 +1958,9 @@ HTTPSession::shutdownTransport(bool shutdownReads,
     } else if (error == kErrorEOF) {
       // Report to the codec that the ingress stream has ended
       codec_->onIngressEOF();
+      if (infoCallback_) {
+        infoCallback_->onIngressEOF();
+      }
     }
     // Once reads are shutdown the parser should stop processing
     codec_->setParserPaused(true);

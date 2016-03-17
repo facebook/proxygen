@@ -59,6 +59,7 @@ class HTTPSession:
     // Note: you must not start any asynchronous work from onCreate()
     virtual void onCreate(const HTTPSession&) = 0;
     virtual void onIngressError(const HTTPSession&, ProxygenError) = 0;
+    virtual void onIngressEOF() = 0;
     virtual void onRead(const HTTPSession&, size_t bytesRead) = 0;
     virtual void onWrite(const HTTPSession&, size_t bytesWritten) = 0;
     virtual void onRequestBegin(const HTTPSession&) = 0;

@@ -213,6 +213,7 @@ class HTTPUpstreamTest: public testing::Test,
   // HTTPSession::InfoCallback interface
   void onCreate(const HTTPSession& sess) override { sessionCreated_ = true; }
   void onIngressError(const HTTPSession& sess, ProxygenError err) override {}
+  void onIngressEOF() override {}
   void onRead(const HTTPSession& sess, size_t bytesRead) override {}
   void onWrite(const HTTPSession& sess, size_t bytesWritten) override {}
   void onRequestBegin(const HTTPSession& sess) override {}

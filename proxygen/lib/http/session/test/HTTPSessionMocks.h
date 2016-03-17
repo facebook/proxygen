@@ -324,6 +324,7 @@ class MockHTTPSessionInfoCallback: public HTTPSession::InfoCallback {
   MOCK_METHOD1(onCreate, void(const HTTPSession&));
   MOCK_METHOD2(onIngressError, void(const HTTPSession&,
                                     ProxygenError));
+  MOCK_METHOD0(onIngressEOF, void());
   MOCK_METHOD2(onRead, void(const HTTPSession&, size_t));
   MOCK_METHOD2(onWrite, void(const HTTPSession&, size_t));
   MOCK_METHOD1(onRequestBegin, void(const HTTPSession&));

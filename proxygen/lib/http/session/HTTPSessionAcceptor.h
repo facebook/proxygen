@@ -134,6 +134,7 @@ private:
   // HTTPSession::InfoCallback methods
   void onCreate(const HTTPSession&) override {}
   void onIngressError(const HTTPSession&, ProxygenError error) override {}
+  void onIngressEOF() override {}
   void onRead(const HTTPSession&, size_t bytesRead) override {}
   void onWrite(const HTTPSession&, size_t bytesWritten) override {}
   void onRequestBegin(const HTTPSession&) override {}
