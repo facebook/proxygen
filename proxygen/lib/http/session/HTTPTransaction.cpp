@@ -100,6 +100,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
 
   queueHandle_ = egressQueue_.addTransaction(id_, priority, this, false,
                                              &insertDepth_);
+  currentDepth_ = insertDepth_;
 }
 
 HTTPTransaction::~HTTPTransaction() {
@@ -1164,7 +1165,10 @@ void HTTPTransaction::updateAndSendPriority(
 
 void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
   priority_ = priority;
-  queueHandle_ = egressQueue_.updatePriority(queueHandle_, priority_);
+  queueHandle_ = egressQueue_.updatePriority(
+      queueHandle_,
+      priority_,
+      &currentDepth_);
 }
 
 } // proxygen

@@ -70,7 +70,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
                         uint64_t* depth = nullptr);
 
   // update the priority of an existing node
-  Handle updatePriority(Handle handle, http2::PriorityUpdate pri);
+  Handle updatePriority(
+      Handle handle,
+      http2::PriorityUpdate pri,
+      uint64_t* depth = nullptr);
 
   // Remove the transaction from the priority tree
   void removeTransaction(Handle handle);

@@ -428,7 +428,8 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
 
 HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
-                                   http2::PriorityUpdate pri) {
+                                   http2::PriorityUpdate pri,
+                                   uint64_t* depth) {
   Node* node = handle;
   pendingWeightChange_ = true;
   VLOG(4) << "Updating id=" << node->getID() << " with parent=" <<
@@ -441,7 +442,7 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
     return handle;
   }
 
-  Node* newParent = find(pri.streamDependency);
+  Node* newParent = find(pri.streamDependency, depth);
   if (!newParent) {
     newParent = &root_;
     VLOG(4) << "updatePriority missing parent, assigning root for txn="

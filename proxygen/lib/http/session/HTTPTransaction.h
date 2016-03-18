@@ -452,9 +452,11 @@ class HTTPTransaction :
     return txnInfo_;
   }
 
-  std::pair<uint64_t, double> getPrioritySummary() const {
-    return {insertDepth_,
-        egressCalls_ > 0 ? cumulativeRatio_ / egressCalls_ : 0};
+  std::tuple<uint64_t, uint64_t, double> getPrioritySummary() const {
+    return std::make_tuple(
+        insertDepth_,
+        currentDepth_,
+        egressCalls_ > 0 ? cumulativeRatio_ / egressCalls_ : 0);
   }
 
   HTTPTransactionEgressSM::State getEgressState() const {
@@ -1245,10 +1247,15 @@ class HTTPTransaction :
    * Information about this transaction's priority.
    *
    * insertDepth_ is the depth of this node in the tree when the txn was created
+   * currentDepth_ is the depth of this node in the tree after the last
+   *               onPriorityUpdate. It may not reflect its real position in
+   *               realtime, since after the last onPriorityUpdate, it may get
+   *               reparented as parent transactions complete.
    * cumulativeRatio_ / egressCalls_ is the average relative weight of this
    *                                 txn during egress
    */
   uint64_t insertDepth_{0};
+  uint64_t currentDepth_{0};
   double cumulativeRatio_{0};
   uint64_t egressCalls_{0};
 
