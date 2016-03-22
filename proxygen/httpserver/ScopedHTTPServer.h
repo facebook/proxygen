@@ -160,7 +160,7 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
   };
 
   if (sslCfg) {
-    cfg.sslConfigs.push_back(*sslCfg.release());
+    cfg.sslConfigs.push_back(*sslCfg);
   }
 
   std::vector<HTTPServer::IPConfig> IPs = { cfg };
