@@ -9,67 +9,59 @@
  */
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 
-#include <proxygen/lib/utils/UnionBasedStatic.h>
+#include <folly/Indestructible.h>
 
 namespace proxygen {
-
-namespace {
-
-typedef HTTPTransactionEgressSMData::State State;
-typedef HTTPTransactionEgressSMData::Event Event;
-typedef std::map<std::pair<State, Event>, State> TransitionTable;
-
-DEFINE_UNION_STATIC_CONST_NO_INIT(TransitionTable, Table, s_transitions);
-
-//             +--> ChunkHeaderSent -> ChunkBodySent
-//             |      ^                    v
-//             |      |   ChunkTerminatorSent -> TrailersSent
-//             |      |__________|        |          |
-//             |                          |          v
-// Start -> HeadersSent                   +----> EOMQueued --> SendingDone
-//             |                                     ^
-//             +------------> RegularBodySent -------+
-__attribute__((__constructor__))
-void initTableUnion() {
-  // Use const_cast for the placement new initialization since we want this to
-  // be const after construction.
-  new (const_cast<TransitionTable*>(&s_transitions.data)) TransitionTable {
-    {{State::Start, Event::sendHeaders}, State::HeadersSent},
-
-    // For HTTP sending 100 response, then a regular response
-    {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
-
-    {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
-    {{State::HeadersSent, Event::sendChunkHeader}, State::ChunkHeaderSent},
-    {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
-
-    {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
-    {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
-
-    {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
-
-    {{State::ChunkBodySent, Event::sendBody}, State::ChunkBodySent},
-    {{State::ChunkBodySent, Event::sendChunkTerminator},
-     State::ChunkTerminatorSent},
-
-    {{State::ChunkTerminatorSent, Event::sendChunkHeader},
-     State::ChunkHeaderSent},
-    {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
-    {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
-
-    {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
-
-    {{State::EOMQueued, Event::eomFlushed}, State::SendingDone},
-  };
-}
-
-} // namespace
 
 std::pair<HTTPTransactionEgressSMData::State, bool>
 HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
                                   HTTPTransactionEgressSMData::Event e) {
-  auto const &it = s_transitions.data.find(std::make_pair(s, e));
-  if (it == s_transitions.data.end()) {
+  using State = HTTPTransactionEgressSMData::State;
+  using Event = HTTPTransactionEgressSMData::Event;
+  using TransitionTable = std::map<std::pair<State, Event>, State>;
+
+  //             +--> ChunkHeaderSent -> ChunkBodySent
+  //             |      ^                    v
+  //             |      |   ChunkTerminatorSent -> TrailersSent
+  //             |      |__________|        |          |
+  //             |                          |          v
+  // Start -> HeadersSent                   +----> EOMQueued --> SendingDone
+  //             |                                     ^
+  //             +------------> RegularBodySent -------+
+
+  static const folly::Indestructible<TransitionTable> transitions{
+    TransitionTable{
+      {{State::Start, Event::sendHeaders}, State::HeadersSent},
+
+      // For HTTP sending 100 response, then a regular response
+      {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
+
+      {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
+      {{State::HeadersSent, Event::sendChunkHeader}, State::ChunkHeaderSent},
+      {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
+
+      {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
+      {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
+
+      {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
+
+      {{State::ChunkBodySent, Event::sendBody}, State::ChunkBodySent},
+      {{State::ChunkBodySent, Event::sendChunkTerminator},
+       State::ChunkTerminatorSent},
+
+      {{State::ChunkTerminatorSent, Event::sendChunkHeader},
+       State::ChunkHeaderSent},
+      {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
+      {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
+
+      {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
+
+      {{State::EOMQueued, Event::eomFlushed}, State::SendingDone},
+    }
+  };
+
+  auto const &it = transitions->find(std::make_pair(s, e));
+  if (it == transitions->end()) {
     return std::make_pair(s, false);
   }
 

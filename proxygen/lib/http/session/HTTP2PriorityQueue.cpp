@@ -8,7 +8,6 @@
  *
  */
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
-#include <proxygen/lib/utils/UnionBasedStatic.h>
 
 using std::list;
 using std::unique_ptr;

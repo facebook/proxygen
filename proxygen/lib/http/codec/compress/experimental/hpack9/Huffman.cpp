@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/codec/compress/experimental/hpack9/Huffman.h>
 
-#include <proxygen/lib/utils/UnionBasedStatic.h>
+#include <folly/Indestructible.h>
 
 namespace proxygen { namespace huffman {
 
@@ -65,19 +65,11 @@ const uint8_t s_bitsTable09[kTableSize] = {
   27, 27, 27, 28, 27, 27, 27, 27, 27, 26
 };
 
-/**
- * use unions and placement new to initialize the static variables
- */
-DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, HuffTree09, s_huffTree09);
-
-__attribute__((__constructor__))
-void initHuffTree09() {
-  new (const_cast<HuffTree*>(&s_huffTree09.data))
-    HuffTree(s_codesTable09, s_bitsTable09);
-}
-
 const HuffTree& huffTree09() {
-  return s_huffTree09.data;
+  static const folly::Indestructible<HuffTree> huffTree09{
+    HuffTree{s_codesTable09, s_bitsTable09}
+  };
+  return *huffTree09;
 }
 
 }}

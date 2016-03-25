@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/codec/compress/experimental/hpack9/StaticHeaderTable.h>
 
-#include <proxygen/lib/utils/UnionBasedStatic.h>
+#include <folly/Indestructible.h>
 
 namespace proxygen { namespace HPACK09 {
 
@@ -80,21 +80,11 @@ const char* s_tableEntries[][2] = {
 
 const int kEntriesSize = sizeof(s_tableEntries) / (2 * sizeof(const char*));
 
-/**
- * we're using a union to prevent the static object destruction when
- * calling exit() from a different thread, common on mobile
- */
-DEFINE_UNION_STATIC_CONST_NO_INIT(StaticHeaderTable, StaticTable, s_table);
-
-__attribute__((__constructor__))
-void initStaticTable() {
-  // use placement new to initialize the static table
-  new (const_cast<StaticHeaderTable*>(&s_table.data))
-    StaticHeaderTable(s_tableEntries, kEntriesSize);
-}
-
 const HeaderTable& getStaticTable() {
-  return s_table.data;
+  static const folly::Indestructible<StaticHeaderTable> table{
+    StaticHeaderTable{s_tableEntries, kEntriesSize}
+  };
+  return *table;
 }
 
 }}

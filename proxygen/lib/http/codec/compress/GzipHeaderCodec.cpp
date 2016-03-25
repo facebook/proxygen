@@ -16,7 +16,6 @@
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/utils/Logging.h>
-#include <proxygen/lib/utils/UnionBasedStatic.h>
 #include <string>
 
 using folly::IOBuf;
@@ -69,26 +68,20 @@ struct ZlibContext {
   z_stream inflater;
 };
 
-
-typedef std::map<ZlibConfig, std::unique_ptr<ZlibContext>> ZlibContextMap;
-
-DEFINE_UNION_STATIC(ThreadLocalPtr<IOBuf>, IOBuf, s_buf);
-DEFINE_UNION_STATIC(folly::ThreadLocal<ZlibContextMap>,
-                    ThreadLocalContextMap,
-                    s_zlibContexts);
-
+namespace { struct BufferTag {}; }
+static folly::SingletonThreadLocal<unique_ptr<IOBuf>, BufferTag> s_buf{};
 folly::IOBuf& getStaticHeaderBufSpace(size_t size) {
-  if (!s_buf.data) {
-    s_buf.data.reset(new IOBuf(IOBuf::CREATE, size));
+  if (!s_buf.get()) {
+    s_buf.get() = folly::make_unique<IOBuf>(IOBuf::CREATE, size);
   } else {
-    if (size > s_buf.data->capacity()) {
-      s_buf.data.reset(new IOBuf(IOBuf::CREATE, size));
+    if (size > s_buf.get()->capacity()) {
+      s_buf.get() = folly::make_unique<IOBuf>(IOBuf::CREATE, size);
     } else {
-      s_buf.data->clear();
+      s_buf.get()->clear();
     }
   }
-  DCHECK(!s_buf.data->isShared());
-  return *s_buf.data;
+  DCHECK(!s_buf.get()->isShared());
+  return *s_buf.get();
 }
 
 void appendString(uint8_t*& dst, const string& str) {
@@ -97,14 +90,17 @@ void appendString(uint8_t*& dst, const string& str) {
   dst += len;
 }
 
+using ZlibContextMap = std::map<ZlibConfig, std::unique_ptr<ZlibContext>>;
+namespace { struct ContextTag {}; }
+static folly::SingletonThreadLocal<ZlibContextMap, ContextTag> s_zlibContexts{};
 /**
  * get the thread local cached zlib context
  */
 static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
                                          int compressionLevel) {
   ZlibConfig zlibConfig(versionSettings.version, compressionLevel);
-  auto match = s_zlibContexts.data->find(zlibConfig);
-  if (match != s_zlibContexts.data->end()) {
+  auto match = s_zlibContexts.get().find(zlibConfig);
+  if (match != s_zlibContexts.get().end()) {
     return match->second.get();
   } else {
     // This is the first request for the specified SPDY version and compression
@@ -147,7 +143,7 @@ static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
     CHECK_EQ(r, Z_OK);
 
     auto result = newContext.get();
-    s_zlibContexts.data->emplace(zlibConfig, std::move(newContext));
+    s_zlibContexts.get().emplace(zlibConfig, std::move(newContext));
     return result;
   }
 }

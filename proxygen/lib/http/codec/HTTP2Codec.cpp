@@ -27,18 +27,6 @@ namespace proxygen {
 
 uint32_t HTTP2Codec::kHeaderSplitSize{http2::kMaxFramePayloadLengthMin};
 
-std::bitset<256> HTTP2Codec::perHopHeaderCodes_;
-
-void HTTP2Codec::initPerHopHeaders() {
-  // HTTP/1.x per-hop headers that have no meaning in HTTP/2
-  perHopHeaderCodes_[HTTP_HEADER_CONNECTION] = true;
-  perHopHeaderCodes_[HTTP_HEADER_HOST] = true;
-  perHopHeaderCodes_[HTTP_HEADER_KEEP_ALIVE] = true;
-  perHopHeaderCodes_[HTTP_HEADER_PROXY_CONNECTION] = true;
-  perHopHeaderCodes_[HTTP_HEADER_TRANSFER_ENCODING] = true;
-  perHopHeaderCodes_[HTTP_HEADER_UPGRADE] = true;
-}
-
 HTTP2Codec::HTTP2Codec(TransportDirection direction)
     : HTTPParallelCodec(direction),
       headerCodec_(direction),
@@ -942,8 +930,21 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
     [&] (HTTPHeaderCode code,
          const string& name,
          const string& value) {
+      static const std::bitset<256> s_perHopHeaderCodes{
+        [] {
+          std::bitset<256> bs;
+          // HTTP/1.x per-hop headers that have no meaning in HTTP/2
+          bs[HTTP_HEADER_CONNECTION] = true;
+          bs[HTTP_HEADER_HOST] = true;
+          bs[HTTP_HEADER_KEEP_ALIVE] = true;
+          bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+          bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+          bs[HTTP_HEADER_UPGRADE] = true;
+          return bs;
+        }()
+      };
 
-      if (perHopHeaderCodes_[code] || name.size() == 0 || name[0] == ':') {
+      if (s_perHopHeaderCodes[code] || name.size() == 0 || name[0] == ':') {
         DCHECK_GT(name.size(), 0) << "Empty header";
         DCHECK_NE(name[0], ':') << "Invalid header=" << name;
         return;

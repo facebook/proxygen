@@ -8,7 +8,8 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/Huffman.h>
-#include <proxygen/lib/utils/UnionBasedStatic.h>
+
+#include <folly/Indestructible.h>
 
 #include <arpa/inet.h>
 
@@ -303,31 +304,18 @@ const uint8_t s_respBitsTable05[kTableSize] = {
   24, 24, 24, 24, 24, 24, 24, 24, 24, 24
 };
 
-/**
- * use unions and placement new to initialize the static variables
- */
-DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, ReqHuffTree, s_reqHuffTree05);
-DEFINE_UNION_STATIC_CONST_NO_INIT(HuffTree, RespHuffTree, s_respHuffTree05);
-
-__attribute__((__constructor__))
-void initReqHuffTree05() {
-  // constructing the tree in-place
-  new (const_cast<HuffTree*>(&s_reqHuffTree05.data))
-    HuffTree(s_reqCodesTable05, s_reqBitsTable05);
-}
-
-__attribute__((__constructor__))
-void initRespHuffTree05() {
-  new (const_cast<HuffTree*>(&s_respHuffTree05.data))
-    HuffTree(s_respCodesTable05, s_respBitsTable05);
-}
-
 const HuffTree& reqHuffTree05() {
-  return s_reqHuffTree05.data;
+  static const folly::Indestructible<HuffTree> reqHuffTree05{
+    HuffTree{s_reqCodesTable05, s_reqBitsTable05}
+  };
+  return *reqHuffTree05;
 }
 
 const HuffTree& respHuffTree05() {
-  return s_respHuffTree05.data;
+  static const folly::Indestructible<HuffTree> respHuffTree05{
+    HuffTree{s_respCodesTable05, s_respBitsTable05}
+  };
+  return *respHuffTree05;
 }
 
 }}

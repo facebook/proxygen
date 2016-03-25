@@ -23,22 +23,22 @@ const string empty_string;
 const std::string HTTPHeaders::COMBINE_SEPARATOR = ", ";
 
 bitset<256>& HTTPHeaders::perHopHeaderCodes() {
-  static bitset<256> perHopHeaderCodes;
+  static bitset<256> perHopHeaderCodes{
+    [] {
+      bitset<256> bs;
+      bs[HTTP_HEADER_CONNECTION] = true;
+      bs[HTTP_HEADER_KEEP_ALIVE] = true;
+      bs[HTTP_HEADER_PROXY_AUTHENTICATE] = true;
+      bs[HTTP_HEADER_PROXY_AUTHORIZATION] = true;
+      bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+      bs[HTTP_HEADER_TE] = true;
+      bs[HTTP_HEADER_TRAILER] = true;
+      bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+      bs[HTTP_HEADER_UPGRADE] = true;
+      return bs;
+    }()
+  };
   return perHopHeaderCodes;
-}
-
-void
-HTTPHeaders::initGlobals() {
-  auto& perHopHeaders = perHopHeaderCodes();
-  perHopHeaders[HTTP_HEADER_CONNECTION] = true;
-  perHopHeaders[HTTP_HEADER_KEEP_ALIVE] = true;
-  perHopHeaders[HTTP_HEADER_PROXY_AUTHENTICATE] = true;
-  perHopHeaders[HTTP_HEADER_PROXY_AUTHORIZATION] = true;
-  perHopHeaders[HTTP_HEADER_PROXY_CONNECTION] = true;
-  perHopHeaders[HTTP_HEADER_TE] = true;
-  perHopHeaders[HTTP_HEADER_TRAILER] = true;
-  perHopHeaders[HTTP_HEADER_TRANSFER_ENCODING] = true;
-  perHopHeaders[HTTP_HEADER_UPGRADE] = true;
 }
 
 HTTPHeaders::HTTPHeaders() :

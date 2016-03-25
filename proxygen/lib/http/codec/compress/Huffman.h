@@ -88,6 +88,7 @@ class HuffTree {
    * ideally they are static
    */
   explicit HuffTree(const uint32_t* codes, const uint8_t* bits);
+  explicit HuffTree(HuffTree&& tree) = default;
   ~HuffTree() {}
 
   /**

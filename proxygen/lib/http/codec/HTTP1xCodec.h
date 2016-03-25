@@ -197,9 +197,7 @@ class HTTP1xCodec : public HTTPCodec {
   static int onChunkCompleteCB(http_parser* parser);
   static int onMessageCompleteCB(http_parser* parser);
 
-  static void initParserSettings() __attribute__ ((__constructor__));
-
-  static http_parser_settings kParserSettings;
+  static const http_parser_settings* getParserSettings();
 };
 
 } // proxygen

@@ -267,8 +267,6 @@ class HTTPHeaders {
    */
   bool transferHeaderIfPresent(folly::StringPiece name, HTTPHeaders& dest);
 
-  static void initGlobals() __attribute__ ((__constructor__));
-
   // deletes the strings in headerNames_ that we own
   void disposeOfHeaderNames();
 };

@@ -10,25 +10,24 @@
 #include <proxygen/lib/http/HTTPMethod.h>
 
 #include <folly/Foreach.h>
+#include <folly/Indestructible.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
-#include <proxygen/lib/utils/UnionBasedStatic.h>
 #include <vector>
 
 #define HTTP_METHOD_STR(method) #method
 
 namespace {
 
-// Method strings. This is a union-based static because this structure is
+// Method strings. This is indestructible because this structure is
 // accessed from multiple threads and still needs to be accessible after exit()
 // is called to avoid crashing.
 typedef std::vector<std::string> StringVector;
-DEFINE_UNION_STATIC_CONST_NO_INIT(StringVector, Vector, s_methodStrings);
 
-__attribute__((__constructor__))
-void initMethodStrings() {
-  new (const_cast<StringVector*>(&s_methodStrings.data)) StringVector {
-    HTTP_METHOD_GEN(HTTP_METHOD_STR)
+const StringVector& getMethodStrings() {
+  static const folly::Indestructible<StringVector> methodStrings{
+    StringVector{ HTTP_METHOD_GEN(HTTP_METHOD_STR) }
   };
+  return *methodStrings;
 }
 
 }
@@ -36,7 +35,7 @@ void initMethodStrings() {
 namespace proxygen {
 
 boost::optional<HTTPMethod> stringToMethod(folly::StringPiece method) {
-  FOR_EACH_ENUMERATE(index, cur, s_methodStrings.data) {
+  FOR_EACH_ENUMERATE(index, cur, getMethodStrings()) {
     if (caseInsensitiveEqual(*cur, method)) {
       return HTTPMethod(index);
     }
@@ -45,7 +44,7 @@ boost::optional<HTTPMethod> stringToMethod(folly::StringPiece method) {
 }
 
 const std::string& methodToString(HTTPMethod method) {
-  return s_methodStrings.data[static_cast<unsigned>(method)];
+  return getMethodStrings()[static_cast<unsigned>(method)];
 }
 
 std::ostream& operator <<(std::ostream& out, HTTPMethod method) {

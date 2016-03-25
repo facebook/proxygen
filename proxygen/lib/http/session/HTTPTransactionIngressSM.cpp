@@ -9,17 +9,9 @@
  */
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 
-#include <proxygen/lib/utils/UnionBasedStatic.h>
+#include <folly/Indestructible.h>
 
 namespace proxygen {
-
-namespace {
-
-typedef HTTPTransactionIngressSMData::State State;
-typedef HTTPTransactionIngressSMData::Event Event;
-typedef std::map<std::pair<State, Event>, State> TransitionTable;
-
-DEFINE_UNION_STATIC_CONST_NO_INIT(TransitionTable, Table, s_transitions);
 
 //             +--> ChunkHeaderReceived -> ChunkBodyReceived
 //             |        ^                     v
@@ -31,11 +23,16 @@ DEFINE_UNION_STATIC_CONST_NO_INIT(TransitionTable, Table, s_transitions);
 //             |  +-----> RegularBodyReceived --+  |
 //             |                                   |
 //             +---------> UpgradeComplete --------+
-__attribute__((__constructor__))
-void initTableUnion() {
-  // Use const_cast for the placement new initialization since we want this to
-  // be const after construction.
-  new (const_cast<TransitionTable*>(&s_transitions.data)) TransitionTable {
+
+std::pair<HTTPTransactionIngressSMData::State, bool>
+HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
+                                   HTTPTransactionIngressSMData::Event e) {
+  using State = HTTPTransactionIngressSMData::State;
+  using Event = HTTPTransactionIngressSMData::Event;
+  using TransitionTable = std::map<std::pair<State, Event>, State>;
+
+  static const folly::Indestructible<TransitionTable> transitions{
+    TransitionTable{
     {{State::Start, Event::onHeaders}, State::HeadersReceived},
 
     // For HTTP receiving 100 response, then a regular response
@@ -71,16 +68,11 @@ void initTableUnion() {
     {{State::UpgradeComplete, Event::onEOM}, State::EOMQueued},
 
     {{State::EOMQueued, Event::eomFlushed}, State::ReceivingDone},
+    }
   };
-}
 
-} // namespace
-
-std::pair<HTTPTransactionIngressSMData::State, bool>
-HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
-                                   HTTPTransactionIngressSMData::Event e) {
-  auto const &it = s_transitions.data.find(std::make_pair(s, e));
-  if (it == s_transitions.data.end()) {
+  auto const &it = transitions->find(std::make_pair(s, e));
+  if (it == transitions->end()) {
     return std::make_pair(s, false);
   }
 

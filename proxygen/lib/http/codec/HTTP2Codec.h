@@ -147,14 +147,6 @@ public:
     HeaderDecodeError decodeError{HeaderDecodeError::NONE};
   };
 
-  /**
-   * Determines whether header with a given code is on the SPDY per-hop
-   * header blacklist.
-   */
-  static std::bitset<256> perHopHeaderCodes_;
-
-  static void initPerHopHeaders() __attribute__ ((__constructor__));
-
   ErrorCode parseFrame(folly::io::Cursor& cursor);
   ErrorCode parseAllData(folly::io::Cursor& cursor);
   ErrorCode parseDataFrameData(

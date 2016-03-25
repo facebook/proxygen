@@ -141,18 +141,6 @@ class SPDYStreamFailed : public std::exception {
 
 } // anonynous namespace
 
-std::bitset<256> SPDYCodec::perHopHeaderCodes_;
-
-void SPDYCodec::initPerHopHeaders() {
-  // SPDY per-hop headers
-  perHopHeaderCodes_[HTTP_HEADER_CONNECTION] = true;
-  perHopHeaderCodes_[HTTP_HEADER_HOST] = true;
-  perHopHeaderCodes_[HTTP_HEADER_KEEP_ALIVE] = true;
-  perHopHeaderCodes_[HTTP_HEADER_PROXY_CONNECTION] = true;
-  perHopHeaderCodes_[HTTP_HEADER_TRANSFER_ENCODING] = true;
-  perHopHeaderCodes_[HTTP_HEADER_UPGRADE] = true;
-}
-
 const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
   // XXX: We new and leak the static here intentionally so it doesn't get
   // destroyed during a call to exit() when threads are still processing
@@ -530,7 +518,21 @@ unique_ptr<IOBuf> SPDYCodec::encodeHeaders(
   msg.getHeaders().forEachWithCode([&] (HTTPHeaderCode code,
                                         const string& name,
                                         const string& value) {
-    if (perHopHeaderCodes_[code] || isSPDYReserved(name)) {
+    static const std::bitset<256> s_perHopHeaderCodes{
+      [] {
+        std::bitset<256> bs;
+        // SPDY per-hop headers
+        bs[HTTP_HEADER_CONNECTION] = true;
+        bs[HTTP_HEADER_HOST] = true;
+        bs[HTTP_HEADER_KEEP_ALIVE] = true;
+        bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+        bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+        bs[HTTP_HEADER_UPGRADE] = true;
+        return bs;
+      }()
+    };
+
+    if (s_perHopHeaderCodes[code] || isSPDYReserved(name)) {
       VLOG(3) << "Dropping SPDY reserved header " << name;
       return;
     }

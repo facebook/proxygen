@@ -75,8 +75,6 @@ const std::pair<uint8_t, uint8_t> kHTTPVersion10(1, 0);
 
 namespace proxygen {
 
-http_parser_settings HTTP1xCodec::kParserSettings;
-
 HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool forceUpstream1_1)
   : callback_(nullptr),
     ingressTxnID_(0),
@@ -152,6 +150,24 @@ HTTP1xCodec::setParserPaused(bool paused) {
   parserPaused_ = paused;
 }
 
+const http_parser_settings* HTTP1xCodec::getParserSettings() {
+  static http_parser_settings parserSettings = [] {
+    http_parser_settings st;
+    st.on_message_begin = HTTP1xCodec::onMessageBeginCB;
+    st.on_url = HTTP1xCodec::onUrlCB;
+    st.on_header_field = HTTP1xCodec::onHeaderFieldCB;
+    st.on_header_value = HTTP1xCodec::onHeaderValueCB;
+    st.on_headers_complete = HTTP1xCodec::onHeadersCompleteCB;
+    st.on_body = HTTP1xCodec::onBodyCB;
+    st.on_message_complete = HTTP1xCodec::onMessageCompleteCB;
+    st.on_reason = HTTP1xCodec::onReasonCB;
+    st.on_chunk_header = HTTP1xCodec::onChunkHeaderCB;
+    st.on_chunk_complete = HTTP1xCodec::onChunkCompleteCB;
+    return st;
+  }();
+  return &parserSettings;
+}
+
 size_t
 HTTP1xCodec::onIngress(const IOBuf& buf) {
   if (parserError_) {
@@ -165,7 +181,7 @@ HTTP1xCodec::onIngress(const IOBuf& buf) {
     parserActive_ = true;
     currentIngressBuf_ = &buf;
     size_t bytesParsed = http_parser_execute(&parser_,
-                                             &kParserSettings,
+                                             getParserSettings(),
                                              (const char*)buf.data(),
                                              buf.length());
     // in case we parsed a section of the headers but we're not done parsing
@@ -209,7 +225,7 @@ HTTP1xCodec::onIngressEOF() {
     return;
   }
   parserActive_ = true;
-  if (http_parser_execute(&parser_, &kParserSettings, nullptr, 0) != 0) {
+  if (http_parser_execute(&parser_, getParserSettings(), nullptr, 0) != 0) {
     parserError_ = true;
   } else {
     parserError_ = (HTTP_PARSER_ERRNO(&parser_) != HPE_OK) &&
@@ -1150,20 +1166,6 @@ HTTP1xCodec::onMessageCompleteCB(http_parser* parser) {
     codec->onParserError(ex.what());
     return 1;
   }
-}
-
-void
-HTTP1xCodec::initParserSettings() {
-  kParserSettings.on_message_begin = HTTP1xCodec::onMessageBeginCB;
-  kParserSettings.on_url = HTTP1xCodec::onUrlCB;
-  kParserSettings.on_header_field = HTTP1xCodec::onHeaderFieldCB;
-  kParserSettings.on_header_value = HTTP1xCodec::onHeaderValueCB;
-  kParserSettings.on_headers_complete = HTTP1xCodec::onHeadersCompleteCB;
-  kParserSettings.on_body = HTTP1xCodec::onBodyCB;
-  kParserSettings.on_message_complete = HTTP1xCodec::onMessageCompleteCB;
-  kParserSettings.on_reason = HTTP1xCodec::onReasonCB;
-  kParserSettings.on_chunk_header = HTTP1xCodec::onChunkHeaderCB;
-  kParserSettings.on_chunk_complete = HTTP1xCodec::onChunkCompleteCB;
 }
 
 bool HTTP1xCodec::supportsNextProtocol(const std::string& npn) {
