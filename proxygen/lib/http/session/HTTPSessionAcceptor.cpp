@@ -96,6 +96,9 @@ void HTTPSessionAcceptor::onNewConnection(
   session->setFlowControl(accConfig_.initialReceiveWindow,
                           accConfig_.receiveStreamWindowSize,
                           accConfig_.receiveSessionWindowSize);
+  if (accConfig_.writeBufferLimit > 0) {
+    session->setWriteBufferLimit(accConfig_.writeBufferLimit);
+  }
   session->setSessionStats(downstreamSessionStats_);
   Acceptor::addConnection(session);
   session->startNow();

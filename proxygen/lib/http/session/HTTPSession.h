@@ -290,15 +290,24 @@ class HTTPSession:
   void setEgressBytesLimit(uint64_t bytesLimit);
 
   /**
+   * Set the default number of egress bytes this session will buffer before
+   * pausing all transactions' egress.
+   */
+  static void setDefaultWriteBufferLimit(uint32_t max) {
+    kDefaultWriteBufLimit = max;
+  }
+
+  /**
    * Get/Set the number of egress bytes this session will buffer before
    * pausing all transactions' egress.
    */
-  static uint32_t getPendingWriteMax() {
-    return kPendingWriteMax;
+  uint32_t getWriteBufferLimit() const {
+    return writeBufLimit_;
   }
 
-  static void setPendingWriteMax(uint32_t max) {
-    kPendingWriteMax = max;
+  void setWriteBufferLimit(uint32_t limit) {
+    writeBufLimit_ = limit;
+    VLOG(4) << "write buffer limit: " << int(limit / 1000) << "KB";
   }
 
   /**
@@ -944,6 +953,15 @@ class HTTPSession:
   int64_t pendingWriteSizeDelta_{0};
 
   /**
+   * Maximum number of cumulative bytes that can be buffered by the
+   * transactions in this session before applying backpressure.
+   *
+   * Note readBufLimit_ is settable via setFlowControl
+   */
+  uint32_t readBufLimit_{kDefaultReadBufLimit};
+  uint32_t writeBufLimit_{kDefaultWriteBufLimit};
+
+  /**
    * The latest time when this session became idle status
    */
   TimePoint latestActive_{};
@@ -1007,15 +1025,15 @@ class HTTPSession:
 
   /**
    * Maximum number of bytes to egress per loop when there are > 1
-   * transactions.  Otherwise defaults to kPendingWriteMax.
+   * transactions.  Otherwise defaults to kDefaultWriteBufLimit.
    */
   static uint32_t egressBodySizeLimit_;
 
   /**
-   * Maximum number of bytes that can be buffered in sock_ before
+   * Maximum number of bytes that can be buffered across all transactions before
    * this session will start applying backpressure to its transactions.
    */
-  static uint32_t kPendingWriteMax;
+  static uint32_t kDefaultWriteBufLimit;
 
  private:
   void setupCodec();

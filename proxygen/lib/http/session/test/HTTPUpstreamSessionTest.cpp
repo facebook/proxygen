@@ -131,7 +131,7 @@ class HTTPUpstreamTest: public testing::Test,
 
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
     HTTPSession::setDefaultReadBufferLimit(65536);
-    HTTPSession::setPendingWriteMax(65536);
+    HTTPSession::setDefaultWriteBufferLimit(65536);
     HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));
@@ -624,7 +624,7 @@ class HTTP2UpstreamSessionWithVirtualNodesTest:
 
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
     HTTPSession::setDefaultReadBufferLimit(65536);
-    HTTPSession::setPendingWriteMax(65536);
+    HTTPSession::setDefaultWriteBufferLimit(65536);
     HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(
@@ -1252,7 +1252,7 @@ TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
   // The session pauses all txns since no writeSuccess for too many bytes
   handler1->expectEgressPaused();
   // Send a body big enough to pause egress
-  handler1->txn_->sendBody(makeBuf(HTTPSession::getPendingWriteMax()));
+  handler1->txn_->sendBody(makeBuf(httpSession_->getWriteBufferLimit()));
   eventBase_.loop();
   Mock::VerifyAndClearExpectations(handler1.get());
 
@@ -1283,7 +1283,7 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
   // This happens when the body write fills the txn egress queue
   // Send a body big enough to pause egress
   handler2->txn_->onIngressWindowUpdate(100);
-  handler2->txn_->sendBody(makeBuf(HTTPSession::getPendingWriteMax() + 1));
+  handler2->txn_->sendBody(makeBuf(httpSession_->getWriteBufferLimit() + 1));
   eventBase_.loop();
 }
 

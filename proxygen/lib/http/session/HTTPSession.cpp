@@ -51,7 +51,7 @@ namespace proxygen {
 
 uint32_t HTTPSession::kDefaultReadBufLimit = 65536;
 uint32_t HTTPSession::egressBodySizeLimit_ = 4096;
-uint32_t HTTPSession::kPendingWriteMax = 65536;
+uint32_t HTTPSession::kDefaultWriteBufLimit = 65536;
 
 HTTPSession::WriteSegment::WriteSegment(
     HTTPSession* session,
@@ -257,8 +257,8 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
   CHECK(!started_);
   initialReceiveWindow_ = initialReceiveWindow;
   receiveStreamWindowSize_ = receiveStreamWindowSize;
-  // TODO(t6558522): line up kDefaultReadBufLimit and receiveSessionWindowSize
   receiveSessionWindowSize_ = receiveSessionWindowSize;
+  readBufLimit_ = receiveSessionWindowSize;;
   HTTPSettings* settings = codec_->getEgressSettings();
   if (settings) {
     settings->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
@@ -583,7 +583,7 @@ HTTPSession::setNewTransactionPauseState(HTTPCodec::StreamID streamID) {
     VLOG(4) << *this << " starting streamID=" << txn->getID()
             << " egress paused. pendingWriteSize_=" << pendingWriteSize_
             << ", numActiveWrites_=" << numActiveWrites_
-            << ", kPendingWriteMax=" << kPendingWriteMax;
+            << ", writeBufLimit_=" << writeBufLimit_;
     txn->pauseEgress();
   }
 }
@@ -756,10 +756,10 @@ HTTPSession::onBody(HTTPCodec::StreamID streamID,
     // Transaction must have buffered something and not called
     // notifyBodyProcessed() on it.
     VLOG(4) << *this << " Enqueued ingress. Ingress buffer uses "
-            << pendingReadSize_  << " of "  << kDefaultReadBufLimit
+            << pendingReadSize_  << " of "  << readBufLimit_
             << " bytes.";
-    if (pendingReadSize_ > kDefaultReadBufLimit &&
-        oldSize <= kDefaultReadBufLimit) {
+    if (pendingReadSize_ > readBufLimit_ &&
+        oldSize <= readBufLimit_) {
       VLOG(4) << *this << " pausing due to read limit exceeded.";
       if (infoCallback_) {
         infoCallback_->onIngressLimitExceeded(*this);
@@ -1562,13 +1562,13 @@ HTTPSession::notifyIngressBodyProcessed(uint32_t bytes) noexcept {
   pendingReadSize_ -= bytes;
   VLOG(4) << *this << " Dequeued " << bytes << " bytes of ingress. "
     << "Ingress buffer uses " << pendingReadSize_  << " of "
-    << kDefaultReadBufLimit << " bytes.";
+    << readBufLimit_ << " bytes.";
   if (connFlowControl_ &&
       connFlowControl_->ingressBytesProcessed(writeBuf_, bytes)) {
     scheduleWrite();
   }
-  if (oldSize > kDefaultReadBufLimit &&
-      pendingReadSize_ <= kDefaultReadBufLimit) {
+  if (oldSize > readBufLimit_ &&
+      pendingReadSize_ <= readBufLimit_) {
     resumeReads();
   }
 }
@@ -1825,7 +1825,7 @@ HTTPSession::scheduleWrite() {
 }
 
 bool HTTPSession::egressLimitExceeded() const {
-  return pendingWriteSize_ >= kPendingWriteMax;
+  return pendingWriteSize_ >= writeBufLimit_;
 }
 
 void
@@ -2350,7 +2350,7 @@ HTTPSession::pauseReads() {
   codec_->setParserPaused(true);
   if (!readsUnpaused() ||
       (codec_->supportsParallelRequests() &&
-       pendingReadSize_ <= kDefaultReadBufLimit)) {
+       pendingReadSize_ <= readBufLimit_)) {
     return;
   }
   VLOG(4) << *this << ": pausing reads";
@@ -2366,7 +2366,7 @@ void
 HTTPSession::resumeReads() {
   if (!readsPaused() ||
       (codec_->supportsParallelRequests() &&
-       pendingReadSize_ > kDefaultReadBufLimit)) {
+       pendingReadSize_ > readBufLimit_)) {
     return;
   }
   VLOG(4) << *this << ": resuming reads";

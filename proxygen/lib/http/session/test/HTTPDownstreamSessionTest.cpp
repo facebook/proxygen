@@ -112,7 +112,7 @@ class HTTPDownstreamTest : public testing::Test {
 
   void SetUp() override {
     folly::EventBaseManager::get()->clearEventBase();
-    HTTPSession::setPendingWriteMax(65536);
+    HTTPSession::setDefaultWriteBufferLimit(65536);
     HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
   }
 
@@ -1558,7 +1558,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
   sendRequest();
   sendRequest();
 
-  HTTPSession::setPendingWriteMax(512);
+  httpSession_->setWriteBufferLimit(512);
 
   InSequence handlerSequence;
   auto handler1 = addSimpleStrictHandler();
@@ -1689,7 +1689,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
   if (this->clientCodec_->getProtocol() == CodecProtocol::HTTP_2) { X; }
 
 TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
-  HTTPSession::setPendingWriteMax(12000);
+  this->httpSession_->setWriteBufferLimit(12000);
   this->clientCodec_->getEgressSettings()->setSetting(
     SettingsId::INITIAL_WINDOW_SIZE, 1000000);
   this->clientCodec_->generateSettings(this->requests_);
@@ -1944,7 +1944,7 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
   unique_ptr<StrictMock<MockHTTPHandler>> handler1;
   unique_ptr<StrictMock<MockHTTPHandler>> handler2;
 
-  HTTPSession::setPendingWriteMax(200); // lower the per session buffer limit
+  httpSession_->setWriteBufferLimit(200); // lower the per session buffer limit
   {
     InSequence handlerSequence;
     handler1 = addSimpleStrictHandler();
@@ -2321,7 +2321,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_window) {
-  HTTPSession::setPendingWriteMax(2 * 65536);
+  httpSession_->setWriteBufferLimit(2 * 65536);
   InSequence enforceOrder;
   auto id1 = sendRequest();
   auto id2 = sendRequest();

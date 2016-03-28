@@ -77,10 +77,19 @@ struct AcceptorConfiguration : public wangle::ServerSocketConfig {
    *                             WINDOW_UPDATE
    *  receiveSessionWindowSize = amount to increase per-session window via
    *                             WINDOW_UPDATE
+   *                             This also controls the size of the per-session
+   *                             read buffer.
    */
   size_t initialReceiveWindow{65536};
   size_t receiveStreamWindowSize{65536};
   size_t receiveSessionWindowSize{65536};
+
+  /**
+   * These parameters control how many bytes HTTPSession's will buffer in user
+   * space before applying backpressure to handlers.  -1 means use the
+   * built-in HTTPSession default (64kb)
+   */
+  int64_t writeBufferLimit{-1};
 };
 
 } // proxygen

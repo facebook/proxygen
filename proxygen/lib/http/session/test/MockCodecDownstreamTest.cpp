@@ -146,7 +146,7 @@ class MockCodecDownstreamTest: public testing::Test {
   }
 
   void SetUp() override {
-    HTTPSession::setPendingWriteMax(65536);
+    HTTPSession::setDefaultWriteBufferLimit(65536);
   }
 
   // Pass a function to execute inside HTTPCodec::onIngress(). This
