@@ -434,9 +434,6 @@ class HTTPTransaction :
   Transport& getTransport() { return transport_; }
 
   virtual void setHandler(Handler* handler) {
-    if (handler_) {
-      txnInfo_ = handler_->getTransactionInfo();
-    }
     handler_ = handler;
     if (handler_) {
       handler_->setTransaction(this);
