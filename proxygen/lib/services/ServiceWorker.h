@@ -35,6 +35,9 @@ class RequestWorker;
  */
 class ServiceWorker {
  public:
+  typedef std::map<folly::SocketAddress, std::unique_ptr<wangle::Acceptor>>
+      AcceptorMap;
+
   ServiceWorker(Service* service, RequestWorker* worker)
       : service_(service), worker_(worker) {
   }
@@ -45,16 +48,30 @@ class ServiceWorker {
     return service_;
   }
 
-  void addServiceAcceptor(std::unique_ptr<wangle::Acceptor> acceptor) {
-    acceptors_.emplace_back(std::move(acceptor));
+  void addServiceAcceptor(const folly::SocketAddress& address,
+                              std::unique_ptr<wangle::Acceptor> acceptor) {
+    addAcceptor(address, std::move(acceptor), acceptors_);
+  }
+
+  void drainServiceAcceptor(const folly::SocketAddress& address) {
+    // Move the old acceptor to drainingAcceptors_ if present
+    const auto& it = acceptors_.find(address);
+    if (it != acceptors_.end()) {
+      addAcceptor(address, std::move(it->second), drainingAcceptors_);
+      acceptors_.erase(it);
+    }
   }
 
   RequestWorker* getRequestWorker() const {
     return worker_;
   }
 
-  const std::list<std::unique_ptr<wangle::Acceptor>>& getAcceptors() {
+  const AcceptorMap& getAcceptors() {
     return acceptors_;
+  }
+
+  const AcceptorMap& getDrainingAcceptors() {
+    return drainingAcceptors_;
   }
 
   // Flush any thread-local stats that the service is tracking
@@ -64,6 +81,11 @@ class ServiceWorker {
   // Destruct all the acceptors
   void clearAcceptors() {
     acceptors_.clear();
+    drainingAcceptors_.clear();
+  }
+
+  void clearDrainingAcceptors() {
+    drainingAcceptors_.clear();
   }
 
   wangle::IConnectionCounter* getConnectionCounter() {
@@ -80,6 +102,13 @@ class ServiceWorker {
   ServiceWorker(ServiceWorker const &) = delete;
   ServiceWorker& operator=(ServiceWorker const &) = delete;
 
+  void addAcceptor(const folly::SocketAddress& address,
+                   std::unique_ptr<wangle::Acceptor> acceptor,
+                   AcceptorMap& acceptors) {
+    CHECK(acceptors.find(address) == acceptors.end());
+    acceptors.insert(std::make_pair(address, std::move(acceptor)));
+  }
+
   /**
    * The global Service object.
    */
@@ -95,7 +124,12 @@ class ServiceWorker {
    * A list of the Acceptor objects specific to this worker thread, one
    * Acceptor per VIP.
    */
-  std::list<std::unique_ptr<wangle::Acceptor>> acceptors_;
+  AcceptorMap acceptors_;
+
+  /**
+   * A list of Acceptors that are being drained and will be deleted soon.
+   */
+  AcceptorMap drainingAcceptors_;
 };
 
 } // proxygen
