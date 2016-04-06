@@ -1037,32 +1037,38 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
   EXPECT_TRUE(downstreamCodec_.supportsPushTransactions());
 
   SetUpUpstreamTest();
-  // Push promise
-  HTTPMessage req = getGetRequest();
-  req.getHeaders().add("user-agent", "coolio");
-  downstreamCodec_.generateHeader(output_, 2, req, 1);
 
-  parseUpstream();
-  callbacks_.expectMessage(false, 2, "/"); // + host
-  EXPECT_EQ(callbacks_.assocStreamId, 1);
-  EXPECT_EQ(callbacks_.headersCompleteId, 2);
-  auto& headers = callbacks_.msg->getHeaders();
-  EXPECT_EQ("coolio", headers.getSingleOrEmpty("user-agent"));
-  callbacks_.reset();
+  HTTPCodec::StreamID assocStream = 7;
+  for (auto i = 0; i < 2; i++) {
+    // Push promise
+    HTTPCodec::StreamID pushStream = downstreamCodec_.createStream();
+    HTTPMessage req = getGetRequest();
+    req.getHeaders().add("user-agent", "coolio");
+    downstreamCodec_.generateHeader(output_, pushStream, req, assocStream);
 
-  // Actual reply headers
-  HTTPMessage resp;
-  resp.setStatusCode(200);
-  resp.getHeaders().add("content-type", "text/plain");
-  downstreamCodec_.generateHeader(output_, 2, resp, 0);
+    parseUpstream();
+    callbacks_.expectMessage(false, 2, "/"); // + host
+    EXPECT_EQ(callbacks_.assocStreamId, assocStream);
+    EXPECT_EQ(callbacks_.headersCompleteId, pushStream);
+    auto& headers = callbacks_.msg->getHeaders();
+    EXPECT_EQ("coolio", headers.getSingleOrEmpty("user-agent"));
+    callbacks_.reset();
 
-  parseUpstream();
-  callbacks_.expectMessage(false, 2, 200);
-  EXPECT_EQ(callbacks_.headersCompleteId, 2);
-  EXPECT_EQ(callbacks_.assocStreamId, 0);
-  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
-  EXPECT_EQ("text/plain",
-            callbacks_.msg->getHeaders().getSingleOrEmpty("content-type"));
+    // Actual reply headers
+    HTTPMessage resp;
+    resp.setStatusCode(200);
+    resp.getHeaders().add("content-type", "text/plain");
+    downstreamCodec_.generateHeader(output_, pushStream, resp, 0);
+
+    parseUpstream();
+    callbacks_.expectMessage(false, 2, 200);
+    EXPECT_EQ(callbacks_.headersCompleteId, pushStream);
+    EXPECT_EQ(callbacks_.assocStreamId, 0);
+    EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
+    EXPECT_EQ("text/plain",
+              callbacks_.msg->getHeaders().getSingleOrEmpty("content-type"));
+    callbacks_.reset();
+  }
 }
 
 TEST_F(HTTP2CodecTest, BadPushPromise) {

@@ -861,14 +861,15 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
 
 ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId) {
   if (streamId == 0 || streamId <= lastStreamID_) {
-    goawayErrorMessage_ = folly::to<string>("streamID=", streamId,
-                                            " received as invalid new stream");
+    goawayErrorMessage_ = folly::to<string>(
+      "streamID=", streamId, " received as invalid new stream, lastStreamID_=",
+      lastStreamID_);
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   }
   bool odd = streamId & 0x01;
   bool push = (transportDirection_ == TransportDirection::UPSTREAM);
-  lastStreamID_ = curHeader_.stream;
+  lastStreamID_ = streamId;
 
   if ((odd && push) || (!odd && !push)) {
     goawayErrorMessage_ = folly::to<string>("streamID=", streamId,
