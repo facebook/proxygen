@@ -307,10 +307,11 @@ TEST_F(HTTP2CodecTest, BasicHeaderReply) {
   downstreamCodec_.generateEOM(output_, 1);
 
   parseUpstream();
-  callbacks_.expectMessage(true, 1, 200);
+  callbacks_.expectMessage(true, 2, 200);
   const auto& headers = callbacks_.msg->getHeaders();
   // HTTP/2 doesnt support serialization - instead you get the default
   EXPECT_EQ("OK", callbacks_.msg->getStatusMessage());
+  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
   EXPECT_EQ("x-coolio", headers.getSingleOrEmpty("content-type"));
 }
 
@@ -834,7 +835,8 @@ TEST_F(HTTP2CodecTest, GoawayReply) {
   downstreamCodec_.generateHeader(output_, 1, resp, 0);
   downstreamCodec_.generateEOM(output_, 1);
   parseUpstream();
-  callbacks_.expectMessage(true, 0, 200);
+  callbacks_.expectMessage(true, 1, 200);
+  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
 }
 
 TEST_F(HTTP2CodecTest, BasicSetting) {
@@ -911,8 +913,9 @@ TEST_F(HTTP2CodecTest, SettingsTableSize) {
   downstreamCodec_.generateHeader(output_, 1, resp, 0);
 
   parseUpstream();
-  callbacks_.expectMessage(false, 1, 200);
+  callbacks_.expectMessage(false, 2, 200);
   const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
   EXPECT_EQ("x-coolio", headers.getSingleOrEmpty("content-type"));
 }
 
@@ -1054,9 +1057,10 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
   downstreamCodec_.generateHeader(output_, 2, resp, 0);
 
   parseUpstream();
-  callbacks_.expectMessage(false, 1, 200);
+  callbacks_.expectMessage(false, 2, 200);
   EXPECT_EQ(callbacks_.headersCompleteId, 2);
   EXPECT_EQ(callbacks_.assocStreamId, 0);
+  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
   EXPECT_EQ("text/plain",
             callbacks_.msg->getHeaders().getSingleOrEmpty("content-type"));
 }

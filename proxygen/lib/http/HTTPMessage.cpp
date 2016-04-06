@@ -228,16 +228,34 @@ bool HTTPMessage::isHTTP1_1() const {
   return version_ == kHTTPVersion11;
 }
 
+namespace {
+struct FormattedDate {
+  time_t lastTime{0};
+  string date;
+
+  string formatDate() {
+    const auto now = std::chrono::system_clock::to_time_t(
+      std::chrono::system_clock::now());
+
+    if (now != lastTime) {
+      char buff[1024];
+      tm timeTupple;
+      gmtime_r(&now, &timeTupple);
+
+      strftime(buff, 1024, "%a, %d %b %Y %H:%M:%S %Z", &timeTupple);
+      date = std::string(buff);
+      lastTime = now;
+    }
+    return date;
+  }
+};
+}
+
 string HTTPMessage::formatDateHeader() {
-  const auto now = std::chrono::system_clock::to_time_t(
-    std::chrono::system_clock::now());
+  struct DateTag {};
+  static folly::SingletonThreadLocal<FormattedDate, DateTag> s_formattedDate{};
 
-  char buff[1024];
-  tm timeTupple;
-  gmtime_r(&now, &timeTupple);
-
-  strftime(buff, 1024, "%a, %d %b %Y %H:%M:%S %Z", &timeTupple);
-  return std::string(buff);
+  return s_formattedDate.get().formatDate();
 }
 
 void HTTPMessage::ensureHostHeader() {

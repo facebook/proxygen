@@ -924,6 +924,8 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
     // HEADERS frames do not include a version or reason string.
   }
 
+  string date;
+  bool hasDateHeader = false;
   // Add the HTTP headers supplied by the caller, but skip
   // any per-hop headers that aren't supported in HTTP/2.
   msg.getHeaders().forEachWithCode(
@@ -958,8 +960,15 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
           code != HTTP_HEADER_HOST) {
         allHeaders.emplace_back(code, name, value);
       }
+      if (code == HTTP_HEADER_DATE) {
+        hasDateHeader = true;
+      }
     });
 
+  if (msg.isResponse() && !hasDateHeader) {
+    date = HTTPMessage::formatDateHeader();
+    allHeaders.emplace_back(HTTP_HEADER_DATE, date);
+  }
   headerCodec_.setEncodeHeadroom(http2::kFrameHeaderSize +
                                  http2::kFrameHeadersBaseMaxSize);
   auto out = headerCodec_.encode(allHeaders);
