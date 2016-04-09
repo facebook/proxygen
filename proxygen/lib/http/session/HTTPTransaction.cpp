@@ -63,7 +63,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     firstHeaderByteSent_(false),
     inResume_(false),
     inActiveSet_(true),
-    ingressErrorSeen_(false) {
+    ingressErrorSeen_(false),
+    priorityFallback_(false) {
   onDestroy_ = [this] (bool delayed) {
     if (!isEgressComplete() || !isIngressComplete() || isEnqueued()
         || deleting_) {
@@ -100,6 +101,10 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
 
   queueHandle_ = egressQueue_.addTransaction(id_, priority, this, false,
                                              &insertDepth_);
+  if(priority.streamDependency != 0 && insertDepth_ == 0) {
+    priorityFallback_ = true;
+  }
+
   currentDepth_ = insertDepth_;
 }
 
@@ -1165,10 +1170,14 @@ void HTTPTransaction::updateAndSendPriority(
 
 void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
   priority_ = priority;
+
   queueHandle_ = egressQueue_.updatePriority(
       queueHandle_,
       priority_,
       &currentDepth_);
+  if(priority_.streamDependency != 0 && currentDepth_ == 0) {
+    priorityFallback_ = true;
+  }
 }
 
 } // proxygen

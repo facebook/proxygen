@@ -538,17 +538,26 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   InSequence enforceOrder;
   // virtual priority node with pri=8
   auto priGroupID = httpSession_->sendPriority({0, false, 7});
-  auto handler = openTransaction();
+  auto handler1 = openTransaction();
+  auto handler2 = openTransaction();
 
   auto req = getGetRequest();
   // send request with maximal weight
   req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 255));
-  handler->sendRequest(req);
-  auto id = handler->txn_->getID();
+  handler1->sendRequest(req);
+  handler2->sendRequest(req);
+
+  auto id = handler1->txn_->getID();
+  auto id2 = handler2->txn_->getID();
+
+  EXPECT_EQ(std::get<0>(handler1->txn_->getPrioritySummary()), 0);
+  EXPECT_EQ(handler1->txn_->getPriorityFallback(), false);
 
   // update handler to be in the pri-group
-  handler->txn_->updateAndSendPriority(
+  handler1->txn_->updateAndSendPriority(
     http2::PriorityUpdate{priGroupID, false, 15});
+  handler2->txn_->updateAndSendPriority(
+    http2::PriorityUpdate{priGroupID + 254, false, 15});
 
   // Change pri-group weight to max
   httpSession_->sendPriority(priGroupID, http2::PriorityUpdate{0, false, 255});
@@ -565,15 +574,32 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
           EXPECT_EQ(*(msg->getHTTP2Priority()),
                     HTTPMessage::HTTPPriority(0, false, 255));
         }));
+  EXPECT_CALL(callbacks, onHeadersComplete(id2, _))
+    .WillOnce(Invoke([&] (HTTPCodec::StreamID,
+                          std::shared_ptr<HTTPMessage> msg) {
+          EXPECT_EQ(*(msg->getHTTP2Priority()),
+                    HTTPMessage::HTTPPriority(0, false, 255));
+          }));
   EXPECT_CALL(callbacks,
-              onPriority(id, HTTPMessage::HTTPPriority(priGroupID, false, 15)));
+              onPriority(
+                id, HTTPMessage::HTTPPriority(priGroupID, false, 15)));
+  EXPECT_CALL(callbacks,
+              onPriority(
+                id2, HTTPMessage::HTTPPriority(priGroupID + 254, false, 15)));
+  EXPECT_EQ(handler1->txn_->getPriorityFallback(), false);
+  EXPECT_EQ(handler2->txn_->getPriorityFallback(), true);
+
+  EXPECT_EQ(std::get<1>(handler1->txn_->getPrioritySummary()), 1);
+  EXPECT_EQ(std::get<1>(handler2->txn_->getPrioritySummary()), 0);
   EXPECT_CALL(callbacks,
               onPriority(priGroupID, HTTPMessage::HTTPPriority(0, false, 255)));
   parseOutput(*serverCodec);
   eventBase_.loop();
 
-  handler->expectError();
-  handler->expectDetachTransaction();
+  handler1->expectError();
+  handler1->expectDetachTransaction();
+  handler2->expectError();
+  handler2->expectDetachTransaction();
   httpSession_->shutdownTransportWithReset(kErrorTimeout);
   eventBase_.loop();
   EXPECT_EQ(sessionDestroyed_, true);

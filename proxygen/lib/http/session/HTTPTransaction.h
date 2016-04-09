@@ -459,6 +459,10 @@ class HTTPTransaction :
         egressCalls_ > 0 ? cumulativeRatio_ / egressCalls_ : 0);
   }
 
+  bool getPriorityFallback() const {
+    return priorityFallback_;
+  }
+
   HTTPTransactionEgressSM::State getEgressState() const {
     return egressState_;
   }
@@ -1281,6 +1285,7 @@ class HTTPTransaction :
   bool inResume_:1;
   bool inActiveSet_:1;
   bool ingressErrorSeen_:1;
+  bool priorityFallback_:1;
 
   static uint64_t egressBufferLimit_;
 
