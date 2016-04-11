@@ -79,12 +79,12 @@ class ServiceWorker {
   }
 
   // Destruct all the acceptors
-  void clearAcceptors() {
+  virtual void clearAcceptors() {
     acceptors_.clear();
     drainingAcceptors_.clear();
   }
 
-  void clearDrainingAcceptors() {
+  virtual void clearDrainingAcceptors() {
     drainingAcceptors_.clear();
   }
 
