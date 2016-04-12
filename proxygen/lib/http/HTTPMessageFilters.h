@@ -28,6 +28,11 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
     return nextTransactionHandler_;
   }
 
+  [[noreturn]] virtual std::unique_ptr<HTTPMessageFilter> clone() noexcept {
+    LOG(FATAL) << "clone() not implemented for filter: "
+               << this->getFilterName();
+  };
+
   // These HTTPTransaction::Handler callbacks may be overwritten
   // The default behavior is to pass the call through.
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
