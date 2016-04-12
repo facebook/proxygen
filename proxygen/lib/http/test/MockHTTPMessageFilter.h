@@ -13,6 +13,8 @@
 
 namespace proxygen {
 
+static const std::string kMockFilterName = "MockFilter";
+
 class MockHTTPMessageFilter : public HTTPMessageFilter {
  public:
   GMOCK_METHOD1_(, noexcept,, onHeadersComplete,
@@ -40,6 +42,15 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
     std::unique_ptr<HTTPMessage> msgU(new HTTPMessage(*msg));
     nextOnHeadersComplete(std::move(msgU));
   }
+
+  const std::string& getFilterName() noexcept override {
+    return kMockFilterName;
+  }
+
+  [[noreturn]] virtual std::unique_ptr<HTTPMessageFilter> clone() noexcept {
+    LOG(FATAL) << "clone() not implemented for filter: "
+               << this->getFilterName();
+  };
 
   void nextOnEOMPublic() {
     nextOnEOM();
