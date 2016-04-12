@@ -73,7 +73,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     VLOG(4) << "destroying transaction " << *this;
     deleting_ = true;
     if (handler_) {
-      txnInfo_ = handler_->getTransactionInfo();
       handler_->detachTransaction();
       handler_ = nullptr;
     }

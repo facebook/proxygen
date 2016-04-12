@@ -141,14 +141,12 @@ private:
   void onRequestEnd(const HTTPSession&,
                     uint32_t maxIngressQueueSize) override {}
   void onActivateConnection(const HTTPSession&) override {}
-  void onDeactivateConnection(const HTTPSession&,
-                              const TransactionInfo&) override {}
+  void onDeactivateConnection(const HTTPSession&) override {}
   void onDestroy(const HTTPSession&) override {}
   void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
   void onIngressLimitExceeded(const HTTPSession&) override {}
   void onIngressPaused(const HTTPSession&) override {}
-  void onTransactionDetached(const HTTPSession&,
-                             const TransactionInfo&) override {}
+  void onTransactionDetached(const HTTPSession&) override {}
   void onPingReplySent(int64_t latency) override {}
   void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}

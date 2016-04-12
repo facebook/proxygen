@@ -239,14 +239,6 @@ class HTTPTransactionHandler {
    */
   virtual void onPushedTransaction(HTTPTransaction* txn) noexcept {}
 
-  /**
-   * Ask the handler to summarize the Transaction information base on
-   * handler callback. By default return a non-init struct.
-   */
-  virtual TransactionInfo getTransactionInfo() const noexcept {
-    return TransactionInfo();
-  }
-
   virtual ~HTTPTransactionHandler() {}
 };
 
@@ -446,10 +438,6 @@ class HTTPTransaction :
 
   http2::PriorityUpdate getPriority() const {
     return priority_;
-  }
-
-  TransactionInfo getTransactionInfo() const {
-    return txnInfo_;
   }
 
   std::tuple<uint64_t, uint64_t, double> getPrioritySummary() const {
@@ -1178,7 +1166,6 @@ class HTTPTransaction :
    */
   folly::IOBufQueue deferredEgressBody_{folly::IOBufQueue::cacheChainLength()};
 
-  TransactionInfo txnInfo_;
   const TransportDirection direction_;
   HTTPCodec::StreamID id_;
   uint32_t seqNo_;

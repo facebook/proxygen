@@ -211,24 +211,21 @@ class HTTPUpstreamTest: public testing::Test,
   void testBasicRequestHttp10(bool keepalive);
 
   // HTTPSession::InfoCallback interface
-  void onCreate(const HTTPSession& sess) override { sessionCreated_ = true; }
-  void onIngressError(const HTTPSession& sess, ProxygenError err) override {}
+  void onCreate(const HTTPSession&) override { sessionCreated_ = true; }
+  void onIngressError(const HTTPSession&, ProxygenError) override {}
   void onIngressEOF() override {}
-  void onRead(const HTTPSession& sess, size_t bytesRead) override {}
-  void onWrite(const HTTPSession& sess, size_t bytesWritten) override {}
-  void onRequestBegin(const HTTPSession& sess) override {}
-  void onRequestEnd(const HTTPSession& sess,
+  void onRead(const HTTPSession&, size_t bytesRead) override {}
+  void onWrite(const HTTPSession&, size_t bytesWritten) override {}
+  void onRequestBegin(const HTTPSession&) override {}
+  void onRequestEnd(const HTTPSession&,
                     uint32_t maxIngressQueueSize) override {}
-  void onActivateConnection(const HTTPSession& sess) override {}
-  void onDeactivateConnection(const HTTPSession& sess,
-                              const TransactionInfo& info) override {}
-  void onDestroy(const HTTPSession& sess) override { sessionDestroyed_ = true; }
-  void onIngressMessage(const HTTPSession& sess,
-                        const HTTPMessage& msg) override {}
-  void onIngressLimitExceeded(const HTTPSession& sess) override {}
-  void onIngressPaused(const HTTPSession& sess) override {}
-  void onTransactionDetached(const HTTPSession& sess,
-                             const TransactionInfo& info) override {}
+  void onActivateConnection(const HTTPSession&) override {}
+  void onDeactivateConnection(const HTTPSession&) override {}
+  void onDestroy(const HTTPSession&) override { sessionDestroyed_ = true; }
+  void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
+  void onIngressLimitExceeded(const HTTPSession&) override {}
+  void onIngressPaused(const HTTPSession&) override {}
+  void onTransactionDetached(const HTTPSession&) override {}
   void onPingReplySent(int64_t latency) override {}
   void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {

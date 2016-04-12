@@ -1472,7 +1472,6 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   HTTPCodec::StreamID streamID = txn->getID();
   auto it = transactions_.find(txn->getID());
   DCHECK(it != transactions_.end());
-  TransactionInfo txnInfo = txn->getTransactionInfo();
 
   if (txn->isIngressPaused()) {
     // Someone detached a transaction that was paused.  Make the resumeIngress
@@ -1498,14 +1497,14 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   if (transactions_.empty()) {
     latestActive_ = getCurrentTime();
     if (infoCallback_) {
-      infoCallback_->onDeactivateConnection(*this, txnInfo);
+      infoCallback_->onDeactivateConnection(*this);
     }
     if (getConnectionManager()) {
       getConnectionManager()->onDeactivated(*this);
     }
   } else {
     if (infoCallback_) {
-      infoCallback_->onTransactionDetached(*this, txnInfo);
+      infoCallback_->onTransactionDetached(*this);
     }
   }
 
