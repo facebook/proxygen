@@ -90,6 +90,12 @@ namespace proxygen {
 /** Info about Transaction running on this session */
 class TransactionInfo {
  public:
+  class TransactionInfoCallback {
+   public:
+    virtual ~TransactionInfoCallback() {}
+    virtual void onReportTransactionInfo(const TransactionInfo&) = 0;
+  };
+
   TransactionInfo() {}
 
   TransactionInfo(
@@ -238,6 +244,12 @@ class HTTPTransactionHandler {
    * does not implement, better set max initiated to 0 in a settings frame?
    */
   virtual void onPushedTransaction(HTTPTransaction* txn) noexcept {}
+
+  /**
+   * set Transaction Info Callback to report transaction information on time
+   */
+  virtual void setTransactionInfoCallback(
+      TransactionInfo::TransactionInfoCallback*) noexcept {}
 
   virtual ~HTTPTransactionHandler() {}
 };
