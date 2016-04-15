@@ -20,7 +20,7 @@ namespace proxygen {
 %enum
 %define class-name HTTPCommonHeadersInternal
 
-struct HTTPCommonHeaderName { const char* name; uint8_t code; };
+struct HTTPCommonHeaderName { const char* name; HTTPHeaderCode code; };
 
 
 
@@ -41,8 +41,7 @@ HTTPHeaderCode HTTPCommonHeaders::hash(const char* name, size_t len) {
 }
 
 std::string* HTTPCommonHeaders::initHeaderNames() {
-  DCHECK_LE(MAX_HASH_VALUE, 255);
-  auto headerNames = new std::string[256];
+  auto headerNames = new std::string[HTTPCommonHeaders::num_header_codes];
   for (int j = MIN_HASH_VALUE; j <= MAX_HASH_VALUE; ++j) {
     uint8_t code = wordlist[j].code;
     const uint8_t OFFSET = 2; // first 2 values are reserved for special cases

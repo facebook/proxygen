@@ -16,6 +16,7 @@ cat ${HEADERS_LIST?} | LC_ALL=C sort | uniq \
 | awk '
   NR == FNR {
     n[FNR] = $1;
+    max = FNR
     next
   }
   $1 == "%%%%%" {
@@ -24,6 +25,10 @@ cat ${HEADERS_LIST?} | LC_ALL=C sort | uniq \
       gsub("-", "_", h);
       print "  HTTP_HEADER_" toupper(h) " = " i+1 ","
     };
+    next
+  }
+  $1 == "$$$$$" {
+    print "  constexpr static uint64_t num_header_codes = " max+2 ";"
     next
   }
   {

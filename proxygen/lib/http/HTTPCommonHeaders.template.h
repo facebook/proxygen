@@ -51,6 +51,7 @@ class HTTPCommonHeaders {
   }
 
   FB_EXPORT static std::string* initHeaderNames();
+$$$$$
 
   inline static const std::string* getPointerToHeaderName(HTTPHeaderCode code) {
     static const auto headerNames = initHeaderNames();
