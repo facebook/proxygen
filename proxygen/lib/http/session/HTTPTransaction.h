@@ -87,6 +87,46 @@ namespace proxygen {
  * different of HTTP-like protocols.
  */
 
+/** Info about Transaction running on this session */
+class TransactionInfo {
+ public:
+  TransactionInfo() {}
+
+  TransactionInfo(
+    std::chrono::milliseconds ttfb,
+    std::chrono::milliseconds ttlb,
+    uint64_t eHeader,
+    uint64_t inHeader,
+    uint64_t eBody,
+    uint64_t inBody,
+    bool completed):
+      timeToFirstByte(ttfb),
+      timeToLastByte(ttlb),
+      egressHeaderBytes(eHeader),
+      ingressHeaderBytes(inHeader),
+      egressBodyBytes(eBody),
+      ingressBodyBytes(inBody),
+      isCompleted(completed) {
+  }
+
+  /** Time to first byte */
+  std::chrono::milliseconds timeToFirstByte{0};
+  /** Time to last byte */
+  std::chrono::milliseconds timeToLastByte{0};
+
+  /** Number of bytes send in headers */
+  uint64_t egressHeaderBytes{0};
+  /** Number of bytes receive headers */
+  uint64_t ingressHeaderBytes{0};
+  /** Number of bytes send in body */
+  uint64_t egressBodyBytes{0};
+  /** Number of bytes receive in body */
+  uint64_t ingressBodyBytes{0};
+
+  /** Is the transaction was completed without error */
+  bool isCompleted{false};
+};
+
 class HTTPSessionStats;
 class HTTPTransaction;
 class HTTPTransactionHandler {
