@@ -20,8 +20,8 @@ WheelTimerInstance::WheelTimerInstance() {
 }
 
 WheelTimerInstance::WheelTimerInstance(folly::HHWheelTimer* timer) :
-  wheelTimerPtr_(timer) {
-}
+  wheelTimerPtr_(timer),
+  wheelTimerGuard_(timer) {}
 
 WheelTimerInstance::WheelTimerInstance(
     std::chrono::milliseconds defaultTimeoutMS,
@@ -37,6 +37,7 @@ WheelTimerInstance::WheelTimerInstance(
 WheelTimerInstance::WheelTimerInstance(const WheelTimerInstance& timerInstance)
   : wheelTimerPtr_(timerInstance.wheelTimerPtr_),
   wheelTimer_(timerInstance.wheelTimer_),
+  wheelTimerGuard_(timerInstance.wheelTimerGuard_),
   defaultTimeoutMS_(timerInstance.defaultTimeoutMS_) {
 }
 
@@ -44,6 +45,7 @@ WheelTimerInstance::WheelTimerInstance(
     WheelTimerInstance&& timerInstance) noexcept
   : wheelTimerPtr_(std::move(timerInstance.wheelTimerPtr_)),
     wheelTimer_(std::move(timerInstance.wheelTimer_)),
+    wheelTimerGuard_(std::move(timerInstance.wheelTimerGuard_)),
     defaultTimeoutMS_(std::move(timerInstance.defaultTimeoutMS_)) {
 }
 

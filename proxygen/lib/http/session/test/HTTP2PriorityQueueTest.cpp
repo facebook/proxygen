@@ -599,10 +599,9 @@ TEST_F(QueueTest, addOrUpdate) {
   EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
 }
 
-class DanglingQueueTest : public QueueTest {
+class DanglingQueueTestBase {
  public:
-  DanglingQueueTest() :
-      QueueTest(&timer_) {
+  DanglingQueueTestBase() {
     // Just under two ticks
     HTTP2PriorityQueue::setNodeLifetime(
       std::chrono::milliseconds(2 * HHWheelTimer::DEFAULT_TICK_INTERVAL - 1));
@@ -614,6 +613,7 @@ class DanglingQueueTest : public QueueTest {
                              }));
   }
 
+ protected:
   void expireNodes() {
     // Node lifetime it just under two ticks, so firing twice expires all nodes
     tick();
@@ -628,11 +628,20 @@ class DanglingQueueTest : public QueueTest {
     }
   }
 
- protected:
-
+  std::list<folly::AsyncTimeout*> timeouts_;
   testing::NiceMock<MockTimeoutManager> timeoutManager_;
   folly::UndelayedDestruction<HHWheelTimer> timer_{&timeoutManager_};
-  std::list<folly::AsyncTimeout*> timeouts_;
+};
+
+// Order declaration of the base classes for this fixture matters here: we want
+// to pass the timer initialized as part of DanglingQueueTest into to QueueTest,
+// so it must be initialized first.
+class DanglingQueueTest : public DanglingQueueTestBase, public QueueTest {
+ public:
+  DanglingQueueTest() :
+    DanglingQueueTestBase(),
+    QueueTest(&timer_) {
+  }
 };
 
 TEST_F(DanglingQueueTest, basic) {

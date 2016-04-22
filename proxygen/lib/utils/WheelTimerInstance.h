@@ -65,6 +65,7 @@ class WheelTimerInstance {
                                                    // specified
 
     std::weak_ptr<folly::HHWheelTimer> wheelTimer_;
+    folly::DelayedDestructionBase::DestructorGuard wheelTimerGuard_;
     std::chrono::milliseconds defaultTimeoutMS_;
 };
 
