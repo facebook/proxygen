@@ -225,6 +225,10 @@ ZeroRttEnabled, "zero_rtt_enabled"
 ZeroVerifiedSuccess, "zero_verified_success"
 ZeroVerifiedError, "zero_verified_error"
 
+TransportRttCompleted, "transport_rtt_completed"
+UnparsedDataSize, "unparsed_data_size"
+UnparsedData, "unparsed_data"
+
 /* --- Used in MQTT Client --- */
 MQTTConnAttempts, "mqtt_conn_attempts"
 IsForeground, "is_foreground"

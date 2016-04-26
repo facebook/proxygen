@@ -384,6 +384,9 @@ class HTTPTransaction :
 
     virtual void removeWaitingForReplaySafety(
         folly::AsyncTransport::ReplaySafetyCallback* callback) noexcept = 0;
+
+    virtual const folly::AsyncTransportWrapper* getUnderlyingTransport()
+      const noexcept = 0;
   };
 
   typedef HTTPTransactionTransportCallback TransportCallback;

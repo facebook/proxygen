@@ -92,6 +92,14 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
       void(folly::AsyncTransport::ReplaySafetyCallback*));
   GMOCK_METHOD1_(, noexcept,, removeWaitingForReplaySafety,
       void(folly::AsyncTransport::ReplaySafetyCallback*));
+
+  GMOCK_METHOD0_(, noexcept,, getUnderlyingTransportNonConst,
+      const folly::AsyncTransportWrapper*());
+  const folly::AsyncTransportWrapper* getUnderlyingTransport()
+      const noexcept override {
+    return const_cast<MockHTTPTransactionTransport*>(this)
+      ->getUnderlyingTransport();
+  }
 };
 
 class MockHTTPTransaction : public HTTPTransaction {

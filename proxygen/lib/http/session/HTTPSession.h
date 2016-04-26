@@ -130,6 +130,15 @@ class HTTPSession:
     return sock_.get();
   }
 
+  /**
+   * Returns the underlying AsyncTransportWrapper.
+   * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
+   */
+  const folly::AsyncTransportWrapper* getUnderlyingTransport()
+      const noexcept override {
+    return sock_.get();
+  }
+
   const folly::AsyncTransportWrapper* getTransport() const {
     return sock_.get();
   }
