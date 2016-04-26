@@ -187,7 +187,6 @@ public:
   http2::FrameHeader curHeader_;
   StreamID expectedContinuationStream_{0};
   bool pendingEndStreamHandling_{false};
-  bool needsChromeWorkaround_{false}; // malformed continuation
   bool needsChromeWorkaround2_{false}; // rst on 16kb
   std::set<HTTPCodec::StreamID> expectedChromeResets_;
 

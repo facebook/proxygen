@@ -1201,66 +1201,6 @@ const string agent3("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/42.0.2311.135 Safari/537.36 Edge/12.10240");
 
-// Chrome < 43 can generate malformed CONTINUATION frames
-TEST_P(ChromeHTTP2Test, ChromeContinuation) {
-  EXPECT_EQ(getChromeVersion(agent1), 42);
-  EXPECT_EQ(getChromeVersion(agent2), 43);
-  EXPECT_EQ(getChromeVersion(agent3), -1);
-
-  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
-  HTTPMessage req = getGetRequest();
-  string agent = GetParam();
-  req.getHeaders().add("user-agent", agent);
-  string bigval(954, '!');
-  bigval.append(954, ' ');
-  req.getHeaders().add("x-header", bigval);
-  generateHeaderChrome(headerCodec, output_, 1, req, 0, false, nullptr,
-                       agent.find("Chrome/43") == string::npos);
-
-  parse();
-  callbacks_.expectMessage(false, -1, "/");
-  const auto& headers = callbacks_.msg->getHeaders();
-  EXPECT_EQ(agent, headers.getSingleOrEmpty("user-agent"));
-  EXPECT_EQ(bigval, headers.getSingleOrEmpty("x-header"));
-  EXPECT_EQ(callbacks_.messageBegin, 1);
-  EXPECT_EQ(callbacks_.headersComplete, 1);
-  EXPECT_EQ(callbacks_.messageComplete, 0);
-  EXPECT_EQ(callbacks_.streamErrors, 0);
-  EXPECT_EQ(callbacks_.sessionErrors, 0);
-
-  upstreamCodec_.generateSettingsAck(output_);
-  parse();
-  EXPECT_EQ(callbacks_.settingsAcks, 1);
-}
-
-TEST_P(ChromeHTTP2Test, ChromeContinuationSecondStream) {
-  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
-  HTTPMessage req = getGetRequest();
-  string agent = GetParam();
-  req.getHeaders().add("user-agent", agent);
-  generateHeaderChrome(headerCodec, output_, 1, req, 0, false, nullptr,
-                       false);
-  string bigval(1004, '!');
-  bigval.append(1004, ' ');
-  req.getHeaders().add("x-headerx", bigval);
-  generateHeaderChrome(headerCodec, output_, 3, req, 0, false, nullptr,
-                       agent.find("Chrome/43") == string::npos);
-
-  parse();
-  const auto& headers = callbacks_.msg->getHeaders();
-  EXPECT_EQ(agent, headers.getSingleOrEmpty("user-agent"));
-  EXPECT_EQ(bigval, headers.getSingleOrEmpty("x-headerx"));
-  EXPECT_EQ(callbacks_.messageBegin, 2);
-  EXPECT_EQ(callbacks_.headersComplete, 2);
-  EXPECT_EQ(callbacks_.messageComplete, 0);
-  EXPECT_EQ(callbacks_.streamErrors, 0);
-  EXPECT_EQ(callbacks_.sessionErrors, 0);
-
-  upstreamCodec_.generateSettingsAck(output_);
-  parse();
-  EXPECT_EQ(callbacks_.settingsAcks, 1);
-}
-
 INSTANTIATE_TEST_CASE_P(AgentTest,
                         ChromeHTTP2Test,
                         ::testing::Values(agent1, agent2));

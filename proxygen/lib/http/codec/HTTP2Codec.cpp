@@ -91,30 +91,6 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
         }
         frameState_ = (curHeader_.type == http2::FrameType::DATA) ?
           FrameState::DATA_FRAME_DATA : FrameState::FRAME_DATA;
-        if (connError == ErrorCode::NO_ERROR &&
-            curHeader_.type == http2::FrameType::CONTINUATION &&
-            transportDirection_ == TransportDirection::DOWNSTREAM &&
-            (needsChromeWorkaround_ || (
-              lastStreamID_ == 1 &&
-              curHeaderBlock_.chainLength() > 0 &&
-              curHeaderBlock_.chainLength() %
-              http2::kMaxFramePayloadLengthMin != 0)) &&
-            curHeader_.length == 1024) {
-          // It's possible we do not yet know the user-agent for the
-          // first header block on this session.  If that's the case,
-          // use the heuristic that only chrome breaks HEADERS frames
-          // at less than kMaxFramePayloadLength.  Note it is entirely
-          // possible for this heuristic to be abused (for example by
-          // sending exactly 17kb of *compressed* header data).  But
-          // this should be rare.  TODO: remove when Chrome 42 is < 1%
-          // of traffic?
-          curHeader_.length -= http2::kFrameHeaderSize;
-          if (callback_) {
-            callback_->onFrameHeader(curHeader_.stream,
-                                     curHeader_.flags,
-                                     curHeader_.length);
-          }
-        }
         pendingDataFrameBytes_ = curHeader_.length;
         pendingDataFramePaddingBytes_ = 0;
 #ifndef NDEBUG
@@ -556,20 +532,13 @@ void HTTP2Codec::onHeader(const std::string& name,
                                                    nameSp, " value=", valueSp);
       return;
     }
-    if (!needsChromeWorkaround_ && nameSp == "user-agent" &&
+    if (nameSp == "user-agent" &&
         userAgent_.empty()) {
       userAgent_ = valueSp.str();
       int8_t version = getChromeVersion(valueSp);
-      if (version > 0) {
-        if (version < 43) {
-          // Versions of Chrome under 43 need continuation this workaround
-          needsChromeWorkaround_ = true;
-          VLOG(4) << "Using chrome http/2 continuation workaround";
-        }
-        if (version < 45) {
-          needsChromeWorkaround2_ = true;
-          VLOG(4) << "Using chrome http/2 16kb workaround";
-        }
+      if (version > 0 && version < 45) {
+        needsChromeWorkaround2_ = true;
+        VLOG(4) << "Using chrome http/2 16kb workaround";
       }
     }
     // Add the (name, value) pair to headers
