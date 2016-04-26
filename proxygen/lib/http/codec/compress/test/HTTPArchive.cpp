@@ -81,12 +81,12 @@ void HTTPArchive::extractHeaders(folly::dynamic& obj,
   msg.clear();
   auto& headersObj = obj["headers"];
   for (size_t i = 0; i < headersObj.size(); i++) {
-    string name = headersObj[i]["name"].asString().toStdString();
+    string name = headersObj[i]["name"].asString();
     std::transform(name.begin(), name.end(), name.begin(), ::tolower);
     msg.push_back(
       HPACKHeader(
         name,
-        headersObj[i]["value"].asString().toStdString())
+        headersObj[i]["value"].asString())
     );
   }
 }
@@ -98,8 +98,8 @@ void HTTPArchive::extractHeadersFromPublic(folly::dynamic& obj,
   for (size_t i = 0; i < headersObj.size(); i++) {
     auto& headerObj = headersObj[i];
     for (auto& k: headerObj.keys()) {
-      string name = k.asString().toStdString();
-      string value = headerObj[name].asString().toStdString();
+      string name = k.asString();
+      string value = headerObj[name].asString();
       std::transform(name.begin(), name.end(), name.begin(), ::tolower);
       msg.push_back(HPACKHeader(name, value));
     }
