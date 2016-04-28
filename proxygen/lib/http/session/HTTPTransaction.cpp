@@ -65,25 +65,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     inActiveSet_(true),
     ingressErrorSeen_(false),
     priorityFallback_(false) {
-  onDestroy_ = [this] (bool delayed) {
-    if (!isEgressComplete() || !isIngressComplete() || isEnqueued()
-        || deleting_) {
-      return;
-    }
-    VLOG(4) << "destroying transaction " << *this;
-    deleting_ = true;
-    if (handler_) {
-      handler_->detachTransaction();
-      handler_ = nullptr;
-    }
-    transportCallback_ = nullptr;
-    const auto bytesBuffered = recvWindow_.getOutstanding();
-    if (bytesBuffered) {
-      transport_.notifyIngressBodyProcessed(bytesBuffered);
-    }
-    transport_.detach(this);
-    (void)delayed; // prevent unused variable warnings
-  };
 
   if (assocStreamId_) {
     if (isUpstream()) {
@@ -105,6 +86,26 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
   }
 
   currentDepth_ = insertDepth_;
+}
+
+void HTTPTransaction::onDelayedDestroy(bool delayed) {
+  if (!isEgressComplete() || !isIngressComplete() || isEnqueued()
+      || deleting_) {
+    return;
+  }
+  VLOG(4) << "destroying transaction " << *this;
+  deleting_ = true;
+  if (handler_) {
+    handler_->detachTransaction();
+    handler_ = nullptr;
+  }
+  transportCallback_ = nullptr;
+  const auto bytesBuffered = recvWindow_.getOutstanding();
+  if (bytesBuffered) {
+    transport_.notifyIngressBodyProcessed(bytesBuffered);
+  }
+  transport_.detach(this);
+  (void)delayed; // prevent unused variable warnings
 }
 
 HTTPTransaction::~HTTPTransaction() {

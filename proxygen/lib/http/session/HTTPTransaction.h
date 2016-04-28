@@ -1052,6 +1052,8 @@ class HTTPTransaction :
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
 
+  void onDelayedDestroy(bool delayed) override;
+
   /**
    * Invokes the handler's onEgressPaused/Resumed if the handler's pause
    * state needs updating
