@@ -525,8 +525,7 @@ HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
   // of the socket if there are outstanding transactions, though.
   // Instead, give the transactions a chance to produce any remaining
   // output.
-  if (sslEx && sslEx->getType() == folly::SSLError::OPENSSL_ERR &&
-      ERR_GET_LIB(sslEx->getOpensslErr()) == ERR_LIB_SSL) {
+  if (sslEx && sslEx->getType() == folly::SSLError::SSL_ERROR) {
     transportInfo_.sslError = ex.what();
   }
   setCloseReason(ConnectionCloseReason::IO_READ_ERROR);
@@ -2271,8 +2270,7 @@ HTTPSession::onWriteError(size_t bytesWritten,
 
   auto sslEx = dynamic_cast<const folly::SSLException*>(&ex);
   // Save the SSL error, if there was one.  It will be recorded later
-  if (sslEx && sslEx->getType() == folly::SSLError::OPENSSL_ERR &&
-      ERR_GET_LIB(sslEx->getOpensslErr()) == ERR_LIB_SSL) {
+  if (sslEx && sslEx->getType() == folly::SSLError::SSL_ERROR) {
     transportInfo_.sslError = ex.what();
   }
 
