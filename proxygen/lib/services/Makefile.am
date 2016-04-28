@@ -17,4 +17,3 @@ libproxygenservices_la_SOURCES = \
 	Service.cpp \
 	WorkerThread.cpp
 
-libproxygenservices_la_LIBADD = ../ssl/libproxygenssl.la
