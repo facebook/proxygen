@@ -58,6 +58,7 @@ RspIntvlStdDev, "response_interval_stddev"
 RspNumOnBody, "response_number_on_body"
 ServerQuality, "response_server_quality"
 ServerRtt, "server_rtt"
+RecvToAck, "flow_control_recv_to_ack"
 
 /* ---- Used in PreConnect ---- */
 NewConnection, "new_connection"

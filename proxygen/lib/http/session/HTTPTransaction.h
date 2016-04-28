@@ -1048,6 +1048,8 @@ class HTTPTransaction :
     transport_.removeWaitingForReplaySafety(callback);
   }
 
+  int32_t getRecvToAck() const;
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;

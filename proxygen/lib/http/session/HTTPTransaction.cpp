@@ -1147,6 +1147,10 @@ void HTTPTransaction::flushWindowUpdate() {
   }
 }
 
+int32_t HTTPTransaction::getRecvToAck() const {
+  return recvToAck_;
+}
+
 std::ostream&
 operator<<(std::ostream& os, const HTTPTransaction& txn) {
   txn.describe(os);
