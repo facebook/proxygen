@@ -513,19 +513,21 @@ void
 HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
   DestructorGuard guard(this);
   VLOG(4) << "read error on " << *this << ": " << ex.what();
-  if (infoCallback_ && (
-        ERR_GET_LIB(ex.getErrno()) == ERR_LIB_USER &&
-        ERR_GET_REASON(ex.getErrno()) ==
-        (int)AsyncSSLSocket::SSL_CLIENT_RENEGOTIATION_ATTEMPT)) {
-    infoCallback_->onIngressError(*this, kErrorClientRenegotiation);
+
+  auto sslEx = dynamic_cast<const folly::SSLException*>(&ex);
+  if (infoCallback_ && sslEx) {
+    if (sslEx->getType() == folly::SSLError::CLIENT_RENEGOTIATION) {
+      infoCallback_->onIngressError(*this, kErrorClientRenegotiation);
+    }
   }
 
   // We're definitely finished reading. Don't close the write side
   // of the socket if there are outstanding transactions, though.
   // Instead, give the transactions a chance to produce any remaining
   // output.
-  if (ERR_GET_LIB(ex.getErrno()) == ERR_LIB_SSL) {
-    transportInfo_.sslError = ERR_GET_REASON(ex.getErrno());
+  if (sslEx && sslEx->getType() == folly::SSLError::OPENSSL_ERR &&
+      ERR_GET_LIB(sslEx->getOpensslErr()) == ERR_LIB_SSL) {
+    transportInfo_.sslError = ERR_GET_REASON(sslEx->getOpensslErr());
   }
   setCloseReason(ConnectionCloseReason::IO_READ_ERROR);
   shutdownTransport(true, transactions_.empty(), ex.what());
@@ -2267,9 +2269,11 @@ HTTPSession::onWriteError(size_t bytesWritten,
     infoCallback_->onWrite(*this, bytesWritten);
   }
 
+  auto sslEx = dynamic_cast<const folly::SSLException*>(&ex);
   // Save the SSL error, if there was one.  It will be recorded later
-  if (ERR_GET_LIB(ex.getErrno()) == ERR_LIB_SSL) {
-    transportInfo_.sslError = ERR_GET_REASON(ex.getErrno());
+  if (sslEx && sslEx->getType() == folly::SSLError::OPENSSL_ERR &&
+      ERR_GET_LIB(sslEx->getOpensslErr()) == ERR_LIB_SSL) {
+    transportInfo_.sslError = ERR_GET_REASON(sslEx->getOpensslErr());
   }
 
   setCloseReason(ConnectionCloseReason::IO_WRITE_ERROR);
