@@ -18,20 +18,13 @@ using std::unique_ptr;
 
 // IOBuf uses 24 bytes of data for bookeeping purposes, so requesting for 4073
 // bytes of data will be rounded up to an allocation of 1 page.
-#ifndef NO_LIB_GFLAGS
-  DEFINE_int64(zlib_compressor_buffer_growth, 2024,
-      "The buffer growth size to use during IOBuf zlib deflation");
-  DEFINE_int64(zlib_compressor_buffer_minsize, 1024,
+DEFINE_int64(zlib_compressor_buffer_growth, 2024,
+             "The buffer growth size to use during IOBuf zlib deflation");
+DEFINE_int64(zlib_compressor_buffer_minsize, 1024,
       "The minimum buffer size to use before growing during IOBuf "
       "zlib deflation");
-#endif
 
 namespace proxygen {
-
-#ifdef NO_LIB_GFLAGS
-  int64_t FLAGS_zlib_compressor_buffer_growth = 2024;
-  int64_t FLAGS_zlib_compressor_buffer_minsize = 1024;
-#endif
 
 void ZlibStreamCompressor::init(ZlibCompressionType type, int32_t level) {
 

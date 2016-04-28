@@ -11,23 +11,16 @@
 
 #include <memory>
 #include <zlib.h>
+#include <folly/portability/GFlags.h>
 
 namespace folly {
 class IOBuf;
 }
 
-#ifndef NO_LIB_GFLAGS
-  #include <gflags/gflags.h>
-  DECLARE_int64(zlib_decompresser_buffer_growth);
-  DECLARE_int64(zlib_decompresser_buffer_minsize);
-#endif
+DECLARE_int64(zlib_decompresser_buffer_growth);
+DECLARE_int64(zlib_decompresser_buffer_minsize);
 
 namespace proxygen {
-
-#ifdef NO_LIB_GFLAGS
-  extern int64_t FLAGS_zlib_decompresser_buffer_growth;
-  extern int64_t FLAGS_zlib_decompresser_buffer_minsize;
-#endif
 
 enum class ZlibCompressionType: int {
   NONE = 0,
