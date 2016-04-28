@@ -7,6 +7,7 @@
 
 #include <folly/FileUtil.h>
 #include <folly/String.h>
+#include <gflags/gflags.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/ssl/SSLContextConfig.h>
