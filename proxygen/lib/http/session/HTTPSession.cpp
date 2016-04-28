@@ -527,7 +527,7 @@ HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
   // output.
   if (sslEx && sslEx->getType() == folly::SSLError::OPENSSL_ERR &&
       ERR_GET_LIB(sslEx->getOpensslErr()) == ERR_LIB_SSL) {
-    transportInfo_.sslError = ERR_GET_REASON(sslEx->getOpensslErr());
+    transportInfo_.sslError = ex.what();
   }
   setCloseReason(ConnectionCloseReason::IO_READ_ERROR);
   shutdownTransport(true, transactions_.empty(), ex.what());
@@ -1895,7 +1895,7 @@ HTTPSession::shutdownTransport(bool shutdownReads,
   bool notifyIngressShutdown = false;
 
   ProxygenError error;
-  if (transportInfo_.sslError) {
+  if (!transportInfo_.sslError.empty()) {
     error = kErrorSSL;
   } else if (sock_->error()) {
     VLOG(3) << "shutdown request for " << *this
@@ -2273,7 +2273,7 @@ HTTPSession::onWriteError(size_t bytesWritten,
   // Save the SSL error, if there was one.  It will be recorded later
   if (sslEx && sslEx->getType() == folly::SSLError::OPENSSL_ERR &&
       ERR_GET_LIB(sslEx->getOpensslErr()) == ERR_LIB_SSL) {
-    transportInfo_.sslError = ERR_GET_REASON(sslEx->getOpensslErr());
+    transportInfo_.sslError = ex.what();
   }
 
   setCloseReason(ConnectionCloseReason::IO_WRITE_ERROR);
