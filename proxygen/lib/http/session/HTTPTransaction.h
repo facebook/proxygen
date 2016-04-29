@@ -385,6 +385,8 @@ class HTTPTransaction :
     virtual void removeWaitingForReplaySafety(
         folly::AsyncTransport::ReplaySafetyCallback* callback) noexcept = 0;
 
+    virtual size_t getNumWaitingForReplaySafety() const = 0;
+
     virtual const folly::AsyncTransportWrapper* getUnderlyingTransport()
       const noexcept = 0;
   };
@@ -1046,6 +1048,10 @@ class HTTPTransaction :
   virtual void removeWaitingForReplaySafety(
       folly::AsyncTransport::ReplaySafetyCallback* callback) {
     transport_.removeWaitingForReplaySafety(callback);
+  }
+
+  virtual size_t getNumWaitingForReplaySafety() const {
+    return transport_.getNumWaitingForReplaySafety();
   }
 
   int32_t getRecvToAck() const;

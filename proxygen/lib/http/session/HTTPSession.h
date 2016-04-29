@@ -1130,6 +1130,15 @@ class HTTPSession:
   }
 
   /**
+   * Get the number of callbacks waiting for replay safety. This is a temporary
+   * workaround until we have a better way to allocate stream IDs to
+   * waiting transactions.
+   */
+  size_t getNumWaitingForReplaySafety() const override {
+    return waitingForReplaySafety_.size();
+  }
+
+  /**
    * Callback from the transport to this HTTPSession to signal when the
    * transport has become replay safe.
    */
