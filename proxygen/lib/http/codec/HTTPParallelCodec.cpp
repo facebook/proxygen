@@ -58,4 +58,10 @@ bool HTTPParallelCodec::isReusable() const {
     && (ingressGoawayAck_ == std::numeric_limits<uint32_t>::max())
     && (nextEgressStreamID_ <= std::numeric_limits<int32_t>::max() - 2);
 }
+
+void HTTPParallelCodec::enableDoubleGoawayDrain() {
+  CHECK_EQ(sessionClosing_, ClosingState::OPEN);
+  sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
+}
+
 }

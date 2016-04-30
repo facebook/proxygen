@@ -48,6 +48,7 @@ public:
   bool isReusable() const override;
   bool isWaitingToDrain() const override;
   StreamID getLastIncomingStreamID() const override { return lastStreamID_; }
+  void enableDoubleGoawayDrain() override;
 
   void setNextEgressStreamId(StreamID nextEgressStreamID) {
     if (nextEgressStreamID > nextEgressStreamID_ &&
@@ -67,7 +68,7 @@ protected:
 
   enum ClosingState {
     OPEN = 0,
-    OPEN_WITH_GRACEFUL_DRAIN_ENABLED = 1, // SPDY only
+    OPEN_WITH_GRACEFUL_DRAIN_ENABLED = 1,
     FIRST_GOAWAY_SENT = 2,
     CLOSING = 3, // SPDY only
     CLOSED = 4 // HTTP2 only

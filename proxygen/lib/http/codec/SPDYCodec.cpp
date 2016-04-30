@@ -955,11 +955,6 @@ size_t SPDYCodec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   return frameSize;
 }
 
-void SPDYCodec::enableDoubleGoawayDrain() {
-  CHECK_EQ(sessionClosing_, ClosingState::OPEN);
-  sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
-}
-
 size_t SPDYCodec::addPriorityNodes(
     PriorityQueue& queue,
     folly::IOBufQueue&,

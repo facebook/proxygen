@@ -1081,6 +1081,7 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
   }
   switch (sessionClosing_) {
     case ClosingState::OPEN:
+    case ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED:
       if (lastStream == std::numeric_limits<int32_t>::max() &&
           statusCode == ErrorCode::NO_ERROR) {
         sessionClosing_ = ClosingState::FIRST_GOAWAY_SENT;
@@ -1093,7 +1094,6 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
     case ClosingState::FIRST_GOAWAY_SENT:
       sessionClosing_ = ClosingState::CLOSED;
       break;
-    case ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED:
     case ClosingState::CLOSING:
     case ClosingState::CLOSED:
       LOG(FATAL) << "unreachable";

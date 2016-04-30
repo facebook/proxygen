@@ -523,9 +523,8 @@ class HTTPCodec {
   }
 
   /**
-   * This interface is only implemented by SPDYCodec. This enables some
-   * HTTP/2 style behavior during graceful shutdown that allows 2 GOAWAYs
-   * to be sent during shutdown.
+   * This enables HTTP/2 style behavior during graceful shutdown that allows
+   * 2 GOAWAYs to be sent during shutdown.
    */
   virtual void enableDoubleGoawayDrain() {}
 

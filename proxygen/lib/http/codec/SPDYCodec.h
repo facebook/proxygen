@@ -84,7 +84,6 @@ public:
   size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,
                               StreamID stream,
                               uint32_t delta) override;
-  void enableDoubleGoawayDrain() override;
 
   /**
    * Returns a const reference to the ingress settings. Since ingress
