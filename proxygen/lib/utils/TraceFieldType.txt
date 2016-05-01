@@ -67,6 +67,7 @@ SessionManagerType, "sess_mgr_type"
 NewConnTimeout, "new_conn_timeout"
 InFlightConns, "in_flight_conns"
 CachedSessions, "cached_sessions"
+CachedActiveSessions, "cached_active_sessions"
 ConnsStarted, "conns_started"
 RequestsWaited, "requests_waited"
 TotalRequestsWaited, "total_requests_waited",
@@ -74,6 +75,8 @@ TotalConnsStarted, "total_conns_started",
 TotalBackupConnsStarted, "total_backup_conns_started",
 SessionCacheHitType, "session_cache_hit_type"
 PerDomainLimit, "per_domain_limit"
+DynamicDomainLimitRatio, "dynamic_domain_limit_ratio"
+LoadBalancing, "load_balancing"
 MaxConnectionRetryCount, "max_connection_retry_count"
 MaxIdleHTTPSessions, "max_idle_http_sessions"
 MaxIdleSPDYSessions, "max_idle_spdy_sessions"
