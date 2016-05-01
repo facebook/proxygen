@@ -150,8 +150,8 @@ class DecoratedAsyncTransportWrapper : public folly::AsyncTransportWrapper {
     return transport_->setEorTracking(track);
   }
 
-  virtual void setSendTimeout(uint32_t timeoutInMs) override {
-    transport_->setSendTimeout(timeoutInMs);
+  virtual void setSendTimeout(uint32_t milliseconds) override {
+    transport_->setSendTimeout(milliseconds);
   }
 
   virtual void shutdownWrite() override {
