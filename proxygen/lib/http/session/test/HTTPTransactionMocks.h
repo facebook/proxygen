@@ -88,6 +88,9 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   MOCK_CONST_METHOD0(isDraining, bool());
   MOCK_CONST_METHOD0(getSecurityProtocol, std::string());
 
+  MOCK_CONST_METHOD0(getTransport, const folly::AsyncTransportWrapper*());
+  MOCK_METHOD0(getTransport, folly::AsyncTransportWrapper*());
+
   GMOCK_METHOD1_(, noexcept,, addWaitingForReplaySafety,
       void(folly::AsyncTransport::ReplaySafetyCallback*));
   GMOCK_METHOD1_(, noexcept,, removeWaitingForReplaySafety,
