@@ -516,7 +516,7 @@ HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
 
   auto sslEx = dynamic_cast<const folly::SSLException*>(&ex);
   if (infoCallback_ && sslEx) {
-    if (sslEx->getType() == folly::SSLError::CLIENT_RENEGOTIATION) {
+    if (sslEx->getSSLError() == folly::SSLError::CLIENT_RENEGOTIATION) {
       infoCallback_->onIngressError(*this, kErrorClientRenegotiation);
     }
   }
@@ -525,7 +525,7 @@ HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
   // of the socket if there are outstanding transactions, though.
   // Instead, give the transactions a chance to produce any remaining
   // output.
-  if (sslEx && sslEx->getType() == folly::SSLError::SSL_ERROR) {
+  if (sslEx && sslEx->getSSLError() == folly::SSLError::SSL_ERROR) {
     transportInfo_.sslError = ex.what();
   }
   setCloseReason(ConnectionCloseReason::IO_READ_ERROR);
@@ -2270,7 +2270,7 @@ HTTPSession::onWriteError(size_t bytesWritten,
 
   auto sslEx = dynamic_cast<const folly::SSLException*>(&ex);
   // Save the SSL error, if there was one.  It will be recorded later
-  if (sslEx && sslEx->getType() == folly::SSLError::SSL_ERROR) {
+  if (sslEx && sslEx->getSSLError() == folly::SSLError::SSL_ERROR) {
     transportInfo_.sslError = ex.what();
   }
 
