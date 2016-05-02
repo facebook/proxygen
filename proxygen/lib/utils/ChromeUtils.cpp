@@ -9,6 +9,8 @@
  */
 #include "ChromeUtils.h"
 
+#include <folly/portability/GFlags.h>
+
 #include <string>
 
 namespace proxygen {
