@@ -47,9 +47,11 @@ class HTTPUpstreamSession final: public HTTPSession {
         tinfo,
         infoCallback),
     maxVirtualPriorityLevel_(maxVirtualPri) {
-    auto asyncSocket = sock->getUnderlyingTransport<folly::AsyncSocket>();
-    if (asyncSocket) {
-      asyncSocket->setBufferCallback(this);
+    if (sock_) {
+      auto asyncSocket = sock_->getUnderlyingTransport<folly::AsyncSocket>();
+      if (asyncSocket) {
+        asyncSocket->setBufferCallback(this);
+      }
     }
     CHECK_EQ(codec_->getTransportDirection(), TransportDirection::UPSTREAM);
   }
