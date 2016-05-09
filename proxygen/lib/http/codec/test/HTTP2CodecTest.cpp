@@ -7,14 +7,13 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <proxygen/lib/http/codec/test/HTTPParallelCodecTest.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/test/HTTP2FramerTest.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/utils/ChromeUtils.h>
-#include <proxygen/lib/utils/Logging.h>
 
 #include <gtest/gtest.h>
 #include <random>
@@ -24,73 +23,23 @@ using namespace folly;
 using namespace folly::io;
 using namespace std;
 
-class HTTP2CodecTest : public testing::Test {
+class HTTP2CodecTest : public HTTPParallelCodecTest {
  public:
+
+  HTTP2CodecTest()
+    :HTTPParallelCodecTest(upstreamCodec_, downstreamCodec_) {}
+
   void SetUp() override {
     HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
-    downstreamCodec_.setCallback(&callbacks_);
-    upstreamCodec_.setCallback(&callbacks_);
-    // Most tests are downstream tests, so generate the upstream conn preface
-    // by default
-    upstreamCodec_.generateConnectionPreface(output_);
-  }
-
-  void SetUpUpstreamTest() {
-    output_.move();
-    downstreamCodec_.generateConnectionPreface(output_); // no-op
-    downstreamCodec_.generateSettings(output_);
-  }
-
-  bool parse(std::function<void(IOBuf*)> hackIngress =
-             std::function<void(IOBuf*)>()) {
-    return parseImpl(downstreamCodec_, hackIngress);
-  }
-
-  bool parseUpstream(std::function<void(IOBuf*)> hackIngress =
-                     std::function<void(IOBuf*)>()) {
-    return parseImpl(upstreamCodec_, hackIngress);
-  }
-
-  /*
-   * hackIngress is used to keep the codec's strict checks while having
-   * separate checks for tests
-   */
-  bool parseImpl(HTTP2Codec& codec, std::function<void(IOBuf*)> hackIngress) {
-    dumpToFile(codec.getTransportDirection() == TransportDirection::UPSTREAM);
-    auto ingress = output_.move();
-    if (hackIngress) {
-      hackIngress(ingress.get());
-    }
-    size_t parsed = codec.onIngress(*ingress);
-    return (parsed == ingress->computeChainDataLength());
-  }
-
-  /*
-   * dumpToFile dumps binary frames to files ("/tmp/http2_*.bin"),
-   * allowing debugging individual frames.
-   * @note: assign true to dump_ to turn on dumpToFile
-   */
-  void dumpToFile(bool isUpstream=false) {
-    if (!dump_) {
-      return;
-    }
-    auto endpoint = isUpstream ? "client" : "server";
-    auto filename = folly::to<std::string>(
-        "/tmp/http2_", endpoint, "_", testInfo_->name(), ".bin");
-    dumpBinToFile(filename, output_.front());
+    HTTPParallelCodecTest::SetUp();
   }
 
   void testBigHeader(bool continuation);
 
 
  protected:
-  FakeHTTPCodecCallback callbacks_;
   HTTP2Codec upstreamCodec_{TransportDirection::UPSTREAM};
   HTTP2Codec downstreamCodec_{TransportDirection::DOWNSTREAM};
-  IOBufQueue output_{IOBufQueue::cacheChainLength()};
-  const testing::TestInfo*
-    testInfo_{testing::UnitTest::GetInstance()->current_test_info()};
-  bool dump_{false};
 };
 
 TEST_F(HTTP2CodecTest, BasicHeader) {
