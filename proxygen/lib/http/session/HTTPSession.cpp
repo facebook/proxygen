@@ -1245,7 +1245,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     goawayBuf = writeBuf_.move();
     writeBuf_.append(std::move(writeBuf));
   }
-  if (isUpstream() || (txn->isPushed() && headers.isResponse())) {
+  if (isUpstream() || (txn->isPushed() && headers.isRequest())) {
     // upstream picks priority
     auto pri = getMessagePriority(&headers);
     txn->onPriorityUpdate(pri);
