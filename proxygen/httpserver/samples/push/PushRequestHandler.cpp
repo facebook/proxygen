@@ -31,7 +31,13 @@ std::string createLargeBody() {
   return data;
 }
 
-PushRequestHandler::PushRequestHandler(PushStats* stats): stats_(stats) {
+std::string generateUrl(const HTTPMessage& message, const char* path) {
+  return HTTPMessage::createUrl(
+      message.isSecure() ? "https" : "http",
+      message.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST), path, "", "");
+}
+
+PushRequestHandler::PushRequestHandler(PushStats* stats) : stats_(stats) {
   if (gPushBody.empty()) {
     CHECK(folly::readFile(kPushFileName.c_str(), gPushBody))
       << "Failed to read push file=" << kPushFileName;
@@ -52,7 +58,7 @@ void PushRequestHandler::onRequest(
       LOG(INFO) << "sending large push ";
 
       ResponseBuilder(downstreamPush_)
-        .promise("/largePush",
+        .promise(generateUrl(*headers, "/largePush"),
                  headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST))
         .send();
 
@@ -64,7 +70,7 @@ void PushRequestHandler::onRequest(
       LOG(INFO) << "sending small push ";
 
       ResponseBuilder(downstreamPush_)
-        .promise("/pusheen",
+        .promise(generateUrl(*headers, "/pusheen"),
                  headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST))
         .send();
 
