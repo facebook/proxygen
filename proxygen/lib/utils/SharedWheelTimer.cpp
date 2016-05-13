@@ -29,18 +29,19 @@ std::weak_ptr<folly::HHWheelTimer> SharedWheelTimer::
   std::lock_guard<std::mutex> lock(timersLock_);
   auto found = timers_.find (eventBase);
   if (found == timers_.end()) {
-    return timers_.insert({eventBase, std::shared_ptr<folly::HHWheelTimer>(
-      new folly::HHWheelTimer(  // intentionally not specifying timeouts as
-                                // those are shared so that there will be
-                                // errors in tests on attempts to
-                                // scheduleTimeout without value
-        eventBase,
-        std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-        folly::AsyncTimeout::InternalEnum::NORMAL),
-      [] (folly::HHWheelTimer* s) { s->destroy(); } // need to call destroy
-                                                    // since it has delayed
-                                                    // destruction
-    )}).first->second;
+    return timers_
+        .insert({eventBase,
+                 std::shared_ptr<folly::HHWheelTimer>(
+                     folly::HHWheelTimer::newTimer( // intentionally not
+                                                    // specifying timeouts as
+                         // those are shared so that there will be
+                         // errors in tests on attempts to
+                         // scheduleTimeout without value
+                         eventBase,
+                         std::chrono::milliseconds(
+                             folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+                         folly::AsyncTimeout::InternalEnum::NORMAL))})
+        .first->second;
   }
   else {
     return found->second;

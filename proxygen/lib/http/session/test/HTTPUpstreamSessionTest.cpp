@@ -79,14 +79,13 @@ class HTTPUpstreamTest: public testing::Test,
   explicit HTTPUpstreamTest(std::vector<int64_t> flowControl = {-1, -1, -1})
       : eventBase_(),
         transport_(new NiceMock<MockAsyncTransport>()),
-        transactionTimeouts_(
-          new folly::HHWheelTimer(&eventBase_,
-                                  std::chrono::milliseconds(
-                                    folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-                                  TimeoutManager::InternalEnum::INTERNAL,
-                                  std::chrono::milliseconds(500))),
-        flowControl_(flowControl) {
-  }
+        transactionTimeouts_(folly::HHWheelTimer::newTimer(
+            &eventBase_,
+            std::chrono::milliseconds(
+                folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+            TimeoutManager::InternalEnum::INTERNAL,
+            std::chrono::milliseconds(500))),
+        flowControl_(flowControl) {}
 
   void resumeWrites() {
     pauseWrites_ = false;

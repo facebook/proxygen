@@ -85,11 +85,11 @@ class DownstreamTransactionTest : public testing::Test {
  protected:
   folly::EventBase eventBase_;
   folly::HHWheelTimer::UniquePtr transactionTimeouts_{
-    new folly::HHWheelTimer(&eventBase_,
-                            std::chrono::milliseconds(
-                              folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
-                            folly::AsyncTimeout::InternalEnum::NORMAL,
-                            std::chrono::milliseconds(500))};
+      folly::HHWheelTimer::newTimer(
+          &eventBase_,
+          std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+          folly::AsyncTimeout::InternalEnum::NORMAL,
+          std::chrono::milliseconds(500))};
   MockHTTPTransactionTransport transport_;
   StrictMock<MockHTTPHandler> handler_;
   HTTP2PriorityQueue txnEgressQueue_;
