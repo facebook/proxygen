@@ -2125,6 +2125,65 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   expectDetachSession();
 }
 
+TEST_F(HTTP2DownstreamSessionTest, server_push_abort_paused) {
+  HTTP2Codec serverCodec(TransportDirection::DOWNSTREAM);
+  HTTP2Codec clientCodec(TransportDirection::UPSTREAM);
+  IOBufQueue output{IOBufQueue::cacheChainLength()};
+  IOBufQueue input{IOBufQueue::cacheChainLength()};
+
+  // Create a dummy request and a dummy response messages
+  HTTPMessage req, res;
+  req.getHeaders().set("HOST", "www.foo.com");
+  req.setURL("https://www.foo.com/");
+  res.setStatusCode(200);
+  res.setStatusMessage("Ohai");
+
+  // Construct data sent from client to server
+  auto assocStreamId = HTTPCodec::StreamID(1);
+  clientCodec.getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
+  clientCodec.generateConnectionPreface(output);
+  clientCodec.generateSettings(output);
+  // generateHeader() will create a session and a transaction
+  clientCodec.generateHeader(output, assocStreamId, getGetRequest(),
+                             0, false, nullptr);
+
+  auto handler = addSimpleStrictHandler();
+  StrictMock<MockHTTPPushHandler> pushHandler;
+
+  InSequence handlerSequence;
+  handler->expectHeaders([&] {
+      // Generate response for the associated stream
+      this->transport_->pauseWrites();
+      handler->txn_->sendHeaders(res);
+      handler->txn_->sendBody(makeBuf(100));
+      handler->txn_->pauseIngress();
+
+      auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+      ASSERT_NE(pushTxn, nullptr);
+      // Generate a push request (PUSH_PROMISE)
+      pushTxn->sendHeaders(req);
+    });
+  EXPECT_CALL(pushHandler, setTransaction(_))
+    .WillOnce(Invoke([&] (HTTPTransaction* txn) {
+          pushHandler.txn_ = txn; }));
+  EXPECT_CALL(pushHandler, onError(_));
+  EXPECT_CALL(pushHandler, detachTransaction());
+  handler->expectError();
+  handler->expectDetachTransaction();
+
+  transport_->addReadEvent(output, milliseconds(0));
+  // Cancels everything
+  clientCodec.generateRstStream(output, assocStreamId, ErrorCode::CANCEL);
+  transport_->addReadEvent(output, milliseconds(10));
+  transport_->startReadEvents();
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+
+  clientCodec.setCallback(&callbacks_);
+  parseOutput(clientCodec);
+  expectDetachSession();
+}
+
 TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   // Create a transaction with egress and a ratio small enough that
   // ratio*4096 < 1.

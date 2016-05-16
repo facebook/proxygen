@@ -955,8 +955,10 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
   if (isDownstream() && txn->getAssocTxnId() == 0 &&
       code == ErrorCode::CANCEL) {
     // Cancelling the assoc txn cancels all push txns
-    for (auto pushTxnId : txn->getPushedTransactions()) {
-      auto pushTxn = findTransaction(pushTxnId);
+    for (auto it = txn->getPushedTransactions().begin();
+         it != txn->getPushedTransactions().end(); ) {
+      auto pushTxn = findTransaction(*it);
+      ++it;
       DCHECK(pushTxn != nullptr);
       pushTxn->onError(ex);
     }
@@ -1263,7 +1265,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
   const uint64_t newOffset = sessionByteOffset();
 
   // only do it for downstream now to bypass handling upstream reuse cases
-  if (isDownstream() &&
+  if (isDownstream() && headers.isResponse() &&
       newOffset > oldOffset &&
       // catch 100-ish response?
       !txn->testAndSetFirstHeaderByteSent() && byteEventTracker_) {
