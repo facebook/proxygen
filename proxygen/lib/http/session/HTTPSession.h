@@ -106,6 +106,18 @@ class HTTPSession:
     HTTPSession* session_;
   };
 
+  class DrainTimeout : public folly::HHWheelTimer::Callback {
+   public:
+    explicit DrainTimeout(HTTPSession* session) : session_(session) {}
+    ~DrainTimeout() override {}
+
+    void timeoutExpired() noexcept override {
+      session_->closeWhenIdle();
+    }
+   private:
+    HTTPSession* session_;
+  };
+
   /**
    * Set the read buffer limit to be used for all new HTTPSession objects.
    */
@@ -871,6 +883,8 @@ class HTTPSession:
   WriteTimeout writeTimeout_;
 
   FlowControlTimeout flowControlTimeout_;
+
+  DrainTimeout drainTimeout_;
 
   WheelTimerInstance timeout_;
 

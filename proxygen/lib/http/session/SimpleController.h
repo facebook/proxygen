@@ -53,6 +53,8 @@ class SimpleController : public HTTPSessionController {
 
   void attachSession(HTTPSession*) override;
   void detachSession(const HTTPSession*) override;
+
+  std::chrono::milliseconds getGracefulShutdownTimeout() const override;
  protected:
   HTTPTransactionHandler* createErrorHandler(
       uint32_t statusCode,

@@ -301,6 +301,7 @@ class MockController : public HTTPSessionController {
   MOCK_METHOD1(attachSession, void(HTTPSession*));
   MOCK_METHOD1(detachSession, void(const HTTPSession*));
   MOCK_METHOD1(onSessionCodecChange, void(HTTPSession*));
+  MOCK_CONST_METHOD0(getGracefulShutdownTimeout, std::chrono::milliseconds());
 };
 
 class MockUpstreamController : public HTTPUpstreamSessionController {

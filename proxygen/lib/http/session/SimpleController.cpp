@@ -63,4 +63,7 @@ HTTPTransactionHandler* SimpleController::createErrorHandler(
                                        errorPage);
 }
 
+std::chrono::milliseconds SimpleController::getGracefulShutdownTimeout() const {
+  return acceptor_->getGracefulShutdownTimeout();
+}
 }

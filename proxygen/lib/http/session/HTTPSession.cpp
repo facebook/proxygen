@@ -138,6 +138,7 @@ HTTPSession::HTTPSession(
     infoCallback_(infoCallback),
     writeTimeout_(this),
     flowControlTimeout_(this),
+    drainTimeout_(this),
     timeout_(timeout),
     transportInfo_(tinfo),
     reads_(SocketState::PAUSED),
@@ -317,7 +318,9 @@ HTTPSession::readTimeoutExpired() noexcept {
   VLOG(4) << *this << " Timeout with nothing pending";
 
   setCloseReason(ConnectionCloseReason::TIMEOUT);
-  shutdownTransport(true, true);
+  notifyPendingShutdown();
+  timeout_.scheduleTimeout(&drainTimeout_,
+                           controller_->getGracefulShutdownTimeout());
 }
 
 void

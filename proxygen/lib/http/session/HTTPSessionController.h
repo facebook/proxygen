@@ -10,6 +10,7 @@
 #pragma once
 
 #include <glog/logging.h>
+#include <chrono>
 
 namespace folly {
 class SocketAddress;
@@ -73,6 +74,10 @@ class HTTPSessionController {
    * Inform the controller that the session's codec changed
    */
   virtual void onSessionCodecChange(HTTPSession* session) {}
+
+  virtual std::chrono::milliseconds getGracefulShutdownTimeout() const {
+    return std::chrono::milliseconds(0);
+  }
 };
 
 

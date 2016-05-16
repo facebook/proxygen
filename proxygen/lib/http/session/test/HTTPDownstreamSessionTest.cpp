@@ -50,6 +50,8 @@ class HTTPDownstreamTest : public testing::Test {
       transport_(new TestAsyncTransport(&eventBase_)),
       transactionTimeouts_(makeTimeoutSet(&eventBase_)),
       flowControl_(flowControl) {
+    EXPECT_CALL(mockController_, getGracefulShutdownTimeout())
+      .WillRepeatedly(Return(std::chrono::milliseconds(0)));
     EXPECT_CALL(mockController_, attachSession(_));
     HTTPSession::setDefaultReadBufferLimit(65536);
     httpSession_ = new HTTPDownstreamSession(
@@ -329,12 +331,12 @@ class HTTPDownstreamTest : public testing::Test {
            (!writeEvents->empty() || !parseOutputStream_.empty())) {
       if (!writeEvents->empty()) {
         auto event = writeEvents->front();
-        writeEvents->pop_front();
         auto vec = event->getIoVec();
         for (size_t i = 0; i < event->getCount(); i++) {
           parseOutputStream_.append(
             IOBuf::copyBuffer(vec[i].iov_base, vec[i].iov_len));
         }
+        writeEvents->pop_front();
       }
       uint32_t consumed = clientCodec.onIngress(*parseOutputStream_.front());
       parseOutputStream_.split(consumed);
@@ -2046,6 +2048,39 @@ TEST_F(HTTP2DownstreamSessionTest, padding_flow_control) {
   std::list<HTTPCodec::StreamID> streams;
   EXPECT_CALL(callbacks_, onWindowUpdate(0, _));
   EXPECT_CALL(callbacks_, onWindowUpdate(1, _));
+  parseOutput(*clientCodec_);
+  expectDetachSession();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, graceful_drain_on_timeout) {
+  InSequence handlerSequence;
+  std::chrono::milliseconds gracefulTimeout(200);
+  getCodec().enableDoubleGoawayDrain();
+  EXPECT_CALL(mockController_, getGracefulShutdownTimeout())
+    .WillOnce(InvokeWithoutArgs([&] {
+          // Once session asks for graceful shutdown timeout, expect the client
+          // to receive the first GOAWAY
+          eventBase_.runInLoop([&] {
+              EXPECT_CALL(callbacks_,
+                          onGoaway(std::numeric_limits<int32_t>::max(),
+                                   ErrorCode::NO_ERROR, _));
+              parseOutput(*clientCodec_);
+            });
+          return gracefulTimeout;
+        }));
+
+
+  // Simulate ConnectionManager idle timeout
+  eventBase_.runAfterDelay([&] { httpSession_->timeoutExpired(); },
+                           transactionTimeouts_->getDefaultTimeout().count());
+  HTTPSession::DestructorGuard g(httpSession_);
+  auto start = getCurrentTime();
+  eventBase_.loop();
+  auto finish = getCurrentTime();
+  auto minDuration =
+    gracefulTimeout + transactionTimeouts_->getDefaultTimeout();
+  EXPECT_GE((finish - start).count(), minDuration.count());
+  EXPECT_CALL(callbacks_, onGoaway(0, ErrorCode::NO_ERROR, _));
   parseOutput(*clientCodec_);
   expectDetachSession();
 }
