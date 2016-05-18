@@ -252,4 +252,4 @@ ConnectReturnCode, "connect_return_code"
 /* ---- Used in Push ----*/
 IsPushRequest, "is_push_request"
 PushConnectedInFlight, "push_connected_in_flight"
-PushOrphaned, "push_orphined"
+PushOrphaned, "push_orphaned"
