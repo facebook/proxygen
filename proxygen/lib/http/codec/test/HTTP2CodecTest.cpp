@@ -215,6 +215,59 @@ TEST_F(HTTP2CodecTest, EmptyHeaderName) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HTTP2CodecTest, BasicConnect) {
+  std::string authority = "myhost:1234";
+  HTTPMessage request;
+  request.setMethod(HTTPMethod::CONNECT);
+  request.getHeaders().add(proxygen::HTTP_HEADER_HOST, authority);
+  upstreamCodec_.generateHeader(output_, 1, request, 0, false /* eom */);
+
+  parse();
+  callbacks_.expectMessage(false, 1, "");
+  EXPECT_EQ(HTTPMethod::CONNECT, callbacks_.msg->getMethod());
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ(authority, headers.getSingleOrEmpty(proxygen::HTTP_HEADER_HOST));
+}
+
+TEST_F(HTTP2CodecTest, BadConnect) {
+  std::string v1 = "CONNECT";
+  std::string v2 = "somehost:576";
+  std::vector<proxygen::compress::Header> goodHeaders = {
+    { http2::kMethod, v1 },
+    { http2::kAuthority, v2 },
+  };
+
+  // See https://tools.ietf.org/html/rfc7540#section-8.3
+  std::string v3 = "/foobar";
+  std::vector<proxygen::compress::Header> badHeaders = {
+    { http2::kScheme, http2::kHttp },
+    { http2::kPath, v3 },
+  };
+
+  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HTTPCodec::StreamID stream = 1;
+
+  for (size_t i = 0; i < badHeaders.size(); i++, stream += 2) {
+    auto allHeaders = goodHeaders;
+    allHeaders.push_back(badHeaders[i]);
+    auto encodedHeaders = headerCodec.encode(allHeaders);
+    http2::writeHeaders(output_,
+                        std::move(encodedHeaders),
+                        stream,
+                        boost::none,
+                        boost::none,
+                        true,
+                        true);
+  }
+
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, badHeaders.size());
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 void HTTP2CodecTest::testBigHeader(bool continuation) {
   if (continuation) {
     HTTP2Codec::setHeaderSplitSize(1);

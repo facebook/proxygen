@@ -87,11 +87,12 @@ class HTTPRequestVerifier {
     if (error.size()) {
       return false;
     }
-    if (msg_->getMethod() == HTTPMethod::CONNECT &&
-        (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_)) {
-      error = folly::to<std::string>("Malformed CONNECT request m/a/s/p=",
+    if (msg_->getMethod() == HTTPMethod::CONNECT) {
+      if (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_) {
+        error = folly::to<std::string>("Malformed CONNECT request m/a/s/p=",
                                 hasMethod_, hasAuthority_,
                                 hasScheme_, hasPath_);
+      }
     } else if (!hasMethod_ || !hasScheme_ || !hasPath_) {
       error = folly::to<std::string>("Malformed request m/a/s/p=",
                                 hasMethod_, hasAuthority_,

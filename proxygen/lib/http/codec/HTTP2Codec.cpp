@@ -877,13 +877,15 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
     DCHECK(transportDirection_ == TransportDirection::UPSTREAM ||
            assocStream != 0);
     const string& method = msg.getMethodString();
-    const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
-    const string& path = msg.getURL();
+    allHeaders.emplace_back(http2::kMethod, method);
+    if (msg.getMethod() != HTTPMethod::CONNECT) {
+      const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
+      const string& path = msg.getURL();
+      allHeaders.emplace_back(http2::kScheme, scheme);
+      allHeaders.emplace_back(http2::kPath, path);
+    }
     const HTTPHeaders& headers = msg.getHeaders();
     const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
-    allHeaders.emplace_back(http2::kMethod, method);
-    allHeaders.emplace_back(http2::kScheme, scheme);
-    allHeaders.emplace_back(http2::kPath, path);
     if (!host.empty()) {
       allHeaders.emplace_back(http2::kAuthority, host);
     }
