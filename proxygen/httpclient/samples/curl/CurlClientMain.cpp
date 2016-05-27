@@ -86,6 +86,7 @@ int main(int argc, char* argv[]) {
 
   CurlClient curlClient(&evb, httpMethod, url, headers,
                         FLAGS_input_filename);
+  curlClient.setFlowControlSettings(FLAGS_recv_window);
 
   SocketAddress addr(url.getHost(), url.getPort(), true);
   LOG(INFO) << "Trying to connect to " << addr;

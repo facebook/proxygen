@@ -63,8 +63,7 @@ HTTPServerAcceptor::HTTPServerAcceptor(
     const std::shared_ptr<HTTPCodecFactory>& codecFactory,
     std::vector<RequestHandlerFactory*> handlerFactories)
     : HTTPSessionAcceptor(conf, codecFactory),
-      handlerFactories_(handlerFactories) {
-}
+      handlerFactories_(handlerFactories) {}
 
 void HTTPServerAcceptor::setCompletionCallback(std::function<void()> f) {
   completionCallback_ = f;

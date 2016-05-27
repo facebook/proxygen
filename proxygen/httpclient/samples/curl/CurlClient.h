@@ -54,6 +54,16 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
 
   const std::string& getServerName() const;
 
+  void setFlowControlSettings(int32_t recvWindow);
+
+  const proxygen::HTTPMessage* getResponse() const {
+    return response_.get();
+  }
+
+  void setLogging(bool enabled) {
+    loggingEnabled_ = enabled;
+  }
+
 protected:
   proxygen::HTTPTransaction* txn_{nullptr};
   folly::EventBase* evb_{nullptr};
@@ -62,6 +72,10 @@ protected:
   proxygen::HTTPMessage request_;
   const std::string inputFilename_;
   folly::SSLContextPtr sslContext_;
+  int32_t recvWindow_;
+  bool loggingEnabled_{true};
+
+  std::unique_ptr<proxygen::HTTPMessage> response_;
 };
 
 } // CurlService namespace

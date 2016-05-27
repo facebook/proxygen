@@ -65,6 +65,9 @@ void CurlClient::sslHandshakeFollowup(HTTPUpstreamSession* session) noexcept {
   // passing it to the connector::connectSSL() method
 }
 
+void CurlClient::setFlowControlSettings(int32_t recvWindow) {
+  recvWindow_ = recvWindow;
+}
 
 void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
 
@@ -72,8 +75,7 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
     sslHandshakeFollowup(session);
   }
 
-  session->setFlowControl(FLAGS_recv_window, FLAGS_recv_window,
-                          FLAGS_recv_window);
+  session->setFlowControl(recvWindow_, recvWindow_, recvWindow_);
 
   txn_ = session->newTransaction(this);
   request_.setMethod(httpMethod_);
@@ -90,7 +92,9 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   if (!request_.getHeaders().getNumberOfValues(HTTP_HEADER_ACCEPT)) {
     request_.getHeaders().add("Accept", "*/*");
   }
-  request_.dumpMessage(4);
+  if (loggingEnabled_) {
+    request_.dumpMessage(4);
+  }
 
   txn_->sendHeaders(request_);
 
@@ -122,8 +126,8 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
 }
 
 void CurlClient::connectError(const folly::AsyncSocketException& ex) {
-  LOG(ERROR) << "Coudln't connect to " << url_.getHostAndPort() << ":" <<
-    ex.what();
+  LOG_IF(ERROR, loggingEnabled_) << "Coudln't connect to "
+                                 << url_.getHostAndPort() << ":" << ex.what();
 }
 
 void CurlClient::setTransaction(HTTPTransaction*) noexcept {
@@ -133,12 +137,19 @@ void CurlClient::detachTransaction() noexcept {
 }
 
 void CurlClient::onHeadersComplete(unique_ptr<HTTPMessage> msg) noexcept {
-  msg->getHeaders().forEach([&] (const string& header, const string& val) {
-      cout << header << ": " << val << endl;
-      });
+  response_ = std::move(msg);
+  if (!loggingEnabled_) {
+    return;
+  }
+  response_->getHeaders().forEach([&](const string& header, const string& val) {
+    cout << header << ": " << val << endl;
+  });
 }
 
 void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
+  if (!loggingEnabled_) {
+    return;
+  }
   if (chain) {
     const IOBuf* p = chain.get();
     do {
@@ -149,27 +160,27 @@ void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
 }
 
 void CurlClient::onTrailers(std::unique_ptr<HTTPHeaders>) noexcept {
-  LOG(INFO) << "Discarding trailers";
+  LOG_IF(INFO, loggingEnabled_) << "Discarding trailers";
 }
 
 void CurlClient::onEOM() noexcept {
-  LOG(INFO) << "Got EOM";
+  LOG_IF(INFO, loggingEnabled_) << "Got EOM";
 }
 
 void CurlClient::onUpgrade(UpgradeProtocol) noexcept {
-  LOG(INFO) << "Discarding upgrade protocol";
+  LOG_IF(INFO, loggingEnabled_) << "Discarding upgrade protocol";
 }
 
 void CurlClient::onError(const HTTPException& error) noexcept {
-  LOG(ERROR) << "An error occurred: " << error.what();
+  LOG_IF(ERROR, loggingEnabled_) << "An error occurred: " << error.what();
 }
 
 void CurlClient::onEgressPaused() noexcept {
-  LOG(INFO) << "Egress paused";
+  LOG_IF(INFO, loggingEnabled_) << "Egress paused";
 }
 
 void CurlClient::onEgressResumed() noexcept {
-  LOG(INFO) << "Egress resumed";
+  LOG_IF(INFO, loggingEnabled_) << "Egress resumed";
 }
 
 const string& CurlClient::getServerName() const {
