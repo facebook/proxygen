@@ -2044,6 +2044,10 @@ HTTPSession::checkForShutdown() {
       !isLoopCallbackScheduled()) {
     VLOG(4) << "destroying " << *this;
     sock_->setReadCB(nullptr);
+    auto asyncSocket = sock_->getUnderlyingTransport<folly::AsyncSocket>();
+    if (asyncSocket) {
+      asyncSocket->setBufferCallback(nullptr);
+    }
     reads_ = SocketState::SHUTDOWN;
     if (resetSocketOnShutdown_) {
       sock_->closeWithReset();
