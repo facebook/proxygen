@@ -20,9 +20,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include <folly/portability/Libgen.h>
+#include <folly/portability/Unistd.h>
 
 using namespace proxygen;
 using namespace std;
