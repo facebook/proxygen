@@ -10,7 +10,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <libgen.h>
 #include <list>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -22,6 +21,8 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <folly/portability/Libgen.h>
 
 using namespace proxygen;
 using namespace std;
