@@ -50,6 +50,12 @@ class HTTPServer final {
     Protocol protocol;
     std::shared_ptr<HTTPCodecFactory> codecFactory;
     std::vector<wangle::SSLContextConfig> sslConfigs;
+    /*
+     * Whether to allow an insecure connection on a secure port.
+     * This should be used in very few cases where a HTTP server needs to
+     * support insecure and secure connections.
+     */
+    bool allowInsecureConnectionsOnSecureServer{false};
   };
 
   /**

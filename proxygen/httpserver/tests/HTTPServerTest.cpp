@@ -15,9 +15,13 @@
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <proxygen/lib/utils/TestUtils.h>
+#include <proxygen/lib/http/HTTPConnector.h>
+#include <proxygen/httpclient/samples/curl/CurlClient.h>
 
+using namespace folly;
 using namespace proxygen;
 using namespace testing;
+using namespace CurlService;
 
 using folly::AsyncSSLSocket;
 using folly::AsyncServerSocket;
@@ -152,4 +156,120 @@ TEST(SSL, SSLTest) {
   sock->connect(&cb, server->addresses().front().address, 1000);
   evb.loop();
   EXPECT_TRUE(cb.success);
+}
+
+class TestHandlerFactory : public RequestHandlerFactory {
+ public:
+  class TestHandler : public proxygen::RequestHandler {
+    virtual void onRequest(
+        std::unique_ptr<proxygen::HTTPMessage>) noexcept override {}
+    virtual void onBody(std::unique_ptr<folly::IOBuf>) noexcept override {}
+    virtual void onUpgrade(proxygen::UpgradeProtocol) noexcept override {}
+
+    virtual void onEOM() noexcept override {
+      ResponseBuilder(downstream_)
+          .status(200, "OK")
+          .body(IOBuf::copyBuffer("hello"))
+          .sendWithEOM();
+    }
+
+    virtual void requestComplete() noexcept override { delete this; }
+
+    virtual void onError(ProxygenError) noexcept override { delete this; }
+  };
+
+  RequestHandler* onRequest(RequestHandler*, HTTPMessage*) noexcept override {
+    return new TestHandler();
+  }
+
+  virtual void onServerStart(folly::EventBase*) noexcept override {}
+  virtual void onServerStop() noexcept override {}
+};
+
+TEST(SSL, TestAllowInsecureOnSecureServer) {
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.setCertificate(
+      kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
+  cfg.sslConfigs.push_back(sslCfg);
+  cfg.allowInsecureConnectionsOnSecureServer = true;
+
+  HTTPServerOptions options;
+  options.threads = 4;
+  options.handlerFactories =
+      RequestHandlerChain().addThen<TestHandlerFactory>().build();
+
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+
+  std::vector<HTTPServer::IPConfig> ips{cfg};
+  server->bind(ips);
+
+  ServerThread st(server.get());
+  EXPECT_TRUE(st.start());
+
+  folly::EventBase evb;
+  URL url(folly::to<std::string>(
+      "http://localhost:", server->addresses().front().address.getPort()));
+  HTTPHeaders headers;
+  CurlClient curl(&evb, HTTPMethod::GET, url, headers, "");
+  curl.setFlowControlSettings(64 * 1024);
+  curl.setLogging(false);
+  HHWheelTimer::UniquePtr timer{new HHWheelTimer(
+      &evb,
+      std::chrono::milliseconds(HHWheelTimer::DEFAULT_TICK_INTERVAL),
+      AsyncTimeout::InternalEnum::NORMAL,
+      std::chrono::milliseconds(1000))};
+  HTTPConnector connector(&curl, timer.get());
+  connector.connect(&evb,
+                    server->addresses().front().address,
+                    std::chrono::milliseconds(1000));
+  evb.loop();
+  auto response = curl.getResponse();
+  EXPECT_EQ(200, response->getStatusCode());
+}
+
+TEST(SSL, DisallowInsecureOnSecureServer) {
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.setCertificate(
+      kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
+  cfg.sslConfigs.push_back(sslCfg);
+  cfg.allowInsecureConnectionsOnSecureServer = false;
+
+  HTTPServerOptions options;
+  options.threads = 4;
+  options.handlerFactories =
+      RequestHandlerChain().addThen<TestHandlerFactory>().build();
+
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+
+  std::vector<HTTPServer::IPConfig> ips{cfg};
+  server->bind(ips);
+
+  ServerThread st(server.get());
+  EXPECT_TRUE(st.start());
+
+  folly::EventBase evb;
+  URL url(folly::to<std::string>(
+      "http://localhost:", server->addresses().front().address.getPort()));
+  HTTPHeaders headers;
+  CurlClient curl(&evb, HTTPMethod::GET, url, headers, "");
+  curl.setFlowControlSettings(64 * 1024);
+  curl.setLogging(false);
+  HHWheelTimer::UniquePtr timer{new HHWheelTimer(
+      &evb,
+      std::chrono::milliseconds(HHWheelTimer::DEFAULT_TICK_INTERVAL),
+      AsyncTimeout::InternalEnum::NORMAL,
+      std::chrono::milliseconds(1000))};
+  HTTPConnector connector(&curl, timer.get());
+  connector.connect(&evb,
+                    server->addresses().front().address,
+                    std::chrono::milliseconds(1000));
+  evb.loop();
+  auto response = curl.getResponse();
+  EXPECT_EQ(nullptr, response);
 }

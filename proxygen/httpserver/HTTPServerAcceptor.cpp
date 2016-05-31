@@ -39,6 +39,8 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   }
 
   conf.sslContextConfigs = ipConfig.sslConfigs;
+  conf.allowInsecureConnectionsOnSecureServer =
+      ipConfig.allowInsecureConnectionsOnSecureServer;
   return conf;
 }
 
