@@ -66,6 +66,7 @@ void HTTPSessionAcceptor::onNewConnection(
 
   if (!codec) {
     VLOG(2) << "codecFactory_ failed to provide codec";
+    onSessionCreationError(ProxygenError::kErrorUnsupportedScheme);
     return;
   }
 

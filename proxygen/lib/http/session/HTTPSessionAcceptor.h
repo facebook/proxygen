@@ -127,6 +127,8 @@ protected:
 
   virtual size_t dropIdleConnections(size_t num);
 
+  virtual void onSessionCreationError(ProxygenError error) {}
+
 private:
   HTTPSessionAcceptor(const HTTPSessionAcceptor&) = delete;
   HTTPSessionAcceptor& operator=(const HTTPSessionAcceptor&) = delete;
