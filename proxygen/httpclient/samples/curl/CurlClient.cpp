@@ -1,5 +1,6 @@
 #include "CurlClient.h"
 
+#include <gflags/gflags.h>
 #include <errno.h>
 #include <sys/stat.h>
 
@@ -155,7 +156,7 @@ void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
     do {
       cout.write((const char*)p->data(), p->length());
       p = p->next();
-    } while (p->next() != chain.get());
+    } while (p != chain.get());
   }
 }
 
