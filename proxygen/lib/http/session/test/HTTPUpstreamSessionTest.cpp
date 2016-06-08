@@ -2199,6 +2199,19 @@ TEST_F(HTTP2UpstreamSessionTest, test_already_replay_safe) {
   httpSession_->destroy();
 }
 
+TEST_F(HTTP2UpstreamSessionTest ,test_chained_buf_ingress) {
+  auto buf = folly::IOBuf::copyBuffer("hi");
+  buf->prependChain(folly::IOBuf::copyBuffer("hello"));
+
+  MockHTTPSessionInfoCallback infoCb;
+  this->httpSession_->setInfoCallback(&infoCb);
+
+  EXPECT_CALL(infoCb, onRead(_, 7));
+  readCallback_->readBufferAvailable(std::move(buf));
+
+  httpSession_->destroy();
+}
+
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
                            immediate_eof);

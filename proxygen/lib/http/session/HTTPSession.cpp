@@ -448,7 +448,7 @@ HTTPSession::isBufferMovable() noexcept {
 
 void
 HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
-  size_t readSize = readBuf->length();
+  size_t readSize = readBuf->computeChainDataLength();
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
 
   DestructorGuard dg(this);
