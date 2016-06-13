@@ -3,6 +3,7 @@ SUBDIRS = .
 check_PROGRAMS = UtilTests AsyncTimeoutSetTest
 
 UtilTests_SOURCES = \
+	DestructorCheckTest.cpp \
 	GenericFilterTest.cpp \
 	HTTPTimeTest.cpp \
 	ParseURLTest.cpp \

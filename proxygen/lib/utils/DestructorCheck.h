@@ -41,44 +41,75 @@ namespace proxygen {
 class DestructorCheck {
  public:
   virtual ~DestructorCheck() {
-    if (pDestroyed_) {
-      *pDestroyed_ = true;
+    rootGuard_.setAllDestroyed();
+  }
+
+  class Safety;
+
+  class ForwardLink {
+   // These methods are mostly private because an outside caller could violate
+   // the integrity of the linked list.
+   private:
+    void setAllDestroyed() {
+      for (auto guard = next_; guard; guard = guard->next_) {
+        guard->setDestroyed();
+      }
     }
-  }
 
-  void setDestroyedPtr(bool* pDestroyed) {
-    pDestroyed_ = pDestroyed;
-  }
+    // This is used to maintain the double-linked list. An intrusive list does
+    // not require any heap allocations, like a standard container would. This
+    // isolation of next_ in its own class means that the DestructorCheck can
+    // easily hold a next_ pointer without needing to hold a prev_ pointer.
+    // DestructorCheck never needs a prev_ pointer because it is the head node
+    // and this is a special list where the head never moves and never has a
+    // previous node.
+    Safety* next_{nullptr};
 
-  void clearDestroyedPtr() {
-    pDestroyed_ = nullptr;
-  }
+    friend DestructorCheck::~DestructorCheck();
+    friend class Safety;
+  };
 
   // See above example for usage
-  class Safety {
+  class Safety : public ForwardLink {
    public:
-    explicit Safety(DestructorCheck& destructorCheck)
-      : destructorCheck_(destructorCheck) {
-      destructorCheck_.setDestroyedPtr(&destroyed_);
+    explicit Safety(DestructorCheck& destructorCheck) {
+      // Insert this node at the head of the list.
+      prev_ = &destructorCheck.rootGuard_;
+      next_ = prev_->next_;
+      if (next_ != nullptr) {
+        next_->prev_ = this;
+      }
+      prev_->next_ = this;
      }
 
     ~Safety() {
-      if (!destroyed_) {
-        destructorCheck_.clearDestroyedPtr();
+      if (!destroyed()) {
+        // Remove this node from the list.
+        prev_->next_ = next_;
+        if (next_ != nullptr) {
+          next_->prev_ = prev_;
+        }
       }
     }
 
     bool destroyed() const {
-      return destroyed_;
+      return prev_ == nullptr;
     }
 
    private:
-    DestructorCheck& destructorCheck_;
-    bool destroyed_{false};
+    void setDestroyed() {
+      prev_ = nullptr;
+    }
+
+    // This field is used to maintain the double-linked list. If the root has
+    // been destroyed then the field is set to the nullptr sentinel value.
+    ForwardLink* prev_;
+
+    friend class ForwardLink;
   };
 
  private:
-  bool* pDestroyed_{nullptr};
+  ForwardLink rootGuard_;
 };
 
 }
