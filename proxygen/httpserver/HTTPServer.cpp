@@ -156,12 +156,15 @@ void HTTPServer::start(std::function<void()> onSuccess,
   mainEventBase_->loopForever();
 }
 
-void HTTPServer::stop() {
+void HTTPServer::stopListening() {
   CHECK(mainEventBase_);
-
   for (auto& bootstrap : bootstrap_) {
     bootstrap.stop();
   }
+}
+
+void HTTPServer::stop() {
+  stopListening();
 
   for (auto& bootstrap : bootstrap_) {
     bootstrap.join();

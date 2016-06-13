@@ -94,6 +94,16 @@ class HTTPServer final {
              std::function<void(std::exception_ptr)> onError = nullptr);
 
   /**
+   * Stop listening on bound ports. (Stop accepting new work).
+   * It does not wait for pending work to complete.
+   * You must still invoke stop() before destroying the server.
+   * You do NOT need to invoke this before calling stop().
+   * This can be called from any thread, and it is idempotent.
+   * The only restriction is it should be called after start() has completed.
+   */
+  void stopListening();
+
+  /**
    * Stop HTTPServer.
    *
    * Can be called from any thread. Server will stop listening for new
