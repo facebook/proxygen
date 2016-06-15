@@ -98,6 +98,9 @@ public:
       (transportDirection_ == TransportDirection::UPSTREAM &&
        egressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1));
   }
+  void setHeaderCodecStats(HeaderCodec::Stats* stats) override {
+    headerCodec_.setStats(stats);
+  }
   size_t addPriorityNodes(
       PriorityQueue& queue,
       folly::IOBufQueue& writeBuf,
