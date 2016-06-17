@@ -184,7 +184,7 @@ void HTTPSession::setupCodec() {
   if (!codec_->supportsParallelRequests()) {
     // until we support upstream pipelining
     maxConcurrentIncomingStreams_ = 1;
-    maxConcurrentOutgoingStreamsConfig_ = isDownstream() ? 0 : 1;
+    maxConcurrentOutgoingStreamsRemote_ = isDownstream() ? 0 : 1;
   }
 
   HTTPSettings* settings = codec_->getEgressSettings();
@@ -269,9 +269,7 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
 
 void HTTPSession::setMaxConcurrentOutgoingStreams(uint32_t num) {
   CHECK(!started_);
-  if (codec_->supportsParallelRequests()) {
-    maxConcurrentOutgoingStreamsConfig_ = num;
-  }
+  maxConcurrentOutgoingStreamsConfig_ = num;
 }
 
 void HTTPSession::setMaxConcurrentIncomingStreams(uint32_t num) {
@@ -1108,9 +1106,9 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   // only HTTP1xCodec calls onNativeProtocolUpgrade
   CHECK(!codec_->supportsParallelRequests());
 
-  // Reset to defaults
+  // Reset to  defaults
   maxConcurrentIncomingStreams_ = 100;
-  maxConcurrentOutgoingStreamsConfig_ = 100;
+  maxConcurrentOutgoingStreamsRemote_ = 10000;
 
   // overwrite destination, delay current codec deletion until the end
   // of the event loop
@@ -1128,6 +1126,11 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   (void)codec_->createStream();
 
   // trigger settings frame that would have gone out in startNow()
+  HTTPSettings* settings = codec_->getEgressSettings();
+  if (settings) {
+    settings->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
+                         initialReceiveWindow_);
+  }
   sendSettings();
   if (connFlowControl_) {
     connFlowControl_->setReceiveWindowSize(writeBuf_,

@@ -161,6 +161,7 @@ class HTTPUpstreamTest: public testing::Test,
     }
     httpSession_->setFlowControl(flowControl_[0], flowControl_[1],
                                  flowControl_[2]);
+    httpSession_->setMaxConcurrentOutgoingStreams(10);
     httpSession_->startNow();
     eventBase_.loop();
     ASSERT_EQ(this->sessionDestroyed_, false);
@@ -1013,6 +1014,8 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
   httpSession_->setController(&controller);
   EXPECT_CALL(controller, onSessionCodecChange(httpSession_));
 
+  EXPECT_EQ(httpSession_->getMaxConcurrentOutgoingStreams(), 1);
+
   handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(200, msg->getStatusCode());
     });
@@ -1031,6 +1034,7 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
                                 "\r\n"));
   readAndLoop(getResponseBuf(respCodecVersion, txn->getID(), 200, 100).get());
 
+  EXPECT_EQ(httpSession_->getMaxConcurrentOutgoingStreams(), 10);
   httpSession_->destroy();
 }
 

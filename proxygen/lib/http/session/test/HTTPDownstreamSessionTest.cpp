@@ -273,11 +273,14 @@ class HTTPDownstreamTest : public testing::Test {
       EXPECT_CALL(callbacks, onSettings(_))
         .WillOnce(Invoke([this] (const SettingsList& settings) {
               if (flowControl_[0] > 0) {
+                bool foundInitialWindow = false;
                 for (const auto& setting: settings) {
                   if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
                     EXPECT_EQ(flowControl_[0], setting.value);
+                    foundInitialWindow = true;
                   }
                 }
+                EXPECT_TRUE(foundInitialWindow);
               }
             }));
     }
