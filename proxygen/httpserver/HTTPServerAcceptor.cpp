@@ -41,6 +41,8 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   conf.sslContextConfigs = ipConfig.sslConfigs;
   conf.allowInsecureConnectionsOnSecureServer =
       ipConfig.allowInsecureConnectionsOnSecureServer;
+  conf.enableTCPFastOpen = ipConfig.enableTCPFastOpen;
+  conf.fastOpenQueueSize = ipConfig.fastOpenQueueSize;
   return conf;
 }
 

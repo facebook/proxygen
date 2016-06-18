@@ -56,6 +56,11 @@ class HTTPServer final {
      * support insecure and secure connections.
      */
     bool allowInsecureConnectionsOnSecureServer{false};
+    bool enableTCPFastOpen{false};
+    /**
+     * Maximum queue size of pending fast open connections.
+     */
+    uint32_t fastOpenQueueSize{10000};
   };
 
   /**
