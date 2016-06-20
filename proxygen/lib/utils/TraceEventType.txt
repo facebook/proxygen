@@ -27,6 +27,7 @@ ConnInfo, "ConnInfo"
 ZeroSetup, "ZeroSetup"
 ZeroVerification, "ZeroVerification"
 ReplaySafety, "ReplaySafety"
+HTTPPerfParameters, "HTTPPerfParameters"
 
 /*
  * XXX: Too bad we have to define events in Liger core for the platform

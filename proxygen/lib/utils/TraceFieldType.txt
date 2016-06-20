@@ -256,3 +256,6 @@ ConnectReturnCode, "connect_return_code"
 IsPushRequest, "is_push_request"
 PushConnectedInFlight, "push_connected_in_flight"
 PushOrphaned, "push_orphaned"
+
+/* ---- Used in analytics logging ----*/
+AnalyticsTags, "analytics_tags"
