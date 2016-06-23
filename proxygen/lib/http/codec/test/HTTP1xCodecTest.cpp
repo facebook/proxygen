@@ -64,6 +64,23 @@ TEST(HTTP1xCodecTest, TestSimpleHeaders) {
   EXPECT_EQ(callbacks.headerSize.compressed, 0);
 }
 
+TEST(HTTP1xCodecTest, TestBadHeaders) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = folly::IOBuf::copyBuffer(
+    string("GET /yeah HTTP/1.1\nUser-Agent: Mozilla/5.0 Version/4.0 "
+           "\x10i\xC7n tho\xA1iSafari/534.30]"));
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onError(1, _, _))
+    .WillOnce(Invoke([&] (HTTPCodec::StreamID,
+                          std::shared_ptr<HTTPException> error,
+                          bool) {
+                       EXPECT_EQ(error->getHttpStatusCode(), 400);
+        }));
+  codec.onIngress(*buffer);
+}
+
 TEST(HTTP1xCodecTest, TestHeadRequestChunkedResponse) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
   HTTP1xCodecCallback callbacks;
