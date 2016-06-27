@@ -1649,7 +1649,8 @@ size_t http_parser_execute (http_parser *parser,
           goto reexecute_byte;
         }
 
-        if (!lenient && !IS_HEADER_CHAR(ch)) {
+        if (!lenient && !IS_HEADER_CHAR(ch) &&
+            parser->header_state != h_general_and_quote_and_escape) {
           SET_ERRNO(HPE_INVALID_HEADER_TOKEN);
           goto error;
         }
@@ -1665,7 +1666,7 @@ size_t http_parser_execute (http_parser *parser,
               ++p;                                    \
               ch = *p;                                \
               if (ch == CR || ch == LF || ch == QT || \
-                  !IS_HEADER_CHAR(ch)) {              \
+                  ch == BS || !IS_HEADER_CHAR(ch)) {  \
                 goto cr_or_lf_or_qt;                  \
               }                                       \
             } while(0);
