@@ -19,26 +19,26 @@ Note that currently this project has only been tested on Ubuntu 14.04,
 although it likely works on many other platforms. Support for Mac OSX is
 incomplete.
 
-You will need at least 2 GiB of memory to compile proxygen and its
+You will need at least 2 GiB of memory to compile `proxygen` and its
 dependencies.
 
 ##### Easy Install
 
 Just run `./deps.sh` from the `proxygen/` directory to get and build all
-the dependencies and proxygen. It will also run all the tests. Then run
+the dependencies and `proxygen`. It will also run all the tests. Then run
 `./reinstall.sh` to install it. You can run `./deps.sh && ./reinstall.sh`
-whenever to rebase the dependencies, and then rebuild and reinstall proxygen.
+whenever to rebase the dependencies, and then rebuild and reinstall `proxygen`.
 
 A note on compatibility: this project relies on system installed
-folly. If you rebase proxygen and `make` starts to fail, you likely
-need to update to the latest version of folly. Running
+[folly](https://github.com/facebook/folly). If you rebase `proxygen` and `make` starts to fail, you likely
+need to update to the latest version of `folly`. Running
 `./deps.sh && ./reinstall.sh` will do this for you. We are still working
 on a solution to manage depencies more predictably.
 
 ##### Other Platforms
 
 If you are running on another platform, you may need to install several
-packages first. Proxygen and folly are all autotools based projects.
+packages first. Proxygen and `folly` are all autotools based projects.
 
 ### Introduction
 
@@ -85,7 +85,7 @@ requests.
 ![Core Proxygen Architecture](CoreProxygenArchitecture.png)
 
 Moving into higher levels of abstraction, `proxygen/httpserver` has a
-simpler set of APIs and is the recommended way to interface with proxygen
+simpler set of APIs and is the recommended way to interface with `proxygen`
 when acting as a server if you don't need the full control of the lower
 level abstractions.
 
@@ -132,7 +132,7 @@ $ curl -v http://localhost:11000/
 We use Doxygen for Proxygen's internal documentation. You can generate a
 copy of these docs by running `doxygen Doxyfile` from the project
 root. You'll want to look at `html/namespaceproxygen.html` to start. This
-will also generate folly documentation.
+will also generate `folly` documentation.
 
 ### Contributing
 Contribututions to Proxygen are more than welcome. [Read the guidelines in CONTRIBUTING.md](CONTRIBUTING.md).
