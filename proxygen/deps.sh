@@ -53,7 +53,7 @@ sudo apt-get install -yq \
 if ! sudo apt-get install -y libgoogle-glog-dev;
 then
 	if [ ! -e google-glog ]; then
-    echo "fetching glog from svn (apt-get failed)"
+		echo "fetching glog from svn (apt-get failed)"
 		svn checkout https://google-glog.googlecode.com/svn/trunk/ google-glog
 		cd google-glog
 		./configure
@@ -66,20 +66,20 @@ fi
 if ! sudo apt-get install -y libgflags-dev;
 then
 	if [ ! -e google-gflags ]; then
-    echo "Fetching gflags from svn (apt-get failed)"
-    svn checkout https://google-gflags.googlecode.com/svn/trunk/ google-gflags
-    cd google-gflags
-    ./configure
-    make
-    sudo make install
-    cd ..
+		echo "Fetching gflags from svn (apt-get failed)"
+		svn checkout https://google-gflags.googlecode.com/svn/trunk/ google-gflags
+		cd google-gflags
+		./configure
+		make
+		sudo make install
+		cd ..
 	fi
 fi
 
 if  ! sudo apt-get install -y libdouble-conversion-dev;
 then
 	if [ ! -e double-conversion ]; then
-    echo "Fetching double-conversion from git (apt-get failed)"
+		echo "Fetching double-conversion from git (apt-get failed)"
 		git clone https://github.com/floitsch/double-conversion.git double-conversion
 		cd double-conversion
 		cmake . -DBUILD_SHARED_LIBS=ON
