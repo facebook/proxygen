@@ -50,7 +50,6 @@ Directory structure and contents:
 | `proxygen/lib/`            | Core networking abstractions.                                                 |
 | `proxygen/lib/http/`       | HTTP specific code.                                                           |
 | `proxygen/lib/services/`   | Connection management and server code.                                        |
-| `proxygen/lib/ssl/`        | TLS abstractions and OpenSSL wrappers.                                        |
 | `proxygen/lib/utils/`      | Miscellaneous helper code.                                                    |
 | `proxygen/httpserver/`     | Contains code wrapping `proxygen/lib/` for building simple C++ http servers. We recommend building on top of these APIs. |
 
