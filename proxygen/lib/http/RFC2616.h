@@ -69,4 +69,21 @@ typedef std::pair<folly::StringPiece, double> TokenQPair;
 
 bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair> &output);
 
+/**
+ * Parse an RFC 2616 section 14.16 "bytes A-B/C" string and returns them as the
+ * first and last bytes and instance length, respectively.
+ *
+ * Wildcards are handled specially as follows: if the range is actually "*",
+ * the first byte is parsed as 0 and last byte as ULONG_MAX; if instance length
+ * is actually "*", it is parsed as ULONG_MAX.
+ *
+ * Note that is ONLY suitable for use in parsing "Content-Range" response
+ * headers. The "Range" request header has different but similar syntax.
+ */
+bool parseByteRangeSpec(
+    folly::StringPiece value,
+    unsigned long& firstByte,
+    unsigned long& lastByte,
+    unsigned long& instanceLength);
+
 }}

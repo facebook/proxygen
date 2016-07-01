@@ -18,8 +18,9 @@ RUN apt-get install -yq \
     autoconf-archive \
     libevent-dev \
     libgoogle-glog-dev \
-    sudo \
-    wget
+    wget \
+    sudo
+
 WORKDIR /home
 RUN git clone https://github.com/facebook/proxygen.git
 WORKDIR /home/proxygen/proxygen
