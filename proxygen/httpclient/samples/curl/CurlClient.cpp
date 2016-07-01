@@ -10,7 +10,7 @@
 #include <folly/String.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
-#include <proxygen/lib/ssl/SSLContextConfig.h>
+#include <wangle/ssl/SSLContextConfig.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -37,7 +37,7 @@ void CurlClient::initializeSsl(const string& certPath,
                                const string& nextProtos) {
   sslContext_ = std::make_shared<folly::SSLContext>();
   sslContext_->setOptions(SSL_OP_NO_COMPRESSION);
-  SSLContextConfig config;
+  wangle::SSLContextConfig config;
   sslContext_->ciphers(config.sslCiphers);
   sslContext_->loadTrustedCertificates(certPath.c_str());
   list<string> nextProtoList;

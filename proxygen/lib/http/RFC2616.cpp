@@ -9,9 +9,34 @@
  */
 #include <proxygen/lib/http/RFC2616.h>
 
+#include <stdlib.h>
+
 #include <folly/String.h>
 #include <folly/ThreadLocal.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+
+namespace {
+
+/* Wapper around strtoul(3) */
+bool strtoulWrapper(const char *&curs, const char *end, unsigned long& val) {
+  char* endptr = nullptr;
+
+  unsigned long v = strtoul(curs, &endptr, 10);
+  if (endptr == curs) {
+    return false;
+  }
+
+  if (endptr > end) {
+    return false;
+  }
+
+  curs = endptr;
+  val = v;
+
+  return true;
+}
+
+}
 
 namespace proxygen { namespace RFC2616 {
 
@@ -75,6 +100,74 @@ bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair> &output) {
     }
   }
   return result && output.size() > 0;
+}
+
+bool parseByteRangeSpec(
+    folly::StringPiece value,
+    unsigned long& outFirstByte,
+    unsigned long& outLastByte,
+    unsigned long& outInstanceLength) {
+  // We should start with "bytes "
+  if (!value.startsWith("bytes ")) {
+    return false;
+  }
+
+  const char* curs = value.begin() + 6 /* strlen("bytes ") */;
+  const char* end = value.end();
+
+  unsigned long firstByte = ULONG_MAX;
+  unsigned long lastByte = ULONG_MAX;
+  unsigned long instanceLength = ULONG_MAX;
+
+  if (!strtoulWrapper(curs, end, firstByte)) {
+    if (*curs != '*') {
+      return false;
+    }
+
+    firstByte = 0;
+    lastByte = ULONG_MAX;
+    ++curs;
+  } else {
+    if (*curs != '-') {
+      return false;
+    }
+
+    ++curs;
+
+    if (!strtoulWrapper(curs, end, lastByte)) {
+      return false;
+    }
+  }
+
+  if (*curs != '/') {
+    return false;
+  }
+
+  ++curs;
+  if (*curs != '*') {
+    if (!strtoulWrapper(curs, end, instanceLength)) {
+      return false;
+    }
+  } else {
+    ++curs;
+  }
+
+  if (curs < end && *curs != '\0') {
+    return false;
+  }
+
+  if (lastByte < firstByte) {
+    return false;
+  }
+
+  if ((lastByte - firstByte + 1) > instanceLength) {
+    return false;
+  }
+
+  outFirstByte = firstByte;
+  outLastByte = lastByte;
+  outInstanceLength = instanceLength;
+  return true;
 }
 
 }}
