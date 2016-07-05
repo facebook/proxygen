@@ -111,6 +111,18 @@ inline void getDateTimeStr(char datebuf[32], char timebuf[32]) {
 }
 
 /**
+ * Get the current date + offset days in %Y-%m-%d format.
+ */
+inline void getDateOffsetStr(char datebuf[32], int dayOffset) {
+  time_t now = toTimeT(getCurrentTime<SteadyClock>());
+  struct tm final_tm;
+  localtime_r(&now, &final_tm);
+  final_tm.tm_mday += dayOffset;
+  mktime(&final_tm);
+  strftime(datebuf, sizeof(char) * 32, "%Y-%m-%d", &final_tm);
+}
+
+/**
  * Class used to get steady time. We use a separate class to mock it easier.
  */
 template <typename ClockType = SteadyClock>
