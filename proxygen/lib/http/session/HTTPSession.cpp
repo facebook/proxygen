@@ -715,6 +715,10 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
       transportInfo_.sslCipher ? transportInfo_.sslCipher->c_str() : nullptr;
   msg->setSecureInfo(transportInfo_.sslVersion, sslCipher);
   msg->setSecure(transportInfo_.ssl);
+  if (!transportInfo_.ssl) {
+    bool isSecure = !((getTransport()->getSecurityProtocol()).empty());
+    msg->setSecure(isSecure);
+  }
 
   setupOnHeadersComplete(txn, msg.get());
 
