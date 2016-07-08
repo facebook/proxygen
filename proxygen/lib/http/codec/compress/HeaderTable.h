@@ -139,12 +139,12 @@ class HeaderTable {
 
   /**
    * Sets the current capacity of the header table, and evicts entries
-   * if needed.  capacity must not be larger than currect capacity.
+   * if needed.
    */
   void setCapacity(uint32_t capacity);
 
   /**
-   * @return number of entries
+   * @return number of valid entries
    */
   uint32_t size() const {
     return size_;
@@ -158,10 +158,10 @@ class HeaderTable {
   }
 
   /**
-   * @return how many entries we have in the table
+   * @return how many slots we have in the table
    */
-  uint32_t length() const {
-    return length_;
+  size_t length() const {
+    return table_.size();
   }
 
   bool operator==(const HeaderTable& other) const;
@@ -213,7 +213,6 @@ class HeaderTable {
   std::vector<HPACKHeader> table_;
 
   uint32_t size_{0};    // how many entries we have in the table
-  uint32_t length_{0};   // number of entries in table_
   uint32_t head_{0};     // points to the first element of the ring
 
   names_map names_;
