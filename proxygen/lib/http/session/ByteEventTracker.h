@@ -33,7 +33,8 @@ class ByteEventTracker {
 
   virtual ~ByteEventTracker();
   explicit ByteEventTracker(Callback* callback): callback_(callback) {}
-  explicit ByteEventTracker(ByteEventTracker&&) noexcept;
+
+  void absorb(ByteEventTracker&& other);
   void setCallback(Callback* callback) { callback_ = callback; }
 
   void addPingByteEvent(size_t pingSize,
@@ -44,7 +45,8 @@ class ByteEventTracker {
   void addFirstHeaderByteEvent(uint64_t offset, HTTPTransaction* txn);
 
   virtual size_t drainByteEvents();
-  virtual void processByteEvents(uint64_t bytesWritten,
+  virtual bool processByteEvents(std::shared_ptr<ByteEventTracker> self,
+                                 uint64_t bytesWritten,
                                  bool eorTrackingEnabled);
   virtual void addLastByteEvent(HTTPTransaction* txn,
                                 uint64_t byteNo,

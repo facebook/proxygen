@@ -1649,8 +1649,11 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
 }
 
 void HTTPSession::setByteEventTracker(
-    std::unique_ptr<ByteEventTracker> byteEventTracker) {
-  byteEventTracker_ = std::move(byteEventTracker);
+    std::shared_ptr<ByteEventTracker> byteEventTracker) {
+  if (byteEventTracker && byteEventTracker_) {
+    byteEventTracker->absorb(std::move(*byteEventTracker_));
+  }
+  byteEventTracker_ = byteEventTracker;
   if (byteEventTracker_) {
     byteEventTracker_->setCallback(this);
     byteEventTracker_->setTTLBAStats(sessionStats_);
@@ -2240,10 +2243,13 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
 
   VLOG(5) << "total bytesWritten_: " << bytesWritten_;
 
-  if (byteEventTracker_) {
-    byteEventTracker_->processByteEvents(bytesWritten_,
-                                         sock_->isEorTrackingEnabled());
-  }
+  // processByteEvents will return true if it has been replaced with another
+  // tracker in the middle and needs to be re-run.  Should happen at most
+  // once.  while with no body is intentional
+  while (byteEventTracker_ &&
+         byteEventTracker_->processByteEvents(
+           byteEventTracker_, bytesWritten_,
+           sock_->isEorTrackingEnabled())) {} // pass
 
   if ((!codec_->isReusable() || readsShutdown()) && (transactions_.empty())) {
     if (!codec_->isReusable()) {
