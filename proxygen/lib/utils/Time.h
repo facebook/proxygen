@@ -114,11 +114,10 @@ inline void getDateTimeStr(char datebuf[32], char timebuf[32]) {
  * Get the current date + offset days in %Y-%m-%d format.
  */
 inline void getDateOffsetStr(char datebuf[32], int dayOffset) {
-  time_t now = toTimeT(getCurrentTime<SteadyClock>());
+  time_t t = toTimeT(getCurrentTime<SteadyClock>());
+  t += dayOffset * 24 * 60 * 60;
   struct tm final_tm;
-  localtime_r(&now, &final_tm);
-  final_tm.tm_mday += dayOffset;
-  mktime(&final_tm);
+  localtime_r(&t, &final_tm);
   strftime(datebuf, sizeof(char) * 32, "%Y-%m-%d", &final_tm);
 }
 
