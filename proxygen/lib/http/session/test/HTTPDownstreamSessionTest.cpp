@@ -811,7 +811,7 @@ TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
   // The original byteEventTracker will process the last byte event of the
   // first transaction, and detach by deleting the event.  Swap out the tracker.
   handler1->expectDetachTransaction([this] {
-      auto tracker = std::make_unique<ByteEventTracker>(httpSession_);
+      auto tracker = folly::make_unique<ByteEventTracker>(httpSession_);
       httpSession_->setByteEventTracker(std::move(tracker));
     });
   // handler2 should also be detached immediately because the new
