@@ -28,6 +28,8 @@ ZeroSetup, "ZeroSetup"
 ZeroVerification, "ZeroVerification"
 ReplaySafety, "ReplaySafety"
 HTTPPerfParameters, "HTTPPerfParameters"
+RetryFilter, "RetryFilter"
+ZeroFallback, "ZeroFallback"
 
 /*
  * XXX: Too bad we have to define events in Liger core for the platform

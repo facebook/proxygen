@@ -1,9 +1,10 @@
 language: cpp
 compiler: gcc
+services:
+  - docker
 install:
   - sudo apt-get update -qq
 before_script:
-  - cd proxygen
-  - ./deps.sh
+  - docker build -t facebook/proxygen .
 script:
-  - make check
+  - docker run -ti facebook/proxygen

@@ -25,14 +25,27 @@ ByteEventTracker::~ByteEventTracker() {
   drainByteEvents();
 }
 
-ByteEventTracker::ByteEventTracker(ByteEventTracker&& other) noexcept {
-  nextLastByteEvent_ = other.nextLastByteEvent_;
+void ByteEventTracker::absorb(ByteEventTracker&& other) {
+  byteEvents_ = std::move(other.byteEvents_);
+
+  // other.nextLastByteEvent_ may not have been updated yet if called from
+  // processByteEvents callback
+  nextLastByteEvent_ = nullptr;
   other.nextLastByteEvent_ = nullptr;
 
-  byteEvents_ = std::move(other.byteEvents_);
+  for (auto& event : byteEvents_) {
+    if (event.eventType_ == ByteEvent::LAST_BYTE) {
+      nextLastByteEvent_ = &event;
+      break;
+    }
+  }
 }
 
-void ByteEventTracker::processByteEvents(uint64_t bytesWritten,
+// The purpose of self is to represent shared ownership during
+// processByteEvents.  This allows the owner to release ownership of the tracker
+// from a callback without causing problems
+bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
+                                         uint64_t bytesWritten,
                                          bool eorTrackingEnabled) {
   bool advanceEOM = false;
 
@@ -61,6 +74,9 @@ void ByteEventTracker::processByteEvents(uint64_t bytesWritten,
     }
 
     VLOG(5) << " removing ByteEvent " << event;
+    // explicitly remove from the list, in case delete event triggers a
+    // callback that would absorb this ByteEventTracker.
+    event.listHook.unlink();
     delete &event;
   }
 
@@ -76,6 +92,7 @@ void ByteEventTracker::processByteEvents(uint64_t bytesWritten,
     VLOG(5) << "Setting nextLastByteNo to "
             << (nextLastByteEvent_ ? nextLastByteEvent_->byteOffset_ : 0);
   }
+  return self.use_count() == 1;
 }
 
 size_t ByteEventTracker::drainByteEvents() {

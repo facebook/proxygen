@@ -672,7 +672,7 @@ class HTTPSession:
     return sock_->getSecurityProtocol();
   }
 
-  void setByteEventTracker(std::unique_ptr<ByteEventTracker> byteEventTracker);
+  void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker);
   ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
 
   /**
@@ -1110,8 +1110,8 @@ class HTTPSession:
       size_t encodedSize,
       bool piggybacked) noexcept;
 
-  std::unique_ptr<ByteEventTracker> byteEventTracker_{
-    folly::make_unique<ByteEventTracker>(this)};
+  std::shared_ptr<ByteEventTracker> byteEventTracker_{
+    std::make_shared<ByteEventTracker>(this)};
 
   /**
    * Add a ReplaySafetyCallback requesting notification when the transport has

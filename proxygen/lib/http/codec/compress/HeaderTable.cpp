@@ -23,8 +23,8 @@ void HeaderTable::init(uint32_t capacityVal) {
   head_ = 0;
   capacity_ = capacityVal;
   // at a minimum an entry will take 32 bytes
-  length_ = (capacityVal >> 5) + 1;
-  table_.assign(length_, HPACKHeader());
+  uint32_t length = (capacityVal >> 5) + 1;
+  table_.assign(length, HPACKHeader());
   names_.clear();
 }
 
@@ -134,8 +134,35 @@ void HeaderTable::removeLast() {
 }
 
 void HeaderTable::setCapacity(uint32_t capacity) {
+  auto oldCapacity = capacity_;
   capacity_ = capacity;
-  evict(0);
+  if (capacity_ <= oldCapacity) {
+    evict(0);
+  } else {
+    auto oldTail = tail();
+    auto oldLength = table_.size();
+    uint32_t newLength = (capacity_ >> 5) + 1;
+    table_.resize(newLength);
+    if (size_ > 0 && oldTail > head_) {
+      // the list wrapped around, need to move oldTail..oldLength to the end of
+      // the now-larger table_
+      std::copy(table_.begin() + oldTail, table_.begin() + oldLength,
+                table_.begin() + newLength - (oldLength - oldTail));
+      // Update the names indecies that pointed to the old range
+      for (auto& names_it: names_) {
+        for (auto& idx: names_it.second) {
+          if (idx >= oldTail) {
+            DCHECK_LT(idx + (table_.size() - oldLength), table_.size());
+            idx += (table_.size() - oldLength);
+          } else {
+            // remaining indecies in the list were smaller than oldTail, so
+            // should be indexed from 0
+            break;
+          }
+        }
+      }
+    }
+  }
 }
 
 uint32_t HeaderTable::evict(uint32_t needed) {
@@ -152,15 +179,15 @@ bool HeaderTable::isValid(uint32_t index) const {
 }
 
 uint32_t HeaderTable::next(uint32_t i) const {
-  return (i + 1) % length_;
+  return (i + 1) % table_.size();
 }
 
 uint32_t HeaderTable::tail() const {
-  return (head_ + length_ - size_ + 1) % length_;
+  return (head_ + table_.size() - size_ + 1) % table_.size();
 }
 
 uint32_t HeaderTable::toExternal(uint32_t internalIndex) const {
-  return toExternal(head_, length_, internalIndex);
+  return toExternal(head_, table_.size(), internalIndex);
 }
 
 uint32_t HeaderTable::toExternal(uint32_t head, uint32_t length,
@@ -169,7 +196,7 @@ uint32_t HeaderTable::toExternal(uint32_t head, uint32_t length,
 }
 
 uint32_t HeaderTable::toInternal(uint32_t externalIndex) const {
-  return toInternal(head_, length_, externalIndex);
+  return toInternal(head_, table_.size(), externalIndex);
 }
 
 uint32_t HeaderTable::toInternal(uint32_t head, uint32_t length,

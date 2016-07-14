@@ -226,6 +226,7 @@ ZeroAEAD, "zero_aead"
 ZeroKex, "zero_kex"
 ZeroVersion, "zero_version"
 ZeroRttEnabled, "zero_rtt_enabled"
+ZeroFallbackEnabled, "zero_fallback_enabled"
 
 /* --- Used in ZeroVerification --- */
 ZeroVerifiedSuccess, "zero_verified_success"

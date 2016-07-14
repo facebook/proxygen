@@ -783,6 +783,43 @@ TEST(HTTPDownstreamTest, byte_events_drained) {
   evb.loop();
 }
 
+TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
+  InSequence enforceOrder;
+
+  // Send two requests with writes paused, which will queue several byte events,
+  // including last byte events which are holding a reference to the
+  // transaction.
+  transport_->pauseWrites();
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1] () {
+      handler1->sendReplyWithBody(200, 100);
+    });
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&handler2] () {
+      handler2->sendReplyWithBody(200, 100);
+    });
+
+  sendRequest();
+  sendRequest();
+  // Resume writes from the loop callback
+  eventBase_.runInLoop([this] {
+      transport_->resumeWrites();
+    });
+
+  // The original byteEventTracker will process the last byte event of the
+  // first transaction, and detach by deleting the event.  Swap out the tracker.
+  handler1->expectDetachTransaction([this] {
+      auto tracker = folly::make_unique<ByteEventTracker>(httpSession_);
+      httpSession_->setByteEventTracker(std::move(tracker));
+    });
+  // handler2 should also be detached immediately because the new
+  // ByteEventTracker continues procesing where the old one left off.
+  handler2->expectDetachTransaction();
+  gracefulShutdown();
+}
+
 TEST_F(HTTPDownstreamSessionTest, trailers) {
   testChunks(true);
 }
