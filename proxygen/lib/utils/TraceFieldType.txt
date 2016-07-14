@@ -141,6 +141,12 @@ VerifiedNameMatched, "verified_nameMatched"
 VerifiedHostnameFailMessage, "verified_hostnameFailMessage"
 VerifiedCertSuccess, "verified_cert_success"
 
+/* ---- Used in Cert Timestamp Verification ---- */
+TimestampVerifiedCertNotAfterTime, "timestamp_verified_cert_not_after_time"
+TimestampVerifiedCertNotBeforeTime, "timestamp_verified_cert_not_before_time"
+TimestampVerifiedClientTimeOverride, "timestamp_verified_client_time_override"
+TimestampVerifiedTrustedTime, "timestamp_verified_trusted_time"
+
 /* ---- Used in Cert Pinning ---- */
 PinningReason, "verified_pinning_reason"
 PinningRequiredHash, "verified_pinning_required_hash"
