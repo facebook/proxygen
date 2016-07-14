@@ -20,6 +20,7 @@ RUN apt-get install -yq \
     libgoogle-glog-dev \
     wget \
     sudo
+
 WORKDIR /home
 RUN git clone https://github.com/facebook/proxygen.git
 WORKDIR /home/proxygen/proxygen
