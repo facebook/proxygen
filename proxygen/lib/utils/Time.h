@@ -13,6 +13,8 @@
 #include <chrono>
 #include <cinttypes>
 
+#include <openssl/ossl_typ.h>
+
 namespace proxygen {
 
 using SteadyClock = std::chrono::steady_clock;
@@ -120,6 +122,16 @@ inline void getDateOffsetStr(char datebuf[32], int dayOffset) {
   localtime_r(&t, &final_tm);
   strftime(datebuf, sizeof(char) * 32, "%Y-%m-%d", &final_tm);
 }
+
+/**
+ * Helper method to convert to OpenSSL type ASN1_TIME to a printable date and
+ * time string.
+ *
+ * @param time    a pointer to the ASN1_TIME instance to be converted.
+ * @return        a human readable date and time string for the openssl type
+ *                ASN1_TIME. If there is any error, returns empty string.
+ */
+std::string getDateTimeStr(const ASN1_TIME* const time);
 
 /**
  * Class used to get steady time. We use a separate class to mock it easier.
