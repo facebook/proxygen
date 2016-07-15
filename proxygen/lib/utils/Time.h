@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cinttypes>
+#include <string>
 
 #include <openssl/ossl_typ.h>
 
