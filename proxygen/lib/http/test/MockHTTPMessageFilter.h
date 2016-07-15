@@ -47,7 +47,8 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
     return kMockFilterName;
   }
 
-  [[noreturn]] virtual std::unique_ptr<HTTPMessageFilter> clone() noexcept {
+  [[noreturn]] virtual std::unique_ptr<HTTPMessageFilter> clone()
+  noexcept override {
     LOG(FATAL) << "clone() not implemented for filter: "
                << this->getFilterName();
   };
