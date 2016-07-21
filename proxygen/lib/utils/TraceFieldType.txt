@@ -121,6 +121,9 @@ TLSVersion, "ssl_version"
 OpenSSLVersion, "openssl_version"
 TLSCachePersistence, "tls_cache_persistence"
 
+/* ----- Used in TLSCachedInfo ---- */
+TLSCachedInfoHit, "tls_cached_info_cert_cache_hit"
+
 /* ---- Used in Decompression ---- */
 RspBodySize, "response_body_size"
 RspBodyCompSize, "response_body_compressed_size"
