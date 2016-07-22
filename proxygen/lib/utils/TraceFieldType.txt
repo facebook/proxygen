@@ -155,6 +155,9 @@ TimestampVerifiedCertNotBeforeTime, "timestamp_verified_cert_not_before_time"
 TimestampVerifiedClientTimeOverride, "timestamp_verified_client_time_override"
 TimestampVerifiedTrustedTime, "timestamp_verified_trusted_time"
 
+/* ---- Used in Cert Key Length Verification ---- */
+VerifiedKeyLengthSuccess, "verified_key_length_success"
+
 /* ---- Used in Cert Pinning ---- */
 PinningReason, "verified_pinning_reason"
 PinningRequiredHash, "verified_pinning_required_hash"
