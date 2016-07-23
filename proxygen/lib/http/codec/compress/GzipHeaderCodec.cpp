@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 
 #include <folly/Memory.h>
+#include <folly/SingletonThreadLocal.h>
 #include <folly/String.h>
 #include <folly/ThreadLocal.h>
 #include <folly/io/IOBuf.h>

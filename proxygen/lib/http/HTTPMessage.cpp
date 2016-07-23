@@ -13,6 +13,7 @@
 #include <boost/algorithm/string.hpp>
 #include <folly/Format.h>
 #include <folly/Range.h>
+#include <folly/SingletonThreadLocal.h>
 #include <string>
 #include <utility>
 #include <vector>
