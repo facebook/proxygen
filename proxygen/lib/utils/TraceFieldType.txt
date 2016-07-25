@@ -144,6 +144,9 @@ VerifiedNameMatched, "verified_nameMatched"
 VerifiedHostnameFailMessage, "verified_hostnameFailMessage"
 VerifiedCertSuccess, "verified_cert_success"
 
+/* ---- Used in Cert Signature Algorithm Verification ---- */
+SignatureAlgorithmCertSHA1, "signature_algorithm_verified_cert_sha1"
+
 /* ---- Used in Cert Failure Verification ---- */
 FailureVerifiedCertDepthInChain, "failure_verified_cert_depth_in_chain"
 VerifiedChainFailuresOverridden, "verified_chain_failures_overridden"
