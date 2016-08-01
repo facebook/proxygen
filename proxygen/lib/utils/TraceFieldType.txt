@@ -142,7 +142,6 @@ VerifiedMatchedCommonName, "verified_matchedCommonName"
 VerifiedMatchedSubjectAltName, "verified_matchedSubjectAltName"
 VerifiedNameMatched, "verified_nameMatched"
 VerifiedHostnameFailMessage, "verified_hostnameFailMessage"
-VerifiedCertSuccess, "verified_cert_success"
 
 /* ---- Used in Cert Signature Algorithm Verification ---- */
 SignatureAlgorithmCertSHA1, "signature_algorithm_verified_cert_sha1"
