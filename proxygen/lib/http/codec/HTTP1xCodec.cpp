@@ -432,6 +432,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     } else if (code == HTTP_HEADER_UPGRADE && upstream && txn == 1) {
       // save in case we get a 101 Switching Protocols
       upgradeHeader_ = value;
+      hasUpgradeHeader = true;
     } else if (!hasTransferEncodingChunked &&
                code == HTTP_HEADER_TRANSFER_ENCODING) {
       static const string kChunked = "chunked";
