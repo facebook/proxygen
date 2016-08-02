@@ -268,8 +268,11 @@ TransportType, "transport_type"
 /* --- Used in MQTTMessage --- */
 MQTTMsgRemainingLength, "mqtt_msg_remaining_length"
 MsgType, "msg_type"
-IsMsgRecv, "is_msg_received"
+IsMsgRecv, "is_msg_received"lishV
 ConnectReturnCode, "connect_return_code"
+MQTTMsgBytes, "mqtt_msg_bytes"
+MsgTopic, "msg_topic"
+QoS, "qos"
 
 /* ---- Used in Push ----*/
 IsPushRequest, "is_push_request"
