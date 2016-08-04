@@ -134,7 +134,7 @@ root. You'll want to look at `html/namespaceproxygen.html` to start. This
 will also generate `folly` documentation.
 
 ### Contributing
-Contribututions to Proxygen are more than welcome. [Read the guidelines in CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions to Proxygen are more than welcome. [Read the guidelines in CONTRIBUTING.md](CONTRIBUTING.md).
 Make sure you've [signed the CLA](https://code.facebook.com/cla) before sending in a pull request.
 
 ### Whitehat
