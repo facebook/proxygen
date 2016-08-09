@@ -9,6 +9,7 @@
  */
 #include <list>
 #include <map>
+#include <thread>
 
 #include <folly/Random.h>
 #include <folly/io/async/test/MockTimeoutManager.h>
@@ -615,6 +616,8 @@ class DanglingQueueTestBase {
 
  protected:
   void expireNodes() {
+    std::this_thread::sleep_for(
+      std::chrono::milliseconds(2 * HHWheelTimer::DEFAULT_TICK_INTERVAL));
     // Node lifetime it just under two ticks, so firing twice expires all nodes
     tick();
     tick();
