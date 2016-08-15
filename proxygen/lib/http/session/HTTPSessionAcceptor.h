@@ -116,7 +116,7 @@ protected:
     folly::AsyncTransportWrapper::UniquePtr sock,
     const folly::SocketAddress* address,
     const std::string& nextProtocol,
-    wangle::SecureTransportType secureTransportType,
+    SecureTransportType secureTransportType,
     const wangle::TransportInfo& tinfo) override;
 
   folly::AsyncSocket::UniquePtr makeNewAsyncSocket(folly::EventBase* base,
