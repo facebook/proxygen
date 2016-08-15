@@ -58,7 +58,7 @@ void HTTPSessionAcceptor::onNewConnection(
   folly::AsyncTransportWrapper::UniquePtr sock,
   const SocketAddress* peerAddress,
   const string& nextProtocol,
-  SecureTransportType secureTransportType,
+  wangle::SecureTransportType secureTransportType,
   const wangle::TransportInfo& tinfo) {
 
   unique_ptr<HTTPCodec> codec
