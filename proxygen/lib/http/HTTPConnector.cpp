@@ -88,7 +88,7 @@ void HTTPConnector::connect(
 
   DCHECK(!isBusy());
   transportInfo_ = wangle::TransportInfo();
-  transportInfo_.ssl = false;
+  transportInfo_.secure = false;
   socket_.reset(new AsyncSocket(eventBase));
   connectStart_ = getCurrentTime();
   socket_->connect(this, connectAddr, timeoutMs.count(),
@@ -107,7 +107,7 @@ void HTTPConnector::connectSSL(
 
   DCHECK(!isBusy());
   transportInfo_ = wangle::TransportInfo();
-  transportInfo_.ssl = true;
+  transportInfo_.secure = true;
   auto sslSock = new AsyncSSLSocket(context, eventBase);
   if (session) {
     sslSock->setSSLSession(session, true /* take ownership */);
@@ -142,24 +142,21 @@ void HTTPConnector::connectSuccess() noexcept {
   std::unique_ptr<HTTPCodec> codec;
 
   transportInfo_.acceptTime = getCurrentTime();
-  if (transportInfo_.ssl) {
-    AsyncSSLSocket* sslSocket = dynamic_cast<AsyncSSLSocket*>(socket_.get());
+  if (transportInfo_.secure) {
+    AsyncSSLSocket* sslSocket = socket_->getUnderlyingTransport<AsyncSSLSocket>();
 
-    const char* npnProto;
-    unsigned npnProtoLen;
-    sslSocket->getSelectedNextProtocol(
-      reinterpret_cast<const unsigned char**>(&npnProto), &npnProtoLen);
+    if (sslSocket) {
+      transportInfo_.sslNextProtocol =
+          std::make_shared<std::string>(socket_->getApplicationProtocol());
+      transportInfo_.sslSetupTime = millisecondsSince(connectStart_);
+      transportInfo_.sslCipher = sslSocket->getNegotiatedCipherName() ?
+        std::make_shared<std::string>(sslSocket->getNegotiatedCipherName()) :
+        nullptr;
+      transportInfo_.sslVersion = sslSocket->getSSLVersion();
+      transportInfo_.sslResume = wangle::SSLUtil::getResumeState(sslSocket);
+    }
 
-    transportInfo_.sslNextProtocol =
-        std::make_shared<std::string>(npnProto, npnProtoLen);
-    transportInfo_.sslSetupTime = millisecondsSince(connectStart_);
-    transportInfo_.sslCipher = sslSocket->getNegotiatedCipherName() ?
-      std::make_shared<std::string>(sslSocket->getNegotiatedCipherName()) :
-      nullptr;
-    transportInfo_.sslVersion = sslSocket->getSSLVersion();
-    transportInfo_.sslResume = wangle::SSLUtil::getResumeState(sslSocket);
-
-    codec = makeCodec(*transportInfo_.sslNextProtocol, forceHTTP1xCodecTo1_1_);
+    codec = makeCodec(socket_->getApplicationProtocol(), forceHTTP1xCodecTo1_1_);
   } else {
     codec = makeCodec(plaintextProtocol_, forceHTTP1xCodecTo1_1_);
   }

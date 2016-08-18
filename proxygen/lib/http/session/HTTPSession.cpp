@@ -498,7 +498,7 @@ HTTPSession::readEOF() noexcept {
   // due to client-side issues with the SSL cert. Note that it can also
   // happen if the client sends a SPDY frame header but no body.
   if (infoCallback_
-      && transportInfo_.ssl && transactionSeqNo_ == 0 && readBuf_.empty()) {
+      && transportInfo_.secure && transactionSeqNo_ == 0 && readBuf_.empty()) {
     infoCallback_->onIngressError(*this, kErrorClientSilent);
   }
 
@@ -714,11 +714,7 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   const char* sslCipher =
       transportInfo_.sslCipher ? transportInfo_.sslCipher->c_str() : nullptr;
   msg->setSecureInfo(transportInfo_.sslVersion, sslCipher);
-  msg->setSecure(transportInfo_.ssl);
-  if (!transportInfo_.ssl) {
-    bool isSecure = !((getTransport()->getSecurityProtocol()).empty());
-    msg->setSecure(isSecure);
-  }
+  msg->setSecure(transportInfo_.secure);
 
   setupOnHeadersComplete(txn, msg.get());
 
@@ -1148,7 +1144,7 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
              receiveStreamWindowSize_,
              getCodecSendWindowSize());
 
-  if (!transportInfo_.ssl &&
+  if (!transportInfo_.secure &&
       (!transportInfo_.sslNextProtocol ||
        transportInfo_.sslNextProtocol->empty())) {
     transportInfo_.sslNextProtocol = std::make_shared<string>(
@@ -1628,7 +1624,7 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
   if (getCurrentTransportInfoWithoutUpdate(tinfo)) {
     // some fields are the same with the setup transport info
     tinfo->setupTime = transportInfo_.setupTime;
-    tinfo->ssl = transportInfo_.ssl;
+    tinfo->secure = transportInfo_.secure;
     tinfo->sslSetupTime = transportInfo_.sslSetupTime;
     tinfo->sslVersion = transportInfo_.sslVersion;
     tinfo->sslCipher = transportInfo_.sslCipher;
