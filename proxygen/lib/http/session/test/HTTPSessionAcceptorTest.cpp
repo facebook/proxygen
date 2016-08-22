@@ -19,6 +19,7 @@ using namespace testing;
 using folly::AsyncSocket;
 using folly::test::MockAsyncSocket;
 using folly::SocketAddress;
+using wangle::SecureTransportType;
 
 namespace {
 
