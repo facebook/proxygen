@@ -1,11 +1,18 @@
 SUBDIRS = .
 
-BUILT_SOURCES = gmock-1.7.0/gtest/src/gtest-all.cc
+GTEST_ALL = googletest/googletest/src/gtest-all.cc
+BUILT_SOURCES = $(GTEST_ALL)
 
-gmock-1.7.0/gtest/src/gtest-all.cc:
-	wget https://googlemock.googlecode.com/files/gmock-1.7.0.zip
-	unzip gmock-1.7.0.zip
-
+$(GTEST_ALL):
+	test -f googletest/.git || \
+		rm -rf googletest && \
+		git clone https://github.com/google/googletest.git
+	(cd googletest && \
+		(git fetch origin || echo "Fetch failed") && \
+		git checkout release-1.8.0 -- && \
+		cmake . && \
+		make \
+		)
 
 check_LTLIBRARIES = libtesttransport.la
 libtesttransport_la_SOURCES = TestAsyncTransport.cpp
@@ -16,11 +23,12 @@ nobase_libtesttransport_HEADERS = TestAsyncTransport.h
 # libgmockgtest.la is gmock + gtest
 
 check_LTLIBRARIES += libgmockgtest.la
-libgmockgtest_la_CPPFLAGS = -Igmock-1.7.0/gtest -Igmock-1.7.0 -Igmock-1.7.0/gtest/include -Igmock-1.7.0/include -lglog
+libgmockgtest_la_CPPFLAGS = -Igoogletest/googletest -Igoogletest/googlemock $(AM_CPPFLAGS)
+libgmockgtest_la_LDFLAGS = -lglog
 
 libgmockgtest_la_SOURCES = \
-	gmock-1.7.0/gtest/src/gtest-all.cc \
-	gmock-1.7.0/src/gmock-all.cc
+	googletest/googletest/src/gtest-all.cc \
+	googletest/googlemock/src/gmock-all.cc
 
 check_LTLIBRARIES += libtestmain.la
 libtestmain_la_SOURCES = TestMain.cpp
