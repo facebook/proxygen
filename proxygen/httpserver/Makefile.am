@@ -4,6 +4,7 @@ lib_LTLIBRARIES = libproxygenhttpserver.la
 
 libproxygenhttpserverdir = $(includedir)/proxygen/httpserver
 nobase_libproxygenhttpserver_HEADERS = \
+	filters/AutoETag.h \
 	filters/DirectResponseHandler.h \
 	filters/RejectConnectFilter.h \
 	filters/ZlibServerFilter.h \
@@ -22,6 +23,7 @@ nobase_libproxygenhttpserver_HEADERS = \
 	SignalHandler.h
 
 libproxygenhttpserver_la_SOURCES = \
+	filters/AutoETag.cpp \
 	HTTPServer.cpp \
 	HTTPServerAcceptor.cpp \
 	RequestHandlerAdaptor.cpp \
