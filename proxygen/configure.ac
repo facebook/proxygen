@@ -28,22 +28,9 @@ AC_LANG([C++])
 AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_CPP
-AC_CXX_COMPILE_STDCXX_0X
 AC_PROG_RANLIB
+AX_CXX_COMPILE_STDCXX_14
 
-# Be sure to add any -std option to CXXFLAGS before we invoke any
-# AC_COMPILE_IFELSE() or similar macros. Any such macros that are invoked
-# before we update CXXFLAGS will not be run with the same options that we use
-# during the real build.
-STD=""
-if test "x$ac_cv_cxx_compile_cxx0x_cxx" = xyes; then
-   STD="-std=c++0x"
-fi
-if test "x$ac_cv_cxx_compile_cxx0x_gxx" = xyes; then
-   STD="-std=gnu++0x"
-fi
-
-CXXFLAGS="$STD $CXXFLAGS"
 CXXFLAGS="-fno-strict-aliasing $CXXFLAGS"
 CXXFLAGS="-O3 -g -W -Wall -Wextra -Wno-unused-parameter $CXXFLAGS"
 CXXFLAGS=" -Wno-missing-field-initializers -Wno-deprecated $CXXFLAGS"
