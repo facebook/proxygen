@@ -8,6 +8,7 @@
  *
  */
 #include <folly/io/async/EventBase.h>
+#include <folly/io/async/EventUtil.h>
 #include <folly/io/async/test/MockTimeoutManager.h>
 #include <folly/io/async/test/UndelayedDestruction.h>
 #include <folly/io/async/test/Util.h>
@@ -96,7 +97,7 @@ class TimeoutTest : public testing::Test {
     EXPECT_CALL(timeoutManager_, scheduleTimeout(_, _))
       .WillRepeatedly(Invoke([this] (AsyncTimeout* p, milliseconds t) {
             timeoutManager_.cancelTimeout(p);
-            p->getEvent()->ev_flags |= EVLIST_TIMEOUT;
+            folly::event_ref_flags(p->getEvent()) |= EVLIST_TIMEOUT;
             timeouts_.emplace(t + timeoutClock_.millisecondsSinceEpoch(),
                              p);
             return true;
@@ -128,7 +129,7 @@ class TimeoutTest : public testing::Test {
            timeoutClock_.millisecondsSinceEpoch() >= timeouts_.begin()->first) {
       AsyncTimeout* timeout = timeouts_.begin()->second;
       timeouts_.erase(timeouts_.begin());
-      timeout->getEvent()->ev_flags &= ~EVLIST_TIMEOUT;
+      folly::event_ref_flags(timeout->getEvent()) &= ~EVLIST_TIMEOUT;
       timeout->timeoutExpired();
     }
   }
