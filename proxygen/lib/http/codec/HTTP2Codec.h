@@ -129,6 +129,7 @@ public:
       msg = msgIn;
       isRequest = isRequestIn;
       hasStatus = false;
+      hasContentLength = false;
       regularHeaderSeen = false;
       parsingError = "";
       decodeError = HeaderDecodeError::NONE;
@@ -146,6 +147,7 @@ public:
     bool isRequest{false};
     bool hasStatus{false};
     bool regularHeaderSeen{false};
+    bool hasContentLength{false};
     std::string parsingError;
     HeaderDecodeError decodeError{HeaderDecodeError::NONE};
   };

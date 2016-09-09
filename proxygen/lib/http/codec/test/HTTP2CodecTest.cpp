@@ -1268,3 +1268,19 @@ TEST_F(HTTP2CodecTest, StreamIdOverflow) {
   }
   EXPECT_EQ(streamId, std::numeric_limits<int32_t>::max() - 2);
 }
+
+TEST_F(HTTP2CodecTest, TestMultipleContentLengthHeaders) {
+  // Generate a POST request with two Content-Length headers
+  // NOTE: getPostRequest already adds the content-length
+  HTTPMessage req = getPostRequest();
+  req.getHeaders().add("content-length", "300");
+  EXPECT_EQ(req.getHeaders().getNumberOfValues("content-length"), 2);
+
+  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  parse();
+
+  // Check that the request fails before the codec finishes parsing the headers
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.lastParseError->getHttpStatusCode(), 400);
+}

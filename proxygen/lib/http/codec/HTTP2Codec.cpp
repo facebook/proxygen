@@ -525,6 +525,13 @@ void HTTP2Codec::onHeader(const std::string& name,
         string("HTTP/2 Message with Connection header");
       return;
     }
+    if (nameSp == "content-length") {
+      if (decodeInfo_.hasContentLength) {
+        decodeInfo_.parsingError = string("Duplicate content-length");
+        return;
+      }
+      decodeInfo_.hasContentLength = true;
+    }
     bool nameOk = SPDYUtil::validateHeaderName(nameSp);
     bool valueOk = SPDYUtil::validateHeaderValue(valueSp, SPDYUtil::STRICT);
     if (!nameOk || !valueOk) {
