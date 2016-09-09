@@ -1567,6 +1567,13 @@ size_t http_parser_execute (http_parser *parser,
         notatoken:
         if (ch == ':') {
           state = s_header_value_start;
+          // do not allow headers with trailing whitespaces
+          // https://tools.ietf.org/html/rfc7230#section-3.2.4
+          if (p - header_field_mark > 1 &&
+              data[p - data - 1] == ' ') {
+            SET_ERRNO(HPE_INVALID_HEADER_TOKEN);
+            goto error;
+          }
           CALLBACK_DATA(header_field);
           break;
         }

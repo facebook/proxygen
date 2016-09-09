@@ -3078,7 +3078,14 @@ main (void)
     "\r\n";
   test_simple(corrupted_header_name, HPE_INVALID_HEADER_TOKEN);
 
-#if 0
+  const char *header_with_trailing_space =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "X-Some-Header : some_value\r\n"
+    "\r\n";
+  test_simple(header_with_trailing_space, HPE_INVALID_HEADER_TOKEN);
+
+  #if 0
   // NOTE(Wed Nov 18 11:57:27 CET 2009) this seems okay. we just read body
   // until EOF.
   //
