@@ -3085,6 +3085,20 @@ main (void)
     "\r\n";
   test_simple(header_with_trailing_space, HPE_INVALID_HEADER_TOKEN);
 
+  const char *bad_end_of_headers_1 =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example1.com\r\n"
+    "X-Some-Header: some_value"
+    "\r\n\r*";
+  test_simple(bad_end_of_headers_1, HPE_STRICT);
+
+  const char *bad_end_of_headers_2 =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example2.com\r\n"
+    "X-Some-Header: some_value"
+    "\n\r*";
+  test_simple(bad_end_of_headers_2, HPE_STRICT);
+
   #if 0
   // NOTE(Wed Nov 18 11:57:27 CET 2009) this seems okay. we just read body
   // until EOF.

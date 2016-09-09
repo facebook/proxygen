@@ -1799,6 +1799,11 @@ size_t http_parser_execute (http_parser *parser,
       {
         STRICT_CHECK(ch != LF);
 
+        if (ch != LF) {
+          SET_ERRNO(HPE_STRICT);
+          goto error;
+        }
+
         if (parser->flags & F_TRAILING) {
           /* End of a chunked request */
           state = s_message_done;
