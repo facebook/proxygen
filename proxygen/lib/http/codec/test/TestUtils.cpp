@@ -85,18 +85,19 @@ std::unique_ptr<HTTPMessage> makeGetRequest() {
   return folly::make_unique<HTTPMessage>(getGetRequest());
 }
 
-HTTPMessage getPostRequest() {
+HTTPMessage getPostRequest(uint32_t contentLength) {
   HTTPMessage req;
   req.setMethod("POST");
   req.setURL<string>("/");
   req.setHTTPVersion(1, 1);
   req.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
-  req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "200");
+  req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                       folly::to<string>(contentLength));
   return req;
 }
 
-std::unique_ptr<HTTPMessage> makePostRequest() {
-  return folly::make_unique<HTTPMessage>(getPostRequest());
+std::unique_ptr<HTTPMessage> makePostRequest(uint32_t contentLength) {
+  return folly::make_unique<HTTPMessage>(getPostRequest(contentLength));
 }
 
 HTTPMessage getResponse(uint32_t code, uint32_t bodyLen) {

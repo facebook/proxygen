@@ -2510,3 +2510,126 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_window) {
   expectDetachSession();
   this->eventBase_.loop();
 }
+
+TEST_F(HTTP2DownstreamSessionTest, test_short_content_length) {
+  InSequence enforceOrder;
+  auto req = getPostRequest(10);
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(20),
+                             boost::none, true);
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  EXPECT_CALL(callbacks_, onSettings(_));
+  EXPECT_CALL(callbacks_, onAbort(streamID, ErrorCode::PROTOCOL_ERROR));
+
+  parseOutput(*clientCodec_);
+  gracefulShutdown();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_long_content_length) {
+  InSequence enforceOrder;
+  auto req = getPostRequest(30);
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(20),
+                             boost::none, true);
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectBody();
+  handler1->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  EXPECT_CALL(callbacks_, onSettings(_));
+  EXPECT_CALL(callbacks_, onAbort(streamID, ErrorCode::PROTOCOL_ERROR));
+
+  parseOutput(*clientCodec_);
+  gracefulShutdown();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_malformed_content_length) {
+  InSequence enforceOrder;
+  auto req = getPostRequest();
+  req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "malformed");
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(20),
+                             boost::none, true);
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectBody();
+  handler1->expectEOM([&handler1] {
+      handler1->sendReplyWithBody(200, 100);
+    });
+  handler1->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  gracefulShutdown();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_head_content_length) {
+  InSequence enforceOrder;
+  auto req = getGetRequest();
+  req.setMethod(HTTPMethod::HEAD);
+  auto streamID = sendRequest(req);
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1] {
+      handler1->sendHeaders(200, 100);
+      // no body for head
+      handler1->txn_->sendEOM();
+    });
+  handler1->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  gracefulShutdown();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_304_content_length) {
+  InSequence enforceOrder;
+  auto req = getGetRequest();
+  req.setMethod(HTTPMethod::HEAD);
+  auto streamID = sendRequest(req);
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1] {
+      handler1->sendHeaders(304, 100);
+      handler1->txn_->sendEOM();
+    });
+  handler1->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  gracefulShutdown();
+}
+
+// chunked with wrong content-length
+TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
+  InSequence enforceOrder;
+  auto req = getPostRequest(10);
+  req.setIsChunked(true);
+  req.getHeaders().add(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateChunkHeader(requests_, streamID, 20);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(20), boost::none,
+                             false);
+  clientCodec_->generateChunkTerminator(requests_, streamID);
+  clientCodec_->generateEOM(requests_, streamID);
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  EXPECT_CALL(*handler1, onChunkHeader(20));
+  handler1->expectBody();
+  EXPECT_CALL(*handler1, onChunkComplete());
+  handler1->expectEOM([&handler1] {
+      handler1->sendReplyWithBody(200, 100);
+    });
+  handler1->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  gracefulShutdown();
+}

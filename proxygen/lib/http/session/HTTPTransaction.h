@@ -1271,6 +1271,7 @@ class HTTPTransaction :
    * could take on multiple 1xx values, and then take on 200.
    */
   uint16_t lastResponseStatus_{0};
+  folly::Optional<uint64_t> expectedContentLengthRemaining_;
 
   bool ingressPaused_:1;
   bool egressPaused_:1;
@@ -1286,6 +1287,7 @@ class HTTPTransaction :
   bool inActiveSet_:1;
   bool ingressErrorSeen_:1;
   bool priorityFallback_:1;
+  bool headRequest_:1;
 
   static uint64_t egressBufferLimit_;
 

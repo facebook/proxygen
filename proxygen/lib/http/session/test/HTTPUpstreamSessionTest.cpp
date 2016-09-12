@@ -38,9 +38,8 @@ namespace {
 HTTPMessage getUpgradePostRequest(uint32_t bodyLen,
                                   const std::string& upgradeHeader,
                                   bool expect100 = false) {
-  HTTPMessage req = getPostRequest();
+  HTTPMessage req = getPostRequest(bodyLen);
   req.getHeaders().set(HTTP_HEADER_UPGRADE, upgradeHeader);
-  req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, folly::to<string>(bodyLen));
   if (expect100) {
     req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
   }
@@ -1762,8 +1761,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
     // sent before any of these stages.
     InSequence enforceOrder;
     StrictMock<MockHTTPHandler> handler;
-    HTTPMessage req = getPostRequest();
-    req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "10");
+    HTTPMessage req = getPostRequest(10);
 
     std::unique_ptr<HTTPMessage> resp;
     std::unique_ptr<folly::IOBuf> respBody;
@@ -1853,8 +1851,7 @@ TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
   // This is basically the same test as above, just for the upgrade path
   InSequence enforceOrder;
   StrictMock<MockHTTPHandler> handler;
-  HTTPMessage req = getPostRequest();
-  req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "10");
+  HTTPMessage req = getPostRequest(10);
 
   std::unique_ptr<HTTPMessage> resp = makeResponse(200);
 

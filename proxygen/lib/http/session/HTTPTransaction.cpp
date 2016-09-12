@@ -14,6 +14,7 @@
 #include <folly/io/async/EventBaseManager.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
+#include <proxygen/lib/http/RFC2616.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 
@@ -64,7 +65,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     inResume_(false),
     inActiveSet_(true),
     ingressErrorSeen_(false),
-    priorityFallback_(false) {
+    priorityFallback_(false),
+    headRequest_(false) {
 
   if (assocStreamId_) {
     if (isUpstream()) {
@@ -146,6 +148,22 @@ void HTTPTransaction::onIngressHeadersComplete(
         HTTPTransactionIngressSM::Event::onHeaders)) {
     return;
   }
+  if (!msg->getIsChunked() &&
+      ((msg->isRequest() && msg->getMethod() != HTTPMethod::CONNECT) ||
+       (msg->isResponse() &&
+        !headRequest_ &&
+        !RFC2616::responseBodyMustBeEmpty(msg->getStatusCode())))) {
+    // CONNECT payload has no defined semantics
+    const auto& clHeader =
+      msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
+    if (!clHeader.empty()) {
+      try {
+        expectedContentLengthRemaining_ = folly::to<uint64_t>(clHeader);
+      } catch (const folly::ConversionError& ex) {
+        // ignore this, at least for now
+      }
+    }
+  }
   if (transportCallback_) {
     transportCallback_->headerBytesReceived(msg->getIngressHeaderSize());
   }
@@ -187,13 +205,24 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
         HTTPTransactionIngressSM::Event::onBody)) {
     return;
   }
+  if (expectedContentLengthRemaining_.hasValue()) {
+    if (expectedContentLengthRemaining_.value() >= len) {
+      expectedContentLengthRemaining_ =
+        expectedContentLengthRemaining_.value() - len;
+    } else {
+      LOG(ERROR) << *this << " Content-Length/body mismatch: received=" <<
+        len << " expecting no more than " <<
+        expectedContentLengthRemaining_.value();
+      sendAbort(ErrorCode::PROTOCOL_ERROR);
+    }
+  }
   if (transportCallback_) {
     transportCallback_->bodyBytesReceived(len);
   }
   if (mustQueueIngress()) {
     // register the bytes in the receive window
     if (!recvWindow_.reserve(len + padding, useFlowControl_)) {
-      LOG(ERROR) << *this << "recvWindow_.reserve failed with len=" << len <<
+      LOG(ERROR) << *this << " recvWindow_.reserve failed with len=" << len <<
         " padding=" << padding << " capacity=" << recvWindow_.getCapacity() <<
         " outstanding=" << recvWindow_.getOutstanding();
       sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
@@ -350,6 +379,14 @@ void HTTPTransaction::onIngressEOM() {
     sendAbort(ErrorCode::STREAM_CLOSED);
     return;
   }
+  if (expectedContentLengthRemaining_.hasValue() &&
+      expectedContentLengthRemaining_.value() > 0) {
+    LOG(ERROR) << *this << " Content-Length/body mismatch: expecting another "
+               << expectedContentLengthRemaining_.value();
+    sendAbort(ErrorCode::PROTOCOL_ERROR);
+    return;
+  }
+
   // TODO: change the codec to not give an EOM callback after a 100 response?
   // We could then delete the below 'if'
   if (isUpstream() && extraResponseExpected()) {
@@ -630,6 +667,9 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
   DCHECK(!isEgressComplete());
   if (isDownstream() && !isPushed()) {
     lastResponseStatus_ = headers.getStatusCode();
+  }
+  if (headers.isRequest()) {
+    headRequest_ = (headers.getMethod() == HTTPMethod::HEAD);
   }
   HTTPHeaderSize size;
   transport_.sendHeaders(this, headers, &size, eom);

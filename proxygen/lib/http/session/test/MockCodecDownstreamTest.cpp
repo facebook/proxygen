@@ -748,7 +748,7 @@ TEST_F(MockCodecDownstreamTest, flow_control_abort) {
 
 TEST_F(MockCodecDownstreamTest, buffering) {
   StrictMock<MockHTTPHandler> handler;
-  auto req1 = makePostRequest();
+  auto req1 = makePostRequest(20);
   auto chunk = makeBuf(10);
   auto chunkStr = chunk->clone()->moveToFbString();
 
@@ -890,7 +890,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
 TEST_F(MockCodecDownstreamTest, double_resume) {
   // Test spdy ping mechanism and egress re-ordering
   MockHTTPHandler handler1;
-  auto req1 = makePostRequest();
+  auto req1 = makePostRequest(5);
   auto buf = makeBuf(5);
   auto bufStr = buf->clone()->moveToFbString();
 
@@ -1075,8 +1075,7 @@ TEST_F(MockCodecDownstreamTest, unpaused_large_post) {
   unsigned kNumChunks = 10;
   auto wantToWrite = spdy::kInitialWindow * kNumChunks;
   auto wantToWriteStr = folly::to<string>(wantToWrite);
-  auto req1 = makePostRequest();
-  req1->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, wantToWriteStr);
+  auto req1 = makePostRequest(wantToWrite);
   auto req1Body = makeBuf(wantToWrite);
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))

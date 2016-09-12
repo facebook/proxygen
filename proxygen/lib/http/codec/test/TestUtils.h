@@ -309,14 +309,14 @@ std::unique_ptr<testing::NiceMock<MockHTTPCodec>>
 makeUpstreamParallelCodec();
 
 HTTPMessage getGetRequest(const std::string& url = std::string("/"));
-HTTPMessage getPostRequest();
+HTTPMessage getPostRequest(uint32_t contentLength = 200);
 HTTPMessage getResponse(uint32_t code, uint32_t bodyLen = 0);
 HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
                               HTTPMethod method = HTTPMethod::GET,
                               uint32_t bodyLen = 0);
 
 std::unique_ptr<HTTPMessage> makeGetRequest();
-std::unique_ptr<HTTPMessage> makePostRequest();
+std::unique_ptr<HTTPMessage> makePostRequest(uint32_t contentLength = 200);
 std::unique_ptr<HTTPMessage> makeResponse(uint16_t statusCode);
 
 std::tuple<std::unique_ptr<HTTPMessage>, std::unique_ptr<folly::IOBuf> >
