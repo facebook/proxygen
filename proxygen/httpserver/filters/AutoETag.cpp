@@ -18,13 +18,41 @@ void AutoETag::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
   h.forEachValueOfHeader(HTTP_HEADER_IF_NONE_MATCH,
       [&if_none_match_ = this->if_none_match_](const string& value) -> bool {
         if (value.find(',') == string::npos) {
+          // single entity-tag.
           if_none_match_.push_back(value);
         } else {
-          std::vector<string> tags;
-          folly::split(string(","), value, tags, true);
-          for (const string& tag: tags) {
-            folly::StringPiece trimmed = folly::trimWhitespace(folly::StringPiece(tag));
-            if_none_match_.emplace_back(trimmed.begin(), trimmed.end());
+          // potentially multiple entity-tags.
+          folly::StringPiece vals(value);
+          while (!vals.empty()) {
+            // skip LWS
+            while (!vals.empty() && isLWS(vals[0]))
+              vals.pop_front();
+
+            if (vals.empty())
+              break;
+
+            if (vals[0] == ',') {
+              // null token
+              vals.pop_front();
+              continue;
+            }
+
+            // quoted-string starts. Look for close quote being sure to skip
+            // over any quoted-pair (eg. `\"`).
+            folly::StringPiece::size_type end;
+            for (end = vals.find_first_of("\"\\", 1);
+                 end != folly::StringPiece::npos && vals[end] != '"';
+                 end = vals.find_first_of("\"\\", end + 1)) {
+              // end points to a quoted-pair, skip it and keep searching.
+              ++end;
+            }
+
+            if (end != folly::StringPiece::npos && vals[end] == '"')
+              if_none_match_.emplace_back(vals[0], vals[end]);
+            else
+              break;
+
+            vals.advance(end + 1);
           }
         }
         return false;
