@@ -5,8 +5,8 @@ Facebook. Internally, it is used as the basis for building many HTTP
 servers, proxies, and clients. This release focuses on the common HTTP
 abstractions and our simple HTTPServer framework. Future releases will
 provide simple client APIs as well. The framework supports HTTP/1.1,
-SPDY/3, and SPDY/3.1. HTTP/2 support is in progress. The goal is to
-provide a simple, performant, and modern C++ HTTP library.
+SPDY/3, SPDY/3.1, and HTTP/2. The goal is to provide a simple,
+performant, and modern C++ HTTP library.
 
 We have a Google group for general discussions at https://groups.google.com/d/forum/facebook-proxygen.
 
