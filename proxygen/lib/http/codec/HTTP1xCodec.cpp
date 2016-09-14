@@ -786,12 +786,6 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
     pushHeaderNameAndValue(msg_->getHeaders());
   }
 
-  // discard messages with multiple content-length headers (t12767790)
-  if (msg_->getHeaders().getNumberOfValues("Content-Length") > 1) {
-    LOG(ERROR) << "Invalid message, multiple Content-Length headers";
-    return -1;
-  }
-
   // Update the HTTPMessage with the values parsed from the header
   msg_->setHTTPVersion(parser_.http_major, parser_.http_minor);
   msg_->setIsChunked((parser_.flags & F_CHUNKED));

@@ -12,7 +12,6 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
-#include <proxygen/lib/http/codec/test/TestUtils.h>
 
 using namespace proxygen;
 using namespace std;
@@ -259,23 +258,5 @@ TEST(HTTP1xCodecTest, TestBadPost100) {
       "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
       "Expect: 100-Continue\r\nContent-Length: 5\r\n\r\nabcdefghij");
   codec.onIngress(*reqBuf);
-}
 
-TEST(HTTP1xCodecTest, TestMultipleContentLengthHeaders) {
-  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
-  FakeHTTPCodecCallback callbacks;
-  codec.setCallback(&callbacks);
-  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
-
-  // Generate a POST request with two Content-Length headers
-  auto reqBuf = folly::IOBuf::copyBuffer(
-      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
-      "Content-Length: 5\r\nContent-Length: 6\r\n\r\n");
-  codec.onIngress(*reqBuf);
-
-  // Check that the request fails before the codec finishes parsing the headers
-  EXPECT_EQ(callbacks.streamErrors, 1);
-  EXPECT_EQ(callbacks.messageBegin, 1);
-  EXPECT_EQ(callbacks.headersComplete, 0);
-  EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
 }
