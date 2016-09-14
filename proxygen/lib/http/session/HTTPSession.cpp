@@ -1085,6 +1085,9 @@ void HTTPSession::onSettingsAck() {
 
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
                              const HTTPMessage::HTTPPriority& pri) {
+  if (!getHTTP2PrioritiesEnabled()) {
+    return;
+  }
   http2::PriorityUpdate h2Pri{std::get<0>(pri), std::get<1>(pri),
       std::get<2>(pri)};
   HTTPTransaction* txn = findTransaction(streamID);
@@ -1255,8 +1258,10 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
   }
   if (isUpstream() || (txn->isPushed() && headers.isRequest())) {
     // upstream picks priority
-    auto pri = getMessagePriority(&headers);
-    txn->onPriorityUpdate(pri);
+    if (getHTTP2PrioritiesEnabled()) {
+      auto pri = getMessagePriority(&headers);
+      txn->onPriorityUpdate(pri);
+    }
   }
 
   const bool wasReusable = codec_->isReusable();
