@@ -69,6 +69,15 @@ class Service {
   virtual void stopAccepting() = 0;
 
   /**
+   * Forcibly stop "pct" (0.0 to 1.0) of the remaining client connections.
+   *
+   * If the service does not stop on its own after stopAccepting() is called,
+   * then proxygen might call dropConnections() several times to gradually
+   * stop all processing before finally calling forceStop().
+   */
+  virtual void dropConnections(double pct) {}
+
+  /**
    * Forcibly stop the service.
    *
    * If the service does not stop on its own after stopAccepting() is called,
