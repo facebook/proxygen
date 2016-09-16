@@ -136,6 +136,10 @@ class HTTPSession:
 
   void setInfoCallback(InfoCallback* callback);
 
+  InfoCallback* getInfoCallback() const {
+    return infoCallback_;
+  }
+
   void setSessionStats(HTTPSessionStats* stats);
 
   folly::AsyncTransportWrapper* getTransport() {
