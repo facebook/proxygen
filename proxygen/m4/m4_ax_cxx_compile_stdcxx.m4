@@ -38,6 +38,9 @@
 #   permitted in any medium without royalty provided the copyright notice
 #   and this notice are preserved.  This file is offered as-is, without any
 #   warranty.
+#
+# Facebook: modified slightly to allow compilation with gcc-4.9, which doesn't
+# claim full C++-14 semantics, but proxygen doesn't (presently) need them.
 
 #serial 4
 
@@ -449,9 +452,15 @@ m4_define([_AX_CXX_COMPILE_STDCXX_testbody_new_in_14], [[
 
 #error "This is not a C++ compiler"
 
+/* Begin Facebook
+ * removing strict C++-14 check
+
 #elif __cplusplus < 201402L
 
 #error "This is not a C++14 compiler"
+
+ * End Facebook
+ */
 
 #else
 
@@ -484,6 +493,10 @@ namespace cxx14
 
   }
 
+/* Begin Facebook
+ * Remove "Relaxing requirements on constexpr functions" not available until
+ * gcc-5.x
+
   namespace test_generalized_constexpr
   {
 
@@ -503,7 +516,8 @@ namespace cxx14
     static_assert(strlen_c("another\0test") == 7UL, "");
 
   }
-
+ * End Facebook
+ */
   namespace test_lambda_init_capture
   {
 
