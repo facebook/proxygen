@@ -82,6 +82,7 @@ MaxConnectionRetryCount, "max_connection_retry_count"
 MaxIdleHTTPSessions, "max_idle_http_sessions"
 MaxIdleSPDYSessions, "max_idle_spdy_sessions"
 ConnRoutingStale, "connection_routing_stale"
+AltSvcHost, "alt_svc_host"
 
 /* ---- Used in TcpConnect ---- */
 ServerAddr, "server_address"
