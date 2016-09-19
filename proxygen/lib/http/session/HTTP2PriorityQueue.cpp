@@ -40,6 +40,7 @@ HTTP2PriorityQueue::Node::emplaceNode(
   unique_ptr<HTTP2PriorityQueue::Node> node, bool exclusive) {
   CHECK(!node->isEnqueued());
   list<unique_ptr<Node>> children;
+  CHECK_NE(id_, node->id_) << "Tried to create a loop in the tree";
   if (exclusive) {
     // this->children become new node's children
     std::swap(children, children_);
@@ -85,6 +86,7 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
 HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::Node::addChild(
   unique_ptr<HTTP2PriorityQueue::Node> child) {
+  CHECK_NE(id_, child->id_) << "Tried to create a loop in the tree";
   child->parent_ = this;
   totalChildWeight_ += child->weight_;
   Node* raw = child.get();
@@ -368,6 +370,16 @@ HTTP2PriorityQueue::Node::dropPriorityNodes() {
   }
 }
 
+void
+HTTP2PriorityQueue::Node::convertVirtualNode(HTTPTransaction* txn) {
+  CHECK(!txn_);
+  CHECK(!isPermanent_);
+  CHECK_GT(queue_.numVirtualNodes_, 0);
+  queue_.numVirtualNodes_--;
+  txn_ = txn;
+  cancelTimeout();
+}
+
 /// class HTTP2PriorityQueue
 void
 HTTP2PriorityQueue::addOrUpdatePriorityNode(HTTPCodec::StreamID id,
@@ -392,6 +404,14 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   CHECK_NE(id, 0);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
   CHECK(!txn || !permanent);
+  Node *existingNode = find(id);
+  if (existingNode) {
+    CHECK(txn);
+    CHECK(!permanent);
+    existingNode->convertVirtualNode(txn);
+    updatePriority(existingNode, pri);
+    return existingNode;
+  }
   if (!txn) {
     if (numVirtualNodes_ >= maxVirtualNodes_) {
       return nullptr;

@@ -256,6 +256,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     void dropPriorityNodes();
 
+    void convertVirtualNode(HTTPTransaction* txn);
+
    private:
     Handle addChild(std::unique_ptr<Node> child);
 

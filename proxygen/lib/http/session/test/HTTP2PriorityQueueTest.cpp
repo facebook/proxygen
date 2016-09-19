@@ -174,6 +174,23 @@ TEST_F(QueueTest, UpdateWeight) {
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 20}, {5, 40}, {9, 100}, {7, 40}}));
 }
 
+// Previously the code would allow duplicate entries in the priority tree under
+// certain circumstances.
+TEST_F(QueueTest, duplicateID) {
+  q_.addOrUpdatePriorityNode(1, {0, false, 15});
+  addTransaction(1, {0, true, 15});
+  q_.addOrUpdatePriorityNode(3, {1, false, 15});
+  addTransaction(5, {3, false, 15});
+  addTransaction(3, {5, false, 15});
+  removeTransaction(5);
+  auto stopFn = [this] {
+    return false;
+  };
+
+  dumpBFS(stopFn);
+  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 100}}));
+}
+
 TEST_F(QueueTest, UpdateWeightNotEnqueued) {
   addTransaction(1, {0, false, 7});
   addTransaction(3, {0, false, 7});
