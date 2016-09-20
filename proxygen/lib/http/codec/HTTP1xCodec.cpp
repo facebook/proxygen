@@ -786,6 +786,27 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
     pushHeaderNameAndValue(msg_->getHeaders());
   }
 
+  // discard messages with multiple content-length headers (t12767790)
+  HTTPHeaders& hdrs = msg_->getHeaders();
+  if (hdrs.getNumberOfValues("Content-Length") > 1) {
+    // Only reject the message if the Content-Length headers have different
+    // values
+    folly::Optional<folly::StringPiece> contentLen;
+    bool error = hdrs.forEachValueOfHeader(
+        "Content-Length", [&] (folly::StringPiece value) -> bool {
+      if (!contentLen.hasValue()) {
+        contentLen = value;
+        return false;
+      }
+      return (contentLen.value() != value);
+    });
+
+    if (error) {
+      LOG(ERROR) << "Invalid message, multiple Content-Length headers";
+      return -1;
+    }
+  }
+
   // Update the HTTPMessage with the values parsed from the header
   msg_->setHTTPVersion(parser_.http_major, parser_.http_minor);
   msg_->setIsChunked((parser_.flags & F_CHUNKED));
