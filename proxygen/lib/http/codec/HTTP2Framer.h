@@ -16,6 +16,7 @@
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
 #include <proxygen/lib/http/codec/SettingsId.h>
+#include <proxygen/lib/utils/Export.h>
 #include <string.h>
 
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
@@ -71,7 +72,7 @@ struct PriorityUpdate {
 
 //////// Bonus Constant ////////
 
-extern const PriorityUpdate DefaultPriority;
+FB_EXPORT extern const PriorityUpdate DefaultPriority;
 
 //////// Functions ////////
 

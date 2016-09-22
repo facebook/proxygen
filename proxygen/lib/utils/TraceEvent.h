@@ -13,6 +13,7 @@
 #include <folly/Conv.h>
 #include <iostream>
 #include <map>
+#include <proxygen/lib/utils/Export.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEventType.h>
 #include <proxygen/lib/utils/TraceFieldType.h>
@@ -20,8 +21,10 @@
 
 namespace proxygen {
   // Helpers used to make TraceEventType/TraceFieldType can be used with GLOG
-  std::ostream& operator<<(std::ostream& os, TraceEventType eventType);
-  std::ostream& operator<<(std::ostream& os, TraceFieldType fieldType);
+  FB_EXPORT std::ostream& operator<<(
+      std::ostream& os, TraceEventType eventType);
+  FB_EXPORT std::ostream& operator<<(
+      std::ostream& os, TraceFieldType fieldType);
 
 /**
  * Simple structure to track timing of event in request flow then we can
@@ -107,7 +110,7 @@ class TraceEvent {
   };
 
 
-  explicit TraceEvent(TraceEventType type, uint32_t parentID = 0);
+  FB_EXPORT explicit TraceEvent(TraceEventType type, uint32_t parentID = 0);
 
   /**
    * Sets the start time to the current time according to the TimeUtil.
@@ -231,7 +234,7 @@ class TraceEvent {
     return false;
   }
 
-  bool addMetaInternal(TraceFieldType key, MetaData&& val);
+  FB_EXPORT bool addMetaInternal(TraceFieldType key, MetaData&& val);
 
   enum State {
     NOT_STARTED = 0,

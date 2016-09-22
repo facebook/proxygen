@@ -88,7 +88,7 @@ class ParseURL {
 
   bool hostIsIPAddress();
 
-  void stripBrackets() noexcept;
+  FB_EXPORT void stripBrackets() noexcept;
 
  private:
   FB_EXPORT void parse() noexcept;
