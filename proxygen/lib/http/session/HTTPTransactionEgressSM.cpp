@@ -52,6 +52,7 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
       {{State::ChunkTerminatorSent, Event::sendChunkHeader},
        State::ChunkHeaderSent},
       {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
+      {{State::HeadersSent, Event::sendTrailers}, State::TrailersSent},
       {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
 
       {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
