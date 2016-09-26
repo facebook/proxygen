@@ -2623,13 +2623,9 @@ TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
 
   handler1->expectHeaders();
   EXPECT_CALL(*handler1, onChunkHeader(20));
-  handler1->expectBody();
-  EXPECT_CALL(*handler1, onChunkComplete());
-  handler1->expectEOM([&handler1] {
-      handler1->sendReplyWithBody(200, 100);
-    });
+
   handler1->expectDetachTransaction();
+  expectDetachSession();
   flushRequestsAndLoop();
 
-  gracefulShutdown();
 }

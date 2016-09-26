@@ -148,11 +148,10 @@ void HTTPTransaction::onIngressHeadersComplete(
         HTTPTransactionIngressSM::Event::onHeaders)) {
     return;
   }
-  if (!msg->getIsChunked() &&
-      ((msg->isRequest() && msg->getMethod() != HTTPMethod::CONNECT) ||
+  if ((msg->isRequest() && msg->getMethod() != HTTPMethod::CONNECT) ||
        (msg->isResponse() &&
         !headRequest_ &&
-        !RFC2616::responseBodyMustBeEmpty(msg->getStatusCode())))) {
+        !RFC2616::responseBodyMustBeEmpty(msg->getStatusCode()))) {
     // CONNECT payload has no defined semantics
     const auto& clHeader =
       msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);

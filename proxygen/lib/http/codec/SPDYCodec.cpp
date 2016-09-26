@@ -1205,6 +1205,11 @@ void SPDYCodec::onSynCommon(StreamID streamID,
     callback_->onMessageBegin(streamID, msg.get());
   }
 
+  if ((flags_ & spdy::CTRL_FLAG_FIN) == 0) {
+    // If it there are DATA frames coming, consider it chunked
+    msg->setIsChunked(true);
+  }
+
   callback_->onHeadersComplete(streamID, std::move(msg));
 }
 

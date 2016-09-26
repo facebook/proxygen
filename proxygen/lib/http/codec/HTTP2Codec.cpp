@@ -442,6 +442,10 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       headersCompleteStream = *promisedStream;
     }
     if (curHeader_.flags & http2::END_HEADERS && msg) {
+      if (!(curHeader_.flags & http2::END_STREAM)) {
+        // If it there are DATA frames coming, consider it chunked
+        msg->setIsChunked(true);
+      }
       callback_->onHeadersComplete(headersCompleteStream, std::move(msg));
     }
     return handleEndStream();

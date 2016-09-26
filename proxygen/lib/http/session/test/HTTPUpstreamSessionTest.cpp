@@ -354,7 +354,7 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   EXPECT_CALL(pushHandler, onHeadersComplete(_))
     .WillOnce(Invoke([&] (std::shared_ptr<HTTPMessage> msg) {
           EXPECT_EQ(httpSession_->getNumIncomingStreams(), 1);
-          EXPECT_FALSE(msg->getIsChunked());
+          EXPECT_TRUE(msg->getIsChunked());
           EXPECT_FALSE(msg->getIsUpgraded());
           EXPECT_EQ(msg->getPath(), "/");
           EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
@@ -1417,7 +1417,7 @@ TEST_F(HTTP2UpstreamSessionTest, server_push) {
   EXPECT_CALL(pushHandler, setTransaction(_));
   pushHandler.expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(httpSession_->getNumIncomingStreams(), 1);
-      EXPECT_FALSE(msg->getIsChunked());
+      EXPECT_TRUE(msg->getIsChunked());
       EXPECT_FALSE(msg->getIsUpgraded());
       EXPECT_EQ(msg->getPath(), "/");
       EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
