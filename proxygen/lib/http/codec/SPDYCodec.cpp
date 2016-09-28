@@ -1013,6 +1013,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
 
   bool hasScheme = false;
   bool hasPath = false;
+  bool hasContentLength = false;
 
   // Number of fields must be even
   CHECK_EQ((inHeaders.size() & 1), 0);
@@ -1031,6 +1032,13 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     bool isPath = false;
     bool isMethod = false;
     if (nameOk) {
+      if (name == "content-length") {
+        if (hasContentLength) {
+          throw SPDYStreamFailed(false, streamID, 400,
+             "Multiple content-length headers");
+        }
+        hasContentLength = true;
+      }
       if ((version_ == 2 && name == "url") ||
           (version_ == 3 && off && name == "path")) {
         valueOk = SPDYUtil::validateURL(value);
