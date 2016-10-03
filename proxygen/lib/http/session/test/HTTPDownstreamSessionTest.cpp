@@ -1043,7 +1043,7 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
     transport_->getWriteEvents()->back()->getTime();
   int64_t writeDuration =
     (int64_t)millisecondsBetween(timeLastWrite, timeFirstWrite).count();
-  EXPECT_GT(writeDuration, 800);
+  EXPECT_GE(writeDuration, 800);
 
   cleanup();
 }
@@ -1085,7 +1085,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
     transport_->getWriteEvents()->back()->getTime();
   int64_t writeDuration =
     (int64_t)millisecondsBetween(timeLastWrite, timeFirstWrite).count();
-  EXPECT_GT(writeDuration, 800);
+  EXPECT_GE(writeDuration, 800);
   expectDetachSession();
 }
 
