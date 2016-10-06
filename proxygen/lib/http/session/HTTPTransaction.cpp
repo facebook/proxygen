@@ -209,9 +209,18 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
       expectedContentLengthRemaining_ =
         expectedContentLengthRemaining_.value() - len;
     } else {
-      LOG(ERROR) << *this << " Content-Length/body mismatch: received=" <<
-        len << " expecting no more than " <<
-        expectedContentLengthRemaining_.value();
+      auto errorMsg = folly::to<std::string>(
+          "Content-Length/body mismatch: received=",
+          len,
+          " expecting no more than ",
+          expectedContentLengthRemaining_.value());
+      LOG(ERROR) << *this << " " << errorMsg;
+      // Error out handler_ before sendAbort, as some handlers do not expect
+      // detachTransaction that can be triggered by sendAbort
+      if (handler_) {
+        HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
+        handler_->onError(ex);
+      }
       sendAbort(ErrorCode::PROTOCOL_ERROR);
     }
   }
@@ -380,8 +389,16 @@ void HTTPTransaction::onIngressEOM() {
   }
   if (expectedContentLengthRemaining_.hasValue() &&
       expectedContentLengthRemaining_.value() > 0) {
-    LOG(ERROR) << *this << " Content-Length/body mismatch: expecting another "
-               << expectedContentLengthRemaining_.value();
+    auto errorMsg = folly::to<std::string>(
+        "Content-Length/body mismatch: expecting another ",
+        expectedContentLengthRemaining_.value());
+    LOG(ERROR) << *this << " " << errorMsg;
+    // Error out handler_ before sendAbort, as some handlers do not expect
+    // detachTransaction that can be triggered by sendAbort
+    if (handler_) {
+      HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
+      handler_->onError(ex);
+    }
     sendAbort(ErrorCode::PROTOCOL_ERROR);
     return;
   }

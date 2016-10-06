@@ -2520,7 +2520,40 @@ TEST_F(HTTP2DownstreamSessionTest, test_short_content_length) {
   auto handler1 = addSimpleStrictHandler();
 
   handler1->expectHeaders();
+  handler1->expectError();
   handler1->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  EXPECT_CALL(callbacks_, onSettings(_));
+  EXPECT_CALL(callbacks_, onAbort(streamID, ErrorCode::PROTOCOL_ERROR));
+
+  parseOutput(*clientCodec_);
+  gracefulShutdown();
+}
+
+/**
+ * If handler chooses to untie itself with transaction during onError,
+ * detachTransaction shouldn't be expected
+ */
+TEST_F(HTTP2DownstreamSessionTest, test_bad_content_length_untie_handler) {
+  InSequence enforceOrder;
+  auto req = getPostRequest(10);
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(
+      requests_,
+      streamID,
+      makeBuf(20),
+      boost::none,
+      true);
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectError([&] (const HTTPException&) {
+      if (handler1->txn_) {
+        handler1->txn_->setHandler(nullptr);
+      }
+      handler1->txn_ = nullptr;
+    });
   flushRequestsAndLoop();
 
   EXPECT_CALL(callbacks_, onSettings(_));
@@ -2540,6 +2573,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_long_content_length) {
 
   handler1->expectHeaders();
   handler1->expectBody();
+  handler1->expectError();
   handler1->expectDetachTransaction();
   flushRequestsAndLoop();
 
@@ -2624,6 +2658,7 @@ TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
   handler1->expectHeaders();
   EXPECT_CALL(*handler1, onChunkHeader(20));
 
+  handler1->expectError();
   handler1->expectDetachTransaction();
   expectDetachSession();
   flushRequestsAndLoop();
