@@ -19,7 +19,6 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <folly/io/async/AsyncSSLSocket.h>
-#include <folly/MoveWrapper.h>
 
 using folly::AsyncSSLSocket;
 using folly::AsyncSocket;
@@ -1116,8 +1115,7 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   // overwrite destination, delay current codec deletion until the end
   // of the event loop
   auto oldCodec = codec_.setDestination(std::move(codec));
-  folly::MoveWrapper<std::unique_ptr<HTTPCodec>> wrapper(std::move(oldCodec));
-  sock_->getEventBase()->runInLoop([wrapper] () {});
+  sock_->getEventBase()->runInLoop([oldCodec = std::move(oldCodec)] () {});
 
   if (controller_) {
     controller_->onSessionCodecChange(this);

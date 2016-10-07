@@ -9,7 +9,6 @@
  */
 #include <folly/Conv.h>
 #include <folly/Foreach.h>
-#include <folly/MoveWrapper.h>
 #include <folly/futures/Promise.h>
 #include <wangle/acceptor/ConnectionManager.h>
 #include <folly/io/Cursor.h>
@@ -1545,18 +1544,19 @@ template <class C>
 void HTTPDownstreamTest<C>::testPriorities(uint32_t numPriorities) {
   uint32_t iterations = 10;
   uint32_t maxPriority = numPriorities - 1;
+  std::vector<std::unique_ptr<testing::NiceMock<MockHTTPHandler>>> handlers;
   for (int pri = numPriorities - 1; pri >= 0; pri--) {
     for (uint32_t i = 0; i < iterations; i++) {
       sendRequest("/", pri * (8 / numPriorities));
       InSequence handlerSequence;
       auto handler = addSimpleNiceHandler();
       auto rawHandler = handler.get();
-      auto handlerWrapper = folly::makeMoveWrapper(handler);
+      handlers.push_back(std::move(handler));
       rawHandler->expectHeaders();
       rawHandler->expectEOM([rawHandler] {
           rawHandler->sendReplyWithBody(200, 1000);
         });
-      rawHandler->expectDetachTransaction([handlerWrapper] {  });
+      rawHandler->expectDetachTransaction([] {  });
     }
   }
 
