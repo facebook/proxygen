@@ -208,7 +208,6 @@ public:
     { SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17 }, // same as SPDYCodec
   };
 #ifndef NDEBUG
-  uint32_t egressGoawayAck_{std::numeric_limits<uint32_t>::max()};
   uint64_t receivedFrameCount_{0};
 #endif
   enum FrameState {

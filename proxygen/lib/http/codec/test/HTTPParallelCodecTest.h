@@ -75,7 +75,6 @@ class HTTPParallelCodecTest : public testing::Test {
     proxygen::dumpBinToFile(filename, output_.front());
   }
 
-
  protected:
   proxygen::FakeHTTPCodecCallback callbacks_;
   proxygen::HTTPParallelCodec& upstreamCodec_;

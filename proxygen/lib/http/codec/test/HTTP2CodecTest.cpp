@@ -788,20 +788,41 @@ TEST_F(HTTP2CodecTest, BadGoaway) {
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoaway) {
+  parse();
   SetUpUpstreamTest();
   downstreamCodec_.generateGoaway(output_, std::numeric_limits<int32_t>::max(),
                                   ErrorCode::NO_ERROR);
   EXPECT_TRUE(downstreamCodec_.isWaitingToDrain());
   EXPECT_TRUE(downstreamCodec_.isReusable());
-  downstreamCodec_.generateGoaway(output_, 0,
-                                  ErrorCode::NO_ERROR);
+  EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(2));
+  downstreamCodec_.generateGoaway(output_, 0, ErrorCode::NO_ERROR);
   EXPECT_FALSE(downstreamCodec_.isWaitingToDrain());
   EXPECT_FALSE(downstreamCodec_.isReusable());
+  EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_FALSE(downstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(2));
 
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(2));
   parseUpstream();
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_FALSE(upstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(2));
   EXPECT_EQ(callbacks_.goaways, 2);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+
+  upstreamCodec_.generateGoaway(output_, 0, ErrorCode::NO_ERROR);
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_FALSE(upstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_FALSE(upstreamCodec_.isStreamIngressEgressAllowed(2));
+  parse();
+  EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_FALSE(downstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_FALSE(downstreamCodec_.isStreamIngressEgressAllowed(2));
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoawayWithError) {
@@ -822,6 +843,70 @@ TEST_F(HTTP2CodecTest, DoubleGoawayWithError) {
   EXPECT_EQ(callbacks_.data.move()->moveToFbString(), "debugData");
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, GoawayHandling) {
+  auto settings = upstreamCodec_.getEgressSettings();
+  settings->setSetting(SettingsId::ENABLE_PUSH, 1);
+  upstreamCodec_.generateSettings(output_);
+
+  // send request
+  HTTPMessage req = getGetRequest();
+  HTTPHeaderSize size;
+  size.uncompressed = size.compressed = 0;
+  upstreamCodec_.generateHeader(output_, 1, req, 0, true, &size);
+  EXPECT_GT(size.uncompressed, 0);
+  parse();
+  callbacks_.expectMessage(true, 1, "/");
+  callbacks_.reset();
+
+  SetUpUpstreamTest();
+  // drain after this message
+  downstreamCodec_.generateGoaway(output_, 1, ErrorCode::NO_ERROR);
+  parseUpstream();
+  // upstream cannot generate id > 1
+  upstreamCodec_.generateHeader(output_, 3, req, 0, false, &size);
+  EXPECT_EQ(size.uncompressed, 0);
+  upstreamCodec_.generateWindowUpdate(output_, 3, 100);
+  upstreamCodec_.generateBody(output_, 3, makeBuf(10), boost::none, false);
+  upstreamCodec_.generatePriority(output_, 3,
+                                  HTTPMessage::HTTPPriority(0, true, 1));
+  upstreamCodec_.generateEOM(output_, 3);
+  upstreamCodec_.generateRstStream(output_, 3, ErrorCode::CANCEL);
+  EXPECT_EQ(output_.chainLength(), 0);
+
+  // send a push promise that will be rejected by downstream
+  req.getHeaders().add("foomonkey", "george");
+  downstreamCodec_.generateHeader(output_, 2, req, 1, false, &size);
+  EXPECT_GT(size.uncompressed, 0);
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  // send a push response that will be ignored
+  downstreamCodec_.generateHeader(output_, 2, resp, 0, false, &size);
+  // window update for push doesn't make any sense, but whatever
+  downstreamCodec_.generateWindowUpdate(output_, 2, 100);
+  downstreamCodec_.generateBody(output_, 2, makeBuf(10), boost::none, false);
+  writeFrameHeaderManual(output_, 20, (uint8_t)http2::FrameType::DATA, 0, 2);
+  output_.append(makeBuf(10));
+
+  // tell the upstream no pushing, and parse the first batch
+  IOBufQueue dummy;
+  upstreamCodec_.generateGoaway(dummy, 0, ErrorCode::NO_ERROR);
+  parseUpstream();
+
+  output_.append(makeBuf(10));
+  downstreamCodec_.generatePriority(output_, 2,
+                                    HTTPMessage::HTTPPriority(0, true, 1));
+  downstreamCodec_.generateEOM(output_, 2);
+  downstreamCodec_.generateRstStream(output_, 2, ErrorCode::CANCEL);
+
+  // send a response that will be accepted, headers should be ok
+  downstreamCodec_.generateHeader(output_, 1, resp, 0, true, &size);
+  EXPECT_GT(size.uncompressed, 0);
+
+  // parse the remainder
+  parseUpstream();
+  callbacks_.expectMessage(true, 1, 200);
 }
 
 TEST_F(HTTP2CodecTest, GoawayReply) {

@@ -247,6 +247,9 @@ public:
                    int8_t pri,
                    const HTTPHeaderSize& size);
 
+  void deliverOnMessageBegin(StreamID streamID, StreamID assocStreamID,
+                             HTTPMessage* msg);
+
   /**
    * Generate the header for a SPDY data frame
    * @param writeBuf Buffer queue to which the control frame is written.

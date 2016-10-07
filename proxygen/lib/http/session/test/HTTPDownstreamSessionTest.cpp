@@ -2189,12 +2189,19 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
 
   transport_->addReadEvent(output, milliseconds(0));
   clientCodec.generateRstStream(output, assocStreamId, ErrorCode::CANCEL);
-  clientCodec.generateGoaway(output, 0, ErrorCode::NO_ERROR);
+  clientCodec.generateGoaway(output, 2, ErrorCode::NO_ERROR);
   transport_->addReadEvent(output, milliseconds(200));
   transport_->startReadEvents();
   HTTPSession::DestructorGuard g(httpSession_);
   eventBase_.loop();
 
+  EXPECT_CALL(callbacks_, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(1, _));
+  EXPECT_CALL(callbacks_, onPushMessageBegin(2, 1, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
+  EXPECT_CALL(callbacks_, onMessageBegin(2, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(2, _));
   clientCodec.setCallback(&callbacks_);
   parseOutput(clientCodec);
   expectDetachSession();

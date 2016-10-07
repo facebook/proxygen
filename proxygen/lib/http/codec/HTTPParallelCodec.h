@@ -58,12 +58,25 @@ public:
     }
   }
 
+  bool isInitiatedStream(StreamID stream) const {
+    bool odd = stream & 0x01;
+    bool upstream = (transportDirection_ == TransportDirection::UPSTREAM);
+    return (odd && upstream) || (!odd && !upstream);
+  }
+
+  bool isStreamIngressEgressAllowed(StreamID stream) const {
+    bool isInitiated = isInitiatedStream(stream);
+    return (isInitiated && stream <= ingressGoawayAck_) ||
+      (!isInitiated && stream <= egressGoawayAck_);
+  }
+
 protected:
   TransportDirection transportDirection_;
   StreamID nextEgressStreamID_;
   StreamID lastStreamID_{0};
   HTTPCodec::Callback* callback_{nullptr};
   StreamID ingressGoawayAck_{std::numeric_limits<uint32_t>::max()};
+  StreamID egressGoawayAck_{std::numeric_limits<uint32_t>::max()};
   std::string goawayErrorMessage_;
 
   enum ClosingState {
@@ -73,6 +86,22 @@ protected:
     CLOSING = 3, // SPDY only
     CLOSED = 4 // HTTP2 only
   } sessionClosing_;
+
+  template<typename T, typename... Args>
+  bool deliverCallbackIfAllowed(T callbackFn, char const* cbName,
+                                StreamID stream, Args&&... args) {
+    if (isStreamIngressEgressAllowed(stream)) {
+      if (callback_) {
+        (*callback_.*callbackFn)(stream, std::forward<Args>(args)...);
+      }
+      return true;
+    } else {
+      VLOG(2) << "Suppressing " << cbName << " for stream=" <<
+        stream << " egressGoawayAck_=" << egressGoawayAck_;
+    }
+    return false;
+  }
+
 
 };
 } // proxygen

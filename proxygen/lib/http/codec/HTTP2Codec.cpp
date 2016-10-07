@@ -217,9 +217,8 @@ ErrorCode HTTP2Codec::handleEndStream() {
   pendingEndStreamHandling_ |= (curHeader_.flags & http2::END_STREAM);
   if (pendingEndStreamHandling_ && expectedContinuationStream_ == 0) {
     pendingEndStreamHandling_ = false;
-    if (callback_) {
-      callback_->onMessageComplete(StreamID(curHeader_.stream), false);
-    }
+    deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageComplete,
+                             "onMessageComplete", curHeader_.stream, false);
   }
   return ErrorCode::NO_ERROR;
 }
@@ -236,8 +235,8 @@ ErrorCode HTTP2Codec::parseAllData(Cursor& cursor) {
     if (!outData) {
       outData = folly::make_unique<IOBuf>();
     }
-    callback_->onBody(StreamID(curHeader_.stream), std::move(outData),
-                      padding);
+    deliverCallbackIfAllowed(&HTTPCodec::Callback::onBody, "onBody",
+                             curHeader_.stream, std::move(outData), padding);
   }
   return handleEndStream();
 }
@@ -313,8 +312,8 @@ ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
     if (!outData) {
       outData = folly::make_unique<IOBuf>();
     }
-    callback_->onBody(StreamID(curHeader_.stream), std::move(outData),
-                      padding);
+    deliverCallbackIfAllowed(&HTTPCodec::Callback::onBody, "onBody",
+                             curHeader_.stream, std::move(outData), padding);
   }
   return (pendingDataFrameBytes_ > 0) ? ErrorCode::NO_ERROR : handleEndStream();
 }
@@ -329,11 +328,6 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
   RETURN_IF_ERROR(err);
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
     RETURN_IF_ERROR(checkNewStream(curHeader_.stream));
-    if (sessionClosing_ == ClosingState::CLOSED) {
-      VLOG(4) << "Dropping HEADERS after final GOAWAY, stream="
-              << curHeader_.stream;
-      return ErrorCode::NO_ERROR;
-    }
   }
   err = parseHeadersImpl(cursor, std::move(headerBuf), priority, boost::none);
   return err;
@@ -434,11 +428,18 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
                     ErrorCode::REFUSED_STREAM, true);
         return ErrorCode::NO_ERROR;
       }
-      callback_->onMessageBegin(curHeader_.stream, msg.get());
+      if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageBegin,
+                                    "onMessageBegin", curHeader_.stream,
+                                    msg.get())) {
+        return handleEndStream();
+      }
     } else if (curHeader_.type == http2::FrameType::PUSH_PROMISE) {
       DCHECK(promisedStream);
-      callback_->onPushMessageBegin(*promisedStream, curHeader_.stream,
-                                    msg.get());
+      if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onPushMessageBegin,
+                                    "onPushMessageBegin", *promisedStream,
+                                    curHeader_.stream, msg.get())) {
+        return handleEndStream();
+      }
       headersCompleteStream = *promisedStream;
     }
     if (curHeader_.flags & http2::END_HEADERS && msg) {
@@ -597,12 +598,11 @@ ErrorCode HTTP2Codec::parsePriority(Cursor& cursor) {
                 ErrorCode::PROTOCOL_ERROR, false);
     return ErrorCode::NO_ERROR;
   }
-  if (callback_) {
-    callback_->onPriority(curHeader_.stream,
-                          std::make_tuple(pri.streamDependency,
-                                          pri.exclusive,
-                                          pri.weight));
-  }
+  deliverCallbackIfAllowed(&HTTPCodec::Callback::onPriority, "onPriority",
+                           curHeader_.stream,
+                           std::make_tuple(pri.streamDependency,
+                                           pri.exclusive,
+                                           pri.weight));
   return ErrorCode::NO_ERROR;
 }
 
@@ -643,9 +643,8 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
       " code=", getErrorCodeString(statusCode), " user-agent=", userAgent_);
     VLOG(2) << goawayErrorMessage_;
   }
-  if (callback_) {
-    callback_->onAbort(curHeader_.stream, statusCode);
-  }
+  deliverCallbackIfAllowed(&HTTPCodec::Callback::onAbort, "onAbort",
+                           curHeader_.stream, statusCode);
   return ErrorCode::NO_ERROR;
 }
 
@@ -752,11 +751,6 @@ ErrorCode HTTP2Codec::parsePushPromise(Cursor& cursor) {
                                      headerBlockFragment);
   RETURN_IF_ERROR(err);
   RETURN_IF_ERROR(checkNewStream(promisedStream));
-  if (sessionClosing_ == ClosingState::CLOSED) {
-    VLOG(4) << "Dropping PUSH_PROMISE after final GOAWAY, stream=" <<
-      curHeader_.stream;
-    return ErrorCode::NO_ERROR;
-  }
   err = parseHeadersImpl(cursor, std::move(headerBlockFragment), boost::none,
                          promisedStream);
   return err;
@@ -831,11 +825,10 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
       return ErrorCode::PROTOCOL_ERROR;
     }
   }
-  if (callback_) {
-    // if window exceeds 2^31-1, connection/stream error flow control error
-    // must be checked in session/txn
-    callback_->onWindowUpdate(curHeader_.stream, delta);
-  }
+  // if window exceeds 2^31-1, connection/stream error flow control error
+  // must be checked in session/txn
+  deliverCallbackIfAllowed(&HTTPCodec::Callback::onWindowUpdate,
+                           "onWindowUpdate", curHeader_.stream, delta);
   return ErrorCode::NO_ERROR;
 }
 
@@ -847,11 +840,12 @@ ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId) {
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   }
-  bool odd = streamId & 0x01;
-  bool push = (transportDirection_ == TransportDirection::UPSTREAM);
-  lastStreamID_ = streamId;
+  if (sessionClosing_ != ClosingState::CLOSED) {
+    lastStreamID_ = streamId;
+  }
 
-  if ((odd && push) || (!odd && !push)) {
+  if (isInitiatedStream(streamId)) {
+    // this stream should be initiated by us, not by peer
     goawayErrorMessage_ = folly::to<string>("streamID=", streamId,
                                             " received as invalid new stream");
     VLOG(4) << goawayErrorMessage_;
@@ -879,6 +873,16 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
   VLOG(4) << "generating " << ((assocStream != 0) ? "PUSH_PROMISE" : "HEADERS")
           << " for stream=" << stream;
   std::vector<Header> allHeaders;
+
+  if (!isStreamIngressEgressAllowed(stream)) {
+    VLOG(2) << "Suppressing HEADERS/PROMISE for stream=" << stream <<
+      " ingressGoawayAck_=" << ingressGoawayAck_;
+    if (size) {
+      size->uncompressed = 0;
+      size->compressed = 0;
+    }
+    return;
+  }
 
   // The role of this local status string is to hold the generated
   // status code long enough for the header encoding.
@@ -1022,7 +1026,11 @@ size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
                                 bool eom) {
   // todo: generate random padding for everything?
   size_t written = 0;
-
+  if (!isStreamIngressEgressAllowed(stream)) {
+    VLOG(2) << "Suppressing DATA for stream=" << stream << " ingressGoawayAck_="
+            << ingressGoawayAck_;
+    return 0;
+  }
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(chain));
   while (queue.chainLength() > maxSendFrameSize()) {
@@ -1057,6 +1065,11 @@ size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& writeBuf,
 size_t HTTP2Codec::generateEOM(folly::IOBufQueue& writeBuf,
                                StreamID stream) {
   VLOG(4) << "sending EOM for stream=" << stream;
+  if (!isStreamIngressEgressAllowed(stream)) {
+    VLOG(2) << "suppressed EOM stream=" << stream << " ingressGoawayAck_=" <<
+      ingressGoawayAck_;
+    return 0;
+  }
   return http2::writeData(writeBuf, nullptr, stream, http2::kNoPadding, true);
 }
 
@@ -1065,6 +1078,11 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
                                      ErrorCode statusCode) {
   VLOG(4) << "sending RST_STREAM for stream=" << stream
           << " with code=" << getErrorCodeString(statusCode);
+  if (!isStreamIngressEgressAllowed(stream)) {
+    VLOG(2) << "suppressed RST_STREAM stream=" << stream <<
+      " ingressGoawayAck_=" << ingressGoawayAck_;
+    return 0;
+  }
   // Suppress any EOM callback for the current frame.
   if (stream == curHeader_.stream) {
     curHeader_.flags &= ~http2::END_STREAM;
@@ -1084,10 +1102,8 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
                                   StreamID lastStream,
                                   ErrorCode statusCode,
                                   std::unique_ptr<folly::IOBuf> debugData) {
-#ifndef NDEBUG
-  CHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
+  DCHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
   egressGoawayAck_ = lastStream;
-#endif
   if (sessionClosing_ == ClosingState::CLOSED) {
     VLOG(4) << "Not sending GOAWAY for closed session";
     return 0;
@@ -1172,6 +1188,11 @@ size_t HTTP2Codec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
                                         uint32_t delta) {
   VLOG(4) << "generating window update for stream=" << stream
           << ": Processed " << delta << " bytes";
+  if (!isStreamIngressEgressAllowed(stream)) {
+    VLOG(2) << "suppressed WINDOW_UPDATE stream=" << stream <<
+      " ingressGoawayAck_=" << ingressGoawayAck_;
+    return 0;
+  }
   return http2::writeWindowUpdate(writeBuf, stream, delta);
 }
 
@@ -1179,6 +1200,11 @@ size_t HTTP2Codec::generatePriority(folly::IOBufQueue& writeBuf,
                                     StreamID stream,
                                     const HTTPMessage::HTTPPriority& pri) {
   VLOG(4) << "generating priority for stream=" << stream;
+  if (!isStreamIngressEgressAllowed(stream)) {
+    VLOG(2) << "suppressed PRIORITY stream=" << stream <<
+      " ingressGoawayAck_=" << ingressGoawayAck_;
+    return 0;
+  }
   return http2::writePriority(writeBuf, stream,
                               {std::get<0>(pri), std::get<1>(pri),
                                   std::get<2>(pri)});

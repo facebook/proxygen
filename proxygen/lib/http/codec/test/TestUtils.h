@@ -195,7 +195,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     if (!url.empty()) {
       EXPECT_EQ(msg->getURL(), url);
     } else if (statusCode > 0) {
-      EXPECT_EQ(msg->getStatusCode(), statusCode);
+      if (msg->isResponse()) {
+        EXPECT_EQ(msg->getStatusCode(), statusCode);
+      } else {
+        EXPECT_EQ(msg->getPushStatusCode(), statusCode);
+      }
     }
   }
 
