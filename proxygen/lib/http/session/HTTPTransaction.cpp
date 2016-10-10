@@ -83,7 +83,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
 
   queueHandle_ = egressQueue_.addTransaction(id_, priority, this, false,
                                              &insertDepth_);
-  if(priority.streamDependency != 0 && insertDepth_ == 0) {
+  if(priority.streamDependency != 0 && insertDepth_ == 1) {
     priorityFallback_ = true;
   }
 
@@ -1235,7 +1235,7 @@ void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
       queueHandle_,
       priority_,
       &currentDepth_);
-  if(priority_.streamDependency != 0 && currentDepth_ == 0) {
+  if(priority_.streamDependency != 0 && currentDepth_ == 1) {
     priorityFallback_ = true;
   }
 }

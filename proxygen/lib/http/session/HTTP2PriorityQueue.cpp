@@ -26,6 +26,9 @@ HTTP2PriorityQueue::Node::Node(HTTP2PriorityQueue& queue,
       id_(id),
       weight_(weight + 1),
       txn_(txn) {
+  DCHECK(queue_.nodes_.find(id_,
+                            IdHash(), IdNodeEqual()) == queue_.nodes_.end());
+  queue_.nodes_.insert(*this);
 }
 
 HTTP2PriorityQueue::Node::~Node() {
@@ -253,28 +256,6 @@ HTTP2PriorityQueue::Node::removeFromTree() {
   (void)parent_->detachChild(this);
 }
 
-// Find the node for the given stream ID in the priority tree
-HTTP2PriorityQueue::Node*
-HTTP2PriorityQueue::Node::findInTree(HTTPCodec::StreamID id, uint64_t* depth) {
-  if (id_ == id) {
-    return this;
-  }
-  if (depth) {
-    *depth += 1;
-  }
-  Node* res = nullptr;
-  for (auto& child: children_) {
-    res = child->findInTree(id, depth);
-    if (res) {
-      break;
-    }
-  }
-  if (depth && !res) {
-    *depth -= 1;
-  }
-  return res;
-}
-
 bool
 HTTP2PriorityQueue::Node::iterate(
   const std::function<bool(HTTPCodec::StreamID,
@@ -380,6 +361,17 @@ HTTP2PriorityQueue::Node::convertVirtualNode(HTTPTransaction* txn) {
   cancelTimeout();
 }
 
+uint64_t
+HTTP2PriorityQueue::Node::calculateDepth() const {
+  uint64_t depth = 0;
+  const Node* cur = this;
+  while (cur->getParent() != nullptr) {
+    depth += 1;
+    cur = cur->getParent();
+  }
+  return depth;
+}
+
 /// class HTTP2PriorityQueue
 void
 HTTP2PriorityQueue::addOrUpdatePriorityNode(HTTPCodec::StreamID id,
@@ -430,6 +422,9 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
       VLOG(4) << "assigning default priority to txn=" << id;
     } else {
       parent = dep;
+      if (depth) {
+        *depth += 1;
+      }
     }
   }
   VLOG(4) << "Adding id=" << id << " with parent=" << parent->getID() <<
@@ -458,6 +453,9 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
     "Tried to create a loop in the tree";;
   if (pri.streamDependency == node->parentID() && !pri.exclusive) {
     // no move
+    if (depth) {
+      *depth = handle->calculateDepth();
+    }
     return handle;
   }
 
@@ -466,13 +464,16 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
     newParent = &root_;
     VLOG(4) << "updatePriority missing parent, assigning root for txn="
             << node->getID();
-
   }
 
   if (newParent->isDescendantOf(node)) {
     newParent = newParent->reparent(node->getParent(), false);
   }
-  return node->reparent(newParent, pri.exclusive);
+  node = node->reparent(newParent, pri.exclusive);
+  if (depth) {
+    *depth = node->calculateDepth();
+  }
+  return node;
 }
 
 void
@@ -595,7 +596,14 @@ HTTP2PriorityQueue::find(HTTPCodec::StreamID id, uint64_t* depth) {
   if (id == 0) {
     return nullptr;
   }
-  return root_.findInTree(id, depth);
+  auto it = nodes_.find(id, Node::IdHash(), Node::IdNodeEqual());
+  if (it == nodes_.end()) {
+    return nullptr;
+  }
+  if (depth) {
+    *depth = it->calculateDepth();
+  }
+  return &(*it);
 }
 
 void

@@ -585,8 +585,8 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   EXPECT_EQ(handler1->txn_->getPriorityFallback(), false);
   EXPECT_EQ(handler2->txn_->getPriorityFallback(), true);
 
-  EXPECT_EQ(std::get<1>(handler1->txn_->getPrioritySummary()), 1);
-  EXPECT_EQ(std::get<1>(handler2->txn_->getPrioritySummary()), 0);
+  EXPECT_EQ(std::get<1>(handler1->txn_->getPrioritySummary()), 2);
+  EXPECT_EQ(std::get<1>(handler2->txn_->getPrioritySummary()), 1);
   EXPECT_CALL(callbacks,
               onPriority(priGroupID, HTTPMessage::HTTPPriority(0, false, 255)));
   parseOutput(*serverCodec);
