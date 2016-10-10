@@ -305,7 +305,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
   Node root_{*this, nullptr, 0, 1, nullptr};
   uint64_t activeCount_{0};
-  uint32_t maxVirtualNodes_{200};
+  uint32_t maxVirtualNodes_{50};
   uint32_t numVirtualNodes_{0};
   bool pendingWeightChange_{false};
   WheelTimerInstance timeout_;

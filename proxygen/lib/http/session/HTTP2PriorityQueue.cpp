@@ -15,7 +15,7 @@ using std::unique_ptr;
 namespace proxygen {
 
 std::chrono::milliseconds HTTP2PriorityQueue::kNodeLifetime_ =
-  std::chrono::seconds(60);
+  std::chrono::seconds(30);
 
 HTTP2PriorityQueue::Node::Node(HTTP2PriorityQueue& queue,
                                HTTP2PriorityQueue::Node* inParent,
