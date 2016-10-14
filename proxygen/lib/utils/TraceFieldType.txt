@@ -60,6 +60,10 @@ RspNumOnBody, "response_number_on_body"
 ServerQuality, "response_server_quality"
 ServerRtt, "server_rtt"
 RecvToAck, "flow_control_recv_to_ack"
+ServerRtx, "server_rtx"
+ServerCwnd, "server_cwnd"
+ServerMss, "server_mss"
+ServerTotalBytesWritten, "server_tbw"
 
 /* ---- Used in PreConnect ---- */
 NewConnection, "new_connection"
