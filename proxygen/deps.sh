@@ -25,6 +25,15 @@ trap "cd $start_dir" EXIT
 # Must execute from the directory containing this script
 cd "$(dirname "$0")"
 
+# Update apt-get
+sudo apt-get update
+
+# If you need to install C++14 on ubuntu, uncomment the below
+#sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+#sudo apt-get update
+#sudo apt-get install gcc-4.9 g++-4.9
+#sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.9 60 --slave /usr/bin/g++ g++ /usr/bin/g++-4.9
+
 # Some extra dependencies for Ubuntu 13.10 and 14.04
 sudo apt-get install -yq \
     cmake \
