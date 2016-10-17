@@ -2375,6 +2375,10 @@ HTTPSession::pauseReads() {
        pendingReadSize_ <= readBufLimit_)) {
     return;
   }
+  pauseReadsImpl();
+}
+
+void HTTPSession::pauseReadsImpl() {
   VLOG(4) << *this << ": pausing reads";
   if (infoCallback_) {
     infoCallback_->onIngressPaused(*this);
@@ -2391,6 +2395,10 @@ HTTPSession::resumeReads() {
        pendingReadSize_ > readBufLimit_)) {
     return;
   }
+  resumeReadsImpl();
+}
+
+void HTTPSession::resumeReadsImpl() {
   VLOG(4) << *this << ": resuming reads";
   resetTimeout();
   reads_ = SocketState::UNPAUSED;

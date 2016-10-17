@@ -11,11 +11,15 @@
 
 #include <folly/io/async/SSLContext.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 
 namespace proxygen {
 
 class HTTPSessionStats;
+class SPDYStats;
+class HTTPUpstreamSessionController;
+
 class HTTPUpstreamSession final: public HTTPSession {
  public:
   /**
@@ -70,6 +74,16 @@ class HTTPUpstreamSession final: public HTTPSession {
         peerAddr, std::move(codec), tinfo, infoCallback, maxVirtualPri) {
   }
 
+  using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
+  void attachThreadLocals(folly::EventBase* eventBase,
+                          folly::SSLContextPtr sslContext,
+                          const WheelTimerInstance& timeout,
+                          HTTPSessionStats* stats,
+                          FilterIteratorFn fn,
+                          HeaderCodec::Stats* headerCodecStats,
+                          HTTPUpstreamSessionController* controller);
+
+  void detachThreadLocals();
 
   void startNow() override;
 

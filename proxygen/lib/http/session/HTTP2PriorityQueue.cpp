@@ -373,6 +373,16 @@ HTTP2PriorityQueue::Node::calculateDepth() const {
 }
 
 /// class HTTP2PriorityQueue
+void HTTP2PriorityQueue::attachThreadLocals(const WheelTimerInstance& timeout) {
+  timeout_ = timeout;
+}
+
+void HTTP2PriorityQueue::detachThreadLocals() {
+  // a bit harsh, we could cancel and reschedule the timeout
+  dropPriorityNodes();
+  timeout_ = WheelTimerInstance();
+}
+
 void
 HTTP2PriorityQueue::addOrUpdatePriorityNode(HTTPCodec::StreamID id,
                                             http2::PriorityUpdate pri) {

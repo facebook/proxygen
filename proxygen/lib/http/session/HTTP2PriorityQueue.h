@@ -47,6 +47,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     root_.setPermanent();
   }
 
+  void attachThreadLocals(const WheelTimerInstance& timeout);
+
+  void detachThreadLocals();
+
   void setMaxVirtualNodes(uint32_t maxVirtualNodes) {
     maxVirtualNodes_ = maxVirtualNodes;
   }

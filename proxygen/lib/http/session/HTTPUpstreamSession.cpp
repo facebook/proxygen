@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/http/session/HTTPSessionController.h>
 
 #include <wangle/acceptor/ConnectionManager.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
@@ -146,5 +147,49 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   }
   return ret;
 }
+
+void
+HTTPUpstreamSession::attachThreadLocals(
+  folly::EventBase* eventBase,
+  folly::SSLContextPtr sslContext,
+  const WheelTimerInstance& timeout,
+  HTTPSessionStats* stats, FilterIteratorFn fn,
+  HeaderCodec::Stats* headerCodecStats,
+  HTTPUpstreamSessionController* controller) {
+  txnEgressQueue_.attachThreadLocals(timeout);
+  timeout_ = timeout;
+  setController(controller);
+  setSessionStats(stats);
+  if (sock_) {
+    sock_->attachEventBase(eventBase);
+    auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
+    if (sslSocket) {
+      sslSocket->attachSSLContext(sslContext);
+    }
+  }
+  codec_.foreach(fn);
+  codec_->setHeaderCodecStats(headerCodecStats);
+  resumeReadsImpl();
+}
+
+void
+HTTPUpstreamSession::detachThreadLocals() {
+  CHECK(transactions_.empty());
+  pauseReadsImpl();
+  if (sock_) {
+    auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
+    if (sslSocket) {
+      sslSocket->detachSSLContext();
+    }
+    sock_->detachEventBase();
+  }
+  txnEgressQueue_.detachThreadLocals();
+  setController(nullptr);
+  setSessionStats(nullptr);
+  // The codec filters *shouldn't* be accessible while the socket is detached,
+  // I hope
+  codec_->setHeaderCodecStats(nullptr);
+}
+
 
 } // proxygen

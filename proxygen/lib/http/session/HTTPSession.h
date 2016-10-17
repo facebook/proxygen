@@ -146,6 +146,13 @@ class HTTPSession:
     return sock_.get();
   }
 
+  folly::EventBase* getEventBase() const {
+    if (sock_) {
+      return sock_->getEventBase();
+    }
+    return nullptr;
+  }
+
   /**
    * Returns the underlying AsyncTransportWrapper.
    * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
@@ -173,6 +180,10 @@ class HTTPSession:
 
   uint32_t getNumOutgoingStreams() const {
     return outgoingStreams_;
+  }
+
+  size_t getNumTransactions() const {
+    return transactions_.size();
   }
 
   uint32_t getHistoricalMaxOutgoingStreams() const {
@@ -842,6 +853,9 @@ class HTTPSession:
   bool shouldShutdown() const;
 
   void drainImpl();
+
+  void pauseReadsImpl();
+  void resumeReadsImpl();
 
   /** Chain of ingress IOBufs */
   folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
