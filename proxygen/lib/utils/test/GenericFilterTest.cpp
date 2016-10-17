@@ -531,3 +531,17 @@ TEST_F(OwnedGenericFilterTest, set_destination) {
   EXPECT_CALL(*actor_, doA());
   chain()->doA();
 }
+
+TEST_F(OwnedGenericFilterTest, foreach) {
+  auto filters = getRandomFilters(20);
+  size_t count = 0;
+  chain().foreach([&count] (GenericFilter<TesterInterface,
+                            TesterInterface::Callback,
+                            &TesterInterface::setCallback, true,
+                            std::default_delete<TesterInterface> >* filter) {
+                    if (dynamic_cast<TestFilter<true>*>(filter)) {
+                      count++;
+                    }
+                  });
+  EXPECT_EQ(count, 20);
+}

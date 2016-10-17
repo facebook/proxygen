@@ -10,6 +10,7 @@
 #pragma once
 
 #include <folly/Memory.h>
+#include <folly/Function.h>
 #include <glog/logging.h>
 #include <memory>
 #include <utility>
@@ -341,6 +342,15 @@ class FilterChain: private FilterType {
 
   const T1* operator->() const { return call(); }
   T1* operator->() { return call(); }
+
+  void foreach(folly::FunctionRef<void(FilterChainType*)> fn) {
+    auto cur = this->next_;
+    while (cur) {
+      auto filter = cur;
+      cur = cur->next_;
+      fn(filter);
+    }
+  }
 
  private:
   /**
