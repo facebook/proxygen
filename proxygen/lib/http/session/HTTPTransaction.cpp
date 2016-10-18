@@ -215,13 +215,12 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
           " expecting no more than ",
           expectedContentLengthRemaining_.value());
       LOG(ERROR) << *this << " " << errorMsg;
-      // Error out handler_ before sendAbort, as some handlers do not expect
-      // detachTransaction that can be triggered by sendAbort
       if (handler_) {
         HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
-        handler_->onError(ex);
+        ex.setProxygenError(kErrorParseBody);
+        onError(ex);
       }
-      sendAbort(ErrorCode::PROTOCOL_ERROR);
+      return;
     }
   }
   if (transportCallback_) {
@@ -393,13 +392,11 @@ void HTTPTransaction::onIngressEOM() {
         "Content-Length/body mismatch: expecting another ",
         expectedContentLengthRemaining_.value());
     LOG(ERROR) << *this << " " << errorMsg;
-    // Error out handler_ before sendAbort, as some handlers do not expect
-    // detachTransaction that can be triggered by sendAbort
     if (handler_) {
       HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
-      handler_->onError(ex);
+      ex.setProxygenError(kErrorParseBody);
+      onError(ex);
     }
-    sendAbort(ErrorCode::PROTOCOL_ERROR);
     return;
   }
 
@@ -641,7 +638,7 @@ void HTTPTransaction::onEgressTimeout() {
     HTTPException ex(HTTPException::Direction::EGRESS,
       folly::to<std::string>("egress timeout, streamID=", id_));
     ex.setProxygenError(kErrorTimeout);
-    handler_->onError(ex);
+    onError(ex);
   } else {
     markEgressComplete();
   }

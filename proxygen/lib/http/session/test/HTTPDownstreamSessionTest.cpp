@@ -2527,14 +2527,13 @@ TEST_F(HTTP2DownstreamSessionTest, test_short_content_length) {
   auto handler1 = addSimpleStrictHandler();
 
   handler1->expectHeaders();
-  handler1->expectError();
+  handler1->expectError([&handler1] (const HTTPException& ex) {
+      EXPECT_EQ(ex.getProxygenError(), kErrorParseBody);
+      handler1->txn_->sendAbort();
+    });
   handler1->expectDetachTransaction();
   flushRequestsAndLoop();
 
-  EXPECT_CALL(callbacks_, onSettings(_));
-  EXPECT_CALL(callbacks_, onAbort(streamID, ErrorCode::PROTOCOL_ERROR));
-
-  parseOutput(*clientCodec_);
   gracefulShutdown();
 }
 
@@ -2563,10 +2562,6 @@ TEST_F(HTTP2DownstreamSessionTest, test_bad_content_length_untie_handler) {
     });
   flushRequestsAndLoop();
 
-  EXPECT_CALL(callbacks_, onSettings(_));
-  EXPECT_CALL(callbacks_, onAbort(streamID, ErrorCode::PROTOCOL_ERROR));
-
-  parseOutput(*clientCodec_);
   gracefulShutdown();
 }
 
@@ -2580,14 +2575,13 @@ TEST_F(HTTP2DownstreamSessionTest, test_long_content_length) {
 
   handler1->expectHeaders();
   handler1->expectBody();
-  handler1->expectError();
+  handler1->expectError([&handler1] (const HTTPException& ex) {
+      EXPECT_EQ(ex.getProxygenError(), kErrorParseBody);
+      handler1->txn_->sendAbort();
+    });
   handler1->expectDetachTransaction();
   flushRequestsAndLoop();
 
-  EXPECT_CALL(callbacks_, onSettings(_));
-  EXPECT_CALL(callbacks_, onAbort(streamID, ErrorCode::PROTOCOL_ERROR));
-
-  parseOutput(*clientCodec_);
   gracefulShutdown();
 }
 
@@ -2665,7 +2659,10 @@ TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
   handler1->expectHeaders();
   EXPECT_CALL(*handler1, onChunkHeader(20));
 
-  handler1->expectError();
+  handler1->expectError([&handler1] (const HTTPException& ex) {
+      EXPECT_EQ(ex.getProxygenError(), kErrorParseBody);
+      handler1->txn_->sendAbort();
+    });
   handler1->expectDetachTransaction();
   expectDetachSession();
   flushRequestsAndLoop();
