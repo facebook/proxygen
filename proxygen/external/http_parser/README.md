@@ -70,7 +70,7 @@ When data is received on the socket execute the parser and check for errors.
 HTTP needs to know where the end of the stream is. For example, sometimes
 servers send responses without Content-Length and expect the client to
 consume input (for the body) until EOF. To tell http_parser about EOF, give
-`0` as the forth parameter to `http_parser_execute()`. Callbacks and errors
+`0` as the fourth parameter to `http_parser_execute()`. Callbacks and errors
 can still be encountered during an EOF, so one must still be prepared
 to receive them.
 
