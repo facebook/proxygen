@@ -50,6 +50,8 @@ public:
   StreamID getLastIncomingStreamID() const override { return lastStreamID_; }
   void enableDoubleGoawayDrain() override;
 
+  bool onIngressUpgradeMessage(const HTTPMessage& msg) override;
+
   void setNextEgressStreamId(StreamID nextEgressStreamID) {
     if (nextEgressStreamID > nextEgressStreamID_ &&
         (nextEgressStreamID & 0x1) == (nextEgressStreamID_ & 0x1) &&

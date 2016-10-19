@@ -64,4 +64,11 @@ void HTTPParallelCodec::enableDoubleGoawayDrain() {
   sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
 }
 
+bool HTTPParallelCodec::onIngressUpgradeMessage(const HTTPMessage& msg) {
+  if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+    lastStreamID_ = 1;
+  }
+  return true;
+}
+
 }

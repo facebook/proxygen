@@ -265,7 +265,7 @@ class HTTPDownstreamTest : public testing::Test {
 
   void expectResponse(uint32_t code = 200,
                       ErrorCode errorCode = ErrorCode::NO_ERROR,
-                      bool expect100 = false) {
+                      bool expect100 = false, bool expectGoaway = false) {
     NiceMock<MockHTTPCodecCallback> callbacks;
     clientCodec_->setCallback(&callbacks);
     if (isParallelCodecProtocol(clientCodec_->getProtocol())) {
@@ -297,6 +297,11 @@ class HTTPDownstreamTest : public testing::Test {
       if (clientCodec_->supportsStreamFlowControl() && streamDelta) {
         EXPECT_CALL(callbacks, onWindowUpdate(1, streamDelta));
       }
+    }
+
+    if (expectGoaway) {
+      EXPECT_CALL(callbacks, onGoaway(HTTPCodec::StreamID(1),
+                                      ErrorCode::NO_ERROR, _));
     }
 
     uint8_t times = (expect100) ? 2 : 1;
@@ -1538,6 +1543,38 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
   testPriorities(8);
 
   cleanup();
+}
+
+// Test sending a GOAWAY while the downstream session is still processing
+// the request that was an upgrade.  The reply GOAWAY should have last good
+// stream = 1, not 0.
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_goaway_drain) {
+  this->getCodec().setAllowedUpgradeProtocols({"h2c"});
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectBody();
+  EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(10),
+                             boost::none, true);
+  // cheat and not sending EOM, it's a no-op
+
+  flushRequestsAndLoop();
+  expect101(CodecProtocol::HTTP_2, "h2c");
+  clientCodec_->generateConnectionPreface(requests_);
+  clientCodec_->generateGoaway(requests_, 0, ErrorCode::NO_ERROR);
+  flushRequestsAndLoop();
+  eventBase_.runInLoop([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+  expectResponse(200, ErrorCode::NO_ERROR, false, true);
+  expectDetachSession();
 }
 
 template <class C>
