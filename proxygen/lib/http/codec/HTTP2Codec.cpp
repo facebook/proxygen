@@ -531,11 +531,18 @@ void HTTP2Codec::onHeader(const std::string& name,
       return;
     }
     if (nameSp == "content-length") {
-      if (decodeInfo_.hasContentLength) {
-        decodeInfo_.parsingError = string("Duplicate content-length");
+      uint32_t contentLength = 0;
+      try {
+        contentLength = folly::to<uint32_t>(valueSp);
+      } catch (const std::range_error& ex) {
+      }
+      if (decodeInfo_.hasContentLength &&
+          contentLength != decodeInfo_.contentLength) {
+        decodeInfo_.parsingError = string("Multiple content-length headers");
         return;
       }
       decodeInfo_.hasContentLength = true;
+      decodeInfo_.contentLength = contentLength;
     }
     bool nameOk = SPDYUtil::validateHeaderName(nameSp);
     bool valueOk = SPDYUtil::validateHeaderValue(valueSp, SPDYUtil::STRICT);

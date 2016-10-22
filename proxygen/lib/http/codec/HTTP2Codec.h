@@ -130,6 +130,7 @@ public:
       isRequest = isRequestIn;
       hasStatus = false;
       hasContentLength = false;
+      contentLength = 0;
       regularHeaderSeen = false;
       parsingError = "";
       decodeError = HeaderDecodeError::NONE;
@@ -148,6 +149,7 @@ public:
     bool hasStatus{false};
     bool regularHeaderSeen{false};
     bool hasContentLength{false};
+    uint32_t contentLength{0};
     std::string parsingError;
     HeaderDecodeError decodeError{HeaderDecodeError::NONE};
   };
