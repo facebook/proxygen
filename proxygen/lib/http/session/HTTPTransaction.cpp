@@ -472,7 +472,9 @@ void HTTPTransaction::markIngressComplete() {
 void HTTPTransaction::markEgressComplete() {
   VLOG(4) << "Marking egress complete on " << *this;
   if (deferredEgressBody_.chainLength() && isEnqueued()) {
-    transport_.notifyEgressBodyBuffered(-deferredEgressBody_.chainLength());
+    int64_t deferredEgressBodyBytes =
+      folly::to<int64_t>(deferredEgressBody_.chainLength());
+    transport_.notifyEgressBodyBuffered(-deferredEgressBodyBytes);
   }
   deferredEgressBody_.move();
   if (isEnqueued()) {
@@ -1100,7 +1102,9 @@ void HTTPTransaction::notifyTransportPendingEgress() {
     }
   } else if (isEnqueued()) {
     // Nothing to send, or not allowed to send right now.
-    transport_.notifyEgressBodyBuffered(-deferredEgressBody_.chainLength());
+    int64_t deferredEgressBodyBytes =
+      folly::to<int64_t>(deferredEgressBody_.chainLength());
+    transport_.notifyEgressBodyBuffered(-deferredEgressBodyBytes);
     egressQueue_.clearPendingEgress(queueHandle_);
   }
   updateHandlerPauseState();

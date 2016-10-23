@@ -2262,7 +2262,8 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
   numActiveWrites_--;
   if (!inLoopCallback_) {
     updateWriteCount();
-    updateWriteBufSize(-bytesWritten); // safe to resume here
+    // safe to resume here:
+    updateWriteBufSize(-folly::to<int64_t>(bytesWritten));
     // PRIO_FIXME: this is done because of the corking business...
     //             in the future we may want to have a pull model
     //             whereby the socket asks us for a given amount of
