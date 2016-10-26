@@ -1380,7 +1380,7 @@ TEST_F(HTTP2CodecTest, TestMultipleIdenticalContentLengthHeaders) {
   upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
   parse();
 
-  // Check that the request fails before the codec finishes parsing the headers
+  // Check that the headers parsing completes correctly
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.headersComplete, 1);
 }
