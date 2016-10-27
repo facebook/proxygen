@@ -15,6 +15,7 @@
 #include <proxygen/httpserver/SignalHandler.h>
 #include <proxygen/httpserver/filters/RejectConnectFilter.h>
 #include <proxygen/httpserver/filters/ZlibServerFilter.h>
+#include <wangle/ssl/SSLContextManager.h>
 
 using folly::AsyncServerSocket;
 using folly::EventBase;
@@ -197,6 +198,28 @@ const std::vector<const folly::AsyncSocketBase*>
   }
 
   return sockets;
+}
+
+void HTTPServer::updateTicketSeeds(wangle::TLSTicketKeySeeds seeds) {
+  for (auto& bootstrap : bootstrap_) {
+    bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
+      if (!acceptor) {
+        return;
+      }
+      auto evb = acceptor->getEventBase();
+      if (!evb) {
+        return;
+      }
+      evb->runInEventBaseThread([acceptor, seeds] {
+        auto ctxMgr = acceptor->getSSLContextManager();
+        if (!ctxMgr) {
+          return;
+        }
+        ctxMgr->reloadTLSTicketKeys(
+            seeds.oldSeeds, seeds.currentSeeds, seeds.newSeeds);
+      });
+    });
+  }
 }
 
 }

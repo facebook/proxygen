@@ -17,6 +17,7 @@
 #include <proxygen/lib/utils/TestUtils.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
+#include <wangle/client/ssl/SSLSession.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -109,6 +110,26 @@ TEST(MultiBind, HandlesListenFailures) {
   EXPECT_FALSE(st.start());
 }
 
+// Make an SSL connection to the server
+class Cb : public folly::AsyncSocket::ConnectCallback {
+ public:
+  explicit Cb(folly::AsyncSSLSocket* sock) : sock_(sock) {}
+  void connectSuccess() noexcept override {
+    success = true;
+    reusedSession = sock_->getSSLSessionReused();
+    session.reset(sock_->getSSLSession());
+    sock_->close();
+  }
+  void connectErr(const folly::AsyncSocketException&) noexcept override {
+    success = false;
+  }
+
+  bool success{false};
+  bool reusedSession{false};
+  wangle::SSLSessionPtr session;
+  folly::AsyncSSLSocket* sock_{nullptr};
+};
+
 TEST(SSL, SSLTest) {
   HTTPServer::IPConfig cfg{
     folly::SocketAddress("127.0.0.1", 0),
@@ -131,23 +152,6 @@ TEST(SSL, SSLTest) {
 
   ServerThread st(server.get());
   EXPECT_TRUE(st.start());
-
-  // Make an SSL connection to the server
-  class Cb : public folly::AsyncSocket::ConnectCallback {
-   public:
-    explicit Cb(folly::AsyncSSLSocket* sock) : sock_(sock) {}
-    void connectSuccess() noexcept override {
-      success = true;
-      sock_->close();
-    }
-    void connectErr(const folly::AsyncSocketException&)
-      noexcept override {
-      success = false;
-    }
-
-    bool success{false};
-    folly::AsyncSSLSocket* sock_{nullptr};
-  };
 
   folly::EventBase evb;
   auto ctx = std::make_shared<SSLContext>();
@@ -186,7 +190,9 @@ class TestHandlerFactory : public RequestHandlerFactory {
   virtual void onServerStop() noexcept override {}
 };
 
-TEST(SSL, TestAllowInsecureOnSecureServer) {
+std::pair<std::unique_ptr<HTTPServer>, std::unique_ptr<ServerThread>>
+setupServer(bool allowInsecureConnectionsOnSecureServer = false,
+            folly::Optional<wangle::TLSTicketKeySeeds> seeds = folly::none) {
   HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
                            HTTPServer::Protocol::HTTP};
   wangle::SSLContextConfig sslCfg;
@@ -194,7 +200,9 @@ TEST(SSL, TestAllowInsecureOnSecureServer) {
   sslCfg.setCertificate(
       kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
   cfg.sslConfigs.push_back(sslCfg);
-  cfg.allowInsecureConnectionsOnSecureServer = true;
+  cfg.allowInsecureConnectionsOnSecureServer =
+      allowInsecureConnectionsOnSecureServer;
+  cfg.ticketSeeds = seeds;
 
   HTTPServerOptions options;
   options.threads = 4;
@@ -206,8 +214,15 @@ TEST(SSL, TestAllowInsecureOnSecureServer) {
   std::vector<HTTPServer::IPConfig> ips{cfg};
   server->bind(ips);
 
-  ServerThread st(server.get());
-  EXPECT_TRUE(st.start());
+  auto st = folly::make_unique<ServerThread>(server.get());
+  EXPECT_TRUE(st->start());
+  return std::make_pair(std::move(server), std::move(st));
+}
+
+TEST(SSL, TestAllowInsecureOnSecureServer) {
+  std::unique_ptr<HTTPServer> server;
+  std::unique_ptr<ServerThread> st;
+  std::tie(server, st) = setupServer(true);
 
   folly::EventBase evb;
   URL url(folly::to<std::string>(
@@ -231,27 +246,9 @@ TEST(SSL, TestAllowInsecureOnSecureServer) {
 }
 
 TEST(SSL, DisallowInsecureOnSecureServer) {
-  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
-                           HTTPServer::Protocol::HTTP};
-  wangle::SSLContextConfig sslCfg;
-  sslCfg.isDefault = true;
-  sslCfg.setCertificate(
-      kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
-  cfg.sslConfigs.push_back(sslCfg);
-  cfg.allowInsecureConnectionsOnSecureServer = false;
-
-  HTTPServerOptions options;
-  options.threads = 4;
-  options.handlerFactories =
-      RequestHandlerChain().addThen<TestHandlerFactory>().build();
-
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
-
-  std::vector<HTTPServer::IPConfig> ips{cfg};
-  server->bind(ips);
-
-  ServerThread st(server.get());
-  EXPECT_TRUE(st.start());
+  std::unique_ptr<HTTPServer> server;
+  std::unique_ptr<ServerThread> st;
+  std::tie(server, st) = setupServer(false);
 
   folly::EventBase evb;
   URL url(folly::to<std::string>(
@@ -272,4 +269,71 @@ TEST(SSL, DisallowInsecureOnSecureServer) {
   evb.loop();
   auto response = curl.getResponse();
   EXPECT_EQ(nullptr, response);
+}
+
+TEST(SSL, TestResumptionWithTickets) {
+  std::unique_ptr<HTTPServer> server;
+  std::unique_ptr<ServerThread> st;
+  wangle::TLSTicketKeySeeds seeds;
+  seeds.currentSeeds.push_back(hexlify("hello"));
+  std::tie(server, st) = setupServer(false, seeds);
+
+  folly::EventBase evb;
+  auto ctx = std::make_shared<SSLContext>();
+  folly::AsyncSSLSocket::UniquePtr sock(new folly::AsyncSSLSocket(ctx, &evb));
+  Cb cb(sock.get());
+  sock->connect(&cb, server->addresses().front().address, 1000);
+  evb.loop();
+  ASSERT_TRUE(cb.success);
+  ASSERT_NE(nullptr, cb.session.get());
+  ASSERT_FALSE(cb.reusedSession);
+
+  folly::AsyncSSLSocket::UniquePtr sock2(new folly::AsyncSSLSocket(ctx, &evb));
+  sock2->setSSLSession(cb.session.get());
+  Cb cb2(sock2.get());
+  sock2->connect(&cb2, server->addresses().front().address, 1000);
+  evb.loop();
+  ASSERT_TRUE(cb2.success);
+  ASSERT_NE(nullptr, cb2.session.get());
+  ASSERT_TRUE(cb2.reusedSession);
+}
+
+TEST(SSL, TestResumptionAfterUpdateFails) {
+  std::unique_ptr<HTTPServer> server;
+  std::unique_ptr<ServerThread> st;
+  wangle::TLSTicketKeySeeds seeds;
+  seeds.currentSeeds.push_back(hexlify("hello"));
+  std::tie(server, st) = setupServer(false, seeds);
+
+  folly::EventBase evb;
+  auto ctx = std::make_shared<SSLContext>();
+  folly::AsyncSSLSocket::UniquePtr sock(new folly::AsyncSSLSocket(ctx, &evb));
+  Cb cb(sock.get());
+  sock->connect(&cb, server->addresses().front().address, 1000);
+  evb.loop();
+  ASSERT_TRUE(cb.success);
+  ASSERT_NE(nullptr, cb.session.get());
+  ASSERT_FALSE(cb.reusedSession);
+
+  wangle::TLSTicketKeySeeds newSeeds;
+  newSeeds.currentSeeds.push_back(hexlify("goodbyte"));
+  server->updateTicketSeeds(newSeeds);
+
+  folly::AsyncSSLSocket::UniquePtr sock2(new folly::AsyncSSLSocket(ctx, &evb));
+  sock2->setSSLSession(cb.session.get());
+  Cb cb2(sock2.get());
+  sock2->connect(&cb2, server->addresses().front().address, 1000);
+  evb.loop();
+  ASSERT_TRUE(cb2.success);
+  ASSERT_NE(nullptr, cb2.session.get());
+  ASSERT_FALSE(cb2.reusedSession);
+
+  folly::AsyncSSLSocket::UniquePtr sock3(new folly::AsyncSSLSocket(ctx, &evb));
+  sock3->setSSLSession(cb2.session.get());
+  Cb cb3(sock3.get());
+  sock3->connect(&cb3, server->addresses().front().address, 1000);
+  evb.loop();
+  ASSERT_TRUE(cb3.success);
+  ASSERT_NE(nullptr, cb3.session.get());
+  ASSERT_TRUE(cb3.reusedSession);
 }

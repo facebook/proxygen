@@ -43,6 +43,9 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
       ipConfig.allowInsecureConnectionsOnSecureServer;
   conf.enableTCPFastOpen = ipConfig.enableTCPFastOpen;
   conf.fastOpenQueueSize = ipConfig.fastOpenQueueSize;
+  if (ipConfig.ticketSeeds) {
+    conf.initialTicketSeeds = *ipConfig.ticketSeeds;
+  }
   return conf;
 }
 
