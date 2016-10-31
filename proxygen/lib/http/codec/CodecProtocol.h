@@ -19,7 +19,6 @@ enum class CodecProtocol : uint8_t {
   HTTP_1_1,
   SPDY_3,
   SPDY_3_1,
-  SPDY_3_1_HPACK,
   HTTP_2,
 };
 

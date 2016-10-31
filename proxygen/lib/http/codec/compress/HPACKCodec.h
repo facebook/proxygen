@@ -29,13 +29,7 @@ class HPACKHeader;
  * Current version of the wire protocol. When we're making changes to the wire
  * protocol we need to change this version and the NPN string so that old
  * clients will not be able to negotiate it anymore.
- *
- * Current version: 0.5
- * Spec: tools.ietf.org/html/draft-ietf-httpbis-header-compression-05
- *
- * Note: 0 means draft, 5 for draft version
  */
-extern const std::string kHpackNpn; // NPN string for SPDY w/ HPACK
 
 class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
  public:

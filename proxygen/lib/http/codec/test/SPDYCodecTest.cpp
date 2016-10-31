@@ -1311,9 +1311,9 @@ TEST(SPDYCodecTest, ShortSettings) {
 
 TEST(SPDYCodecTest, SegmentedHeaderBlock) {
   SPDYCodec egressCodec(TransportDirection::UPSTREAM,
-                        SPDYVersion::SPDY3_1_HPACK);
+                        SPDYVersion::SPDY3_1);
   SPDYCodec ingressCodec(TransportDirection::DOWNSTREAM,
-                         SPDYVersion::SPDY3_1_HPACK);
+                         SPDYVersion::SPDY3_1);
   // generate huge string to use as a header value
   string huge;
   uint32_t size = 20000;
@@ -1382,34 +1382,9 @@ TEST(SPDYCodecTest, ColonHeaders) {
   EXPECT_EQ(callbacks.sessionErrors, 0);
 }
 
-// this magic blob contains a pair of invalid header "key='', value='x'" encoded
-// with HPACK. It's not easy to generate it, as any use of HTTPHeaders will
-// hit an assert for name size before we have the chance to decode
-const uint8_t kBufEmptyHeader[] = {
-  0x80, 0x3, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0e, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0,
-  0x0, 0x0, 0x0, 0x0, 0x80, 0x81, 0xea
-};
-
-/**
- * make sure we're not hitting CHECK on header name size when receiving a rogue
- * header from the client
- */
-TEST(SPDYCodecTest, EmptyHeaderName) {
-  FakeHTTPCodecCallback callbacks;
-  SPDYCodec ingressCodec(TransportDirection::DOWNSTREAM,
-                         SPDYVersion::SPDY3_1_HPACK);
-
-  auto testBuf = IOBuf::copyBuffer(kBufEmptyHeader, sizeof(kBufEmptyHeader));
-  ingressCodec.setCallback(&callbacks);
-  ingressCodec.onIngress(*testBuf);
-  EXPECT_EQ(callbacks.headersComplete, 0);
-  EXPECT_EQ(callbacks.streamErrors, 1);
-  EXPECT_EQ(callbacks.sessionErrors, 0);
-}
-
 TEST(SPDYCodecTest, StreamIdOverflow) {
   SPDYCodec codec(TransportDirection::UPSTREAM,
-                  SPDYVersion::SPDY3_1_HPACK);
+                  SPDYVersion::SPDY3_1);
 
   HTTPCodec::StreamID streamId;
   codec.setNextEgressStreamId(std::numeric_limits<int32_t>::max() - 10);

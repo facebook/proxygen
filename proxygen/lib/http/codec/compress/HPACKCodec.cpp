@@ -24,7 +24,6 @@ using std::vector;
 
 namespace proxygen {
 
-const std::string kHpackNpn = "spdy/3.1-fb-0.5";
 
 HPACKCodec::HPACKCodec(TransportDirection direction) {
   HPACK::MessageType encoderType;

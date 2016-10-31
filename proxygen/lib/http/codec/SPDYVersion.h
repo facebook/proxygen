@@ -11,6 +11,6 @@
 
 namespace proxygen {
 
-enum class SPDYVersion { SPDY3 = 0, SPDY3_1, SPDY3_1_HPACK };
+enum class SPDYVersion { SPDY3 = 0, SPDY3_1 };
 
 }

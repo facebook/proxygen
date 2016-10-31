@@ -23,7 +23,6 @@
 #include <proxygen/lib/http/codec/CodecDictionaries.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
-#include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/utils/ParseURL.h>
 #include <proxygen/lib/utils/UtilInl.h>
 #include <vector>
@@ -166,10 +165,6 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
      kFrameSizeGoawayv3, kPriShiftv3, 3, 1, SPDYVersion::SPDY3_1,
      spdy::kVersionStrv31}
   };
-  // SPDY3_1_HPACK is identical to SPDY3 in terms of version settings structure
-  if (version == SPDYVersion::SPDY3_1_HPACK) {
-    version = SPDYVersion::SPDY3_1;
-  }
   auto intVersion = static_cast<unsigned>(version);
   CHECK_LT(intVersion, spdyVersions->size());
   return (*spdyVersions)[intVersion];
@@ -184,12 +179,9 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
   VLOG(4) << "creating SPDY/" << static_cast<int>(versionSettings_.majorVersion)
           << "." << static_cast<int>(versionSettings_.minorVersion)
           << " codec";
-  if (version == SPDYVersion::SPDY3_1_HPACK) {
-    headerCodec_ = folly::make_unique<HPACKCodec>(transportDirection_);
-  } else {
-    headerCodec_ = folly::make_unique<GzipHeaderCodec>(
-      spdyCompressionLevel, versionSettings_);
-  }
+  headerCodec_ = folly::make_unique<GzipHeaderCodec>(
+    spdyCompressionLevel, versionSettings_);
+
   // Limit uncompressed headers to 128kb
   headerCodec_->setMaxUncompressed(kMaxUncompressed);
   nextEgressPingID_ = nextEgressStreamID_;
@@ -210,7 +202,6 @@ CodecProtocol SPDYCodec::getProtocol() const {
   switch (versionSettings_.version) {
     case SPDYVersion::SPDY3: return CodecProtocol::SPDY_3;
     case SPDYVersion::SPDY3_1: return CodecProtocol::SPDY_3_1;
-    case SPDYVersion::SPDY3_1_HPACK: return CodecProtocol::SPDY_3_1_HPACK;
   };
   LOG(FATAL) << "unreachable";
   return CodecProtocol::SPDY_3_1;
@@ -1479,9 +1470,6 @@ SPDYCodec::getVersion(const std::string& protocol) {
     return boost::none;
   }
 
-  if (protocol == kHpackNpn) {
-    return SPDYVersion::SPDY3_1_HPACK;
-  }
   if (protocol == "spdy/3.1") {
     return SPDYVersion::SPDY3_1;
   }

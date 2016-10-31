@@ -23,9 +23,6 @@ std::unique_ptr<HTTPCodec> HTTPCodecFactory::getCodec(
       return folly::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3);
     case CodecProtocol::SPDY_3_1:
       return folly::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3_1);
-    case CodecProtocol::SPDY_3_1_HPACK:
-      return folly::make_unique<SPDYCodec>(direction,
-                                           SPDYVersion::SPDY3_1_HPACK);
     case CodecProtocol::HTTP_2:
       return folly::make_unique<HTTP2Codec>(direction);
   }

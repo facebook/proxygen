@@ -19,7 +19,6 @@ void HTTPCodecPrinter::onFrameHeader(
   switch (call_->getProtocol()) {
     case CodecProtocol::SPDY_3:
     case CodecProtocol::SPDY_3_1:
-    case CodecProtocol::SPDY_3_1_HPACK:
       if (version > 0) {
         // Print frame header info of SPDY control frames
         std::cout << "[CTRL FRAME] version=" << version << ", flags="
