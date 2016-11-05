@@ -337,3 +337,38 @@ TEST(SSL, TestResumptionAfterUpdateFails) {
   ASSERT_NE(nullptr, cb3.session.get());
   ASSERT_TRUE(cb3.reusedSession);
 }
+
+TEST(GetListenSocket, TestNoBootstrap) {
+  HTTPServerOptions options;
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto st = folly::make_unique<ServerThread>(server.get());
+  EXPECT_TRUE(st->start());
+
+  auto socketfd = server->getListenSocket();
+  ASSERT_EQ(-1, socketfd);
+}
+
+TEST(GetListenSocket, TestBootstrapWithNoBinding) {
+  std::unique_ptr<HTTPServer> server;
+  std::unique_ptr<ServerThread> st;
+  wangle::TLSTicketKeySeeds seeds;
+  seeds.currentSeeds.push_back(hexlify("hello"));
+  std::tie(server, st) = setupServer(false, seeds);
+
+  // Stop listening on socket
+  server->stopListening();
+
+  auto socketfd = server->getListenSocket();
+  ASSERT_EQ(-1, socketfd);
+}
+
+TEST(GetListenSocket, TestBootstrapWithBinding) {
+  std::unique_ptr<HTTPServer> server;
+  std::unique_ptr<ServerThread> st;
+  wangle::TLSTicketKeySeeds seeds;
+  seeds.currentSeeds.push_back(hexlify("hello"));
+  std::tie(server, st) = setupServer(false, seeds);
+
+  auto socketfd = server->getListenSocket();
+  ASSERT_NE(-1, socketfd);
+}

@@ -146,6 +146,11 @@ class HTTPServer final {
   }
 
   /**
+   * Returns a file descriptor associated with the listening socket
+   */
+  int getListenSocket() const;
+
+  /**
    * Updates ticket seeds for the HTTPServer for all the VIPs.
    */
   void updateTicketSeeds(wangle::TLSTicketKeySeeds seeds);

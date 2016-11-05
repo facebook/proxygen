@@ -200,6 +200,26 @@ const std::vector<const folly::AsyncSocketBase*>
   return sockets;
 }
 
+int HTTPServer::getListenSocket() const {
+  if (bootstrap_.size() == 0) {
+    return -1;
+  }
+
+  auto& bootstrapSockets = bootstrap_[0].getSockets();
+  if (bootstrapSockets.size() == 0) {
+    return -1;
+  }
+
+  auto serverSocket =
+      std::dynamic_pointer_cast<folly::AsyncServerSocket>(bootstrapSockets[0]);
+  auto socketFds = serverSocket->getSockets();
+  if (socketFds.size() == 0) {
+    return -1;
+  }
+
+  return socketFds[0];
+}
+
 void HTTPServer::updateTicketSeeds(wangle::TLSTicketKeySeeds seeds) {
   for (auto& bootstrap : bootstrap_) {
     bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
