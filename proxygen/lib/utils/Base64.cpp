@@ -49,7 +49,7 @@ std::string Base64::decode(const std::string& b64message) {
   int decodeLen = calcDecodeLength(b64message.c_str());
   std::string result(decodeLen, '\0');
 
-  bio.reset(BIO_new_mem_buf(b64message.data(), -1));
+  bio.reset(BIO_new_mem_buf((void*)b64message.data(), -1));
   if (!bio) {
     return std::string();
   }
