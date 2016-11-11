@@ -55,4 +55,6 @@ cat ${HEADERS_LIST?} | LC_ALL=C sort | uniq \
   }
 ' - "${FBCODE_DIR?}/proxygen/lib/http/HTTPCommonHeaders.template.gperf" \
 | ${GPERF:-gperf} -m5 --output-file="${INSTALL_DIR?}/HTTPCommonHeaders.cpp"
-sed -i "s:$(readlink -f ${FBCODE_DIR?})/::g" "${INSTALL_DIR?}/HTTPCommonHeaders.cpp"
+if [[ "$(readlink -f test 2>/dev/null)" ]]; then
+    sed -i  "s:$(readlink -f ${FBCODE_DIR?})/::g" "${INSTALL_DIR?}/HTTPCommonHeaders.cpp"
+fi
