@@ -8,45 +8,46 @@
  *
  */
 #include <proxygen/lib/utils/Base64.h>
-#include <string.h>
+#include <folly/Range.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
-#include <folly/Range.h>
+#include <string.h>
 
 namespace {
-// Calculates the length of a decoded string
-size_t calcDecodeLength(const char* b64input) {
-  size_t len = strlen(b64input);
-  size_t padding = 0;
-
-  if (len > 2 && b64input[len - 1] == '=' && b64input[len - 2] == '=') {
-    //last two chars are =
-    padding = 2;
-  } else if (len > 1 && b64input[len - 1] == '=') {
-    //last char is =
-    padding = 1;
-  } // else no padding
-
-  return (len * 3) / 4 - padding;
-}
-
 struct BIODeleter {
  public:
-  void operator()(BIO* bio) const {
-    BIO_free_all(bio);
-  };
+  void operator()(BIO* bio) const { BIO_free_all(bio); };
 };
 
 }
 
 namespace proxygen {
 
-// Decodes a base64 encoded string
-std::string Base64::decode(const std::string& b64message) {
+// Decodes a base64url encoded string
+std::string Base64::urlDecode(const std::string& urlB64message) {
   std::unique_ptr<BIO, BIODeleter> bio, b64;
+  uint8_t padding = (4 - urlB64message.length() % 4) % 4;
+  if (padding == 3) {
+    return std::string();
+  }
 
-  int decodeLen = calcDecodeLength(b64message.c_str());
+  std::string b64message(urlB64message.length() + padding, 0);
+  std::transform(
+    urlB64message.begin(), urlB64message.end(), b64message.begin(),
+    [](char c) {
+      if (c == '-') {
+        return '+';
+      } else if (c == '_') {
+        return '/';
+      }
+      return c;
+    });
+  for (auto i = urlB64message.length(); i < urlB64message.length() + padding;
+       i++) {
+    b64message[i] = '=';
+  }
+  int decodeLen = b64message.length() * 3 / 4 - padding;
   std::string result(decodeLen, '\0');
 
   bio.reset(BIO_new_mem_buf((void*)b64message.data(), -1));
@@ -61,7 +62,7 @@ std::string Base64::decode(const std::string& b64message) {
 
   // Do not use newlines to flush buffer
   BIO_set_flags(bio.get(), BIO_FLAGS_BASE64_NO_NL);
-  auto length = BIO_read(bio.get(), (char *)result.data(), b64message.length());
+  auto length = BIO_read(bio.get(), (char*)result.data(), b64message.length());
   DCHECK_LE(length, decodeLen);
   if (length < decodeLen) {
     return std::string();
@@ -71,9 +72,9 @@ std::string Base64::decode(const std::string& b64message) {
 }
 
 // Encodes a binary safe base 64 string
-std::string Base64::encode(folly::ByteRange buffer) {
+std::string Base64::urlEncode(folly::ByteRange buffer) {
   std::unique_ptr<BIO, BIODeleter> bio, b64;
-  BUF_MEM *bufferPtr;
+  BUF_MEM* bufferPtr;
 
   b64.reset(BIO_new(BIO_f_base64()));
   if (!b64) {
@@ -88,11 +89,27 @@ std::string Base64::encode(folly::ByteRange buffer) {
   // Ignore newlines - write everything in one line
   BIO_set_flags(bio.get(), BIO_FLAGS_BASE64_NO_NL);
   BIO_write(bio.get(), buffer.data(), buffer.size());
-  BIO_flush(bio.get());
+  (void)BIO_flush(bio.get());
   BIO_get_mem_ptr(bio.get(), &bufferPtr);
-  BIO_set_close(bio.get(), BIO_NOCLOSE);
+  (void)BIO_set_close(bio.get(), BIO_NOCLOSE);
 
-  auto result = std::string(bufferPtr->data, bufferPtr->length);
+  std::string result(bufferPtr->length, 0);
+  folly::StringPiece sp(bufferPtr->data, bufferPtr->length);
+  uint8_t padding = 0;
+  std::transform(
+    sp.begin(), sp.end(), result.begin(),
+    [&padding](char c) {
+      if (c == '+') {
+        return '-';
+      } else if (c == '/') {
+        return '_';
+      } else if (c == '=') {
+        padding++;
+      }
+      return c;
+    });
+  DCHECK_LE(padding, result.length());
+  result.resize(result.length() - padding);
   BUF_MEM_free(bufferPtr);
   return result;
 }

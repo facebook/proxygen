@@ -19,8 +19,8 @@ namespace proxygen {
 
 class Base64 {
   public:
-    static std::string decode(const std::string& b64message);
-    static std::string encode(folly::ByteRange buffer);
+    static std::string urlDecode(const std::string& b64message);
+    static std::string urlEncode(folly::ByteRange buffer);
 };
 
 }
