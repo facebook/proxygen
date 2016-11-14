@@ -1339,7 +1339,11 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
     });
   handler->expectDetachTransaction();
 
-  sendRequest(getUpgradeRequest(upgradeHeader));
+  HTTPMessage req = getUpgradeRequest(upgradeHeader);
+  if (upgradeHeader == http2::kProtocolCleartextString) {
+    HTTP2Codec::requestUpgrade(req);
+  }
+  sendRequest(req);
   flushRequestsAndLoop();
 
   expect101(expectedProtocol, expectedUpgradeHeader);
@@ -1558,6 +1562,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_goaway_drain) {
   handler->expectDetachTransaction();
 
   HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
+  HTTP2Codec::requestUpgrade(req);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
                              boost::none, true);

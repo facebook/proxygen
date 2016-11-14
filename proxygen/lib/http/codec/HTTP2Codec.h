@@ -42,6 +42,7 @@ public:
   }
 
   size_t onIngress(const folly::IOBuf& buf) override;
+  bool onIngressUpgradeMessage(const HTTPMessage& msg) override;
   size_t generateConnectionPreface(folly::IOBufQueue& writeBuf) override;
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
@@ -180,6 +181,7 @@ public:
   ErrorCode handleEndStream();
   ErrorCode checkNewStream(uint32_t stream);
   bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
+  ErrorCode handleSettings(const std::deque<SettingPair>& settings);
   uint32_t maxSendFrameSize() const {
     return ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                        http2::kMaxFramePayloadLengthMin);
