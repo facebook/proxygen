@@ -189,6 +189,10 @@ HTTPUpstreamSession::detachThreadLocals() {
   // The codec filters *shouldn't* be accessible while the socket is detached,
   // I hope
   codec_->setHeaderCodecStats(nullptr);
+  auto cm = getConnectionManager();
+  if (cm) {
+    cm->removeConnection(this);
+  }
 }
 
 

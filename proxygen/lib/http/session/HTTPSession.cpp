@@ -315,9 +315,11 @@ HTTPSession::readTimeoutExpired() noexcept {
   VLOG(4) << *this << " Timeout with nothing pending";
 
   setCloseReason(ConnectionCloseReason::TIMEOUT);
+  if (controller_) {
+    timeout_.scheduleTimeout(&drainTimeout_,
+                             controller_->getGracefulShutdownTimeout());
+  }
   notifyPendingShutdown();
-  timeout_.scheduleTimeout(&drainTimeout_,
-                           controller_->getGracefulShutdownTimeout());
 }
 
 void

@@ -11,6 +11,7 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/TimeoutManager.h>
+#include <wangle/acceptor/ConnectionManager.h>
 #include <gtest/gtest.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
@@ -909,6 +910,15 @@ TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   EXPECT_TRUE(handler->txn_->isScheduled());
   EXPECT_EQ(transactionTimeouts_->count(), 1);
   handler->txn_->sendAbort();
+  eventBase_.loop();
+}
+
+TEST_F(HTTPUpstreamSessionTest, read_timeout) {
+  NiceMock<MockUpstreamController> controller;
+  httpSession_->setController(&controller);
+  auto cm = wangle::ConnectionManager::makeUnique(
+    &eventBase_, std::chrono::milliseconds(50));
+  cm->addConnection(httpSession_, true);
   eventBase_.loop();
 }
 
