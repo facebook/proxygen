@@ -109,6 +109,8 @@ public:
 
   //HTTP2Codec specific API
 
+  static void requestUpgrade(HTTPMessage& request);
+
 #ifndef NDEBUG
   uint64_t getReceivedFrameCount() const {
     return receivedFrameCount_;

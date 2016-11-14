@@ -51,4 +51,5 @@ extern const std::string kProtocolString;
 extern const std::string kProtocolDraftString;
 extern const std::string kProtocolExperimentalString;
 extern const std::string kProtocolCleartextString;
+extern const std::string kProtocolSettingsHeader;
 }}

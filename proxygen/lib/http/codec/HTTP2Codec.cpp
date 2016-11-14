@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/utils/ChromeUtils.h>
 #include <proxygen/lib/utils/Logging.h>
+#include <proxygen/lib/utils/Base64.h>
 
 #include <folly/Conv.h>
 #include <folly/io/Cursor.h>
@@ -22,6 +23,13 @@ using namespace folly::io;
 using namespace folly;
 
 using std::string;
+
+namespace {
+std::string base64url_encode(ByteRange range) {
+  return proxygen::Base64::urlEncode(range);
+}
+
+}
 
 namespace proxygen {
 
@@ -1183,6 +1191,28 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
   }
   VLOG(4) << "generating " << (unsigned)settings.size() << " settings";
   return http2::writeSettings(writeBuf, settings);
+}
+
+void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
+  static HTTP2Codec defaultCodec(TransportDirection::UPSTREAM);
+
+  auto& headers = request.getHeaders();
+  headers.set(HTTP_HEADER_UPGRADE, http2::kProtocolCleartextString);
+  if (!request.checkForHeaderToken(HTTP_HEADER_CONNECTION, "Upgrade", false)) {
+    headers.add(HTTP_HEADER_CONNECTION, "Upgrade");
+  }
+  IOBufQueue writeBuf{IOBufQueue::cacheChainLength()};
+  defaultCodec.generateSettings(writeBuf);
+  writeBuf.trimStart(http2::kFrameHeaderSize);
+  auto buf = writeBuf.move();
+  buf->coalesce();
+  headers.set(http2::kProtocolSettingsHeader,
+              base64url_encode(folly::ByteRange(buf->data(), buf->length())));
+  if (!request.checkForHeaderToken(HTTP_HEADER_CONNECTION,
+                                   http2::kProtocolSettingsHeader.c_str(),
+                                   false)) {
+    headers.add(HTTP_HEADER_CONNECTION, http2::kProtocolSettingsHeader);
+  }
 }
 
 size_t HTTP2Codec::generateSettingsAck(folly::IOBufQueue& writeBuf) {
