@@ -22,6 +22,7 @@ nobase_libproxygenhttp_HEADERS = \
 	HTTPMessageFilters.h \
 	HTTPMethod.h \
 	ProxygenErrorEnum.h \
+	experimental/RFC1867.h \
 	RFC2616.h \
 	Window.h \
 	codec/CodecDictionaries.h \
@@ -136,6 +137,7 @@ libproxygenhttp_la_SOURCES = \
 	HTTPMessage.cpp \
 	HTTPMethod.cpp \
 	ProxygenErrorEnum.cpp \
+	experimental/RFC1867.cpp \
 	RFC2616.cpp \
 	session/ByteEvents.cpp \
 	session/CodecErrorResponseHandler.cpp \
