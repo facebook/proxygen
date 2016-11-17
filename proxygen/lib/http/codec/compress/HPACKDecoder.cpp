@@ -34,8 +34,7 @@ unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
 }
 
 const huffman::HuffTree& HPACKDecoder::getHuffmanTree() const {
-  return (msgType_ == HPACK::MessageType::REQ) ?
-    huffman::reqHuffTree05() : huffman::respHuffTree05();
+  return huffman::huffTree();
 }
 
 uint32_t HPACKDecoder::decode(Cursor& cursor,
@@ -52,17 +51,6 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
       err_ = DecodeError::HEADERS_TOO_LARGE;
       return dbuf.consumedBytes();
     }
-  }
-  if (version_ != Version::HPACK05) {
-    return dbuf.consumedBytes();
-  }
-  emittedSize += emitRefset(headers);
-  // the emitted bytes from the refset are bounded by the size of the table,
-  // but adding the check just for uniformity
-  if (emittedSize > maxUncompressed_) {
-    LOG(ERROR) << "exceeded uncompressed size limit of "
-               << maxUncompressed_ << " bytes";
-    err_ = DecodeError::HEADERS_TOO_LARGE;
   }
   return dbuf.consumedBytes();
 }
@@ -87,54 +75,56 @@ uint32_t HPACKDecoder::decodeStreaming(
     }
   }
 
-  // decodeStreaming doesn't work for HPACK Version 05
-  CHECK(version_ != Version::HPACK05);
-
   return dbuf.consumedBytes();
 }
 
-uint32_t HPACKDecoder::emitRefset(headers_t& emitted) {
-  // emit the reference set
-  std::sort(emitted.begin(), emitted.end());
-  list<uint32_t> refset = table_.referenceSet();
-  // remove the refset entries that have already been emitted
-  list<uint32_t>::iterator refit = refset.begin();
-  while (refit != refset.end()) {
-    const HPACKHeader& header = getDynamicHeader(dynamicToGlobalIndex(*refit));
-    if (std::binary_search(emitted.begin(), emitted.end(), header)) {
-      refit = refset.erase(refit);
-    } else {
-      refit++;
-    }
+
+void HPACKDecoder::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf) {
+  uint32_t arg = 0;
+  err_ = dbuf.decodeInteger(5, arg);
+  if (err_ != HPACK::DecodeError::NONE) {
+    LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
+    return;
   }
-  // try to avoid multiple resizing of the headers vector
-  emitted.reserve(emitted.size() + refset.size());
-  uint32_t emittedSize = 0;
-  for (const auto& index : refset) {
-    emittedSize += emit(getDynamicHeader(dynamicToGlobalIndex(index)),
-                        &emitted);
+
+  if (arg > maxTableSize_) {
+    LOG(ERROR) << "Tried to increase size of the header table";
+    err_ = HPACK::DecodeError::INVALID_TABLE_SIZE;
+    return;
   }
-  return emittedSize;
+  table_.setCapacity(arg);
 }
 
 uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
                                            headers_t* emitted) {
   uint8_t byte = dbuf.peek();
-  bool indexing = !(byte & HPACK::HeaderEncoding::LITERAL_NO_INDEXING);
+  bool indexing = byte & HPACK::HeaderEncoding::LITERAL_INCR_INDEXING;
   HPACKHeader header;
-  // check for indexed name
-  const uint8_t indexMask = 0x3F;  // 0011 1111
+  uint8_t indexMask = 0x3F;  // 0011 1111
+  uint8_t length = 6;
+  if (!indexing) {
+    bool tableSizeUpdate = byte & HPACK::HeaderEncoding::TABLE_SIZE_UPDATE;
+    if (tableSizeUpdate) {
+      handleTableSizeUpdate(dbuf);
+      return 0;
+    } else {
+      bool neverIndex = byte & HPACK::HeaderEncoding::LITERAL_NEVER_INDEXING;
+      // TODO: we need to emit this flag with the headers
+    }
+    indexMask = 0x0F; // 0000 1111
+    length = 4;
+  }
   if (byte & indexMask) {
     uint32_t index;
-    err_ = dbuf.decodeInteger(6, index);
-    if (err_ != DecodeError::NONE) {
-      LOG(ERROR) << "Decode error decoding literal index err_=" << err_;
+    err_ = dbuf.decodeInteger(length, index);
+    if (err_ != HPACK::DecodeError::NONE) {
+      LOG(ERROR) << "Decode error decoding index err_=" << err_;
       return 0;
     }
     // validate the index
     if (!isValid(index)) {
       LOG(ERROR) << "received invalid index: " << index;
-      err_ = DecodeError::INVALID_INDEX;
+      err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
     header.name = getHeader(index).name;
@@ -142,14 +132,14 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
     // skip current byte
     dbuf.next();
     err_ = dbuf.decodeLiteral(header.name);
-    if (err_ != DecodeError::NONE) {
+    if (err_ != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "Error decoding header name err_=" << err_;
       return 0;
     }
   }
   // value
   err_ = dbuf.decodeLiteral(header.value);
-  if (err_ != DecodeError::NONE) {
+  if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Error decoding header value name=" << header.name
                << " err_=" << err_;
     return 0;
@@ -157,10 +147,10 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
 
   uint32_t emittedSize = emit(header, emitted);
 
-  if (indexing && table_.add(header)) {
-    // only add it to the refset if the header fit in the table
-    table_.addReference(1);
+  if (indexing) {
+    table_.add(header);
   }
+
   return emittedSize;
 }
 
@@ -168,35 +158,24 @@ uint32_t HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
                                            headers_t* emitted) {
   uint32_t index;
   err_ = dbuf.decodeInteger(7, index);
-  if (err_ != DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding header index err_=" << err_;
-    return 0;
-  }
-  if (index == 0) {
-    table_.clearReferenceSet();
+  if (err_ != HPACK::DecodeError::NONE) {
+    LOG(ERROR) << "Decode error decoding index err_=" << err_;
     return 0;
   }
   // validate the index
-  if (!isValid(index)) {
+  if (index == 0 || !isValid(index)) {
     LOG(ERROR) << "received invalid index: " << index;
-    err_ = DecodeError::INVALID_INDEX;
+    err_ = HPACK::DecodeError::INVALID_INDEX;
     return 0;
   }
   uint32_t emittedSize = 0;
-  // a static index cannot be part of the reference set
+
   if (isStatic(index)) {
     auto& header = getStaticHeader(index);
     emittedSize = emit(header, emitted);
-    if (table_.add(header)) {
-      table_.addReference(1);
-    }
-  } else if (table_.inReferenceSet(globalToDynamicIndex(index))) {
-    // index remove operation
-    table_.removeReference(globalToDynamicIndex(index));
   } else {
     auto& header = getDynamicHeader(index);
     emittedSize = emit(header, emitted);
-    table_.addReference(globalToDynamicIndex(index));
   }
   return emittedSize;
 }

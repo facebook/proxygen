@@ -16,7 +16,7 @@
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/utils/Result.h>
 
-#include <proxygen/lib/http/codec/compress/experimental/hpack9/HPACKCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
 #include <bitset>
 
@@ -192,7 +192,7 @@ public:
   }
   void streamError(const std::string& msg, ErrorCode error, bool newTxn=false);
 
-  HPACKCodec09 headerCodec_;
+  HPACKCodec headerCodec_;
 
   // Current frame state
   http2::FrameHeader curHeader_;

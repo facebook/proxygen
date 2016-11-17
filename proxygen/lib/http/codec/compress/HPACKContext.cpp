@@ -15,38 +15,36 @@ using std::string;
 
 namespace proxygen {
 
-HPACKContext::HPACKContext(HPACK::MessageType msgType, uint32_t tableSize) :
-    table_(tableSize), msgType_(msgType) {
+HPACKContext::HPACKContext(uint32_t tableSize) :
+    table_(tableSize) {
 }
 
 uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
-  uint32_t index = table_.getIndex(header);
-  if (index) {
-    return dynamicToGlobalIndex(index);
-  }
-  index = getStaticTable().getIndex(header);
+  uint32_t index = getStaticTable().getIndex(header);
   if (index) {
     return staticToGlobalIndex(index);
+  }
+  index = table_.getIndex(header);
+  if (index) {
+    return dynamicToGlobalIndex(index);
   }
   return 0;
 }
 
 uint32_t HPACKContext::nameIndex(const string& name) const {
-  uint32_t index = table_.nameIndex(name);
-  if (index) {
-    return dynamicToGlobalIndex(index);
-  }
-  index = getStaticTable().nameIndex(name);
+  uint32_t index = getStaticTable().nameIndex(name);
   if (index) {
     return staticToGlobalIndex(index);
+  }
+  index = table_.nameIndex(name);
+  if (index) {
+    return dynamicToGlobalIndex(index);
   }
   return 0;
 }
 
 bool HPACKContext::isStatic(uint32_t index) const {
-  return
-    index > table_.size()
-    && index <= table_.size() + getStaticTable().size();
+  return index <= getStaticTable().size();
 }
 
 const HPACKHeader& HPACKContext::getStaticHeader(uint32_t index) {

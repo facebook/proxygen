@@ -22,9 +22,8 @@ namespace proxygen {
 class HPACKEncoder : public HPACKContext {
 
  public:
-  HPACKEncoder(HPACK::MessageType msgType,
-               bool huffman,
-               uint32_t tableSize=HPACK::kTableSize);
+  explicit HPACKEncoder(bool huffman,
+                        uint32_t tableSize=HPACK::kTableSize);
 
   HPACKEncoder(const huffman::HuffTree& huffmanTree,
                bool huffman,

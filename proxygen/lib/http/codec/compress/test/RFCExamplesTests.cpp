@@ -16,15 +16,18 @@
 #include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 #include <vector>
+#include <folly/String.h>
 
 using namespace folly;
 using namespace proxygen;
 using namespace std;
 using namespace testing;
 
-class RFCExamplesTests : public testing::Test {
+typedef std::pair<bool, vector<string>> RfcParam;
+
+class RFCRequestTest : public testing::TestWithParam<RfcParam> {
  public:
-  RFCExamplesTests() {
+  RFCRequestTest() {
     req1.push_back(HPACKHeader(":method", "GET"));
     req1.push_back(HPACKHeader(":scheme", "http"));
     req1.push_back(HPACKHeader(":path", "/"));
@@ -41,13 +44,24 @@ class RFCExamplesTests : public testing::Test {
     req3.push_back(HPACKHeader(":path", "/index.html"));
     req3.push_back(HPACKHeader(":authority", "www.example.com"));
     req3.push_back(HPACKHeader("custom-key", "custom-value"));
+  }
 
+ protected:
+  vector<HPACKHeader> req1;
+  vector<HPACKHeader> req2;
+  vector<HPACKHeader> req3;
+};
+
+
+class RFCResponseTest : public testing::TestWithParam<RfcParam> {
+ public:
+  RFCResponseTest() {
     resp1.push_back(HPACKHeader(":status", "302"));
     resp1.push_back(HPACKHeader("cache-control", "private"));
     resp1.push_back(HPACKHeader("date", "Mon, 21 Oct 2013 20:13:21 GMT"));
     resp1.push_back(HPACKHeader("location", "https://www.example.com"));
 
-    resp2.push_back(HPACKHeader(":status", "200"));
+    resp2.push_back(HPACKHeader(":status", "307"));
     resp2.push_back(HPACKHeader("cache-control", "private"));
     resp2.push_back(HPACKHeader("date", "Mon, 21 Oct 2013 20:13:21 GMT"));
     resp2.push_back(HPACKHeader("location", "https://www.example.com"));
@@ -65,147 +79,126 @@ class RFCExamplesTests : public testing::Test {
   }
 
  protected:
-  vector<HPACKHeader> req1;
-  vector<HPACKHeader> req2;
-  vector<HPACKHeader> req3;
   vector<HPACKHeader> resp1;
   vector<HPACKHeader> resp2;
   vector<HPACKHeader> resp3;
 };
 
-TEST_F(RFCExamplesTests, rfc_example_e2_request_no_huffman) {
-  HPACKEncoder encoder(HPACK::MessageType::REQ, false);
-  HPACKDecoder decoder(HPACK::MessageType::REQ);
+vector<string> exampleHex1 = {
+  "828684410f7777772e6578616d706c652e636f6d",
+  "828684be58086e6f2d6361636865",
+  "828785bf400a637573746f6d2d6b65790c637573746f6d2d76616c7565"
+};
+
+vector<string> exampleHex2 = {
+  "828684418cf1e3c2e5f23a6ba0ab90f4ff",
+  "828684be5886a8eb10649cbf",
+  "828785bf408825a849e95ba97d7f8925a849e95bb8e8b4bf"
+};
+
+RfcParam d3(false, exampleHex1);
+RfcParam d4(true, exampleHex2);
+
+vector<string> exampleHex3 = {
+  "4803333032580770726976617465611d4d6f6e2c203231204f63742032303133"
+  "2032303a31333a323120474d546e1768747470733a2f2f7777772e6578616d70"
+  "6c652e636f6d",
+  "4803333037c1c0bf",
+  "88c1611d4d6f6e2c203231204f637420323031332032303a31333a323220474d"
+  "54c05a04677a69707738666f6f3d4153444a4b48514b425a584f5157454f5049"
+  "5541585157454f49553b206d61782d6167653d333630303b2076657273696f6e"
+  "3d31"
+};
+vector<string> exampleHex4 = {
+  "488264025885aec3771a4b6196d07abe941054d444a8200595040b8166e082a6"
+  "2d1bff6e919d29ad171863c78f0b97c8e9ae82ae43d3",
+  "4883640effc1c0bf",
+  "88c16196d07abe941054d444a8200595040b8166e084a62d1bffc05a839bd9ab"
+  "77ad94e7821dd7f2e6c7b335dfdfcd5b3960d5af27087f3672c1ab270fb5291f"
+  "9587316065c003ed4ee5b1063d5007"
+};
+
+RfcParam d5(false, exampleHex3);
+RfcParam d6(true, exampleHex4);
+
+namespace {
+std::string unhexlify(const std::string& input) {
+  std::string result;
+  folly::unhexlify(input, result);
+  return result;
+}
+}
+
+TEST_P(RFCRequestTest, rfc_example_request) {
+  HPACKEncoder encoder(GetParam().first);
+  HPACKDecoder decoder;
   // first request
   unique_ptr<IOBuf> encoded = hpack::encodeDecode(req1, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 20);
-  EXPECT_EQ(encoder.getTable().bytes(), 180);
-  EXPECT_EQ(encoder.getTable().size(), 4);
+  EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[0]));
+  EXPECT_EQ(encoder.getTable().bytes(), 57);
+  EXPECT_EQ(encoder.getTable().size(), 1);
   auto refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 4);
+  EXPECT_EQ(refset.size(), 0);
 
   // second request
   encoded = hpack::encodeDecode(req2, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 10);
-  EXPECT_EQ(encoder.getTable().bytes(), 233);
-  EXPECT_EQ(encoder.getTable().size(), 5);
+  EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[1]));
+  EXPECT_EQ(encoder.getTable().bytes(), 110);
+  EXPECT_EQ(encoder.getTable().size(), 2);
   refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 5);
+  EXPECT_EQ(refset.size(), 0);
 
   // third request
   encoded = hpack::encodeDecode(req3, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 30);
-  EXPECT_EQ(encoder.getTable().bytes(), 379);
-  EXPECT_EQ(encoder.getTable().size(), 8);
+  EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[2]));
+  EXPECT_EQ(encoder.getTable().bytes(), 164);
+  EXPECT_EQ(encoder.getTable().size(), 3);
   refset = encoder.getTable().referenceSet();
   EXPECT_EQ(decoder.getTable().referenceSet(), refset);
 }
 
-TEST_F(RFCExamplesTests, rfc_example_e3_request_with_huffman) {
-  HPACKEncoder encoder(HPACK::MessageType::REQ, true);
-  HPACKDecoder decoder(HPACK::MessageType::REQ);
 
-  // first
-  unique_ptr<IOBuf> encoded = hpack::encodeDecode(req1, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 16);
-  EXPECT_EQ(encoder.getTable().bytes(), 180);
-  EXPECT_EQ(encoder.getTable().size(), 4);
-  // verify the last byte
-  EXPECT_EQ(encoded->data()[15], 0x7F);
-  EXPECT_EQ(decoder.getTable().bytes(), 180);
-  EXPECT_EQ(decoder.getTable().size(), 4);
-  auto refset = decoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 4);
+INSTANTIATE_TEST_CASE_P(Huffman,
+                        RFCRequestTest,
+                        ::testing::Values(d3, d4));
 
-  // second
-  encoded = hpack::encodeDecode(req2, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 8);
-  EXPECT_EQ(encoder.getTable().bytes(), 233);
-  EXPECT_EQ(encoder.getTable().size(), 5);
-  refset = decoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 5);
 
-  // third
-  encoded = hpack::encodeDecode(req3, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 25);
-  EXPECT_EQ(encoder.getTable().bytes(), 379);
-  EXPECT_EQ(encoder.getTable().size(), 8);
-  refset = decoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 5);
-}
-
-TEST_F(RFCExamplesTests, rfc_example_e4_response_no_huffman) {
+TEST_P(RFCResponseTest, rfc_example_response) {
   // this test does some evictions
   uint32_t tableSize = 256;
-  HPACKEncoder encoder(HPACK::MessageType::RESP, false, tableSize);
-  HPACKDecoder decoder(HPACK::MessageType::RESP, tableSize);
+  HPACKEncoder encoder(GetParam().first, tableSize);
+  HPACKDecoder decoder(tableSize);
 
   // first
   unique_ptr<IOBuf> encoded = hpack::encodeDecode(resp1, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 70);
+  EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[0]));
   EXPECT_EQ(encoder.getTable().bytes(), 222);
   EXPECT_EQ(encoder.getTable().size(), 4);
+  EXPECT_EQ(encoder.getHeader(64).name, "cache-control");
+  EXPECT_EQ(encoder.getHeader(64).value, "private");
   auto refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 4);
+  EXPECT_EQ(refset.size(), 0);
+  refset = decoder.getTable().referenceSet();
+  EXPECT_EQ(refset.size(), 0);
 
   // second
   encoded = hpack::encodeDecode(resp2, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 2);
-  EXPECT_EQ(encoded->data()[0], 0x84);
-  EXPECT_EQ(encoded->data()[1], 0x8c);
+  EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[1]));
   EXPECT_EQ(encoder.getTable().bytes(), 222);
   EXPECT_EQ(encoder.getTable().size(), 4);
   refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 4);
+  EXPECT_EQ(refset.size(), 0);
+  refset = decoder.getTable().referenceSet();
+  EXPECT_EQ(refset.size(), 0);
 
   // third
   encoded = hpack::encodeDecode(resp3, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 102);
-  EXPECT_EQ(encoded->data()[0], 0x83);
-  // this sequence of two identical bytes is the reference eviction
-  EXPECT_EQ(encoded->data()[1], 0x84);
-  EXPECT_EQ(encoded->data()[2], 0x84);
-  // last byte
-  EXPECT_EQ(encoded->data()[101], 0x31);
+  EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[2]));
 
   EXPECT_EQ(encoder.getTable().size(), 3);
   EXPECT_EQ(encoder.getTable().bytes(), 215);
 }
 
-TEST_F(RFCExamplesTests, rfc_example_e5_response_with_huffman) {
-  uint32_t tableSize = 256;
-  HPACKEncoder encoder(HPACK::MessageType::RESP, true, tableSize);
-  HPACKDecoder decoder(HPACK::MessageType::RESP, tableSize);
-
-  // first
-  unique_ptr<IOBuf> encoded = hpack::encodeDecode(resp1, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 53);
-  EXPECT_EQ(encoded->data()[52], 0xFF);
-  EXPECT_EQ(encoder.getTable().size(), 4);
-  EXPECT_EQ(encoder.getTable().bytes(), 222);
-  auto refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 4);
-
-  // second
-  encoded = hpack::encodeDecode(resp2, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 2);
-  EXPECT_EQ(encoded->data()[0], 0x84);
-  EXPECT_EQ(encoded->data()[1], 0x8c);
-  EXPECT_EQ(encoder.getTable().bytes(), 222);
-  EXPECT_EQ(encoder.getTable().size(), 4);
-  refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 4);
-
-  // third
-  encoded = hpack::encodeDecode(resp3, encoder, decoder);
-  EXPECT_EQ(encoded->length(), 86);
-  EXPECT_EQ(encoded->data()[0], 0x83);
-  // this sequence of two identical bytes is the reference eviction
-  EXPECT_EQ(encoded->data()[1], 0x84);
-  EXPECT_EQ(encoded->data()[2], 0x84);
-  // last byte
-  EXPECT_EQ(encoded->data()[85], 0x2F);
-
-  EXPECT_EQ(encoder.getTable().size(), 3);
-  EXPECT_EQ(encoder.getTable().bytes(), 215);
-}
+INSTANTIATE_TEST_CASE_P(Huffman,
+                        RFCResponseTest,
+                        ::testing::Values(d5, d6));

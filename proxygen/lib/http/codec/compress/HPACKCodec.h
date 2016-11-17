@@ -53,16 +53,16 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
       HeaderCodec::StreamingCallback* streamingCb) noexcept override;
 
   void setEncoderHeaderTableSize(uint32_t size) {
-    encoder_->setHeaderTableSize(size);
+    encoder_.setHeaderTableSize(size);
   }
 
   void setDecoderHeaderTableMaxSize(uint32_t size) {
-    decoder_->setHeaderTableMaxSize(size);
+    decoder_.setHeaderTableMaxSize(size);
   }
 
  protected:
-  std::unique_ptr<HPACKEncoder> encoder_;
-  std::unique_ptr<HPACKDecoder> decoder_;
+  HPACKEncoder encoder_;
+  HPACKDecoder decoder_;
 
  private:
   std::vector<HPACKHeader> decodedHeaders_;

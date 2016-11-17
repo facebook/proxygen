@@ -24,46 +24,33 @@ using namespace testing;
 
 class HuffmanTests : public testing::Test {
  protected:
-  const HuffTree& reqTree_ = reqHuffTree05();
-  const HuffTree& respTree_ = respHuffTree05();
+  const HuffTree& tree_ = huffTree();
 };
 
 TEST_F(HuffmanTests, codes) {
   uint32_t code;
   uint8_t bits;
   // check 'e' for both requests and responses
-  tie(code, bits) = reqTree_.getCode('e');
-  EXPECT_EQ(code, 0x01);
-  EXPECT_EQ(bits, 4);
-  tie(code, bits) = respTree_.getCode('e');
-  EXPECT_EQ(code, 0x10);
+  tie(code, bits) = tree_.getCode('e');
+  EXPECT_EQ(code, 0x05);
   EXPECT_EQ(bits, 5);
   // some extreme cases
-  tie(code, bits) = reqTree_.getCode(0);
-  EXPECT_EQ(code, 0x7ffffba);
-  EXPECT_EQ(bits, 27);
-  tie(code, bits) = reqTree_.getCode(255);
-  EXPECT_EQ(code, 0x3ffffdb);
+  tie(code, bits) = tree_.getCode(0);
+  EXPECT_EQ(code, 0x1ff8);
+  EXPECT_EQ(bits, 13);
+  tie(code, bits) = tree_.getCode(255);
+  EXPECT_EQ(code, 0x3ffffee);
   EXPECT_EQ(bits, 26);
-
-  tie(code, bits) = respTree_.getCode(0);
-  EXPECT_EQ(code, 0x1ffffbc);
-  EXPECT_EQ(bits, 25);
-  tie(code, bits) = respTree_.getCode(255);
-  EXPECT_EQ(code, 0xffffdc);
-  EXPECT_EQ(bits, 24);
 }
 
 TEST_F(HuffmanTests, size) {
   uint32_t size;
-  string onebyte("/e");
-  size = reqTree_.getEncodeSize(onebyte);
+  string onebyte("x");
+  size = tree_.getEncodeSize(onebyte);
   EXPECT_EQ(size, 1);
 
   string accept("accept-encoding");
-  size = reqTree_.getEncodeSize(accept);
-  EXPECT_EQ(size, 10);
-  size = respTree_.getEncodeSize(accept);
+  size = tree_.getEncodeSize(accept);
   EXPECT_EQ(size, 11);
 }
 
@@ -76,42 +63,43 @@ TEST_F(HuffmanTests, encode) {
   // force the allocation
   appender.ensure(512);
 
-  size = reqTree_.encode(gzip, appender);
+  size = tree_.encode(gzip, appender);
   EXPECT_EQ(size, 3);
   const IOBuf* buf = bufQueue.front();
   const uint8_t* data = buf->data();
-  EXPECT_EQ(data[0], 203); // 11001011
-  EXPECT_EQ(data[1], 213); // 11010101
-  EXPECT_EQ(data[2], 78);  // 01001110
+  EXPECT_EQ(data[0], 0x9b);  // 10011011
+  EXPECT_EQ(data[1], 0xd9);  // 11011001
+  EXPECT_EQ(data[2], 0xab);  // 10101011
 
   // size must equal with the actual encoding
   string accept("accept-encoding");
-  size = reqTree_.getEncodeSize(accept);
-  uint32_t encodedSize = reqTree_.encode(accept, appender);
+  size = tree_.getEncodeSize(accept);
+  uint32_t encodedSize = tree_.encode(accept, appender);
   EXPECT_EQ(size, encodedSize);
 }
 
 TEST_F(HuffmanTests, decode) {
   uint8_t buffer[3];
   // simple test with one byte
-  buffer[0] = 1; // 0000 0001
+  buffer[0] = 0x60; //
+  buffer[1] = 0xbf; //
   string literal;
-  reqTree_.decode(buffer, 1, literal);
-  CHECK_EQ(literal, "/e");
+  tree_.decode(buffer, 2, literal);
+  EXPECT_EQ(literal, "/e");
 
   // simple test with "gzip"
-  buffer[0] = 203;
-  buffer[1] = 213;
-  buffer[2] = 78;
+  buffer[0] = 0x9b;
+  buffer[1] = 0xd9;
+  buffer[2] = 0xab;
   literal.clear();
-  reqTree_.decode(buffer, 3, literal);
+  tree_.decode(buffer, 3, literal);
   EXPECT_EQ(literal, "gzip");
 
   // something with padding
-  buffer[0] = 200;
-  buffer[1] = 127;
+  buffer[0] = 0x98;
+  buffer[1] = 0xbf;
   literal.clear();
-  reqTree_.decode(buffer, 2, literal);
+  tree_.decode(buffer, 2, literal);
   EXPECT_EQ(literal, "ge");
 }
 
@@ -119,23 +107,23 @@ TEST_F(HuffmanTests, decode) {
  * non-printable characters, that use 3 levels
  */
 TEST_F(HuffmanTests, non_printable_decode) {
-  // character code 1 and 46 (.) that have 27 + 5 = 32 bits
+  // character code 9 and 38 (&) that have 24 + 8 = 32 bits
   uint8_t buffer1[4] = {
-    0xFF, 0xFF, 0xF7, 0x64
+    0xFF, 0xFF, 0xEA, 0xF8
   };
   string literal;
-  reqTree_.decode(buffer1, 4, literal);
+  tree_.decode(buffer1, 4, literal);
   EXPECT_EQ(literal.size(), 2);
-  EXPECT_EQ((uint8_t)literal[0], 1);
-  EXPECT_EQ((uint8_t)literal[1], 46);
+  EXPECT_EQ((uint8_t)literal[0], 9);
+  EXPECT_EQ((uint8_t)literal[1], 38);
 
   // two weird characters and padding
-  // 1 and 240 will have 27 + 26 = 53 bits + 3 bits padding
+  // 1 and 240 will have 26 + 23 = 49 bits + 7 bits padding
   uint8_t buffer2[7] = {
-    0xFF, 0xFF, 0xF7, 0x7F, 0xFF, 0xFE, 0x67
+    0xFF, 0xFF, 0xB1, 0xFF, 0xFF, 0xF5, 0xFF
   };
   literal.clear();
-  reqTree_.decode(buffer2, 7, literal);
+  tree_.decode(buffer2, 7, literal);
   EXPECT_EQ(literal.size(), 2);
   EXPECT_EQ((uint8_t) literal[0], 1);
   EXPECT_EQ((uint8_t) literal[1], 240);
@@ -148,13 +136,13 @@ TEST_F(HuffmanTests, example_com) {
   appender.ensure(512);
 
   string example("www.example.com");
-  uint32_t size = reqTree_.getEncodeSize(example);
-  EXPECT_EQ(size, 11);
-  uint32_t encodedSize = reqTree_.encode(example, appender);
+  uint32_t size = tree_.getEncodeSize(example);
+  EXPECT_EQ(size, 12);
+  uint32_t encodedSize = tree_.encode(example, appender);
   EXPECT_EQ(size, encodedSize);
 
   string decoded;
-  reqTree_.decode(bufQueue.front()->data(), size, decoded);
+  tree_.decode(bufQueue.front()->data(), size, decoded);
   CHECK_EQ(example, decoded);
 }
 
@@ -164,19 +152,17 @@ TEST_F(HuffmanTests, user_agent) {
     ".1 (KHTML, like Gecko) Mobile/11B554a [FBAN/FBIOS;FBAV/6.7;FBBV/566055;FBD"
     "V/iPhone5,1;FBMD/iPhone;FBSN/iPhone OS;FBSV/7.0.4;FBSS/2; FBCR/AT&T;FBID/p"
     "hone;FBLC/en_US;FBOP/5]");
-  for (int i = 0; i < 2; i++) {
-    IOBufQueue bufQueue;
-    QueueAppender appender(&bufQueue, 512);
-    appender.ensure(512);
-    const HuffTree& tree = (i == 0) ? reqHuffTree05() : respHuffTree05();
-    uint32_t size = tree.getEncodeSize(user_agent);
-    uint32_t encodedSize = tree.encode(user_agent, appender);
-    EXPECT_EQ(size, encodedSize);
+  IOBufQueue bufQueue;
+  QueueAppender appender(&bufQueue, 512);
+  appender.ensure(512);
+  const HuffTree& tree = huffTree();
+  uint32_t size = tree.getEncodeSize(user_agent);
+  uint32_t encodedSize = tree.encode(user_agent, appender);
+  EXPECT_EQ(size, encodedSize);
 
-    string decoded;
-    tree.decode(bufQueue.front()->data(), size, decoded);
-    CHECK_EQ(user_agent, decoded);
-  }
+  string decoded;
+  tree.decode(bufQueue.front()->data(), size, decoded);
+  CHECK_EQ(user_agent, decoded);
 }
 
 /*
@@ -188,13 +174,13 @@ TEST_F(HuffmanTests, fit_in_buffer) {
 
   // call with an empty string
   string literal("");
-  reqTree_.encode(literal, appender);
+  tree_.encode(literal, appender);
 
   // allow just 1 byte
   appender.ensure(128);
   appender.append(appender.length() - 1);
   literal = "g";
-  reqTree_.encode(literal, appender);
+  tree_.encode(literal, appender);
   CHECK_EQ(appender.length(), 0);
 }
 
@@ -285,26 +271,16 @@ class TestingHuffTree : public HuffTree {
     return table_;
   }
 
-  static TestingHuffTree getReqHuffTree() {
-    TestingHuffTree reqTree(reqHuffTree05());
+  static TestingHuffTree getHuffTree() {
+    TestingHuffTree reqTree(huffTree());
     return reqTree;
-  }
-
-  static TestingHuffTree getRespHuffTree() {
-    TestingHuffTree respTree(respHuffTree05());
-    return respTree;
   }
 
 };
 
 TEST_F(HuffmanTests, sanity_checks) {
-  TestingHuffTree reqTree = TestingHuffTree::getReqHuffTree();
+  TestingHuffTree reqTree = TestingHuffTree::getHuffTree();
   const SuperHuffNode* allSnodesReq = reqTree.getInternalTable();
-  uint32_t totalReqChars = treeDfs(allSnodesReq, 0, 0, 0, 0x3ffffdc, 26);
+  uint32_t totalReqChars = treeDfs(allSnodesReq, 0, 0, 0, 0x3fffffff, 30);
   EXPECT_EQ(totalReqChars, 256);
-
-  TestingHuffTree respTree = TestingHuffTree::getRespHuffTree();
-  const SuperHuffNode* allSnodesResp = respTree.getInternalTable();
-  uint32_t totalRespChars = treeDfs(allSnodesResp, 0, 0, 0, 0xffffdd, 24);
-  EXPECT_EQ(totalRespChars, 256);
 }

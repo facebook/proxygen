@@ -17,8 +17,7 @@ namespace proxygen {
 
 class HPACKContext {
  public:
-  HPACKContext(HPACK::MessageType msgType,
-               uint32_t tableSize);
+  explicit HPACKContext(uint32_t tableSize);
   virtual ~HPACKContext() {}
 
   /**
@@ -60,20 +59,19 @@ class HPACKContext {
   const HPACKHeader& getDynamicHeader(uint32_t index);
 
   virtual uint32_t globalToDynamicIndex(uint32_t index) const {
-    return index;
+    return index - getStaticTable().size();
   }
   virtual uint32_t globalToStaticIndex(uint32_t index) const {
-    return index - table_.size();
-  }
-  virtual uint32_t dynamicToGlobalIndex(uint32_t index) const {
     return index;
   }
+  virtual uint32_t dynamicToGlobalIndex(uint32_t index) const {
+    return index + getStaticTable().size();
+  }
   virtual uint32_t staticToGlobalIndex(uint32_t index) const {
-    return index + table_.size();
+    return index;
   }
 
   HeaderTable table_;
-  HPACK::MessageType msgType_;
 };
 
 }

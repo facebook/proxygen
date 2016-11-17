@@ -35,7 +35,7 @@ HPACKEncodeBuffer::HPACKEncodeBuffer(
 HPACKEncodeBuffer::HPACKEncodeBuffer(uint32_t growthSize) :
     growthSize_(growthSize),
     buf_(&bufQueue_, growthSize),
-    huffmanTree_(huffman::reqHuffTree05()),
+    huffmanTree_(huffman::huffTree()),
     huffmanEnabled_(false) {
 }
 

@@ -23,20 +23,12 @@ namespace proxygen {
 
 class HPACKDecoder : public HPACKContext {
  public:
-  enum Version: uint8_t {
-    HPACK05 = 0,
-    HPACK09 = 1,
-  };
-
   explicit HPACKDecoder(
-    HPACK::MessageType msgType,
     uint32_t tableSize=HPACK::kTableSize,
-    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed,
-    Version version=Version::HPACK05)
-      : HPACKContext(msgType, tableSize),
+    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
+      : HPACKContext(tableSize),
         maxTableSize_(tableSize),
-        maxUncompressed_(maxUncompressed),
-        version_(version) {}
+        maxUncompressed_(maxUncompressed) {}
 
   typedef std::vector<HPACKHeader> headers_t;
 
@@ -78,8 +70,6 @@ class HPACKDecoder : public HPACKContext {
  protected:
   bool isValid(uint32_t index);
 
-  virtual uint32_t emitRefset(headers_t& emitted);
-
   virtual const huffman::HuffTree& getHuffmanTree() const;
 
   uint32_t emit(const HPACKHeader& header, headers_t* emitted);
@@ -92,11 +82,12 @@ class HPACKDecoder : public HPACKContext {
 
   uint32_t decodeHeader(HPACKDecodeBuffer& dbuf, headers_t* emitted);
 
+  void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf);
+
   HPACK::DecodeError err_{HPACK::DecodeError::NONE};
   uint32_t maxTableSize_;
   uint32_t maxUncompressed_;
   HeaderCodec::StreamingCallback* streamingCb_{nullptr};
-  Version version_;
 };
 
 }

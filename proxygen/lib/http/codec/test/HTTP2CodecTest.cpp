@@ -72,7 +72,7 @@ TEST_F(HTTP2CodecTest, BadHeaders) {
     { http2::kAuthority, v4 },
   };
 
-  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
   HTTPCodec::StreamID stream = 1;
   // missing fields (missing authority is OK)
   for (size_t i = 0; i < reqHeaders.size(); i++, stream += 2) {
@@ -125,7 +125,7 @@ TEST_F(HTTP2CodecTest, BadPseudoHeaders) {
     { http2::kPath, v4 },
   };
 
-  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
   HTTPCodec::StreamID stream = 1;
   std::vector<proxygen::compress::Header> allHeaders = reqHeaders;
   auto encodedHeaders = headerCodec.encode(allHeaders);
@@ -157,7 +157,7 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
     { http2::kAuthority, v4 },
   };
 
-  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
   HTTPCodec::StreamID stream = 1;
   for (size_t i = 0; i < reqHeaders.size(); i++, stream += 2) {
     std::vector<proxygen::compress::Header> allHeaders;
@@ -246,7 +246,7 @@ TEST_F(HTTP2CodecTest, BadConnect) {
     { http2::kPath, v3 },
   };
 
-  HPACKCodec09 headerCodec(TransportDirection::UPSTREAM);
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
   HTTPCodec::StreamID stream = 1;
 
   for (size_t i = 0; i < badHeaders.size(); i++, stream += 2) {
@@ -325,7 +325,7 @@ TEST_F(HTTP2CodecTest, BadHeadersReply) {
     { http2::kStatus, v1 },
   };
 
-  HPACKCodec09 headerCodec(TransportDirection::DOWNSTREAM);
+  HPACKCodec headerCodec(TransportDirection::DOWNSTREAM);
   HTTPCodec::StreamID stream = 1;
   // missing fields (missing authority is OK)
   for (size_t i = 0; i < respHeaders.size(); i++, stream += 2) {
@@ -1194,7 +1194,7 @@ TEST_F(HTTP2CodecTest, BadServerPreface) {
  * needed cases removed.  It's specialized to write only a single continuation
  * frame with optionally malformed length
  */
-void generateHeaderChrome(HPACKCodec09& headerCodec,
+void generateHeaderChrome(HPACKCodec& headerCodec,
                           folly::IOBufQueue& writeBuf,
                           HTTPCodec::StreamID stream,
                           const HTTPMessage& msg,

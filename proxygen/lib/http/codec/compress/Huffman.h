@@ -21,8 +21,7 @@ const uint32_t kTableSize = 256;
 
 // not used explicitly, since the prefixes are all 1's and they are
 // used only for padding of up to 7 bits
-const uint32_t kEOSReqHpack05 = 0x3ffffdc;
-const uint32_t kEOSRespHpack05 = 0xffffdd;
+const uint32_t kEOSHpack = 0x3fffffff;
 
 /**
  * node from the huffman tree
@@ -151,8 +150,6 @@ class HuffTree {
   SuperHuffNode table_[46];
 };
 
-// accessors for static huffman trees from the draft-05 version of HPACK
-const HuffTree& reqHuffTree05();
-const HuffTree& respHuffTree05();
+const HuffTree& huffTree();
 
 }}

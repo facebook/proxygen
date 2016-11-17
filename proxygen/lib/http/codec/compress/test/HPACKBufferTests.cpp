@@ -32,7 +32,7 @@ class HPACKBufferTests : public testing::Test {
    * a queue with one IOBuf of 512 bytes in it
    */
   HPACKBufferTests() : encoder_(512),
-                       decoder_(huffman::reqHuffTree05(), cursor_, 0,
+                       decoder_(huffman::huffTree(), cursor_, 0,
                                 kMaxLiteralSize) {
   }
 
@@ -109,13 +109,13 @@ TEST_F(HPACKBufferTests, encode_plain_literal) {
 
 TEST_F(HPACKBufferTests, encode_huffman_literal) {
   string accept("accept-encoding");
-  HPACKEncodeBuffer encoder(512, huffman::reqHuffTree05(), true);
+  HPACKEncodeBuffer encoder(512, huffman::huffTree(), true);
   uint32_t size = encoder.encodeLiteral(accept);
-  EXPECT_EQ(size, 11);
+  EXPECT_EQ(size, 12);
   releaseData(encoder);
-  EXPECT_EQ(buf_->length(), 11);
-  EXPECT_EQ(data_[0], 138); // 128(huffman bit) + 10(length)
-  EXPECT_EQ(data_[10], 47);
+  EXPECT_EQ(buf_->length(), 12);
+  EXPECT_EQ(data_[0], 139); // 128(huffman bit) + 11(length)
+  EXPECT_EQ(data_[11], 0x7f);
 }
 
 TEST_F(HPACKBufferTests, decode_single_byte) {
@@ -252,7 +252,7 @@ TEST_F(HPACKBufferTests, decode_literal_multi_buffer) {
 
 TEST_F(HPACKBufferTests, decode_huffman_literal_multi_buffer) {
   // "gzip" fits perfectly in a 3 bytes block
-  uint8_t gzip[3] = {203, 213, 78};
+  uint8_t gzip[3] = {0x9b, 0xd9, 0xab};
   auto buf1 = IOBuf::create(128);
   auto buf2 = IOBuf::create(128);
   // total size
@@ -392,7 +392,7 @@ TEST_F(HPACKBufferTests, empty_iobuf_literal) {
 
   uint32_t size = first->next()->length();
   Cursor cursor(first.get());
-  HPACKDecodeBuffer decoder(huffman::reqHuffTree05(), cursor, size,
+  HPACKDecodeBuffer decoder(huffman::huffTree(), cursor, size,
                             kMaxLiteralSize);
   string decoded;
   decoder.decodeLiteral(decoded);
