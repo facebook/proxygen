@@ -40,6 +40,7 @@ DEFINE_string(next_protos, "h2,h2-14,spdy/3.1,spdy/3,http/1.1",
     "Next protocol string for NPN/ALPN");
 DEFINE_string(plaintext_proto, "", "plaintext protocol");
 DEFINE_int32(recv_window, 65536, "Flow control receive window for h2/spdy");
+DEFINE_bool(h2c, true, "Attempt HTTP/1.1 -> HTTP/2 upgrade");
 DEFINE_string(headers, "", "List of N=V headers separated by ,");
 
 int main(int argc, char* argv[]) {
@@ -85,7 +86,7 @@ int main(int argc, char* argv[]) {
   }
 
   CurlClient curlClient(&evb, httpMethod, url, headers,
-                        FLAGS_input_filename);
+                        FLAGS_input_filename, FLAGS_h2c);
   curlClient.setFlowControlSettings(FLAGS_recv_window);
 
   SocketAddress addr(url.getHost(), url.getPort(), true);

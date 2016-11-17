@@ -68,6 +68,11 @@ class HTTPServerOptions {
   uint32_t listenBacklog{1024};
 
   /**
+   * Enable cleartext upgrades to HTTP/2
+   */
+  bool h2cEnabled{false};
+
+  /**
    * Signals on which to shutdown the server. Mostly you will want
    * {SIGINT, SIGTERM}. Note, if you have multiple deamons running or you want
    * to have a separate signal handler, leave this empty and handle signals

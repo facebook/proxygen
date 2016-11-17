@@ -76,6 +76,7 @@ int main(int argc, char* argv[]) {
   options.handlerFactories = RequestHandlerChain()
       .addThen<EchoHandlerFactory>()
       .build();
+  options.h2cEnabled = true;
 
   HTTPServer server(std::move(options));
   server.bind(IPs);

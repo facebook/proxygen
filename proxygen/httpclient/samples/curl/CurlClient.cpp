@@ -10,6 +10,7 @@
 #include <folly/String.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <wangle/ssl/SSLContextConfig.h>
 
 using namespace folly;
@@ -21,9 +22,10 @@ DECLARE_int32(recv_window);
 namespace CurlService {
 
 CurlClient::CurlClient(EventBase* evb, HTTPMethod httpMethod, const URL& url,
-                       const HTTPHeaders& headers, const string& inputFilename):
+                       const HTTPHeaders& headers, const string& inputFilename,
+                       bool h2c):
     evb_(evb), httpMethod_(httpMethod), url_(url),
-    inputFilename_(inputFilename) {
+    inputFilename_(inputFilename), h2c_(h2c) {
   headers.forEach([this] (const string& header, const string& val) {
       request_.getHeaders().add(header, val);
     });
@@ -44,6 +46,7 @@ void CurlClient::initializeSsl(const string& certPath,
   folly::splitTo<string>(',', nextProtos, std::inserter(nextProtoList,
                                                         nextProtoList.begin()));
   sslContext_->setAdvertisedNextProtocols(nextProtoList);
+  h2c_ = false;
 }
 
 
@@ -83,6 +86,9 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   request_.setHTTPVersion(1, 1);
   request_.setURL(url_.makeRelativeURL());
   request_.setSecure(url_.isSecure());
+  if (h2c_) {
+    HTTP2Codec::requestUpgrade(request_);
+  }
 
   if (!request_.getHeaders().getNumberOfValues(HTTP_HEADER_USER_AGENT)) {
     request_.getHeaders().add(HTTP_HEADER_USER_AGENT, "proxygen_curl");
