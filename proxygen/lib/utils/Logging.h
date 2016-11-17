@@ -10,7 +10,6 @@
 #pragma once
 
 #include <folly/io/IOBuf.h>
-#include <ostream>
 #include <string>
 
 namespace proxygen {

@@ -9,6 +9,8 @@
  */
 #include <proxygen/lib/http/codec/HTTPCodecPrinter.h>
 
+#include <iostream>
+
 namespace proxygen {
 
 void HTTPCodecPrinter::onFrameHeader(

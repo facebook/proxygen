@@ -8,8 +8,8 @@
  *
  */
 #include <proxygen/lib/utils/BrotliStreamDecompressor.h>
+
 #include <folly/io/Cursor.h>
-#include <iostream>
 
 static const size_t kFileBufferSize = 65536;
 

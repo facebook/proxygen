@@ -11,8 +11,8 @@
 
 #include <boost/variant.hpp>
 #include <folly/Conv.h>
-#include <iostream>
 #include <map>
+#include <iosfwd>
 #include <proxygen/lib/utils/Export.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEventType.h>

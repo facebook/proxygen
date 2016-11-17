@@ -15,8 +15,8 @@
 #include <folly/SocketAddress.h>
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <iosfwd>
 #include <wangle/acceptor/TransportInfo.h>
-#include <ostream>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>

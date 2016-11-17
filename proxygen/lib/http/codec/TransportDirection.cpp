@@ -9,6 +9,8 @@
  */
 #include <proxygen/lib/http/codec/TransportDirection.h>
 
+#include <ostream>
+
 namespace proxygen {
 
 const char* getTransportDirectionString(TransportDirection dir) {

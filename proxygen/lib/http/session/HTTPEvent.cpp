@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/session/HTTPEvent.h>
 
-#include <iostream>
+#include <ostream>
 
 namespace proxygen {
 

@@ -9,8 +9,8 @@
  */
 #pragma once
 
-#include <iostream>
 #include <map>
+#include <iosfwd>
 #include <proxygen/lib/utils/StateMachine.h>
 
 namespace proxygen {

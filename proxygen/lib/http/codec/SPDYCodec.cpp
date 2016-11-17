@@ -17,7 +17,6 @@
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <glog/logging.h>
-#include <iostream>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/CodecDictionaries.h>

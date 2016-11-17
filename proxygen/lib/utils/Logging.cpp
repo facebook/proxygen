@@ -13,8 +13,8 @@
 #include <folly/Memory.h>
 #include <folly/String.h>
 #include <fstream>
-#include <iostream>
 #include <memory>
+#include <ostream>
 #include <sstream>
 #include <vector>
 #include <sys/stat.h>

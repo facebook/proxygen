@@ -14,7 +14,7 @@
 #include <folly/json.h>
 #include <fstream>
 #include <glog/logging.h>
-#include <iostream>
+#include <ios>
 #include <string>
 
 using folly::IOBuf;

@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#include <iostream>
 #include <fstream>
 
 #include <folly/FileUtil.h>
