@@ -16,6 +16,7 @@
 
 using folly::IOBuf;
 using folly::IOBufQueue;
+using folly::StringPiece;
 using std::string;
 using std::unique_ptr;
 
@@ -64,9 +65,9 @@ appendUint(IOBufQueue& queue, size_t& len, uint64_t value) {
   (queue).append(str, sizeof(str) - 1)
 
 void
-appendString(IOBufQueue& queue, size_t& len, const string& str) {
-  queue.append(str.data(), str.length());
-  len += str.length();
+appendString(IOBufQueue& queue, size_t& len, StringPiece str) {
+  queue.append(str.data(), str.size());
+  len += str.size();
 }
 
 const std::pair<uint8_t, uint8_t> kHTTPVersion10(1, 0);
@@ -411,8 +412,9 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   appendLiteral(writeBuf, len, CRLF);
   const string* deferredContentLength = nullptr;
   bool hasTransferEncodingChunked = false;
-  bool hasUpgradeHeader = false;
   bool hasDateHeader = false;
+  std::vector<StringPiece> connectionTokens;
+  size_t lastConnectionToken = 0;
   msg.getHeaders().forEachWithCode([&] (HTTPHeaderCode code,
                                         const string& header,
                                         const string& value) {
@@ -420,19 +422,26 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       // Write the Content-Length last (t1071703)
       deferredContentLength = &value;
       return; // continue
-    } else if (code == HTTP_HEADER_CONNECTION) {
-      // TODO: add support for the case where "close" is part of
-      // a comma-separated list of values
+    } else if (code == HTTP_HEADER_CONNECTION && !is1xxResponse_) {
       static const string kClose = "close";
-      if (caseInsensitiveEqual(value, kClose)) {
-        keepalive_ = false;
+      static const string kKeepAlive = "keep-alive";
+      folly::split(',', value, connectionTokens);
+      for (auto curConnectionToken = lastConnectionToken;
+           curConnectionToken < connectionTokens.size();
+           curConnectionToken++) {
+        auto token = trimWhitespace(connectionTokens[curConnectionToken]);
+        if (caseInsensitiveEqual(token, kClose)) {
+          keepalive_ = false;
+        } else if (!caseInsensitiveEqual(token, kKeepAlive)) {
+          connectionTokens[lastConnectionToken++] = token;
+        } // else eat the keep-alive token
       }
+      connectionTokens.resize(lastConnectionToken);
       // We'll generate a new Connection header based on the keepalive_ state
       return;
     } else if (code == HTTP_HEADER_UPGRADE && upstream && txn == 1) {
       // save in case we get a 101 Switching Protocols
       upgradeHeader_ = value;
-      hasUpgradeHeader = true;
     } else if (!hasTransferEncodingChunked &&
                code == HTTP_HEADER_TRANSFER_ENCODING) {
       static const string kChunked = "chunked";
@@ -443,8 +452,6 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       if (!mayChunkEgress_) {
         return;
       }
-    } else if (code == HTTP_HEADER_UPGRADE) {
-      hasUpgradeHeader = true;
     } else if (!hasDateHeader && code == HTTP_HEADER_DATE) {
       hasDateHeader = true;
     }
@@ -488,12 +495,13 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   if (downstream && !hasDateHeader) {
     addDateHeader(writeBuf, len);
   }
-  if (!is1xxResponse_ || upstream || hasUpgradeHeader) {
+  if (!is1xxResponse_ || upstream || !connectionTokens.empty()) {
     appendLiteral(writeBuf, len, "Connection: ");
-    if (hasUpgradeHeader) {
-      // Upgrade header needs to have 'upgrade' keyword as the connection type
-      appendLiteral(writeBuf, len, "upgrade\r\n");
-    } else if (keepalive_) {
+    for (auto token: connectionTokens) {
+      appendString(writeBuf, len, token);
+      appendLiteral(writeBuf, len, ", ");
+    }
+    if (keepalive_) {
       appendLiteral(writeBuf, len, "keep-alive\r\n");
     } else {
       appendLiteral(writeBuf, len, "close\r\n");
@@ -502,7 +510,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   if (deferredContentLength) {
     appendLiteral(writeBuf, len, "Content-Length: ");
     appendString(writeBuf, len, *deferredContentLength);
-    appendString(writeBuf, len, CRLF);
+    appendLiteral(writeBuf, len, CRLF);
   }
   appendLiteral(writeBuf, len, CRLF);
   if (eom) {

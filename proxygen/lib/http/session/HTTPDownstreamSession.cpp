@@ -126,6 +126,7 @@ HTTPDownstreamSession::onNativeProtocolUpgrade(
     switchingProtos.setStatusCode(101);
     switchingProtos.setStatusMessage("Switching Protocols");
     switchingProtos.getHeaders().set(HTTP_HEADER_UPGRADE, protocolString);
+    switchingProtos.getHeaders().set(HTTP_HEADER_CONNECTION, "Upgrade");
     txn->sendHeaders(switchingProtos);
     // no sendEOM for 1xx
 

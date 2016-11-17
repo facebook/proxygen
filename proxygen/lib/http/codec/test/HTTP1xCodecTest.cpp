@@ -30,6 +30,7 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
                          std::unique_ptr<HTTPMessage> msg) override {
     headersComplete++;
     headerSize = msg->getIngressHeaderSize();
+    msg_ = std::move(msg);
   }
   void onBody(HTTPCodec::StreamID stream,
               std::unique_ptr<folly::IOBuf> chain,
@@ -47,6 +48,7 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
 
   uint32_t headersComplete{0};
   HTTPHeaderSize headerSize;
+  std::unique_ptr<HTTPMessage> msg_;
 };
 
 unique_ptr<folly::IOBuf> getSimpleRequestData() {
@@ -298,3 +300,86 @@ TEST(HTTP1xCodecTest, TestMultipleDistinctContentLengthHeaders) {
   EXPECT_EQ(callbacks.headersComplete, 0);
   EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
 }
+
+TEST(HTTP1xCodecTest, Test1xxConnectionHeader) {
+  HTTP1xCodec upstream(TransportDirection::UPSTREAM);
+  HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  upstream.setCallback(&callbacks);
+  HTTPMessage resp;
+  resp.setStatusCode(100);
+  resp.setHTTPVersion(1, 1);
+  resp.getHeaders().add(HTTP_HEADER_CONNECTION, "Upgrade");
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  auto streamID = downstream.createStream();
+  downstream.generateHeader(writeBuf, streamID, resp);
+  upstream.onIngress(*writeBuf.front());
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(
+    callbacks.msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+    "Upgrade");
+  resp.setStatusCode(200);
+  resp.getHeaders().remove(HTTP_HEADER_CONNECTION);
+  resp.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "0");
+  writeBuf.move();
+  downstream.generateHeader(writeBuf, streamID, resp);
+  upstream.onIngress(*writeBuf.front());
+  EXPECT_EQ(callbacks.headersComplete, 2);
+  EXPECT_EQ(
+    callbacks.msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+    "keep-alive");
+}
+
+
+
+class ConnectionHeaderTest:
+    public TestWithParam<std::pair<std::list<string>, string>> {
+ public:
+  using ParamType = std::pair<std::list<string>, string>;
+};
+
+TEST_P(ConnectionHeaderTest, TestConnectionHeaders) {
+  HTTP1xCodec upstream(TransportDirection::UPSTREAM);
+  HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  downstream.setCallback(&callbacks);
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::GET);
+  req.setURL("/");
+  auto val = GetParam();
+  for (auto header: val.first) {
+    req.getHeaders().add(HTTP_HEADER_CONNECTION, header);
+  }
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  upstream.generateHeader(writeBuf, upstream.createStream(), req);
+  downstream.onIngress(*writeBuf.front());
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  auto& headers = callbacks.msg_->getHeaders();
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+            val.second);
+}
+
+
+INSTANTIATE_TEST_CASE_P(
+  HTTP1xCodec,
+  ConnectionHeaderTest,
+  ::testing::Values(
+    // Moves close to the end
+    ConnectionHeaderTest::ParamType(
+      { "foo", "bar", "close", "baz" }, "foo, bar, baz, close"),
+    // has to resize token vector
+    ConnectionHeaderTest::ParamType(
+      { "foo", "bar, close", "baz" }, "foo, bar, baz, close"),
+    // whitespace trimming
+    ConnectionHeaderTest::ParamType(
+      { " foo", "bar, close ", " baz " }, "foo, bar, baz, close"),
+    // No close token => keep-alive
+    ConnectionHeaderTest::ParamType(
+      { "foo", "bar, boo", "baz" }, "foo, bar, boo, baz, keep-alive"),
+    // close and keep-alive => close
+    ConnectionHeaderTest::ParamType(
+      { "foo", "keep-alive, boo", "close" }, "foo, boo, close"),
+    // upgrade gets no special treatment
+    ConnectionHeaderTest::ParamType(
+      { "foo", "upgrade, boo", "baz" }, "foo, upgrade, boo, baz, keep-alive")
+  ));
