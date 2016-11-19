@@ -8,7 +8,6 @@
  *
  */
 #include <folly/Conv.h>
-#include <folly/Foreach.h>
 #include <folly/futures/Promise.h>
 #include <wangle/acceptor/ConnectionManager.h>
 #include <folly/io/Cursor.h>
@@ -29,7 +28,6 @@
 #include <string>
 #include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
-
 
 using namespace folly::io;
 using namespace wangle;

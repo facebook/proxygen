@@ -1,8 +1,5 @@
 #include "CurlClient.h"
 
-#include <errno.h>
-#include <sys/stat.h>
-
 #include <iostream>
 #include <fstream>
 

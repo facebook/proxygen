@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <unordered_set>
-#include <utility>
 
 using folly::IOBuf;
 using std::list;

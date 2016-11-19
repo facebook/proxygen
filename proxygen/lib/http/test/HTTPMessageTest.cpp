@@ -9,7 +9,6 @@
  */
 #include <fcntl.h>
 #include <gtest/gtest.h>
-#include <list>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <signal.h>
@@ -17,7 +16,6 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include <folly/portability/Libgen.h>
 #include <folly/portability/Sockets.h>
 #include <folly/portability/Unistd.h>
 

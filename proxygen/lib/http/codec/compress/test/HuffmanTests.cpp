@@ -10,7 +10,6 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 #include <gtest/gtest.h>
-#include <memory>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 #include <tuple>

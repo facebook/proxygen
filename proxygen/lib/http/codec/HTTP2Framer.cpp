@@ -9,8 +9,6 @@
  */
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
 
-#include <cstdint>
-
 using namespace folly::io;
 using namespace folly;
 

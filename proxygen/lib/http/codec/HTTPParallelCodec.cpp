@@ -19,7 +19,6 @@
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/CodecDictionaries.h>
 
 namespace proxygen {
 

@@ -9,7 +9,6 @@
  */
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
 
-#include <cassert>
 #include <folly/ScopeGuard.h>
 #include <folly/io/async/Request.h>
 
