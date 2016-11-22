@@ -1,6 +1,5 @@
 #include "CurlClient.h"
 
-#include <gflags/gflags.h>
 #include <errno.h>
 #include <sys/stat.h>
 
