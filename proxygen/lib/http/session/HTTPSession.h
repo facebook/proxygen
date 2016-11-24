@@ -482,8 +482,9 @@ class HTTPSession:
   /**
    * Invoked when headers have been sent.
    */
-  virtual void onHeadersSent(const HTTPMessage& headers,
-                             bool codecWasReusable) {}
+  virtual void onHeadersSent(
+      const HTTPMessage& /* headers */,
+      bool /* codecWasReusable */) {}
 
   virtual bool allTransactionsStarted() const = 0;
 

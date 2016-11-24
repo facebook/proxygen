@@ -31,7 +31,7 @@ class ScopedHandler : public RequestHandler {
     requestBody_.append(std::move(body));
   }
 
-  void onUpgrade(proxygen::UpgradeProtocol proto) noexcept override {}
+  void onUpgrade(proxygen::UpgradeProtocol) noexcept override {}
 
   void onEOM() noexcept override {
     try {
@@ -53,7 +53,7 @@ class ScopedHandler : public RequestHandler {
 
   void requestComplete() noexcept override { delete this; }
 
-  void onError(ProxygenError err) noexcept override { delete this; }
+  void onError(ProxygenError) noexcept override { delete this; }
  private:
   HandlerType* const handlerPtr_{nullptr};
 
@@ -67,7 +67,7 @@ class ScopedHandlerFactory : public RequestHandlerFactory {
   explicit ScopedHandlerFactory(HandlerType handler): handler_(handler) {
   }
 
-  void onServerStart(folly::EventBase* evb) noexcept override {
+  void onServerStart(folly::EventBase*) noexcept override {
   }
 
   void onServerStop() noexcept override {

@@ -169,7 +169,7 @@ class HTTPTransactionHandler {
    * 'length'. You will receive onBody() after this. Also, the length will
    * be greater than zero.
    */
-  virtual void onChunkHeader(size_t length) noexcept {};
+  virtual void onChunkHeader(size_t /* length */) noexcept {};
 
   /**
    * Can be called multiple times per transaction. If you had previously
@@ -237,7 +237,7 @@ class HTTPTransactionHandler {
    * TODO: Reconsider default implementation here. If the handler
    * does not implement, better set max initiated to 0 in a settings frame?
    */
-  virtual void onPushedTransaction(HTTPTransaction* txn) noexcept {}
+  virtual void onPushedTransaction(HTTPTransaction* /* txn */) noexcept {}
 
   virtual ~HTTPTransactionHandler() {}
 };
@@ -246,15 +246,15 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
  public:
   ~HTTPPushTransactionHandler() override {}
 
-  void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept final {
+  void onHeadersComplete(std::unique_ptr<HTTPMessage>) noexcept final {
     LOG(FATAL) << "push txn received headers";
   }
 
-  void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept final {
+  void onBody(std::unique_ptr<folly::IOBuf>) noexcept final {
     LOG(FATAL) << "push txn received body";
   }
 
-  void onChunkHeader(size_t length) noexcept final {
+  void onChunkHeader(size_t /* length */) noexcept final {
     LOG(FATAL) << "push txn received chunk header";
   }
 
@@ -262,8 +262,7 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
     LOG(FATAL) << "push txn received chunk complete";
   }
 
-  void onTrailers(std::unique_ptr<HTTPHeaders> trailers)
-    noexcept final {
+  void onTrailers(std::unique_ptr<HTTPHeaders>) noexcept final {
     LOG(FATAL) << "push txn received trailers";
   }
 
@@ -271,11 +270,11 @@ class HTTPPushTransactionHandler : public HTTPTransactionHandler {
     LOG(FATAL) << "push txn received EOM";
   }
 
-  void onUpgrade(UpgradeProtocol protocol) noexcept final {
+  void onUpgrade(UpgradeProtocol) noexcept final {
     LOG(FATAL) << "push txn received upgrade";
   }
 
-  void onPushedTransaction(HTTPTransaction* txn) noexcept final {
+  void onPushedTransaction(HTTPTransaction*) noexcept final {
     LOG(FATAL) << "push txn received push txn";
   }
 };

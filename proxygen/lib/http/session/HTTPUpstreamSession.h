@@ -122,8 +122,8 @@ class HTTPUpstreamSession final: public HTTPSession {
   /**
    * Called by onHeadersComplete(). Currently a no-op for upstream.
    */
-  void setupOnHeadersComplete(HTTPTransaction* txn,
-                              HTTPMessage* msg) override {}
+  void setupOnHeadersComplete(
+      HTTPTransaction* /* txn */, HTTPMessage* /* msg */) override {}
 
   /**
    * Called by processParseError() if the transaction has no handler.

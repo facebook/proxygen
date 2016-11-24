@@ -57,19 +57,20 @@ class ByteEventTracker {
    */
   virtual uint64_t preSend(bool* cork, bool* eom, uint64_t bytesWritten);
 
-  virtual void addAckToLastByteEvent(HTTPTransaction* txn,
-                                     const ByteEvent& lastByteEvent,
-                                     bool eorTrackingEnabled) {}
+  virtual void addAckToLastByteEvent(
+      HTTPTransaction* /* txn */,
+      const ByteEvent& /* lastByteEvent */,
+      bool /* eorTrackingEnabled */) {}
 
   virtual void deleteAckEvent(
-    std::vector<AckByteEvent*>::iterator& it) noexcept {}
+    std::vector<AckByteEvent*>::iterator& /* it */) noexcept {}
 
   virtual bool setMaxTcpAckTracked(
-    uint32_t maxAckTracked,
-    AsyncTimeoutSet* ackLatencyTimeouts,
-    folly::AsyncTransportWrapper* transport) { return false; }
+    uint32_t /* maxAckTracked */,
+    AsyncTimeoutSet* /* ackLatencyTimeouts */,
+    folly::AsyncTransportWrapper* /* transport */) { return false; }
 
-  virtual void setTTLBAStats(TTLBAStats* stats) {}
+  virtual void setTTLBAStats(TTLBAStats* /* stats */) {}
 
   virtual void onAckLatencyEvent(const AckLatencyEvent&) {}
 
