@@ -43,7 +43,7 @@ public:
   bool supportsParallelRequests() const override { return true; }
   bool closeOnEgressComplete() const override { return false; }
   void setCallback(Callback* callback) override { callback_ = callback; }
-  void setParserPaused(bool paused) override {}
+  void setParserPaused(bool /* paused */) override {}
   void onIngressEOF() override {}
   bool isReusable() const override;
   bool isWaitingToDrain() const override;
