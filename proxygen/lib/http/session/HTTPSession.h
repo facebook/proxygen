@@ -741,6 +741,11 @@ class HTTPSession:
   }
 
   /**
+   * Immediately shut down the session, by deleting the loop callbacks first
+   */
+  void immediateShutdown();
+
+  /**
    * Check whether the socket is shut down in both directions; if it is,
    * initiate the destruction of this HTTPSession.
    */
@@ -1178,6 +1183,30 @@ class HTTPSession:
   void onReplaySafe() noexcept override;
 
   std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
+
+  class ShutdownTransportCallback : public folly::EventBase::LoopCallback {
+   public:
+    explicit ShutdownTransportCallback(HTTPSession* session) :
+        session_(session),
+        dg_(folly::make_unique<DestructorGuard>(session)) { }
+
+    ~ShutdownTransportCallback() override { }
+
+    void runLoopCallback() noexcept override {
+        VLOG(4) << *session_ << " shutdown from onEgressMessageFinished";
+        bool shutdownReads =
+            session_->isDownstream() && !session_->ingressUpgraded_;
+        session_->shutdownTransport(shutdownReads, true);
+        dg_.reset();
+    }
+
+  private:
+    HTTPSession* session_;
+    std::unique_ptr<DestructorGuard> dg_;
+  };
+
+  std::unique_ptr<ShutdownTransportCallback> shutdownTransportCb_;
+
 };
 
 } // proxygen

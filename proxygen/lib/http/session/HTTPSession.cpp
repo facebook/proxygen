@@ -383,11 +383,25 @@ HTTPSession::closeWhenIdle() {
   }
 }
 
+void HTTPSession::immediateShutdown() {
+  if (isLoopCallbackScheduled()) {
+    cancelLoopCallback();
+  }
+  if (shutdownTransportCb_) {
+    shutdownTransportCb_.reset();
+  }
+  // checkForShutdown only closes the connection if these conditions are true
+  DCHECK(writesShutdown());
+  DCHECK(transactions_.empty());
+  checkForShutdown();
+}
+
 void
 HTTPSession::dropConnection() {
   VLOG(4) << "dropping " << *this;
   if (!sock_ || (readsShutdown() && writesShutdown())) {
     VLOG(4) << *this << " already shutdown";
+    immediateShutdown();
     return;
   }
 
@@ -399,6 +413,7 @@ HTTPSession::dropConnection() {
     // If so, writes will not be shutdown, so fall through to
     // shutdownTransportWithReset.
     if (readsShutdown() && writesShutdown()) {
+      immediateShutdown();
       return;
     }
   }
@@ -1406,15 +1421,14 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
       // message may be in the parse loop, so give it a chance to
       // finish out and avoid a kErrorEOF
 
-      // Just for safety, bump the refcount on this session to keep it
-      // live until the loopCb runs
-      auto dg = new DestructorGuard(this);
-      sock_->getEventBase()->runInLoop([this, dg] {
-          VLOG(4) << *this << " shutdown from onEgressMessageFinished";
-          bool shutdownReads = isDownstream() && !ingressUpgraded_;
-          shutdownTransport(shutdownReads, true);
-          delete dg;
-        }, true);
+      // we can get here during shutdown, in that case do not schedule a
+      // shutdown callback again
+      if (!shutdownTransportCb_) {
+        // Just for safety, the following bumps the refcount on this session
+        // to keep it live until the loopCb runs
+        shutdownTransportCb_.reset(new ShutdownTransportCallback(this));
+        sock_->getEventBase()->runInLoop(shutdownTransportCb_.get(), true);
+      }
     }
   }
 }
