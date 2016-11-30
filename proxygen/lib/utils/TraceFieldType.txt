@@ -52,6 +52,7 @@ LastBodyByteFlushedRatio, "last_body_byte_flushed_ratio"
 HeaderGenerated, "header_generated"
 FlowControlPauses, "flow_control_pauses"
 HTTPMethod, "http_method"
+RangeRequest, "range_request"
 
 /* ---- Used in ResponseBodyRead ---- */
 RspIntvlAvg, "response_interval_average"
