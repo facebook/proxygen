@@ -1163,9 +1163,9 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
              getCodecSendWindowSize());
 
   if (!transportInfo_.secure &&
-      (!transportInfo_.sslNextProtocol ||
-       transportInfo_.sslNextProtocol->empty())) {
-    transportInfo_.sslNextProtocol = std::make_shared<string>(
+      (!transportInfo_.appProtocol ||
+       transportInfo_.appProtocol->empty())) {
+    transportInfo_.appProtocol = std::make_shared<string>(
       protocolString);
   }
 
@@ -1648,7 +1648,7 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
     tinfo->sslVersion = transportInfo_.sslVersion;
     tinfo->sslCipher = transportInfo_.sslCipher;
     tinfo->sslResume = transportInfo_.sslResume;
-    tinfo->sslNextProtocol = transportInfo_.sslNextProtocol;
+    tinfo->appProtocol = transportInfo_.appProtocol;
     tinfo->sslError = transportInfo_.sslError;
 #if defined(__linux__) || defined(__FreeBSD__)
     // update connection transport info with the latest RTT

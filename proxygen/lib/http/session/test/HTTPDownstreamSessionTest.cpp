@@ -1331,7 +1331,7 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
   EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM([&handler, expectedUpgradeHeader] {
       EXPECT_FALSE(handler->txn_->getSetupTransportInfo().secure);
-      EXPECT_EQ(*handler->txn_->getSetupTransportInfo().sslNextProtocol,
+      EXPECT_EQ(*handler->txn_->getSetupTransportInfo().appProtocol,
                 expectedUpgradeHeader);
       handler->sendReplyWithBody(200, 100);
     });

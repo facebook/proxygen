@@ -146,7 +146,7 @@ void HTTPConnector::connectSuccess() noexcept {
     AsyncSSLSocket* sslSocket = socket_->getUnderlyingTransport<AsyncSSLSocket>();
 
     if (sslSocket) {
-      transportInfo_.sslNextProtocol =
+      transportInfo_.appProtocol =
           std::make_shared<std::string>(socket_->getApplicationProtocol());
       transportInfo_.sslSetupTime = millisecondsSince(connectStart_);
       transportInfo_.sslCipher = sslSocket->getNegotiatedCipherName() ?
