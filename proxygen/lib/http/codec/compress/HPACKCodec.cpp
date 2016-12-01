@@ -13,6 +13,7 @@
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <iosfwd>
 
 using folly::IOBuf;
 using folly::io::Cursor;
@@ -142,4 +143,15 @@ void HPACKCodec::onDecodeError(HeaderDecodeError decodeError) {
   }
   streamingCb_->onDecodeError(HeaderDecodeError::BAD_ENCODING);
 }
+
+void HPACKCodec::describe(std::ostream& stream) const {
+  stream << "DecoderTable:\n" << decoder_;
+  stream << "EncoderTable:\n" << encoder_;
+}
+
+std::ostream& operator<<(std::ostream& os, const HPACKCodec& codec) {
+  codec.describe(os);
+  return os;
+}
+
 }

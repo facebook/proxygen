@@ -64,4 +64,20 @@ const HPACKHeader& HPACKContext::getHeader(uint32_t index) {
   return getDynamicHeader(index);
 }
 
+void HPACKContext::seedHeaderTable(
+  std::vector<HPACKHeader>& headers) {
+  for (const auto& header: headers) {
+    table_.add(header);
+  }
+}
+
+void HPACKContext::describe(std::ostream& os) const {
+  os << table_;
+}
+
+std::ostream& operator<<(std::ostream& os, const HPACKContext& context) {
+  context.describe(os);
+  return os;
+}
+
 }

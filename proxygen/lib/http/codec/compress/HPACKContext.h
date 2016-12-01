@@ -49,6 +49,10 @@ class HPACKContext {
     return table_;
   }
 
+  void seedHeaderTable(std::vector<HPACKHeader>& headers);
+
+  void describe(std::ostream& os) const;
+
  protected:
   virtual const HeaderTable& getStaticTable() const {
     return StaticHeaderTable::get();
@@ -73,5 +77,7 @@ class HPACKContext {
 
   HeaderTable table_;
 };
+
+std::ostream& operator<<(std::ostream& os, const HPACKContext& context);
 
 }

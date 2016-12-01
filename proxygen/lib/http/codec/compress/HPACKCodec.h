@@ -60,6 +60,8 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
     decoder_.setHeaderTableMaxSize(size);
   }
 
+  void describe(std::ostream& os) const;
+
  protected:
   HPACKEncoder encoder_;
   HPACKDecoder decoder_;
@@ -68,4 +70,5 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
   std::vector<HPACKHeader> decodedHeaders_;
 };
 
+std::ostream& operator<<(std::ostream& os, const HPACKCodec& codec);
 }
