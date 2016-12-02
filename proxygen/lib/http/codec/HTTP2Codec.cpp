@@ -561,6 +561,8 @@ void HTTP2Codec::onHeader(const std::string& name,
     if (!nameOk || !valueOk) {
       decodeInfo_.parsingError = folly::to<string>("Bad header value: name=",
                                                    nameSp, " value=", valueSp);
+      VLOG(4) << "dir=" << uint32_t(transportDirection_) <<
+        decodeInfo_.parsingError << " codec=" << headerCodec_;
       return;
     }
     if (nameSp == "user-agent" &&
