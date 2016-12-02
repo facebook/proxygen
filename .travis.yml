@@ -8,3 +8,8 @@ before_script:
   - docker build -t facebook/proxygen .
 script:
   - docker run -ti facebook/proxygen
+addons:
+  apt:
+    packages:
+    - g++-4.9
+    - gcc-4.9
