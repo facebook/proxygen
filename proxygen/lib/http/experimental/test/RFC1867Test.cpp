@@ -25,7 +25,8 @@ namespace {
 const std::string kTestBoundary("abcdef");
 
 unique_ptr<IOBuf> makePost(const map<string, string>& params,
-                           const map<string, size_t>& files) {
+                           const map<string, string>& explicitFiles,
+                           const map<string, size_t>& randomFiles) {
   IOBufQueue result;
   for (const auto& kv: params) {
     result.append("--");
@@ -36,7 +37,18 @@ unique_ptr<IOBuf> makePost(const map<string, string>& params,
     result.append(kv.second);
     result.append("\r\n");
   }
-  for (const auto& kv: files) {
+  for (const auto& kv: explicitFiles) {
+    result.append("--");
+    result.append(kTestBoundary);
+    result.append("\r\nContent-Disposition: form-data; filename=\"");
+    result.append(kv.first);
+    result.append("\"\r\n"
+                  "Content-Type: text/plain\r\n"
+                  "\r\n");
+    result.append(IOBuf::copyBuffer(kv.second.data(), kv.second.length()));
+    result.append("\r\n");
+  }
+  for (const auto& kv: randomFiles) {
     result.append("--");
     result.append(kTestBoundary);
     result.append("\r\nContent-Disposition: form-data; filename=\"");
@@ -81,10 +93,10 @@ class Mock1867Callback : public RFC1867Codec::Callback {
   MOCK_METHOD0(onError, void());
 };
 
-class RFC1867Test : public testing::Test {
+class RFC1867Base {
  public:
 
-  void SetUp() override {
+  void SetUp() {
     codec_.setCallback(&callback_);
   }
 
@@ -107,17 +119,24 @@ class RFC1867Test : public testing::Test {
   }
 
  protected:
-  void testSimple(size_t fileSize, size_t splitSize);
+  void testSimple(unique_ptr<IOBuf> data, size_t fileSize, size_t splitSize);
 
   StrictMock<Mock1867Callback> callback_;
   RFC1867Codec codec_{kTestBoundary};
 
 };
 
-void RFC1867Test::testSimple(size_t fileSize, size_t splitSize) {
-  auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
-                       {{"file1", fileSize}});
+class RFC1867Test : public testing::Test, public RFC1867Base {
+ public:
+  void SetUp() override {
+    RFC1867Base::SetUp();
+  }
+};
+
+void RFC1867Base::testSimple(unique_ptr<IOBuf> data, size_t fileSize,
+                             size_t splitSize) {
   size_t fileLength = 0;
+  IOBufQueue parsedData{IOBufQueue::cacheChainLength()};
   EXPECT_CALL(callback_, onParam(string("foo"), string("bar"), _));
   EXPECT_CALL(callback_, onParam(string("jojo"), string("binky"), _));
   EXPECT_CALL(callback_, onFileStart(_, _, _, _))
@@ -125,22 +144,68 @@ void RFC1867Test::testSimple(size_t fileSize, size_t splitSize) {
   EXPECT_CALL(callback_, onFileData(_, _))
     .WillRepeatedly(Invoke([&] (std::shared_ptr<IOBuf> data, uint64_t) {
           fileLength += data->computeChainDataLength();
+          parsedData.append(data->clone());
           return 0;
         }));
   EXPECT_CALL(callback_, onFileEnd(true, _));
-  parse(std::move(data), splitSize);
-  ASSERT_EQ(fileLength, fileSize);
+  parse(data->clone(), splitSize);
+  auto parsedDataBuf = parsedData.move();
+  parsedDataBuf->coalesce();
+  CHECK_EQ(fileLength, fileSize);
 }
 
 TEST_F(RFC1867Test, testSimplePost) {
-  testSimple(17, 0);
+  size_t fileSize = 17;
+  auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
+                       {}, {{"file1", fileSize}});
+  testSimple(std::move(data), fileSize, 0);
 }
 
 TEST_F(RFC1867Test, testSplits) {
   for (size_t i = 1; i < 500; i++) {
-    testSimple(1000 + i, i);
+    size_t fileSize = 1000 + i;
+    auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
+                         {}, {{"file1", fileSize}});
+    testSimple(std::move(data), fileSize, i);
   }
 }
+
+class RFC1867CR : public testing::TestWithParam<string>, public RFC1867Base {
+ public:
+  void SetUp() override {
+    RFC1867Base::SetUp();
+  }
+};
+
+
+TEST_P(RFC1867CR, test) {
+  for (size_t i = 1; i < GetParam().size(); i++) {
+    auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
+                         {{"file1", GetParam()}}, {});
+    testSimple(std::move(data), GetParam().size(), i);
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(
+  ValueTest,
+  RFC1867CR,
+  ::testing::Values(
+    // embedded \r\n
+    string("zyx\r\nwvu", 8),
+    // leading \r
+    string("\rzyxwvut", 8),
+    // trailing \r
+    string("zyxwvut\r", 8),
+    // leading \n
+    string("\nzyxwvut", 8),
+    // trailing \n
+    string("zyxwvut\n", 8),
+    // all \r\n
+    string("\r\n\r\n\r\n\r\n", 8),
+    // all \r
+    string("\r\r\r\r\r\r\r\r", 8)
+  ));
+
 
 
 }

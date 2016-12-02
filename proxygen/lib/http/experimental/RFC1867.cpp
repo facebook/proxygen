@@ -273,21 +273,27 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
         foundBoundary = true;
         return result;
       } else if (boundaryResult == BoundaryResult::PARTIAL) {
-        if (readlen == 0 && pendingCR_) {
-          pendingCR_.reset();
-        }
         break;
+      } else if (pendingCR_) {
+        // not a match, append pending CR to result
+        result.append(std::move(pendingCR_));
       }
 
       /* next character */
       ptr++; len--;
     }
-    result.append(std::move(pendingCR_));
     uint64_t resultLen = ptr ? ptr - head->data() : head->length();
+    // Put pendingCR_ in result if there was no partial match in head, or a
+    // partial match starting after the first character
+    if ((boundaryResult == BoundaryResult::NO || resultLen > 0) &&
+        pendingCR_) {
+      result.append(std::move(pendingCR_));
+    }
     // the boundary does not start through resultLen, append it
     // to result, except maybe the last char if it's a CR.
     if (resultLen > 0 && head->data()[resultLen - 1] == '\r') {
       result.append(input_.split(resultLen - 1));
+      CHECK(!pendingCR_);
       pendingCR_ = input_.split(1);
     } else {
       result.append(input_.split(resultLen));
