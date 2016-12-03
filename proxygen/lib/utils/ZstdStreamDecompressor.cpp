@@ -13,24 +13,35 @@
 #include <folly/Range.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
+#include <iostream>
 
 using folly::IOBuf;
 using std::unique_ptr;
 using namespace proxygen;
 
-ZstdStreamDecompressor::ZstdStreamDecompressor(size_t totalLen)
+ZstdStreamDecompressor::ZstdStreamDecompressor(size_t totalLen, std::string dictStr)
   : totalLen_(totalLen) {
-
   dStream_ = ZSTD_createDStream();
-  if (dStream_ == nullptr ||
-      ZSTD_isError(ZSTD_initDStream(dStream_))) {
-    status_ = ZstdStatusType::ERROR;
+  if (dictStr != "") {
+    dDict_ = ZSTD_createDDict(&dictStr, dictStr.length());
+    if (dStream_ == nullptr || dDict_ == nullptr ||
+        ZSTD_isError(ZSTD_initDStream_usingDDict(dStream_, dDict_))) {
+      status_ = ZstdStatusType::ERROR;
+    }
+  } else {
+    if (dStream_ == nullptr ||
+        ZSTD_isError(ZSTD_initDStream(dStream_))) {
+      status_ = ZstdStatusType::ERROR;
+    }
   }
 }
 
 ZstdStreamDecompressor::~ZstdStreamDecompressor() {
   if (dStream_) {
     ZSTD_freeDStream(dStream_);
+  }
+  if (dDict_) {
+    ZSTD_freeDDict(dDict_);
   }
 }
 
@@ -46,7 +57,6 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
   size_t buffOutSize = ZSTD_DStreamOutSize();
   std::unique_ptr<unsigned char[]> buffOut(new unsigned char[buffOutSize]);
   auto appender = folly::io::Appender(out.get(), buffOutSize);
-
 
   for (const folly::ByteRange range : *in) {
     ZSTD_inBuffer input = {range.data(), range.size(), 0};

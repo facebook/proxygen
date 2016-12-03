@@ -34,7 +34,7 @@ enum class ZstdStatusType: int {
 
 class ZstdStreamDecompressor {
  public:
-  explicit ZstdStreamDecompressor(size_t);
+  explicit ZstdStreamDecompressor(size_t, std::string);
   ~ZstdStreamDecompressor();
   std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in);
   ZstdStatusType getStatus() {return status_;};
@@ -42,6 +42,7 @@ class ZstdStreamDecompressor {
 
  private:
   ZSTD_DStream *dStream_{nullptr};
+  ZSTD_DDict* dDict_{nullptr};
   size_t totalLen_{0};
   size_t totalDec_{0};
 };

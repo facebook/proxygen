@@ -134,6 +134,9 @@ TLSCachedInfoHit, "tls_cached_info_cert_cache_hit"
 RspBodySize, "response_body_size"
 RspBodyCompSize, "response_body_compressed_size"
 CompressionType, "compression_type"
+CompressionDictSuccess, "compression_dict_success"
+CompressionDictError, "compression_dict_error"
+CompressionDictID, "compression_dict_id"
 
 /* ---- Used in CertVerification ---- */
 VerifiedSuccess, "verified_success"
