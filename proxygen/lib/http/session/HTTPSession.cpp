@@ -401,7 +401,6 @@ HTTPSession::dropConnection() {
   VLOG(4) << "dropping " << *this;
   if (!sock_ || (readsShutdown() && writesShutdown())) {
     VLOG(4) << *this << " already shutdown";
-    immediateShutdown();
     return;
   }
 
