@@ -13,7 +13,6 @@
 #include <folly/Range.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
-#include <iostream>
 
 using folly::IOBuf;
 using std::unique_ptr;
