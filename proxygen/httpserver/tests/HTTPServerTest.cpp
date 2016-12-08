@@ -344,8 +344,8 @@ TEST(GetListenSocket, TestNoBootstrap) {
   auto st = folly::make_unique<ServerThread>(server.get());
   EXPECT_TRUE(st->start());
 
-  auto socketfd = server->getListenSocket();
-  ASSERT_EQ(-1, socketfd);
+  auto socketFd = server->getListenSocket();
+  ASSERT_EQ(-1, socketFd);
 }
 
 TEST(GetListenSocket, TestBootstrapWithNoBinding) {
@@ -358,8 +358,8 @@ TEST(GetListenSocket, TestBootstrapWithNoBinding) {
   // Stop listening on socket
   server->stopListening();
 
-  auto socketfd = server->getListenSocket();
-  ASSERT_EQ(-1, socketfd);
+  auto socketFd = server->getListenSocket();
+  ASSERT_EQ(-1, socketFd);
 }
 
 TEST(GetListenSocket, TestBootstrapWithBinding) {
@@ -369,6 +369,89 @@ TEST(GetListenSocket, TestBootstrapWithBinding) {
   seeds.currentSeeds.push_back(hexlify("hello"));
   std::tie(server, st) = setupServer(false, seeds);
 
-  auto socketfd = server->getListenSocket();
-  ASSERT_NE(-1, socketfd);
+  auto socketFd = server->getListenSocket();
+  ASSERT_NE(-1, socketFd);
+}
+
+TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
+  auto evb = EventBaseManager::get()->getEventBase();
+  AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
+  serverSocket->bind(0);
+
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  std::vector<HTTPServer::IPConfig> ips{cfg};
+
+  HTTPServerOptions options;
+  options.handlerFactories =
+      RequestHandlerChain().addThen<TestHandlerFactory>().build();
+  // Use the existing AsyncServerSocket for binding
+  auto existingFd = serverSocket->getSocket();
+  options.useExistingSocket(std::move(serverSocket));
+
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto st = folly::make_unique<ServerThread>(server.get());
+  server->bind(ips);
+
+  EXPECT_TRUE(st->start());
+
+  auto socketFd = server->getListenSocket();
+  ASSERT_EQ(existingFd, socketFd);
+}
+
+TEST(UseExistingSocket, TestWithSocketFd) {
+  auto evb = EventBaseManager::get()->getEventBase();
+  AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
+  serverSocket->bind(0);
+
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  HTTPServerOptions options;
+  options.handlerFactories =
+      RequestHandlerChain().addThen<TestHandlerFactory>().build();
+  // Use the socket fd from the existing AsyncServerSocket for binding
+  auto existingFd = serverSocket->getSocket();
+  options.useExistingSocket(existingFd);
+
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto st = folly::make_unique<ServerThread>(server.get());
+  std::vector<HTTPServer::IPConfig> ips{cfg};
+  server->bind(ips);
+
+
+  EXPECT_TRUE(st->start());
+
+  auto socketFd = server->getListenSocket();
+  ASSERT_EQ(existingFd, socketFd);
+}
+
+TEST(UseExistingSocket, TestWithMultipleSocketFds) {
+  auto evb = EventBaseManager::get()->getEventBase();
+  AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
+  serverSocket->bind(0);
+  try {
+    serverSocket->bind(1024);
+  } catch (const std::exception& ex) {
+    // This is fine because we are trying to bind to multiple ports
+  }
+
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  HTTPServerOptions options;
+  options.handlerFactories =
+      RequestHandlerChain().addThen<TestHandlerFactory>().build();
+  // Use the socket fd from the existing AsyncServerSocket for binding
+  auto existingFds = serverSocket->getSockets();
+  options.useExistingSockets(existingFds);
+
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto st = folly::make_unique<ServerThread>(server.get());
+  std::vector<HTTPServer::IPConfig> ips{cfg};
+  server->bind(ips);
+
+
+  EXPECT_TRUE(st->start());
+
+  auto socketFd = server->getListenSocket();
+  ASSERT_EQ(existingFds[0], socketFd);
 }

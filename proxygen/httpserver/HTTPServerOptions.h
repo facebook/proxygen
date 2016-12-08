@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/io/async/AsyncServerSocket.h>
 #include <folly/SocketAddress.h>
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
@@ -126,5 +127,31 @@ class HTTPServerOptions {
     "text/plain",
     "text/xml",
   };
+
+  /**
+   * This holds sockets already bound to addresses that the server
+   * will listen on and will be empty once the server starts.
+   */
+  std::vector<folly::AsyncServerSocket::UniquePtr> preboundSockets_;
+
+  /**
+   * Bind to existing file descriptor(s).
+   * AsyncServerSocket can handle multiple fds and they can be provided
+   * as a vector here.
+   */
+  void useExistingSocket(folly::AsyncServerSocket::UniquePtr socket) {
+    preboundSockets_.push_back(std::move(socket));
+  }
+
+  void useExistingSocket(int socketFd) {
+    useExistingSockets({socketFd});
+  }
+
+  void useExistingSockets(const std::vector<int>& socketFds) {
+    folly::AsyncServerSocket::UniquePtr socket(new folly::AsyncServerSocket);
+
+    socket->useExistingSockets(socketFds);
+    useExistingSocket(std::move(socket));
+  }
 };
 }

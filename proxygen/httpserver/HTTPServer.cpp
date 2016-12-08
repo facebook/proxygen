@@ -141,7 +141,11 @@ void HTTPServer::start(std::function<void()> onSuccess,
             accConfig.fastOpenQueueSize;
       }
       bootstrap_[i].group(accExe, exe);
-      bootstrap_[i].bind(addresses_[i].address);
+      if (options_->preboundSockets_.size() > 0) {
+        bootstrap_[i].bind(std::move(options_->preboundSockets_[i]));
+      } else {
+        bootstrap_[i].bind(addresses_[i].address);
+      }
     }
   } catch (const std::exception& ex) {
     stop();

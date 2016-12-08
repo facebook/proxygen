@@ -10,7 +10,6 @@
 #pragma once
 
 #include <wangle/ssl/SSLContextConfig.h>
-#include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBase.h>
 #include <wangle/bootstrap/ServerBootstrap.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
