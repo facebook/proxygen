@@ -1,15 +1,48 @@
 language: cpp
-compiler: gcc
 services:
   - docker
 install:
   - sudo apt-get update -qq
+
+# toolchains from:
+# * https://github.com/travis-ci/apt-source-whitelist
+#   - https://github.com/travis-ci/apt-source-whitelist/blob/master/ubuntu.json
+matrix:
+  include:
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-4.9']
+      env:
+        COMPILER=g++-4.9
+        CPP_STD=c++14
+
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-5']
+      env:
+        COMPILER=g++-5
+        CPP_STD=c++14
+
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-6']
+      env:
+        COMPILER=g++-6
+        CPP_STD=c++14
+
 before_script:
-  - docker build -t facebook/proxygen .
+  - apt-cache search '^g\+\+|^clang'
+  - which clang++ && clang++ --version || true
+  - which g++ && g++ --version || true
+  - docker build -t facebook/proxygen --build-arg compiler=$(COMPILER) cpp_version=$(CPP_STD) .
 script:
   - docker run -ti facebook/proxygen
-addons:
-  apt:
-    packages:
-    - g++-4.9
-    - gcc-4.9

@@ -22,8 +22,10 @@ RUN apt-get update && apt-get install -yq \
     wget
 
 WORKDIR /home
+ARG compiler
+ARG cpp_version
 RUN git clone https://github.com/facebook/proxygen.git
 WORKDIR /home/proxygen/proxygen
 RUN ./deps.sh && ./reinstall.sh
 WORKDIR /home/proxygen/proxygen/httpserver/samples/echo
-RUN g++ -I /home/proxygen -std=c++14 -o my_echo EchoServer.cpp EchoHandler.cpp -lproxygenhttpserver -lfolly -lglog -lgflags -pthread
+RUN ${compiler} -I /home/proxygen -std=${cpp_version} -o my_echo EchoServer.cpp EchoHandler.cpp -lproxygenhttpserver -lfolly -lglog -lgflags -pthread
