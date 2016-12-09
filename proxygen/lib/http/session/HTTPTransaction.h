@@ -705,7 +705,7 @@ class HTTPTransaction :
   /**
    * @return true if we can send headers on this transaction
    */
-  bool canSendHeaders() const {
+  virtual bool canSendHeaders() const {
     return HTTPTransactionEgressSM::canTransit(
         egressState_,
         HTTPTransactionEgressSM::Event::sendHeaders)
