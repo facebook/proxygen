@@ -43,6 +43,6 @@ before_script:
   - apt-cache search '^g\+\+|^clang'
   - which clang++ && clang++ --version || true
   - which g++ && g++ --version || true
-  - docker build -t facebook/proxygen --build-arg compiler=$(COMPILER) cpp_version=$(CPP_STD) .
+  - docker build -t facebook/proxygen --build-arg compiler=${COMPILER} cpp_version=${CPP_STD} .
 script:
   - docker run -ti facebook/proxygen
