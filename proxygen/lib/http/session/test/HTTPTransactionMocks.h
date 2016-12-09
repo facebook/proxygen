@@ -139,6 +139,12 @@ class MockHTTPTransaction : public HTTPTransaction {
             this->setHandlerUnmocked(handler);
         }));
 
+    // By default we expect canSendHeaders in test to return true
+    // Tests that specifically require canSendHeaders to return false need
+    // to set the behavior locally.  This is due to the fact that the mocked
+    // methods below imply internal state is not correctly tracked/managed
+    // in the context of tests
+    ON_CALL(*this, canSendHeaders()).WillByDefault(testing::Return(true));
   }
 
   MOCK_CONST_METHOD0(extraResponseExpected, bool());
