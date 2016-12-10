@@ -53,6 +53,7 @@ HeaderGenerated, "header_generated"
 FlowControlPauses, "flow_control_pauses"
 HTTPMethod, "http_method"
 RangeRequest, "range_request"
+RequestSendTime, "wire request time in liger epoch"
 
 /* ---- Used in ResponseBodyRead ---- */
 RspIntvlAvg, "response_interval_average"
