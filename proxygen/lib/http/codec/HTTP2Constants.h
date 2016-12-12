@@ -35,6 +35,7 @@ extern const uint32_t kMaxFramePayloadLength;
 extern const uint32_t kMaxStreamID;
 extern const uint32_t kInitialWindow;
 extern const uint32_t kMaxWindowUpdateSize;
+extern const uint32_t kMaxHeaderTableSize;
 
 extern const std::string kAuthority;
 extern const std::string kMethod;
