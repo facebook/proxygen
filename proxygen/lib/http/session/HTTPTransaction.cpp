@@ -1113,9 +1113,18 @@ void HTTPTransaction::notifyTransportPendingEgress() {
 void HTTPTransaction::updateHandlerPauseState() {
   int64_t availWindow =
     sendWindow_.getSize() - deferredEgressBody_.chainLength();
+  // do not count transaction stalled if no more bytes to send,
+  // i.e. when availWindow == 0
+  if (useFlowControl_ && availWindow < 0 && !flowControlPaused_) {
+    VLOG(4) << *this << " transaction stalled by flow control";
+    if (stats_) {
+      stats_->recordTransactionStalled();
+    }
+  }
   flowControlPaused_ = useFlowControl_ && availWindow <= 0;
   bool handlerShouldBePaused = egressPaused_ || flowControlPaused_ ||
     egressRateLimited_;
+
   if (handler_ && handlerShouldBePaused != handlerEgressPaused_) {
     if (handlerShouldBePaused) {
       handlerEgressPaused_ = true;

@@ -14,7 +14,7 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/io/async/TimeoutManager.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
@@ -2707,4 +2707,124 @@ TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
   expectDetachSession();
   flushRequestsAndLoop();
 
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_session_stall_by_flow_control) {
+  NiceMock<MockHTTPSessionStats> stats;
+  // By default the send and receive windows are 64K each.
+  // If we use only a single transaction, that transaction
+  // will be paused on reaching 64K. Therefore, to pause the session,
+  // it is used 2 transactions each sending 32K.
+
+  // Make write buffer limit exceding 64K, for example 128K
+  httpSession_->setWriteBufferLimit(128 * 1024);
+  httpSession_->setSessionStats(&stats);
+
+  InSequence enforceOrder;
+  sendRequest();
+  sendRequest();
+
+  auto handler1 = addSimpleStrictHandler();
+
+  handler1->expectHeaders();
+  handler1->expectEOM([&] {
+      handler1->sendReplyWithBody(200, 32 * 1024);
+    });
+
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&] {
+      handler2->sendReplyWithBody(200, 32 * 1024);
+    });
+
+  EXPECT_CALL(stats, recordSessionStalled()).Times(1);
+
+  handler1->expectDetachTransaction();
+
+  // twice- once to send and once to receive
+  flushRequestsAndLoopN(2);
+
+  // open the window
+  clientCodec_->generateWindowUpdate(requests_, 0, 100);
+  handler2->expectDetachTransaction();
+  flushRequestsAndLoopN(2);
+
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  flushRequestsAndLoop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_transaction_stall_by_flow_control) {
+  StrictMock<MockHTTPSessionStats> stats;
+
+  httpSession_->setSessionStats(&stats);
+
+  // Set the client side stream level flow control wind to 500 bytes,
+  // and try to send 1000 bytes through it.
+  // Then the flow control kicks in and stalls the transaction.
+  clientCodec_->getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
+                                                500);
+  clientCodec_->generateSettings(requests_);
+
+  auto streamID = sendRequest();
+
+  EXPECT_CALL(stats, recordTransactionOpened());
+
+  InSequence handlerSequence;
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM([&] {
+      handler->sendReplyWithBody(200, 1000);
+    });
+
+  EXPECT_CALL(stats, recordTransactionStalled());
+  handler->expectEgressPaused();
+
+  handler->expectError([&] (const HTTPException& ex) {
+      ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
+      ASSERT_EQ(
+        folly::to<std::string>("ingress timeout, streamID=", streamID),
+        std::string(ex.what()));
+      handler->terminate();
+    });
+
+  handler->expectDetachTransaction();
+
+  EXPECT_CALL(stats, recordTransactionClosed());
+
+  flushRequestsAndLoop();
+  gracefulShutdown();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_transaction_not_stall_by_flow_control) {
+  StrictMock<MockHTTPSessionStats> stats;
+
+  httpSession_->setSessionStats(&stats);
+
+  clientCodec_->getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
+                                                500);
+  clientCodec_->generateSettings(requests_);
+
+  sendRequest();
+
+  EXPECT_CALL(stats, recordTransactionOpened());
+
+  InSequence handlerSequence;
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM([&] {
+      handler->sendReplyWithBody(200, 500);
+    });
+
+  // The egtress paused is notified due to existing logics,
+  // but egress transaction should not be counted as stalled by flow control,
+  // because there is nore more bytes to send
+  handler->expectEgressPaused();
+
+  handler->expectDetachTransaction();
+
+  EXPECT_CALL(stats, recordTransactionClosed());
+
+  flushRequestsAndLoop();
+  gracefulShutdown();
 }
