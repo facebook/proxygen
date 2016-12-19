@@ -37,7 +37,9 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   } else if (ipConfig.protocol == HTTPServer::Protocol::HTTP2) {
     conf.plaintextProtocol = http2::kProtocolCleartextString;
   } else if (opts.h2cEnabled) {
-    conf.allowedPlaintextUpgradeProtocols = { http2::kProtocolCleartextString };
+    conf.allowedPlaintextUpgradeProtocols.push_back(http2::kProtocolCleartextString);
+  } else if (opts.h1xWebsocketEnabled) {
+    conf.allowedPlaintextUpgradeProtocols.push_back("websocket");
   }
 
   conf.sslContextConfigs = ipConfig.sslConfigs;
