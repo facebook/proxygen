@@ -690,11 +690,16 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
   for (auto& setting: settings) {
     switch (setting.first) {
       case SettingsId::HEADER_TABLE_SIZE:
-        // We could enforce an internal max rather than taking the max they
-        // give us.
-        VLOG(4) << "Setting header codec table size=" << setting.second;
-        headerCodec_.setEncoderHeaderTableSize(setting.second);
-        break;
+      {
+        uint32_t tableSize = setting.second;
+        if (setting.second > http2::kMaxHeaderTableSize) {
+          VLOG(2) << "Limiting table size from " << tableSize << " to " <<
+            http2::kMaxHeaderTableSize;
+          tableSize = http2::kMaxHeaderTableSize;
+        }
+        headerCodec_.setEncoderHeaderTableSize(tableSize);
+      }
+      break;
       case SettingsId::ENABLE_PUSH:
         if ((setting.second != 0 && setting.second != 1) ||
             (setting.second == 1 &&

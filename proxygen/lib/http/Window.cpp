@@ -44,8 +44,9 @@ bool Window::reserve(const uint32_t amount, bool strict) {
             << "Attempted decrement of " << amount;
     return false;
   }
-  const uint32_t limit = std::numeric_limits<int32_t>::max() - outstanding_;
-  if (outstanding_ > 0 && amount > limit) {
+  const int32_t limit = std::numeric_limits<int32_t>::max() -
+    static_cast<int32_t>(amount);
+  if (outstanding_ > 0 && limit < outstanding_) {
     VLOG(3) << "Overflow detected. Window change failed.";
     return false;
   }
@@ -65,8 +66,9 @@ bool Window::free(const uint32_t amount) {
             << "Attempted increment of " << amount;
     return false;
   }
-  const uint32_t limit = outstanding_ - std::numeric_limits<int32_t>::min();
-  if (outstanding_ < 0 && amount > limit) {
+  const int32_t limit = std::numeric_limits<int32_t>::min() +
+    static_cast<int32_t>(amount);
+  if (outstanding_ < 0 && limit > outstanding_) {
     VLOG(3) << "Underflow detected. Window change failed.";
     return false;
   }
@@ -85,12 +87,15 @@ bool Window::setCapacity(const uint32_t capacity) {
     return false;
   }
 
-  if (capacity > uint32_t(capacity_) &&
-      (capacity - capacity_ >
-       uint32_t(std::numeric_limits<int32_t>::max() - getSize()))) {
-    VLOG(3) << "Increasing the capacity overflowed the window";
-    return false;
+  const int32_t diff = static_cast<int32_t>(capacity) - capacity_;
+  if (diff > 0) {
+    const int32_t size = getSize();
+    if (size > 0 && diff > (std::numeric_limits<int32_t>::max() - size)) {
+      VLOG(3) << "Increasing the capacity overflowed the window";
+      return false;
+    }
   }
+
   capacity_ = static_cast<int32_t>(capacity);
   return true;
 }

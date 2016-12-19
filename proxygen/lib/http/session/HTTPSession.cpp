@@ -357,7 +357,8 @@ HTTPSession::isBusy() const {
   return !transactions_.empty() || codec_->isBusy();
 }
 
-void HTTPSession::notifyPendingEgress() noexcept {
+void
+HTTPSession::notifyPendingEgress() noexcept {
   scheduleWrite();
 }
 
@@ -2506,6 +2507,12 @@ void HTTPSession::onConnectionSendWindowOpen() {
 }
 
 void HTTPSession::onConnectionSendWindowClosed() {
+  if(!txnEgressQueue_.empty()) {
+    VLOG(4) << *this << " session stalled by flow control";
+    if (sessionStats_) {
+      sessionStats_->recordSessionStalled();
+    }
+  }
   DCHECK(!flowControlTimeout_.isScheduled());
   if (infoCallback_) {
     infoCallback_->onFlowControlWindowClosed(*this);

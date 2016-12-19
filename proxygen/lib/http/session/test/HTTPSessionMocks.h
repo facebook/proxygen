@@ -11,6 +11,7 @@
 
 #include <gmock/gmock.h>
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
@@ -345,6 +346,38 @@ class MockHTTPSessionInfoCallback: public HTTPSession::InfoCallback {
   MOCK_METHOD1(onFlowControlWindowClosed, void(const HTTPSession&));
   MOCK_METHOD1(onEgressBuffered, void(const HTTPSession&));
   MOCK_METHOD1(onEgressBufferCleared, void(const HTTPSession&));
+};
+
+class DummyHTTPSessionStats : public HTTPSessionStats {
+ public:
+
+  virtual void recordTransactionOpened() noexcept {};
+  virtual void recordTransactionClosed() noexcept {};
+  virtual void recordTransactionsServed(uint64_t) noexcept {};
+  virtual void recordSessionReused() noexcept {};
+  //virtual void recordSessionIdleTime(std::chrono::seconds) noexcept {};
+  virtual void recordTransactionStalled() noexcept {};
+  virtual void recordSessionStalled() noexcept {};
+
+  virtual void recordTTLBAExceedLimit() noexcept {};
+  virtual void recordTTLBAIOBSplitByEom() noexcept {};
+  virtual void recordTTLBANotFound() noexcept {};
+  virtual void recordTTLBAReceived() noexcept {};
+  virtual void recordTTLBATimeout() noexcept {};
+  virtual void recordTTLBAEomPassed() noexcept {};
+  virtual void recordTTLBATracked() noexcept {};
+};
+
+class MockHTTPSessionStats: public DummyHTTPSessionStats {
+ public:
+  MockHTTPSessionStats() {}
+  GMOCK_NOEXCEPT_METHOD0(recordTransactionOpened, void());
+  GMOCK_NOEXCEPT_METHOD0(recordTransactionClosed, void());
+  GMOCK_NOEXCEPT_METHOD1(recordTransactionsServed, void(uint64_t));
+  GMOCK_NOEXCEPT_METHOD0(recordSessionReused, void());
+  GMOCK_NOEXCEPT_METHOD1(recordSessionIdleTime, void(std::chrono::seconds));
+  GMOCK_NOEXCEPT_METHOD0(recordTransactionStalled, void());
+  GMOCK_NOEXCEPT_METHOD0(recordSessionStalled, void());
 };
 
 }
