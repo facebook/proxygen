@@ -919,6 +919,8 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
           // unfortunately have to copy because msg_ is passed to
           // onHeadersComplete
           upgradeRequest_ = folly::make_unique<HTTPMessage>(*msg_);
+        } else if (result) {
+          ingressUpgrade_ = true;
         }
       }
     }
