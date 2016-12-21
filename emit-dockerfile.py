@@ -13,7 +13,7 @@ import textwrap
 
 def gcc_version(s):
     if re.match('^(4\.9|5\.[0-9]+)$', s) is None:
-        raise Exception('GCC versions 4.9 and 5.x supported, got {}'.format(s))
+        raise Exception('We support GCC 4.9 and 5.x, got {0}'.format(s))
     return s
 
 
@@ -27,19 +27,25 @@ a single literal curly brace, see the Python docs for more information.
 
 Sample usage:
 
-  (u=14.04 ; g=4.9 ; rm Dockerfile ;
-   ./emit-dockerfile.py --ubuntu-version "$u" --gcc-version "$g" &&
-   docker build -t "fb-projects-$u-$g" 2>&1 | tee "log-$u-$g")
-'''))
-parser.add_argument('--dockerfile-in', default='Dockerfile.in')
-parser.add_argument('--dockerfile-out', default='Dockerfile')
+    (u=14.04 ; g=4.9 ; rm Dockerfile ;
+         ./emit-dockerfile.py --ubuntu-version "$u" --gcc-version "$g" &&
+         docker build -t "fb-projects-$u-$g" . 2>&1 | tee "log-$u-$g")
+'''), formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument(
+    '--dockerfile-in', default='Dockerfile.in',
+    metavar='PATH', help='Default: %(default)s')
+parser.add_argument(
+    '--dockerfile-out', default='Dockerfile',
+    metavar='PATH', help='Default: %(default)s')
 # Our Dockerfile uses the numeric YY.MM version format.
 parser.add_argument(
-    '--ubuntu-version', choices=['14.04', '16.04'], required=True)
-parser.add_argument('--gcc-version', type=gcc_version, required=True)
+    '--ubuntu-version', choices=['14.04', '16.04'], required=True,
+    metavar='YY.MM', help='Choices: %(choices)s')
 parser.add_argument(
-    '--make-parallelism', type=int, default=1,
-    help='Use `make -j` on multi-processor system with lots of RAM'
+    '--gcc-version', type=gcc_version, required=True, metavar='MAJOR.MINOR')
+parser.add_argument(
+    '--make-parallelism', type=int, default=1, metavar='NUM',
+    help='Use `make -j` on multi-CPU systems with lots of RAM'
 )
 args = parser.parse_args()
 

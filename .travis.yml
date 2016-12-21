@@ -7,6 +7,20 @@ language: python
 python:
   - 2.7
 
-before_script:
-  - ./emit-dockerfile.py --ubuntu-version 14.04 --gcc-version 4.9
+# Workaround for https://github.com/travis-ci/travis-ci/issues/4681
+env:
+  matrix: BOGUS_JOB
+
+matrix:
+  include:
+    - env: [ubuntu_version=14.04, gcc_version=4.9]
+    - env: [ubuntu_version=16.04, gcc_version=5.4]
+  exclude:
+    - env: BOGUS_JOB
+
+script:
+  - ./emit-dockerfile.py \
+      --ubuntu-version "$ubuntu_version" \
+      --gcc-version "$gcc_version" \
+      --make_parallelism 4
   - docker build .
