@@ -74,7 +74,7 @@ RUN ldconfig
 WORKDIR /home/
 RUN git clone https://github.com/facebook/proxygen
 WORKDIR /home/proxygen/proxygen
-RUN git checkout master
+RUN git checkout {proxygen_git_hash}
 RUN autoreconf -ivf
 RUN ./configure
 RUN make -j {make_parallelism}

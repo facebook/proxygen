@@ -3,24 +3,15 @@ sudo: required
 services:
   - docker
 
-language: python
-python:
-  - 2.7
-
-# Workaround for https://github.com/travis-ci/travis-ci/issues/4681
-env:
-  matrix: BOGUS_JOB
-
 matrix:
   include:
     - env: [ubuntu_version=14.04, gcc_version=4.9]
     - env: [ubuntu_version=16.04, gcc_version=5.4]
-  exclude:
-    - env: BOGUS_JOB
 
 script:
-  - ./emit-dockerfile.py \
-      --ubuntu-version "$ubuntu_version" \
-      --gcc-version "$gcc_version" \
-      --make_parallelism 4
+  # Travis seems to get confused when `matrix:` is used with `language:`
+  - sudo apt-get install python2.7
+  # We don't want to write this script inline because of a Travis bug --
+  # it looks like it escapes " and \ in scripts when using `matrix:`.
+  - ./travis-emit-dockerfile.sh
   - docker build .
