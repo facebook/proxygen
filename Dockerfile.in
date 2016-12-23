@@ -1,11 +1,11 @@
 #!/bin/bash -- a lie for syntax highlighting :D
 #
-# This is not a Dockerfile because templating FROM is not supported, so
-# instead you can run:
-#   ./emit-dockerfile.py --ubuntu_version=14.04 --gcc_version=4.9 \
+# This is not a Dockerfile because templating FROM is not supported,
+# so instead you should run:
+#   ./emit-dockerfile.py --from-image=debian:8.6 --gcc_version=4.9 \
 #     --substitute proxygen_git_hash master && docker build .
 
-FROM ubuntu:{ubuntu_version}
+FROM {from_image}
 SHELL ["/bin/bash", "-c"]  # /bin/sh syntax is a pain
 
 RUN apt-get update && apt-get install -yq \
@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -yq \
     wget
 
 # We'll need some extra packages to be able to install GCC 4.9 on 14.04.
-RUN if [[ "{ubuntu_version}" == "14.04" && "{gcc_version}" == "4.9" ]] ; then \
+RUN if [[ "{from_image}" == "ubuntu:14.04" && "{gcc_version}" == "4.9" ]]; then \
   apt-get install -yq software-properties-common && \
   add-apt-repository ppa:ubuntu-toolchain-r/test && \
   apt-get update ; \
@@ -48,7 +48,7 @@ RUN update-alternatives \
   --slave /usr/bin/g++ g++ "/usr/bin/g++-{gcc_version}"
 
 # Log some diagnostics for ease of debugging
-RUN echo "Building with parallelism of {make_parallelism} on {ubuntu_version}"
+RUN echo "Building with parallelism of {make_parallelism} on {from_image}"
 RUN g++ --version
 RUN update-alternatives --config gcc
 

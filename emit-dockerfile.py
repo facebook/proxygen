@@ -10,32 +10,42 @@ import os
 import re
 import textwrap
 
+valid_versions = (
+    ('ubuntu:14.04', '4.9'), ('ubuntu:16.04', '5'), ('debian:8.6', '4.9')
+)
+
 parser = argparse.ArgumentParser(description=textwrap.dedent('''
 Reads --dockerfile-in, and outputs --dockerfile-out after making
 substitutions based on the command-line arguments to this program.
 
 Substitutions are done using Python's `str.format()` facility, so you
-can use {ubuntu_version} for --ubuntu-version. Use {{ and }} to produce
+can use {from_image} for --from-image. Use {{ and }} to produce
 a single literal curly brace, see the Python docs for more information.
 
 Sample usage:
 
-    (u=14.04 ; g=4.9 ; rm Dockerfile ;
-        ./emit-dockerfile.py --ubuntu-version "$u" --gcc-version "$g" \\
+    (i=debian:8.6 ; g=4.9 ; rm Dockerfile ;
+        ./emit-dockerfile.py --from-image "$i" --gcc-version "$g" \\
           --substitute proxygen_git_hash master &&
-        docker build -t "fb-projects-$u-$g" . 2>&1 | tee "log-$u-$g")
+        docker build -t "fb-projects-$i-$g" . 2>&1 | tee "log-$i-$g")
 '''), formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument(
     '--dockerfile-in', default='Dockerfile.in',
-    metavar='PATH', help='Default: %(default)s')
+    metavar='PATH', help='Default: %(default)s'
+)
 parser.add_argument(
     '--dockerfile-out', default='Dockerfile',
-    metavar='PATH', help='Default: %(default)s')
+    metavar='PATH', help='Default: %(default)s'
+)
 # Our Dockerfile uses the numeric YY.MM version format.
 parser.add_argument(
-    '--ubuntu-version', choices=['14.04', '16.04'], required=True,
-    metavar='YY.MM', help='Choices: %(choices)s')
-parser.add_argument('--gcc-version', required=True, metavar='VER')
+    '--from-image', required=True, choices=zip(*valid_versions)[0],
+    metavar='YY.MM', help='Choices: %(choices)s'
+)
+parser.add_argument(
+    '--gcc-version', required=True, choices=set(zip(*valid_versions)[1]),
+    metavar='VER', help='Choices: %(choices)s'
+)
 parser.add_argument(
     '--make-parallelism', type=int, default=1, metavar='NUM',
     help='Use `make -j` on multi-CPU systems with lots of RAM'
@@ -50,11 +60,10 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-valid_vers = (('14.04', '4.9'), ('16.04', '5'))
-if (args.ubuntu_version, args.gcc_version) not in valid_vers:
+if (args.from_image, args.gcc_version) not in valid_versions:
     raise Exception(
         'Due to 4/5 ABI changes (std::string), we can only use {0}'.format(
-            ' / '.join('GCC {0} on Ubuntu {1}'.format(*p) for p in valid_vers)
+            ' / '.join('GCC {1} on {0}'.format(*p) for p in valid_versions)
         )
     )
 
