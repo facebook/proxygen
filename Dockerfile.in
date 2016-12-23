@@ -1,9 +1,9 @@
 #!/bin/bash -- a lie for syntax highlighting :D
 #
-# This is not a Dockerfile because templating FROM is not supported,
-# so instead you should run:
-#   ./emit-dockerfile.py --ubuntu_version=14.04 --gcc_version=4.9 && 
-#     docker build
+# This is not a Dockerfile because templating FROM is not supported, so
+# instead you can run:
+#   ./emit-dockerfile.py --ubuntu_version=14.04 --gcc_version=4.9 \
+#     --substitute proxygen_git_hash master && docker build .
 
 FROM ubuntu:{ubuntu_version}
 SHELL ["/bin/bash", "-c"]  # /bin/sh syntax is a pain

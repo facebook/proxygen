@@ -10,13 +10,6 @@ import os
 import re
 import textwrap
 
-
-def gcc_version(s):
-    if re.match('^(4\.9|5\.[0-9]+)$', s) is None:
-        raise Exception('We support GCC 4.9 and 5.x, got {0}'.format(s))
-    return s
-
-
 parser = argparse.ArgumentParser(description=textwrap.dedent('''
 Reads --dockerfile-in, and outputs --dockerfile-out after making
 substitutions based on the command-line arguments to this program.
@@ -28,7 +21,8 @@ a single literal curly brace, see the Python docs for more information.
 Sample usage:
 
     (u=14.04 ; g=4.9 ; rm Dockerfile ;
-        ./emit-dockerfile.py --ubuntu-version "$u" --gcc-version "$g" &&
+        ./emit-dockerfile.py --ubuntu-version "$u" --gcc-version "$g" \\
+          --substitute proxygen_git_hash master &&
         docker build -t "fb-projects-$u-$g" . 2>&1 | tee "log-$u-$g")
 '''), formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument(
@@ -41,8 +35,7 @@ parser.add_argument(
 parser.add_argument(
     '--ubuntu-version', choices=['14.04', '16.04'], required=True,
     metavar='YY.MM', help='Choices: %(choices)s')
-parser.add_argument(
-    '--gcc-version', type=gcc_version, required=True, metavar='MAJOR.MINOR')
+parser.add_argument('--gcc-version', required=True, metavar='VER')
 parser.add_argument(
     '--make-parallelism', type=int, default=1, metavar='NUM',
     help='Use `make -j` on multi-CPU systems with lots of RAM'
@@ -52,19 +45,17 @@ parser.add_argument(
     default=[],
     help='Can be repeated. Besides the --* arguments, also substitute these '
          '{key}s for these values in --dockerfile-in. WARNING: You are '
-         'responsible for escaping these with e.g. $(printf %q value) if '
+         'responsible for escaping these with e.g. $(printf %%q value) if '
          'they are to be used as shell args.'
 )
 args = parser.parse_args()
 
-if not (
-    (args.ubuntu_version == '14.04' and args.gcc_version == '4.9') or
-    (args.ubuntu_version == '16.04' and
-        re.match('^5\.[0-9]+$', args.gcc_version) is not None)
-):
+valid_vers = (('14.04', '4.9'), ('16.04', '5'))
+if (args.ubuntu_version, args.gcc_version) not in valid_vers:
     raise Exception(
-        'We can only use GCC 4.9 on Ubuntu 14.04, and 5.x on Ubuntu 16.04, '
-        'since their C++ ABIs are incompatible (e.g. std::string).'
+        'Due to 4/5 ABI changes (std::string), we can only use {0}'.format(
+            ' / '.join('GCC {0} on Ubuntu {1}'.format(*p) for p in valid_vers)
+        )
     )
 
 with open(args.dockerfile_in, 'r') as f:

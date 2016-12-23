@@ -6,7 +6,7 @@ matrix:
   include:
     - env: [ubuntu_version=14.04, gcc_version=4.9]
       services: [docker]
-    - env: [ubuntu_version=16.04, gcc_version=5.4]
+    - env: [ubuntu_version=16.04, gcc_version=5]
       services: [docker]
 
 script:
