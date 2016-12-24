@@ -113,15 +113,16 @@ class HTTPServer final {
    * You must still invoke stop() before destroying the server.
    * You do NOT need to invoke this before calling stop().
    * This can be called from any thread, and it is idempotent.
-   * The only restriction is it should be called after start() has completed.
+   * However, it may only be called **after** start() has called onSuccess.
    */
   void stopListening();
 
   /**
    * Stop HTTPServer.
    *
-   * Can be called from any thread. Server will stop listening for new
-   * connections and will wait for running requests to finish.
+   * Can be called from any thread, but only after start() has called
+   * onSuccess.  Server will stop listening for new connections and will
+   * wait for running requests to finish.
    *
    * TODO: Separate method to do hard shutdown?
    */

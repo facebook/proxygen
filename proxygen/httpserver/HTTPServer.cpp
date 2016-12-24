@@ -164,9 +164,14 @@ void HTTPServer::start(std::function<void()> onSuccess,
     signalHandler_->install(options_->shutdownOn);
   }
 
-  // Start the main event loop
+  // Start the main event loop.
   if (onSuccess) {
-    onSuccess();
+    mainEventBase_->runInLoop([onSuccess(std::move(onSuccess))]() {
+      // IMPORTANT: Since we may be racing with stop(), we must assume that
+      // mainEventBase_ can become null the moment that onSuccess is called,
+      // so this **has** to be queued to run from inside loopForever().
+        onSuccess();
+    });
   }
   mainEventBase_->loopForever();
 }
