@@ -1,0 +1,84 @@
+#!/bin/bash -- a lie for syntax highlighting :D
+#
+# This is not a Dockerfile because templating FROM is not supported,
+# so instead you should run:
+#   ./emit-dockerfile.py --from-image=debian:8.6 --gcc_version=4.9 \
+#     --substitute proxygen_git_hash master && docker build .
+
+FROM {from_image}
+SHELL ["/bin/bash", "-c"]  # /bin/sh syntax is a pain
+
+RUN apt-get update && apt-get install -yq \
+    autoconf-archive \
+    bison \
+    build-essential \
+    cmake \
+    curl \
+    flex \
+    git \
+    gperf \
+    libboost-all-dev \
+    libcap-dev \
+    libdouble-conversion-dev \
+    libevent-dev \
+    libgflags-dev \
+    libgoogle-glog-dev \
+    libkrb5-dev \
+    libnuma-dev \
+    libsasl2-dev \
+    libssl-dev \
+    libtool \
+    netcat-openbsd \
+    pkg-config \
+    unzip \
+    wget
+
+# We'll need some extra packages to be able to install GCC 4.9 on 14.04.
+RUN if [[ "{from_image}" == "ubuntu:14.04" && "{gcc_version}" == "4.9" ]]; then \
+  apt-get install -yq software-properties-common && \
+  add-apt-repository ppa:ubuntu-toolchain-r/test && \
+  apt-get update ; \
+fi
+
+# Make the selected GCC the default before building anything
+RUN apt-get install -yq "gcc-{gcc_version}" "g++-{gcc_version}"
+RUN update-alternatives \
+  --install /usr/bin/gcc gcc "/usr/bin/gcc-{gcc_version}" \
+  40 \
+  --slave /usr/bin/g++ g++ "/usr/bin/g++-{gcc_version}"
+
+# Log some diagnostics for ease of debugging
+RUN echo "Building with parallelism of {make_parallelism} on {from_image}"
+RUN g++ --version
+RUN update-alternatives --config gcc
+
+WORKDIR /home/
+RUN git clone https://github.com/facebook/folly
+WORKDIR /home/folly/folly
+RUN git checkout master
+RUN autoreconf -ivf
+RUN ./configure
+RUN make -j {make_parallelism}
+RUN make install
+RUN ldconfig
+
+WORKDIR /home/
+RUN git clone https://github.com/facebook/wangle
+WORKDIR /home/wangle/wangle/build
+RUN git checkout master
+RUN cmake ..
+RUN make -j {make_parallelism}
+RUN make install
+RUN ldconfig
+
+WORKDIR /home/
+RUN git clone https://github.com/facebook/proxygen
+WORKDIR /home/proxygen/proxygen
+RUN git checkout {proxygen_git_hash}
+RUN autoreconf -ivf
+RUN ./configure
+RUN make -j {make_parallelism}
+# Since this is continuous integration for Proxygen, run its tests.
+RUN make check
+RUN make install
+RUN ldconfig
