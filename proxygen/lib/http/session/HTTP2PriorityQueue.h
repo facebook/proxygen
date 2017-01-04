@@ -9,10 +9,10 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/HTTPCodec.h>
-#include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <folly/IntrusiveList.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <proxygen/lib/http/codec/HTTP2Framer.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 
 #include <list>
@@ -244,7 +244,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
         return 1.0;
       }
 
-      return (double)weight_ / parent_->totalChildWeight_;
+      return static_cast<double>(weight_) / parent_->totalChildWeight_;
     }
 
     double getRelativeEnqueuedWeight() const {
@@ -252,7 +252,11 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
         return 1.0;
       }
 
-      return (double)weight_ / parent_->totalEnqueuedWeight_;
+      if (parent_->totalEnqueuedWeight_ == 0) {
+        return 0.0;
+      }
+
+      return static_cast<double>(weight_) / parent_->totalEnqueuedWeight_;
     }
 
     /* Execute the given function on this node and all child nodes presently
