@@ -810,6 +810,9 @@ TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
       transport_->resumeWrites();
     });
 
+  // Graceful shutdown will notify of GOAWAY
+  EXPECT_CALL(*handler1, onGoaway(ErrorCode::NO_ERROR));
+  EXPECT_CALL(*handler2, onGoaway(ErrorCode::NO_ERROR));
   // The original byteEventTracker will process the last byte event of the
   // first transaction, and detach by deleting the event.  Swap out the tracker.
   handler1->expectDetachTransaction([this] {
@@ -1557,6 +1560,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_goaway_drain) {
   handler->expectBody();
   EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM();
+  handler->expectGoaway();
   handler->expectDetachTransaction();
 
   HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
@@ -1863,6 +1867,10 @@ TYPED_TEST_P(HTTPDownstreamTest, testMaxTxns) {
     auto streamID = this->sendRequest();
     this->clientCodec_->generateGoaway(this->requests_, 0, ErrorCode::NO_ERROR);
 
+    for (auto& handler: handlers) {
+      EXPECT_CALL(*handler, onGoaway(ErrorCode::NO_ERROR));
+    }
+
     this->flushRequestsAndLoop();
 
     EXPECT_CALL(this->callbacks_, onSettings(_));
@@ -1871,7 +1879,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testMaxTxns) {
     this->parseOutput(*this->clientCodec_);
   }
   // handlers can finish out of order?
-  for (auto &handler: handlers) {
+  for (auto& handler: handlers) {
     handler->sendReplyWithBody(200, 100);
     handler->expectDetachTransaction();
   }

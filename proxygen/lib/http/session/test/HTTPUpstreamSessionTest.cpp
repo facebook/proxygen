@@ -398,6 +398,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
   InSequence enforceOrder;
 
   auto handler = openTransaction();
+  handler->expectGoaway();
   handler->expectError([&] (const HTTPException& err) {
       EXPECT_TRUE(err.hasProxygenError());
       EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
@@ -436,6 +437,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
   InSequence enforceOrder;
 
   auto handler = openTransaction();
+  handler->expectGoaway();
   handler->expectError([&] (const HTTPException& err) {
       EXPECT_TRUE(err.hasProxygenError());
       EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
@@ -1550,6 +1552,7 @@ TEST_F(MockHTTPUpstreamTest, ingress_goaway_drain) {
   InSequence enforceOrder;
 
   auto handler = openTransaction();
+  EXPECT_CALL(*handler, onGoaway(ErrorCode::NO_ERROR));
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_FALSE(msg->getIsUpgraded());
       EXPECT_EQ(200, msg->getStatusCode());
@@ -1667,6 +1670,7 @@ TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
   httpSession_->drain();
   auto streamID = handler->txn_->getID();
 
+  EXPECT_CALL(*handler, onGoaway(ErrorCode::NO_ERROR));
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_FALSE(msg->getIsUpgraded());
       EXPECT_EQ(200, msg->getStatusCode());
@@ -1924,12 +1928,16 @@ TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
   auto handler2 = openTransaction();
 
   // Get first goaway acking many un-started txns
+  handler1->expectGoaway();
+  handler2->expectGoaway();
   codecCb_->onGoaway(101, ErrorCode::NO_ERROR);
 
   // This txn should be alive since it was ack'd by the above goaway
   handler1->txn_->sendHeaders(req);
 
   // Second goaway acks the only the current outstanding transaction
+  handler1->expectGoaway();
+  handler2->expectGoaway();
   handler2->expectError([&] (const HTTPException& err) {
       EXPECT_TRUE(err.hasProxygenError());
       EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);

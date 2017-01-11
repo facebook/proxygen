@@ -153,6 +153,8 @@ class MockHTTPHandler : public HTTPHandlerBase,
 
   GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
 
+  GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
+
   GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
 
   GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
@@ -240,6 +242,16 @@ class MockHTTPHandler : public HTTPHandlerBase,
     }
   }
 
+  void expectGoaway(std::function<void(ErrorCode)> callback =
+                    std::function<void(ErrorCode)>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onGoaway(testing::_))
+        .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onGoaway(testing::_));
+    }
+  }
+
   void expectDetachTransaction(
     std::function<void()> callback = std::function<void()>()) {
     if (callback) {
@@ -265,6 +277,8 @@ class MockHTTPPushHandler : public HTTPHandlerBase,
   GMOCK_NOEXCEPT_METHOD0(detachTransaction, void());
 
   GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
+
+  GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
 
   GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
 

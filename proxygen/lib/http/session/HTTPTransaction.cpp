@@ -576,6 +576,18 @@ void HTTPTransaction::onError(const HTTPException& error) {
   }
 }
 
+void HTTPTransaction::onGoaway(ErrorCode code) {
+  DestructorGuard g(this);
+  VLOG(4) << "received GOAWAY notification on " << *this;
+  // This callback can be received at any time and does not affect this
+  // transaction's ingress or egress state machines. If it would have
+  // affected this transaction's state, we would have received onError()
+  // instead.
+  if (handler_) {
+    handler_->onGoaway(code);
+  }
+}
+
 void HTTPTransaction::onIngressTimeout() {
   DestructorGuard g(this);
   VLOG(4) << "ingress timeout on " << *this;
