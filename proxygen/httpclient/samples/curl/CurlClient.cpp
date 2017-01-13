@@ -160,7 +160,7 @@ void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
     do {
       cout.write((const char*)p->data(), p->length());
       p = p->next();
-    } while (p != chain.get());
+    } while (p->next() != chain.get());
   }
 }
 
