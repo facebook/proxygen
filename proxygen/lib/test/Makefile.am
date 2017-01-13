@@ -4,6 +4,8 @@ BUILT_SOURCES = googletest-release-1.8.0/googletest/src/gtest-all.cc
 
 googletest-release-1.8.0/googletest/src/gtest-all.cc:
 	wget https://github.com/google/googletest/archive/release-1.8.0.zip
+	[ "$(shell sha1sum release-1.8.0.zip | awk '{print $$1}')" == \
+	    "667f873ab7a4d246062565fad32fb6d8e203ee73" ]
 	unzip release-1.8.0.zip
 
 
