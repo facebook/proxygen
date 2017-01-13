@@ -35,6 +35,7 @@ CXXFLAGS="-fno-strict-aliasing $CXXFLAGS"
 CXXFLAGS="-O3 -g -W -Wall -Wextra -Wno-unused-parameter $CXXFLAGS"
 CXXFLAGS=" -Wno-missing-field-initializers -Wno-deprecated $CXXFLAGS"
 CXXFLAGS="-DLIBMC_FBTRACE_DISABLE $CXXFLAGS"
+CXXFLAGS="-pthread $CXXFLAGS"
 
 CFLAGS="-DLIBMC_FBTRACE_DISABLE $CFLAGS"
 
