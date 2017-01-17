@@ -8,7 +8,7 @@
  *
  */
 #pragma once
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/utils/Logging.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/codec/HTTPParallelCodec.h>

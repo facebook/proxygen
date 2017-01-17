@@ -10,7 +10,7 @@
 #include <wangle/acceptor/Acceptor.h>
 #include <folly/io/async/EventBase.h>
 #include <glog/logging.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 
 using namespace folly;
 using namespace wangle;

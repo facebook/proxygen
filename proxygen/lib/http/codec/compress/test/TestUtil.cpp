@@ -11,7 +11,7 @@
 
 #include <fstream>
 #include <glog/logging.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 
 using folly::IOBuf;

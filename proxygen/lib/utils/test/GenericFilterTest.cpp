@@ -9,8 +9,8 @@
  */
 #include <deque>
 #include <folly/Memory.h>
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GMock.h>
+#include <folly/portability/GTest.h>
 #include <map>
 #include <proxygen/lib/utils/FilterChain.h>
 #include <stdlib.h>

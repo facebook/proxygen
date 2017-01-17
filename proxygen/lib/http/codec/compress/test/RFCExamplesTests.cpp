@@ -8,7 +8,7 @@
  *
  */
 #include <algorithm>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <list>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>

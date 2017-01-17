@@ -7,8 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GMock.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/httpserver/Mocks.h>
 #include <proxygen/httpserver/samples/echo/EchoHandler.h>
 #include <proxygen/httpserver/samples/echo/EchoStats.h>

@@ -8,7 +8,7 @@
  *
  */
 #include <fcntl.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <signal.h>

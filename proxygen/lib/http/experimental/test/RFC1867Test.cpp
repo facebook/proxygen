@@ -10,8 +10,8 @@
 #include <proxygen/lib/http/experimental/RFC1867.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
+#include <folly/portability/GTest.h>
+#include <folly/portability/GMock.h>
 
 using namespace testing;
 using std::unique_ptr;

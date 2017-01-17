@@ -9,7 +9,7 @@
  */
 #include <folly/Conv.h>
 #include <folly/Foreach.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <map>
 #include <vector>
 

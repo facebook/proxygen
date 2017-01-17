@@ -14,7 +14,7 @@
 #include <folly/Random.h>
 #include <folly/io/async/test/MockTimeoutManager.h>
 #include <folly/io/async/test/UndelayedDestruction.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
 
 using namespace std::placeholders;
