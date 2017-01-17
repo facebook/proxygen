@@ -453,6 +453,25 @@ TEST_F(QueueTest, nextEgressExclusiveAddWithEgress) {
   EXPECT_EQ(q_.numPendingEgress(), 1);
 }
 
+TEST_F(QueueTest, updatePriorityReparentSubtree) {
+  buildSimpleTree();
+
+  // clear all egress, except 9
+  signalEgress(1, false);
+  signalEgress(3, false);
+  signalEgress(5, false);
+  signalEgress(7, false);
+
+  // Update priority of non-enqueued but in egress tree node
+  updatePriority(5, {1, false, 14}, nullptr);
+
+  // update 9's weight and reparent
+  updatePriority(9, {3, false, 14}, nullptr);
+
+  nextEgress();
+  EXPECT_EQ(nodes_, IDList({{9, 100}}));
+}
+
 TEST_F(QueueTest, nextEgressRemoveParent) {
   buildSimpleTree();
 

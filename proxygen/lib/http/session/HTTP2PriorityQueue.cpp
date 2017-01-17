@@ -221,7 +221,7 @@ HTTP2PriorityQueue::Node::updateWeight(uint8_t weight) {
   int16_t delta = weight - weight_ + 1;
   weight_ = weight + 1;
   parent_->totalChildWeight_ += delta;
-  if (isEnqueued()) {
+  if (inEgressTree()) {
     parent_->totalEnqueuedWeight_ += delta;
   }
   refreshTimeout();
