@@ -16,9 +16,6 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include <folly/portability/Sockets.h>
-#include <folly/portability/Unistd.h>
-
 using namespace proxygen;
 using namespace std;
 
