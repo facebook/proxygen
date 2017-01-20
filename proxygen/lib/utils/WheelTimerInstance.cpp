@@ -10,9 +10,9 @@
 
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 
-#include <proxygen/lib/utils/SharedWheelTimer.h>
-
 #include <folly/Singleton.h>
+#include <folly/io/async/EventBase.h>
+#include <folly/io/async/EventBaseManager.h>
 
 namespace proxygen {
 
@@ -20,32 +20,31 @@ WheelTimerInstance::WheelTimerInstance() {
 }
 
 WheelTimerInstance::WheelTimerInstance(folly::HHWheelTimer* timer) :
-  wheelTimerPtr_(timer),
-  wheelTimerGuard_(timer) {}
+  wheelTimerPtr_(timer) {
+  if (timer) {
+    // If you use an external timer with no default timeout set, you will get
+    // a check failed if you attempt to schedule a default timeout.
+    defaultTimeoutMS_ = timer->getDefaultTimeout();
+  }
+}
 
 WheelTimerInstance::WheelTimerInstance(
     std::chrono::milliseconds defaultTimeoutMS,
     folly::EventBase* eventBase) : defaultTimeoutMS_(defaultTimeoutMS) {
-  auto sharedWheelTimerSingleton =
-    folly::Singleton<SharedWheelTimer>::try_get();
-  if (sharedWheelTimerSingleton) { // if singleton is destroyed
-                                   // then scheduleTimeout will not work
-    wheelTimer_ = sharedWheelTimerSingleton->get(eventBase);
+  if (!eventBase) {
+    eventBase = folly::EventBaseManager::get()->getEventBase();
   }
+  wheelTimerPtr_ = &eventBase->timer();
 }
 
 WheelTimerInstance::WheelTimerInstance(const WheelTimerInstance& timerInstance)
   : wheelTimerPtr_(timerInstance.wheelTimerPtr_),
-  wheelTimer_(timerInstance.wheelTimer_),
-  wheelTimerGuard_(timerInstance.wheelTimerGuard_),
-  defaultTimeoutMS_(timerInstance.defaultTimeoutMS_) {
+    defaultTimeoutMS_(timerInstance.defaultTimeoutMS_) {
 }
 
 WheelTimerInstance::WheelTimerInstance(
     WheelTimerInstance&& timerInstance) noexcept
   : wheelTimerPtr_(std::move(timerInstance.wheelTimerPtr_)),
-    wheelTimer_(std::move(timerInstance.wheelTimer_)),
-    wheelTimerGuard_(std::move(timerInstance.wheelTimerGuard_)),
     defaultTimeoutMS_(std::move(timerInstance.defaultTimeoutMS_)) {
 }
 
@@ -60,29 +59,21 @@ void WheelTimerInstance::setDefaultTimeout(std::chrono::milliseconds timeout) {
 void WheelTimerInstance::scheduleTimeout(
     folly::HHWheelTimer::Callback* callback,
     std::chrono::milliseconds timeout) {
-  if (wheelTimerPtr_ != nullptr) {
+  if (wheelTimerPtr_) {
     wheelTimerPtr_->scheduleTimeout(callback, timeout);
   } else {
-    if (auto wt = wheelTimer_.lock()) { // if pointer does not exist anymore
-                                        // it means process is dying and
-                                        // there is no point scheduling
-                                        // any timeouts
-      wt->scheduleTimeout(callback, timeout);
-    } else {
-      // this is empty WheelTimerInstance case
-    }
+    VLOG(2) << "Ingoring scheduleTimeout on an empty WheelTimerInstance";
   }
 }
 
 void WheelTimerInstance::scheduleTimeout(
     folly::HHWheelTimer::Callback* callback) {
-  scheduleTimeout(callback, wheelTimerPtr_ == nullptr ?
-      defaultTimeoutMS_ : wheelTimerPtr_->getDefaultTimeout());
+  CHECK_GE(defaultTimeoutMS_.count(), 0);
+  scheduleTimeout(callback, defaultTimeoutMS_);
 }
 
 WheelTimerInstance& WheelTimerInstance::operator=(const WheelTimerInstance& t) {
   wheelTimerPtr_ = t.wheelTimerPtr_;
-  wheelTimer_ = t.wheelTimer_;
   defaultTimeoutMS_ = t.defaultTimeoutMS_;
   return *this;
 }
@@ -90,13 +81,12 @@ WheelTimerInstance& WheelTimerInstance::operator=(const WheelTimerInstance& t) {
 WheelTimerInstance& WheelTimerInstance::
     operator=(const WheelTimerInstance&& timer) {
   wheelTimerPtr_ = std::move(timer.wheelTimerPtr_);
-  wheelTimer_ = std::move(timer.wheelTimer_);
   defaultTimeoutMS_ = std::move(timer.defaultTimeoutMS_);
   return *this;
 }
 
 WheelTimerInstance::operator bool() const {
-  return (wheelTimerPtr_ != nullptr) || (!wheelTimer_.expired());
+  return (wheelTimerPtr_ != nullptr);
 }
 
 }

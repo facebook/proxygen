@@ -52,8 +52,7 @@ nobase_libutils_HEADERS = \
 	Logging.h \
 	ZlibStreamCompressor.h \
 	ZlibStreamDecompressor.h \
-	WheelTimerInstance.h \
-	SharedWheelTimer.h
+	WheelTimerInstance.h
 
 # We put the generated files first so that we create them first
 libutils_la_SOURCES = \
@@ -73,5 +72,4 @@ libutils_la_SOURCES = \
 	CryptUtil.cpp \
 	ZlibStreamCompressor.cpp \
 	ZlibStreamDecompressor.cpp \
-	WheelTimerInstance.cpp \
-	SharedWheelTimer.cpp
+	WheelTimerInstance.cpp
