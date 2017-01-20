@@ -14,6 +14,8 @@
 #include <cinttypes>
 #include <string>
 
+#include <folly/portability/Time.h>
+
 #include <openssl/ossl_typ.h>
 
 namespace proxygen {
