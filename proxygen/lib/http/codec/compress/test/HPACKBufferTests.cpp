@@ -9,7 +9,7 @@
  */
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>

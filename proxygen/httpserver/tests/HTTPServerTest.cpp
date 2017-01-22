@@ -11,7 +11,7 @@
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBaseManager.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <proxygen/lib/utils/TestUtils.h>

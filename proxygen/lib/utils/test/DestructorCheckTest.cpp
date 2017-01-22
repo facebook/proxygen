@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <folly/Memory.h>
 #include <proxygen/lib/utils/DestructorCheck.h>
 

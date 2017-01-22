@@ -7,12 +7,10 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <glog/logging.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
-#include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
 #include <sstream>
 
 using namespace std;

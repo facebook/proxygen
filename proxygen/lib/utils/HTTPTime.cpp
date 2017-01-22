@@ -11,6 +11,8 @@
 
 #include <glog/logging.h>
 
+#include <folly/portability/Time.h>
+
 namespace proxygen {
 
 folly::Optional<int64_t> parseHTTPDateTime(const std::string& s) {

@@ -11,8 +11,8 @@
 #include <folly/ScopeGuard.h>
 #include <folly/io/IOBuf.h>
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GMock.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/httpserver/filters/ZlibServerFilter.h>
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
 #include <proxygen/httpserver/Mocks.h>

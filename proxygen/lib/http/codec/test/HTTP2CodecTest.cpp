@@ -15,7 +15,7 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/utils/ChromeUtils.h>
 
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <random>
 
 using namespace proxygen;

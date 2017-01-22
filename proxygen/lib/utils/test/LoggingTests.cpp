@@ -9,7 +9,7 @@
  */
 #include <folly/io/IOBuf.h>
 #include <glog/logging.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/utils/Logging.h>
 
 using namespace folly;

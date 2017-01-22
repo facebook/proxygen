@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <gmock/gmock.h>
+#include <folly/portability/GMock.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseHandler.h>
 

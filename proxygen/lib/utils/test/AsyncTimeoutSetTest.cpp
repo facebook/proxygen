@@ -12,7 +12,7 @@
 #include <folly/io/async/test/MockTimeoutManager.h>
 #include <folly/io/async/test/UndelayedDestruction.h>
 #include <folly/io/async/test/Util.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <boost/container/flat_map.hpp>
 #include <vector>

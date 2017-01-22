@@ -994,6 +994,11 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // Drain active transactions and prevent new transactions
   drain();
 
+  // We give the less-forceful onGoaway() first so that transactions have
+  // a chance to do stat tracking before potentially getting a forceful
+  // onError().
+  invokeOnAllTransactions(&HTTPTransaction::onGoaway, code);
+
   // Abort transactions which have been initiated but not created
   // successfully at the remote end. Upstream transactions are created
   // with odd transaction IDs and downstream transactions with even IDs.
@@ -1019,7 +1024,7 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
 
   if (firstStream != HTTPCodec::NoStream && code != ErrorCode::NO_ERROR) {
     // If we get a codec error, we will attempt to blame the first stream
-    // by delivering a specific error to it a let the rest of the stream
+    // by delivering a specific error to it and let the rest of the streams
     // get a normal unacknowledged stream error.
     ProxygenError err = kErrorStreamUnacknowledged;
     string debugInfo = (debugData) ?

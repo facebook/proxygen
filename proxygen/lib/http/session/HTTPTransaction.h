@@ -239,6 +239,15 @@ class HTTPTransactionHandler {
    */
   virtual void onPushedTransaction(HTTPTransaction* /* txn */) noexcept {}
 
+  /**
+   * Inform the handler that a GOAWAY has been received on the
+   * transport. This callback will only be invoked if the transport is
+   * SPDY or HTTP/2. It may be invoked multiple times, as HTTP/2 allows this.
+   *
+   * @param code The error code received in the GOAWAY frame
+   */
+  virtual void onGoaway(ErrorCode /* code */) noexcept {}
+
   virtual ~HTTPTransactionHandler() {}
 };
 
@@ -580,6 +589,15 @@ class HTTPTransaction :
    * or both directions of the transaction
    */
   void onError(const HTTPException& error);
+
+  /**
+   * Invoked by the session when a GOAWAY frame is received.
+   * TODO: we may consider exposing the additional debug data here in the
+   * future.
+   *
+   * @param code The error code received in the GOAWAY frame
+   */
+  void onGoaway(ErrorCode code);
 
   /**
    * Invoked by the session when there is a timeout on the ingress stream.

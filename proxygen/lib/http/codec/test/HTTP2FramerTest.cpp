@@ -10,7 +10,7 @@
 #include <proxygen/lib/http/codec/test/HTTP2FramerTest.h>
 
 #include <folly/Random.h>
-#include <gtest/gtest.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>

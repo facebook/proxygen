@@ -15,6 +15,7 @@
 #include <proxygen/httpserver/SignalHandler.h>
 #include <proxygen/httpserver/filters/RejectConnectFilter.h>
 #include <proxygen/httpserver/filters/ZlibServerFilter.h>
+#include <wangle/concurrent/NamedThreadFactory.h>
 #include <wangle/ssl/SSLContextManager.h>
 
 using folly::AsyncServerSocket;
@@ -114,7 +115,8 @@ void HTTPServer::start(std::function<void()> onSuccess,
   mainEventBase_ = EventBaseManager::get()->getEventBase();
 
   auto accExe = std::make_shared<IOThreadPoolExecutor>(1);
-  auto exe = std::make_shared<IOThreadPoolExecutor>(options_->threads);
+  auto exe = std::make_shared<IOThreadPoolExecutor>(options_->threads,
+    std::make_shared<wangle::NamedThreadFactory>("HTTPSrvExec"));
   auto exeObserver = std::make_shared<HandlerCallbacks>(options_);
   // Observer has to be set before bind(), so onServerStart() callbacks run
   exe->addObserver(exeObserver);

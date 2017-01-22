@@ -1,5 +1,7 @@
 ## Proxygen: Facebook's C++ HTTP Libraries
 
+[![Build Status](https://travis-ci.org/facebook/proxygen.svg?branch=master)](https://travis-ci.org/facebook/proxygen)
+
 This project comprises the core C++ HTTP abstractions used at
 Facebook. Internally, it is used as the basis for building many HTTP
 servers, proxies, and clients. This release focuses on the common HTTP

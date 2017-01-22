@@ -1053,7 +1053,8 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
     auto res = msg.getHTTP2Priority();
     size_t split = kHeaderSplitSize;
     if (res) {
-      pri = {std::get<0>(*res), std::get<1>(*res), std::get<2>(*res)};
+      pri = http2::PriorityUpdate{std::get<0>(*res), std::get<1>(*res),
+                                  std::get<2>(*res)};
       if (split > http2::kFramePrioritySize) {
         split -= http2::kFramePrioritySize;
       }
