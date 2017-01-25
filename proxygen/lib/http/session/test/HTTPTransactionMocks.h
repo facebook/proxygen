@@ -111,14 +111,16 @@ class MockHTTPTransaction : public HTTPTransaction {
   MockHTTPTransaction(TransportDirection direction,
                       HTTPCodec::StreamID id,
                       uint32_t seqNo,
-                      HTTP2PriorityQueue& egressQueue,
+                      // Must be const for gmock
+                      const HTTP2PriorityQueue& egressQueue,
                       const WheelTimerInstance& timeout,
                       HTTPSessionStats* stats = nullptr,
                       bool useFlowControl = false,
                       uint32_t receiveInitialWindowSize = 0,
                       uint32_t sendInitialWindowSize = 0,
                       http2::PriorityUpdate priority = http2::DefaultPriority) :
-      HTTPTransaction(direction, id, seqNo, mockTransport_, egressQueue,
+      HTTPTransaction(direction, id, seqNo, mockTransport_,
+                      const_cast<HTTP2PriorityQueue&>(egressQueue),
                       timeout, stats, useFlowControl,
                       receiveInitialWindowSize,
                       sendInitialWindowSize,
