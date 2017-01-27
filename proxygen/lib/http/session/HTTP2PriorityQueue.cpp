@@ -329,8 +329,7 @@ HTTP2PriorityQueue::Node::updateEnqueuedWeight(bool activeNodes) {
   if (activeNodes) {
     if (totalEnqueuedWeightCheck_ == 0 && !isEnqueued()) {
       // Must only be called with activeCount_ > 0, root cannot be dequeued
-      CHECK_NOTNULL(parent_);
-      parent_->totalEnqueuedWeightCheck_ -= weight_;
+      CHECK_NOTNULL(parent_)->totalEnqueuedWeightCheck_ -= weight_;
     } else {
       CHECK(parent_ == nullptr || enqueuedHook_.is_linked());
     }
@@ -408,9 +407,8 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   CHECK(!txn || !permanent);
   Node *existingNode = find(id);
   if (existingNode) {
-    CHECK(txn);
     CHECK(!permanent);
-    existingNode->convertVirtualNode(txn);
+    existingNode->convertVirtualNode(CHECK_NOTNULL(txn));
     updatePriority(existingNode, pri);
     return existingNode;
   }
@@ -460,7 +458,7 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
     pri.streamDependency << " and weight=" << ((uint16_t)pri.weight + 1);
   node->updateWeight(pri.weight);
   CHECK_NE(pri.streamDependency, node->getID()) <<
-    "Tried to create a loop in the tree";;
+    "Tried to create a loop in the tree";
   if (pri.streamDependency == node->parentID() && !pri.exclusive) {
     // no move
     if (depth) {

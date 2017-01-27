@@ -21,8 +21,7 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
                          public DestructorCheck {
  public:
   void setNextTransactionHandler(HTTPTransaction::Handler* next) {
-    CHECK(next);
-    nextTransactionHandler_ = next;
+    nextTransactionHandler_ = CHECK_NOTNULL(next);
   }
   HTTPTransaction::Handler* getNextTransactionHandler() {
     return nextTransactionHandler_;

@@ -78,8 +78,6 @@ void HTTPUpstreamSession::startNow() {
 
 HTTPTransaction*
 HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
-  CHECK_NOTNULL(handler);
-
   if (!supportsMoreTransactions() || draining_) {
     // This session doesn't support any more parallel transactions
     return nullptr;
@@ -94,7 +92,7 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
   if (txn) {
     DestructorGuard dg(this);
     auto txnID = txn->getID();
-    txn->setHandler(handler);
+    txn->setHandler(CHECK_NOTNULL(handler));
     setNewTransactionPauseState(txnID);
   }
   return txn;
@@ -133,7 +131,6 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   // Create the new Codec
   auto codec = HTTPCodecFactory::getCodec(protocol,
                                           TransportDirection::UPSTREAM);
-  CHECK(codec);
   bool ret = onNativeProtocolUpgradeImpl(streamID, std::move(codec),
                                          protocolString);
   if (ret) {
