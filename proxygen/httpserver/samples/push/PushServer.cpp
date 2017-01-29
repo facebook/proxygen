@@ -9,7 +9,6 @@
  */
 #include <gflags/gflags.h>
 #include <folly/Memory.h>
-#include <folly/Portability.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>

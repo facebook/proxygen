@@ -10,7 +10,6 @@
 #include <proxygen/lib/utils/RendezvousHash.h>
 #include <folly/Foreach.h>
 #include <folly/Hash.h>
-#include <glog/logging.h>
 #include <map>
 #include <algorithm>
 #include <vector>
