@@ -400,9 +400,9 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     // Check parsing error
     if (decodeInfo_.parsingError != "") {
       LOG(ERROR) << "Failed parsing header list for stream="
-                 << curHeader_.stream << " header block=" << std::endl
-                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true)
-                 << " error=" << decodeInfo_.parsingError;
+                 << curHeader_.stream << ", error=" << decodeInfo_.parsingError
+                 << ", header block="
+                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
       HTTPException err(HTTPException::Direction::INGRESS,
                         folly::to<std::string>("HTTP2Codec stream error: ",
                                                "stream=", curHeader_.stream,
