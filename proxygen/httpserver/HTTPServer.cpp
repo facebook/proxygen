@@ -242,11 +242,7 @@ void HTTPServer::updateTicketSeeds(wangle::TLSTicketKeySeeds seeds) {
         return;
       }
       evb->runInEventBaseThread([acceptor, seeds] {
-        auto ctxMgr = acceptor->getSSLContextManager();
-        if (!ctxMgr) {
-          return;
-        }
-        ctxMgr->reloadTLSTicketKeys(
+        acceptor->setTLSTicketSecrets(
             seeds.oldSeeds, seeds.currentSeeds, seeds.newSeeds);
       });
     });
