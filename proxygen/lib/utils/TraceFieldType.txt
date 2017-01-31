@@ -89,6 +89,7 @@ MaxIdleHTTPSessions, "max_idle_http_sessions"
 MaxIdleSPDYSessions, "max_idle_spdy_sessions"
 ConnRoutingStale, "connection_routing_stale"
 AltSvcHost, "alt_svc_host"
+InjectedSocket, "injected_socket"
 
 /* ---- Used in TcpConnect ---- */
 ServerAddr, "server_address"
