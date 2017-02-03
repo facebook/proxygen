@@ -1780,8 +1780,10 @@ HTTPSession::runLoopCallback() noexcept {
   //   * The session has generated some egress data (see scheduleWrite())
   //   * Reads have become unpaused (see resumeReads())
   DestructorGuard dg(this);
+  CHECK(!inLoopCallback_);
   inLoopCallback_ = true;
   folly::ScopeGuard scopeg = folly::makeGuard([this] {
+      CHECK(inLoopCallback_);
       inLoopCallback_ = false;
       // This ScopeGuard needs to be under the above DestructorGuard
       if (pendingWriteSizeDelta_) {
