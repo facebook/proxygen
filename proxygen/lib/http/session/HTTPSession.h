@@ -123,7 +123,7 @@ class HTTPSession:
    */
   static void setDefaultReadBufferLimit(uint32_t limit) {
     kDefaultReadBufLimit = limit;
-    VLOG(1) << "read buffer limit: " << int(limit / 1000) << "KB";
+    VLOG(3) << "read buffer limit: " << int(limit / 1000) << "KB";
   }
 
   /**
