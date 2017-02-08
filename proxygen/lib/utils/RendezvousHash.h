@@ -14,7 +14,13 @@
 #include <proxygen/lib/utils/ConsistentHash.h>
 
 namespace proxygen {
-
+/*
+ * Weighted Rendezvous Hash is a way to consistently route requests to
+ * candidates.
+ * Unlike ConsistentHash, Weighted Rendezvous Hash supports the action to
+ * reduce the relative weight of a candidate while incurring minimum data
+ * movement.
+ */
 class RendezvousHash : public ConsistentHash {
  public:
 
