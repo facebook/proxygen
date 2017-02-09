@@ -106,7 +106,7 @@ server. Try `cd`ing to the directory containing the echo server at
 liner:
 
 <code>
-g++ -std=c++11 -o my_echo EchoServer.cpp EchoHandler.cpp -lproxygenhttpserver -lfolly -lglog -lgflags -pthread
+g++ -std=c++14 -o my_echo EchoServer.cpp EchoHandler.cpp -lproxygenhttpserver -lfolly -lglog -lgflags -pthread
 </code>
 
 After running `./my_echo`, we can verify it works using curl in a different terminal:
