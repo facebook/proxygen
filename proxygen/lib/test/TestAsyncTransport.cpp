@@ -128,8 +128,8 @@ TestAsyncTransport::WriteEvent::~WriteEvent() {
 shared_ptr<TestAsyncTransport::WriteEvent>
 TestAsyncTransport::WriteEvent::newEvent(const struct iovec* vec,
                                          size_t count) {
-  size_t len = sizeof(WriteEvent) + (count * sizeof(struct iovec));
-  void* buf = malloc(len);
+  size_t bufLen = sizeof(WriteEvent) + (count * sizeof(struct iovec));
+  void* buf = malloc(bufLen);
   if (buf == nullptr) {
     throw std::bad_alloc();
   }
