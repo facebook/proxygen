@@ -217,8 +217,8 @@ bool SPDYCodec::supportsSessionFlowControl() const {
 
 void SPDYCodec::checkLength(uint32_t expectedLength, const std::string& msg) {
   if (length_ != expectedLength) {
-    LOG(ERROR) << msg << ": invalid length " << length_ << " != " <<
-      expectedLength;
+    LOG_IF(ERROR, length_ == 4 && msg != "GOAWAY")
+      << msg << ": invalid length " << length_ << " != " << expectedLength;
     throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
   }
 }
