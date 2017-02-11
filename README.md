@@ -21,7 +21,7 @@ Note that currently this project has only been tested on Ubuntu 14.04,
 although it likely works on many other platforms. Support for Mac OSX is
 incomplete.
 
-You will need at least 2 GiB of memory to compile `proxygen` and its
+You will need at least 3 GiB of memory to compile `proxygen` and its
 dependencies.
 
 ##### Easy Install
