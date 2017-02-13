@@ -1080,6 +1080,26 @@ class HTTPSession:
    */
   static uint32_t kDefaultWriteBufLimit;
 
+  void rescheduleLoopCallbacks() {
+    if (!isLoopCallbackScheduled()) {
+      sock_->getEventBase()->runInLoop(this);
+    }
+
+    if (shutdownTransportCb_ &&
+        !shutdownTransportCb_->isLoopCallbackScheduled()) {
+      sock_->getEventBase()->runInLoop(shutdownTransportCb_.get(), true);
+    }
+  }
+
+  void cancelLoopCallbacks() {
+    if (isLoopCallbackScheduled()) {
+      cancelLoopCallback();
+    }
+    if (shutdownTransportCb_) {
+      shutdownTransportCb_->cancelLoopCallback();
+    }
+ }
+
  private:
   void setupCodec();
   void onSetSendWindow(uint32_t windowSize);

@@ -167,11 +167,13 @@ HTTPUpstreamSession::attachThreadLocals(
   codec_.foreach(fn);
   codec_->setHeaderCodecStats(headerCodecStats);
   resumeReadsImpl();
+  rescheduleLoopCallbacks();
 }
 
 void
 HTTPUpstreamSession::detachThreadLocals() {
   CHECK(transactions_.empty());
+  cancelLoopCallbacks();
   pauseReadsImpl();
   if (sock_) {
     auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
