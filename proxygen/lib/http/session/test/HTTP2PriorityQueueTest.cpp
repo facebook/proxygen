@@ -772,4 +772,11 @@ TEST_F(DanglingQueueTest, max) {
   EXPECT_EQ(nodes_, IDList());
 }
 
+TEST_F(QueueTest, Rebuild) {
+  buildSimpleTree();
+  q_.rebuildTree();
+  dump();
+  EXPECT_EQ(nodes_, IDList({{3, 20}, {9, 20}, {5, 20}, {7, 20}, {1, 20}}));
+}
+
 }

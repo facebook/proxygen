@@ -14,6 +14,7 @@ using std::unique_ptr;
 
 namespace proxygen {
 
+uint32_t HTTP2PriorityQueue::kMaxRebuilds_ = 3;
 std::chrono::milliseconds HTTP2PriorityQueue::kNodeLifetime_ =
   std::chrono::seconds(30);
 
@@ -371,6 +372,61 @@ HTTP2PriorityQueue::Node::calculateDepth() const {
   return depth;
 }
 
+void
+HTTP2PriorityQueue::Node::flattenSubtree() {
+  std::list<std::unique_ptr<Node>> oldChildren_;
+  // Move the old children to a temporary list
+  std::swap(oldChildren_, children_);
+  // Reparent the children
+  for (auto& child : oldChildren_) {
+    child->flattenSubtreeDFS(this);
+    addChildToNewSubtreeRoot(std::move(child), this);
+  }
+  // Update the weights
+  totalEnqueuedWeight_ = 0;
+#ifndef NDEBUG
+  totalEnqueuedWeightCheck_ = 0;
+#endif
+  totalChildWeight_ = 0;
+  std::for_each(
+    children_.begin(),
+    children_.end(),
+    [this](const std::unique_ptr<Node>& child) {
+      totalChildWeight_ += child->weight_;
+      if (child->enqueued_) {
+        totalEnqueuedWeight_ += child->weight_;
+#ifndef NDEBUG
+        totalEnqueuedWeightCheck_ += child->weight_;
+#endif
+      }
+    }
+  );
+}
+
+void
+HTTP2PriorityQueue::Node::flattenSubtreeDFS(Node* subtreeRoot) {
+  for (auto& child : children_) {
+    child->flattenSubtreeDFS(subtreeRoot);
+    addChildToNewSubtreeRoot(std::move(child), subtreeRoot);
+  }
+}
+
+void
+HTTP2PriorityQueue::Node::addChildToNewSubtreeRoot(std::unique_ptr<Node> child,
+                                                   Node* subtreeRoot) {
+  child->children_.clear();
+  child->parent_ = subtreeRoot;
+  child->weight_ = 16;
+  child->totalChildWeight_ = 0;
+  child->totalEnqueuedWeight_ = 0;
+#ifndef NDEBUG
+  child->totalEnqueuedWeightCheck_ = 0;
+#endif
+  Node* raw = child.get();
+  raw->self_ = subtreeRoot->children_.insert(subtreeRoot->children_.end(),
+                                             std::move(child));
+}
+
 /// class HTTP2PriorityQueue
 void HTTP2PriorityQueue::attachThreadLocals(const WheelTimerInstance& timeout) {
   timeout_ = timeout;
@@ -622,6 +678,15 @@ HTTP2PriorityQueue::updateEnqueuedWeight() {
     pendingWeightChange_ = false;
   }
 #endif
+}
+
+// Internal error handling
+
+void
+HTTP2PriorityQueue::rebuildTree() {
+  CHECK_LE(rebuildCount_ + 1, kMaxRebuilds_);
+  root_.flattenSubtree();
+  rebuildCount_++;
 }
 
 }

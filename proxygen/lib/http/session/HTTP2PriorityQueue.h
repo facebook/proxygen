@@ -118,6 +118,14 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     kNodeLifetime_ = lifetime;
   }
 
+  /// Error handling code
+  // Rebuilds tree by making all non-root nodes direct children of the root and
+  // weight reset to the default 16
+  void rebuildTree();
+  uint32_t getRebuildCount() const { return rebuildCount_; }
+  bool isRebuilt() const { return rebuildCount_ > 0; }
+
+
  private:
   // Find the node in priority tree
   Handle find(HTTPCodec::StreamID id, uint64_t* depth = nullptr);
@@ -298,6 +306,12 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     uint64_t calculateDepth() const;
 
+    // Internal error recovery
+    void flattenSubtree();
+    void flattenSubtreeDFS(Node* subtreeRoot);
+    static void addChildToNewSubtreeRoot(std::unique_ptr<Node> child,
+                                         Node* subtreeRoot);
+
    private:
     Handle addChild(std::unique_ptr<Node> child);
 
@@ -346,6 +360,8 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   typename NodeMap::bucket_type nodeBuckets_[kNumBuckets];
   NodeMap nodes_;
   Node root_{*this, nullptr, 0, 1, nullptr};
+  uint32_t rebuildCount_{0};
+  static uint32_t kMaxRebuilds_;
   uint64_t activeCount_{0};
   uint32_t maxVirtualNodes_{50};
   uint32_t numVirtualNodes_{0};
