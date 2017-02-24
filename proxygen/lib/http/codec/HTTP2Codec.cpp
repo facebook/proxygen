@@ -660,8 +660,8 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
   }
   if (statusCode == ErrorCode::PROTOCOL_ERROR) {
     goawayErrorMessage_ = folly::to<string>(
-      "streamID=", curHeader_.stream, " received as RST_STREAM with",
-      " code=", getErrorCodeString(statusCode), " user-agent=", userAgent_);
+      "RST_STREAM with code=", getErrorCodeString(statusCode),
+      " streamID=", curHeader_.stream, " user-agent=", userAgent_);
     VLOG(2) << goawayErrorMessage_;
   }
   deliverCallbackIfAllowed(&HTTPCodec::Callback::onAbort, "onAbort",
@@ -810,9 +810,9 @@ ErrorCode HTTP2Codec::parseGoaway(Cursor& cursor) {
   auto err = http2::parseGoaway(cursor, curHeader_, lastGoodStream, statusCode,
                                 debugData);
   if (statusCode != ErrorCode::NO_ERROR) {
-    VLOG(2) << "Goaway error lastStream=" << lastGoodStream <<
-      " statusCode=" << getErrorCodeString(statusCode) <<
-      " user-agent=" << userAgent_ <<  " debugData=" <<
+    VLOG(2) << "Goaway error statusCode=" << getErrorCodeString(statusCode)
+            << " lastStream=" << lastGoodStream
+            << " user-agent=" << userAgent_ <<  " debugData=" <<
       ((debugData) ? string((char*)debugData->data(), debugData->length()):
        empty_string);
   }
@@ -1142,8 +1142,8 @@ size_t HTTP2Codec::generateEOM(folly::IOBufQueue& writeBuf,
                                StreamID stream) {
   VLOG(4) << "sending EOM for stream=" << stream;
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "suppressed EOM stream=" << stream << " ingressGoawayAck_=" <<
-      ingressGoawayAck_;
+    VLOG(2) << "suppressed EOM for stream=" << stream << " ingressGoawayAck_="
+            << ingressGoawayAck_;
     return 0;
   }
   return http2::writeData(writeBuf, nullptr, stream, http2::kNoPadding, true);
@@ -1155,8 +1155,8 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
   VLOG(4) << "sending RST_STREAM for stream=" << stream
           << " with code=" << getErrorCodeString(statusCode);
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "suppressed RST_STREAM stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "suppressed RST_STREAM for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
   // Suppress any EOM callback for the current frame.
@@ -1166,9 +1166,8 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
   }
 
   if (statusCode == ErrorCode::PROTOCOL_ERROR) {
-    VLOG(2) << "sending RST_STREAM for stream=" << stream
-            << " with code=" << getErrorCodeString(statusCode)
-            << " user-agent=" << userAgent_;
+    VLOG(2) << "sending RST_STREAM with code=" << getErrorCodeString(statusCode)
+            << " for stream=" << stream << " user-agent=" << userAgent_;
   }
   auto code = http2::errorCodeToReset(statusCode);
   return http2::writeRstStream(writeBuf, stream, code);
@@ -1287,8 +1286,8 @@ size_t HTTP2Codec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   VLOG(4) << "generating window update for stream=" << stream
           << ": Processed " << delta << " bytes";
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "suppressed WINDOW_UPDATE stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "suppressed WINDOW_UPDATE for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
   return http2::writeWindowUpdate(writeBuf, stream, delta);
@@ -1299,8 +1298,8 @@ size_t HTTP2Codec::generatePriority(folly::IOBufQueue& writeBuf,
                                     const HTTPMessage::HTTPPriority& pri) {
   VLOG(4) << "generating priority for stream=" << stream;
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "suppressed PRIORITY stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "suppressed PRIORITY for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
   return http2::writePriority(writeBuf, stream,
