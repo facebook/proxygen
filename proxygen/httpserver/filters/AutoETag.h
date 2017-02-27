@@ -50,37 +50,37 @@ namespace proxygen {
  */
 
 class AutoETag : public Filter {
-  public:
-    AutoETag(RequestHandler* upstream);
+public:
+  AutoETag(RequestHandler* upstream);
 
-    void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept override;
+  void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept override;
 
-    void sendHeaders(HTTPMessage& msg) noexcept override;
-    void sendBody(std::unique_ptr<folly::IOBuf> body) noexcept override;
-    void sendEOM() noexcept override;
+  void sendHeaders(HTTPMessage& msg) noexcept override;
+  void sendBody(std::unique_ptr<folly::IOBuf> body) noexcept override;
+  void sendEOM() noexcept override;
 
-  protected:
-    static bool etagMatches(const std::string& etag, const std::vector<std::string>& etags) noexcept;
+ protected:
+  static bool etagMatches(const std::string& etag, const std::vector<std::string>& etags) noexcept;
 
-    virtual void send304NotModified(const std::string& etag) noexcept;
+  virtual void send304NotModified(const std::string& etag) noexcept;
 
-  private:
-    // Request
-    std::vector<std::string> if_none_match_;
+ private:
+  // Request
+  std::vector<std::string> if_none_match_;
 
-    // Response
-    HTTPMessage msg_;
-    std::unique_ptr<folly::IOBuf> body_;
+  // Response
+  HTTPMessage msg_;
+  std::unique_ptr<folly::IOBuf> body_;
 
-    folly::hash::SpookyHashV2 hasher_;
+  folly::hash::SpookyHashV2 hasher_;
 };
 
 class AutoETagFilterFactory : public RequestHandlerFactory {
-  public:
-    void onServerStart(folly::EventBase* evb) noexcept override {}
-    void onServerStop() noexcept override {}
+ public:
+  void onServerStart(folly::EventBase* evb) noexcept override {}
+  void onServerStop() noexcept override {}
 
-    RequestHandler* onRequest(RequestHandler* h, HTTPMessage* msg) noexcept override;
+  RequestHandler* onRequest(RequestHandler* h, HTTPMessage* msg) noexcept override;
 };
 
 }
