@@ -1060,40 +1060,6 @@ const struct message responses[] =
   ,.body= ""
   }
 
-#define SPACE_IN_FIELD_RES 9
-/* Should handle spaces in header fields */
-, {.name= "field space"
-  ,.type= HTTP_RESPONSE
-  ,.raw= "HTTP/1.1 200 OK\r\n"
-         "Server: Microsoft-IIS/6.0\r\n"
-         "X-Powered-By: ASP.NET\r\n"
-         "en-US Content-Type: text/xml\r\n" /* this is the problem */
-         "Content-Type: text/xml\r\n"
-         "Content-Length: 16\r\n"
-         "Date: Fri, 23 Jul 2010 18:45:38 GMT\r\n"
-         "Connection: keep-alive\r\n"
-         "\r\n"
-         "<xml>hello</xml>" /* fake body */
-  ,.should_keep_alive= TRUE
-  ,.message_complete_on_eof= FALSE
-  ,.http_major= 1
-  ,.http_minor= 1
-  ,.status_code= 200
-  ,.response_reason= "OK"
-  ,.num_headers= 7
-  ,.headers=
-    { { "Server",  "Microsoft-IIS/6.0" }
-    , { "X-Powered-By", "ASP.NET" }
-    , { "en-US Content-Type", "text/xml" }
-    , { "Content-Type", "text/xml" }
-    , { "Content-Length", "16" }
-    , { "Date", "Fri, 23 Jul 2010 18:45:38 GMT" }
-    , { "Connection", "keep-alive" }
-    }
-  ,.body= "<xml>hello</xml>"
-  }
-
-
 #define RES_FIELD_UNDERSCORE 10
 /* Should handle spaces in header fields */
 , {.name= "field underscore"
@@ -3078,6 +3044,38 @@ main (void)
     "\r\n";
   test_simple(corrupted_header_name, HPE_INVALID_HEADER_TOKEN);
 
+  const char *header_with_space =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "Foo Foo: some_value\r\n"
+    "Accept-Encoding: gzip\r\n"
+    "\r\n";
+  test_simple(header_with_space, HPE_INVALID_HEADER_TOKEN);
+
+  const char *header_with_curly_brace =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "Foo}Foo: some_value\r\n"
+    "Accept-Encoding: gzip\r\n"
+    "\r\n";
+  test_simple(header_with_curly_brace, HPE_INVALID_HEADER_TOKEN);
+
+  const char *header_with_quote =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "Foo\"Foo: some_value\r\n"
+    "Accept-Encoding: gzip\r\n"
+    "\r\n";
+  test_simple(header_with_quote, HPE_INVALID_HEADER_TOKEN);
+
+  const char *header_with_forward_slash =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "Foo/Foo: some_value\r\n"
+    "Accept-Encoding: gzip\r\n"
+    "\r\n";
+  test_simple(header_with_forward_slash, HPE_INVALID_HEADER_TOKEN);
+  
   const char *header_with_trailing_space =
     "GET / HTTP/1.1\r\n"
     "Host: www.example.com\r\n"

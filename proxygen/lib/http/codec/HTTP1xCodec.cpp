@@ -22,6 +22,7 @@ using std::unique_ptr;
 
 namespace {
 
+static const std::string kChunked = "chunked";
 const char CRLF[] = "\r\n";
 
 /**
@@ -444,7 +445,6 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       upgradeHeader_ = value;
     } else if (!hasTransferEncodingChunked &&
                code == HTTP_HEADER_TRANSFER_ENCODING) {
-      static const string kChunked = "chunked";
       if (!caseInsensitiveEqual(value, kChunked)) {
         return;
       }
@@ -794,8 +794,17 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
     pushHeaderNameAndValue(msg_->getHeaders());
   }
 
-  // discard messages with multiple content-length headers (t12767790)
+  // discard messages with folded or multiple valued Transfer-Encoding headers
+  // ex : "chunked , zorg\r\n" or "\r\n chunked \r\n" (t12767790)
   HTTPHeaders& hdrs = msg_->getHeaders();
+  const std::string& headerVal =
+    hdrs.getSingleOrEmpty(HTTP_HEADER_TRANSFER_ENCODING);
+  if (!headerVal.empty() && !caseInsensitiveEqual(headerVal, kChunked)) {
+      LOG(ERROR) << "Invalid Transfer-Encoding header. Value =" << headerVal;
+      return -1;
+  }
+
+  // discard messages with multiple content-length headers (t12767790)
   if (hdrs.getNumberOfValues("Content-Length") > 1) {
     // Only reject the message if the Content-Length headers have different
     // values

@@ -301,6 +301,61 @@ TEST(HTTP1xCodecTest, TestMultipleDistinctContentLengthHeaders) {
   EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
 }
 
+TEST(HTTP1xCodecTest, TestCorrectTransferEncodingHeader) {
+  HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  downstream.setCallback(&callbacks);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+
+  // Generate a POST request with folded
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
+      "Transfer-Encoding: chunked\r\n\r\n");
+  downstream.onIngress(*reqBuf);
+
+  // Check that the request fails before the codec finishes parsing the headers
+  EXPECT_EQ(callbacks.streamErrors, 0);
+  EXPECT_EQ(callbacks.messageBegin, 1);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+}
+
+TEST(HTTP1xCodecTest, TestFoldedTransferEncodingHeader) {
+  HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  downstream.setCallback(&callbacks);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+
+  // Generate a POST request with folded
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
+      "Transfer-Encoding: \r\n chunked\r\nContent-Length: 8\r\n\r\n");
+  downstream.onIngress(*reqBuf);
+
+  // Check that the request fails before the codec finishes parsing the headers
+  EXPECT_EQ(callbacks.streamErrors, 1);
+  EXPECT_EQ(callbacks.messageBegin, 1);
+  EXPECT_EQ(callbacks.headersComplete, 0);
+  EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
+}
+
+TEST(HTTP1xCodecTest, TestBadTransferEncodingHeader) {
+  HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  downstream.setCallback(&callbacks);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
+      "Transfer-Encoding: chunked, zorg\r\n\r\n");
+  downstream.onIngress(*reqBuf);
+
+  // Check that the request fails before the codec finishes parsing the headers
+  EXPECT_EQ(callbacks.streamErrors, 1);
+  EXPECT_EQ(callbacks.messageBegin, 1);
+  EXPECT_EQ(callbacks.headersComplete, 0);
+  EXPECT_EQ(callbacks.lastParseError->getHttpStatusCode(), 400);
+}
+
 TEST(HTTP1xCodecTest, Test1xxConnectionHeader) {
   HTTP1xCodec upstream(TransportDirection::UPSTREAM);
   HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);

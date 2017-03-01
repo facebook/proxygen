@@ -191,9 +191,9 @@ static const char tokens[256] = {
 /*  24 can   25 em    26 sub   27 esc   28 fs    29 gs    30 rs    31 us  */
         0,       0,       0,       0,       0,       0,       0,       0,
 /*  32 sp    33  !    34  "    35  #    36  $    37  %    38  &    39  '  */
-       ' ',      '!',     '"',     '#',     '$',     '%',     '&',    '\'',
+        0,      '!',      0,     '#',     '$',     '%',     '&',    '\'',
 /*  40  (    41  )    42  *    43  +    44  ,    45  -    46  .    47  /  */
-        0,       0,      '*',     '+',      0,      '-',     '.',     '/',
+        0,       0,      '*',     '+',      0,      '-',     '.',      0,
 /*  48  0    49  1    50  2    51  3    52  4    53  5    54  6    55  7  */
        '0',     '1',     '2',     '3',     '4',     '5',     '6',     '7',
 /*  56  8    57  9    58  :    59  ;    60  <    61  =    62  >    63  ?  */
@@ -213,7 +213,7 @@ static const char tokens[256] = {
 /* 112  p   113  q   114  r   115  s   116  t   117  u   118  v   119  w  */
        'p',     'q',     'r',     's',     't',     'u',     'v',     'w',
 /* 120  x   121  y   122  z   123  {   124  |   125  }   126  ~   127 del */
-       'x',     'y',     'z',      0,      '|',     '}',     '~',       0 };
+       'x',     'y',     'z',      0,      '|',      0,     '~',       0 };
 
 
 static const int8_t unhex[256] =
@@ -1746,7 +1746,9 @@ size_t http_parser_execute (http_parser *parser,
             break;
 
           case h_transfer_encoding_chunked:
-            if (ch != ' ') parser->header_state = h_general;
+            if (ch != ' ') {
+              parser->header_state = h_general;
+            }
             break;
 
           default:
