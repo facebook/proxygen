@@ -534,9 +534,10 @@ class HTTPMessage {
   }
 
   /**
-   * Get the time when the first byte of the message arrived
+   * Getter and setter for the time when the first byte of the message arrived
    */
   TimePoint getStartTime() const { return startTime_; }
+  void setStartTime(const TimePoint& startTime) { startTime_ = startTime; }
 
   /**
    * Check if a particular token value is present in a header that consists of
