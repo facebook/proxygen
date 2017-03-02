@@ -91,9 +91,9 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
         if (frameState_ == FrameState::DOWNSTREAM_CONNECTION_PREFACE &&
             curHeader_.type != http2::FrameType::SETTINGS) {
           goawayErrorMessage_ = folly::to<string>(
-            "streamID=", curHeader_.stream,
-            " got invalid connection preface frame type=",
-            getFrameTypeString(curHeader_.type), "(", curHeader_.type, ")");
+              "GOAWAY error: got invalid connection preface frame type=",
+              getFrameTypeString(curHeader_.type), "(", curHeader_.type, ")",
+              " for streamID=", curHeader_.stream);
           VLOG(4) << goawayErrorMessage_;
           connError = ErrorCode::PROTOCOL_ERROR;
         }
@@ -148,17 +148,17 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
        (curHeader_.type != http2::FrameType::CONTINUATION ||
         expectedContinuationStream_ != curHeader_.stream)) {
     goawayErrorMessage_ = folly::to<string>(
-      "streamID=", curHeader_.stream, " of type=",
-      getFrameTypeString(curHeader_.type),
-      " received while expected CONTINUATION with stream=",
-      expectedContinuationStream_);
+        "GOAWAY error: while expected CONTINUATION with stream=",
+        expectedContinuationStream_, ", received streamID=", curHeader_.stream,
+        " of type=", getFrameTypeString(curHeader_.type));
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   }
   if (expectedContinuationStream_ == 0 &&
       curHeader_.type == http2::FrameType::CONTINUATION) {
     goawayErrorMessage_ = folly::to<string>(
-      "streamID=", curHeader_.stream, " received for unexpected CONTINUATION");
+        "GOAWAY error: unexpected CONTINUATION received with streamID=",
+        curHeader_.stream);
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -660,8 +660,8 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
   }
   if (statusCode == ErrorCode::PROTOCOL_ERROR) {
     goawayErrorMessage_ = folly::to<string>(
-      "RST_STREAM with code=", getErrorCodeString(statusCode),
-      " streamID=", curHeader_.stream, " user-agent=", userAgent_);
+        "GOAWAY error: RST_STREAM with code=", getErrorCodeString(statusCode),
+        " for streamID=", curHeader_.stream, " user-agent=", userAgent_);
     VLOG(2) << goawayErrorMessage_;
   }
   deliverCallbackIfAllowed(&HTTPCodec::Callback::onAbort, "onAbort",
@@ -705,8 +705,8 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
             (setting.second == 1 &&
              transportDirection_ == TransportDirection::UPSTREAM)) {
           goawayErrorMessage_ = folly::to<string>(
-            "streamID=", curHeader_.stream,
-            " with invalid ENABLE_PUSH setting=", setting.second);
+              "GOAWAY error: ENABLE_PUSH invalid setting=", setting.second,
+              " for streamID=", curHeader_.stream);
           VLOG(4) << goawayErrorMessage_;
           return ErrorCode::PROTOCOL_ERROR;
         }
@@ -716,9 +716,8 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
       case SettingsId::INITIAL_WINDOW_SIZE:
         if (setting.second > http2::kMaxWindowUpdateSize) {
           goawayErrorMessage_ = folly::to<string>(
-            "streamID=", curHeader_.stream,
-            " with invalid INITIAL_WINDOW_SIZE size=",
-            setting.second);
+              "GOAWAY error: INITIAL_WINDOW_SIZE invalid size=", setting.second,
+              " for streamID=", curHeader_.stream);
           VLOG(4) << goawayErrorMessage_;
           return ErrorCode::PROTOCOL_ERROR;
         }
@@ -727,8 +726,8 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
         if (setting.second < http2::kMaxFramePayloadLengthMin ||
             setting.second > http2::kMaxFramePayloadLength) {
           goawayErrorMessage_ = folly::to<string>(
-            "streamID=", curHeader_.stream,
-            " with invalid MAX_FRAME_SIZE size=", setting.second);
+              "GOAWAY error: MAX_FRAME_SIZE invalid size=", setting.second,
+              " for streamID=", curHeader_.stream);
           VLOG(4) << goawayErrorMessage_;
           return ErrorCode::PROTOCOL_ERROR;
         }
@@ -840,7 +839,8 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
     VLOG(4) << "Invalid 0 length delta for stream=" << curHeader_.stream;
     if (curHeader_.stream == 0) {
       goawayErrorMessage_ = folly::to<string>(
-        "streamID=", curHeader_.stream, " with invalid 0 length delta");
+        "GOAWAY error: invalid/0 length delta for streamID=",
+        curHeader_.stream);
       return ErrorCode::PROTOCOL_ERROR;
     } else {
       // Parsing a zero delta window update should cause a protocol error
@@ -865,8 +865,8 @@ ErrorCode HTTP2Codec::parseWindowUpdate(Cursor& cursor) {
 ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId) {
   if (streamId == 0 || streamId <= lastStreamID_) {
     goawayErrorMessage_ = folly::to<string>(
-      "streamID=", streamId, " received as invalid new stream, lastStreamID_=",
-      lastStreamID_);
+        "GOAWAY error: received streamID=", streamId,
+        " as invalid new stream for lastStreamID_=", lastStreamID_);
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -876,8 +876,8 @@ ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId) {
 
   if (isInitiatedStream(streamId)) {
     // this stream should be initiated by us, not by peer
-    goawayErrorMessage_ = folly::to<string>("streamID=", streamId,
-                                            " received as invalid new stream");
+    goawayErrorMessage_ = folly::to<string>(
+        "GOAWAY error: invalid new stream received with streamID=", streamId);
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   } else {
