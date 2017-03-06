@@ -9,6 +9,7 @@
  */
 #define PROXYGEN_HTTPHEADERS_IMPL
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <proxygen/lib/http/HTTPHeaderSet.h>
 
 #include <folly/portability/GFlags.h>
 
@@ -24,23 +25,19 @@ namespace proxygen {
 const string empty_string;
 const std::string HTTPHeaders::COMBINE_SEPARATOR = ", ";
 
-bitset<256>& HTTPHeaders::perHopHeaderCodes() {
-  static bitset<256> perHopHeaderCodes{
-    [] {
-      bitset<256> bs;
-      bs[HTTP_HEADER_CONNECTION] = true;
-      bs[HTTP_HEADER_KEEP_ALIVE] = true;
-      bs[HTTP_HEADER_PROXY_AUTHENTICATE] = true;
-      bs[HTTP_HEADER_PROXY_AUTHORIZATION] = true;
-      bs[HTTP_HEADER_PROXY_CONNECTION] = true;
-      bs[HTTP_HEADER_TE] = true;
-      bs[HTTP_HEADER_TRAILER] = true;
-      bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
-      bs[HTTP_HEADER_UPGRADE] = true;
-      return bs;
-    }()
+const bitset<256>& HTTPHeaders::perHopHeaderCodes() {
+  static const HTTPHeaderSet codes = {
+    HTTP_HEADER_CONNECTION,
+    HTTP_HEADER_KEEP_ALIVE,
+    HTTP_HEADER_PROXY_AUTHENTICATE,
+    HTTP_HEADER_PROXY_AUTHORIZATION,
+    HTTP_HEADER_PROXY_CONNECTION,
+    HTTP_HEADER_TE,
+    HTTP_HEADER_TRAILER,
+    HTTP_HEADER_TRANSFER_ENCODING,
+    HTTP_HEADER_UPGRADE,
   };
-  return perHopHeaderCodes;
+  return codes;
 }
 
 HTTPHeaders::HTTPHeaders() :

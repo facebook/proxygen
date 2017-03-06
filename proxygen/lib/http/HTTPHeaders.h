@@ -238,7 +238,7 @@ class HTTPHeaders {
    * Determines whether header with a given code is a per-hop header,
    * which should be stripped by stripPerHopHeaders().
    */
-  static std::bitset<256>& perHopHeaderCodes();
+  static const std::bitset<256>& perHopHeaderCodes();
 
  private:
   // vector storing the 1-byte hashes of header names
