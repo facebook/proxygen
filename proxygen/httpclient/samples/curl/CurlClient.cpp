@@ -146,6 +146,8 @@ void CurlClient::onHeadersComplete(unique_ptr<HTTPMessage> msg) noexcept {
   if (!loggingEnabled_) {
     return;
   }
+  cout << response_->getStatusCode() << " "
+       << response_->getStatusMessage() << endl;
   response_->getHeaders().forEach([&](const string& header, const string& val) {
     cout << header << ": " << val << endl;
   });
