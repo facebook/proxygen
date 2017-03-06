@@ -2,6 +2,7 @@ SUBDIRS = .
 
 check_PROGRAMS = LibHTTPTests
 LibHTTPTests_SOURCES = \
+	HTTPHeaderSetTest.cpp \
 	HTTPMessageTest.cpp \
 	RFC2616Test.cpp \
 	WindowTest.cpp

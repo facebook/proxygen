@@ -2,6 +2,8 @@
 
 #include <folly/String.h>
 
+#include <proxygen/lib/http/HTTPHeaderSet.h>
+
 #include "AutoETag.h"
 
 using std::string;
@@ -124,13 +126,30 @@ bool AutoETag::etagMatches(const string& etag, const std::vector<string>& etags)
   return false;
 }
 
+static const HTTPHeaderSet allow304Headers = {
+  HTTP_HEADER_CACHE_CONTROL,
+  HTTP_HEADER_CONTENT_LOCATION,
+  HTTP_HEADER_DATE,
+  HTTP_HEADER_ETAG,
+  HTTP_HEADER_EXPIRES,
+  HTTP_HEADER_VARY,
+};
+
 void AutoETag::send304NotModified(const string& etag) noexcept {
   msg_.setStatusCode(304);
   msg_.setStatusMessage("Not Modified");
 
+  // Delete all headers except those that should appear in a 304 response;
+  // RFC 7232 § 4.1
   HTTPHeaders& headers = msg_.getHeaders();
-  headers.remove(HTTP_HEADER_CONTENT_LENGTH);
-  if (!etag.empty())
+
+  headers.removeByPredicate([](HTTPHeaderCode code,
+                               const string& header,
+                               const string& val) {
+    return !allow304Headers.test(code);
+  });
+
+  if (!headers.exists(HTTP_HEADER_ETAG) && !etag.empty())
     headers.set(HTTP_HEADER_ETAG, etag);
 
   downstream_->sendHeaders(msg_);

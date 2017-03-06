@@ -16,6 +16,7 @@ nobase_libproxygenhttp_HEADERS = \
 	HTTPConnector.h \
 	HTTPConstants.h \
 	HTTPException.h \
+	HTTPHeaderSet.h \
 	HTTPHeaderSize.h \
 	HTTPHeaders.h \
 	HTTPMessage.h \
