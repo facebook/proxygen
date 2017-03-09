@@ -113,6 +113,7 @@ HTTPMessage getResponse(uint32_t code, uint32_t bodyLen) {
 std::unique_ptr<HTTPMessage> makeResponse(uint16_t statusCode) {
   auto resp = folly::make_unique<HTTPMessage>();
   resp->setStatusCode(statusCode);
+  resp->setHTTPVersion(1, 1);
   return resp;
 }
 
