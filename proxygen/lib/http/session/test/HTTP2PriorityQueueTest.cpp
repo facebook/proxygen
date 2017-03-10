@@ -166,6 +166,28 @@ TEST_F(QueueTest, RemoveParentWeights) {
   EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
 }
 
+TEST_F(QueueTest, NodeDepth) {
+  uint64_t depth{33};
+  addTransaction(1, {0, false, 15}, false, &depth);
+  EXPECT_EQ(depth, 1);
+
+  addTransaction(3, {1, false, 3}, false, &depth);
+  EXPECT_EQ(depth, 2);
+
+  addTransaction(5, {3, true, 7}, false, &depth);
+  EXPECT_EQ(depth, 3);
+
+  addTransaction(9, {1, false, 3}, true, &depth);
+  EXPECT_EQ(depth, 2);
+  EXPECT_EQ(q_.numPendingEgress(), 3);
+  EXPECT_EQ(q_.numVirtualNodes(), 1);
+
+  addTransaction(11, {1, true, 7}, false, &depth);
+  EXPECT_EQ(depth, 2);
+  EXPECT_EQ(q_.numPendingEgress(), 4);
+  EXPECT_EQ(q_.numVirtualNodes(), 1);
+}
+
 TEST_F(QueueTest, UpdateWeight) {
   buildSimpleTree();
 

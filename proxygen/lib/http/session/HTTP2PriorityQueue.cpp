@@ -477,7 +477,7 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
 
   Node* parent = &root_;
   if (depth) {
-    *depth = 0;
+    *depth = 1;
   }
   if (pri.streamDependency != 0) {
     Node* dep = find(pri.streamDependency, depth);

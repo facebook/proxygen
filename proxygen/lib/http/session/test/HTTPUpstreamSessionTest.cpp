@@ -552,7 +552,8 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   auto id = handler1->txn_->getID();
   auto id2 = handler2->txn_->getID();
 
-  EXPECT_EQ(std::get<0>(handler1->txn_->getPrioritySummary()), 0);
+  // Insert depth is 1, only root node has depth 0
+  EXPECT_EQ(std::get<0>(handler1->txn_->getPrioritySummary()), 1);
   EXPECT_EQ(handler1->txn_->getPriorityFallback(), false);
 
   // update handler to be in the pri-group

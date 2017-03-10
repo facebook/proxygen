@@ -663,7 +663,7 @@ class HTTPTransaction :
   }
 
   /**
-   * @return true if egress has started on this transaction.
+   * @return true if ingress has started on this transaction.
    */
   bool isIngressStarted() const {
     return ingressState_ != HTTPTransactionIngressSM::State::Start;
@@ -1027,7 +1027,7 @@ class HTTPTransaction :
   }
 
   /**
-   * Timeout callback for this transaction.  The timer is active while
+   * Timeout callback for this transaction.  The timer is active
    * until the ingress message is complete or terminated by error.
    */
   void timeoutExpired() noexcept override {

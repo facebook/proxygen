@@ -97,6 +97,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     return activeCount_;
   }
 
+  uint64_t numVirtualNodes() const {
+    return numVirtualNodes_;
+  }
+
   void iterate(const std::function<bool(HTTPCodec::StreamID,
                                         HTTPTransaction *, double)>& fn,
                const std::function<bool()>& stopFn, bool all) {
@@ -228,6 +232,10 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     void clearPendingEgress();
 
+    uint16_t getWeight() const {
+      return weight_;
+    }
+
     // Set a new weight for this node
     void updateWeight(uint8_t weight);
 
@@ -353,6 +361,9 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     uint64_t totalChildWeight_{0};
     std::list<std::unique_ptr<Node>> children_;
     std::list<std::unique_ptr<Node>>::iterator self_;
+    // enqueuedChildren_ includes all children that are themselves enqueued_
+    // or have enqueued descendants. Therefore, enqueuedChildren_ may contain
+    // direct children that have enqueued_ == false
     folly::IntrusiveListHook enqueuedHook_;
     folly::IntrusiveList<Node, &Node::enqueuedHook_> enqueuedChildren_;
   };
