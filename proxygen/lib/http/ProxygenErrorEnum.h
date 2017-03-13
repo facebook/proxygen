@@ -60,6 +60,7 @@ namespace proxygen {
     x(DNSthreadpool),                           \
     x(DNSunimplemented),                        \
     x(Network),                                 \
+    x(Configuration),                           \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63

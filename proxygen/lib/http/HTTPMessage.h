@@ -266,6 +266,16 @@ class HTTPMessage {
   bool is1xxResponse() const { return (getStatusCode() / 100) == 1; }
 
   /**
+   * Returns true if this is a 4xx response.
+   */
+  bool is4xxResponse() const { return (getStatusCode() / 100) == 4; }
+
+  /**
+   * Returns true if this is a 5xx response.
+   */
+  bool is5xxResponse() const { return (getStatusCode() / 100) == 5; }
+
+  /**
    * Formats the current time appropriately for a Date header
    */
   static std::string formatDateHeader();
