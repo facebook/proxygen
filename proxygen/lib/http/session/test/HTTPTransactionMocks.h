@@ -85,6 +85,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
     return const_cast<MockHTTPTransactionTransport*>(this)
       ->getCodecNonConst();
   }
+  MOCK_METHOD0(drain, void());
   MOCK_CONST_METHOD0(isDraining, bool());
   MOCK_CONST_METHOD0(getSecurityProtocol, std::string());
 

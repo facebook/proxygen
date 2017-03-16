@@ -379,6 +379,13 @@ class HTTPTransaction :
 
     virtual const HTTPCodec& getCodec() const noexcept = 0;
 
+    /*
+    * Drain the underlying session. This will affect other transactions
+    * running on the same session and is discouraged unless you are confident
+    * that the session is broken.
+    */
+    virtual void drain() = 0;
+
     virtual bool isDraining() const = 0;
 
     virtual HTTPTransaction* newPushedTransaction(

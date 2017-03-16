@@ -112,7 +112,7 @@ class HTTPUpstreamSession final: public HTTPSession {
    * created on this session. When the number of transactions reaches zero, this
    * session will shutdown the transport and delete itself.
    */
-  void drain() {
+  void drain() override {
     HTTPSession::drain();
   }
 

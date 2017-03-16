@@ -357,6 +357,15 @@ class HTTPSession:
   size_t sendSettings();
 
   /**
+   * Drains the current transactions and prevents new transactions from being
+   * created on this session. If this is an upstream session and the
+   * number of transactions reaches zero, this session will shutdown the
+   * transport and delete itself. For downstream sessions, an explicit
+   * call to dropConnection() or shutdownTransport() is required.
+   */
+  virtual void drain() override;
+
+  /**
    * Returns true if this session is draining. This can happen if drain()
    * is called explicitly, if a GOAWAY frame is received, or during shutdown.
    */
@@ -508,15 +517,6 @@ class HTTPSession:
                                  bool ingressEOM, bool egressEOM);
 
   size_t getCodecSendWindowSize() const;
-
-  /**
-   * Drains the current transactions and prevents new transactions from being
-   * created on this session. If this is an upstream session and the
-   * number of transactions reaches zero, this session will shutdown the
-   * transport and delete itself. For downstream sessions, an explicit
-   * call to dropConnection() or shutdownTransport() is required.
-   */
-  void drain();
 
   /**
    * Sends a priority message on this session.  If the underlying protocol
