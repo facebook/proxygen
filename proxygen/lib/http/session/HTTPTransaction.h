@@ -1080,6 +1080,28 @@ class HTTPTransaction :
 
   int32_t getRecvToAck() const;
 
+  bool isPrioritySampled() const {
+    return prioritySample_ != nullptr;
+  }
+
+  void setPrioritySampled(bool sampled = true);
+  void updateContentionsCount(uint64_t contentions);
+  void updateSessionBytesSheduled(uint64_t bytes);
+  void updateTransactionBytesSent(uint64_t bytes);
+
+  struct PrioritySampleSummary {
+    struct WeightedBy {
+      double transactionBytesSent_{0};
+      double sessionBytesScheduled_{0};
+    };
+    struct Sample {
+      WeightedBy weightedBy_;
+    };
+    Sample contentions_;
+  };
+
+  bool getPrioritySampleSummary(PrioritySampleSummary& summary) const;
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
@@ -1323,6 +1345,9 @@ class HTTPTransaction :
    * Optional transaction timeout value.
    */
   folly::Optional<std::chrono::milliseconds> transactionTimeout_;
+
+  struct PrioritySample;
+  std::unique_ptr<PrioritySample> prioritySample_;
 };
 
 /**

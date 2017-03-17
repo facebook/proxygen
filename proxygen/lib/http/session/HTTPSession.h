@@ -419,6 +419,14 @@ class HTTPSession:
   virtual void onEgressBuffered() override;
   virtual void onEgressBufferCleared() override;
 
+  bool isPrioritySampled() const {
+    return prioritySample_;
+  }
+
+  void setPrioritySampled(bool sampled) {
+    prioritySample_ = sampled;
+  }
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated
@@ -998,6 +1006,11 @@ class HTTPSession:
   int64_t pendingWriteSizeDelta_{0};
 
   /**
+   * Number of body un-encoded bytes in the write buffer per write iteration.
+   */
+  uint64_t bodyBytesPerWriteBuf_{0};
+
+  /**
    * Maximum number of cumulative bytes that can be buffered by the
    * transactions in this session before applying backpressure.
    *
@@ -1061,6 +1074,7 @@ class HTTPSession:
   bool inLoopCallback_:1;
   bool inResume_:1;
   bool pendingPause_:1;
+  bool prioritySample_:1;
 
   /**
    * Maximum number of ingress body bytes that can be buffered across all

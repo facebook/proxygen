@@ -921,6 +921,9 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   }
   updateReadTimeout();
   nbytes = transport_.sendBody(this, std::move(body), sendEom);
+  if (isPrioritySampled()) {
+    updateTransactionBytesSent(bodyLen);
+  }
   if (egressLimitBytesPerMs_ > 0) {
     numLimitedBytesEgressed_ += nbytes;
   }
@@ -1261,5 +1264,112 @@ void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
     priorityFallback_ = true;
   }
 }
+
+struct HTTPTransaction::PrioritySample {
+  struct WeightedAccumulator {
+    uint64_t weighted_{0};
+    uint64_t raw_{0};
+
+    void accumulate(uint64_t weighted, uint64_t raw) {
+      weighted_ += weighted;
+      raw_ += raw;
+    }
+
+    double getWeightedAverage() const {
+      return raw_ ? (double)weighted_ / (double)raw_ : 0;
+    }
+  };
+
+  struct Contentions {
+    WeightedAccumulator byTransactionBytesSent_;
+    WeightedAccumulator bySessionBytesScheduled_;
+    uint64_t contentionsCount_{0};
+
+    void accumulateByTransactionBytes(uint64_t bytes) {
+      byTransactionBytesSent_.accumulate(contentionsCount_ * bytes, bytes);
+    }
+
+    void accumulateBySessionBytes(uint64_t bytes) {
+      bySessionBytesScheduled_.accumulate(contentionsCount_ * bytes, bytes);
+    }
+
+    void getSummary(HTTPTransaction::PrioritySampleSummary::WeightedBy&
+                    weightedBy) const {
+      weightedBy.transactionBytesSent_ =
+        byTransactionBytesSent_.getWeightedAverage();
+      weightedBy.sessionBytesScheduled_ =
+        bySessionBytesScheduled_.getWeightedAverage();
+    }
+  };
+
+  // TODO: remove tnx_ when not needed
+  HTTPTransaction* tnx_; // needed for error reporting, will be removed
+  Contentions contentions_;
+
+  explicit PrioritySample(HTTPTransaction* tnx) : tnx_(tnx) {}
+
+  void updateContentionsCount(uint64_t contentions) {
+    contentions_.contentionsCount_ = contentions;
+  }
+
+  void updateTransactionBytesSent(uint64_t bytes) {
+    if (contentions_.contentionsCount_) {
+      contentions_.accumulateByTransactionBytes(bytes);
+    } else {
+      VLOG(5) << *tnx_ << " transfer " << bytes <<
+        " transaction body bytes while contentionsCount_ = 0";
+    }
+  }
+
+  void updateSessionBytesSheduled(uint64_t bytes) {
+    if (contentions_.contentionsCount_) {
+      contentions_.accumulateBySessionBytes(bytes);
+    } else {
+      VLOG(5) << *tnx_ << " transfer " << bytes <<
+        " session body bytes while contentionsCount_ = 0";
+    }
+  }
+
+  void getSummary(HTTPTransaction::PrioritySampleSummary& summary) const {
+    contentions_.getSummary(summary.contentions_.weightedBy_);
+  }
+};
+
+void HTTPTransaction::setPrioritySampled(bool sampled) {
+  if (sampled) {
+    prioritySample_ = std::make_unique<PrioritySample>(this);
+  } else {
+    prioritySample_.reset();
+  }
+}
+
+void HTTPTransaction::updateContentionsCount(uint64_t contentions) {
+  CHECK(prioritySample_);
+  prioritySample_->updateContentionsCount(contentions);
+}
+
+void HTTPTransaction::updateSessionBytesSheduled(uint64_t bytes) {
+  CHECK(prioritySample_);
+  if (bytes && firstHeaderByteSent_) {
+    prioritySample_->updateSessionBytesSheduled(bytes);
+  }
+}
+
+void HTTPTransaction::updateTransactionBytesSent(uint64_t bytes) {
+  CHECK(prioritySample_);
+  if (bytes) {
+    prioritySample_->updateTransactionBytesSent(bytes);
+  }
+}
+
+bool HTTPTransaction::getPrioritySampleSummary(
+      HTTPTransaction::PrioritySampleSummary& summary) const {
+  if (prioritySample_) {
+    prioritySample_->getSummary(summary);
+    return true;
+  }
+  return false;
+}
+
 
 } // proxygen

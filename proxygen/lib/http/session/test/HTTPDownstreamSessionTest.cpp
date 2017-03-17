@@ -49,7 +49,10 @@ class HTTPDownstreamTest : public testing::Test {
       flowControl_(flowControl) {
     EXPECT_CALL(mockController_, getGracefulShutdownTimeout())
       .WillRepeatedly(Return(std::chrono::milliseconds(0)));
-    EXPECT_CALL(mockController_, attachSession(_));
+    EXPECT_CALL(mockController_, attachSession(_))
+      .WillRepeatedly(Invoke([&] (HTTPSession* session) {
+        session->setPrioritySampled(true);
+      }));
     HTTPSession::setDefaultReadBufferLimit(65536);
     httpSession_ = new HTTPDownstreamSession(
       transactionTimeouts_.get(),
@@ -2355,12 +2358,103 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
       handler4->sendReplyWithBody(200, 1);
     });
 
-  handler1->expectDetachTransaction();
-  handler3->expectDetachTransaction();
+  handler1->expectDetachTransaction([&] {
+      HTTPTransaction::PrioritySampleSummary summary;
+      EXPECT_EQ(handler1->txn_->getPrioritySampleSummary(summary), true);
+      // id1 had no egress when id2 was running, so id1 was contending only with
+      // id3 and id4. Average number of contentions for id1 is 3
+      EXPECT_EQ(summary.contentions_.weightedBy_.transactionBytesSent_, 3);
+      EXPECT_EQ(summary.contentions_.weightedBy_.sessionBytesScheduled_, 3);
+    });
+  handler3->expectDetachTransaction([&] {
+      HTTPTransaction::PrioritySampleSummary summary;
+      EXPECT_EQ(handler3->txn_->getPrioritySampleSummary(summary), true);
+      // Similarly, id3 was contenting with id1 and id4
+      // Average number of contentions for id3 is 3
+      EXPECT_EQ(summary.contentions_.weightedBy_.transactionBytesSent_, 3);
+      EXPECT_EQ(summary.contentions_.weightedBy_.sessionBytesScheduled_, 3);
+    });
   handler4->expectDetachTransaction([&] {
+      HTTPTransaction::PrioritySampleSummary summary;
+      EXPECT_EQ(handler4->txn_->getPrioritySampleSummary(summary), true);
+      // This is the priority-based blocking situation. id4 was blocked by
+      // higher priority transactions id1 and id3. Only when id1 and id3
+      // finished, id4 had a chance to transfer its data.
+      // Average contention number weighted by transaction bytes is 1, which
+      // means that when id4 had a chance to transfer bytes it did not contend
+      // with any other transactions.
+      // id4 was waiting for id1 and id3 during transfer of 4256 bytes (encoded)
+      // after which it tranferred 10 bytes (encoded) without contention.
+      // Therefore, the average number contentions weighted by session bytes is
+      // (4111*3 + 1*1)/(4111 + 1) = 12334/4112 ~= 2.999
+      // The difference in average contentions weighted by transaction and
+      // session bytes tells that id4 was mostly blocked by rather than blocking
+      // other transactions.
+      EXPECT_EQ(summary.contentions_.weightedBy_.transactionBytesSent_, 1);
+      EXPECT_GT(summary.contentions_.weightedBy_.sessionBytesScheduled_, 2.99);
+      EXPECT_LT(summary.contentions_.weightedBy_.sessionBytesScheduled_, 3.00);
       handler2->txn_->sendAbort();
     });
   handler2->expectDetachTransaction();
+  flushRequestsAndLoop();
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  eventBase_.loop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_priority_dependent_transactions) {
+  // Create a dependent transaction to test the priority blocked by dependency.
+  // ratio*4096 < 1.
+  //
+  //     root
+  //      \                                                 level 1
+  //      16
+  //       \                                                level 2
+  //       16
+  InSequence enforceOrder;
+  auto req1 = getGetRequest();
+  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 15});
+  auto id1 = sendRequest(req1);
+
+  auto req2 = getGetRequest();
+  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{id1, false, 15});
+  sendRequest(req2);
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&] {
+      handler1->sendReplyWithBody(200, 1024);
+    });
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&] {
+      handler2->sendReplyWithBody(200, 1024);
+    });
+
+  handler1->expectDetachTransaction([&] {
+      HTTPTransaction::PrioritySampleSummary summary;
+      EXPECT_EQ(handler1->txn_->getPrioritySampleSummary(summary), true);
+      // id1 is contending with id2 during the entire transfer.
+      // Average number of contentions for id1 is 2 in both cases.
+      // The same number of average contentions weighted by both transaction
+      // and session bytes tells that id1 was not blocked by any other
+      // transaction during the entire transfer.
+      EXPECT_EQ(summary.contentions_.weightedBy_.transactionBytesSent_, 2);
+      EXPECT_EQ(summary.contentions_.weightedBy_.sessionBytesScheduled_, 2);
+    });
+  handler2->expectDetachTransaction([&] {
+      HTTPTransaction::PrioritySampleSummary summary;
+      EXPECT_EQ(handler2->txn_->getPrioritySampleSummary(summary), true);
+      // This is the dependency-based blocking. id2 is blocked by id1.
+      // When id2 had a chance to transfer bytes, it was no longer contended
+      // with any other transaction. Hence the average contention weighted by
+      // transaction bytes is 1.
+      // The average number of contentions weighted by the session bytes is
+      // computed as (1024*2 + 1024*1)/(1024 + 1024) = 3072/2048 = 1.5
+      EXPECT_EQ(summary.contentions_.weightedBy_.transactionBytesSent_, 1);
+      EXPECT_EQ(summary.contentions_.weightedBy_.sessionBytesScheduled_, 1.5);
+      handler2->txn_->sendAbort();
+    });
   flushRequestsAndLoop();
   httpSession_->closeWhenIdle();
   expectDetachSession();

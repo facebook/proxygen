@@ -151,7 +151,8 @@ HTTPSession::HTTPSession(
     ingressError_(false),
     inLoopCallback_(false),
     inResume_(false),
-    pendingPause_(false) {
+    pendingPause_(false),
+    prioritySample_(false) {
 
   initialReceiveWindow_ = receiveStreamWindowSize_ =
     receiveSessionWindowSize_ = codec_->getDefaultWindowSize();
@@ -1357,6 +1358,7 @@ HTTPSession::sendBody(HTTPTransaction* txn,
                                             includeEOM);
   CHECK(inLoopCallback_);
   pendingWriteSizeDelta_ -= bodyLen;
+  bodyBytesPerWriteBuf_ += bodyLen;
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent() && byteEventTracker_) {
     byteEventTracker_->addFirstBodyByteEvent(offset, txn);
   }
@@ -1792,6 +1794,13 @@ HTTPSession::runLoopCallback() noexcept {
   VLOG(5) << *this << " in loop callback";
 
   for (uint32_t i = 0; i < kMaxWritesPerLoop; ++i) {
+    bodyBytesPerWriteBuf_ = 0;
+    if (prioritySample_) {
+      invokeOnAllTransactions(
+        &HTTPTransaction::updateContentionsCount,
+        txnEgressQueue_.numPendingEgress());
+    }
+
     bool cork = true;
     bool eom = false;
     unique_ptr<IOBuf> writeBuf = getNextToSend(&cork, &eom);
@@ -1806,6 +1815,12 @@ HTTPSession::runLoopCallback() noexcept {
     if (len == 0) {
       checkForShutdown();
       return;
+    }
+
+    if (prioritySample_) {
+      invokeOnAllTransactions(
+        &HTTPTransaction::updateSessionBytesSheduled,
+        bodyBytesPerWriteBuf_);
     }
 
     WriteSegment* segment = new WriteSegment(this, len);
@@ -2214,6 +2229,10 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
     "existence check.";
 
   HTTPTransaction* txn = &matchPair.first->second;
+
+  if (prioritySample_) {
+    txn->setPrioritySampled();
+  }
 
   if (numTxnServed_ > 0) {
     auto stats = txn->getSessionStats();
