@@ -40,10 +40,8 @@ class DockerFBCodeBuilder(FBCodeBuilder):
         # system packages are installed.  TODO: For users not defined in the
         # image, we should probably `useradd`.
         return self.step('Setup', [
-            ShellQuoted('FROM {img}').format(
-                # Docker can't deal with quotes. Oh well.
-                img=ShellQuoted(self.option('os_image')),
-            ),
+            # Docker's FROM does not understand shell quoting.
+            ShellQuoted('FROM {}'.format(self.option('os_image'))),
             # /bin/sh syntax is a pain
             ShellQuoted('SHELL ["/bin/bash", "-c"]'),
         ] + self.install_debian_deps() + [self._change_user()])
