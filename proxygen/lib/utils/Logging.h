@@ -9,10 +9,83 @@
  */
 #pragma once
 
+#include <folly/Optional.h>
 #include <folly/io/IOBuf.h>
+#include <sstream>
 #include <string>
 
 namespace proxygen {
+
+namespace logging_details {
+  std::string getStackTrace();
+}
+
+class NullStream final : public std::ostream {
+ public:
+  NullStream() = default;
+  NullStream(const NullStream&) {}
+  NullStream& operator=(NullStream&&) {
+    return *this;
+  }
+};
+
+template <typename T>
+class StackTracePrinterWithException {
+ private:
+  using StringStreamPair = std::pair<std::string, std::ostringstream>;
+ public:
+  StackTracePrinterWithException(
+      const bool checkPassed,
+      const char* checkString,
+      const char* file,
+      const int line,
+      const int logLevel)
+    : file_(file),
+      line_(line),
+      logLevel_(logLevel) {
+    if (checkPassed) {
+      nullStream_.emplace();
+    } else {
+      traceAndLogStreamPair_ = std::make_unique<StringStreamPair>();
+      traceAndLogStreamPair_->first = logging_details::getStackTrace();
+      traceAndLogStreamPair_->second << checkString;
+    }
+  }
+  std::ostream& stream() {
+    if (nullStream_) {
+      return nullStream_.value();
+    }
+    return traceAndLogStreamPair_->second;
+  }
+  ~StackTracePrinterWithException() noexcept(false) {
+    if (!nullStream_) {
+      google::LogMessage(file_, line_, logLevel_).stream()
+        << traceAndLogStreamPair_->second.str()
+        << "\nCall stack:\n"
+        << traceAndLogStreamPair_->first;
+      throw T(traceAndLogStreamPair_->second.str());
+    }
+  }
+ private:
+  const char* file_;
+  int line_;
+  int logLevel_;
+  std::unique_ptr<StringStreamPair> traceAndLogStreamPair_;
+  folly::Optional<NullStream> nullStream_;
+};
+
+template<class T>
+inline NullStream& operator<<(NullStream &ns, const T & /* ignored */) {
+  return ns;
+}
+
+#define CHECK_LOG_AND_THROW(CONDITION, LOG_LEVEL, EXCEPTION)  \
+    (StackTracePrinterWithException<EXCEPTION>(               \
+      (CONDITION),                                            \
+      "Check failed \"" #CONDITION "\": ",                    \
+      __FILE__,                                               \
+      __LINE__,                                               \
+      google::GLOG_##LOG_LEVEL)).stream()
 
 class IOBufPrinter {
  public:

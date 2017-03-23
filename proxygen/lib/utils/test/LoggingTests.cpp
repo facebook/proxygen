@@ -96,3 +96,22 @@ TEST_F(LoggingTests, dump_bin_to_file) {
   // unable to open file
   dumpBinToFile("/proc/test", nullptr);
 }
+
+TEST_F(LoggingTests, CHECK_LOG_AND_THROW_TEST) {
+  bool caughtException{false};
+  try {
+    CHECK_LOG_AND_THROW(false, ERROR, runtime_error)
+      << "Test log and exception message";
+  } catch (const runtime_error& e) {
+    caughtException = true;
+  }
+  EXPECT_TRUE(caughtException);
+  caughtException = false;
+  try {
+    CHECK_LOG_AND_THROW(true, ERROR, runtime_error)
+      << "This should not be logged";
+  } catch (const runtime_error& e) {
+    caughtException = true;
+  }
+  EXPECT_FALSE(caughtException);
+}

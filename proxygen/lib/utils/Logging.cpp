@@ -11,6 +11,7 @@
 
 #include <folly/Format.h>
 #include <folly/Memory.h>
+#include <folly/Singleton.h>
 #include <folly/String.h>
 #include <fstream>
 #include <memory>
@@ -152,6 +153,12 @@ void dumpBinToFile(const string& filename, const IOBuf* buf) {
   file.close();
   LOG(INFO) << "wrote chain " << IOBufPrinter::printChainInfo(buf)
             << " to " << filename;
+}
+
+namespace logging_details {
+std::string getStackTrace() {
+  return folly::SingletonVault::stackTraceGetter().load()();
+}
 }
 
 }
