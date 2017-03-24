@@ -394,7 +394,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     if (decodeInfo_.decodeError != HeaderDecodeError::NONE) {
       LOG(ERROR) << "Failed decoding header block for stream="
                  << curHeader_.stream << " header block=" << std::endl
-                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);;
+                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
       return ErrorCode::COMPRESSION_ERROR;
     }
     // Check parsing error

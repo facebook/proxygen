@@ -259,7 +259,7 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
   initialReceiveWindow_ = initialReceiveWindow;
   receiveStreamWindowSize_ = receiveStreamWindowSize;
   receiveSessionWindowSize_ = receiveSessionWindowSize;
-  readBufLimit_ = receiveSessionWindowSize;;
+  readBufLimit_ = receiveSessionWindowSize;
   HTTPSettings* settings = codec_->getEgressSettings();
   if (settings) {
     settings->setSetting(SettingsId::INITIAL_WINDOW_SIZE,

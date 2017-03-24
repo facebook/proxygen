@@ -173,7 +173,7 @@ ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
   auto pushTxn = txn_->newPushedTransaction(pushHandler->getHandler());
   if (!pushTxn) {
     // Codec doesn't support push
-    return nullptr;;
+    return nullptr;
   }
   auto pushHandlerAdaptor = new RequestHandlerAdaptor(pushHandler);
   pushHandlerAdaptor->setTransaction(pushTxn);
