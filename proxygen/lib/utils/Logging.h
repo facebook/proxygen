@@ -87,6 +87,30 @@ inline NullStream& operator<<(NullStream &ns, const T & /* ignored */) {
       __LINE__,                                               \
       google::GLOG_##LOG_LEVEL)).stream()
 
+#define CHECK_LOG_AND_THROW_LT(X, Y, LOG_LEVEL, EXCEPTION)    \
+  CHECK_LOG_AND_THROW((X) < (Y), LOG_LEVEL, EXCEPTION)
+
+#define CHECK_LOG_AND_THROW_LE(X, Y, LOG_LEVEL, EXCEPTION)    \
+  CHECK_LOG_AND_THROW((X) <= (Y), LOG_LEVEL, EXCEPTION)
+
+#define CHECK_LOG_AND_THROW_GT(X, Y, LOG_LEVEL, EXCEPTION)    \
+  CHECK_LOG_AND_THROW((X) > (Y), LOG_LEVEL, EXCEPTION)
+
+#define CHECK_LOG_AND_THROW_GE(X, Y, LOG_LEVEL, EXCEPTION)    \
+  CHECK_LOG_AND_THROW((X) >= (Y), LOG_LEVEL, EXCEPTION)
+
+#define CHECK_LOG_AND_THROW_EQ(X, Y, LOG_LEVEL, EXCEPTION)    \
+  CHECK_LOG_AND_THROW((X) == (Y), LOG_LEVEL, EXCEPTION)
+
+#define CHECK_LOG_AND_THROW_NE(X, Y, LOG_LEVEL, EXCEPTION)    \
+  CHECK_LOG_AND_THROW((X) != (Y), LOG_LEVEL, EXCEPTION)
+
+#define CHECK_LOG_AND_THROW_NOT_NULL(X, LOG_LEVEL, EXCEPTION) \
+  CHECK_LOG_AND_THROW((X) != nullptr, LOG_LEVEL, EXCEPTION)
+
+#define CHECK_LOG_AND_THROW_NULL(X, LOG_LEVEL, EXCEPTION)     \
+  CHECK_LOG_AND_THROW((X) == nullptr, LOG_LEVEL, EXCEPTION)
+
 class IOBufPrinter {
  public:
   enum class Format : uint8_t {
