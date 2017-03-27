@@ -19,4 +19,8 @@ void TraceEventContext::traceEventAvailable(TraceEvent event) {
   }
 }
 
+bool TraceEventContext::isAllTraceEventNeeded() const {
+  return allTraceEventNeeded_;
+}
+
 }

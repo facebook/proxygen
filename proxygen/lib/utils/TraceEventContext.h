@@ -22,12 +22,18 @@ class TraceEventContext {
   // Optional parent id for all sub trace events to add.
   uint32_t parentID;
 
-  TraceEventContext(uint32_t pID, std::vector<TraceEventObserver*> observers)
-      : parentID(pID), observers_(std::move(observers)) {}
+  TraceEventContext(uint32_t pID,
+                    std::vector<TraceEventObserver*> observers,
+                    bool allTraceEventNeeded = false)
+      : parentID(pID)
+      , observers_(std::move(observers))
+      , allTraceEventNeeded_(allTraceEventNeeded) {}
 
   explicit TraceEventContext(uint32_t pID = 0,
-                             TraceEventObserver* observer = nullptr)
-      : parentID(pID) {
+                             TraceEventObserver* observer = nullptr,
+                             bool allTraceEventNeeded = false)
+      : parentID(pID)
+      , allTraceEventNeeded_(allTraceEventNeeded) {
     if (observer) {
       observers_.push_back(observer);
     }
@@ -35,9 +41,15 @@ class TraceEventContext {
 
   void traceEventAvailable(TraceEvent event);
 
+  bool isAllTraceEventNeeded() const;
+
  private:
   // Observer vector to observe all trace events about to occur
   std::vector<TraceEventObserver*> observers_;
+
+  // Whether the observers actually care about all trace events from this
+  // context or only necessary ones.
+  bool allTraceEventNeeded_;
 };
 
 }
