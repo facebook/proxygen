@@ -461,7 +461,7 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   CHECK_NE(id, 0);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
   CHECK(!txn || !permanent);
-  Node *existingNode = find(id);
+  Node *existingNode = find(id, depth);
   if (existingNode) {
     CHECK(!permanent);
     existingNode->convertVirtualNode(CHECK_NOTNULL(txn));

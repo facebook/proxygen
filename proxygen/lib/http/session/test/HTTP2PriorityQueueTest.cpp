@@ -167,7 +167,7 @@ TEST_F(QueueTest, RemoveParentWeights) {
 }
 
 TEST_F(QueueTest, NodeDepth) {
-  uint64_t depth{33};
+  uint64_t depth{33}; // initialize to some wrong value
   addTransaction(1, {0, false, 15}, false, &depth);
   EXPECT_EQ(depth, 1);
 
@@ -182,10 +182,27 @@ TEST_F(QueueTest, NodeDepth) {
   EXPECT_EQ(q_.numPendingEgress(), 3);
   EXPECT_EQ(q_.numVirtualNodes(), 1);
 
-  addTransaction(11, {1, true, 7}, false, &depth);
+  depth = 55; // some unlikely depth
+  addTransaction(9, {1, false, 31}, false, &depth);
   EXPECT_EQ(depth, 2);
   EXPECT_EQ(q_.numPendingEgress(), 4);
+  EXPECT_EQ(q_.numVirtualNodes(), 0);
+
+  addTransaction(11, {1, true, 7}, false, &depth);
+  EXPECT_EQ(depth, 2);
+  EXPECT_EQ(q_.numPendingEgress(), 5);
+  EXPECT_EQ(q_.numVirtualNodes(), 0);
+
+  addTransaction(13, {0, true, 23}, true, &depth);
+  EXPECT_EQ(depth, 1);
+  EXPECT_EQ(q_.numPendingEgress(), 5);
   EXPECT_EQ(q_.numVirtualNodes(), 1);
+
+  depth = 77; // some unlikely depth
+  addTransaction(13, {0, true, 33}, false, &depth);
+  EXPECT_EQ(depth, 1);
+  EXPECT_EQ(q_.numPendingEgress(), 6);
+  EXPECT_EQ(q_.numVirtualNodes(), 0);
 }
 
 TEST_F(QueueTest, UpdateWeight) {
