@@ -1,1 +1,1 @@
-SUBDIRS = echo proxy
+SUBDIRS = echo proxy push
