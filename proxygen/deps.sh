@@ -27,6 +27,7 @@ cd "$(dirname "$0")"
 
 # Some extra dependencies for Ubuntu 13.10 and 14.04
 sudo apt-get install -yq \
+    git \
     cmake \
     g++ \
     flex \
