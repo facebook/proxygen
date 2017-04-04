@@ -90,7 +90,6 @@ TEST_F(HPACKContextTests, encoder_multiple_values) {
   vector<HPACKHeader> req;
   req.push_back(HPACKHeader("accept-encoding", "gzip"));
   req.push_back(HPACKHeader("accept-encoding", "sdch,gzip"));
-  // with the first encode both headers should be in the reference set
   unique_ptr<IOBuf> encoded = encoder.encode(req);
   EXPECT_TRUE(encoded->length() > 0);
   EXPECT_EQ(encoder.getTable().size(), 2);
@@ -115,9 +114,7 @@ TEST_F(HPACKContextTests, decoder_large_header) {
   auto buf = encoder.encode(headers);
   auto decoded = decoder.decode(buf.get());
   EXPECT_EQ(encoder.getTable().size(), 0);
-  EXPECT_EQ(encoder.getTable().referenceSet().size(), 0);
   EXPECT_EQ(decoder.getTable().size(), 0);
-  EXPECT_EQ(decoder.getTable().referenceSet().size(), 0);
 }
 
 /**

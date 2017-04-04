@@ -59,61 +59,6 @@ bool HPACKEncoder::willBeAdded(const HPACKHeader& header) {
   return isStatic(index) || (index == 0 && header.isIndexable());
 }
 
-void HPACKEncoder::encodeEvictedReferences(const HPACKHeader& header) {
-  uint32_t index = table_.size();
-  uint32_t bytes = table_.bytes();
-  // the header will be added to the header table
-  while (index > 0 && (bytes + header.bytes() > table_.capacity())) {
-    // double encode only if the element is in the reference set
-    if (table_.isSkippedReference(index)) {
-      // 1. this will remove the entry from the refset
-      encodeAsIndex(dynamicToGlobalIndex(index));
-      // 2. this will add the same entry to the refset and emit it
-      encodeAsIndex(dynamicToGlobalIndex(index));
-    }
-    bytes -= table_[index].bytes();
-    index--;
-  }
-}
-
-void HPACKEncoder::encodeDelta(const vector<HPACKHeader>& headers) {
-  // compute the difference between what's in reference set and what's in the
-  // reference set
-
-  list<uint32_t> refset = table_.referenceSet();
-  // what's in the headers list and in the reference set - O(N)
-  vector<uint32_t> toEncode;
-  toEncode.reserve(headers.size());
-  for (const auto& header : headers) {
-    uint32_t index = table_.getIndex(header);
-    if (index > 0 && table_.inReferenceSet(index)) {
-      toEncode.push_back(index);
-    }
-  }
-  // what's in the reference set and not in the headers list - O(NlogN)
-  std::sort(toEncode.begin(), toEncode.end());
-  vector<uint32_t> toRemove;
-  toRemove.reserve(refset.size());
-  for (auto index : refset) {
-    if (!std::binary_search(toEncode.begin(), toEncode.end(), index)) {
-      toRemove.push_back(index);
-    }
-  }
-
-  if (!toRemove.empty()) {
-    // if we need to remove more than we keep in the refset, it's better to
-    // empty the refset entirely
-    if (refset.size() - toRemove.size() < toRemove.size()) {
-      clearReferenceSet();
-    } else {
-      for (auto index : toRemove) {
-        encodeAsIndex(dynamicToGlobalIndex(index));
-        table_.removeReference(index);
-      }
-    }
-  }
-}
-
 void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
   bool indexing = header.isIndexable();
   uint8_t prefix = indexing ?
@@ -138,11 +83,6 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
 
 void HPACKEncoder::encodeAsIndex(uint32_t index) {
   buffer_.encodeInteger(index, HPACK::HeaderEncoding::INDEXED, 7);
-}
-
-void HPACKEncoder::clearReferenceSet() {
-  encodeAsIndex(0);
-  table_.clearReferenceSet();
 }
 
 void HPACKEncoder::encodeHeader(const HPACKHeader& header) {

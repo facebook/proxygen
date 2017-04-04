@@ -104,8 +104,6 @@ StaticHeaderTable::StaticHeaderTable(
   for (const auto& header : hlist) {
     add(header);
   }
-  // the static table is not involved in the delta compression
-  clearReferenceSet();
 }
 
 const HeaderTable& StaticHeaderTable::get() {

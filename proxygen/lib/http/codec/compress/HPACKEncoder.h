@@ -61,14 +61,6 @@ class HPACKEncoder : public HPACKContext {
   void encodeDelta(const std::vector<HPACKHeader>& headers);
 
   /**
-   * Figures out in advance if the header is going to evict headers
-   * that are part of the reference set and it will encode them using
-   * double indexing technique: first one will remove the index from the
-   * refset and the second one will add it again to the refset, emitting it
-   */
-  void encodeEvictedReferences(const HPACKHeader& header);
-
-  /**
    * Returns true if the given header will be added to the header table
    */
   bool willBeAdded(const HPACKHeader& header);

@@ -150,20 +150,15 @@ TEST_F(HeaderTableTests, comparison) {
   t1.add(h2);
   t2.add(h1);
   EXPECT_TRUE(t1 == t2);
-
-  // make them mismatch on refset
-  t1.addReference(1);
-  EXPECT_FALSE(t1 == t2);
 }
 
 TEST_F(HeaderTableTests, print) {
   stringstream out;
   HeaderTable t(128);
   t.add(HPACKHeader("Accept-Encoding", "gzip"));
-  t.addReference(1);
   out << t;
   EXPECT_EQ(out.str(),
-  "\n[1] (s=51) Accept-Encoding: gzip\nreference set: [1, ]\ntotal size: 51\n");
+  "\n[1] (s=51) Accept-Encoding: gzip\ntotal size: 51\n");
 }
 
 TEST_F(HeaderTableTests, increaseCapacity) {

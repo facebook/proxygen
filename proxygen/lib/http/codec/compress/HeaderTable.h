@@ -41,8 +41,7 @@ class HeaderTable {
   void init(uint32_t capacityVal);
 
   /**
-   * Add the header entry at the beginning of the table (index=1) and add the
-   * index to the reference set.
+   * Add the header entry at the beginning of the table (index=1)
    *
    * @return true if it was able to add the entry
    */
@@ -74,9 +73,6 @@ class HeaderTable {
 
   /**
    * @return the map holding the indexed names
-   *
-   * Note: this contains references to internal indices, so it's useful only
-   * for testing or instrumentation.
    */
   const names_map& names() const {
     return names_;
@@ -88,47 +84,6 @@ class HeaderTable {
    * table, but the way we pick the header can be arbitrary.
    */
   uint32_t nameIndex(const std::string& name) const;
-
-  /**
-   * Clear new references set
-   */
-  void clearSkippedReferences();
-
-  /**
-   * Tests whether the given index is a new reference.
-   */
-  bool isSkippedReference(uint32_t index) const;
-
-  /**
-   * Keep record of the given entry as a skipped reference.
-   */
-  void addSkippedReference(uint32_t index);
-
-  /**
-   * Check if a given index is part of the reference set.
-   */
-  bool inReferenceSet(uint32_t index) const;
-
-  /**
-   * Add index to the reference set.
-   */
-  void addReference(uint32_t index);
-
-  /**
-   * Remove index from the reference set.
-   */
-  void removeReference(uint32_t index);
-
-  /**
-   * Create a list with all the indices that are in the reference set. The
-   * caller will have ownership on the returned list.
-   */
-  std::list<uint32_t> referenceSet() const;
-
-  /**
-   * Remove all indices from the reference set.
-   */
-  void clearReferenceSet();
 
   /**
    * Table capacity, or maximum number of bytes we can hold.
@@ -216,8 +171,6 @@ class HeaderTable {
   uint32_t head_{0};     // points to the first element of the ring
 
   names_map names_;
-  std::unordered_set<uint32_t> refset_;
-  std::unordered_set<uint32_t> skippedRefs_;
 };
 
 std::ostream& operator<<(std::ostream& os, const HeaderTable& table);

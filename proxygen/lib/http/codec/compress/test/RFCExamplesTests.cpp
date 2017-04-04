@@ -137,24 +137,18 @@ TEST_P(RFCRequestTest, rfc_example_request) {
   EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[0]));
   EXPECT_EQ(encoder.getTable().bytes(), 57);
   EXPECT_EQ(encoder.getTable().size(), 1);
-  auto refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 0);
 
   // second request
   encoded = hpack::encodeDecode(req2, encoder, decoder);
   EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[1]));
   EXPECT_EQ(encoder.getTable().bytes(), 110);
   EXPECT_EQ(encoder.getTable().size(), 2);
-  refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 0);
 
   // third request
   encoded = hpack::encodeDecode(req3, encoder, decoder);
   EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[2]));
   EXPECT_EQ(encoder.getTable().bytes(), 164);
   EXPECT_EQ(encoder.getTable().size(), 3);
-  refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(decoder.getTable().referenceSet(), refset);
 }
 
 
@@ -176,20 +170,12 @@ TEST_P(RFCResponseTest, rfc_example_response) {
   EXPECT_EQ(encoder.getTable().size(), 4);
   EXPECT_EQ(encoder.getHeader(64).name, "cache-control");
   EXPECT_EQ(encoder.getHeader(64).value, "private");
-  auto refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 0);
-  refset = decoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 0);
 
   // second
   encoded = hpack::encodeDecode(resp2, encoder, decoder);
   EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[1]));
   EXPECT_EQ(encoder.getTable().bytes(), 222);
   EXPECT_EQ(encoder.getTable().size(), 4);
-  refset = encoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 0);
-  refset = decoder.getTable().referenceSet();
-  EXPECT_EQ(refset.size(), 0);
 
   // third
   encoded = hpack::encodeDecode(resp3, encoder, decoder);

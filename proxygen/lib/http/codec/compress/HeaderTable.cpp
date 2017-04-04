@@ -78,47 +78,8 @@ const HPACKHeader& HeaderTable::operator[](uint32_t i) const {
   return table_[toInternal(i)];
 }
 
-bool HeaderTable::inReferenceSet(uint32_t index) const {
-  return refset_.find(toInternal(index)) != refset_.end();
-}
-
-bool HeaderTable::isSkippedReference(uint32_t index) const {
-  return skippedRefs_.find(toInternal(index)) != skippedRefs_.end();
-}
-
-void HeaderTable::clearSkippedReferences() {
-  skippedRefs_.clear();
-}
-
-void HeaderTable::addSkippedReference(uint32_t index) {
-  skippedRefs_.insert(toInternal(index));
-}
-
-void HeaderTable::addReference(uint32_t index) {
-  refset_.insert(toInternal(index));
-}
-
-void HeaderTable::removeReference(uint32_t index) {
-  refset_.erase(toInternal(index));
-}
-
-void HeaderTable::clearReferenceSet() {
-  refset_.clear();
-}
-
-list<uint32_t> HeaderTable::referenceSet() const {
-  list<uint32_t> external;
-  for (auto& i : refset_) {
-    external.push_back(toExternal(i));
-  }
-  // seems like the compiler will avoid the copy here
-  return external;
-}
-
 void HeaderTable::removeLast() {
   auto t = tail();
-  refset_.erase(t);
-  skippedRefs_.erase(t);
   // remove the first element from the names index
   auto names_it = names_.find(table_[t].name);
   DCHECK(names_it != names_.end());
@@ -225,13 +186,6 @@ bool HeaderTable::operator==(const HeaderTable& other) const {
   if (bytes() != other.bytes()) {
     return false;
   }
-  list<uint32_t> refset = referenceSet();
-  refset.sort();
-  list<uint32_t> otherRefset = other.referenceSet();
-  otherRefset.sort();
-  if (refset != otherRefset) {
-    return false;
-  }
   return true;
 }
 
@@ -242,11 +196,6 @@ std::ostream& operator<<(std::ostream& os, const HeaderTable& table) {
     os << '[' << i << "] (s=" << h.bytes() << ") "
        << h.name << ": " << h.value << std::endl;
   }
-  os << "reference set: [";
-  for (const auto& index : table.referenceSet()) {
-    os << index << ", ";
-  }
-  os << "]" << std::endl;
   os << "total size: " << table.bytes() << std::endl;
   return os;
 }
