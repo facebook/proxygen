@@ -74,6 +74,11 @@ class HTTPServerOptions {
   bool h2cEnabled{false};
 
   /**
+   * Enable websocket in HTTP/1.x
+   */
+  bool h1xWebsocketEnabled{false};
+
+  /**
    * Signals on which to shutdown the server. Mostly you will want
    * {SIGINT, SIGTERM}. Note, if you have multiple deamons running or you want
    * to have a separate signal handler, leave this empty and handle signals
