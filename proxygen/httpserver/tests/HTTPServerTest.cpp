@@ -92,7 +92,7 @@ TEST(MultiBind, HandlesListenFailures) {
   HTTPServerOptions options;
   options.threads = 4;
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto server = std::make_unique<HTTPServer>(std::move(options));
 
   // We have to bind both the sockets before listening on either
   server->bind(ips);
@@ -145,7 +145,7 @@ TEST(SSL, SSLTest) {
   HTTPServerOptions options;
   options.threads = 4;
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto server = std::make_unique<HTTPServer>(std::move(options));
 
   std::vector<HTTPServer::IPConfig> ips{cfg};
   server->bind(ips);
@@ -209,12 +209,12 @@ setupServer(bool allowInsecureConnectionsOnSecureServer = false,
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto server = std::make_unique<HTTPServer>(std::move(options));
 
   std::vector<HTTPServer::IPConfig> ips{cfg};
   server->bind(ips);
 
-  auto st = folly::make_unique<ServerThread>(server.get());
+  auto st = std::make_unique<ServerThread>(server.get());
   EXPECT_TRUE(st->start());
   return std::make_pair(std::move(server), std::move(st));
 }
@@ -340,8 +340,8 @@ TEST(SSL, TestResumptionAfterUpdateFails) {
 
 TEST(GetListenSocket, TestNoBootstrap) {
   HTTPServerOptions options;
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
-  auto st = folly::make_unique<ServerThread>(server.get());
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto st = std::make_unique<ServerThread>(server.get());
   EXPECT_TRUE(st->start());
 
   auto socketFd = server->getListenSocket();
@@ -389,8 +389,8 @@ TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
   auto existingFd = serverSocket->getSocket();
   options.useExistingSocket(std::move(serverSocket));
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
-  auto st = folly::make_unique<ServerThread>(server.get());
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto st = std::make_unique<ServerThread>(server.get());
   server->bind(ips);
 
   EXPECT_TRUE(st->start());
@@ -413,8 +413,8 @@ TEST(UseExistingSocket, TestWithSocketFd) {
   auto existingFd = serverSocket->getSocket();
   options.useExistingSocket(existingFd);
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
-  auto st = folly::make_unique<ServerThread>(server.get());
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto st = std::make_unique<ServerThread>(server.get());
   std::vector<HTTPServer::IPConfig> ips{cfg};
   server->bind(ips);
 
@@ -444,8 +444,8 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
   auto existingFds = serverSocket->getSockets();
   options.useExistingSockets(existingFds);
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
-  auto st = folly::make_unique<ServerThread>(server.get());
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto st = std::make_unique<ServerThread>(server.get());
   std::vector<HTTPServer::IPConfig> ips{cfg};
   server->bind(ips);
 

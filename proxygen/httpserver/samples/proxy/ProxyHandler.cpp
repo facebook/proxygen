@@ -90,7 +90,7 @@ void ProxyHandler::onEOM() noexcept {
 
 void ProxyHandler::connectSuccess(HTTPUpstreamSession* session) {
   LOG(INFO) << "Established " << *session;
-  session_ = folly::make_unique<SessionWrapper>(session);
+  session_ = std::make_unique<SessionWrapper>(session);
   txn_ = session->newTransaction(&serverHandler_);
   LOG(INFO) << "Forwarding client request: " << request_->getURL()
             << " to server";

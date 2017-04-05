@@ -139,7 +139,7 @@ inline std::unique_ptr<ScopedHTTPServer> ScopedHTTPServer::start(
     std::unique_ptr<wangle::SSLContextConfig> sslCfg) {
 
   std::unique_ptr<RequestHandlerFactory> f =
-      folly::make_unique<ScopedHandlerFactory<HandlerType>>(handler);
+      std::make_unique<ScopedHandlerFactory<HandlerType>>(handler);
   return start(std::move(f), port, numThreads, std::move(sslCfg));
 }
 
@@ -170,7 +170,7 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
 
   options.handlerFactories.push_back(std::move(f));
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto server = std::make_unique<HTTPServer>(std::move(options));
   server->bind(IPs);
 
   // Start the server

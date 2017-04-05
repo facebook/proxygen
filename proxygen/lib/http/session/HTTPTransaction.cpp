@@ -1157,7 +1157,7 @@ bool HTTPTransaction::mustQueueIngress() const {
 
 void HTTPTransaction::checkCreateDeferredIngress() {
   if (!deferredIngress_) {
-    deferredIngress_ = folly::make_unique<std::queue<HTTPEvent>>();
+    deferredIngress_ = std::make_unique<std::queue<HTTPEvent>>();
   }
 }
 

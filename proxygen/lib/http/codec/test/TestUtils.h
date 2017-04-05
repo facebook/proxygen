@@ -109,7 +109,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     } else {
       sessionErrors++;
     }
-    lastParseError = folly::make_unique<HTTPException>(error);
+    lastParseError = std::make_unique<HTTPException>(error);
   }
 
   void onAbort(HTTPCodec::StreamID stream, ErrorCode code) override {

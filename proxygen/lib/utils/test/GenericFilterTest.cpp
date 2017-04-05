@@ -120,7 +120,7 @@ class TestFilterNoCallbackNoCall: public TestFilter<Owned> {
 
 template<bool Owned>
 typename std::enable_if<Owned, unique_ptr<MockTester>>::type getTester() {
-  return folly::make_unique<MockTester>();
+  return std::make_unique<MockTester>();
 }
 
 template<bool Owned>
@@ -137,7 +137,7 @@ class GenericFilterTest: public testing::Test {
                    MockTesterCallback* expectedCb);
 
   void SetUp() override {
-    chain_ = folly::make_unique<
+    chain_ = std::make_unique<
       FilterChain<TesterInterface, TesterInterface::Callback,
                   TestFilter<Owned>,
                   &TesterInterface::setCallback,
@@ -158,7 +158,7 @@ class GenericFilterTest: public testing::Test {
 
   template<typename FilterT>
   typename std::enable_if<Owned, unique_ptr<FilterT>>::type getFilter() {
-    return folly::make_unique<FilterT>();
+    return std::make_unique<FilterT>();
   }
 
   template<typename FilterT>
@@ -246,7 +246,7 @@ TEST_F(OwnedGenericFilterTest, empty_chain) {
 }
 
 TEST_F(OwnedGenericFilterTest, single_elem_chain) {
-  auto filterUnique = folly::make_unique<TestFilter<true>>();
+  auto filterUnique = std::make_unique<TestFilter<true>>();
   auto filter = filterUnique.get();
   chain().addFilters(std::move(filterUnique));
   EXPECT_EQ(filter->do_, 0);
@@ -257,9 +257,9 @@ TEST_F(OwnedGenericFilterTest, single_elem_chain) {
 }
 
 TEST_F(OwnedGenericFilterTest, multi_elem_chain) {
-  auto f1 = folly::make_unique<TestFilter<true>>();
-  auto f2 = folly::make_unique<TestFilter<true>>();
-  auto f3 = folly::make_unique<TestFilter<true>>();
+  auto f1 = std::make_unique<TestFilter<true>>();
+  auto f2 = std::make_unique<TestFilter<true>>();
+  auto f3 = std::make_unique<TestFilter<true>>();
   TestFilter<true>* fp1 = f1.get();
   TestFilter<true>* fp2 = f2.get();
   TestFilter<true>* fp3 = f3.get();
@@ -276,7 +276,7 @@ TEST_F(OwnedGenericFilterTest, multi_elem_chain) {
 TEST_F(OwnedGenericFilterTest, multi_elem_multi_add) {
   std::deque<TestFilter<true>*> filters;
   for (unsigned i = 0; i < 10; ++i) {
-    auto filter = folly::make_unique<TestFilter<true>>();
+    auto filter = std::make_unique<TestFilter<true>>();
     filters.push_back(filter.get());
     chain().addFilters(std::move(filter));
   }
@@ -288,10 +288,10 @@ TEST_F(OwnedGenericFilterTest, multi_elem_multi_add) {
 }
 
 TEST_F(OwnedGenericFilterTest, wants) {
-  auto f1 = folly::make_unique<TestFilter<true>>();
-  auto f2 = folly::make_unique<TestFilterNoCallback<true>>();
-  auto f3 = folly::make_unique<TestFilterNoCall<true>>();
-  auto f4 = folly::make_unique<TestFilterNoCallbackNoCall<true>>();
+  auto f1 = std::make_unique<TestFilter<true>>();
+  auto f2 = std::make_unique<TestFilterNoCallback<true>>();
+  auto f3 = std::make_unique<TestFilterNoCall<true>>();
+  auto f4 = std::make_unique<TestFilterNoCallbackNoCall<true>>();
   TestFilter<true>* fp1 = f1.get();
   TestFilter<true>* fp2 = f2.get();
   TestFilter<true>* fp3 = f3.get();
@@ -313,8 +313,8 @@ TEST_F(OwnedGenericFilterTest, wants) {
 }
 
 TEST_F(OwnedGenericFilterTest, wants_multi_add) {
-  auto f1 = folly::make_unique<TestFilterNoCallback<true>>();
-  auto f2 = folly::make_unique<TestFilterNoCall<true>>();
+  auto f1 = std::make_unique<TestFilterNoCallback<true>>();
+  auto f2 = std::make_unique<TestFilterNoCall<true>>();
   TestFilter<true>* fp1 = f1.get();
   TestFilter<true>* fp2 = f2.get();
   chain().addFilters(std::move(f1));
@@ -357,7 +357,7 @@ TEST_F(OwnedGenericFilterTest, wants_multi_add_hard) {
 TEST_F(OwnedGenericFilterTest, change_callback) {
   // The call-only filter in the chain doesn't want callbacks, so doing
   // chain()->setCallback() is an error! Instead, must use chain().setCallback()
-  auto f = folly::make_unique<TestFilterNoCallback<true>>();
+  auto f = std::make_unique<TestFilterNoCallback<true>>();
   MockTesterCallback callback2;
 
   TestFilter<true>* fp = f.get();
@@ -508,7 +508,7 @@ TEST_F(OwnedGenericFilterTest, delete_chain) {
   int deletions = 0;
   for (unsigned i = 0; i < NUM_FILTERS; ++i) {
     chain().addFilters(
-      folly::make_unique<TestFilterOddDeleteOn<true>>(&deletions));
+      std::make_unique<TestFilterOddDeleteOn<true>>(&deletions));
   }
   chain_.reset();
   EXPECT_EQ(deletions, NUM_FILTERS);

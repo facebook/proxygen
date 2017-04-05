@@ -67,7 +67,7 @@ class ResponseBuilder {
   }
 
   ResponseBuilder& promise(const std::string& url, const std::string& host) {
-    headers_ = folly::make_unique<HTTPMessage>();
+    headers_ = std::make_unique<HTTPMessage>();
     headers_->setHTTPVersion(1, 1);
     headers_->setURL(url);
     headers_->getHeaders().set(HTTP_HEADER_HOST, host);
@@ -75,7 +75,7 @@ class ResponseBuilder {
   }
 
   ResponseBuilder& status(uint16_t code, const std::string& message) {
-    headers_ = folly::make_unique<HTTPMessage>();
+    headers_ = std::make_unique<HTTPMessage>();
     headers_->setHTTPVersion(1, 1);
     headers_->setStatusCode(code);
     headers_->setStatusMessage(message);
@@ -173,7 +173,7 @@ class ResponseBuilder {
 
   void acceptUpgradeRequest(UpgradeType upgradeType,
                             const std::string upgradeProtocol = "") {
-    headers_ = folly::make_unique<HTTPMessage>();
+    headers_ = std::make_unique<HTTPMessage>();
     if (upgradeType == UpgradeType::CONNECT_REQUEST) {
       headers_->constructDirectResponse({1, 1}, 200, "OK");
     } else {
@@ -186,7 +186,7 @@ class ResponseBuilder {
   }
 
   void rejectUpgradeRequest() {
-    headers_ = folly::make_unique<HTTPMessage>();
+    headers_ = std::make_unique<HTTPMessage>();
     headers_->constructDirectResponse({1, 1}, 400, "Bad Request");
     txn_->sendHeaders(*headers_);
     txn_->sendEOM();

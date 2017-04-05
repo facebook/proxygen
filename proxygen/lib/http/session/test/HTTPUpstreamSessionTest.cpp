@@ -250,7 +250,7 @@ class HTTPUpstreamTest: public testing::Test,
   std::unique_ptr<StrictMock<MockHTTPHandler>> openTransaction(
     bool expectStartPaused = false) {
     // Returns a mock handler with txn_ field set in it
-    auto handler = folly::make_unique<StrictMock<MockHTTPHandler>>();
+    auto handler = std::make_unique<StrictMock<MockHTTPHandler>>();
     handler->expectTransaction();
     if (expectStartPaused) {
       handler->expectEgressPaused();
@@ -263,7 +263,7 @@ class HTTPUpstreamTest: public testing::Test,
   std::unique_ptr<NiceMock<MockHTTPHandler>> openNiceTransaction(
     bool expectStartPaused = false) {
     // Returns a mock handler with txn_ field set in it
-    auto handler = folly::make_unique<NiceMock<MockHTTPHandler>>();
+    auto handler = std::make_unique<NiceMock<MockHTTPHandler>>();
     handler->expectTransaction();
     if (expectStartPaused) {
       handler->expectEgressPaused();
@@ -632,7 +632,7 @@ class HTTP2UpstreamSessionWithVirtualNodesTest:
   public HTTPUpstreamTest<MockHTTPCodecPair> {
  public:
   void SetUp() override {
-    auto codec = folly::make_unique<NiceMock<MockHTTPCodec>>();
+    auto codec = std::make_unique<NiceMock<MockHTTPCodec>>();
     codecPtr_ = codec.get();
     EXPECT_CALL(*codec, supportsParallelRequests())
       .WillRepeatedly(Return(true));
@@ -1331,7 +1331,7 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
 class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
  public:
   void SetUp() override {
-    auto codec = folly::make_unique<NiceMock<MockHTTPCodec>>();
+    auto codec = std::make_unique<NiceMock<MockHTTPCodec>>();
     codecPtr_ = codec.get();
     EXPECT_CALL(*codec, supportsParallelRequests())
       .WillRepeatedly(Return(true));
@@ -1375,7 +1375,7 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
 
   std::unique_ptr<StrictMock<MockHTTPHandler>> openTransaction() {
     // Returns a mock handler with txn_ field set in it
-    auto handler = folly::make_unique<StrictMock<MockHTTPHandler>>();
+    auto handler = std::make_unique<StrictMock<MockHTTPHandler>>();
     handler->expectTransaction();
     auto txn = httpSession_->newTransaction(handler.get());
     EXPECT_EQ(txn, handler->txn_);
@@ -1842,7 +1842,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
       doAbort();
     }
     codecCb_->onTrailersComplete(streamID,
-                                 folly::make_unique<HTTPHeaders>());
+                                 std::make_unique<HTTPHeaders>());
     if (stage == 5) {
       doAbort();
     }
@@ -2067,7 +2067,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_handler_install_fail) {
               generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
     .Times(2);
 
-  auto resp = folly::make_unique<HTTPMessage>();
+  auto resp = std::make_unique<HTTPMessage>();
   resp->setStatusCode(200);
   resp->setStatusMessage("OK");
   codecCb_->onPushMessageBegin(pushID, streamID, resp.get());
@@ -2080,7 +2080,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_handler_install_fail) {
     });
   handler->expectEOM();
 
-  resp = folly::make_unique<HTTPMessage>();
+  resp = std::make_unique<HTTPMessage>();
   resp->setStatusCode(200);
   resp->setStatusMessage("OK");
   codecCb_->onMessageBegin(streamID, resp.get());
@@ -2115,7 +2115,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_unhandled_assoc) {
               generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
     .Times(2);
 
-  auto resp = folly::make_unique<HTTPMessage>();
+  auto resp = std::make_unique<HTTPMessage>();
   resp->setStatusCode(200);
   resp->setStatusMessage("OK");
   codecCb_->onPushMessageBegin(pushID, streamID, resp.get());

@@ -87,7 +87,7 @@ class HTTPSessionAcceptorTestBase :
   }
 
   void newAcceptor() {
-    acceptor_ = folly::make_unique<HTTPTargetSessionAcceptor>(config_);
+    acceptor_ = std::make_unique<HTTPTargetSessionAcceptor>(config_);
     EXPECT_CALL(mockServerSocket_, addAcceptCallback(_, _, _));
     acceptor_->init(&mockServerSocket_, &eventBase_);
   }

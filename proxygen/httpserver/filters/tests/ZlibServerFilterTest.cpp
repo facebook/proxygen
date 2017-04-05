@@ -37,8 +37,8 @@ class ZlibServerFilterTest : public Test {
   void SetUp() override {
     // requesthandler is the server, responsehandler is the client
     requestHandler_ = new MockRequestHandler();
-    responseHandler_ = folly::make_unique<MockResponseHandler>(requestHandler_);
-    zd_ = folly::make_unique<ZlibStreamDecompressor>(ZlibCompressionType::GZIP);
+    responseHandler_ = std::make_unique<MockResponseHandler>(requestHandler_);
+    zd_ = std::make_unique<ZlibStreamDecompressor>(ZlibCompressionType::GZIP);
   }
 
   void TearDown() override {
@@ -145,7 +145,7 @@ class ZlibServerFilterTest : public Test {
     msg.getHeaders().set(HTTP_HEADER_ACCEPT_ENCODING, acceptedEncoding);
 
     std::set<std::string> compressibleTypes = {"text/html"};
-    auto filterFactory = folly::make_unique<ZlibServerFilterFactory>(
+    auto filterFactory = std::make_unique<ZlibServerFilterFactory>(
         compressionLevel, minimumCompressionSize, compressibleTypes);
 
     auto filter = filterFactory->onRequest(requestHandler_, &msg);

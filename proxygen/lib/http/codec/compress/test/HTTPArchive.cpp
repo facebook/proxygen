@@ -53,7 +53,7 @@ std::unique_ptr<IOBuf> readFileToIOBuf(const std::string& filename) {
 }
 
 unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
-  unique_ptr<HTTPArchive> har = folly::make_unique<HTTPArchive>();
+  unique_ptr<HTTPArchive> har = std::make_unique<HTTPArchive>();
   auto buffer = readFileToIOBuf(filename);
   if (!buffer) {
     return nullptr;
@@ -116,7 +116,7 @@ uint32_t HTTPArchive::getSize(const vector<HPACKHeader> &headers) {
 }
 
 unique_ptr<HTTPArchive> HTTPArchive::fromPublicFile(const string& filename) {
-  unique_ptr<HTTPArchive> har = folly::make_unique<HTTPArchive>();
+  unique_ptr<HTTPArchive> har = std::make_unique<HTTPArchive>();
   auto buffer = readFileToIOBuf(filename);
   if (!buffer) {
     return nullptr;

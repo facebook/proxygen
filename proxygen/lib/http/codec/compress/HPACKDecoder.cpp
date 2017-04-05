@@ -25,7 +25,7 @@ using proxygen::HPACK::DecodeError;
 namespace proxygen {
 
 unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
-  auto headers = folly::make_unique<headers_t>();
+  auto headers = std::make_unique<headers_t>();
   Cursor cursor(buffer);
   uint32_t totalBytes = buffer ? cursor.totalLength() : 0;
   decode(cursor, totalBytes, *headers);

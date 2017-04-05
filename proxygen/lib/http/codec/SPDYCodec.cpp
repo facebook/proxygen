@@ -178,7 +178,7 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
   VLOG(4) << "creating SPDY/" << static_cast<int>(versionSettings_.majorVersion)
           << "." << static_cast<int>(versionSettings_.minorVersion)
           << " codec";
-  headerCodec_ = folly::make_unique<GzipHeaderCodec>(
+  headerCodec_ = std::make_unique<GzipHeaderCodec>(
     spdyCompressionLevel, versionSettings_);
 
   // Limit uncompressed headers to 128kb

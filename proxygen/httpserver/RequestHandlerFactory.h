@@ -60,7 +60,7 @@ class RequestHandlerChain {
 
   template <typename T, typename... Args>
   RequestHandlerChain& addThen(Args&&... args) {
-    chain_.push_back(folly::make_unique<T>(std::forward<Args>(args)...));
+    chain_.push_back(std::make_unique<T>(std::forward<Args>(args)...));
     return *this;
   }
 

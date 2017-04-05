@@ -28,12 +28,12 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
                                 bool forceHTTP1xCodecTo1_1) {
   auto spdyVersion = SPDYCodec::getVersion(chosenProto);
   if (spdyVersion) {
-    return folly::make_unique<SPDYCodec>(TransportDirection::UPSTREAM,
+    return std::make_unique<SPDYCodec>(TransportDirection::UPSTREAM,
                                          *spdyVersion);
   } else if (chosenProto == proxygen::http2::kProtocolString ||
              chosenProto == proxygen::http2::kProtocolDraftString ||
              chosenProto == proxygen::http2::kProtocolExperimentalString) {
-    return folly::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
+    return std::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
   } else {
     if (!chosenProto.empty() &&
         !HTTP1xCodec::supportsNextProtocol(chosenProto)) {
@@ -42,7 +42,7 @@ unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
         "Attempting to use HTTP/1.1";
     }
 
-    return folly::make_unique<HTTP1xCodec>(TransportDirection::UPSTREAM,
+    return std::make_unique<HTTP1xCodec>(TransportDirection::UPSTREAM,
                                            forceHTTP1xCodecTo1_1);
   }
 }

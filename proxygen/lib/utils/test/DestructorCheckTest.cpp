@@ -28,7 +28,7 @@ TEST(DestructorCheckTest, SingleGuard) {
 }
 
 TEST(DestructorCheckTest, SingleGuardDestroyed) {
-  auto d = folly::make_unique<Derived>();
+  auto d = std::make_unique<Derived>();
   Derived::Safety s(*d);
   ASSERT_FALSE(s.destroyed());
   d.reset();
@@ -37,16 +37,16 @@ TEST(DestructorCheckTest, SingleGuardDestroyed) {
 
 TEST(DestructorCheckTest, MultipleGuards) {
   Derived d;
-  auto s1 = folly::make_unique<Derived::Safety>(d);
-  auto s2 = folly::make_unique<Derived::Safety>(d);
-  auto s3 = folly::make_unique<Derived::Safety>(d);
+  auto s1 = std::make_unique<Derived::Safety>(d);
+  auto s2 = std::make_unique<Derived::Safety>(d);
+  auto s3 = std::make_unique<Derived::Safety>(d);
 
   // Remove the middle of the list.
   ASSERT_FALSE(s2->destroyed());
   s2.reset();
 
   // Add in a link after a removal has occurred.
-  auto s4 = folly::make_unique<Derived::Safety>(d);
+  auto s4 = std::make_unique<Derived::Safety>(d);
 
   // Remove the beginning of the list.
   ASSERT_FALSE(s1->destroyed());
@@ -60,11 +60,11 @@ TEST(DestructorCheckTest, MultipleGuards) {
 }
 
 TEST(DestructorCheckTest, MultipleGuardsDestroyed) {
-  auto d = folly::make_unique<Derived>();
-  auto s1 = folly::make_unique<Derived::Safety>(*d);
-  auto s2 = folly::make_unique<Derived::Safety>(*d);
-  auto s3 = folly::make_unique<Derived::Safety>(*d);
-  auto s4 = folly::make_unique<Derived::Safety>(*d);
+  auto d = std::make_unique<Derived>();
+  auto s1 = std::make_unique<Derived::Safety>(*d);
+  auto s2 = std::make_unique<Derived::Safety>(*d);
+  auto s3 = std::make_unique<Derived::Safety>(*d);
+  auto s4 = std::make_unique<Derived::Safety>(*d);
 
   // Remove something from the list.
   ASSERT_FALSE(s2->destroyed());

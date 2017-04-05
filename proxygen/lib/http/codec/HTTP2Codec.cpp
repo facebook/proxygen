@@ -245,7 +245,7 @@ ErrorCode HTTP2Codec::parseAllData(Cursor& cursor) {
 
   if (callback_ && (padding > 0 || (outData && !outData->empty()))) {
     if (!outData) {
-      outData = folly::make_unique<IOBuf>();
+      outData = std::make_unique<IOBuf>();
     }
     deliverCallbackIfAllowed(&HTTPCodec::Callback::onBody, "onBody",
                              curHeader_.stream, std::move(outData), padding);
@@ -322,7 +322,7 @@ ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
 
   if (callback_ && (padding > 0 || (outData && !outData->empty()))) {
     if (!outData) {
-      outData = folly::make_unique<IOBuf>();
+      outData = std::make_unique<IOBuf>();
     }
     deliverCallbackIfAllowed(&HTTPCodec::Callback::onBody, "onBody",
                              curHeader_.stream, std::move(outData), padding);
@@ -368,7 +368,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     Cursor headerCursor(curHeaderBlock_.front());
     bool isRequest = (transportDirection_ == TransportDirection::DOWNSTREAM ||
                       promisedStream);
-    msg = folly::make_unique<HTTPMessage>();
+    msg = std::make_unique<HTTPMessage>();
     if (priority) {
       if (curHeader_.stream == priority->streamDependency) {
         streamError(folly::to<string>("Circular dependency for txn=",

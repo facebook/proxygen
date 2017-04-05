@@ -26,7 +26,7 @@ const HTTPSettings kDefaultIngressSettings{
 };
 
 std::unique_ptr<HTTPMessage> getPriorityMessage(uint8_t priority) {
-  auto ret = folly::make_unique<HTTPMessage>();
+  auto ret = std::make_unique<HTTPMessage>();
   ret->setAdvancedProtocolString(spdy::kVersionStrv2);
   ret->setPriority(priority);
   return ret;
@@ -48,7 +48,7 @@ std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
 
 std::unique_ptr<testing::NiceMock<MockHTTPCodec>>
 makeMockParallelCodec(TransportDirection dir) {
-  auto codec = folly::make_unique<testing::NiceMock<MockHTTPCodec>>();
+  auto codec = std::make_unique<testing::NiceMock<MockHTTPCodec>>();
   EXPECT_CALL(*codec, supportsParallelRequests())
     .WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*codec, getProtocol())
@@ -82,7 +82,7 @@ HTTPMessage getGetRequest(const std::string& url) {
 }
 
 std::unique_ptr<HTTPMessage> makeGetRequest() {
-  return folly::make_unique<HTTPMessage>(getGetRequest());
+  return std::make_unique<HTTPMessage>(getGetRequest());
 }
 
 HTTPMessage getPostRequest(uint32_t contentLength) {
@@ -97,7 +97,7 @@ HTTPMessage getPostRequest(uint32_t contentLength) {
 }
 
 std::unique_ptr<HTTPMessage> makePostRequest(uint32_t contentLength) {
-  return folly::make_unique<HTTPMessage>(getPostRequest(contentLength));
+  return std::make_unique<HTTPMessage>(getPostRequest(contentLength));
 }
 
 HTTPMessage getResponse(uint32_t code, uint32_t bodyLen) {
@@ -111,7 +111,7 @@ HTTPMessage getResponse(uint32_t code, uint32_t bodyLen) {
 }
 
 std::unique_ptr<HTTPMessage> makeResponse(uint16_t statusCode) {
-  auto resp = folly::make_unique<HTTPMessage>();
+  auto resp = std::make_unique<HTTPMessage>();
   resp->setStatusCode(statusCode);
   resp->setHTTPVersion(1, 1);
   return resp;

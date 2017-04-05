@@ -1222,7 +1222,7 @@ class HTTPSession:
    public:
     explicit ShutdownTransportCallback(HTTPSession* session) :
         session_(session),
-        dg_(folly::make_unique<DestructorGuard>(session)) { }
+        dg_(std::make_unique<DestructorGuard>(session)) { }
 
     ~ShutdownTransportCallback() override { }
 

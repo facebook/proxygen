@@ -56,7 +56,7 @@ class ZlibServerFilter : public Filter {
       Filter::sendHeaders(msg);
       header_ = true;
     } else {
-      responseMessage_ = folly::make_unique<HTTPMessage>(msg);
+      responseMessage_ = std::make_unique<HTTPMessage>(msg);
     }
   }
 
@@ -85,7 +85,7 @@ class ZlibServerFilter : public Filter {
 
     //First time through the compressor
     if (compressor_ == nullptr) {
-      compressor_ = folly::make_unique<ZlibStreamCompressor>(
+      compressor_ = std::make_unique<ZlibStreamCompressor>(
           proxygen::ZlibCompressionType::GZIP, compressionLevel_);
 
       if (!compressor_ || compressor_->hasError()) {

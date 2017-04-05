@@ -27,7 +27,7 @@ class EchoHandlerFixture : public testing::Test {
  public:
   void SetUp() override {
     handler = new EchoHandler(&stats);
-    responseHandler = folly::make_unique<MockResponseHandler>(handler);
+    responseHandler = std::make_unique<MockResponseHandler>(handler);
     handler->setResponseHandler(responseHandler.get());
   }
 

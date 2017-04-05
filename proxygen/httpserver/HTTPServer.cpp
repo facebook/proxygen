@@ -62,7 +62,7 @@ HTTPServer::HTTPServer(HTTPServerOptions options):
   if (!options_->supportsConnect) {
     options_->handlerFactories.insert(
         options_->handlerFactories.begin(),
-        folly::make_unique<RejectConnectFilterFactory>());
+        std::make_unique<RejectConnectFilterFactory>());
   }
 
   // Add Content Compression filter (gzip), if needed. Should be
@@ -70,7 +70,7 @@ HTTPServer::HTTPServer(HTTPServerOptions options):
   if (options_->enableContentCompression) {
     options_->handlerFactories.insert(
         options_->handlerFactories.begin(),
-        folly::make_unique<ZlibServerFilterFactory>(
+        std::make_unique<ZlibServerFilterFactory>(
           options_->contentCompressionLevel,
           options_->contentCompressionMinimumSize,
           options_->contentCompressionTypes));
@@ -162,7 +162,7 @@ void HTTPServer::start(std::function<void()> onSuccess,
 
   // Install signal handler if required
   if (!options_->shutdownOn.empty()) {
-    signalHandler_ = folly::make_unique<SignalHandler>(this);
+    signalHandler_ = std::make_unique<SignalHandler>(this);
     signalHandler_->install(options_->shutdownOn);
   }
 

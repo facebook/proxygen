@@ -32,26 +32,26 @@ HTTPDefaultSessionCodecFactory::HTTPDefaultSessionCodecFactory(
 std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
     const std::string& nextProtocol, TransportDirection direction) {
   if (!isSSL_ && alwaysUseSPDYVersion_) {
-    return folly::make_unique<SPDYCodec>(direction,
+    return std::make_unique<SPDYCodec>(direction,
                                          alwaysUseSPDYVersion_.value(),
                                          accConfig_.spdyCompressionLevel);
   } else if (!isSSL_ && alwaysUseHTTP2_) {
-    return folly::make_unique<HTTP2Codec>(direction);
+    return std::make_unique<HTTP2Codec>(direction);
   } else if (nextProtocol.empty() ||
              HTTP1xCodec::supportsNextProtocol(nextProtocol)) {
-    auto codec = folly::make_unique<HTTP1xCodec>(direction);
+    auto codec = std::make_unique<HTTP1xCodec>(direction);
     if (!isSSL_) {
       codec->setAllowedUpgradeProtocols(
         accConfig_.allowedPlaintextUpgradeProtocols);
     }
     return std::move(codec);
   } else if (auto version = SPDYCodec::getVersion(nextProtocol)) {
-    return folly::make_unique<SPDYCodec>(direction, *version,
+    return std::make_unique<SPDYCodec>(direction, *version,
                                          accConfig_.spdyCompressionLevel);
   } else if (nextProtocol == http2::kProtocolString ||
              nextProtocol == http2::kProtocolDraftString ||
              nextProtocol == http2::kProtocolExperimentalString) {
-    return folly::make_unique<HTTP2Codec>(direction);
+    return std::make_unique<HTTP2Codec>(direction);
   } else {
     VLOG(2) << "Client requested unrecognized next protocol " << nextProtocol;
   }

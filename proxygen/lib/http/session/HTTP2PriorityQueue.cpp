@@ -493,7 +493,7 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   }
   VLOG(4) << "Adding id=" << id << " with parent=" << parent->getID() <<
     " and weight=" << ((uint16_t)pri.weight + 1);
-  auto node = folly::make_unique<Node>(*this, parent, id, pri.weight, txn);
+  auto node = std::make_unique<Node>(*this, parent, id, pri.weight, txn);
   if (permanent) {
     node->setPermanent();
   } else if (!txn) {

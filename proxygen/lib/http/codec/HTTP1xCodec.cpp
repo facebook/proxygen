@@ -927,7 +927,7 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
           upgradeResult_ = *result;
           // unfortunately have to copy because msg_ is passed to
           // onHeadersComplete
-          upgradeRequest_ = folly::make_unique<HTTPMessage>(*msg_);
+          upgradeRequest_ = std::make_unique<HTTPMessage>(*msg_);
         }
       }
     }

@@ -73,10 +73,10 @@ namespace { struct BufferTag {}; }
 static folly::SingletonThreadLocal<unique_ptr<IOBuf>, BufferTag> s_buf{};
 folly::IOBuf& getStaticHeaderBufSpace(size_t size) {
   if (!s_buf.get()) {
-    s_buf.get() = folly::make_unique<IOBuf>(IOBuf::CREATE, size);
+    s_buf.get() = std::make_unique<IOBuf>(IOBuf::CREATE, size);
   } else {
     if (size > s_buf.get()->capacity()) {
-      s_buf.get() = folly::make_unique<IOBuf>(IOBuf::CREATE, size);
+      s_buf.get() = std::make_unique<IOBuf>(IOBuf::CREATE, size);
     } else {
       s_buf.get()->clear();
     }
@@ -107,7 +107,7 @@ static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
     // This is the first request for the specified SPDY version and compression
     // level in this thread, so we need to construct the initial compressor and
     // decompressor contexts.
-    auto newContext = folly::make_unique<ZlibContext>();
+    auto newContext = std::make_unique<ZlibContext>();
     newContext->deflater.zalloc = Z_NULL;
     newContext->deflater.zfree = Z_NULL;
     newContext->deflater.opaque = Z_NULL;

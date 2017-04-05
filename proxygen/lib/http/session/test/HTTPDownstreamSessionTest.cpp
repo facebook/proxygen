@@ -127,7 +127,7 @@ class HTTPDownstreamTest : public testing::Test {
   std::unique_ptr<testing::StrictMock<MockHTTPHandler>>
   addSimpleStrictHandler() {
     std::unique_ptr<testing::StrictMock<MockHTTPHandler>> handler =
-      folly::make_unique<testing::StrictMock<MockHTTPHandler>>();
+      std::make_unique<testing::StrictMock<MockHTTPHandler>>();
 
     // The ownership model here is suspect, but assume the callers won't destroy
     // handler before it's requested
@@ -145,7 +145,7 @@ class HTTPDownstreamTest : public testing::Test {
   std::unique_ptr<testing::NiceMock<MockHTTPHandler>>
   addSimpleNiceHandler() {
     std::unique_ptr<testing::NiceMock<MockHTTPHandler>> handler =
-      folly::make_unique<testing::NiceMock<MockHTTPHandler>>();
+      std::make_unique<testing::NiceMock<MockHTTPHandler>>();
 
     // See comment above
     auto rawHandler = handler.get();
@@ -819,7 +819,7 @@ TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
   // The original byteEventTracker will process the last byte event of the
   // first transaction, and detach by deleting the event.  Swap out the tracker.
   handler1->expectDetachTransaction([this] {
-      auto tracker = folly::make_unique<ByteEventTracker>(httpSession_);
+      auto tracker = std::make_unique<ByteEventTracker>(httpSession_);
       httpSession_->setByteEventTracker(std::move(tracker));
     });
   // handler2 should also be detached immediately because the new

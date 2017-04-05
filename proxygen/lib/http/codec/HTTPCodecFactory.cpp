@@ -18,13 +18,13 @@ std::unique_ptr<HTTPCodec> HTTPCodecFactory::getCodec(
   CodecProtocol protocol, TransportDirection direction) {
   switch (protocol) {
     case CodecProtocol::HTTP_1_1:
-      return folly::make_unique<HTTP1xCodec>(direction);
+      return std::make_unique<HTTP1xCodec>(direction);
     case CodecProtocol::SPDY_3:
-      return folly::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3);
+      return std::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3);
     case CodecProtocol::SPDY_3_1:
-      return folly::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3_1);
+      return std::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3_1);
     case CodecProtocol::HTTP_2:
-      return folly::make_unique<HTTP2Codec>(direction);
+      return std::make_unique<HTTP2Codec>(direction);
   }
   LOG(FATAL) << "Unreachable";
   return nullptr;
