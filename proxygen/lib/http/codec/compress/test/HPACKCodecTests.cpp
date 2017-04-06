@@ -13,6 +13,7 @@
 #include <glog/logging.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKQueue.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <vector>
@@ -79,16 +80,58 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
   uint32_t errors{0};
 };
 
-class HPACKCodecTests : public testing::Test {
-
- protected:
-  vector<Header> headersFromArray(vector<vector<string>>& a) {
-    vector<Header> headers;
-    for (auto& ha : a) {
-      headers.push_back(Header(ha[0], ha[1]));
-    }
-    return headers;
+class TestStreamingCallback : public HeaderCodec::StreamingCallback {
+ public:
+  void onHeader(const std::string& name,
+                const std::string& value) override {
+    headers.emplace_back(duplicate(name), name.size(), true, false);
+    headers.emplace_back(duplicate(value), value.size(), true, false);
   }
+  void onHeadersComplete() override {
+    if (headersCompleteCb) {
+      headersCompleteCb();
+    }
+  }
+  void onDecodeError(HeaderDecodeError decodeError) override {
+    error = decodeError;
+  }
+
+  void reset() {
+    headers.clear();
+    error = HeaderDecodeError::NONE;
+  }
+
+  Result<HeaderDecodeResult, HeaderDecodeError> getResult() {
+    if (error == HeaderDecodeError::NONE) {
+      return HeaderDecodeResult{headers, 0};
+    } else {
+      return error;
+    }
+  }
+
+  HeaderPieceList headers;
+  HeaderDecodeError error{HeaderDecodeError::NONE};
+  char* duplicate(const std::string& str) {
+    char* res = CHECK_NOTNULL(new char[str.length() + 1]);
+    memcpy(res, str.data(), str.length() + 1);
+    return res;
+  }
+
+  std::function<void()> headersCompleteCb;
+};
+
+namespace {
+vector<Header> headersFromArray(vector<vector<string>>& a) {
+  vector<Header> headers;
+  for (auto& ha : a) {
+    headers.push_back(Header(ha[0], ha[1]));
+  }
+  return headers;
+}
+}
+
+class HPACKCodecTests : public testing::Test {
+ protected:
 
   HPACKCodec client{TransportDirection::UPSTREAM};
   HPACKCodec server{TransportDirection::DOWNSTREAM};
@@ -309,3 +352,173 @@ TEST_F(HPACKCodecTests, uncompressed_size_limit) {
   EXPECT_TRUE(result.isError());
   EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
 }
+
+class HPACKQueueTests : public testing::TestWithParam<int> {
+ public:
+  HPACKQueueTests()
+      : queue(std::make_unique<HPACKQueue>(server)) {}
+
+ protected:
+
+  HPACKCodec client{TransportDirection::UPSTREAM};
+  HPACKCodec server{TransportDirection::DOWNSTREAM};
+  std::unique_ptr<HPACKQueue> queue;
+};
+
+TEST_F(HPACKQueueTests, queue_inline) {
+  vector<vector<string>> headers = {
+    {":path", "/index.php"},
+    {":host", "www.facebook.com"},
+    {"accept-encoding", "gzip"}
+  };
+  vector<Header> req = headersFromArray(headers);
+  TestStreamingCallback cb;
+
+  for (int i = 0; i < 3; i++) {
+    unique_ptr<IOBuf> encodedReq = client.encode(req);
+    uint32_t len = 0;
+    if (encodedReq) {
+      len = encodedReq->computeChainDataLength();
+    }
+
+    cb.reset();
+    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &cb, false);
+    auto result = cb.getResult();
+    EXPECT_TRUE(result.isOk());
+    EXPECT_EQ(result.ok().headers.size(), 6);
+  }
+}
+
+TEST_F(HPACKQueueTests, queue_reorder) {
+  vector<vector<string>> headers = {
+    {":path", "/index.php"},
+    {":host", "www.facebook.com"},
+    {"accept-encoding", "gzip"}
+  };
+  vector<Header> req = headersFromArray(headers);
+  vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
+
+  for (int i = 0; i < 4; i++) {
+    data.emplace_back(client.encode(req), TestStreamingCallback());
+  }
+
+  std::vector<int> insertOrder{1, 3, 2, 0};
+  for (auto i: insertOrder) {
+    auto& encodedReq = data[i].first;
+    uint32_t len = 0;
+    if (encodedReq) {
+      len = encodedReq->computeChainDataLength();
+    }
+
+    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &data[i].second,
+                             false);
+  }
+  for (auto& d: data) {
+    auto result = d.second.getResult();
+    EXPECT_TRUE(result.isOk());
+    EXPECT_EQ(result.ok().headers.size(), 6);
+  }
+  EXPECT_EQ(queue->getHolBlockCount(), 3);
+}
+
+TEST_F(HPACKQueueTests, queue_reorder_ooo) {
+  vector<vector<string>> headers = {
+    {":path", "/index.php"},
+    {":host", "www.facebook.com"},
+    {"accept-encoding", "gzip"}
+  };
+  vector<Header> req = headersFromArray(headers);
+  vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
+
+  for (int i = 0; i < 4; i++) {
+    data.emplace_back(client.encode(req), TestStreamingCallback());
+  }
+
+  std::vector<int> insertOrder{0, 3, 2, 1};
+  for (auto i: insertOrder) {
+    auto& encodedReq = data[i].first;
+    uint32_t len = 0;
+    if (encodedReq) {
+      len = encodedReq->computeChainDataLength();
+    }
+
+    // Allow idx 3 to be decoded out of order
+    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &data[i].second,
+                             i == 3);
+  }
+  for (auto& d: data) {
+    auto result = d.second.getResult();
+    EXPECT_TRUE(result.isOk());
+    EXPECT_EQ(result.ok().headers.size(), 6);
+  }
+  EXPECT_EQ(queue->getHolBlockCount(), 1);
+}
+
+TEST_F(HPACKQueueTests, queue_error) {
+  vector<vector<string>> headers = {
+    {":path", "/index.php"},
+    {":host", "www.facebook.com"},
+    {"accept-encoding", "gzip"}
+  };
+  vector<Header> req = headersFromArray(headers);
+  TestStreamingCallback cb;
+
+  bool expectOk = true;
+  // ok, dup, ok, lower
+  for (auto i: std::vector<int>({0, 0, 1, 0, 3, 3, 2})) {
+    unique_ptr<IOBuf> encodedReq = client.encode(req);
+    uint32_t len = 0;
+    if (encodedReq) {
+      len = encodedReq->computeChainDataLength();
+    }
+
+    cb.reset();
+    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &cb, true);
+    auto result = cb.getResult();
+    if (expectOk) {
+      EXPECT_TRUE(result.isOk());
+      EXPECT_EQ(result.ok().headers.size(), 6);
+    } else {
+      EXPECT_TRUE(result.isError());
+      EXPECT_EQ(result.error(), HeaderDecodeError::BAD_SEQUENCE_NUMBER);
+    }
+    expectOk = !expectOk;
+  }
+}
+
+TEST_P(HPACKQueueTests, queue_deleted) {
+  vector<vector<string>> headers = {
+    {":path", "/index.php"},
+    {":host", "www.facebook.com"},
+    {"accept-encoding", "gzip"}
+  };
+  vector<Header> req = headersFromArray(headers);
+  vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
+
+  for (int i = 0; i < 4; i++) {
+    data.emplace_back(client.encode(req), TestStreamingCallback());
+    if (i == GetParam()) {
+      data.back().second.headersCompleteCb = [&] { queue.reset(); };
+    }
+  }
+
+  std::vector<int> insertOrder{0, 3, 2, 1};
+  for (auto i: insertOrder) {
+    auto& encodedReq = data[i].first;
+    uint32_t len = 0;
+    if (encodedReq) {
+      len = encodedReq->computeChainDataLength();
+    }
+
+    // Allow idx 3 to be decoded out of order
+    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &data[i].second,
+                             i == 3);
+    if (!queue) {
+      break;
+    }
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(Queue,
+                        HPACKQueueTests,
+                        ::testing::Values(0, 1, 2, 3));

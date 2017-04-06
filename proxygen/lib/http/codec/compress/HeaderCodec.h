@@ -34,6 +34,7 @@ enum class HeaderDecodeError : uint8_t {
   EMPTY_HEADER_NAME = 4,
   EMPTY_HEADER_VALUE = 5,
   INVALID_HEADER_VALUE = 6,
+  BAD_SEQUENCE_NUMBER = 7,
 };
 
 struct HeaderDecodeResult {
