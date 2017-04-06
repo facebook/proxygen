@@ -8,6 +8,8 @@
  *
  */
 #include <boost/thread.hpp>
+#include <folly/FileUtil.h>
+#include <folly/experimental/TestUtil.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBaseManager.h>
@@ -18,6 +20,10 @@
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <wangle/client/ssl/SSLSession.h>
+
+#include <openssl/x509.h>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -118,16 +124,24 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
     success = true;
     reusedSession = sock_->getSSLSessionReused();
     session.reset(sock_->getSSLSession());
+    if (sock_->getPeerCert()) {
+      // keeps this alive until Cb is destroyed, even if sock is closed
+      peerCert_ = sock_->getPeerCert();
+    }
     sock_->close();
   }
+
   void connectErr(const folly::AsyncSocketException&) noexcept override {
     success = false;
   }
+
+  const X509* getPeerCert() { return peerCert_.get(); }
 
   bool success{false};
   bool reusedSession{false};
   wangle::SSLSessionPtr session;
   folly::AsyncSSLSocket* sock_{nullptr};
+  folly::ssl::X509UniquePtr peerCert_{nullptr};
 };
 
 TEST(SSL, SSLTest) {
@@ -336,6 +350,84 @@ TEST(SSL, TestResumptionAfterUpdateFails) {
   ASSERT_TRUE(cb3.success);
   ASSERT_NE(nullptr, cb3.session.get());
   ASSERT_TRUE(cb3.reusedSession);
+}
+
+TEST(SSL, TestUpdateTLSCredentials) {
+  // Set up a temporary file with credentials that we will update
+  folly::test::TemporaryFile credFile;
+  auto copyCreds = [path = credFile.path()](const std::string& certFile,
+                                        const std::string& keyFile) {
+    std::string certData, keyData;
+    folly::readFile(certFile.c_str(), certData);
+    folly::writeFile(certData, path.c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+    folly::writeFile(std::string("\n"), path.c_str(), O_WRONLY | O_APPEND);
+    folly::readFile(keyFile.c_str(), keyData);
+    folly::writeFile(keyData, path.c_str(), O_WRONLY | O_APPEND);
+  };
+
+  auto getCertDigest = [&](const X509* x) -> std::string {
+    unsigned int n;
+    unsigned char md[EVP_MAX_MD_SIZE];
+    const EVP_MD* dig = EVP_sha256();
+
+    if (!X509_digest(x, dig, md, &n)) {
+      throw std::runtime_error("Cannot calculate digest");
+    }
+    return std::string((const char*)md, n);
+  };
+
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  copyCreds(kTestDir + "certs/test_cert1.pem",
+            kTestDir + "certs/test_key1.pem");
+  sslCfg.setCertificate(credFile.path().string(), credFile.path().string(), "");
+  cfg.sslConfigs.push_back(sslCfg);
+
+  HTTPServerOptions options;
+  options.threads = 4;
+
+  auto server = folly::make_unique<HTTPServer>(std::move(options));
+
+  std::vector<HTTPServer::IPConfig> ips{cfg};
+  server->bind(ips);
+
+  ServerThread st(server.get());
+  EXPECT_TRUE(st.start());
+
+  // First connection which should return old cert
+  folly::EventBase evb;
+  auto ctx = std::make_shared<SSLContext>();
+  std::string certDigest1, certDigest2;
+
+  // Connect and store digest of server cert
+  auto connectAndFetchServerCert = [&]() -> std::string {
+    folly::AsyncSSLSocket::UniquePtr sock(new folly::AsyncSSLSocket(ctx, &evb));
+    Cb cb(sock.get());
+    sock->connect(&cb, server->addresses().front().address, 1000);
+    evb.loop();
+    EXPECT_TRUE(cb.success);
+
+    auto x509 = cb.getPeerCert();
+    EXPECT_NE(x509, nullptr);
+    return getCertDigest(x509);
+  };
+
+  // Original cert
+  auto cert1 = connectAndFetchServerCert();
+  EXPECT_EQ(cert1.length(), SHA256_DIGEST_LENGTH);
+
+  // Update cert/key
+  copyCreds(kTestDir + "certs/test_cert2.pem",
+            kTestDir + "certs/test_key2.pem");
+  server->updateTLSCredentials();
+  evb.loop();
+
+  // Should get new cert
+  auto cert2 = connectAndFetchServerCert();
+  EXPECT_EQ(cert2.length(), SHA256_DIGEST_LENGTH);
+  EXPECT_NE(cert1, cert2);
 }
 
 TEST(GetListenSocket, TestNoBootstrap) {

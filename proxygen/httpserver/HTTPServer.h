@@ -151,6 +151,11 @@ class HTTPServer final {
   int getListenSocket() const;
 
   /**
+   * Re-reads the certificate / key pair for all SSL vips on all acceptors
+   */
+  void updateTLSCredentials();
+
+  /**
    * Updates ticket seeds for the HTTPServer for all the VIPs.
    */
   void updateTicketSeeds(wangle::TLSTicketKeySeeds seeds);

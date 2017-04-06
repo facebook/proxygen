@@ -231,6 +231,24 @@ int HTTPServer::getListenSocket() const {
   return socketFds[0];
 }
 
+
+void HTTPServer::updateTLSCredentials() {
+  for (auto& bootstrap : bootstrap_) {
+    bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
+      if (!acceptor) {
+        return;
+      }
+      auto evb = acceptor->getEventBase();
+      if (!evb) {
+        return;
+      }
+      evb->runInEventBaseThread([acceptor] {
+        acceptor->resetSSLContextConfigs();
+      });
+    });
+  }
+}
+
 void HTTPServer::updateTicketSeeds(wangle::TLSTicketKeySeeds seeds) {
   for (auto& bootstrap : bootstrap_) {
     bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
