@@ -39,7 +39,7 @@ class HasHTTPHeaderMatcherImpl :
   }
 
   bool MatchAndExplain(
-      HTTPHeaders& headers,
+      const HTTPHeaders& headers,
       ::testing::MatchResultListener* listener) const override {
     bool matches = false;
     headers.forEach([&](const std::string& name, const std::string& value) {
