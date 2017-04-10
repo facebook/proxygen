@@ -242,6 +242,7 @@ AC_CONFIG_FILES([Makefile
                  httpserver/tests/Makefile
                  httpclient/Makefile
                  httpclient/samples/curl/Makefile
-                 httpclient/samples/Makefile])
+                 httpclient/samples/Makefile
+                 external/Makefile])
 
 AC_OUTPUT
