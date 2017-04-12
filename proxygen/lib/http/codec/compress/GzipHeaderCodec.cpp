@@ -140,7 +140,7 @@ static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
     // double it if necessary
     newContext->inflater.reserved = 0x01;
 #endif
-    r = inflateInit2(&(newContext->inflater), 0);
+    r = inflateInit2(&(newContext->inflater), MAX_WBITS);
     CHECK_EQ(r, Z_OK);
 
     auto result = newContext.get();
