@@ -1,6 +1,6 @@
 SUBDIRS = .
 
-check_PROGRAMS = UtilTests AsyncTimeoutSetTest
+check_PROGRAMS = UtilTests TraceEventTest AsyncTimeoutSetTest
 
 UtilTests_SOURCES = \
 	DestructorCheckTest.cpp \
@@ -10,7 +10,16 @@ UtilTests_SOURCES = \
 	ResultTest.cpp \
 	UtilTest.cpp
 
-UtilTests_LDADD = ../libutils.la ../../test/libtestmain.la
+UtilTests_LDADD = \
+	../libutils.la \
+	../../test/libtestmain.la
+
+TraceEventTest_SOURCE = \
+	TraceEventTest.cpp
+
+TraceEventTest_LDADD = \
+	../libutils.la \
+	../../test/libtestmain.la
 
 AsyncTimeoutSetTest_SOURCES = \
 	AsyncTimeoutSetTest.cpp
@@ -19,4 +28,4 @@ AsyncTimeoutSetTest_LDADD = \
 	../libutils.la \
 	../../test/libtestmain.la
 
-TESTS = UtilTests AsyncTimeoutSetTest
+TESTS = UtilTests TraceEventTest AsyncTimeoutSetTest

@@ -9,15 +9,19 @@
  */
 #pragma once
 
-#include <boost/variant.hpp>
-#include <folly/Conv.h>
-#include <map>
-#include <iosfwd>
 #include <proxygen/lib/utils/Export.h>
+#include <proxygen/lib/utils/Exception.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEventType.h>
 #include <proxygen/lib/utils/TraceFieldType.h>
+
+#include <boost/variant.hpp>
+
+#include <folly/Conv.h>
+
+#include <map>
 #include <string>
+#include <vector>
 
 namespace proxygen {
   // Helpers used to make TraceEventType/TraceFieldType can be used with GLOG
@@ -34,7 +38,8 @@ class TraceEvent {
  public:
   struct MetaData {
    public:
-    typedef boost::variant<int64_t, std::string> MetaDataType;
+    using MetaDataType =
+        boost::variant<int64_t, std::string, std::vector<std::string>>;
 
     template <typename T,
               typename = typename std::enable_if<std::is_integral<T>::value,
@@ -58,21 +63,33 @@ class TraceEvent {
       value_(value.toStdString()) {
     }
 
+    /* implicit */ MetaData(const std::vector<std::string>& value) :
+      value_(value) {
+    }
+
+    /* implicit */ MetaData(std::vector<std::string>&& value) :
+      value_(std::move(value)) {
+    }
+
     template<typename T>
     T getValueAs() const {
       ConvVisitor<T> visitor;
       return boost::apply_visitor(visitor, value_);
     }
 
-     template<typename T>
-     struct ConvVisitor : boost::static_visitor<T> {
-      template<typename U>
-       T operator()(U& operand) const {
-         return folly::to<T>(operand);
-       }
-     };
+    template<typename T>
+    struct ConvVisitor : boost::static_visitor<T> {
+      T operator()(const std::vector<std::string>& /* Unused */) const {
+        throw Exception("Not supported for type");
+      }
 
-     MetaDataType value_;
+      template<typename U>
+      T operator()(U& operand) const {
+        return folly::to<T>(operand);
+      }
+    };
+
+    MetaDataType value_;
   };
 
   typedef std::map<TraceFieldType, MetaData> MetaDataMap;
@@ -250,6 +267,20 @@ class TraceEvent {
   TimePoint end_;
   MetaDataMap metaData_;
 
+};
+
+template<>
+struct TraceEvent::MetaData::ConvVisitor<std::vector<std::string>> :
+    boost::static_visitor<std::vector<std::string>> {
+  std::vector<std::string> operator()(
+      const std::vector<std::string>& operand) const {
+    return operand;
+  }
+
+  template<typename U>
+  std::vector<std::string> operator()(U& /* Unused */) const {
+    throw Exception("Not supported for type");
+  }
 };
 
 }
