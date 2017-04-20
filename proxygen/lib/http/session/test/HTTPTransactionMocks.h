@@ -105,6 +105,8 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
     return const_cast<MockHTTPTransactionTransport*>(this)
       ->getUnderlyingTransport();
   }
+  MOCK_METHOD1(setHTTP2PrioritiesEnabled, void(bool));
+
 };
 
 class MockHTTPTransaction : public HTTPTransaction {

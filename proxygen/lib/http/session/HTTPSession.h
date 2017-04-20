@@ -297,7 +297,7 @@ class HTTPSession:
   /**
   * Global flag for turning HTTP2 priorities off
   **/
-  void setHTTP2PrioritiesEnabled(bool enabled) {
+  void setHTTP2PrioritiesEnabled(bool enabled) override {
     h2PrioritiesEnabled_ = enabled;
   }
 

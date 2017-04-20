@@ -404,6 +404,9 @@ class HTTPTransaction :
 
     virtual const folly::AsyncTransportWrapper* getUnderlyingTransport()
       const noexcept = 0;
+
+    virtual void setHTTP2PrioritiesEnabled(bool enabled) = 0;
+
   };
 
   typedef HTTPTransactionTransportCallback TransportCallback;
