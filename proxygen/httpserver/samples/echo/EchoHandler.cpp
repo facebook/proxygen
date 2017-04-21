@@ -23,17 +23,27 @@ EchoHandler::EchoHandler(EchoStats* stats): stats_(stats) {
 
 void EchoHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
   stats_->recordRequest();
+  if(WebSocket::isWebSocketRequest(*headers))
+    websocket_ = std::move(WebSocket::acceptWebSocket(downstream_, *headers, std::bind(&EchoHandler::onWebSocketFrame, this, std::placeholders::_1)));
+
 }
 
 void EchoHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
-  if (body_) {
-    body_->prependChain(std::move(body));
-  } else {
-    body_ = std::move(body);
+  if(websocket_) {
+    websocket_->processData(std::move(body));
+  }
+  else {
+    if (body_) {
+      body_->prependChain(std::move(body));
+    } else {
+      body_ = std::move(body);
+    }
   }
 }
 
 void EchoHandler::onEOM() noexcept {
+  if(websocket_)
+    return;
   ResponseBuilder(downstream_)
     .status(200, "OK")
     .header("Request-Number",
@@ -42,8 +52,12 @@ void EchoHandler::onEOM() noexcept {
     .sendWithEOM();
 }
 
+void EchoHandler::onWebSocketFrame(std::unique_ptr<proxygen::WebSocketFrame> frame) {
+  websocket_->sendFrame(frame->frameType, std::move(frame->payload), frame->endOfMessage);
+}
+
 void EchoHandler::onUpgrade(UpgradeProtocol protocol) noexcept {
-  // handler doesn't support upgrades
+
 }
 
 void EchoHandler::requestComplete() noexcept {
