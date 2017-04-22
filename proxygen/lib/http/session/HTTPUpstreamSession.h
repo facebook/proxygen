@@ -75,6 +75,14 @@ class HTTPUpstreamSession final: public HTTPSession {
   }
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
+
+  bool isDetachable();
+
+  void attachEventBase(
+      folly::EventBase* eventBase, std::chrono::milliseconds timeout);
+
+  void detachEventBase();
+
   void attachThreadLocals(folly::EventBase* eventBase,
                           folly::SSLContextPtr sslContext,
                           const WheelTimerInstance& timeout,
