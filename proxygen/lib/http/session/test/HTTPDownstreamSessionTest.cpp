@@ -263,10 +263,14 @@ class HTTPDownstreamTest : public testing::Test {
     clientCodec_ = HTTPCodecFactory::getCodec(expectedProtocol,
                                               TransportDirection::UPSTREAM);
   }
-
   void expectResponse(uint32_t code = 200,
                       ErrorCode errorCode = ErrorCode::NO_ERROR,
                       bool expect100 = false, bool expectGoaway = false) {
+    expectResponses(1, code, errorCode, expect100, expectGoaway);
+  }
+  void expectResponses(uint32_t n, uint32_t code = 200,
+                       ErrorCode errorCode = ErrorCode::NO_ERROR,
+                       bool expect100 = false, bool expectGoaway = false) {
     NiceMock<MockHTTPCodecCallback> callbacks;
     clientCodec_->setCallback(&callbacks);
     if (isParallelCodecProtocol(clientCodec_->getProtocol())) {
@@ -305,31 +309,33 @@ class HTTPDownstreamTest : public testing::Test {
                                       ErrorCode::NO_ERROR, _));
     }
 
-    uint8_t times = (expect100) ? 2 : 1;
-    EXPECT_CALL(callbacks, onMessageBegin(_, _))
-      .Times(times);
-    EXPECT_CALL(callbacks, onHeadersComplete(_, _))
-      .WillOnce(Invoke([code] (HTTPCodec::StreamID,
-                               std::shared_ptr<HTTPMessage> msg) {
-                         EXPECT_EQ(msg->getStatusCode(), code);
-                       }));
-    if (expect100) {
+    for (uint32_t i = 0; i < n; i++) {
+      uint8_t times = (expect100) ? 2 : 1;
+      EXPECT_CALL(callbacks, onMessageBegin(_, _))
+        .Times(times).RetiresOnSaturation();
       EXPECT_CALL(callbacks, onHeadersComplete(_, _))
-        .WillOnce(Invoke([] (HTTPCodec::StreamID,
-                             std::shared_ptr<HTTPMessage> msg) {
-                           EXPECT_EQ(msg->getStatusCode(), 100);
-                         }))
-        .RetiresOnSaturation();
-    }
-    if (errorCode != ErrorCode::NO_ERROR) {
-      EXPECT_CALL(callbacks, onAbort(_, _))
-        .WillOnce(Invoke([errorCode] (HTTPCodec::StreamID,
-                                      ErrorCode error) {
-                           EXPECT_EQ(error, errorCode);
+        .WillOnce(Invoke([code] (HTTPCodec::StreamID,
+                                 std::shared_ptr<HTTPMessage> msg) {
+                           EXPECT_EQ(msg->getStatusCode(), code);
                          }));
+      if (expect100) {
+        EXPECT_CALL(callbacks, onHeadersComplete(_, _))
+          .WillOnce(Invoke([] (HTTPCodec::StreamID,
+                               std::shared_ptr<HTTPMessage> msg) {
+                             EXPECT_EQ(msg->getStatusCode(), 100);
+                           }))
+          .RetiresOnSaturation();
+      }
+      if (errorCode != ErrorCode::NO_ERROR) {
+        EXPECT_CALL(callbacks, onAbort(_, _))
+          .WillOnce(Invoke([errorCode] (HTTPCodec::StreamID,
+                                        ErrorCode error) {
+                             EXPECT_EQ(error, errorCode);
+                         }));
+      }
+      EXPECT_CALL(callbacks, onBody(_, _, _)).RetiresOnSaturation();
+      EXPECT_CALL(callbacks, onMessageComplete(_, _)).RetiresOnSaturation();
     }
-    EXPECT_CALL(callbacks, onBody(_, _, _));
-    EXPECT_CALL(callbacks, onMessageComplete(_, _));
     parseOutput(*clientCodec_);
   }
 
@@ -362,6 +368,28 @@ class HTTPDownstreamTest : public testing::Test {
   void resumeWritesAfterDelay(milliseconds delay) {
     eventBase_.runAfterDelay([this] { transport_->resumeWrites(); },
                              delay.count());
+  }
+
+  MockByteEventTracker* setMockByteEventTracker() {
+    auto byteEventTracker = new MockByteEventTracker(nullptr);
+    httpSession_->setByteEventTracker(
+      std::unique_ptr<ByteEventTracker>(byteEventTracker));
+    EXPECT_CALL(*byteEventTracker, preSend(_, _, _))
+      .WillRepeatedly(Return(0));
+    EXPECT_CALL(*byteEventTracker, drainByteEvents())
+      .WillRepeatedly(Return(0));
+    EXPECT_CALL(*byteEventTracker, processByteEvents(_, _, _))
+      .WillRepeatedly(Invoke([byteEventTracker]
+                             (std::shared_ptr<ByteEventTracker> self,
+                              uint64_t bytesWritten,
+                              bool eor) {
+                               return self->ByteEventTracker::processByteEvents(
+                                 self,
+                                 bytesWritten,
+                                 eor);
+                             }));
+
+    return byteEventTracker;
   }
 
  protected:
@@ -788,6 +816,87 @@ TEST(HTTPDownstreamTest, byte_events_drained) {
   evb.loop();
 }
 
+TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
+  // This is to test cases where holding a byte event to a finished HTTP/1.1
+  // transaction does not masquerade as HTTP pipelining.
+  auto byteEventTracker = setMockByteEventTracker();
+  InSequence enforceOrder;
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1] () {
+      handler1->sendChunkedReplyWithBody(200, 100, 100, false);
+    });
+  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
+  // Hold a dguard to first txn
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+    .WillOnce(Invoke([&dg] (HTTPTransaction* txn,
+                            uint64_t byteNo,
+                            bool eorTrackingEnabled) {
+                       dg.reset(new HTTPTransaction::DestructorGuard(txn));
+                     }));
+  sendRequest();
+  flushRequestsAndLoop();
+  expectResponse();
+
+  // Send the secode request after receiving the first response (eg: clearly
+  // not pipelined)
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&handler2] () {
+      handler2->sendChunkedReplyWithBody(200, 100, 100, false);
+    });
+  // This txn processed and destroyed before txn1
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
+  handler2->expectDetachTransaction();
+
+  sendRequest();
+  flushRequestsAndLoop();
+  expectResponse();
+
+  // Now reset the dguard (simulate ack) and the first txn goes away too
+  handler1->expectDetachTransaction();
+  dg.reset();
+  gracefulShutdown();
+}
+
+TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
+  // Test a real pipelining case as well.  Both requests are received before
+  // the response is flushed.  As soon as response 1 is flushed, request 2
+  // is processed (doesn't wait for byte event)
+  auto byteEventTracker = setMockByteEventTracker();
+  InSequence enforceOrder;
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1] () {
+      handler1->sendChunkedReplyWithBody(200, 100, 100, false);
+    });
+  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+    .WillOnce(Invoke([&dg] (HTTPTransaction* txn,
+                            uint64_t byteNo,
+                            bool eorTrackingEnabled) {
+                       dg.reset(new HTTPTransaction::DestructorGuard(txn));
+                     }));
+  sendRequest();
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&handler2] () {
+      handler2->sendChunkedReplyWithBody(200, 100, 100, false);
+    });
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
+  handler2->expectDetachTransaction();
+
+  sendRequest();
+  flushRequestsAndLoop();
+  expectResponses(2);
+  handler1->expectDetachTransaction();
+  dg.reset();
+  gracefulShutdown();
+}
+
+
 TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
   InSequence enforceOrder;
 
@@ -1183,6 +1292,9 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
           handler1->txn_->sendEOM();
         }, 50);
     });
+  auto handler2 = addSimpleNiceHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM();
   handler1->expectError([&] (const HTTPException& ex) {
       ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
       ASSERT_EQ(folly::to<std::string>("WriteTimeout on transaction id: ",
@@ -1190,6 +1302,14 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
                 std::string(ex.what()));
       handler1->txn_->sendAbort();
     });
+  handler2->expectError([&] (const HTTPException& ex) {
+      ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
+      ASSERT_EQ(folly::to<std::string>("WriteTimeout on transaction id: ",
+                                       handler2->txn_->getID()),
+                std::string(ex.what()));
+      handler2->txn_->sendAbort();
+    });
+  handler2->expectDetachTransaction();
   handler1->expectDetachTransaction();
   expectDetachSession();
 

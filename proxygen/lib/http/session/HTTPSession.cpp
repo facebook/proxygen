@@ -691,7 +691,7 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     return nullptr;
   }
 
-  if (!codec_->supportsParallelRequests() && transactions_.size() > 1) {
+  if (!codec_->supportsParallelRequests() && getPipelineStreamCount() > 1) {
     // The previous transaction hasn't completed yet. Pause reads until
     // it completes; this requires pausing both transactions.
     DCHECK_EQ(transactions_.size(), 2);
@@ -1406,6 +1406,7 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
   if (infoCallback_) {
     infoCallback_->onRequestEnd(*this, txn->getMaxDeferredSize());
   }
+  auto oldStreamCount = getPipelineStreamCount();
   decrementTransactionCount(txn, false, true);
   if (withRST || ((!codec_->isReusable() || readsShutdown()) &&
                   transactions_.size() == 1)) {
@@ -1437,6 +1438,9 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
         sock_->getEventBase()->runInLoop(shutdownTransportCb_.get(), true);
       }
     }
+  } else {
+    maybeResumePausedPipelinedTransaction(oldStreamCount,
+                                          txn->getSequenceNumber());
   }
 }
 
@@ -1501,10 +1505,33 @@ HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
   }
 }
 
+// This is a kludgy function because it requires the caller to remember
+// the old value of pipelineStreamCount from before it calls
+// decrementTransactionCount.  I'm trying to avoid yet more state in
+// HTTPSession.  If decrementTransactionCount actually closed a stream
+// and there is still a pipelinable stream, then it was pipelining
+bool
+HTTPSession::maybeResumePausedPipelinedTransaction(
+  size_t oldStreamCount, uint32_t txnSeqn) {
+  if (!codec_->supportsParallelRequests() && !transactions_.empty() &&
+      getPipelineStreamCount() < oldStreamCount &&
+      getPipelineStreamCount() == 1) {
+    auto& nextTxn = transactions_.rbegin()->second;
+    DCHECK_EQ(nextTxn.getSequenceNumber(), txnSeqn + 1);
+    DCHECK(!nextTxn.isIngressComplete());
+    DCHECK(nextTxn.isIngressPaused());
+    VLOG(4) << "Resuming paused pipelined txn " << nextTxn;
+    nextTxn.resumeIngress();
+    return true;
+  }
+  return false;
+}
+
 void
 HTTPSession::detach(HTTPTransaction* txn) noexcept {
   DestructorGuard guard(this);
   HTTPCodec::StreamID streamID = txn->getID();
+  auto txnSeqn = txn->getSequenceNumber();
   auto it = transactions_.find(txn->getID());
   DCHECK(it != transactions_.end());
 
@@ -1526,6 +1553,7 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
       assocTxn->removePushedTransaction(streamID);
     }
   }
+  auto oldStreamCount = getPipelineStreamCount();
   decrementTransactionCount(txn, true, true);
   transactions_.erase(it);
 
@@ -1544,14 +1572,7 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   }
 
   if (!readsShutdown()) {
-    if (!codec_->supportsParallelRequests() && !transactions_.empty()) {
-      // If we had more than one transaction, then someone tried to pipeline and
-      // we paused reads
-      DCHECK_EQ(transactions_.size(), 1);
-      auto& nextTxn = transactions_.begin()->second;
-      DCHECK(nextTxn.isIngressPaused());
-      DCHECK(!nextTxn.isIngressComplete());
-      nextTxn.resumeIngress();
+    if (maybeResumePausedPipelinedTransaction(oldStreamCount, txnSeqn)) {
       return;
     } else {
       // this will resume reads if they were paused (eg: 0 HTTP transactions)

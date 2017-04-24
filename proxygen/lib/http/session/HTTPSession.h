@@ -1218,6 +1218,16 @@ class HTTPSession:
 
   std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
 
+  // Returns the number of streams that count against a pipelining limit.
+  // Upstreams can't really pipleine (send responses before requests), so
+  // count ANY stream against the limit.
+  size_t getPipelineStreamCount() const {
+    return isDownstream() ? incomingStreams_ : transactions_.size();
+  }
+
+  bool maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
+                                             uint32_t txnSeqn);
+
   class ShutdownTransportCallback : public folly::EventBase::LoopCallback {
    public:
     explicit ShutdownTransportCallback(HTTPSession* session) :
