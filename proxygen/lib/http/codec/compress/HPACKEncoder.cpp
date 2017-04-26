@@ -27,15 +27,6 @@ HPACKEncoder::HPACKEncoder(bool huffman,
     buffer_(kBufferGrowth, huffman::huffTree(), huffman) {
 }
 
-HPACKEncoder::HPACKEncoder(const huffman::HuffTree& huffmanTree,
-                           bool huffman,
-                           uint32_t tableSize) :
-    // since we already have the huffman tree, msgType doesn't matter
-    HPACKContext(tableSize),
-    huffman_(huffman),
-    buffer_(kBufferGrowth, huffmanTree, huffman) {
-}
-
 unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
                                        uint32_t headroom) {
   if (headroom) {
@@ -52,11 +43,6 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
     encodeHeader(header);
   }
   return buffer_.release();
-}
-
-bool HPACKEncoder::willBeAdded(const HPACKHeader& header) {
-  auto index = getIndex(header);
-  return isStatic(index) || (index == 0 && header.isIndexable());
 }
 
 void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {

@@ -25,10 +25,6 @@ class HPACKEncoder : public HPACKContext {
   explicit HPACKEncoder(bool huffman,
                         uint32_t tableSize=HPACK::kTableSize);
 
-  HPACKEncoder(const huffman::HuffTree& huffmanTree,
-               bool huffman,
-               uint32_t tableSize=HPACK::kTableSize);
-
   /**
    * Size of a new IOBuf which is added to the chain
    *
@@ -59,11 +55,6 @@ class HPACKEncoder : public HPACKContext {
   void addHeader(const HPACKHeader& header);
 
   void encodeDelta(const std::vector<HPACKHeader>& headers);
-
-  /**
-   * Returns true if the given header will be added to the header table
-   */
-  bool willBeAdded(const HPACKHeader& header);
 
   void clearReferenceSet();
 
