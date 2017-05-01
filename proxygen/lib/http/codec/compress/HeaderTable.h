@@ -134,9 +134,20 @@ class HeaderTable {
   HeaderTable& operator=(const HeaderTable&); // non-copyable
 
   /**
+  * Returns the maximum table length required to support HPACK headers given
+  * the specified capacity bytes
+  */
+  uint32_t getMaxTableLength(uint32_t capacityVal);
+
+  /**
    * Removes one header entry from the beginning of the header table.
    */
   void removeLast();
+
+  /**
+   * Empties the underlying header table
+   */
+  void reset();
 
   /**
    * Evict entries to make space for the needed amount of bytes.

@@ -22,21 +22,26 @@ void HeaderTable::init(uint32_t capacityVal) {
   size_ = 0;
   head_ = 0;
   capacity_ = capacityVal;
-  // at a minimum an entry will take 32 bytes
-  uint32_t length = (capacityVal >> 5) + 1;
-  table_.assign(length, HPACKHeader());
+
+  table_.assign(getMaxTableLength(capacity_), HPACKHeader());
   names_.clear();
 }
 
 bool HeaderTable::add(const HPACKHeader& header) {
-  // handle size overflow
-  if (bytes_ + header.bytes() > capacity_) {
-    evict(header.bytes());
-  }
-  // this means the header entry is larger than our table
-  if (bytes_ + header.bytes() > capacity_) {
+
+  if (header.bytes() > capacity_) {
+    // Per the RFC spec https://tools.ietf.org/html/rfc7541#page-11, we must
+    // flush the underlying table if a request is made for a header that is
+    // larger than the current table capacity
+    reset();
     return false;
   }
+
+  // Make the necessary room in the table if appropriate per RFC spec
+  if ((bytes_ + header.bytes()) > capacity_) {
+    evict(header.bytes());
+  }
+
   if (size_ > 0) {
     head_ = next(head_);
   }
@@ -78,6 +83,13 @@ const HPACKHeader& HeaderTable::operator[](uint32_t i) const {
   return table_[toInternal(i)];
 }
 
+uint32_t HeaderTable::getMaxTableLength(uint32_t capacityVal) {
+  // At a minimum an entry will take 32 bytes
+  // No need to add an extra slot; i.e. a capacity of 32 to 63 bytes can hold
+  // at most one entry.
+  return (capacityVal >> 5);
+}
+
 void HeaderTable::removeLast() {
   auto t = tail();
   // remove the first element from the names index
@@ -92,6 +104,15 @@ void HeaderTable::removeLast() {
   }
   bytes_ -= table_[t].bytes();
   --size_;
+}
+
+void HeaderTable::reset() {
+  names_.clear();
+
+  bytes_ = 0;
+  size_ = 0;
+
+  // Capacity remains unchanged and for now we leave head_ index the same
 }
 
 void HeaderTable::setCapacity(uint32_t capacity) {
@@ -110,7 +131,7 @@ void HeaderTable::setCapacity(uint32_t capacity) {
     // NOTE: due to the above lack of resizing, we must determine whether a
     // resize is actually appropriate (to handle cases where the underlying
     // vector is still >= to the size related to the new capacity requested)
-    uint32_t newLength = (capacity_ >> 5) + 1;
+    uint32_t newLength = getMaxTableLength(capacity_);
     if (newLength > table_.size()) {
       auto oldTail = tail();
       auto oldLength = table_.size();
@@ -139,12 +160,11 @@ void HeaderTable::setCapacity(uint32_t capacity) {
 }
 
 uint32_t HeaderTable::evict(uint32_t needed) {
-  uint32_t evicted = 0;
+  uint32_t previousSize = size_;
   while (size_ > 0 && (bytes_ + needed > capacity_)) {
     removeLast();
-    ++evicted;
   }
-  return evicted;
+  return previousSize - size_;
 }
 
 bool HeaderTable::isValid(uint32_t index) const {

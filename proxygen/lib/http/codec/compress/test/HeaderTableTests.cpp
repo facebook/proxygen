@@ -115,7 +115,7 @@ TEST_F(HeaderTableTests, evict) {
   EXPECT_EQ(table.names().size(), 0);
 }
 
-TEST_F(HeaderTableTests, reduce_capacity) {
+TEST_F(HeaderTableTests, reduceCapacity) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 10;
   uint32_t capacity = accept.bytes() * max;
@@ -257,6 +257,35 @@ TEST_F(HeaderTableTests, varyCapacityMalignHeadIndex) {
     EXPECT_EQ(table.add(accept), true);
   }
   EXPECT_EQ(table.size(), max);
+}
+
+TEST_F(HeaderTableTests, addLargerThanTable) {
+  // Construct a smallish table
+  uint32_t capacityBytes = 256;
+  HeaderTable table(capacityBytes);
+  table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 0
+  table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 1
+  table.add(HPACKHeader("test-encoding", "gzip"));    // internal index = 2
+  EXPECT_EQ(table.names().size(), 2);
+
+  // Attempt to add a header that is larger than our specified table capacity
+  // bytes.  This should result in a table flush.
+  table.add(HPACKHeader(std::string(capacityBytes, 'a'), "gzip"));
+  EXPECT_EQ(table.names().size(), 0);
+
+  // Add the previous headers to the table again
+  table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 3
+  table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 4
+  table.add(HPACKHeader("test-encoding", "gzip"));    // internal index = 5
+  EXPECT_EQ(table.names().size(), 2);
+
+  EXPECT_EQ(table.hasName("accept-encoding"), true);
+  auto it = table.names().find("accept-encoding");
+  EXPECT_EQ(it->second.size(), 2);
+  // As nameIndex takes the last index added, we have head = 5, index = 4
+  // and so yields a difference of one and as external indexing is 1 based,
+  // we expect 2 here
+  EXPECT_EQ(table.nameIndex("accept-encoding"), 2);
 }
 
 }
