@@ -3075,7 +3075,7 @@ main (void)
     "Accept-Encoding: gzip\r\n"
     "\r\n";
   test_simple(header_with_forward_slash, HPE_INVALID_HEADER_TOKEN);
-  
+
   const char *header_with_trailing_space =
     "GET / HTTP/1.1\r\n"
     "Host: www.example.com\r\n"
@@ -3096,6 +3096,14 @@ main (void)
     "X-Some-Header: some_value"
     "\n\r*";
   test_simple(bad_end_of_headers_2, HPE_STRICT);
+
+  const char *empty_content_length_header =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "Content-Length:\r\n"
+    "Accept-Encoding: gzip\r\n"
+    "\r\n";
+  test_simple(empty_content_length_header, HPE_INVALID_CONTENT_LENGTH);
 
   #if 0
   // NOTE(Wed Nov 18 11:57:27 CET 2009) this seems okay. we just read body

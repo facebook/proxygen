@@ -1591,6 +1591,15 @@ size_t http_parser_execute (http_parser *parser,
         state = s_header_value;
         parser->index = 0;
 
+        // Error out if a content_length header was specified but no actual
+        // value provided
+        if ((ch == CR || ch == LF) &&
+            parser->header_state == h_content_length &&
+            parser->content_length == -1) {
+          SET_ERRNO(HPE_INVALID_CONTENT_LENGTH);
+          goto error;
+        }
+
         if (ch == CR) {
           STRICT_CHECK(parser->quote != 0);
           parser->header_state = h_general;
