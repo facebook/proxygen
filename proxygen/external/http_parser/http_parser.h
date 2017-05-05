@@ -180,6 +180,10 @@ enum flags
      "invalid character in chunk size header")                       \
   XX(HUGE_CHUNK_SIZE,                                                \
      "chunk header size too large")                                  \
+  XX(INVALID_TRANSFER_ENCODING,                                      \
+     "invalid character in transfer-encoding header")                \
+  XX(INVALID_UPGRADE,                                                \
+     "invalid character in upgrade header")                          \
   XX(INVALID_CONSTANT, "invalid constant string")                    \
   XX(INVALID_INTERNAL_STATE, "encountered unexpected internal state")\
   XX(STRICT, "strict mode assertion failed")                         \

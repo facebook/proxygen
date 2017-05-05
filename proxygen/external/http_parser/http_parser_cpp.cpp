@@ -1591,13 +1591,24 @@ size_t http_parser_execute (http_parser *parser,
         state = s_header_value;
         parser->index = 0;
 
-        // Error out if a content_length header was specified but no actual
-        // value provided
-        if ((ch == CR || ch == LF) &&
-            parser->header_state == h_content_length &&
-            parser->content_length == -1) {
-          SET_ERRNO(HPE_INVALID_CONTENT_LENGTH);
-          goto error;
+        // Error out if a content_length, transfer_encoding, or upgrade header
+        // was present with no actual value.  These headers correspond with
+        // special parser states that without the below accept empty header
+        // values and so we can reject such requests here in the parser.
+        // If more headers are added, can consider moving to a hash/map based
+        // model below.
+        if (ch == CR || ch == LF) {
+          if (parser->header_state == h_content_length) {
+            SET_ERRNO(HPE_INVALID_CONTENT_LENGTH);
+          } else if (parser->header_state == h_transfer_encoding) {
+            SET_ERRNO(HPE_INVALID_TRANSFER_ENCODING);
+          } else if (parser->header_state == h_upgrade) {
+            SET_ERRNO(HPE_INVALID_UPGRADE);
+          }
+
+          if (parser->http_errno != HPE_OK) {
+            goto error;
+          }
         }
 
         if (ch == CR) {
@@ -1720,7 +1731,9 @@ size_t http_parser_execute (http_parser *parser,
             parser->header_state = h_general_and_quote;
             break;
 
-
+          // Not sure the below is relevant anymore as from
+          // s_header_value_start it appears as though we can never
+          // be in the situation below
           case h_transfer_encoding:
             SET_ERRNO(HPE_INVALID_HEADER_TOKEN);
             goto error;

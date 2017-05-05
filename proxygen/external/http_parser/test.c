@@ -3105,6 +3105,22 @@ main (void)
     "\r\n";
   test_simple(empty_content_length_header, HPE_INVALID_CONTENT_LENGTH);
 
+  const char *empty_transfer_encoding_header =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "Transfer-Encoding:\r\n"
+    "Accept-Encoding: gzip\r\n"
+    "\r\n";
+  test_simple(empty_transfer_encoding_header, HPE_INVALID_TRANSFER_ENCODING);
+
+  const char *empty_upgrade_header =
+    "GET / HTTP/1.1\r\n"
+    "Host: www.example.com\r\n"
+    "Upgrade:\r\n"
+    "Accept-Encoding: gzip\r\n"
+    "\r\n";
+  test_simple(empty_upgrade_header, HPE_INVALID_UPGRADE);
+
   #if 0
   // NOTE(Wed Nov 18 11:57:27 CET 2009) this seems okay. we just read body
   // until EOF.
