@@ -14,7 +14,7 @@ UtilTests_LDADD = \
 	../libutils.la \
 	../../test/libtestmain.la
 
-TraceEventTest_SOURCE = \
+TraceEventTest_SOURCES = \
 	TraceEventTest.cpp
 
 TraceEventTest_LDADD = \
