@@ -388,7 +388,7 @@ TEST(SSL, TestUpdateTLSCredentials) {
   HTTPServerOptions options;
   options.threads = 4;
 
-  auto server = folly::make_unique<HTTPServer>(std::move(options));
+  auto server = std::make_unique<HTTPServer>(std::move(options));
 
   std::vector<HTTPServer::IPConfig> ips{cfg};
   server->bind(ips);
