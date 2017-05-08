@@ -1043,7 +1043,15 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
                                   std::numeric_limits<uint32_t>::max())) {
     // The remote side told us they don't want headers this large...
     // but this function has no mechanism to fail
-    LOG(ERROR) << "generating HEADERS frame larger than peer maximum";
+    string serializedHeaders;
+    msg.getHeaders().forEach(
+      [&serializedHeaders] (const string& name, const string& value) {
+        serializedHeaders = folly::to<string>(serializedHeaders, "\\n", name,
+                                              ":", value);
+      });
+    LOG(ERROR) << "generating HEADERS frame larger than peer maximum nHeaders="
+               << msg.getHeaders().size() << " all headers="
+               << serializedHeaders;
   }
 
   IOBufQueue queue(IOBufQueue::cacheChainLength());

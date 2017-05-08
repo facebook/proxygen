@@ -121,7 +121,7 @@ class HeaderCodec {
     encodeHeadroom_ = headroom;
   }
 
-  void setMaxUncompressed(uint32_t maxUncompressed) {
+  virtual void setMaxUncompressed(uint32_t maxUncompressed) {
     maxUncompressed_ = maxUncompressed;
   }
 

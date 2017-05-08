@@ -62,6 +62,11 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
 
   void describe(std::ostream& os) const;
 
+  void setMaxUncompressed(uint32_t maxUncompressed) override {
+    HeaderCodec::setMaxUncompressed(maxUncompressed);
+    decoder_.setMaxUncompressed(maxUncompressed);
+  }
+
  protected:
   HPACKEncoder encoder_;
   HPACKDecoder decoder_;
