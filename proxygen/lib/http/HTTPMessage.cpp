@@ -89,7 +89,7 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     queryParams_(message.queryParams_),
     version_(message.version_),
     headers_(message.headers_),
-    strippedPerHopHeaders_(message.headers_),
+    strippedPerHopHeaders_(message.strippedPerHopHeaders_),
     sslVersion_(message.sslVersion_),
     sslCipher_(message.sslCipher_),
     protoStr_(message.protoStr_),
@@ -103,8 +103,37 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     trailersAllowed_(message.trailersAllowed_),
     secure_(message.secure_) {
   if (message.trailers_) {
-    trailers_.reset(new HTTPHeaders(*message.trailers_.get()));
+    trailers_ = std::make_unique<HTTPHeaders>(*message.trailers_);
   }
+}
+
+HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept :
+    startTime_(message.startTime_),
+    seqNo_(message.seqNo_),
+    dstAddress_(std::move(message.dstAddress_)),
+    dstIP_(std::move(message.dstIP_)),
+    dstPort_(message.dstPort_),
+    localIP_(std::move(message.localIP_)),
+    versionStr_(std::move(message.versionStr_)),
+    fields_(std::move(message.fields_)),
+    cookies_(std::move(message.cookies_)),
+    queryParams_(std::move(message.queryParams_)),
+    version_(message.version_),
+    headers_(std::move(message.headers_)),
+    strippedPerHopHeaders_(std::move(message.strippedPerHopHeaders_)),
+    trailers_(std::move(message.trailers_)),
+    sslVersion_(message.sslVersion_),
+    sslCipher_(message.sslCipher_),
+    protoStr_(message.protoStr_),
+    pri_(message.pri_),
+    h2Pri_(message.h2Pri_),
+    parsedCookies_(message.parsedCookies_),
+    parsedQueryParams_(message.parsedQueryParams_),
+    chunked_(message.chunked_),
+    upgraded_(message.upgraded_),
+    wantsKeepalive_(message.wantsKeepalive_),
+    trailersAllowed_(message.trailersAllowed_),
+    secure_(message.secure_) {
 }
 
 HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
@@ -123,7 +152,7 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   queryParams_ = message.queryParams_;
   version_ = message.version_;
   headers_ = message.headers_;
-  strippedPerHopHeaders_ = message.headers_;
+  strippedPerHopHeaders_ = message.strippedPerHopHeaders_;
   sslVersion_ = message.sslVersion_;
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
@@ -138,10 +167,44 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   secure_ = message.secure_;
 
   if (message.trailers_) {
-    trailers_.reset(new HTTPHeaders(*message.trailers_.get()));
+    trailers_ = std::make_unique<HTTPHeaders>(*message.trailers_);
   } else {
     trailers_.reset();
   }
+  return *this;
+}
+
+HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
+  if (&message == this) {
+    return *this;
+  }
+  startTime_ = message.startTime_;
+  seqNo_ = message.seqNo_;
+  dstAddress_ = std::move(message.dstAddress_);
+  dstIP_ = std::move(message.dstIP_);
+  dstPort_ = message.dstPort_;
+  localIP_ = std::move(message.localIP_);
+  versionStr_ = std::move(message.versionStr_);
+  fields_ = std::move(message.fields_);
+  cookies_ = std::move(message.cookies_);
+  queryParams_ = std::move(message.queryParams_);
+  version_ = message.version_;
+  headers_ = std::move(message.headers_);
+  strippedPerHopHeaders_ = std::move(message.strippedPerHopHeaders_);
+  sslVersion_ = message.sslVersion_;
+  sslCipher_ = message.sslCipher_;
+  protoStr_ = message.protoStr_;
+  pri_ = message.pri_;
+  h2Pri_ = message.h2Pri_;
+  parsedCookies_ = message.parsedCookies_;
+  parsedQueryParams_ = message.parsedQueryParams_;
+  chunked_ = message.chunked_;
+  upgraded_ = message.upgraded_;
+  wantsKeepalive_ = message.wantsKeepalive_;
+  trailersAllowed_ = message.trailersAllowed_;
+  secure_ = message.secure_;
+
+  trailers_ = std::move(message.trailers_);
   return *this;
 }
 

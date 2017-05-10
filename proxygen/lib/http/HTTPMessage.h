@@ -41,8 +41,10 @@ class HTTPMessage {
 
   HTTPMessage();
   ~HTTPMessage();
+  HTTPMessage(HTTPMessage&& message) noexcept;
   HTTPMessage(const HTTPMessage& message);
   HTTPMessage& operator=(const HTTPMessage& message);
+  HTTPMessage& operator=(HTTPMessage&& message);
 
   /**
    * Is this a chunked message? (fpreq, fpresp)
