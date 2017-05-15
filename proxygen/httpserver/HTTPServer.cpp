@@ -91,6 +91,7 @@ class HandlerCallbacks : public ThreadPoolExecutor::Observer {
 
   void threadStarted(ThreadPoolExecutor::ThreadHandle* h) override {
     auto evb = IOThreadPoolExecutor::getEventBase(h);
+    CHECK(evb) << "Invariant violated - started thread must have an EventBase";
     evb->runInEventBaseThread([=](){
       for (auto& factory: options_->handlerFactories) {
         factory->onServerStart(evb);
