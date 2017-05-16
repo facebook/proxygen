@@ -362,11 +362,13 @@ HTTP2PriorityQueue::Node::convertVirtualNode(HTTPTransaction* txn) {
 }
 
 uint64_t
-HTTP2PriorityQueue::Node::calculateDepth() const {
+HTTP2PriorityQueue::Node::calculateDepth(bool includeVirtual) const {
   uint64_t depth = 0;
   const Node* cur = this;
   while (cur->getParent() != nullptr) {
-    depth += 1;
+    if (cur->txn_ || includeVirtual) {
+      depth += 1;
+    }
     cur = cur->getParent();
   }
   return depth;

@@ -13,7 +13,6 @@
 #include <folly/Conv.h>
 #include <wangle/acceptor/ConnectionManager.h>
 #include <wangle/acceptor/SocketOptions.h>
-#include <openssl/err.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
@@ -2252,7 +2251,8 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
   HTTPTransaction* txn = &matchPair.first->second;
 
   if (prioritySample_) {
-    txn->setPrioritySampled();
+    txn->setPrioritySampled(true /* sampled */,
+                            getHTTP2PrioritiesEnabled());
   }
 
   if (numTxnServed_ > 0) {

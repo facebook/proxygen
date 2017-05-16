@@ -312,7 +312,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
     void convertVirtualNode(HTTPTransaction* txn);
 
-    uint64_t calculateDepth() const;
+    uint64_t calculateDepth(bool includeVirtual = true) const;
 
     // Internal error recovery
     void flattenSubtree();

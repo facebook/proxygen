@@ -1087,20 +1087,22 @@ class HTTPTransaction :
     return prioritySample_ != nullptr;
   }
 
-  void setPrioritySampled(bool sampled = true);
+  void setPrioritySampled(bool sampled, bool http2PrioritiesEnabled);
   void updateContentionsCount(uint64_t contentions);
+  void updateRelativeWeight(double ratio);
   void updateSessionBytesSheduled(uint64_t bytes);
   void updateTransactionBytesSent(uint64_t bytes);
 
   struct PrioritySampleSummary {
-    struct WeightedBy {
-      double transactionBytesSent_{0};
-      double sessionBytesScheduled_{0};
+    struct WeightedAverage {
+      double byTransactionBytes_{0};
+      double bySessionBytes_{0};
     };
-    struct Sample {
-      WeightedBy weightedBy_;
-    };
-    Sample contentions_;
+    WeightedAverage contentions_;
+    WeightedAverage depth_;
+    double expected_weight_;
+    double measured_weight_;
+    bool http2PrioritiesEnabled_:1;
   };
 
   bool getPrioritySampleSummary(PrioritySampleSummary& summary) const;
@@ -1349,7 +1351,7 @@ class HTTPTransaction :
    */
   folly::Optional<std::chrono::milliseconds> transactionTimeout_;
 
-  struct PrioritySample;
+  class PrioritySample;
   std::unique_ptr<PrioritySample> prioritySample_;
 };
 

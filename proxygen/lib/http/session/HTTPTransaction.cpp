@@ -740,6 +740,9 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
 bool HTTPTransaction::onWriteReady(const uint32_t maxEgress, double ratio) {
   DestructorGuard g(this);
   DCHECK(isEnqueued());
+  if (prioritySample_) {
+    updateRelativeWeight(ratio);
+  }
   cumulativeRatio_ += ratio;
   egressCalls_++;
   sendDeferredBody(maxEgress);
@@ -1265,79 +1268,125 @@ void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
   }
 }
 
-struct HTTPTransaction::PrioritySample {
+class HTTPTransaction::PrioritySample {
   struct WeightedAccumulator {
-    uint64_t weighted_{0};
-    uint64_t raw_{0};
-
-    void accumulate(uint64_t weighted, uint64_t raw) {
+    void accumulate(uint64_t weighted, uint64_t total) {
       weighted_ += weighted;
-      raw_ += raw;
+      total_ += total;
+    }
+
+    void accumulateWeighted(uint64_t weighted) {
+      weighted_ += weighted;
+    }
+
+    void accumulateTotal(uint64_t total) {
+      total_ += total;
     }
 
     double getWeightedAverage() const {
-      return raw_ ? (double)weighted_ / (double)raw_ : 0;
+      return total_ ? (double)weighted_ / (double)total_ : 0;
     }
+  private:
+    uint64_t weighted_{0};
+    uint64_t total_{0};
   };
 
-  struct Contentions {
-    WeightedAccumulator byTransactionBytesSent_;
-    WeightedAccumulator bySessionBytesScheduled_;
-    uint64_t contentionsCount_{0};
+  struct WeightedValue {
+    uint64_t value_{0};
 
     void accumulateByTransactionBytes(uint64_t bytes) {
-      byTransactionBytesSent_.accumulate(contentionsCount_ * bytes, bytes);
+      byTransactionBytesSent_.accumulate(value_ * bytes, bytes);
     }
 
     void accumulateBySessionBytes(uint64_t bytes) {
-      bySessionBytesScheduled_.accumulate(contentionsCount_ * bytes, bytes);
+      bySessionBytesScheduled_.accumulate(value_ * bytes, bytes);
     }
 
-    void getSummary(HTTPTransaction::PrioritySampleSummary::WeightedBy&
-                    weightedBy) const {
-      weightedBy.transactionBytesSent_ =
+    void getSummary(HTTPTransaction::PrioritySampleSummary::WeightedAverage&
+                    wa) const {
+      wa.byTransactionBytes_ =
         byTransactionBytesSent_.getWeightedAverage();
-      weightedBy.sessionBytesScheduled_ =
+      wa.bySessionBytes_ =
         bySessionBytesScheduled_.getWeightedAverage();
     }
+  private:
+    WeightedAccumulator byTransactionBytesSent_;
+    WeightedAccumulator bySessionBytesScheduled_;
   };
 
-  // TODO: remove tnx_ when not needed
-  HTTPTransaction* tnx_; // needed for error reporting, will be removed
-  Contentions contentions_;
+public:
+  explicit PrioritySample(HTTPTransaction* tnx, bool http2PrioritiesEnabled) :
+    tnx_(tnx),
+    http2PrioritiesEnabled_(http2PrioritiesEnabled),
+    transactionBytesScheduled_(false) {}
 
-  explicit PrioritySample(HTTPTransaction* tnx) : tnx_(tnx) {}
-
-  void updateContentionsCount(uint64_t contentions) {
-    contentions_.contentionsCount_ = contentions;
+  void updateContentionsCount(uint64_t contentions, uint64_t depth) {
+    transactionBytesScheduled_ = false;
+    ratio_ = 0.0;
+    contentions_.value_ = contentions;
+    depth_.value_ = depth;
   }
 
   void updateTransactionBytesSent(uint64_t bytes) {
-    if (contentions_.contentionsCount_) {
+    transactionBytesScheduled_ = true;
+    measured_weight_.accumulateWeighted(bytes);
+    if (contentions_.value_) {
       contentions_.accumulateByTransactionBytes(bytes);
     } else {
       VLOG(5) << *tnx_ << " transfer " << bytes <<
-        " transaction body bytes while contentionsCount_ = 0";
+        " transaction body bytes while contentions count = 0";
     }
+    depth_.accumulateByTransactionBytes(bytes);
   }
 
   void updateSessionBytesSheduled(uint64_t bytes) {
-    if (contentions_.contentionsCount_) {
+    measured_weight_.accumulateTotal(bytes);
+    expected_weight_.accumulate((ratio_ * bytes) + 0.5, bytes);
+    if (contentions_.value_) {
       contentions_.accumulateBySessionBytes(bytes);
     } else {
       VLOG(5) << *tnx_ << " transfer " << bytes <<
-        " session body bytes while contentionsCount_ = 0";
+        " session body bytes while contentions count = 0";
     }
+    depth_.accumulateBySessionBytes(bytes);
+  }
+
+  void updateRatio(double ratio) {
+    ratio_ = ratio;
+  }
+
+  bool isHttp2PrioritiesEnabled() const {
+    return http2PrioritiesEnabled_;
+  }
+
+  bool isTransactionBytesScheduled() const {
+    return transactionBytesScheduled_;
   }
 
   void getSummary(HTTPTransaction::PrioritySampleSummary& summary) const {
-    contentions_.getSummary(summary.contentions_.weightedBy_);
+    contentions_.getSummary(summary.contentions_);
+    depth_.getSummary(summary.depth_);
+    summary.expected_weight_ = expected_weight_.getWeightedAverage();
+    summary.measured_weight_ = measured_weight_.getWeightedAverage();
+    summary.http2PrioritiesEnabled_ = http2PrioritiesEnabled_;
   }
+private:
+  // TODO: remove tnx_ when not needed
+  HTTPTransaction* tnx_; // needed for error reporting, will be removed
+  WeightedValue contentions_;
+  WeightedValue depth_;
+  WeightedAccumulator expected_weight_;
+  WeightedAccumulator measured_weight_;
+  double ratio_;
+  bool http2PrioritiesEnabled_:1;
+  bool transactionBytesScheduled_:1;
 };
 
-void HTTPTransaction::setPrioritySampled(bool sampled) {
+void HTTPTransaction::setPrioritySampled(bool sampled,
+                                         bool http2PrioritiesEnabled) {
   if (sampled) {
-    prioritySample_ = std::make_unique<PrioritySample>(this);
+    prioritySample_ = std::make_unique<PrioritySample>(this,
+                                                       http2PrioritiesEnabled);
   } else {
     prioritySample_.reset();
   }
@@ -1345,12 +1394,26 @@ void HTTPTransaction::setPrioritySampled(bool sampled) {
 
 void HTTPTransaction::updateContentionsCount(uint64_t contentions) {
   CHECK(prioritySample_);
-  prioritySample_->updateContentionsCount(contentions);
+  prioritySample_->updateContentionsCount(contentions,
+                                          queueHandle_->calculateDepth(false));
+}
+
+void HTTPTransaction::updateRelativeWeight(double ratio) {
+  CHECK(prioritySample_);
+  prioritySample_->updateRatio(ratio);
 }
 
 void HTTPTransaction::updateSessionBytesSheduled(uint64_t bytes) {
   CHECK(prioritySample_);
-  if (bytes && firstHeaderByteSent_) {
+  // Do not accumulate session bytes utill header is sent.
+  // Otherwise, the session bytes could be accumulated for a transaction
+  // that is not allowed to egress yet.
+  // Do not accumulate session bytes if transaction is paused.
+  // On the other hand, if the transaction is part of the egress,
+  // always accumulate the session bytes.
+  if ((bytes && firstHeaderByteSent_ && !egressPaused_ &&
+    !egressRateLimited_ && !flowControlPaused_)
+    || prioritySample_->isTransactionBytesScheduled()) {
     prioritySample_->updateSessionBytesSheduled(bytes);
   }
 }
