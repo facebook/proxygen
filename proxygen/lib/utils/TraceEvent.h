@@ -223,7 +223,7 @@ class TraceEvent {
     static_assert(std::is_integral<T>::value && !std::is_same<T, bool>::value,
         "readIntMeta should take an intergral type of paremeter");
     return readMeta(key, dest);
-  };
+  }
 
   bool readBoolMeta(TraceFieldType key, bool& dest) const;
 

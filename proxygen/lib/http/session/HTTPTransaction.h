@@ -169,14 +169,14 @@ class HTTPTransactionHandler {
    * 'length'. You will receive onBody() after this. Also, the length will
    * be greater than zero.
    */
-  virtual void onChunkHeader(size_t /* length */) noexcept {};
+  virtual void onChunkHeader(size_t /* length */) noexcept {}
 
   /**
    * Can be called multiple times per transaction. If you had previously
    * called pauseIngress(), this callback will be delayed until you call
    * resumeIngress(). This signifies the end of a chunk.
    */
-  virtual void onChunkComplete() noexcept {};
+  virtual void onChunkComplete() noexcept {}
 
   /**
    * Can be called any number of times per transaction. If you had
@@ -309,7 +309,7 @@ class HTTPTransactionTransportCallback {
 
   virtual void bodyBytesReceived(size_t size) noexcept = 0;
 
-  virtual ~HTTPTransactionTransportCallback() {};
+  virtual ~HTTPTransactionTransportCallback() {}
 };
 
 class HTTPTransaction :
