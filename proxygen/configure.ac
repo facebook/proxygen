@@ -239,6 +239,7 @@ AC_CONFIG_FILES([Makefile
                  httpserver/samples/echo/Makefile
                  httpserver/samples/proxy/Makefile
                  httpserver/samples/push/Makefile
+                 httpserver/samples/ws/Makefile
                  httpserver/tests/Makefile
                  httpclient/Makefile
                  httpclient/samples/curl/Makefile
