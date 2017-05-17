@@ -51,7 +51,7 @@ class HTTPCodec {
 
   static const boost::none_t NoPadding;
 
-  static const StreamID MAX_STREAM_ID = 1 << 31;
+  static const StreamID MAX_STREAM_ID = 1u << 31;
 
   class PriorityQueue {
    public:
