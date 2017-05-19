@@ -861,9 +861,8 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
 }
 
 TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
-  // Test a real pipelining case as well.  Both requests are received before
-  // the response is flushed.  As soon as response 1 is flushed, request 2
-  // is processed (doesn't wait for byte event)
+  // Test a real pipelining case as well.  First request is done waiting for
+  // ack, then receive two pipelined requests.
   auto byteEventTracker = setMockByteEventTracker();
   InSequence enforceOrder;
 
@@ -889,13 +888,20 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
   handler2->expectDetachTransaction();
 
   sendRequest();
+  sendRequest();
+  auto handler3 = addSimpleStrictHandler();
+  handler3->expectHeaders();
+  handler3->expectEOM([&handler3] () {
+      handler3->sendChunkedReplyWithBody(200, 100, 100, false);
+    });
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
+  handler3->expectDetachTransaction();
   flushRequestsAndLoop();
-  expectResponses(2);
+  expectResponses(3);
   handler1->expectDetachTransaction();
   dg.reset();
   gracefulShutdown();
 }
-
 
 TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
   InSequence enforceOrder;

@@ -693,8 +693,13 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
   if (!codec_->supportsParallelRequests() && getPipelineStreamCount() > 1) {
     // The previous transaction hasn't completed yet. Pause reads until
     // it completes; this requires pausing both transactions.
-    DCHECK_EQ(transactions_.size(), 2);
-    auto prevTxn = &transactions_.begin()->second;
+
+    // There must be at least two transactions (we just checked).  Grab the
+    // second to last one
+    DCHECK_GE(transactions_.size(), 2);
+    auto prevIt = transactions_.rbegin();
+    prevIt++;
+    auto prevTxn = &prevIt->second;
     if (!prevTxn->isIngressPaused()) {
       DCHECK(prevTxn->isIngressComplete());
       prevTxn->pauseIngress();
