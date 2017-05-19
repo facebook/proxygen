@@ -24,6 +24,84 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
+namespace {
+
+folly::Optional<std::chrono::steady_clock::time_point>
+parseHTTPArchiveTime(const std::string& s) {
+  struct tm tm = {0};
+
+  if (s.empty()) {
+    return folly::none;
+  }
+
+  uint32_t ms = 0;
+  // Sun, 06 Nov 1994 08:49:37 GMT  ; RFC 822, updated by RFC 1123
+  if (sscanf(s.c_str(), "%d-%d-%dT%d:%d:%d.%dZ",
+             &tm.tm_year,
+             &tm.tm_mon,
+             &tm.tm_mday,
+             &tm.tm_hour,
+             &tm.tm_min,
+             &tm.tm_sec,
+             &ms) != 7) {
+    return folly::none;
+  }
+  auto res = mktime(&tm);
+  return std::chrono::steady_clock::time_point(
+    std::chrono::seconds(res) + std::chrono::milliseconds(ms));
+}
+
+proxygen::HTTPMessage extractMessage(folly::dynamic& obj,
+                                     const std::string& timeStr,
+                                     bool request) {
+  proxygen::HTTPMessage msg;
+  auto& headersObj = obj["headers"];
+  for (size_t i = 0; i < headersObj.size(); i++) {
+    string name = headersObj[i]["name"].asString();
+    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+    msg.getHeaders().add(
+        name,
+        headersObj[i]["value"].asString());
+  }
+  try {
+    if (request) {
+      msg.setURL(obj["url"].asString());
+      msg.setMethod(obj["method"].asString());
+      auto t = parseHTTPArchiveTime(timeStr);
+      if (t.hasValue()) {
+        msg.setStartTime(t.value());
+      }
+    } else {
+      msg.setStatusCode(obj["status"].asInt());
+      msg.setStatusMessage(obj["statusText"].asString());
+    }
+
+    string proto;
+    string version;
+    folly::split('/', obj["httpVersion"].asString(), proto, version);
+    msg.setVersionString(version);
+  } catch (...) {
+  }
+
+  return msg;
+}
+
+proxygen::HTTPMessage extractMessageFromPublic(folly::dynamic& obj) {
+  proxygen::HTTPMessage msg;
+  auto& headersObj = obj["headers"];
+  for (size_t i = 0; i < headersObj.size(); i++) {
+    auto& headerObj = headersObj[i];
+    for (auto& k: headerObj.keys()) {
+      string name = k.asString();
+      string value = headerObj[name].asString();
+      std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+      msg.getHeaders().add(name, value);
+    }
+  }
+  return msg;
+}
+}
+
 namespace proxygen {
 
 std::unique_ptr<IOBuf> readFileToIOBuf(const std::string& filename) {
@@ -60,15 +138,16 @@ unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
   }
   folly::dynamic jsonObj = folly::parseJson((const char *)buffer->data());
   auto entries = jsonObj["log"]["entries"];
-  vector<HPACKHeader> msg;
   // go over all the transactions
   for (size_t i = 0; i < entries.size(); i++) {
-    extractHeaders(entries[i]["request"], msg);
-    if (!msg.empty()) {
+    HTTPMessage msg = extractMessage(entries[i]["request"],
+                                     entries[i]["startedDateTime"].asString(),
+                                     true);
+    if (msg.getHeaders().size() != 0) {
       har->requests.push_back(msg);
     }
-    extractHeaders(entries[i]["response"], msg);
-    if (!msg.empty()) {
+    msg = extractMessage(entries[i]["response"], "", false);
+    if (msg.getHeaders().size() != 0) {
       har->responses.push_back(msg);
     }
   }
@@ -76,34 +155,13 @@ unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
   return har;
 }
 
-void HTTPArchive::extractHeaders(folly::dynamic& obj,
-                                 vector<HPACKHeader> &msg) {
-  msg.clear();
-  auto& headersObj = obj["headers"];
-  for (size_t i = 0; i < headersObj.size(); i++) {
-    string name = headersObj[i]["name"].asString();
-    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-    msg.push_back(
-      HPACKHeader(
-        name,
-        headersObj[i]["value"].asString())
-    );
-  }
-}
+uint32_t HTTPArchive::getSize(const HTTPMessage &msg) {
+  uint32_t size = 0;
 
-void HTTPArchive::extractHeadersFromPublic(folly::dynamic& obj,
-                                           vector<HPACKHeader> &msg) {
-  msg.clear();
-  auto& headersObj = obj["headers"];
-  for (size_t i = 0; i < headersObj.size(); i++) {
-    auto& headerObj = headersObj[i];
-    for (auto& k: headerObj.keys()) {
-      string name = k.asString();
-      string value = headerObj[name].asString();
-      std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-      msg.push_back(HPACKHeader(name, value));
-    }
-  }
+  msg.getHeaders().forEach([&size] (const string& name, const string& value) {
+      size += name.size() + value.size() + 2;
+    });
+  return size;
 }
 
 uint32_t HTTPArchive::getSize(const vector<HPACKHeader> &headers) {
@@ -123,16 +181,29 @@ unique_ptr<HTTPArchive> HTTPArchive::fromPublicFile(const string& filename) {
   }
   folly::dynamic jsonObj = folly::parseJson((const char *)buffer->data());
   auto entries = jsonObj["cases"];
-  vector<HPACKHeader> msg;
   // go over all the transactions
   for (size_t i = 0; i < entries.size(); i++) {
-    extractHeadersFromPublic(entries[i], msg);
-    if (!msg.empty()) {
-      har->requests.push_back(msg);
+    HTTPMessage msg = extractMessageFromPublic(entries[i]);
+    if (msg.getHeaders().size() != 0) {
+      har->requests.emplace_back(msg);
     }
   }
 
   return har;
+}
+
+std::vector<std::vector<HPACKHeader>> HTTPArchive::convertToHPACK(
+  const std::vector<HTTPMessage>& msgs) {
+  std::vector<std::vector<HPACKHeader>> result;
+  for (const HTTPMessage& msg: msgs) {
+    std::vector<HPACKHeader> headers;
+    msg.getHeaders().forEach(
+      [&headers] (const string& name, const string& value) {
+        headers.emplace_back(name, value);
+      });
+    result.emplace_back(headers);
+  }
+  return result;
 }
 
 }

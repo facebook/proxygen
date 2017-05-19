@@ -12,6 +12,7 @@
 #include <folly/Memory.h>
 #include <folly/dynamic.h>
 #include <memory>
+#include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <string>
 #include <vector>
@@ -20,22 +21,17 @@ namespace proxygen {
 
 class HTTPArchive {
  public:
+  std::vector<HTTPMessage> requests;
+  std::vector<HTTPMessage> responses;
 
-  std::vector<std::vector<HPACKHeader>> requests;
-  std::vector<std::vector<HPACKHeader>> responses;
+  static std::vector<std::vector<HPACKHeader>> convertToHPACK(
+      const std::vector<HTTPMessage>& msgs);
 
   static std::unique_ptr<HTTPArchive> fromFile(const std::string& filename);
 
   static std::unique_ptr<HTTPArchive> fromPublicFile(const std::string& fname);
 
-  // helper function for extracting a list of headers from a json array
-  static void extractHeaders(folly::dynamic& obj,
-                             std::vector<HPACKHeader>& msg);
-
-  static void extractHeadersFromPublic(folly::dynamic& obj,
-                                       std::vector<HPACKHeader>& msg);
-
+  static uint32_t getSize(const HTTPMessage& msg);
   static uint32_t getSize(const std::vector<HPACKHeader>& headers);
 };
-
 }
