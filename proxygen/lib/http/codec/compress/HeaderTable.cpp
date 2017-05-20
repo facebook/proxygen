@@ -23,7 +23,10 @@ void HeaderTable::init(uint32_t capacityVal) {
   head_ = 0;
   capacity_ = capacityVal;
 
-  table_.assign(getMaxTableLength(capacity_), HPACKHeader());
+  table_.reserve(getMaxTableLength(capacity_));
+  for (uint32_t i = 0; i < getMaxTableLength(capacity_); i++) {
+    table_.emplace_back();
+  }
   names_.clear();
 }
 
@@ -45,7 +48,8 @@ bool HeaderTable::add(const HPACKHeader& header) {
   if (size_ > 0) {
     head_ = next(head_);
   }
-  table_[head_] = header;
+  table_[head_].name = header.name;
+  table_[head_].value = header.value;
   // index name
   names_[header.name].push_back(head_);
   bytes_ += header.bytes();
@@ -115,6 +119,18 @@ void HeaderTable::reset() {
   // Capacity remains unchanged and for now we leave head_ index the same
 }
 
+namespace {
+template<class InputIt, class OutputIt>
+OutputIt moveItems(InputIt first, InputIt last,
+                   OutputIt d_first)
+{
+  while (first != last) {
+    *d_first++ = std::move(*first++);
+  }
+  return d_first;
+}
+}
+
 void HeaderTable::setCapacity(uint32_t capacity) {
   // TODO: ddmello - the below is a little dangerous as we update the
   // capacity right away.  Some properties of the class utilize that variable
@@ -139,7 +155,7 @@ void HeaderTable::setCapacity(uint32_t capacity) {
       if (size_ > 0 && oldTail > head_) {
         // the list wrapped around, need to move oldTail..oldLength to the end
         // of the now-larger table_
-        std::copy(table_.begin() + oldTail, table_.begin() + oldLength,
+        moveItems(table_.begin() + oldTail, table_.begin() + oldLength,
                   table_.begin() + newLength - (oldLength - oldTail));
         // Update the names indecies that pointed to the old range
         for (auto& names_it: names_) {

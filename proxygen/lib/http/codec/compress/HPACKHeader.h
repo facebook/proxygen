@@ -22,8 +22,18 @@ class HPACKHeader {
   HPACKHeader() {}
 
   HPACKHeader(const std::string& name_,
-             const std::string& value_):
+              const std::string& value_):
     name(name_), value(value_) {}
+
+  HPACKHeader(HPACKHeader&& goner) noexcept
+      : name(std::move(goner.name)),
+        value(std::move(goner.value)) {}
+
+  HPACKHeader& operator=(HPACKHeader&& goner) noexcept {
+    std::swap(name, goner.name);
+    std::swap(value, goner.value);
+    return *this;
+  }
 
   ~HPACKHeader() {}
 

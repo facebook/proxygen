@@ -34,6 +34,8 @@ class HeaderTable {
   HeaderTable() {}
 
   ~HeaderTable() {}
+  HeaderTable(const HeaderTable&) = delete;
+  HeaderTable& operator=(const HeaderTable&) = delete;
 
   /**
    * Initialize with a given capacity.
@@ -131,7 +133,6 @@ class HeaderTable {
                              uint32_t externalIndex);
 
  private:
-  HeaderTable& operator=(const HeaderTable&); // non-copyable
 
   /**
   * Returns the maximum table length required to support HPACK headers given

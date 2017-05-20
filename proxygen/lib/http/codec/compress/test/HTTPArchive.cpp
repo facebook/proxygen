@@ -167,7 +167,7 @@ uint32_t HTTPArchive::getSize(const HTTPMessage &msg) {
 uint32_t HTTPArchive::getSize(const vector<HPACKHeader> &headers) {
   uint32_t size = 0;
 
-  for (const auto header : headers) {
+  for (const auto& header : headers) {
     size += header.name.size() + header.value.size() + 2;
   }
   return size;
@@ -201,7 +201,7 @@ std::vector<std::vector<HPACKHeader>> HTTPArchive::convertToHPACK(
       [&headers] (const string& name, const string& value) {
         headers.emplace_back(name, value);
       });
-    result.emplace_back(headers);
+    result.emplace_back(std::move(headers));
   }
   return result;
 }

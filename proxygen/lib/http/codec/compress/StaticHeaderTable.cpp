@@ -107,9 +107,8 @@ StaticHeaderTable::StaticHeaderTable(
 }
 
 const HeaderTable& StaticHeaderTable::get() {
-  static const folly::Indestructible<StaticHeaderTable> table{
-    StaticHeaderTable{s_tableEntries, kEntriesSize}
-  };
+  static const folly::Indestructible<StaticHeaderTable> table(
+    s_tableEntries, kEntriesSize);
   return *table;
 }
 

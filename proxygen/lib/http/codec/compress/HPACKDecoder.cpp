@@ -201,7 +201,8 @@ uint32_t HPACKDecoder::emit(const HPACKHeader& header, headers_t* emitted) {
   if (streamingCb_) {
     streamingCb_->onHeader(header.name, header.value);
   } else if (emitted) {
-    emitted->push_back(header);
+    // copying HPACKHeader
+    emitted->emplace_back(header.name, header.value);
   }
   return header.bytes();
 }

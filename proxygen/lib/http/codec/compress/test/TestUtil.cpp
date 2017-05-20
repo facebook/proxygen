@@ -35,7 +35,7 @@ void dumpToFile(const string& filename, const IOBuf* buf) {
 }
 
 unique_ptr<IOBuf> encodeDecode(
-    vector<HPACKHeader> headers,
+    vector<HPACKHeader>& headers,
     HPACKEncoder& encoder,
     HPACKDecoder& decoder) {
   unique_ptr<IOBuf> encoded = encoder.encode(headers);

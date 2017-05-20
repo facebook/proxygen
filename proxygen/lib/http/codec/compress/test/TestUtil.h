@@ -20,7 +20,7 @@ namespace proxygen { namespace hpack {
 void dumpToFile(const std::string& filename, const folly::IOBuf* buf);
 
 std::unique_ptr<folly::IOBuf> encodeDecode(
-  std::vector<HPACKHeader> headers,
+  std::vector<HPACKHeader>& headers,
   HPACKEncoder& encoder,
   HPACKDecoder& decoder);
 
