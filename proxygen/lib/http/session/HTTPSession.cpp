@@ -36,7 +36,6 @@ using std::vector;
 
 namespace {
 static const uint32_t kMinReadSize = 1460;
-static const uint32_t kMaxReadSize = 4000;
 static const uint32_t kWriteReadyMax = 65536;
 
 // Lower = higher latency, better prioritization
@@ -48,6 +47,7 @@ static const uint32_t kMaxWritesPerLoop = 32;
 namespace proxygen {
 
 uint32_t HTTPSession::kDefaultReadBufLimit = 65536;
+uint32_t HTTPSession::maxReadBufferSize_ = 4000;
 uint32_t HTTPSession::egressBodySizeLimit_ = 4096;
 uint32_t HTTPSession::kDefaultWriteBufLimit = 65536;
 
@@ -434,8 +434,8 @@ bool HTTPSession::isDownstream() const {
 
 void
 HTTPSession::getReadBuffer(void** buf, size_t* bufSize) {
-  pair<void*,uint32_t> readSpace = readBuf_.preallocate(kMinReadSize,
-                                                        kMaxReadSize);
+  pair<void*,uint32_t> readSpace =
+    readBuf_.preallocate(kMinReadSize, HTTPSession::maxReadBufferSize_);
   *buf = readSpace.first;
   *bufSize = readSpace.second;
 }

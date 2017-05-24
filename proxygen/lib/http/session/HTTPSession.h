@@ -126,6 +126,10 @@ class HTTPSession:
     VLOG(3) << "read buffer limit: " << int(limit / 1000) << "KB";
   }
 
+  static void setMaxReadBufferSize(uint32_t bytes) {
+    maxReadBufferSize_ = bytes;
+  }
+
   /**
    * Set the maximum egress body size for any outbound body bytes per loop,
    * when there are > 1 transactions.
@@ -1087,6 +1091,11 @@ class HTTPSession:
    * transactions.  Otherwise defaults to kDefaultWriteBufLimit.
    */
   static uint32_t egressBodySizeLimit_;
+
+  /**
+   * The maximum size of the read buffer from the socket.
+   */
+  static uint32_t maxReadBufferSize_;
 
   /**
    * Maximum number of bytes that can be buffered across all transactions before
