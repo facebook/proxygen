@@ -52,12 +52,6 @@ class HPACKEncoder : public HPACKContext {
 
   virtual void encodeAsLiteral(const HPACKHeader& header);
 
-  void addHeader(const HPACKHeader& header);
-
-  void encodeDelta(const std::vector<HPACKHeader>& headers);
-
-  void clearReferenceSet();
-
   bool huffman_;
  protected:
   HPACKEncodeBuffer buffer_;
