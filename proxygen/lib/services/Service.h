@@ -142,6 +142,14 @@ class Service {
     return !configTestOnly;
   }
 
+  void addWorkerEventBase(folly::EventBase* evb) {
+    workerEvbs_.push_back(evb);
+  }
+
+  const std::vector<folly::EventBase*>& getWorkerEventBases() {
+    return workerEvbs_;
+  }
+
  private:
   // Forbidden copy constructor and assignment opererator
   Service(Service const &) = delete;
@@ -149,6 +157,7 @@ class Service {
 
   // Workers
   std::list<std::unique_ptr<ServiceWorker>> workers_;
+  std::vector<folly::EventBase*> workerEvbs_;
 };
 
 } // proxygen
