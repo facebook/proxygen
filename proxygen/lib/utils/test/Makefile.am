@@ -3,7 +3,6 @@ SUBDIRS = .
 check_PROGRAMS = UtilTests TraceEventTest AsyncTimeoutSetTest
 
 UtilTests_SOURCES = \
-	DestructorCheckTest.cpp \
 	GenericFilterTest.cpp \
 	HTTPTimeTest.cpp \
 	ParseURLTest.cpp \

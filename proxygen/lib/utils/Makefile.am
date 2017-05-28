@@ -30,7 +30,6 @@ nobase_libutils_HEADERS = \
 	ChromeUtils.h \
 	CobHelper.h \
 	CryptUtil.h \
-	DestructorCheck.h \
 	Exception.h \
 	Export.h \
 	FilterChain.h \

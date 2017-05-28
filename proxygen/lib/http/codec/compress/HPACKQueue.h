@@ -10,7 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
-#include <proxygen/lib/utils/DestructorCheck.h>
+#include <folly/io/async/DestructorCheck.h>
 
 #include <deque>
 #include <memory>
@@ -18,7 +18,7 @@
 
 namespace proxygen {
 
-class HPACKQueue : public DestructorCheck {
+class HPACKQueue : public folly::DestructorCheck {
  public:
   explicit HPACKQueue(HPACKCodec& codec)
     : codec_(codec) {}
@@ -83,7 +83,7 @@ class HPACKQueue : public DestructorCheck {
     if (length > 0) {
       VLOG(5) << "decodeBlock for block=" << seqn << " len=" << length;
       folly::io::Cursor c(block.get());
-      DestructorCheck::Safety safety(*this);
+      folly::DestructorCheck::Safety safety(*this);
       codec_.decodeStreaming(c, length, cb);
       if (safety.destroyed()) {
         return true;

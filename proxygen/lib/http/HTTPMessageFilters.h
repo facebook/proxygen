@@ -9,16 +9,16 @@
  */
 #pragma once
 
+#include <folly/io/async/DestructorCheck.h>
 #include <folly/Memory.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-#include <proxygen/lib/utils/DestructorCheck.h>
 
 namespace proxygen {
 
 static const std::string kMessageFilterDefaultName_ = "Unknown";
 
 class HTTPMessageFilter: public HTTPTransaction::Handler,
-                         public DestructorCheck {
+                         public folly::DestructorCheck {
  public:
   void setNextTransactionHandler(HTTPTransaction::Handler* next) {
     nextTransactionHandler_ = CHECK_NOTNULL(next);
