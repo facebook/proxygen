@@ -65,12 +65,17 @@ class HPACKQueue : public folly::DestructorCheck {
       }
       VLOG(5) << "queued block=" << seqn << " len=" << length <<
         " placeholder=" << int32_t(oooOk);
+      queuedBytes_ += length;
       queue_.emplace(it, seqn, std::move(block), length, streamingCb);
     }
   }
 
   uint64_t getHolBlockCount() const {
     return holBlockCount_;
+  }
+
+  uint64_t getQueuedBytes() const {
+    return queuedBytes_;
   }
 
  private:
@@ -98,17 +103,21 @@ class HPACKQueue : public folly::DestructorCheck {
   void drainQueue() {
     while (!queue_.empty() && nextSeqn_ == std::get<0>(queue_.front())) {
       auto& next = queue_.front();
+      auto length = std::get<2>(next);
       if (decodeBlock(std::get<0>(next), std::move(std::get<1>(next)),
-                      std::get<2>(next), std::get<3>(next),
+                      length, std::get<3>(next),
                       false /* in order */)) {
         return;
       }
+      DCHECK_LE(length, queuedBytes_);
+      queuedBytes_ -= length;
       queue_.pop_front();
     }
   }
 
   size_t nextSeqn_{0};
   uint64_t holBlockCount_{0};
+  uint64_t queuedBytes_{0};
   std::deque<std::tuple<uint32_t, std::unique_ptr<folly::IOBuf>, size_t,
     HeaderCodec::StreamingCallback*>> queue_;
   HPACKCodec& codec_;
