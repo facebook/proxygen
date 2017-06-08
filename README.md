@@ -26,10 +26,12 @@ dependencies.
 
 ##### Easy Install
 
-Just run `./deps.sh` from the `proxygen/` directory to get and build all
-the dependencies and `proxygen`. It will also run all the tests. Then run
-`./reinstall.sh` to install it. You can run `./deps.sh && ./reinstall.sh`
-whenever to rebase the dependencies, and then rebuild and reinstall `proxygen`.
+If you haven't installed C++14, look in `proxygen/deps.sh` and uncomment
+the section that will install it for you. Then just run `./deps.sh` from
+the `proxygen/` directory to get and build all the dependencies and `proxygen`.
+It will also run all the tests. Then run `./reinstall.sh` to install it. You
+can run `./deps.sh && ./reinstall.sh` whenever to rebase the dependencies, and
+then rebuild and reinstall `proxygen`.
 
 A note on compatibility: this project relies on system installed
 [folly](https://github.com/facebook/folly). If you rebase `proxygen` and `make` starts to fail, you likely
