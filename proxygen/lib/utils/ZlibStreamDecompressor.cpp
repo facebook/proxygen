@@ -73,7 +73,6 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
       }
     }
 
-    // The decompressor says we should have finished
     if (status_ == Z_STREAM_END) {
       // we convert this into a stream error
       status_ = Z_STREAM_ERROR;

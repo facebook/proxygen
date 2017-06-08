@@ -9,17 +9,16 @@
  */
 #pragma once
 
-#include <memory>
-#include <zlib.h>
 #include <folly/portability/GFlags.h>
+#include <memory>
 #include <proxygen/lib/utils/ZlibStreamDecompressor.h>
+#include <zlib.h>
 
 namespace folly {
 class IOBuf;
 }
 
-DECLARE_int64(zlib_buffer_growth);
-DECLARE_int64(zlib_buffer_minsize);
+DECLARE_int64(zlib_compressor_buffer_growth);
 
 namespace proxygen {
 
