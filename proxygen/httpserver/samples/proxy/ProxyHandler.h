@@ -27,7 +27,7 @@ class ProxyHandler : public proxygen::RequestHandler,
  public:
   ProxyHandler(ProxyStats* stats, folly::HHWheelTimer* timer);
 
-  ~ProxyHandler();
+  ~ProxyHandler() override;
 
   void onRequest(std::unique_ptr<proxygen::HTTPMessage> headers)
       noexcept override;

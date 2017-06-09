@@ -22,7 +22,7 @@ class SessionWrapper : public proxygen::HTTPSession::InfoCallback {
     session_->setInfoCallback(this);
   }
 
-  ~SessionWrapper() {
+  ~SessionWrapper() override {
     if (session_) {
       session_->drain();
     }

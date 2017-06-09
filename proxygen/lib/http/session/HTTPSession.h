@@ -367,7 +367,7 @@ class HTTPSession:
    * transport and delete itself. For downstream sessions, an explicit
    * call to dropConnection() or shutdownTransport() is required.
    */
-  virtual void drain() override;
+  void drain() override;
 
   /**
    * Returns true if this session is draining. This can happen if drain()
@@ -420,8 +420,8 @@ class HTTPSession:
   }
 
   // from folly::AsyncTransport::BufferCallback
-  virtual void onEgressBuffered() override;
-  virtual void onEgressBufferCleared() override;
+  void onEgressBuffered() override;
+  void onEgressBufferCleared() override;
 
   bool isPrioritySampled() const {
     return prioritySample_;
