@@ -1269,7 +1269,7 @@ class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
     // do nothing -- let unacked egress build up
   }
 
-  ~NoFlushUpstreamSessionTest() {
+  ~NoFlushUpstreamSessionTest() override {
     AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
     for (auto& cb : cbs_) {
       cb->writeErr(0, ex);

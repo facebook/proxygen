@@ -82,8 +82,8 @@ class HTTPSessionController {
 
 
 class HTTPUpstreamSessionController : public HTTPSessionController {
-  HTTPTransactionHandler* getRequestHandler(
-    HTTPTransaction& txn, HTTPMessage* msg) override final {
+  HTTPTransactionHandler* getRequestHandler(HTTPTransaction& txn,
+                                            HTTPMessage* msg) final {
     LOG(FATAL) << "Unreachable";
     return nullptr;
   }
@@ -95,9 +95,9 @@ class HTTPUpstreamSessionController : public HTTPSessionController {
    * error contains specific information about what went wrong
    */
   HTTPTransactionHandler* getParseErrorHandler(
-    HTTPTransaction* txn,
-    const HTTPException& error,
-    const folly::SocketAddress& localAddress) override final {
+      HTTPTransaction* txn,
+      const HTTPException& error,
+      const folly::SocketAddress& localAddress) final {
     LOG(FATAL) << "Unreachable";
     return nullptr;
   }
@@ -106,8 +106,7 @@ class HTTPUpstreamSessionController : public HTTPSessionController {
    * Will be invoked when HTTPSession times out parsing a new request.
    */
   HTTPTransactionHandler* getTransactionTimeoutHandler(
-    HTTPTransaction* txn,
-    const folly::SocketAddress& localAddress) override final {
+      HTTPTransaction* txn, const folly::SocketAddress& localAddress) final {
     LOG(FATAL) << "Unreachable";
     return nullptr;
   }

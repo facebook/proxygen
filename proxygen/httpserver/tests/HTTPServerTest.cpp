@@ -179,29 +179,28 @@ TEST(SSL, SSLTest) {
 class TestHandlerFactory : public RequestHandlerFactory {
  public:
   class TestHandler : public proxygen::RequestHandler {
-    virtual void onRequest(
-        std::unique_ptr<proxygen::HTTPMessage>) noexcept override {}
-    virtual void onBody(std::unique_ptr<folly::IOBuf>) noexcept override {}
-    virtual void onUpgrade(proxygen::UpgradeProtocol) noexcept override {}
+    void onRequest(std::unique_ptr<proxygen::HTTPMessage>) noexcept override {}
+    void onBody(std::unique_ptr<folly::IOBuf>) noexcept override {}
+    void onUpgrade(proxygen::UpgradeProtocol) noexcept override {}
 
-    virtual void onEOM() noexcept override {
+    void onEOM() noexcept override {
       ResponseBuilder(downstream_)
           .status(200, "OK")
           .body(IOBuf::copyBuffer("hello"))
           .sendWithEOM();
     }
 
-    virtual void requestComplete() noexcept override { delete this; }
+    void requestComplete() noexcept override { delete this; }
 
-    virtual void onError(ProxygenError) noexcept override { delete this; }
+    void onError(ProxygenError) noexcept override { delete this; }
   };
 
   RequestHandler* onRequest(RequestHandler*, HTTPMessage*) noexcept override {
     return new TestHandler();
   }
 
-  virtual void onServerStart(folly::EventBase*) noexcept override {}
-  virtual void onServerStop() noexcept override {}
+  void onServerStart(folly::EventBase*) noexcept override {}
+  void onServerStop() noexcept override {}
 };
 
 std::pair<std::unique_ptr<HTTPServer>, std::unique_ptr<ServerThread>>
