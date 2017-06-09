@@ -139,7 +139,7 @@ class MockCodecDownstreamTest: public testing::Test {
     }
   }
 
-  ~MockCodecDownstreamTest() {
+  ~MockCodecDownstreamTest() override {
     AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
     for (auto& cb : cbs_) {
       cb->writeErr(0, ex);

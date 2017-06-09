@@ -168,7 +168,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     Node(HTTP2PriorityQueue& queue, Node* inParent, HTTPCodec::StreamID id,
          uint8_t weight, HTTPTransaction *txn);
 
-    ~Node();
+    ~Node() override;
 
     // Functor comparing id to node and vice-versa
     struct IdNodeEqual {

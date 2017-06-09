@@ -364,22 +364,21 @@ class MockHTTPSessionInfoCallback: public HTTPSession::InfoCallback {
 
 class DummyHTTPSessionStats : public HTTPSessionStats {
  public:
-
-  virtual void recordTransactionOpened() noexcept {};
-  virtual void recordTransactionClosed() noexcept {};
-  virtual void recordTransactionsServed(uint64_t) noexcept {};
-  virtual void recordSessionReused() noexcept {};
+  void recordTransactionOpened() noexcept override{};
+  void recordTransactionClosed() noexcept override{};
+  void recordTransactionsServed(uint64_t) noexcept override{};
+  void recordSessionReused() noexcept override{};
   //virtual void recordSessionIdleTime(std::chrono::seconds) noexcept {};
-  virtual void recordTransactionStalled() noexcept {};
-  virtual void recordSessionStalled() noexcept {};
+  void recordTransactionStalled() noexcept override{};
+  void recordSessionStalled() noexcept override{};
 
-  virtual void recordTTLBAExceedLimit() noexcept {};
-  virtual void recordTTLBAIOBSplitByEom() noexcept {};
-  virtual void recordTTLBANotFound() noexcept {};
-  virtual void recordTTLBAReceived() noexcept {};
-  virtual void recordTTLBATimeout() noexcept {};
-  virtual void recordTTLBAEomPassed() noexcept {};
-  virtual void recordTTLBATracked() noexcept {};
+  void recordTTLBAExceedLimit() noexcept override{};
+  void recordTTLBAIOBSplitByEom() noexcept override{};
+  void recordTTLBANotFound() noexcept override{};
+  void recordTTLBAReceived() noexcept override{};
+  void recordTTLBATimeout() noexcept override{};
+  void recordTTLBAEomPassed() noexcept override{};
+  void recordTTLBATracked() noexcept override{};
 };
 
 class MockHTTPSessionStats: public DummyHTTPSessionStats {

@@ -1107,10 +1107,8 @@ TEST_F(HTTP2CodecTest, BadPriority) {
 class DummyQueue: public HTTPCodec::PriorityQueue {
  public:
   DummyQueue() {}
-  virtual ~DummyQueue() {}
-  virtual void addPriorityNode(
-      HTTPCodec::StreamID id,
-      HTTPCodec::StreamID) override {
+  ~DummyQueue() override {}
+  void addPriorityNode(HTTPCodec::StreamID id, HTTPCodec::StreamID) override {
     nodes_.push_back(id);
   }
 
