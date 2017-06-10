@@ -9,10 +9,10 @@ import specs.folly as folly
 
 def fbcode_builder_spec(builder):
     # Projects that simply depend on Wangle need not spend time on tests.
-    builder.add_option('wangle/wangle:cmake_defines', {'BUILD_TESTS': 'OFF'})
+    builder.add_option('wangle/wangle/build:cmake_defines', {'BUILD_TESTS': 'OFF'})
     return {
         'depends_on': [folly],
         'steps': [
-            builder.fb_github_cmake_install('wangle/wangle'),
+            builder.fb_github_cmake_install('wangle/wangle/build'),
         ],
     }

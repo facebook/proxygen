@@ -232,10 +232,10 @@ class FBCodeBuilder(object):
             self.workdir(path_join(base_dir, os.path.basename(project), path)),
         ] + maybe_change_branch)
 
-    def fb_github_project_workdir(self, project_and_path):
+    def fb_github_project_workdir(self, project_and_path, github_org='facebook'):
         'This helper lets Facebook-internal CI special-cases FB projects'
         project, path = project_and_path.split('/', 1)
-        return self.github_project_workdir('facebook/' + project, path)
+        return self.github_project_workdir(github_org + '/' + project, path)
 
     def _make_vars(self, make_vars):
         return shell_join(' ', (
@@ -257,9 +257,8 @@ class FBCodeBuilder(object):
             )),
         ]
 
-    def autoconf_install(self, name):
-        return self.step('Build and install {0}'.format(name), [
-            self.run(ShellQuoted('autoreconf -ivf')),
+    def configure(self):
+        return [
             self.run(ShellQuoted(
                 'LDFLAGS="$LDFLAGS -L"{p}"/lib -Wl,-rpath="{p}"/lib" '
                 'CFLAGS="$CFLAGS -I"{p}"/include" '
@@ -267,9 +266,14 @@ class FBCodeBuilder(object):
                 'PY_PREFIX={p} '
                 './configure --prefix={p}'
             ).format(p=self.option('prefix'))),
-        ] + self.make_and_install())
+        ]
 
-    def cmake_install(self, name):
+    def autoconf_install(self, name):
+        return self.step('Build and install {0}'.format(name), [
+            self.run(ShellQuoted('autoreconf -ivf')),
+        ] + self.configure() + self.make_and_install())
+
+    def cmake_configure(self, name):
         cmake_defines = {
             'BUILD_SHARED_LIBS': 'ON',
             'CMAKE_INSTALL_PREFIX': self.option('prefix'),
@@ -277,15 +281,22 @@ class FBCodeBuilder(object):
         cmake_defines.update(
             self.option('{0}:cmake_defines'.format(name), {})
         )
-        return self.step('Build and install {0}'.format(name), [
-            self.workdir('build'),
-            self.run(ShellQuoted('cmake {args} ..').format(
+        return [
+            self.run(ShellQuoted(
+                'CXXFLAGS="$CXXFLAGS -isystem "{p}"/include" '
+                'CFLAGS="$CFLAGS -isystem "{p}"/include" '
+                'cmake {args} ..').format(
+                p=self.option('prefix'),
                 args=shell_join(' ', (
                     ShellQuoted('-D{k}={v}').format(k=k, v=v)
                         for k, v in cmake_defines.items()
                 ))
             )),
-        ] + self.make_and_install())
+        ]
+
+    def cmake_install(self, name):
+        return self.step('Build and install {0}'.format(name),
+                         self.cmake_configure(name) + self.make_and_install())
 
     def fb_github_autoconf_install(self, project_and_path):
         return [
