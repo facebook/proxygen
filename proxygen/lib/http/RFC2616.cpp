@@ -45,7 +45,7 @@ BodyAllowed isRequestBodyAllowed(boost::optional<HTTPMethod> method) {
     return BodyAllowed::NOT_ALLOWED;
   }
   if (method == HTTPMethod::OPTIONS || method == HTTPMethod::POST ||
-      method == HTTPMethod::PUT || method == HTTPMethod::CONNECT) {
+      method == HTTPMethod::PUT) {
     return BodyAllowed::DEFINED;
   }
   return BodyAllowed::NOT_DEFINED;
