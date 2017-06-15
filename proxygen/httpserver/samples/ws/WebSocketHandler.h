@@ -76,5 +76,6 @@ private:
 	folly::EventBase* eventBase;
 	std::function<void()> onBodyHandler;
 	bool headersSent;
+	bool eomSent;
 };
 

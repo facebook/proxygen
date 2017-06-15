@@ -38,7 +38,7 @@ struct CancellableCallback
 };
 
 WebSocketHandler::WebSocketHandler(folly::HHWheelTimer* timer)
-: msg_manager_ptr{new config_type::con_msg_manager_type()}, connection{std::make_shared<websocketpp::connection<config_type>>(true/*isServer*/, "websocketppProxygen"/*userAgent*/, alog, elog, websocketpp::lib::ref(rng))}, timer(timer), eventBase{folly::EventBaseManager::get()->getEventBase()}, headersSent{false}
+: msg_manager_ptr{new config_type::con_msg_manager_type()}, connection{std::make_shared<websocketpp::connection<config_type>>(true/*isServer*/, "websocketppProxygen"/*userAgent*/, alog, elog, websocketpp::lib::ref(rng))}, timer(timer), eventBase{folly::EventBaseManager::get()->getEventBase()}, headersSent{false}, eomSent{false}
 //, processor{true/*isSecure*/, true/*isServer*/, msg_manager_ptr, websocketpp::lib::ref(rng)}
 {
 }
@@ -315,7 +315,10 @@ WebSocketHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
 void
 WebSocketHandler::onEOM() noexcept {
 	LOG(INFO) << (void*)this << " onEOM\n";
-	downstream_->sendEOM();
+	if (!eomSent) {
+		downstream_->sendEOM();
+		eomSent = true;
+	}
 }
 
 void
@@ -397,7 +400,10 @@ void
 WebSocketHandler::async_shutdown(websocketpp::transport::shutdown_handler handler)
 {
 	LOG(INFO) << "WebSocketHandler::async_shutdown\n";
-	proxygen::ResponseBuilder(downstream_).status(500, "").sendWithEOM();
+	if (!eomSent) {
+		downstream_->sendEOM();
+		eomSent = true;
+	}
 	handler(websocketpp::lib::error_code{});
 }
 
