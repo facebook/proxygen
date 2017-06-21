@@ -67,12 +67,19 @@ void HTTPUpstreamSession::startNow() {
   HTTPSession::startNow();
   // Upstream specific:
   // create virtual priority nodes and send Priority frames to peer if necessary
-  auto bytes = codec_->addPriorityNodes(
-      txnEgressQueue_,
-      writeBuf_,
-      maxVirtualPriorityLevel_);
-  if (bytes) {
+  if (priorityMapFactory_) {
+    priorityAdapter_ = priorityMapFactory_->createVirtualStreams(this);
     scheduleWrite();
+  } else {
+    // TODO/T17420249 Move this to the PriorityAdapter and remove it from the
+    // codec.
+    auto bytes = codec_->addPriorityNodes(
+        txnEgressQueue_,
+        writeBuf_,
+        maxVirtualPriorityLevel_);
+    if (bytes) {
+      scheduleWrite();
+    }
   }
 }
 

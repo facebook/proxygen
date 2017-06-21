@@ -35,6 +35,12 @@ namespace proxygen {
 class HTTPSessionController;
 class HTTPSessionStats;
 
+class HTTPPriorityMapFactoryProvider {
+public:
+  virtual ~HTTPPriorityMapFactoryProvider() = default;
+  virtual HTTPCodec::StreamID sendPriority(http2::PriorityUpdate pri) = 0;
+};
+
 class HTTPSession:
   private FlowControlFilter::Callback,
   private HTTPCodec::Callback,
@@ -44,7 +50,8 @@ class HTTPSession:
   public folly::AsyncTransportWrapper::ReadCallback,
   public wangle::ManagedConnection,
   public folly::AsyncTransport::BufferCallback,
-  private folly::AsyncTransport::ReplaySafetyCallback {
+  private folly::AsyncTransport::ReplaySafetyCallback,
+  public HTTPPriorityMapFactoryProvider {
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
 
@@ -206,6 +213,11 @@ class HTTPSession:
   bool readsUnpaused() const {
     return reads_ == SocketState::UNPAUSED;
   }
+
+ virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+     uint8_t) override {
+   return folly::none;
+ }
 
   bool readsPaused() const {
     return reads_ == SocketState::PAUSED;
@@ -387,7 +399,7 @@ class HTTPSession:
    * doesn't support priority, this is a no-op.  A new stream identifier will
    * be selected and returned.
    */
-  HTTPCodec::StreamID sendPriority(http2::PriorityUpdate pri);
+  virtual HTTPCodec::StreamID sendPriority(http2::PriorityUpdate pri) override;
 
   /**
    * As above, but updates an existing priority node.  Do not use for

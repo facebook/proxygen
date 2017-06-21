@@ -34,6 +34,66 @@ using std::string;
 using std::unique_ptr;
 using std::vector;
 
+class TestPriorityMapBuilder : public HTTPUpstreamSession::PriorityMapFactory {
+public:
+  virtual std::unique_ptr<HTTPUpstreamSession::PriorityAdapter>
+     createVirtualStreams(HTTPPriorityMapFactoryProvider* session) const
+        override;
+  virtual ~TestPriorityMapBuilder() = default;
+
+  uint8_t hiPriWeight_{18};
+  uint8_t hiPriLevel_{0};
+  uint8_t loPriWeight_{2};
+  uint8_t loPriLevel_{2};
+};
+
+class TestPriorityAdapter : public HTTPUpstreamSession::PriorityAdapter {
+public:
+  virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+      uint8_t level) override {
+    if (priorityMap_.empty()) {
+      return folly::none;
+    }
+    auto it = priorityMap_.find(level);
+    if (it == priorityMap_.end()) {
+      return minPriority_;
+    }
+    return it->second;
+  }
+
+  virtual ~TestPriorityAdapter() = default;
+
+  std::map<uint8_t, HTTPMessage::HTTPPriority> priorityMap_;
+  HTTPMessage::HTTPPriority minPriority_{std::make_tuple(0, false, 0)};
+  HTTPCodec::StreamID parentId_{0};
+  HTTPCodec::StreamID hiPriId_{0};
+  HTTPCodec::StreamID loPriId_{0};
+  HTTPMessage::HTTPPriority hiPri_{std::make_tuple(0, false, 0)};
+  HTTPMessage::HTTPPriority loPri_{std::make_tuple(0, false, 0)};
+};
+
+std::unique_ptr<HTTPUpstreamSession::PriorityAdapter>
+    TestPriorityMapBuilder::createVirtualStreams(
+        HTTPPriorityMapFactoryProvider* session) const {
+  std::unique_ptr<TestPriorityAdapter>  a =
+      std::make_unique<TestPriorityAdapter>();
+  a->parentId_ = session->sendPriority({0, false, 1});
+
+  std::get<0>(a->hiPri_) = a->parentId_;
+  std::get<2>(a->hiPri_) = hiPriWeight_;
+  a->hiPriId_ = session->sendPriority({a->parentId_, false, hiPriWeight_});
+  a->priorityMap_[hiPriLevel_] = a->hiPri_;
+
+  std::get<0>(a->loPri_) = a->parentId_;
+  std::get<2>(a->loPri_) = loPriWeight_;
+  a->loPriId_ = session->sendPriority({a->parentId_, false, loPriWeight_});
+  a->priorityMap_[loPriLevel_] = a->loPri_;
+
+  a->minPriority_ = a->loPri_;
+
+  return std::move(a);
+}
+
 namespace {
 HTTPMessage getUpgradePostRequest(uint32_t bodyLen,
                                   const std::string& upgradeHeader,
@@ -675,7 +735,10 @@ class HTTP2UpstreamSessionWithVirtualNodesTest:
       std::move(transportPtr),
       localAddr_, peerAddr_,
       std::move(codec),
-      mockTransportInfo_, this, level_);
+      mockTransportInfo_,
+      this,
+      level_,
+      builder_);
     eventBase_.loop();
     ASSERT_EQ(this->sessionDestroyed_, false);
   }
@@ -690,6 +753,7 @@ class HTTP2UpstreamSessionWithVirtualNodesTest:
   uint32_t nextOutgoingTxn_{1};
   std::vector<HTTPCodec::StreamID> dependencies;
   uint8_t level_{3};
+  std::shared_ptr<TestPriorityMapBuilder> builder_;
 };
 
 TEST_F(HTTP2UpstreamSessionWithVirtualNodesTest, virtual_nodes) {
@@ -719,6 +783,62 @@ TEST_F(HTTP2UpstreamSessionWithVirtualNodesTest, virtual_nodes) {
     .WillOnce(Invoke([&] (uint8_t priority) {
             return dependencies[priority];
           }));
+  txn->updateAndSendPriority(0);
+
+  handler.expectError();
+  handler.expectDetachTransaction();
+  httpSession_->shutdownTransportWithReset(kErrorNone);
+
+  eventBase_.loop();
+}
+
+class HTTP2UpstreamSessionWithPriorityTree:
+    public HTTP2UpstreamSessionWithVirtualNodesTest {
+public:
+  HTTP2UpstreamSessionWithPriorityTree() {
+    builder_ = std::make_shared<TestPriorityMapBuilder>();
+  }
+};
+
+TEST_F(HTTP2UpstreamSessionWithPriorityTree, priority_tree) {
+  InSequence enforceOrder;
+
+  std::array<HTTPCodec::StreamID, 3> deps = { {11, 13, 15} };
+  EXPECT_CALL(*codecPtr_, addPriorityNodes(_, _, _))
+    .Times(0)
+    .WillOnce(Invoke([&] (
+            HTTPCodec::PriorityQueue&,
+            folly::IOBufQueue&,
+            uint8_t maxLevel) {
+          for (size_t i = 0; i < maxLevel; i++) {
+            dependencies.push_back(deps[i]);
+          }
+          return 123;
+        }));
+  httpSession_->startNow();
+
+  // It should have built the virtual streams from the tree but not the old
+  // priority levels.
+  EXPECT_EQ(dependencies.size(), 0);
+  HTTPMessage::HTTPPriority hiPri =
+      *httpSession_->getHTTPPriority(builder_->hiPriLevel_);
+  EXPECT_EQ(std::get<2>(hiPri), builder_->hiPriWeight_);
+  HTTPMessage::HTTPPriority loPri =
+      *httpSession_->getHTTPPriority(builder_->loPriLevel_);
+  EXPECT_EQ(std::get<2>(loPri), builder_->loPriWeight_);
+
+  for (size_t level = 0; level < 256; ++level) {
+    if (level == builder_->hiPriLevel_) {
+      continue;
+    }
+    HTTPMessage::HTTPPriority pri = *httpSession_->getHTTPPriority(level);
+    EXPECT_EQ(pri, loPri);
+  }
+
+  StrictMock<MockHTTPHandler> handler;
+  handler.expectTransaction();
+  auto txn = httpSession_->newTransaction(&handler);
+
   txn->updateAndSendPriority(0);
 
   handler.expectError();

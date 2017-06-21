@@ -22,6 +22,51 @@ class HTTPUpstreamSessionController;
 
 class HTTPUpstreamSession final: public HTTPSession {
  public:
+  // The interfaces defined below update the virtual stream based priority
+  // scheme from the current system which allows only strict priorities to a
+  // flexible system allowing an arbitrary tree of virtual streams, subject only
+  // to the limitations in the HTTP/2 specification. An arbitrary prioritization
+  // scheme can be implemented by constructing virtual streams corresponding to
+  // the desired prioritization and attaching new streams as dependencies of the
+  // appropriate virtual stream.
+  //
+  // The user must define a map from an opaque integer priority level to an
+  // HTTP/2 priority corresponding to the virtual stream. This map is
+  // implemented by the user in a class that extends
+  // HTTPUpstreamSession::PriorityMapFactory. A shared pointer to this class is
+  // passed into the constructor of HTTPUpstreamSession. This method will send
+  // the virtual streams and return a unique pointer to a class that extends
+  // HTTPUpstreamSession::PriorityAdapter. This class implements the map between
+  // the user defined priority level and the HTTP/2 priority level.
+  //
+  // When the session is started, the createVirtualStreams method of
+  // PriorityMapFactory is called by HTTPUpstreamSession::startNow. The returned
+  // pointer to the PriorityAdapter map is cached in HTTPUpstreamSession. The
+  // HTTP/2 priority that should be used for a new stream dependent on a virtual
+  // stream corresponding to a given priority level is then retrieved by calling
+  // the HTTPUpstreamSession::getHTTPPriority(uint8_t level) method.
+  //
+  // The prior strict priority system has been left in place for now, but if
+  // both maxLevels and PriorityMapFactory are passed into the
+  // HTTPUpstreamSession constructor, the maxLevels parameter will be ignored.
+
+  // Implments a map from generic priority level to HTTP/2 priority.
+  class PriorityAdapter {
+   public:
+    virtual folly::Optional<const HTTPMessage::HTTPPriority>
+        getHTTPPriority(uint8_t level) = 0;
+    virtual ~PriorityAdapter() = default;
+  };
+
+  class PriorityMapFactory {
+   public:
+    // Creates the map implemented by PriorityAdapter, sends the corresponding
+    // virtual stream on the given session, and retuns the map.
+    virtual std::unique_ptr<PriorityAdapter> createVirtualStreams(
+       HTTPPriorityMapFactoryProvider* session) const = 0;
+    virtual ~PriorityMapFactory() = default;
+  };
+
   /**
    * @param sock           An open socket on which any applicable TLS
    *                         handshaking has been completed already.
@@ -40,7 +85,9 @@ class HTTPUpstreamSession final: public HTTPSession {
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
       InfoCallback* infoCallback,
-      uint8_t maxVirtualPri = 0):
+      uint8_t maxVirtualPri = 0,
+      std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
+          std::shared_ptr<const PriorityMapFactory>()) :
     HTTPSession(
         timeout,
         std::move(sock),
@@ -50,7 +97,8 @@ class HTTPUpstreamSession final: public HTTPSession {
         std::move(codec),
         tinfo,
         infoCallback),
-    maxVirtualPriorityLevel_(maxVirtualPri) {
+    maxVirtualPriorityLevel_(priorityMapFactory ? 0 : maxVirtualPri),
+    priorityMapFactory_(priorityMapFactory) {
     if (sock_) {
       auto asyncSocket = sock_->getUnderlyingTransport<folly::AsyncSocket>();
       if (asyncSocket) {
@@ -69,9 +117,19 @@ class HTTPUpstreamSession final: public HTTPSession {
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
       InfoCallback* infoCallback,
-      uint8_t maxVirtualPri = 0):
-    HTTPUpstreamSession(WheelTimerInstance(timeout), std::move(sock), localAddr,
-        peerAddr, std::move(codec), tinfo, infoCallback, maxVirtualPri) {
+      uint8_t maxVirtualPri = 0,
+      std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
+          std::shared_ptr<const PriorityMapFactory>()) :
+    HTTPUpstreamSession(
+        WheelTimerInstance(timeout),
+        std::move(sock),
+        localAddr,
+        peerAddr,
+        std::move(codec),
+        tinfo,
+        infoCallback,
+        maxVirtualPri,
+        priorityMapFactory) {
   }
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
@@ -124,6 +182,14 @@ class HTTPUpstreamSession final: public HTTPSession {
     HTTPSession::drain();
   }
 
+ virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+     uint8_t level) override {
+   if (!priorityAdapter_) {
+     return HTTPSession::getHTTPPriority(level);
+   }
+   return priorityAdapter_->getHTTPPriority(level);
+ }
+
  private:
   ~HTTPUpstreamSession() override;
 
@@ -154,6 +220,8 @@ class HTTPUpstreamSession final: public HTTPSession {
 
   uint8_t maxVirtualPriorityLevel_{0};
 
+  std::shared_ptr<const PriorityMapFactory> priorityMapFactory_;
+  std::unique_ptr<PriorityAdapter> priorityAdapter_;
 };
 
 } // proxygen
