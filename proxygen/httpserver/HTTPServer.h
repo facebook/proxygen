@@ -70,6 +70,8 @@ class HTTPServer final {
      * Maximum queue size of pending fast open connections.
      */
     uint32_t fastOpenQueueSize{10000};
+
+    folly::Optional<folly::AsyncSocket::OptionMap> acceptorSocketOptions;
   };
 
   /**

@@ -127,10 +127,10 @@ void HTTPServer::start(std::function<void()> onSuccess,
       auto codecFactory = addresses_[i].codecFactory;
       auto accConfig = HTTPServerAcceptor::makeConfig(addresses_[i], *options_);
       auto factory = std::make_shared<AcceptorFactory>(
-        options_,
-        codecFactory,
-        accConfig,
-        sessionInfoCb_);
+          options_,
+          codecFactory,
+          accConfig,
+          sessionInfoCb_);
       bootstrap_.push_back(
           wangle::ServerBootstrap<wangle::DefaultPipeline>());
       bootstrap_[i].childHandler(factory);

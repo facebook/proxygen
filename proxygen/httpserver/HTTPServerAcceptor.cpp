@@ -48,6 +48,9 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   if (ipConfig.ticketSeeds) {
     conf.initialTicketSeeds = *ipConfig.ticketSeeds;
   }
+  if (ipConfig.acceptorSocketOptions.hasValue()) {
+    conf.setSocketOptions(ipConfig.acceptorSocketOptions.value());
+  }
   return conf;
 }
 
