@@ -21,10 +21,15 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
                    public proxygen::HTTPTransactionHandler {
 
  public:
-  CurlClient(folly::EventBase* evb, proxygen::HTTPMethod httpMethod,
-             const proxygen::URL& url, const proxygen::HTTPHeaders& headers,
-             const std::string& inputFilename, bool h2c = false);
-  ~CurlClient() override;
+  CurlClient(folly::EventBase* evb,
+             proxygen::HTTPMethod httpMethod,
+             const proxygen::URL& url,
+             const proxygen::URL* proxy,
+             const proxygen::HTTPHeaders& headers,
+             const std::string& inputFilename,
+             bool h2c = false);
+
+  virtual ~CurlClient() = default;
 
   // initial SSL related structures
   void initializeSsl(const std::string& certPath,
@@ -69,6 +74,7 @@ protected:
   folly::EventBase* evb_{nullptr};
   proxygen::HTTPMethod httpMethod_;
   proxygen::URL url_;
+  std::unique_ptr<proxygen::URL> proxy_;
   proxygen::HTTPMessage request_;
   const std::string inputFilename_;
   folly::SSLContextPtr sslContext_;

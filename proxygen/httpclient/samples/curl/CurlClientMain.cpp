@@ -42,6 +42,7 @@ DEFINE_string(plaintext_proto, "", "plaintext protocol");
 DEFINE_int32(recv_window, 65536, "Flow control receive window for h2/spdy");
 DEFINE_bool(h2c, true, "Attempt HTTP/1.1 -> HTTP/2 upgrade");
 DEFINE_string(headers, "", "List of N=V headers separated by ,");
+DEFINE_string(proxy, "", "HTTP proxy URL");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -50,6 +51,7 @@ int main(int argc, char* argv[]) {
 
   EventBase evb;
   URL url(FLAGS_url);
+  URL proxy(FLAGS_proxy);
 
   if (FLAGS_http_method != "GET" && FLAGS_http_method != "POST") {
     LOG(ERROR) << "http_method must be either GET or POST";
@@ -85,11 +87,21 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  CurlClient curlClient(&evb, httpMethod, url, headers,
-                        FLAGS_input_filename, FLAGS_h2c);
+  CurlClient curlClient(&evb,
+                        httpMethod,
+                        url,
+                        FLAGS_proxy.empty() ? nullptr : &proxy,
+                        headers,
+                        FLAGS_input_filename,
+                        FLAGS_h2c);
   curlClient.setFlowControlSettings(FLAGS_recv_window);
 
-  SocketAddress addr(url.getHost(), url.getPort(), true);
+  SocketAddress addr;
+  if (!FLAGS_proxy.empty()) {
+    addr = SocketAddress(proxy.getHost(), proxy.getPort(), true);
+  } else {
+    addr = SocketAddress(url.getHost(), url.getPort(), true);
+  }
   LOG(INFO) << "Trying to connect to " << addr;
 
   // Note: HHWheelTimer is a large object and should be created at most

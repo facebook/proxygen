@@ -19,19 +19,26 @@ DECLARE_int32(recv_window);
 
 namespace CurlService {
 
-CurlClient::CurlClient(EventBase* evb, HTTPMethod httpMethod, const URL& url,
-                       const HTTPHeaders& headers, const string& inputFilename,
-                       bool h2c):
-    evb_(evb), httpMethod_(httpMethod), url_(url),
-    inputFilename_(inputFilename), h2c_(h2c) {
+CurlClient::CurlClient(EventBase* evb,
+                       HTTPMethod httpMethod,
+                       const URL& url,
+                       const proxygen::URL* proxy,
+                       const HTTPHeaders& headers,
+                       const string& inputFilename,
+                       bool h2c)
+    : evb_(evb),
+      httpMethod_(httpMethod),
+      url_(url),
+      inputFilename_(inputFilename),
+      h2c_(h2c) {
+  if (proxy != nullptr) {
+    proxy_ = std::make_unique<URL>(proxy->getUrl());
+  }
+
   headers.forEach([this] (const string& header, const string& val) {
       request_.getHeaders().add(header, val);
     });
 }
-
-CurlClient::~CurlClient() {
-}
-
 
 void CurlClient::initializeSsl(const string& certPath,
                                const string& nextProtos) {
@@ -82,7 +89,11 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   txn_ = session->newTransaction(this);
   request_.setMethod(httpMethod_);
   request_.setHTTPVersion(1, 1);
-  request_.setURL(url_.makeRelativeURL());
+  if (proxy_) {
+    request_.setURL(url_.getUrl());
+  } else {
+    request_.setURL(url_.makeRelativeURL());
+  }
   request_.setSecure(url_.isSecure());
   if (h2c_) {
     HTTP2Codec::requestUpgrade(request_);
