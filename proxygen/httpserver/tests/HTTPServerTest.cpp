@@ -21,9 +21,6 @@
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <wangle/client/ssl/SSLSession.h>
 
-#include <openssl/x509.h>
-#include <openssl/evp.h>
-#include <openssl/sha.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -241,7 +238,7 @@ TEST(SSL, TestAllowInsecureOnSecureServer) {
   URL url(folly::to<std::string>(
       "http://localhost:", server->addresses().front().address.getPort()));
   HTTPHeaders headers;
-  CurlClient curl(&evb, HTTPMethod::GET, url, headers, "");
+  CurlClient curl(&evb, HTTPMethod::GET, url, nullptr, headers, "");
   curl.setFlowControlSettings(64 * 1024);
   curl.setLogging(false);
   HHWheelTimer::UniquePtr timer{new HHWheelTimer(
@@ -267,7 +264,7 @@ TEST(SSL, DisallowInsecureOnSecureServer) {
   URL url(folly::to<std::string>(
       "http://localhost:", server->addresses().front().address.getPort()));
   HTTPHeaders headers;
-  CurlClient curl(&evb, HTTPMethod::GET, url, headers, "");
+  CurlClient curl(&evb, HTTPMethod::GET, url, nullptr, headers, "");
   curl.setFlowControlSettings(64 * 1024);
   curl.setLogging(false);
   HHWheelTimer::UniquePtr timer{new HHWheelTimer(
