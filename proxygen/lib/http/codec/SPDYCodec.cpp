@@ -286,10 +286,10 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
           throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
         }
         frameState_ = FrameState::CTRL_FRAME_DATA;
-        callback_->onFrameHeader(0, flags_, length_, version_);
+        callback_->onFrameHeader(0, flags_, length_, type_, version_);
       } else {
         frameState_ = FrameState::DATA_FRAME_DATA;
-        callback_->onFrameHeader(streamId_, flags_, length_);
+        callback_->onFrameHeader(streamId_, flags_, length_, type_);
       }
     } else if (frameState_ == FrameState::CTRL_FRAME_DATA) {
       if (avail < length_) {

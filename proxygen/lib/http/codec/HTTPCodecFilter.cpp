@@ -59,8 +59,9 @@ void PassThroughHTTPCodecFilter::onFrameHeader(
     uint32_t stream_id,
     uint8_t flags,
     uint32_t length,
+    uint8_t type,
     uint16_t version) {
-  callback_->onFrameHeader(stream_id, flags, length, version);
+  callback_->onFrameHeader(stream_id, flags, length, type, version);
 }
 
 void PassThroughHTTPCodecFilter::onError(

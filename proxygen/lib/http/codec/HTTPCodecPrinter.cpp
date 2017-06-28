@@ -17,6 +17,7 @@ void HTTPCodecPrinter::onFrameHeader(
     uint32_t stream_id,
     uint8_t flags,
     uint32_t length,
+    uint8_t type,
     uint16_t version) {
   switch (call_->getProtocol()) {
     case CodecProtocol::SPDY_3:
@@ -25,24 +26,30 @@ void HTTPCodecPrinter::onFrameHeader(
         // Print frame header info of SPDY control frames
         std::cout << "[CTRL FRAME] version=" << version << ", flags="
                   <<  std::hex << folly::to<unsigned int>(flags) << std::dec
-                  << ", length=" << length << std::endl;
+                  << ", length=" << length
+                  << ", type=" << type
+                  << std::endl;
       } else {
         // Print frame header info of SPDY data frames and HTTP/2 frames
         std::cout << "[DATA FRAME] stream_id=" << stream_id << ", flags="
                   << std::hex << folly::to<unsigned int>(flags) << std::dec
-                  << ", length=" << length << std::endl;
+                  << ", length=" << length
+                  << ", type=" << type
+                  << std::endl;
       }
       break;
     case CodecProtocol::HTTP_2:
       std::cout << "[FRAME] stream_id=" << stream_id << ", flags="
                 << std::hex << folly::to<unsigned int>(flags) << std::dec
-                << ", length=" << length << std::endl;
+                << ", length=" << length
+                << ", type=" << type
+                << std::endl;
       break;
     case CodecProtocol::HTTP_1_1:
     default:
       break;
   }
-  callback_->onFrameHeader(stream_id, flags, length, version);
+  callback_->onFrameHeader(stream_id, flags, length, type, version);
 }
 
 void HTTPCodecPrinter::onError(StreamID stream,

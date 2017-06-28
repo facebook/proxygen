@@ -173,13 +173,16 @@ class HTTPCodec {
      * @param stream_id The stream ID
      * @param flags     The flags field of frame header
      * @param length    The length field of frame header
+     * @param type      The type field of frame header
      * @param version   The version of frame (SPDY only)
-     * @note Not all protocols have frames. SPDY does, but HTTP/1.1 doesn't.
+     * @note Not all protocols have frames. SPDY and HTTP/2 do,
+     *       but HTTP/1.1 doesn't.
      */
     virtual void onFrameHeader(
         uint32_t /* stream_id */,
         uint8_t /* flags */,
         uint32_t /* length */,
+        uint8_t /* type */,
         uint16_t /* version */ = 0) {}
 
     /**

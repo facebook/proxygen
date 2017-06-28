@@ -185,9 +185,11 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
      !(curHeader_.flags & http2::END_HEADERS)) ? curHeader_.stream : 0;
 
   if (callback_) {
-    callback_->onFrameHeader(curHeader_.stream,
-                             curHeader_.flags,
-                             curHeader_.length);
+    callback_->onFrameHeader(
+      curHeader_.stream,
+      curHeader_.flags,
+      curHeader_.length,
+      static_cast<uint8_t>(curHeader_.type));
   }
 
   ErrorCode err = ErrorCode::NO_ERROR;
