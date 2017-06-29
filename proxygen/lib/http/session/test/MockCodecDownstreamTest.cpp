@@ -123,7 +123,7 @@ class MockCodecDownstreamTest: public testing::Test {
         transactionTimeouts_.get(),
         AsyncTransportWrapper::UniquePtr(transport_), localAddr, peerAddr,
         &mockController_, std::unique_ptr<HTTPCodec>(codec_),
-        mockTransportInfo);
+        mockTransportInfo, nullptr);
     httpSession_->startNow();
     eventBase_.loop();
   }

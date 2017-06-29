@@ -61,7 +61,8 @@ class HTTPDownstreamTest : public testing::Test {
       &mockController_,
       std::move(makeServerCodec<typename C::Codec>(
                   C::version)),
-      mockTransportInfo /* no stats for now */);
+      mockTransportInfo /* no stats for now */,
+      nullptr);
     for (auto& param: flowControl) {
       if (param < 0) {
         param = httpSession_->getCodec().getDefaultWindowSize();
@@ -769,7 +770,8 @@ TEST(HTTPDownstreamTest, parse_error_no_txn) {
     AsyncTransportWrapper::UniquePtr(transport),
     localAddr, peerAddr,
     &mockController, std::move(codec),
-    mockTransportInfo);
+    mockTransportInfo,
+    nullptr);
   session->startNow();
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, "foo");
   ex.setProxygenError(kErrorParseHeader);
@@ -797,7 +799,8 @@ TEST(HTTPDownstreamTest, byte_events_drained) {
     AsyncTransportWrapper::UniquePtr(transport),
     localAddr, peerAddr,
     &mockController, std::move(codec),
-    mockTransportInfo);
+    mockTransportInfo,
+    nullptr);
   session->setByteEventTracker(
       std::unique_ptr<ByteEventTracker>(byteEventTracker));
 

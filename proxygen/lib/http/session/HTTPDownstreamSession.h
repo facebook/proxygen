@@ -33,7 +33,7 @@ class HTTPDownstreamSession final: public HTTPSession {
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback = nullptr):
+      InfoCallback* infoCallback):
     HTTPSession(timeout, std::move(sock), localAddr, peerAddr,
                 CHECK_NOTNULL(controller), std::move(codec), tinfo,
                 infoCallback) {
@@ -49,7 +49,7 @@ class HTTPDownstreamSession final: public HTTPSession {
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback = nullptr):
+      InfoCallback* infoCallback):
     HTTPDownstreamSession(WheelTimerInstance(timer), std::move(sock), localAddr,
         peerAddr,CHECK_NOTNULL(controller), std::move(codec), tinfo,
         infoCallback) {

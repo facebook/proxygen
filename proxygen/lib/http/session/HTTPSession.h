@@ -476,7 +476,7 @@ class HTTPSession:
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback = nullptr);
+      InfoCallback* infoCallback);
 
   // thrift uses WheelTimer
   HTTPSession(
@@ -487,7 +487,7 @@ class HTTPSession:
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback = nullptr);
+      InfoCallback* infoCallback);
 
   ~HTTPSession() override;
 
