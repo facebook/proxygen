@@ -153,7 +153,7 @@ class HeaderTable {
   /**
    * Evict entries to make space for the needed amount of bytes.
    */
-  uint32_t evict(uint32_t needed);
+  uint32_t evict(uint32_t needed, uint32_t desiredCapacity);
 
   /**
    * Move the index to the right.

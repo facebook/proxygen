@@ -42,7 +42,7 @@ bool HeaderTable::add(const HPACKHeader& header) {
 
   // Make the necessary room in the table if appropriate per RFC spec
   if ((bytes_ + header.bytes()) > capacity_) {
-    evict(header.bytes());
+    evict(header.bytes(), capacity_);
   }
 
   if (size_ > 0) {
@@ -131,23 +131,17 @@ OutputIt moveItems(InputIt first, InputIt last,
 }
 }
 
-void HeaderTable::setCapacity(uint32_t capacity) {
-  // TODO: ddmello - the below is a little dangerous as we update the
-  // capacity right away.  Some properties of the class utilize that variable
-  // and so might be better to refactor and update capacity at the end of the
-  // method (and update other methods)
-  auto oldCapacity = capacity_;
-  capacity_ = capacity;
-  if (capacity_ == oldCapacity) {
+void HeaderTable::setCapacity(uint32_t newCapacity) {
+  if (newCapacity == capacity_) {
     return;
-  } else if (capacity_ < oldCapacity) {
+  } else if (newCapacity < capacity_) {
     // NOTE: currently no actual resizing is performed...
-    evict(0);
+    evict(0, newCapacity);
   } else {
     // NOTE: due to the above lack of resizing, we must determine whether a
     // resize is actually appropriate (to handle cases where the underlying
     // vector is still >= to the size related to the new capacity requested)
-    uint32_t newLength = getMaxTableLength(capacity_);
+    uint32_t newLength = getMaxTableLength(newCapacity);
     if (newLength > table_.size()) {
       auto oldTail = tail();
       auto oldLength = table_.size();
@@ -173,11 +167,12 @@ void HeaderTable::setCapacity(uint32_t capacity) {
       }
     }
   }
+  capacity_ = newCapacity;
 }
 
-uint32_t HeaderTable::evict(uint32_t needed) {
+uint32_t HeaderTable::evict(uint32_t needed, uint32_t desiredCapacity) {
   uint32_t previousSize = size_;
-  while (size_ > 0 && (bytes_ + needed > capacity_)) {
+  while (size_ > 0 && (bytes_ + needed > desiredCapacity)) {
     removeLast();
   }
   return previousSize - size_;
