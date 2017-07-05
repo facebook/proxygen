@@ -170,8 +170,8 @@ void HTTPTransaction::onIngressHeadersComplete(
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::HEADERS_COMPLETE,
                              std::move(msg));
-    VLOG(4) << *this << " Queued ingress event of type " <<
-      HTTPEvent::Type::HEADERS_COMPLETE;
+    VLOG(4) << "Queued ingress event of type "
+            << HTTPEvent::Type::HEADERS_COMPLETE << " " << *this;
   } else {
     processIngressHeadersComplete(std::move(msg));
   }
@@ -214,7 +214,7 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
           len,
           " expecting no more than ",
           expectedContentLengthRemaining_.value());
-      LOG(ERROR) << *this << " " << errorMsg;
+      LOG(ERROR) << errorMsg << " " << *this;
       if (handler_) {
         HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
         ex.setProxygenError(kErrorParseBody);
@@ -229,9 +229,11 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
   if (mustQueueIngress()) {
     // register the bytes in the receive window
     if (!recvWindow_.reserve(len + padding, useFlowControl_)) {
-      LOG(ERROR) << *this << " recvWindow_.reserve failed with len=" << len <<
-        " padding=" << padding << " capacity=" << recvWindow_.getCapacity() <<
-        " outstanding=" << recvWindow_.getOutstanding();
+      LOG(ERROR) << "recvWindow_.reserve failed with len=" << len
+                 << " padding=" << padding
+                 << " capacity=" << recvWindow_.getCapacity()
+                 << " outstanding=" << recvWindow_.getOutstanding()
+                 << " " << *this ;
       sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
     } else {
       CHECK(recvWindow_.free(padding));
@@ -239,8 +241,8 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
       checkCreateDeferredIngress();
       deferredIngress_->emplace(id_, HTTPEvent::Type::BODY,
                                std::move(chain));
-      VLOG(4) << *this << " Queued ingress event of type " <<
-        HTTPEvent::Type::BODY << " size=" << len;
+      VLOG(4) << "Queued ingress event of type " << HTTPEvent::Type::BODY
+              << " size=" << len << " " << *this;
     }
   } else {
     processIngressBody(std::move(chain), len);
@@ -284,8 +286,8 @@ void HTTPTransaction::onIngressChunkHeader(size_t length) {
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::CHUNK_HEADER, length);
-    VLOG(4) << *this << " Queued ingress event of type " <<
-      HTTPEvent::Type::CHUNK_HEADER << " size=" << length;
+    VLOG(4) << "Queued ingress event of type " << HTTPEvent::Type::CHUNK_HEADER
+            << " size=" << length << " " << *this;
   } else {
     processIngressChunkHeader(length);
   }
@@ -310,8 +312,8 @@ void HTTPTransaction::onIngressChunkComplete() {
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::CHUNK_COMPLETE);
-    VLOG(4) << *this << " Queued ingress event of type " <<
-      HTTPEvent::Type::CHUNK_COMPLETE;
+    VLOG(4) << "Queued ingress event of type "
+            << HTTPEvent::Type::CHUNK_COMPLETE << " " << *this;
   } else {
     processIngressChunkComplete();
   }
@@ -337,8 +339,8 @@ void HTTPTransaction::onIngressTrailers(unique_ptr<HTTPHeaders> trailers) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::TRAILERS_COMPLETE,
         std::move(trailers));
-    VLOG(4) << *this << " Queued ingress event of type " <<
-      HTTPEvent::Type::TRAILERS_COMPLETE;
+    VLOG(4) << "Queued ingress event of type "
+            << HTTPEvent::Type::TRAILERS_COMPLETE << " " << *this;
   } else {
     processIngressTrailers(std::move(trailers));
   }
@@ -363,8 +365,8 @@ void HTTPTransaction::onIngressUpgrade(UpgradeProtocol protocol) {
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::UPGRADE, protocol);
-    VLOG(4) << *this << " Queued ingress event of type " <<
-      HTTPEvent::Type::UPGRADE;
+    VLOG(4) << "Queued ingress event of type " << HTTPEvent::Type::UPGRADE
+            << " " << *this;
   } else {
     processIngressUpgrade(protocol);
   }
@@ -391,7 +393,7 @@ void HTTPTransaction::onIngressEOM() {
     auto errorMsg = folly::to<std::string>(
         "Content-Length/body mismatch: expecting another ",
         expectedContentLengthRemaining_.value());
-    LOG(ERROR) << *this << " " << errorMsg;
+    LOG(ERROR) << errorMsg << " " << *this;
     if (handler_) {
       HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
       ex.setProxygenError(kErrorParseBody);
@@ -417,8 +419,8 @@ void HTTPTransaction::onIngressEOM() {
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::MESSAGE_COMPLETE);
-    VLOG(4) << *this << " Queued ingress event of type " <<
-      HTTPEvent::Type::MESSAGE_COMPLETE;
+    VLOG(4) << "Queued ingress event of type "
+            << HTTPEvent::Type::MESSAGE_COMPLETE << " " << *this;
   } else {
     processIngressEOM();
   }
@@ -516,8 +518,8 @@ void HTTPTransaction::onError(const HTTPException& error) {
     // we got an ingress error, we've seen the entire message, but we're
     // expecting more (window updates).  These aren't coming, convert to
     // INGRESS_AND_EGRESS
-    VLOG(4) << *this << " Converting ingress error to ingress+egress due to"
-      " flow control, and aborting";
+    VLOG(4) << "Converting ingress error to ingress+egress due to"
+      " flow control, and aborting " << *this;
     direction = HTTPException::Direction::INGRESS_AND_EGRESS;
     sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
   }
@@ -618,14 +620,15 @@ void HTTPTransaction::onIngressWindowUpdate(const uint32_t amount) {
     return;
   }
   DestructorGuard g(this);
-  VLOG(4) << *this << " Remote side ack'd " << amount << " bytes";
+  VLOG(4) << "Remote side ack'd " << amount << " bytes " << *this ;
   updateReadTimeout();
   if (sendWindow_.free(amount)) {
     notifyTransportPendingEgress();
   } else {
-    LOG(ERROR) << *this << "sendWindow_.free failed with amount=" << amount <<
-      " capacity=" << sendWindow_.getCapacity() <<
-      " outstanding=" << sendWindow_.getOutstanding();
+    LOG(ERROR) << "sendWindow_.free failed with amount=" << amount
+               << " capacity=" << sendWindow_.getCapacity()
+               << " outstanding=" << sendWindow_.getOutstanding()
+               << " " << *this;
     sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
   }
 }
@@ -638,9 +641,10 @@ void HTTPTransaction::onIngressSetSendWindow(const uint32_t newWindowSize) {
   if (sendWindow_.setCapacity(newWindowSize)) {
     notifyTransportPendingEgress();
   } else {
-    LOG(ERROR) << *this << "sendWindow_.setCapacity failed with newWindowSize="
+    LOG(ERROR) << "sendWindow_.setCapacity failed with newWindowSize="
                << newWindowSize << " capacity=" << sendWindow_.getCapacity()
-               << " outstanding=" << sendWindow_.getOutstanding();
+               << " outstanding=" << sendWindow_.getOutstanding()
+               << " " << *this;
     sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
   }
 }
@@ -859,7 +863,7 @@ bool HTTPTransaction::maybeDelayForRateLimit() {
   if (requiredDelay > kRateLimitMaxDelay) {
     // The delay should never be this long
     VLOG(4) << "ratelim: Required delay too long (" << requiredDelay.count()
-      << "ms), ignoring";
+            << "ms), ignoring";
     return false;
   }
 
@@ -903,11 +907,12 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   if (useFlowControl_) {
     CHECK(sendWindow_.reserve(bodyLen));
   }
-  VLOG(4) << *this << " Sending " << bodyLen << " bytes of body. eom="
+  VLOG(4) << "Sending " << bodyLen << " bytes of body. eom="
           << ((sendEom) ? "yes" : "no") << " send_window is "
           << ( useFlowControl_ ?
                folly::to<std::string>(sendWindow_.getSize(), " / ",
-                                      sendWindow_.getCapacity()) : noneStr);
+                                      sendWindow_.getCapacity()) : noneStr)
+          << " " << *this;
   if (sendEom) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
@@ -953,15 +958,15 @@ HTTPTransaction::sendEOM() {
       // should take care of sending the EOM.
       // Nevertheless we never expect this condition to occur,
       // so, log.
-      LOG(ERROR) << "Queued egress EOM with no body on "
-        << *this
-        << "[egressState=" << egressState_ << ", "
-        << "ingressState=" << ingressState_ << ", "
-        << "egressPaused=" << egressPaused_ << ", "
-        << "ingressPaused=" << ingressPaused_ << ", "
-        << "aborted=" << aborted_ << ", "
-        << "enqueued=" << isEnqueued() << ", "
-        << "chainLength=" << deferredEgressBody_.chainLength() << "]";
+      LOG(ERROR) << "Queued egress EOM with no body"
+                 << "[egressState=" << egressState_ << ", "
+                 << "ingressState=" << ingressState_ << ", "
+                 << "egressPaused=" << egressPaused_ << ", "
+                 << "ingressPaused=" << ingressPaused_ << ", "
+                 << "aborted=" << aborted_ << ", "
+                 << "enqueued=" << isEnqueued() << ", "
+                 << "chainLength=" << deferredEgressBody_.chainLength() << "]"
+                 << " on " << *this;
     }
   } else {
     VLOG(4) << "Queued egress EOM on " << *this;
@@ -995,11 +1000,10 @@ void HTTPTransaction::sendAbort(ErrorCode statusCode) {
 }
 
 void HTTPTransaction::pauseIngress() {
-  VLOG(4) << *this << " pauseIngress request";
+  VLOG(4)<< "pauseIngress request " << *this;
   DestructorGuard g(this);
   if (ingressPaused_) {
-    VLOG(4) << *this << " can't pause ingress; ingressPaused=" <<
-        ingressPaused_;
+    VLOG(4) << "can't pause ingress; ingressPaused=" << ingressPaused_;
     return;
   }
   ingressPaused_ = true;
@@ -1008,18 +1012,18 @@ void HTTPTransaction::pauseIngress() {
 }
 
 void HTTPTransaction::resumeIngress() {
-  VLOG(4) << *this << " resumeIngress request";
+  VLOG(4) << "resumeIngress request " << *this;
   DestructorGuard g(this);
   if (!ingressPaused_ || isIngressComplete()) {
-    VLOG(4) << *this << " can't resume ingress; ingressPaused="
-            << ingressPaused_ << ", ingressComplete="
-            << isIngressComplete() << " inResume_=" << inResume_;
+    VLOG(4) << "can't resume ingress, ingressPaused=" << ingressPaused_
+            << ", ingressComplete=" << isIngressComplete()
+            << ", inResume_=" << inResume_ << " " << *this;
     return;
   }
   ingressPaused_ = false;
   transport_.resumeIngress(this);
   if (inResume_) {
-    VLOG(4) << *this << " skipping recursive resume loop";
+    VLOG(4) << "skipping recursive resume loop " << *this;
     return;
   }
   inResume_ = true;
@@ -1034,8 +1038,8 @@ void HTTPTransaction::resumeIngress() {
   // the transaction.
   while (!ingressPaused_ && deferredIngress_ && !deferredIngress_->empty()) {
     HTTPEvent& callback(deferredIngress_->front());
-    VLOG(5) << *this << " Processing deferred ingress callback of type " <<
-      callback.getEvent();
+    VLOG(5) << "Processing deferred ingress callback of type "
+            << callback.getEvent() << " " << *this;
     switch (callback.getEvent()) {
       case HTTPEvent::Type::MESSAGE_BEGIN:
         LOG(FATAL) << "unreachable";
@@ -1074,10 +1078,10 @@ void HTTPTransaction::resumeIngress() {
 }
 
 void HTTPTransaction::pauseEgress() {
-  VLOG(4) << *this << " asked to pause egress";
+  VLOG(4) << "asked to pause egress " << *this ;
   DestructorGuard g(this);
   if (egressPaused_) {
-    VLOG(4) << *this << " egress already paused";
+    VLOG(4) << "egress already paused " << *this ;
     return;
   }
   egressPaused_ = true;
@@ -1085,10 +1089,10 @@ void HTTPTransaction::pauseEgress() {
 }
 
 void HTTPTransaction::resumeEgress() {
-  VLOG(4) << *this << " asked to resume egress";
+  VLOG(4) << "asked to resume egress" << *this;
   DestructorGuard g(this);
   if (!egressPaused_) {
-    VLOG(4) << *this << " egress already not paused";
+    VLOG(4) << "egress already not paused" << *this;
     return;
   }
   egressPaused_ = false;
@@ -1134,7 +1138,7 @@ void HTTPTransaction::updateHandlerPauseState() {
   // do not count transaction stalled if no more bytes to send,
   // i.e. when availWindow == 0
   if (useFlowControl_ && availWindow < 0 && !flowControlPaused_) {
-    VLOG(4) << *this << " transaction stalled by flow control";
+    VLOG(4) << "transaction stalled by flow control" << *this;
     if (stats_) {
       stats_->recordTransactionStalled();
     }
@@ -1168,12 +1172,12 @@ bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
   DestructorGuard g(this);
   CHECK_EQ(pushTxn->assocStreamId_, id_);
   if (!handler_) {
-    VLOG(1) << "Cannot add a pushed txn to an unhandled txn";
+    VLOG(4) << "Cannot add a pushed txn to an unhandled txn";
     return false;
   }
   handler_->onPushedTransaction(pushTxn);
   if (!pushTxn->getHandler()) {
-    VLOG(1) << "Failed to create a handler for push transaction";
+    VLOG(4) << "Failed to create a handler for push transaction";
     return false;
   }
   pushedTransactions_.insert(pushTxn->getID());
@@ -1223,9 +1227,9 @@ void HTTPTransaction::flushWindowUpdate() {
       (direction_ == TransportDirection::DOWNSTREAM ||
        egressState_ != HTTPTransactionEgressSM::State::Start)) {
     // Down egress upstream window updates until after headers
-    VLOG(4) << *this << " recv_window is " << recvWindow_.getSize()
+    VLOG(4) << "recv_window is " << recvWindow_.getSize()
             << " / " << recvWindow_.getCapacity() << " after acking "
-            << recvToAck_;
+            << recvToAck_ << " " << *this ;
     transport_.sendWindowUpdate(this, recvToAck_);
     recvToAck_ = 0;
   }
@@ -1333,8 +1337,9 @@ public:
     if (contentions_.value_) {
       contentions_.accumulateByTransactionBytes(bytes);
     } else {
-      VLOG(5) << *tnx_ << " transfer " << bytes <<
-        " transaction body bytes while contentions count = 0";
+      VLOG(5) << "transfer " << bytes
+              << " transaction body bytes while contentions count = 0 "
+              << *tnx_;
     }
     depth_.accumulateByTransactionBytes(bytes);
   }
@@ -1345,8 +1350,9 @@ public:
     if (contentions_.value_) {
       contentions_.accumulateBySessionBytes(bytes);
     } else {
-      VLOG(5) << *tnx_ << " transfer " << bytes <<
-        " session body bytes while contentions count = 0";
+      VLOG(5) << "transfer " << bytes
+              << " session body bytes while contentions count = 0 "
+              << *tnx_;
     }
     depth_.accumulateBySessionBytes(bytes);
   }
