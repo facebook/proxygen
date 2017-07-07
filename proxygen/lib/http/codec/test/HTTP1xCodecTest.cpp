@@ -385,7 +385,34 @@ TEST(HTTP1xCodecTest, Test1xxConnectionHeader) {
     "keep-alive");
 }
 
+TEST(HTTP1xCodecTest, TestChainedBody) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
 
+  folly::IOBufQueue bodyQueue;
+  ON_CALL(callbacks, onBody(1, _, _))
+      .WillByDefault(Invoke(
+          [&bodyQueue](HTTPCodec::StreamID, std::shared_ptr<folly::IOBuf> buf,
+                       uint16_t) { bodyQueue.append(buf->clone()); }));
+
+  folly::IOBufQueue reqQueue;
+  reqQueue.append(folly::IOBuf::copyBuffer(
+      "POST /test.php HTTP/1.1\r\nHost: www.test.com\r\n"
+      "Content-Length: 10\r\n\r\nabcde"));
+  reqQueue.append(folly::IOBuf::copyBuffer("fghij"));
+
+  while (!reqQueue.empty()) {
+    auto processed = codec.onIngress(*reqQueue.front());
+    if (processed == 0) {
+      break;
+    }
+    reqQueue.trimStart(processed);
+  }
+
+  EXPECT_TRUE(folly::IOBufEqual()(*bodyQueue.front(),
+                                  *folly::IOBuf::copyBuffer("abcdefghij")));
+}
 
 class ConnectionHeaderTest:
     public TestWithParam<std::pair<std::list<string>, string>> {

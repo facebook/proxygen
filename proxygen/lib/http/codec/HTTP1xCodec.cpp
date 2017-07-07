@@ -254,7 +254,7 @@ HTTP1xCodec::onParserError(const char* what) {
   }
   // store the ingress buffer
   if (currentIngressBuf_) {
-    error.setCurrentIngressBuf(currentIngressBuf_->clone());
+    error.setCurrentIngressBuf(currentIngressBuf_->cloneOne());
   }
   if (transportDirection_ == TransportDirection::DOWNSTREAM &&
       egressTxnID_ < ingressTxnID_) {
@@ -986,9 +986,10 @@ HTTP1xCodec::onBody(const char* buf, size_t len) {
   const char* dataEnd = dataStart + currentIngressBuf_->length();
   DCHECK_GE(buf, dataStart);
   DCHECK_LE(buf + len, dataEnd);
-  unique_ptr<IOBuf> clone(currentIngressBuf_->clone());
+  unique_ptr<IOBuf> clone(currentIngressBuf_->cloneOne());
   clone->trimStart(buf - dataStart);
   clone->trimEnd(dataEnd - (buf + len));
+  DCHECK_EQ(len, clone->computeChainDataLength());
   callback_->onBody(ingressTxnID_, std::move(clone), 0);
   return 0;
 }
