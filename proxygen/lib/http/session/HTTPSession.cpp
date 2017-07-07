@@ -9,15 +9,18 @@
  */
 #include <proxygen/lib/http/session/HTTPSession.h>
 
-#include <chrono>
-#include <folly/Conv.h>
-#include <wangle/acceptor/ConnectionManager.h>
-#include <wangle/acceptor/SocketOptions.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
+#include <wangle/acceptor/ConnectionManager.h>
+#include <wangle/acceptor/SocketOptions.h>
+
+#include <folly/Conv.h>
+#include <folly/Function.h>
 #include <folly/io/async/AsyncSSLSocket.h>
+
+#include <chrono>
 
 using folly::AsyncSSLSocket;
 using folly::AsyncSocket;
@@ -110,10 +113,11 @@ HTTPSession::HTTPSession(
   HTTPSessionController* controller,
   unique_ptr<HTTPCodec> codec,
   const TransportInfo& tinfo,
-  InfoCallback* infoCallback):
+  InfoCallback* infoCallback,
+  folly::Function<void(HTTPCodecFilterChain& chain)> codecFilterCallbackFn) :
     HTTPSession(WheelTimerInstance(transactionTimeouts), std::move(sock),
         localAddr, peerAddr, controller, std::move(codec),
-        tinfo, infoCallback) {
+        tinfo, infoCallback, std::move(codecFilterCallbackFn)) {
 }
 
 HTTPSession::HTTPSession(
@@ -124,7 +128,8 @@ HTTPSession::HTTPSession(
   HTTPSessionController* controller,
   unique_ptr<HTTPCodec> codec,
   const TransportInfo& tinfo,
-  InfoCallback* infoCallback):
+  InfoCallback* infoCallback,
+  folly::Function<void(HTTPCodecFilterChain& chain)> codecFilterCallbackFn) :
     txnEgressQueue_(isHTTP2CodecProtocol(codec->getProtocol()) ?
                     WheelTimerInstance(timeout) :
                     WheelTimerInstance()),
@@ -159,6 +164,10 @@ HTTPSession::HTTPSession(
   codec_.add<HTTPChecks>();
 
   setupCodec();
+
+  if (codecFilterCallbackFn) {
+    codecFilterCallbackFn(codec_);
+  }
 
   nextEgressResults_.reserve(maxConcurrentIncomingStreams_);
 

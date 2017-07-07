@@ -1448,6 +1448,125 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
   eventBase_.loop();
 }
 
+class FakeHTTPCodecFilter : public PassThroughHTTPCodecFilter {
+public:
+  void onFrameHeader(
+      HTTPCodec::StreamID streamId,
+      uint8_t flags,
+      uint32_t length,
+      uint8_t type,
+      uint16_t /* unused */) override {
+    ++frameHeaderCount_;
+    streamId_ = streamId;
+    flags_ = flags;
+    length_ = length;
+    type_ = type;
+  }
+
+  void onWindowUpdate(
+      HTTPCodec::StreamID streamId,
+      uint32_t amount) override {
+    ++windowUpdateCount_;
+    streamId_ = streamId;
+    amount_ = amount;
+  }
+
+public:
+  int frameHeaderCount_{0};
+  int windowUpdateCount_{0};
+
+  HTTPCodec::StreamID streamId_{0};
+  uint8_t flags_{0};
+  uint32_t length_{0};
+  uint8_t type_{0};
+  uint32_t amount_{0};
+};
+
+class HTTP2UpstreamCallbackTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
+ public:
+  void SetUp() override {
+    auto codec = std::make_unique<NiceMock<MockHTTPCodec>>();
+    codecPtr_ = codec.get();
+    EXPECT_CALL(*codec, getTransportDirection())
+      .WillRepeatedly(Return(TransportDirection::UPSTREAM));
+    EXPECT_CALL(*codec, getProtocol())
+      .WillRepeatedly(Return(CodecProtocol::HTTP_2));
+    EXPECT_CALL(*codec, setCallback(_))
+      .WillRepeatedly(SaveArg<0>(&codecCb_));
+    HTTPSession::setDefaultReadBufferLimit(65536);
+    HTTPSession::setDefaultWriteBufferLimit(65536);
+    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
+    EXPECT_CALL(*transport_, setReadCB(_))
+      .WillRepeatedly(SaveArg<0>(&readCallback_));
+    EXPECT_CALL(*transport_, getReadCB())
+      .WillRepeatedly(Return(readCallback_));
+    EXPECT_CALL(*transport_, getEventBase())
+      .WillRepeatedly(ReturnPointee(&eventBasePtr_));
+    EXPECT_CALL(*transport_, good())
+      .WillRepeatedly(ReturnPointee(&transportGood_));
+    EXPECT_CALL(*transport_, closeNow())
+      .WillRepeatedly(Assign(&transportGood_, false));
+    EXPECT_CALL(*transport_, isReplaySafe())
+      .WillOnce(Return(false));
+    EXPECT_CALL(*transport_, setReplaySafetyCallback(_))
+      .WillRepeatedly(SaveArg<0>(&replaySafetyCallback_));
+    EXPECT_CALL(*transport_, attachEventBase(_))
+      .WillRepeatedly(SaveArg<0>(&eventBasePtr_));
+
+    std::unique_ptr<FakeHTTPCodecFilter> filter(
+        std::make_unique<FakeHTTPCodecFilter>());
+    fakeHTTPCodecFilter_ = filter.get();
+    auto codecFilterCallback = [ codecFilter = std::move(filter) ]
+        (HTTPCodecFilterChain& chain) mutable {
+          chain.addFilters(std::move(codecFilter));
+        };
+    httpSession_ = new HTTPUpstreamSession(
+      transactionTimeouts_.get(),
+      AsyncTransportWrapper::UniquePtr(transport_),
+      localAddr_, peerAddr_,
+      std::move(codec),
+      mockTransportInfo_,
+      this,
+      0,
+      nullptr,
+      std::move(codecFilterCallback));
+    EXPECT_EQ(fakeHTTPCodecFilter_->frameHeaderCount_, 0);
+    EXPECT_EQ(fakeHTTPCodecFilter_->windowUpdateCount_, 0);
+    httpSession_->startNow();
+    eventBase_.loop();
+    ASSERT_EQ(this->sessionDestroyed_, false);
+  }
+
+  void TearDown() override {
+    httpSession_->destroy();
+  }
+
+protected:
+  MockHTTPCodec* codecPtr_{nullptr};
+  HTTPCodec::Callback* codecCb_{nullptr};
+  FakeHTTPCodecFilter* fakeHTTPCodecFilter_;
+};
+
+TEST_F(HTTP2UpstreamCallbackTest, custom_filter_called) {
+  HTTPCodec::StreamID streamId(1);
+  uint8_t flags(2);
+  uint32_t length(3);
+  uint8_t type(4);
+  codecCb_->onFrameHeader(streamId, flags, length, type, 0);
+  EXPECT_EQ(fakeHTTPCodecFilter_->frameHeaderCount_, 1);
+  EXPECT_EQ(fakeHTTPCodecFilter_->streamId_, streamId);
+  EXPECT_EQ(fakeHTTPCodecFilter_->flags_, flags);
+  EXPECT_EQ(fakeHTTPCodecFilter_->length_, length);
+  EXPECT_EQ(fakeHTTPCodecFilter_->type_, type);
+
+  streamId = 5;
+  uint32_t amount = 6;
+  codecCb_->onWindowUpdate(streamId, amount);
+  EXPECT_EQ(fakeHTTPCodecFilter_->windowUpdateCount_, 1);
+  EXPECT_EQ(fakeHTTPCodecFilter_->streamId_, streamId);
+  EXPECT_EQ(fakeHTTPCodecFilter_->amount_, amount);
+}
+
 class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
  public:
   void SetUp() override {

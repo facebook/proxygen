@@ -87,7 +87,9 @@ class HTTPUpstreamSession final: public HTTPSession {
       InfoCallback* infoCallback,
       uint8_t maxVirtualPri = 0,
       std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
-          std::shared_ptr<const PriorityMapFactory>()) :
+          std::shared_ptr<const PriorityMapFactory>(),
+      folly::Function<void(HTTPCodecFilterChain& chain)>
+          codecFilterCallbackFn = nullptr) :
     HTTPSession(
         timeout,
         std::move(sock),
@@ -96,7 +98,8 @@ class HTTPUpstreamSession final: public HTTPSession {
         nullptr,
         std::move(codec),
         tinfo,
-        infoCallback),
+        infoCallback,
+        std::move(codecFilterCallbackFn)),
     maxVirtualPriorityLevel_(priorityMapFactory ? 0 : maxVirtualPri),
     priorityMapFactory_(priorityMapFactory) {
     if (sock_) {
@@ -119,7 +122,9 @@ class HTTPUpstreamSession final: public HTTPSession {
       InfoCallback* infoCallback,
       uint8_t maxVirtualPri = 0,
       std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
-          std::shared_ptr<const PriorityMapFactory>()) :
+          std::shared_ptr<const PriorityMapFactory>(),
+      folly::Function<void(HTTPCodecFilterChain& chain)>
+          codecFilterCallbackFn = nullptr) :
     HTTPUpstreamSession(
         WheelTimerInstance(timeout),
         std::move(sock),
@@ -129,7 +134,8 @@ class HTTPUpstreamSession final: public HTTPSession {
         tinfo,
         infoCallback,
         maxVirtualPri,
-        priorityMapFactory) {
+        priorityMapFactory,
+        std::move(codecFilterCallbackFn)) {
   }
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
