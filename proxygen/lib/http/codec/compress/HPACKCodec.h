@@ -67,6 +67,10 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
     decoder_.setMaxUncompressed(maxUncompressed);
   }
 
+  uint32_t getDecoderTableSize() {
+    return decoder_.getDecoderTableSize();
+  }
+
  protected:
   HPACKEncoder encoder_;
   HPACKDecoder decoder_;

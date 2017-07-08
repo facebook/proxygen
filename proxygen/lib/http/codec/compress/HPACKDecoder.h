@@ -71,6 +71,10 @@ class HPACKDecoder : public HPACKContext {
     maxUncompressed_ = maxUncompressed;
   }
 
+  uint32_t getDecoderTableSize() {
+    return maxTableSize_;
+  }
+
  protected:
   bool isValid(uint32_t index);
 
