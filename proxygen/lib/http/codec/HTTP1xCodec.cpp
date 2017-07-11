@@ -969,6 +969,9 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
   headerSize_.uncompressed += len;
   msg_->setIngressHeaderSize(headerSize_);
 
+  if (userAgent_.empty()) {
+    userAgent_ = msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_USER_AGENT);
+  }
   callback_->onHeadersComplete(ingressTxnID_, std::move(msg_));
 
   // 1 is a magic value that tells the http_parser not to expect a

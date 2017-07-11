@@ -149,6 +149,7 @@ class HTTP1xCodec : public HTTPCodec {
   folly::StringPiece currentHeaderNameStringPiece_;
   std::string currentHeaderValue_;
   std::string url_;
+  std::string userAgent_;
   std::string reason_;
   std::string upgradeHeader_; // last sent/received client upgrade header
   std::string allowedNativeUpgrades_; // DOWNSTREAM only
