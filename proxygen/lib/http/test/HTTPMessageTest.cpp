@@ -200,7 +200,7 @@ TEST(HTTPMessage, TestProxification) {
   msg.setWantsKeepalive(false);
 
   HTTPHeaders& hdrs = msg.getHeaders();
-  EXPECT_EQ("192.168.1.1", hdrs.getSingleOrEmpty("Host"));
+  EXPECT_EQ("192.168.1.1", hdrs.getSingleOrEmpty(HTTP_HEADER_HOST));
   EXPECT_FALSE(msg.wantsKeepalive());
 }
 
@@ -220,82 +220,82 @@ TEST(HTTPMessage, TestKeepaliveCheck) {
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", "close");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "close");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", "ClOsE");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "ClOsE");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", "foo,bar");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "foo,bar");
     EXPECT_TRUE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", "foo,bar");
-    msg.getHeaders().add("Connection", "abc,CLOSE,def");
-    msg.getHeaders().add("Connection", "xyz");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "foo,bar");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "abc,CLOSE,def");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "xyz");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", "foo,bar");
-    msg.getHeaders().add("Connection", "abc ,  CLOSE , def");
-    msg.getHeaders().add("Connection", "xyz");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "foo,bar");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "abc ,  CLOSE , def");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "xyz");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", "  close ");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "  close ");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", ",  close ");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, ",  close ");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 1);
-    msg.getHeaders().add("Connection", "  close , ");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "  close , ");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 0);
-    msg.getHeaders().add("Connection", "Keep-Alive");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "Keep-Alive");
     EXPECT_TRUE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 0);
-    msg.getHeaders().add("Connection", "keep-alive");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "keep-alive");
     EXPECT_TRUE(msg.computeKeepalive());
   }
 
   {
     HTTPMessage msg;
     msg.setHTTPVersion(1, 0);
-    msg.getHeaders().add("Connection", "keep-alive");
-    msg.getHeaders().add("Connection", "close");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "keep-alive");
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "close");
     EXPECT_FALSE(msg.computeKeepalive());
   }
 }
@@ -303,12 +303,12 @@ TEST(HTTPMessage, TestKeepaliveCheck) {
 TEST(HTTPMessage, TestHeaderStripPerHop) {
   HTTPMessage msg;
 
-  msg.getHeaders().add("Connection", "a, b, c");
-  msg.getHeaders().add("Connection", "d");
-  msg.getHeaders().add("Connection", ",,,,");
-  msg.getHeaders().add("Connection", " , , , ,");
-  msg.getHeaders().add("Connection", ", e");
-  msg.getHeaders().add("Connection", " f ,\tg\t, \r\n\th ");
+  msg.getHeaders().add(HTTP_HEADER_CONNECTION, "a, b, c");
+  msg.getHeaders().add(HTTP_HEADER_CONNECTION, "d");
+  msg.getHeaders().add(HTTP_HEADER_CONNECTION, ",,,,");
+  msg.getHeaders().add(HTTP_HEADER_CONNECTION, " , , , ,");
+  msg.getHeaders().add(HTTP_HEADER_CONNECTION, ", e");
+  msg.getHeaders().add(HTTP_HEADER_CONNECTION, " f ,\tg\t, \r\n\th ");
   msg.getHeaders().add("Keep-Alive", "true");
 
   msg.getHeaders().add("a", "1");

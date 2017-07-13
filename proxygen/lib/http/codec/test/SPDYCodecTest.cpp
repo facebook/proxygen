@@ -416,8 +416,8 @@ void doEmptyHeaderValueTest(Codec1& ingressCodec, Codec2& egressCodec) {
   toSend.setMethod("GET");
   toSend.setURL("http://www.foo.com");
   auto& headers = toSend.getHeaders();
-  headers.set("Host", "www.foo.com");
-  headers.set("Pragma", "");
+  headers.set(HTTP_HEADER_HOST, "www.foo.com");
+  headers.set(HTTP_HEADER_PRAGMA, "");
   headers.set("X-Test1", "yup");
   HTTPHeaderSize size;
   std::string pragmaValue;

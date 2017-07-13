@@ -805,12 +805,12 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
   }
 
   // discard messages with multiple content-length headers (t12767790)
-  if (hdrs.getNumberOfValues("Content-Length") > 1) {
+  if (hdrs.getNumberOfValues(HTTP_HEADER_CONTENT_LENGTH) > 1) {
     // Only reject the message if the Content-Length headers have different
     // values
     folly::Optional<folly::StringPiece> contentLen;
     bool error = hdrs.forEachValueOfHeader(
-        "Content-Length", [&] (folly::StringPiece value) -> bool {
+        HTTP_HEADER_CONTENT_LENGTH, [&] (folly::StringPiece value) -> bool {
       if (!contentLen.hasValue()) {
         contentLen = value;
         return false;

@@ -187,8 +187,8 @@ TEST(HTTP1xCodecTest, TestChunkedUpstream) {
   HTTPMessage msg;
   msg.setHTTPVersion(1, 1);
   msg.setURL("https://www.facebook.com/");
-  msg.getHeaders().set("Host", "www.facebook.com");
-  msg.getHeaders().set("Transfer-Encoding", "chunked");
+  msg.getHeaders().set(HTTP_HEADER_HOST, "www.facebook.com");
+  msg.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
   msg.setIsChunked(true);
 
   HTTPHeaderSize size;
