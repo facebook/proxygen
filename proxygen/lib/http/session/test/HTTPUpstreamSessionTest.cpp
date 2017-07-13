@@ -2395,6 +2395,9 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
 }
 
 TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
+  EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
+    .WillRepeatedly(Return(true));
+
   auto handler = openTransaction();
   handler->txn_->setReceiveWindow(1000000); // One miiiillion
 

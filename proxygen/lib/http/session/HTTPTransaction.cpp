@@ -1207,6 +1207,9 @@ void HTTPTransaction::describe(std::ostream& os) const {
 void HTTPTransaction::setReceiveWindow(uint32_t capacity) {
   // Depending on whether delta is positive or negative it will cause the
   // window to either increase or decrease.
+  if (!useFlowControl_) {
+    return;
+  }
   int32_t delta = capacity - recvWindow_.getCapacity();
   if (delta < 0) {
     // For now, we're disallowing shrinking the window, since it can lead
@@ -1223,7 +1226,7 @@ void HTTPTransaction::setReceiveWindow(uint32_t capacity) {
 
 void HTTPTransaction::flushWindowUpdate() {
 
-  if (recvToAck_ > 0 &&
+  if (recvToAck_ > 0 && useFlowControl_ && !isIngressEOMSeen() &&
       (direction_ == TransportDirection::DOWNSTREAM ||
        egressState_ != HTTPTransactionEgressSM::State::Start)) {
     // Down egress upstream window updates until after headers

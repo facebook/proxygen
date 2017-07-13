@@ -1162,6 +1162,14 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   // txn will be streamID=1, have to make a placeholder
   (void)codec_->createStream();
 
+  // This can happen if flow control was not explicitly set, and it got the
+  // HTTP1xCodec defaults.  Reset to the new codec default
+  if (initialReceiveWindow_ == 0 || receiveStreamWindowSize_ == 0 ||
+      receiveSessionWindowSize_ == 0) {
+    initialReceiveWindow_ = receiveStreamWindowSize_ =
+      receiveSessionWindowSize_ = codec_->getDefaultWindowSize();
+  }
+
   // trigger settings frame that would have gone out in startNow()
   HTTPSettings* settings = codec_->getEgressSettings();
   if (settings) {

@@ -36,17 +36,22 @@ class DownstreamTransactionTest : public testing::Test {
       .WillRepeatedly(Return());
   }
 
-  void setupRequestResponseFlow(HTTPTransaction* txn, uint32_t size) {
+  void setupRequestResponseFlow(HTTPTransaction* txn, uint32_t size,
+                                bool delayResponse=false) {
     EXPECT_CALL(handler_, setTransaction(txn));
     EXPECT_CALL(handler_, detachTransaction());
     EXPECT_CALL(transport_, detach(txn));
-    EXPECT_CALL(handler_, onHeadersComplete(_))
-      .WillOnce(Invoke([=](std::shared_ptr<HTTPMessage> msg) {
-            auto response = makeResponse(200);
-            txn->sendHeaders(*response.get());
-            txn->sendBody(makeBuf(size));
-            txn->sendEOM();
-          }));
+    if (delayResponse) {
+      EXPECT_CALL(handler_, onHeadersComplete(_));
+    } else {
+      EXPECT_CALL(handler_, onHeadersComplete(_))
+        .WillOnce(Invoke([=](std::shared_ptr<HTTPMessage> msg) {
+              auto response = makeResponse(200);
+              txn->sendHeaders(*response.get());
+              txn->sendBody(makeBuf(size));
+              txn->sendEOM();
+            }));
+    }
     EXPECT_CALL(transport_, sendHeaders(txn, _, _, _))
       .WillOnce(Invoke([=](Unused, const HTTPMessage& headers, Unused, Unused) {
             EXPECT_EQ(headers.getStatusCode(), 200);
@@ -58,13 +63,17 @@ class DownstreamTransactionTest : public testing::Test {
                                sent_ += cur;
                                return cur;
                              }));
-    EXPECT_CALL(transport_, sendEOM(txn))
-      .WillOnce(InvokeWithoutArgs([=]() {
-            CHECK_EQ(sent_, size);
-            txn->onIngressBody(makeBuf(size), 0);
-            txn->onIngressEOM();
-            return 5;
-          }));
+    if (delayResponse) {
+      EXPECT_CALL(transport_, sendEOM(txn));
+    } else {
+      EXPECT_CALL(transport_, sendEOM(txn))
+        .WillOnce(InvokeWithoutArgs([=]() {
+              CHECK_EQ(sent_, size);
+              txn->onIngressBody(makeBuf(size), 0);
+              txn->onIngressEOM();
+              return 5;
+            }));
+    }
     EXPECT_CALL(handler_, onBody(_))
       .WillRepeatedly(Invoke([=](std::shared_ptr<folly::IOBuf> body) {
             received_ += body->computeChainDataLength();
@@ -133,6 +142,32 @@ TEST_F(DownstreamTransactionTest, regular_window_update) {
 
   // run the test
   txn.onIngressHeadersComplete(makeGetRequest());
+  eventBase_.loop();
+}
+
+TEST_F(DownstreamTransactionTest, no_window_update) {
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    nullptr,
+    true, // flow control enabled
+    450, // more than 2x req size
+    spdy::kInitialWindow);
+  uint32_t reqBodySize = 220;
+  setupRequestResponseFlow(&txn, reqBodySize, true);
+
+  EXPECT_CALL(transport_, sendWindowUpdate(_, reqBodySize))
+    .Times(0);
+
+  // run the test
+  txn.onIngressHeadersComplete(makeGetRequest());
+  txn.onIngressBody(makeBuf(reqBodySize), 0);
+  txn.onIngressEOM();
+  auto response = makeResponse(200);
+  txn.sendHeaders(*response.get());
+  txn.sendBody(makeBuf(reqBodySize));
+  txn.sendEOM();
   eventBase_.loop();
 }
 
