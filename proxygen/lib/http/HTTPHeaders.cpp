@@ -98,7 +98,7 @@ size_t HTTPHeaders::getNumberOfValues(HTTPHeaderCode code) const {
 
 size_t HTTPHeaders::getNumberOfValues(folly::StringPiece name) const {
   size_t count = 0;
-  forEachValueOfHeader(name, [&] (folly::StringPiece value) -> bool {
+  forEachValueOfHeader(name, [&] (folly::StringPiece /*value*/) -> bool {
     ++count;
     return false;
   });
