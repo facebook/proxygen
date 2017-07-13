@@ -226,25 +226,27 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
   if (transportCallback_) {
     transportCallback_->bodyBytesReceived(len);
   }
-  if (mustQueueIngress()) {
-    // register the bytes in the receive window
-    if (!recvWindow_.reserve(len + padding, useFlowControl_)) {
-      LOG(ERROR) << "recvWindow_.reserve failed with len=" << len
-                 << " padding=" << padding
-                 << " capacity=" << recvWindow_.getCapacity()
-                 << " outstanding=" << recvWindow_.getOutstanding()
-                 << " " << *this ;
-      sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
-    } else {
-      CHECK(recvWindow_.free(padding));
-      recvToAck_ += padding;
-      checkCreateDeferredIngress();
-      deferredIngress_->emplace(id_, HTTPEvent::Type::BODY,
-                               std::move(chain));
-      VLOG(4) << "Queued ingress event of type " << HTTPEvent::Type::BODY
-              << " size=" << len << " " << *this;
-    }
+  // register the bytes in the receive window
+  if (!recvWindow_.reserve(len + padding, useFlowControl_)) {
+    LOG(ERROR) << "recvWindow_.reserve failed with len=" << len
+               << " padding=" << padding
+               << " capacity=" << recvWindow_.getCapacity()
+               << " outstanding=" << recvWindow_.getOutstanding()
+               << " " << *this ;
+    sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+    return;
   } else {
+    CHECK(recvWindow_.free(padding));
+    recvToAck_ += padding;
+  }
+  if (mustQueueIngress()) {
+    checkCreateDeferredIngress();
+    deferredIngress_->emplace(id_, HTTPEvent::Type::BODY,
+                              std::move(chain));
+    VLOG(4) << "Queued ingress event of type " << HTTPEvent::Type::BODY
+            << " size=" << len << " " << *this;
+  } else {
+    CHECK(recvWindow_.free(len));
     processIngressBody(std::move(chain), len);
   }
 }

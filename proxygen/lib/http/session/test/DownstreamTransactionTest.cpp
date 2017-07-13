@@ -391,3 +391,27 @@ TEST_F(DownstreamTransactionTest, internal_error) {
   txn.onIngressHeadersComplete(makeGetRequest());
   txn.sendAbort();
 }
+
+TEST_F(DownstreamTransactionTest, unpaused_flow_control_violation) {
+  StrictMock<MockHTTPHandler> handler;
+
+  InSequence enforceOrder;
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    nullptr,
+    true, // flow control enabled
+    400,
+    spdy::kInitialWindow);
+
+  EXPECT_CALL(handler, setTransaction(&txn));
+  EXPECT_CALL(handler, onHeadersComplete(_));
+  EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::FLOW_CONTROL_ERROR));
+  EXPECT_CALL(handler, detachTransaction());
+  EXPECT_CALL(transport_, detach(&txn));
+
+  txn.setHandler(&handler);
+  txn.onIngressHeadersComplete(makePostRequest(401));
+  txn.onIngressBody(makeBuf(401), 0);
+}
