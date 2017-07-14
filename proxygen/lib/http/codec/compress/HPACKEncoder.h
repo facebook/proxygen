@@ -44,6 +44,18 @@ class HPACKEncoder : public HPACKContext {
     pendingContextUpdate_ = true;
   }
 
+  uint32_t getTableSize() const {
+    return table_.capacity();
+  }
+
+  uint32_t getBytesStored() const {
+    return table_.bytes();
+  }
+
+  uint32_t getHeadersStored() const {
+    return table_.size();
+  }
+
  protected:
   void encodeAsIndex(uint32_t index);
 

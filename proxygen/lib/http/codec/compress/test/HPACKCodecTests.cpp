@@ -320,13 +320,6 @@ TEST_F(HPACKCodecTests, uncompressed_size_limit) {
   EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
 }
 
-TEST_F(HPACKCodecTests, decoderTableSize){
-  HPACKCodec h1{TransportDirection::UPSTREAM};
-  EXPECT_EQ(h1.getDecoderTableSize(), 4096);
-  h1.setDecoderHeaderTableMaxSize(8192);
-  EXPECT_EQ(h1.getDecoderTableSize(), 8192);
-}
-
 class HPACKQueueTests : public testing::TestWithParam<int> {
  public:
   HPACKQueueTests()

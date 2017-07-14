@@ -67,8 +67,21 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
     decoder_.setMaxUncompressed(maxUncompressed);
   }
 
-  uint32_t getDecoderTableSize() {
-    return decoder_.getDecoderTableSize();
+  wangle::HTTPHeaderTableInfo getHeaderTableInfo() const {
+    wangle::HTTPHeaderTableInfo headerTableInfo;
+    headerTableInfo.egressHeaderTableSize_ =
+                                  encoder_.getTableSize();
+    headerTableInfo.ingressHeaderTableSize_ =
+                                  decoder_.getTableSize();
+    headerTableInfo.egressBytesStored_ =
+                                  encoder_.getBytesStored();
+    headerTableInfo.ingressBytesStored_ =
+                                  decoder_.getBytesStored();
+    headerTableInfo.egressHeadersStored_ =
+                                  encoder_.getHeadersStored();
+    headerTableInfo.ingressHeadersStored_ =
+                                  decoder_.getHeadersStored();
+    return headerTableInfo;
   }
 
  protected:

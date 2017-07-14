@@ -71,8 +71,16 @@ class HPACKDecoder : public HPACKContext {
     maxUncompressed_ = maxUncompressed;
   }
 
-  uint32_t getDecoderTableSize() {
-    return maxTableSize_;
+  uint32_t getTableSize() const {
+    return table_.capacity();
+  }
+
+  uint32_t getBytesStored() const {
+    return table_.bytes();
+  }
+
+  uint32_t getHeadersStored() const {
+    return table_.size();
   }
 
  protected:

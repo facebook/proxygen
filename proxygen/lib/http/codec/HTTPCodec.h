@@ -271,6 +271,15 @@ class HTTPCodec {
   virtual ~HTTPCodec() {}
 
   /**
+   * Gets both the egress and ingress header table size, bytes stored in header
+   * table, and the number of headers stored in the header table
+  **/
+  virtual wangle::HTTPHeaderTableInfo getHeaderTableInfo() const {
+    wangle::HTTPHeaderTableInfo defaultHeaderTableInfo;
+    return defaultHeaderTableInfo;
+  }
+
+  /**
    * Gets the session protocol currently used by the codec. This can be
    * mapped to a string for logging and diagnostic use.
    */
