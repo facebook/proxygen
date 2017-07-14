@@ -28,6 +28,11 @@ class HTTP1xCodec : public HTTPCodec {
   CodecProtocol getProtocol() const override {
     return CodecProtocol::HTTP_1_1;
   }
+
+  const std::string& getUserAgent() const override {
+    return userAgent_;
+  }
+
   TransportDirection getTransportDirection() const override {
     return transportDirection_;
   }

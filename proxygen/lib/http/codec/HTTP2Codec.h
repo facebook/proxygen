@@ -41,6 +41,10 @@ public:
     return CodecProtocol::HTTP_2;
   }
 
+  const std::string& getUserAgent() const override {
+    return userAgent_;
+  }
+
   size_t onIngress(const folly::IOBuf& buf) override;
   bool onIngressUpgradeMessage(const HTTPMessage& msg) override;
   size_t generateConnectionPreface(folly::IOBufQueue& writeBuf) override;

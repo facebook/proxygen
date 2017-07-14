@@ -135,6 +135,10 @@ CodecProtocol PassThroughHTTPCodecFilter::getProtocol() const {
   return call_->getProtocol();
 }
 
+const std::string& PassThroughHTTPCodecFilter::getUserAgent() const {
+  return call_->getUserAgent();
+}
+
 TransportDirection PassThroughHTTPCodecFilter::getTransportDirection() const {
   return call_->getTransportDirection();
 }

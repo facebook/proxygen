@@ -206,6 +206,10 @@ CodecProtocol SPDYCodec::getProtocol() const {
   return CodecProtocol::SPDY_3_1;
 }
 
+const std::string& SPDYCodec::getUserAgent() const {
+  return userAgent_;
+}
+
 bool SPDYCodec::supportsStreamFlowControl() const {
   return versionSettings_.majorVersion > 2;
 }
@@ -1233,6 +1237,9 @@ void SPDYCodec::onSynCommon(StreamID streamID,
   if ((flags_ & spdy::CTRL_FLAG_FIN) == 0) {
     // If it there are DATA frames coming, consider it chunked
     msg->setIsChunked(true);
+  }
+  if (userAgent_.empty()) {
+    userAgent_ = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_USER_AGENT);
   }
   deliverCallbackIfAllowed(&HTTPCodec::Callback::onHeadersComplete,
                            "onHeadersComplete", streamID, std::move(msg));

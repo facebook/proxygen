@@ -286,6 +286,14 @@ class HTTPCodec {
   virtual CodecProtocol getProtocol() const = 0;
 
   /**
+   * Gets the user agent string of the client. Thus, it is only meaningful for a
+   * DOWNSTREAM session. Note that the value is available after
+   * onHeadersComplete().  It can help in diagnosing the interactions between
+   * different codec implementation.
+   */
+  virtual const std::string& getUserAgent() const = 0;
+
+  /**
    * Get the transport direction of this codec:
    * DOWNSTREAM if the codec receives requests from clients or
    * UPSTREAM if the codec sends requests to servers.

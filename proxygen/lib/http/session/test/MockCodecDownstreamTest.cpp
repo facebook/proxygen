@@ -73,6 +73,8 @@ class MockCodecDownstreamTest: public testing::Test {
       .WillRepeatedly(Return(true));
     EXPECT_CALL(*codec_, getProtocol())
       .WillRepeatedly(Return(CodecProtocol::SPDY_3_1));
+    EXPECT_CALL(*codec_, getUserAgent())
+      .WillRepeatedly(ReturnRef(userAgent_));
     EXPECT_CALL(*codec_, setParserPaused(_))
       .WillRepeatedly(Return());
     EXPECT_CALL(*codec_, supportsSessionFlowControl())
@@ -178,6 +180,7 @@ class MockCodecDownstreamTest: public testing::Test {
   EventBase eventBase_;
   // invalid once httpSession_ is destroyed
   StrictMock<MockHTTPCodec>* codec_;
+  std::string userAgent_{"MockCodec"};
   HTTPCodec::Callback* codecCallback_{nullptr};
   NiceMock<MockAsyncTransport>* transport_;
   folly::AsyncTransportWrapper::ReadCallback* transportCb_;

@@ -1198,7 +1198,7 @@ void HTTPTransaction::setIdleTimeout(
 
 void HTTPTransaction::describe(std::ostream& os) const {
   transport_.describe(os);
-  os << " streamID=" << id_;
+  os << ", streamID=" << id_;
 }
 
 /*

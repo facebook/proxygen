@@ -354,10 +354,12 @@ HTTPSession::flowControlTimeoutExpired() noexcept {
 
 void
 HTTPSession::describe(std::ostream& os) const {
+  os << "proto=" << getCodecProtocolString(codec_->getProtocol());
   if (isDownstream()) {
-    os << "[downstream = " << peerAddr_ << ", " << localAddr_ << " = local]";
+    os << ", UA=" << codec_->getUserAgent()
+       << ", downstream=" << peerAddr_ << ", " << localAddr_ << "=local";
   } else {
-    os << "[local = " << localAddr_ << ", " << peerAddr_ << " = upstream]";
+    os << ", local=" << localAddr_ << ", " << peerAddr_ << "=upstream";
   }
 }
 

@@ -44,6 +44,7 @@ public:
 
   // HTTPCodec API
   CodecProtocol getProtocol() const override;
+  const std::string& getUserAgent() const override;
   bool supportsStreamFlowControl() const override;
   bool supportsSessionFlowControl() const override;
   size_t onIngress(const folly::IOBuf& buf) override;
@@ -343,6 +344,7 @@ public:
   };
 
   std::unique_ptr<HTTPMessage> partialMsg_;
+  std::string userAgent_;
   const folly::IOBuf* currentIngressBuf_{nullptr};
 
   StreamID nextEgressPingID_;

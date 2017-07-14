@@ -22,6 +22,7 @@ namespace proxygen {
 class MockHTTPCodec: public HTTPCodec {
  public:
   MOCK_CONST_METHOD0(getProtocol, CodecProtocol());
+  MOCK_CONST_METHOD0(getUserAgent, const std::string&());
   MOCK_CONST_METHOD0(getTransportDirection,  TransportDirection());
   MOCK_CONST_METHOD0(supportsStreamFlowControl, bool());
   MOCK_CONST_METHOD0(supportsSessionFlowControl, bool());

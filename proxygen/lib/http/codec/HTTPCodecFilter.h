@@ -100,6 +100,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   CodecProtocol getProtocol() const override;
 
+  const std::string& getUserAgent() const override;
+
   TransportDirection getTransportDirection() const override;
 
   bool supportsStreamFlowControl() const override;
