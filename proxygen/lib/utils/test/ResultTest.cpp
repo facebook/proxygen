@@ -97,10 +97,10 @@ TEST(Result, Emplace) {
       ++*counter;
     }
     Expensive(const Expensive& other) {
-      EXPECT_TRUE(false); // Should not be invoked
+      ADD_FAILURE(); // Should not be invoked
     }
     Expensive(Expensive&& other) {
-      EXPECT_TRUE(false); // Should not be invoked
+      ADD_FAILURE(); // Should not be invoked
     }
   };
 
