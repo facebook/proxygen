@@ -309,6 +309,8 @@ class HTTPTransactionTransportCallback {
 
   virtual void bodyBytesReceived(size_t size) noexcept = 0;
 
+  virtual void updateHTTPHeaderTableInfo(wangle::HTTPHeaderTableInfo) {}
+
   virtual ~HTTPTransactionTransportCallback() {}
 };
 

@@ -165,6 +165,8 @@ void HTTPTransaction::onIngressHeadersComplete(
   }
   if (transportCallback_) {
     transportCallback_->headerBytesReceived(msg->getIngressHeaderSize());
+    transportCallback_->updateHTTPHeaderTableInfo(
+        transport_.getCodec().getHeaderTableInfo());
   }
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
@@ -708,6 +710,8 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
   transport_.sendHeaders(this, headers, &size, eom);
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
+    transportCallback_->updateHTTPHeaderTableInfo(
+        transport_.getCodec().getHeaderTableInfo());
   }
   if (eom) {
     CHECK(HTTPTransactionEgressSM::transit(
