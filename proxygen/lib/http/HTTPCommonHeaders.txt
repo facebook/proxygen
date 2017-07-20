@@ -57,6 +57,7 @@ Refresh
 Retry-After
 Server
 Set-Cookie
+Sec-Token-Binding
 Strict-Transport-Security
 TE
 Timestamp
