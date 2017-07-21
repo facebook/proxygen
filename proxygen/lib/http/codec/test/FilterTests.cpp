@@ -74,15 +74,15 @@ class FlowControlFilterTest: public FilterTest {
             }));
     }
     EXPECT_CALL(*codec_, generateBody(_, _, _, _, _))
-      .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                                 HTTPCodec::StreamID stream,
-                                 std::shared_ptr<folly::IOBuf> chain,
-                                 boost::optional<uint8_t> padding,
-                                 bool eom) {
+        .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
+                                  HTTPCodec::StreamID /*stream*/,
+                                  std::shared_ptr<folly::IOBuf> chain,
+                                  boost::optional<uint8_t> /*padding*/,
+                                  bool /*eom*/) {
           auto len = chain->computeChainDataLength() + 4;
           writeBuf.append(makeBuf(len));
           return len;
-      }));
+        }));
     EXPECT_CALL(*codec_, isReusable()).WillRepeatedly(Return(true));
 
     // Construct flow control filter with capacity of 0, which will be
@@ -159,14 +159,14 @@ TEST_F(BigWindow, recv_too_much) {
   InSequence enforceSequence;
   EXPECT_CALL(callback_, onBody(_, _, _));
   EXPECT_CALL(callback_, onError(0, IsFlowException(), _))
-    .WillOnce(Invoke([] (HTTPCodec::StreamID,
-                         std::shared_ptr<HTTPException> exc,
-                         bool newTxn) {
-                       ASSERT_EQ(
-                         "Failed to reserve receive window, window size=0, "
-                         "amount=1",
-                         std::string(exc->what()));
-        }));
+      .WillOnce(Invoke([](HTTPCodec::StreamID,
+                          std::shared_ptr<HTTPException> exc,
+                          bool /*newTxn*/) {
+        ASSERT_EQ(
+            "Failed to reserve receive window, window size=0, "
+            "amount=1",
+            std::string(exc->what()));
+      }));
 
   // Receive the max amount advertised
   callbackStart_->onBody(1, makeBuf(recvWindow_), 0);
@@ -200,14 +200,14 @@ TEST_F(BigWindow, remote_increase) {
 
   // Now overflow it by 1
   EXPECT_CALL(callback_, onError(0, IsFlowException(), _))
-    .WillOnce(Invoke([] (HTTPCodec::StreamID,
-                         std::shared_ptr<HTTPException> exc,
-                         bool newTxn) {
-                       ASSERT_EQ(
-                         "Failed to update send window, outstanding=0, "
-                         "amount=1",
-                         std::string(exc->what()));
-        }));
+      .WillOnce(Invoke([](HTTPCodec::StreamID,
+                          std::shared_ptr<HTTPException> exc,
+                          bool /*newTxn*/) {
+        ASSERT_EQ(
+            "Failed to update send window, outstanding=0, "
+            "amount=1",
+            std::string(exc->what()));
+      }));
   callbackStart_->onWindowUpdate(0, 1);
   ASSERT_FALSE(chain_->isReusable());
 }

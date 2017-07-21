@@ -37,11 +37,12 @@ class SessionWrapper : public proxygen::HTTPSession::InfoCallback {
   void onIngressError(const proxygen::HTTPSession&,
                       proxygen::ProxygenError) override {}
   void onIngressEOF() override {}
-  void onRead(const proxygen::HTTPSession&, size_t bytesRead) override {}
-  void onWrite(const proxygen::HTTPSession&, size_t bytesWritten) override {}
+  void onRead(const proxygen::HTTPSession&, size_t /*bytesRead*/) override {}
+  void onWrite(const proxygen::HTTPSession&, size_t /*bytesWritten*/) override {
+  }
   void onRequestBegin(const proxygen::HTTPSession&) override {}
   void onRequestEnd(const proxygen::HTTPSession&,
-                    uint32_t maxIngressQueueSize) override {}
+                    uint32_t /*maxIngressQueueSize*/) override {}
   void onActivateConnection(const proxygen::HTTPSession&) override {}
   void onDeactivateConnection(const proxygen::HTTPSession&) override {}
   // Note: you must not start any asynchronous work from onDestroy()
@@ -53,7 +54,7 @@ class SessionWrapper : public proxygen::HTTPSession::InfoCallback {
   void onIngressLimitExceeded(const proxygen::HTTPSession&) override {}
   void onIngressPaused(const proxygen::HTTPSession&) override {}
   void onTransactionDetached(const proxygen::HTTPSession&) override {}
-  void onPingReplySent(int64_t latency) override {}
+  void onPingReplySent(int64_t /*latency*/) override {}
   void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const proxygen::HTTPSession&) override {}
   void onSettingsOutgoingStreamsNotFull(const proxygen::HTTPSession&)

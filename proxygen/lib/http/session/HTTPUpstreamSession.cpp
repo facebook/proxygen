@@ -105,15 +105,14 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
   return txn;
 }
 
-HTTPTransaction::Handler*
-HTTPUpstreamSession::getParseErrorHandler(HTTPTransaction* txn,
-                                          const HTTPException& error) {
+HTTPTransaction::Handler* HTTPUpstreamSession::getParseErrorHandler(
+    HTTPTransaction* /*txn*/, const HTTPException& /*error*/) {
   // No special handler for upstream requests that have a parse error
   return nullptr;
 }
 
-HTTPTransaction::Handler*
-HTTPUpstreamSession::getTransactionTimeoutHandler(HTTPTransaction* txn) {
+HTTPTransaction::Handler* HTTPUpstreamSession::getTransactionTimeoutHandler(
+    HTTPTransaction* /*txn*/) {
   // No special handler for upstream requests that time out
   return nullptr;
 }

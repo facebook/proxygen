@@ -139,72 +139,71 @@ HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
 void fakeMockCodec(MockHTTPCodec& codec) {
   // For each generate* function, write some data to the chain
   EXPECT_CALL(codec, generateHeader(_, _, _, _, _, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream,
-                               const HTTPMessage& msg,
-                               HTTPCodec::StreamID assocStream,
-                               bool eom,
-                               HTTPHeaderSize* size) {
-                             writeBuf.append(makeBuf(10));
-                           }));
+      .WillRepeatedly(Invoke(
+          [](folly::IOBufQueue& writeBuf,
+             HTTPCodec::StreamID /*stream*/,
+             const HTTPMessage& /*msg*/,
+             HTTPCodec::StreamID /*assocStream*/,
+             bool /*eom*/,
+             HTTPHeaderSize* /*size*/) { writeBuf.append(makeBuf(10)); }));
 
   EXPECT_CALL(codec, generateBody(_, _, _, _, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream,
-                               std::shared_ptr<folly::IOBuf> chain,
-                               boost::optional<uint8_t> padding,
-                               bool eom) {
-                             auto len = chain->computeChainDataLength();
-                             writeBuf.append(chain->clone());
-                             return len;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
+                                HTTPCodec::StreamID /*stream*/,
+                                std::shared_ptr<folly::IOBuf> chain,
+                                boost::optional<uint8_t> /*padding*/,
+                                bool /*eom*/) {
+        auto len = chain->computeChainDataLength();
+        writeBuf.append(chain->clone());
+        return len;
+      }));
 
   EXPECT_CALL(codec, generateChunkHeader(_, _, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream,
-                               size_t length) {
-                             writeBuf.append(makeBuf(length));
-                             return length;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
+                                HTTPCodec::StreamID /*stream*/,
+                                size_t length) {
+        writeBuf.append(makeBuf(length));
+        return length;
+      }));
 
   EXPECT_CALL(codec, generateChunkTerminator(_, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream) {
-                             writeBuf.append(makeBuf(4));
-                             return 4;
-                           }));
+      .WillRepeatedly(Invoke(
+          [](folly::IOBufQueue& writeBuf, HTTPCodec::StreamID /*stream*/) {
+            writeBuf.append(makeBuf(4));
+            return 4;
+          }));
 
   EXPECT_CALL(codec, generateTrailers(_, _, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream,
-                               const HTTPHeaders& trailers) {
-                             writeBuf.append(makeBuf(30));
-                             return 30;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
+                                HTTPCodec::StreamID /*stream*/,
+                                const HTTPHeaders& /*trailers*/) {
+        writeBuf.append(makeBuf(30));
+        return 30;
+      }));
 
   EXPECT_CALL(codec, generateEOM(_, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream) {
-                             writeBuf.append(makeBuf(6));
-                             return 6;
-                           }));
+      .WillRepeatedly(Invoke(
+          [](folly::IOBufQueue& writeBuf, HTTPCodec::StreamID /*stream*/) {
+            writeBuf.append(makeBuf(6));
+            return 6;
+          }));
 
   EXPECT_CALL(codec, generateRstStream(_, _, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream,
-                               ErrorCode code) {
-                             writeBuf.append(makeBuf(6));
-                             return 6;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
+                                HTTPCodec::StreamID /*stream*/,
+                                ErrorCode /*code*/) {
+        writeBuf.append(makeBuf(6));
+        return 6;
+      }));
 
   EXPECT_CALL(codec, generateGoaway(_, _, _, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               uint32_t lastStream,
-                               ErrorCode,
-                               std::shared_ptr<folly::IOBuf>) {
-                             writeBuf.append(makeBuf(6));
-                             return 6;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
+                                uint32_t /*lastStream*/,
+                                ErrorCode,
+                                std::shared_ptr<folly::IOBuf>) {
+        writeBuf.append(makeBuf(6));
+        return 6;
+      }));
 
   EXPECT_CALL(codec, generatePingRequest(_))
     .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf) {
@@ -213,11 +212,10 @@ void fakeMockCodec(MockHTTPCodec& codec) {
                            }));
 
   EXPECT_CALL(codec, generatePingReply(_, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               uint64_t id) {
-                             writeBuf.append(makeBuf(6));
-                             return 6;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf, uint64_t /*id*/) {
+        writeBuf.append(makeBuf(6));
+        return 6;
+      }));
 
   EXPECT_CALL(codec, generateSettings(_))
     .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf) {
@@ -226,13 +224,12 @@ void fakeMockCodec(MockHTTPCodec& codec) {
                            }));
 
   EXPECT_CALL(codec, generateWindowUpdate(_, _, _))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID stream,
-                               uint32_t delta) {
-                             writeBuf.append(makeBuf(6));
-                             return 6;
-                           }));
-
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
+                                HTTPCodec::StreamID /*stream*/,
+                                uint32_t /*delta*/) {
+        writeBuf.append(makeBuf(6));
+        return 6;
+      }));
 }
 
 }

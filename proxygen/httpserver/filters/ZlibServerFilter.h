@@ -206,7 +206,7 @@ class ZlibServerFilterFactory : public RequestHandlerFactory {
             std::make_shared<std::set<std::string>>(compressibleContentTypes)) {
   }
 
-  void onServerStart(folly::EventBase* evb) noexcept override {}
+  void onServerStart(folly::EventBase* /*evb*/) noexcept override {}
 
   void onServerStop() noexcept override {}
 

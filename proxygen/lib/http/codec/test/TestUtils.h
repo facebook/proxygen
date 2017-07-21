@@ -67,10 +67,10 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
  public:
   FakeHTTPCodecCallback() {}
 
-  void onMessageBegin(HTTPCodec::StreamID stream, HTTPMessage*) override {
+  void onMessageBegin(HTTPCodec::StreamID /*stream*/, HTTPMessage*) override {
     messageBegin++;
   }
-  void onPushMessageBegin(HTTPCodec::StreamID stream,
+  void onPushMessageBegin(HTTPCodec::StreamID /*stream*/,
                           HTTPCodec::StreamID assocStream,
                           HTTPMessage*) override {
     messageBegin++;
@@ -82,7 +82,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     headersCompleteId = stream;
     msg = std::move(inMsg);
   }
-  void onBody(HTTPCodec::StreamID stream,
+  void onBody(HTTPCodec::StreamID /*stream*/,
               std::unique_ptr<folly::IOBuf> chain,
               uint16_t padding) override {
     bodyCalls++;
@@ -90,20 +90,25 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     bodyLength += chain->computeChainDataLength();
     data.append(std::move(chain));
   }
-  void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override {
+  void onChunkHeader(HTTPCodec::StreamID /*stream*/,
+                     size_t /*length*/) override {
     chunkHeaders++;
   }
-  void onChunkComplete(HTTPCodec::StreamID stream) override { chunkComplete++; }
-  void onTrailersComplete(HTTPCodec::StreamID stream,
-                          std::unique_ptr<HTTPHeaders> inTrailers) override {
+  void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {
+    chunkComplete++;
+  }
+  void onTrailersComplete(
+      HTTPCodec::StreamID /*stream*/,
+      std::unique_ptr<HTTPHeaders> /*inTrailers*/) override {
     trailers++;
   }
-  void onMessageComplete(HTTPCodec::StreamID stream, bool upgrade) override {
+  void onMessageComplete(HTTPCodec::StreamID /*stream*/,
+                         bool /*upgrade*/) override {
     messageComplete++;
   }
   void onError(HTTPCodec::StreamID stream,
                const HTTPException& error,
-               bool newStream) override {
+               bool /*newStream*/) override {
     if (stream) {
       streamErrors++;
     } else {
@@ -112,7 +117,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastParseError = std::make_unique<HTTPException>(error);
   }
 
-  void onAbort(HTTPCodec::StreamID stream, ErrorCode code) override {
+  void onAbort(HTTPCodec::StreamID /*stream*/, ErrorCode code) override {
     ++aborts;
     lastErrorCode = code;
   }
@@ -132,7 +137,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     recvPingReply = uniqueID;
   }
 
-  void onPriority(HTTPCodec::StreamID streamID,
+  void onPriority(HTTPCodec::StreamID /*streamID*/,
                   const HTTPMessage::HTTPPriority& pri) override {
     priority = pri;
   }

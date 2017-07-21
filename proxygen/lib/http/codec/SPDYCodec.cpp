@@ -744,7 +744,7 @@ void SPDYCodec::generateSynReply(StreamID stream,
 size_t SPDYCodec::generateBody(folly::IOBufQueue& writeBuf,
                                StreamID stream,
                                std::unique_ptr<folly::IOBuf> chain,
-                               boost::optional<uint8_t> padding,
+                               boost::optional<uint8_t> /*padding*/,
                                bool eom) {
   if (!isStreamIngressEgressAllowed(stream)) {
     VLOG(2) << "Suppressing DATA for stream=" << stream <<
@@ -766,22 +766,22 @@ size_t SPDYCodec::generateBody(folly::IOBufQueue& writeBuf,
   return len;
 }
 
-size_t SPDYCodec::generateChunkHeader(folly::IOBufQueue& writeBuf,
-                                      StreamID stream,
-                                      size_t length) {
+size_t SPDYCodec::generateChunkHeader(folly::IOBufQueue& /*writeBuf*/,
+                                      StreamID /*stream*/,
+                                      size_t /*length*/) {
   // SPDY chunk headers are built into the data frames
   return 0;
 }
 
-size_t SPDYCodec::generateChunkTerminator(folly::IOBufQueue& writeBuf,
-                                          StreamID stream) {
+size_t SPDYCodec::generateChunkTerminator(folly::IOBufQueue& /*writeBuf*/,
+                                          StreamID /*stream*/) {
   // SPDY has no chunk terminator
   return 0;
 }
 
-size_t SPDYCodec::generateTrailers(folly::IOBufQueue& writeBuf,
-                                   StreamID stream,
-                                   const HTTPHeaders& trailers) {
+size_t SPDYCodec::generateTrailers(folly::IOBufQueue& /*writeBuf*/,
+                                   StreamID /*stream*/,
+                                   const HTTPHeaders& /*trailers*/) {
   // TODO generate a HEADERS frame?  An additional HEADERS frame
   // somewhere after the SYN_REPLY seems to be the SPDY equivalent
   // of HTTP/1.1's trailers.
@@ -1258,7 +1258,8 @@ void SPDYCodec::deliverOnMessageBegin(StreamID streamID, StreamID assocStreamID,
 }
 
 void SPDYCodec::onSynStream(uint32_t assocStream,
-                            uint8_t pri, uint8_t slot,
+                            uint8_t pri,
+                            uint8_t /*slot*/,
                             const HeaderPieceList& headers,
                             const HTTPHeaderSize& size) {
   VLOG(4) << "Got SYN_STREAM, stream=" << streamId_
@@ -1403,7 +1404,7 @@ void SPDYCodec::onGoaway(uint32_t lastGoodStream,
   }
 }
 
-void SPDYCodec::onHeaders(const HeaderPieceList& headers) noexcept {
+void SPDYCodec::onHeaders(const HeaderPieceList& /*headers*/) noexcept {
   VLOG(3) << "onHeaders is unimplemented.";
 }
 

@@ -22,11 +22,11 @@ HTTPStaticErrorPage::HTTPStaticErrorPage(std::unique_ptr<folly::IOBuf> content,
 }
 
 HTTPErrorPage::Page HTTPStaticErrorPage::generate(
-    uint64_t requestID,
-    unsigned httpStatusCode,
-    const std::string& reason,
-    std::unique_ptr<folly::IOBuf> body,
-    const std::string& detailReason) const {
+    uint64_t /*requestID*/,
+    unsigned /*httpStatusCode*/,
+    const std::string& /*reason*/,
+    std::unique_ptr<folly::IOBuf> /*body*/,
+    const std::string& /*detailReason*/) const {
 
   return HTTPErrorPage::Page(contentType_, content_->clone());
 }

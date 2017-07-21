@@ -367,9 +367,9 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
 }
 
 void GzipHeaderCodec::decodeStreaming(
-    Cursor& cursor,
-    uint32_t length,
-    HeaderCodec::StreamingCallback* streamingCb) noexcept {
+    Cursor& /*cursor*/,
+    uint32_t /*length*/,
+    HeaderCodec::StreamingCallback* /*streamingCb*/) noexcept {
   // TODO: to implement, never called
 }
 

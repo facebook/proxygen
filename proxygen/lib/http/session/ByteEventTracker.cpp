@@ -146,8 +146,8 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
   }
 }
 
-uint64_t ByteEventTracker::preSend(bool* cork,
-                                   bool* eom,
+uint64_t ByteEventTracker::preSend(bool* /*cork*/,
+                                   bool* /*eom*/,
                                    uint64_t bytesWritten) {
   if (nextLastByteEvent_) {
     uint64_t nextLastByteNo = nextLastByteEvent_->byteOffset_;

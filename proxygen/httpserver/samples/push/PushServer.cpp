@@ -35,7 +35,7 @@ DEFINE_int32(threads, 0, "Number of threads to listen on. Numbers <= 0 "
 
 class PushRequestHandlerFactory : public RequestHandlerFactory {
  public:
-  void onServerStart(folly::EventBase* evb) noexcept override {
+  void onServerStart(folly::EventBase* /*evb*/) noexcept override {
     stats_.reset(new PushStats);
   }
 

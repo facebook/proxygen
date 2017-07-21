@@ -185,9 +185,8 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
   return nullptr;
 }
 
-void
-RFC1867Codec::onHeadersComplete(HTTPCodec::StreamID stream,
-                                std::unique_ptr<HTTPMessage> msg) {
+void RFC1867Codec::onHeadersComplete(HTTPCodec::StreamID /*stream*/,
+                                     std::unique_ptr<HTTPMessage> msg) {
   static const StringPiece kName("name", 4);
   static const StringPiece kFilename("filename", 8);
 

@@ -21,7 +21,7 @@ namespace EchoService {
 EchoHandler::EchoHandler(EchoStats* stats): stats_(stats) {
 }
 
-void EchoHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
+void EchoHandler::onRequest(std::unique_ptr<HTTPMessage> /*headers*/) noexcept {
   stats_->recordRequest();
 }
 
@@ -42,7 +42,7 @@ void EchoHandler::onEOM() noexcept {
     .sendWithEOM();
 }
 
-void EchoHandler::onUpgrade(UpgradeProtocol protocol) noexcept {
+void EchoHandler::onUpgrade(UpgradeProtocol /*protocol*/) noexcept {
   // handler doesn't support upgrades
 }
 
@@ -50,8 +50,5 @@ void EchoHandler::requestComplete() noexcept {
   delete this;
 }
 
-void EchoHandler::onError(ProxygenError err) noexcept {
-  delete this;
-}
-
+void EchoHandler::onError(ProxygenError /*err*/) noexcept { delete this; }
 }

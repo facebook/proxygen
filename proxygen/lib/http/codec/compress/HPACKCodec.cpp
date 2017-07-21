@@ -25,10 +25,8 @@ using std::vector;
 
 namespace proxygen {
 
-HPACKCodec::HPACKCodec(TransportDirection direction)
-    : encoder_(true),
-      decoder_(HPACK::kTableSize, maxUncompressed_) {
-}
+HPACKCodec::HPACKCodec(TransportDirection /*direction*/)
+    : encoder_(true), decoder_(HPACK::kTableSize, maxUncompressed_) {}
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   vector<HPACKHeader> converted;
@@ -133,7 +131,7 @@ void HPACKCodec::onHeadersComplete() {
   streamingCb_->onHeadersComplete();
 }
 
-void HPACKCodec::onDecodeError(HeaderDecodeError decodeError) {
+void HPACKCodec::onDecodeError(HeaderDecodeError /*decodeError*/) {
   assert(streamingCb_ != nullptr);
   if (stats_) {
     stats_->recordDecodeError(Type::HPACK);

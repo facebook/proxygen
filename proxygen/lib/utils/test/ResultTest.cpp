@@ -96,10 +96,10 @@ TEST(Result, Emplace) {
     /* implicit */ Expensive(int* counter) {
       ++*counter;
     }
-    Expensive(const Expensive& other) {
+    Expensive(const Expensive& /*other*/) {
       ADD_FAILURE(); // Should not be invoked
     }
-    Expensive(Expensive&& other) {
+    Expensive(Expensive&& /*other*/) {
       ADD_FAILURE(); // Should not be invoked
     }
   };

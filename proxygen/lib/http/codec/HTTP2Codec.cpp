@@ -359,10 +359,10 @@ ErrorCode HTTP2Codec::parseContinuation(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::parseHeadersImpl(
-  Cursor& cursor,
-  std::unique_ptr<IOBuf> headerBuf,
-  boost::optional<http2::PriorityUpdate> priority,
-  boost::optional<uint32_t> promisedStream) {
+    Cursor& /*cursor*/,
+    std::unique_ptr<IOBuf> headerBuf,
+    boost::optional<http2::PriorityUpdate> priority,
+    boost::optional<uint32_t> promisedStream) {
   curHeaderBlock_.append(std::move(headerBuf));
   std::unique_ptr<HTTPMessage> msg;
   if (curHeader_.flags & http2::END_HEADERS) {
@@ -1129,22 +1129,22 @@ size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
                                     padding, eom);
 }
 
-size_t HTTP2Codec::generateChunkHeader(folly::IOBufQueue& writeBuf,
-                                       StreamID stream,
-                                       size_t length) {
+size_t HTTP2Codec::generateChunkHeader(folly::IOBufQueue& /*writeBuf*/,
+                                       StreamID /*stream*/,
+                                       size_t /*length*/) {
   // HTTP/2 has no chunk headers
   return 0;
 }
 
-size_t HTTP2Codec::generateChunkTerminator(folly::IOBufQueue& writeBuf,
-                                           StreamID stream) {
+size_t HTTP2Codec::generateChunkTerminator(folly::IOBufQueue& /*writeBuf*/,
+                                           StreamID /*stream*/) {
   // HTTP/2 has no chunk terminators
   return 0;
 }
 
-size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& writeBuf,
-                                    StreamID stream,
-                                    const HTTPHeaders& trailers) {
+size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& /*writeBuf*/,
+                                    StreamID /*stream*/,
+                                    const HTTPHeaders& /*trailers*/) {
   return 0;
 }
 

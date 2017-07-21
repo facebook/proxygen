@@ -45,12 +45,12 @@ class DownstreamTransactionTest : public testing::Test {
       EXPECT_CALL(handler_, onHeadersComplete(_));
     } else {
       EXPECT_CALL(handler_, onHeadersComplete(_))
-        .WillOnce(Invoke([=](std::shared_ptr<HTTPMessage> msg) {
-              auto response = makeResponse(200);
-              txn->sendHeaders(*response.get());
-              txn->sendBody(makeBuf(size));
-              txn->sendEOM();
-            }));
+          .WillOnce(Invoke([=](std::shared_ptr<HTTPMessage> /*msg*/) {
+            auto response = makeResponse(200);
+            txn->sendHeaders(*response.get());
+            txn->sendBody(makeBuf(size));
+            txn->sendEOM();
+          }));
     }
     EXPECT_CALL(transport_, sendHeaders(txn, _, _, _))
       .WillOnce(Invoke([=](Unused, const HTTPMessage& headers, Unused, Unused) {
@@ -280,11 +280,11 @@ TEST_F(DownstreamTransactionTest, detach_from_notify) {
 
   EXPECT_CALL(*handler, setTransaction(&txn));
   EXPECT_CALL(*handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> msg) {
-          auto response = makeResponse(200);
-          txn.sendHeaders(*response.get());
-          txn.sendBody(makeBuf(10));
-        }));
+      .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> /*msg*/) {
+        auto response = makeResponse(200);
+        txn.sendHeaders(*response.get());
+        txn.sendBody(makeBuf(10));
+      }));
   EXPECT_CALL(transport_, sendHeaders(&txn, _, _, _))
     .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused, Unused) {
           EXPECT_EQ(headers.getStatusCode(), 200);
@@ -320,12 +320,12 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
 
   EXPECT_CALL(handler_, setTransaction(&txn));
   EXPECT_CALL(handler_, onHeadersComplete(_))
-    .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> msg) {
-          auto response = makeResponse(200);
-          txn.sendHeaders(*response.get());
-          txn.sendBody(makeBuf(10));
-          txn.sendBody(makeBuf(20));
-        }));
+      .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> /*msg*/) {
+        auto response = makeResponse(200);
+        txn.sendHeaders(*response.get());
+        txn.sendBody(makeBuf(10));
+        txn.sendBody(makeBuf(20));
+      }));
   EXPECT_CALL(transport_, sendHeaders(&txn, _, _, _))
     .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused, Unused) {
           EXPECT_EQ(headers.getStatusCode(), 200);
@@ -373,10 +373,10 @@ TEST_F(DownstreamTransactionTest, internal_error) {
 
   EXPECT_CALL(*handler, setTransaction(&txn));
   EXPECT_CALL(*handler, onHeadersComplete(_))
-    .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> msg) {
-          auto response = makeResponse(200);
-          txn.sendHeaders(*response.get());
-        }));
+      .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> /*msg*/) {
+        auto response = makeResponse(200);
+        txn.sendHeaders(*response.get());
+      }));
   EXPECT_CALL(transport_, sendHeaders(&txn, _, _, _))
     .WillOnce(Invoke([&](Unused, const HTTPMessage& headers, Unused, Unused) {
           EXPECT_EQ(headers.getStatusCode(), 200);

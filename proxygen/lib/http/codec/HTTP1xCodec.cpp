@@ -523,12 +523,11 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   }
 }
 
-size_t
-HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
-                          StreamID txn,
-                          unique_ptr<IOBuf> chain,
-                          boost::optional<uint8_t> padding,
-                          bool eom) {
+size_t HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
+                                 StreamID txn,
+                                 unique_ptr<IOBuf> chain,
+                                 boost::optional<uint8_t> /*padding*/,
+                                 bool eom) {
   DCHECK_EQ(txn, egressTxnID_);
   if (!chain) {
     return 0;
@@ -565,7 +564,7 @@ HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
 }
 
 size_t HTTP1xCodec::generateChunkHeader(IOBufQueue& writeBuf,
-                                        StreamID txn,
+                                        StreamID /*txn*/,
                                         size_t length) {
   // TODO: Format directly into the IOBuf, rather than copying after the fact.
   // IOBufQueue::append() currently forces us to copy.
@@ -589,7 +588,7 @@ size_t HTTP1xCodec::generateChunkHeader(IOBufQueue& writeBuf,
 }
 
 size_t HTTP1xCodec::generateChunkTerminator(IOBufQueue& writeBuf,
-                                            StreamID txn) {
+                                            StreamID /*txn*/) {
   if (egressChunked_ && inChunk_) {
     inChunk_ = false;
     writeBuf.append("\r\n", 2);
@@ -649,9 +648,9 @@ size_t HTTP1xCodec::generateEOM(IOBufQueue& writeBuf, StreamID txn) {
   return len;
 }
 
-size_t HTTP1xCodec::generateRstStream(IOBufQueue& writeBuf,
-                                      StreamID txn,
-                                      ErrorCode statusCode) {
+size_t HTTP1xCodec::generateRstStream(IOBufQueue& /*writeBuf*/,
+                                      StreamID /*txn*/,
+                                      ErrorCode /*statusCode*/) {
   // statusCode ignored for HTTP/1.1
   // We won't be able to send anything else on the transport after this.
   disableKeepalivePending_ = true;
@@ -1136,9 +1135,9 @@ HTTP1xCodec::onHeaderValueCB(http_parser* parser, const char* buf, size_t len) {
   }
 }
 
-int
-HTTP1xCodec::onHeadersCompleteCB(http_parser* parser,
-                                 const char* buf, size_t len) {
+int HTTP1xCodec::onHeadersCompleteCB(http_parser* parser,
+                                     const char* /*buf*/,
+                                     size_t len) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);

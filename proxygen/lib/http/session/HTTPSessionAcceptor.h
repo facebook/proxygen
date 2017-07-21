@@ -127,21 +127,21 @@ protected:
 
   virtual size_t dropIdleConnections(size_t num);
 
-  virtual void onSessionCreationError(ProxygenError error) {}
+  virtual void onSessionCreationError(ProxygenError /*error*/) {}
 
-private:
+ private:
   HTTPSessionAcceptor(const HTTPSessionAcceptor&) = delete;
   HTTPSessionAcceptor& operator=(const HTTPSessionAcceptor&) = delete;
 
   // HTTPSession::InfoCallback methods
   void onCreate(const HTTPSession&) override {}
-  void onIngressError(const HTTPSession&, ProxygenError error) override {}
+  void onIngressError(const HTTPSession&, ProxygenError /*error*/) override {}
   void onIngressEOF() override {}
-  void onRead(const HTTPSession&, size_t bytesRead) override {}
-  void onWrite(const HTTPSession&, size_t bytesWritten) override {}
+  void onRead(const HTTPSession&, size_t /*bytesRead*/) override {}
+  void onWrite(const HTTPSession&, size_t /*bytesWritten*/) override {}
   void onRequestBegin(const HTTPSession&) override {}
   void onRequestEnd(const HTTPSession&,
-                    uint32_t maxIngressQueueSize) override {}
+                    uint32_t /*maxIngressQueueSize*/) override {}
   void onActivateConnection(const HTTPSession&) override {}
   void onDeactivateConnection(const HTTPSession&) override {}
   void onDestroy(const HTTPSession&) override {}
@@ -149,7 +149,7 @@ private:
   void onIngressLimitExceeded(const HTTPSession&) override {}
   void onIngressPaused(const HTTPSession&) override {}
   void onTransactionDetached(const HTTPSession&) override {}
-  void onPingReplySent(int64_t latency) override {}
+  void onPingReplySent(int64_t /*latency*/) override {}
   void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
   void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}

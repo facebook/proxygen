@@ -22,27 +22,30 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
  public:
   HTTP1xCodecCallback() {}
 
-  void onMessageBegin(HTTPCodec::StreamID stream, HTTPMessage* msg) override {}
-  void onPushMessageBegin(HTTPCodec::StreamID stream,
-                          HTTPCodec::StreamID assocStream,
-                          HTTPMessage* msg) override {}
-  void onHeadersComplete(HTTPCodec::StreamID stream,
+  void onMessageBegin(HTTPCodec::StreamID /*stream*/,
+                      HTTPMessage* /*msg*/) override {}
+  void onPushMessageBegin(HTTPCodec::StreamID /*stream*/,
+                          HTTPCodec::StreamID /*assocStream*/,
+                          HTTPMessage* /*msg*/) override {}
+  void onHeadersComplete(HTTPCodec::StreamID /*stream*/,
                          std::unique_ptr<HTTPMessage> msg) override {
     headersComplete++;
     headerSize = msg->getIngressHeaderSize();
     msg_ = std::move(msg);
   }
-  void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain,
-              uint16_t padding) override {}
-  void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override {}
-  void onChunkComplete(HTTPCodec::StreamID stream) override {}
-  void onTrailersComplete(HTTPCodec::StreamID stream,
-                          std::unique_ptr<HTTPHeaders> trailers) override {}
-  void onMessageComplete(HTTPCodec::StreamID stream, bool upgrade) override {}
-  void onError(HTTPCodec::StreamID stream,
-               const HTTPException& error,
-               bool newTxn) override {
+  void onBody(HTTPCodec::StreamID /*stream*/,
+              std::unique_ptr<folly::IOBuf> /*chain*/,
+              uint16_t /*padding*/) override {}
+  void onChunkHeader(HTTPCodec::StreamID /*stream*/,
+                     size_t /*length*/) override {}
+  void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {}
+  void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
+                          std::unique_ptr<HTTPHeaders> /*trailers*/) override {}
+  void onMessageComplete(HTTPCodec::StreamID /*stream*/,
+                         bool /*upgrade*/) override {}
+  void onError(HTTPCodec::StreamID /*stream*/,
+               const HTTPException& /*error*/,
+               bool /*newTxn*/) override {
     LOG(ERROR) << "parse error";
   }
 

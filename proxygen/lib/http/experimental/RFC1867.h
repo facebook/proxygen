@@ -77,26 +77,29 @@ class RFC1867Codec: HTTPCodec::Callback {
   };
 
   // HTTPCodec::Callback
-  void onMessageBegin(HTTPCodec::StreamID stream, HTTPMessage* msg) override {}
+  void onMessageBegin(HTTPCodec::StreamID /*stream*/,
+                      HTTPMessage* /*msg*/) override {}
   void onHeadersComplete(HTTPCodec::StreamID stream,
                          std::unique_ptr<HTTPMessage> msg) override;
-  void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain,
-              uint16_t padding) override {
+  void onBody(HTTPCodec::StreamID /*stream*/,
+              std::unique_ptr<folly::IOBuf> /*chain*/,
+              uint16_t /*padding*/) override {
     parseError_ = true;
     headerParser_.setParserPaused(true);
   }
-  void onTrailersComplete(HTTPCodec::StreamID stream,
-                          std::unique_ptr<HTTPHeaders> trailers) override {
+  void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
+                          std::unique_ptr<HTTPHeaders> /*trailers*/) override {
     parseError_ = true;
     headerParser_.setParserPaused(true);
   }
-  void onMessageComplete(HTTPCodec::StreamID stream, bool upgrade) override {
+  void onMessageComplete(HTTPCodec::StreamID /*stream*/,
+                         bool /*upgrade*/) override {
     headerParser_.setParserPaused(true);
   }
 
-  void onError(HTTPCodec::StreamID stream, const HTTPException& error,
-               bool newTxn) override {
+  void onError(HTTPCodec::StreamID /*stream*/,
+               const HTTPException& /*error*/,
+               bool /*newTxn*/) override {
     parseError_ = true;
     headerParser_.setParserPaused(true);
   }

@@ -23,18 +23,16 @@ class RejectConnectFilter : public Filter {
   explicit RejectConnectFilter(RequestHandler* upstream): Filter(upstream) {
   }
 
-  void onRequest(std::unique_ptr<HTTPMessage> msg) noexcept override {
+  void onRequest(std::unique_ptr<HTTPMessage> /*msg*/) noexcept override {
     upstream_->onError(kErrorMethodNotSupported);
     upstream_ = nullptr;
 
     ResponseBuilder(downstream_).rejectUpgradeRequest();
   }
 
-  void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
-  }
+  void onBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept override {}
 
-  void onUpgrade(UpgradeProtocol protocol) noexcept override {
-  }
+  void onUpgrade(UpgradeProtocol /*protocol*/) noexcept override {}
 
   void onEOM() noexcept override {
   }
@@ -61,14 +59,11 @@ class RejectConnectFilter : public Filter {
   }
 
   // Response handler
-  void sendHeaders(HTTPMessage& msg) noexcept override {
-  }
+  void sendHeaders(HTTPMessage& /*msg*/) noexcept override {}
 
-  void sendChunkHeader(size_t len) noexcept override {
-  }
+  void sendChunkHeader(size_t /*len*/) noexcept override {}
 
-  void sendBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
-  }
+  void sendBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept override {}
 
   void sendChunkTerminator() noexcept override {
   }
@@ -85,8 +80,7 @@ class RejectConnectFilter : public Filter {
 
 class RejectConnectFilterFactory : public RequestHandlerFactory {
  public:
-  void onServerStart(folly::EventBase* evb) noexcept override {
-  }
+  void onServerStart(folly::EventBase* /*evb*/) noexcept override {}
 
   void onServerStop() noexcept override {
   }

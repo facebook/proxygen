@@ -33,8 +33,8 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
   : HTTPSessionAcceptor(accConfig) {
   }
 
-  HTTPTransaction::Handler* newHandler(HTTPTransaction& txn,
-                                       HTTPMessage* msg) noexcept override {
+  HTTPTransaction::Handler* newHandler(HTTPTransaction& /*txn*/,
+                                       HTTPMessage* /*msg*/) noexcept override {
     return new MockHTTPHandler();
   }
 
@@ -56,7 +56,7 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
                                          tinfo);
   }
 
-  void onSessionCreationError(ProxygenError error) override {
+  void onSessionCreationError(ProxygenError /*error*/) override {
     sessionCreationErrors_++;
   }
 

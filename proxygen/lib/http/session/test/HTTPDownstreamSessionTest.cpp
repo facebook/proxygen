@@ -719,9 +719,9 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade) {
 
   // Send the response in the new protocol after upgrade
   EXPECT_CALL(*handler, onUpgrade(_))
-    .WillOnce(Invoke([&handler] (UpgradeProtocol protocol) {
-          handler->sendReplyCode(100);
-        }));
+      .WillOnce(Invoke([&handler](UpgradeProtocol /*protocol*/) {
+        handler->sendReplyCode(100);
+      }));
 
   onEOMTerminateHandlerExpectShutdown(*handler);
 
@@ -833,11 +833,11 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
   std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
   // Hold a dguard to first txn
   EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
-    .WillOnce(Invoke([&dg] (HTTPTransaction* txn,
-                            uint64_t byteNo,
-                            bool eorTrackingEnabled) {
-                       dg.reset(new HTTPTransaction::DestructorGuard(txn));
-                     }));
+      .WillOnce(Invoke([&dg](HTTPTransaction* txn,
+                             uint64_t /*byteNo*/,
+                             bool /*eorTrackingEnabled*/) {
+        dg.reset(new HTTPTransaction::DestructorGuard(txn));
+      }));
   sendRequest();
   flushRequestsAndLoop();
   expectResponse();
@@ -876,11 +876,11 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
     });
   std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
   EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
-    .WillOnce(Invoke([&dg] (HTTPTransaction* txn,
-                            uint64_t byteNo,
-                            bool eorTrackingEnabled) {
-                       dg.reset(new HTTPTransaction::DestructorGuard(txn));
-                     }));
+      .WillOnce(Invoke([&dg](HTTPTransaction* txn,
+                             uint64_t /*byteNo*/,
+                             bool /*eorTrackingEnabled*/) {
+        dg.reset(new HTTPTransaction::DestructorGuard(txn));
+      }));
   sendRequest();
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
@@ -1749,10 +1749,10 @@ void HTTPDownstreamTest<C>::testPriorities(uint32_t numPriorities) {
     .Times(iterations * numPriorities);
   // body is variable and hence ignored
   EXPECT_CALL(callbacks_, onMessageComplete(_, _))
-    .Times(iterations * numPriorities)
-    .WillRepeatedly(Invoke([&] (HTTPCodec::StreamID stream, bool upgrade) {
-          streams.push_back(stream);
-        }));
+      .Times(iterations * numPriorities)
+      .WillRepeatedly(Invoke([&](HTTPCodec::StreamID stream, bool /*upgrade*/) {
+        streams.push_back(stream);
+      }));
 
   parseOutput(*clientCodec_);
 
@@ -2202,9 +2202,9 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
     .Times(2);
   // body is variable and hence ignored;
   EXPECT_CALL(callbacks_, onMessageComplete(_, _))
-    .WillRepeatedly(Invoke([&] (HTTPCodec::StreamID stream, bool upgrade) {
-          streams.push_back(stream);
-        }));
+      .WillRepeatedly(Invoke([&](HTTPCodec::StreamID stream, bool /*upgrade*/) {
+        streams.push_back(stream);
+      }));
   parseOutput(*clientCodec_);
 
   cleanup();

@@ -491,7 +491,7 @@ uint8_t shortSynReply[] =
 };
 
 template <typename Codec1, typename Codec2>
-void doShortSynReplyTest(Codec1& ingressCodec, Codec2& egressCodec) {
+void doShortSynReplyTest(Codec1& /*ingressCodec*/, Codec2& egressCodec) {
   FakeHTTPCodecCallback callbacks;
   egressCodec.setCallback(&callbacks);
   auto frame = getVersionedSpdyFrame(shortSynReply, sizeof(shortSynReply),

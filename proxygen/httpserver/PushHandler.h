@@ -21,7 +21,7 @@ class PushHandler : public RequestHandler {
 
   // Caller may implement these callbacks if desired
   void requestComplete() noexcept override { delete this; }
-  void onError(ProxygenError err) noexcept override { delete this; }
+  void onError(ProxygenError /*err*/) noexcept override { delete this; }
 
   HTTPPushTransactionHandler* getHandler() {
     return &innerHandler_;
@@ -33,7 +33,7 @@ class PushHandler : public RequestHandler {
     explicit InnerPushHandler(PushHandler& handler)
       : handler_(handler) {}
 
-    void setTransaction(HTTPTransaction* txn) noexcept override {}
+    void setTransaction(HTTPTransaction* /*txn*/) noexcept override {}
     void detachTransaction() noexcept override { handler_.requestComplete(); }
     void onError(const HTTPException& error) noexcept override {
       handler_.onError(error.getProxygenError());
@@ -49,15 +49,15 @@ class PushHandler : public RequestHandler {
     PushHandler& handler_;
   };
 
-  void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept override {
+  void onRequest(std::unique_ptr<HTTPMessage> /*headers*/) noexcept override {
     LOG(FATAL) << "Unreachable";
   }
 
-  void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
+  void onBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept override {
     LOG(FATAL) << "Unreachable";
   }
 
-  void onUpgrade(proxygen::UpgradeProtocol prot) noexcept override {
+  void onUpgrade(proxygen::UpgradeProtocol /*prot*/) noexcept override {
     LOG(FATAL) << "Unreachable";
   }
 

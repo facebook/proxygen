@@ -75,7 +75,7 @@ class Service {
    * then proxygen might call dropConnections() several times to gradually
    * stop all processing before finally calling forceStop().
    */
-  virtual void dropConnections(double pct) {}
+  virtual void dropConnections(double /*pct*/) {}
 
   /**
    * Forcibly stop the service.
@@ -114,7 +114,7 @@ class Service {
    * cleanupWorkerState().  Once forceStop() is invoked, the remaining threads
    * will forcibly exit and then call cleanupWorkerState().)
    */
-  virtual void cleanupWorkerState(RequestWorker* worker) {}
+  virtual void cleanupWorkerState(RequestWorker* /*worker*/) {}
 
   /**
    * Add a new ServiceWorker (subclasses should create one ServiceWorker

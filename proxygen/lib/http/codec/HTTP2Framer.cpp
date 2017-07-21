@@ -259,11 +259,10 @@ parseData(Cursor& cursor,
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
-ErrorCode
-parseDataBegin(Cursor& cursor,
-               FrameHeader header,
-               size_t& parsed,
-               uint16_t& outPadding) noexcept {
+ErrorCode parseDataBegin(Cursor& cursor,
+                         FrameHeader header,
+                         size_t& /*parsed*/,
+                         uint16_t& outPadding) noexcept {
   uint8_t padding = 0;
   const auto err = http2::parsePadding(cursor, header, padding);
   RETURN_IF_ERROR(err);

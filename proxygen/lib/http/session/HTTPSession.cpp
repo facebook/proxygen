@@ -431,9 +431,7 @@ HTTPSession::dropConnection() {
   shutdownTransportWithReset(kErrorDropped);
 }
 
-void
-HTTPSession::dumpConnectionState(uint8_t loglevel) {
-}
+void HTTPSession::dumpConnectionState(uint8_t /*loglevel*/) {}
 
 bool HTTPSession::isUpstream() const {
   return codec_->getTransportDirection() == TransportDirection::UPSTREAM;

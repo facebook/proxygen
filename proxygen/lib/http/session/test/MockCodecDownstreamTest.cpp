@@ -95,24 +95,23 @@ class MockCodecDownstreamTest: public testing::Test {
     EXPECT_CALL(*codec_, enableDoubleGoawayDrain())
       .WillRepeatedly(Invoke([&] { doubleGoaway_ = true; }));
     EXPECT_CALL(*codec_, generateGoaway(_, _, _, _))
-      .WillRepeatedly(Invoke([this] (
-                               IOBufQueue& writeBuf,
-                               HTTPCodec::StreamID lastStream,
-                               ErrorCode,
-                               std::shared_ptr<folly::IOBuf>) {
-            if (reusable_) {
-              reusable_ = false;
-              drainPending_ = doubleGoaway_;
-            } else if (!drainPending_) {
-              return 0;
-            } else {
-              drainPending_ = false;
-            }
-            if (liveGoaways_) {
-              writeBuf.append(string("x"));
-            }
-            return 1;
-          }));
+        .WillRepeatedly(Invoke([this](IOBufQueue& writeBuf,
+                                      HTTPCodec::StreamID /*lastStream*/,
+                                      ErrorCode,
+                                      std::shared_ptr<folly::IOBuf>) {
+          if (reusable_) {
+            reusable_ = false;
+            drainPending_ = doubleGoaway_;
+          } else if (!drainPending_) {
+            return 0;
+          } else {
+            drainPending_ = false;
+          }
+          if (liveGoaways_) {
+            writeBuf.append(string("x"));
+          }
+          return 1;
+        }));
     EXPECT_CALL(*codec_, generateRstStream(_, _, _))
       .WillRepeatedly(Return(1));
     EXPECT_CALL(*codec_, addPriorityNodes(_, _, _))
@@ -131,7 +130,7 @@ class MockCodecDownstreamTest: public testing::Test {
   }
 
   void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
-                    std::shared_ptr<IOBuf> iob,
+                    std::shared_ptr<IOBuf> /*iob*/,
                     WriteFlags) {
     writeCount_++;
     if (invokeWriteSuccess_) {
@@ -976,14 +975,14 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
                      }));
   unsigned bodyLen = 0;
   EXPECT_CALL(*codec_, generateBody(_, 1, _, _, false))
-    .WillRepeatedly(Invoke([&] (folly::IOBufQueue& writeBuf,
-                                HTTPCodec::StreamID,
-                                std::shared_ptr<folly::IOBuf> chain,
-                                boost::optional<uint8_t>,
-                                bool eom) {
-                             bodyLen += chain->computeChainDataLength();
-                             return 0; // don't want byte events
-                           }));
+      .WillRepeatedly(Invoke([&](folly::IOBufQueue& /*writeBuf*/,
+                                 HTTPCodec::StreamID,
+                                 std::shared_ptr<folly::IOBuf> chain,
+                                 boost::optional<uint8_t>,
+                                 bool /*eom*/) {
+        bodyLen += chain->computeChainDataLength();
+        return 0; // don't want byte events
+      }));
 
   codecCallback_->onMessageBegin(1, req1.get());
   codecCallback_->onHeadersComplete(1, std::move(req1));
@@ -1131,16 +1130,15 @@ TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
         }));
   EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codec_, generateBody(_, _, _, _, _))
-    .WillRepeatedly(
-      Invoke([&] (folly::IOBufQueue&,
-                  HTTPCodec::StreamID,
-                  std::shared_ptr<folly::IOBuf> chain,
-                  boost::optional<uint8_t>,
-                  bool eom) {
-               auto len = chain->computeChainDataLength();
-               written += len;
-               return len;
-             }));
+      .WillRepeatedly(Invoke([&](folly::IOBufQueue&,
+                                 HTTPCodec::StreamID,
+                                 std::shared_ptr<folly::IOBuf> chain,
+                                 boost::optional<uint8_t>,
+                                 bool /*eom*/) {
+        auto len = chain->computeChainDataLength();
+        written += len;
+        return len;
+      }));
 
   codecCallback_->onWindowUpdate(0, respSize); // open conn-level window
   codecCallback_->onMessageBegin(1, req.get());

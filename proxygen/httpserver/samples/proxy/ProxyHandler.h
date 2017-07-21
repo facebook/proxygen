@@ -40,7 +40,7 @@ class ProxyHandler : public proxygen::RequestHandler,
 
   void onEOM() noexcept override;
 
-  void onUpgrade(proxygen::UpgradeProtocol proto) noexcept override {}
+  void onUpgrade(proxygen::UpgradeProtocol /*proto*/) noexcept override {}
 
   void requestComplete() noexcept override;
 
@@ -72,7 +72,7 @@ class ProxyHandler : public proxygen::RequestHandler,
    private:
     ProxyHandler& parent_;
 
-    void setTransaction(proxygen::HTTPTransaction* txn) noexcept override {
+    void setTransaction(proxygen::HTTPTransaction* /*txn*/) noexcept override {
       // no op
     }
     void detachTransaction() noexcept override {
@@ -88,13 +88,13 @@ class ProxyHandler : public proxygen::RequestHandler,
     }
 
     void onTrailers(
-      std::unique_ptr<proxygen::HTTPHeaders> trailers) noexcept override {
+        std::unique_ptr<proxygen::HTTPHeaders> /*trailers*/) noexcept override {
       // ignore for now
     }
     void onEOM() noexcept override {
       parent_.onServerEOM();
     }
-    void onUpgrade(proxygen::UpgradeProtocol protocol) noexcept override {
+    void onUpgrade(proxygen::UpgradeProtocol /*protocol*/) noexcept override {
       // ignore for now
     }
 

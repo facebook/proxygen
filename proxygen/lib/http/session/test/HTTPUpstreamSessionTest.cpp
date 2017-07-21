@@ -276,11 +276,11 @@ class HTTPUpstreamTest: public testing::Test,
   void onCreate(const HTTPSession&) override { sessionCreated_ = true; }
   void onIngressError(const HTTPSession&, ProxygenError) override {}
   void onIngressEOF() override {}
-  void onRead(const HTTPSession&, size_t bytesRead) override {}
-  void onWrite(const HTTPSession&, size_t bytesWritten) override {}
+  void onRead(const HTTPSession&, size_t /*bytesRead*/) override {}
+  void onWrite(const HTTPSession&, size_t /*bytesWritten*/) override {}
   void onRequestBegin(const HTTPSession&) override {}
   void onRequestEnd(const HTTPSession&,
-                    uint32_t maxIngressQueueSize) override {}
+                    uint32_t /*maxIngressQueueSize*/) override {}
   void onActivateConnection(const HTTPSession&) override {}
   void onDeactivateConnection(const HTTPSession&) override {}
   void onDestroy(const HTTPSession&) override { sessionDestroyed_ = true; }
@@ -288,7 +288,7 @@ class HTTPUpstreamTest: public testing::Test,
   void onIngressLimitExceeded(const HTTPSession&) override {}
   void onIngressPaused(const HTTPSession&) override {}
   void onTransactionDetached(const HTTPSession&) override {}
-  void onPingReplySent(int64_t latency) override {}
+  void onPingReplySent(int64_t /*latency*/) override {}
   void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {
     transactionsFull_ = true;
@@ -1865,14 +1865,13 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
 
   handler.expectTransaction();
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
-    .WillOnce(Invoke([&] (IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID stream,
-                          const HTTPMessage& msg,
-                          HTTPCodec::StreamID assocStream,
-                          bool eom,
-                          HTTPHeaderSize* size) {
-                       writeBuf.append("HEADERS", 7);
-                     }));
+      .WillOnce(Invoke(
+          [&](IOBufQueue& writeBuf,
+              HTTPCodec::StreamID /*stream*/,
+              const HTTPMessage& /*msg*/,
+              HTTPCodec::StreamID /*assocStream*/,
+              bool /*eom*/,
+              HTTPHeaderSize* /*size*/) { writeBuf.append("HEADERS", 7); }));
   handler.expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_FALSE(msg->getIsUpgraded());
       EXPECT_EQ(200, msg->getStatusCode());
@@ -1927,28 +1926,28 @@ TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
 
   // We'll get exactly one window update because we are draining
   EXPECT_CALL(*codecPtr_, generateWindowUpdate(_, _, _))
-    .WillOnce(Invoke([&]
-                     (folly::IOBufQueue& writeBuf,
-                      HTTPCodec::StreamID stream,
-                      uint32_t delta) {
-                       EXPECT_EQ(delta, sendWindow);
-                       outstanding -= delta;
-                       uint32_t len = std::min(toSend,
-                                               sendWindow - outstanding);
-                       EXPECT_LT(len, sendWindow);
-                       toSend -= len;
-                       EXPECT_EQ(toSend, 0);
-                       eventBase_.tryRunAfterDelay([this, streamID, len] {
-                           failWrites_ = true;
-                           auto respBody = makeBuf(len);
-                           codecCb_->onBody(streamID, std::move(respBody), 0);
-                           codecCb_->onMessageComplete(streamID, false);
-                         }, 50);
+      .WillOnce(Invoke([&](folly::IOBufQueue& writeBuf,
+                           HTTPCodec::StreamID /*stream*/,
+                           uint32_t delta) {
+        EXPECT_EQ(delta, sendWindow);
+        outstanding -= delta;
+        uint32_t len = std::min(toSend, sendWindow - outstanding);
+        EXPECT_LT(len, sendWindow);
+        toSend -= len;
+        EXPECT_EQ(toSend, 0);
+        eventBase_.tryRunAfterDelay(
+            [this, streamID, len] {
+              failWrites_ = true;
+              auto respBody = makeBuf(len);
+              codecCb_->onBody(streamID, std::move(respBody), 0);
+              codecCb_->onMessageComplete(streamID, false);
+            },
+            50);
 
-                       const std::string dummy("window");
-                       writeBuf.append(dummy);
-                       return 6;
-                     }));
+        const std::string dummy("window");
+        writeBuf.append(dummy);
+        return 6;
+      }));
 
   codecCb_->onGoaway(streamID, ErrorCode::NO_ERROR);
   auto resp = makeResponse(200);
@@ -2486,9 +2485,7 @@ TEST_F(HTTP2UpstreamSessionTest, attach_detach) {
       TimeoutManager::InternalEnum::INTERNAL, std::chrono::milliseconds(500));
   WheelTimerInstance timerInstance(timer.get());
   uint64_t filterCount = 0;
-  auto fn = [&filterCount] (HTTPCodecFilter* filter) {
-    filterCount++;
-  };
+  auto fn = [&filterCount](HTTPCodecFilter* /*filter*/) { filterCount++; };
 
   InSequence enforceOrder;
   auto egressCodec = makeServerCodec();

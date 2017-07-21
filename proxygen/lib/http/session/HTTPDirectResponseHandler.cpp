@@ -43,9 +43,8 @@ HTTPDirectResponseHandler::detachTransaction() noexcept {
   delete this;
 }
 
-void
-HTTPDirectResponseHandler::onHeadersComplete(
-    std::unique_ptr<HTTPMessage> msg) noexcept {
+void HTTPDirectResponseHandler::onHeadersComplete(
+    std::unique_ptr<HTTPMessage> /*msg*/) noexcept {
   VLOG(4) << "processing request";
   headersSent_ = true;
   HTTPMessage response;
@@ -75,14 +74,12 @@ HTTPDirectResponseHandler::onHeadersComplete(
   }
 }
 
-void
-HTTPDirectResponseHandler::onBody(unique_ptr<IOBuf> chain) noexcept {
+void HTTPDirectResponseHandler::onBody(unique_ptr<IOBuf> /*chain*/) noexcept {
   VLOG(4) << "discarding request body";
 }
 
-void
-HTTPDirectResponseHandler::onTrailers(
-    unique_ptr<HTTPHeaders> trailers) noexcept {
+void HTTPDirectResponseHandler::onTrailers(
+    unique_ptr<HTTPHeaders> /*trailers*/) noexcept {
   VLOG(4) << "discarding request trailers";
 }
 
@@ -92,9 +89,8 @@ HTTPDirectResponseHandler::onEOM() noexcept {
   txn_->sendEOM();
 }
 
-void
-HTTPDirectResponseHandler::onUpgrade(UpgradeProtocol protocol) noexcept {
-}
+void HTTPDirectResponseHandler::onUpgrade(
+    UpgradeProtocol /*protocol*/) noexcept {}
 
 void HTTPDirectResponseHandler::onError(const HTTPException& error) noexcept {
   if (error.getDirection() == HTTPException::Direction::INGRESS) {

@@ -58,17 +58,14 @@ class ServerThread {
 
   bool start() {
     bool throws = false;
-    t_ = std::thread([&] () {
-        server_->start(
-          [&] () {
-            barrier_.wait();
-          },
-          [&] (std::exception_ptr ex) {
-            throws = true;
-            server_ = nullptr;
-            barrier_.wait();
-          });
-      });
+    t_ = std::thread([&]() {
+      server_->start([&]() { barrier_.wait(); },
+                     [&](std::exception_ptr /*ex*/) {
+                       throws = true;
+                       server_ = nullptr;
+                       barrier_.wait();
+                     });
+    });
     barrier_.wait();
     return !throws;
   }

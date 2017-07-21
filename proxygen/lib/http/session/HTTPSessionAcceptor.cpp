@@ -55,11 +55,11 @@ const HTTPErrorPage* HTTPSessionAcceptor::getErrorPage(
 }
 
 void HTTPSessionAcceptor::onNewConnection(
-  folly::AsyncTransportWrapper::UniquePtr sock,
-  const SocketAddress* peerAddress,
-  const string& nextProtocol,
-  wangle::SecureTransportType secureTransportType,
-  const wangle::TransportInfo& tinfo) {
+    folly::AsyncTransportWrapper::UniquePtr sock,
+    const SocketAddress* peerAddress,
+    const string& nextProtocol,
+    wangle::SecureTransportType /*secureTransportType*/,
+    const wangle::TransportInfo& tinfo) {
 
   unique_ptr<HTTPCodec> codec
       = codecFactory_->getCodec(nextProtocol, TransportDirection::DOWNSTREAM);

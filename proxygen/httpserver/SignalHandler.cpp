@@ -27,8 +27,5 @@ void SignalHandler::install(const std::vector<int>& signals) {
   }
 }
 
-void SignalHandler::signalReceived(int signum) noexcept {
-  server_->stop();
-}
-
+void SignalHandler::signalReceived(int /*signum*/) noexcept { server_->stop(); }
 }

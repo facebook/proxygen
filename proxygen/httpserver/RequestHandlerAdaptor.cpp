@@ -66,14 +66,13 @@ void RequestHandlerAdaptor::onBody(std::unique_ptr<folly::IOBuf> c) noexcept {
   upstream_->onBody(std::move(c));
 }
 
-void RequestHandlerAdaptor::onChunkHeader(size_t length) noexcept {
-}
+void RequestHandlerAdaptor::onChunkHeader(size_t /*length*/) noexcept {}
 
 void RequestHandlerAdaptor::onChunkComplete() noexcept {
 }
 
-void RequestHandlerAdaptor::onTrailers(std::unique_ptr<HTTPHeaders> trailers)
-    noexcept {
+void RequestHandlerAdaptor::onTrailers(
+    std::unique_ptr<HTTPHeaders> /*trailers*/) noexcept {
   // XXX: Support trailers
 }
 
