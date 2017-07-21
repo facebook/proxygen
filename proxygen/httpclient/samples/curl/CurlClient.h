@@ -78,7 +78,7 @@ protected:
   proxygen::HTTPMessage request_;
   const std::string inputFilename_;
   folly::SSLContextPtr sslContext_;
-  int32_t recvWindow_;
+  int32_t recvWindow_{0};
   bool loggingEnabled_{true};
   bool h2c_{false};
 
