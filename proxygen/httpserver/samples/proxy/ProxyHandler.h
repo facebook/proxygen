@@ -10,6 +10,7 @@
 #pragma once
 
 #include <folly/Memory.h>
+#include <folly/io/async/AsyncSocket.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include "SessionWrapper.h"
@@ -23,7 +24,10 @@ namespace ProxyService {
 class ProxyStats;
 
 class ProxyHandler : public proxygen::RequestHandler,
-                     private proxygen::HTTPConnector::Callback {
+                     private proxygen::HTTPConnector::Callback,
+                     private folly::AsyncSocket::ConnectCallback,
+                     private folly::AsyncReader::ReadCallback,
+                     private folly::AsyncWriter::WriteCallback {
  public:
   ProxyHandler(ProxyStats* stats, folly::HHWheelTimer* timer);
 
@@ -107,6 +111,20 @@ class ProxyHandler : public proxygen::RequestHandler,
 
   };
 
+  // AsyncSocket::ConnectCallback
+  void connectSuccess() noexcept override;
+  void connectErr(const folly::AsyncSocketException& ex) noexcept override;
+
+  void getReadBuffer(void** bufReturn, size_t* lenReturn) override;
+  void readDataAvailable(size_t len) noexcept override;
+  void readEOF() noexcept override;
+  void readErr(const folly::AsyncSocketException& ex) noexcept override;
+
+  void writeSuccess() noexcept override;
+  void writeErr(size_t bytesWritten,
+                const folly::AsyncSocketException& ex) noexcept override;
+
+  void abortDownstream();
   bool checkForShutdown();
 
   ProxyStats* const stats_{nullptr};
@@ -117,7 +135,13 @@ class ProxyHandler : public proxygen::RequestHandler,
   bool clientTerminated_{false};
 
   std::unique_ptr<proxygen::HTTPMessage> request_;
-  std::unique_ptr<folly::IOBuf> body_;
+
+  // Only for CONNECT
+  std::shared_ptr<folly::AsyncSocket> upstreamSock_;
+  uint8_t sockStatus_{0};
+  folly::IOBufQueue body_{folly::IOBufQueue::cacheChainLength()};
+  bool downstreamIngressPaused_{false};
+  bool upstreamEgressPaused_{false};
 };
 
 }
