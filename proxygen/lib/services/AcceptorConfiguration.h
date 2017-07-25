@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <folly/io/async/AsyncSocket.h>
+#include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <zlib.h>
 
 namespace proxygen {
@@ -62,6 +63,11 @@ struct AcceptorConfiguration : public wangle::ServerSocketConfig {
    * Comma separated string of protocols that can be upgraded to from HTTP/1.1
    */
   std::list<std::string> allowedPlaintextUpgradeProtocols;
+
+  /**
+   * HTTP/2 or SPDY settings for this acceptor
+   */
+  SettingsList egressSettings;
 
   /**
    * The maximum number of transactions the remote could initiate
