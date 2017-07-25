@@ -67,9 +67,9 @@ class HTTP2FramerTest : public testing::Test {
     }
     if (frameLen > kMaxFramePayloadLength) {
       EXPECT_DEATH_NO_CORE(writeData(queue_, body->clone(), 1, padLen,
-                                     false), ".*");
+                                     false, true), ".*");
     } else {
-      writeData(queue_, body->clone(), 1, padLen, false);
+      writeData(queue_, body->clone(), 1, padLen, false, true);
 
       FrameHeader outHeader;
       std::unique_ptr<IOBuf> outBuf;
@@ -136,7 +136,7 @@ TEST_F(HTTP2FramerTest, BadStreamSettings) {
 
 TEST_F(HTTP2FramerTest, BadPad) {
   auto body = makeBuf(5);
-  writeData(queue_, body->clone(), 1, Padding(5), false);
+  writeData(queue_, body->clone(), 1, Padding(5), false, true);
   queue_.trimEnd(5);
   queue_.append(string("abcde"));
 
@@ -147,6 +147,41 @@ TEST_F(HTTP2FramerTest, BadPad) {
   EXPECT_EQ(parseFrameHeader(cursor, outHeader), ErrorCode::NO_ERROR);
   EXPECT_EQ(parseData(cursor, outHeader, outBuf, padding),
             ErrorCode::PROTOCOL_ERROR);
+}
+
+TEST_F(HTTP2FramerTest, NoHeadroomOptimization) {
+  queue_.move();
+  auto buf = folly::IOBuf::create(200);
+  // This should make enough headroom so we will apply the optimization:
+  auto headRoomSize = kFrameHeaderSize + kFramePrioritySize * 2 + 10;
+  buf->advance(headRoomSize);
+  buf->append(20); // make a positive length
+  writeData(queue_, std::move(buf), 1, Padding(0), false,
+            false /* reuseIOBufHeadroom */);
+  auto queueHead = queue_.front();
+  EXPECT_TRUE(queueHead->isChained());
+  // This is our original iobuf:
+  auto queueNode = queueHead->prev();
+  EXPECT_TRUE(queueNode != nullptr);
+  // And its headroom or length is untouched:
+  EXPECT_EQ(headRoomSize, queueNode->headroom());
+  EXPECT_EQ(20, queueNode->length());
+}
+
+TEST_F(HTTP2FramerTest, UseHeadroomOptimization) {
+  queue_.move();
+  auto buf = folly::IOBuf::create(200);
+  // This should make enough headroom so we will apply the optimization:
+  auto headRoomSize = kFrameHeaderSize + kFramePrioritySize * 2 + 10;
+  buf->advance(headRoomSize);
+  buf->append(20); // make a positive length
+  writeData(queue_, std::move(buf), 1, Padding(0), false,
+            true /* reuseIOBufHeadroom */);
+  // There won't be a chain, frame header is written in-place into our IOBuf:
+  auto queueNode = queue_.front();
+  EXPECT_FALSE(queueNode->isChained());
+  // And its headroom has been shrinked:
+  EXPECT_LT(queueNode->headroom(), headRoomSize);
 }
 
 TEST_F(HTTP2FramerTest, BadStreamId) {

@@ -1122,11 +1122,11 @@ size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
   while (queue.chainLength() > maxSendFrameSize()) {
     auto chunk = queue.split(maxSendFrameSize());
     written += http2::writeData(writeBuf, std::move(chunk), stream,
-                                padding, false);
+                                padding, false, reuseIOBufHeadroomForData_);
   }
 
   return written + http2::writeData(writeBuf, queue.move(), stream,
-                                    padding, eom);
+                                    padding, eom, reuseIOBufHeadroomForData_);
 }
 
 size_t HTTP2Codec::generateChunkHeader(folly::IOBufQueue& /*writeBuf*/,
@@ -1156,7 +1156,8 @@ size_t HTTP2Codec::generateEOM(folly::IOBufQueue& writeBuf,
             << ingressGoawayAck_;
     return 0;
   }
-  return http2::writeData(writeBuf, nullptr, stream, http2::kNoPadding, true);
+  return http2::writeData(writeBuf, nullptr, stream, http2::kNoPadding, true,
+                          reuseIOBufHeadroomForData_);
 }
 
 size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,

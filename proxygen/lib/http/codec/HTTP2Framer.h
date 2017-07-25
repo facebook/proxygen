@@ -329,6 +329,8 @@ parseAltSvc(folly::io::Cursor& cursor,
  * @param stream The stream identifier of the DATA frame.
  * @param padding If not kNoPadding, adds 1 byte pad len and @padding pad bytes
  * @param endStream True iff this frame ends the stream.
+ * @param reuseIOBufHeadroom If HTTP2Framer should reuse headroom in data if
+ *                           headroom is enough for frame header
  * @return The number of bytes written to writeBuf.
  */
 extern size_t
@@ -336,7 +338,8 @@ writeData(folly::IOBufQueue& writeBuf,
           std::unique_ptr<folly::IOBuf> data,
           uint32_t stream,
           boost::optional<uint8_t> padding,
-          bool endStream) noexcept;
+          bool endStream,
+          bool reuseIOBufHeadroom) noexcept;
 
 /**
  * Generate an entire HEADERS frame, including the common frame

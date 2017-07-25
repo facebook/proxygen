@@ -130,6 +130,12 @@ public:
     kHeaderSplitSize = splitSize;
   }
 
+  // Whether turn on the optimization to reuse IOBuf headroom when write DATA
+  // frame. For other frames, it's always ON.
+  void setReuseIOBufHeadroomForData(bool enabled) {
+    reuseIOBufHeadroomForData_ = enabled;
+  }
+
  private:
   class HeaderDecodeInfo {
    public:
@@ -240,6 +246,7 @@ public:
   static uint32_t kHeaderSplitSize;
   HeaderDecodeInfo decodeInfo_;
   std::vector<StreamID> virtualPriorityNodes_;
+  bool reuseIOBufHeadroomForData_{true};
 };
 
 } // proxygen
