@@ -5,11 +5,12 @@
 
 #include <folly/FileUtil.h>
 #include <folly/String.h>
+#include <folly/io/async/SSLContext.h>
+#include <folly/io/async/SSLOptions.h>
 #include <gflags/gflags.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
-#include <wangle/ssl/SSLContextConfig.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -44,8 +45,7 @@ void CurlClient::initializeSsl(const string& certPath,
                                const string& nextProtos) {
   sslContext_ = std::make_shared<folly::SSLContext>();
   sslContext_->setOptions(SSL_OP_NO_COMPRESSION);
-  wangle::SSLContextConfig config;
-  sslContext_->ciphers(config.sslCiphers);
+  sslContext_->setCipherList(folly::ssl::SSLCommonOptions::getCipherList());
   sslContext_->loadTrustedCertificates(certPath.c_str());
   list<string> nextProtoList;
   folly::splitTo<string>(',', nextProtos, std::inserter(nextProtoList,
@@ -53,7 +53,6 @@ void CurlClient::initializeSsl(const string& certPath,
   sslContext_->setAdvertisedNextProtocols(nextProtoList);
   h2c_ = false;
 }
-
 
 void CurlClient::sslHandshakeFollowup(HTTPUpstreamSession* session) noexcept {
   AsyncSSLSocket* sslSocket = dynamic_cast<AsyncSSLSocket*>(
