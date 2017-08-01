@@ -248,6 +248,27 @@ class HTTPTransactionHandler {
    */
   virtual void onGoaway(ErrorCode /* code */) noexcept {}
 
+  // The following are for logging purpose. No action is needed.
+
+  /**
+   * Can be called multiple times per transaction. This informs the handler
+   * that a frame header is received and parsed.
+   */
+  virtual void onFrameHeader(uint8_t /* flags */, uint32_t /* length */,
+      uint8_t /* type */, uint16_t /* version */) noexcept {}
+
+  /**
+   * This informs the handler that the remote end has consumed "amount" bytes
+   * and the sending window can be increased by "amount" bytes
+   */
+  virtual void onWindowUpdate(uint32_t /* amount */) noexcept {}
+
+  /**
+   * This informs the handler that a sender-advised priority of the stream
+   * is received.
+   */
+  virtual void onPriority(const http2::PriorityUpdate& /* pri */) noexcept {}
+
   virtual ~HTTPTransactionHandler() {}
 };
 
@@ -603,6 +624,12 @@ class HTTPTransaction :
    * or both directions of the transaction
    */
   void onError(const HTTPException& error);
+
+  /**
+   * Invoked by the session when the ingress frame header is parsed.
+   */
+  void onIngressFrameHeader(uint8_t flags, uint32_t length, uint8_t type,
+      uint16_t version);
 
   /**
    * Invoked by the session when a GOAWAY frame is received.
@@ -1062,7 +1089,7 @@ class HTTPTransaction :
   /**
    * Notify of priority change, will not generate a PRIORITY frame
    */
-  void onPriorityUpdate(const http2::PriorityUpdate& priority);
+  void onPriorityUpdate(const http2::PriorityUpdate& priority, bool ingress);
 
   /**
    * Add a callback waiting for this transaction to have a transport with

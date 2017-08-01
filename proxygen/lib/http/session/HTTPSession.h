@@ -652,6 +652,11 @@ class HTTPSession:
                const HTTPException& error, bool newTxn) override;
   void onAbort(HTTPCodec::StreamID streamID,
                ErrorCode code) override;
+  void onFrameHeader(HTTPCodec::StreamID streamID,
+                     uint8_t flags,
+                     uint32_t length,
+                     uint8_t type,
+                     uint16_t version = 0) override;
   void onGoaway(uint64_t lastGoodStreamID,
                 ErrorCode code,
                 std::unique_ptr<folly::IOBuf> debugData = nullptr) override;

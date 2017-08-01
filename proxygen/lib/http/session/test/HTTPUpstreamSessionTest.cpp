@@ -409,7 +409,7 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   EXPECT_CALL(*handler, onPushedTransaction(_))
     .WillOnce(Invoke([this, &pushHandler] (HTTPTransaction* pushTxn) {
           pushTxn->setHandler(&pushHandler);
@@ -457,7 +457,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectGoaway();
   handler->expectError([&] (const HTTPException& err) {
       EXPECT_TRUE(err.hasProxygenError());
@@ -496,7 +496,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectGoaway();
   handler->expectError([&] (const HTTPException& err) {
       EXPECT_TRUE(err.hasProxygenError());
@@ -524,7 +524,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
 
 TEST_F(SPDY3UpstreamSessionTest, test_under_limit_on_write_error) {
   InSequence enforceOrder;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   auto req = getPostRequest();
   handler->txn_->sendHeaders(req);
@@ -548,8 +548,8 @@ TEST_F(SPDY3UpstreamSessionTest, test_under_limit_on_write_error) {
 
 TEST_F(SPDY3UpstreamSessionTest, test_overlimit_resume) {
   InSequence enforceOrder;
-  auto handler1 = openTransaction();
-  auto handler2 = openTransaction();
+  auto handler1 = openNiceTransaction();
+  auto handler2 = openNiceTransaction();
 
   // Disable stream flow control for this test
   handler1->txn_->onIngressWindowUpdate(80000);
@@ -600,8 +600,8 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   InSequence enforceOrder;
   // virtual priority node with pri=8
   auto priGroupID = httpSession_->sendPriority({0, false, 7});
-  auto handler1 = openTransaction();
-  auto handler2 = openTransaction();
+  auto handler1 = openNiceTransaction();
+  auto handler2 = openNiceTransaction();
 
   auto req = getGetRequest();
   // send request with maximal weight
@@ -686,6 +686,94 @@ TEST_F(HTTP2UpstreamSessionTest, test_settings_ack) {
   parseOutput(*serverCodec);
   httpSession_->dropConnection();
   EXPECT_EQ(sessionDestroyed_, true);
+}
+
+TEST_F(HTTP2UpstreamSessionTest, test_on_frame_header) {
+  folly::EventBase base;
+
+  InSequence enforceOrder;
+  auto egressCodec = makeServerCodec();
+  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+  egressCodec->generateConnectionPreface(output);
+  egressCodec->generateSettings(output);
+
+  auto handler = openNiceTransaction();
+  EXPECT_CALL(*handler, onFrameHeader(_, _, _, _)).Times(AtLeast(1));
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  egressCodec->generateHeader(output, handler->txn_->getID(), resp, 0);
+  egressCodec->generateBody(output, handler->txn_->getID(), makeBuf(20),
+                            HTTPCodec::NoPadding, true /* eom */);
+
+  handler->sendRequest();
+  auto buf = output.move();
+  buf->coalesce();
+  readAndLoop(buf.get());
+
+  base.loopOnce();
+
+  httpSession_->destroy();
+}
+
+TEST_F(HTTP2UpstreamSessionTest, test_on_window_update) {
+  folly::EventBase base;
+
+  InSequence enforceOrder;
+  auto egressCodec = makeServerCodec();
+  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+  egressCodec->generateConnectionPreface(output);
+  egressCodec->generateSettings(output);
+
+  const uint32_t amount(20);
+  auto handler = openNiceTransaction();
+  EXPECT_CALL(*handler, onWindowUpdate(amount));
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  egressCodec->generateHeader(output, handler->txn_->getID(), resp, 0);
+  egressCodec->generateBody(output, handler->txn_->getID(), makeBuf(20),
+                            HTTPCodec::NoPadding, true /* eom */);
+  egressCodec->generateWindowUpdate(output, handler->txn_->getID(), amount);
+
+  handler->sendRequest();
+  auto buf = output.move();
+  buf->coalesce();
+  readAndLoop(buf.get());
+
+  base.loopOnce();
+
+  httpSession_->destroy();
+}
+
+TEST_F(HTTP2UpstreamSessionTest, test_on_priority) {
+  folly::EventBase base;
+
+  InSequence enforceOrder;
+  auto egressCodec = makeServerCodec();
+  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+  egressCodec->generateConnectionPreface(output);
+  egressCodec->generateSettings(output);
+
+  auto handler = openNiceTransaction();
+  EXPECT_CALL(*handler, onPriority(_)).Times(AtLeast(1));
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  egressCodec->generateHeader(output, handler->txn_->getID(), resp, 0);
+  egressCodec->generateBody(output, handler->txn_->getID(), makeBuf(20),
+                            HTTPCodec::NoPadding, true /* eom */);
+  egressCodec->generatePriority(output, handler->txn_->getID(),
+      std::make_tuple<uint32_t, bool, uint8_t>(0, true, 10));
+
+  handler->sendRequest();
+  auto buf = output.move();
+  buf->coalesce();
+  readAndLoop(buf.get());
+
+  base.loopOnce();
+
+  httpSession_->destroy();
 }
 
 class HTTP2UpstreamSessionWithVirtualNodesTest:
@@ -774,7 +862,7 @@ TEST_F(HTTP2UpstreamSessionWithVirtualNodesTest, virtual_nodes) {
   httpSession_->startNow();
 
   EXPECT_EQ(level_, dependencies.size());
-  StrictMock<MockHTTPHandler> handler;
+  NiceMock<MockHTTPHandler> handler;
   handler.expectTransaction();
   auto txn = httpSession_->newTransaction(&handler);
 
@@ -835,7 +923,7 @@ TEST_F(HTTP2UpstreamSessionWithPriorityTree, priority_tree) {
     EXPECT_EQ(pri, loPri);
   }
 
-  StrictMock<MockHTTPHandler> handler;
+  NiceMock<MockHTTPHandler> handler;
   handler.expectTransaction();
   auto txn = httpSession_->newTransaction(&handler);
 
@@ -859,7 +947,7 @@ template <class CodecPair>
 void HTTPUpstreamTest<CodecPair>::testBasicRequest() {
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_TRUE(msg->getIsChunked());
       EXPECT_FALSE(msg->getIsUpgraded());
@@ -905,7 +993,7 @@ void HTTPUpstreamTest<CodecPair>::testBasicRequestHttp10(bool keepalive) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(200, msg->getStatusCode());
       EXPECT_EQ(keepalive ? "keep-alive" : "close",
@@ -937,7 +1025,7 @@ TEST_F(HTTPUpstreamSessionTest, http10_keepalive) {
 TEST_F(HTTPUpstreamSessionTest, basic_trailers) {
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_TRUE(msg->getIsChunked());
       EXPECT_FALSE(msg->getIsUpgraded());
@@ -962,7 +1050,7 @@ TEST_F(HTTPUpstreamSessionTest, basic_trailers) {
 TEST_F(HTTPUpstreamSessionTest, two_requests_with_pause) {
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_TRUE(msg->getIsChunked());
       EXPECT_FALSE(msg->getIsUpgraded());
@@ -994,7 +1082,7 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   HTTPMessage req = getPostRequest();
 
   InSequence enforceOrder;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_TRUE(msg->getIsChunked());
       EXPECT_FALSE(msg->getIsUpgraded());
@@ -1023,7 +1111,7 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
 TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   // Test that setting a new timeout on the transaction will cancel
   // the old one.
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectDetachTransaction();
 
   EXPECT_FALSE(handler->txn_->hasIdleTimeout());
@@ -1052,7 +1140,7 @@ TEST_F(HTTPUpstreamSessionTest, 100_continue_keepalive) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_FALSE(msg->getIsChunked());
       EXPECT_FALSE(msg->getIsUpgraded());
@@ -1085,7 +1173,7 @@ TEST_F(HTTPUpstreamSessionTest, 417_keepalive) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_FALSE(msg->getIsChunked());
       EXPECT_FALSE(msg->getIsUpgraded());
@@ -1112,7 +1200,7 @@ TEST_F(HTTPUpstreamSessionTest, 101_upgrade) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_FALSE(msg->getIsChunked());
       EXPECT_EQ(101, msg->getStatusCode());
@@ -1143,7 +1231,7 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
   const std::string& upgradeRespHeader,
   CodecProtocol respCodecVersion) {
   InSequence dummy;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   NiceMock<MockUpstreamController> controller;
 
   httpSession_->setController(&controller);
@@ -1204,7 +1292,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_junk) {
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_unexpected) {
   InSequence dummy;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   EXPECT_CALL(*handler, onError(_));
   handler->expectDetachTransaction();
@@ -1220,7 +1308,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_unexpected) {
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_missing_upgrade) {
   InSequence dummy;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   EXPECT_CALL(*handler, onError(_));
   handler->expectDetachTransaction();
@@ -1234,7 +1322,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_missing_upgrade) {
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_bogus_header) {
   InSequence dummy;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   EXPECT_CALL(*handler, onError(_));
   handler->expectDetachTransaction();
@@ -1250,7 +1338,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_bogus_header) {
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100) {
   InSequence dummy;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(100, msg->getStatusCode());
@@ -1282,7 +1370,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100) {
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_spdy) {
   InSequence dummy;
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(100, msg->getStatusCode());
@@ -1312,7 +1400,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_spdy) {
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_on_txn2) {
   InSequence dummy;
-  auto handler1 = openTransaction();
+  auto handler1 = openNiceTransaction();
 
   handler1->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(200, msg->getStatusCode());
@@ -1331,7 +1419,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_on_txn2) {
               "abcdefghij");
   eventBase_.loop();
 
-  auto handler2 = openTransaction();
+  auto handler2 = openNiceTransaction();
 
   txn = handler2->txn_;
   txn->sendHeaders(req);
@@ -1664,7 +1752,7 @@ TEST_F(HTTP2UpstreamSessionTest, server_push) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   EXPECT_CALL(*handler, onPushedTransaction(_))
     .WillOnce(Invoke([this, &pushHandler] (HTTPTransaction* pushTxn) {
           pushTxn->setHandler(&pushHandler);
@@ -1736,7 +1824,7 @@ TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
   EXPECT_CALL(*codecPtr_, generateRstStream(_, 1, _));
 
   // 1)
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   // 2)
   handler->sendRequest(getPostRequest());
@@ -1791,7 +1879,7 @@ TEST_F(MockHTTPUpstreamTest, ingress_goaway_drain) {
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   EXPECT_CALL(*handler, onGoaway(ErrorCode::NO_ERROR));
   handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_FALSE(msg->getIsUpgraded());
@@ -1903,7 +1991,7 @@ TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
   EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
     .WillRepeatedly(Return(true));
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   handler->sendRequest();
   httpSession_->drain();
@@ -2016,7 +2104,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
     // This test makes sure expected callbacks are received if an abort is
     // sent before any of these stages.
     InSequence enforceOrder;
-    StrictMock<MockHTTPHandler> handler;
+    NiceMock<MockHTTPHandler> handler;
     HTTPMessage req = getPostRequest(10);
 
     std::unique_ptr<HTTPMessage> resp;
@@ -2106,7 +2194,7 @@ TEST_F(TestAbortPost5, test) { doAbortTest(); }
 TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
   // This is basically the same test as above, just for the upgrade path
   InSequence enforceOrder;
-  StrictMock<MockHTTPHandler> handler;
+  NiceMock<MockHTTPHandler> handler;
   HTTPMessage req = getPostRequest(10);
 
   std::unique_ptr<HTTPMessage> resp = makeResponse(200);
@@ -2141,7 +2229,7 @@ TEST_F(MockHTTPUpstreamTest, drain_before_send_headers) {
   InSequence enforceOrder;
   MockHTTPHandler pushHandler;
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
   handler->expectHeaders();
@@ -2163,8 +2251,8 @@ TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
   auto req = getGetRequest();
 
   // Open 2 txns but doesn't send headers yet
-  auto handler1 = openTransaction();
-  auto handler2 = openTransaction();
+  auto handler1 = openNiceTransaction();
+  auto handler2 = openNiceTransaction();
 
   // Get first goaway acking many un-started txns
   handler1->expectGoaway();
@@ -2201,7 +2289,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_invalid_assoc) {
   // with invalid assoc stream id
   InSequence enforceOrder;
   auto req = getGetRequest();
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   int streamID = handler->txn_->getID();
   int pushID = streamID + 1;
@@ -2243,7 +2331,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_after_fin) {
   // after FIN is received on regular response on the stream
   InSequence enforceOrder;
   auto req = getGetRequest();
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   int streamID = handler->txn_->getID();
   int pushID = streamID + 1;
@@ -2289,7 +2377,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_handler_install_fail) {
   // fails to install the server push handler
   InSequence enforceOrder;
   auto req = getGetRequest();
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   int streamID = handler->txn_->getID();
   int pushID = streamID + 1;
@@ -2339,7 +2427,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_unhandled_assoc) {
   // is unhandled
   InSequence enforceOrder;
   auto req = getGetRequest();
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
 
   int streamID = handler->txn_->getID();
   int pushID = streamID + 1;
@@ -2370,7 +2458,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_unhandled_assoc) {
 
 TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   HTTPMessage req = getGetRequest();
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->txn_->sendHeaders(req);
 
   handler->expectHeaders();
@@ -2397,7 +2485,7 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
   EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
     .WillRepeatedly(Return(true));
 
-  auto handler = openTransaction();
+  auto handler = openNiceTransaction();
   handler->txn_->setReceiveWindow(1000000); // One miiiillion
 
   InSequence enforceOrder;
@@ -2412,7 +2500,7 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
 }
 
 TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
-  StrictMock<MockHTTPHandler> handler;
+  NiceMock<MockHTTPHandler> handler;
   handler.expectTransaction([&] (HTTPTransaction* txn) {
       handler.txn_ = txn;
       httpSession_->shutdownTransportWithReset(kErrorNone);
@@ -2494,7 +2582,7 @@ TEST_F(HTTP2UpstreamSessionTest, attach_detach) {
   egressCodec->generateSettings(output);
 
   for (auto i = 0; i < 2; i++) {
-    auto handler = openTransaction();
+    auto handler = openNiceTransaction();
     handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
         EXPECT_EQ(200, msg->getStatusCode());
       });
