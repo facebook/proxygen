@@ -9,7 +9,6 @@
  */
 #pragma once
 
-#include <map>
 #include <iosfwd>
 #include <proxygen/lib/utils/StateMachine.h>
 
