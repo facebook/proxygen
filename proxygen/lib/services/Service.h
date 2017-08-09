@@ -135,13 +135,6 @@ class Service {
    */
   void clearServiceWorkers();
 
-  /**
-   * Start even when config_test_only is set - default to false
-   */
-  virtual bool startWithConfigTest(bool configTestOnly) {
-    return !configTestOnly;
-  }
-
   void addWorkerEventBase(folly::EventBase* evb) {
     workerEvbs_.push_back(evb);
   }
