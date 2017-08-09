@@ -49,6 +49,10 @@ class HTTPTransactionIngressSMData {
   }
 
   static std::pair<State, bool> find(State s, Event e);
+
+  static const std::string getName() {
+    return "HTTPTransactionIngress";
+  }
 };
 
 std::ostream& operator<<(std::ostream& os,

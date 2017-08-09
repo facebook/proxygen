@@ -28,12 +28,15 @@ class StateMachine {
 
     std::tie(newState, ok) = T::find(state, event);
     if (!ok) {
-      LOG(ERROR) << "Invalid transition tried: " << state << " " << event;
+      LOG(ERROR) << T::getName() << ": invalid transition tried: " << state
+                 << " " << event;
       return false;
+    } else {
+      VLOG(6) << T::getName() << ": transitioning from " << state << " to "
+              << newState;
+      state = newState;
+      return true;
     }
-    VLOG(6) << "Transitioning from " << state << " to " << newState;
-    state = newState;
-    return true;
   }
 
   static bool canTransit(const State state, Event event) {

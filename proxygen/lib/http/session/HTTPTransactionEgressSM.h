@@ -47,6 +47,10 @@ class HTTPTransactionEgressSMData {
   }
 
   static std::pair<State, bool> find(State s, Event e);
+
+  static const std::string getName() {
+    return "HTTPTransactionEgress";
+  }
 };
 
 std::ostream& operator<<(std::ostream& os,
