@@ -1335,6 +1335,11 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
                          size);
   const uint64_t newOffset = sessionByteOffset();
 
+  // for push response count towards the MAX_CONCURRENT_STREAMS limit
+  if (isDownstream() && headers.isResponse() && txn->isPushed()) {
+    incrementOutgoingStreams();
+  }
+
   // only do it for downstream now to bypass handling upstream reuse cases
   if (isDownstream() && headers.isResponse() &&
       newOffset > oldOffset &&
@@ -2310,17 +2315,22 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
   ++transactionSeqNo_;
   txn->setReceiveWindow(receiveStreamWindowSize_);
 
-  if ((isUpstream() && !txn->isPushed()) ||
-      (isDownstream() && txn->isPushed())) {
-    outgoingStreams_++;
-    if (outgoingStreams_ > historicalMaxOutgoingStreams_) {
-      historicalMaxOutgoingStreams_ = outgoingStreams_;
-    }
-  } else {
+  if (isUpstream() && !txn->isPushed()) {
+    incrementOutgoingStreams();
+  // do not count towards MAX_CONCURRENT_STREAMS for PUSH_PROMISE
+  } else if (!(isDownstream() && txn->isPushed())) {
     incomingStreams_++;
   }
 
   return txn;
+}
+
+void
+HTTPSession::incrementOutgoingStreams() {
+  outgoingStreams_++;
+  if (outgoingStreams_ > historicalMaxOutgoingStreams_) {
+    historicalMaxOutgoingStreams_ = outgoingStreams_;
+  }
 }
 
 void

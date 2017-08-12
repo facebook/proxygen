@@ -1259,6 +1259,8 @@ class HTTPSession:
   bool maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
                                              uint32_t txnSeqn);
 
+  void incrementOutgoingStreams();
+
   class ShutdownTransportCallback : public folly::EventBase::LoopCallback {
    public:
     explicit ShutdownTransportCallback(HTTPSession* session) :

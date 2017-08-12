@@ -2352,12 +2352,15 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
       auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
       ASSERT_NE(pushTxn, nullptr);
       // Generate a push request (PUSH_PROMISE)
+      auto outgoingStreams = httpSession_->getNumOutgoingStreams();
       pushTxn->sendHeaders(req);
+      EXPECT_EQ(httpSession_->getNumOutgoingStreams(), outgoingStreams);
       // Generate a push response
       auto pri = handler->txn_->getPriority();
       res.setHTTP2Priority(std::make_tuple(pri.streamDependency,
                                            pri.exclusive, pri.weight));
       pushTxn->sendHeaders(res);
+      EXPECT_EQ(httpSession_->getNumOutgoingStreams(), outgoingStreams + 1);
       pushTxn->sendBody(makeBuf(200));
       pushTxn->sendEOM();
 
