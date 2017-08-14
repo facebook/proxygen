@@ -89,6 +89,7 @@ void HTTPSessionAcceptor::onNewConnection(
     session->setMaxConcurrentIncomingStreams(
         accConfig_.maxConcurrentIncomingStreams);
   }
+  session->setEgressSettings(accConfig_.egressSettings);
 
   // set HTTP2 priorities flag on session object
   session->setHTTP2PrioritiesEnabled(accConfig_.HTTP2PrioritiesEnabled);

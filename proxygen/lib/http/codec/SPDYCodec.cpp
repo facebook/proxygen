@@ -919,6 +919,11 @@ size_t SPDYCodec::generatePingCommon(IOBufQueue& writeBuf, uint64_t uniqueID) {
 
 size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
   auto numSettings = egressSettings_.getNumSettings();
+  for (const auto& setting: egressSettings_.getAllSettings()) {
+    if (!setting.isSet || !spdy::httpToSpdySettingsId(setting.id)) {
+      numSettings--;
+    }
+  }
   VLOG(4) << "generating " << (unsigned)numSettings << " settings";
   const size_t frameSize = kFrameSizeControlCommon + kFrameSizeSettings +
     (kFrameSizeSettingsEntry * numSettings);

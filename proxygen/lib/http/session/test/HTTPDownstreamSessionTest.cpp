@@ -70,6 +70,9 @@ class HTTPDownstreamTest : public testing::Test {
     }
     httpSession_->setFlowControl(flowControl[0], flowControl[1],
                                  flowControl[2]);
+    httpSession_->setEgressSettings({{ SettingsId::MAX_CONCURRENT_STREAMS, 80 },
+                                     { SettingsId::HEADER_TABLE_SIZE, 5555 },
+                                     { SettingsId::ENABLE_PUSH, 1 }});
     httpSession_->startNow();
     clientCodec_ = makeClientCodec<typename C::Codec>(C::version);
     clientCodec_->generateConnectionPreface(requests_);
@@ -3129,6 +3132,23 @@ TEST_F(HTTP2DownstreamSessionTest, test_transaction_not_stall_by_flow_control) {
   handler->expectDetachTransaction();
 
   EXPECT_CALL(stats, recordTransactionClosed());
+
+  flushRequestsAndLoop();
+  gracefulShutdown();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, test_set_egress_settings) {
+  SettingsList settings = {{ SettingsId::HEADER_TABLE_SIZE, 5555 },
+                           { SettingsId::MAX_FRAME_SIZE, 16384 },
+                           { SettingsId::ENABLE_PUSH, 1 }};
+
+  const HTTPSettings* codecSettings = httpSession_->getCodec().getEgressSettings();
+  for (const auto& setting: settings) {
+    const HTTPSetting* currSetting = codecSettings->getSetting(setting.id);
+    if (currSetting) {
+      EXPECT_EQ(setting.value, currSetting->value);
+    }
+  }
 
   flushRequestsAndLoop();
   gracefulShutdown();

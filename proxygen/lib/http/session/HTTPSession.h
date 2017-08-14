@@ -314,6 +314,11 @@ class HTTPSession:
    size_t receiveSessionWindowSize);
 
   /**
+   * Set outgoing settings for this session
+   */
+  void setEgressSettings(const SettingsList& inSettings);
+
+  /**
   * Global flag for turning HTTP2 priorities off
   **/
   void setHTTP2PrioritiesEnabled(bool enabled) override {

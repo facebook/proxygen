@@ -275,6 +275,16 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
   }
 }
 
+void HTTPSession::setEgressSettings(const SettingsList& inSettings) {
+  CHECK(!started_);
+  HTTPSettings* settings = codec_->getEgressSettings();
+  if (settings) {
+    for (const auto& setting: inSettings) {
+      settings->setSetting(setting.id, setting.value);
+    }
+  }
+}
+
 void HTTPSession::setMaxConcurrentOutgoingStreams(uint32_t num) {
   CHECK(!started_);
   maxConcurrentOutgoingStreamsConfig_ = num;
