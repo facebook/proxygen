@@ -37,7 +37,7 @@ class HTTPSettings {
          { SettingsId::MAX_FRAME_SIZE, 16384 }}),
       numSettings_(3) {
   }
-  HTTPSettings(
+  explicit HTTPSettings(
     const std::initializer_list<SettingPair>& initialSettings)
       : numSettings_(0) {
     for (auto& setting: initialSettings) {

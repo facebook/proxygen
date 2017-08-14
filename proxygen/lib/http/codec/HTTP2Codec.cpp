@@ -47,10 +47,18 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
                       : FrameState::DOWNSTREAM_CONNECTION_PREFACE),
       decodeInfo_(HTTPRequestVerifier()) {
 
-  headerCodec_.setDecoderHeaderTableMaxSize(
-    egressSettings_.getSetting(SettingsId::HEADER_TABLE_SIZE, 0));
-  headerCodec_.setMaxUncompressed(
-    egressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE, 0));
+  // Set headerCodec_ settings if specified, else let headerCodec_ utilize
+  // its own defaults
+  const auto decoderHeaderTableMaxSize = egressSettings_.getSetting(
+    SettingsId::HEADER_TABLE_SIZE);
+  if (decoderHeaderTableMaxSize) {
+    headerCodec_.setDecoderHeaderTableMaxSize(decoderHeaderTableMaxSize->value);
+  }
+  const auto maxHeaderListSize = egressSettings_.getSetting(
+    SettingsId::MAX_HEADER_LIST_SIZE);
+  if (maxHeaderListSize) {
+    headerCodec_.setMaxUncompressed(maxHeaderListSize->value);
+  }
 
   VLOG(4) << "creating " << getTransportDirectionString(direction)
           << " HTTP/2 codec";
