@@ -6,10 +6,13 @@ from __future__ import unicode_literals
 
 
 def fbcode_builder_spec(builder):
+    builder.add_option(
+        'google/googletest:cmake_defines',
+        {'BUILD_GTEST': 'ON'}
+    )
     return {
         'steps': [
-            # google mock also provides the gtest libraries
-            builder.github_project_workdir('google/googletest', 'googlemock/build'),
+            builder.github_project_workdir('google/googletest', 'build'),
             builder.cmake_install('google/googletest'),
         ],
     }
