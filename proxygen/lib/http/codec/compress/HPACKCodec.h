@@ -26,6 +26,21 @@ namespace proxygen {
 class HPACKHeader;
 
 /*
+ * Struct to hold the encoder and decoder information
+ */
+struct HTTP2TableInfo {
+  // Egress table info (encoder)
+  uint32_t egressHeaderTableSize_{0};
+  uint32_t egressBytesStored_{0};
+  uint32_t egressHeadersStored_{0};
+
+  // Ingress table info (decoder)
+  uint32_t ingressHeaderTableSize_{0};
+  uint32_t ingressBytesStored_{0};
+  uint32_t ingressHeadersStored_{0};
+};
+
+/*
  * Current version of the wire protocol. When we're making changes to the wire
  * protocol we need to change this version and the NPN string so that old
  * clients will not be able to negotiate it anymore.
