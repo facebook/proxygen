@@ -936,9 +936,6 @@ size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
                                   kFrameSizeSettingsEntry * numSettings));
   appender.writeBE(uint32_t(numSettings));
   for (const auto& setting: egressSettings_.getAllSettings()) {
-    if (!setting.isSet) {
-      continue;
-    }
     auto settingId = spdy::httpToSpdySettingsId(setting.id);
     if (!settingId) {
       LOG(WARNING) << "Invalid SpdySetting " << (uint32_t)setting.id;
