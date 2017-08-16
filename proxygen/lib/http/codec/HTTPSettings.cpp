@@ -9,63 +9,66 @@
  */
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 
-#include <algorithm>
-
 namespace proxygen {
 
 void HTTPSettings::setSetting(SettingsId id, uint32_t val) {
-  auto iter = getSettingIter(id);
-  if (iter != std::end(settings_)) {
-    (*iter).value = val;
+  auto s = findSetting(id);
+  if (!s) {
+    // Create the setting
+    settings_.emplace_back(
+      id, val);
+    ++numSettings_;
   } else {
-    settings_.emplace_back(id, val);
+    // Enable and/or update the setting
+    if (!s->isSet) {
+      s->isSet = true;
+      ++numSettings_;
+    }
+    s->value = val;
   }
 }
 
 void HTTPSettings::unsetSetting(SettingsId id) {
-  std::ptrdiff_t index = std::distance(
-    std::begin(settings_), getSettingIter(id));
-  // Casting to size_t as its guaranteed that we will have a positive offset
-  if ((std::size_t)index < settings_.size()) {
-    // If we have an index but there is only one element in the setting vector
-    // we can jump straight to the pop_back
-    if (settings_.size() != 1) {
-      settings_[index] = settings_.back();
-    }
-    settings_.pop_back();
+  auto s = findSetting(id);
+  if (s && s->isSet) {
+    s->isSet = false;
+    --numSettings_;
   }
 }
 
 const HTTPSetting* HTTPSettings::getSetting(SettingsId id) const {
-  auto iter = getSettingConstIter(id);
-  if (iter != std::end(settings_)) {
-    return &(*iter);
-  } else {
+  auto ret = findSettingConst(id);
+  if (!ret || !ret->isSet) {
     return nullptr;
   }
+  return ret;
 }
 
-uint32_t HTTPSettings::getSetting(SettingsId id, uint32_t defaultValue) const {
-  auto iter = getSettingConstIter(id);
-  if (iter != std::end(settings_)) {
-    return (*iter).value;
-  } else {
+uint32_t HTTPSettings::getSetting(SettingsId id,
+                                  uint32_t defaultValue) const {
+  auto ret = findSettingConst(id);
+  if (!ret || !ret->isSet) {
     return defaultValue;
   }
+  return ret->value;
 }
 
-std::vector<HTTPSetting>::iterator HTTPSettings::getSettingIter(
-    SettingsId id) {
-  return std::find_if(
-    std::begin(settings_), std::end(settings_),
-    [&] (HTTPSetting const& s) { return s.id == id; } );
+HTTPSetting* HTTPSettings::findSetting(SettingsId id) {
+  for (auto& setting: settings_) {
+    if (setting.id == id) {
+      return &setting;
+    }
+  }
+  return nullptr;
 }
 
-std::vector<HTTPSetting>::const_iterator HTTPSettings::getSettingConstIter(
-    SettingsId id) const {
-  return std::find_if(
-    std::begin(settings_), std::end(settings_),
-    [&] (HTTPSetting const& s) { return s.id == id; } );
+const HTTPSetting* HTTPSettings::findSettingConst(SettingsId id) const {
+  for (auto& setting: settings_) {
+    if (setting.id == id) {
+      return &setting;
+    }
+  }
+  return nullptr;
 }
 
 }

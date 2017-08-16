@@ -1251,20 +1251,22 @@ size_t HTTP2Codec::generatePingReply(folly::IOBufQueue& writeBuf,
 size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
   std::deque<SettingPair> settings;
   for (auto& setting: egressSettings_.getAllSettings()) {
-    if (setting.id == SettingsId::HEADER_TABLE_SIZE) {
-      headerCodec_.setDecoderHeaderTableMaxSize(setting.value);
-    } else if (setting.id == SettingsId::MAX_HEADER_LIST_SIZE) {
-      headerCodec_.setMaxUncompressed(setting.value);
-    } else if (setting.id == SettingsId::ENABLE_PUSH) {
-      if (transportDirection_ == TransportDirection::DOWNSTREAM) {
-        // HTTP/2 spec says downstream must not send this flag
-        // HTTP2Codec uses it to determine if push features are enabled
-        continue;
-      } else {
-        CHECK(setting.value == 0 || setting.value == 1);
+    if (setting.isSet) {
+      if (setting.id == SettingsId::HEADER_TABLE_SIZE) {
+        headerCodec_.setDecoderHeaderTableMaxSize(setting.value);
+      } else if (setting.id == SettingsId::MAX_HEADER_LIST_SIZE) {
+        headerCodec_.setMaxUncompressed(setting.value);
+      } else if (setting.id == SettingsId::ENABLE_PUSH) {
+        if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+          // HTTP/2 spec says downstream must not send this flag
+          // HTTP2Codec uses it to determine if push features are enabled
+          continue;
+        } else {
+          CHECK(setting.value == 0 || setting.value == 1);
+        }
       }
+      settings.push_back(SettingPair(setting.id, setting.value));
     }
-    settings.push_back(SettingPair(setting.id, setting.value));
   }
   VLOG(4) << "generating " << (unsigned)settings.size() << " settings";
   return http2::writeSettings(writeBuf, settings);
