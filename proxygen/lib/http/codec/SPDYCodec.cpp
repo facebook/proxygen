@@ -920,7 +920,7 @@ size_t SPDYCodec::generatePingCommon(IOBufQueue& writeBuf, uint64_t uniqueID) {
 size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
   auto numSettings = egressSettings_.getNumSettings();
   for (const auto& setting: egressSettings_.getAllSettings()) {
-    if (!setting.isSet || !spdy::httpToSpdySettingsId(setting.id)) {
+    if (!spdy::httpToSpdySettingsId(setting.id)) {
       numSettings--;
     }
   }
@@ -936,9 +936,6 @@ size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
                                   kFrameSizeSettingsEntry * numSettings));
   appender.writeBE(uint32_t(numSettings));
   for (const auto& setting: egressSettings_.getAllSettings()) {
-    if (!setting.isSet) {
-      continue;
-    }
     auto settingId = spdy::httpToSpdySettingsId(setting.id);
     if (!settingId) {
       LOG(WARNING) << "Invalid SpdySetting " << (uint32_t)setting.id;
