@@ -28,7 +28,7 @@ class HPACKHeader;
 /*
  * Struct to hold the encoder and decoder information
  */
-struct HTTP2TableInfo {
+struct HPACKTableInfo {
   // Egress table info (encoder)
   uint32_t egressHeaderTableSize_{0};
   uint32_t egressBytesStored_{0};
