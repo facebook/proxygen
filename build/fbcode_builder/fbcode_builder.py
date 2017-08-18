@@ -33,6 +33,11 @@ Non-goals:
 
 Ideas for the future -- these may not be very good :)
 
+ - Especially on Ubuntu 14.04 the current initial setup is inefficient:
+   we add PPAs after having installed a bunch of packages -- this prompts
+   reinstalls of large amounts of code.  We also `apt-get update` a few
+   times.
+
  - A "shell script" builder. Like DockerFBCodeBuilder, but outputs a
    shell script that runs outside of a container. Or maybe even
    synchronously executes the shell commands, `make`-style.
@@ -40,12 +45,38 @@ Ideas for the future -- these may not be very good :)
  - A "Makefile" generator. That might make iterating on builds even quicker
    than what you can currently get with Docker build caching.
 
+ - Generate a rebuild script that can be run e.g. inside the built Docker
+   container by tagging certain steps with list-inheriting Python objects:
+     * do change directories
+     * do NOT `git clone` -- if we want to update code this should be a
+       separate script that e.g. runs rebase on top of specific targets
+       across all the repos.
+     * do NOT install software (most / all setup can be skipped)
+     * do NOT `autoreconf` or `configure`
+     * do `make` and `cmake`
+
+ - If we get non-Debian OSes, part of ccache setup should be factored out.
 '''
 
 import os
+import re
 
 from shell_quoting import path_join, shell_join, ShellQuoted
 
+
+def _read_project_github_hashes():
+    base_dir = 'deps/github_hashes/'  # trailing slash used in regex below
+    for dirname, _, files in os.walk(base_dir):
+        for filename in files:
+            path = os.path.join(dirname, filename)
+            with open(path) as f:
+                m_proj = re.match('^' + base_dir + '(.*)-rev\.txt$', path)
+                if m_proj is None:
+                    raise RuntimeError('Not a hash file? {0}'.format(path))
+                m_hash = re.match('^Subproject commit ([0-9a-f]+)\n$', f.read())
+                if m_hash is None:
+                    raise RuntimeError('No hash in {0}'.format(path))
+                yield m_proj.group(1), m_hash.group(1)
 
 class FBCodeBuilder(object):
 
@@ -54,6 +85,7 @@ class FBCodeBuilder(object):
         # This raises upon detecting options that are specified but unused,
         # because otherwise it is very easy to make a typo in option names.
         self.options_used = set()
+        self._github_hashes = dict(_read_project_github_hashes())
 
     def __repr__(self):
         return '{0}({1})'.format(
@@ -214,7 +246,12 @@ class FBCodeBuilder(object):
     def github_project_workdir(self, project, path):
         # Only check out a non-default branch if requested. This especially
         # makes sense when building from a local repo.
-        git_hash = self.option('{0}:git_hash'.format(project), '')
+        git_hash = self.option(
+            '{0}:git_hash'.format(project),
+            # Any repo that has a hash in deps/github_hashes defaults to
+            # that, with the goal of making builds maximally consistent.
+            self._github_hashes.get(project, '')
+        )
         maybe_change_branch = [
             self.run(ShellQuoted('git checkout {hash}').format(hash=git_hash)),
         ] if git_hash else []
@@ -285,12 +322,13 @@ class FBCodeBuilder(object):
             self.run(ShellQuoted(
                 'CXXFLAGS="$CXXFLAGS -isystem "{p}"/include" '
                 'CFLAGS="$CFLAGS -isystem "{p}"/include" '
-                'cmake {args} ..').format(
+                'cmake {args} ..'
+            ).format(
                 p=self.option('prefix'),
                 args=shell_join(' ', (
                     ShellQuoted('-D{k}={v}').format(k=k, v=v)
                         for k, v in cmake_defines.items()
-                ))
+                )),
             )),
         ]
 
