@@ -1354,6 +1354,8 @@ class HTTPTransaction :
    */
   uint16_t lastResponseStatus_{0};
   folly::Optional<uint64_t> expectedContentLengthRemaining_;
+  folly::Optional<uint64_t> expectedResponseLength_;
+  folly::Optional<uint64_t> actualResponseLength_{0};
 
   bool ingressPaused_:1;
   bool egressPaused_:1;

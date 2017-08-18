@@ -870,6 +870,37 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
   gracefulShutdown();
 }
 
+TEST_F(HTTPDownstreamSessionTest, test_on_content_mismatch) {
+  // Test the behavior when the reported content-length on the header
+  // is different from the actual length of the body.
+  // The expectation is simply to log the behavior, such as:
+  // ".. HTTPTransaction.cpp ] Content-Length/body mismatch: expected: .. "
+  folly::EventBase base;
+  InSequence enforceOrder;
+  auto handler1 = addSimpleNiceHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1] () {
+        // over-estimate the content-length on the header
+        handler1->sendHeaders(200, 105);
+        handler1->sendBody(100);
+        handler1->txn_->sendEOM();
+      });
+  sendRequest();
+  flushRequestsAndLoop();
+
+  auto handler2 = addSimpleNiceHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&handler2] () {
+        // under-estimate the content-length on the header
+        handler2->sendHeaders(200, 95);
+        handler2->sendBody(100);
+        handler2->txn_->sendEOM();
+      });
+  sendRequest();
+  flushRequestsAndLoop();
+  gracefulShutdown();
+}
+
 TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
   // Test a real pipelining case as well.  First request is done waiting for
   // ack, then receive two pipelined requests.

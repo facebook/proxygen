@@ -153,13 +153,14 @@ void HTTPTransaction::onIngressHeadersComplete(
         !headRequest_ &&
         !RFC2616::responseBodyMustBeEmpty(msg->getStatusCode()))) {
     // CONNECT payload has no defined semantics
-    const auto& clHeader =
+    const auto& contentLen =
       msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
-    if (!clHeader.empty()) {
+    if (!contentLen.empty()) {
       try {
-        expectedContentLengthRemaining_ = folly::to<uint64_t>(clHeader);
+        expectedContentLengthRemaining_ = folly::to<uint64_t>(contentLen);
       } catch (const folly::ConversionError& ex) {
-        // ignore this, at least for now
+        LOG(ERROR) << "Invalid content-length: " << contentLen <<
+          ", ex=" << ex.what() << *this;
       }
     }
   }
@@ -717,6 +718,19 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
   if (headers.isRequest()) {
     headRequest_ = (headers.getMethod() == HTTPMethod::HEAD);
   }
+
+  if (headers.isResponse()) {
+    const auto& contentLen =
+      headers.getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
+    if (!contentLen.empty()) {
+      try {
+        expectedResponseLength_ = folly::to<uint64_t>(contentLen);
+      } catch (const folly::ConversionError& ex) {
+        LOG(ERROR) << "Invalid content-length: " << contentLen <<
+          ", ex=" << ex.what() << *this;
+      }
+    }
+  }
   HTTPHeaderSize size;
   transport_.sendHeaders(this, headers, &size, eom);
   if (transportCallback_) {
@@ -750,9 +764,14 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
   DestructorGuard guard(this);
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendBody));
-  if (body && isEnqueued()) {
+
+  if (body) {
     size_t bodyLen = body->computeChainDataLength();
-    transport_.notifyEgressBodyBuffered(bodyLen);
+    actualResponseLength_ = actualResponseLength_.value() + bodyLen;
+
+    if (isEnqueued()) {
+      transport_.notifyEgressBodyBuffered(bodyLen);
+    }
   }
   deferredEgressBody_.append(std::move(body));
   notifyTransportPendingEgress();
@@ -961,6 +980,14 @@ HTTPTransaction::sendEOM() {
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendEOM))
     << ", " << *this;
+  if (expectedResponseLength_ && actualResponseLength_
+      && (*expectedResponseLength_ != *actualResponseLength_)) {
+    auto errorMsg = folly::to<std::string>(
+        "Content-Length/body mismatch: expected= ", *expectedResponseLength_,
+        ", actual= ", *actualResponseLength_);
+    LOG(ERROR) << errorMsg << " " << *this;
+  }
+
   if (deferredEgressBody_.chainLength() == 0 && chunkHeaders_.empty()) {
     // there is nothing left to send, egress the EOM directly.  For SPDY
     // this will jump the txn queue
