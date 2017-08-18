@@ -93,6 +93,31 @@ class HTTPSession:
     virtual void onEgressBufferCleared(const HTTPSession&) = 0;
   };
 
+  class EmptyInfoCallback : public InfoCallback {
+   public:
+    void onCreate(const HTTPSession&) override {}
+    void onIngressError(const HTTPSession&, ProxygenError) override {}
+    void onIngressEOF() override {}
+    void onRead(const HTTPSession&, size_t) override {}
+    void onWrite(const HTTPSession&, size_t) override {}
+    void onRequestBegin(const HTTPSession&) override {}
+    void onRequestEnd(const HTTPSession&, uint32_t) override {}
+    void onActivateConnection(const HTTPSession&) override {}
+    void onDeactivateConnection(const HTTPSession&) override {}
+    void onDestroy(const HTTPSession&) override {}
+    void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
+    void onIngressLimitExceeded(const HTTPSession&) override {}
+    void onIngressPaused(const HTTPSession&) override {}
+    void onTransactionDetached(const HTTPSession&) override {}
+    void onPingReplySent(int64_t) override {}
+    void onPingReplyReceived() override {}
+    void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
+    void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
+    void onFlowControlWindowClosed(const HTTPSession&) override {}
+    void onEgressBuffered(const HTTPSession&) override {}
+    void onEgressBufferCleared(const HTTPSession&) override {}
+  };
+
   class WriteTimeout :
       public folly::HHWheelTimer::Callback {
    public:
