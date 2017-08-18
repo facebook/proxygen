@@ -45,7 +45,7 @@ void CurlClient::initializeSsl(const string& certPath,
                                const string& nextProtos) {
   sslContext_ = std::make_shared<folly::SSLContext>();
   sslContext_->setOptions(SSL_OP_NO_COMPRESSION);
-  sslContext_->setCipherList(folly::ssl::SSLCommonOptions::getCipherList());
+  sslContext_->setCipherList(folly::ssl::SSLCommonOptions::kCipherList);
   sslContext_->loadTrustedCertificates(certPath.c_str());
   list<string> nextProtoList;
   folly::splitTo<string>(',', nextProtos, std::inserter(nextProtoList,
