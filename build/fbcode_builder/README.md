@@ -11,12 +11,26 @@ For external Travis builds, the entry point is `travis_docker_build.sh`.
 If you are debugging or enhancing a CI build, you will want to do so from
 host or virtual machine that can run a reasonably modern version of Docker:
 
-```
-./make_docker_context.py --help  # See available options
-./travis_docker_build.sh  # Tiny wrapper that starts a Travis-like build
+``` sh
+./make_docker_context.py --help  # See available options for OS & compiler
+# Tiny wrapper that starts a Travis-like build with compile caching:
+os_image=ubuntu:14.04 \
+  gcc_version=4.9 \
+  make_parallelism=2 \
+  travis_cache_dir=~/travis_ccache \
+    ./travis_docker_build.sh &> build_at_$(date +'%Y%m%d_%H%M%S').log
 ```
 
 **IMPORTANT**: Read `fbcode_builder/README.docker` befire diving in!
+
+Setting `travis_cache_dir` turns on [ccache](https://ccache.samba.org/),
+saving a fresh copy of `ccache.tgz` after every build.  This will invalidate
+Docker's layer cache, foring it to rebuild starting right after OS package
+setup, but the builds will be fast because all the compiles will be cached.
+To iterate without invalidating the Docker layer cache, just `cd
+/tmp/docker-context-*` and interact with the `Dockerfile` normally.  Note
+that the `docker-context-*` dirs preserve a copy of `ccache.tgz` as they
+first used it.
 
 
 # What to read next
@@ -27,6 +41,11 @@ in this order:
  - fbcode_builder.py
  - docker_builder.py
  - make_docker_context.py
+
+As far as runs on Travis go, the control flow is:
+ - .travis.yml calls
+ - travis_docker_build.sh calls
+ - docker_build_with_ccache.sh
 
 This library also has an (unpublished) component targeting Facebook's
 internal continuous-integration platform using the same build-step DSL.

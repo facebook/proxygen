@@ -15,7 +15,9 @@ caching, you will want to:
  - Put the steps that you are debugging towards the very end.
 
 '''
+import logging
 import os
+import shutil
 import tempfile
 
 from fbcode_builder import FBCodeBuilder
@@ -95,3 +97,71 @@ class DockerFBCodeBuilder(FBCodeBuilder):
 
     def _render_impl(self, steps):
         return raw_shell(shell_join('\n', recursively_flatten_list(steps)))
+
+    def debian_ccache_setup_steps(self):
+        source_ccache_tgz = self.option('ccache_tgz', '')
+        if not source_ccache_tgz:
+            logging.info('Docker ccache not enabled')
+            return []
+
+        dest_ccache_tgz = os.path.join(
+            self.option('docker_context_dir'), 'ccache.tgz'
+        )
+
+        try:
+            try:
+                os.link(source_ccache_tgz, dest_ccache_tgz)
+            except OSError:
+                logging.exception(
+                    'Hard-linking {s} to {d} failed, falling back to copy'
+                    .format(s=source_ccache_tgz, d=dest_ccache_tgz)
+                )
+                shutil.copyfile(source_ccache_tgz, dest_ccache_tgz)
+        except Exception:
+            logging.exception(
+                'Failed to copy or link {s} to {d}, aborting'
+                .format(s=source_ccache_tgz, d=dest_ccache_tgz)
+            )
+            raise
+
+        return [
+            # Separate layer so that in development we avoid re-downloads.
+            self.run(ShellQuoted('apt-get install -yq ccache')),
+            ShellQuoted('ADD ccache.tgz /'),
+            ShellQuoted(
+                # Set CCACHE_DIR before the `ccache` invocations below.
+                'ENV CCACHE_DIR=/ccache '
+                # No clang support for now, so it's easiest to hardcode gcc.
+                'CC="ccache gcc" CXX="ccache g++" '
+                # Always log for ease of debugging. For real FB projects,
+                # this log is several megabytes, so dumping it to stdout
+                # would likely exceed the Travis log limit of 4MB.
+                #
+                # On a local machine, `docker cp` will get you the data.  To
+                # get the data out from Travis, I would compress and dump
+                # uuencoded bytes to the log -- for Bistro this was about
+                # 600kb or 8000 lines:
+                #
+                #   apt-get install sharutils
+                #   bzip2 -9 < /tmp/ccache.log | uuencode -m ccache.log.bz2
+                'CCACHE_LOGFILE=/tmp/ccache.log'
+            ),
+            self.run(ShellQuoted(
+                # Future: Skipping this part made this Docker step instant,
+                # saving ~1min of build time.  It's unclear if it is the
+                # chown or the du, but probably the chown -- since a large
+                # part of the cost is incurred at image save time.
+                #
+                # ccache.tgz may be empty, or may have the wrong
+                # permissions.
+                'mkdir -p /ccache && time chown -R nobody /ccache && '
+                'time du -sh /ccache && '
+                # Reset stats so `docker_build_with_ccache.sh` can print
+                # useful values at the end of the run.
+                'echo === Prev run stats === && ccache -s && ccache -z && '
+                # Record the current time to let travis_build.sh figure out
+                # the number of bytes in the cache that are actually used --
+                # this is crucial for tuning the maximum cache size.
+                'date +%s > /FBCODE_BUILDER_CCACHE_START_TIME'
+            )),
+        ]

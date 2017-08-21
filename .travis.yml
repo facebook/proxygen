@@ -3,6 +3,21 @@
 
 sudo: required
 
+env:
+  global:
+    - travis_cache_dir=$HOME/travis_ccache
+    # Travis times out after 50 minutes. Very generously leave 10 minutes
+    # for setup (e.g.  cache download, compression, and upload), so we never
+    # fail to cache the progress we made.
+    - docker_build_timeout=40m
+
+cache:
+  # Our build caches can be 200-300MB, so increase the timeout to 7 minutes
+  # to make sure we never fail to cache the progress we made.
+  timeout: 420
+  directories:
+  - $HOME/travis_ccache  # see docker_build_with_ccache.sh
+
 # Ugh, `services:` must be in the matrix, or we get `docker: command not found`
 #   https://github.com/travis-ci/travis-ci/issues/5142
 matrix:

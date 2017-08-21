@@ -241,7 +241,12 @@ class FBCodeBuilder(object):
                 'apt-get upgrade -yq cmake'
             )))
 
+        actions.extend(self.debian_ccache_setup_steps())
+
         return self.step('Install packages for Debian-based OS', actions)
+
+    def debian_ccache_setup_steps(self):
+        raise []  # It's ok to ship a renderer without ccache support.
 
     def github_project_workdir(self, project, path):
         # Only check out a non-default branch if requested. This especially

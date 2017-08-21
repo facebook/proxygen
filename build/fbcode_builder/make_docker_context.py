@@ -15,8 +15,6 @@ contain a Dockerfile, and might also contain copies of your local repos, and
 other data needed for the build container.
 '''
 
-import argparse
-import logging
 import os
 import tempfile
 import textwrap
@@ -92,6 +90,12 @@ def make_docker_context(
             help='If set, build {0} from a local directory instead of Github.'
                 .format(github_project),
         )
+        parser.add_argument(
+            '--ccache-tgz', metavar='PATH',
+            help='If set, enable ccache for the build. To initialize the '
+                 'cache, first try to hardlink, then to copy --cache-tgz '
+                 'as ccache.tgz into the --docker-context-dir.'
+        )
 
     opts = parse_args_to_fbcode_builder_opts(
         add_args,
@@ -105,6 +109,7 @@ def make_docker_context(
             'gcc_version',
             'make_parallelism',
             'local_repo_dir',
+            'ccache_tgz',
         ),
         opts,
         help=textwrap.dedent('''
