@@ -165,6 +165,9 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
   class Node : public folly::HHWheelTimer::Callback,
                public boost::intrusive::unordered_set_base_hook<link_mode> {
    public:
+
+    static const uint16_t kDefaultWeight = 16;
+
     Node(HTTP2PriorityQueue& queue, Node* inParent, HTTPCodec::StreamID id,
          uint8_t weight, HTTPTransaction *txn);
 
@@ -350,7 +353,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
     HTTP2PriorityQueue& queue_;
     Node *parent_{nullptr};
     HTTPCodec::StreamID id_{0};
-    uint16_t weight_{16};
+    uint16_t weight_{kDefaultWeight};
     HTTPTransaction *txn_{nullptr};
     bool isPermanent_{false};
     bool enqueued_{false};

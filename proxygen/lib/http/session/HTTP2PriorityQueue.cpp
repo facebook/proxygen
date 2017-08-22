@@ -418,7 +418,7 @@ HTTP2PriorityQueue::Node::addChildToNewSubtreeRoot(std::unique_ptr<Node> child,
                                                    Node* subtreeRoot) {
   child->children_.clear();
   child->parent_ = subtreeRoot;
-  child->weight_ = 16;
+  child->weight_ = kDefaultWeight;
   child->totalChildWeight_ = 0;
   child->totalEnqueuedWeight_ = 0;
 #ifndef NDEBUG
@@ -486,6 +486,20 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
     if (dep == nullptr) {
       // specified a missing parent (timed out an idle node)?
       VLOG(4) << "assigning default priority to txn=" << id;
+      http2::PriorityUpdate virtualPri;
+      // The parent node hasn't arrived yet. For now setting
+      // its priority fields to default.
+      virtualPri.streamDependency = 0;
+      virtualPri.exclusive = false;
+      virtualPri.weight = Node::kDefaultWeight;
+      parent = addTransaction(pri.streamDependency,
+                              virtualPri,
+                              nullptr,
+                              permanent,
+                              depth);
+      if (depth) {
+        *depth += 1;
+      }
     } else {
       parent = dep;
       if (depth) {
