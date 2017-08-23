@@ -378,16 +378,7 @@ TEST_F(QueueTest, AddUnknown) {
 
   dump();
   EXPECT_EQ(nodes_, IDList({
-        {1, 48}, {3, 25}, {5, 25}, {9, 100}, {7, 50}, {75, 51}, {11, 100}
-      }));
-
-  // Now let's add the missing parent node and check if it was
-  // relocated properly
-  addTransaction(75, {1, false, 7});
-
-  dump();
-  EXPECT_EQ(nodes_, IDList({
-        {1, 100}, {3, 16}, {5, 16}, {9, 100}, {7, 33}, {75, 33}, {11, 100}
+        {1, 50}, {3, 25}, {5, 25}, {9, 100}, {7, 50}, {11, 50}
       }));
 }
 
