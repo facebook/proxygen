@@ -9,6 +9,8 @@
  */
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
 
+#include <folly/tracing/ScopedTraceSection.h>
+
 using namespace folly::io;
 using namespace folly;
 
@@ -225,6 +227,7 @@ bool frameHasPadding(const FrameHeader& header) {
 ErrorCode
 parseFrameHeader(Cursor& cursor,
                  FrameHeader& header) noexcept {
+  FOLLY_SCOPED_TRACE_SECTION("HTTP2Framer - parseFrameHeader");
   DCHECK_LE(kFrameHeaderSize, cursor.totalLength());
 
   // MUST ignore the 2 bits before the length

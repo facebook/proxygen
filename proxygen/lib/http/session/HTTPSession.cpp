@@ -19,6 +19,7 @@
 #include <folly/Conv.h>
 #include <folly/Function.h>
 #include <folly/io/async/AsyncSSLSocket.h>
+#include <folly/tracing/ScopedTraceSection.h>
 
 #include <chrono>
 
@@ -453,6 +454,7 @@ bool HTTPSession::isDownstream() const {
 
 void
 HTTPSession::getReadBuffer(void** buf, size_t* bufSize) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPSession - getReadBuffer");
   pair<void*,uint32_t> readSpace =
     readBuf_.preallocate(kMinReadSize, HTTPSession::maxReadBufferSize_);
   *buf = readSpace.first;
@@ -461,6 +463,7 @@ HTTPSession::getReadBuffer(void** buf, size_t* bufSize) {
 
 void
 HTTPSession::readDataAvailable(size_t readSize) noexcept {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPSession - readDataAvailable");
   VLOG(10) << "read completed on " << *this << ", bytes=" << readSize;
 
   DestructorGuard dg(this);
@@ -481,6 +484,7 @@ HTTPSession::isBufferMovable() noexcept {
 
 void
 HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPSession - readBufferAvailable");
   size_t readSize = readBuf->computeChainDataLength();
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
 
@@ -497,6 +501,7 @@ HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
 
 void
 HTTPSession::processReadData() {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPSession - processReadData");
   // skip any empty IOBufs before feeding CODEC.
   while (readBuf_.front() != nullptr && readBuf_.front()->length() == 0) {
     readBuf_.pop_front();
@@ -778,6 +783,7 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
 void
 HTTPSession::onBody(HTTPCodec::StreamID streamID,
                     unique_ptr<IOBuf> chain, uint16_t padding) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPSession - onBody");
   DestructorGuard dg(this);
   // The codec's parser detected part of the ingress message's
   // entity-body.

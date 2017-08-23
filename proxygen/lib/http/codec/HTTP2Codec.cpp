@@ -17,6 +17,7 @@
 #include <folly/Conv.h>
 #include <folly/io/Cursor.h>
 #include <folly/Random.h>
+#include <folly/tracing/ScopedTraceSection.h>
 
 using namespace proxygen::compress;
 using namespace folly::io;
@@ -70,6 +71,7 @@ HTTP2Codec::~HTTP2Codec() {}
 
 size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
   // TODO: ensure only 1 parse at a time on stack.
+  FOLLY_SCOPED_TRACE_SECTION("HTTP2Codec - onIngress");
 
   Cursor cursor(&buf);
   size_t parsed = 0;
@@ -152,6 +154,7 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
 }
 
 ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTP2Codec - parseFrame");
   if (expectedContinuationStream_ != 0 &&
        (curHeader_.type != http2::FrameType::CONTINUATION ||
         expectedContinuationStream_ != curHeader_.stream)) {
@@ -266,6 +269,7 @@ ErrorCode HTTP2Codec::parseAllData(Cursor& cursor) {
 ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
                                          size_t bufLen,
                                          size_t& parsed) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTP2Codec - parseDataFrameData");
   if (bufLen == 0) {
     VLOG(10) << "No data to parse";
     return ErrorCode::NO_ERROR;
@@ -342,6 +346,7 @@ ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
 
 
 ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTP2Codec - parseHeaders");
   boost::optional<http2::PriorityUpdate> priority;
   std::unique_ptr<IOBuf> headerBuf;
   VLOG(4) << "parsing HEADERS frame for stream=" << curHeader_.stream <<

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <folly/Conv.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <folly/tracing/ScopedTraceSection.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/RFC2616.h>
@@ -194,6 +195,7 @@ void HTTPTransaction::processIngressHeadersComplete(
 
 void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
                                     uint16_t padding) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBody");
   DestructorGuard g(this);
   if (isIngressEOMSeen()) {
     sendAbort(ErrorCode::STREAM_CLOSED);
@@ -255,6 +257,7 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
 }
 
 void HTTPTransaction::processIngressBody(unique_ptr<IOBuf> chain, size_t len) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - processIngressBody");
   DestructorGuard g(this);
   if (aborted_) {
     return;
