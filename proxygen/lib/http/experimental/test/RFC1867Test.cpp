@@ -22,11 +22,13 @@ using folly::IOBuf;
 using folly::IOBufQueue;
 
 namespace {
+
 const std::string kTestBoundary("abcdef");
 
 unique_ptr<IOBuf> makePost(const map<string, string>& params,
                            const map<string, string>& explicitFiles,
-                           const map<string, size_t>& randomFiles) {
+                           const map<string, size_t>& randomFiles,
+                           const string optExpHeaderSeqEnding="") {
   IOBufQueue result;
   for (const auto& kv: params) {
     result.append("--");
@@ -61,11 +63,12 @@ unique_ptr<IOBuf> makePost(const map<string, string>& params,
   }
   result.append("--");
   result.append(kTestBoundary);
+  result.append(optExpHeaderSeqEnding);
 
   return result.move();
 }
 
-}
+} // namespace end
 
 namespace proxygen {
 
@@ -150,7 +153,11 @@ void RFC1867Base::testSimple(unique_ptr<IOBuf> data, size_t fileSize,
   EXPECT_CALL(callback_, onFileEnd(true, _));
   parse(data->clone(), splitSize);
   auto parsedDataBuf = parsedData.move();
-  parsedDataBuf->coalesce();
+  if (fileLength > 0) {
+    // isChained() called from coalesce below asserts if no data has
+    // been added
+    parsedDataBuf->coalesce();
+  }
   CHECK_EQ(fileLength, fileSize);
 }
 
@@ -168,6 +175,21 @@ TEST_F(RFC1867Test, testSplits) {
                          {}, {{"file1", fileSize}});
     testSimple(std::move(data), fileSize, i);
   }
+}
+
+TEST_F(RFC1867Test, testHeadersChunkExtraCr) {
+  // We are testing here that we correctly chunk when the parser has just
+  // finished parsing a CR.
+  auto numCRs = 5;
+  auto headerEndingSeq = "--" + string(numCRs, '\r') + "\n";
+  auto fileSize = 10;
+  auto data = makePost(
+    {{"foo", "bar"}, {"jojo", "binky"}},
+    {},
+    {{"file1", fileSize}},
+    headerEndingSeq);
+  // Math ensures we the parser will chunk at a '\r' with a numCRs-1
+  testSimple(std::move(data), fileSize, numCRs - 1);
 }
 
 class RFC1867CR : public testing::TestWithParam<string>, public RFC1867Base {

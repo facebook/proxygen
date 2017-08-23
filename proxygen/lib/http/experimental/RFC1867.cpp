@@ -95,6 +95,7 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
           Cursor c(input_.front());
           char firstTwo[2];
           c.pull(firstTwo, 2);
+          // We have at least 3 chars available to read
           uint8_t toTrim = 3;
           if (memcmp(firstTwo, "--", 2) == 0) {
             do {
@@ -103,10 +104,14 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
                 input_.trimStart(toTrim);
                 state_ = ParserState::DONE;
               } else if (ch == '\r') {
-                if (input_.chainLength() < 4) {
+                // Every \r we encounter is a char we must trim but we must
+                // make sure we have sufficient data available in input_ to
+                // keep reading (toTrim is always one pos ahead to handle the
+                // expected \n)
+                ++toTrim;
+                if (input_.chainLength() < toTrim) {
                   return input_.move();
                 }
-                toTrim++;
               } else {
                 state_ = ParserState::ERROR;
               }
