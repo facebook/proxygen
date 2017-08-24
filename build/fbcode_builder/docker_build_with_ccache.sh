@@ -155,6 +155,10 @@ echo "$img"
   # CAUTION: The inner bash runs without -uex, so code accordingly.
   docker run --user root --name "$container_name" "$img" /bin/bash -c '
     build_exit_code='"$build_exit_code"'
+
+    # Might be useful if debugging whether max cache size is too small?
+    grep " Cleaning up cache directory " /tmp/ccache.log
+
     export CCACHE_DIR=/ccache
     ccache -s
 
@@ -170,13 +174,14 @@ echo "$img"
     )
     echo "$used_bytes"
 
-    # Goal: set the max cache to 30% over the usage of a successful build.
-    desired_mb=$(( $used_bytes / 806597 )) # 130% in MB: 1024*1024/1.3
+    # Goal: set the max cache to twice the usage of a successful build.
+    # If this is too small, it takes too long to get to a fully warm cache.
+    desired_mb=$(( $used_bytes / 500000 )) # 200% in decimal MB: 1e6/2
     if [[ "$build_exit_code" != "0" ]] ; then
       # For a bad build, disallow shrinking the max cache size. Instead of
       # the max cache size, we use on-disk size, which ccache keeps ~10%
       # under the actual max size, hence the 1.15 safety factor.
-      cur_max_mb=$(( $total_bytes / 911805 ))  # 115% in MB: 1024*1024/1.15
+      cur_max_mb=$(( $total_bytes / 869565 ))  # 115% in decimal MB: 1e6/1.15
       if [[ "$desired_mb" -le "$cur_max_mb" ]] ; then
         desired_mb=""
       fi

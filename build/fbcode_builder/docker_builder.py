@@ -162,6 +162,8 @@ class DockerFBCodeBuilder(FBCodeBuilder):
                 # Record the current time to let travis_build.sh figure out
                 # the number of bytes in the cache that are actually used --
                 # this is crucial for tuning the maximum cache size.
-                'date +%s > /FBCODE_BUILDER_CCACHE_START_TIME'
+                'date +%s > /FBCODE_BUILDER_CCACHE_START_TIME && '
+                # The build running as `nobody` should be able to write here
+                'chown nobody /tmp/ccache.log'
             )),
         ]
