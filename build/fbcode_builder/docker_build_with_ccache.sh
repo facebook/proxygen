@@ -174,14 +174,16 @@ echo "$img"
     )
     echo "$used_bytes"
 
-    # Goal: set the max cache to twice the usage of a successful build.
-    # If this is too small, it takes too long to get to a fully warm cache.
-    desired_mb=$(( $used_bytes / 500000 )) # 200% in decimal MB: 1e6/2
+    # Goal: set the max cache to 750MB over 125% of the usage of a
+    # successful build.  If this is too small, it takes too long to get a
+    # cache fully warmed up.  Plus, ccache cleans 100-200MB before reaching
+    # the max cache size, so a large margin is essential to prevent misses.
+    desired_mb=$(( 750 + used_bytes / 800000 )) # 125% in decimal MB: 1e6/1.25
     if [[ "$build_exit_code" != "0" ]] ; then
       # For a bad build, disallow shrinking the max cache size. Instead of
-      # the max cache size, we use on-disk size, which ccache keeps ~10%
-      # under the actual max size, hence the 1.15 safety factor.
-      cur_max_mb=$(( $total_bytes / 869565 ))  # 115% in decimal MB: 1e6/1.15
+      # the max cache size, we use on-disk size, which ccache keeps at least
+      # 150MB under the actual max size, hence the 400MB safety margin.
+      cur_max_mb=$(( 400 + total_bytes / 1000000 ))  # ccache uses decimal MB
       if [[ "$desired_mb" -le "$cur_max_mb" ]] ; then
         desired_mb=""
       fi
