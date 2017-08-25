@@ -59,6 +59,17 @@ void HTTPHeaders::add(folly::StringPiece name, folly::StringPiece value) {
   headerValues_.emplace_back(value.data(), value.size());
 }
 
+void HTTPHeaders::add(HTTPHeaders::headers_initializer_list l) {
+  for (auto& p : l) {
+    if (p.first.type_ == HTTPHeaderName::CODE) {
+      add(p.first.code_, std::string(p.second.data(), p.second.size()));
+    }
+    else {
+      add(p.first.name_, std::string(p.second.data(), p.second.size()));
+    }
+  }
+}
+
 void HTTPHeaders::rawAdd(const std::string& name, const std::string& value) {
   add(name, value);
 }

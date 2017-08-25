@@ -18,6 +18,7 @@
 #include <bitset>
 #include <cstring>
 #include <string>
+#include <initializer_list>
 
 namespace proxygen {
 
@@ -66,6 +67,24 @@ inline bool isLWS(char c) {
  */
 class HTTPHeaders {
  public:
+   struct HTTPHeaderName {
+     enum Type { CODE, STRING };
+     union {
+       folly::StringPiece name_;
+       HTTPHeaderCode code_;
+     };
+     Type type_;
+     /* implicit */ HTTPHeaderName(HTTPHeaderCode code)
+      : code_(code), type_(CODE) {}
+     /* implicit */ HTTPHeaderName(const char* name)
+      : name_(name), type_(STRING) {}
+     /* implicit */ HTTPHeaderName(folly::StringPiece name)
+      : name_(name), type_(STRING) {}
+   };
+
+   using headers_initializer_list = std::initializer_list<
+                                std::pair<HTTPHeaderName,folly::StringPiece>>;
+
   /*
    * separator used to concatenate multiple values of the same header
    * check out sections 4.2 and 14.45 from rfc2616
@@ -88,6 +107,7 @@ class HTTPHeaders {
   void add(folly::StringPiece name, T&& value);
   template <typename T> // T = string
   void add(HTTPHeaderCode code, T&& value);
+  void add(headers_initializer_list l);
   void rawAdd(const std::string& name, const std::string& value);
 
   void addFromCodec(const char* str, size_t len, std::string&& value);

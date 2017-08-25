@@ -376,6 +376,32 @@ TEST(HTTPHeaders, AddStringPiece) {
   EXPECT_EQ("value", headers.getSingleOrEmpty("name"));
 }
 
+TEST(HTTPHeaders, InitializerList) {
+  HTTPHeaders hdrs;
+
+  hdrs.add({{"name", "value"}});
+  hdrs.add({{HTTP_HEADER_CONNECTION, "close"}});
+  hdrs.add({{"a", "b"},
+            {HTTP_HEADER_CONNECTION, "foo"},
+            {HTTP_HEADER_SERVER, "x"}});
+
+  EXPECT_EQ("value", hdrs.getSingleOrEmpty("name"));
+  EXPECT_EQ("close, foo", hdrs.combine(HTTP_HEADER_CONNECTION));
+  EXPECT_EQ("x", hdrs.getSingleOrEmpty(HTTP_HEADER_SERVER));
+}
+
+TEST(HTTPHeaders, InitializerListStringPiece) {
+  HTTPHeaders hdrs;
+
+  const char* foo = "name:value";
+  folly::StringPiece str(foo);
+  folly::StringPiece name = str.split_step(':');
+  hdrs.add({{name, str}, {HTTP_HEADER_CONNECTION, str}});
+
+  EXPECT_EQ("value", hdrs.getSingleOrEmpty("name"));
+  EXPECT_EQ("value", hdrs.getSingleOrEmpty(HTTP_HEADER_CONNECTION));
+}
+
 void testRemoveQueryParam(const string& url,
                           const string& queryParam,
                           const string& expectedUrl,
