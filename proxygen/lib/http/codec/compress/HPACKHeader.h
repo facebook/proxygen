@@ -86,6 +86,8 @@ class HPACKHeader {
 
   std::string name;
   std::string value;
+
+  static bool sAllowPathIndexing;
 };
 
 std::ostream& operator<<(std::ostream& os, const HPACKHeader& h);

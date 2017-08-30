@@ -11,9 +11,14 @@
 
 namespace proxygen {
 
+bool HPACKHeader::sAllowPathIndexing{true};
+
 bool HPACKHeader::isIndexable() const {
   if (name == ":path") {
     // no URL params
+    if (!sAllowPathIndexing) {
+      return false;
+    }
     if (value.find('=') != std::string::npos) {
       return false;
     }
