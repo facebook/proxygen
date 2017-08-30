@@ -218,6 +218,20 @@ TEST_F(HPACKContextTests, decode_errors) {
   checkError(buf.get(), HPACK::DecodeError::INTEGER_OVERFLOW);
 }
 
+TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
+  HPACKEncoder encoder{true, 50};
+  HPACKHeader header1("This_really_large_header",
+                      "is_larger_than_the_header_table");
+  HPACKHeader header2("Short", "header");
+  vector<HPACKHeader> headers;
+  headers.push_back(HPACKHeader("Short", "header"));
+  headers.push_back(HPACKHeader("This_really_large_header",
+                                "is_larger_than_the_header_table"));
+  encoder.encode(headers);
+  CHECK_EQ(encoder.getIndex(header1), 0);
+  CHECK_GT(encoder.getIndex(header2), 0);
+}
+
 TEST_P(HPACKContextTests, contextUpdate) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;

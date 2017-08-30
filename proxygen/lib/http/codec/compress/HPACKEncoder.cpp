@@ -47,6 +47,13 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
 
 void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
   bool indexing = header.isIndexable();
+  if (header.bytes() > table_.capacity()) {
+    // May want to investigate further whether or not this is wanted.
+    // Flushing the table on a large header frees up some memory,
+    // however, there will be no compression do to an empty table, and
+    // the table will fill up again fairly quickly
+    indexing = false;
+  }
   uint8_t prefix = indexing ?
     HPACK::HeaderEncoding::LITERAL_INCR_INDEXING :
     HPACK::HeaderEncoding::LITERAL_NO_INDEXING;
