@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKQueue.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <vector>
 
 using namespace folly::io;
@@ -78,46 +79,6 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
   uint32_t decodedBytesCompr{0};
   uint32_t decodedBytesUncompr{0};
   uint32_t errors{0};
-};
-
-class TestStreamingCallback : public HeaderCodec::StreamingCallback {
- public:
-  void onHeader(const std::string& name,
-                const std::string& value) override {
-    headers.emplace_back(duplicate(name), name.size(), true, false);
-    headers.emplace_back(duplicate(value), value.size(), true, false);
-  }
-  void onHeadersComplete(HTTPHeaderSize /*decodedSize*/) override {
-    if (headersCompleteCb) {
-      headersCompleteCb();
-    }
-  }
-  void onDecodeError(HeaderDecodeError decodeError) override {
-    error = decodeError;
-  }
-
-  void reset() {
-    headers.clear();
-    error = HeaderDecodeError::NONE;
-  }
-
-  Result<HeaderDecodeResult, HeaderDecodeError> getResult() {
-    if (error == HeaderDecodeError::NONE) {
-      return HeaderDecodeResult{headers, 0};
-    } else {
-      return error;
-    }
-  }
-
-  HeaderPieceList headers;
-  HeaderDecodeError error{HeaderDecodeError::NONE};
-  char* duplicate(const std::string& str) {
-    char* res = CHECK_NOTNULL(new char[str.length() + 1]);
-    memcpy(res, str.data(), str.length() + 1);
-    return res;
-  }
-
-  std::function<void()> headersCompleteCb;
 };
 
 namespace {
