@@ -15,7 +15,7 @@
 namespace proxygen {
 
 /**
- * Handler that sends back a fixed response back.
+ * Handler that sends a fixed response back.
  */
 class DirectResponseHandler : public RequestHandler {
  public:
@@ -23,7 +23,7 @@ class DirectResponseHandler : public RequestHandler {
                         std::string message,
                         std::string body)
       : code_(code),
-        message_(message),
+        message_(std::move(message)),
         body_(folly::IOBuf::copyBuffer(body)) {
   }
 
@@ -35,7 +35,7 @@ class DirectResponseHandler : public RequestHandler {
 
   void onEOM() noexcept override {
     ResponseBuilder(downstream_)
-        .status(code_, message_)
+        .status(code_, std::move(message_))
         .body(std::move(body_))
         .sendWithEOM();
   }
@@ -48,7 +48,7 @@ class DirectResponseHandler : public RequestHandler {
 
  private:
   const int code_;
-  const std::string message_;
+  std::string message_;
   std::unique_ptr<folly::IOBuf> body_;
 };
 
