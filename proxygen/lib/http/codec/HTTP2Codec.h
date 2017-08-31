@@ -30,7 +30,7 @@ class HTTP2Codec: public HTTPParallelCodec, HeaderCodec::StreamingCallback {
 public:
   void onHeader(const std::string& name,
                 const std::string& value) override;
-  void onHeadersComplete() override;
+  void onHeadersComplete(HTTPHeaderSize decodedSize) override;
   void onDecodeError(HeaderDecodeError decodeError) override;
 
   explicit HTTP2Codec(TransportDirection direction);

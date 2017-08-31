@@ -114,7 +114,7 @@ void HPACKCodec::decodeStreaming(
     return;
   }
   decodedSize_.compressed = consumed;
-  onHeadersComplete();
+  onHeadersComplete(decodedSize_);
 }
 
 void HPACKCodec::onHeader(const std::string& name, const std::string& value) {
@@ -123,12 +123,12 @@ void HPACKCodec::onHeader(const std::string& name, const std::string& value) {
   streamingCb_->onHeader(name, value);
 }
 
-void HPACKCodec::onHeadersComplete() {
+void HPACKCodec::onHeadersComplete(HTTPHeaderSize decodedSize) {
   assert(streamingCb_ != nullptr);
   if (stats_) {
     stats_->recordDecode(Type::HPACK, decodedSize_);
   }
-  streamingCb_->onHeadersComplete();
+  streamingCb_->onHeadersComplete(decodedSize);
 }
 
 void HPACKCodec::onDecodeError(HeaderDecodeError /*decodeError*/) {

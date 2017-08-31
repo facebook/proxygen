@@ -68,7 +68,7 @@ class HeaderCodec {
 
     virtual void onHeader(const std::string& name,
                           const std::string& value) = 0;
-    virtual void onHeadersComplete() = 0;
+    virtual void onHeadersComplete(HTTPHeaderSize decodedSize) = 0;
     virtual void onDecodeError(HeaderDecodeError decodeError) = 0;
   };
 

@@ -59,7 +59,7 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
 
   // Callbacks that handle Codec-level stats and errors
   void onHeader(const std::string& name, const std::string& value) override;
-  void onHeadersComplete() override;
+  void onHeadersComplete(HTTPHeaderSize decodedSize) override;
   void onDecodeError(HeaderDecodeError decodeError) override;
 
   void decodeStreaming(

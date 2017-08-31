@@ -594,7 +594,7 @@ void HTTP2Codec::onHeader(const std::string& name,
   }
 }
 
-void HTTP2Codec::onHeadersComplete() {
+void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
   HTTPHeaders& headers = decodeInfo_.msg->getHeaders();
   HTTPRequestVerifier& verifier = decodeInfo_.verifier;
 
@@ -615,7 +615,7 @@ void HTTP2Codec::onHeadersComplete() {
   }
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
   decodeInfo_.msg->setHTTPVersion(1, 1);
-  decodeInfo_.msg->setIngressHeaderSize(headerCodec_.getDecodedSize());
+  decodeInfo_.msg->setIngressHeaderSize(decodedSize);
 }
 
 void HTTP2Codec::onDecodeError(HeaderDecodeError decodeError) {
