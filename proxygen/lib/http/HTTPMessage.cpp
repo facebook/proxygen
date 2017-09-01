@@ -702,7 +702,14 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
     VLOG(vlogLevel) << " " << stripCntrlChars(h) << ": "
                     << stripCntrlChars(v);
   });
-}
+  if (strippedPerHopHeaders_.size() > 0) {
+    VLOG(vlogLevel) << "Per-Hop Headers";
+    strippedPerHopHeaders_.forEach([&] (const string& h, const string& v) {
+        VLOG(vlogLevel) << " " << stripCntrlChars(h) << ": "
+                        << stripCntrlChars(v);
+      });
+  }
+ }
 
 void
 HTTPMessage::atomicDumpMessage(int vlogLevel) const {
