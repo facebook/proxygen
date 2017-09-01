@@ -9,6 +9,12 @@
  */
 #pragma once
 
+#include <folly/IntrusiveList.h>
+#include <wangle/acceptor/ManagedConnection.h>
+#include <wangle/acceptor/TransportInfo.h>
+#include <folly/io/IOBufQueue.h>
+#include <folly/io/async/EventBase.h>
+#include <folly/io/async/HHWheelTimer.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
@@ -18,20 +24,11 @@
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/Time.h>
-#include <proxygen/lib/utils/WheelTimerInstance.h>
-#include <wangle/acceptor/ManagedConnection.h>
-#include <wangle/acceptor/TransportInfo.h>
-
-#include <folly/Function.h>
-#include <folly/IntrusiveList.h>
-#include <folly/io/IOBufQueue.h>
-#include <folly/io/async/AsyncSocket.h>
-#include <folly/io/async/EventBase.h>
-#include <folly/io/async/HHWheelTimer.h>
-
 #include <queue>
 #include <set>
+#include <folly/io/async/AsyncSocket.h>
 #include <vector>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 
 namespace proxygen {
 
@@ -509,8 +506,7 @@ class HTTPSession:
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback,
-      folly::Function<void(HTTPCodecFilterChain& chain)> codecFilterCallbackFn);
+      InfoCallback* infoCallback);
 
   // thrift uses WheelTimer
   HTTPSession(
@@ -521,8 +517,7 @@ class HTTPSession:
       HTTPSessionController* controller,
       std::unique_ptr<HTTPCodec> codec,
       const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback,
-      folly::Function<void(HTTPCodecFilterChain& chain)> codecFilterCallbackFn);
+      InfoCallback* infoCallback);
 
   ~HTTPSession() override;
 

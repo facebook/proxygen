@@ -36,7 +36,7 @@ class HTTPDownstreamSession final: public HTTPSession {
       InfoCallback* infoCallback):
     HTTPSession(timeout, std::move(sock), localAddr, peerAddr,
                 CHECK_NOTNULL(controller), std::move(codec), tinfo,
-                infoCallback, nullptr) {
+                infoCallback) {
       CHECK_EQ(codec_->getTransportDirection(), TransportDirection::DOWNSTREAM);
   }
 
