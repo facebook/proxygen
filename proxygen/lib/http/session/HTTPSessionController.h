@@ -75,7 +75,17 @@ class HTTPSessionController {
    */
   virtual void onSessionCodecChange(HTTPSession* /*session*/) {}
 
+  /**
+   * Optionally allow the session to query custom graceful shutdown timeout.
+   */
   virtual std::chrono::milliseconds getGracefulShutdownTimeout() const {
+    return std::chrono::milliseconds(0);
+  }
+
+  /**
+   * Optionally allow the session to query custom flow control timeout.
+   */
+  virtual std::chrono::milliseconds getSessionFlowControlTimeout() const {
     return std::chrono::milliseconds(0);
   }
 };

@@ -134,8 +134,17 @@ class HTTPSession:
     void timeoutExpired() noexcept override {
       session_->flowControlTimeoutExpired();
     }
+
+    std::chrono::milliseconds getTimeoutDuration() const {
+      return duration_;
+    }
+
+    void setTimeoutDuration(std::chrono::milliseconds duration) {
+      duration_ = duration;
+    }
    private:
     HTTPSession* session_;
+    std::chrono::milliseconds duration_{std::chrono::milliseconds(0)};
   };
 
   class DrainTimeout : public folly::HHWheelTimer::Callback {

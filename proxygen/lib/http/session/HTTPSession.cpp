@@ -173,6 +173,8 @@ HTTPSession::HTTPSession(
 
   if (controller_) {
     controller_->attachSession(this);
+    flowControlTimeout_.setTimeoutDuration(
+      controller_->getSessionFlowControlTimeout());
   }
 
   if (!sock_->isReplaySafe()) {
@@ -2619,7 +2621,12 @@ void HTTPSession::onConnectionSendWindowClosed() {
   if (infoCallback_) {
     infoCallback_->onFlowControlWindowClosed(*this);
   }
-  timeout_.scheduleTimeout(&flowControlTimeout_);
+  auto timeout = flowControlTimeout_.getTimeoutDuration();
+  if (timeout != std::chrono::milliseconds(0)) {
+    timeout_.scheduleTimeout(&flowControlTimeout_, timeout);
+  } else {
+    timeout_.scheduleTimeout(&flowControlTimeout_);
+  }
 }
 
 HTTPCodec::StreamID HTTPSession::getGracefulGoawayAck() const {
