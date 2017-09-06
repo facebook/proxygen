@@ -31,6 +31,7 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   conf.receiveStreamWindowSize = opts.receiveStreamWindowSize;
   conf.receiveSessionWindowSize = opts.receiveSessionWindowSize;
   conf.acceptBacklog = opts.listenBacklog;
+  conf.maxConcurrentIncomingStreams = opts.maxConcurrentIncomingStreams;
 
   if (ipConfig.protocol == HTTPServer::Protocol::SPDY) {
     conf.plaintextProtocol = "spdy/3.1";

@@ -95,6 +95,12 @@ class HTTPServerOptions {
   size_t receiveSessionWindowSize{65536};
 
   /**
+   * The maximum number of transactions the remote could initiate
+   * per connection on protocols that allow multiplexing.
+   */
+  uint32_t maxConcurrentIncomingStreams{100};
+
+  /**
    * Set to true to enable gzip content compression. Currently false for
    * backwards compatibility.
    */
