@@ -19,7 +19,6 @@
 
 #define GMOCK_NOEXCEPT_METHOD0(m, F) GMOCK_METHOD0_(, noexcept,, m, F)
 #define GMOCK_NOEXCEPT_METHOD1(m, F) GMOCK_METHOD1_(, noexcept,, m, F)
-#define GMOCK_NOEXCEPT_METHOD4(m, F) GMOCK_METHOD4_(, noexcept,, m, F)
 
 namespace proxygen {
 
@@ -154,14 +153,7 @@ class MockHTTPHandler : public HTTPHandlerBase,
 
   GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
 
-  GMOCK_NOEXCEPT_METHOD4(onFrameHeader,
-      void(uint8_t, uint32_t, uint8_t, uint16_t));
-
   GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
-
-  GMOCK_NOEXCEPT_METHOD1(onWindowUpdate, void(uint32_t));
-
-  GMOCK_NOEXCEPT_METHOD1(onPriority, void(const http2::PriorityUpdate&));
 
   GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
 

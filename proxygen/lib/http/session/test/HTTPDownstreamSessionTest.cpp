@@ -143,10 +143,6 @@ class HTTPDownstreamTest : public testing::Test {
     EXPECT_CALL(*handler, setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&handler->txn_));
 
-    EXPECT_CALL(*handler, onFrameHeader(testing::_, testing::_, testing::_,
-                                        testing::_))
-      .WillRepeatedly(Return());
-
     return handler;
   }
 
@@ -2797,8 +2793,6 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights) {
   // update handler2 to be in the pri-group (which has lower weight)
   clientCodec_->generatePriority(
     requests_, id2, HTTPMessage::HTTPPriority(priGroupID, false, 15));
-
-  EXPECT_CALL(*handler1, onPriority(_));
 
   eventBase_.runInLoop([&] {
       handler1->txn_->sendBody(makeBuf(4 * 1024));

@@ -100,7 +100,7 @@ class DownstreamTransactionTest : public testing::Test {
           folly::AsyncTimeout::InternalEnum::NORMAL,
           std::chrono::milliseconds(500))};
   MockHTTPTransactionTransport transport_;
-  NiceMock<MockHTTPHandler> handler_;
+  StrictMock<MockHTTPHandler> handler_;
   HTTP2PriorityQueue txnEgressQueue_;
   uint32_t received_{0};
   uint32_t sent_{0};

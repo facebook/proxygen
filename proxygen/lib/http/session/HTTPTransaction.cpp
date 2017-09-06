@@ -586,14 +586,6 @@ void HTTPTransaction::onError(const HTTPException& error) {
   }
 }
 
-void HTTPTransaction::onIngressFrameHeader(uint8_t flags, uint32_t length,
-    uint8_t type, uint16_t version) {
-  DestructorGuard g(this);
-  if (handler_) {
-    handler_->onFrameHeader(flags, length, type, version);
-  }
-}
-
 void HTTPTransaction::onGoaway(ErrorCode code) {
   DestructorGuard g(this);
   VLOG(4) << "received GOAWAY notification on " << *this;
@@ -637,9 +629,6 @@ void HTTPTransaction::onIngressWindowUpdate(const uint32_t amount) {
   }
   DestructorGuard g(this);
   VLOG(4) << "Remote side ack'd " << amount << " bytes " << *this ;
-  if (handler_) {
-    handler_->onWindowUpdate(amount);
-  }
   updateReadTimeout();
   if (sendWindow_.free(amount)) {
     notifyTransportPendingEgress();
@@ -1306,16 +1295,11 @@ void HTTPTransaction::updateAndSendPriority(int8_t newPriority) {
 
 void HTTPTransaction::updateAndSendPriority(
   const http2::PriorityUpdate& newPriority) {
-  onPriorityUpdate(newPriority, false);
+  onPriorityUpdate(newPriority);
   transport_.sendPriority(this, priority_);
 }
 
-void HTTPTransaction::onPriorityUpdate(
-    const http2::PriorityUpdate& priority, bool ingress) {
-  DestructorGuard g(this);
-  if (ingress && handler_) {
-    handler_->onPriority(priority);
-  }
+void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
   priority_ = priority;
 
   queueHandle_ = egressQueue_.updatePriority(

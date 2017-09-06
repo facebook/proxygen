@@ -1006,24 +1006,6 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
   txn->onError(ex);
 }
 
-void HTTPSession::onFrameHeader(HTTPCodec::StreamID streamID,
-                                uint8_t flags,
-                                uint32_t length,
-                                uint8_t type,
-                                uint16_t version) {
-  VLOG(6) << "Frame header received on " << *this << ", streamID=" << streamID
-          << ", flags=" << (int) flags << ", length=" << length
-          << ", type=" << (int) type << ", version=" << (int) version;
-  if (streamID == 0) {
-    return;
-  }
-  HTTPTransaction* txn = findTransaction(streamID);
-  if (!txn) {
-    return;
-  }
-  txn->onIngressFrameHeader(flags, length, type, version);
-}
-
 void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
                            ErrorCode code,
                            std::unique_ptr<folly::IOBuf> debugData) {
@@ -1155,7 +1137,7 @@ void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
   HTTPTransaction* txn = findTransaction(streamID);
   if (txn) {
     // existing txn, change pri
-    txn->onPriorityUpdate(h2Pri, true);
+    txn->onPriorityUpdate(h2Pri);
   } else {
     // virtual node
     txnEgressQueue_.addOrUpdatePriorityNode(streamID, h2Pri);
@@ -1329,7 +1311,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     // upstream picks priority
     if (getHTTP2PrioritiesEnabled()) {
       auto pri = getMessagePriority(&headers);
-      txn->onPriorityUpdate(pri, false);
+      txn->onPriorityUpdate(pri);
     }
   }
 
