@@ -133,7 +133,7 @@ class URL {
     return fragment_;
   }
 
-  std::string makeRelativeURL() noexcept {
+  std::string makeRelativeURL() const noexcept {
     return folly::to<std::string>(
       path_.empty() ? "/" : path_,
       query_.empty() ? "" : folly::to<std::string>('?', query_),
