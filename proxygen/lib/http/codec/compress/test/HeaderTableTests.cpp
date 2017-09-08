@@ -288,4 +288,34 @@ TEST_F(HeaderTableTests, addLargerThanTable) {
   EXPECT_EQ(table.nameIndex("accept-encoding"), 2);
 }
 
+TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
+  HPACKHeader largeHeader("Access-Control-Allow-Credentials", "true");
+  HPACKHeader smallHeader("Accept", "All-Content");
+
+  HeaderTable table(448);
+  CHECK_EQ(table.length(), 14);
+
+  for (uint8_t count = 0; count < 3; count++) {
+    table.add(largeHeader);
+    table.add(smallHeader);
+  } // tail is at index 0
+  CHECK_EQ(table.length(), 14);
+
+  table.add(smallHeader);
+  table.add(smallHeader); // tail is at index 1
+  table.setCapacity(500);
+  table.add(smallHeader);
+  CHECK_EQ(table.length(), 15);
+
+  // Check table is correct after resize
+  CHECK_EQ(table[1], smallHeader);
+  CHECK_EQ(table[2], smallHeader);
+  CHECK_EQ(table[3], smallHeader);
+  CHECK_EQ(table[4], smallHeader);
+  CHECK_EQ(table[5], largeHeader);
+  CHECK_EQ(table[6], smallHeader);
+  CHECK_EQ(table[7], largeHeader);
+  CHECK_EQ(table[8], smallHeader);
+}
+
 }
