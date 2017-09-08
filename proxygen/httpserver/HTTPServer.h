@@ -81,15 +81,11 @@ class HTTPServer final {
   ~HTTPServer();
 
   /**
-   * Bind server to the following addresses. Can be called from any thread.
+   * Configure server to bind to the following addresses.
    *
-   * Throws exception on error (say port is already busy). You can try binding
-   * to different set of ports. Though once it succeeds, it is a FATAL to call
-   * it again.
+   * Actual bind happens in `start` function.
    *
-   * The list is updated in-place to contain final port server bound to if
-   * ephemeral port was given. If the call fails, the list might be partially
-   * updated.
+   * Can be called from any thread.
    */
   void bind(std::vector<IPConfig>& addrs);
 
