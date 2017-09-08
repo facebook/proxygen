@@ -280,6 +280,11 @@ class HTTPCodec {
     return defaultHeaderTableInfo;
   }
 
+  virtual HPACKTableInfo getHPACKTableInfo() const {
+    HPACKTableInfo defaultHPACKTableInfo;
+    return defaultHPACKTableInfo;
+  }
+
   /**
    * Gets the session protocol currently used by the codec. This can be
    * mapped to a string for logging and diagnostic use.

@@ -22,7 +22,10 @@ namespace proxygen {
 
 class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
  public:
-  MockHTTPTransactionTransport() {}
+  MockHTTPTransactionTransport() {
+    EXPECT_CALL(*this, getCodecNonConst())
+      .WillRepeatedly(testing::ReturnRef(mockCodec_));
+  }
   GMOCK_METHOD1_(, noexcept,, pauseIngress, void(HTTPTransaction*));
   GMOCK_METHOD1_(, noexcept,, resumeIngress, void(HTTPTransaction*));
   GMOCK_METHOD1_(, noexcept,, transactionTimeout, void(HTTPTransaction*));
@@ -110,6 +113,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   MOCK_METHOD1(getHTTPPriority,
       folly::Optional<const HTTPMessage::HTTPPriority>(uint8_t level));
 
+  MockHTTPCodec mockCodec_;
 };
 
 class MockHTTPTransaction : public HTTPTransaction {

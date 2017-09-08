@@ -1111,6 +1111,8 @@ class HTTPTransaction :
 
   bool getPrioritySampleSummary(PrioritySampleSummary& summary) const;
 
+  HPACKTableInfo& getHPACKTableInfo();
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
@@ -1122,6 +1124,13 @@ class HTTPTransaction :
    * state needs updating
    */
   void updateHandlerPauseState();
+
+  /**
+   * Update the HPACKTableInfo (tableInfo_) struct
+   */
+  void updateEgressHPACKTableInfo(HPACKTableInfo);
+
+  void updateIngressHPACKTableInfo(HPACKTableInfo);
 
   bool mustQueueIngress() const;
 
@@ -1245,6 +1254,8 @@ class HTTPTransaction :
     HTTPTransactionIngressSM::getNewInstance()};
   WheelTimerInstance timeout_;
   HTTPSessionStats* stats_{nullptr};
+
+  HPACKTableInfo tableInfo_;
 
   /**
    * The recv window and associated data. This keeps track of how many

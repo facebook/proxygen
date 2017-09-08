@@ -170,6 +170,9 @@ void HTTPTransaction::onIngressHeadersComplete(
     transportCallback_->updateHTTPHeaderTableInfo(
         transport_.getCodec().getHeaderTableInfo());
   }
+  if (transport_.getCodec().getProtocol() == CodecProtocol::HTTP_2) {
+    updateIngressHPACKTableInfo(transport_.getCodec().getHPACKTableInfo());
+  }
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::HEADERS_COMPLETE,
@@ -728,7 +731,10 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
     transportCallback_->updateHTTPHeaderTableInfo(
-        transport_.getCodec().getHeaderTableInfo());
+       transport_.getCodec().getHeaderTableInfo());
+  }
+  if (transport_.getCodec().getProtocol() == CodecProtocol::HTTP_2) {
+    updateEgressHPACKTableInfo(transport_.getCodec().getHPACKTableInfo());
   }
   if (eom) {
     CHECK(HTTPTransactionEgressSM::transit(
@@ -1192,6 +1198,28 @@ void HTTPTransaction::updateHandlerPauseState() {
       handler_->onEgressResumed();
     }
   }
+}
+
+void HTTPTransaction::updateIngressHPACKTableInfo(HPACKTableInfo tableInfo) {
+    tableInfo_.ingressHeaderTableSize_ =
+                            tableInfo.ingressHeaderTableSize_;
+    tableInfo_.ingressBytesStored_ =
+                            tableInfo.ingressBytesStored_;
+    tableInfo_.ingressHeadersStored_ =
+                            tableInfo.ingressHeadersStored_;
+}
+
+void HTTPTransaction::updateEgressHPACKTableInfo(HPACKTableInfo tableInfo) {
+  tableInfo_.egressHeaderTableSize_ =
+                            tableInfo.egressHeaderTableSize_;
+  tableInfo_.egressBytesStored_ =
+                            tableInfo.egressBytesStored_;
+  tableInfo_.egressHeadersStored_ =
+                            tableInfo.egressHeadersStored_;
+}
+
+HPACKTableInfo& HTTPTransaction::getHPACKTableInfo() {
+  return tableInfo_;
 }
 
 bool HTTPTransaction::mustQueueIngress() const {

@@ -98,6 +98,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   // HTTPCodec methods
   wangle::HTTPHeaderTableInfo getHeaderTableInfo() const override;
 
+  HPACKTableInfo getHPACKTableInfo() const override;
+
   CodecProtocol getProtocol() const override;
 
   const std::string& getUserAgent() const override;

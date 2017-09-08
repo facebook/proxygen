@@ -38,6 +38,30 @@ struct HPACKTableInfo {
   uint32_t ingressHeaderTableSize_{0};
   uint32_t ingressBytesStored_{0};
   uint32_t ingressHeadersStored_{0};
+
+  HPACKTableInfo(uint32_t egressHeaderTableSize,
+                 uint32_t egressBytesStored,
+                 uint32_t egressHeadersStored,
+                 uint32_t ingressHeaderTableSize,
+                 uint32_t ingressBytesStored,
+                 uint32_t ingressHeadersStored) :
+      egressHeaderTableSize_(egressHeaderTableSize),
+      egressBytesStored_(egressBytesStored),
+      egressHeadersStored_(egressHeadersStored),
+      ingressHeaderTableSize_(ingressHeaderTableSize),
+      ingressBytesStored_(ingressBytesStored),
+      ingressHeadersStored_(ingressHeadersStored) {}
+
+  HPACKTableInfo() {}
+
+  bool operator==(const HPACKTableInfo& tableInfo) const {
+    return egressHeaderTableSize_ == tableInfo.egressHeaderTableSize_ &&
+           egressBytesStored_ == tableInfo.egressBytesStored_ &&
+           egressHeadersStored_ == tableInfo.egressHeadersStored_ &&
+           ingressHeaderTableSize_ == tableInfo.ingressHeaderTableSize_ &&
+           ingressBytesStored_ == tableInfo.ingressBytesStored_ &&
+           ingressHeadersStored_ == tableInfo.ingressHeadersStored_;
+  }
 };
 
 /*
@@ -83,20 +107,29 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
   }
 
   wangle::HTTPHeaderTableInfo getHeaderTableInfo() const {
-    wangle::HTTPHeaderTableInfo headerTableInfo;
-    headerTableInfo.egressHeaderTableSize_ =
-                                  encoder_.getTableSize();
-    headerTableInfo.ingressHeaderTableSize_ =
-                                  decoder_.getTableSize();
-    headerTableInfo.egressBytesStored_ =
-                                  encoder_.getBytesStored();
-    headerTableInfo.ingressBytesStored_ =
-                                  decoder_.getBytesStored();
-    headerTableInfo.egressHeadersStored_ =
-                                  encoder_.getHeadersStored();
-    headerTableInfo.ingressHeadersStored_ =
-                                  decoder_.getHeadersStored();
-    return headerTableInfo;
+     wangle::HTTPHeaderTableInfo headerTableInfo;
+     headerTableInfo.egressHeaderTableSize_ =
+                                   encoder_.getTableSize();
+     headerTableInfo.ingressHeaderTableSize_ =
+                                   decoder_.getTableSize();
+     headerTableInfo.egressBytesStored_ =
+                                   encoder_.getBytesStored();
+     headerTableInfo.ingressBytesStored_ =
+                                   decoder_.getBytesStored();
+     headerTableInfo.egressHeadersStored_ =
+                                   encoder_.getHeadersStored();
+     headerTableInfo.ingressHeadersStored_ =
+                                   decoder_.getHeadersStored();
+     return headerTableInfo;
+   }
+
+  HPACKTableInfo getHPACKTableInfo() const {
+    return HPACKTableInfo(encoder_.getTableSize(),
+                          encoder_.getBytesStored(),
+                          encoder_.getHeadersStored(),
+                          decoder_.getTableSize(),
+                          decoder_.getBytesStored(),
+                          decoder_.getHeadersStored());
   }
 
  protected:

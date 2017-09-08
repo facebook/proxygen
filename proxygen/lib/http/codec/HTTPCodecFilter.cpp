@@ -131,6 +131,10 @@ wangle::HTTPHeaderTableInfo
   return call_->getHeaderTableInfo();
 }
 
+HPACKTableInfo PassThroughHTTPCodecFilter::getHPACKTableInfo() const {
+  return call_->getHPACKTableInfo();
+}
+
 CodecProtocol PassThroughHTTPCodecFilter::getProtocol() const {
   return call_->getProtocol();
 }
