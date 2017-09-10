@@ -165,9 +165,7 @@ class ZlibServerFilter : public Filter {
 
     auto responseContentType =
         msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_TYPE);
-
-    folly::toLowerAscii((char *)responseContentType.data(),
-        responseContentType.size());
+    folly::toLowerAscii(responseContentType);
 
     // Handle  text/html; encoding=utf-8 case
     auto parameter_idx = responseContentType.find(';');
