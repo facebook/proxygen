@@ -35,6 +35,18 @@ enum class HeaderDecodeError : uint8_t {
   EMPTY_HEADER_VALUE = 5,
   INVALID_HEADER_VALUE = 6,
   BAD_SEQUENCE_NUMBER = 7,
+
+  // HPACK specific error codes, starting in the 1xx range
+  INVALID_INDEX = 101,
+  INVALID_HUFFMAN_CODE = 102,
+  INVALID_ENCODING = 103,
+  INTEGER_OVERFLOW = 104,
+  INVALID_TABLE_SIZE = 105,
+  /* HEADERS_TOO_LARGE is 2 */
+  BUFFER_UNDERFLOW = 107,
+  LITERAL_TOO_LARGE = 108,
+  TIMEOUT = 109,
+  CANCELLED = 110
 };
 
 struct HeaderDecodeResult {

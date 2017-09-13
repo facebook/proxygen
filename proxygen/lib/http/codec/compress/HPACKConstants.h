@@ -53,11 +53,11 @@ enum class DecodeError : uint8_t {
   HEADERS_TOO_LARGE = 6,
   BUFFER_UNDERFLOW = 7,
   LITERAL_TOO_LARGE = 8,
+  TIMEOUT = 9,
+  CANCELLED = 10
 };
 
 std::ostream& operator<<(std::ostream& os, DecodeError err);
-
-
 }
 
 }

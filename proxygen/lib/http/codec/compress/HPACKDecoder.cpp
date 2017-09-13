@@ -9,7 +9,6 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 
-#include <algorithm>
 #include <folly/Memory.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
@@ -23,6 +22,33 @@ using std::vector;
 using proxygen::HPACK::DecodeError;
 
 namespace proxygen {
+HeaderDecodeError hpack2headerCodecError(HPACK::DecodeError err) {
+  switch (err) {
+    case HPACK::DecodeError::NONE:
+      return HeaderDecodeError::NONE;
+    case HPACK::DecodeError::INVALID_INDEX:
+      return HeaderDecodeError::INVALID_INDEX;
+    case HPACK::DecodeError::INVALID_HUFFMAN_CODE:
+      return HeaderDecodeError::INVALID_HUFFMAN_CODE;
+    case HPACK::DecodeError::INVALID_ENCODING:
+      return HeaderDecodeError::INVALID_ENCODING;
+    case HPACK::DecodeError::INTEGER_OVERFLOW:
+      return HeaderDecodeError::INTEGER_OVERFLOW;
+    case HPACK::DecodeError::INVALID_TABLE_SIZE:
+      return HeaderDecodeError::INVALID_TABLE_SIZE;
+    case HPACK::DecodeError::HEADERS_TOO_LARGE:
+      return HeaderDecodeError::HEADERS_TOO_LARGE;
+    case HPACK::DecodeError::BUFFER_UNDERFLOW:
+      return HeaderDecodeError::BUFFER_UNDERFLOW;
+    case HPACK::DecodeError::LITERAL_TOO_LARGE:
+      return HeaderDecodeError::LITERAL_TOO_LARGE;
+    case HPACK::DecodeError::TIMEOUT:
+      return HeaderDecodeError::TIMEOUT;
+    case HPACK::DecodeError::CANCELLED:
+      return HeaderDecodeError::CANCELLED;
+  }
+  return HeaderDecodeError::NONE;
+}
 
 unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
   auto headers = std::make_unique<headers_t>();

@@ -106,4 +106,6 @@ class HPACKDecoder : public HPACKContext {
   HeaderCodec::StreamingCallback* streamingCb_{nullptr};
 };
 
+HeaderDecodeError hpack2headerCodecError(HPACK::DecodeError err);
+
 }

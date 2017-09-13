@@ -133,10 +133,7 @@ void HPACKCodec::onDecodeError(HeaderDecodeError /*decodeError*/) {
   if (stats_) {
     stats_->recordDecodeError(Type::HPACK);
   }
-  if (decoder_.getError() == HPACK::DecodeError::HEADERS_TOO_LARGE) {
-    streamingCb_->onDecodeError(HeaderDecodeError::HEADERS_TOO_LARGE);
-  }
-  streamingCb_->onDecodeError(HeaderDecodeError::BAD_ENCODING);
+  streamingCb_->onDecodeError(hpack2headerCodecError(decoder_.getError()));
 }
 
 void HPACKCodec::describe(std::ostream& stream) const {
