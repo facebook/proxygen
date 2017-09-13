@@ -167,8 +167,6 @@ void HTTPTransaction::onIngressHeadersComplete(
   }
   if (transportCallback_) {
     transportCallback_->headerBytesReceived(msg->getIngressHeaderSize());
-    transportCallback_->updateHTTPHeaderTableInfo(
-        transport_.getCodec().getHeaderTableInfo());
   }
   if (transport_.getCodec().getProtocol() == CodecProtocol::HTTP_2) {
     updateIngressHPACKTableInfo(transport_.getCodec().getHPACKTableInfo());
@@ -730,8 +728,6 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
   transport_.sendHeaders(this, headers, &size, eom);
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
-    transportCallback_->updateHTTPHeaderTableInfo(
-       transport_.getCodec().getHeaderTableInfo());
   }
   if (transport_.getCodec().getProtocol() == CodecProtocol::HTTP_2) {
     updateEgressHPACKTableInfo(transport_.getCodec().getHPACKTableInfo());

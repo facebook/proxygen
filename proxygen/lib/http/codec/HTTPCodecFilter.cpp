@@ -126,11 +126,6 @@ uint32_t PassThroughHTTPCodecFilter::numIncomingStreams() const {
 }
 
 // PassThroughHTTPCodec methods
-wangle::HTTPHeaderTableInfo
-  PassThroughHTTPCodecFilter::getHeaderTableInfo() const {
-  return call_->getHeaderTableInfo();
-}
-
 HPACKTableInfo PassThroughHTTPCodecFilter::getHPACKTableInfo() const {
   return call_->getHPACKTableInfo();
 }

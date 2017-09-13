@@ -275,11 +275,6 @@ class HTTPCodec {
    * Gets both the egress and ingress header table size, bytes stored in header
    * table, and the number of headers stored in the header table
   **/
-  virtual wangle::HTTPHeaderTableInfo getHeaderTableInfo() const {
-    wangle::HTTPHeaderTableInfo defaultHeaderTableInfo;
-    return defaultHeaderTableInfo;
-  }
-
   virtual HPACKTableInfo getHPACKTableInfo() const {
     HPACKTableInfo defaultHPACKTableInfo;
     return defaultHPACKTableInfo;

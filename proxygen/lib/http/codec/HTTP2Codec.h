@@ -112,10 +112,6 @@ public:
       uint8_t maxLevel) override;
   HTTPCodec::StreamID mapPriorityToDependency(uint8_t priority) const override;
 
-  wangle::HTTPHeaderTableInfo getHeaderTableInfo() const override {
-      return headerCodec_.getHeaderTableInfo();
-    }
-
   HPACKTableInfo getHPACKTableInfo() const override {
     return headerCodec_.getHPACKTableInfo();
   }
