@@ -120,7 +120,7 @@ TEST_F(HeaderTableTests, reduceCapacity) {
   uint32_t max = 10;
   uint32_t capacity = accept.bytes() * max;
   HeaderTable table(capacity);
-  EXPECT_GT(table.length(), max);
+  EXPECT_LE(table.length(), table.getMaxTableLength(capacity));
 
   // fill the table
   for (size_t i = 0; i < max; i++) {
@@ -166,19 +166,20 @@ TEST_F(HeaderTableTests, increaseCapacity) {
   uint32_t max = 4;
   uint32_t capacity = accept.bytes() * max;
   HeaderTable table(capacity);
-  EXPECT_GT(table.length(), max);
-
+  EXPECT_LE(table.length(), table.getMaxTableLength(capacity));
   // fill the table
-  for (size_t i = 0; i < table.length() + 1; i++) {
+  uint32_t length = table.length() + 1;
+  for (size_t i = 0; i < length; i++) {
     EXPECT_EQ(table.add(accept), true);
   }
   EXPECT_EQ(table.size(), max);
   EXPECT_EQ(table.getIndex(accept), 4);
   // head should be 0, tail should be 2
   max = 8;
-  table.setCapacity(accept.bytes() * max);
+  capacity = accept.bytes() * max;
+  table.setCapacity(capacity);
 
-  EXPECT_GT(table.length(), max);
+  EXPECT_LE(table.length(), table.getMaxTableLength(capacity));
   // external index didn't change
   EXPECT_EQ(table.getIndex(accept), 4);
 
@@ -223,7 +224,7 @@ TEST_F(HeaderTableTests, varyCapacityMalignHeadIndex) {
 
   // Push head_ to last index in underlying table before potential wrap
   // This is our max table size for the duration of the test
-  for (size_t i = 0; i < table.length(); ++i) {
+  for (size_t i = 0; i < table.getMaxTableLength(capacity); ++i) {
     EXPECT_EQ(table.add(accept), true);
   }
   EXPECT_EQ(table.size(), max);
@@ -293,19 +294,18 @@ TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
   HPACKHeader smallHeader("Accept", "All-Content");
 
   HeaderTable table(448);
-  CHECK_EQ(table.length(), 14);
+  CHECK_EQ(table.length(), 7);
 
   for (uint8_t count = 0; count < 3; count++) {
     table.add(largeHeader);
     table.add(smallHeader);
   } // tail is at index 0
-  CHECK_EQ(table.length(), 14);
+  CHECK_EQ(table.length(), 7);
 
   table.add(smallHeader);
   table.add(smallHeader); // tail is at index 1
-  table.setCapacity(500);
-  table.add(smallHeader);
-  CHECK_EQ(table.length(), 15);
+  table.add(smallHeader); // resize on this add
+  CHECK_EQ(table.length(), 10);
 
   // Check table is correct after resize
   CHECK_EQ(table[1], smallHeader);

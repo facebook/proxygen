@@ -219,17 +219,22 @@ TEST_F(HPACKContextTests, decode_errors) {
 }
 
 TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
-  HPACKEncoder encoder{true, 50};
-  HPACKHeader header1("This_really_large_header",
-                      "is_larger_than_the_header_table");
+  HPACKEncoder encoder{true, 128};
+  std::string longer = std::string(150, '.');
+  HPACKHeader header1(longer, "header");
   HPACKHeader header2("Short", "header");
+
+  CHECK_GT(header1.bytes(), 128);
+  CHECK_LT(header2.bytes(), 128);
+
   vector<HPACKHeader> headers;
-  headers.push_back(HPACKHeader("Short", "header"));
-  headers.push_back(HPACKHeader("This_really_large_header",
-                                "is_larger_than_the_header_table"));
+  headers.push_back(std::move(header2));
+  headers.push_back(std::move(header1));
+
   encoder.encode(headers);
-  CHECK_EQ(encoder.getIndex(header1), 0);
-  CHECK_GT(encoder.getIndex(header2), 0);
+
+  CHECK_EQ(encoder.getIndex(headers[1]), 0);
+  CHECK_EQ(encoder.getIndex(headers[0]), 62);
 }
 
 TEST_P(HPACKContextTests, contextUpdate) {

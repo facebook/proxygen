@@ -22,9 +22,9 @@ void HeaderTable::init(uint32_t capacityVal) {
   size_ = 0;
   head_ = 0;
   capacity_ = capacityVal;
-
-  table_.reserve(getMaxTableLength(capacity_));
-  for (uint32_t i = 0; i < getMaxTableLength(capacity_); i++) {
+  uint32_t initLength = getMaxTableLength(capacity_) / 2;
+  table_.reserve(initLength);
+  for (uint32_t i = 0; i < initLength; i++) {
     table_.emplace_back();
   }
   names_.clear();
@@ -45,6 +45,10 @@ bool HeaderTable::add(const HPACKHeader& header) {
     evict(header.bytes(), capacity_);
   }
 
+  if (size_ == length()) {
+    increaseTableLengthTo(std::min( (uint32_t)(size_ * 1.5),
+                                    getMaxTableLength(capacity_)));
+  }
   if (size_ > 0) {
     head_ = next(head_);
   }
@@ -129,33 +133,38 @@ void HeaderTable::setCapacity(uint32_t newCapacity) {
     // NOTE: due to the above lack of resizing, we must determine whether a
     // resize is actually appropriate (to handle cases where the underlying
     // vector is still >= to the size related to the new capacity requested)
-    uint32_t newLength = getMaxTableLength(newCapacity);
+    uint32_t newLength = getMaxTableLength(newCapacity) / 2;
     if (newLength > table_.size()) {
-      auto oldTail = tail();
-      auto oldLength = table_.size();
-      table_.resize(newLength);
-      if (size_ > 0 && oldTail > head_) {
-        // the list wrapped around, need to move oldTail..oldLength to the end
-        // of the now-larger table_
-        std::move_backward(table_.begin() + oldTail, table_.begin() + oldLength,
-                  table_.begin() + newLength);
-        // Update the names indecies that pointed to the old range
-        for (auto& names_it: names_) {
-          for (auto& idx: names_it.second) {
-            if (idx >= oldTail) {
-              DCHECK_LT(idx + (table_.size() - oldLength), table_.size());
-              idx += (table_.size() - oldLength);
-            } else {
-              // remaining indecies in the list were smaller than oldTail, so
-              // should be indexed from 0
-              break;
-            }
-          }
+      increaseTableLengthTo(newLength);
+    }
+  }
+  capacity_ = newCapacity;
+}
+
+void HeaderTable::increaseTableLengthTo(uint32_t newLength) {
+  DCHECK_GE(newLength, length());
+  auto oldTail = tail();
+  auto oldLength = table_.size();
+  table_.resize(newLength);
+  if (size_ > 0 && oldTail > head_) {
+    // the list wrapped around, need to move oldTail..oldLength to the end
+    // of the now-larger table_
+    std::move_backward(table_.begin() + oldTail, table_.begin() + oldLength,
+              table_.begin() + newLength);
+    // Update the names indecies that pointed to the old range
+    for (auto& names_it: names_) {
+      for (auto& idx: names_it.second) {
+        if (idx >= oldTail) {
+          DCHECK_LT(idx + (table_.size() - oldLength), table_.size());
+          idx += (table_.size() - oldLength);
+        } else {
+          // remaining indecies in the list were smaller than oldTail, so
+          // should be indexed from 0
+          break;
         }
       }
     }
   }
-  capacity_ = newCapacity;
 }
 
 uint32_t HeaderTable::evict(uint32_t needed, uint32_t desiredCapacity) {

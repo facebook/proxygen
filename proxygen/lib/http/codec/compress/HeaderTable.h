@@ -95,6 +95,12 @@ class HeaderTable {
   }
 
   /**
+  * Returns the maximum table length required to support HPACK headers given
+  * the specified capacity bytes
+  */
+  uint32_t getMaxTableLength(uint32_t capacityVal);
+
+  /**
    * Sets the current capacity of the header table, and evicts entries
    * if needed.
    */
@@ -134,11 +140,10 @@ class HeaderTable {
 
  private:
 
-  /**
-  * Returns the maximum table length required to support HPACK headers given
-  * the specified capacity bytes
-  */
-  uint32_t getMaxTableLength(uint32_t capacityVal);
+  /*
+   * Increase table length to newLength
+   */
+  void increaseTableLengthTo(uint32_t newLength);
 
   /**
    * Removes one header entry from the beginning of the header table.
