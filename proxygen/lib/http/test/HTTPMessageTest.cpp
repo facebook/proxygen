@@ -489,3 +489,49 @@ TEST(HTTPMessage, TestCheckForHeaderToken) {
   EXPECT_FALSE(msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "http2-settings",
                                        true));
 }
+
+TEST(HTTPMessage, TestIsCommonHeaderNameFromTable) {
+  // The first two hardcoded headers are not considered actual common headers
+  EXPECT_FALSE(
+    HTTPCommonHeaders::isHeaderNameFromTable(
+      HTTPCommonHeaders::getPointerToHeaderName(HTTP_HEADER_NONE)));
+  EXPECT_FALSE(
+    HTTPCommonHeaders::isHeaderNameFromTable(
+      HTTPCommonHeaders::getPointerToHeaderName(HTTP_HEADER_OTHER)));
+
+  // Verify that the first actual common header in the address table checks out
+  // Assuming there is at least one common header in the table (first two
+  // entries are HTTP_HEADER_NONE and HTTP_HEADER_OTHER)
+  if (HTTPCommonHeaders::num_header_codes > HTTPHeaderCodeCommonOffset) {
+    EXPECT_TRUE(
+      HTTPCommonHeaders::isHeaderNameFromTable(
+        HTTPCommonHeaders::getPointerToHeaderName(
+          static_cast<HTTPHeaderCode>(HTTPHeaderCodeCommonOffset + 1))));
+
+    // Verify that the last header in the common address table checks out
+    EXPECT_TRUE(
+      HTTPCommonHeaders::isHeaderNameFromTable(
+        HTTPCommonHeaders::getPointerToHeaderName(
+          static_cast<HTTPHeaderCode>(
+            HTTPCommonHeaders::num_header_codes - 1))));
+  }
+
+  // Verify that a random header is not identified as being part of the common
+  // address table
+  std::string externalHeader = "externalHeader";
+  EXPECT_FALSE(HTTPCommonHeaders::isHeaderNameFromTable(&externalHeader));
+}
+
+TEST(HTTPMessage, TestGetHeaderCodeFromTableCommonHeaderName) {
+  for (uint64_t j = HTTPHeaderCodeCommonOffset;
+       j < HTTPCommonHeaders::num_header_codes; ++j) {
+    HTTPHeaderCode code = static_cast<HTTPHeaderCode>(j);
+    EXPECT_TRUE(
+      code ==
+      HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
+        HTTPCommonHeaders::getPointerToHeaderName(code)));
+  }
+  std::string externalHeader = "externalHeader";
+  EXPECT_TRUE(HTTP_HEADER_OTHER ==
+    HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(&externalHeader));
+}

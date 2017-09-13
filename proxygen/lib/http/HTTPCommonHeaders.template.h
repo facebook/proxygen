@@ -41,6 +41,8 @@ enum HTTPHeaderCode : uint8_t {
 
 };
 
+const uint8_t HTTPHeaderCodeCommonOffset = 2;
+
 class HTTPCommonHeaders {
  public:
   // Perfect hash function to match common HTTP header names
@@ -53,10 +55,37 @@ class HTTPCommonHeaders {
   FB_EXPORT static std::string* initHeaderNames();
 $$$$$
 
-  inline static const std::string* getPointerToHeaderName(HTTPHeaderCode code) {
-    static const auto headerNames = initHeaderNames();
+  inline static const std::string* getPointerToCommonHeaderTable() {
+    static const std::string* headerTable =
+      HTTPCommonHeaders::initHeaderNames();
+    return headerTable;
+  }
 
-    return headerNames + code;
+  inline static const std::string* getPointerToHeaderName(HTTPHeaderCode code) {
+    return getPointerToCommonHeaderTable() + code;
+  }
+
+  inline static bool isHeaderNameFromTable(const std::string* headerName) {
+    return getHeaderCodeFromTableCommonHeaderName(headerName) >=
+      HTTPHeaderCodeCommonOffset;
+  }
+
+  // This method supplements hash().  If dealing with string pointers, some
+  // pointing to entries in the the common header name table and some not, this
+  // method can be used in place of hash to reverse map a string from the common
+  // header name table to its HTTPHeaderCode
+  inline static HTTPHeaderCode getHeaderCodeFromTableCommonHeaderName(
+      const std::string* headerName) {
+    if (headerName == nullptr) {
+      return HTTP_HEADER_NONE;
+    } else {
+      auto diff = headerName - getPointerToCommonHeaderTable();
+      if (diff >= HTTPHeaderCodeCommonOffset && diff < (long)num_header_codes) {
+        return static_cast<HTTPHeaderCode>(diff);
+      } else {
+        return HTTP_HEADER_OTHER;
+      }
+    }
   }
 };
 
