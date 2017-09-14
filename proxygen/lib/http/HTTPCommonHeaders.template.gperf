@@ -5,6 +5,8 @@
 
 #include <cstring>
 
+#include <folly/String.h>
+
 #include <glog/logging.h>
 
 namespace proxygen {
@@ -40,7 +42,7 @@ HTTPHeaderCode HTTPCommonHeaders::hash(const char* name, size_t len) {
   return (match == nullptr) ? HTTP_HEADER_OTHER : HTTPHeaderCode(match->code);
 }
 
-std::string* HTTPCommonHeaders::initHeaderNames() {
+std::string* HTTPCommonHeaders::initHeaderNames(bool lowercase) {
   auto headerNames = new std::string[HTTPCommonHeaders::num_header_codes];
   for (int j = MIN_HASH_VALUE; j <= MAX_HASH_VALUE; ++j) {
     uint8_t code = wordlist[j].code;
@@ -49,8 +51,11 @@ std::string* HTTPCommonHeaders::initHeaderNames() {
                        && wordlist[j].name[0] != '\0') {
       DCHECK_EQ(headerNames[code], std::string());
       // this would mean a duplicate header code in the .gperf file
-
       headerNames[code] = wordlist[j].name;
+      if (lowercase) {
+        folly::toLowerAscii(const_cast<char*>(headerNames[code].data()),
+                                              headerNames[code].size());
+      }
     }
   }
   return headerNames;

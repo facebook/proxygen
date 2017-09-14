@@ -52,22 +52,25 @@ class HTTPCommonHeaders {
     return hash(name.data(), name.length());
   }
 
-  FB_EXPORT static std::string* initHeaderNames();
+  FB_EXPORT static std::string* initHeaderNames(bool lowercase);
 $$$$$
 
-  inline static const std::string* getPointerToCommonHeaderTable() {
-    static const std::string* headerTable =
-      HTTPCommonHeaders::initHeaderNames();
-    return headerTable;
+  inline static const std::string* getPointerToCommonHeaderTable(
+      bool lowercase) {
+    if (lowercase) {
+      static const std::string* lowercaseNames =
+          HTTPCommonHeaders::initHeaderNames(true);
+      return lowercaseNames;
+    } else {
+      static const std::string* camelcaseNames =
+          HTTPCommonHeaders::initHeaderNames(false);
+      return camelcaseNames;
+    }
   }
 
-  inline static const std::string* getPointerToHeaderName(HTTPHeaderCode code) {
-    return getPointerToCommonHeaderTable() + code;
-  }
-
-  inline static bool isHeaderNameFromTable(const std::string* headerName) {
-    return getHeaderCodeFromTableCommonHeaderName(headerName) >=
-      HTTPHeaderCodeCommonOffset;
+  inline static const std::string* getPointerToHeaderName(HTTPHeaderCode code,
+      bool lowercase = false) {
+    return getPointerToCommonHeaderTable(lowercase) + code;
   }
 
   // This method supplements hash().  If dealing with string pointers, some
@@ -75,11 +78,11 @@ $$$$$
   // method can be used in place of hash to reverse map a string from the common
   // header name table to its HTTPHeaderCode
   inline static HTTPHeaderCode getHeaderCodeFromTableCommonHeaderName(
-      const std::string* headerName) {
+      const std::string* headerName, bool lowercase = false) {
     if (headerName == nullptr) {
       return HTTP_HEADER_NONE;
     } else {
-      auto diff = headerName - getPointerToCommonHeaderTable();
+      auto diff = headerName - getPointerToCommonHeaderTable(lowercase);
       if (diff >= HTTPHeaderCodeCommonOffset && diff < (long)num_header_codes) {
         return static_cast<HTTPHeaderCode>(diff);
       } else {
@@ -87,6 +90,13 @@ $$$$$
       }
     }
   }
+
+  inline static bool isHeaderNameFromTable(const std::string* headerName,
+      bool lowercase = false) {
+    return getHeaderCodeFromTableCommonHeaderName(headerName, lowercase) >=
+      HTTPHeaderCodeCommonOffset;
+  }
+
 };
 
 } // proxygen
