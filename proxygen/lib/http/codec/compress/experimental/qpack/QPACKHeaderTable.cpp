@@ -51,7 +51,7 @@ bool QPACKHeaderTable::add(const HPACKHeader& header, uint32_t index) {
   std::tie(it, inserted) = table_.emplace(
     std::piecewise_construct,
     std::forward_as_tuple(index),
-    std::forward_as_tuple(header.name, header.value));
+    std::forward_as_tuple(header.name.get(), header.value));
   folly::Bits<uint64_t>::clear(availIndexes_.begin(), index - 1);
   // index name
   it->second.refCount = 1;
@@ -73,12 +73,12 @@ uint32_t QPACKHeaderTable::getIndexRef(const HPACKHeader& header) {
   return getIndexImpl(header.name, header.value, true, true);
 }
 
-uint32_t QPACKHeaderTable::nameIndexRef(const std::string& name) {
+uint32_t QPACKHeaderTable::nameIndexRef(const HPACKHeaderName& name) {
   std::string empty_string;
   return getIndexImpl(name, empty_string, false, true);
 }
 
-uint32_t QPACKHeaderTable::getIndexImpl(const std::string& name,
+uint32_t QPACKHeaderTable::getIndexImpl(const HPACKHeaderName& name,
                                         const std::string& value,
                                         bool checkValue, bool takeRef) {
   auto nameIt = names_.find(name);
@@ -193,7 +193,7 @@ folly::Optional<HPACKHeader> QPACKHeaderTable::maybeRemoveIndex(
   return folly::Optional<HPACKHeader>(std::move(header));
 }
 
-bool QPACKHeaderTable::hasName(const std::string& name) {
+bool QPACKHeaderTable::hasName(const HPACKHeaderName& name) {
   return names_.find(name) != names_.end();
 }
 

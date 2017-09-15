@@ -127,7 +127,7 @@ bool QPACKDecoder::isValid(uint32_t index) {
 
 void QPACKDecoder::emit(DecodeRequestHandle dreq, const HPACKHeader& header) {
   // would be nice to std::move here
-  dreq->cb->onHeader(header.name, header.value);
+  dreq->cb->onHeader(header.name.get(), header.value);
   dreq->decodedSize.uncompressed += header.bytes();
   dreq->pending--;
   checkComplete(dreq);
@@ -209,7 +209,9 @@ void QPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
     // skip current byte
     dbuf.next();
     HPACKHeader header;
-    dreq->err = dbuf.decodeLiteral(header.name);
+    std::string headerName;
+    dreq->err = dbuf.decodeLiteral(headerName);
+    header.name = headerName;
     if (dreq->hasError()) {
       LOG(ERROR) << "Error decoding header name err=" << dreq->err;
       return;
@@ -224,7 +226,7 @@ void QPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
   if (dreq->hasError()) {
     LOG(ERROR) << "Error decoding header value name=" <<
       ((nameFuture.isReady()) ?
-       nameFuture.value().ref.name :
+       nameFuture.value().ref.name.get() :
        folly::to<string>("pending=", nameIndex)) <<
       " err=" << dreq->err;
     return;

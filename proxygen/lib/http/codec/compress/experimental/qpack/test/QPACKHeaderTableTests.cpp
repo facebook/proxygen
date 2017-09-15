@@ -24,14 +24,15 @@ class QPACKHeaderTableTests : public testing::Test {
 };
 
 TEST_F(QPACKHeaderTableTests, add) {
+  HPACKHeaderName acceptEncoding("accept-encoding");
   EXPECT_TRUE(table.add(HPACKHeader("accept-encoding", "gzip"), 1));
   EXPECT_TRUE(table.add(HPACKHeader("accept-encoding", "gzip"), 2));
   EXPECT_TRUE(table.add(HPACKHeader("accept-encoding", "gzip"), 3));
   EXPECT_EQ(table.names().size(), 1);
-  EXPECT_EQ(table.hasName("accept-encoding"), true);
-  auto it = table.names().find("accept-encoding");
+  EXPECT_EQ(table.hasName(acceptEncoding), true);
+  auto it = table.names().find(acceptEncoding);
   EXPECT_EQ(it->second.size(), 3);
-  EXPECT_EQ(table.nameIndexRef("accept-encoding"), 1);
+  EXPECT_EQ(table.nameIndexRef(acceptEncoding), 1);
   EXPECT_EQ(table.getIndex(HPACKHeader("blarf", "blarg")), 0);
 }
 
@@ -54,7 +55,7 @@ TEST_F(QPACKHeaderTableTests, addExceedCapacity) {
 TEST_F(QPACKHeaderTableTests, encodeDecode) {
   EXPECT_TRUE(table.add(HPACKHeader("accept-encoding", "gzip"), 1));
   EXPECT_EQ(table.getIndexRef(HPACKHeader("accept-encoding", "gzip")), 1);
-  EXPECT_EQ(table.nameIndexRef("accept-encoding"), 1);
+  EXPECT_EQ(table.nameIndexRef(HPACKHeaderName("accept-encoding")), 1);
 
   QPACKHeaderTable decoderTable(4096);
   uint32_t decoded = 0;
@@ -253,6 +254,6 @@ TEST_F(QPACKHeaderTableTests, print) {
   t.add(HPACKHeader("Accept-Encoding", "gzip"), 1);
   out << t;
   EXPECT_EQ(out.str(),
-  "\n[1] (s=51) Accept-Encoding: gzip\ntotal size: 51\n");
+  "\n[1] (s=51) accept-encoding: gzip\ntotal size: 51\n");
 }
 }

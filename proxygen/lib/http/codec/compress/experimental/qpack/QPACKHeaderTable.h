@@ -26,7 +26,7 @@ namespace proxygen {
 class QPACKHeaderTable {
  public:
 
-  using names_map = std::unordered_map<std::string, std::list<uint32_t>>;
+  using names_map = std::unordered_map<HPACKHeaderName, std::list<uint32_t>>;
 
   explicit QPACKHeaderTable(uint32_t capacityVal) {
     init(capacityVal);
@@ -64,7 +64,7 @@ class QPACKHeaderTable {
    * headers with the given name we pick the last one added to the header
    * table, but the way we pick the header can be arbitrary.
    */
-  uint32_t nameIndexRef(const std::string& name);
+  uint32_t nameIndexRef(const HPACKHeaderName& name);
 
   std::pair<uint32_t, uint32_t> evictNext();
 
@@ -136,7 +136,7 @@ class QPACKHeaderTable {
   /**
    * @return true if there is at least one header with the given name
    */
-  bool hasName(const std::string& name);
+  bool hasName(const HPACKHeaderName& name);
 
   /**
    * @return the map holding the indexed names
@@ -204,7 +204,7 @@ class QPACKHeaderTable {
   IndexPromises& getPromisesForIndex(uint32_t index);
 
   folly::Optional<HPACKHeader> maybeRemoveIndex(Table::iterator it);
-  uint32_t getIndexImpl(const std::string& name,
+  uint32_t getIndexImpl(const HPACKHeaderName& name,
                         const std::string& value,
                         bool checkValue, bool takeRef);
 

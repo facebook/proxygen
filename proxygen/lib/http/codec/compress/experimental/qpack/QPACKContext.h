@@ -34,7 +34,7 @@ class QPACKContext {
    *
    * @return 0 if name not found
    */
-  virtual uint32_t nameIndex(const std::string& name);
+  virtual uint32_t nameIndex(const HPACKHeaderName& name);
 
   /**
    * @return true if the given index points to a static header entry

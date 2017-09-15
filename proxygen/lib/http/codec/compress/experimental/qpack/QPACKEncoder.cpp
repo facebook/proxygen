@@ -101,7 +101,7 @@ void QPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
     buffer_.encodeInteger(nameIdx, prefix, len);
   } else {
     buffer_.encodeInteger(0, prefix, len);
-    buffer_.encodeLiteral(header.name);
+    buffer_.encodeLiteral(header.name.get());
   }
   // value
   buffer_.encodeLiteral(header.value);

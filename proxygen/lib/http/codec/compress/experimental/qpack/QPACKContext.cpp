@@ -31,7 +31,7 @@ uint32_t QPACKContext::getIndex(const HPACKHeader& header) {
   return 0;
 }
 
-uint32_t QPACKContext::nameIndex(const string& name) {
+uint32_t QPACKContext::nameIndex(const HPACKHeaderName& name) {
   uint32_t index = getStaticTable().nameIndex(name);
   if (index) {
     return staticToGlobalIndex(index);

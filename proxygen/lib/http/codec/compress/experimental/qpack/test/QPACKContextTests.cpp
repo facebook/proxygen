@@ -90,8 +90,8 @@ TEST_F(QPACKContextTests, static_table) {
   // there are 61 entries in the spec
   CHECK_EQ(table.size(), 61);
   CHECK_EQ(methodPost, HPACKHeader(":method", "POST"));
-  CHECK_EQ(first.name, ":authority");
-  CHECK_EQ(last.name, "www-authenticate");
+  CHECK_EQ(first.name.get(), ":authority");
+  CHECK_EQ(last.name.get(), "www-authenticate");
 }
 
 TEST_F(QPACKContextTests, static_index) {
