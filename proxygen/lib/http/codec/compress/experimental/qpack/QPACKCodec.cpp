@@ -1,0 +1,85 @@
+/*
+ *  Copyright (c) 2017, Facebook, Inc.
+ *  All rights reserved.
+ *
+ *  This source code is licensed under the BSD-style license found in the
+ *  LICENSE file in the root directory of this source tree. An additional grant
+ *  of patent rights can be found in the PATENTS file in the same directory.
+ *
+ */
+#include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKCodec.h>
+
+#include <algorithm>
+#include <folly/String.h>
+#include <folly/io/Cursor.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <iosfwd>
+
+using folly::IOBuf;
+using folly::io::Cursor;
+using proxygen::compress::Header;
+using proxygen::compress::HeaderPiece;
+using proxygen::compress::HeaderPieceList;
+using std::unique_ptr;
+using std::vector;
+
+namespace proxygen {
+
+QPACKCodec::QPACKCodec()
+    : encoder_(true),
+      decoder_(*this, HPACK::kTableSize, maxUncompressed_) {
+}
+
+Result<HeaderDecodeResult, HeaderDecodeError>
+QPACKCodec::decode(folly::io::Cursor&, uint32_t) noexcept {
+  // we have to implement this for now because we inherit from HeaderCodec, but
+  // only support the streaming interface for asynchrony.
+  return HeaderDecodeError::BAD_ENCODING;
+}
+
+unique_ptr<IOBuf> QPACKCodec::encode(vector<Header>& headers) noexcept {
+  vector<HPACKHeader> converted;
+  // convert to HPACK API format
+  uint32_t uncompressed = 0;
+  for (const auto& h : headers) {
+    converted.emplace_back(*h.name, *h.value);
+    // This is ugly but since we're not changing the size
+    // of the string I'm assuming this is OK
+    auto& header = converted.back();
+    char* mutableName = const_cast<char*>(header.name.data());
+    folly::toLowerAscii(mutableName, header.name.size());
+
+    uncompressed += header.name.size() + header.value.size() + 2;
+  }
+  auto buf = encoder_.encode(converted, encodeHeadroom_);
+  encodedSize_.compressed = 0;
+  if (buf) {
+    encodedSize_.compressed = buf->computeChainDataLength();
+  }
+  encodedSize_.uncompressed = uncompressed;
+  if (stats_) {
+    stats_->recordEncode(Type::HPACK, encodedSize_);
+  }
+  return buf;
+}
+
+void QPACKCodec::decodeStreaming(
+    Cursor& cursor,
+    uint32_t length,
+    HeaderCodec::StreamingCallback* streamingCb) noexcept {
+  if (!decoder_.decodeStreaming(cursor, length, streamingCb)) {
+    holBlockCount_++;
+  }
+}
+
+void QPACKCodec::describe(std::ostream& stream) const {
+  stream << "DecoderTable:\n" << decoder_;
+  stream << "EncoderTable:\n" << encoder_;
+}
+
+std::ostream& operator<<(std::ostream& os, const QPACKCodec& codec) {
+  codec.describe(os);
+  return os;
+}
+
+}
