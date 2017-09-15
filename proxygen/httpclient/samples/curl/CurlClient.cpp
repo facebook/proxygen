@@ -7,7 +7,7 @@
 #include <folly/String.h>
 #include <folly/io/async/SSLContext.h>
 #include <folly/io/async/SSLOptions.h>
-#include <gflags/gflags.h>
+#include <folly/portability/GFlags.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
@@ -84,8 +84,12 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   }
 
   session->setFlowControl(recvWindow_, recvWindow_, recvWindow_);
+  sendRequest(session->newTransaction(this));
+  session->closeWhenIdle();
+}
 
-  txn_ = session->newTransaction(this);
+void CurlClient::sendRequest(HTTPTransaction* txn) {
+  txn_ = txn;
   request_.setMethod(httpMethod_);
   request_.setHTTPVersion(1, 1);
   if (proxy_) {
@@ -137,7 +141,6 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   // at all.
 
   txn_->sendEOM();
-  session->closeWhenIdle();
 }
 
 void CurlClient::connectError(const folly::AsyncSocketException& ex) {

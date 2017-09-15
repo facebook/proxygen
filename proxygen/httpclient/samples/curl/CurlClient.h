@@ -54,6 +54,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   void onEgressPaused() noexcept override;
   void onEgressResumed() noexcept override;
 
+  void sendRequest(proxygen::HTTPTransaction* txn);
+
   // Getters
   folly::SSLContextPtr getSSLContext() { return sslContext_; }
 
