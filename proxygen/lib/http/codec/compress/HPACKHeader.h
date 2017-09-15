@@ -12,6 +12,7 @@
 #include <folly/Conv.h>
 #include <ostream>
 #include <string>
+#include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
 
 namespace proxygen {
 
@@ -84,7 +85,7 @@ class HPACKHeader {
    */
   bool isIndexable() const;
 
-  std::string name;
+  HPACKHeaderName name;
   std::string value;
 
   static bool sAllowPathIndexing;

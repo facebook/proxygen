@@ -55,14 +55,14 @@ bool HeaderTable::add(const HPACKHeader& header) {
   table_[head_].name = header.name;
   table_[head_].value = header.value;
   // index name
-  names_[header.name].push_back(head_);
+  names_[header.name.get()].push_back(head_);
   bytes_ += header.bytes();
   ++size_;
   return true;
 }
 
 uint32_t HeaderTable::getIndex(const HPACKHeader& header) const {
-  auto it = names_.find(header.name);
+  auto it = names_.find(header.name.get());
   if (it == names_.end()) {
     return 0;
   }
@@ -101,7 +101,7 @@ uint32_t HeaderTable::getMaxTableLength(uint32_t capacityVal) {
 void HeaderTable::removeLast() {
   auto t = tail();
   // remove the first element from the names index
-  auto names_it = names_.find(table_[t].name);
+  auto names_it = names_.find(table_[t].name.get());
   DCHECK(names_it != names_.end());
   list<uint32_t> &ilist = names_it->second;
   DCHECK(ilist.front() ==t);

@@ -14,7 +14,7 @@ namespace proxygen {
 bool HPACKHeader::sAllowPathIndexing{true};
 
 bool HPACKHeader::isIndexable() const {
-  if (name == ":path") {
+  if (name.get() == ":path") {
     // no URL params
     if (!sAllowPathIndexing) {
       return false;
@@ -25,9 +25,9 @@ bool HPACKHeader::isIndexable() const {
     if (value.find("jpg") != std::string::npos) {
       return false;
     }
-  } else if (name == "content-length" ||
-             name == "if-modified-since" ||
-             name == "last-modified") {
+  } else if (name.get() == "content-length" ||
+             name.get() == "if-modified-since" ||
+             name.get() == "last-modified") {
     return false;
   }
   return true;

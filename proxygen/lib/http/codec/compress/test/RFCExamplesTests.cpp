@@ -168,7 +168,7 @@ TEST_P(RFCResponseTest, rfc_example_response) {
   EXPECT_EQ(encoded->moveToFbString(), unhexlify(GetParam().second[0]));
   EXPECT_EQ(encoder.getTable().bytes(), 222);
   EXPECT_EQ(encoder.getTable().size(), 4);
-  EXPECT_EQ(encoder.getHeader(64).name, "cache-control");
+  EXPECT_EQ(encoder.getHeader(64).name.get(), "cache-control");
   EXPECT_EQ(encoder.getHeader(64).value, "private");
 
   // second

@@ -69,8 +69,8 @@ TEST_F(HPACKContextTests, static_table) {
   // there are 61 entries in the spec
   CHECK_EQ(table.size(), 61);
   CHECK_EQ(table[3], HPACKHeader(":method", "POST"));
-  CHECK_EQ(table[1].name, ":authority");
-  CHECK_EQ(table[table.size()].name, "www-authenticate");
+  CHECK_EQ(table[1].name.get(), ":authority");
+  CHECK_EQ(table[table.size()].name.get(), "www-authenticate");
 }
 
 TEST_F(HPACKContextTests, static_index) {

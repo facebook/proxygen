@@ -158,7 +158,7 @@ TEST_F(HeaderTableTests, print) {
   t.add(HPACKHeader("Accept-Encoding", "gzip"));
   out << t;
   EXPECT_EQ(out.str(),
-  "\n[1] (s=51) Accept-Encoding: gzip\ntotal size: 51\n");
+  "\n[1] (s=51) accept-encoding: gzip\ntotal size: 51\n");
 }
 
 TEST_F(HeaderTableTests, increaseCapacity) {

@@ -59,12 +59,12 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
     HPACK::HeaderEncoding::LITERAL_NO_INDEXING;
   uint8_t len = indexing ? 6 : 4;
   // name
-  uint32_t index = nameIndex(header.name);
+  uint32_t index = nameIndex(header.name.get());
   if (index) {
     buffer_.encodeInteger(index, prefix, len);
   } else {
     buffer_.encodeInteger(0, prefix, len);
-    buffer_.encodeLiteral(header.name);
+    buffer_.encodeLiteral(header.name.get());
   }
   // value
   buffer_.encodeLiteral(header.value);

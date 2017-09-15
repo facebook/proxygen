@@ -157,7 +157,9 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
   } else {
     // skip current byte
     dbuf.next();
-    err_ = dbuf.decodeLiteral(header.name);
+    std::string headerName;
+    err_ = dbuf.decodeLiteral(headerName);
+    header.name = std::move(headerName);
     if (err_ != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "Error decoding header name err_=" << err_;
       return 0;
@@ -225,10 +227,10 @@ uint32_t HPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf,
 
 uint32_t HPACKDecoder::emit(const HPACKHeader& header, headers_t* emitted) {
   if (streamingCb_) {
-    streamingCb_->onHeader(header.name, header.value);
+    streamingCb_->onHeader(header.name.get(), header.value);
   } else if (emitted) {
     // copying HPACKHeader
-    emitted->emplace_back(header.name, header.value);
+    emitted->emplace_back(header.name.get(), header.value);
   }
   return header.bytes();
 }
