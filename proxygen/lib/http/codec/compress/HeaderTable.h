@@ -25,8 +25,7 @@ namespace proxygen {
 
 class HeaderTable {
  public:
-
-  typedef std::unordered_map<std::string, std::list<uint32_t>> names_map;
+  typedef std::unordered_map<HPACKHeaderName, std::list<uint32_t>> names_map;
 
   explicit HeaderTable(uint32_t capacityVal) {
     init(capacityVal);
@@ -71,7 +70,7 @@ class HeaderTable {
   /**
    * @return true if there is at least one header with the given name
    */
-  bool hasName(const std::string& name);
+  bool hasName(const HPACKHeaderName& headerName);
 
   /**
    * @return the map holding the indexed names
@@ -85,7 +84,7 @@ class HeaderTable {
    * headers with the given name we pick the last one added to the header
    * table, but the way we pick the header can be arbitrary.
    */
-  uint32_t nameIndex(const std::string& name) const;
+  uint32_t nameIndex(const HPACKHeaderName& headerName) const;
 
   /**
    * Table capacity, or maximum number of bytes we can hold.

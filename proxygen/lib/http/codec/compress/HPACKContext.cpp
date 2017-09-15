@@ -31,12 +31,12 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
   return 0;
 }
 
-uint32_t HPACKContext::nameIndex(const string& name) const {
-  uint32_t index = getStaticTable().nameIndex(name);
+uint32_t HPACKContext::nameIndex(const HPACKHeaderName& headerName) const {
+  uint32_t index = getStaticTable().nameIndex(headerName);
   if (index) {
     return staticToGlobalIndex(index);
   }
-  index = table_.nameIndex(name);
+  index = table_.nameIndex(headerName);
   if (index) {
     return dynamicToGlobalIndex(index);
   }

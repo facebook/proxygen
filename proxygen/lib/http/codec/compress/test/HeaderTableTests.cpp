@@ -67,17 +67,19 @@ TEST_F(HeaderTableTests, index_translation) {
 
 TEST_F(HeaderTableTests, add) {
   HeaderTable table(4096);
-  table.add(HPACKHeader("accept-encoding", "gzip"));
-  table.add(HPACKHeader("accept-encoding", "gzip"));
-  table.add(HPACKHeader("accept-encoding", "gzip"));
+  HPACKHeader header("accept-encoding", "gzip");
+  table.add(header);
+  table.add(header);
+  table.add(header);
   EXPECT_EQ(table.names().size(), 1);
-  EXPECT_EQ(table.hasName("accept-encoding"), true);
-  auto it = table.names().find("accept-encoding");
+  EXPECT_EQ(table.hasName(header.name), true);
+  auto it = table.names().find(header.name);
   EXPECT_EQ(it->second.size(), 3);
-  EXPECT_EQ(table.nameIndex("accept-encoding"), 1);
+  EXPECT_EQ(table.nameIndex(header.name), 1);
 }
 
 TEST_F(HeaderTableTests, evict) {
+  HPACKHeaderName name("accept-encoding");
   HPACKHeader accept("accept-encoding", "gzip");
   HPACKHeader accept2("accept-encoding", "----"); // same size, different header
   HPACKHeader accept3("accept-encoding", "third"); // size is larger with 1 byte
@@ -92,7 +94,7 @@ TEST_F(HeaderTableTests, evict) {
   EXPECT_EQ(table.add(accept2), true);
   // evict the first one
   EXPECT_EQ(table[1], accept2);
-  auto ilist = table.names().find("accept-encoding")->second;
+  auto ilist = table.names().find(name)->second;
   EXPECT_EQ(ilist.size(), max);
   // evict all the 'accept' headers
   for (size_t i = 0; i < max - 1; i++) {
@@ -264,6 +266,7 @@ TEST_F(HeaderTableTests, addLargerThanTable) {
   // Construct a smallish table
   uint32_t capacityBytes = 256;
   HeaderTable table(capacityBytes);
+  HPACKHeaderName name("accept-encoding");
   table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 0
   table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 1
   table.add(HPACKHeader("test-encoding", "gzip"));    // internal index = 2
@@ -280,13 +283,13 @@ TEST_F(HeaderTableTests, addLargerThanTable) {
   table.add(HPACKHeader("test-encoding", "gzip"));    // internal index = 5
   EXPECT_EQ(table.names().size(), 2);
 
-  EXPECT_EQ(table.hasName("accept-encoding"), true);
-  auto it = table.names().find("accept-encoding");
+  EXPECT_EQ(table.hasName(name), true);
+  auto it = table.names().find(name);
   EXPECT_EQ(it->second.size(), 2);
   // As nameIndex takes the last index added, we have head = 5, index = 4
   // and so yields a difference of one and as external indexing is 1 based,
   // we expect 2 here
-  EXPECT_EQ(table.nameIndex("accept-encoding"), 2);
+  EXPECT_EQ(table.nameIndex(name), 2);
 }
 
 TEST_F(HeaderTableTests, increaseLengthOfFullTable) {

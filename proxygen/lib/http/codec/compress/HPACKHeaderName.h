@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <iostream>
 #include <boost/variant.hpp>
@@ -217,3 +218,14 @@ inline std::ostream& operator<<(std::ostream& os, const HPACKHeaderName& name) {
 }
 
 } // proxygen
+
+namespace std {
+
+template<>
+struct hash<proxygen::HPACKHeaderName> {
+  size_t operator()(const proxygen::HPACKHeaderName& headerName) const {
+    return std::hash<std::string>()(headerName.get());
+  }
+};
+
+} // std

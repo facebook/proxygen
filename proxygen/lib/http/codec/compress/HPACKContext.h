@@ -33,7 +33,7 @@ class HPACKContext {
    *
    * @return 0 if name not found
    */
-  virtual uint32_t nameIndex(const std::string& name) const;
+  virtual uint32_t nameIndex(const HPACKHeaderName& headerName) const;
 
   /**
    * @return true if the given index points to a static header entry

@@ -55,14 +55,14 @@ bool HeaderTable::add(const HPACKHeader& header) {
   table_[head_].name = header.name;
   table_[head_].value = header.value;
   // index name
-  names_[header.name.get()].push_back(head_);
+  names_[header.name].push_back(head_);
   bytes_ += header.bytes();
   ++size_;
   return true;
 }
 
 uint32_t HeaderTable::getIndex(const HPACKHeader& header) const {
-  auto it = names_.find(header.name.get());
+  auto it = names_.find(header.name);
   if (it == names_.end()) {
     return 0;
   }
@@ -74,12 +74,12 @@ uint32_t HeaderTable::getIndex(const HPACKHeader& header) const {
   return 0;
 }
 
-bool HeaderTable::hasName(const std::string& name) {
-  return names_.find(name) != names_.end();
+bool HeaderTable::hasName(const HPACKHeaderName& headerName) {
+  return names_.find(headerName) != names_.end();
 }
 
-uint32_t HeaderTable::nameIndex(const std::string& name) const {
-  auto it = names_.find(name);
+uint32_t HeaderTable::nameIndex(const HPACKHeaderName& headerName) const {
+  auto it = names_.find(headerName);
   if (it == names_.end()) {
     return 0;
   }
@@ -101,7 +101,7 @@ uint32_t HeaderTable::getMaxTableLength(uint32_t capacityVal) {
 void HeaderTable::removeLast() {
   auto t = tail();
   // remove the first element from the names index
-  auto names_it = names_.find(table_[t].name.get());
+  auto names_it = names_.find(table_[t].name);
   DCHECK(names_it != names_.end());
   list<uint32_t> &ilist = names_it->second;
   DCHECK(ilist.front() ==t);
