@@ -568,7 +568,7 @@ class HTTPMessage {
    * callers have to explicitly call unparseCookies() after modifying the
    * cookie headers.
    */
-  void unparseCookies();
+  void unparseCookies() const;
 
   /**
    * Get the default reason string for a status code.

@@ -389,13 +389,16 @@ void HTTPMessage::parseCookies() const {
   });
 }
 
-void HTTPMessage::unparseCookies() {
+void HTTPMessage::unparseCookies() const {
   cookies_.clear();
   parsedCookies_ = false;
 }
 
 const StringPiece HTTPMessage::getCookie(const string& name) const {
+ // clear previous parsed cookies.  They might store raw pointers to a vector
+  // in headers_, which can resize on add()
   // Parse the cookies if we haven't done so yet
+  unparseCookies();
   if (!parsedCookies_) {
     parseCookies();
   }
