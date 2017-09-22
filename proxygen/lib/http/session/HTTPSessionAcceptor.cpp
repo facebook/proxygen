@@ -33,7 +33,8 @@ HTTPSessionAcceptor::HTTPSessionAcceptor(
     codecFactory_(codecFactory),
     simpleController_(this) {
   if (!codecFactory_) {
-    codecFactory_ = std::make_shared<HTTPDefaultSessionCodecFactory>(accConfig);
+    codecFactory_ =
+        std::make_shared<HTTPDefaultSessionCodecFactory>(accConfig_);
   }
 }
 

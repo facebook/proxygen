@@ -76,24 +76,25 @@ class HTTPSessionAcceptorTestBase :
       "");
 
     sslCtxConfig_.isDefault = true;
-    config_.sslContextConfigs.emplace_back(sslCtxConfig_);
+    config_->sslContextConfigs.emplace_back(sslCtxConfig_);
   }
 
   void SetUp() override {
+    config_ = std::make_unique<AcceptorConfiguration>();
     SocketAddress address("127.0.0.1", 0);
-    config_.bindAddress = address;
+    config_->bindAddress = address;
     setupSSL();
     newAcceptor();
   }
 
   void newAcceptor() {
-    acceptor_ = std::make_unique<HTTPTargetSessionAcceptor>(config_);
+    acceptor_ = std::make_unique<HTTPTargetSessionAcceptor>(*config_);
     EXPECT_CALL(mockServerSocket_, addAcceptCallback(_, _, _));
     acceptor_->init(&mockServerSocket_, &eventBase_);
   }
 
  protected:
-  AcceptorConfiguration config_;
+  std::unique_ptr<AcceptorConfiguration> config_;
   wangle::SSLContextConfig sslCtxConfig_;
   std::unique_ptr<HTTPTargetSessionAcceptor> acceptor_;
   folly::EventBase eventBase_;
@@ -143,7 +144,7 @@ INSTANTIATE_TEST_CASE_P(NPNPositive,
 // Verify HTTPSessionAcceptor creates the correct plaintext codec
 TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
   std::string proto(GetParam());
-  config_.plaintextProtocol = proto;
+  config_->plaintextProtocol = proto;
   newAcceptor();
   if (proto == "h2c") {
     acceptor_->expectedProto_ = "http/2";
@@ -183,4 +184,16 @@ TEST_F(HTTPSessionAcceptorTestNPNJunk, npn) {
       tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 0);
   EXPECT_EQ(acceptor_->sessionCreationErrors_, 1);
+}
+
+TEST_F(HTTPSessionAcceptorTestNPN, AcceptorConfigCapture) {
+  config_->sslContextConfigs.clear();
+  newAcceptor();
+  config_.reset();
+  acceptor_->expectedProto_ = "http/1.1";
+  AsyncSocket::UniquePtr sock(new AsyncSocket(&eventBase_));
+  SocketAddress clientAddress;
+  wangle::TransportInfo tinfo;
+  acceptor_->connectionReady(
+      std::move(sock), clientAddress, "", SecureTransportType::TLS, tinfo);
 }
