@@ -33,18 +33,9 @@ unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   // convert to HPACK API format
   uint32_t uncompressed = 0;
   for (const auto& h : headers) {
+    // HPACKHeader automatically lowercases
     converted.emplace_back(*h.name, *h.value);
     auto& header = converted.back();
-    if (!header.name.isCommonName()) {
-      // If the header is a common header it will already be lowercased
-      char* mutableName = const_cast<char*>(header.name.data());
-      folly::toLowerAscii(mutableName, header.name.size());
-    }
-    // TODO Currently we are lowercasing every header before sending it over
-    // the wire. Look into whether or not we decode headers directly as
-    // lowercase, and if so, remove this line, otherwise change the decoder so
-    // that it does and then remove this line.
-
     uncompressed += header.name.size() + header.value.size() + 2;
   }
   auto buf = encoder_.encode(converted, encodeHeadroom_);

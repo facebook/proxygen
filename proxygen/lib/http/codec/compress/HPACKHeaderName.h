@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -29,7 +30,7 @@ class HPACKHeaderName {
  public:
   HPACKHeaderName() {}
 
-  explicit HPACKHeaderName(const std::string& name) {
+  explicit HPACKHeaderName(folly::StringPiece name) {
     storeAddress(name);
   }
   HPACKHeaderName(const HPACKHeaderName& headerName) {
@@ -38,7 +39,7 @@ class HPACKHeaderName {
   HPACKHeaderName(HPACKHeaderName&& goner) noexcept {
     moveAddress(goner);
   }
-  void operator=(const std::string& name) {
+  void operator=(folly::StringPiece name) {
     resetAddress();
     storeAddress(name);
   }
@@ -109,11 +110,14 @@ class HPACKHeaderName {
   /*
    * Store the address to either common header or newly allocated string
    */
-  void storeAddress(const std::string& name) {
-    HTTPHeaderCode headerCode = HTTPCommonHeaders::hash(name);
+  void storeAddress(folly::StringPiece name) {
+    HTTPHeaderCode headerCode = HTTPCommonHeaders::hash(
+      name.data(), name.size());
     if (headerCode == HTTPHeaderCode::HTTP_HEADER_NONE ||
         headerCode == HTTPHeaderCode::HTTP_HEADER_OTHER) {
-      address = new std::string(name);
+      std::string* newAddress = new std::string(name.size(), 0);
+      std::transform(name.begin(), name.end(), newAddress->begin(), ::tolower);
+      address = newAddress;
       setAllocationFlag();
     } else {
       address = HTTPCommonHeaders::getPointerToHeaderName(headerCode, true);

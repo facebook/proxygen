@@ -43,12 +43,7 @@ unique_ptr<IOBuf> QPACKCodec::encode(vector<Header>& headers) noexcept {
   uint32_t uncompressed = 0;
   for (const auto& h : headers) {
     converted.emplace_back(*h.name, *h.value);
-    // This is ugly but since we're not changing the size
-    // of the string I'm assuming this is OK
     auto& header = converted.back();
-    char* mutableName = const_cast<char*>(header.name.data());
-    folly::toLowerAscii(mutableName, header.name.size());
-
     uncompressed += header.name.size() + header.value.size() + 2;
   }
   auto buf = encoder_.encode(converted, encodeHeadroom_);
