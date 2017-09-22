@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/FBString.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
@@ -99,7 +100,8 @@ class HuffTree {
    *
    * @return true if the decode process was successful
    */
-  bool decode(const uint8_t* buf, uint32_t size, std::string& literal) const;
+  bool decode(const uint8_t* buf, uint32_t size,
+              folly::fbstring& literal) const;
 
   /**
    * encode string literal into huffman encoded bit stream
@@ -107,7 +109,7 @@ class HuffTree {
    * @param literal string to encode
    * @param buf where to append the encoded binary data
    */
-  uint32_t encode(const std::string& literal,
+  uint32_t encode(const folly::fbstring& literal,
                   folly::io::QueueAppender& buf) const;
 
   /**
@@ -117,7 +119,7 @@ class HuffTree {
    * @param literal string literal
    * @return size how many bytes it will take to encode the given string
    */
-  uint32_t getEncodeSize(const std::string& literal) const;
+  uint32_t getEncodeSize(const folly::fbstring& literal) const;
 
   /**
    * get the binary representation for a given character, as a 32-bit word and

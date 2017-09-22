@@ -44,11 +44,11 @@ TEST_F(HuffmanTests, codes) {
 
 TEST_F(HuffmanTests, size) {
   uint32_t size;
-  string onebyte("x");
+  folly::fbstring onebyte("x");
   size = tree_.getEncodeSize(onebyte);
   EXPECT_EQ(size, 1);
 
-  string accept("accept-encoding");
+  folly::fbstring accept("accept-encoding");
   size = tree_.getEncodeSize(accept);
   EXPECT_EQ(size, 11);
 }
@@ -56,7 +56,7 @@ TEST_F(HuffmanTests, size) {
 TEST_F(HuffmanTests, encode) {
   uint32_t size;
   // this is going to fit perfectly into 3 bytes
-  string gzip("gzip");
+  folly::fbstring gzip("gzip");
   IOBufQueue bufQueue;
   QueueAppender appender(&bufQueue, 512);
   // force the allocation
@@ -71,7 +71,7 @@ TEST_F(HuffmanTests, encode) {
   EXPECT_EQ(data[2], 0xab);  // 10101011
 
   // size must equal with the actual encoding
-  string accept("accept-encoding");
+  folly::fbstring accept("accept-encoding");
   size = tree_.getEncodeSize(accept);
   uint32_t encodedSize = tree_.encode(accept, appender);
   EXPECT_EQ(size, encodedSize);
@@ -82,7 +82,7 @@ TEST_F(HuffmanTests, decode) {
   // simple test with one byte
   buffer[0] = 0x60; //
   buffer[1] = 0xbf; //
-  string literal;
+  folly::fbstring literal;
   tree_.decode(buffer, 2, literal);
   EXPECT_EQ(literal, "/e");
 
@@ -110,7 +110,7 @@ TEST_F(HuffmanTests, non_printable_decode) {
   uint8_t buffer1[4] = {
     0xFF, 0xFF, 0xEA, 0xF8
   };
-  string literal;
+  folly::fbstring literal;
   tree_.decode(buffer1, 4, literal);
   EXPECT_EQ(literal.size(), 2);
   EXPECT_EQ((uint8_t)literal[0], 9);
@@ -134,19 +134,19 @@ TEST_F(HuffmanTests, example_com) {
   QueueAppender appender(&bufQueue, 512);
   appender.ensure(512);
 
-  string example("www.example.com");
+  folly::fbstring example("www.example.com");
   uint32_t size = tree_.getEncodeSize(example);
   EXPECT_EQ(size, 12);
   uint32_t encodedSize = tree_.encode(example, appender);
   EXPECT_EQ(size, encodedSize);
 
-  string decoded;
+  folly::fbstring decoded;
   tree_.decode(bufQueue.front()->data(), size, decoded);
   CHECK_EQ(example, decoded);
 }
 
 TEST_F(HuffmanTests, user_agent) {
-  string user_agent(
+  folly::fbstring user_agent(
     "Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) AppleWebKit/537.51"
     ".1 (KHTML, like Gecko) Mobile/11B554a [FBAN/FBIOS;FBAV/6.7;FBBV/566055;FBD"
     "V/iPhone5,1;FBMD/iPhone;FBSN/iPhone OS;FBSV/7.0.4;FBSS/2; FBCR/AT&T;FBID/p"
@@ -159,7 +159,7 @@ TEST_F(HuffmanTests, user_agent) {
   uint32_t encodedSize = tree.encode(user_agent, appender);
   EXPECT_EQ(size, encodedSize);
 
-  string decoded;
+  folly::fbstring decoded;
   tree.decode(bufQueue.front()->data(), size, decoded);
   CHECK_EQ(user_agent, decoded);
 }
@@ -172,7 +172,7 @@ TEST_F(HuffmanTests, fit_in_buffer) {
   QueueAppender appender(&bufQueue, 128);
 
   // call with an empty string
-  string literal("");
+  folly::fbstring literal("");
   tree_.encode(literal, appender);
 
   // allow just 1 byte

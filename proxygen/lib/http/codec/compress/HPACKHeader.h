@@ -13,6 +13,7 @@
 #include <ostream>
 #include <string>
 #include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
+#include <folly/FBString.h>
 
 namespace proxygen {
 
@@ -22,9 +23,9 @@ class HPACKHeader {
 
   HPACKHeader() {}
 
-  HPACKHeader(const std::string& name_,
-              const std::string& value_):
-    name(name_), value(value_) {}
+  HPACKHeader(folly::StringPiece name_,
+              folly::StringPiece value_):
+      name(name_), value(value_.data(), value_.size()) {}
 
   HPACKHeader(HPACKHeader&& goner) noexcept
       : name(std::move(goner.name)),
@@ -86,7 +87,7 @@ class HPACKHeader {
   bool isIndexable() const;
 
   HPACKHeaderName name;
-  std::string value;
+  folly::fbstring value;
 
   static bool sAllowPathIndexing;
 };

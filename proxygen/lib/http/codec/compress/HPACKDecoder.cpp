@@ -157,9 +157,9 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
   } else {
     // skip current byte
     dbuf.next();
-    std::string headerName;
+    folly::fbstring headerName;
     err_ = dbuf.decodeLiteral(headerName);
-    header.name = std::move(headerName);
+    header.name = headerName;
     if (err_ != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "Error decoding header name err_=" << err_;
       return 0;

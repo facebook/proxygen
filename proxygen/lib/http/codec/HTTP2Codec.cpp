@@ -481,8 +481,8 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
   return ErrorCode::NO_ERROR;
 }
 
-void HTTP2Codec::onHeader(const std::string& name,
-                          const std::string& value) {
+void HTTP2Codec::onHeader(const folly::fbstring& name,
+                          const folly::fbstring& value) {
   // Refuse decoding other headers if an error is already found
   if (decodeInfo_.decodeError != HeaderDecodeError::NONE
       || decodeInfo_.parsingError != "") {

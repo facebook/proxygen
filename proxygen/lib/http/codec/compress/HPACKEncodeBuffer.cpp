@@ -84,7 +84,7 @@ uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t prefix,
   return count;
 }
 
-uint32_t HPACKEncodeBuffer::encodeHuffman(const std::string& literal) {
+uint32_t HPACKEncodeBuffer::encodeHuffman(const folly::fbstring& literal) {
   uint32_t size = huffmanTree_.getEncodeSize(literal);
   // add the length
   uint32_t count = encodeInteger(size, HPACK::LiteralEncoding::HUFFMAN, 7);
@@ -93,7 +93,7 @@ uint32_t HPACKEncodeBuffer::encodeHuffman(const std::string& literal) {
   return count;
 }
 
-uint32_t HPACKEncodeBuffer::encodeLiteral(const std::string& literal) {
+uint32_t HPACKEncodeBuffer::encodeLiteral(const folly::fbstring& literal) {
   if (huffmanEnabled_) {
     return encodeHuffman(literal);
   }

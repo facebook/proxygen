@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <folly/FBString.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 #include <proxygen/lib/http/codec/compress/HeaderPiece.h>
@@ -78,8 +79,8 @@ class HeaderCodec {
    public:
     virtual ~StreamingCallback() {}
 
-    virtual void onHeader(const std::string& name,
-                          const std::string& value) = 0;
+    virtual void onHeader(const folly::fbstring& name,
+                          const folly::fbstring& value) = 0;
     virtual void onHeadersComplete(HTTPHeaderSize decodedSize) = 0;
     virtual void onDecodeError(HeaderDecodeError decodeError) = 0;
   };

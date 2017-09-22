@@ -28,8 +28,8 @@ namespace proxygen {
  */
 class HTTP2Codec: public HTTPParallelCodec, HeaderCodec::StreamingCallback {
 public:
-  void onHeader(const std::string& name,
-                const std::string& value) override;
+  void onHeader(const folly::fbstring& name,
+                const folly::fbstring& value) override;
   void onHeadersComplete(HTTPHeaderSize decodedSize) override;
   void onDecodeError(HeaderDecodeError decodeError) override;
 

@@ -82,7 +82,8 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
 
   // Callbacks that handle Codec-level stats and errors
-  void onHeader(const std::string& name, const std::string& value) override;
+  void onHeader(const folly::fbstring& name,
+                const folly::fbstring& value) override;
   void onHeadersComplete(HTTPHeaderSize decodedSize) override;
   void onDecodeError(HeaderDecodeError decodeError) override;
 

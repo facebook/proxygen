@@ -79,7 +79,7 @@ uint32_t QPACKHeaderTable::nameIndexRef(const HPACKHeaderName& name) {
 }
 
 uint32_t QPACKHeaderTable::getIndexImpl(const HPACKHeaderName& name,
-                                        const std::string& value,
+                                        const folly::fbstring& value,
                                         bool checkValue, bool takeRef) {
   auto nameIt = names_.find(name);
   if (nameIt == names_.end()) {

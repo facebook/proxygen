@@ -15,8 +15,8 @@ namespace proxygen {
 
 class TestStreamingCallback : public HeaderCodec::StreamingCallback {
  public:
-  void onHeader(const std::string& name,
-                const std::string& value) override {
+  void onHeader(const folly::fbstring& name,
+                const folly::fbstring& value) override {
     headers.emplace_back(duplicate(name), name.size(), true, false);
     headers.emplace_back(duplicate(value), value.size(), true, false);
   }
@@ -44,7 +44,7 @@ class TestStreamingCallback : public HeaderCodec::StreamingCallback {
 
   compress::HeaderPieceList headers;
   HeaderDecodeError error{HeaderDecodeError::NONE};
-  char* duplicate(const std::string& str) {
+  char* duplicate(const folly::fbstring& str) {
     char* res = CHECK_NOTNULL(new char[str.length() + 1]);
     memcpy(res, str.data(), str.length() + 1);
     return res;

@@ -205,7 +205,7 @@ class QPACKHeaderTable {
 
   folly::Optional<HPACKHeader> maybeRemoveIndex(Table::iterator it);
   uint32_t getIndexImpl(const HPACKHeaderName& name,
-                        const std::string& value,
+                        const folly::fbstring& value,
                         bool checkValue, bool takeRef);
 
   uint32_t capacity_{0};

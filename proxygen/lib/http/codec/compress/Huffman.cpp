@@ -28,7 +28,8 @@ HuffTree::HuffTree(const HuffTree& tree) :
   buildTree();
 }
 
-bool HuffTree::decode(const uint8_t* buf, uint32_t size, string& literal)
+bool HuffTree::decode(const uint8_t* buf, uint32_t size,
+                      folly::fbstring& literal)
     const {
   const SuperHuffNode* snode = &table_[0];
   uint32_t w = 0;
@@ -129,7 +130,7 @@ void HuffTree::buildTree() {
   }
 }
 
-uint32_t HuffTree::encode(const std::string& literal,
+uint32_t HuffTree::encode(const folly::fbstring& literal,
                           folly::io::QueueAppender& buf) const {
   uint32_t code;  // the huffman code of a given character
   uint8_t bits;   // on how many bits code is represented
@@ -178,7 +179,7 @@ uint32_t HuffTree::encode(const std::string& literal,
   return totalBytes;
 }
 
-uint32_t HuffTree::getEncodeSize(const std::string& literal) const {
+uint32_t HuffTree::getEncodeSize(const folly::fbstring& literal) const {
   uint32_t totalBits = 0;
   for (size_t i = 0; i < literal.size(); i++) {
     // we just need the number of bits

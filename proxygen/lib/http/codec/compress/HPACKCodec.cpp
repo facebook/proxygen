@@ -113,7 +113,8 @@ void HPACKCodec::decodeStreaming(
   onHeadersComplete(decodedSize_);
 }
 
-void HPACKCodec::onHeader(const std::string& name, const std::string& value) {
+void HPACKCodec::onHeader(const folly::fbstring& name,
+                          const folly::fbstring& value) {
   assert(streamingCb_ != nullptr);
   decodedSize_.uncompressed += name.size() + value.size() + 2;
   streamingCb_->onHeader(name, value);

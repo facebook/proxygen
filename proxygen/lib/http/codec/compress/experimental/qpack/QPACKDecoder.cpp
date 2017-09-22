@@ -208,10 +208,9 @@ void QPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
   } else {
     // skip current byte
     dbuf.next();
-    HPACKHeader header;
-    std::string headerName;
+    folly::fbstring headerName;
     dreq->err = dbuf.decodeLiteral(headerName);
-    header.name = headerName;
+    HPACKHeader header(headerName, "");
     if (dreq->hasError()) {
       LOG(ERROR) << "Error decoding header name err=" << dreq->err;
       return;
@@ -221,7 +220,7 @@ void QPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
       QPACKHeaderTable::DecodeResult(std::move(header)));
   }
   // value
-  std::string value;
+  folly::fbstring value;
   dreq->err = dbuf.decodeLiteral(value);
   if (dreq->hasError()) {
     LOG(ERROR) << "Error decoding header value name=" <<

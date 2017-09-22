@@ -23,7 +23,7 @@ class QPACKHeader : public HPACKHeader {
   QPACKHeader() {}
 
   QPACKHeader(const std::string& name_,
-              const std::string& value_):
+              const folly::fbstring& value_):
       HPACKHeader(name_, value_) {}
 
   QPACKHeader(QPACKHeader&& goner) noexcept
