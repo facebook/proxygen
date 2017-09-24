@@ -23,6 +23,6 @@ def fbcode_builder_spec(builder):
             # This isn't a separete spec, since only fbthrift uses mstch.
             builder.github_project_workdir('no1msd/mstch', 'build'),
             builder.cmake_install('no1msd/mstch'),
-            builder.fb_github_autoconf_install('fbthrift/thrift'),
+            builder.fb_github_cmake_install('fbthrift/thrift'),
         ],
     }

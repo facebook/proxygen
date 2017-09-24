@@ -325,8 +325,8 @@ class FBCodeBuilder(object):
         )
         return [
             self.run(ShellQuoted(
-                'CXXFLAGS="$CXXFLAGS -isystem "{p}"/include" '
-                'CFLAGS="$CFLAGS -isystem "{p}"/include" '
+                'CXXFLAGS="$CXXFLAGS -fPIC -isystem "{p}"/include" '
+                'CFLAGS="$CFLAGS -fPIC -isystem "{p}"/include" '
                 'cmake {args} ..'
             ).format(
                 p=self.option('prefix'),
