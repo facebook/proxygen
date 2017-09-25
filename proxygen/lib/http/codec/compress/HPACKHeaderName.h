@@ -60,7 +60,8 @@ class HPACKHeaderName {
    * Compare the strings stored in HPACKHeaderName
    */
   bool operator==(const HPACKHeaderName& headerName) const {
-    return *getAddress() == *headerName.getAddress();
+    return (getAddress() == headerName.getAddress()) ||
+      *getAddress() == *headerName.getAddress();
   }
   bool operator!=(const HPACKHeaderName& headerName) const {
     return *getAddress() != *headerName.getAddress();
