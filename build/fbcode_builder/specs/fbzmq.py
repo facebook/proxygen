@@ -18,6 +18,7 @@ def fbcode_builder_spec(builder):
         'steps': [
             builder.github_project_workdir('jedisct1/libsodium', '.'),
             builder.step('Build and install jedisct1/libsodium', [
+                builder.run(ShellQuoted('./autogen.sh')),
                 builder.configure(),
                 builder.make_and_install(),
             ]),
