@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ## Run this script to build proxygen and run the tests. If you want to
 ## install proxygen to use in another C++ project on this machine, run
@@ -19,8 +19,8 @@ shift
 done
 
 set -e
-start_dir=`pwd`
-trap "cd $start_dir" EXIT
+start_dir=$(pwd)
+trap 'cd $start_dir' EXIT
 
 # Must execute from the directory containing this script
 cd "$(dirname "$0")"
@@ -56,11 +56,12 @@ then
   if [ ! -e google-glog ]; then
     echo "fetching glog from svn (apt-get failed)"
     svn checkout https://google-glog.googlecode.com/svn/trunk/ google-glog
-    cd google-glog
-    ./configure
-    make
-    sudo make install
-    cd ..
+    (
+      cd google-glog
+      ./configure
+      make
+      sudo make install
+    )
   fi
 fi
 
@@ -69,11 +70,12 @@ then
   if [ ! -e google-gflags ]; then
     echo "Fetching gflags from svn (apt-get failed)"
     svn checkout https://google-gflags.googlecode.com/svn/trunk/ google-gflags
-    cd google-gflags
-    ./configure
-    make
-    sudo make install
-    cd ..
+    (
+      cd google-gflags
+      ./configure
+      make
+      sudo make install
+    )
   fi
 fi
 
@@ -82,10 +84,11 @@ then
   if [ ! -e double-conversion ]; then
     echo "Fetching double-conversion from git (apt-get failed)"
     git clone https://github.com/floitsch/double-conversion.git double-conversion
-    cd double-conversion
-    cmake . -DBUILD_SHARED_LIBS=ON
-    sudo make install
-    cd ..
+    (
+      cd double-conversion
+      cmake . -DBUILD_SHARED_LIBS=ON
+      sudo make install
+    )
   fi
 fi
 
