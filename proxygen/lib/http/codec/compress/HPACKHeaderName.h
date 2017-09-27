@@ -121,7 +121,8 @@ class HPACKHeaderName {
       address = newAddress;
       setAllocationFlag();
     } else {
-      address = HTTPCommonHeaders::getPointerToHeaderName(headerCode, true);
+      address = HTTPCommonHeaders::getPointerToHeaderName(
+        headerCode, TABLE_LOWERCASE);
     }
   }
 

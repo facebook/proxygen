@@ -71,7 +71,7 @@ void HTTPCommonHeadersGetHeaderCodeFromTableCommonHeaderNameBench(int iters) {
     for (uint64_t j = HTTPHeaderCodeCommonOffset;
          j < HTTPCommonHeaders::num_header_codes; ++j) {
       HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
-        &testHeaderNames[j]);
+        &testHeaderNames[j], TABLE_CAMELCASE);
     }
   }
 }

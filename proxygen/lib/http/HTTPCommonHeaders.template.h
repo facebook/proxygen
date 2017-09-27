@@ -43,6 +43,11 @@ enum HTTPHeaderCode : uint8_t {
 
 const uint8_t HTTPHeaderCodeCommonOffset = 2;
 
+enum HTTPCommonHeaderTableType: uint8_t {
+  TABLE_CAMELCASE = 0,
+  TABLE_LOWERCASE = 1,
+};
+
 class HTTPCommonHeaders {
  public:
   // Perfect hash function to match common HTTP header names
@@ -52,25 +57,21 @@ class HTTPCommonHeaders {
     return hash(name.data(), name.length());
   }
 
-  FB_EXPORT static std::string* initHeaderNames(bool lowercase);
+  FB_EXPORT static std::string* initHeaderNames(HTTPCommonHeaderTableType type);
 $$$$$
 
-  inline static const std::string* getPointerToCommonHeaderTable(
-      bool lowercase) {
-    if (lowercase) {
-      static const std::string* lowercaseNames =
-          HTTPCommonHeaders::initHeaderNames(true);
-      return lowercaseNames;
-    } else {
-      static const std::string* camelcaseNames =
-          HTTPCommonHeaders::initHeaderNames(false);
-      return camelcaseNames;
-    }
-  }
+  static const std::string* getPointerToCommonHeaderTable(
+    HTTPCommonHeaderTableType type);
 
   inline static const std::string* getPointerToHeaderName(HTTPHeaderCode code,
-      bool lowercase = false) {
-    return getPointerToCommonHeaderTable(lowercase) + code;
+      HTTPCommonHeaderTableType type = TABLE_CAMELCASE) {
+    return getPointerToCommonHeaderTable(type) + code;
+  }
+
+  inline static bool isHeaderNameFromTable(const std::string* headerName,
+      HTTPCommonHeaderTableType type) {
+    return getHeaderCodeFromTableCommonHeaderName(headerName, type) >=
+      HTTPHeaderCodeCommonOffset;
   }
 
   // This method supplements hash().  If dealing with string pointers, some
@@ -78,23 +79,17 @@ $$$$$
   // method can be used in place of hash to reverse map a string from the common
   // header name table to its HTTPHeaderCode
   inline static HTTPHeaderCode getHeaderCodeFromTableCommonHeaderName(
-      const std::string* headerName, bool lowercase = false) {
+      const std::string* headerName, HTTPCommonHeaderTableType type) {
     if (headerName == nullptr) {
       return HTTP_HEADER_NONE;
     } else {
-      auto diff = headerName - getPointerToCommonHeaderTable(lowercase);
+      auto diff = headerName - getPointerToCommonHeaderTable(type);
       if (diff >= HTTPHeaderCodeCommonOffset && diff < (long)num_header_codes) {
         return static_cast<HTTPHeaderCode>(diff);
       } else {
         return HTTP_HEADER_OTHER;
       }
     }
-  }
-
-  inline static bool isHeaderNameFromTable(const std::string* headerName,
-      bool lowercase = false) {
-    return getHeaderCodeFromTableCommonHeaderName(headerName, lowercase) >=
-      HTTPHeaderCodeCommonOffset;
   }
 
 };
