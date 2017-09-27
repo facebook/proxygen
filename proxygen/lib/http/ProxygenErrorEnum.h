@@ -61,6 +61,7 @@ namespace proxygen {
     x(DNSunimplemented),                        \
     x(Network),                                 \
     x(Configuration),                           \
+    x(EarlyDataRejected),                       \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63

@@ -19,6 +19,9 @@ namespace {
 
 namespace proxygen {
 
+static_assert(kErrorMax < 1 << PROXYGEN_ERROR_BITSIZE,
+              "ProxygenError overflow");
+
 const char* getErrorString(ProxygenError error) {
   if (error < kErrorNone || error >= kErrorMax) {
     return errorStrings[kErrorMax];
