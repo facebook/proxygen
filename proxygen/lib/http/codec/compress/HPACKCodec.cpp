@@ -29,8 +29,9 @@ HPACKCodec::HPACKCodec(TransportDirection /*direction*/)
     : encoder_(true), decoder_(HPACK::kTableSize, maxUncompressed_) {}
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
-  vector<HPACKHeader> converted;
   // convert to HPACK API format
+  vector<HPACKHeader> converted;
+  converted.reserve(headers.size());
   uint32_t uncompressed = 0;
   for (const auto& h : headers) {
     // HPACKHeader automatically lowercases

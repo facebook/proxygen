@@ -60,56 +60,71 @@ class HPACKHeaderName {
    * Compare the strings stored in HPACKHeaderName
    */
   bool operator==(const HPACKHeaderName& headerName) const {
-    return (getAddress() == headerName.getAddress()) ||
-      *getAddress() == *headerName.getAddress();
+    return address_ == headerName.address_ ||
+      *address_ == *(headerName.address_);
   }
   bool operator!=(const HPACKHeaderName& headerName) const {
-    return *getAddress() != *headerName.getAddress();
+    // Utilize the == overloaded operator
+    return !(*this == headerName);
   }
   bool operator>(const HPACKHeaderName& headerName) const {
-    return *getAddress() > *headerName.getAddress();
+    if (!isAllocated() && !headerName.isAllocated()) {
+      // Common header tables are aligned alphabetically (unit tested as well
+      // to ensure it isn't accidentally changed)
+      return address_ > headerName.address_;
+    } else {
+      return *address_ > *(headerName.address_);
+    }
   }
   bool operator<(const HPACKHeaderName& headerName) const {
-    return *getAddress() < *headerName.getAddress();
+    if (!isAllocated() && !headerName.isAllocated()) {
+      // Common header tables are aligned alphabetically (unit tested as well
+      // to ensure it isn't accidentally changed)
+      return address_ < headerName.address_;
+    } else {
+      return *address_ < *(headerName.address_);
+    }
   }
   bool operator>=(const HPACKHeaderName& headerName) const {
-    return *getAddress() >= *headerName.getAddress();
+    // Utilize existing < overloaded operator
+    return !(*this < headerName);
   }
   bool operator<=(const HPACKHeaderName& headerName) const {
-    return *getAddress() <= *headerName.getAddress();
+    // Utilize existing > overload operator
+    return !(*this > headerName);
   }
 
   /*
    * Return std::string stored in HPACKHeaderName
    */
   const std::string& get() const {
-    return *getAddress();
+    return *address_;
   }
 
   /*
-   * Return whether or not address points to header
+   * Return whether or not address_ points to header
    * name in HTTPCommonHeaders
    */
   bool isCommonName() {
-    return !isAllocated();
+    return address_ != nullptr && !isAllocated();
   }
 
   /*
    * Directly call std::string member functions
    */
   uint32_t size() const {
-    return (uint32_t)(getAddress()->size());
+    return (uint32_t)(address_->size());
   }
   const char* data() {
-    return getAddress()->data();
+    return address_->data();
   }
   const char* c_str() const {
-    return getAddress()->c_str();
+    return address_->c_str();
   }
 
  private:
   /*
-   * Store the address to either common header or newly allocated string
+   * Store a reference to either a common header or newly allocated string
    */
   void storeAddress(folly::StringPiece name) {
     HTTPHeaderCode headerCode = HTTPCommonHeaders::hash(
@@ -118,104 +133,60 @@ class HPACKHeaderName {
         headerCode == HTTPHeaderCode::HTTP_HEADER_OTHER) {
       std::string* newAddress = new std::string(name.size(), 0);
       std::transform(name.begin(), name.end(), newAddress->begin(), ::tolower);
-      address = newAddress;
-      setAllocationFlag();
+      address_ = newAddress;
     } else {
-      address = HTTPCommonHeaders::getPointerToHeaderName(
+      address_ = HTTPCommonHeaders::getPointerToHeaderName(
         headerCode, TABLE_LOWERCASE);
     }
   }
 
   /*
-   * Copy the address from another HPACKHeaderName
+   * Copy the address_ from another HPACKHeaderName
    */
   void copyAddress(const HPACKHeaderName& headerName) {
     if (headerName.isAllocated()) {
-      address = new std::string(headerName.get());
-      setAllocationFlag();
+      address_ = new std::string(headerName.get());
     } else {
-      address = headerName.getAddress();
+      address_ = headerName.address_;
     }
   }
 
   /*
-   * Move the address from another HPACKHeaderName
+   * Move the address_ from another HPACKHeaderName
    */
   void moveAddress(HPACKHeaderName& goner) {
-    address = goner.address;
-#if !FOLLY_X64
-    allocated_ = goner.allocated_;
-#endif
-    goner.removeAllocationFlag();
+    address_ = goner.address_;
+    goner.address_ = nullptr;
   }
 
   /*
-   * Delete the address and any allocated memory
+   * Delete any allocated memory and reset address_ to nullptr
    */
   void resetAddress() {
     if (isAllocated()) {
-      delete getAddress();
+      delete address_;
     }
-    removeAllocationFlag();
+    address_ = nullptr;
   }
 
   /*
-   * Mask the least significant byte to get actual address, or if not
-   * FOLLY_X64 architecture, return address
-   */
-  const std::string* getAddress() const {
-#if FOLLY_X64
-    return reinterpret_cast<const std::string*>(
-               reinterpret_cast<uintptr_t>(address) & ~0x1);
-#else
-    return address;
-#endif
-  }
-
-  /*
-   * Return the least significant bit to see if an std::string was allocated,
-   * or if not FOLLY_X64 architecture, return allocated_
+   * Returns whether the underlying address_ points to a string that was
+   * allocated (memory) by this instance
    */
   bool isAllocated() const {
-#if FOLLY_X64
-    return reinterpret_cast<uintptr_t>(address) & 0x1;
-#else
-    return allocated_;
-#endif
+    if (address_ == nullptr) {
+      return false;
+    } else {
+      return !HTTPCommonHeaders::isHeaderNameFromTable(
+        address_, TABLE_LOWERCASE);
+    }
   }
-
-  /*
-   * Flip the least significant bit to 1 to keep track of allocation,
-   * or if not FOLLY_X64 architecture, set allocated_ to true
-   */
-  void setAllocationFlag() {
-#if FOLLY_X64
-    uintptr_t modifiableAddress =  reinterpret_cast<uintptr_t>(address);
-    address = reinterpret_cast<std::string*>(modifiableAddress |= 0x1);
-#else
-    allocated_ = true;
-#endif
-  }
-
-  void removeAllocationFlag() {
-#if !FOLLY_X64
-    allocated_ = false;
-#endif
-    address = nullptr;
-  }
-
-#if !FOLLY_X64
-    /*
-     * If system is not byte aligned, use boolean to track allocation
-     */
-    bool allocated_ = false;
-#endif
 
   /*
    * Address either stores a pointer to a header name in HTTPCommonHeaders,
    * or stores a pointer to a dynamically allocated std::string
    */
-  const std::string* address = nullptr;
+  const std::string* address_ = nullptr;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const HPACKHeaderName& name) {
