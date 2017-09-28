@@ -33,6 +33,12 @@ HPACKCodec::HPACKCodec(TransportDirection /*direction*/,
 }
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
+  bool eviction = false;
+  return encode(headers, eviction);
+}
+
+unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers,
+                                     bool& eviction) noexcept {
   // convert to HPACK API format
   vector<HPACKHeader> converted;
   converted.reserve(headers.size());
@@ -43,7 +49,7 @@ unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
     auto& header = converted.back();
     uncompressed += header.name.size() + header.value.size() + 2;
   }
-  auto buf = encoder_.encode(converted, encodeHeadroom_);
+  auto buf = encoder_.encode(converted, encodeHeadroom_, &eviction);
   encodedSize_.compressed = 0;
   if (buf) {
     encodedSize_.compressed = buf->computeChainDataLength();

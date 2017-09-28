@@ -80,6 +80,9 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
   std::unique_ptr<folly::IOBuf> encode(
     std::vector<compress::Header>& headers) noexcept override;
 
+  std::unique_ptr<folly::IOBuf> encode(
+    std::vector<compress::Header>& headers, bool& eviction) noexcept;
+
   Result<HeaderDecodeResult, HeaderDecodeError>
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
 

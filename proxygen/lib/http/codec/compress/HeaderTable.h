@@ -62,7 +62,7 @@ class HeaderTable {
    * @return true if it was able to add the entry
    */
   bool add(const HPACKHeader& header);
-  bool add(const HPACKHeader& header, int32_t epoch);
+  bool add(const HPACKHeader& header, int32_t epoch, bool& eviction);
 
   /**
    * Get the index of the given header, if found.

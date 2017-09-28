@@ -28,21 +28,26 @@ void HeaderTable::init(uint32_t capacityVal) {
 }
 
 bool HeaderTable::add(const HPACKHeader& header) {
-  return add(header, -1);
+  bool eviction = false;
+  return add(header, -1, eviction);
 }
 
-bool HeaderTable::add(const HPACKHeader& header, int32_t epoch) {
+bool HeaderTable::add(const HPACKHeader& header, int32_t epoch,
+                      bool& eviction) {
   if (header.bytes() > capacity_) {
     // Per the RFC spec https://tools.ietf.org/html/rfc7541#page-11, we must
     // flush the underlying table if a request is made for a header that is
     // larger than the current table capacity
+    eviction = true;
     reset();
     return false;
   }
 
   // Make the necessary room in the table if appropriate per RFC spec
+  eviction = false;
   if ((bytes_ + header.bytes()) > capacity_) {
     evict(header.bytes(), capacity_);
+    eviction = true;
   }
 
   if (size_ == length()) {

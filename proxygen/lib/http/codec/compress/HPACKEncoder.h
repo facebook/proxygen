@@ -39,7 +39,8 @@ class HPACKEncoder : public HPACKContext {
    */
   virtual std::unique_ptr<folly::IOBuf> encode(
     const std::vector<HPACKHeader>& headers,
-    uint32_t headroom = 0);
+    uint32_t headroom = 0,
+    bool* eviction = nullptr);
 
   void setHeaderTableSize(uint32_t size) {
     table_.setCapacity(size);
@@ -78,6 +79,7 @@ class HPACKEncoder : public HPACKContext {
   uint16_t nextSequenceNumber_{0};
   int32_t commitEpoch_{-1};
   bool pendingContextUpdate_{false};
+  bool eviction_{false};
   bool emitSequenceNumbers_{false};
   bool autoCommit_{true};
 };

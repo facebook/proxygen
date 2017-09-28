@@ -32,7 +32,9 @@ HPACKEncoder::HPACKEncoder(bool huffman,
 }
 
 unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
-                                       uint32_t headroom) {
+                                       uint32_t headroom,
+                                       bool* eviction) {
+  eviction_ = false;
   if (headroom) {
     buffer_.addHeadroom(headroom);
   }
@@ -47,6 +49,9 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
   }
   for (const auto& header : headers) {
     encodeHeader(header);
+  }
+  if (eviction) {
+    *eviction = eviction_;
   }
   if (autoCommit_) {
     commitEpoch_ = nextSequenceNumber_;
@@ -80,7 +85,9 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
   buffer_.encodeLiteral(header.value);
   // indexed ones need to get added to the header table
   if (indexing) {
-    table_.add(header, nextSequenceNumber_);
+    bool eviction;
+    table_.add(header, nextSequenceNumber_, eviction);
+    eviction_ |= eviction;
   }
 }
 
