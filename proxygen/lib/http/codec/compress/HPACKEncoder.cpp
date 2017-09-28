@@ -23,8 +23,10 @@ namespace proxygen {
 HPACKEncoder::HPACKEncoder(bool huffman,
                            uint32_t tableSize,
                            bool emitSequenceNumbers,
+                           bool useBaseIndex,
                            bool autoCommit) :
-    HPACKContext(tableSize, emitSequenceNumbers),
+    // We only need the 'QCRAM' table if we are using sequent numbers
+    HPACKContext(tableSize, emitSequenceNumbers, useBaseIndex),
     huffman_(huffman),
     buffer_(kBufferGrowth, huffman::huffTree(), huffman),
     emitSequenceNumbers_(emitSequenceNumbers),
@@ -40,6 +42,11 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
   }
   if (emitSequenceNumbers_) {
     buffer_.appendSequenceNumber(nextSequenceNumber_);
+  }
+  if (useBaseIndex_) {
+    auto baseIndex = table_.markBaseIndex();
+    VLOG(10) << "Emitting base index=" << baseIndex;
+    buffer_.encodeInteger(baseIndex, 0, 0);
   }
   if (pendingContextUpdate_) {
     buffer_.encodeInteger(table_.capacity(),
@@ -76,6 +83,7 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
   // name
   uint32_t index = nameIndex(header.name, commitEpoch_, nextSequenceNumber_);
   if (index) {
+    VLOG(10) << "encoding name index=" << index;
     buffer_.encodeInteger(index, prefix, len);
   } else {
     buffer_.encodeInteger(0, prefix, len);

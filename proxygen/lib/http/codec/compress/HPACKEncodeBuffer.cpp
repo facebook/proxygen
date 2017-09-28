@@ -58,7 +58,7 @@ void HPACKEncodeBuffer::append(uint8_t byte) {
 
 uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t prefix,
                                           uint8_t nbit) {
-  CHECK(nbit > 0 && nbit <= 8);
+  CHECK(nbit >= 0 && nbit <= 8);
   uint32_t count = 0;
   uint8_t prefix_mask = HPACK::NBIT_MASKS[nbit];
   uint8_t mask = ~prefix_mask & 0xFF;

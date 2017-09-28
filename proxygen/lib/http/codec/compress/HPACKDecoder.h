@@ -25,8 +25,11 @@ class HPACKDecoder : public HPACKContext {
  public:
   explicit HPACKDecoder(
     uint32_t tableSize=HPACK::kTableSize,
-    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
-      : HPACKContext(tableSize, false),
+    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed,
+    bool useBaseIndex=false)
+      // even if useBaseIndex is true, decoder doesn't need epoch so
+      // can use the 'HPACK' table impl
+      : HPACKContext(tableSize, false, useBaseIndex),
         maxTableSize_(tableSize),
         maxUncompressed_(maxUncompressed) {}
 
@@ -89,6 +92,8 @@ class HPACKDecoder : public HPACKContext {
   virtual const huffman::HuffTree& getHuffmanTree() const;
 
   uint32_t emit(const HPACKHeader& header, headers_t* emitted);
+
+  void handleBaseIndex(HPACKDecodeBuffer& dbuf);
 
   virtual uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
                                        headers_t* emitted);

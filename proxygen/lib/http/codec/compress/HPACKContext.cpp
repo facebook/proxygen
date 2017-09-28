@@ -17,11 +17,13 @@ using std::string;
 
 namespace proxygen {
 
-HPACKContext::HPACKContext(uint32_t tableSize, bool qcram) :
+HPACKContext::HPACKContext(uint32_t tableSize, bool qcram, bool useBaseIndex) :
     table_(std::unique_ptr<TableImpl>(
              (qcram ?
               (TableImpl*)new QCRAMTableImpl() :
-              (TableImpl*)new HPACKHeaderTableImpl())), tableSize) {
+              (TableImpl*)new HPACKHeaderTableImpl())), tableSize),
+    useBaseIndex_(useBaseIndex) {
+  table_.setAbsoluteIndexing(useBaseIndex);
 }
 
 uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,

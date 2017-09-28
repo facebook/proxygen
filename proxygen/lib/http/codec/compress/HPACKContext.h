@@ -17,7 +17,7 @@ namespace proxygen {
 
 class HPACKContext {
  public:
-  explicit HPACKContext(uint32_t tableSize, bool qcram);
+  HPACKContext(uint32_t tableSize, bool qcram, bool useBaseIndex);
   virtual ~HPACKContext() {}
 
   /**
@@ -78,6 +78,7 @@ class HPACKContext {
   }
 
   HeaderTable table_;
+  bool useBaseIndex_{false};
 };
 
 std::ostream& operator<<(std::ostream& os, const HPACKContext& context);

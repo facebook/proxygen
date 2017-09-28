@@ -25,6 +25,7 @@ class HPACKEncoder : public HPACKContext {
   explicit HPACKEncoder(bool huffman,
                         uint32_t tableSize=HPACK::kTableSize,
                         bool emitSequenceNumbers=false,
+                        bool useBaseIndex=false,
                         bool autoCommit=true);
 
   /**

@@ -56,6 +56,28 @@ class HeaderTable {
    */
   void init(uint32_t capacityVal);
 
+  void setAbsoluteIndexing(bool absoluteIndexing) {
+    CHECK_EQ(readBaseIndex_, -1) << "Attempted to change indexing scheme after "
+      "encoding has started";
+    if (absoluteIndexing) {
+      readBaseIndex_ = 0;
+      writeBaseIndex_ = 0;
+    } else {
+      readBaseIndex_ = -1;
+      writeBaseIndex_ = -1;
+    }
+  }
+
+  int64_t markBaseIndex() {
+    readBaseIndex_ = writeBaseIndex_;
+    return writeBaseIndex_;
+  }
+
+  void setBaseIndex(int64_t baseIndex) {
+    readBaseIndex_ = baseIndex;
+    writeBaseIndex_ = baseIndex;
+  }
+
   /**
    * Add the header entry at the beginning of the table (index=1)
    *
@@ -205,6 +227,8 @@ class HeaderTable {
   uint32_t head_{0};     // points to the first element of the ring
 
   names_map names_;
+  int64_t readBaseIndex_{-1};
+  int64_t writeBaseIndex_{-1};
 };
 
 std::ostream& operator<<(std::ostream& os, const HeaderTable& table);

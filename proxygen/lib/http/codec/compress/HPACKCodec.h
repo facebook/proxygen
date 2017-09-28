@@ -74,6 +74,7 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
  public:
   explicit HPACKCodec(TransportDirection direction,
                       bool emitSequenceNumbers = false,
+                      bool useBaseIndex = false,
                       bool autoCommit = true);
   ~HPACKCodec() override {}
 

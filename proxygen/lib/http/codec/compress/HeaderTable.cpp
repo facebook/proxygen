@@ -54,12 +54,16 @@ bool HeaderTable::add(const HPACKHeader& header, int32_t epoch,
     increaseTableLengthTo(std::min( (uint32_t)(size_ * 1.5),
                                     getMaxTableLength(capacity_)));
   }
-  if (size_ > 0) {
-    head_ = next(head_);
+  uint32_t localHead = head_;
+  head_ = next(head_);
+  if (writeBaseIndex_ >= 0) {
+    localHead = ++writeBaseIndex_ % table_->size();
+  } else {
+    localHead = head_;
   }
-  table_->add(head_, header.name, header.value, epoch);
+  table_->add(localHead, header.name, header.value, epoch);
   // index name
-  names_[header.name].push_back(head_);
+  names_[header.name].push_back(localHead);
   bytes_ += header.bytes();
   ++size_;
   return true;
@@ -119,15 +123,25 @@ void HeaderTable::removeLast() {
   // remove the first element from the names index
   auto names_it = names_.find((*table_)[t].name);
   DCHECK(names_it != names_.end());
-  list<uint32_t> &ilist = names_it->second;
-  DCHECK(ilist.front() == t);
-  ilist.pop_front();
+  auto &ilist = names_it->second;
+  if (writeBaseIndex_ < 0) {
+    DCHECK_EQ(ilist.front(), t);
+  } // otherwise, we may have written out of order.
+
+  for (auto indexIt = ilist.begin(); indexIt != ilist.end(); ++indexIt) {
+    if (*indexIt == t) {
+      ilist.erase(indexIt);
+      break;
+    }
+  }
   // remove the name if there are no indices associated with it
   if (ilist.empty()) {
     names_.erase(names_it);
   }
   const auto& header = (*table_)[t];
   bytes_ -= header.bytes();
+  VLOG(10) << "Removing local idx=" << t << " name=" << header.name <<
+    " value=" << header.value;
   --size_;
 }
 
@@ -163,6 +177,7 @@ void HeaderTable::increaseTableLengthTo(uint32_t newLength) {
   auto oldTail = tail();
   auto oldLength = table_->size();
   table_->resize(newLength);
+  // TODO: referenence to head here is incompatible with baseIndex
   if (size_ > 0 && oldTail > head_) {
     // the list wrapped around, need to move oldTail..oldLength to the end
     // of the now-larger table_
@@ -192,7 +207,8 @@ uint32_t HeaderTable::evict(uint32_t needed, uint32_t desiredCapacity) {
 }
 
 bool HeaderTable::isValid(uint32_t index) const {
-  return 0 < index && index <= size_;
+  return (readBaseIndex_ < 0 && 0 < index && index <= size_) ||
+         (readBaseIndex_ >= 0 && 0 < index && index <= table_->size());
 }
 
 uint32_t HeaderTable::next(uint32_t i) const {
@@ -200,11 +216,14 @@ uint32_t HeaderTable::next(uint32_t i) const {
 }
 
 uint32_t HeaderTable::tail() const {
+  // tail is private, and only called in the encoder, where head_ is always
+  // valid
   return (head_ + table_->size() - size_ + 1) % table_->size();
 }
 
 uint32_t HeaderTable::toExternal(uint32_t internalIndex) const {
-  return toExternal(head_, table_->size(), internalIndex);
+  return toExternal(readBaseIndex_ >= 0 ? readBaseIndex_ : head_,
+                    table_->size(), internalIndex);
 }
 
 uint32_t HeaderTable::toExternal(uint32_t head, uint32_t length,
@@ -213,7 +232,8 @@ uint32_t HeaderTable::toExternal(uint32_t head, uint32_t length,
 }
 
 uint32_t HeaderTable::toInternal(uint32_t externalIndex) const {
-  return toInternal(head_, table_->size(), externalIndex);
+  return toInternal((readBaseIndex_ >= 0) ? readBaseIndex_ : head_,
+                    table_->size(), externalIndex);
 }
 
 uint32_t HeaderTable::toInternal(uint32_t head, uint32_t length,

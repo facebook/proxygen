@@ -27,7 +27,8 @@ class HPACKContextTests : public testing::TestWithParam<bool> {
 class TestContext : public HPACKContext {
 
  public:
-  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize, false) {}
+  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize, false,
+                                                          false) {}
 
   void add(const HPACKHeader& header) {
     table_.add(header);
@@ -36,7 +37,7 @@ class TestContext : public HPACKContext {
 };
 
 TEST_F(HPACKContextTests, get_index) {
-  HPACKContext context(HPACK::kTableSize, false);
+  HPACKContext context(HPACK::kTableSize, false, false);
   HPACKHeader method(":method", "POST");
 
   // this will get it from the static table

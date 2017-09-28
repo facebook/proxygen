@@ -27,9 +27,11 @@ namespace proxygen {
 
 HPACKCodec::HPACKCodec(TransportDirection /*direction*/,
                        bool emitSequenceNumbers,
+                       bool useBaseIndex,
                        bool autoCommit)
-    : encoder_(true, HPACK::kTableSize, emitSequenceNumbers, autoCommit),
-      decoder_(HPACK::kTableSize, maxUncompressed_) {
+    : encoder_(true, HPACK::kTableSize, emitSequenceNumbers, useBaseIndex,
+               autoCommit),
+      decoder_(HPACK::kTableSize, maxUncompressed_, useBaseIndex) {
 }
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {

@@ -105,6 +105,7 @@ encodeDecode(HPACKCodec& encoder, HPACKCodec& decoder,
              vector<Header>&& headers) {
   unique_ptr<IOBuf> encoded = encoder.encode(headers);
   Cursor cursor(encoded.get());
+  VLOG(10) << cursor.totalLength();
   return decoder.decode(cursor, cursor.totalLength());
 }
 
@@ -411,8 +412,8 @@ INSTANTIATE_TEST_CASE_P(Queue,
 class QCRAMSeqnTests : public testing::Test {
  protected:
 
-  HPACKCodec client{TransportDirection::UPSTREAM, true, false};
-  HPACKCodec server{TransportDirection::DOWNSTREAM, true, false};
+  HPACKCodec client{TransportDirection::UPSTREAM, true, false, false};
+  HPACKCodec server{TransportDirection::DOWNSTREAM, true, false, false};
 };
 
 
@@ -426,7 +427,7 @@ TEST_F(QCRAMSeqnTests, test_seqn) {
     Cursor cursor(encoded.get());
     auto seqn = cursor.readBE<uint16_t>();
     EXPECT_EQ(seqn, i);
-    LOG(INFO) << cursor.totalLength();
+    VLOG(4) << cursor.totalLength();
     auto result = server.decode(cursor, cursor.totalLength());
     client.setCommitEpoch(seqn);
     EXPECT_TRUE(result.isOk());
@@ -451,4 +452,109 @@ TEST_F(QCRAMSeqnTests, test_reencode_uncommitted) {
     EXPECT_TRUE(result.isOk());
     EXPECT_EQ(result.ok().headers.size(), 6);
   }
+}
+
+void headersEq(vector<Header>& headerVec, compress::HeaderPieceList& headers) {
+  size_t i = 0;
+  EXPECT_EQ(headerVec.size() * 2, headers.size());
+  for (auto& h: headerVec) {
+    string name = *h.name;
+    char *mutableName = (char *)name.data();
+    folly::toLowerAscii(mutableName, name.size());
+    EXPECT_EQ(name, headers[i++].str);
+    EXPECT_EQ(*h.value, headers[i++].str);
+  }
+}
+
+class QCRAMTests : public testing::Test {
+ public:
+  QCRAMTests()
+      : queue(std::make_unique<HPACKQueue>(server)) {}
+
+ protected:
+
+  HPACKCodec client{TransportDirection::UPSTREAM, true, true, false};
+  HPACKCodec server{TransportDirection::DOWNSTREAM, true, true, false};
+  std::unique_ptr<HPACKQueue> queue;
+};
+
+TEST_F(QCRAMTests, test_absolute_index) {
+  int flights = 10;
+  for (int i = 0; i < flights; i++) {
+    vector<vector<string>> headers;
+    for (int j = 0; j < 32; j++) {
+      int value = (i - i / (flights - 1)) * 32 + j; // duplicate the last flight
+      headers.emplace_back(
+        vector<string>({string("foomonkey"), folly::to<string>(value)}));
+    }
+    auto req = headersFromArray(headers);
+    unique_ptr<IOBuf> encoded = client.encode(req);
+    Cursor cursor(encoded.get());
+    auto seqn = cursor.readBE<uint16_t>();
+    EXPECT_EQ(seqn, i);
+    VLOG(4) << cursor.totalLength();
+    auto result = server.decode(cursor, cursor.totalLength());
+    client.setCommitEpoch(seqn);
+    EXPECT_TRUE(result.isOk());
+    headersEq(req, result.ok().headers);
+  }
+}
+
+TEST_F(QCRAMTests, test_with_queue) {
+  // Sends 10 flights of 4 requests each
+  // Each request contains two 'connection' headers, one with the current
+  // index, and current index - 8.
+  // Each flight is processed in the order 0, 3, 2, 1, unless an eviction
+  // happens on 2 or 3, in which case we force an blocking event.
+  vector<Header> req = basicHeaders();
+  vector<string> values;
+  int flights = 10;
+  for (auto i = 0; i < flights * 4; i++) {
+    values.push_back(folly::to<string>(i));
+  }
+  client.setEncoderHeaderTableSize(1024);
+  for (auto f = 0; f < flights; f++) {
+    vector<std::tuple<unique_ptr<IOBuf>, bool, TestStreamingCallback>> data;
+    for (int i = 0; i < 4; i++) {
+      bool eviction = false;
+      auto reqI = req;
+      for (int j = 0; j < 2; j++) {
+        reqI.emplace_back(HTTP_HEADER_CONNECTION, values[
+                            std::max(f * 4 + i - j * 8, 0)]);
+      }
+      auto block = client.encode(reqI, eviction);
+      if (eviction) {
+        VLOG(4) << "req=" << f * 4 + i << " triggered eviction";
+      }
+      data.emplace_back(std::move(block), eviction, TestStreamingCallback());
+    }
+
+    std::vector<int> insertOrder{0, 3, 2, 1};
+    for (auto i: insertOrder) {
+      auto& encodedReq = std::get<0>(data[i]);
+      bool eviction = std::get<1>(data[i]);
+      Cursor cursor(encodedReq.get());
+      auto seqn = cursor.readBE<uint16_t>();
+      auto len = cursor.totalLength();
+      encodedReq->trimStart(sizeof(uint16_t));
+      queue->enqueueHeaderBlock(seqn, std::move(encodedReq), len,
+                                &std::get<2>(data[i]), !eviction);
+    }
+    int i = 0;
+    for (auto& d: data) {
+      auto result = std::get<2>(d).getResult();
+      EXPECT_TRUE(result.isOk());
+      auto reqI = req;
+      client.setCommitEpoch(f * 4 + i);
+      for (int j = 0; j < 2; j++) {
+        reqI.emplace_back(HTTP_HEADER_CONNECTION,
+                          values[std::max(f * 4 + i - j * 8, 0)]);
+      }
+      i++;
+      headersEq(reqI, result.ok().headers);
+    }
+    VLOG(4) << "getHolBlockCount=" << queue->getHolBlockCount();
+  }
+  EXPECT_EQ(queue->getHolBlockCount(), 17);
+
 }

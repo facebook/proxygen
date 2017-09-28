@@ -63,12 +63,25 @@ const huffman::HuffTree& HPACKDecoder::getHuffmanTree() const {
   return huffman::huffTree();
 }
 
+void HPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
+  if (useBaseIndex_) {
+    uint32_t baseIndex = 0;
+    err_ = dbuf.decodeInteger(0, baseIndex);
+    if (err_ != HPACK::DecodeError::NONE) {
+      LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
+      return;
+    }
+    table_.setBaseIndex(baseIndex);
+  }
+}
+
 uint32_t HPACKDecoder::decode(Cursor& cursor,
                               uint32_t totalBytes,
                               headers_t& headers) {
   uint32_t emittedSize = 0;
   HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
                          maxUncompressed_);
+  handleBaseIndex(dbuf);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, &headers);
     if (emittedSize > maxUncompressed_) {
@@ -90,6 +103,7 @@ uint32_t HPACKDecoder::decodeStreaming(
   streamingCb_ = streamingCb;
   HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
                          maxUncompressed_);
+  handleBaseIndex(dbuf);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, nullptr);
 
