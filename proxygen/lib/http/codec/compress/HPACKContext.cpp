@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
 
 #include <folly/io/IOBuf.h>
 
@@ -16,7 +17,7 @@ using std::string;
 namespace proxygen {
 
 HPACKContext::HPACKContext(uint32_t tableSize) :
-    table_(tableSize) {
+    table_(std::unique_ptr<TableImpl>(new HPACKHeaderTableImpl()), tableSize) {
 }
 
 uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {

@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
 
 #include <folly/Indestructible.h>
 
@@ -90,7 +91,7 @@ const int kEntriesSize = sizeof(s_tableEntries) / (2 * sizeof(const char*));
 StaticHeaderTable::StaticHeaderTable(
     const char* entries[][2],
     int size)
-    : HeaderTable() {
+    : HeaderTable(std::make_unique<HPACKHeaderTableImpl>(), 0) {
   // calculate the size
   list<HPACKHeader> hlist;
   uint32_t byteCount = 0;

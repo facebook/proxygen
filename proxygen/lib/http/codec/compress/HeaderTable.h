@@ -18,6 +18,19 @@
 
 namespace proxygen {
 
+class TableImpl {
+ public:
+  virtual ~TableImpl() {}
+  virtual void init(size_t capacity) = 0;
+  virtual size_t size() const = 0;
+  virtual HPACKHeader& operator[] (size_t i) = 0;
+  virtual void resize(size_t size) = 0;
+  virtual void moveItems(size_t oldTail, size_t oldLength,
+                         size_t newLength) = 0;
+  virtual void add(size_t head, const HPACKHeaderName& name,
+                   const folly::fbstring& value) = 0;
+};
+
 /**
  * Data structure for maintaining indexed headers, based on a fixed-length ring
  * with FIFO semantics. Externally it acts as an array.
@@ -27,10 +40,10 @@ class HeaderTable {
  public:
   typedef std::unordered_map<HPACKHeaderName, std::list<uint32_t>> names_map;
 
-  explicit HeaderTable(uint32_t capacityVal) {
+  HeaderTable(std::unique_ptr<TableImpl> table, uint32_t capacityVal)
+      : table_(std::move(table)) {
     init(capacityVal);
   }
-  HeaderTable() {}
 
   ~HeaderTable() {}
   HeaderTable(const HeaderTable&) = delete;
@@ -123,7 +136,7 @@ class HeaderTable {
    * @return how many slots we have in the table
    */
   size_t length() const {
-    return table_.size();
+    return table_->size();
   }
 
   bool operator==(const HeaderTable& other) const;
@@ -181,7 +194,7 @@ class HeaderTable {
 
   uint32_t capacity_{0};
   uint32_t bytes_{0};     // size in bytes of the current entries
-  std::vector<HPACKHeader> table_;
+  std::unique_ptr<TableImpl> table_;
 
   uint32_t size_{0};    // how many entries we have in the table
   uint32_t head_{0};     // points to the first element of the ring

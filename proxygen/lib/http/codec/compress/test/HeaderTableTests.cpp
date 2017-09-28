@@ -10,6 +10,7 @@
 #include <folly/portability/GTest.h>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 #include <sstream>
 
@@ -66,7 +67,7 @@ TEST_F(HeaderTableTests, index_translation) {
 }
 
 TEST_F(HeaderTableTests, add) {
-  HeaderTable table(4096);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), 4096);
   HPACKHeader header("accept-encoding", "gzip");
   table.add(header);
   table.add(header);
@@ -85,7 +86,7 @@ TEST_F(HeaderTableTests, evict) {
   HPACKHeader accept3("accept-encoding", "third"); // size is larger with 1 byte
   uint32_t max = 10;
   uint32_t capacity = accept.bytes() * max;
-  HeaderTable table(capacity);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), capacity);
   // fill the table
   for (size_t i = 0; i < max; i++) {
     EXPECT_EQ(table.add(accept), true);
@@ -121,7 +122,7 @@ TEST_F(HeaderTableTests, reduceCapacity) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 10;
   uint32_t capacity = accept.bytes() * max;
-  HeaderTable table(capacity);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), capacity);
   EXPECT_LE(table.length(), table.getMaxTableLength(capacity));
 
   // fill the table
@@ -136,8 +137,8 @@ TEST_F(HeaderTableTests, reduceCapacity) {
 
 TEST_F(HeaderTableTests, comparison) {
   uint32_t capacity = 128;
-  HeaderTable t1(capacity);
-  HeaderTable t2(capacity);
+  HeaderTable t1(std::make_unique<HPACKHeaderTableImpl>(), capacity);
+  HeaderTable t2(std::make_unique<HPACKHeaderTableImpl>(), capacity);
 
   HPACKHeader h1("Content-Encoding", "gzip");
   HPACKHeader h2("Content-Encoding", "deflate");
@@ -156,7 +157,7 @@ TEST_F(HeaderTableTests, comparison) {
 
 TEST_F(HeaderTableTests, print) {
   stringstream out;
-  HeaderTable t(128);
+  HeaderTable t(std::make_unique<HPACKHeaderTableImpl>(), 128);
   t.add(HPACKHeader("Accept-Encoding", "gzip"));
   out << t;
   EXPECT_EQ(out.str(),
@@ -167,8 +168,9 @@ TEST_F(HeaderTableTests, increaseCapacity) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 4;
   uint32_t capacity = accept.bytes() * max;
-  HeaderTable table(capacity);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), capacity);
   EXPECT_LE(table.length(), table.getMaxTableLength(capacity));
+
   // fill the table
   uint32_t length = table.length() + 1;
   for (size_t i = 0; i < length; i++) {
@@ -191,7 +193,7 @@ TEST_F(HeaderTableTests, varyCapacity) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 6;
   uint32_t capacity = accept.bytes() * max;
-  HeaderTable table(capacity);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), capacity);
 
   // Fill the table (extra) and make sure we haven't violated our
   // size (bytes) limits (expected one entry to be evicted)
@@ -222,7 +224,7 @@ TEST_F(HeaderTableTests, varyCapacityMalignHeadIndex) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 6;
   uint32_t capacity = accept.bytes() * max;
-  HeaderTable table(capacity);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), capacity);
 
   // Push head_ to last index in underlying table before potential wrap
   // This is our max table size for the duration of the test
@@ -265,7 +267,7 @@ TEST_F(HeaderTableTests, varyCapacityMalignHeadIndex) {
 TEST_F(HeaderTableTests, addLargerThanTable) {
   // Construct a smallish table
   uint32_t capacityBytes = 256;
-  HeaderTable table(capacityBytes);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), capacityBytes);
   HPACKHeaderName name("accept-encoding");
   table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 0
   table.add(HPACKHeader("accept-encoding", "gzip"));  // internal index = 1
@@ -296,7 +298,7 @@ TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
   HPACKHeader largeHeader("Access-Control-Allow-Credentials", "true");
   HPACKHeader smallHeader("Accept", "All-Content");
 
-  HeaderTable table(448);
+  HeaderTable table(std::make_unique<HPACKHeaderTableImpl>(), 448);
   CHECK_EQ(table.length(), 7);
 
   for (uint8_t count = 0; count < 3; count++) {
