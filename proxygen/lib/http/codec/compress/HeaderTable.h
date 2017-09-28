@@ -28,7 +28,9 @@ class TableImpl {
   virtual void moveItems(size_t oldTail, size_t oldLength,
                          size_t newLength) = 0;
   virtual void add(size_t head, const HPACKHeaderName& name,
-                   const folly::fbstring& value) = 0;
+                   const folly::fbstring& value, int32_t epoch) = 0;
+  virtual bool isValidEpoch(uint32_t i, int32_t commitEpoch,
+                            int32_t curEpoch) = 0;
 };
 
 /**
@@ -60,13 +62,15 @@ class HeaderTable {
    * @return true if it was able to add the entry
    */
   bool add(const HPACKHeader& header);
+  bool add(const HPACKHeader& header, int32_t epoch);
 
   /**
    * Get the index of the given header, if found.
    *
    * @return 0 in case the header is not found
    */
-  uint32_t getIndex(const HPACKHeader& header) const;
+  uint32_t getIndex(const HPACKHeader& header, int32_t commitEpoch = -1,
+                    int32_t curEpoch = -1) const;
 
   /**
    * Get the table entry at the given index.
@@ -97,7 +101,8 @@ class HeaderTable {
    * headers with the given name we pick the last one added to the header
    * table, but the way we pick the header can be arbitrary.
    */
-  uint32_t nameIndex(const HPACKHeaderName& headerName) const;
+  uint32_t nameIndex(const HPACKHeaderName& headerName, int32_t commitEpoch=-1,
+                     int32_t curEpoch=-1) const;
 
   /**
    * Table capacity, or maximum number of bytes we can hold.

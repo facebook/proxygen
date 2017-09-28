@@ -25,8 +25,12 @@ using std::vector;
 
 namespace proxygen {
 
-HPACKCodec::HPACKCodec(TransportDirection /*direction*/)
-    : encoder_(true), decoder_(HPACK::kTableSize, maxUncompressed_) {}
+HPACKCodec::HPACKCodec(TransportDirection /*direction*/,
+                       bool emitSequenceNumbers,
+                       bool autoCommit)
+    : encoder_(true, HPACK::kTableSize, emitSequenceNumbers, autoCommit),
+      decoder_(HPACK::kTableSize, maxUncompressed_) {
+}
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   // convert to HPACK API format

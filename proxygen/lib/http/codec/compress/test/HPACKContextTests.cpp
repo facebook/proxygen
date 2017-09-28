@@ -27,7 +27,7 @@ class HPACKContextTests : public testing::TestWithParam<bool> {
 class TestContext : public HPACKContext {
 
  public:
-  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize) {}
+  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize, false) {}
 
   void add(const HPACKHeader& header) {
     table_.add(header);
@@ -36,11 +36,11 @@ class TestContext : public HPACKContext {
 };
 
 TEST_F(HPACKContextTests, get_index) {
-  HPACKContext context(HPACK::kTableSize);
+  HPACKContext context(HPACK::kTableSize, false);
   HPACKHeader method(":method", "POST");
 
   // this will get it from the static table
-  CHECK_EQ(context.getIndex(method), 3);
+  CHECK_EQ(context.getIndex(method, -1, -1), 3);
 }
 
 TEST_F(HPACKContextTests, is_static) {
@@ -233,8 +233,8 @@ TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
 
   encoder.encode(headers);
 
-  CHECK_EQ(encoder.getIndex(headers[1]), 0);
-  CHECK_EQ(encoder.getIndex(headers[0]), 62);
+  CHECK_EQ(encoder.getIndex(headers[1], -1, -1), 0);
+  CHECK_EQ(encoder.getIndex(headers[0], -1, -1), 62);
 }
 
 TEST_P(HPACKContextTests, contextUpdate) {

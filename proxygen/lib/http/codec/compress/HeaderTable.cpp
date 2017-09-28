@@ -28,7 +28,10 @@ void HeaderTable::init(uint32_t capacityVal) {
 }
 
 bool HeaderTable::add(const HPACKHeader& header) {
+  return add(header, -1);
+}
 
+bool HeaderTable::add(const HPACKHeader& header, int32_t epoch) {
   if (header.bytes() > capacity_) {
     // Per the RFC spec https://tools.ietf.org/html/rfc7541#page-11, we must
     // flush the underlying table if a request is made for a header that is
@@ -49,7 +52,7 @@ bool HeaderTable::add(const HPACKHeader& header) {
   if (size_ > 0) {
     head_ = next(head_);
   }
-  table_->add(head_, header.name, header.value);
+  table_->add(head_, header.name, header.value, epoch);
   // index name
   names_[header.name].push_back(head_);
   bytes_ += header.bytes();
@@ -57,13 +60,16 @@ bool HeaderTable::add(const HPACKHeader& header) {
   return true;
 }
 
-uint32_t HeaderTable::getIndex(const HPACKHeader& header) const {
+uint32_t HeaderTable::getIndex(const HPACKHeader& header,
+                               int32_t commitEpoch,
+                               int32_t curEpoch) const {
   auto it = names_.find(header.name);
   if (it == names_.end()) {
     return 0;
   }
   for (auto i : it->second) {
-    if ((*table_)[i].value == header.value) {
+    if ((*table_)[i].value == header.value &&
+        table_->isValidEpoch(i, commitEpoch, curEpoch)) {
       return toExternal(i);
     }
   }
@@ -74,12 +80,21 @@ bool HeaderTable::hasName(const HPACKHeaderName& headerName) {
   return names_.find(headerName) != names_.end();
 }
 
-uint32_t HeaderTable::nameIndex(const HPACKHeaderName& headerName) const {
+uint32_t HeaderTable::nameIndex(const HPACKHeaderName& headerName,
+                                int32_t commitEpoch,
+                                int32_t curEpoch) const {
   auto it = names_.find(headerName);
   if (it == names_.end()) {
     return 0;
   }
-  return toExternal(it->second.back());
+  for (auto indexIt = it->second.rbegin(); indexIt != it->second.rend();
+       ++indexIt) {
+    auto i = *indexIt;
+    if (table_->isValidEpoch(i, commitEpoch, curEpoch)) {
+      return toExternal(i);
+    }
+  }
+  return 0;
 }
 
 const HPACKHeader& HeaderTable::operator[](uint32_t i) const {

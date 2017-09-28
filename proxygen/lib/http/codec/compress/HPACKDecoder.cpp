@@ -176,6 +176,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
   uint32_t emittedSize = emit(header, emitted);
 
   if (indexing) {
+    // epoch not really relevant to decoder
     table_.add(header);
   }
 

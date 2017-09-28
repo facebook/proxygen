@@ -61,6 +61,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/HeaderTable.h \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
+	codec/compress/QCRAMHeader.h \
 	codec/compress/StaticHeaderTable.h \
 	codec/HTTPRequestVerifier.h \
 	codec/HTTP2Codec.h \

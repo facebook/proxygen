@@ -406,3 +406,49 @@ TEST_P(HPACKQueueTests, queue_deleted) {
 INSTANTIATE_TEST_CASE_P(Queue,
                         HPACKQueueTests,
                         ::testing::Values(0, 1, 2, 3));
+
+
+class QCRAMSeqnTests : public testing::Test {
+ protected:
+
+  HPACKCodec client{TransportDirection::UPSTREAM, true, false};
+  HPACKCodec server{TransportDirection::DOWNSTREAM, true, false};
+};
+
+
+TEST_F(QCRAMSeqnTests, test_seqn) {
+  // Test that QCRAM mode is adding sequence numbers to encoded blocks
+  // We automatically set the commit epoch (simulate an ack) after each decoding
+  auto req = basicHeaders();
+  for (int i = 0; i < 3; i++) {
+    unique_ptr<IOBuf> encoded = client.encode(req);
+    EXPECT_EQ(bufLen(encoded), sizeof(uint16_t) + ((i == 0) ? 34 : 3));
+    Cursor cursor(encoded.get());
+    auto seqn = cursor.readBE<uint16_t>();
+    EXPECT_EQ(seqn, i);
+    LOG(INFO) << cursor.totalLength();
+    auto result = server.decode(cursor, cursor.totalLength());
+    client.setCommitEpoch(seqn);
+    EXPECT_TRUE(result.isOk());
+    EXPECT_EQ(result.ok().headers.size(), 6);
+  }
+}
+
+TEST_F(QCRAMSeqnTests, test_reencode_uncommitted) {
+  // Test that we re-encode headers that have not been marked committed
+  auto req = basicHeaders();
+  std::vector<int> expectedLengths = { 34, 34, 3 };
+  for (int i = 0; i < 3; i++) {
+    unique_ptr<IOBuf> encoded = client.encode(req);
+    Cursor cursor(encoded.get());
+    EXPECT_EQ(cursor.totalLength(), sizeof(uint16_t) + expectedLengths[i]);
+    auto seqn = cursor.readBE<uint16_t>();
+    EXPECT_EQ(seqn, i);
+    auto result = server.decode(cursor, cursor.totalLength());
+    if (i >= 1) {
+      client.setCommitEpoch(seqn);
+    }
+    EXPECT_TRUE(result.isOk());
+    EXPECT_EQ(result.ok().headers.size(), 6);
+  }
+}

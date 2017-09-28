@@ -21,17 +21,23 @@ using std::vector;
 namespace proxygen {
 
 HPACKEncoder::HPACKEncoder(bool huffman,
-                           uint32_t tableSize) :
-    HPACKContext(tableSize),
+                           uint32_t tableSize,
+                           bool emitSequenceNumbers,
+                           bool autoCommit) :
+    HPACKContext(tableSize, emitSequenceNumbers),
     huffman_(huffman),
-    buffer_(kBufferGrowth, huffman::huffTree(), huffman) {
+    buffer_(kBufferGrowth, huffman::huffTree(), huffman),
+    emitSequenceNumbers_(emitSequenceNumbers),
+    autoCommit_(autoCommit) {
 }
 
 unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
                                        uint32_t headroom) {
   if (headroom) {
     buffer_.addHeadroom(headroom);
-    headroom = 0;
+  }
+  if (emitSequenceNumbers_) {
+    buffer_.appendSequenceNumber(nextSequenceNumber_);
   }
   if (pendingContextUpdate_) {
     buffer_.encodeInteger(table_.capacity(),
@@ -42,6 +48,10 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
   for (const auto& header : headers) {
     encodeHeader(header);
   }
+  if (autoCommit_) {
+    commitEpoch_ = nextSequenceNumber_;
+  }
+  nextSequenceNumber_++;
   return buffer_.release();
 }
 
@@ -59,7 +69,7 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
     HPACK::HeaderEncoding::LITERAL_NO_INDEXING;
   uint8_t len = indexing ? 6 : 4;
   // name
-  uint32_t index = nameIndex(header.name);
+  uint32_t index = nameIndex(header.name, commitEpoch_, nextSequenceNumber_);
   if (index) {
     buffer_.encodeInteger(index, prefix, len);
   } else {
@@ -70,7 +80,7 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
   buffer_.encodeLiteral(header.value);
   // indexed ones need to get added to the header table
   if (indexing) {
-    table_.add(header);
+    table_.add(header, nextSequenceNumber_);
   }
 }
 
@@ -79,7 +89,7 @@ void HPACKEncoder::encodeAsIndex(uint32_t index) {
 }
 
 void HPACKEncoder::encodeHeader(const HPACKHeader& header) {
-  uint32_t index = getIndex(header);
+  uint32_t index = getIndex(header, commitEpoch_, nextSequenceNumber_);
   if (index) {
     encodeAsIndex(index);
   } else {

@@ -23,7 +23,9 @@ class HPACKEncoder : public HPACKContext {
 
  public:
   explicit HPACKEncoder(bool huffman,
-                        uint32_t tableSize=HPACK::kTableSize);
+                        uint32_t tableSize=HPACK::kTableSize,
+                        bool emitSequenceNumbers=false,
+                        bool autoCommit=true);
 
   /**
    * Size of a new IOBuf which is added to the chain
@@ -56,6 +58,12 @@ class HPACKEncoder : public HPACKContext {
     return table_.size();
   }
 
+  void setCommitEpoch(uint16_t commitEpoch) {
+    if (commitEpoch > commitEpoch_) {
+      commitEpoch_ = commitEpoch;
+    }
+  }
+
  protected:
   void encodeAsIndex(uint32_t index);
 
@@ -67,7 +75,11 @@ class HPACKEncoder : public HPACKContext {
   bool huffman_;
  protected:
   HPACKEncodeBuffer buffer_;
+  uint16_t nextSequenceNumber_{0};
+  int32_t commitEpoch_{-1};
   bool pendingContextUpdate_{false};
+  bool emitSequenceNumbers_{false};
+  bool autoCommit_{true};
 };
 
 }

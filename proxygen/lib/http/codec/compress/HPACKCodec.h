@@ -72,7 +72,9 @@ struct HPACKTableInfo {
 
 class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
  public:
-  explicit HPACKCodec(TransportDirection direction);
+  explicit HPACKCodec(TransportDirection direction,
+                      bool emitSequenceNumbers = false,
+                      bool autoCommit = true);
   ~HPACKCodec() override {}
 
   std::unique_ptr<folly::IOBuf> encode(
@@ -99,6 +101,11 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
   void setDecoderHeaderTableMaxSize(uint32_t size) {
     decoder_.setHeaderTableMaxSize(size);
   }
+
+  void setCommitEpoch(uint16_t commitEpoch) {
+    encoder_.setCommitEpoch(commitEpoch);
+  }
+
 
   void describe(std::ostream& os) const;
 

@@ -30,11 +30,13 @@ class HPACKHeaderTableImpl : public TableImpl {
                        vec_.begin() + newLength);
   }
   void add(size_t head, const HPACKHeaderName& name,
-           const folly::fbstring& value) override {
+           const folly::fbstring& value, int32_t /*epoch*/) override {
     vec_[head].name = name;
     vec_[head].value = value;
   }
 
+  virtual bool isValidEpoch(uint32_t /*i*/, int32_t /*commitEpoch*/,
+                            int32_t /*curEpoch*/) override { return true; }
   std::vector<HPACKHeader> vec_;
 };
 

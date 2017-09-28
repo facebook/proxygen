@@ -9,6 +9,7 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
+#include <proxygen/lib/http/codec/compress/QCRAMHeader.h>
 
 #include <folly/io/IOBuf.h>
 
@@ -16,28 +17,34 @@ using std::string;
 
 namespace proxygen {
 
-HPACKContext::HPACKContext(uint32_t tableSize) :
-    table_(std::unique_ptr<TableImpl>(new HPACKHeaderTableImpl()), tableSize) {
+HPACKContext::HPACKContext(uint32_t tableSize, bool qcram) :
+    table_(std::unique_ptr<TableImpl>(
+             (qcram ?
+              (TableImpl*)new QCRAMTableImpl() :
+              (TableImpl*)new HPACKHeaderTableImpl())), tableSize) {
 }
 
-uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
+uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,
+                                int32_t curEpoch) const {
   uint32_t index = getStaticTable().getIndex(header);
   if (index) {
     return staticToGlobalIndex(index);
   }
-  index = table_.getIndex(header);
+  index = table_.getIndex(header, commitEpoch, curEpoch);
   if (index) {
     return dynamicToGlobalIndex(index);
   }
   return 0;
 }
 
-uint32_t HPACKContext::nameIndex(const HPACKHeaderName& headerName) const {
+uint32_t HPACKContext::nameIndex(const HPACKHeaderName& headerName,
+                                 int32_t commitEpoch,
+                                 int32_t curEpoch) const {
   uint32_t index = getStaticTable().nameIndex(headerName);
   if (index) {
     return staticToGlobalIndex(index);
   }
-  index = table_.nameIndex(headerName);
+  index = table_.nameIndex(headerName, commitEpoch, curEpoch);
   if (index) {
     return dynamicToGlobalIndex(index);
   }

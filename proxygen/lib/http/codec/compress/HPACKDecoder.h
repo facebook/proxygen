@@ -26,7 +26,7 @@ class HPACKDecoder : public HPACKContext {
   explicit HPACKDecoder(
     uint32_t tableSize=HPACK::kTableSize,
     uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
-      : HPACKContext(tableSize),
+      : HPACKContext(tableSize, false),
         maxTableSize_(tableSize),
         maxUncompressed_(maxUncompressed) {}
 

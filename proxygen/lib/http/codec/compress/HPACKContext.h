@@ -17,7 +17,7 @@ namespace proxygen {
 
 class HPACKContext {
  public:
-  explicit HPACKContext(uint32_t tableSize);
+  explicit HPACKContext(uint32_t tableSize, bool qcram);
   virtual ~HPACKContext() {}
 
   /**
@@ -26,14 +26,16 @@ class HPACKContext {
    *
    * @return 0 if cannot be found
    */
-  virtual uint32_t getIndex(const HPACKHeader& header) const;
+  virtual uint32_t getIndex(const HPACKHeader& header,
+                            int32_t commitEpoch, int32_t curEpoch) const;
 
   /**
    * index of a header entry with the given name from dynamic or static table
    *
    * @return 0 if name not found
    */
-  virtual uint32_t nameIndex(const HPACKHeaderName& headerName) const;
+  virtual uint32_t nameIndex(const HPACKHeaderName& headerName,
+                             int32_t commitEpoch, int32_t curEpoch) const;
 
   /**
    * @return true if the given index points to a static header entry
