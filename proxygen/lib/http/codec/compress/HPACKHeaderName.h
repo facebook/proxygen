@@ -39,17 +39,24 @@ class HPACKHeaderName {
   HPACKHeaderName(HPACKHeaderName&& goner) noexcept {
     moveAddress(goner);
   }
-  void operator=(folly::StringPiece name) {
+  HPACKHeaderName& operator=(folly::StringPiece name) {
     resetAddress();
     storeAddress(name);
+    return *this;
   }
-  void operator=(const HPACKHeaderName& headerName) {
-    resetAddress();
-    copyAddress(headerName);
+  HPACKHeaderName& operator=(const HPACKHeaderName& headerName) {
+    if (this != &headerName) {
+      resetAddress();
+      copyAddress(headerName);
+    }
+    return *this;
   }
-  void operator=(HPACKHeaderName&& goner) noexcept {
-    resetAddress();
-    moveAddress(goner);
+  HPACKHeaderName& operator=(HPACKHeaderName&& goner) noexcept {
+    if (this != &goner) {
+      resetAddress();
+      moveAddress(goner);
+    }
+    return *this;
   }
 
   ~HPACKHeaderName() {

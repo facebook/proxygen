@@ -109,18 +109,32 @@ TEST_F(HPACKHeaderNameTest, test_move_constructor) {
 }
 
 TEST_F(HPACKHeaderNameTest, test_assignment_operators) {
-  HPACKHeaderName name1("accept-encoding");
-  HPACKHeaderName name2("content-length");
-  HPACKHeaderName name3("uncommon-name");
-  HPACKHeaderName name4("uncommon-name-2");
+  std::string testHeaderName = "accept-encoding";
 
-  // Test assignment operator
+  HPACKHeaderName name1(testHeaderName);
+  EXPECT_EQ(name1.get(), testHeaderName);
+
+  // Explicitly test some self assignment overloads
+  name1 = name1;
+  EXPECT_EQ(name1.get(), testHeaderName);
+  HPACKHeaderName* pName1 = &name1;
+  // Specifically require a temporary above to throw off the compiler/lint:
+  // explicitly moving variable of type 'proxygen::HPACKHeaderName' to itself
+  name1 = std::move(*pName1);
+  EXPECT_EQ(name1.get(), testHeaderName);
+
+  std::string otherHeaderName = "uncommon-name";
+  HPACKHeaderName name2(otherHeaderName);
   name1 = name2;
-  name2 = "unseen-header";
-  name3 = std::move(name4);
-  EXPECT_EQ(name1.get(), "content-length");
-  EXPECT_EQ(name2.get(), "unseen-header");
-  EXPECT_EQ(name3.get(), "uncommon-name-2");
+  EXPECT_EQ(name1.get(), otherHeaderName);
+  EXPECT_EQ(name2.get(), otherHeaderName);
+
+  HPACKHeaderName name3(testHeaderName);
+  name1 = std::move(name3);
+  EXPECT_EQ(name1.get(), testHeaderName);
+
+  name1 = otherHeaderName;
+  EXPECT_EQ(name1.get(), otherHeaderName);
 }
 
 TEST_F(HPACKHeaderNameTest, test_get_size) {
