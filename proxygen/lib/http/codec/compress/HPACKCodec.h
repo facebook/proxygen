@@ -127,6 +127,11 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
                           decoder_.getHeadersStored());
   }
 
+  // Used for QCRAM simulation
+  void packetFlushed() {
+    encoder_.packetFlushed();
+  }
+
  protected:
   HPACKEncoder encoder_;
   HPACKDecoder decoder_;

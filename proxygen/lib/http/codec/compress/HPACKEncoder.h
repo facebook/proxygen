@@ -66,6 +66,16 @@ class HPACKEncoder : public HPACKContext {
     }
   }
 
+  void packetFlushed() {
+    bytesInPacket_ = 0;
+    packetEpoch_ = nextSequenceNumber_;
+    VLOG(5) << "bumped packetEpoch_ to " << packetEpoch_;
+  }
+
+  static void enableAutoFlush() {
+    sEnableAutoFlush_ = true;
+  }
+
  protected:
   void encodeAsIndex(uint32_t index);
 
@@ -77,12 +87,16 @@ class HPACKEncoder : public HPACKContext {
   bool huffman_;
  protected:
   HPACKEncodeBuffer buffer_;
+  uint16_t packetEpoch_{0};
   uint16_t nextSequenceNumber_{0};
   int32_t commitEpoch_{-1};
+  uint16_t bytesInPacket_{0};
   bool pendingContextUpdate_{false};
   bool eviction_{false};
   bool emitSequenceNumbers_{false};
   bool autoCommit_{true};
+
+  static bool sEnableAutoFlush_;
 };
 
 }
