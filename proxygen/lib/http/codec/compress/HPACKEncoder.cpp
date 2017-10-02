@@ -67,8 +67,8 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
   return buffer_.release();
 }
 
-void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
-  bool indexing = header.isIndexable();
+void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
+  indexing &= header.isIndexable();
   if (header.bytes() > table_.capacity()) {
     // May want to investigate further whether or not this is wanted.
     // Flushing the table on a large header frees up some memory,
@@ -105,10 +105,17 @@ void HPACKEncoder::encodeAsIndex(uint32_t index) {
 
 void HPACKEncoder::encodeHeader(const HPACKHeader& header) {
   uint32_t index = getIndex(header, commitEpoch_, nextSequenceNumber_);
+  bool indexable = true;
+  if (index == std::numeric_limits<uint32_t>::max()) {
+    VLOG(5) << "Not indexing redundant header=" << header.name << " value=" <<
+      header.value;
+    index = 0;
+    indexable = false;
+  }
   if (index) {
     encodeAsIndex(index);
   } else {
-    encodeAsLiteral(header);
+    encodeAsLiteral(header, indexable);
   }
 }
 

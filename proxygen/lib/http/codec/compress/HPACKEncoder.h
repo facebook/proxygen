@@ -72,7 +72,7 @@ class HPACKEncoder : public HPACKContext {
  private:
   virtual void encodeHeader(const HPACKHeader& header);
 
-  virtual void encodeAsLiteral(const HPACKHeader& header);
+  virtual void encodeAsLiteral(const HPACKHeader& header, bool indexable);
 
   bool huffman_;
  protected:

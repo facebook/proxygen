@@ -438,7 +438,7 @@ TEST_F(QCRAMSeqnTests, test_seqn) {
 TEST_F(QCRAMSeqnTests, test_reencode_uncommitted) {
   // Test that we re-encode headers that have not been marked committed
   auto req = basicHeaders();
-  std::vector<int> expectedLengths = { 34, 34, 3 };
+  std::vector<int> expectedLengths = { 34, 35, 3 };
   for (int i = 0; i < 3; i++) {
     unique_ptr<IOBuf> encoded = client.encode(req);
     Cursor cursor(encoded.get());
@@ -555,6 +555,7 @@ TEST_F(QCRAMTests, test_with_queue) {
     }
     VLOG(4) << "getHolBlockCount=" << queue->getHolBlockCount();
   }
-  EXPECT_EQ(queue->getHolBlockCount(), 17);
+  // Skipping redundant table adds reduces the HOL block count
+  EXPECT_EQ(queue->getHolBlockCount(), 10);
 
 }

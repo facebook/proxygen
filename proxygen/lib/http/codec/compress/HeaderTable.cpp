@@ -76,13 +76,16 @@ uint32_t HeaderTable::getIndex(const HPACKHeader& header,
   if (it == names_.end()) {
     return 0;
   }
+  bool encoderHasEntry = false;
   for (auto i : it->second) {
-    if ((*table_)[i].value == header.value &&
-        table_->isValidEpoch(i, commitEpoch, curEpoch)) {
-      return toExternal(i);
+    if ((*table_)[i].value == header.value) {
+      encoderHasEntry = true;
+      if (table_->isValidEpoch(i, commitEpoch, curEpoch)) {
+        return toExternal(i);
+      }
     }
   }
-  return 0;
+  return encoderHasEntry ? std::numeric_limits<uint32_t>::max() : 0;
 }
 
 bool HeaderTable::hasName(const HPACKHeaderName& headerName) {

@@ -32,9 +32,12 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,
   if (index) {
     return staticToGlobalIndex(index);
   }
+  // break the cache
   index = table_.getIndex(header, commitEpoch, curEpoch);
-  if (index) {
+  if (index && index != std::numeric_limits<uint32_t>::max()) {
     return dynamicToGlobalIndex(index);
+  } else {
+    return index;
   }
   return 0;
 }
