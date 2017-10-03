@@ -14,15 +14,52 @@
 #include <proxygen/lib/http/codec/SPDYUtil.h>
 #include <proxygen/lib/utils/UtilInl.h>
 
-#include "proxygen/external/http_parser/http_parser.h"
+#include <proxygen/external/http_parser/http_parser.h>
 
 using folly::fbstring;
 using std::string;
 
 namespace proxygen {
 
+/**
+ * According to RFC 3986, a generic HTTP URL is of the form:
+ *   scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+ *
+ * ParseURL use http_parser to parse internet url, that supports internet
+ * sematic url use double slash:
+ *   http://host/path
+ *   ftp://host/path
+ *   rtmp://host/path
+ *
+ * It does not support special scheme like:
+ *   mailto:user@host:port
+ *   news:path
+ *
+ * And ParseURL support partial form (URI reference):
+ *   host:port/path?query#fragment
+ *   /path?query#fragment
+ *   ?query
+ *   #fragment
+ *
+ */
+
+// Helper function to check if URL has valid scheme.
+// http_parser only support full form scheme with double slash,
+// and the scheme must be all alphabetic charecter.
+static bool validateScheme(folly::StringPiece url) {
+  auto schemeEnd = url.find("://");
+  if (schemeEnd == std::string::npos || schemeEnd == 0) {
+    return false;
+  }
+
+  auto scheme = url.subpiece(0, schemeEnd);
+  return std::all_of(scheme.begin(), scheme.end(), [](auto _) {
+      return std::isalpha(_);
+  });
+}
+
 void ParseURL::parse() noexcept {
-  if (caseInsensitiveEqual(url_.subpiece(0, 4), "http")) {
+  if (validateScheme(url_)) {
     struct http_parser_url u;
     memset(&u, 0, sizeof(struct http_parser_url)); // init before used
     valid_ = !(http_parser_parse_url(url_.data(), url_.size(), 0, &u));

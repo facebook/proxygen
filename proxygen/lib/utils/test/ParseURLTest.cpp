@@ -14,6 +14,7 @@ using proxygen::ParseURL;
 using std::string;
 
 void testParseURL(const string& url,
+                  const string& expectedScheme,
                   const string& expectedPath,
                   const string& expectedQuery,
                   const string& expectedHost,
@@ -24,6 +25,7 @@ void testParseURL(const string& url,
 
   if (expectedValid) {
     EXPECT_EQ(url, u.url());
+    EXPECT_EQ(expectedScheme, u.scheme());
     EXPECT_EQ(expectedPath, u.path());
     EXPECT_EQ(expectedQuery, u.query());
     EXPECT_EQ(expectedHost, u.host());
@@ -49,72 +51,93 @@ TEST(ParseURL, HostNoBrackets) {
 }
 
 TEST(ParseURL, FullyFormedURL) {
-  testParseURL("http://localhost:80/foo?bar#qqq", "/foo", "bar",
+  testParseURL("http://localhost:80/foo?bar#qqq", "http", "/foo", "bar",
                "localhost", 80, "localhost:80");
-  testParseURL("http://localhost:80/foo?bar", "/foo", "bar",
+  testParseURL("http://localhost:80/foo?bar", "http", "/foo", "bar",
                "localhost", 80, "localhost:80");
-  testParseURL("http://localhost:80/foo", "/foo", "",
+  testParseURL("http://localhost:80/foo", "http", "/foo", "",
                "localhost", 80, "localhost:80");
-  testParseURL("http://localhost:80/",  "/", "",
+  testParseURL("http://localhost:80/", "http",  "/", "",
                "localhost", 80, "localhost:80");
-  testParseURL("http://localhost:80",  "", "",
+  testParseURL("http://localhost:80", "http",  "", "",
                "localhost", 80, "localhost:80");
-  testParseURL("http://localhost",  "", "",
+  testParseURL("http://localhost", "http",  "", "",
                "localhost", 0, "localhost");
-  testParseURL("http://[2401:db00:2110:3051:face:0:3f:0]/", "/", "",
+  testParseURL("http://[2401:db00:2110:3051:face:0:3f:0]/", "http", "/", "",
                "[2401:db00:2110:3051:face:0:3f:0]", 0,
                "[2401:db00:2110:3051:face:0:3f:0]");
 }
 
+TEST(ParseURL, ValidNonHttpScheme) {
+  testParseURL("https://localhost:80/foo?bar#qqq", "https", "/foo", "bar",
+               "localhost", 80, "localhost:80");
+  testParseURL("rtmp://localhost:80/foo?bar#qqq", "rtmp", "/foo", "bar",
+               "localhost", 80, "localhost:80");
+  testParseURL("ftp://localhost:80/foo?bar#qqq", "ftp", "/foo", "bar",
+               "localhost", 80, "localhost:80");
+  testParseURL("proxygen://localhost:80/foo?bar#qqq", "proxygen", "/foo", "bar",
+               "localhost", 80, "localhost:80");
+  testParseURL("test://localhost:80/foo?bar#qqq", "test", "/foo", "bar",
+               "localhost", 80, "localhost:80");
+}
+
+TEST(ParseURL, InvalidScheme) {
+  testParseURL("test123://localhost:80", "", "", "", "", 0, "", false);
+  testParseURL("test.1://localhost:80", "", "", "", "", 0, "", false);
+  testParseURL("://localhost:80", "", "", "", "", 0, "", false);
+  testParseURL("123://localhost:80", "", "", "", "", 0, "", false);
+  testParseURL("---://localhost:80", "", "", "", "", 0, "", false);
+}
+
 TEST(ParseURL, NoScheme) {
-  testParseURL("localhost:80/foo?bar#qqq", "/foo", "bar",
+  testParseURL("localhost:80/foo?bar#qqq", "", "/foo", "bar",
                "localhost", 80, "localhost:80");
-  testParseURL("localhost:80/foo?bar", "/foo", "bar",
+  testParseURL("localhost:80/foo?bar", "", "/foo", "bar",
                "localhost", 80, "localhost:80");
-  testParseURL("localhost:80/foo", "/foo", "",
+  testParseURL("localhost:80/foo", "", "/foo", "",
                "localhost", 80, "localhost:80");
-  testParseURL("localhost:80/", "/", "",
+  testParseURL("localhost:80/", "", "/", "",
                "localhost", 80, "localhost:80");
-  testParseURL("localhost:80", "", "",
+  testParseURL("localhost:80", "", "", "",
                "localhost", 80, "localhost:80");
-  testParseURL("localhost", "", "",
+  testParseURL("localhost", "", "", "",
                "localhost", 0, "localhost");
 }
 
 TEST(ParseURL, NoSchemeIP) {
-  testParseURL("1.2.3.4:54321/foo?bar#qqq",
+  testParseURL("1.2.3.4:54321/foo?bar#qqq", "",
                "/foo", "bar", "1.2.3.4", 54321, "1.2.3.4:54321");
-  testParseURL("[::1]:80/foo?bar", "/foo", "bar", "[::1]", 80, "[::1]:80");
-  testParseURL("[::1]/foo?bar", "/foo", "bar", "[::1]", 0, "[::1]");
+  testParseURL("[::1]:80/foo?bar", "", "/foo", "bar", "[::1]", 80, "[::1]:80");
+  testParseURL("[::1]/foo?bar", "", "/foo", "bar", "[::1]", 0, "[::1]");
 }
 
 TEST(ParseURL, PathOnly) {
-  testParseURL("/f/o/o?bar#qqq", "/f/o/o", "bar", "", 0, "");
-  testParseURL("/f/o/o?bar", "/f/o/o", "bar", "", 0, "");
-  testParseURL("/f/o/o", "/f/o/o", "", "", 0, "");
-  testParseURL("/", "/", "", "", 0, "");
-  testParseURL("?foo=bar", "", "foo=bar", "", 0, "");
-  testParseURL("?#", "", "", "", 0, "");
-  testParseURL("#/foo/bar", "", "", "", 0, "");
+  testParseURL("/f/o/o?bar#qqq", "", "/f/o/o", "bar", "", 0, "");
+  testParseURL("/f/o/o?bar", "", "/f/o/o", "bar", "", 0, "");
+  testParseURL("/f/o/o", "", "/f/o/o", "", "", 0, "");
+  testParseURL("/", "", "/", "", "", 0, "");
+  testParseURL("?foo=bar", "", "", "foo=bar", "", 0, "");
+  testParseURL("?#", "", "", "", "", 0, "");
+  testParseURL("#/foo/bar", "", "", "", "", 0, "");
 }
 
 TEST(ParseURL, QueryIsURL) {
-  testParseURL("/?ids=http://vlc.afreecodec.com/download/",
+  testParseURL("/?ids=http://vlc.afreecodec.com/download/", "",
                "/", "ids=http://vlc.afreecodec.com/download/", "", 0, "");
   testParseURL("/plugins/facepile.php?href=http://www.vakan.nl/hotels",
-               "/plugins/facepile.php",
+               "", "/plugins/facepile.php",
                "href=http://www.vakan.nl/hotels", "", 0, "");
 }
 
 TEST(ParseURL, InvalidURL) {
-  testParseURL("http://tel:198433511/", "", "", "", 0, "", false);
-  testParseURL("localhost:80/foo#bar?qqq", "", "", "", 0, "", false);
-  testParseURL("#?", "", "", "", 0, "", false);
-  testParseURL("#?hello", "", "", "", 0, "", false);
-  testParseURL("[::1/foo?bar", "", "", "", 0, "", false);
-  testParseURL("", "", "", "", 0, "", false);
-  testParseURL("http://tel:198433511/test\n", "", "", "", 0, "", false);
-  testParseURL("/test\n", "", "", "", 0, "", false);
+  testParseURL("http://tel:198433511/", "", "", "", "", 0, "", false);
+  testParseURL("localhost:80/foo#bar?qqq", "", "", "", "", 0, "", false);
+  testParseURL("#?", "", "", "", "", 0, "", false);
+  testParseURL("#?hello", "", "", "", "", 0, "", false);
+  testParseURL("[::1/foo?bar", "", "", "", "", 0, "", false);
+  testParseURL("", "", "", "", "", 0, "", false);
+  testParseURL("http://tel:198433511/test\n", "", "", "", "", 0, "", false);
+  testParseURL("/test\n", "", "", "", "", 0, "", false);
 }
 
 TEST(ParseURL, IsHostIPAddress) {
