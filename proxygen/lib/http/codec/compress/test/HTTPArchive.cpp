@@ -59,6 +59,13 @@ proxygen::HTTPMessage extractMessage(folly::dynamic& obj,
   for (size_t i = 0; i < headersObj.size(); i++) {
     string name = headersObj[i]["name"].asString();
     std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+    if (name[0] == ':') {
+      if (name == ":host" || name == ":authority") {
+        name = "host";
+      } else {
+        continue;
+      }
+    }
     msg.getHeaders().add(
         name,
         headersObj[i]["value"].asString());
