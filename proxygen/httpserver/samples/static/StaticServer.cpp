@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
   auto diskIOThreadPool = std::make_shared<wangle::CPUThreadPoolExecutor>(
     FLAGS_threads,
     std::make_shared<wangle::NamedThreadFactory>("StaticDiskIOThread"));
-  wangle::setCPUExecutor(diskIOThreadPool);
+  folly::setCPUExecutor(diskIOThreadPool);
 
   HTTPServer server(std::move(options));
   server.bind(IPs);
