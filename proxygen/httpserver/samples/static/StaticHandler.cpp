@@ -13,7 +13,7 @@
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/FileUtil.h>
-#include <wangle/concurrent/GlobalExecutor.h>
+#include <folly/executors/GlobalExecutor.h>
 
 using namespace proxygen;
 

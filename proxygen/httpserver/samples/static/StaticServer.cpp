@@ -13,7 +13,7 @@
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-#include <wangle/concurrent/GlobalExecutor.h>
+#include <folly/executors/GlobalExecutor.h>
 #include <wangle/concurrent/CPUThreadPoolExecutor.h>
 #include <folly/portability/Unistd.h>
 
