@@ -140,6 +140,8 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
             std::shared_ptr<HTTPException>(new HTTPException(exc)),
             newStream);
   }
+  MOCK_METHOD5(onFrameHeader,
+      void(uint32_t, uint8_t, uint32_t, uint8_t, uint16_t));
   MOCK_METHOD2(onAbort, void(HTTPCodec::StreamID, ErrorCode));
   MOCK_METHOD3(onGoaway,
                void(uint64_t, ErrorCode, std::shared_ptr<folly::IOBuf>));

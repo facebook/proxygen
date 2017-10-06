@@ -111,6 +111,15 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
           VLOG(4) << "Excessively large frame len=" << curHeader_.length;
           connError = ErrorCode::FRAME_SIZE_ERROR;
         }
+
+        if (callback_) {
+          callback_->onFrameHeader(
+            curHeader_.stream,
+            curHeader_.flags,
+            curHeader_.length,
+            static_cast<uint8_t>(curHeader_.type));
+        }
+
         frameState_ = (curHeader_.type == http2::FrameType::DATA) ?
           FrameState::DATA_FRAME_DATA : FrameState::FRAME_DATA;
         pendingDataFrameBytes_ = curHeader_.length;
@@ -194,14 +203,6 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
   expectedContinuationStream_ =
     (frameAffectsCompression(curHeader_.type) &&
      !(curHeader_.flags & http2::END_HEADERS)) ? curHeader_.stream : 0;
-
-  if (callback_) {
-    callback_->onFrameHeader(
-      curHeader_.stream,
-      curHeader_.flags,
-      curHeader_.length,
-      static_cast<uint8_t>(curHeader_.type));
-  }
 
   ErrorCode err = ErrorCode::NO_ERROR;
   switch (curHeader_.type) {

@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/test/HTTPParallelCodecTest.h>
+#include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/test/HTTP2FramerTest.h>
@@ -16,6 +17,7 @@
 #include <proxygen/lib/utils/ChromeUtils.h>
 
 #include <folly/portability/GTest.h>
+#include <folly/portability/GMock.h>
 #include <random>
 
 using namespace proxygen;
@@ -673,6 +675,26 @@ TEST_F(HTTP2CodecTest, NoAppByte) {
   EXPECT_EQ(callbacks_.bodyLength, 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, DataFramePartialDataOnFrameHeaderCall) {
+  using namespace testing;
+  NiceMock<MockHTTPCodecCallback> mockCallback;
+  EXPECT_CALL(mockCallback, onFrameHeader(_, _, _, _, _));
+
+  const size_t bufSize = 10;
+  auto buf = makeBuf(bufSize);
+  const size_t padding = 10;
+  upstreamCodec_.generateBody(output_, 1, buf->clone(), padding, true);
+  EXPECT_EQ(output_.chainLength(), 54);
+
+  downstreamCodec_.setCallback(&mockCallback);
+
+  auto ingress = output_.move();
+  ingress->coalesce();
+  // Copy partial byte to a new buffer
+  auto ingress1 = IOBuf::copyBuffer(ingress->data(), 34);
+  downstreamCodec_.onIngress(*ingress1);
 }
 
 TEST_F(HTTP2CodecTest, DataFramePartialDataWithNoAppByte) {
