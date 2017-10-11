@@ -2,10 +2,10 @@ SUBDIRS = . test
 
 BUILT_SOURCES = TraceEventType.h TraceEventType.cpp TraceFieldType.h TraceFieldType.cpp
 
-TraceGen: TraceEventType.txt TraceFieldType.txt
+TraceGen: samples/TraceEventType.txt samples/TraceFieldType.txt
 	python gen_trace_event_constants.py \
 	--output_type=cpp \
-	--input_files=TraceEventType.txt,TraceFieldType.txt \
+	--input_files=samples/TraceEventType.txt,samples/TraceFieldType.txt \
 	--output_scope=proxygen \
 	--header_path=proxygen/lib/utils \
 	--install_dir=$(srcdir) \
