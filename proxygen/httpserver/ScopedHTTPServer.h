@@ -96,8 +96,7 @@ class ScopedHTTPServer final {
     HandlerType handler,
     int port = 0,
     int numThreads = 4,
-    std::unique_ptr<wangle::SSLContextConfig> sslCfg = nullptr,
-    const bool allowInsecureConnections = false);
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg = nullptr);
 
   /**
    * Get the port the server is listening on. This is helpful if the port was
@@ -137,17 +136,11 @@ inline std::unique_ptr<ScopedHTTPServer> ScopedHTTPServer::start(
     HandlerType handler,
     int port,
     int numThreads,
-    std::unique_ptr<wangle::SSLContextConfig> sslCfg,
-    const bool allowInsecureConnections) {
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg) {
 
   std::unique_ptr<RequestHandlerFactory> f =
       std::make_unique<ScopedHandlerFactory<HandlerType>>(handler);
-  return start(
-      std::move(f),
-      port,
-      numThreads,
-      std::move(sslCfg),
-      allowInsecureConnections);
+  return start(std::move(f), port, numThreads, std::move(sslCfg));
 }
 
 template <>
@@ -156,8 +149,7 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
     std::unique_ptr<RequestHandlerFactory> f,
     int port,
     int numThreads,
-    std::unique_ptr<wangle::SSLContextConfig> sslCfg,
-    bool allowInsecureConnections) {
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg) {
   // This will handle both IPv4 and IPv6 cases
   folly::SocketAddress addr;
   addr.setFromLocalPort(port);
@@ -169,7 +161,6 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
 
   if (sslCfg) {
     cfg.sslConfigs.push_back(*sslCfg);
-    cfg.allowInsecureConnectionsOnSecureServer = allowInsecureConnections;
   }
 
   std::vector<HTTPServer::IPConfig> IPs = { cfg };
