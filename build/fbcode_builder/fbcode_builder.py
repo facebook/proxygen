@@ -261,6 +261,11 @@ class FBCodeBuilder(object):
             self.run(ShellQuoted('git checkout {hash}').format(hash=git_hash)),
         ] if git_hash else []
 
+        git_patch = self.option('{0}:git_patch'.format(project), '')
+        maybe_apply_patch = [
+            self.run(ShellQuoted('git apply {patch}').format(patch=git_patch)),
+        ] if git_patch else []
+
         base_dir = self.option('projects_dir')
         local_repo_dir = self.option('{0}:local_repo_dir'.format(project), '')
         return self.step('Check out {0}, workdir {1}'.format(project, path), [
@@ -272,7 +277,7 @@ class FBCodeBuilder(object):
                 local_repo_dir, os.path.basename(project)
             ),
             self.workdir(path_join(base_dir, os.path.basename(project), path)),
-        ] + maybe_change_branch)
+        ] + maybe_change_branch + maybe_apply_patch)
 
     def fb_github_project_workdir(self, project_and_path, github_org='facebook'):
         'This helper lets Facebook-internal CI special-cases FB projects'
