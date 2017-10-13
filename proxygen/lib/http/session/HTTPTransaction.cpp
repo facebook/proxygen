@@ -16,7 +16,6 @@
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/RFC2616.h>
-#include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 
 using folly::IOBuf;

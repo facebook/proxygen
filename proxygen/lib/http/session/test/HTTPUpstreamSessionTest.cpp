@@ -1173,33 +1173,25 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_3) {
-  testSimpleUpgrade("spdy/3", "spdy/3", CodecProtocol::SPDY_3);
-}
-
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_3_1) {
-  testSimpleUpgrade("spdy/3.1", "spdy/3.1", CodecProtocol::SPDY_3_1);
-}
-
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_h2) {
   testSimpleUpgrade("h2c", "h2c", CodecProtocol::HTTP_2);
 }
 
 // Upgrade to SPDY/3.1 with a non-native proto in the list
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_unknown) {
-  testSimpleUpgrade("blarf, spdy/3", "spdy/3", CodecProtocol::SPDY_3);
+  testSimpleUpgrade("blarf, h2c", "h2c", CodecProtocol::HTTP_2);
 }
 
 // Upgrade header with extra whitespace
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_whitespace) {
-  testSimpleUpgrade("blarf, \tspdy/3\t, xyz", "spdy/3",
-                    CodecProtocol::SPDY_3);
+  testSimpleUpgrade("blarf, \th2c\t, xyz", "h2c",
+                    CodecProtocol::HTTP_2);
 }
 
 // Upgrade header with random junk
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_junk) {
-  testSimpleUpgrade(",,,,   ,,\t~^%$(*&@(@$^^*(,spdy/3", "spdy/3",
-                    CodecProtocol::SPDY_3);
+  testSimpleUpgrade(",,,,   ,,\t~^%$(*&@(@$^^*(,h2c", "h2c",
+                    CodecProtocol::HTTP_2);
 }
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_unexpected) {
@@ -1263,7 +1255,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100) {
   handler->expectDetachTransaction();
 
   auto txn = handler->txn_;
-  HTTPMessage req = getUpgradePostRequest(100, "spdy/3", true /* 100 */);
+  HTTPMessage req = getUpgradePostRequest(100, "h2c", true /* 100 */);
   txn->sendHeaders(req);
   auto buf = makeBuf(100);
   txn->sendBody(std::move(buf));
@@ -1272,15 +1264,14 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100) {
   readAndLoop(folly::to<string>("HTTP/1.1 100 Continue\r\n"
                                 "\r\n"
                                 "HTTP/1.1 101 Switching Protocols\r\n"
-                                "Upgrade: spdy/3\r\n"
+                                "Upgrade: h2c\r\n"
                                 "\r\n"));
   readAndLoop(
-    getResponseBuf(CodecProtocol::SPDY_3, txn->getID(), 200, 100).get());
+    getResponseBuf(CodecProtocol::HTTP_2, txn->getID(), 200, 100).get());
   httpSession_->destroy();
 }
 
-
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_spdy) {
+TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_http2) {
   InSequence dummy;
   auto handler = openTransaction();
 
@@ -1295,20 +1286,19 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_spdy) {
   handler->expectDetachTransaction();
 
   auto txn = handler->txn_;
-  HTTPMessage req = getUpgradePostRequest(100, "spdy/3");
+  HTTPMessage req = getUpgradePostRequest(100, "h2c");
   txn->sendHeaders(req);
   auto buf = makeBuf(100);
   txn->sendBody(std::move(buf));
   txn->sendEOM();
   eventBase_.loop();
   readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
-                                "Upgrade: spdy/3\r\n"
+                                "Upgrade: h2c\r\n"
                                 "\r\n"));
-  readAndLoop(getResponseBuf(CodecProtocol::SPDY_3,
+  readAndLoop(getResponseBuf(CodecProtocol::HTTP_2,
                              txn->getID(), 200, 100, true).get());
   httpSession_->destroy();
 }
-
 
 TEST_F(HTTPUpstreamSessionTest, http_upgrade_on_txn2) {
   InSequence dummy;

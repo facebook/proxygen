@@ -11,8 +11,8 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 
 #include <wangle/acceptor/ConnectionManager.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 
 namespace proxygen {
 
@@ -134,9 +134,14 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   VLOG(4) << *this << " onNativeProtocolUpgrade streamID=" << streamID <<
     " protocol=" << protocolString;
 
+  if (protocol != CodecProtocol::HTTP_2) {
+    return false;
+  }
+
   // Create the new Codec
-  auto codec = HTTPCodecFactory::getCodec(protocol,
-                                          TransportDirection::UPSTREAM);
+  std::unique_ptr<HTTPCodec> codec =
+      std::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
+
   bool ret = onNativeProtocolUpgradeImpl(streamID, std::move(codec),
                                          protocolString);
   if (ret) {
