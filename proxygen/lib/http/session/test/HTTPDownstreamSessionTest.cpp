@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -7,16 +7,20 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <string>
+#include <vector>
+
 #include <folly/Conv.h>
+#include <folly/Range.h>
 #include <folly/futures/Promise.h>
-#include <wangle/acceptor/ConnectionManager.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/io/async/TimeoutManager.h>
+#include <folly/io/async/test/MockAsyncTransport.h>
 #include <folly/portability/GTest.h>
-#include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
+#include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
@@ -25,9 +29,7 @@
 #include <proxygen/lib/http/session/test/MockByteEventTracker.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
-#include <string>
-#include <folly/io/async/test/MockAsyncTransport.h>
-#include <vector>
+#include <wangle/acceptor/ConnectionManager.h>
 
 using namespace folly::io;
 using namespace wangle;
@@ -1889,10 +1891,12 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
   auto handler1 = this->addSimpleNiceHandler();
   handler1->expectHeaders();
   handler1->expectEOM();
-  handler1->expectError([&] (const HTTPException& ex) {
-      ASSERT_EQ(ex.getProxygenError(), kErrorEOF);
-      ASSERT_EQ("Shutdown transport: EOF", std::string(ex.what()));
-    });
+  handler1->expectError([&](const HTTPException& ex) {
+    ASSERT_EQ(ex.getProxygenError(), kErrorEOF);
+    ASSERT_TRUE(
+        folly::StringPiece(ex.what()).startsWith("Shutdown transport: EOF"))
+        << ex.what();
+  });
   handler1->expectDetachTransaction();
 
   this->flushRequestsAndLoop();

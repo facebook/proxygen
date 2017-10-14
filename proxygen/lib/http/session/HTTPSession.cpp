@@ -2073,13 +2073,15 @@ HTTPSession::shutdownTransport(bool shutdownReads,
   }
 
   if (notifyIngressShutdown || notifyEgressShutdown) {
-    auto dir = (notifyIngressShutdown && notifyEgressShutdown) ?
-      HTTPException::Direction::INGRESS_AND_EGRESS :
-      (notifyIngressShutdown ? HTTPException::Direction::INGRESS :
-         HTTPException::Direction::EGRESS);
-    HTTPException ex(dir, folly::to<std::string>(
-        "Shutdown transport: ", getErrorString(error),
-        errorMsg.empty() ? "" : " ", errorMsg));
+    auto dir = (notifyIngressShutdown && notifyEgressShutdown)
+                   ? HTTPException::Direction::INGRESS_AND_EGRESS
+                   : (notifyIngressShutdown ? HTTPException::Direction::INGRESS
+                                            : HTTPException::Direction::EGRESS);
+    HTTPException ex(
+        dir,
+        folly::to<std::string>("Shutdown transport: ", getErrorString(error),
+                               errorMsg.empty() ? "" : " ", errorMsg, ", ",
+                               peerAddr_.describe()));
     ex.setProxygenError(error);
     invokeOnAllTransactions(&HTTPTransaction::onError, ex);
   }
