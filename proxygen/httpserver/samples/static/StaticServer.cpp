@@ -7,15 +7,16 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <folly/portability/GFlags.h>
+
 #include <folly/Memory.h>
+#include <folly/executors/GlobalExecutor.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/init/Init.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <folly/portability/GFlags.h>
+#include <folly/portability/Unistd.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-#include <folly/executors/GlobalExecutor.h>
-#include <wangle/concurrent/CPUThreadPoolExecutor.h>
-#include <folly/portability/Unistd.h>
 
 #include "StaticHandler.h"
 
@@ -72,9 +73,9 @@ int main(int argc, char* argv[]) {
       .build();
   options.h2cEnabled = true;
 
-  auto diskIOThreadPool = std::make_shared<wangle::CPUThreadPoolExecutor>(
+  auto diskIOThreadPool = std::make_shared<folly::CPUThreadPoolExecutor>(
     FLAGS_threads,
-    std::make_shared<wangle::NamedThreadFactory>("StaticDiskIOThread"));
+    std::make_shared<folly::NamedThreadFactory>("StaticDiskIOThread"));
   folly::setCPUExecutor(diskIOThreadPool);
 
   HTTPServer server(std::move(options));

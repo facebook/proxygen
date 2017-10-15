@@ -7,23 +7,24 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+
 #include <proxygen/httpserver/HTTPServer.h>
 
 #include <folly/ThreadName.h>
+#include <folly/executors/NamedThreadFactory.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/HTTPServerAcceptor.h>
 #include <proxygen/httpserver/SignalHandler.h>
 #include <proxygen/httpserver/filters/RejectConnectFilter.h>
 #include <proxygen/httpserver/filters/ZlibServerFilter.h>
-#include <wangle/concurrent/NamedThreadFactory.h>
 #include <wangle/ssl/SSLContextManager.h>
 
 using folly::AsyncServerSocket;
 using folly::EventBase;
 using folly::EventBaseManager;
+using folly::IOThreadPoolExecutor;
 using folly::SocketAddress;
-using wangle::IOThreadPoolExecutor;
-using wangle::ThreadPoolExecutor;
+using folly::ThreadPoolExecutor;
 
 namespace proxygen {
 
@@ -117,7 +118,7 @@ void HTTPServer::start(std::function<void()> onSuccess,
 
   auto accExe = std::make_shared<IOThreadPoolExecutor>(1);
   auto exe = std::make_shared<IOThreadPoolExecutor>(options_->threads,
-    std::make_shared<wangle::NamedThreadFactory>("HTTPSrvExec"));
+    std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"));
   auto exeObserver = std::make_shared<HandlerCallbacks>(options_);
   // Observer has to be set before bind(), so onServerStart() callbacks run
   exe->addObserver(exeObserver);
