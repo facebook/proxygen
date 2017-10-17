@@ -126,6 +126,7 @@ HTTPSession::HTTPSession(
   unique_ptr<HTTPCodec> codec,
   const TransportInfo& tinfo,
   InfoCallback* infoCallback):
+    writeTimeout_(this),
     txnEgressQueue_(isHTTP2CodecProtocol(codec->getProtocol()) ?
                     WheelTimerInstance(timeout) :
                     WheelTimerInstance()),
@@ -134,25 +135,25 @@ HTTPSession::HTTPSession(
     sock_(std::move(sock)),
     controller_(controller),
     codec_(std::move(codec)),
-    infoCallback_(infoCallback),
-    writeTimeout_(this),
-    flowControlTimeout_(this),
-    drainTimeout_(this),
     timeout_(timeout),
-    transportInfo_(tinfo),
-    reads_(SocketState::PAUSED),
-    writes_(SocketState::UNPAUSED),
     draining_(false),
-    ingressUpgraded_(false),
     started_(false),
     writesDraining_(false),
     resetAfterDrainingWrites_(false),
-    resetSocketOnShutdown_(false),
     ingressError_(false),
+    infoCallback_(infoCallback),
+    transportInfo_(tinfo),
+    flowControlTimeout_(this),
+    drainTimeout_(this),
+    reads_(SocketState::PAUSED),
+    writes_(SocketState::UNPAUSED),
+    ingressUpgraded_(false),
+    resetSocketOnShutdown_(false),
     inLoopCallback_(false),
     inResume_(false),
     pendingPause_(false),
-    prioritySample_(false) {
+    prioritySample_(false),
+    h2PrioritiesEnabled_(true) {
 
   initialReceiveWindow_ = receiveStreamWindowSize_ =
     receiveSessionWindowSize_ = codec_->getDefaultWindowSize();
@@ -2266,7 +2267,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
     if (getConnectionManager()) {
       getConnectionManager()->onActivated(*this);
     }
-    if (numTxnServed_ >= 1) {
+    if (transactionSeqNo_ >= 1) {
       // idle duration only exists since the 2nd transaction in the session
       latestIdleDuration_ = secondsSince(latestActive_);
     }
@@ -2293,13 +2294,12 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
                             getHTTP2PrioritiesEnabled());
   }
 
-  if (numTxnServed_ > 0) {
+  if (transactionSeqNo_ > 0) {
     auto stats = txn->getSessionStats();
     if (stats != nullptr) {
       stats->recordSessionReused();
     }
   }
-  ++numTxnServed_;
 
   VLOG(5) << *this << " adding streamID=" << txn->getID()
           << ", liveTransactions_ was " << liveTransactions_;

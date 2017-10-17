@@ -42,18 +42,19 @@ public:
 };
 
 class HTTPSession:
+  public wangle::ManagedConnection,
+  public HTTPTransaction::Transport,
+  public ByteEventTracker::Callback,
+  protected folly::AsyncTransport::BufferCallback,
+  protected HTTPPriorityMapFactoryProvider,
   private FlowControlFilter::Callback,
   private HTTPCodec::Callback,
   private folly::EventBase::LoopCallback,
-  public ByteEventTracker::Callback,
-  public HTTPTransaction::Transport,
-  public folly::AsyncTransportWrapper::ReadCallback,
-  public wangle::ManagedConnection,
-  public folly::AsyncTransport::BufferCallback,
-  private folly::AsyncTransport::ReplaySafetyCallback,
-  public HTTPPriorityMapFactoryProvider {
+  private folly::AsyncTransportWrapper::ReadCallback,
+  private folly::AsyncTransport::ReplaySafetyCallback {
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
+
 
   /**
    * Optional callback interface that the HTTPSession
@@ -90,75 +91,6 @@ class HTTPSession:
     virtual void onEgressBufferCleared(const HTTPSession&) = 0;
   };
 
-  class EmptyInfoCallback : public InfoCallback {
-   public:
-    void onCreate(const HTTPSession&) override {}
-    void onIngressError(const HTTPSession&, ProxygenError) override {}
-    void onIngressEOF() override {}
-    void onRead(const HTTPSession&, size_t) override {}
-    void onWrite(const HTTPSession&, size_t) override {}
-    void onRequestBegin(const HTTPSession&) override {}
-    void onRequestEnd(const HTTPSession&, uint32_t) override {}
-    void onActivateConnection(const HTTPSession&) override {}
-    void onDeactivateConnection(const HTTPSession&) override {}
-    void onDestroy(const HTTPSession&) override {}
-    void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
-    void onIngressLimitExceeded(const HTTPSession&) override {}
-    void onIngressPaused(const HTTPSession&) override {}
-    void onTransactionDetached(const HTTPSession&) override {}
-    void onPingReplySent(int64_t) override {}
-    void onPingReplyReceived() override {}
-    void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
-    void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
-    void onFlowControlWindowClosed(const HTTPSession&) override {}
-    void onEgressBuffered(const HTTPSession&) override {}
-    void onEgressBufferCleared(const HTTPSession&) override {}
-  };
-
-  class WriteTimeout :
-      public folly::HHWheelTimer::Callback {
-   public:
-    explicit WriteTimeout(HTTPSession* session) : session_(session) {}
-    ~WriteTimeout() override {}
-
-    void timeoutExpired() noexcept override { session_->writeTimeoutExpired(); }
-   private:
-    HTTPSession* session_;
-  };
-
-  class FlowControlTimeout : public folly::HHWheelTimer::Callback {
-   public:
-    explicit FlowControlTimeout(HTTPSession* session) : session_(session) {}
-    ~FlowControlTimeout() override {}
-
-    void timeoutExpired() noexcept override {
-      session_->flowControlTimeoutExpired();
-    }
-
-    std::chrono::milliseconds getTimeoutDuration() const {
-      return duration_;
-    }
-
-    void setTimeoutDuration(std::chrono::milliseconds duration) {
-      duration_ = duration;
-    }
-   private:
-    HTTPSession* session_;
-    std::chrono::milliseconds duration_{std::chrono::milliseconds(0)};
-  };
-
-  class DrainTimeout : public folly::HHWheelTimer::Callback {
-   public:
-    explicit DrainTimeout(HTTPSession* session) : session_(session) {}
-    ~DrainTimeout() override {}
-
-    void timeoutExpired() noexcept override {
-      session_->closeWhenIdle();
-    }
-   private:
-    HTTPSession* session_;
-  };
-
   /**
    * Set the read buffer limit to be used for all new HTTPSession objects.
    */
@@ -179,8 +111,15 @@ class HTTPSession:
     egressBodySizeLimit_ = limit;
   }
 
-  void setInfoCallback(InfoCallback* callback);
+  /**
+   * Set the default number of egress bytes this session will buffer before
+   * pausing all transactions' egress.
+   */
+  static void setDefaultWriteBufferLimit(uint32_t max) {
+    kDefaultWriteBufLimit = max;
+  }
 
+  void setInfoCallback(InfoCallback* callback);
   InfoCallback* getInfoCallback() const {
     return infoCallback_;
   }
@@ -196,15 +135,6 @@ class HTTPSession:
       return sock_->getEventBase();
     }
     return nullptr;
-  }
-
-  /**
-   * Returns the underlying AsyncTransportWrapper.
-   * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
-   */
-  const folly::AsyncTransportWrapper* getUnderlyingTransport()
-      const noexcept override {
-    return sock_.get();
   }
 
   const folly::AsyncTransportWrapper* getTransport() const {
@@ -227,10 +157,12 @@ class HTTPSession:
     return outgoingStreams_;
   }
 
+  // used for session pool detachability
   size_t getNumTransactions() const {
     return transactions_.size();
   }
 
+  // SimpleSessionPool
   uint32_t getHistoricalMaxOutgoingStreams() const {
     return historicalMaxOutgoingStreams_;
   }
@@ -244,54 +176,19 @@ class HTTPSession:
                     maxConcurrentOutgoingStreamsRemote_);
   }
 
-  bool readsUnpaused() const {
-    return reads_ == SocketState::UNPAUSED;
-  }
-
- virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
-     uint8_t) override {
-   return folly::none;
- }
-
-  bool readsPaused() const {
-    return reads_ == SocketState::PAUSED;
-  }
-
-  bool readsShutdown() const {
-    return reads_ == SocketState::SHUTDOWN;
-  }
-
-  bool writesUnpaused() const {
-    return writes_ == SocketState::UNPAUSED;
-  }
-
+  // session pool detachability
   bool writesPaused() const {
-    return writes_ == SocketState::PAUSED;
-  }
-
-  bool writesShutdown() const {
-    return writes_ == SocketState::SHUTDOWN;
+    return writesPausedInternal();
   }
 
   bool writesDraining() const {
     return writesDraining_;
   }
 
-  const HTTPSessionController* getController() const { return controller_; }
   HTTPSessionController* getController() { return controller_; }
+
   void setController(HTTPSessionController* controller) {
     controller_ = controller;
-  }
-
-  /**
-   * ManagedConnection::getIdleTime()
-   */
-  std::chrono::milliseconds getIdleTime() const override {
-    if (timePointInitialized(latestActive_)) {
-      return secondsSince(latestActive_);
-    } else {
-      return std::chrono::milliseconds(0);
-    }
   }
 
   /**
@@ -350,8 +247,8 @@ class HTTPSession:
   void setEgressSettings(const SettingsList& inSettings);
 
   /**
-  * Global flag for turning HTTP2 priorities off
-  **/
+   * Global flag for turning HTTP2 priorities off
+   **/
   void setHTTP2PrioritiesEnabled(bool enabled) override {
     h2PrioritiesEnabled_ = enabled;
   }
@@ -379,14 +276,6 @@ class HTTPSession:
   void setEgressBytesLimit(uint64_t bytesLimit);
 
   /**
-   * Set the default number of egress bytes this session will buffer before
-   * pausing all transactions' egress.
-   */
-  static void setDefaultWriteBufferLimit(uint32_t max) {
-    kDefaultWriteBufLimit = max;
-  }
-
-  /**
    * Get/Set the number of egress bytes this session will buffer before
    * pausing all transactions' egress.
    */
@@ -412,21 +301,6 @@ class HTTPSession:
   size_t sendSettings();
 
   /**
-   * Drains the current transactions and prevents new transactions from being
-   * created on this session. If this is an upstream session and the
-   * number of transactions reaches zero, this session will shutdown the
-   * transport and delete itself. For downstream sessions, an explicit
-   * call to dropConnection() or shutdownTransport() is required.
-   */
-  void drain() override;
-
-  /**
-   * Returns true if this session is draining. This can happen if drain()
-   * is called explicitly, if a GOAWAY frame is received, or during shutdown.
-   */
-  bool isDraining() const override { return draining_; }
-
-  /**
    * Causes a ping to be sent on the session. If the underlying protocol
    * doesn't support pings, this will return 0. Otherwise, it will return
    * the number of bytes written on the transport to send the ping.
@@ -446,10 +320,11 @@ class HTTPSession:
    */
   size_t sendPriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri);
 
-  // ManagedConnection methods
+  // public ManagedConnection methods
   void timeoutExpired() noexcept override {
       readTimeoutExpired();
   }
+
   void describe(std::ostream& os) const override;
   bool isBusy() const override;
   void notifyPendingShutdown() override;
@@ -457,29 +332,52 @@ class HTTPSession:
   void dropConnection() override;
   void dumpConnectionState(uint8_t loglevel) override;
 
-  bool isUpstream() const;
-  bool isDownstream() const;
-
   uint64_t getNumTxnServed() const {
-    return numTxnServed_;
+    return transactionSeqNo_;
   }
 
   std::chrono::seconds getLatestIdleTime() const {
-    DCHECK_GT(numTxnServed_, 0) << "No idle time for the first transcation";
+    DCHECK_GT(transactionSeqNo_, 0) << "No idle time for the first transcation";
     DCHECK(latestActive_ > TimePoint::min());
     return latestIdleDuration_;
   }
 
-  // from folly::AsyncTransport::BufferCallback
-  void onEgressBuffered() override;
-  void onEgressBufferCleared() override;
-
-  bool isPrioritySampled() const {
-    return prioritySample_;
-  }
-
   void setPrioritySampled(bool sampled) {
     prioritySample_ = sampled;
+  }
+
+  // public HTTPTransaction::Transport overrides
+  const folly::SocketAddress& getLocalAddress()
+    const noexcept override;
+  const folly::SocketAddress& getPeerAddress()
+    const noexcept override;
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
+  bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
+
+  const HTTPCodec& getCodec() const noexcept override {
+    return *CHECK_NOTNULL(codec_.call());
+  }
+
+  wangle::TransportInfo& getSetupTransportInfo() noexcept;
+  virtual bool getCurrentTransportInfoWithoutUpdate(
+      wangle::TransportInfo* tinfo) const;
+
+  HTTPCodec& getCodec() noexcept {
+    return *CHECK_NOTNULL(codec_.call());
+  }
+
+  void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker);
+  ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
+
+  /**
+   * If the connection is closed by remote end
+   */
+  bool connCloseByRemote() {
+    auto sock = getTransport()->getUnderlyingTransport<folly::AsyncSocket>();
+    if (sock) {
+      return sock->isClosedByPeer();
+    }
+    return false;
   }
 
  protected:
@@ -593,66 +491,10 @@ class HTTPSession:
                                    std::unique_ptr<HTTPCodec> codec,
                                    const std::string& protocolString);
 
-  /**
-   * Helper class to track write buffers until they have been fully written and
-   * can be deleted.
-   */
-  class WriteSegment :
-    public folly::AsyncTransportWrapper::WriteCallback {
-   public:
-    WriteSegment(HTTPSession* session, uint64_t length);
-
-    void setCork(bool cork) {
-      if (cork) {
-        flags_ = flags_ | folly::WriteFlags::CORK;
-      } else {
-        unSet(flags_, folly::WriteFlags::CORK);
-      }
-    }
-
-    void setEOR(bool eor) {
-      if (eor) {
-        flags_ = flags_ | folly::WriteFlags::EOR;
-      } else {
-        unSet(flags_, folly::WriteFlags::EOR);
-      }
-    }
-
-    /**
-     * Clear the session. This is used if the session
-     * does not want to receive future notification about this segment.
-     */
-    void detach();
-
-    folly::WriteFlags getFlags() {
-      return flags_;
-    }
-
-    uint64_t getLength() const {
-      return length_;
-    }
-
-    // AsyncTransport::WriteCallback methods
-    void writeSuccess() noexcept override;
-    void writeErr(
-        size_t bytesWritten,
-        const folly::AsyncSocketException&) noexcept override;
-
-    folly::IntrusiveListHook listHook;
-   private:
-
-    /**
-     * Unlink this segment from the list.
-     */
-    void remove();
-
-    HTTPSession* session_;
-    uint64_t length_;
-    folly::WriteFlags flags_{
-      folly::WriteFlags::NONE};
-  };
-  typedef folly::IntrusiveList<WriteSegment, &WriteSegment::listHook>
-    WriteSegmentList;
+  virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+    uint8_t) override {
+    return folly::none;
+  }
 
   void readTimeoutExpired() noexcept;
   void writeTimeoutExpired() noexcept;
@@ -667,6 +509,19 @@ class HTTPSession:
   void readEOF() noexcept override;
   void readErr(
       const folly::AsyncSocketException&) noexcept override;
+
+  /**
+   * Returns the underlying AsyncTransportWrapper.
+   * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
+   */
+  const folly::AsyncTransportWrapper* getUnderlyingTransport()
+      const noexcept override {
+    return sock_.get();
+  }
+
+  std::string getSecurityProtocol() const override {
+    return sock_->getSecurityProtocol();
+  }
 
   // HTTPCodec::Callback methods
   void onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg) override;
@@ -729,43 +584,20 @@ class HTTPSession:
     HTTPCodec::StreamID assocStreamId,
     HTTPTransaction::PushHandler* handler) noexcept override;
 
- public:
-  const folly::SocketAddress& getLocalAddress()
-    const noexcept override;
-  const folly::SocketAddress& getPeerAddress()
-    const noexcept override;
-
-  wangle::TransportInfo& getSetupTransportInfo() noexcept;
-  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
-  bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
-  virtual bool getCurrentTransportInfoWithoutUpdate(
-      wangle::TransportInfo* tinfo) const;
-  HTTPCodec& getCodec() noexcept {
-    return *CHECK_NOTNULL(codec_.call());
-  }
-  const HTTPCodec& getCodec() const noexcept override {
-    return *CHECK_NOTNULL(codec_.call());
-  }
-
-  std::string getSecurityProtocol() const override {
-    return sock_->getSecurityProtocol();
-  }
-
-  void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker);
-  ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
+  /**
+   * Returns true if this session is draining. This can happen if drain()
+   * is called explicitly, if a GOAWAY frame is received, or during shutdown.
+   */
+  bool isDraining() const override { return draining_; }
 
   /**
-   * If the connection is closed by remote end
+   * Drains the current transactions and prevents new transactions from being
+   * created on this session. If this is an upstream session and the
+   * number of transactions reaches zero, this session will shutdown the
+   * transport and delete itself. For downstream sessions, an explicit
+   * call to dropConnection() or shutdownTransport() is required.
    */
-  bool connCloseByRemote() {
-    auto sock = getTransport()->getUnderlyingTransport<folly::AsyncSocket>();
-    if (sock) {
-      return sock->isClosedByPeer();
-    }
-    return false;
-  }
-
- protected:
+  void drain() override;
 
   /**
    * Handle new messages from the codec and create a txn for the message.
@@ -926,233 +758,29 @@ class HTTPSession:
   void pauseReadsImpl();
   void resumeReadsImpl();
 
-  /** Chain of ingress IOBufs */
-  folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
+  bool readsUnpaused() const {
+    return reads_ == SocketState::UNPAUSED;
+  }
 
-  /** Queue of egress IOBufs */
-  folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
+  bool readsPaused() const {
+    return reads_ == SocketState::PAUSED;
+  }
 
-  /** Priority tree of transactions */
-  HTTP2PriorityQueue txnEgressQueue_;
+  bool readsShutdown() const {
+    return reads_ == SocketState::SHUTDOWN;
+  }
 
-  bool h2PrioritiesEnabled_{true};
+  bool writesUnpaused() const {
+    return writes_ == SocketState::UNPAUSED;
+  }
 
-  std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
+  bool writesPausedInternal() const {
+    return writes_ == SocketState::PAUSED;
+  }
 
-  /** Count of transactions awaiting input */
-  uint32_t liveTransactions_{0};
-
-  /** Transaction sequence number */
-  uint32_t transactionSeqNo_{0};
-
-  /** Address of this end of the TCP connection */
-  folly::SocketAddress localAddr_;
-
-  /** Address of the remote end of the TCP connection */
-  folly::SocketAddress peerAddr_;
-
-  WriteSegmentList pendingWrites_;
-
-  folly::AsyncTransportWrapper::UniquePtr sock_;
-
-  HTTPSessionController* controller_{nullptr};
-
-  HTTPCodecFilterChain codec_;
-
-  InfoCallback* infoCallback_{nullptr};
-
-  /**
-   * The root cause reason this connection was closed.
-   */
-  ConnectionCloseReason closeReason_
-    {ConnectionCloseReason::kMAX_REASON};
-
-  WriteTimeout writeTimeout_;
-
-  FlowControlTimeout flowControlTimeout_;
-
-  DrainTimeout drainTimeout_;
-
-  WheelTimerInstance timeout_;
-
-  HTTPSessionStats* sessionStats_{nullptr};
-
-  wangle::TransportInfo transportInfo_;
-
-  /**
-   * Connection level flow control for SPDY >= 3.1 and HTTP/2
-   */
-  FlowControlFilter* connFlowControl_{nullptr};
-
-  /**
-   * Bytes of egress data sent to the socket but not yet written
-   * to the network.
-   */
-  uint64_t pendingWriteSize_{0};
-
-  /**
-   * The maximum number of concurrent transactions that this session may
-   * create, as configured locally.
-   */
-  uint32_t maxConcurrentOutgoingStreamsConfig_{100};
-
-  /**
-   * The received setting for the maximum number of concurrent
-   * transactions that this session may create. We may assume the
-   * remote allows unlimited transactions until we get a SETTINGS frame,
-   * but to be reasonable, assume the remote doesn't allow more than 100K
-   * concurrent transactions on one connection.
-   */
-  uint32_t maxConcurrentOutgoingStreamsRemote_{100000};
-
-  /**
-   * The maximum number of concurrent transactions that this session's peer
-   * may create.
-   */
-  uint32_t maxConcurrentIncomingStreams_{100};
-
-  /**
-   * The number concurrent transactions initiated by this session
-   */
-  uint32_t outgoingStreams_{0};
-
-  /**
-   * The maximum number concurrent transactions in the history of this session
-   */
-  uint32_t historicalMaxOutgoingStreams_{0};
-
-  /**
-   * The number of concurrent transactions initiated by this sessions's peer
-   */
-  uint32_t incomingStreams_{0};
-
-  /**
-   * Bytes of ingress data read from the socket, but not yet sent to a
-   * transaction.
-   */
-  uint32_t pendingReadSize_{0};
-
-  /**
-   * Number of writes submitted to the transport for which we haven't yet
-   * received completion or failure callbacks.
-   */
-  unsigned numActiveWrites_{0};
-
-  /**
-   * Number of bytes written so far.
-   */
-  uint64_t bytesWritten_{0};
-
-  /**
-   * Number of bytes scheduled so far.
-   */
-  uint64_t bytesScheduled_{0};
-
-  /**
-   * Number of HTTP Transcations created on this HTTP Session, including the
-   * ongoing and finished ones. This helps the understanding of session re-usage
-   */
-  uint64_t numTxnServed_{0};
-
-  /**
-   * The net change this event loop in the amount of buffered bytes
-   * for all this session's txns and socket write buffer.
-   */
-  int64_t pendingWriteSizeDelta_{0};
-
-  /**
-   * Number of body un-encoded bytes in the write buffer per write iteration.
-   */
-  uint64_t bodyBytesPerWriteBuf_{0};
-
-  /**
-   * Maximum number of cumulative bytes that can be buffered by the
-   * transactions in this session before applying backpressure.
-   *
-   * Note readBufLimit_ is settable via setFlowControl
-   */
-  uint32_t readBufLimit_{kDefaultReadBufLimit};
-  uint32_t writeBufLimit_{kDefaultWriteBufLimit};
-
-  /**
-   * The latest time when this session became idle status
-   */
-  TimePoint latestActive_{};
-
-  /**
-   * The idle duration between latest two consecutive active status
-   */
-  std::chrono::seconds latestIdleDuration_{};
-
-  /**
-   * Container to hold the results of HTTP2PriorityQueue::nextEgress
-   */
-  HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
-
-  /**
-   * Max number of bytes to egress per session
-   */
-  uint64_t egressBytesLimit_{0};
-
-  // Flow control settings
-  size_t initialReceiveWindow_{0};
-  size_t receiveStreamWindowSize_{0};
-  size_t receiveSessionWindowSize_{0};
-
-  enum SocketState {
-    UNPAUSED = 0,
-    PAUSED = 1,
-    SHUTDOWN = 2,
-  };
-
-  SocketState reads_:2;
-  SocketState writes_:2;
-
-  /**
-   * Indicates if the session is waiting for existing transactions to close.
-   * Once all transactions close, the session will be deleted.
-   */
-  bool draining_:1;
-
-  /**
-   * Indicates whether an upgrade request has been received from the codec.
-   */
-  bool ingressUpgraded_:1;
-
-  bool started_:1;
-
-  bool writesDraining_:1;
-  bool resetAfterDrainingWrites_:1;
-  bool resetSocketOnShutdown_:1;
-  // indicates a fatal error that prevents further ingress data processing
-  bool ingressError_:1;
-  bool inLoopCallback_:1;
-  bool inResume_:1;
-  bool pendingPause_:1;
-  bool prioritySample_:1;
-
-  /**
-   * Maximum number of ingress body bytes that can be buffered across all
-   * transactions for this single session/connection.
-   */
-  static uint32_t kDefaultReadBufLimit;
-
-  /**
-   * Maximum number of bytes to egress per loop when there are > 1
-   * transactions.  Otherwise defaults to kDefaultWriteBufLimit.
-   */
-  static uint32_t egressBodySizeLimit_;
-
-  /**
-   * The maximum size of the read buffer from the socket.
-   */
-  static uint32_t maxReadBufferSize_;
-
-  /**
-   * Maximum number of bytes that can be buffered across all transactions before
-   * this session will start applying backpressure to its transactions.
-   */
-  static uint32_t kDefaultWriteBufLimit;
+  bool writesShutdown() const {
+    return writes_ == SocketState::SHUTDOWN;
+  }
 
   void rescheduleLoopCallbacks() {
     if (!isLoopCallbackScheduled()) {
@@ -1172,9 +800,95 @@ class HTTPSession:
     if (shutdownTransportCb_) {
       shutdownTransportCb_->cancelLoopCallback();
     }
- }
+  }
+
+  // protected members
+  class WriteTimeout :
+      public folly::HHWheelTimer::Callback {
+   public:
+    explicit WriteTimeout(HTTPSession* session) : session_(session) {}
+    ~WriteTimeout() override {}
+
+    void timeoutExpired() noexcept override { session_->writeTimeoutExpired(); }
+   private:
+    HTTPSession* session_;
+  };
+  WriteTimeout writeTimeout_;
+
+  /** Queue of egress IOBufs */
+  folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
+
+  /** Chain of ingress IOBufs */
+  folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
+
+  /** Priority tree of transactions */
+  HTTP2PriorityQueue txnEgressQueue_;
+
+  std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
+
+  /** Count of transactions awaiting input */
+  uint32_t liveTransactions_{0};
+
+  /** Address of this end of the TCP connection */
+  folly::SocketAddress localAddr_;
+
+  /** Address of the remote end of the TCP connection */
+  folly::SocketAddress peerAddr_;
+
+  folly::AsyncTransportWrapper::UniquePtr sock_;
+
+  HTTPSessionController* controller_{nullptr};
+
+  HTTPCodecFilterChain codec_;
+
+  WheelTimerInstance timeout_;
+
+  /**
+   * Bytes of egress data sent to the socket but not yet written
+   * to the network.
+   */
+  uint64_t pendingWriteSize_{0};
+
+  /**
+   * Number of writes submitted to the transport for which we haven't yet
+   * received completion or failure callbacks.
+   */
+  unsigned numActiveWrites_{0};
+
+  /**
+   * Indicates if the session is waiting for existing transactions to close.
+   * Once all transactions close, the session will be deleted.
+   */
+  bool draining_:1;
+
+  bool started_:1;
+
+  bool writesDraining_:1;
+  bool resetAfterDrainingWrites_:1;
+  bool ingressError_:1;
 
  private:
+  // private ManagedConnection methods
+  std::chrono::milliseconds getIdleTime() const override {
+    if (timePointInitialized(latestActive_)) {
+      return secondsSince(latestActive_);
+    } else {
+      return std::chrono::milliseconds(0);
+    }
+  }
+
+  bool isUpstream() const;
+  bool isDownstream() const;
+
+  // from folly::AsyncTransport::BufferCallback
+  void onEgressBuffered() override;
+  void onEgressBufferCleared() override;
+
+  bool isPrioritySampled() const {
+    return prioritySample_;
+  }
+
+
   void setupCodec();
   void onSetSendWindow(uint32_t windowSize);
   void onSetMaxInitiatedStreams(uint32_t maxTxns);
@@ -1276,8 +990,6 @@ class HTTPSession:
    */
   void onReplaySafe() noexcept override;
 
-  std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
-
   // Returns the number of streams that count against a pipelining limit.
   // Upstreams can't really pipleine (send responses before requests), so
   // count ANY stream against the limit.
@@ -1289,6 +1001,189 @@ class HTTPSession:
                                              uint32_t txnSeqn);
 
   void incrementOutgoingStreams();
+
+  // private members
+
+  std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
+
+  /** Transaction sequence number */
+  uint32_t transactionSeqNo_{0};
+
+  InfoCallback* infoCallback_{nullptr};
+
+  /**
+   * The root cause reason this connection was closed.
+   */
+  ConnectionCloseReason closeReason_
+    {ConnectionCloseReason::kMAX_REASON};
+
+  /**
+   * Helper class to track write buffers until they have been fully written and
+   * can be deleted.
+   */
+  class WriteSegment :
+    public folly::AsyncTransportWrapper::WriteCallback {
+   public:
+    WriteSegment(HTTPSession* session, uint64_t length);
+
+    void setCork(bool cork) {
+      if (cork) {
+        flags_ = flags_ | folly::WriteFlags::CORK;
+      } else {
+        unSet(flags_, folly::WriteFlags::CORK);
+      }
+    }
+
+    void setEOR(bool eor) {
+      if (eor) {
+        flags_ = flags_ | folly::WriteFlags::EOR;
+      } else {
+        unSet(flags_, folly::WriteFlags::EOR);
+      }
+    }
+
+    /**
+     * Clear the session. This is used if the session
+     * does not want to receive future notification about this segment.
+     */
+    void detach();
+
+    folly::WriteFlags getFlags() {
+      return flags_;
+    }
+
+    uint64_t getLength() const {
+      return length_;
+    }
+
+    // AsyncTransport::WriteCallback methods
+    void writeSuccess() noexcept override;
+    void writeErr(
+        size_t bytesWritten,
+        const folly::AsyncSocketException&) noexcept override;
+
+    folly::IntrusiveListHook listHook;
+   private:
+
+    /**
+     * Unlink this segment from the list.
+     */
+    void remove();
+
+    HTTPSession* session_;
+    uint64_t length_;
+    folly::WriteFlags flags_{
+      folly::WriteFlags::NONE};
+  };
+  using WriteSegmentList =
+    folly::IntrusiveList<WriteSegment, &WriteSegment::listHook>;
+  WriteSegmentList pendingWrites_;
+
+  HTTPSessionStats* sessionStats_{nullptr};
+
+  wangle::TransportInfo transportInfo_;
+
+  /**
+   * Connection level flow control for SPDY >= 3.1 and HTTP/2
+   */
+  FlowControlFilter* connFlowControl_{nullptr};
+
+  /**
+   * The maximum number of concurrent transactions that this session may
+   * create, as configured locally.
+   */
+  uint32_t maxConcurrentOutgoingStreamsConfig_{100};
+
+  /**
+   * The received setting for the maximum number of concurrent
+   * transactions that this session may create. We may assume the
+   * remote allows unlimited transactions until we get a SETTINGS frame,
+   * but to be reasonable, assume the remote doesn't allow more than 100K
+   * concurrent transactions on one connection.
+   */
+  uint32_t maxConcurrentOutgoingStreamsRemote_{100000};
+
+  /**
+   * The maximum number of concurrent transactions that this session's peer
+   * may create.
+   */
+  uint32_t maxConcurrentIncomingStreams_{100};
+
+  /**
+   * The number concurrent transactions initiated by this session
+   */
+  uint32_t outgoingStreams_{0};
+
+  /**
+   * The maximum number concurrent transactions in the history of this session
+   */
+  uint32_t historicalMaxOutgoingStreams_{0};
+
+  /**
+   * The number of concurrent transactions initiated by this sessions's peer
+   */
+  uint32_t incomingStreams_{0};
+
+  /**
+   * Bytes of ingress data read from the socket, but not yet sent to a
+   * transaction.
+   */
+  uint32_t pendingReadSize_{0};
+
+  /**
+   * Number of bytes written so far.
+   */
+  uint64_t bytesWritten_{0};
+
+  /**
+   * Number of bytes scheduled so far.
+   */
+  uint64_t bytesScheduled_{0};
+
+  /**
+   * The net change this event loop in the amount of buffered bytes
+   * for all this session's txns and socket write buffer.
+   */
+  int64_t pendingWriteSizeDelta_{0};
+
+  /**
+   * Number of body un-encoded bytes in the write buffer per write iteration.
+   */
+  uint64_t bodyBytesPerWriteBuf_{0};
+
+  /**
+   * Maximum number of cumulative bytes that can be buffered by the
+   * transactions in this session before applying backpressure.
+   *
+   * Note readBufLimit_ is settable via setFlowControl
+   */
+  uint32_t readBufLimit_{kDefaultReadBufLimit};
+  uint32_t writeBufLimit_{kDefaultWriteBufLimit};
+
+  /**
+   * The latest time when this session became idle status
+   */
+  TimePoint latestActive_{};
+
+  /**
+   * The idle duration between latest two consecutive active status
+   */
+  std::chrono::seconds latestIdleDuration_{};
+
+  /**
+   * Container to hold the results of HTTP2PriorityQueue::nextEgress
+   */
+  HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
+
+  /**
+   * Max number of bytes to egress per session
+   */
+  uint64_t egressBytesLimit_{0};
+
+  // Flow control settings
+  size_t initialReceiveWindow_{0};
+  size_t receiveStreamWindowSize_{0};
+  size_t receiveSessionWindowSize_{0};
 
   class ShutdownTransportCallback : public folly::EventBase::LoopCallback {
    public:
@@ -1310,9 +1205,112 @@ class HTTPSession:
     HTTPSession* session_;
     std::unique_ptr<DestructorGuard> dg_;
   };
-
   std::unique_ptr<ShutdownTransportCallback> shutdownTransportCb_;
 
+  class FlowControlTimeout : public folly::HHWheelTimer::Callback {
+   public:
+    explicit FlowControlTimeout(HTTPSession* session) : session_(session) {}
+    ~FlowControlTimeout() override {}
+
+    void timeoutExpired() noexcept override {
+      session_->flowControlTimeoutExpired();
+    }
+
+    std::chrono::milliseconds getTimeoutDuration() const {
+      return duration_;
+    }
+
+    void setTimeoutDuration(std::chrono::milliseconds duration) {
+      duration_ = duration;
+    }
+   private:
+    HTTPSession* session_;
+    std::chrono::milliseconds duration_{std::chrono::milliseconds(0)};
+  };
+  FlowControlTimeout flowControlTimeout_;
+
+  class DrainTimeout : public folly::HHWheelTimer::Callback {
+   public:
+    explicit DrainTimeout(HTTPSession* session) : session_(session) {}
+    ~DrainTimeout() override {}
+
+    void timeoutExpired() noexcept override {
+      session_->closeWhenIdle();
+    }
+   private:
+    HTTPSession* session_;
+  };
+  DrainTimeout drainTimeout_;
+
+  enum SocketState {
+    UNPAUSED = 0,
+    PAUSED = 1,
+    SHUTDOWN = 2,
+  };
+
+  SocketState reads_:2;
+  SocketState writes_:2;
+
+  /**
+   * Indicates whether an upgrade request has been received from the codec.
+   */
+  bool ingressUpgraded_:1;
+  bool resetSocketOnShutdown_:1;
+  // indicates a fatal error that prevents further ingress data processing
+  bool inLoopCallback_:1;
+  bool inResume_:1;
+  bool pendingPause_:1;
+  bool prioritySample_:1;
+  bool h2PrioritiesEnabled_:1;
+
+  /**
+   * Maximum number of ingress body bytes that can be buffered across all
+   * transactions for this single session/connection.
+   */
+  static uint32_t kDefaultReadBufLimit;
+
+  /**
+   * Maximum number of bytes to egress per loop when there are > 1
+   * transactions.  Otherwise defaults to kDefaultWriteBufLimit.
+   */
+  static uint32_t egressBodySizeLimit_;
+
+  /**
+   * The maximum size of the read buffer from the socket.
+   */
+  static uint32_t maxReadBufferSize_;
+
+  /**
+   * Maximum number of bytes that can be buffered across all transactions before
+   * this session will start applying backpressure to its transactions.
+   */
+  static uint32_t kDefaultWriteBufLimit;
 };
+
+class EmptyInfoCallback : public HTTPSession::InfoCallback {
+ public:
+  void onCreate(const HTTPSession&) override {}
+  void onIngressError(const HTTPSession&, ProxygenError) override {}
+  void onIngressEOF() override {}
+  void onRead(const HTTPSession&, size_t) override {}
+  void onWrite(const HTTPSession&, size_t) override {}
+  void onRequestBegin(const HTTPSession&) override {}
+  void onRequestEnd(const HTTPSession&, uint32_t) override {}
+  void onActivateConnection(const HTTPSession&) override {}
+  void onDeactivateConnection(const HTTPSession&) override {}
+  void onDestroy(const HTTPSession&) override {}
+  void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
+  void onIngressLimitExceeded(const HTTPSession&) override {}
+  void onIngressPaused(const HTTPSession&) override {}
+  void onTransactionDetached(const HTTPSession&) override {}
+  void onPingReplySent(int64_t) override {}
+  void onPingReplyReceived() override {}
+  void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
+  void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
+  void onFlowControlWindowClosed(const HTTPSession&) override {}
+  void onEgressBuffered(const HTTPSession&) override {}
+  void onEgressBufferCleared(const HTTPSession&) override {}
+};
+
 
 } // proxygen
