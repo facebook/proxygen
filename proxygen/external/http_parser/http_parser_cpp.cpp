@@ -1154,15 +1154,14 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_req_line_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_header_field_start;
             CALLBACK_DATA(url);
-            goto reexecute_byte;
             break;
           case '?':
             state = s_req_query_string_start;
@@ -1194,15 +1193,14 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_req_line_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_header_field_start;
             CALLBACK_DATA(url);
-            goto reexecute_byte;
             break;
           case '#':
             state = s_req_fragment_start;
@@ -1229,15 +1227,14 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_req_line_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_header_field_start;
             CALLBACK_DATA(url);
-            goto reexecute_byte;
             break;
           case '#':
             state = s_req_fragment_start;
@@ -1264,15 +1261,14 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_req_line_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_header_field_start;
             CALLBACK_DATA(url);
-            goto reexecute_byte;
             break;
           case '?':
             state = s_req_fragment;
@@ -1298,15 +1294,14 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_req_line_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_headers_almost_done;
+            state = s_header_field_start;
             CALLBACK_DATA(url);
-            goto reexecute_byte;
             break;
           case '?':
           case '#':
@@ -1401,21 +1396,12 @@ size_t http_parser_execute (http_parser *parser,
       case s_req_http_minor:
       {
         if (ch == CR) {
-          if (parser->http_major== 0 && parser->http_minor == 9) {
-            state = s_headers_almost_done;
-          } else {
-            state = s_req_line_almost_done;
-          }
+          state = s_req_line_almost_done;
           break;
         }
 
         if (ch == LF) {
-          if (parser->http_major == 0 && parser->http_minor == 9) {
-            state = s_headers_almost_done;
-            goto reexecute_byte;
-          } else {
-            state = s_header_field_start;
-          }
+          state = s_header_field_start;
           break;
         }
 
