@@ -27,6 +27,7 @@
 #include <queue>
 #include <set>
 #include <folly/io/async/AsyncSocket.h>
+#include <folly/io/async/AsyncSSLSocket.h>
 #include <vector>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 

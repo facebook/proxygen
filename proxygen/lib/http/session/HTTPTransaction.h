@@ -13,6 +13,7 @@
 #include <climits>
 #include <folly/Optional.h>
 #include <folly/SocketAddress.h>
+#include <folly/io/async/AsyncTransport.h>
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/HHWheelTimer.h>
 #include <iosfwd>

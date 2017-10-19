@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/io/async/EventBase.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/SimStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionTypes.h>
 

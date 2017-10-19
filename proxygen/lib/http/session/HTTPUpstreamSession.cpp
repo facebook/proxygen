@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 
+#include <folly/io/async/AsyncSSLSocket.h>
 #include <wangle/acceptor/ConnectionManager.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
