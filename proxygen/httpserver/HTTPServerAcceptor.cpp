@@ -42,6 +42,7 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   }
 
   conf.sslContextConfigs = ipConfig.sslConfigs;
+  conf.strictSSL = ipConfig.strictSSL;
   conf.allowInsecureConnectionsOnSecureServer =
       ipConfig.allowInsecureConnectionsOnSecureServer;
   conf.enableTCPFastOpen = ipConfig.enableTCPFastOpen;

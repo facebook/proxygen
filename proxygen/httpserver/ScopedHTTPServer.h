@@ -99,6 +99,12 @@ class ScopedHTTPServer final {
     std::unique_ptr<wangle::SSLContextConfig> sslCfg = nullptr);
 
   /**
+   * Start a server listening with the requested IPConfig and server opts
+   */
+  static std::unique_ptr<ScopedHTTPServer> start(
+    HTTPServer::IPConfig cfg, HTTPServerOptions options);
+
+  /**
    * Get the port the server is listening on. This is helpful if the port was
    * randomly chosen.
    */
@@ -163,12 +169,18 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
     cfg.sslConfigs.push_back(*sslCfg);
   }
 
-  std::vector<HTTPServer::IPConfig> IPs = { cfg };
-
   HTTPServerOptions options;
   options.threads = numThreads;
-
   options.handlerFactories.push_back(std::move(f));
+  return start(std::move(cfg), std::move(options));
+}
+
+inline std::unique_ptr<ScopedHTTPServer>
+ScopedHTTPServer::start(
+    HTTPServer::IPConfig cfg,
+    HTTPServerOptions options) {
+
+  std::vector<HTTPServer::IPConfig> IPs = { std::move(cfg) };
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
   server->bind(IPs);

@@ -16,6 +16,7 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/httpserver/ScopedHTTPServer.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
@@ -539,4 +540,129 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
 
   auto socketFd = server->getListenSocket();
   ASSERT_EQ(existingFds[0], socketFd);
+}
+
+class ScopedServerTest : public testing::Test {
+ public:
+  void SetUp() override {
+    timer_.reset(new HHWheelTimer(
+        &evb_,
+        std::chrono::milliseconds(HHWheelTimer::DEFAULT_TICK_INTERVAL),
+        AsyncTimeout::InternalEnum::NORMAL,
+        std::chrono::milliseconds(1000)));
+  }
+
+ protected:
+  std::unique_ptr<ScopedHTTPServer>
+  createScopedServer() {
+    auto opts = createDefaultOpts();
+    auto res = ScopedHTTPServer::start(cfg_, std::move(opts));
+    auto addresses = res->getAddresses();
+    address_ = addresses.front().address;
+    return res;
+  }
+
+  std::unique_ptr<CurlClient> connectSSL() {
+    URL url(
+        folly::to<std::string>("https://localhost:", address_.getPort()));
+    HTTPHeaders headers;
+    auto client = std::make_unique<CurlClient>(
+      &evb_, HTTPMethod::GET, url, nullptr, headers, "");
+    client->setFlowControlSettings(64 * 1024);
+    client->setLogging(false);
+    client->initializeSsl("", "http/1.1");
+    HTTPConnector connector(client.get(), timer_.get());
+    connector.connectSSL(
+      &evb_,
+      address_,
+      client->getSSLContext(),
+      nullptr,
+      std::chrono::milliseconds(1000));
+    evb_.loop();
+    return client;
+  }
+
+  std::unique_ptr<CurlClient> connectPlainText() {
+    URL url(
+        folly::to<std::string>("http://localhost:", address_.getPort()));
+    HTTPHeaders headers;
+    auto client = std::make_unique<CurlClient>(
+      &evb_, HTTPMethod::GET, url, nullptr, headers, "");
+    client->setFlowControlSettings(64 * 1024);
+    client->setLogging(false);
+    HTTPConnector connector(client.get(), timer_.get());
+    connector.connect(
+      &evb_,
+      address_,
+      std::chrono::milliseconds(1000));
+    evb_.loop();
+    return client;
+  }
+
+  HTTPServerOptions createDefaultOpts() {
+    HTTPServerOptions res;
+    res.handlerFactories =
+      RequestHandlerChain().addThen<TestHandlerFactory>().build();
+    res.threads = 4;
+    return res;
+  }
+
+  folly::EventBase evb_;
+  folly::SocketAddress address_;
+  HHWheelTimer::UniquePtr timer_;
+  HTTPServer::IPConfig cfg_{
+      folly::SocketAddress("127.0.0.1", 0),
+        HTTPServer::Protocol::HTTP};
+};
+
+TEST_F(ScopedServerTest, start) {
+  auto server = createScopedServer();
+  auto client = connectPlainText();
+  auto resp = client->getResponse();
+  EXPECT_EQ(200, resp->getStatusCode());
+}
+
+TEST_F(ScopedServerTest, startStrictSSL) {
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.setCertificate(
+    "/path/should/not/exist",
+    "/path/should/not/exist",
+    "");
+  cfg_.sslConfigs.push_back(sslCfg);
+  EXPECT_DEATH(createScopedServer(), "");
+}
+
+TEST_F(ScopedServerTest, startNotStrictSSL) {
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.setCertificate(
+    "/path/should/not/exist",
+    "/path/should/not/exist",
+    "");
+  cfg_.strictSSL = false;
+  cfg_.sslConfigs.push_back(sslCfg);
+  auto server = createScopedServer();
+  auto client = connectPlainText();
+  auto resp = client->getResponse();
+  EXPECT_EQ(200, resp->getStatusCode());
+}
+
+TEST_F(ScopedServerTest, startSSLWithInsecure) {
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.setCertificate(
+    kTestDir + "certs/test_cert1.pem",
+    kTestDir + "certs/test_key1.pem",
+    "");
+  cfg_.sslConfigs.push_back(sslCfg);
+  cfg_.allowInsecureConnectionsOnSecureServer = true;
+  auto server = createScopedServer();
+  auto client = connectPlainText();
+  auto resp = client->getResponse();
+  EXPECT_EQ(200, resp->getStatusCode());
+
+  client = connectSSL();
+  resp = client->getResponse();
+  EXPECT_EQ(200, resp->getStatusCode());
 }

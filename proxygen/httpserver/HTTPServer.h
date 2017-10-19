@@ -62,7 +62,7 @@ class HTTPServer final {
     /*
      * Whether to allow an insecure connection on a secure port.
      * This should be used in very few cases where a HTTP server needs to
-     * support insecure and secure connections.
+     * support insecure and secure connections on the same address.
      */
     bool allowInsecureConnectionsOnSecureServer{false};
     bool enableTCPFastOpen{false};
@@ -70,6 +70,11 @@ class HTTPServer final {
      * Maximum queue size of pending fast open connections.
      */
     uint32_t fastOpenQueueSize{10000};
+
+    /*
+     * Determines if this server does strict checking when loading SSL contexts.
+     */
+    bool strictSSL{true};
 
     folly::Optional<folly::AsyncSocket::OptionMap> acceptorSocketOptions;
   };
