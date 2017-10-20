@@ -24,7 +24,9 @@ namespace proxygen {
   x(HEAD),                 \
   x(CONNECT),              \
   x(PUT),                  \
-  x(TRACE)
+  x(TRACE),                \
+  x(PATCH)
+
 
 #define HTTP_METHOD_ENUM(method) method
 
