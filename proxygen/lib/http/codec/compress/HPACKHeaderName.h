@@ -109,11 +109,11 @@ class HPACKHeaderName {
   }
 
   /*
-   * Return whether or not address_ points to header
-   * name in HTTPCommonHeaders
+   * Returns the HTTPHeaderCode associated with the wrapper address_
    */
-  bool isCommonName() {
-    return address_ != nullptr && !isAllocated();
+  HTTPHeaderCode getHeaderCode() const {
+    return HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
+      address_, TABLE_LOWERCASE);
   }
 
   /*

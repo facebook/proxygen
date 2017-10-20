@@ -25,9 +25,10 @@ std::unique_ptr<HTTPCodec> HTTPCodecFactory::getCodec(
       return std::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3_1);
     case CodecProtocol::HTTP_2:
       return std::make_unique<HTTP2Codec>(direction);
+    default:
+      LOG(FATAL) << "Unreachable";
+      return nullptr;
   }
-  LOG(FATAL) << "Unreachable";
-  return nullptr;
 }
 
 }
