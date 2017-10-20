@@ -11,7 +11,7 @@
 #include <proxygen/httpserver/HTTPServer.h>
 
 #include <folly/ThreadName.h>
-#include <folly/executors/NamedThreadFactory.h>
+#include <folly/executors/thread_factory/NamedThreadFactory.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/HTTPServerAcceptor.h>
 #include <proxygen/httpserver/SignalHandler.h>
