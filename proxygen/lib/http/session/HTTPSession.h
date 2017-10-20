@@ -66,30 +66,30 @@ class HTTPSession:
     virtual ~InfoCallback() {}
 
     // Note: you must not start any asynchronous work from onCreate()
-    virtual void onCreate(const HTTPSession&) = 0;
-    virtual void onIngressError(const HTTPSession&, ProxygenError) = 0;
-    virtual void onIngressEOF() = 0;
-    virtual void onRead(const HTTPSession&, size_t bytesRead) = 0;
-    virtual void onWrite(const HTTPSession&, size_t bytesWritten) = 0;
-    virtual void onRequestBegin(const HTTPSession&) = 0;
+    virtual void onCreate(const HTTPSession&) {}
+    virtual void onIngressError(const HTTPSession&, ProxygenError) {}
+    virtual void onIngressEOF() {}
+    virtual void onRead(const HTTPSession&, size_t /*bytesRead*/) {}
+    virtual void onWrite(const HTTPSession&, size_t /*bytesWritten*/) {}
+    virtual void onRequestBegin(const HTTPSession&) {}
     virtual void onRequestEnd(const HTTPSession&,
-                              uint32_t maxIngressQueueSize) = 0;
-    virtual void onActivateConnection(const HTTPSession&) = 0;
-    virtual void onDeactivateConnection(const HTTPSession&) = 0;
+                              uint32_t /*maxIngressQueueSize*/) {}
+    virtual void onActivateConnection(const HTTPSession&) {}
+    virtual void onDeactivateConnection(const HTTPSession&) {}
     // Note: you must not start any asynchronous work from onDestroy()
-    virtual void onDestroy(const HTTPSession&) = 0;
+    virtual void onDestroy(const HTTPSession&) {}
     virtual void onIngressMessage(const HTTPSession&,
-                                  const HTTPMessage&) = 0;
-    virtual void onIngressLimitExceeded(const HTTPSession&) = 0;
-    virtual void onIngressPaused(const HTTPSession&) = 0;
-    virtual void onTransactionDetached(const HTTPSession&) = 0;
-    virtual void onPingReplySent(int64_t latency) = 0;
-    virtual void onPingReplyReceived() = 0;
-    virtual void onSettingsOutgoingStreamsFull(const HTTPSession&) = 0;
-    virtual void onSettingsOutgoingStreamsNotFull(const HTTPSession&) = 0;
-    virtual void onFlowControlWindowClosed(const HTTPSession&) = 0;
-    virtual void onEgressBuffered(const HTTPSession&) = 0;
-    virtual void onEgressBufferCleared(const HTTPSession&) = 0;
+                                  const HTTPMessage&) {}
+    virtual void onIngressLimitExceeded(const HTTPSession&) {}
+    virtual void onIngressPaused(const HTTPSession&) {}
+    virtual void onTransactionDetached(const HTTPSession&) {}
+    virtual void onPingReplySent(int64_t /*latency*/) {}
+    virtual void onPingReplyReceived() {}
+    virtual void onSettingsOutgoingStreamsFull(const HTTPSession&) {}
+    virtual void onSettingsOutgoingStreamsNotFull(const HTTPSession&) {}
+    virtual void onFlowControlWindowClosed(const HTTPSession&) {}
+    virtual void onEgressBuffered(const HTTPSession&) {}
+    virtual void onEgressBufferCleared(const HTTPSession&) {}
   };
 
   /**
@@ -1286,31 +1286,6 @@ class HTTPSession:
    * this session will start applying backpressure to its transactions.
    */
   static uint32_t kDefaultWriteBufLimit;
-};
-
-class EmptyInfoCallback : public HTTPSession::InfoCallback {
- public:
-  void onCreate(const HTTPSession&) override {}
-  void onIngressError(const HTTPSession&, ProxygenError) override {}
-  void onIngressEOF() override {}
-  void onRead(const HTTPSession&, size_t) override {}
-  void onWrite(const HTTPSession&, size_t) override {}
-  void onRequestBegin(const HTTPSession&) override {}
-  void onRequestEnd(const HTTPSession&, uint32_t) override {}
-  void onActivateConnection(const HTTPSession&) override {}
-  void onDeactivateConnection(const HTTPSession&) override {}
-  void onDestroy(const HTTPSession&) override {}
-  void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
-  void onIngressLimitExceeded(const HTTPSession&) override {}
-  void onIngressPaused(const HTTPSession&) override {}
-  void onTransactionDetached(const HTTPSession&) override {}
-  void onPingReplySent(int64_t) override {}
-  void onPingReplyReceived() override {}
-  void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
-  void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
-  void onFlowControlWindowClosed(const HTTPSession&) override {}
-  void onEgressBuffered(const HTTPSession&) override {}
-  void onEgressBufferCleared(const HTTPSession&) override {}
 };
 
 
