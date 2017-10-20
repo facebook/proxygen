@@ -82,8 +82,12 @@ HTTPServer::~HTTPServer() {
   CHECK(!mainEventBase_) << "Forgot to stop() server?";
 }
 
-void HTTPServer::bind(std::vector<IPConfig> addrs) {
+void HTTPServer::bind(std::vector<IPConfig>&& addrs) {
   addresses_ = std::move(addrs);
+}
+
+void HTTPServer::bind(std::vector<IPConfig> const& addrs) {
+  addresses_ = addrs;
 }
 
 class HandlerCallbacks : public ThreadPoolExecutor::Observer {
