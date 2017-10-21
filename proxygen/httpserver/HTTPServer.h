@@ -92,7 +92,8 @@ class HTTPServer final {
    *
    * Can be called from any thread.
    */
-  void bind(std::vector<IPConfig> addrs);
+  void bind(std::vector<IPConfig>&& addrs);
+  void bind(std::vector<IPConfig> const& addrs);
 
   /**
    * Start HTTPServer.
