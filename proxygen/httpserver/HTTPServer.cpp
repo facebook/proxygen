@@ -10,8 +10,8 @@
 
 #include <proxygen/httpserver/HTTPServer.h>
 
-#include <folly/ThreadName.h>
 #include <folly/executors/thread_factory/NamedThreadFactory.h>
+#include <folly/system/ThreadName.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/HTTPServerAcceptor.h>
 #include <proxygen/httpserver/SignalHandler.h>

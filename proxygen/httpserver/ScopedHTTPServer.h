@@ -11,7 +11,7 @@
 
 #include <boost/thread.hpp>
 #include <folly/io/async/SSLContext.h>
-#include <folly/ThreadName.h>
+#include <folly/system/ThreadName.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 
