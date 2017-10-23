@@ -8,7 +8,7 @@
  *
  */
 #include <proxygen/lib/utils/RendezvousHash.h>
-#include <folly/Foreach.h>
+#include <folly/container/Foreach.h>
 #include <folly/Hash.h>
 #include <map>
 #include <algorithm>

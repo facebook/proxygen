@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/HTTPMethod.h>
 
-#include <folly/Foreach.h>
+#include <folly/container/Foreach.h>
 #include <folly/Indestructible.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <vector>
