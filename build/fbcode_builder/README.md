@@ -21,7 +21,7 @@ os_image=ubuntu:14.04 \
     ./travis_docker_build.sh &> build_at_$(date +'%Y%m%d_%H%M%S').log
 ```
 
-**IMPORTANT**: Read `fbcode_builder/README.docker` befire diving in!
+**IMPORTANT**: Read `fbcode_builder/README.docker` before diving in!
 
 Setting `travis_cache_dir` turns on [ccache](https://ccache.samba.org/),
 saving a fresh copy of `ccache.tgz` after every build.  This will invalidate
