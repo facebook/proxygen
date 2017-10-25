@@ -1112,6 +1112,10 @@ class HTTPTransaction :
 
   HPACKTableInfo& getHPACKTableInfo();
 
+  bool hasPendingBody() const {
+    return deferredEgressBody_.chainLength() > 0;
+  }
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
