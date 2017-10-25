@@ -78,6 +78,7 @@ def _read_project_github_hashes():
                     raise RuntimeError('No hash in {0}'.format(path))
                 yield m_proj.group(1), m_hash.group(1)
 
+
 class FBCodeBuilder(object):
 
     def __init__(self, **kwargs):
@@ -261,18 +262,18 @@ class FBCodeBuilder(object):
             self.run(ShellQuoted('git checkout {hash}').format(hash=git_hash)),
         ] if git_hash else []
 
+        base_dir = self.option('projects_dir')
         git_patch = self.option('{0}:git_patch'.format(project), '')
         maybe_apply_patch = [
-            self.run(ShellQuoted('git apply {patch}').format(patch=git_patch)),
+            self.run(ShellQuoted('git apply {patch}').format(
+                patch=path_join(base_dir, git_patch))),
         ] if git_patch else []
 
-        base_dir = self.option('projects_dir')
         local_repo_dir = self.option('{0}:local_repo_dir'.format(project), '')
         return self.step('Check out {0}, workdir {1}'.format(project, path), [
             self.workdir(base_dir),
             self.run(
-                ShellQuoted('git clone https://github.com/{p}')
-                    .format(p=project)
+                ShellQuoted('git clone https://github.com/{p}').format(p=project)
             ) if not local_repo_dir else self.copy_local_repo(
                 local_repo_dir, os.path.basename(project)
             ),
