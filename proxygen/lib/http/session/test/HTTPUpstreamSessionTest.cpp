@@ -274,31 +274,13 @@ class HTTPUpstreamTest: public testing::Test,
 
   // HTTPSession::InfoCallback interface
   void onCreate(const HTTPSession&) override { sessionCreated_ = true; }
-  void onIngressError(const HTTPSession&, ProxygenError) override {}
-  void onIngressEOF() override {}
-  void onRead(const HTTPSession&, size_t /*bytesRead*/) override {}
-  void onWrite(const HTTPSession&, size_t /*bytesWritten*/) override {}
-  void onRequestBegin(const HTTPSession&) override {}
-  void onRequestEnd(const HTTPSession&,
-                    uint32_t /*maxIngressQueueSize*/) override {}
-  void onActivateConnection(const HTTPSession&) override {}
-  void onDeactivateConnection(const HTTPSession&) override {}
   void onDestroy(const HTTPSession&) override { sessionDestroyed_ = true; }
-  void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
-  void onIngressLimitExceeded(const HTTPSession&) override {}
-  void onIngressPaused(const HTTPSession&) override {}
-  void onTransactionDetached(const HTTPSession&) override {}
-  void onPingReplySent(int64_t /*latency*/) override {}
-  void onPingReplyReceived() override {}
   void onSettingsOutgoingStreamsFull(const HTTPSession&) override {
     transactionsFull_ = true;
   }
   void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {
     transactionsFull_ = false;
   }
-  void onFlowControlWindowClosed(const HTTPSession&) override {}
-  void onEgressBuffered(const HTTPSession&) override {}
-  void onEgressBufferCleared(const HTTPSession&) override {}
 
   void TearDown() override {
     AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
@@ -686,6 +668,35 @@ TEST_F(HTTP2UpstreamSessionTest, test_settings_ack) {
   parseOutput(*serverCodec);
   httpSession_->dropConnection();
   EXPECT_EQ(sessionDestroyed_, true);
+}
+
+TEST_F(HTTP2UpstreamSessionTest, test_settings_info_callbacks) {
+  auto serverCodec = makeServerCodec();
+
+  folly::IOBufQueue settingsBuf{IOBufQueue::cacheChainLength()};
+  serverCodec->generateSettings(settingsBuf);
+  auto settingsFrame = settingsBuf.move();
+
+  folly::IOBufQueue settingsAckBuf{IOBufQueue::cacheChainLength()};
+  serverCodec->generateSettingsAck(settingsAckBuf);
+  auto settingsAckFrame = settingsAckBuf.move();
+
+  MockHTTPSessionInfoCallback infoCb;
+  httpSession_->setInfoCallback(&infoCb);
+
+  EXPECT_CALL(infoCb, onRead(_, _)).Times(2);
+  EXPECT_CALL(infoCb, onWrite(_, _)).Times(1);
+  EXPECT_CALL(infoCb, onDestroy(_)).Times(1);
+
+  EXPECT_CALL(infoCb, onSettings(_, _)).Times(1);
+  EXPECT_CALL(infoCb, onSettingsAck(_)).Times(1);
+
+  InSequence enforceOrder;
+
+  readAndLoop(settingsFrame.get());
+  readAndLoop(settingsAckFrame.get());
+
+  httpSession_->destroy();
 }
 
 class HTTP2UpstreamSessionWithVirtualNodesTest:

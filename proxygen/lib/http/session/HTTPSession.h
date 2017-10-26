@@ -90,6 +90,8 @@ class HTTPSession:
     virtual void onFlowControlWindowClosed(const HTTPSession&) {}
     virtual void onEgressBuffered(const HTTPSession&) {}
     virtual void onEgressBufferCleared(const HTTPSession&) {}
+    virtual void onSettings(const HTTPSession&, const SettingsList&) {}
+    virtual void onSettingsAck(const HTTPSession&) {}
   };
 
   /**

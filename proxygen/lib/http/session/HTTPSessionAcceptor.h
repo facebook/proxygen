@@ -133,30 +133,6 @@ protected:
   HTTPSessionAcceptor(const HTTPSessionAcceptor&) = delete;
   HTTPSessionAcceptor& operator=(const HTTPSessionAcceptor&) = delete;
 
-  // HTTPSession::InfoCallback methods
-  void onCreate(const HTTPSession&) override {}
-  void onIngressError(const HTTPSession&, ProxygenError /*error*/) override {}
-  void onIngressEOF() override {}
-  void onRead(const HTTPSession&, size_t /*bytesRead*/) override {}
-  void onWrite(const HTTPSession&, size_t /*bytesWritten*/) override {}
-  void onRequestBegin(const HTTPSession&) override {}
-  void onRequestEnd(const HTTPSession&,
-                    uint32_t /*maxIngressQueueSize*/) override {}
-  void onActivateConnection(const HTTPSession&) override {}
-  void onDeactivateConnection(const HTTPSession&) override {}
-  void onDestroy(const HTTPSession&) override {}
-  void onIngressMessage(const HTTPSession&, const HTTPMessage&) override {}
-  void onIngressLimitExceeded(const HTTPSession&) override {}
-  void onIngressPaused(const HTTPSession&) override {}
-  void onTransactionDetached(const HTTPSession&) override {}
-  void onPingReplySent(int64_t /*latency*/) override {}
-  void onPingReplyReceived() override {}
-  void onSettingsOutgoingStreamsFull(const HTTPSession&) override {}
-  void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {}
-  void onFlowControlWindowClosed(const HTTPSession&) override {}
-  void onEgressBuffered(const HTTPSession&) override {}
-  void onEgressBufferCleared(const HTTPSession&) override {}
-
   /** General-case error page generator */
   std::unique_ptr<HTTPErrorPage> defaultErrorPage_;
 

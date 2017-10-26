@@ -1122,10 +1122,16 @@ void HTTPSession::onSettings(const SettingsList& settings) {
   if (codec_->generateSettingsAck(writeBuf_) > 0) {
     scheduleWrite();
   }
+  if (infoCallback_) {
+    infoCallback_->onSettings(*this, settings);
+  }
 }
 
 void HTTPSession::onSettingsAck() {
   VLOG(4) << *this << " received settings ack";
+  if (infoCallback_) {
+    infoCallback_->onSettingsAck(*this);
+  }
 }
 
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
