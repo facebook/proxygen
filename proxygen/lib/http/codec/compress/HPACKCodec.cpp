@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <iosfwd>
 
@@ -31,8 +32,7 @@ HPACKCodec::HPACKCodec(TransportDirection /*direction*/,
                        bool autoCommit)
     : encoder_(true, HPACK::kTableSize, emitSequenceNumbers, useBaseIndex,
                autoCommit),
-      decoder_(HPACK::kTableSize, maxUncompressed_, useBaseIndex) {
-}
+      decoder_(HPACK::kTableSize, maxUncompressed_, useBaseIndex) {}
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   bool eviction = false;

@@ -282,6 +282,34 @@ TEST_F(HPACKCodecTests, uncompressed_size_limit) {
   EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
 }
 
+TEST_F(HPACKCodecTests, default_header_indexing_strategy) {
+  vector<Header> headers = basicHeaders();
+  size_t headersOrigSize = headers.size();
+
+  // Control equality check; all basic headers were indexed
+  client.encode(headers);
+  EXPECT_EQ(client.getHPACKTableInfo().egressHeadersStored_, headersOrigSize);
+
+  // Verify HPACKCodec by default utilizes the default header indexing strategy
+  // by ensuring that it does not index any of the added headers below
+  // The below is quite verbose but that is because Header constructors use
+  // references and so we need the actual strings to not go out of scope
+  vector<vector<string>> noIndexHeadersStrings = {
+    {"content-length", "80"},
+    {":path", "/some/random/file.jpg"},
+    {":path", "checks_for_="},
+    {"if-modified-since", "some_value"},
+    {"last-modified", "some_value"}
+  };
+  vector<Header> noIndexHeaders = headersFromArray(noIndexHeadersStrings);
+  headers.insert(headers.end(), noIndexHeaders.begin(), noIndexHeaders.end());
+  HPACKCodec testCodec{TransportDirection::UPSTREAM};
+  testCodec.encode(headers);
+  EXPECT_EQ(
+    testCodec.getHPACKTableInfo().egressHeadersStored_, headersOrigSize);
+}
+
+
 class HPACKQueueTests : public testing::TestWithParam<int> {
  public:
   HPACKQueueTests()

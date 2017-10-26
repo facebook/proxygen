@@ -38,6 +38,8 @@ HPACKEncoder::HPACKEncoder(bool huffman,
     buffer_(kBufferGrowth, huffman::huffTree(), huffman),
     emitSequenceNumbers_(emitSequenceNumbers),
     autoCommit_(autoCommit) {
+  // Default the encoder indexing strategy; it can be updated later as well
+  setHeaderIndexingStrategy(HeaderIndexingStrategy::getDefaultInstance());
 }
 
 unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
@@ -79,7 +81,9 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
 }
 
 void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
-  indexing &= header.isIndexable();
+  if (indexingStrat_) {
+    indexing &= indexingStrat_->indexHeader(header);
+  }
   if (header.bytes() > table_.capacity()) {
     // May want to investigate further whether or not this is wanted.
     // Flushing the table on a large header frees up some memory,

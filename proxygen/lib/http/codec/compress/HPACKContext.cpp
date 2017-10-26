@@ -39,7 +39,6 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,
   } else {
     return index;
   }
-  return 0;
 }
 
 uint32_t HPACKContext::nameIndex(const HPACKHeaderName& headerName,

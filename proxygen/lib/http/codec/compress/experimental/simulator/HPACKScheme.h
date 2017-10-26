@@ -12,6 +12,7 @@
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h"
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKQueue.h>
+#include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 
 namespace proxygen { namespace compress {
 
@@ -24,6 +25,8 @@ class HPACKScheme : public CompressionScheme {
   explicit HPACKScheme(CompressionSimulator* sim)
       : CompressionScheme(sim) {
     client_.setEncodeHeadroom(2);
+    client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
+    server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
   }
 
   ~HPACKScheme() {

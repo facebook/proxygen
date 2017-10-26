@@ -50,6 +50,7 @@ class HPACKHeader {
     return name == other.name && value == other.value;
   }
 
+  // TODO: ddmello determine if these comparison operators are required
   bool operator<(const HPACKHeader& other) const {
     bool eqname = (name == other.name);
     if (!eqname) {
@@ -73,23 +74,8 @@ class HPACKHeader {
     return !value.empty();
   }
 
-  /**
-   * Decide if we will add the current header into the header table
-   *
-   * This is a way to blacklist some headers that have variable values and are
-   * not efficient to index, like a :path with URL params, content-length or
-   * headers that contain timestamps: if-modified-since, last-modified.
-   * This is not standard for HPACK and it's part of some heuristics used by
-   * the encoder to improve the use of the header table.
-   *
-   * @return true if we should index the header
-   */
-  bool isIndexable() const;
-
   HPACKHeaderName name;
   folly::fbstring value;
-
-  static bool sAllowPathIndexing;
 };
 
 std::ostream& operator<<(std::ostream& os, const HPACKHeader& h);

@@ -45,6 +45,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/SettingsId.h \
 	codec/TransportDirection.h \
 	codec/compress/GzipHeaderCodec.h \
+	codec/compress/HeaderIndexingStrategy.h \
 	codec/compress/HPACKCodec.h \
 	codec/compress/HPACKConstants.h \
 	codec/compress/HPACKContext.h \
@@ -61,6 +62,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/HeaderTable.h \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
+	codec/compress/NoPathIndexingStrategy.h \
 	codec/compress/QCRAMHeader.h \
 	codec/compress/StaticHeaderTable.h \
 	codec/HTTPRequestVerifier.h \
@@ -93,6 +95,7 @@ libproxygenhttp_la_SOURCES = \
 	HTTPCommonHeaders.cpp \
 	codec/CodecProtocol.cpp \
 	codec/compress/GzipHeaderCodec.cpp \
+	codec/compress/HeaderIndexingStrategy.cpp \
 	codec/compress/HeaderTable.cpp \
 	codec/compress/HPACKCodec.cpp \
 	codec/compress/HPACKContext.cpp \
@@ -102,6 +105,7 @@ libproxygenhttp_la_SOURCES = \
 	codec/compress/HPACKEncoder.cpp \
 	codec/compress/HPACKHeader.cpp \
 	codec/compress/Huffman.cpp \
+	codec/compress/NoPathIndexingStrategy.cpp \
 	codec/compress/Logging.cpp \
 	codec/compress/StaticHeaderTable.cpp \
 	codec/ErrorCode.cpp \

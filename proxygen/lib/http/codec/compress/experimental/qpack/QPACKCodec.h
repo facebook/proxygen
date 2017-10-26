@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <folly/experimental/Bits.h>
 #include <string>
 #include <vector>
@@ -68,6 +69,10 @@ class QPACKCodec : public HeaderCodec, public QPACKDecoder::Callback {
 
   uint32_t getQueuedBytes() const {
     return decoder_.getQueuedBytes();
+  }
+
+  void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
+    encoder_.setHeaderIndexingStrategy(indexingStrat);
   }
 
  protected:

@@ -29,6 +29,8 @@ QPACKEncoder::QPACKEncoder(bool huffman,
     QPACKContext(tableSize),
     buffer_(kBufferGrowth, huffman::huffTree(), huffman),
     minFree_(std::min(kMinFree, tableSize)) {
+  // Default the encoder indexing strategy; it can be updated later as well
+  setHeaderIndexingStrategy(HeaderIndexingStrategy::getDefaultInstance());
 }
 
 unique_ptr<IOBuf> QPACKEncoder::encode(const vector<HPACKHeader>& headers,
@@ -76,12 +78,13 @@ void QPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
       encodeDelete(dynamicToGlobalIndex(delIndex), refcount);
     }
   }
-  if (header.isIndexable() && !tableHasRoom) {
+
+  bool indexing = !indexingStrat_ || indexingStrat_->indexHeader(header);
+  if (indexing && !tableHasRoom) {
     VLOG(4) << "Encoding h=" << header << " as literal because table is too "
       "full";
+    indexing = false;
   }
-
-  bool indexing = tableHasRoom && header.isIndexable();
   uint8_t prefix = indexing ?
     HPACK::HeaderEncoding::LITERAL_INCR_INDEXING :
     HPACK::HeaderEncoding::LITERAL_NO_INDEXING;

@@ -9,18 +9,11 @@
  */
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 
-#include <folly/Singleton.h>
-
-namespace {
-using namespace proxygen;
-folly::Singleton<HeaderIndexingStrategy> defaultHeaderIndexingStrategyInstance;
-}
-
 namespace proxygen {
 
-std::shared_ptr<HeaderIndexingStrategy>
-    HeaderIndexingStrategy::getDefaultInstance() {
-  return defaultHeaderIndexingStrategyInstance.try_get();
+const HeaderIndexingStrategy* HeaderIndexingStrategy::getDefaultInstance() {
+  static const HeaderIndexingStrategy* instance = new HeaderIndexingStrategy();
+  return instance;
 }
 
 bool HeaderIndexingStrategy::indexHeader(const HPACKHeader& header) const {

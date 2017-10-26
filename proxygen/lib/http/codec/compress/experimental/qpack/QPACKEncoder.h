@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
 #include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 #include <vector>
 
@@ -22,8 +23,7 @@ namespace proxygen {
 class QPACKEncoder : public QPACKContext {
 
  public:
-  explicit QPACKEncoder(bool huffman,
-                        uint32_t tableSize=HPACK::kTableSize);
+  explicit QPACKEncoder(bool huffman, uint32_t tableSize=HPACK::kTableSize);
 
   /**
    * Size of a new IOBuf which is added to the chain
@@ -41,6 +41,10 @@ class QPACKEncoder : public QPACKContext {
 
   void deleteAck(const folly::IOBuf* ackBits);
 
+  void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
+    indexingStrat_ = indexingStrat;
+  }
+
  protected:
   void encodeAsIndex(uint32_t index);
 
@@ -50,6 +54,8 @@ class QPACKEncoder : public QPACKContext {
   void encodeAsLiteral(const HPACKHeader& header);
 
   void encodeDelete(uint32_t delIndex, uint32_t refcount);
+
+  const HeaderIndexingStrategy* indexingStrat_;
 
  protected:
   HPACKEncodeBuffer buffer_;

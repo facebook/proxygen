@@ -7,13 +7,13 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 
 namespace proxygen {
 
-std::ostream& operator<<(std::ostream& os, const HPACKHeader& h) {
-  os << h.name << ": " << h.value;
-  return os;
+const NoPathIndexingStrategy* NoPathIndexingStrategy::getInstance() {
+  static const NoPathIndexingStrategy* instance = new NoPathIndexingStrategy();
+  return instance;
 }
 
 }

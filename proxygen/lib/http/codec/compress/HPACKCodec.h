@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/TransportDirection.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <string>
 #include <vector>
@@ -130,6 +131,10 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
   // Used for QCRAM simulation
   void packetFlushed() {
     encoder_.packetFlushed();
+  }
+
+  void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
+    encoder_.setHeaderIndexingStrategy(indexingStrat);
   }
 
  protected:

@@ -11,13 +11,17 @@
 
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h"
 #include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKCodec.h>
+#include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 
 namespace proxygen {  namespace compress {
 
 class QPACKScheme : public CompressionScheme {
  public:
   explicit QPACKScheme(CompressionSimulator* sim)
-      : CompressionScheme(sim) {}
+      : CompressionScheme(sim) {
+    client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
+    server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
+  }
 
   struct QPACKAck : public CompressionScheme::Ack {
     explicit QPACKAck(uint16_t n, std::unique_ptr<folly::IOBuf> inAcks)

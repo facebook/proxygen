@@ -9,6 +9,7 @@
  */
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <sstream>
 
 using namespace proxygen;
@@ -52,13 +53,16 @@ TEST_F(HPACKHeaderTests, has_value) {
   EXPECT_TRUE(h2.hasValue());
 }
 
-TEST_F(HPACKHeaderTests, is_indexable) {
+TEST_F(HPACKHeaderTests, HeaderIndexingStrategyBasic) {
+  HeaderIndexingStrategy indexingStrat;
   HPACKHeader path(":path", "index.php?q=42");
-  EXPECT_FALSE(path.isIndexable());
+  EXPECT_FALSE(indexingStrat.indexHeader(path));
   HPACKHeader cdn(":path", "/hprofile-ak-prn1/49496_6024432_1026115112_n.jpg");
-  EXPECT_FALSE(cdn.isIndexable());
+  EXPECT_FALSE(indexingStrat.indexHeader(cdn));
   HPACKHeader clen("content-length", "512");
-  EXPECT_FALSE(clen.isIndexable());
+  EXPECT_FALSE(indexingStrat.indexHeader(clen));
+  HPACKHeader data("data", "value");
+  EXPECT_TRUE(indexingStrat.indexHeader(data));
 }
 
 class HPACKHeaderNameTest : public testing::Test {

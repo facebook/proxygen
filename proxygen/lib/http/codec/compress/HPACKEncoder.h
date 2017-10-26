@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 #include <vector>
 
@@ -72,6 +73,10 @@ class HPACKEncoder : public HPACKContext {
     VLOG(5) << "bumped packetEpoch_ to " << packetEpoch_;
   }
 
+  void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
+    indexingStrat_ = indexingStrat;
+  }
+
   static void enableAutoFlush() {
     sEnableAutoFlush_ = true;
   }
@@ -85,6 +90,8 @@ class HPACKEncoder : public HPACKContext {
   virtual void encodeAsLiteral(const HPACKHeader& header, bool indexable);
 
   bool huffman_;
+
+  const HeaderIndexingStrategy* indexingStrat_;
  protected:
   HPACKEncodeBuffer buffer_;
   uint16_t packetEpoch_{0};

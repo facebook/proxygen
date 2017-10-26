@@ -32,7 +32,6 @@ using namespace proxygen::compress;
 
 int main(int argc, char* argv[]) {
   folly::init(&argc, &argv, true);
-  proxygen::HPACKHeader::sAllowPathIndexing = false;
   if (FLAGS_same_packet_compression) {
     proxygen::HPACKEncoder::enableAutoFlush();
   }

@@ -137,6 +137,10 @@ public:
     reuseIOBufHeadroomForData_ = enabled;
   }
 
+  void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
+    headerCodec_.setHeaderIndexingStrategy(indexingStrat);
+  }
+
  private:
   class HeaderDecodeInfo {
    public:

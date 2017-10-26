@@ -15,7 +15,7 @@ namespace proxygen {
 
 class HeaderIndexingStrategy {
  public:
-   static std::shared_ptr<HeaderIndexingStrategy> getDefaultInstance();
+  static const HeaderIndexingStrategy* getDefaultInstance();
 
   // Explicitly defined constructor/destructor
   // Destructor is virtual so that a subclass can provide an implementation

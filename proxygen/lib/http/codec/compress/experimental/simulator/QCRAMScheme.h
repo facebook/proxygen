@@ -10,15 +10,18 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
-
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKQueue.h>
+#include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 
 namespace proxygen {  namespace compress {
 class QCRAMScheme : public CompressionScheme {
  public:
   explicit QCRAMScheme(CompressionSimulator* sim)
-      : CompressionScheme(sim) {}
+      : CompressionScheme(sim) {
+    client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
+    server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
+  }
 
   ~QCRAMScheme() {
     CHECK_EQ(serverQueue_.getQueuedBytes(), 0);
