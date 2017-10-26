@@ -10,7 +10,9 @@ check_PROGRAMS = CodecTests
 CodecTests_SOURCES = \
 	FilterTests.cpp \
 	SPDYCodecTest.cpp \
-	HTTP1xCodecTest.cpp
+	HTTP1xCodecTest.cpp \
+	HTTP2CodecTest.cpp \
+	HTTP2FramerTest.cpp
 
 CodecTests_LDADD = \
 	../../libproxygenhttp.la \
