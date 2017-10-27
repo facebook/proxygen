@@ -256,7 +256,7 @@ class HTTPSession:
     h2PrioritiesEnabled_ = enabled;
   }
 
-  bool getHTTP2PrioritiesEnabled() {
+  bool getHTTP2PrioritiesEnabled() override {
     return h2PrioritiesEnabled_;
   }
 

@@ -407,6 +407,7 @@ class HTTPTransaction :
       const noexcept = 0;
 
     virtual void setHTTP2PrioritiesEnabled(bool enabled) = 0;
+    virtual bool getHTTP2PrioritiesEnabled() = 0;
 
     virtual folly::Optional<const HTTPMessage::HTTPPriority>
         getHTTPPriority(uint8_t level) = 0;
@@ -1090,7 +1091,7 @@ class HTTPTransaction :
     return prioritySample_ != nullptr;
   }
 
-  void setPrioritySampled(bool sampled, bool http2PrioritiesEnabled);
+  void setPrioritySampled(bool sampled);
   void updateContentionsCount(uint64_t contentions);
   void updateRelativeWeight(double ratio);
   void updateSessionBytesSheduled(uint64_t bytes);
@@ -1105,7 +1106,6 @@ class HTTPTransaction :
     WeightedAverage depth_;
     double expected_weight_;
     double measured_weight_;
-    bool http2PrioritiesEnabled_:1;
   };
 
   bool getPrioritySampleSummary(PrioritySampleSummary& summary) const;

@@ -1381,9 +1381,8 @@ class HTTPTransaction::PrioritySample {
   };
 
 public:
-  explicit PrioritySample(HTTPTransaction* tnx, bool http2PrioritiesEnabled) :
+  explicit PrioritySample(HTTPTransaction* tnx) :
     tnx_(tnx),
-    http2PrioritiesEnabled_(http2PrioritiesEnabled),
     transactionBytesScheduled_(false) {}
 
   void updateContentionsCount(uint64_t contentions, uint64_t depth) {
@@ -1423,10 +1422,6 @@ public:
     ratio_ = ratio;
   }
 
-  bool isHttp2PrioritiesEnabled() const {
-    return http2PrioritiesEnabled_;
-  }
-
   bool isTransactionBytesScheduled() const {
     return transactionBytesScheduled_;
   }
@@ -1436,7 +1431,6 @@ public:
     depth_.getSummary(summary.depth_);
     summary.expected_weight_ = expected_weight_.getWeightedAverage();
     summary.measured_weight_ = measured_weight_.getWeightedAverage();
-    summary.http2PrioritiesEnabled_ = http2PrioritiesEnabled_;
   }
 private:
   // TODO: remove tnx_ when not needed
@@ -1446,15 +1440,12 @@ private:
   WeightedAccumulator expected_weight_;
   WeightedAccumulator measured_weight_;
   double ratio_;
-  bool http2PrioritiesEnabled_:1;
   bool transactionBytesScheduled_:1;
 };
 
-void HTTPTransaction::setPrioritySampled(bool sampled,
-                                         bool http2PrioritiesEnabled) {
+void HTTPTransaction::setPrioritySampled(bool sampled) {
   if (sampled) {
-    prioritySample_ = std::make_unique<PrioritySample>(this,
-                                                       http2PrioritiesEnabled);
+    prioritySample_ = std::make_unique<PrioritySample>(this);
   } else {
     prioritySample_.reset();
   }

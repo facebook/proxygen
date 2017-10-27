@@ -2296,8 +2296,7 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
   HTTPTransaction* txn = &matchPair.first->second;
 
   if (prioritySample_) {
-    txn->setPrioritySampled(true /* sampled */,
-                            getHTTP2PrioritiesEnabled());
+    txn->setPrioritySampled(true /* sampled */);
   }
 
   if (transactionSeqNo_ > 0) {

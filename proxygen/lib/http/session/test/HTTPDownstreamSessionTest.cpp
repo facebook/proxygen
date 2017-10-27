@@ -2531,7 +2531,8 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   handler1->expectDetachTransaction([&] {
       HTTPTransaction::PrioritySampleSummary summary;
       EXPECT_EQ(handler1->txn_->getPrioritySampleSummary(summary), true);
-      EXPECT_EQ(summary.http2PrioritiesEnabled_, true);
+      EXPECT_EQ(handler1->txn_->getTransport().getHTTP2PrioritiesEnabled(),
+                true);
       // id1 had no egress when id2 was running, so id1 was contending only with
       // id3 and id4. Average number of contentions for id1 is 3
       EXPECT_EQ(summary.contentions_.byTransactionBytes_, 3);
@@ -2553,7 +2554,8 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   handler3->expectDetachTransaction([&] {
       HTTPTransaction::PrioritySampleSummary summary;
       EXPECT_EQ(handler3->txn_->getPrioritySampleSummary(summary), true);
-      EXPECT_EQ(summary.http2PrioritiesEnabled_, true);
+      EXPECT_EQ(handler3->txn_->getTransport().getHTTP2PrioritiesEnabled(),
+                true);
       // Similarly, id3 was contenting with id1 and id4
       // Average number of contentions for id3 is 3
       EXPECT_EQ(summary.contentions_.byTransactionBytes_, 3);
@@ -2577,7 +2579,8 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   handler4->expectDetachTransaction([&] {
       HTTPTransaction::PrioritySampleSummary summary;
       EXPECT_EQ(handler4->txn_->getPrioritySampleSummary(summary), true);
-      EXPECT_EQ(summary.http2PrioritiesEnabled_, true);
+      EXPECT_EQ(handler4->txn_->getTransport().getHTTP2PrioritiesEnabled(),
+                true);
       // This is the priority-based blocking situation. id4 was blocked by
       // higher priority transactions id1 and id3. Only when id1 and id3
       // finished, id4 had a chance to transfer its data.
@@ -2653,7 +2656,8 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_dependent_transactions) {
   handler1->expectDetachTransaction([&] {
       HTTPTransaction::PrioritySampleSummary summary;
       EXPECT_EQ(handler1->txn_->getPrioritySampleSummary(summary), true);
-      EXPECT_EQ(summary.http2PrioritiesEnabled_, true);
+      EXPECT_EQ(handler1->txn_->getTransport().getHTTP2PrioritiesEnabled(),
+                true);
       // id1 is contending with id2 during the entire transfer.
       // Average number of contentions for id1 is 2 in both cases.
       // The same number of average contentions weighted by both transaction
@@ -2671,7 +2675,8 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_dependent_transactions) {
   handler2->expectDetachTransaction([&] {
       HTTPTransaction::PrioritySampleSummary summary;
       EXPECT_EQ(handler2->txn_->getPrioritySampleSummary(summary), true);
-      EXPECT_EQ(summary.http2PrioritiesEnabled_, true);
+      EXPECT_EQ(handler2->txn_->getTransport().getHTTP2PrioritiesEnabled(),
+                true);
       // This is the dependency-based blocking. id2 is blocked by id1.
       // When id2 had a chance to transfer bytes, it was no longer contended
       // with any other transaction. Hence the average contention weighted by
