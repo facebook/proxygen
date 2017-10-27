@@ -58,7 +58,7 @@ class WheelTimerInstance {
   // returns true if it is empty
   explicit operator bool() const;
 
-  folly::HHWheelTimer* getWheelTimer() {
+  folly::HHWheelTimer* getWheelTimer() const {
     return wheelTimerPtr_;
   }
 

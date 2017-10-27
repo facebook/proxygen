@@ -56,7 +56,6 @@ class HTTPSession:
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
 
-
   /**
    * Optional callback interface that the HTTPSession
    * notifies of connection lifecycle events.
@@ -160,11 +159,6 @@ class HTTPSession:
     return outgoingStreams_;
   }
 
-  // used for session pool detachability
-  size_t getNumTransactions() const {
-    return transactions_.size();
-  }
-
   // SimpleSessionPool
   uint32_t getHistoricalMaxOutgoingStreams() const {
     return historicalMaxOutgoingStreams_;
@@ -177,11 +171,6 @@ class HTTPSession:
   uint32_t getMaxConcurrentOutgoingStreams() const {
     return std::min(maxConcurrentOutgoingStreamsConfig_,
                     maxConcurrentOutgoingStreamsRemote_);
-  }
-
-  // session pool detachability
-  bool writesPaused() const {
-    return writesPausedInternal();
   }
 
   bool writesDraining() const {
@@ -777,7 +766,7 @@ class HTTPSession:
     return writes_ == SocketState::UNPAUSED;
   }
 
-  bool writesPausedInternal() const {
+  bool writesPaused() const {
     return writes_ == SocketState::PAUSED;
   }
 

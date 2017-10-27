@@ -157,38 +157,12 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   return ret;
 }
 
-bool HTTPUpstreamSession::isDetachable() {
-  auto timer = timeout_.getWheelTimer();
-  if (timer && !timer->isDetachable()) {
+bool HTTPUpstreamSession::isDetachable(bool checkSocket) const {
+  if (checkSocket && sock_ && !sock_->isDetachable()) {
     return false;
   }
-  if (sock_ && !sock_->isDetachable()) {
-    return false;
-  }
-  return true;
-}
-
-void
-HTTPUpstreamSession::attachEventBase(
-    folly::EventBase* eventBase, std::chrono::milliseconds timeout) {
-  timeout_ = WheelTimerInstance(timeout, eventBase);
-  if (sock_) {
-    sock_->attachEventBase(eventBase);
-  }
-  txnEgressQueue_.attachThreadLocals(timeout_);
-  resumeReadsImpl();
-  rescheduleLoopCallbacks();
-}
-
-void HTTPUpstreamSession::detachEventBase() {
-  CHECK(transactions_.empty());
-  cancelLoopCallbacks();
-  pauseReadsImpl();
-  timeout_ = WheelTimerInstance();
-  if (sock_) {
-    sock_->detachEventBase();
-  }
-  txnEgressQueue_.detachThreadLocals();
+  return transactions_.size() == 0 && getNumIncomingStreams() == 0 &&
+    !writesPaused();
 }
 
 void
@@ -206,7 +180,7 @@ HTTPUpstreamSession::attachThreadLocals(
   if (sock_) {
     sock_->attachEventBase(eventBase);
     auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
-    if (sslSocket) {
+    if (sslSocket && sslContext) {
       sslSocket->attachSSLContext(sslContext);
     }
   }
@@ -217,13 +191,13 @@ HTTPUpstreamSession::attachThreadLocals(
 }
 
 void
-HTTPUpstreamSession::detachThreadLocals() {
+HTTPUpstreamSession::detachThreadLocals(bool detachSSLContext) {
   CHECK(transactions_.empty());
   cancelLoopCallbacks();
   pauseReadsImpl();
   if (sock_) {
     auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
-    if (sslSocket) {
+    if (sslSocket && detachSSLContext) {
       sslSocket->detachSSLContext();
     }
     sock_->detachEventBase();

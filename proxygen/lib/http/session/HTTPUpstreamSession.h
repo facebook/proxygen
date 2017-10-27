@@ -134,12 +134,7 @@ class HTTPUpstreamSession final: public HTTPSession {
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
 
-  bool isDetachable();
-
-  void attachEventBase(
-      folly::EventBase* eventBase, std::chrono::milliseconds timeout);
-
-  void detachEventBase();
+  bool isDetachable(bool checkSocket=true) const;
 
   void attachThreadLocals(folly::EventBase* eventBase,
                           folly::SSLContextPtr sslContext,
@@ -149,7 +144,7 @@ class HTTPUpstreamSession final: public HTTPSession {
                           HeaderCodec::Stats* headerCodecStats,
                           HTTPUpstreamSessionController* controller);
 
-  void detachThreadLocals();
+  void detachThreadLocals(bool detachSSLContext=false);
 
   void startNow() override;
 
