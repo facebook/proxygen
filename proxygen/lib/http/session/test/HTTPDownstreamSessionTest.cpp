@@ -126,7 +126,7 @@ class HTTPDownstreamTest : public testing::Test {
 
   void cleanup() {
     EXPECT_CALL(mockController_, detachSession(_));
-    httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+    httpSession_->dropConnection();
   }
 
 
@@ -784,7 +784,7 @@ TEST(HTTPDownstreamTest, parse_error_no_txn) {
   codecCallback->onError(HTTPCodec::StreamID(1), ex, true);
 
   // cleanup
-  session->shutdownTransportWithReset(kErrorConnectionReset);
+  session->dropConnection();
   evb.loop();
 }
 
@@ -816,11 +816,11 @@ TEST(HTTPDownstreamTest, byte_events_drained) {
   // Byte events should be drained first
   EXPECT_CALL(*byteEventTracker, drainByteEvents())
     .Times(1);
-  EXPECT_CALL(*transport, closeWithReset())
+  EXPECT_CALL(*transport, closeNow())
     .Times(AtLeast(1));
 
   // Close the socket
-  session->shutdownTransportWithReset(kErrorConnectionReset);
+  session->dropConnection();
   evb.loop();
 }
 
@@ -1289,7 +1289,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
 }
 
 // Send a 1.0 request, egress the EOM with the last body chunk on a paused
-// socket, and let it timeout.  shutdownTransportWithReset will result in a call
+// socket, and let it timeout.  dropConnection()
 // to removeTransaction with writesDraining_=true
 TEST_F(HTTPDownstreamSessionTest, write_timeout) {
   HTTPMessage req = getGetRequest();

@@ -173,41 +173,11 @@ class HTTPSession:
                     maxConcurrentOutgoingStreamsRemote_);
   }
 
-  bool writesDraining() const {
-    return writesDraining_;
-  }
-
   HTTPSessionController* getController() { return controller_; }
 
   void setController(HTTPSessionController* controller) {
     controller_ = controller;
   }
-
-  /**
-   * Start closing the socket.
-   * @param shutdownReads  Whether to close the read side of the
-   * socket. All transactions which are not ingress complete will receive
-   * an error.
-   * @param shutdownWrites Whether to close the write side of the
-   * socket. All transactions which are not egress complete will receive
-   * an error.
-   * @param errorMsg additional error information to pass to each transaction
-   */
-  void shutdownTransport(bool shutdownReads = true,
-                         bool shutdownWrites = true,
-                         const std::string& errorMsg = "");
-
-  /**
-   * Immediately close the socket in both directions, discarding any
-   * queued writes that haven't yet been transferred to the kernel,
-   * and send a RST to the client.
-   * All transactions receive onWriteError.
-   *
-   * @param errorCode  Error code sent with the onWriteError to transactions.
-   * @param errorMsg   Error string included in the final error msg.
-   */
-  void shutdownTransportWithReset(ProxygenError errorCode,
-                                  const std::string& errorMsg = "");
 
   ConnectionCloseReason getConnectionCloseReason() const {
     return closeReason_;
@@ -590,6 +560,32 @@ class HTTPSession:
    * call to dropConnection() or shutdownTransport() is required.
    */
   void drain() override;
+
+  /**
+   * Start closing the socket.
+   * @param shutdownReads  Whether to close the read side of the
+   * socket. All transactions which are not ingress complete will receive
+   * an error.
+   * @param shutdownWrites Whether to close the write side of the
+   * socket. All transactions which are not egress complete will receive
+   * an error.
+   * @param errorMsg additional error information to pass to each transaction
+   */
+  void shutdownTransport(bool shutdownReads = true,
+                         bool shutdownWrites = true,
+                         const std::string& errorMsg = "");
+
+  /**
+   * Immediately close the socket in both directions, discarding any
+   * queued writes that haven't yet been transferred to the kernel,
+   * and send a RST to the client.
+   * All transactions receive onWriteError.
+   *
+   * @param errorCode  Error code sent with the onWriteError to transactions.
+   * @param errorMsg   Error string included in the final error msg.
+   */
+  void shutdownTransportWithReset(ProxygenError errorCode,
+                                  const std::string& errorMsg = "");
 
   /**
    * Handle new messages from the codec and create a txn for the message.

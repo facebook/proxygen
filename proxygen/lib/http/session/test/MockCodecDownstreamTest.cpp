@@ -229,6 +229,7 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
           handler2.sendHeaders(200, 100);
           handler2.sendBody(100);
         }));
+  EXPECT_CALL(handler2, onBody(_));
   EXPECT_CALL(handler2, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
@@ -257,7 +258,15 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
 
   // have a write timeout expire (used to cause the direct response handler to
   // write out data, messing up the state machine)
-  httpSession_->shutdownTransportWithReset(kErrorWriteTimeout);
+  eventBase_.runAfterDelay(
+    [this] {
+      // refresh ingress timeout
+      codecCallback_->onBody(HTTPCodec::StreamID(3), makeBuf(10), 0);
+    }, transactionTimeouts_->getDefaultTimeout().count() / 2);
+  // hold evb open long enough to fire write timeout (since transactionTimeouts_
+  // is internal
+  eventBase_.runAfterDelay(
+    [] {}, transactionTimeouts_->getDefaultTimeout().count() + 100);
   eventBase_.loop();
 }
 
@@ -307,8 +316,9 @@ TEST_F(MockCodecDownstreamTest, server_push) {
   codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req));
   codecCallback_->onMessageComplete(HTTPCodec::StreamID(1), false);
 
+  EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
@@ -388,7 +398,7 @@ TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
   eventBase_.loop();
 
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, server_push_abort) {
@@ -461,7 +471,7 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
   eventBase_.loop();
 
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
@@ -545,7 +555,7 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
   eventBase_.loop();
 
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, server_push_client_message) {
@@ -608,8 +618,9 @@ TEST_F(MockCodecDownstreamTest, server_push_client_message) {
 
   eventBase_.loop();
 
+  EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, read_timeout) {
@@ -670,7 +681,7 @@ TEST_F(MockCodecDownstreamTest, read_timeout) {
 
   // tear down the test
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, ping) {
@@ -706,9 +717,9 @@ TEST_F(MockCodecDownstreamTest, ping) {
 
   eventBase_.loop();
 
-  //EXPECT_CALL(*codec_, onIngressEOF());
+  EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, flow_control_abort) {
@@ -794,11 +805,10 @@ TEST_F(MockCodecDownstreamTest, buffering) {
   eventBase_.tryRunAfterDelay([&handler, this] {
       handler.txn_->resumeIngress();
       handler.sendReplyWithBody(200, 100);
-      eventBase_.runInLoop([this] {
-          httpSession_->shutdownTransportWithReset(
-            ProxygenError::kErrorConnectionReset); });
+      eventBase_.runInLoop([this] { httpSession_->dropConnection(); });
     }, 30);
 
+  EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
   eventBase_.loop();
 }
@@ -874,6 +884,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
            << httpSession_->getPeerAddress();
     EXPECT_TRUE(httpSession_->isBusy());
 
+    EXPECT_CALL(*codec_, onIngressEOF());
     EXPECT_CALL(mockController_, detachSession(_));
   }
 
@@ -885,7 +896,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
           callback->writeSuccess();
           }));
   eventBase_.loop();
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, double_resume) {
@@ -929,6 +940,7 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
   codecCallback_->onBody(HTTPCodec::StreamID(1), std::move(buf), 0);
   codecCallback_->onMessageComplete(HTTPCodec::StreamID(1), false);
 
+  EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
 
   EXPECT_CALL(*transport_, writeChain(_, _, _))
@@ -940,7 +952,7 @@ TEST_F(MockCodecDownstreamTest, double_resume) {
           }));
 
   eventBase_.loop();
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
@@ -1054,7 +1066,7 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
 
     EXPECT_CALL(handler2, detachTransaction());
     EXPECT_CALL(mockController_, detachSession(_));
-    httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+    httpSession_->dropConnection();
   }
 
   eventBase_.loop();
@@ -1103,7 +1115,7 @@ TEST_F(MockCodecDownstreamTest, unpaused_large_post) {
 
   // Just tear everything down now.
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
@@ -1155,7 +1167,7 @@ TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
 
   // Just tear everything down now.
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockCodecDownstreamTest, shutdown_then_send_push_headers) {
@@ -1238,11 +1250,13 @@ TEST_F(MockCodecDownstreamTest, read_iobuf_chain_shutdown) {
           // Now there should be a second buffer in the chain.
           EXPECT_TRUE(buf.isChained());
           // Shutdown writes. This enough to destroy the session.
-          httpSession_->shutdownTransport(false, true);
+          httpSession_->closeWhenIdle();
           return buf.length();
         }));
   // We shouldn't get a third onIngress() callback. This will be enforced by the
   // test framework since the codec is a strict mock.
+  EXPECT_CALL(*codec_, isBusy());
+  EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
 
   f();
@@ -1374,20 +1388,19 @@ TEST_F(MockCodecDownstreamTest, shutdown_then_error) {
       HTTPException err(HTTPException::Direction::INGRESS, "foo");
       err.setHttpStatusCode(400);
       HTTPMessage req = getGetRequest();
-      MockHTTPHandler handler;
+      EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _))
+        .WillOnce(Return(nullptr));
 
       // Creates and adds a txn to the session
       codecCallback_->onMessageBegin(1, &req);
 
-      EXPECT_CALL(*codec_, closeOnEgressComplete())
-        .WillOnce(Return(false));
-      EXPECT_CALL(*codec_, onIngressEOF());
-      EXPECT_CALL(mockController_, detachSession(_));
-
-      httpSession_->shutdownTransport();
+      httpSession_->closeWhenIdle();
 
       codecCallback_->onError(1, err, false);
     });
+  // flush the shutdown callback
+  EXPECT_CALL(mockController_, detachSession(_));
+  eventBase_.loopOnce();
 }
 
 TEST_F(MockCodecDownstreamTest, ping_during_shutdown) {
@@ -1397,7 +1410,9 @@ TEST_F(MockCodecDownstreamTest, ping_during_shutdown) {
       // Shutdown writes only. Since the session is empty, this normally
       // causes the session to close, but it is held open since we are in
       // the middle of parsing ingress.
-      httpSession_->shutdownTransport(false, true);
+      EXPECT_CALL(*codec_, isBusy());
+      EXPECT_CALL(*codec_, onIngressEOF());
+      httpSession_->closeWhenIdle();
 
       // We read a ping off the wire, which makes us enqueue a ping reply
       EXPECT_CALL(*codec_, generatePingReply(_, _))

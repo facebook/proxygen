@@ -574,7 +574,7 @@ TEST_F(SPDY3UpstreamSessionTest, test_overlimit_resume) {
   handler2->expectError();
   handler2->expectDetachTransaction();
 
-  httpSession_->shutdownTransportWithReset(kErrorTimeout);
+  httpSession_->dropConnection();
   EXPECT_EQ(this->sessionDestroyed_, true);
 }
 
@@ -645,7 +645,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   handler1->expectDetachTransaction();
   handler2->expectError();
   handler2->expectDetachTransaction();
-  httpSession_->shutdownTransportWithReset(kErrorTimeout);
+  httpSession_->dropConnection();
   eventBase_.loop();
   EXPECT_EQ(sessionDestroyed_, true);
 }
@@ -798,7 +798,7 @@ TEST_F(HTTP2UpstreamSessionWithVirtualNodesTest, virtual_nodes) {
 
   handler.expectError();
   handler.expectDetachTransaction();
-  httpSession_->shutdownTransportWithReset(kErrorNone);
+  httpSession_->dropConnection();
 
   eventBase_.loop();
 }
@@ -854,7 +854,7 @@ TEST_F(HTTP2UpstreamSessionWithPriorityTree, priority_tree) {
 
   handler.expectError();
   handler.expectDetachTransaction();
-  httpSession_->shutdownTransportWithReset(kErrorNone);
+  httpSession_->dropConnection();
 
   eventBase_.loop();
 }
@@ -1422,7 +1422,7 @@ TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
   eventBase_.loop();
   Mock::VerifyAndClearExpectations(handler2.get());
 
-  httpSession_->shutdownTransportWithReset(kErrorTimeout);
+  httpSession_->dropConnection();
 }
 
 TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
@@ -1439,7 +1439,7 @@ TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
   auto handler3 = openNiceTransaction();
   handler2->expectEgressPaused([this] {
       // This time it is invoked by the session on all transactions
-      httpSession_->shutdownTransportWithReset(kErrorTimeout);
+      httpSession_->dropConnection();
     });
   handler2->txn_->sendHeaders(req);
   // This happens when the body write fills the txn egress queue
@@ -1635,7 +1635,7 @@ TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
 
   // cleanup
   handler->expectDetachTransaction();
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
   eventBase_.loop();
 }
 
@@ -1646,7 +1646,7 @@ TEST_F(MockHTTPUpstreamTest, 0_max_outgoing_txns) {
 
   codecCb_->onSettings({{SettingsId::MAX_CONCURRENT_STREAMS, 0}});
   EXPECT_TRUE(transactionsFull_);
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockHTTPUpstreamTest, outgoing_txn_settings) {
@@ -1664,7 +1664,7 @@ TEST_F(MockHTTPUpstreamTest, outgoing_txn_settings) {
   EXPECT_TRUE(transactionsFull_);
   codecCb_->onSettings({{SettingsId::MAX_CONCURRENT_STREAMS, 100}});
   EXPECT_FALSE(transactionsFull_);
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockHTTPUpstreamTest, ingress_goaway_drain) {
@@ -1868,7 +1868,7 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
   txn->sendEOM();
 
   eventBase_.loop();
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 TEST_F(MockHTTPUpstreamTest, header_with_eom) {
@@ -1880,7 +1880,7 @@ TEST_F(MockHTTPUpstreamTest, header_with_eom) {
   txn->sendHeadersWithEOM(req);
   eventBase_.loop();
   EXPECT_TRUE(txn->isEgressComplete());
-  httpSession_->shutdownTransportWithReset(kErrorConnectionReset);
+  httpSession_->dropConnection();
 }
 
 template <int stage>
@@ -2297,11 +2297,12 @@ TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
   StrictMock<MockHTTPHandler> handler;
   handler.expectTransaction([&] (HTTPTransaction* txn) {
       handler.txn_ = txn;
-      httpSession_->shutdownTransportWithReset(kErrorNone);
+      httpSession_->dropConnection();
     });
   handler.expectError([&] (const HTTPException& err) {
-      EXPECT_FALSE(err.hasProxygenError());
-      ASSERT_EQ(folly::to<std::string>("None on transaction id: ",
+      EXPECT_TRUE(err.hasProxygenError());
+      EXPECT_EQ(err.getProxygenError(), kErrorDropped);
+      ASSERT_EQ(folly::to<std::string>("Dropped on transaction id: ",
                                        handler.txn_->getID()),
         std::string(err.what()));
     });
