@@ -11,7 +11,7 @@
 
 #include <unordered_map>
 
-#include <folly/Hash.h>
+#include <folly/hash/Hash.h>
 #include <folly/Indestructible.h>
 
 namespace proxygen {
