@@ -46,9 +46,9 @@ HTTPTransactionHandler* SimpleController::getTransactionTimeoutHandler(
   return createErrorHandler(408, "Client timeout", errorPage);
 }
 
-void SimpleController::attachSession(HTTPSession* /*sess*/) {}
+void SimpleController::attachSession(HTTPSessionBase* /*sess*/) {}
 
-void SimpleController::detachSession(const HTTPSession* /*sess*/) {}
+void SimpleController::detachSession(const HTTPSessionBase* /*sess*/) {}
 
 HTTPTransactionHandler* SimpleController::createErrorHandler(
     uint32_t statusCode,

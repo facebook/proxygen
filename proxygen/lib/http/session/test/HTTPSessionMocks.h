@@ -313,17 +313,17 @@ class MockController : public HTTPSessionController {
       HTTPTransaction* txn,
       const folly::SocketAddress&));
 
-  MOCK_METHOD1(attachSession, void(HTTPSession*));
-  MOCK_METHOD1(detachSession, void(const HTTPSession*));
-  MOCK_METHOD1(onSessionCodecChange, void(HTTPSession*));
+  MOCK_METHOD1(attachSession, void(HTTPSessionBase*));
+  MOCK_METHOD1(detachSession, void(const HTTPSessionBase*));
+  MOCK_METHOD1(onSessionCodecChange, void(HTTPSessionBase*));
   MOCK_CONST_METHOD0(getGracefulShutdownTimeout, std::chrono::milliseconds());
 };
 
 class MockUpstreamController : public HTTPUpstreamSessionController {
  public:
-  MOCK_METHOD1(attachSession, void(HTTPSession*));
-  MOCK_METHOD1(detachSession, void(const HTTPSession*));
-  MOCK_METHOD1(onSessionCodecChange, void(HTTPSession*));
+  MOCK_METHOD1(attachSession, void(HTTPSessionBase*));
+  MOCK_METHOD1(detachSession, void(const HTTPSessionBase*));
+  MOCK_METHOD1(onSessionCodecChange, void(HTTPSessionBase*));
 };
 
 ACTION_P(ExpectString, expected) {

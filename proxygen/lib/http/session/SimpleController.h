@@ -51,8 +51,8 @@ class SimpleController : public HTTPSessionController {
     HTTPTransaction* txn,
     const folly::SocketAddress& localAddress) override;
 
-  void attachSession(HTTPSession*) override;
-  void detachSession(const HTTPSession*) override;
+  void attachSession(HTTPSessionBase*) override;
+  void detachSession(const HTTPSessionBase*) override;
 
   std::chrono::milliseconds getGracefulShutdownTimeout() const override;
  protected:

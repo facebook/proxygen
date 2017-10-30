@@ -20,7 +20,7 @@ namespace proxygen {
 
 class HTTPException;
 class HTTPMessage;
-class HTTPSession;
+class HTTPSessionBase;
 class HTTPTransaction;
 class HTTPTransactionHandler;
 
@@ -63,17 +63,17 @@ class HTTPSessionController {
   /**
    * Inform the controller it is associated with this particular session.
    */
-  virtual void attachSession(HTTPSession* session) = 0;
+  virtual void attachSession(HTTPSessionBase* session) = 0;
 
   /**
    * Informed at the end when the given HTTPSession is going away.
    */
-  virtual void detachSession(const HTTPSession* session) = 0;
+  virtual void detachSession(const HTTPSessionBase* session) = 0;
 
   /**
    * Inform the controller that the session's codec changed
    */
-  virtual void onSessionCodecChange(HTTPSession* /*session*/) {}
+  virtual void onSessionCodecChange(HTTPSessionBase* /*session*/) {}
 
   /**
    * Optionally allow the session to query custom graceful shutdown timeout.

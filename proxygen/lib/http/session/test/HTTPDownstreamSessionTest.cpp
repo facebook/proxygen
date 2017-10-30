@@ -52,7 +52,7 @@ class HTTPDownstreamTest : public testing::Test {
     EXPECT_CALL(mockController_, getGracefulShutdownTimeout())
       .WillRepeatedly(Return(std::chrono::milliseconds(0)));
     EXPECT_CALL(mockController_, attachSession(_))
-      .WillRepeatedly(Invoke([&] (HTTPSession* session) {
+      .WillRepeatedly(Invoke([&] (HTTPSessionBase* session) {
         session->setPrioritySampled(true);
       }));
     HTTPSession::setDefaultReadBufferLimit(65536);
