@@ -210,6 +210,7 @@ class HTTPUpstreamTest: public testing::Test,
     EXPECT_CALL(*transport_, attachEventBase(_))
       .WillRepeatedly(SaveArg<0>(&eventBasePtr_));
 
+    auto rawCodec = codec.get();
     httpSession_ = new HTTPUpstreamSession(
       transactionTimeouts_.get(),
       std::move(AsyncTransportWrapper::UniquePtr(transport_)),
@@ -218,7 +219,7 @@ class HTTPUpstreamTest: public testing::Test,
       mockTransportInfo_, this);
     for (auto& param: flowControl_) {
       if (param < 0) {
-        param = httpSession_->getCodec().getDefaultWindowSize();
+        param = rawCodec->getDefaultWindowSize();
       }
     }
     httpSession_->setFlowControl(flowControl_[0], flowControl_[1],
@@ -1510,8 +1511,7 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
 };
 
 TEST_F(HTTP2UpstreamSessionTest, server_push) {
-  httpSession_->getCodec().getEgressSettings()->
-    setSetting(SettingsId::ENABLE_PUSH, true);
+  httpSession_->setEgressSettings({{SettingsId::ENABLE_PUSH, true}});
 
   auto egressCodec = makeServerCodec();
   folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());

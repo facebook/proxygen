@@ -271,7 +271,7 @@ void HTTPSession::setFlowControl(size_t initialReceiveWindow,
 }
 
 void HTTPSession::setEgressSettings(const SettingsList& inSettings) {
-  CHECK(!started_);
+  LOG_IF(WARNING, started_) << "Must flush egress settings to peer";
   HTTPSettings* settings = codec_->getEgressSettings();
   if (settings) {
     for (const auto& setting: inSettings) {

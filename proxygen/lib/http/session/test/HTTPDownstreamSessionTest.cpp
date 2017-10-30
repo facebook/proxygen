@@ -56,18 +56,19 @@ class HTTPDownstreamTest : public testing::Test {
         session->setPrioritySampled(true);
       }));
     HTTPSession::setDefaultReadBufferLimit(65536);
+    auto codec = makeServerCodec<typename C::Codec>(C::version);
+    rawCodec_ = codec.get();
     httpSession_ = new HTTPDownstreamSession(
       transactionTimeouts_.get(),
       std::move(AsyncTransportWrapper::UniquePtr(transport_)),
       localAddr, peerAddr,
       &mockController_,
-      std::move(makeServerCodec<typename C::Codec>(
-                  C::version)),
+      std::move(codec),
       mockTransportInfo /* no stats for now */,
       nullptr);
     for (auto& param: flowControl) {
       if (param < 0) {
-        param = httpSession_->getCodec().getDefaultWindowSize();
+        param = rawCodec_->getDefaultWindowSize();
       }
     }
     httpSession_->setFlowControl(flowControl[0], flowControl[1],
@@ -79,11 +80,6 @@ class HTTPDownstreamTest : public testing::Test {
     clientCodec_ = makeClientCodec<typename C::Codec>(C::version);
     clientCodec_->generateConnectionPreface(requests_);
     clientCodec_->setCallback(&callbacks_);
-  }
-
-  typename C::Codec& getCodec() {
-    return
-      (typename C::Codec&)httpSession_->getCodecFilterChain().getChainEnd();
   }
 
   HTTPCodec::StreamID sendRequest(const std::string& url = "/",
@@ -410,6 +406,7 @@ class HTTPDownstreamTest : public testing::Test {
   NiceMock<MockHTTPCodecCallback> callbacks_;
   IOBufQueue parseOutputStream_{IOBufQueue::cacheChainLength()};
   bool breakParseOutput_{false};
+  typename C::Codec* rawCodec_{nullptr};
 };
 
 // Uses TestAsyncTransport
@@ -1494,7 +1491,7 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
   const std::string& upgradeHeader,
   CodecProtocol expectedProtocol,
   const std::string& expectedUpgradeHeader) {
-  this->getCodec().setAllowedUpgradeProtocols({expectedUpgradeHeader});
+  this->rawCodec_->setAllowedUpgradeProtocols({expectedUpgradeHeader});
 
   auto handler = addSimpleStrictHandler();
 
@@ -1569,7 +1566,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_junk) {
 
 // Attempt to upgrade on second txn
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_txn_2) {
-  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1] {
@@ -1595,7 +1592,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_txn_2) {
 
 // Upgrade on POST
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
-  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectBody();
@@ -1618,7 +1615,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
 
 // Upgrade on POST with a reply that comes before EOM, don't switch protocols
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
-  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] {
       handler->sendReplyWithBody(200, 100);
@@ -1639,7 +1636,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
 // Upgrade but with a pipelined HTTP request.  It is parsed as SPDY and
 // rejected
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {
-  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
@@ -1665,7 +1662,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {
 // before sending the POST.  But if the 101 is delayed beyond EOM, the 101
 // will come via SPDY.
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
-  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] {
       handler->sendHeaders(100, 0);
@@ -1689,7 +1686,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
 }
 
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
-  this->getCodec().setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectBody();
@@ -1722,7 +1719,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
 // the request that was an upgrade.  The reply GOAWAY should have last good
 // stream = 1, not 0.
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_goaway_drain) {
-  this->getCodec().setAllowedUpgradeProtocols({"h2c"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectBody();
@@ -2021,7 +2018,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
 // Test exceeding the MAX_CONCURRENT_STREAMS setting.  The txn should get
 // REFUSED_STREAM, and other streams can complete normally
 TYPED_TEST_P(HTTPDownstreamTest, testMaxTxns) {
-  auto settings = this->httpSession_->getCodec().getEgressSettings();
+  auto settings = this->rawCodec_->getEgressSettings();
   auto maxTxns = settings->getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
                                       100);
   std::list<unique_ptr<StrictMock<MockHTTPHandler>>> handlers;
@@ -2069,8 +2066,8 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
   sendRequest(req);
   auto req2p = sendRequestLater(req, true);
 
-  httpSession_->getCodecFilterChain()->getEgressSettings()->setSetting(
-    SettingsId::MAX_CONCURRENT_STREAMS, 1);
+  httpSession_->setEgressSettings({{
+        SettingsId::MAX_CONCURRENT_STREAMS, 1}});
 
   InSequence handlerSequence;
   auto handler1 = addSimpleStrictHandler();
@@ -2313,7 +2310,7 @@ TEST_F(HTTP2DownstreamSessionTest, padding_flow_control) {
 TEST_F(HTTP2DownstreamSessionTest, graceful_drain_on_timeout) {
   InSequence handlerSequence;
   std::chrono::milliseconds gracefulTimeout(200);
-  getCodec().enableDoubleGoawayDrain();
+  httpSession_->enableDoubleGoawayDrain();
   EXPECT_CALL(mockController_, getGracefulShutdownTimeout())
     .WillOnce(InvokeWithoutArgs([&] {
           // Once session asks for graceful shutdown timeout, expect the client
@@ -3176,7 +3173,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_set_egress_settings) {
                            { SettingsId::MAX_FRAME_SIZE, 16384 },
                            { SettingsId::ENABLE_PUSH, 1 }};
 
-  const HTTPSettings* codecSettings = httpSession_->getCodec().getEgressSettings();
+  const HTTPSettings* codecSettings = rawCodec_->getEgressSettings();
   for (const auto& setting: settings) {
     const HTTPSetting* currSetting = codecSettings->getSetting(setting.id);
     if (currSetting) {

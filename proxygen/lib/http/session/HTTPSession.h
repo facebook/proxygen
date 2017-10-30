@@ -183,8 +183,13 @@ class HTTPSession:
     return closeReason_;
   }
 
-  HTTPCodecFilterChain& getCodecFilterChain() {
-    return codec_;
+  template<typename Filter, typename... Args>
+  void addCodecFilter(Args&&... args) {
+    codec_.add<Filter>(std::forward<Args>(args)...);
+  }
+
+  CodecProtocol getCodecProtocol() const {
+    return codec_->getProtocol();
   }
 
   /**
@@ -316,17 +321,17 @@ class HTTPSession:
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
   bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
 
-  const HTTPCodec& getCodec() const noexcept override {
-    return *CHECK_NOTNULL(codec_.call());
+  void setHeaderCodecStats(HeaderCodec::Stats* stats) {
+    codec_->setHeaderCodecStats(stats);
+  }
+
+  void enableDoubleGoawayDrain() {
+    codec_->enableDoubleGoawayDrain();
   }
 
   wangle::TransportInfo& getSetupTransportInfo() noexcept;
   virtual bool getCurrentTransportInfoWithoutUpdate(
       wangle::TransportInfo* tinfo) const;
-
-  HTTPCodec& getCodec() noexcept {
-    return *CHECK_NOTNULL(codec_.call());
-  }
 
   void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker);
   ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
@@ -472,15 +477,6 @@ class HTTPSession:
   void readErr(
       const folly::AsyncSocketException&) noexcept override;
 
-  /**
-   * Returns the underlying AsyncTransportWrapper.
-   * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
-   */
-  const folly::AsyncTransportWrapper* getUnderlyingTransport()
-      const noexcept override {
-    return sock_.get();
-  }
-
   std::string getSecurityProtocol() const override {
     return sock_->getSecurityProtocol();
   }
@@ -545,6 +541,23 @@ class HTTPSession:
   HTTPTransaction* newPushedTransaction(
     HTTPCodec::StreamID assocStreamId,
     HTTPTransaction::PushHandler* handler) noexcept override;
+
+  const HTTPCodec& getCodec() const noexcept override {
+    return *CHECK_NOTNULL(codec_.call());
+  }
+
+  HTTPCodec& getCodec() noexcept {
+    return *CHECK_NOTNULL(codec_.call());
+  }
+
+  /**
+   * Returns the underlying AsyncTransportWrapper.
+   * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
+   */
+  const folly::AsyncTransportWrapper* getUnderlyingTransport()
+      const noexcept override {
+    return sock_.get();
+  }
 
   /**
    * Returns true if this session is draining. This can happen if drain()

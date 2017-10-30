@@ -40,7 +40,7 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
 
   void onCreate(const HTTPSession& session) override{
     EXPECT_EQ(expectedProto_,
-              getCodecProtocolString(session.getCodec().getProtocol()));
+              getCodecProtocolString(session.getCodecProtocol()));
     sessionsCreated_++;
   }
 
