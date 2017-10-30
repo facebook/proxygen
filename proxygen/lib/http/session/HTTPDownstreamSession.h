@@ -91,6 +91,43 @@ class HTTPDownstreamSession final: public HTTPSession {
     HTTPCodec::StreamID streamID, CodecProtocol protocol,
     const std::string& protocolString,
     HTTPMessage& msg) override;
+
+
+  // Upstream methods.  Can implement when servers support making request
+  bool isDetachable(bool) const override {
+    LOG(FATAL) << __func__ << " is an upstream interface";
+    return false;
+  }
+
+  void attachThreadLocals(folly::EventBase*,
+                          folly::SSLContextPtr,
+                          const WheelTimerInstance&,
+                          HTTPSessionStats*,
+                          FilterIteratorFn,
+                          HeaderCodec::Stats*,
+                          HTTPSessionController*) override {
+    LOG(FATAL) << __func__ << " is an upstream interface";
+  }
+
+  void detachThreadLocals(bool) override {
+    LOG(FATAL) << __func__ << " is an upstream interface";
+  }
+
+  HTTPTransaction* newTransaction(HTTPTransaction::Handler*) override {
+    LOG(FATAL) << __func__ << " is an upstream interface";
+    return nullptr;
+  }
+
+  bool isReusable() const override {
+    LOG(FATAL) << __func__ << " is an upstream interface";
+    return false;
+  }
+
+  bool isClosing() const override {
+    LOG(FATAL) << __func__ << " is an upstream interface";
+    return false;
+  }
+
 };
 
 } // proxygen

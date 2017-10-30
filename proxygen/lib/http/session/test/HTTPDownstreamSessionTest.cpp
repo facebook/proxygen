@@ -1958,10 +1958,10 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
   auto handler2 = this->addSimpleStrictHandler();
   handler2->expectHeaders();
   handler2->expectEOM([&] {
-      handler1->sendHeaders(200, 24000);
+      handler1->sendHeaders(200, 24002);
       // triggers pause of all txns
       this->transport_->pauseWrites();
-      handler1->txn_->sendBody(std::move(makeBuf(12000)));
+      handler1->txn_->sendBody(std::move(makeBuf(12001)));
       this->resumeWritesAfterDelay(milliseconds(50));
     });
   handler1->expectEgressPaused();
@@ -1973,7 +1973,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
 
   handler1->expectEgressResumed([&] {
       // resume does not trigger another pause,
-      handler1->txn_->sendBody(std::move(makeBuf(12000)));
+      handler1->txn_->sendBody(std::move(makeBuf(12001)));
     });
   // handler2 gets a fair shot, handler3 is not resumed
   // HTTP/2 priority is not implemented, so handler3 is like another 0 pri txn
@@ -1985,8 +1985,8 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
 
   handler1->expectEgressResumed();
   handler2->expectEgressResumed([&] {
-      handler2->sendHeaders(200, 12000);
-      handler2->txn_->sendBody(std::move(makeBuf(12000)));
+      handler2->sendHeaders(200, 12001);
+      handler2->txn_->sendBody(std::move(makeBuf(12001)));
       this->transport_->pauseWrites();
       this->resumeWritesAfterDelay(milliseconds(50));
     });
@@ -2153,7 +2153,7 @@ TEST_F(SPDY31DownstreamTest, testEOFOnBlockedSession) {
   handler1->expectHeaders();
   handler1->expectEOM([&handler1, this] {
       handler1->sendHeaders(200, 40000);
-      handler1->sendBody(32768);
+      handler1->sendBody(32769);
     });
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();

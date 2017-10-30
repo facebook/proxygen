@@ -38,7 +38,7 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
     return new MockHTTPHandler();
   }
 
-  void onCreate(const HTTPSession& session) override{
+  void onCreate(const HTTPSessionBase& session) override{
     EXPECT_EQ(expectedProto_,
               getCodecProtocolString(session.getCodecProtocol()));
     sessionsCreated_++;

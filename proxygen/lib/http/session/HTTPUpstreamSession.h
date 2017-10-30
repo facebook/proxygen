@@ -18,55 +18,9 @@ namespace proxygen {
 
 class HTTPSessionStats;
 class SPDYStats;
-class HTTPUpstreamSessionController;
 
 class HTTPUpstreamSession final: public HTTPSession {
  public:
-  // The interfaces defined below update the virtual stream based priority
-  // scheme from the current system which allows only strict priorities to a
-  // flexible system allowing an arbitrary tree of virtual streams, subject only
-  // to the limitations in the HTTP/2 specification. An arbitrary prioritization
-  // scheme can be implemented by constructing virtual streams corresponding to
-  // the desired prioritization and attaching new streams as dependencies of the
-  // appropriate virtual stream.
-  //
-  // The user must define a map from an opaque integer priority level to an
-  // HTTP/2 priority corresponding to the virtual stream. This map is
-  // implemented by the user in a class that extends
-  // HTTPUpstreamSession::PriorityMapFactory. A shared pointer to this class is
-  // passed into the constructor of HTTPUpstreamSession. This method will send
-  // the virtual streams and return a unique pointer to a class that extends
-  // HTTPUpstreamSession::PriorityAdapter. This class implements the map between
-  // the user defined priority level and the HTTP/2 priority level.
-  //
-  // When the session is started, the createVirtualStreams method of
-  // PriorityMapFactory is called by HTTPUpstreamSession::startNow. The returned
-  // pointer to the PriorityAdapter map is cached in HTTPUpstreamSession. The
-  // HTTP/2 priority that should be used for a new stream dependent on a virtual
-  // stream corresponding to a given priority level is then retrieved by calling
-  // the HTTPUpstreamSession::getHTTPPriority(uint8_t level) method.
-  //
-  // The prior strict priority system has been left in place for now, but if
-  // both maxLevels and PriorityMapFactory are passed into the
-  // HTTPUpstreamSession constructor, the maxLevels parameter will be ignored.
-
-  // Implments a map from generic priority level to HTTP/2 priority.
-  class PriorityAdapter {
-   public:
-    virtual folly::Optional<const HTTPMessage::HTTPPriority>
-        getHTTPPriority(uint8_t level) = 0;
-    virtual ~PriorityAdapter() = default;
-  };
-
-  class PriorityMapFactory {
-   public:
-    // Creates the map implemented by PriorityAdapter, sends the corresponding
-    // virtual stream on the given session, and retuns the map.
-    virtual std::unique_ptr<PriorityAdapter> createVirtualStreams(
-       HTTPPriorityMapFactoryProvider* session) const = 0;
-    virtual ~PriorityMapFactory() = default;
-  };
-
   /**
    * @param sock           An open socket on which any applicable TLS
    *                         handshaking has been completed already.
@@ -134,7 +88,7 @@ class HTTPUpstreamSession final: public HTTPSession {
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
 
-  bool isDetachable(bool checkSocket=true) const;
+  bool isDetachable(bool checkSocket=true) const override;
 
   void attachThreadLocals(folly::EventBase* eventBase,
                           folly::SSLContextPtr sslContext,
@@ -142,9 +96,9 @@ class HTTPUpstreamSession final: public HTTPSession {
                           HTTPSessionStats* stats,
                           FilterIteratorFn fn,
                           HeaderCodec::Stats* headerCodecStats,
-                          HTTPUpstreamSessionController* controller);
+                          HTTPSessionController* controller) override;
 
-  void detachThreadLocals(bool detachSSLContext=false);
+  void detachThreadLocals(bool detachSSLContext=false) override;
 
   void startNow() override;
 
@@ -155,18 +109,18 @@ class HTTPUpstreamSession final: public HTTPSession {
    * @param handler The request handler to attach to this transaction. It must
    *                not be null.
    */
-  HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler);
+  HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
 
   /**
    * Returns true if this session has no open transactions and the underlying
    * transport can be used again in a new request.
    */
-  bool isReusable() const;
+  bool isReusable() const override;
 
   /**
    * Returns true if the session is shutting down
    */
-  bool isClosing() const;
+  bool isClosing() const override;
 
   /**
    * Drains the current transactions and prevents new transactions from being

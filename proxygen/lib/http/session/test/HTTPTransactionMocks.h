@@ -109,7 +109,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
       ->getUnderlyingTransport();
   }
   MOCK_METHOD1(setHTTP2PrioritiesEnabled, void(bool));
-  MOCK_METHOD0(getHTTP2PrioritiesEnabled, bool());
+  MOCK_CONST_METHOD0(getHTTP2PrioritiesEnabled, bool());
 
   MOCK_METHOD1(getHTTPPriority,
       folly::Optional<const HTTPMessage::HTTPPriority>(uint8_t level));

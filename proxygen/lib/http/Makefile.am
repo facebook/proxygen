@@ -80,6 +80,7 @@ nobase_libproxygenhttp_HEADERS = \
 	session/HTTPEvent.h \
 	session/HTTPSession.h \
 	session/HTTPSessionAcceptor.h \
+	session/HTTPSessionBase.h \
 	session/HTTPSessionController.h \
 	session/HTTPSessionStats.h \
 	session/HTTPTransaction.h \
@@ -142,6 +143,7 @@ libproxygenhttp_la_SOURCES = \
 	session/HTTPErrorPage.cpp \
 	session/HTTPEvent.cpp \
 	session/HTTPSessionAcceptor.cpp \
+	session/HTTPSessionBase.cpp \
 	session/HTTPSession.cpp \
 	session/HTTPTransaction.cpp \
 	session/HTTPTransactionEgressSM.cpp \

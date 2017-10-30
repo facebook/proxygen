@@ -133,7 +133,7 @@ getResponseBuf(CodecProtocol protocol, HTTPCodec::StreamID id,
 
 template <class C>
 class HTTPUpstreamTest: public testing::Test,
-                        public HTTPSession::InfoCallback {
+                        public HTTPSessionBase::InfoCallback {
  public:
   explicit HTTPUpstreamTest(std::vector<int64_t> flowControl = {-1, -1, -1})
       : eventBase_(),
@@ -274,12 +274,12 @@ class HTTPUpstreamTest: public testing::Test,
   void testBasicRequestHttp10(bool keepalive);
 
   // HTTPSession::InfoCallback interface
-  void onCreate(const HTTPSession&) override { sessionCreated_ = true; }
-  void onDestroy(const HTTPSession&) override { sessionDestroyed_ = true; }
-  void onSettingsOutgoingStreamsFull(const HTTPSession&) override {
+  void onCreate(const HTTPSessionBase&) override { sessionCreated_ = true; }
+  void onDestroy(const HTTPSessionBase&) override { sessionDestroyed_ = true; }
+  void onSettingsOutgoingStreamsFull(const HTTPSessionBase&) override {
     transactionsFull_ = true;
   }
-  void onSettingsOutgoingStreamsNotFull(const HTTPSession&) override {
+  void onSettingsOutgoingStreamsNotFull(const HTTPSessionBase&) override {
     transactionsFull_ = false;
   }
 

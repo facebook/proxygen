@@ -26,7 +26,6 @@ bool HTTPUpstreamSession::isReusable() const {
     << ", sock_->connecting()=" << sock_->connecting()
     << ", codec_->isReusable()=" << codec_->isReusable()
     << ", codec_->isBusy()=" << codec_->isBusy()
-    << ", pendingWriteSize_=" << pendingWriteSize_
     << ", numActiveWrites_=" << numActiveWrites_
     << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
     << ", ingressError_=" << ingressError_
@@ -172,7 +171,7 @@ HTTPUpstreamSession::attachThreadLocals(
   const WheelTimerInstance& timeout,
   HTTPSessionStats* stats, FilterIteratorFn fn,
   HeaderCodec::Stats* headerCodecStats,
-  HTTPUpstreamSessionController* controller) {
+  HTTPSessionController* controller) {
   txnEgressQueue_.attachThreadLocals(timeout);
   timeout_ = timeout;
   setController(controller);

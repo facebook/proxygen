@@ -33,7 +33,7 @@ class SessionWrapper : public proxygen::HTTPSession::InfoCallback {
   }
 
   // Note: you must not start any asynchronous work from onDestroy()
-  void onDestroy(const proxygen::HTTPSession&) override {
+  void onDestroy(const proxygen::HTTPSessionBase&) override {
     session_ = nullptr;
   }
 };

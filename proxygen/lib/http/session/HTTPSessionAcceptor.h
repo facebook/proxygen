@@ -27,7 +27,7 @@ class HTTPSessionStats;
  */
 class HTTPSessionAcceptor:
   public HTTPAcceptor,
-  private HTTPSession::InfoCallback {
+  private HTTPSessionBase::InfoCallback {
 public:
   explicit HTTPSessionAcceptor(const AcceptorConfiguration& accConfig);
   explicit HTTPSessionAcceptor(const AcceptorConfiguration& accConfig,

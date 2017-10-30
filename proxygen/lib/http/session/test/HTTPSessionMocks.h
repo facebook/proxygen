@@ -337,31 +337,31 @@ ACTION_P(ExpectBodyLen, expectedLen) {
 
 class MockHTTPSessionInfoCallback: public HTTPSession::InfoCallback {
  public:
-  MOCK_METHOD1(onCreate, void(const HTTPSession&));
-  MOCK_METHOD2(onIngressError, void(const HTTPSession&,
+  MOCK_METHOD1(onCreate, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onIngressError, void(const HTTPSessionBase&,
                                     ProxygenError));
   MOCK_METHOD0(onIngressEOF, void());
-  MOCK_METHOD2(onRead, void(const HTTPSession&, size_t));
-  MOCK_METHOD2(onWrite, void(const HTTPSession&, size_t));
-  MOCK_METHOD1(onRequestBegin, void(const HTTPSession&));
-  MOCK_METHOD2(onRequestEnd, void(const HTTPSession&, uint32_t));
-  MOCK_METHOD1(onActivateConnection, void(const HTTPSession&));
-  MOCK_METHOD1(onDeactivateConnection, void(const HTTPSession&));
-  MOCK_METHOD1(onDestroy, void(const HTTPSession&));
-  MOCK_METHOD2(onIngressMessage, void(const HTTPSession&,
+  MOCK_METHOD2(onRead, void(const HTTPSessionBase&, size_t));
+  MOCK_METHOD2(onWrite, void(const HTTPSessionBase&, size_t));
+  MOCK_METHOD1(onRequestBegin, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onRequestEnd, void(const HTTPSessionBase&, uint32_t));
+  MOCK_METHOD1(onActivateConnection, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onDeactivateConnection, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onDestroy, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onIngressMessage, void(const HTTPSessionBase&,
                                       const HTTPMessage&));
-  MOCK_METHOD1(onIngressLimitExceeded, void(const HTTPSession&));
-  MOCK_METHOD1(onIngressPaused, void(const HTTPSession&));
-  MOCK_METHOD1(onTransactionDetached, void(const HTTPSession&));
+  MOCK_METHOD1(onIngressLimitExceeded, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onIngressPaused, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onTransactionDetached, void(const HTTPSessionBase&));
   MOCK_METHOD1(onPingReplySent, void(int64_t));
   MOCK_METHOD0(onPingReplyReceived, void());
-  MOCK_METHOD1(onSettingsOutgoingStreamsFull, void(const HTTPSession&));
-  MOCK_METHOD1(onSettingsOutgoingStreamsNotFull, void(const HTTPSession&));
-  MOCK_METHOD1(onFlowControlWindowClosed, void(const HTTPSession&));
-  MOCK_METHOD1(onEgressBuffered, void(const HTTPSession&));
-  MOCK_METHOD1(onEgressBufferCleared, void(const HTTPSession&));
-  MOCK_METHOD2(onSettings, void(const HTTPSession&, const SettingsList&));
-  MOCK_METHOD1(onSettingsAck, void(const HTTPSession&));
+  MOCK_METHOD1(onSettingsOutgoingStreamsFull, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onSettingsOutgoingStreamsNotFull, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onFlowControlWindowClosed, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onEgressBuffered, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onEgressBufferCleared, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onSettings, void(const HTTPSessionBase&, const SettingsList&));
+  MOCK_METHOD1(onSettingsAck, void(const HTTPSessionBase&));
 };
 
 class DummyHTTPSessionStats : public HTTPSessionStats {
