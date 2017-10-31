@@ -15,6 +15,7 @@
 #include <proxygen/lib/utils/Time.h>
 #include <folly/io/async/AsyncSocket.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
 
 namespace proxygen {
 
@@ -27,7 +28,7 @@ extern const std::string empty_string;
  * service setting up one connection at a time.
  */
 class HTTPConnector:
-      private folly::AsyncSocket::ConnectCallback {
+      protected folly::AsyncSocket::ConnectCallback {
  public:
   /**
    * This class defines the pure virtual interface on which to receive the
@@ -142,14 +143,18 @@ class HTTPConnector:
    */
   bool isBusy() const { return socket_.get(); }
 
- private:
+ protected:
   void connectSuccess() noexcept override;
   void connectErr(const folly::AsyncSocketException& ex)
     noexcept override;
 
+  std::unique_ptr<HTTPCodec> makeCodec(const std::string& chosenProto,
+                                       bool forceHTTP1xCodecTo1_1);
+
+
   Callback* cb_;
   WheelTimerInstance timeout_;
-  folly::AsyncSocket::UniquePtr socket_;
+  folly::AsyncTransportWrapper::UniquePtr socket_;
   wangle::TransportInfo transportInfo_;
   std::string plaintextProtocol_;
   TimePoint connectStart_;

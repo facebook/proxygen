@@ -22,34 +22,6 @@ using namespace std;
 
 namespace proxygen {
 
-namespace {
-
-unique_ptr<HTTPCodec> makeCodec(const string& chosenProto,
-                                bool forceHTTP1xCodecTo1_1) {
-  auto spdyVersion = SPDYCodec::getVersion(chosenProto);
-  if (spdyVersion) {
-    return std::make_unique<SPDYCodec>(TransportDirection::UPSTREAM,
-                                         *spdyVersion);
-  } else if (chosenProto == proxygen::http2::kProtocolString ||
-             chosenProto == proxygen::http2::kProtocolCleartextString ||
-             chosenProto == proxygen::http2::kProtocolDraftString ||
-             chosenProto == proxygen::http2::kProtocolExperimentalString) {
-    return std::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
-  } else {
-    if (!chosenProto.empty() &&
-        !HTTP1xCodec::supportsNextProtocol(chosenProto)) {
-      LOG(ERROR) << "Chosen upstream protocol " <<
-        "\"" << chosenProto << "\" is unimplemented. " <<
-        "Attempting to use HTTP/1.1";
-    }
-
-    return std::make_unique<HTTP1xCodec>(TransportDirection::UPSTREAM,
-                                           forceHTTP1xCodecTo1_1);
-  }
-}
-
-}
-
 HTTPConnector::HTTPConnector(Callback* callback,
     folly::HHWheelTimer* timeoutSet) :
   HTTPConnector(callback, WheelTimerInstance(timeoutSet)) {
@@ -90,9 +62,10 @@ void HTTPConnector::connect(
   DCHECK(!isBusy());
   transportInfo_ = wangle::TransportInfo();
   transportInfo_.secure = false;
-  socket_.reset(new AsyncSocket(eventBase));
+  auto sock = new AsyncSocket(eventBase);
+  socket_.reset(sock);
   connectStart_ = getCurrentTime();
-  socket_->connect(this, connectAddr, timeoutMs.count(),
+  sock->connect(this, connectAddr, timeoutMs.count(),
                    socketOptions, bindAddr);
 }
 
@@ -117,7 +90,7 @@ void HTTPConnector::connectSSL(
   sslSock->forceCacheAddrOnFailure(true);
   socket_.reset(sslSock);
   connectStart_ = getCurrentTime();
-  socket_->connect(this, connectAddr, timeoutMs.count(),
+  sslSock->connect(this, connectAddr, timeoutMs.count(),
                    socketOptions, bindAddr);
 }
 
@@ -174,6 +147,30 @@ void HTTPConnector::connectErr(const AsyncSocketException& ex) noexcept {
   socket_.reset();
   if (cb_) {
     cb_->connectError(ex);
+  }
+}
+
+unique_ptr<HTTPCodec> HTTPConnector::makeCodec(const string& chosenProto,
+                                               bool forceHTTP1xCodecTo1_1) {
+  auto spdyVersion = SPDYCodec::getVersion(chosenProto);
+  if (spdyVersion) {
+    return std::make_unique<SPDYCodec>(TransportDirection::UPSTREAM,
+                                         *spdyVersion);
+  } else if (chosenProto == proxygen::http2::kProtocolString ||
+             chosenProto == proxygen::http2::kProtocolCleartextString ||
+             chosenProto == proxygen::http2::kProtocolDraftString ||
+             chosenProto == proxygen::http2::kProtocolExperimentalString) {
+    return std::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
+  } else {
+    if (!chosenProto.empty() &&
+        !HTTP1xCodec::supportsNextProtocol(chosenProto)) {
+      LOG(ERROR) << "Chosen upstream protocol " <<
+        "\"" << chosenProto << "\" is unimplemented. " <<
+        "Attempting to use HTTP/1.1";
+    }
+
+    return std::make_unique<HTTP1xCodec>(TransportDirection::UPSTREAM,
+                                           forceHTTP1xCodecTo1_1);
   }
 }
 
