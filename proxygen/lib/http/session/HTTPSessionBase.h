@@ -74,7 +74,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     InfoCallback* infoCallback,
     std::unique_ptr<HTTPCodec> codec);
 
-  virtual ~HTTPSessionBase() {}
+  virtual ~HTTPSessionBase();
 
   /**
    * Set the read buffer limit to be used for all new HTTPSessionBase objects.
@@ -461,6 +461,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker,
                            ByteEventTracker::Callback* cb);
+
+  void runDestroyCallbacks();
 
   HTTPSessionStats* sessionStats_{nullptr};
 

@@ -9,6 +9,7 @@
  */
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
+#include <proxygen/lib/http/session/HTTPSessionController.h>
 
 using folly::SocketAddress;
 using wangle::TransportInfo;
@@ -39,6 +40,19 @@ HTTPSessionBase::HTTPSessionBase(
   // If we receive IPv4-mapped IPv6 addresses, convert them to IPv4.
   localAddr_.tryConvertToIPv4();
   peerAddr_.tryConvertToIPv4();
+}
+
+HTTPSessionBase::~HTTPSessionBase() {
+}
+
+void HTTPSessionBase::runDestroyCallbacks() {
+  if (infoCallback_) {
+    infoCallback_->onDestroy(*this);
+  }
+  if (controller_) {
+    controller_->detachSession(this);
+    controller_ = nullptr;
+  }
 }
 
 bool HTTPSessionBase::onBody(std::unique_ptr<folly::IOBuf> chain, size_t length,

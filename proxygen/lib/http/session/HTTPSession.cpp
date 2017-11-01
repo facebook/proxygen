@@ -208,13 +208,7 @@ HTTPSession::~HTTPSession() {
     flowControlTimeout_.cancelTimeout();
   }
 
-  if (infoCallback_) {
-    infoCallback_->onDestroy(*this);
-  }
-  if (controller_) {
-    controller_->detachSession(this);
-    controller_ = nullptr;
-  }
+  runDestroyCallbacks();
 }
 
 void HTTPSession::startNow() {
