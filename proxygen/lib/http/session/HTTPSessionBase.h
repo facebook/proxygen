@@ -138,6 +138,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual uint32_t getNumIncomingStreams() const = 0;
 
+  virtual const HTTPCodec& getCodec() const noexcept = 0;
+  virtual size_t getPipelineStreamCount() const = 0;
 
   virtual uint32_t getMaxConcurrentOutgoingStreamsRemote() const = 0;
 

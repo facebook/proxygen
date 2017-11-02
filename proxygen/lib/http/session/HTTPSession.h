@@ -203,6 +203,13 @@ class HTTPSession:
     return false;
   }
 
+  // Returns the number of streams that count against a pipelining limit.
+  // Upstreams can't really pipleine (send responses before requests), so
+  // count ANY stream against the limit.
+  size_t getPipelineStreamCount() const override {
+    return isDownstream() ? incomingStreams_ : transactions_.size();
+  }
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated
@@ -806,13 +813,6 @@ class HTTPSession:
    * transport has become replay safe.
    */
   void onReplaySafe() noexcept override;
-
-  // Returns the number of streams that count against a pipelining limit.
-  // Upstreams can't really pipleine (send responses before requests), so
-  // count ANY stream against the limit.
-  size_t getPipelineStreamCount() const {
-    return isDownstream() ? incomingStreams_ : transactions_.size();
-  }
 
   bool maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
                                              uint32_t txnSeqn);
