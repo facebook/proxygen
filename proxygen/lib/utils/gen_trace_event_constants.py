@@ -1,5 +1,4 @@
 #!/bin/env python
-# @lint-avoid-python-3-compatibility-imports
 
 import os
 import re
