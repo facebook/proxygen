@@ -104,6 +104,9 @@ class FBCodeBuilder(object):
         self.options_used.add(name)
         return value
 
+    def has_option(self, name):
+        return name in self._options_do_not_access
+
     def add_option(self, name, value):
         if name in self._options_do_not_access:
             raise RuntimeError('Option {0} already set'.format(name))
@@ -264,9 +267,13 @@ class FBCodeBuilder(object):
 
         base_dir = self.option('projects_dir')
         git_patch = self.option('{0}:git_patch'.format(project), '')
+        patch_file = path_join(
+            base_dir,
+            '../shipit_projects' if self.has_option('shipit_project_dir') else '',
+            git_patch
+        )
         maybe_apply_patch = [
-            self.run(ShellQuoted('git apply {patch}').format(
-                patch=path_join(base_dir, git_patch))),
+            self.run(ShellQuoted('git apply {p}').format(p=patch_file)),
         ] if git_patch else []
 
         local_repo_dir = self.option('{0}:local_repo_dir'.format(project), '')
