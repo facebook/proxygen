@@ -26,12 +26,16 @@ CurlClient::CurlClient(EventBase* evb,
                        const proxygen::URL* proxy,
                        const HTTPHeaders& headers,
                        const string& inputFilename,
-                       bool h2c)
+                       bool h2c,
+                       unsigned short httpMajor,
+                       unsigned short httpMinor)
     : evb_(evb),
       httpMethod_(httpMethod),
       url_(url),
       inputFilename_(inputFilename),
-      h2c_(h2c) {
+      h2c_(h2c),
+      httpMajor_(httpMajor),
+      httpMinor_(httpMinor) {
   if (proxy != nullptr) {
     proxy_ = std::make_unique<URL>(proxy->getUrl());
   }
@@ -93,7 +97,7 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
 void CurlClient::sendRequest(HTTPTransaction* txn) {
   txn_ = txn;
   request_.setMethod(httpMethod_);
-  request_.setHTTPVersion(1, 1);
+  request_.setHTTPVersion(httpMajor_, httpMinor_);
   if (proxy_) {
     request_.setURL(url_.getUrl());
   } else {

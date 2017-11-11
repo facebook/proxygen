@@ -27,7 +27,9 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
              const proxygen::URL* proxy,
              const proxygen::HTTPHeaders& headers,
              const std::string& inputFilename,
-             bool h2c = false);
+             bool h2c = false,
+             unsigned short httpMajor = 1,
+             unsigned short httpMinor = 1);
 
   virtual ~CurlClient() = default;
 
@@ -83,6 +85,8 @@ protected:
   int32_t recvWindow_{0};
   bool loggingEnabled_{true};
   bool h2c_{false};
+  unsigned short httpMajor_;
+  unsigned short httpMinor_;
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
 };
