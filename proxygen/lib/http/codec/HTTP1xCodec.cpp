@@ -182,6 +182,17 @@ HTTP1xCodec::onIngress(const IOBuf& buf) {
     CHECK(!parserActive_);
     parserActive_ = true;
     currentIngressBuf_ = &buf;
+    if (transportDirection_ == TransportDirection::UPSTREAM &&
+        parser_.http_major == 0 && parser_.http_minor == 9) {
+      // HTTP/0.9 responses have no header block, so create a fake 200 response
+      // and put the codec in upgrade mode
+      onMessageBegin();
+      msg_->setStatusCode(200);
+      onHeadersComplete(0);
+      parserActive_ = false;
+      ingressUpgradeComplete_ = true;
+      return onIngress(buf);
+    }
     size_t bytesParsed = http_parser_execute(&parser_,
                                              getParserSettings(),
                                              (const char*)buf.data(),
@@ -371,6 +382,9 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   size_t len = 0;
   switch (transportDirection_) {
   case TransportDirection::DOWNSTREAM:
+    if (version.first == 0 && version.second == 9) {
+      return;
+    }
     appendLiteral(writeBuf, len, "HTTP/");
     appendUint(writeBuf, len, version.first);
     appendLiteral(writeBuf, len, ".");
@@ -411,6 +425,11 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   }
   egressChunked_ &= mayChunkEgress_;
   appendLiteral(writeBuf, len, CRLF);
+  if (version.first == 0 && version.second == 9) {
+    parser_.http_major = 0;
+    parser_.http_minor = 9;
+    return;
+  }
   const string* deferredContentLength = nullptr;
   bool hasTransferEncodingChunked = false;
   bool hasDateHeader = false;

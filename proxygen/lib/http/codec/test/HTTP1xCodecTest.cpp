@@ -34,15 +34,19 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
     msg_ = std::move(msg);
   }
   void onBody(HTTPCodec::StreamID /*stream*/,
-              std::unique_ptr<folly::IOBuf> /*chain*/,
-              uint16_t /*padding*/) override {}
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t /*padding*/) override {
+    bodyLen += chain->computeChainDataLength();
+  }
   void onChunkHeader(HTTPCodec::StreamID /*stream*/,
                      size_t /*length*/) override {}
   void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {}
   void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
                           std::unique_ptr<HTTPHeaders> /*trailers*/) override {}
   void onMessageComplete(HTTPCodec::StreamID /*stream*/,
-                         bool /*upgrade*/) override {}
+                         bool /*upgrade*/) override {
+    ++messageComplete;
+  }
   void onError(HTTPCodec::StreamID /*stream*/,
                const HTTPException& /*error*/,
                bool /*newTxn*/) override {
@@ -50,6 +54,8 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
   }
 
   uint32_t headersComplete{0};
+  uint32_t messageComplete{0};
+  uint32_t bodyLen{0};
   HTTPHeaderSize headerSize;
   std::unique_ptr<HTTPMessage> msg_;
 };
@@ -68,6 +74,55 @@ TEST(HTTP1xCodecTest, TestSimpleHeaders) {
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
   EXPECT_EQ(callbacks.headerSize.compressed, 0);
+}
+
+TEST(HTTP1xCodecTest, Test09Req) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = folly::IOBuf::copyBuffer(string("GET /yeah\r\n"));
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
+  EXPECT_EQ(callbacks.headerSize.compressed, 0);
+  buffer = folly::IOBuf::copyBuffer(string("\r\n"));
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+}
+
+TEST(HTTP1xCodecTest, Test09ReqVers) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = folly::IOBuf::copyBuffer(string("GET /yeah HTTP/0.9\r\n"));
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
+  EXPECT_EQ(callbacks.headerSize.compressed, 0);
+}
+
+TEST(HTTP1xCodecTest, Test09Resp) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  HTTPMessage req;
+  auto id = codec.createStream();
+  req.setHTTPVersion(0, 9);
+  req.setMethod(HTTPMethod::GET);
+  req.setURL("/");
+  codec.setCallback(&callbacks);
+  folly::IOBufQueue buf;
+  codec.generateHeader(buf, id, req, 0, true);
+  auto buffer = folly::IOBuf::copyBuffer(
+    string("iamtheverymodelofamodernmajorgeneral"));
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.bodyLen, buffer->computeChainDataLength());
+  EXPECT_EQ(callbacks.messageComplete, 0);
+  codec.onIngressEOF();
+  EXPECT_EQ(callbacks.messageComplete, 1);
 }
 
 TEST(HTTP1xCodecTest, TestBadHeaders) {

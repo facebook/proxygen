@@ -1154,14 +1154,15 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_req_line_almost_done;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_header_field_start;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
+            goto reexecute_byte;
             break;
           case '?':
             state = s_req_query_string_start;
@@ -1193,14 +1194,15 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_req_line_almost_done;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_header_field_start;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
+            goto reexecute_byte;
             break;
           case '#':
             state = s_req_fragment_start;
@@ -1227,14 +1229,15 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_req_line_almost_done;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_header_field_start;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
+            goto reexecute_byte;
             break;
           case '#':
             state = s_req_fragment_start;
@@ -1261,14 +1264,15 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_req_line_almost_done;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_header_field_start;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
+            goto reexecute_byte;
             break;
           case '?':
             state = s_req_fragment;
@@ -1294,14 +1298,15 @@ size_t http_parser_execute (http_parser *parser,
           case CR:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_req_line_almost_done;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
             break;
           case LF:
             parser->http_major = 0;
             parser->http_minor = 9;
-            state = s_header_field_start;
+            state = s_headers_almost_done;
             CALLBACK_DATA(url);
+            goto reexecute_byte;
             break;
           case '?':
           case '#':
@@ -1396,12 +1401,21 @@ size_t http_parser_execute (http_parser *parser,
       case s_req_http_minor:
       {
         if (ch == CR) {
-          state = s_req_line_almost_done;
+          if (parser->http_major== 0 && parser->http_minor == 9) {
+            state = s_headers_almost_done;
+          } else {
+            state = s_req_line_almost_done;
+          }
           break;
         }
 
         if (ch == LF) {
-          state = s_header_field_start;
+          if (parser->http_major == 0 && parser->http_minor == 9) {
+            state = s_headers_almost_done;
+            goto reexecute_byte;
+          } else {
+            state = s_header_field_start;
+          }
           break;
         }
 
@@ -2158,6 +2172,8 @@ http_parser_init (http_parser *parser, enum http_parser_type t)
   parser->upgrade = 0;
   parser->flags = 0;
   parser->method = 0;
+  parser->http_major = 0;
+  parser->http_minor = 0;
   parser->http_errno = HPE_OK;
 }
 
