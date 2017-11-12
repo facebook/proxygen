@@ -35,8 +35,10 @@ class RequestWorker;
  */
 class ServiceWorker {
  public:
-  typedef std::map<folly::SocketAddress, std::unique_ptr<wangle::Acceptor>>
-      AcceptorMap;
+  using AcceptorMap =
+    std::map<folly::SocketAddress, std::unique_ptr<wangle::Acceptor>>;
+
+  using NamedAddressMap = std::map<std::string, folly::SocketAddress>;
 
   ServiceWorker(Service* service, RequestWorker* worker)
       : service_(service), worker_(worker) {
@@ -50,6 +52,7 @@ class ServiceWorker {
 
   void addServiceAcceptor(const folly::SocketAddress& address,
                               std::unique_ptr<wangle::Acceptor> acceptor) {
+    namedAddress_.emplace(acceptor->getName(), address);
     addAcceptor(address, std::move(acceptor), acceptors_);
   }
 
@@ -57,8 +60,10 @@ class ServiceWorker {
     // Move the old acceptor to drainingAcceptors_ if present
     const auto& it = acceptors_.find(address);
     if (it != acceptors_.end()) {
+      auto name = it->second->getName();
       addAcceptor(address, std::move(it->second), drainingAcceptors_);
       acceptors_.erase(it);
+      namedAddress_.erase(name);
     }
   }
 
@@ -68,6 +73,20 @@ class ServiceWorker {
 
   const AcceptorMap& getAcceptors() {
     return acceptors_;
+  }
+
+  /**
+   * Find an acceptor by name running in the same request worker.
+   */
+  wangle::Acceptor* getAcceptorByName(std::string name) const {
+    auto it = namedAddress_.find(name);
+    if (it != namedAddress_.end()) {
+      auto it2 = acceptors_.find(it->second);
+      if (it2 != acceptors_.end()) {
+        return it2->second.get();
+      }
+    }
+    return nullptr;
   }
 
   const AcceptorMap& getDrainingAcceptors() {
@@ -81,6 +100,7 @@ class ServiceWorker {
   // Destruct all the acceptors
   virtual void clearAcceptors() {
     acceptors_.clear();
+    namedAddress_.clear();
     drainingAcceptors_.clear();
   }
 
@@ -125,6 +145,12 @@ class ServiceWorker {
    * Acceptor per VIP.
    */
   AcceptorMap acceptors_;
+
+  /**
+   * A list of the addresses indexed by name, used to look up an
+   * acceptor by name
+   */
+  NamedAddressMap namedAddress_;
 
   /**
    * A list of Acceptors that are being drained and will be deleted soon.
