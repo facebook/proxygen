@@ -79,6 +79,17 @@ void HTTPSessionAcceptor::onNewConnection(
     VLOG(3) << "couldn't get local address for socket";
     localAddress = unknownSocketAddress_;
   }
+
+  // overwrite address if the socket has no IP, e.g. Unix domain socket
+  if (!localAddress.isFamilyInet()) {
+    if (accConfig_.bindAddress.isFamilyInet()) {
+      localAddress = accConfig_.bindAddress;
+    } else {
+      localAddress = unknownSocketAddress_;
+    }
+    VLOG(4) << "set localAddress=" << localAddress.describe();
+  }
+
   auto sessionInfoCb = sessionInfoCb_ ? sessionInfoCb_ : this;
   VLOG(4) << "Created new session for peer " << *peerAddress;
   HTTPDownstreamSession* session =
