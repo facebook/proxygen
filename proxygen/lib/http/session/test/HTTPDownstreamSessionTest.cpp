@@ -1633,6 +1633,28 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
   gracefulShutdown();
 }
 
+TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_partial_resp) {
+  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&handler] {
+      handler->sendHeaders(200, 100);
+    });
+  handler->expectBody();
+  handler->expectEOM([&handler] {
+      handler->sendBody(100);
+      handler->txn_->sendEOM();
+    });
+  handler->expectDetachTransaction();
+
+  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(10),
+                             boost::none, true);
+  flushRequestsAndLoop();
+  expectResponse();
+  gracefulShutdown();
+}
+
 // Upgrade but with a pipelined HTTP request.  It is parsed as SPDY and
 // rejected
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {

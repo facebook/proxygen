@@ -736,12 +736,18 @@ class HTTPTransaction :
 
   /**
    * @return true if we can send headers on this transaction
+   *
+   * Here's the logic:
+   *  1) state machine says sendHeaders is OK AND
+   *   2a) this is an upstream (allows for mid-stream headers) OR
+   *   2b) this downstream has not sent a response
+   *   2c) this downstream has only sent 1xx responses
    */
   virtual bool canSendHeaders() const {
     return HTTPTransactionEgressSM::canTransit(
         egressState_,
         HTTPTransactionEgressSM::Event::sendHeaders)
-      && !isEgressComplete();
+      && (isUpstream() || lastResponseStatus_ == 0 || extraResponseExpected());
   }
 
   /**
