@@ -23,6 +23,7 @@ class ByteEvent {
     LAST_BYTE,
     PING_REPLY_SENT,
     FIRST_HEADER_BYTE,
+    TRACKED_BYTE,
   };
 
   ByteEvent(uint64_t byteOffset, EventType eventType)

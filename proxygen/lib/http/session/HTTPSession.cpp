@@ -1340,7 +1340,8 @@ HTTPSession::commonEom(
 size_t
 HTTPSession::sendBody(HTTPTransaction* txn,
                       std::unique_ptr<folly::IOBuf> body,
-                      bool includeEOM) noexcept {
+                      bool includeEOM,
+                      bool trackLastByteFlushed) noexcept {
   uint64_t offset = sessionByteOffset();
   size_t bodyLen = body ? body->computeChainDataLength(): 0;
   size_t encodedSize = codec_->generateBody(writeBuf_,
@@ -1354,6 +1355,11 @@ HTTPSession::sendBody(HTTPTransaction* txn,
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent() && byteEventTracker_) {
     byteEventTracker_->addFirstBodyByteEvent(offset, txn);
   }
+
+  if (trackLastByteFlushed && encodedSize > 0 && byteEventTracker_) {
+    byteEventTracker_->addTrackedByteEvent(txn, offset + encodedSize);
+  }
+
   if (includeEOM) {
     VLOG(5) << *this << " sending EOM in body for streamID=" << txn->getID();
     commonEom(txn, encodedSize, true);

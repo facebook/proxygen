@@ -300,6 +300,8 @@ class HTTPTransactionTransportCallback {
 
   virtual void lastByteFlushed() noexcept = 0;
 
+  virtual void trackedByteFlushed() noexcept {}
+
   virtual void lastByteAcked(std::chrono::milliseconds latency) noexcept = 0;
 
   virtual void headerBytesGenerated(HTTPHeaderSize& size) noexcept = 0;
@@ -337,7 +339,8 @@ class HTTPTransaction :
 
     virtual size_t sendBody(HTTPTransaction* txn,
                             std::unique_ptr<folly::IOBuf>,
-                            bool eom) noexcept = 0;
+                            bool eom,
+                            bool trackLastByteFlushed) noexcept = 0;
 
     virtual size_t sendChunkHeader(HTTPTransaction* txn,
                                    size_t length) noexcept = 0;
@@ -656,9 +659,14 @@ class HTTPTransaction :
   void onEgressBodyFirstByte();
 
   /**
-   * Invoked by the session when the first byte is flushed.
+   * Invoked by the session when the last byte is flushed.
    */
   void onEgressBodyLastByte();
+
+  /**
+   * Invoked by the session when the tracked byte is flushed.
+   */
+  void onEgressTrackedByte();
 
   /**
    * Invoked when the ACK_LATENCY event is delivered
@@ -1122,6 +1130,10 @@ class HTTPTransaction :
     return deferredEgressBody_.chainLength() > 0;
   }
 
+  void setLastByteFlushedTrackingEnabled(bool enabled) {
+    enableLastByteFlushedTracking_ = enabled;
+  }
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
@@ -1365,6 +1377,7 @@ class HTTPTransaction :
   bool ingressErrorSeen_:1;
   bool priorityFallback_:1;
   bool headRequest_:1;
+  bool enableLastByteFlushedTracking_:1;
 
   static uint64_t egressBufferLimit_;
 

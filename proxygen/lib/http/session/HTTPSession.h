@@ -377,7 +377,7 @@ class HTTPSession:
                    HTTPHeaderSize* size,
                    bool includeEOM) noexcept override;
   size_t sendBody(HTTPTransaction* txn, std::unique_ptr<folly::IOBuf>,
-                  bool includeEOM) noexcept override;
+                  bool includeEOM, bool trackLastByteFlushed) noexcept override;
   size_t sendChunkHeader(HTTPTransaction* txn,
                          size_t length) noexcept override;
   size_t sendChunkTerminator(HTTPTransaction* txn) noexcept override;

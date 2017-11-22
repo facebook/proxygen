@@ -56,9 +56,9 @@ class DownstreamTransactionTest : public testing::Test {
       .WillOnce(Invoke([=](Unused, const HTTPMessage& headers, Unused, Unused) {
             EXPECT_EQ(headers.getStatusCode(), 200);
           }));
-    EXPECT_CALL(transport_, sendBody(txn, _, false))
+    EXPECT_CALL(transport_, sendBody(txn, _, false, false))
       .WillRepeatedly(Invoke([=](Unused, std::shared_ptr<folly::IOBuf> body,
-                                 Unused) {
+                                 Unused, Unused) {
                                auto cur = body->computeChainDataLength();
                                sent_ += cur;
                                return cur;

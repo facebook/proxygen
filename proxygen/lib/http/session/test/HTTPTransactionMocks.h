@@ -33,12 +33,14 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
                                                  const HTTPMessage&,
                                                  HTTPHeaderSize*,
                                                  bool));
-  GMOCK_METHOD3_(, noexcept,, sendBody,
-                 size_t(HTTPTransaction*, std::shared_ptr<folly::IOBuf>, bool));
+  GMOCK_METHOD4_(, noexcept,, sendBody,
+                 size_t(HTTPTransaction*, std::shared_ptr<folly::IOBuf>,
+                   bool, bool));
 
   size_t sendBody(HTTPTransaction* txn, std::unique_ptr<folly::IOBuf> iob,
-                  bool eom) noexcept override {
-    return sendBody(txn, std::shared_ptr<folly::IOBuf>(iob.release()), eom);
+                  bool eom, bool trackLastByteFlushed) noexcept override {
+    return sendBody(txn,
+      std::shared_ptr<folly::IOBuf>(iob.release()), eom, trackLastByteFlushed);
   }
 
   GMOCK_METHOD2_(, noexcept,, sendChunkHeader, size_t(HTTPTransaction*,

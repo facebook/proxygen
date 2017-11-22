@@ -979,6 +979,34 @@ TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
   gracefulShutdown();
 }
 
+TEST_F(HTTPDownstreamSessionTest, test_tracked_byte_event_tracker) {
+  auto byteEventTracker = setMockByteEventTracker();
+  InSequence enforceOrder;
+
+  auto handler1 = addSimpleStrictHandler();
+  size_t bytesToSend = 200;
+  size_t expectedTrackedByteOffset = bytesToSend + 99;
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1, &bytesToSend] () {
+    handler1->sendHeaders(200, 200);
+    handler1->sendBodyWithLastByteTracking(bytesToSend);
+    handler1->txn_->sendEOM();
+    });
+
+  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
+  EXPECT_CALL(*byteEventTracker,
+    addTrackedByteEvent(_, expectedTrackedByteOffset))
+      .WillOnce(Invoke([&dg](HTTPTransaction* txn,
+                             uint64_t /*byteNo*/) {
+        dg.reset(new HTTPTransaction::DestructorGuard(txn));
+      }));
+  sendRequest();
+  handler1->expectDetachTransaction();
+  dg.reset();
+  gracefulShutdown();
+}
+
+
 TEST_F(HTTPDownstreamSessionTest, trailers) {
   testChunks(true);
 }

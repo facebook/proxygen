@@ -77,6 +77,11 @@ class HTTPHandlerBase {
     }
   }
 
+  void sendBodyWithLastByteTracking(uint32_t content_length) {
+    txn_->setLastByteFlushedTrackingEnabled(true);
+    sendBody(content_length);
+  }
+
   void sendReplyWithBody(uint32_t code, uint32_t content_length,
                          bool keepalive=true) {
     sendHeaders(code, content_length, keepalive);

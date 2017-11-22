@@ -63,6 +63,9 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
       addAckToLastByteEvent(txn, event, eorTrackingEnabled);
       advanceEOM = true;
       break;
+    case ByteEvent::TRACKED_BYTE:
+      txn->onEgressTrackedByte();
+      break;
     case ByteEvent::PING_REPLY_SENT:
       latency = event.getLatency();
       callback_->onPingReplyLatency(latency);
@@ -115,6 +118,15 @@ void ByteEventTracker::addLastByteEvent(
     VLOG(5) << " set nextLastByteNo to " << event->byteOffset_;
     nextLastByteEvent_ = event;
   }
+}
+
+void ByteEventTracker::addTrackedByteEvent(
+    HTTPTransaction* txn,
+    uint64_t byteNo) noexcept {
+  VLOG(5) << " adding tracked byte event for " << byteNo;
+  TransactionByteEvent* event = new TransactionByteEvent(
+      byteNo, ByteEvent::TRACKED_BYTE, txn);
+  byteEvents_.push_back(*event);
 }
 
 void ByteEventTracker::addPingByteEvent(size_t pingSize,

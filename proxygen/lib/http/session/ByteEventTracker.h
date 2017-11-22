@@ -50,6 +50,8 @@ class ByteEventTracker {
   virtual void addLastByteEvent(HTTPTransaction* txn,
                                 uint64_t byteNo,
                                 bool eorTrackingEnabled) noexcept;
+  virtual void addTrackedByteEvent(HTTPTransaction* txn,
+                                   uint64_t byteNo) noexcept;
 
   /**
    * Returns the number of bytes needed or 0 when there's nothing to do.

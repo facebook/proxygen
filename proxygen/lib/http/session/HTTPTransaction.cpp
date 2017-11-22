@@ -66,7 +66,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     inActiveSet_(true),
     ingressErrorSeen_(false),
     priorityFallback_(false),
-    headRequest_(false) {
+    headRequest_(false),
+    enableLastByteFlushedTracking_(false) {
 
   if (assocStreamId_) {
     if (isUpstream()) {
@@ -691,6 +692,13 @@ void HTTPTransaction::onEgressBodyLastByte() {
   }
 }
 
+void HTTPTransaction::onEgressTrackedByte() {
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->trackedByteFlushed();
+  }
+}
+
 void HTTPTransaction::onEgressLastByteAck(std::chrono::milliseconds latency) {
   DestructorGuard g(this);
   if (transportCallback_) {
@@ -957,7 +965,8 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
     return 0;
   }
   updateReadTimeout();
-  nbytes = transport_.sendBody(this, std::move(body), sendEom);
+  nbytes = transport_.sendBody(
+    this, std::move(body), sendEom, enableLastByteFlushedTracking_);
   if (isPrioritySampled()) {
     updateTransactionBytesSent(bodyLen);
   }
