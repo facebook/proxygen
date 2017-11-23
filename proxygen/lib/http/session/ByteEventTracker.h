@@ -85,4 +85,14 @@ class ByteEventTracker {
   ByteEvent* nextLastByteEvent_{nullptr};
 };
 
+class ByteEventTrackerFactory {
+ public:
+  ByteEventTrackerFactory() = default;
+  virtual ~ByteEventTrackerFactory() = default;
+  virtual std::shared_ptr<ByteEventTracker> make(
+      ByteEventTracker::Callback* callback) {
+    return std::make_shared<ByteEventTracker>(callback);
+  }
+};
+
 } // proxygen
