@@ -206,6 +206,7 @@ class FBCodeBuilder(object):
                 'libtool '
                 'netcat-openbsd '
                 'pkg-config '
+                'sudo '
                 'unzip '
                 'wget'
             )),
