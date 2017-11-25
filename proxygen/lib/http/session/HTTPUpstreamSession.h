@@ -88,6 +88,8 @@ class HTTPUpstreamSession final: public HTTPSession {
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
 
+  void detachTransactions();
+
   bool isDetachable(bool checkSocket=true) const override;
 
   void attachThreadLocals(folly::EventBase* eventBase,

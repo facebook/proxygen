@@ -156,6 +156,12 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   return ret;
 }
 
+void HTTPUpstreamSession::detachTransactions() {
+  for (auto& txn : transactions_) {
+    detach(&txn.second);
+  }
+}
+
 bool HTTPUpstreamSession::isDetachable(bool checkSocket) const {
   if (checkSocket && sock_ && !sock_->isDetachable()) {
     return false;
