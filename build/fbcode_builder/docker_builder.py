@@ -46,7 +46,13 @@ class DockerFBCodeBuilder(FBCodeBuilder):
             ShellQuoted('FROM {}'.format(self.option('os_image'))),
             # /bin/sh syntax is a pain
             ShellQuoted('SHELL ["/bin/bash", "-c"]'),
-        ] + self.install_debian_deps() + [self._change_user()])
+        ] + self.install_debian_deps()
+          + [self.make_user_sudo()] + [self._change_user()])
+
+    def make_user_sudo(self):
+        return ShellQuoted('RUN echo "{user} ALL=(root) NOPASSWD:ALL" > '
+                           '/etc/sudoers.d/{user} && chmod 0440 /etc/sudoers.d/'
+                           '{user}').format(user=self._user())
 
     def step(self, name, actions):
         assert '\n' not in name, 'Name {0} would span > 1 line'.format(name)
