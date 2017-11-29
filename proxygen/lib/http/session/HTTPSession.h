@@ -95,7 +95,7 @@ class HTTPSession:
   void setFlowControl(
    size_t initialReceiveWindow,
    size_t receiveStreamWindowSize,
-   size_t receiveSessionWindowSize);
+   size_t receiveSessionWindowSize) override;
 
   /**
    * Set outgoing settings for this session

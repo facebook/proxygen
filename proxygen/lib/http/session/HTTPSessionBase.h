@@ -176,10 +176,10 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * @param receiveSessionWindowSize  per-session receive window; sent
    *                                  via a WINDOW_UPDATE frame
    */
-  void setFlowControl(
+  virtual void setFlowControl(
    size_t initialReceiveWindow,
    size_t receiveStreamWindowSize,
-   size_t receiveSessionWindowSize);
+   size_t receiveSessionWindowSize) = 0;
 
   /**
    * Set outgoing settings for this session
