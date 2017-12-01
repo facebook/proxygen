@@ -81,6 +81,13 @@ public:
   }
 
   /**
+   * return the codec factory for this session
+   */
+  std::shared_ptr<HTTPCodecFactory> getCodecFactory() {
+    return codecFactory_;
+  }
+
+  /**
    * Create a Handler for a new transaction.  The transaction and HTTP message
    * (request) are passed so the implementation can construct different
    * handlers based on these.  The transaction will be explicitly set on the
