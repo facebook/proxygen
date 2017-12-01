@@ -9,8 +9,9 @@
  */
 #pragma once
 
-#include <glog/logging.h>
 #include <chrono>
+#include <glog/logging.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 
 namespace folly {
 class SocketAddress;
@@ -87,6 +88,13 @@ class HTTPSessionController {
    */
   virtual std::chrono::milliseconds getSessionFlowControlTimeout() const {
     return std::chrono::milliseconds(0);
+  }
+
+  /**
+   * Returns the H2 header indexing strategy to be employed by the session
+   */
+  virtual const HeaderIndexingStrategy* getHeaderIndexingStrategy() const {
+    return HeaderIndexingStrategy::getDefaultInstance();
   }
 };
 

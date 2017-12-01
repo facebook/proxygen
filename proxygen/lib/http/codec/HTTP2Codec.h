@@ -140,6 +140,9 @@ public:
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
     headerCodec_.setHeaderIndexingStrategy(indexingStrat);
   }
+  const HeaderIndexingStrategy* getHeaderIndexingStrategy() const {
+    return headerCodec_.getHeaderIndexingStrategy();
+  }
 
  private:
   class HeaderDecodeInfo {

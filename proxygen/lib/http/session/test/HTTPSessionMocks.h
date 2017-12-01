@@ -322,6 +322,9 @@ class MockController : public HTTPSessionController {
   MOCK_METHOD1(detachSession, void(const HTTPSessionBase*));
   MOCK_METHOD1(onSessionCodecChange, void(HTTPSessionBase*));
   MOCK_CONST_METHOD0(getGracefulShutdownTimeout, std::chrono::milliseconds());
+
+  MOCK_CONST_METHOD0(
+    getHeaderIndexingStrategy, const HeaderIndexingStrategy*());
 };
 
 class MockUpstreamController : public HTTPUpstreamSessionController {
@@ -329,6 +332,9 @@ class MockUpstreamController : public HTTPUpstreamSessionController {
   MOCK_METHOD1(attachSession, void(HTTPSessionBase*));
   MOCK_METHOD1(detachSession, void(const HTTPSessionBase*));
   MOCK_METHOD1(onSessionCodecChange, void(HTTPSessionBase*));
+
+  MOCK_CONST_METHOD0(
+    getHeaderIndexingStrategy, const HeaderIndexingStrategy*());
 };
 
 ACTION_P(ExpectString, expected) {

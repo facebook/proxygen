@@ -399,11 +399,7 @@ class HTTPSession:
     HTTPTransaction::PushHandler* handler) noexcept override;
 
   const HTTPCodec& getCodec() const noexcept override {
-    return *CHECK_NOTNULL(codec_.call());
-  }
-
-  HTTPCodec& getCodec() noexcept {
-    return *CHECK_NOTNULL(codec_.call());
+    return codec_.getChainEnd();
   }
 
   /**

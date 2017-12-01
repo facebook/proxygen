@@ -74,7 +74,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     InfoCallback* infoCallback,
     std::unique_ptr<HTTPCodec> codec);
 
-  virtual ~HTTPSessionBase();
+  virtual ~HTTPSessionBase() {}
 
   /**
    * Set the read buffer limit to be used for all new HTTPSessionBase objects.
@@ -150,6 +150,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   void setController(HTTPSessionController* controller) {
     controller_ = controller;
+
+    // Controller controlled settings
+    initCodecHeaderIndexingStrategy();
   }
 
   ConnectionCloseReason getConnectionCloseReason() const {
@@ -464,9 +467,21 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   void runDestroyCallbacks();
 
-  HTTPSessionStats* sessionStats_{nullptr};
+  /*
+   * Invoked by children upon updating the actual codec wrapped by the filter
+   * chain.
+   */
+  void onCodecChanged();
 
-  HTTPSessionController* controller_{nullptr};
+  /**
+   * Initializes the underlying codec's header indexing strategy, if applicable,
+   * by retrieving the requisite strategy from the bound controller.
+   * This methods exists as some sessions, notably HTTPUpstreamSessions, have
+   # their parent controller set after instantiation
+   */
+  void initCodecHeaderIndexingStrategy();
+
+  HTTPSessionStats* sessionStats_{nullptr};
 
   InfoCallback* infoCallback_{nullptr};  // maybe can move to protected
 
@@ -499,6 +514,11 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   static uint32_t egressBodySizeLimit_;
 
  private:
+  // Underlying controller_ is marked as private so that callers must utilize
+  // getController/setController protected methods.  This ensures we have a
+  // single path to update controller_
+  HTTPSessionController* controller_{nullptr};
+
   // private ManagedConnection methods
   std::chrono::milliseconds getIdleTime() const override {
     if (timePointInitialized(latestActive_)) {

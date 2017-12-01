@@ -15,6 +15,7 @@
 #include <wangle/acceptor/SocketOptions.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <folly/io/async/AsyncSSLSocket.h>
@@ -157,10 +158,11 @@ HTTPSession::HTTPSession(
     infoCallback_->onCreate(*this);
   }
 
-  if (controller_) {
-    controller_->attachSession(this);
+  auto controllerPtr = getController();
+  if (controllerPtr) {
+    controllerPtr->attachSession(this);
     flowControlTimeout_.setTimeoutDuration(
-      controller_->getSessionFlowControlTimeout());
+      controllerPtr->getSessionFlowControlTimeout());
   }
 
   if (!sock_->isReplaySafe()) {
@@ -292,9 +294,10 @@ HTTPSession::readTimeoutExpired() noexcept {
   VLOG(4) << *this << " Timeout with nothing pending";
 
   setCloseReason(ConnectionCloseReason::TIMEOUT);
-  if (controller_) {
+  auto controller = getController();
+  if (controller) {
     timeout_.scheduleTimeout(&drainTimeout_,
-                             controller_->getGracefulShutdownTimeout());
+                             controller->getGracefulShutdownTimeout());
   }
   notifyPendingShutdown();
 }
@@ -1119,9 +1122,7 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   auto oldCodec = codec_.setDestination(std::move(codec));
   sock_->getEventBase()->runInLoop([oldCodec = std::move(oldCodec)] () {});
 
-  if (controller_) {
-    controller_->onSessionCodecChange(this);
-  }
+  onCodecChanged();
 
   setupCodec();
 

@@ -8,8 +8,10 @@
  *
  */
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
-#include <proxygen/lib/http/session/HTTPSessionStats.h>
+
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
+#include <proxygen/lib/http/session/HTTPSessionStats.h>
 
 using folly::SocketAddress;
 using wangle::TransportInfo;
@@ -28,7 +30,6 @@ HTTPSessionBase::HTTPSessionBase(
   const TransportInfo& tinfo,
   InfoCallback* infoCallback,
   std::unique_ptr<HTTPCodec> codec) :
-    controller_(controller),
     infoCallback_(infoCallback),
     transportInfo_(tinfo),
     codec_(std::move(codec)),
@@ -40,9 +41,8 @@ HTTPSessionBase::HTTPSessionBase(
   // If we receive IPv4-mapped IPv6 addresses, convert them to IPv4.
   localAddr_.tryConvertToIPv4();
   peerAddr_.tryConvertToIPv4();
-}
 
-HTTPSessionBase::~HTTPSessionBase() {
+  setController(controller);
 }
 
 void HTTPSessionBase::runDestroyCallbacks() {
@@ -52,6 +52,25 @@ void HTTPSessionBase::runDestroyCallbacks() {
   if (controller_) {
     controller_->detachSession(this);
     controller_ = nullptr;
+  }
+}
+
+void HTTPSessionBase::onCodecChanged() {
+  if (controller_) {
+    controller_->onSessionCodecChange(this);
+  }
+
+  initCodecHeaderIndexingStrategy();
+}
+
+void HTTPSessionBase::initCodecHeaderIndexingStrategy() {
+  // Set the header indexing strategy to be employed by the codec if H2
+  // This is done here so that the strategy could be dynamic depending on the
+  // session
+  if (controller_ && isHTTP2CodecProtocol(codec_->getProtocol())) {
+    HTTP2Codec* h2Codec = static_cast<HTTP2Codec*>(codec_.getChainEndPtr());
+    h2Codec->setHeaderIndexingStrategy(
+      controller_->getHeaderIndexingStrategy());
   }
 }
 

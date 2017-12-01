@@ -41,7 +41,7 @@ HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
 
   // In the general case, delegate to the handler factory to generate
   // a handler for the transaction.
-  handler = controller_->getRequestHandler(*txn, msg);
+  handler = getController()->getRequestHandler(*txn, msg);
   CHECK(handler);
 
   DestructorGuard dg(this);
@@ -54,13 +54,13 @@ HTTPTransaction::Handler*
 HTTPDownstreamSession::getParseErrorHandler(HTTPTransaction* txn,
                                             const HTTPException& error) {
   // we encounter an error before we finish reading the ingress headers.
-  return controller_->getParseErrorHandler(txn, error, getLocalAddress());
+  return getController()->getParseErrorHandler(txn, error, getLocalAddress());
 }
 
 HTTPTransaction::Handler*
 HTTPDownstreamSession::getTransactionTimeoutHandler(
   HTTPTransaction* txn) {
-  return controller_->getTransactionTimeoutHandler(txn, getLocalAddress());
+  return getController()->getTransactionTimeoutHandler(txn, getLocalAddress());
 }
 
 void

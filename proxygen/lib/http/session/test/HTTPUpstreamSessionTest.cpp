@@ -700,6 +700,30 @@ TEST_F(HTTP2UpstreamSessionTest, test_settings_info_callbacks) {
   httpSession_->destroy();
 }
 
+TEST_F(HTTP2UpstreamSessionTest, test_setcontroller_initheaderindexingstrat) {
+  StrictMock<MockUpstreamController> mockController;
+  HeaderIndexingStrategy testH2IndexingStrat;
+  EXPECT_CALL(mockController, getHeaderIndexingStrategy())
+    .WillOnce(
+      Return(&testH2IndexingStrat)
+  );
+
+  httpSession_->setController(&mockController);
+
+  auto handler = openTransaction();
+  handler->expectDetachTransaction();
+
+  const HTTP2Codec* h2Codec = static_cast<const HTTP2Codec*>(
+    &handler->txn_->getTransport().getCodec());
+  EXPECT_EQ(h2Codec->getHeaderIndexingStrategy(), &testH2IndexingStrat);
+
+  handler->txn_->sendAbort();
+  eventBase_.loop();
+
+  EXPECT_CALL(mockController, detachSession(_));
+  httpSession_->destroy();
+}
+
 class HTTP2UpstreamSessionWithVirtualNodesTest:
   public HTTPUpstreamTest<MockHTTPCodecPair> {
  public:
@@ -1163,6 +1187,14 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
 
   EXPECT_EQ(httpSession_->getMaxConcurrentOutgoingStreams(), 1);
 
+  HeaderIndexingStrategy testH2IndexingStrat;
+  if (respCodecVersion == CodecProtocol::HTTP_2) {
+    EXPECT_CALL(controller, getHeaderIndexingStrategy())
+      .WillOnce(
+        Return(&testH2IndexingStrat)
+    );
+  }
+
   handler->expectHeaders([] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(200, msg->getStatusCode());
     });
@@ -1179,6 +1211,14 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
   readAndLoop(folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
                                 "Upgrade: ", upgradeRespHeader, "\r\n"
                                 "\r\n"));
+
+  if (respCodecVersion == CodecProtocol::HTTP_2) {
+    const HTTP2Codec* codec = dynamic_cast<const HTTP2Codec*>(
+      &txn->getTransport().getCodec());
+    ASSERT_NE(codec, nullptr);
+    EXPECT_EQ(codec->getHeaderIndexingStrategy(), &testH2IndexingStrat);
+  }
+
   readAndLoop(getResponseBuf(respCodecVersion, txn->getID(), 200, 100).get());
 
   EXPECT_EQ(httpSession_->getMaxConcurrentOutgoingStreams(), 10);

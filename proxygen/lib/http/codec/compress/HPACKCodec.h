@@ -136,6 +136,9 @@ class HPACKCodec : public HeaderCodec, HeaderCodec::StreamingCallback {
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
     encoder_.setHeaderIndexingStrategy(indexingStrat);
   }
+  const HeaderIndexingStrategy* getHeaderIndexingStrategy() const {
+    return encoder_.getHeaderIndexingStrategy();
+  }
 
  protected:
   HPACKEncoder encoder_;

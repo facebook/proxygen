@@ -58,6 +58,16 @@ class HTTPDownstreamTest : public testing::Test {
     HTTPSession::setDefaultReadBufferLimit(65536);
     auto codec = makeServerCodec<typename C::Codec>(C::version);
     rawCodec_ = codec.get();
+
+    // If the codec is H2, getHeaderIndexingStrategy will be called when setting
+    // up the codec
+    if (rawCodec_->getProtocol() == CodecProtocol::HTTP_2) {
+      EXPECT_CALL(mockController_, getHeaderIndexingStrategy())
+        .WillOnce(
+          Return(&testH2IndexingStrat_)
+      );
+    }
+
     httpSession_ = new HTTPDownstreamSession(
       transactionTimeouts_.get(),
       std::move(AsyncTransportWrapper::UniquePtr(transport_)),
@@ -71,6 +81,14 @@ class HTTPDownstreamTest : public testing::Test {
         param = rawCodec_->getDefaultWindowSize();
       }
     }
+
+    // Ensure the H2 header indexing strategy was setup correctly if applicable
+    if (rawCodec_->getProtocol() == CodecProtocol::HTTP_2) {
+      HTTP2Codec* recastedCodec = dynamic_cast<HTTP2Codec*>(rawCodec_);
+      EXPECT_EQ(
+        recastedCodec->getHeaderIndexingStrategy(), &testH2IndexingStrat_);
+    }
+
     httpSession_->setFlowControl(flowControl[0], flowControl[1],
                                  flowControl[2]);
     httpSession_->setEgressSettings({{ SettingsId::MAX_CONCURRENT_STREAMS, 80 },
@@ -407,6 +425,7 @@ class HTTPDownstreamTest : public testing::Test {
   IOBufQueue parseOutputStream_{IOBufQueue::cacheChainLength()};
   bool breakParseOutput_{false};
   typename C::Codec* rawCodec_{nullptr};
+  HeaderIndexingStrategy testH2IndexingStrat_;
 };
 
 // Uses TestAsyncTransport
@@ -1523,15 +1542,30 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
 
   auto handler = addSimpleStrictHandler();
 
+  HeaderIndexingStrategy testH2IndexingStrat;
   handler->expectHeaders();
   EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
-  handler->expectEOM([&handler, expectedUpgradeHeader] {
+  handler->expectEOM(
+    [&handler, expectedProtocol, expectedUpgradeHeader, &testH2IndexingStrat] {
       EXPECT_FALSE(handler->txn_->getSetupTransportInfo().secure);
       EXPECT_EQ(*handler->txn_->getSetupTransportInfo().appProtocol,
                 expectedUpgradeHeader);
+      if (expectedProtocol == CodecProtocol::HTTP_2) {
+        const HTTP2Codec* codec = dynamic_cast<const HTTP2Codec*>(
+          &handler->txn_->getTransport().getCodec());
+        ASSERT_NE(codec, nullptr);
+        EXPECT_EQ(codec->getHeaderIndexingStrategy(), &testH2IndexingStrat);
+      }
       handler->sendReplyWithBody(200, 100);
     });
   handler->expectDetachTransaction();
+
+  if (expectedProtocol == CodecProtocol::HTTP_2) {
+    EXPECT_CALL(mockController_, getHeaderIndexingStrategy())
+      .WillOnce(
+        Return(&testH2IndexingStrat)
+    );
+  }
 
   HTTPMessage req = getUpgradeRequest(upgradeHeader);
   if (upgradeHeader == http2::kProtocolCleartextString) {
@@ -1542,6 +1576,7 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
 
   expect101(expectedProtocol, expectedUpgradeHeader);
   expectResponse();
+
   gracefulShutdown();
 }
 
@@ -1777,6 +1812,11 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_goaway_drain) {
   handler->expectEOM();
   handler->expectGoaway();
   handler->expectDetachTransaction();
+
+  EXPECT_CALL(mockController_, getHeaderIndexingStrategy())
+    .WillOnce(
+      Return(&testH2IndexingStrat_)
+  );
 
   HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
   HTTP2Codec::requestUpgrade(req);

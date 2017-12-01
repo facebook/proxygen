@@ -76,6 +76,9 @@ class HPACKEncoder : public HPACKContext {
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
     indexingStrat_ = indexingStrat;
   }
+  const HeaderIndexingStrategy* getHeaderIndexingStrategy() const {
+    return indexingStrat_;
+  }
 
   static void enableAutoFlush() {
     sEnableAutoFlush_ = true;

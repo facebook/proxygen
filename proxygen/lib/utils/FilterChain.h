@@ -247,8 +247,11 @@ class FilterChain: private FilterType {
   }
 
   /**
-   * Returns the concrete implementation at the end of the filter chain.
-   */
+  * Returns the concrete implementation at the end of the filter chain.
+  */
+  T1* getChainEndPtr() {
+    return chainEnd_;
+  }
   const T1& getChainEnd() const {
     return *chainEnd_;
   }
