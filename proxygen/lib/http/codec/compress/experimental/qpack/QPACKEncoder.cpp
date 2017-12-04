@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKConstants.h>
 
 #include <algorithm>
 #include <unordered_set>
@@ -27,21 +28,24 @@ namespace proxygen {
 QPACKEncoder::QPACKEncoder(bool huffman,
                            uint32_t tableSize) :
     QPACKContext(tableSize),
-    buffer_(kBufferGrowth, huffman::huffTree(), huffman),
+    controlBuffer_(kBufferGrowth, huffman::huffTree(), huffman),
+    streamBuffer_(kBufferGrowth, huffman::huffTree(), huffman),
     minFree_(std::min(kMinFree, tableSize)) {
   // Default the encoder indexing strategy; it can be updated later as well
   setHeaderIndexingStrategy(HeaderIndexingStrategy::getDefaultInstance());
 }
 
-unique_ptr<IOBuf> QPACKEncoder::encode(const vector<HPACKHeader>& headers,
-                                       uint32_t headroom) {
+QPACKEncoder::EncodeResult
+QPACKEncoder::encode(const vector<HPACKHeader>& headers,
+                     uint32_t headroom) {
   if (headroom) {
-    buffer_.addHeadroom(headroom);
+    controlBuffer_.addHeadroom(headroom);
+    streamBuffer_.addHeadroom(headroom);
   }
   for (const auto& header : headers) {
     encodeHeader(header);
   }
-  return buffer_.release();
+  return {controlBuffer_.release(), streamBuffer_.release()};
 }
 
 void QPACKEncoder::encodeHeader(const HPACKHeader& header) {
@@ -54,7 +58,15 @@ void QPACKEncoder::encodeHeader(const HPACKHeader& header) {
 }
 
 void QPACKEncoder::encodeAsIndex(uint32_t index) {
-  buffer_.encodeInteger(index, HPACK::HeaderEncoding::INDEXED, 7);
+  bool isStaticIndex = isStatic(index);
+  uint8_t prefix = QPACK::INDEX_REF.instruction;
+  if (isStaticIndex) {
+    prefix |= QPACK::STATIC_HEADER;
+    index = globalToStaticIndex(index);
+  } else {
+    index = globalToDynamicIndex(index);
+  }
+  streamBuffer_.encodeInteger(index, prefix, QPACK::INDEX_REF.prefixLength);
 }
 
 void QPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
@@ -85,38 +97,55 @@ void QPACKEncoder::encodeAsLiteral(const HPACKHeader& header) {
       "full";
     indexing = false;
   }
-  uint8_t prefix = indexing ?
-    HPACK::HeaderEncoding::LITERAL_INCR_INDEXING :
-    HPACK::HeaderEncoding::LITERAL_NO_INDEXING;
-  uint8_t len = indexing ? 6 : 4;
-
-  uint32_t newIndex = 0;
   if (indexing) {
-    newIndex = table_.nextAvailableIndex();
-    buffer_.encodeInteger(dynamicToGlobalIndex(newIndex), prefix, len);
-    prefix = 0;
-    len = 8;
-  }
-
-  // name
-  uint32_t nameIdx = nameIndex(header.name);
-  if (nameIdx) {
-    buffer_.encodeInteger(nameIdx, prefix, len);
+    encodeAsIndex(encodeTableInsert(header));
   } else {
-    buffer_.encodeInteger(0, prefix, len);
-    buffer_.encodeLiteral(header.name.get());
-  }
-  // value
-  buffer_.encodeLiteral(header.value);
-  // indexed ones need to get added to the header table
-  if (indexing) {
-    table_.add(header, newIndex);
+    // not indexing, has to be iteral
+    encodeLiteral(streamBuffer_, header, QPACK::LITERAL.prefixLength);
   }
 }
 
+uint32_t QPACKEncoder::encodeTableInsert(const HPACKHeader& header) {
+  uint32_t newIndex = table_.nextAvailableIndex();
+  controlBuffer_.encodeInteger(newIndex, QPACK::INSERT.instruction,
+                               QPACK::INSERT.prefixLength);
+
+  encodeLiteral(controlBuffer_, header, QPACK::NAME_REF.prefixLength);
+  // indexed ones need to get added to the header table
+  table_.add(header, newIndex);
+  auto tIndex = table_.getIndexRef(header);
+  CHECK_EQ(newIndex, tIndex);
+  return dynamicToGlobalIndex(newIndex);
+}
+
+void QPACKEncoder::encodeLiteral(HPACKEncodeBuffer& buffer,
+                                 const HPACKHeader& header,
+                                 uint8_t nameIndexPrefixLen) {
+  // name
+  uint32_t nameIdx = nameIndex(header.name);
+  if (nameIdx) {
+    uint8_t prefix = 0;
+    if (isStatic(nameIdx)) {
+      prefix = static_cast<uint8_t>(1) << nameIndexPrefixLen;
+      nameIdx = globalToStaticIndex(nameIdx);
+    } else {
+      nameIdx = globalToDynamicIndex(nameIdx);
+    }
+    buffer.encodeInteger(nameIdx, prefix, nameIndexPrefixLen);
+  } else {
+    buffer.encodeInteger(0, QPACK::NONE.instruction,
+                         QPACK::NONE.prefixLength);
+    buffer.encodeLiteral(header.name.get());
+  }
+  // value
+  buffer.encodeLiteral(header.value);
+}
+
 void QPACKEncoder::encodeDelete(uint32_t delIndex, uint32_t refcount) {
-  buffer_.encodeInteger(refcount, HPACK::TABLE_SIZE_UPDATE, 5);
-  buffer_.encodeInteger(delIndex, 0x00, 8);
+  controlBuffer_.encodeInteger(refcount, QPACK::DELETE.instruction,
+                               QPACK::DELETE.prefixLength);
+  controlBuffer_.encodeInteger(delIndex, QPACK::NONE.instruction,
+                               QPACK::NONE.prefixLength);
 }
 
 void QPACKEncoder::deleteAck(const folly::IOBuf* ackBits) {

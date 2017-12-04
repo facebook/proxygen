@@ -35,7 +35,11 @@ class QPACKEncoder : public QPACKContext {
   /**
    * Encode the given headers and return the buffer
    */
-  std::unique_ptr<folly::IOBuf> encode(
+
+  using EncodeResult = std::pair<std::unique_ptr<folly::IOBuf>,
+                                 std::unique_ptr<folly::IOBuf>>;
+
+  EncodeResult encode(
     const std::vector<HPACKHeader>& headers,
     uint32_t headroom = 0);
 
@@ -55,10 +59,17 @@ class QPACKEncoder : public QPACKContext {
 
   void encodeDelete(uint32_t delIndex, uint32_t refcount);
 
+  void encodeLiteral(HPACKEncodeBuffer& buffer,
+                     const HPACKHeader& header,
+                     uint8_t nameIndexPrefixLen);
+
+  uint32_t encodeTableInsert(const HPACKHeader& header);
+
   const HeaderIndexingStrategy* indexingStrat_;
 
  protected:
-  HPACKEncodeBuffer buffer_;
+  HPACKEncodeBuffer controlBuffer_;
+  HPACKEncodeBuffer streamBuffer_;
   uint32_t minFree_{128};
 };
 

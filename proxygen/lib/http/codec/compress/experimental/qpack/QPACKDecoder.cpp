@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKConstants.h>
 // for hpack2headerCodecError
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 
@@ -43,6 +44,22 @@ QPACKDecoder::~QPACKDecoder() {
   // futures are left running but have DestructorCheck's
 }
 
+void QPACKDecoder::decodeControlStream(folly::io::Cursor& cursor,
+                                       uint32_t totalBytes) {
+  decodeRequests_.emplace_front(nullptr, totalBytes);
+  auto dreq = decodeRequests_.begin();
+  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
+                         maxUncompressed_);
+  while (!dreq->hasError() && !dbuf.empty()) {
+    dreq->pending++;
+    decodeHeaderControl(dbuf, dreq);
+  }
+  dreq->allSubmitted = !dreq->hasError();
+  dreq->consumedBytes = dbuf.consumedBytes();
+  checkComplete(dreq);
+}
+
+
 bool QPACKDecoder::decodeStreaming(
     Cursor& cursor,
     uint32_t totalBytes,
@@ -70,7 +87,7 @@ bool QPACKDecoder::decodeStreaming(
 void QPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf,
                                 DecodeRequestHandle dreq) {
   uint8_t byte = dbuf.peek();
-  if (byte & HPACK::HeaderEncoding::INDEXED) {
+  if (byte & QPACK::INDEX_REF.instruction) {
     decodeIndexedHeader(dbuf, dreq);
   } else {
     // LITERAL_NO_INDEXING or LITERAL_INCR_INDEXING
@@ -81,7 +98,8 @@ void QPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf,
 void QPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
                                        DecodeRequestHandle dreq) {
   uint32_t index;
-  dreq->err = dbuf.decodeInteger(7, index);
+  bool isStaticIndex = dbuf.peek() & QPACK::STATIC_HEADER;
+  dreq->err = dbuf.decodeInteger(QPACK::INDEX_REF.prefixLength, index);
   if (dreq->hasError()) {
     LOG(ERROR) << "Decode error decoding index err=" << dreq->err;
     return;
@@ -91,6 +109,11 @@ void QPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
     LOG(ERROR) << "received invalid index: " << index;
     dreq->err = HPACK::DecodeError::INVALID_INDEX;
     return;
+  }
+  if (isStaticIndex) {
+    index = staticToGlobalIndex(index);
+  } else {
+    index = dynamicToGlobalIndex(index);
   }
   if (isStatic(index)) {
     emit(dreq, getStaticHeader(index));
@@ -127,6 +150,7 @@ bool QPACKDecoder::isValid(uint32_t index) {
 
 void QPACKDecoder::emit(DecodeRequestHandle dreq, const HPACKHeader& header) {
   // would be nice to std::move here
+  CHECK(dreq->cb);
   dreq->cb->onHeader(header.name.get(), header.value);
   dreq->decodedSize.uncompressed += header.bytes();
   dreq->pending--;
@@ -136,11 +160,15 @@ void QPACKDecoder::emit(DecodeRequestHandle dreq, const HPACKHeader& header) {
 
 bool QPACKDecoder::checkComplete(DecodeRequestHandle dreq) {
   if (dreq->pending == 0 && dreq->allSubmitted) {
-    dreq->cb->onHeadersComplete(dreq->decodedSize);
+    if (dreq->cb) {
+      dreq->cb->onHeadersComplete(dreq->decodedSize);
+    }
     decodeRequests_.erase(dreq);
     return true;
   } else if (dreq->hasError()) {
-    dreq->cb->onDecodeError(hpack2headerCodecError(dreq->err));
+    if (dreq->cb) {
+      dreq->cb->onDecodeError(hpack2headerCodecError(dreq->err));
+    }
     decodeRequests_.erase(dreq);
     return true;
   }
@@ -149,65 +177,57 @@ bool QPACKDecoder::checkComplete(DecodeRequestHandle dreq) {
 
 void QPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
                                        DecodeRequestHandle dreq) {
+  decodeLiteral(dbuf, dreq, QPACK::LITERAL.prefixLength, 0);
+}
+
+void QPACKDecoder::decodeHeaderControl(HPACKDecodeBuffer& dbuf,
+                                       DecodeRequestHandle dreq) {
   uint8_t byte = dbuf.peek();
-  bool indexing = byte & HPACK::HeaderEncoding::LITERAL_INCR_INDEXING;
-  uint8_t indexMask;
-  uint8_t length = 6;
+  bool indexing = byte & QPACK::INSERT.instruction;
   uint32_t newIndex = 0;
   if (indexing) {
-    dreq->err = dbuf.decodeInteger(length, newIndex);
+    dreq->err = dbuf.decodeInteger(QPACK::INSERT.prefixLength, newIndex);
     if (dreq->hasError()) {
       LOG(ERROR) << "Decode error decoding newIndex err=" << dreq->err;
       return;
     }
-    if (isStatic(newIndex)) {
-      LOG(ERROR) << "Decode error newIndex=" << newIndex;
-      dreq->err = HPACK::DecodeError::INVALID_INDEX;
-      return;
-    }
-    newIndex = globalToDynamicIndex(newIndex);
-    if (dbuf.empty()) {
-      LOG(ERROR) << "Decode error underflow";
-      dreq->err = HPACK::DecodeError::BUFFER_UNDERFLOW;
-      return;
-    }
-
-    byte = dbuf.peek();
-    length = 8;
-    indexMask = 0xFF; // 1111 1111
   } else {
-    // HPACK::TABLE_SIZE_UPDATE is QPACK::DELETE
-    bool deleteOp = byte & HPACK::HeaderEncoding::TABLE_SIZE_UPDATE;
-    if (deleteOp) {
-      decodeDelete(dbuf, dreq);
-      return;
-    } else {
-      //bool neverIndex = byte & HPACK::HeaderEncoding::LITERAL_NEVER_INDEXING;
-      // TODO: we need to emit this flag with the headers
-    }
-    indexMask = 0x0F; // 0000 1111
-    length = 4;
+    // deletion
+    decodeDelete(dbuf, dreq);
+    return;
+  }
+  decodeLiteral(dbuf, dreq, QPACK::NAME_REF.prefixLength, newIndex);
+}
+
+void QPACKDecoder::decodeLiteral(HPACKDecodeBuffer& dbuf,
+                                 DecodeRequestHandle dreq,
+                                 uint8_t nameIndexPrefixLen,
+                                 uint32_t newIndex) {
+  uint8_t nameIndexStaticMask = static_cast<uint8_t>(1) << nameIndexPrefixLen;
+  if (dbuf.empty()) {
+    LOG(ERROR) << "Decode error underflow";
+    dreq->err = HPACK::DecodeError::BUFFER_UNDERFLOW;
+    return;
+  }
+
+  auto byte = dbuf.peek();
+  bool staticName = (byte & nameIndexStaticMask);
+  uint32_t nameIndex = 0;
+  dreq->err = dbuf.decodeInteger(nameIndexPrefixLen, nameIndex);
+  if (dreq->hasError()) {
+    LOG(ERROR) << "Decode error decoding index err=" << dreq->err;
+    return;
   }
   QPACKHeaderTable::DecodeFuture nameFuture{
     QPACKHeaderTable::DecodeResult(HPACKHeader())};
-  uint32_t nameIndex;
-  bool nameIndexed = byte & indexMask;
-  if (nameIndexed) {
-    dreq->err = dbuf.decodeInteger(length, nameIndex);
-    if (dreq->hasError()) {
-      LOG(ERROR) << "Decode error decoding index err=" << dreq->err;
-      return;
-    }
-    // validate the index
-    if (!isValid(nameIndex)) {
-      LOG(ERROR) << "received invalid index: " << nameIndex;
-      dreq->err = HPACK::DecodeError::INVALID_INDEX;
-      return;
+  if (nameIndex) {
+    if (staticName) {
+      nameIndex = staticToGlobalIndex(nameIndex);
+    } else {
+      nameIndex = dynamicToGlobalIndex(nameIndex);
     }
     nameFuture = getHeader(nameIndex);
   } else {
-    // skip current byte
-    dbuf.next();
     folly::fbstring headerName;
     dreq->err = dbuf.decodeLiteral(headerName);
     HPACKHeader header(headerName, "");
@@ -234,7 +254,7 @@ void QPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
   pendingDecodeBytes_ += value.length();
   nameFuture
     .then(
-      [this, value=std::move(value), dreq, indexing, newIndex]
+      [this, value=std::move(value), dreq, newIndex]
       (QPACKHeaderTable::DecodeResult res) mutable {
         pendingDecodeBytes_ -= value.length();
         HPACKHeader header;
@@ -245,9 +265,10 @@ void QPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
         }
         header.value = std::move(value);
         // get the memory story straight
-        emit(dreq, header);
-        if (indexing) {
+        if (newIndex) {
           table_.add(header, newIndex);
+        } else {
+          emit(dreq, header);
         }
       })
     .onTimeout(kDecodeTimeout, [this, dreq] {
@@ -268,12 +289,12 @@ void QPACKDecoder::decodeDelete(HPACKDecodeBuffer& dbuf,
                                 DecodeRequestHandle dreq) {
   uint32_t refcount;
   uint32_t delIndex;
-  dreq->err = dbuf.decodeInteger(5, refcount);
+  dreq->err = dbuf.decodeInteger(QPACK::DELETE.prefixLength, refcount);
   if (dreq->hasError() || refcount == 0) {
     LOG(ERROR) << "Invalid recount decoding delete refcount=" << refcount;
     return;
   }
-  dreq->err = dbuf.decodeInteger(8, delIndex);
+  dreq->err = dbuf.decodeInteger(QPACK::NONE.prefixLength, delIndex);
   if (dreq->hasError() || delIndex == 0 || isStatic(delIndex)) {
     LOG(ERROR) << "Invalid index decoding delete delIndex=" << delIndex;
     return;

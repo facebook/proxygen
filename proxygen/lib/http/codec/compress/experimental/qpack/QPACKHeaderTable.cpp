@@ -125,7 +125,7 @@ QPACKHeaderTable::encoderRemove(uint32_t index) {
   it->second.valid = false;
   it->second.delRefCount = it->second.refCount;
   pendingDeleteBytes_ += it->second.bytes();
-  VLOG(4) << "Evicting h=" << it->second;
+  VLOG(4) << "Evicting h=" << it->second << " refcount=" << it->second.refCount;
   return {it->second.refCount, getDeleteFuture(index)};
 }
 
@@ -155,6 +155,8 @@ QPACKHeaderTable::DeleteFuture QPACKHeaderTable::decoderRemove(
           // discards returned header if deletion is done
           return folly::makeFuture();
         } else {
+          VLOG(5) << "index=" << index << " refcount=" << it->second.refCount
+                  << " delRefCount=" << delRefCount;
           return getDeleteFuture(index);
         }
       });
@@ -188,6 +190,7 @@ folly::Optional<HPACKHeader> QPACKHeaderTable::maybeRemoveIndex(
   HPACKHeader header(std::move(it->second));
   auto index = it->first;
   folly::Bits<uint64_t>::set(availIndexes_.begin(), index - 1);
+  VLOG(5) << "Dropping h=" << header;
   table_.erase(it);
   fulfillDeletePromise(index);
   return folly::Optional<HPACKHeader>(std::move(header));

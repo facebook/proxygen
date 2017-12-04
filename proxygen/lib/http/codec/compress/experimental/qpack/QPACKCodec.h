@@ -37,12 +37,23 @@ class QPACKCodec : public HeaderCodec, public QPACKDecoder::Callback {
   explicit QPACKCodec();
   ~QPACKCodec() override {}
 
+  using EncodeResult = std::pair<std::unique_ptr<folly::IOBuf>,
+                                 std::unique_ptr<folly::IOBuf>>;
+
   std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers) noexcept override;
+    std::vector<compress::Header>&) noexcept override {
+    LOG(FATAL) << "deprecated: use encodeQuic instead";
+    return nullptr;
+  }
+
+  EncodeResult encodeQuic(
+    std::vector<compress::Header>& headers) noexcept;
 
   Result<HeaderDecodeResult, HeaderDecodeError>
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
 
+  void decodeControlStream(folly::io::Cursor& cursor,
+                           uint32_t totalBytes);
   void decodeStreaming(
       folly::io::Cursor& cursor,
       uint32_t length,

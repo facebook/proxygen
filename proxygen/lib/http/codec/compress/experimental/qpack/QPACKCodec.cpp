@@ -37,7 +37,8 @@ QPACKCodec::decode(folly::io::Cursor&, uint32_t) noexcept {
   return HeaderDecodeError::BAD_ENCODING;
 }
 
-unique_ptr<IOBuf> QPACKCodec::encode(vector<Header>& headers) noexcept {
+QPACKCodec::EncodeResult QPACKCodec::encodeQuic(
+  vector<Header>& headers) noexcept {
   vector<HPACKHeader> converted;
   // convert to HPACK API format
   uint32_t uncompressed = 0;
@@ -46,16 +47,23 @@ unique_ptr<IOBuf> QPACKCodec::encode(vector<Header>& headers) noexcept {
     auto& header = converted.back();
     uncompressed += header.name.size() + header.value.size() + 2;
   }
-  auto buf = encoder_.encode(converted, encodeHeadroom_);
+  auto result = encoder_.encode(converted, encodeHeadroom_);
   encodedSize_.compressed = 0;
-  if (buf) {
-    encodedSize_.compressed = buf->computeChainDataLength();
+  if (result.first) {
+    encodedSize_.compressed += result.first->computeChainDataLength();
+  }
+  if (result.second) {
+    encodedSize_.compressed += result.second->computeChainDataLength();
   }
   encodedSize_.uncompressed = uncompressed;
   if (stats_) {
     stats_->recordEncode(Type::HPACK, encodedSize_);
   }
-  return buf;
+  return result;
+}
+
+void QPACKCodec::decodeControlStream(Cursor& cursor, uint32_t length) {
+  decoder_.decodeControlStream(cursor, length);
 }
 
 void QPACKCodec::decodeStreaming(

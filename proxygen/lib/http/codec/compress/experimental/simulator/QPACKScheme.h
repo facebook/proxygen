@@ -50,11 +50,30 @@ class QPACKScheme : public CompressionScheme {
     std::vector<compress::Header> allHeaders,
     SimStats& stats) override {
     index++;
-    auto block = client_.encode(allHeaders);
+    auto result = client_.encodeQuic(allHeaders);
     stats.uncompressed += client_.getEncodedSize().uncompressed;
     stats.compressed += client_.getEncodedSize().compressed;
+    // encodeQuic returns a control buffer and a stream buffer, but the encode
+    // API must return a single buffer.  Prefix the control bytes with
+    // a length so the decoder can do the right thing.  We'll need to refactor
+    // the simulator to handle control streams separately from request streams.
+    //
+    // The simulator will not decode the control stream bytes until
+    // all the packets of this header block are received.  This could cause
+    // QPACK to report HoL delays that wouldn't occur in practice.
+    auto header = folly::IOBuf::create(4);
+    header->append(4);
+    folly::io::RWPrivateCursor cursor(header.get());
+    cursor.writeBE<uint32_t>(result.first ?
+                             result.first->computeChainDataLength() : 0);
+    if (result.first) {
+      header->prependChain(std::move(result.first));
+    }
+    if (result.second) {
+      header->prependChain(std::move(result.second));
+    }
     // OOO is always allowed
-    return {true, std::move(block)};
+    return {true, std::move(header)};
   }
 
   void decode(bool allowOOO, std::unique_ptr<folly::IOBuf> encodedReq,
@@ -62,6 +81,9 @@ class QPACKScheme : public CompressionScheme {
     VLOG(1) << "Decoding request=" << callback.requestIndex << " allowOOO="
             << uint32_t(allowOOO);
     folly::io::Cursor c(encodedReq.get());
+    auto controlLen = c.readBE<uint32_t>();
+    std::unique_ptr<folly::IOBuf> controlBlock;
+    server_.decodeControlStream(c, controlLen);
     server_.decodeStreaming(c, c.totalLength(), &callback);
     callback.maybeMarkHolDelay();
     if (server_.getQueuedBytes() > stats.maxQueueBufferBytes) {

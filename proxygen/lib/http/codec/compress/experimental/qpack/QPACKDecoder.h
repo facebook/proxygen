@@ -38,6 +38,8 @@ class QPACKDecoder : public QPACKContext {
         maxUncompressed_(maxUncompressed) {}
   ~QPACKDecoder();
 
+  void decodeControlStream(folly::io::Cursor& cursor,
+                           uint32_t totalBytes);
   /**
    * given a Cursor and a total amount of bytes we can consume from it,
    * decode headers and invoke a callback.
@@ -91,6 +93,14 @@ class QPACKDecoder : public QPACKContext {
   void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf, DecodeRequestHandle dreq);
 
   bool checkComplete(DecodeRequestHandle dreq);
+
+  void decodeLiteral(HPACKDecodeBuffer& buffer,
+                     DecodeRequestHandle dreq,
+                     uint8_t nameIndexPrefixLen,
+                     uint32_t newIndex);
+
+  void decodeHeaderControl(HPACKDecodeBuffer& dbuf,
+                           DecodeRequestHandle dreq);
 
   Callback& callback_;
   uint32_t maxUncompressed_;
