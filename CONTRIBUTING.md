@@ -1,6 +1,9 @@
 # Contributing to Proxygen
 Here's a quick rundown of how to contribute to this project.
 
+## Code of Conduct
+The code of conduct is described in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+
 ## Our Development Process
 We develop on a private branch internally at Facebook. We regularly update
 this github project with the changes from the internal repo. External pull
