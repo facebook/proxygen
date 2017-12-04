@@ -61,7 +61,8 @@ int main(int argc, char* argv[]) {
   HTTPMethod httpMethod = *stringToMethod(FLAGS_http_method);
   if (httpMethod == HTTPMethod::POST) {
     try {
-      File(FLAGS_input_filename);
+      File f(FLAGS_input_filename);
+      (void)f;
     } catch (const std::system_error& se) {
       LOG(ERROR) << "Couldn't open file for POST method";
       LOG(ERROR) << se.what();
