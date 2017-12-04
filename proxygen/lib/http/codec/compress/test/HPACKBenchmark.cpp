@@ -18,9 +18,13 @@ using namespace folly;
 using namespace proxygen;
 using proxygen::HPACKHeader;
 
+unique_ptr<IOBuf> encode(vector<HPACKHeader>& headers, HPACKEncoder& encoder) {
+  return encoder.encode(headers);
+}
+
 void encodeDecode(vector<HPACKHeader>& headers, HPACKEncoder& encoder,
                   HPACKDecoder& decoder) {
-  unique_ptr<IOBuf> encoded = encoder.encode(headers);
+  unique_ptr<IOBuf> encoded = encode(headers, encoder);
   auto decodedHeaders = decoder.decode(encoded.get());
   CHECK(!decoder.hasError());
 }
@@ -49,6 +53,16 @@ namespace {
 static vector<HPACKHeader> headers = getHeaders();
 }
 
+void encodeBench(int reencodes, int iters) {
+  for (int i = 0; i < iters; i++) {
+    HPACKEncoder encoder(true);
+    encode(headers, encoder);
+    for (int j = 0; j < reencodes; j++) {
+      encode(headers, encoder);
+    }
+  }
+}
+
 void encodeDecodeBench(int reencodes, int iters) {
   for (int i = 0; i < iters; i++) {
     HPACKEncoder encoder(true);
@@ -60,6 +74,17 @@ void encodeDecodeBench(int reencodes, int iters) {
   }
 }
 
+BENCHMARK(Encode, iters) {
+  encodeBench(0, iters);
+}
+
+BENCHMARK(Encode1, iters) {
+  encodeBench(1, iters);
+}
+
+BENCHMARK(Encode2, iters) {
+  encodeBench(2, iters);
+}
 
 BENCHMARK(EncodeDecode, iters) {
   encodeDecodeBench(0, iters);
