@@ -35,19 +35,28 @@ class Service {
   virtual ~Service();
 
   /**
-   * Start the service.
+   * Initialize the service.
    *
-   * start() will be invoked from proxygen's main thread, before the worker
+   * init() will be invoked from proxygen's main thread, before the worker
    * threads have started processing their event loops.
    *
    * The return value indicates if the service is enabled or not.  Return true
-   * if the service is enabled and was started successfully, and false if the
-   * service is disabled and is intentionally not started.  Throw an exception
-   * if the service is enabled and is supposed to be running, but an error
-   * occurred starting it.
+   * if the service is enabled and was initialized successfully, and false if
+   * the service is disabled or is intialized successfully.  Throw an exception
+   * if an error occurred initializing it.
    */
-  virtual void start(folly::EventBase* mainEventBase,
-                     const std::list<RequestWorker*>& workers) = 0;
+  virtual void init(folly::EventBase* mainEventBase,
+                    const std::list<RequestWorker*>& workers) = 0;
+
+  /**
+   * Start to accept connection on the listening sockect(s)
+   *
+   * All the expansive preparation work should be done befofe startAccepting(),
+   * i.g., in constructor or init().  startAccepting() should be lightweight,
+   * ideally just the call of accept() on all the listening sockects.
+   * Otherwise, the first accepted connection may experience high latency.
+   */
+  virtual void startAccepting() {}
 
   /**
    * Mark the service as about to stop; invoked from main thread.
