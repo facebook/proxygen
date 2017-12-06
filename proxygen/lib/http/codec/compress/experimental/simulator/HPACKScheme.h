@@ -22,11 +22,14 @@ namespace proxygen { namespace compress {
  */
 class HPACKScheme : public CompressionScheme {
  public:
-  explicit HPACKScheme(CompressionSimulator* sim)
+  explicit HPACKScheme(CompressionSimulator* sim, uint32_t tableSize)
       : CompressionScheme(sim) {
     client_.setEncodeHeadroom(2);
     client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
     server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
+    client_.setEncoderHeaderTableSize(tableSize);
+    server_.setDecoderHeaderTableMaxSize(tableSize);
+    allowOOO_ = (tableSize == 0);
   }
 
   ~HPACKScheme() {
@@ -46,11 +49,11 @@ class HPACKScheme : public CompressionScheme {
     c.writeBE<uint16_t>(index++);
     stats.uncompressed += client_.getEncodedSize().uncompressed;
     stats.compressed += client_.getEncodedSize().compressed;
-    // OOO is never allowed
-    return {false, std::move(block)};
+    // OOO is allowed with 0 table size
+    return {allowOOO_, std::move(block)};
   }
 
-  void decode(bool /*allowOOO*/, std::unique_ptr<folly::IOBuf> encodedReq,
+  void decode(bool allowOOO, std::unique_ptr<folly::IOBuf> encodedReq,
               SimStats& stats, SimStreamingCallback& callback) override {
     folly::io::Cursor cursor(encodedReq.get());
     auto seqn = cursor.readBE<uint16_t>();
@@ -61,7 +64,7 @@ class HPACKScheme : public CompressionScheme {
     encodedReq->trimStart(sizeof(uint16_t));
     serverQueue_.enqueueHeaderBlock(seqn,
                                     std::move(encodedReq),
-                                    len, &callback, false);
+                                    len, &callback, allowOOO);
     callback.maybeMarkHolDelay();
     if (serverQueue_.getQueuedBytes() > stats.maxQueueBufferBytes) {
       stats.maxQueueBufferBytes = serverQueue_.getQueuedBytes();
@@ -75,5 +78,6 @@ class HPACKScheme : public CompressionScheme {
   HPACKCodec client_{TransportDirection::UPSTREAM};
   HPACKCodec server_{TransportDirection::DOWNSTREAM};
   HPACKQueue serverQueue_{server_};
+  bool allowOOO_{false};
 };
 }}

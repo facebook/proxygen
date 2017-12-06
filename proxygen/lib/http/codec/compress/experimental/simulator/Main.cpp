@@ -23,6 +23,7 @@ DEFINE_double(lossp, 0.0, "Loss Probability");
 DEFINE_double(delayp, 0.05, "Delay Probability");
 DEFINE_int32(delay, 100, "Max extra delay");
 DEFINE_int32(ooo_thresh, 0, "First seqn to allow ooo");
+DEFINE_int32(table_size, 4096, "HPACK dynamic table size");
 DEFINE_int64(seed, 0, "RNG seed");
 DEFINE_bool(blend, true, "Blend all facebook.com and fbcdn.net domains");
 DEFINE_bool(same_packet_compression, true, "Allow QCRAM to compress across "
@@ -49,7 +50,7 @@ int main(int argc, char* argv[]) {
     LOG(INFO) << "Using QPACK";
     t = SchemeType::QPACK;
   } else if (FLAGS_scheme == "hpack") {
-    LOG(INFO) << "Using HPACK";
+    LOG(INFO) << "Using HPACK with table size=" << FLAGS_table_size;
     t = SchemeType::HPACK;
   } else {
     LOG(ERROR) << "Unsupported scheme";
@@ -61,7 +62,8 @@ int main(int argc, char* argv[]) {
   }
   SimParams p{t, FLAGS_seed, std::chrono::milliseconds(FLAGS_rtt), FLAGS_lossp,
       FLAGS_delayp, std::chrono::milliseconds(FLAGS_delay),
-      uint16_t(FLAGS_ooo_thresh), FLAGS_blend, FLAGS_same_packet_compression};
+      uint16_t(FLAGS_ooo_thresh), FLAGS_blend, FLAGS_same_packet_compression,
+      uint32_t(FLAGS_table_size)};
   CompressionSimulator sim(p);
   if (sim.readInputFromFileAndSchedule(FLAGS_input)) {
     sim.run();

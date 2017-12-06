@@ -235,7 +235,7 @@ unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
   } else if (params_.type == SchemeType::QPACK) {
     return make_unique<QPACKScheme>(this);
   } else if (params_.type == SchemeType::HPACK) {
-    return make_unique<HPACKScheme>(this);
+    return make_unique<HPACKScheme>(this, params_.tableSize);
   }
   LOG(FATAL) << "Bad scheme";
   return nullptr;

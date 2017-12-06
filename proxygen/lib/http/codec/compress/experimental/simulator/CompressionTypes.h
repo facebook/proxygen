@@ -28,6 +28,7 @@ struct SimParams {
   uint16_t minOOOThresh;
   bool blend;
   bool samePacketCompression;
+  uint32_t tableSize;
 };
 
 struct SimStats {
