@@ -7,6 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <regex>
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
@@ -28,8 +29,29 @@ const size_t kMTU = 1400;
 
 const std::string kTestDir = getContainingDirectory(__FILE__).str();
 
+std::string sort_cookie_crumbs (string cookie)
+{
+  std::vector<std::string> crumbs;
+  std::string retval = "";
+  regex pat{"; *"};
+  sregex_token_iterator end{};
+  for (sregex_token_iterator p{cookie.begin(), cookie.end(), pat, -1};
+       p!=end; ++p)
+          crumbs.push_back(*p);
+  sort(crumbs.begin(), crumbs.end());
+  for_each(crumbs.begin(), crumbs.end(),
+    [&retval] (string val) {
+      if (retval.empty())
+        retval.append(val);
+      else
+        retval.append("; ").append(val);
+    });
+  return retval;
+}
+
 bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
   bool allValuesPresent = true;
+  bool verifyCookies = false;
   h1.forEachWithCode(
     [&] (HTTPHeaderCode code, const string& name, const string& value1) {
       bool h2HasValue = h2.forEachValueOfHeader(
@@ -37,13 +59,41 @@ bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
           return (value1 == value2);
         });
       if (!h2HasValue && code == HTTP_HEADER_COOKIE) {
-        LOG(WARNING) << "Possible bad cookie=" << value1;
+        verifyCookies = true;
         return;
       }
       DCHECK(h2HasValue) << "h2 does not contain name=" << name << " value="
                          << value1;
       allValuesPresent &= h2HasValue;
     });
+
+  if (verifyCookies)
+  {
+    const HTTPHeaders headers[] = { h1, h2, };
+    std::string cookies[2] = { "", "", };
+    unsigned i;
+    for (i = 0; i < 2; ++i)
+    {
+      headers[i].forEachValueOfHeader(HTTP_HEADER_COOKIE,
+        [&] (const std::string& val) {
+          if (cookies[i].empty())
+            cookies[i].append(val);
+          else
+            cookies[i].append("; ").append(val);
+          return true;
+        });
+      cookies[i] = sort_cookie_crumbs(cookies[i]);
+    }
+    if (cookies[0] == cookies[1])
+      LOG(INFO) << "Cookie crumbs are reordered";
+    else
+    {
+      LOG(INFO) << "Cookies are not equal: `" << cookies[0] << "' vs. `"
+        << cookies[1] << "'";
+      return false;
+    }
+  }
+
   return allValuesPresent;
 }
 
