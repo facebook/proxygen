@@ -127,7 +127,7 @@ void CompressionSimulator::setupRequest(uint16_t index, HTTPMessage&& msg,
     verifyHeaders(requests_[index], *callbacks_[index].getResult().ok());
     stats_.holDelay += holDelay;
     VLOG(1) << "Finished decoding request=" << index << " with holDelay=" <<
-    holDelay.count();
+    holDelay.count() << " cumulative HoL delay=" << stats_.holDelay.count();
     sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
   };
   callbacks_.emplace_back(index, decodeCompleteCB);
@@ -159,7 +159,7 @@ void CompressionScheme::runLoopCallback() noexcept {
 
 void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
   CHECK(!scheme->encodedBlocks.empty());
-  VLOG(1) << "Flushing " << scheme->encodedBlocks.size() << " requests";
+  VLOG(2) << "Flushing " << scheme->encodedBlocks.size() << " requests";
   // tracks the number of bytes in the current simulated packet
   size_t packetBytes = 0;
   auto encodeRes = &scheme->encodedBlocks.front();
@@ -286,9 +286,10 @@ CompressionSimulator::encode(CompressionScheme* scheme, uint16_t index) {
       }
     });
   auto res = scheme->encode(std::move(allHeaders), stats_);
-  VLOG(4) << "Encoded request=" << index << " for host=" << host
-          << " block size=" <<
-    res.second->computeChainDataLength();
+  VLOG(1) << "Encoded request=" << index << " for host=" << host
+          << " block size=" << res.second->computeChainDataLength()
+          << " cumulative compression ratio=" <<
+    int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
   return res;
 }
 
