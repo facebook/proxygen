@@ -9,7 +9,7 @@
  */
 #include "ZlibStreamCompressor.h"
 
-#include <folly/Bits.h>
+#include <folly/lang/Bits.h>
 #include <folly/io/Cursor.h>
 
 using namespace folly;

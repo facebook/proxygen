@@ -14,7 +14,7 @@
 #include <string>
 #include <unordered_map>
 #include <folly/futures/Future.h>
-#include <folly/Bits.h>
+#include <folly/lang/Bits.h>
 
 namespace proxygen {
 
