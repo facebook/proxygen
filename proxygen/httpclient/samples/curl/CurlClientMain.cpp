@@ -72,10 +72,10 @@ int main(int argc, char* argv[]) {
 
   vector<StringPiece> headerList;
   HTTPHeaders headers;
-  folly::split("|", FLAGS_headers, headerList);
+  folly::split("=", FLAGS_headers, headerList);
   for (const auto& headerPair: headerList) {
     vector<StringPiece> nv;
-    folly::split(':', headerPair, nv);
+    folly::split(',', headerPair, nv);
     if (nv.size() > 0) {
       if (nv[0].empty()) {
         continue;
