@@ -157,8 +157,9 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
 }
 
 void HTTPUpstreamSession::detachTransactions() {
-  for (auto& txn : transactions_) {
-    detach(&txn.second);
+  while (!transactions_.empty()) {
+    auto txn = transactions_.begin();
+    detach(&txn->second);
   }
 }
 
