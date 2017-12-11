@@ -788,10 +788,16 @@ bool HTTPMessage::computeKeepalive() const {
     return false;
   }
 
+  const std::string kKeepAliveConnToken = "keep-alive";
   if (version_ == kHTTPVersion10) {
       // HTTP 1.0 persistent connections require a Connection: Keep-Alive
       // header to be present for the connection to be persistent.
-      if (checkForHeaderToken(HTTP_HEADER_CONNECTION, "keep-alive", false)) {
+      if (checkForHeaderToken(
+              HTTP_HEADER_CONNECTION, kKeepAliveConnToken.c_str(), false) ||
+          doHeaderTokenCheck(strippedPerHopHeaders_,
+                             HTTP_HEADER_CONNECTION,
+                             kKeepAliveConnToken.c_str(),
+                             false)) {
         return true;
       }
       return false;
@@ -804,6 +810,13 @@ bool HTTPMessage::computeKeepalive() const {
 bool HTTPMessage::checkForHeaderToken(const HTTPHeaderCode headerCode,
                                       char const* token,
                                       bool caseSensitive) const {
+  return doHeaderTokenCheck(headers_, headerCode, token, caseSensitive);
+}
+
+bool HTTPMessage::doHeaderTokenCheck(const HTTPHeaders& headers,
+                                     const HTTPHeaderCode headerCode,
+                                     char const* token,
+                                     bool caseSensitive) const {
   StringPiece tokenPiece(token);
   string lowerToken;
   if (!caseSensitive) {
@@ -811,10 +824,11 @@ bool HTTPMessage::checkForHeaderToken(const HTTPHeaderCode headerCode,
     boost::to_lower(lowerToken, defaultLocale);
     tokenPiece.reset(lowerToken);
   }
+
   // Search through all of the headers with this name.
   // forEachValueOfHeader will return true iff it was "broken" prematurely
   // with "return true" in the lambda-function
-  return headers_.forEachValueOfHeader(headerCode, [&] (const string& value) {
+  return headers.forEachValueOfHeader(headerCode, [&] (const string& value) {
     string lower;
     // Use StringPiece, since it implements a faster find() than std::string
     StringPiece headerValue;

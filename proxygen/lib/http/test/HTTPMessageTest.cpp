@@ -298,6 +298,14 @@ TEST(HTTPMessage, TestKeepaliveCheck) {
     msg.getHeaders().add(HTTP_HEADER_CONNECTION, "close");
     EXPECT_FALSE(msg.computeKeepalive());
   }
+
+  {
+    HTTPMessage msg;
+    msg.setHTTPVersion(1, 0);
+    msg.getHeaders().add(HTTP_HEADER_CONNECTION, "keep-alive");
+    msg.stripPerHopHeaders();
+    EXPECT_TRUE(msg.computeKeepalive());
+  }
 }
 
 TEST(HTTPMessage, TestHeaderStripPerHop) {

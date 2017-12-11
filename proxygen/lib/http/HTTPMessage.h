@@ -644,6 +644,11 @@ class HTTPMessage {
   void parseQueryParams() const;
   void unparseQueryParams();
 
+  bool doHeaderTokenCheck(const HTTPHeaders& headers_,
+                          const HTTPHeaderCode headerCode,
+                          char const* token,
+                          bool caseSensitive) const;
+
   /**
    * Trims whitespace from the beggining and end of the StringPiece.
    */
