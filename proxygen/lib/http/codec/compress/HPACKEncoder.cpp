@@ -81,9 +81,6 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
 }
 
 void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
-  if (indexingStrat_) {
-    indexing &= indexingStrat_->indexHeader(header);
-  }
   if (header.bytes() > table_.capacity()) {
     // May want to investigate further whether or not this is wanted.
     // Flushing the table on a large header frees up some memory,
@@ -123,14 +120,29 @@ void HPACKEncoder::encodeHeader(const HPACKHeader& header) {
   if (sEnableAutoFlush_ && bytesInPacket_ > kAutoFlushThreshold) {
     packetFlushed();
   }
-  uint32_t index = getIndex(header, commitEpoch_, packetEpoch_);
-  bool indexable = true;
-  if (index == std::numeric_limits<uint32_t>::max()) {
-    VLOG(5) << "Not indexing redundant header=" << header.name << " value=" <<
-      header.value;
-    index = 0;
-    indexable = false;
+
+  // First determine whether the header is defined as indexable using the
+  // set strategy if applicable, else assume it is indexable
+  bool indexable = !indexingStrat_ || indexingStrat_->indexHeader(header);
+
+  // If the header was not defined as indexable, its a reasonable assumption
+  // that it does not appear in either the static or dynamic table and should
+  // not be searched.  The only time this is not true is if the header indexing
+  // strat specified an exact header/value pair that is in the static header
+  // table although semantically the header indexing strategy should indeed act
+  // as an override so we assume this is desired if such a case occurs
+  uint32_t index = 0;
+  if (indexable) {
+    index = getIndex(header, commitEpoch_, packetEpoch_);
+    if (index == std::numeric_limits<uint32_t>::max()) {
+      VLOG(5) << "Not indexing redundant header=" << header.name << " value=" <<
+        header.value;
+      index = 0;
+      indexable = false;
+    }
   }
+
+  // Finally encode the header as determined above
   if (index) {
     encodeAsIndex(index);
   } else {
