@@ -49,6 +49,10 @@ class HTTPSession:
  public:
   typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
 
+  HTTPSessionBase::SessionType getType() const noexcept override {
+    return HTTPSessionBase::SessionType::HTTP;
+  }
+
   folly::AsyncTransportWrapper* getTransport() override {
     return sock_.get();
   }

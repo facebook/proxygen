@@ -29,6 +29,12 @@ public:
 
 class HTTPSessionBase : public wangle::ManagedConnection {
  public:
+
+  enum class SessionType {
+    HTTP,
+    HQ
+  };
+
   /**
    * Optional callback interface that the HTTPSessionBase
    * notifies of connection lifecycle events.
@@ -113,6 +119,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   void setSessionStats(HTTPSessionStats* stats);
+
+  virtual SessionType getType() const noexcept = 0;
 
   virtual folly::AsyncTransportWrapper* getTransport() = 0;
 
