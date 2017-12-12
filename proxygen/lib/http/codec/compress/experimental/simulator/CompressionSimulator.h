@@ -63,7 +63,9 @@ class CompressionSimulator {
   // Map of domain-name to compression scheme
   std::unordered_map<std::string, std::unique_ptr<CompressionScheme>> domains_;
   std::vector<SimStreamingCallback> callbacks_;
-  folly::Random::DefaultGenerator rng_{params_.seed};
+  folly::Random::DefaultGenerator rng_{
+      static_cast<folly::Random::DefaultGenerator::result_type>(
+          params_.seed)};
   SimStats stats_;
 };
 }}
