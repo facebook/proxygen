@@ -15,6 +15,7 @@ namespace proxygen { namespace compress {
 enum class SchemeType {
   QCRAM,
   QPACK,
+  QMIN,
   HPACK
 };
 

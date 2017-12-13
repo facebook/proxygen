@@ -10,6 +10,7 @@
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QMINScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/HPACKScheme.h"
 #include <folly/MoveWrapper.h>
 #include <proxygen/lib/http/codec/compress/test/HTTPArchive.h>
@@ -234,6 +235,8 @@ unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
     return make_unique<QCRAMScheme>(this);
   } else if (params_.type == SchemeType::QPACK) {
     return make_unique<QPACKScheme>(this);
+  } else if (params_.type == SchemeType::QMIN) {
+    return make_unique<QMINScheme>(this);
   } else if (params_.type == SchemeType::HPACK) {
     return make_unique<HPACKScheme>(this, params_.tableSize);
   }
