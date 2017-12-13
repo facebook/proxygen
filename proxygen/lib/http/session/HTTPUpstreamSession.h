@@ -151,12 +151,6 @@ class HTTPUpstreamSession final: public HTTPSession {
       HTTPTransaction* /* txn */, HTTPMessage* /* msg */) override {}
 
   /**
-   * Called by processParseError() if the transaction has no handler.
-   */
-  HTTPTransaction::Handler* getParseErrorHandler(
-    HTTPTransaction* txn, const HTTPException& error) override;
-
-  /**
    * Called by transactionTimeout() if the transaction has no handler.
    */
   HTTPTransaction::Handler* getTransactionTimeoutHandler(

@@ -264,13 +264,6 @@ class HTTPSession:
                                       HTTPMessage* msg) = 0;
 
   /**
-   * Called by handleErrorDirectly (when handling parse errors) if the
-   * transaction has no handler.
-   */
-  virtual HTTPTransaction::Handler* getParseErrorHandler(
-    HTTPTransaction* txn, const HTTPException& error) = 0;
-
-  /**
    * Called by transactionTimeout if the transaction has no handler.
    */
   virtual HTTPTransaction::Handler* getTransactionTimeoutHandler(
@@ -538,13 +531,6 @@ class HTTPSession:
    */
   void onNewTransactionParseError(HTTPCodec::StreamID streamID,
                                   const HTTPException& error);
-
-  /**
-   * Install a direct response handler for the transaction based on the
-   * error.
-   */
-  void handleErrorDirectly(HTTPTransaction* txn,
-                           const HTTPException& error);
 
   /**
    * Unpause reading from the transport.

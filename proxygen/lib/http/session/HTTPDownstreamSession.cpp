@@ -51,13 +51,6 @@ HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
 }
 
 HTTPTransaction::Handler*
-HTTPDownstreamSession::getParseErrorHandler(HTTPTransaction* txn,
-                                            const HTTPException& error) {
-  // we encounter an error before we finish reading the ingress headers.
-  return getController()->getParseErrorHandler(txn, error, getLocalAddress());
-}
-
-HTTPTransaction::Handler*
 HTTPDownstreamSession::getTransactionTimeoutHandler(
   HTTPTransaction* txn) {
   return getController()->getTransactionTimeoutHandler(txn, getLocalAddress());

@@ -66,13 +66,6 @@ class HTTPDownstreamSession final: public HTTPSession {
   void setupOnHeadersComplete(HTTPTransaction* txn, HTTPMessage* msg) override;
 
   /**
-   * Called by processParseError() in the downstream case. This function ensures
-   * that a handler is set for the transaction.
-   */
-  HTTPTransaction::Handler* getParseErrorHandler(
-    HTTPTransaction* txn, const HTTPException& error) override;
-
-  /**
    * Called by transactionTimeout() in the downstream case. This function
    * ensures that a handler is set for the transaction.
    */

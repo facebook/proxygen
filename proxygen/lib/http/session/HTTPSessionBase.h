@@ -128,6 +128,13 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual folly::EventBase* getEventBase() const = 0;
 
+  /**
+   * Called by handleErrorDirectly (when handling parse errors) if the
+   * transaction has no handler.
+   */
+  HTTPTransaction::Handler* getParseErrorHandler(
+    HTTPTransaction* txn, const HTTPException& error);
+
   virtual bool hasActiveTransactions() const = 0;
 
   /**
@@ -417,6 +424,13 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
 
  protected:
+  /**
+   * Install a direct response handler for the transaction based on the
+   * error.
+   */
+  void handleErrorDirectly(HTTPTransaction* txn,
+                           const HTTPException& error);
+
   bool onBody(std::unique_ptr<folly::IOBuf> chain, size_t length,
               uint16_t padding, HTTPTransaction* txn);
 

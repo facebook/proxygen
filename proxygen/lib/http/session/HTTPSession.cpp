@@ -2371,23 +2371,6 @@ void HTTPSession::onNewTransactionParseError(HTTPCodec::StreamID streamID,
 }
 
 void
-HTTPSession::handleErrorDirectly(HTTPTransaction* txn,
-                                 const HTTPException& error) {
-  VLOG(4) << *this << " creating direct error handler";
-  DCHECK(txn);
-  auto handler = getParseErrorHandler(txn, error);
-  if (!handler) {
-    txn->sendAbort();
-    return;
-  }
-  txn->setHandler(handler);
-  if (infoCallback_) {
-    infoCallback_->onIngressError(*this, error.getProxygenError());
-  }
-  txn->onError(error);
-}
-
-void
 HTTPSession::pauseReads() {
   // Make sure the parser is paused.  Note that if reads are shutdown
   // before they are paused, we never make it past the if.

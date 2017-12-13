@@ -131,4 +131,33 @@ void HTTPSessionBase::setByteEventTracker(
   }
 }
 
+void
+HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
+                                     const HTTPException& error) {
+  VLOG(4) << *this << " creating direct error handler";
+  DCHECK(txn);
+  auto handler = getParseErrorHandler(txn, error);
+  if (!handler) {
+    txn->sendAbort();
+    return;
+  }
+  txn->setHandler(handler);
+  if (infoCallback_) {
+    infoCallback_->onIngressError(*this, error.getProxygenError());
+  }
+  txn->onError(error);
+}
+
+HTTPTransaction::Handler*
+HTTPSessionBase::getParseErrorHandler(HTTPTransaction* txn,
+                                      const HTTPException& error) {
+  // we encounter an error before we finish reading the ingress headers.
+  if (codec_->getTransportDirection() == TransportDirection::UPSTREAM) {
+    // do not return the parse error handler for upstreams, since all we
+    // can do in that direction is abort.
+    return nullptr;
+  }
+  return controller_->getParseErrorHandler(txn, error, getLocalAddress());
+}
+
 }
