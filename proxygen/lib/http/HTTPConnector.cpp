@@ -55,7 +55,7 @@ void HTTPConnector::setHTTPVersionOverride(bool enabled) {
 void HTTPConnector::connect(
   EventBase* eventBase,
   const folly::SocketAddress& connectAddr,
-  chrono::milliseconds timeoutMs,
+  std::chrono::milliseconds timeoutMs,
   const AsyncSocket::OptionMap& socketOptions,
   const folly::SocketAddress& bindAddr) {
 
@@ -74,7 +74,7 @@ void HTTPConnector::connectSSL(
   const folly::SocketAddress& connectAddr,
   const shared_ptr<SSLContext>& context,
   SSL_SESSION* session,
-  chrono::milliseconds timeoutMs,
+  std::chrono::milliseconds timeoutMs,
   const AsyncSocket::OptionMap& socketOptions,
   const folly::SocketAddress& bindAddr,
   const std::string& serverName) {

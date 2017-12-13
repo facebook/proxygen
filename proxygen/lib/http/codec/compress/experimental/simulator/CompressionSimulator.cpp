@@ -77,14 +77,14 @@ CompressionSimulator::readInputFromFileAndSchedule(const string& filename) {
               return a.getStartTime() < b.getStartTime();
             });
   TimePoint last = har->requests[0].getStartTime();
-  chrono::milliseconds cumulativeDelay(0);
+  std::chrono::milliseconds cumulativeDelay(0);
   uint16_t index = 0;
   for (HTTPMessage& msg: har->requests) {
     auto delayFromPrevious = millisecondsBetween(msg.getStartTime(), last);
     // If there was a quiescent gap in the HAR of at least some value, shrink
     // it so the test doesn't last forever
-    if (delayFromPrevious > chrono::milliseconds(1000)) {
-      delayFromPrevious = chrono::milliseconds(1000);
+    if (delayFromPrevious > std::chrono::milliseconds(1000)) {
+      delayFromPrevious = std::chrono::milliseconds(1000);
     }
     last = msg.getStartTime();
     cumulativeDelay += delayFromPrevious;
@@ -116,12 +116,12 @@ void CompressionSimulator::run() {
 }
 
 void CompressionSimulator::setupRequest(uint16_t index, HTTPMessage&& msg,
-                                        chrono::milliseconds encodeDelay) {
+                                        std::chrono::milliseconds encodeDelay) {
   auto scheme = getScheme(
     msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST));
   requests_.emplace_back(msg);
   auto decodeCompleteCB =
-    [index, this, scheme] (chrono::milliseconds holDelay) {
+    [index, this, scheme] (std::chrono::milliseconds holDelay) {
     // record processed timestamp
     CHECK(callbacks_[index].getResult().isOk());
     verifyHeaders(requests_[index], *callbacks_[index].getResult().ok());
@@ -165,8 +165,8 @@ void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
   auto encodeRes = &scheme->encodedBlocks.front();
   size_t headerBlockBytesRemaining =
     std::get<1>(*encodeRes)->computeChainDataLength();
-  chrono::milliseconds packetDelay = deliveryDelay();
-  chrono::milliseconds decodeDelay = packetDelay;
+  std::chrono::milliseconds packetDelay = deliveryDelay();
+  std::chrono::milliseconds decodeDelay = packetDelay;
   while (true) {
     // precondition packetBytes < kMTU
     bool nextPacket = false;
@@ -198,7 +198,7 @@ void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
         std::get<1>(*encodeRes)->computeChainDataLength();
       // This new request will either fit entirely in the current packet, or
       // be in a new packet.  Set its decodeDelay accordingly.
-      decodeDelay = nextPacket ? chrono::milliseconds(0) : packetDelay;
+      decodeDelay = nextPacket ? std::chrono::milliseconds(0) : packetDelay;
     }
     if (nextPacket) {
       packetBytes = 0;
@@ -300,7 +300,7 @@ void CompressionSimulator::decode(CompressionScheme* scheme, bool allowOOO,
 }
 
 void CompressionSimulator::scheduleEvent(folly::Function<void()> f,
-                                         chrono::milliseconds ms) {
+                                         std::chrono::milliseconds ms) {
   eventBase_.runAfterDelay(std::move(f), ms.count());
 }
 
@@ -320,7 +320,7 @@ void CompressionSimulator::recvAck(CompressionScheme* scheme,
 }
 
 chrono::milliseconds CompressionSimulator::deliveryDelay() {
-  chrono::milliseconds delay = one_half_rtt();
+  std::chrono::milliseconds delay = one_half_rtt();
   while (loss()) {
     stats_.packetLosses++;
     scheduleEvent([] {
@@ -350,7 +350,7 @@ chrono::milliseconds CompressionSimulator::one_half_rtt() {
 
 chrono::milliseconds CompressionSimulator::rxmitDelay() {
   uint32_t ms = rtt().count() * Random::randDouble(1.1, 2, rng_);
-  return chrono::milliseconds(ms);
+  return std::chrono::milliseconds(ms);
 }
 
 bool CompressionSimulator::loss() {
@@ -363,7 +363,7 @@ bool CompressionSimulator::delayed() {
 
 chrono::milliseconds CompressionSimulator::extraDelay() {
   uint32_t ms = params_.maxDelay.count() * Random::randDouble01(rng_);
-  return chrono::milliseconds(ms);
+  return std::chrono::milliseconds(ms);
 }
 
 uint32_t CompressionSimulator::minOOOThresh() {
