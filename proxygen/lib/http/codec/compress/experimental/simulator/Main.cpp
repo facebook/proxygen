@@ -16,7 +16,7 @@
 
 
 DEFINE_string(input, "", "File containing requests");
-DEFINE_string(scheme, "qpack", "Scheme: <qpack|qcram|hpack>");
+DEFINE_string(scheme, "qpack", "Scheme: <qpack|qcram|qmin|hpack>");
 
 DEFINE_int32(rtt, 100, "Simulated RTT");
 DEFINE_double(lossp, 0.0, "Loss Probability");
@@ -49,6 +49,9 @@ int main(int argc, char* argv[]) {
   } else if (FLAGS_scheme == "qpack") {
     LOG(INFO) << "Using QPACK";
     t = SchemeType::QPACK;
+  } else if (FLAGS_scheme == "qmin") {
+    LOG(INFO) << "Using QMIN";
+    t = SchemeType::QMIN;
   } else if (FLAGS_scheme == "hpack") {
     LOG(INFO) << "Using HPACK with table size=" << FLAGS_table_size;
     t = SchemeType::HPACK;
