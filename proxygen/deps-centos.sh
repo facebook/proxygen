@@ -27,8 +27,8 @@ cd "$(dirname "$0")"
 
 # RedHet/CentOS
 
-sudo yum install autoconf268 automake libtool cmake autoconf-archive gcc-c++ boost-devel
-sudo yum install devtoolset-2-gcc-c++ devtoolset-2-binutils-devel
+sudo yum -y install autoconf268 automake libtool cmake autoconf-archive gcc-c++ boost-devel
+sudo yum -y install devtoolset-2-gcc-c++ devtoolset-2-binutils-devel
 export CXX=/opt/rh/devtoolset-2/root/usr/bin/g++
 
 if [ ! -e google-glog ]; then
