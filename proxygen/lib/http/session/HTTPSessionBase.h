@@ -503,6 +503,11 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   void initCodecHeaderIndexingStrategy();
 
+  /**
+   * Attaches Session to RevproxyController instance if it's set
+   */
+  void attachToSessionController();
+
   HTTPSessionStats* sessionStats_{nullptr};
 
   InfoCallback* infoCallback_{nullptr};  // maybe can move to protected

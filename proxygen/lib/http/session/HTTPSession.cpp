@@ -160,10 +160,10 @@ HTTPSession::HTTPSession(
 
   auto controllerPtr = getController();
   if (controllerPtr) {
-    controllerPtr->attachSession(this);
     flowControlTimeout_.setTimeoutDuration(
       controllerPtr->getSessionFlowControlTimeout());
   }
+  attachToSessionController();
 
   if (!sock_->isReplaySafe()) {
     sock_->setReplaySafetyCallback(this);

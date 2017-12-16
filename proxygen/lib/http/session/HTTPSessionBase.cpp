@@ -160,4 +160,11 @@ HTTPSessionBase::getParseErrorHandler(HTTPTransaction* txn,
   return controller_->getParseErrorHandler(txn, error, getLocalAddress());
 }
 
+void HTTPSessionBase::attachToSessionController() {
+  auto controllerPtr = getController();
+  if (controllerPtr) {
+    controllerPtr->attachSession(this);
+  }
+}
+
 }
