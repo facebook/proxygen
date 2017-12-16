@@ -20,14 +20,12 @@ bool HeaderIndexingStrategy::indexHeader(const HPACKHeader& header) const {
   // Handle all the cases where we want to return false in the switch statement
   // below; else let the code fall through and return true
   switch(header.name.getHeaderCode()) {
-    case HTTP_HEADER_OTHER:
-      if (header.name.get() == ":path") {
-        if (header.value.find('=') != std::string::npos) {
-          return false;
-        }
-        if (header.value.find("jpg") != std::string::npos) {
-          return false;
-        }
+    case HTTP_HEADER_COLON_PATH:
+      if (header.value.find('=') != std::string::npos) {
+        return false;
+      }
+      if (header.value.find("jpg") != std::string::npos) {
+        return false;
       }
       break;
 

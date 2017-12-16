@@ -49,8 +49,6 @@ class HPACKHeader {
   bool operator==(const HPACKHeader& other) const {
     return name == other.name && value == other.value;
   }
-
-  // TODO: ddmello determine if these comparison operators are required
   bool operator<(const HPACKHeader& other) const {
     bool eqname = (name == other.name);
     if (!eqname) {
@@ -58,7 +56,6 @@ class HPACKHeader {
     }
     return value < other.value;
   }
-
   bool operator>(const HPACKHeader& other) const {
     bool eqname = (name == other.name);
     if (!eqname) {

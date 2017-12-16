@@ -1,3 +1,8 @@
+:Authority
+:Method
+:Path
+:Scheme
+:Status
 Accept
 Accept-Charset
 Accept-Datetime

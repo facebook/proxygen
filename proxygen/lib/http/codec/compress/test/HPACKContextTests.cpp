@@ -67,11 +67,30 @@ TEST_F(HPACKContextTests, static_table) {
   const HPACKHeader& first = table[1];
   const HPACKHeader& methodPost = table[3];
   const HPACKHeader& last = table[table.size()];
+
   // there are 61 entries in the spec
   CHECK_EQ(table.size(), 61);
   CHECK_EQ(table[3], HPACKHeader(":method", "POST"));
   CHECK_EQ(table[1].name.get(), ":authority");
   CHECK_EQ(table[table.size()].name.get(), "www-authenticate");
+}
+
+TEST_F(HPACKContextTests, static_table_header_names_are_common) {
+  auto& table = StaticHeaderTable::get();
+  for (std::pair<HPACKHeaderName, std::list<uint32_t>> entry : table.names()) {
+    EXPECT_TRUE(entry.first.isCommonHeader());
+  }
+}
+
+TEST_F(HPACKContextTests, static_table_is_header_code_in_table_with_non_empty_value) {
+  auto& table = StaticHeaderTable::get();
+  for (uint32_t i = 1; i <= table.size(); ++i) {
+    const HPACKHeader& staticTableHeader = table[i];
+    EXPECT_TRUE(
+      staticTableHeader.value.empty() !=
+      StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
+        staticTableHeader.name.getHeaderCode()));
+  }
 }
 
 TEST_F(HPACKContextTests, static_index) {

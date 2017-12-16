@@ -109,7 +109,7 @@ class HPACKHeaderName {
   }
 
   /*
-   * Returns the HTTPHeaderCode associated with the wrapper address_
+   * Returns the HTTPHeaderCode associated with the wrapped address_
    */
   HTTPHeaderCode getHeaderCode() const {
     return HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
@@ -117,13 +117,17 @@ class HPACKHeaderName {
   }
 
   /*
-   * Directly call std::string member functions
+   * Returns whether the name pointed to by this instance is a common header
+   */
+  bool isCommonHeader() const {
+    return HTTPCommonHeaders::isHeaderNameFromTable(address_, TABLE_LOWERCASE);
+  }
+
+  /*
+   * Exposing wrapped std::string member properties
    */
   uint32_t size() const {
     return (uint32_t)(address_->size());
-  }
-  const char* data() {
-    return address_->data();
   }
   const char* c_str() const {
     return address_->c_str();

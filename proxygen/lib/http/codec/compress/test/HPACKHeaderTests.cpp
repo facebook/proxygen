@@ -144,9 +144,9 @@ TEST_F(HPACKHeaderNameTest, test_assignment_operators) {
 TEST_F(HPACKHeaderNameTest, test_get_size) {
   // Test size()
   HPACKHeaderName name1("accept-encoding");
-  HPACKHeaderName name2("uncommon-header");
+  HPACKHeaderName name2("uncommon-header_now");
   EXPECT_EQ(name1.size(), 15);
-  EXPECT_EQ(name2.size(), 15);
+  EXPECT_EQ(name2.size(), 19);
 }
 
 TEST_F(HPACKHeaderNameTest, test_operators) {
@@ -163,4 +163,18 @@ TEST_F(HPACKHeaderNameTest, test_operators) {
   CHECK(name2 >= name1);
   CHECK(name2 <= name4);
   CHECK(name1 <= name2);
+}
+
+TEST_F(HPACKHeaderNameTest, test_is_common_header) {
+  for (uint64_t j = 0; j < HTTPCommonHeaders::num_header_codes; ++j) {
+    HTTPHeaderCode code = static_cast<HTTPHeaderCode>(j);
+    HPACKHeader testHPACKHeader(
+      *HTTPCommonHeaders::getPointerToHeaderName(code), "");
+
+    bool checkResult = j >= HTTPHeaderCodeCommonOffset;
+    EXPECT_EQ(testHPACKHeader.name.isCommonHeader(), checkResult);
+  }
+  std::string externalHeader = "externalHeader";
+  HPACKHeader testHPACKHeader(externalHeader, "");
+  EXPECT_FALSE(testHPACKHeader.name.isCommonHeader());
 }

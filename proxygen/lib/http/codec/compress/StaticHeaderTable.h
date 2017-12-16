@@ -10,6 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
+#include <proxygen/lib/http/HTTPCommonHeaders.h>
 #include <string>
 #include <vector>
 
@@ -18,11 +19,11 @@ namespace proxygen {
 class StaticHeaderTable : public HeaderTable {
 
  public:
-  explicit StaticHeaderTable(
-    const char* entries[][2],
-    int size);
+  explicit StaticHeaderTable(const char* entries[][2], int size);
 
-  static const HeaderTable& get();
+  static const StaticHeaderTable& get();
+
+  static bool isHeaderCodeInTableWithNonEmptyValue(HTTPHeaderCode headerCode);
 };
 
 }

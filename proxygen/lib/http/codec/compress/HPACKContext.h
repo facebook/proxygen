@@ -56,7 +56,7 @@ class HPACKContext {
   void describe(std::ostream& os) const;
 
  protected:
-  virtual const HeaderTable& getStaticTable() const {
+  virtual const StaticHeaderTable& getStaticTable() const {
     return StaticHeaderTable::get();
   }
 

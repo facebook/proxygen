@@ -28,16 +28,35 @@ HPACKContext::HPACKContext(uint32_t tableSize, bool qcram, bool useBaseIndex) :
 
 uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,
                                 int32_t curEpoch) const {
-  uint32_t index = getStaticTable().getIndex(header);
-  if (index) {
-    return staticToGlobalIndex(index);
-  }
-  // break the cache
-  index = table_.getIndex(header, commitEpoch, curEpoch);
-  if (index && index != std::numeric_limits<uint32_t>::max()) {
-    return dynamicToGlobalIndex(index);
+  // First consult the static header table if applicable
+  // Applicability is determined by the following guided optimizations:
+  // 1) The set of CommonHeaders includes all StaticTable headers and so we can
+  // quickly conclude that we need not check the StaticTable
+  // for non-CommonHeaders
+  // 2) The StaticTable only contains non empty values for a very small subset
+  // of header names.  As getIndex is only meaingful if both name and value
+  // match, we know that if our header has a value and is not part of the very
+  // small subset of header names, there is no point consulting the StaticTable
+  bool consultStaticTable = false;
+  if (header.value.empty()) {
+    consultStaticTable = header.name.isCommonHeader();
   } else {
-    return index;
+    consultStaticTable = StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
+      header.name.getHeaderCode());
+  }
+  if (consultStaticTable) {
+    uint32_t staticIndex = getStaticTable().getIndex(header);
+    if (staticIndex) {
+      return staticToGlobalIndex(staticIndex);
+    }
+  }
+
+  // Else check the dynamic table
+  uint32_t dynamicIndex = table_.getIndex(header, commitEpoch, curEpoch);
+  if (dynamicIndex && dynamicIndex != std::numeric_limits<uint32_t>::max()) {
+    return dynamicToGlobalIndex(dynamicIndex);
+  } else {
+    return dynamicIndex;
   }
 }
 
