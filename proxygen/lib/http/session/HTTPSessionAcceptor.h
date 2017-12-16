@@ -118,6 +118,10 @@ protected:
 
   HTTPSessionStats* downstreamSessionStats_{nullptr};
 
+  HTTPSession::InfoCallback* getSessionInfoCallback() {
+    return sessionInfoCb_ ? sessionInfoCb_ : this;
+  }
+
   // Acceptor methods
   void onNewConnection(
     folly::AsyncTransportWrapper::UniquePtr sock,
