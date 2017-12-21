@@ -185,7 +185,6 @@ void HTTPServer::start(std::function<void()> onSuccess,
 }
 
 void HTTPServer::stopListening() {
-  CHECK(mainEventBase_);
   for (auto& bootstrap : bootstrap_) {
     bootstrap.stop();
   }
@@ -198,9 +197,14 @@ void HTTPServer::stop() {
     bootstrap.join();
   }
 
-  signalHandler_.reset();
-  mainEventBase_->terminateLoopSoon();
-  mainEventBase_ = nullptr;
+  if (signalHandler_) {
+    signalHandler_.reset();
+  }
+
+  if (mainEventBase_) {
+    mainEventBase_->terminateLoopSoon();
+    mainEventBase_ = nullptr;
+  }
 }
 
 const std::vector<const folly::AsyncSocketBase*>

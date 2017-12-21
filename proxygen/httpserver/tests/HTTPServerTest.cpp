@@ -111,6 +111,17 @@ TEST(MultiBind, HandlesListenFailures) {
   EXPECT_FALSE(st.start());
 }
 
+TEST(HttpServerStartStop, TestRepeatStopCalls) {
+  HTTPServerOptions options;
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto st = std::make_unique<ServerThread>(server.get());
+  EXPECT_TRUE(st->start());
+
+  server->stop();
+  // Calling stop again should be benign.
+  server->stop();
+}
+
 // Make an SSL connection to the server
 class Cb : public folly::AsyncSocket::ConnectCallback {
  public:
