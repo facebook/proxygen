@@ -361,7 +361,7 @@ void CompressionSimulator::recvAck(CompressionScheme* scheme,
   scheme->recvAck(std::move(ack));
 }
 
-chrono::milliseconds CompressionSimulator::deliveryDelay() {
+std::chrono::milliseconds CompressionSimulator::deliveryDelay() {
   std::chrono::milliseconds delay = one_half_rtt();
   while (loss()) {
     stats_.packetLosses++;
@@ -382,15 +382,15 @@ chrono::milliseconds CompressionSimulator::deliveryDelay() {
   return delay;
 }
 
-chrono::milliseconds CompressionSimulator::rtt() {
+std::chrono::milliseconds CompressionSimulator::rtt() {
   return params_.rtt;
 }
 
-chrono::milliseconds CompressionSimulator::one_half_rtt() {
+std::chrono::milliseconds CompressionSimulator::one_half_rtt() {
   return params_.rtt / 2;
 }
 
-chrono::milliseconds CompressionSimulator::rxmitDelay() {
+std::chrono::milliseconds CompressionSimulator::rxmitDelay() {
   uint32_t ms = rtt().count() * Random::randDouble(1.1, 2, rng_);
   return std::chrono::milliseconds(ms);
 }
@@ -403,7 +403,7 @@ bool CompressionSimulator::delayed() {
   return Random::randDouble01(rng_) < params_.delayProbability;
 }
 
-chrono::milliseconds CompressionSimulator::extraDelay() {
+std::chrono::milliseconds CompressionSimulator::extraDelay() {
   uint32_t ms = params_.maxDelay.count() * Random::randDouble01(rng_);
   return std::chrono::milliseconds(ms);
 }
