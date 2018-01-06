@@ -403,7 +403,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
                                  curHeaderBlock_.chainLength(),
                                  this);
     // Saving this in case we need to log it on error
-    folly::ScopeGuard g = folly::makeGuard([this] {
+    auto g = folly::makeGuard([this] {
         curHeaderBlock_.move();
       });
     // Check decoding error

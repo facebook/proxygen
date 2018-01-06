@@ -877,7 +877,7 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
     reason_.clear();
   }
 
-  folly::ScopeGuard g = folly::makeGuard([this] {
+  auto g = folly::makeGuard([this] {
       // Always clear the outbound upgrade header after we receive a response
       if (transportDirection_ == TransportDirection::UPSTREAM &&
           parser_.status_code != 100) {
