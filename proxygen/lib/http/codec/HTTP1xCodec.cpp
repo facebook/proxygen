@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -115,6 +115,8 @@ HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool forceUpstream1_1)
   case TransportDirection::UPSTREAM:
     http_parser_init(&parser_, HTTP_RESPONSE);
     break;
+  default:
+    LOG(FATAL) << "Unknown transport direction.";
   }
   parser_.data = this;
 }
