@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -110,6 +110,7 @@ extern const std::string kSessionProtoNameSPDY2;
 extern const std::string kSessionProtoNameSPDY3;
 
 extern const std::string httpVersion;
+
 extern const std::string kNameVersionv2;
 extern const std::string kNameVersionv3;
 extern const std::string kNameStatusv2;

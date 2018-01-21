@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -19,13 +19,9 @@ namespace proxygen { namespace compress {
  * representation of a header name/value list.
  */
 struct Header {
-  HTTPHeaderCode code{HTTP_HEADER_OTHER};
+  HTTPHeaderCode code;
   const std::string* name;
   const std::string* value;
-
-  Header(const std::string& n,
-         const std::string& v)
-      : name(&n), value(&v) {}
 
   Header(HTTPHeaderCode c,
          const std::string& v)
@@ -40,6 +36,18 @@ struct Header {
     return (code < h.code) ||
       ((code == h.code) && (*name < *h.name));
   }
+
+  // For use by tests
+  static Header makeHeaderForTest(const std::string& n, const std::string& v) {
+    return Header(n, v);
+  }
+
+ private:
+  // This constructor ideally should not be used in production code
+  // This is because in prod the common header code is likely already known and
+  // an above constructor could be used; this exists for test purposes
+  Header(const std::string& n, const std::string& v)
+    : code(HTTPCommonHeaders::hash(n)), name(&n), value(&v) {}
 };
 
 }}

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -132,7 +132,6 @@ const uint32_t kInitialWindow = 65536;
 const uint32_t kMaxConcurrentStreams = 100;
 const uint32_t kMaxFrameLength = (1 << 24) - 1;
 
-const std::string kSessionProtoNameSPDY2("spdy/2");
 const std::string kSessionProtoNameSPDY3("spdy/3");
 
 const std::string httpVersion("HTTP/1.1");

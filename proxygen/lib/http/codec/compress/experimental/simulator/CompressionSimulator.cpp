@@ -290,12 +290,12 @@ CompressionSimulator::encode(CompressionScheme* scheme, uint16_t index) {
   // HTTP messages
   HTTPMessage& msg = requests_[index];
   const string& method = msg.getMethodString();
-  allHeaders.emplace_back(http2::kMethod, method);
+  allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, http2::kMethod, method);
   if (msg.getMethod() != HTTPMethod::CONNECT) {
     const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
     const string& path = msg.getURL();
-    allHeaders.emplace_back(http2::kScheme, scheme);
-    allHeaders.emplace_back(http2::kPath, path);
+    allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, http2::kScheme, scheme);
+    allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, http2::kPath, path);
   }
   msg.getHeaders().removeByPredicate(
     [&] (HTTPHeaderCode, const string& name, const string&) {
@@ -308,7 +308,8 @@ CompressionSimulator::encode(CompressionScheme* scheme, uint16_t index) {
   const HTTPHeaders& headers = msg.getHeaders();
   const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
   if (!host.empty()) {
-    allHeaders.emplace_back(http2::kAuthority, host);
+    allHeaders.emplace_back(
+      HTTP_HEADER_COLON_AUTHORITY, http2::kAuthority, host);
   }
   // Cookies are coalesced in the HAR file but need to be added as separate
   // headers to optimize compression ratio

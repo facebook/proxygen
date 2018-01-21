@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -983,22 +983,22 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
     DCHECK(transportDirection_ == TransportDirection::UPSTREAM ||
            assocStream != 0);
     const string& method = msg.getMethodString();
-    allHeaders.emplace_back(http2::kMethod, method);
+    allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);
     if (msg.getMethod() != HTTPMethod::CONNECT) {
       const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
       const string& path = msg.getURL();
-      allHeaders.emplace_back(http2::kScheme, scheme);
-      allHeaders.emplace_back(http2::kPath, path);
+      allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, scheme);
+      allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, path);
     }
     const HTTPHeaders& headers = msg.getHeaders();
     const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
     if (!host.empty()) {
-      allHeaders.emplace_back(http2::kAuthority, host);
+      allHeaders.emplace_back(HTTP_HEADER_COLON_AUTHORITY, host);
     }
   } else {
     DCHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
     status = folly::to<string>(msg.getStatusCode());
-    allHeaders.emplace_back(http2::kStatus, status);
+    allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, status);
     // HEADERS frames do not include a version or reason string.
   }
 

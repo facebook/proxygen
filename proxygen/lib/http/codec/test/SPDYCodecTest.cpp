@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -34,6 +34,27 @@ uint8_t shortSynStream[] =
   0x01, 0x00, 0x00, 0x04,  // length must be >= 12
   0x61, 0x62, 0x63, 0x64
 };
+
+TEST(SPDYCodecTest, SPDYVersionSettingsCommonHeaderNameCheck) {
+  // The purpose of this test is to ensure that should the below header names
+  // become part of the common set, it fails indicating that the SPDYCodec
+  // needs updating in those places that create compress/Header objects using
+  // the failed name.
+  EXPECT_EQ(HTTPCommonHeaders::hash(spdy::kNameVersionv3), HTTP_HEADER_OTHER);
+  EXPECT_EQ(HTTPCommonHeaders::hash(spdy::kNameHostv3), HTTP_HEADER_OTHER);
+  // The follow verifies assumptions that should never change regarding the
+  // mapping of specific SPDY3 constants to common headers.  Should they fail,
+  // the SPDYCodec would require updating in the places in which they are used
+  // in creating compress/Header objects.
+  EXPECT_EQ(HTTPCommonHeaders::hash(
+    spdy::kNameStatusv3), HTTP_HEADER_COLON_STATUS);
+  EXPECT_EQ(HTTPCommonHeaders::hash(
+    spdy::kNameMethodv3), HTTP_HEADER_COLON_METHOD);
+  EXPECT_EQ(HTTPCommonHeaders::hash(
+    spdy::kNameSchemev3), HTTP_HEADER_COLON_SCHEME);
+  EXPECT_EQ(HTTPCommonHeaders::hash(
+    spdy::kNamePathv3), HTTP_HEADER_COLON_PATH);
+}
 
 TEST(SPDYCodecTest, JunkSPDY) {
   SPDYCodec codec(TransportDirection::DOWNSTREAM, SPDYVersion::SPDY3);

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -146,7 +146,9 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
 
   // Indexed by SPDYVersion
   static const auto spdyVersions = new std::vector<SPDYVersionSettings> {
-  // SPDY2 no longer supported
+  // SPDY2 no longer supported; should it ever be added back the lines in which
+  // this codec creates compress/Header objects need to be updated as SPDY2
+  // constant header names are different from the set of common header names.
   // SPDY3
     {spdy::kNameVersionv3, spdy::kNameStatusv3, spdy::kNameMethodv3,
     spdy::kNamePathv3, spdy::kNameSchemev3, spdy::kNameHostv3,
@@ -507,7 +509,11 @@ unique_ptr<IOBuf> SPDYCodec::encodeHeaders(
   const HTTPMessage& msg, vector<Header>& allHeaders,
   uint32_t headroom, HTTPHeaderSize* size) {
 
-  allHeaders.emplace_back(versionSettings_.versionStr, spdy::httpVersion);
+  // We explicitly provide both the code and header name here
+  // as HTTP_HEADER_OTHER does not map to kNameVersionv3 and we don't want a
+  // perf penalty hash kNameVersionv3 to HTTP_HEADER_OTHER
+  allHeaders.emplace_back(
+    HTTP_HEADER_OTHER, versionSettings_.versionStr, spdy::httpVersion);
 
   // Add the HTTP headers supplied by the caller, but skip
   // any per-hop headers that aren't supported in SPDY.
@@ -572,7 +578,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(
     status = folly::to<string>(msg.getStatusCode(), " ",
                                msg.getStatusMessage());
   }
-  allHeaders.emplace_back(versionSettings_.statusStr, status);
+  allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, status);
   // See comment above regarding status
   string date;
   if (!headers.exists(HTTP_HEADER_DATE)) {
@@ -603,16 +609,19 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
 
   if (isPushed) {
     const string& pushString = msg.getPushStatusStr();
-    allHeaders.emplace_back(versionSettings_.statusStr, pushString);
+    allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, pushString);
   } else {
-    allHeaders.emplace_back(versionSettings_.methodStr, method);
+    allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);
   }
-  allHeaders.emplace_back(versionSettings_.schemeStr, scheme);
-  allHeaders.emplace_back(versionSettings_.pathStr, path);
+  allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, scheme);
+  allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, path);
   if (versionSettings_.majorVersion == 3) {
     DCHECK(headers.exists(HTTP_HEADER_HOST));
     const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
-    allHeaders.emplace_back(versionSettings_.hostStr, host);
+    // We explicitly provide both the code and header name here
+    // as HTTP_HEADER_OTHER does not map to kNameHostv3 and we don't want a
+    // perf penalty hash kNameHostv3 to HTTP_HEADER_OTHER
+    allHeaders.emplace_back(HTTP_HEADER_OTHER, versionSettings_.hostStr, host);
 }
 
   return encodeHeaders(msg, allHeaders, headroom, size);

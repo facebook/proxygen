@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -85,7 +85,7 @@ namespace {
 vector<Header> headersFromArray(vector<vector<string>>& a) {
   vector<Header> headers;
   for (auto& ha : a) {
-    headers.push_back(Header(ha[0], ha[1]));
+    headers.push_back(Header::makeHeaderForTest(ha[0], ha[1]));
   }
   return headers;
 }
