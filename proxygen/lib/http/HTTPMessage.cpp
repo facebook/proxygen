@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -315,9 +315,8 @@ struct FormattedDate {
 
 string HTTPMessage::formatDateHeader() {
   struct DateTag {};
-  static folly::SingletonThreadLocal<FormattedDate, DateTag> s_formattedDate{};
-
-  return s_formattedDate.get().formatDate();
+  auto& obj = folly::SingletonThreadLocal<FormattedDate, DateTag>::get();
+  return obj.formatDate();
 }
 
 void HTTPMessage::ensureHostHeader() {
