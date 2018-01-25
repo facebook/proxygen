@@ -319,6 +319,7 @@ makeUpstreamParallelCodec();
 
 HTTPMessage getGetRequest(const std::string& url = std::string("/"));
 HTTPMessage getPostRequest(uint32_t contentLength = 200);
+HTTPMessage getChunkedPostRequest();
 HTTPMessage getResponse(uint32_t code, uint32_t bodyLen = 0);
 HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
                               HTTPMethod method = HTTPMethod::GET,

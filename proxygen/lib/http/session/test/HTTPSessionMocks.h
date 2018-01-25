@@ -194,6 +194,15 @@ class MockHTTPHandler : public HTTPHandlerBase,
       .RetiresOnSaturation();
   }
 
+  void expectChunkHeader(std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onChunkHeader(testing::_))
+        .WillOnce(testing::InvokeWithoutArgs(callback));
+    } else {
+      EXPECT_CALL(*this, onChunkHeader(testing::_));
+    }
+  }
+
   void expectBody(std::function<void()> callback = std::function<void()>()) {
     if (callback) {
       EXPECT_CALL(*this, onBody(testing::_))
@@ -206,6 +215,15 @@ class MockHTTPHandler : public HTTPHandlerBase,
   void expectBody(std::function<void(std::shared_ptr<folly::IOBuf>)> callback) {
     EXPECT_CALL(*this, onBody(testing::_))
       .WillOnce(testing::Invoke(callback));
+  }
+
+  void expectChunkComplete(std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onChunkComplete())
+        .WillOnce(testing::InvokeWithoutArgs(callback));
+    } else {
+      EXPECT_CALL(*this, onChunkComplete());
+    }
   }
 
   void expectEOM(std::function<void()> callback = std::function<void()>()) {

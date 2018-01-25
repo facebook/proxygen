@@ -96,6 +96,17 @@ HTTPMessage getPostRequest(uint32_t contentLength) {
   return req;
 }
 
+HTTPMessage getChunkedPostRequest() {
+  HTTPMessage req;
+  req.setMethod("POST");
+  req.setURL<string>("/");
+  req.setHTTPVersion(1, 1);
+  req.setIsChunked(true);
+  req.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
+  req.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  return req;
+}
+
 std::unique_ptr<HTTPMessage> makePostRequest(uint32_t contentLength) {
   return std::make_unique<HTTPMessage>(getPostRequest(contentLength));
 }
