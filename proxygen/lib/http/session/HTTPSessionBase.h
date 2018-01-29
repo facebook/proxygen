@@ -21,6 +21,8 @@ class HTTPSessionController;
 class HTTPSessionStats;
 class HTTPTransaction;
 
+constexpr uint32_t kDefaultMaxConcurrentOutgoingStreams = 100;
+
 class HTTPPriorityMapFactoryProvider {
 public:
   virtual ~HTTPPriorityMapFactoryProvider() = default;
@@ -589,7 +591,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * The maximum number of concurrent transactions that this session may
    * create, as configured locally.
    */
-  uint32_t maxConcurrentOutgoingStreamsConfig_{100};
+  uint32_t maxConcurrentOutgoingStreamsConfig_{
+    kDefaultMaxConcurrentOutgoingStreams};
 
 
   /**
