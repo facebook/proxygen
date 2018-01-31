@@ -19,6 +19,12 @@ enum class SchemeType {
   HPACK
 };
 
+// Metadata about encoded blocks.  In a real stack, these might be
+// conveyed via HTTP frame (HEADERS or PUSH_PROMISE) flags.
+struct FrameFlags {
+  bool allowOOO{false};
+};
+
 struct SimParams {
   SchemeType type;
   int64_t seed;
@@ -39,5 +45,6 @@ struct SimStats {
   std::chrono::milliseconds holDelay{0};
   uint64_t uncompressed{0};
   uint64_t compressed{0};
+  uint64_t packets{0};
 };
 }}

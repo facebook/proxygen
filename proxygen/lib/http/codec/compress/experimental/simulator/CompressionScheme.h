@@ -32,17 +32,20 @@ class CompressionScheme : public folly::EventBase::LoopCallback {
   /* Deliver an ack to the client/encoder */
   virtual void recvAck(std::unique_ptr<Ack>) = 0;
 
-  /* Encode the header list
+  /* Encode the header list.
+   * The simulator sets newPacket if this block should be considered
+   * to start a new packet because of a time gap since the previous.
    * Returns a pair { must-process-in-order, header block }
    */
-  virtual std::pair<bool, std::unique_ptr<folly::IOBuf>> encode(
-    std::vector<compress::Header> allHeaders,
-    SimStats& stats) = 0;
+  virtual std::pair<FrameFlags, std::unique_ptr<folly::IOBuf>> encode(
+      bool newPacket,
+      std::vector<compress::Header> allHeaders,
+      SimStats& stats) = 0;
 
   /* Decode the supplied buffer.  allowOOO indicates if the server can process
    * out of order.
    */
-  virtual void decode(bool allowOOO, std::unique_ptr<folly::IOBuf> encodedReq,
+  virtual void decode(FrameFlags flags, std::unique_ptr<folly::IOBuf> encodedReq,
                       SimStats& stats, SimStreamingCallback& cb) = 0;
 
   /* Return the number of times the decoder was head-of-line blocked */
@@ -52,11 +55,23 @@ class CompressionScheme : public folly::EventBase::LoopCallback {
   void runLoopCallback() noexcept override;
 
   /* List of blocks encoded in the current event loop */
-  std::list<std::tuple<bool, std::unique_ptr<folly::IOBuf>,
+std::list<std::tuple<FrameFlags, bool /*newPacket*/, std::unique_ptr<folly::IOBuf>,
                        SimStreamingCallback*>> encodedBlocks;
+
+std::list<std::tuple<FrameFlags, bool /*newPacket*/, std::unique_ptr<folly::IOBuf>,
+                       SimStreamingCallback*>> packetBlocks;
 
   // Running index of how many requests have been compressed with this scheme
   size_t index{0};
+
+  // Used for starting new packets.
+  std::chrono::milliseconds prev;
+
+  size_t packetBytes{0};
+  std::chrono::milliseconds decodeDelay;
+
+  std::list<uint16_t> packetIndices;
+
 
  private:
   CompressionSimulator* simulator_;

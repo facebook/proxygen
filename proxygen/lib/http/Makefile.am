@@ -158,3 +158,45 @@ libproxygenhttp_la_SOURCES = \
 libproxygenhttp_la_LIBADD = \
 	../services/libproxygenservices.la \
 	../utils/libutils.la
+
+noinst_LTLIBRARIES += libqpack.la
+libqpackdir = $(includedir)/proxygen/lib/http/codec/compress/experimental/qpack
+libqpack_la_SOURCES = \
+	codec/compress/experimental/qpack/QPACKCodec.cpp \
+	codec/compress/experimental/qpack/QPACKContext.cpp \
+	codec/compress/experimental/qpack/QPACKDecoder.cpp \
+	codec/compress/experimental/qpack/QPACKEncoder.cpp \
+	codec/compress/experimental/qpack/QPACKHeaderTable.cpp
+
+libqpack_HEADERS = \
+	codec/compress/experimental/qpack/QPACKCodec.h \
+	codec/compress/experimental/qpack/QPACKContext.h \
+	codec/compress/experimental/qpack/QPACKDecoder.h \
+	codec/compress/experimental/qpack/QPACKHeader.h \
+	codec/compress/experimental/qpack/QPACKHeaderTable.h
+
+libqpack_la_LIBADD = \
+	../utils/libutils.la
+
+noinst_PROGRAMS = CompressionSimulator
+
+CompressionSimulator_SOURCES = \
+	codec/compress/test/HTTPArchive.cpp \
+	codec/compress/experimental/simulator/Main.cpp \
+	codec/compress/experimental/simulator/CompressionSimulator.cpp
+
+CompressionSimulatordir = $(includedir)/proxygen/lib/http/codec/compress/experimental/simulator
+CompressionSimulator_HEADERS = \
+	codec/compress/test/HTTPArchive.h \
+	codec/compress/experimental/simulator/CompressionScheme.h \
+	codec/compress/experimental/simulator/CompressionSimulator.h \
+	codec/compress/experimental/simulator/CompressionTypes.h \
+	codec/compress/experimental/simulator/HPACKScheme.h \
+	codec/compress/experimental/simulator/QCRAMScheme.h \
+	codec/compress/experimental/simulator/QPACKScheme.h \
+	codec/compress/experimental/simulator/SimStreamingCallback.h
+
+CompressionSimulator_LDADD = \
+	libqpack.la \
+	libproxygenhttp.la \
+	../services/libproxygenservices.la
