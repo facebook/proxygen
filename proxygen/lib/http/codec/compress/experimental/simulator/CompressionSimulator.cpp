@@ -9,6 +9,7 @@
  */
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMScheme.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMNewScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QMINScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/HPACKScheme.h"
@@ -20,6 +21,12 @@
 using namespace std;
 using namespace folly;
 using namespace proxygen;
+
+namespace proxygen { namespace compress {
+
+bool QCRAMNewScheme::sEnableUpdatesOnControlStream_{false};
+
+} }
 
 namespace {
 using namespace proxygen::compress;
@@ -123,6 +130,9 @@ CompressionSimulator::readInputFromFileAndSchedule(const string& filename) {
     last = msg.getStartTime();
     cumulativeDelay += delayFromPrevious;
     setupRequest(index++, std::move(msg), cumulativeDelay);
+  }
+  for (auto& kv : domains_) {
+    flushRequests(kv.second.get());
   }
   for (auto& kv : domains_) {
     flushRequests(kv.second.get());
@@ -312,6 +322,8 @@ CompressionScheme* CompressionSimulator::getScheme(StringPiece domain) {
 unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
   if (params_.type == SchemeType::QCRAM) {
     return make_unique<QCRAMScheme>(this);
+  } else if (params_.type == SchemeType::QCRAM_03) {
+    return make_unique<QCRAMNewScheme>(this);
   } else if (params_.type == SchemeType::QPACK) {
     return make_unique<QPACKScheme>(this);
   } else if (params_.type == SchemeType::QMIN) {

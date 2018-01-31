@@ -14,6 +14,7 @@
 namespace proxygen { namespace compress {
 enum class SchemeType {
   QCRAM,
+  QCRAM_03,
   QPACK,
   QMIN,
   HPACK
@@ -23,6 +24,7 @@ enum class SchemeType {
 // conveyed via HTTP frame (HEADERS or PUSH_PROMISE) flags.
 struct FrameFlags {
   bool allowOOO{false};
+  bool QCRAMPrefixHasDepends{false};
 };
 
 struct SimParams {

@@ -11,12 +11,13 @@
 #include <folly/init/Init.h>
 
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMNewScheme.h"
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
-
+#include <proxygen/lib/http/codec/compress/experimental/qcram/QCRAMEncoder.h>
 
 DEFINE_string(input, "", "File containing requests");
-DEFINE_string(scheme, "qpack", "Scheme: <qpack|qcram|qmin|hpack>");
+DEFINE_string(scheme, "qpack", "Scheme: <qpack|qcram|qcram-03|qcram-wip|qmin|hpack>");
 
 DEFINE_int32(rtt, 100, "Simulated RTT");
 DEFINE_double(lossp, 0.0, "Loss Probability");
@@ -46,6 +47,13 @@ int main(int argc, char* argv[]) {
   if (FLAGS_scheme == "qcram") {
     LOG(INFO) << "Using QCRAM";
     t = SchemeType::QCRAM;
+  } else if (FLAGS_scheme == "qcram-03") {
+    LOG(INFO) << "Using QCRAM-03";
+    t = SchemeType::QCRAM_03;
+  } else if (FLAGS_scheme == "qcram-wip") {
+    LOG(INFO) << "Using QCRAM-WIP";
+    t = SchemeType::QCRAM_03;
+    QCRAMNewScheme::enableUpdatesOnControlStream();
   } else if (FLAGS_scheme == "qpack") {
     LOG(INFO) << "Using QPACK";
     t = SchemeType::QPACK;
