@@ -213,6 +213,7 @@ CompressionSimulator_HEADERS = \
 	codec/compress/experimental/simulator/CompressionTypes.h \
 	codec/compress/experimental/simulator/HPACKScheme.h \
 	codec/compress/experimental/simulator/QCRAMScheme.h \
+	codec/compress/experimental/simulator/QCRAMNewScheme.h \
 	codec/compress/experimental/simulator/QPACKScheme.h \
 	codec/compress/experimental/simulator/SimStreamingCallback.h
 
