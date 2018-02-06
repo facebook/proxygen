@@ -47,6 +47,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
     // Note: you must not start any asynchronous work from onCreate()
     virtual void onCreate(const HTTPSessionBase&) {}
+    virtual void onFullHandshakeCompletion(const HTTPSessionBase&) {}
     virtual void onIngressError(const HTTPSessionBase&, ProxygenError) {}
     virtual void onIngressEOF() {}
     virtual void onRead(const HTTPSessionBase&, size_t /*bytesRead*/) {}

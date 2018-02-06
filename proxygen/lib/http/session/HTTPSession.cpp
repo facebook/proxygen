@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -2572,6 +2572,11 @@ void HTTPSession::onEgressBufferCleared() {
 
 void HTTPSession::onReplaySafe() noexcept {
   sock_->setReplaySafetyCallback(nullptr);
+
+  if (infoCallback_) {
+    infoCallback_->onFullHandshakeCompletion(*this);
+  }
+
   for (auto callback : waitingForReplaySafety_) {
     callback->onReplaySafe();
   }
