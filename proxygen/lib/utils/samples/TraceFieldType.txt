@@ -258,10 +258,6 @@ ZeroFallbackEnabled, "zero_fallback_enabled"
 ZeroVerifiedSuccess, "zero_verified_success"
 ZeroVerifiedError, "zero_verified_error"
 
-TransportRttCompleted, "transport_rtt_completed"
-UnparsedDataSize, "unparsed_data_size"
-UnparsedData, "unparsed_data"
-
 /* --- Used in ZeroConnector -- */
 TFOAttempted, "tfo_attempted"
 TFOFinished, "tfo_finished"
