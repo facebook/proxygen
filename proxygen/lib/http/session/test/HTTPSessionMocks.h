@@ -89,6 +89,10 @@ class HTTPHandlerBase {
     txn_->sendEOM();
   }
 
+  void sendEOM() {
+    txn_->sendEOM();
+  }
+
   void sendChunkedReplyWithBody(uint32_t code, uint32_t content_length,
                                 uint32_t chunkSize, bool hasTrailers) {
     HTTPMessage reply;
