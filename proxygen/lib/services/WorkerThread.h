@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -122,9 +122,6 @@ class WorkerThread {
 
   // A thread-local pointer to the current WorkerThread for this thread
   static FOLLY_TLS WorkerThread* currentWorker_;
-
-  // A count of the number of WorkerThreads that have been constructed
-  static std::atomic_uint objectCounter_;
 };
 
 } // proxygen
