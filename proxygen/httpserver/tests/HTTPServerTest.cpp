@@ -641,7 +641,7 @@ TEST_F(ScopedServerTest, startStrictSSL) {
     "/path/should/not/exist",
     "");
   cfg_.sslConfigs.push_back(sslCfg);
-  EXPECT_DEATH(createScopedServer(), "");
+  EXPECT_THROW(createScopedServer(), std::exception);
 }
 
 TEST_F(ScopedServerTest, startNotStrictSSL) {
