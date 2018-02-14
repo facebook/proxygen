@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -179,15 +179,22 @@ HTTPUpstreamSession::attachThreadLocals(
   setSessionStats(stats);
   if (sock_) {
     sock_->attachEventBase(eventBase);
-    auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
-    if (sslSocket && sslContext) {
-      sslSocket->attachSSLContext(sslContext);
-    }
+    maybeAttachSSLContext(sslContext);
   }
   codec_.foreach(fn);
   codec_->setHeaderCodecStats(headerCodecStats);
   resumeReadsImpl();
   rescheduleLoopCallbacks();
+}
+
+void HTTPUpstreamSession::maybeAttachSSLContext(
+    folly::SSLContextPtr sslContext) const {
+#ifndef NO_ASYNCSSLSOCKET
+  auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
+  if (sslSocket && sslContext) {
+    sslSocket->attachSSLContext(sslContext);
+  }
+#endif
 }
 
 void
@@ -196,9 +203,8 @@ HTTPUpstreamSession::detachThreadLocals(bool detachSSLContext) {
   cancelLoopCallbacks();
   pauseReadsImpl();
   if (sock_) {
-    auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
-    if (sslSocket && detachSSLContext) {
-      sslSocket->detachSSLContext();
+    if (detachSSLContext) {
+      maybeDetachSSLContext();
     }
     sock_->detachEventBase();
   }
@@ -214,5 +220,13 @@ HTTPUpstreamSession::detachThreadLocals(bool detachSSLContext) {
   }
 }
 
+void HTTPUpstreamSession::maybeDetachSSLContext() const {
+#ifndef NO_ASYNCSSLSOCKET
+  auto sslSocket = sock_->getUnderlyingTransport<folly::AsyncSSLSocket>();
+  if (sslSocket) {
+    sslSocket->detachSSLContext();
+  }
+#endif
+}
 
 } // proxygen
