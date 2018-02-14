@@ -34,8 +34,10 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   virtual ~CurlClient() = default;
 
   // initial SSL related structures
-  void initializeSsl(const std::string& certPath,
-                     const std::string& nextProtos);
+  void initializeSsl(const std::string& caPath,
+                     const std::string& nextProtos,
+                     const std::string& certPath = "",
+                     const std::string& keyPath = "");
   void sslHandshakeFollowup(proxygen::HTTPUpstreamSession* session) noexcept;
 
   // HTTPConnector methods

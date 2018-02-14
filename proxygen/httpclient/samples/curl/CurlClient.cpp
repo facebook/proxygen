@@ -45,13 +45,18 @@ CurlClient::CurlClient(EventBase* evb,
     });
 }
 
-void CurlClient::initializeSsl(const string& certPath,
-                               const string& nextProtos) {
+void CurlClient::initializeSsl(const string& caPath,
+                               const string& nextProtos,
+                               const string& certPath,
+                               const string& keyPath) {
   sslContext_ = std::make_shared<folly::SSLContext>();
   sslContext_->setOptions(SSL_OP_NO_COMPRESSION);
   sslContext_->setCipherList(folly::ssl::SSLCommonOptions::kCipherList);
-  if (!certPath.empty()) {
-    sslContext_->loadTrustedCertificates(certPath.c_str());
+  if (!caPath.empty()) {
+    sslContext_->loadTrustedCertificates(caPath.c_str());
+  }
+  if (!certPath.empty() && !keyPath.empty()) {
+    sslContext_->loadCertKeyPairFromFiles(certPath.c_str(), keyPath.c_str());
   }
   list<string> nextProtoList;
   folly::splitTo<string>(',', nextProtos, std::inserter(nextProtoList,
