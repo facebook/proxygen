@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
-#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <iosfwd>
 
