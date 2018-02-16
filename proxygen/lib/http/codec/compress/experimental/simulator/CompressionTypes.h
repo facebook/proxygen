@@ -22,6 +22,9 @@ enum class SchemeType {
 // Metadata about encoded blocks.  In a real stack, these might be
 // conveyed via HTTP frame (HEADERS or PUSH_PROMISE) flags.
 struct FrameFlags {
+  FrameFlags(bool ooo = false)
+      : allowOOO(ooo) {}
+
   bool allowOOO{false};
 };
 

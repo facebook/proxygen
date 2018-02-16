@@ -74,7 +74,7 @@ class QPACKScheme : public CompressionScheme {
       header->prependChain(std::move(result.second));
     }
     // OOO is always allowed
-    struct FrameFlags flags{.allowOOO = true};
+    struct FrameFlags flags{true};
     return {flags, std::move(header)};
   }
 

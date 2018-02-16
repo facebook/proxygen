@@ -51,7 +51,7 @@ class HPACKScheme : public CompressionScheme {
     stats.uncompressed += client_.getEncodedSize().uncompressed;
     stats.compressed += client_.getEncodedSize().compressed;
     // OOO is allowed with 0 table size
-    FrameFlags flags{.allowOOO = allowOOO_};
+    FrameFlags flags{allowOOO_};
     return {flags, std::move(block)};
   }
 
