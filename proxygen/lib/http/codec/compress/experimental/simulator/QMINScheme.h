@@ -412,7 +412,10 @@ class QMINScheme : public CompressionScheme {
       VLOG(1) << "error: qmin_dec_stream_done failed";
     }
 
-    callback.onHeadersComplete(proxygen::HTTPHeaderSize{decoded_size});
+    proxygen::HTTPHeaderSize sz;
+    sz.compressed = encodedReq->computeChainDataLength();
+    sz.uncompressed = decoded_size;
+    callback.onHeadersComplete(sz);
   }
 
   uint32_t getHolBlockCount() const override
