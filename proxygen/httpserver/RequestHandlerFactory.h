@@ -36,7 +36,7 @@ class RequestHandlerFactory {
   /**
    * Invoked for each new request server handles. HTTPMessage is provided
    * so that user can potentially choose among several implementation of
-   * handler based on URL or something. No, need to save/copy this
+   * handler based on URL or something. No need to save/copy this
    * HTTPMessage. RequestHandler will be given the HTTPMessage
    * in a separate callback.
    *
