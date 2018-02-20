@@ -12,7 +12,7 @@
  *  pooling, etc.
  *
  */
-#include <gflags/gflags.h>
+#include <folly/portability/GFlags.h>
 
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
