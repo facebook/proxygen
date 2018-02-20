@@ -927,6 +927,11 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
           "client=" << upgradeHeader_ << " server=" << serverUpgrade;
         return -1;
       }
+    } else if (parser_.upgrade || parser_.flags & F_UPGRADE) {
+      // Ignore upgrade header for upstream response messages with status code
+      // different from 101 in case if it was not a response to CONNECT.
+      parser_.upgrade = false;
+      parser_.flags &= ~F_UPGRADE;
     }
   }
   else {

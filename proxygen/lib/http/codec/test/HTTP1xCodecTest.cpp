@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -470,6 +470,26 @@ TEST(HTTP1xCodecTest, TestChainedBody) {
 
   EXPECT_TRUE(folly::IOBufEqual()(*bodyQueue.front(),
                                   *folly::IOBuf::copyBuffer("abcdefghij")));
+}
+
+TEST(HTTP1xCodecTest, TestIgnoreUpstreamUpgrade) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  FakeHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "HTTP/1.1 200 OK\r\n"
+      "Connection: close\r\n"
+      "Upgrade: h2,h2c\r\n"
+      "\r\n"
+      "<!DOCTYPE html>");
+  codec.onIngress(*reqBuf);
+
+  EXPECT_EQ(callbacks.streamErrors, 0);
+  EXPECT_EQ(callbacks.messageBegin, 1);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.bodyLength, 15);
 }
 
 class ConnectionHeaderTest:
