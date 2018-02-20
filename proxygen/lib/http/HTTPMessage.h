@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -61,10 +61,17 @@ class HTTPMessage {
   /**
    * Set/Get client address
    */
-  void setClientAddress(const folly::SocketAddress& addr) {
+  void setClientAddress(const folly::SocketAddress& addr,
+                        std::string ipStr = empty_string,
+                        std::string portStr = empty_string) {
     request().clientAddress_ = addr;
-    request().clientIP_ = addr.getAddressStr();
-    request().clientPort_ = folly::to<std::string>(addr.getPort());
+    if (ipStr.empty() || portStr.empty()) {
+      request().clientIP_ = addr.getAddressStr();
+      request().clientPort_ = folly::to<std::string>(addr.getPort());
+    } else {
+      request().clientIP_ = std::move(ipStr);
+      request().clientPort_ = std::move(portStr);
+    }
   }
 
   const folly::SocketAddress& getClientAddress() const {
@@ -82,10 +89,17 @@ class HTTPMessage {
   /**
    * Set/Get destination (vip) address
    */
-  void setDstAddress(const folly::SocketAddress& addr) {
+  void setDstAddress(const folly::SocketAddress& addr,
+                     std::string addressStr = empty_string,
+                     std::string portStr = empty_string) {
     dstAddress_ = addr;
-    dstIP_ = addr.getAddressStr();
-    dstPort_ = folly::to<std::string>(addr.getPort());
+    if (addressStr.empty() || portStr.empty()) {
+      dstIP_ = addr.getAddressStr();
+      dstPort_ = folly::to<std::string>(addr.getPort());
+    } else {
+      dstIP_ = std::move(addressStr);
+      dstPort_ = std::move(portStr);
+    }
   }
 
   const folly::SocketAddress& getDstAddress() const {
