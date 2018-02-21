@@ -9,8 +9,7 @@
  */
 #include <proxygen/lib/utils/Time.h>
 
-#include <openssl/asn1.h>
-#include <openssl/bio.h>
+#include <folly/portability/OpenSSL.h>
 #include <openssl/ossl_typ.h>
 
 namespace proxygen {

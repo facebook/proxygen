@@ -10,9 +10,8 @@
 #include <proxygen/lib/utils/CryptUtil.h>
 
 #include <iomanip>
-#include <openssl/bio.h>
+#include <folly/portability/OpenSSL.h>
 #include <openssl/buffer.h>
-#include <openssl/evp.h>
 #include <openssl/md5.h>
 #include <sstream>
 

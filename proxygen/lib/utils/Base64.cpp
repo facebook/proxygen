@@ -9,9 +9,8 @@
  */
 #include <proxygen/lib/utils/Base64.h>
 #include <folly/Range.h>
-#include <openssl/bio.h>
+#include <folly/portability/OpenSSL.h>
 #include <openssl/buffer.h>
-#include <openssl/evp.h>
 
 namespace {
 struct BIODeleter {
