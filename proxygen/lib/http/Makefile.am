@@ -178,6 +178,26 @@ libqpack_HEADERS = \
 libqpack_la_LIBADD = \
 	../utils/libutils.la
 
+noinst_LTLIBRARIES += libqcram.la
+libqcramdir = $(includedir)/proxygen/lib/http/codec/compress/experimental/qcram
+libqcram_la_SOURCES = \
+	codec/compress/experimental/qcram/QCRAMCodec.cpp \
+	codec/compress/experimental/qcram/QCRAMContext.cpp \
+	codec/compress/experimental/qcram/QCRAMDecoder.cpp \
+	codec/compress/experimental/qcram/QCRAMEncoder.cpp \
+	codec/compress/experimental/qcram/QCRAMHeaderTable.cpp
+
+libqcram_HEADERS = \
+	codec/compress/experimental/qcram/QCRAMCodec.h \
+	codec/compress/experimental/qcram/QCRAMContext.h \
+	codec/compress/experimental/qcram/QCRAMDecoder.h \
+	codec/compress/experimental/qcram/QCRAMHeader.h \
+	codec/compress/experimental/qcram/QCRAMHeaderTable.h \
+	codec/compress/experimental/qcram/QCRAMQueue.h
+
+libqcram_la_LIBADD = \
+	../utils/libutils.la
+
 noinst_PROGRAMS = CompressionSimulator
 
 CompressionSimulator_SOURCES = \
@@ -193,10 +213,12 @@ CompressionSimulator_HEADERS = \
 	codec/compress/experimental/simulator/CompressionTypes.h \
 	codec/compress/experimental/simulator/HPACKScheme.h \
 	codec/compress/experimental/simulator/QCRAMScheme.h \
+	codec/compress/experimental/simulator/QCRAMNewScheme.h \
 	codec/compress/experimental/simulator/QPACKScheme.h \
 	codec/compress/experimental/simulator/SimStreamingCallback.h
 
 CompressionSimulator_LDADD = \
 	libqpack.la \
+	libqcram.la \
 	libproxygenhttp.la \
 	../services/libproxygenservices.la

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2017, Facebook, Inc.
+ *  Copyright (c) 2017-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -7,7 +7,6 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-
 #pragma once
 
 #include <algorithm>
@@ -17,6 +16,7 @@
 #include <iostream>
 #include <boost/variant.hpp>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <folly/Range.h>
 
 namespace proxygen {
 
