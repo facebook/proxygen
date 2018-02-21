@@ -9,8 +9,9 @@
  */
 #pragma once
 
-#include <folly/io/async/AsyncServerSocket.h>
+#include <folly/Function.h>
 #include <folly/SocketAddress.h>
+#include <folly/io/async/AsyncServerSocket.h>
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <signal.h>
@@ -25,6 +26,18 @@ namespace proxygen {
  */
 class HTTPServerOptions {
  public:
+  /**
+   * Type of function to run inside onNewConnection() of acceptors.
+   * If the function throws, the socket will be closed immediately. Useful
+   * for validating client cert before processing the request.
+   */
+  using NewConnectionFilter =
+      folly::Function<void(const folly::AsyncTransportWrapper* /* sock */,
+                           const folly::SocketAddress* /* address */,
+                           const std::string& /* nextProtocolName */,
+                           SecureTransportType /* secureTransportType */,
+                           const wangle::TransportInfo& /* tinfo */) const>;
+
   /**
    * Number of threads to start to handle requests. Note that this excludes
    * the thread you call `HTTPServer.start()` in.
@@ -159,5 +172,11 @@ class HTTPServerOptions {
     socket->useExistingSockets(socketFds);
     useExistingSocket(std::move(socket));
   }
+
+  /**
+   * Invoked after a new connection is created. Drop connection if the function
+   * throws any exception.
+   */
+  NewConnectionFilter newConnectionFilter;
 };
 }

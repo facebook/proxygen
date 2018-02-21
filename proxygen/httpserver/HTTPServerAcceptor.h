@@ -36,13 +36,22 @@ class HTTPServerAcceptor final : public HTTPSessionAcceptor {
  private:
   HTTPServerAcceptor(const AcceptorConfiguration& conf,
                      const std::shared_ptr<HTTPCodecFactory>& codecFactory,
-                     std::vector<RequestHandlerFactory*> handlerFactories);
+                     std::vector<RequestHandlerFactory*> handlerFactories,
+                     const HTTPServerOptions& options);
 
   // HTTPSessionAcceptor
   HTTPTransaction::Handler* newHandler(HTTPTransaction& txn,
                                        HTTPMessage* msg) noexcept override;
+
+  void onNewConnection(folly::AsyncTransportWrapper::UniquePtr sock,
+                       const folly::SocketAddress* address,
+                       const std::string& nextProtocolName,
+                       wangle::SecureTransportType secureTransportType,
+                       const wangle::TransportInfo& tinfo) override;
+
   void onConnectionsDrained() override;
 
+  const HTTPServerOptions& serverOptions_;
   std::function<void()> completionCallback_;
   const std::vector<RequestHandlerFactory*> handlerFactories_{nullptr};
 };

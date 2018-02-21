@@ -7,6 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <proxygen/httpserver/HTTPServer.h>
 #include <boost/thread.hpp>
 #include <folly/FileUtil.h>
 #include <folly/experimental/TestUtil.h>
@@ -14,16 +15,16 @@
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/portability/GTest.h>
-#include <proxygen/httpserver/HTTPServer.h>
+#include <folly/ssl/OpenSSLCertUtils.h>
+#include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <proxygen/httpserver/ScopedHTTPServer.h>
-#include <proxygen/lib/utils/TestUtils.h>
 #include <proxygen/lib/http/HTTPConnector.h>
-#include <proxygen/httpclient/samples/curl/CurlClient.h>
+#include <proxygen/lib/utils/TestUtils.h>
 #include <wangle/client/ssl/SSLSession.h>
 
-
 using namespace folly;
+using namespace folly::ssl;
 using namespace proxygen;
 using namespace testing;
 using namespace CurlService;
@@ -573,15 +574,16 @@ class ScopedServerTest : public testing::Test {
     return res;
   }
 
-  std::unique_ptr<CurlClient> connectSSL() {
-    URL url(
-        folly::to<std::string>("https://localhost:", address_.getPort()));
+  std::unique_ptr<CurlClient> connectSSL(const std::string& caFile = "",
+                                         const std::string& certFile = "",
+                                         const std::string& keyFile = "") {
+    URL url(folly::to<std::string>("https://localhost:", address_.getPort()));
     HTTPHeaders headers;
     auto client = std::make_unique<CurlClient>(
       &evb_, HTTPMethod::GET, url, nullptr, headers, "");
     client->setFlowControlSettings(64 * 1024);
     client->setLogging(false);
-    client->initializeSsl("", "http/1.1");
+    client->initializeSsl(caFile, "http/1.1", certFile, keyFile);
     HTTPConnector connector(client.get(), timer_.get());
     connector.connectSSL(
       &evb_,
@@ -610,7 +612,7 @@ class ScopedServerTest : public testing::Test {
     return client;
   }
 
-  HTTPServerOptions createDefaultOpts() {
+  virtual HTTPServerOptions createDefaultOpts() {
     HTTPServerOptions res;
     res.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
@@ -676,4 +678,53 @@ TEST_F(ScopedServerTest, startSSLWithInsecure) {
   client = connectSSL();
   resp = client->getResponse();
   EXPECT_EQ(200, resp->getStatusCode());
+}
+
+class ConnectionFilterTest : public ScopedServerTest {
+ protected:
+  HTTPServerOptions createDefaultOpts() override {
+    HTTPServerOptions options;
+    options.threads = 4;
+    options.handlerFactories =
+        RequestHandlerChain().addThen<TestHandlerFactory>().build();
+    options.newConnectionFilter =
+        [](const folly::AsyncTransportWrapper* sock,
+           const folly::SocketAddress* /* address */,
+           const std::string& /* nextProtocolName */,
+           wangle::SecureTransportType /* secureTransportType */,
+           const wangle::TransportInfo& /* tinfo */) {
+          auto cert = sock->getPeerCert();
+          if (!cert || OpenSSLCertUtils::getCommonName(*cert).value_or("") !=
+                           "testuser1") {
+            throw std::runtime_error("Client cert is missing or invalid.");
+          }
+        };
+    return options;
+  }
+};
+
+TEST_F(ConnectionFilterTest, Test) {
+  wangle::SSLContextConfig sslCfg;
+  sslCfg.isDefault = true;
+  sslCfg.setCertificate(
+      kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
+  sslCfg.clientCAFile = kTestDir + "certs/client_ca_cert.pem";
+  // Permissive client auth.
+  sslCfg.clientVerification = folly::SSLContext::SSLVerifyPeerEnum::VERIFY;
+  cfg_.sslConfigs.push_back(sslCfg);
+
+  auto server = createScopedServer();
+  auto insecureClient = connectPlainText();
+  auto certlessClient = connectSSL();
+  auto certlessClient2 = connectSSL(kTestDir + "certs/ca_cert.pem");
+  auto secureClient = connectSSL(kTestDir + "certs/ca_cert.pem",
+                                 kTestDir + "certs/client_cert.pem",
+                                 kTestDir + "certs/client_key.pem");
+
+  EXPECT_EQ(nullptr, insecureClient->getResponse());
+  EXPECT_EQ(nullptr, certlessClient->getResponse());
+  EXPECT_EQ(nullptr, certlessClient2->getResponse());
+
+  auto response = secureClient->getResponse();
+  EXPECT_EQ(200, response->getStatusCode());
 }

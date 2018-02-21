@@ -9,6 +9,7 @@
  */
 #include <proxygen/httpserver/HTTPServerAcceptor.h>
 
+#include <folly/ExceptionString.h>
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
@@ -69,15 +70,18 @@ std::unique_ptr<HTTPServerAcceptor> HTTPServerAcceptor::make(
   std::reverse(handlerFactories.begin(), handlerFactories.end());
 
   return std::unique_ptr<HTTPServerAcceptor>(
-      new HTTPServerAcceptor(conf, codecFactory, handlerFactories));
+      new HTTPServerAcceptor(conf, codecFactory, handlerFactories, opts));
 }
 
 HTTPServerAcceptor::HTTPServerAcceptor(
     const AcceptorConfiguration& conf,
     const std::shared_ptr<HTTPCodecFactory>& codecFactory,
-    std::vector<RequestHandlerFactory*> handlerFactories)
+    std::vector<RequestHandlerFactory*> handlerFactories,
+    const HTTPServerOptions& options)
     : HTTPSessionAcceptor(conf, codecFactory),
-      handlerFactories_(handlerFactories) {}
+      serverOptions_(options),
+      handlerFactories_(handlerFactories) {
+}
 
 void HTTPServerAcceptor::setCompletionCallback(std::function<void()> f) {
   completionCallback_ = f;
@@ -103,6 +107,26 @@ HTTPTransactionHandler* HTTPServerAcceptor::newHandler(
   }
 
   return new RequestHandlerAdaptor(h);
+}
+
+void HTTPServerAcceptor::onNewConnection(
+    folly::AsyncTransportWrapper::UniquePtr sock,
+    const SocketAddress* address,
+    const std::string& nextProtocolName,
+    SecureTransportType secureTransportType,
+    const wangle::TransportInfo& tinfo) {
+  auto& filter = serverOptions_.newConnectionFilter;
+  if (filter) {
+    try {
+      filter(sock.get(), address, nextProtocolName, secureTransportType, tinfo);
+    } catch (const std::exception& e) {
+      sock->closeWithReset();
+      LOG(INFO) << "Exception filtering new socket: " << folly::exceptionStr(e);
+      return;
+    }
+  }
+  HTTPSessionAcceptor::onNewConnection(
+      std::move(sock), address, nextProtocolName, secureTransportType, tinfo);
 }
 
 void HTTPServerAcceptor::onConnectionsDrained() {
