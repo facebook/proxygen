@@ -36,6 +36,7 @@ class Filter : public RequestHandler, public ResponseHandler {
   void setResponseHandler(ResponseHandler* handler) noexcept override {
     // Save downstream handler and pass ourselves as downstream handler
     downstream_ = handler;
+    txn_ = handler->getTransaction();
     upstream_->setResponseHandler(this);
   }
 

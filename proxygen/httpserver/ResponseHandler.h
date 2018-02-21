@@ -77,12 +77,18 @@ class ResponseHandler {
     PushHandler* pushHandler) noexcept = 0;
 
   // Accessors for Transport/Connection information
-  virtual const wangle::TransportInfo& getSetupTransportInfo() const noexcept = 0;
+  virtual const wangle::TransportInfo& getSetupTransportInfo() const
+      noexcept = 0;
 
   virtual void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const = 0;
 
+  HTTPTransaction* getTransaction() const noexcept {
+    return txn_;
+  }
+
  protected:
   RequestHandler* upstream_{nullptr};
+  HTTPTransaction* txn_{nullptr};
 };
 
 }

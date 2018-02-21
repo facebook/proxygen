@@ -69,7 +69,6 @@ class RequestHandlerAdaptor
   // Helper method
   void setError(ProxygenError err) noexcept;
 
-  HTTPTransaction* txn_{nullptr};
   ProxygenError err_{kErrorNone};
   bool responseStarted_{false};
 };

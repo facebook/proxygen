@@ -183,16 +183,43 @@ TEST(SSL, SSLTest) {
   EXPECT_TRUE(cb.success);
 }
 
+/**
+ * A dummy filter to make RequestHandlerChain longer.
+ */
+class DummyFilterFactory : public RequestHandlerFactory {
+ public:
+  class DummyFilter : public Filter {
+   public:
+    explicit DummyFilter(RequestHandler* upstream) : Filter(upstream) {}
+  };
+
+  RequestHandler* onRequest(RequestHandler* h, HTTPMessage*) noexcept override {
+    return new DummyFilter(h);
+  }
+
+  void onServerStart(folly::EventBase*) noexcept override {}
+  void onServerStop() noexcept override {}
+};
+
 class TestHandlerFactory : public RequestHandlerFactory {
  public:
-  class TestHandler : public proxygen::RequestHandler {
-    void onRequest(std::unique_ptr<proxygen::HTTPMessage>) noexcept override {}
+  class TestHandler : public RequestHandler {
+    void onRequest(std::unique_ptr<HTTPMessage>) noexcept override {
+    }
     void onBody(std::unique_ptr<folly::IOBuf>) noexcept override {}
-    void onUpgrade(proxygen::UpgradeProtocol) noexcept override {}
+    void onUpgrade(UpgradeProtocol) noexcept override {
+    }
 
     void onEOM() noexcept override {
+      std::string certHeader("");
+      auto txn = CHECK_NOTNULL(downstream_->getTransaction());
+      auto& transport = txn->getTransport();
+      if (auto cert = transport.getUnderlyingTransport()->getPeerCert()) {
+        certHeader = OpenSSLCertUtils::getCommonName(*cert).value_or("");
+      }
       ResponseBuilder(downstream_)
           .status(200, "OK")
+          .header("X-Client-CN", certHeader)
           .body(IOBuf::copyBuffer("hello"))
           .sendWithEOM();
     }
@@ -687,6 +714,10 @@ class ConnectionFilterTest : public ScopedServerTest {
     options.threads = 4;
     options.handlerFactories =
         RequestHandlerChain().addThen<TestHandlerFactory>().build();
+    options.handlerFactories = RequestHandlerChain()
+                                   .addThen<DummyFilterFactory>()
+                                   .addThen<TestHandlerFactory>()
+                                   .build();
     options.newConnectionFilter =
         [](const folly::AsyncTransportWrapper* sock,
            const folly::SocketAddress* /* address */,
@@ -721,10 +752,16 @@ TEST_F(ConnectionFilterTest, Test) {
                                  kTestDir + "certs/client_cert.pem",
                                  kTestDir + "certs/client_key.pem");
 
+  // The following clients fail newConnectionFilter.
   EXPECT_EQ(nullptr, insecureClient->getResponse());
   EXPECT_EQ(nullptr, certlessClient->getResponse());
   EXPECT_EQ(nullptr, certlessClient2->getResponse());
 
+  // Only secureClient passes.
   auto response = secureClient->getResponse();
   EXPECT_EQ(200, response->getStatusCode());
+
+  // Check the header set by TestHandler.
+  auto headers = response->getHeaders();
+  EXPECT_EQ("testuser1", headers.getSingleOrEmpty("X-Client-CN"));
 }
