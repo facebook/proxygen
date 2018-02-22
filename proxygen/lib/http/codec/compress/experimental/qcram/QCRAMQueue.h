@@ -82,7 +82,7 @@ class QCRAMQueue : public folly::DestructorCheck {
                    std::unique_ptr<folly::IOBuf> block,
                    size_t length,
                    HeaderCodec::StreamingCallback* cb,
-                   bool /*ooo*/) {
+                   bool ooo) {
     // TODO(ckrasic) - this isn't needed for depends, but might be for
     // fill and/or evicts.
     codec_.setDecoderFrameFlags(flags);

@@ -37,11 +37,8 @@ class HPACKScheme : public CompressionScheme {
   }
 
   // HPACK has no ACKs
-  std::unique_ptr<Ack> getAck(uint16_t /*seqn*/) override {
-    return nullptr;
-  }
-  void recvAck(std::unique_ptr<Ack> /*ack*/) override {
-  }
+  std::unique_ptr<Ack> getAck(uint16_t seqn) override { return nullptr; }
+  void recvAck(std::unique_ptr<Ack> ack) override {}
 
   std::pair<FrameFlags, std::unique_ptr<folly::IOBuf>> encode(
       bool /*newPacket*/,

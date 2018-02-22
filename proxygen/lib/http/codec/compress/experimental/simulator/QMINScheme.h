@@ -33,65 +33,62 @@ extern "C" {
       void     *qco_ctx;
   };
   struct qmin_enc;
-  static struct qmin_enc *qmin_enc_new(int /*side*/,
-                                       unsigned /*max_capacity*/,
-                                       const struct qmin_ctl_out * /*ctl_out*/,
-                                       const char * /*idstr*/) {
+  static struct qmin_enc *
+  qmin_enc_new (int side, unsigned max_capacity,
+                const struct qmin_ctl_out *ctl_out, const char *idstr)
+  {
     return NULL;
   }
-  static ssize_t qmin_enc_cmds_in(struct qmin_enc * /*enc*/,
-                                  const void * /*buf*/,
-                                  size_t /*bufsz*/) {
+  static ssize_t
+  qmin_enc_cmds_in (struct qmin_enc *enc, const void *buf, size_t bufsz)
+  {
     return -1;
   }
-  static enum qmin_encode_status qmin_enc_encode(
-      struct qmin_enc * /*enc*/,
-      unsigned /*stream_id*/,
-      const char * /*name*/,
-      unsigned /*name_len*/,
-      const char * /*value*/,
-      unsigned /*value_len*/,
-      enum qmin_index_type /*ix_type*/,
-      unsigned char * /*dst*/,
-      size_t /*dst_sz*/,
-      size_t * /*n_written*/) {
+  static enum qmin_encode_status
+  qmin_enc_encode (struct qmin_enc *enc, unsigned stream_id, const char *name,
+      unsigned name_len,
+      const char *value, unsigned value_len, enum qmin_index_type ix_type,
+      unsigned char *dst, size_t dst_sz, size_t *n_written)
+  {
     return QES_ERR;
   }
-  static int qmin_enc_end_stream_headers(struct qmin_enc * /*enc*/) {
+  static int
+  qmin_enc_end_stream_headers (struct qmin_enc *enc)
+  {
     return -1;
   }
-  static char *qmin_enc_to_str(struct qmin_enc * /*enc*/, size_t * /*size*/) {
+  static char *
+  qmin_enc_to_str (struct qmin_enc *enc, size_t *size)
+  {
     return strdup("");
   }
-  static void qmin_enc_destroy(struct qmin_enc * /*enc*/) {
-  }
+  static void
+  qmin_enc_destroy (struct qmin_enc *enc) {}
   struct qmin_dec;
-  static struct qmin_dec *qmin_dec_new(int /*side*/,
-                                       unsigned /*max_capacity*/,
-                                       const struct qmin_ctl_out * /*ctl_out*/,
-                                       const char * /*idstr*/) {
+  static struct qmin_dec *
+  qmin_dec_new (int side, unsigned max_capacity,
+                const struct qmin_ctl_out *ctl_out, const char *idstr)
+  {
     return NULL;
   }
-  static ssize_t qmin_dec_cmds_in(struct qmin_dec * /*dec*/,
-                                  const void * /*buf*/,
-                                  size_t /*bufsz*/) {
+  static ssize_t
+  qmin_dec_cmds_in (struct qmin_dec *dec, const void *buf, size_t bufsz)
+  {
     return -1;
   }
-  static ssize_t qmin_dec_decode(struct qmin_dec * /*dec*/,
-                                 const void * /*void_src*/,
-                                 size_t /*src_sz*/,
-                                 char * /*dst*/,
-                                 size_t /*dst_sz*/,
-                                 unsigned * /*name_len*/,
-                                 unsigned * /*val_len*/) {
+  static ssize_t
+  qmin_dec_decode (struct qmin_dec *dec, const void *void_src, size_t src_sz,
+              char *dst, size_t dst_sz, unsigned *name_len, unsigned *val_len)
+  {
     return -1;
   }
-  static int qmin_dec_stream_done(struct qmin_dec * /*dec*/,
-                                  unsigned /*stream_id*/) {
+  static int
+  qmin_dec_stream_done (struct qmin_dec *dec, unsigned stream_id)
+  {
     return -1;
   }
-  static void qmin_dec_destroy(struct qmin_dec * /*dec*/) {
-  }
+  static void
+  qmin_dec_destroy (struct qmin_dec *dec) {}
 }
 #endif
 
@@ -203,7 +200,8 @@ class QMINScheme : public CompressionScheme {
     unsigned char qma_buf[0x1000];
   };
 
-  std::unique_ptr<Ack> getAck(uint16_t /*seqn*/) override {
+  std::unique_ptr<Ack> getAck(uint16_t seqn) override
+  {
     if (qms_ctl[1].sz)
     {
       auto ack = std::make_unique<QMINAck>(qms_ctl[1].write_off, qms_ctl[1].buf,
