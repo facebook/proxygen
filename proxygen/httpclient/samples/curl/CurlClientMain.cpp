@@ -24,7 +24,6 @@ using namespace CurlService;
 using namespace folly;
 using namespace proxygen;
 using std::vector;
-using std::string;
 
 DEFINE_string(http_method, "GET",
     "HTTP method to use. GET or POST are supported");
@@ -34,8 +33,12 @@ DEFINE_string(input_filename, "",
     "Filename to read from for POST requests");
 DEFINE_int32(http_client_connect_timeout, 1000,
     "connect timeout in milliseconds");
-DEFINE_string(cert_path, "/etc/ssl/certs/ca-certificates.crt",
-    "Path to trusted cert to authenticate with");  // default for Ubuntu 14.04
+DEFINE_string(ca_path, "/etc/ssl/certs/ca-certificates.crt",
+    "Path to trusted CA file");  // default for Ubuntu 14.04
+DEFINE_string(cert_path, "",
+    "Path to client certificate file");
+DEFINE_string(key_path, "",
+    "Path to client private key file");
 DEFINE_string(next_protos, "h2,h2-14,spdy/3.1,spdy/3,http/1.1",
     "Next protocol string for NPN/ALPN");
 DEFINE_string(plaintext_proto, "", "plaintext protocol");
@@ -119,11 +122,17 @@ int main(int argc, char* argv[]) {
   static const AsyncSocket::OptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
 
   if (url.isSecure()) {
-    curlClient.initializeSsl(FLAGS_cert_path, FLAGS_next_protos);
+    curlClient.initializeSsl(
+        FLAGS_ca_path, FLAGS_next_protos, FLAGS_cert_path, FLAGS_key_path);
     connector.connectSSL(
-      &evb, addr, curlClient.getSSLContext(), nullptr,
-      std::chrono::milliseconds(FLAGS_http_client_connect_timeout), opts,
-      folly::AsyncSocket::anyAddress(), curlClient.getServerName());
+        &evb,
+        addr,
+        curlClient.getSSLContext(),
+        nullptr,
+        std::chrono::milliseconds(FLAGS_http_client_connect_timeout),
+        opts,
+        folly::AsyncSocket::anyAddress(),
+        curlClient.getServerName());
   } else {
     connector.connect(&evb, addr,
         std::chrono::milliseconds(FLAGS_http_client_connect_timeout), opts);
