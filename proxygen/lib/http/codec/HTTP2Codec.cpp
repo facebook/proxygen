@@ -408,9 +408,19 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       });
     // Check decoding error
     if (decodeInfo_.decodeError != HeaderDecodeError::NONE) {
-      LOG(ERROR) << "Failed decoding header block for stream="
-                 << curHeader_.stream << " header block=" << std::endl
-                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
+      static const std::string decodeErrorMessage =
+          "Failed decoding header block for stream=";
+      // Avoid logging header blocks that have failed decoding due to being
+      // excessively large.
+      if (decodeInfo_.decodeError != HeaderDecodeError::HEADERS_TOO_LARGE) {
+        LOG(ERROR) << decodeErrorMessage << curHeader_.stream
+                   << " header block=" << std::endl
+                   << IOBufPrinter::printHexFolly(
+                          curHeaderBlock_.front(), true);
+      } else {
+        LOG(ERROR) << decodeErrorMessage << curHeader_.stream;
+      }
+
       if (msg) {
         // print the partial message
         msg->dumpMessage(3);
