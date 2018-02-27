@@ -95,6 +95,9 @@ bool HTTPHeaders::exists(folly::StringPiece name) const {
 }
 
 bool HTTPHeaders::exists(HTTPHeaderCode code) const {
+  if (codes_.data() == nullptr) {
+      return false;
+  }
   return memchr((void*)codes_.data(), code, codes_.size()) != nullptr;
 }
 
