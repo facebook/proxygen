@@ -425,7 +425,8 @@ HTTPSession::getReadBuffer(void** buf, size_t* bufSize) {
 
 void
 HTTPSession::readDataAvailable(size_t readSize) noexcept {
-  FOLLY_SCOPED_TRACE_SECTION("HTTPSession - readDataAvailable");
+  FOLLY_SCOPED_TRACE_SECTION(
+      "HTTPSession - readDataAvailable", "readSize", readSize);
   VLOG(10) << "read completed on " << *this << ", bytes=" << readSize;
 
   DestructorGuard dg(this);
@@ -446,8 +447,9 @@ HTTPSession::isBufferMovable() noexcept {
 
 void
 HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
-  FOLLY_SCOPED_TRACE_SECTION("HTTPSession - readBufferAvailable");
   size_t readSize = readBuf->computeChainDataLength();
+  FOLLY_SCOPED_TRACE_SECTION(
+      "HTTPSession - readBufferAvailable", "readSize", readSize);
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
 
   DestructorGuard dg(this);
