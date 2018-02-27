@@ -535,7 +535,7 @@ void HTTP2Codec::onHeader(const folly::fbstring& name,
         }
       } else {
         decodeInfo_.parsingError =
-          folly::to<string>("Invalid header name=", nameSp);
+          folly::to<string>("Invalid req header name=", nameSp);
         return;
       }
     } else {
@@ -561,7 +561,7 @@ void HTTP2Codec::onHeader(const folly::fbstring& name,
         }
       } else {
         decodeInfo_.parsingError =
-          folly::to<string>("Invalid header name=", nameSp);
+          folly::to<string>("Invalid resp header name=", nameSp);
         return;
       }
     }
@@ -766,7 +766,7 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
       case SettingsId::MAX_HEADER_LIST_SIZE:
         break;
       default:
-        // unknown setting
+        // ignore unknown setting
         break;
     }
     ingressSettings_.setSetting(setting.first, setting.second);
