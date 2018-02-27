@@ -1551,7 +1551,7 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
 };
 
 TEST_F(HTTP2UpstreamSessionTest, server_push) {
-  httpSession_->setEgressSettings({{SettingsId::ENABLE_PUSH, true}});
+  httpSession_->setEgressSettings({{SettingsId::ENABLE_PUSH, 1}});
 
   auto egressCodec = makeServerCodec();
   folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
