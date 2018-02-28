@@ -54,16 +54,16 @@ class HTTP2FramerTest : public testing::Test {
     ASSERT_EQ(ret2, ErrorCode::NO_ERROR);
   }
 
-  void dataFrameTest(uint32_t dataLen, boost::optional<uint8_t> padLen) {
+  void dataFrameTest(uint32_t dataLen, folly::Optional<uint8_t> padLen) {
     auto body = makeBuf(dataLen);
     dataFrameTest(body.get(), dataLen, padLen);
   }
 
   void dataFrameTest(IOBuf* body, uint32_t dataLen,
-                     boost::optional<uint8_t> padLen) {
+                     folly::Optional<uint8_t> padLen) {
     uint32_t frameLen = uint32_t(dataLen);
     if (padLen) {
-      frameLen += 1 + padLen.get();
+      frameLen += 1 + *padLen;
     }
     if (frameLen > kMaxFramePayloadLength) {
       EXPECT_DEATH_NO_CORE(writeData(queue_, body->clone(), 1, padLen,
@@ -295,7 +295,7 @@ TEST_F(HTTP2FramerTest, HeadersWithPaddingAndPriority) {
                false, false);
 
   FrameHeader header;
-  boost::optional<PriorityUpdate> priority;
+  folly::Optional<PriorityUpdate> priority;
   std::unique_ptr<IOBuf> outBuf;
   parse(&parseHeaders, header, priority, outBuf);
 

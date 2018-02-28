@@ -348,7 +348,7 @@ TEST(HTTPMessage, TestMethod) {
 
   msg.setMethod("FOO");
   EXPECT_EQ("FOO", msg.getMethodString());
-  EXPECT_EQ(boost::none == msg.getMethod(), true);
+  EXPECT_EQ(folly::none, msg.getMethod());
 
   msg.setMethod(HTTPMethod::CONNECT);
   EXPECT_EQ("CONNECT", msg.getMethodString());

@@ -99,8 +99,8 @@ TEST_F(HTTP2CodecTest, BadHeaders) {
     http2::writeHeaders(output_,
                         std::move(encodedHeaders),
                         stream,
-                        boost::none,
-                        boost::none,
+                        folly::none,
+                        folly::none,
                         true,
                         true);
   }
@@ -115,8 +115,8 @@ TEST_F(HTTP2CodecTest, BadHeaders) {
     http2::writeHeaders(output_,
                         std::move(encodedHeaders),
                         stream,
-                        boost::none,
-                        boost::none,
+                        folly::none,
+                        folly::none,
                         true,
                         true);
   }
@@ -149,8 +149,8 @@ TEST_F(HTTP2CodecTest, BadPseudoHeaders) {
   http2::writeHeaders(output_,
                       std::move(encodedHeaders),
                       stream,
-                      boost::none,
-                      boost::none,
+                      folly::none,
+                      folly::none,
                       true,
                       true);
 
@@ -183,8 +183,8 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
     http2::writeHeaders(output_,
                         std::move(encodedHeaders),
                         stream,
-                        boost::none,
-                        boost::none,
+                        folly::none,
+                        folly::none,
                         true,
                         true);
   }
@@ -273,8 +273,8 @@ TEST_F(HTTP2CodecTest, BadConnect) {
     http2::writeHeaders(output_,
                         std::move(encodedHeaders),
                         stream,
-                        boost::none,
-                        boost::none,
+                        folly::none,
+                        folly::none,
                         true,
                         true);
   }
@@ -374,8 +374,8 @@ TEST_F(HTTP2CodecTest, BadHeadersReply) {
     http2::writeHeaders(output_,
                         std::move(encodedHeaders),
                         stream,
-                        boost::none,
-                        boost::none,
+                        folly::none,
+                        folly::none,
                         true,
                         true);
   }
@@ -390,8 +390,8 @@ TEST_F(HTTP2CodecTest, BadHeadersReply) {
     http2::writeHeaders(output_,
                         std::move(encodedHeaders),
                         stream,
-                        boost::none,
-                        boost::none,
+                        folly::none,
+                        folly::none,
                         true,
                         true);
   }
@@ -927,7 +927,8 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
   upstreamCodec_.generateHeader(output_, 3, req, 0, false, &size);
   EXPECT_EQ(size.uncompressed, 0);
   upstreamCodec_.generateWindowUpdate(output_, 3, 100);
-  upstreamCodec_.generateBody(output_, 3, makeBuf(10), boost::none, false);
+  upstreamCodec_.generateBody(output_, 3, makeBuf(10), HTTPCodec::NoPadding,
+                              false);
   upstreamCodec_.generatePriority(output_, 3,
                                   HTTPMessage::HTTPPriority(0, true, 1));
   upstreamCodec_.generateEOM(output_, 3);
@@ -944,7 +945,8 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
   downstreamCodec_.generateHeader(output_, 2, resp, 0, false, &size);
   // window update for push doesn't make any sense, but whatever
   downstreamCodec_.generateWindowUpdate(output_, 2, 100);
-  downstreamCodec_.generateBody(output_, 2, makeBuf(10), boost::none, false);
+  downstreamCodec_.generateBody(output_, 2, makeBuf(10), HTTPCodec::NoPadding,
+                                false);
   writeFrameHeaderManual(output_, 20, (uint8_t)http2::FrameType::DATA, 0, 2);
   output_.append(makeBuf(10));
 

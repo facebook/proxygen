@@ -80,7 +80,7 @@ ErrorCode rstToErrorCode(ResetStatusCode code) {
   return ErrorCode::PROTOCOL_ERROR;
 }
 
-boost::optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
+folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
   proxygen::SettingsId id) {
   switch (id) {
     // no mapping
@@ -88,7 +88,7 @@ boost::optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
     case proxygen::SettingsId::ENABLE_PUSH:
     case proxygen::SettingsId::MAX_FRAME_SIZE:
     case proxygen::SettingsId::MAX_HEADER_LIST_SIZE:
-      return boost::none;
+      return folly::none;
     case proxygen::SettingsId::MAX_CONCURRENT_STREAMS:
       return SETTINGS_MAX_CONCURRENT_STREAMS;
     case proxygen::SettingsId::INITIAL_WINDOW_SIZE:
@@ -106,10 +106,10 @@ boost::optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
     case proxygen::SettingsId::_SPDY_CLIENT_CERTIFICATE_VECTOR_SIZE:
       return SETTINGS_CLIENT_CERTIFICATE_VECTOR_SIZE;
   }
-  return boost::none;
+  return folly::none;
 }
 
-boost::optional<proxygen::SettingsId> spdyToHttpSettingsId(
+folly::Optional<proxygen::SettingsId> spdyToHttpSettingsId(
   proxygen::spdy::SettingsId id) {
   switch (id) {
     case SETTINGS_UPLOAD_BANDWIDTH:
@@ -119,13 +119,13 @@ boost::optional<proxygen::SettingsId> spdyToHttpSettingsId(
     case SETTINGS_DOWNLOAD_RETRANS_RATE:
     case SETTINGS_CLIENT_CERTIFICATE_VECTOR_SIZE:
       // These mappings are possible, but not needed right now
-      return boost::none;
+      return folly::none;
     case SETTINGS_MAX_CONCURRENT_STREAMS:
       return proxygen::SettingsId::MAX_CONCURRENT_STREAMS;
     case SETTINGS_INITIAL_WINDOW_SIZE:
       return proxygen::SettingsId::INITIAL_WINDOW_SIZE;
   }
-  return boost::none;
+  return folly::none;
 }
 
 const uint32_t kInitialWindow = 65536;

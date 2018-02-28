@@ -78,13 +78,13 @@ extern bool isParallelCodecProtocol(CodecProtocol protocol) {
   return isSpdyCodecProtocol(protocol) || isHTTP2CodecProtocol(protocol);
 }
 
-extern boost::optional<std::pair<CodecProtocol, std::string>>
+extern folly::Optional<std::pair<CodecProtocol, std::string>>
 checkForProtocolUpgrade(const std::string& clientUpgrade,
                         const std::string& serverUpgrade,
                         bool serverMode) {
   CodecProtocol protocol;
   if (clientUpgrade.empty() || serverUpgrade.empty()) {
-    return boost::none;
+    return folly::none;
   }
 
   // Should be a comma separated list of protocols, like NPN
@@ -110,17 +110,16 @@ checkForProtocolUpgrade(const std::string& clientUpgrade,
         continue;
       } else {
         // The server returned a protocol the client didn't ask for
-        return boost::none;
+        return folly::none;
       }
     }
     protocol = getCodecProtocolFromStr(testProtocol);
     // Non-native upgrades get returned as HTTP_1_1/<actual protocol>
     return std::make_pair(protocol, testProtocol.str());
   }
-  return boost::none;
+  return folly::none;
 }
 
-
-const boost::none_t HTTPCodec::NoPadding = boost::none;
+const folly::Optional<uint8_t> HTTPCodec::NoPadding = folly::none;
 
 }

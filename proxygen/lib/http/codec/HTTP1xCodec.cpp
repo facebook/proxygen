@@ -547,7 +547,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
 size_t HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
                                  StreamID txn,
                                  unique_ptr<IOBuf> chain,
-                                 boost::optional<uint8_t> /*padding*/,
+                                 folly::Optional<uint8_t> /*padding*/,
                                  bool eom) {
   DCHECK_EQ(txn, egressTxnID_);
   if (!chain) {

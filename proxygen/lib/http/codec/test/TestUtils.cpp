@@ -162,7 +162,7 @@ void fakeMockCodec(MockHTTPCodec& codec) {
       .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
                                 HTTPCodec::StreamID /*stream*/,
                                 std::shared_ptr<folly::IOBuf> chain,
-                                boost::optional<uint8_t> /*padding*/,
+                                folly::Optional<uint8_t> /*padding*/,
                                 bool /*eom*/) {
         auto len = chain->computeChainDataLength();
         writeBuf.append(chain->clone());

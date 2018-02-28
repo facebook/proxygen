@@ -990,7 +990,7 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
       .WillRepeatedly(Invoke([&](folly::IOBufQueue& /*writeBuf*/,
                                  HTTPCodec::StreamID,
                                  std::shared_ptr<folly::IOBuf> chain,
-                                 boost::optional<uint8_t>,
+                                 folly::Optional<uint8_t>,
                                  bool /*eom*/) {
         bodyLen += chain->computeChainDataLength();
         return 0; // don't want byte events
@@ -1145,7 +1145,7 @@ TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
       .WillRepeatedly(Invoke([&](folly::IOBufQueue&,
                                  HTTPCodec::StreamID,
                                  std::shared_ptr<folly::IOBuf> chain,
-                                 boost::optional<uint8_t>,
+                                 folly::Optional<uint8_t>,
                                  bool /*eom*/) {
         auto len = chain->computeChainDataLength();
         written += len;

@@ -124,7 +124,7 @@ getResponseBuf(CodecProtocol protocol, HTTPCodec::StreamID id,
   if (bodyLen > 0) {
     auto buf = makeBuf(bodyLen);
     egressCodec->generateBody(respBufQ, id, std::move(buf),
-                              boost::none, true /* eom */);
+                              HTTPCodec::NoPadding, true /* eom */);
   }
   return respBufQ.move();
 }

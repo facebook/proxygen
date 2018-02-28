@@ -34,13 +34,13 @@ const StringVector& getMethodStrings() {
 
 namespace proxygen {
 
-boost::optional<HTTPMethod> stringToMethod(folly::StringPiece method) {
+folly::Optional<HTTPMethod> stringToMethod(folly::StringPiece method) {
   FOR_EACH_ENUMERATE(index, cur, getMethodStrings()) {
     if (caseInsensitiveEqual(*cur, method)) {
       return HTTPMethod(index);
     }
   }
-  return boost::none;
+  return folly::none;
 }
 
 const std::string& methodToString(HTTPMethod method) {

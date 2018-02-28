@@ -348,7 +348,7 @@ ErrorCode HTTP2Codec::parseDataFrameData(Cursor& cursor,
 
 ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
   FOLLY_SCOPED_TRACE_SECTION("HTTP2Codec - parseHeaders");
-  boost::optional<http2::PriorityUpdate> priority;
+  folly::Optional<http2::PriorityUpdate> priority;
   std::unique_ptr<IOBuf> headerBuf;
   VLOG(4) << "parsing HEADERS frame for stream=" << curHeader_.stream <<
     " length=" << curHeader_.length;
@@ -357,7 +357,7 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
     RETURN_IF_ERROR(checkNewStream(curHeader_.stream));
   }
-  err = parseHeadersImpl(cursor, std::move(headerBuf), priority, boost::none);
+  err = parseHeadersImpl(cursor, std::move(headerBuf), priority, folly::none);
   return err;
 }
 
@@ -368,15 +368,15 @@ ErrorCode HTTP2Codec::parseContinuation(Cursor& cursor) {
   auto err = http2::parseContinuation(cursor, curHeader_, headerBuf);
   RETURN_IF_ERROR(err);
   err = parseHeadersImpl(cursor, std::move(headerBuf),
-                         boost::none, boost::none);
+                         folly::none, folly::none);
   return err;
 }
 
 ErrorCode HTTP2Codec::parseHeadersImpl(
     Cursor& /*cursor*/,
     std::unique_ptr<IOBuf> headerBuf,
-    boost::optional<http2::PriorityUpdate> priority,
-    boost::optional<uint32_t> promisedStream) {
+    folly::Optional<http2::PriorityUpdate> priority,
+    folly::Optional<uint32_t> promisedStream) {
   curHeaderBlock_.append(std::move(headerBuf));
   std::unique_ptr<HTTPMessage> msg;
   if (curHeader_.flags & http2::END_HEADERS) {
@@ -810,7 +810,7 @@ ErrorCode HTTP2Codec::parsePushPromise(Cursor& cursor) {
                                      headerBlockFragment);
   RETURN_IF_ERROR(err);
   RETURN_IF_ERROR(checkNewStream(promisedStream));
-  err = parseHeadersImpl(cursor, std::move(headerBlockFragment), boost::none,
+  err = parseHeadersImpl(cursor, std::move(headerBlockFragment), folly::none,
                          promisedStream);
   return err;
 }
@@ -1087,7 +1087,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(out));
   if (queue.chainLength() > 0) {
-    boost::optional<http2::PriorityUpdate> pri;
+    folly::Optional<http2::PriorityUpdate> pri;
     auto res = msg.getHTTP2Priority();
     size_t split = kHeaderSplitSize;
     if (res) {
@@ -1136,7 +1136,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
 size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
                                 StreamID stream,
                                 std::unique_ptr<folly::IOBuf> chain,
-                                boost::optional<uint8_t> padding,
+                                folly::Optional<uint8_t> padding,
                                 bool eom) {
   // todo: generate random padding for everything?
   size_t written = 0;

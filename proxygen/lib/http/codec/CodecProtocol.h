@@ -10,9 +10,9 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
-#include <boost/optional.hpp>
+#include <folly/Optional.h>
 #include <proxygen/lib/utils/Export.h>
+#include <string>
 
 namespace proxygen {
 
@@ -58,7 +58,7 @@ extern bool isParallelCodecProtocol(CodecProtocol protocol);
  * Search the client and server protocol lists for a matching native
  * CodecProtocol
  */
-extern boost::optional<std::pair<CodecProtocol, std::string>>
+extern folly::Optional<std::pair<CodecProtocol, std::string>>
 checkForProtocolUpgrade(const std::string& clientUpgrade,
                         const std::string& serverUpgrade,
                         bool serverMode);

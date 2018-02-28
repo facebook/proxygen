@@ -47,12 +47,12 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_METHOD5(generateBody, size_t(folly::IOBufQueue&,
                                     HTTPCodec::StreamID,
                                     std::shared_ptr<folly::IOBuf>,
-                                    boost::optional<uint8_t>,
+                                    folly::Optional<uint8_t>,
                                     bool));
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       HTTPCodec::StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,
-                      boost::optional<uint8_t> padding,
+                      folly::Optional<uint8_t> padding,
                       bool eom) override {
     return generateBody(writeBuf,
                         stream,

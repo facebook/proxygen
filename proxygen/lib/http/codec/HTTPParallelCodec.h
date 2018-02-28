@@ -10,7 +10,7 @@
 #pragma once
 
 #include <bitset>
-#include <boost/optional/optional.hpp>
+#include <folly/Optional.h>
 #include <deque>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>

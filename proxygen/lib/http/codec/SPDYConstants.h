@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include <folly/Optional.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
 #include <proxygen/lib/http/codec/SettingsId.h>
 #include <string>
@@ -95,9 +95,9 @@ extern ResetStatusCode errorCodeToReset(ErrorCode code);
 extern ErrorCode goawayToErrorCode(spdy::GoawayStatusCode);
 extern ErrorCode rstToErrorCode(spdy::ResetStatusCode);
 
-boost::optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
+folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
   proxygen::SettingsId id);
-boost::optional<proxygen::SettingsId> spdyToHttpSettingsId(
+folly::Optional<proxygen::SettingsId> spdyToHttpSettingsId(
   proxygen::spdy::SettingsId id);
 
 // Constants

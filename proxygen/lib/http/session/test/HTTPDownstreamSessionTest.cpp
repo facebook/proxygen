@@ -1668,7 +1668,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
   HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   // cheat and not sending EOM, it's a no-op
   flushRequestsAndLoop();
   expect101(CodecProtocol::SPDY_3, "spdy/3");
@@ -1690,7 +1690,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
   HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   flushRequestsAndLoop();
   expectResponse();
   gracefulShutdown();
@@ -1712,7 +1712,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_partial_resp) {
   HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   flushRequestsAndLoop();
   expectResponse();
   gracefulShutdown();
@@ -1763,7 +1763,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
   req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   flushRequestsAndLoop();
   expect101(CodecProtocol::SPDY_3, "spdy/3", true /* expect 100 continue */);
   expectResponse();
@@ -1786,7 +1786,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
   req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   flushRequestsAndLoop();
   expect101(CodecProtocol::SPDY_3, "spdy/3");
   expectResponse(200, ErrorCode::NO_ERROR, true /* expect 100 via SPDY */);
@@ -1822,7 +1822,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_goaway_drain) {
   HTTP2Codec::requestUpgrade(req);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(10),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   // cheat and not sending EOM, it's a no-op
 
   flushRequestsAndLoop();
@@ -2991,7 +2991,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_short_content_length) {
   auto req = getPostRequest(10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(20),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   auto handler1 = addSimpleStrictHandler();
 
   InSequence enforceOrder;
@@ -3017,7 +3017,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_bad_content_length_untie_handler) {
       requests_,
       streamID,
       makeBuf(20),
-      boost::none,
+      HTTPCodec::NoPadding,
       true);
   auto handler1 = addSimpleStrictHandler();
 
@@ -3038,7 +3038,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_long_content_length) {
   auto req = getPostRequest(30);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(20),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   auto handler1 = addSimpleStrictHandler();
 
   InSequence enforceOrder;
@@ -3059,7 +3059,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_malformed_content_length) {
   req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "malformed");
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(20),
-                             boost::none, true);
+                             HTTPCodec::NoPadding, true);
   auto handler1 = addSimpleStrictHandler();
 
   InSequence enforceOrder;
@@ -3119,8 +3119,8 @@ TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
   req.getHeaders().add(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
   auto streamID = sendRequest(req, false);
   clientCodec_->generateChunkHeader(requests_, streamID, 20);
-  clientCodec_->generateBody(requests_, streamID, makeBuf(20), boost::none,
-                             false);
+  clientCodec_->generateBody(requests_, streamID, makeBuf(20),
+                             HTTPCodec::NoPadding, false);
   clientCodec_->generateChunkTerminator(requests_, streamID);
   clientCodec_->generateEOM(requests_, streamID);
   auto handler1 = addSimpleStrictHandler();

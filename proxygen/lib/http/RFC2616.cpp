@@ -40,7 +40,7 @@ bool strtoulWrapper(const char *&curs, const char *end, unsigned long& val) {
 
 namespace proxygen { namespace RFC2616 {
 
-BodyAllowed isRequestBodyAllowed(boost::optional<HTTPMethod> method) {
+BodyAllowed isRequestBodyAllowed(folly::Optional<HTTPMethod> method) {
   if (method == HTTPMethod::TRACE) {
     return BodyAllowed::NOT_ALLOWED;
   }

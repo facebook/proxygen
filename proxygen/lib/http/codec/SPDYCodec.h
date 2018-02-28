@@ -10,7 +10,7 @@
 #pragma once
 
 #include <bitset>
-#include <boost/optional/optional.hpp>
+#include <folly/Optional.h>
 #include <deque>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
@@ -58,7 +58,7 @@ public:
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,
-                      boost::optional<uint8_t> padding,
+                      folly::Optional<uint8_t> padding,
                       bool eom) override;
   size_t generateChunkHeader(folly::IOBufQueue& writeBuf,
                              StreamID stream,
@@ -148,7 +148,7 @@ public:
   /**
    * Returns the SPDYVersion for the given protocol string, or none otherwise.
    */
-  static boost::optional<SPDYVersion> getVersion(const std::string& protocol);
+  static folly::Optional<SPDYVersion> getVersion(const std::string& protocol);
 
  private:
 

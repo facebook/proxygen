@@ -216,7 +216,7 @@ void HTTPMessage::setMethod(HTTPMethod method) {
 void HTTPMessage::setMethod(folly::StringPiece method) {
   VLOG(9) << "setMethod: " << method;
   Request& req = request();
-  boost::optional<HTTPMethod> result = stringToMethod(method);
+  folly::Optional<HTTPMethod> result = stringToMethod(method);
   if (result) {
     req.method_ = *result;
   } else {
@@ -227,12 +227,12 @@ void HTTPMessage::setMethod(folly::StringPiece method) {
   }
 }
 
-boost::optional<HTTPMethod> HTTPMessage::getMethod() const {
+folly::Optional<HTTPMethod> HTTPMessage::getMethod() const {
   const auto& req = request();
   if (req.method_.which() == 2) {
     return boost::get<HTTPMethod>(req.method_);
   }
-  return boost::none;
+  return folly::none;
 }
 
 /**

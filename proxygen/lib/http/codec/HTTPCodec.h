@@ -50,7 +50,7 @@ class HTTPCodec {
 
   static const StreamID NoStream{0};
 
-  static const boost::none_t NoPadding;
+  static const folly::Optional<uint8_t> NoPadding;
 
   static const StreamID MAX_STREAM_ID = 1u << 31;
 
@@ -437,7 +437,7 @@ class HTTPCodec {
   virtual size_t generateBody(folly::IOBufQueue& writeBuf,
                               StreamID stream,
                               std::unique_ptr<folly::IOBuf> chain,
-                              boost::optional<uint8_t> padding,
+                              folly::Optional<uint8_t> padding,
                               bool eom) = 0;
 
   /**

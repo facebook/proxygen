@@ -1470,7 +1470,8 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   upstreamCodec_.generateHeader(output_, 3, req, 0, false, &size);
   EXPECT_EQ(size.uncompressed, 0);
   upstreamCodec_.generateWindowUpdate(output_, 3, 100);
-  upstreamCodec_.generateBody(output_, 3, makeBuf(10), boost::none, false);
+  upstreamCodec_.generateBody(output_, 3, makeBuf(10), HTTPCodec::NoPadding,
+                              false);
   upstreamCodec_.generatePriority(output_, 3,
                                   HTTPMessage::HTTPPriority(0, true, 1));
   upstreamCodec_.generateEOM(output_, 3);
@@ -1484,7 +1485,8 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   EXPECT_GT(size.uncompressed, 0);
   // window update for push doesn't make any sense, but whatever
   downstreamCodec_.generateWindowUpdate(output_, 2, 100);
-  downstreamCodec_.generateBody(output_, 2, makeBuf(10), boost::none, false);
+  downstreamCodec_.generateBody(output_, 2, makeBuf(10), HTTPCodec::NoPadding,
+                                false);
 
   // tell the upstream no pushing, and parse the first batch
   IOBufQueue dummy{IOBufQueue::cacheChainLength()};

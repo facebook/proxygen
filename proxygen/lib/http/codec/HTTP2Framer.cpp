@@ -17,7 +17,7 @@ using namespace folly;
 namespace proxygen { namespace http2 {
 
 const uint8_t kMaxFrameType = static_cast<uint8_t>(FrameType::ALTSVC);
-const boost::optional<uint8_t> kNoPadding;
+const Padding kNoPadding = folly::none;
 const PriorityUpdate DefaultPriority{0, false, 15};
 
 namespace {
@@ -46,11 +46,11 @@ void writePriorityBody(IOBufQueue& queue,
   appender.writeBE<uint8_t>(weight);
 }
 
-void writePadding(IOBufQueue& queue, boost::optional<uint8_t> size) {
-  if (size && size.get() > 0) {
-    auto out = queue.preallocate(size.get(), size.get());
-    memset(out.first, 0, size.get());
-    queue.postallocate(size.get());
+void writePadding(IOBufQueue& queue, folly::Optional<uint8_t> size) {
+  if (size && *size > 0) {
+    auto out = queue.preallocate(*size, *size);
+    memset(out.first, 0, *size);
+    queue.postallocate(*size);
   }
 }
 
@@ -64,8 +64,8 @@ size_t writeFrameHeader(IOBufQueue& queue,
                         FrameType type,
                         uint8_t flags,
                         uint32_t stream,
-                        boost::optional<uint8_t> padding,
-                        boost::optional<PriorityUpdate> priority,
+                        folly::Optional<uint8_t> padding,
+                        folly::Optional<PriorityUpdate> priority,
                         std::unique_ptr<IOBuf> payload,
                         bool reuseIOBufHeadroom = true) noexcept {
   size_t headerSize = kFrameHeaderSize;
@@ -85,7 +85,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
   // Add or remove padding flags
   if (padding) {
     flags |= PADDED;
-    length += padding.get() + 1;
+    length += *padding + 1;
     headerSize += 1;
   } else {
     flags &= ~PADDED;
@@ -120,7 +120,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
   appender.writeBE<uint32_t>(kUint31Mask & stream);
 
   if (padding) {
-    appender.writeBE<uint8_t>(padding.get());
+    appender.writeBE<uint8_t>(*padding);
   }
   if (priority) {
     DCHECK_NE(priority->streamDependency, stream) << "Circular dependecy";
@@ -291,7 +291,7 @@ parseDataEnd(Cursor& cursor,
 ErrorCode
 parseHeaders(Cursor& cursor,
              FrameHeader header,
-             boost::optional<PriorityUpdate>& outPriority,
+             folly::Optional<PriorityUpdate>& outPriority,
              std::unique_ptr<IOBuf>& outBuf) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream == 0) {
@@ -308,7 +308,7 @@ parseHeaders(Cursor& cursor,
     outPriority = parsePriorityCommon(cursor);
     header.length -= kFramePrioritySize;
   } else {
-    outPriority = boost::none;
+    outPriority = folly::none;
   }
   if (header.length < padding) {
     return ErrorCode::PROTOCOL_ERROR;
@@ -513,7 +513,7 @@ size_t
 writeData(IOBufQueue& queue,
           std::unique_ptr<IOBuf> data,
           uint32_t stream,
-          boost::optional<uint8_t> padding,
+          folly::Optional<uint8_t> padding,
           bool endStream,
           bool reuseIOBufHeadroom) noexcept {
   DCHECK_NE(0, stream);
@@ -530,7 +530,7 @@ writeData(IOBufQueue& queue,
                                          flags,
                                          stream,
                                          padding,
-                                         boost::none,
+                                         folly::none,
                                          std::move(data),
                                          reuseIOBufHeadroom);
   writePadding(queue, padding);
@@ -541,8 +541,8 @@ size_t
 writeHeaders(IOBufQueue& queue,
              std::unique_ptr<IOBuf> headers,
              uint32_t stream,
-             boost::optional<PriorityUpdate> priority,
-             boost::optional<uint8_t> padding,
+             folly::Optional<PriorityUpdate> priority,
+             folly::Optional<uint8_t> padding,
              bool endStream,
              bool endHeaders) noexcept {
   DCHECK_NE(0, stream);
@@ -597,7 +597,7 @@ writeRstStream(IOBufQueue& queue,
                                          0,
                                          stream,
                                          kNoPadding,
-                                         boost::none,
+                                         folly::none,
                                          nullptr);
   QueueAppender appender(&queue, frameLen);
   appender.writeBE<uint32_t>(static_cast<uint32_t>(errorCode));
@@ -614,7 +614,7 @@ writeSettings(IOBufQueue& queue,
                                          0,
                                          0,
                                          kNoPadding,
-                                         boost::none,
+                                         folly::none,
                                          nullptr);
   QueueAppender appender(&queue, settingsSize);
   for (const auto& setting: settings) {
@@ -634,7 +634,7 @@ writeSettingsAck(IOBufQueue& queue) {
                    ACK,
                    0,
                    kNoPadding,
-                   boost::none,
+                   folly::none,
                    nullptr);
   return kFrameHeaderSize;
 }
@@ -644,7 +644,7 @@ writePushPromise(IOBufQueue& queue,
                  uint32_t associatedStream,
                  uint32_t promisedStream,
                  std::unique_ptr<IOBuf> headers,
-                 boost::optional<uint8_t> padding,
+                 folly::Optional<uint8_t> padding,
                  bool endHeaders) noexcept {
   DCHECK_NE(0, promisedStream);
   DCHECK_NE(0, associatedStream);
@@ -659,7 +659,7 @@ writePushPromise(IOBufQueue& queue,
                                          endHeaders ? END_HEADERS : 0,
                                          associatedStream,
                                          padding,
-                                         boost::none,
+                                         folly::none,
                                          nullptr);
   QueueAppender appender(&queue, frameLen);
   appender.writeBE<uint32_t>(promisedStream);
@@ -678,7 +678,7 @@ writePing(IOBufQueue& queue,
                                          ack ? ACK : 0,
                                          0,
                                          kNoPadding,
-                                         boost::none,
+                                         folly::none,
                                          nullptr);
   queue.append(&opaqueData, sizeof(opaqueData));
   return kFrameHeaderSize + frameLen;
@@ -697,7 +697,7 @@ writeGoaway(IOBufQueue& queue,
                                          0,
                                          0,
                                          kNoPadding,
-                                         boost::none,
+                                         folly::none,
                                          nullptr);
   QueueAppender appender(&queue, frameLen);
   appender.writeBE<uint32_t>(lastStreamID);
@@ -716,7 +716,7 @@ writeWindowUpdate(IOBufQueue& queue,
                                          0,
                                          stream,
                                          kNoPadding,
-                                         boost::none,
+                                         folly::none,
                                          nullptr);
   DCHECK_EQ(0, ~kUint31Mask & amount);
   DCHECK_LT(0, amount);
@@ -730,7 +730,7 @@ writeContinuation(IOBufQueue& queue,
                   uint32_t stream,
                   bool endHeaders,
                   std::unique_ptr<IOBuf> headers,
-                  boost::optional<uint8_t> padding) noexcept {
+                  folly::Optional<uint8_t> padding) noexcept {
   DCHECK_NE(0, stream);
   const auto dataLen = headers->computeChainDataLength();
   const auto frameLen = writeFrameHeader(queue,
@@ -739,7 +739,7 @@ writeContinuation(IOBufQueue& queue,
                                          endHeaders ? END_HEADERS : 0,
                                          stream,
                                          padding,
-                                         boost::none,
+                                         folly::none,
                                          std::move(headers));
   writePadding(queue, padding);
   return kFrameHeaderSize + frameLen;
@@ -759,7 +759,7 @@ writeAltSvc(IOBufQueue& queue,
   const auto frameLen = protoLen + hostLen + originLen + kFrameAltSvcSizeBase;
 
   writeFrameHeader(queue, frameLen, FrameType::ALTSVC, 0, stream, kNoPadding,
-                   boost::none, nullptr);
+                   folly::none, nullptr);
   QueueAppender appender(&queue, frameLen);
   appender.writeBE<uint32_t>(maxAge);
   appender.writeBE<uint16_t>(port);

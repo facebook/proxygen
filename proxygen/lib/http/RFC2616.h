@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/Optional.h>
 #include <folly/Range.h>
 #include <proxygen/lib/http/HTTPMethod.h>
 #include <string>
@@ -35,7 +36,7 @@ enum class BodyAllowed {
   NOT_DEFINED,
   NOT_ALLOWED,
 };
-BodyAllowed isRequestBodyAllowed(boost::optional<HTTPMethod> method);
+BodyAllowed isRequestBodyAllowed(folly::Optional<HTTPMethod> method);
 
 /**
  * Some status codes imply that there MUST NOT be a response body.  See section

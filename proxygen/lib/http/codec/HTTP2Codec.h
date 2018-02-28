@@ -58,7 +58,7 @@ public:
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,
-                      boost::optional<uint8_t> padding,
+                      folly::Optional<uint8_t> padding,
                       bool eom) override;
   size_t generateChunkHeader(folly::IOBufQueue& writeBuf,
                              StreamID stream,
@@ -197,8 +197,8 @@ public:
   ErrorCode parseHeadersImpl(
     folly::io::Cursor& cursor,
     std::unique_ptr<folly::IOBuf> headerBuf,
-    boost::optional<http2::PriorityUpdate> priority,
-    boost::optional<uint32_t> promisedStream);
+    folly::Optional<http2::PriorityUpdate> priority,
+    folly::Optional<uint32_t> promisedStream);
 
   ErrorCode handleEndStream();
   ErrorCode checkNewStream(uint32_t stream);

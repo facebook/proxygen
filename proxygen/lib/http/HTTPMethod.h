@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include <boost/optional/optional.hpp>
+#include <folly/Optional.h>
 #include <folly/Range.h>
 #include <string>
 
@@ -48,7 +48,7 @@ enum class HTTPMethod {
  * programmers probably really meant "GET" not "get". If the method is not
  * recognized, the return value will be None
  */
-extern boost::optional<HTTPMethod> stringToMethod(folly::StringPiece method);
+extern folly::Optional<HTTPMethod> stringToMethod(folly::StringPiece method);
 
 /**
  * Returns a string representation of the method. If EXTENSION_METHOD is

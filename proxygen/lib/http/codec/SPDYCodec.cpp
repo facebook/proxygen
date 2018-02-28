@@ -753,7 +753,7 @@ void SPDYCodec::generateSynReply(StreamID stream,
 size_t SPDYCodec::generateBody(folly::IOBufQueue& writeBuf,
                                StreamID stream,
                                std::unique_ptr<folly::IOBuf> chain,
-                               boost::optional<uint8_t> /*padding*/,
+                               folly::Optional<uint8_t> /*padding*/,
                                bool eom) {
   if (!isStreamIngressEgressAllowed(stream)) {
     VLOG(2) << "Suppressing DATA for stream=" << stream <<
@@ -1480,12 +1480,12 @@ bool SPDYCodec::rstStatusSupported(int statusCode) const {
           statusCode <= spdy::RST_FLOW_CONTROL_ERROR);
 }
 
-boost::optional<SPDYVersion>
+folly::Optional<SPDYVersion>
 SPDYCodec::getVersion(const std::string& protocol) {
   // Fail fast if it's not possible for the protocol string to define a
   // SPDY protocol. strlen("spdy/1") == 6
   if (protocol.length() < 6) {
-    return boost::none;
+    return folly::none;
   }
 
   if (protocol == "spdy/3.1") {
@@ -1495,7 +1495,7 @@ SPDYCodec::getVersion(const std::string& protocol) {
     return SPDYVersion::SPDY3;
   }
 
-  return boost::none;
+  return folly::none;
 }
 
 }

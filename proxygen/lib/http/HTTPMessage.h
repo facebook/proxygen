@@ -139,7 +139,7 @@ class HTTPMessage {
    * standard request method, or else "none" if it is an extension method
    * (fpreq)
    */
-  boost::optional<HTTPMethod> getMethod() const;
+  folly::Optional<HTTPMethod> getMethod() const;
 
   /**
    * @Returns a string representation of the request method (fpreq)
@@ -528,13 +528,13 @@ class HTTPMessage {
 
   void setPriority(int8_t pri) {
     pri_ = normalizePriority(pri);
-    h2Pri_ = boost::none;
+    h2Pri_ = folly::none;
   }
   uint8_t getPriority() const { return pri_; }
 
   typedef std::tuple<uint32_t, bool, uint8_t> HTTPPriority;
 
-  boost::optional<HTTPPriority> getHTTP2Priority()
+  folly::Optional<HTTPPriority> getHTTP2Priority()
     const {
     return h2Pri_;
   }
@@ -756,7 +756,7 @@ class HTTPMessage {
   const char* sslCipher_;
   const std::string* protoStr_;
   uint8_t pri_;
-  boost::optional<HTTPPriority> h2Pri_;
+  folly::Optional<HTTPPriority> h2Pri_;
 
   mutable bool parsedCookies_:1;
   mutable bool parsedQueryParams_:1;

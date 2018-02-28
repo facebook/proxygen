@@ -9,9 +9,9 @@
  */
 #pragma once
 
-#include <boost/optional/optional.hpp>
 #include <cstdint>
 #include <deque>
+#include <folly/Optional.h>
 #include <folly/Range.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
@@ -26,11 +26,10 @@ namespace proxygen { namespace http2 {
 //////// Constants ////////
 
 extern const uint8_t kMaxFrameType;
-extern const boost::optional<uint8_t> kNoPadding;
+using Padding = folly::Optional<uint8_t>;
+extern const Padding kNoPadding;
 
 //////// Types ////////
-
-typedef boost::optional<uint8_t> Padding;
 
 enum class FrameType: uint8_t {
   DATA = 0,
@@ -149,7 +148,7 @@ parseDataEnd(folly::io::Cursor& cursor,
 extern ErrorCode
 parseHeaders(folly::io::Cursor& cursor,
              FrameHeader header,
-             boost::optional<PriorityUpdate>& outPriority,
+             folly::Optional<PriorityUpdate>& outPriority,
              std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
 /**
@@ -337,7 +336,7 @@ extern size_t
 writeData(folly::IOBufQueue& writeBuf,
           std::unique_ptr<folly::IOBuf> data,
           uint32_t stream,
-          boost::optional<uint8_t> padding,
+          folly::Optional<uint8_t> padding,
           bool endStream,
           bool reuseIOBufHeadroom) noexcept;
 
@@ -362,8 +361,8 @@ extern size_t
 writeHeaders(folly::IOBufQueue& writeBuf,
              std::unique_ptr<folly::IOBuf> headers,
              uint32_t stream,
-             boost::optional<PriorityUpdate> priority,
-             boost::optional<uint8_t> padding,
+             folly::Optional<PriorityUpdate> priority,
+             folly::Optional<uint8_t> padding,
              bool endStream,
              bool endHeaders) noexcept;
 
@@ -435,7 +434,7 @@ writePushPromise(folly::IOBufQueue& writeBuf,
                  uint32_t associatedStream,
                  uint32_t promisedStream,
                  std::unique_ptr<folly::IOBuf> headers,
-                 boost::optional<uint8_t> padding,
+                 folly::Optional<uint8_t> padding,
                  bool endHeaders) noexcept;
 /**
  * Generate an entire PING frame, including the common frame header.
@@ -502,7 +501,7 @@ writeContinuation(folly::IOBufQueue& queue,
                   uint32_t stream,
                   bool endHeaders,
                   std::unique_ptr<folly::IOBuf> headers,
-                  boost::optional<uint8_t> padding) noexcept;
+                  folly::Optional<uint8_t> padding) noexcept;
 /**
  * Generate an entire ALTSVC frame, including the common frame
  * header.
