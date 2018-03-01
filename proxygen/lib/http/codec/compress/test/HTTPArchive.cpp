@@ -36,6 +36,7 @@ parseHTTPArchiveTime(const std::string& s) {
 
   uint32_t ms = 0;
   // Sun, 06 Nov 1994 08:49:37 GMT  ; RFC 822, updated by RFC 1123
+  // Example: 2013-12-09T16:38:03.701Z
   if (sscanf(s.c_str(), "%d-%d-%dT%d:%d:%d.%dZ",
              &tm.tm_year,
              &tm.tm_mon,
@@ -46,6 +47,13 @@ parseHTTPArchiveTime(const std::string& s) {
              &ms) != 7) {
     return folly::none;
   }
+  // Per the spec, for some reason the API is inconsistent and requires
+  // years to be offset from 1900 and even more strange for month to be 0
+  // offset despite the fact it expects days to be 1 offset
+  // https://linux.die.net/man/3/mktime
+  tm.tm_year = tm.tm_year - 1900;
+  tm.tm_mon = tm.tm_mon - 1;
+
   auto res = mktime(&tm);
   return std::chrono::steady_clock::time_point(
     std::chrono::seconds(res) + std::chrono::milliseconds(ms));
