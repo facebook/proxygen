@@ -312,17 +312,18 @@ void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
 }
 
 // iterate over the positions (in vector) of all headers with given code
-#define ITERATE_OVER_CODES(Code, Block) { \
-  const HTTPHeaderCode* ptr = codes_.data(); \
-  while(true) { \
-    ptr = (HTTPHeaderCode*) memchr((void*)ptr, (Code), \
-                            codes_.size() - (ptr - codes_.data())); \
-    if (ptr == nullptr) break; \
-    const size_t pos = ptr - codes_.data(); \
-    {Block} \
-    ptr++; \
-  } \
-}
+#define ITERATE_OVER_CODES(Code, Block)                               \
+  {                                                                   \
+    const HTTPHeaderCode* ptr = codes_.data();                        \
+    while (ptr) {                                                     \
+      ptr = (HTTPHeaderCode*)memchr(                                  \
+          (void*)ptr, (Code), codes_.size() - (ptr - codes_.data())); \
+      if (ptr == nullptr)                                             \
+        break;                                                        \
+      const size_t pos = ptr - codes_.data();                         \
+      {Block} ptr++;                                                  \
+    }                                                                 \
+  }
 
 // iterate over the positions of all headers with given name
 #define ITERATE_OVER_STRINGS(String, Block) \
