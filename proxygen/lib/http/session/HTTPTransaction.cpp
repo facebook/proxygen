@@ -146,22 +146,25 @@ void HTTPTransaction::onIngressHeadersComplete(
     lastResponseStatus_ = msg->getStatusCode();
   }
   if (!validateIngressStateTransition(
-        HTTPTransactionIngressSM::Event::onHeaders)) {
+          HTTPTransactionIngressSM::Event::onHeaders)) {
     return;
   }
+  if (msg->isRequest()) {
+    headRequest_ = (msg->getMethod() == HTTPMethod::HEAD);
+  }
+
   if ((msg->isRequest() && msg->getMethod() != HTTPMethod::CONNECT) ||
-       (msg->isResponse() &&
-        !headRequest_ &&
-        !RFC2616::responseBodyMustBeEmpty(msg->getStatusCode()))) {
+      (msg->isResponse() && !headRequest_ &&
+       !RFC2616::responseBodyMustBeEmpty(msg->getStatusCode()))) {
     // CONNECT payload has no defined semantics
     const auto& contentLen =
-      msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
+        msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
     if (!contentLen.empty()) {
       try {
         expectedContentLengthRemaining_ = folly::to<uint64_t>(contentLen);
       } catch (const folly::ConversionError& ex) {
-        LOG(ERROR) << "Invalid content-length: " << contentLen <<
-          ", ex=" << ex.what() << *this;
+        LOG(ERROR) << "Invalid content-length: " << contentLen
+                   << ", ex=" << ex.what() << *this;
       }
     }
   }
@@ -719,7 +722,7 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
     headRequest_ = (headers.getMethod() == HTTPMethod::HEAD);
   }
 
-  if (headers.isResponse()) {
+  if (headers.isResponse() && !headRequest_) {
     const auto& contentLen =
       headers.getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
     if (!contentLen.empty()) {
@@ -976,17 +979,18 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   return nbytes;
 }
 
-void
-HTTPTransaction::sendEOM() {
+void HTTPTransaction::sendEOM() {
   DestructorGuard g(this);
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendEOM))
-    << ", " << *this;
-  if (expectedResponseLength_ && actualResponseLength_
-      && (*expectedResponseLength_ != *actualResponseLength_)) {
-    auto errorMsg = folly::to<std::string>(
-        "Content-Length/body mismatch: expected= ", *expectedResponseLength_,
-        ", actual= ", *actualResponseLength_);
+      << ", " << *this;
+  if (expectedResponseLength_ && actualResponseLength_ &&
+      (*expectedResponseLength_ != *actualResponseLength_)) {
+    auto errorMsg =
+        folly::to<std::string>("Content-Length/body mismatch: expected= ",
+                               *expectedResponseLength_,
+                               ", actual= ",
+                               *actualResponseLength_);
     LOG(ERROR) << errorMsg << " " << *this;
   }
 
