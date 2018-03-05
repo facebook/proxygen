@@ -9,11 +9,12 @@
  */
 #pragma once
 
-#include <wangle/acceptor/Acceptor.h>
-#include <wangle/acceptor/ConnectionCounter.h>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <list>
 #include <memory>
+#include <proxygen/lib/utils/AcceptorAddress.h>
+#include <wangle/acceptor/Acceptor.h>
+#include <wangle/acceptor/ConnectionCounter.h>
 
 namespace proxygen {
 
@@ -36,32 +37,45 @@ class RequestWorker;
 class ServiceWorker {
  public:
   using AcceptorMap =
-    std::map<folly::SocketAddress, std::unique_ptr<wangle::Acceptor>>;
+      std::map<AcceptorAddress, std::unique_ptr<wangle::Acceptor>>;
 
-  using NamedAddressMap = std::map<std::string, folly::SocketAddress>;
+  using NamedAddressMap = std::map<std::string, AcceptorAddress>;
 
   ServiceWorker(Service* service, RequestWorker* worker)
       : service_(service), worker_(worker) {
   }
 
-  virtual ~ServiceWorker() {}
+  virtual ~ServiceWorker() {
+  }
 
   Service* getService() const {
     return service_;
   }
 
   void addServiceAcceptor(const folly::SocketAddress& address,
-                              std::unique_ptr<wangle::Acceptor> acceptor) {
-    namedAddress_.emplace(acceptor->getName(), address);
-    addAcceptor(address, std::move(acceptor), acceptors_);
+                          std::unique_ptr<wangle::Acceptor> acceptor) {
+    addServiceAcceptor(
+        AcceptorAddress(address, AcceptorAddress::AcceptorType::TCP),
+        std::move(acceptor));
+  }
+
+  void addServiceAcceptor(const AcceptorAddress& accAddress,
+                          std::unique_ptr<wangle::Acceptor> acceptor) {
+    namedAddress_.emplace(acceptor->getName(), accAddress);
+    addAcceptor(accAddress, std::move(acceptor), acceptors_);
   }
 
   void drainServiceAcceptor(const folly::SocketAddress& address) {
+    drainServiceAcceptor(
+        AcceptorAddress(address, AcceptorAddress::AcceptorType::TCP));
+  }
+
+  void drainServiceAcceptor(const AcceptorAddress& accAddress) {
     // Move the old acceptor to drainingAcceptors_ if present
-    const auto& it = acceptors_.find(address);
+    const auto& it = acceptors_.find(accAddress);
     if (it != acceptors_.end()) {
       auto name = it->second->getName();
-      addAcceptor(address, std::move(it->second), drainingAcceptors_);
+      addAcceptor(accAddress, std::move(it->second), drainingAcceptors_);
       acceptors_.erase(it);
       namedAddress_.erase(name);
     }
@@ -112,21 +126,22 @@ class ServiceWorker {
     return &connectionCounter_;
   }
 
-  virtual void forceStop() {}
+  virtual void forceStop() {
+  }
 
  protected:
   wangle::SimpleConnectionCounter connectionCounter_;
 
  private:
   // Forbidden copy constructor and assignment operator
-  ServiceWorker(ServiceWorker const &) = delete;
-  ServiceWorker& operator=(ServiceWorker const &) = delete;
+  ServiceWorker(ServiceWorker const&) = delete;
+  ServiceWorker& operator=(ServiceWorker const&) = delete;
 
-  void addAcceptor(const folly::SocketAddress& address,
+  void addAcceptor(const AcceptorAddress& accAddress,
                    std::unique_ptr<wangle::Acceptor> acceptor,
                    AcceptorMap& acceptors) {
-    CHECK(acceptors.find(address) == acceptors.end());
-    acceptors.insert(std::make_pair(address, std::move(acceptor)));
+    CHECK(acceptors.find(accAddress) == acceptors.end());
+    acceptors.insert(std::make_pair(accAddress, std::move(acceptor)));
   }
 
   /**
@@ -158,4 +173,4 @@ class ServiceWorker {
   AcceptorMap drainingAcceptors_;
 };
 
-} // proxygen
+} // namespace proxygen
