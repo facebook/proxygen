@@ -100,7 +100,7 @@ TEST_F(HTTP2CodecTest, BadHeaders) {
                         std::move(encodedHeaders),
                         stream,
                         folly::none,
-                        folly::none,
+                        http2::kNoPadding,
                         true,
                         true);
   }
@@ -116,7 +116,7 @@ TEST_F(HTTP2CodecTest, BadHeaders) {
                         std::move(encodedHeaders),
                         stream,
                         folly::none,
-                        folly::none,
+                        http2::kNoPadding,
                         true,
                         true);
   }
@@ -150,7 +150,7 @@ TEST_F(HTTP2CodecTest, BadPseudoHeaders) {
                       std::move(encodedHeaders),
                       stream,
                       folly::none,
-                      folly::none,
+                      http2::kNoPadding,
                       true,
                       true);
 
@@ -184,7 +184,7 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
                         std::move(encodedHeaders),
                         stream,
                         folly::none,
-                        folly::none,
+                        http2::kNoPadding,
                         true,
                         true);
   }
@@ -274,7 +274,7 @@ TEST_F(HTTP2CodecTest, BadConnect) {
                         std::move(encodedHeaders),
                         stream,
                         folly::none,
-                        folly::none,
+                        http2::kNoPadding,
                         true,
                         true);
   }
@@ -375,7 +375,7 @@ TEST_F(HTTP2CodecTest, BadHeadersReply) {
                         std::move(encodedHeaders),
                         stream,
                         folly::none,
-                        folly::none,
+                        http2::kNoPadding,
                         true,
                         true);
   }
@@ -391,7 +391,7 @@ TEST_F(HTTP2CodecTest, BadHeadersReply) {
                         std::move(encodedHeaders),
                         stream,
                         folly::none,
-                        folly::none,
+                        http2::kNoPadding,
                         true,
                         true);
   }
