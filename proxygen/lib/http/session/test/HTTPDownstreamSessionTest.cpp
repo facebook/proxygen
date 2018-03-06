@@ -2439,11 +2439,6 @@ TEST_F(HTTP2DownstreamSessionTest, graceful_drain_on_timeout) {
  * - [client --> server] RST_STREAM on the 1st stream
  */
 TEST_F(HTTP2DownstreamSessionTest, server_push) {
-  HTTP2Codec serverCodec(TransportDirection::DOWNSTREAM);
-  HTTP2Codec clientCodec(TransportDirection::UPSTREAM);
-  IOBufQueue output{IOBufQueue::cacheChainLength()};
-  IOBufQueue input{IOBufQueue::cacheChainLength()};
-
   // Create a dummy request and a dummy response messages
   HTTPMessage req, res;
   req.getHeaders().set("HOST", "www.foo.com");
@@ -2451,14 +2446,13 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   res.setStatusCode(200);
   res.setStatusMessage("Ohai");
 
-  // Construct data sent from client to server
-  auto assocStreamId = HTTPCodec::StreamID(1);
-  clientCodec.getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
-  clientCodec.generateConnectionPreface(output);
-  clientCodec.generateSettings(output);
+  // enable server push
+  clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
+  clientCodec_->generateSettings(requests_);
   // generateHeader() will create a session and a transaction
-  clientCodec.generateHeader(output, assocStreamId, getGetRequest(),
-                             0, false, nullptr);
+  auto assocStreamId = HTTPCodec::StreamID(1);
+  clientCodec_->generateHeader(requests_, assocStreamId, getGetRequest(),
+                               0, false, nullptr);
 
   auto handler = addSimpleStrictHandler();
   StrictMock<MockHTTPPushHandler> pushHandler;
@@ -2495,10 +2489,10 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   handler->expectError();
   handler->expectDetachTransaction();
 
-  transport_->addReadEvent(output, milliseconds(0));
-  clientCodec.generateRstStream(output, assocStreamId, ErrorCode::CANCEL);
-  clientCodec.generateGoaway(output, 2, ErrorCode::NO_ERROR);
-  transport_->addReadEvent(output, milliseconds(200));
+  transport_->addReadEvent(requests_, milliseconds(0));
+  clientCodec_->generateRstStream(requests_, assocStreamId, ErrorCode::CANCEL);
+  clientCodec_->generateGoaway(requests_, 2, ErrorCode::NO_ERROR);
+  transport_->addReadEvent(requests_, milliseconds(200));
   transport_->startReadEvents();
   HTTPSession::DestructorGuard g(httpSession_);
   eventBase_.loop();
@@ -2510,17 +2504,12 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   EXPECT_CALL(callbacks_, onMessageBegin(2, _));
   EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
   EXPECT_CALL(callbacks_, onMessageComplete(2, _));
-  clientCodec.setCallback(&callbacks_);
-  parseOutput(clientCodec);
+
+  parseOutput(*clientCodec_);
   expectDetachSession();
 }
 
 TEST_F(HTTP2DownstreamSessionTest, server_push_abort_paused) {
-  HTTP2Codec serverCodec(TransportDirection::DOWNSTREAM);
-  HTTP2Codec clientCodec(TransportDirection::UPSTREAM);
-  IOBufQueue output{IOBufQueue::cacheChainLength()};
-  IOBufQueue input{IOBufQueue::cacheChainLength()};
-
   // Create a dummy request and a dummy response messages
   HTTPMessage req, res;
   req.getHeaders().set("HOST", "www.foo.com");
@@ -2528,14 +2517,13 @@ TEST_F(HTTP2DownstreamSessionTest, server_push_abort_paused) {
   res.setStatusCode(200);
   res.setStatusMessage("Ohai");
 
-  // Construct data sent from client to server
-  auto assocStreamId = HTTPCodec::StreamID(1);
-  clientCodec.getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
-  clientCodec.generateConnectionPreface(output);
-  clientCodec.generateSettings(output);
+  // enable server push
+  clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
+  clientCodec_->generateSettings(requests_);
   // generateHeader() will create a session and a transaction
-  clientCodec.generateHeader(output, assocStreamId, getGetRequest(),
-                             0, false, nullptr);
+  auto assocStreamId = HTTPCodec::StreamID(1);
+  clientCodec_->generateHeader(requests_, assocStreamId, getGetRequest(),
+                               0, false, nullptr);
 
   auto handler = addSimpleStrictHandler();
   StrictMock<MockHTTPPushHandler> pushHandler;
@@ -2561,16 +2549,15 @@ TEST_F(HTTP2DownstreamSessionTest, server_push_abort_paused) {
   handler->expectError();
   handler->expectDetachTransaction();
 
-  transport_->addReadEvent(output, milliseconds(0));
+  transport_->addReadEvent(requests_, milliseconds(0));
   // Cancels everything
-  clientCodec.generateRstStream(output, assocStreamId, ErrorCode::CANCEL);
-  transport_->addReadEvent(output, milliseconds(10));
+  clientCodec_->generateRstStream(requests_, assocStreamId, ErrorCode::CANCEL);
+  transport_->addReadEvent(requests_, milliseconds(10));
   transport_->startReadEvents();
   HTTPSession::DestructorGuard g(httpSession_);
   eventBase_.loop();
 
-  clientCodec.setCallback(&callbacks_);
-  parseOutput(clientCodec);
+  parseOutput(*clientCodec_);
   expectDetachSession();
 }
 

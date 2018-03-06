@@ -210,18 +210,17 @@ class HTTPUpstreamTest: public testing::Test,
     EXPECT_CALL(*transport_, attachEventBase(_))
       .WillRepeatedly(SaveArg<0>(&eventBasePtr_));
 
-    auto rawCodec = codec.get();
+    for (auto& param: flowControl_) {
+      if (param < 0) {
+        param = codec->getDefaultWindowSize();
+      }
+    }
     httpSession_ = new HTTPUpstreamSession(
       transactionTimeouts_.get(),
       std::move(AsyncTransportWrapper::UniquePtr(transport_)),
       localAddr_, peerAddr_,
       std::move(codec),
       mockTransportInfo_, this);
-    for (auto& param: flowControl_) {
-      if (param < 0) {
-        param = rawCodec->getDefaultWindowSize();
-      }
-    }
     httpSession_->setFlowControl(flowControl_[0], flowControl_[1],
                                  flowControl_[2]);
     httpSession_->setMaxConcurrentOutgoingStreams(10);
