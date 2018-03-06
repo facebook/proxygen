@@ -172,6 +172,7 @@ class MockHTTPTransaction : public HTTPTransaction {
 
   MOCK_CONST_METHOD0(canSendHeaders, bool());
   MOCK_METHOD1(sendHeaders, void(const HTTPMessage& headers));
+  MOCK_METHOD1(sendHeadersWithEOM, void(const HTTPMessage& headers));
   MOCK_METHOD1(sendBody, void(std::shared_ptr<folly::IOBuf>));
   void sendBody(std::unique_ptr<folly::IOBuf> iob) noexcept override {
     sendBody(std::shared_ptr<folly::IOBuf>(iob.release()));
