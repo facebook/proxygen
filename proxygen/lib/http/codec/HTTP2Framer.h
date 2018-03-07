@@ -493,15 +493,13 @@ writeWindowUpdate(folly::IOBufQueue& writeBuf,
  * @param stream The stream identifier of the DATA frame.
  * @param endHeaders True iff more CONTINUATION frames will follow.
  * @param headers The encoded headers data to write out.
- * @param padding If not kNoPadding, adds 1 byte pad len and @padding pad bytes
  * @return The number of bytes written to writeBuf.
  */
 extern size_t
 writeContinuation(folly::IOBufQueue& queue,
                   uint32_t stream,
                   bool endHeaders,
-                  std::unique_ptr<folly::IOBuf> headers,
-                  folly::Optional<uint8_t> padding) noexcept;
+                  std::unique_ptr<folly::IOBuf> headers) noexcept;
 /**
  * Generate an entire ALTSVC frame, including the common frame
  * header.

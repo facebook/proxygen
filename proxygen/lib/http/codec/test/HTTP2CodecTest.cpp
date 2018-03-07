@@ -465,8 +465,7 @@ TEST_F(HTTP2CodecTest, BasicContinuationEndStream) {
 TEST_F(HTTP2CodecTest, BadContinuation) {
   // CONTINUATION with no preceding HEADERS
   auto fakeHeaders = makeBuf(5);
-  http2::writeContinuation(output_, 3, true, std::move(fakeHeaders),
-                           http2::kNoPadding);
+  http2::writeContinuation(output_, 3, true, std::move(fakeHeaders));
 
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 0);
@@ -543,8 +542,7 @@ TEST_F(HTTP2CodecTest, BadContinuationStream) {
   output_.trimEnd(http2::kFrameHeaderSize + 1);
 
   auto fakeHeaders = makeBuf(1);
-  http2::writeContinuation(output_, 3, true, std::move(fakeHeaders),
-                           http2::kNoPadding);
+  http2::writeContinuation(output_, 3, true, std::move(fakeHeaders));
 
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 1);

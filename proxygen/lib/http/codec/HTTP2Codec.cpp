@@ -1127,8 +1127,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
       http2::writeContinuation(writeBuf,
                                stream,
                                endHeaders,
-                               std::move(chunk),
-                               http2::kNoPadding);
+                               std::move(chunk));
     }
   }
 }

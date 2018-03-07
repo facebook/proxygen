@@ -85,6 +85,9 @@ size_t writeFrameHeader(IOBufQueue& queue,
   // Add or remove padding flags
   if (padding) {
     flags |= PADDED;
+    DCHECK(FrameType::HEADERS == type ||
+           FrameType::DATA == type ||
+           FrameType::PUSH_PROMISE == type);
     length += *padding + 1;
     headerSize += 1;
   } else {
@@ -729,8 +732,7 @@ size_t
 writeContinuation(IOBufQueue& queue,
                   uint32_t stream,
                   bool endHeaders,
-                  std::unique_ptr<IOBuf> headers,
-                  folly::Optional<uint8_t> padding) noexcept {
+                  std::unique_ptr<IOBuf> headers) noexcept {
   DCHECK_NE(0, stream);
   const auto dataLen = headers->computeChainDataLength();
   const auto frameLen = writeFrameHeader(queue,
@@ -738,10 +740,9 @@ writeContinuation(IOBufQueue& queue,
                                          FrameType::CONTINUATION,
                                          endHeaders ? END_HEADERS : 0,
                                          stream,
-                                         padding,
+                                         kNoPadding,
                                          folly::none,
                                          std::move(headers));
-  writePadding(queue, padding);
   return kFrameHeaderSize + frameLen;
 }
 

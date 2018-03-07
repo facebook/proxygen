@@ -483,7 +483,7 @@ TEST_F(HTTP2FramerTest, PushPromise) {
 
 TEST_F(HTTP2FramerTest, Continuation) {
   auto body = makeBuf(800);
-  writeContinuation(queue_, 1, true, body->clone(), 2);
+  writeContinuation(queue_, 1, true, body->clone());
 
   FrameHeader header;
   std::unique_ptr<IOBuf> outBuf;
@@ -491,7 +491,7 @@ TEST_F(HTTP2FramerTest, Continuation) {
 
   ASSERT_EQ(FrameType::CONTINUATION, header.type);
   ASSERT_TRUE(END_HEADERS & header.flags);
-  ASSERT_TRUE(PADDED & header.flags);
+  ASSERT_FALSE(PADDED & header.flags);
   ASSERT_EQ(1, header.stream);
   EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
 }
