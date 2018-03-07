@@ -611,23 +611,23 @@ void HTTP2Codec::onHeader(const folly::fbstring& name,
 
 void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
   HTTPHeaders& headers = decodeInfo_.msg->getHeaders();
-  HTTPRequestVerifier& verifier = decodeInfo_.verifier;
 
   if (decodeInfo_.isRequest) {
     auto combinedCookie = headers.combine(HTTP_HEADER_COOKIE, "; ");
     if (!combinedCookie.empty()) {
       headers.set(HTTP_HEADER_COOKIE, combinedCookie);
     }
-    verifier.validate();
+    HTTPRequestVerifier& verifier = decodeInfo_.verifier;
+    if (!verifier.validate()) {
+      decodeInfo_.parsingError = verifier.error;
+      return;
+    }
   } else if (!decodeInfo_.hasStatus) {
     decodeInfo_.parsingError =
       string("Malformed response, missing :status");
     return;
   }
-  if (!verifier.error.empty()) {
-    decodeInfo_.parsingError = verifier.error;
-    return;
-  }
+
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
   decodeInfo_.msg->setHTTPVersion(1, 1);
   decodeInfo_.msg->setIngressHeaderSize(decodedSize);
