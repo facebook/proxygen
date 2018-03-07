@@ -74,12 +74,16 @@ size_t writeFrameHeader(IOBufQueue& queue,
   DCHECK_EQ(0, ~kLengthMask & length);
   DCHECK_EQ(0, ~kUint31Mask & stream);
 
-  // Adjust length if we will emit a priority section
-  if (flags & PRIORITY) {
-    DCHECK(FrameType::HEADERS == type);
-    length += kFramePrioritySize;
+  if (priority) {
+    if (FrameType::HEADERS == type) {
+      DCHECK(flags & PRIORITY);
+      length += kFramePrioritySize;
+    } else {
+      DCHECK(FrameType::PRIORITY == type) << "priority is unexpected";
+    }
     headerSize += kFramePrioritySize;
     DCHECK_EQ(0, ~kLengthMask & length);
+    DCHECK_NE(priority->streamDependency, stream) << "Circular dependecy";
   }
 
   // Add or remove padding flags
@@ -92,10 +96,6 @@ size_t writeFrameHeader(IOBufQueue& queue,
     headerSize += 1;
   } else {
     flags &= ~PADDED;
-  }
-
-  if (priority) {
-    headerSize += kFramePrioritySize;
   }
 
   DCHECK_EQ(0, ~kLengthMask & length);
@@ -126,7 +126,6 @@ size_t writeFrameHeader(IOBufQueue& queue,
     appender.writeBE<uint8_t>(*padding);
   }
   if (priority) {
-    DCHECK_NE(priority->streamDependency, stream) << "Circular dependecy";
     writePriorityBody(queue,
                       priority->streamDependency,
                       priority->exclusive,
