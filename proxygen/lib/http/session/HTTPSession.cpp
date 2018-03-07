@@ -615,65 +615,28 @@ HTTPSession::getMessagePriority(const HTTPMessage* msg) {
 
 void
 HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg) {
-  onMessageBeginImpl(streamID, 0, msg);
-}
-
-void
-HTTPSession::onPushMessageBegin(HTTPCodec::StreamID streamID,
-                                HTTPCodec::StreamID assocStreamID,
-                                HTTPMessage* msg) {
-  onMessageBeginImpl(streamID, assocStreamID, msg);
-}
-
-HTTPTransaction*
-HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
-                                HTTPCodec::StreamID assocStreamID,
-                                HTTPMessage* msg) {
-  VLOG(4) << "processing new message on " << *this << ", streamID=" << streamID;
-
+  VLOG(4) << "processing new msg streamID=" << streamID << " " << *this;
   if (infoCallback_) {
     infoCallback_->onRequestBegin(*this);
   }
-  auto txn = findTransaction(streamID);
+
+  HTTPTransaction* txn = findTransaction(streamID);
   if (txn) {
     if (isDownstream() && txn->isPushed()) {
       // Push streams are unidirectional (half-closed). If the downstream
       // attempts to send ingress, abort with STREAM_CLOSED error.
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-        "Downstream attempts to send ingress, abort.");
+                       "Downstream attempts to send ingress, abort.");
       ex.setCodecStatusCode(ErrorCode::STREAM_CLOSED);
       txn->onError(ex);
     }
-    // If this transaction is already registered, no need to add it now
-    return txn;
-  }
-
-  HTTPTransaction* assocStream = nullptr;
-  if (assocStreamID > 0) {
-    assocStream = findTransaction(assocStreamID);
-    if (!assocStream || assocStream->isIngressEOMSeen()) {
-      VLOG(1) << "Can't find assoc txn=" << assocStreamID
-              << ", or assoc txn cannot push";
-      invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
-      return nullptr;
-    }
+    return;  // If this transaction is already registered, no need to add it now
   }
 
   http2::PriorityUpdate messagePriority = getMessagePriority(msg);
-  txn = createTransaction(streamID, assocStreamID, messagePriority);
+  txn = createTransaction(streamID, 0, messagePriority);
   if (!txn) {
-    // This could happen if the socket is bad.
-    return nullptr;
-  }
-
-  if (assocStream && !assocStream->onPushedTransaction(txn)) {
-    VLOG(1) << "Failed to add pushed transaction " << streamID << " on "
-            << *this;
-    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-      folly::to<std::string>("Failed to add pushed transaction ", streamID));
-    ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
-    onError(streamID, ex, true);
-    return nullptr;
+    return;  // This could happen if the socket is bad.
   }
 
   if (!codec_->supportsParallelRequests() && getPipelineStreamCount() > 1) {
@@ -693,8 +656,52 @@ HTTPSession::onMessageBeginImpl(HTTPCodec::StreamID streamID,
     DCHECK_EQ(liveTransactions_, 1);
     txn->pauseIngress();
   }
+}
 
-  return txn;
+void
+HTTPSession::onPushMessageBegin(HTTPCodec::StreamID streamID,
+                                HTTPCodec::StreamID assocStreamID,
+                                HTTPMessage* msg) {
+  VLOG(4) << "processing new push promise streamID=" << streamID
+          << " on assocStreamID=" << assocStreamID << " " << *this;
+  if (infoCallback_) {
+    infoCallback_->onRequestBegin(*this);
+  }
+  if (assocStreamID == 0) {
+    VLOG(2) << "push promise " << streamID << " should be associated with "
+            << "an active stream=" << assocStreamID << " " << *this;
+    invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
+    return;
+  }
+
+  if (isDownstream()) {
+    VLOG(2) << "push promise cannot be sent to upstream " << *this;
+    invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
+    return;
+  }
+
+  HTTPTransaction* assocTxn = findTransaction(assocStreamID);
+  if (!assocTxn || assocTxn->isIngressEOMSeen()) {
+    VLOG(2) << "cannot find the assocTxn=" << assocTxn
+            << ", or assoc stream is already closed by upstream" << *this;
+    invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
+    return;
+  }
+
+  http2::PriorityUpdate messagePriority = getMessagePriority(msg);
+  auto txn = createTransaction(streamID, assocStreamID, messagePriority);
+  if (!txn) {
+    return;  // This could happen if the socket is bad.
+  }
+
+  if (!assocTxn->onPushedTransaction(txn)) {
+    VLOG(1) << "Failed to add pushed txn " << streamID
+            << " to assoc txn " << assocStreamID << " on " << *this;
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+      folly::to<std::string>("Failed to add pushed transaction ", streamID));
+    ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
+    onError(streamID, ex, true);
+  }
 }
 
 void
@@ -905,7 +912,10 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
     if (error.hasHttpStatusCode() && streamID != 0) {
       // If the error has an HTTP code, then parsing was fine, it just was
       // illegal in a higher level way
-      txn = onMessageBeginImpl(streamID, 0, nullptr);
+      txn = createTransaction(streamID, 0);
+      if (infoCallback_) {
+        infoCallback_->onRequestBegin(*this);
+      }
       if (txn) {
         handleErrorDirectly(txn, error);
       }

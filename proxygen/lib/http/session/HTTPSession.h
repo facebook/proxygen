@@ -449,14 +449,6 @@ class HTTPSession:
   void shutdownTransportWithReset(ProxygenError errorCode,
                                   const std::string& errorMsg = "");
 
-  /**
-   * Handle new messages from the codec and create a txn for the message.
-   * @returns the created transaction.
-   */
-  HTTPTransaction* onMessageBeginImpl(HTTPCodec::StreamID streamID,
-                                      HTTPCodec::StreamID assocStreamID,
-                                      HTTPMessage* msg);
-
   // EventBase::LoopCallback methods
   void runLoopCallback() noexcept override;
 
