@@ -111,6 +111,15 @@ std::unique_ptr<HTTPMessage> makePostRequest(uint32_t contentLength) {
   return std::make_unique<HTTPMessage>(getPostRequest(contentLength));
 }
 
+HTTPMessage getPubRequest(const std::string& url) {
+  HTTPMessage req;
+  req.setMethod("PUB");
+  req.setURL(url);
+  req.setHTTPVersion(1, 1);
+  req.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
+  return req;
+}
+
 HTTPMessage getResponse(uint32_t code, uint32_t bodyLen) {
   HTTPMessage resp;
   resp.setStatusCode(code);
