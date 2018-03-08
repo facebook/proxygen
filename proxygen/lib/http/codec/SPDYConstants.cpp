@@ -63,7 +63,7 @@ ErrorCode goawayToErrorCode(GoawayStatusCode code) {
   return ErrorCode::PROTOCOL_ERROR;
 }
 
-ErrorCode rstToErrorCode(ResetStatusCode code) {
+ErrorCode rstToErrorCode(uint32_t code) {
   switch (code) {
     case RST_PROTOCOL_ERROR: break;
     case RST_INVALID_STREAM: return ErrorCode::_SPDY_INVALID_STREAM;

@@ -93,7 +93,7 @@ enum GoawayStatusCode {
 extern GoawayStatusCode errorCodeToGoaway(ErrorCode code);
 extern ResetStatusCode errorCodeToReset(ErrorCode code);
 extern ErrorCode goawayToErrorCode(spdy::GoawayStatusCode);
-extern ErrorCode rstToErrorCode(spdy::ResetStatusCode);
+extern ErrorCode rstToErrorCode(uint32_t);
 
 folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
   proxygen::SettingsId id);
