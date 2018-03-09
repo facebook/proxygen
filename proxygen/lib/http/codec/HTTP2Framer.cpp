@@ -180,6 +180,9 @@ ErrorCode
 parsePadding(Cursor& cursor,
              FrameHeader& header,
              uint8_t& padding) noexcept {
+  DCHECK(header.type == FrameType::DATA ||
+         header.type == FrameType::HEADERS ||
+         header.type == FrameType::PUSH_PROMISE);
   if (frameHasPadding(header)) {
     if (header.length < 1) {
       return ErrorCode::FRAME_SIZE_ERROR;
@@ -461,15 +464,8 @@ parseContinuation(Cursor& cursor,
   if (header.stream == 0) {
     return ErrorCode::PROTOCOL_ERROR;
   }
-  uint8_t padding;
-
-  auto err = parsePadding(cursor, header, padding);
-  RETURN_IF_ERROR(err);
-  if (header.length < padding) {
-    return ErrorCode::PROTOCOL_ERROR;
-  }
-  cursor.clone(outBuf, header.length - padding);
-  return skipPadding(cursor, padding, kStrictPadding);
+  cursor.clone(outBuf, header.length);
+  return ErrorCode::NO_ERROR;
 }
 
 ErrorCode
