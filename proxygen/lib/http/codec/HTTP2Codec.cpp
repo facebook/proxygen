@@ -449,8 +449,6 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       // were padded or contained a priority.
       expectedChromeResets_.insert(curHeader_.stream);
     }
-  } else {
-    curHeaderBlock_.append(std::move(headerBuf));
   }
 
   // Report back what we've parsed
