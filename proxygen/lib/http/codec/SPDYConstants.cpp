@@ -89,6 +89,8 @@ folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
     case proxygen::SettingsId::MAX_FRAME_SIZE:
     case proxygen::SettingsId::MAX_HEADER_LIST_SIZE:
       return folly::none;
+    case proxygen::SettingsId::ENABLE_EX_HEADERS:
+      return folly::none;
     case proxygen::SettingsId::MAX_CONCURRENT_STREAMS:
       return SETTINGS_MAX_CONCURRENT_STREAMS;
     case proxygen::SettingsId::INITIAL_WINDOW_SIZE:

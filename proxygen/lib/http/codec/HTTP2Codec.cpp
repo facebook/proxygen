@@ -15,9 +15,10 @@
 #include <proxygen/lib/utils/Base64.h>
 
 #include <folly/Conv.h>
-#include <folly/io/Cursor.h>
 #include <folly/Random.h>
+#include <folly/io/Cursor.h>
 #include <folly/tracing/ScopedTraceSection.h>
+#include <type_traits>
 
 using namespace proxygen::compress;
 using namespace folly::io;
@@ -763,6 +764,19 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
         break;
       case SettingsId::MAX_HEADER_LIST_SIZE:
         break;
+      case SettingsId::ENABLE_EX_HEADERS:
+      {
+        auto ptr = egressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS);
+        if (ptr && ptr->value > 0) {
+          VLOG(4) << getTransportDirectionString(getTransportDirection())
+                  << " got ENABLE_EX_HEADERS=" << setting.second;
+          break;
+        } else {
+          // egress ENABLE_EX_HEADERS is disabled, consider the ingress
+          // ENABLE_EX_HEADERS as unknown setting, and ignore it.
+          continue;
+        }
+      }
       default:
         // ignore unknown setting
         break;
@@ -1280,10 +1294,23 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
       } else {
         CHECK(setting.value == 0 || setting.value == 1);
       }
+    } else if (setting.id == SettingsId::ENABLE_EX_HEADERS) {
+      DCHECK(setting.value == 0 || setting.value == 1);
+      if (setting.value == 0) {
+        continue; // just skip the experimental setting if disabled
+      } else {
+        VLOG(4) << "generating ENABLE_EX_HEADERS=" << setting.value;
+      }
+    } else {
+      LOG(ERROR) << "ignore unknown settingsId="
+                 << std::underlying_type<SettingsId>::type(setting.id)
+                 << " value=" << setting.value;
     }
+
     settings.push_back(SettingPair(setting.id, setting.value));
   }
-  VLOG(4) << "generating " << (unsigned)settings.size() << " settings";
+  VLOG(4) << getTransportDirectionString(getTransportDirection())
+          << "generating " << (unsigned)settings.size() << " settings";
   return http2::writeSettings(writeBuf, settings);
 }
 
@@ -1310,7 +1337,8 @@ void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
 }
 
 size_t HTTP2Codec::generateSettingsAck(folly::IOBufQueue& writeBuf) {
-  VLOG(4) << "generating settings ack";
+  VLOG(4) << getTransportDirectionString(getTransportDirection())
+          << " generating settings ack";
   return http2::writeSettingsAck(writeBuf);
 }
 

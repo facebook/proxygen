@@ -104,6 +104,10 @@ public:
       (transportDirection_ == TransportDirection::UPSTREAM &&
        egressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1));
   }
+  bool supportsExTransactions() const override {
+    return ingressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0) &&
+      egressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0);
+  }
   void setHeaderCodecStats(HeaderCodec::Stats* stats) override {
     headerCodec_.setStats(stats);
   }

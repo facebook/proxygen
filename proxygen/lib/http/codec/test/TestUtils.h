@@ -149,6 +149,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   void onSettings(const SettingsList& inSettings) override {
     settings++;
+    numSettings += inSettings.size();
     for (auto& setting: inSettings) {
       if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
         windowSize = setting.value;
@@ -291,6 +292,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint64_t recvPingReply{0};
   uint32_t windowUpdateCalls{0};
   uint32_t settings{0};
+  uint64_t numSettings{0};
   uint32_t settingsAcks{0};
   uint32_t windowSize{0};
   uint32_t maxStreams{0};

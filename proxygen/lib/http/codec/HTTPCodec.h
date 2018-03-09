@@ -400,6 +400,14 @@ class HTTPCodec {
   virtual bool supportsPushTransactions() const = 0;
 
   /**
+   * Check whether the codec supports bidirectional communications between
+   * server and client.
+   */
+  virtual bool supportsExTransactions() const {
+    return false;
+  }
+
+  /**
    * Generate a connection preface, if there is any for this protocol.
    *
    * @return size of the generated message

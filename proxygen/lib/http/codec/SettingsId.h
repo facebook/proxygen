@@ -26,6 +26,9 @@ enum class SettingsId: uint32_t {
   MAX_FRAME_SIZE = 5,
   MAX_HEADER_LIST_SIZE = 6,
 
+  // 0xf000 and 0xffff being reserved for Experimental Use
+  ENABLE_EX_HEADERS = 0xfbfb,
+
   // From SPDY, mostly unused
   _SPDY_UPLOAD_BANDWIDTH = SPDY_SETTINGS_MASK | 1,
   _SPDY_DOWNLOAD_BANDWIDTH = SPDY_SETTINGS_MASK | 2,
