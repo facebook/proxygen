@@ -189,7 +189,12 @@ parsePadding(Cursor& cursor,
   } else {
     padding = 0;
   }
-  return ErrorCode::NO_ERROR;
+
+  if (header.length < padding) {
+    return ErrorCode::PROTOCOL_ERROR;
+  } else {
+    return ErrorCode::NO_ERROR;
+  }
 }
 
 ErrorCode
@@ -255,9 +260,6 @@ parseData(Cursor& cursor,
   uint8_t padding;
   const auto err = parsePadding(cursor, header, padding);
   RETURN_IF_ERROR(err);
-  if (header.length < padding) {
-    return ErrorCode::PROTOCOL_ERROR;
-  }
   // outPadding is the total number of flow-controlled pad bytes, which
   // includes the length byte, if present.
   outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
@@ -272,9 +274,6 @@ ErrorCode parseDataBegin(Cursor& cursor,
   uint8_t padding = 0;
   const auto err = http2::parsePadding(cursor, header, padding);
   RETURN_IF_ERROR(err);
-  if (header.length < padding) {
-    return ErrorCode::PROTOCOL_ERROR;
-  }
   // outPadding is the total number of flow-controlled pad bytes, which
   // includes the length byte, if present.
   outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
@@ -311,9 +310,6 @@ parseHeaders(Cursor& cursor,
     header.length -= kFramePrioritySize;
   } else {
     outPriority = folly::none;
-  }
-  if (header.length < padding) {
-    return ErrorCode::PROTOCOL_ERROR;
   }
   cursor.clone(outBuf, header.length - padding);
   return skipPadding(cursor, padding, kStrictPadding);
