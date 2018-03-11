@@ -1282,29 +1282,39 @@ size_t HTTP2Codec::generatePingReply(folly::IOBufQueue& writeBuf,
 size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
   std::deque<SettingPair> settings;
   for (auto& setting: egressSettings_.getAllSettings()) {
-    if (setting.id == SettingsId::HEADER_TABLE_SIZE) {
-      headerCodec_.setDecoderHeaderTableMaxSize(setting.value);
-    } else if (setting.id == SettingsId::MAX_HEADER_LIST_SIZE) {
-      headerCodec_.setMaxUncompressed(setting.value);
-    } else if (setting.id == SettingsId::ENABLE_PUSH) {
-      if (transportDirection_ == TransportDirection::DOWNSTREAM) {
-        // HTTP/2 spec says downstream must not send this flag
-        // HTTP2Codec uses it to determine if push features are enabled
-        continue;
-      } else {
+    switch (setting.id) {
+      case SettingsId::HEADER_TABLE_SIZE:
+        headerCodec_.setDecoderHeaderTableMaxSize(setting.value);
+        break;
+      case SettingsId::ENABLE_PUSH:
+        if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+          // HTTP/2 spec says downstream must not send this flag
+          // HTTP2Codec uses it to determine if push features are enabled
+          continue;
+        } else {
+          CHECK(setting.value == 0 || setting.value == 1);
+        }
+        break;
+      case SettingsId::MAX_CONCURRENT_STREAMS:
+      case SettingsId::INITIAL_WINDOW_SIZE:
+      case SettingsId::MAX_FRAME_SIZE:
+        break;
+      case SettingsId::MAX_HEADER_LIST_SIZE:
+        headerCodec_.setMaxUncompressed(setting.value);
+        break;
+      case SettingsId::ENABLE_EX_HEADERS:
         CHECK(setting.value == 0 || setting.value == 1);
-      }
-    } else if (setting.id == SettingsId::ENABLE_EX_HEADERS) {
-      DCHECK(setting.value == 0 || setting.value == 1);
-      if (setting.value == 0) {
-        continue; // just skip the experimental setting if disabled
-      } else {
-        VLOG(4) << "generating ENABLE_EX_HEADERS=" << setting.value;
-      }
-    } else {
-      LOG(ERROR) << "ignore unknown settingsId="
-                 << std::underlying_type<SettingsId>::type(setting.id)
-                 << " value=" << setting.value;
+        if (setting.value == 0) {
+          continue; // just skip the experimental setting if disabled
+        } else {
+          VLOG(4) << "generating ENABLE_EX_HEADERS=" << setting.value;
+        }
+        break;
+      default:
+        LOG(ERROR) << "ignore unknown settingsId="
+                   << std::underlying_type<SettingsId>::type(setting.id)
+                   << " value=" << setting.value;
+        continue;
     }
 
     settings.push_back(SettingPair(setting.id, setting.value));
