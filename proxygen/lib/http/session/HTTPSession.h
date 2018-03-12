@@ -47,7 +47,7 @@ class HTTPSession:
   private folly::AsyncTransportWrapper::ReadCallback,
   private folly::AsyncTransport::ReplaySafetyCallback {
  public:
-  typedef std::unique_ptr<HTTPSession, Destructor> UniquePtr;
+  using UniquePtr = std::unique_ptr<HTTPSession, Destructor>;
 
   HTTPSessionBase::SessionType getType() const noexcept override {
     return HTTPSessionBase::SessionType::HTTP;

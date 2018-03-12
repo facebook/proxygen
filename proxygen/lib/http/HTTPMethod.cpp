@@ -21,7 +21,7 @@ namespace {
 // Method strings. This is indestructible because this structure is
 // accessed from multiple threads and still needs to be accessible after exit()
 // is called to avoid crashing.
-typedef std::vector<std::string> StringVector;
+using StringVector = std::vector<std::string>;
 
 const StringVector& getMethodStrings() {
   static const folly::Indestructible<StringVector> methodStrings{

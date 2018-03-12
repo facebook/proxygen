@@ -61,6 +61,6 @@ std::ostream& operator<<(std::ostream& os,
 std::ostream& operator<<(std::ostream& os,
                          HTTPTransactionIngressSMData::Event e);
 
-typedef StateMachine<HTTPTransactionIngressSMData> HTTPTransactionIngressSM;
+using HTTPTransactionIngressSM = StateMachine<HTTPTransactionIngressSMData>;
 
 }

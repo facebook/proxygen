@@ -96,8 +96,8 @@ class FlowControlFilterTest: public FilterTest {
   int recvWindow_{initSize};
 };
 
-typedef FlowControlFilterTest<0> DefaultFlowControl;
-typedef FlowControlFilterTest<1000000> BigWindow;
+using DefaultFlowControl = FlowControlFilterTest<0>;
+using BigWindow = FlowControlFilterTest<1000000>;
 
 MATCHER(IsFlowException, "") {
   return arg->hasCodecStatusCode() &&

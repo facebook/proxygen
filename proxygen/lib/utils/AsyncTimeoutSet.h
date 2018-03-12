@@ -40,7 +40,7 @@ namespace proxygen {
 class AsyncTimeoutSet : private folly::AsyncTimeout,
                         public folly::DelayedDestruction {
  public:
-  typedef std::unique_ptr<AsyncTimeoutSet, Destructor> UniquePtr;
+  using UniquePtr = std::unique_ptr<AsyncTimeoutSet, Destructor>;
 
   /**
    * A callback to be notified when a timeout has expired.

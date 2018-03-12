@@ -15,8 +15,8 @@
 template <typename T>
 class StateMachine {
  public:
-  typedef typename T::State State;
-  typedef typename T::Event Event;
+  using State = typename T::State;
+  using Event = typename T::Event;
 
   static State getNewInstance() {
     return T::getInitialState();

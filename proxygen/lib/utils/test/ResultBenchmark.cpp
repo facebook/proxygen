@@ -19,7 +19,7 @@ struct MediumStruct {
   int32_t field2;
 };
 
-typedef Result<MediumStruct, int> MediumResult;
+using MediumResult = Result<MediumStruct, int>;
 
 static_assert(std::is_nothrow_copy_constructible<MediumResult>::value, "");
 static_assert(sizeof(MediumStruct) == 8, "");

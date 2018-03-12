@@ -56,6 +56,6 @@ class HeaderPiece {
   bool multiValued;
 };
 
-typedef std::deque<HeaderPiece> HeaderPieceList;
+using HeaderPieceList = std::deque<HeaderPiece>;
 
 }}

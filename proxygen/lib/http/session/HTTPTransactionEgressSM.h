@@ -58,6 +58,6 @@ std::ostream& operator<<(std::ostream& os,
 std::ostream& operator<<(std::ostream& os,
                          HTTPTransactionEgressSMData::Event e);
 
-typedef StateMachine<HTTPTransactionEgressSMData> HTTPTransactionEgressSM;
+using HTTPTransactionEgressSM = StateMachine<HTTPTransactionEgressSMData>;
 
 }

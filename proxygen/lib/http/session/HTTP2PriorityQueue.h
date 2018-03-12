@@ -34,7 +34,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
 
  public:
 
-  typedef Node* Handle;
+  using Handle = Node*;
 
   HTTP2PriorityQueue()
       : nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)) {
@@ -114,7 +114,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
                                            HTTPTransaction *, double)>& fn,
                   const std::function<bool()>& stopFn, bool all);
 
-  typedef std::vector<std::pair<HTTPTransaction*, double>> NextEgressResult;
+  using NextEgressResult = std::vector<std::pair<HTTPTransaction*, double>>;
 
   void nextEgress(NextEgressResult& result, bool spdyMode = false);
 
@@ -298,7 +298,7 @@ class HTTP2PriorityQueue : public HTTPCodec::PriorityQueue {
           id(i), node(n), ratio(r) {}
     };
 
-    typedef std::deque<PendingNode> PendingList;
+    using PendingList = std::deque<PendingNode>;
     bool visitBFS(double relativeParentWeight,
                   const std::function<bool(HTTP2PriorityQueue& queue,
                                            HTTPCodec::StreamID,

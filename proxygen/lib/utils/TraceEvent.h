@@ -92,7 +92,7 @@ class TraceEvent {
     MetaDataType value_;
   };
 
-  typedef std::map<TraceFieldType, MetaData> MetaDataMap;
+  using MetaDataMap = std::map<TraceFieldType, MetaData>;
 
   class Iterator {
    public:

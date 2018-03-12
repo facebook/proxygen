@@ -66,7 +66,7 @@ bool bodyImplied(const HTTPHeaders& headers);
  * Return true if the string was well formed according to the RFC.  Note it can
  * return false but still populate output with best-effort parsing.
  */
-typedef std::pair<folly::StringPiece, double> TokenQPair;
+using TokenQPair = std::pair<folly::StringPiece, double>;
 
 bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair> &output);
 

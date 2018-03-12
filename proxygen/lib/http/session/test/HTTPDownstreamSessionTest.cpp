@@ -429,7 +429,7 @@ class HTTPDownstreamTest : public testing::Test {
 };
 
 // Uses TestAsyncTransport
-typedef HTTPDownstreamTest<HTTP1xCodecPair> HTTPDownstreamSessionTest;
+using HTTPDownstreamSessionTest = HTTPDownstreamTest<HTTP1xCodecPair>;
 typedef HTTPDownstreamTest<SPDY3CodecPair> SPDY3DownstreamSessionTest;
 namespace {
 class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {

@@ -47,7 +47,7 @@ uint32_t rand32(uint32_t max, folly::Random::DefaultGenerator& rng) {
 
 namespace proxygen {
 
-typedef std::list<std::pair<HTTPCodec::StreamID, uint8_t>> IDList;
+using IDList = std::list<std::pair<HTTPCodec::StreamID, uint8_t>>;
 
 class QueueTest : public testing::Test {
  public:

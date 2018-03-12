@@ -238,8 +238,8 @@ template<bool Owned> void GenericFilterTest<Owned>::testFilters(
   }
 }
 
-typedef GenericFilterTest<true> OwnedGenericFilterTest;
-typedef GenericFilterTest<false> UnownedGenericFilterTest;
+using OwnedGenericFilterTest = GenericFilterTest<true>;
+using UnownedGenericFilterTest = GenericFilterTest<false>;
 
 TEST_F(OwnedGenericFilterTest, empty_chain) {
   basicTest();

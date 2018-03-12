@@ -319,8 +319,8 @@ class HTTPTransaction :
       public folly::HHWheelTimer::Callback,
       public folly::DelayedDestructionBase {
  public:
-  typedef HTTPTransactionHandler Handler;
-  typedef HTTPPushTransactionHandler PushHandler;
+  using Handler = HTTPTransactionHandler;
+  using PushHandler = HTTPPushTransactionHandler;
 
   class Transport {
    public:
@@ -416,7 +416,7 @@ class HTTPTransaction :
         getHTTPPriority(uint8_t level) = 0;
   };
 
-  typedef HTTPTransactionTransportCallback TransportCallback;
+  using TransportCallback = HTTPTransactionTransportCallback;
 
   /**
    * readBufLimit and sendWindow are only used if useFlowControl is

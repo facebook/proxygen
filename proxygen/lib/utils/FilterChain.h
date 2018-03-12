@@ -39,7 +39,7 @@ template <typename T1, typename T2, void (T1::*set_callback)(T2*),
           bool TakeOwnership, typename Dp = std::default_delete<T1> >
 class GenericFilter: public T1, public T2 {
  public:
-  typedef GenericFilter<T1, T2, set_callback, TakeOwnership, Dp> Filter;
+  using Filter = GenericFilter<T1, T2, set_callback, TakeOwnership, Dp>;
   /**
    * @param calls You will intercept calls to T1 interface iff you
    *              pass true for this parameter.
@@ -256,7 +256,7 @@ class FilterChain: private FilterType {
     return *chainEnd_;
   }
 
-  typedef GenericFilter<T1, T2, set_callback, TakeOwnership> FilterChainType;
+  using FilterChainType = GenericFilter<T1, T2, set_callback, TakeOwnership>;
   std::unique_ptr<T1> setDestination(std::unique_ptr<T1> destination) {
     static_assert(TakeOwnership, "unique_ptr setDestination only available "
                   "if the chain owns the filters.");

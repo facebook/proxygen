@@ -42,6 +42,6 @@ enum class SettingsId: uint32_t {
 
 extern const uint8_t kMaxSettingIdentifier;
 
-typedef std::pair<SettingsId, uint32_t> SettingPair;
+using SettingPair = std::pair<SettingsId, uint32_t>;
 
 }

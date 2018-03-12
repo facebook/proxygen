@@ -143,7 +143,7 @@ public:
     uint32_t value;
   };
 
-  typedef std::vector<SettingData> SettingList;
+  using SettingList = std::vector<SettingData>;
 
   /**
    * Returns the SPDYVersion for the given protocol string, or none otherwise.

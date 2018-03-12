@@ -23,7 +23,7 @@ using namespace proxygen;
 using namespace std;
 using namespace testing;
 
-typedef std::pair<bool, vector<string>> RfcParam;
+using RfcParam = std::pair<bool, vector<string>>;
 
 class RFCRequestTest : public testing::TestWithParam<RfcParam> {
  public:

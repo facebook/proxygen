@@ -15,6 +15,6 @@
 
 namespace proxygen {
 
-typedef wangle::HTTPHeaderSize HTTPHeaderSize;
+using HTTPHeaderSize = wangle::HTTPHeaderSize;
 
 }

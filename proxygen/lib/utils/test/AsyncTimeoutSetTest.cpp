@@ -24,7 +24,7 @@ using folly::AsyncTimeout;
 using folly::test::MockTimeoutManager;
 using std::chrono::milliseconds;
 
-typedef folly::UndelayedDestruction<AsyncTimeoutSet> StackTimeoutSet;
+using StackTimeoutSet = folly::UndelayedDestruction<AsyncTimeoutSet>;
 
 class MockTimeoutClock : public AsyncTimeoutSet::TimeoutClock {
  public:

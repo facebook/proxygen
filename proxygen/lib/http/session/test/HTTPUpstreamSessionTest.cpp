@@ -359,7 +359,7 @@ class TimeoutableHTTPUpstreamTest: public HTTPUpstreamTest<C> {
   }
 };
 
-typedef HTTPUpstreamTest<HTTP1xCodecPair> HTTPUpstreamSessionTest;
+using HTTPUpstreamSessionTest = HTTPUpstreamTest<HTTP1xCodecPair>;
 typedef HTTPUpstreamTest<SPDY3CodecPair> SPDY3UpstreamSessionTest;
 typedef HTTPUpstreamTest<HTTP2CodecPair> HTTP2UpstreamSessionTest;
 
@@ -1020,7 +1020,7 @@ TEST_F(HTTPUpstreamSessionTest, two_requests_with_pause) {
   httpSession_->destroy();
 }
 
-typedef TimeoutableHTTPUpstreamTest<HTTP1xCodecPair> HTTPUpstreamTimeoutTest;
+using HTTPUpstreamTimeoutTest = TimeoutableHTTPUpstreamTest<HTTP1xCodecPair>;
 TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
   // Test where the upstream session times out while writing the request
   // to the server, but after the server has already sent back a full
@@ -2449,5 +2449,5 @@ TEST_F(HTTP2UpstreamSessionTest, attach_detach) {
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
                            immediate_eof);
 
-typedef ::testing::Types<HTTP1xCodecPair, SPDY3CodecPair> AllTypes;
+using AllTypes = ::testing::Types<HTTP1xCodecPair, SPDY3CodecPair>;
 INSTANTIATE_TYPED_TEST_CASE_P(AllTypesPrefix, HTTPUpstreamTest, AllTypes);

@@ -46,7 +46,7 @@ class HTTPCodec {
    * A value of zero indicates an uninitialized/unknown/unspecified
    * StreamID.
    */
-  typedef uint32_t StreamID;
+  using StreamID = uint32_t;
 
   static const StreamID NoStream{0};
 

@@ -71,6 +71,6 @@ class HTTPSettings {
   std::vector<HTTPSetting> settings_;
 };
 
-typedef std::vector<HTTPSetting> SettingsList;
+using SettingsList = std::vector<HTTPSetting>;
 
 }
