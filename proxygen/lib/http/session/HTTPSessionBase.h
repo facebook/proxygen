@@ -552,7 +552,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   // private ManagedConnection methods
   std::chrono::milliseconds getIdleTime() const override {
     if (timePointInitialized(latestActive_)) {
-      return secondsSince(latestActive_);
+      return millisecondsSince(latestActive_);
     } else {
       return std::chrono::milliseconds(0);
     }
