@@ -27,7 +27,6 @@ libutilsdir = $(includedir)/proxygen/lib/utils
 nobase_libutils_HEADERS = \
 	AsyncTimeoutSet.h \
 	Base64.h \
-	ChromeUtils.h \
 	CobHelper.h \
 	CryptUtil.h \
 	Exception.h \
@@ -58,7 +57,6 @@ libutils_la_SOURCES = \
 	../../external/http_parser/http_parser_cpp.cpp \
 	AsyncTimeoutSet.cpp \
 	Base64.cpp \
-	ChromeUtils.cpp \
 	Exception.cpp \
 	HTTPTime.cpp \
 	TraceEventContext.cpp \
