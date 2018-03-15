@@ -36,7 +36,7 @@ using namespace proxygen::compress;
 int main(int argc, char* argv[]) {
   folly::init(&argc, &argv, true);
   if (FLAGS_same_packet_compression) {
-    proxygen::HPACKEncoder::enableAutoFlush();
+    LOG(WARNING) << "Same packet compression no longer supported";
   }
 
   if (FLAGS_input.empty()) {

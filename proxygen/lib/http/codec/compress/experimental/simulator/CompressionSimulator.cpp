@@ -431,6 +431,8 @@ void CompressionSimulator::sendAck(CompressionScheme* scheme,
   if (!ack) {
     return;
   }
+  // An ack is a packet
+  stats_.packets++;
   scheduleEvent([a=std::move(ack), this, scheme] () mutable {
       recvAck(scheme, std::move(a));
     }, deliveryDelay());
