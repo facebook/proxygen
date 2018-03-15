@@ -77,7 +77,9 @@ uint32_t HeaderTable::getIndex(const HPACKHeader& header,
     return 0;
   }
   bool encoderHasEntry = false;
-  for (auto i : it->second) {
+  for (auto indexIt = it->second.rbegin(); indexIt != it->second.rend();
+       ++indexIt) {
+    auto i = *indexIt;
     if ((*table_)[i].value == header.value) {
       encoderHasEntry = true;
       if (table_->isValidEpoch(i, commitEpoch, curEpoch)) {

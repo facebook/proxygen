@@ -177,7 +177,7 @@ TEST_F(HeaderTableTests, increaseCapacity) {
     EXPECT_EQ(table.add(accept), true);
   }
   EXPECT_EQ(table.size(), max);
-  EXPECT_EQ(table.getIndex(accept), 4);
+  EXPECT_EQ(table.getIndex(accept), 1);
   // head should be 0, tail should be 2
   max = 8;
   capacity = accept.bytes() * max;
@@ -185,7 +185,7 @@ TEST_F(HeaderTableTests, increaseCapacity) {
 
   EXPECT_LE(table.length(), table.getMaxTableLength(capacity));
   // external index didn't change
-  EXPECT_EQ(table.getIndex(accept), 4);
+  EXPECT_EQ(table.getIndex(accept), 1);
 
 }
 
