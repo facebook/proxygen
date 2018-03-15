@@ -47,9 +47,9 @@ class HPACKDecoder : public HPACKContext {
    * given a Cursor and a total amount of bytes we can consume from it,
    * decode headers and invoke a callback.
    */
-  uint32_t decodeStreaming(folly::io::Cursor& cursor,
-                           uint32_t totalBytes,
-                           HeaderCodec::StreamingCallback* streamingCb);
+  void decodeStreaming(folly::io::Cursor& cursor,
+                       uint32_t totalBytes,
+                       HeaderCodec::StreamingCallback* streamingCb);
 
   /**
    * given a compressed header block as an IOBuf chain, decode all the
@@ -102,6 +102,8 @@ class HPACKDecoder : public HPACKContext {
                                        headers_t* emitted);
 
   uint32_t decodeHeader(HPACKDecodeBuffer& dbuf, headers_t* emitted);
+
+  void completeDecode(uint32_t compressedSize, uint32_t emittedSize);
 
   void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf);
 

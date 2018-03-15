@@ -94,7 +94,7 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
   return dbuf.consumedBytes();
 }
 
-uint32_t HPACKDecoder::decodeStreaming(
+void HPACKDecoder::decodeStreaming(
     Cursor& cursor,
     uint32_t totalBytes,
     HeaderCodec::StreamingCallback* streamingCb) {
@@ -111,13 +111,31 @@ uint32_t HPACKDecoder::decodeStreaming(
       LOG(ERROR) << "exceeded uncompressed size limit of "
                  << maxUncompressed_ << " bytes";
       err_ = HPACK::DecodeError::HEADERS_TOO_LARGE;
-      return dbuf.consumedBytes();
+      break;
     }
+    emittedSize += 2;
   }
 
-  return dbuf.consumedBytes();
+  completeDecode(dbuf.consumedBytes(), emittedSize);
 }
 
+void HPACKDecoder::completeDecode(uint32_t compressedSize,
+                                  uint32_t emittedSize) {
+  if (err_ != HPACK::DecodeError::NONE) {
+    if (streamingCb_->stats) {
+      streamingCb_->stats->recordDecodeError(HeaderCodec::Type::HPACK);
+    }
+    streamingCb_->onDecodeError(hpack2headerCodecError(err_));
+  } else {
+    HTTPHeaderSize decodedSize;
+    decodedSize.compressed = compressedSize;
+    decodedSize.uncompressed = emittedSize;
+    if (streamingCb_->stats) {
+      streamingCb_->stats->recordDecode(HeaderCodec::Type::HPACK, decodedSize);
+    }
+    streamingCb_->onHeadersComplete(decodedSize);
+  }
+}
 
 void HPACKDecoder::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf) {
   uint32_t arg = 0;

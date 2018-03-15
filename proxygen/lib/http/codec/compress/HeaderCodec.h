@@ -83,6 +83,7 @@ class HeaderCodec {
                           const folly::fbstring& value) = 0;
     virtual void onHeadersComplete(HTTPHeaderSize decodedSize) = 0;
     virtual void onDecodeError(HeaderDecodeError decodeError) = 0;
+    Stats* stats{nullptr};
   };
 
   HeaderCodec() {}
