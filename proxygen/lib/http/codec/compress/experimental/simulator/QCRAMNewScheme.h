@@ -17,10 +17,12 @@
 namespace proxygen {  namespace compress {
 class QCRAMNewScheme : public CompressionScheme {
  public:
-  explicit QCRAMNewScheme(CompressionSimulator* sim)
+  explicit QCRAMNewScheme(CompressionSimulator* sim, uint32_t tableSize)
       : CompressionScheme(sim) {
     client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
     server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
+    client_.setEncoderHeaderTableSize(tableSize);
+    server_.setDecoderHeaderTableMaxSize(tableSize);
   }
 
   ~QCRAMNewScheme() {

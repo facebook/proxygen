@@ -321,16 +321,17 @@ CompressionScheme* CompressionSimulator::getScheme(StringPiece domain) {
 }
 
 unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
-  if (params_.type == SchemeType::QCRAM) {
-    return make_unique<QCRAMScheme>(this);
-  } else if (params_.type == SchemeType::QCRAM_03) {
-    return make_unique<QCRAMNewScheme>(this);
-  } else if (params_.type == SchemeType::QPACK) {
-    return make_unique<QPACKScheme>(this);
-  } else if (params_.type == SchemeType::QMIN) {
-    return make_unique<QMINScheme>(this);
-  } else if (params_.type == SchemeType::HPACK) {
-    return make_unique<HPACKScheme>(this, params_.tableSize);
+  switch (params_.type) {
+    case SchemeType::QCRAM:
+      return make_unique<QCRAMScheme>(this, params_.tableSize);
+    case SchemeType::QCRAM_03:
+      return make_unique<QCRAMNewScheme>(this, params_.tableSize);
+    case SchemeType::QPACK:
+      return make_unique<QPACKScheme>(this, params_.tableSize);
+    case SchemeType::QMIN:
+      return make_unique<QMINScheme>(this, params_.tableSize);
+    case SchemeType::HPACK:
+      return make_unique<HPACKScheme>(this, params_.tableSize);
   }
   LOG(FATAL) << "Bad scheme";
   return nullptr;

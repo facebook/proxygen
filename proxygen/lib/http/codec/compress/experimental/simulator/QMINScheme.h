@@ -153,9 +153,10 @@ class QMINScheme : public CompressionScheme {
       return NULL;
   }
 
-  explicit QMINScheme(CompressionSimulator* sim)
+  explicit QMINScheme(CompressionSimulator* sim, uint32_t tableSize)
       : CompressionScheme(sim)
   {
+    // TODO: set table size?
     qms_ctl[0].out.qco_write = write_enc2dec;
     qms_ctl[0].write_off = 0;
     qms_ctl[0].sz = 0;
