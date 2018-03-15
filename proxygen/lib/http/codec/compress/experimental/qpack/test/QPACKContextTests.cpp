@@ -207,7 +207,7 @@ TEST_F(QPACKContextTests, decoder_invalid_peek) {
   auto encoded = encoder.encode(headers);
   unique_ptr<IOBuf> first = IOBuf::create(128);
   // set a trap for indexed header and don't call append
-  first->writableData()[0] = HPACK::HeaderEncoding::INDEXED;
+  first->writableData()[0] = HPACK::INDEX_REF.code;
 
   first->appendChain(std::move(encoded.second));
   decodeControl(decoder, encoded.first.get());

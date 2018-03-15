@@ -75,6 +75,11 @@ class HPACKDecodeBuffer {
   HPACK::DecodeError decodeInteger(uint8_t nbit, uint32_t& integer);
 
   /**
+   * As above but with no prefix
+   */
+  HPACK::DecodeError decodeInteger(uint32_t& integer);
+
+  /**
    * decode a literal starting from the current position
    */
   HPACK::DecodeError decodeLiteral(folly::fbstring& literal);

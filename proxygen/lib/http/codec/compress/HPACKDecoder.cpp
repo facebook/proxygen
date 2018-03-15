@@ -66,7 +66,7 @@ const huffman::HuffTree& HPACKDecoder::getHuffmanTree() const {
 void HPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   if (useBaseIndex_) {
     uint32_t baseIndex = 0;
-    err_ = dbuf.decodeInteger(0, baseIndex);
+    err_ = dbuf.decodeInteger(baseIndex);
     if (err_ != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
       return;
@@ -139,7 +139,7 @@ void HPACKDecoder::completeDecode(uint32_t compressedSize,
 
 void HPACKDecoder::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf) {
   uint32_t arg = 0;
-  err_ = dbuf.decodeInteger(5, arg);
+  err_ = dbuf.decodeInteger(HPACK::TABLE_SIZE_UPDATE.prefixLength, arg);
   if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
     return;
@@ -156,21 +156,21 @@ void HPACKDecoder::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf) {
 uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
                                            headers_t* emitted) {
   uint8_t byte = dbuf.peek();
-  bool indexing = byte & HPACK::HeaderEncoding::LITERAL_INCR_INDEXING;
+  bool indexing = byte & HPACK::LITERAL_INC_INDEX.code;
   HPACKHeader header;
   uint8_t indexMask = 0x3F;  // 0011 1111
-  uint8_t length = 6;
+  uint8_t length = HPACK::LITERAL_INC_INDEX.prefixLength;
   if (!indexing) {
-    bool tableSizeUpdate = byte & HPACK::HeaderEncoding::TABLE_SIZE_UPDATE;
+    bool tableSizeUpdate = byte & HPACK::TABLE_SIZE_UPDATE.code;
     if (tableSizeUpdate) {
       handleTableSizeUpdate(dbuf);
       return 0;
     } else {
-      bool neverIndex = byte & HPACK::HeaderEncoding::LITERAL_NEVER_INDEXING;
+      bool neverIndex = byte & HPACK::LITERAL_NEV_INDEX.code;
       // TODO: we need to emit this flag with the headers
     }
     indexMask = 0x0F; // 0000 1111
-    length = 4;
+    length = HPACK::LITERAL.prefixLength;
   }
   if (byte & indexMask) {
     uint32_t index;
@@ -218,7 +218,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
 uint32_t HPACKDecoder::decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
                                            headers_t* emitted) {
   uint32_t index;
-  err_ = dbuf.decodeInteger(7, index);
+  err_ = dbuf.decodeInteger(HPACK::INDEX_REF.prefixLength, index);
   if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Decode error decoding index err_=" << err_;
     return 0;
@@ -251,7 +251,7 @@ bool HPACKDecoder::isValid(uint32_t index) {
 uint32_t HPACKDecoder::decodeHeader(HPACKDecodeBuffer& dbuf,
                                     headers_t* emitted) {
   uint8_t byte = dbuf.peek();
-  if (byte & HPACK::HeaderEncoding::INDEXED) {
+  if (byte & HPACK::INDEX_REF.code) {
     return decodeIndexedHeader(dbuf, emitted);
   }
   // LITERAL_NO_INDEXING or LITERAL_INCR_INDEXING

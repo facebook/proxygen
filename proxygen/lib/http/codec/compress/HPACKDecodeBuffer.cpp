@@ -87,6 +87,10 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(folly::fbstring& literal) {
   return DecodeError::NONE;
 }
 
+DecodeError HPACKDecodeBuffer::decodeInteger(uint32_t& integer) {
+  return decodeInteger(8, integer);
+}
+
 DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint32_t& integer) {
   if (remainingBytes_ == 0) {
     LOG(ERROR) << "remainingBytes_ == 0";

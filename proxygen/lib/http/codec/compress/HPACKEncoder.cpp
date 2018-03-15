@@ -58,13 +58,11 @@ unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
   if (useBaseIndex_) {
     auto baseIndex = table_.markBaseIndex();
     VLOG(10) << "Emitting base index=" << baseIndex;
-    bytesInPacket_ += buffer_.encodeInteger(baseIndex, 0, 0);
+    bytesInPacket_ += buffer_.encodeInteger(baseIndex);
   }
   if (pendingContextUpdate_) {
     bytesInPacket_ += buffer_.encodeInteger(
-      table_.capacity(),
-      HPACK::HeaderEncoding::TABLE_SIZE_UPDATE,
-      5);
+      table_.capacity(), HPACK::TABLE_SIZE_UPDATE);
     pendingContextUpdate_ = false;
   }
   for (const auto& header : headers) {
@@ -88,17 +86,15 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
     // the table will fill up again fairly quickly
     indexing = false;
   }
-  uint8_t prefix = indexing ?
-    HPACK::HeaderEncoding::LITERAL_INCR_INDEXING :
-    HPACK::HeaderEncoding::LITERAL_NO_INDEXING;
-  uint8_t len = indexing ? 6 : 4;
+  HPACK::Instruction instruction = indexing ?
+    HPACK::LITERAL_INC_INDEX : HPACK::LITERAL;
   // name
   uint32_t index = nameIndex(header.name, commitEpoch_, nextSequenceNumber_);
   if (index) {
     VLOG(10) << "encoding name index=" << index;
-    bytesInPacket_ += buffer_.encodeInteger(index, prefix, len);
+    bytesInPacket_ += buffer_.encodeInteger(index, instruction);
   } else {
-    bytesInPacket_ += buffer_.encodeInteger(0, prefix, len);
+    bytesInPacket_ += buffer_.encodeInteger(0, instruction);
     bytesInPacket_ += buffer_.encodeLiteral(header.name.get());
   }
   // value
@@ -112,8 +108,7 @@ void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
 }
 
 void HPACKEncoder::encodeAsIndex(uint32_t index) {
-  bytesInPacket_ += buffer_.encodeInteger(index, HPACK::HeaderEncoding::INDEXED,
-                                          7);
+  bytesInPacket_ += buffer_.encodeInteger(index, HPACK::INDEX_REF);
 }
 
 void HPACKEncoder::encodeHeader(const HPACKHeader& header) {

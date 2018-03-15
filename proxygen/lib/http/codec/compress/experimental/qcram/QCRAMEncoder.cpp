@@ -66,7 +66,7 @@ QCRAMEncoder::EncodeResult QCRAMEncoder::encode(
     }
     if (useBaseIndex_) {
       auto baseIndex = table_.markBaseIndex();
-      auto bytes = buffer_.encodeInteger(baseIndex, 0, 8);
+      auto bytes = buffer_.encodeInteger(baseIndex);
       VLOG(1) << "Emitting base index=" << baseIndex << " bytes=" << bytes;
       bytesInPacket_ += bytes;
     }
@@ -78,7 +78,7 @@ QCRAMEncoder::EncodeResult QCRAMEncoder::encode(
     if (controlPrev < bytesInPacket_) {
       VLOG(1) << "Encoder emit seqn (control) " << nextSequenceNumber_
               << "  depends on " << depends_;
-      prefix_.encodeInteger(depends_, 0, 8);
+      prefix_.encodeInteger(depends_);
       result.controlBuffer = prefix_.release();
       result.controlBuffer->appendChain(buffer_.release());
       nextSequenceNumber_++;
@@ -100,7 +100,7 @@ QCRAMEncoder::EncodeResult QCRAMEncoder::encode(
   }
   if (useBaseIndex_) {
     auto baseIndex = table_.markBaseIndex();
-    auto bytes = buffer_.encodeInteger(baseIndex, 0, 8);
+    auto bytes = buffer_.encodeInteger(baseIndex);
     VLOG(1) << "Emitting base index=" << baseIndex << " bytes=" << bytes;
     bytesInPacket_ += bytes;
     baseIndexOverhead_ += bytes;
@@ -108,7 +108,7 @@ QCRAMEncoder::EncodeResult QCRAMEncoder::encode(
   }
   if (pendingContextUpdate_) {
     bytesInPacket_ += buffer_.encodeInteger(
-        table_.capacity(), HPACK::HeaderEncoding::TABLE_SIZE_UPDATE, 5);
+      table_.capacity(), HPACK::TABLE_SIZE_UPDATE);
     pendingContextUpdate_ = false;
   }
   auto streamPrev = bytesInPacket_;
@@ -127,7 +127,7 @@ QCRAMEncoder::EncodeResult QCRAMEncoder::encode(
   if (depends_ < kMaxIndex) {
     VLOG(1) << "Encoder seqn " << nextSequenceNumber_ << "  depends on "
             << depends_;
-    prefix_.encodeInteger(depends_, 0, 8);
+    prefix_.encodeInteger(depends_);
     auto prefixBuf = prefix_.release();
     prefixBuf->appendChain(buffer_.release());
     nextSequenceNumber_++;
@@ -156,9 +156,8 @@ void QCRAMEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
     return;
   }
 
-  uint8_t prefix = indexing ? HPACK::HeaderEncoding::LITERAL_INCR_INDEXING
-                            : HPACK::HeaderEncoding::LITERAL_NO_INDEXING;
-  uint8_t len = indexing ? 6 : 4;
+  HPACK::Instruction instruction = indexing ?
+    HPACK::LITERAL_INC_INDEX : HPACK::LITERAL;
   // name
   size_t before = bytesInPacket_;
   if (index && index != kMaxIndex) {
@@ -175,10 +174,10 @@ void QCRAMEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
     }
     // Encode name as index
     addRef(index);
-    bytesInPacket_ += buffer_.encodeInteger(index, prefix, len);
+    bytesInPacket_ += buffer_.encodeInteger(index, instruction);
   } else {
     // Encode name as literal
-    bytesInPacket_ += buffer_.encodeInteger(0, prefix, len);
+    bytesInPacket_ += buffer_.encodeInteger(0, instruction);
     bytesInPacket_ += buffer_.encodeLiteral(header.name.get());
   }
   if (index == kMaxIndex) {
@@ -191,7 +190,7 @@ void QCRAMEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
 }
 
 void QCRAMEncoder::encodeAsIndex(uint32_t index) {
-  auto bytes = buffer_.encodeInteger(index, HPACK::HeaderEncoding::INDEXED, 7);
+  auto bytes = buffer_.encodeInteger(index, HPACK::INDEX_REF);
   VLOG(10) << "Encode as index " << index << " bytes " << bytes;
   addRef(index);
   bytesInPacket_ += bytes;
