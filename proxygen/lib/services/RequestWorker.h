@@ -36,8 +36,11 @@ class RequestWorker : public WorkerThread {
    *
    * @param proxygen  The object to notify when this worker finishes.
    * @param threadId  A unique ID for this worker.
+   * @param evbName   The event base will ne named to this name (thread name)
    */
-  RequestWorker(FinishCallback& callback, uint8_t threadId);
+  RequestWorker(
+    FinishCallback& callback, uint8_t threadId,
+    const std::string& evbName = std::string());
 
   static uint64_t nextRequestId();
 

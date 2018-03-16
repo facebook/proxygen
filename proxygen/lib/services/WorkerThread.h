@@ -28,7 +28,8 @@ namespace proxygen {
  */
 class WorkerThread {
  public:
-  explicit WorkerThread(folly::EventBaseManager* ebm);
+  explicit WorkerThread(
+    folly::EventBaseManager* ebm, const std::string& evbName = std::string());
   virtual ~WorkerThread();
 
   /**

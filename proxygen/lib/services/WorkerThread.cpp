@@ -19,9 +19,15 @@ namespace proxygen {
 
 FOLLY_TLS WorkerThread* WorkerThread::currentWorker_ = nullptr;
 
-WorkerThread::WorkerThread(folly::EventBaseManager* eventBaseManager)
+WorkerThread::WorkerThread(
+  folly::EventBaseManager* eventBaseManager, const std::string& evbName)
     : eventBaseManager_(eventBaseManager) {
-  eventBase_.setName("worker");
+  // Only set the event base name if not empty.
+  // While not ideal, this preserves the previous program name inheritance
+  // behavior.
+  if (!evbName.empty()) {
+    eventBase_.setName(evbName);
+  }
 }
 
 WorkerThread::~WorkerThread() {
