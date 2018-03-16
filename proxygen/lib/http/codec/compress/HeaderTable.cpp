@@ -111,7 +111,7 @@ uint32_t HeaderTable::nameIndex(const HPACKHeaderName& headerName,
   return 0;
 }
 
-const HPACKHeader& HeaderTable::operator[](uint32_t i) const {
+const HPACKHeader& HeaderTable::getHeader(uint32_t i) const {
   CHECK(isValid(i));
   return (*table_)[toInternal(i)];
 }
@@ -261,7 +261,7 @@ bool HeaderTable::operator==(const HeaderTable& other) const {
 std::ostream& operator<<(std::ostream& os, const HeaderTable& table) {
   os << std::endl;
   for (size_t i = 1; i <= table.size(); i++) {
-    const HPACKHeader& h = table[i];
+    const HPACKHeader& h = table.getHeader(i);
     os << '[' << i << "] (s=" << h.bytes() << ") "
        << h.name << ": " << h.value << std::endl;
   }

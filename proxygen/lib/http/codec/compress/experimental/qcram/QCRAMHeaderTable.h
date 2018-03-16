@@ -160,7 +160,7 @@ class QCRAMHeaderTable {
    *
    * @return the header entry
    */
-  const QCRAMHeader& operator[](uint32_t index) const;
+  const QCRAMHeader& getHeader(uint32_t index) const;
 
   /**
    * Checks if an external index is valid

@@ -99,7 +99,7 @@ class HeaderTable {
    *
    * @return the header entry
    */
-  const HPACKHeader& operator[](uint32_t index) const;
+  const HPACKHeader& getHeader(uint32_t index) const;
 
   /**
    * Checks if an external index is valid

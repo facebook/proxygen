@@ -82,14 +82,14 @@ bool QCRAMContext::isStatic(uint32_t index) const {
 
 const HPACKHeader& QCRAMContext::getStaticHeader(uint32_t index) {
   DCHECK(isStatic(index));
-  return getStaticTable()[globalToStaticIndex(index)];
+  return getStaticTable().getHeader(globalToStaticIndex(index));
 }
 
 const HPACKHeader& QCRAMContext::getDynamicHeader(uint32_t index) {
   DCHECK(!isStatic(index));
   uint32_t dynamicIndex = globalToDynamicIndex(index);
   VLOG(1) << "getDynamicHeader index " << dynamicIndex;
-  return table_[dynamicIndex];
+  return table_.getHeader(dynamicIndex);
 }
 
 const HPACKHeader& QCRAMContext::getHeader(uint32_t index) {

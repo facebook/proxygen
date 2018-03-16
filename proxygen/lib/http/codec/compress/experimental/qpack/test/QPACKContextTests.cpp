@@ -91,9 +91,9 @@ TEST_F(QPACKContextTests, is_static) {
 
 TEST_F(QPACKContextTests, static_table) {
   auto& table = StaticHeaderTable::get();
-  const HPACKHeader& first = table[1];
-  const HPACKHeader& methodPost = table[3];
-  const HPACKHeader& last = table[table.size()];
+  const HPACKHeader& first = table.getHeader(1);
+  const HPACKHeader& methodPost = table.getHeader(3);
+  const HPACKHeader& last = table.getHeader(table.size());
   // there are 61 entries in the spec
   CHECK_EQ(table.size(), 61);
   CHECK_EQ(methodPost, HPACKHeader(":method", "POST"));

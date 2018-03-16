@@ -189,7 +189,7 @@ uint32_t QCRAMHeaderTable::nameIndex(const HPACKHeaderName& headerName,
   return kMaxIndex;
 }
 
-const QCRAMHeader& QCRAMHeaderTable::operator[](uint32_t i) const {
+const QCRAMHeader& QCRAMHeaderTable::getHeader(uint32_t i) const {
   CHECK(isValid(i));
   VLOG(1) << "[] " << i << " " << toInternal(i);
   return (*table_)[toInternal(i)];
@@ -368,7 +368,7 @@ bool QCRAMHeaderTable::operator==(const QCRAMHeaderTable& other) const {
 std::ostream& operator<<(std::ostream& os, const QCRAMHeaderTable& table) {
   os << std::endl;
   for (size_t i = 1; i <= table.size(); i++) {
-    const HPACKHeader& h = table[i];
+    const HPACKHeader& h = table.getHeader(i);
     os << '[' << i << "] (s=" << h.bytes() << ") " << h.name << ": " << h.value
        << std::endl;
   }

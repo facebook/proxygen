@@ -80,12 +80,12 @@ bool HPACKContext::isStatic(uint32_t index) const {
 
 const HPACKHeader& HPACKContext::getStaticHeader(uint32_t index) {
   DCHECK(isStatic(index));
-  return getStaticTable()[globalToStaticIndex(index)];
+  return getStaticTable().getHeader(globalToStaticIndex(index));
 }
 
 const HPACKHeader& HPACKContext::getDynamicHeader(uint32_t index) {
   DCHECK(!isStatic(index));
-  return table_[globalToDynamicIndex(index)];
+  return table_.getHeader(globalToDynamicIndex(index));
 }
 
 const HPACKHeader& HPACKContext::getHeader(uint32_t index) {

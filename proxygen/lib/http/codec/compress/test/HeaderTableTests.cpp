@@ -94,7 +94,7 @@ TEST_F(HeaderTableTests, evict) {
   EXPECT_EQ(table.size(), max);
   EXPECT_EQ(table.add(accept2), true);
   // evict the first one
-  EXPECT_EQ(table[1], accept2);
+  EXPECT_EQ(table.getHeader(1), accept2);
   auto ilist = table.names().find(name)->second;
   EXPECT_EQ(ilist.size(), max);
   // evict all the 'accept' headers
@@ -102,11 +102,11 @@ TEST_F(HeaderTableTests, evict) {
     EXPECT_EQ(table.add(accept2), true);
   }
   EXPECT_EQ(table.size(), max);
-  EXPECT_EQ(table[max], accept2);
+  EXPECT_EQ(table.getHeader(max), accept2);
   EXPECT_EQ(table.names().size(), 1);
   // add an entry that will cause 2 evictions
   EXPECT_EQ(table.add(accept3), true);
-  EXPECT_EQ(table[1], accept3);
+  EXPECT_EQ(table.getHeader(1), accept3);
   EXPECT_EQ(table.size(), max - 1);
 
   // add a super huge header
@@ -313,14 +313,14 @@ TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
   CHECK_EQ(table.length(), 10);
 
   // Check table is correct after resize
-  CHECK_EQ(table[1], smallHeader);
-  CHECK_EQ(table[2], smallHeader);
-  CHECK_EQ(table[3], smallHeader);
-  CHECK_EQ(table[4], smallHeader);
-  CHECK_EQ(table[5], largeHeader);
-  CHECK_EQ(table[6], smallHeader);
-  CHECK_EQ(table[7], largeHeader);
-  CHECK_EQ(table[8], smallHeader);
+  CHECK_EQ(table.getHeader(1), smallHeader);
+  CHECK_EQ(table.getHeader(2), smallHeader);
+  CHECK_EQ(table.getHeader(3), smallHeader);
+  CHECK_EQ(table.getHeader(4), smallHeader);
+  CHECK_EQ(table.getHeader(5), largeHeader);
+  CHECK_EQ(table.getHeader(6), smallHeader);
+  CHECK_EQ(table.getHeader(7), largeHeader);
+  CHECK_EQ(table.getHeader(8), smallHeader);
 }
 
 }

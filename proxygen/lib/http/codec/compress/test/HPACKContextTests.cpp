@@ -64,15 +64,15 @@ TEST_F(HPACKContextTests, is_static) {
 
 TEST_F(HPACKContextTests, static_table) {
   auto& table = StaticHeaderTable::get();
-  const HPACKHeader& first = table[1];
-  const HPACKHeader& methodPost = table[3];
-  const HPACKHeader& last = table[table.size()];
+  const HPACKHeader& first = table.getHeader(1);
+  const HPACKHeader& methodPost = table.getHeader(3);
+  const HPACKHeader& last = table.getHeader(table.size());
 
   // there are 61 entries in the spec
   CHECK_EQ(table.size(), 61);
-  CHECK_EQ(table[3], HPACKHeader(":method", "POST"));
-  CHECK_EQ(table[1].name.get(), ":authority");
-  CHECK_EQ(table[table.size()].name.get(), "www-authenticate");
+  CHECK_EQ(methodPost, HPACKHeader(":method", "POST"));
+  CHECK_EQ(first.name.get(), ":authority");
+  CHECK_EQ(last.name.get(), "www-authenticate");
 }
 
 TEST_F(HPACKContextTests, static_table_header_names_are_common) {
@@ -85,7 +85,7 @@ TEST_F(HPACKContextTests, static_table_header_names_are_common) {
 TEST_F(HPACKContextTests, static_table_is_header_code_in_table_with_non_empty_value) {
   auto& table = StaticHeaderTable::get();
   for (uint32_t i = 1; i <= table.size(); ++i) {
-    const HPACKHeader& staticTableHeader = table[i];
+    const HPACKHeader& staticTableHeader = table.getHeader(i);
     EXPECT_TRUE(
       staticTableHeader.value.empty() !=
       StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(

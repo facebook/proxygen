@@ -49,7 +49,7 @@ bool QPACKContext::isStatic(uint32_t index) const {
 
 const HPACKHeader& QPACKContext::getStaticHeader(uint32_t index) {
   DCHECK(isStatic(index));
-  return getStaticTable()[globalToStaticIndex(index)];
+  return getStaticTable().getHeader(globalToStaticIndex(index));
 }
 
 QPACKHeaderTable::DecodeFuture QPACKContext::getDynamicHeader(uint32_t index) {
