@@ -109,7 +109,7 @@ class HuffTree {
    * @param literal string to encode
    * @param buf where to append the encoded binary data
    */
-  uint32_t encode(const folly::fbstring& literal,
+  uint32_t encode(folly::StringPiece literal,
                   folly::io::QueueAppender& buf) const;
 
   /**
@@ -119,7 +119,7 @@ class HuffTree {
    * @param literal string literal
    * @return size how many bytes it will take to encode the given string
    */
-  uint32_t getEncodeSize(const folly::fbstring& literal) const;
+  uint32_t getEncodeSize(folly::StringPiece literal) const;
 
   /**
    * get the binary representation for a given character, as a 32-bit word and

@@ -100,7 +100,7 @@ uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t instruction,
   return count;
 }
 
-uint32_t HPACKEncodeBuffer::encodeHuffman(const folly::fbstring& literal) {
+uint32_t HPACKEncodeBuffer::encodeHuffman(folly::StringPiece literal) {
   uint32_t size = huffmanTree_.getEncodeSize(literal);
   // add the length
   uint32_t count = encodeInteger(size, HPACK::LiteralEncoding::HUFFMAN, 7);
@@ -109,7 +109,7 @@ uint32_t HPACKEncodeBuffer::encodeHuffman(const folly::fbstring& literal) {
   return count;
 }
 
-uint32_t HPACKEncodeBuffer::encodeLiteral(const folly::fbstring& literal) {
+uint32_t HPACKEncodeBuffer::encodeLiteral(folly::StringPiece literal) {
   if (huffmanEnabled_) {
     return encodeHuffman(literal);
   }
@@ -117,7 +117,7 @@ uint32_t HPACKEncodeBuffer::encodeLiteral(const folly::fbstring& literal) {
   uint32_t count =
     encodeInteger(literal.size(), HPACK::LiteralEncoding::PLAIN, 7);
   // copy the entire string
-  buf_.push((uint8_t*)literal.c_str(), literal.size());
+  buf_.push((uint8_t*)literal.data(), literal.size());
   count += literal.size();
   return count;
 }

@@ -75,12 +75,12 @@ class HPACKEncodeBuffer {
    *
    * @return bytes used for encoding
    */
-  uint32_t encodeLiteral(const folly::fbstring& literal);
+  uint32_t encodeLiteral(folly::StringPiece literal);
 
   /**
    * encodes a string using huffman encoding
    */
-  uint32_t encodeHuffman(const folly::fbstring& literal);
+  uint32_t encodeHuffman(folly::StringPiece literal);
 
   /**
    * prints the content of an IOBuf in binary format. Useful for debugging.
