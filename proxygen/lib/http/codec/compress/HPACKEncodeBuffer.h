@@ -49,21 +49,22 @@ class HPACKEncodeBuffer {
   uint32_t appendSequenceNumber(uint16_t seqn);
 
   /**
-   * Encode the integer value using variable-length layout and the given prefix
-   * that spans nbit bits.
-   * The prefix is given as 1-byte value (not need for shifting) used only for
-   * the first byte. It starts from MSB.
+   * Encode the integer value using variable-length layout and the given
+   * instruction using an nbit prefix.  Per the spec, prefix is the portion
+   * of value that fits in one byte.
+   * The instruction is given as 1-byte value (not need for shifting) used only
+   * for the first byte. It starts from MSB.
    *
-   * For example for integer=3, prefix=0x80, nbit=6:
+   * For example for integer=3, instruction=0x80, nbit=6:
    *
    * MSB           LSB
    * X X 0 0 0 0 1 1 (value)
-   * 1 0 X X X X X X (prefix)
+   * 1 0 X X X X X X (instruction)
    * 1 0 0 0 0 0 1 1 (encoded value)
    *
    * @return how many bytes were used to encode the value
    */
-  uint32_t encodeInteger(uint32_t value, uint8_t prefix, uint8_t nbit);
+  uint32_t encodeInteger(uint32_t value, uint8_t instruction, uint8_t nbit);
 
   uint32_t encodeInteger(uint32_t value, const HPACK::Instruction& instruction);
 

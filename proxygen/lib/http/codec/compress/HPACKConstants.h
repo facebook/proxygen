@@ -30,15 +30,15 @@ const Instruction TABLE_SIZE_UPDATE { 0x20, 5 };
 const uint32_t kTableSize = 4096;
 
 const uint8_t NBIT_MASKS[9] = {
-  0xFF,  // 11111111, not used
-  0xFE,  // 11111110
-  0xFC,  // 11111100
-  0xF8,  // 11111000
-  0xF0,  // 11110000
-  0xE0,  // 11100000
-  0xC0,  // 11000000
-  0x80,  // 10000000
-  0x00   // 00000000
+  0x00,  // 00000000, unused
+  0x01,  // 00000001
+  0x03,  // 00000011
+  0x07,  // 00000111
+  0x0F,  // 00001111
+  0x1F,  // 00011111
+  0x3F,  // 00111111
+  0x7F,  // 01111111
+  0xFF,  // 11111111
 };
 
 enum LiteralEncoding : uint8_t {

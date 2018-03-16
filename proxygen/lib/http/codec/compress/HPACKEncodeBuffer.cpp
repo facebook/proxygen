@@ -66,18 +66,19 @@ uint32_t HPACKEncodeBuffer::encodeInteger(
   return encodeInteger(value, instruction.code, instruction.prefixLength);
 }
 
-uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t prefix,
+uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t instruction,
                                           uint8_t nbit) {
-  CHECK(nbit >= 0 && nbit <= 8);
+  CHECK(nbit > 0 && nbit <= 8);
   uint32_t count = 0;
-  uint8_t prefix_mask = HPACK::NBIT_MASKS[nbit];
-  uint8_t mask = ~prefix_mask & 0xFF;
+  uint8_t mask = HPACK::NBIT_MASKS[nbit];
+  // The instruction should not extend into mask
+  DCHECK_EQ(instruction & mask, 0);
 
   // write the first byte
-  uint8_t byte = prefix & prefix_mask;
+  uint8_t byte = instruction;
   if (value < mask) {
     // fits in the first byte
-    byte = byte | (mask & value);
+    byte |= value;
     append(byte);
     return 1;
   }

@@ -69,8 +69,8 @@ class HPACKDecodeBuffer {
   uint8_t peek();
 
   /**
-   * decode an integer from the current position, given a nbit prefix
-   * that basically needs to be ignored
+   * decode an integer from the current position, given a nbit prefix.
+   * Ignores 8 - nbit bits in the first byte of the buffer.
    */
   HPACK::DecodeError decodeInteger(uint8_t nbit, uint32_t& integer);
 

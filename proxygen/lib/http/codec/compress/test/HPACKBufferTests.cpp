@@ -68,13 +68,13 @@ class HPACKBufferTests : public testing::Test {
 TEST_F(HPACKBufferTests, encode_integer) {
   uint32_t size;
   // all these fit in one byte
-  EXPECT_EQ(encoder_.encodeInteger(7, 192, 8), 1);
+  EXPECT_EQ(encoder_.encodeInteger(7, 192, 6), 1);
   // this one fits perfectly, but needs an additional 0 byte
   EXPECT_EQ(encoder_.encodeInteger(7, 192, 3), 2);
   EXPECT_EQ(encoder_.encodeInteger(255, 0, 8), 2);
   releaseData();
   EXPECT_EQ(buf_->length(), 5);
-  EXPECT_EQ(data_[0], 7);    // 00000111
+  EXPECT_EQ(data_[0], 199);  // 11000111
   EXPECT_EQ(data_[1], 199);  // 11000111
   EXPECT_EQ(data_[2], 0);
   EXPECT_EQ(data_[3], 255);  // 11111111

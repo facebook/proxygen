@@ -97,7 +97,7 @@ DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint32_t& integer) {
     return DecodeError::BUFFER_UNDERFLOW;
   }
   uint8_t byte = next();
-  uint8_t mask = ~HPACK::NBIT_MASKS[nbit] & 0xFF;
+  uint8_t mask = HPACK::NBIT_MASKS[nbit];
   // remove the first (8 - nbit) bits
   byte = byte & mask;
   integer = byte;
