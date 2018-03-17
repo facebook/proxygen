@@ -756,8 +756,7 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
         }
       }
       default:
-        // ignore unknown setting
-        break;
+        continue; // ignore unknown setting
     }
     ingressSettings_.setSetting(setting.first, setting.second);
     settingsList.push_back(*ingressSettings_.getSetting(setting.first));

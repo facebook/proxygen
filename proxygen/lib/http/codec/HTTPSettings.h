@@ -53,7 +53,7 @@ class HTTPSettings {
   const HTTPSetting* getSetting(SettingsId id) const;
   uint32_t getSetting(SettingsId id, uint32_t defaultVal) const;
   // Note: this does not count disabled settings
-  uint8_t getNumSettings() const { return settings_.size(); }
+  std::size_t getNumSettings() const { return settings_.size(); }
   const std::vector<HTTPSetting>& getAllSettings() { return settings_; }
   void clearSettings() {
     settings_.clear();

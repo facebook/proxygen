@@ -58,6 +58,21 @@ class HTTP2CodecTest : public HTTPParallelCodecTest {
   HTTP2Codec downstreamCodec_{TransportDirection::DOWNSTREAM};
 };
 
+TEST_F(HTTP2CodecTest, IgnoreUnknownSettings) {
+  auto numSettings = downstreamCodec_.getIngressSettings()->getNumSettings();
+  std::deque<SettingPair> settings;
+  for (uint32_t i = 10; i < (10 + 1024); i++) {
+    settings.push_back(SettingPair(SettingsId(i), i));
+  }
+  http2::writeSettings(output_, settings);
+  parse();
+
+  EXPECT_EQ(callbacks_.settings, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  EXPECT_EQ(numSettings,
+            downstreamCodec_.getIngressSettings()->getNumSettings());
+}
+
 TEST_F(HTTP2CodecTest, NoExHeaders) {
   // do not emit ENABLE_EX_HEADERS setting, if disabled
   SetUpUpstreamTest();
