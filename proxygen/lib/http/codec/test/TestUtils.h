@@ -320,6 +320,7 @@ std::unique_ptr<testing::NiceMock<MockHTTPCodec>>
 makeUpstreamParallelCodec();
 
 HTTPMessage getGetRequest(const std::string& url = std::string("/"));
+HTTPMessage getBigGetRequest(const std::string& url = std::string("/"));
 HTTPMessage getPostRequest(uint32_t contentLength = 200);
 HTTPMessage getPubRequest(const std::string& url = std::string("/"));
 HTTPMessage getChunkedPostRequest();

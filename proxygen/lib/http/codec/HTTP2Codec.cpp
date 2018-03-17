@@ -38,7 +38,6 @@ std::string base64url_decode(const std::string& str) {
 
 namespace proxygen {
 
-uint32_t HTTP2Codec::kHeaderSplitSize{http2::kMaxFramePayloadLengthMin};
 
 HTTP2Codec::HTTP2Codec(TransportDirection direction)
     : HTTPParallelCodec(direction),
@@ -738,7 +737,7 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
           VLOG(4) << goawayErrorMessage_;
           return ErrorCode::PROTOCOL_ERROR;
         }
-        kHeaderSplitSize = setting.second;
+        ingressSettings_.setSetting(SettingsId::MAX_FRAME_SIZE, setting.second);
         break;
       case SettingsId::MAX_HEADER_LIST_SIZE:
         break;
@@ -1075,18 +1074,19 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
 
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(out));
+  auto maxFrameSize = maxSendFrameSize();
   if (queue.chainLength() > 0) {
     folly::Optional<http2::PriorityUpdate> pri;
     auto res = msg.getHTTP2Priority();
-    size_t split = kHeaderSplitSize;
+    auto remainingFrameSize = maxFrameSize;
     if (res) {
       pri = http2::PriorityUpdate{std::get<0>(*res), std::get<1>(*res),
                                   std::get<2>(*res)};
-      if (split > http2::kFramePrioritySize) {
-        split -= http2::kFramePrioritySize;
-      }
+      DCHECK_GE(remainingFrameSize, http2::kFramePrioritySize)
+        << "no enough space for priority? frameHeadroom=" << remainingFrameSize;
+      remainingFrameSize -= http2::kFramePrioritySize;
     }
-    auto chunk = queue.split(std::min(split, queue.chainLength()));
+    auto chunk = queue.split(std::min(remainingFrameSize, queue.chainLength()));
 
     bool endHeaders = queue.chainLength() == 0;
     if (assocStream == 0) {
@@ -1109,8 +1109,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
     }
 
     while (!endHeaders) {
-      chunk = queue.split(std::min(size_t(kHeaderSplitSize),
-                                   queue.chainLength()));
+      chunk = queue.split(std::min(maxFrameSize, queue.chainLength()));
       endHeaders = queue.chainLength() == 0;
       VLOG(4) << "generating CONTINUATION for stream=" << stream;
       http2::writeContinuation(writeBuf,
@@ -1135,8 +1134,9 @@ size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
   }
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(chain));
-  while (queue.chainLength() > maxSendFrameSize()) {
-    auto chunk = queue.split(maxSendFrameSize());
+  size_t maxFrameSize = maxSendFrameSize();
+  while (queue.chainLength() > maxFrameSize) {
+    auto chunk = queue.split(maxFrameSize);
     written += http2::writeData(writeBuf, std::move(chunk), stream,
                                 padding, false, reuseIOBufHeadroomForData_);
   }

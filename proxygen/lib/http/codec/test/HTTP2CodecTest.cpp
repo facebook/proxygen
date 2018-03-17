@@ -46,12 +46,10 @@ class HTTP2CodecTest : public HTTPParallelCodecTest {
     :HTTPParallelCodecTest(upstreamCodec_, downstreamCodec_) {}
 
   void SetUp() override {
-    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
     HTTPParallelCodecTest::SetUp();
   }
-
-  void testBigHeader(bool continuation);
-
+  void testHeaderListSize(bool oversized);
+  void testFrameSizeLimit(bool oversized);
 
  protected:
   HTTP2Codec upstreamCodec_{TransportDirection::UPSTREAM};
@@ -396,14 +394,12 @@ TEST_F(HTTP2CodecTest, BadConnect) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
-void HTTP2CodecTest::testBigHeader(bool continuation) {
-  if (continuation) {
-    HTTP2Codec::setHeaderSplitSize(1);
+void HTTP2CodecTest::testHeaderListSize(bool oversized) {
+  if (oversized) {
+    auto settings = downstreamCodec_.getEgressSettings();
+    settings->setSetting(SettingsId::MAX_HEADER_LIST_SIZE, 37);
   }
-  auto settings = downstreamCodec_.getEgressSettings();
-  settings->setSetting(SettingsId::MAX_HEADER_LIST_SIZE, 37);
-  IOBufQueue dummy;
-  downstreamCodec_.generateSettings(dummy);
+
   HTTPMessage req = getGetRequest("/guacamole");
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
   req.getHeaders().add("x-long-long-header",
@@ -412,19 +408,53 @@ void HTTP2CodecTest::testBigHeader(bool continuation) {
 
   parse();
   // session error
-  EXPECT_EQ(callbacks_.messageBegin, continuation ? 1 : 0);
-  EXPECT_EQ(callbacks_.headersComplete, 0);
-  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.messageBegin, oversized ? 0 : 1);
+  EXPECT_EQ(callbacks_.headersComplete, oversized ? 0 : 1);
+  EXPECT_EQ(callbacks_.messageComplete, oversized ? 0 : 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
-  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, oversized ? 1 : 0);
 }
 
-TEST_F(HTTP2CodecTest, BigHeader) {
-  testBigHeader(false);
+void HTTP2CodecTest::testFrameSizeLimit(bool oversized) {
+  HTTPMessage req = getBigGetRequest("/guacamole");
+  auto settings = downstreamCodec_.getEgressSettings();
+
+  parse(); // consume preface
+  if (oversized) {
+    // trick upstream for sending a 2x bigger HEADERS frame
+    settings->setSetting(SettingsId::MAX_FRAME_SIZE,
+                         http2::kMaxFramePayloadLengthMin * 2);
+    downstreamCodec_.generateSettings(output_);
+    parseUpstream();
+  }
+
+  settings->setSetting(SettingsId::MAX_FRAME_SIZE,
+                       http2::kMaxFramePayloadLengthMin);
+  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+
+  parse();
+  // session error
+  EXPECT_EQ(callbacks_.messageBegin, oversized ? 0 : 1);
+  EXPECT_EQ(callbacks_.headersComplete, oversized ? 0 : 1);
+  EXPECT_EQ(callbacks_.messageComplete, oversized ? 0 : 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, oversized ? 1 : 0);
 }
 
-TEST_F(HTTP2CodecTest, BigHeaderContinuation) {
-  testBigHeader(true);
+TEST_F(HTTP2CodecTest, normalSizeHeader) {
+  testHeaderListSize(false);
+}
+
+TEST_F(HTTP2CodecTest, oversizedHeader) {
+  testHeaderListSize(true);
+}
+
+TEST_F(HTTP2CodecTest, normalSizeFrame) {
+  testFrameSizeLimit(false);
+}
+
+TEST_F(HTTP2CodecTest, oversizedFrame) {
+  testFrameSizeLimit(true);
 }
 
 TEST_F(HTTP2CodecTest, BigHeaderCompressed) {
@@ -531,9 +561,7 @@ TEST_F(HTTP2CodecTest, Cookies) {
 }
 
 TEST_F(HTTP2CodecTest, BasicContinuation) {
-  HTTPMessage req = getGetRequest();
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-  HTTP2Codec::setHeaderSplitSize(1);
+  HTTPMessage req = getBigGetRequest();
   upstreamCodec_.generateHeader(output_, 1, req, 0);
 
   parse();
@@ -552,9 +580,7 @@ TEST_F(HTTP2CodecTest, BasicContinuation) {
 
 TEST_F(HTTP2CodecTest, BasicContinuationEndStream) {
   // CONTINUATION with END_STREAM flag set on the preceding HEADERS frame
-  HTTPMessage req = getGetRequest();
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-  HTTP2Codec::setHeaderSplitSize(1);
+  HTTPMessage req = getBigGetRequest();
   upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
 
   parse();
@@ -586,16 +612,12 @@ TEST_F(HTTP2CodecTest, BadContinuation) {
 
 TEST_F(HTTP2CodecTest, MissingContinuation) {
   IOBufQueue output(IOBufQueue::cacheChainLength());
-  HTTPMessage req = getGetRequest();
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  HTTPMessage req = getBigGetRequest();
 
-  // empirically determined the header block will be 20 bytes, so split at N-1
-  HTTP2Codec::setHeaderSplitSize(19);
   size_t prevLen = output_.chainLength();
   upstreamCodec_.generateHeader(output_, 1, req, 0);
-  EXPECT_EQ(output_.chainLength() - prevLen, 20 + 2 * 9);
-  // strip the continuation frame (1 byte payload)
-  output_.trimEnd(http2::kFrameHeaderSize + 1);
+  // empirically determined the size of continuation frame, and strip it
+  output_.trimEnd(http2::kFrameHeaderSize + 4134);
 
   // insert a non-continuation (but otherwise valid) frame
   http2::writeGoaway(output_, 17, ErrorCode::ENHANCE_YOUR_CALM);
@@ -613,19 +635,14 @@ TEST_F(HTTP2CodecTest, MissingContinuation) {
 
 TEST_F(HTTP2CodecTest, MissingContinuationBadFrame) {
   IOBufQueue output(IOBufQueue::cacheChainLength());
-  HTTPMessage req = getGetRequest();
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-
-  // empirically determined the header block will be 20 bytes, so split at N-1
-  HTTP2Codec::setHeaderSplitSize(19);
-  size_t prevLen = output_.chainLength();
+  HTTPMessage req = getBigGetRequest();
   upstreamCodec_.generateHeader(output_, 1, req, 0);
-  EXPECT_EQ(output_.chainLength() - prevLen, 20 + 2 * 9);
-  // strip the continuation frame (1 byte payload)
-  output_.trimEnd(http2::kFrameHeaderSize + 1);
+
+  // empirically determined the size of continuation frame, and fake it
+  output_.trimEnd(http2::kFrameHeaderSize + 4134);
 
   // insert an invalid frame
-  auto frame = makeBuf(9);
+  auto frame = makeBuf(http2::kFrameHeaderSize + 4134);
   *((uint32_t *)frame->writableData()) = 0xfa000000;
   output_.append(std::move(frame));
 
@@ -641,16 +658,12 @@ TEST_F(HTTP2CodecTest, MissingContinuationBadFrame) {
 }
 
 TEST_F(HTTP2CodecTest, BadContinuationStream) {
-  HTTPMessage req = getGetRequest();
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-
-  // empirically determined the header block will be 16 bytes, so split at N-1
-  HTTP2Codec::setHeaderSplitSize(15);
+  HTTPMessage req = getBigGetRequest();
   upstreamCodec_.generateHeader(output_, 1, req, 0);
-  // strip the continuation frame (1 byte payload)
-  output_.trimEnd(http2::kFrameHeaderSize + 1);
 
-  auto fakeHeaders = makeBuf(1);
+  // empirically determined the size of continuation frame, and fake it
+  output_.trimEnd(http2::kFrameHeaderSize + 4134);
+  auto fakeHeaders = makeBuf(4134);
   http2::writeContinuation(output_, 3, true, std::move(fakeHeaders));
 
   parse();

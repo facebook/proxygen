@@ -7,8 +7,9 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
+#include <proxygen/lib/http/codec/test/TestUtils.h>
 
 #include <boost/optional/optional_io.hpp>
 #include <folly/Random.h>
@@ -78,6 +79,19 @@ HTTPMessage getGetRequest(const std::string& url) {
   req.setURL(url);
   req.setHTTPVersion(1, 1);
   req.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
+  return req;
+}
+
+HTTPMessage getBigGetRequest(const std::string& url) {
+  HTTPMessage req;
+  req.setMethod("GET");
+  req.setURL(url);
+  req.setHTTPVersion(1, 1);
+  req.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  req.getHeaders().add(
+      "x-huge-header",
+      std::string(http2::kMaxFramePayloadLengthMin, '!'));
   return req;
 }
 

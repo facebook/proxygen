@@ -190,7 +190,6 @@ class HTTPUpstreamTest: public testing::Test,
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
     HTTPSession::setDefaultReadBufferLimit(65536);
     HTTPSession::setDefaultWriteBufferLimit(65536);
-    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));
     EXPECT_CALL(*transport_, setReadCB(_))
@@ -749,7 +748,6 @@ class HTTP2UpstreamSessionWithVirtualNodesTest:
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
     HTTPSession::setDefaultReadBufferLimit(65536);
     HTTPSession::setDefaultWriteBufferLimit(65536);
-    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(Invoke(
             this,

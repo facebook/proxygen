@@ -439,11 +439,9 @@ class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
 
   void SetUp() override {
     HTTPDownstreamTest<HTTP2CodecPair>::SetUp();
-    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
   }
 
   void TearDown() override {
-    HTTP2Codec::setHeaderSplitSize(http2::kMaxFramePayloadLengthMin);
   }
 };
 }
@@ -2814,9 +2812,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_disable_priorities) {
 
 TEST_F(HTTP2DownstreamSessionTest, continuation_timeout) {
   // Split the headers at 15 bytes to force a CONTINUATION frame
-  HTTP2Codec::setHeaderSplitSize(15);
-  auto req = getGetRequest();
-  req.getHeaders().add("x", "ZZZZZZZ");
+  auto req = getBigGetRequest();
   sendRequest(req);
 
   HTTPSession::DestructorGuard g(httpSession_);

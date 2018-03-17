@@ -131,10 +131,6 @@ public:
   }
 #endif
 
-  static void setHeaderSplitSize(uint32_t splitSize) {
-    kHeaderSplitSize = splitSize;
-  }
-
   // Whether turn on the optimization to reuse IOBuf headroom when write DATA
   // frame. For other frames, it's always ON.
   void setReuseIOBufHeadroomForData(bool enabled) {
@@ -208,7 +204,7 @@ public:
   ErrorCode checkNewStream(uint32_t stream);
   bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
   ErrorCode handleSettings(const std::deque<SettingPair>& settings);
-  uint32_t maxSendFrameSize() const {
+  size_t maxSendFrameSize() const {
     return ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                        http2::kMaxFramePayloadLengthMin);
   }
@@ -253,7 +249,6 @@ public:
   size_t pendingDataFrameBytes_{0};
   size_t pendingDataFramePaddingBytes_{0};
 
-  static uint32_t kHeaderSplitSize;
   HeaderDecodeInfo decodeInfo_;
   std::vector<StreamID> virtualPriorityNodes_;
   bool reuseIOBufHeadroomForData_{true};
