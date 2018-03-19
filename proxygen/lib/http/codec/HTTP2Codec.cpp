@@ -203,22 +203,27 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
     (frameAffectsCompression(curHeader_.type) &&
      !(curHeader_.flags & http2::END_HEADERS)) ? curHeader_.stream : 0;
 
-  ErrorCode err = ErrorCode::NO_ERROR;
   switch (curHeader_.type) {
-    case http2::FrameType::DATA: err = parseAllData(cursor); break;
-    case http2::FrameType::HEADERS: err = parseHeaders(cursor); break;
-    case http2::FrameType::PRIORITY: err = parsePriority(cursor); break;
+    case http2::FrameType::DATA:
+      return parseAllData(cursor);
+    case http2::FrameType::HEADERS:
+      return parseHeaders(cursor);
+    case http2::FrameType::PRIORITY:
+      return parsePriority(cursor);
     case http2::FrameType::RST_STREAM:
-      err = parseRstStream(cursor); break;
+      return parseRstStream(cursor);
     case http2::FrameType::SETTINGS:
-      err = parseSettings(cursor); break;
+      return parseSettings(cursor);
     case http2::FrameType::PUSH_PROMISE:
-      err = parsePushPromise(cursor); break;
-    case http2::FrameType::PING: err = parsePing(cursor); break;
-    case http2::FrameType::GOAWAY: err = parseGoaway(cursor); break;
+      return parsePushPromise(cursor);
+    case http2::FrameType::PING:
+      return parsePing(cursor);
+    case http2::FrameType::GOAWAY:
+      return parseGoaway(cursor);
     case http2::FrameType::WINDOW_UPDATE:
-      err = parseWindowUpdate(cursor); break;
-    case http2::FrameType::CONTINUATION: err = parseContinuation(cursor); break;
+      return parseWindowUpdate(cursor);
+    case http2::FrameType::CONTINUATION:
+      return parseContinuation(cursor);
     case http2::FrameType::ALTSVC:
       // fall through, unimplemented
     default:
@@ -226,8 +231,8 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
       // type that is unknown
       VLOG(2) << "Skipping unknown frame type=" << (uint8_t)curHeader_.type;
       cursor.skip(curHeader_.length);
+      return ErrorCode::NO_ERROR;
   }
-  return err;
 }
 
 ErrorCode HTTP2Codec::handleEndStream() {
