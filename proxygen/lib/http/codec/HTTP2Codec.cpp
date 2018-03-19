@@ -747,6 +747,13 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
         if (ptr && ptr->value > 0) {
           VLOG(4) << getTransportDirectionString(getTransportDirection())
                   << " got ENABLE_EX_HEADERS=" << setting.second;
+          if (setting.second != 0 && setting.second != 1) {
+            goawayErrorMessage_ = folly::to<string>(
+              "GOAWAY error: invalid ENABLE_EX_HEADERS=", setting.second,
+              " for streamID=", curHeader_.stream);
+            VLOG(4) << goawayErrorMessage_;
+            return ErrorCode::PROTOCOL_ERROR;
+          }
           break;
         } else {
           // egress ENABLE_EX_HEADERS is disabled, consider the ingress
