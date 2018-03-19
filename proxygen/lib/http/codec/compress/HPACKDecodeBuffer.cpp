@@ -79,7 +79,8 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(folly::fbstring& literal) {
     data = tmpbuf->data();
   }
   if (huffman) {
-    huffmanTree_.decode(data, size, literal);
+    static auto& huffmanTree = huffman::huffTree();
+    huffmanTree.decode(data, size, literal);
   } else {
     literal.append((const char *)data, size);
   }

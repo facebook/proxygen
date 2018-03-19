@@ -32,8 +32,7 @@ class HPACKBufferTests : public testing::Test {
    * a queue with one IOBuf of 512 bytes in it
    */
   HPACKBufferTests() : encoder_(512),
-                       decoder_(huffman::huffTree(), cursor_, 0,
-                                kMaxLiteralSize) {
+                       decoder_(cursor_, 0, kMaxLiteralSize) {
   }
 
  protected:
@@ -109,7 +108,7 @@ TEST_F(HPACKBufferTests, encode_plain_literal) {
 
 TEST_F(HPACKBufferTests, encode_huffman_literal) {
   string accept("accept-encoding");
-  HPACKEncodeBuffer encoder(512, huffman::huffTree(), true);
+  HPACKEncodeBuffer encoder(512, true);
   uint32_t size = encoder.encodeLiteral(accept);
   EXPECT_EQ(size, 12);
   releaseData(encoder);
@@ -392,8 +391,7 @@ TEST_F(HPACKBufferTests, empty_iobuf_literal) {
 
   uint32_t size = first->next()->length();
   Cursor cursor(first.get());
-  HPACKDecodeBuffer decoder(huffman::huffTree(), cursor, size,
-                            kMaxLiteralSize);
+  HPACKDecodeBuffer decoder(cursor, size, kMaxLiteralSize);
   folly::fbstring decoded;
   decoder.decodeLiteral(decoded);
 

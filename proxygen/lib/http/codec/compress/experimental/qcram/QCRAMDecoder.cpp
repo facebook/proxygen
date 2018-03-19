@@ -13,7 +13,6 @@
 
 #include <algorithm>
 #include <folly/Memory.h>
-#include <proxygen/lib/http/codec/compress/Huffman.h>
 #include <proxygen/lib/http/codec/compress/experimental/qcram/QCRAMCodec.h>
 
 using folly::IOBuf;
@@ -34,10 +33,6 @@ unique_ptr<QCRAMDecoder::headers_t> QCRAMDecoder::decode(const IOBuf* buffer) {
   return headers;
 }
 
-const huffman::HuffTree& QCRAMDecoder::getHuffmanTree() const {
-  return huffman::huffTree();
-}
-
 void QCRAMDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   if (useBaseIndex_) {
     uint32_t baseIndex = 0;
@@ -54,8 +49,7 @@ uint32_t QCRAMDecoder::decode(Cursor& cursor,
                               uint32_t totalBytes,
                               headers_t& headers) {
   uint32_t emittedSize = 0;
-  HPACKDecodeBuffer dbuf(
-      getHuffmanTree(), cursor, totalBytes, maxUncompressed_);
+  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   handleBaseIndex(dbuf);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, &headers);
@@ -76,8 +70,7 @@ uint32_t QCRAMDecoder::decodeStreaming(
 
   uint32_t emittedSize = 0;
   streamingCb_ = streamingCb;
-  HPACKDecodeBuffer dbuf(
-      getHuffmanTree(), cursor, totalBytes, maxUncompressed_);
+  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   handleBaseIndex(dbuf);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, nullptr);

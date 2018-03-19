@@ -11,7 +11,6 @@
 
 #include <folly/Memory.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
-#include <proxygen/lib/http/codec/compress/Huffman.h>
 
 using folly::IOBuf;
 using folly::io::Cursor;
@@ -59,10 +58,6 @@ unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
   return headers;
 }
 
-const huffman::HuffTree& HPACKDecoder::getHuffmanTree() const {
-  return huffman::huffTree();
-}
-
 void HPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   if (useBaseIndex_) {
     uint32_t baseIndex = 0;
@@ -79,8 +74,7 @@ uint32_t HPACKDecoder::decode(Cursor& cursor,
                               uint32_t totalBytes,
                               headers_t& headers) {
   uint32_t emittedSize = 0;
-  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
-                         maxUncompressed_);
+  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   handleBaseIndex(dbuf);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, &headers);
@@ -101,8 +95,7 @@ void HPACKDecoder::decodeStreaming(
 
   uint32_t emittedSize = 0;
   streamingCb_ = streamingCb;
-  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
-                         maxUncompressed_);
+  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   handleBaseIndex(dbuf);
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeader(dbuf, nullptr);

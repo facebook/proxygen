@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <folly/Memory.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
-#include <proxygen/lib/http/codec/compress/Huffman.h>
 
 using folly::IOBuf;
 using folly::io::Cursor;
@@ -31,10 +30,6 @@ const std::chrono::seconds kDecodeTimeout{5};
 
 namespace proxygen {
 
-const huffman::HuffTree& QPACKDecoder::getHuffmanTree() const {
-  return huffman::huffTree();
-}
-
 QPACKDecoder::~QPACKDecoder() {
   while (!decodeRequests_.empty()) {
     auto dreq = decodeRequests_.begin();
@@ -48,8 +43,7 @@ void QPACKDecoder::decodeControlStream(folly::io::Cursor& cursor,
                                        uint32_t totalBytes) {
   decodeRequests_.emplace_front(nullptr, totalBytes);
   auto dreq = decodeRequests_.begin();
-  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
-                         maxUncompressed_);
+  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   while (!dreq->hasError() && !dbuf.empty()) {
     dreq->pending++;
     decodeHeaderControl(dbuf, dreq);
@@ -67,8 +61,7 @@ bool QPACKDecoder::decodeStreaming(
 
   decodeRequests_.emplace_front(streamingCb, totalBytes);
   auto dreq = decodeRequests_.begin();
-  HPACKDecodeBuffer dbuf(getHuffmanTree(), cursor, totalBytes,
-                         maxUncompressed_);
+  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   while (!dreq->hasError() && !dbuf.empty()) {
     dreq->pending++;
     decodeHeader(dbuf, dreq);

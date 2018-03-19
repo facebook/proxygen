@@ -33,8 +33,8 @@ QCRAMEncoder::QCRAMEncoder(bool huffman,
                            bool autoCommit,
                            bool enableUpdatesOnControlStream)
     : QCRAMContext(tableSize),
-      buffer_(kBufferGrowth, huffman::huffTree(), huffman),
-      prefix_(kBufferGrowth, huffman::huffTree(), huffman),
+      buffer_(kBufferGrowth, huffman),
+      prefix_(kBufferGrowth, huffman),
       emitSequenceNumbers_(emitSequenceNumbers),
       autoCommit_(autoCommit),
       enableUpdatesOnControlStream_(enableUpdatesOnControlStream) {

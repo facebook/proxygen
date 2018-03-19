@@ -86,20 +86,18 @@ class HPACKDecoder : public HPACKContext {
     return table_.size();
   }
 
- protected:
+ private:
   bool isValid(uint32_t index);
-
-  virtual const huffman::HuffTree& getHuffmanTree() const;
 
   uint32_t emit(const HPACKHeader& header, headers_t* emitted);
 
   void handleBaseIndex(HPACKDecodeBuffer& dbuf);
 
-  virtual uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
-                                       headers_t* emitted);
+  uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
+                               headers_t* emitted);
 
-  virtual uint32_t decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
-                                       headers_t* emitted);
+  uint32_t decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
+                               headers_t* emitted);
 
   uint32_t decodeHeader(HPACKDecodeBuffer& dbuf, headers_t* emitted);
 

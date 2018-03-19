@@ -21,12 +21,10 @@ namespace proxygen {
 class HPACKDecodeBuffer {
  public:
 
-  explicit HPACKDecodeBuffer(const huffman::HuffTree& huffmanTree,
-                             folly::io::Cursor& cursorVal,
+  explicit HPACKDecodeBuffer(folly::io::Cursor& cursorVal,
                              uint32_t totalBytes,
                              uint32_t maxLiteralSize)
-      : huffmanTree_(huffmanTree),
-        cursor_(cursorVal),
+      : cursor_(cursorVal),
         totalBytes_(totalBytes),
         remainingBytes_(totalBytes),
         maxLiteralSize_(maxLiteralSize) {}
@@ -85,7 +83,6 @@ class HPACKDecodeBuffer {
   HPACK::DecodeError decodeLiteral(folly::fbstring& literal);
 
 private:
-  const huffman::HuffTree& huffmanTree_;
   folly::io::Cursor& cursor_;
   uint32_t totalBytes_;
   uint32_t remainingBytes_;

@@ -22,7 +22,6 @@ class HPACKEncodeBuffer {
  public:
   HPACKEncodeBuffer(
     uint32_t growthSize,
-    const huffman::HuffTree& huffmanTree,
     bool huffmanEnabled);
 
   explicit HPACKEncodeBuffer(uint32_t growthSize);
@@ -94,10 +93,9 @@ class HPACKEncodeBuffer {
    */
   void append(uint8_t byte);
 
-  uint32_t growthSize_;
   folly::IOBufQueue bufQueue_;
   folly::io::QueueAppender buf_;
-  const huffman::HuffTree& huffmanTree_;
+  uint32_t growthSize_;
   bool huffmanEnabled_;
 };
 

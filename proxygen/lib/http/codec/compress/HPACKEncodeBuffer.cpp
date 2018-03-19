@@ -23,18 +23,15 @@ namespace proxygen {
 
 HPACKEncodeBuffer::HPACKEncodeBuffer(
   uint32_t growthSize,
-  const HuffTree& huffmanTree,
   bool huffmanEnabled) :
-    growthSize_(growthSize),
     buf_(&bufQueue_, growthSize),
-    huffmanTree_(huffmanTree),
+    growthSize_(growthSize),
     huffmanEnabled_(huffmanEnabled) {
 }
 
 HPACKEncodeBuffer::HPACKEncodeBuffer(uint32_t growthSize) :
-    growthSize_(growthSize),
     buf_(&bufQueue_, growthSize),
-    huffmanTree_(huffman::huffTree()),
+    growthSize_(growthSize),
     huffmanEnabled_(false) {
 }
 
@@ -101,11 +98,12 @@ uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t instruction,
 }
 
 uint32_t HPACKEncodeBuffer::encodeHuffman(folly::StringPiece literal) {
-  uint32_t size = huffmanTree_.getEncodeSize(literal);
+  static const auto& huffmanTree = huffman::huffTree();
+  uint32_t size = huffmanTree.getEncodeSize(literal);
   // add the length
   uint32_t count = encodeInteger(size, HPACK::LiteralEncoding::HUFFMAN, 7);
   // ensure we have enough bytes before performing the encoding
-  count += huffmanTree_.encode(literal, buf_);
+  count += huffmanTree.encode(literal, buf_);
   return count;
 }
 

@@ -28,8 +28,8 @@ namespace proxygen {
 QPACKEncoder::QPACKEncoder(bool huffman,
                            uint32_t tableSize) :
     QPACKContext(tableSize),
-    controlBuffer_(kBufferGrowth, huffman::huffTree(), huffman),
-    streamBuffer_(kBufferGrowth, huffman::huffTree(), huffman),
+    controlBuffer_(kBufferGrowth, huffman),
+    streamBuffer_(kBufferGrowth, huffman),
     minFree_(std::min(kMinFree, tableSize)) {
   // Default the encoder indexing strategy; it can be updated later as well
   setHeaderIndexingStrategy(HeaderIndexingStrategy::getDefaultInstance());

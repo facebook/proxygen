@@ -112,8 +112,7 @@ class QCRAMNewScheme : public CompressionScheme {
     auto len = cursor.totalLength();
     VLOG(5) << "Decode control cursor len " << len;
     uint32_t depends = kMaxIndex;
-    HPACKDecodeBuffer dbuf(huffman::huffTree(), cursor, len,
-                           HeaderCodec::kMaxUncompressed);
+    HPACKDecodeBuffer dbuf(cursor, len, HeaderCodec::kMaxUncompressed);
     auto err = dbuf.decodeInteger(8, depends);
     if (err != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "Decode error decoding maxSize err_=" << err;
@@ -164,8 +163,7 @@ class QCRAMNewScheme : public CompressionScheme {
     auto len = cursor.totalLength();
     uint32_t depends = kMaxIndex;
     if (flags.QCRAMPrefixHasDepends) {
-      HPACKDecodeBuffer dbuf(huffman::huffTree(), cursor, len,
-                             HeaderCodec::kMaxUncompressed);
+      HPACKDecodeBuffer dbuf(cursor, len, HeaderCodec::kMaxUncompressed);
       auto err = dbuf.decodeInteger(8, depends);
       if (err != HPACK::DecodeError::NONE) {
         LOG(ERROR) << "Decode error decoding maxSize err_=" << err;

@@ -34,8 +34,7 @@ HPACKEncoder::HPACKEncoder(bool huffman,
                            bool autoCommit) :
     // We only need the 'QCRAM' table if we are using sequent numbers
     HPACKContext(tableSize, emitSequenceNumbers, useBaseIndex),
-    huffman_(huffman),
-    buffer_(kBufferGrowth, huffman::huffTree(), huffman),
+    buffer_(kBufferGrowth, huffman),
     emitSequenceNumbers_(emitSequenceNumbers),
     autoCommit_(autoCommit) {
   // Default the encoder indexing strategy; it can be updated later as well

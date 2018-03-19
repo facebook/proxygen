@@ -39,7 +39,7 @@ class HPACKEncoder : public HPACKContext {
   /**
    * Encode the given headers and return the buffer
    */
-  virtual std::unique_ptr<folly::IOBuf> encode(
+  std::unique_ptr<folly::IOBuf> encode(
     const std::vector<HPACKHeader>& headers,
     uint32_t headroom = 0,
     bool* eviction = nullptr);
@@ -84,18 +84,15 @@ class HPACKEncoder : public HPACKContext {
     sEnableAutoFlush_ = true;
   }
 
- protected:
   void encodeAsIndex(uint32_t index);
 
  private:
-  virtual void encodeHeader(const HPACKHeader& header);
+  void encodeHeader(const HPACKHeader& header);
 
-  virtual void encodeAsLiteral(const HPACKHeader& header, bool indexable);
-
-  bool huffman_;
+  void encodeAsLiteral(const HPACKHeader& header, bool indexable);
 
   const HeaderIndexingStrategy* indexingStrat_;
- protected:
+
   HPACKEncodeBuffer buffer_;
   uint16_t packetEpoch_{0};
   uint16_t nextSequenceNumber_{0};

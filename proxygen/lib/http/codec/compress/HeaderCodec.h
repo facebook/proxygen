@@ -153,9 +153,9 @@ class HeaderCodec {
  protected:
 
   compress::HeaderPieceList outHeaders_;
-  uint32_t encodeHeadroom_{0};
   HTTPHeaderSize encodedSize_;
   HTTPHeaderSize decodedSize_;
+  uint32_t encodeHeadroom_{0};
   uint32_t maxUncompressed_{kMaxUncompressed};
   Stats* stats_{nullptr};
   HeaderCodec::StreamingCallback* streamingCb_{nullptr};
