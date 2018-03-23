@@ -17,7 +17,7 @@ namespace proxygen {  namespace compress {
 
 class QPACKScheme : public CompressionScheme {
  public:
-  explicit QPACKScheme(CompressionSimulator* sim, uint32_t tableSize)
+  explicit QPACKScheme(CompressionSimulator* sim, uint32_t /*tableSize*/)
       : CompressionScheme(sim) {
     client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
     server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
