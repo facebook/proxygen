@@ -16,7 +16,7 @@ using namespace folly;
 
 namespace proxygen { namespace http2 {
 
-const uint8_t kMaxFrameType = static_cast<uint8_t>(FrameType::ALTSVC);
+const uint8_t kMinExperimentalFrameType = 0xf0;
 const Padding kNoPadding = folly::none;
 const PriorityUpdate DefaultPriority{0, false, 15};
 
@@ -99,7 +99,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
   }
 
   DCHECK_EQ(0, ~kLengthMask & length);
-  DCHECK_GE(kMaxFrameType, static_cast<uint8_t>(type));
+  DCHECK_EQ(true, isValidFrameType(type));
   uint32_t lengthAndType =
     ((kLengthMask & length) << 8) | static_cast<uint8_t>(type);
 
@@ -221,6 +221,16 @@ skipPadding(Cursor& cursor,
 }
 
 } // anonymous namespace
+
+bool isValidFrameType(FrameType type) {
+  auto val = static_cast<uint8_t>(type);
+  if (val < kMinExperimentalFrameType) {
+    return val >= static_cast<uint8_t>(FrameType::DATA) &&
+      val <= static_cast<uint8_t>(FrameType::ALTSVC);
+  } else {
+    return FrameType::EX_HEADERS == type;
+  }
+}
 
 bool frameAffectsCompression(FrameType t) {
   return t == FrameType::HEADERS ||

@@ -25,7 +25,7 @@ namespace proxygen { namespace http2 {
 
 //////// Constants ////////
 
-extern const uint8_t kMaxFrameType;
+extern const uint8_t kMinExperimentalFrameType;
 using Padding = folly::Optional<uint8_t>;
 extern const Padding kNoPadding;
 
@@ -43,6 +43,9 @@ enum class FrameType: uint8_t {
   WINDOW_UPDATE = 8,
   CONTINUATION = 9,
   ALTSVC = 10,  // not in current draft so frame type has not been assigned
+
+  // experimental use
+  EX_HEADERS = 0xfb,
 };
 
 enum Flags {
@@ -74,6 +77,8 @@ struct PriorityUpdate {
 FB_EXPORT extern const PriorityUpdate DefaultPriority;
 
 //////// Functions ////////
+
+extern bool isValidFrameType(FrameType t);
 
 extern bool frameAffectsCompression(FrameType t);
 
