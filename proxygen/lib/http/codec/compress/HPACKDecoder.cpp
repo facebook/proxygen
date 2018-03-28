@@ -116,7 +116,12 @@ void HPACKDecoder::completeDecode(uint32_t compressedSize,
                                   uint32_t emittedSize) {
   if (err_ != HPACK::DecodeError::NONE) {
     if (streamingCb_->stats) {
-      streamingCb_->stats->recordDecodeError(HeaderCodec::Type::HPACK);
+      if (err_ == HPACK::DecodeError::HEADERS_TOO_LARGE ||
+          err_ == HPACK::DecodeError::LITERAL_TOO_LARGE) {
+        streamingCb_->stats->recordDecodeTooLarge(HeaderCodec::Type::HPACK);
+      } else {
+        streamingCb_->stats->recordDecodeError(HeaderCodec::Type::HPACK);
+      }
     }
     streamingCb_->onDecodeError(hpack2headerCodecError(err_));
   } else {

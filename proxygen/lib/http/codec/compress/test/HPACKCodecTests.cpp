@@ -59,7 +59,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
 
   void recordDecodeTooLarge(HeaderCodec::Type type) override {
     EXPECT_EQ(type, HeaderCodec::Type::HPACK);
-    errors++; //?
+    tooLarge++;
   }
 
   void reset() {
@@ -70,6 +70,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
     decodedBytesCompr = 0;
     decodedBytesUncompr = 0;
     errors = 0;
+    tooLarge = 0;
   }
 
   uint32_t encodes{0};
@@ -79,6 +80,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
   uint32_t decodedBytesCompr{0};
   uint32_t decodedBytesUncompr{0};
   uint32_t errors{0};
+  uint32_t tooLarge{0};
 };
 
 namespace {
@@ -280,6 +282,32 @@ TEST_F(HPACKCodecTests, uncompressed_size_limit) {
   auto result = encodeDecode(server, client, headersFromArray(headers));
   EXPECT_TRUE(result.isError());
   EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
+}
+
+
+/**
+ * Size limit stats
+ */
+TEST_F(HPACKCodecTests, size_limit_stats) {
+  vector<vector<string>> headers;
+  // generate lots of small headers
+  string contentLength = "Content-Length";
+  for (int i = 0; i < 10000; i++) {
+    string value = folly::to<string>(i);
+    vector<string> header = {contentLength, value};
+    headers.push_back(header);
+  }
+  auto encHeaders = headersFromArray(headers);
+  unique_ptr<IOBuf> encoded = client.encode(encHeaders);
+  Cursor cursor(encoded.get());
+  TestStreamingCallback cb;
+  TestHeaderCodecStats stats;
+  server.setStats(&stats);
+  server.decodeStreaming(cursor, cursor.totalLength(), &cb);
+  auto result = cb.getResult();
+  EXPECT_TRUE(result.isError());
+  EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
+  EXPECT_EQ(stats.tooLarge, 1);
 }
 
 TEST_F(HPACKCodecTests, default_header_indexing_strategy) {
