@@ -107,6 +107,8 @@ folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
       return SETTINGS_DOWNLOAD_RETRANS_RATE;
     case proxygen::SettingsId::_SPDY_CLIENT_CERTIFICATE_VECTOR_SIZE:
       return SETTINGS_CLIENT_CERTIFICATE_VECTOR_SIZE;
+    case proxygen::SettingsId::ENABLE_CONNECT_PROTOCOL:
+      return folly::none;
   }
   return folly::none;
 }

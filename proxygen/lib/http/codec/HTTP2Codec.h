@@ -104,6 +104,9 @@ public:
       (transportDirection_ == TransportDirection::UPSTREAM &&
        egressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1));
   }
+  bool peerHasWebsockets() const {
+    return ingressSettings_.getSetting(SettingsId::ENABLE_CONNECT_PROTOCOL);
+  }
   bool supportsExTransactions() const override {
     return ingressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0) &&
       egressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0);
@@ -232,6 +235,7 @@ public:
     { SettingsId::ENABLE_PUSH, 0 },
     { SettingsId::MAX_FRAME_SIZE, 16384 },
     { SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17 }, // same as SPDYCodec
+    { SettingsId::ENABLE_CONNECT_PROTOCOL, 0},
   };
 #ifndef NDEBUG
   uint64_t receivedFrameCount_{0};

@@ -766,6 +766,15 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
           continue;
         }
       }
+      case SettingsId::ENABLE_CONNECT_PROTOCOL:
+        if (setting.second > 1) {
+          goawayErrorMessage_ = folly::to<string>(
+              "GOAWAY error: ENABLE_CONNECT_PROTOCOL invalid number=",
+              setting.second, " for streamID=", curHeader_.stream);
+          VLOG(4) << goawayErrorMessage_;
+          return ErrorCode::PROTOCOL_ERROR;
+        }
+        break;
       default:
         continue; // ignore unknown setting
     }
@@ -1297,6 +1306,11 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
           continue; // just skip the experimental setting if disabled
         } else {
           VLOG(4) << "generating ENABLE_EX_HEADERS=" << setting.value;
+        }
+        break;
+      case SettingsId::ENABLE_CONNECT_PROTOCOL:
+        if (setting.value == 0) {
+          continue;
         }
         break;
       default:

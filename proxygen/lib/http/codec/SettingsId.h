@@ -26,6 +26,8 @@ enum class SettingsId: uint32_t {
   MAX_FRAME_SIZE = 5,
   MAX_HEADER_LIST_SIZE = 6,
 
+  ENABLE_CONNECT_PROTOCOL = 8,
+
   // 0xf000 and 0xffff being reserved for Experimental Use
   ENABLE_EX_HEADERS = 0xfbfb,
 
