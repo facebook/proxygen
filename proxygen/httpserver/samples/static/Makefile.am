@@ -2,9 +2,9 @@ SUBDIRS = .
 
 noinst_PROGRAMS = static_server
 
-echo_server_SOURCES = \
+static_server_SOURCES = \
 	StaticHandler.cpp \
 	StaticServer.cpp
 
-echo_server_LDADD = \
+static_server_LDADD = \
 	../../libproxygenhttpserver.la
