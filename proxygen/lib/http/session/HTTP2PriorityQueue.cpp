@@ -39,7 +39,7 @@ HTTP2PriorityQueue::Node::~Node() {
 }
 
 // Add a new node as a child of this node
-HTTP2PriorityQueue::Handle
+HTTP2PriorityQueue::Node*
 HTTP2PriorityQueue::Node::emplaceNode(
   unique_ptr<HTTP2PriorityQueue::Node> node, bool exclusive) {
   CHECK(!node->isEnqueued());
@@ -87,7 +87,7 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
   }
 }
 
-HTTP2PriorityQueue::Handle
+HTTP2PriorityQueue::Node*
 HTTP2PriorityQueue::Node::addChild(
   unique_ptr<HTTP2PriorityQueue::Node> child) {
   CHECK_NE(id_, child->id_) << "Tried to create a loop in the tree";
@@ -113,7 +113,7 @@ HTTP2PriorityQueue::Node::detachChild(Node* node) {
   return res;
 }
 
-HTTP2PriorityQueue::Handle
+HTTP2PriorityQueue::Node*
 HTTP2PriorityQueue::Node::reparent(HTTP2PriorityQueue::Node* newParent,
                                    bool exclusive) {
   // Save enqueued_ and totalEnqueuedWeight_, clear them and restore
@@ -510,7 +510,7 @@ HTTP2PriorityQueue::Handle
 HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
                                    http2::PriorityUpdate pri,
                                    uint64_t* depth) {
-  Node* node = handle;
+  Node* node = CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle));
   pendingWeightChange_ = true;
   VLOG(4) << "Updating id=" << node->getID() << " with parent=" <<
     pri.streamDependency << " and weight=" << ((uint16_t)pri.weight + 1);
@@ -544,7 +544,7 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
 
 void
 HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
-  Node* node = handle;
+  Node* node = CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle));
   pendingWeightChange_ = true;
   // TODO: or require the node to do it?
   if (node->isEnqueued()) {
@@ -555,25 +555,27 @@ HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
     numVirtualNodes_++;
     scheduleNodeExpiration(node);
   } else {
-    VLOG(5) << "Deleting dangling node over max id=" << handle->getID();
+    VLOG(5) << "Deleting dangling node over max id=" << node->getID();
     node->removeFromTree();
   }
 }
 
 void
-HTTP2PriorityQueue::signalPendingEgress(Handle h) {
-  if (!h->isEnqueued()) {
-    h->signalPendingEgress();
+HTTP2PriorityQueue::signalPendingEgress(Handle handle) {
+  if (!handle->isEnqueued()) {
+    CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle))
+      ->signalPendingEgress();
     activeCount_++;
     pendingWeightChange_ = true;
   }
 }
 
 void
-HTTP2PriorityQueue::clearPendingEgress(Handle h) {
+HTTP2PriorityQueue::clearPendingEgress(Handle handle) {
   CHECK_GT(activeCount_, 0);
-  // clear does a CHECK on h->isEnqueued()
-  h->clearPendingEgress();
+  // clear does a CHECK on handle->isEnqueued()
+  CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle))
+    ->clearPendingEgress();
   activeCount_--;
   pendingWeightChange_ = true;
 }

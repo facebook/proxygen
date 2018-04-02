@@ -431,7 +431,7 @@ class HTTPTransaction :
                   HTTPCodec::StreamID id,
                   uint32_t seqNo,
                   Transport& transport,
-                  HTTP2PriorityQueue& egressQueue,
+                  HTTP2PriorityQueueBase& egressQueue,
                   const WheelTimerInstance& timeout,
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
@@ -1307,12 +1307,12 @@ class HTTPTransaction :
   /**
    * Reference to our priority queue
    */
-  HTTP2PriorityQueue& egressQueue_;
+  HTTP2PriorityQueueBase& egressQueue_;
 
   /**
    * Handle to our position in the priority queue.
    */
-  HTTP2PriorityQueue::Handle queueHandle_;
+  HTTP2PriorityQueueBase::Handle queueHandle_;
 
   /**
    * bytes we need to acknowledge to the remote end using a window update
