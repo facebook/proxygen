@@ -664,6 +664,10 @@ void HTTPMessage::splitNameValue(
 }
 
 void HTTPMessage::dumpMessage(int vlogLevel) const {
+  if (!VLOG_IS_ON(vlogLevel)) {
+    return;
+  }
+
   VLOG(vlogLevel) << ", chunked: " << chunked_
                   << ", upgraded: " << upgraded_
                   << ", Fields for message:";
