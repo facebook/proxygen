@@ -31,6 +31,7 @@ const uint32_t kFrameHeaderSize = 9;
 
 const uint32_t kFrameHeadersBaseMaxSize = kFramePrioritySize + 1;
 const uint32_t kFramePrioritySize = 5;
+const uint32_t kFrameStreamIDSize = 4;
 const uint32_t kFrameRstStreamSize = 4;
 const uint32_t kFramePushPromiseSize = 4;
 const uint32_t kFramePingSize = 8;

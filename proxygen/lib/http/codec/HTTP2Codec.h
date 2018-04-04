@@ -55,6 +55,12 @@ public:
                       StreamID assocStream = 0,
                       bool eom = false,
                       HTTPHeaderSize* size = nullptr) override;
+  void generateExHeader(folly::IOBufQueue& writeBuf,
+                        StreamID stream,
+                        const HTTPMessage& msg,
+                        StreamID controlStream,
+                        bool eom = false,
+                        HTTPHeaderSize* size = nullptr) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,
@@ -114,6 +120,14 @@ public:
   void setHeaderCodecStats(HeaderCodec::Stats* hcStats) override {
     headerCodec_.setStats(hcStats);
   }
+
+  bool isRequest(StreamID id) const {
+    return ((transportDirection_ == TransportDirection::DOWNSTREAM &&
+             (id & 0x1) == 1) ||
+            (transportDirection_ == TransportDirection::UPSTREAM &&
+             (id & 0x1) == 0));
+  }
+
   size_t addPriorityNodes(
       PriorityQueue& queue,
       folly::IOBufQueue& writeBuf,
@@ -148,6 +162,14 @@ public:
   }
 
  private:
+  void generateHeaderImpl(folly::IOBufQueue& writeBuf,
+                          StreamID stream,
+                          const HTTPMessage& msg,
+                          folly::Optional<StreamID> assocStream,
+                          folly::Optional<StreamID> controlStream,
+                          bool eom,
+                          HTTPHeaderSize* size);
+
   class HeaderDecodeInfo {
    public:
     explicit HeaderDecodeInfo(HTTPRequestVerifier v)
@@ -189,6 +211,7 @@ public:
     size_t bufLen,
     size_t& parsed);
   ErrorCode parseHeaders(folly::io::Cursor& cursor);
+  ErrorCode parseExHeaders(folly::io::Cursor& cursor);
   ErrorCode parsePriority(folly::io::Cursor& cursor);
   ErrorCode parseRstStream(folly::io::Cursor& cursor);
   ErrorCode parseSettings(folly::io::Cursor& cursor);
@@ -201,7 +224,8 @@ public:
     folly::io::Cursor& cursor,
     std::unique_ptr<folly::IOBuf> headerBuf,
     folly::Optional<http2::PriorityUpdate> priority,
-    folly::Optional<uint32_t> promisedStream);
+    folly::Optional<uint32_t> promisedStream,
+    folly::Optional<uint32_t> controlStream);
 
   ErrorCode handleEndStream();
   ErrorCode checkNewStream(uint32_t stream);

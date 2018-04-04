@@ -76,6 +76,12 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     messageBegin++;
     assocStreamId = assocStream;
   }
+  void onExMessageBegin(HTTPCodec::StreamID /*stream*/,
+                        HTTPCodec::StreamID controlStream,
+                        HTTPMessage*) override {
+    messageBegin++;
+    controlStreamId = controlStream;
+  }
   void onHeadersComplete(HTTPCodec::StreamID stream,
                          std::unique_ptr<HTTPMessage> inMsg) override {
     headersComplete++;
@@ -220,6 +226,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void reset() {
     headersCompleteId = 0;
     assocStreamId = 0;
+    controlStreamId = 0;
     messageBegin = 0;
     headersComplete = 0;
     messageComplete = 0;
@@ -252,6 +259,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "Dumping HTTP codec callback counters";
     VLOG(verbosity) << "headersCompleteId: " << headersCompleteId;
     VLOG(verbosity) << "assocStreamId: " << assocStreamId;
+    VLOG(verbosity) << "controlStreamId: " << controlStreamId;
     VLOG(verbosity) << "messageBegin: " << messageBegin;
     VLOG(verbosity) << "headersComplete: " << headersComplete;
     VLOG(verbosity) << "bodyCalls: " << bodyCalls;
@@ -275,6 +283,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   HTTPCodec::StreamID headersCompleteId{0};
   HTTPCodec::StreamID assocStreamId{0};
+  HTTPCodec::StreamID controlStreamId{0};
   uint32_t messageBegin{0};
   uint32_t headersComplete{0};
   uint32_t messageComplete{0};

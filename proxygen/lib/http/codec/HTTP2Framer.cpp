@@ -75,7 +75,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
   DCHECK_EQ(0, ~kUint31Mask & stream);
 
   if (priority) {
-    if (FrameType::HEADERS == type) {
+    if (FrameType::HEADERS == type || FrameType::EX_HEADERS == type) {
       DCHECK(flags & PRIORITY);
       length += kFramePrioritySize;
     } else {
@@ -90,6 +90,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
   if (padding) {
     flags |= PADDED;
     DCHECK(FrameType::HEADERS == type ||
+           FrameType::EX_HEADERS == type ||
            FrameType::DATA == type ||
            FrameType::PUSH_PROMISE == type);
     length += *padding + 1;
@@ -182,6 +183,7 @@ parsePadding(Cursor& cursor,
              uint8_t& padding) noexcept {
   DCHECK(header.type == FrameType::DATA ||
          header.type == FrameType::HEADERS ||
+         header.type == FrameType::EX_HEADERS ||
          header.type == FrameType::PUSH_PROMISE);
   if (frameHasPadding(header)) {
     if (header.length < 1) {
@@ -324,6 +326,46 @@ parseHeaders(Cursor& cursor,
   } else {
     outPriority = folly::none;
   }
+  cursor.clone(outBuf, header.length - padding);
+  return skipPadding(cursor, padding, kStrictPadding);
+}
+
+ErrorCode
+parseExHeaders(Cursor& cursor,
+               FrameHeader header,
+               uint32_t& outControlStream,
+               folly::Optional<PriorityUpdate>& outPriority,
+               std::unique_ptr<IOBuf>& outBuf) noexcept {
+  DCHECK_LE(header.length, cursor.totalLength());
+  if (header.stream == 0) {
+    return ErrorCode::PROTOCOL_ERROR;
+  }
+
+  uint8_t padding;
+  auto err = parsePadding(cursor, header, padding);
+  RETURN_IF_ERROR(err);
+
+  // the regular HEADERS frame starts from here
+  if (header.flags & PRIORITY) {
+    if (header.length < kFramePrioritySize) {
+      return ErrorCode::FRAME_SIZE_ERROR;
+    }
+    outPriority = parsePriorityCommon(cursor);
+    header.length -= kFramePrioritySize;
+  } else {
+    outPriority = folly::none;
+  }
+
+  if (header.length < kFrameStreamIDSize) {
+    return ErrorCode::FRAME_SIZE_ERROR;
+  }
+  outControlStream = parseUint31(cursor);
+  header.length -= kFrameStreamIDSize;
+  if (!(outControlStream & 0x1)) {
+    // control stream ID should be odd because it is initiated by client
+    return ErrorCode::PROTOCOL_ERROR;
+  }
+
   cursor.clone(outBuf, header.length - padding);
   return skipPadding(cursor, padding, kStrictPadding);
 }
@@ -570,6 +612,48 @@ writeHeaders(IOBufQueue& queue,
                                          padding,
                                          priority,
                                          std::move(headers));
+  writePadding(queue, padding);
+  return kFrameHeaderSize + frameLen;
+}
+
+size_t
+writeExHeaders(IOBufQueue& queue,
+               std::unique_ptr<IOBuf> headers,
+               uint32_t stream,
+               uint32_t controlStream,
+               folly::Optional<PriorityUpdate> priority,
+               folly::Optional<uint8_t> padding,
+               bool endStream,
+               bool endHeaders) noexcept {
+  DCHECK_NE(0, stream);
+  DCHECK_NE(0, controlStream);
+  DCHECK_EQ(0, ~kUint31Mask & stream);
+  DCHECK_EQ(0, ~kUint31Mask & controlStream);
+  DCHECK(0x1 & controlStream) << "controlStream should be initiated by client";
+
+  const auto dataLen = (headers) ? headers->computeChainDataLength() : 0;
+  uint32_t flags = 0;
+  if (priority) {
+    flags |= PRIORITY;
+  }
+  if (endStream) {
+    flags |= END_STREAM;
+  }
+  if (endHeaders) {
+    flags |= END_HEADERS;
+  }
+
+  const auto frameLen = writeFrameHeader(queue,
+                                         dataLen + kFrameStreamIDSize,
+                                         FrameType::EX_HEADERS,
+                                         flags,
+                                         stream,
+                                         padding,
+                                         priority,
+                                         nullptr);
+  QueueAppender appender(&queue, frameLen);
+  appender.writeBE<uint32_t>(controlStream);
+  queue.append(std::move(headers));
   writePadding(queue, padding);
   return kFrameHeaderSize + frameLen;
 }

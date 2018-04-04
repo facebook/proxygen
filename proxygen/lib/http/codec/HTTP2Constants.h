@@ -21,6 +21,7 @@ extern ErrorCode errorCodeToReset(ErrorCode code);
 extern const uint32_t kFrameHeaderSize;
 extern const uint32_t kFrameHeadersBaseMaxSize;
 extern const uint32_t kFramePrioritySize;
+extern const uint32_t kFrameStreamIDSize;
 extern const uint32_t kFrameRstStreamSize;
 extern const uint32_t kFramePushPromiseSize;
 extern const uint32_t kFramePingSize;

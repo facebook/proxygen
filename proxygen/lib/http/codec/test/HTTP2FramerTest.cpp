@@ -495,3 +495,28 @@ TEST_F(HTTP2FramerTest, Continuation) {
   ASSERT_EQ(1, header.stream);
   EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
 }
+
+TEST_F(HTTP2FramerTest, ExHeaders) {
+  auto body = makeBuf(500);
+  uint32_t streamID = folly::Random::rand32(10, 1024) * 2 + 1;
+  uint32_t controlStream = streamID - 2;
+  writeExHeaders(queue_, body->clone(), streamID, controlStream,
+                 {{0, true, 12}}, 200, false, false);
+
+  FrameHeader header;
+  uint32_t outControlStreamID;
+  folly::Optional<PriorityUpdate> priority;
+  std::unique_ptr<IOBuf> outBuf;
+  parse(&parseExHeaders, header, outControlStreamID, priority, outBuf);
+
+  ASSERT_EQ(FrameType::EX_HEADERS, header.type);
+  ASSERT_EQ(streamID, header.stream);
+  ASSERT_EQ(controlStream, outControlStreamID);
+  ASSERT_TRUE(PRIORITY & header.flags);
+  ASSERT_FALSE(END_STREAM & header.flags);
+  ASSERT_FALSE(END_HEADERS & header.flags);
+  ASSERT_EQ(0, priority->streamDependency);
+  ASSERT_TRUE(priority->exclusive);
+  ASSERT_EQ(12, priority->weight);
+  EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
+}

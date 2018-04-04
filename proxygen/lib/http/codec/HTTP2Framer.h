@@ -156,6 +156,13 @@ parseHeaders(folly::io::Cursor& cursor,
              folly::Optional<PriorityUpdate>& outPriority,
              std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
+extern ErrorCode
+parseExHeaders(folly::io::Cursor& cursor,
+               FrameHeader header,
+               uint32_t& outControlStream,
+               folly::Optional<PriorityUpdate>& outPriority,
+               std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
+
 /**
  * This function parses the section of the PRIORITY frame after the common
  * frame header. It pulls header.length bytes from the cursor, so it is the
@@ -346,15 +353,14 @@ writeData(folly::IOBufQueue& writeBuf,
           bool reuseIOBufHeadroom) noexcept;
 
 /**
- * Generate an entire HEADERS frame, including the common frame
- * header. The combined length of
- * the data buffer and the padding and priority fields MUST NOT exceed
- * 2^14 - 1, which is kMaxFramePayloadLength.
+ * Generate an entire HEADERS frame, including the common frame header. The
+ * combined length of the data buffer and the padding and priority fields MUST
+ * NOT exceed 2^14 - 1, which is kMaxFramePayloadLength.
  *
  * @param writeBuf The output queue to write to. It may grow or add
  *                 underlying buffers inside this function.
  * @param headers The encoded headers data to write out.
- * @param stream The stream identifier of the DATA frame.
+ * @param stream The stream identifier of the HEADERS frame.
  * @param priority If present, the priority depedency information to
  *                 update the stream with.
  * @param padding If not kNoPadding, adds 1 byte pad len and @padding pad bytes
@@ -370,6 +376,34 @@ writeHeaders(folly::IOBufQueue& writeBuf,
              folly::Optional<uint8_t> padding,
              bool endStream,
              bool endHeaders) noexcept;
+
+/**
+ * Generate an experimental ExHEADERS frame, including the common frame
+ * header. The combined length of the data buffer and the padding and priority
+ * fields MUST NOT exceed 2^14 - 1, which is kMaxFramePayloadLength.
+ *
+ * @param writeBuf The output queue to write to. It may grow or add
+ *                 underlying buffers inside this function.
+ * @param headers The encoded headers data to write out.
+ * @param stream The stream identifier of the ExHEADERS frame.
+ * @param controlStream The stream identifier of the control stream, with which
+                        this ExHEADERS associated.
+ * @param priority If present, the priority depedency information to
+ *                 update the stream with.
+ * @param padding If not kNoPadding, adds 1 byte pad len and @padding pad bytes
+ * @param endStream True iff this frame ends the stream.
+ * @param endHeaders True iff no CONTINUATION frames will follow this frame.
+ * @return The number of bytes written to writeBuf.
+ */
+extern size_t
+writeExHeaders(folly::IOBufQueue& writeBuf,
+               std::unique_ptr<folly::IOBuf> headers,
+               uint32_t stream,
+               uint32_t controlStream,
+               folly::Optional<PriorityUpdate> priority,
+               folly::Optional<uint8_t> padding,
+               bool endStream,
+               bool endHeaders) noexcept;
 
 /**
  * Generate an entire PRIORITY frame, including the common frame header.

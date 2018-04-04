@@ -197,6 +197,80 @@ TEST_F(HTTP2CodecTest, BasicHeader) {
   EXPECT_EQ("www.foo.com", headers.getSingleOrEmpty(HTTP_HEADER_HOST));
 }
 
+TEST_F(HTTP2CodecTest, RequestFromServer) {
+  // this is to test EX_HEADERS frame, which carrys the HTTP request initiated
+  // by server side
+  upstreamCodec_.getEgressSettings()->setSetting(
+      SettingsId::ENABLE_EX_HEADERS, 1);
+  SetUpUpstreamTest();
+  proxygen::http2::writeSettings(
+      output_, {{proxygen::SettingsId::ENABLE_EX_HEADERS, 1}});
+
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  req.getHeaders().add("tab-hdr", "coolio\tv2");
+  // Connection header will get dropped
+  req.getHeaders().add(HTTP_HEADER_CONNECTION, "Love");
+  req.setSecure(true);
+
+  HTTPCodec::StreamID stream = folly::Random::rand32(10, 1024) * 2;
+  HTTPCodec::StreamID controlStream = folly::Random::rand32(10, 1024) * 2 + 1;
+  upstreamCodec_.generateExHeader(output_, stream, req, controlStream, true);
+
+  parseUpstream();
+  EXPECT_EQ(controlStream, callbacks_.controlStreamId);
+  callbacks_.expectMessage(true, 3, "/guacamole");
+  EXPECT_TRUE(callbacks_.msg->isSecure());
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ("coolio", headers.getSingleOrEmpty(HTTP_HEADER_USER_AGENT));
+  EXPECT_EQ("coolio\tv2", headers.getSingleOrEmpty("tab-hdr"));
+  EXPECT_EQ("www.foo.com", headers.getSingleOrEmpty(HTTP_HEADER_HOST));
+}
+
+TEST_F(HTTP2CodecTest, ResponseFromClient) {
+  // this is to test EX_HEADERS frame, which carrys the HTTP response replied by
+  // client side
+  downstreamCodec_.getEgressSettings()->setSetting(
+      SettingsId::ENABLE_EX_HEADERS, 1);
+  proxygen::http2::writeSettings(
+      output_, {{proxygen::SettingsId::ENABLE_EX_HEADERS, 1}});
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.setStatusMessage("nifty-nice");
+  resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "x-coolio");
+
+  HTTPCodec::StreamID stream = folly::Random::rand32(10, 1024) * 2;
+  HTTPCodec::StreamID controlStream = folly::Random::rand32(10, 1024) * 2 + 1;
+  downstreamCodec_.generateExHeader(output_, stream, resp, controlStream, true);
+
+  parse();
+  EXPECT_EQ(controlStream, callbacks_.controlStreamId);
+  EXPECT_EQ("OK", callbacks_.msg->getStatusMessage());
+  callbacks_.expectMessage(true, 2, 200);
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ("OK", callbacks_.msg->getStatusMessage());
+  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
+  EXPECT_EQ("x-coolio", headers.getSingleOrEmpty(HTTP_HEADER_CONTENT_TYPE));
+}
+
+TEST_F(HTTP2CodecTest, ExHeadersWithPriority) {
+  downstreamCodec_.getEgressSettings()->setSetting(
+      SettingsId::ENABLE_EX_HEADERS, 1);
+  proxygen::http2::writeSettings(
+      output_, {{proxygen::SettingsId::ENABLE_EX_HEADERS, 1}});
+
+  auto req = getGetRequest();
+  auto pri = HTTPMessage::HTTPPriority(0, false, 7);
+  req.setHTTP2Priority(pri);
+  upstreamCodec_.generateExHeader(output_, 3, req, 1, true);
+
+  parse();
+  EXPECT_EQ(callbacks_.msg->getHTTP2Priority(), pri);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 TEST_F(HTTP2CodecTest, BadHeaders) {
   static const std::string v1("GET");
   static const std::string v2("/");

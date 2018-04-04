@@ -141,6 +141,13 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                       bool eom,
                       HTTPHeaderSize* size) override;
 
+  void generateExHeader(folly::IOBufQueue& writeBuf,
+                        StreamID stream,
+                        const HTTPMessage& msg,
+                        StreamID controlStream,
+                        bool eom,
+                        HTTPHeaderSize* size) override;
+
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,

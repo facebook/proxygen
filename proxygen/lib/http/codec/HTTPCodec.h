@@ -86,6 +86,18 @@ class HTTPCodec {
                                     HTTPMessage* /* msg */) {}
 
     /**
+     * Called when a new extended message is seen while parsing the ingress.
+     *
+     * @param stream   The stream ID
+     * @param controlStream The stream ID of the associated stream,
+     *                 which can never be 0
+     * @param msg      A newly allocated HTTPMessage
+     */
+    virtual void onExMessageBegin(StreamID /* stream */,
+                                  StreamID /* controlStream */,
+                                  HTTPMessage* /* msg */) {}
+
+    /**
      * Called when all the headers of an ingress message have been parsed
      * @param stream   The stream ID
      * @param msg      The message
@@ -429,6 +441,13 @@ class HTTPCodec {
                               StreamID assocStream = NoStream,
                               bool eom = false,
                               HTTPHeaderSize* size = nullptr) = 0;
+
+  virtual void generateExHeader(folly::IOBufQueue& /* writeBuf */,
+                                StreamID /* stream */,
+                                const HTTPMessage& /* msg */,
+                                StreamID /* controlStream */,
+                                bool /* eom = false */,
+                                HTTPHeaderSize* /* size = nullptr */) {}
 
   /**
    * Write part of an egress message body.
