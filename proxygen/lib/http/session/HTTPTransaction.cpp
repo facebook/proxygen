@@ -1006,17 +1006,16 @@ void HTTPTransaction::sendEOM() {
     } else {
       // If the txn is enqueued, sendDeferredBody()
       // should take care of sending the EOM.
-      // Nevertheless we never expect this condition to occur,
-      // so, log.
-      LOG(ERROR) << "Queued egress EOM with no body"
-                 << "[egressState=" << egressState_ << ", "
-                 << "ingressState=" << ingressState_ << ", "
-                 << "egressPaused=" << egressPaused_ << ", "
-                 << "ingressPaused=" << ingressPaused_ << ", "
-                 << "aborted=" << aborted_ << ", "
-                 << "enqueued=" << isEnqueued() << ", "
-                 << "chainLength=" << deferredEgressBody_.chainLength() << "]"
-                 << " on " << *this;
+      // This can happen for some uses of the egress queue
+      VLOG(4) << "Queued egress EOM with no body"
+              << "[egressState=" << egressState_ << ", "
+              << "ingressState=" << ingressState_ << ", "
+              << "egressPaused=" << egressPaused_ << ", "
+              << "ingressPaused=" << ingressPaused_ << ", "
+              << "aborted=" << aborted_ << ", "
+              << "enqueued=" << isEnqueued() << ", "
+              << "chainLength=" << deferredEgressBody_.chainLength() << "]"
+              << " on " << *this;
     }
   } else {
     VLOG(4) << "Queued egress EOM on " << *this;
