@@ -74,6 +74,14 @@ inline std::chrono::seconds secondsSinceEpoch(TimePoint t) {
 }
 
 template <typename ClockType = SteadyClock>
+inline std::chrono::microseconds microsecondsBetween(
+    std::chrono::time_point<ClockType> finish,
+    std::chrono::time_point<ClockType> start) {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+    finish - start);
+}
+
+template <typename ClockType = SteadyClock>
 inline std::chrono::milliseconds millisecondsBetween(
     std::chrono::time_point<ClockType> finish,
     std::chrono::time_point<ClockType> start) {
