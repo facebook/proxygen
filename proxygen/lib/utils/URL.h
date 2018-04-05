@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <sstream>
+
 #include <proxygen/lib/utils/ParseURL.h>
 
 namespace proxygen {
