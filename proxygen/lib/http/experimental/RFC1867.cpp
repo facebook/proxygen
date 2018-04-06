@@ -144,25 +144,11 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
         }
         break;
 
-      case ParserState::PARAM_DATA:
-        result = readToBoundary(foundBoundary);
-        value_.append(result.move());
-        if (foundBoundary) {
-          if (callback_) {
-            auto value = value_.move()->moveToFbString();
-            callback_->onParam(param_, value.toStdString(), bytesProcessed_);
-          }
-          state_ = ParserState::HEADERS_START;
-        } else {
-          return input_.move();
-        }
-        break;
-
-      case ParserState::FILE_DATA:
+      case ParserState::FIELD_DATA:
         result = readToBoundary(foundBoundary);
         value_.append(result.move());
         if (!value_.empty() && callback_) {
-          if (callback_->onFileData(value_.move(), bytesProcessed_) < 0) {
+          if (callback_->onFieldData(value_.move(), bytesProcessed_) < 0) {
             LOG(ERROR) << "Callback returned error";
             state_ = ParserState::ERROR;
             return nullptr;
@@ -170,7 +156,7 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
         }
         if (foundBoundary) {
           if (callback_) {
-            callback_->onFileEnd(true, bytesProcessed_);
+            callback_->onFieldEnd(true, bytesProcessed_);
           }
           state_ = ParserState::HEADERS_START;
         } else {
@@ -194,43 +180,43 @@ void RFC1867Codec::onHeadersComplete(HTTPCodec::StreamID /*stream*/,
                                      std::unique_ptr<HTTPMessage> msg) {
   static const StringPiece kName("name", 4);
   static const StringPiece kFilename("filename", 8);
+  static const StringPiece kFormData("form-data", 9);
 
   const auto& contentDisp =
     msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_DISPOSITION);
-  string param;
-  string filename;
+  string name;
+  folly::Optional<string> filename; // filename is optional
   HTTPMessage::splitNameValuePieces(
     contentDisp, ';', '=',
-    [&] (folly::StringPiece name, folly::StringPiece value) {
+    [&] (folly::StringPiece parameter, folly::StringPiece value) {
       // TODO: Trim whitespace first
       // Strip quotes if present
       if (value.size() >= 2 && value[0] == '\"' &&
           value[value.size() - 1] == '\"') {
         value.reset(value.data() + 1, value.size() - 2);
       }
-      if (name == kName) {
-        param = value.str();
-      } else if (name == kFilename) {
+      if (parameter == kName) {
+        name = value.str();
+      } else if (parameter == kFilename) {
         filename = value.str();
+      } else if (parameter != kFormData) {
+        LOG(WARNING) << "Ignoring parameter " << parameter << " value \""
+                     << value << '"';
       }
     });
-  if (filename.empty() && param.empty()) {
+  if (name.empty()) {
     if (callback_) {
-      LOG(ERROR) << "filename and param empty";
+      LOG(ERROR) << "name empty";
       callback_->onError();
     }
     state_ = ParserState::ERROR;
     return;
-  }
-  if (filename.empty() && !param.empty()) {
-    state_ = ParserState::PARAM_DATA;
-    param_ = param;
   } else {
-    state_ = ParserState::FILE_DATA;
-    param_ = "";
-    if (callback_ && callback_->onFileStart(param, filename,
+    state_ = ParserState::FIELD_DATA;
+    if (callback_ && callback_->onFieldStart(name, filename,
                                             std::move(msg),
                                             bytesProcessed_) < 0) {
+    field_ = name;
       LOG(WARNING) << "Callback returned error";
       state_ = ParserState::ERROR;
     }
@@ -312,10 +298,10 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
 }
 
 void RFC1867Codec::onIngressEOM() {
-  if (state_ == ParserState::FILE_DATA) {
-    LOG(WARNING) << "File not terminated by boundary";
+  if (state_ == ParserState::FIELD_DATA) {
+    LOG(WARNING) << "Field not terminated by boundary";
     if (callback_) {
-      callback_->onFileEnd(false, bytesProcessed_);
+      callback_->onFieldEnd(false, bytesProcessed_);
     }
   }
   if (state_ != ParserState::HEADERS_START && state_ != ParserState::ERROR &&

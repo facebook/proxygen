@@ -16,7 +16,8 @@ namespace proxygen {
 
 /**
  * Class for stream-parsing RFC 1867 style post data.  At present it does
- * not support nested multi-part content.  Can parse multiple POST bodies
+ * not support nested multi-part content (multipart/mixed).
+ * Can parse multiple POST bodies
  * unless one of them invokes the onError() callback.  After that, the codec is
  * no longer usable.
  */
@@ -26,17 +27,18 @@ class RFC1867Codec: HTTPCodec::Callback {
   class Callback {
    public:
     virtual ~Callback() {}
-    // TODO: StringPiece
-    virtual void onParam(const std::string& name, const std::string& value,
-                         uint64_t postBytesProcessed) = 0;
-    // return < 0 to skip remainder of file callbacks?
-    virtual int onFileStart(const std::string& name,
-                            const std::string& filename,
+    // return < 0 to skip remainder of field callbacks?
+    virtual int onFieldStart(const std::string& name,
+                             folly::Optional<std::string> filename,
                             std::unique_ptr<HTTPMessage> msg,
                             uint64_t postBytesProcessed) = 0;
-    virtual int onFileData(std::unique_ptr<folly::IOBuf>,
+    virtual int onFieldData(std::unique_ptr<folly::IOBuf>,
                            uint64_t postBytesProcessed) = 0;
-    virtual void onFileEnd(bool end, uint64_t postBytesProcessed) = 0;
+    /** On reading to end of a part indicated by boundary
+     * @param endedOnBoundary indicate successful part end
+     */
+    virtual void onFieldEnd(bool endedOnBoundary,
+                            uint64_t postBytesProcessed) = 0;
     virtual void onError() = 0;
  };
 
@@ -70,8 +72,7 @@ class RFC1867Codec: HTTPCodec::Callback {
     START,
     HEADERS_START,
     HEADERS,
-    PARAM_DATA,
-    FILE_DATA,
+    FIELD_DATA,  // part, or field, not only file
     DONE,
     ERROR
   };
@@ -110,7 +111,7 @@ class RFC1867Codec: HTTPCodec::Callback {
   Callback* callback_{nullptr};
   ParserState state_{ParserState::START};
   HTTP1xCodec headerParser_{TransportDirection::DOWNSTREAM};
-  std::string param_;
+  std::string field_;
   folly::IOBufQueue input_{folly::IOBufQueue::cacheChainLength()};
   folly::IOBufQueue value_;
   std::unique_ptr<folly::IOBuf> pendingCR_;

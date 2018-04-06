@@ -18,6 +18,7 @@ using std::unique_ptr;
 using std::map;
 using std::list;
 using std::string;
+using std::pair;
 using folly::IOBuf;
 using folly::IOBufQueue;
 
@@ -25,12 +26,18 @@ namespace {
 
 const std::string kTestBoundary("abcdef");
 
-unique_ptr<IOBuf> makePost(const map<string, string>& params,
-                           const map<string, string>& explicitFiles,
-                           const map<string, size_t>& randomFiles,
-                           const string optExpHeaderSeqEnding="") {
+/** make multipart content with optional 'filename' parameter
+ * @param simpleFields fields containing only 'name' parameter and text value
+ * @param explicitFiles name => {filename, file content}
+ * @param randomFiles name => {filename, filesize}
+ */
+unique_ptr<IOBuf> makePost(
+    const map<string, string>& simpleFields,
+    const map<string, pair<string, string>>& explicitFiles,
+    const map<string, pair<string, size_t>>& randomFiles,
+    const string optExpHeaderSeqEnding = "") {
   IOBufQueue result;
-  for (const auto& kv: params) {
+  for (const auto& kv : simpleFields) {
     result.append("--");
     result.append(kTestBoundary);
     result.append("\r\nContent-Disposition: form-data; name=\"");
@@ -42,23 +49,33 @@ unique_ptr<IOBuf> makePost(const map<string, string>& params,
   for (const auto& kv: explicitFiles) {
     result.append("--");
     result.append(kTestBoundary);
-    result.append("\r\nContent-Disposition: form-data; filename=\"");
-    result.append(kv.first);
-    result.append("\"\r\n"
-                  "Content-Type: text/plain\r\n"
-                  "\r\n");
-    result.append(IOBuf::copyBuffer(kv.second.data(), kv.second.length()));
+    result.append("\r\nContent-Disposition: form-data; name=\"");
+    result.append(kv.first + "\"");
+    auto& file = kv.second;
+    if (!file.first.empty()) {
+      result.append("; filename=\"" + file.first + "\"");
+    }
+    result.append(
+        "\r\n"
+        "Content-Type: text/plain\r\n"
+        "\r\n");
+    result.append(IOBuf::copyBuffer(file.second.data(), file.second.length()));
     result.append("\r\n");
   }
   for (const auto& kv: randomFiles) {
     result.append("--");
     result.append(kTestBoundary);
-    result.append("\r\nContent-Disposition: form-data; filename=\"");
-    result.append(kv.first);
-    result.append("\"\r\n"
-                  "Content-Type: text/plain\r\n"
-                  "\r\n");
-    result.append(proxygen::makeBuf(kv.second));
+    result.append("\r\nContent-Disposition: form-data; name=\"");
+    result.append(kv.first + "\"");
+    auto& file = kv.second;
+    if (!file.first.empty()) {
+      result.append("; filename=\"" + file.first + "\"");
+    }
+    result.append(
+        "\r\n"
+        "Content-Type: text/plain\r\n"
+        "\r\n");
+    result.append(proxygen::makeBuf(file.second));
     result.append("\r\n");
   }
   result.append("--");
@@ -74,25 +91,28 @@ namespace proxygen {
 
 class Mock1867Callback : public RFC1867Codec::Callback {
  public:
-  MOCK_METHOD3(onParam, void(const string& name, const string& value,
-                            uint64_t bytesProcessed));
-  MOCK_METHOD4(onFileStart, int(const string& name, const string& filename,
+  MOCK_METHOD4(onFieldStartImpl, int(const string& name, const std::string& filename,
                                 std::shared_ptr<HTTPMessage> msg,
                                uint64_t bytesProcessed));
-  int onFileStart(const string& name, const string& filename,
+  int onFieldStartImpl(const string& name, const std::string& filename,
+                  std::unique_ptr<HTTPMessage> msg,
+                  uint64_t bytesProcessed) {
+    std::shared_ptr<HTTPMessage> sh_msg(msg.release());
+    return onFieldStartImpl(name, filename, sh_msg, bytesProcessed);
+  }
+  int onFieldStart(const string& name, folly::Optional<std::string> filename,
                   std::unique_ptr<HTTPMessage> msg,
                   uint64_t bytesProcessed) override {
-    std::shared_ptr<HTTPMessage> sh_msg(msg.release());
-    return onFileStart(name, filename, sh_msg, bytesProcessed);
+    return onFieldStartImpl(name, filename.value_or(""), std::move(msg), bytesProcessed);
   }
-  MOCK_METHOD2(onFileData, int(std::shared_ptr<folly::IOBuf>, uint64_t));
-  int onFileData(std::unique_ptr<folly::IOBuf> data,
+  MOCK_METHOD2(onFieldData, int(std::shared_ptr<folly::IOBuf>, uint64_t));
+  int onFieldData(std::unique_ptr<folly::IOBuf> data,
                  uint64_t bytesProcessed) override {
     std::shared_ptr<IOBuf> sh_data(data.release());
-    return onFileData(sh_data, bytesProcessed);
+    return onFieldData(sh_data, bytesProcessed);
   }
 
-  MOCK_METHOD2(onFileEnd, void(bool, uint64_t));
+  MOCK_METHOD2(onFieldEnd, void(bool, uint64_t));
   MOCK_METHOD0(onError, void());
 };
 
@@ -122,7 +142,10 @@ class RFC1867Base {
   }
 
  protected:
-  void testSimple(unique_ptr<IOBuf> data, size_t fileSize, size_t splitSize);
+  void testSimple(unique_ptr<IOBuf> data,
+                  size_t fileSize,
+                  size_t splitSize,
+                  size_t parts);
 
   StrictMock<Mock1867Callback> callback_;
   RFC1867Codec codec_{kTestBoundary};
@@ -136,21 +159,29 @@ class RFC1867Test : public testing::Test, public RFC1867Base {
   }
 };
 
-void RFC1867Base::testSimple(unique_ptr<IOBuf> data, size_t fileSize,
-                             size_t splitSize) {
+/**
+ * @param data full multipart content
+ * @param filesize sum of all parts
+ * @param parts number of parts
+ */
+void RFC1867Base::testSimple(unique_ptr<IOBuf> data,
+                             size_t fileSize,
+                             size_t splitSize,
+                             size_t parts) {
   size_t fileLength = 0;
   IOBufQueue parsedData{IOBufQueue::cacheChainLength()};
-  EXPECT_CALL(callback_, onParam(string("foo"), string("bar"), _));
-  EXPECT_CALL(callback_, onParam(string("jojo"), string("binky"), _));
-  EXPECT_CALL(callback_, onFileStart(_, _, _, _))
-    .WillOnce(Return(0));
-  EXPECT_CALL(callback_, onFileData(_, _))
+  EXPECT_CALL(callback_, onFieldStartImpl(_, _, _, _))
+          .Times(parts)
+          .WillRepeatedly(Return(0));
+  EXPECT_CALL(callback_, onFieldData(_, _))
     .WillRepeatedly(Invoke([&] (std::shared_ptr<IOBuf> data, uint64_t) {
           fileLength += data->computeChainDataLength();
           parsedData.append(data->clone());
           return 0;
         }));
-  EXPECT_CALL(callback_, onFileEnd(true, _));
+  EXPECT_CALL(callback_, onFieldEnd(true, _))
+          .Times(parts)
+          .WillRepeatedly(Return());
   parse(data->clone(), splitSize);
   auto parsedDataBuf = parsedData.move();
   if (fileLength > 0) {
@@ -163,17 +194,27 @@ void RFC1867Base::testSimple(unique_ptr<IOBuf> data, size_t fileSize,
 
 TEST_F(RFC1867Test, testSimplePost) {
   size_t fileSize = 17;
-  auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
-                       {}, {{"file1", fileSize}});
-  testSimple(std::move(data), fileSize, 0);
+  auto data = makePost(
+      {{"foo", "bar"}, {"jojo", "binky"}}, {}, {{"file1", {"", fileSize}}});
+  testSimple(std::move(data), 3 + 5 + fileSize, 0, 3);
 }
 
 TEST_F(RFC1867Test, testSplits) {
   for (size_t i = 1; i < 500; i++) {
     size_t fileSize = 1000 + i;
+    auto data = makePost(
+        {{"foo", "bar"}, {"jojo", "binky"}}, {}, {{"file1", {"", fileSize}}});
+    testSimple(std::move(data), 3 + 5 + fileSize, i, 3);
+  }
+}
+
+TEST_F(RFC1867Test, testSplitsWithFilename) {
+  for (size_t i = 1; i < 500; i++) {
+    size_t fileSize = 1000 + i;
     auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
-                         {}, {{"file1", fileSize}});
-    testSimple(std::move(data), fileSize, i);
+                         {},
+                         {{"file1", {"file1.txt", fileSize}}});
+    testSimple(std::move(data), 3 + 5 + fileSize, i, 3);
   }
 }
 
@@ -183,13 +224,12 @@ TEST_F(RFC1867Test, testHeadersChunkExtraCr) {
   auto numCRs = 5;
   auto headerEndingSeq = "--" + string(numCRs, '\r') + "\n";
   auto fileSize = 10;
-  auto data = makePost(
-    {{"foo", "bar"}, {"jojo", "binky"}},
-    {},
-    {{"file1", fileSize}},
-    headerEndingSeq);
+  auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
+                       {},
+                       {{"file1", {"", fileSize}}},
+                       headerEndingSeq);
   // Math ensures we the parser will chunk at a '\r' with a numCRs-1
-  testSimple(std::move(data), fileSize, numCRs - 1);
+  testSimple(std::move(data), 3 + 5 + fileSize, numCRs - 1, 3);
 }
 
 class RFC1867CR : public testing::TestWithParam<string>, public RFC1867Base {
@@ -203,8 +243,9 @@ class RFC1867CR : public testing::TestWithParam<string>, public RFC1867Base {
 TEST_P(RFC1867CR, test) {
   for (size_t i = 1; i < GetParam().size(); i++) {
     auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
-                         {{"file1", GetParam()}}, {});
-    testSimple(std::move(data), GetParam().size(), i);
+                         {{"file1", {"dummy file name", GetParam()}}},
+                         {});
+    testSimple(std::move(data), 3 + 5 + GetParam().size(), i, 3);
   }
 }
 
