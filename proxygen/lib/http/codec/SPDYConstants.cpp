@@ -109,6 +109,9 @@ folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
       return SETTINGS_CLIENT_CERTIFICATE_VECTOR_SIZE;
     case proxygen::SettingsId::ENABLE_CONNECT_PROTOCOL:
       return folly::none;
+    case proxygen::SettingsId::THRIFT_CHANNEL_ID_DEPRECATED:
+    case proxygen::SettingsId::THRIFT_CHANNEL_ID:
+      return folly::none;
   }
   return folly::none;
 }

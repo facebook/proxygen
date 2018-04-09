@@ -28,8 +28,11 @@ enum class SettingsId: uint32_t {
 
   ENABLE_CONNECT_PROTOCOL = 8,
 
+  THRIFT_CHANNEL_ID_DEPRECATED = 100,
+
   // 0xf000 and 0xffff being reserved for Experimental Use
   ENABLE_EX_HEADERS = 0xfbfb,
+  THRIFT_CHANNEL_ID = 0xf100,
 
   // From SPDY, mostly unused
   _SPDY_UPLOAD_BANDWIDTH = SPDY_SETTINGS_MASK | 1,
