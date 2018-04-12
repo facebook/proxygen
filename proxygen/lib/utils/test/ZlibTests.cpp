@@ -45,7 +45,7 @@ void verify(ZlibCompressionType type,
   auto decompressed = zd->decompress(compressed.get());
   ASSERT_FALSE(zd->hasError()) << "Decompression error. r=" << zd->getStatus();
 
-  IOBufEqual eq;
+  IOBufEqualTo eq;
   ASSERT_TRUE(eq(original, decompressed));
 }
 

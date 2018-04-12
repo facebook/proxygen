@@ -468,7 +468,7 @@ TEST(HTTP1xCodecTest, TestChainedBody) {
     reqQueue.trimStart(processed);
   }
 
-  EXPECT_TRUE(folly::IOBufEqual()(*bodyQueue.front(),
+  EXPECT_TRUE(folly::IOBufEqualTo()(*bodyQueue.front(),
                                   *folly::IOBuf::copyBuffer("abcdefghij")));
 }
 
