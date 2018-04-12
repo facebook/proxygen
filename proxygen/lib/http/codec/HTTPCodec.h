@@ -50,6 +50,8 @@ class HTTPCodec {
 
   static const StreamID NoStream{0};
 
+  static const folly::Optional<StreamID> NoControlStream;
+
   static const folly::Optional<uint8_t> NoPadding;
 
   static const StreamID MAX_STREAM_ID = 1u << 31;

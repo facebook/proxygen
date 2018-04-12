@@ -23,6 +23,12 @@ void PassThroughHTTPCodecFilter::onPushMessageBegin(StreamID stream,
   callback_->onPushMessageBegin(stream, assocStream, msg);
 }
 
+void PassThroughHTTPCodecFilter::onExMessageBegin(StreamID stream,
+                                                  StreamID controlStream,
+                                                  HTTPMessage* msg) {
+  callback_->onExMessageBegin(stream, controlStream, msg);
+}
+
 void PassThroughHTTPCodecFilter::onHeadersComplete(
     StreamID stream,
     std::unique_ptr<HTTPMessage> msg) {

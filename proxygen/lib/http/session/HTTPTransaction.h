@@ -241,6 +241,12 @@ class HTTPTransactionHandler {
   virtual void onPushedTransaction(HTTPTransaction* /* txn */) noexcept {}
 
   /**
+   * Ask the handler to construct a handler for a ExTransaction associated
+   * with its transaction.
+   */
+  virtual void onExTransaction(HTTPTransaction* /* txn */) noexcept {}
+
+  /**
    * Inform the handler that a GOAWAY has been received on the
    * transport. This callback will only be invoked if the transport is
    * SPDY or HTTP/2. It may be invoked multiple times, as HTTP/2 allows this.
@@ -396,6 +402,10 @@ class HTTPTransaction :
       HTTPCodec::StreamID assocStreamId,
       HTTPTransaction::PushHandler* handler) noexcept = 0;
 
+    virtual HTTPTransaction* newExTransaction(
+      HTTPCodec::StreamID controlStream,
+      HTTPTransaction::Handler* handler) noexcept = 0;
+
     virtual std::string getSecurityProtocol() const = 0;
 
     virtual void addWaitingForReplaySafety(
@@ -438,7 +448,9 @@ class HTTPTransaction :
                   uint32_t receiveInitialWindowSize = 0,
                   uint32_t sendInitialWindowSize = 0,
                   http2::PriorityUpdate = http2::DefaultPriority,
-                  HTTPCodec::StreamID assocStreamId = 0);
+                  HTTPCodec::StreamID assocStreamId = 0,
+                  folly::Optional<HTTPCodec::StreamID> controlStream =
+                  HTTPCodec::NoControlStream);
 
   ~HTTPTransaction() override;
 
@@ -959,12 +971,34 @@ class HTTPTransaction :
   }
 
   /**
+   * Create a new extended transaction associated with this transaction,
+   * and assign the given handler and priority.
+   *
+   * @return the new transaction for pubsub, or nullptr if a new push
+   * transaction is impossible right now.
+   */
+  virtual HTTPTransaction* newExTransaction(HTTPTransactionHandler* handler) {
+    auto txn = transport_.newExTransaction(id_, handler);
+    if (txn) {
+      exTransactions_.insert(txn->getID());
+    }
+    return txn;
+  }
+
+  /**
    * Invoked by the session (upstream only) when a new pushed transaction
    * arrives.  The txn's handler will be notified and is responsible for
    * installing a handler.  If no handler is installed in the callback,
    * the pushed transaction will be aborted.
    */
   bool onPushedTransaction(HTTPTransaction* txn);
+
+  /**
+   * Invoked by the session when a new ExTransaction arrives.  The txn's handler
+   * will be notified and is responsible for installing a handler.  If no
+   * handler is installed in the callback, the transaction will be aborted.
+   */
+  bool onExTransaction(HTTPTransaction* txn);
 
   /**
    * True if this transaction is a server push transaction
@@ -1003,10 +1037,25 @@ class HTTPTransaction :
   }
 
   /**
+   * Returns the control channel transaction ID for this transaction,
+   * folly::none otherwise
+   */
+  folly::Optional<HTTPCodec::StreamID> getControlStream() const {
+    return controlStream_;
+  }
+
+  /**
    * Get a set of server-pushed transactions associated with this transaction.
    */
   const std::set<HTTPCodec::StreamID>& getPushedTransactions() const {
     return pushedTransactions_;
+  }
+
+  /**
+   * Get a set of exTransactions associated with this transaction.
+   */
+  const std::set<HTTPCodec::StreamID>& getExTransactions() const {
+    return exTransactions_;
   }
 
   /**
@@ -1015,6 +1064,13 @@ class HTTPTransaction :
    */
   void removePushedTransaction(HTTPCodec::StreamID pushStreamId) {
     pushedTransactions_.erase(pushStreamId);
+  }
+
+  /**
+   * Remove the exTxn ID from the control stream txn.
+   */
+  void removeExTransaction(HTTPCodec::StreamID exStreamId) {
+    exTransactions_.erase(exStreamId);
   }
 
   /**
@@ -1325,9 +1381,19 @@ class HTTPTransaction :
   HTTPCodec::StreamID assocStreamId_{0};
 
   /**
+   * ID of control channel (for http2 Ex_HEADERS only)
+   */
+  folly::Optional<HTTPCodec::StreamID> controlStream_;
+
+  /**
    * Set of all push transactions IDs associated with this transaction.
    */
   std::set<HTTPCodec::StreamID> pushedTransactions_;
+
+  /**
+   * Set of all exTransaction IDs associated with this transaction.
+   */
+  std::set<HTTPCodec::StreamID> exTransactions_;
 
   /**
    * Priority of this transaction

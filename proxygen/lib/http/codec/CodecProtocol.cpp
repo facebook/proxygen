@@ -120,6 +120,8 @@ checkForProtocolUpgrade(const std::string& clientUpgrade,
   return folly::none;
 }
 
+const folly::Optional<HTTPCodec::StreamID> HTTPCodec::NoControlStream =
+    folly::none;
 const folly::Optional<uint8_t> HTTPCodec::NoPadding = folly::none;
 
 }

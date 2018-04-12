@@ -72,6 +72,10 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   void onPushedTransaction(HTTPTransaction* txn) noexcept final {
     nextTransactionHandler_->onPushedTransaction(txn);
   }
+  void onExTransaction(HTTPTransaction* txn) noexcept final {
+    nextTransactionHandler_->onExTransaction(txn);
+  }
+
   virtual const std::string& getFilterName() noexcept {
     return kMessageFilterDefaultName_;
   }

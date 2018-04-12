@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <folly/Conv.h>
+#include <folly/CppAttributes.h>
 #include <wangle/acceptor/ConnectionManager.h>
 #include <wangle/acceptor/SocketOptions.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
@@ -556,7 +557,8 @@ HTTPSession::newPushedTransaction(
   }
 
   HTTPTransaction* txn = createTransaction(codec_->createStream(),
-                                           assocStreamId);
+                                           assocStreamId,
+                                           HTTPCodec::NoControlStream);
   if (!txn) {
     return nullptr;
   }
@@ -565,6 +567,36 @@ HTTPSession::newPushedTransaction(
   auto txnID = txn->getID();
   txn->setHandler(handler);
   setNewTransactionPauseState(txnID);
+  return txn;
+}
+
+HTTPTransaction* FOLLY_NULLABLE
+HTTPSession::newExTransaction(
+    HTTPCodec::StreamID controlStream,
+    HTTPTransaction::Handler* handler) noexcept {
+  CHECK(handler && controlStream > 0);
+  auto eSettings = codec_->getEgressSettings();
+  if (!eSettings || !eSettings->getSetting(SettingsId::ENABLE_EX_HEADERS, 0)) {
+    LOG(ERROR) << getCodecProtocolString(codec_->getProtocol())
+               << " does not support ExTransaction";
+    return nullptr;
+  }
+  if (draining_ || (outgoingStreams_ >= maxConcurrentOutgoingStreamsRemote_)) {
+    LOG(ERROR) << "cannot support any more transactions in " << *this;
+    return nullptr;
+  }
+
+  DCHECK(started_);
+  HTTPTransaction* txn = createTransaction(codec_->createStream(),
+                                           0,
+                                           controlStream);
+  if (!txn) {
+    return nullptr;
+  }
+
+  DestructorGuard dg(this);
+  txn->setHandler(handler);
+  setNewTransactionPauseState(txn->getID());
   return txn;
 }
 
@@ -634,7 +666,8 @@ HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg) {
   }
 
   http2::PriorityUpdate messagePriority = getMessagePriority(msg);
-  txn = createTransaction(streamID, 0, messagePriority);
+  txn = createTransaction(streamID, HTTPCodec::NoStream,
+                          HTTPCodec::NoControlStream, messagePriority);
   if (!txn) {
     return;  // This could happen if the socket is bad.
   }
@@ -689,7 +722,8 @@ HTTPSession::onPushMessageBegin(HTTPCodec::StreamID streamID,
   }
 
   http2::PriorityUpdate messagePriority = getMessagePriority(msg);
-  auto txn = createTransaction(streamID, assocStreamID, messagePriority);
+  auto txn = createTransaction(streamID, assocStreamID,
+                               HTTPCodec::NoControlStream, messagePriority);
   if (!txn) {
     return;  // This could happen if the socket is bad.
   }
@@ -701,6 +735,47 @@ HTTPSession::onPushMessageBegin(HTTPCodec::StreamID streamID,
       folly::to<std::string>("Failed to add pushed transaction ", streamID));
     ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
     onError(streamID, ex, true);
+  }
+}
+
+void
+HTTPSession::onExMessageBegin(HTTPCodec::StreamID streamID,
+                              HTTPCodec::StreamID controlStream,
+                              HTTPMessage* msg) {
+  VLOG(4) << "processing new ExMessage=" << streamID
+          << " on controlStream=" << controlStream << ", " << *this;
+  if (infoCallback_) {
+    infoCallback_->onRequestBegin(*this);
+  }
+  if (controlStream == 0) {
+    LOG(ERROR) << "ExMessage=" << streamID << " should has an active control "
+               << "stream=" << controlStream << ", " << *this;
+    invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
+    return;
+  }
+
+  HTTPTransaction* controlTxn = findTransaction(controlStream);
+  if (!controlTxn) {
+    // control stream is broken, or remote sends a bogus stream id
+    LOG(ERROR) << "no control stream=" << controlStream << ", " << *this;
+    return;
+  }
+
+  http2::PriorityUpdate messagePriority = getMessagePriority(msg);
+  auto txn = createTransaction(streamID, HTTPCodec::NoStream, controlStream,
+                               messagePriority);
+  if (!txn) {
+    return;  // This could happen if the socket is bad.
+  }
+
+  if (!controlTxn->onExTransaction(txn)) {
+    VLOG(1) << "Failed to add exTxn=" << streamID
+            << " to controlTxn=" << controlStream << ", " << *this;
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+      folly::to<std::string>("Failed to add exTransaction ", streamID));
+    ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
+    onError(streamID, ex, true);
+    return;
   }
 }
 
@@ -912,7 +987,8 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
     if (error.hasHttpStatusCode() && streamID != 0) {
       // If the error has an HTTP code, then parsing was fine, it just was
       // illegal in a higher level way
-      txn = createTransaction(streamID, 0);
+      txn = createTransaction(streamID, HTTPCodec::NoStream,
+                              HTTPCodec::NoControlStream);
       if (infoCallback_) {
         infoCallback_->onRequestBegin(*this);
       }
@@ -967,6 +1043,13 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
       ++it;
       DCHECK(pushTxn != nullptr);
       pushTxn->onError(ex);
+    }
+  }
+  for (auto it = txn->getExTransactions().begin();
+       it != txn->getExTransactions().end(); ++it) {
+    auto exTxn = findTransaction(*it);
+    if (exTxn) {
+      exTxn->onError(ex);
     }
   }
   txn->onError(ex);
@@ -1287,13 +1370,23 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
 
   const bool wasReusable = codec_->isReusable();
   const uint64_t oldOffset = sessionByteOffset();
-  // Only PUSH_PROMISE (not push response) has an associated stream
-  codec_->generateHeader(writeBuf_,
-                         txn->getID(),
-                         headers,
-                         headers.isRequest() ? txn->getAssocTxnId() : 0,
-                         includeEOM,
-                         size);
+  auto controlStream = txn->getControlStream();
+  if (!controlStream) {
+    // Only PUSH_PROMISE (not push response) has an associated stream
+    codec_->generateHeader(writeBuf_,
+                           txn->getID(),
+                           headers,
+                           headers.isRequest() ? txn->getAssocTxnId() : 0,
+                           includeEOM,
+                           size);
+  } else {
+    codec_->generateExHeader(writeBuf_,
+                             txn->getID(),
+                             headers,
+                             *controlStream,
+                             includeEOM,
+                             size);
+  }
   const uint64_t newOffset = sessionByteOffset();
 
   // for push response count towards the MAX_CONCURRENT_STREAMS limit
@@ -1564,6 +1657,13 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
       assocTxn->removePushedTransaction(streamID);
     }
   }
+  if (txn->getControlStream()) {
+    auto controlTxn = findTransaction(*txn->getControlStream());
+    if (controlTxn) {
+      controlTxn->removeExTransaction(streamID);
+    }
+  }
+
   auto oldStreamCount = getPipelineStreamCount();
   decrementTransactionCount(txn, true, true);
   transactions_.erase(it);
@@ -2186,9 +2286,11 @@ HTTPSession::findTransaction(HTTPCodec::StreamID streamID) {
 }
 
 HTTPTransaction*
-HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
-                               HTTPCodec::StreamID assocStreamID,
-                               http2::PriorityUpdate priority) {
+HTTPSession::createTransaction(
+    HTTPCodec::StreamID streamID,
+    HTTPCodec::StreamID assocStreamID,
+    folly::Optional<HTTPCodec::StreamID> controlStream,
+    http2::PriorityUpdate priority) {
   if (!sock_->good() || transactions_.count(streamID)) {
     // Refuse to add a transaction on a closing session or if a
     // transaction of that ID already exists.
@@ -2214,7 +2316,10 @@ HTTPSession::createTransaction(HTTPCodec::StreamID streamID,
       codec_->supportsStreamFlowControl(),
       initialReceiveWindow_,
       getCodecSendWindowSize(),
-      priority, assocStreamID));
+      priority,
+      assocStreamID,
+      controlStream
+    ));
 
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
     "existence check.";

@@ -13,6 +13,8 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 
+#include <folly/CppAttributes.h>
+
 namespace proxygen {
 
 HTTPDownstreamSession::~HTTPDownstreamSession() {
@@ -30,7 +32,16 @@ HTTPDownstreamSession::startNow() {
 void
 HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
                                               HTTPMessage* msg) {
-  CHECK(!txn->getHandler());
+  VLOG(5) << "setupOnHeadersComplete txn=" << txn << ", id=" << txn->getID()
+          << ", handlder=" << txn->getHandler() << ", msg=" << msg;
+  if (txn->getHandler()) {
+    // handler is installed before setupOnHeadersComplete callback. It must be
+    // an EX_HEADERS from client side, and ENABLE_EX_HEADERS == 1
+    const auto* settings = codec_->getIngressSettings();
+    CHECK(settings && settings->getSetting(SettingsId::ENABLE_EX_HEADERS, 0));
+    CHECK(txn->getControlStream());
+    return;
+  }
 
   // We need to find a Handler to process the transaction.
   // Note: The handler is responsible for freeing itself

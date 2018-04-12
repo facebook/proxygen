@@ -40,6 +40,9 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   void onPushMessageBegin(StreamID stream, StreamID assocStream,
                           HTTPMessage* msg) override;
 
+  void onExMessageBegin(StreamID stream, StreamID controlStream,
+                        HTTPMessage* msg) override;
+
   void onHeadersComplete(StreamID stream,
                          std::unique_ptr<HTTPMessage> msg) override;
 

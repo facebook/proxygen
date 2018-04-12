@@ -223,6 +223,7 @@ class HTTPUpstreamTest: public testing::Test,
     httpSession_->setFlowControl(flowControl_[0], flowControl_[1],
                                  flowControl_[2]);
     httpSession_->setMaxConcurrentOutgoingStreams(10);
+    httpSession_->setEgressSettings({{SettingsId::ENABLE_EX_HEADERS, 1}});
     httpSession_->startNow();
     eventBase_.loop();
     ASSERT_EQ(this->sessionDestroyed_, false);
@@ -230,6 +231,26 @@ class HTTPUpstreamTest: public testing::Test,
 
   unique_ptr<typename C::Codec> makeServerCodec() {
     return ::makeServerCodec<typename C::Codec>(C::version);
+  }
+
+  void enableExHeader(typename C::Codec* serverCodec){
+    if (!serverCodec || serverCodec->getProtocol() != CodecProtocol::HTTP_2) {
+      return;
+    }
+
+    auto clientCodec = makeClientCodec<HTTP2Codec>(2);
+    folly::IOBufQueue c2s{IOBufQueue::cacheChainLength()};
+    clientCodec->getEgressSettings()->setSetting(
+      SettingsId::ENABLE_EX_HEADERS, 1);
+    clientCodec->generateConnectionPreface(c2s);
+    clientCodec->generateSettings(c2s);
+
+    // set ENABLE_EX_HEADERS to 1 in egressSettings
+    serverCodec->getEgressSettings()->setSetting(
+      SettingsId::ENABLE_EX_HEADERS, 1);
+    // set ENABLE_EX_HEADERS to 1 in ingressSettings
+    auto setup = c2s.move();
+    serverCodec->onIngress(*setup);
   }
 
   void parseOutput(HTTPCodec& serverCodec) {
@@ -719,6 +740,97 @@ TEST_F(HTTP2UpstreamSessionTest, test_setcontroller_initheaderindexingstrat) {
   eventBase_.loop();
 
   EXPECT_CALL(mockController, detachSession(_));
+  httpSession_->destroy();
+}
+
+/*
+ * The sequence of streams are generated in the following order:
+ * - [client --> server] setup the control stream (getGetRequest())
+ * - [server --> client] respond to 1st stream (OK, without EOM)
+ * - [server --> client] request 2nd stream (pub, EOM)
+ * - [client --> server] abort the 2nd stream
+ * - [server --> client] respond to 1st stream (EOM)
+ */
+
+TEST_F(HTTP2UpstreamSessionTest, exheader_from_server) {
+  folly::IOBufQueue queue{IOBufQueue::cacheChainLength()};
+
+  // generate enable_ex_headers setting
+  auto serverCodec = makeServerCodec();
+  enableExHeader(serverCodec.get());
+  serverCodec->generateSettings(queue);
+  // generate the response for control stream, but EOM
+  auto cStreamId = HTTPCodec::StreamID(1);
+  serverCodec->generateHeader(queue, cStreamId, getResponse(200, 0),
+                              HTTPCodec::NoStream, false, nullptr);
+  // generate a request from server, encapsulated in EX_HEADERS frame
+  serverCodec->generateExHeader(queue, 2, getGetRequest("/messaging"),
+                                cStreamId, true, nullptr);
+  serverCodec->generateEOM(queue, 1);
+
+  auto cHandler = openTransaction();
+  cHandler->sendRequest(getGetRequest("/cc"));
+
+  NiceMock<MockHTTPHandler> pubHandler;
+  InSequence handlerSequence;
+  cHandler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+
+  EXPECT_CALL(*cHandler, onExTransaction(_))
+    .WillOnce(Invoke([&pubHandler] (HTTPTransaction* pubTxn) {
+          pubTxn->setHandler(&pubHandler);
+          pubHandler.txn_ = pubTxn;
+        }));
+  pubHandler.expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(msg->getPath(), "/messaging");
+    });
+  pubHandler.expectEOM([&] () {
+      pubHandler.txn_->sendAbort();
+    });
+  pubHandler.expectDetachTransaction();
+
+  cHandler->expectEOM();
+  cHandler->expectDetachTransaction();
+
+  auto buf = queue.move();
+  buf->coalesce();
+  readAndLoop(buf.get());
+
+  httpSession_->destroy();
+}
+
+TEST_F(HTTP2UpstreamSessionTest, invalid_control_stream) {
+  folly::IOBufQueue queue{IOBufQueue::cacheChainLength()};
+
+  // generate enable_ex_headers setting
+  auto serverCodec = makeServerCodec();
+  enableExHeader(serverCodec.get());
+  serverCodec->generateSettings(queue);
+  // generate the response for control stream, but EOM
+  auto cStreamId = HTTPCodec::StreamID(1);
+  serverCodec->generateHeader(queue, cStreamId, getResponse(200, 0),
+                              HTTPCodec::NoStream, false, nullptr);
+  // generate a EX_HEADERS frame with non-existing control stream
+  serverCodec->generateExHeader(queue, 2, getGetRequest("/messaging"),
+                                cStreamId + 2, true, nullptr);
+  serverCodec->generateEOM(queue, 1);
+
+  auto cHandler = openTransaction();
+  cHandler->sendRequest(getGetRequest("/cc"));
+
+  InSequence handlerSequence;
+  cHandler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  EXPECT_CALL(*cHandler, onExTransaction(_)).Times(0);
+  cHandler->expectEOM();
+  cHandler->expectDetachTransaction();
+
+  auto buf = queue.move();
+  buf->coalesce();
+  readAndLoop(buf.get());
+
   httpSession_->destroy();
 }
 

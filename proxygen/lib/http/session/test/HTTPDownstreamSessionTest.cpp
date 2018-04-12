@@ -93,9 +93,14 @@ class HTTPDownstreamTest : public testing::Test {
                                  flowControl[2]);
     httpSession_->setEgressSettings({{ SettingsId::MAX_CONCURRENT_STREAMS, 80 },
                                      { SettingsId::HEADER_TABLE_SIZE, 5555 },
-                                     { SettingsId::ENABLE_PUSH, 1 }});
+                                     { SettingsId::ENABLE_PUSH, 1 },
+                                     { SettingsId::ENABLE_EX_HEADERS, 1 }});
     httpSession_->startNow();
     clientCodec_ = makeClientCodec<typename C::Codec>(C::version);
+    if (clientCodec_->getProtocol() == CodecProtocol::HTTP_2) {
+      clientCodec_->getEgressSettings()->setSetting(
+        SettingsId::ENABLE_EX_HEADERS, 1);
+    }
     clientCodec_->generateConnectionPreface(requests_);
     clientCodec_->setCallback(&callbacks_);
   }
@@ -439,6 +444,16 @@ class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
 
   void SetUp() override {
     HTTPDownstreamTest<HTTP2CodecPair>::SetUp();
+  }
+
+  void SetupControlStream(HTTPCodec::StreamID cStreamId) {
+    // enable EX_HEADERS
+    clientCodec_->getEgressSettings()->setSetting(
+      SettingsId::ENABLE_EX_HEADERS, 1);
+    clientCodec_->generateSettings(requests_);
+    // create a control stream
+    clientCodec_->generateHeader(requests_, cStreamId, getGetRequest("/cc"),
+                                 HTTPCodec::NoStream, true, nullptr);
   }
 
   void TearDown() override {
@@ -954,6 +969,151 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
   handler1->expectDetachTransaction();
   dg.reset();
   gracefulShutdown();
+}
+
+/*
+ * The sequence of streams are generated in the following order:
+ * - [client --> server] regular request 1st stream (getGetRequest())
+ * - [server --> client] respond 1st stream (res, 100 bytes, without EOM)
+ * - [server --> client] request 2nd stream (pub, 200 bytes, EOM)
+ * - [client --> server] respond 2nd stream (OK, EOM)
+ * - [client --> server] EOM on the 1st stream
+ */
+TEST_F(HTTP2DownstreamSessionTest, exheader_from_server) {
+  auto cStreamId = HTTPCodec::StreamID(1);
+  SetupControlStream(cStreamId);
+
+  // Create a dummy request and a dummy response messages
+  auto pub = getGetRequest("/sub/fyi");
+  // set up the priority for fun
+  pub.setHTTP2Priority(std::make_tuple(0, false, 7));
+
+  InSequence handlerSequence;
+  auto cHandler = addSimpleStrictHandler();
+  StrictMock<MockHTTPHandler> pubHandler;
+
+  cHandler->expectHeaders([&] {
+      cHandler->txn_->pauseIngress();
+      // Generate response for the control stream
+      cHandler->txn_->sendHeaders(getResponse(200, 0));
+      cHandler->txn_->sendBody(makeBuf(100));
+
+      auto* pubTxn = cHandler->txn_->newExTransaction(&pubHandler);
+      // Generate a pub request (encapsulated in EX_HEADERS frame)
+      pubTxn->sendHeaders(pub);
+      pubTxn->sendBody(makeBuf(200));
+      pubTxn->sendEOM();
+    });
+
+  EXPECT_CALL(pubHandler, setTransaction(_));
+  EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId, _));
+  EXPECT_CALL(callbacks_, onExMessageBegin(2, _, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(2, _));
+
+  EXPECT_CALL(pubHandler, onHeadersComplete(_));
+  EXPECT_CALL(pubHandler, onEOM());
+  EXPECT_CALL(pubHandler, detachTransaction());
+
+  EXPECT_CALL(*cHandler, onEOM());
+
+  transport_->addReadEvent(requests_, milliseconds(0));
+  transport_->startReadEvents();
+
+  eventBase_.runAfterDelay([&] {
+      parseOutput(*clientCodec_);
+      // send a response from client to server
+      clientCodec_->generateExHeader(requests_, 2, getResponse(200, 0),
+                                     cStreamId, true,  nullptr);
+      transport_->addReadEvent(requests_, milliseconds(0));
+      transport_->startReadEvents();
+      parseOutput(*clientCodec_);
+      cHandler->txn_->resumeIngress();
+    }, 100);
+
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+}
+
+/*
+ * The sequence of streams are generated in the following order:
+ * - [client --> server] regular request on control stream 1
+ * - [client --> server] Pub request on stream 3
+ * - [server --> client] response on stream 1 (OK, )
+ * - [server --> client] response on stream 3 (OK, EOM)
+ * - [server --> client] response on stream 1 (EOM)
+ */
+TEST_F(HTTP2DownstreamSessionTest, exheader_from_client) {
+  auto cStreamId = HTTPCodec::StreamID(1);
+  SetupControlStream(cStreamId);
+
+  // generate an EX_HEADERS
+  auto exStreamId = cStreamId + 2;
+  clientCodec_->generateExHeader(requests_, exStreamId, getGetRequest("/pub"),
+                                 cStreamId, true, nullptr);
+
+  auto cHandler = addSimpleStrictHandler();
+  cHandler->expectHeaders([&] {
+      // send back the response for control stream, but EOM
+      cHandler->txn_->sendHeaders(getResponse(200, 0));
+    });
+  EXPECT_CALL(*cHandler, onEOM());
+
+  StrictMock<MockHTTPHandler> pubHandler;
+  EXPECT_CALL(*cHandler, onExTransaction(_))
+    .WillOnce(Invoke([&pubHandler] (HTTPTransaction* exTxn) {
+          exTxn->setHandler(&pubHandler);
+          pubHandler.txn_ = exTxn;
+        }));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(pubHandler, setTransaction(_));
+  pubHandler.expectHeaders([&] {
+      // send back the response for the pub request
+      pubHandler.txn_->sendHeadersWithEOM(getResponse(200, 0));
+    });
+  EXPECT_CALL(pubHandler, onEOM());
+  EXPECT_CALL(pubHandler, detachTransaction());
+
+  EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId, _));
+  EXPECT_CALL(callbacks_, onExMessageBegin(exStreamId, _, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(exStreamId, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(exStreamId, _));
+
+  transport_->addReadEvent(requests_, milliseconds(0));
+  transport_->startReadEvents();
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+  parseOutput(*clientCodec_);
+}
+
+TEST_F(HTTP2DownstreamSessionTest, invalid_control_stream) {
+  auto cStreamId = HTTPCodec::StreamID(1);
+  SetupControlStream(cStreamId);
+
+  // generate an EX_HEADERS, but with a non-existing control stream
+  clientCodec_->generateExHeader(requests_, cStreamId + 2, getGetRequest(),
+                                 cStreamId + 4, true, nullptr);
+
+  auto cHandler = addSimpleStrictHandler();
+  InSequence handlerSequence;
+  cHandler->expectHeaders([&] {
+      // send back the response for control stream, but EOM
+      cHandler->txn_->sendHeaders(getResponse(200, 0));
+    });
+  EXPECT_CALL(*cHandler, onExTransaction(_)).Times(0);
+  EXPECT_CALL(*cHandler, onEOM());
+
+  EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId, _));
+
+  transport_->addReadEvent(requests_, milliseconds(0));
+  transport_->startReadEvents();
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+  parseOutput(*clientCodec_);
 }
 
 TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {

@@ -39,7 +39,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t receiveInitialWindowSize,
                                  uint32_t sendInitialWindowSize,
                                  http2::PriorityUpdate priority,
-                                 HTTPCodec::StreamID assocId):
+                                 HTTPCodec::StreamID assocId,
+                                 folly::Optional<HTTPCodec::StreamID> control):
     deferredEgressBody_(folly::IOBufQueue::cacheChainLength()),
     direction_(direction),
     id_(id),
@@ -51,6 +52,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     sendWindow_(sendInitialWindowSize),
     egressQueue_(egressQueue),
     assocStreamId_(assocId),
+    controlStream_(control),
     priority_(priority),
     ingressPaused_(false),
     egressPaused_(false),
@@ -715,7 +717,7 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
   CHECK(HTTPTransactionEgressSM::transit(
           egressState_, HTTPTransactionEgressSM::Event::sendHeaders));
   DCHECK(!isEgressComplete());
-  if (isDownstream() && !isPushed()) {
+  if (!headers.isRequest() && !isPushed()) {
     lastResponseStatus_ = headers.getStatusCode();
   }
   if (headers.isRequest()) {
@@ -1252,6 +1254,22 @@ bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
     return false;
   }
   pushedTransactions_.insert(pushTxn->getID());
+  return true;
+}
+
+bool HTTPTransaction::onExTransaction(HTTPTransaction* exTxn) {
+  DestructorGuard g(this);
+  CHECK_EQ(*(exTxn->controlStream_), id_);
+  if (!handler_) {
+    LOG(ERROR) << "Cannot add a exTxn to an unhandled txn";
+    return false;
+  }
+  handler_->onExTransaction(exTxn);
+  if (!exTxn->getHandler()) {
+    LOG(ERROR) << "Failed to create a handler for ExTransaction";
+    return false;
+  }
+  exTransactions_.insert(exTxn->getID());
   return true;
 }
 
