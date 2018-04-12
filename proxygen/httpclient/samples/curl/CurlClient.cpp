@@ -185,6 +185,7 @@ void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
     const IOBuf* p = chain.get();
     do {
       cout.write((const char*)p->data(), p->length());
+      cout.flush();
       p = p->next();
     } while (p != chain.get());
   }
