@@ -172,7 +172,15 @@ HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
 
 void fakeMockCodec(MockHTTPCodec& codec) {
   // For each generate* function, write some data to the chain
-  EXPECT_CALL(codec, generateHeader(_, _, _, _, _, _))
+  EXPECT_CALL(codec, generateHeader(_, _, _, _, _))
+      .WillRepeatedly(Invoke(
+          [](folly::IOBufQueue& writeBuf,
+             HTTPCodec::StreamID /*stream*/,
+             const HTTPMessage& /*msg*/,
+             bool /*eom*/,
+             HTTPHeaderSize* /*size*/) { writeBuf.append(makeBuf(10)); }));
+
+  EXPECT_CALL(codec, generatePushPromise(_, _, _, _, _, _))
       .WillRepeatedly(Invoke(
           [](folly::IOBufQueue& writeBuf,
              HTTPCodec::StreamID /*stream*/,

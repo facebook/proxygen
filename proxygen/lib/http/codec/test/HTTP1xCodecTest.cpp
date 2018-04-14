@@ -114,7 +114,7 @@ TEST(HTTP1xCodecTest, Test09Resp) {
   req.setURL("/");
   codec.setCallback(&callbacks);
   folly::IOBufQueue buf;
-  codec.generateHeader(buf, id, req, 0, true);
+  codec.generateHeader(buf, id, req, true);
   auto buffer = folly::IOBuf::copyBuffer(
     string("iamtheverymodelofamodernmajorgeneral"));
   codec.onIngress(*buffer);
@@ -161,7 +161,7 @@ TEST(HTTP1xCodecTest, TestHeadRequestChunkedResponse) {
   resp.setIsChunked(true);
   resp.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
   folly::IOBufQueue respBuf(folly::IOBufQueue::cacheChainLength());
-  codec.generateHeader(respBuf, txnID, resp, 0, true);
+  codec.generateHeader(respBuf, txnID, resp, true);
   auto respStr = respBuf.move()->moveToFbString();
   EXPECT_TRUE(respStr.find("0\r\n") == string::npos);
 }
@@ -185,7 +185,7 @@ TEST(HTTP1xCodecTest, TestGetRequestChunkedResponse) {
   resp.setIsChunked(true);
   resp.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
   folly::IOBufQueue respBuf(folly::IOBufQueue::cacheChainLength());
-  codec.generateHeader(respBuf, txnID, resp, 0, false);
+  codec.generateHeader(respBuf, txnID, resp, false);
 
   auto headerFromBuf = respBuf.split(respBuf.chainLength());
 
@@ -252,7 +252,7 @@ TEST(HTTP1xCodecTest, TestChunkedUpstream) {
   HTTPHeaderSize size;
 
   folly::IOBufQueue buf(folly::IOBufQueue::cacheChainLength());
-  codec.generateHeader(buf, txnID, msg, 0, false, &size);
+  codec.generateHeader(buf, txnID, msg, false, &size);
   auto headerFromBuf = buf.split(buf.chainLength());
 
   string req1("Hello");

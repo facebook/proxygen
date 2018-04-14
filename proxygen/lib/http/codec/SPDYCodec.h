@@ -52,9 +52,14 @@ public:
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       const HTTPMessage& msg,
-                      StreamID assocStream = 0,
                       bool eom = false,
                       HTTPHeaderSize* size = nullptr) override;
+  void generatePushPromise(folly::IOBufQueue& writeBuf,
+                           StreamID stream,
+                           const HTTPMessage& msg,
+                           StreamID assocstream,
+                           bool eom = false,
+                           HTTPHeaderSize* size = nullptr) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,

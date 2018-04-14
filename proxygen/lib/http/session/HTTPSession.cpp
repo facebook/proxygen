@@ -1371,21 +1371,28 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
   const bool wasReusable = codec_->isReusable();
   const uint64_t oldOffset = sessionByteOffset();
   auto controlStream = txn->getControlStream();
-  if (!controlStream) {
-    // Only PUSH_PROMISE (not push response) has an associated stream
-    codec_->generateHeader(writeBuf_,
-                           txn->getID(),
-                           headers,
-                           headers.isRequest() ? txn->getAssocTxnId() : 0,
-                           includeEOM,
-                           size);
-  } else {
+  auto assocStream = txn->getAssocTxnId();
+  if (controlStream) {
     codec_->generateExHeader(writeBuf_,
                              txn->getID(),
                              headers,
                              *controlStream,
                              includeEOM,
                              size);
+  } else if (headers.isRequest() && assocStream > 0) {
+    // Only PUSH_PROMISE (not push response) has an associated stream
+    codec_->generatePushPromise(writeBuf_,
+                                txn->getID(),
+                                headers,
+                                assocStream,
+                                includeEOM,
+                                size);
+  } else {
+    codec_->generateHeader(writeBuf_,
+                           txn->getID(),
+                           headers,
+                           includeEOM,
+                           size);
   }
   const uint64_t newOffset = sessionByteOffset();
 

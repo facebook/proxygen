@@ -391,7 +391,7 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   HTTPMessage push;
   push.getHeaders().set("HOST", "www.foo.com");
   push.setURL("https://www.foo.com/");
-  egressCodec.generateHeader(output, 2, push, 1, false, nullptr);
+  egressCodec.generatePushPromise(output, 2, push, 1, false, nullptr);
   auto buf = makeBuf(100);
   egressCodec.generateBody(output, 2, std::move(buf), HTTPCodec::NoPadding,
                            true /* eom */);
@@ -399,7 +399,7 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   HTTPMessage resp;
   resp.setStatusCode(200);
   resp.setStatusMessage("Ohai");
-  egressCodec.generateHeader(output, 1, resp, 0, false, nullptr);
+  egressCodec.generateHeader(output, 1, resp, false, nullptr);
   buf = makeBuf(100);
   egressCodec.generateBody(output, 1, std::move(buf), HTTPCodec::NoPadding,
                            true /* eom */);
@@ -762,7 +762,7 @@ TEST_F(HTTP2UpstreamSessionTest, exheader_from_server) {
   // generate the response for control stream, but EOM
   auto cStreamId = HTTPCodec::StreamID(1);
   serverCodec->generateHeader(queue, cStreamId, getResponse(200, 0),
-                              HTTPCodec::NoStream, false, nullptr);
+                              false, nullptr);
   // generate a request from server, encapsulated in EX_HEADERS frame
   serverCodec->generateExHeader(queue, 2, getGetRequest("/messaging"),
                                 cStreamId, true, nullptr);
@@ -810,7 +810,7 @@ TEST_F(HTTP2UpstreamSessionTest, invalid_control_stream) {
   // generate the response for control stream, but EOM
   auto cStreamId = HTTPCodec::StreamID(1);
   serverCodec->generateHeader(queue, cStreamId, getResponse(200, 0),
-                              HTTPCodec::NoStream, false, nullptr);
+                              false, nullptr);
   // generate a EX_HEADERS frame with non-existing control stream
   serverCodec->generateExHeader(queue, 2, getGetRequest("/messaging"),
                                 cStreamId + 2, true, nullptr);
@@ -1670,20 +1670,20 @@ TEST_F(HTTP2UpstreamSessionTest, server_push) {
   push.setURL("https://www.foo.com/");
   egressCodec->generateSettings(output);
   // PUSH_PROMISE
-  egressCodec->generateHeader(output, 2, push, 1);
+  egressCodec->generatePushPromise(output, 2, push, 1);
 
   // Pushed resource
   HTTPMessage resp;
   resp.setStatusCode(200);
   resp.getHeaders().set("ohai", "push");
-  egressCodec->generateHeader(output, 2, resp, 0);
+  egressCodec->generateHeader(output, 2, resp);
   auto buf = makeBuf(100);
   egressCodec->generateBody(output, 2, std::move(buf), HTTPCodec::NoPadding,
                             true /* eom */);
 
   // Original resource
   resp.getHeaders().set("ohai", "orig");
-  egressCodec->generateHeader(output, 1, resp, 0);
+  egressCodec->generateHeader(output, 1, resp);
   buf = makeBuf(100);
   egressCodec->generateBody(output, 1, std::move(buf), HTTPCodec::NoPadding,
                            true /* eom */);
@@ -1756,10 +1756,9 @@ TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
   // Expect that the codec should be asked to generate an abort on streamID==1
 
   // Setup the codec expectations.
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _))
     .WillOnce(Invoke([] (folly::IOBufQueue& writeBuf, HTTPCodec::StreamID,
-                         const HTTPMessage&, HTTPCodec::StreamID, bool,
-                         HTTPHeaderSize*) {
+                         const HTTPMessage&, bool, HTTPHeaderSize*) {
                        writeBuf.append("1", 1);
                      }));
   EXPECT_CALL(*codecPtr_, generateEOM(_, _))
@@ -1895,12 +1894,11 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
   InSequence enforceOrder;
 
   handler.expectTransaction();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _))
       .WillOnce(Invoke(
           [&](IOBufQueue& writeBuf,
               HTTPCodec::StreamID /*stream*/,
               const HTTPMessage& /*msg*/,
-              HTTPCodec::StreamID /*assocStream*/,
               bool /*eom*/,
               HTTPHeaderSize* /*size*/) { writeBuf.append("HEADERS", 7); }));
   handler.expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
@@ -2008,7 +2006,7 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
 
   InSequence enforceOrder;
 
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateBody(_, _, _, _, true));
 
   auto txn = httpSession_->newTransaction(&handler);
@@ -2023,7 +2021,7 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
 TEST_F(MockHTTPUpstreamTest, header_with_eom) {
   NiceMock<MockHTTPHandler> handler;
   HTTPMessage req = getGetRequest();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, true, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, true, _));
 
   auto txn = httpSession_->newTransaction(&handler);
   txn->sendHeadersWithEOM(req);
@@ -2055,7 +2053,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
     std::tie(resp, respBody) = makeResponse(200, 50);
 
     handler.expectTransaction();
-    EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
+    EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
 
     if (stage > 0) {
       handler.expectHeaders();
@@ -2143,7 +2141,7 @@ TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
   std::unique_ptr<HTTPMessage> resp = makeResponse(200);
 
   handler.expectTransaction();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
 
   auto txn = httpSession_->newTransaction(&handler);
   const auto streamID = txn->getID();
@@ -2173,7 +2171,7 @@ TEST_F(MockHTTPUpstreamTest, drain_before_send_headers) {
   MockHTTPHandler pushHandler;
 
   auto handler = openTransaction();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
 
   handler->expectHeaders();
   handler->expectEOM();
@@ -2432,7 +2430,7 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
   handler->txn_->setReceiveWindow(1000000); // One miiiillion
 
   InSequence enforceOrder;
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateWindowUpdate(_, _, _));
 
   HTTPMessage req = getGetRequest();
@@ -2536,7 +2534,7 @@ TEST_F(HTTP2UpstreamSessionTest, attach_detach) {
 
     HTTPMessage resp;
     resp.setStatusCode(200);
-    egressCodec->generateHeader(output, handler->txn_->getID(), resp, 0);
+    egressCodec->generateHeader(output, handler->txn_->getID(), resp);
     egressCodec->generateBody(output, handler->txn_->getID(), makeBuf(20),
                               HTTPCodec::NoPadding, true /* eom */);
 

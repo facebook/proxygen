@@ -140,9 +140,15 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       const HTTPMessage& msg,
-                      StreamID assocStream,
                       bool eom,
                       HTTPHeaderSize* size) override;
+
+  void generatePushPromise(folly::IOBufQueue& writeBuf,
+                           StreamID stream,
+                           const HTTPMessage& msg,
+                           StreamID assocStream,
+                           bool eom,
+                           HTTPHeaderSize* size) override;
 
   void generateExHeader(folly::IOBufQueue& writeBuf,
                         StreamID stream,

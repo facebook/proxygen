@@ -440,9 +440,15 @@ class HTTPCodec {
   virtual void generateHeader(folly::IOBufQueue& writeBuf,
                               StreamID stream,
                               const HTTPMessage& msg,
-                              StreamID assocStream = NoStream,
                               bool eom = false,
                               HTTPHeaderSize* size = nullptr) = 0;
+
+  virtual void generatePushPromise(folly::IOBufQueue& /* writeBuf */,
+                                   StreamID /* stream */,
+                                   const HTTPMessage& /* msg */,
+                                   StreamID /* assocStream */,
+                                   bool /* eom = false */,
+                                   HTTPHeaderSize* /* size = nullptr */) {}
 
   virtual void generateExHeader(folly::IOBufQueue& /* writeBuf */,
                                 StreamID /* stream */,

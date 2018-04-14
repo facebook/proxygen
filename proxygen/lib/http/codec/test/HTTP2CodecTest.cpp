@@ -186,7 +186,7 @@ TEST_F(HTTP2CodecTest, BasicHeader) {
   // Connection header will get dropped
   req.getHeaders().add(HTTP_HEADER_CONNECTION, "Love");
   req.setSecure(true);
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   parse();
   callbacks_.expectMessage(true, 3, "/guacamole");
@@ -395,7 +395,7 @@ TEST_F(HTTP2CodecTest, DuplicateHeaders) {
   HTTPMessage req = getGetRequest("/guacamole");
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
   req.setSecure(true);
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
   writeFrameHeaderManual(output_, 0, (uint8_t)http2::FrameType::HEADERS,
                          http2::END_STREAM, 1);
 
@@ -433,7 +433,7 @@ TEST_F(HTTP2CodecTest, BasicConnect) {
   HTTPMessage request;
   request.setMethod(HTTPMethod::CONNECT);
   request.getHeaders().add(proxygen::HTTP_HEADER_HOST, authority);
-  upstreamCodec_.generateHeader(output_, 1, request, 0, false /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, request, false /* eom */);
 
   parse();
   callbacks_.expectMessage(false, 1, "");
@@ -491,7 +491,7 @@ void HTTP2CodecTest::testHeaderListSize(bool oversized) {
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
   req.getHeaders().add("x-long-long-header",
                        "supercalafragalisticexpialadoshus");
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   parse();
   // session error
@@ -517,7 +517,7 @@ void HTTP2CodecTest::testFrameSizeLimit(bool oversized) {
 
   settings->setSetting(SettingsId::MAX_FRAME_SIZE,
                        http2::kMaxFramePayloadLengthMin);
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   parse();
   // session error
@@ -554,7 +554,7 @@ TEST_F(HTTP2CodecTest, BigHeaderCompressed) {
   SetUp();
   HTTPMessage req = getGetRequest("/guacamole");
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   parse();
   // session error
@@ -572,7 +572,7 @@ TEST_F(HTTP2CodecTest, BasicHeaderReply) {
   resp.setStatusCode(200);
   resp.setStatusMessage("nifty-nice");
   resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "x-coolio");
-  downstreamCodec_.generateHeader(output_, 1, resp, 0);
+  downstreamCodec_.generateHeader(output_, 1, resp);
   downstreamCodec_.generateEOM(output_, 1);
 
   parseUpstream();
@@ -637,7 +637,7 @@ TEST_F(HTTP2CodecTest, Cookies) {
   req.getHeaders().add("Cookie", "butterscotch=3");
   req.getHeaders().add("Cookie", "oatmeal-raisin=4");
   req.setSecure(true);
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
 
   parse();
   callbacks_.expectMessage(false, 2, "/guacamole");
@@ -649,7 +649,7 @@ TEST_F(HTTP2CodecTest, Cookies) {
 
 TEST_F(HTTP2CodecTest, BasicContinuation) {
   HTTPMessage req = getBigGetRequest();
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
 
   parse();
   callbacks_.expectMessage(false, -1, "/");
@@ -668,7 +668,7 @@ TEST_F(HTTP2CodecTest, BasicContinuation) {
 TEST_F(HTTP2CodecTest, BasicContinuationEndStream) {
   // CONTINUATION with END_STREAM flag set on the preceding HEADERS frame
   HTTPMessage req = getBigGetRequest();
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   parse();
   callbacks_.expectMessage(true, -1, "/");
@@ -702,7 +702,7 @@ TEST_F(HTTP2CodecTest, MissingContinuation) {
   HTTPMessage req = getBigGetRequest();
 
   size_t prevLen = output_.chainLength();
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
   // empirically determined the size of continuation frame, and strip it
   output_.trimEnd(http2::kFrameHeaderSize + 4134);
 
@@ -723,7 +723,7 @@ TEST_F(HTTP2CodecTest, MissingContinuation) {
 TEST_F(HTTP2CodecTest, MissingContinuationBadFrame) {
   IOBufQueue output(IOBufQueue::cacheChainLength());
   HTTPMessage req = getBigGetRequest();
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
 
   // empirically determined the size of continuation frame, and fake it
   output_.trimEnd(http2::kFrameHeaderSize + 4134);
@@ -746,7 +746,7 @@ TEST_F(HTTP2CodecTest, MissingContinuationBadFrame) {
 
 TEST_F(HTTP2CodecTest, BadContinuationStream) {
   HTTPMessage req = getBigGetRequest();
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
 
   // empirically determined the size of continuation frame, and fake it
   output_.trimEnd(http2::kFrameHeaderSize + 4134);
@@ -785,7 +785,7 @@ TEST_F(HTTP2CodecTest, UnknownFrameType) {
   // unknown frame type 17
   writeFrameHeaderManual(output_, 17, 37, 0, 1);
   output_.append("wicked awesome!!!");
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
 
   parse();
   callbacks_.expectMessage(false, 2, ""); // + host
@@ -798,7 +798,7 @@ TEST_F(HTTP2CodecTest, JunkAfterConnError) {
   // write headers frame for stream 0
   writeFrameHeaderManual(output_, 0, (uint8_t)http2::FrameType::HEADERS, 0, 0);
   // now write a valid headers frame, should never be parsed
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
 
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 0);
@@ -1120,7 +1120,7 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
   HTTPMessage req = getGetRequest();
   HTTPHeaderSize size;
   size.uncompressed = size.compressed = 0;
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true, &size);
+  upstreamCodec_.generateHeader(output_, 1, req, true, &size);
   EXPECT_GT(size.uncompressed, 0);
   parse();
   callbacks_.expectMessage(true, 1, "/");
@@ -1131,7 +1131,7 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
   downstreamCodec_.generateGoaway(output_, 1, ErrorCode::NO_ERROR);
   parseUpstream();
   // upstream cannot generate id > 1
-  upstreamCodec_.generateHeader(output_, 3, req, 0, false, &size);
+  upstreamCodec_.generateHeader(output_, 3, req, false, &size);
   EXPECT_EQ(size.uncompressed, 0);
   upstreamCodec_.generateWindowUpdate(output_, 3, 100);
   upstreamCodec_.generateBody(output_, 3, makeBuf(10), HTTPCodec::NoPadding,
@@ -1144,12 +1144,12 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
 
   // send a push promise that will be rejected by downstream
   req.getHeaders().add("foomonkey", "george");
-  downstreamCodec_.generateHeader(output_, 2, req, 1, false, &size);
+  downstreamCodec_.generatePushPromise(output_, 2, req, 1, false, &size);
   EXPECT_GT(size.uncompressed, 0);
   HTTPMessage resp;
   resp.setStatusCode(200);
   // send a push response that will be ignored
-  downstreamCodec_.generateHeader(output_, 2, resp, 0, false, &size);
+  downstreamCodec_.generateHeader(output_, 2, resp, false, &size);
   // window update for push doesn't make any sense, but whatever
   downstreamCodec_.generateWindowUpdate(output_, 2, 100);
   downstreamCodec_.generateBody(output_, 2, makeBuf(10), HTTPCodec::NoPadding,
@@ -1169,7 +1169,7 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
   downstreamCodec_.generateRstStream(output_, 2, ErrorCode::CANCEL);
 
   // send a response that will be accepted, headers should be ok
-  downstreamCodec_.generateHeader(output_, 1, resp, 0, true, &size);
+  downstreamCodec_.generateHeader(output_, 1, resp, true, &size);
   EXPECT_GT(size.uncompressed, 0);
 
   // parse the remainder
@@ -1189,7 +1189,7 @@ TEST_F(HTTP2CodecTest, GoawayReply) {
   HTTPMessage resp;
   resp.setStatusCode(200);
   resp.setStatusMessage("nifty-nice");
-  downstreamCodec_.generateHeader(output_, 1, resp, 0);
+  downstreamCodec_.generateHeader(output_, 1, resp);
   downstreamCodec_.generateEOM(output_, 1);
   parseUpstream();
   callbacks_.expectMessage(true, 1, 200);
@@ -1267,7 +1267,7 @@ TEST_F(HTTP2CodecTest, SettingsTableSize) {
   resp.setStatusMessage("nifty-nice");
   resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "x-coolio");
   SetUpUpstreamTest();
-  downstreamCodec_.generateHeader(output_, 1, resp, 0);
+  downstreamCodec_.generateHeader(output_, 1, resp);
 
   parseUpstream();
   callbacks_.expectMessage(false, 2, 200);
@@ -1300,7 +1300,7 @@ TEST_F(HTTP2CodecTest, BadSettingsTableSize) {
   resp.setStatusMessage("nifty-nice");
   resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "x-coolio");
   SetUpUpstreamTest();
-  downstreamCodec_.generateHeader(output_, 1, resp, 0);
+  downstreamCodec_.generateHeader(output_, 1, resp);
 
   parseUpstream();
   EXPECT_EQ(callbacks_.streamErrors, 0);
@@ -1322,7 +1322,7 @@ TEST_F(HTTP2CodecTest, BasicPriority) {
 TEST_F(HTTP2CodecTest, BadHeaderPriority) {
   HTTPMessage req = getGetRequest();
   req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 7));
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   // hack ingress with cirular dep
   EXPECT_TRUE(parse([&] (IOBuf* ingress) {
@@ -1399,7 +1399,7 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
     HTTPCodec::StreamID pushStream = downstreamCodec_.createStream();
     HTTPMessage req = getGetRequest();
     req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-    downstreamCodec_.generateHeader(output_, pushStream, req, assocStream);
+    downstreamCodec_.generatePushPromise(output_, pushStream, req, assocStream);
 
     parseUpstream();
     callbacks_.expectMessage(false, 2, "/"); // + host
@@ -1413,7 +1413,7 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
     HTTPMessage resp;
     resp.setStatusCode(200);
     resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "text/plain");
-    downstreamCodec_.generateHeader(output_, pushStream, resp, 0);
+    downstreamCodec_.generateHeader(output_, pushStream, resp);
 
     parseUpstream();
     callbacks_.expectMessage(false, 2, 200);
@@ -1431,7 +1431,7 @@ TEST_F(HTTP2CodecTest, BadPushPromise) {
   SetUpUpstreamTest();
   HTTPMessage req = getGetRequest();
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-  downstreamCodec_.generateHeader(output_, 2, req, 1);
+  downstreamCodec_.generatePushPromise(output_, 2, req, 1);
 
   parseUpstream();
   EXPECT_EQ(callbacks_.messageBegin, 0);
@@ -1460,7 +1460,7 @@ TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   bigval.append(8691, ' ');
   req.getHeaders().add("x-headr", bigval);
   req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 7));
-  upstreamCodec_.generateHeader(output_, 1, req, 0);
+  upstreamCodec_.generateHeader(output_, 1, req);
 
   parse();
   callbacks_.expectMessage(false, -1, "/");
@@ -1495,7 +1495,7 @@ TEST_F(HTTP2CodecTest, TestMultipleDifferentContentLengthHeaders) {
   req.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "300");
   EXPECT_EQ(req.getHeaders().getNumberOfValues(HTTP_HEADER_CONTENT_LENGTH), 2);
 
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
   parse();
 
   // Check that the request fails before the codec finishes parsing the headers
@@ -1511,7 +1511,7 @@ TEST_F(HTTP2CodecTest, TestMultipleIdenticalContentLengthHeaders) {
   req.getHeaders().add("content-length", "200");
   EXPECT_EQ(req.getHeaders().getNumberOfValues("content-length"), 2);
 
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true /* eom */);
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
   parse();
 
   // Check that the headers parsing completes correctly

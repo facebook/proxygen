@@ -630,7 +630,6 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
 void SPDYCodec::generateHeader(folly::IOBufQueue& writeBuf,
                                StreamID stream,
                                const HTTPMessage& msg,
-                               StreamID assocStream,
                                bool eom,
                                HTTPHeaderSize* size) {
   if (!isStreamIngressEgressAllowed(stream)) {
@@ -642,12 +641,30 @@ void SPDYCodec::generateHeader(folly::IOBufQueue& writeBuf,
     }
     return;
   }
-  if (transportDirection_ == TransportDirection::UPSTREAM ||
-      assocStream != HTTPCodec::NoStream) {
-    generateSynStream(stream, assocStream, writeBuf, msg, eom, size);
+  if (transportDirection_ == TransportDirection::UPSTREAM) {
+    generateSynStream(stream, HTTPCodec::NoStream, writeBuf, msg, eom, size);
   } else {
     generateSynReply(stream, writeBuf, msg, eom, size);
   }
+}
+
+void SPDYCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
+                                    StreamID stream,
+                                    const HTTPMessage& msg,
+                                    StreamID assocStream,
+                                    bool eom,
+                                    HTTPHeaderSize* size) {
+  DCHECK(assocStream != HTTPCodec::NoStream);
+  if (!isStreamIngressEgressAllowed(stream)) {
+    VLOG(2) << "Suppressing SYN_STREAM/REPLY for stream=" << stream <<
+      " ingressGoawayAck_=" << ingressGoawayAck_;
+    if (size) {
+      size->compressed = 0;
+      size->uncompressed = 0;
+    }
+    return;
+  }
+  generateSynStream(stream, assocStream, writeBuf, msg, eom, size);
 }
 
 void SPDYCodec::generateSynStream(StreamID stream,

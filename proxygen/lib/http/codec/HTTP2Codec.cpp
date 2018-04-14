@@ -1023,10 +1023,23 @@ bool HTTP2Codec::onIngressUpgradeMessage(const HTTPMessage& msg) {
 void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
                                 StreamID stream,
                                 const HTTPMessage& msg,
-                                StreamID assoc,
                                 bool eom,
                                 HTTPHeaderSize* size) {
-  auto assocStream = assoc > 0 ? folly::Optional<StreamID>(assoc) : folly::none;
+  generateHeaderImpl(writeBuf,
+                     stream,
+                     msg,
+                     folly::none, /* assocStream */
+                     folly::none, /* controlStream */
+                     eom,
+                     size);
+}
+
+void HTTP2Codec::generatePushPromise(folly::IOBufQueue& writeBuf,
+                                     StreamID stream,
+                                     const HTTPMessage& msg,
+                                     StreamID assocStream,
+                                     bool eom,
+                                     HTTPHeaderSize* size) {
   generateHeaderImpl(writeBuf,
                      stream,
                      msg,

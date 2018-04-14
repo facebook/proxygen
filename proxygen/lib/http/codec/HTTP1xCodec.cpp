@@ -311,11 +311,8 @@ void
 HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
                             StreamID txn,
                             const HTTPMessage& msg,
-                            StreamID assocStream,
                             bool eom,
                             HTTPHeaderSize* size) {
-  CHECK_EQ(assocStream, 0) << "HTTP does not support pushed transactions, "
-    "assocStream=" << assocStream;
   if (keepalive_ && disableKeepalivePending_) {
     keepalive_ = false;
   }

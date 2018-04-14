@@ -349,7 +349,12 @@ unique_ptr<folly::IOBuf> getSynStream(Codec& egressCodec,
                                       bool eom = false,
                                       HTTPHeaderSize* size = nullptr) {
   folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
-  egressCodec.generateHeader(output, streamID, msg, assocStreamId, eom, size);
+  if (assocStreamId == 0) {
+    egressCodec.generateHeader(output, streamID, msg, eom, size);
+  } else {
+    egressCodec.generatePushPromise(output, streamID, msg, assocStreamId, eom,
+                                    size);
+  }
   return output.move();
 }
 
@@ -1456,7 +1461,7 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   HTTPMessage req = getGetRequest();
   HTTPHeaderSize size;
   size.uncompressed = size.compressed = 0;
-  upstreamCodec_.generateHeader(output_, 1, req, 0, true, &size);
+  upstreamCodec_.generateHeader(output_, 1, req, true, &size);
   EXPECT_GT(size.uncompressed, 0);
   parse();
   callbacks_.expectMessage(true, 2, "/");
@@ -1467,7 +1472,7 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   downstreamCodec_.generateGoaway(output_, 1, ErrorCode::NO_ERROR);
   parseUpstream();
   // upstream cannot generate id > 1
-  upstreamCodec_.generateHeader(output_, 3, req, 0, false, &size);
+  upstreamCodec_.generateHeader(output_, 3, req, false, &size);
   EXPECT_EQ(size.uncompressed, 0);
   upstreamCodec_.generateWindowUpdate(output_, 3, 100);
   upstreamCodec_.generateBody(output_, 3, makeBuf(10), HTTPCodec::NoPadding,
@@ -1481,7 +1486,7 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   // send a push promise that will be rejected by downstream
   req.setPushStatusCode(200);
   req.getHeaders().add("foomonkey", "george");
-  downstreamCodec_.generateHeader(output_, 2, req, 1, false, &size);
+  downstreamCodec_.generatePushPromise(output_, 2, req, 1, false, &size);
   EXPECT_GT(size.uncompressed, 0);
   // window update for push doesn't make any sense, but whatever
   downstreamCodec_.generateWindowUpdate(output_, 2, 100);
@@ -1501,7 +1506,7 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   // send a response that will be accepted, headers should be ok
   HTTPMessage resp;
   resp.setStatusCode(200);
-  downstreamCodec_.generateHeader(output_, 1, resp, 0, true, &size);
+  downstreamCodec_.generateHeader(output_, 1, resp, true, &size);
   EXPECT_GT(size.uncompressed, 0);
 
   // parse the remainder

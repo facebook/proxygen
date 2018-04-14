@@ -31,7 +31,6 @@ class HTTPChecks: public PassThroughHTTPCodecFilter {
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,
                       const HTTPMessage& msg,
-                      StreamID assocStream,
                       bool eom,
                       HTTPHeaderSize* sizeOut) override;
 };

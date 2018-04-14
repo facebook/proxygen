@@ -116,8 +116,7 @@ class HTTPDownstreamTest : public testing::Test {
 
   HTTPCodec::StreamID sendRequest(const HTTPMessage& req, bool eom = true) {
     auto streamID = clientCodec_->createStream();
-    clientCodec_->generateHeader(requests_, streamID, req, HTTPCodec::NoStream,
-                                 eom);
+    clientCodec_->generateHeader(requests_, streamID, req, eom);
     return streamID;
   }
 
@@ -453,7 +452,7 @@ class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
     clientCodec_->generateSettings(requests_);
     // create a control stream
     clientCodec_->generateHeader(requests_, cStreamId, getGetRequest("/cc"),
-                                 HTTPCodec::NoStream, true, nullptr);
+                                 true, nullptr);
   }
 
   void TearDown() override {
@@ -2128,7 +2127,8 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
   auto badCodec =
     makeServerCodec<typename TypeParam::Codec>(TypeParam::version);
   this->sendRequest();
-  badCodec->generateHeader(this->requests_, 2 /* bad */, getGetRequest(), 1);
+  badCodec->generatePushPromise(this->requests_, 2 /* bad */, getGetRequest(),
+                                1);
 
   this->expectDetachSession();
 
@@ -2610,7 +2610,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   // generateHeader() will create a session and a transaction
   auto assocStreamId = HTTPCodec::StreamID(1);
   clientCodec_->generateHeader(requests_, assocStreamId, getGetRequest(),
-                               0, false, nullptr);
+                               false, nullptr);
 
   auto handler = addSimpleStrictHandler();
   StrictMock<MockHTTPPushHandler> pushHandler;
@@ -2681,7 +2681,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push_abort_paused) {
   // generateHeader() will create a session and a transaction
   auto assocStreamId = HTTPCodec::StreamID(1);
   clientCodec_->generateHeader(requests_, assocStreamId, getGetRequest(),
-                               0, false, nullptr);
+                               false, nullptr);
 
   auto handler = addSimpleStrictHandler();
   StrictMock<MockHTTPPushHandler> pushHandler;

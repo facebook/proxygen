@@ -214,10 +214,18 @@ size_t PassThroughHTTPCodecFilter::generateConnectionPreface(
 void PassThroughHTTPCodecFilter::generateHeader(folly::IOBufQueue& writeBuf,
                                                 StreamID stream,
                                                 const HTTPMessage& msg,
-                                                StreamID assocStream,
                                                 bool eom,
                                                 HTTPHeaderSize* size) {
-  return call_->generateHeader(writeBuf, stream, msg, assocStream, eom, size);
+  return call_->generateHeader(writeBuf, stream, msg, eom, size);
+}
+
+void PassThroughHTTPCodecFilter::generatePushPromise(folly::IOBufQueue& buf,
+                                                     StreamID stream,
+                                                     const HTTPMessage& msg,
+                                                     StreamID assocStream,
+                                                     bool eom,
+                                                     HTTPHeaderSize* size) {
+  return call_->generatePushPromise(buf, stream, msg, assocStream, eom, size);
 }
 
 void PassThroughHTTPCodecFilter::generateExHeader(folly::IOBufQueue& writeBuf,

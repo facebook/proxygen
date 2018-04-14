@@ -296,7 +296,7 @@ TEST_F(MockCodecDownstreamTest, server_push) {
     .WillOnce(Invoke([&pushHandler] (HTTPTransaction* txn) {
           pushHandler.txn_ = txn; }));
 
-  EXPECT_CALL(*codec_, generateHeader(_, 2, _, _, _, _));
+  EXPECT_CALL(*codec_, generatePushPromise(_, 2, _, _, _, _));
   EXPECT_CALL(*codec_, generateBody(_, 2, PtrBufHasLen(uint64_t(100)),
                                     _, true));
   EXPECT_CALL(pushHandler, detachTransaction());
@@ -307,7 +307,7 @@ TEST_F(MockCodecDownstreamTest, server_push) {
           eventBase_.loop(); // flush the response to the normal request
         }));
 
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
   EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(uint64_t(100)),
                                     _, true));
   EXPECT_CALL(handler, detachTransaction());
@@ -608,7 +608,7 @@ TEST_F(MockCodecDownstreamTest, server_push_client_message) {
           handler.sendReplyWithBody(200, 100);
           eventBase_.loop(); // flush the response to the assoc request
         }));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
   EXPECT_CALL(*codec_, generateBody(_, 1, PtrBufHasLen(uint64_t(100)),
                                     _, true));
   EXPECT_CALL(handler, detachTransaction());
@@ -704,7 +704,7 @@ TEST_F(MockCodecDownstreamTest, ping) {
         }));
 
   // Header egresses immediately
-  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _));
   // Ping jumps ahead of queued body in the loop callback
   EXPECT_CALL(*codec_, generatePingReply(_, _));
   EXPECT_CALL(*codec_, generateBody(_, _, _, _, true));
@@ -976,11 +976,10 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   EXPECT_CALL(handler1, setTransaction(_))
     .WillOnce(SaveArg<0>(&handler1.txn_));
   EXPECT_CALL(handler1, onHeadersComplete(_));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _))
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _))
     .WillOnce(Invoke([] (folly::IOBufQueue& writeBuf,
                          HTTPCodec::StreamID,
                          const HTTPMessage&,
-                         HTTPCodec::StreamID,
                          bool,
                          HTTPHeaderSize*) {
                        writeBuf.append("", 1);
@@ -1011,11 +1010,10 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   EXPECT_CALL(handler2, setTransaction(_))
     .WillOnce(SaveArg<0>(&handler2.txn_));
   EXPECT_CALL(handler2, onHeadersComplete(_));
-  EXPECT_CALL(*codec_, generateHeader(_, 3, _, _, _, _))
+  EXPECT_CALL(*codec_, generateHeader(_, 3, _, _, _))
     .WillOnce(Invoke([] (folly::IOBufQueue& writeBuf,
                          HTTPCodec::StreamID,
                          const HTTPMessage&,
-                         HTTPCodec::StreamID,
                          bool,
                          HTTPHeaderSize*) {
                        writeBuf.append("", 1);
@@ -1140,7 +1138,7 @@ TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
           // Pause ingress. Make sure we process the window updates anyway
           handler1.txn_->pauseIngress();
         }));
-  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _));
   EXPECT_CALL(*codec_, generateBody(_, _, _, _, _))
       .WillRepeatedly(Invoke([&](folly::IOBufQueue&,
                                  HTTPCodec::StreamID,
@@ -1201,14 +1199,14 @@ TEST_F(MockCodecDownstreamTest, shutdown_then_send_push_headers) {
         }));
   EXPECT_CALL(pushHandler, setTransaction(_))
     .WillOnce(SaveArg<0>(&pushHandler.txn_));
-  EXPECT_CALL(*codec_, generateHeader(_, 2, _, _, _, _));
+  EXPECT_CALL(*codec_, generatePushPromise(_, 2, _, _, _, _));
   EXPECT_CALL(*codec_, generateEOM(_, 2));
   EXPECT_CALL(pushHandler, detachTransaction());
   EXPECT_CALL(handler, onEOM())
     .WillOnce(Invoke([&] {
           handler.sendReply();
         }));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
   EXPECT_CALL(*codec_, generateEOM(_, 1));
   EXPECT_CALL(handler, detachTransaction());
 
@@ -1281,7 +1279,7 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
       .WillOnce(Invoke([&] {
             handler.sendReply();
           }));
-    EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
+    EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
     EXPECT_CALL(*codec_, generateEOM(_, 1));
     EXPECT_CALL(handler, detachTransaction());
 
