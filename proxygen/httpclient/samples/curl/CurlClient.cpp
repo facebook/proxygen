@@ -45,6 +45,27 @@ CurlClient::CurlClient(EventBase* evb,
     });
 }
 
+HTTPHeaders CurlClient::parseHeaders(const std::string& headersString) {
+  vector<StringPiece> headersList;
+  HTTPHeaders headers;
+  folly::split(",", headersString, headersList);
+  for (const auto& headerPair: headersList) {
+    vector<StringPiece> nv;
+    folly::split('=', headerPair, nv);
+    if (nv.size() > 0) {
+      if (nv[0].empty()) {
+        continue;
+      }
+      StringPiece value("");
+      if (nv.size() > 1) {
+        value = nv[1];
+      } // trim anything else
+      headers.add(nv[0], value);
+    }
+  }
+  return headers;
+}
+
 void CurlClient::initializeSsl(const string& caPath,
                                const string& nextProtos,
                                const string& certPath,

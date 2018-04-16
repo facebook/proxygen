@@ -33,6 +33,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
 
   virtual ~CurlClient() = default;
 
+  static proxygen::HTTPHeaders parseHeaders(const std::string& headersString);
+
   // initial SSL related structures
   void initializeSsl(const std::string& caPath,
                      const std::string& nextProtos,
