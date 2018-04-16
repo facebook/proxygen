@@ -219,7 +219,10 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
     case http2::FrameType::EX_HEADERS:
       if (ingressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0)) {
         return parseExHeaders(cursor);
-      } // else fall through to default case
+      } else {
+        VLOG(2) << "EX_HEADERS not enabled, ignoring the frame";
+        break;
+      }
     case http2::FrameType::PING:
       return parsePing(cursor);
     case http2::FrameType::GOAWAY:
@@ -230,13 +233,17 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
       return parseContinuation(cursor);
     case http2::FrameType::ALTSVC:
       // fall through, unimplemented
+      break;
     default:
       // Implementations MUST ignore and discard any frame that has a
       // type that is unknown
-      VLOG(2) << "Skipping unknown frame type=" << (uint8_t)curHeader_.type;
-      cursor.skip(curHeader_.length);
-      return ErrorCode::NO_ERROR;
+      break;
   }
+
+  // Landing here means unknown, unimplemented or ignored frame.
+  VLOG(2) << "Skipping frame (type=" << (uint8_t)curHeader_.type << ")";
+  cursor.skip(curHeader_.length);
+  return ErrorCode::NO_ERROR;
 }
 
 ErrorCode HTTP2Codec::handleEndStream() {
