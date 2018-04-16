@@ -36,7 +36,8 @@ HTTPSessionBase::HTTPSessionBase(
     localAddr_(localAddr),
     peerAddr_(peerAddr),
     prioritySample_(false),
-    h2PrioritiesEnabled_(true) {
+    h2PrioritiesEnabled_(true),
+    exHeadersEnabled_(false) {
 
   // If we receive IPv4-mapped IPv6 addresses, convert them to IPv4.
   localAddr_.tryConvertToIPv4();
@@ -158,6 +159,14 @@ HTTPSessionBase::getParseErrorHandler(HTTPTransaction* txn,
     return nullptr;
   }
   return controller_->getParseErrorHandler(txn, error, getLocalAddress());
+}
+
+void HTTPSessionBase::enableExHeadersSettings() noexcept {
+  HTTPSettings* settings = codec_->getEgressSettings();
+  if (settings) {
+    settings->setSetting(SettingsId::ENABLE_EX_HEADERS, 1);
+    exHeadersEnabled_ = true;
+  }
 }
 
 void HTTPSessionBase::attachToSessionController() {

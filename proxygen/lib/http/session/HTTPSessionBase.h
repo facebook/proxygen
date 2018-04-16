@@ -425,6 +425,14 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
     uint8_t level) = 0;
 
+  /**
+   * Enable to use Ex Headers in HTTPSession
+   */
+  void enableExHeadersSettings() noexcept;
+
+  bool isExHeadersEnabled() noexcept {
+    return exHeadersEnabled_;
+  }
 
  protected:
   /**
@@ -619,6 +627,11 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   bool prioritySample_:1;
   bool h2PrioritiesEnabled_:1;
+
+  /**
+   * Indicates whether Ex Headers is supported in HTTPSession
+   */
+  bool exHeadersEnabled_:1;
 };
 
 }
