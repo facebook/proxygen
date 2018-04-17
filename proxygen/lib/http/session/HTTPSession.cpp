@@ -1401,10 +1401,11 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     incrementOutgoingStreams();
   }
 
-  // only do it for downstream now to bypass handling upstream reuse cases
-  if (isDownstream() && headers.isResponse() &&
-      newOffset > oldOffset &&
-      // catch 100-ish response?
+  // For all upstream headers, addFirstHeaderByteEvent should be added
+  // For all downstream, only response headers need addFirstHeaderByteEvent
+  bool shouldAddFirstHeaderByteEvent = isUpstream() ||
+                                       (isDownstream() && headers.isResponse());
+  if (shouldAddFirstHeaderByteEvent && newOffset > oldOffset &&
       !txn->testAndSetFirstHeaderByteSent() && byteEventTracker_) {
     byteEventTracker_->addFirstHeaderByteEvent(newOffset, txn);
   }

@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <proxygen/lib/http/session/test/MockByteEventTracker.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
@@ -338,6 +339,28 @@ class HTTPUpstreamTest: public testing::Test,
   void testSimpleUpgrade(const std::string& upgradeReqHeader,
                          const std::string& upgradeRespHeader,
                          CodecProtocol respCodecVersion);
+
+  MockByteEventTracker* setMockByteEventTracker() {
+    auto byteEventTracker = new MockByteEventTracker(nullptr);
+    httpSession_->setByteEventTracker(
+      std::unique_ptr<ByteEventTracker>(byteEventTracker));
+    EXPECT_CALL(*byteEventTracker, preSend(_, _, _))
+      .WillRepeatedly(Return(0));
+    EXPECT_CALL(*byteEventTracker, drainByteEvents())
+      .WillRepeatedly(Return(0));
+    EXPECT_CALL(*byteEventTracker, processByteEvents(_, _, _))
+      .WillRepeatedly(Invoke([byteEventTracker]
+                            (std::shared_ptr<ByteEventTracker> self,
+                             uint64_t bytesWritten,
+                             bool eor) {
+                              return self->ByteEventTracker::processByteEvents(
+                                self,
+                                bytesWritten,
+                                eor);
+                            }));
+
+    return byteEventTracker;
+  }
 
  protected:
   bool sessionCreated_{false};
@@ -1037,6 +1060,38 @@ TEST_F(HTTPUpstreamSessionTest, 10_requests) {
   for (uint16_t i = 0; i < 10; i++) {
     testBasicRequest();
   }
+  httpSession_->destroy();
+}
+
+TEST_F(HTTPUpstreamSessionTest, test_first_header_byte_event_tracker) {
+  auto byteEventTracker = setMockByteEventTracker();
+
+  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
+  EXPECT_CALL(*byteEventTracker, addFirstHeaderByteEvent(_, _))
+      .WillOnce(Invoke([&dg](uint64_t /*byteNo*/,
+                             HTTPTransaction* txn) {
+        dg.reset(new HTTPTransaction::DestructorGuard(txn));
+      }));
+
+  InSequence enforceOrder;
+
+  auto handler = openTransaction();
+  handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+      EXPECT_TRUE(msg->getIsChunked());
+      EXPECT_FALSE(msg->getIsUpgraded());
+      EXPECT_EQ(200, msg->getStatusCode());
+    });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  handler->sendRequest();
+  readAndLoop("HTTP/1.1 200 OK\r\n"
+              "Transfer-Encoding: chunked\r\n\r\n"
+              "0\r\n\r\n");
+
+  CHECK(httpSession_->supportsMoreTransactions());
+  CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  dg.reset();
   httpSession_->destroy();
 }
 

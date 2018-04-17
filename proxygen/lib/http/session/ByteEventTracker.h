@@ -41,7 +41,7 @@ class ByteEventTracker {
                         uint64_t bytesScheduled);
 
   void addFirstBodyByteEvent(uint64_t offset, HTTPTransaction* txn);
-  void addFirstHeaderByteEvent(uint64_t offset, HTTPTransaction* txn);
+  virtual void addFirstHeaderByteEvent(uint64_t offset, HTTPTransaction* txn);
 
   virtual size_t drainByteEvents();
   virtual bool processByteEvents(std::shared_ptr<ByteEventTracker> self,
