@@ -12,8 +12,10 @@ trap 'cd $start_dir' EXIT
 cd "$(dirname "$0")"
 
 # Install folly
-cd folly/folly
-sudo make uninstall
+cd folly/_build
+if [ -f install_manifest.txt ]; then
+  sudo xargs rm -f -- < install_manifest.txt
+fi
 sudo make install
 
 # Install proxygen

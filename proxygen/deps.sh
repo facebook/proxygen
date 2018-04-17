@@ -98,13 +98,14 @@ if [ ! -e folly/folly ]; then
     echo "Cloning folly"
     git clone https://github.com/facebook/folly
 fi
-cd folly/folly
+cd folly
 git fetch
 git checkout master
 
 # Build folly
-autoreconf --install
-./configure
+mkdir -p _build
+cd _build
+cmake configure ..
 make -j$JOBS
 sudo make install
 
@@ -119,12 +120,14 @@ if [ ! -e wangle/wangle ]; then
     echo "Cloning wangle"
     git clone https://github.com/facebook/wangle
 fi
-cd wangle/wangle
+cd wangle
 git fetch
 git checkout master
 
 # Build wangle
-cmake .
+mkdir -p _build
+cd _build
+cmake configure ../wangle
 make -j$JOBS
 sudo make install
 
