@@ -511,8 +511,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
                                       msg.get())) {
           return handleEndStream();
         }
-      }
-      if (curHeader_.type == http2::FrameType::EX_HEADERS) {
+      } else if (curHeader_.type == http2::FrameType::EX_HEADERS) {
         if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onExMessageBegin,
                                       "onExMessageBegin", curHeader_.stream,
                                       *controlStream, msg.get())) {
@@ -1436,7 +1435,7 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
     settings.push_back(SettingPair(setting.id, setting.value));
   }
   VLOG(4) << getTransportDirectionString(getTransportDirection())
-          << "generating " << (unsigned)settings.size() << " settings";
+          << " generating " << (unsigned)settings.size() << " settings";
   return http2::writeSettings(writeBuf, settings);
 }
 
