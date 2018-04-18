@@ -9,12 +9,12 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
+#include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/experimental/qcram/QCRAMCodec.h>
 #include <proxygen/lib/http/codec/compress/experimental/qcram/QCRAMQueue.h>
-#include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
+#include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 
-namespace proxygen {  namespace compress {
+namespace proxygen { namespace compress {
 class QCRAMNewScheme : public CompressionScheme {
  public:
   explicit QCRAMNewScheme(CompressionSimulator* sim, uint32_t tableSize)
@@ -30,7 +30,8 @@ class QCRAMNewScheme : public CompressionScheme {
   }
 
   struct QCRAMAck : public CompressionScheme::Ack {
-    explicit QCRAMAck(uint16_t n) : seqn(n) {}
+    explicit QCRAMAck(uint16_t n) : seqn(n) {
+    }
     uint16_t seqn;
   };
 
@@ -77,7 +78,9 @@ class QCRAMNewScheme : public CompressionScheme {
       stats.compressed -= sizeof(uint16_t);
     }
     // OOO is always allowed
-    struct FrameFlags flags{true, (result.streamDepends != kMaxIndex) };
+    struct FrameFlags flags {
+      true, (result.streamDepends != kMaxIndex)
+    };
     if (sEnableUpdatesOnControlStream_) {
       // QCRAMCodec::encode returns a control buffer and a stream
       // buffer, but the encode API must return a single buffer.  Prefix
@@ -91,8 +94,9 @@ class QCRAMNewScheme : public CompressionScheme {
       auto header = folly::IOBuf::create(4);
       header->append(4);
       folly::io::RWPrivateCursor cursor(header.get());
-      auto controlLen = result.controlBuffer ?
-          result.controlBuffer->computeChainDataLength() : 0;
+      auto controlLen = result.controlBuffer
+                            ? result.controlBuffer->computeChainDataLength()
+                            : 0;
       cursor.writeBE<uint32_t>(controlLen);
       VLOG(1) << "Encode with control buffer len " << controlLen;
       if (result.controlBuffer) {
@@ -125,17 +129,25 @@ class QCRAMNewScheme : public CompressionScheme {
     VLOG(1) << "read seqn " << seqn;
     buf->trimStart(sizeof(uint16_t));
     len -= sizeof(uint16_t);
-    struct FrameFlags flags{true, (seqn > 0)};
+    struct FrameFlags flags {
+      true, (seqn > 0)
+    };
     serverQueue_.enqueueHeaderBlock(
-      seqn, std::move(buf), len, nullptr,
-      {flags.allowOOO, flags.QCRAMPrefixHasDepends}, depends);
+        seqn,
+        std::move(buf),
+        len,
+        nullptr,
+        {flags.allowOOO, flags.QCRAMPrefixHasDepends},
+        depends);
     if (serverQueue_.getQueuedBytes() > stats.maxQueueBufferBytes) {
       stats.maxQueueBufferBytes = serverQueue_.getQueuedBytes();
     }
   }
 
-  void decode(FrameFlags flags, std::unique_ptr<folly::IOBuf> encodedReq,
-              SimStats& stats, SimStreamingCallback& callback) override {
+  void decode(FrameFlags flags,
+              std::unique_ptr<folly::IOBuf> encodedReq,
+              SimStats& stats,
+              SimStreamingCallback& callback) override {
     if (sEnableUpdatesOnControlStream_) {
       folly::io::Cursor cursor(encodedReq.get());
       auto controlLen = cursor.readBE<uint32_t>();
@@ -180,11 +192,16 @@ class QCRAMNewScheme : public CompressionScheme {
     }
     encodedReq->trimStart(sizeof(uint16_t));
     len -= sizeof(uint16_t);
-    VLOG(1) << "Decoding request=" << callback.requestIndex << " header seqn="
-            << seqn << " allowOOO=" << uint32_t(flags.allowOOO);
+    VLOG(1) << "Decoding request=" << callback.requestIndex
+            << " header seqn=" << seqn
+            << " allowOOO=" << uint32_t(flags.allowOOO);
     serverQueue_.enqueueHeaderBlock(
-      seqn, std::move(encodedReq), len,
-      &callback, {flags.allowOOO, flags.QCRAMPrefixHasDepends}, depends);
+        seqn,
+        std::move(encodedReq),
+        len,
+        &callback,
+        {flags.allowOOO, flags.QCRAMPrefixHasDepends},
+        depends);
     callback.maybeMarkHolDelay();
     if (serverQueue_.getQueuedBytes() > stats.maxQueueBufferBytes) {
       stats.maxQueueBufferBytes = serverQueue_.getQueuedBytes();
@@ -206,13 +223,17 @@ class QCRAMNewScheme : public CompressionScheme {
     sEnableUpdatesOnControlStream_ = true;
   }
 
-  QCRAMCodec client_{TransportDirection::UPSTREAM, true, false,
-      sEnableUpdatesOnControlStream_};
-  QCRAMCodec server_{TransportDirection::UPSTREAM, true, false,
-      sEnableUpdatesOnControlStream_};
+  QCRAMCodec client_{TransportDirection::UPSTREAM,
+                     true,
+                     false,
+                     sEnableUpdatesOnControlStream_};
+  QCRAMCodec server_{TransportDirection::UPSTREAM,
+                     true,
+                     false,
+                     sEnableUpdatesOnControlStream_};
   QCRAMQueue serverQueue_{server_};
   std::deque<uint16_t> acks_;
   int32_t commitEpoch_{-1};
   static bool sEnableUpdatesOnControlStream_;
 };
-}}
+}} // namespace proxygen::compress

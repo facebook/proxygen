@@ -9,12 +9,12 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKQueue.h>
 #include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
+#include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 
-namespace proxygen {  namespace compress {
+namespace proxygen { namespace compress {
 class QCRAMScheme : public CompressionScheme {
  public:
   explicit QCRAMScheme(CompressionSimulator* sim, uint32_t tableSize)
@@ -30,7 +30,8 @@ class QCRAMScheme : public CompressionScheme {
   }
 
   struct QCRAMAck : public CompressionScheme::Ack {
-    explicit QCRAMAck(uint16_t n) : seqn(n) {}
+    explicit QCRAMAck(uint16_t n) : seqn(n) {
+    }
     uint16_t seqn;
   };
 
@@ -60,7 +61,8 @@ class QCRAMScheme : public CompressionScheme {
 
   std::pair<FrameFlags, std::unique_ptr<folly::IOBuf>> encode(
       bool /*newPacket*/,
-      std::vector<compress::Header> allHeaders, SimStats& stats) override {
+      std::vector<compress::Header> allHeaders,
+      SimStats& stats) override {
     index++;
     bool eviction = false;
     auto block = client_.encode(allHeaders, eviction);
@@ -72,17 +74,20 @@ class QCRAMScheme : public CompressionScheme {
     return {flags, std::move(block)};
   }
 
-  void decode(FrameFlags flags, std::unique_ptr<folly::IOBuf> encodedReq,
-              SimStats& stats, SimStreamingCallback& callback) override {
+  void decode(FrameFlags flags,
+              std::unique_ptr<folly::IOBuf> encodedReq,
+              SimStats& stats,
+              SimStreamingCallback& callback) override {
     folly::io::Cursor cursor(encodedReq.get());
     auto seqn = cursor.readBE<uint16_t>();
     callback.seqn = seqn;
-    VLOG(1) << "Decoding request=" << callback.requestIndex << " header seqn="
-            << seqn << " allowOOO=" << uint32_t(flags.allowOOO);
+    VLOG(1) << "Decoding request=" << callback.requestIndex
+            << " header seqn=" << seqn
+            << " allowOOO=" << uint32_t(flags.allowOOO);
     auto len = cursor.totalLength();
     encodedReq->trimStart(sizeof(uint16_t));
-    serverQueue_.enqueueHeaderBlock(seqn, std::move(encodedReq), len,
-                                    &callback, flags.allowOOO);
+    serverQueue_.enqueueHeaderBlock(
+        seqn, std::move(encodedReq), len, &callback, flags.allowOOO);
     callback.maybeMarkHolDelay();
     if (serverQueue_.getQueuedBytes() > stats.maxQueueBufferBytes) {
       stats.maxQueueBufferBytes = serverQueue_.getQueuedBytes();
@@ -106,4 +111,4 @@ class QCRAMScheme : public CompressionScheme {
   std::deque<uint16_t> acks_;
   int32_t commitEpoch_{-1};
 };
-}}
+}} // namespace proxygen::compress

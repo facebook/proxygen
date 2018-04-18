@@ -10,10 +10,10 @@
 #pragma once
 
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h"
-#include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
+#include <proxygen/lib/http/codec/compress/experimental/qpack/QPACKCodec.h>
 
-namespace proxygen {  namespace compress {
+namespace proxygen { namespace compress {
 
 class QPACKScheme : public CompressionScheme {
  public:
@@ -26,8 +26,8 @@ class QPACKScheme : public CompressionScheme {
 
   struct QPACKAck : public CompressionScheme::Ack {
     explicit QPACKAck(uint16_t n, std::unique_ptr<folly::IOBuf> inAcks)
-        : seqn(n),
-          acks(std::move(inAcks)) {}
+        : seqn(n), acks(std::move(inAcks)) {
+    }
     uint16_t seqn;
     std::unique_ptr<folly::IOBuf> acks;
   };
@@ -66,8 +66,8 @@ class QPACKScheme : public CompressionScheme {
     auto header = folly::IOBuf::create(4);
     header->append(4);
     folly::io::RWPrivateCursor cursor(header.get());
-    cursor.writeBE<uint32_t>(result.first ?
-                             result.first->computeChainDataLength() : 0);
+    cursor.writeBE<uint32_t>(
+        result.first ? result.first->computeChainDataLength() : 0);
     if (result.first) {
       header->prependChain(std::move(result.first));
     }
@@ -75,14 +75,18 @@ class QPACKScheme : public CompressionScheme {
       header->prependChain(std::move(result.second));
     }
     // OOO is always allowed
-    struct FrameFlags flags{true};
+    struct FrameFlags flags {
+      true
+    };
     return {flags, std::move(header)};
   }
 
-  void decode(FrameFlags flags, std::unique_ptr<folly::IOBuf> encodedReq,
-              SimStats& stats, SimStreamingCallback& callback) override {
-    VLOG(1) << "Decoding request=" << callback.requestIndex << " allowOOO="
-            << uint32_t(flags.allowOOO);
+  void decode(FrameFlags flags,
+              std::unique_ptr<folly::IOBuf> encodedReq,
+              SimStats& stats,
+              SimStreamingCallback& callback) override {
+    VLOG(1) << "Decoding request=" << callback.requestIndex
+            << " allowOOO=" << uint32_t(flags.allowOOO);
     folly::io::Cursor c(encodedReq.get());
     auto controlLen = c.readBE<uint32_t>();
     std::unique_ptr<folly::IOBuf> controlBlock;
@@ -101,4 +105,4 @@ class QPACKScheme : public CompressionScheme {
   QPACKCodec client_;
   QPACKCodec server_;
 };
-}}
+}} // namespace proxygen::compress

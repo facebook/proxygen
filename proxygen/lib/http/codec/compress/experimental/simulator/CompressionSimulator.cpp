@@ -8,11 +8,11 @@
  *
  */
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMScheme.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMNewScheme.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/QMINScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/HPACKScheme.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMNewScheme.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMScheme.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QMINScheme.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
 #include <folly/MoveWrapper.h>
 #include <proxygen/lib/http/codec/compress/test/HTTPArchive.h>
 #include <proxygen/lib/utils/TestUtils.h>
@@ -26,7 +26,7 @@ namespace proxygen { namespace compress {
 
 bool QCRAMNewScheme::sEnableUpdatesOnControlStream_{false};
 
-} }
+}} // namespace proxygen::compress
 
 namespace {
 using namespace proxygen::compress;
@@ -47,32 +47,37 @@ bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
   bool allValuesPresent = true;
   bool verifyCookies = false;
   h1.forEachWithCode(
-    [&] (HTTPHeaderCode code, const string& name, const string& value1) {
-      bool h2HasValue = h2.forEachValueOfHeader(
-        code, [&value1] (const std::string& value2) {
-          return (value1 == value2);
-        });
-      if (!h2HasValue && code == HTTP_HEADER_COOKIE) {
-        verifyCookies = true;
-        return;
-      }
-      DCHECK(h2HasValue) << "h2 does not contain name=" << name << " value="
-                         << value1;
-      allValuesPresent &= h2HasValue;
-    });
+      [&](HTTPHeaderCode code, const string& name, const string& value1) {
+        bool h2HasValue =
+            h2.forEachValueOfHeader(code, [&value1](const std::string& value2) {
+              return (value1 == value2);
+            });
+        if (!h2HasValue && code == HTTP_HEADER_COOKIE) {
+          verifyCookies = true;
+          return;
+        }
+        DCHECK(h2HasValue) << "h2 does not contain name=" << name
+                           << " value=" << value1;
+        allValuesPresent &= h2HasValue;
+      });
 
   if (verifyCookies) {
-    const HTTPHeaders* headers[] = { &h1, &h2, };
-    std::string cookies[2] = { "", "", };
+    const HTTPHeaders* headers[] = {
+        &h1,
+        &h2,
+    };
+    std::string cookies[2] = {
+        "",
+        "",
+    };
     unsigned i;
     for (i = 0; i < 2; ++i) {
       std::vector<std::string> crumbs;
-      headers[i]->forEachValueOfHeader(
-        HTTP_HEADER_COOKIE,
-        [&] (const std::string& crumb) {
-          crumbs.push_back(crumb);
-          return false;
-        });
+      headers[i]->forEachValueOfHeader(HTTP_HEADER_COOKIE,
+                                       [&](const std::string& crumb) {
+                                         crumbs.push_back(crumb);
+                                         return false;
+                                       });
       cookies[i] = combineCookieCrumbsSorted(crumbs);
     }
     if (cookies[0] == cookies[1]) {
@@ -87,8 +92,7 @@ bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
   return allValuesPresent;
 }
 
-void verifyHeaders(const HTTPMessage& msg1,
-                   const HTTPMessage& msg2) {
+void verifyHeaders(const HTTPMessage& msg1, const HTTPMessage& msg2) {
   DCHECK_EQ(msg1.getMethodString(), msg2.getMethodString());
   DCHECK_EQ(msg1.getURL(), msg2.getURL());
   DCHECK_EQ(msg1.isSecure(), msg2.isSecure());
@@ -96,12 +100,12 @@ void verifyHeaders(const HTTPMessage& msg1,
   DCHECK(containsAllHeaders(msg2.getHeaders(), msg1.getHeaders()));
 }
 
-}
+} // namespace
 
 namespace proxygen { namespace compress {
 
-bool
-CompressionSimulator::readInputFromFileAndSchedule(const string& filename) {
+bool CompressionSimulator::readInputFromFileAndSchedule(
+    const string& filename) {
   unique_ptr<HTTPArchive> har;
   try {
     har = HTTPArchive::fromFile(kTestDir + filename);
@@ -112,14 +116,15 @@ CompressionSimulator::readInputFromFileAndSchedule(const string& filename) {
     return false;
   }
   // Sort by start time (har ordered by finish time?)
-  std::sort(har->requests.begin(), har->requests.end(),
-            [] (const HTTPMessage& a, const HTTPMessage& b) {
+  std::sort(har->requests.begin(),
+            har->requests.end(),
+            [](const HTTPMessage& a, const HTTPMessage& b) {
               return a.getStartTime() < b.getStartTime();
             });
   TimePoint last = har->requests[0].getStartTime();
   std::chrono::milliseconds cumulativeDelay(0);
   uint16_t index = 0;
-  for (HTTPMessage& msg: har->requests) {
+  for (HTTPMessage& msg : har->requests) {
     auto delayFromPrevious = millisecondsBetween(msg.getStartTime(), last);
     // If there was a quiescent gap in the HAR of at least some value, shrink
     // it so the test doesn't last forever
@@ -147,71 +152,75 @@ void CompressionSimulator::run() {
   LOG(INFO) << "Starting run";
   eventBase_.loop();
   uint32_t holBlockCount = 0;
-  for (auto& scheme: domains_) {
+  for (auto& scheme : domains_) {
     holBlockCount += scheme.second->getHolBlockCount();
   }
-  LOG(INFO) << "Complete" <<
-    "\nStats:"
-    "\nSeed: " << params_.seed <<
-    "\nBlocks sent: " << requests_.size() <<
-    "\nAllowed OOO: " << stats_.allowedOOO <<
-    "\nPackets: " << stats_.packets <<
-    "\nPacket Losses: " << stats_.packetLosses <<
-    "\nHOL Block Count: " << holBlockCount <<
-    "\nHOL Delay (ms): " << stats_.holDelay.count() <<
-    "\nMax Queue Buffer Bytes: " << stats_.maxQueueBufferBytes <<
-    "\nUncompressed Bytes: " << stats_.uncompressed <<
-    "\nCompressed Bytes: " << stats_.compressed <<
-    "\nCompression Ratio: " <<
-    int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
+  LOG(INFO) << "Complete"
+            << "\nStats:"
+               "\nSeed: "
+            << params_.seed << "\nBlocks sent: " << requests_.size()
+            << "\nAllowed OOO: " << stats_.allowedOOO
+            << "\nPackets: " << stats_.packets
+            << "\nPacket Losses: " << stats_.packetLosses
+            << "\nHOL Block Count: " << holBlockCount
+            << "\nHOL Delay (ms): " << stats_.holDelay.count()
+            << "\nMax Queue Buffer Bytes: " << stats_.maxQueueBufferBytes
+            << "\nUncompressed Bytes: " << stats_.uncompressed
+            << "\nCompressed Bytes: " << stats_.compressed
+            << "\nCompression Ratio: "
+            << int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
 }
 
-void CompressionSimulator::flushRequests(CompressionScheme *scheme) {
+void CompressionSimulator::flushRequests(CompressionScheme* scheme) {
   VLOG(5) << "schedule encode for " << scheme->packetIndices.size()
           << " blocks at " << scheme->prev.count();
   // Flush previous train
-  scheduleEvent([this, scheme,
-                 indices=std::move(scheme->packetIndices)] () mutable {
-      bool newPacket = true;
-      while (!indices.empty()) {
-        int16_t index = indices.front();
-        indices.pop_front();
-        auto schemeIndex = scheme->index;
-        auto encodeRes = encode(scheme, newPacket, index);
-        FrameFlags flags = encodeRes.first;
-        bool allowOOO = flags.allowOOO;
-        if (schemeIndex < minOOOThresh()) {
-          allowOOO = false;
-          auto ack = scheme->getAck(schemeIndex);
-          if (ack) {
-            scheme->recvAck(std::move(ack));
+  scheduleEvent(
+      [this, scheme, indices = std::move(scheme->packetIndices)]() mutable {
+        bool newPacket = true;
+        while (!indices.empty()) {
+          int16_t index = indices.front();
+          indices.pop_front();
+          auto schemeIndex = scheme->index;
+          auto encodeRes = encode(scheme, newPacket, index);
+          FrameFlags flags = encodeRes.first;
+          bool allowOOO = flags.allowOOO;
+          if (schemeIndex < minOOOThresh()) {
+            allowOOO = false;
+            auto ack = scheme->getAck(schemeIndex);
+            if (ack) {
+              scheme->recvAck(std::move(ack));
+            }
           }
+          stats_.allowedOOO += (allowOOO) ? 1 : 0;
+          flags.allowOOO = allowOOO;
+          scheme->encodedBlocks.emplace_back(flags,
+                                             newPacket,
+                                             std::move(encodeRes.second),
+                                             &callbacks_[index]);
+          newPacket = false;
         }
-        stats_.allowedOOO += (allowOOO) ? 1 : 0;
-        flags.allowOOO = allowOOO;
-        scheme->encodedBlocks.emplace_back(
-            flags, newPacket, std::move(encodeRes.second), &callbacks_[index]);
-        newPacket = false;
-      }
-      eventBase_.runInLoop(scheme, true);
-    }, scheme->prev);
+        eventBase_.runInLoop(scheme, true);
+      },
+      scheme->prev);
 }
 
-void CompressionSimulator::setupRequest(uint16_t index, HTTPMessage&& msg,
+void CompressionSimulator::setupRequest(uint16_t index,
+                                        HTTPMessage&& msg,
                                         std::chrono::milliseconds encodeDelay) {
-  auto scheme = getScheme(
-    msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST));
+  auto scheme = getScheme(msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST));
   requests_.emplace_back(msg);
   auto decodeCompleteCB =
-    [index, this, scheme] (std::chrono::milliseconds holDelay) {
-    // record processed timestamp
-    CHECK(callbacks_[index].getResult().isOk());
-    verifyHeaders(requests_[index], *callbacks_[index].getResult().ok());
-    stats_.holDelay += holDelay;
-    VLOG(1) << "Finished decoding request=" << index << " with holDelay=" <<
-    holDelay.count() << " cumulative HoL delay=" << stats_.holDelay.count();
-    sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
-  };
+      [index, this, scheme](std::chrono::milliseconds holDelay) {
+        // record processed timestamp
+        CHECK(callbacks_[index].getResult().isOk());
+        verifyHeaders(requests_[index], *callbacks_[index].getResult().ok());
+        stats_.holDelay += holDelay;
+        VLOG(1) << "Finished decoding request=" << index
+                << " with holDelay=" << holDelay.count()
+                << " cumulative HoL delay=" << stats_.holDelay.count();
+        sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
+      };
   callbacks_.emplace_back(index, decodeCompleteCB);
 
   // Assume that all packets with same encodeDelay will form a packet
@@ -243,10 +252,11 @@ void CompressionSimulator::flushPacket(CompressionScheme* scheme) {
   stats_.packets++;
   VLOG(1) << "schedule decode for " << scheme->packetBlocks.size()
           << " blocks at " << scheme->decodeDelay.count();
-  scheduleEvent({[this, scheme,
-                  blocks=std::move(scheme->packetBlocks)] () mutable {
+  scheduleEvent(
+      {[this, scheme, blocks = std::move(scheme->packetBlocks)]() mutable {
         decodePacket(scheme, blocks);
-      }}, scheme->decodeDelay);
+      }},
+      scheme->decodeDelay);
   scheme->packetBytes = 0;
 }
 
@@ -257,7 +267,7 @@ void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
   auto encodeRes = &scheme->encodedBlocks.front();
   bool newPacket = std::get<1>(*encodeRes);
   size_t headerBlockBytesRemaining =
-    std::get<2>(*encodeRes)->computeChainDataLength();
+      std::get<2>(*encodeRes)->computeChainDataLength();
   std::chrono::milliseconds packetDelay = deliveryDelay();
   scheme->decodeDelay = packetDelay;
   while (true) {
@@ -273,8 +283,8 @@ void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
     } else {
       scheme->packetBytes += headerBlockBytesRemaining;
     }
-    headerBlockBytesRemaining -= std::min(headerBlockBytesRemaining,
-                                          kMTU - scheme->packetBytes);
+    headerBlockBytesRemaining -=
+        std::min(headerBlockBytesRemaining, kMTU - scheme->packetBytes);
     if (headerBlockBytesRemaining == 0) {
       // Move from the first element of encodedBlocks to the last
       // element of packetBlocks.
@@ -289,7 +299,7 @@ void CompressionSimulator::flushSchemePackets(CompressionScheme* scheme) {
       encodeRes = &scheme->encodedBlocks.front();
       newPacket = std::get<1>(*encodeRes);
       headerBlockBytesRemaining =
-        std::get<2>(*encodeRes)->computeChainDataLength();
+          std::get<2>(*encodeRes)->computeChainDataLength();
     }
     if (newPacket) {
       packetDelay = deliveryDelay();
@@ -337,9 +347,8 @@ unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
   return nullptr;
 }
 
-std::pair<FrameFlags, unique_ptr<IOBuf>>
-CompressionSimulator::encode(CompressionScheme* scheme, bool newPacket,
-                             uint16_t index) {
+std::pair<FrameFlags, unique_ptr<IOBuf>> CompressionSimulator::encode(
+    CompressionScheme* scheme, bool newPacket, uint16_t index) {
   VLOG(1) << "Start encoding request=" << index;
   vector<compress::Header> allHeaders;
   // The encode API is pretty bad.  We should just let HPACK directly encode
@@ -354,36 +363,36 @@ CompressionSimulator::encode(CompressionScheme* scheme, bool newPacket,
     allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, http2::kPath, path);
   }
   msg.getHeaders().removeByPredicate(
-    [&] (HTTPHeaderCode, const string& name, const string&) {
-      // HAR files contain actual serialized headers protocol headers like
-      // :authority, which we are re-adding above.  Strip them so our
-      // equality test works
-      return (name.size() > 0 && name[0] == ':');
-    });
+      [&](HTTPHeaderCode, const string& name, const string&) {
+        // HAR files contain actual serialized headers protocol headers like
+        // :authority, which we are re-adding above.  Strip them so our
+        // equality test works
+        return (name.size() > 0 && name[0] == ':');
+      });
 
   const HTTPHeaders& headers = msg.getHeaders();
   const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
   if (!host.empty()) {
     allHeaders.emplace_back(
-      HTTP_HEADER_COLON_AUTHORITY, http2::kAuthority, host);
+        HTTP_HEADER_COLON_AUTHORITY, http2::kAuthority, host);
   }
   // Cookies are coalesced in the HAR file but need to be added as separate
   // headers to optimize compression ratio
   vector<string> cookies;
   headers.forEachWithCode(
-    [&] (HTTPHeaderCode code, const string& name, const string& value) {
-      if (code == HTTP_HEADER_COOKIE) {
-        vector<StringPiece> cookiePieces;
-        folly::split(';', value, cookiePieces);
-        cookies.reserve(cookies.size() + cookiePieces.size());
-        for (auto cookie: cookiePieces) {
-          cookies.push_back(ltrimWhitespace(cookie).str());
-          allHeaders.emplace_back(code, name, cookies.back());
+      [&](HTTPHeaderCode code, const string& name, const string& value) {
+        if (code == HTTP_HEADER_COOKIE) {
+          vector<StringPiece> cookiePieces;
+          folly::split(';', value, cookiePieces);
+          cookies.reserve(cookies.size() + cookiePieces.size());
+          for (auto cookie : cookiePieces) {
+            cookies.push_back(ltrimWhitespace(cookie).str());
+            allHeaders.emplace_back(code, name, cookies.back());
+          }
+        } else if (code != HTTP_HEADER_HOST) {
+          allHeaders.emplace_back(code, name, value);
         }
-      } else if (code != HTTP_HEADER_HOST) {
-        allHeaders.emplace_back(code, name, value);
-      }
-    });
+      });
 
   auto before = stats_.uncompressed;
   auto res = scheme->encode(newPacket, std::move(allHeaders), stats_);
@@ -391,8 +400,8 @@ CompressionSimulator::encode(CompressionScheme* scheme, bool newPacket,
           << " orig size=" << (stats_.uncompressed - before)
           << " block size=" << res.second->computeChainDataLength()
           << " cumulative bytes=" << stats_.compressed
-          << " cumulative compression ratio=" <<
-    int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
+          << " cumulative compression ratio="
+          << int(100 - double(100 * stats_.compressed) / stats_.uncompressed);
   return res;
 }
 
@@ -404,8 +413,8 @@ void CompressionSimulator::decode(CompressionScheme* scheme,
 }
 
 void CompressionSimulator::decodePacket(
-  CompressionScheme* scheme,
-  std::list<CompressionScheme::BlockInfo>& blocks) {
+    CompressionScheme* scheme,
+    std::list<CompressionScheme::BlockInfo>& blocks) {
   VLOG(1) << "decode packet with " << blocks.size() << " blocks";
   while (!blocks.empty()) {
     auto encodeRes = &blocks.front();
@@ -433,9 +442,10 @@ void CompressionSimulator::sendAck(CompressionScheme* scheme,
   }
   // An ack is a packet
   stats_.packets++;
-  scheduleEvent([a=std::move(ack), this, scheme] () mutable {
-      recvAck(scheme, std::move(a));
-    }, deliveryDelay());
+  scheduleEvent([a = std::move(ack),
+                 this,
+                 scheme]() mutable { recvAck(scheme, std::move(a)); },
+                deliveryDelay());
 }
 
 void CompressionSimulator::recvAck(CompressionScheme* scheme,
@@ -447,20 +457,18 @@ std::chrono::milliseconds CompressionSimulator::deliveryDelay() {
   std::chrono::milliseconds delay = one_half_rtt();
   while (loss()) {
     stats_.packetLosses++;
-    scheduleEvent([] {
-        VLOG(4) << "Packet lost!";
-      }, delay);
+    scheduleEvent([] { VLOG(4) << "Packet lost!"; }, delay);
     std::chrono::milliseconds rxmit = rxmitDelay();
     delay += rxmit;
-    scheduleEvent([rxmit] {
-        VLOG(4) << "Packet loss detected, retransmitting with additional "
-                << rxmit.count();
-      }, delay - one_half_rtt());
+    scheduleEvent(
+        [rxmit] {
+          VLOG(4) << "Packet loss detected, retransmitting with additional "
+                  << rxmit.count();
+        },
+        delay - one_half_rtt());
   }
   if (delayed()) {
-    scheduleEvent([] {
-        VLOG(4) << "Packet delayed in network";
-      }, delay);
+    scheduleEvent([] { VLOG(4) << "Packet delayed in network"; }, delay);
     delay += extraDelay();
   }
   return delay;
@@ -495,4 +503,4 @@ std::chrono::milliseconds CompressionSimulator::extraDelay() {
 uint32_t CompressionSimulator::minOOOThresh() {
   return params_.minOOOThresh;
 }
-}}
+}} // namespace proxygen::compress

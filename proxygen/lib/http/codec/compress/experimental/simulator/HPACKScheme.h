@@ -16,7 +16,6 @@
 
 namespace proxygen { namespace compress {
 
-
 /**
  * Compression scheme for HPACK with a prepended sequence number
  */
@@ -58,18 +57,19 @@ class HPACKScheme : public CompressionScheme {
     return {flags, std::move(block)};
   }
 
-  void decode(FrameFlags flags, std::unique_ptr<folly::IOBuf> encodedReq,
-              SimStats& stats, SimStreamingCallback& callback) override {
+  void decode(FrameFlags flags,
+              std::unique_ptr<folly::IOBuf> encodedReq,
+              SimStats& stats,
+              SimStreamingCallback& callback) override {
     folly::io::Cursor cursor(encodedReq.get());
     auto seqn = cursor.readBE<uint16_t>();
     callback.seqn = seqn;
-    VLOG(1) << "Decoding request=" << callback.requestIndex << " header seqn="
-            << seqn;
+    VLOG(1) << "Decoding request=" << callback.requestIndex
+            << " header seqn=" << seqn;
     auto len = cursor.totalLength();
     encodedReq->trimStart(sizeof(uint16_t));
-    serverQueue_.enqueueHeaderBlock(seqn,
-                                    std::move(encodedReq),
-                                    len, &callback, flags.allowOOO);
+    serverQueue_.enqueueHeaderBlock(
+        seqn, std::move(encodedReq), len, &callback, flags.allowOOO);
     callback.maybeMarkHolDelay();
     if (serverQueue_.getQueuedBytes() > stats.maxQueueBufferBytes) {
       stats.maxQueueBufferBytes = serverQueue_.getQueuedBytes();
@@ -85,4 +85,4 @@ class HPACKScheme : public CompressionScheme {
   HPACKQueue serverQueue_{server_};
   bool allowOOO_{false};
 };
-}}
+}} // namespace proxygen::compress

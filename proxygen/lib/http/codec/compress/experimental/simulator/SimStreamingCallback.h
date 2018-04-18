@@ -9,17 +9,17 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 
 namespace proxygen { namespace compress {
 class SimStreamingCallback : public HeaderCodec::StreamingCallback {
  public:
   SimStreamingCallback(uint16_t index,
                        std::function<void(std::chrono::milliseconds)> cb)
-    : requestIndex(index),
-      headersCompleteCb(cb) {}
+      : requestIndex(index), headersCompleteCb(cb) {
+  }
 
   SimStreamingCallback(SimStreamingCallback&& goner) noexcept {
     std::swap(msg, goner.msg);
@@ -48,7 +48,6 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
     } else {
       msg.getHeaders().add(name.toStdString(), value.toStdString());
     }
-
   }
 
   void onHeadersComplete(HTTPHeaderSize) override {
@@ -96,4 +95,4 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
   bool complete{false};
 };
 
-}}
+}} // namespace proxygen::compress

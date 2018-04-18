@@ -10,8 +10,8 @@
 #pragma once
 
 #include <folly/io/async/EventBase.h>
-#include <proxygen/lib/http/codec/compress/experimental/simulator/SimStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionTypes.h>
+#include <proxygen/lib/http/codec/compress/experimental/simulator/SimStreamingCallback.h>
 
 namespace proxygen { namespace compress {
 
@@ -19,12 +19,16 @@ class CompressionSimulator;
 
 class CompressionScheme : public folly::EventBase::LoopCallback {
  public:
-  explicit CompressionScheme(CompressionSimulator* sim)
-      : simulator_(sim) {}
-  virtual ~CompressionScheme() {}
+  explicit CompressionScheme(CompressionSimulator* sim) : simulator_(sim) {
+  }
+  virtual ~CompressionScheme() {
+  }
 
   /* Parent class for acks */
-  struct Ack { virtual ~Ack() {} };
+  struct Ack {
+    virtual ~Ack() {
+    }
+  };
 
   /* Generate an ack for the given sequence number */
   virtual std::unique_ptr<Ack> getAck(uint16_t seqn) = 0;
@@ -47,7 +51,8 @@ class CompressionScheme : public folly::EventBase::LoopCallback {
    */
   virtual void decode(FrameFlags flags,
                       std::unique_ptr<folly::IOBuf> encodedReq,
-                      SimStats& stats, SimStreamingCallback& cb) = 0;
+                      SimStats& stats,
+                      SimStreamingCallback& cb) = 0;
 
   /* Return the number of times the decoder was head-of-line blocked */
   virtual uint32_t getHolBlockCount() const = 0;
@@ -56,7 +61,8 @@ class CompressionScheme : public folly::EventBase::LoopCallback {
   void runLoopCallback() noexcept override;
 
   /* List of blocks encoded in the current event loop */
-  using BlockInfo = std::tuple<FrameFlags, bool /*newPacket*/,
+  using BlockInfo = std::tuple<FrameFlags,
+                               bool /*newPacket*/,
                                std::unique_ptr<folly::IOBuf>,
                                SimStreamingCallback*>;
   std::list<BlockInfo> encodedBlocks;
@@ -74,9 +80,8 @@ class CompressionScheme : public folly::EventBase::LoopCallback {
 
   std::list<uint16_t> packetIndices;
 
-
  private:
   CompressionSimulator* simulator_;
 };
 
-}}
+}} // namespace proxygen::compress
