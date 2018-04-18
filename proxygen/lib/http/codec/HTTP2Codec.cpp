@@ -823,6 +823,9 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
           return ErrorCode::PROTOCOL_ERROR;
         }
         break;
+      case SettingsId::THRIFT_CHANNEL_ID:
+      case SettingsId::THRIFT_CHANNEL_ID_DEPRECATED:
+        break;
       default:
         continue; // ignore unknown setting
     }
