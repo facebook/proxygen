@@ -31,7 +31,7 @@ static const bool kStrictPadding = true;
 
 static_assert(sizeof(kZeroPad) == 256, "bad zero padding");
 
-void writePriorityBody(IOBufQueue& queue,
+void writePriorityBody(QueueAppender& appender,
                        uint32_t streamDependency,
                        bool exclusive,
                        uint8_t weight) {
@@ -41,7 +41,6 @@ void writePriorityBody(IOBufQueue& queue,
     streamDependency |= ~kUint31Mask;
   }
 
-  QueueAppender appender(&queue, 8);
   appender.writeBE<uint32_t>(streamDependency);
   appender.writeBE<uint8_t>(weight);
 }
@@ -118,7 +117,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
     queue.append(std::move(payload));
     payload = std::move(tail);
   }
-  QueueAppender appender(&queue, kFrameHeaderSize);
+  QueueAppender appender(&queue, headerSize);
   appender.writeBE<uint32_t>(lengthAndType);
   appender.writeBE<uint8_t>(flags);
   appender.writeBE<uint32_t>(kUint31Mask & stream);
@@ -127,7 +126,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
     appender.writeBE<uint8_t>(*padding);
   }
   if (priority) {
-    writePriorityBody(queue,
+    writePriorityBody(appender,
                       priority->streamDependency,
                       priority->exclusive,
                       priority->weight);
