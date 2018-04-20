@@ -342,14 +342,15 @@ TEST(SPDYCodecTest, UnsupportedFrameType) {
 }
 
 template <typename Codec>
-unique_ptr<folly::IOBuf> getSynStream(Codec& egressCodec,
-                                      uint32_t streamID,
-                                      const HTTPMessage& msg,
-                                      uint32_t assocStreamId = 0,
-                                      bool eom = false,
-                                      HTTPHeaderSize* size = nullptr) {
+unique_ptr<folly::IOBuf> getSynStream(
+    Codec& egressCodec,
+    uint32_t streamID,
+    const HTTPMessage& msg,
+    uint32_t assocStreamId = SPDYCodec::NoStream,
+    bool eom = false,
+    HTTPHeaderSize* size = nullptr) {
   folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
-  if (assocStreamId == 0) {
+  if (assocStreamId == SPDYCodec::NoStream) {
     egressCodec.generateHeader(output, streamID, msg, eom, size);
   } else {
     egressCodec.generatePushPromise(output, streamID, msg, assocStreamId, eom,
@@ -844,7 +845,7 @@ TEST(SPDYCodecTest, ServerPushInvalidFlags) {
 }
 
 /**
- * A push stream with assocStreamID = 0
+ * A push stream with assocStreamID = SPDYCodec::NoStream
  */
 uint8_t pushStreamWithoutAssoc[] =
 { 0x80, 0x03, 0x00, 0x01, 0x02, 0x00, 0x00, 0x91,

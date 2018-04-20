@@ -48,7 +48,7 @@ class HTTPCodec {
    */
   using StreamID = uint32_t;
 
-  static const StreamID NoStream{0};
+  static const folly::Optional<StreamID> NoStream;
 
   static const folly::Optional<StreamID> NoControlStream;
 
@@ -603,7 +603,7 @@ class HTTPCodec {
   /**
    * Get the identifier of the last stream started by the remote.
    */
-  virtual StreamID getLastIncomingStreamID() const { return NoStream; }
+  virtual StreamID getLastIncomingStreamID() const { return 0; }
 
   /**
    * Get the default size of flow control windows for this protocol

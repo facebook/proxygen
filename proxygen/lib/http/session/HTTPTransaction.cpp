@@ -39,7 +39,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t receiveInitialWindowSize,
                                  uint32_t sendInitialWindowSize,
                                  http2::PriorityUpdate priority,
-                                 HTTPCodec::StreamID assocId,
+                                 folly::Optional<HTTPCodec::StreamID> assocId,
                                  folly::Optional<HTTPCodec::StreamID> control):
     deferredEgressBody_(folly::IOBufQueue::cacheChainLength()),
     direction_(direction),
@@ -1243,7 +1243,7 @@ void HTTPTransaction::checkCreateDeferredIngress() {
 
 bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
   DestructorGuard g(this);
-  CHECK_EQ(pushTxn->assocStreamId_, id_);
+  CHECK_EQ(*pushTxn->assocStreamId_, id_);
   if (!handler_) {
     VLOG(4) << "Cannot add a pushed txn to an unhandled txn";
     return false;

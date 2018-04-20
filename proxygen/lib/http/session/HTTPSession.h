@@ -502,7 +502,7 @@ class HTTPSession:
    */
   HTTPTransaction* createTransaction(
     HTTPCodec::StreamID streamID,
-    HTTPCodec::StreamID assocStreamID,
+    folly::Optional<HTTPCodec::StreamID> assocStreamID,
     folly::Optional<HTTPCodec::StreamID> controlStream,
     http2::PriorityUpdate priority = http2::DefaultPriority);
 

@@ -588,7 +588,7 @@ HTTPSession::newExTransaction(
 
   DCHECK(started_);
   HTTPTransaction* txn = createTransaction(codec_->createStream(),
-                                           0,
+                                           HTTPCodec::NoStream,
                                            controlStream);
   if (!txn) {
     return nullptr;
@@ -1034,8 +1034,7 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
   ex.setProxygenError(kErrorStreamAbort);
   ex.setCodecStatusCode(code);
   DestructorGuard dg(this);
-  if (isDownstream() && txn->getAssocTxnId() == 0 &&
-      code == ErrorCode::CANCEL) {
+  if (isDownstream() && !txn->getAssocTxnId() && code == ErrorCode::CANCEL) {
     // Cancelling the assoc txn cancels all push txns
     for (auto it = txn->getPushedTransactions().begin();
          it != txn->getPushedTransactions().end(); ) {
@@ -1075,7 +1074,7 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // successfully at the remote end. Upstream transactions are created
   // with odd transaction IDs and downstream transactions with even IDs.
   vector<HTTPCodec::StreamID> ids;
-  HTTPCodec::StreamID firstStream = HTTPCodec::NoStream;
+  auto firstStream = HTTPCodec::NoStream;
 
   for (const auto& txn: transactions_) {
     auto streamID = txn.first;
@@ -1103,13 +1102,13 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
       folly::to<string>(" with debug info: ", (char*)debugData->data()) : "";
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
       folly::to<std::string>(getErrorString(err),
-        " on transaction id: ", firstStream,
+        " on transaction id: ", *firstStream,
         " with codec error: ", getErrorCodeString(code),
         debugInfo));
     ex.setProxygenError(err);
-    errorOnTransactionId(firstStream, std::move(ex));
+    errorOnTransactionId(*firstStream, std::move(ex));
   } else if (firstStream != HTTPCodec::NoStream) {
-    ids.push_back(firstStream);
+    ids.push_back(*firstStream);
   }
 
   errorOnTransactionIds(ids, kErrorStreamUnacknowledged);
@@ -1379,12 +1378,12 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
                              *controlStream,
                              includeEOM,
                              size);
-  } else if (headers.isRequest() && assocStream > 0) {
+  } else if (headers.isRequest() && assocStream) {
     // Only PUSH_PROMISE (not push response) has an associated stream
     codec_->generatePushPromise(writeBuf_,
                                 txn->getID(),
                                 headers,
-                                assocStream,
+                                *assocStream,
                                 includeEOM,
                                 size);
   } else {
@@ -1660,7 +1659,7 @@ HTTPSession::detach(HTTPTransaction* txn) noexcept {
   liveTransactions_--;
 
   if (txn->isPushed()) {
-    auto assocTxn = findTransaction(txn->getAssocTxnId());
+    auto assocTxn = findTransaction(*txn->getAssocTxnId());
     if (assocTxn) {
       assocTxn->removePushedTransaction(streamID);
     }
@@ -2296,7 +2295,7 @@ HTTPSession::findTransaction(HTTPCodec::StreamID streamID) {
 HTTPTransaction*
 HTTPSession::createTransaction(
     HTTPCodec::StreamID streamID,
-    HTTPCodec::StreamID assocStreamID,
+    folly::Optional<HTTPCodec::StreamID> assocStreamID,
     folly::Optional<HTTPCodec::StreamID> controlStream,
     http2::PriorityUpdate priority) {
   if (!sock_->good() || transactions_.count(streamID)) {

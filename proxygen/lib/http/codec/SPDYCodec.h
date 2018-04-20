@@ -35,6 +35,8 @@ namespace proxygen {
  */
 class SPDYCodec: public HTTPParallelCodec {
 public:
+  static const StreamID NoStream = 0;
+
   explicit SPDYCodec(TransportDirection direction,
                      SPDYVersion version,
                      int spdyCompressionLevel = Z_NO_COMPRESSION);

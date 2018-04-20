@@ -642,7 +642,7 @@ void SPDYCodec::generateHeader(folly::IOBufQueue& writeBuf,
     return;
   }
   if (transportDirection_ == TransportDirection::UPSTREAM) {
-    generateSynStream(stream, HTTPCodec::NoStream, writeBuf, msg, eom, size);
+    generateSynStream(stream, 0, writeBuf, msg, eom, size);
   } else {
     generateSynReply(stream, writeBuf, msg, eom, size);
   }
@@ -654,7 +654,7 @@ void SPDYCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
                                     StreamID assocStream,
                                     bool eom,
                                     HTTPHeaderSize* size) {
-  DCHECK(assocStream != HTTPCodec::NoStream);
+  DCHECK(assocStream != NoStream);
   if (!isStreamIngressEgressAllowed(stream)) {
     VLOG(2) << "Suppressing SYN_STREAM/REPLY for stream=" << stream <<
       " ingressGoawayAck_=" << ingressGoawayAck_;
@@ -674,7 +674,7 @@ void SPDYCodec::generateSynStream(StreamID stream,
                                   bool eom,
                                   HTTPHeaderSize* size) {
   // Pushed streams must have an even streamId and an odd assocStream
-  CHECK((assocStream == HTTPCodec::NoStream && (stream % 2 == 1)) ||
+  CHECK((assocStream == NoStream && (stream % 2 == 1)) ||
         ((stream % 2 == 0) && (assocStream % 2 == 1))) <<
     "Invalid stream ids stream=" << stream << " assocStream=" << assocStream;
 
@@ -687,7 +687,7 @@ void SPDYCodec::generateSynStream(StreamID stream,
   // length.
   uint32_t fieldsSize = kFrameSizeSynStream;
   uint32_t headroom = kFrameSizeControlCommon + fieldsSize;
-  bool isPushed = (assocStream != HTTPCodec::NoStream);
+  bool isPushed = (assocStream != NoStream);
   unique_ptr<IOBuf> out(serializeRequestHeaders(msg, isPushed,
                                                 headroom, size));
 
@@ -702,7 +702,7 @@ void SPDYCodec::generateSynStream(StreamID stream,
   // the headroom that serializeRequestHeaders() reserved for us
   // at the start of the IOBuf.
   uint8_t flags = spdy::CTRL_FLAG_NONE;
-  if (assocStream != HTTPCodec::NoStream) {
+  if (assocStream != NoStream) {
     flags |= spdy::CTRL_FLAG_UNIDIRECTIONAL;
   }
   if (eom) {
@@ -987,7 +987,7 @@ size_t SPDYCodec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
                                        StreamID stream,
                                        uint32_t delta) {
   if (versionSettings_.majorVersion < 3 ||
-      (stream == 0 && versionSettings_.majorVersion == 3 &&
+      (stream == NoStream && versionSettings_.majorVersion == 3 &&
        versionSettings_.minorVersion == 0)) {
     return 0;
   }
@@ -1292,14 +1292,14 @@ void SPDYCodec::onSynStream(uint32_t assocStream,
                             const HTTPHeaderSize& size) {
   VLOG(4) << "Got SYN_STREAM, stream=" << streamId_
           << " pri=" << folly::to<int>(pri);
-  if (streamId_ == 0 ||
+  if (streamId_ == NoStream ||
       streamId_ < lastStreamID_ ||
       (transportDirection_ == TransportDirection::UPSTREAM &&
        (streamId_ & 0x01) == 1) ||
       (transportDirection_ == TransportDirection::DOWNSTREAM &&
        ((streamId_ & 0x1) == 0)) ||
       (transportDirection_ == TransportDirection::UPSTREAM &&
-       assocStream == 0)) {
+       assocStream == NoStream)) {
     LOG(ERROR) << " invalid syn stream stream_id=" << streamId_
                << " lastStreamID_=" << lastStreamID_
                << " assocStreamID=" << assocStream
@@ -1315,7 +1315,7 @@ void SPDYCodec::onSynStream(uint32_t assocStream,
                                  spdy::kMaxConcurrentStreams)) {
     throw SPDYStreamFailed(true, streamId_, spdy::RST_REFUSED_STREAM);
   }
-  if (assocStream != 0 && !(flags_ & spdy::CTRL_FLAG_UNIDIRECTIONAL)) {
+  if (assocStream != NoStream && !(flags_ & spdy::CTRL_FLAG_UNIDIRECTIONAL)) {
     throw SPDYStreamFailed(true, streamId_, spdy::RST_PROTOCOL_ERROR);
   }
   if (sessionClosing_ != ClosingState::CLOSING) {
@@ -1336,8 +1336,7 @@ void SPDYCodec::onSynReply(const HeaderPieceList& headers,
   // should have a background priority. Thus, we pick the largest
   // numerical value for the SPDY priority, which no matter what
   // protocol version this is can be conveyed to onSynCommon by -1.
-  onSynCommon(StreamID(streamId_),
-              HTTPCodec::NoStream, headers, -1, size);
+  onSynCommon(StreamID(streamId_), NoStream, headers, -1, size);
 }
 
 void SPDYCodec::onRstStream(uint32_t statusCode) noexcept {

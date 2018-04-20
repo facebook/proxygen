@@ -448,7 +448,8 @@ class HTTPTransaction :
                   uint32_t receiveInitialWindowSize = 0,
                   uint32_t sendInitialWindowSize = 0,
                   http2::PriorityUpdate = http2::DefaultPriority,
-                  HTTPCodec::StreamID assocStreamId = 0,
+                  folly::Optional<HTTPCodec::StreamID> assocStreamId =
+                  HTTPCodec::NoStream,
                   folly::Optional<HTTPCodec::StreamID> controlStream =
                   HTTPCodec::NoControlStream);
 
@@ -1004,7 +1005,7 @@ class HTTPTransaction :
    * True if this transaction is a server push transaction
    */
   bool isPushed() const {
-    return assocStreamId_ != 0;
+    return assocStreamId_.has_value();
   }
 
   /**
@@ -1032,7 +1033,7 @@ class HTTPTransaction :
   /**
    * Returns the associated transaction ID for pushed transactions, 0 otherwise
    */
-  HTTPCodec::StreamID getAssocTxnId() const {
+  folly::Optional<HTTPCodec::StreamID> getAssocTxnId() const {
     return assocStreamId_;
   }
 
@@ -1378,7 +1379,7 @@ class HTTPTransaction :
   /**
    * ID of request transaction (for pushed txns only)
    */
-  HTTPCodec::StreamID assocStreamId_{0};
+  folly::Optional<HTTPCodec::StreamID> assocStreamId_;
 
   /**
    * ID of control channel (for http2 Ex_HEADERS only)
