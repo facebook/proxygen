@@ -12,14 +12,15 @@
 #include <folly/io/async/SSLContext.h>
 #include <wangle/acceptor/ManagedConnection.h>
 #include <wangle/acceptor/TransportInfo.h>
-#include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
 class HTTPSessionController;
 class HTTPSessionStats;
 class HTTPTransaction;
+class ByteEventTracker;
 
 constexpr uint32_t kDefaultMaxConcurrentOutgoingStreams = 100;
 
@@ -121,7 +122,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     return infoCallback_;
   }
 
-  void setSessionStats(HTTPSessionStats* stats);
+  virtual void setSessionStats(HTTPSessionStats* stats) {
+    sessionStats_ = stats;
+  }
 
   virtual SessionType getType() const noexcept = 0;
 
@@ -325,8 +328,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     return transportInfo_;
   }
 
-  ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
-
   /**
    * If the connection is closed by remote end
    */
@@ -495,8 +496,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     }
   }
 
-  void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker,
-                           ByteEventTracker::Callback* cb);
   static void handleLastByteEvents(
     ByteEventTracker* byteEventTracker,
     HTTPTransaction* txn,
@@ -532,8 +531,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   wangle::TransportInfo transportInfo_;
 
   HTTPCodecFilterChain codec_;
-
-  std::shared_ptr<ByteEventTracker> byteEventTracker_{nullptr};
 
   /**
    * Maximum number of ingress body bytes that can be buffered across all

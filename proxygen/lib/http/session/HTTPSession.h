@@ -18,6 +18,7 @@
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
+#include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
@@ -80,10 +81,11 @@ class HTTPSession:
     return incomingStreams_;
   }
 
-  void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker) {
-    HTTPSessionBase::setByteEventTracker(byteEventTracker, this);
-  }
+  ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
 
+  void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker);
+
+  void setSessionStats(HTTPSessionStats* stats) override;
   /**
    * Set flow control properties on the session.
    *
@@ -923,6 +925,8 @@ class HTTPSession:
    * Container to hold the results of HTTP2PriorityQueue::nextEgress
    */
   HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
+
+  std::shared_ptr<ByteEventTracker> byteEventTracker_{nullptr};
 
   /**
    * Max number of bytes to egress per session

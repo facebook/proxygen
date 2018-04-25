@@ -113,27 +113,6 @@ bool HTTPSessionBase::notifyBodyProcessed(uint32_t bytes) {
   return false;
 }
 
-void HTTPSessionBase::setSessionStats(HTTPSessionStats* stats) {
-  sessionStats_ = stats;
-  if (byteEventTracker_) {
-    byteEventTracker_->setTTLBAStats(stats);
-  }
-}
-
-void HTTPSessionBase::setByteEventTracker(
-  std::shared_ptr<ByteEventTracker> byteEventTracker,
-  ByteEventTracker::Callback* cb) {
-  if (byteEventTracker && byteEventTracker_) {
-    byteEventTracker->absorb(std::move(*byteEventTracker_));
-  }
-  byteEventTracker_ = byteEventTracker;
-  if (byteEventTracker_) {
-    byteEventTracker_->setCallback(cb);
-    byteEventTracker_->setTTLBAStats(sessionStats_);
-  }
-}
-
-
 void
 HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
                                      const HTTPException& error) {

@@ -226,6 +226,25 @@ void HTTPSession::startNow() {
   resumeReads();
 }
 
+void HTTPSession::setByteEventTracker(
+  std::shared_ptr<ByteEventTracker> byteEventTracker) {
+  if (byteEventTracker && byteEventTracker_) {
+    byteEventTracker->absorb(std::move(*byteEventTracker_));
+  }
+  byteEventTracker_ = byteEventTracker;
+  if (byteEventTracker_) {
+    byteEventTracker_->setCallback(this);
+    byteEventTracker_->setTTLBAStats(sessionStats_);
+  }
+}
+
+void HTTPSession::setSessionStats(HTTPSessionStats* stats) {
+  HTTPSessionBase::setSessionStats(stats);
+  if (byteEventTracker_) {
+    byteEventTracker_->setTTLBAStats(stats);
+  }
+}
+
 void HTTPSession::setFlowControl(size_t initialReceiveWindow,
                                  size_t receiveStreamWindowSize,
                                  size_t receiveSessionWindowSize) {
