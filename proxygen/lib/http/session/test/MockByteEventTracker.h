@@ -23,12 +23,12 @@ class MockByteEventTracker : public ByteEventTracker {
   MOCK_METHOD2(addFirstBodyByteEvent, void(uint64_t, HTTPTransaction*));
   MOCK_METHOD2(addFirstHeaderByteEvent, void(uint64_t, HTTPTransaction*));
   MOCK_METHOD0(drainByteEvents, size_t());
-  MOCK_METHOD3(processByteEvents, bool(std::shared_ptr<ByteEventTracker>,
-                                       uint64_t, bool));
+  MOCK_METHOD2(processByteEvents, bool(std::shared_ptr<ByteEventTracker>,
+                                       uint64_t));
   GMOCK_METHOD2_(, noexcept,, addTrackedByteEvent,
       void(HTTPTransaction*, uint64_t));
-  GMOCK_METHOD3_(, noexcept,, addLastByteEvent,
-      void(HTTPTransaction*, uint64_t, bool));
+  GMOCK_METHOD2_(, noexcept,, addLastByteEvent,
+      void(HTTPTransaction*, uint64_t));
   MOCK_METHOD3(preSend, uint64_t(bool*, bool*, uint64_t));
 };
 

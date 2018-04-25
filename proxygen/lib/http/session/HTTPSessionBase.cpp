@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 
@@ -132,6 +133,7 @@ void HTTPSessionBase::setByteEventTracker(
   }
 }
 
+
 void
 HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
                                      const HTTPException& error) {
@@ -173,6 +175,29 @@ void HTTPSessionBase::attachToSessionController() {
   auto controllerPtr = getController();
   if (controllerPtr) {
     controllerPtr->attachSession(this);
+  }
+}
+
+void HTTPSessionBase::handleLastByteEvents(
+  ByteEventTracker* byteEventTracker,
+  HTTPTransaction* txn,
+  size_t encodedSize,
+  size_t byteOffset,
+  bool piggybacked)  {
+  // TODO: sort out the TransportCallback for all the EOM handling cases.
+  //  Current code has the same behavior as before when there wasn't commonEom.
+  //  The issue here is onEgressBodyLastByte can be called twice, depending on
+  //  the encodedSize. E.g., when codec actually write to buffer in sendEOM.
+  if (!txn->testAndSetFirstByteSent()) {
+    txn->onEgressBodyFirstByte();
+  }
+  if (!piggybacked) {
+    txn->onEgressBodyLastByte();
+  }
+  // in case encodedSize == 0 we won't get TTLBA which is acceptable
+  // noting the fact that we don't have a response body
+  if (byteEventTracker && (encodedSize > 0)) {
+     byteEventTracker->addLastByteEvent(txn, byteOffset);
   }
 }
 

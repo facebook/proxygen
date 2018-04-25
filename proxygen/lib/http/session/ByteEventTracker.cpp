@@ -23,26 +23,13 @@ ByteEventTracker::~ByteEventTracker() {
 
 void ByteEventTracker::absorb(ByteEventTracker&& other) {
   byteEvents_ = std::move(other.byteEvents_);
-
-  // other.nextLastByteEvent_ may not have been updated yet if called from
-  // processByteEvents callback
-  nextLastByteEvent_ = nullptr;
-  other.nextLastByteEvent_ = nullptr;
-
-  for (auto& event : byteEvents_) {
-    if (event.eventType_ == ByteEvent::LAST_BYTE) {
-      nextLastByteEvent_ = &event;
-      break;
-    }
-  }
 }
 
 // The purpose of self is to represent shared ownership during
 // processByteEvents.  This allows the owner to release ownership of the tracker
 // from a callback without causing problems
 bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
-                                         uint64_t bytesWritten,
-                                         bool eorTrackingEnabled) {
+                                         uint64_t bytesWritten) {
   bool advanceEOM = false;
 
   while (!byteEvents_.empty() &&
@@ -60,7 +47,9 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
       break;
     case ByteEvent::LAST_BYTE:
       txn->onEgressBodyLastByte();
-      addAckToLastByteEvent(txn, event, eorTrackingEnabled);
+      if (callback_) {
+        callback_->onLastByteEvent(txn, event.byteOffset_, event.eomTracked_);
+      }
       advanceEOM = true;
       break;
     case ByteEvent::TRACKED_BYTE:
@@ -68,7 +57,9 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
       break;
     case ByteEvent::PING_REPLY_SENT:
       latency = event.getLatency();
-      callback_->onPingReplyLatency(latency);
+      if (callback_) {
+        callback_->onPingReplyLatency(latency);
+      }
       break;
     }
 
@@ -79,17 +70,8 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
     delete &event;
   }
 
-  if (eorTrackingEnabled && advanceEOM) {
-    nextLastByteEvent_ = nullptr;
-    for (auto& event : byteEvents_) {
-      if (event.eventType_ == ByteEvent::LAST_BYTE) {
-        nextLastByteEvent_ = &event;
-        break;
-      }
-    }
-
-    VLOG(5) << "Setting nextLastByteNo to "
-            << (nextLastByteEvent_ ? nextLastByteEvent_->byteOffset_ : 0);
+  if (advanceEOM) {
+    eomEventProcessed();
   }
   return self.use_count() == 1;
 }
@@ -101,23 +83,16 @@ size_t ByteEventTracker::drainByteEvents() {
     delete &byteEvents_.front();
     ++numEvents;
   }
-  nextLastByteEvent_ = nullptr;
   return numEvents;
 }
 
 void ByteEventTracker::addLastByteEvent(
     HTTPTransaction* txn,
-    uint64_t byteNo,
-    bool eorTrackingEnabled) noexcept {
+    uint64_t byteNo) noexcept {
   VLOG(5) << " adding last byte event for " << byteNo;
   TransactionByteEvent* event = new TransactionByteEvent(
       byteNo, ByteEvent::LAST_BYTE, txn);
   byteEvents_.push_back(*event);
-
-  if (eorTrackingEnabled && !nextLastByteEvent_) {
-    VLOG(5) << " set nextLastByteNo to " << event->byteOffset_;
-    nextLastByteEvent_ = event;
-  }
 }
 
 void ByteEventTracker::addTrackedByteEvent(
@@ -156,21 +131,6 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
     CHECK_GT(i->byteOffset_, bytesScheduled);
     byteEvents_.insert(i.base(), *be);
   }
-}
-
-uint64_t ByteEventTracker::preSend(bool* /*cork*/,
-                                   bool* /*eom*/,
-                                   uint64_t bytesWritten) {
-  if (nextLastByteEvent_) {
-    uint64_t nextLastByteNo = nextLastByteEvent_->byteOffset_;
-    CHECK_GT(nextLastByteNo, bytesWritten);
-    uint64_t needed = nextLastByteNo - bytesWritten;
-    VLOG(5) << "needed: " << needed << "(" << nextLastByteNo << "-"
-            << bytesWritten << ")";
-
-    return needed;
-  }
-  return 0;
 }
 
 void ByteEventTracker::addFirstBodyByteEvent(uint64_t offset,

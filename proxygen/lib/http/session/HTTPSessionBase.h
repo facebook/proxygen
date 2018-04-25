@@ -497,6 +497,12 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker,
                            ByteEventTracker::Callback* cb);
+  static void handleLastByteEvents(
+    ByteEventTracker* byteEventTracker,
+    HTTPTransaction* txn,
+    size_t encodedSize,
+    size_t byteOffset,
+    bool piggybacked);
 
   void runDestroyCallbacks();
 

@@ -348,15 +348,13 @@ class HTTPUpstreamTest: public testing::Test,
       .WillRepeatedly(Return(0));
     EXPECT_CALL(*byteEventTracker, drainByteEvents())
       .WillRepeatedly(Return(0));
-    EXPECT_CALL(*byteEventTracker, processByteEvents(_, _, _))
+    EXPECT_CALL(*byteEventTracker, processByteEvents(_, _))
       .WillRepeatedly(Invoke([byteEventTracker]
                             (std::shared_ptr<ByteEventTracker> self,
-                             uint64_t bytesWritten,
-                             bool eor) {
+                             uint64_t bytesWritten) {
                               return self->ByteEventTracker::processByteEvents(
                                 self,
-                                bytesWritten,
-                                eor);
+                                bytesWritten);
                             }));
 
     return byteEventTracker;

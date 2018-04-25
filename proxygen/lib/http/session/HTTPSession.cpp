@@ -1429,24 +1429,9 @@ HTTPSession::commonEom(
     HTTPTransaction* txn,
     size_t encodedSize,
     bool piggybacked) noexcept {
-  // TODO: sort out the TransportCallback for all the EOM handling cases.
-  //  Current code has the same behavior as before when there wasn't commonEom.
-  //  The issue here is onEgressBodyLastByte can be called twice, depending on
-  //  the encodedSize. E.g., when codec actually write to buffer in sendEOM.
-  if (!txn->testAndSetFirstByteSent()) {
-    txn->onEgressBodyFirstByte();
-  }
-  if (!piggybacked) {
-    txn->onEgressBodyLastByte();
-  }
-  // in case encodedSize == 0 we won't get TTLBA which is acceptable
-  // noting the fact that we don't have a response body
-  if (byteEventTracker_ && (encodedSize > 0)) {
-     byteEventTracker_->addLastByteEvent(
-        txn,
-        sessionByteOffset(),
-        sock_->isEorTrackingEnabled());
-  }
+  HTTPSessionBase::handleLastByteEvents(
+    byteEventTracker_.get(), txn, encodedSize, sessionByteOffset(),
+    piggybacked);
   onEgressMessageFinished(txn);
 }
 
@@ -2392,8 +2377,7 @@ HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
   // once.  while with no body is intentional
   while (byteEventTracker_ &&
          byteEventTracker_->processByteEvents(
-           byteEventTracker_, bytesWritten_,
-           sock_->isEorTrackingEnabled())) {} // pass
+           byteEventTracker_, bytesWritten_)) {} // pass
 
   if ((!codec_->isReusable() || readsShutdown()) && (transactions_.empty())) {
     if (!codec_->isReusable()) {
@@ -2668,15 +2652,7 @@ void HTTPSession::onPingReplyLatency(int64_t latency) noexcept {
   }
 }
 
-uint64_t HTTPSession::getAppBytesWritten() noexcept {
- return sock_->getAppBytesWritten();
-}
-
-uint64_t HTTPSession::getRawBytesWritten() noexcept {
- return sock_->getRawBytesWritten();
-}
-
-void HTTPSession::onDeleteAckEvent() {
+void HTTPSession::onDeleteAckEvent() noexcept {
   if (readsShutdown()) {
     shutdownTransport(true, transactions_.empty());
   }
@@ -2706,5 +2682,26 @@ void HTTPSession::onReplaySafe() noexcept {
   }
   waitingForReplaySafety_.clear();
 }
+
+void HTTPSession::onLastByteEvent(
+    HTTPTransaction* txn, uint64_t eomOffset, bool eomTracked) noexcept {
+  if (!sock_->isEorTrackingEnabled() || !eomTracked) {
+    return;
+  }
+
+  if (eomOffset != sock_->getAppBytesWritten()) {
+    VLOG(2) << "tracking ack to last app byte " << eomOffset
+        << " while " << sock_->getAppBytesWritten()
+        << " app bytes have already been written";
+    return;
+  }
+
+  VLOG(5) << "tracking raw last byte " << sock_->getRawBytesWritten()
+          << " while the app last byte is " << eomOffset;
+
+  byteEventTracker_->addAckByteEvent(sock_->getRawBytesWritten(), txn);
+}
+
+
 
 } // proxygen

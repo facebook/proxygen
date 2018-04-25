@@ -215,9 +215,15 @@ class MockHTTPTransactionTransportCallback:
       public HTTPTransaction::TransportCallback {
  public:
   MockHTTPTransactionTransportCallback() {}
+  GMOCK_METHOD0_(, noexcept,, firstHeaderByteFlushed, void());
   GMOCK_METHOD0_(, noexcept,, firstByteFlushed, void());
+  GMOCK_METHOD0_(, noexcept,, trackedByteFlushed, void());
+  GMOCK_METHOD0_(, noexcept,, lastByteFlushed, void());
+  GMOCK_METHOD1_(, noexcept,, lastByteAcked, void(std::chrono::milliseconds));
   GMOCK_METHOD1_(, noexcept,, headerBytesGenerated, void(HTTPHeaderSize&));
+  GMOCK_METHOD1_(, noexcept,, headerBytesReceived, void(const HTTPHeaderSize&));
   GMOCK_METHOD1_(, noexcept,, bodyBytesGenerated, void(size_t));
+  GMOCK_METHOD1_(, noexcept,, bodyBytesReceived, void(size_t));
 };
 
 #if defined(__clang__) && __clang_major__ >= 3 && __clang_minor__ >= 6

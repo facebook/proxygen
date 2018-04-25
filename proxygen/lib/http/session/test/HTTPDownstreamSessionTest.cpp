@@ -402,15 +402,13 @@ class HTTPDownstreamTest : public testing::Test {
       .WillRepeatedly(Return(0));
     EXPECT_CALL(*byteEventTracker, drainByteEvents())
       .WillRepeatedly(Return(0));
-    EXPECT_CALL(*byteEventTracker, processByteEvents(_, _, _))
+    EXPECT_CALL(*byteEventTracker, processByteEvents(_, _))
       .WillRepeatedly(Invoke([byteEventTracker]
                              (std::shared_ptr<ByteEventTracker> self,
-                              uint64_t bytesWritten,
-                              bool eor) {
+                              uint64_t bytesWritten) {
                                return self->ByteEventTracker::processByteEvents(
                                  self,
-                                 bytesWritten,
-                                 eor);
+                                 bytesWritten);
                              }));
 
     return byteEventTracker;
@@ -865,10 +863,9 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
     });
   std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
   // Hold a dguard to first txn
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
       .WillOnce(Invoke([&dg](HTTPTransaction* txn,
-                             uint64_t /*byteNo*/,
-                             bool /*eorTrackingEnabled*/) {
+                             uint64_t /*byteNo*/) {
         dg.reset(new HTTPTransaction::DestructorGuard(txn));
       }));
   sendRequest();
@@ -883,7 +880,7 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
       handler2->sendChunkedReplyWithBody(200, 100, 100, false);
     });
   // This txn processed and destroyed before txn1
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
   handler2->expectDetachTransaction();
 
   sendRequest();
@@ -939,10 +936,9 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
       handler1->sendChunkedReplyWithBody(200, 100, 100, false);
     });
   std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
       .WillOnce(Invoke([&dg](HTTPTransaction* txn,
-                             uint64_t /*byteNo*/,
-                             bool /*eorTrackingEnabled*/) {
+                             uint64_t /*byteNo*/) {
         dg.reset(new HTTPTransaction::DestructorGuard(txn));
       }));
   sendRequest();
@@ -951,7 +947,7 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
   handler2->expectEOM([&handler2] () {
       handler2->sendChunkedReplyWithBody(200, 100, 100, false);
     });
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
   handler2->expectDetachTransaction();
 
   sendRequest();
@@ -961,7 +957,7 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
   handler3->expectEOM([&handler3] () {
       handler3->sendChunkedReplyWithBody(200, 100, 100, false);
     });
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
   handler3->expectDetachTransaction();
   flushRequestsAndLoop();
   expectResponses(3);

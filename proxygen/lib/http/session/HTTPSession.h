@@ -84,7 +84,6 @@ class HTTPSession:
     HTTPSessionBase::setByteEventTracker(byteEventTracker, this);
   }
 
-
   /**
    * Set flow control properties on the session.
    *
@@ -730,9 +729,9 @@ class HTTPSession:
 
   //ByteEventTracker::Callback functions
   void onPingReplyLatency(int64_t latency) noexcept override;
-  uint64_t getAppBytesWritten() noexcept override;
-  uint64_t getRawBytesWritten() noexcept override;
-  void onDeleteAckEvent() override;
+  void onLastByteEvent(HTTPTransaction* txn,
+                       uint64_t offset, bool eomTracked) noexcept override;
+  void onDeleteAckEvent() noexcept override;
 
   /**
    * Common EOM process shared by sendHeaders, sendBody and sendEOM

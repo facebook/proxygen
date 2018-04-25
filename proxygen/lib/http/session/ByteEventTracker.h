@@ -18,81 +18,90 @@ namespace proxygen {
 
 class TTLBAStats;
 
-// An API for using TCP events from the HTTP level
+/**
+ * ByteEventTracker can be used to fire application callbacks when a given
+ * byte of a transport stream has been processed.  The primary usage is to
+ * fire the callbacks when the byte is accepted by the transport, not when
+ * the byte has been written on the wire, or acknowledged.
+ *
+ * Subclasses may implement handling of acknowledgement timing.
+ */
 class ByteEventTracker {
  public:
   class Callback {
    public:
     virtual ~Callback() {}
     virtual void onPingReplyLatency(int64_t latency) noexcept = 0;
-    virtual uint64_t getAppBytesWritten() noexcept = 0;
-    virtual uint64_t getRawBytesWritten() noexcept = 0;
-    virtual void onDeleteAckEvent() = 0;
+    virtual void onLastByteEvent(HTTPTransaction* txn,
+                                 uint64_t offset, bool eomTracked) noexcept = 0;
+    virtual void onDeleteAckEvent() noexcept = 0;
   };
 
   virtual ~ByteEventTracker();
   explicit ByteEventTracker(Callback* callback): callback_(callback) {}
 
-  void absorb(ByteEventTracker&& other);
+  /**
+   * Assumes the byte events of another ByteEventTracker that this object
+   * is replacing.
+   */
+  virtual void absorb(ByteEventTracker&& other);
   void setCallback(Callback* callback) { callback_ = callback; }
 
+  /**
+   * drainByteEvents should be called to clear out any pending events holding
+   * transactions when processByteEvents will no longer be called
+   */
+  virtual size_t drainByteEvents();
+
+  /**
+   * processByteEvents is called whenever the transport has accepted more bytes.
+   * bytesWritten is the number of bytes written to the transport over its
+   * lifetime.
+   */
+  virtual bool processByteEvents(std::shared_ptr<ByteEventTracker> self,
+                                 uint64_t bytesWritten);
+
+  /**
+   * The following methods add byte events for tracking
+   */
   void addPingByteEvent(size_t pingSize,
                         TimePoint timestamp,
                         uint64_t bytesScheduled);
 
   void addFirstBodyByteEvent(uint64_t offset, HTTPTransaction* txn);
+
   virtual void addFirstHeaderByteEvent(uint64_t offset, HTTPTransaction* txn);
 
-  virtual size_t drainByteEvents();
-  virtual bool processByteEvents(std::shared_ptr<ByteEventTracker> self,
-                                 uint64_t bytesWritten,
-                                 bool eorTrackingEnabled);
   virtual void addLastByteEvent(HTTPTransaction* txn,
-                                uint64_t byteNo,
-                                bool eorTrackingEnabled) noexcept;
+                                uint64_t byteNo) noexcept;
   virtual void addTrackedByteEvent(HTTPTransaction* txn,
                                    uint64_t byteNo) noexcept;
 
+  /** The base ByteEventTracker cannot track acks. */
+  virtual void addAckByteEvent(uint64_t /*offset*/, HTTPTransaction* /*txn*/) {}
+
   /**
-   * Returns the number of bytes needed or 0 when there's nothing to do.
+   * HTTPSession uses preSend to truncate writes on an eom boundary.
+   * In Ack-tracking ByteEventTracker's, this should exmaine pending
+   * byte events and return the number of bytes until the next last
+   * byte event, or 0 if none are pending.  If non-zero is returned
+   * then eom may be set to indicate ack tracking is requested.
+   *
    */
-  virtual uint64_t preSend(bool* cork, bool* eom, uint64_t bytesWritten);
-
-  virtual void addAckToLastByteEvent(
-      HTTPTransaction* /* txn */,
-      const ByteEvent& /* lastByteEvent */,
-      bool /* eorTrackingEnabled */) {}
-
-  virtual void deleteAckEvent(
-    std::vector<AckByteEvent*>::iterator& /* it */) noexcept {}
-
-  virtual bool setMaxTcpAckTracked(
-    uint32_t /* maxAckTracked */,
-    AsyncTimeoutSet* /* ackLatencyTimeouts */,
-    folly::AsyncTransportWrapper* /* transport */) { return false; }
+  virtual uint64_t preSend(bool* /*cork*/, bool* /*eom*/,
+                           uint64_t /*bytesWritten*/) {
+    return 0;
+  }
 
   virtual void setTTLBAStats(TTLBAStats* /* stats */) {}
 
-  virtual void onAckLatencyEvent(const AckLatencyEvent&) {}
-
- private:
+ protected:
   // byteEvents_ is in the ascending order of ByteEvent::byteOffset_
   folly::IntrusiveList<ByteEvent, &ByteEvent::listHook> byteEvents_;
 
- protected:
+  virtual void eomEventProcessed() {}
+
   Callback* callback_;
-
-  ByteEvent* nextLastByteEvent_{nullptr};
-};
-
-class ByteEventTrackerFactory {
- public:
-  ByteEventTrackerFactory() = default;
-  virtual ~ByteEventTrackerFactory() = default;
-  virtual std::shared_ptr<ByteEventTracker> make(
-      ByteEventTracker::Callback* callback) {
-    return std::make_shared<ByteEventTracker>(callback);
-  }
 };
 
 } // proxygen
