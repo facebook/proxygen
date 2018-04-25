@@ -27,7 +27,8 @@ namespace proxygen {
   x(TRACE),                \
   x(PATCH),                \
   x(SUB),                  \
-  x(PUB)
+  x(PUB),                  \
+  x(UNSUB)
 
 
 #define HTTP_METHOD_ENUM(method) method
