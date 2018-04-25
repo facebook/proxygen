@@ -2526,8 +2526,8 @@ TEST_F(HTTP2UpstreamSessionTest, test_replay_safety_callback) {
 
   ON_CALL(*transport_, isReplaySafe())
     .WillByDefault(Return(true));
-  EXPECT_CALL(cb1, onReplaySafe());
-  EXPECT_CALL(cb3, onReplaySafe());
+  EXPECT_CALL(cb1, onReplaySafe_());
+  EXPECT_CALL(cb3, onReplaySafe_());
   replaySafetyCallback_->onReplaySafe();
 
   httpSession_->destroy();
@@ -2540,7 +2540,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_already_replay_safe) {
 
   EXPECT_CALL(*transport_, isReplaySafe())
     .WillRepeatedly(Return(true));
-  EXPECT_CALL(cb, onReplaySafe());
+  EXPECT_CALL(cb, onReplaySafe_());
   sock->addWaitingForReplaySafety(&cb);
 
   httpSession_->destroy();
