@@ -1424,8 +1424,11 @@ void SPDYCodec::onGoaway(uint32_t lastGoodStream,
     ingressGoawayAck_ = lastGoodStream;
     // Drain all streams <= lastGoodStream
     // and abort streams > lastGoodStream
-    callback_->onGoaway(lastGoodStream, spdy::goawayToErrorCode(
-                          spdy::GoawayStatusCode(statusCode)));
+    auto errorCode = ErrorCode::PROTOCOL_ERROR;
+    if (statusCode <= spdy::GoawayStatusCode::GOAWAY_FLOW_CONTROL_ERROR) {
+      errorCode = spdy::goawayToErrorCode(spdy::GoawayStatusCode(statusCode));
+    }
+    callback_->onGoaway(lastGoodStream, errorCode);
   } else {
     LOG(WARNING) << "Received multiple GOAWAY with increasing ack";
   }
