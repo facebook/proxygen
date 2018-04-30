@@ -95,7 +95,7 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
 
 void HTTPTransaction::onDelayedDestroy(bool delayed) {
   if (!isEgressComplete() || !isIngressComplete() || isEnqueued()
-      || deleting_) {
+      || pendingByteEvents_ > 0 || deleting_) {
     return;
   }
   VLOG(4) << "destroying transaction " << *this;

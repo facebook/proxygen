@@ -1064,12 +1064,11 @@ TEST_F(HTTPUpstreamSessionTest, 10_requests) {
 TEST_F(HTTPUpstreamSessionTest, test_first_header_byte_event_tracker) {
   auto byteEventTracker = setMockByteEventTracker();
 
-  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
   EXPECT_CALL(*byteEventTracker, addFirstHeaderByteEvent(_, _))
-      .WillOnce(Invoke([&dg](uint64_t /*byteNo*/,
-                             HTTPTransaction* txn) {
-        dg.reset(new HTTPTransaction::DestructorGuard(txn));
-      }));
+      .WillOnce(Invoke([] (uint64_t /*byteNo*/,
+                           HTTPTransaction* txn) {
+                         txn->incrementPendingByteEvents();
+                       }));
 
   InSequence enforceOrder;
 
@@ -1089,7 +1088,7 @@ TEST_F(HTTPUpstreamSessionTest, test_first_header_byte_event_tracker) {
 
   CHECK(httpSession_->supportsMoreTransactions());
   CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
-  dg.reset();
+  handler->txn_->decrementPendingByteEvents();
   httpSession_->destroy();
 }
 

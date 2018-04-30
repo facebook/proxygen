@@ -45,15 +45,19 @@ class TransactionByteEvent : public ByteEvent {
   TransactionByteEvent(uint64_t byteNo,
                        EventType eventType,
                        HTTPTransaction* txn)
-      : ByteEvent(byteNo, eventType), txn_(txn),
-        g_(HTTPTransaction::DestructorGuard(txn)) {}
+      : ByteEvent(byteNo, eventType), txn_(txn) {
+    txn_->incrementPendingByteEvents();
+  }
+
+  ~TransactionByteEvent() {
+    txn_->decrementPendingByteEvents();
+  }
 
   HTTPTransaction* getTransaction() override {
     return txn_;
   }
 
   HTTPTransaction* txn_;
-  HTTPTransaction::DestructorGuard g_; // refcounted transaction
 };
 
 class AckTimeout

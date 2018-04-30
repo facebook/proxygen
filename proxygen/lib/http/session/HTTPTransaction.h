@@ -1112,6 +1112,22 @@ class HTTPTransaction :
   }
 
   /**
+   * HTTPTransaction will not detach until it has 0 pending byte events.  If
+   * you call incrementPendingByteEvents, you must make a corresponding call
+   * to decrementPendingByteEvents or the transaction will never be destroyed.
+   */
+  void incrementPendingByteEvents() {
+    CHECK_LT(pendingByteEvents_, std::numeric_limits<uint8_t>::max());
+    pendingByteEvents_++;
+  }
+
+  void decrementPendingByteEvents() {
+    DestructorGuard dg(this);
+    CHECK_GT(pendingByteEvents_, 0);
+    pendingByteEvents_--;
+  }
+
+  /**
    * Timeout callback for this transaction.  The timer is active
    * until the ingress message is complete or terminated by error.
    */
@@ -1425,6 +1441,7 @@ class HTTPTransaction :
    * could take on multiple 1xx values, and then take on 200.
    */
   uint16_t lastResponseStatus_{0};
+  uint8_t pendingByteEvents_{0};
   folly::Optional<uint64_t> expectedContentLengthRemaining_;
   folly::Optional<uint64_t> expectedResponseLength_;
   folly::Optional<uint64_t> actualResponseLength_{0};

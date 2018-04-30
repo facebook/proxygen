@@ -861,13 +861,12 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
   handler1->expectEOM([&handler1] () {
       handler1->sendChunkedReplyWithBody(200, 100, 100, false);
     });
-  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
-  // Hold a dguard to first txn
+  // Hold a pending byte event
   EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
-      .WillOnce(Invoke([&dg](HTTPTransaction* txn,
-                             uint64_t /*byteNo*/) {
-        dg.reset(new HTTPTransaction::DestructorGuard(txn));
-      }));
+      .WillOnce(Invoke([] (HTTPTransaction* txn,
+                           uint64_t /*byteNo*/) {
+                         txn->incrementPendingByteEvents();
+                       }));
   sendRequest();
   flushRequestsAndLoop();
   expectResponse();
@@ -887,9 +886,10 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
   flushRequestsAndLoop();
   expectResponse();
 
-  // Now reset the dguard (simulate ack) and the first txn goes away too
+  // Now clear the pending byte event (simulate ack) and the first txn
+  // goes away too
   handler1->expectDetachTransaction();
-  dg.reset();
+  handler1->txn_->decrementPendingByteEvents();
   gracefulShutdown();
 }
 
@@ -935,12 +935,11 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
   handler1->expectEOM([&handler1] () {
       handler1->sendChunkedReplyWithBody(200, 100, 100, false);
     });
-  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
   EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
-      .WillOnce(Invoke([&dg](HTTPTransaction* txn,
-                             uint64_t /*byteNo*/) {
-        dg.reset(new HTTPTransaction::DestructorGuard(txn));
-      }));
+      .WillOnce(Invoke([] (HTTPTransaction* txn,
+                           uint64_t /*byteNo*/) {
+                         txn->incrementPendingByteEvents();
+                       }));
   sendRequest();
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
@@ -962,7 +961,7 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
   flushRequestsAndLoop();
   expectResponses(3);
   handler1->expectDetachTransaction();
-  dg.reset();
+  handler1->txn_->decrementPendingByteEvents();
   gracefulShutdown();
 }
 
@@ -1165,16 +1164,16 @@ TEST_F(HTTPDownstreamSessionTest, test_tracked_byte_event_tracker) {
     handler1->txn_->sendEOM();
     });
 
-  std::unique_ptr<HTTPTransaction::DestructorGuard> dg;
   EXPECT_CALL(*byteEventTracker,
     addTrackedByteEvent(_, expectedTrackedByteOffset))
-      .WillOnce(Invoke([&dg](HTTPTransaction* txn,
-                             uint64_t /*byteNo*/) {
-        dg.reset(new HTTPTransaction::DestructorGuard(txn));
-      }));
+      .WillOnce(Invoke([] (HTTPTransaction* txn,
+                           uint64_t /*byteNo*/) {
+                         txn->incrementPendingByteEvents();
+                       }));
   sendRequest();
+  flushRequestsAndLoop();
   handler1->expectDetachTransaction();
-  dg.reset();
+  handler1->txn_->decrementPendingByteEvents();
   gracefulShutdown();
 }
 
