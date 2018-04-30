@@ -14,6 +14,7 @@
 namespace proxygen {
 
 class ResponseHandler;
+class ExMessageHandler;
 
 /**
  * Interface to be implemented by objects that handle requests from
@@ -84,6 +85,17 @@ class RequestHandler {
   }
 
   virtual void onEgressResumed() noexcept {
+  }
+
+  /**
+   * Implement in control stream handler to support incoming child EX streams.
+   */
+  virtual ExMessageHandler* getExHandler() noexcept {
+    LOG(FATAL) << "Not implemented";
+  }
+
+  virtual ResponseHandler* getDownstream() noexcept {
+    return downstream_;
   }
 
   virtual ~RequestHandler() {}

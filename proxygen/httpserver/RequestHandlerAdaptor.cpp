@@ -10,6 +10,7 @@
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 
 #include <boost/algorithm/string.hpp>
+#include <proxygen/httpserver/ExMessageHandler.h>
 #include <proxygen/httpserver/PushHandler.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
@@ -92,6 +93,11 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
     return;
   }
 
+  if (!txn_->canSendHeaders()) {
+    // Cannot send anything else
+    return;
+  }
+
   if (error.getProxygenError() == kErrorTimeout) {
     setError(kErrorTimeout);
 
@@ -128,6 +134,12 @@ void RequestHandlerAdaptor::onEgressPaused() noexcept {
 
 void RequestHandlerAdaptor::onEgressResumed() noexcept {
   upstream_->onEgressResumed();
+}
+
+void RequestHandlerAdaptor::onExTransaction(HTTPTransaction* txn) noexcept {
+  // Create handler for child EX transaction.
+  auto handler = new RequestHandlerAdaptor(upstream_->getExHandler());
+  txn->setHandler(handler);
 }
 
 void RequestHandlerAdaptor::sendHeaders(HTTPMessage& msg) noexcept {
@@ -177,6 +189,13 @@ ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
   auto pushHandlerAdaptor = new RequestHandlerAdaptor(pushHandler);
   pushHandlerAdaptor->setTransaction(pushTxn);
   return pushHandlerAdaptor;
+}
+
+ResponseHandler* RequestHandlerAdaptor::newExMessage(
+    ExMessageHandler* exHandler) noexcept {
+  RequestHandlerAdaptor* handler = new RequestHandlerAdaptor(exHandler);
+  getTransaction()->newExTransaction(handler);
+  return handler;
 }
 
 const wangle::TransportInfo&

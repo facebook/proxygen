@@ -50,6 +50,7 @@ class RequestHandlerAdaptor
   void onError(const HTTPException& error) noexcept override;
   void onEgressPaused() noexcept override;
   void onEgressResumed() noexcept override;
+  void onExTransaction(HTTPTransaction* txn) noexcept override;
 
   // ResponseHandler
   void sendHeaders(HTTPMessage& msg) noexcept override;
@@ -63,6 +64,8 @@ class RequestHandlerAdaptor
   void resumeIngress() noexcept override;
   ResponseHandler* newPushedResponse(
     PushHandler* pushHandler) noexcept override;
+  ResponseHandler* newExMessage(ExMessageHandler* exHandler)
+    noexcept override;
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override;
 

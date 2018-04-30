@@ -34,6 +34,11 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   conf.acceptBacklog = opts.listenBacklog;
   conf.maxConcurrentIncomingStreams = opts.maxConcurrentIncomingStreams;
 
+  if (opts.enableExHeaders) {
+    conf.egressSettings.push_back(
+      HTTPSetting(SettingsId::ENABLE_EX_HEADERS, 1));
+  }
+
   if (ipConfig.protocol == HTTPServer::Protocol::SPDY) {
     conf.plaintextProtocol = "spdy/3.1";
   } else if (ipConfig.protocol == HTTPServer::Protocol::HTTP2) {

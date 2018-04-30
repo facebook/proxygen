@@ -13,6 +13,7 @@
 
 namespace proxygen {
 
+class ExMessageHandler;
 class RequestHandler;
 class PushHandler;
 
@@ -75,6 +76,11 @@ class ResponseHandler {
 
   virtual ResponseHandler* newPushedResponse(
     PushHandler* pushHandler) noexcept = 0;
+
+  virtual ResponseHandler* newExMessage(ExMessageHandler* /*exHandler*/)
+      noexcept {
+    LOG(FATAL) << "newExMessage not supported";
+  }
 
   // Accessors for Transport/Connection information
   virtual const wangle::TransportInfo& getSetupTransportInfo() const
