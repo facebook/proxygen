@@ -45,8 +45,6 @@ enum class SettingsId: uint32_t {
   _SPDY_CLIENT_CERTIFICATE_VECTOR_SIZE = SPDY_SETTINGS_MASK  | 8
 };
 
-extern const uint8_t kMaxSettingIdentifier;
-
 using SettingPair = std::pair<SettingsId, uint32_t>;
 
 }

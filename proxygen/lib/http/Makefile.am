@@ -124,7 +124,6 @@ libproxygenhttp_la_SOURCES = \
 	codec/HTTPParallelCodec.cpp \
 	codec/SPDYConstants.cpp \
 	codec/SPDYUtil.cpp \
-	codec/SettingsId.cpp \
 	codec/TransportDirection.cpp \
 	HTTPConnector.cpp \
 	HTTPConstants.cpp \
