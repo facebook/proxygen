@@ -1428,6 +1428,9 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
           continue;
         }
         break;
+      case SettingsId::THRIFT_CHANNEL_ID:
+      case SettingsId::THRIFT_CHANNEL_ID_DEPRECATED:
+        break;
       default:
         LOG(ERROR) << "ignore unknown settingsId="
                    << std::underlying_type<SettingsId>::type(setting.id)
