@@ -197,6 +197,7 @@ parsePadding(Cursor& cursor,
   if (header.length < padding) {
     return ErrorCode::PROTOCOL_ERROR;
   } else {
+    header.length -= padding;
     return ErrorCode::NO_ERROR;
   }
 }
@@ -277,7 +278,7 @@ parseData(Cursor& cursor,
   // outPadding is the total number of flow-controlled pad bytes, which
   // includes the length byte, if present.
   outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
-  cursor.clone(outBuf, header.length - padding);
+  cursor.clone(outBuf, header.length);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
@@ -325,7 +326,7 @@ parseHeaders(Cursor& cursor,
   } else {
     outPriority = folly::none;
   }
-  cursor.clone(outBuf, header.length - padding);
+  cursor.clone(outBuf, header.length);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
@@ -365,7 +366,7 @@ parseExHeaders(Cursor& cursor,
     return ErrorCode::PROTOCOL_ERROR;
   }
 
-  cursor.clone(outBuf, header.length - padding);
+  cursor.clone(outBuf, header.length);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
@@ -450,7 +451,7 @@ parsePushPromise(Cursor& cursor,
   if (header.length < padding) {
     return ErrorCode::PROTOCOL_ERROR;
   }
-  cursor.clone(outBuf, header.length - padding);
+  cursor.clone(outBuf, header.length);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 

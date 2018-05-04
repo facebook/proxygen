@@ -872,15 +872,17 @@ TEST_F(HTTP2CodecTest, MalformedPaddingLength) {
   output_.append(badInput, sizeof(badInput));
   EXPECT_EQ(output_.chainLength(), sizeof(badInput));
 
-  bool caughtException = false;
-  bool parseResult = true;
-  try {
-    parseResult = parse();
-  } catch (const std::exception &e) {
-    caughtException = true;
-  }
-  EXPECT_FALSE(caughtException);
-  EXPECT_FALSE(parseResult);
+  EXPECT_FALSE(parse());
+}
+
+TEST_F(HTTP2CodecTest, MalformedPadding) {
+  const uint8_t badInput[] = {
+    0x00, 0x00, 0x0d, 0x01, 0xbe, 0x63, 0x0d, 0x0a, 0x0d, 0x0a, 0x00, 0x73,
+    0x00, 0x00, 0x06, 0x08, 0x72, 0x00, 0x24, 0x00, 0xfa, 0x4d, 0x0d
+  };
+  output_.append(badInput, sizeof(badInput));
+
+  EXPECT_FALSE(parse());
 }
 
 TEST_F(HTTP2CodecTest, NoAppByte) {
@@ -893,15 +895,7 @@ TEST_F(HTTP2CodecTest, NoAppByte) {
   output_.append(noAppByte, sizeof(noAppByte));
   EXPECT_EQ(output_.chainLength(), sizeof(noAppByte));
 
-  bool caughtException = false;
-  bool parseResult = false;
-  try {
-    parseResult = parse();
-  } catch (const std::exception &e) {
-    caughtException = true;
-  }
-  EXPECT_FALSE(caughtException);
-  EXPECT_TRUE(parseResult);
+  EXPECT_TRUE(parse());
   EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
