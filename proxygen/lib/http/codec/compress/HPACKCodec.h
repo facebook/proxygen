@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKTableInfo.h>
 #include <string>
 #include <vector>
 
@@ -25,45 +26,6 @@ class Cursor;
 namespace proxygen {
 
 class HPACKHeader;
-
-/*
- * Struct to hold the encoder and decoder information
- */
-struct HPACKTableInfo {
-  // Egress table info (encoder)
-  uint32_t egressHeaderTableSize_{0};
-  uint32_t egressBytesStored_{0};
-  uint32_t egressHeadersStored_{0};
-
-  // Ingress table info (decoder)
-  uint32_t ingressHeaderTableSize_{0};
-  uint32_t ingressBytesStored_{0};
-  uint32_t ingressHeadersStored_{0};
-
-  HPACKTableInfo(uint32_t egressHeaderTableSize,
-                 uint32_t egressBytesStored,
-                 uint32_t egressHeadersStored,
-                 uint32_t ingressHeaderTableSize,
-                 uint32_t ingressBytesStored,
-                 uint32_t ingressHeadersStored) :
-      egressHeaderTableSize_(egressHeaderTableSize),
-      egressBytesStored_(egressBytesStored),
-      egressHeadersStored_(egressHeadersStored),
-      ingressHeaderTableSize_(ingressHeaderTableSize),
-      ingressBytesStored_(ingressBytesStored),
-      ingressHeadersStored_(ingressHeadersStored) {}
-
-  HPACKTableInfo() {}
-
-  bool operator==(const HPACKTableInfo& tableInfo) const {
-    return egressHeaderTableSize_ == tableInfo.egressHeaderTableSize_ &&
-           egressBytesStored_ == tableInfo.egressBytesStored_ &&
-           egressHeadersStored_ == tableInfo.egressHeadersStored_ &&
-           ingressHeaderTableSize_ == tableInfo.ingressHeaderTableSize_ &&
-           ingressBytesStored_ == tableInfo.ingressBytesStored_ &&
-           ingressHeadersStored_ == tableInfo.ingressHeadersStored_;
-  }
-};
 
 /*
  * Current version of the wire protocol. When we're making changes to the wire

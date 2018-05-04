@@ -56,6 +56,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/HPACKHeader.h \
 	codec/compress/HPACKHeaderName.h \
 	codec/compress/HPACKHeaderTableImpl.h \
+	codec/compress/HPACKTableInfo.h \
 	codec/compress/Header.h \
 	codec/compress/HeaderCodec.h \
 	codec/compress/HeaderPiece.h \
