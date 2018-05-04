@@ -12,17 +12,17 @@
 #include <chrono>
 
 namespace proxygen { namespace compress {
-enum class SchemeType { QCRAM, QMIN, HPACK };
+enum class SchemeType { QPACK, QMIN, HPACK };
 
 // Metadata about encoded blocks.  In a real stack, these might be
 // conveyed via HTTP frame (HEADERS or PUSH_PROMISE) flags.
 struct FrameFlags {
   FrameFlags(bool ooo = false, bool depends = false)
-      : allowOOO(ooo), QCRAMPrefixHasDepends(depends) {
+      : allowOOO(ooo), QPACKPrefixHasDepends(depends) {
   }
 
   bool allowOOO{false};
-  bool QCRAMPrefixHasDepends{false};
+  bool QPACKPrefixHasDepends{false};
 };
 
 struct SimParams {

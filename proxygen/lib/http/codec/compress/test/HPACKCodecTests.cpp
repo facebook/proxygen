@@ -465,7 +465,7 @@ INSTANTIATE_TEST_CASE_P(Queue,
                         ::testing::Values(0, 1, 2, 3));
 
 
-class QCRAMSeqnTests : public testing::Test {
+class QPACKSeqnTests : public testing::Test {
  protected:
 
   HPACKCodec client{TransportDirection::UPSTREAM, true, false, false};
@@ -473,8 +473,8 @@ class QCRAMSeqnTests : public testing::Test {
 };
 
 
-TEST_F(QCRAMSeqnTests, test_seqn) {
-  // Test that QCRAM mode is adding sequence numbers to encoded blocks
+TEST_F(QPACKSeqnTests, test_seqn) {
+  // Test that QPACK mode is adding sequence numbers to encoded blocks
   // We automatically set the commit epoch (simulate an ack) after each decoding
   auto req = basicHeaders();
   for (int i = 0; i < 3; i++) {
@@ -491,7 +491,7 @@ TEST_F(QCRAMSeqnTests, test_seqn) {
   }
 }
 
-TEST_F(QCRAMSeqnTests, test_reencode_uncommitted) {
+TEST_F(QPACKSeqnTests, test_reencode_uncommitted) {
   // Test that we re-encode headers that have not been marked committed
   auto req = basicHeaders();
   std::vector<int> expectedLengths = { 34, 35, 3 };
@@ -522,9 +522,9 @@ void headersEq(vector<Header>& headerVec, compress::HeaderPieceList& headers) {
   }
 }
 
-class QCRAMTests : public testing::Test {
+class QPACKTests : public testing::Test {
  public:
-  QCRAMTests()
+  QPACKTests()
       : queue(std::make_unique<HPACKQueue>(server)) {}
 
  protected:
@@ -534,7 +534,7 @@ class QCRAMTests : public testing::Test {
   std::unique_ptr<HPACKQueue> queue;
 };
 
-TEST_F(QCRAMTests, test_absolute_index) {
+TEST_F(QPACKTests, test_absolute_index) {
   int flights = 10;
   for (int i = 0; i < flights; i++) {
     vector<vector<string>> headers;
@@ -556,7 +556,7 @@ TEST_F(QCRAMTests, test_absolute_index) {
   }
 }
 
-TEST_F(QCRAMTests, test_with_queue) {
+TEST_F(QPACKTests, test_with_queue) {
   // Sends 10 flights of 4 requests each
   // Each request contains two 'connection' headers, one with the current
   // index, and current index - 8.

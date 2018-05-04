@@ -17,8 +17,7 @@
 DEFINE_string(input, "", "File containing requests");
 DEFINE_string(scheme,
               "qpack",
-              "Scheme: <qpack|qcram|qcram-03|qcram-wip|qmin|"
-              "hpack>");
+              "Scheme: <qpack|qmin|hpack>");
 
 DEFINE_int32(rtt, 100, "Simulated RTT");
 DEFINE_double(lossp, 0.0, "Loss Probability");
@@ -30,7 +29,7 @@ DEFINE_int64(seed, 0, "RNG seed");
 DEFINE_bool(blend, true, "Blend all facebook.com and fbcdn.net domains");
 DEFINE_bool(same_packet_compression,
             true,
-            "Allow QCRAM to compress across "
+            "Allow QPACK to compress across "
             "headers the same packet");
 
 using namespace proxygen::compress;
@@ -46,10 +45,10 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  SchemeType t = SchemeType::QCRAM;
-  if (FLAGS_scheme == "qcram") {
-    LOG(INFO) << "Using QCRAM";
-    t = SchemeType::QCRAM;
+  SchemeType t = SchemeType::QPACK;
+  if (FLAGS_scheme == "qpack") {
+    LOG(INFO) << "Using QPACK";
+    t = SchemeType::QPACK;
   } else if (FLAGS_scheme == "qmin") {
     LOG(INFO) << "Using QMIN";
     t = SchemeType::QMIN;

@@ -18,31 +18,31 @@
 
 namespace proxygen {
 
-class QCRAMHeader : public HPACKHeader {
+class QPACKHeader : public HPACKHeader {
  public:
-  QCRAMHeader() {}
+  QPACKHeader() {}
 
-  QCRAMHeader(folly::StringPiece name_,
+  QPACKHeader(folly::StringPiece name_,
               folly::StringPiece value_):
       HPACKHeader(name_, value_) {}
 
-  QCRAMHeader(QCRAMHeader&& goner) noexcept
+  QPACKHeader(QPACKHeader&& goner) noexcept
       : HPACKHeader(std::move(goner)),
         epoch(goner.epoch) {}
 
-  QCRAMHeader& operator=(QCRAMHeader&& goner) noexcept {
+  QPACKHeader& operator=(QPACKHeader&& goner) noexcept {
     std::swap(name, goner.name);
     std::swap(value, goner.value);
     epoch = goner.epoch;
     return *this;
   }
 
-  ~QCRAMHeader() {}
+  ~QPACKHeader() {}
 
   int32_t epoch{-1};
 };
 
-class QCRAMTableImpl : public TableImpl {
+class QPACKTableImpl : public TableImpl {
  public:
   size_t size() const override { return vec_.size(); }
   HPACKHeader& operator[] (size_t i) override { return vec_[i]; }
@@ -69,7 +69,7 @@ class QCRAMTableImpl : public TableImpl {
     return (vec_[i].epoch <= commitEpoch || vec_[i].epoch == curEpoch);
   }
 
-  std::vector<QCRAMHeader> vec_;
+  std::vector<QPACKHeader> vec_;
 };
 
 }

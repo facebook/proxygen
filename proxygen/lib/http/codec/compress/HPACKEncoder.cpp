@@ -32,7 +32,7 @@ HPACKEncoder::HPACKEncoder(bool huffman,
                            bool emitSequenceNumbers,
                            bool useBaseIndex,
                            bool autoCommit) :
-    // We only need the 'QCRAM' table if we are using sequent numbers
+    // We only need the 'QPACK' table if we are using sequent numbers
     HPACKContext(tableSize, emitSequenceNumbers, useBaseIndex),
     buffer_(kBufferGrowth, huffman),
     emitSequenceNumbers_(emitSequenceNumbers),

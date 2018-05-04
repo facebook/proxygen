@@ -17,7 +17,7 @@ namespace proxygen {
 
 class HPACKContext {
  public:
-  HPACKContext(uint32_t tableSize, bool qcram, bool useBaseIndex);
+  HPACKContext(uint32_t tableSize, bool qpack, bool useBaseIndex);
   virtual ~HPACKContext() {}
 
   /**

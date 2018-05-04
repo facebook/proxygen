@@ -15,9 +15,9 @@
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 
 namespace proxygen { namespace compress {
-class QCRAMScheme : public CompressionScheme {
+class QPACKScheme : public CompressionScheme {
  public:
-  explicit QCRAMScheme(CompressionSimulator* sim, uint32_t tableSize)
+  explicit QPACKScheme(CompressionSimulator* sim, uint32_t tableSize)
       : CompressionScheme(sim) {
     client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
     server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
@@ -25,37 +25,37 @@ class QCRAMScheme : public CompressionScheme {
     server_.setDecoderHeaderTableMaxSize(tableSize);
   }
 
-  ~QCRAMScheme() {
+  ~QPACKScheme() {
     CHECK_EQ(serverQueue_.getQueuedBytes(), 0);
   }
 
-  struct QCRAMAck : public CompressionScheme::Ack {
-    explicit QCRAMAck(uint16_t n) : seqn(n) {
+  struct QPACKAck : public CompressionScheme::Ack {
+    explicit QPACKAck(uint16_t n) : seqn(n) {
     }
     uint16_t seqn;
   };
 
   std::unique_ptr<Ack> getAck(uint16_t seqn) override {
     VLOG(4) << "Sending ack for seqn=" << seqn;
-    return std::make_unique<QCRAMAck>(seqn);
+    return std::make_unique<QPACKAck>(seqn);
   }
   void recvAck(std::unique_ptr<Ack> ack) override {
     CHECK(ack);
-    auto qcramAck = dynamic_cast<QCRAMAck*>(ack.get());
-    CHECK_NOTNULL(qcramAck);
-    VLOG(4) << "Received ack for seqn=" << qcramAck->seqn;
+    auto qpackAck = dynamic_cast<QPACKAck*>(ack.get());
+    CHECK_NOTNULL(qpackAck);
+    VLOG(4) << "Received ack for seqn=" << qpackAck->seqn;
     // acks can arrive out of order.  Only set the commit epoch for the highest
     // sequential ack.
-    if (qcramAck->seqn == commitEpoch_ + 1) {
-      commitEpoch_ = qcramAck->seqn;
+    if (qpackAck->seqn == commitEpoch_ + 1) {
+      commitEpoch_ = qpackAck->seqn;
       while (!acks_.empty() && acks_.front() == commitEpoch_ + 1) {
         commitEpoch_ = acks_.front();
         acks_.pop_front();
       }
       client_.setCommitEpoch(commitEpoch_);
     } else {
-      acks_.insert(std::lower_bound(acks_.begin(), acks_.end(), qcramAck->seqn),
-                   qcramAck->seqn);
+      acks_.insert(std::lower_bound(acks_.begin(), acks_.end(), qpackAck->seqn),
+                   qpackAck->seqn);
     }
   }
 

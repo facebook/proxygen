@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
-#include <proxygen/lib/http/codec/compress/QCRAMHeader.h>
+#include <proxygen/lib/http/codec/compress/QPACKHeader.h>
 
 #include <folly/io/IOBuf.h>
 
@@ -17,10 +17,10 @@ using std::string;
 
 namespace proxygen {
 
-HPACKContext::HPACKContext(uint32_t tableSize, bool qcram, bool useBaseIndex) :
+HPACKContext::HPACKContext(uint32_t tableSize, bool qpack, bool useBaseIndex) :
     table_(std::unique_ptr<TableImpl>(
-             (qcram ?
-              (TableImpl*)new QCRAMTableImpl() :
+             (qpack ?
+              (TableImpl*)new QPACKTableImpl() :
               (TableImpl*)new HPACKHeaderTableImpl())), tableSize),
     useBaseIndex_(useBaseIndex) {
   table_.setAbsoluteIndexing(useBaseIndex);

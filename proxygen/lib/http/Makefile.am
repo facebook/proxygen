@@ -64,7 +64,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
 	codec/compress/NoPathIndexingStrategy.h \
-	codec/compress/QCRAMHeader.h \
+	codec/compress/QPACKHeader.h \
 	codec/compress/StaticHeaderTable.h \
 	codec/HTTPRequestVerifier.h \
 	codec/HTTP2Codec.h \
@@ -173,7 +173,7 @@ CompressionSimulator_HEADERS = \
 	codec/compress/experimental/simulator/CompressionSimulator.h \
 	codec/compress/experimental/simulator/CompressionTypes.h \
 	codec/compress/experimental/simulator/HPACKScheme.h \
-	codec/compress/experimental/simulator/QCRAMScheme.h \
+	codec/compress/experimental/simulator/QPACKScheme.h \
 	codec/compress/experimental/simulator/SimStreamingCallback.h
 
 CompressionSimulator_LDADD = \

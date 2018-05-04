@@ -84,7 +84,7 @@ class HPACKCodec : public HeaderCodec {
                           decoder_.getHeadersStored());
   }
 
-  // Used for QCRAM simulation
+  // Used for QPACK simulation
   void packetFlushed() {
     encoder_.packetFlushed();
   }
