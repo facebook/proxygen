@@ -9,11 +9,9 @@
  */
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/HPACKScheme.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMNewScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QCRAMScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QMINScheme.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
-#include <folly/MoveWrapper.h>
+
 #include <proxygen/lib/http/codec/compress/test/HTTPArchive.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <proxygen/lib/utils/Time.h>
@@ -21,12 +19,6 @@
 using namespace std;
 using namespace folly;
 using namespace proxygen;
-
-namespace proxygen { namespace compress {
-
-bool QCRAMNewScheme::sEnableUpdatesOnControlStream_{false};
-
-}} // namespace proxygen::compress
 
 namespace {
 using namespace proxygen::compress;
@@ -334,10 +326,6 @@ unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
   switch (params_.type) {
     case SchemeType::QCRAM:
       return make_unique<QCRAMScheme>(this, params_.tableSize);
-    case SchemeType::QCRAM_03:
-      return make_unique<QCRAMNewScheme>(this, params_.tableSize);
-    case SchemeType::QPACK:
-      return make_unique<QPACKScheme>(this, params_.tableSize);
     case SchemeType::QMIN:
       return make_unique<QMINScheme>(this, params_.tableSize);
     case SchemeType::HPACK:

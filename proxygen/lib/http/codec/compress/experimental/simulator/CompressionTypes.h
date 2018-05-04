@@ -12,7 +12,7 @@
 #include <chrono>
 
 namespace proxygen { namespace compress {
-enum class SchemeType { QCRAM, QCRAM_03, QPACK, QMIN, HPACK };
+enum class SchemeType { QCRAM, QMIN, HPACK };
 
 // Metadata about encoded blocks.  In a real stack, these might be
 // conveyed via HTTP frame (HEADERS or PUSH_PROMISE) flags.
