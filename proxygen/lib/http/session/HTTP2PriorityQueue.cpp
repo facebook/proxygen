@@ -418,7 +418,7 @@ HTTP2PriorityQueue::Node::addChildToNewSubtreeRoot(std::unique_ptr<Node> child,
                                                    Node* subtreeRoot) {
   child->children_.clear();
   child->parent_ = subtreeRoot;
-  child->weight_ = 16;
+  child->weight_ = kDefaultWeight;
   child->totalChildWeight_ = 0;
   child->totalEnqueuedWeight_ = 0;
 #ifndef NDEBUG
