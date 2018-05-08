@@ -230,6 +230,8 @@ AC_CONFIG_FILES([Makefile
                  lib/http/Makefile
                  lib/http/codec/Makefile
                  lib/http/codec/test/Makefile
+                 lib/http/codec/compress/Makefile
+                 lib/http/codec/compress/test/Makefile
                  lib/http/session/Makefile
                  lib/http/session/test/Makefile
                  lib/http/test/Makefile
