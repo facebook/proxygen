@@ -98,22 +98,45 @@ uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t instruction,
 }
 
 uint32_t HPACKEncodeBuffer::encodeHuffman(folly::StringPiece literal) {
+  return encodeHuffman(0, 7, literal);
+}
+
+/*
+ * Huffman encode the literal and serialize, with an optional leading
+ * instruction.  The instruction can be at most 8 - 1 - nbit bits long.  nbit
+ * bits of the first byte will contain the prefix of the encoded literal's
+ * length.  For HPACK instruction/nbit should always be 0/7.
+ *
+ * The encoded output looks like this
+ *
+ * | instruction | 1 | Length... | Huffman Coded Literal |
+ */
+uint32_t HPACKEncodeBuffer::encodeHuffman(uint8_t instruction, uint8_t nbit,
+                                          folly::StringPiece literal) {
   static const auto& huffmanTree = huffman::huffTree();
   uint32_t size = huffmanTree.getEncodeSize(literal);
   // add the length
-  uint32_t count = encodeInteger(size, HPACK::LiteralEncoding::HUFFMAN, 7);
+  DCHECK_LE(nbit, 7);
+  uint8_t huffmanOn = uint8_t(1 << nbit);
+  DCHECK_EQ(instruction & huffmanOn, 0);
+  uint32_t count = encodeInteger(size, instruction | huffmanOn, nbit);
   // ensure we have enough bytes before performing the encoding
   count += huffmanTree.encode(literal, buf_);
   return count;
 }
 
 uint32_t HPACKEncodeBuffer::encodeLiteral(folly::StringPiece literal) {
+  return encodeLiteral(0, 7, literal);
+}
+
+uint32_t HPACKEncodeBuffer::encodeLiteral(uint8_t instruction, uint8_t nbit,
+                                          folly::StringPiece literal) {
   if (huffmanEnabled_) {
-    return encodeHuffman(literal);
+    return encodeHuffman(instruction, nbit, literal);
   }
   // otherwise use simple layout
   uint32_t count =
-    encodeInteger(literal.size(), HPACK::LiteralEncoding::PLAIN, 7);
+    encodeInteger(literal.size(), instruction, nbit);
   // copy the entire string
   buf_.push((uint8_t*)literal.data(), literal.size());
   count += literal.size();

@@ -42,16 +42,22 @@ uint8_t HPACKDecodeBuffer::peek() {
 }
 
 DecodeError HPACKDecodeBuffer::decodeLiteral(folly::fbstring& literal) {
+  return decodeLiteral(7, literal);
+}
+
+DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
+                                             folly::fbstring& literal) {
   literal.clear();
   if (remainingBytes_ == 0) {
     LOG(ERROR) << "remainingBytes_ == 0";
     return DecodeError::BUFFER_UNDERFLOW;
   }
   auto byte = peek();
-  bool huffman = byte & HPACK::LiteralEncoding::HUFFMAN;
+  uint8_t huffmanCheck = uint8_t(1 << nbit);
+  bool huffman = byte & huffmanCheck;
   // extract the size
   uint32_t size;
-  DecodeError result = decodeInteger(7, size);
+  DecodeError result = decodeInteger(nbit, size);
   if (result != DecodeError::NONE) {
     LOG(ERROR) << "Could not decode literal size";
     return result;

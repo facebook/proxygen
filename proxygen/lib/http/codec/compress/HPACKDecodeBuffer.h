@@ -82,6 +82,8 @@ class HPACKDecodeBuffer {
    */
   HPACK::DecodeError decodeLiteral(folly::fbstring& literal);
 
+  HPACK::DecodeError decodeLiteral(uint8_t nbit, folly::fbstring& literal);
+
 private:
   folly::io::Cursor& cursor_;
   uint32_t totalBytes_;

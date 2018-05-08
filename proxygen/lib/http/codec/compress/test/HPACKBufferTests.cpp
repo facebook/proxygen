@@ -65,7 +65,6 @@ class HPACKBufferTests : public testing::Test {
 };
 
 TEST_F(HPACKBufferTests, encode_integer) {
-  uint32_t size;
   // all these fit in one byte
   EXPECT_EQ(encoder_.encodeInteger(7, 192, 6), 1);
   // this one fits perfectly, but needs an additional 0 byte
@@ -106,6 +105,18 @@ TEST_F(HPACKBufferTests, encode_plain_literal) {
   }
 }
 
+TEST_F(HPACKBufferTests, encode_plain_literal_n) {
+  string literal("accept-encodin"); // len=14
+  // length must fit in 4 bits, with room for 3 bit instruction
+  EXPECT_EQ(encoder_.encodeLiteral(0xE0, 4, literal), 15);
+  releaseData();
+  EXPECT_EQ(buf_->length(), 15);
+  EXPECT_EQ(data_[0], 0xE0 | 14);
+  for (size_t i = 0; i < literal.size(); i++) {
+    EXPECT_EQ(data_[i + 1], literal[i]);
+  }
+}
+
 TEST_F(HPACKBufferTests, encode_huffman_literal) {
   string accept("accept-encoding");
   HPACKEncodeBuffer encoder(512, true);
@@ -113,7 +124,18 @@ TEST_F(HPACKBufferTests, encode_huffman_literal) {
   EXPECT_EQ(size, 12);
   releaseData(encoder);
   EXPECT_EQ(buf_->length(), 12);
-  EXPECT_EQ(data_[0], 139); // 128(huffman bit) + 11(length)
+  EXPECT_EQ(data_[0], 0x80 | 11); // 128(huffman bit) | 11(length)
+  EXPECT_EQ(data_[11], 0x7f);
+}
+
+TEST_F(HPACKBufferTests, encode_huffman_literal_n) {
+  string accept("accept-encoding");
+  HPACKEncodeBuffer encoder(512, true);
+  uint32_t size = encoder.encodeLiteral(0xE0, 4, accept);
+  EXPECT_EQ(size, 12);
+  releaseData(encoder);
+  EXPECT_EQ(buf_->length(), 12);
+  EXPECT_EQ(data_[0], 0xE0 | 0x10 | 11); // instruction | huffman | length
   EXPECT_EQ(data_[11], 0x7f);
 }
 
@@ -251,7 +273,7 @@ TEST_F(HPACKBufferTests, decode_literal_multi_buffer) {
 
 TEST_F(HPACKBufferTests, decode_huffman_literal_multi_buffer) {
   // "gzip" fits perfectly in a 3 bytes block
-  uint8_t gzip[3] = {0x9b, 0xd9, 0xab};
+  std::array<uint8_t, 3> gzip{0x9b, 0xd9, 0xab};
   auto buf1 = IOBuf::create(128);
   auto buf2 = IOBuf::create(128);
   // total size
@@ -286,6 +308,25 @@ TEST_F(HPACKBufferTests, decode_huffman_literal_multi_buffer) {
   EXPECT_EQ(literal.rfind("gzip"), literal.size() - 4);
 }
 
+TEST_F(HPACKBufferTests, decode_huffman_literal_n) {
+  // "gzip" fits perfectly in a 3 bytes block
+  std::array<uint8_t, 3> gzip{0x9b, 0xd9, 0xab};
+  uint32_t size = 3;
+  // just in case we have some bytes left encoded
+  releaseData();
+  encoder_.encodeInteger(size, 0x80 | 0x10, 4);
+  releaseData();
+  memcpy(buf_->writableData() + 1, gzip.data(), size);
+  buf_->append(size);
+  // decode
+  resetDecoder(buf_.get());
+  folly::fbstring literal;
+  EXPECT_EQ(decoder_.decodeLiteral(4, literal), DecodeError::NONE);
+  EXPECT_EQ(literal.size(), 4 * (size / 3));
+  EXPECT_EQ(literal.find("gzip"), 0);
+  EXPECT_EQ(literal.rfind("gzip"), literal.size() - 4);
+}
+
 TEST_F(HPACKBufferTests, decode_plain_literal) {
   buf_ = IOBuf::create(512);
   std::string gzip("gzip");
@@ -298,6 +339,22 @@ TEST_F(HPACKBufferTests, decode_plain_literal) {
 
   resetDecoder();
   decoder_.decodeLiteral(literal);
+  CHECK_EQ(literal, gzip);
+}
+
+
+TEST_F(HPACKBufferTests, decode_plain_literal_n) {
+  buf_ = IOBuf::create(512);
+  std::string gzip("gzip");
+  folly::fbstring literal;
+  uint8_t* wdata = buf_->writableData();
+
+  buf_->append(1 + gzip.size());
+  wdata[0] = 0xE0 | gzip.size(); // add a 3 bit instruction
+  memcpy(wdata + 1, gzip.c_str(), gzip.size());
+
+  resetDecoder();
+  decoder_.decodeLiteral(4, literal);
   CHECK_EQ(literal, gzip);
 }
 
@@ -363,8 +420,7 @@ TEST_F(HPACKBufferTests, integer_max) {
   releaseData();
   // encoding with all the bit prefixes
   for (uint8_t bitprefix = 1; bitprefix <= 8; bitprefix++) {
-    uint32_t size = encoder_.encodeInteger(std::numeric_limits<uint32_t>::max(),
-                                           0, bitprefix);
+    encoder_.encodeInteger(std::numeric_limits<uint32_t>::max(), 0, bitprefix);
     // take the encoded data and shove it in the decoder
     releaseData();
     resetDecoder();

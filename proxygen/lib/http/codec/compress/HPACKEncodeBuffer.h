@@ -77,9 +77,25 @@ class HPACKEncodeBuffer {
   uint32_t encodeLiteral(folly::StringPiece literal);
 
   /**
+   * encodes a string, either header name or header value QPACK style, where
+   * literal length has an nbit prefix.
+   *
+   * @return bytes used for encoding
+   */
+  uint32_t encodeLiteral(uint8_t instruction, uint8_t nbit,
+                         folly::StringPiece literal);
+
+  /**
    * encodes a string using huffman encoding
    */
   uint32_t encodeHuffman(folly::StringPiece literal);
+
+  /**
+   * encodes a string using huffman encoding QPACK style, where
+   * literal length has an nbit prefix.
+   */
+  uint32_t encodeHuffman(uint8_t instruction, uint8_t nbit,
+                         folly::StringPiece literal);
 
   /**
    * prints the content of an IOBuf in binary format. Useful for debugging.
