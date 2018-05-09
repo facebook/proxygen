@@ -59,9 +59,8 @@ static const std::vector<const std::string *> testHeaderStrings =
 
 void HTTPCommonHeadersHashBench(int iters) {
   for (int i = 0; i < iters; ++i) {
-    for (uint64_t j = HTTPHeaderCodeCommonOffset;
-         j < HTTPCommonHeaders::num_header_codes; ++j) {
-      HTTPCommonHeaders::hash(testHeaderNames[j]);
+    for (auto const& testHeaderString: testHeaderStrings) {
+      HTTPCommonHeaders::hash(*testHeaderString);
     }
   }
 }
