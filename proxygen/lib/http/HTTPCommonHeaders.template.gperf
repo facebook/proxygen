@@ -39,7 +39,7 @@ struct HTTPCommonHeaderName { const char* name; HTTPHeaderCode code; };
 HTTPHeaderCode HTTPCommonHeaders::hash(const char* name, size_t len) {
   const HTTPCommonHeaderName* match =
     HTTPCommonHeadersInternal::in_word_set(name, len);
-  return (match == nullptr) ? HTTP_HEADER_OTHER : HTTPHeaderCode(match->code);
+  return (match == nullptr) ? HTTP_HEADER_OTHER : match->code;
 }
 
 std::string* HTTPCommonHeaders::initHeaderNames(

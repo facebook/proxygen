@@ -114,15 +114,11 @@ TYPED_TEST(PerfectIndexMapTests, BasicKeySetAddRemoveGetSingleOrNone) {
   }
   EXPECT_EQ(this->testMap_.size(), numInserted);
 
-  std::cout << "DDD1";
-
   // Setting a duplicate should not increase the size of the map, regardless
   // of whether duplicates are supported
   Key key = static_cast<Key>(TypeParam::TKeyCommonOffset);
   this->testMap_.set(key, std::to_string(TypeParam::TKeyCommonOffset));
   EXPECT_EQ(this->testMap_.size(), numInserted);
-
-  std::cout << "DDD2";
 
   // Adding is only allowed when duplicates are and so here we expect the size
   // of the map to change.
@@ -131,14 +127,10 @@ TYPED_TEST(PerfectIndexMapTests, BasicKeySetAddRemoveGetSingleOrNone) {
     EXPECT_EQ(this->testMap_.size(), numInserted + 1);
   }
 
-  std::cout << "DDD3";
-
   // Remove the last added element in the map (and its duplicate if applicable)
   // Adjusts numInserted as appropriate
   this->testMap_.remove(key);
   EXPECT_EQ(this->testMap_.size(), --numInserted);
-
-  std::cout << "DDD4";
 
   // Verify the integrity of the map
   for (uint64_t j = TypeParam::TKeyCommonOffset + 1;
@@ -148,8 +140,6 @@ TYPED_TEST(PerfectIndexMapTests, BasicKeySetAddRemoveGetSingleOrNone) {
     ASSERT_TRUE(optional.hasValue());
     ASSERT_EQ(optional.value(), std::to_string(j));
   }
-
-  std::cout << "DDD5";
 }
 
 TYPED_TEST(PerfectIndexMapTests, BasicOtherKeySetAddRemoveGetSingleOrNone) {
