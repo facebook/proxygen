@@ -486,6 +486,25 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
     if (dep == nullptr) {
       // specified a missing parent (timed out an idle node)?
       VLOG(4) << "assigning default priority to txn=" << id;
+      // No point to try to instantiate one more virtual node
+      // if we already reached the virtual node limit
+      if (numVirtualNodes_ < maxVirtualNodes_) {
+        // The parent node hasn't arrived yet. For now setting
+        // its priority fields to default.
+        parent = dynamic_cast<Node*>(
+            addTransaction(pri.streamDependency,
+                           http2::DefaultPriority,
+                           nullptr,
+                           permanent,
+                           depth));
+        CHECK_NOTNULL(parent);
+        if (depth) {
+          *depth += 1;
+        }
+      } else {
+        VLOG(4) << "Virtual node limit reached, ignoring stream dependency "
+                << pri.streamDependency << " for new node ID " << id;
+      }
     } else {
       parent = dep;
       if (depth) {
