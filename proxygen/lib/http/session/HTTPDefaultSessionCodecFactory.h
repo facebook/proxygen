@@ -25,11 +25,11 @@ class HTTPDefaultSessionCodecFactory : public HTTPCodecFactory {
    * Get a codec instance
    */
   std::unique_ptr<HTTPCodec> getCodec(const std::string& nextProtocol,
-                                      TransportDirection direction,
-                                      bool isTLS) override;
+                                      TransportDirection direction) override;
 
  protected:
   const AcceptorConfiguration& accConfig_;
+  bool isSSL_;
   folly::Optional<SPDYVersion> alwaysUseSPDYVersion_{};
   folly::Optional<bool> alwaysUseHTTP2_{};
 };

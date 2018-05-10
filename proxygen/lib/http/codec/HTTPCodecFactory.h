@@ -26,8 +26,7 @@ class HTTPCodecFactory {
    * Get a codec instance
    */
   virtual std::unique_ptr<HTTPCodec> getCodec(const std::string& protocolHint,
-                                              TransportDirection direction,
-                                              bool isTLS) = 0;
+                                              TransportDirection direction) = 0;
 
   static std::unique_ptr<HTTPCodec> getCodec(CodecProtocol protocol,
                                              TransportDirection direction);
