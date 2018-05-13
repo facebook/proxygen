@@ -13,7 +13,6 @@
 #include <folly/portability/Unistd.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-#include <folly/executors/IOThreadPoolExecutor.h>
 
 #include "EchoHandler.h"
 #include "EchoStats.h"
@@ -33,8 +32,6 @@ DEFINE_int32(h2_port, 11002, "Port to listen on with HTTP/2 protocol");
 DEFINE_string(ip, "localhost", "IP/Hostname to bind to");
 DEFINE_int32(threads, 0, "Number of threads to listen on. Numbers <= 0 "
              "will use the number of cores on this machine.");
-
-IOThreadPoolExecutor* iotpe_;
 
 class EchoHandlerFactory : public RequestHandlerFactory {
  public:
@@ -82,25 +79,12 @@ int main(int argc, char* argv[]) {
 
   HTTPServer server(std::move(options));
   server.bind(IPs);
-  iotpe_ = nullptr;
-
-  std::function<void()>  onSuccessCallBack = ([&] () {
-    //iotpe_ = server.getIOThreadPoolExecutor().get();
-    folly::ThreadPoolExecutor::PoolStats stats = server.getIOThreadPoolExecutor()->getPoolStats();
-    std::cout <<"Started http server , io tpe num threads :" << stats.threadCount <<std::endl;
-  });
-
-  std::function<void(std::exception_ptr)>  onFailureCallBack = ([]  (std::exception_ptr) {
-    std::cout <<"Failed to start http server\n";
-  });
-
 
   // Start HTTPServer mainloop in a separate thread
   std::thread t([&] () {
-    server.start(onSuccessCallBack, onFailureCallBack);
+    server.start();
   });
 
   t.join();
-
   return 0;
 }
