@@ -2690,6 +2690,7 @@ void HTTPSession::onEgressBufferCleared() {
 }
 
 void HTTPSession::onReplaySafe() noexcept {
+  CHECK(sock_);
   sock_->setReplaySafetyCallback(nullptr);
 
   if (infoCallback_) {
