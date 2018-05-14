@@ -554,6 +554,12 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   static uint32_t egressBodySizeLimit_;
 
+  /** Address of this end of the connection */
+  folly::SocketAddress localAddr_;
+
+  /** Address of the remote end of the connection */
+  folly::SocketAddress peerAddr_;
+
  private:
   // Underlying controller_ is marked as private so that callers must utilize
   // getController/setController protected methods.  This ensures we have a
@@ -568,12 +574,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
       return std::chrono::milliseconds(0);
     }
   }
-
-  /** Address of this end of the TCP connection */
-  folly::SocketAddress localAddr_;
-
-  /** Address of the remote end of the TCP connection */
-  folly::SocketAddress peerAddr_;
 
   /**
    * The latest time when this session became idle status
