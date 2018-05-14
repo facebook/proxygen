@@ -187,6 +187,7 @@ TEST(HTTPMessage, TestCombine) {
   headers.add("Combine", "third value");
   EXPECT_EQ(headers.combine("Combine"),
             "first value, second value, third value");
+  VLOG(4) << msg;
 }
 
 TEST(HTTPMessage, TestProxification) {

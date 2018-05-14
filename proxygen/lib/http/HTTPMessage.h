@@ -465,6 +465,8 @@ class HTTPMessage {
    */
   void dumpMessage(int verbosity) const;
 
+  void describe(std::ostream& os) const;
+
   /**
    * Print the message out, serializes through mutex
    * Used in shutdown path
@@ -771,6 +773,8 @@ class HTTPMessage {
   // used by atomicDumpMessage
   static std::mutex mutexDump_;
 };
+
+std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg);
 
 /**
  * Returns a std::string that has the control characters removed from the
