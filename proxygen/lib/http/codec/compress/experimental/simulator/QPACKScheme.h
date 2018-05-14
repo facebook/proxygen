@@ -15,6 +15,8 @@
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 
 namespace proxygen { namespace compress {
+// Temporarily disable QPACK in simulator, will re-enable in next diff
+#if 0
 class QPACKScheme : public CompressionScheme {
  public:
   explicit QPACKScheme(CompressionSimulator* sim, uint32_t tableSize)
@@ -111,4 +113,5 @@ class QPACKScheme : public CompressionScheme {
   std::deque<uint16_t> acks_;
   int32_t commitEpoch_{-1};
 };
+#endif
 }} // namespace proxygen::compress

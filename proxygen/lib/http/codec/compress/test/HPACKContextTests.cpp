@@ -27,8 +27,7 @@ class HPACKContextTests : public testing::TestWithParam<bool> {
 class TestContext : public HPACKContext {
 
  public:
-  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize, false,
-                                                          false) {}
+  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize) {}
 
   void add(const HPACKHeader& header) {
     table_.add(header);
@@ -37,11 +36,11 @@ class TestContext : public HPACKContext {
 };
 
 TEST_F(HPACKContextTests, get_index) {
-  HPACKContext context(HPACK::kTableSize, false, false);
+  HPACKContext context(HPACK::kTableSize);
   HPACKHeader method(":method", "POST");
 
   // this will get it from the static table
-  CHECK_EQ(context.getIndex(method, -1, -1), 3);
+  CHECK_EQ(context.getIndex(method), 3);
 }
 
 TEST_F(HPACKContextTests, is_static) {
@@ -82,7 +81,8 @@ TEST_F(HPACKContextTests, static_table_header_names_are_common) {
   }
 }
 
-TEST_F(HPACKContextTests, static_table_is_header_code_in_table_with_non_empty_value) {
+TEST_F(HPACKContextTests,
+       static_table_is_header_code_in_table_with_non_empty_value) {
   auto& table = StaticHeaderTable::get();
   for (uint32_t i = 1; i <= table.size(); ++i) {
     const HPACKHeader& staticTableHeader = table.getHeader(i);
@@ -253,8 +253,8 @@ TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
 
   encoder.encode(headers);
 
-  CHECK_EQ(encoder.getIndex(headers[1], -1, -1), 0);
-  CHECK_EQ(encoder.getIndex(headers[0], -1, -1), 62);
+  CHECK_EQ(encoder.getIndex(headers[1]), 0);
+  CHECK_EQ(encoder.getIndex(headers[0]), 62);
 }
 
 TEST_P(HPACKContextTests, contextUpdate) {

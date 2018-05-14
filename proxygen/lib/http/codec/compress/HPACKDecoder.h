@@ -11,29 +11,21 @@
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
-#include <list>
-#include <memory>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
+#include <proxygen/lib/http/codec/compress/HPACKDecoderBase.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
-#include <vector>
 
 namespace proxygen {
 
-class HPACKDecoder : public HPACKContext {
+class HPACKDecoder : public HPACKDecoderBase,
+                     public HPACKContext {
  public:
   explicit HPACKDecoder(
     uint32_t tableSize=HPACK::kTableSize,
-    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed,
-    bool useBaseIndex=false)
-      // even if useBaseIndex is true, decoder doesn't need epoch so
-      // can use the 'HPACK' table impl
-      : HPACKContext(tableSize, false, useBaseIndex),
-        maxTableSize_(tableSize),
-        maxUncompressed_(maxUncompressed) {}
-
-  typedef std::vector<HPACKHeader> headers_t;
+    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
+      : HPACKDecoderBase(tableSize, maxUncompressed),
+        HPACKContext(tableSize) {}
 
   /**
    * given a Cursor and a total amount of bytes we can consume from it,
@@ -58,40 +50,8 @@ class HPACKDecoder : public HPACKContext {
    */
   std::unique_ptr<headers_t> decode(const folly::IOBuf* buffer);
 
-  HPACK::DecodeError getError() const {
-    return err_;
-  }
-
-  bool hasError() const {
-    return err_ != HPACK::DecodeError::NONE;
-  }
-
-  void setHeaderTableMaxSize(uint32_t maxSize) {
-    maxTableSize_ = maxSize;
-  }
-
-  void setMaxUncompressed(uint32_t maxUncompressed) {
-    maxUncompressed_ = maxUncompressed;
-  }
-
-  uint32_t getTableSize() const {
-    return table_.capacity();
-  }
-
-  uint32_t getBytesStored() const {
-    return table_.bytes();
-  }
-
-  uint32_t getHeadersStored() const {
-    return table_.size();
-  }
-
  private:
   bool isValid(uint32_t index);
-
-  uint32_t emit(const HPACKHeader& header, headers_t* emitted);
-
-  void handleBaseIndex(HPACKDecodeBuffer& dbuf);
 
   uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
                                headers_t* emitted);
@@ -100,17 +60,6 @@ class HPACKDecoder : public HPACKContext {
                                headers_t* emitted);
 
   uint32_t decodeHeader(HPACKDecodeBuffer& dbuf, headers_t* emitted);
-
-  void completeDecode(uint32_t compressedSize, uint32_t emittedSize);
-
-  void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf);
-
-  HPACK::DecodeError err_{HPACK::DecodeError::NONE};
-  uint32_t maxTableSize_;
-  uint32_t maxUncompressed_;
-  HeaderCodec::StreamingCallback* streamingCb_{nullptr};
 };
-
-HeaderDecodeError hpack2headerCodecError(HPACK::DecodeError err);
 
 }

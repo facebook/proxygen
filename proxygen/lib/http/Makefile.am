@@ -51,12 +51,13 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/HPACKContext.h \
 	codec/compress/HPACKDecodeBuffer.h \
 	codec/compress/HPACKDecoder.h \
+	codec/compress/HPACKDecoderBase.h \
 	codec/compress/HPACKEncodeBuffer.h \
 	codec/compress/HPACKEncoder.h \
+	codec/compress/HPACKEncoderBase.h \
 	codec/compress/HPACKHeader.h \
 	codec/compress/HPACKHeaderName.h \
-	codec/compress/HPACKHeaderTableImpl.h \
-	codec/compress/HPACKTableInfo.h \
+        codec/compress/HPACKTableInfo.h \
 	codec/compress/Header.h \
 	codec/compress/HeaderCodec.h \
 	codec/compress/HeaderPiece.h \
@@ -64,7 +65,6 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
 	codec/compress/NoPathIndexingStrategy.h \
-	codec/compress/QPACKHeader.h \
 	codec/compress/StaticHeaderTable.h \
 	codec/HTTPRequestVerifier.h \
 	codec/HTTP2Codec.h \
@@ -103,8 +103,10 @@ libproxygenhttp_la_SOURCES = \
 	codec/compress/HPACKContext.cpp \
 	codec/compress/HPACKDecodeBuffer.cpp \
 	codec/compress/HPACKDecoder.cpp \
+	codec/compress/HPACKDecoderBase.cpp \
 	codec/compress/HPACKEncodeBuffer.cpp \
 	codec/compress/HPACKEncoder.cpp \
+	codec/compress/HPACKEncoderBase.cpp \
 	codec/compress/HPACKHeader.cpp \
 	codec/compress/Huffman.cpp \
 	codec/compress/NoPathIndexingStrategy.cpp \

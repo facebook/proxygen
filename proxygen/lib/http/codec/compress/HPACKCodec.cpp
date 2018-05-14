@@ -25,41 +25,44 @@ using std::vector;
 
 namespace proxygen {
 
-HPACKCodec::HPACKCodec(TransportDirection /*direction*/,
-                       bool emitSequenceNumbers,
-                       bool useBaseIndex,
-                       bool autoCommit)
-    : encoder_(true, HPACK::kTableSize, emitSequenceNumbers, useBaseIndex,
-               autoCommit),
-      decoder_(HPACK::kTableSize, maxUncompressed_, useBaseIndex) {}
-
-unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
-  bool eviction = false;
-  return encode(headers, eviction);
-}
-
-unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers,
-                                     bool& eviction) noexcept {
+namespace compress {
+  std::pair<vector<HPACKHeader>, uint32_t> prepareHeaders(
+      vector<Header>& headers) {
   // convert to HPACK API format
-  vector<HPACKHeader> converted;
-  converted.reserve(headers.size());
+  std::pair<vector<HPACKHeader>, uint32_t> converted;
+  converted.first.reserve(headers.size());
   uint32_t uncompressed = 0;
   for (const auto& h : headers) {
     // HPACKHeader automatically lowercases
-    converted.emplace_back(*h.name, *h.value);
-    auto& header = converted.back();
-    uncompressed += header.name.size() + header.value.size() + 2;
+    converted.first.emplace_back(*h.name, *h.value);
+    auto& header = converted.first.back();
+    converted.second += header.name.size() + header.value.size() + 2;
   }
-  auto buf = encoder_.encode(converted, encodeHeadroom_, &eviction);
+  return converted;
+}
+}
+
+HPACKCodec::HPACKCodec(TransportDirection /*direction*/)
+    : encoder_(true, HPACK::kTableSize),
+      decoder_(HPACK::kTableSize, maxUncompressed_) {}
+
+unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
+  auto prepared = compress::prepareHeaders(headers);
+  encodedSize_.uncompressed = prepared.second;
+  auto buf = encoder_.encode(prepared.first, encodeHeadroom_);
+  recordCompressedSize(buf.get());
+  return buf;
+}
+
+void HPACKCodec::recordCompressedSize(
+  const IOBuf* stream) {
   encodedSize_.compressed = 0;
-  if (buf) {
-    encodedSize_.compressed = buf->computeChainDataLength();
+  if (stream) {
+    encodedSize_.compressed += stream->computeChainDataLength();
   }
-  encodedSize_.uncompressed = uncompressed;
   if (stats_) {
     stats_->recordEncode(Type::HPACK, encodedSize_);
   }
-  return buf;
 }
 
 Result<HeaderDecodeResult, HeaderDecodeError>
@@ -102,10 +105,11 @@ HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
                              false, multiValued);
     uncompressed += h.name.size() + h.value.size() + 2;
   }
-  decodedSize_.compressed = consumed;
-  decodedSize_.uncompressed = uncompressed;
+  HTTPHeaderSize decodedSize;
+  decodedSize.compressed = consumed;
+  decodedSize.uncompressed = uncompressed;
   if (stats_) {
-    stats_->recordDecode(Type::HPACK, decodedSize_);
+    stats_->recordDecode(Type::HPACK, decodedSize);
   }
   return HeaderDecodeResult{outHeaders_, consumed};
 }

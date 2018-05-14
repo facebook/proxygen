@@ -8,7 +8,6 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
-#include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
 
 #include <folly/Indestructible.h>
 
@@ -108,7 +107,7 @@ bool StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
 StaticHeaderTable::StaticHeaderTable(
     const char* entries[][2],
     int size)
-    : HeaderTable(std::make_unique<HPACKHeaderTableImpl>(), 0) {
+    : HeaderTable(0) {
   // calculate the size
   list<HPACKHeader> hlist;
   uint32_t byteCount = 0;

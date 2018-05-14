@@ -27,6 +27,11 @@ namespace proxygen {
 
 class HPACKHeader;
 
+namespace compress {
+std::pair<std::vector<HPACKHeader>, uint32_t> prepareHeaders(
+    std::vector<Header>& headers);
+}
+
 /*
  * Current version of the wire protocol. When we're making changes to the wire
  * protocol we need to change this version and the NPN string so that old
@@ -35,25 +40,19 @@ class HPACKHeader;
 
 class HPACKCodec : public HeaderCodec {
  public:
-  explicit HPACKCodec(TransportDirection direction,
-                      bool emitSequenceNumbers = false,
-                      bool useBaseIndex = false,
-                      bool autoCommit = true);
+  explicit HPACKCodec(TransportDirection direction);
   ~HPACKCodec() override {}
 
   std::unique_ptr<folly::IOBuf> encode(
     std::vector<compress::Header>& headers) noexcept override;
 
-  std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers, bool& eviction) noexcept;
-
   Result<HeaderDecodeResult, HeaderDecodeError>
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
 
   void decodeStreaming(
-      folly::io::Cursor& cursor,
-      uint32_t length,
-      HeaderCodec::StreamingCallback* streamingCb) noexcept override;
+    folly::io::Cursor& cursor,
+    uint32_t length,
+    HeaderCodec::StreamingCallback* streamingCb) noexcept override;
 
   void setEncoderHeaderTableSize(uint32_t size) {
     encoder_.setHeaderTableSize(size);
@@ -62,11 +61,6 @@ class HPACKCodec : public HeaderCodec {
   void setDecoderHeaderTableMaxSize(uint32_t size) {
     decoder_.setHeaderTableMaxSize(size);
   }
-
-  void setCommitEpoch(uint16_t commitEpoch) {
-    encoder_.setCommitEpoch(commitEpoch);
-  }
-
 
   void describe(std::ostream& os) const;
 
@@ -84,11 +78,6 @@ class HPACKCodec : public HeaderCodec {
                           decoder_.getHeadersStored());
   }
 
-  // Used for QPACK simulation
-  void packetFlushed() {
-    encoder_.packetFlushed();
-  }
-
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
     encoder_.setHeaderIndexingStrategy(indexingStrat);
   }
@@ -101,6 +90,8 @@ class HPACKCodec : public HeaderCodec {
   HPACKDecoder decoder_;
 
  private:
+  void recordCompressedSize(const folly::IOBuf* buf);
+
   std::vector<HPACKHeader> decodedHeaders_;
 };
 
