@@ -41,6 +41,8 @@ HeaderDecodeError hpack2headerCodecError(HPACK::DecodeError err) {
       return HeaderDecodeError::TIMEOUT;
     case HPACK::DecodeError::CANCELLED:
       return HeaderDecodeError::CANCELLED;
+    case HPACK::DecodeError::INVALID_ACK:
+      return HeaderDecodeError::INVALID_ACK;
   }
   return HeaderDecodeError::NONE;
 }

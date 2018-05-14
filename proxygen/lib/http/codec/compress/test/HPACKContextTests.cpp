@@ -14,6 +14,8 @@
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 
 using namespace folly;
@@ -286,3 +288,18 @@ TEST_P(HPACKContextTests, contextUpdate) {
 INSTANTIATE_TEST_CASE_P(Context,
                         HPACKContextTests,
                         ::testing::Values(true, false));
+
+TEST(QPACKContextTests, test_draining) {
+  QPACKEncoder encoder(true, 128);
+  vector<HPACKHeader> req;
+  req.push_back(HPACKHeader("accept-encoding", "gzip,deflate"));
+  auto result = encoder.encode(req, 0, 1);
+
+  // This will result in the first header being drained in the middle
+  // of encoding the new control channel, and force a literal.
+  req.clear();
+  req.push_back(HPACKHeader("accept-encoding", "sdch,gzip"));
+  req.push_back(HPACKHeader("accept-encoding", "gzip,deflate"));
+  result = encoder.encode(req, 0, 2);
+  EXPECT_GT(result.stream->computeChainDataLength(), 4);
+}

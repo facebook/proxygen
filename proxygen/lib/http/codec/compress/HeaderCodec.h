@@ -47,7 +47,8 @@ enum class HeaderDecodeError : uint8_t {
   BUFFER_UNDERFLOW = 107,
   LITERAL_TOO_LARGE = 108,
   TIMEOUT = 109,
-  CANCELLED = 110
+  CANCELLED = 110,
+  INVALID_ACK = 111
 };
 
 struct HeaderDecodeResult {

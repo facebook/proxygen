@@ -325,9 +325,7 @@ CompressionScheme* CompressionSimulator::getScheme(StringPiece domain) {
 unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
   switch (params_.type) {
     case SchemeType::QPACK:
-      return nullptr;
-      // temporarily disable, re-enable in next diff
-      //return make_unique<QPACKScheme>(this, params_.tableSize);
+      return make_unique<QPACKScheme>(this, params_.tableSize);
     case SchemeType::QMIN:
       return make_unique<QMINScheme>(this, params_.tableSize);
     case SchemeType::HPACK:

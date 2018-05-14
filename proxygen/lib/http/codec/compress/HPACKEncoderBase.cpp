@@ -13,6 +13,8 @@ namespace proxygen {
 
 void HPACKEncoderBase::handlePendingContextUpdate(HPACKEncodeBuffer& buf,
                                                   uint32_t tableCapacity) {
+  CHECK_EQ(HPACK::TABLE_SIZE_UPDATE.code, HPACK::Q_TABLE_SIZE_UPDATE.code) <<
+    "Code assumes these are equal";
   if (pendingContextUpdate_) {
     VLOG(5) << "Encoding table size update size=" << tableCapacity;
     buf.encodeInteger(tableCapacity, HPACK::TABLE_SIZE_UPDATE);

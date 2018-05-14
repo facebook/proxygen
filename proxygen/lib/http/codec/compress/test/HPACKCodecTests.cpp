@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKQueue.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <vector>
 
@@ -477,35 +478,57 @@ void headersEq(vector<Header>& headerVec, compress::HeaderPieceList& headers) {
   }
 }
 
-// Temporarily disable tests, enabled in next diff
-#if 0
 class QPACKTests : public testing::Test {
  public:
 
  protected:
 
-  HPACKCodec client{TransportDirection::UPSTREAM, true, true, false};
-  HPACKCodec server{TransportDirection::DOWNSTREAM, true, true, false};
-  std::unique_ptr<HPACKQueue> queue;
+  QPACKCodec client{TransportDirection::UPSTREAM};
+  QPACKCodec server{TransportDirection::DOWNSTREAM};
 };
+
+TEST_F(QPACKTests, test_simple) {
+  vector<Header> req = basicHeaders();
+  auto encodeResult = client.encode(req, 1);
+  ASSERT_NE(encodeResult.control.get(), nullptr);
+  Cursor cCursor(encodeResult.control.get());
+  EXPECT_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
+            HPACK::DecodeError::NONE);
+  client.onControlHeaderAck();
+  TestStreamingCallback cb;
+  auto length = encodeResult.stream->computeChainDataLength();
+  server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
+  client.onHeaderAck(1);
+  auto result = cb.getResult();
+  EXPECT_TRUE(result.isOk());
+  headersEq(req, result.ok().headers);
+}
 
 TEST_F(QPACKTests, test_absolute_index) {
   int flights = 10;
   for (int i = 0; i < flights; i++) {
     vector<vector<string>> headers;
     for (int j = 0; j < 32; j++) {
-      int value = (i - i / (flights - 1)) * 32 + j; // duplicate the last flight
+      int value = (i >> 1) * 32 + j; // duplicate the last flight
       headers.emplace_back(
         vector<string>({string("foomonkey"), folly::to<string>(value)}));
     }
     auto req = headersFromArray(headers);
-    unique_ptr<IOBuf> encoded = client.encode(req);
-    Cursor cursor(encoded.get());
-    auto seqn = cursor.readBE<uint16_t>();
-    EXPECT_EQ(seqn, i);
-    VLOG(4) << cursor.totalLength();
-    auto result = server.decode(cursor, cursor.totalLength());
-    client.setCommitEpoch(seqn);
+    auto encodeResult = client.encode(req, i + 1);
+    Cursor cCursor(encodeResult.control.get());
+    if (i % 2 == 1) {
+      EXPECT_EQ(encodeResult.control.get(), nullptr);
+    } else {
+      ASSERT_NE(encodeResult.control.get(), nullptr);
+      CHECK_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
+               HPACK::DecodeError::NONE);
+      client.onControlHeaderAck();
+    }
+    TestStreamingCallback cb;
+    auto length = encodeResult.stream->computeChainDataLength();
+    server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
+    client.onHeaderAck(i + 1);
+    auto result = cb.getResult();
     EXPECT_TRUE(result.isOk());
     headersEq(req, result.ok().headers);
   }
@@ -525,49 +548,58 @@ TEST_F(QPACKTests, test_with_queue) {
   }
   client.setEncoderHeaderTableSize(1024);
   for (auto f = 0; f < flights; f++) {
-    vector<std::tuple<unique_ptr<IOBuf>, bool, TestStreamingCallback>> data;
+    vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
+    list<unique_ptr<IOBuf>> controlFrames;
     for (int i = 0; i < 4; i++) {
-      bool eviction = false;
       auto reqI = req;
       for (int j = 0; j < 2; j++) {
         reqI.emplace_back(HTTP_HEADER_CONNECTION, values[
                             std::max(f * 4 + i - j * 8, 0)]);
       }
-      auto block = client.encode(reqI, eviction);
-      if (eviction) {
-        VLOG(4) << "req=" << f * 4 + i << " triggered eviction";
+      VLOG(4) << "Encoding req=" << f * 4 + i;
+      auto res = client.encode(reqI, f * 4 + i);
+      if (res.control && res.control->computeChainDataLength() > 0) {
+        controlFrames.emplace_back(std::move(res.control));
       }
-      data.emplace_back(std::move(block), eviction, TestStreamingCallback());
+      data.emplace_back(std::move(res.stream), TestStreamingCallback());
     }
 
     std::vector<int> insertOrder{0, 3, 2, 1};
+    if (!controlFrames.empty()) {
+      auto control = std::move(controlFrames.front());
+      controlFrames.pop_front();
+      Cursor c(control.get());
+      server.decodeControl(c, c.totalLength());
+      client.onControlHeaderAck();
+    }
     for (auto i: insertOrder) {
-      auto& encodedReq = std::get<0>(data[i]);
-      bool eviction = std::get<1>(data[i]);
-      Cursor cursor(encodedReq.get());
-      auto seqn = cursor.readBE<uint16_t>();
-      auto len = cursor.totalLength();
-      encodedReq->trimStart(sizeof(uint16_t));
-      queue->enqueueHeaderBlock(seqn, std::move(encodedReq), len,
-                                &std::get<2>(data[i]), !eviction);
+      auto& encodedReq = data[i].first;
+      auto len = encodedReq->computeChainDataLength();
+      server.decodeStreaming(std::move(encodedReq), len, &data[i].second);
+    }
+    while (!controlFrames.empty()) {
+      auto control = std::move(controlFrames.front());
+      controlFrames.pop_front();
+      Cursor c(control.get());
+      server.decodeControl(c, c.totalLength());
+      client.onControlHeaderAck();
     }
     int i = 0;
     for (auto& d: data) {
-      auto result = std::get<2>(d).getResult();
+      auto result = d.second.getResult();
       EXPECT_TRUE(result.isOk());
       auto reqI = req;
-      client.setCommitEpoch(f * 4 + i);
       for (int j = 0; j < 2; j++) {
         reqI.emplace_back(HTTP_HEADER_CONNECTION,
                           values[std::max(f * 4 + i - j * 8, 0)]);
       }
-      i++;
       headersEq(reqI, result.ok().headers);
+      client.onHeaderAck(f * 4 + i);
+      i++;
     }
-    VLOG(4) << "getHolBlockCount=" << queue->getHolBlockCount();
+    VLOG(4) << "getHolBlockCount=" << server.getHolBlockCount();
   }
   // Skipping redundant table adds reduces the HOL block count
-  EXPECT_EQ(queue->getHolBlockCount(), 10);
+  EXPECT_EQ(server.getHolBlockCount(), 30);
 
 }
-#endif

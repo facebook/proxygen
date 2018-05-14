@@ -65,6 +65,11 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
 	codec/compress/NoPathIndexingStrategy.h \
+	codec/compress/QPACKCodec.h \
+	codec/compress/QPACKContext.h \
+	codec/compress/QPACKDecoder.h \
+	codec/compress/QPACKEncoder.h \
+	codec/compress/QPACKHeaderTable.h \
 	codec/compress/StaticHeaderTable.h \
 	codec/HTTPRequestVerifier.h \
 	codec/HTTP2Codec.h \
@@ -111,6 +116,11 @@ libproxygenhttp_la_SOURCES = \
 	codec/compress/Huffman.cpp \
 	codec/compress/NoPathIndexingStrategy.cpp \
 	codec/compress/Logging.cpp \
+	codec/compress/QPACKCodec.cpp \
+	codec/compress/QPACKContext.cpp \
+	codec/compress/QPACKDecoder.cpp \
+	codec/compress/QPACKEncoder.cpp \
+	codec/compress/QPACKHeaderTable.cpp \
 	codec/compress/StaticHeaderTable.cpp \
 	codec/ErrorCode.cpp \
 	codec/HTTP2Codec.cpp \

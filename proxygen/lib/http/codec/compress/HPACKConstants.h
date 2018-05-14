@@ -27,6 +27,33 @@ const Instruction LITERAL           { 0x00, 4 };
 const Instruction LITERAL_NEV_INDEX { 0x10, 4 };
 const Instruction TABLE_SIZE_UPDATE { 0x20, 5 };
 
+// Encoder Stream
+const Instruction Q_INSERT_NAME_REF    { 0x80, 6 };
+const Instruction Q_INSERT_NO_NAME_REF { 0x40, 5 };
+const Instruction Q_TABLE_SIZE_UPDATE  { 0x20, 5 };
+const Instruction Q_DUPLICATE          { 0x00, 5 };
+
+// Decoder Stream
+
+// Request/Push Streams
+
+// Prefix
+const uint8_t Q_DELTA_BASE_NEG = 0x80;
+const uint8_t Q_DELTA_BASE_POS = 0x00;
+
+const Instruction Q_DELTA_BASE     { 0x00, 7 };
+
+// Instructions
+const Instruction Q_INDEXED               { 0x80, 6 };
+const Instruction Q_INDEXED_POST          { 0x40, 4 };
+const Instruction Q_LITERAL_NAME_REF      { 0x00, 4 };
+const Instruction Q_LITERAL_NAME_REF_POST { 0x50, 4 };
+const Instruction Q_LITERAL               { 0x60, 3 };
+
+const uint8_t Q_INDEXED_STATIC = 0x40;
+const uint8_t Q_INSERT_NAME_REF_STATIC = 0x40;
+const uint8_t Q_LITERAL_STATIC = 0x10;
+
 const uint32_t kTableSize = 4096;
 
 const uint8_t NBIT_MASKS[9] = {
@@ -57,7 +84,8 @@ enum class DecodeError : uint8_t {
   BUFFER_UNDERFLOW = 7,
   LITERAL_TOO_LARGE = 8,
   TIMEOUT = 9,
-  CANCELLED = 10
+  CANCELLED = 10,
+  INVALID_ACK = 11
 };
 
 std::ostream& operator<<(std::ostream& os, DecodeError err);
