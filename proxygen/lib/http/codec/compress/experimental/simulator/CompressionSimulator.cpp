@@ -200,6 +200,14 @@ void CompressionSimulator::flushRequests(CompressionScheme* scheme) {
 void CompressionSimulator::setupRequest(uint16_t index,
                                         HTTPMessage&& msg,
                                         std::chrono::milliseconds encodeDelay) {
+  // Normalize to relative paths
+  const auto& query = msg.getQueryString();
+  if (query.empty()) {
+    msg.setURL(msg.getPath());
+  } else {
+    msg.setURL(folly::to<string>(msg.getPath(), "?", query));
+  }
+
   auto scheme = getScheme(msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST));
   requests_.emplace_back(msg);
   auto decodeCompleteCB =
