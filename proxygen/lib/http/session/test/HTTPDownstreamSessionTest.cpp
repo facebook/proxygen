@@ -44,7 +44,8 @@ template <typename C>
 class HTTPDownstreamTest : public testing::Test {
  public:
   explicit HTTPDownstreamTest(
-    std::vector<int64_t> flowControl = { -1, -1, -1 })
+    std::vector<int64_t> flowControl = { -1, -1, -1 },
+    bool startImmediately = true)
     : eventBase_(),
       transport_(new TestAsyncTransport(&eventBase_)),
       transactionTimeouts_(makeTimeoutSet(&eventBase_)),
@@ -95,7 +96,9 @@ class HTTPDownstreamTest : public testing::Test {
                                      { SettingsId::HEADER_TABLE_SIZE, 5555 },
                                      { SettingsId::ENABLE_PUSH, 1 },
                                      { SettingsId::ENABLE_EX_HEADERS, 1 }});
-    httpSession_->startNow();
+    if (startImmediately) {
+      httpSession_->startNow();
+    }
     clientCodec_ = makeClientCodec<typename C::Codec>(C::version);
     if (clientCodec_->getProtocol() == CodecProtocol::HTTP_2) {
       clientCodec_->getEgressSettings()->setSetting(
@@ -456,6 +459,40 @@ class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
   void TearDown() override {
   }
 };
+}
+
+namespace {
+class HTTP2DownstreamSessionEarlyShutdownTest :
+public HTTPDownstreamTest<HTTP2CodecPair> {
+ public:
+  HTTP2DownstreamSessionEarlyShutdownTest()
+      : HTTPDownstreamTest<HTTP2CodecPair>({-1, -1, -1}, false) {}
+
+  void SetUp() override {
+    HTTPDownstreamTest<HTTP2CodecPair>::SetUp();
+  }
+
+  void TearDown() override {
+  }
+};
+}
+
+TEST_F(HTTP2DownstreamSessionEarlyShutdownTest, early_shutdown) {
+  folly::DelayedDestruction::DestructorGuard g(httpSession_);
+
+  // Try shutting down the session and then starting it. This should be properly
+  // handled by the HTTPSession such that no HTTP/2 frames are sent in the
+  // wrong order.
+  StrictMock<MockHTTPCodecCallback> callbacks;
+  clientCodec_->setCallback(&callbacks);
+  EXPECT_CALL(callbacks, onFrameHeader(_, _, _, _, _)).Times(2);
+  EXPECT_CALL(callbacks, onSettings(_)).Times(1);
+  EXPECT_CALL(callbacks, onGoaway(_, _, _)).Times(1);
+  expectDetachSession();
+  httpSession_->notifyPendingShutdown();
+  httpSession_->startNow();
+  eventBase_.loop();
+  parseOutput(*clientCodec_);
 }
 
 TEST_F(HTTPDownstreamSessionTest, immediate_eof) {

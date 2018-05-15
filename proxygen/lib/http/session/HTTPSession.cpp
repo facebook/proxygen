@@ -222,6 +222,14 @@ void HTTPSession::startNow() {
     connFlowControl_->setReceiveWindowSize(writeBuf_,
                                            receiveSessionWindowSize_);
   }
+  // For HTTP/2 if we are currently draining it means we got notified to
+  // shutdown before we sent a SETTINGS frame, so we defer sending a GOAWAY
+  // util we've started and sent SETTINGS.
+  if (draining_) {
+    codec_->generateGoaway(writeBuf_,
+                           getGracefulGoawayAck(),
+                           ErrorCode::NO_ERROR);
+  }
   scheduleWrite();
   resumeReads();
 }
@@ -2232,10 +2240,15 @@ HTTPSession::drain() {
 void HTTPSession::drainImpl() {
   if (codec_->isReusable() || codec_->isWaitingToDrain()) {
     setCloseReason(ConnectionCloseReason::SHUTDOWN);
-    codec_->generateGoaway(writeBuf_,
-                           getGracefulGoawayAck(),
-                           ErrorCode::NO_ERROR);
-    scheduleWrite();
+    // For HTTP/2, if we haven't started yet then we cannot send a GOAWAY frame
+    // since we haven't sent the initial SETTINGS frame. Defer sending that
+    // GOAWAY until the initial SETTINGS is sent.
+    if (started_) {
+      codec_->generateGoaway(writeBuf_,
+                             getGracefulGoawayAck(),
+                             ErrorCode::NO_ERROR);
+      scheduleWrite();
+    }
   }
 }
 
