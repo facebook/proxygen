@@ -703,18 +703,27 @@ HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg) {
     // The previous transaction hasn't completed yet. Pause reads until
     // it completes; this requires pausing both transactions.
 
-    // There must be at least two transactions (we just checked).  Grab the
-    // second to last one
-    DCHECK_GE(transactions_.size(), 2);
-    auto prevIt = transactions_.rbegin();
-    prevIt++;
-    auto prevTxn = &prevIt->second;
-    if (!prevTxn->isIngressPaused()) {
-      DCHECK(prevTxn->isIngressComplete());
-      prevTxn->pauseIngress();
+    // HTTP/1.1 pipeline is detected, and which is incompactible with
+    // ByteEventTracker. Drain all the ByteEvents
+    CHECK(byteEventTracker_);
+    byteEventTracker_->drainByteEvents();
+
+    // drainByteEvents() may detach txn(s). Don't pause read if one txn left
+    if (getPipelineStreamCount() < 2) {
+      DCHECK(readsUnpaused());
+      return;
     }
-    DCHECK_EQ(liveTransactions_, 1);
-    txn->pauseIngress();
+
+    // There must be at least two transactions (we just checked). The previous
+    // txns haven't completed yet. Pause reads until they complete
+    DCHECK_GE(transactions_.size(), 2);
+    for (auto it = ++transactions_.rbegin(); it != transactions_.rend(); ++it) {
+      DCHECK(it->second.isIngressEOMSeen());
+      it->second.pauseIngress();
+    }
+    transactions_.rbegin()->second.pauseIngress();
+    DCHECK_EQ(liveTransactions_, 0);
+    DCHECK(readsPaused());
   }
 }
 
