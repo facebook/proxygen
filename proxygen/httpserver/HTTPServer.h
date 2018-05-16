@@ -17,6 +17,8 @@
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <thread>
 
+using folly::IOThreadPoolExecutor;
+
 namespace proxygen {
 
 class SignalHandler;
@@ -164,6 +166,10 @@ class HTTPServer final {
    */
   void updateTicketSeeds(wangle::TLSTicketKeySeeds seeds);
 
+  std::shared_ptr<IOThreadPoolExecutor>   getIOThreadPoolExecutor() {
+    return httpServerIOThreadPoolExe;
+  }
+
  private:
   std::shared_ptr<HTTPServerOptions> options_;
 
@@ -187,6 +193,8 @@ class HTTPServer final {
    * Callback for session create/destruction
    */
   HTTPSession::InfoCallback* sessionInfoCb_{nullptr};
+  
+  std::shared_ptr<IOThreadPoolExecutor>   httpServerIOThreadPoolExe{nullptr};
 };
 
 }
