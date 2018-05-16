@@ -108,7 +108,7 @@ git checkout "$folly_rev"
 # Build folly
 mkdir -p _build
 cd _build
-cmake configure ..
+cmake configure .. -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 make -j$JOBS
 sudo make install
 
@@ -130,7 +130,7 @@ git checkout "$wangle_rev"
 # Build wangle
 mkdir -p _build
 cd _build
-cmake configure ../wangle
+cmake configure ../wangle -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 make -j$JOBS
 sudo make install
 
