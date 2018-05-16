@@ -1048,6 +1048,7 @@ TEST_F(HTTP2DownstreamSessionTest, exheader_from_server) {
   EXPECT_CALL(pubHandler, detachTransaction());
 
   EXPECT_CALL(*cHandler, onEOM());
+  EXPECT_CALL(*cHandler, detachTransaction());
 
   transport_->addReadEvent(requests_, milliseconds(0));
   transport_->startReadEvents();
@@ -1061,9 +1062,12 @@ TEST_F(HTTP2DownstreamSessionTest, exheader_from_server) {
       transport_->startReadEvents();
       parseOutput(*clientCodec_);
       cHandler->txn_->resumeIngress();
+      cHandler->txn_->sendEOM();
+      transport_->addReadEOF(milliseconds(0));
     }, 100);
 
   HTTPSession::DestructorGuard g(httpSession_);
+  expectDetachSession();
   eventBase_.loop();
 }
 
@@ -1106,16 +1110,23 @@ TEST_F(HTTP2DownstreamSessionTest, exheader_from_client) {
     });
   EXPECT_CALL(pubHandler, onEOM());
   EXPECT_CALL(pubHandler, detachTransaction());
+  cHandler->expectDetachTransaction();
 
   EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
   EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId, _));
   EXPECT_CALL(callbacks_, onExMessageBegin(exStreamId, _, _));
   EXPECT_CALL(callbacks_, onHeadersComplete(exStreamId, _));
   EXPECT_CALL(callbacks_, onMessageComplete(exStreamId, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(cStreamId, _));
 
   transport_->addReadEvent(requests_, milliseconds(0));
   transport_->startReadEvents();
+  transport_->addReadEOF(milliseconds(0));
+  eventBase_.loop();
+
   HTTPSession::DestructorGuard g(httpSession_);
+  expectDetachSession();
+  cHandler->txn_->sendEOM();
   eventBase_.loop();
   parseOutput(*clientCodec_);
 }
@@ -1136,14 +1147,22 @@ TEST_F(HTTP2DownstreamSessionTest, invalid_control_stream) {
     });
   EXPECT_CALL(*cHandler, onExTransaction(_)).Times(0);
   EXPECT_CALL(*cHandler, onEOM());
+  cHandler->expectDetachTransaction();
 
   EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
   EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId, _));
+  EXPECT_CALL(callbacks_, onAbort(cStreamId + 2, _));
 
-  transport_->addReadEvent(requests_, milliseconds(0));
-  transport_->startReadEvents();
   HTTPSession::DestructorGuard g(httpSession_);
+  transport_->addReadEvent(requests_, milliseconds(0));
+  transport_->addReadEOF(milliseconds(0));
+  transport_->startReadEvents();
   eventBase_.loop();
+
+  cHandler->txn_->sendEOM();
+  eventBase_.loop();
+
+  expectDetachSession();
   parseOutput(*clientCodec_);
 }
 
