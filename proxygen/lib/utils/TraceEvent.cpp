@@ -12,6 +12,7 @@
 #include <atomic>
 #include <sstream>
 #include <string>
+#include <folly/json.h>
 
 namespace proxygen {
 
@@ -100,6 +101,16 @@ std::string TraceEvent::toString() const {
   }
   out << "}')";
   return out.str();
+}
+
+std::string TraceEvent::MetaData::ConvVisitor<std::string>::operator()(
+    const std::vector<std::string>& operand) const {
+  // parse string vector to json string.
+  folly::dynamic data = folly::dynamic::array;
+  for (auto item : operand) {
+    data.push_back(item);
+  }
+  return folly::toJson(data);
 }
 
 std::ostream& operator << (std::ostream& out, const TraceEvent& event) {

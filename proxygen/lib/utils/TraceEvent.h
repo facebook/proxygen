@@ -77,6 +77,10 @@ class TraceEvent {
       return boost::apply_visitor(visitor, value_);
     }
 
+    const std::type_info& type() const {
+      return value_.type();
+    }
+
     template<typename T>
     struct ConvVisitor : boost::static_visitor<T> {
       T operator()(const std::vector<std::string>& /* Unused */) const {
@@ -118,6 +122,10 @@ class TraceEvent {
     template<typename T>
     T getValueAs() const {
       return itr_->second.getValueAs<T>();
+    }
+
+    const std::type_info& type() const {
+      return itr_->second.type();
     }
 
     private:
@@ -283,4 +291,14 @@ struct TraceEvent::MetaData::ConvVisitor<std::vector<std::string>> :
   }
 };
 
+template<>
+struct TraceEvent::MetaData::ConvVisitor<std::string> :
+    boost::static_visitor<std::string> {
+  std::string operator()(const std::vector<std::string>& operand) const;
+
+  template<typename U>
+  std::string operator()(U& operand) const {
+    return folly::to<std::string>(operand);
+  }
+};
 }
