@@ -80,6 +80,7 @@ HTTPServer::HTTPServer(HTTPServerOptions options):
 
 HTTPServer::~HTTPServer() {
   CHECK(!mainEventBase_) << "Forgot to stop() server?";
+  ioExecutor_.reset();
 }
 
 void HTTPServer::bind(std::vector<IPConfig>&& addrs) {
@@ -121,11 +122,11 @@ void HTTPServer::start(std::function<void()> onSuccess,
   mainEventBase_ = EventBaseManager::get()->getEventBase();
 
   auto accExe = std::make_shared<IOThreadPoolExecutor>(1);
-  auto exe = std::make_shared<IOThreadPoolExecutor>(options_->threads,
+  ioExecutor_ = std::make_shared<IOThreadPoolExecutor>(options_->threads,
     std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"));
   auto exeObserver = std::make_shared<HandlerCallbacks>(options_);
   // Observer has to be set before bind(), so onServerStart() callbacks run
-  exe->addObserver(exeObserver);
+  ioExecutor_->addObserver(exeObserver);
 
   try {
     FOR_EACH_RANGE (i, 0, addresses_.size()) {
@@ -148,7 +149,7 @@ void HTTPServer::start(std::function<void()> onSuccess,
         bootstrap_[i].socketConfig.fastOpenQueueSize =
             accConfig.fastOpenQueueSize;
       }
-      bootstrap_[i].group(accExe, exe);
+      bootstrap_[i].group(accExe, ioExecutor_);
       if (options_->preboundSockets_.size() > 0) {
         bootstrap_[i].bind(std::move(options_->preboundSockets_[i]));
       } else {
