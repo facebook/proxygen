@@ -78,6 +78,7 @@ Warning
 X-Accel-Redirect
 X-Content-Security-Policy-Report-Only
 X-Content-Type-Options
+X-Fb-Flow-Capture-Id
 X-Forwarded-For
 X-Forwarded-Proto
 X-Frame-Options
