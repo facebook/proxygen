@@ -210,7 +210,6 @@ HumanReadableName, "human_readable_name"
 /* ---- Used in SessionTransactions ---- */
 CurrentTransactions, "current_txns"
 HistoricalMaximumTransactions, "historical_max_txns"
-PermittedMaximumTransactions, "permitted_max_txns"
 NumberTransactionsServed, "number_txns_served"
 
 /* ---- TCP Info --- */
