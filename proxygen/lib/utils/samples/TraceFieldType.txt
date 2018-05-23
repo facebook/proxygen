@@ -57,7 +57,6 @@ ServerTotalBytesWritten, "server_tbw"
 /* ---- Used in PreConnect ---- */
 NewConnection, "new_connection"
 IsWaitingForNewConn, "waiting_for_new_connection"
-SessionManagerType, "sess_mgr_type"
 NewConnTimeout, "new_conn_timeout"
 InFlightConns, "in_flight_conns"
 CachedSessions, "cached_sessions"
