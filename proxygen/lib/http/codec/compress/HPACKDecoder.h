@@ -54,12 +54,16 @@ class HPACKDecoder : public HPACKDecoderBase,
   bool isValid(uint32_t index);
 
   uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
+                               HeaderCodec::StreamingCallback* streamingCb,
                                headers_t* emitted);
 
   uint32_t decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
+                               HeaderCodec::StreamingCallback* streamingCb,
                                headers_t* emitted);
 
-  uint32_t decodeHeader(HPACKDecodeBuffer& dbuf, headers_t* emitted);
+  uint32_t decodeHeader(HPACKDecodeBuffer& dbuf,
+                        HeaderCodec::StreamingCallback* streamingCb,
+                        headers_t* emitted);
 };
 
 }

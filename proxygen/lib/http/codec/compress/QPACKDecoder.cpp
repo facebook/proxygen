@@ -16,34 +16,6 @@ using proxygen::HPACK::DecodeError;
 
 namespace proxygen {
 
-unique_ptr<QPACKDecoder::headers_t> QPACKDecoder::decode(const IOBuf* buffer) {
-  auto headers = std::make_unique<headers_t>();
-  Cursor cursor(buffer);
-  uint32_t totalBytes = buffer ? cursor.totalLength() : 0;
-  decode(cursor, totalBytes, *headers);
-  // release ownership of the set of headers
-  return headers;
-}
-
-uint32_t QPACKDecoder::decode(Cursor& cursor,
-                              uint32_t totalBytes,
-                              headers_t& headers) {
-  uint32_t emittedSize = 0;
-  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
-  uint32_t largestReference = handleBaseIndex(dbuf);
-  CHECK_LE(largestReference, table_.getBaseIndex());
-  while (!hasError() && !dbuf.empty()) {
-    emittedSize += decodeHeaderQ(dbuf, &headers);
-    if (emittedSize > maxUncompressed_) {
-      LOG(ERROR) << "exceeded uncompressed size limit of "
-                 << maxUncompressed_ << " bytes";
-      err_ = DecodeError::HEADERS_TOO_LARGE;
-      return dbuf.consumedBytes();
-    }
-  }
-  return dbuf.consumedBytes();
-}
-
 // Blocking implementation - may queue
 void QPACKDecoder::decodeStreaming(
   std::unique_ptr<folly::IOBuf> block,
@@ -100,10 +72,9 @@ void QPACKDecoder::decodeStreamingImpl(
   uint32_t consumed, HPACKDecodeBuffer& dbuf,
   HeaderCodec::StreamingCallback* streamingCb) {
   uint32_t emittedSize = 0;
-  streamingCb_ = streamingCb;
 
   while (!hasError() && !dbuf.empty()) {
-    emittedSize += decodeHeaderQ(dbuf, nullptr);
+    emittedSize += decodeHeaderQ(dbuf, streamingCb);
     if (emittedSize > maxUncompressed_) {
       LOG(ERROR) << "exceeded uncompressed size limit of "
                  << maxUncompressed_ << " bytes";
@@ -113,37 +84,37 @@ void QPACKDecoder::decodeStreamingImpl(
     emittedSize += 2;
   }
 
-  completeDecode(consumed + dbuf.consumedBytes(), emittedSize);
+  completeDecode(streamingCb, consumed + dbuf.consumedBytes(), emittedSize);
 }
 
-uint32_t QPACKDecoder::decodeHeaderQ(HPACKDecodeBuffer& dbuf,
-                                     headers_t* emitted) {
+uint32_t QPACKDecoder::decodeHeaderQ(
+    HPACKDecodeBuffer& dbuf,
+    HeaderCodec::StreamingCallback* streamingCb) {
   uint8_t byte = dbuf.peek();
   if (byte & HPACK::Q_INDEXED.code) {
     return decodeIndexedHeaderQ(
-      dbuf, HPACK::Q_INDEXED.prefixLength, false, emitted);
+        dbuf, HPACK::Q_INDEXED.prefixLength, false, streamingCb, nullptr);
   } else if ((byte & HPACK::Q_LITERAL.code) == HPACK::Q_LITERAL.code) {
     return decodeLiteralHeaderQ(
-        dbuf, false, false, HPACK::Q_LITERAL.prefixLength, false, emitted);
+        dbuf, false, false, HPACK::Q_LITERAL.prefixLength, false, streamingCb);
   } else if ((byte & HPACK::Q_LITERAL_NAME_REF_POST.code) ==
              HPACK::Q_LITERAL_NAME_REF_POST.code) {
     return decodeLiteralHeaderQ(
         dbuf, false, true, HPACK::Q_LITERAL_NAME_REF_POST.prefixLength, true,
-        emitted);
+        streamingCb);
   } else if (byte & HPACK::Q_INDEXED_POST.code) {
     return decodeIndexedHeaderQ(
-      dbuf, HPACK::Q_INDEXED_POST.prefixLength, true, emitted);
+        dbuf, HPACK::Q_INDEXED_POST.prefixLength, true, streamingCb, nullptr);
   } else { //  Q_LITERAL_NAME_REF
     return decodeLiteralHeaderQ(
         dbuf, false, true, HPACK::Q_LITERAL_NAME_REF.prefixLength, false,
-        emitted);
+        streamingCb);
   }
 }
 
 HPACK::DecodeError QPACKDecoder::decodeControl(
   Cursor& cursor,
   uint32_t totalBytes) {
-  streamingCb_ = nullptr;
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   VLOG(6) << "Decoding control block";
   baseIndex_ = 0;
@@ -160,7 +131,8 @@ void QPACKDecoder::decodeControlHeader(HPACKDecodeBuffer& dbuf) {
   uint8_t byte = dbuf.peek();
   if (byte & HPACK::Q_INSERT_NAME_REF.code) {
     decodeLiteralHeaderQ(
-      dbuf, true, true, HPACK::Q_INSERT_NAME_REF.prefixLength, false, nullptr);
+      dbuf, true, true, HPACK::Q_INSERT_NAME_REF.prefixLength, false,
+      nullptr);
   } else if (byte & HPACK::Q_INSERT_NO_NAME_REF.code) {
     decodeLiteralHeaderQ(
       dbuf, true, false, HPACK::Q_INSERT_NO_NAME_REF.prefixLength, false,
@@ -170,7 +142,7 @@ void QPACKDecoder::decodeControlHeader(HPACKDecodeBuffer& dbuf) {
   } else { // must be Q_DUPLICATE=000
     headers_t emitted;
     decodeIndexedHeaderQ(
-      dbuf, HPACK::Q_DUPLICATE.prefixLength, false, &emitted);
+        dbuf, HPACK::Q_DUPLICATE.prefixLength, false, nullptr, &emitted);
     if (!hasError()) {
       CHECK(!emitted.empty());
       CHECK(table_.add(emitted[0]));
@@ -178,12 +150,13 @@ void QPACKDecoder::decodeControlHeader(HPACKDecodeBuffer& dbuf) {
   }
 }
 
-uint32_t QPACKDecoder::decodeLiteralHeaderQ(HPACKDecodeBuffer& dbuf,
-                                            bool indexing,
-                                            bool nameIndexed,
-                                            uint8_t prefixLength,
-                                            bool aboveBase,
-                                            headers_t* emitted) {
+uint32_t QPACKDecoder::decodeLiteralHeaderQ(
+    HPACKDecodeBuffer& dbuf,
+    bool indexing,
+    bool nameIndexed,
+    uint8_t prefixLength,
+    bool aboveBase,
+    HeaderCodec::StreamingCallback* streamingCb) {
   HPACKHeader header;
   if (nameIndexed) {
     uint32_t nameIndex = 0;
@@ -221,7 +194,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(HPACKDecodeBuffer& dbuf,
     return 0;
   }
 
-  uint32_t emittedSize = emit(header, emitted);
+  uint32_t emittedSize = emit(header, streamingCb, nullptr);
 
   if (indexing) {
     table_.add(header);
@@ -230,10 +203,12 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(HPACKDecodeBuffer& dbuf,
   return emittedSize;
 }
 
-uint32_t QPACKDecoder::decodeIndexedHeaderQ(HPACKDecodeBuffer& dbuf,
-                                            uint32_t prefixLength,
-                                            bool aboveBase,
-                                            headers_t* emitted) {
+uint32_t QPACKDecoder::decodeIndexedHeaderQ(
+    HPACKDecodeBuffer& dbuf,
+    uint32_t prefixLength,
+    bool aboveBase,
+    HeaderCodec::StreamingCallback* streamingCb,
+    headers_t* emitted) {
   uint32_t index;
   bool isStatic = !aboveBase && (dbuf.peek() & (1 << prefixLength));
   err_ = dbuf.decodeInteger(prefixLength, index);
@@ -252,7 +227,7 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(HPACKDecodeBuffer& dbuf,
   }
 
   auto& header = getHeader(isStatic, index, baseIndex_, aboveBase);
-  return emit(header, emitted);
+  return emit(header, streamingCb, emitted);
 }
 
 bool QPACKDecoder::isValid(bool isStatic, uint32_t index, bool aboveBase) {

@@ -159,7 +159,6 @@ class HeaderCodec {
   uint32_t encodeHeadroom_{0};
   uint32_t maxUncompressed_{kMaxUncompressed};
   Stats* stats_{nullptr};
-  HeaderCodec::StreamingCallback* streamingCb_{nullptr};
 };
 
 }

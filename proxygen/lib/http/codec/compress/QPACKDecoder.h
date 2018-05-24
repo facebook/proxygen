@@ -29,13 +29,6 @@ class QPACKDecoder : public HPACKDecoderBase,
       : HPACKDecoderBase(tableSize, maxUncompressed),
         QPACKContext(tableSize, false /* don't track references */) {}
 
-  /**
-   * given a Cursor and a total amount of bytes we can consume from it,
-   * decode headers into the given vector.
-   */
-  uint32_t decode(folly::io::Cursor& cursor,
-                  uint32_t totalBytes,
-                  headers_t& headers);
 
   /**
    * given a Cursor and a total amount of bytes we can consume from it,
@@ -49,13 +42,6 @@ class QPACKDecoder : public HPACKDecoderBase,
   void decodeStreaming(std::unique_ptr<folly::IOBuf> block,
                        uint32_t totalBytes,
                        HeaderCodec::StreamingCallback* streamingCb);
-
-  /**
-   * given a compressed header block as an IOBuf chain, decode all the
-   * headers and return them. This is just a convenience wrapper around
-   * the API above.
-   */
-  std::unique_ptr<headers_t> decode(const folly::IOBuf* buffer);
 
   HPACK::DecodeError decodeControl(folly::io::Cursor& cursor,
                                    uint32_t totalBytes);
@@ -77,19 +63,24 @@ class QPACKDecoder : public HPACKDecoderBase,
                            HPACKDecodeBuffer& dbuf,
                            HeaderCodec::StreamingCallback* streamingCb);
 
-  uint32_t decodeHeaderQ(HPACKDecodeBuffer& dbuf, headers_t* emitted);
+  uint32_t decodeHeaderQ(
+      HPACKDecodeBuffer& dbuf,
+      HeaderCodec::StreamingCallback* streamingCb);
 
-  uint32_t decodeIndexedHeaderQ(HPACKDecodeBuffer& dbuf,
-                                uint32_t prefixLength,
-                                bool aboveBase,
-                                headers_t* emitted);
+  uint32_t decodeIndexedHeaderQ(
+      HPACKDecodeBuffer& dbuf,
+      uint32_t prefixLength,
+      bool aboveBase,
+      HeaderCodec::StreamingCallback* streamingCb,
+      headers_t* emitted);
 
-  uint32_t decodeLiteralHeaderQ(HPACKDecodeBuffer& dbuf,
-                                bool indexing,
-                                bool nameIndexed,
-                                uint8_t prefixLength,
-                                bool aboveBase,
-                                headers_t* emitted);
+  uint32_t decodeLiteralHeaderQ(
+      HPACKDecodeBuffer& dbuf,
+      bool indexing,
+      bool nameIndexed,
+      uint8_t prefixLength,
+      bool aboveBase,
+      HeaderCodec::StreamingCallback* streamingCb);
 
   void decodeControlHeader(HPACKDecodeBuffer& dbuf);
 

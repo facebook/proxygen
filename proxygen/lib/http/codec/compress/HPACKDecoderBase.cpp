@@ -12,9 +12,11 @@
 
 namespace proxygen {
 
-uint32_t HPACKDecoderBase::emit(const HPACKHeader& header, headers_t* emitted) {
-  if (streamingCb_) {
-    streamingCb_->onHeader(header.name.get(), header.value);
+uint32_t HPACKDecoderBase::emit(const HPACKHeader& header,
+                                HeaderCodec::StreamingCallback* streamingCb,
+                                headers_t* emitted) {
+  if (streamingCb) {
+    streamingCb->onHeader(header.name.get(), header.value);
   } else if (emitted) {
     // copying HPACKHeader
     emitted->emplace_back(header.name.get(), header.value);
@@ -22,26 +24,28 @@ uint32_t HPACKDecoderBase::emit(const HPACKHeader& header, headers_t* emitted) {
   return header.bytes();
 }
 
-void HPACKDecoderBase::completeDecode(uint32_t compressedSize,
-                                      uint32_t emittedSize) {
+void HPACKDecoderBase::completeDecode(
+    HeaderCodec::StreamingCallback* streamingCb,
+    uint32_t compressedSize,
+    uint32_t emittedSize) {
   if (err_ != HPACK::DecodeError::NONE) {
-    if (streamingCb_->stats) {
+    if (streamingCb->stats) {
       if (err_ == HPACK::DecodeError::HEADERS_TOO_LARGE ||
           err_ == HPACK::DecodeError::LITERAL_TOO_LARGE) {
-        streamingCb_->stats->recordDecodeTooLarge(HeaderCodec::Type::HPACK);
+        streamingCb->stats->recordDecodeTooLarge(HeaderCodec::Type::HPACK);
       } else {
-        streamingCb_->stats->recordDecodeError(HeaderCodec::Type::HPACK);
+        streamingCb->stats->recordDecodeError(HeaderCodec::Type::HPACK);
       }
     }
-    streamingCb_->onDecodeError(hpack2headerCodecError(err_));
+    streamingCb->onDecodeError(hpack2headerCodecError(err_));
   } else {
     HTTPHeaderSize decodedSize;
     decodedSize.compressed = compressedSize;
     decodedSize.uncompressed = emittedSize;
-    if (streamingCb_->stats) {
-      streamingCb_->stats->recordDecode(HeaderCodec::Type::HPACK, decodedSize);
+    if (streamingCb->stats) {
+      streamingCb->stats->recordDecode(HeaderCodec::Type::HPACK, decodedSize);
     }
-    streamingCb_->onHeadersComplete(decodedSize);
+    streamingCb->onHeadersComplete(decodedSize);
   }
 }
 

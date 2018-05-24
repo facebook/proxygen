@@ -47,16 +47,20 @@ class HPACKDecoderBase {
   }
 
  protected:
-  uint32_t emit(const HPACKHeader& header, headers_t* emitted);
+  uint32_t emit(const HPACKHeader& header,
+                HeaderCodec::StreamingCallback* streamingCb,
+                headers_t* emitted);
 
-  void completeDecode(uint32_t compressedSize, uint32_t emittedSize);
+  void completeDecode(
+      HeaderCodec::StreamingCallback* streamingCb,
+      uint32_t compressedSize,
+      uint32_t emittedSize);
 
   void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf, HeaderTable& table);
 
   HPACK::DecodeError err_{HPACK::DecodeError::NONE};
   uint32_t maxTableSize_;
   uint32_t maxUncompressed_;
-  HeaderCodec::StreamingCallback* streamingCb_{nullptr};
 };
 
 HeaderDecodeError hpack2headerCodecError(HPACK::DecodeError err);
