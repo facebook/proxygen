@@ -222,7 +222,6 @@ ReqsSucceed, "reqs_succeed"
 ReqsFailed, "reqs_failed"
 TTFB, "ttfb"
 TTLB, "ttlb"
-ConnIdleDuration, "connection_idle_duration"
 ConnLifeSpan, "connection_life_span"
 EgressBuffered, "egress_buffered"
 
