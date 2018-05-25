@@ -310,7 +310,7 @@ TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
   table.add(smallHeader);
   table.add(smallHeader); // tail is at index 1
   table.add(smallHeader); // resize on this add
-  CHECK_EQ(table.length(), 10);
+  EXPECT_EQ(table.length(), 11);
 
   // Check table is correct after resize
   CHECK_EQ(table.getHeader(1), smallHeader);
@@ -322,6 +322,16 @@ TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
   CHECK_EQ(table.getHeader(7), largeHeader);
   CHECK_EQ(table.getHeader(8), smallHeader);
 }
+
+TEST_F(HeaderTableTests, smallTable) {
+  HeaderTable table(80);
+  HPACKHeader foo("Foo", "bar");
+  EXPECT_TRUE(table.add(foo));
+  EXPECT_TRUE(table.add(foo));
+  EXPECT_EQ(table.size(), 2);
+  EXPECT_EQ(table.length(), 2);
+}
+
 
 class QPACKHeaderTableTests : public testing::Test {
  public:

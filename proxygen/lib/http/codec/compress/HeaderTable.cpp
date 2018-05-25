@@ -47,7 +47,7 @@ bool HeaderTable::add(const HPACKHeader& header) {
   }
 
   if (size_ == length()) {
-    increaseTableLengthTo(std::min((uint32_t)(size_ * 1.5),
+    increaseTableLengthTo(std::min((uint32_t)ceil(size_ * 1.5),
                                    getMaxTableLength(capacity_)));
   }
   head_ = next(head_);
