@@ -287,7 +287,7 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
   return out;
 }
 
-Result<HeaderDecodeResult, HeaderDecodeError>
+Result<HeaderDecodeResult, GzipDecodeError>
 GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   outHeaders_.clear();
 
@@ -324,7 +324,7 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
                                  versionSettings_.dictSize);
         if (r != Z_OK) {
           LOG(ERROR) << "inflate set dictionary failed with error=" << r;
-          return HeaderDecodeError::INFLATE_DICTIONARY;
+          return GzipDecodeError::INFLATE_DICTIONARY;
         }
         inflater_.avail_out = 0;
         continue;
@@ -332,12 +332,12 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
       if (r != 0) {
         // probably bad encoding
         LOG(ERROR) << "inflate failed with error=" << r;
-        return HeaderDecodeError::BAD_ENCODING;
+        return GzipDecodeError::BAD_ENCODING;
       }
       uncompressed.append(uncompressed.tailroom() - inflater_.avail_out);
       if (uncompressed.length() > maxUncompressed_) {
         LOG(ERROR) << "Decompressed headers too large";
-        return HeaderDecodeError::HEADERS_TOO_LARGE;
+        return GzipDecodeError::HEADERS_TOO_LARGE;
       }
     } while (inflater_.avail_in > 0 && inflater_.avail_out == 0);
     length -= chunkLen;
@@ -360,20 +360,13 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
 
   if (UNLIKELY(expandedHeaderLineBytes > kMaxExpandedHeaderLineBytes)) {
     LOG(ERROR) << "expanded headers too large";
-    return HeaderDecodeError::HEADERS_TOO_LARGE;
+    return GzipDecodeError::HEADERS_TOO_LARGE;
   }
 
   return HeaderDecodeResult{outHeaders_, consumed};
 }
 
-void GzipHeaderCodec::decodeStreaming(
-    Cursor& /*cursor*/,
-    uint32_t /*length*/,
-    HeaderCodec::StreamingCallback* /*streamingCb*/) noexcept {
-  // TODO: to implement, never called
-}
-
-Result<size_t, HeaderDecodeError>
+Result<size_t, GzipDecodeError>
 GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
                                  uint32_t uncompressedLength) noexcept {
 
@@ -385,7 +378,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
   try {
     numNV = versionSettings_.parseSizeFun(&headerCursor);
   } catch (const std::out_of_range& ex) {
-    return HeaderDecodeError::BAD_ENCODING;
+    return GzipDecodeError::BAD_ENCODING;
   }
 
   for (uint32_t i = 0; i < numNV * 2; i++) {
@@ -394,12 +387,12 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
       len = versionSettings_.parseSizeFun(&headerCursor);
       uncompressedLength -= versionSettings_.nameValueSize;
     } catch (const std::out_of_range& ex) {
-      return HeaderDecodeError::BAD_ENCODING;
+      return GzipDecodeError::BAD_ENCODING;
     }
 
     if (len == 0 && !headerName) {
       LOG(ERROR) << "empty header name";
-      return HeaderDecodeError::EMPTY_HEADER_NAME;
+      return GzipDecodeError::EMPTY_HEADER_NAME;
     }
     auto next = headerCursor.peek();
     try {
@@ -422,14 +415,14 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
       LOG(ERROR) << "bad encoding for nv=" << i << ": "
                  << folly::exceptionStr(ex);
       LOG(ERROR) << IOBufPrinter::printHexFolly(&uncompressed, true);
-      return HeaderDecodeError::BAD_ENCODING;
+      return GzipDecodeError::BAD_ENCODING;
     }
     if (i % 2 == 0) {
       headerName = &outHeaders_.back();
       for (const char c: headerName->str) {
         if (c < 0x20 || c > 0x7e || ('A' <= c && c <= 'Z')) {
           LOG(ERROR) << "invalid header value";
-          return HeaderDecodeError::INVALID_HEADER_VALUE;
+          return GzipDecodeError::INVALID_HEADER_VALUE;
         }
       }
     } else {
@@ -442,7 +435,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
         if (*pos == '\0') {
           if (pos - valueStart == 0) {
             LOG(ERROR) << "empty header value for header=" << headerName;
-            return HeaderDecodeError::EMPTY_HEADER_VALUE;
+            return GzipDecodeError::EMPTY_HEADER_VALUE;
           }
           if (first) {
             headerValue.str.reset(valueStart, pos - valueStart);
@@ -463,7 +456,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
         // value contained at least one \0, add the last value
         if (pos - valueStart == 0) {
           LOG(ERROR) << "empty header value for header=" << headerName;
-          return HeaderDecodeError::EMPTY_HEADER_VALUE;
+          return GzipDecodeError::EMPTY_HEADER_VALUE;
         }
         outHeaders_.emplace_back(headerName->str.data(),
                                  headerName->str.size(),

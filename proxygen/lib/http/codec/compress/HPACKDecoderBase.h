@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 
 namespace proxygen {
 
@@ -48,11 +49,11 @@ class HPACKDecoderBase {
 
  protected:
   uint32_t emit(const HPACKHeader& header,
-                HeaderCodec::StreamingCallback* streamingCb,
+                HPACK::StreamingCallback* streamingCb,
                 headers_t* emitted);
 
   void completeDecode(
-      HeaderCodec::StreamingCallback* streamingCb,
+      HPACK::StreamingCallback* streamingCb,
       uint32_t compressedSize,
       uint32_t emittedSize);
 
@@ -62,7 +63,5 @@ class HPACKDecoderBase {
   uint32_t maxTableSize_;
   uint32_t maxUncompressed_;
 };
-
-HeaderDecodeError hpack2headerCodecError(HPACK::DecodeError err);
 
 }

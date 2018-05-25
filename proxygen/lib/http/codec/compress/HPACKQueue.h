@@ -25,10 +25,10 @@ class HPACKQueue : public folly::DestructorCheck {
 
   void enqueueHeaderBlock(uint32_t seqn, std::unique_ptr<folly::IOBuf> block,
                           size_t length,
-                          HeaderCodec::StreamingCallback* streamingCb,
+                          HPACK::StreamingCallback* streamingCb,
                           bool oooOk) {
     if (seqn < nextSeqn_) {
-      streamingCb->onDecodeError(HeaderDecodeError::BAD_SEQUENCE_NUMBER);
+      streamingCb->onDecodeError(HPACK::DecodeError::BAD_SEQUENCE_NUMBER);
       return;
     }
     if (nextSeqn_ == seqn) {
@@ -44,7 +44,7 @@ class HPACKQueue : public folly::DestructorCheck {
       while (it != queue_.end()) {
         auto qSeqn = std::get<0>(*it);
         if (seqn == qSeqn) {
-          streamingCb->onDecodeError(HeaderDecodeError::BAD_SEQUENCE_NUMBER);
+          streamingCb->onDecodeError(HPACK::DecodeError::BAD_SEQUENCE_NUMBER);
           return;
         } else if (seqn < qSeqn) {
           break;
@@ -83,7 +83,7 @@ class HPACKQueue : public folly::DestructorCheck {
   // Returns true if this object was destroyed by its callback.  Callers
   // should check the result and immediately return.
   bool decodeBlock(int32_t seqn, std::unique_ptr<folly::IOBuf> block,
-                   size_t length, HeaderCodec::StreamingCallback* cb,
+                   size_t length, HPACK::StreamingCallback* cb,
                    bool ooo) {
     if (length > 0) {
       VLOG(5) << "decodeBlock for block=" << seqn << " len=" << length;
@@ -119,7 +119,7 @@ class HPACKQueue : public folly::DestructorCheck {
   uint64_t holBlockCount_{0};
   uint64_t queuedBytes_{0};
   std::deque<std::tuple<uint32_t, std::unique_ptr<folly::IOBuf>, size_t,
-    HeaderCodec::StreamingCallback*>> queue_;
+    HPACK::StreamingCallback*>> queue_;
   HPACKCodec& codec_;
 };
 

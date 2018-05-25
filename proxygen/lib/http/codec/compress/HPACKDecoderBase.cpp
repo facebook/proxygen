@@ -13,7 +13,7 @@
 namespace proxygen {
 
 uint32_t HPACKDecoderBase::emit(const HPACKHeader& header,
-                                HeaderCodec::StreamingCallback* streamingCb,
+                                HPACK::StreamingCallback* streamingCb,
                                 headers_t* emitted) {
   if (streamingCb) {
     streamingCb->onHeader(header.name.get(), header.value);
@@ -25,7 +25,7 @@ uint32_t HPACKDecoderBase::emit(const HPACKHeader& header,
 }
 
 void HPACKDecoderBase::completeDecode(
-    HeaderCodec::StreamingCallback* streamingCb,
+    HPACK::StreamingCallback* streamingCb,
     uint32_t compressedSize,
     uint32_t emittedSize) {
   if (err_ != HPACK::DecodeError::NONE) {
@@ -37,7 +37,7 @@ void HPACKDecoderBase::completeDecode(
         streamingCb->stats->recordDecodeError(HeaderCodec::Type::HPACK);
       }
     }
-    streamingCb->onDecodeError(hpack2headerCodecError(err_));
+    streamingCb->onDecodeError(err_);
   } else {
     HTTPHeaderSize decodedSize;
     decodedSize.compressed = compressedSize;

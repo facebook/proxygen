@@ -103,13 +103,28 @@ vector<Header> basicHeaders() {
   return headers;
 }
 
-Result<HeaderDecodeResult, HeaderDecodeError>
+struct DecodeResult {
+  compress::HeaderPieceList headers;
+  uint32_t bytesConsumed;
+};
+
+Result<DecodeResult, HPACK::DecodeError>
+decode(HPACKCodec& codec, Cursor& cursor, uint32_t length) noexcept {
+  TestStreamingCallback cb;
+  codec.decodeStreaming(cursor, length, &cb);
+  if (cb.hasError()) {
+    LOG(ERROR) << "decoder state: " << codec;
+    return cb.error;
+  }
+  return DecodeResult{std::move(cb.getResult().ok().headers),
+      cb.getResult().ok().bytesConsumed};
+}
+Result<DecodeResult, HPACK::DecodeError>
 encodeDecode(HPACKCodec& encoder, HPACKCodec& decoder,
              vector<Header>&& headers) {
   unique_ptr<IOBuf> encoded = encoder.encode(headers);
-  Cursor cursor(encoded.get());
-  VLOG(10) << cursor.totalLength();
-  return decoder.decode(cursor, cursor.totalLength());
+  Cursor c(encoded.get());
+  return decode(decoder, c, c.totalLength());
 }
 
 uint64_t bufLen(const std::unique_ptr<IOBuf>& buf) {
@@ -159,7 +174,7 @@ TEST_F(HPACKCodecTests, headroom) {
   unique_ptr<IOBuf> encodedReq = client.encode(req);
   EXPECT_EQ(encodedReq->headroom(), headroom);
   Cursor cursor(encodedReq.get());
-  auto result = server.decode(cursor, cursor.totalLength());
+  auto result = decode(server, cursor, cursor.totalLength());
   EXPECT_TRUE(result.isOk());
   EXPECT_EQ(result.ok().headers.size(), 6);
 }
@@ -197,11 +212,13 @@ TEST_F(HPACKCodecTests, multivalue_headers) {
   EXPECT_TRUE(result.isOk());
   auto& decoded = result.ok().headers;
   CHECK_EQ(decoded.size(), 8);
-  for (int i = 0; i < 6; i += 2) {
+  uint32_t count = 0;
+  for (int i = 0; i < 8; i += 2) {
     if (decoded[i].str == "x-fb-dup") {
-      EXPECT_TRUE(decoded[i].isMultiValued());
+      count++;
     }
   }
+  EXPECT_EQ(count, 2);
 }
 
 /**
@@ -219,10 +236,10 @@ TEST_F(HPACKCodecTests, decode_error) {
 
   TestHeaderCodecStats stats;
   client.setStats(&stats);
-  auto result = client.decode(cursor, cursor.totalLength());
+  auto result = decode(client, cursor, cursor.totalLength());
   // this means there was an error
   EXPECT_TRUE(result.isError());
-  EXPECT_EQ(result.error(), HeaderDecodeError::BAD_ENCODING);
+  EXPECT_EQ(result.error(), HPACK::DecodeError::INVALID_INDEX);
   EXPECT_EQ(stats.errors, 1);
   client.setStats(nullptr);
 }
@@ -255,7 +272,7 @@ TEST_F(HPACKCodecTests, header_codec_stats) {
   Cursor cursor(encodedResp.get());
   stats.reset();
   client.setStats(&stats);
-  auto result = client.decode(cursor, cursor.totalLength());
+  auto result = decode(client, cursor, cursor.totalLength());
   EXPECT_TRUE(result.isOk());
   auto& decoded = result.ok().headers;
   CHECK_EQ(decoded.size(), 3 * 2);
@@ -282,7 +299,7 @@ TEST_F(HPACKCodecTests, uncompressed_size_limit) {
   }
   auto result = encodeDecode(server, client, headersFromArray(headers));
   EXPECT_TRUE(result.isError());
-  EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
+  EXPECT_EQ(result.error(), HPACK::DecodeError::HEADERS_TOO_LARGE);
 }
 
 
@@ -307,7 +324,7 @@ TEST_F(HPACKCodecTests, size_limit_stats) {
   server.decodeStreaming(cursor, cursor.totalLength(), &cb);
   auto result = cb.getResult();
   EXPECT_TRUE(result.isError());
-  EXPECT_EQ(result.error(), HeaderDecodeError::HEADERS_TOO_LARGE);
+  EXPECT_EQ(result.error(), HPACK::DecodeError::HEADERS_TOO_LARGE);
   EXPECT_EQ(stats.tooLarge, 1);
 }
 
@@ -430,7 +447,7 @@ TEST_F(HPACKQueueTests, queue_error) {
       EXPECT_EQ(result.ok().headers.size(), 6);
     } else {
       EXPECT_TRUE(result.isError());
-      EXPECT_EQ(result.error(), HeaderDecodeError::BAD_SEQUENCE_NUMBER);
+      EXPECT_EQ(result.error(), HPACK::DecodeError::BAD_SEQUENCE_NUMBER);
     }
     expectOk = !expectOk;
   }
@@ -464,7 +481,6 @@ TEST_P(HPACKQueueTests, queue_deleted) {
 INSTANTIATE_TEST_CASE_P(Queue,
                         HPACKQueueTests,
                         ::testing::Values(0, 1, 2, 3));
-
 
 void headersEq(vector<Header>& headerVec, compress::HeaderPieceList& headers) {
   size_t i = 0;

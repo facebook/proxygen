@@ -12,9 +12,10 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 
 namespace proxygen { namespace compress {
-class SimStreamingCallback : public HeaderCodec::StreamingCallback {
+class SimStreamingCallback : public HPACK::StreamingCallback {
  public:
   SimStreamingCallback(uint16_t index,
                        std::function<void(std::chrono::milliseconds)> cb)
@@ -65,13 +66,13 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
     }
   }
 
-  void onDecodeError(HeaderDecodeError decodeError) override {
+  void onDecodeError(HPACK::DecodeError decodeError) override {
     error = decodeError;
     DCHECK(false) << "Unexpected error in simulator";
   }
 
-  Result<proxygen::HTTPMessage*, HeaderDecodeError> getResult() {
-    if (error == HeaderDecodeError::NONE) {
+  Result<proxygen::HTTPMessage*, HPACK::DecodeError> getResult() {
+    if (error == HPACK::DecodeError::NONE) {
       return &msg;
     } else {
       return error;
@@ -88,7 +89,7 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
   uint16_t requestIndex{0};
   // Per domain request sequence number
   uint16_t seqn{0};
-  HeaderDecodeError error{HeaderDecodeError::NONE};
+  HPACK::DecodeError error{HPACK::DecodeError::NONE};
   proxygen::HTTPMessage msg;
   std::function<void(std::chrono::milliseconds)> headersCompleteCb;
   TimePoint holStart{TimeUtil::getZeroTimePoint()};

@@ -44,15 +44,12 @@ class HPACKCodec : public HeaderCodec {
   ~HPACKCodec() override {}
 
   std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers) noexcept override;
-
-  Result<HeaderDecodeResult, HeaderDecodeError>
-  decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
+    std::vector<compress::Header>& headers) noexcept;
 
   void decodeStreaming(
-    folly::io::Cursor& cursor,
-    uint32_t length,
-    HeaderCodec::StreamingCallback* streamingCb) noexcept override;
+      folly::io::Cursor& cursor,
+      uint32_t length,
+      HPACK::StreamingCallback* streamingCb) noexcept;
 
   void setEncoderHeaderTableSize(uint32_t size) {
     encoder_.setHeaderTableSize(size);

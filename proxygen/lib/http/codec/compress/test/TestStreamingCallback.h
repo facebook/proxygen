@@ -13,7 +13,7 @@
 
 namespace proxygen {
 
-class TestStreamingCallback : public HeaderCodec::StreamingCallback {
+class TestStreamingCallback : public HPACK::StreamingCallback {
  public:
   void onHeader(const folly::fbstring& name,
                 const folly::fbstring& value) override {
@@ -25,25 +25,29 @@ class TestStreamingCallback : public HeaderCodec::StreamingCallback {
       headersCompleteCb();
     }
   }
-  void onDecodeError(HeaderDecodeError decodeError) override {
+  void onDecodeError(HPACK::DecodeError decodeError) override {
     error = decodeError;
   }
 
   void reset() {
     headers.clear();
-    error = HeaderDecodeError::NONE;
+    error = HPACK::DecodeError::NONE;
   }
 
-  Result<HeaderDecodeResult, HeaderDecodeError> getResult() {
-    if (error == HeaderDecodeError::NONE) {
+  Result<HeaderDecodeResult, HPACK::DecodeError> getResult() {
+    if (error == HPACK::DecodeError::NONE) {
       return HeaderDecodeResult{headers, 0};
     } else {
       return error;
     }
   }
 
+  bool hasError() const {
+    return error != HPACK::DecodeError::NONE;
+  }
+
   compress::HeaderPieceList headers;
-  HeaderDecodeError error{HeaderDecodeError::NONE};
+  HPACK::DecodeError error{HPACK::DecodeError::NONE};
   char* duplicate(const folly::fbstring& str) {
     char* res = CHECK_NOTNULL(new char[str.length() + 1]);
     memcpy(res, str.data(), str.length() + 1);

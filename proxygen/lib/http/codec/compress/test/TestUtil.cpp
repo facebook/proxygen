@@ -8,9 +8,11 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
+#include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 
 #include <fstream>
 #include <glog/logging.h>
+#include <folly/io/Cursor.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 
@@ -39,12 +41,12 @@ unique_ptr<IOBuf> encodeDecode(
     HPACKEncoder& encoder,
     HPACKDecoder& decoder) {
   unique_ptr<IOBuf> encoded = encoder.encode(headers);
-  auto decodedHeaders = decoder.decode(encoded.get());
+  auto decodedHeaders = hpack::decode(decoder, encoded.get());
   CHECK(!decoder.hasError());
 
   EXPECT_EQ(headers.size(), decodedHeaders->size());
-  sort(decodedHeaders->begin(), decodedHeaders->end());
-  sort(headers.begin(), headers.end());
+  std::sort(decodedHeaders->begin(), decodedHeaders->end());
+  std::sort(headers.begin(), headers.end());
   if (headers.size() != decodedHeaders->size()) {
     std::cerr << printDelta(*decodedHeaders, headers);
     CHECK(false) << "Mismatched headers size";
@@ -59,6 +61,24 @@ unique_ptr<IOBuf> encodeDecode(
   EXPECT_EQ(encoder.getTable(), decoder.getTable());
 
   return encoded;
+}
+
+unique_ptr<HPACKDecoder::headers_t> decode(HPACKDecoder& decoder,
+                                           const IOBuf* buffer) {
+  auto headers = std::make_unique<HPACKDecoder::headers_t>();
+  folly::io::Cursor cursor(buffer);
+  uint32_t totalBytes = buffer ? cursor.totalLength() : 0;
+  TestStreamingCallback cb;
+  decoder.decodeStreaming(cursor, totalBytes, &cb);
+  if (cb.hasError()) {
+    return headers;
+  }
+  auto& resultHeaders = cb.getResult().ok().headers;
+  for (size_t i = 0; i < resultHeaders.size(); i += 2) {
+    headers->emplace_back(resultHeaders[i].str, resultHeaders[i + 1].str);
+  }
+  // release ownership of the set of headers
+  return headers;
 }
 
 }}

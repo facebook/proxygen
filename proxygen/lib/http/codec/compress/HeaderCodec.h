@@ -27,30 +27,6 @@ class Cursor;
 
 namespace proxygen {
 
-enum class HeaderDecodeError : uint8_t {
-  NONE = 0,
-  BAD_ENCODING = 1,
-  HEADERS_TOO_LARGE = 2,
-  INFLATE_DICTIONARY = 3,
-  EMPTY_HEADER_NAME = 4,
-  EMPTY_HEADER_VALUE = 5,
-  INVALID_HEADER_VALUE = 6,
-  BAD_SEQUENCE_NUMBER = 7,
-
-  // HPACK specific error codes, starting in the 1xx range
-  INVALID_INDEX = 101,
-  INVALID_HUFFMAN_CODE = 102,
-  INVALID_ENCODING = 103,
-  INTEGER_OVERFLOW = 104,
-  INVALID_TABLE_SIZE = 105,
-  /* HEADERS_TOO_LARGE is 2 */
-  BUFFER_UNDERFLOW = 107,
-  LITERAL_TOO_LARGE = 108,
-  TIMEOUT = 109,
-  CANCELLED = 110,
-  INVALID_ACK = 111
-};
-
 struct HeaderDecodeResult {
   compress::HeaderPieceList& headers;
   uint32_t bytesConsumed;
@@ -76,57 +52,14 @@ class HeaderCodec {
     virtual void recordDecodeTooLarge(Type type) = 0;
   };
 
-  class StreamingCallback {
-   public:
-    virtual ~StreamingCallback() {}
-
-    virtual void onHeader(const folly::fbstring& name,
-                          const folly::fbstring& value) = 0;
-    virtual void onHeadersComplete(HTTPHeaderSize decodedSize) = 0;
-    virtual void onDecodeError(HeaderDecodeError decodeError) = 0;
-    Stats* stats{nullptr};
-  };
-
   HeaderCodec() {}
   virtual ~HeaderCodec() {}
-
-  /**
-   * Encode the given headers and return an IOBuf chain.
-   *
-   * The list of headers might be mutated during the encode, like order
-   * of the elements might change.
-   */
-  virtual std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers) noexcept = 0;
-
-  /**
-   * Decode headers given a Cursor and an amount of bytes to consume.
-   *
-   * @return Either the error that occurred while parsing the headers or
-   * the decoded header list. A header decode error should be considered
-   * fatal and no more bytes may be parsed from the cursor.
-   */
-  virtual Result<HeaderDecodeResult, HeaderDecodeError>
-  decode(folly::io::Cursor& cursor, uint32_t length) noexcept = 0;
-
-  /**
-   * Decode headers given a Cursor and an amount of bytes to consume.
-   */
-  virtual void decodeStreaming(folly::io::Cursor& cursor, uint32_t length,
-      StreamingCallback* streamingCb) noexcept = 0;
 
   /**
    * compressed and uncompressed size of the last encode
    */
   const HTTPHeaderSize& getEncodedSize() {
     return encodedSize_;
-  }
-
-  /**
-   * same as above, but for decode
-   */
-  const HTTPHeaderSize& getDecodedSize() {
-    return decodedSize_;
   }
 
   /**
@@ -153,9 +86,7 @@ class HeaderCodec {
 
  protected:
 
-  compress::HeaderPieceList outHeaders_;
   HTTPHeaderSize encodedSize_;
-  HTTPHeaderSize decodedSize_;
   uint32_t encodeHeadroom_{0};
   uint32_t maxUncompressed_{kMaxUncompressed};
   Stats* stats_{nullptr};

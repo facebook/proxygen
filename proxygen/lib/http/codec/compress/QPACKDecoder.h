@@ -37,11 +37,11 @@ class QPACKDecoder : public HPACKDecoderBase,
    */
   void decodeStreaming(folly::io::Cursor& cursor,
                        uint32_t totalBytes,
-                       HeaderCodec::StreamingCallback* streamingCb);
+                       HPACK::StreamingCallback* streamingCb);
 
   void decodeStreaming(std::unique_ptr<folly::IOBuf> block,
                        uint32_t totalBytes,
-                       HeaderCodec::StreamingCallback* streamingCb);
+                       HPACK::StreamingCallback* streamingCb);
 
   HPACK::DecodeError decodeControl(folly::io::Cursor& cursor,
                                    uint32_t totalBytes);
@@ -61,17 +61,17 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   void decodeStreamingImpl(uint32_t consumed,
                            HPACKDecodeBuffer& dbuf,
-                           HeaderCodec::StreamingCallback* streamingCb);
+                           HPACK::StreamingCallback* streamingCb);
 
   uint32_t decodeHeaderQ(
       HPACKDecodeBuffer& dbuf,
-      HeaderCodec::StreamingCallback* streamingCb);
+      HPACK::StreamingCallback* streamingCb);
 
   uint32_t decodeIndexedHeaderQ(
       HPACKDecodeBuffer& dbuf,
       uint32_t prefixLength,
       bool aboveBase,
-      HeaderCodec::StreamingCallback* streamingCb,
+      HPACK::StreamingCallback* streamingCb,
       headers_t* emitted);
 
   uint32_t decodeLiteralHeaderQ(
@@ -80,7 +80,7 @@ class QPACKDecoder : public HPACKDecoderBase,
       bool nameIndexed,
       uint8_t prefixLength,
       bool aboveBase,
-      HeaderCodec::StreamingCallback* streamingCb);
+      HPACK::StreamingCallback* streamingCb);
 
   void decodeControlHeader(HPACKDecodeBuffer& dbuf);
 
@@ -89,19 +89,19 @@ class QPACKDecoder : public HPACKDecoderBase,
                           uint32_t consumed,
                           std::unique_ptr<folly::IOBuf> block,
                           size_t length,
-                          HeaderCodec::StreamingCallback* streamingCb);
+                          HPACK::StreamingCallback* streamingCb);
 
   struct PendingBlock {
     PendingBlock(uint32_t bi, uint32_t l, uint32_t cons,
                  std::unique_ptr<folly::IOBuf> b,
-                 HeaderCodec::StreamingCallback* c)
+                 HPACK::StreamingCallback* c)
         : baseIndex(bi), length(l), consumed(cons), block(std::move(b)), cb(c)
       {}
     uint32_t baseIndex;
     uint32_t length;
     uint32_t consumed;
     std::unique_ptr<folly::IOBuf> block;
-    HeaderCodec::StreamingCallback* cb;
+    HPACK::StreamingCallback* cb;
   };
 
   // Returns true if this object was destroyed by its callback.  Callers

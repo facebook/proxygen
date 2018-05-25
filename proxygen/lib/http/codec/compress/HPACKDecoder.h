@@ -12,6 +12,7 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecoderBase.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
@@ -29,40 +30,25 @@ class HPACKDecoder : public HPACKDecoderBase,
 
   /**
    * given a Cursor and a total amount of bytes we can consume from it,
-   * decode headers into the given vector.
-   */
-  uint32_t decode(folly::io::Cursor& cursor,
-                  uint32_t totalBytes,
-                  headers_t& headers);
-
-  /**
-   * given a Cursor and a total amount of bytes we can consume from it,
    * decode headers and invoke a callback.
    */
   void decodeStreaming(folly::io::Cursor& cursor,
                        uint32_t totalBytes,
-                       HeaderCodec::StreamingCallback* streamingCb);
-
-  /**
-   * given a compressed header block as an IOBuf chain, decode all the
-   * headers and return them. This is just a convenience wrapper around
-   * the API above.
-   */
-  std::unique_ptr<headers_t> decode(const folly::IOBuf* buffer);
+                       HPACK::StreamingCallback* streamingCb);
 
  private:
   bool isValid(uint32_t index);
 
   uint32_t decodeIndexedHeader(HPACKDecodeBuffer& dbuf,
-                               HeaderCodec::StreamingCallback* streamingCb,
+                               HPACK::StreamingCallback* streamingCb,
                                headers_t* emitted);
 
   uint32_t decodeLiteralHeader(HPACKDecodeBuffer& dbuf,
-                               HeaderCodec::StreamingCallback* streamingCb,
+                               HPACK::StreamingCallback* streamingCb,
                                headers_t* emitted);
 
   uint32_t decodeHeader(HPACKDecodeBuffer& dbuf,
-                        HeaderCodec::StreamingCallback* streamingCb,
+                        HPACK::StreamingCallback* streamingCb,
                         headers_t* emitted);
 };
 

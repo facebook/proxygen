@@ -20,6 +20,16 @@
 
 namespace proxygen {
 
+enum class GzipDecodeError : uint8_t {
+  NONE = 0,
+  BAD_ENCODING = 1,
+  HEADERS_TOO_LARGE = 2,
+  INFLATE_DICTIONARY = 3,
+  EMPTY_HEADER_NAME = 4,
+  EMPTY_HEADER_VALUE = 5,
+  INVALID_HEADER_VALUE = 6
+};
+
 class GzipHeaderCodec : public HeaderCodec {
 
  public:
@@ -30,15 +40,17 @@ class GzipHeaderCodec : public HeaderCodec {
   ~GzipHeaderCodec() override;
 
   std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers) noexcept override;
+    std::vector<compress::Header>& headers) noexcept;
 
-  Result<HeaderDecodeResult, HeaderDecodeError>
-  decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
+  Result<HeaderDecodeResult, GzipDecodeError>
+  decode(folly::io::Cursor& cursor, uint32_t length) noexcept;
 
-  void decodeStreaming(
-      folly::io::Cursor& cursor,
-      uint32_t length,
-      HeaderCodec::StreamingCallback* streamingCb) noexcept override;
+  /**
+   * same as above, but for decode
+   */
+  const HTTPHeaderSize& getDecodedSize() {
+    return decodedSize_;
+  }
 
  private:
   folly::IOBuf& getHeaderBuf();
@@ -46,12 +58,14 @@ class GzipHeaderCodec : public HeaderCodec {
   /**
    * Parse the decompressed name/value header block.
    */
-  Result<size_t, HeaderDecodeError>
+  Result<size_t, GzipDecodeError>
   parseNameValues(const folly::IOBuf& uncompressed,
                   uint32_t uncompressedLength) noexcept;
 
   const SPDYVersionSettings& versionSettings_;
   z_stream deflater_;
   z_stream inflater_;
+  compress::HeaderPieceList outHeaders_;
+  HTTPHeaderSize decodedSize_;
 };
 }

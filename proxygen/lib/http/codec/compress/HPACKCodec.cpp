@@ -65,59 +65,10 @@ void HPACKCodec::recordCompressedSize(
   }
 }
 
-Result<HeaderDecodeResult, HeaderDecodeError>
-HPACKCodec::decode(Cursor& cursor, uint32_t length) noexcept {
-  outHeaders_.clear();
-  decodedHeaders_.clear();
-  auto consumed = decoder_.decode(cursor, length, decodedHeaders_);
-  if (decoder_.hasError()) {
-    LOG(ERROR) << "decoder state: " << decoder_.getTable();
-    LOG(ERROR) << "partial headers: ";
-    for (const auto& hdr: decodedHeaders_) {
-      LOG(ERROR) << "name=" << hdr.name.c_str()
-                 << " value=" << hdr.value.c_str();
-    }
-    auto err = decoder_.getError();
-    if (err == HPACK::DecodeError::HEADERS_TOO_LARGE ||
-        err == HPACK::DecodeError::LITERAL_TOO_LARGE) {
-      if (stats_) {
-        stats_->recordDecodeTooLarge(Type::HPACK);
-      }
-      return HeaderDecodeError::HEADERS_TOO_LARGE;
-    }
-    if (stats_) {
-      stats_->recordDecodeError(Type::HPACK);
-    }
-    return HeaderDecodeError::BAD_ENCODING;
-  }
-  // convert to HeaderPieceList
-  uint32_t uncompressed = 0;
-  for (uint32_t i = 0; i < decodedHeaders_.size(); i++) {
-    const HPACKHeader& h = decodedHeaders_[i];
-    // SPDYCodec uses this 'multi-valued' flag to detect illegal duplicates
-    // Since HPACK does not preclude duplicates, pretend everything is
-    // multi-valued
-    bool multiValued = true;
-    // one entry for the name and one for the value
-    outHeaders_.emplace_back((char *)h.name.c_str(), h.name.size(),
-                             false, multiValued);
-    outHeaders_.emplace_back((char *)h.value.c_str(), h.value.size(),
-                             false, multiValued);
-    uncompressed += h.name.size() + h.value.size() + 2;
-  }
-  HTTPHeaderSize decodedSize;
-  decodedSize.compressed = consumed;
-  decodedSize.uncompressed = uncompressed;
-  if (stats_) {
-    stats_->recordDecode(Type::HPACK, decodedSize);
-  }
-  return HeaderDecodeResult{outHeaders_, consumed};
-}
-
 void HPACKCodec::decodeStreaming(
     Cursor& cursor,
     uint32_t length,
-    HeaderCodec::StreamingCallback* streamingCb) noexcept {
+    HPACK::StreamingCallback* streamingCb) noexcept {
   streamingCb->stats = stats_;
   decoder_.decodeStreaming(cursor, length, streamingCb);
 }

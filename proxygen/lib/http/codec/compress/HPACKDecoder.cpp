@@ -17,66 +17,11 @@ using std::unique_ptr;
 using proxygen::HPACK::DecodeError;
 
 namespace proxygen {
-HeaderDecodeError hpack2headerCodecError(HPACK::DecodeError err) {
-  switch (err) {
-    case HPACK::DecodeError::NONE:
-      return HeaderDecodeError::NONE;
-    case HPACK::DecodeError::INVALID_INDEX:
-      return HeaderDecodeError::INVALID_INDEX;
-    case HPACK::DecodeError::INVALID_HUFFMAN_CODE:
-      return HeaderDecodeError::INVALID_HUFFMAN_CODE;
-    case HPACK::DecodeError::INVALID_ENCODING:
-      return HeaderDecodeError::INVALID_ENCODING;
-    case HPACK::DecodeError::INTEGER_OVERFLOW:
-      return HeaderDecodeError::INTEGER_OVERFLOW;
-    case HPACK::DecodeError::INVALID_TABLE_SIZE:
-      return HeaderDecodeError::INVALID_TABLE_SIZE;
-    case HPACK::DecodeError::HEADERS_TOO_LARGE:
-      return HeaderDecodeError::HEADERS_TOO_LARGE;
-    case HPACK::DecodeError::BUFFER_UNDERFLOW:
-      return HeaderDecodeError::BUFFER_UNDERFLOW;
-    case HPACK::DecodeError::LITERAL_TOO_LARGE:
-      return HeaderDecodeError::LITERAL_TOO_LARGE;
-    case HPACK::DecodeError::TIMEOUT:
-      return HeaderDecodeError::TIMEOUT;
-    case HPACK::DecodeError::CANCELLED:
-      return HeaderDecodeError::CANCELLED;
-    case HPACK::DecodeError::INVALID_ACK:
-      return HeaderDecodeError::INVALID_ACK;
-  }
-  return HeaderDecodeError::NONE;
-}
-
-unique_ptr<HPACKDecoder::headers_t> HPACKDecoder::decode(const IOBuf* buffer) {
-  auto headers = std::make_unique<headers_t>();
-  Cursor cursor(buffer);
-  uint32_t totalBytes = buffer ? cursor.totalLength() : 0;
-  decode(cursor, totalBytes, *headers);
-  // release ownership of the set of headers
-  return headers;
-}
-
-uint32_t HPACKDecoder::decode(Cursor& cursor,
-                              uint32_t totalBytes,
-                              headers_t& headers) {
-  uint32_t emittedSize = 0;
-  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
-  while (!hasError() && !dbuf.empty()) {
-    emittedSize += decodeHeader(dbuf, nullptr, &headers);
-    if (emittedSize > maxUncompressed_) {
-      LOG(ERROR) << "exceeded uncompressed size limit of "
-                 << maxUncompressed_ << " bytes";
-      err_ = DecodeError::HEADERS_TOO_LARGE;
-      return dbuf.consumedBytes();
-    }
-  }
-  return dbuf.consumedBytes();
-}
 
 void HPACKDecoder::decodeStreaming(
-  Cursor& cursor,
-  uint32_t totalBytes,
-  HeaderCodec::StreamingCallback* streamingCb) {
+    Cursor& cursor,
+    uint32_t totalBytes,
+    HPACK::StreamingCallback* streamingCb) {
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   uint32_t emittedSize = 0;
 
@@ -97,7 +42,7 @@ void HPACKDecoder::decodeStreaming(
 
 uint32_t HPACKDecoder::decodeLiteralHeader(
     HPACKDecodeBuffer& dbuf,
-    HeaderCodec::StreamingCallback* streamingCb,
+    HPACK::StreamingCallback* streamingCb,
     headers_t* emitted) {
   uint8_t byte = dbuf.peek();
   bool indexing = byte & HPACK::LITERAL_INC_INDEX.code;
@@ -154,7 +99,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
 
 uint32_t HPACKDecoder::decodeIndexedHeader(
     HPACKDecodeBuffer& dbuf,
-    HeaderCodec::StreamingCallback* streamingCb,
+    HPACK::StreamingCallback* streamingCb,
     headers_t* emitted) {
   uint32_t index;
   err_ = dbuf.decodeInteger(HPACK::INDEX_REF.prefixLength, index);
@@ -184,7 +129,7 @@ bool HPACKDecoder::isValid(uint32_t index) {
 
 uint32_t HPACKDecoder::decodeHeader(
     HPACKDecodeBuffer& dbuf,
-    HeaderCodec::StreamingCallback* streamingCb,
+    HPACK::StreamingCallback* streamingCb,
     headers_t* emitted) {
   uint8_t byte = dbuf.peek();
   if (byte & HPACK::INDEX_REF.code) {

@@ -85,7 +85,8 @@ enum class DecodeError : uint8_t {
   LITERAL_TOO_LARGE = 8,
   TIMEOUT = 9,
   CANCELLED = 10,
-  INVALID_ACK = 11
+  BAD_SEQUENCE_NUMBER = 11,
+  INVALID_ACK = 12
 };
 
 std::ostream& operator<<(std::ostream& os, DecodeError err);

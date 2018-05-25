@@ -176,15 +176,14 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
   : HTTPParallelCodec(direction),
     versionSettings_(getVersionSettings(version)),
     frameState_(FrameState::FRAME_HEADER),
-    ctrl_(false) {
+    ctrl_(false),
+    headerCodec_(spdyCompressionLevel, versionSettings_) {
   VLOG(4) << "creating SPDY/" << static_cast<int>(versionSettings_.majorVersion)
           << "." << static_cast<int>(versionSettings_.minorVersion)
           << " codec";
-  headerCodec_ = std::make_unique<GzipHeaderCodec>(
-    spdyCompressionLevel, versionSettings_);
 
   // Limit uncompressed headers to 128kb
-  headerCodec_->setMaxUncompressed(kMaxUncompressed);
+  headerCodec_.setMaxUncompressed(kMaxUncompressed);
   nextEgressPingID_ = nextEgressStreamID_;
 }
 
@@ -196,7 +195,7 @@ void SPDYCodec::setMaxFrameLength(uint32_t maxFrameLength) {
 }
 
 void SPDYCodec::setMaxUncompressedHeaders(uint32_t maxUncompressed) {
-  headerCodec_->setMaxUncompressed(maxUncompressed);
+  headerCodec_.setMaxUncompressed(maxUncompressed);
 }
 
 CodecProtocol SPDYCodec::getProtocol() const {
@@ -350,7 +349,7 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       auto result = decodeHeaders(cursor);
       checkLength(0, "SYN_STREAM");
       onSynStream(assocStream, pri, slot,
-                  result.headers, headerCodec_->getDecodedSize());
+                  result.headers, headerCodec_.getDecodedSize());
       break;
     }
     case spdy::SYN_REPLY:
@@ -365,7 +364,7 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       auto result = decodeHeaders(cursor);
       checkLength(0, "SYN_REPLY");
       onSynReply(result.headers,
-                 headerCodec_->getDecodedSize());
+                 headerCodec_.getDecodedSize());
       break;
     }
     case spdy::RST_STREAM:
@@ -469,14 +468,14 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
 }
 
 HeaderDecodeResult SPDYCodec::decodeHeaders(Cursor& cursor) {
-  auto result = headerCodec_->decode(cursor, length_);
+  auto result = headerCodec_.decode(cursor, length_);
   if (result.isError()) {
     auto err = result.error();
-    if (err == HeaderDecodeError::HEADERS_TOO_LARGE ||
-        err == HeaderDecodeError::INFLATE_DICTIONARY ||
-        err == HeaderDecodeError::BAD_ENCODING) {
+    if (err == GzipDecodeError::HEADERS_TOO_LARGE ||
+        err == GzipDecodeError::INFLATE_DICTIONARY ||
+        err == GzipDecodeError::BAD_ENCODING) {
       // Fail stream only for FRAME_TOO_LARGE error
-      if (err == HeaderDecodeError::HEADERS_TOO_LARGE) {
+      if (err == GzipDecodeError::HEADERS_TOO_LARGE) {
         failStream(true, streamId_, spdy::RST_FRAME_TOO_LARGE);
       }
       throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
@@ -550,10 +549,10 @@ unique_ptr<IOBuf> SPDYCodec::encodeHeaders(
     allHeaders.emplace_back(code, name, value);
   });
 
-  headerCodec_->setEncodeHeadroom(headroom);
-  auto out = headerCodec_->encode(allHeaders);
+  headerCodec_.setEncodeHeadroom(headroom);
+  auto out = headerCodec_.encode(allHeaders);
   if (size) {
-    *size = headerCodec_->getEncodedSize();
+    *size = headerCodec_.getEncodedSize();
   }
 
   return out;

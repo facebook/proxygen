@@ -24,4 +24,6 @@ std::unique_ptr<folly::IOBuf> encodeDecode(
   HPACKEncoder& encoder,
   HPACKDecoder& decoder);
 
+std::unique_ptr<HPACKDecoder::headers_t> decode(HPACKDecoder& decoder,
+                                                const folly::IOBuf* buffer);
 }}

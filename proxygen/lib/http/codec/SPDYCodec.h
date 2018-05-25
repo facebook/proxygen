@@ -19,7 +19,7 @@
 #include <proxygen/lib/http/codec/SPDYConstants.h>
 #include <proxygen/lib/http/codec/SPDYVersionSettings.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
-#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 #include <zlib.h>
 
 namespace folly { namespace io {
@@ -121,7 +121,7 @@ public:
   void setMaxUncompressedHeaders(uint32_t maxUncompressed);
 
   void setHeaderCodecStats(HeaderCodec::Stats* stats) override {
-    headerCodec_->setStats(stats);
+    headerCodec_.setStats(stats);
   }
 
   size_t addPriorityNodes(
@@ -374,7 +374,7 @@ public:
 
   bool ctrl_:1;
 
-  std::unique_ptr<HeaderCodec> headerCodec_;
+  GzipHeaderCodec headerCodec_;
 };
 
 } // proxygen

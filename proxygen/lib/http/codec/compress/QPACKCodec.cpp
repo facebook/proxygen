@@ -56,7 +56,7 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
 void QPACKCodec::decodeStreaming(
   std::unique_ptr<folly::IOBuf> block,
   uint32_t length,
-  HeaderCodec::StreamingCallback* streamingCb) noexcept {
+  HPACK::StreamingCallback* streamingCb) noexcept {
   streamingCb->stats = stats_;
   decoder_.decodeStreaming(std::move(block), length, streamingCb);
 }

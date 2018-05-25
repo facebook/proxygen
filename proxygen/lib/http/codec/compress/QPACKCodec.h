@@ -38,20 +38,9 @@ class QPACKCodec : public HeaderCodec {
   explicit QPACKCodec(TransportDirection direction);
   ~QPACKCodec() override {}
 
-  std::unique_ptr<folly::IOBuf> encode(
-      std::vector<compress::Header>& /*headers*/) noexcept override {
-    LOG(FATAL) << "Doesn't work for QPACK";
-    return nullptr;
-  }
-
   // QPACK encode: id is used for internal tracking of references
   QPACKEncoder::EncodeResult encode(
     std::vector<compress::Header>& headers, uint64_t id) noexcept;
-
-  Result<HeaderDecodeResult, HeaderDecodeError>
-  decode(folly::io::Cursor& cursor, uint32_t length) noexcept override {
-    LOG(FATAL) << "Don't use";
-  }
 
   HPACK::DecodeError decodeControl(folly::io::Cursor& cursor,
                                    uint32_t totalBytes) {
@@ -59,19 +48,12 @@ class QPACKCodec : public HeaderCodec {
     return decoder_.decodeControl(cursor, totalBytes);
   }
 
-  void decodeStreaming(
-      folly::io::Cursor& /*cursor*/,
-      uint32_t /*length*/,
-      HeaderCodec::StreamingCallback* /*streamingCb*/) noexcept override {
-    LOG(FATAL) << "Doesn't work for QPACK";
-  }
-
   // QPACK blocking decode.  The decoder may queue the block if there are
   // unsatisfied dependencies
   void decodeStreaming(
     std::unique_ptr<folly::IOBuf> block,
     uint32_t length,
-    HeaderCodec::StreamingCallback* streamingCb) noexcept;
+    HPACK::StreamingCallback* streamingCb) noexcept;
 
   void setEncoderHeaderTableSize(uint32_t size) {
     encoder_.setHeaderTableSize(size);

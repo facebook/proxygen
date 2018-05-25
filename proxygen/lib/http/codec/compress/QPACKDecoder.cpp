@@ -20,7 +20,7 @@ namespace proxygen {
 void QPACKDecoder::decodeStreaming(
   std::unique_ptr<folly::IOBuf> block,
   uint32_t totalBytes,
-  HeaderCodec::StreamingCallback* streamingCb) {
+  HPACK::StreamingCallback* streamingCb) {
   Cursor cursor(block.get());
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   uint32_t largestReference = handleBaseIndex(dbuf);
@@ -70,7 +70,7 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
 
 void QPACKDecoder::decodeStreamingImpl(
   uint32_t consumed, HPACKDecodeBuffer& dbuf,
-  HeaderCodec::StreamingCallback* streamingCb) {
+  HPACK::StreamingCallback* streamingCb) {
   uint32_t emittedSize = 0;
 
   while (!hasError() && !dbuf.empty()) {
@@ -89,7 +89,7 @@ void QPACKDecoder::decodeStreamingImpl(
 
 uint32_t QPACKDecoder::decodeHeaderQ(
     HPACKDecodeBuffer& dbuf,
-    HeaderCodec::StreamingCallback* streamingCb) {
+    HPACK::StreamingCallback* streamingCb) {
   uint8_t byte = dbuf.peek();
   if (byte & HPACK::Q_INDEXED.code) {
     return decodeIndexedHeaderQ(
@@ -156,7 +156,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
     bool nameIndexed,
     uint8_t prefixLength,
     bool aboveBase,
-    HeaderCodec::StreamingCallback* streamingCb) {
+    HPACK::StreamingCallback* streamingCb) {
   HPACKHeader header;
   if (nameIndexed) {
     uint32_t nameIndex = 0;
@@ -207,7 +207,7 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(
     HPACKDecodeBuffer& dbuf,
     uint32_t prefixLength,
     bool aboveBase,
-    HeaderCodec::StreamingCallback* streamingCb,
+    HPACK::StreamingCallback* streamingCb,
     headers_t* emitted) {
   uint32_t index;
   bool isStatic = !aboveBase && (dbuf.peek() & (1 << prefixLength));
@@ -249,7 +249,7 @@ void QPACKDecoder::enqueueHeaderBlock(
   uint32_t consumed,
   std::unique_ptr<folly::IOBuf> block,
   size_t length,
-  HeaderCodec::StreamingCallback* streamingCb) {
+  HPACK::StreamingCallback* streamingCb) {
   // TDOO: this queue is currently unbounded and has no timeouts
   CHECK_GT(largestReference, table_.getBaseIndex());
   queue_.emplace(

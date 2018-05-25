@@ -27,12 +27,12 @@ namespace proxygen {
  * An implementation of the framing layer for HTTP/2. Instances of this
  * class must not be used from multiple threads concurrently.
  */
-class HTTP2Codec: public HTTPParallelCodec, HeaderCodec::StreamingCallback {
+class HTTP2Codec: public HTTPParallelCodec, HPACK::StreamingCallback {
 public:
   void onHeader(const folly::fbstring& name,
                 const folly::fbstring& value) override;
   void onHeadersComplete(HTTPHeaderSize decodedSize) override;
-  void onDecodeError(HeaderDecodeError decodeError) override;
+  void onDecodeError(HPACK::DecodeError decodeError) override;
 
   explicit HTTP2Codec(TransportDirection direction);
   ~HTTP2Codec() override;
@@ -188,7 +188,7 @@ public:
       contentLength = 0;
       regularHeaderSeen = false;
       parsingError = "";
-      decodeError = HeaderDecodeError::NONE;
+      decodeError = HPACK::DecodeError::NONE;
       verifier.error = "";
       verifier.setMessage(msg);
       verifier.setHasMethod(false);
@@ -206,7 +206,7 @@ public:
     bool hasContentLength{false};
     uint32_t contentLength{0};
     std::string parsingError;
-    HeaderDecodeError decodeError{HeaderDecodeError::NONE};
+    HPACK::DecodeError decodeError{HPACK::DecodeError::NONE};
   };
 
   ErrorCode parseFrame(folly::io::Cursor& cursor);

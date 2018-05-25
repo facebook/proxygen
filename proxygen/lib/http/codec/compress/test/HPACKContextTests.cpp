@@ -17,6 +17,7 @@
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
+#include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -134,7 +135,7 @@ TEST_F(HPACKContextTests, decoder_large_header) {
   // add a static entry
   headers.push_back(HPACKHeader(":method", "GET"));
   auto buf = encoder.encode(headers);
-  auto decoded = decoder.decode(buf.get());
+  auto decoded = proxygen::hpack::decode(decoder, buf.get());
   EXPECT_EQ(encoder.getTable().size(), 0);
   EXPECT_EQ(decoder.getTable().size(), 0);
 }
@@ -154,7 +155,7 @@ TEST_F(HPACKContextTests, decoder_invalid_peek) {
   first->writableData()[0] = HPACK::INDEX_REF.code;
 
   first->appendChain(std::move(encoded));
-  auto decoded = decoder.decode(first.get());
+  auto decoded = proxygen::hpack::decode(decoder, first.get());
 
   EXPECT_FALSE(decoder.hasError());
   EXPECT_EQ(*decoded, headers);
@@ -174,7 +175,7 @@ TEST_F(HPACKContextTests, decoder_invalid_literal_peek) {
   first->writableData()[0] = 0x3F;
 
   first->appendChain(std::move(encoded));
-  auto decoded = decoder.decode(first.get());
+  auto decoded = proxygen::hpack::decode(decoder, first.get());
 
   EXPECT_FALSE(decoder.hasError());
   EXPECT_EQ(*decoded, headers);
@@ -185,7 +186,7 @@ TEST_F(HPACKContextTests, decoder_invalid_literal_peek) {
  */
 void checkError(const IOBuf* buf, const HPACK::DecodeError err) {
   HPACKDecoder decoder;
-  auto decoded = decoder.decode(buf);
+  auto decoded = proxygen::hpack::decode(decoder, buf);
   EXPECT_TRUE(decoder.hasError());
   EXPECT_EQ(decoder.getError(), err);
 }
@@ -274,7 +275,7 @@ TEST_P(HPACKContextTests, contextUpdate) {
   unique_ptr<IOBuf> first = IOBuf::create(128);
 
   first->appendChain(std::move(encoded));
-  auto decoded = decoder.decode(first.get());
+  auto decoded = proxygen::hpack::decode(decoder, first.get());
 
 
   EXPECT_EQ(decoder.hasError(), !setDecoderSize);

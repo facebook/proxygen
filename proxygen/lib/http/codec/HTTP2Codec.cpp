@@ -449,12 +449,12 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
         curHeaderBlock_.move();
       });
     // Check decoding error
-    if (decodeInfo_.decodeError != HeaderDecodeError::NONE) {
+    if (decodeInfo_.decodeError != HPACK::DecodeError::NONE) {
       static const std::string decodeErrorMessage =
           "Failed decoding header block for stream=";
       // Avoid logging header blocks that have failed decoding due to being
       // excessively large.
-      if (decodeInfo_.decodeError != HeaderDecodeError::HEADERS_TOO_LARGE) {
+      if (decodeInfo_.decodeError != HPACK::DecodeError::HEADERS_TOO_LARGE) {
         LOG(ERROR) << decodeErrorMessage << curHeader_.stream
                    << " header block=" << std::endl
                    << IOBufPrinter::printHexFolly(
@@ -542,7 +542,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
 void HTTP2Codec::onHeader(const folly::fbstring& name,
                           const folly::fbstring& value) {
   // Refuse decoding other headers if an error is already found
-  if (decodeInfo_.decodeError != HeaderDecodeError::NONE
+  if (decodeInfo_.decodeError != HPACK::DecodeError::NONE
       || decodeInfo_.parsingError != "") {
     VLOG(4) << "Ignoring header=" << name << " value=" << value <<
       " due to parser error=" << decodeInfo_.parsingError;
@@ -670,7 +670,7 @@ void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
   decodeInfo_.msg->setIngressHeaderSize(decodedSize);
 }
 
-void HTTP2Codec::onDecodeError(HeaderDecodeError decodeError) {
+void HTTP2Codec::onDecodeError(HPACK::DecodeError decodeError) {
   decodeInfo_.decodeError = decodeError;
 }
 
