@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/utils/TestUtils.h>
+#include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/test/MockAsyncServerSocket.h>
 #include <folly/io/async/test/MockAsyncSocket.h>
 
@@ -17,6 +18,7 @@ using namespace proxygen;
 using namespace testing;
 
 using folly::AsyncSocket;
+using folly::AsyncSSLSocket;
 using folly::test::MockAsyncSocket;
 using folly::SocketAddress;
 using wangle::SecureTransportType;
@@ -104,10 +106,7 @@ class HTTPSessionAcceptorTestBase :
 class HTTPSessionAcceptorTestNPN :
     public HTTPSessionAcceptorTestBase {};
 class HTTPSessionAcceptorTestNPNPlaintext :
-    public HTTPSessionAcceptorTestBase {
- public:
-  void setupSSL() override {}
-};
+    public HTTPSessionAcceptorTestBase {};
 class HTTPSessionAcceptorTestNPNJunk :
     public HTTPSessionAcceptorTestBase {};
 
@@ -122,7 +121,8 @@ TEST_P(HTTPSessionAcceptorTestNPN, npn) {
     acceptor_->expectedProto_ = proto;
   }
 
-  AsyncSocket::UniquePtr sock(new AsyncSocket(&eventBase_));
+  auto ctx = std::make_shared<folly::SSLContext>();
+  AsyncSSLSocket::UniquePtr sock(new AsyncSSLSocket(ctx, &eventBase_));
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
   acceptor_->connectionReady(
@@ -158,7 +158,7 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
       std::move(sock),
       clientAddress,
       "",
-      SecureTransportType::TLS,
+      SecureTransportType::NONE,
       tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
   EXPECT_EQ(acceptor_->sessionCreationErrors_, 0);
@@ -180,14 +180,13 @@ TEST_F(HTTPSessionAcceptorTestNPNJunk, npn) {
       std::move(sock),
       clientAddress,
       proto,
-      SecureTransportType::TLS,
+      SecureTransportType::NONE,
       tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 0);
   EXPECT_EQ(acceptor_->sessionCreationErrors_, 1);
 }
 
 TEST_F(HTTPSessionAcceptorTestNPN, AcceptorConfigCapture) {
-  config_->sslContextConfigs.clear();
   newAcceptor();
   config_.reset();
   acceptor_->expectedProto_ = "http/1.1";
@@ -195,5 +194,5 @@ TEST_F(HTTPSessionAcceptorTestNPN, AcceptorConfigCapture) {
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
   acceptor_->connectionReady(
-      std::move(sock), clientAddress, "", SecureTransportType::TLS, tinfo);
+      std::move(sock), clientAddress, "", SecureTransportType::NONE, tinfo);
 }

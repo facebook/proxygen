@@ -18,29 +18,28 @@ namespace proxygen {
 
 HTTPDefaultSessionCodecFactory::HTTPDefaultSessionCodecFactory(
     const AcceptorConfiguration& accConfig)
-    : accConfig_(accConfig), isSSL_(accConfig.isSSL()) {
-  if (!isSSL_) {
-    auto version = SPDYCodec::getVersion(accConfig.plaintextProtocol);
-    if (version) {
-      alwaysUseSPDYVersion_ = *version;
-    } else if (accConfig.plaintextProtocol == http2::kProtocolCleartextString) {
-      alwaysUseHTTP2_ = true;
-    }
+    : accConfig_(accConfig) {
+  // set up codec defaults in the case of plaintext connections
+  auto version = SPDYCodec::getVersion(accConfig.plaintextProtocol);
+  if (version) {
+    alwaysUseSPDYVersion_ = *version;
+  } else if (accConfig.plaintextProtocol == http2::kProtocolCleartextString) {
+    alwaysUseHTTP2_ = true;
   }
 }
 
 std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
-    const std::string& nextProtocol, TransportDirection direction) {
-  if (!isSSL_ && alwaysUseSPDYVersion_) {
+    const std::string& nextProtocol, TransportDirection direction, bool isTLS) {
+  if (!isTLS && alwaysUseSPDYVersion_) {
     return std::make_unique<SPDYCodec>(direction,
-                                         alwaysUseSPDYVersion_.value(),
-                                         accConfig_.spdyCompressionLevel);
-  } else if (!isSSL_ && alwaysUseHTTP2_) {
+                                       alwaysUseSPDYVersion_.value(),
+                                       accConfig_.spdyCompressionLevel);
+  } else if (!isTLS && alwaysUseHTTP2_) {
     return std::make_unique<HTTP2Codec>(direction);
   } else if (nextProtocol.empty() ||
              HTTP1xCodec::supportsNextProtocol(nextProtocol)) {
     auto codec = std::make_unique<HTTP1xCodec>(direction);
-    if (!isSSL_) {
+    if (!isTLS) {
       codec->setAllowedUpgradeProtocols(
         accConfig_.allowedPlaintextUpgradeProtocols);
     }

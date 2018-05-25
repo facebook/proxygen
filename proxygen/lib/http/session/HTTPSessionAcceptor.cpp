@@ -59,11 +59,15 @@ void HTTPSessionAcceptor::onNewConnection(
     folly::AsyncTransportWrapper::UniquePtr sock,
     const SocketAddress* peerAddress,
     const string& nextProtocol,
-    wangle::SecureTransportType /*secureTransportType*/,
+    wangle::SecureTransportType,
     const wangle::TransportInfo& tinfo) {
 
   unique_ptr<HTTPCodec> codec
-      = codecFactory_->getCodec(nextProtocol, TransportDirection::DOWNSTREAM);
+      = codecFactory_->getCodec(
+          nextProtocol,
+          TransportDirection::DOWNSTREAM,
+          // we assume if security protocol isn't empty, then it's TLS
+          !sock->getSecurityProtocol().empty());
 
   if (!codec) {
     VLOG(2) << "codecFactory_ failed to provide codec";
