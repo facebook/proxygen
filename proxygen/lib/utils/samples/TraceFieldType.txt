@@ -228,8 +228,6 @@ EgressBuffered, "egress_buffered"
 
 /* ---- Used in ZeroSetup ---- */
 SCFGCacheHit, "zero_scfg_cache_hit"
-InitialAppBytesWritten, "zero_initial_app_bytes_written"
-TimeToInitial, "zero_time_to_initial"
 SCFGExpired, "zero_scfg_expired"
 ZeroAEAD, "zero_aead"
 ZeroKex, "zero_kex"
