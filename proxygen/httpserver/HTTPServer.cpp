@@ -245,7 +245,7 @@ int HTTPServer::getListenSocket() const {
 void HTTPServer::updateTLSCredentials() {
   for (auto& bootstrap : bootstrap_) {
     bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
-      if (!acceptor) {
+      if (!acceptor || !acceptor->isSSL()) {
         return;
       }
       auto evb = acceptor->getEventBase();
@@ -262,7 +262,7 @@ void HTTPServer::updateTLSCredentials() {
 void HTTPServer::updateTicketSeeds(wangle::TLSTicketKeySeeds seeds) {
   for (auto& bootstrap : bootstrap_) {
     bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
-      if (!acceptor) {
+      if (!acceptor || !acceptor->isSSL()) {
         return;
       }
       auto evb = acceptor->getEventBase();

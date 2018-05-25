@@ -418,12 +418,15 @@ TEST(SSL, TestUpdateTLSCredentials) {
   sslCfg.setCertificate(credFile.path().string(), credFile.path().string(), "");
   cfg.sslConfigs.push_back(sslCfg);
 
+  HTTPServer::IPConfig insecureCfg{folly::SocketAddress("127.0.0.1", 0),
+                                   HTTPServer::Protocol::HTTP};
+
   HTTPServerOptions options;
   options.threads = 4;
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
 
-  std::vector<HTTPServer::IPConfig> ips{cfg};
+  std::vector<HTTPServer::IPConfig> ips{cfg, insecureCfg};
   server->bind(ips);
 
   ServerThread st(server.get());
