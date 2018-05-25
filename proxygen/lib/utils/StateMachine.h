@@ -12,6 +12,8 @@
 #include <glog/logging.h>
 #include <tuple>
 
+namespace proxygen {
+
 template <typename T>
 class StateMachine {
  public:
@@ -46,3 +48,5 @@ class StateMachine {
     return ok;
   }
 };
+
+}
