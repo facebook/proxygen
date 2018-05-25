@@ -803,15 +803,9 @@ HTTPSession::onExMessageBegin(HTTPCodec::StreamID streamID,
   if (!txn) {
     return;  // This could happen if the socket is bad.
   }
-
-  if (!controlTxn->onExTransaction(txn)) {
-    VLOG(1) << "Failed to add exTxn=" << streamID
-            << " to controlTxn=" << controlStream << ", " << *this;
-    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-      folly::to<std::string>("Failed to add exTransaction ", streamID));
-    ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
-    onError(streamID, ex, true);
-    return;
+  // control stream may be paused if the upstream is not ready yet
+  if (controlTxn->isIngressPaused()) {
+    txn->pauseIngress();
   }
 }
 
@@ -841,7 +835,32 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   msg->setSecureInfo(transportInfo_.sslVersion, sslCipher);
   msg->setSecure(transportInfo_.secure);
 
-  setupOnHeadersComplete(txn, msg.get());
+  auto controlStreamID = txn->getControlStream();
+  if (controlStreamID) {
+    auto controlTxn = findTransaction(*controlStreamID);
+    if (!controlTxn) {
+      VLOG(2) << "txn=" << streamID << " with a broken controlTxn="
+              << *controlStreamID << " " << *this;
+      HTTPException ex(
+          HTTPException::Direction::INGRESS_AND_EGRESS,
+          folly::to<std::string>("broken controlTxn ", *controlStreamID));
+      onError(streamID, ex, true);
+      return;
+    }
+
+    if (!controlTxn->onExTransaction(txn)) {
+      VLOG(2) << "Failed to add exTxn=" << streamID
+              << " to controlTxn=" << *controlStreamID << ", " << *this;
+      HTTPException ex(
+          HTTPException::Direction::INGRESS_AND_EGRESS,
+          folly::to<std::string>("Fail to add exTxn ", streamID));
+      ex.setCodecStatusCode(ErrorCode::REFUSED_STREAM);
+      onError(streamID, ex, true);
+      return;
+    }
+  } else {
+    setupOnHeadersComplete(txn, msg.get());
+  }
 
   // The txn may have already been aborted by the handler.
   // Verify that the txn still exists before ingress callbacks.
@@ -1327,6 +1346,14 @@ void HTTPSession::pauseIngress(HTTPTransaction* txn) noexcept {
     ", liveTransactions_ was " << liveTransactions_;
   CHECK_GT(liveTransactions_, 0);
   --liveTransactions_;
+  for (auto it = txn->getExTransactions().begin();
+       it != txn->getExTransactions().end(); ++it) {
+    auto exTxn = findTransaction(*it);
+    if (exTxn) {
+      exTxn->pauseIngress();
+    }
+  }
+
   if (liveTransactions_ == 0) {
     pauseReads();
   }
@@ -1336,6 +1363,14 @@ void HTTPSession::resumeIngress(HTTPTransaction* txn) noexcept {
   VLOG(4) << *this << " resuming streamID=" << txn->getID() <<
       ", liveTransactions_ was " << liveTransactions_;
   ++liveTransactions_;
+  for (auto it = txn->getExTransactions().begin();
+       it != txn->getExTransactions().end(); ++it) {
+    auto exTxn = findTransaction(*it);
+    if (exTxn) {
+      exTxn->resumeIngress();
+    }
+  }
+
   if (liveTransactions_ == 1) {
     resumeReads();
   }

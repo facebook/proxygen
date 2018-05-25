@@ -1043,6 +1043,8 @@ TEST_F(HTTP2DownstreamSessionTest, exheader_from_server) {
   EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
   EXPECT_CALL(callbacks_, onMessageComplete(2, _));
 
+  EXPECT_CALL(*cHandler, onExTransaction(_));
+
   EXPECT_CALL(pubHandler, onHeadersComplete(_));
   EXPECT_CALL(pubHandler, onEOM());
   EXPECT_CALL(pubHandler, detachTransaction());
@@ -1128,6 +1130,59 @@ TEST_F(HTTP2DownstreamSessionTest, exheader_from_client) {
   expectDetachSession();
   cHandler->txn_->sendEOM();
   eventBase_.loop();
+  parseOutput(*clientCodec_);
+}
+
+TEST_F(HTTP2DownstreamSessionTest, pause_resume_control_stream) {
+  auto cStreamId = HTTPCodec::StreamID(1);
+  SetupControlStream(cStreamId);
+
+  // generate an EX_HEADERS
+  clientCodec_->generateExHeader(requests_, cStreamId + 2, getGetRequest(),
+                                 cStreamId, true, nullptr);
+
+  auto cHandler = addSimpleStrictHandler();
+  cHandler->expectHeaders([&] {
+      cHandler->txn_->pauseIngress();
+      // send back the response for control stream, but EOM
+      cHandler->txn_->sendHeaders(getResponse(200, 0));
+    });
+  EXPECT_CALL(*cHandler, onEOM());
+
+  StrictMock<MockHTTPHandler> pubHandler;
+  EXPECT_CALL(*cHandler, onExTransaction(_))
+    .WillOnce(Invoke([&pubHandler] (HTTPTransaction* exTxn) {
+          exTxn->setHandler(&pubHandler);
+          pubHandler.txn_ = exTxn;
+        }));
+
+  InSequence handlerSequence;
+  EXPECT_CALL(pubHandler, setTransaction(_));
+  pubHandler.expectHeaders([&] {
+      // send back the response for the pub request
+      pubHandler.txn_->sendHeadersWithEOM(getResponse(200, 0));
+    });
+  EXPECT_CALL(pubHandler, onEOM());
+  EXPECT_CALL(pubHandler, detachTransaction());
+  cHandler->expectDetachTransaction();
+
+  EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId, _));
+  EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId + 2, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(cStreamId + 2, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(cStreamId, _));
+
+  HTTPSession::DestructorGuard g(httpSession_);
+  transport_->addReadEvent(requests_, milliseconds(0));
+  transport_->addReadEOF(milliseconds(0));
+  transport_->startReadEvents();
+  eventBase_.loop();
+
+  cHandler->txn_->resumeIngress();
+  cHandler->txn_->sendEOM();
+  eventBase_.loop();
+
+  expectDetachSession();
   parseOutput(*clientCodec_);
 }
 
