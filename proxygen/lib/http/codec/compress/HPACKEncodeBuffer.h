@@ -45,8 +45,6 @@ class HPACKEncodeBuffer {
    */
   void addHeadroom(uint32_t bytes);
 
-  uint32_t appendSequenceNumber(uint16_t seqn);
-
   /**
    * Encode the integer value using variable-length layout and the given
    * instruction using an nbit prefix.  Per the spec, prefix is the portion

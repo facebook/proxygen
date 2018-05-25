@@ -54,6 +54,8 @@ const uint8_t Q_INDEXED_STATIC = 0x40;
 const uint8_t Q_INSERT_NAME_REF_STATIC = 0x40;
 const uint8_t Q_LITERAL_STATIC = 0x10;
 
+const uint32_t kDefaultBlocking = 100;
+
 const uint32_t kTableSize = 4096;
 
 const uint8_t NBIT_MASKS[9] = {
@@ -86,7 +88,8 @@ enum class DecodeError : uint8_t {
   TIMEOUT = 9,
   CANCELLED = 10,
   BAD_SEQUENCE_NUMBER = 11,
-  INVALID_ACK = 12
+  INVALID_ACK = 12,
+  TOO_MANY_BLOCKING = 13
 };
 
 std::ostream& operator<<(std::ostream& os, DecodeError err);

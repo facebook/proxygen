@@ -53,7 +53,15 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
     HPACKEncoderBase::setHeaderTableSize(table_, size);
   }
 
+  void setMaxVulnerable(uint32_t maxVulnerable) {
+    maxVulnerable_ = maxVulnerable;
+  }
+
  private:
+  bool allowVulnerable() const {
+    return numVulnerable_ < maxVulnerable_;
+  }
+
   bool shouldIndex(const HPACKHeader& header) const;
 
   void encodeControl(const HPACKHeader& header);
@@ -99,11 +107,16 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   // List of highest index in control
   std::list<uint32_t> outstandingControl_;
   using BlockReferences = std::set<uint32_t>;
+  struct OutstandingBlock {
+    BlockReferences references;
+    bool vulnerable{false};
+  };
   // Map streamID -> list of table index references for each outstanding block;
-  std::unordered_map<uint64_t, std::list<BlockReferences>> outstanding_;
-  BlockReferences* blockReferences_{nullptr};
+  std::unordered_map<uint64_t, std::list<OutstandingBlock>> outstanding_;
+  OutstandingBlock* curOutstanding_{nullptr};
   uint32_t maxDepends_{0};
-  bool allowVulnerable_{true};
+  uint32_t maxVulnerable_{HPACK::kDefaultBlocking};
+  uint32_t numVulnerable_{0};
 };
 
 }

@@ -54,6 +54,10 @@ class QPACKDecoder : public HPACKDecoderBase,
     return queuedBytes_;
   }
 
+  void setMaxBlocking(uint32_t maxBlocking) {
+    maxBlocking_ = maxBlocking;
+  }
+
  private:
   bool isValid(bool isStatic, uint32_t index, bool aboveBase);
 
@@ -110,6 +114,7 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   void drainQueue();
 
+  uint32_t maxBlocking_{HPACK::kDefaultBlocking};
   uint32_t baseIndex_{0};
   uint32_t holBlockCount_{0};
   uint64_t queuedBytes_{0};

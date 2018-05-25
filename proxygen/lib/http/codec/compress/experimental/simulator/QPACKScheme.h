@@ -17,12 +17,15 @@ namespace proxygen { namespace compress {
 
 class QPACKScheme : public CompressionScheme {
  public:
-  explicit QPACKScheme(CompressionSimulator* sim, uint32_t tableSize)
+  explicit QPACKScheme(CompressionSimulator* sim, uint32_t tableSize,
+                       uint32_t maxBlocking)
       : CompressionScheme(sim) {
     client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
     server_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
     client_.setEncoderHeaderTableSize(tableSize);
     server_.setDecoderHeaderTableMaxSize(tableSize);
+    client_.setMaxVulnerable(maxBlocking);
+    server_.setMaxBlocking(maxBlocking);
   }
 
   ~QPACKScheme() {

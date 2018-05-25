@@ -44,11 +44,6 @@ void HPACKEncodeBuffer::addHeadroom(uint32_t headroom) {
   bufQueue_.append(std::move(buf));
 }
 
-uint32_t HPACKEncodeBuffer::appendSequenceNumber(uint16_t seqn) {
-  buf_.writeBE<uint16_t>(seqn);
-  return sizeof(uint16_t);
-}
-
 void HPACKEncodeBuffer::append(uint8_t byte) {
   buf_.push(&byte, 1);
 }

@@ -28,12 +28,19 @@ void QPACKDecoder::decodeStreaming(
   if (largestReference > table_.getBaseIndex()) {
     VLOG(5) << "largestReference=" << largestReference << " > baseIndex=" <<
       table_.getBaseIndex() << ", queuing";
-    folly::IOBufQueue q;
-    q.append(std::move(block));
-    q.trimStart(dbuf.consumedBytes());
-    enqueueHeaderBlock(largestReference, baseIndex_,
-                       dbuf.consumedBytes(), q.move(),
-                       totalBytes - dbuf.consumedBytes(), streamingCb);
+    if (queue_.size() >= maxBlocking_) {
+      VLOG(2) << "QPACK queue is full size=" << queue_.size()
+              << " maxBlocking_=" << maxBlocking_;
+      err_ = HPACK::DecodeError::TOO_MANY_BLOCKING;
+      completeDecode(streamingCb, 0, 0);
+    } else {
+      folly::IOBufQueue q;
+      q.append(std::move(block));
+      q.trimStart(dbuf.consumedBytes());
+      enqueueHeaderBlock(largestReference, baseIndex_,
+                         dbuf.consumedBytes(), q.move(),
+                         totalBytes - dbuf.consumedBytes(), streamingCb);
+    }
   } else {
     decodeStreamingImpl(0, dbuf, streamingCb);
   }
@@ -43,7 +50,7 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   uint32_t largestReference;
   err_ = dbuf.decodeInteger(largestReference);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding baseIndex err_=" << err_;
+    LOG(ERROR) << "Decode error decoding largest reference err_=" << err_;
     return 0;
   }
   VLOG(5) << "Decoded largestReference=" << largestReference;
@@ -51,7 +58,7 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   bool neg = dbuf.peek() & HPACK::Q_DELTA_BASE_NEG;
   err_ = dbuf.decodeInteger(HPACK::Q_DELTA_BASE.prefixLength, delta);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding depends_=" << err_;
+    LOG(ERROR) << "Decode error decoding delta base=" << err_;
     return 0;
   }
   if (neg) {

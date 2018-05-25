@@ -110,6 +110,14 @@ class QPACKCodec : public HeaderCodec {
     return decoder_.getQueuedBytes();
   }
 
+  void setMaxVulnerable(uint32_t maxVulnerable) {
+    encoder_.setMaxVulnerable(maxVulnerable);
+  }
+
+  void setMaxBlocking(uint32_t maxBlocking) {
+    decoder_.setMaxBlocking(maxBlocking);
+  }
+
  protected:
   QPACKEncoder encoder_;
   QPACKDecoder decoder_;

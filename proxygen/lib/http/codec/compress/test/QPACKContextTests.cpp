@@ -111,6 +111,25 @@ TEST(QPACKContextTests, name_indexed_insert) {
   verifyDecode(decoder, std::move(result), req);
 }
 
+TEST(QPACKContextTests, unacknowledged) {
+  QPACKEncoder encoder(true, 128);
+  QPACKDecoder decoder(128);
+  // Disallow unack'd headers
+  encoder.setMaxVulnerable(0);
+  vector<HPACKHeader> req;
+  req.push_back(HPACKHeader("Blarf", "Blah"));
+  auto result = encoder.encode(req, 10, 1);
+
+  // Stream will encode a literal: prefix(2) + <more than 1>
+  EXPECT_GT(result.stream->computeChainDataLength(), 3);
+  verifyDecode(decoder, std::move(result), req);
+
+  req.push_back(HPACKHeader("Blarf", "Blerg"));
+  result = encoder.encode(req, 10, 2);
+  EXPECT_GT(result.stream->computeChainDataLength(), 4);
+  verifyDecode(decoder, std::move(result), req);
+}
+
 TEST(QPACKContextTests, test_draining) {
   QPACKEncoder encoder(false, 128);
   vector<HPACKHeader> req;
@@ -176,6 +195,7 @@ TEST(QPACKContextTests, test_table_size_update) {
 TEST(QPACKContextTests, test_acks) {
   QPACKEncoder encoder(false, 64);
   QPACKDecoder decoder(64);
+  encoder.setMaxVulnerable(1);
   EXPECT_EQ(encoder.onControlHeaderAck(), HPACK::DecodeError::INVALID_ACK);
   EXPECT_EQ(encoder.onHeaderAck(1, false), HPACK::DecodeError::INVALID_ACK);
 
@@ -193,6 +213,12 @@ TEST(QPACKContextTests, test_acks) {
   result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
 
+  // Blarf: Blah is unacknowledged and maxVulnerable is 1 -> literal
+  result = encoder.encode(req, 0, 2);
+  EXPECT_EQ(result.control, nullptr);
+  EXPECT_TRUE(stringInOutput(result.stream.get(), "blarf"));
+  verifyDecode(decoder, std::move(result), req);
+
   // Table is full and Blarf: Blah cannot be evicted -> literal
   req.clear();
   req.emplace_back("Foo", "Blah");
@@ -200,10 +226,11 @@ TEST(QPACKContextTests, test_acks) {
   EXPECT_EQ(result.control, nullptr);
   EXPECT_TRUE(stringInOutput(result.stream.get(), "foo"));
   verifyDecode(decoder, std::move(result), req);
-  encoder.onHeaderAck(2, false);
+  encoder.onHeaderAck(3, false);
 
   // Should remove all encoder state.  Blarf: Blah can now be evicted and
   // a new vulnerable reference can be made.
+  encoder.onHeaderAck(2, false);
   encoder.onHeaderAck(1, true);
 
   result = encoder.encode(req, 0, 2);
@@ -309,6 +336,12 @@ TEST(QPACKContextTests, decode_errors) {
   buf->writableData()[0] = 0x01;
   buf->writableData()[1] = 0x82;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
+
+  // Exceeds blocking max
+  decoder.setMaxBlocking(0);
+  buf->writableData()[0] = 0x01;
+  buf->writableData()[1] = 0x00;
+  checkQError(decoder, buf->clone(), HPACK::DecodeError::TOO_MANY_BLOCKING);
 
   // valid prefix
   buf->writableData()[0] = 0x00;

@@ -35,9 +35,9 @@ QPACKEncoder::encode(const vector<HPACKHeader>& headers,
 
 QPACKEncoder::EncodeResult
 QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
-  auto& blockRefList = outstanding_[streamId];
-  blockRefList.emplace_back();
-  blockReferences_ = &blockRefList.back();
+  auto& outstandingBlocks = outstanding_[streamId];
+  outstandingBlocks.emplace_back();
+  curOutstanding_ = &outstandingBlocks.back();
   auto baseIndex = table_.getBaseIndex();
 
   uint32_t largestReference = 0;
@@ -67,8 +67,12 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
             << largestReference;
     outstandingControl_.push_back(table_.getBaseIndex());
   }
-  // blockReferences_ could be empty, if the block encodes only static
+  // curOutstanding_.references could be empty, if the block encodes only static
   // headers and/or literals
+  if (curOutstanding_->vulnerable) {
+    DCHECK(allowVulnerable());
+    numVulnerable_++;
+  }
 
   return { std::move(controlBuf), std::move(streamBuffer) };
 }
@@ -86,7 +90,7 @@ void QPACKEncoder::encodeHeaderQ(
 
   bool indexable = shouldIndex(header);
   if (indexable) {
-    index = table_.getIndex(header, allowVulnerable_);
+    index = table_.getIndex(header, allowVulnerable());
     if (index == QPACKHeaderTable::UNACKED) {
       index = 0;
       indexable = false;
@@ -96,6 +100,7 @@ void QPACKEncoder::encodeHeaderQ(
     // dynamic reference
     bool duplicated = false;
     std::tie(duplicated, index) = maybeDuplicate(index);
+    // index is now 0 or absolute
     indexable &= (duplicated && index == 0);
   }
   if (index == 0) {
@@ -110,7 +115,7 @@ void QPACKEncoder::encodeHeaderQ(
     if (indexable && table_.canIndex(header)) {
       encodeInsertQ(header, isStaticName, nameIndex);
       CHECK(table_.add(header));
-      if (allowVulnerable_) {
+      if (allowVulnerable()) {
         index = table_.getBaseIndex();
       } else {
         index = 0;
@@ -143,7 +148,7 @@ bool QPACKEncoder::shouldIndex(const HPACKHeader& header) const {
 
 std::pair<bool, uint32_t> QPACKEncoder::maybeDuplicate(
       uint32_t relativeIndex) {
-  auto res = table_.maybeDuplicate(relativeIndex, allowVulnerable_);
+  auto res = table_.maybeDuplicate(relativeIndex, allowVulnerable());
   if (res.first) {
     VLOG(4) << "Encoded duplicate index=" << relativeIndex;
     encodeDuplicate(relativeIndex);
@@ -158,7 +163,7 @@ std::tuple<bool, uint32_t, uint32_t> QPACKEncoder::getNameIndexQ(
   bool isStatic = true;
   if (nameIndex == 0) {
     // check dynamic table
-    nameIndex = table_.nameIndex(headerName, allowVulnerable_);
+    nameIndex = table_.nameIndex(headerName, allowVulnerable());
     if (nameIndex != 0) {
       absoluteNameIndex = maybeDuplicate(nameIndex).second;
       if (absoluteNameIndex) {
@@ -178,13 +183,9 @@ void QPACKEncoder::encodeStreamLiteralQ(
   const HPACKHeader& header, bool isStaticName, uint32_t nameIndex,
   uint32_t absoluteNameIndex, uint32_t baseIndex, uint32_t* largestReference) {
   if (absoluteNameIndex > 0) {
-    // Dynamic name reference
-    if (absoluteNameIndex > baseIndex && !allowVulnerable_) {
-      // Disallowed vulnerable reference
-      absoluteNameIndex = 0;
-    } else {
-      trackReference(absoluteNameIndex, largestReference);
-    }
+    // Dynamic name reference, vulnerability checks already done
+    CHECK(absoluteNameIndex <= baseIndex || allowVulnerable());
+    trackReference(absoluteNameIndex, largestReference);
   }
   if (absoluteNameIndex > baseIndex) {
     encodeLiteralQ(header,
@@ -204,11 +205,14 @@ void QPACKEncoder::encodeStreamLiteralQ(
 void QPACKEncoder::trackReference(uint32_t absoluteIndex,
                                   uint32_t* largestReference) {
   CHECK_NE(absoluteIndex, 0);
+  CHECK(curOutstanding_);
   if (absoluteIndex > *largestReference) {
     *largestReference = absoluteIndex;
+    if (table_.isVulnerable(absoluteIndex)) {
+      curOutstanding_->vulnerable = true;
+    }
   }
-  CHECK(blockReferences_);
-  auto res = blockReferences_->insert(absoluteIndex);
+  auto res = curOutstanding_->references.insert(absoluteIndex);
   if (res.second) {
     VLOG(5) << "Bumping refcount for absoluteIndex=" << absoluteIndex;
     table_.addRef(absoluteIndex);
@@ -289,19 +293,25 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
   VLOG(5) << "onHeaderAck streamId=" << streamId;
   if (all) {
     // Happens when a stream is reset
-    for (auto& references: it->second) {
-      for (auto i: references) {
+    for (auto& block: it->second) {
+      for (auto i: block.references) {
         table_.subRef(i);
+      }
+      if (block.vulnerable) {
+        numVulnerable_--;
       }
     }
     it->second.clear();
   } else {
-    auto references = std::move(it->second.front());
+    auto block = std::move(it->second.front());
     it->second.pop_front();
     // a different stream, sub all the references
-    for (auto i: references) {
+    for (auto i: block.references) {
       VLOG(5) << "Decrementing refcount for absoluteIndex=" << i;
       table_.subRef(i);
+    }
+    if (block.vulnerable) {
+      numVulnerable_--;
     }
   }
   if (it->second.empty()) {
