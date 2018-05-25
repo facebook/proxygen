@@ -26,4 +26,9 @@ std::unique_ptr<folly::IOBuf> encodeDecode(
 
 std::unique_ptr<HPACKDecoder::headers_t> decode(HPACKDecoder& decoder,
                                                 const folly::IOBuf* buffer);
+
+std::vector<compress::Header> headersFromArray(
+    std::vector<std::vector<std::string>>& a);
+
+std::vector<compress::Header> basicHeaders();
 }}

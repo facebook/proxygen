@@ -21,7 +21,9 @@ namespace proxygen {
 
 class QPACKHeaderTable : public HeaderTable {
  public:
-  static const uint32_t UNACKED = std::numeric_limits<uint32_t>::max();
+  enum {
+    UNACKED = std::numeric_limits<uint32_t>::max()
+  };
 
   QPACKHeaderTable(uint32_t capacityVal, bool trackReferences,
                    uint32_t minFree)

@@ -23,6 +23,7 @@ void QPACKDecoder::decodeStreaming(
   HPACK::StreamingCallback* streamingCb) {
   Cursor cursor(block.get());
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
+  err_ = HPACK::DecodeError::NONE;
   uint32_t largestReference = handleBaseIndex(dbuf);
   if (largestReference > table_.getBaseIndex()) {
     VLOG(5) << "largestReference=" << largestReference << " > baseIndex=" <<
@@ -118,13 +119,16 @@ HPACK::DecodeError QPACKDecoder::decodeControl(
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   VLOG(6) << "Decoding control block";
   baseIndex_ = 0;
+  err_ = HPACK::DecodeError::NONE;
   while (!hasError() && !dbuf.empty()) {
     decodeControlHeader(dbuf);
   }
-  if (!hasError()) {
+  if (hasError()) {
+    return err_;
+  } else {
     drainQueue();
+    return HPACK::DecodeError::NONE;
   }
-  return err_;
 }
 
 void QPACKDecoder::decodeControlHeader(HPACKDecodeBuffer& dbuf) {

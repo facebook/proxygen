@@ -10,6 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <folly/Function.h>
 
 namespace proxygen {
 
@@ -54,7 +55,7 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
     return res;
   }
 
-  std::function<void()> headersCompleteCb;
+  folly::Function<void()> headersCompleteCb;
 };
 
 }

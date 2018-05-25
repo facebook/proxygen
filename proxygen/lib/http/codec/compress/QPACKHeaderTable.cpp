@@ -24,7 +24,9 @@ bool QPACKHeaderTable::add(const HPACKHeader& header) {
     return false;
   }
 
-  CHECK(HeaderTable::add(header));
+  if (!HeaderTable::add(header)) {
+    return false;
+  }
   if (refCount_) {
     (*refCount_)[head_] = 0;
   }

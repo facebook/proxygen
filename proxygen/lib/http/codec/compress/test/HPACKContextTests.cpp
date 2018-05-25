@@ -207,6 +207,12 @@ TEST_F(HPACKContextTests, decode_errors) {
   buf->append(2);
   checkError(buf.get(), HPACK::DecodeError::INVALID_INDEX);
 
+  // 2a. invalid integer for indexed header name
+  buf->writableData()[0] = 0x7F;
+  buf->writableData()[1] = 0xFF;
+  buf->writableData()[2] = 0xFF;
+  checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
+
   // 3. buffer overflow when decoding literal header name
   buf->writableData()[0] = 0x00;  // this will activate the non-indexed branch
   checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
@@ -289,18 +295,3 @@ TEST_P(HPACKContextTests, contextUpdate) {
 INSTANTIATE_TEST_CASE_P(Context,
                         HPACKContextTests,
                         ::testing::Values(true, false));
-
-TEST(QPACKContextTests, test_draining) {
-  QPACKEncoder encoder(true, 128);
-  vector<HPACKHeader> req;
-  req.push_back(HPACKHeader("accept-encoding", "gzip,deflate"));
-  auto result = encoder.encode(req, 0, 1);
-
-  // This will result in the first header being drained in the middle
-  // of encoding the new control channel, and force a literal.
-  req.clear();
-  req.push_back(HPACKHeader("accept-encoding", "sdch,gzip"));
-  req.push_back(HPACKHeader("accept-encoding", "gzip,deflate"));
-  result = encoder.encode(req, 0, 2);
-  EXPECT_GT(result.stream->computeChainDataLength(), 4);
-}

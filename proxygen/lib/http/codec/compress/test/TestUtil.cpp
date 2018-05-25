@@ -81,4 +81,22 @@ unique_ptr<HPACKDecoder::headers_t> decode(HPACKDecoder& decoder,
   return headers;
 }
 
+vector<compress::Header> headersFromArray(vector<vector<string>>& a) {
+  vector<compress::Header> headers;
+  for (auto& ha : a) {
+    headers.push_back(compress::Header::makeHeaderForTest(ha[0], ha[1]));
+  }
+  return headers;
+}
+
+vector<compress::Header> basicHeaders() {
+  static vector<vector<string>> headersStrings = {
+    {":path", "/index.php"},
+    {":host", "www.facebook.com"},
+    {"accept-encoding", "gzip"}
+  };
+  static vector<compress::Header> headers = headersFromArray(headersStrings);
+  return headers;
+}
+
 }}
