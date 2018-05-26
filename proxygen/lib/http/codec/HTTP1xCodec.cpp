@@ -492,7 +492,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   bool bodyCheck =
     (downstream && keepalive_ && !expectNoResponseBody_ && !egressUpgrade_) ||
     // auto chunk POSTs and any request that came to us chunked
-    (upstream && ((msg.getMethod() == HTTPMethod::POST) || egressChunked_));
+    (upstream && ((RFC2616::isRequestBodyAllowed(msg.getMethod()) == RFC2616::BodyAllowed::DEFINED) || egressChunked_));
   // TODO: 400 a 1.0 POST with no content-length
   // clear egressChunked_ if the header wasn't actually set
   egressChunked_ &= hasTransferEncodingChunked;
