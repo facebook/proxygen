@@ -946,6 +946,7 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
                                               allowedNativeUpgrades_,
                                               true /* server mode */);
         if (result && result->first != CodecProtocol::HTTP_1_1) {
+          nativeUpgrade_ = true;
           upgradeResult_ = *result;
           // unfortunately have to copy because msg_ is passed to
           // onHeadersComplete
@@ -1072,8 +1073,14 @@ int HTTP1xCodec::onMessageComplete() {
     responsePending_ = is1xxResponse_;
   }
 
+  // For downstream, always call onMessageComplete. If native upgrade,
+  // pass upgrade=false. Else pass ingressUpgrade_.
+  // For upstream, call onMessagComplete if not native upgrade.
   if (!nativeUpgrade_) {
     callback_->onMessageComplete(ingressTxnID_, ingressUpgrade_);
+  } else if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+    // native upgrade and downstream.
+    callback_->onMessageComplete(ingressTxnID_, false);
   }
   // else we suppressed onHeadersComplete, suppress onMessageComplete also.
   // The new codec will handle these callbacks with the real message

@@ -957,14 +957,14 @@ HTTPSession::onMessageComplete(HTTPCodec::StreamID streamID,
   // The codec's parser detected the end of the ingress message for
   // this transaction.
   VLOG(4) << "processing ingress message complete for " << *this <<
-      ", streamID=" << streamID;
+    ", streamID=" << streamID;
   HTTPTransaction* txn = findTransaction(streamID);
   if (!txn) {
     invalidStream(streamID);
     return;
   }
 
-  if (upgrade && !codec_->supportsParallelRequests()) {
+  if (upgrade) {
     /* Send the upgrade callback to the transaction and the handler.
      * Currently we support upgrades for only HTTP sessions and not SPDY
      * sessions.
