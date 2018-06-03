@@ -257,6 +257,16 @@ ErrorCode HTTP2Codec::handleEndStream() {
   // do we need to handle case where this stream has already aborted via
   // another callback (onHeadersComplete/onBody)?
   pendingEndStreamHandling_ |= (curHeader_.flags & http2::END_STREAM);
+
+  // with a websocket upgrade, we need to send message complete cb to
+  // mirror h1x codec's behavior. when the stream closes, we need to
+  // send another callback to clean up the stream's resources.
+  if (ingressWebsocketUpgrade_) {
+    ingressWebsocketUpgrade_ = false;
+    deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageComplete,
+                             "onMessageComplete", curHeader_.stream, true);
+  }
+
   if (pendingEndStreamHandling_ && expectedContinuationStream_ == 0) {
     pendingEndStreamHandling_ = false;
     deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageComplete,
@@ -576,6 +586,10 @@ void HTTP2Codec::onHeader(const folly::fbstring& name,
         if (!verifier.setPath(valueSp)) {
           return;
         }
+      } else if (nameSp == http2::kProtocol) {
+        if (!verifier.setUpgradeProtocol(valueSp)) {
+          return;
+        }
       } else {
         decodeInfo_.parsingError =
           folly::to<string>("Invalid req header name=", nameSp);
@@ -668,6 +682,28 @@ void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
   decodeInfo_.msg->setHTTPVersion(1, 1);
   decodeInfo_.msg->setIngressHeaderSize(decodedSize);
+
+  HTTPRequestVerifier& verifier = decodeInfo_.verifier;
+  if ((transportDirection_ == TransportDirection::DOWNSTREAM) &&
+      verifier.hasUpgradeProtocol() &&
+      (*decodeInfo_.msg->getUpgradeProtocol() == http2::kWebsocketString) &&
+      decodeInfo_.msg->getMethod() == HTTPMethod::CONNECT) {
+    decodeInfo_.msg->setIngressWebsocketUpgrade();
+    ingressWebsocketUpgrade_ = true;
+  } else {
+    auto it = upgradedStreams_.find(curHeader_.stream);
+    if (it != upgradedStreams_.end()) {
+      upgradedStreams_.erase(curHeader_.stream);
+      // a websocket upgrade was sent on this stream.
+      if (decodeInfo_.msg->getStatusCode() != 200) {
+        decodeInfo_.parsingError =
+          folly::to<string>("Invalid response code to a websocket upgrade: ",
+            decodeInfo_.msg->getStatusCode());
+        return;
+      }
+      decodeInfo_.msg->setIngressWebsocketUpgrade();
+    }
+  }
 }
 
 void HTTP2Codec::onDecodeError(HPACK::DecodeError decodeError) {
@@ -714,6 +750,7 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
   // rst for stream in idle state - protocol error
   VLOG(4) << "parsing RST_STREAM frame for stream=" << curHeader_.stream <<
     " length=" << curHeader_.length;
+  upgradedStreams_.erase(curHeader_.stream);
   ErrorCode statusCode = ErrorCode::NO_ERROR;
   auto err = http2::parseRstStream(cursor, curHeader_, statusCode);
   RETURN_IF_ERROR(err);
@@ -1109,9 +1146,18 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
   if (msg.isRequest()) {
     DCHECK(transportDirection_ == TransportDirection::UPSTREAM ||
            assocStream || controlStream);
-    const string& method = msg.getMethodString();
-    allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);
-    if (msg.getMethod() != HTTPMethod::CONNECT) {
+    if (msg.isEgressWebsocketUpgrade()) {
+      upgradedStreams_.insert(stream);
+      allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD,
+          methodToString(HTTPMethod::CONNECT));
+      allHeaders.emplace_back(HTTP_HEADER_COLON_PROTOCOL, http2::kWebsocketString);
+    } else {
+      const string& method = msg.getMethodString();
+      allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);
+    }
+
+    if (msg.getMethod() != HTTPMethod::CONNECT ||
+        msg.isEgressWebsocketUpgrade()) {
       const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
       const string& path = msg.getURL();
       allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, scheme);
@@ -1125,7 +1171,11 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
   } else {
     DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM ||
            controlStream);
-    status = folly::to<string>(msg.getStatusCode());
+    if (msg.isEgressWebsocketUpgrade()) {
+      status = http2::kStatus200;
+    } else {
+      status = folly::to<string>(msg.getStatusCode());
+    }
     allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, status);
     // HEADERS frames do not include a version or reason string.
   }
@@ -1148,6 +1198,8 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
           bs[HTTP_HEADER_PROXY_CONNECTION] = true;
           bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
           bs[HTTP_HEADER_UPGRADE] = true;
+          bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
+          bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
           return bs;
         }()
       };
@@ -1303,6 +1355,7 @@ size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& /*writeBuf*/,
 size_t HTTP2Codec::generateEOM(folly::IOBufQueue& writeBuf,
                                StreamID stream) {
   VLOG(4) << "sending EOM for stream=" << stream;
+  upgradedStreams_.erase(stream);
   if (!isStreamIngressEgressAllowed(stream)) {
     VLOG(2) << "suppressed EOM for stream=" << stream << " ingressGoawayAck_="
             << ingressGoawayAck_;
@@ -1326,7 +1379,9 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
   if (stream == curHeader_.stream) {
     curHeader_.flags &= ~http2::END_STREAM;
     pendingEndStreamHandling_ = false;
+    ingressWebsocketUpgrade_ = false;
   }
+  upgradedStreams_.erase(stream);
 
   if (statusCode == ErrorCode::PROTOCOL_ERROR) {
     VLOG(2) << "sending RST_STREAM with code=" << getErrorCodeString(statusCode)

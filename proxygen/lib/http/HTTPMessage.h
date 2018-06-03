@@ -39,12 +39,39 @@ namespace proxygen {
 class HTTPMessage {
  public:
 
+  enum WebSocketUpgrade {
+    NONE,
+    INGRESS,
+    EGRESS,
+  };
+
   HTTPMessage();
   ~HTTPMessage();
   HTTPMessage(HTTPMessage&& message) noexcept;
   HTTPMessage(const HTTPMessage& message);
   HTTPMessage& operator=(const HTTPMessage& message);
   HTTPMessage& operator=(HTTPMessage&& message);
+
+  // upgradeWebsocket_ can have three states, WebSocketUpgrade::NONE by
+  // default. WebSocketUpgrade::INGRESS is used by the codec to indicate a
+  // websocket upgrade request was received from downstream or a successful
+  // upgrade finished on an upstream stream.
+  // WebSocketUpgrade::EGRESS is used by the application handler to indicate
+  // websocket upgrade headers should be sent with the outgoing
+  // request/response. Based on upstream/downstream, the codec serializes the
+  // appropriate headers.
+  void setIngressWebsocketUpgrade() {
+    upgradeWebsocket_ = WebSocketUpgrade::INGRESS;
+  }
+  void setEgressWebsocketUpgrade() {
+    upgradeWebsocket_ = WebSocketUpgrade::EGRESS;
+  }
+  bool isIngressWebsocketUpgrade() const {
+    return upgradeWebsocket_ == WebSocketUpgrade::INGRESS;
+  }
+  bool isEgressWebsocketUpgrade() const {
+    return upgradeWebsocket_ == WebSocketUpgrade::EGRESS;
+  }
 
   /**
    * Is this a chunked message? (fpreq, fpresp)
@@ -337,6 +364,13 @@ class HTTPMessage {
    */
   void setStatusCode(uint16_t status);
   uint16_t getStatusCode() const;
+
+  void setUpgradeProtocol(std::string protocol) {
+    upgradeProtocol_ = std::make_unique<std::string>(std::move(protocol));
+  }
+  const std::string* getUpgradeProtocol() const {
+    return upgradeProtocol_.get();
+  }
 
   /**
    * Access the push status code
@@ -772,6 +806,9 @@ class HTTPMessage {
 
   // used by atomicDumpMessage
   static std::mutex mutexDump_;
+
+  WebSocketUpgrade upgradeWebsocket_;
+  std::unique_ptr<std::string> upgradeProtocol_;
 };
 
 std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg);

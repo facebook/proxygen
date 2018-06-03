@@ -52,6 +52,7 @@ const std::string kMethod(":method");
 const std::string kPath(":path");
 const std::string kScheme(":scheme");
 const std::string kStatus(":status");
+const std::string kProtocol(":protocol");
 
 const std::string kHttp("http");
 const std::string kHttps("https");
@@ -63,4 +64,7 @@ const std::string kProtocolDraftString("h2-14");
 const std::string kProtocolExperimentalString("h2-fb");
 const std::string kProtocolCleartextString("h2c");
 const std::string kProtocolSettingsHeader("HTTP2-Settings");
+const std::string kWebsocketString("websocket");
+
+const std::string kStatus200("200");
 }}

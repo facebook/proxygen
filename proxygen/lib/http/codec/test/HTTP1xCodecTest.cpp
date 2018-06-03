@@ -50,11 +50,13 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
   void onError(HTTPCodec::StreamID /*stream*/,
                const HTTPException& /*error*/,
                bool /*newTxn*/) override {
+    ++errors;
     LOG(ERROR) << "parse error";
   }
 
   uint32_t headersComplete{0};
   uint32_t messageComplete{0};
+  uint32_t errors{0};
   uint32_t bodyLen{0};
   HTTPHeaderSize headerSize;
   std::unique_ptr<HTTPMessage> msg_;
@@ -490,6 +492,86 @@ TEST(HTTP1xCodecTest, TestIgnoreUpstreamUpgrade) {
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.bodyLength, 15);
+}
+
+TEST(HTTP1xCodecTest, WebsocketUpgrade) {
+  HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
+  HTTP1xCodec downstreamCodec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback downStreamCallbacks;
+  HTTP1xCodecCallback upstreamCallbacks;
+  downstreamCodec.setCallback(&downStreamCallbacks);
+  upstreamCodec.setCallback(&upstreamCallbacks);
+
+  HTTPMessage req;
+  req.setHTTPVersion(1, 1);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  folly::IOBufQueue buf;
+  auto streamID = upstreamCodec.createStream();
+  upstreamCodec.generateHeader(buf, streamID, req);
+
+  downstreamCodec.onIngress(*buf.front());
+  EXPECT_EQ(downStreamCallbacks.headersComplete, 1);
+  EXPECT_TRUE(downStreamCallbacks.msg_->isIngressWebsocketUpgrade());
+  auto& headers = downStreamCallbacks.msg_->getHeaders();
+  auto ws_key_header = headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY);
+  EXPECT_NE(ws_key_header, empty_string);
+
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(101);
+  resp.setEgressWebsocketUpgrade();
+  buf.clear();
+  downstreamCodec.generateHeader(buf, streamID, resp);
+  upstreamCodec.onIngress(*buf.front());
+  EXPECT_EQ(upstreamCallbacks.headersComplete, 1);
+  headers = upstreamCallbacks.msg_->getHeaders();
+  auto ws_accept_header =
+    headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT);
+  EXPECT_NE(ws_accept_header, empty_string);
+}
+
+TEST(HTTP1xCodecTest, WebsocketUpgradeKeyError) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+
+  HTTPMessage req;
+  req.setHTTPVersion(1, 1);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  folly::IOBufQueue buf;
+  auto streamID = codec.createStream();
+  codec.generateHeader(buf, streamID, req);
+
+  auto resp = folly::IOBuf::copyBuffer(
+      "HTTP/1.1 200 OK\r\n"
+      "Connection: upgrade\r\n"
+      "Upgrade: websocket\r\n"
+      "\r\n");
+  codec.onIngress(*resp);
+  EXPECT_EQ(callbacks.headersComplete, 0);
+  EXPECT_EQ(callbacks.errors, 1);
+}
+
+TEST(HTTP1xCodecTest, websocketUpgradeHeaderSet) {
+  HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::GET);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  req.getHeaders().add(proxygen::HTTP_HEADER_UPGRADE, "Websocket");
+
+  folly::IOBufQueue buf;
+  upstreamCodec.generateHeader(buf, upstreamCodec.createStream(), req);
+
+  HTTP1xCodec downstreamCodec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  downstreamCodec.setCallback(&callbacks);
+  downstreamCodec.onIngress(*buf.front());
+  auto headers = callbacks.msg_->getHeaders();
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY),
+      empty_string);
 }
 
 class ConnectionHeaderTest:

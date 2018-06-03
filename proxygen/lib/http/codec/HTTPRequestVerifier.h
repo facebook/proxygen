@@ -83,20 +83,32 @@ class HTTPRequestVerifier {
     return true;
   }
 
+  bool setUpgradeProtocol(folly::StringPiece protocol) {
+    if (hasUpgradeProtocol_) {
+      error = "Duplicate protocol";
+      return false;
+    }
+    setHasUpgradeProtocol(true);
+    msg_->setUpgradeProtocol(folly::to<std::string>(protocol));
+    return true;
+  }
+
   bool validate() {
     if (error.size()) {
       return false;
     }
     if (msg_->getMethod() == HTTPMethod::CONNECT) {
-      if (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_) {
-        error = folly::to<std::string>("Malformed CONNECT request m/a/s/p=",
+      if ((!hasUpgradeProtocol_ &&
+           (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_)) ||
+          (hasUpgradeProtocol_ && (!hasScheme_ || !hasPath_))) {
+        error = folly::to<std::string>("Malformed CONNECT request m/a/s/pa/pr=",
                                 hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_);
+                                hasScheme_, hasPath_, hasUpgradeProtocol_);
       }
-    } else if (!hasMethod_ || !hasScheme_ || !hasPath_) {
-      error = folly::to<std::string>("Malformed request m/a/s/p=",
+    } else if (hasUpgradeProtocol_ || !hasMethod_ || !hasScheme_ || !hasPath_) {
+      error = folly::to<std::string>("Malformed request m/a/s/pa/pr=",
                                 hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_);
+                                hasScheme_, hasPath_, hasUpgradeProtocol_);
     }
     return error.empty();
   }
@@ -121,6 +133,14 @@ class HTTPRequestVerifier {
     hasAuthority_ = hasAuthority;
   }
 
+  void setHasUpgradeProtocol(bool val) {
+    hasUpgradeProtocol_ = val;
+  }
+
+  bool hasUpgradeProtocol() {
+    return hasUpgradeProtocol_;
+  }
+
   std::string error;
 
  private:
@@ -129,6 +149,7 @@ class HTTPRequestVerifier {
   bool hasPath_{false};
   bool hasScheme_{false};
   bool hasAuthority_{false};
+  bool hasUpgradeProtocol_{false};
 };
 
 } // proxygen

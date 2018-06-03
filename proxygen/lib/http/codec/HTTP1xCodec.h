@@ -97,6 +97,10 @@ class HTTP1xCodec : public HTTPCodec {
     kParsingTrailerValue
   };
 
+  std::string generateWebsocketKey() const;
+  std::string generateWebsocketAccept(const std::string& acceptKey) const;
+  mutable std::string websockAcceptKey_;
+
   /** Used to keep track of whether a client requested keep-alive. This is
    * only useful to support HTTP 1.0 keep-alive for a downstream connection
    * where keep-alive is disabled unless the client requested it. */
@@ -128,6 +132,10 @@ class HTTP1xCodec : public HTTPCodec {
 
   /** Push out header name-value pair to hdrs and clear currentHeader*_ */
   void pushHeaderNameAndValue(HTTPHeaders& hdrs);
+
+  /** Serialize websocket headers into a buffer **/
+  void serializeWebsocketHeader(folly::IOBufQueue& writeBuf, size_t& len,
+      bool upstream);
 
   // Parser callbacks
   int onMessageBegin();

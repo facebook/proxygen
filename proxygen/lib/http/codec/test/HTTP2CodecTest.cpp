@@ -82,8 +82,9 @@ TEST_F(HTTP2CodecTest, NoExHeaders) {
   parseUpstream();
 
   EXPECT_EQ(callbacks_.settings, 1);
-  // only 3 standard settings: HEADER_TABLE_SIZE, ENABLE_PUSH, MAX_FRAME_SIZE
-  EXPECT_EQ(callbacks_.numSettings, 3);
+  // only 4 standard settings: HEADER_TABLE_SIZE, ENABLE_PUSH, MAX_FRAME_SIZE,
+  // ENABLE_CONNECT
+  EXPECT_EQ(callbacks_.numSettings, 4);
   EXPECT_EQ(false, downstreamCodec_.supportsExTransactions());
 }
 
@@ -1585,7 +1586,7 @@ TEST_F(HTTP2CodecTest, HTTP2EnableConnect) {
   // egress settings have no connect settings.
   auto ws_enable = upstreamCodec_.getEgressSettings()->getSetting(
       SettingsId::ENABLE_CONNECT_PROTOCOL);
-  EXPECT_EQ(ws_enable->value, 0);
+  EXPECT_EQ(ws_enable->value, 1);
   // enable connect settings, and check.
   upstreamCodec_.getEgressSettings()->setSetting(
       SettingsId::ENABLE_CONNECT_PROTOCOL, 1);
@@ -1597,4 +1598,102 @@ TEST_F(HTTP2CodecTest, HTTP2EnableConnect) {
   upstreamCodec_.generateSettings(output_);
   parseUpstream();
   EXPECT_EQ(1, upstreamCodec_.peerHasWebsockets());
+}
+
+TEST_F(HTTP2CodecTest, websocketUpgrade) {
+  HTTPMessage req = getGetRequest("/apples");
+  req.setSecure(true);
+  req.setEgressWebsocketUpgrade();
+
+  upstreamCodec_.generateHeader(output_, 1, req, false);
+  parse();
+
+  EXPECT_TRUE(callbacks_.msg->isIngressWebsocketUpgrade());
+  EXPECT_NE(nullptr, callbacks_.msg->getUpgradeProtocol());
+  EXPECT_EQ(http2::kWebsocketString, *callbacks_.msg->getUpgradeProtocol());
+}
+
+TEST_F(HTTP2CodecTest, websocketBadHeader) {
+  const std::string kConnect{"CONNECT"};
+  const std::string kWebsocketPath{"/websocket"};
+  const std::string kSchemeHttps{"https"};
+  vector<proxygen::compress::Header> reqHeaders = {
+    Header::makeHeaderForTest(http2::kMethod, kConnect),
+    Header::makeHeaderForTest(http2::kProtocol, http2::kWebsocketString),
+  };
+  vector<proxygen::compress::Header> optionalHeaders = {
+    Header::makeHeaderForTest(http2::kPath, kWebsocketPath),
+    Header::makeHeaderForTest(http2::kScheme, kSchemeHttps),
+  };
+
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
+  int stream = 1;
+  for (size_t i = 0; i < optionalHeaders.size(); ++i, stream += 2) {
+    auto headers = reqHeaders;
+    headers.push_back(optionalHeaders[i]);
+    auto encodedHeaders = headerCodec.encode(headers);
+    http2::writeHeaders(output_,
+                        std::move(encodedHeaders),
+                        stream,
+                        folly::none,
+                        http2::kNoPadding,
+                        false,
+                        true);
+    parse();
+  }
+
+  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, optionalHeaders.size());
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, websocketDupProtocol) {
+  const std::string kConnect{"CONNECT"};
+  const std::string kWebsocketPath{"/websocket"};
+  const std::string kSchemeHttps{"https"};
+  vector<proxygen::compress::Header> headers = {
+    Header::makeHeaderForTest(http2::kMethod, kConnect),
+    Header::makeHeaderForTest(http2::kProtocol, http2::kWebsocketString),
+    Header::makeHeaderForTest(http2::kProtocol, http2::kWebsocketString),
+    Header::makeHeaderForTest(http2::kPath, kWebsocketPath),
+    Header::makeHeaderForTest(http2::kScheme, kSchemeHttps),
+  };
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
+  auto encodedHeaders = headerCodec.encode(headers);
+  http2::writeHeaders(output_,
+                      std::move(encodedHeaders),
+                      1,
+                      folly::none,
+                      http2::kNoPadding,
+                      false,
+                      true);
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, websocketIncorrectResponse) {
+  parse();
+  SetUpUpstreamTest();
+  parseUpstream();
+
+  output_.clear();
+  HTTPMessage req = getGetRequest("/apples");
+  req.setSecure(true);
+  req.setEgressWebsocketUpgrade();
+  upstreamCodec_.generateHeader(output_, 1, req, false);
+  parse();
+
+  output_.clear();
+  HTTPMessage resp;
+  resp.setStatusCode(201);
+  resp.setStatusMessage("OK");
+  downstreamCodec_.generateHeader(output_, 1, resp);
+  parseUpstream();
+  EXPECT_EQ(callbacks_.streamErrors, 1);
 }

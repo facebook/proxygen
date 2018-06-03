@@ -43,6 +43,7 @@ extern const std::string kMethod;
 extern const std::string kPath;
 extern const std::string kScheme;
 extern const std::string kStatus;
+extern const std::string kProtocol;
 
 extern const std::string kHttp;
 extern const std::string kHttps;
@@ -54,4 +55,7 @@ extern const std::string kProtocolDraftString;
 extern const std::string kProtocolExperimentalString;
 extern const std::string kProtocolCleartextString;
 extern const std::string kProtocolSettingsHeader;
+extern const std::string kWebsocketString;
+
+extern const std::string kStatus200;
 }}
