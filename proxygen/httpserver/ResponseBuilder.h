@@ -192,6 +192,11 @@ class ResponseBuilder {
     txn_->sendEOM();
   }
 
+  ResponseBuilder& setEgressWebsocketHeaders() {
+    headers_->setEgressWebsocketUpgrade();
+    return *this;
+  }
+
  private:
   ResponseHandler* const txn_{nullptr};
 
