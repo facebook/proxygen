@@ -157,7 +157,7 @@ class ZlibServerFilter : public Filter {
       contentLength = folly::to<uint32_t>(contentLengthHeader);
     }
 
-    return contentLength > minimumCompressionSize_;
+    return contentLength >= minimumCompressionSize_;
   }
 
   // Check the response's content type against a list of compressible types

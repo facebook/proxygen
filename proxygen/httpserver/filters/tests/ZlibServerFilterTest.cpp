@@ -363,3 +363,18 @@ TEST_F(ZlibServerFilterTest, small_chunks_compress) {
                          1000);
   });
 }
+
+TEST_F(ZlibServerFilterTest, minimum_compress_size_equal_to_request_size){
+  auto requestBody = std::string("Hello World");
+  ASSERT_NO_FATAL_FAILURE({
+    exercise_compression(true,
+                         std::string("http://locahost/foo.compressme"),
+                         std::string("gzip"),
+                         std::string("gzip"),
+                         requestBody,
+                         std::string("text/html"),
+                         folly::IOBuf::copyBuffer(requestBody),
+                         4,
+                         requestBody.length());
+  });
+}
