@@ -267,7 +267,6 @@ public:
     { SettingsId::ENABLE_PUSH, 0 },
     { SettingsId::MAX_FRAME_SIZE, 16384 },
     { SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17 }, // same as SPDYCodec
-    { SettingsId::ENABLE_CONNECT_PROTOCOL, 1 },
   };
 #ifndef NDEBUG
   uint64_t receivedFrameCount_{0};

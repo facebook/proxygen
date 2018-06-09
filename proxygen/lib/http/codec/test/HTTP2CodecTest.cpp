@@ -82,9 +82,8 @@ TEST_F(HTTP2CodecTest, NoExHeaders) {
   parseUpstream();
 
   EXPECT_EQ(callbacks_.settings, 1);
-  // only 4 standard settings: HEADER_TABLE_SIZE, ENABLE_PUSH, MAX_FRAME_SIZE,
-  // ENABLE_CONNECT
-  EXPECT_EQ(callbacks_.numSettings, 4);
+  // only 3 standard settings: HEADER_TABLE_SIZE, ENABLE_PUSH, MAX_FRAME_SIZE.
+  EXPECT_EQ(callbacks_.numSettings, 3);
   EXPECT_EQ(false, downstreamCodec_.supportsExTransactions());
 }
 
@@ -1586,7 +1585,6 @@ TEST_F(HTTP2CodecTest, HTTP2EnableConnect) {
   // egress settings have no connect settings.
   auto ws_enable = upstreamCodec_.getEgressSettings()->getSetting(
       SettingsId::ENABLE_CONNECT_PROTOCOL);
-  EXPECT_EQ(ws_enable->value, 1);
   // enable connect settings, and check.
   upstreamCodec_.getEgressSettings()->setSetting(
       SettingsId::ENABLE_CONNECT_PROTOCOL, 1);
