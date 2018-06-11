@@ -46,7 +46,7 @@ class HTTPCodec {
    * A value of zero indicates an uninitialized/unknown/unspecified
    * StreamID.
    */
-  using StreamID = uint32_t;
+  using StreamID = uint64_t;
 
   static const folly::Optional<StreamID> NoStream;
 
@@ -194,9 +194,9 @@ class HTTPCodec {
      *       but HTTP/1.1 doesn't.
      */
     virtual void onFrameHeader(
-        uint32_t /* stream_id */,
+        StreamID /* stream_id */,
         uint8_t /* flags */,
-        uint32_t /* length */,
+        uint64_t /* length */,
         uint8_t /* type */,
         uint16_t /* version */ = 0) {}
 

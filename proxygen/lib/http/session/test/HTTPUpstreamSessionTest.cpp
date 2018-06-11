@@ -82,12 +82,12 @@ std::unique_ptr<HTTPUpstreamSession::PriorityAdapter>
 
   std::get<0>(a->hiPri_) = a->parentId_;
   std::get<2>(a->hiPri_) = hiPriWeight_;
-  a->hiPriId_ = session->sendPriority({a->parentId_, false, hiPriWeight_});
+  a->hiPriId_ = session->sendPriority({(uint32_t)a->parentId_, false, hiPriWeight_});
   a->priorityMap_[hiPriLevel_] = a->hiPri_;
 
   std::get<0>(a->loPri_) = a->parentId_;
   std::get<2>(a->loPri_) = loPriWeight_;
-  a->loPriId_ = session->sendPriority({a->parentId_, false, loPriWeight_});
+  a->loPriId_ = session->sendPriority({(uint32_t)a->parentId_, false, loPriWeight_});
   a->priorityMap_[loPriLevel_] = a->loPri_;
 
   a->minPriority_ = a->loPri_;
@@ -641,9 +641,9 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
 
   // update handler to be in the pri-group
   handler1->txn_->updateAndSendPriority(
-    http2::PriorityUpdate{priGroupID, false, 15});
+    http2::PriorityUpdate{(uint32_t)priGroupID, false, 15});
   handler2->txn_->updateAndSendPriority(
-    http2::PriorityUpdate{priGroupID + 254, false, 15});
+    http2::PriorityUpdate{(uint32_t)priGroupID + 254, false, 15});
 
   // Change pri-group weight to max
   httpSession_->sendPriority(priGroupID, http2::PriorityUpdate{0, false, 255});

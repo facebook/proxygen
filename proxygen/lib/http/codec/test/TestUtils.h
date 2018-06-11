@@ -306,7 +306,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint32_t windowSize{0};
   uint32_t maxStreams{0};
   HTTPMessage::HTTPPriority priority{0, false, 0};
-  std::map<uint32_t, std::vector<uint32_t> > windowUpdates;
+  std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t> > windowUpdates;
   folly::IOBufQueue data;
 
   std::unique_ptr<HTTPMessage> msg;

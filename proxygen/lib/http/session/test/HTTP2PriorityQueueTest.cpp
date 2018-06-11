@@ -612,7 +612,7 @@ TEST_F(QueueTest, ChromeTest) {
       txn = nextId;
       nextId += 2;
       VLOG(2) << "Adding txn=" << txn << " with dep=" << dep;
-      addTransaction(txn, {dep, true, 99});
+      addTransaction(txn, {(uint32_t)dep, true, 99});
       txns.push_back(txn);
       active.push_back(txn);
     } else if (action == 1 && !inactive.empty()) {
