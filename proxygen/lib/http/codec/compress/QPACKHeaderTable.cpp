@@ -124,7 +124,8 @@ void QPACKHeaderTable::updateResizedTable(
 }
 
 uint32_t QPACKHeaderTable::evict(uint32_t needed, uint32_t desiredCapacity) {
-  if (!canEvict(needed)) {
+  if (bytes_ + needed < desiredCapacity ||
+      !canEvict(bytes_ + needed - desiredCapacity)) {
     return 0;
   }
   return HeaderTable::evict(needed, desiredCapacity);

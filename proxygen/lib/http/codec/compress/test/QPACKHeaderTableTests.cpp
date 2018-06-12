@@ -154,4 +154,17 @@ TEST_F(QPACKHeaderTableTests, duplication) {
 
 }
 
+TEST_F(QPACKHeaderTableTests, can_evict_with_room) {
+  HPACKHeader thirtyNineBytes("abcd", "efg");
+  HPACKHeader fortySevenBytes("abcd", "efghijklmno");
+  for (auto i = 0; i < 8; i++) {
+    EXPECT_TRUE(table_.add(thirtyNineBytes));
+  }
+  // abs index = 1 is evictable, but index = 2 is referenced, so we can
+  // insert up to (320 - 8 * 39) + 39 = 47
+  table_.addRef(2);
+  EXPECT_TRUE(table_.canIndex(fortySevenBytes));
+  EXPECT_TRUE(table_.add(fortySevenBytes));
+}
+
 }
