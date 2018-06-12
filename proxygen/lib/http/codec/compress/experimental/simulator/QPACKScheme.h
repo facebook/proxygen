@@ -148,8 +148,8 @@ class QPACKScheme : public CompressionScheme {
     return server_.getHolBlockCount();
   }
 
-  QPACKCodec client_{TransportDirection::UPSTREAM};
-  QPACKCodec server_{TransportDirection::UPSTREAM};
+  QPACKCodec client_;
+  QPACKCodec server_;
   std::map<uint16_t, std::unique_ptr<folly::IOBuf>> controlQueue_;
   uint16_t encodeControlIndex_{0};
   uint16_t decodeControlIndex_{0};

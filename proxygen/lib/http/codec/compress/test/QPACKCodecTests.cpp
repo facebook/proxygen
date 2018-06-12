@@ -46,8 +46,8 @@ class QPACKTests : public testing::Test {
 
  protected:
 
-  QPACKCodec client{TransportDirection::UPSTREAM};
-  QPACKCodec server{TransportDirection::DOWNSTREAM};
+  QPACKCodec client;
+  QPACKCodec server;
 };
 
 TEST_F(QPACKTests, test_simple) {

@@ -26,7 +26,7 @@ using std::vector;
 
 namespace proxygen {
 
-QPACKCodec::QPACKCodec(TransportDirection /*direction*/)
+QPACKCodec::QPACKCodec()
     : encoder_(true, HPACK::kTableSize),
       decoder_(HPACK::kTableSize, maxUncompressed_) {}
 

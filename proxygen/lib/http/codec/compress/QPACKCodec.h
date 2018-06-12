@@ -35,7 +35,7 @@ class HPACKHeader;
 
 class QPACKCodec : public HeaderCodec {
  public:
-  explicit QPACKCodec(TransportDirection direction);
+  QPACKCodec();
   ~QPACKCodec() override {}
 
   // QPACK encode: id is used for internal tracking of references
