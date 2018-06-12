@@ -354,7 +354,6 @@ void HTTP1xCodec::serializeWebsocketHeader(IOBufQueue& writeBuf,
       appendLiteral(writeBuf, len, "Upgrade: ");
       appendString(writeBuf, len, kUpgradeToken.str());
       appendLiteral(writeBuf, len, CRLF);
-      upgradeHeader_ = kUpgradeToken.str();
 
       appendLiteral(writeBuf, len, "Sec-WebSocket-Accept: ");
       appendString(writeBuf, len, websockAcceptKey_);
@@ -504,9 +503,11 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   const string* deferredContentLength = nullptr;
   bool hasTransferEncodingChunked = false;
   bool hasDateHeader = false;
-  bool hasUpgrade = false;
+  bool hasUpgradeHeader = false;
   std::vector<StringPiece> connectionTokens;
   size_t lastConnectionToken = 0;
+  bool egressWebsocketUpgrade = msg.isEgressWebsocketUpgrade();
+  bool hasUpgradeTokeninConnection = false;
   msg.getHeaders().forEachWithCode([&] (HTTPHeaderCode code,
                                         const string& header,
                                         const string& value) {
@@ -514,7 +515,8 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       // Write the Content-Length last (t1071703)
       deferredContentLength = &value;
       return; // continue
-    } else if (code == HTTP_HEADER_CONNECTION && !is1xxResponse_) {
+    } else if (code == HTTP_HEADER_CONNECTION && (!is1xxResponse_ ||
+        egressWebsocketUpgrade)) {
       static const string kClose = "close";
       static const string kKeepAlive = "keep-alive";
       folly::split(',', value, connectionTokens);
@@ -523,7 +525,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
            curConnectionToken++) {
         auto token = trimWhitespace(connectionTokens[curConnectionToken]);
         if (caseInsensitiveEqual(token, "upgrade")) {
-          hasUpgrade = true;
+          hasUpgradeTokeninConnection = true;
         }
         if (caseInsensitiveEqual(token, kClose)) {
           keepalive_ = false;
@@ -534,9 +536,12 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       connectionTokens.resize(lastConnectionToken);
       // We'll generate a new Connection header based on the keepalive_ state
       return;
-    } else if (code == HTTP_HEADER_UPGRADE && upstream && txn == 1) {
-      // save in case we get a 101 Switching Protocols
-      upgradeHeader_ = value;
+    } else if (code == HTTP_HEADER_UPGRADE && txn == 1) {
+      hasUpgradeHeader = true;
+      if (upstream) {
+        // save in case we get a 101 Switching Protocols
+        upgradeHeader_ = value;
+      }
     } else if (!hasTransferEncodingChunked &&
                code == HTTP_HEADER_TRANSFER_ENCODING) {
       if (!caseInsensitiveEqual(value, kChunked)) {
@@ -548,10 +553,12 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
       }
     } else if (!hasDateHeader && code == HTTP_HEADER_DATE) {
       hasDateHeader = true;
-    } else if (code == HTTP_HEADER_SEC_WEBSOCKET_KEY) {
+    } else if (egressWebsocketUpgrade &&
+        code == HTTP_HEADER_SEC_WEBSOCKET_KEY) {
       // will generate our own key per hop, not client's.
       return;
-    } else if (code == HTTP_HEADER_SEC_WEBSOCKET_ACCEPT) {
+    } else if (egressWebsocketUpgrade &&
+        code == HTTP_HEADER_SEC_WEBSOCKET_ACCEPT) {
       // will generate our own accept per hop, not client's.
       return;
     }
@@ -598,31 +605,40 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
 
   // websocket headers
   if (msg.isEgressWebsocketUpgrade()) {
-    if (upgradeHeader_.empty()) {
-      // upgradeHeader_ is set in serializeWwebsocketHeader.
+    if (!hasUpgradeHeader && txn == 1) {
+      // upgradeHeader_ is set in serializeWwebsocketHeader for requests.
       serializeWebsocketHeader(writeBuf, len, upstream);
-      if (!hasUpgrade) {
+      if (!hasUpgradeTokeninConnection) {
         connectionTokens.push_back(kUpgradeConnectionToken);
         lastConnectionToken++;
       }
     } else {
-      LOG(ERROR) << "Upgrade header already present, not serializing "
-        "websocket headers";
+      LOG(ERROR) << folly::to<string>("Not serializing headers. "
+          "Upgrade headers present/txn: ",
+          hasUpgradeHeader, txn);
     }
   }
 
   if (!is1xxResponse_ || upstream || !connectionTokens.empty()) {
+    // We don't seem to add keep-alive/close and let the application add any
+    // for 1xx responses.
     appendLiteral(writeBuf, len, "Connection: ");
-    for (auto token: connectionTokens) {
-      appendString(writeBuf, len, token);
-      appendLiteral(writeBuf, len, ", ");
+    if (connectionTokens.size() > 0) {
+      appendString(writeBuf, len, folly::join(", ", connectionTokens));
     }
-    if (keepalive_) {
-      appendLiteral(writeBuf, len, "keep-alive\r\n");
-    } else {
-      appendLiteral(writeBuf, len, "close\r\n");
+    if (!is1xxResponse_) {
+      if (connectionTokens.size() > 0) {
+        appendString(writeBuf, len, ", ");
+      }
+      if (keepalive_) {
+        appendLiteral(writeBuf, len, "keep-alive");
+      } else {
+        appendLiteral(writeBuf, len, "close");
+      }
     }
+    appendLiteral(writeBuf, len, "\r\n");
   }
+
   if (deferredContentLength) {
     appendLiteral(writeBuf, len, "Content-Length: ");
     appendString(writeBuf, len, *deferredContentLength);

@@ -574,6 +574,35 @@ TEST(HTTP1xCodecTest, websocketUpgradeHeaderSet) {
       empty_string);
 }
 
+TEST(HTTP1xCodecTest, websocketConnectionHeader) {
+  HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::GET);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  req.getHeaders().add(proxygen::HTTP_HEADER_CONNECTION, "upgrade, keep-alive");
+  req.getHeaders().add(proxygen::HTTP_HEADER_SEC_WEBSOCKET_KEY,
+      "key should change");
+  req.getHeaders().add(proxygen::HTTP_HEADER_SEC_WEBSOCKET_ACCEPT,
+      "this should not be found");
+
+  folly::IOBufQueue buf;
+  upstreamCodec.generateHeader(buf, upstreamCodec.createStream(), req);
+  HTTP1xCodec downstreamCodec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  downstreamCodec.setCallback(&callbacks);
+  downstreamCodec.onIngress(*buf.front());
+  auto headers = callbacks.msg_->getHeaders();
+  EXPECT_NE(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY),
+      empty_string);
+  EXPECT_NE(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY),
+      "key should change");
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT),
+      empty_string);
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+      "upgrade, keep-alive");
+}
+
 class ConnectionHeaderTest:
     public TestWithParam<std::pair<std::list<string>, string>> {
  public:
