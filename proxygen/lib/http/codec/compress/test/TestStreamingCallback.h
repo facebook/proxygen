@@ -47,6 +47,17 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
     return error != HPACK::DecodeError::NONE;
   }
 
+  std::unique_ptr<std::vector<HPACKHeader>> hpackHeaders() const {
+    CHECK(!hasError());
+    auto result = std::make_unique<std::vector<HPACKHeader>>();
+    for (size_t i = 0; i < headers.size(); i += 2) {
+      result->emplace_back(headers[i].str, headers[i + 1].str);
+    }
+
+    return result;
+  }
+
+
   compress::HeaderPieceList headers;
   HPACK::DecodeError error{HPACK::DecodeError::NONE};
   char* duplicate(const folly::fbstring& str) {

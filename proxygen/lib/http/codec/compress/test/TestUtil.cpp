@@ -36,6 +36,22 @@ void dumpToFile(const string& filename, const IOBuf* buf) {
   outfile.close();
 }
 
+void verifyHeaders(vector<HPACKHeader>& headers,
+                   vector<HPACKHeader>& decodedHeaders) {
+  EXPECT_EQ(headers.size(), decodedHeaders.size());
+  std::sort(decodedHeaders.begin(), decodedHeaders.end());
+  std::sort(headers.begin(), headers.end());
+  if (headers.size() != decodedHeaders.size()) {
+    std::cerr << printDelta(decodedHeaders, headers);
+    CHECK(false) << "Mismatched headers size";
+  }
+  EXPECT_EQ(headers, decodedHeaders);
+  if (headers != decodedHeaders) {
+    std::cerr << printDelta(headers, decodedHeaders);
+    CHECK(false) << "Mismatched headers";
+  }
+}
+
 unique_ptr<IOBuf> encodeDecode(
     vector<HPACKHeader>& headers,
     HPACKEncoder& encoder,
@@ -44,23 +60,37 @@ unique_ptr<IOBuf> encodeDecode(
   auto decodedHeaders = hpack::decode(decoder, encoded.get());
   CHECK(!decoder.hasError());
 
-  EXPECT_EQ(headers.size(), decodedHeaders->size());
-  std::sort(decodedHeaders->begin(), decodedHeaders->end());
-  std::sort(headers.begin(), headers.end());
-  if (headers.size() != decodedHeaders->size()) {
-    std::cerr << printDelta(*decodedHeaders, headers);
-    CHECK(false) << "Mismatched headers size";
-  }
-  EXPECT_EQ(headers, *decodedHeaders);
-  if (headers != *decodedHeaders) {
-    std::cerr << printDelta(headers, *decodedHeaders);
-    CHECK(false) << "Mismatched headers";
-  }
+  verifyHeaders(headers, *decodedHeaders);
+
   // header tables should look the same
   CHECK(encoder.getTable() == decoder.getTable());
   EXPECT_EQ(encoder.getTable(), decoder.getTable());
 
   return encoded;
+}
+
+void encodeDecode(
+    vector<HPACKHeader>& headers,
+    QPACKEncoder& encoder,
+    QPACKDecoder& decoder) {
+  auto encoded = encoder.encode(headers, 0, 1);
+  TestStreamingCallback cb;
+  if (encoded.control) {
+    folly::io::Cursor c(encoded.control.get());
+    decoder.decodeControl(c, c.totalLength());
+    encoder.onControlHeaderAck();
+  }
+  CHECK(encoded.stream);
+  auto length = encoded.stream->computeChainDataLength();
+  decoder.decodeStreaming(std::move(encoded.stream), length, &cb);
+  CHECK(!cb.hasError());
+  auto decodedHeaders = cb.hpackHeaders();
+  verifyHeaders(headers, *decodedHeaders);
+  encoder.onHeaderAck(1, false);
+
+  // header tables should look the same
+  CHECK(encoder.getTable() == decoder.getTable());
+  EXPECT_EQ(encoder.getTable(), decoder.getTable());
 }
 
 unique_ptr<HPACKDecoder::headers_t> decode(HPACKDecoder& decoder,
@@ -73,12 +103,7 @@ unique_ptr<HPACKDecoder::headers_t> decode(HPACKDecoder& decoder,
   if (cb.hasError()) {
     return headers;
   }
-  auto& resultHeaders = cb.getResult().ok().headers;
-  for (size_t i = 0; i < resultHeaders.size(); i += 2) {
-    headers->emplace_back(resultHeaders[i].str, resultHeaders[i + 1].str);
-  }
-  // release ownership of the set of headers
-  return headers;
+  return cb.hpackHeaders();
 }
 
 vector<compress::Header> headersFromArray(vector<vector<string>>& a) {

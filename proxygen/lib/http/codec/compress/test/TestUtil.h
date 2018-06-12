@@ -13,6 +13,8 @@
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
 #include <string>
 
 namespace proxygen { namespace hpack {
@@ -23,6 +25,12 @@ std::unique_ptr<folly::IOBuf> encodeDecode(
   std::vector<HPACKHeader>& headers,
   HPACKEncoder& encoder,
   HPACKDecoder& decoder);
+
+void encodeDecode(
+    std::vector<HPACKHeader>& headers,
+    QPACKEncoder& encoder,
+    QPACKDecoder& decoder);
+
 
 std::unique_ptr<HPACKDecoder::headers_t> decode(HPACKDecoder& decoder,
                                                 const folly::IOBuf* buffer);
