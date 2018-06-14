@@ -1055,7 +1055,7 @@ class HTTPTransaction :
   /**
    * Get a set of exTransactions associated with this transaction.
    */
-  const std::set<HTTPCodec::StreamID>& getExTransactions() const {
+  std::set<HTTPCodec::StreamID> getExTransactions() const {
     return exTransactions_;
   }
 

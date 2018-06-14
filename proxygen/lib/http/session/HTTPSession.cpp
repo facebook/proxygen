@@ -1099,8 +1099,8 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID,
       pushTxn->onError(ex);
     }
   }
-  for (auto it = txn->getExTransactions().begin();
-       it != txn->getExTransactions().end(); ++it) {
+  auto exTxns = txn->getExTransactions();
+  for (auto it = exTxns.begin(); it != exTxns.end(); ++it) {
     auto exTxn = findTransaction(*it);
     if (exTxn) {
       exTxn->onError(ex);
@@ -1346,8 +1346,8 @@ void HTTPSession::pauseIngress(HTTPTransaction* txn) noexcept {
     ", liveTransactions_ was " << liveTransactions_;
   CHECK_GT(liveTransactions_, 0);
   --liveTransactions_;
-  for (auto it = txn->getExTransactions().begin();
-       it != txn->getExTransactions().end(); ++it) {
+  auto exTxns = txn->getExTransactions();
+  for (auto it = exTxns.begin(); it != exTxns.end(); ++it) {
     auto exTxn = findTransaction(*it);
     if (exTxn) {
       exTxn->pauseIngress();
@@ -1363,8 +1363,8 @@ void HTTPSession::resumeIngress(HTTPTransaction* txn) noexcept {
   VLOG(4) << *this << " resuming streamID=" << txn->getID() <<
       ", liveTransactions_ was " << liveTransactions_;
   ++liveTransactions_;
-  for (auto it = txn->getExTransactions().begin();
-       it != txn->getExTransactions().end(); ++it) {
+  auto exTxns = txn->getExTransactions();
+  for (auto it = exTxns.begin(); it != exTxns.end(); ++it) {
     auto exTxn = findTransaction(*it);
     if (exTxn) {
       exTxn->resumeIngress();
