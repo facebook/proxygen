@@ -378,3 +378,63 @@ TEST_F(ZlibServerFilterTest, minimum_compress_size_equal_to_request_size){
                          requestBody.length());
   });
 }
+
+TEST_F(ZlibServerFilterTest, no_response_body){
+  std::string acceptedEncoding = "gzip";
+  std::string expectedEncoding = "gzip";
+  std::string url = std::string("http://locahost/foo.compressme");
+  std::string responseContentType = std::string("text/html");
+  int32_t compressionLevel = 4;
+  uint32_t minimumCompressionSize = 0;
+
+  ASSERT_NO_FATAL_FAILURE({
+    // Request Handler Expectations
+    EXPECT_CALL(*requestHandler_, onEOM()).Times(1);
+
+    // Need to capture whatever the filter is for ResponseBuilder later
+    EXPECT_CALL(*requestHandler_, setResponseHandler(_))
+        .WillOnce(DoAll(SaveArg<0>(&downstream_), Return()));
+
+    // Response Handler Expectations
+    // Headers are only sent once
+    EXPECT_CALL(*responseHandler_, sendHeaders(_)).WillOnce(DoAll(
+        Invoke([&](HTTPMessage& msg) {
+          auto& headers = msg.getHeaders();
+          EXPECT_TRUE(msg.checkForHeaderToken(
+            HTTP_HEADER_CONTENT_ENCODING, expectedEncoding.c_str(), false));
+          if (msg.getIsChunked()) {
+            EXPECT_FALSE(headers.exists("Content-Length"));
+          } else {
+            //Content-Length is not set on chunked messages
+            EXPECT_TRUE(headers.exists("Content-Length"));
+          }
+        }),
+        Return()));
+
+    EXPECT_CALL(*responseHandler_, sendEOM()).Times(1);
+
+    /* Simulate Request/Response where no body message received */
+    HTTPMessage msg;
+    msg.setURL(url);
+    msg.getHeaders().set(HTTP_HEADER_ACCEPT_ENCODING, acceptedEncoding);
+
+    std::set<std::string> compressibleTypes = {"text/html"};
+    auto filterFactory = std::make_unique<ZlibServerFilterFactory>(
+        compressionLevel, minimumCompressionSize, compressibleTypes);
+
+    auto filter = filterFactory->onRequest(requestHandler_, &msg);
+    filter->setResponseHandler(responseHandler_.get());
+
+    // Send fake request
+    filter->onEOM();
+
+    ResponseBuilder(downstream_)
+      .status(200, "OK")
+      .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
+      .send();
+
+    ResponseBuilder(downstream_).sendWithEOM();
+
+    filter->requestComplete();
+  });
+}

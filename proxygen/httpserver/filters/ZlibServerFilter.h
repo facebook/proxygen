@@ -50,6 +50,14 @@ class ZlibServerFilter : public Filter {
       headers.set(HTTP_HEADER_CONTENT_ENCODING, "gzip");
     }
 
+    // Initialize compressor
+    compressor_ = std::make_unique<ZlibStreamCompressor>(
+      proxygen::ZlibCompressionType::GZIP, compressionLevel_);
+    if (!compressor_ || compressor_->hasError()) {
+      fail();
+      return;
+    }
+
     // If it's chunked or not being compressed then the headers can be sent
     // if it's compressed and one body, then need to calculate content length.
     if (chunked_ || !compress_) {
@@ -83,16 +91,7 @@ class ZlibServerFilter : public Filter {
       return;
     }
 
-    //First time through the compressor
-    if (compressor_ == nullptr) {
-      compressor_ = std::make_unique<ZlibStreamCompressor>(
-          proxygen::ZlibCompressionType::GZIP, compressionLevel_);
-
-      if (!compressor_ || compressor_->hasError()) {
-        return fail();
-      }
-    }
-    DCHECK(compressor_ != nullptr);
+    CHECK(compressor_ && !compressor_->hasError());
 
     // If it's chunked, never write the trailer, it will be written on EOM
     auto compressed = compressor_->compress(body.get(), !chunked_);
@@ -126,10 +125,12 @@ class ZlibServerFilter : public Filter {
     if (compress_ && chunked_) {
 
       auto emptyBuffer = folly::IOBuf::copyBuffer("");
+      CHECK(compressor_ && !compressor_->hasError());
       auto compressed = compressor_->compress(emptyBuffer.get(), true);
 
       if (compressor_->hasError()) {
-        return fail();
+        fail();
+        return;
       }
 
       // "Inject" a chunk with the gzip trailer.
