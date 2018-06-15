@@ -177,7 +177,8 @@ noinst_PROGRAMS = CompressionSimulator
 CompressionSimulator_SOURCES = \
 	codec/compress/test/HTTPArchive.cpp \
 	codec/compress/experimental/simulator/Main.cpp \
-	codec/compress/experimental/simulator/CompressionSimulator.cpp
+	codec/compress/experimental/simulator/CompressionSimulator.cpp \
+	codec/compress/experimental/simulator/CompressionUtils.cpp
 
 CompressionSimulatordir = $(includedir)/proxygen/lib/http/codec/compress/experimental/simulator
 CompressionSimulator_HEADERS = \
@@ -185,6 +186,7 @@ CompressionSimulator_HEADERS = \
 	codec/compress/experimental/simulator/CompressionScheme.h \
 	codec/compress/experimental/simulator/CompressionSimulator.h \
 	codec/compress/experimental/simulator/CompressionTypes.h \
+	codec/compress/experimental/simulator/CompressionUtils.h \
 	codec/compress/experimental/simulator/HPACKScheme.h \
 	codec/compress/experimental/simulator/QPACKScheme.h \
 	codec/compress/experimental/simulator/SimStreamingCallback.h
