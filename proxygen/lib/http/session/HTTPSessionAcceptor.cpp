@@ -95,7 +95,8 @@ void HTTPSessionAcceptor::onNewConnection(
   }
 
   auto sessionInfoCb = sessionInfoCb_ ? sessionInfoCb_ : this;
-  VLOG(4) << "Created new session for peer " << *peerAddress;
+  VLOG(4) << "Created new " << nextProtocol
+          << " session for peer " << *peerAddress;
   HTTPDownstreamSession* session =
     new HTTPDownstreamSession(getTransactionTimeoutSet(), std::move(sock),
                               localAddress, *peerAddress,
