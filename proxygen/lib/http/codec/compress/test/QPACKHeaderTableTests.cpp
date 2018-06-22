@@ -37,7 +37,7 @@ TEST_F(QPACKHeaderTableTests, indexing) {
             std::numeric_limits<uint32_t>::max());
   // Allow vulnerable, get the index
   EXPECT_EQ(table_.getIndex(accept, true), 1);
-  table_.setMaxAcked(1);
+  EXPECT_TRUE(table_.onTableStateSync(1));
   EXPECT_EQ(table_.getIndex(accept, false), 1);
   table_.add(agent);
   // Indexes move
@@ -128,7 +128,7 @@ TEST_F(QPACKHeaderTableTests, duplication) {
   EXPECT_EQ(table_.size(), 6); // evicted 1
 
   // successful duplicate, vulnerable disallowed
-  table_.setMaxAcked(3);
+  EXPECT_TRUE(table_.onTableStateSync(3));
   res = table_.maybeDuplicate(table_.size(), false);
   EXPECT_TRUE(res.first);
   EXPECT_EQ(res.second, 0);
@@ -165,6 +165,11 @@ TEST_F(QPACKHeaderTableTests, can_evict_with_room) {
   table_.addRef(2);
   EXPECT_TRUE(table_.canIndex(fortySevenBytes));
   EXPECT_TRUE(table_.add(fortySevenBytes));
+}
+
+TEST_F(QPACKHeaderTableTests, bad_sync) {
+  // Can't ack more than is in the table
+  EXPECT_FALSE(table_.onTableStateSync(1));
 }
 
 }

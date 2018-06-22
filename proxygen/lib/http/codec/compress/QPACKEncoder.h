@@ -45,7 +45,10 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
     uint32_t headroom,
     uint64_t streamId);
 
-  HPACK::DecodeError onControlHeaderAck();
+  HPACK::DecodeError decodeDecoderStream(
+      std::unique_ptr<folly::IOBuf> buf);
+
+  HPACK::DecodeError onTableStateSync(uint32_t inserts);
 
   HPACK::DecodeError onHeaderAck(uint64_t streamId, bool all);
 
@@ -104,8 +107,6 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   void encodeDuplicate(uint32_t index);
 
   HPACKEncodeBuffer controlBuffer_;
-  // List of highest index in control
-  std::list<uint32_t> outstandingControl_;
   using BlockReferences = std::set<uint32_t>;
   struct OutstandingBlock {
     BlockReferences references;
@@ -117,6 +118,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   uint32_t maxDepends_{0};
   uint32_t maxVulnerable_{HPACK::kDefaultBlocking};
   uint32_t numVulnerable_{0};
+  folly::IOBufQueue decoderIngress_{folly::IOBufQueue::cacheChainLength()};
 };
 
 }

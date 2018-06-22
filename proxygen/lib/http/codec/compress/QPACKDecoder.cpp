@@ -8,11 +8,16 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
 
 using folly::IOBuf;
 using folly::io::Cursor;
 using std::unique_ptr;
 using proxygen::HPACK::DecodeError;
+
+namespace {
+const uint32_t kGrowth = 100;
+}
 
 namespace proxygen {
 
@@ -252,6 +257,25 @@ bool QPACKDecoder::isValid(bool isStatic, uint32_t index, bool aboveBase) {
     }
     return table_.isValid(index, baseIndex);
   }
+}
+
+std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeTableStateSync() {
+  uint32_t toAck = table_.getBaseIndex() - lastAcked_;
+  if (toAck > 0) {
+    HPACKEncodeBuffer ackEncoder(kGrowth, false);
+    ackEncoder.encodeInteger(toAck, HPACK::Q_TABLE_STATE_SYNC);
+    lastAcked_ = table_.getBaseIndex();
+    return ackEncoder.release();
+  } else {
+    return nullptr;
+  }
+}
+
+std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
+    uint64_t streamId) const {
+  HPACKEncodeBuffer ackEncoder(kGrowth, false);
+  ackEncoder.encodeInteger(streamId, HPACK::Q_HEADER_ACK);
+  return ackEncoder.release();
 }
 
 void QPACKDecoder::enqueueHeaderBlock(

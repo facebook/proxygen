@@ -33,29 +33,36 @@ class QPACKScheme : public CompressionScheme {
   }
 
   struct QPACKAck : public CompressionScheme::Ack {
-    explicit QPACKAck(uint16_t n, uint16_t cAcks) :
-        seqn(n), nControlAcks(cAcks) {
+    explicit QPACKAck(uint16_t n,
+                      std::unique_ptr<folly::IOBuf> hAck,
+                      std::unique_ptr<folly::IOBuf> cAck) :
+        seqn(n),
+        headerAck(std::move(hAck)),
+        controlAck(std::move(cAck)) {
     }
     uint16_t seqn;
-    uint16_t nControlAcks;
+    std::unique_ptr<folly::IOBuf> headerAck;
+    std::unique_ptr<folly::IOBuf> controlAck;
   };
 
   std::unique_ptr<Ack> getAck(uint16_t seqn) override {
     VLOG(4) << "Sending ack for seqn=" << seqn;
-    auto res = std::make_unique<QPACKAck>(seqn, pendingControlAcks_);
-    pendingControlAcks_ = 0;
+    auto res = std::make_unique<QPACKAck>(seqn, server_.encodeHeaderAck(seqn),
+                                          server_.encodeTableStateSync());
     return std::move(res);
   }
   void recvAck(std::unique_ptr<Ack> ack) override {
     CHECK(ack);
     auto qpackAck = dynamic_cast<QPACKAck*>(ack.get());
     CHECK_NOTNULL(qpackAck);
-    VLOG(4) << "Received ack for seqn=" << qpackAck->seqn
-            << " with nControlAcks=" << qpackAck->nControlAcks;
-    while (qpackAck->nControlAcks--) {
-      client_.onControlHeaderAck();
+    VLOG(4) << "Received ack for seqn=" << qpackAck->seqn;
+    CHECK(qpackAck->headerAck);
+    if (qpackAck->controlAck) {
+      qpackAck->headerAck->prependChain(std::move(qpackAck->controlAck));
     }
-    client_.onHeaderAck(qpackAck->seqn);
+
+    CHECK_EQ(client_.decodeDecoderStream(std::move(qpackAck->headerAck)),
+             HPACK::DecodeError::NONE);
   }
 
   std::pair<FrameFlags, std::unique_ptr<folly::IOBuf>> encode(
@@ -107,7 +114,6 @@ class QPACKScheme : public CompressionScheme {
         // next expected control block, decode
         VLOG(5) << "decode controlIndex=" << controlIndex;
         server_.decodeControl(cursor, len);
-        pendingControlAcks_++;
         decodeControlIndex_++;
         while (!controlQueue_.empty() &&
                controlQueue_.begin()->first == decodeControlIndex_) {
@@ -116,7 +122,6 @@ class QPACKScheme : public CompressionScheme {
           auto it = controlQueue_.begin();
           folly::io::Cursor controlCursor(it->second.get());
           server_.decodeControl(controlCursor, controlCursor.totalLength());
-          pendingControlAcks_++;
           decodeControlIndex_++;
           controlQueue_.erase(it);
         }
@@ -153,7 +158,6 @@ class QPACKScheme : public CompressionScheme {
   std::map<uint16_t, std::unique_ptr<folly::IOBuf>> controlQueue_;
   uint16_t encodeControlIndex_{0};
   uint16_t decodeControlIndex_{0};
-  uint32_t pendingControlAcks_{0};
   std::deque<uint16_t> acks_;
 };
 

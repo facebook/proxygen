@@ -78,7 +78,7 @@ void encodeDecode(
   if (encoded.control) {
     folly::io::Cursor c(encoded.control.get());
     decoder.decodeControl(c, c.totalLength());
-    encoder.onControlHeaderAck();
+    encoder.decodeDecoderStream(decoder.encodeTableStateSync());
   }
   CHECK(encoded.stream);
   auto length = encoded.stream->computeChainDataLength();

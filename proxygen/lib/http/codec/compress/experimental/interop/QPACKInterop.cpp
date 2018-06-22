@@ -46,6 +46,7 @@ void encodeHar(const proxygen::HTTPArchive& har) {
   folly::File outputF(FLAGS_output, O_CREAT | O_RDWR | O_TRUNC);
   IOBufQueue outbuf;
   QueueAppender appender(&outbuf, 1000);
+  QPACKDecoder decoder;
   uint64_t bytesIn = 0;
   uint64_t bytesOut = 0;
   for (auto& req : har.requests) {
@@ -56,14 +57,12 @@ void encodeHar(const proxygen::HTTPArchive& har) {
     if (result.stream) {
       writeFrame(appender, streamId, std::move(result.stream));
       if (FLAGS_ack) {
-        encoder.onHeaderAck(streamId);
+        encoder.decodeDecoderStream(decoder.encodeHeaderAck(streamId));
       }
     }
     if (result.control) {
       writeFrame(appender, 0, std::move(result.control));
-      if (FLAGS_ack) {
-        encoder.onControlHeaderAck();
-      }
+      // Shouldn't need any TSS
     }
     bytesIn += encoder.getEncodedSize().uncompressed;
     auto out = outbuf.move();

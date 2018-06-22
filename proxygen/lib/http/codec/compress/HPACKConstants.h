@@ -34,6 +34,8 @@ const Instruction Q_TABLE_SIZE_UPDATE  { 0x20, 5 };
 const Instruction Q_DUPLICATE          { 0x00, 5 };
 
 // Decoder Stream
+const Instruction Q_TABLE_STATE_SYNC   { 0x80, 7 };
+const Instruction Q_HEADER_ACK         { 0x00, 7 };
 
 // Request/Push Streams
 

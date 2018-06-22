@@ -121,8 +121,18 @@ class QPACKHeaderTable : public HeaderTable {
   uint32_t nameIndex(const HPACKHeaderName& headerName,
                      bool allowVulnerable = true) const;
 
-  void setMaxAcked(uint32_t maxAcked) {
-    maxAcked_ = maxAcked;
+  bool onTableStateSync(uint32_t inserts) {
+    // compare this way to avoid overflow
+    if (inserts > baseIndex_ ||
+        maxAcked_ > baseIndex_ - inserts) {
+      LOG(ERROR) << "Decoder ack'd too much maxAcked_="
+                 << maxAcked_ << " baseIndex_=" << baseIndex_
+                 << " inserts=" << inserts;
+      return false;
+    }
+    maxAcked_ += inserts;
+    CHECK_LE(maxAcked_, baseIndex_);
+    return true;
   }
 
   /**

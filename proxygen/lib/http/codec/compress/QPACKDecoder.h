@@ -46,6 +46,10 @@ class QPACKDecoder : public HPACKDecoderBase,
   HPACK::DecodeError decodeControl(folly::io::Cursor& cursor,
                                    uint32_t totalBytes);
 
+  std::unique_ptr<folly::IOBuf> encodeTableStateSync();
+
+  std::unique_ptr<folly::IOBuf> encodeHeaderAck(uint64_t streamId) const;
+
   uint64_t getHolBlockCount() const {
     return holBlockCount_;
   }
@@ -116,6 +120,7 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   uint32_t maxBlocking_{HPACK::kDefaultBlocking};
   uint32_t baseIndex_{0};
+  uint32_t lastAcked_{0};
   uint32_t holBlockCount_{0};
   uint64_t queuedBytes_{0};
   std::multimap<uint32_t, PendingBlock> queue_;

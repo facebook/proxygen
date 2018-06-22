@@ -45,6 +45,17 @@ class QPACKTests : public testing::Test {
  public:
 
  protected:
+  void controlAck() {
+    auto ack = server.encodeTableStateSync();
+    EXPECT_EQ(client.decodeDecoderStream(std::move(ack)),
+              HPACK::DecodeError::NONE);
+  }
+
+  void headerAck(uint64_t streamId) {
+    auto ack = server.encodeHeaderAck(streamId);
+    EXPECT_EQ(client.decodeDecoderStream(std::move(ack)),
+              HPACK::DecodeError::NONE);
+  }
 
   QPACKCodec client;
   QPACKCodec server;
@@ -57,11 +68,11 @@ TEST_F(QPACKTests, test_simple) {
   Cursor cCursor(encodeResult.control.get());
   EXPECT_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
             HPACK::DecodeError::NONE);
-  client.onControlHeaderAck();
+  controlAck();
   TestStreamingCallback cb;
   auto length = encodeResult.stream->computeChainDataLength();
   server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
-  client.onHeaderAck(1);
+  headerAck(1);
   auto result = cb.getResult();
   EXPECT_TRUE(result.isOk());
   headersEq(req, result.ok().headers);
@@ -85,12 +96,12 @@ TEST_F(QPACKTests, test_absolute_index) {
       ASSERT_NE(encodeResult.control.get(), nullptr);
       CHECK_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
                HPACK::DecodeError::NONE);
-      client.onControlHeaderAck();
+      controlAck();
     }
     TestStreamingCallback cb;
     auto length = encodeResult.stream->computeChainDataLength();
     server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
-    client.onHeaderAck(i + 1);
+    headerAck(i + 1);
     auto result = cb.getResult();
     EXPECT_TRUE(result.isOk());
     headersEq(req, result.ok().headers);
@@ -133,7 +144,7 @@ TEST_F(QPACKTests, test_with_queue) {
       controlFrames.pop_front();
       Cursor c(control.get());
       server.decodeControl(c, c.totalLength());
-      client.onControlHeaderAck();
+      controlAck();
     }
     for (auto i: insertOrder) {
       auto& encodedReq = data[i].first;
@@ -145,7 +156,7 @@ TEST_F(QPACKTests, test_with_queue) {
       controlFrames.pop_front();
       Cursor c(control.get());
       server.decodeControl(c, c.totalLength());
-      client.onControlHeaderAck();
+      controlAck();
     }
     int i = 0;
     for (auto& d: data) {
@@ -157,7 +168,7 @@ TEST_F(QPACKTests, test_with_queue) {
                           values[std::max(f * 4 + i - j * 8, 0)]);
       }
       headersEq(reqI, result.ok().headers);
-      client.onHeaderAck(f * 4 + i);
+      headerAck(f * 4 + i);
       i++;
     }
     VLOG(4) << "getHolBlockCount=" << server.getHolBlockCount();

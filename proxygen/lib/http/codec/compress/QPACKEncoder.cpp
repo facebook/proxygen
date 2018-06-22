@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 
 using std::vector;
 
@@ -62,11 +63,6 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
   streamBuffer->prependChain(std::move(streamBlock));
 
   auto controlBuf = controlBuffer_.release();
-  if (controlBuf && controlBuf->computeChainDataLength() > 0) {
-    VLOG(5) << "Pushing outstandingControl_ largestReference="
-            << largestReference;
-    outstandingControl_.push_back(table_.getBaseIndex());
-  }
   // curOutstanding_.references could be empty, if the block encodes only static
   // headers and/or literals
   if (curOutstanding_->vulnerable) {
@@ -272,14 +268,46 @@ void QPACKEncoder::encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
   buffer.encodeLiteral(header.value);
 }
 
-HPACK::DecodeError QPACKEncoder::onControlHeaderAck() {
-  if (outstandingControl_.empty()) {
-    LOG(ERROR) << "Received control stream ack with no outstanding blocks";
+HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
+    std::unique_ptr<folly::IOBuf> buf) {
+  decoderIngress_.append(std::move(buf));
+  folly::io::Cursor cursor(decoderIngress_.front());
+  HPACKDecodeBuffer dbuf(cursor, decoderIngress_.chainLength(), 0);
+  HPACK::DecodeError err = HPACK::DecodeError::NONE;
+  uint32_t consumed = 0;
+  while (err == HPACK::DecodeError::NONE && !dbuf.empty()) {
+    consumed = dbuf.consumedBytes();
+    if (dbuf.peek() & HPACK::Q_TABLE_STATE_SYNC.code) {
+      uint32_t inserts = 0;
+      err = dbuf.decodeInteger(HPACK::Q_TABLE_STATE_SYNC.prefixLength, inserts);
+      if (err == HPACK::DecodeError::NONE) {
+        err = onTableStateSync(inserts);
+      } else if (err != HPACK::DecodeError::BUFFER_UNDERFLOW) {
+        LOG(ERROR) << "Failed to decode num inserts, err=" << err;
+      }
+    } else { // HEADER_ACK
+      uint32_t streamId = 0;
+      err = dbuf.decodeInteger(HPACK::Q_HEADER_ACK.prefixLength, streamId);
+      if (err == HPACK::DecodeError::NONE) {
+        err = onHeaderAck(streamId, false);
+      } else if (err != HPACK::DecodeError::BUFFER_UNDERFLOW) {
+        LOG(ERROR) << "Failed to decode streamId, err=" << err;
+      }
+    }
+  } // while
+  if (err == HPACK::DecodeError::BUFFER_UNDERFLOW) {
+    err = HPACK::DecodeError::NONE;
+    decoderIngress_.trimStart(consumed);
+  } else {
+    decoderIngress_.trimStart(dbuf.consumedBytes());
+  }
+  return err;
+}
+
+HPACK::DecodeError  QPACKEncoder::onTableStateSync(uint32_t inserts) {
+  if (!table_.onTableStateSync(inserts)) {
     return HPACK::DecodeError::INVALID_ACK;
   }
-  VLOG(5) << "onControlHeaderAck, maxAcked=" << outstandingControl_.front();
-  table_.setMaxAcked(outstandingControl_.front());
-  outstandingControl_.pop_front();
   return HPACK::DecodeError::NONE;
 }
 

@@ -26,7 +26,7 @@ class QPACKContext {
   const HPACKHeader& getHeader(bool isStatic, uint32_t index, uint32_t base,
                                bool aboveBase);
 
-  const HeaderTable& getTable() const {
+  const QPACKHeaderTable& getTable() const {
     return table_;
   }
 

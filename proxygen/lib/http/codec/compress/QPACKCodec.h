@@ -63,20 +63,24 @@ class QPACKCodec : public HeaderCodec {
     decoder_.setHeaderTableMaxSize(size);
   }
 
-  // QPACK HEADERS_ACK on the control stream
-  void onControlHeaderAck() {
-    encoder_.onControlHeaderAck();
-  }
-
-  // QPACK HEADERS_ACK for a request stream
-  void onHeaderAck(uint64_t streamId) {
-    encoder_.onHeaderAck(streamId, false);
+  // Process bytes on the decoder stream
+  HPACK::DecodeError decodeDecoderStream(
+      std::unique_ptr<folly::IOBuf> buf) {
+    return encoder_.decodeDecoderStream(std::move(buf));
   }
 
   // QPACK when a stream is reset.  Clears all reference counts for outstanding
   // blocks
   void onStreamReset(uint64_t streamId) {
     encoder_.onHeaderAck(streamId, true);
+  }
+
+  std::unique_ptr<folly::IOBuf> encodeTableStateSync() {
+    return decoder_.encodeTableStateSync();
+  }
+
+  std::unique_ptr<folly::IOBuf> encodeHeaderAck(uint64_t streamId) {
+    return decoder_.encodeHeaderAck(streamId);
   }
 
   void describe(std::ostream& os) const;
