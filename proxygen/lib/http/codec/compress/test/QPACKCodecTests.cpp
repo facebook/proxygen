@@ -68,7 +68,6 @@ TEST_F(QPACKTests, test_simple) {
   Cursor cCursor(encodeResult.control.get());
   EXPECT_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
             HPACK::DecodeError::NONE);
-  controlAck();
   TestStreamingCallback cb;
   auto length = encodeResult.stream->computeChainDataLength();
   server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
@@ -96,7 +95,6 @@ TEST_F(QPACKTests, test_absolute_index) {
       ASSERT_NE(encodeResult.control.get(), nullptr);
       CHECK_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
                HPACK::DecodeError::NONE);
-      controlAck();
     }
     TestStreamingCallback cb;
     auto length = encodeResult.stream->computeChainDataLength();
@@ -144,7 +142,6 @@ TEST_F(QPACKTests, test_with_queue) {
       controlFrames.pop_front();
       Cursor c(control.get());
       server.decodeControl(c, c.totalLength());
-      controlAck();
     }
     for (auto i: insertOrder) {
       auto& encodedReq = data[i].first;
@@ -156,7 +153,6 @@ TEST_F(QPACKTests, test_with_queue) {
       controlFrames.pop_front();
       Cursor c(control.get());
       server.decodeControl(c, c.totalLength());
-      controlAck();
     }
     int i = 0;
     for (auto& d: data) {

@@ -206,7 +206,6 @@ TEST(QPACKContextTests, test_acks) {
   req.emplace_back("Blarf", "Blah");
   auto result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
-  EXPECT_EQ(encoder.onHeaderAck(1, false), HPACK::DecodeError::NONE);
   req.clear();
   req.emplace_back("accept-encoding", "gzip, deflate");
   result = encoder.encode(req, 0, 1);
@@ -241,6 +240,32 @@ TEST(QPACKContextTests, test_acks) {
   EXPECT_GT(result.control->computeChainDataLength(), 1);
   EXPECT_EQ(result.stream->computeChainDataLength(), 3);
   EXPECT_FALSE(stringInOutput(result.stream.get(), "foo"));
+  verifyDecode(decoder, std::move(result), req);
+}
+
+TEST(QPACKContextTests, test_implicit_acks) {
+  QPACKEncoder encoder(false, 1024);
+  QPACKDecoder decoder(1024);
+  encoder.setMaxVulnerable(2);
+
+  vector<HPACKHeader> req;
+  req.emplace_back("Blarf", "Blah");
+  auto result = encoder.encode(req, 0, 1);
+  verifyDecode(decoder, std::move(result), req);
+  req.emplace_back("Foo", "Blah");
+  result = encoder.encode(req, 0, 2);
+  verifyDecode(decoder, std::move(result), req);
+  EXPECT_EQ(encoder.onHeaderAck(2, false), HPACK::DecodeError::NONE);
+  // both headers are now acknowledged, 1 unacked header allowed
+  req.clear();
+  req.emplace_back("Bar", "Binky");
+  result = encoder.encode(req, 0, 3);
+
+  // No unacked headers allowed
+  req.emplace_back("Blarf", "Blah");
+  req.emplace_back("Foo", "Blah");
+  result = encoder.encode(req, 0, 4);
+  EXPECT_FALSE(stringInOutput(result.stream.get(), "Blah"));
   verifyDecode(decoder, std::move(result), req);
 }
 
@@ -321,8 +346,9 @@ TEST(QPACKContextTests, test_decoder_stream_chunked) {
     req.emplace_back("a", folly::to<string>(i));
   }
   auto result = encoder.encode(req, 0, 1);
-  verifyDecode(decoder, std::move(result), req,
-               HPACK::DecodeError::NONE);
+  folly::io::Cursor control(result.control.get());
+  EXPECT_EQ(decoder.decodeControl(control, control.totalLength()),
+            HPACK::DecodeError::NONE);
   auto ack = decoder.encodeTableStateSync();
   EXPECT_EQ(ack->computeChainDataLength(), 2);
   auto ackPart = ack->clone();

@@ -47,7 +47,7 @@ void QPACKDecoder::decodeStreaming(
                          totalBytes - dbuf.consumedBytes(), streamingCb);
     }
   } else {
-    decodeStreamingImpl(0, dbuf, streamingCb);
+    decodeStreamingImpl(largestReference, 0, dbuf, streamingCb);
   }
 }
 
@@ -82,8 +82,9 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
 }
 
 void QPACKDecoder::decodeStreamingImpl(
-  uint32_t consumed, HPACKDecodeBuffer& dbuf,
-  HPACK::StreamingCallback* streamingCb) {
+    uint32_t largestReference,
+    uint32_t consumed, HPACKDecodeBuffer& dbuf,
+    HPACK::StreamingCallback* streamingCb) {
   uint32_t emittedSize = 0;
 
   while (!hasError() && !dbuf.empty()) {
@@ -97,6 +98,12 @@ void QPACKDecoder::decodeStreamingImpl(
     emittedSize += 2;
   }
 
+  if (!hasError()) {
+    // This is a little premature, since the ack doesn't get generated here.
+    // lastAcked_ is only read in encodeTableStateSync, so all completed header
+    // blocks must be call encodeHeaderAck BEFORE calling encodeTableStateSync.
+    lastAcked_ = std::max(lastAcked_, largestReference);
+  }
   completeDecode(streamingCb, consumed + dbuf.consumedBytes(), emittedSize);
 }
 
@@ -296,7 +303,8 @@ void QPACKDecoder::enqueueHeaderBlock(
   queuedBytes_ += length;
 }
 
-bool QPACKDecoder::decodeBlock(const PendingBlock& pending) {
+bool QPACKDecoder::decodeBlock(uint32_t largestReference,
+                               const PendingBlock& pending) {
   if (pending.length > 0) {
     VLOG(5) << "decodeBlock len=" << pending.length;
     folly::io::Cursor cursor(pending.block.get());
@@ -305,7 +313,7 @@ bool QPACKDecoder::decodeBlock(const PendingBlock& pending) {
     queuedBytes_ -= pending.length;
     baseIndex_ = pending.baseIndex;
     folly::DestructorCheck::Safety safety(*this);
-    decodeStreamingImpl(pending.consumed, dbuf, pending.cb);
+    decodeStreamingImpl(largestReference, pending.consumed, dbuf, pending.cb);
     // The callback way destroy this, if so stop queue processing
     if (safety.destroyed()) {
       return true;
@@ -318,7 +326,7 @@ void QPACKDecoder::drainQueue() {
   auto it = queue_.begin();
   while (!queue_.empty() && it->first <= table_.getBaseIndex() &&
          !hasError()) {
-    if (decodeBlock(it->second)) {
+    if (decodeBlock(it->first, it->second)) {
       return;
     }
     queue_.erase(it);

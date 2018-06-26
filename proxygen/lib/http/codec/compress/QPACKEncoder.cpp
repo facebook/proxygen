@@ -341,6 +341,12 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
     if (block.vulnerable) {
       numVulnerable_--;
     }
+    // largest reference is implicitly acknowledged
+    if (!block.references.empty()) {
+      auto largestReference = *block.references.rbegin();
+      VLOG(5) << "Implicitly acknowledging absoluteIndex=" << largestReference;
+      table_.setMaxAcked(largestReference);
+    }
   }
   if (it->second.empty()) {
     outstanding_.erase(it);

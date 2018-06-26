@@ -67,7 +67,8 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   uint32_t handleBaseIndex(HPACKDecodeBuffer& dbuf);
 
-  void decodeStreamingImpl(uint32_t consumed,
+  void decodeStreamingImpl(uint32_t largestReference,
+                           uint32_t consumed,
                            HPACKDecodeBuffer& dbuf,
                            HPACK::StreamingCallback* streamingCb);
 
@@ -114,7 +115,7 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   // Returns true if this object was destroyed by its callback.  Callers
   // should check the result and immediately return.
-  bool decodeBlock(const PendingBlock& pending);
+  bool decodeBlock(uint32_t largestReference, const PendingBlock& pending);
 
   void drainQueue();
 

@@ -135,6 +135,14 @@ class QPACKHeaderTable : public HeaderTable {
     return true;
   }
 
+  void setMaxAcked(uint32_t maxAcked) {
+    if (maxAcked < maxAcked_) {
+      return;
+    }
+    CHECK_LE(maxAcked, baseIndex_);
+    maxAcked_ = maxAcked;
+  }
+
   /**
    * Convert a relative index to an absolute index
    */
