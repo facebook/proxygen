@@ -107,20 +107,19 @@ uint32_t QPACKDecoder::decodeHeaderQ(
   if (byte & HPACK::Q_INDEXED.code) {
     return decodeIndexedHeaderQ(
         dbuf, HPACK::Q_INDEXED.prefixLength, false, streamingCb, nullptr);
-  } else if ((byte & HPACK::Q_LITERAL.code) == HPACK::Q_LITERAL.code) {
+  } else if (byte & HPACK::Q_LITERAL_NAME_REF.code) {
+    return decodeLiteralHeaderQ(
+        dbuf, false, true, HPACK::Q_LITERAL_NAME_REF.prefixLength, false,
+        streamingCb);
+  } else if (byte & HPACK::Q_LITERAL.code) {
     return decodeLiteralHeaderQ(
         dbuf, false, false, HPACK::Q_LITERAL.prefixLength, false, streamingCb);
-  } else if ((byte & HPACK::Q_LITERAL_NAME_REF_POST.code) ==
-             HPACK::Q_LITERAL_NAME_REF_POST.code) {
-    return decodeLiteralHeaderQ(
-        dbuf, false, true, HPACK::Q_LITERAL_NAME_REF_POST.prefixLength, true,
-        streamingCb);
   } else if (byte & HPACK::Q_INDEXED_POST.code) {
     return decodeIndexedHeaderQ(
         dbuf, HPACK::Q_INDEXED_POST.prefixLength, true, streamingCb, nullptr);
-  } else { //  Q_LITERAL_NAME_REF
+  } else { // Q_LITERAL_NAME_REF_POST
     return decodeLiteralHeaderQ(
-        dbuf, false, true, HPACK::Q_LITERAL_NAME_REF.prefixLength, false,
+        dbuf, false, true, HPACK::Q_LITERAL_NAME_REF_POST.prefixLength, true,
         streamingCb);
   }
 }

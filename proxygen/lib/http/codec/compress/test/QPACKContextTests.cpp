@@ -375,20 +375,20 @@ TEST(QPACKContextTests, decode_errors) {
   buf->writableData()[1] = 0x00;
 
   // Literal bad name index
-  buf->writableData()[2] = 0x0F;
+  buf->writableData()[2] = 0x4F;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // Literal invalid name index
-  buf->writableData()[2] = 0x01;
+  buf->writableData()[2] = 0x41;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
   // Literal bad name length
-  buf->writableData()[2] = 0x63;
+  buf->writableData()[2] = 0x27;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // Literal invalid value length
-  buf->writableData()[2] = 0x11;
+  buf->writableData()[2] = 0x51;
   buf->writableData()[3] = 0xFF;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
@@ -430,12 +430,12 @@ TEST(QPACKContextTests, decode_errors) {
   buf->writableData()[5] = 0xFF;
   buf->writableData()[6] = 0x01;
   buf->append(6);
-  // Bad table state sync
+  // Bad header ack
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 
-  // Bad header ack
-  buf->writableData()[0] = 0x7F;
+  // Bad table state sync
+  buf->writableData()[0] = 0x3F;
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 }
