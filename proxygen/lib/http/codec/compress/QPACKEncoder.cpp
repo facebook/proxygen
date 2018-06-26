@@ -277,14 +277,11 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
   uint32_t consumed = 0;
   while (err == HPACK::DecodeError::NONE && !dbuf.empty()) {
     consumed = dbuf.consumedBytes();
-    if (dbuf.peek() & HPACK::Q_HEADER_ACK.code)  {
-      uint32_t streamId = 0;
-      err = dbuf.decodeInteger(HPACK::Q_HEADER_ACK.prefixLength, streamId);
-      if (err == HPACK::DecodeError::NONE) {
-        err = onHeaderAck(streamId, false);
-      } else if (err != HPACK::DecodeError::BUFFER_UNDERFLOW) {
-        LOG(ERROR) << "Failed to decode streamId, err=" << err;
-      }
+    auto byte = dbuf.peek();
+    if (byte & HPACK::Q_HEADER_ACK.code) {
+      err = decodeHeaderAck(dbuf, HPACK::Q_HEADER_ACK.prefixLength, false);
+    } else if (byte & HPACK::Q_CANCEL_STREAM.code) {
+      err = decodeHeaderAck(dbuf, HPACK::Q_CANCEL_STREAM.prefixLength, true);
     } else { // TABLE_STATE_SYNC
       uint32_t inserts = 0;
       err = dbuf.decodeInteger(HPACK::Q_TABLE_STATE_SYNC.prefixLength, inserts);
@@ -304,7 +301,20 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
   return err;
 }
 
-HPACK::DecodeError  QPACKEncoder::onTableStateSync(uint32_t inserts) {
+HPACK::DecodeError QPACKEncoder::decodeHeaderAck(HPACKDecodeBuffer& dbuf,
+                                                 uint8_t prefixLength,
+                                                 bool all) {
+  uint32_t streamId = 0;
+  auto err = dbuf.decodeInteger(prefixLength, streamId);
+  if (err == HPACK::DecodeError::NONE) {
+    err = onHeaderAck(streamId, all);
+  } else if (err != HPACK::DecodeError::BUFFER_UNDERFLOW) {
+    LOG(ERROR) << "Failed to decode streamId, err=" << err;
+  }
+  return err;
+}
+
+HPACK::DecodeError QPACKEncoder::onTableStateSync(uint32_t inserts) {
   if (!table_.onTableStateSync(inserts)) {
     return HPACK::DecodeError::INVALID_ACK;
   }

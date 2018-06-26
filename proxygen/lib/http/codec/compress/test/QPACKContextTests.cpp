@@ -53,6 +53,16 @@ bool stringInOutput(IOBuf* stream, const std::string& expected) {
   return memmem(stream->data(), stream->length(),
                 expected.data(), expected.length());
 }
+
+HPACK::DecodeError headerAck(QPACKDecoder& decoder, QPACKEncoder& encoder,
+                             uint64_t streamId) {
+  return encoder.decodeDecoderStream(decoder.encodeHeaderAck(streamId));
+}
+
+HPACK::DecodeError cancelStream(QPACKDecoder& decoder, QPACKEncoder& encoder,
+                                uint64_t streamId) {
+  return encoder.decodeDecoderStream(decoder.encodeCancelStream(streamId));
+}
 }
 
 TEST(QPACKContextTests, static_only) {
@@ -160,7 +170,7 @@ TEST(QPACKContextTests, test_duplicate) {
   auto result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
   EXPECT_EQ(encoder.onTableStateSync(5), HPACK::DecodeError::NONE);
-  EXPECT_EQ(encoder.onHeaderAck(1, false), HPACK::DecodeError::NONE);
+  EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::NONE);
   req.erase(req.begin() + 1, req.end());
   result = encoder.encode(req, 0, 2);
   // Control contains one-byte duplicate instruction, stream prefix + 1
@@ -178,14 +188,14 @@ TEST(QPACKContextTests, test_table_size_update) {
   auto result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
   EXPECT_EQ(encoder.onTableStateSync(2), HPACK::DecodeError::NONE);
-  EXPECT_EQ(encoder.onHeaderAck(1, false), HPACK::DecodeError::NONE);
+  EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::NONE);
   encoder.setHeaderTableSize(64); // This will evict the oldest header
   EXPECT_EQ(encoder.getHeadersStored(), 1);
   result = encoder.encode(req, 0, 2);
   verifyDecode(decoder, std::move(result), req);
   EXPECT_EQ(decoder.getHeadersStored(), 1);
   EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::NONE);
-  EXPECT_EQ(encoder.onHeaderAck(2, false), HPACK::DecodeError::NONE);
+  EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::NONE);
 
   encoder.setHeaderTableSize(100);
   result = encoder.encode(req, 0, 3);
@@ -200,7 +210,7 @@ TEST(QPACKContextTests, test_acks) {
   QPACKDecoder decoder(64);
   encoder.setMaxVulnerable(1);
   EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::INVALID_ACK);
-  EXPECT_EQ(encoder.onHeaderAck(1, false), HPACK::DecodeError::INVALID_ACK);
+  EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::INVALID_ACK);
 
   vector<HPACKHeader> req;
   req.emplace_back("Blarf", "Blah");
@@ -228,12 +238,12 @@ TEST(QPACKContextTests, test_acks) {
   EXPECT_EQ(result.control, nullptr);
   EXPECT_TRUE(stringInOutput(result.stream.get(), "foo"));
   verifyDecode(decoder, std::move(result), req);
-  EXPECT_EQ(encoder.onHeaderAck(3, false), HPACK::DecodeError::NONE);
+  EXPECT_EQ(headerAck(decoder, encoder, 3), HPACK::DecodeError::NONE);
 
   // Should remove all encoder state.  Blarf: Blah can now be evicted and
   // a new vulnerable reference can be made.
-  EXPECT_EQ(encoder.onHeaderAck(2, false), HPACK::DecodeError::NONE);
-  EXPECT_EQ(encoder.onHeaderAck(1, true), HPACK::DecodeError::NONE);
+  EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::NONE);
+  EXPECT_EQ(cancelStream(decoder, encoder, 1), HPACK::DecodeError::NONE);
 
   result = encoder.encode(req, 0, 2);
   // Encodes an insert
@@ -457,6 +467,11 @@ TEST(QPACKContextTests, decode_errors) {
   buf->writableData()[6] = 0x01;
   buf->append(6);
   // Bad header ack
+  EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
+            HPACK::DecodeError::INTEGER_OVERFLOW);
+
+  // Bad cancel
+  buf->writableData()[0] = 0x7F;
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 

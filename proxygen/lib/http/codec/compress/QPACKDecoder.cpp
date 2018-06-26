@@ -284,6 +284,13 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
   return ackEncoder.release();
 }
 
+std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
+    uint64_t streamId) const {
+  HPACKEncodeBuffer ackEncoder(kGrowth, false);
+  ackEncoder.encodeInteger(streamId, HPACK::Q_CANCEL_STREAM);
+  return ackEncoder.release();
+}
+
 void QPACKDecoder::enqueueHeaderBlock(
   uint32_t largestReference,
   uint32_t baseIndex,

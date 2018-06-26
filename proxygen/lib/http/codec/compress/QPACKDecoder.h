@@ -50,6 +50,8 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   std::unique_ptr<folly::IOBuf> encodeHeaderAck(uint64_t streamId) const;
 
+  std::unique_ptr<folly::IOBuf> encodeCancelStream(uint64_t streamId) const;
+
   uint64_t getHolBlockCount() const {
     return holBlockCount_;
   }

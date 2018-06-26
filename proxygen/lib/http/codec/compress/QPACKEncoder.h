@@ -20,6 +20,8 @@
 
 namespace proxygen {
 
+class HPACKDecodeBuffer;
+
 class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
  public:
@@ -105,6 +107,10 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   void trackReference(uint32_t index, uint32_t* largestReference);
 
   void encodeDuplicate(uint32_t index);
+
+  HPACK::DecodeError decodeHeaderAck(HPACKDecodeBuffer& dbuf,
+                                     uint8_t prefixLength,
+                                     bool all);
 
   HPACKEncodeBuffer controlBuffer_;
   using BlockReferences = std::set<uint32_t>;

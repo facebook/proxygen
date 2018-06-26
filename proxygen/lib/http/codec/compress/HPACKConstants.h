@@ -35,6 +35,7 @@ const Instruction Q_DUPLICATE          { 0x00, 5 };
 
 // Decoder Stream
 const Instruction Q_HEADER_ACK         { 0x80, 7 };
+const Instruction Q_CANCEL_STREAM      { 0x40, 6 };
 const Instruction Q_TABLE_STATE_SYNC   { 0x00, 6 };
 
 // Request/Push Streams
