@@ -320,7 +320,7 @@ std::string
 HTTP1xCodec::generateWebsocketKey() const {
   std::array<unsigned char, 16> arr;
   folly::Random::secureRandom(arr.data(), arr.size());
-  return Base64::urlEncode(folly::ByteRange(arr.data(), arr.size()));
+  return Base64::encode(folly::ByteRange(arr.data(), arr.size()));
 }
 
 std::string
