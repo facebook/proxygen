@@ -349,7 +349,7 @@ class HTTPUpstreamTest: public testing::Test,
     EXPECT_CALL(*byteEventTracker, drainByteEvents())
       .WillRepeatedly(Return(0));
     EXPECT_CALL(*byteEventTracker, processByteEvents(_, _))
-      .WillRepeatedly(Invoke([byteEventTracker]
+      .WillRepeatedly(Invoke([]
                             (std::shared_ptr<ByteEventTracker> self,
                              uint64_t bytesWritten) {
                               return self->ByteEventTracker::processByteEvents(
@@ -434,7 +434,7 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
 
   auto handler = openTransaction();
   EXPECT_CALL(*handler, onPushedTransaction(_))
-    .WillOnce(Invoke([this, &pushHandler] (HTTPTransaction* pushTxn) {
+    .WillOnce(Invoke([&pushHandler] (HTTPTransaction* pushTxn) {
           pushTxn->setHandler(&pushHandler);
         }));
   EXPECT_CALL(pushHandler, setTransaction(_));
@@ -1749,7 +1749,7 @@ TEST_F(HTTP2UpstreamSessionTest, server_push) {
 
   auto handler = openTransaction();
   EXPECT_CALL(*handler, onPushedTransaction(_))
-    .WillOnce(Invoke([this, &pushHandler] (HTTPTransaction* pushTxn) {
+    .WillOnce(Invoke([&pushHandler] (HTTPTransaction* pushTxn) {
           pushTxn->setHandler(&pushHandler);
         }));
   EXPECT_CALL(pushHandler, setTransaction(_));

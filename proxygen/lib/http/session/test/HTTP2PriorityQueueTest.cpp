@@ -225,7 +225,7 @@ TEST_F(QueueTest, duplicateID) {
   addTransaction(5, {3, false, 15});
   addTransaction(3, {5, false, 15});
   removeTransaction(5);
-  auto stopFn = [this] {
+  auto stopFn = [] {
     return false;
   };
 

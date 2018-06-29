@@ -502,7 +502,6 @@ TEST(GetListenSocket, TestBootstrapWithBinding) {
 }
 
 TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
-  auto evb = EventBaseManager::get()->getEventBase();
   AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
   serverSocket->bind(0);
 
@@ -528,7 +527,6 @@ TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
 }
 
 TEST(UseExistingSocket, TestWithSocketFd) {
-  auto evb = EventBaseManager::get()->getEventBase();
   AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
   serverSocket->bind(0);
 
@@ -554,7 +552,6 @@ TEST(UseExistingSocket, TestWithSocketFd) {
 }
 
 TEST(UseExistingSocket, TestWithMultipleSocketFds) {
-  auto evb = EventBaseManager::get()->getEventBase();
   AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
   serverSocket->bind(0);
   try {

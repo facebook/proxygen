@@ -227,8 +227,7 @@ skipPadding(Cursor& cursor,
 bool isValidFrameType(FrameType type) {
   auto val = static_cast<uint8_t>(type);
   if (val < kMinExperimentalFrameType) {
-    return val >= static_cast<uint8_t>(FrameType::DATA) &&
-      val <= static_cast<uint8_t>(FrameType::ALTSVC);
+    return val <= static_cast<uint8_t>(FrameType::ALTSVC);
   } else {
     return FrameType::EX_HEADERS == type;
   }

@@ -406,7 +406,7 @@ class HTTPDownstreamTest : public testing::Test {
     EXPECT_CALL(*byteEventTracker, drainByteEvents())
       .WillRepeatedly(Return(0));
     EXPECT_CALL(*byteEventTracker, processByteEvents(_, _))
-      .WillRepeatedly(Invoke([byteEventTracker]
+      .WillRepeatedly(Invoke([]
                              (std::shared_ptr<ByteEventTracker> self,
                               uint64_t bytesWritten) {
                                return self->ByteEventTracker::processByteEvents(
@@ -1345,7 +1345,7 @@ TEST_F(HTTPDownstreamSessionTest, http_drain) {
   handler1->expectDetachTransaction();
 
   auto handler2 = addSimpleStrictHandler();
-  handler2->expectHeaders([this, &handler2] {
+  handler2->expectHeaders([&handler2] {
       handler2->sendHeaders(200, 100);
     });
   handler2->expectEOM([&handler2] {
@@ -1492,7 +1492,7 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
       handler1->txn_->setEgressRateLimit(rateLimit_kbps * 1024);
     });
   // Send a somewhat big response that we know will get rate-limited
-  handler1->expectEOM([&handler1, this] {
+  handler1->expectEOM([&handler1] {
       // At 640kbps, this should take slightly over 800ms
       uint32_t rspLengthBytes = 100000;
       handler1->sendHeaders(200, rspLengthBytes);
@@ -1534,7 +1534,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
       handler1->txn_->setEgressRateLimit(rateLimit_kbps * 1024);
     });
 
-  handler1->expectEOM([&handler1, this] {
+  handler1->expectEOM([&handler1] {
       // At 640kbps, this should take slightly over 800ms
       uint32_t rspLengthBytes = 100000;
       handler1->sendHeaders(200, rspLengthBytes);
@@ -1580,7 +1580,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
       uint32_t rateLimit_kbps = 640;
       handler1->txn_->setEgressRateLimit(rateLimit_kbps * 1024);
     });
-  handler1->expectEOM([&handler1, this] {
+  handler1->expectEOM([&handler1] {
       uint32_t rspLengthBytes = 100000;
       handler1->sendHeaders(200, rspLengthBytes);
       handler1->sendBody(rspLengthBytes);
@@ -1677,7 +1677,7 @@ TEST_F(HTTPDownstreamSessionTest, body_packetization) {
   InSequence handlerSequence;
   auto handler1 = addSimpleNiceHandler();
   handler1->expectHeaders();
-  handler1->expectEOM([&handler1, this] {
+  handler1->expectEOM([&handler1] {
       handler1->sendReplyWithBody(200, 32768);
     });
   handler1->expectDetachTransaction();
@@ -1736,11 +1736,11 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native) {
   auto handler = addSimpleStrictHandler();
 
-  handler->expectHeaders([this, &handler] {
+  handler->expectHeaders([&handler] {
       handler->sendHeaders(101, 0, true, {{"Upgrade", "blarf"}});
     });
   EXPECT_CALL(*handler, onUpgrade(UpgradeProtocol::TCP));
-  handler->expectEOM([this, &handler] {
+  handler->expectEOM([&handler] {
       handler->txn_->sendEOM();
     });
   handler->expectDetachTransaction();
@@ -1755,7 +1755,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native) {
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_ignore) {
   auto handler = addSimpleStrictHandler();
 
-  handler->expectHeaders([this, &handler] {
+  handler->expectHeaders([&handler] {
       handler->sendReplyWithBody(200, 100);
     });
   handler->expectEOM();
@@ -1772,7 +1772,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_ignore) {
 TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_pipeline) {
   auto handler1 = addSimpleStrictHandler();
 
-  handler1->expectHeaders([this, &handler1] (std::shared_ptr<HTTPMessage> msg) {
+  handler1->expectHeaders([&handler1] (std::shared_ptr<HTTPMessage> msg) {
       EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE),
                 "blarf");
       handler1->sendReplyWithBody(200, 100);
@@ -1781,7 +1781,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_pipeline) {
   handler1->expectDetachTransaction();
 
   auto handler2 = addSimpleStrictHandler();
-  handler2->expectHeaders([this, &handler2] {
+  handler2->expectHeaders([&handler2] {
       handler2->sendReplyWithBody(200, 100);
     });
   handler2->expectEOM();
@@ -2480,7 +2480,7 @@ TEST_F(SPDY3DownstreamSessionTest, testEOFOnBlockedStream) {
 
   InSequence handlerSequence;
   handler1->expectHeaders();
-  handler1->expectEOM([&handler1, this] {
+  handler1->expectEOM([&handler1] {
       handler1->sendReplyWithBody(200, 80000);
     });
   handler1->expectEgressPaused();
@@ -2505,7 +2505,7 @@ TEST_F(SPDY31DownstreamTest, testEOFOnBlockedSession) {
   InSequence handlerSequence;
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
-  handler1->expectEOM([&handler1, this] {
+  handler1->expectEOM([&handler1] {
       handler1->sendHeaders(200, 40000);
       handler1->sendBody(32769);
     });
@@ -2840,12 +2840,12 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   req1.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 255});
   req2.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 0});
 
-  auto id1 = sendRequest(req1);
+  sendRequest(req1);
   auto id2 = sendRequest(req2);
   req1.setHTTP2Priority(HTTPMessage::HTTPPriority{id2, false, 255});
   req2.setHTTP2Priority(HTTPMessage::HTTPPriority{id2, false, 0});
-  auto id3 = sendRequest(req1);
-  auto id4 = sendRequest(req2);
+  sendRequest(req1);
+  sendRequest(req2);
 
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
@@ -3327,7 +3327,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_head_content_length) {
   InSequence enforceOrder;
   auto req = getGetRequest();
   req.setMethod(HTTPMethod::HEAD);
-  auto streamID = sendRequest(req);
+  sendRequest(req);
   auto handler1 = addSimpleStrictHandler();
 
   handler1->expectHeaders();
@@ -3346,7 +3346,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_304_content_length) {
   InSequence enforceOrder;
   auto req = getGetRequest();
   req.setMethod(HTTPMethod::HEAD);
-  auto streamID = sendRequest(req);
+  sendRequest(req);
   auto handler1 = addSimpleStrictHandler();
 
   handler1->expectHeaders();

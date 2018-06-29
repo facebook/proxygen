@@ -113,7 +113,6 @@ uint32_t HPACKDecoder::decodeIndexedHeader(
     err_ = HPACK::DecodeError::INVALID_INDEX;
     return 0;
   }
-  uint32_t emittedSize = 0;
 
   auto& header = getHeader(index);
   return emit(header, streamingCb, emitted);

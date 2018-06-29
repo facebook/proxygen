@@ -31,7 +31,6 @@ namespace compress {
   // convert to HPACK API format
   std::pair<vector<HPACKHeader>, uint32_t> converted;
   converted.first.reserve(headers.size());
-  uint32_t uncompressed = 0;
   for (const auto& h : headers) {
     // HPACKHeader automatically lowercases
     converted.first.emplace_back(*h.name, *h.value);

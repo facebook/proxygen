@@ -74,8 +74,6 @@ appendString(IOBufQueue& queue, size_t& len, StringPiece str) {
   len += str.size();
 }
 
-const std::pair<uint8_t, uint8_t> kHTTPVersion10(1, 0);
-
 } // anonymous namespace
 
 namespace proxygen {

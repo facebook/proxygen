@@ -16,7 +16,7 @@
 namespace proxygen {
 
 folly::Optional<int64_t> parseHTTPDateTime(const std::string& s) {
-  struct tm tm = {0};
+  struct tm tm = {};
 
   if (s.empty()) {
     return folly::Optional<int64_t>();

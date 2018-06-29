@@ -23,7 +23,7 @@ namespace logging_details {
 class NullStream final : public std::ostream {
  public:
   NullStream() = default;
-  NullStream(const NullStream&) {}
+  NullStream(const NullStream&) = default;
   NullStream& operator=(NullStream&&) {
     return *this;
   }

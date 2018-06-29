@@ -46,21 +46,17 @@ namespace {
 const size_t kFrameSizeDataCommon = 8;     // common prefix of all data frames
 const size_t kFrameSizeControlCommon = 8;  // common prefix of all ctrl frames
 const size_t kFrameSizeSynStream = 10;     // SYN_STREAM
-const size_t kFrameSizeSynReplyv2 = 6;     // SYN_REPLY, SPDYv2
 const size_t kFrameSizeSynReplyv3 = 4;     // SPDYv3's SYN_REPLY is shorter
 const size_t kFrameSizeRstStream = 8;      // RST_STREAM
-const size_t kFrameSizeGoawayv2 = 4;       // GOAWAY, SPDYv2
 const size_t kFrameSizeGoawayv3 = 8;       // GOAWAY, SPDYv3
 const size_t kFrameSizeHeaders = 4;        // HEADERS
 const size_t kFrameSizePing = 4;           // PING
 const size_t kFrameSizeSettings = 4;       // SETTINGS
 const size_t kFrameSizeSettingsEntry = 8;  // Each entry in SETTINGS
 const size_t kFrameSizeWindowUpdate = 8;   // WINDOW_UPDATE
-const size_t kFrameSizeNameValuev2 = 2;    // The size in bytes of a
                                            // name/value pair
 const size_t kFrameSizeNameValuev3 = 4;    // The size in bytes of a
                                            // name/value pair
-const size_t kPriShiftv2 = 6;              // How many bits to shift pri, v2
 const size_t kPriShiftv3 = 5;              // How many bits to shift pri, v3
 
 const size_t kMaxUncompressed = 96 * 1024; // 96kb ought be enough for anyone

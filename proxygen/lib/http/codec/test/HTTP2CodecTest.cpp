@@ -713,7 +713,6 @@ TEST_F(HTTP2CodecTest, MissingContinuation) {
   IOBufQueue output(IOBufQueue::cacheChainLength());
   HTTPMessage req = getBigGetRequest();
 
-  size_t prevLen = output_.chainLength();
   upstreamCodec_.generateHeader(output_, 1, req);
   // empirically determined the size of continuation frame, and strip it
   output_.trimEnd(http2::kFrameHeaderSize + 4134);

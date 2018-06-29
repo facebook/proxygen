@@ -28,7 +28,7 @@ namespace {
 
 folly::Optional<std::chrono::steady_clock::time_point>
 parseHTTPArchiveTime(const std::string& s) {
-  struct tm tm = {0};
+  struct tm tm = {};
 
   if (s.empty()) {
     return folly::none;

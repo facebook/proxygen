@@ -347,7 +347,7 @@ TEST_F(HTTP2FramerTest, ShortWindowUpdate) {
   Cursor cursor(queue_.front());
   FrameHeader header;
   uint32_t amount;
-  auto ret1 = parseFrameHeader(cursor, header);
+  parseFrameHeader(cursor, header);
   auto ret2 = parseWindowUpdate(cursor, header, amount);
   ASSERT_EQ(ErrorCode::FRAME_SIZE_ERROR, ret2);
 }
