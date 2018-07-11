@@ -442,7 +442,9 @@ class HTTPTransaction :
                   uint32_t seqNo,
                   Transport& transport,
                   HTTP2PriorityQueueBase& egressQueue,
-                  const WheelTimerInstance& timeout,
+                  folly::HHWheelTimer* timer = nullptr,
+                  const folly::Optional<std::chrono::milliseconds>&
+                  defaultTimeout = folly::Optional<std::chrono::milliseconds>(),
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
                   uint32_t receiveInitialWindowSize = 0,
@@ -1078,10 +1080,8 @@ class HTTPTransaction :
    * Schedule or refresh the timeout for this transaction
    */
   void refreshTimeout() {
-    if (hasIdleTimeout()) {
-      timeout_.scheduleTimeout(this, getIdleTimeout());
-    } else {
-      timeout_.scheduleTimeout(this);
+    if (timer_ && hasIdleTimeout()) {
+      timer_->scheduleTimeout(this, transactionTimeout_.value());
     }
   }
 
@@ -1346,7 +1346,7 @@ class HTTPTransaction :
     HTTPTransactionEgressSM::getNewInstance()};
   HTTPTransactionIngressSM::State ingressState_{
     HTTPTransactionIngressSM::getNewInstance()};
-  WheelTimerInstance timeout_;
+
   HTTPSessionStats* stats_{nullptr};
 
   HPACKTableInfo tableInfo_;
@@ -1473,6 +1473,8 @@ class HTTPTransaction :
    * Optional transaction timeout value.
    */
   folly::Optional<std::chrono::milliseconds> transactionTimeout_;
+
+  folly::HHWheelTimer* timer_;
 
   class PrioritySample;
   std::unique_ptr<PrioritySample> prioritySample_;

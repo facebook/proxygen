@@ -115,7 +115,8 @@ TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
   setupRequestResponseFlow(&txn, 100);
 
   txn.onIngressHeadersComplete(makeGetRequest());
@@ -129,7 +130,8 @@ TEST_F(DownstreamTransactionTest, regular_window_update) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     400,
@@ -149,7 +151,8 @@ TEST_F(DownstreamTransactionTest, no_window_update) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     450, // more than 2x req size
@@ -180,7 +183,8 @@ TEST_F(DownstreamTransactionTest, window_increase) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     spdy::kInitialWindow,
@@ -211,7 +215,8 @@ TEST_F(DownstreamTransactionTest, window_decrease) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     spdy::kInitialWindow,
@@ -238,7 +243,8 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
 
   HTTPException err(HTTPException::Direction::INGRESS, "test");
   err.setHttpStatusCode(400);
@@ -274,7 +280,8 @@ TEST_F(DownstreamTransactionTest, detach_from_notify) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
 
   InSequence dummy;
 
@@ -313,7 +320,8 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr, true, 10, 10);
 
   InSequence dummy;
@@ -367,7 +375,8 @@ TEST_F(DownstreamTransactionTest, internal_error) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
 
   InSequence dummy;
 
@@ -399,7 +408,8 @@ TEST_F(DownstreamTransactionTest, unpaused_flow_control_violation) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     400,

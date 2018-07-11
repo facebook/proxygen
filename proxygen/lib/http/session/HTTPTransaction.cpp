@@ -33,7 +33,10 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t seqNo,
                                  Transport& transport,
                                  HTTP2PriorityQueueBase& egressQueue,
-                                 const WheelTimerInstance& timeout,
+                                 folly::HHWheelTimer* timer,
+                                 const
+                                 folly::Optional<std::chrono::milliseconds>&
+                                 defaultTimeout,
                                  HTTPSessionStats* stats,
                                  bool useFlowControl,
                                  uint32_t receiveInitialWindowSize,
@@ -46,7 +49,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     id_(id),
     seqNo_(seqNo),
     transport_(transport),
-    timeout_(timeout),
     stats_(stats),
     recvWindow_(receiveInitialWindowSize),
     sendWindow_(sendInitialWindowSize),
@@ -69,7 +71,9 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     ingressErrorSeen_(false),
     priorityFallback_(false),
     headRequest_(false),
-    enableLastByteFlushedTracking_(false) {
+    enableLastByteFlushedTracking_(false),
+    transactionTimeout_(defaultTimeout),
+    timer_(timer) {
 
   if (assocStreamId_) {
     if (isUpstream()) {
@@ -913,7 +917,9 @@ bool HTTPTransaction::maybeDelayForRateLimit() {
 
   egressRateLimited_ = true;
 
-  timeout_.scheduleTimeout(&rateLimitCallback_, requiredDelay);
+  if (timer_) {
+    timer_->scheduleTimeout(&rateLimitCallback_, requiredDelay);
+  }
 
   notifyTransportPendingEgress();
   return true;

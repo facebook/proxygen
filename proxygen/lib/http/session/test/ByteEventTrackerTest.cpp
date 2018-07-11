@@ -45,7 +45,8 @@ class ByteEventTrackerTest : public Test {
   HTTPTransaction txn_{
     TransportDirection::DOWNSTREAM,
       HTTPCodec::StreamID(1), 1, transport_,
-      txnEgressQueue_, transactionTimeouts_};
+      txnEgressQueue_, transactionTimeouts_.getWheelTimer(),
+      transactionTimeouts_.getDefaultTimeout()};
   MockHTTPTransactionTransportCallback transportCallback_;
   MockByteEventTrackerCallback callback_;
   std::shared_ptr<ByteEventTracker> byteEventTracker_{

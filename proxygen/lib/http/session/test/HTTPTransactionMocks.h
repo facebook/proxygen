@@ -130,7 +130,10 @@ class MockHTTPTransaction : public HTTPTransaction {
                       uint32_t seqNo,
                       // Must be const for gmock
                       const HTTP2PriorityQueue& egressQueue,
-                      const WheelTimerInstance& timeout,
+                      folly::HHWheelTimer* timer = nullptr,
+                      const folly::Optional<std::chrono::milliseconds>&
+                      transactionTimeout =
+                      folly::Optional<std::chrono::milliseconds>(),
                       HTTPSessionStats* stats = nullptr,
                       bool useFlowControl = false,
                       uint32_t receiveInitialWindowSize = 0,
@@ -138,7 +141,7 @@ class MockHTTPTransaction : public HTTPTransaction {
                       http2::PriorityUpdate priority = http2::DefaultPriority) :
       HTTPTransaction(direction, id, seqNo, mockTransport_,
                       const_cast<HTTP2PriorityQueue&>(egressQueue),
-                      timeout, stats, useFlowControl,
+                      timer, transactionTimeout, stats, useFlowControl,
                       receiveInitialWindowSize,
                       sendInitialWindowSize,
                       priority),
@@ -165,6 +168,29 @@ class MockHTTPTransaction : public HTTPTransaction {
     // in the context of tests
     ON_CALL(*this, canSendHeaders()).WillByDefault(testing::Return(true));
   }
+
+  MockHTTPTransaction(TransportDirection direction,
+                      HTTPCodec::StreamID id,
+                      uint32_t seqNo,
+                      // Must be const for gmock
+                      const HTTP2PriorityQueue& egressQueue,
+                      const WheelTimerInstance& timeout,
+                      HTTPSessionStats* stats = nullptr,
+                      bool useFlowControl = false,
+                      uint32_t receiveInitialWindowSize = 0,
+                      uint32_t sendInitialWindowSize = 0,
+                      http2::PriorityUpdate priority = http2::DefaultPriority) :
+  MockHTTPTransaction(direction,
+                      id,
+                      seqNo,
+                      egressQueue,
+                      timeout.getWheelTimer(),
+                      timeout.getDefaultTimeout(),
+                      stats,
+                      useFlowControl,
+                      receiveInitialWindowSize,
+                      sendInitialWindowSize,
+                      priority) {}
 
   MOCK_CONST_METHOD0(extraResponseExpected, bool());
 

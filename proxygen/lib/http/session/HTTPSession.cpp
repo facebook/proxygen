@@ -2380,7 +2380,8 @@ HTTPSession::createTransaction(
     std::forward_as_tuple(streamID),
     std::forward_as_tuple(
       codec_->getTransportDirection(), streamID, getNumTxnServed(), *this,
-      txnEgressQueue_, timeout_, sessionStats_,
+      txnEgressQueue_, timeout_.getWheelTimer(), timeout_.getDefaultTimeout(),
+      sessionStats_,
       codec_->supportsStreamFlowControl(),
       initialReceiveWindow_,
       getCodecSendWindowSize(),

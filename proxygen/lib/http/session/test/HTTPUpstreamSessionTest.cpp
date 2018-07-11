@@ -1223,7 +1223,7 @@ TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   auto handler = openTransaction();
   handler->expectDetachTransaction();
 
-  EXPECT_FALSE(handler->txn_->hasIdleTimeout());
+  EXPECT_TRUE(handler->txn_->hasIdleTimeout());
   handler->txn_->setIdleTimeout(std::chrono::milliseconds(747));
   EXPECT_TRUE(handler->txn_->hasIdleTimeout());
   EXPECT_TRUE(handler->txn_->isScheduled());
