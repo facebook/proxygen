@@ -109,7 +109,8 @@ void HTTPSessionAcceptor::onNewConnection(
   session->setEgressSettings(accConfig_.egressSettings);
 
   // set HTTP2 priorities flag on session object
-  session->setHTTP2PrioritiesEnabled(accConfig_.HTTP2PrioritiesEnabled);
+  auto HTTP2PrioritiesEnabled = getHttp2PrioritiesEnabled();
+  session->setHTTP2PrioritiesEnabled(HTTP2PrioritiesEnabled);
 
   // set flow control parameters
   session->setFlowControl(accConfig_.initialReceiveWindow,
