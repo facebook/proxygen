@@ -43,8 +43,7 @@ class QPACKDecoder : public HPACKDecoderBase,
                        uint32_t totalBytes,
                        HPACK::StreamingCallback* streamingCb);
 
-  HPACK::DecodeError decodeControl(folly::io::Cursor& cursor,
-                                   uint32_t totalBytes);
+  HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf);
 
   std::unique_ptr<folly::IOBuf> encodeTableStateSync();
 
@@ -93,7 +92,7 @@ class QPACKDecoder : public HPACKDecoderBase,
       bool aboveBase,
       HPACK::StreamingCallback* streamingCb);
 
-  void decodeControlHeader(HPACKDecodeBuffer& dbuf);
+  void decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf);
 
   void enqueueHeaderBlock(uint32_t largestReference,
                           uint32_t baseIndex,
@@ -127,6 +126,16 @@ class QPACKDecoder : public HPACKDecoderBase,
   uint32_t holBlockCount_{0};
   uint64_t queuedBytes_{0};
   std::multimap<uint32_t, PendingBlock> queue_;
+
+  // This holds the state of a partially decoded literal insert on the control
+  // stream
+  struct Partial {
+    enum { NAME, VALUE } state{NAME};
+    uint32_t consumed;
+    HPACKHeader header;
+  };
+  Partial partial_;
+  folly::IOBufQueue ingress_{folly::IOBufQueue::cacheChainLength()};
 };
 
 }

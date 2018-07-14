@@ -131,16 +131,23 @@ uint32_t QPACKDecoder::decodeHeaderQ(
   }
 }
 
-HPACK::DecodeError QPACKDecoder::decodeControl(
-  Cursor& cursor,
-  uint32_t totalBytes) {
-  HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
+HPACK::DecodeError QPACKDecoder::decodeEncoderStream(
+    std::unique_ptr<folly::IOBuf> buf) {
+  ingress_.append(std::move(buf));
+  Cursor cursor(ingress_.front());
+  HPACKDecodeBuffer dbuf(cursor, ingress_.chainLength(), maxUncompressed_);
   VLOG(6) << "Decoding control block";
   baseIndex_ = 0;
   err_ = HPACK::DecodeError::NONE;
   while (!hasError() && !dbuf.empty()) {
-    decodeControlHeader(dbuf);
+    decodeEncoderStreamInstruction(dbuf);
+    if (err_ == HPACK::DecodeError::BUFFER_UNDERFLOW) {
+      ingress_.trimStart(partial_.consumed);
+      drainQueue();
+      return HPACK::DecodeError::NONE;
+    }
   }
+  ingress_.trimStart(dbuf.consumedBytes());
   if (hasError()) {
     return err_;
   } else {
@@ -149,16 +156,20 @@ HPACK::DecodeError QPACKDecoder::decodeControl(
   }
 }
 
-void QPACKDecoder::decodeControlHeader(HPACKDecodeBuffer& dbuf) {
+void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
   uint8_t byte = dbuf.peek();
-  if (byte & HPACK::Q_INSERT_NAME_REF.code) {
+  partial_.consumed = dbuf.consumedBytes();
+  if (partial_.state == Partial::VALUE ||
+      byte & HPACK::Q_INSERT_NAME_REF.code) {
+    // If partial state is VALUE, it might have been a NO_NAME_REF instruction,
+    // but we've already parsed the name, so it doesn't matter
     decodeLiteralHeaderQ(
-      dbuf, true, true, HPACK::Q_INSERT_NAME_REF.prefixLength, false,
-      nullptr);
+        dbuf, true, true, HPACK::Q_INSERT_NAME_REF.prefixLength, false,
+        nullptr);
   } else if (byte & HPACK::Q_INSERT_NO_NAME_REF.code) {
     decodeLiteralHeaderQ(
-      dbuf, true, false, HPACK::Q_INSERT_NO_NAME_REF.prefixLength, false,
-      nullptr);
+        dbuf, true, false, HPACK::Q_INSERT_NO_NAME_REF.prefixLength, false,
+        nullptr);
   } else if (byte & HPACK::Q_TABLE_SIZE_UPDATE.code) {
     handleTableSizeUpdate(dbuf, table_);
   } else { // must be Q_DUPLICATE=000
@@ -179,47 +190,63 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
     uint8_t prefixLength,
     bool aboveBase,
     HPACK::StreamingCallback* streamingCb) {
-  HPACKHeader header;
-  if (nameIndexed) {
-    uint32_t nameIndex = 0;
-    bool isStaticName = !aboveBase && (dbuf.peek() & (1 << prefixLength));
-    err_ = dbuf.decodeInteger(prefixLength, nameIndex);
-    if (err_ != HPACK::DecodeError::NONE) {
-      LOG(ERROR) << "Decode error decoding index err_=" << err_;
-      return 0;
+  bool allowPartial = (streamingCb == nullptr);
+  Partial localPartial;
+  Partial* partial = (allowPartial) ? &partial_ : &localPartial;
+  if (partial->state == Partial::NAME) {
+    if (nameIndexed) {
+      uint32_t nameIndex = 0;
+      bool isStaticName = !aboveBase && (dbuf.peek() & (1 << prefixLength));
+      err_ = dbuf.decodeInteger(prefixLength, nameIndex);
+      if (allowPartial && err_ == HPACK::DecodeError::BUFFER_UNDERFLOW) {
+        return 0;
+      }
+      if (err_ != HPACK::DecodeError::NONE) {
+        LOG(ERROR) << "Decode error decoding index err_=" << err_;
+        return 0;
+      }
+      if (!isStaticName) {
+        nameIndex++;
+      }
+      // validate the index
+      if (!isValid(isStaticName, nameIndex, aboveBase)) {
+        LOG(ERROR) << "received invalid index: " << nameIndex;
+        err_ = HPACK::DecodeError::INVALID_INDEX;
+        return 0;
+      }
+      partial->header.name = getHeader(
+          isStaticName, nameIndex, baseIndex_, aboveBase).name;
+    } else {
+      folly::fbstring headerName;
+      err_ = dbuf.decodeLiteral(prefixLength, headerName);
+      if (allowPartial && err_ == HPACK::DecodeError::BUFFER_UNDERFLOW) {
+        return 0;
+      }
+      if (err_ != HPACK::DecodeError::NONE) {
+        LOG(ERROR) << "Error decoding header name err_=" << err_;
+        return 0;
+      }
+      partial->header.name = headerName;
     }
-    if (!isStaticName) {
-      nameIndex++;
-    }
-    // validate the index
-    if (!isValid(isStaticName, nameIndex, aboveBase)) {
-      LOG(ERROR) << "received invalid index: " << nameIndex;
-      err_ = HPACK::DecodeError::INVALID_INDEX;
-      return 0;
-    }
-    header.name = getHeader(
-      isStaticName, nameIndex, baseIndex_, aboveBase).name;
-  } else {
-    folly::fbstring headerName;
-    err_ = dbuf.decodeLiteral(prefixLength, headerName);
-    header.name = headerName;
-    if (err_ != HPACK::DecodeError::NONE) {
-      LOG(ERROR) << "Error decoding header name err_=" << err_;
-      return 0;
-    }
+    partial->state = Partial::VALUE;
+    partial->consumed = dbuf.consumedBytes();
   }
   // value
-  err_ = dbuf.decodeLiteral(header.value);
+  err_ = dbuf.decodeLiteral(partial->header.value);
+  if (allowPartial && err_ == HPACK::DecodeError::BUFFER_UNDERFLOW) {
+    return 0;
+  }
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Error decoding header value name=" << header.name
+    LOG(ERROR) << "Error decoding header value name=" << partial->header.name
                << " err_=" << err_;
     return 0;
   }
+  partial->state = Partial::NAME;
 
-  uint32_t emittedSize = emit(header, streamingCb, nullptr);
+  uint32_t emittedSize = emit(partial->header, streamingCb, nullptr);
 
   if (indexing) {
-    table_.add(header);
+    table_.add(partial->header);
   }
 
   return emittedSize;

@@ -42,10 +42,9 @@ class QPACKCodec : public HeaderCodec {
   QPACKEncoder::EncodeResult encode(
     std::vector<compress::Header>& headers, uint64_t id) noexcept;
 
-  HPACK::DecodeError decodeControl(folly::io::Cursor& cursor,
-                                   uint32_t totalBytes) {
+  HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf) {
     // stats?
-    return decoder_.decodeControl(cursor, totalBytes);
+    return decoder_.decodeEncoderStream(std::move(buf));
   }
 
   // QPACK blocking decode.  The decoder may queue the block if there are

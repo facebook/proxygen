@@ -27,8 +27,7 @@ void verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
                   HPACK::DecodeError expectedError = HPACK::DecodeError::NONE) {
   auto cb = std::make_shared<TestStreamingCallback>();
   if (result.control) {
-    folly::io::Cursor control(result.control.get());
-    EXPECT_EQ(decoder.decodeControl(control, control.totalLength()),
+    EXPECT_EQ(decoder.decodeEncoderStream(std::move(result.control)),
               HPACK::DecodeError::NONE);
   }
   auto length = result.stream->computeChainDataLength();
@@ -326,8 +325,7 @@ TEST(QPACKContextTests, test_decode_queue_delete) {
   rawDecoder->decodeStreaming(std::move(result2.stream), length, cb2.get());
 
   // Decode control stream #1, will unblock 1 and delete decoder
-  folly::io::Cursor control(result1.control.get());
-  EXPECT_EQ(rawDecoder->decodeControl(control, control.totalLength()),
+  EXPECT_EQ(rawDecoder->decodeEncoderStream(std::move(result1.control)),
             HPACK::DecodeError::NONE);
 
   // cb2 doesn't execute because the decoder was destroyed from cb1
@@ -356,8 +354,7 @@ TEST(QPACKContextTests, test_decoder_stream_chunked) {
     req.emplace_back("a", folly::to<string>(i));
   }
   auto result = encoder.encode(req, 0, 1);
-  folly::io::Cursor control(result.control.get());
-  EXPECT_EQ(decoder.decodeControl(control, control.totalLength()),
+  EXPECT_EQ(decoder.decodeEncoderStream(std::move(result.control)),
             HPACK::DecodeError::NONE);
   auto ack = decoder.encodeTableStateSync();
   EXPECT_EQ(ack->computeChainDataLength(), 2);
@@ -370,6 +367,25 @@ TEST(QPACKContextTests, test_decoder_stream_chunked) {
             HPACK::DecodeError::NONE);
   EXPECT_FALSE(encoder.getTable().isVulnerable(128));
   EXPECT_TRUE(encoder.getTable().isVulnerable(129));
+}
+
+TEST(QPACKContextTests, test_decode_partial_control) {
+  QPACKEncoder encoder(false, 1000);
+  QPACKDecoder decoder(1000);
+
+  vector<HPACKHeader> req;
+  req.emplace_back("abcdeabcdeabcdeabcdeabcdeabcdeabcde",
+                   "vwxyzvwxyzvwxyzvwxyzvwxyzvwxyzvwxyz");
+  auto result = encoder.encode(req, 0, 1);
+  folly::io::Cursor c(result.control.get());
+  while (!c.isAtEnd()) {
+    std::unique_ptr<folly::IOBuf> buf;
+    c.clone(buf, 1);
+    EXPECT_EQ(decoder.decodeEncoderStream(std::move(buf)),
+              HPACK::DecodeError::NONE);
+  }
+  EXPECT_EQ(decoder.getHeadersStored(), 1);
+  EXPECT_EQ(decoder.getHeader(false, 1, 1, false), req[0]);
 }
 
 void checkQError(QPACKDecoder& decoder, std::unique_ptr<IOBuf> buf,
@@ -446,19 +462,18 @@ TEST(QPACKContextTests, decode_errors) {
   buf->writableData()[0] = 0xC1;
   buf->writableData()[1] = 0x01;
   buf->writableData()[2] = 0x41;
-  folly::io::Cursor c(buf.get());
-  EXPECT_EQ(decoder.decodeControl(c, c.totalLength()),
+  EXPECT_EQ(decoder.decodeEncoderStream(buf->clone()),
             HPACK::DecodeError::NONE);
 
   // Control decode error
   QPACKDecoder decoder2(64);
-  buf->writableData()[0] = 0xFF;
+  buf->writableData()[0] = 0x01; // duplicate dynamic index 1
   buf->trimEnd(2);
-  c.reset(buf.get());
-  EXPECT_EQ(decoder2.decodeControl(c, c.totalLength()),
-            HPACK::DecodeError::BUFFER_UNDERFLOW);
+  EXPECT_EQ(decoder2.decodeEncoderStream(buf->clone()),
+            HPACK::DecodeError::INVALID_INDEX);
 
   QPACKEncoder encoder(true, 128);
+  buf->writableData()[0] = 0xFF;
   buf->writableData()[1] = 0x80;
   buf->writableData()[2] = 0xFF;
   buf->writableData()[3] = 0xFF;

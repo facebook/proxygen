@@ -76,8 +76,7 @@ void encodeDecode(
   auto encoded = encoder.encode(headers, 0, 1);
   TestStreamingCallback cb;
   if (encoded.control) {
-    folly::io::Cursor c(encoded.control.get());
-    decoder.decodeControl(c, c.totalLength());
+    decoder.decodeEncoderStream(std::move(encoded.control));
     encoder.decodeDecoderStream(decoder.encodeTableStateSync());
   }
   CHECK(encoded.stream);
@@ -86,7 +85,7 @@ void encodeDecode(
   CHECK(!cb.hasError());
   auto decodedHeaders = cb.hpackHeaders();
   verifyHeaders(headers, *decodedHeaders);
-  encoder.onHeaderAck(1, false);
+  encoder.decodeDecoderStream(decoder.encodeHeaderAck(1));
 
   // header tables should look the same
   CHECK(encoder.getTable() == decoder.getTable());

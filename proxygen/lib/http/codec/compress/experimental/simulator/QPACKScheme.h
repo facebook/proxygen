@@ -110,25 +110,24 @@ class QPACKScheme : public CompressionScheme {
       // check decode result
       auto controlIndex = cursor.readBE<uint16_t>();
       toTrim += sizeof(uint16_t);
+      std::unique_ptr<folly::IOBuf> control;
+      cursor.clone(control, len);
       if (controlIndex == decodeControlIndex_) {
         // next expected control block, decode
         VLOG(5) << "decode controlIndex=" << controlIndex;
-        server_.decodeControl(cursor, len);
+        server_.decodeEncoderStream(std::move(control));
         decodeControlIndex_++;
         while (!controlQueue_.empty() &&
                controlQueue_.begin()->first == decodeControlIndex_) {
           // drain the queue
           VLOG(5) << "decode controlIndex=" << controlQueue_.begin()->first;
           auto it = controlQueue_.begin();
-          folly::io::Cursor controlCursor(it->second.get());
-          server_.decodeControl(controlCursor, controlCursor.totalLength());
+          server_.decodeEncoderStream(std::move(it->second));
           decodeControlIndex_++;
           controlQueue_.erase(it);
         }
       } else {
         // out of order control block, queue it
-        std::unique_ptr<folly::IOBuf> control;
-        cursor.clone(control, len);
         controlQueue_.emplace(controlIndex, std::move(control));
       }
       toTrim += len;

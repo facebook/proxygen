@@ -120,18 +120,17 @@ int decodeAndVerify(const proxygen::HTTPArchive& har) {
         needMore = true;
         continue;
       }
+      auto buf = inbuf.split(length);
       if (streamId == 0) {
-        CHECK_EQ(decoder.decodeControl(c, length), HPACK::DecodeError::NONE);
+        CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
+                 HPACK::DecodeError::NONE);
       } else {
-        std::unique_ptr<folly::IOBuf> data;
-        c.clone(data, length);
         auto res = streams.emplace(std::piecewise_construct,
                                    std::forward_as_tuple(streamId),
                                    std::forward_as_tuple(streamId, nullptr,
                                                          FLAGS_public));
-        decoder.decodeStreaming(std::move(data), length, &res.first->second);
+        decoder.decodeStreaming(std::move(buf), length, &res.first->second);
       }
-      inbuf.trimStart(length);
       state = HEADER;
     }
   } while (rc != 0 || !inbuf.empty());

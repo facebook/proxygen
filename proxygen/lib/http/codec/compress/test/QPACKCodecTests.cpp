@@ -65,8 +65,7 @@ TEST_F(QPACKTests, test_simple) {
   vector<Header> req = basicHeaders();
   auto encodeResult = client.encode(req, 1);
   ASSERT_NE(encodeResult.control.get(), nullptr);
-  Cursor cCursor(encodeResult.control.get());
-  EXPECT_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
+  EXPECT_EQ(server.decodeEncoderStream(std::move(encodeResult.control)),
             HPACK::DecodeError::NONE);
   TestStreamingCallback cb;
   auto length = encodeResult.stream->computeChainDataLength();
@@ -88,12 +87,11 @@ TEST_F(QPACKTests, test_absolute_index) {
     }
     auto req = headersFromArray(headers);
     auto encodeResult = client.encode(req, i + 1);
-    Cursor cCursor(encodeResult.control.get());
     if (i % 2 == 1) {
       EXPECT_EQ(encodeResult.control.get(), nullptr);
     } else {
       ASSERT_NE(encodeResult.control.get(), nullptr);
-      CHECK_EQ(server.decodeControl(cCursor, cCursor.totalLength()),
+      CHECK_EQ(server.decodeEncoderStream(std::move(encodeResult.control)),
                HPACK::DecodeError::NONE);
     }
     TestStreamingCallback cb;
@@ -140,8 +138,7 @@ TEST_F(QPACKTests, test_with_queue) {
     if (!controlFrames.empty()) {
       auto control = std::move(controlFrames.front());
       controlFrames.pop_front();
-      Cursor c(control.get());
-      server.decodeControl(c, c.totalLength());
+      server.decodeEncoderStream(std::move(control));
     }
     for (auto i: insertOrder) {
       auto& encodedReq = data[i].first;
@@ -151,8 +148,7 @@ TEST_F(QPACKTests, test_with_queue) {
     while (!controlFrames.empty()) {
       auto control = std::move(controlFrames.front());
       controlFrames.pop_front();
-      Cursor c(control.get());
-      server.decodeControl(c, c.totalLength());
+      server.decodeEncoderStream(std::move(control));
     }
     int i = 0;
     for (auto& d: data) {
