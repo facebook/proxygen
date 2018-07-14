@@ -85,20 +85,30 @@ int decodeAndVerify(const proxygen::HTTPArchive& har) {
   enum { HEADER, DATA } state = HEADER;
   uint64_t streamId = 0;
   uint32_t length = 0;
+  bool needMore = true;
   ssize_t rc = -1;
   std::map<uint64_t, SimStreamingCallback> streams;
-  while (rc != 0) {
-    auto pre = inbuf.preallocate(4096, 4096);
-    rc = readNoInt(inputF.fd(), pre.first, pre.second);
-    if (rc < 0) {
-      LOG(ERROR) << "Read failed on " << FLAGS_input;
-      return 1;
+  do {
+    if (needMore) {
+      if (rc == 0)  {
+        LOG(ERROR) << "Premature end of file";
+        return 1;
+      }
+      auto pre = inbuf.preallocate(4096, 4096);
+      rc = readNoInt(inputF.fd(), pre.first, pre.second);
+      if (rc < 0) {
+        LOG(ERROR) << "Read failed on " << FLAGS_input;
+        return 1;
+      }
+      inbuf.postallocate(rc);
+      needMore = false;
     }
-    inbuf.postallocate(rc);
-  };
-  while (!inbuf.empty()) {
     if (state == HEADER) {
       Cursor c(inbuf.front());
+      if (inbuf.empty() || !c.canAdvance(sizeof(uint64_t) + sizeof(uint32_t))) {
+        needMore = true;
+        continue;
+      }
       streamId = c.readBE<uint64_t>();
       length = c.readBE<uint32_t>();
       inbuf.trimStart(sizeof(uint64_t) + sizeof(uint32_t));
@@ -106,6 +116,10 @@ int decodeAndVerify(const proxygen::HTTPArchive& har) {
     }
     if (state == DATA) {
       Cursor c(inbuf.front());
+      if (inbuf.empty() || !c.canAdvance(length)) {
+        needMore = true;
+        continue;
+      }
       if (streamId == 0) {
         CHECK_EQ(decoder.decodeControl(c, length), HPACK::DecodeError::NONE);
       } else {
@@ -120,7 +134,7 @@ int decodeAndVerify(const proxygen::HTTPArchive& har) {
       inbuf.trimStart(length);
       state = HEADER;
     }
-  }
+  } while (rc != 0 || !inbuf.empty());
 
   size_t i = 0;
   for (const auto& req : streams) {
