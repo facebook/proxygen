@@ -29,6 +29,7 @@ DEFINE_string(mode, "encode", "<encode|decode>");
 DEFINE_bool(ack, true, "Encoder assumes immediate ack of all frames");
 DEFINE_int32(table_size, 4096, "Dynamic table size");
 DEFINE_int32(max_blocking, 100, "Max blocking streams");
+DEFINE_bool(public, false, "Public HAR file");
 
 void writeFrame(folly::io::QueueAppender& appender,
                 uint64_t streamId,
@@ -112,7 +113,8 @@ int decodeAndVerify(const proxygen::HTTPArchive& har) {
         c.clone(data, length);
         auto res = streams.emplace(std::piecewise_construct,
                                    std::forward_as_tuple(streamId),
-                                   std::forward_as_tuple(streamId, nullptr));
+                                   std::forward_as_tuple(streamId, nullptr,
+                                                         FLAGS_public));
         decoder.decodeStreaming(std::move(data), length, &res.first->second);
       }
       inbuf.trimStart(length);
@@ -139,7 +141,9 @@ int decodeAndVerify(const proxygen::HTTPArchive& har) {
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv, true);
-  std::unique_ptr<HTTPArchive> har = HTTPArchive::fromFile(FLAGS_har);
+  std::unique_ptr<HTTPArchive> har = (FLAGS_public) ?
+    HTTPArchive::fromPublicFile(FLAGS_har) :
+    HTTPArchive::fromFile(FLAGS_har);
   if (!har) {
     LOG(ERROR) << "Failed to read har file='" << FLAGS_har << "'";
     return 1;

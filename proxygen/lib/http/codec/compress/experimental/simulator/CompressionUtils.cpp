@@ -86,19 +86,23 @@ std::vector<compress::Header> prepareMessageForCompression(
   std::vector<compress::Header> allHeaders;
   // The encode API is pretty bad.  We should just let HPACK directly encode
   // HTTP messages
-  allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, http2::kMethod,
-                          msg.getMethodString());
-  if (msg.getMethod() != HTTPMethod::CONNECT) {
-    allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, http2::kScheme,
-                            (msg.isSecure() ? http2::kHttps : http2::kHttp));
-    allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, http2::kPath, msg.getURL());
-  }
-
   const HTTPHeaders& headers = msg.getHeaders();
   const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
-  if (!host.empty()) {
-    allHeaders.emplace_back(
-        HTTP_HEADER_COLON_AUTHORITY, http2::kAuthority, host);
+  bool isPublic = msg.getMethodString().empty();
+  if (!isPublic) {
+    allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, http2::kMethod,
+                            msg.getMethodString());
+    if (msg.getMethod() != HTTPMethod::CONNECT) {
+      allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, http2::kScheme,
+                              (msg.isSecure() ? http2::kHttps : http2::kHttp));
+      allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, http2::kPath,
+                              msg.getURL());
+    }
+
+    if (!host.empty()) {
+      allHeaders.emplace_back(
+          HTTP_HEADER_COLON_AUTHORITY, http2::kAuthority, host);
+    }
   }
   // Cookies are coalesced in the HAR file but need to be added as separate
   // headers to optimize compression ratio
@@ -112,7 +116,7 @@ std::vector<compress::Header> prepareMessageForCompression(
             cookies.push_back(ltrimWhitespace(cookie).str());
             allHeaders.emplace_back(code, name, cookies.back());
           }
-        } else if (code != HTTP_HEADER_HOST && name[0] != ':') {
+        } else if (code != HTTP_HEADER_HOST && (isPublic || name[0] != ':')) {
           // HAR files contain actual serialized headers protocol headers like
           // :authority, which we are re-adding above.  Strip them so our
           // equality test works

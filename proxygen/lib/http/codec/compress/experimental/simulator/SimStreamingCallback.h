@@ -18,8 +18,9 @@ namespace proxygen { namespace compress {
 class SimStreamingCallback : public HPACK::StreamingCallback {
  public:
   SimStreamingCallback(uint16_t index,
-                       std::function<void(std::chrono::milliseconds)> cb)
-      : requestIndex(index), headersCompleteCb(cb) {
+                       std::function<void(std::chrono::milliseconds)> cb,
+                       bool isP=false)
+      : requestIndex(index), headersCompleteCb(cb), isPublic(isP) {
   }
 
   SimStreamingCallback(SimStreamingCallback&& goner) noexcept {
@@ -32,7 +33,7 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
 
   void onHeader(const folly::fbstring& name,
                 const folly::fbstring& value) override {
-    if (name[0] == ':') {
+    if (name[0] == ':' && !isPublic) {
       if (name == http2::kMethod) {
         msg.setMethod(value);
       } else if (name == http2::kScheme) {
@@ -94,6 +95,7 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
   std::function<void(std::chrono::milliseconds)> headersCompleteCb;
   TimePoint holStart{TimeUtil::getZeroTimePoint()};
   bool complete{false};
+  bool isPublic{false};
 };
 
 }} // namespace proxygen::compress
