@@ -373,6 +373,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     void timeoutExpired() noexcept override {
       VLOG(5) << "Node=" << id_ << " expired";
       CHECK(txn_ == nullptr);
+      queue_.pendingWeightChange_ = true;
       removeFromTree();
     }
 

@@ -773,6 +773,21 @@ TEST_F(DanglingQueueTest, drop) {
   EXPECT_EQ(nodes_, IDList({}));
 }
 
+TEST_F(DanglingQueueTest, expireParentOfMismatchedTwins) {
+  addTransaction(1, {0, true, 219}, false);
+  addTransaction(3, {1, false, 146}, false);
+  addTransaction(5, {1, false, 146}, false);
+  signalEgress(3, false);
+  signalEgress(5, true);
+  removeTransaction(1);
+  dump();
+  tick();
+  expireNodes();
+  dump();
+  EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
+}
+
+
 class DummyTimeout: public HHWheelTimer::Callback {
   void timeoutExpired() noexcept override {
   }
