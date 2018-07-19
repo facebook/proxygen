@@ -120,13 +120,13 @@ parseFrameHeader(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseData(folly::io::Cursor& cursor,
-          FrameHeader header,
+          const FrameHeader& header,
           std::unique_ptr<folly::IOBuf>& outBuf,
           uint16_t& padding) noexcept;
 
 ErrorCode
 parseDataBegin(folly::io::Cursor& cursor,
-               FrameHeader header,
+               const FrameHeader& header,
                size_t& parsed,
                uint16_t& outPadding) noexcept;
 
@@ -152,13 +152,13 @@ parseDataEnd(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseHeaders(folly::io::Cursor& cursor,
-             FrameHeader header,
+             const FrameHeader& header,
              folly::Optional<PriorityUpdate>& outPriority,
              std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
 ErrorCode
 parseExHeaders(folly::io::Cursor& cursor,
-               FrameHeader header,
+               const FrameHeader& header,
                uint32_t& outControlStream,
                folly::Optional<PriorityUpdate>& outPriority,
                std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
@@ -177,7 +177,7 @@ parseExHeaders(folly::io::Cursor& cursor,
  */
 ErrorCode
 parsePriority(folly::io::Cursor& cursor,
-              FrameHeader header,
+              const FrameHeader& header,
               PriorityUpdate& outPriority) noexcept;
 
 /**
@@ -194,7 +194,7 @@ parsePriority(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseRstStream(folly::io::Cursor& cursor,
-               FrameHeader header,
+               const FrameHeader& header,
                ErrorCode& outCode) noexcept;
 
 /**
@@ -211,7 +211,7 @@ parseRstStream(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseSettings(folly::io::Cursor& cursor,
-              FrameHeader header,
+              const FrameHeader& header,
               std::deque<SettingPair>& settings) noexcept;
 
 /**
@@ -229,7 +229,7 @@ parseSettings(folly::io::Cursor& cursor,
  */
 ErrorCode
 parsePushPromise(folly::io::Cursor& cursor,
-                 FrameHeader header,
+                 const FrameHeader& header,
                  uint32_t& outPromisedStream,
                  std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
@@ -246,7 +246,7 @@ parsePushPromise(folly::io::Cursor& cursor,
  */
 ErrorCode
 parsePing(folly::io::Cursor& cursor,
-          FrameHeader header,
+          const FrameHeader& header,
           uint64_t& outData) noexcept;
 
 /**
@@ -265,7 +265,7 @@ parsePing(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseGoaway(folly::io::Cursor& cursor,
-            FrameHeader header,
+            const FrameHeader& header,
             uint32_t& outLastStreamID,
             ErrorCode& outCode,
             std::unique_ptr<folly::IOBuf>& outDebugData) noexcept;
@@ -283,7 +283,7 @@ parseGoaway(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseWindowUpdate(folly::io::Cursor& cursor,
-                  FrameHeader header,
+                  const FrameHeader& header,
                   uint32_t& outAmount) noexcept;
 
 /**
@@ -300,7 +300,7 @@ parseWindowUpdate(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseContinuation(folly::io::Cursor& cursor,
-                  FrameHeader header,
+                  const FrameHeader& header,
                   std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
 /**
@@ -320,7 +320,7 @@ parseContinuation(folly::io::Cursor& cursor,
  */
 ErrorCode
 parseAltSvc(folly::io::Cursor& cursor,
-            FrameHeader header,
+            const FrameHeader& header,
             uint32_t& outMaxAge,
             uint32_t& outPort,
             std::string& outProtocol,

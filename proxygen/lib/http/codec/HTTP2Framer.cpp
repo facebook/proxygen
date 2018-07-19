@@ -169,35 +169,34 @@ PriorityUpdate parsePriorityCommon(Cursor& cursor) {
  * least 1 bytes in the cursor.
  *
  * @param cursor The cursor to pull data from
- * @param header The frame header for the frame being parsed. The length
- *               field may be modified based on the number of optional
- *               padding length fields were read.
+ * @param header The frame header for the frame being parsed.
  * @param padding The out parameter that will return the number of padding
  *                bytes at the end of the frame.
  * @return Nothing if success. The connection error code if failure.
  */
 ErrorCode
 parsePadding(Cursor& cursor,
-             FrameHeader& header,
-             uint8_t& padding) noexcept {
+             const FrameHeader& header,
+             uint8_t& padding, uint32_t& lefttoparse) noexcept {
   DCHECK(header.type == FrameType::DATA ||
          header.type == FrameType::HEADERS ||
          header.type == FrameType::EX_HEADERS ||
          header.type == FrameType::PUSH_PROMISE);
+  lefttoparse = header.length;
   if (frameHasPadding(header)) {
-    if (header.length < 1) {
+    if (lefttoparse < 1) {
       return ErrorCode::FRAME_SIZE_ERROR;
     }
-    header.length -= 1;
+    lefttoparse -= 1;
     padding = cursor.readBE<uint8_t>();
   } else {
     padding = 0;
   }
 
-  if (header.length < padding) {
+  if (lefttoparse < padding) {
     return ErrorCode::PROTOCOL_ERROR;
   } else {
-    header.length -= padding;
+    lefttoparse -= padding;
     return ErrorCode::NO_ERROR;
   }
 }
@@ -263,7 +262,7 @@ parseFrameHeader(Cursor& cursor,
 
 ErrorCode
 parseData(Cursor& cursor,
-          FrameHeader header,
+          const FrameHeader& header,
           std::unique_ptr<IOBuf>& outBuf,
           uint16_t& outPadding) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
@@ -272,21 +271,23 @@ parseData(Cursor& cursor,
   }
 
   uint8_t padding;
-  const auto err = parsePadding(cursor, header, padding);
+  uint32_t lefttoparse;
+  const auto err = parsePadding(cursor, header, padding, lefttoparse);
   RETURN_IF_ERROR(err);
   // outPadding is the total number of flow-controlled pad bytes, which
   // includes the length byte, if present.
   outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
-  cursor.clone(outBuf, header.length);
+  cursor.clone(outBuf, lefttoparse);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
 ErrorCode parseDataBegin(Cursor& cursor,
-                         FrameHeader header,
+                         const FrameHeader& header,
                          size_t& /*parsed*/,
                          uint16_t& outPadding) noexcept {
-  uint8_t padding = 0;
-  const auto err = http2::parsePadding(cursor, header, padding);
+  uint8_t padding;
+  uint32_t lefttoparse;
+  const auto err = http2::parsePadding(cursor, header, padding, lefttoparse);
   RETURN_IF_ERROR(err);
   // outPadding is the total number of flow-controlled pad bytes, which
   // includes the length byte, if present.
@@ -305,7 +306,7 @@ parseDataEnd(Cursor& cursor,
 
 ErrorCode
 parseHeaders(Cursor& cursor,
-             FrameHeader header,
+             const FrameHeader& header,
              folly::Optional<PriorityUpdate>& outPriority,
              std::unique_ptr<IOBuf>& outBuf) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
@@ -313,25 +314,25 @@ parseHeaders(Cursor& cursor,
     return ErrorCode::PROTOCOL_ERROR;
   }
   uint8_t padding;
-
-  auto err = parsePadding(cursor, header, padding);
+  uint32_t lefttoparse;
+  auto err = parsePadding(cursor, header, padding, lefttoparse);
   RETURN_IF_ERROR(err);
   if (header.flags & PRIORITY) {
-    if (header.length < kFramePrioritySize) {
+    if (lefttoparse < kFramePrioritySize) {
       return ErrorCode::FRAME_SIZE_ERROR;
     }
     outPriority = parsePriorityCommon(cursor);
-    header.length -= kFramePrioritySize;
+    lefttoparse -= kFramePrioritySize;
   } else {
     outPriority = folly::none;
   }
-  cursor.clone(outBuf, header.length);
+  cursor.clone(outBuf, lefttoparse);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
 ErrorCode
 parseExHeaders(Cursor& cursor,
-               FrameHeader header,
+               const FrameHeader& header,
                uint32_t& outControlStream,
                folly::Optional<PriorityUpdate>& outPriority,
                std::unique_ptr<IOBuf>& outBuf) noexcept {
@@ -341,37 +342,38 @@ parseExHeaders(Cursor& cursor,
   }
 
   uint8_t padding;
-  auto err = parsePadding(cursor, header, padding);
+  uint32_t lefttoparse;
+  auto err = parsePadding(cursor, header, padding, lefttoparse);
   RETURN_IF_ERROR(err);
 
   // the regular HEADERS frame starts from here
   if (header.flags & PRIORITY) {
-    if (header.length < kFramePrioritySize) {
+    if (lefttoparse < kFramePrioritySize) {
       return ErrorCode::FRAME_SIZE_ERROR;
     }
     outPriority = parsePriorityCommon(cursor);
-    header.length -= kFramePrioritySize;
+    lefttoparse -= kFramePrioritySize;
   } else {
     outPriority = folly::none;
   }
 
-  if (header.length < kFrameStreamIDSize) {
+  if (lefttoparse < kFrameStreamIDSize) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
   outControlStream = parseUint31(cursor);
-  header.length -= kFrameStreamIDSize;
+  lefttoparse -= kFrameStreamIDSize;
   if (!(outControlStream & 0x1)) {
     // control stream ID should be odd because it is initiated by client
     return ErrorCode::PROTOCOL_ERROR;
   }
 
-  cursor.clone(outBuf, header.length);
+  cursor.clone(outBuf, lefttoparse);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
 ErrorCode
 parsePriority(Cursor& cursor,
-              FrameHeader header,
+              const FrameHeader& header,
               PriorityUpdate& outPriority) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   if (header.length != kFramePrioritySize) {
@@ -386,7 +388,7 @@ parsePriority(Cursor& cursor,
 
 ErrorCode
 parseRstStream(Cursor& cursor,
-               FrameHeader header,
+               const FrameHeader& header,
                ErrorCode& outCode) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   if (header.length != kFrameRstStreamSize) {
@@ -400,7 +402,7 @@ parseRstStream(Cursor& cursor,
 
 ErrorCode
 parseSettings(Cursor& cursor,
-              FrameHeader header,
+              const FrameHeader& header,
               std::deque<SettingPair>& settings) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   if (header.stream != 0) {
@@ -416,7 +418,7 @@ parseSettings(Cursor& cursor,
   if (header.length % 6 != 0) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
-  for (; header.length > 0; header.length -= 6) {
+  for (auto length = header.length; length > 0; length -= 6) {
     uint16_t id = cursor.readBE<uint16_t>();
     uint32_t val = cursor.readBE<uint32_t>();
     settings.push_back(std::make_pair(SettingsId(id), val));
@@ -426,7 +428,7 @@ parseSettings(Cursor& cursor,
 
 ErrorCode
 parsePushPromise(Cursor& cursor,
-                 FrameHeader header,
+                 const FrameHeader& header,
                  uint32_t& outPromisedStream,
                  std::unique_ptr<IOBuf>& outBuf) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
@@ -435,28 +437,29 @@ parsePushPromise(Cursor& cursor,
   }
 
   uint8_t padding;
-  auto err = parsePadding(cursor, header, padding);
+  uint32_t lefttoparse;
+  auto err = parsePadding(cursor, header, padding, lefttoparse);
   RETURN_IF_ERROR(err);
-  if (header.length < kFramePushPromiseSize) {
+  if (lefttoparse < kFramePushPromiseSize) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
-  header.length -= kFramePushPromiseSize;
+  lefttoparse -= kFramePushPromiseSize;
   outPromisedStream = parseUint31(cursor);
   if (outPromisedStream == 0 ||
       outPromisedStream & 0x1) {
     // client MUST reserve an even stream id greater than 0
     return ErrorCode::PROTOCOL_ERROR;
   }
-  if (header.length < padding) {
+  if (lefttoparse < padding) {
     return ErrorCode::PROTOCOL_ERROR;
   }
-  cursor.clone(outBuf, header.length);
+  cursor.clone(outBuf, lefttoparse);
   return skipPadding(cursor, padding, kStrictPadding);
 }
 
 ErrorCode
 parsePing(Cursor& cursor,
-          FrameHeader header,
+          const FrameHeader& header,
           uint64_t& outOpaqueData) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
 
@@ -473,7 +476,7 @@ parsePing(Cursor& cursor,
 
 ErrorCode
 parseGoaway(Cursor& cursor,
-            FrameHeader header,
+            const FrameHeader& header,
             uint32_t& outLastStreamID,
             ErrorCode& outCode,
             std::unique_ptr<IOBuf>& outDebugData) noexcept {
@@ -487,16 +490,17 @@ parseGoaway(Cursor& cursor,
   outLastStreamID = parseUint31(cursor);
   auto err = parseErrorCode(cursor, outCode);
   RETURN_IF_ERROR(err);
-  header.length -= kFrameGoawaySize;
-  if (header.length > 0) {
-    cursor.clone(outDebugData, header.length);
+  auto length = header.length;
+  length -= kFrameGoawaySize;
+  if (length > 0) {
+    cursor.clone(outDebugData, length);
   }
   return ErrorCode::NO_ERROR;
 }
 
 ErrorCode
 parseWindowUpdate(Cursor& cursor,
-                  FrameHeader header,
+                  const FrameHeader& header,
                   uint32_t& outAmount) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   if (header.length != kFrameWindowUpdateSize) {
@@ -508,7 +512,7 @@ parseWindowUpdate(Cursor& cursor,
 
 ErrorCode
 parseContinuation(Cursor& cursor,
-                  FrameHeader header,
+                  const FrameHeader& header,
                   std::unique_ptr<IOBuf>& outBuf) noexcept {
   DCHECK(header.type == FrameType::CONTINUATION);
   DCHECK_LE(header.length, cursor.totalLength());
@@ -521,7 +525,7 @@ parseContinuation(Cursor& cursor,
 
 ErrorCode
 parseAltSvc(Cursor& cursor,
-            FrameHeader header,
+            const FrameHeader& header,
             uint32_t& outMaxAge,
             uint32_t& outPort,
             std::string& outProtocol,

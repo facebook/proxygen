@@ -37,15 +37,13 @@ class HTTP2FramerTest : public testing::Test {
  public:
   HTTP2FramerTest() {}
 
-  template<typename... Args>
-  void parse(ErrorCode (*parseFn)(Cursor& cursor, FrameHeader, Args...),
-             FrameHeader& outHeader, Args&&... outArgs) {
+  template<typename ParseFunc, typename... Args>
+  void parse(ParseFunc&& parseFn, FrameHeader& outHeader, Args&&... outArgs) {
     parse(queue_.front(), parseFn, outHeader, std::forward<Args>(outArgs)...);
   }
 
-  template<typename... Args>
-  void parse(const IOBuf* data,
-             ErrorCode (*parseFn)(Cursor& cursor, FrameHeader, Args...),
+  template<typename ParseFunc, typename... Args>
+  void parse(const IOBuf* data, ParseFunc&& parseFn,
              FrameHeader& outHeader, Args&&... outArgs) {
     Cursor cursor(data);
     auto ret1 = parseFrameHeader(cursor, outHeader);
