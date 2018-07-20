@@ -465,7 +465,7 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
 
 HeaderDecodeResult SPDYCodec::decodeHeaders(Cursor& cursor) {
   auto result = headerCodec_.decode(cursor, length_);
-  if (result.isError()) {
+  if (result.hasError()) {
     auto err = result.error();
     if (err == GzipDecodeError::HEADERS_TOO_LARGE ||
         err == GzipDecodeError::INFLATE_DICTIONARY ||
@@ -482,8 +482,8 @@ HeaderDecodeResult SPDYCodec::decodeHeaders(Cursor& cursor) {
                            "Error parsing header: " + folly::to<string>(err));
   }
 
-  length_ -= result.ok().bytesConsumed;
-  return result.ok();
+  length_ -= result->bytesConsumed;
+  return *result;
 }
 
 bool SPDYCodec::isSPDYReserved(const std::string& name) {

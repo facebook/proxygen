@@ -10,11 +10,11 @@
 #pragma once
 
 #include <memory>
+#include <folly/Expected.h>
 #include <folly/FBString.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 #include <proxygen/lib/http/codec/compress/HeaderPiece.h>
-#include <proxygen/lib/utils/Result.h>
 #include <vector>
 
 namespace folly {

@@ -14,8 +14,6 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPParallelCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
-#include <proxygen/lib/utils/Result.h>
-
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
 #include <bitset>

@@ -6,7 +6,6 @@ UtilTests_SOURCES = \
 	GenericFilterTest.cpp \
 	HTTPTimeTest.cpp \
 	ParseURLTest.cpp \
-	ResultTest.cpp \
 	UtilTest.cpp
 
 UtilTests_LDADD = \

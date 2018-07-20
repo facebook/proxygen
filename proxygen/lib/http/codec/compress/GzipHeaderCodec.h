@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/Expected.h>
 #include <folly/ThreadLocal.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
@@ -42,7 +43,7 @@ class GzipHeaderCodec : public HeaderCodec {
   std::unique_ptr<folly::IOBuf> encode(
     std::vector<compress::Header>& headers) noexcept;
 
-  Result<HeaderDecodeResult, GzipDecodeError>
+  folly::Expected<HeaderDecodeResult, GzipDecodeError>
   decode(folly::io::Cursor& cursor, uint32_t length) noexcept;
 
   /**
@@ -58,7 +59,7 @@ class GzipHeaderCodec : public HeaderCodec {
   /**
    * Parse the decompressed name/value header block.
    */
-  Result<size_t, GzipDecodeError>
+  folly::Expected<size_t, GzipDecodeError>
   parseNameValues(const folly::IOBuf& uncompressed,
                   uint32_t uncompressedLength) noexcept;
 

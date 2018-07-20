@@ -72,8 +72,8 @@ TEST_F(QPACKTests, test_simple) {
   server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
   headerAck(1);
   auto result = cb.getResult();
-  EXPECT_TRUE(result.isOk());
-  headersEq(req, result.ok().headers);
+  EXPECT_TRUE(!result.hasError());
+  headersEq(req, result->headers);
 }
 
 TEST_F(QPACKTests, test_absolute_index) {
@@ -99,8 +99,8 @@ TEST_F(QPACKTests, test_absolute_index) {
     server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
     headerAck(i + 1);
     auto result = cb.getResult();
-    EXPECT_TRUE(result.isOk());
-    headersEq(req, result.ok().headers);
+    EXPECT_TRUE(!result.hasError());
+    headersEq(req, result->headers);
   }
 }
 
@@ -153,13 +153,13 @@ TEST_F(QPACKTests, test_with_queue) {
     int i = 0;
     for (auto& d: data) {
       auto result = d.second.getResult();
-      EXPECT_TRUE(result.isOk());
+      EXPECT_TRUE(!result.hasError());
       auto reqI = req;
       for (int j = 0; j < 2; j++) {
         reqI.emplace_back(HTTP_HEADER_CONNECTION,
                           values[std::max(f * 4 + i - j * 8, 0)]);
       }
-      headersEq(reqI, result.ok().headers);
+      headersEq(reqI, result->headers);
       headerAck(f * 4 + i);
       i++;
     }

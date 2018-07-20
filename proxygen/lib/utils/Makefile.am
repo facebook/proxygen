@@ -34,7 +34,6 @@ nobase_libutils_HEADERS = \
 	FilterChain.h \
 	HTTPTime.h \
 	ParseURL.h \
-	Result.h \
 	StateMachine.h \
 	TestUtils.h \
 	Time.h \

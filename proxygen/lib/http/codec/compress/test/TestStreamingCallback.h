@@ -10,6 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <folly/Expected.h>
 #include <folly/Function.h>
 
 namespace proxygen {
@@ -35,11 +36,11 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
     error = HPACK::DecodeError::NONE;
   }
 
-  Result<HeaderDecodeResult, HPACK::DecodeError> getResult() {
+  folly::Expected<HeaderDecodeResult, HPACK::DecodeError> getResult() {
     if (error == HPACK::DecodeError::NONE) {
       return HeaderDecodeResult{headers, 0};
     } else {
-      return error;
+      return folly::makeUnexpected(error);
     }
   }
 

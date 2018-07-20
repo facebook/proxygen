@@ -92,18 +92,19 @@ struct DecodeResult {
   uint32_t bytesConsumed;
 };
 
-Result<DecodeResult, HPACK::DecodeError>
+folly::Expected<DecodeResult, HPACK::DecodeError>
 decode(HPACKCodec& codec, Cursor& cursor, uint32_t length) noexcept {
   TestStreamingCallback cb;
   codec.decodeStreaming(cursor, length, &cb);
   if (cb.hasError()) {
     LOG(ERROR) << "decoder state: " << codec;
-    return cb.error;
+    return folly::makeUnexpected(cb.error);
   }
-  return DecodeResult{std::move(cb.getResult().ok().headers),
-      cb.getResult().ok().bytesConsumed};
+  return DecodeResult{std::move(cb.getResult()->headers),
+      cb.getResult()->bytesConsumed};
 }
-Result<DecodeResult, HPACK::DecodeError>
+
+folly::Expected<DecodeResult, HPACK::DecodeError>
 encodeDecode(HPACKCodec& encoder, HPACKCodec& decoder,
              vector<Header>&& headers) {
   unique_ptr<IOBuf> encoded = encoder.encode(headers);
@@ -130,8 +131,8 @@ class HPACKCodecTests : public testing::Test {
 TEST_F(HPACKCodecTests, request) {
   for (int i = 0; i < 3; i++) {
     auto result = encodeDecode(client, server, basicHeaders());
-    EXPECT_TRUE(result.isOk());
-    EXPECT_EQ(result.ok().headers.size(), 6);
+    EXPECT_TRUE(!result.hasError());
+    EXPECT_EQ(result->headers.size(), 6);
   }
 }
 
@@ -145,8 +146,8 @@ TEST_F(HPACKCodecTests, response) {
 
   for (int i = 0; i < 3; i++) {
     auto result = encodeDecode(server, client, basicHeaders());
-    EXPECT_TRUE(result.isOk());
-    EXPECT_EQ(result.ok().headers.size(), 6);
+    EXPECT_TRUE(!result.hasError());
+    EXPECT_EQ(result->headers.size(), 6);
   }
 }
 
@@ -159,8 +160,8 @@ TEST_F(HPACKCodecTests, headroom) {
   EXPECT_EQ(encodedReq->headroom(), headroom);
   Cursor cursor(encodedReq.get());
   auto result = decode(server, cursor, cursor.totalLength());
-  EXPECT_TRUE(result.isOk());
-  EXPECT_EQ(result.ok().headers.size(), 6);
+  EXPECT_TRUE(!result.hasError());
+  EXPECT_EQ(result->headers.size(), 6);
 }
 
 /**
@@ -173,8 +174,8 @@ TEST_F(HPACKCodecTests, lowercasing_header_names) {
     {"X-FB-Debug", "bleah"}
   };
   auto result = encodeDecode(server, client, headersFromArray(headers));
-  EXPECT_TRUE(result.isOk());
-  auto& decoded = result.ok().headers;
+  EXPECT_TRUE(!result.hasError());
+  auto& decoded = result->headers;
   CHECK_EQ(decoded.size(), 6);
   for (int i = 0; i < 6; i += 2) {
     EXPECT_TRUE(isLowercase(decoded[i].str));
@@ -193,8 +194,8 @@ TEST_F(HPACKCodecTests, multivalue_headers) {
     {"X-FB-Dup", "hahaha"}
   };
   auto result = encodeDecode(server, client, headersFromArray(headers));
-  EXPECT_TRUE(result.isOk());
-  auto& decoded = result.ok().headers;
+  EXPECT_TRUE(!result.hasError());
+  auto& decoded = result->headers;
   CHECK_EQ(decoded.size(), 8);
   uint32_t count = 0;
   for (int i = 0; i < 8; i += 2) {
@@ -222,7 +223,7 @@ TEST_F(HPACKCodecTests, decode_error) {
   client.setStats(&stats);
   auto result = decode(client, cursor, cursor.totalLength());
   // this means there was an error
-  EXPECT_TRUE(result.isError());
+  EXPECT_TRUE(result.hasError());
   EXPECT_EQ(result.error(), HPACK::DecodeError::INVALID_INDEX);
   EXPECT_EQ(stats.errors, 1);
   client.setStats(nullptr);
@@ -257,8 +258,8 @@ TEST_F(HPACKCodecTests, header_codec_stats) {
   stats.reset();
   client.setStats(&stats);
   auto result = decode(client, cursor, cursor.totalLength());
-  EXPECT_TRUE(result.isOk());
-  auto& decoded = result.ok().headers;
+  EXPECT_TRUE(!result.hasError());
+  auto& decoded = result->headers;
   CHECK_EQ(decoded.size(), 3 * 2);
   EXPECT_EQ(stats.decodes, 1);
   EXPECT_EQ(stats.encodes, 0);
@@ -282,7 +283,7 @@ TEST_F(HPACKCodecTests, uncompressed_size_limit) {
     headers.push_back(header);
   }
   auto result = encodeDecode(server, client, headersFromArray(headers));
-  EXPECT_TRUE(result.isError());
+  EXPECT_TRUE(result.hasError());
   EXPECT_EQ(result.error(), HPACK::DecodeError::HEADERS_TOO_LARGE);
 }
 
@@ -307,7 +308,7 @@ TEST_F(HPACKCodecTests, size_limit_stats) {
   server.setStats(&stats);
   server.decodeStreaming(cursor, cursor.totalLength(), &cb);
   auto result = cb.getResult();
-  EXPECT_TRUE(result.isError());
+  EXPECT_TRUE(result.hasError());
   EXPECT_EQ(result.error(), HPACK::DecodeError::HEADERS_TOO_LARGE);
   EXPECT_EQ(stats.tooLarge, 1);
 }
@@ -362,8 +363,8 @@ TEST_F(HPACKQueueTests, queue_inline) {
     cb.reset();
     queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &cb, false);
     auto result = cb.getResult();
-    EXPECT_TRUE(result.isOk());
-    EXPECT_EQ(result.ok().headers.size(), 6);
+    EXPECT_TRUE(!result.hasError());
+    EXPECT_EQ(result->headers.size(), 6);
   }
 }
 
@@ -384,8 +385,8 @@ TEST_F(HPACKQueueTests, queue_reorder) {
   }
   for (auto& d: data) {
     auto result = d.second.getResult();
-    EXPECT_TRUE(result.isOk());
-    EXPECT_EQ(result.ok().headers.size(), 6);
+    EXPECT_TRUE(!result.hasError());
+    EXPECT_EQ(result->headers.size(), 6);
   }
   EXPECT_EQ(queue->getHolBlockCount(), 3);
 }
@@ -408,8 +409,8 @@ TEST_F(HPACKQueueTests, queue_reorder_ooo) {
   }
   for (auto& d: data) {
     auto result = d.second.getResult();
-    EXPECT_TRUE(result.isOk());
-    EXPECT_EQ(result.ok().headers.size(), 6);
+    EXPECT_TRUE(!result.hasError());
+    EXPECT_EQ(result->headers.size(), 6);
   }
   EXPECT_EQ(queue->getHolBlockCount(), 1);
 }
@@ -427,10 +428,10 @@ TEST_F(HPACKQueueTests, queue_error) {
     queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &cb, true);
     auto result = cb.getResult();
     if (expectOk) {
-      EXPECT_TRUE(result.isOk());
-      EXPECT_EQ(result.ok().headers.size(), 6);
+      EXPECT_TRUE(!result.hasError());
+      EXPECT_EQ(result->headers.size(), 6);
     } else {
-      EXPECT_TRUE(result.isError());
+      EXPECT_TRUE(result.hasError());
       EXPECT_EQ(result.error(), HPACK::DecodeError::BAD_SEQUENCE_NUMBER);
     }
     expectOk = !expectOk;

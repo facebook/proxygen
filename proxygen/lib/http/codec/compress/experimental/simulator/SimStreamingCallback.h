@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/Expected.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
@@ -72,11 +73,11 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
     DCHECK(false) << "Unexpected error in simulator";
   }
 
-  Result<proxygen::HTTPMessage*, HPACK::DecodeError> getResult() {
+  folly::Expected<proxygen::HTTPMessage*, HPACK::DecodeError> getResult() {
     if (error == HPACK::DecodeError::NONE) {
       return &msg;
     } else {
-      return error;
+      return folly::makeUnexpected(error);
     }
   }
 

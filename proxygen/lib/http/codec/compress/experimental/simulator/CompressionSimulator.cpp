@@ -150,8 +150,8 @@ void CompressionSimulator::setupRequest(uint16_t index,
   auto decodeCompleteCB =
       [index, this, scheme](std::chrono::milliseconds holDelay) {
         // record processed timestamp
-        CHECK(callbacks_[index].getResult().isOk());
-        DCHECK_EQ(requests_[index], *callbacks_[index].getResult().ok());
+        CHECK(!callbacks_[index].getResult().hasError());
+        DCHECK_EQ(requests_[index], *callbacks_[index].getResult().value());
         stats_.holDelay += holDelay;
         VLOG(1) << "Finished decoding request=" << index
                 << " with holDelay=" << holDelay.count()
