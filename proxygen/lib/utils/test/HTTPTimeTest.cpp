@@ -50,3 +50,40 @@ TEST(HTTPTimeTests, ReallyOldTimeTest) {
   EXPECT_LT(a, c);
   EXPECT_LT(b, c);
 }
+
+TEST(HTTPTimeTests, TzToUnixTsTest) {
+  auto a = parseHTTPDateTime("Wed, 13 Jun 2018 21:43:49 GMT");
+  EXPECT_EQ(a.value(), 1528926229);
+  auto b = parseHTTPDateTime("Wed, 31 Dec 1969 23:59:59 GMT");
+  EXPECT_EQ(b.value(), -1);
+  auto c = parseHTTPDateTime("Thu, 01 Jan 1970 00:00:00 GMT");
+  EXPECT_EQ(c.value(), 0);
+  auto d = parseHTTPDateTime("Thu, 01 Jan 1970 00:00:01 GMT");
+  EXPECT_EQ(d.value(), 1);
+
+  auto e = parseHTTPDateTime("Wed, 13-Jun-18 21:43:49 GMT");
+  EXPECT_EQ(e.value(), 1528926229);
+  auto f = parseHTTPDateTime("Wed, 31-Dec-69 23:59:59 GMT");
+  EXPECT_EQ(f.value(), -1);
+  auto g = parseHTTPDateTime("Wed, 01-Jan-70 00:00:00 GMT");
+  EXPECT_EQ(g.value(), 0);
+  auto h = parseHTTPDateTime("Thu, 01-Jan-70 00:00:01 GMT");
+  EXPECT_EQ(h.value(), 1);
+
+  auto i = parseHTTPDateTime("Wed Jun 13 21:43:49 2018");
+  EXPECT_EQ(i.value(), 1528926229);
+  auto j = parseHTTPDateTime("Wed Dec 31 23:59:59 1969");
+  EXPECT_EQ(j.value(), -1);
+  auto k = parseHTTPDateTime("Thu Jan 1 00:00:00 1970");
+  EXPECT_EQ(k.value(), 0);
+  auto l = parseHTTPDateTime("Thu Jan 1 00:00:01 1970");
+  EXPECT_EQ(l.value(), 1);
+
+  auto m = parseHTTPDateTime("Tue, 19 Jan 2038 03:14:07 GMT");
+  EXPECT_EQ(m.value(), 2147483647);
+
+  auto n = parseHTTPDateTime("Thu, 01 Jan 1970 00:00:01 PST");
+  EXPECT_FALSE(n.hasValue());
+  auto o = parseHTTPDateTime("Thu, 01 Jan 1970 00:00:01");
+  EXPECT_FALSE(o.hasValue());
+}
