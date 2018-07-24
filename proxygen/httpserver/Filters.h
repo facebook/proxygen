@@ -76,6 +76,10 @@ class Filter : public RequestHandler, public ResponseHandler {
     upstream_->onEgressResumed();
   }
 
+  ExMessageHandler* getExHandler() noexcept override {
+    return upstream_->getExHandler();
+  }
+
   // Response handler
   void sendHeaders(HTTPMessage& msg) noexcept override {
     downstream_->sendHeaders(msg);
