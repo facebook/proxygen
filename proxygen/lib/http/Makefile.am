@@ -27,6 +27,7 @@ nobase_libproxygenhttp_HEADERS = \
 	Window.h \
 	codec/CodecDictionaries.h \
 	codec/CodecProtocol.h \
+	codec/DefaultHTTPCodecFactory.h \
 	codec/ErrorCode.h \
 	codec/FlowControlFilter.h \
 	codec/HTTP1xCodec.h \
@@ -102,6 +103,7 @@ nobase_libproxygenhttp_HEADERS = \
 libproxygenhttp_la_SOURCES = \
 	HTTPCommonHeaders.cpp \
 	codec/CodecProtocol.cpp \
+	codec/DefaultHTTPCodecFactory.cpp \
 	codec/compress/GzipHeaderCodec.cpp \
 	codec/compress/HeaderIndexingStrategy.cpp \
 	codec/compress/HeaderTable.cpp \

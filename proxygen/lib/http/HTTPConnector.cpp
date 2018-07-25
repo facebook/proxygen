@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/HTTPConnector.h>
 
 #include <wangle/ssl/SSLUtil.h>
+#include <proxygen/lib/http/codec/DefaultHTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
@@ -17,19 +18,22 @@
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 
+
 using namespace folly;
 using namespace std;
 
 namespace proxygen {
 
 HTTPConnector::HTTPConnector(Callback* callback,
-    folly::HHWheelTimer* timeoutSet) :
-  HTTPConnector(callback, WheelTimerInstance(timeoutSet)) {
+    folly::HHWheelTimer* timeoutSet)
+    : HTTPConnector(callback, WheelTimerInstance(timeoutSet)) {
 }
 
 HTTPConnector::HTTPConnector(Callback* callback,
                              const WheelTimerInstance& timeout)
-    : cb_(CHECK_NOTNULL(callback)), timeout_(timeout) {}
+    : cb_(CHECK_NOTNULL(callback))
+    , timeout_(timeout)
+    , httpCodecFactory_(std::make_unique<DefaultHTTPCodecFactory>(false)) {}
 
 HTTPConnector::~HTTPConnector() {
   reset();
@@ -49,7 +53,7 @@ void HTTPConnector::setPlaintextProtocol(const std::string& plaintextProto) {
 }
 
 void HTTPConnector::setHTTPVersionOverride(bool enabled) {
-  forceHTTP1xCodecTo1_1_ = enabled;
+  httpCodecFactory_->setForceHTTP1xCodecTo1_1(enabled);
 }
 
 void HTTPConnector::connect(
@@ -129,10 +133,11 @@ void HTTPConnector::connectSuccess() noexcept {
       transportInfo_.sslVersion = sslSocket->getSSLVersion();
       transportInfo_.sslResume = wangle::SSLUtil::getResumeState(sslSocket);
     }
-
-    codec = makeCodec(socket_->getApplicationProtocol(), forceHTTP1xCodecTo1_1_);
+    codec = httpCodecFactory_->getCodec(socket_->getApplicationProtocol(),
+                                        TransportDirection::UPSTREAM, true);
   } else {
-    codec = makeCodec(plaintextProtocol_, forceHTTP1xCodecTo1_1_);
+    codec = httpCodecFactory_->getCodec(plaintextProtocol_,
+                                        TransportDirection::UPSTREAM, false);
   }
 
   HTTPUpstreamSession* session = new HTTPUpstreamSession(
@@ -147,30 +152,6 @@ void HTTPConnector::connectErr(const AsyncSocketException& ex) noexcept {
   socket_.reset();
   if (cb_) {
     cb_->connectError(ex);
-  }
-}
-
-unique_ptr<HTTPCodec> HTTPConnector::makeCodec(const string& chosenProto,
-                                               bool forceHTTP1xCodecTo1_1) {
-  auto spdyVersion = SPDYCodec::getVersion(chosenProto);
-  if (spdyVersion) {
-    return std::make_unique<SPDYCodec>(TransportDirection::UPSTREAM,
-                                         *spdyVersion);
-  } else if (chosenProto == proxygen::http2::kProtocolString ||
-             chosenProto == proxygen::http2::kProtocolCleartextString ||
-             chosenProto == proxygen::http2::kProtocolDraftString ||
-             chosenProto == proxygen::http2::kProtocolExperimentalString) {
-    return std::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
-  } else {
-    if (!chosenProto.empty() &&
-        !HTTP1xCodec::supportsNextProtocol(chosenProto)) {
-      LOG(ERROR) << "Chosen upstream protocol " <<
-        "\"" << chosenProto << "\" is unimplemented. " <<
-        "Attempting to use HTTP/1.1";
-    }
-
-    return std::make_unique<HTTP1xCodec>(TransportDirection::UPSTREAM,
-                                           forceHTTP1xCodecTo1_1);
   }
 }
 

@@ -12,7 +12,8 @@ CodecTests_SOURCES = \
 	SPDYCodecTest.cpp \
 	HTTP1xCodecTest.cpp \
 	HTTP2CodecTest.cpp \
-	HTTP2FramerTest.cpp
+	HTTP2FramerTest.cpp \
+	DefaultHTTPCodecFactoryTest.cpp
 
 CodecTests_LDADD = \
 	../../libproxygenhttp.la \
