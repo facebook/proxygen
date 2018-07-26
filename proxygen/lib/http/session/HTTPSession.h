@@ -279,8 +279,6 @@ class HTTPSession:
 
   virtual bool allTransactionsStarted() const = 0;
 
-  void setNewTransactionPauseState(HTTPCodec::StreamID streamID);
-
   /**
    * Invoked when the transaction finishes sending a message and
    * appropriately shuts down reads and/or writes with respect to
@@ -469,7 +467,6 @@ class HTTPSession:
    * callbacks if the size has crossed the buffering limit.
    */
   void updateWriteCount();
-  void updateWriteBufSize(int64_t delta);
 
   /**
    * Tells us what would be the offset of the next byte to be
@@ -564,7 +561,9 @@ class HTTPSession:
     }
   }
 
-  void resumeTransactions();
+  void pauseTransactions() override {
+    invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
+  }
 
   /**
    * This function invokes a callback on all transactions. It is safe,
@@ -652,9 +651,6 @@ class HTTPSession:
 
   /** Chain of ingress IOBufs */
   folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
-
-  /** Priority tree of transactions */
-  HTTP2PriorityQueue txnEgressQueue_;
 
   std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
 
@@ -911,12 +907,6 @@ class HTTPSession:
   uint64_t bytesScheduled_{0};
 
   /**
-   * The net change this event loop in the amount of buffered bytes
-   * for all this session's txns and socket write buffer.
-   */
-  int64_t pendingWriteSizeDelta_{0};
-
-  /**
    * Number of body un-encoded bytes in the write buffer per write iteration.
    */
   uint64_t bodyBytesPerWriteBuf_{0};
@@ -1011,8 +1001,6 @@ class HTTPSession:
   bool resetSocketOnShutdown_:1;
   // indicates a fatal error that prevents further ingress data processing
   bool inLoopCallback_:1;
-  bool inResume_:1;
-  bool pendingPause_:1;
 };
 
 
