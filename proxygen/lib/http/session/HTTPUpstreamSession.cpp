@@ -99,8 +99,9 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
 
   if (txn) {
     DestructorGuard dg(this);
+    auto txnID = txn->getID();
     txn->setHandler(CHECK_NOTNULL(handler));
-    setNewTransactionPauseState(txn);
+    setNewTransactionPauseState(txnID);
   }
   return txn;
 }
