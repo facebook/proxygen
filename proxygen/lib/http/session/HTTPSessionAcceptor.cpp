@@ -126,7 +126,7 @@ void HTTPSessionAcceptor::onNewConnection(
 
 size_t HTTPSessionAcceptor::dropIdleConnections(size_t num) {
   // release in batch for more efficiency
-  VLOG(4) << "attempt to reelease resource";
+  VLOG(6) << "attempt to release resource";
   return downstreamConnectionManager_->dropIdleConnections(num);
 }
 
