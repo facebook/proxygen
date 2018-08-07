@@ -128,6 +128,15 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastErrorCode = code;
   }
 
+  void onFrameHeader(
+    HTTPCodec::StreamID /*streamId*/,
+    uint8_t /*flags*/,
+    uint64_t /*length*/,
+    uint8_t /*type*/,
+    uint16_t /*version*/) override {
+    ++headerFrames;
+  }
+
   void onGoaway(uint64_t,
                 ErrorCode,
                 std::unique_ptr<folly::IOBuf> debugData) override {
@@ -247,6 +256,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     settingsAcks = 0;
     windowSize = 0;
     maxStreams = 0;
+    headerFrames = 0;
     priority = HTTPMessage::HTTPPriority(0, false, 0);
     windowUpdates.clear();
     data.move();
@@ -279,6 +289,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "settingsAcks: " << settingsAcks;
     VLOG(verbosity) << "windowSize: " << windowSize;
     VLOG(verbosity) << "maxStreams: " << maxStreams;
+    VLOG(verbosity) << "headerFrames: " << headerFrames;
   }
 
   HTTPCodec::StreamID headersCompleteId{0};
@@ -305,6 +316,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint32_t settingsAcks{0};
   uint32_t windowSize{0};
   uint32_t maxStreams{0};
+  uint32_t headerFrames{0};
   HTTPMessage::HTTPPriority priority{0, false, 0};
   std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t> > windowUpdates;
   folly::IOBufQueue data;
