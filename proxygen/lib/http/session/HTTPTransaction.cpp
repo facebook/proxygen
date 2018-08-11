@@ -1320,10 +1320,10 @@ void HTTPTransaction::setReceiveWindow(uint32_t capacity) {
 }
 
 void HTTPTransaction::flushWindowUpdate() {
-
   if (recvToAck_ > 0 && useFlowControl_ && !isIngressEOMSeen() &&
       (direction_ == TransportDirection::DOWNSTREAM ||
-       egressState_ != HTTPTransactionEgressSM::State::Start)) {
+        egressState_ != HTTPTransactionEgressSM::State::Start ||
+        ingressState_ != HTTPTransactionIngressSM::State::Start)) {
     // Down egress upstream window updates until after headers
     VLOG(4) << "recv_window is " << recvWindow_.getSize()
             << " / " << recvWindow_.getCapacity() << " after acking "
