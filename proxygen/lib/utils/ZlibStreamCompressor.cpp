@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include "ZlibStreamCompressor.h"
+#include "proxygen/lib/utils/ZlibStreamCompressor.h"
 
 #include <folly/lang/Bits.h>
 #include <folly/io/Cursor.h>
