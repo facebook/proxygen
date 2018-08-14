@@ -1377,11 +1377,14 @@ void SPDYCodec::onSettings(const SettingList& settings) {
                    << ", value=" << cur.value
                    << ", and flags=" << std::hex << cur.flags << std::dec;
     }
-    auto id = spdy::spdyToHttpSettingsId((spdy::SettingsId)cur.id);
-    if (id) {
-      ingressSettings_.setSetting(*id, cur.value);
-      auto s = ingressSettings_.getSetting(*id);
-      settingsList.push_back(*s);
+    if (cur.id >= spdy::SettingsId::SETTINGS_UPLOAD_BANDWIDTH &&
+        cur.id <= spdy::SettingsId::SETTINGS_CLIENT_CERTIFICATE_VECTOR_SIZE) {
+      auto id = spdy::spdyToHttpSettingsId((spdy::SettingsId)cur.id);
+      if (id) {
+        ingressSettings_.setSetting(*id, cur.value);
+        auto s = ingressSettings_.getSetting(*id);
+        settingsList.push_back(*s);
+      }
     }
   }
   callback_->onSettings(settingsList);
