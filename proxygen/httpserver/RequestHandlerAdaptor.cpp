@@ -93,11 +93,6 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
     return;
   }
 
-  if (!txn_->canSendHeaders()) {
-    // Cannot send anything else
-    return;
-  }
-
   if (error.getProxygenError() == kErrorTimeout) {
     setError(kErrorTimeout);
 
