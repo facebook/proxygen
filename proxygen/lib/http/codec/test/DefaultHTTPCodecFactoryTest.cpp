@@ -19,7 +19,7 @@ using namespace proxygen;
 using namespace testing;
 
 
-TEST(DefaultHTTPCodecFactoryTest, getCodec) {
+TEST(DefaultHTTPCodecFactoryTest, GetCodec) {
   DefaultHTTPCodecFactory factory(false);
   auto codec = factory.getCodec("spdy/3.1", TransportDirection::UPSTREAM, true);
   SPDYCodec* spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());

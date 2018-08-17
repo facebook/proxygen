@@ -25,7 +25,7 @@ class QPACKHeaderTableTests : public testing::Test {
   QPACKHeaderTable table_{320, true, 15};
 };
 
-TEST_F(QPACKHeaderTableTests, indexing) {
+TEST_F(QPACKHeaderTableTests, Indexing) {
   HPACKHeader accept("accept-encoding", "gzip");
   HPACKHeader agent("user-agent", "SeaMonkey");
 
@@ -45,7 +45,7 @@ TEST_F(QPACKHeaderTableTests, indexing) {
   EXPECT_EQ(table_.getIndex(accept, true), 2);
 }
 
-TEST_F(QPACKHeaderTableTests, eviction) {
+TEST_F(QPACKHeaderTableTests, Eviction) {
   HPACKHeader accept("accept-encoding", "gzip");
 
   int32_t max = 4;
@@ -70,7 +70,7 @@ TEST_F(QPACKHeaderTableTests, eviction) {
   EXPECT_TRUE(table_.canIndex(accept));
 }
 
-TEST_F(QPACKHeaderTableTests, wrapcount) {
+TEST_F(QPACKHeaderTableTests, Wrapcount) {
   HPACKHeader accept("accept-encoding", "gzip");
   HPACKHeader agent("user-agent", "SeaMonkey");
   HPACKHeader cookie("Cookie", "choco=chip");
@@ -90,14 +90,14 @@ TEST_F(QPACKHeaderTableTests, wrapcount) {
   EXPECT_EQ(table_.getHeader(table_.size(), table_.getBaseIndex()), accept);
 }
 
-TEST_F(QPACKHeaderTableTests, name_index) {
+TEST_F(QPACKHeaderTableTests, NameIndex) {
   HPACKHeader accept("accept-encoding", "gzip");
   EXPECT_EQ(table_.nameIndex(accept.name), 0);
   EXPECT_TRUE(table_.add(accept));
   EXPECT_EQ(table_.nameIndex(accept.name), 1);
 }
 
-TEST_F(QPACKHeaderTableTests, get_index) {
+TEST_F(QPACKHeaderTableTests, GetIndex) {
   HPACKHeader accept1("accept-encoding", "gzip");
   HPACKHeader accept2("accept-encoding", "blarf");
   EXPECT_EQ(table_.getIndex(accept1), 0);
@@ -106,7 +106,7 @@ TEST_F(QPACKHeaderTableTests, get_index) {
   EXPECT_EQ(table_.getIndex(accept2), 0);
 }
 
-TEST_F(QPACKHeaderTableTests, duplication) {
+TEST_F(QPACKHeaderTableTests, Duplication) {
   HPACKHeader accept("accept-encoding", "gzip");
 
   EXPECT_TRUE(table_.add(accept));
@@ -154,7 +154,7 @@ TEST_F(QPACKHeaderTableTests, duplication) {
 
 }
 
-TEST_F(QPACKHeaderTableTests, can_evict_with_room) {
+TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
   HPACKHeader thirtyNineBytes("abcd", "efg");
   HPACKHeader fortySevenBytes("abcd", "efghijklmno");
   for (auto i = 0; i < 8; i++) {
@@ -167,7 +167,7 @@ TEST_F(QPACKHeaderTableTests, can_evict_with_room) {
   EXPECT_TRUE(table_.add(fortySevenBytes));
 }
 
-TEST_F(QPACKHeaderTableTests, bad_sync) {
+TEST_F(QPACKHeaderTableTests, BadSync) {
   // Can't ack more than is in the table
   EXPECT_FALSE(table_.onTableStateSync(1));
 }

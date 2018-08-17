@@ -17,7 +17,7 @@ namespace StructuredHeaders {
 class StructuredHeadersUtilitiesTest : public testing::Test {
 };
 
-TEST_F(StructuredHeadersUtilitiesTest, test_lcalpha) {
+TEST_F(StructuredHeadersUtilitiesTest, TestLcalpha) {
   for (uint32_t i = 0; i < 256; i++) {
     uint8_t c = (uint8_t) i;
     if (c >= 'a' && c <= 'z') {
@@ -28,7 +28,7 @@ TEST_F(StructuredHeadersUtilitiesTest, test_lcalpha) {
   }
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_isValidIdentifierChar) {
+TEST_F(StructuredHeadersUtilitiesTest, TestIsValidIdentifierChar) {
   for (uint32_t i = 0; i < 256; i++) {
     uint8_t c = (uint8_t) i;
     if ((c >= 'a' && c <= 'z') ||
@@ -64,7 +64,7 @@ TEST_F(StructuredHeadersUtilitiesTest,
   EXPECT_FALSE(isValidEncodedBinaryContentChar(' '));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_isValidStringChar_allowed) {
+TEST_F(StructuredHeadersUtilitiesTest, TestIsValidStringCharAllowed) {
   EXPECT_TRUE(isValidStringChar(' '));
   EXPECT_TRUE(isValidStringChar('~'));
   EXPECT_TRUE(isValidStringChar('\\'));
@@ -74,54 +74,54 @@ TEST_F(StructuredHeadersUtilitiesTest, test_isValidStringChar_allowed) {
   EXPECT_TRUE(isValidStringChar('A'));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_isValidStringChar_disallowed) {
+TEST_F(StructuredHeadersUtilitiesTest, TestIsValidStringCharDisallowed) {
   EXPECT_FALSE(isValidStringChar('\0'));
   EXPECT_FALSE(isValidStringChar(0x1F));
   EXPECT_FALSE(isValidStringChar(0x7F));
   EXPECT_FALSE(isValidStringChar('\t'));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_isValidIdentifier_allowed) {
+TEST_F(StructuredHeadersUtilitiesTest, TestIsValidIdentifierAllowed) {
   EXPECT_TRUE(isValidIdentifier("a"));
   EXPECT_TRUE(isValidIdentifier("a_0-*/"));
   EXPECT_TRUE(isValidIdentifier("abc___xyz"));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_isValidIdentifier_disallowed) {
+TEST_F(StructuredHeadersUtilitiesTest, TestIsValidIdentifierDisallowed) {
   EXPECT_FALSE(isValidIdentifier("aAAA"));
   EXPECT_FALSE(isValidIdentifier("_aa"));
   EXPECT_FALSE(isValidIdentifier("0abc"));
   EXPECT_FALSE(isValidIdentifier(""));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_isValidString_allowed) {
+TEST_F(StructuredHeadersUtilitiesTest, TestIsValidStringAllowed) {
   EXPECT_TRUE(isValidString("a cat."));
   EXPECT_TRUE(isValidString("!~)($@^^) g"));
   EXPECT_TRUE(isValidString("\\\"\"\\"));
   EXPECT_TRUE(isValidString(""));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_isValidString_disallowed) {
+TEST_F(StructuredHeadersUtilitiesTest, TestIsValidStringDisallowed) {
   EXPECT_FALSE(isValidString("a\tcat."));
   EXPECT_FALSE(isValidString("\x10 aaaaaaa"));
   EXPECT_FALSE(isValidString("chocolate\x11"));
   EXPECT_FALSE(isValidString("pota\nto"));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_goodBinaryContent) {
+TEST_F(StructuredHeadersUtilitiesTest, TestGoodBinaryContent) {
   EXPECT_TRUE(isValidEncodedBinaryContent("aGVsbG8="));
   EXPECT_TRUE(isValidEncodedBinaryContent("ZGZzZGZmc2Rm"));
   EXPECT_TRUE(isValidEncodedBinaryContent("ZA=="));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_badBinaryContent) {
+TEST_F(StructuredHeadersUtilitiesTest, TestBadBinaryContent) {
   EXPECT_FALSE(isValidEncodedBinaryContent("aGVsbG8"));
   EXPECT_FALSE(isValidEncodedBinaryContent("aGVsb G8="));
   EXPECT_FALSE(isValidEncodedBinaryContent("aGVsbG!8="));
   EXPECT_FALSE(isValidEncodedBinaryContent("=aGVsbG8"));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_DecodeBinaryContent) {
+TEST_F(StructuredHeadersUtilitiesTest, Test_DecodeBinaryContent) {
   std::string input1 = "ZnJ1aXQ=";
   std::string input2 = "dG9tYXRv";
   std::string input3 = "ZWdncw==";
@@ -130,7 +130,7 @@ TEST_F(StructuredHeadersUtilitiesTest, test_DecodeBinaryContent) {
   EXPECT_EQ(decodeBase64(input3), "eggs");
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_EncodeBinaryContent) {
+TEST_F(StructuredHeadersUtilitiesTest, Test_EncodeBinaryContent) {
   std::string input1 = "fruit";
   std::string input2 = "tomato";
   std::string input3 = "eggs";
@@ -139,14 +139,14 @@ TEST_F(StructuredHeadersUtilitiesTest, test_EncodeBinaryContent) {
   EXPECT_EQ(encodeBase64(input3), "ZWdncw==");
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_BinaryContentEmpty) {
+TEST_F(StructuredHeadersUtilitiesTest, Test_BinaryContentEmpty) {
   std::string input1 = "";
   std::string input2 = "";
   EXPECT_EQ(encodeBase64(input1), "");
   EXPECT_EQ(decodeBase64(input2), "");
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_itemTypeMatchesContent_good) {
+TEST_F(StructuredHeadersUtilitiesTest, TestItemTypeMatchesContentGood) {
   StructuredHeaderItem item;
   item.value = "\"potato\"";
   item.tag = StructuredHeaderItem::Type::STRING;
@@ -172,7 +172,7 @@ TEST_F(StructuredHeadersUtilitiesTest, test_itemTypeMatchesContent_good) {
   EXPECT_TRUE(itemTypeMatchesContent(item));
 }
 
-TEST_F(StructuredHeadersUtilitiesTest, test_itemTypeMatchesContent_bad) {
+TEST_F(StructuredHeadersUtilitiesTest, TestItemTypeMatchesContentBad) {
   StructuredHeaderItem item;
 
   item.value = "hello";

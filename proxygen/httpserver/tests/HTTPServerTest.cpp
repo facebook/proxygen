@@ -655,14 +655,14 @@ class ScopedServerTest : public testing::Test {
         HTTPServer::Protocol::HTTP};
 };
 
-TEST_F(ScopedServerTest, start) {
+TEST_F(ScopedServerTest, Start) {
   auto server = createScopedServer();
   auto client = connectPlainText();
   auto resp = client->getResponse();
   EXPECT_EQ(200, resp->getStatusCode());
 }
 
-TEST_F(ScopedServerTest, startStrictSSL) {
+TEST_F(ScopedServerTest, StartStrictSSL) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
@@ -673,7 +673,7 @@ TEST_F(ScopedServerTest, startStrictSSL) {
   EXPECT_THROW(createScopedServer(), std::exception);
 }
 
-TEST_F(ScopedServerTest, startNotStrictSSL) {
+TEST_F(ScopedServerTest, StartNotStrictSSL) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
@@ -688,7 +688,7 @@ TEST_F(ScopedServerTest, startNotStrictSSL) {
   EXPECT_EQ(200, resp->getStatusCode());
 }
 
-TEST_F(ScopedServerTest, startSSLWithInsecure) {
+TEST_F(ScopedServerTest, StartSSLWithInsecure) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(

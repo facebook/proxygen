@@ -38,7 +38,7 @@ class TestContext : public HPACKContext {
 
 };
 
-TEST_F(HPACKContextTests, get_index) {
+TEST_F(HPACKContextTests, GetIndex) {
   HPACKContext context(HPACK::kTableSize);
   HPACKHeader method(":method", "POST");
 
@@ -46,7 +46,7 @@ TEST_F(HPACKContextTests, get_index) {
   CHECK_EQ(context.getIndex(method), 3);
 }
 
-TEST_F(HPACKContextTests, is_static) {
+TEST_F(HPACKContextTests, IsStatic) {
   TestContext context(HPACK::kTableSize);
   // add 10 headers to the table
   for (int i = 1; i <= 10; i++) {
@@ -64,7 +64,7 @@ TEST_F(HPACKContextTests, is_static) {
   EXPECT_EQ(context.isStatic(69), false);
 }
 
-TEST_F(HPACKContextTests, static_table) {
+TEST_F(HPACKContextTests, StaticTable) {
   auto& table = StaticHeaderTable::get();
   const HPACKHeader& first = table.getHeader(1);
   const HPACKHeader& methodPost = table.getHeader(3);
@@ -77,7 +77,7 @@ TEST_F(HPACKContextTests, static_table) {
   CHECK_EQ(last.name.get(), "www-authenticate");
 }
 
-TEST_F(HPACKContextTests, static_table_header_names_are_common) {
+TEST_F(HPACKContextTests, StaticTableHeaderNamesAreCommon) {
   auto& table = StaticHeaderTable::get();
   for (std::pair<HPACKHeaderName, std::list<uint32_t>> entry : table.names()) {
     EXPECT_TRUE(entry.first.isCommonHeader());
@@ -96,7 +96,7 @@ TEST_F(HPACKContextTests,
   }
 }
 
-TEST_F(HPACKContextTests, static_index) {
+TEST_F(HPACKContextTests, StaticIndex) {
   TestContext context(HPACK::kTableSize);
   HPACKHeader authority(":authority", "");
   EXPECT_EQ(context.getHeader(1), authority);
@@ -108,7 +108,7 @@ TEST_F(HPACKContextTests, static_index) {
   EXPECT_EQ(context.getHeader(28), contentLength);
 }
 
-TEST_F(HPACKContextTests, encoder_multiple_values) {
+TEST_F(HPACKContextTests, EncoderMultipleValues) {
   HPACKEncoder encoder(true);
   vector<HPACKHeader> req;
   req.push_back(HPACKHeader("accept-encoding", "gzip"));
@@ -124,7 +124,7 @@ TEST_F(HPACKContextTests, encoder_multiple_values) {
   EXPECT_GT(encoded2->computeChainDataLength(), 0);
 }
 
-TEST_F(HPACKContextTests, decoder_large_header) {
+TEST_F(HPACKContextTests, DecoderLargeHeader) {
   // with this size basically the table will not be able to store any entry
   uint32_t size = 32;
   HPACKHeader header;
@@ -143,7 +143,7 @@ TEST_F(HPACKContextTests, decoder_large_header) {
 /**
  * testing invalid memory access in the decoder; it has to always call peek()
  */
-TEST_F(HPACKContextTests, decoder_invalid_peek) {
+TEST_F(HPACKContextTests, DecoderInvalidPeek) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
   vector<HPACKHeader> headers;
@@ -164,7 +164,7 @@ TEST_F(HPACKContextTests, decoder_invalid_peek) {
 /**
  * similar with the one above, but slightly different code paths
  */
-TEST_F(HPACKContextTests, decoder_invalid_literal_peek) {
+TEST_F(HPACKContextTests, DecoderInvalidLiteralPeek) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
   vector<HPACKHeader> headers;
@@ -191,7 +191,7 @@ void checkError(const IOBuf* buf, const HPACK::DecodeError err) {
   EXPECT_EQ(decoder.getError(), err);
 }
 
-TEST_F(HPACKContextTests, decode_errors) {
+TEST_F(HPACKContextTests, DecodeErrors) {
   unique_ptr<IOBuf> buf = IOBuf::create(128);
 
   // 1. simulate an error decoding the index for an indexed header name
@@ -247,7 +247,7 @@ TEST_F(HPACKContextTests, decode_errors) {
   checkError(buf.get(), HPACK::DecodeError::INTEGER_OVERFLOW);
 }
 
-TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
+TEST_F(HPACKContextTests, ExcludeHeadersLargerThanTable) {
   HPACKEncoder encoder{true, 128};
   std::string longer = std::string(150, '.');
   HPACKHeader header1(longer, "header");
@@ -266,7 +266,7 @@ TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
   CHECK_EQ(encoder.getIndex(headers[0]), 62);
 }
 
-TEST_P(HPACKContextTests, contextUpdate) {
+TEST_P(HPACKContextTests, ContextUpdate) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
   vector<HPACKHeader> headers;

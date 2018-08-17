@@ -61,7 +61,7 @@ class QPACKTests : public testing::Test {
   QPACKCodec server;
 };
 
-TEST_F(QPACKTests, test_simple) {
+TEST_F(QPACKTests, TestSimple) {
   vector<Header> req = basicHeaders();
   auto encodeResult = client.encode(req, 1);
   ASSERT_NE(encodeResult.control.get(), nullptr);
@@ -76,7 +76,7 @@ TEST_F(QPACKTests, test_simple) {
   headersEq(req, result->headers);
 }
 
-TEST_F(QPACKTests, test_absolute_index) {
+TEST_F(QPACKTests, TestAbsoluteIndex) {
   int flights = 10;
   for (int i = 0; i < flights; i++) {
     vector<vector<string>> headers;
@@ -104,7 +104,7 @@ TEST_F(QPACKTests, test_absolute_index) {
   }
 }
 
-TEST_F(QPACKTests, test_with_queue) {
+TEST_F(QPACKTests, TestWithQueue) {
   // Sends 10 flights of 4 requests each
   // Each request contains two 'connection' headers, one with the current
   // index, and current index - 8.

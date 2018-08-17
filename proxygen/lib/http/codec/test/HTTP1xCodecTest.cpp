@@ -555,7 +555,7 @@ TEST(HTTP1xCodecTest, WebsocketUpgradeKeyError) {
   EXPECT_EQ(callbacks.errors, 1);
 }
 
-TEST(HTTP1xCodecTest, websocketUpgradeHeaderSet) {
+TEST(HTTP1xCodecTest, WebsocketUpgradeHeaderSet) {
   HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
   HTTPMessage req;
   req.setMethod(HTTPMethod::GET);
@@ -575,7 +575,7 @@ TEST(HTTP1xCodecTest, websocketUpgradeHeaderSet) {
       empty_string);
 }
 
-TEST(HTTP1xCodecTest, websocketConnectionHeader) {
+TEST(HTTP1xCodecTest, WebsocketConnectionHeader) {
   HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
   HTTPMessage req;
   req.setMethod(HTTPMethod::GET);

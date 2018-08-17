@@ -477,7 +477,7 @@ public HTTPDownstreamTest<HTTP2CodecPair> {
 };
 }
 
-TEST_F(HTTP2DownstreamSessionEarlyShutdownTest, early_shutdown) {
+TEST_F(HTTP2DownstreamSessionEarlyShutdownTest, EarlyShutdown) {
   folly::DelayedDestruction::DestructorGuard g(httpSession_);
 
   // Try shutting down the session and then starting it. This should be properly
@@ -495,7 +495,7 @@ TEST_F(HTTP2DownstreamSessionEarlyShutdownTest, early_shutdown) {
   parseOutput(*clientCodec_);
 }
 
-TEST_F(HTTPDownstreamSessionTest, immediate_eof) {
+TEST_F(HTTPDownstreamSessionTest, ImmediateEof) {
   // Send EOF without any request data
   EXPECT_CALL(mockController_, getRequestHandler(_, _)).Times(0);
   expectDetachSession();
@@ -503,7 +503,7 @@ TEST_F(HTTPDownstreamSessionTest, immediate_eof) {
   flushRequestsAndLoop(true, milliseconds(0));
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_1_0_no_headers) {
+TEST_F(HTTPDownstreamSessionTest, Http10NoHeaders) {
   InSequence enforceOrder;
 
   auto handler = addSimpleNiceHandler();
@@ -524,7 +524,7 @@ TEST_F(HTTPDownstreamSessionTest, http_1_0_no_headers) {
   flushRequestsAndLoop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_1_0_no_headers_eof) {
+TEST_F(HTTPDownstreamSessionTest, Http10NoHeadersEof) {
   InSequence enforceOrder;
 
   auto handler = addSimpleNiceHandler();
@@ -544,7 +544,7 @@ TEST_F(HTTPDownstreamSessionTest, http_1_0_no_headers_eof) {
   flushRequestsAndLoop(true, milliseconds(0));
 }
 
-TEST_F(HTTPDownstreamSessionTest, single_bytes) {
+TEST_F(HTTPDownstreamSessionTest, SingleBytes) {
   InSequence enforceOrder;
 
   auto handler = addSimpleNiceHandler();
@@ -573,7 +573,7 @@ TEST_F(HTTPDownstreamSessionTest, single_bytes) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, single_bytes_with_body) {
+TEST_F(HTTPDownstreamSessionTest, SingleBytesWithBody) {
   InSequence enforceOrder;
 
   auto handler = addSimpleNiceHandler();
@@ -611,7 +611,7 @@ TEST_F(HTTPDownstreamSessionTest, single_bytes_with_body) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, split_body) {
+TEST_F(HTTPDownstreamSessionTest, SplitBody) {
   InSequence enforceOrder;
 
   auto handler = addSimpleNiceHandler();
@@ -635,7 +635,7 @@ TEST_F(HTTPDownstreamSessionTest, split_body) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, post_chunked) {
+TEST_F(HTTPDownstreamSessionTest, PostChunked) {
   InSequence enforceOrder;
 
   auto handler = addSimpleNiceHandler();
@@ -690,7 +690,7 @@ TEST_F(HTTPDownstreamSessionTest, post_chunked) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, multi_message) {
+TEST_F(HTTPDownstreamSessionTest, MultiMessage) {
   InSequence enforceOrder;
 
   auto handler1 = addSimpleNiceHandler();
@@ -730,7 +730,7 @@ TEST_F(HTTPDownstreamSessionTest, multi_message) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, connect) {
+TEST_F(HTTPDownstreamSessionTest, Connect) {
   InSequence enforceOrder;
 
   auto handler = addSimpleStrictHandler();
@@ -756,7 +756,7 @@ TEST_F(HTTPDownstreamSessionTest, connect) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, connect_rejected) {
+TEST_F(HTTPDownstreamSessionTest, ConnectRejected) {
   InSequence enforceOrder;
 
   auto handler = addSimpleStrictHandler();
@@ -776,7 +776,7 @@ TEST_F(HTTPDownstreamSessionTest, connect_rejected) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_upgrade) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgrade) {
   InSequence enforceOrder;
 
   auto handler = addSimpleStrictHandler();
@@ -800,7 +800,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade) {
   flushRequestsAndLoop(true, milliseconds(0));
 }
 
-TEST(HTTPDownstreamTest, parse_error_no_txn) {
+TEST(HTTPDownstreamTest, ParseErrorNoTxn) {
   // 1) Get a parse error on SYN_STREAM for streamID == 1
   // 2) Expect that the codec should be asked to generate an abort on
   //    streamID==1
@@ -851,7 +851,7 @@ TEST(HTTPDownstreamTest, parse_error_no_txn) {
   evb.loop();
 }
 
-TEST(HTTPDownstreamTest, byte_events_drained) {
+TEST(HTTPDownstreamTest, ByteEventsDrained) {
   // Test that byte events are drained before socket is closed
   EventBase evb;
 
@@ -887,7 +887,7 @@ TEST(HTTPDownstreamTest, byte_events_drained) {
   evb.loop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
+TEST_F(HTTPDownstreamSessionTest, HttpWithAckTiming) {
   // This is to test cases where holding a byte event to a finished HTTP/1.1
   // transaction does not masquerade as HTTP pipelining.
   auto byteEventTracker = setMockByteEventTracker();
@@ -930,7 +930,7 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing) {
   gracefulShutdown();
 }
 
-TEST_F(HTTPDownstreamSessionTest, test_on_content_mismatch) {
+TEST_F(HTTPDownstreamSessionTest, TestOnContentMismatch) {
   // Test the behavior when the reported content-length on the header
   // is different from the actual length of the body.
   // The expectation is simply to log the behavior, such as:
@@ -961,7 +961,7 @@ TEST_F(HTTPDownstreamSessionTest, test_on_content_mismatch) {
   gracefulShutdown();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
+TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipeline) {
   // Test a real pipelining case as well.  First request is done waiting for
   // ack, then receive two pipelined requests.
   auto byteEventTracker = setMockByteEventTracker();
@@ -1010,7 +1010,7 @@ TEST_F(HTTPDownstreamSessionTest, http_with_ack_timing_pipeline) {
  * - [client --> server] respond 2nd stream (OK, EOM)
  * - [client --> server] EOM on the 1st stream
  */
-TEST_F(HTTP2DownstreamSessionTest, exheader_from_server) {
+TEST_F(HTTP2DownstreamSessionTest, ExheaderFromServer) {
   auto cStreamId = HTTPCodec::StreamID(1);
   SetupControlStream(cStreamId);
 
@@ -1081,7 +1081,7 @@ TEST_F(HTTP2DownstreamSessionTest, exheader_from_server) {
  * - [server --> client] response on stream 3 (OK, EOM)
  * - [server --> client] response on stream 1 (EOM)
  */
-TEST_F(HTTP2DownstreamSessionTest, exheader_from_client) {
+TEST_F(HTTP2DownstreamSessionTest, ExheaderFromClient) {
   auto cStreamId = HTTPCodec::StreamID(1);
   SetupControlStream(cStreamId);
 
@@ -1133,7 +1133,7 @@ TEST_F(HTTP2DownstreamSessionTest, exheader_from_client) {
   parseOutput(*clientCodec_);
 }
 
-TEST_F(HTTP2DownstreamSessionTest, pause_resume_control_stream) {
+TEST_F(HTTP2DownstreamSessionTest, PauseResumeControlStream) {
   auto cStreamId = HTTPCodec::StreamID(1);
   SetupControlStream(cStreamId);
 
@@ -1186,7 +1186,7 @@ TEST_F(HTTP2DownstreamSessionTest, pause_resume_control_stream) {
   parseOutput(*clientCodec_);
 }
 
-TEST_F(HTTP2DownstreamSessionTest, invalid_control_stream) {
+TEST_F(HTTP2DownstreamSessionTest, InvalidControlStream) {
   auto cStreamId = HTTPCodec::StreamID(1);
   SetupControlStream(cStreamId);
 
@@ -1221,7 +1221,7 @@ TEST_F(HTTP2DownstreamSessionTest, invalid_control_stream) {
   parseOutput(*clientCodec_);
 }
 
-TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
+TEST_F(HTTP2DownstreamSessionTest, SetByteEventTracker) {
   InSequence enforceOrder;
 
   // Send two requests with writes paused, which will queue several byte events,
@@ -1261,7 +1261,7 @@ TEST_F(HTTP2DownstreamSessionTest, set_byte_event_tracker) {
   gracefulShutdown();
 }
 
-TEST_F(HTTPDownstreamSessionTest, test_tracked_byte_event_tracker) {
+TEST_F(HTTPDownstreamSessionTest, TestTrackedByteEventTracker) {
   auto byteEventTracker = setMockByteEventTracker();
   InSequence enforceOrder;
 
@@ -1289,11 +1289,11 @@ TEST_F(HTTPDownstreamSessionTest, test_tracked_byte_event_tracker) {
 }
 
 
-TEST_F(HTTPDownstreamSessionTest, trailers) {
+TEST_F(HTTPDownstreamSessionTest, Trailers) {
   testChunks(true);
 }
 
-TEST_F(HTTPDownstreamSessionTest, explicit_chunks) {
+TEST_F(HTTPDownstreamSessionTest, ExplicitChunks) {
   testChunks(false);
 }
 
@@ -1330,7 +1330,7 @@ void HTTPDownstreamTest<C>::testChunks(bool trailers) {
   expectDetachSession();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_drain) {
+TEST_F(HTTPDownstreamSessionTest, HttpDrain) {
   InSequence enforceOrder;
 
   auto handler1 = addSimpleStrictHandler();
@@ -1365,7 +1365,7 @@ TEST_F(HTTPDownstreamSessionTest, http_drain) {
 // 2) notify pending shutdown
 // 3) wait for session read timeout -> should be ignored
 // 4) response completed
-TEST_F(HTTPDownstreamSessionTest, http_drain_long_running) {
+TEST_F(HTTPDownstreamSessionTest, HttpDrainLongRunning) {
   InSequence enforceSequence;
 
   auto handler = addSimpleStrictHandler();
@@ -1388,7 +1388,7 @@ TEST_F(HTTPDownstreamSessionTest, http_drain_long_running) {
   flushRequestsAndLoop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, early_abort) {
+TEST_F(HTTPDownstreamSessionTest, EarlyAbort) {
   StrictMock<MockHTTPHandler> handler;
 
   InSequence enforceOrder;
@@ -1412,7 +1412,7 @@ TEST_F(HTTPDownstreamSessionTest, early_abort) {
   eventBase_.loop();
 }
 
-TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
+TEST_F(SPDY3DownstreamSessionTest, HttpPausedBuffered) {
   IOBufQueue rst{IOBufQueue::cacheChainLength()};
   auto s = sendRequest();
   clientCodec_->generateRstStream(rst, s, ErrorCode::CANCEL);
@@ -1450,7 +1450,7 @@ TEST_F(SPDY3DownstreamSessionTest, http_paused_buffered) {
   flushRequestsAndLoop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
+TEST_F(HTTPDownstreamSessionTest, HttpWritesDrainingTimeout) {
   sendRequest();
   sendHeader();
 
@@ -1475,7 +1475,7 @@ TEST_F(HTTPDownstreamSessionTest, http_writes_draining_timeout) {
   flushRequestsAndLoop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
+TEST_F(HTTPDownstreamSessionTest, HttpRateLimitNormal) {
   // The rate-limiting code grabs the event base from the EventBaseManager,
   // so we need to set it.
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
@@ -1517,7 +1517,7 @@ TEST_F(HTTPDownstreamSessionTest, http_rate_limit_normal) {
   cleanup();
 }
 
-TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
+TEST_F(SPDY3DownstreamSessionTest, SpdyRateLimitNormal) {
   // The rate-limiting code grabs the event base from the EventBaseManager,
   // so we need to set it.
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
@@ -1562,7 +1562,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_normal) {
  * This test will reset the connection while the server is waiting around
  * to send more bytes (so as to keep under the rate limit).
  */
-TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
+TEST_F(SPDY3DownstreamSessionTest, SpdyRateLimitRst) {
   // The rate-limiting code grabs the event base from the EventBaseManager,
   // so we need to set it.
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
@@ -1598,7 +1598,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_rate_limit_rst) {
 // Send a 1.0 request, egress the EOM with the last body chunk on a paused
 // socket, and let it timeout.  dropConnection()
 // to removeTransaction with writesDraining_=true
-TEST_F(HTTPDownstreamSessionTest, write_timeout) {
+TEST_F(HTTPDownstreamSessionTest, WriteTimeout) {
   HTTPMessage req = getGetRequest();
   req.setHTTPVersion(1, 0);
   sendRequest(req);
@@ -1628,7 +1628,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout) {
 }
 
 // Send an abort from the write timeout path while pipelining
-TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
+TEST_F(HTTPDownstreamSessionTest, WriteTimeoutPipeline) {
   const char* buf = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
     "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
   requests_.append(buf, strlen(buf));
@@ -1668,7 +1668,7 @@ TEST_F(HTTPDownstreamSessionTest, write_timeout_pipeline) {
   flushRequestsAndLoop();
 }
 
-TEST_F(HTTPDownstreamSessionTest, body_packetization) {
+TEST_F(HTTPDownstreamSessionTest, BodyPacketization) {
   HTTPMessage req = getGetRequest();
   req.setHTTPVersion(1, 0);
   req.setWantsKeepalive(false);
@@ -1692,7 +1692,7 @@ TEST_F(HTTPDownstreamSessionTest, body_packetization) {
   EXPECT_EQ(transport_->getWriteEvents()->size(), 1);
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_malformed_pkt1) {
+TEST_F(HTTPDownstreamSessionTest, HttpMalformedPkt1) {
   // Create a HTTP connection and keep sending just '\n' to the HTTP1xCodec.
   std::string data(90000, '\n');
   requests_.append(data.data(), data.length());
@@ -1702,7 +1702,7 @@ TEST_F(HTTPDownstreamSessionTest, http_malformed_pkt1) {
   flushRequestsAndLoop(true, milliseconds(0));
 }
 
-TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
+TEST_F(HTTPDownstreamSessionTest, BigExplcitChunkWrite) {
   // even when the handler does a massive write, the transport only gets small
   // writes
   sendRequest();
@@ -1733,7 +1733,7 @@ TEST_F(HTTPDownstreamSessionTest, big_explcit_chunk_write) {
 // ==== upgrade tests ====
 
 // Test upgrade to a protocol unknown to HTTPSession
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNonNative) {
   auto handler = addSimpleStrictHandler();
 
   handler->expectHeaders([&handler] {
@@ -1752,7 +1752,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native) {
 
 // Test upgrade to a protocol unknown to HTTPSession, but don't switch
 // protocols
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_ignore) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNonNativeIgnore) {
   auto handler = addSimpleStrictHandler();
 
   handler->expectHeaders([&handler] {
@@ -1769,7 +1769,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_ignore) {
 
 
 // Test upgrade to a protocol unknown to HTTPSession
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_non_native_pipeline) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNonNativePipeline) {
   auto handler1 = addSimpleStrictHandler();
 
   handler1->expectHeaders([&handler1] (std::shared_ptr<HTTPMessage> msg) {
@@ -1844,17 +1844,17 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
 }
 
 // Upgrade to SPDY/3
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_3) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNative3) {
   testSimpleUpgrade("spdy/3", CodecProtocol::SPDY_3, "spdy/3");
 }
 
 // Upgrade to SPDY/3.1
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_3_1) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNative31) {
   testSimpleUpgrade("spdy/3.1", CodecProtocol::SPDY_3_1, "spdy/3.1");
 }
 
 // Upgrade to HTTP/2
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_h2) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeH2) {
   testSimpleUpgrade("h2c", CodecProtocol::HTTP_2, "h2c");
 }
 
@@ -1866,12 +1866,12 @@ class HTTPDownstreamSessionUpgradeFlowControlTest :
 };
 
 // Upgrade to HTTP/2, with non-default flow control settings
-TEST_F(HTTPDownstreamSessionUpgradeFlowControlTest, upgrade_h2_flowcontrol) {
+TEST_F(HTTPDownstreamSessionUpgradeFlowControlTest, UpgradeH2Flowcontrol) {
   testSimpleUpgrade("h2c", CodecProtocol::HTTP_2, "h2c");
 }
 
 // Upgrade to SPDY/3.1 with a non-native proto in the list
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_unknown) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeUnknown) {
   // This is maybe weird, the client asked for non-native as first choice,
   // but we go native
   testSimpleUpgrade("blarf, spdy/3.1, spdy/3",
@@ -1879,19 +1879,19 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_unknown) {
 }
 
 // Upgrade header with extra whitespace
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_whitespace) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeWhitespace) {
   testSimpleUpgrade(" \tspdy/3.1\t , spdy/3",
                     CodecProtocol::SPDY_3_1, "spdy/3.1");
 }
 
 // Upgrade header with random junk
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_junk) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeJunk) {
   testSimpleUpgrade(",,,,   ,,\t~^%$(*&@(@$^^*(,spdy/3",
                     CodecProtocol::SPDY_3, "spdy/3");
 }
 
 // Attempt to upgrade on second txn
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_txn_2) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeTxn2) {
   this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
@@ -1917,7 +1917,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_txn_2) {
 }
 
 // Upgrade on POST
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost) {
   this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
@@ -1940,7 +1940,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post) {
 }
 
 // Upgrade on POST with a reply that comes before EOM, don't switch protocols
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePostEarlyResp) {
   this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] {
@@ -1959,7 +1959,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_resp) {
   gracefulShutdown();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_partial_resp) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePostEarlyPartialResp) {
   this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] {
@@ -1983,7 +1983,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_early_partial_resp) {
 
 // Upgrade but with a pipelined HTTP request.  It is parsed as SPDY and
 // rejected
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeExtra) {
   this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
@@ -2009,7 +2009,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_extra) {
 // case since the client *should* wait a bit for the 100 continue to come back
 // before sending the POST.  But if the 101 is delayed beyond EOM, the 101
 // will come via SPDY.
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost100) {
   this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] {
@@ -2033,7 +2033,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100) {
   gracefulShutdown();
 }
 
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost100Late) {
   this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
@@ -2057,7 +2057,7 @@ TEST_F(HTTPDownstreamSessionTest, http_upgrade_native_post_100_late) {
 }
 
 
-TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
+TEST_F(SPDY3DownstreamSessionTest, SpdyPrio) {
   testPriorities(8);
 
   cleanup();
@@ -2066,7 +2066,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_prio) {
 // Test sending a GOAWAY while the downstream session is still processing
 // the request that was an upgrade.  The reply GOAWAY should have last good
 // stream = 1, not 0.
-TEST_F(HTTPDownstreamSessionTest, http_upgrade_goaway_drain) {
+TEST_F(HTTPDownstreamSessionTest, HttpUpgradeGoawayDrain) {
   this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
@@ -2158,7 +2158,7 @@ void HTTPDownstreamTest<C>::testPriorities(uint32_t numPriorities) {
 
 // Verifies that the read timeout is not running when no ingress is expected/
 // required to proceed
-TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
+TEST_F(SPDY3DownstreamSessionTest, SpdyTimeout) {
   sendRequest();
   sendRequest();
 
@@ -2200,7 +2200,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout) {
 
 // Verifies that the read timer is running while a transaction is blocked
 // on a window update
-TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
+TEST_F(SPDY3DownstreamSessionTest, SpdyTimeoutWin) {
   clientCodec_->getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                                                 500);
   clientCodec_->generateSettings(requests_);
@@ -2229,7 +2229,7 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_timeout_win) {
 
 TYPED_TEST_CASE_P(HTTPDownstreamTest);
 
-TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
+TYPED_TEST_P(HTTPDownstreamTest, TestWritesDraining) {
   auto badCodec =
     makeServerCodec<typename TypeParam::Codec>(TypeParam::version);
   this->sendRequest();
@@ -2253,7 +2253,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testWritesDraining) {
   this->flushRequestsAndLoop();
 }
 
-TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
+TYPED_TEST_P(HTTPDownstreamTest, TestBodySizeLimit) {
   this->clientCodec_->generateWindowUpdate(this->requests_, 0, 65536);
   this->sendRequest();
   this->sendRequest();
@@ -2295,7 +2295,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testBodySizeLimit) {
 #define IF_HTTP2(X) \
   if (this->clientCodec_->getProtocol() == CodecProtocol::HTTP_2) { X; }
 
-TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
+TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
   this->httpSession_->setWriteBufferLimit(12000);
   this->clientCodec_->getEgressSettings()->setSetting(
     SettingsId::INITIAL_WINDOW_SIZE, 1000000);
@@ -2371,7 +2371,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testUniformPauseState) {
 
 // Test exceeding the MAX_CONCURRENT_STREAMS setting.  The txn should get
 // REFUSED_STREAM, and other streams can complete normally
-TYPED_TEST_P(HTTPDownstreamTest, testMaxTxns) {
+TYPED_TEST_P(HTTPDownstreamTest, TestMaxTxns) {
   auto settings = this->rawCodec_->getEgressSettings();
   auto maxTxns = settings->getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
                                       100);
@@ -2413,7 +2413,7 @@ TYPED_TEST_P(HTTPDownstreamTest, testMaxTxns) {
 // Block writes
 // generate a complete response for txn=1 before parsing txn=3
 // HTTPSession should allow the txn=3 to be served rather than refusing it
-TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
+TEST_F(SPDY3DownstreamSessionTest, SpdyMaxConcurrentStreams) {
   HTTPMessage req = getGetRequest();
   req.setHTTPVersion(1, 0);
   req.setWantsKeepalive(false);
@@ -2446,8 +2446,8 @@ TEST_F(SPDY3DownstreamSessionTest, spdy_max_concurrent_streams) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
-                           testWritesDraining, testBodySizeLimit,
-                           testUniformPauseState, testMaxTxns);
+                           TestWritesDraining, TestBodySizeLimit,
+                           TestUniformPauseState, TestMaxTxns);
 
 typedef ::testing::Types<SPDY3CodecPair, SPDY3_1CodecPair,
                          HTTP2CodecPair> ParallelCodecs;
@@ -2462,7 +2462,7 @@ class SPDY31DownstreamTest : public HTTPDownstreamTest<SPDY3_1CodecPair> {
             2 * spdy::kInitialWindow}) {}
 };
 
-TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
+TEST_F(SPDY31DownstreamTest, TestSessionFlowControl) {
   eventBase_.loopOnce();
 
   InSequence sequence;
@@ -2473,7 +2473,7 @@ TEST_F(SPDY31DownstreamTest, testSessionFlowControl) {
   cleanup();
 }
 
-TEST_F(SPDY3DownstreamSessionTest, testEOFOnBlockedStream) {
+TEST_F(SPDY3DownstreamSessionTest, TestEOFOnBlockedStream) {
   sendRequest();
 
   auto handler1 = addSimpleStrictHandler();
@@ -2498,7 +2498,7 @@ TEST_F(SPDY3DownstreamSessionTest, testEOFOnBlockedStream) {
   flushRequestsAndLoop(true, milliseconds(10));
 }
 
-TEST_F(SPDY31DownstreamTest, testEOFOnBlockedSession) {
+TEST_F(SPDY31DownstreamTest, TestEOFOnBlockedSession) {
   sendRequest();
   sendRequest();
 
@@ -2538,7 +2538,7 @@ TEST_F(SPDY31DownstreamTest, testEOFOnBlockedSession) {
 }
 
 
-TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
+TEST_F(SPDY3DownstreamSessionTest, NewTxnEgressPaused) {
   // Send 1 request with prio=0
   // Have egress pause while sending the first response
   // Send a second request with prio=1
@@ -2599,7 +2599,7 @@ TEST_F(SPDY3DownstreamSessionTest, new_txn_egress_paused) {
   cleanup();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, zero_delta_window_update) {
+TEST_F(HTTP2DownstreamSessionTest, ZeroDeltaWindowUpdate) {
   // generateHeader() will create a session and a transaction
   auto streamID = sendHeader();
   // First generate a frame with delta=1 so as to pass the checks, and then
@@ -2625,7 +2625,7 @@ TEST_F(HTTP2DownstreamSessionTest, zero_delta_window_update) {
   flushRequestsAndLoop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, padding_flow_control) {
+TEST_F(HTTP2DownstreamSessionTest, PaddingFlowControl) {
   // generateHeader() will create a session and a transaction
   auto streamID = sendHeader();
   // This sends a total of 33kb including padding, so we should get a session
@@ -2661,7 +2661,7 @@ TEST_F(HTTP2DownstreamSessionTest, padding_flow_control) {
   expectDetachSession();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, graceful_drain_on_timeout) {
+TEST_F(HTTP2DownstreamSessionTest, GracefulDrainOnTimeout) {
   InSequence handlerSequence;
   std::chrono::milliseconds gracefulTimeout(200);
   httpSession_->enableDoubleGoawayDrain();
@@ -2702,7 +2702,7 @@ TEST_F(HTTP2DownstreamSessionTest, graceful_drain_on_timeout) {
  * - [server --> client] respond 2nd stream (res with length 200 + EOM)
  * - [client --> server] RST_STREAM on the 1st stream
  */
-TEST_F(HTTP2DownstreamSessionTest, server_push) {
+TEST_F(HTTP2DownstreamSessionTest, ServerPush) {
   // Create a dummy request and a dummy response messages
   HTTPMessage req, res;
   req.getHeaders().set("HOST", "www.foo.com");
@@ -2773,7 +2773,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push) {
   expectDetachSession();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, server_push_abort_paused) {
+TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
   // Create a dummy request and a dummy response messages
   HTTPMessage req, res;
   req.getHeaders().set("HOST", "www.foo.com");
@@ -2825,7 +2825,7 @@ TEST_F(HTTP2DownstreamSessionTest, server_push_abort_paused) {
   expectDetachSession();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
+TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeightsTinyRatio) {
   // Create a transaction with egress and a ratio small enough that
   // ratio*4096 < 1.
   //
@@ -2962,7 +2962,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_ratio) {
   eventBase_.loop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_priority_dependent_transactions) {
+TEST_F(HTTP2DownstreamSessionTest, TestPriorityDependentTransactions) {
   // Create a dependent transaction to test the priority blocked by dependency.
   // ratio*4096 < 1.
   //
@@ -3040,7 +3040,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_dependent_transactions) {
   eventBase_.loop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_disable_priorities) {
+TEST_F(HTTP2DownstreamSessionTest, TestDisablePriorities) {
   // turn off HTTP2 priorities
   httpSession_->setHTTP2PrioritiesEnabled(false);
 
@@ -3076,7 +3076,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_disable_priorities) {
   eventBase_.loop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, continuation_timeout) {
+TEST_F(HTTP2DownstreamSessionTest, ContinuationTimeout) {
   // Split the headers at 15 bytes to force a CONTINUATION frame
   auto req = getBigGetRequest();
   sendRequest(req);
@@ -3099,7 +3099,7 @@ TEST_F(HTTP2DownstreamSessionTest, continuation_timeout) {
   cleanup();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_priority_weights) {
+TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
   // virtual priority node with pri=4
   auto priGroupID = clientCodec_->createStream();
   clientCodec_->generatePriority(
@@ -3179,7 +3179,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights) {
   this->eventBase_.loop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_window) {
+TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeightsTinyWindow) {
   httpSession_->setWriteBufferLimit(2 * 65536);
   InSequence enforceOrder;
   auto id1 = sendRequest();
@@ -3236,7 +3236,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_priority_weights_tiny_window) {
   this->eventBase_.loop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_short_content_length) {
+TEST_F(HTTP2DownstreamSessionTest, TestShortContentLength) {
   auto req = getPostRequest(10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(20),
@@ -3259,7 +3259,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_short_content_length) {
  * If handler chooses to untie itself with transaction during onError,
  * detachTransaction shouldn't be expected
  */
-TEST_F(HTTP2DownstreamSessionTest, test_bad_content_length_untie_handler) {
+TEST_F(HTTP2DownstreamSessionTest, TestBadContentLengthUntieHandler) {
   auto req = getPostRequest(10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(
@@ -3283,7 +3283,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_bad_content_length_untie_handler) {
   gracefulShutdown();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_long_content_length) {
+TEST_F(HTTP2DownstreamSessionTest, TestLongContentLength) {
   auto req = getPostRequest(30);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(requests_, streamID, makeBuf(20),
@@ -3303,7 +3303,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_long_content_length) {
   gracefulShutdown();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_malformed_content_length) {
+TEST_F(HTTP2DownstreamSessionTest, TestMalformedContentLength) {
   auto req = getPostRequest();
   req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "malformed");
   auto streamID = sendRequest(req, false);
@@ -3323,7 +3323,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_malformed_content_length) {
   gracefulShutdown();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_head_content_length) {
+TEST_F(HTTP2DownstreamSessionTest, TestHeadContentLength) {
   InSequence enforceOrder;
   auto req = getGetRequest();
   req.setMethod(HTTPMethod::HEAD);
@@ -3342,7 +3342,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_head_content_length) {
   gracefulShutdown();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_304_content_length) {
+TEST_F(HTTP2DownstreamSessionTest, Test304ContentLength) {
   InSequence enforceOrder;
   auto req = getGetRequest();
   req.setMethod(HTTPMethod::HEAD);
@@ -3361,7 +3361,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_304_content_length) {
 }
 
 // chunked with wrong content-length
-TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
+TEST_F(HTTPDownstreamSessionTest, HttpShortContentLength) {
   InSequence enforceOrder;
   auto req = getPostRequest(10);
   req.setIsChunked(true);
@@ -3387,7 +3387,7 @@ TEST_F(HTTPDownstreamSessionTest, http_short_content_length) {
 
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_session_stall_by_flow_control) {
+TEST_F(HTTP2DownstreamSessionTest, TestSessionStallByFlowControl) {
   NiceMock<MockHTTPSessionStats> stats;
   // By default the send and receive windows are 64K each.
   // If we use only a single transaction, that transaction
@@ -3432,7 +3432,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_session_stall_by_flow_control) {
   flushRequestsAndLoop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_transaction_stall_by_flow_control) {
+TEST_F(HTTP2DownstreamSessionTest, TestTransactionStallByFlowControl) {
   StrictMock<MockHTTPSessionStats> stats;
 
   httpSession_->setSessionStats(&stats);
@@ -3474,7 +3474,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_transaction_stall_by_flow_control) {
   gracefulShutdown();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_transaction_not_stall_by_flow_control) {
+TEST_F(HTTP2DownstreamSessionTest, TestTransactionNotStallByFlowControl) {
   StrictMock<MockHTTPSessionStats> stats;
 
   httpSession_->setSessionStats(&stats);
@@ -3507,7 +3507,7 @@ TEST_F(HTTP2DownstreamSessionTest, test_transaction_not_stall_by_flow_control) {
   gracefulShutdown();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, test_set_egress_settings) {
+TEST_F(HTTP2DownstreamSessionTest, TestSetEgressSettings) {
   SettingsList settings = {{ SettingsId::HEADER_TABLE_SIZE, 5555 },
                            { SettingsId::MAX_FRAME_SIZE, 16384 },
                            { SettingsId::ENABLE_PUSH, 1 }};

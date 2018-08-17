@@ -404,7 +404,7 @@ using HTTPUpstreamSessionTest = HTTPUpstreamTest<HTTP1xCodecPair>;
 typedef HTTPUpstreamTest<SPDY3CodecPair> SPDY3UpstreamSessionTest;
 typedef HTTPUpstreamTest<HTTP2CodecPair> HTTP2UpstreamSessionTest;
 
-TEST_F(SPDY3UpstreamSessionTest, server_push) {
+TEST_F(SPDY3UpstreamSessionTest, ServerPush) {
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
                         SPDYVersion::SPDY3);
   folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
@@ -466,7 +466,7 @@ TEST_F(SPDY3UpstreamSessionTest, server_push) {
   httpSession_->destroy();
 }
 
-TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
+TEST_F(SPDY3UpstreamSessionTest, IngressGoawayAbortUncreatedStreams) {
   // Tests whether the session aborts the streams which are not created
   // at the remote end.
 
@@ -505,7 +505,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_abort_uncreated_streams) {
   // Session will delete itself after the abort
 }
 
-TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
+TEST_F(SPDY3UpstreamSessionTest, IngressGoawaySessionError) {
   // Tests whether the session aborts the streams which are not created
   // at the remote end which have error codes.
 
@@ -545,7 +545,7 @@ TEST_F(SPDY3UpstreamSessionTest, ingress_goaway_session_error) {
   // Session will delete itself after the abort
 }
 
-TEST_F(SPDY3UpstreamSessionTest, test_under_limit_on_write_error) {
+TEST_F(SPDY3UpstreamSessionTest, TestUnderLimitOnWriteError) {
   InSequence enforceOrder;
   auto handler = openTransaction();
 
@@ -569,7 +569,7 @@ TEST_F(SPDY3UpstreamSessionTest, test_under_limit_on_write_error) {
   EXPECT_EQ(this->sessionDestroyed_, true);
 }
 
-TEST_F(SPDY3UpstreamSessionTest, test_overlimit_resume) {
+TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
   InSequence enforceOrder;
   auto handler1 = openTransaction();
   auto handler2 = openTransaction();
@@ -619,7 +619,7 @@ TEST_F(SPDY3UpstreamSessionTest, test_overlimit_resume) {
   EXPECT_EQ(this->sessionDestroyed_, true);
 }
 
-TEST_F(HTTP2UpstreamSessionTest, test_priority) {
+TEST_F(HTTP2UpstreamSessionTest, TestPriority) {
   InSequence enforceOrder;
   // virtual priority node with pri=8
   auto priGroupID = httpSession_->sendPriority({0, false, 7});
@@ -691,7 +691,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_priority) {
   EXPECT_EQ(sessionDestroyed_, true);
 }
 
-TEST_F(HTTP2UpstreamSessionTest, test_settings_ack) {
+TEST_F(HTTP2UpstreamSessionTest, TestSettingsAck) {
   auto serverCodec = makeServerCodec();
   folly::IOBufQueue buf{IOBufQueue::cacheChainLength()};
   serverCodec->generateSettings(buf);
@@ -711,7 +711,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_settings_ack) {
   EXPECT_EQ(sessionDestroyed_, true);
 }
 
-TEST_F(HTTP2UpstreamSessionTest, test_settings_info_callbacks) {
+TEST_F(HTTP2UpstreamSessionTest, TestSettingsInfoCallbacks) {
   auto serverCodec = makeServerCodec();
 
   folly::IOBufQueue settingsBuf{IOBufQueue::cacheChainLength()};
@@ -740,7 +740,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_settings_info_callbacks) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTP2UpstreamSessionTest, test_setcontroller_initheaderindexingstrat) {
+TEST_F(HTTP2UpstreamSessionTest, TestSetControllerInitHeaderIndexingStrat) {
   StrictMock<MockUpstreamController> mockController;
   HeaderIndexingStrategy testH2IndexingStrat;
   EXPECT_CALL(mockController, getHeaderIndexingStrategy())
@@ -773,7 +773,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_setcontroller_initheaderindexingstrat) {
  * - [server --> client] respond to 1st stream (EOM)
  */
 
-TEST_F(HTTP2UpstreamSessionTest, exheader_from_server) {
+TEST_F(HTTP2UpstreamSessionTest, ExheaderFromServer) {
   folly::IOBufQueue queue{IOBufQueue::cacheChainLength()};
 
   // generate enable_ex_headers setting
@@ -821,7 +821,7 @@ TEST_F(HTTP2UpstreamSessionTest, exheader_from_server) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTP2UpstreamSessionTest, invalid_control_stream) {
+TEST_F(HTTP2UpstreamSessionTest, InvalidControlStream) {
   folly::IOBufQueue queue{IOBufQueue::cacheChainLength()};
 
   // generate enable_ex_headers setting
@@ -922,7 +922,7 @@ class HTTP2UpstreamSessionWithVirtualNodesTest:
   std::shared_ptr<TestPriorityMapBuilder> builder_;
 };
 
-TEST_F(HTTP2UpstreamSessionWithVirtualNodesTest, virtual_nodes) {
+TEST_F(HTTP2UpstreamSessionWithVirtualNodesTest, VirtualNodes) {
   InSequence enforceOrder;
 
   HTTPCodec::StreamID deps[] = {11, 13, 15};
@@ -966,7 +966,7 @@ public:
   }
 };
 
-TEST_F(HTTP2UpstreamSessionWithPriorityTree, priority_tree) {
+TEST_F(HTTP2UpstreamSessionWithPriorityTree, PriorityTree) {
   InSequence enforceOrder;
 
   std::array<HTTPCodec::StreamID, 3> deps = { {11, 13, 15} };
@@ -1014,7 +1014,7 @@ TEST_F(HTTP2UpstreamSessionWithPriorityTree, priority_tree) {
   eventBase_.loop();
 }
 
-TYPED_TEST_P(HTTPUpstreamTest, immediate_eof) {
+TYPED_TEST_P(HTTPUpstreamTest, ImmediateEof) {
   // Receive an EOF without any request data
   this->readCallback_->readEOF();
   this->eventBase_.loop();
@@ -1043,25 +1043,25 @@ void HTTPUpstreamTest<CodecPair>::testBasicRequest() {
   CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
 }
 
-TEST_F(HTTPUpstreamSessionTest, basic_request) {
+TEST_F(HTTPUpstreamSessionTest, BasicRequest) {
   testBasicRequest();
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, two_requests) {
+TEST_F(HTTPUpstreamSessionTest, TwoRequests) {
   testBasicRequest();
   testBasicRequest();
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, 10_requests) {
+TEST_F(HTTPUpstreamSessionTest, 10Requests) {
   for (uint16_t i = 0; i < 10; i++) {
     testBasicRequest();
   }
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, test_first_header_byte_event_tracker) {
+TEST_F(HTTPUpstreamSessionTest, TestFirstHeaderByteEventTracker) {
   auto byteEventTracker = setMockByteEventTracker();
 
   EXPECT_CALL(*byteEventTracker, addFirstHeaderByteEvent(_, _))
@@ -1126,12 +1126,12 @@ void HTTPUpstreamTest<CodecPair>::testBasicRequestHttp10(bool keepalive) {
   }
 }
 
-TEST_F(HTTPUpstreamSessionTest, http10_keepalive) {
+TEST_F(HTTPUpstreamSessionTest, Http10Keepalive) {
   testBasicRequestHttp10(true);
   testBasicRequestHttp10(false);
 }
 
-TEST_F(HTTPUpstreamSessionTest, basic_trailers) {
+TEST_F(HTTPUpstreamSessionTest, BasicTrailers) {
   InSequence enforceOrder;
 
   auto handler = openTransaction();
@@ -1156,7 +1156,7 @@ TEST_F(HTTPUpstreamSessionTest, basic_trailers) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, two_requests_with_pause) {
+TEST_F(HTTPUpstreamSessionTest, TwoRequestsWithPause) {
   InSequence enforceOrder;
 
   auto handler = openTransaction();
@@ -1183,7 +1183,7 @@ TEST_F(HTTPUpstreamSessionTest, two_requests_with_pause) {
 }
 
 using HTTPUpstreamTimeoutTest = TimeoutableHTTPUpstreamTest<HTTP1xCodecPair>;
-TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
+TEST_F(HTTPUpstreamTimeoutTest, WriteTimeoutAfterResponse) {
   // Test where the upstream session times out while writing the request
   // to the server, but after the server has already sent back a full
   // response.
@@ -1217,7 +1217,7 @@ TEST_F(HTTPUpstreamTimeoutTest, write_timeout_after_response) {
               "0\r\n\r\n");
 }
 
-TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
+TEST_F(HTTPUpstreamSessionTest, SetTransactionTimeout) {
   // Test that setting a new timeout on the transaction will cancel
   // the old one.
   auto handler = openTransaction();
@@ -1232,7 +1232,7 @@ TEST_F(HTTPUpstreamSessionTest, set_transaction_timeout) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPUpstreamSessionTest, read_timeout) {
+TEST_F(HTTPUpstreamSessionTest, ReadTimeout) {
   NiceMock<MockUpstreamController> controller;
   httpSession_->setController(&controller);
   auto cm = wangle::ConnectionManager::makeUnique(
@@ -1241,7 +1241,7 @@ TEST_F(HTTPUpstreamSessionTest, read_timeout) {
   eventBase_.loop();
 }
 
-TEST_F(HTTPUpstreamSessionTest, 100_continue_keepalive) {
+TEST_F(HTTPUpstreamSessionTest, 100ContinueKeepalive) {
   // Test a request with 100 continue on a keepalive connection. Then make
   // another request.
   HTTPMessage req = getGetRequest();
@@ -1274,7 +1274,7 @@ TEST_F(HTTPUpstreamSessionTest, 100_continue_keepalive) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, 417_keepalive) {
+TEST_F(HTTPUpstreamSessionTest, 417Keepalive) {
   // Test a request with 100 continue on a keepalive connection. Then make
   // another request after the expectation fails.
   HTTPMessage req = getGetRequest();
@@ -1301,7 +1301,7 @@ TEST_F(HTTPUpstreamSessionTest, 417_keepalive) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, 101_upgrade) {
+TEST_F(HTTPUpstreamSessionTest, 101Upgrade) {
   // Test an upgrade request with sending 101 response. Then send
   // some data and check the onBody callback contents
   HTTPMessage req = getGetRequest();
@@ -1386,28 +1386,28 @@ void HTTPUpstreamTest<CodecPair>::testSimpleUpgrade(
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_h2) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgradeNativeH2) {
   testSimpleUpgrade("h2c", "h2c", CodecProtocol::HTTP_2);
 }
 
 // Upgrade to SPDY/3.1 with a non-native proto in the list
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_unknown) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgradeNativeUnknown) {
   testSimpleUpgrade("blarf, h2c", "h2c", CodecProtocol::HTTP_2);
 }
 
 // Upgrade header with extra whitespace
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_whitespace) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgradeNativeWhitespace) {
   testSimpleUpgrade("blarf, \th2c\t, xyz", "h2c",
                     CodecProtocol::HTTP_2);
 }
 
 // Upgrade header with random junk
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_native_junk) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgradeNativeJunk) {
   testSimpleUpgrade(",,,,   ,,\t~^%$(*&@(@$^^*(,h2c", "h2c",
                     CodecProtocol::HTTP_2);
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_unexpected) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101Unexpected) {
   InSequence dummy;
   auto handler = openTransaction();
 
@@ -1423,7 +1423,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_unexpected) {
   EXPECT_TRUE(sessionDestroyed_);
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_missing_upgrade) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101MissingUpgrade) {
   InSequence dummy;
   auto handler = openTransaction();
 
@@ -1437,7 +1437,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_missing_upgrade) {
   EXPECT_TRUE(sessionDestroyed_);
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_bogus_header) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101BogusHeader) {
   InSequence dummy;
   auto handler = openTransaction();
 
@@ -1453,7 +1453,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_101_bogus_header) {
   EXPECT_TRUE(sessionDestroyed_);
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgradePost100) {
   InSequence dummy;
   auto handler = openTransaction();
 
@@ -1484,7 +1484,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_http2) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgradePost100Http2) {
   InSequence dummy;
   auto handler = openTransaction();
 
@@ -1513,7 +1513,7 @@ TEST_F(HTTPUpstreamSessionTest, http_upgrade_post_100_http2) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTPUpstreamSessionTest, http_upgrade_on_txn2) {
+TEST_F(HTTPUpstreamSessionTest, HttpUpgradeOnTxn2) {
   InSequence dummy;
   auto handler1 = openTransaction();
 
@@ -1554,7 +1554,7 @@ class HTTPUpstreamRecvStreamTest : public HTTPUpstreamSessionTest {
       : HTTPUpstreamTest({100000, 105000, 110000}) {}
 };
 
-TEST_F(HTTPUpstreamRecvStreamTest, upgrade_flow_control) {
+TEST_F(HTTPUpstreamRecvStreamTest, UpgradeFlowControl) {
   InSequence dummy;
   testSimpleUpgrade("h2c", "h2c", CodecProtocol::HTTP_2);
 
@@ -1603,7 +1603,7 @@ class NoFlushUpstreamSessionTest: public HTTPUpstreamTest<SPDY3CodecPair> {
   std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
 };
 
-TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
+TEST_F(NoFlushUpstreamSessionTest, SessionPausedStartPaused) {
   // If the session is paused, new upstream transactions should start
   // paused too.
   HTTPMessage req = getGetRequest();
@@ -1627,7 +1627,7 @@ TEST_F(NoFlushUpstreamSessionTest, session_paused_start_paused) {
   httpSession_->dropConnection();
 }
 
-TEST_F(NoFlushUpstreamSessionTest, delete_txn_on_unpause) {
+TEST_F(NoFlushUpstreamSessionTest, DeleteTxnOnUnpause) {
   // Test where the handler gets onEgressPaused() and triggers another
   // HTTPSession call to iterate over all transactions (to ensure nested
   // iteration works).
@@ -1711,7 +1711,7 @@ class MockHTTPUpstreamTest: public HTTPUpstreamTest<MockHTTPCodecPair> {
   uint32_t nextOutgoingTxn_{1};
 };
 
-TEST_F(HTTP2UpstreamSessionTest, server_push) {
+TEST_F(HTTP2UpstreamSessionTest, ServerPush) {
   httpSession_->setEgressSettings({{SettingsId::ENABLE_PUSH, 1}});
 
   auto egressCodec = makeServerCodec();
@@ -1800,7 +1800,7 @@ class MockHTTP2UpstreamTest: public MockHTTPUpstreamTest {
 };
 
 
-TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
+TEST_F(MockHTTP2UpstreamTest, ParseErrorNoTxn) {
   // 1) Create streamID == 1
   // 2) Send request
   // 3) Detach handler
@@ -1839,7 +1839,7 @@ TEST_F(MockHTTP2UpstreamTest, parse_error_no_txn) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTPUpstreamTest, 0_max_outgoing_txns) {
+TEST_F(MockHTTPUpstreamTest, 0MaxOutgoingTxns) {
   // Test where an upstream session gets a SETTINGS frame with 0 max
   // outgoing transactions. In our implementation, we jsut send a GOAWAY
   // and close the connection.
@@ -1849,7 +1849,7 @@ TEST_F(MockHTTPUpstreamTest, 0_max_outgoing_txns) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockHTTPUpstreamTest, outgoing_txn_settings) {
+TEST_F(MockHTTPUpstreamTest, OutgoingTxnSettings) {
   // Create 2 transactions, then receive a settings frame from
   // the server indicating 1 parallel transaction at a time is allowed.
   // Then get another SETTINGS frame indicating 100 max parallel
@@ -1867,7 +1867,7 @@ TEST_F(MockHTTPUpstreamTest, outgoing_txn_settings) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockHTTPUpstreamTest, ingress_goaway_drain) {
+TEST_F(MockHTTPUpstreamTest, IngressGoawayDrain) {
   // Tests whether the session drains existing transactions and
   // deletes itself after receiving a GOAWAY.
 
@@ -1902,7 +1902,7 @@ TEST_F(MockHTTPUpstreamTest, ingress_goaway_drain) {
   // Session will delete itself after getting the response
 }
 
-TEST_F(MockHTTPUpstreamTest, goaway) {
+TEST_F(MockHTTPUpstreamTest, Goaway) {
   // Make sure existing txns complete successfully even if we drain the
   // upstream session
   const unsigned numTxns = 10;
@@ -1938,7 +1938,7 @@ TEST_F(MockHTTPUpstreamTest, goaway) {
   // Session will delete itself after drain completes
 }
 
-TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
+TEST_F(MockHTTPUpstreamTest, GoawayPreHeaders) {
   // Make sure existing txns complete successfully even if we drain the
   // upstream session
   MockHTTPHandler handler;
@@ -1980,7 +1980,7 @@ TEST_F(MockHTTPUpstreamTest, goaway_pre_headers) {
   // Session will delete itself after drain completes
 }
 
-TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
+TEST_F(MockHTTPUpstreamTest, NoWindowUpdateOnDrain) {
   EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
     .WillRepeatedly(Return(true));
 
@@ -2050,7 +2050,7 @@ TEST_F(MockHTTPUpstreamTest, no_window_update_on_drain) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTPUpstreamTest, get_with_body) {
+TEST_F(MockHTTPUpstreamTest, GetWithBody) {
   // Should be allowed to send a GET request with body.
   NiceMock<MockHTTPHandler> handler;
   HTTPMessage req = getGetRequest();
@@ -2070,7 +2070,7 @@ TEST_F(MockHTTPUpstreamTest, get_with_body) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockHTTPUpstreamTest, header_with_eom) {
+TEST_F(MockHTTPUpstreamTest, HeaderWithEom) {
   NiceMock<MockHTTPHandler> handler;
   HTTPMessage req = getGetRequest();
   EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, true, _));
@@ -2178,13 +2178,13 @@ typedef TestAbortPost<3> TestAbortPost3;
 typedef TestAbortPost<4> TestAbortPost4;
 typedef TestAbortPost<5> TestAbortPost5;
 
-TEST_F(TestAbortPost1, test) { doAbortTest(); }
-TEST_F(TestAbortPost2, test) { doAbortTest(); }
-TEST_F(TestAbortPost3, test) { doAbortTest(); }
-TEST_F(TestAbortPost4, test) { doAbortTest(); }
-TEST_F(TestAbortPost5, test) { doAbortTest(); }
+TEST_F(TestAbortPost1, Test) { doAbortTest(); }
+TEST_F(TestAbortPost2, Test) { doAbortTest(); }
+TEST_F(TestAbortPost3, Test) { doAbortTest(); }
+TEST_F(TestAbortPost4, Test) { doAbortTest(); }
+TEST_F(TestAbortPost5, Test) { doAbortTest(); }
 
-TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
+TEST_F(MockHTTPUpstreamTest, AbortUpgrade) {
   // This is basically the same test as above, just for the upgrade path
   InSequence enforceOrder;
   StrictMock<MockHTTPHandler> handler;
@@ -2216,7 +2216,7 @@ TEST_F(MockHTTPUpstreamTest, abort_upgrade) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTPUpstreamTest, drain_before_send_headers) {
+TEST_F(MockHTTPUpstreamTest, DrainBeforeSendHeaders) {
   // Test that drain on session before sendHeaders() is called on open txn
 
   InSequence enforceOrder;
@@ -2237,7 +2237,7 @@ TEST_F(MockHTTPUpstreamTest, drain_before_send_headers) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
+TEST_F(MockHTTP2UpstreamTest, ReceiveDoubleGoaway) {
   // Test that we handle receiving two goaways correctly
 
   InSequence enforceOrder;
@@ -2277,7 +2277,7 @@ TEST_F(MockHTTP2UpstreamTest, receive_double_goaway) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTP2UpstreamTest, server_push_invalid_assoc) {
+TEST_F(MockHTTP2UpstreamTest, ServerPushInvalidAssoc) {
   // Test that protocol error is generated on server push
   // with invalid assoc stream id
   InSequence enforceOrder;
@@ -2319,7 +2319,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_invalid_assoc) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTP2UpstreamTest, server_push_after_fin) {
+TEST_F(MockHTTP2UpstreamTest, ServerPushAfterFin) {
   // Test that protocol error is generated on server push
   // after FIN is received on regular response on the stream
   InSequence enforceOrder;
@@ -2365,7 +2365,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_after_fin) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTP2UpstreamTest, server_push_handler_install_fail) {
+TEST_F(MockHTTP2UpstreamTest, ServerPushHandlerInstallFail) {
   // Test that REFUSED_STREAM error is generated when the session
   // fails to install the server push handler
   InSequence enforceOrder;
@@ -2415,7 +2415,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_handler_install_fail) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTP2UpstreamTest, server_push_unhandled_assoc) {
+TEST_F(MockHTTP2UpstreamTest, ServerPushUnhandledAssoc) {
   // Test that REFUSED_STREAM error is generated when the assoc txn
   // is unhandled
   InSequence enforceOrder;
@@ -2449,7 +2449,7 @@ TEST_F(MockHTTP2UpstreamTest, server_push_unhandled_assoc) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
+TEST_F(MockHTTPUpstreamTest, HeadersThenBodyThenHeaders) {
   HTTPMessage req = getGetRequest();
   auto handler = openTransaction();
   handler->txn_->sendHeaders(req);
@@ -2474,7 +2474,7 @@ TEST_F(MockHTTPUpstreamTest, headers_then_body_then_headers) {
   eventBase_.loop();
 }
 
-TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
+TEST_F(MockHTTP2UpstreamTest, DelayUpstreamWindowUpdate) {
   EXPECT_CALL(*codecPtr_, supportsStreamFlowControl())
     .WillRepeatedly(Return(true));
 
@@ -2492,7 +2492,7 @@ TEST_F(MockHTTP2UpstreamTest, delay_upstream_window_update) {
   httpSession_->destroy();
 }
 
-TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
+TEST_F(MockHTTPUpstreamTest, ForceShutdownInSetTransaction) {
   StrictMock<MockHTTPHandler> handler;
   handler.expectTransaction([&] (HTTPTransaction* txn) {
       handler.txn_ = txn;
@@ -2509,7 +2509,7 @@ TEST_F(MockHTTPUpstreamTest, force_shutdown_in_set_transaction) {
   (void)httpSession_->newTransaction(&handler);
 }
 
-TEST_F(HTTP2UpstreamSessionTest, test_replay_safety_callback) {
+TEST_F(HTTP2UpstreamSessionTest, TestReplaySafetyCallback) {
   auto sock = dynamic_cast<HTTPTransaction::Transport*>(httpSession_);
 
   StrictMock<folly::test::MockReplaySafetyCallback> cb1;
@@ -2532,7 +2532,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_replay_safety_callback) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTP2UpstreamSessionTest, test_already_replay_safe) {
+TEST_F(HTTP2UpstreamSessionTest, TestAlreadyReplaySafe) {
   auto sock = dynamic_cast<HTTPTransaction::Transport*>(httpSession_);
 
   StrictMock<folly::test::MockReplaySafetyCallback> cb;
@@ -2545,7 +2545,7 @@ TEST_F(HTTP2UpstreamSessionTest, test_already_replay_safe) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTP2UpstreamSessionTest ,test_chained_buf_ingress) {
+TEST_F(HTTP2UpstreamSessionTest ,TestChainedBufIngress) {
   auto buf = folly::IOBuf::copyBuffer("hi");
   buf->prependChain(folly::IOBuf::copyBuffer("hello"));
 
@@ -2558,7 +2558,7 @@ TEST_F(HTTP2UpstreamSessionTest ,test_chained_buf_ingress) {
   httpSession_->destroy();
 }
 
-TEST_F(HTTP2UpstreamSessionTest, attach_detach) {
+TEST_F(HTTP2UpstreamSessionTest, AttachDetach) {
   folly::EventBase base;
   auto timer =
     folly::HHWheelTimer::newTimer(
@@ -2607,7 +2607,7 @@ TEST_F(HTTP2UpstreamSessionTest, attach_detach) {
 
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
-                           immediate_eof);
+                           ImmediateEof);
 
 using AllTypes = ::testing::Types<HTTP1xCodecPair, SPDY3CodecPair>;
 INSTANTIATE_TYPED_TEST_CASE_P(AllTypesPrefix, HTTPUpstreamTest, AllTypes);

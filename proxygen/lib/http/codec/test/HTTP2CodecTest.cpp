@@ -540,19 +540,19 @@ void HTTP2CodecTest::testFrameSizeLimit(bool oversized) {
   EXPECT_EQ(callbacks_.sessionErrors, oversized ? 1 : 0);
 }
 
-TEST_F(HTTP2CodecTest, normalSizeHeader) {
+TEST_F(HTTP2CodecTest, NormalSizeHeader) {
   testHeaderListSize(false);
 }
 
-TEST_F(HTTP2CodecTest, oversizedHeader) {
+TEST_F(HTTP2CodecTest, OversizedHeader) {
   testHeaderListSize(true);
 }
 
-TEST_F(HTTP2CodecTest, normalSizeFrame) {
+TEST_F(HTTP2CodecTest, NormalSizeFrame) {
   testFrameSizeLimit(false);
 }
 
-TEST_F(HTTP2CodecTest, oversizedFrame) {
+TEST_F(HTTP2CodecTest, OversizedFrame) {
   testFrameSizeLimit(true);
 }
 
@@ -1597,7 +1597,7 @@ TEST_F(HTTP2CodecTest, HTTP2EnableConnect) {
   EXPECT_EQ(1, upstreamCodec_.peerHasWebsockets());
 }
 
-TEST_F(HTTP2CodecTest, websocketUpgrade) {
+TEST_F(HTTP2CodecTest, WebsocketUpgrade) {
   HTTPMessage req = getGetRequest("/apples");
   req.setSecure(true);
   req.setEgressWebsocketUpgrade();
@@ -1610,7 +1610,7 @@ TEST_F(HTTP2CodecTest, websocketUpgrade) {
   EXPECT_EQ(http2::kWebsocketString, *callbacks_.msg->getUpgradeProtocol());
 }
 
-TEST_F(HTTP2CodecTest, websocketBadHeader) {
+TEST_F(HTTP2CodecTest, WebsocketBadHeader) {
   const std::string kConnect{"CONNECT"};
   const std::string kWebsocketPath{"/websocket"};
   const std::string kSchemeHttps{"https"};
@@ -1646,7 +1646,7 @@ TEST_F(HTTP2CodecTest, websocketBadHeader) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
-TEST_F(HTTP2CodecTest, websocketDupProtocol) {
+TEST_F(HTTP2CodecTest, WebsocketDupProtocol) {
   const std::string kConnect{"CONNECT"};
   const std::string kWebsocketPath{"/websocket"};
   const std::string kSchemeHttps{"https"};
@@ -1674,7 +1674,7 @@ TEST_F(HTTP2CodecTest, websocketDupProtocol) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
-TEST_F(HTTP2CodecTest, websocketIncorrectResponse) {
+TEST_F(HTTP2CodecTest, WebsocketIncorrectResponse) {
   parse();
   SetUpUpstreamTest();
   parseUpstream();

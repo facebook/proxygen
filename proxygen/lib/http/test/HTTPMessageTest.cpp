@@ -367,7 +367,7 @@ void testPathAndQuery(const string& url,
   EXPECT_EQ(msg.getQueryString(), expectedQuery);
 }
 
-TEST(getPathAndQuery, ParseURL) {
+TEST(GetPathAndQuery, ParseURL) {
   testPathAndQuery("http://localhost:80/foo?bar#qqq", "/foo", "bar");
   testPathAndQuery("localhost:80/foo?bar#qqq", "/foo", "bar");
   testPathAndQuery("localhost", "", "");

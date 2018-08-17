@@ -51,7 +51,7 @@ class HeaderTableTests : public testing::Test {
   uint32_t length_{0};
 };
 
-TEST_F(HeaderTableTests, index_translation) {
+TEST_F(HeaderTableTests, IndexTranslation) {
   // simple cases
   length_ = 10;
   head_ = 5;
@@ -66,7 +66,7 @@ TEST_F(HeaderTableTests, index_translation) {
   xcheck(5, 7);
 }
 
-TEST_F(HeaderTableTests, add) {
+TEST_F(HeaderTableTests, Add) {
   HeaderTable table(4096);
   HPACKHeader header("accept-encoding", "gzip");
   table.add(header);
@@ -79,7 +79,7 @@ TEST_F(HeaderTableTests, add) {
   EXPECT_EQ(table.nameIndex(header.name), 1);
 }
 
-TEST_F(HeaderTableTests, evict) {
+TEST_F(HeaderTableTests, Evict) {
   HPACKHeaderName name("accept-encoding");
   HPACKHeader accept("accept-encoding", "gzip");
   HPACKHeader accept2("accept-encoding", "----"); // same size, different header
@@ -118,7 +118,7 @@ TEST_F(HeaderTableTests, evict) {
   EXPECT_EQ(table.names().size(), 0);
 }
 
-TEST_F(HeaderTableTests, reduceCapacity) {
+TEST_F(HeaderTableTests, ReduceCapacity) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 10;
   uint32_t capacity = accept.bytes() * max;
@@ -135,7 +135,7 @@ TEST_F(HeaderTableTests, reduceCapacity) {
   EXPECT_EQ(table.bytes(), capacity / 2);
 }
 
-TEST_F(HeaderTableTests, comparison) {
+TEST_F(HeaderTableTests, Comparison) {
   uint32_t capacity = 128;
   HeaderTable t1(capacity);
   HeaderTable t2(capacity);
@@ -155,7 +155,7 @@ TEST_F(HeaderTableTests, comparison) {
   EXPECT_TRUE(t1 == t2);
 }
 
-TEST_F(HeaderTableTests, print) {
+TEST_F(HeaderTableTests, Print) {
   stringstream out;
   HeaderTable t(128);
   t.add(HPACKHeader("Accept-Encoding", "gzip"));
@@ -164,7 +164,7 @@ TEST_F(HeaderTableTests, print) {
   "\n[1] (s=51) accept-encoding: gzip\ntotal size: 51\n");
 }
 
-TEST_F(HeaderTableTests, increaseCapacity) {
+TEST_F(HeaderTableTests, IncreaseCapacity) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 4;
   uint32_t capacity = accept.bytes() * max;
@@ -189,7 +189,7 @@ TEST_F(HeaderTableTests, increaseCapacity) {
 
 }
 
-TEST_F(HeaderTableTests, varyCapacity) {
+TEST_F(HeaderTableTests, VaryCapacity) {
   HPACKHeader accept("accept-encoding", "gzip");
   uint32_t max = 6;
   uint32_t capacity = accept.bytes() * max;
@@ -214,7 +214,7 @@ TEST_F(HeaderTableTests, varyCapacity) {
   resizeAndFillTable(table, accept, 8, 9);
 }
 
-TEST_F(HeaderTableTests, varyCapacityMalignHeadIndex) {
+TEST_F(HeaderTableTests, VaryCapacityMalignHeadIndex) {
   // Test checks for a previous bug/crash condition where due to resizing
   // the underlying table to a size lower than a previous max but up from the
   // current size and the position of the head_ index an out of bounds index
@@ -264,7 +264,7 @@ TEST_F(HeaderTableTests, varyCapacityMalignHeadIndex) {
   EXPECT_EQ(table.size(), max);
 }
 
-TEST_F(HeaderTableTests, addLargerThanTable) {
+TEST_F(HeaderTableTests, AddLargerThanTable) {
   // Construct a smallish table
   uint32_t capacityBytes = 256;
   HeaderTable table(capacityBytes);
@@ -294,7 +294,7 @@ TEST_F(HeaderTableTests, addLargerThanTable) {
   EXPECT_EQ(table.nameIndex(name), 2);
 }
 
-TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
+TEST_F(HeaderTableTests, IncreaseLengthOfFullTable) {
   HPACKHeader largeHeader("Access-Control-Allow-Credentials", "true");
   HPACKHeader smallHeader("Accept", "All-Content");
 
@@ -323,7 +323,7 @@ TEST_F(HeaderTableTests, increaseLengthOfFullTable) {
   CHECK_EQ(table.getHeader(8), smallHeader);
 }
 
-TEST_F(HeaderTableTests, smallTable) {
+TEST_F(HeaderTableTests, SmallTable) {
   HeaderTable table(80);
   HPACKHeader foo("Foo", "bar");
   EXPECT_TRUE(table.add(foo));

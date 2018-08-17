@@ -217,7 +217,7 @@ class IllegalListTest : public StructuredHeadersStandardTest,
                 public ::testing::WithParamInterface<std::string> {
 };
 
-TEST_P(LegalStringTests, legalStrings) {
+TEST_P(LegalStringTests, LegalStrings) {
   std::string input(GetParam().first);
   StructuredHeadersDecoder shd(input);
   StructuredHeaderItem output;
@@ -227,7 +227,7 @@ TEST_P(LegalStringTests, legalStrings) {
   EXPECT_EQ(output, GetParam().second);
 }
 
-TEST_P(LegalBinaryContentTests, legalBinaryContent) {
+TEST_P(LegalBinaryContentTests, LegalBinaryContent) {
   std::string input(GetParam().first);
   std::string expectedOutputInBase32(GetParam().second);
   std::string expectedOutput;
@@ -241,7 +241,7 @@ TEST_P(LegalBinaryContentTests, legalBinaryContent) {
   EXPECT_EQ(output, expectedOutput);
 }
 
-TEST_P(LegalIntegerTests, legalIntegers) {
+TEST_P(LegalIntegerTests, LegalIntegers) {
   std::string input(GetParam().first);
   StructuredHeadersDecoder shd(input);
   StructuredHeaderItem output;
@@ -251,7 +251,7 @@ TEST_P(LegalIntegerTests, legalIntegers) {
   EXPECT_EQ(output, GetParam().second);
 }
 
-TEST_P(LegalFloatTests, legalFloats) {
+TEST_P(LegalFloatTests, LegalFloats) {
   std::string input(GetParam().first);
   StructuredHeadersDecoder shd(input);
   StructuredHeaderItem output;
@@ -261,39 +261,39 @@ TEST_P(LegalFloatTests, legalFloats) {
   EXPECT_EQ(output, GetParam().second);
 }
 
-TEST_P(IllegalItemTest, illegalItem) {
+TEST_P(IllegalItemTest, IllegalItem) {
   StructuredHeadersDecoder shd(GetParam());
   StructuredHeaderItem output;
   auto err = shd.decodeItem(output);
   EXPECT_NE(err, StructuredHeaders::DecodeError::OK);
 }
 
-TEST_P(IllegalListTest, illegalList) {
+TEST_P(IllegalListTest, IllegalList) {
   StructuredHeadersDecoder shd(GetParam());
   std::vector<StructuredHeaderItem> output;
   auto err = shd.decodeList(output);
   EXPECT_NE(err, StructuredHeaders::DecodeError::OK);
 }
 
-INSTANTIATE_TEST_CASE_P(test_legal_strings, LegalStringTests,
+INSTANTIATE_TEST_CASE_P(TestLegalStrings, LegalStringTests,
                         ::testing::ValuesIn(kLegalStringTests));
 
-INSTANTIATE_TEST_CASE_P(test_legal_binary_content, LegalBinaryContentTests,
+INSTANTIATE_TEST_CASE_P(TestLegalBinaryContent, LegalBinaryContentTests,
                         ::testing::ValuesIn(kLegalBinContentTests));
 
-INSTANTIATE_TEST_CASE_P(test_legal_ints, LegalIntegerTests,
+INSTANTIATE_TEST_CASE_P(TestLegalInts, LegalIntegerTests,
                         ::testing::ValuesIn(kLegalIntTests));
 
-INSTANTIATE_TEST_CASE_P(test_legal_floats, LegalFloatTests,
+INSTANTIATE_TEST_CASE_P(TestLegalFloats, LegalFloatTests,
                         ::testing::ValuesIn(kLegalFloatTests));
 
-INSTANTIATE_TEST_CASE_P(test_illegal_items, IllegalItemTest,
+INSTANTIATE_TEST_CASE_P(TestIllegalItems, IllegalItemTest,
                         ::testing::ValuesIn(kIllegalItemTests));
 
-INSTANTIATE_TEST_CASE_P(test_illegal_lists, IllegalListTest,
+INSTANTIATE_TEST_CASE_P(TestIllegalLists, IllegalListTest,
                         ::testing::ValuesIn(kIllegalListTests));
 
-TEST_F(StructuredHeadersStandardTest, test_basic_list) {
+TEST_F(StructuredHeadersStandardTest, TestBasicList) {
   std::string input("1, 42");
   StructuredHeadersDecoder shd(input);
 
@@ -310,7 +310,7 @@ TEST_F(StructuredHeadersStandardTest, test_basic_list) {
   EXPECT_EQ(v[1], int64_t(42));
 }
 
-TEST_F(StructuredHeadersStandardTest, test_single_item_list) {
+TEST_F(StructuredHeadersStandardTest, TestSingleItemList) {
   std::string input("42");
   StructuredHeadersDecoder shd(input);
 
@@ -325,7 +325,7 @@ TEST_F(StructuredHeadersStandardTest, test_single_item_list) {
   EXPECT_EQ(v[0], int64_t(42));
 }
 
-TEST_F(StructuredHeadersStandardTest, test_no_whitespace_list) {
+TEST_F(StructuredHeadersStandardTest, TestNoWhitespaceList) {
   std::string input("1,42");
   StructuredHeadersDecoder shd(input);
 
@@ -342,7 +342,7 @@ TEST_F(StructuredHeadersStandardTest, test_no_whitespace_list) {
   EXPECT_EQ(v[1], int64_t(42));
 }
 
-TEST_F(StructuredHeadersStandardTest, test_extra_whitespace_list) {
+TEST_F(StructuredHeadersStandardTest, TestExtraWhitespaceList) {
   std::string input("1 , 42");
   StructuredHeadersDecoder shd(input);
 

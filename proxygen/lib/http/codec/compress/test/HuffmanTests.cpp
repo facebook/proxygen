@@ -26,7 +26,7 @@ class HuffmanTests : public testing::Test {
   const HuffTree& tree_ = huffTree();
 };
 
-TEST_F(HuffmanTests, codes) {
+TEST_F(HuffmanTests, Codes) {
   uint32_t code;
   uint8_t bits;
   // check 'e' for both requests and responses
@@ -42,7 +42,7 @@ TEST_F(HuffmanTests, codes) {
   EXPECT_EQ(bits, 26);
 }
 
-TEST_F(HuffmanTests, size) {
+TEST_F(HuffmanTests, Size) {
   uint32_t size;
   folly::fbstring onebyte("x");
   size = tree_.getEncodeSize(onebyte);
@@ -53,7 +53,7 @@ TEST_F(HuffmanTests, size) {
   EXPECT_EQ(size, 11);
 }
 
-TEST_F(HuffmanTests, encode) {
+TEST_F(HuffmanTests, Encode) {
   uint32_t size;
   // this is going to fit perfectly into 3 bytes
   folly::fbstring gzip("gzip");
@@ -77,7 +77,7 @@ TEST_F(HuffmanTests, encode) {
   EXPECT_EQ(size, encodedSize);
 }
 
-TEST_F(HuffmanTests, decode) {
+TEST_F(HuffmanTests, Decode) {
   uint8_t buffer[3];
   // simple test with one byte
   buffer[0] = 0x60; //
@@ -105,7 +105,7 @@ TEST_F(HuffmanTests, decode) {
 /*
  * non-printable characters, that use 3 levels
  */
-TEST_F(HuffmanTests, non_printable_decode) {
+TEST_F(HuffmanTests, NonPrintableDecode) {
   // character code 9 and 38 (&) that have 24 + 8 = 32 bits
   uint8_t buffer1[4] = {
     0xFF, 0xFF, 0xEA, 0xF8
@@ -128,7 +128,7 @@ TEST_F(HuffmanTests, non_printable_decode) {
   EXPECT_EQ((uint8_t) literal[1], 240);
 }
 
-TEST_F(HuffmanTests, example_com) {
+TEST_F(HuffmanTests, ExampleCom) {
   // interesting case of one bit with value 0 in the last byte
   IOBufQueue bufQueue;
   QueueAppender appender(&bufQueue, 512);
@@ -145,7 +145,7 @@ TEST_F(HuffmanTests, example_com) {
   CHECK_EQ(example, decoded);
 }
 
-TEST_F(HuffmanTests, user_agent) {
+TEST_F(HuffmanTests, UserAgent) {
   folly::fbstring user_agent(
     "Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) AppleWebKit/537.51"
     ".1 (KHTML, like Gecko) Mobile/11B554a [FBAN/FBIOS;FBAV/6.7;FBBV/566055;FBD"
@@ -167,7 +167,7 @@ TEST_F(HuffmanTests, user_agent) {
 /*
  * this test is verifying the CHECK for length at the end of huffman::encode()
  */
-TEST_F(HuffmanTests, fit_in_buffer) {
+TEST_F(HuffmanTests, FitInBuffer) {
   IOBufQueue bufQueue;
   QueueAppender appender(&bufQueue, 128);
 
@@ -277,7 +277,7 @@ class TestingHuffTree : public HuffTree {
 
 };
 
-TEST_F(HuffmanTests, sanity_checks) {
+TEST_F(HuffmanTests, SanityChecks) {
   TestingHuffTree reqTree = TestingHuffTree::getHuffTree();
   const SuperHuffNode* allSnodesReq = reqTree.getInternalTable();
   uint32_t totalReqChars = treeDfs(allSnodesReq, 0, 0, 0, 0x3fffffff, 30);

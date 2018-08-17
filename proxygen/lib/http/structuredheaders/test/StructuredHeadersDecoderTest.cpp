@@ -16,7 +16,7 @@ namespace proxygen{
 class StructuredHeadersDecoderTest : public testing::Test {
 };
 
-TEST_F(StructuredHeadersDecoderTest, test_item) {
+TEST_F(StructuredHeadersDecoderTest, TestItem) {
   std::string input = "645643";
   StructuredHeadersDecoder shd(input);
 
@@ -27,7 +27,7 @@ TEST_F(StructuredHeadersDecoderTest, test_item) {
   EXPECT_EQ(item, int64_t(645643));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_list) {
+TEST_F(StructuredHeadersDecoderTest, TestList) {
   std::string input = "\"cookies\", 3.1415    , 74657";
   StructuredHeadersDecoder shd(input);
 
@@ -44,7 +44,7 @@ TEST_F(StructuredHeadersDecoderTest, test_list) {
   EXPECT_EQ(v[2], int64_t(74657));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_list_beginning_whitespace) {
+TEST_F(StructuredHeadersDecoderTest, TestListBeginningWhitespace) {
   std::string input = "   19   , 95";
   StructuredHeadersDecoder shd(input);
 
@@ -59,7 +59,7 @@ TEST_F(StructuredHeadersDecoderTest, test_list_beginning_whitespace) {
   EXPECT_EQ(v[1], int64_t(95));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_list_ending_whitespace) {
+TEST_F(StructuredHeadersDecoderTest, TestListEndingWhitespace) {
   std::string input = "19   , 95    ";
   StructuredHeadersDecoder shd(input);
 
@@ -74,7 +74,7 @@ TEST_F(StructuredHeadersDecoderTest, test_list_ending_whitespace) {
   EXPECT_EQ(v[1], int64_t(95));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_list_no_whitespace) {
+TEST_F(StructuredHeadersDecoderTest, TestListNoWhitespace) {
   std::string input = "19,95";
   StructuredHeadersDecoder shd(input);
 
@@ -89,7 +89,7 @@ TEST_F(StructuredHeadersDecoderTest, test_list_no_whitespace) {
   EXPECT_EQ(v[1], int64_t(95));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_list_one_item) {
+TEST_F(StructuredHeadersDecoderTest, TestListOneItem) {
   std::string input = "*Zm9vZA==*";
   StructuredHeadersDecoder shd(input);
 
@@ -102,7 +102,7 @@ TEST_F(StructuredHeadersDecoderTest, test_list_one_item) {
   EXPECT_EQ(v[0], std::string("food"));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_dictionary_many_elts) {
+TEST_F(StructuredHeadersDecoderTest, TestDictionaryManyElts) {
   std::string input = "age=87  ,  weight=150.8 ,   name=\"John Doe\"";
   StructuredHeadersDecoder shd(input);
 
@@ -119,7 +119,7 @@ TEST_F(StructuredHeadersDecoderTest, test_dictionary_many_elts) {
   EXPECT_EQ(m["name"], std::string("John Doe"));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_dictionary_one_elt) {
+TEST_F(StructuredHeadersDecoderTest, TestDictionaryOneElt) {
   std::string input = "bagel=*YXZvY2Fkbw==*";
   StructuredHeadersDecoder shd(input);
 
@@ -131,7 +131,7 @@ TEST_F(StructuredHeadersDecoderTest, test_dictionary_one_elt) {
   EXPECT_EQ(m["bagel"], std::string("avocado"));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_param_list_one_elt) {
+TEST_F(StructuredHeadersDecoderTest, TestParamListOneElt) {
   std::string input = "abc_123;a=1;b=2";
   StructuredHeadersDecoder shd(input);
 
@@ -144,7 +144,7 @@ TEST_F(StructuredHeadersDecoderTest, test_param_list_one_elt) {
   EXPECT_EQ(pl[0].parameterMap["b"], int64_t(2));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_param_list_many_elts) {
+TEST_F(StructuredHeadersDecoderTest, TestParamListManyElts) {
   std::string input = "a_13;a=1;b=2; c_4, ghi;q=\"9\";r=*bWF4IGlzIGF3ZXNvbWU=*";
   StructuredHeadersDecoder shd(input);
 
@@ -169,7 +169,7 @@ TEST_F(StructuredHeadersDecoderTest, test_param_list_many_elts) {
   EXPECT_EQ(pl[1].parameterMap["r"], std::string("max is awesome"));
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_param_list_no_params) {
+TEST_F(StructuredHeadersDecoderTest, TestParamListNoParams) {
   std::string input = "apple12, cat14, dog22";
   StructuredHeadersDecoder shd(input);
 
@@ -186,7 +186,7 @@ TEST_F(StructuredHeadersDecoderTest, test_param_list_no_params) {
   EXPECT_EQ(pl[2].parameterMap.size(), 0);
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_param_list_whitespace) {
+TEST_F(StructuredHeadersDecoderTest, TestParamListWhitespace) {
   std::string input = "am_95    ;    abc=11.8   ,    foo      ";
   StructuredHeadersDecoder shd(input);
 
@@ -203,7 +203,7 @@ TEST_F(StructuredHeadersDecoderTest, test_param_list_whitespace) {
   EXPECT_EQ(pl[1].parameterMap.size(), 0);
 }
 
-TEST_F(StructuredHeadersDecoderTest, test_param_list_null_values) {
+TEST_F(StructuredHeadersDecoderTest, TestParamListNullValues) {
   std::string input = "beverages;water;juice, food;pizza;burger";
   StructuredHeadersDecoder shd(input);
 

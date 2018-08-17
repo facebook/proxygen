@@ -64,7 +64,7 @@ HPACK::DecodeError cancelStream(QPACKDecoder& decoder, QPACKEncoder& encoder,
 }
 }
 
-TEST(QPACKContextTests, static_only) {
+TEST(QPACKContextTests, StaticOnly) {
   QPACKEncoder encoder(true, 128);
   QPACKDecoder decoder(128);
   vector<HPACKHeader> req;
@@ -78,7 +78,7 @@ TEST(QPACKContextTests, static_only) {
   EXPECT_EQ(decoder.encodeTableStateSync(), nullptr);
 }
 
-TEST(QPACKContextTests, indexed) {
+TEST(QPACKContextTests, Indexed) {
   QPACKEncoder encoder(true, 128);
   QPACKDecoder decoder(128);
   vector<HPACKHeader> req;
@@ -91,7 +91,7 @@ TEST(QPACKContextTests, indexed) {
   verifyDecode(decoder, std::move(result), req);
 }
 
-TEST(QPACKContextTests, name_indexed) {
+TEST(QPACKContextTests, NameIndexed) {
   QPACKEncoder encoder(true, 64);
   QPACKDecoder decoder(64);
   vector<HPACKHeader> req;
@@ -106,7 +106,7 @@ TEST(QPACKContextTests, name_indexed) {
   verifyDecode(decoder, std::move(result), req);
 }
 
-TEST(QPACKContextTests, name_indexed_insert) {
+TEST(QPACKContextTests, NameIndexedInsert) {
   QPACKEncoder encoder(false, 128);
   QPACKDecoder decoder(128);
   vector<HPACKHeader> req;
@@ -122,7 +122,7 @@ TEST(QPACKContextTests, name_indexed_insert) {
   verifyDecode(decoder, std::move(result), req);
 }
 
-TEST(QPACKContextTests, unacknowledged) {
+TEST(QPACKContextTests, Unacknowledged) {
   QPACKEncoder encoder(true, 128);
   QPACKDecoder decoder(128);
   // Disallow unack'd headers
@@ -141,7 +141,7 @@ TEST(QPACKContextTests, unacknowledged) {
   verifyDecode(decoder, std::move(result), req);
 }
 
-TEST(QPACKContextTests, test_draining) {
+TEST(QPACKContextTests, TestDraining) {
   QPACKEncoder encoder(false, 128);
   vector<HPACKHeader> req;
   req.push_back(HPACKHeader("accept-encoding", "gzip,deflate"));
@@ -157,7 +157,7 @@ TEST(QPACKContextTests, test_draining) {
   EXPECT_TRUE(stringInOutput(result.stream.get(), "gzip,deflate"));
 }
 
-TEST(QPACKContextTests, test_duplicate) {
+TEST(QPACKContextTests, TestDuplicate) {
   QPACKEncoder encoder(false, 200);
   QPACKDecoder decoder(200);
   vector<HPACKHeader> req;
@@ -178,7 +178,7 @@ TEST(QPACKContextTests, test_duplicate) {
   verifyDecode(decoder, std::move(result), req);
 }
 
-TEST(QPACKContextTests, test_table_size_update) {
+TEST(QPACKContextTests, TestTableSizeUpdate) {
   QPACKEncoder encoder(false, 100);
   QPACKDecoder decoder(100);
   vector<HPACKHeader> req;
@@ -204,7 +204,7 @@ TEST(QPACKContextTests, test_table_size_update) {
 }
 
 
-TEST(QPACKContextTests, test_acks) {
+TEST(QPACKContextTests, TestAcks) {
   QPACKEncoder encoder(false, 64);
   QPACKDecoder decoder(64);
   encoder.setMaxVulnerable(1);
@@ -252,7 +252,7 @@ TEST(QPACKContextTests, test_acks) {
   verifyDecode(decoder, std::move(result), req);
 }
 
-TEST(QPACKContextTests, test_implicit_acks) {
+TEST(QPACKContextTests, TestImplicitAcks) {
   QPACKEncoder encoder(false, 1024);
   QPACKDecoder decoder(1024);
   encoder.setMaxVulnerable(2);
@@ -278,7 +278,7 @@ TEST(QPACKContextTests, test_implicit_acks) {
   verifyDecode(decoder, std::move(result), req);
 }
 
-TEST(QPACKContextTests, test_decode_queue) {
+TEST(QPACKContextTests, TestDecodeQueue) {
   QPACKEncoder encoder(false, 64);
   QPACKDecoder decoder(64);
 
@@ -293,7 +293,7 @@ TEST(QPACKContextTests, test_decode_queue) {
   verifyDecode(decoder, std::move(result1), req1);
 }
 
-TEST(QPACKContextTests, test_decode_queue_delete) {
+TEST(QPACKContextTests, TestDecodeQueueDelete) {
   // This test deletes the decoder from a callback while there are items in
   // the queue
   QPACKEncoder encoder(true, 100);
@@ -333,7 +333,7 @@ TEST(QPACKContextTests, test_decode_queue_delete) {
   EXPECT_EQ(cb2->headers.size(), 0);
 }
 
-TEST(QPACKContextTests, test_decode_max_uncompressed) {
+TEST(QPACKContextTests, TestDecodeMaxUncompressed) {
   QPACKEncoder encoder(false, 64);
   QPACKDecoder decoder(64);
   decoder.setMaxUncompressed(5);
@@ -345,7 +345,7 @@ TEST(QPACKContextTests, test_decode_max_uncompressed) {
                HPACK::DecodeError::HEADERS_TOO_LARGE);
 }
 
-TEST(QPACKContextTests, test_decoder_stream_chunked) {
+TEST(QPACKContextTests, TestDecoderStreamChunked) {
   QPACKEncoder encoder(false, 5000);
   QPACKDecoder decoder(5000);
 
@@ -369,7 +369,7 @@ TEST(QPACKContextTests, test_decoder_stream_chunked) {
   EXPECT_TRUE(encoder.getTable().isVulnerable(129));
 }
 
-TEST(QPACKContextTests, test_decode_partial_control) {
+TEST(QPACKContextTests, TestDecodePartialControl) {
   QPACKEncoder encoder(false, 1000);
   QPACKDecoder decoder(1000);
 
@@ -396,7 +396,7 @@ void checkQError(QPACKDecoder& decoder, std::unique_ptr<IOBuf> buf,
   EXPECT_EQ(cb->error, err);
 }
 
-TEST(QPACKContextTests, decode_errors) {
+TEST(QPACKContextTests, DecodeErrors) {
   QPACKDecoder decoder(128);
   unique_ptr<IOBuf> buf = IOBuf::create(128);
 

@@ -192,14 +192,14 @@ void RFC1867Base::testSimple(unique_ptr<IOBuf> data,
   CHECK_EQ(fileLength, fileSize);
 }
 
-TEST_F(RFC1867Test, testSimplePost) {
+TEST_F(RFC1867Test, TestSimplePost) {
   size_t fileSize = 17;
   auto data = makePost(
       {{"foo", "bar"}, {"jojo", "binky"}}, {}, {{"file1", {"", fileSize}}});
   testSimple(std::move(data), 3 + 5 + fileSize, 0, 3);
 }
 
-TEST_F(RFC1867Test, testSplits) {
+TEST_F(RFC1867Test, TestSplits) {
   for (size_t i = 1; i < 500; i++) {
     size_t fileSize = 1000 + i;
     auto data = makePost(
@@ -208,7 +208,7 @@ TEST_F(RFC1867Test, testSplits) {
   }
 }
 
-TEST_F(RFC1867Test, testSplitsWithFilename) {
+TEST_F(RFC1867Test, TestSplitsWithFilename) {
   for (size_t i = 1; i < 500; i++) {
     size_t fileSize = 1000 + i;
     auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
@@ -218,7 +218,7 @@ TEST_F(RFC1867Test, testSplitsWithFilename) {
   }
 }
 
-TEST_F(RFC1867Test, testHeadersChunkExtraCr) {
+TEST_F(RFC1867Test, TestHeadersChunkExtraCr) {
   // We are testing here that we correctly chunk when the parser has just
   // finished parsing a CR.
   auto numCRs = 5;
@@ -240,7 +240,7 @@ class RFC1867CR : public testing::TestWithParam<string>, public RFC1867Base {
 };
 
 
-TEST_P(RFC1867CR, test) {
+TEST_P(RFC1867CR, Test) {
   for (size_t i = 1; i < GetParam().size(); i++) {
     auto data = makePost({{"foo", "bar"}, {"jojo", "binky"}},
                          {{"file1", {"dummy file name", GetParam()}}},

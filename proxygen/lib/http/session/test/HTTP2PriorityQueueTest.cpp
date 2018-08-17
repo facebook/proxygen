@@ -218,7 +218,7 @@ TEST_F(QueueTest, UpdateWeight) {
 
 // Previously the code would allow duplicate entries in the priority tree under
 // certain circumstances.
-TEST_F(QueueTest, duplicateID) {
+TEST_F(QueueTest, DuplicateID) {
   q_.addOrUpdatePriorityNode(1, {0, false, 15});
   addTransaction(1, {0, true, 15});
   q_.addOrUpdatePriorityNode(3, {1, false, 15});
@@ -412,7 +412,7 @@ TEST_F(QueueTest, Misc) {
   EXPECT_EQ(nodes_, IDList({{3, 25}, {5, 25}, {7, 50}}));
 }
 
-TEST_F(QueueTest, iterateBFS) {
+TEST_F(QueueTest, IterateBFS) {
   buildSimpleTree();
 
   auto stopFn = [this] {
@@ -423,7 +423,7 @@ TEST_F(QueueTest, iterateBFS) {
   EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {5, 25}, {7, 50}}));
 }
 
-TEST_F(QueueTest, nextEgress) {
+TEST_F(QueueTest, NextEgress) {
   buildSimpleTree();
 
   nextEgress();
@@ -463,7 +463,7 @@ TEST_F(QueueTest, nextEgress) {
   EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {9, 25}}));
 }
 
-TEST_F(QueueTest, nextEgressExclusiveAdd) {
+TEST_F(QueueTest, NextEgressExclusiveAdd) {
   buildSimpleTree();
 
   // clear all egress
@@ -484,7 +484,7 @@ TEST_F(QueueTest, nextEgressExclusiveAdd) {
   EXPECT_EQ(q_.numPendingEgress(), 1);
 }
 
-TEST_F(QueueTest, nextEgressExclusiveAddWithEgress) {
+TEST_F(QueueTest, NextEgressExclusiveAddWithEgress) {
   buildSimpleTree();
 
   // clear all egress, except 3
@@ -501,7 +501,7 @@ TEST_F(QueueTest, nextEgressExclusiveAddWithEgress) {
   EXPECT_EQ(q_.numPendingEgress(), 1);
 }
 
-TEST_F(QueueTest, updatePriorityReparentSubtree) {
+TEST_F(QueueTest, UpdatePriorityReparentSubtree) {
   buildSimpleTree();
 
   // clear all egress, except 9
@@ -520,7 +520,7 @@ TEST_F(QueueTest, updatePriorityReparentSubtree) {
   EXPECT_EQ(nodes_, IDList({{9, 100}}));
 }
 
-TEST_F(QueueTest, nextEgressRemoveParent) {
+TEST_F(QueueTest, NextEgressRemoveParent) {
   buildSimpleTree();
 
   // Clear egress for all except txn=9
@@ -542,7 +542,7 @@ TEST_F(QueueTest, nextEgressRemoveParent) {
   EXPECT_EQ(nodes_, IDList({{7, 50}, {9, 25}, {3, 25}}));
 }
 
-TEST_F(QueueTest, addExclusiveDescendantEnqueued) {
+TEST_F(QueueTest, AddExclusiveDescendantEnqueued) {
   addTransaction(1, {0, false, 100});
   addTransaction(3, {1, false, 100});
   addTransaction(5, {3, false, 100});
@@ -555,7 +555,7 @@ TEST_F(QueueTest, addExclusiveDescendantEnqueued) {
   EXPECT_EQ(nodes_, IDList({{7, 100}}));
 }
 
-TEST_F(QueueTest, nextEgressRemoveParentEnqueued) {
+TEST_F(QueueTest, NextEgressRemoveParentEnqueued) {
   addTransaction(1, {0, false, 100});
   addTransaction(3, {1, false, 100});
   addTransaction(5, {3, false, 100});
@@ -568,7 +568,7 @@ TEST_F(QueueTest, nextEgressRemoveParentEnqueued) {
   EXPECT_EQ(nodes_, IDList({{5, 100}}));
 }
 
-TEST_F(QueueTest, nextEgressRemoveParentEnqueuedIndirect) {
+TEST_F(QueueTest, NextEgressRemoveParentEnqueuedIndirect) {
   addTransaction(1, {0, false, 100});
   addTransaction(3, {1, false, 100});
   addTransaction(5, {3, false, 100});
@@ -656,7 +656,7 @@ TEST_F(QueueTest, ChromeTest) {
   }
 }
 
-TEST_F(QueueTest, nextEgressSpdy) {
+TEST_F(QueueTest, NextEgressSpdy) {
   // 1 and 3 are vnodes representing pri 0 and 1
   addTransaction(1, {0, false, 0}, true);
   addTransaction(3, {1, false, 0}, true);
@@ -679,7 +679,7 @@ TEST_F(QueueTest, nextEgressSpdy) {
   EXPECT_EQ(nodes_, IDList({{11, 50}, {13, 50}}));
 }
 
-TEST_F(QueueTest, addOrUpdate) {
+TEST_F(QueueTest, AddOrUpdate) {
   q_.addOrUpdatePriorityNode(1, {0, false, 15});
   q_.addOrUpdatePriorityNode(3, {0, false, 15});
   dump();
@@ -736,7 +736,7 @@ class DanglingQueueTest : public DanglingQueueTestBase, public QueueTest {
   }
 };
 
-TEST_F(DanglingQueueTest, basic) {
+TEST_F(DanglingQueueTest, Basic) {
   addTransaction(1, {0, false, 15});
   removeTransaction(1);
   dump();
@@ -746,7 +746,7 @@ TEST_F(DanglingQueueTest, basic) {
   EXPECT_EQ(nodes_, IDList({}));
 }
 
-TEST_F(DanglingQueueTest, chain) {
+TEST_F(DanglingQueueTest, Chain) {
   addTransaction(1, {0, false, 15}, true);
   addTransaction(3, {1, false, 15}, true);
   addTransaction(5, {3, false, 15}, true);
@@ -763,7 +763,7 @@ TEST_F(DanglingQueueTest, chain) {
   EXPECT_EQ(nodes_, IDList({}));
 }
 
-TEST_F(DanglingQueueTest, drop) {
+TEST_F(DanglingQueueTest, Drop) {
   addTransaction(1, {0, false, 15}, true);
   addTransaction(3, {0, false, 15}, true);
   addTransaction(5, {1, false, 15}, true);
@@ -773,7 +773,7 @@ TEST_F(DanglingQueueTest, drop) {
   EXPECT_EQ(nodes_, IDList({}));
 }
 
-TEST_F(DanglingQueueTest, expireParentOfMismatchedTwins) {
+TEST_F(DanglingQueueTest, ExpireParentOfMismatchedTwins) {
   addTransaction(1, {0, true, 219}, false);
   addTransaction(3, {1, false, 146}, false);
   addTransaction(5, {1, false, 146}, false);
@@ -793,7 +793,7 @@ class DummyTimeout: public HHWheelTimer::Callback {
   }
 };
 
-TEST_F(DanglingQueueTest, refresh) {
+TEST_F(DanglingQueueTest, Refresh) {
   // Having a long running timeout prevents HHWheelTimer::Callback::setScheduled
   // from checking the real time
   DummyTimeout t;
@@ -818,7 +818,7 @@ TEST_F(DanglingQueueTest, refresh) {
   EXPECT_EQ(nodes_, IDList({{3, 100}}));
 }
 
-TEST_F(DanglingQueueTest, max) {
+TEST_F(DanglingQueueTest, Max) {
   buildSimpleTree();
   q_.setMaxVirtualNodes(3);
   for (auto i = 1; i <= 9; i += 2) {

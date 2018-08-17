@@ -110,7 +110,7 @@ class DownstreamTransactionTest : public testing::Test {
   * Test that the the transaction properly forwards callbacks to the
   * handler and that it interacts with its transport as expected.
   */
-TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
+TEST_F(DownstreamTransactionTest, SimpleCallbackForwarding) {
   // flow control is disabled
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
@@ -126,7 +126,7 @@ TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
 /**
  * Testing that we're sending a window update for simple requests
  */
-TEST_F(DownstreamTransactionTest, regular_window_update) {
+TEST_F(DownstreamTransactionTest, RegularWindowUpdate) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
@@ -147,7 +147,7 @@ TEST_F(DownstreamTransactionTest, regular_window_update) {
   eventBase_.loop();
 }
 
-TEST_F(DownstreamTransactionTest, no_window_update) {
+TEST_F(DownstreamTransactionTest, NoWindowUpdate) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
@@ -178,7 +178,7 @@ TEST_F(DownstreamTransactionTest, no_window_update) {
  * Testing window increase using window update; we're actually using this in
  * production to avoid bumping the window using the SETTINGS frame
  */
-TEST_F(DownstreamTransactionTest, window_increase) {
+TEST_F(DownstreamTransactionTest, WindowIncrease) {
   // set initial window size higher than per-stream window
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
@@ -210,7 +210,7 @@ TEST_F(DownstreamTransactionTest, window_increase) {
  * Testing that we're not sending window update when per-stream window size is
  * smaller than the initial window size
  */
-TEST_F(DownstreamTransactionTest, window_decrease) {
+TEST_F(DownstreamTransactionTest, WindowDecrease) {
   // set initial window size higher than per-stream window
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
@@ -235,7 +235,7 @@ TEST_F(DownstreamTransactionTest, window_decrease) {
   eventBase_.loop();
 }
 
-TEST_F(DownstreamTransactionTest, parse_error_cbs) {
+TEST_F(DownstreamTransactionTest, ParseErrorCbs) {
   // Test where the transaction gets on parse error and then a body
   // callback. This is possible because codecs are stateless between
   // frames.
@@ -273,7 +273,7 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   eventBase_.loop();
 }
 
-TEST_F(DownstreamTransactionTest, detach_from_notify) {
+TEST_F(DownstreamTransactionTest, DetachFromNotify) {
   unique_ptr<StrictMock<MockHTTPHandler>> handler(
     new StrictMock<MockHTTPHandler>);
 
@@ -311,7 +311,7 @@ TEST_F(DownstreamTransactionTest, detach_from_notify) {
   txn.onError(err);
 }
 
-TEST_F(DownstreamTransactionTest, deferred_egress) {
+TEST_F(DownstreamTransactionTest, DeferredEgress) {
   EXPECT_CALL(transport_, describe(_))
     .WillRepeatedly(Return());
   EXPECT_CALL(transport_, notifyPendingEgress())
@@ -368,7 +368,7 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
   txn.onError(err);
 }
 
-TEST_F(DownstreamTransactionTest, internal_error) {
+TEST_F(DownstreamTransactionTest, InternalError) {
   unique_ptr<StrictMock<MockHTTPHandler>> handler(
     new StrictMock<MockHTTPHandler>);
 
@@ -401,7 +401,7 @@ TEST_F(DownstreamTransactionTest, internal_error) {
   txn.sendAbort();
 }
 
-TEST_F(DownstreamTransactionTest, unpaused_flow_control_violation) {
+TEST_F(DownstreamTransactionTest, UnpausedFlowControlViolation) {
   StrictMock<MockHTTPHandler> handler;
 
   InSequence enforceOrder;

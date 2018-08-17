@@ -111,7 +111,7 @@ class HTTPSessionAcceptorTestNPNJunk :
     public HTTPSessionAcceptorTestBase {};
 
 // Verify HTTPSessionAcceptor creates the correct codec based on NPN
-TEST_P(HTTPSessionAcceptorTestNPN, npn) {
+TEST_P(HTTPSessionAcceptorTestNPN, Npn) {
   std::string proto(GetParam());
   if (proto == "") {
     acceptor_->expectedProto_ = "http/1.1";
@@ -142,7 +142,7 @@ INSTANTIATE_TEST_CASE_P(NPNPositive,
                         ::testing::ValuesIn(protos1));
 
 // Verify HTTPSessionAcceptor creates the correct plaintext codec
-TEST_P(HTTPSessionAcceptorTestNPNPlaintext, plaintext_protocols) {
+TEST_P(HTTPSessionAcceptorTestNPNPlaintext, PlaintextProtocols) {
   std::string proto(GetParam());
   config_->plaintextProtocol = proto;
   newAcceptor();
@@ -170,7 +170,7 @@ INSTANTIATE_TEST_CASE_P(NPNPlaintext,
                         ::testing::ValuesIn(protos2));
 
 // Verify HTTPSessionAcceptor closes the socket on invalid NPN
-TEST_F(HTTPSessionAcceptorTestNPNJunk, npn) {
+TEST_F(HTTPSessionAcceptorTestNPNJunk, Npn) {
   std::string proto("/http/1.1");
   MockAsyncSocket::UniquePtr sock(new MockAsyncSocket(&eventBase_));
   SocketAddress clientAddress;

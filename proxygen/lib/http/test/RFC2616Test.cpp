@@ -15,7 +15,7 @@ using namespace proxygen;
 using std::string;
 using RFC2616::parseByteRangeSpec;
 
-TEST(QvalueTest, basic) {
+TEST(QvalueTest, Basic) {
 
   std::vector<RFC2616::TokenQPair> output;
 
@@ -74,7 +74,7 @@ TEST(QvalueTest, basic) {
   output.clear();
 }
 
-TEST(QvalueTest, extras) {
+TEST(QvalueTest, Extras) {
 
   std::vector<RFC2616::TokenQPair> output;
 
@@ -95,7 +95,7 @@ TEST(QvalueTest, extras) {
   output.clear();
 }
 
-TEST(QvalueTest, invalids) {
+TEST(QvalueTest, Invalids) {
 
   std::vector<RFC2616::TokenQPair> output;
 
@@ -127,7 +127,7 @@ TEST(QvalueTest, invalids) {
 
 }
 
-TEST(ByteRangeSpecTest, valids) {
+TEST(ByteRangeSpecTest, Valids) {
   unsigned long firstByte = ULONG_MAX;
   unsigned long lastByte = ULONG_MAX;
   unsigned long instanceLength = ULONG_MAX;
@@ -157,7 +157,7 @@ TEST(ByteRangeSpecTest, valids) {
   EXPECT_EQ(ULONG_MAX, instanceLength);
 }
 
-TEST(ByteRangeSpecTest, invalids) {
+TEST(ByteRangeSpecTest, Invalids) {
   unsigned long dummy;
 
   EXPECT_FALSE(parseByteRangeSpec("0-10/100", dummy, dummy, dummy)) <<

@@ -53,13 +53,13 @@ class ByteEventTrackerTest : public Test {
     new ByteEventTracker(&callback_)};
 };
 
-TEST_F(ByteEventTrackerTest, ping) {
+TEST_F(ByteEventTrackerTest, Ping) {
   byteEventTracker_->addPingByteEvent(10, proxygen::getCurrentTime(), 0);
   EXPECT_CALL(callback_, onPingReplyLatency(_));
   byteEventTracker_->processByteEvents(byteEventTracker_, 10);
 }
 
-TEST_F(ByteEventTrackerTest, ttlb) {
+TEST_F(ByteEventTrackerTest, Ttlb) {
   byteEventTracker_->addLastByteEvent(&txn_, 10);
   EXPECT_CALL(transportCallback_, headerBytesGenerated(_)); // sendAbort calls?
   txn_.sendAbort(); // put it in a state for detach

@@ -12,7 +12,7 @@
 
 using namespace proxygen;
 
-TEST(TimeTest, getDateTimeStr) {
+TEST(TimeTest, GetDateTimeStr) {
   ASSERT_FALSE(getDateTimeStr(getCurrentTime()).empty());
 
   SystemClock::time_point sys_tp{}; // epoch timepoint

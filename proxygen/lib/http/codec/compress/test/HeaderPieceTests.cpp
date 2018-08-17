@@ -16,7 +16,7 @@ using namespace testing;
 
 class HeaderPieceTests : public testing::Test {};
 
-TEST_F(HeaderPieceTests, basic) {
+TEST_F(HeaderPieceTests, Basic) {
   HeaderPiece *hp;
 
   // creating non-owner piece with null pointer

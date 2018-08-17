@@ -19,7 +19,7 @@ namespace proxygen {
 class StructuredHeadersEncoderTest : public testing::Test {
 };
 
-TEST_F(StructuredHeadersEncoderTest, test_integer) {
+TEST_F(StructuredHeadersEncoderTest, TestInteger) {
   StructuredHeaderItem item;
   int64_t val = 2018;
   item.tag = StructuredHeaderItem::Type::INT64;
@@ -32,7 +32,7 @@ TEST_F(StructuredHeadersEncoderTest, test_integer) {
   EXPECT_EQ(encoder.get(), "2018");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_integer_negative) {
+TEST_F(StructuredHeadersEncoderTest, TestIntegerNegative) {
   StructuredHeaderItem item;
   int64_t val = -2018;
   item.tag = StructuredHeaderItem::Type::INT64;
@@ -45,7 +45,7 @@ TEST_F(StructuredHeadersEncoderTest, test_integer_negative) {
   EXPECT_EQ(encoder.get(), "-2018");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_float) {
+TEST_F(StructuredHeadersEncoderTest, TestFloat) {
   StructuredHeaderItem item;
   double val = 3.1415926535;
   item.tag = StructuredHeaderItem::Type::DOUBLE;
@@ -58,7 +58,7 @@ TEST_F(StructuredHeadersEncoderTest, test_float) {
   EXPECT_EQ(encoder.get(), "3.1415926535");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_float_too_much_precision) {
+TEST_F(StructuredHeadersEncoderTest, TestFloatTooMuchPrecision) {
   StructuredHeadersEncoder encoder;
   StructuredHeaderItem item;
   double val = 100000.8392758372647; // has 20 characters
@@ -71,7 +71,7 @@ TEST_F(StructuredHeadersEncoderTest, test_float_too_much_precision) {
   EXPECT_EQ(encoder.get(), "100000.839275837");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_float_negative) {
+TEST_F(StructuredHeadersEncoderTest, TestFloatNegative) {
   StructuredHeaderItem item;
   double val = -3.141;
   item.tag = StructuredHeaderItem::Type::DOUBLE;
@@ -84,7 +84,7 @@ TEST_F(StructuredHeadersEncoderTest, test_float_negative) {
   EXPECT_EQ(encoder.get(), "-3.141");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_string) {
+TEST_F(StructuredHeadersEncoderTest, TestString) {
   StructuredHeaderItem item;
   std::string val = "seattle is the best";
   item.tag = StructuredHeaderItem::Type::STRING;
@@ -97,7 +97,7 @@ TEST_F(StructuredHeadersEncoderTest, test_string) {
   EXPECT_EQ(encoder.get(), "\"seattle is the best\"");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_string_bad_content) {
+TEST_F(StructuredHeadersEncoderTest, TestStringBadContent) {
   StructuredHeaderItem item;
   std::string val = "seattle \n is the best";
   item.tag = StructuredHeaderItem::Type::STRING;
@@ -109,7 +109,7 @@ TEST_F(StructuredHeadersEncoderTest, test_string_bad_content) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_string_backslash) {
+TEST_F(StructuredHeadersEncoderTest, TestStringBackslash) {
   StructuredHeaderItem item;
   std::string val = "seattle \\is the best";
   item.tag = StructuredHeaderItem::Type::STRING;
@@ -122,7 +122,7 @@ TEST_F(StructuredHeadersEncoderTest, test_string_backslash) {
   EXPECT_EQ(encoder.get(), "\"seattle \\\\is the best\"");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_string_quote) {
+TEST_F(StructuredHeadersEncoderTest, TestStringQuote) {
   StructuredHeaderItem item;
   std::string val = "seattle \"is the best";
   item.tag = StructuredHeaderItem::Type::STRING;
@@ -135,7 +135,7 @@ TEST_F(StructuredHeadersEncoderTest, test_string_quote) {
   EXPECT_EQ(encoder.get(), "\"seattle \\\"is the best\"");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_binary_content) {
+TEST_F(StructuredHeadersEncoderTest, TestBinaryContent) {
   StructuredHeaderItem item;
   std::string val = "seattle <3";
   item.tag = StructuredHeaderItem::Type::BINARYCONTENT;
@@ -148,7 +148,7 @@ TEST_F(StructuredHeadersEncoderTest, test_binary_content) {
   EXPECT_EQ(encoder.get(), "*c2VhdHRsZSA8Mw==*");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_identifier) {
+TEST_F(StructuredHeadersEncoderTest, TestIdentifier) {
   std::string result;
   std::string val = "abc_00123";
 
@@ -159,7 +159,7 @@ TEST_F(StructuredHeadersEncoderTest, test_identifier) {
   EXPECT_EQ(encoder.get(), "abc_00123");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_identifier_bad_content) {
+TEST_F(StructuredHeadersEncoderTest, TestIdentifierBadContent) {
   std::string result;
   std::string val = "_abc_00123";
 
@@ -169,7 +169,7 @@ TEST_F(StructuredHeadersEncoderTest, test_identifier_bad_content) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_wrong_type) {
+TEST_F(StructuredHeadersEncoderTest, TestWrongType) {
   StructuredHeaderItem item;
   double val = 3.1415;
   item.tag = StructuredHeaderItem::Type::INT64;
@@ -181,7 +181,7 @@ TEST_F(StructuredHeadersEncoderTest, test_wrong_type) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_list_many_elts) {
+TEST_F(StructuredHeadersEncoderTest, TestListManyElts) {
   std::vector<StructuredHeaderItem> vec;
   StructuredHeaderItem item;
 
@@ -207,7 +207,7 @@ TEST_F(StructuredHeadersEncoderTest, test_list_many_elts) {
   EXPECT_EQ(encoder.get(), "3.14, *cGl6emE=*, 65");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_list_one_elt) {
+TEST_F(StructuredHeadersEncoderTest, TestListOneElt) {
   std::vector<StructuredHeaderItem> vec;
   StructuredHeaderItem item;
 
@@ -223,7 +223,7 @@ TEST_F(StructuredHeadersEncoderTest, test_list_one_elt) {
   EXPECT_EQ(encoder.get(), "\"hello world\"");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_list_empty) {
+TEST_F(StructuredHeadersEncoderTest, TestListEmpty) {
   std::vector<StructuredHeaderItem> vec;
 
   StructuredHeadersEncoder encoder;
@@ -232,7 +232,7 @@ TEST_F(StructuredHeadersEncoderTest, test_list_empty) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_list_bad_item) {
+TEST_F(StructuredHeadersEncoderTest, TestListBadItem) {
   std::vector<StructuredHeaderItem> vec;
   StructuredHeaderItem item;
 
@@ -247,7 +247,7 @@ TEST_F(StructuredHeadersEncoderTest, test_list_bad_item) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_dictionary_one_elt) {
+TEST_F(StructuredHeadersEncoderTest, TestDictionaryOneElt) {
   StructuredHeaders::Dictionary dict;
 
   StructuredHeaderItem item1;
@@ -264,7 +264,7 @@ TEST_F(StructuredHeadersEncoderTest, test_dictionary_one_elt) {
   EXPECT_EQ(encoder.get(), "e=2.71");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_dictionary_many_elts) {
+TEST_F(StructuredHeadersEncoderTest, TestDictionaryManyElts) {
   StructuredHeaders::Dictionary dict;
   StructuredHeaderItem item;
 
@@ -300,7 +300,7 @@ TEST_F(StructuredHeadersEncoderTest, test_dictionary_many_elts) {
   ));
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_dictionary_empty) {
+TEST_F(StructuredHeadersEncoderTest, TestDictionaryEmpty) {
   StructuredHeaders::Dictionary dict;
 
   StructuredHeadersEncoder encoder;
@@ -309,7 +309,7 @@ TEST_F(StructuredHeadersEncoderTest, test_dictionary_empty) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_dictionary_bad_item) {
+TEST_F(StructuredHeadersEncoderTest, TestDictionaryBadItem) {
   StructuredHeaders::Dictionary dict;
 
   StructuredHeaderItem item1;
@@ -325,7 +325,7 @@ TEST_F(StructuredHeadersEncoderTest, test_dictionary_bad_item) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_dictionary_bad_identifier) {
+TEST_F(StructuredHeadersEncoderTest, TestDictionaryBadIdentifier) {
   StructuredHeaders::Dictionary dict;
 
   StructuredHeaderItem item1;
@@ -341,7 +341,7 @@ TEST_F(StructuredHeadersEncoderTest, test_dictionary_bad_identifier) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_param_list_one_elt) {
+TEST_F(StructuredHeadersEncoderTest, TestParamListOneElt) {
   ParameterisedList pl;
   std::unordered_map<std::string, StructuredHeaderItem> m;
 
@@ -364,7 +364,7 @@ TEST_F(StructuredHeadersEncoderTest, test_param_list_one_elt) {
   EXPECT_EQ(encoder.get(), "foo; abc=1");
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_param_list_successive_nulls) {
+TEST_F(StructuredHeadersEncoderTest, TestParamListSuccessiveNulls) {
   ParameterisedList pl;
   std::unordered_map<std::string, StructuredHeaderItem> m;
 
@@ -389,7 +389,7 @@ TEST_F(StructuredHeadersEncoderTest, test_param_list_successive_nulls) {
   ));
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_param_list_many_elts) {
+TEST_F(StructuredHeadersEncoderTest, TestParamListManyElts) {
   ParameterisedList pl;
   std::unordered_map<std::string, StructuredHeaderItem> m1;
 
@@ -442,7 +442,7 @@ TEST_F(StructuredHeadersEncoderTest, test_param_list_many_elts) {
   ));
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_param_list_empty) {
+TEST_F(StructuredHeadersEncoderTest, TestParamListEmpty) {
   ParameterisedList pl;
   StructuredHeadersEncoder encoder;
   auto err = encoder.encodeParameterisedList(pl);
@@ -450,7 +450,7 @@ TEST_F(StructuredHeadersEncoderTest, test_param_list_empty) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_param_list_bad_secondary_identifier) {
+TEST_F(StructuredHeadersEncoderTest, TestParamListBadSecondaryIdentifier) {
   ParameterisedList pl;
   std::unordered_map<std::string, StructuredHeaderItem> m;
 
@@ -471,7 +471,7 @@ TEST_F(StructuredHeadersEncoderTest, test_param_list_bad_secondary_identifier) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_param_list_bad_primary_identifier) {
+TEST_F(StructuredHeadersEncoderTest, TestParamListBadPrimaryIdentifier) {
   ParameterisedList pl;
   std::unordered_map<std::string, StructuredHeaderItem> m;
 
@@ -492,7 +492,7 @@ TEST_F(StructuredHeadersEncoderTest, test_param_list_bad_primary_identifier) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-TEST_F(StructuredHeadersEncoderTest, test_param_list_bad_items) {
+TEST_F(StructuredHeadersEncoderTest, TestParamListBadItems) {
   ParameterisedList pl;
   std::unordered_map<std::string, StructuredHeaderItem> m;
 

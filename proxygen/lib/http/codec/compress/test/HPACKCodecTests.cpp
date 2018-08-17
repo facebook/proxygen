@@ -128,7 +128,7 @@ class HPACKCodecTests : public testing::Test {
   HPACKCodec server{TransportDirection::DOWNSTREAM};
 };
 
-TEST_F(HPACKCodecTests, request) {
+TEST_F(HPACKCodecTests, Request) {
   for (int i = 0; i < 3; i++) {
     auto result = encodeDecode(client, server, basicHeaders());
     EXPECT_TRUE(!result.hasError());
@@ -136,7 +136,7 @@ TEST_F(HPACKCodecTests, request) {
   }
 }
 
-TEST_F(HPACKCodecTests, response) {
+TEST_F(HPACKCodecTests, Response) {
   vector<vector<string>> headers = {
     {"content-length", "80"},
     {"content-encoding", "gzip"},
@@ -151,7 +151,7 @@ TEST_F(HPACKCodecTests, response) {
   }
 }
 
-TEST_F(HPACKCodecTests, headroom) {
+TEST_F(HPACKCodecTests, Headroom) {
   vector<Header> req = basicHeaders();
 
   uint32_t headroom = 20;
@@ -167,7 +167,7 @@ TEST_F(HPACKCodecTests, headroom) {
 /**
  * makes sure that the encoder will lowercase the header names
  */
-TEST_F(HPACKCodecTests, lowercasing_header_names) {
+TEST_F(HPACKCodecTests, LowercasingHeaderNames) {
   vector<vector<string>> headers = {
     {"Content-Length", "80"},
     {"Content-Encoding", "gzip"},
@@ -186,7 +186,7 @@ TEST_F(HPACKCodecTests, lowercasing_header_names) {
  * make sure we mark multi-valued headers appropriately,
  * as expected by the SPDY codec.
  */
-TEST_F(HPACKCodecTests, multivalue_headers) {
+TEST_F(HPACKCodecTests, MultivalueHeaders) {
   vector<vector<string>> headers = {
     {"Content-Length", "80"},
     {"Content-Encoding", "gzip"},
@@ -209,7 +209,7 @@ TEST_F(HPACKCodecTests, multivalue_headers) {
 /**
  * test that we're propagating the error correctly in the decoder
  */
-TEST_F(HPACKCodecTests, decode_error) {
+TEST_F(HPACKCodecTests, DecodeError) {
   vector<vector<string>> headers = {
     {"Content-Length", "80"}
   };
@@ -232,7 +232,7 @@ TEST_F(HPACKCodecTests, decode_error) {
 /**
  * testing that we're calling the stats callbacks appropriately
  */
-TEST_F(HPACKCodecTests, header_codec_stats) {
+TEST_F(HPACKCodecTests, HeaderCodecStats) {
   vector<vector<string>> headers = {
     {"Content-Length", "80"},
     {"Content-Encoding", "gzip"},
@@ -273,7 +273,7 @@ TEST_F(HPACKCodecTests, header_codec_stats) {
 /**
  * check that we're enforcing the limit on total uncompressed size
  */
-TEST_F(HPACKCodecTests, uncompressed_size_limit) {
+TEST_F(HPACKCodecTests, UncompressedSizeLimit) {
   vector<vector<string>> headers;
   // generate lots of small headers
   string contentLength = "Content-Length";
@@ -291,7 +291,7 @@ TEST_F(HPACKCodecTests, uncompressed_size_limit) {
 /**
  * Size limit stats
  */
-TEST_F(HPACKCodecTests, size_limit_stats) {
+TEST_F(HPACKCodecTests, SizeLimitStats) {
   vector<vector<string>> headers;
   // generate lots of small headers
   string contentLength = "Content-Length";
@@ -313,7 +313,7 @@ TEST_F(HPACKCodecTests, size_limit_stats) {
   EXPECT_EQ(stats.tooLarge, 1);
 }
 
-TEST_F(HPACKCodecTests, default_header_indexing_strategy) {
+TEST_F(HPACKCodecTests, DefaultHeaderIndexingStrategy) {
   vector<Header> headers = basicHeaders();
   size_t headersOrigSize = headers.size();
 
@@ -353,7 +353,7 @@ class HPACKQueueTests : public testing::TestWithParam<int> {
   std::unique_ptr<HPACKQueue> queue;
 };
 
-TEST_F(HPACKQueueTests, queue_inline) {
+TEST_F(HPACKQueueTests, QueueInline) {
   vector<Header> req = basicHeaders();
   TestStreamingCallback cb;
 
@@ -368,7 +368,7 @@ TEST_F(HPACKQueueTests, queue_inline) {
   }
 }
 
-TEST_F(HPACKQueueTests, queue_reorder) {
+TEST_F(HPACKQueueTests, QueueReorder) {
   vector<Header> req = basicHeaders();
   vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
 
@@ -391,7 +391,7 @@ TEST_F(HPACKQueueTests, queue_reorder) {
   EXPECT_EQ(queue->getHolBlockCount(), 3);
 }
 
-TEST_F(HPACKQueueTests, queue_reorder_ooo) {
+TEST_F(HPACKQueueTests, QueueReorderOoo) {
   vector<Header> req = basicHeaders();
   vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
 
@@ -415,7 +415,7 @@ TEST_F(HPACKQueueTests, queue_reorder_ooo) {
   EXPECT_EQ(queue->getHolBlockCount(), 1);
 }
 
-TEST_F(HPACKQueueTests, queue_error) {
+TEST_F(HPACKQueueTests, QueueError) {
   vector<Header> req = basicHeaders();
   TestStreamingCallback cb;
 
@@ -438,7 +438,7 @@ TEST_F(HPACKQueueTests, queue_error) {
   }
 }
 
-TEST_P(HPACKQueueTests, queue_deleted) {
+TEST_P(HPACKQueueTests, QueueDeleted) {
   vector<Header> req = basicHeaders();
   vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
 
