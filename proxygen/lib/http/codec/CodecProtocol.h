@@ -21,6 +21,7 @@ enum class CodecProtocol : uint8_t {
   SPDY_3,
   SPDY_3_1,
   HTTP_2,
+  HQ,
 };
 
 /**
