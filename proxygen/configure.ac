@@ -59,6 +59,8 @@ AC_CHECK_LIB([ssl], [SSL_SESSION_new], [], [AC_MSG_ERROR([Unable to find libssl]
 AC_CHECK_LIB([z], [gzread], [], [AC_MSG_ERROR([Unable to find zlib])])
 AC_CHECK_LIB([folly],[getenv],[],[AC_MSG_ERROR(
              [Please install the folly library from https://github.com/facebook/folly])])
+AC_CHECK_LIB([fizz],[getenv],[],[AC_MSG_ERROR(
+              [Please install the fizz library from https://github.com/facebookincubator/fizz])])
 AC_CHECK_LIB([wangle], [getenv], [], [AC_MSG_ERROR(
              [Please install the wangle library from https://github.com/facebook/wangle])])
 AC_CHECK_HEADER([folly/Likely.h], [], [AC_MSG_ERROR(

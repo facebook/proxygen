@@ -8,13 +8,15 @@ from __future__ import unicode_literals
 import specs.folly as folly
 import specs.wangle as wangle
 import specs.proxygen as proxygen
+import specs.fizz as fizz
+import specs.sodium as sodium
 
 from shell_quoting import ShellQuoted
 
 
 def fbcode_builder_spec(builder):
     return {
-        'depends_on': [folly, wangle, proxygen],
+        'depends_on': [folly, wangle, proxygen, fizz, sodium],
         'steps': [
             # Proxygen is the last step, so we are still in its working dir.
             builder.step('Run proxygen tests', [
