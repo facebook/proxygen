@@ -460,8 +460,11 @@ class HTTPMessage {
    * value is only valid as long as this
    * HTTPMessage object.
    */
-  const std::map<std::string, std::string>& getQueryParams() const;
+  const std::multimap<std::string, std::string>& getQueryParams() const;
 
+  const std::pair< std::multimap<std::string,std::string>::iterator, 
+  std::multimap<std::string,std::string>::iterator > getQueryParams(const std::string& name) const;
+  
   /**
    * Set the query string to the specified value, and recreate the url_.
    *
@@ -680,7 +683,7 @@ class HTTPMessage {
    * containing the name-value pairs.
    */
   static std::string createQueryString(
-      const std::map<std::string, std::string>& params, uint32_t maxSize);
+      const std::multimap<std::string, std::string>& params, uint32_t maxSize);
 
  protected:
   // Message start time, in msec since the epoch.
@@ -780,7 +783,8 @@ class HTTPMessage {
    */
   mutable std::map<folly::StringPiece, folly::StringPiece> cookies_;
   // TODO: use StringPiece for queryParams_ and delete splitNameValue()
-  mutable std::map<std::string, std::string> queryParams_;
+  // mutable std::map<std::string, std::string> queryParams_;
+  mutable std::multimap<std::string, std::string> queryParams_;
 
   std::pair<uint8_t, uint8_t> version_;
   HTTPHeaders headers_;

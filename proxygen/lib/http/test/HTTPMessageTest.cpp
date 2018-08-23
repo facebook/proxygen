@@ -66,15 +66,15 @@ TEST(HTTPMessage, TestParseQueryParamsSimple) {
   msg.setURL(url);
   EXPECT_EQ(msg.getQueryParam("seq"), "123456");
   EXPECT_EQ(msg.getQueryParam("userid"), "1256679245");
-  EXPECT_EQ(msg.getQueryParam("dup"), "2");
+  EXPECT_EQ(msg.getQueryParam("dup"), "1");
   EXPECT_EQ(msg.getQueryParam("helloWorld"), "");
-  EXPECT_EQ(msg.getIntQueryParam("dup", 5), 2);
+  EXPECT_EQ(msg.getIntQueryParam("dup", 5), 1);
   EXPECT_EQ(msg.getIntQueryParam("abc", 5), 5);
   EXPECT_EQ(msg.getDecodedQueryParam("second"), "was it clear (already)?");
   EXPECT_EQ(msg.getDecodedQueryParam("seq"), "123456");
   EXPECT_EQ(msg.hasQueryParam("seq"), true);
   EXPECT_EQ(msg.hasQueryParam("seq1"), false);
-  EXPECT_EQ(msg.getIntQueryParam("dup"), 2);
+  EXPECT_EQ(msg.getIntQueryParam("dup"), 1);
   EXPECT_ANY_THROW(msg.getIntQueryParam("abc"));
   EXPECT_ANY_THROW(msg.getIntQueryParam("second"));
 }
@@ -367,7 +367,7 @@ void testPathAndQuery(const string& url,
   EXPECT_EQ(msg.getQueryString(), expectedQuery);
 }
 
-TEST(GetPathAndQuery, ParseURL) {
+TEST(getPathAndQuery, ParseURL) {
   testPathAndQuery("http://localhost:80/foo?bar#qqq", "/foo", "bar");
   testPathAndQuery("localhost:80/foo?bar#qqq", "/foo", "bar");
   testPathAndQuery("localhost", "", "");
@@ -466,8 +466,8 @@ TEST(HTTPMessage, SetQueryParamTests) {
   testSetQueryParam("http://localhost:80/foo?param1=a&param2=b#qqq",
                     "param2",
                     "true",
-                    "http://localhost:80/foo?param1=a&param2=true#qqq",
-                    "param1=a&param2=true");
+                    "http://localhost:80/foo?param1=a&param2=b&param2=true#qqq",
+                    "param1=a&param2=b&param2=true");
   // Add a query parameter
   testSetQueryParam("http://localhost/foo?param1=a&param2=b#qqq",
                     "param3",
