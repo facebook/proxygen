@@ -11,7 +11,7 @@
 
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/SPDYUtil.h>
-#include <proxygen/lib/http/codec/HTTP2Framer.h>
+#include <proxygen/lib/http/codec/HTTP2Constants.h>
 
 namespace proxygen {
 

@@ -43,9 +43,8 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
     : HTTPParallelCodec(direction),
       headerCodec_(direction),
       frameState_(direction == TransportDirection::DOWNSTREAM
-                      ? FrameState::UPSTREAM_CONNECTION_PREFACE
-                      : FrameState::DOWNSTREAM_CONNECTION_PREFACE),
-      decodeInfo_(HTTPRequestVerifier()) {
+                  ? FrameState::UPSTREAM_CONNECTION_PREFACE
+                  : FrameState::DOWNSTREAM_CONNECTION_PREFACE) {
 
   // Set headerCodec_ settings if specified, else let headerCodec_ utilize
   // its own defaults
@@ -551,157 +550,40 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
 
 void HTTP2Codec::onHeader(const folly::fbstring& name,
                           const folly::fbstring& value) {
-  // Refuse decoding other headers if an error is already found
-  if (decodeInfo_.decodeError != HPACK::DecodeError::NONE
-      || decodeInfo_.parsingError != "") {
-    VLOG(4) << "Ignoring header=" << name << " value=" << value <<
-      " due to parser error=" << decodeInfo_.parsingError;
-    return;
-  }
-  VLOG(5) << "Processing header=" << name << " value=" << value;
-  folly::StringPiece nameSp(name);
-  folly::StringPiece valueSp(value);
-
-  HTTPRequestVerifier& verifier = decodeInfo_.verifier;
-  if (nameSp.startsWith(':')) {
-    if (decodeInfo_.regularHeaderSeen) {
-      decodeInfo_.parsingError =
-        folly::to<string>("Illegal pseudo header name=", nameSp);
-      return;
-    }
-    if (decodeInfo_.isRequest) {
-      if (nameSp == http2::kMethod) {
-        if (!verifier.setMethod(valueSp)) {
-          return;
-        }
-      } else if (nameSp == http2::kScheme) {
-        if (!verifier.setScheme(valueSp)) {
-          return;
-        }
-      } else if (nameSp == http2::kAuthority) {
-        if (!verifier.setAuthority(valueSp)) {
-          return;
-        }
-      } else if (nameSp == http2::kPath) {
-        if (!verifier.setPath(valueSp)) {
-          return;
-        }
-      } else if (nameSp == http2::kProtocol) {
-        if (!verifier.setUpgradeProtocol(valueSp)) {
-          return;
-        }
-      } else {
-        decodeInfo_.parsingError =
-          folly::to<string>("Invalid req header name=", nameSp);
-        return;
-      }
-    } else {
-      if (nameSp == http2::kStatus) {
-        if (decodeInfo_.hasStatus) {
-          decodeInfo_.parsingError = string("Duplicate status");
-          return;
-        }
-        decodeInfo_.hasStatus = true;
-        int32_t code = -1;
-        try {
-          code = folly::to<unsigned int>(valueSp);
-        } catch (const std::range_error& ex) {
-        }
-        if (code >= 100 && code <= 999) {
-          decodeInfo_.msg->setStatusCode(code);
-          decodeInfo_.msg->setStatusMessage(
-              HTTPMessage::getDefaultReason(code));
-        } else {
-          decodeInfo_.parsingError =
-            folly::to<string>("Malformed status code=", valueSp);
-          return;
-        }
-      } else {
-        decodeInfo_.parsingError =
-          folly::to<string>("Invalid resp header name=", nameSp);
-        return;
-      }
+  if (decodeInfo_.onHeader(name, value)) {
+    if (name == "user-agent" && userAgent_.empty()) {
+      userAgent_ = value.toStdString();
     }
   } else {
-    decodeInfo_.regularHeaderSeen = true;
-    if (nameSp == "connection") {
-      decodeInfo_.parsingError =
-        string("HTTP/2 Message with Connection header");
-      return;
-    }
-    if (nameSp == "content-length") {
-      uint32_t contentLength = 0;
-      try {
-        contentLength = folly::to<uint32_t>(valueSp);
-      } catch (const std::range_error& ex) {
-      }
-      if (decodeInfo_.hasContentLength &&
-          contentLength != decodeInfo_.contentLength) {
-        decodeInfo_.parsingError = string("Multiple content-length headers");
-        return;
-      }
-      decodeInfo_.hasContentLength = true;
-      decodeInfo_.contentLength = contentLength;
-    }
-    bool nameOk = SPDYUtil::validateHeaderName(nameSp);
-    bool valueOk = SPDYUtil::validateHeaderValue(valueSp, SPDYUtil::STRICT);
-    if (!nameOk || !valueOk) {
-      decodeInfo_.parsingError = folly::to<string>("Bad header value: name=",
-                                                   nameSp, " value=", valueSp);
-      VLOG(4) << "dir=" << uint32_t(transportDirection_) <<
-        decodeInfo_.parsingError << " codec=" << headerCodec_;
-      return;
-    }
-    if (nameSp == "user-agent" && userAgent_.empty()) {
-      userAgent_ = valueSp.str();
-    }
-    // Add the (name, value) pair to headers
-    decodeInfo_.msg->getHeaders().add(nameSp, valueSp);
+    VLOG(4) << "dir=" << uint32_t(transportDirection_) <<
+      decodeInfo_.parsingError << " codec=" << headerCodec_;
   }
 }
 
 void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
-  HTTPHeaders& headers = decodeInfo_.msg->getHeaders();
-
-  if (decodeInfo_.isRequest) {
-    auto combinedCookie = headers.combine(HTTP_HEADER_COOKIE, "; ");
-    if (!combinedCookie.empty()) {
-      headers.set(HTTP_HEADER_COOKIE, combinedCookie);
-    }
-    HTTPRequestVerifier& verifier = decodeInfo_.verifier;
-    if (!verifier.validate()) {
-      decodeInfo_.parsingError = verifier.error;
-      return;
-    }
-  } else if (!decodeInfo_.hasStatus) {
-    decodeInfo_.parsingError =
-      string("Malformed response, missing :status");
-    return;
-  }
-
+  decodeInfo_.onHeadersComplete(decodedSize);
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
-  decodeInfo_.msg->setHTTPVersion(1, 1);
-  decodeInfo_.msg->setIngressHeaderSize(decodedSize);
 
+  HTTPMessage* msg = decodeInfo_.msg;
   HTTPRequestVerifier& verifier = decodeInfo_.verifier;
   if ((transportDirection_ == TransportDirection::DOWNSTREAM) &&
       verifier.hasUpgradeProtocol() &&
-      (*decodeInfo_.msg->getUpgradeProtocol() == http2::kWebsocketString) &&
-      decodeInfo_.msg->getMethod() == HTTPMethod::CONNECT) {
-    decodeInfo_.msg->setIngressWebsocketUpgrade();
+      (*msg->getUpgradeProtocol() == http2::kWebsocketString) &&
+      msg->getMethod() == HTTPMethod::CONNECT) {
+    msg->setIngressWebsocketUpgrade();
     ingressWebsocketUpgrade_ = true;
   } else {
     auto it = upgradedStreams_.find(curHeader_.stream);
     if (it != upgradedStreams_.end()) {
       upgradedStreams_.erase(curHeader_.stream);
       // a websocket upgrade was sent on this stream.
-      if (decodeInfo_.msg->getStatusCode() != 200) {
+      if (msg->getStatusCode() != 200) {
         decodeInfo_.parsingError =
           folly::to<string>("Invalid response code to a websocket upgrade: ",
-            decodeInfo_.msg->getStatusCode());
+                            msg->getStatusCode());
         return;
       }
-      decodeInfo_.msg->setIngressWebsocketUpgrade();
+      msg->setIngressWebsocketUpgrade();
     }
   }
 }

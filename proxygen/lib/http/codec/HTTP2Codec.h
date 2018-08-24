@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
 #include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
@@ -172,40 +173,6 @@ public:
                           folly::Optional<StreamID> controlStream,
                           bool eom,
                           HTTPHeaderSize* size);
-
-  class HeaderDecodeInfo {
-   public:
-    explicit HeaderDecodeInfo(HTTPRequestVerifier v)
-    : verifier(v) {}
-
-    void init(HTTPMessage* msgIn, bool isRequestIn) {
-      msg = msgIn;
-      isRequest = isRequestIn;
-      hasStatus = false;
-      hasContentLength = false;
-      contentLength = 0;
-      regularHeaderSeen = false;
-      parsingError = "";
-      decodeError = HPACK::DecodeError::NONE;
-      verifier.error = "";
-      verifier.setMessage(msg);
-      verifier.setHasMethod(false);
-      verifier.setHasPath(false);
-      verifier.setHasScheme(false);
-      verifier.setHasAuthority(false);
-    }
-    // Change this to a map of decoded header blocks when we decide
-    // to concurrently decode partial header blocks
-    HTTPMessage* msg{nullptr};
-    HTTPRequestVerifier verifier;
-    bool isRequest{false};
-    bool hasStatus{false};
-    bool regularHeaderSeen{false};
-    bool hasContentLength{false};
-    uint32_t contentLength{0};
-    std::string parsingError;
-    HPACK::DecodeError decodeError{HPACK::DecodeError::NONE};
-  };
 
   ErrorCode parseFrame(folly::io::Cursor& cursor);
   ErrorCode parseAllData(folly::io::Cursor& cursor);
