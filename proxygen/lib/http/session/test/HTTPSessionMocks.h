@@ -87,10 +87,13 @@ class HTTPHandlerBase {
 
   void sendReplyWithBody(uint32_t code,
                          uint32_t content_length,
-                         bool keepalive = true) {
+                         bool keepalive = true,
+                         bool sendEOM = true) {
     sendHeaders(code, content_length, keepalive);
     sendBody(content_length);
-    txn_->sendEOM();
+    if (sendEOM) {
+      txn_->sendEOM();
+    }
   }
 
   void sendEOM() {
