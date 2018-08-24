@@ -132,7 +132,7 @@ TEST_F(HPACKCodecTests, Request) {
   for (int i = 0; i < 3; i++) {
     auto result = encodeDecode(client, server, basicHeaders());
     EXPECT_TRUE(!result.hasError());
-    EXPECT_EQ(result->headers.size(), 6);
+    EXPECT_EQ(result->headers.size(), 12);
   }
 }
 
@@ -147,7 +147,7 @@ TEST_F(HPACKCodecTests, Response) {
   for (int i = 0; i < 3; i++) {
     auto result = encodeDecode(server, client, basicHeaders());
     EXPECT_TRUE(!result.hasError());
-    EXPECT_EQ(result->headers.size(), 6);
+    EXPECT_EQ(result->headers.size(), 12);
   }
 }
 
@@ -161,7 +161,7 @@ TEST_F(HPACKCodecTests, Headroom) {
   Cursor cursor(encodedReq.get());
   auto result = decode(server, cursor, cursor.totalLength());
   EXPECT_TRUE(!result.hasError());
-  EXPECT_EQ(result->headers.size(), 6);
+  EXPECT_EQ(result->headers.size(), 12);
 }
 
 /**
@@ -315,11 +315,12 @@ TEST_F(HPACKCodecTests, SizeLimitStats) {
 
 TEST_F(HPACKCodecTests, DefaultHeaderIndexingStrategy) {
   vector<Header> headers = basicHeaders();
-  size_t headersOrigSize = headers.size();
+  size_t headersIndexableSize = 4;
 
   // Control equality check; all basic headers were indexed
   client.encode(headers);
-  EXPECT_EQ(client.getHPACKTableInfo().egressHeadersStored_, headersOrigSize);
+  EXPECT_EQ(client.getHPACKTableInfo().egressHeadersStored_,
+            headersIndexableSize);
 
   // Verify HPACKCodec by default utilizes the default header indexing strategy
   // by ensuring that it does not index any of the added headers below
@@ -337,7 +338,7 @@ TEST_F(HPACKCodecTests, DefaultHeaderIndexingStrategy) {
   HPACKCodec testCodec{TransportDirection::UPSTREAM};
   testCodec.encode(headers);
   EXPECT_EQ(
-    testCodec.getHPACKTableInfo().egressHeadersStored_, headersOrigSize);
+    testCodec.getHPACKTableInfo().egressHeadersStored_, headersIndexableSize);
 }
 
 
@@ -364,7 +365,7 @@ TEST_F(HPACKQueueTests, QueueInline) {
     queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &cb, false);
     auto result = cb.getResult();
     EXPECT_TRUE(!result.hasError());
-    EXPECT_EQ(result->headers.size(), 6);
+    EXPECT_EQ(result->headers.size(), 12);
   }
 }
 
@@ -386,7 +387,7 @@ TEST_F(HPACKQueueTests, QueueReorder) {
   for (auto& d: data) {
     auto result = d.second.getResult();
     EXPECT_TRUE(!result.hasError());
-    EXPECT_EQ(result->headers.size(), 6);
+    EXPECT_EQ(result->headers.size(), 12);
   }
   EXPECT_EQ(queue->getHolBlockCount(), 3);
 }
@@ -410,7 +411,7 @@ TEST_F(HPACKQueueTests, QueueReorderOoo) {
   for (auto& d: data) {
     auto result = d.second.getResult();
     EXPECT_TRUE(!result.hasError());
-    EXPECT_EQ(result->headers.size(), 6);
+    EXPECT_EQ(result->headers.size(), 12);
   }
   EXPECT_EQ(queue->getHolBlockCount(), 1);
 }
@@ -429,7 +430,7 @@ TEST_F(HPACKQueueTests, QueueError) {
     auto result = cb.getResult();
     if (expectOk) {
       EXPECT_TRUE(!result.hasError());
-      EXPECT_EQ(result->headers.size(), 6);
+      EXPECT_EQ(result->headers.size(), 12);
     } else {
       EXPECT_TRUE(result.hasError());
       EXPECT_EQ(result.error(), HPACK::DecodeError::BAD_SEQUENCE_NUMBER);

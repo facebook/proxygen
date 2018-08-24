@@ -116,7 +116,10 @@ vector<compress::Header> headersFromArray(vector<vector<string>>& a) {
 vector<compress::Header> basicHeaders() {
   static vector<vector<string>> headersStrings = {
     {":path", "/index.php"},
-    {":host", "www.facebook.com"},
+    {":authority", "www.facebook.com"},
+    {":method", "GET"},
+    {":scheme", "https"},
+    {"Host", "www.facebook.com"},
     {"accept-encoding", "gzip"}
   };
   static vector<compress::Header> headers = headersFromArray(headersStrings);
