@@ -105,13 +105,24 @@ HTTPTransactionHandler* HTTPServerAcceptor::newHandler(
   msg->setClientAddress(clientAddr);
   msg->setDstAddress(vipAddr);
 
+
   // Create filters chain
+  std::vector<RequestHandler*> rhv;
+
   RequestHandler* h = nullptr;
   for (auto& factory: handlerFactories_) {
     h = factory->onRequest(h, msg);
+    rhv.emplace_back( h );
   }
 
-  return new RequestHandlerAdaptor(h);
+  RequestHandlerAdaptor* p = new RequestHandlerAdaptor(h);
+
+  for( auto rh : rhv )
+  {
+      rh->setTransportStatProvider( p );
+  }
+  return p;
+
 }
 
 void HTTPServerAcceptor::onNewConnection(

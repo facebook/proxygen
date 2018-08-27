@@ -26,6 +26,9 @@ void RequestHandlerAdaptor::setTransaction(HTTPTransaction* txn) noexcept {
 
   // We become that transparent layer
   upstream_->setResponseHandler(this);
+
+  // set the interface to receive events to calc bytes that received & sent
+  txn_->setTransportCallback(this);
 }
 
 void RequestHandlerAdaptor::detachTransaction() noexcept {
@@ -57,6 +60,8 @@ void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
     }
   }
 
+  stat_.start_time = msg->getStartTime();
+
   // Only in case of no error
   if (err_ == kErrorNone) {
     upstream_->onRequest(std::move(msg));
@@ -67,7 +72,8 @@ void RequestHandlerAdaptor::onBody(std::unique_ptr<folly::IOBuf> c) noexcept {
   upstream_->onBody(std::move(c));
 }
 
-void RequestHandlerAdaptor::onChunkHeader(size_t /*length*/) noexcept {}
+void RequestHandlerAdaptor::onChunkHeader(size_t /*length*/) noexcept {
+}
 
 void RequestHandlerAdaptor::onChunkComplete() noexcept {
 }
@@ -207,5 +213,58 @@ void RequestHandlerAdaptor::setError(ProxygenError err) noexcept {
   err_ = err;
   upstream_->onError(err);
 }
+
+
+void RequestHandlerAdaptor::firstHeaderByteFlushed() noexcept{
+
+}
+
+void RequestHandlerAdaptor::firstByteFlushed() noexcept{
+
+}
+
+void RequestHandlerAdaptor::lastByteFlushed() noexcept{
+
+}
+
+void RequestHandlerAdaptor::lastByteAcked(std::chrono::milliseconds latency) noexcept{
+}
+
+void RequestHandlerAdaptor::headerBytesGenerated(HTTPHeaderSize& size) noexcept{
+    if( UNLIKELY(size.compressed) )
+    {
+        stat_.send_head_bytes += size.compressed;
+    }
+    else
+    {
+        stat_.send_head_bytes += size.uncompressed;
+    }
+}
+
+void RequestHandlerAdaptor::headerBytesReceived(const HTTPHeaderSize& size) noexcept{
+    if( UNLIKELY(size.compressed) )
+    {
+        stat_.recv_head_bytes += size.compressed;
+    }
+    else
+    {
+        stat_.recv_head_bytes += size.uncompressed;
+    }
+}
+
+void RequestHandlerAdaptor::bodyBytesGenerated(size_t nbytes) noexcept{
+    stat_.send_body_bytes += nbytes;
+}
+
+void RequestHandlerAdaptor::bodyBytesReceived(size_t size) noexcept{
+    stat_.recv_body_bytes += size;
+}
+
+
+const TransportStatProvider::TransportStat_t& RequestHandlerAdaptor::get_stat( ) noexcept{
+    auto now = SteadyClock::now();
+    stat_.duration = microsecondsBetween( now, stat_.start_time );
+    return stat_;
+};
 
 }

@@ -10,11 +10,28 @@
 #pragma once
 
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/Time.h>
 
 namespace proxygen {
 
 class ResponseHandler;
 class ExMessageHandler;
+
+
+class TransportStatProvider {
+public:
+	struct TransportStat_t
+	{
+	    uint64_t   recv_head_bytes{0}; 
+	    uint64_t   recv_body_bytes{0}; 
+	    uint64_t   send_head_bytes{0}; 
+	    uint64_t   send_body_bytes{0};
+	    TimePoint  start_time;
+	    std::chrono::microseconds duration;
+	};
+  virtual const TransportStat_t& get_stat( ) noexcept  = 0;
+};
+
 
 /**
  * Interface to be implemented by objects that handle requests from
@@ -23,6 +40,8 @@ class ExMessageHandler;
  */
 class RequestHandler {
  public:
+  
+
   /**
    * Saves the downstream handle with itself. Implementations of this
    * interface should use downstream_ to send back response.
@@ -98,6 +117,10 @@ class RequestHandler {
     return downstream_;
   }
 
+  virtual void setTransportStatProvider( TransportStatProvider* p ) noexcept {
+	statProvider_ = p;
+  }
+
   virtual ~RequestHandler() {}
 
  protected:
@@ -106,6 +129,8 @@ class RequestHandler {
    * the response in your RequestHandler.
    */
   ResponseHandler* downstream_{nullptr};
+
+  TransportStatProvider* statProvider_{nullptr};
 };
 
 }

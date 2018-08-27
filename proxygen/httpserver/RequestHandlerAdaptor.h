@@ -11,11 +11,15 @@
 
 #include <proxygen/httpserver/ResponseHandler.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/utils/Time.h>
+#include <proxygen/httpserver/RequestHandler.h>
 
 namespace proxygen {
 
 class RequestHandler;
 class PushHandler;
+
+class TransportStatProvider;
 
 /**
  * An adaptor that converts HTTPTransactionHandler to RequestHandler.
@@ -32,7 +36,9 @@ class PushHandler;
  */
 class RequestHandlerAdaptor
     : public HTTPTransactionHandler,
-      public ResponseHandler {
+	  public HTTPTransactionTransportCallback,
+      public ResponseHandler,
+      public TransportStatProvider {
  public:
   explicit RequestHandlerAdaptor(RequestHandler* requestHandler);
 
@@ -52,6 +58,18 @@ class RequestHandlerAdaptor
   void onEgressResumed() noexcept override;
   void onExTransaction(HTTPTransaction* txn) noexcept override;
 
+
+  // HTTPTransactionTransportCallback
+  virtual void firstHeaderByteFlushed() noexcept override;
+  virtual void firstByteFlushed() noexcept override;
+  virtual void lastByteFlushed() noexcept override;
+  virtual void lastByteAcked(std::chrono::milliseconds latency) noexcept override;
+  virtual void headerBytesGenerated(HTTPHeaderSize& size) noexcept override;
+  virtual void headerBytesReceived(const HTTPHeaderSize& size) noexcept override;
+  virtual void bodyBytesGenerated(size_t nbytes) noexcept override;
+  virtual void bodyBytesReceived(size_t size) noexcept override;
+
+
   // ResponseHandler
   void sendHeaders(HTTPMessage& msg) noexcept override;
   void sendChunkHeader(size_t len) noexcept override;
@@ -69,11 +87,16 @@ class RequestHandlerAdaptor
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override;
 
+  // TransportStatProvider
+  virtual const TransportStatProvider::TransportStat_t& get_stat( ) noexcept override;
+
   // Helper method
   void setError(ProxygenError err) noexcept;
 
   ProxygenError err_{kErrorNone};
   bool responseStarted_{false};
+
+  TransportStatProvider::TransportStat_t stat_;
 };
 
 }
