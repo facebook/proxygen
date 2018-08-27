@@ -498,3 +498,17 @@ TEST(HTTPMessage, TestCheckForHeaderToken) {
   EXPECT_FALSE(msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "http2-settings",
                                        true));
 }
+
+TEST(HttpMessage, TestProtocolStringHTTPVersion) {
+  HTTPMessage msg;
+  msg.setHTTPVersion(1, 1);
+
+  EXPECT_EQ(msg.getProtocolString(), "1.1");
+}
+
+TEST(HttpMessage, TestProtocolStringAdvancedProtocol) {
+  HTTPMessage msg;
+  std::string advancedProtocol = "h2";
+  msg.setAdvancedProtocolString(advancedProtocol);
+  EXPECT_EQ(msg.getProtocolString(), advancedProtocol);
+}

@@ -542,6 +542,20 @@ class HTTPMessage {
     return protoStr_;
   }
 
+  /**
+   * Return the protocol string used by this HTTPMessage.
+   *
+   * If this HTTP message is using an advanced protocol, the protocol string
+   * will be the advanced protocol. If not, it will simply be the HTTP version.
+   */
+  const std::string& getProtocolString() const {
+    if (isAdvancedProto()) {
+      return *protoStr_;
+    }
+
+    return versionStr_;
+  }
+
   /* Setter and getter for the SPDY priority value (0 - 7).  When serialized
    * to SPDY/2, Codecs will collpase 0,1 -> 0, 2,3 -> 1, etc.
    *
