@@ -31,12 +31,17 @@ TEST(HTTP2CodecConstantsTest, HTTPContantsAreCommonHeaders) {
   // map to the respective common headers.  Should this test ever fail, the
   // H2Codec would need to be updated in the corresponding places when creating
   // compress/Header objects.
-  EXPECT_EQ(HTTPCommonHeaders::hash(http2::kMethod), HTTP_HEADER_COLON_METHOD);
-  EXPECT_EQ(HTTPCommonHeaders::hash(http2::kScheme), HTTP_HEADER_COLON_SCHEME);
-  EXPECT_EQ(HTTPCommonHeaders::hash(http2::kPath), HTTP_HEADER_COLON_PATH);
+  EXPECT_EQ(HTTPCommonHeaders::hash(headers::kMethod),
+            HTTP_HEADER_COLON_METHOD);
+  EXPECT_EQ(HTTPCommonHeaders::hash(headers::kScheme),
+            HTTP_HEADER_COLON_SCHEME);
+  EXPECT_EQ(HTTPCommonHeaders::hash(headers::kPath),
+            HTTP_HEADER_COLON_PATH);
   EXPECT_EQ(
-    HTTPCommonHeaders::hash(http2::kAuthority), HTTP_HEADER_COLON_AUTHORITY);
-  EXPECT_EQ(HTTPCommonHeaders::hash(http2::kStatus), HTTP_HEADER_COLON_STATUS);
+    HTTPCommonHeaders::hash(headers::kAuthority),
+    HTTP_HEADER_COLON_AUTHORITY);
+  EXPECT_EQ(HTTPCommonHeaders::hash(headers::kStatus),
+            HTTP_HEADER_COLON_STATUS);
 }
 
 class HTTP2CodecTest : public HTTPParallelCodecTest {
@@ -289,10 +294,10 @@ TEST_F(HTTP2CodecTest, BadHeaders) {
   static const std::string v3("http");
   static const std::string v4("foo.com");
   static const vector<proxygen::compress::Header> reqHeaders = {
-    Header::makeHeaderForTest(http2::kMethod, v1),
-    Header::makeHeaderForTest(http2::kPath, v2),
-    Header::makeHeaderForTest(http2::kScheme, v3),
-    Header::makeHeaderForTest(http2::kAuthority, v4),
+    Header::makeHeaderForTest(headers::kMethod, v1),
+    Header::makeHeaderForTest(headers::kPath, v2),
+    Header::makeHeaderForTest(headers::kScheme, v3),
+    Header::makeHeaderForTest(headers::kAuthority, v4),
   };
 
   HPACKCodec headerCodec(TransportDirection::UPSTREAM);
@@ -342,10 +347,10 @@ TEST_F(HTTP2CodecTest, BadPseudoHeaders) {
   static const std::string v3("bar");
   static const std::string v4("/");
   static const vector<proxygen::compress::Header> reqHeaders = {
-    Header::makeHeaderForTest(http2::kMethod, v1),
-    Header::makeHeaderForTest(http2::kScheme, v2),
+    Header::makeHeaderForTest(headers::kMethod, v1),
+    Header::makeHeaderForTest(headers::kScheme, v2),
     Header::makeHeaderForTest(n3, v3),
-    Header::makeHeaderForTest(http2::kPath, v4),
+    Header::makeHeaderForTest(headers::kPath, v4),
   };
 
   HPACKCodec headerCodec(TransportDirection::UPSTREAM);
@@ -374,10 +379,10 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
   static const std::string v3("\13");
   static const std::string v4("abc.com\\13\\10");
   static const vector<proxygen::compress::Header> reqHeaders = {
-    Header::makeHeaderForTest(http2::kMethod, v1),
-    Header::makeHeaderForTest(http2::kPath, v2),
-    Header::makeHeaderForTest(http2::kScheme, v3),
-    Header::makeHeaderForTest(http2::kAuthority, v4),
+    Header::makeHeaderForTest(headers::kMethod, v1),
+    Header::makeHeaderForTest(headers::kPath, v2),
+    Header::makeHeaderForTest(headers::kScheme, v3),
+    Header::makeHeaderForTest(headers::kAuthority, v4),
   };
 
   HPACKCodec headerCodec(TransportDirection::UPSTREAM);
@@ -458,15 +463,15 @@ TEST_F(HTTP2CodecTest, BadConnect) {
   std::string v1 = "CONNECT";
   std::string v2 = "somehost:576";
   std::vector<proxygen::compress::Header> goodHeaders = {
-    Header::makeHeaderForTest(http2::kMethod, v1),
-    Header::makeHeaderForTest(http2::kAuthority, v2),
+    Header::makeHeaderForTest(headers::kMethod, v1),
+    Header::makeHeaderForTest(headers::kAuthority, v2),
   };
 
   // See https://tools.ietf.org/html/rfc7540#section-8.3
   std::string v3 = "/foobar";
   std::vector<proxygen::compress::Header> badHeaders = {
-    Header::makeHeaderForTest(http2::kScheme, http2::kHttp),
-    Header::makeHeaderForTest(http2::kPath, v3),
+    Header::makeHeaderForTest(headers::kScheme, headers::kHttp),
+    Header::makeHeaderForTest(headers::kPath, v3),
   };
 
   HPACKCodec headerCodec(TransportDirection::UPSTREAM);
@@ -599,7 +604,7 @@ TEST_F(HTTP2CodecTest, BasicHeaderReply) {
 TEST_F(HTTP2CodecTest, BadHeadersReply) {
   static const std::string v1("200");
   static const vector<proxygen::compress::Header> respHeaders = {
-    Header::makeHeaderForTest(http2::kStatus, v1),
+    Header::makeHeaderForTest(headers::kStatus, v1),
   };
 
   HPACKCodec headerCodec(TransportDirection::DOWNSTREAM);
@@ -1607,7 +1612,7 @@ TEST_F(HTTP2CodecTest, WebsocketUpgrade) {
 
   EXPECT_TRUE(callbacks_.msg->isIngressWebsocketUpgrade());
   EXPECT_NE(nullptr, callbacks_.msg->getUpgradeProtocol());
-  EXPECT_EQ(http2::kWebsocketString, *callbacks_.msg->getUpgradeProtocol());
+  EXPECT_EQ(headers::kWebsocketString, *callbacks_.msg->getUpgradeProtocol());
 }
 
 TEST_F(HTTP2CodecTest, WebsocketBadHeader) {
@@ -1615,12 +1620,12 @@ TEST_F(HTTP2CodecTest, WebsocketBadHeader) {
   const std::string kWebsocketPath{"/websocket"};
   const std::string kSchemeHttps{"https"};
   vector<proxygen::compress::Header> reqHeaders = {
-    Header::makeHeaderForTest(http2::kMethod, kConnect),
-    Header::makeHeaderForTest(http2::kProtocol, http2::kWebsocketString),
+    Header::makeHeaderForTest(headers::kMethod, kConnect),
+    Header::makeHeaderForTest(headers::kProtocol, headers::kWebsocketString),
   };
   vector<proxygen::compress::Header> optionalHeaders = {
-    Header::makeHeaderForTest(http2::kPath, kWebsocketPath),
-    Header::makeHeaderForTest(http2::kScheme, kSchemeHttps),
+    Header::makeHeaderForTest(headers::kPath, kWebsocketPath),
+    Header::makeHeaderForTest(headers::kScheme, kSchemeHttps),
   };
 
   HPACKCodec headerCodec(TransportDirection::UPSTREAM);
@@ -1651,11 +1656,11 @@ TEST_F(HTTP2CodecTest, WebsocketDupProtocol) {
   const std::string kWebsocketPath{"/websocket"};
   const std::string kSchemeHttps{"https"};
   vector<proxygen::compress::Header> headers = {
-    Header::makeHeaderForTest(http2::kMethod, kConnect),
-    Header::makeHeaderForTest(http2::kProtocol, http2::kWebsocketString),
-    Header::makeHeaderForTest(http2::kProtocol, http2::kWebsocketString),
-    Header::makeHeaderForTest(http2::kPath, kWebsocketPath),
-    Header::makeHeaderForTest(http2::kScheme, kSchemeHttps),
+    Header::makeHeaderForTest(headers::kMethod, kConnect),
+    Header::makeHeaderForTest(headers::kProtocol, headers::kWebsocketString),
+    Header::makeHeaderForTest(headers::kProtocol, headers::kWebsocketString),
+    Header::makeHeaderForTest(headers::kPath, kWebsocketPath),
+    Header::makeHeaderForTest(headers::kScheme, kSchemeHttps),
   };
   HPACKCodec headerCodec(TransportDirection::UPSTREAM);
   auto encodedHeaders = headerCodec.encode(headers);

@@ -11,7 +11,7 @@
 
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
-#include <proxygen/lib/http/codec/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HeaderConstants.h>
 
 namespace proxygen {
 
@@ -61,7 +61,7 @@ class HTTPRequestVerifier {
     }
     hasScheme_ = true;
     // TODO support non http/https schemes
-    if (scheme == http2::kHttps) {
+    if (scheme == headers::kHttps) {
       assert(msg_ != nullptr);
       msg_->setSecure(true);
     }

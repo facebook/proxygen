@@ -11,7 +11,7 @@
 
 #include <folly/Expected.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HeaderConstants.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 
@@ -35,15 +35,15 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
   void onHeader(const folly::fbstring& name,
                 const folly::fbstring& value) override {
     if (name[0] == ':' && !isPublic) {
-      if (name == http2::kMethod) {
+      if (name == headers::kMethod) {
         msg.setMethod(value);
-      } else if (name == http2::kScheme) {
-        if (value == http2::kHttps) {
+      } else if (name == headers::kScheme) {
+        if (value == headers::kHttps) {
           msg.setSecure(true);
         }
-      } else if (name == http2::kAuthority) {
+      } else if (name == headers::kAuthority) {
         msg.getHeaders().add(HTTP_HEADER_HOST, value.toStdString());
-      } else if (name == http2::kPath) {
+      } else if (name == headers::kPath) {
         msg.setURL(value.toStdString());
       } else {
         DCHECK(false) << "Bad header name=" << name << " value=" << value;

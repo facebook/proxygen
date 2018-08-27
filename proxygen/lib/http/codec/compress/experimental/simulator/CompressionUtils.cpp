@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h>
 
-#include <proxygen/lib/http/codec/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HeaderConstants.h>
 
 using std::string;
 using std::vector;
@@ -90,18 +90,19 @@ std::vector<compress::Header> prepareMessageForCompression(
   const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
   bool isPublic = msg.getMethodString().empty();
   if (!isPublic) {
-    allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, http2::kMethod,
+    allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, headers::kMethod,
                             msg.getMethodString());
     if (msg.getMethod() != HTTPMethod::CONNECT) {
-      allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, http2::kScheme,
-                              (msg.isSecure() ? http2::kHttps : http2::kHttp));
-      allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, http2::kPath,
+      allHeaders.emplace_back(
+          HTTP_HEADER_COLON_SCHEME, headers::kScheme,
+          (msg.isSecure() ? headers::kHttps : headers::kHttp));
+      allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, headers::kPath,
                               msg.getURL());
     }
 
     if (!host.empty()) {
       allHeaders.emplace_back(
-          HTTP_HEADER_COLON_AUTHORITY, http2::kAuthority, host);
+          HTTP_HEADER_COLON_AUTHORITY, headers::kAuthority, host);
     }
   }
   // Cookies are coalesced in the HAR file but need to be added as separate

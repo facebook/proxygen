@@ -47,16 +47,6 @@ const uint32_t kInitialWindow = (1u << 16) - 1;
 const uint32_t kMaxWindowUpdateSize = (1u << 31) - 1;
 const uint32_t kMaxHeaderTableSize = (1u << 16);
 
-const std::string kAuthority(":authority");
-const std::string kMethod(":method");
-const std::string kPath(":path");
-const std::string kScheme(":scheme");
-const std::string kStatus(":status");
-const std::string kProtocol(":protocol");
-
-const std::string kHttp("http");
-const std::string kHttps("https");
-
 const std::string kConnectionPreface("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
 const std::string kProtocolString("h2");
@@ -64,7 +54,5 @@ const std::string kProtocolDraftString("h2-14");
 const std::string kProtocolExperimentalString("h2-fb");
 const std::string kProtocolCleartextString("h2c");
 const std::string kProtocolSettingsHeader("HTTP2-Settings");
-const std::string kWebsocketString("websocket");
 
-const std::string kStatus200("200");
 }}

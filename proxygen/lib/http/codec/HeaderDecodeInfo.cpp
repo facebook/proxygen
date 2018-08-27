@@ -32,23 +32,23 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
       return false;
     }
     if (isRequest) {
-      if (nameSp == http2::kMethod) {
+      if (nameSp == headers::kMethod) {
         if (!verifier.setMethod(valueSp)) {
           return false;
         }
-      } else if (nameSp == http2::kScheme) {
+      } else if (nameSp == headers::kScheme) {
         if (!verifier.setScheme(valueSp)) {
           return false;
         }
-      } else if (nameSp == http2::kAuthority) {
+      } else if (nameSp == headers::kAuthority) {
         if (!verifier.setAuthority(valueSp)) {
           return false;
         }
-      } else if (nameSp == http2::kPath) {
+      } else if (nameSp == headers::kPath) {
         if (!verifier.setPath(valueSp)) {
           return false;
         }
-      } else if (nameSp == http2::kProtocol) {
+      } else if (nameSp == headers::kProtocol) {
         if (!verifier.setUpgradeProtocol(valueSp)) {
           return false;
         }
@@ -57,7 +57,7 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
         return false;
       }
     } else {
-      if (nameSp == http2::kStatus) {
+      if (nameSp == headers::kStatus) {
         if (hasStatus) {
           parsingError = string("Duplicate status");
           return false;

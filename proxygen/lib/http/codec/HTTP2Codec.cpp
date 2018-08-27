@@ -568,7 +568,7 @@ void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
   HTTPRequestVerifier& verifier = decodeInfo_.verifier;
   if ((transportDirection_ == TransportDirection::DOWNSTREAM) &&
       verifier.hasUpgradeProtocol() &&
-      (*msg->getUpgradeProtocol() == http2::kWebsocketString) &&
+      (*msg->getUpgradeProtocol() == headers::kWebsocketString) &&
       msg->getMethod() == HTTPMethod::CONNECT) {
     msg->setIngressWebsocketUpgrade();
     ingressWebsocketUpgrade_ = true;
@@ -1033,7 +1033,7 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
       allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD,
           methodToString(HTTPMethod::CONNECT));
       allHeaders.emplace_back(HTTP_HEADER_COLON_PROTOCOL,
-                              http2::kWebsocketString);
+                              headers::kWebsocketString);
     } else {
       const string& method = msg.getMethodString();
       allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);
@@ -1041,7 +1041,8 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
 
     if (msg.getMethod() != HTTPMethod::CONNECT ||
         msg.isEgressWebsocketUpgrade()) {
-      const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
+      const string& scheme =
+        (msg.isSecure() ? headers::kHttps : headers::kHttp);
       const string& path = msg.getURL();
       allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, scheme);
       allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, path);
@@ -1055,7 +1056,7 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
     DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM ||
            controlStream);
     if (msg.isEgressWebsocketUpgrade()) {
-      status = http2::kStatus200;
+      status = headers::kStatus200;
     } else {
       status = folly::to<string>(msg.getStatusCode());
     }

@@ -73,6 +73,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/QPACKEncoder.h \
 	codec/compress/QPACKHeaderTable.h \
 	codec/compress/StaticHeaderTable.h \
+	codec/HeaderConstants.h \
 	codec/HeaderDecodeInfo.h \
 	codec/HTTPRequestVerifier.h \
 	codec/HTTP2Codec.h \
@@ -127,6 +128,7 @@ libproxygenhttp_la_SOURCES = \
 	codec/compress/QPACKHeaderTable.cpp \
 	codec/compress/StaticHeaderTable.cpp \
 	codec/ErrorCode.cpp \
+	codec/HeaderConstants.cpp \
 	codec/HeaderDecodeInfo.cpp \
         codec/HTTP2Codec.cpp \
 	codec/HTTP2Constants.cpp \
