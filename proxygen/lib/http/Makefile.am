@@ -40,7 +40,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/SPDYCodec.h \
 	codec/HTTPParallelCodec.h \
 	codec/SPDYConstants.h \
-	codec/SPDYUtil.h \
+	codec/CodecUtil.h \
 	codec/SPDYVersion.h \
 	codec/SPDYVersionSettings.h \
 	codec/SettingsId.h \
@@ -141,7 +141,7 @@ libproxygenhttp_la_SOURCES = \
 	codec/SPDYCodec.cpp \
 	codec/HTTPParallelCodec.cpp \
 	codec/SPDYConstants.cpp \
-	codec/SPDYUtil.cpp \
+	codec/CodecUtil.cpp \
 	codec/TransportDirection.cpp \
 	HTTPConnector.cpp \
 	HTTPConstants.cpp \

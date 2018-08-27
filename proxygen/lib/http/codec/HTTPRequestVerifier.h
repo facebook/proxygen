@@ -10,7 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/SPDYUtil.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 
 namespace proxygen {
@@ -24,7 +24,7 @@ class HTTPRequestVerifier {
       error = "Duplicate method";
       return false;
     }
-    if (!SPDYUtil::validateMethod(method)) {
+    if (!CodecUtil::validateMethod(method)) {
       error = "Invalid method";
       return false;
     }
@@ -39,7 +39,7 @@ class HTTPRequestVerifier {
       error = "Duplicate path";
       return false;
     }
-    if (!SPDYUtil::validateURL(path)) {
+    if (!CodecUtil::validateURL(path)) {
       error = "Invalid url";
       return false;
     }
@@ -55,7 +55,7 @@ class HTTPRequestVerifier {
       return false;
     }
     // This just checks for alpha chars
-    if (!SPDYUtil::validateMethod(scheme)) {
+    if (!CodecUtil::validateMethod(scheme)) {
       error = "Invalid scheme";
       return false;
     }
@@ -73,7 +73,7 @@ class HTTPRequestVerifier {
       error = "Duplicate authority";
       return false;
     }
-    if (!SPDYUtil::validateHeaderValue(authority, SPDYUtil::STRICT)) {
+    if (!CodecUtil::validateHeaderValue(authority, CodecUtil::STRICT)) {
       error = "Invalid authority";
       return false;
     }

@@ -9,7 +9,7 @@
  */
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
-#include <proxygen/lib/http/codec/SPDYUtil.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/utils/Logging.h>
 #include <proxygen/lib/utils/Base64.h>
 
@@ -1032,7 +1032,8 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
       upgradedStreams_.insert(stream);
       allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD,
           methodToString(HTTPMethod::CONNECT));
-      allHeaders.emplace_back(HTTP_HEADER_COLON_PROTOCOL, http2::kWebsocketString);
+      allHeaders.emplace_back(HTTP_HEADER_COLON_PROTOCOL,
+                              http2::kWebsocketString);
     } else {
       const string& method = msg.getMethodString();
       allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);

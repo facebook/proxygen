@@ -17,7 +17,7 @@
 
 namespace proxygen {
 
-class SPDYUtil {
+class CodecUtil {
  public:
   // If these are needed elsewhere, we can move them to a more generic
   // namespace/class later

@@ -7,7 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/codec/SPDYUtil.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 
 #include <folly/ThreadLocal.h>
 #include <proxygen/lib/http/RFC2616.h>
@@ -22,7 +22,7 @@ namespace proxygen {
  *                    | "/" | "[" | "]" | "?" | "="
  *                    | "{" | "}" | SP | HT
  */
-const char SPDYUtil::http_tokens[256] = {
+const char CodecUtil::http_tokens[256] = {
 /*   0 nul    1 soh    2 stx    3 etx    4 eot    5 enq    6 ack    7 bel  */
         0,       0,       0,       0,       0,       0,       0,       0,
 /*   8 bs     9 ht    10 nl    11 vt    12 np    13 cr    14 so    15 si   */
@@ -57,7 +57,7 @@ const char SPDYUtil::http_tokens[256] = {
        'x',     'y',     'z',      0,      '|',     '}',     '~',       0
 };
 
-bool SPDYUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
+bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
                                  bool& hasDeflate) {
   static folly::ThreadLocal<std::vector<RFC2616::TokenQPair>> output;
   output->clear();

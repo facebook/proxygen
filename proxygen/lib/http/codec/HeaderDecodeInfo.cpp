@@ -101,8 +101,8 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
       hasContentLength = true;
       contentLength = cl;
     }
-    bool nameOk = SPDYUtil::validateHeaderName(nameSp);
-    bool valueOk = SPDYUtil::validateHeaderValue(valueSp, SPDYUtil::STRICT);
+    bool nameOk = CodecUtil::validateHeaderName(nameSp);
+    bool valueOk = CodecUtil::validateHeaderValue(valueSp, CodecUtil::STRICT);
     if (!nameOk || !valueOk) {
       parsingError = folly::to<string>("Bad header value: name=",
                                        nameSp, " value=", valueSp);

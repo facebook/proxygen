@@ -20,7 +20,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/CodecDictionaries.h>
-#include <proxygen/lib/http/codec/SPDYUtil.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 #include <proxygen/lib/utils/ParseURL.h>
 #include <proxygen/lib/utils/UtilInl.h>
@@ -1079,7 +1079,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     folly::StringPiece name(inHeaders[i].str, off, len);
     folly::StringPiece value = inHeaders[i + 1].str;
     VLOG(5) << "Header " << name << ": " << value;
-    bool nameOk = SPDYUtil::validateHeaderName(name);
+    bool nameOk = CodecUtil::validateHeaderName(name);
     bool valueOk = false;
     bool isPath = false;
     bool isMethod = false;
@@ -1093,7 +1093,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
       }
       if ((version_ == 2 && name == "url") ||
           (version_ == 3 && off && name == "path")) {
-        valueOk = SPDYUtil::validateURL(value);
+        valueOk = CodecUtil::validateURL(value);
         isPath = true;
         if (hasPath) {
           throw SPDYStreamFailed(false, streamID, 400,
@@ -1101,14 +1101,14 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
         }
         hasPath = true;
       } else if ((version_ == 2 || off) && name == "method") {
-        valueOk = SPDYUtil::validateMethod(value);
+        valueOk = CodecUtil::validateMethod(value);
         isMethod = true;
         if (value == "CONNECT") {
           // We don't support CONNECT request for SPDY
           valueOk = false;
         }
       } else {
-        valueOk = SPDYUtil::validateHeaderValue(value, SPDYUtil::STRICT);
+        valueOk = CodecUtil::validateHeaderValue(value, CodecUtil::STRICT);
       }
     }
     if (!nameOk || !valueOk) {
@@ -1220,7 +1220,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     } else {
       bool hasGzip = false;
       bool hasDeflate = false;
-      if (!SPDYUtil::hasGzipAndDeflate(accept_encoding, hasGzip, hasDeflate)) {
+      if (!CodecUtil::hasGzipAndDeflate(accept_encoding, hasGzip, hasDeflate)) {
         string new_encoding = accept_encoding;
         if (!hasGzip) {
           new_encoding.append(", gzip");
