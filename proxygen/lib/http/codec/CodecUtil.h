@@ -14,6 +14,7 @@
 #include <folly/Range.h>
 #include <stdint.h>
 #include <string>
+#include <proxygen/lib/utils/UtilInl.h>
 
 namespace proxygen {
 
@@ -24,13 +25,7 @@ class CodecUtil {
   static const char http_tokens[256];
 
   static bool validateURL(folly::ByteRange url) {
-    for (auto p: url) {
-      if (p <= 0x20 || p == 0x7f) {
-        // no controls or unescaped spaces
-        return false;
-      }
-    }
-    return true;
+    return proxygen::validateURL(url);
   }
 
   static bool validateMethod(folly::ByteRange method) {

@@ -22,4 +22,13 @@ inline bool caseInsensitiveEqual(folly::StringPiece s, folly::StringPiece t) {
       s.begin(), s.end(), t.begin(), folly::AsciiCaseInsensitive());
 }
 
+inline bool validateURL(folly::ByteRange url) {
+  for (auto p: url) {
+    if (p <= 0x20 || p == 0x7f) {
+      // no controls or unescaped spaces
+      return false;
+      }
+  }
+  return true;
+}
 }

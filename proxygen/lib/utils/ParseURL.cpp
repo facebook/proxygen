@@ -11,7 +11,6 @@
 
 #include <algorithm>
 #include <folly/portability/Sockets.h>
-#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/utils/UtilInl.h>
 
 #include <proxygen/external/http_parser/http_parser.h>
@@ -107,7 +106,7 @@ void ParseURL::parseNonFully() noexcept {
   }
 
   // Check if the URL has only printable characters and no control character.
-  if (!CodecUtil::validateURL(url_)) {
+  if (!validateURL(url_)) {
     valid_ = false;
     return;
   }
