@@ -405,8 +405,11 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  // Base delta invalid
+  // Base delta missing
   buf->writableData()[0] = 0x01;
+  checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
+
+  // Base delta invalid
   buf->writableData()[1] = 0xFF;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);

@@ -60,6 +60,11 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   }
   VLOG(5) << "Decoded largestReference=" << largestReference;
   uint32_t delta = 0;
+  if (dbuf.empty()) {
+    LOG(ERROR) << "Invalid prefix, no delta-base";
+    err_ = HPACK::DecodeError::BUFFER_UNDERFLOW;
+    return 0;
+  }
   bool neg = dbuf.peek() & HPACK::Q_DELTA_BASE_NEG;
   err_ = dbuf.decodeInteger(HPACK::Q_DELTA_BASE.prefixLength, delta);
   if (err_ != HPACK::DecodeError::NONE) {
