@@ -19,6 +19,10 @@ namespace proxygen {
 
 HTTPUpstreamSession::~HTTPUpstreamSession() {}
 
+bool HTTPUpstreamSession::isReplaySafe() const {
+  return sock_ ? sock_->isReplaySafe() : false;
+}
+
 bool HTTPUpstreamSession::isReusable() const {
   VLOG(4) << "isReusable: " << *this
     << ", liveTransactions_=" << liveTransactions_

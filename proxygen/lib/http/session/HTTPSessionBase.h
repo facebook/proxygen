@@ -405,6 +405,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   virtual HTTPTransaction* newTransaction(
     HTTPTransaction::Handler* handler) = 0;
 
+  virtual bool isReplaySafe() const = 0;
+
   /**
    * Returns true if the underlying transport can be used again in a new
    * request.

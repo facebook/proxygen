@@ -419,6 +419,11 @@ class HTTPTransaction :
     virtual const folly::AsyncTransportWrapper* getUnderlyingTransport()
       const noexcept = 0;
 
+    /**
+     * Returns true if the underlying transport has completed full handshake.
+     */
+    virtual bool isReplaySafe() const = 0;
+
     virtual void setHTTP2PrioritiesEnabled(bool enabled) = 0;
     virtual bool getHTTP2PrioritiesEnabled() const = 0;
 

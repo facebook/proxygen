@@ -114,6 +114,11 @@ class HTTPUpstreamSession final: public HTTPSession {
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
 
   /**
+   * Returns true if the underlying transport has completed full handshake.
+   */
+  bool isReplaySafe() const override;
+
+  /**
    * Returns true if this session has no open transactions and the underlying
    * transport can be used again in a new request.
    */

@@ -114,6 +114,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
     return const_cast<MockHTTPTransactionTransport*>(this)
       ->getUnderlyingTransport();
   }
+  MOCK_CONST_METHOD0(isReplaySafe, bool());
   MOCK_METHOD1(setHTTP2PrioritiesEnabled, void(bool));
   MOCK_CONST_METHOD0(getHTTP2PrioritiesEnabled, bool());
 
