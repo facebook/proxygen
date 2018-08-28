@@ -62,6 +62,7 @@ namespace proxygen {
     x(Network),                                 \
     x(Configuration),                           \
     x(EarlyDataRejected),                       \
+    x(EarlyDataFailed),                         \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63
