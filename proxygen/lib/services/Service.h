@@ -49,12 +49,6 @@ class Service {
                     const std::list<RequestWorker*>& workers) = 0;
 
   /**
-   * Finish any service initialization that requires the use of the worker
-   * threads.
-   */
-  virtual void finishInit() {}
-
-  /**
    * Start to accept connection on the listening sockect(s)
    *
    * All the expansive preparation work should be done befofe startAccepting(),
