@@ -15,6 +15,8 @@
 #include <stdint.h>
 #include <string>
 #include <proxygen/lib/utils/UtilInl.h>
+#include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/codec/compress/Header.h>
 
 namespace proxygen {
 
@@ -137,6 +139,10 @@ class CodecUtil {
 
   static bool hasGzipAndDeflate(const std::string& value, bool& hasGzip,
                                 bool& hasDeflate);
-};
 
+  static std::vector<compress::Header> prepareMessageForCompression(
+      const HTTPMessage& msg,
+      std::vector<std::string>& temps);
+
+};
 }

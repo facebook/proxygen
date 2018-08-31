@@ -1010,7 +1010,6 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
   } else {
     VLOG(4) << "generating HEADERS for stream=" << stream;
   }
-  std::vector<Header> allHeaders;
 
   if (!isStreamIngressEgressAllowed(stream)) {
     VLOG(2) << "Suppressing HEADERS/PROMISE for stream=" << stream <<
@@ -1022,96 +1021,19 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
     return;
   }
 
-  // The role of this local status string is to hold the generated
-  // status code long enough for the header encoding.
-  std::string status;
-
   if (msg.isRequest()) {
     DCHECK(transportDirection_ == TransportDirection::UPSTREAM ||
            assocStream || controlStream);
     if (msg.isEgressWebsocketUpgrade()) {
       upgradedStreams_.insert(stream);
-      allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD,
-          methodToString(HTTPMethod::CONNECT));
-      allHeaders.emplace_back(HTTP_HEADER_COLON_PROTOCOL,
-                              headers::kWebsocketString);
-    } else {
-      const string& method = msg.getMethodString();
-      allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);
-    }
-
-    if (msg.getMethod() != HTTPMethod::CONNECT ||
-        msg.isEgressWebsocketUpgrade()) {
-      const string& scheme =
-        (msg.isSecure() ? headers::kHttps : headers::kHttp);
-      const string& path = msg.getURL();
-      allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, scheme);
-      allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, path);
-    }
-    const HTTPHeaders& headers = msg.getHeaders();
-    const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
-    if (!host.empty()) {
-      allHeaders.emplace_back(HTTP_HEADER_COLON_AUTHORITY, host);
     }
   } else {
     DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM ||
            controlStream);
-    if (msg.isEgressWebsocketUpgrade()) {
-      status = headers::kStatus200;
-    } else {
-      status = folly::to<string>(msg.getStatusCode());
-    }
-    allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, status);
-    // HEADERS frames do not include a version or reason string.
   }
 
-  string date;
-  bool hasDateHeader = false;
-  // Add the HTTP headers supplied by the caller, but skip
-  // any per-hop headers that aren't supported in HTTP/2.
-  msg.getHeaders().forEachWithCode(
-    [&] (HTTPHeaderCode code,
-         const string& name,
-         const string& value) {
-      static const std::bitset<256> s_perHopHeaderCodes{
-        [] {
-          std::bitset<256> bs;
-          // HTTP/1.x per-hop headers that have no meaning in HTTP/2
-          bs[HTTP_HEADER_CONNECTION] = true;
-          bs[HTTP_HEADER_HOST] = true;
-          bs[HTTP_HEADER_KEEP_ALIVE] = true;
-          bs[HTTP_HEADER_PROXY_CONNECTION] = true;
-          bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
-          bs[HTTP_HEADER_UPGRADE] = true;
-          bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
-          bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
-          return bs;
-        }()
-      };
-
-      if (s_perHopHeaderCodes[code] || name.size() == 0 || name[0] == ':') {
-        DCHECK_GT(name.size(), 0) << "Empty header";
-        DCHECK_NE(name[0], ':') << "Invalid header=" << name;
-        return;
-      }
-      // Note this code will not drop headers named by Connection.  That's the
-      // caller's job
-
-      // see HTTP/2 spec, 8.1.2
-      DCHECK(name != "TE" || value == "trailers");
-      if ((name.size() > 0 && name[0] != ':') &&
-          code != HTTP_HEADER_HOST) {
-        allHeaders.emplace_back(code, name, value);
-      }
-      if (code == HTTP_HEADER_DATE) {
-        hasDateHeader = true;
-      }
-    });
-
-  if (msg.isResponse() && !hasDateHeader) {
-    date = HTTPMessage::formatDateHeader();
-    allHeaders.emplace_back(HTTP_HEADER_DATE, date);
-  }
+  std::vector<std::string> temps;
+  auto allHeaders = CodecUtil::prepareMessageForCompression(msg, temps);
   headerCodec_.setEncodeHeadroom(http2::kFrameHeaderSize +
                                  http2::kFrameHeadersBaseMaxSize);
   auto out = headerCodec_.encode(allHeaders);
