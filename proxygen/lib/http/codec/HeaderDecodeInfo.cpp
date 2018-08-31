@@ -27,11 +27,11 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
   folly::StringPiece valueSp(value);
 
   if (nameSp.startsWith(':')) {
-    if (regularHeaderSeen) {
+    if (regularHeaderSeen_) {
       parsingError = folly::to<string>("Illegal pseudo header name=", nameSp);
       return false;
     }
-    if (isRequest) {
+    if (isRequest_) {
       if (nameSp == headers::kMethod) {
         if (!verifier.setMethod(valueSp)) {
           return false;
@@ -58,20 +58,17 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
       }
     } else {
       if (nameSp == headers::kStatus) {
-        if (hasStatus) {
+        if (hasStatus_) {
           parsingError = string("Duplicate status");
           return false;
         }
-        hasStatus = true;
+        hasStatus_ = true;
         int32_t code = -1;
-        try {
-          code = folly::to<unsigned int>(valueSp);
-        } catch (const std::range_error& ex) {
-        }
+        folly::tryTo<int32_t>(valueSp).then(
+            [&code] (int32_t num) { code = num; });
         if (code >= 100 && code <= 999) {
           msg->setStatusCode(code);
-          msg->setStatusMessage(
-              HTTPMessage::getDefaultReason(code));
+          msg->setStatusMessage(HTTPMessage::getDefaultReason(code));
         } else {
           parsingError = folly::to<string>("Malformed status code=", valueSp);
           return false;
@@ -82,24 +79,19 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
       }
     }
   } else {
-    regularHeaderSeen = true;
+    regularHeaderSeen_ = true;
     if (nameSp == "connection") {
       parsingError = string("HTTP/2 Message with Connection header");
       return false;
     }
     if (nameSp == "content-length") {
       uint32_t cl = 0;
-      try {
-        cl = folly::to<uint32_t>(valueSp);
-      } catch (const std::range_error& ex) {
-      }
-      if (hasContentLength &&
-          contentLength != cl) {
+      folly::tryTo<uint32_t>(valueSp).then([&cl] (uint32_t num) { cl = num; });
+      if (contentLength_ && *contentLength_ != cl) {
         parsingError = string("Multiple content-length headers");
         return false;
       }
-      hasContentLength = true;
-      contentLength = cl;
+      contentLength_ = cl;
     }
     bool nameOk = CodecUtil::validateHeaderName(nameSp);
     bool valueOk = CodecUtil::validateHeaderValue(valueSp, CodecUtil::STRICT);
@@ -117,7 +109,7 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
 void HeaderDecodeInfo::onHeadersComplete(HTTPHeaderSize decodedSize) {
   HTTPHeaders& headers = msg->getHeaders();
 
-  if (isRequest) {
+  if (isRequest_) {
     auto combinedCookie = headers.combine(HTTP_HEADER_COOKIE, "; ");
     if (!combinedCookie.empty()) {
       headers.set(HTTP_HEADER_COOKIE, combinedCookie);
@@ -126,7 +118,7 @@ void HeaderDecodeInfo::onHeadersComplete(HTTPHeaderSize decodedSize) {
       parsingError = verifier.error;
       return;
     }
-  } else if (!hasStatus) {
+  } else if (!hasStatus_) {
     parsingError = string("Malformed response, missing :status");
     return;
   }
@@ -134,5 +126,4 @@ void HeaderDecodeInfo::onHeadersComplete(HTTPHeaderSize decodedSize) {
   msg->setHTTPVersion(1, 1);
   msg->setIngressHeaderSize(decodedSize);
 }
-
 }

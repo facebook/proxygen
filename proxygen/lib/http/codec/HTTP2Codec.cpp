@@ -435,7 +435,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       isReq = transportDirection_ == TransportDirection::DOWNSTREAM;
     }
 
-    msg = std::make_unique<HTTPMessage>();
+    decodeInfo_.init(isReq);
     if (priority) {
       if (curHeader_.stream == priority->streamDependency) {
         streamError(folly::to<string>("Circular dependency for txn=",
@@ -445,14 +445,15 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
         return ErrorCode::NO_ERROR;
       }
 
-      msg->setHTTP2Priority(std::make_tuple(priority->streamDependency,
-                                            priority->exclusive,
-                                            priority->weight));
+      decodeInfo_.msg->setHTTP2Priority(
+          std::make_tuple(priority->streamDependency,
+                          priority->exclusive,
+                          priority->weight));
     }
-    decodeInfo_.init(msg.get(), isReq);
     headerCodec_.decodeStreaming(headerCursor,
                                  curHeaderBlock_.chainLength(),
                                  this);
+    msg = std::move(decodeInfo_.msg);
     // Saving this in case we need to log it on error
     auto g = folly::makeGuard([this] {
         curHeaderBlock_.move();
@@ -564,7 +565,7 @@ void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
   decodeInfo_.onHeadersComplete(decodedSize);
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
 
-  HTTPMessage* msg = decodeInfo_.msg;
+  HTTPMessage* msg = decodeInfo_.msg.get();
   HTTPRequestVerifier& verifier = decodeInfo_.verifier;
   if ((transportDirection_ == TransportDirection::DOWNSTREAM) &&
       verifier.hasUpgradeProtocol() &&

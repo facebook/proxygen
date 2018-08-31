@@ -19,6 +19,16 @@ class HTTPRequestVerifier {
  public:
   explicit HTTPRequestVerifier() {}
 
+  void reset(HTTPMessage* msg) {
+    msg_ = msg;
+    error = "";
+    hasMethod_ = false;
+    hasPath_ = false;
+    hasScheme_ = false;
+    hasAuthority_ = false;
+    hasUpgradeProtocol_ = false;
+  }
+
   bool setMethod(folly::StringPiece method) {
     if (hasMethod_) {
       error = "Duplicate method";
