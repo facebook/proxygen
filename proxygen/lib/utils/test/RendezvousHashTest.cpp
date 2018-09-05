@@ -25,13 +25,15 @@ TEST(RendezvousHash, Consistency) {
   }
   hashes.build(nodes);
 
-  std::map<uint64_t, size_t> mapping;
-  for (int i = 0; i < 10000; ++i) {
-    mapping[i] = hashes.get(i);
-  }
+  for (size_t rank = 0; rank < nodes.size() + 2; rank++) {
+    std::map<uint64_t, size_t> mapping;
+    for (int i = 0; i < 10000; ++i) {
+      mapping[i] = hashes.get(i, rank);
+    }
 
-  FOR_EACH_KV (key, expected, mapping) {
-    EXPECT_EQ(expected, hashes.get(key));
+    FOR_EACH_KV(key, expected, mapping) {
+      EXPECT_EQ(expected, hashes.get(key, rank));
+    }
   }
 }
 
@@ -256,5 +258,46 @@ TEST(ConsistentHashRing, DistributionAccuracy) {
     }
     // make sure the error rate is less than 1.0%
     EXPECT_LE(maxError, 1.0);
+  }
+}
+
+TEST(RendezvousHash, selectNUnweighted) {
+  RendezvousHash hashes;
+  std::vector<std::pair<std::string, uint64_t>> nodes;
+  int size = 100;
+  for (int i = 0; i < size; ++i) {
+    nodes.emplace_back(folly::to<std::string>("key", i), 1);
+  }
+  hashes.build(nodes);
+  auto seed = 91484253;
+
+  // rank > size
+  auto select = hashes.selectNUnweighted(seed, size + 10);
+  EXPECT_EQ(select.size(), size);
+  for (int i = 0; i < size; i++) {
+    EXPECT_EQ(select[i], i);
+  }
+
+  // check valid index in selection
+  int rank = size / 4;
+  select = hashes.selectNUnweighted(seed, rank);
+  EXPECT_EQ(select.size(), rank);
+  std::set<size_t> uniqueIndex;
+  for (auto index : select) {
+    EXPECT_EQ(uniqueIndex.count(index), 0);
+    uniqueIndex.insert(index);
+    EXPECT_LT(index, size);
+  }
+
+  // change seed, check different selection
+  for (int i = 1; i < 100; i++) {
+    select = hashes.selectNUnweighted(seed + i, rank);
+    int different = 0;
+    for (auto index : select) {
+      if (uniqueIndex.count(index) == 0) {
+        different++;
+      }
+    }
+    EXPECT_GT(different, 0);
   }
 }

@@ -125,24 +125,90 @@ void RendezvousHash::build(std::vector<std::pair<
  *
  */
 size_t RendezvousHash::get(const uint64_t key, const size_t rank) const {
+  return getNthByWeightedHash(key, rank, nullptr);
+}
+
+/*
+ * Calculate Hash scaled by weight and return Top N weights.
+ * */
+size_t RendezvousHash::getNthByWeightedHash(
+    const uint64_t key,
+    const size_t rank,
+    std::vector<size_t>* returnRankIds) const {
   size_t modRank = rank % weights_.size();
+  // optimize if required to return element with max weight, rank ==
+  // weights_.size(), keep track of the maxWeightIndex instead of populating
+  // scaledWeights array.
+  double maxWeight = -1;
+  int maxWeightIndex = 0;
 
   std::vector<std::pair<double, size_t>> scaledWeights;
+  if (modRank != 0) {
+    scaledWeights.reserve(weights_.size());
+  }
   FOR_EACH_ENUMERATE(i, entry, weights_) {
     // combine the hash with the cluster together
     double combinedHash = computeHash(entry->first + key);
-    double scaledHash = (double)combinedHash /
-      std::numeric_limits<uint64_t>::max();
+    double scaledHash =
+        (double)combinedHash / std::numeric_limits<uint64_t>::max();
     double scaledWeight = 0;
     if (entry->second != 0) {
-      scaledWeight = pow(scaledHash, (double)1/entry->second);
+      scaledWeight = pow(scaledHash, (double)1 / entry->second);
     }
-    scaledWeights.emplace_back(scaledWeight, i);
+    if (modRank == 0) {
+      if (scaledWeight > maxWeight) {
+        maxWeight = scaledWeight;
+        maxWeightIndex = i;
+      }
+    } else {
+      scaledWeights.emplace_back(scaledWeight, i);
+    }
   }
-  std::nth_element(scaledWeights.begin(), scaledWeights.begin()+modRank,
-                   scaledWeights.end(),
-                   std::greater<std::pair<double, size_t>>());
-  return scaledWeights[modRank].second;
+
+  size_t rankIndex;
+  if (modRank == 0) {
+    rankIndex = maxWeightIndex;
+  } else {
+    std::nth_element(scaledWeights.begin(),
+                     scaledWeights.begin() + modRank,
+                     scaledWeights.end(),
+                     std::greater<std::pair<double, size_t>>());
+    rankIndex = scaledWeights[modRank].second;
+  }
+
+  if (returnRankIds) {
+    if (modRank == 0) {
+      returnRankIds->push_back(rankIndex);
+    } else {
+      returnRankIds->reserve(modRank);
+      for (size_t i = 0; i < modRank; i++) {
+        returnRankIds->push_back(scaledWeights[i].second);
+      }
+    }
+  }
+
+  return rankIndex;
+}
+
+/*
+ * Returns a consistent hash selection of N elements from array.
+ *
+ * This type of selection only obeys the probability distribution
+ * when all weights are identical.
+ * */
+std::vector<size_t> RendezvousHash::selectNUnweighted(const uint64_t key,
+                                                      const size_t rank) const {
+  std::vector<size_t> selection;
+  // shortcut if rank is equal or larger than array size
+  if (rank >= weights_.size()) {
+    selection = std::vector<size_t>(weights_.size());
+    std::generate(
+        selection.begin(), selection.end(), [n = 0]() mutable { return n++; });
+    return selection;
+  }
+
+  getNthByWeightedHash(key, rank, &selection);
+  return selection;
 }
 
 uint64_t RendezvousHash::computeHash(const char* data, size_t len) const {
