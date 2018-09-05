@@ -33,7 +33,7 @@ class TestContext : public HPACKContext {
   explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize) {}
 
   void add(const HPACKHeader& header) {
-    table_.add(header);
+    table_.add(header.copy());
   }
 
 };
@@ -52,7 +52,7 @@ TEST_F(HPACKContextTests, IsStatic) {
   for (int i = 1; i <= 10; i++) {
     HPACKHeader header("name" + folly::to<string>(i),
                       "value" + folly::to<string>(i));
-    context.add(header);
+    context.add(std::move(header));
   }
   EXPECT_EQ(context.getTable().size(), 10);
 

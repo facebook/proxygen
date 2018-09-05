@@ -17,14 +17,14 @@ using std::string;
 
 namespace proxygen {
 
-bool QPACKHeaderTable::add(const HPACKHeader& header) {
+bool QPACKHeaderTable::add(HPACKHeader header) {
   if (baseIndex_ == std::numeric_limits<uint32_t>::max()) {
     LOG(ERROR) << "Cowardly refusing to add more entries since baseIndex_ "
       " would wrap";
     return false;
   }
 
-  if (!HeaderTable::add(header)) {
+  if (!HeaderTable::add(std::move(header))) {
     return false;
   }
   if (refCount_) {
@@ -178,7 +178,7 @@ std::pair<bool, uint32_t> QPACKHeaderTable::maybeDuplicate(
     // draining
     const HPACKHeader& header = getHeader(relativeIndex);
     if (canIndex(header)) {
-      CHECK(add(header));
+      CHECK(add(header.copy()));
       if (allowVulnerable) {
         return {true, baseIndex_};
       } else {

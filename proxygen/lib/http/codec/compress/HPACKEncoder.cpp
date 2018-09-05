@@ -40,7 +40,7 @@ bool HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
   encodeLiteral(header, nameIndex(header.name), instruction);
   // indexed ones need to get added to the header table
   if (indexing) {
-    CHECK(table_.add(header));
+    CHECK(table_.add(header.copy()));
   }
   return true;
 }

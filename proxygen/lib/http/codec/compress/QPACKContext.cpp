@@ -31,8 +31,8 @@ const HPACKHeader& QPACKContext::getHeader(bool isStatic,
 
 void QPACKContext::seedHeaderTable(
   std::vector<HPACKHeader>& headers) {
-  for (const auto& header: headers) {
-    table_.add(header);
+  for (auto& header: headers) {
+    table_.add(std::move(header));
   }
 }
 

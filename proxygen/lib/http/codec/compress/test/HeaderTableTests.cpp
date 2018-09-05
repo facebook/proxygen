@@ -41,7 +41,7 @@ class HeaderTableTests : public testing::Test {
     // Fill the table (with one extra) and make sure we haven't violated our
     // size (bytes) limits (expected one entry to be evicted)
     for (size_t i = 0; i <= fillCount; ++i) {
-      EXPECT_EQ(table.add(header), true);
+      EXPECT_EQ(table.add(header.copy()), true);
     }
     EXPECT_EQ(table.size(), newMax);
     EXPECT_EQ(table.bytes(), newCapacity);
@@ -69,9 +69,9 @@ TEST_F(HeaderTableTests, IndexTranslation) {
 TEST_F(HeaderTableTests, Add) {
   HeaderTable table(4096);
   HPACKHeader header("accept-encoding", "gzip");
-  table.add(header);
-  table.add(header);
-  table.add(header);
+  table.add(header.copy());
+  table.add(header.copy());
+  table.add(header.copy());
   EXPECT_EQ(table.names().size(), 1);
   EXPECT_EQ(table.hasName(header.name), true);
   auto it = table.names().find(header.name);
@@ -89,23 +89,23 @@ TEST_F(HeaderTableTests, Evict) {
   HeaderTable table(capacity);
   // fill the table
   for (size_t i = 0; i < max; i++) {
-    EXPECT_EQ(table.add(accept), true);
+    EXPECT_EQ(table.add(accept.copy()), true);
   }
   EXPECT_EQ(table.size(), max);
-  EXPECT_EQ(table.add(accept2), true);
+  EXPECT_EQ(table.add(accept2.copy()), true);
   // evict the first one
   EXPECT_EQ(table.getHeader(1), accept2);
   auto ilist = table.names().find(name)->second;
   EXPECT_EQ(ilist.size(), max);
   // evict all the 'accept' headers
   for (size_t i = 0; i < max - 1; i++) {
-    EXPECT_EQ(table.add(accept2), true);
+    EXPECT_EQ(table.add(accept2.copy()), true);
   }
   EXPECT_EQ(table.size(), max);
   EXPECT_EQ(table.getHeader(max), accept2);
   EXPECT_EQ(table.names().size(), 1);
   // add an entry that will cause 2 evictions
-  EXPECT_EQ(table.add(accept3), true);
+  EXPECT_EQ(table.add(accept3.copy()), true);
   EXPECT_EQ(table.getHeader(1), accept3);
   EXPECT_EQ(table.size(), max - 1);
 
@@ -113,7 +113,7 @@ TEST_F(HeaderTableTests, Evict) {
   string bigvalue;
   bigvalue.append(capacity, 'x');
   HPACKHeader bigheader("user-agent", bigvalue);
-  EXPECT_EQ(table.add(bigheader), false);
+  EXPECT_EQ(table.add(bigheader.copy()), false);
   EXPECT_EQ(table.size(), 0);
   EXPECT_EQ(table.names().size(), 0);
 }
@@ -127,7 +127,7 @@ TEST_F(HeaderTableTests, ReduceCapacity) {
 
   // fill the table
   for (size_t i = 0; i < max; i++) {
-    EXPECT_EQ(table.add(accept), true);
+    EXPECT_EQ(table.add(accept.copy()), true);
   }
   // change capacity
   table.setCapacity(capacity / 2);
@@ -143,15 +143,15 @@ TEST_F(HeaderTableTests, Comparison) {
   HPACKHeader h1("Content-Encoding", "gzip");
   HPACKHeader h2("Content-Encoding", "deflate");
   // different in number of elements
-  t1.add(h1);
+  t1.add(h1.copy());
   EXPECT_FALSE(t1 == t2);
   // different in size (bytes)
-  t2.add(h2);
+  t2.add(h2.copy());
   EXPECT_FALSE(t1 == t2);
 
   // make them the same
-  t1.add(h2);
-  t2.add(h1);
+  t1.add(h2.copy());
+  t2.add(h1.copy());
   EXPECT_TRUE(t1 == t2);
 }
 
@@ -174,7 +174,7 @@ TEST_F(HeaderTableTests, IncreaseCapacity) {
   // fill the table
   uint32_t length = table.length() + 1;
   for (size_t i = 0; i < length; i++) {
-    EXPECT_EQ(table.add(accept), true);
+    EXPECT_EQ(table.add(accept.copy()), true);
   }
   EXPECT_EQ(table.size(), max);
   EXPECT_EQ(table.getIndex(accept), 1);
@@ -198,7 +198,7 @@ TEST_F(HeaderTableTests, VaryCapacity) {
   // Fill the table (extra) and make sure we haven't violated our
   // size (bytes) limits (expected one entry to be evicted)
   for (size_t i = 0; i <= table.length(); ++i) {
-    EXPECT_EQ(table.add(accept), true);
+    EXPECT_EQ(table.add(accept.copy()), true);
   }
   EXPECT_EQ(table.size(), max);
 
@@ -229,7 +229,7 @@ TEST_F(HeaderTableTests, VaryCapacityMalignHeadIndex) {
   // Push head_ to last index in underlying table before potential wrap
   // This is our max table size for the duration of the test
   for (size_t i = 0; i < table.getMaxTableLength(capacity); ++i) {
-    EXPECT_EQ(table.add(accept), true);
+    EXPECT_EQ(table.add(accept.copy()), true);
   }
   EXPECT_EQ(table.size(), max);
   EXPECT_EQ(table.bytes(), capacity);
@@ -240,7 +240,7 @@ TEST_F(HeaderTableTests, VaryCapacityMalignHeadIndex) {
   // flush)
   string strLargerThanTableCapacity = string(capacity + 1, 'a');
   HPACKHeader flush("flush", strLargerThanTableCapacity);
-  EXPECT_EQ(table.add(flush), false);
+  EXPECT_EQ(table.add(flush.copy()), false);
   EXPECT_EQ(table.size(), 0);
 
   // Now reduce capacity of table (in functional terms table.size() is lowered
@@ -259,7 +259,7 @@ TEST_F(HeaderTableTests, VaryCapacityMalignHeadIndex) {
   // could force the test to crash as a result of the resize bug this test was
   // added for
   for (size_t i = 0; i <= table.length(); ++i) {
-    EXPECT_EQ(table.add(accept), true);
+    EXPECT_EQ(table.add(accept.copy()), true);
   }
   EXPECT_EQ(table.size(), max);
 }
@@ -302,14 +302,14 @@ TEST_F(HeaderTableTests, IncreaseLengthOfFullTable) {
   CHECK_EQ(table.length(), 7);
 
   for (uint8_t count = 0; count < 3; count++) {
-    table.add(largeHeader);
-    table.add(smallHeader);
+    table.add(largeHeader.copy());
+    table.add(smallHeader.copy());
   } // tail is at index 0
   CHECK_EQ(table.length(), 7);
 
-  table.add(smallHeader);
-  table.add(smallHeader); // tail is at index 1
-  table.add(smallHeader); // resize on this add
+  table.add(smallHeader.copy());
+  table.add(smallHeader.copy()); // tail is at index 1
+  table.add(smallHeader.copy()); // resize on this add
   EXPECT_EQ(table.length(), 11);
 
   // Check table is correct after resize
@@ -326,8 +326,8 @@ TEST_F(HeaderTableTests, IncreaseLengthOfFullTable) {
 TEST_F(HeaderTableTests, SmallTable) {
   HeaderTable table(80);
   HPACKHeader foo("Foo", "bar");
-  EXPECT_TRUE(table.add(foo));
-  EXPECT_TRUE(table.add(foo));
+  EXPECT_TRUE(table.add(foo.copy()));
+  EXPECT_TRUE(table.add(foo.copy()));
   EXPECT_EQ(table.size(), 2);
   EXPECT_EQ(table.length(), 2);
 }

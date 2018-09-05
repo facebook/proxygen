@@ -40,7 +40,7 @@ class HeaderTable {
    *
    * @return true if it was able to add the entry
    */
-  virtual bool add(const HPACKHeader& header);
+  virtual bool add(HPACKHeader header);
 
   /**
    * Get the index of the given header, if found.

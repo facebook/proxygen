@@ -183,7 +183,7 @@ void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
         dbuf, HPACK::Q_DUPLICATE.prefixLength, false, nullptr, &emitted);
     if (!hasError()) {
       CHECK(!emitted.empty());
-      CHECK(table_.add(emitted[0]));
+      CHECK(std::move(table_.add(std::move(emitted[0]))));
     }
   }
 }
@@ -251,7 +251,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
   uint32_t emittedSize = emit(partial->header, streamingCb, nullptr);
 
   if (indexing) {
-    table_.add(partial->header);
+    table_.add(std::move(partial->header));
   }
 
   return emittedSize;

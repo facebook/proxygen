@@ -83,7 +83,7 @@ class QPACKHeaderTable : public HeaderTable {
    *
    * @return true if it was able to add the entry
    */
-  bool add(const HPACKHeader& header) override;
+  bool add(HPACKHeader header) override;
 
   /**
    * Get the index of the given header, if found.  The index is relative to

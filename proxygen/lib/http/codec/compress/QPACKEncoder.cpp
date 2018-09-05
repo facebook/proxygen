@@ -110,7 +110,7 @@ void QPACKEncoder::encodeHeaderQ(
     // Now check if we should emit an insertion on the control stream
     if (indexable && table_.canIndex(header)) {
       encodeInsertQ(header, isStaticName, nameIndex);
-      CHECK(table_.add(header));
+      CHECK(table_.add(header.copy()));
       if (allowVulnerable()) {
         index = table_.getBaseIndex();
       } else {

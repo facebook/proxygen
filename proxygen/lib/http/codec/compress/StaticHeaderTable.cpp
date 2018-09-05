@@ -118,8 +118,8 @@ StaticHeaderTable::StaticHeaderTable(
   // initialize with a capacity that will exactly fit the static headers
   init(byteCount);
   hlist.reverse();
-  for (const auto& header : hlist) {
-    add(header);
+  for (auto& header : hlist) {
+    add(std::move(header));
   }
 }
 

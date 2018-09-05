@@ -30,7 +30,7 @@ void HeaderTable::init(uint32_t capacityVal) {
   names_.clear();
 }
 
-bool HeaderTable::add(const HPACKHeader& header) {
+bool HeaderTable::add(HPACKHeader header) {
   if (header.bytes() > capacity_) {
     // Per the RFC spec https://tools.ietf.org/html/rfc7541#page-11, we must
     // flush the underlying table if a request is made for a header that is
@@ -51,11 +51,11 @@ bool HeaderTable::add(const HPACKHeader& header) {
                                    getMaxTableLength(capacity_)));
   }
   head_ = next(head_);
-  table_[head_].name = header.name;
-  table_[head_].value = header.value;
   // index name
   names_[header.name].push_back(head_);
   bytes_ += header.bytes();
+  table_[head_] = std::move(header);
+
   ++size_;
   return true;
 }

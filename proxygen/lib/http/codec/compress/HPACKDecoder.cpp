@@ -91,7 +91,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
   uint32_t emittedSize = emit(header, streamingCb, emitted);
 
   if (indexing) {
-    table_.add(header);
+    table_.add(std::move(header));
   }
 
   return emittedSize;

@@ -30,7 +30,7 @@ TEST_F(QPACKHeaderTableTests, Indexing) {
   HPACKHeader agent("user-agent", "SeaMonkey");
 
   EXPECT_EQ(table_.getBaseIndex(), 0);
-  table_.add(accept);
+  table_.add(accept.copy());
   EXPECT_EQ(table_.getBaseIndex(), 1);
   // Vulnerable - in the table
   EXPECT_EQ(table_.getIndex(accept, false),
@@ -39,7 +39,7 @@ TEST_F(QPACKHeaderTableTests, Indexing) {
   EXPECT_EQ(table_.getIndex(accept, true), 1);
   EXPECT_TRUE(table_.onTableStateSync(1));
   EXPECT_EQ(table_.getIndex(accept, false), 1);
-  table_.add(agent);
+  table_.add(agent.copy());
   // Indexes move
   EXPECT_EQ(table_.getIndex(agent, true), 1);
   EXPECT_EQ(table_.getIndex(accept, true), 2);
@@ -53,16 +53,16 @@ TEST_F(QPACKHeaderTableTests, Eviction) {
   table_.setCapacity(capacity);
 
   for (auto i = 0; i < max; i++) {
-    EXPECT_TRUE(table_.add(accept));
+    EXPECT_TRUE(table_.add(accept.copy()));
   }
   for (auto i = 1; i <= max; i++) {
     table_.addRef(i);
   }
   EXPECT_FALSE(table_.canIndex(accept));
-  EXPECT_FALSE(table_.add(accept));
+  EXPECT_FALSE(table_.add(accept.copy()));
   table_.subRef(1);
   EXPECT_TRUE(table_.canIndex(accept));
-  EXPECT_TRUE(table_.add(accept));
+  EXPECT_TRUE(table_.add(accept.copy()));
 
   table_.subRef(3);
   EXPECT_FALSE(table_.canIndex(accept));
@@ -76,10 +76,10 @@ TEST_F(QPACKHeaderTableTests, Wrapcount) {
   HPACKHeader cookie("Cookie", "choco=chip");
 
   for (auto i = 0; i < 10; i++) {
-    EXPECT_TRUE(table_.add(accept));
+    EXPECT_TRUE(table_.add(accept.copy()));
   }
-  EXPECT_TRUE(table_.add(cookie));
-  EXPECT_TRUE(table_.add(agent));
+  EXPECT_TRUE(table_.add(cookie.copy()));
+  EXPECT_TRUE(table_.add(agent.copy()));
 
   EXPECT_EQ(table_.getBaseIndex(), 12);
   EXPECT_EQ(table_.getIndex(agent, true), 1);
@@ -93,7 +93,7 @@ TEST_F(QPACKHeaderTableTests, Wrapcount) {
 TEST_F(QPACKHeaderTableTests, NameIndex) {
   HPACKHeader accept("accept-encoding", "gzip");
   EXPECT_EQ(table_.nameIndex(accept.name), 0);
-  EXPECT_TRUE(table_.add(accept));
+  EXPECT_TRUE(table_.add(accept.copy()));
   EXPECT_EQ(table_.nameIndex(accept.name), 1);
 }
 
@@ -101,7 +101,7 @@ TEST_F(QPACKHeaderTableTests, GetIndex) {
   HPACKHeader accept1("accept-encoding", "gzip");
   HPACKHeader accept2("accept-encoding", "blarf");
   EXPECT_EQ(table_.getIndex(accept1), 0);
-  EXPECT_TRUE(table_.add(accept1));
+  EXPECT_TRUE(table_.add(accept1.copy()));
   EXPECT_EQ(table_.getIndex(accept1), 1);
   EXPECT_EQ(table_.getIndex(accept2), 0);
 }
@@ -109,7 +109,7 @@ TEST_F(QPACKHeaderTableTests, GetIndex) {
 TEST_F(QPACKHeaderTableTests, Duplication) {
   HPACKHeader accept("accept-encoding", "gzip");
 
-  EXPECT_TRUE(table_.add(accept));
+  EXPECT_TRUE(table_.add(accept.copy()));
 
   // Unnecessary duplicate
   auto res = table_.maybeDuplicate(1, true);
@@ -117,7 +117,7 @@ TEST_F(QPACKHeaderTableTests, Duplication) {
   EXPECT_EQ(res.second, 1);
 
   for (auto i = 0; i < 6; i++) {
-    EXPECT_TRUE(table_.add(accept));
+    EXPECT_TRUE(table_.add(accept.copy()));
   }
 
   // successful duplicate, vulnerable allowed
@@ -158,13 +158,13 @@ TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
   HPACKHeader thirtyNineBytes("abcd", "efg");
   HPACKHeader fortySevenBytes("abcd", "efghijklmno");
   for (auto i = 0; i < 8; i++) {
-    EXPECT_TRUE(table_.add(thirtyNineBytes));
+    EXPECT_TRUE(table_.add(thirtyNineBytes.copy()));
   }
   // abs index = 1 is evictable, but index = 2 is referenced, so we can
   // insert up to (320 - 8 * 39) + 39 = 47
   table_.addRef(2);
   EXPECT_TRUE(table_.canIndex(fortySevenBytes));
-  EXPECT_TRUE(table_.add(fortySevenBytes));
+  EXPECT_TRUE(table_.add(fortySevenBytes.copy()));
 }
 
 TEST_F(QPACKHeaderTableTests, BadSync) {
