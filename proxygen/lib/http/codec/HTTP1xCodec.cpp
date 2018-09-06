@@ -293,7 +293,8 @@ HTTP1xCodec::onParserError(const char* what) {
 
 bool
 HTTP1xCodec::isReusable() const {
-  return keepalive_ && !egressUpgrade_ && !ingressUpgrade_ && !parserError_;
+  return keepalive_ && !egressUpgrade_ && !ingressUpgrade_ && !parserError_ &&
+    websockAcceptKey_.empty();
 }
 
 bool
