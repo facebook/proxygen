@@ -897,7 +897,7 @@ HTTPSession::onBody(HTTPCodec::StreamID streamID,
     return;
   }
 
-  if (HTTPSessionBase::onBody(std::move(chain), length, padding, txn)) {
+  if (HTTPSessionBase::onBodyImpl(std::move(chain), length, padding, txn)) {
     VLOG(4) << *this << " pausing due to read limit exceeded.";
     pauseReads();
   }

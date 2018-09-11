@@ -76,8 +76,8 @@ void HTTPSessionBase::initCodecHeaderIndexingStrategy() {
   }
 }
 
-bool HTTPSessionBase::onBody(std::unique_ptr<folly::IOBuf> chain, size_t length,
-                             uint16_t padding, HTTPTransaction* txn) {
+bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain, size_t length,
+                                 uint16_t padding, HTTPTransaction* txn) {
   DestructorGuard dg(this);
   auto oldSize = pendingReadSize_;
   pendingReadSize_ += length + padding;

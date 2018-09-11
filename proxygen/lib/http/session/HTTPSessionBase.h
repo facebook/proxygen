@@ -445,8 +445,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   void handleErrorDirectly(HTTPTransaction* txn,
                            const HTTPException& error);
 
-  bool onBody(std::unique_ptr<folly::IOBuf> chain, size_t length,
-              uint16_t padding, HTTPTransaction* txn);
+  bool onBodyImpl(std::unique_ptr<folly::IOBuf> chain, size_t length,
+                  uint16_t padding, HTTPTransaction* txn);
 
   bool notifyBodyProcessed(uint32_t bytes);
 
