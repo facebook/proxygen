@@ -51,6 +51,11 @@ FB_EXPORT extern bool isSpdyCodecProtocol(CodecProtocol protocol);
 extern bool isHTTP2CodecProtocol(CodecProtocol protocol);
 
 /**
+ * Check if the given protocol is HQ
+ */
+extern bool isHQCodecProtocol(CodecProtocol protocol);
+
+/**
  * Check if the given protocol supports paraellel requests
  */
 extern bool isParallelCodecProtocol(CodecProtocol protocol);

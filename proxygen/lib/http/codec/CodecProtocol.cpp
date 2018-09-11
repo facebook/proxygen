@@ -79,6 +79,10 @@ extern bool isHTTP2CodecProtocol(CodecProtocol protocol) {
   return protocol == CodecProtocol::HTTP_2;
 }
 
+extern bool isHQCodecProtocol(CodecProtocol protocol) {
+  return protocol == CodecProtocol::HQ;
+}
+
 extern bool isParallelCodecProtocol(CodecProtocol protocol) {
   return isSpdyCodecProtocol(protocol) || isHTTP2CodecProtocol(protocol);
 }
