@@ -137,10 +137,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     ++headerFrames;
   }
 
-  void onGoaway(uint64_t,
+  void onGoaway(uint64_t lastStreamId,
                 ErrorCode,
                 std::unique_ptr<folly::IOBuf> debugData) override {
     ++goaways;
+    goawayStreamIds.emplace_back(lastStreamId);
     data.append(std::move(debugData));
   }
 
@@ -324,6 +325,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   std::unique_ptr<HTTPMessage> msg;
   std::unique_ptr<HTTPException> lastParseError;
   ErrorCode lastErrorCode;
+  std::vector<HTTPCodec::StreamID> goawayStreamIds;
 };
 
 MATCHER_P(PtrBufHasLen, n, "") {
