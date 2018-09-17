@@ -28,6 +28,9 @@ void HPACKDecoderBase::completeDecode(
     HPACK::StreamingCallback* streamingCb,
     uint32_t compressedSize,
     uint32_t emittedSize) {
+  if (!streamingCb) {
+    return;
+  }
   if (err_ != HPACK::DecodeError::NONE) {
     if (streamingCb->stats) {
       if (err_ == HPACK::DecodeError::HEADERS_TOO_LARGE ||
