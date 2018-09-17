@@ -193,7 +193,6 @@ TEST(QPACKContextTests, TestTableSizeUpdate) {
   result = encoder.encode(req, 0, 2);
   verifyDecode(decoder, std::move(result), req);
   EXPECT_EQ(decoder.getHeadersStored(), 1);
-  EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::NONE);
   EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::NONE);
 
   encoder.setHeaderTableSize(100);
@@ -205,14 +204,14 @@ TEST(QPACKContextTests, TestTableSizeUpdate) {
 
 
 TEST(QPACKContextTests, TestAcks) {
-  QPACKEncoder encoder(false, 64);
-  QPACKDecoder decoder(64);
+  QPACKEncoder encoder(false, 100);
+  QPACKDecoder decoder(100);
   encoder.setMaxVulnerable(1);
   EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::INVALID_ACK);
   EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::INVALID_ACK);
 
   vector<HPACKHeader> req;
-  req.emplace_back("Blarf", "Blah");
+  req.emplace_back("Blarf", "BlahBlahBlah");
   auto result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
   req.clear();
@@ -220,7 +219,7 @@ TEST(QPACKContextTests, TestAcks) {
   result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
   req.clear();
-  req.emplace_back("Blarf", "Blah");
+  req.emplace_back("Blarf", "BlahBlahBlah");
   result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
 
@@ -230,17 +229,17 @@ TEST(QPACKContextTests, TestAcks) {
   EXPECT_TRUE(stringInOutput(result.stream.get(), "blarf"));
   verifyDecode(decoder, std::move(result), req);
 
-  // Table is full and Blarf: Blah cannot be evicted -> literal
+  // Table is full and Blarf: BlahBlahBlah cannot be evicted -> literal
   req.clear();
-  req.emplace_back("Foo", "Blah");
+  req.emplace_back("Foo", "BlahBlahBlahBlah!");
   result = encoder.encode(req, 0, 3);
   EXPECT_EQ(result.control, nullptr);
   EXPECT_TRUE(stringInOutput(result.stream.get(), "foo"));
   verifyDecode(decoder, std::move(result), req);
   EXPECT_EQ(headerAck(decoder, encoder, 3), HPACK::DecodeError::NONE);
 
-  // Should remove all encoder state.  Blarf: Blah can now be evicted and
-  // a new vulnerable reference can be made.
+  // Should remove all encoder state.  Blarf: BlahBlahBlah can now be evicted
+  // and a new vulnerable reference can be made.
   EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::NONE);
   EXPECT_EQ(cancelStream(decoder, encoder, 1), HPACK::DecodeError::NONE);
 

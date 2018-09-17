@@ -52,7 +52,9 @@ class QPACKHeaderTable : public HeaderTable {
    */
   bool canIndex(const HPACKHeader& header) {
     auto totalBytes = bytes_ + header.bytes();
-    return (totalBytes <= capacity_ || canEvict(totalBytes - capacity_));
+    // Don't index headers that would immediately be drained
+    return ((header.bytes() <= (capacity_ - minFree_)) &&
+            (totalBytes <= capacity_ || canEvict(totalBytes - capacity_)));
   }
 
   /**
