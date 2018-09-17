@@ -183,7 +183,7 @@ void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
         dbuf, HPACK::Q_DUPLICATE.prefixLength, false, nullptr, &emitted);
     if (!hasError()) {
       CHECK(!emitted.empty());
-      CHECK(std::move(table_.add(std::move(emitted[0]))));
+      table_.add(std::move(emitted[0]));
     }
   }
 }
@@ -300,6 +300,7 @@ bool QPACKDecoder::isValid(bool isStatic, uint32_t index, bool aboveBase) {
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeTableStateSync() {
   uint32_t toAck = table_.getBaseIndex() - lastAcked_;
   if (toAck > 0) {
+    VLOG(6) << "encodeTableStateSync toAck=" << toAck;
     HPACKEncodeBuffer ackEncoder(kGrowth, false);
     ackEncoder.encodeInteger(toAck, HPACK::Q_TABLE_STATE_SYNC);
     lastAcked_ = table_.getBaseIndex();
@@ -312,6 +313,7 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeTableStateSync() {
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
     uint64_t streamId) const {
   HPACKEncodeBuffer ackEncoder(kGrowth, false);
+  VLOG(6) << "encodeHeaderAck id=" << streamId;
   ackEncoder.encodeInteger(streamId, HPACK::Q_HEADER_ACK);
   return ackEncoder.release();
 }

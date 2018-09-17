@@ -178,12 +178,14 @@ bool QPACKHeaderTable::canEvict(uint32_t needed) {
   uint32_t freeable = 0;
   uint32_t i = tail();
   uint32_t nChecked = 0;
-  while (nChecked++ < size() && freeable < needed && ((*refCount_)[i] == 0)) {
+  while (nChecked++ < size() && freeable < needed && ((*refCount_)[i] == 0) &&
+         internalToAbsolute(i) <= maxAcked_) { // don't evict unacked headers
     freeable += table_[i].bytes();
     i = next(i);
   }
   if (freeable < needed) {
-    VLOG(5) << "header=" << table_[i].name << " blocked eviction";
+    VLOG(5) << "header=" << table_[i].name << " blocked eviction, recount="
+            << (*refCount_)[i];
     return false;
   }
   return true;

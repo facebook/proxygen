@@ -58,6 +58,7 @@ TEST_F(QPACKHeaderTableTests, Eviction) {
   for (auto i = 1; i <= max; i++) {
     table_.addRef(i);
   }
+  table_.setMaxAcked(max);
   EXPECT_FALSE(table_.canIndex(accept));
   EXPECT_FALSE(table_.add(accept.copy()));
   table_.subRef(1);
@@ -81,6 +82,11 @@ TEST_F(QPACKHeaderTableTests, BadEviction) {
     EXPECT_TRUE(table_.add(accept.copy()));
   }
   EXPECT_EQ(table_.size(), max);
+  EXPECT_FALSE(table_.setCapacity(capacity / 2));
+  EXPECT_EQ(table_.size(), max);
+
+  // Ack all headers but mark the first as in use
+  table_.setMaxAcked(max);
   table_.addRef(1);
   EXPECT_FALSE(table_.setCapacity(capacity / 2));
 
@@ -97,6 +103,7 @@ TEST_F(QPACKHeaderTableTests, Wrapcount) {
 
   for (auto i = 0; i < 10; i++) {
     EXPECT_TRUE(table_.add(accept.copy()));
+    table_.setMaxAcked(i + 1);
   }
   EXPECT_TRUE(table_.add(cookie.copy()));
   EXPECT_TRUE(table_.add(agent.copy()));
@@ -138,6 +145,8 @@ TEST_F(QPACKHeaderTableTests, Duplication) {
 
   for (auto i = 0; i < 6; i++) {
     EXPECT_TRUE(table_.add(accept.copy()));
+    // Ack the first few entries so they can be evicted
+    table_.setMaxAcked(std::min(3u, table_.getBaseIndex()));
   }
 
   // successful duplicate, vulnerable allowed
@@ -180,6 +189,7 @@ TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
   for (auto i = 0; i < 8; i++) {
     EXPECT_TRUE(table_.add(thirtyNineBytes.copy()));
   }
+  table_.setMaxAcked(table_.getBaseIndex());
   // abs index = 1 is evictable, but index = 2 is referenced, so we can
   // insert up to (320 - 8 * 39) + 39 = 47
   table_.addRef(2);

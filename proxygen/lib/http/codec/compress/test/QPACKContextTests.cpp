@@ -242,6 +242,7 @@ TEST(QPACKContextTests, TestAcks) {
   // and a new vulnerable reference can be made.
   EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::NONE);
   EXPECT_EQ(cancelStream(decoder, encoder, 1), HPACK::DecodeError::NONE);
+  EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::NONE);
 
   result = encoder.encode(req, 0, 2);
   // Encodes an insert
