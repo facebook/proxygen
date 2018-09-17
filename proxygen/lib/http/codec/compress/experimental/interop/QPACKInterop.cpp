@@ -57,14 +57,24 @@ void encodeBlocks(QPACKCodec& decoder,
     auto result = encoder.encode(block, streamId);
     // always write stream before control to test decoder blocking
     if (result.stream) {
+      decoder.decodeStreaming(result.stream->clone(),
+                              result.stream->computeChainDataLength(),
+                              nullptr);
       writeFrame(appender, streamId, std::move(result.stream));
       if (FLAGS_ack) {
         encoder.decodeDecoderStream(decoder.encodeHeaderAck(streamId));
       }
     }
     if (result.control) {
+      decoder.decodeEncoderStream(result.control->clone());
       writeFrame(appender, 0, std::move(result.control));
-      // Shouldn't need any TSS
+      if (FLAGS_ack) {
+        // There can be TSS when the decoder is non-blocking
+        auto res = decoder.encodeTableStateSync();
+        if (res) {
+          encoder.decodeDecoderStream(std::move(res));
+        }
+      }
     }
     bytesIn += encoder.getEncodedSize().uncompressed;
     auto out = outbuf.move();
@@ -225,12 +235,14 @@ class QIFCallback : public HPACK::StreamingCallback {
 int decodeToQIF(QPACKCodec& decoder) {
   std::ofstream of(FLAGS_output, std::ofstream::trunc);
   std::map<uint64_t, QIFCallback> streams;
+  uint64_t encoderStreamBytes = 0;
   CompressedReader creader(
       [&] (uint64_t streamId, uint32_t length,
            std::unique_ptr<folly::IOBuf> buf) {
         if (streamId == 0) {
           CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
                    HPACK::DecodeError::NONE);
+          encoderStreamBytes += length;
         } else {
           auto res = streams.emplace(std::piecewise_construct,
                                      std::forward_as_tuple(streamId),
@@ -246,6 +258,7 @@ int decodeToQIF(QPACKCodec& decoder) {
     CHECK(stream.second.complete) << "Stream " << stream.first <<
       " didn't complete";
   }
+  LOG(INFO) << "encoderStreamBytes=" << encoderStreamBytes;
   return 0;
 }
 
