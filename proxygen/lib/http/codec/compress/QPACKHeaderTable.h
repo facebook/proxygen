@@ -25,14 +25,7 @@ class QPACKHeaderTable : public HeaderTable {
     UNACKED = std::numeric_limits<uint32_t>::max()
   };
 
-  QPACKHeaderTable(uint32_t capacityVal, bool trackReferences,
-                   uint32_t minFree)
-      : HeaderTable(capacityVal),
-        minFree_(minFree) {
-    if (trackReferences) {
-      refCount_ = std::make_unique<std::vector<uint16_t>>(table_.size(), 0);
-    }
-  }
+  QPACKHeaderTable(uint32_t capacityVal, bool trackReferences);
 
   ~QPACKHeaderTable() {}
   QPACKHeaderTable(const QPACKHeaderTable&) = delete;
@@ -84,6 +77,8 @@ class QPACKHeaderTable : public HeaderTable {
    * @return true if it was able to add the entry
    */
   bool add(HPACKHeader header) override;
+
+  bool setCapacity(uint32_t capacity) override;
 
   /**
    * Get the index of the given header, if found.  The index is relative to

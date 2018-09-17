@@ -12,7 +12,7 @@
 namespace proxygen {
 
 QPACKContext::QPACKContext(uint32_t tableSize, bool trackReferences) :
-    table_(tableSize, trackReferences, std::min(256u, tableSize / 8)) {
+    table_(tableSize, trackReferences) {
 }
 
 const HPACKHeader& QPACKContext::getHeader(bool isStatic,

@@ -22,7 +22,7 @@ class QPACKHeaderTableTests : public testing::Test {
  public:
 
  protected:
-  QPACKHeaderTable table_{320, true, 15};
+  QPACKHeaderTable table_{320, true};
 };
 
 TEST_F(QPACKHeaderTableTests, Indexing) {

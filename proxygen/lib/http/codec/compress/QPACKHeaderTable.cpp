@@ -15,7 +15,36 @@ using std::list;
 using std::pair;
 using std::string;
 
+namespace {
+// For tables 0..384     minFree = 48
+// For tables 385..4096  minFree = tableSize/8
+// For tables 4096+      minFree = 512
+
+// Determines how much space in the table should be reserved for new inserts.
+// Min Free is set to tableSize / kMinFreeSlice
+const uint32_t kMinFreeSlice = 8;
+
+const uint32_t kMinMinFree = 48;
+const uint32_t kMaxMinFree = 512;
+
+uint32_t getMinFree(uint32_t tableSize) {
+  return std::min(std::max(tableSize / kMinFreeSlice, kMinMinFree),
+                  kMaxMinFree);
+}
+
+}
+
 namespace proxygen {
+
+QPACKHeaderTable::QPACKHeaderTable(uint32_t capacityVal, bool trackReferences)
+    : HeaderTable(capacityVal) {
+  if (trackReferences) {
+    refCount_ = std::make_unique<std::vector<uint16_t>>(table_.size(), 0);
+    minFree_ = getMinFree(capacityVal);
+  } else {
+    minFree_ = 0;
+  }
+}
 
 bool QPACKHeaderTable::add(HPACKHeader header) {
   if (baseIndex_ == std::numeric_limits<uint32_t>::max()) {
@@ -24,6 +53,7 @@ bool QPACKHeaderTable::add(HPACKHeader header) {
     return false;
   }
 
+  VLOG(6) << "Adding header=" << header;
   if (!HeaderTable::add(std::move(header))) {
     return false;
   }
@@ -39,6 +69,16 @@ bool QPACKHeaderTable::add(HPACKHeader header) {
     VLOG(5) << "Draining absolute index " << minUsable_;
     drainedBytes_ += table_[absoluteToInternal(minUsable_++)].bytes();
   }
+  return true;
+}
+
+bool QPACKHeaderTable::setCapacity(uint32_t capacity) {
+  if (!HeaderTable::setCapacity(capacity)) {
+    return false;
+  }
+  if (refCount_) {
+    minFree_ = getMinFree(capacity);
+  } // else minFree is always 0
   return true;
 }
 
