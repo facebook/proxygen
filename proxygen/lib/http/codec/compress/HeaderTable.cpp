@@ -133,12 +133,16 @@ void HeaderTable::reset() {
   // Capacity remains unchanged and for now we leave head_ index the same
 }
 
-void HeaderTable::setCapacity(uint32_t newCapacity) {
+bool HeaderTable::setCapacity(uint32_t newCapacity) {
   if (newCapacity == capacity_) {
-    return;
+    return true;
   } else if (newCapacity < capacity_) {
     // NOTE: currently no actual resizing is performed...
     evict(0, newCapacity);
+    if (bytes_ > newCapacity) {
+      // eviction failed!
+      return false;
+    }
   } else {
     // NOTE: due to the above lack of resizing, we must determine whether a
     // resize is actually appropriate (to handle cases where the underlying
@@ -149,6 +153,7 @@ void HeaderTable::setCapacity(uint32_t newCapacity) {
     }
   }
   capacity_ = newCapacity;
+  return true;
 }
 
 void HeaderTable::increaseTableLengthTo(uint32_t newLength) {

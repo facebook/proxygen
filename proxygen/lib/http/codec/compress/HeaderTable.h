@@ -95,9 +95,9 @@ class HeaderTable {
 
   /**
    * Sets the current capacity of the header table, and evicts entries
-   * if needed.
+   * if needed.  Returns false if eviction failed.
    */
-  void setCapacity(uint32_t capacity);
+  virtual bool setCapacity(uint32_t capacity);
 
   /**
    * @return number of valid entries

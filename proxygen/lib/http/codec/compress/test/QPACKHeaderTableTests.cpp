@@ -70,6 +70,26 @@ TEST_F(QPACKHeaderTableTests, Eviction) {
   EXPECT_TRUE(table_.canIndex(accept));
 }
 
+TEST_F(QPACKHeaderTableTests, BadEviction) {
+  HPACKHeader accept("accept-encoding", "gzip");
+
+  int32_t max = 4;
+  uint32_t capacity = accept.bytes() * max;
+  table_.setCapacity(capacity);
+
+  for (auto i = 0; i < max; i++) {
+    EXPECT_TRUE(table_.add(accept.copy()));
+  }
+  EXPECT_EQ(table_.size(), max);
+  table_.addRef(1);
+  EXPECT_FALSE(table_.setCapacity(capacity / 2));
+
+  // Clear all refs
+  table_.subRef(1);
+  EXPECT_TRUE(table_.setCapacity(capacity / 2));
+  EXPECT_EQ(table_.size(), max / 2);
+}
+
 TEST_F(QPACKHeaderTableTests, Wrapcount) {
   HPACKHeader accept("accept-encoding", "gzip");
   HPACKHeader agent("user-agent", "SeaMonkey");

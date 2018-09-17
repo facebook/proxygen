@@ -35,7 +35,7 @@ class HPACKEncoderBase {
 
   void setHeaderTableSize(HeaderTable& table, uint32_t size) {
     if (size != table.capacity()) {
-      table.setCapacity(size);
+      CHECK(table.setCapacity(size));
       pendingContextUpdate_ = true;
     }
   }
