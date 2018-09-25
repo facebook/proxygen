@@ -197,6 +197,34 @@ TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
   EXPECT_TRUE(table_.add(fortySevenBytes.copy()));
 }
 
+TEST_F(QPACKHeaderTableTests, EvictNonDrained) {
+  HPACKHeader small("ab", "cd"); // 36 bytes
+  HPACKHeader small2("abcd", std::string(14, 'b')); // 50 bytes
+  HPACKHeader med(std::string(20, 'a'), std::string(20, 'b')); // 72
+  HPACKHeader large(std::string(34, 'a'), std::string(34, 'b')); // 100
+
+  table_.setCapacity(220);
+  EXPECT_TRUE(table_.add(small.copy()));
+  EXPECT_TRUE(table_.add(med.copy()));
+  EXPECT_TRUE(table_.add(large.copy()));
+  EXPECT_TRUE(table_.isDraining(3));
+  EXPECT_FALSE(table_.isDraining(2));
+
+  table_.setMaxAcked(3);
+  // Evicts small and med
+  EXPECT_TRUE(table_.add(small2.copy()));
+  EXPECT_EQ(table_.size(), 2);
+  EXPECT_FALSE(table_.isDraining(1));
+  EXPECT_FALSE(table_.isDraining(2));
+
+  // Now lg should be draining
+  EXPECT_TRUE(table_.add(small.copy()));
+  EXPECT_TRUE(table_.isDraining(3));
+
+  // Evict large
+  EXPECT_TRUE(table_.add(small.copy()));
+}
+
 TEST_F(QPACKHeaderTableTests, BadSync) {
   // Can't ack more than is in the table
   EXPECT_FALSE(table_.onTableStateSync(1));

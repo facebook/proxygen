@@ -66,8 +66,11 @@ bool QPACKHeaderTable::add(HPACKHeader header) {
   // For HPACK, minFree is 0 and this is a no-op.
   while (capacity_ - bytes_ + drainedBytes_ < minFree_ &&
          minUsable_ <= baseIndex_) {
-    VLOG(5) << "Draining absolute index " << minUsable_;
-    drainedBytes_ += table_[absoluteToInternal(minUsable_++)].bytes();
+    auto bytes = table_[absoluteToInternal(minUsable_)].bytes();
+    VLOG(5) << "Draining absolute index " << minUsable_ << " bytes="
+            << bytes << " drainedBytes_= " << (drainedBytes_ + bytes);
+    drainedBytes_  += bytes;
+    minUsable_++;
   }
   return true;
 }
@@ -130,10 +133,22 @@ const HPACKHeader& QPACKHeaderTable::getHeader(uint32_t index,
 }
 
 uint32_t QPACKHeaderTable::removeLast() {
+  auto idx = tail();
   auto removedBytes = HeaderTable::removeLast();
   // Only non-zero when minUsable_ > baseIndex_ - size_.
   if (drainedBytes_ > 0) {
+    VLOG(5) << "Removing draining entry=" << idx << " size=" << removedBytes
+            << " drainedBytes_=" << drainedBytes_ << " new drainedBytes_="
+            << (int32_t(drainedBytes_) - removedBytes);
+    CHECK_GE(drainedBytes_, removedBytes);
     drainedBytes_ -= removedBytes;
+  } else {
+      // Keep minUsable_ as a valid index when evicting an undrained header
+    if (size() > 0) {
+      minUsable_ = internalToAbsolute(tail());
+    } else {
+      minUsable_ = baseIndex_ + 1;
+    }
   }
   return removedBytes;
 }
