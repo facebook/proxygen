@@ -503,8 +503,13 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->writableData()[3] = 0xFF;
   buf->writableData()[4] = 0xFF;
   buf->writableData()[5] = 0xFF;
-  buf->writableData()[6] = 0x01;
-  buf->append(6);
+  buf->writableData()[6] = 0xFF;
+  buf->writableData()[7] = 0xFF;
+  buf->writableData()[8] = 0xFF;
+  buf->writableData()[9] = 0xFF;
+  buf->writableData()[10] = 0xFF;
+  buf->writableData()[11] = 0x01;
+  buf->append(11);
   // Bad header ack
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);

@@ -61,11 +61,11 @@ class HPACKEncodeBuffer {
    *
    * @return how many bytes were used to encode the value
    */
-  uint32_t encodeInteger(uint32_t value, uint8_t instruction, uint8_t nbit);
+  uint32_t encodeInteger(uint64_t value, uint8_t instruction, uint8_t nbit);
 
-  uint32_t encodeInteger(uint32_t value, const HPACK::Instruction& instruction);
+  uint32_t encodeInteger(uint64_t value, const HPACK::Instruction& instruction);
 
-  uint32_t encodeInteger(uint32_t value);
+  uint32_t encodeInteger(uint64_t value);
 
   /**
    * encodes a string, either header name or header value

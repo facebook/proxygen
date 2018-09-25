@@ -52,14 +52,14 @@ void QPACKDecoder::decodeStreaming(
 }
 
 uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
-  uint32_t largestReference;
+  uint64_t largestReference;
   err_ = dbuf.decodeInteger(largestReference);
   if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Decode error decoding largest reference err_=" << err_;
     return 0;
   }
   VLOG(5) << "Decoded largestReference=" << largestReference;
-  uint32_t delta = 0;
+  uint64_t delta = 0;
   if (dbuf.empty()) {
     LOG(ERROR) << "Invalid prefix, no delta-base";
     err_ = HPACK::DecodeError::BUFFER_UNDERFLOW;
@@ -200,7 +200,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
   Partial* partial = (allowPartial) ? &partial_ : &localPartial;
   if (partial->state == Partial::NAME) {
     if (nameIndexed) {
-      uint32_t nameIndex = 0;
+      uint64_t nameIndex = 0;
       bool isStaticName = !aboveBase && (dbuf.peek() & (1 << prefixLength));
       err_ = dbuf.decodeInteger(prefixLength, nameIndex);
       if (allowPartial && err_ == HPACK::DecodeError::BUFFER_UNDERFLOW) {
@@ -263,7 +263,7 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(
     bool aboveBase,
     HPACK::StreamingCallback* streamingCb,
     headers_t* emitted) {
-  uint32_t index;
+  uint64_t index;
   bool isStatic = !aboveBase && (dbuf.peek() & (1 << prefixLength));
   err_ = dbuf.decodeInteger(prefixLength, index);
   if (err_ != HPACK::DecodeError::NONE) {

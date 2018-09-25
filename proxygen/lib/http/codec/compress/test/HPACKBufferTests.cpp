@@ -146,7 +146,7 @@ TEST_F(HPACKBufferTests, DecodeSingleByte) {
   // 6-bit prefix
   *wdata = 67;
   resetDecoder();
-  uint32_t integer;
+  uint64_t integer;
   CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
   CHECK_EQ(integer, 67);
 
@@ -175,7 +175,7 @@ TEST_F(HPACKBufferTests, DecodeMultiByte) {
   wdata[0] = 67;
   wdata[1] = 0;
   resetDecoder();
-  uint32_t integer;
+  uint64_t integer;
   CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
   CHECK_EQ(integer, 3);
   CHECK_EQ(decoder_.cursor().length(), 0);
@@ -209,7 +209,7 @@ TEST_F(HPACKBufferTests, DecodeIntegerError) {
   buf_ = IOBuf::create(128);
   resetDecoder();
   // empty buffer
-  uint32_t integer;
+  uint64_t integer;
   CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::BUFFER_UNDERFLOW);
 
   // incomplete buffer
@@ -367,7 +367,7 @@ TEST_F(HPACKBufferTests, IntegerEncodeDecode) {
   resetDecoder();
   EXPECT_EQ(decoder_.cursor().length(), 4);
   // now decode
-  uint32_t integer;
+  uint64_t integer;
   EXPECT_EQ(decoder_.decodeInteger(5, integer), DecodeError::NONE);
   EXPECT_EQ(integer, value);
   EXPECT_EQ(decoder_.cursor().length(), 0);
@@ -385,19 +385,24 @@ TEST_F(HPACKBufferTests, IntegerEncodeDecode) {
  * really large integers
  */
 TEST_F(HPACKBufferTests, IntegerOverflow) {
-  uint32_t integer;
+  uint64_t integer;
   buf_ = IOBuf::create(128);
   uint8_t *wdata = buf_->writableData();
 
   // enough headroom for both cases
-  buf_->append(7);
+  buf_->append(12);
   // overflow the accumulated value
   wdata[0] = 0xFF;
   wdata[1] = 0xFF;
   wdata[2] = 0xFF;
   wdata[3] = 0xFF;
   wdata[4] = 0xFF;
-  wdata[5] = 0x0F;
+  wdata[5] = 0xFF;
+  wdata[6] = 0xFF;
+  wdata[7] = 0xFF;
+  wdata[8] = 0xFF;
+  wdata[9] = 0xFF;
+  wdata[10] = 0x0F;
   resetDecoder();
   EXPECT_EQ(decoder_.decodeInteger(8, integer), DecodeError::INTEGER_OVERFLOW);
 
@@ -408,7 +413,12 @@ TEST_F(HPACKBufferTests, IntegerOverflow) {
   wdata[3] = 0x80;
   wdata[4] = 0x80;
   wdata[5] = 0x80;
-  wdata[6] = 0x01;
+  wdata[6] = 0x80;
+  wdata[7] = 0x80;
+  wdata[8] = 0x80;
+  wdata[9] = 0x80;
+  wdata[10] = 0x80;
+  wdata[11] = 0x01;
   resetDecoder();
   EXPECT_EQ(decoder_.decodeInteger(8, integer), DecodeError::INTEGER_OVERFLOW);
 }
@@ -420,13 +430,13 @@ TEST_F(HPACKBufferTests, IntegerMax) {
   releaseData();
   // encoding with all the bit prefixes
   for (uint8_t bitprefix = 1; bitprefix <= 8; bitprefix++) {
-    encoder_.encodeInteger(std::numeric_limits<uint32_t>::max(), 0, bitprefix);
+    encoder_.encodeInteger(std::numeric_limits<uint64_t>::max(), 0, bitprefix);
     // take the encoded data and shove it in the decoder
     releaseData();
     resetDecoder();
-    uint32_t integer = 0;
+    uint64_t integer = 0;
     EXPECT_EQ(decoder_.decodeInteger(bitprefix, integer), DecodeError::NONE);
-    EXPECT_EQ(integer, std::numeric_limits<uint32_t>::max());
+    EXPECT_EQ(integer, std::numeric_limits<uint64_t>::max());
   }
 }
 

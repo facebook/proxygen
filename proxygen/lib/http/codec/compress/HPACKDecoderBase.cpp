@@ -54,7 +54,7 @@ void HPACKDecoderBase::completeDecode(
 
 void HPACKDecoderBase::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
                                              HeaderTable& table) {
-  uint32_t arg = 0;
+  uint64_t arg = 0;
   err_ = dbuf.decodeInteger(HPACK::TABLE_SIZE_UPDATE.prefixLength, arg);
   if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;

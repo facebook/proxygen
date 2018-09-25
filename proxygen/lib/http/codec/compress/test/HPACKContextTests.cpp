@@ -242,8 +242,13 @@ TEST_F(HPACKContextTests, DecodeErrors) {
   buf->writableData()[2] = 0xFF;
   buf->writableData()[3] = 0xFF;
   buf->writableData()[4] = 0xFF;
-  buf->writableData()[5] = 0x7F;
-  buf->append(3);
+  buf->writableData()[5] = 0xFF;
+  buf->writableData()[6] = 0xFF;
+  buf->writableData()[7] = 0xFF;
+  buf->writableData()[8] = 0xFF;
+  buf->writableData()[9] = 0xFF;
+  buf->writableData()[10] = 0x7F;
+  buf->append(8);
   checkError(buf.get(), HPACK::DecodeError::INTEGER_OVERFLOW);
 }
 

@@ -56,7 +56,7 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
   uint8_t huffmanCheck = uint8_t(1 << nbit);
   bool huffman = byte & huffmanCheck;
   // extract the size
-  uint32_t size;
+  uint64_t size;
   DecodeError result = decodeInteger(nbit, size);
   if (result != DecodeError::NONE) {
     LOG(ERROR) << "Could not decode literal size";
@@ -94,11 +94,11 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
   return DecodeError::NONE;
 }
 
-DecodeError HPACKDecodeBuffer::decodeInteger(uint32_t& integer) {
+DecodeError HPACKDecodeBuffer::decodeInteger(uint64_t& integer) {
   return decodeInteger(8, integer);
 }
 
-DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint32_t& integer) {
+DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint64_t& integer) {
   if (remainingBytes_ == 0) {
     LOG(ERROR) << "remainingBytes_ == 0";
     return DecodeError::BUFFER_UNDERFLOW;
@@ -112,7 +112,7 @@ DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint32_t& integer) {
     // the value fit in one byte
     return DecodeError::NONE;
   }
-  uint32_t f = 1;
+  uint64_t f = 1;
   uint32_t fexp = 0;
   do {
     if (remainingBytes_ == 0) {
@@ -120,13 +120,13 @@ DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint32_t& integer) {
       return DecodeError::BUFFER_UNDERFLOW;
     }
     byte = next();
-    if (fexp > 32) {
-      // overflow in factorizer, f > 2^32
+    if (fexp > 64) {
+      // overflow in factorizer, f > 2^64
       LOG(ERROR) << "overflow fexp=" << fexp;
       return DecodeError::INTEGER_OVERFLOW;
     }
-    uint32_t add = (byte & 127) * f;
-    if (std::numeric_limits<uint32_t>::max() - integer < add) {
+    uint64_t add = (byte & 127) * f;
+    if (std::numeric_limits<uint64_t>::max() - integer < add) {
       // overflow detected
       LOG(ERROR) << "overflow integer=" << integer << " add=" << add;
       return DecodeError::INTEGER_OVERFLOW;

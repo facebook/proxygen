@@ -289,7 +289,7 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
     } else if (byte & HPACK::Q_CANCEL_STREAM.code) {
       err = decodeHeaderAck(dbuf, HPACK::Q_CANCEL_STREAM.prefixLength, true);
     } else { // TABLE_STATE_SYNC
-      uint32_t inserts = 0;
+      uint64_t inserts = 0;
       err = dbuf.decodeInteger(HPACK::Q_TABLE_STATE_SYNC.prefixLength, inserts);
       if (err == HPACK::DecodeError::NONE) {
         err = onTableStateSync(inserts);
@@ -310,7 +310,7 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
 HPACK::DecodeError QPACKEncoder::decodeHeaderAck(HPACKDecodeBuffer& dbuf,
                                                  uint8_t prefixLength,
                                                  bool all) {
-  uint32_t streamId = 0;
+  uint64_t streamId = 0;
   auto err = dbuf.decodeInteger(prefixLength, streamId);
   if (err == HPACK::DecodeError::NONE) {
     err = onHeaderAck(streamId, all);

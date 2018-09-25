@@ -56,7 +56,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
     length = HPACK::LITERAL.prefixLength;
   }
   if (byte & indexMask) {
-    uint32_t index;
+    uint64_t index;
     err_ = dbuf.decodeInteger(length, index);
     if (err_ != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "Decode error decoding index err_=" << err_;
@@ -101,7 +101,7 @@ uint32_t HPACKDecoder::decodeIndexedHeader(
     HPACKDecodeBuffer& dbuf,
     HPACK::StreamingCallback* streamingCb,
     headers_t* emitted) {
-  uint32_t index;
+  uint64_t index;
   err_ = dbuf.decodeInteger(HPACK::INDEX_REF.prefixLength, index);
   if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Decode error decoding index err_=" << err_;

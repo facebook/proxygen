@@ -48,17 +48,17 @@ void HPACKEncodeBuffer::append(uint8_t byte) {
   buf_.push(&byte, 1);
 }
 
-uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value) {
+uint32_t HPACKEncodeBuffer::encodeInteger(uint64_t value) {
   return encodeInteger(value, 0, 8);
 }
 
 uint32_t HPACKEncodeBuffer::encodeInteger(
-  uint32_t value,
+  uint64_t value,
   const HPACK::Instruction& instruction) {
   return encodeInteger(value, instruction.code, instruction.prefixLength);
 }
 
-uint32_t HPACKEncodeBuffer::encodeInteger(uint32_t value, uint8_t instruction,
+uint32_t HPACKEncodeBuffer::encodeInteger(uint64_t value, uint8_t instruction,
                                           uint8_t nbit) {
   CHECK(nbit > 0 && nbit <= 8);
   uint32_t count = 0;
