@@ -50,7 +50,7 @@ const Instruction Q_DELTA_BASE     { 0x00, 7 };
 const Instruction Q_INDEXED               { 0x80, 6 };
 const Instruction Q_INDEXED_POST          { 0x10, 4 };
 const Instruction Q_LITERAL_NAME_REF      { 0x40, 4 };
-const Instruction Q_LITERAL_NAME_REF_POST { 0x00, 4 };
+const Instruction Q_LITERAL_NAME_REF_POST { 0x00, 3 };
 const Instruction Q_LITERAL               { 0x20, 3 };
 
 const uint8_t Q_INDEXED_STATIC = 0x40;

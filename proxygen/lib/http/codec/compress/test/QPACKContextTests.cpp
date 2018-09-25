@@ -122,6 +122,27 @@ TEST(QPACKContextTests, NameIndexedInsert) {
   verifyDecode(decoder, std::move(result), req);
 }
 
+TEST(QPACKContextTests, PostBaseNameIndexedLiteral) {
+  QPACKEncoder encoder(false, 360);
+  QPACKDecoder decoder(360);
+  vector<HPACKHeader> req;
+
+  encoder.setMaxVulnerable(1);
+  // Fills the table with exacty minFree (48) empty
+  for (auto i = 0; i < 8; i++) {
+    req.push_back(HPACKHeader(folly::to<std::string>("Blarf", i), "0"));
+  }
+  // Too big to put in the table without evicting, perfect
+  // for Post-Base Name-Indexed literal with idx=7
+  req.push_back(HPACKHeader("Blarf7", "blergblergblerg"));
+  auto result = encoder.encode(req, 10, 1);
+  EXPECT_EQ(result.stream->computeChainDataLength(),
+            2 /*prefix*/ + 8 /*pb indexed*/ + 2 /*name idx len*/ +
+            1 /*val len*/ + 15 /* value */);
+  verifyDecode(decoder, std::move(result), req);
+}
+
+
 TEST(QPACKContextTests, Unacknowledged) {
   QPACKEncoder encoder(true, 128);
   QPACKDecoder decoder(128);
