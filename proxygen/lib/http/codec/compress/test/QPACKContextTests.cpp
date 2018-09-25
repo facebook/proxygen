@@ -519,3 +519,25 @@ TEST(QPACKContextTests, DecodeErrors) {
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 }
+
+TEST(QPACKContextTests, TestEvictedNameReference) {
+  QPACKEncoder encoder(false, 109);
+  QPACKDecoder decoder(109);
+  encoder.setMaxVulnerable(0);
+  vector<HPACKHeader> req;
+  req.push_back(HPACKHeader("x-accept-encoding", "foobarfoobar"));
+  auto result = encoder.encode(req, 0, 1);
+  decoder.decodeEncoderStream(std::move(result.control));
+  decoder.decodeStreaming(result.stream->clone(),
+                          result.stream->computeChainDataLength(), nullptr);
+  encoder.onTableStateSync(1);
+  req.clear();
+  req.push_back(HPACKHeader("x-accept-encoding", "barfoobarfoo"));
+  result = encoder.encode(req, 0, 2);
+  EXPECT_TRUE(stringInOutput(result.stream.get(), "x-accept-encoding"));
+  TestStreamingCallback cb;
+  decoder.decodeEncoderStream(std::move(result.control));
+  decoder.decodeStreaming(result.stream->clone(),
+                          result.stream->computeChainDataLength(), &cb);
+  EXPECT_FALSE(cb.hasError());
+}

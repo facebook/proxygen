@@ -115,6 +115,12 @@ void QPACKEncoder::encodeHeaderQ(
         index = table_.getBaseIndex();
       } else {
         index = 0;
+        if (!table_.isValid(table_.absoluteToRelative(absoluteNameIndex))) {
+          // The insert may have invalidated the name index.
+          isStaticName = true;
+          nameIndex = 0;
+          absoluteNameIndex = 0;
+        }
       }
     }
 
