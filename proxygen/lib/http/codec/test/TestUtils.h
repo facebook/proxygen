@@ -63,6 +63,47 @@ size_t parse(T* codec,
   return input.chainLength();
 }
 
+template<class T>
+size_t parseUnidirectional(T* codec,
+                           const uint8_t* inputData,
+                           uint32_t length,
+                           int32_t atOnce = 0,
+                           std::function<bool()> stopFn = [] { return false; }) {
+
+  const uint8_t* start = inputData;
+  size_t consumed = 0;
+  std::uniform_int_distribution<uint32_t> lenDistribution(1, length / 2 + 1);
+  std::mt19937 rng;
+
+  if (atOnce == 0) {
+    atOnce = length;
+  }
+
+  folly::IOBufQueue input(folly::IOBufQueue::cacheChainLength());
+  while (length > 0 && !stopFn()) {
+    if (consumed == 0) {
+      // Parser wants more data
+      uint32_t len = atOnce;
+      if (atOnce < 0) {
+        // use random chunks
+        len = lenDistribution(rng);
+      }
+      uint32_t chunkLen = std::min(length, len);
+      input.append(folly::IOBuf::copyBuffer(start, chunkLen));
+      start += chunkLen;
+      length -= chunkLen;
+    }
+    auto initialLength = input.chainLength();
+    auto ret = codec->onUnidirectionalIngress(input.move());
+    input.append(std::move(ret));
+    consumed = initialLength - input.chainLength();
+    if (input.front() == nullptr && consumed > 0) {
+      consumed = 0;
+    }
+  }
+  return input.chainLength();
+}
+
 class FakeHTTPCodecCallback : public HTTPCodec::Callback {
  public:
   FakeHTTPCodecCallback() {}
