@@ -28,7 +28,9 @@ class PushHandler;
  *   onError - Send a direct response back if no response has started and
  *             writing is still possible. Otherwise sends an abort.
  *
- * - Handles 100-continue case for you (by sending Continue response)
+ * - Handles the 100-continue case for you (by sending Continue response),
+ *   if RequestHandler returns false for canHandleExpect(). Otherwise,
+ *   RequestHandler is responsible to handle it.
  */
 class RequestHandlerAdaptor
     : public HTTPTransactionHandler,

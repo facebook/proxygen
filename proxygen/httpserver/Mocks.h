@@ -77,6 +77,7 @@ class MockRequestHandler : public RequestHandler {
   GMOCK_METHOD1_(, noexcept, , onError, void(ProxygenError));
   GMOCK_METHOD0_(, noexcept, , onEgressPaused, void());
   GMOCK_METHOD0_(, noexcept, , onEgressResumed, void());
+  GMOCK_METHOD0_(, noexcept, , canHandleExpect, bool());
 #ifdef __clang__
 # pragma clang diagnostic pop
 #endif

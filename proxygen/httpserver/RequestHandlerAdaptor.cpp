@@ -40,7 +40,8 @@ void RequestHandlerAdaptor::detachTransaction() noexcept {
 
 void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
     noexcept {
-  if (msg->getHeaders().exists(HTTP_HEADER_EXPECT)) {
+  if (msg->getHeaders().exists(HTTP_HEADER_EXPECT) &&
+      !upstream_->canHandleExpect()) {
     auto expectation = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_EXPECT);
     if (!boost::iequals(expectation, "100-continue")) {
       setError(kErrorUnsupportedExpectation);

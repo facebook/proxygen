@@ -76,6 +76,10 @@ class Filter : public RequestHandler, public ResponseHandler {
     upstream_->onEgressResumed();
   }
 
+  bool canHandleExpect() noexcept override {
+    return upstream_->canHandleExpect();
+  }
+
   ExMessageHandler* getExHandler() noexcept override {
     return upstream_->getExHandler();
   }
