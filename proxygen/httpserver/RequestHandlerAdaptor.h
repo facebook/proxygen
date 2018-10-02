@@ -30,7 +30,7 @@ class PushHandler;
  *
  * - Handles the 100-continue case for you (by sending Continue response),
  *   if RequestHandler returns false for canHandleExpect(). Otherwise,
- *   RequestHandler is responsible to handle it.
+ *   RequestHandler is responsible for handling it.
  */
 class RequestHandlerAdaptor
     : public HTTPTransactionHandler,
