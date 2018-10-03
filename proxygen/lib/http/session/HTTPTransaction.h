@@ -756,6 +756,14 @@ class HTTPTransaction :
   }
 
   /**
+   * @return true iff the remote side initiated this transaction.
+   */
+  bool isRemoteInitiated() const {
+    return (direction_ == TransportDirection::DOWNSTREAM && id_ % 2 == 1) ||
+           (direction_ == TransportDirection::UPSTREAM && id_ % 2 == 0);
+  }
+
+  /**
    * @return true iff sendEOM() has been called.
    */
   bool isEgressEOMSeen() const {

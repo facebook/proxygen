@@ -848,7 +848,8 @@ HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
       return;
     }
 
-    if (!controlTxn->onExTransaction(txn)) {
+    // Call onExTransaction() only for requests.
+    if (txn->isRemoteInitiated() && !controlTxn->onExTransaction(txn)) {
       VLOG(2) << "Failed to add exTxn=" << streamID
               << " to controlTxn=" << *controlStreamID << ", " << *this;
       HTTPException ex(

@@ -1043,8 +1043,6 @@ TEST_F(HTTP2DownstreamSessionTest, ExheaderFromServer) {
   EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
   EXPECT_CALL(callbacks_, onMessageComplete(2, _));
 
-  EXPECT_CALL(*cHandler, onExTransaction(_));
-
   EXPECT_CALL(pubHandler, onHeadersComplete(_));
   EXPECT_CALL(pubHandler, onEOM());
   EXPECT_CALL(pubHandler, detachTransaction());
