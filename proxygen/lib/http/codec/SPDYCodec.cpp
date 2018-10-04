@@ -972,7 +972,7 @@ size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
     } else {
       appender.writeBE(flagsAndLength(0, *settingId));
     }
-    appender.writeBE(setting.value);
+    appender.writeBE<uint32_t>(setting.value);
   }
   DCHECK_EQ(writeBuf.chainLength(), expectedLength);
   return frameSize;

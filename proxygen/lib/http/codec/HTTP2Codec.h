@@ -202,11 +202,11 @@ public:
   bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
   ErrorCode handleSettings(const std::deque<SettingPair>& settings);
   size_t maxSendFrameSize() const {
-    return ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
+    return (uint32_t)ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                        http2::kMaxFramePayloadLengthMin);
   }
   uint32_t maxRecvFrameSize() const {
-    return egressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
+    return (uint32_t)egressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                       http2::kMaxFramePayloadLengthMin);
   }
   void streamError(const std::string& msg, ErrorCode error, bool newTxn=false);

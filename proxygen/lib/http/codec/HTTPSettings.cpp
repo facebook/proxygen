@@ -13,7 +13,7 @@
 
 namespace proxygen {
 
-void HTTPSettings::setSetting(SettingsId id, uint32_t val) {
+void HTTPSettings::setSetting(SettingsId id, SettingsValue val) {
   auto iter = getSettingIter(id);
   if (iter != settings_.end()) {
     (*iter).value = val;
@@ -25,8 +25,8 @@ void HTTPSettings::setSetting(SettingsId id, uint32_t val) {
 void HTTPSettings::unsetSetting(SettingsId id) {
   auto iter = getSettingIter(id);
   if (iter != settings_.end()) {
-     *iter = settings_.back();
-     settings_.pop_back();
+    *iter = settings_.back();
+    settings_.pop_back();
   }
 }
 
@@ -39,7 +39,8 @@ const HTTPSetting* HTTPSettings::getSetting(SettingsId id) const {
   }
 }
 
-uint32_t HTTPSettings::getSetting(SettingsId id, uint32_t defaultValue) const {
+SettingsValue HTTPSettings::getSetting(SettingsId id,
+                                       SettingsValue defaultValue) const {
   auto iter = getSettingConstIter(id);
   if (iter != settings_.end()) {
     return (*iter).value;
@@ -48,18 +49,17 @@ uint32_t HTTPSettings::getSetting(SettingsId id, uint32_t defaultValue) const {
   }
 }
 
-std::vector<HTTPSetting>::iterator HTTPSettings::getSettingIter(
-    SettingsId id) {
-  return std::find_if(
-    settings_.begin(), settings_.end(),
-    [&] (HTTPSetting const& s) { return s.id == id; } );
+std::vector<HTTPSetting>::iterator HTTPSettings::getSettingIter(SettingsId id) {
+  return std::find_if(settings_.begin(),
+                      settings_.end(),
+                      [&](HTTPSetting const& s) { return s.id == id; });
 }
 
 std::vector<HTTPSetting>::const_iterator HTTPSettings::getSettingConstIter(
     SettingsId id) const {
-  return std::find_if(
-    settings_.begin(), settings_.end(),
-    [&] (HTTPSetting const& s) { return s.id == id; } );
+  return std::find_if(settings_.begin(),
+                      settings_.end(),
+                      [&](HTTPSetting const& s) { return s.id == id; });
 }
 
-}
+} // namespace proxygen
