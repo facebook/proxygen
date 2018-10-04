@@ -87,6 +87,22 @@ class WorkerThread {
   }
 
   /**
+   * Get native handle of the underlying thread object
+   * (valid only when the thread is running).
+   */
+  std::thread::native_handle_type getThreadNativeHandle() noexcept {
+    return thread_.native_handle();
+  }
+
+  /**
+   * Get ID of the underlying thread objects
+   * (valid only when the thread is running).
+   */
+  std::thread::id getThreadId() const noexcept {
+    return thread_.get_id();
+  }
+
+  /**
    * Get the current WorkerThread running this thread.
    *
    * Returns nullptr if called from a thread that is not running inside
