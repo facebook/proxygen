@@ -49,7 +49,14 @@ sudo apt-get install -yq \
     libjemalloc-dev \
     libsnappy-dev \
     wget \
-    unzip
+    unzip \
+    libiberty-dev \
+    liblz4-dev \
+    liblzma-dev \
+    make \
+    zlib1g-dev \
+    binutils-dev \
+    libsodium-dev
 
 # Adding support for Ubuntu 12.04.x
 # Needs libdouble-conversion-dev, google-gflags and double-conversion
@@ -116,6 +123,22 @@ if test $? -ne 0; then
   echo "fatal: folly build failed"
   exit -1
 fi
+cd ../..
+
+# Get fizz
+if [ ! -e fizz/fizz ]; then
+    echo "Cloning fizz"
+    git clone https://github.com/facebookincubator/fizz
+fi
+cd fizz
+git fetch
+
+# Build fizz
+mkdir -p build_
+cd build_
+cmake ../fizz
+make -j$JOBS
+sudo make install
 cd ../..
 
 # Get wangle
