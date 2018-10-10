@@ -34,20 +34,24 @@ class QPACKScheme : public CompressionScheme {
 
   struct QPACKAck : public CompressionScheme::Ack {
     explicit QPACKAck(uint16_t n,
+                      uint16_t an,
                       std::unique_ptr<folly::IOBuf> hAck,
                       std::unique_ptr<folly::IOBuf> cAck) :
         seqn(n),
+        ackSeqn(an),
         headerAck(std::move(hAck)),
         controlAck(std::move(cAck)) {
     }
     uint16_t seqn;
+    uint16_t ackSeqn;
     std::unique_ptr<folly::IOBuf> headerAck;
     std::unique_ptr<folly::IOBuf> controlAck;
   };
 
   std::unique_ptr<Ack> getAck(uint16_t seqn) override {
     VLOG(4) << "Sending ack for seqn=" << seqn;
-    auto res = std::make_unique<QPACKAck>(seqn, server_.encodeHeaderAck(seqn),
+    auto res = std::make_unique<QPACKAck>(seqn, sendAck_++,
+                                          server_.encodeHeaderAck(seqn),
                                           server_.encodeTableStateSync());
     return std::move(res);
   }
@@ -60,9 +64,18 @@ class QPACKScheme : public CompressionScheme {
     if (qpackAck->controlAck) {
       qpackAck->headerAck->prependChain(std::move(qpackAck->controlAck));
     }
-
-    CHECK_EQ(client_.decodeDecoderStream(std::move(qpackAck->headerAck)),
-             HPACK::DecodeError::NONE);
+    // The decoder stream must be processed in order
+    acks_.emplace(qpackAck->ackSeqn, std::move(qpackAck->headerAck));
+    do {
+      auto it = acks_.begin();
+      if (it->first != recvAck_) {
+        break;
+      }
+      CHECK_EQ(client_.decodeDecoderStream(std::move(it->second)),
+               HPACK::DecodeError::NONE);
+      recvAck_++;
+      acks_.erase(it);
+    } while (!acks_.empty());
   }
 
   std::pair<FrameFlags, std::unique_ptr<folly::IOBuf>> encode(
@@ -157,7 +170,9 @@ class QPACKScheme : public CompressionScheme {
   std::map<uint16_t, std::unique_ptr<folly::IOBuf>> controlQueue_;
   uint16_t encodeControlIndex_{0};
   uint16_t decodeControlIndex_{0};
-  std::deque<uint16_t> acks_;
+  std::map<uint16_t, std::unique_ptr<folly::IOBuf>> acks_;
+  uint16_t sendAck_{1};
+  uint16_t recvAck_{1};
 };
 
 }} // namespace proxygen::compress

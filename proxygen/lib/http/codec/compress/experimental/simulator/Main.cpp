@@ -64,6 +64,7 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_seed == 0) {
     FLAGS_seed = folly::Random::rand64();
+    std::cout << "Seed: " << FLAGS_seed << std::endl;
   }
   SimParams p{t,
               FLAGS_seed,
