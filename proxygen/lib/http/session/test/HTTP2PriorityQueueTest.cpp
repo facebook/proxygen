@@ -270,6 +270,30 @@ TEST_F(QueueTest, UpdateWeightExclDequeued) {
   EXPECT_EQ(nodes_, IDList({{9, 40}, {7, 40}, {3, 20}}));
 }
 
+TEST_F(QueueTest, UpdateWeightUnknownParent) {
+  buildSimpleTree();
+
+  uint64_t depth = 0;
+  updatePriority(5, {97, false, 15}, &depth);
+  dump();
+
+  EXPECT_EQ(
+    nodes_,
+    IDList({{1, 50}, {3, 33}, {7, 66}, {97, 50}, {5, 100}, {9, 100}})
+  );
+  EXPECT_EQ(depth, 2);
+
+  depth = 0;
+  updatePriority(9, {99, false, 15}, &depth);
+  dump();
+
+  EXPECT_EQ(
+    nodes_,
+    IDList({{1, 33}, {3, 33}, {7, 66}, {97, 33}, {5, 100}, {99, 33}, {9, 100}})
+  );
+  EXPECT_EQ(depth, 2);
+}
+
 TEST_F(QueueTest, UpdateParentSibling) {
   buildSimpleTree();
 

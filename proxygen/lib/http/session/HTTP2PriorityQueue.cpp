@@ -546,9 +546,22 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
 
   Node* newParent = find(pri.streamDependency, depth);
   if (!newParent) {
-    newParent = &root_;
-    VLOG(4) << "updatePriority missing parent, assigning root for txn="
-            << node->getID();
+    if (pri.streamDependency == 0 || numVirtualNodes_ >= maxVirtualNodes_) {
+      newParent = &root_;
+    } else {
+      // allocate a virtual node for non-existing parent in my depenency tree
+      // then do normal priority processing
+      newParent = dynamic_cast<Node*>(
+          addTransaction(pri.streamDependency,
+                         http2::DefaultPriority,
+                         nullptr,
+                         false,
+                         depth));
+
+      CHECK_NOTNULL(newParent);
+      VLOG(4) << "updatePriority missing parent, creating virtual parent="
+              << newParent->getID() << " for txn=" << node->getID();
+    }
   }
 
   if (newParent->isDescendantOf(node)) {
