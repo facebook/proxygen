@@ -34,7 +34,7 @@ extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
   } else if (protocolStr == http_2 || protocolStr == http2::kProtocolString ||
              protocolStr == http2::kProtocolCleartextString) {
     return CodecProtocol::HTTP_2;
-  } else if (protocolStr == hq) {
+  } else if (protocolStr.find(hq) == 0) {
     return CodecProtocol::HQ;
   } else {
     // return default protocol
