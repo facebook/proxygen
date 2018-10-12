@@ -1364,7 +1364,8 @@ size_t HTTP2Codec::generatePriority(folly::IOBufQueue& writeBuf,
 
 bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
   if (err != ErrorCode::NO_ERROR) {
-    LOG(ERROR) << "Connection error with ingress=" << std::endl
+    LOG(ERROR) << "Connection error " << getErrorCodeString(err)
+               << " with ingress=" << std::endl
                << IOBufPrinter::printHexFolly(buf, true);
     if (callback_) {
       std::string errorDescription = goawayErrorMessage_.empty() ?
