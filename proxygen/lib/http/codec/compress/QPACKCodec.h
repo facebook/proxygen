@@ -84,7 +84,7 @@ class QPACKCodec : public HeaderCodec {
 
   void describe(std::ostream& os) const;
 
-  void setMaxUncompressed(uint32_t maxUncompressed) override {
+  void setMaxUncompressed(uint64_t maxUncompressed) override {
     HeaderCodec::setMaxUncompressed(maxUncompressed);
     decoder_.setMaxUncompressed(maxUncompressed);
   }

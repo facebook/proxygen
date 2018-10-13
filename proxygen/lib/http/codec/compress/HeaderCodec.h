@@ -69,11 +69,11 @@ class HeaderCodec {
     encodeHeadroom_ = headroom;
   }
 
-  virtual void setMaxUncompressed(uint32_t maxUncompressed) {
+  virtual void setMaxUncompressed(uint64_t maxUncompressed) {
     maxUncompressed_ = maxUncompressed;
   }
 
-  uint32_t getMaxUncompressed() const {
+  uint64_t getMaxUncompressed() const {
     return maxUncompressed_;
   }
 
@@ -88,7 +88,7 @@ class HeaderCodec {
 
   HTTPHeaderSize encodedSize_;
   uint32_t encodeHeadroom_{0};
-  uint32_t maxUncompressed_{kMaxUncompressed};
+  uint64_t maxUncompressed_{kMaxUncompressed};
   Stats* stats_{nullptr};
 };
 
