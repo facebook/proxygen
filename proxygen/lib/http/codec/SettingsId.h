@@ -16,8 +16,9 @@ namespace proxygen {
 
 // Will never be valid HTTP/2 which only has 16 bits
 #define SPDY_SETTINGS_MASK (1 << 16)
+#define HQ_SETTINGS_MASK (((uint64_t)1) << 32)
 
-enum class SettingsId: uint32_t {
+enum class SettingsId: uint64_t {
   // From HTTP/2
   HEADER_TABLE_SIZE = 1,
   ENABLE_PUSH = 2,
@@ -42,7 +43,11 @@ enum class SettingsId: uint32_t {
   _SPDY_CURRENT_CWND = SPDY_SETTINGS_MASK | 5,
   _SPDY_DOWNLOAD_RETRANS_RATE = SPDY_SETTINGS_MASK | 6,
   //  INITIAL_WINDOW_SIZE = 7,
-  _SPDY_CLIENT_CERTIFICATE_VECTOR_SIZE = SPDY_SETTINGS_MASK  | 8
+  _SPDY_CLIENT_CERTIFICATE_VECTOR_SIZE = SPDY_SETTINGS_MASK  | 8,
+
+  // From HQ
+  _HQ_NUM_PLACEHOLDERS =  HQ_SETTINGS_MASK | 3,
+  _HQ_MAX_HEADER_LIST_SIZE = HQ_SETTINGS_MASK | 6,
 };
 
 using SettingPair = std::pair<SettingsId, uint32_t>;
