@@ -31,7 +31,7 @@ extern const Padding kNoPadding;
 
 //////// Types ////////
 
-enum class FrameType: uint8_t {
+enum class FrameType : uint8_t {
   DATA = 0,
   HEADERS = 1,
   PRIORITY = 2,
@@ -42,10 +42,17 @@ enum class FrameType: uint8_t {
   GOAWAY = 7,
   WINDOW_UPDATE = 8,
   CONTINUATION = 9,
-  ALTSVC = 10,  // not in current draft so frame type has not been assigned
+  ALTSVC = 10, // not in current draft so frame type has not been assigned
 
   // experimental use
   EX_HEADERS = 0xfb,
+
+  // For secondary certificate authentication in HTTP/2 as specified in the
+  // draft-ietf-httpbis-http2-secondary-certs-02.
+  CERTIFICATE_REQUEST = 0xf0,
+  CERTIFICATE = 0xf1,
+  CERTIFICATE_NEEDED = 0xf2,
+  USE_CERTIFICATE = 0xf3,
 };
 
 enum Flags {
@@ -54,6 +61,10 @@ enum Flags {
   END_HEADERS = 0x4,
   PADDED = 0x8,
   PRIORITY = 0x20,
+
+  // for secondary certificate authentication frames
+  UNSOLICITED = 0x1,
+  TO_BE_CONTINUED = 0x1,
 };
 
 struct FrameHeader {
@@ -327,6 +338,24 @@ parseAltSvc(folly::io::Cursor& cursor,
             std::string& outHost,
             std::string& outOrigin) noexcept;
 
+/**
+ * This function parses the section of the CERTIFICATE_REQUEST frame after the
+ * common frame header.  It pulls header.length bytes from the cursor, so it is
+ * the caller's responsibility to ensure there is enough data available.
+ *
+ * @param cursor The cursor to pull data from.
+ * @param header The frame header for the frame being parsed.
+ * @param outRequestId The Request-ID identifying this certificate request.
+ * @param outAuthRequest Authenticator request in the frame, if any.
+ * @return NO_ERROR for successful parse. The connection error code to
+ *         return in a CERTIFICATE_REQUEST frame if failure.
+ */
+ErrorCode parseCertificateRequest(
+    folly::io::Cursor& cursor,
+    const FrameHeader& header,
+    uint16_t& outRequestId,
+    std::unique_ptr<folly::IOBuf>& outAuthRequest) noexcept;
+
 //// Egress ////
 
 /**
@@ -561,6 +590,22 @@ writeAltSvc(folly::IOBufQueue& writeBuf,
             folly::StringPiece protocol,
             folly::StringPiece host,
             folly::StringPiece origin) noexcept;
+
+/**
+ * Generate an entire CERTIFICATE_REQUEST frame, including the common frame
+ * header.
+ *
+ * @param writeBuf The output queue to write to. It may grow or add
+ *                 underlying buffers inside this function.
+ * @param requestId The opaque Request-ID of this used to correlate subsequent
+ *                  certificate-related frames with this request.
+ * @param authRequest The encoded authenticator request.
+ * @return The number of bytes written to writeBuf.
+ */
+size_t
+writeCertificateRequest(folly::IOBufQueue& writeBuf,
+                        uint16_t requestId,
+                        std::unique_ptr<folly::IOBuf> authRequest);
 
 /**
  * Get the string representation of the given FrameType

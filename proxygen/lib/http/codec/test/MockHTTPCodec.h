@@ -95,9 +95,21 @@ class MockHTTPCodec: public HTTPCodec {
                                          uint64_t));
   MOCK_METHOD1(generateSettings, size_t(folly::IOBufQueue&));
   MOCK_METHOD1(generateSettingsAck, size_t(folly::IOBufQueue&));
-  MOCK_METHOD3(generateWindowUpdate, size_t(folly::IOBufQueue&,
-                                            StreamID,
-                                            uint32_t));
+  MOCK_METHOD3(generateWindowUpdate,
+               size_t(folly::IOBufQueue&, StreamID, uint32_t));
+  MOCK_METHOD3(generateCertificateRequest,
+               size_t(folly::IOBufQueue&,
+                      uint16_t,
+                      std::shared_ptr<folly::IOBuf>));
+  size_t generateCertificateRequest(
+      folly::IOBufQueue& writeBuf,
+      uint16_t requestId,
+      std::unique_ptr<folly::IOBuf> authRequest) override {
+    return generateCertificateRequest(
+        writeBuf,
+        requestId,
+        std::shared_ptr<folly::IOBuf>(authRequest.release()));
+  }
   MOCK_METHOD0(getEgressSettings, HTTPSettings*());
   MOCK_CONST_METHOD0(getIngressSettings, const HTTPSettings*());
   MOCK_METHOD0(enableDoubleGoawayDrain, void());

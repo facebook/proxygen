@@ -99,7 +99,10 @@ public:
   size_t generatePriority(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage::HTTPPriority& pri) override;
-
+  size_t generateCertificateRequest(
+      folly::IOBufQueue& writeBuf,
+      uint16_t requestId,
+      std::unique_ptr<folly::IOBuf> certificateRequestData) override;
   const HTTPSettings* getIngressSettings() const override {
     return &ingressSettings_;
   }

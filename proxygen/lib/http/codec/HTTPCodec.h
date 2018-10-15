@@ -577,6 +577,18 @@ class HTTPCodec {
       const HTTPMessage::HTTPPriority& /* pri */) {
     return 0;
   }
+
+  /*
+   * Generate a CERTIFICATE_REQUEST message, if supported in the protocol
+   * implemented by the codec.
+   */
+  virtual size_t generateCertificateRequest(
+      folly::IOBufQueue& /* writeBuf */,
+      uint16_t /* requestId */,
+      std::unique_ptr<folly::IOBuf> /* chain */) {
+    return 0;
+  }
+
   /*
    * The below interfaces need only be implemented if the codec supports
    * settings

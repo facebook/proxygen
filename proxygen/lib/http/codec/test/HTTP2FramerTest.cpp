@@ -335,6 +335,78 @@ TEST_F(HTTP2FramerTest, WindowUpdate) {
   EXPECT_EQ(120, amount);
 }
 
+TEST_F(HTTP2FramerTest, CertificateRequest) {
+  string data("abcdef");
+  auto authRequest = makeBuf(6);
+  memcpy(authRequest->writableData(), data.data(), data.length());
+  uint16_t requestId = 120;
+  writeCertificateRequest(queue_, requestId, std::move(authRequest));
+
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parse(&parseCertificateRequest, header, outRequestId, outAuthRequest);
+
+  ASSERT_EQ(FrameType::CERTIFICATE_REQUEST, header.type);
+  ASSERT_EQ(0, header.stream);
+  ASSERT_EQ(0, header.flags);
+  ASSERT_EQ(kFrameCertificateRequestSizeBase + data.length(), header.length);
+  ASSERT_EQ(outRequestId, requestId);
+  ASSERT_EQ(outAuthRequest->computeChainDataLength(), data.length());
+  EXPECT_EQ(outAuthRequest->moveToFbString(), data);
+}
+
+TEST_F(HTTP2FramerTest, EmptyCertificateRequest) {
+  uint16_t requestId = 120;
+  writeCertificateRequest(queue_, requestId, nullptr);
+
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parse(&parseCertificateRequest, header, outRequestId, outAuthRequest);
+
+  ASSERT_EQ(FrameType::CERTIFICATE_REQUEST, header.type);
+  ASSERT_EQ(0, header.stream);
+  ASSERT_EQ(0, header.flags);
+  ASSERT_EQ(kFrameCertificateRequestSizeBase, header.length);
+  ASSERT_EQ(outRequestId, requestId);
+  ASSERT_FALSE(outAuthRequest);
+}
+
+TEST_F(HTTP2FramerTest, ShortCertificateRequest) {
+  // length field is too short for frame type
+  writeFrameHeaderManual(
+      queue_, 1, static_cast<uint8_t>(FrameType::CERTIFICATE_REQUEST), 0, 0);
+  QueueAppender appender(&queue_, 1);
+  appender.writeBE<uint8_t>(1);
+
+  Cursor cursor(queue_.front());
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parseFrameHeader(cursor, header);
+  auto ret =
+      parseCertificateRequest(cursor, header, outRequestId, outAuthRequest);
+  ASSERT_EQ(ErrorCode::FRAME_SIZE_ERROR, ret);
+}
+
+TEST_F(HTTP2FramerTest, CertificateRequestOnNonzeroStream) {
+  // received CERTIFICATE_REQUEST frame on nonzero stream
+  writeFrameHeaderManual(
+      queue_, 2, static_cast<uint8_t>(FrameType::CERTIFICATE_REQUEST), 0, 1);
+  QueueAppender appender(&queue_, 1);
+  appender.writeBE<uint16_t>(1);
+
+  Cursor cursor(queue_.front());
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parseFrameHeader(cursor, header);
+  auto ret =
+      parseCertificateRequest(cursor, header, outRequestId, outAuthRequest);
+  ASSERT_EQ(ErrorCode::PROTOCOL_ERROR, ret);
+}
+
 // TODO: auto generate this test for all frame types (except DATA)
 TEST_F(HTTP2FramerTest, ShortWindowUpdate) {
   // length field is too short for frame type

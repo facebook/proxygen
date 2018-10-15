@@ -228,7 +228,16 @@ bool isValidFrameType(FrameType type) {
   if (val < kMinExperimentalFrameType) {
     return val <= static_cast<uint8_t>(FrameType::ALTSVC);
   } else {
-    return FrameType::EX_HEADERS == type;
+    switch (type) {
+      case FrameType::EX_HEADERS:
+        // Include the frame types added into FrameType enum for secondary
+        // authentication.
+      case FrameType::CERTIFICATE_REQUEST:
+      case FrameType::CERTIFICATE:
+        return true;
+      default:
+        return false;
+    }
   }
 }
 
@@ -238,68 +247,64 @@ bool frameAffectsCompression(FrameType t) {
     t == FrameType::CONTINUATION;
 }
 
-bool frameHasPadding(const FrameHeader& header) {
-  return header.flags & PADDED;
-}
-
-//// Parsing ////
-
-ErrorCode
-parseFrameHeader(Cursor& cursor,
-                 FrameHeader& header) noexcept {
-  FOLLY_SCOPED_TRACE_SECTION("HTTP2Framer - parseFrameHeader");
-  DCHECK_LE(kFrameHeaderSize, cursor.totalLength());
-
-  // MUST ignore the 2 bits before the length
-  uint32_t lengthAndType = cursor.readBE<uint32_t>();
-  header.length = kLengthMask & (lengthAndType >> 8);
-  uint8_t type = lengthAndType & 0xff;
-  header.type = FrameType(type);
-  header.flags = cursor.readBE<uint8_t>();
-  header.stream = parseUint31(cursor);
-  return ErrorCode::NO_ERROR;
-}
-
-ErrorCode
-parseData(Cursor& cursor,
-          const FrameHeader& header,
-          std::unique_ptr<IOBuf>& outBuf,
-          uint16_t& outPadding) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
-  if (header.stream == 0) {
-    return ErrorCode::PROTOCOL_ERROR;
+  bool frameHasPadding(const FrameHeader& header) {
+    return header.flags & PADDED;
   }
 
-  uint8_t padding;
-  uint32_t lefttoparse;
-  const auto err = parsePadding(cursor, header, padding, lefttoparse);
-  RETURN_IF_ERROR(err);
-  // outPadding is the total number of flow-controlled pad bytes, which
-  // includes the length byte, if present.
-  outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
-  cursor.clone(outBuf, lefttoparse);
-  return skipPadding(cursor, padding, kStrictPadding);
-}
+  //// Parsing ////
 
-ErrorCode parseDataBegin(Cursor& cursor,
-                         const FrameHeader& header,
-                         size_t& /*parsed*/,
-                         uint16_t& outPadding) noexcept {
-  uint8_t padding;
-  uint32_t lefttoparse;
-  const auto err = http2::parsePadding(cursor, header, padding, lefttoparse);
-  RETURN_IF_ERROR(err);
-  // outPadding is the total number of flow-controlled pad bytes, which
-  // includes the length byte, if present.
-  outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
-  return ErrorCode::NO_ERROR;
-}
+  ErrorCode parseFrameHeader(Cursor & cursor, FrameHeader & header) noexcept {
+    FOLLY_SCOPED_TRACE_SECTION("HTTP2Framer - parseFrameHeader");
+    DCHECK_LE(kFrameHeaderSize, cursor.totalLength());
 
-ErrorCode
-parseDataEnd(Cursor& cursor,
-             const size_t bufLen,
-             const size_t pendingDataFramePaddingBytes,
-             size_t& toSkip) noexcept {
+    // MUST ignore the 2 bits before the length
+    uint32_t lengthAndType = cursor.readBE<uint32_t>();
+    header.length = kLengthMask & (lengthAndType >> 8);
+    uint8_t type = lengthAndType & 0xff;
+    header.type = FrameType(type);
+    header.flags = cursor.readBE<uint8_t>();
+    header.stream = parseUint31(cursor);
+    return ErrorCode::NO_ERROR;
+  }
+
+  ErrorCode parseData(Cursor & cursor,
+                      const FrameHeader& header,
+                      std::unique_ptr<IOBuf>& outBuf,
+                      uint16_t& outPadding) noexcept {
+    DCHECK_LE(header.length, cursor.totalLength());
+    if (header.stream == 0) {
+      return ErrorCode::PROTOCOL_ERROR;
+    }
+
+    uint8_t padding;
+    uint32_t lefttoparse;
+    const auto err = parsePadding(cursor, header, padding, lefttoparse);
+    RETURN_IF_ERROR(err);
+    // outPadding is the total number of flow-controlled pad bytes, which
+    // includes the length byte, if present.
+    outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
+    cursor.clone(outBuf, lefttoparse);
+    return skipPadding(cursor, padding, kStrictPadding);
+  }
+
+  ErrorCode parseDataBegin(Cursor & cursor,
+                           const FrameHeader& header,
+                           size_t& /*parsed*/,
+                           uint16_t& outPadding) noexcept {
+    uint8_t padding;
+    uint32_t lefttoparse;
+    const auto err = http2::parsePadding(cursor, header, padding, lefttoparse);
+    RETURN_IF_ERROR(err);
+    // outPadding is the total number of flow-controlled pad bytes, which
+    // includes the length byte, if present.
+    outPadding = padding + ((frameHasPadding(header)) ? 1 : 0);
+    return ErrorCode::NO_ERROR;
+  }
+
+  ErrorCode parseDataEnd(Cursor & cursor,
+                         const size_t bufLen,
+                         const size_t pendingDataFramePaddingBytes,
+                         size_t& toSkip) noexcept {
     toSkip = std::min(pendingDataFramePaddingBytes, bufLen);
     return skipPadding(cursor, toSkip, kStrictPadding);
 }
@@ -553,6 +558,27 @@ parseAltSvc(Cursor& cursor,
                           protoLen - hostLen);
   outOrigin = cursor.readFixedString(originLen);
 
+  return ErrorCode::NO_ERROR;
+}
+
+ErrorCode parseCertificateRequest(
+    folly::io::Cursor& cursor,
+    const FrameHeader& header,
+    uint16_t& outRequestId,
+    std::unique_ptr<folly::IOBuf>& outAuthRequest) noexcept {
+  DCHECK_LE(header.length, cursor.totalLength());
+  if (header.length < kFrameCertificateRequestSizeBase) {
+    return ErrorCode::FRAME_SIZE_ERROR;
+  }
+  if (header.stream != 0) {
+    return ErrorCode::PROTOCOL_ERROR;
+  }
+  outRequestId = cursor.readBE<uint16_t>();
+  auto length = header.length;
+  length -= kFrameCertificateRequestSizeBase;
+  if (length > 0) {
+    cursor.clone(outAuthRequest, length);
+  }
   return ErrorCode::NO_ERROR;
 }
 
@@ -860,6 +886,27 @@ writeAltSvc(IOBufQueue& queue,
   return kFrameHeaderSize + frameLen;
 }
 
+size_t writeCertificateRequest(folly::IOBufQueue& writeBuf,
+                               uint16_t requestId,
+                               std::unique_ptr<folly::IOBuf> authRequest) {
+  const auto dataLen = authRequest ? kFrameCertificateRequestSizeBase +
+                                         authRequest->computeChainDataLength()
+                                   : kFrameCertificateRequestSizeBase;
+  // The CERTIFICATE_REQUEST frame must be sent on stream 0.
+  const auto frameLen = writeFrameHeader(writeBuf,
+                                         dataLen,
+                                         FrameType::CERTIFICATE_REQUEST,
+                                         0,
+                                         0,
+                                         kNoPadding,
+                                         folly::none,
+                                         nullptr);
+  QueueAppender appender(&writeBuf, frameLen);
+  appender.writeBE<uint16_t>(requestId);
+  writeBuf.append(std::move(authRequest));
+  return kFrameHeaderSize + frameLen;
+}
+
 const char* getFrameTypeString(FrameType type) {
   switch (type) {
     case FrameType::DATA: return "DATA";
@@ -873,6 +920,7 @@ const char* getFrameTypeString(FrameType type) {
     case FrameType::WINDOW_UPDATE: return "WINDOW_UPDATE";
     case FrameType::CONTINUATION: return "CONTINUATION";
     case FrameType::ALTSVC: return "ALTSVC";
+    case FrameType::CERTIFICATE_REQUEST: return "CERTIFICATE_REQUEST";
     default:
       // can happen when type was cast from uint8_t
       return "Unknown";
@@ -880,5 +928,5 @@ const char* getFrameTypeString(FrameType type) {
   LOG(FATAL) << "Unreachable";
   return "";
 }
-
-}}
+}
+} // namespace http2

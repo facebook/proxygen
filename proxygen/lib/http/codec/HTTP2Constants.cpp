@@ -37,6 +37,7 @@ const uint32_t kFramePushPromiseSize = 4;
 const uint32_t kFramePingSize = 8;
 const uint32_t kFrameGoawaySize = 8;
 const uint32_t kFrameWindowUpdateSize = 4;
+const uint32_t kFrameCertificateRequestSizeBase = 2;
 
 const uint32_t kFrameAltSvcSizeBase = 8;
 

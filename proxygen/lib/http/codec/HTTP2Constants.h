@@ -27,6 +27,7 @@ extern const uint32_t kFramePushPromiseSize;
 extern const uint32_t kFramePingSize;
 extern const uint32_t kFrameGoawaySize;
 extern const uint32_t kFrameWindowUpdateSize;
+extern const uint32_t kFrameCertificateRequestSizeBase;
 
 // These constants indicate the size of the required fields in the frame
 extern const uint32_t kFrameAltSvcSizeBase;
