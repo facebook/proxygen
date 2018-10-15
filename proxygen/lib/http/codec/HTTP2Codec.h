@@ -177,6 +177,8 @@ public:
                           bool eom,
                           HTTPHeaderSize* size);
 
+  size_t generateHeaderCallbackWrapper(StreamID stream, http2::FrameType type, size_t length);
+
   ErrorCode parseFrame(folly::io::Cursor& cursor);
   ErrorCode parseAllData(folly::io::Cursor& cursor);
   ErrorCode parseDataFrameData(

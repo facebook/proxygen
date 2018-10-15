@@ -267,6 +267,16 @@ class HTTPCodec {
     }
 
     /**
+     * Called after a header frame is generated.
+     * This only applies to framed codecs.
+     */
+    virtual void onGenerateFrameHeader(
+        StreamID /* stream_id */,
+        uint8_t /* type */,
+        uint64_t /* length */,
+        uint16_t /* version */ = 0) {}
+
+    /**
      * Return the number of open streams started by this codec callback.
      * Parallel codecs with a maximum number of streams will invoke this
      * to determine if a new stream exceeds the limit.

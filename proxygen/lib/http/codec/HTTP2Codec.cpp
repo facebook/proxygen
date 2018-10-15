@@ -1078,41 +1078,56 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
     if (assocStream) {
       DCHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
       DCHECK(!eom);
-      http2::writePushPromise(writeBuf,
-                              *assocStream,
-                              stream,
-                              std::move(chunk),
-                              http2::kNoPadding,
-                              endHeaders);
+      generateHeaderCallbackWrapper(stream, http2::FrameType::PUSH_PROMISE,
+                                    http2::writePushPromise(writeBuf,
+                                                            *assocStream,
+                                                            stream,
+                                                            std::move(chunk),
+                                                            http2::kNoPadding,
+                                                            endHeaders));
     } else if (controlStream) {
-      http2::writeExHeaders(writeBuf,
-                            std::move(chunk),
-                            stream,
-                            *controlStream,
-                            pri,
-                            http2::kNoPadding,
-                            eom,
-                            endHeaders);
+      generateHeaderCallbackWrapper(stream, http2::FrameType::EX_HEADERS,
+                                    http2::writeExHeaders(writeBuf,
+                                                          std::move(chunk),
+                                                          stream,
+                                                          *controlStream,
+                                                          pri,
+                                                          http2::kNoPadding,
+                                                          eom,
+                                                          endHeaders));
     } else {
-      http2::writeHeaders(writeBuf,
-                          std::move(chunk),
-                          stream,
-                          pri,
-                          http2::kNoPadding,
-                          eom,
-                          endHeaders);
+      generateHeaderCallbackWrapper(stream, http2::FrameType::HEADERS,
+                                    http2::writeHeaders(writeBuf,
+                                                        std::move(chunk),
+                                                        stream,
+                                                        pri,
+                                                        http2::kNoPadding,
+                                                        eom,
+                                                        endHeaders));
     }
 
     while (!endHeaders) {
       chunk = queue.split(std::min(maxFrameSize, queue.chainLength()));
       endHeaders = queue.chainLength() == 0;
       VLOG(4) << "generating CONTINUATION for stream=" << stream;
-      http2::writeContinuation(writeBuf,
-                               stream,
-                               endHeaders,
-                               std::move(chunk));
+      generateHeaderCallbackWrapper(stream, http2::FrameType::CONTINUATION,
+                                    http2::writeContinuation(writeBuf,
+                                                             stream,
+                                                             endHeaders,
+                                                             std::move(chunk)));
     }
   }
+}
+
+size_t HTTP2Codec::generateHeaderCallbackWrapper(StreamID stream,
+                                                 http2::FrameType type,
+                                                 size_t length) {
+  if (callback_) {
+    callback_->onGenerateFrameHeader(stream,
+                                     static_cast<uint8_t>(type),
+                                     length);
+  }
+  return length;
 }
 
 size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
@@ -1132,12 +1147,26 @@ size_t HTTP2Codec::generateBody(folly::IOBufQueue& writeBuf,
   size_t maxFrameSize = maxSendFrameSize();
   while (queue.chainLength() > maxFrameSize) {
     auto chunk = queue.split(maxFrameSize);
-    written += http2::writeData(writeBuf, std::move(chunk), stream,
-                                padding, false, reuseIOBufHeadroomForData_);
+    written += generateHeaderCallbackWrapper(
+                  stream,
+                  http2::FrameType::DATA,
+                  http2::writeData(writeBuf,
+                                   std::move(chunk),
+                                   stream,
+                                   padding,
+                                   false,
+                                   reuseIOBufHeadroomForData_));
   }
 
-  return written + http2::writeData(writeBuf, queue.move(), stream,
-                                    padding, eom, reuseIOBufHeadroomForData_);
+  return written + generateHeaderCallbackWrapper(
+                      stream,
+                      http2::FrameType::DATA,
+                      http2::writeData(writeBuf,
+                                       queue.move(),
+                                       stream,
+                                       padding,
+                                       eom,
+                                       reuseIOBufHeadroomForData_));
 }
 
 size_t HTTP2Codec::generateChunkHeader(folly::IOBufQueue& /*writeBuf*/,
@@ -1168,8 +1197,15 @@ size_t HTTP2Codec::generateEOM(folly::IOBufQueue& writeBuf,
             << ingressGoawayAck_;
     return 0;
   }
-  return http2::writeData(writeBuf, nullptr, stream, http2::kNoPadding, true,
-                          reuseIOBufHeadroomForData_);
+  return generateHeaderCallbackWrapper(
+            stream,
+            http2::FrameType::DATA,
+            http2::writeData(writeBuf,
+                             nullptr,
+                             stream,
+                             http2::kNoPadding,
+                             true,
+                             reuseIOBufHeadroomForData_));
 }
 
 size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
@@ -1195,7 +1231,8 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
             << " for stream=" << stream << " user-agent=" << userAgent_;
   }
   auto code = http2::errorCodeToReset(statusCode);
-  return http2::writeRstStream(writeBuf, stream, code);
+  return generateHeaderCallbackWrapper(stream, http2::FrameType::RST_STREAM,
+                                       http2::writeRstStream(writeBuf, stream, code));
 }
 
 size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
@@ -1237,7 +1274,13 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
   }
 
   auto code = http2::errorCodeToGoaway(statusCode);
-  return http2::writeGoaway(writeBuf, lastStream, code, std::move(debugData));
+  return generateHeaderCallbackWrapper(
+            0,
+            http2::FrameType::GOAWAY,
+            http2::writeGoaway(writeBuf,
+                              lastStream,
+                              code,
+                              std::move(debugData)));
 }
 
 size_t HTTP2Codec::generatePingRequest(folly::IOBufQueue& writeBuf) {
@@ -1245,13 +1288,15 @@ size_t HTTP2Codec::generatePingRequest(folly::IOBufQueue& writeBuf) {
   // we know HTTPSession sets up events to track ping latency
   uint64_t opaqueData = folly::Random::rand64();
   VLOG(4) << "Generating ping request with opaqueData=" << opaqueData;
-  return http2::writePing(writeBuf, opaqueData, false /* no ack */);
+  return generateHeaderCallbackWrapper(0, http2::FrameType::PING,
+                                       http2::writePing(writeBuf, opaqueData, false /* no ack */));
 }
 
 size_t HTTP2Codec::generatePingReply(folly::IOBufQueue& writeBuf,
                                      uint64_t uniqueID) {
   VLOG(4) << "Generating ping reply with opaqueData=" << uniqueID;
-  return http2::writePing(writeBuf, uniqueID, true /* ack */);
+  return generateHeaderCallbackWrapper(0, http2::FrameType::PING,
+                                       http2::writePing(writeBuf, uniqueID, true /* ack */));
 }
 
 size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
@@ -1304,7 +1349,8 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
   }
   VLOG(4) << getTransportDirectionString(getTransportDirection())
           << " generating " << (unsigned)settings.size() << " settings";
-  return http2::writeSettings(writeBuf, settings);
+  return generateHeaderCallbackWrapper(0, http2::FrameType::SETTINGS,
+                                       http2::writeSettings(writeBuf, settings));
 }
 
 void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
@@ -1332,7 +1378,8 @@ void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
 size_t HTTP2Codec::generateSettingsAck(folly::IOBufQueue& writeBuf) {
   VLOG(4) << getTransportDirectionString(getTransportDirection())
           << " generating settings ack";
-  return http2::writeSettingsAck(writeBuf);
+  return generateHeaderCallbackWrapper(0, http2::FrameType::SETTINGS,
+                                       http2::writeSettingsAck(writeBuf));
 }
 
 size_t HTTP2Codec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
@@ -1345,7 +1392,8 @@ size_t HTTP2Codec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
             << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
-  return http2::writeWindowUpdate(writeBuf, stream, delta);
+  return generateHeaderCallbackWrapper(stream, http2::FrameType::WINDOW_UPDATE,
+                                       http2::writeWindowUpdate(writeBuf, stream, delta));
 }
 
 size_t HTTP2Codec::generatePriority(folly::IOBufQueue& writeBuf,
@@ -1357,9 +1405,13 @@ size_t HTTP2Codec::generatePriority(folly::IOBufQueue& writeBuf,
             << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
-  return http2::writePriority(writeBuf, stream,
-                              {std::get<0>(pri), std::get<1>(pri),
-                                  std::get<2>(pri)});
+  return generateHeaderCallbackWrapper(
+            stream,
+            http2::FrameType::PRIORITY,
+            http2::writePriority(writeBuf, stream,
+                                 {std::get<0>(pri),
+                                   std::get<1>(pri),
+                                   std::get<2>(pri)}));
 }
 
 size_t HTTP2Codec::generateCertificateRequest(

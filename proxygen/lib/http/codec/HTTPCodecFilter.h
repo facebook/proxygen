@@ -94,6 +94,11 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                                const std::string& protocolString,
                                HTTPMessage& msg) override;
 
+  void onGenerateFrameHeader(StreamID streamID,
+                             uint8_t type,
+                             uint64_t length,
+                             uint16_t version) override;
+
   uint32_t numOutgoingStreams() const override;
 
   uint32_t numIncomingStreams() const override;

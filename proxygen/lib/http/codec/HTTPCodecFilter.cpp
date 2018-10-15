@@ -123,6 +123,13 @@ bool PassThroughHTTPCodecFilter::onNativeProtocolUpgrade(
                                             msg);
 }
 
+void PassThroughHTTPCodecFilter::onGenerateFrameHeader(StreamID streamID,
+                                                       uint8_t type,
+                                                       uint64_t length,
+                                                       uint16_t version) {
+   callback_->onGenerateFrameHeader(streamID, length, type, version);
+}
+
 uint32_t PassThroughHTTPCodecFilter::numOutgoingStreams() const {
   return callback_->numOutgoingStreams();
 }

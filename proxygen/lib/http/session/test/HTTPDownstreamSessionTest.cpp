@@ -298,10 +298,9 @@ class HTTPDownstreamTest : public testing::Test {
   void expectResponses(uint32_t n, uint32_t code = 200,
                        ErrorCode errorCode = ErrorCode::NO_ERROR,
                        bool expect100 = false, bool expectGoaway = false) {
-    NiceMock<MockHTTPCodecCallback> callbacks;
-    clientCodec_->setCallback(&callbacks);
+    clientCodec_->setCallback(&callbacks_);
     if (isParallelCodecProtocol(clientCodec_->getProtocol())) {
-      EXPECT_CALL(callbacks, onSettings(_))
+      EXPECT_CALL(callbacks_, onSettings(_))
         .WillOnce(Invoke([this] (const SettingsList& settings) {
               if (flowControl_[0] > 0) {
                 bool foundInitialWindow = false;
@@ -319,7 +318,7 @@ class HTTPDownstreamTest : public testing::Test {
       int64_t sessionDelta =
         flowControl_[2] - clientCodec_->getDefaultWindowSize();
       if (clientCodec_->supportsSessionFlowControl() && sessionDelta) {
-        EXPECT_CALL(callbacks, onWindowUpdate(0, sessionDelta));
+        EXPECT_CALL(callbacks_, onWindowUpdate(0, sessionDelta));
       }
     }
     if (flowControl_[1] > 0) {
@@ -327,26 +326,26 @@ class HTTPDownstreamTest : public testing::Test {
         flowControl_[0] : clientCodec_->getDefaultWindowSize();
       int64_t streamDelta = flowControl_[1] - initWindow;
       if (clientCodec_->supportsStreamFlowControl() && streamDelta) {
-        EXPECT_CALL(callbacks, onWindowUpdate(1, streamDelta));
+        EXPECT_CALL(callbacks_, onWindowUpdate(1, streamDelta));
       }
     }
 
     if (expectGoaway) {
-      EXPECT_CALL(callbacks, onGoaway(HTTPCodec::StreamID(1),
+      EXPECT_CALL(callbacks_, onGoaway(HTTPCodec::StreamID(1),
                                       ErrorCode::NO_ERROR, _));
     }
 
     for (uint32_t i = 0; i < n; i++) {
       uint8_t times = (expect100) ? 2 : 1;
-      EXPECT_CALL(callbacks, onMessageBegin(_, _))
+      EXPECT_CALL(callbacks_, onMessageBegin(_, _))
         .Times(times).RetiresOnSaturation();
-      EXPECT_CALL(callbacks, onHeadersComplete(_, _))
+      EXPECT_CALL(callbacks_, onHeadersComplete(_, _))
         .WillOnce(Invoke([code] (HTTPCodec::StreamID,
                                  std::shared_ptr<HTTPMessage> msg) {
                            EXPECT_EQ(msg->getStatusCode(), code);
                          }));
       if (expect100) {
-        EXPECT_CALL(callbacks, onHeadersComplete(_, _))
+        EXPECT_CALL(callbacks_, onHeadersComplete(_, _))
           .WillOnce(Invoke([] (HTTPCodec::StreamID,
                                std::shared_ptr<HTTPMessage> msg) {
                              EXPECT_EQ(msg->getStatusCode(), 100);
@@ -354,14 +353,14 @@ class HTTPDownstreamTest : public testing::Test {
           .RetiresOnSaturation();
       }
       if (errorCode != ErrorCode::NO_ERROR) {
-        EXPECT_CALL(callbacks, onAbort(_, _))
+        EXPECT_CALL(callbacks_, onAbort(_, _))
           .WillOnce(Invoke([errorCode] (HTTPCodec::StreamID,
                                         ErrorCode error) {
                              EXPECT_EQ(error, errorCode);
                          }));
       }
-      EXPECT_CALL(callbacks, onBody(_, _, _)).RetiresOnSaturation();
-      EXPECT_CALL(callbacks, onMessageComplete(_, _)).RetiresOnSaturation();
+      EXPECT_CALL(callbacks_, onBody(_, _, _)).RetiresOnSaturation();
+      EXPECT_CALL(callbacks_, onMessageComplete(_, _)).RetiresOnSaturation();
     }
     parseOutput(*clientCodec_);
   }
