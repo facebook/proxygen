@@ -119,7 +119,15 @@ TEST_F(HPACKHeaderNameTest, TestAssignmentOperators) {
   EXPECT_EQ(name1.get(), testHeaderName);
 
   // Explicitly test some self assignment overloads
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
+#endif
   name1 = name1;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
   EXPECT_EQ(name1.get(), testHeaderName);
   HPACKHeaderName* pName1 = &name1;
   // Specifically require a temporary above to throw off the compiler/lint:
