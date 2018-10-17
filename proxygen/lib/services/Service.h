@@ -86,6 +86,15 @@ class Service {
   virtual void stopAccepting() = 0;
 
   /**
+   * Pause listening for new connections; invoked from proxygen's main thread.
+   *
+   * This should cause the service to pause listening for new connections.
+   * The already accepted connections must not be affected.
+   * It may or may not be followed by stopAccepting or resume listening.
+   */
+  virtual void pauseListening() {}
+
+  /**
    * Forcibly stop "pct" (0.0 to 1.0) of the remaining client connections.
    *
    * If the service does not stop on its own after stopAccepting() is called,
