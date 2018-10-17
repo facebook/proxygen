@@ -82,6 +82,10 @@ class QPACKCodec : public HeaderCodec {
     return decoder_.encodeHeaderAck(streamId);
   }
 
+  std::unique_ptr<folly::IOBuf> encodeCancelStream(uint64_t streamId) {
+    return decoder_.encodeCancelStream(streamId);
+  }
+
   void describe(std::ostream& os) const;
 
   void setMaxUncompressed(uint64_t maxUncompressed) override {

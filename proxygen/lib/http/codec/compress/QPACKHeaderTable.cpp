@@ -134,6 +134,9 @@ const HPACKHeader& QPACKHeaderTable::getHeader(uint32_t index,
 
 uint32_t QPACKHeaderTable::removeLast() {
   auto idx = tail();
+  if (refCount_) {
+    CHECK_EQ((*refCount_)[idx], 0) << "Removed header with nonzero references";
+  }
   auto removedBytes = HeaderTable::removeLast();
   // Only non-zero when minUsable_ > baseIndex_ - size_.
   if (drainedBytes_ > 0) {

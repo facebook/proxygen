@@ -297,6 +297,10 @@ TEST(QPACKContextTests, TestImplicitAcks) {
   result = encoder.encode(req, 0, 4);
   EXPECT_FALSE(stringInOutput(result.stream.get(), "Blah"));
   verifyDecode(decoder, std::move(result), req);
+
+  // cancel
+  EXPECT_EQ(encoder.onHeaderAck(2, true), HPACK::DecodeError::NONE);
+  EXPECT_EQ(encoder.onHeaderAck(4, true), HPACK::DecodeError::NONE);
 }
 
 TEST(QPACKContextTests, TestDecodeQueue) {

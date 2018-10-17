@@ -330,11 +330,18 @@ HPACK::DecodeError QPACKEncoder::onTableStateSync(uint32_t inserts) {
 HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
   auto it = outstanding_.find(streamId);
   if (it == outstanding_.end()) {
-    LOG(ERROR) << "Received an ack with no outstanding header blocks stream="
-               << streamId;
-    return HPACK::DecodeError::INVALID_ACK;
+    if (!all) {
+      LOG(ERROR) << "Received an ack with no outstanding header blocks stream="
+                 << streamId;
+      return HPACK::DecodeError::INVALID_ACK;
+    } else {
+      // all implies a reset, meaning it's not an error if there are no
+      // outstanding blocks
+      return HPACK::DecodeError::NONE;
+    }
   }
-  VLOG(5) << "onHeaderAck streamId=" << streamId;
+  VLOG(5) << ((all) ? "onCancelStream" : "onHeaderAck") << " streamId="
+          << streamId;
   if (all) {
     // Happens when a stream is reset
     for (auto& block: it->second) {
