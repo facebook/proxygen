@@ -809,6 +809,10 @@ void HTTP1xCodec::setAllowedUpgradeProtocols(std::list<std::string> protocols) {
   }
 }
 
+const std::string& HTTP1xCodec::getAllowedUpgradeProtocols() {
+  return allowedNativeUpgrades_;
+}
+
 int
 HTTP1xCodec::onMessageBegin() {
   headersComplete_ = false;

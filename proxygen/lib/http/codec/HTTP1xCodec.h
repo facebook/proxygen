@@ -79,6 +79,7 @@ class HTTP1xCodec : public HTTPCodec {
     std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
   void setAllowedUpgradeProtocols(std::list<std::string> protocols);
+  const std::string& getAllowedUpgradeProtocols();
 
   /**
    * @returns true if the codec supports the given NPN protocol.

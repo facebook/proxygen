@@ -9,6 +9,7 @@ SessionTests_SOURCES = \
 	HTTPUpstreamSessionTest.cpp \
 	HTTP2PriorityQueueTest.cpp \
 	MockCodecDownstreamTest.cpp \
+	HTTPDefaultSessionCodecFactoryTest.cpp \
 	TestUtils.cpp
 
 SessionTests_LDADD = \
