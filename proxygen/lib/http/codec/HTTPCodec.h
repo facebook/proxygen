@@ -516,7 +516,7 @@ class HTTPCodec {
                              StreamID stream) = 0;
 
   /**
-   * Generate any protocol framing needed to abort a connection.
+   * Generate any protocol framing needed to abort a stream.
    * @return number of bytes written
    */
   virtual size_t generateRstStream(folly::IOBufQueue& writeBuf,
@@ -524,7 +524,7 @@ class HTTPCodec {
                                    ErrorCode code) = 0;
 
   /**
-   * Generate any protocol framing needed to abort a stream.
+   * Generate any protocol framing needed to abort a connection.
    * @return number of bytes written
    */
   virtual size_t generateGoaway(
