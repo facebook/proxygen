@@ -22,6 +22,7 @@
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/http/session/SecondaryAuthManager.h>
 #include <queue>
 #include <set>
 #include <folly/io/async/AsyncSocket.h>
@@ -174,6 +175,14 @@ class HTTPSession:
   size_t sendPriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri)
     override;
 
+  /**
+   * Send a CERTIFICATE_REQUEST frame. If the underlying protocol doesn't
+   * support secondary authentication, this is a no-op and 0 is returned.
+   */
+  size_t sendCertificateRequest(
+      std::unique_ptr<folly::IOBuf> certificateRequestContext,
+      std::vector<fizz::Extension> extensions) override;
+
   // public ManagedConnection methods
   void timeoutExpired() noexcept override {
       readTimeoutExpired();
@@ -207,6 +216,18 @@ class HTTPSession:
     }
     return false;
   }
+
+  /**
+   * Attach a SecondaryAuthManager to this session to control secondary
+   * certificate authentication in HTTP/2.
+   */
+  void setSecondAuthManager(
+      std::unique_ptr<SecondaryAuthManager> secondAuthManager);
+
+  /**
+   * Get the SecondaryAuthManager attached to this session.
+   */
+  SecondaryAuthManager* getSecondAuthManager() const;
 
  protected:
   /**
@@ -1013,7 +1034,9 @@ class HTTPSession:
   bool inLoopCallback_:1;
   bool inResume_:1;
   bool pendingPause_:1;
-};
 
+  // secondary authentication manager
+  std::unique_ptr<SecondaryAuthManager> secondAuthManager_;
+};
 
 } // proxygen

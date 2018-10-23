@@ -329,6 +329,13 @@ size_t PassThroughHTTPCodecFilter::generatePriority(
   return call_->generatePriority(writeBuf, stream, pri);
 }
 
+size_t PassThroughHTTPCodecFilter::generateCertificateRequest(
+    folly::IOBufQueue& writeBuf,
+    uint16_t requestId,
+    std::unique_ptr<folly::IOBuf> chain) {
+  return call_->generateCertificateRequest(
+      writeBuf, requestId, std::move(chain));
+}
 
 HTTPSettings* PassThroughHTTPCodecFilter::getEgressSettings() {
   return call_->getEgressSettings();

@@ -12,6 +12,7 @@
 #include <chrono>
 #include <folly/Conv.h>
 #include <folly/CppAttributes.h>
+#include <folly/Random.h>
 #include <wangle/acceptor/ConnectionManager.h>
 #include <wangle/acceptor/SocketOptions.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
@@ -20,6 +21,7 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <folly/io/async/AsyncSSLSocket.h>
+#include <folly/io/Cursor.h>
 #include <folly/tracing/ScopedTraceSection.h>
 
 using folly::AsyncSSLSocket;
@@ -28,9 +30,13 @@ using folly::AsyncTransportWrapper;
 using folly::AsyncTransport;
 using folly::WriteFlags;
 using folly::AsyncSocketException;
+using folly::io::QueueAppender;
 using folly::IOBuf;
+using folly::IOBufQueue;
+using folly::Random;
 using folly::SocketAddress;
 using wangle::TransportInfo;
+using std::make_unique;
 using std::pair;
 using std::set;
 using std::string;
@@ -1658,9 +1664,37 @@ size_t HTTPSession::sendPriority(HTTPTransaction* txn,
   return sendPriorityImpl(txn->getID(), pri);
 }
 
-void
-HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
-                                       bool ingressEOM, bool egressEOM) {
+void HTTPSession::setSecondAuthManager(
+    std::unique_ptr<SecondaryAuthManager> secondAuthManager) {
+  secondAuthManager_ = std::move(secondAuthManager);
+}
+
+SecondaryAuthManager* HTTPSession::getSecondAuthManager() const {
+  return secondAuthManager_.get();
+}
+
+/**
+ * Send a CERTIFICATE_REQUEST frame. If the underlying protocol doesn't
+ * support secondary authentication, this is a no-op and 0 is returned.
+ */
+size_t HTTPSession::sendCertificateRequest(
+    std::unique_ptr<folly::IOBuf> certificateRequestContext,
+    std::vector<fizz::Extension> extensions) {
+  auto authRequest = secondAuthManager_->createAuthRequest(
+      std::move(certificateRequestContext), std::move(extensions));
+  auto encodedSize = codec_->generateCertificateRequest(
+      writeBuf_, authRequest.first, std::move(authRequest.second));
+  if (encodedSize > 0) {
+    scheduleWrite();
+  } else {
+    VLOG(4) << "Failed to generate CERTIFICATE_REQUEST frame.";
+  }
+  return encodedSize;
+}
+
+void HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
+                                            bool ingressEOM,
+                                            bool egressEOM) {
   if ((isUpstream() && !txn->isPushed()) ||
       (isDownstream() && txn->isPushed())) {
     if (ingressEOM && txn->testAndClearActive()) {

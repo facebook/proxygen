@@ -9,7 +9,9 @@
  */
 #pragma once
 
+#include <fizz/record/Types.h>
 #include <folly/io/async/SSLContext.h>
+#include <folly/io/IOBuf.h>
 #include <wangle/acceptor/ManagedConnection.h>
 #include <wangle/acceptor/TransportInfo.h>
 #include <proxygen/lib/utils/Time.h>
@@ -286,6 +288,16 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   virtual size_t sendPriority(HTTPCodec::StreamID id,
                               http2::PriorityUpdate pri) = 0;
+
+  /**
+   * Send a CERTIFICATE_REQUEST frame. If the underlying protocol doesn't
+   * support secondary authentication, this is a no-op and 0 is returned.
+   */
+  virtual size_t sendCertificateRequest(
+      std::unique_ptr<folly::IOBuf> /* certificateRequestContext */,
+      std::vector<fizz::Extension> /* extensions */) {
+    return 0;
+  }
 
   uint64_t getNumTxnServed() const {
     return transactionSeqNo_;

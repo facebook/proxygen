@@ -98,6 +98,8 @@ nobase_libproxygenhttp_HEADERS = \
 	session/HTTPTransactionIngressSM.h \
 	session/HTTPUpstreamSession.h \
 	session/HTTP2PriorityQueue.h \
+	session/SecondaryAuthManager.h \
+	session/SecondaryAuthManagerBase.h \
 	session/SimpleController.h \
 	session/TTLBAStats.h \
 	session/TransportFilter.h
@@ -170,6 +172,7 @@ libproxygenhttp_la_SOURCES = \
 	session/HTTPUpstreamSession.cpp \
 	session/HTTP2PriorityQueue.cpp \
 	session/ByteEventTracker.cpp \
+	session/SecondaryAuthManager.cpp \
 	session/SimpleController.cpp \
 	session/TransportFilter.cpp \
 	Window.cpp

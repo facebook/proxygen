@@ -19,6 +19,7 @@
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
+#include <proxygen/lib/http/session/test/MockSecondaryAuthManager.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <sstream>
@@ -26,10 +27,13 @@
 #include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
 #include <boost/optional/optional_io.hpp>
+#include <fizz/record/Extensions.h>
+#include <fizz/record/Types.h>
 
 using folly::test::MockAsyncTransport;
 
 using namespace wangle;
+using namespace fizz;
 using namespace folly;
 using namespace proxygen;
 using namespace std;
@@ -1426,6 +1430,35 @@ TEST_F(MockCodecDownstreamTest, SettingsAck) {
   EXPECT_CALL(*codec_, generateSettingsAck(_));
   codecCallback_->onSettings(
     {{SettingsId::INITIAL_WINDOW_SIZE, 4000}});
+  EXPECT_CALL(*codec_, onIngressEOF());
+  EXPECT_CALL(mockController_, detachSession(_));
+  httpSession_->dropConnection();
+}
+
+TEST_F(MockCodecDownstreamTest, TestSendCertificateRequest) {
+  auto certRequestContext = folly::IOBuf::copyBuffer("0123456789abcdef");
+  fizz::SignatureAlgorithms sigAlgs;
+  sigAlgs.supported_signature_algorithms.push_back(
+      SignatureScheme::ecdsa_secp256r1_sha256);
+  std::vector<fizz::Extension> extensions;
+  extensions.push_back(encodeExtension(std::move(sigAlgs)));
+
+  std::unique_ptr<StrictMock<MockSecondaryAuthManager>> secondAuthManager_(
+      new StrictMock<MockSecondaryAuthManager>());
+  httpSession_->setSecondAuthManager(std::move(secondAuthManager_));
+  auto authManager = dynamic_cast<MockSecondaryAuthManager*>(
+      httpSession_->getSecondAuthManager());
+  ASSERT_NE(authManager, nullptr);
+  EXPECT_CALL(*authManager, createAuthRequest(_, _))
+      .WillOnce(InvokeWithoutArgs([]() {
+        return std::make_pair(120, IOBuf::copyBuffer("authenticatorrequest"));
+      }));
+  EXPECT_CALL(*codec_, generateCertificateRequest(_, _, _))
+      .WillOnce(Return(20));
+  auto encodedSize = httpSession_->sendCertificateRequest(
+      std::move(certRequestContext), std::move(extensions));
+  EXPECT_EQ(encodedSize, 20);
+
   EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
   httpSession_->dropConnection();
