@@ -97,7 +97,7 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
   if (error.getProxygenError() == kErrorTimeout) {
     setError(kErrorTimeout);
 
-    if (responseStarted_) {
+    if (!txn_->canSendHeaders()) {
       sendAbort();
     } else {
       ResponseBuilder(this)
@@ -108,7 +108,7 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
   } else if (error.getDirection() == HTTPException::Direction::INGRESS) {
     setError(kErrorRead);
 
-    if (responseStarted_) {
+    if (!txn_->canSendHeaders()) {
       sendAbort();
     } else {
       ResponseBuilder(this)
@@ -139,7 +139,6 @@ void RequestHandlerAdaptor::onExTransaction(HTTPTransaction* txn) noexcept {
 }
 
 void RequestHandlerAdaptor::sendHeaders(HTTPMessage& msg) noexcept {
-  responseStarted_ = true;
   txn_->sendHeaders(msg);
 }
 

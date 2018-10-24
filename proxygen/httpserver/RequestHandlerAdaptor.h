@@ -75,7 +75,6 @@ class RequestHandlerAdaptor
   void setError(ProxygenError err) noexcept;
 
   ProxygenError err_{kErrorNone};
-  bool responseStarted_{false};
 };
 
 }

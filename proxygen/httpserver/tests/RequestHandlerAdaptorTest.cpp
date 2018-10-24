@@ -11,6 +11,7 @@
 #include <folly/portability/GMock.h>
 #include "proxygen/httpserver/Mocks.h"
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
+#include "proxygen/lib/http/session/test/HTTPTransactionMocks.h"
 
 using namespace folly;
 using namespace proxygen;
@@ -46,4 +47,18 @@ void testExpectHandling(bool handlerResponds) {
 TEST(RequestHandlerAdaptorTest, Expect) {
   testExpectHandling(true /* handlerResponds */);
   testExpectHandling(false /* handlerResponds */);
+}
+
+TEST(RequestHandlerAdaptorTest, onError) {
+  NiceMock<MockRequestHandler> requestHandler_;
+  auto adaptor = new RequestHandlerAdaptor(&requestHandler_);
+  NiceMock<MockHTTPTransactionTransport> transport;
+  HTTP2PriorityQueue egressQueue;
+  HTTPTransaction txn(TransportDirection::DOWNSTREAM,
+                      1, 1, transport, egressQueue);
+  txn.setHandler(adaptor);
+  // egress timeout error
+  HTTPException ex(HTTPException::Direction::EGRESS, "egress timeout");
+  ex.setProxygenError(kErrorTimeout);
+  txn.onError(ex);
 }
