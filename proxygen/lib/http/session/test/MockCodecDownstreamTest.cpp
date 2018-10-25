@@ -42,6 +42,12 @@ using namespace testing;
 const HTTPSettings kDefaultIngressSettings{
   { SettingsId::INITIAL_WINDOW_SIZE, 65536 }
 };
+const HTTPSettings kIngressCertAuthSettings{
+  { SettingsId::SETTINGS_HTTP_CERT_AUTH, 128}
+};
+HTTPSettings kEgressCertAuthSettings{
+  { SettingsId::SETTINGS_HTTP_CERT_AUTH, 128}
+};
 
 class MockCodecDownstreamTest: public testing::Test {
  public:
@@ -1448,7 +1454,10 @@ TEST_F(MockCodecDownstreamTest, TestSendCertificateRequest) {
   httpSession_->setSecondAuthManager(std::move(secondAuthManager_));
   auto authManager = dynamic_cast<MockSecondaryAuthManager*>(
       httpSession_->getSecondAuthManager());
-  ASSERT_NE(authManager, nullptr);
+  EXPECT_CALL(*codec_, getIngressSettings())
+      .WillOnce(Return(&kIngressCertAuthSettings));
+  EXPECT_CALL(*codec_, getEgressSettings())
+      .WillOnce(Return(&kEgressCertAuthSettings));
   EXPECT_CALL(*authManager, createAuthRequest(_, _))
       .WillOnce(InvokeWithoutArgs([]() {
         return std::make_pair(120, IOBuf::copyBuffer("authenticatorrequest"));

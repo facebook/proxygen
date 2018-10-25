@@ -750,6 +750,8 @@ ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
       case SettingsId::THRIFT_CHANNEL_ID:
       case SettingsId::THRIFT_CHANNEL_ID_DEPRECATED:
         break;
+      case SettingsId::SETTINGS_HTTP_CERT_AUTH:
+        break;
       default:
         continue; // ignore unknown setting
     }

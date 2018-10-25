@@ -52,6 +52,10 @@ static const uint32_t kWriteReadyMax = 65536;
 // Higher = lower latency, less prioritization
 static const uint32_t kMaxWritesPerLoop = 32;
 
+static constexpr folly::StringPiece kClientLabel =
+    "EXPORTER HTTP CERTIFICATE client";
+static constexpr folly::StringPiece kServerLabel =
+    "EXPORTER HTTP CERTIFICATE server";
 } // anonymous namespace
 
 namespace proxygen {
@@ -178,6 +182,64 @@ HTTPSession::HTTPSession(
   }
 }
 
+uint32_t HTTPSession::getCertAuthSettingVal() {
+  uint32_t certAuthSettingVal = 0;
+  constexpr uint16_t settingLen = 4;
+  std::unique_ptr<folly::IOBuf> ekm;
+  folly::StringPiece label;
+  if (isUpstream()) {
+    label = kClientLabel;
+  } else {
+    label = kServerLabel;
+  }
+  auto fizzBase = getTransport()->getUnderlyingTransport<AsyncFizzBase>();
+  if (fizzBase) {
+    ekm = fizzBase->getEkm(label, nullptr, settingLen);
+  } else {
+    VLOG(4) << "Underlying transport does not support secondary "
+               "authentication.";
+    return certAuthSettingVal;
+  }
+  if (ekm && ekm->computeChainDataLength() == settingLen) {
+    folly::io::Cursor cursor(ekm.get());
+    uint32_t ekmVal = cursor.readBE<uint32_t>();
+    certAuthSettingVal = (ekmVal & 0x3fffffff) | 0x80000000;
+  }
+  return certAuthSettingVal;
+}
+
+bool HTTPSession::verifyCertAuthSetting(uint32_t value) {
+  uint32_t certAuthSettingVal = 0;
+  constexpr uint16_t settingLen = 4;
+  std::unique_ptr<folly::IOBuf> ekm;
+  folly::StringPiece label;
+  if (isUpstream()) {
+    label = kServerLabel;
+  } else {
+    label = kClientLabel;
+  }
+  auto fizzBase = getTransport()->getUnderlyingTransport<AsyncFizzBase>();
+  if (fizzBase) {
+    ekm = fizzBase->getEkm(label, nullptr, settingLen);
+  } else {
+    VLOG(4) << "Underlying transport does not support secondary "
+               "authentication.";
+    return false;
+  }
+  if (ekm && ekm->computeChainDataLength() == settingLen) {
+    folly::io::Cursor cursor(ekm.get());
+    uint32_t ekmVal = cursor.readBE<uint32_t>();
+    certAuthSettingVal = (ekmVal & 0x3fffffff) | 0x80000000;
+  } else {
+    return false;
+  }
+  if (certAuthSettingVal == value) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void HTTPSession::setupCodec() {
   if (!codec_->supportsParallelRequests()) {
     // until we support upstream pipelining
@@ -185,10 +247,21 @@ void HTTPSession::setupCodec() {
     maxConcurrentOutgoingStreamsRemote_ = isDownstream() ? 0 : 1;
   }
 
+  // If a secondary authentication manager is configured for this session, set
+  // the SETTINGS_HTTP_CERT_AUTH to indicate support for HTTP-layer certificate
+  // authentication.
+  uint32_t certAuthSettingVal = 0;
+  if (secondAuthManager_) {
+    certAuthSettingVal = getCertAuthSettingVal();
+  }
   HTTPSettings* settings = codec_->getEgressSettings();
   if (settings) {
     settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS,
                          maxConcurrentIncomingStreams_);
+    if (certAuthSettingVal != 0) {
+      settings->setSetting(SettingsId::SETTINGS_HTTP_CERT_AUTH,
+                           certAuthSettingVal);
+    }
   }
   codec_->generateConnectionPreface(writeBuf_);
 
@@ -1222,11 +1295,15 @@ void HTTPSession::onWindowUpdate(HTTPCodec::StreamID streamID,
 
 void HTTPSession::onSettings(const SettingsList& settings) {
   DestructorGuard g(this);
-  for (auto& setting: settings) {
+  for (auto& setting : settings) {
     if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
       onSetSendWindow(setting.value);
     } else if (setting.id == SettingsId::MAX_CONCURRENT_STREAMS) {
       onSetMaxInitiatedStreams(setting.value);
+    } else if (setting.id == SettingsId::SETTINGS_HTTP_CERT_AUTH) {
+      if (!(verifyCertAuthSetting(setting.value))) {
+        return;
+      }
     }
   }
   if (codec_->generateSettingsAck(writeBuf_) > 0) {
@@ -1747,6 +1824,20 @@ SecondaryAuthManager* HTTPSession::getSecondAuthManager() const {
 size_t HTTPSession::sendCertificateRequest(
     std::unique_ptr<folly::IOBuf> certificateRequestContext,
     std::vector<fizz::Extension> extensions) {
+  // Check if both sending and receiving peer have advertised valid
+  // SETTINGS_HTTP_CERT_AUTH setting. Otherwise, the frames for secondary
+  // authentication should not be sent.
+  auto ingressSettings = codec_->getIngressSettings();
+  auto egressSettings = codec_->getEgressSettings();
+  if (ingressSettings && egressSettings) {
+    if (ingressSettings->getSetting(SettingsId::SETTINGS_HTTP_CERT_AUTH, 0) ==
+            0 ||
+        egressSettings->getSetting(SettingsId::SETTINGS_HTTP_CERT_AUTH, 0) ==
+            0) {
+      VLOG(4) << "Secondary certificate authentication is not supported.";
+      return 0;
+    }
+  }
   auto authRequest = secondAuthManager_->createAuthRequest(
       std::move(certificateRequestContext), std::move(extensions));
   auto encodedSize = codec_->generateCertificateRequest(
