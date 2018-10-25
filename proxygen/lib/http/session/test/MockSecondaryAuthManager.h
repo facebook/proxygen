@@ -27,5 +27,38 @@ class MockSecondaryAuthManager : public SecondaryAuthManager {
         std::shared_ptr<folly::IOBuf>(certRequestContext.release()),
         extensions);
   }
+  MOCK_METHOD4(getAuthenticator,
+               std::pair<uint16_t, std::unique_ptr<folly::IOBuf>>(
+                   const fizz::AsyncFizzBase&,
+                   TransportDirection,
+                   uint16_t,
+                   std::shared_ptr<folly::IOBuf>));
+  std::pair<uint16_t, std::unique_ptr<folly::IOBuf>> getAuthenticator(
+      const fizz::AsyncFizzBase& transport,
+      TransportDirection dir,
+      uint16_t requestId,
+      std::unique_ptr<folly::IOBuf> authRequest) override {
+    return getAuthenticator(
+        transport,
+        dir,
+        requestId,
+        std::shared_ptr<folly::IOBuf>(authRequest.release()));
+  }
+  MOCK_METHOD4(validateAuthenticator,
+               bool(const fizz::AsyncFizzBase&,
+                    TransportDirection,
+                    uint16_t,
+                    std::shared_ptr<folly::IOBuf>));
+  bool validateAuthenticator(
+      const fizz::AsyncFizzBase& transport,
+      TransportDirection dir,
+      uint16_t certId,
+      std::unique_ptr<folly::IOBuf> authenticator) override {
+    return validateAuthenticator(
+        transport,
+        dir,
+        certId,
+        std::shared_ptr<folly::IOBuf>(authenticator.release()));
+  }
 };
 } // namespace proxygen

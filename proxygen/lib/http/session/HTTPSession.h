@@ -9,10 +9,13 @@
  */
 #pragma once
 
+#include <fizz/protocol/Certificate.h>
+#include <fizz/record/Types.h>
 #include <folly/IntrusiveList.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <folly/Optional.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
@@ -387,8 +390,16 @@ class HTTPSession:
   void onSettingsAck()  override;
   void onPriority(HTTPCodec::StreamID stream,
                   const HTTPMessage::HTTPPriority&) override;
-  uint32_t numOutgoingStreams() const override { return outgoingStreams_; }
-  uint32_t numIncomingStreams() const override { return incomingStreams_; }
+  void onCertificateRequest(uint16_t requestId,
+                            std::unique_ptr<folly::IOBuf> authRequest) override;
+  void onCertificate(uint16_t certId,
+                     std::unique_ptr<folly::IOBuf> authenticator) override;
+  uint32_t numOutgoingStreams() const override {
+    return outgoingStreams_;
+  }
+  uint32_t numIncomingStreams() const override {
+    return incomingStreams_;
+  }
 
   // HTTPTransaction::Transport methods
   void pauseIngress(HTTPTransaction* txn) noexcept override;

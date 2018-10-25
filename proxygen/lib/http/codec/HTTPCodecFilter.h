@@ -99,6 +99,12 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                              uint64_t length,
                              uint16_t version) override;
 
+  void onCertificateRequest(uint16_t requestId,
+                            std::unique_ptr<folly::IOBuf> authRequest) override;
+
+  void onCertificate(uint16_t certId,
+                     std::unique_ptr<folly::IOBuf> authenticator) override;
+
   uint32_t numOutgoingStreams() const override;
 
   uint32_t numIncomingStreams() const override;

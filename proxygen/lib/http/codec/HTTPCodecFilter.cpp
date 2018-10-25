@@ -130,6 +130,16 @@ void PassThroughHTTPCodecFilter::onGenerateFrameHeader(StreamID streamID,
    callback_->onGenerateFrameHeader(streamID, length, type, version);
 }
 
+void PassThroughHTTPCodecFilter::onCertificateRequest(
+    uint16_t requestId, std::unique_ptr<folly::IOBuf> authRequest) {
+  callback_->onCertificateRequest(requestId, std::move(authRequest));
+}
+
+void PassThroughHTTPCodecFilter::onCertificate(
+    uint16_t certId, std::unique_ptr<folly::IOBuf> authenticator) {
+  callback_->onCertificate(certId, std::move(authenticator));
+}
+
 uint32_t PassThroughHTTPCodecFilter::numOutgoingStreams() const {
   return callback_->numOutgoingStreams();
 }
