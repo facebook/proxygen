@@ -110,6 +110,19 @@ class MockHTTPCodec: public HTTPCodec {
         requestId,
         std::shared_ptr<folly::IOBuf>(authRequest.release()));
   }
+  MOCK_METHOD3(generateCertificate,
+               size_t(folly::IOBufQueue&,
+                      uint16_t,
+                      std::shared_ptr<folly::IOBuf>));
+  size_t generateCertificate(
+      folly::IOBufQueue& writeBuf,
+      uint16_t certId,
+      std::unique_ptr<folly::IOBuf> authenticator) override {
+    return generateCertificate(
+        writeBuf,
+        certId,
+        std::shared_ptr<folly::IOBuf>(authenticator.release()));
+  }
   MOCK_METHOD0(getEgressSettings, HTTPSettings*());
   MOCK_CONST_METHOD0(getIngressSettings, const HTTPSettings*());
   MOCK_METHOD0(enableDoubleGoawayDrain, void());
@@ -177,6 +190,20 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
   MOCK_METHOD0(onSettingsAck, void());
   MOCK_METHOD2(onPriority, void(HTTPCodec::StreamID,
                                 const HTTPMessage::HTTPPriority&));
+  MOCK_METHOD2(onCertificateRequest,
+               void(uint16_t, std::shared_ptr<folly::IOBuf>));
+  void onCertificateRequest(
+      uint16_t requestId,
+      std::unique_ptr<folly::IOBuf> certRequestData) override {
+    onCertificateRequest(
+        requestId, std::shared_ptr<folly::IOBuf>(certRequestData.release()));
+  }
+  MOCK_METHOD2(onCertificate, void(uint16_t, std::shared_ptr<folly::IOBuf>));
+  void onCertificate(uint16_t certId,
+                     std::unique_ptr<folly::IOBuf> certData) override {
+    onCertificateRequest(certId,
+                         std::shared_ptr<folly::IOBuf>(certData.release()));
+  }
   MOCK_METHOD4(onNativeProtocolUpgrade, bool(HTTPCodec::StreamID, CodecProtocol,
                                              const std::string&,
                                              HTTPMessage&));

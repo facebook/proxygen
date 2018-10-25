@@ -337,6 +337,13 @@ size_t PassThroughHTTPCodecFilter::generateCertificateRequest(
       writeBuf, requestId, std::move(chain));
 }
 
+size_t PassThroughHTTPCodecFilter::generateCertificate(
+    folly::IOBufQueue& writeBuf,
+    uint16_t certId,
+    std::unique_ptr<folly::IOBuf> certData) {
+  return call_->generateCertificate(writeBuf, certId, std::move(certData));
+}
+
 HTTPSettings* PassThroughHTTPCodecFilter::getEgressSettings() {
   return call_->getEgressSettings();
 }

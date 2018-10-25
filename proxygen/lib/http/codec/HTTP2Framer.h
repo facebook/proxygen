@@ -356,6 +356,25 @@ ErrorCode parseCertificateRequest(
     uint16_t& outRequestId,
     std::unique_ptr<folly::IOBuf>& outAuthRequest) noexcept;
 
+/**
+ * This function parses the section of the CERTIFICATE frame after the
+ * common frame header.  It pulls header.length bytes from the cursor, so it is
+ * the caller's responsibility to ensure there is enough data available.
+ *
+ * @param cursor The cursor to pull data from.
+ * @param header The frame header for the frame being parsed.
+ * @param outCertId The Cert-ID identifying the frame.
+ * @param outAuthenticator Authenticator fragment in the frame, if any.
+ * @return NO_ERROR for successful parse. The connection error code to
+ *         return in a CERTIFICATE frame if failure.
+ */
+ErrorCode
+parseCertificate(
+    folly::io::Cursor& cursor,
+    const FrameHeader& header,
+    uint16_t& outCertId,
+    std::unique_ptr<folly::IOBuf>& outAuthenticator) noexcept;
+
 //// Egress ////
 
 /**
@@ -606,6 +625,24 @@ size_t
 writeCertificateRequest(folly::IOBufQueue& writeBuf,
                         uint16_t requestId,
                         std::unique_ptr<folly::IOBuf> authRequest);
+
+/**
+ * Generate an entire CERTIFICATE frame, including the common frame
+ * header.
+ *
+ * @param writeBuf The output queue to write to. It may grow or add
+ *                 underlying buffers inside this function.
+ * @param certId The opaque Cert-ID of this frame which is used to correlate
+ * subsequent certificate-related frames with this certificate.
+ * @param authenticator The encoded authenticator fragment.
+ * @param toBeContinued Indicates whether there is additional authenticator
+ * fragment.
+ * @return The number of bytes written to writeBuf.
+ */
+size_t writeCertificate(folly::IOBufQueue& writeBuf,
+                        uint16_t certId,
+                        std::unique_ptr<folly::IOBuf> authenticator,
+                        bool toBeContinued);
 
 /**
  * Get the string representation of the given FrameType

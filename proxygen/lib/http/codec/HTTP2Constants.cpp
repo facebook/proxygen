@@ -38,6 +38,7 @@ const uint32_t kFramePingSize = 8;
 const uint32_t kFrameGoawaySize = 8;
 const uint32_t kFrameWindowUpdateSize = 4;
 const uint32_t kFrameCertificateRequestSizeBase = 2;
+const uint32_t kFrameCertificateSizeBase = 2;
 
 const uint32_t kFrameAltSvcSizeBase = 8;
 
@@ -47,6 +48,8 @@ const uint32_t kMaxStreamID = (1u << 31) - 1;
 const uint32_t kInitialWindow = (1u << 16) - 1;
 const uint32_t kMaxWindowUpdateSize = (1u << 31) - 1;
 const uint32_t kMaxHeaderTableSize = (1u << 16);
+
+const uint32_t kMaxAuthenticatorBufSize = 0x20000; // 128k
 
 const std::string kConnectionPreface("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 

@@ -220,6 +220,20 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     settingsAcks++;
   }
 
+  void onCertificateRequest(
+      uint16_t requestId, std::unique_ptr<folly::IOBuf> authRequest) override {
+    certificateRequests++;
+    lastCertRequestId = requestId;
+    data.append(std::move(authRequest));
+  }
+
+  void onCertificate(uint16_t certId,
+                     std::unique_ptr<folly::IOBuf> authenticator) override {
+    certificates++;
+    lastCertId = certId;
+    data.append(std::move(authenticator));
+  }
+
   bool onNativeProtocolUpgrade(HTTPCodec::StreamID,
                                CodecProtocol,
                                const std::string&,
@@ -296,6 +310,10 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     windowUpdateCalls = 0;
     settings = 0;
     settingsAcks = 0;
+    certificateRequests = 0;
+    lastCertRequestId = 0;
+    certificates = 0;
+    lastCertId = 0;
     windowSize = 0;
     maxStreams = 0;
     headerFrames = 0;
@@ -329,6 +347,10 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "windowUpdateCalls: " << windowUpdateCalls;
     VLOG(verbosity) << "settings: " << settings;
     VLOG(verbosity) << "settingsAcks: " << settingsAcks;
+    VLOG(verbosity) << "certificateRequests: " << certificateRequests;
+    VLOG(verbosity) << "lastCertRequestId: " << lastCertRequestId;
+    VLOG(verbosity) << "certificates: " << certificates;
+    VLOG(verbosity) << "lastCertId: " << lastCertId;
     VLOG(verbosity) << "windowSize: " << windowSize;
     VLOG(verbosity) << "maxStreams: " << maxStreams;
     VLOG(verbosity) << "headerFrames: " << headerFrames;
@@ -356,8 +378,12 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint32_t settings{0};
   uint64_t numSettings{0};
   uint32_t settingsAcks{0};
-  SettingsValue windowSize{0};
-  SettingsValue maxStreams{0};
+  uint32_t certificateRequests{0};
+  uint16_t lastCertRequestId{0};
+  uint32_t certificates{0};
+  uint16_t lastCertId{0};
+  uint32_t windowSize{0};
+  uint32_t maxStreams{0};
   uint32_t headerFrames{0};
   HTTPMessage::HTTPPriority priority{0, false, 0};
   std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t> > windowUpdates;

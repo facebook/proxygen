@@ -277,6 +277,32 @@ class HTTPCodec {
         uint16_t /* version */ = 0) {}
 
     /**
+     * Called upon receipt of a certificate request frame, for protocols that
+     * support secondary certificate authentication.
+     * @param requestId The Request-ID identifying the certificate request
+     * @param authRequest The authenticator request
+     * @note Not all protocols support secondary certificate authentication.
+     * HTTP/2 does, but HTTP/1.1 doesn't.
+     */
+    virtual void onCertificateRequest(
+        uint16_t /* requestId */,
+        std::unique_ptr<folly::IOBuf> /* authRequest */) {
+    }
+
+    /**
+     * Called upon receipt of an authenticator, for protocols that
+     * support secondary certificate authentication.
+     * @param certId The Cert-ID identifying this authenticator
+     * @param authenticator The authenticator request
+     * @note Not all protocols support secondary certificate authentication.
+     * HTTP/2 does, but HTTP/1.1 doesn't.
+     */
+    virtual void onCertificate(
+        uint16_t /* certId */,
+        std::unique_ptr<folly::IOBuf> /* authenticator */) {
+    }
+
+    /**
      * Return the number of open streams started by this codec callback.
      * Parallel codecs with a maximum number of streams will invoke this
      * to determine if a new stream exceeds the limit.
@@ -596,6 +622,17 @@ class HTTPCodec {
       folly::IOBufQueue& /* writeBuf */,
       uint16_t /* requestId */,
       std::unique_ptr<folly::IOBuf> /* chain */) {
+    return 0;
+  }
+
+  /*
+   * Generate a CERTIFICATE message, if supported in the protocol
+   * implemented by the codec.
+   */
+  virtual size_t generateCertificate(
+      folly::IOBufQueue& /* writeBuf */,
+      uint16_t /* certId */,
+      std::unique_ptr<folly::IOBuf> /* certData */) {
     return 0;
   }
 

@@ -214,6 +214,11 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
       uint16_t requestId,
       std::unique_ptr<folly::IOBuf> chain) override;
 
+  size_t generateCertificate(
+      folly::IOBufQueue& writeBuf,
+      uint16_t certId,
+      std::unique_ptr<folly::IOBuf> certData) override;
+
   HTTPSettings* getEgressSettings() override;
 
   const HTTPSettings* getIngressSettings() const override;
