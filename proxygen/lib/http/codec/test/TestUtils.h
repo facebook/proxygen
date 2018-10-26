@@ -382,8 +382,8 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint16_t lastCertRequestId{0};
   uint32_t certificates{0};
   uint16_t lastCertId{0};
-  uint32_t windowSize{0};
-  uint32_t maxStreams{0};
+  uint64_t windowSize{0};
+  uint64_t maxStreams{0};
   uint32_t headerFrames{0};
   HTTPMessage::HTTPPriority priority{0, false, 0};
   std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t> > windowUpdates;
