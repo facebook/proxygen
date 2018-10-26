@@ -154,7 +154,7 @@ class QPACKScheme : public CompressionScheme {
     folly::IOBufQueue queue;
     queue.append(std::move(encodedReq));
     queue.trimStart(toTrim);
-    server_.decodeStreaming(queue.move(), len, &callback);
+    server_.decodeStreaming(seqn, queue.move(), len, &callback);
     callback.maybeMarkHolDelay();
     if (server_.getQueuedBytes() > stats.maxQueueBufferBytes) {
       stats.maxQueueBufferBytes = server_.getQueuedBytes();

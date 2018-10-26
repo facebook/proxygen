@@ -29,19 +29,11 @@ class QPACKDecoder : public HPACKDecoderBase,
       : HPACKDecoderBase(tableSize, maxUncompressed),
         QPACKContext(tableSize, false /* don't track references */) {}
 
-
-  /**
-   * given a Cursor and a total amount of bytes we can consume from it,
-   * decode headers and invoke a callback.  If it takes a cursor, QPACKDecoder
-   * does not take ownership of the decoded block, and cannot queue.
-   */
-  void decodeStreaming(folly::io::Cursor& cursor,
-                       uint32_t totalBytes,
-                       HPACK::StreamingCallback* streamingCb);
-
-  void decodeStreaming(std::unique_ptr<folly::IOBuf> block,
-                       uint32_t totalBytes,
-                       HPACK::StreamingCallback* streamingCb);
+  void decodeStreaming(
+      uint64_t streamId,
+      std::unique_ptr<folly::IOBuf> block,
+      uint32_t totalBytes,
+      HPACK::StreamingCallback* streamingCb);
 
   HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf);
 
@@ -49,7 +41,7 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   std::unique_ptr<folly::IOBuf> encodeHeaderAck(uint64_t streamId) const;
 
-  std::unique_ptr<folly::IOBuf> encodeCancelStream(uint64_t streamId) const;
+  std::unique_ptr<folly::IOBuf> encodeCancelStream(uint64_t streamId);
 
   uint64_t getHolBlockCount() const {
     return holBlockCount_;
@@ -94,19 +86,25 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   void decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf);
 
-  void enqueueHeaderBlock(uint32_t largestReference,
-                          uint32_t baseIndex,
-                          uint32_t consumed,
-                          std::unique_ptr<folly::IOBuf> block,
-                          size_t length,
-                          HPACK::StreamingCallback* streamingCb);
+  void enqueueHeaderBlock(
+      uint64_t streamId,
+      uint32_t largestReference,
+      uint32_t baseIndex,
+      uint32_t consumed,
+      std::unique_ptr<folly::IOBuf> block,
+      size_t length,
+      HPACK::StreamingCallback* streamingCb);
 
   struct PendingBlock {
-    PendingBlock(uint32_t bi, uint32_t l, uint32_t cons,
-                 std::unique_ptr<folly::IOBuf> b,
-                 HPACK::StreamingCallback* c)
-        : baseIndex(bi), length(l), consumed(cons), block(std::move(b)), cb(c)
+    PendingBlock(
+        uint64_t sid,
+        uint32_t bi, uint32_t l, uint32_t cons,
+        std::unique_ptr<folly::IOBuf> b,
+        HPACK::StreamingCallback* c)
+        : streamID(sid), baseIndex(bi), length(l), consumed(cons),
+          block(std::move(b)), cb(c)
       {}
+    uint64_t streamID;
     uint32_t baseIndex;
     uint32_t length;
     uint32_t consumed;

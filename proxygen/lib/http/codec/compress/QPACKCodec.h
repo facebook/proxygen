@@ -50,9 +50,10 @@ class QPACKCodec : public HeaderCodec {
   // QPACK blocking decode.  The decoder may queue the block if there are
   // unsatisfied dependencies
   void decodeStreaming(
-    std::unique_ptr<folly::IOBuf> block,
-    uint32_t length,
-    HPACK::StreamingCallback* streamingCb) noexcept;
+      uint64_t streamId,
+      std::unique_ptr<folly::IOBuf> block,
+      uint32_t length,
+      HPACK::StreamingCallback* streamingCb) noexcept;
 
   void setEncoderHeaderTableSize(uint32_t size) {
     encoder_.setHeaderTableSize(size);

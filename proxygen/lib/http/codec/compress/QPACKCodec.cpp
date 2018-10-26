@@ -54,13 +54,14 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
 }
 
 void QPACKCodec::decodeStreaming(
-  std::unique_ptr<folly::IOBuf> block,
-  uint32_t length,
-  HPACK::StreamingCallback* streamingCb) noexcept {
+    uint64_t streamID,
+    std::unique_ptr<folly::IOBuf> block,
+    uint32_t length,
+    HPACK::StreamingCallback* streamingCb) noexcept {
   if (streamingCb) {
     streamingCb->stats = stats_;
   }
-  decoder_.decodeStreaming(std::move(block), length, streamingCb);
+  decoder_.decodeStreaming(streamID, std::move(block), length, streamingCb);
 }
 
 void QPACKCodec::describe(std::ostream& stream) const {

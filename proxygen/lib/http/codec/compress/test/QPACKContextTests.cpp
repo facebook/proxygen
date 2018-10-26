@@ -43,7 +43,8 @@ void verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
       cb.reset();
     };
   }
-  decoder.decodeStreaming(std::move(result.stream), length, cb.get());
+  // streamID only matters for cancellation
+  decoder.decodeStreaming(0, std::move(result.stream), length, cb.get());
   EXPECT_EQ(cb->error, expectedError);
 }
 
@@ -342,12 +343,12 @@ TEST(QPACKContextTests, TestDecodeQueueDelete) {
     decoder.reset();
   };
   auto length = result1.stream->computeChainDataLength();
-  rawDecoder->decodeStreaming(std::move(result1.stream), length, rawCb1);
+  rawDecoder->decodeStreaming(1, std::move(result1.stream), length, rawCb1);
 
   // Decode #2, no control stream, queued
   auto cb2 = std::make_unique<TestStreamingCallback>();
   length = result2.stream->computeChainDataLength();
-  rawDecoder->decodeStreaming(std::move(result2.stream), length, cb2.get());
+  rawDecoder->decodeStreaming(2, std::move(result2.stream), length, cb2.get());
 
   // Decode control stream #1, will unblock 1 and delete decoder
   EXPECT_EQ(rawDecoder->decodeEncoderStream(std::move(result1.control)),
@@ -417,7 +418,8 @@ void checkQError(QPACKDecoder& decoder, std::unique_ptr<IOBuf> buf,
                  const HPACK::DecodeError err) {
   auto cb = std::make_unique<TestStreamingCallback>();
   auto len = buf->computeChainDataLength();
-  decoder.decodeStreaming(std::move(buf), len, cb.get());
+  // streamID only matters for cancellation
+  decoder.decodeStreaming(0, std::move(buf), len, cb.get());
   EXPECT_EQ(cb->error, err);
 }
 
@@ -537,7 +539,7 @@ TEST(QPACKContextTests, TestEvictedNameReference) {
   req.push_back(HPACKHeader("x-accept-encoding", "foobarfoobar"));
   auto result = encoder.encode(req, 0, 1);
   decoder.decodeEncoderStream(std::move(result.control));
-  decoder.decodeStreaming(result.stream->clone(),
+  decoder.decodeStreaming(1, result.stream->clone(),
                           result.stream->computeChainDataLength(), nullptr);
   encoder.onTableStateSync(1);
   req.clear();
@@ -546,7 +548,7 @@ TEST(QPACKContextTests, TestEvictedNameReference) {
   EXPECT_TRUE(stringInOutput(result.stream.get(), "x-accept-encoding"));
   TestStreamingCallback cb;
   decoder.decodeEncoderStream(std::move(result.control));
-  decoder.decodeStreaming(result.stream->clone(),
+  decoder.decodeStreaming(2, result.stream->clone(),
                           result.stream->computeChainDataLength(), &cb);
   EXPECT_FALSE(cb.hasError());
 }

@@ -23,9 +23,10 @@ namespace proxygen {
 
 // Blocking implementation - may queue
 void QPACKDecoder::decodeStreaming(
-  std::unique_ptr<folly::IOBuf> block,
-  uint32_t totalBytes,
-  HPACK::StreamingCallback* streamingCb) {
+    uint64_t streamID,
+    std::unique_ptr<folly::IOBuf> block,
+    uint32_t totalBytes,
+    HPACK::StreamingCallback* streamingCb) {
   Cursor cursor(block.get());
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   err_ = HPACK::DecodeError::NONE;
@@ -42,7 +43,7 @@ void QPACKDecoder::decodeStreaming(
       folly::IOBufQueue q;
       q.append(std::move(block));
       q.trimStart(dbuf.consumedBytes());
-      enqueueHeaderBlock(largestReference, baseIndex_,
+      enqueueHeaderBlock(streamID, largestReference, baseIndex_,
                          dbuf.consumedBytes(), q.move(),
                          totalBytes - dbuf.consumedBytes(), streamingCb);
     }
@@ -319,13 +320,23 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
 }
 
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
-    uint64_t streamId) const {
+    uint64_t streamId) {
+  // Remove this stream from the queue
+  auto it = queue_.begin();
+  while (it != queue_.end()) {
+    if (it->second.streamID == streamId) {
+      it = queue_.erase(it);
+    } else {
+      it++;
+    }
+  }
   HPACKEncodeBuffer ackEncoder(kGrowth, false);
   ackEncoder.encodeInteger(streamId, HPACK::Q_CANCEL_STREAM);
   return ackEncoder.release();
 }
 
 void QPACKDecoder::enqueueHeaderBlock(
+  uint64_t streamID,
   uint32_t largestReference,
   uint32_t baseIndex,
   uint32_t consumed,
@@ -337,8 +348,8 @@ void QPACKDecoder::enqueueHeaderBlock(
   queue_.emplace(
     std::piecewise_construct,
     std::forward_as_tuple(largestReference),
-    std::forward_as_tuple(baseIndex, length, consumed, std::move(block),
-                          streamingCb));
+    std::forward_as_tuple(streamID, baseIndex, length, consumed,
+                          std::move(block), streamingCb));
   holBlockCount_++;
   VLOG(5) << "queued block=" << largestReference << " len=" << length;
   queuedBytes_ += length;

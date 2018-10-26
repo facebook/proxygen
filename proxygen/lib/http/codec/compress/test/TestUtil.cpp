@@ -81,7 +81,7 @@ void encodeDecode(
   }
   CHECK(encoded.stream);
   auto length = encoded.stream->computeChainDataLength();
-  decoder.decodeStreaming(std::move(encoded.stream), length, &cb);
+  decoder.decodeStreaming(1, std::move(encoded.stream), length, &cb);
   CHECK(!cb.hasError());
   auto decodedHeaders = cb.hpackHeaders();
   verifyHeaders(headers, *decodedHeaders);

@@ -57,7 +57,7 @@ void encodeBlocks(QPACKCodec& decoder,
     auto result = encoder.encode(block, streamId);
     // always write stream before control to test decoder blocking
     if (result.stream) {
-      decoder.decodeStreaming(result.stream->clone(),
+      decoder.decodeStreaming(streamId, result.stream->clone(),
                               result.stream->computeChainDataLength(),
                               nullptr);
       writeFrame(appender, streamId, std::move(result.stream));
@@ -181,7 +181,8 @@ int decodeAndVerify(QPACKCodec& decoder, const proxygen::HTTPArchive& har) {
                                      std::forward_as_tuple(streamId),
                                      std::forward_as_tuple(streamId, nullptr,
                                                            FLAGS_public));
-          decoder.decodeStreaming(std::move(buf), length, &res.first->second);
+          decoder.decodeStreaming(
+              streamId, std::move(buf), length, &res.first->second);
         }
       });
   if (creader.read()) {
@@ -247,7 +248,8 @@ int decodeToQIF(QPACKCodec& decoder) {
           auto res = streams.emplace(std::piecewise_construct,
                                      std::forward_as_tuple(streamId),
                                      std::forward_as_tuple(streamId, of));
-          decoder.decodeStreaming(std::move(buf), length, &res.first->second);
+          decoder.decodeStreaming(
+              streamId, std::move(buf), length, &res.first->second);
         }
       });
   if (creader.read()) {

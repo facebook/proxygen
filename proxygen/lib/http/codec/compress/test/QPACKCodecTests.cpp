@@ -69,7 +69,7 @@ TEST_F(QPACKTests, TestSimple) {
             HPACK::DecodeError::NONE);
   TestStreamingCallback cb;
   auto length = encodeResult.stream->computeChainDataLength();
-  server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
+  server.decodeStreaming(1, std::move(encodeResult.stream), length, &cb);
   headerAck(1);
   auto result = cb.getResult();
   EXPECT_TRUE(!result.hasError());
@@ -96,7 +96,7 @@ TEST_F(QPACKTests, TestAbsoluteIndex) {
     }
     TestStreamingCallback cb;
     auto length = encodeResult.stream->computeChainDataLength();
-    server.decodeStreaming(std::move(encodeResult.stream), length, &cb);
+    server.decodeStreaming(i + 1, std::move(encodeResult.stream), length, &cb);
     headerAck(i + 1);
     auto result = cb.getResult();
     EXPECT_TRUE(!result.hasError());
@@ -143,7 +143,7 @@ TEST_F(QPACKTests, TestWithQueue) {
     for (auto i: insertOrder) {
       auto& encodedReq = data[i].first;
       auto len = encodedReq->computeChainDataLength();
-      server.decodeStreaming(std::move(encodedReq), len, &data[i].second);
+      server.decodeStreaming(i, std::move(encodedReq), len, &data[i].second);
     }
     while (!controlFrames.empty()) {
       auto control = std::move(controlFrames.front());
