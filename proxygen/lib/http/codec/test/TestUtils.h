@@ -156,7 +156,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void onError(HTTPCodec::StreamID stream,
                const HTTPException& error,
                bool /*newStream*/) override {
-    if (stream) {
+    if (stream != sessionStreamId) {
       streamErrors++;
     } else {
       sessionErrors++;
@@ -288,6 +288,10 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     return std::bind(&FakeHTTPCodecCallback::sessionError, this);
   }
 
+  void setSessionStreamId(HTTPCodec::StreamID streamId) {
+    sessionStreamId = streamId;
+  }
+
   void reset() {
     headersCompleteId = 0;
     assocStreamId = 0;
@@ -359,6 +363,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   HTTPCodec::StreamID headersCompleteId{0};
   HTTPCodec::StreamID assocStreamId{0};
   HTTPCodec::StreamID controlStreamId{0};
+  HTTPCodec::StreamID sessionStreamId{0};
   uint32_t messageBegin{0};
   uint32_t headersComplete{0};
   uint32_t messageComplete{0};
