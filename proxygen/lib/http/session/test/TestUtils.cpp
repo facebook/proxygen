@@ -44,10 +44,4 @@ testing::NiceMock<MockAsyncTransport>* newMockTransport(EventBase* evb) {
   return transport;
 }
 
-std::string paramToString(const testing::TestParamInfo<std::string>& info) {
-  std::vector<std::string> paramsV;
-  split("-", info.param, paramsV);
-  return join("", paramsV);
-}
-
 }

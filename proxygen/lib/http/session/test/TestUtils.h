@@ -34,8 +34,6 @@ makeTimeoutSet(folly::EventBase* evb);
 testing::NiceMock<folly::test::MockAsyncTransport>*
 newMockTransport(folly::EventBase* evb);
 
-std::string paramToString(const testing::TestParamInfo<std::string>& info);
-
 struct HTTP1xCodecPair {
   using Codec=HTTP1xCodec;
   static const int version = 1;
