@@ -134,9 +134,8 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
         }
         if (parseError_) {
           if (callback_) {
-            LOG(ERROR) << "Error parsing header data: "
-                       << IOBufPrinter::printHexFolly(input_.front());
-
+            LOG(ERROR) << "Error parsing header data: ";
+            VLOG(3) << IOBufPrinter::printHexFolly(input_.front());
             callback_->onError();
           }
           state_ = ParserState::ERROR;

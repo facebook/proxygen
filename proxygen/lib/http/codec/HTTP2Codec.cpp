@@ -470,9 +470,8 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       // excessively large.
       if (decodeInfo_.decodeError != HPACK::DecodeError::HEADERS_TOO_LARGE) {
         LOG(ERROR) << decodeErrorMessage << curHeader_.stream
-                   << " header block=" << std::endl
-                   << IOBufPrinter::printHexFolly(
-                          curHeaderBlock_.front(), true);
+                   << " header block=";
+        VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
       } else {
         LOG(ERROR) << decodeErrorMessage << curHeader_.stream;
       }
@@ -487,8 +486,8 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     if (decodeInfo_.parsingError != "") {
       LOG(ERROR) << "Failed parsing header list for stream="
                  << curHeader_.stream << ", error=" << decodeInfo_.parsingError
-                 << ", header block="
-                 << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
+                 << ", header block=";
+      VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
       HTTPException err(HTTPException::Direction::INGRESS,
                         folly::to<std::string>("HTTP2Codec stream error: ",
                                                "stream=", curHeader_.stream,
@@ -1493,8 +1492,8 @@ size_t HTTP2Codec::generateCertificate(folly::IOBufQueue& writeBuf,
 bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
   if (err != ErrorCode::NO_ERROR) {
     LOG(ERROR) << "Connection error " << getErrorCodeString(err)
-               << " with ingress=" << std::endl
-               << IOBufPrinter::printHexFolly(buf, true);
+               << " with ingress=";
+    VLOG(3) << IOBufPrinter::printHexFolly(buf, true);
     if (callback_) {
       std::string errorDescription = goawayErrorMessage_.empty() ?
         "Connection error" : goawayErrorMessage_;

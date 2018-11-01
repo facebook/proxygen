@@ -414,7 +414,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
     } catch (const std::out_of_range& ex) {
       LOG(ERROR) << "bad encoding for nv=" << i << ": "
                  << folly::exceptionStr(ex);
-      LOG(ERROR) << IOBufPrinter::printHexFolly(&uncompressed, true);
+      VLOG(3) << IOBufPrinter::printHexFolly(&uncompressed, true);
       return folly::makeUnexpected(GzipDecodeError::BAD_ENCODING);
     }
     if (i % 2 == 0) {
