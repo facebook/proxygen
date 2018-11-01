@@ -221,10 +221,13 @@ TEST_F(HTTP2CodecTest, RequestFromServer) {
 
   HTTPCodec::StreamID stream = folly::Random::rand32(10, 1024) * 2;
   HTTPCodec::StreamID controlStream = folly::Random::rand32(10, 1024) * 2 + 1;
-  upstreamCodec_.generateExHeader(output_, stream, req, controlStream, true);
+  upstreamCodec_.generateExHeader(output_, stream, req,
+                                  HTTPCodec::ExAttributes(controlStream, true),
+                                  true);
 
   parseUpstream();
   EXPECT_EQ(controlStream, callbacks_.controlStreamId);
+  EXPECT_TRUE(callbacks_.isUnidirectional);
   callbacks_.expectMessage(true, 3, "/guacamole");
   EXPECT_TRUE(callbacks_.msg->isSecure());
   const auto& headers = callbacks_.msg->getHeaders();
@@ -248,10 +251,12 @@ TEST_F(HTTP2CodecTest, ResponseFromClient) {
 
   HTTPCodec::StreamID stream = folly::Random::rand32(10, 1024) * 2;
   HTTPCodec::StreamID controlStream = folly::Random::rand32(10, 1024) * 2 + 1;
-  downstreamCodec_.generateExHeader(output_, stream, resp, controlStream, true);
+  downstreamCodec_.generateExHeader(output_, stream, resp,
+    HTTPCodec::ExAttributes(controlStream, true), true);
 
   parse();
   EXPECT_EQ(controlStream, callbacks_.controlStreamId);
+  EXPECT_TRUE(callbacks_.isUnidirectional);
   EXPECT_EQ("OK", callbacks_.msg->getStatusMessage());
   callbacks_.expectMessage(true, 2, 200);
   const auto& headers = callbacks_.msg->getHeaders();
@@ -269,7 +274,8 @@ TEST_F(HTTP2CodecTest, ExHeadersWithPriority) {
   auto req = getGetRequest();
   auto pri = HTTPMessage::HTTPPriority(0, false, 7);
   req.setHTTP2Priority(pri);
-  upstreamCodec_.generateExHeader(output_, 3, req, 1, true);
+  upstreamCodec_.generateExHeader(output_, 3, req,
+                                  HTTPCodec::ExAttributes(1, true));
 
   parse();
   EXPECT_EQ(callbacks_.msg->getHTTP2Priority(), pri);
@@ -282,7 +288,8 @@ TEST_F(HTTP2CodecTest, IgnoreExHeadersIfNotEnabled) {
       SettingsId::ENABLE_EX_HEADERS, 0);
 
   HTTPMessage req = getGetRequest("/guacamole");
-  downstreamCodec_.generateExHeader(output_, 3, req, 1, true);
+  downstreamCodec_.generateExHeader(output_, 3, req,
+                                    HTTPCodec::ExAttributes(1, true));
 
   parse();
   EXPECT_EQ(callbacks_.streamErrors, 0);
@@ -1796,7 +1803,8 @@ TEST_F(HTTP2CodecTest, TestAllEgressFrameTypeCallbacks) {
 
   HTTPCodec::StreamID stream = folly::Random::rand32(10, 1024) * 2;
   HTTPCodec::StreamID controlStream = folly::Random::rand32(10, 1024) * 2 + 1;
-  downstreamCodec_.generateExHeader(output_, stream, req, controlStream, true);
+  downstreamCodec_.generateExHeader(output_, stream, req,
+    HTTPCodec::ExAttributes(controlStream, true));
 
   // Tests the continuation frame
   req = getBigGetRequest();

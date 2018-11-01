@@ -66,8 +66,8 @@ class RequestHandlerAdaptor
   void resumeIngress() noexcept override;
   ResponseHandler* newPushedResponse(
     PushHandler* pushHandler) noexcept override;
-  ResponseHandler* newExMessage(ExMessageHandler* exHandler)
-    noexcept override;
+  ResponseHandler* newExMessage(ExMessageHandler* exHandler,
+                                bool unidirectional) noexcept override;
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override;
 

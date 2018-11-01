@@ -787,7 +787,8 @@ TEST_F(HTTP2UpstreamSessionTest, ExheaderFromServer) {
                               false, nullptr);
   // generate a request from server, encapsulated in EX_HEADERS frame
   serverCodec->generateExHeader(queue, 2, getGetRequest("/messaging"),
-                                cStreamId, true, nullptr);
+                                HTTPCodec::ExAttributes(cStreamId, false),
+                                true, nullptr);
   serverCodec->generateEOM(queue, 1);
 
   auto cHandler = openTransaction();
@@ -835,7 +836,8 @@ TEST_F(HTTP2UpstreamSessionTest, InvalidControlStream) {
                               false, nullptr);
   // generate a EX_HEADERS frame with non-existing control stream
   serverCodec->generateExHeader(queue, 2, getGetRequest("/messaging"),
-                                cStreamId + 2, true, nullptr);
+                                HTTPCodec::ExAttributes(cStreamId + 2, false),
+                                true, nullptr);
   serverCodec->generateEOM(queue, 1);
 
   auto cHandler = openTransaction();

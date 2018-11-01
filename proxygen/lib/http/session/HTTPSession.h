@@ -366,6 +366,7 @@ class HTTPSession:
                           HTTPMessage* msg) override;
   void onExMessageBegin(HTTPCodec::StreamID streamID,
                         HTTPCodec::StreamID controlStream,
+                        bool unidirectional,
                         HTTPMessage* msg) override;
   void onHeadersComplete(HTTPCodec::StreamID streamID,
                          std::unique_ptr<HTTPMessage> msg) override;
@@ -431,8 +432,9 @@ class HTTPSession:
     HTTPCodec::StreamID assocStreamId,
     HTTPTransaction::PushHandler* handler) noexcept override;
   HTTPTransaction* newExTransaction(
+    HTTPTransaction::Handler* handler,
     HTTPCodec::StreamID controlStream,
-    HTTPTransaction::Handler* handler) noexcept override;
+    bool unidirectional = false) noexcept override;
 
   const HTTPCodec& getCodec() const noexcept override {
     return codec_.getChainEnd();
@@ -536,7 +538,7 @@ class HTTPSession:
   HTTPTransaction* createTransaction(
     HTTPCodec::StreamID streamID,
     folly::Optional<HTTPCodec::StreamID> assocStreamID,
-    folly::Optional<HTTPCodec::StreamID> controlStream,
+    folly::Optional<HTTPCodec::ExAttributes> exAttributes,
     http2::PriorityUpdate priority = http2::DefaultPriority);
 
   /** Invoked by WriteSegment on completion of a write. */

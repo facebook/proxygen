@@ -62,7 +62,7 @@ public:
   void generateExHeader(folly::IOBufQueue& writeBuf,
                         StreamID stream,
                         const HTTPMessage& msg,
-                        StreamID controlStream,
+                        const HTTPCodec::ExAttributes& exAttributes,
                         bool eom = false,
                         HTTPHeaderSize* size = nullptr) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
@@ -176,7 +176,7 @@ public:
                           StreamID stream,
                           const HTTPMessage& msg,
                           folly::Optional<StreamID> assocStream,
-                          folly::Optional<StreamID> controlStream,
+                          folly::Optional<ExAttributes> exAttributes,
                           bool eom,
                           HTTPHeaderSize* size);
 
@@ -205,7 +205,7 @@ public:
     std::unique_ptr<folly::IOBuf> headerBuf,
     folly::Optional<http2::PriorityUpdate> priority,
     folly::Optional<uint32_t> promisedStream,
-    folly::Optional<uint32_t> controlStream);
+    folly::Optional<ExAttributes> exAttributes);
 
   ErrorCode handleEndStream();
   ErrorCode checkNewStream(uint32_t stream);

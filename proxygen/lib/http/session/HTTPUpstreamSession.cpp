@@ -99,7 +99,7 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
   }
 
   auto txn = createTransaction(codec_->createStream(), HTTPCodec::NoStream,
-                               HTTPCodec::NoControlStream);
+                               HTTPCodec::NoExAttributes);
 
   if (txn) {
     DestructorGuard dg(this);

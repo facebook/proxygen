@@ -665,7 +665,7 @@ HTTPSession::newPushedTransaction(
 
   HTTPTransaction* txn = createTransaction(codec_->createStream(),
                                            assocStreamId,
-                                           HTTPCodec::NoControlStream);
+                                           HTTPCodec::NoExAttributes);
   if (!txn) {
     return nullptr;
   }
@@ -679,8 +679,9 @@ HTTPSession::newPushedTransaction(
 
 HTTPTransaction* FOLLY_NULLABLE
 HTTPSession::newExTransaction(
+    HTTPTransaction::Handler* handler,
     HTTPCodec::StreamID controlStream,
-    HTTPTransaction::Handler* handler) noexcept {
+    bool unidirectional) noexcept {
   CHECK(handler && controlStream > 0);
   auto eSettings = codec_->getEgressSettings();
   if (!eSettings || !eSettings->getSetting(SettingsId::ENABLE_EX_HEADERS, 0)) {
@@ -694,9 +695,10 @@ HTTPSession::newExTransaction(
   }
 
   DCHECK(started_);
-  HTTPTransaction* txn = createTransaction(codec_->createStream(),
-                                           HTTPCodec::NoStream,
-                                           controlStream);
+  HTTPTransaction* txn =
+    createTransaction(codec_->createStream(),
+                      HTTPCodec::NoStream,
+                      HTTPCodec::ExAttributes(controlStream, unidirectional));
   if (!txn) {
     return nullptr;
   }
@@ -774,7 +776,7 @@ HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID, HTTPMessage* msg) {
 
   http2::PriorityUpdate messagePriority = getMessagePriority(msg);
   txn = createTransaction(streamID, HTTPCodec::NoStream,
-                          HTTPCodec::NoControlStream, messagePriority);
+                          HTTPCodec::NoExAttributes, messagePriority);
   if (!txn) {
     return;  // This could happen if the socket is bad.
   }
@@ -839,7 +841,7 @@ HTTPSession::onPushMessageBegin(HTTPCodec::StreamID streamID,
 
   http2::PriorityUpdate messagePriority = getMessagePriority(msg);
   auto txn = createTransaction(streamID, assocStreamID,
-                               HTTPCodec::NoControlStream, messagePriority);
+                               HTTPCodec::NoExAttributes, messagePriority);
   if (!txn) {
     return;  // This could happen if the socket is bad.
   }
@@ -857,6 +859,7 @@ HTTPSession::onPushMessageBegin(HTTPCodec::StreamID streamID,
 void
 HTTPSession::onExMessageBegin(HTTPCodec::StreamID streamID,
                               HTTPCodec::StreamID controlStream,
+                              bool unidirectional,
                               HTTPMessage* msg) {
   VLOG(4) << "processing new ExMessage=" << streamID
           << " on controlStream=" << controlStream << ", " << *this;
@@ -864,7 +867,7 @@ HTTPSession::onExMessageBegin(HTTPCodec::StreamID streamID,
     infoCallback_->onRequestBegin(*this);
   }
   if (controlStream == 0) {
-    LOG(ERROR) << "ExMessage=" << streamID << " should has an active control "
+    LOG(ERROR) << "ExMessage=" << streamID << " should have an active control "
                << "stream=" << controlStream << ", " << *this;
     invalidStream(streamID, ErrorCode::PROTOCOL_ERROR);
     return;
@@ -878,7 +881,10 @@ HTTPSession::onExMessageBegin(HTTPCodec::StreamID streamID,
   }
 
   http2::PriorityUpdate messagePriority = getMessagePriority(msg);
-  auto txn = createTransaction(streamID, HTTPCodec::NoStream, controlStream,
+  auto txn = createTransaction(streamID,
+                               HTTPCodec::NoStream,
+                               HTTPCodec::ExAttributes(controlStream,
+                                                       unidirectional),
                                messagePriority);
   if (!txn) {
     return;  // This could happen if the socket is bad.
@@ -1124,7 +1130,7 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
       // If the error has an HTTP code, then parsing was fine, it just was
       // illegal in a higher level way
       txn = createTransaction(streamID, HTTPCodec::NoStream,
-                              HTTPCodec::NoControlStream);
+                              HTTPCodec::NoExAttributes);
       if (infoCallback_) {
         infoCallback_->onRequestBegin(*this);
       }
@@ -1591,13 +1597,13 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
 
   const bool wasReusable = codec_->isReusable();
   const uint64_t oldOffset = sessionByteOffset();
-  auto controlStream = txn->getControlStream();
+  auto exAttributes = txn->getExAttributes();
   auto assocStream = txn->getAssocTxnId();
-  if (controlStream) {
+  if (exAttributes) {
     codec_->generateExHeader(writeBuf_,
                              txn->getID(),
                              headers,
-                             *controlStream,
+                             *exAttributes,
                              includeEOM,
                              size);
   } else if (headers.isRequest() && assocStream) {
@@ -2550,7 +2556,7 @@ HTTPTransaction*
 HTTPSession::createTransaction(
     HTTPCodec::StreamID streamID,
     folly::Optional<HTTPCodec::StreamID> assocStreamID,
-    folly::Optional<HTTPCodec::StreamID> controlStream,
+    folly::Optional<HTTPCodec::ExAttributes> exAttributes,
     http2::PriorityUpdate priority) {
   if (!sock_->good() || transactions_.count(streamID)) {
     // Refuse to add a transaction on a closing session or if a
@@ -2580,7 +2586,7 @@ HTTPSession::createTransaction(
       getCodecSendWindowSize(),
       priority,
       assocStreamID,
-      controlStream
+      exAttributes
     ));
 
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "

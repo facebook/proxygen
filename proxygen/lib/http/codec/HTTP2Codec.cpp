@@ -393,19 +393,19 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
 
 ErrorCode HTTP2Codec::parseExHeaders(Cursor& cursor) {
   FOLLY_SCOPED_TRACE_SECTION("HTTP2Codec - parseExHeaders");
-  uint32_t controlStream;
+  HTTPCodec::ExAttributes exAttributes;
   folly::Optional<http2::PriorityUpdate> priority;
   std::unique_ptr<IOBuf> headerBuf;
   VLOG(4) << "parsing ExHEADERS frame for stream=" << curHeader_.stream
           << " length=" << curHeader_.length;
   auto err = http2::parseExHeaders(
-      cursor, curHeader_, controlStream, priority, headerBuf);
+      cursor, curHeader_, exAttributes, priority, headerBuf);
   RETURN_IF_ERROR(err);
   if (isRequest(curHeader_.stream)) {
     RETURN_IF_ERROR(checkNewStream(curHeader_.stream));
   }
   return parseHeadersImpl(cursor, std::move(headerBuf), priority, folly::none,
-                          controlStream);
+                          exAttributes);
 }
 
 ErrorCode HTTP2Codec::parseContinuation(Cursor& cursor) {
@@ -424,7 +424,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     std::unique_ptr<IOBuf> headerBuf,
     folly::Optional<http2::PriorityUpdate> priority,
     folly::Optional<uint32_t> promisedStream,
-    folly::Optional<uint32_t> controlStream) {
+    folly::Optional<ExAttributes> exAttributes) {
   curHeaderBlock_.append(std::move(headerBuf));
   std::unique_ptr<HTTPMessage> msg;
   if (curHeader_.flags & http2::END_HEADERS) {
@@ -433,7 +433,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     bool isReq = false;
     if (promisedStream) {
       isReq = true;
-    } else if (controlStream) {
+    } else if (exAttributes) {
       isReq = isRequest(curHeader_.stream);
     } else {
       isReq = transportDirection_ == TransportDirection::DOWNSTREAM;
@@ -526,8 +526,11 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
         }
       } else if (curHeader_.type == http2::FrameType::EX_HEADERS) {
         if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onExMessageBegin,
-                                      "onExMessageBegin", curHeader_.stream,
-                                      *controlStream, msg.get())) {
+                                      "onExMessageBegin",
+                                      curHeader_.stream,
+                                      exAttributes->controlStream,
+                                      exAttributes->unidirectional,
+                                      msg.get())) {
           return handleEndStream();
         }
       }
@@ -1028,14 +1031,14 @@ void HTTP2Codec::generatePushPromise(folly::IOBufQueue& writeBuf,
 void HTTP2Codec::generateExHeader(folly::IOBufQueue& writeBuf,
                                   StreamID stream,
                                   const HTTPMessage& msg,
-                                  StreamID controlStream,
+                                  const HTTPCodec::ExAttributes& exAttributes,
                                   bool eom,
                                   HTTPHeaderSize* size) {
   generateHeaderImpl(writeBuf,
                      stream,
                      msg,
                      folly::none, /* assocStream */
-                     controlStream,
+                     exAttributes,
                      eom,
                      size);
 }
@@ -1044,16 +1047,18 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                     StreamID stream,
                                     const HTTPMessage& msg,
                                     folly::Optional<StreamID> assocStream,
-                                    folly::Optional<StreamID> controlStream,
+                                    folly::Optional<HTTPCodec::ExAttributes>
+                                    exAttributes,
                                     bool eom,
                                     HTTPHeaderSize* size) {
   if (assocStream) {
-    CHECK(!controlStream);
+    CHECK(!exAttributes);
     VLOG(4) << "generating PUSH_PROMISE for stream=" << stream;
-  } else if (controlStream) {
+  } else if (exAttributes) {
     CHECK(!assocStream);
     VLOG(4) << "generating ExHEADERS for stream=" << stream
-            << " with control stream=" << *controlStream;
+            << " with control stream=" << exAttributes->controlStream
+            << " unidirectional=" << exAttributes->unidirectional;
   } else {
     VLOG(4) << "generating HEADERS for stream=" << stream;
   }
@@ -1070,13 +1075,13 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
 
   if (msg.isRequest()) {
     DCHECK(transportDirection_ == TransportDirection::UPSTREAM ||
-           assocStream || controlStream);
+           assocStream || exAttributes);
     if (msg.isEgressWebsocketUpgrade()) {
       upgradedStreams_.insert(stream);
     }
   } else {
     DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM ||
-           controlStream);
+           exAttributes);
   }
 
   std::vector<std::string> temps;
@@ -1132,16 +1137,18 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                                             std::move(chunk),
                                                             http2::kNoPadding,
                                                             endHeaders));
-    } else if (controlStream) {
-      generateHeaderCallbackWrapper(stream, http2::FrameType::EX_HEADERS,
-                                    http2::writeExHeaders(writeBuf,
-                                                          std::move(chunk),
-                                                          stream,
-                                                          *controlStream,
-                                                          pri,
-                                                          http2::kNoPadding,
-                                                          eom,
-                                                          endHeaders));
+    } else if (exAttributes) {
+      generateHeaderCallbackWrapper(
+        stream,
+        http2::FrameType::EX_HEADERS,
+        http2::writeExHeaders(writeBuf,
+                              std::move(chunk),
+                              stream,
+                              *exAttributes,
+                              pri,
+                              http2::kNoPadding,
+                              eom,
+                              endHeaders));
     } else {
       generateHeaderCallbackWrapper(stream, http2::FrameType::HEADERS,
                                     http2::writeHeaders(writeBuf,

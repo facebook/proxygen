@@ -338,7 +338,7 @@ parseHeaders(Cursor& cursor,
 ErrorCode
 parseExHeaders(Cursor& cursor,
                const FrameHeader& header,
-               uint32_t& outControlStream,
+               HTTPCodec::ExAttributes& outExAttributes,
                folly::Optional<PriorityUpdate>& outPriority,
                std::unique_ptr<IOBuf>& outBuf) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
@@ -361,13 +361,14 @@ parseExHeaders(Cursor& cursor,
   } else {
     outPriority = folly::none;
   }
+  outExAttributes.unidirectional = header.flags & UNIDIRECTIONAL;
 
   if (lefttoparse < kFrameStreamIDSize) {
     return ErrorCode::FRAME_SIZE_ERROR;
   }
-  outControlStream = parseUint31(cursor);
+  outExAttributes.controlStream = parseUint31(cursor);
   lefttoparse -= kFrameStreamIDSize;
-  if (!(outControlStream & 0x1)) {
+  if (!(outExAttributes.controlStream & 0x1)) {
     // control stream ID should be odd because it is initiated by client
     return ErrorCode::PROTOCOL_ERROR;
   }
@@ -670,16 +671,17 @@ size_t
 writeExHeaders(IOBufQueue& queue,
                std::unique_ptr<IOBuf> headers,
                uint32_t stream,
-               uint32_t controlStream,
+               const HTTPCodec::ExAttributes& exAttributes,
                folly::Optional<PriorityUpdate> priority,
                folly::Optional<uint8_t> padding,
                bool endStream,
                bool endHeaders) noexcept {
   DCHECK_NE(0, stream);
-  DCHECK_NE(0, controlStream);
+  DCHECK_NE(0, exAttributes.controlStream);
   DCHECK_EQ(0, ~kUint31Mask & stream);
-  DCHECK_EQ(0, ~kUint31Mask & controlStream);
-  DCHECK(0x1 & controlStream) << "controlStream should be initiated by client";
+  DCHECK_EQ(0, ~kUint31Mask & exAttributes.controlStream);
+  DCHECK(0x1 & exAttributes.controlStream) <<
+    "controlStream should be initiated by client";
 
   const auto dataLen = (headers) ? headers->computeChainDataLength() : 0;
   uint32_t flags = 0;
@@ -692,6 +694,9 @@ writeExHeaders(IOBufQueue& queue,
   if (endHeaders) {
     flags |= END_HEADERS;
   }
+  if (exAttributes.unidirectional) {
+    flags |= UNIDIRECTIONAL;
+  }
 
   const auto frameLen = writeFrameHeader(queue,
                                          dataLen + kFrameStreamIDSize,
@@ -702,7 +707,7 @@ writeExHeaders(IOBufQueue& queue,
                                          priority,
                                          nullptr);
   QueueAppender appender(&queue, frameLen);
-  appender.writeBE<uint32_t>(controlStream);
+  appender.writeBE<uint32_t>(exAttributes.controlStream);
   queue.append(std::move(headers));
   writePadding(queue, padding);
   return kFrameHeaderSize + frameLen;

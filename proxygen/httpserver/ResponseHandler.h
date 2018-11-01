@@ -77,7 +77,8 @@ class ResponseHandler {
   virtual ResponseHandler* newPushedResponse(
     PushHandler* pushHandler) noexcept = 0;
 
-  virtual ResponseHandler* newExMessage(ExMessageHandler* /*exHandler*/)
+  virtual ResponseHandler* newExMessage(ExMessageHandler* /*exHandler*/,
+                                        bool /*unidirectional*/ = false)
       noexcept {
     LOG(FATAL) << "newExMessage not supported";
   }

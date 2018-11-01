@@ -187,9 +187,10 @@ ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
 }
 
 ResponseHandler* RequestHandlerAdaptor::newExMessage(
-    ExMessageHandler* exHandler) noexcept {
+    ExMessageHandler* exHandler,
+    bool unidirectional) noexcept {
   RequestHandlerAdaptor* handler = new RequestHandlerAdaptor(exHandler);
-  getTransaction()->newExTransaction(handler);
+  getTransaction()->newExTransaction(handler, unidirectional);
   return handler;
 }
 

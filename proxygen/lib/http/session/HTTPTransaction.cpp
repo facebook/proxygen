@@ -43,7 +43,8 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
                                  uint32_t sendInitialWindowSize,
                                  http2::PriorityUpdate priority,
                                  folly::Optional<HTTPCodec::StreamID> assocId,
-                                 folly::Optional<HTTPCodec::StreamID> control):
+                                 folly::Optional<HTTPCodec::ExAttributes>
+                                 exAttributes):
     deferredEgressBody_(folly::IOBufQueue::cacheChainLength()),
     direction_(direction),
     id_(id),
@@ -54,7 +55,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     sendWindow_(sendInitialWindowSize),
     egressQueue_(egressQueue),
     assocStreamId_(assocId),
-    controlStream_(control),
     priority_(priority),
     ingressPaused_(false),
     egressPaused_(false),
@@ -81,6 +81,19 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
     } else {
       ingressState_ = HTTPTransactionIngressSM::State::ReceivingDone;
     }
+  }
+
+  if (exAttributes) {
+    exAttributes_ = exAttributes;
+    if (exAttributes_->unidirectional) {
+      if (isRemoteInitiated()) {
+        egressState_ = HTTPTransactionEgressSM::State::SendingDone;
+      } else {
+        ingressState_ = HTTPTransactionIngressSM::State::ReceivingDone;
+      }
+    }
+  } else {
+    exAttributes_ = folly::none;
   }
 
   refreshTimeout();
@@ -1265,7 +1278,7 @@ bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
 
 bool HTTPTransaction::onExTransaction(HTTPTransaction* exTxn) {
   DestructorGuard g(this);
-  CHECK_EQ(*(exTxn->controlStream_), id_);
+  CHECK_EQ(*(exTxn->getControlStream()), id_);
   if (!handler_) {
     LOG(ERROR) << "Cannot add a exTxn to an unhandled txn";
     return false;

@@ -15,6 +15,7 @@
 #include <folly/Range.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/SettingsId.h>
 #include <proxygen/lib/utils/Export.h>
 #include <string.h>
@@ -61,6 +62,8 @@ enum Flags {
   END_HEADERS = 0x4,
   PADDED = 0x8,
   PRIORITY = 0x20,
+  // experimental flag for EX stream only
+  UNIDIRECTIONAL = 0x40,
 
   // for secondary certificate authentication frames
   UNSOLICITED = 0x1,
@@ -170,7 +173,7 @@ parseHeaders(folly::io::Cursor& cursor,
 ErrorCode
 parseExHeaders(folly::io::Cursor& cursor,
                const FrameHeader& header,
-               uint32_t& outControlStream,
+               HTTPCodec::ExAttributes& outExAttributes,
                folly::Optional<PriorityUpdate>& outPriority,
                std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
@@ -434,8 +437,7 @@ writeHeaders(folly::IOBufQueue& writeBuf,
  *                 underlying buffers inside this function.
  * @param headers The encoded headers data to write out.
  * @param stream The stream identifier of the ExHEADERS frame.
- * @param controlStream The stream identifier of the control stream, with which
-                        this ExHEADERS associated.
+ * @param exAttributes Attributes specific to ExHEADERS frame.
  * @param priority If present, the priority depedency information to
  *                 update the stream with.
  * @param padding If not kNoPadding, adds 1 byte pad len and @padding pad bytes
@@ -447,7 +449,7 @@ size_t
 writeExHeaders(folly::IOBufQueue& writeBuf,
                std::unique_ptr<folly::IOBuf> headers,
                uint32_t stream,
-               uint32_t controlStream,
+               const HTTPCodec::ExAttributes& exAttributes,
                folly::Optional<PriorityUpdate> priority,
                folly::Optional<uint8_t> padding,
                bool endStream,

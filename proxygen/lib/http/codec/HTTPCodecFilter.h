@@ -41,7 +41,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                           HTTPMessage* msg) override;
 
   void onExMessageBegin(StreamID stream, StreamID controlStream,
-                        HTTPMessage* msg) override;
+                        bool unidirectional, HTTPMessage* msg) override;
 
   void onHeadersComplete(StreamID stream,
                          std::unique_ptr<HTTPMessage> msg) override;
@@ -164,7 +164,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   void generateExHeader(folly::IOBufQueue& writeBuf,
                         StreamID stream,
                         const HTTPMessage& msg,
-                        StreamID controlStream,
+                        const HTTPCodec::ExAttributes& exAttributes,
                         bool eom,
                         HTTPHeaderSize* size) override;
 

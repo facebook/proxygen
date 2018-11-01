@@ -129,7 +129,7 @@ checkForProtocolUpgrade(const std::string& clientUpgrade,
   return folly::none;
 }
 
-const folly::Optional<HTTPCodec::StreamID> HTTPCodec::NoControlStream =
+const folly::Optional<HTTPCodec::ExAttributes> HTTPCodec::NoExAttributes =
     folly::none;
 const folly::Optional<HTTPCodec::StreamID> HTTPCodec::NoStream =
     folly::none;

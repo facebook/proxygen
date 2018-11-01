@@ -64,9 +64,10 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   GMOCK_METHOD2_(, noexcept,, newPushedTransaction,
                  HTTPTransaction*(HTTPCodec::StreamID assocStreamId,
                                   HTTPTransaction::PushHandler* handler));
-  GMOCK_METHOD2_(, noexcept,, newExTransaction,
-                 HTTPTransaction*(HTTPCodec::StreamID controlStream,
-                                  HTTPTransaction::Handler* handler));
+  GMOCK_METHOD3_(, noexcept,, newExTransaction,
+                 HTTPTransaction*(HTTPTransaction::Handler* handler,
+                                  HTTPCodec::StreamID controlStream,
+                                  bool unidirectional));
 
   const folly::SocketAddress& getLocalAddress()
     const noexcept override {

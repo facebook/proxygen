@@ -50,11 +50,20 @@ class HTTPCodec {
 
   static const folly::Optional<StreamID> NoStream;
 
-  static const folly::Optional<StreamID> NoControlStream;
-
   static const folly::Optional<uint8_t> NoPadding;
 
   static const StreamID MAX_STREAM_ID = 1u << 31;
+
+  struct ExAttributes {
+    ExAttributes() {}
+    ExAttributes(StreamID controlStreamId, bool isUnidirectional)
+      : controlStream(controlStreamId), unidirectional(isUnidirectional) {}
+
+    StreamID controlStream;
+    bool unidirectional;
+  };
+
+  static const folly::Optional<ExAttributes> NoExAttributes;
 
   class PriorityQueue {
    public:
@@ -97,6 +106,7 @@ class HTTPCodec {
      */
     virtual void onExMessageBegin(StreamID /* stream */,
                                   StreamID /* controlStream */,
+                                  bool /* unidirectional */,
                                   HTTPMessage* /* msg */) {}
 
     /**
@@ -489,7 +499,7 @@ class HTTPCodec {
   virtual void generateExHeader(folly::IOBufQueue& /* writeBuf */,
                                 StreamID /* stream */,
                                 const HTTPMessage& /* msg */,
-                                StreamID /* controlStream */,
+                                const HTTPCodec::ExAttributes& /*exAttributes*/,
                                 bool /* eom = false */,
                                 HTTPHeaderSize* /* size = nullptr */) {}
 

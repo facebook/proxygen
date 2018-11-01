@@ -139,8 +139,9 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
   MOCK_METHOD3(onPushMessageBegin, void(HTTPCodec::StreamID,
                                         HTTPCodec::StreamID,
                                         HTTPMessage*));
-  MOCK_METHOD3(onExMessageBegin, void(HTTPCodec::StreamID,
+  MOCK_METHOD4(onExMessageBegin, void(HTTPCodec::StreamID,
                                       HTTPCodec::StreamID,
+                                      bool,
                                       HTTPMessage*));
   MOCK_METHOD2(onHeadersComplete, void(HTTPCodec::StreamID,
                                        std::shared_ptr<HTTPMessage>));

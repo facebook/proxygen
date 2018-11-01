@@ -664,23 +664,51 @@ TEST_F(HTTP2FramerTest, ExHeaders) {
   auto body = makeBuf(500);
   uint32_t streamID = folly::Random::rand32(10, 1024) * 2 + 1;
   uint32_t controlStream = streamID - 2;
-  writeExHeaders(queue_, body->clone(), streamID, controlStream,
+  writeExHeaders(queue_, body->clone(), streamID,
+                 HTTPCodec::ExAttributes(controlStream, false),
                  {{0, true, 12}}, 200, false, false);
 
   FrameHeader header;
-  uint32_t outControlStreamID;
+  HTTPCodec::ExAttributes outExAttributes;
   folly::Optional<PriorityUpdate> priority;
   std::unique_ptr<IOBuf> outBuf;
-  parse(&parseExHeaders, header, outControlStreamID, priority, outBuf);
+  parse(&parseExHeaders, header, outExAttributes, priority, outBuf);
 
   ASSERT_EQ(FrameType::EX_HEADERS, header.type);
   ASSERT_EQ(streamID, header.stream);
-  ASSERT_EQ(controlStream, outControlStreamID);
+  ASSERT_EQ(controlStream, outExAttributes.controlStream);
   ASSERT_TRUE(PRIORITY & header.flags);
   ASSERT_FALSE(END_STREAM & header.flags);
   ASSERT_FALSE(END_HEADERS & header.flags);
+  ASSERT_FALSE(UNIDIRECTIONAL & header.flags);
+  ASSERT_FALSE(outExAttributes.unidirectional);
   ASSERT_EQ(0, priority->streamDependency);
   ASSERT_TRUE(priority->exclusive);
   ASSERT_EQ(12, priority->weight);
+  EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
+}
+
+TEST_F(HTTP2FramerTest, ExHeadersWithFlagsSet) {
+  auto body = makeBuf(500);
+  uint32_t streamID = folly::Random::rand32(10, 1024) * 2 + 1;
+  uint32_t controlStream = streamID - 2;
+  writeExHeaders(queue_, body->clone(), streamID,
+                 HTTPCodec::ExAttributes(controlStream, true),
+                 folly::none, 0, true, true);
+
+  FrameHeader header;
+  HTTPCodec::ExAttributes outExAttributes;
+  folly::Optional<PriorityUpdate> priority;
+  std::unique_ptr<IOBuf> outBuf;
+  parse(&parseExHeaders, header, outExAttributes, priority, outBuf);
+
+  ASSERT_EQ(FrameType::EX_HEADERS, header.type);
+  ASSERT_EQ(streamID, header.stream);
+  ASSERT_EQ(controlStream, outExAttributes.controlStream);
+  ASSERT_FALSE(PRIORITY & header.flags);
+  ASSERT_TRUE(END_STREAM & header.flags);
+  ASSERT_TRUE(END_HEADERS & header.flags);
+  ASSERT_TRUE(UNIDIRECTIONAL & header.flags);
+  ASSERT_TRUE(outExAttributes.unidirectional);
   EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
 }

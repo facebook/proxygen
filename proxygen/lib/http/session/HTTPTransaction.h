@@ -403,8 +403,9 @@ class HTTPTransaction :
       HTTPTransaction::PushHandler* handler) noexcept = 0;
 
     virtual HTTPTransaction* newExTransaction(
+      HTTPTransaction::Handler* handler,
       HTTPCodec::StreamID controlStream,
-      HTTPTransaction::Handler* handler) noexcept = 0;
+      bool unidirectional) noexcept = 0;
 
     virtual std::string getSecurityProtocol() const = 0;
 
@@ -457,8 +458,8 @@ class HTTPTransaction :
                   http2::PriorityUpdate = http2::DefaultPriority,
                   folly::Optional<HTTPCodec::StreamID> assocStreamId =
                   HTTPCodec::NoStream,
-                  folly::Optional<HTTPCodec::StreamID> controlStream =
-                  HTTPCodec::NoControlStream);
+                  folly::Optional<HTTPCodec::ExAttributes> exAttributes =
+                  HTTPCodec::NoExAttributes);
 
   ~HTTPTransaction() override;
 
@@ -993,8 +994,9 @@ class HTTPTransaction :
    * @return the new transaction for pubsub, or nullptr if a new push
    * transaction is impossible right now.
    */
-  virtual HTTPTransaction* newExTransaction(HTTPTransactionHandler* handler) {
-    auto txn = transport_.newExTransaction(id_, handler);
+  virtual HTTPTransaction* newExTransaction(HTTPTransactionHandler* handler,
+                                            bool unidirectional = false) {
+    auto txn = transport_.newExTransaction(handler, id_, unidirectional);
     if (txn) {
       exTransactions_.insert(txn->getID());
     }
@@ -1021,6 +1023,14 @@ class HTTPTransaction :
    */
   bool isPushed() const {
     return assocStreamId_.has_value();
+  }
+
+  bool isExTransaction() const {
+    return exAttributes_.has_value();
+  }
+
+  bool isUnidirectional() const {
+    return isExTransaction() && exAttributes_->unidirectional;
   }
 
   /**
@@ -1057,7 +1067,15 @@ class HTTPTransaction :
    * folly::none otherwise
    */
   folly::Optional<HTTPCodec::StreamID> getControlStream() const {
-    return controlStream_;
+    return exAttributes_ ? exAttributes_->controlStream : HTTPCodec::NoStream;
+  }
+
+
+  /*
+   * Returns attributes of EX stream (folly::none if not an EX transaction)
+   */
+  folly::Optional<HTTPCodec::ExAttributes> getExAttributes() const {
+    return exAttributes_;
   }
 
   /**
@@ -1411,9 +1429,9 @@ class HTTPTransaction :
   folly::Optional<HTTPCodec::StreamID> assocStreamId_;
 
   /**
-   * ID of control channel (for http2 Ex_HEADERS only)
+   * Attributes of http2 Ex_HEADERS
    */
-  folly::Optional<HTTPCodec::StreamID> controlStream_;
+  folly::Optional<HTTPCodec::ExAttributes> exAttributes_;
 
   /**
    * Set of all push transactions IDs associated with this transaction.
