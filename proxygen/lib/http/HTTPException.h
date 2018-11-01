@@ -107,8 +107,8 @@ class HTTPException : public proxygen::Exception {
   bool hasErrno() const {
     return (errno_ != 0);
   }
-  void setErrno(uint32_t errno) {
-    errno_ = errno;
+  void setErrno(uint32_t e) {
+    errno_ = e;
   }
   uint32_t getErrno() const {
     return errno_;
