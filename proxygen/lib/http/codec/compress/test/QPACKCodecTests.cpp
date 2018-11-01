@@ -169,3 +169,44 @@ TEST_F(QPACKTests, TestWithQueue) {
   EXPECT_EQ(server.getHolBlockCount(), 30);
 
 }
+
+TEST_F(QPACKTests, HeaderCodecStats) {
+  vector<vector<string>> headers = {
+    {"Content-Length", "80"},
+    {"Content-Encoding", "gzip"},
+    {"X-FB-Debug", "eirtijvdgtccffkutnbttcgbfieghgev"}
+  };
+  vector<Header> resp = headersFromArray(headers);
+
+  TestHeaderCodecStats stats(HeaderCodec::Type::QPACK);
+  // encode
+  server.setStats(&stats);
+  auto encResult = server.encode(resp, 1);
+  EXPECT_EQ(stats.encodes, 1);
+  EXPECT_EQ(stats.decodes, 0);
+  EXPECT_EQ(stats.errors, 0);
+  EXPECT_TRUE(stats.encodedBytesCompr > 0);
+  EXPECT_TRUE(stats.encodedBytesUncompr > 0);
+  EXPECT_EQ(stats.decodedBytesCompr, 0);
+  EXPECT_EQ(stats.decodedBytesUncompr, 0);
+  server.setStats(nullptr);
+
+  // decode
+  stats.reset();
+  client.setStats(&stats);
+  TestStreamingCallback cb;
+  auto len = encResult.stream->computeChainDataLength();
+  client.decodeEncoderStream(std::move(encResult.control));
+  client.decodeStreaming(1, std::move(encResult.stream), len, &cb);
+  auto result = cb.getResult();
+  EXPECT_TRUE(!result.hasError());
+  auto& decoded = result->headers;
+  CHECK_EQ(decoded.size(), 3 * 2);
+  EXPECT_EQ(stats.decodes, 1);
+  EXPECT_EQ(stats.encodes, 0);
+  EXPECT_GT(stats.decodedBytesCompr, 0);
+  EXPECT_GT(stats.decodedBytesUncompr, 0);
+  EXPECT_EQ(stats.encodedBytesCompr, 0);
+  EXPECT_EQ(stats.encodedBytesUncompr, 0);
+  client.setStats(nullptr);
+}

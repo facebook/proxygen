@@ -40,7 +40,7 @@ void QPACKCodec::recordCompressedSize(
     encodedSize_.compressed += encodeRes.stream->computeChainDataLength();
   }
   if (stats_) {
-    stats_->recordEncode(Type::HPACK, encodedSize_);
+    stats_->recordEncode(Type::QPACK, encodedSize_);
   }
 }
 

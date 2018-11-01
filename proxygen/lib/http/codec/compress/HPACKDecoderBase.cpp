@@ -25,6 +25,7 @@ uint32_t HPACKDecoderBase::emit(const HPACKHeader& header,
 }
 
 void HPACKDecoderBase::completeDecode(
+    HeaderCodec::Type type,
     HPACK::StreamingCallback* streamingCb,
     uint32_t compressedSize,
     uint32_t emittedSize) {
@@ -35,9 +36,9 @@ void HPACKDecoderBase::completeDecode(
     if (streamingCb->stats) {
       if (err_ == HPACK::DecodeError::HEADERS_TOO_LARGE ||
           err_ == HPACK::DecodeError::LITERAL_TOO_LARGE) {
-        streamingCb->stats->recordDecodeTooLarge(HeaderCodec::Type::HPACK);
+        streamingCb->stats->recordDecodeTooLarge(type);
       } else {
-        streamingCb->stats->recordDecodeError(HeaderCodec::Type::HPACK);
+        streamingCb->stats->recordDecodeError(type);
       }
     }
     streamingCb->onDecodeError(err_);
@@ -46,7 +47,7 @@ void HPACKDecoderBase::completeDecode(
     decodedSize.compressed = compressedSize;
     decodedSize.uncompressed = emittedSize;
     if (streamingCb->stats) {
-      streamingCb->stats->recordDecode(HeaderCodec::Type::HPACK, decodedSize);
+      streamingCb->stats->recordDecode(type, decodedSize);
     }
     streamingCb->onHeadersComplete(decodedSize);
   }

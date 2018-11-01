@@ -53,6 +53,7 @@ class HPACKDecoderBase {
                 headers_t* emitted);
 
   void completeDecode(
+      HeaderCodec::Type type,
       HPACK::StreamingCallback* streamingCb,
       uint32_t compressedSize,
       uint32_t emittedSize);

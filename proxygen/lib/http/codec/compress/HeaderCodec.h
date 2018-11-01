@@ -39,6 +39,7 @@ class HeaderCodec {
   enum class Type : uint8_t {
     GZIP = 0,
     HPACK = 1,
+    QPACK = 2
   };
 
   class Stats {

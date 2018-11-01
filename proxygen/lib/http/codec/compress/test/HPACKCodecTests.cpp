@@ -37,54 +37,6 @@ bool isLowercase(StringPiece str) {
   return true;
 }
 
-class TestHeaderCodecStats : public HeaderCodec::Stats {
-
- public:
-  void recordEncode(HeaderCodec::Type type, HTTPHeaderSize& size) override {
-    EXPECT_EQ(type, HeaderCodec::Type::HPACK);
-    encodes++;
-    encodedBytesCompr += size.compressed;
-    encodedBytesUncompr += size.uncompressed;
-  }
-
-  void recordDecode(HeaderCodec::Type type, HTTPHeaderSize& size) override {
-    EXPECT_EQ(type, HeaderCodec::Type::HPACK);
-    decodes++;
-    decodedBytesCompr += size.compressed;
-    decodedBytesUncompr += size.uncompressed;
-  }
-
-  void recordDecodeError(HeaderCodec::Type type) override {
-    EXPECT_EQ(type, HeaderCodec::Type::HPACK);
-    errors++;
-  }
-
-  void recordDecodeTooLarge(HeaderCodec::Type type) override {
-    EXPECT_EQ(type, HeaderCodec::Type::HPACK);
-    tooLarge++;
-  }
-
-  void reset() {
-    encodes = 0;
-    decodes = 0;
-    encodedBytesCompr = 0;
-    encodedBytesUncompr = 0;
-    decodedBytesCompr = 0;
-    decodedBytesUncompr = 0;
-    errors = 0;
-    tooLarge = 0;
-  }
-
-  uint32_t encodes{0};
-  uint32_t encodedBytesCompr{0};
-  uint32_t encodedBytesUncompr{0};
-  uint32_t decodes{0};
-  uint32_t decodedBytesCompr{0};
-  uint32_t decodedBytesUncompr{0};
-  uint32_t errors{0};
-  uint32_t tooLarge{0};
-};
-
 namespace {
 
 struct DecodeResult {
@@ -219,7 +171,7 @@ TEST_F(HPACKCodecTests, DecodeError) {
   encodedReq->writableData()[0] = 0xFF;
   Cursor cursor(encodedReq.get());
 
-  TestHeaderCodecStats stats;
+  TestHeaderCodecStats stats(HeaderCodec::Type::HPACK);
   client.setStats(&stats);
   auto result = decode(client, cursor, cursor.totalLength());
   // this means there was an error
@@ -240,7 +192,7 @@ TEST_F(HPACKCodecTests, HeaderCodecStats) {
   };
   vector<Header> resp = headersFromArray(headers);
 
-  TestHeaderCodecStats stats;
+  TestHeaderCodecStats stats(HeaderCodec::Type::HPACK);
   // encode
   server.setStats(&stats);
   unique_ptr<IOBuf> encodedResp = server.encode(resp);
@@ -263,8 +215,8 @@ TEST_F(HPACKCodecTests, HeaderCodecStats) {
   CHECK_EQ(decoded.size(), 3 * 2);
   EXPECT_EQ(stats.decodes, 1);
   EXPECT_EQ(stats.encodes, 0);
-  EXPECT_TRUE(stats.decodedBytesCompr > 0);
-  EXPECT_TRUE(stats.decodedBytesUncompr > 0);
+  EXPECT_GT(stats.decodedBytesCompr, 0);
+  EXPECT_GT(stats.decodedBytesUncompr, 0);
   EXPECT_EQ(stats.encodedBytesCompr, 0);
   EXPECT_EQ(stats.encodedBytesUncompr, 0);
   client.setStats(nullptr);
@@ -304,7 +256,7 @@ TEST_F(HPACKCodecTests, SizeLimitStats) {
   unique_ptr<IOBuf> encoded = client.encode(encHeaders);
   Cursor cursor(encoded.get());
   TestStreamingCallback cb;
-  TestHeaderCodecStats stats;
+  TestHeaderCodecStats stats(HeaderCodec::Type::HPACK);
   server.setStats(&stats);
   server.decodeStreaming(cursor, cursor.totalLength(), &cb);
   auto result = cb.getResult();
