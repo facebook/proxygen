@@ -18,7 +18,7 @@ namespace proxygen {
  */
 struct TraceEventObserver {
   virtual ~TraceEventObserver() {}
-  virtual void traceEventAvailable(TraceEvent) {}
+  virtual void traceEventAvailable(TraceEvent) noexcept {}
   virtual void emitTraceEvents(std::vector<TraceEvent>) noexcept {}
 };
 
