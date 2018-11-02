@@ -65,7 +65,7 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
         hasStatus_ = true;
         int32_t code = -1;
         folly::tryTo<int32_t>(valueSp).then(
-            [&code] (int32_t num) { code = num; });
+            [&code](int32_t num) { code = num; });
         if (code >= 100 && code <= 999) {
           msg->setStatusCode(code);
           msg->setStatusMessage(HTTPMessage::getDefaultReason(code));
@@ -86,7 +86,8 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
     }
     if (nameSp == "content-length") {
       uint32_t cl = 0;
-      folly::tryTo<uint32_t>(valueSp).then([&cl] (uint32_t num) { cl = num; });
+      folly::tryTo<uint32_t>(valueSp).then(
+          [&cl](uint32_t num) { cl = num; });
       if (contentLength_ && *contentLength_ != cl) {
         parsingError = string("Multiple content-length headers");
         return false;
