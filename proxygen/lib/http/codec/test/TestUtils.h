@@ -146,10 +146,12 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {
     chunkComplete++;
   }
-  void onTrailersComplete(
-      HTTPCodec::StreamID /*stream*/,
-      std::unique_ptr<HTTPHeaders> /*inTrailers*/) override {
+  void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
+                          std::unique_ptr<HTTPHeaders> inTrailers) override {
     trailers++;
+    if (msg) {
+      msg->setTrailers(std::move(inTrailers));
+    }
   }
   void onMessageComplete(HTTPCodec::StreamID /*stream*/,
                          bool /*upgrade*/) override {

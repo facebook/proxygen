@@ -274,6 +274,13 @@ class HTTPMessage {
   const HTTPHeaders& getHeaders() const { return headers_; }
 
   /**
+   * Move headers out of current message (returns rvalue ref)
+   */
+  HTTPHeaders&& extractHeaders() {
+    return std::move(headers_);
+  }
+
+  /**
    * Access the trailers
    */
   HTTPHeaders* getTrailers() { return trailers_.get(); }

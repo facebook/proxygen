@@ -27,6 +27,7 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
   folly::StringPiece valueSp(value);
 
   if (nameSp.startsWith(':')) {
+    pseudoHeaderSeen_ = true;
     if (regularHeaderSeen_) {
       parsingError = folly::to<string>("Illegal pseudo header name=", nameSp);
       return false;
@@ -110,7 +111,7 @@ bool HeaderDecodeInfo::onHeader(const folly::fbstring& name,
 void HeaderDecodeInfo::onHeadersComplete(HTTPHeaderSize decodedSize) {
   HTTPHeaders& headers = msg->getHeaders();
 
-  if (isRequest_) {
+  if (isRequest_ && !isRequestTrailers_) {
     auto combinedCookie = headers.combine(HTTP_HEADER_COOKIE, "; ");
     if (!combinedCookie.empty()) {
       headers.set(HTTP_HEADER_COOKIE, combinedCookie);
@@ -119,12 +120,19 @@ void HeaderDecodeInfo::onHeadersComplete(HTTPHeaderSize decodedSize) {
       parsingError = verifier.error;
       return;
     }
-  } else if (!hasStatus_) {
-    parsingError = string("Malformed response, missing :status");
+  }
+
+  bool isResponseTrailers = (!isRequest_ && !hasStatus_);
+  if ((isRequestTrailers_ || isResponseTrailers) && pseudoHeaderSeen_) {
+    parsingError = "Pseudo headers forbidden in trailers.";
     return;
   }
 
   msg->setHTTPVersion(1, 1);
   msg->setIngressHeaderSize(decodedSize);
+}
+
+bool HeaderDecodeInfo::hasStatus() const {
+  return hasStatus_;
 }
 }

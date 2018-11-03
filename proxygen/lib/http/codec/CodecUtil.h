@@ -144,5 +144,8 @@ class CodecUtil {
       const HTTPMessage& msg,
       std::vector<std::string>& temps);
 
+  static bool appendHeaders(const HTTPHeaders& inputHeaders,
+                            std::vector<compress::Header>& headers,
+                            HTTPHeaderCode headerToCheck);
 };
 }

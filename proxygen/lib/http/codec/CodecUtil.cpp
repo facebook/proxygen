@@ -118,47 +118,8 @@ std::vector<compress::Header> CodecUtil::prepareMessageForCompression(
     // HEADERS frames do not include a version or reason string.
   }
 
-  bool hasDateHeader = false;
-  // Add the HTTP headers supplied by the caller, but skip
-  // any per-hop headers that aren't supported in HTTP/2.
-  msg.getHeaders().forEachWithCode(
-    [&] (HTTPHeaderCode code,
-         const std::string& name,
-         const std::string& value) {
-      static const std::bitset<256> s_perHopHeaderCodes{
-        [] {
-          std::bitset<256> bs;
-          // HTTP/1.x per-hop headers that have no meaning in HTTP/2
-          bs[HTTP_HEADER_CONNECTION] = true;
-          bs[HTTP_HEADER_HOST] = true;
-          bs[HTTP_HEADER_KEEP_ALIVE] = true;
-          bs[HTTP_HEADER_PROXY_CONNECTION] = true;
-          bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
-          bs[HTTP_HEADER_UPGRADE] = true;
-          bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
-          bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
-          return bs;
-        }()
-      };
-
-      if (s_perHopHeaderCodes[code] || name.size() == 0 || name[0] == ':') {
-        DCHECK_GT(name.size(), 0) << "Empty header";
-        DCHECK_NE(name[0], ':') << "Invalid header=" << name;
-        return;
-      }
-      // Note this code will not drop headers named by Connection.  That's the
-      // caller's job
-
-      // see HTTP/2 spec, 8.1.2
-      DCHECK(name != "TE" || value == "trailers");
-      if ((name.size() > 0 && name[0] != ':') &&
-          code != HTTP_HEADER_HOST) {
-        allHeaders.emplace_back(code, name, value);
-      }
-      if (code == HTTP_HEADER_DATE) {
-        hasDateHeader = true;
-      }
-    });
+  bool hasDateHeader =
+      appendHeaders(msg.getHeaders(), allHeaders, HTTP_HEADER_DATE);
 
   if (msg.isResponse() && !hasDateHeader) {
     temps.emplace_back(HTTPMessage::formatDateHeader());
@@ -167,4 +128,47 @@ std::vector<compress::Header> CodecUtil::prepareMessageForCompression(
   return allHeaders;
 }
 
+bool CodecUtil::appendHeaders(const HTTPHeaders& inputHeaders,
+                              std::vector<compress::Header>& headers,
+                              HTTPHeaderCode headerToCheck) {
+  bool headerToCheckExists = false;
+  // Add the HTTP headers supplied by the caller, but skip
+  // any per-hop headers that aren't supported in HTTP/2.
+  inputHeaders.forEachWithCode([&](HTTPHeaderCode code,
+                                   const std::string& name,
+                                   const std::string& value) {
+    static const std::bitset<256> s_perHopHeaderCodes{[] {
+      std::bitset<256> bs;
+      // HTTP/1.x per-hop headers that have no meaning in HTTP/2
+      bs[HTTP_HEADER_CONNECTION] = true;
+      bs[HTTP_HEADER_HOST] = true;
+      bs[HTTP_HEADER_KEEP_ALIVE] = true;
+      bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+      bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+      bs[HTTP_HEADER_UPGRADE] = true;
+      bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
+      bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
+      return bs;
+    }()};
+
+    if (s_perHopHeaderCodes[code] || name.size() == 0 || name[0] == ':') {
+      DCHECK_GT(name.size(), 0) << "Empty header";
+      DCHECK_NE(name[0], ':') << "Invalid header=" << name;
+      return;
+    }
+    // Note this code will not drop headers named by Connection.  That's the
+    // caller's job
+
+    // see HTTP/2 spec, 8.1.2
+    DCHECK(name != "TE" || value == "trailers");
+    if ((name.size() > 0 && name[0] != ':') && code != HTTP_HEADER_HOST) {
+      headers.emplace_back(code, name, value);
+    }
+    if (code == headerToCheck) {
+      headerToCheckExists = true;
+    }
+  });
+
+  return headerToCheckExists;
+}
 }

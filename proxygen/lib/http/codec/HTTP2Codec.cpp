@@ -384,7 +384,8 @@ ErrorCode HTTP2Codec::parseHeaders(Cursor& cursor) {
   auto err = http2::parseHeaders(cursor, curHeader_, priority, headerBuf);
   RETURN_IF_ERROR(err);
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
-    RETURN_IF_ERROR(checkNewStream(curHeader_.stream));
+    RETURN_IF_ERROR(
+        checkNewStream(curHeader_.stream, true /* trailersAllowed */));
   }
   err = parseHeadersImpl(cursor, std::move(headerBuf), priority, folly::none,
                          folly::none);
@@ -402,7 +403,8 @@ ErrorCode HTTP2Codec::parseExHeaders(Cursor& cursor) {
       cursor, curHeader_, exAttributes, priority, headerBuf);
   RETURN_IF_ERROR(err);
   if (isRequest(curHeader_.stream)) {
-    RETURN_IF_ERROR(checkNewStream(curHeader_.stream));
+    RETURN_IF_ERROR(
+        checkNewStream(curHeader_.stream, false /* trailersAllowed */));
   }
   return parseHeadersImpl(cursor, std::move(headerBuf), priority, folly::none,
                           exAttributes);
@@ -428,111 +430,47 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
   curHeaderBlock_.append(std::move(headerBuf));
   std::unique_ptr<HTTPMessage> msg;
   if (curHeader_.flags & http2::END_HEADERS) {
-    // decompress headers
-    Cursor headerCursor(curHeaderBlock_.front());
-    bool isReq = false;
-    if (promisedStream) {
-      isReq = true;
-    } else if (exAttributes) {
-      isReq = isRequest(curHeader_.stream);
-    } else {
-      isReq = transportDirection_ == TransportDirection::DOWNSTREAM;
+    auto errorCode =
+        parseHeadersDecodeFrames(priority, promisedStream, exAttributes, msg);
+    if (errorCode.hasValue()) {
+      return errorCode.value();
     }
+  }
 
-    decodeInfo_.init(isReq);
-    if (priority) {
-      if (curHeader_.stream == priority->streamDependency) {
-        streamError(folly::to<string>("Circular dependency for txn=",
-                                      curHeader_.stream),
-                    ErrorCode::PROTOCOL_ERROR,
-                    curHeader_.type == http2::FrameType::HEADERS);
-        return ErrorCode::NO_ERROR;
-      }
-
-      decodeInfo_.msg->setHTTP2Priority(
-          std::make_tuple(priority->streamDependency,
-                          priority->exclusive,
-                          priority->weight));
-    }
-    headerCodec_.decodeStreaming(headerCursor,
-                                 curHeaderBlock_.chainLength(),
-                                 this);
-    msg = std::move(decodeInfo_.msg);
-    // Saving this in case we need to log it on error
-    auto g = folly::makeGuard([this] {
-        curHeaderBlock_.move();
-      });
-    // Check decoding error
-    if (decodeInfo_.decodeError != HPACK::DecodeError::NONE) {
-      static const std::string decodeErrorMessage =
-          "Failed decoding header block for stream=";
-      // Avoid logging header blocks that have failed decoding due to being
-      // excessively large.
-      if (decodeInfo_.decodeError != HPACK::DecodeError::HEADERS_TOO_LARGE) {
-        LOG(ERROR) << decodeErrorMessage << curHeader_.stream
-                   << " header block=";
-        VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
-      } else {
-        LOG(ERROR) << decodeErrorMessage << curHeader_.stream;
-      }
-
-      if (msg) {
-        // print the partial message
-        msg->dumpMessage(3);
-      }
-      return ErrorCode::COMPRESSION_ERROR;
-    }
-    // Check parsing error
-    if (decodeInfo_.parsingError != "") {
-      LOG(ERROR) << "Failed parsing header list for stream="
-                 << curHeader_.stream << ", error=" << decodeInfo_.parsingError
-                 << ", header block=";
-      VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
-      HTTPException err(HTTPException::Direction::INGRESS,
-                        folly::to<std::string>("HTTP2Codec stream error: ",
-                                               "stream=", curHeader_.stream,
-                                               " status=", 400, " error: ",
-                                               decodeInfo_.parsingError));
-      err.setHttpStatusCode(400);
-      callback_->onError(curHeader_.stream, err, true);
-      return ErrorCode::NO_ERROR;
-    }
+  // if we're not parsing CONTINUATION, then it's start of new header block
+  if (curHeader_.type != http2::FrameType::CONTINUATION) {
+    headerBlockFrameType_ = curHeader_.type;
   }
 
   // Report back what we've parsed
   if (callback_) {
+    auto concurError = parseHeadersCheckConcurrentStreams(priority);
+    if (concurError.hasValue()) {
+      return concurError.value();
+    }
     uint32_t headersCompleteStream = curHeader_.stream;
-    if (curHeader_.type == http2::FrameType::HEADERS ||
-        curHeader_.type == http2::FrameType::EX_HEADERS) {
-      if (curHeader_.flags & http2::PRIORITY) {
-        DCHECK(priority);
-        // callback_->onPriority(priority.get());
+    bool trailers = parsingTrailers();
+    bool allHeaderFramesReceived =
+        (curHeader_.flags & http2::END_HEADERS) &&
+        (headerBlockFrameType_ == http2::FrameType::HEADERS);
+    if (allHeaderFramesReceived && !trailers) {
+      // Only deliver onMessageBegin once per stream.
+      // For responses with CONTINUATION, this will be delayed until
+      // the frame with the END_HEADERS flag set.
+      if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageBegin,
+                                    "onMessageBegin",
+                                    curHeader_.stream,
+                                    msg.get())) {
+        return handleEndStream();
       }
-
-      // callback checks total number of streams is smaller than settings max
-      if (callback_->numIncomingStreams() >=
-          egressSettings_.getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
-                                     std::numeric_limits<int32_t>::max())) {
-        streamError(folly::to<string>("Exceeded max_concurrent_streams"),
-                    ErrorCode::REFUSED_STREAM, true);
-        return ErrorCode::NO_ERROR;
-      }
-
-      if (curHeader_.type == http2::FrameType::HEADERS) {
-        if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageBegin,
-                                      "onMessageBegin", curHeader_.stream,
-                                      msg.get())) {
-          return handleEndStream();
-        }
-      } else if (curHeader_.type == http2::FrameType::EX_HEADERS) {
-        if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onExMessageBegin,
-                                      "onExMessageBegin",
-                                      curHeader_.stream,
-                                      exAttributes->controlStream,
-                                      exAttributes->unidirectional,
-                                      msg.get())) {
-          return handleEndStream();
-        }
+   } else if (curHeader_.type == http2::FrameType::EX_HEADERS) {
+      if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onExMessageBegin,
+                                    "onExMessageBegin",
+                                    curHeader_.stream,
+                                    exAttributes->controlStream,
+                                    exAttributes->unidirectional,
+                                    msg.get())) {
+        return handleEndStream();
       }
     } else if (curHeader_.type == http2::FrameType::PUSH_PROMISE) {
       DCHECK(promisedStream);
@@ -543,16 +481,126 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
       }
       headersCompleteStream = *promisedStream;
     }
+
     if (curHeader_.flags & http2::END_HEADERS && msg) {
       if (!(curHeader_.flags & http2::END_STREAM)) {
         // If it there are DATA frames coming, consider it chunked
         msg->setIsChunked(true);
       }
-      callback_->onHeadersComplete(headersCompleteStream, std::move(msg));
+      if (trailers) {
+        VLOG(4) << "Trailers complete for streamId=" << headersCompleteStream
+                << " direction=" << transportDirection_;
+        auto trailerHeaders =
+            std::make_unique<HTTPHeaders>(msg->extractHeaders());
+        msg.reset();
+        callback_->onTrailersComplete(headersCompleteStream,
+                                      std::move(trailerHeaders));
+      } else {
+        callback_->onHeadersComplete(headersCompleteStream, std::move(msg));
+      }
     }
     return handleEndStream();
   }
   return ErrorCode::NO_ERROR;
+}
+
+folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
+    folly::Optional<http2::PriorityUpdate> priority,
+    folly::Optional<uint32_t> promisedStream,
+    folly::Optional<ExAttributes> exAttributes,
+    std::unique_ptr<HTTPMessage>& msg) {
+  // decompress headers
+  Cursor headerCursor(curHeaderBlock_.front());
+  bool isReq = false;
+  if (promisedStream) {
+    isReq = true;
+  } else if (exAttributes) {
+    isReq = isRequest(curHeader_.stream);
+  } else {
+    isReq = transportDirection_ == TransportDirection::DOWNSTREAM;
+  }
+
+  decodeInfo_.init(isReq, parsingDownstreamTrailers_);
+  if (priority) {
+    if (curHeader_.stream == priority->streamDependency) {
+      streamError(folly::to<string>("Circular dependency for txn=",
+                                    curHeader_.stream),
+                  ErrorCode::PROTOCOL_ERROR,
+                  curHeader_.type == http2::FrameType::HEADERS);
+      return ErrorCode::NO_ERROR;
+    }
+
+    decodeInfo_.msg->setHTTP2Priority(
+        std::make_tuple(priority->streamDependency,
+                        priority->exclusive,
+                        priority->weight));
+  }
+  headerCodec_.decodeStreaming(
+      headerCursor, curHeaderBlock_.chainLength(), this);
+  msg = std::move(decodeInfo_.msg);
+  // Saving this in case we need to log it on error
+  auto g = folly::makeGuard([this] { curHeaderBlock_.move(); });
+  // Check decoding error
+  if (decodeInfo_.decodeError != HPACK::DecodeError::NONE) {
+    static const std::string decodeErrorMessage =
+        "Failed decoding header block for stream=";
+    // Avoid logging header blocks that have failed decoding due to being
+    // excessively large.
+    if (decodeInfo_.decodeError != HPACK::DecodeError::HEADERS_TOO_LARGE) {
+      LOG(ERROR) << decodeErrorMessage << curHeader_.stream
+                 << " header block=";
+      VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
+    } else {
+      LOG(ERROR) << decodeErrorMessage << curHeader_.stream;
+    }
+
+    if (msg) {
+      // print the partial message
+      msg->dumpMessage(3);
+    }
+    return ErrorCode::COMPRESSION_ERROR;
+  }
+
+  // Check parsing error
+  if (decodeInfo_.parsingError != "") {
+    LOG(ERROR) << "Failed parsing header list for stream=" << curHeader_.stream
+               << ", error=" << decodeInfo_.parsingError << ", header block=";
+    VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
+    HTTPException err(HTTPException::Direction::INGRESS,
+                      folly::to<std::string>("HTTP2Codec stream error: ",
+                                             "stream=",
+                                             curHeader_.stream,
+                                             " status=",
+                                             400,
+                                             " error: ",
+                                             decodeInfo_.parsingError));
+    err.setHttpStatusCode(400);
+    callback_->onError(curHeader_.stream, err, true);
+    return ErrorCode::NO_ERROR;
+  }
+
+  return folly::Optional<ErrorCode>();
+}
+
+folly::Optional<ErrorCode> HTTP2Codec::parseHeadersCheckConcurrentStreams(
+    folly::Optional<http2::PriorityUpdate> priority) {
+  if (curHeader_.type == http2::FrameType::HEADERS ||
+      curHeader_.type == http2::FrameType::EX_HEADERS) {
+    if (curHeader_.flags & http2::PRIORITY) {
+      DCHECK(priority);
+      // callback_->onPriority(priority.get());
+    }
+
+    // callback checks total number of streams is smaller than settings max
+    if (callback_->numIncomingStreams() >=
+        egressSettings_.getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
+                                   std::numeric_limits<int32_t>::max())) {
+      streamError(folly::to<string>("Exceeded max_concurrent_streams"),
+                  ErrorCode::REFUSED_STREAM, true);
+      return ErrorCode::NO_ERROR;
+    }
+  }
+  return folly::Optional<ErrorCode>();
 }
 
 void HTTP2Codec::onHeader(const folly::fbstring& name,
@@ -797,7 +845,7 @@ ErrorCode HTTP2Codec::parsePushPromise(Cursor& cursor) {
   auto err = http2::parsePushPromise(cursor, curHeader_, promisedStream,
                                      headerBlockFragment);
   RETURN_IF_ERROR(err);
-  RETURN_IF_ERROR(checkNewStream(promisedStream));
+  RETURN_IF_ERROR(checkNewStream(promisedStream, false /* trailersAllowed */));
   err = parseHeadersImpl(cursor, std::move(headerBlockFragment), folly::none,
                          promisedStream, folly::none);
   return err;
@@ -922,14 +970,19 @@ ErrorCode HTTP2Codec::parseCertificate(Cursor& cursor) {
   return ErrorCode::NO_ERROR;
 }
 
-ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId) {
-  if (streamId == 0 || streamId <= lastStreamID_) {
+ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId, bool trailersAllowed) {
+  if (streamId == 0) {
     goawayErrorMessage_ = folly::to<string>(
         "GOAWAY error: received streamID=", streamId,
         " as invalid new stream for lastStreamID_=", lastStreamID_);
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   }
+  parsingDownstreamTrailers_ = trailersAllowed && (streamId <= lastStreamID_);
+  if (parsingDownstreamTrailers_) {
+    VLOG(4) << "Parsing downstream trailers streamId=" << streamId;
+  }
+
   if (sessionClosing_ != ClosingState::CLOSED) {
     lastStreamID_ = streamId;
   }
@@ -1086,29 +1139,7 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
 
   std::vector<std::string> temps;
   auto allHeaders = CodecUtil::prepareMessageForCompression(msg, temps);
-  headerCodec_.setEncodeHeadroom(http2::kFrameHeaderSize +
-                                 http2::kFrameHeadersBaseMaxSize);
-  auto out = headerCodec_.encode(allHeaders);
-  if (size) {
-    *size = headerCodec_.getEncodedSize();
-  }
-
-  if (headerCodec_.getEncodedSize().uncompressed >
-      ingressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE,
-                                  std::numeric_limits<uint32_t>::max())) {
-    // The remote side told us they don't want headers this large...
-    // but this function has no mechanism to fail
-    string serializedHeaders;
-    msg.getHeaders().forEach(
-      [&serializedHeaders] (const string& name, const string& value) {
-        serializedHeaders = folly::to<string>(serializedHeaders, "\\n", name,
-                                              ":", value);
-      });
-    LOG(ERROR) << "generating HEADERS frame larger than peer maximum nHeaders="
-               << msg.getHeaders().size() << " all headers="
-               << serializedHeaders;
-  }
-
+  auto out = encodeHeaders(msg.getHeaders(), allHeaders, size);
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(out));
   auto maxFrameSize = maxSendFrameSize();
@@ -1160,17 +1191,56 @@ void HTTP2Codec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                                         endHeaders));
     }
 
-    while (!endHeaders) {
-      chunk = queue.split(std::min(maxFrameSize, queue.chainLength()));
-      endHeaders = queue.chainLength() == 0;
-      VLOG(4) << "generating CONTINUATION for stream=" << stream;
-      generateHeaderCallbackWrapper(stream, http2::FrameType::CONTINUATION,
-                                    http2::writeContinuation(writeBuf,
-                                                             stream,
-                                                             endHeaders,
-                                                             std::move(chunk)));
+    if (!endHeaders) {
+      generateContinuation(writeBuf, queue, stream, maxFrameSize);
     }
   }
+}
+
+void HTTP2Codec::generateContinuation(folly::IOBufQueue& writeBuf,
+                                      folly::IOBufQueue& queue,
+                                      StreamID stream,
+                                      size_t maxFrameSize) {
+  bool endHeaders = false;
+  while (!endHeaders) {
+    auto chunk = queue.split(std::min(maxFrameSize, queue.chainLength()));
+    endHeaders = (queue.chainLength() == 0);
+    VLOG(4) << "generating CONTINUATION for stream=" << stream;
+    generateHeaderCallbackWrapper(
+        stream,
+        http2::FrameType::CONTINUATION,
+        http2::writeContinuation(
+            writeBuf, stream, endHeaders, std::move(chunk)));
+  }
+}
+
+std::unique_ptr<folly::IOBuf> HTTP2Codec::encodeHeaders(
+    const HTTPHeaders& headers,
+    std::vector<compress::Header>& allHeaders,
+    HTTPHeaderSize* size) {
+  headerCodec_.setEncodeHeadroom(http2::kFrameHeaderSize +
+                                 http2::kFrameHeadersBaseMaxSize);
+  auto out = headerCodec_.encode(allHeaders);
+  if (size) {
+    *size = headerCodec_.getEncodedSize();
+  }
+
+  if (headerCodec_.getEncodedSize().uncompressed >
+      ingressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE,
+                                  std::numeric_limits<uint32_t>::max())) {
+    // The remote side told us they don't want headers this large...
+    // but this function has no mechanism to fail
+    string serializedHeaders;
+    headers.forEach(
+      [&serializedHeaders] (const string& name, const string& value) {
+        serializedHeaders = folly::to<string>(serializedHeaders, "\\n", name,
+                                              ":", value);
+      });
+    LOG(ERROR) << "generating HEADERS frame larger than peer maximum nHeaders="
+               << headers.size() << " all headers="
+               << serializedHeaders;
+  }
+  return out;
 }
 
 size_t HTTP2Codec::generateHeaderCallbackWrapper(StreamID stream,
@@ -1236,10 +1306,39 @@ size_t HTTP2Codec::generateChunkTerminator(folly::IOBufQueue& /*writeBuf*/,
   return 0;
 }
 
-size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& /*writeBuf*/,
-                                    StreamID /*stream*/,
-                                    const HTTPHeaders& /*trailers*/) {
-  return 0;
+size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& writeBuf,
+                                    StreamID stream,
+                                    const HTTPHeaders& trailers) {
+  std::vector<compress::Header> allHeaders;
+  CodecUtil::appendHeaders(trailers, allHeaders, HTTP_HEADER_NONE);
+
+  HTTPHeaderSize size;
+  auto out = encodeHeaders(trailers, allHeaders, &size);
+
+  IOBufQueue queue(IOBufQueue::cacheChainLength());
+  queue.append(std::move(out));
+  auto maxFrameSize = maxSendFrameSize();
+  if (queue.chainLength() > 0) {
+    folly::Optional<http2::PriorityUpdate> pri;
+    auto remainingFrameSize = maxFrameSize;
+    auto chunk = queue.split(std::min(remainingFrameSize, queue.chainLength()));
+    bool endHeaders = queue.chainLength() == 0;
+    generateHeaderCallbackWrapper(stream,
+                                  http2::FrameType::HEADERS,
+                                  http2::writeHeaders(writeBuf,
+                                                      std::move(chunk),
+                                                      stream,
+                                                      pri,
+                                                      http2::kNoPadding,
+                                                      true /*eom*/,
+                                                      endHeaders));
+
+    if (!endHeaders) {
+      generateContinuation(writeBuf, queue, stream, maxFrameSize);
+    }
+  }
+
+  return size.compressed;
 }
 
 size_t HTTP2Codec::generateEOM(folly::IOBufQueue& writeBuf,
@@ -1535,4 +1634,24 @@ HTTP2Codec::mapPriorityToDependency(uint8_t priority) const {
         std::min(priority, uint8_t(virtualPriorityNodes_.size() - 1))];
 }
 
+bool HTTP2Codec::parsingTrailers() const {
+  // HEADERS frame is used for request/response headers and trailers.
+  // Per spec, specific role of HEADERS frame is determined by it's postion
+  // within the stream. We don't keep full stream state in this codec,
+  // thus using heuristics to distinguish between headers/trailers.
+  // For DOWNSTREAM case, request headers HEADERS frame would be creating
+  // new stream, thus HEADERS on existing stream ID are considered trailers
+  // (see checkNewStream).
+  // For UPSTREAM case, response headers are required to have status code,
+  // thus if no status code we consider that trailers.
+  if (curHeader_.type == http2::FrameType::HEADERS ||
+      curHeader_.type == http2::FrameType::CONTINUATION) {
+    if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+      return parsingDownstreamTrailers_;
+    } else {
+      return !decodeInfo_.hasStatus();
+    }
+  }
+  return false;
+}
 }

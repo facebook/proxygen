@@ -53,6 +53,10 @@ public:
                       const HTTPMessage& msg,
                       bool eom = false,
                       HTTPHeaderSize* size = nullptr) override;
+  void generateContinuation(folly::IOBufQueue& writeBuf,
+                            folly::IOBufQueue& queue,
+                            StreamID stream,
+                            size_t maxFrameSize);
   void generatePushPromise(folly::IOBufQueue& writeBuf,
                            StreamID stream,
                            const HTTPMessage& msg,
@@ -179,6 +183,10 @@ public:
                           folly::Optional<ExAttributes> exAttributes,
                           bool eom,
                           HTTPHeaderSize* size);
+  std::unique_ptr<folly::IOBuf> encodeHeaders(
+      const HTTPHeaders& headers,
+      std::vector<compress::Header>& allHeaders,
+      HTTPHeaderSize* size);
 
   size_t generateHeaderCallbackWrapper(StreamID stream, http2::FrameType type, size_t length);
 
@@ -206,9 +214,16 @@ public:
     folly::Optional<http2::PriorityUpdate> priority,
     folly::Optional<uint32_t> promisedStream,
     folly::Optional<ExAttributes> exAttributes);
+  folly::Optional<ErrorCode> parseHeadersDecodeFrames(
+      folly::Optional<http2::PriorityUpdate> priority,
+      folly::Optional<uint32_t> promisedStream,
+      folly::Optional<ExAttributes> exAttributes,
+      std::unique_ptr<HTTPMessage>& msg);
+  folly::Optional<ErrorCode> parseHeadersCheckConcurrentStreams(
+      folly::Optional<http2::PriorityUpdate> priority);
 
   ErrorCode handleEndStream();
-  ErrorCode checkNewStream(uint32_t stream);
+  ErrorCode checkNewStream(uint32_t stream, bool trailersAllowed);
   bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
   ErrorCode handleSettings(const std::deque<SettingPair>& settings);
   size_t maxSendFrameSize() const {
@@ -220,6 +235,7 @@ public:
                                       http2::kMaxFramePayloadLengthMin);
   }
   void streamError(const std::string& msg, ErrorCode error, bool newTxn=false);
+  bool parsingTrailers() const;
 
   HPACKCodec headerCodec_;
 
@@ -266,6 +282,18 @@ public:
   HeaderDecodeInfo decodeInfo_;
   std::vector<StreamID> virtualPriorityNodes_;
   bool reuseIOBufHeadroomForData_{true};
+
+  // True if last parsed HEADERS frame was trailers.
+  // Reset only when HEADERS frame is parsed, thus
+  // remains unchanged and used during CONTINUATION frame
+  // parsing as well.
+  // Applies only to DOWNSTREAM, for UPSTREAM we use
+  // diffrent heuristic - lack of status code.
+  bool parsingDownstreamTrailers_{false};
+
+  // CONTINUATION frame can follow either HEADERS or PUSH_PROMISE frames.
+  // Keeps frame type of iniating frame of header block.
+  http2::FrameType headerBlockFrameType_{http2::FrameType::DATA};
 };
 
 } // proxygen

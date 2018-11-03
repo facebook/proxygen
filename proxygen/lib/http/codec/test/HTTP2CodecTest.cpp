@@ -416,23 +416,6 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
-TEST_F(HTTP2CodecTest, DuplicateHeaders) {
-  HTTPMessage req = getGetRequest("/guacamole");
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-  req.setSecure(true);
-  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
-  writeFrameHeaderManual(output_, 0, (uint8_t)http2::FrameType::HEADERS,
-                         http2::END_STREAM, 1);
-
-  parse();
-  EXPECT_EQ(callbacks_.messageBegin, 1);
-  EXPECT_EQ(callbacks_.headersComplete, 1);
-  EXPECT_EQ(callbacks_.messageComplete, 1);
-  EXPECT_EQ(callbacks_.streamErrors, 0);
-  EXPECT_EQ(callbacks_.sessionErrors, 1);
-}
-
-
 /**
  * Ingress bytes with an empty header name
  */
@@ -734,7 +717,7 @@ TEST_F(HTTP2CodecTest, MissingContinuation) {
   http2::writeGoaway(output_, 17, ErrorCode::ENHANCE_YOUR_CALM);
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
@@ -758,7 +741,7 @@ TEST_F(HTTP2CodecTest, MissingContinuationBadFrame) {
   output_.append(std::move(frame));
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
@@ -778,7 +761,7 @@ TEST_F(HTTP2CodecTest, BadContinuationStream) {
   http2::writeContinuation(output_, 3, true, std::move(fakeHeaders));
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
@@ -1811,4 +1794,289 @@ TEST_F(HTTP2CodecTest, TestAllEgressFrameTypeCallbacks) {
   upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   EXPECT_TRUE(callbackTypeTracker.isAllFrameTypesReceived());
+}
+
+TEST_F(HTTP2CodecTest, Trailers) {
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  upstreamCodec_.generateHeader(output_, 1, req);
+
+  string data("abcde");
+  auto buf = folly::IOBuf::copyBuffer(data.data(), data.length());
+  upstreamCodec_.generateBody(
+      output_, 1, std::move(buf), HTTPCodec::NoPadding, false /* eom */);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  upstreamCodec_.generateTrailers(output_, 1, trailers);
+
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.bodyCalls, 1);
+  EXPECT_EQ(callbacks_.bodyLength, 5);
+  EXPECT_EQ(callbacks_.trailers, 1);
+  EXPECT_NE(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ("pico-de-gallo",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+#ifndef NDEBUG
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
+#endif
+}
+
+TEST_F(HTTP2CodecTest, TrailersWithPseudoHeaders) {
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  upstreamCodec_.generateHeader(output_, 1, req);
+
+  string data("abcde");
+  auto buf = folly::IOBuf::copyBuffer(data.data(), data.length());
+  upstreamCodec_.generateBody(
+      output_, 1, std::move(buf), HTTPCodec::NoPadding, false /* eom */);
+
+  HPACKCodec headerCodec(TransportDirection::UPSTREAM);
+  std::string post("POST");
+  std::vector<proxygen::compress::Header> trailers = {
+      Header::makeHeaderForTest(headers::kMethod, post)};
+  auto encodedTrailers = headerCodec.encode(trailers);
+  http2::writeHeaders(output_,
+                      std::move(encodedTrailers),
+                      1,
+                      folly::none,
+                      http2::kNoPadding,
+                      true,
+                      true);
+
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.bodyCalls, 1);
+  EXPECT_EQ(callbacks_.bodyLength, 5);
+  EXPECT_EQ(callbacks_.trailers, 0);
+  EXPECT_EQ(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+}
+
+TEST_F(HTTP2CodecTest, TrailersNoBody) {
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  upstreamCodec_.generateHeader(output_, 1, req);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  upstreamCodec_.generateTrailers(output_, 1, trailers);
+
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.bodyCalls, 0);
+  EXPECT_EQ(callbacks_.bodyLength, 0);
+  EXPECT_EQ(callbacks_.trailers, 1);
+  EXPECT_NE(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ("pico-de-gallo",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+#ifndef NDEBUG
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 2);
+#endif
+}
+
+TEST_F(HTTP2CodecTest, TrailersContinuation) {
+  HTTPMessage req = getGetRequest("/guacamole");
+  upstreamCodec_.generateHeader(output_, 1, req);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  trailers.add("x-huge-trailer",
+               std::string(http2::kMaxFramePayloadLengthMin, '!'));
+  upstreamCodec_.generateTrailers(output_, 1, trailers);
+
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  EXPECT_NE(callbacks_.msg, nullptr);
+  EXPECT_EQ(callbacks_.trailers, 1);
+  EXPECT_NE(callbacks_.msg->getTrailers(), nullptr);
+  EXPECT_EQ("pico-de-gallo",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+  EXPECT_EQ(std::string(http2::kMaxFramePayloadLengthMin, '!'),
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-huge-trailer"));
+#ifndef NDEBUG
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
+#endif
+}
+
+TEST_F(HTTP2CodecTest, TrailersReply) {
+  SetUpUpstreamTest();
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.setStatusMessage("nifty-nice");
+  resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "x-coolio");
+  downstreamCodec_.generateHeader(output_, 1, resp);
+
+  string data("abcde");
+  auto buf = folly::IOBuf::copyBuffer(data.data(), data.length());
+  downstreamCodec_.generateBody(
+      output_, 1, std::move(buf), HTTPCodec::NoPadding, false);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  trailers.add("x-trailer-2", "chicken-kyiv");
+  downstreamCodec_.generateTrailers(output_, 1, trailers);
+
+  parseUpstream();
+
+  callbacks_.expectMessage(true, 2, 200);
+  EXPECT_EQ(callbacks_.bodyCalls, 1);
+  EXPECT_EQ(callbacks_.bodyLength, 5);
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
+  EXPECT_EQ("x-coolio", headers.getSingleOrEmpty(HTTP_HEADER_CONTENT_TYPE));
+  EXPECT_EQ(1, callbacks_.trailers);
+  EXPECT_NE(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ("pico-de-gallo",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+  EXPECT_EQ("chicken-kyiv",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-2"));
+#ifndef NDEBUG
+  EXPECT_EQ(upstreamCodec_.getReceivedFrameCount(), 4);
+#endif
+}
+
+TEST_F(HTTP2CodecTest, TrailersReplyWithNoData) {
+  SetUpUpstreamTest();
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.setStatusMessage("nifty-nice");
+  resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "x-coolio");
+  downstreamCodec_.generateHeader(output_, 1, resp);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  downstreamCodec_.generateTrailers(output_, 1, trailers);
+
+  parseUpstream();
+
+  callbacks_.expectMessage(true, 2, 200);
+  EXPECT_EQ(callbacks_.bodyCalls, 0);
+  EXPECT_EQ(callbacks_.bodyLength, 0);
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_TRUE(callbacks_.msg->getHeaders().exists(HTTP_HEADER_DATE));
+  EXPECT_EQ("x-coolio", headers.getSingleOrEmpty(HTTP_HEADER_CONTENT_TYPE));
+  EXPECT_EQ(1, callbacks_.trailers);
+  EXPECT_NE(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ("pico-de-gallo",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+#ifndef NDEBUG
+  EXPECT_EQ(upstreamCodec_.getReceivedFrameCount(), 3);
+#endif
+}
+
+TEST_F(HTTP2CodecTest, TrailersReplyWithPseudoHeaders) {
+  SetUpUpstreamTest();
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.setStatusMessage("nifty-nice");
+  resp.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "x-coolio");
+  downstreamCodec_.generateHeader(output_, 1, resp);
+
+  string data("abcde");
+  auto buf = folly::IOBuf::copyBuffer(data.data(), data.length());
+  downstreamCodec_.generateBody(
+      output_, 1, std::move(buf), HTTPCodec::NoPadding, false);
+
+  HPACKCodec headerCodec(TransportDirection::DOWNSTREAM);
+  std::string post("POST");
+  std::vector<proxygen::compress::Header> trailers = {
+      Header::makeHeaderForTest(headers::kMethod, post)};
+  auto encodedTrailers = headerCodec.encode(trailers);
+  http2::writeHeaders(output_,
+                      std::move(encodedTrailers),
+                      1,
+                      folly::none,
+                      http2::kNoPadding,
+                      true,
+                      true);
+  parseUpstream();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.trailers, 0);
+  EXPECT_EQ(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, TrailersReplyContinuation) {
+  SetUpUpstreamTest();
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  downstreamCodec_.generateHeader(output_, 1, resp);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  trailers.add("x-huge-trailer",
+               std::string(http2::kMaxFramePayloadLengthMin, '!'));
+  downstreamCodec_.generateTrailers(output_, 1, trailers);
+
+  parseUpstream();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  EXPECT_NE(callbacks_.msg, nullptr);
+  EXPECT_EQ(callbacks_.msg->getStatusCode(), 200);
+  EXPECT_EQ(1, callbacks_.trailers);
+  EXPECT_NE(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ("pico-de-gallo",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+  EXPECT_EQ(std::string(http2::kMaxFramePayloadLengthMin, '!'),
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-huge-trailer"));
+#ifndef NDEBUG
+  EXPECT_EQ(upstreamCodec_.getReceivedFrameCount(), 4);
+#endif
+}
+
+TEST_F(HTTP2CodecTest, TrailersReplyMissingContinuation) {
+  SetUpUpstreamTest();
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  downstreamCodec_.generateHeader(output_, 1, resp);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  trailers.add("x-huge-trailer",
+               std::string(http2::kMaxFramePayloadLengthMin, '!'));
+  downstreamCodec_.generateTrailers(output_, 1, trailers);
+  // empirically determined the size of continuation frame, and strip it
+  output_.trimEnd(http2::kFrameHeaderSize + 4132);
+
+  // insert a non-continuation (but otherwise valid) frame
+  http2::writeGoaway(output_, 17, ErrorCode::ENHANCE_YOUR_CALM);
+
+  parseUpstream();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+#ifndef NDEBUG
+  EXPECT_EQ(upstreamCodec_.getReceivedFrameCount(), 4);
+#endif
 }

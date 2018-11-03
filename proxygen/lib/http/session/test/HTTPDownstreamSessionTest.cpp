@@ -3116,29 +3116,6 @@ TEST_F(HTTP2DownstreamSessionTest, TestDisablePriorities) {
   eventBase_.loop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, ContinuationTimeout) {
-  // Split the headers at 15 bytes to force a CONTINUATION frame
-  auto req = getBigGetRequest();
-  sendRequest(req);
-
-  HTTPSession::DestructorGuard g(httpSession_);
-  // Send the Connection Preface and HEADERS immediately
-  auto buf = requests_.split(40);
-  buf->coalesce();
-  transport_->addReadEvent(buf->data(), buf->length(), milliseconds(0));
-  // Delay the CONTINUATION by the read timeout.
-  flushRequestsAndLoop(false, milliseconds(0),
-                       transactionTimeouts_->getDefaultTimeout());
-
-  EXPECT_CALL(callbacks_, onSettings(_));
-  // We get 1 INTERNAL_ERROR on the timeout
-  EXPECT_CALL(callbacks_, onAbort(1, ErrorCode::INTERNAL_ERROR));
-  // And a STREAM_CLOSED when the in-flight CONTINUATION gets parsed.
-  EXPECT_CALL(callbacks_, onAbort(1, ErrorCode::STREAM_CLOSED));
-  parseOutput(*clientCodec_);
-  cleanup();
-}
-
 TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
   // virtual priority node with pri=4
   auto priGroupID = clientCodec_->createStream();

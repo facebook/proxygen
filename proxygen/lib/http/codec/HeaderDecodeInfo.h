@@ -18,13 +18,15 @@ class HTTPMessage;
 
 class HeaderDecodeInfo {
  public:
-  void init(bool isRequestIn) {
+  void init(bool isRequestIn, bool isRequestTrailers) {
     CHECK(!msg);
     msg.reset(new HTTPMessage());
     isRequest_ = isRequestIn;
+    isRequestTrailers_ = isRequestTrailers;
     hasStatus_ = false;
     contentLength_ = folly::none;
     regularHeaderSeen_ = false;
+    pseudoHeaderSeen_ = false;
     parsingError = "";
     decodeError = HPACK::DecodeError::NONE;
     verifier.reset(msg.get());
@@ -33,6 +35,8 @@ class HeaderDecodeInfo {
   bool onHeader(const folly::fbstring& name, const folly::fbstring& value);
 
   void onHeadersComplete(HTTPHeaderSize decodedSize);
+
+  bool hasStatus() const;
 
   // Change this to a map of decoded header blocks when we decide
   // to concurrently decode partial header blocks
@@ -43,8 +47,10 @@ class HeaderDecodeInfo {
 
  private:
   bool isRequest_{false};
+  bool isRequestTrailers_{false};
   bool hasStatus_{false};
   bool regularHeaderSeen_{false};
+  bool pseudoHeaderSeen_{false};
   folly::Optional<uint32_t> contentLength_;
 };
 
