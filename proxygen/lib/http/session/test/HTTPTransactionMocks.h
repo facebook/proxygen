@@ -46,9 +46,8 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   GMOCK_METHOD2_(, noexcept,, sendChunkHeader, size_t(HTTPTransaction*,
                                                        size_t));
   GMOCK_METHOD1_(, noexcept,, sendChunkTerminator, size_t(HTTPTransaction*));
-  GMOCK_METHOD2_(, noexcept,, sendTrailers, size_t(HTTPTransaction*,
-                                                    const HTTPHeaders&));
-  GMOCK_METHOD1_(, noexcept,, sendEOM, size_t(HTTPTransaction*));
+  GMOCK_METHOD2_(
+      , noexcept, , sendEOM, size_t(HTTPTransaction*, const HTTPHeaders*));
   GMOCK_METHOD2_(, noexcept,, sendAbort, size_t(HTTPTransaction*,
                                                  ErrorCode));
   GMOCK_METHOD2_(, noexcept,, sendPriority,

@@ -64,15 +64,15 @@ class DownstreamTransactionTest : public testing::Test {
                                return cur;
                              }));
     if (delayResponse) {
-      EXPECT_CALL(transport_, sendEOM(txn));
+      EXPECT_CALL(transport_, sendEOM(txn, _));
     } else {
-      EXPECT_CALL(transport_, sendEOM(txn))
-        .WillOnce(InvokeWithoutArgs([=]() {
-              CHECK_EQ(sent_, size);
-              txn->onIngressBody(makeBuf(size), 0);
-              txn->onIngressEOM();
-              return 5;
-            }));
+      EXPECT_CALL(transport_, sendEOM(txn, _))
+          .WillOnce(InvokeWithoutArgs([=]() {
+            CHECK_EQ(sent_, size);
+            txn->onIngressBody(makeBuf(size), 0);
+            txn->onIngressEOM();
+            return 5;
+          }));
     }
     EXPECT_CALL(handler_, onBody(_))
       .WillRepeatedly(Invoke([=](std::shared_ptr<folly::IOBuf> body) {

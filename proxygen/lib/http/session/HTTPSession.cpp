@@ -1710,16 +1710,6 @@ size_t HTTPSession::sendChunkTerminator(
   return encodedSize;
 }
 
-size_t
-HTTPSession::sendTrailers(HTTPTransaction* txn,
-        const HTTPHeaders& trailers) noexcept {
-  size_t encodedSize = codec_->generateTrailers(writeBuf_,
-                                                txn->getID(),
-                                                trailers);
-  scheduleWrite();
-  return encodedSize;
-}
-
 void
 HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
   // If the semantics of the protocol don't permit more messages
@@ -1768,15 +1758,24 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
   }
 }
 
-size_t
-HTTPSession::sendEOM(HTTPTransaction* txn) noexcept {
-  // Ask the codec to generate an end-of-message indicator for the
-  // transaction.  Depending on the protocol, this may be a no-op.
-  // Schedule a network write to send out whatever egress we might
-  // have queued up.
-  VLOG(4) << *this << " sending EOM for streamID=" << txn->getID();
-  size_t encodedSize = codec_->generateEOM(writeBuf_, txn->getID());
-  // PRIO_TODO: boost this transaction's priority? evaluate impact...
+size_t HTTPSession::sendEOM(HTTPTransaction* txn,
+                            const HTTPHeaders* trailers) noexcept {
+
+  VLOG(4) << *this << " sending EOM for streamID=" << txn->getID()
+          << " trailers=" << (trailers ? "yes" : "no");
+
+  size_t encodedSize = 0;
+  if (trailers) {
+    encodedSize = codec_->generateTrailers(writeBuf_, txn->getID(), *trailers);
+  }
+
+  // Don't send EOM for HTTP2, when trailers sent.
+  // sendTrailers already flagged end of stream.
+  bool http2Trailers = trailers && isHTTP2CodecProtocol(codec_->getProtocol());
+  if (!http2Trailers) {
+    encodedSize += codec_->generateEOM(writeBuf_, txn->getID());
+  }
+
   commonEom(txn, encodedSize, false);
   return encodedSize;
 }

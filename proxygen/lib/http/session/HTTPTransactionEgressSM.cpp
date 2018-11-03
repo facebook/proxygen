@@ -41,10 +41,12 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
       {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
 
       {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
+      {{State::HeadersSent, Event::sendTrailers}, State::TrailersSent},
       {{State::HeadersSent, Event::sendChunkHeader}, State::ChunkHeaderSent},
       {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
 
       {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
+      {{State::RegularBodySent, Event::sendTrailers}, State::TrailersSent},
       {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
 
       {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
@@ -56,12 +58,11 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
       {{State::ChunkTerminatorSent, Event::sendChunkHeader},
        State::ChunkHeaderSent},
       {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
-      {{State::HeadersSent, Event::sendTrailers}, State::TrailersSent},
       {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
 
       {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
 
-      {{State::EOMQueued, Event::eomFlushed}, State::SendingDone},
+      {{State::EOMQueued, Event::eomFlushed}, State::SendingDone}
     }
   };
 

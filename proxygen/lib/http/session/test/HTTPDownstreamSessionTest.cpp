@@ -434,7 +434,7 @@ class HTTPDownstreamTest : public testing::Test {
 
 // Uses TestAsyncTransport
 using HTTPDownstreamSessionTest = HTTPDownstreamTest<HTTP1xCodecPair>;
-typedef HTTPDownstreamTest<SPDY3CodecPair> SPDY3DownstreamSessionTest;
+using SPDY3DownstreamSessionTest = HTTPDownstreamTest<SPDY3CodecPair>;
 namespace {
 class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
  public:
@@ -1328,6 +1328,30 @@ TEST_F(HTTPDownstreamSessionTest, TestTrackedByteEventTracker) {
   gracefulShutdown();
 }
 
+TEST_F(HTTP2DownstreamSessionTest, Trailers) {
+  InSequence enforceOrder;
+
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM([&handler]() {
+    handler->sendReplyWithBody(
+        200, 100, true /* keepalive */, true /* sendEOM */, true /*trailers*/);
+  });
+  handler->expectDetachTransaction();
+
+  HTTPSession::DestructorGuard g(httpSession_);
+  sendRequest();
+  flushRequestsAndLoop(true, milliseconds(0));
+
+  EXPECT_CALL(callbacks_, onMessageBegin(1, _)).Times(1);
+  EXPECT_CALL(callbacks_, onHeadersComplete(1, _)).Times(1);
+  EXPECT_CALL(callbacks_, onBody(1, _, _));
+  EXPECT_CALL(callbacks_, onTrailersComplete(1, _));
+  EXPECT_CALL(callbacks_, onMessageComplete(1, _));
+
+  parseOutput(*clientCodec_);
+  expectDetachSession();
+}
 
 TEST_F(HTTPDownstreamSessionTest, Trailers) {
   testChunks(true);

@@ -401,8 +401,8 @@ class TimeoutableHTTPUpstreamTest: public HTTPUpstreamTest<C> {
 };
 
 using HTTPUpstreamSessionTest = HTTPUpstreamTest<HTTP1xCodecPair>;
-typedef HTTPUpstreamTest<SPDY3CodecPair> SPDY3UpstreamSessionTest;
-typedef HTTPUpstreamTest<HTTP2CodecPair> HTTP2UpstreamSessionTest;
+using SPDY3UpstreamSessionTest = HTTPUpstreamTest<SPDY3CodecPair>;
+using HTTP2UpstreamSessionTest = HTTPUpstreamTest<HTTP2CodecPair>;
 
 TEST_F(SPDY3UpstreamSessionTest, ServerPush) {
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM,
@@ -1156,6 +1156,87 @@ TEST_F(HTTPUpstreamSessionTest, BasicTrailers) {
 
   CHECK(httpSession_->supportsMoreTransactions());
   CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
+  httpSession_->destroy();
+}
+
+TEST_F(HTTP2UpstreamSessionTest, BasicTrailers) {
+  auto egressCodec = makeServerCodec();
+  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+
+  egressCodec->generateSettings(output);
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.getHeaders().set("header1", "value1");
+  egressCodec->generateHeader(output, 1, resp);
+  auto buf = makeBuf(100);
+  egressCodec->generateBody(
+      output, 1, std::move(buf), HTTPCodec::NoPadding, false /* eom */);
+  HTTPHeaders trailers;
+  trailers.set("trailer2", "value2");
+  egressCodec->generateTrailers(output, 1, trailers);
+
+  std::unique_ptr<folly::IOBuf> input = output.move();
+  input->coalesce();
+
+  auto handler = openTransaction();
+
+  handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
+    EXPECT_EQ(200, msg->getStatusCode());
+    EXPECT_EQ(msg->getHeaders().getSingleOrEmpty("header1"), "value1");
+  });
+  handler->expectBody();
+  handler->expectTrailers([&](std::shared_ptr<HTTPHeaders> trailers) {
+    EXPECT_EQ(trailers->getSingleOrEmpty("trailer2"), "value2");
+  });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+
+  handler->sendRequest();
+  readAndLoop(input->data(), input->length());
+
+  httpSession_->destroy();
+}
+
+TEST_F(HTTP2UpstreamSessionTest, HeadersThenBodyThenHeaders) {
+  auto egressCodec = makeServerCodec();
+  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+
+  egressCodec->generateSettings(output);
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  resp.getHeaders().set("header1", "value1");
+  egressCodec->generateHeader(output, 1, resp);
+  auto buf = makeBuf(100);
+  egressCodec->generateBody(
+      output, 1, std::move(buf), HTTPCodec::NoPadding, false /* eom */);
+  // generate same headers again on the same stream
+  egressCodec->generateHeader(output, 1, resp);
+
+  std::unique_ptr<folly::IOBuf> input = output.move();
+  input->coalesce();
+
+  auto handler = openTransaction();
+
+  handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
+    EXPECT_EQ(200, msg->getStatusCode());
+    EXPECT_EQ(msg->getHeaders().getSingleOrEmpty("header1"), "value1");
+  });
+  handler->expectBody();
+  handler->expectError([&](const HTTPException& err) {
+    EXPECT_TRUE(err.hasProxygenError());
+    EXPECT_EQ(err.getProxygenError(), kErrorIngressStateTransition);
+    ASSERT_EQ(
+        "Invalid ingress state transition, state=RegularBodyReceived, "
+        "event=onHeaders, streamID=1",
+        std::string(err.what()));
+  });
+  handler->expectDetachTransaction();
+
+  handler->sendRequest();
+  readAndLoop(input->data(), input->length());
+
   httpSession_->destroy();
 }
 

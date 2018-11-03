@@ -944,18 +944,13 @@ void HTTPTransaction::rateLimitTimeoutExpired() {
 }
 
 size_t HTTPTransaction::sendEOMNow() {
-  size_t nbytes = 0;
   VLOG(4) << "egress EOM on " << *this;
-  if (trailers_) {
-    VLOG(4) << "egress trailers on " << *this;
-    nbytes += transport_.sendTrailers(this, *trailers_.get());
-    trailers_.reset();
-  }
   // TODO: with ByteEvent refactor, we will have to delay changing this
   // state until later
   CHECK(HTTPTransactionEgressSM::transit(
           egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
-  nbytes += transport_.sendEOM(this);
+  size_t nbytes = transport_.sendEOM(this, trailers_.get());
+  trailers_.reset();
   return nbytes;
 }
 
@@ -968,13 +963,15 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
   if (useFlowControl_) {
     CHECK(sendWindow_.reserve(bodyLen));
   }
-  VLOG(4) << "Sending " << bodyLen << " bytes of body. eom="
-          << ((sendEom) ? "yes" : "no") << " send_window is "
-          << ( useFlowControl_ ?
-               folly::to<std::string>(sendWindow_.getSize(), " / ",
-                                      sendWindow_.getCapacity()) : noneStr)
-          << " " << *this;
-  if (sendEom) {
+  VLOG(4) << "Sending " << bodyLen
+          << " bytes of body. eom=" << ((sendEom) ? "yes" : "no")
+          << " send_window is "
+          << (useFlowControl_
+                  ? folly::to<std::string>(
+                        sendWindow_.getSize(), " / ", sendWindow_.getCapacity())
+                  : noneStr)
+          << " trailers=" << ((trailers_) ? "yes" : "no") << " " << *this;
+  if (sendEom && !trailers_) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
   } else if (ingressErrorSeen_ && isExpectingWindowUpdate()) {
@@ -989,8 +986,13 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
     return 0;
   }
   updateReadTimeout();
-  nbytes = transport_.sendBody(
-    this, std::move(body), sendEom, enableLastByteFlushedTracking_);
+  nbytes = transport_.sendBody(this,
+                               std::move(body),
+                               sendEom && !trailers_,
+                               enableLastByteFlushedTracking_);
+  if (sendEom && trailers_) {
+    sendEOMNow();
+  }
   if (isPrioritySampled()) {
     updateTransactionBytesSent(bodyLen);
   }

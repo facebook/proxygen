@@ -88,9 +88,15 @@ class HTTPHandlerBase {
   void sendReplyWithBody(uint32_t code,
                          uint32_t content_length,
                          bool keepalive = true,
-                         bool sendEOM = true) {
+                         bool sendEOM = true,
+                         bool hasTrailers = false) {
     sendHeaders(code, content_length, keepalive);
     sendBody(content_length);
+    if (hasTrailers) {
+      HTTPHeaders trailers;
+      trailers.add("X-Trailer1", "Foo");
+      txn_->sendTrailers(trailers);
+    }
     if (sendEOM) {
       txn_->sendEOM();
     }
@@ -211,6 +217,13 @@ class MockHTTPHandler
 
   void expectHeaders(std::function<void(std::shared_ptr<HTTPMessage>)> cb) {
     EXPECT_CALL(*this, onHeadersComplete(testing::_))
+        .WillOnce(testing::Invoke(cb))
+        .RetiresOnSaturation();
+  }
+
+  void expectTrailers(
+      std::function<void(std::shared_ptr<HTTPHeaders> trailers)> cb) {
+    EXPECT_CALL(*this, onTrailers(testing::_))
         .WillOnce(testing::Invoke(cb))
         .RetiresOnSaturation();
   }

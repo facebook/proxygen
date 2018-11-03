@@ -415,9 +415,8 @@ class HTTPSession:
   size_t sendChunkHeader(HTTPTransaction* txn,
                          size_t length) noexcept override;
   size_t sendChunkTerminator(HTTPTransaction* txn) noexcept override;
-  size_t sendTrailers(HTTPTransaction* txn,
-                      const HTTPHeaders& trailers) noexcept override;
-  size_t sendEOM(HTTPTransaction* txn) noexcept override;
+  size_t sendEOM(HTTPTransaction* txn,
+                 const HTTPHeaders* trailers) noexcept override;
   size_t sendAbort(HTTPTransaction* txn,
                    ErrorCode statusCode) noexcept override;
   size_t sendPriority(HTTPTransaction* txn,

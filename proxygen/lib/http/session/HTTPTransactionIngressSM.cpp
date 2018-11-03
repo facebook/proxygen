@@ -47,6 +47,8 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
     {{State::HeadersReceived, Event::onEOM}, State::EOMQueued},
 
     {{State::RegularBodyReceived, Event::onBody}, State::RegularBodyReceived},
+    // HTTP2 supports trailers and doesn't handle body as chunked events
+    {{State::RegularBodyReceived, Event::onTrailers}, State::TrailersReceived},
     {{State::RegularBodyReceived, Event::onEOM}, State::EOMQueued},
 
     {{State::ChunkHeaderReceived, Event::onBody}, State::ChunkBodyReceived},

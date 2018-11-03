@@ -611,6 +611,31 @@ TEST(HTTP1xCodecTest, WebsocketConnectionHeader) {
       "upgrade, keep-alive");
 }
 
+TEST(HTTP1xCodecTest, TrailersAndEomAreNotGeneratedWhenNonChunked) {
+  // Verify that generateTrailes and generateEom result in 0 bytes
+  // generated when message is not chunked.
+  // HTTP2 codec handles all BODY as regular non-chunked body, thus
+  // HTTPTransation SM transitions allow trailers after regular body. Which
+  // is not allowed in HTTP1.
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+
+  auto txnID = codec.createStream();
+
+  HTTPMessage msg;
+  msg.setHTTPVersion(1, 1);
+  msg.setURL("https://www.facebook.com/");
+  msg.getHeaders().set(HTTP_HEADER_HOST, "www.facebook.com");
+  msg.setIsChunked(false);
+
+  folly::IOBufQueue buf;
+  codec.generateHeader(buf, txnID, msg);
+
+  HTTPHeaders trailers;
+  trailers.add("X-Test-Trailer", "test");
+  EXPECT_EQ(0, codec.generateTrailers(buf, txnID, trailers));
+  EXPECT_EQ(0, codec.generateEOM(buf, txnID));
+}
+
 class ConnectionHeaderTest:
     public TestWithParam<std::pair<std::list<string>, string>> {
  public:

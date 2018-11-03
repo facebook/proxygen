@@ -353,10 +353,8 @@ class HTTPTransaction :
 
     virtual size_t sendChunkTerminator(HTTPTransaction* txn) noexcept = 0;
 
-    virtual size_t sendTrailers(HTTPTransaction* txn,
-                                const HTTPHeaders& trailers) noexcept = 0;
-
-    virtual size_t sendEOM(HTTPTransaction* txn) noexcept = 0;
+    virtual size_t sendEOM(HTTPTransaction* txn,
+                           const HTTPHeaders* trailers) noexcept = 0;
 
     virtual size_t sendAbort(HTTPTransaction* txn,
                              ErrorCode statusCode) noexcept = 0;
@@ -855,18 +853,7 @@ class HTTPTransaction :
   virtual void sendTrailers(const HTTPHeaders& trailers) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::sendTrailers));
-    if (transport_.getCodec().supportsParallelRequests()) {
-      // SPDY supports trailers whenever
-      size_t nbytes = transport_.sendTrailers(this, trailers);
-      if (transportCallback_) {
-        HTTPHeaderSize size;
-        size.uncompressed = nbytes;
-        transportCallback_->headerBytesGenerated(size);
-      }
-    } else {
-      // HTTP requires them to go right before EOM
-      trailers_.reset(new HTTPHeaders(trailers));
-    }
+    trailers_.reset(new HTTPHeaders(trailers));
   }
 
   /**
