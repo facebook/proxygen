@@ -179,8 +179,8 @@ public:
   void generateHeaderImpl(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage& msg,
-                          folly::Optional<StreamID> assocStream,
-                          folly::Optional<ExAttributes> exAttributes,
+                          const folly::Optional<StreamID>& assocStream,
+                          const folly::Optional<ExAttributes>& exAttributes,
                           bool eom,
                           HTTPHeaderSize* size);
   std::unique_ptr<folly::IOBuf> encodeHeaders(
@@ -211,16 +211,16 @@ public:
   ErrorCode parseHeadersImpl(
     folly::io::Cursor& cursor,
     std::unique_ptr<folly::IOBuf> headerBuf,
-    folly::Optional<http2::PriorityUpdate> priority,
-    folly::Optional<uint32_t> promisedStream,
-    folly::Optional<ExAttributes> exAttributes);
+    const folly::Optional<http2::PriorityUpdate>& priority,
+    const folly::Optional<uint32_t>& promisedStream,
+    const folly::Optional<ExAttributes>& exAttributes);
   folly::Optional<ErrorCode> parseHeadersDecodeFrames(
-      folly::Optional<http2::PriorityUpdate> priority,
-      folly::Optional<uint32_t> promisedStream,
-      folly::Optional<ExAttributes> exAttributes,
+      const folly::Optional<http2::PriorityUpdate>& priority,
+      const folly::Optional<uint32_t>& promisedStream,
+      const folly::Optional<ExAttributes>& exAttributes,
       std::unique_ptr<HTTPMessage>& msg);
   folly::Optional<ErrorCode> parseHeadersCheckConcurrentStreams(
-      folly::Optional<http2::PriorityUpdate> priority);
+      const folly::Optional<http2::PriorityUpdate>& priority);
 
   ErrorCode handleEndStream();
   ErrorCode checkNewStream(uint32_t stream, bool trailersAllowed);

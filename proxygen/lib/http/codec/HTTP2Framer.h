@@ -450,8 +450,8 @@ writeExHeaders(folly::IOBufQueue& writeBuf,
                std::unique_ptr<folly::IOBuf> headers,
                uint32_t stream,
                const HTTPCodec::ExAttributes& exAttributes,
-               folly::Optional<PriorityUpdate> priority,
-               folly::Optional<uint8_t> padding,
+               const folly::Optional<PriorityUpdate>& priority,
+               const folly::Optional<uint8_t>& padding,
                bool endStream,
                bool endHeaders) noexcept;
 

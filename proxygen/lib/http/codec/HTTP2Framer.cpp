@@ -672,8 +672,8 @@ writeExHeaders(IOBufQueue& queue,
                std::unique_ptr<IOBuf> headers,
                uint32_t stream,
                const HTTPCodec::ExAttributes& exAttributes,
-               folly::Optional<PriorityUpdate> priority,
-               folly::Optional<uint8_t> padding,
+               const folly::Optional<PriorityUpdate>& priority,
+               const folly::Optional<uint8_t>& padding,
                bool endStream,
                bool endHeaders) noexcept {
   DCHECK_NE(0, stream);

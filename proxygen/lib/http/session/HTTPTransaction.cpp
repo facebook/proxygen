@@ -92,8 +92,6 @@ HTTPTransaction::HTTPTransaction(TransportDirection direction,
         ingressState_ = HTTPTransactionIngressSM::State::ReceivingDone;
       }
     }
-  } else {
-    exAttributes_ = folly::none;
   }
 
   refreshTimeout();

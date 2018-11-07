@@ -2554,9 +2554,9 @@ HTTPSession::findTransaction(HTTPCodec::StreamID streamID) {
 HTTPTransaction*
 HTTPSession::createTransaction(
     HTTPCodec::StreamID streamID,
-    folly::Optional<HTTPCodec::StreamID> assocStreamID,
-    folly::Optional<HTTPCodec::ExAttributes> exAttributes,
-    http2::PriorityUpdate priority) {
+    const folly::Optional<HTTPCodec::StreamID>& assocStreamID,
+    const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
+    const http2::PriorityUpdate& priority) {
   if (!sock_->good() || transactions_.count(streamID)) {
     // Refuse to add a transaction on a closing session or if a
     // transaction of that ID already exists.

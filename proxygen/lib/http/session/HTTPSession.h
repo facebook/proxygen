@@ -536,9 +536,9 @@ class HTTPSession:
    */
   HTTPTransaction* createTransaction(
     HTTPCodec::StreamID streamID,
-    folly::Optional<HTTPCodec::StreamID> assocStreamID,
-    folly::Optional<HTTPCodec::ExAttributes> exAttributes,
-    http2::PriorityUpdate priority = http2::DefaultPriority);
+    const folly::Optional<HTTPCodec::StreamID>& assocStreamID,
+    const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
+    const http2::PriorityUpdate& priority = http2::DefaultPriority);
 
   /** Invoked by WriteSegment on completion of a write. */
   void onWriteSuccess(uint64_t bytesWritten);
