@@ -208,7 +208,7 @@ if test x"$HAVE_GPERF" != x"yes"; then
 fi
 
 LIBS="$LIBS $BOOST_LDFLAGS -lpthread -pthread -lfolly -lglog"
-LIBS="$LIBS -ldouble-conversion -lboost_system -lboost_thread"
+LIBS="$LIBS -ldouble-conversion -lboost_system -lboost_thread -ldl -liberty -lboost_regex -lboost_filesystem -lboost_program_options -lboost_context -lsodium"
 
 AM_CONDITIONAL([HAVE_STD_THREAD], [test "$ac_cv_header_features" = "yes"])
 AM_CONDITIONAL([HAVE_X86_64], [test "$build_cpu" = "x86_64"])
