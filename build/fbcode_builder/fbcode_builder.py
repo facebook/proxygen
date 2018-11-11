@@ -196,6 +196,7 @@ class FBCodeBuilder(object):
             'libevent-dev',
             'libgflags-dev',
             'libgoogle-glog-dev',
+            'libiberty-dev',
             'libkrb5-dev',
             'libpcre3-dev',
             'libpthread-stubs0-dev',
