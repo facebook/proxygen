@@ -43,6 +43,7 @@ sudo apt-get install -yq \
     libcap-dev \
     gperf \
     autoconf-archive \
+    libiberty-dev \
     libevent-dev \
     libtool \
     libboost-all-dev \
