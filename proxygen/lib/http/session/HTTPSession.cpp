@@ -1349,6 +1349,10 @@ void HTTPSession::onCertificateRequest(uint16_t requestId,
   DestructorGuard dg(this);
   VLOG(4) << "CERTIFICATE_REQUEST on" << *this << ", requestId=" << requestId;
 
+  if (!secondAuthManager_) {
+    return;
+  }
+
   std::pair<uint16_t, std::unique_ptr<folly::IOBuf>> authenticator;
   auto fizzBase = getTransport()->getUnderlyingTransport<AsyncFizzBase>();
   if (fizzBase) {
@@ -1381,6 +1385,10 @@ void HTTPSession::onCertificate(uint16_t certId,
                                 std::unique_ptr<IOBuf> authenticator) {
   DestructorGuard dg(this);
   VLOG(4) << "CERTIFICATE on" << *this << ", certId=" << certId;
+
+  if (!secondAuthManager_) {
+    return;
+  }
 
   bool isValid = false;
   auto fizzBase = getTransport()->getUnderlyingTransport<AsyncFizzBase>();
