@@ -615,7 +615,8 @@ void HTTP2Codec::onHeader(const folly::fbstring& name,
   }
 }
 
-void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize) {
+void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize,
+                                   bool /*acknowledge*/) {
   decodeInfo_.onHeadersComplete(decodedSize);
   decodeInfo_.msg->setAdvancedProtocolString(http2::kProtocolString);
 

@@ -36,9 +36,10 @@ QPACKEncoder::encode(const vector<HPACKHeader>& headers,
 
 QPACKEncoder::EncodeResult
 QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
-  auto& outstandingBlocks = outstanding_[streamId];
-  outstandingBlocks.emplace_back();
-  curOutstanding_ = &outstandingBlocks.back();
+  OutstandingBlock outstandingBlock;
+  // curOutstanding_ points to a local stack variable, it's mostly for
+  // convenience so other methods invoked from here can access it.
+  curOutstanding_ = &outstandingBlock;
   auto baseIndex = table_.getBaseIndex();
 
   uint32_t largestReference = 0;
@@ -70,11 +71,16 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
 
   auto controlBuf = controlBuffer_.release();
   // curOutstanding_.references could be empty, if the block encodes only static
-  // headers and/or literals
-  if (curOutstanding_->vulnerable) {
-    DCHECK(allowVulnerable());
-    numVulnerable_++;
+  // headers and/or literals.  If so we don't track anything.
+  if (!curOutstanding_->references.empty()) {
+    if (curOutstanding_->vulnerable) {
+      DCHECK(allowVulnerable());
+      numVulnerable_++;
+    }
+    outstanding_[streamId].emplace_back(std::move(outstandingBlock));
   }
+  // Clear the pointer to our stack
+  curOutstanding_ = nullptr;
 
   return { std::move(controlBuf), std::move(streamBuffer) };
 }
@@ -345,6 +351,8 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
       return HPACK::DecodeError::NONE;
     }
   }
+  DCHECK(!it->second.empty()) << "Invariant violation: no blocks in stream "
+     "record";
   VLOG(5) << ((all) ? "onCancelStream" : "onHeaderAck") << " streamId="
           << streamId;
   if (all) {

@@ -28,7 +28,8 @@ void HPACKDecoderBase::completeDecode(
     HeaderCodec::Type type,
     HPACK::StreamingCallback* streamingCb,
     uint32_t compressedSize,
-    uint32_t emittedSize) {
+    uint32_t emittedSize,
+    bool acknowledge) {
   if (!streamingCb) {
     return;
   }
@@ -49,7 +50,7 @@ void HPACKDecoderBase::completeDecode(
     if (streamingCb->stats) {
       streamingCb->stats->recordDecode(type, decodedSize);
     }
-    streamingCb->onHeadersComplete(decodedSize);
+    streamingCb->onHeadersComplete(decodedSize, acknowledge);
   }
 }
 

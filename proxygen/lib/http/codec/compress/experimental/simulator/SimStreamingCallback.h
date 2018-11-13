@@ -45,6 +45,8 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
         msg.getHeaders().add(HTTP_HEADER_HOST, value.toStdString());
       } else if (name == headers::kPath) {
         msg.setURL(value.toStdString());
+      } else if (name == headers::kStatus) {
+        msg.setStatusCode(folly::to<uint16_t>(value.toStdString()));
       } else {
         DCHECK(false) << "Bad header name=" << name << " value=" << value;
       }
@@ -53,7 +55,7 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
     }
   }
 
-  void onHeadersComplete(HTTPHeaderSize) override {
+  void onHeadersComplete(HTTPHeaderSize, bool ack) override {
     auto combinedCookie = msg.getHeaders().combine(HTTP_HEADER_COOKIE, "; ");
     if (!combinedCookie.empty()) {
       msg.getHeaders().set(HTTP_HEADER_COOKIE, combinedCookie);
@@ -62,6 +64,7 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
     if (holStart != TimeUtil::getZeroTimePoint()) {
       holDelay = millisecondsSince(holStart);
     }
+    acknowledge = ack;
     complete = true;
     if (headersCompleteCb) {
       headersCompleteCb(holDelay);
@@ -97,6 +100,7 @@ class SimStreamingCallback : public HPACK::StreamingCallback {
   TimePoint holStart{TimeUtil::getZeroTimePoint()};
   bool complete{false};
   bool isPublic{false};
+  bool acknowledge{false};
 };
 
 }} // namespace proxygen::compress

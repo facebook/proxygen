@@ -30,7 +30,7 @@ class HTTP2Codec: public HTTPParallelCodec, HPACK::StreamingCallback {
 public:
   void onHeader(const folly::fbstring& name,
                 const folly::fbstring& value) override;
-  void onHeadersComplete(HTTPHeaderSize decodedSize) override;
+  void onHeadersComplete(HTTPHeaderSize decodedSize, bool acknowledge) override;
   void onDecodeError(HPACK::DecodeError decodeError) override;
 
   explicit HTTP2Codec(TransportDirection direction);

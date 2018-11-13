@@ -19,7 +19,8 @@ namespace proxygen { namespace HPACK {
 
     virtual void onHeader(const folly::fbstring& name,
                           const folly::fbstring& value) = 0;
-    virtual void onHeadersComplete(HTTPHeaderSize decodedSize) = 0;
+    virtual void onHeadersComplete(HTTPHeaderSize decodedSize,
+                                   bool acknowledge) = 0;
     virtual void onDecodeError(HPACK::DecodeError decodeError) = 0;
     HeaderCodec::Stats* stats{nullptr};
   };

@@ -56,7 +56,8 @@ class HPACKDecoderBase {
       HeaderCodec::Type type,
       HPACK::StreamingCallback* streamingCb,
       uint32_t compressedSize,
-      uint32_t emittedSize);
+      uint32_t emittedSize,
+      bool acknowledge = false);
 
   void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf, HeaderTable& table);
 

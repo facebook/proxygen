@@ -56,12 +56,13 @@ void encodeBlocks(QPACKCodec& decoder,
   for (auto& block : blocks) {
     auto result = encoder.encode(block, streamId);
     // always write stream before control to test decoder blocking
+    SimStreamingCallback cb(streamId, nullptr);
     if (result.stream) {
       decoder.decodeStreaming(streamId, result.stream->clone(),
                               result.stream->computeChainDataLength(),
-                              nullptr);
+                              &cb);
       writeFrame(appender, streamId, std::move(result.stream));
-      if (FLAGS_ack) {
+      if (FLAGS_ack && cb.acknowledge) {
         encoder.decodeDecoderStream(decoder.encodeHeaderAck(streamId));
       }
     }
@@ -219,7 +220,8 @@ class QIFCallback : public HPACK::StreamingCallback {
     }
     of << name << "\t" << value << std::endl;
   }
-  void onHeadersComplete(HTTPHeaderSize /*decodedSize*/) override {
+  void onHeadersComplete(HTTPHeaderSize /*decodedSize*/,
+                         bool /*acknowledge*/) override {
     of << std::endl;
     complete = true;
   }

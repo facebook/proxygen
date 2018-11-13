@@ -22,7 +22,8 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
     headers.emplace_back(duplicate(name), name.size(), true, false);
     headers.emplace_back(duplicate(value), value.size(), true, false);
   }
-  void onHeadersComplete(HTTPHeaderSize /*decodedSize*/) override {
+  void onHeadersComplete(HTTPHeaderSize /*decodedSize*/,
+                         bool /*acknowledge*/) override {
     if (headersCompleteCb) {
       headersCompleteCb();
     }

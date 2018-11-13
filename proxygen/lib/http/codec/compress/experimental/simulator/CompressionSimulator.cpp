@@ -156,7 +156,9 @@ void CompressionSimulator::setupRequest(uint16_t index,
         VLOG(1) << "Finished decoding request=" << index
                 << " with holDelay=" << holDelay.count()
                 << " cumulative HoL delay=" << stats_.holDelay.count();
-        sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
+        if (callbacks_[index].acknowledge) {
+          sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
+        }
       };
   callbacks_.emplace_back(index, decodeCompleteCB);
 

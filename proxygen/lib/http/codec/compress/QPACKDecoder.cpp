@@ -38,7 +38,7 @@ void QPACKDecoder::decodeStreaming(
       VLOG(2) << "QPACK queue is full size=" << queue_.size()
               << " maxBlocking_=" << maxBlocking_;
       err_ = HPACK::DecodeError::TOO_MANY_BLOCKING;
-      completeDecode(HeaderCodec::Type::QPACK, streamingCb, 0, 0);
+      completeDecode(HeaderCodec::Type::QPACK, streamingCb, 0, 0, false);
     } else {
       folly::IOBufQueue q;
       q.append(std::move(block));
@@ -126,14 +126,14 @@ void QPACKDecoder::decodeStreamingImpl(
     emittedSize += 2;
   }
 
+  bool acknowledge = largestReference != 0;
   if (!hasError()) {
-    // This is a little premature, since the ack doesn't get generated here.
     // lastAcked_ is only read in encodeTableStateSync, so all completed header
     // blocks must be call encodeHeaderAck BEFORE calling encodeTableStateSync.
     lastAcked_ = std::max(lastAcked_, largestReference);
   }
   completeDecode(HeaderCodec::Type::QPACK, streamingCb,
-                 consumed + dbuf.consumedBytes(), emittedSize);
+                 consumed + dbuf.consumedBytes(), emittedSize, acknowledge);
 }
 
 uint32_t QPACKDecoder::decodeHeaderQ(

@@ -307,11 +307,13 @@ TEST(QPACKContextTests, TestAcks) {
   EXPECT_EQ(result.control, nullptr);
   EXPECT_TRUE(stringInOutput(result.stream.get(), "foo"));
   verifyDecode(decoder, std::move(result), req);
-  EXPECT_EQ(headerAck(decoder, encoder, 3), HPACK::DecodeError::NONE);
+  // ack is invalid because it's a pure literal
+  EXPECT_EQ(headerAck(decoder, encoder, 3), HPACK::DecodeError::INVALID_ACK);
 
   // Should remove all encoder state.  Blarf: BlahBlahBlah can now be evicted
   // and a new vulnerable reference can be made.
-  EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::NONE);
+  // stream 2 block was pure literals
+  EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::INVALID_ACK);
   EXPECT_EQ(cancelStream(decoder, encoder, 1), HPACK::DecodeError::NONE);
   EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::NONE);
 

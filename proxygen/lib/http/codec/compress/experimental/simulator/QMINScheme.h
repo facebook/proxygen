@@ -412,7 +412,7 @@ class QMINScheme : public CompressionScheme {
     proxygen::HTTPHeaderSize sz;
     sz.compressed = encodedReq->computeChainDataLength();
     sz.uncompressed = decoded_size;
-    callback.onHeadersComplete(sz);
+    callback.onHeadersComplete(sz, true);
   }
 
   uint32_t getHolBlockCount() const override {
