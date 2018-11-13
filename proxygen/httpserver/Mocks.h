@@ -32,6 +32,7 @@ class MockResponseHandler : public ResponseHandler {
   GMOCK_METHOD1_(, noexcept, , sendChunkHeader, void(size_t));
   GMOCK_METHOD1_(, noexcept, , sendBody, void(std::shared_ptr<folly::IOBuf>));
   GMOCK_METHOD0_(, noexcept, , sendChunkTerminator, void());
+  GMOCK_METHOD1_(, noexcept, , sendTrailers, void(const HTTPHeaders&));
   GMOCK_METHOD0_(, noexcept, , sendEOM, void());
   GMOCK_METHOD0_(, noexcept, , sendAbort, void());
   GMOCK_METHOD0_(, noexcept, , refreshTimeout, void());
