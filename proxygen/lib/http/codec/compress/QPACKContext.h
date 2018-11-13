@@ -11,7 +11,7 @@
 
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
 #include <proxygen/lib/http/codec/compress/QPACKHeaderTable.h>
-#include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
+#include <proxygen/lib/http/codec/compress/QPACKStaticHeaderTable.h>
 
 namespace proxygen {
 
@@ -48,7 +48,7 @@ class QPACKContext {
 
  protected:
   const StaticHeaderTable& getStaticTable() const {
-    return StaticHeaderTable::get();
+    return QPACKStaticHeaderTable::get();
   }
 
   QPACKHeaderTable table_;

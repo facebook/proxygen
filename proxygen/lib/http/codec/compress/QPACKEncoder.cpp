@@ -78,7 +78,7 @@ void QPACKEncoder::encodeHeaderQ(
   uint32_t index = getStaticTable().getIndex(header);
   if (index > 0) {
     // static reference
-    streamBuffer_.encodeInteger(index,
+    streamBuffer_.encodeInteger(index - 1,
                                 HPACK::Q_INDEXED.code | HPACK::Q_INDEXED_STATIC,
                                 HPACK::Q_INDEXED.prefixLength);
     return;
@@ -115,7 +115,8 @@ void QPACKEncoder::encodeHeaderQ(
         index = table_.getBaseIndex();
       } else {
         index = 0;
-        if (!table_.isValid(table_.absoluteToRelative(absoluteNameIndex))) {
+        if (absoluteNameIndex > 0 &&
+            !table_.isValid(table_.absoluteToRelative(absoluteNameIndex))) {
           // The insert may have invalidated the name index.
           isStaticName = true;
           nameIndex = 0;
@@ -258,12 +259,10 @@ void QPACKEncoder::encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
   if (nameIndex) {
     VLOG(10) << "encoding name index=" << nameIndex;
     DCHECK_NE(nameIndex, QPACKHeaderTable::UNACKED);
+    nameIndex -= 1; // we already know it's not 0
     uint8_t byte = idxInstr.code;
     if (isStaticName) {
       byte |= staticFlag;
-    } else {
-      DCHECK_GE(nameIndex, 1);
-      nameIndex -= 1;
     }
     buffer.encodeInteger(nameIndex, byte, idxInstr.prefixLength);
   } else {

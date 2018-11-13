@@ -18,7 +18,7 @@ using std::list;
 using std::string;
 using std::vector;
 
-namespace proxygen {
+namespace {
 
 // Array of static header table entires pair
 // Note: if updating this table (should never have to but whatever), update
@@ -88,6 +88,9 @@ const char* s_tableEntries[][2] = {
 };
 
 const int kEntriesSize = sizeof(s_tableEntries) / (2 * sizeof(const char*));
+}
+
+namespace proxygen {
 
 bool StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
     HTTPHeaderCode headerCode) {

@@ -212,9 +212,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
         LOG(ERROR) << "Decode error decoding index err_=" << err_;
         return 0;
       }
-      if (!isStaticName) {
-        nameIndex++;
-      }
+      nameIndex++;
       // validate the index
       if (!isValid(isStaticName, nameIndex, aboveBase)) {
         LOG(ERROR) << "received invalid index: " << nameIndex;
@@ -272,9 +270,7 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(
     LOG(ERROR) << "Decode error decoding index err_=" << err_;
     return 0;
   }
-  if (!isStatic) {
-    index++;
-  }
+  index++;
   // validate the index
   if (index == 0 || !isValid(isStatic, index, aboveBase)) {
     LOG(ERROR) << "received invalid index: " << index;

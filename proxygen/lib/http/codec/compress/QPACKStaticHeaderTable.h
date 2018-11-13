@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2015-present, Facebook, Inc.
+ *  Copyright (c) 2018-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -9,18 +9,18 @@
  */
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/HeaderTable.h>
+#include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
 
 namespace proxygen {
 
-class StaticHeaderTable : public HeaderTable {
+class QPACKStaticHeaderTable {
 
  public:
-  explicit StaticHeaderTable(const char* entries[][2], int size);
 
   static const StaticHeaderTable& get();
 
+  // Not currently used
   static bool isHeaderCodeInTableWithNonEmptyValue(HTTPHeaderCode headerCode);
 };
 
