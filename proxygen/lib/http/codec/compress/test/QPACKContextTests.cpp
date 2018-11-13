@@ -323,6 +323,8 @@ TEST(QPACKContextTests, TestAcks) {
   EXPECT_EQ(result.stream->computeChainDataLength(), 3);
   EXPECT_FALSE(stringInOutput(result.stream.get(), "foo"));
   verifyDecode(decoder, std::move(result), req);
+
+  EXPECT_EQ(encoder.onTableStateSync(0), HPACK::DecodeError::INVALID_ACK);
 }
 
 TEST(QPACKContextTests, TestImplicitAcks) {

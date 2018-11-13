@@ -332,7 +332,7 @@ HPACK::DecodeError QPACKEncoder::decodeHeaderAck(HPACKDecodeBuffer& dbuf,
 }
 
 HPACK::DecodeError QPACKEncoder::onTableStateSync(uint32_t inserts) {
-  if (!table_.onTableStateSync(inserts)) {
+  if (inserts == 0 || !table_.onTableStateSync(inserts)) {
     return HPACK::DecodeError::INVALID_ACK;
   }
   return HPACK::DecodeError::NONE;
