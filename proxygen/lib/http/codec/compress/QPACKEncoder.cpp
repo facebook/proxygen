@@ -49,15 +49,21 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
   auto streamBlock = streamBuffer_.release();
 
   // encode the prefix
-  streamBuffer_.encodeInteger(largestReference);
-  if (largestReference > baseIndex) {
-    streamBuffer_.encodeInteger(largestReference - baseIndex,
-                                HPACK::Q_DELTA_BASE_NEG,
-                                HPACK::Q_DELTA_BASE.prefixLength);
+
+  if (largestReference == 0) {
+    streamBuffer_.encodeInteger(0); // LR
+    streamBuffer_.encodeInteger(0); // baseIndex
   } else {
-    streamBuffer_.encodeInteger(baseIndex - largestReference,
-                                HPACK::Q_DELTA_BASE_POS,
-                                HPACK::Q_DELTA_BASE.prefixLength);
+    streamBuffer_.encodeInteger(largestReference);
+    if (largestReference > baseIndex) {
+      streamBuffer_.encodeInteger(largestReference - baseIndex,
+                                  HPACK::Q_DELTA_BASE_NEG,
+                                  HPACK::Q_DELTA_BASE.prefixLength);
+    } else {
+      streamBuffer_.encodeInteger(baseIndex - largestReference,
+                                  HPACK::Q_DELTA_BASE_POS,
+                                  HPACK::Q_DELTA_BASE.prefixLength);
+    }
   }
   auto streamBuffer = streamBuffer_.release();
   streamBuffer->prependChain(std::move(streamBlock));
@@ -345,6 +351,7 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
     // Happens when a stream is reset
     for (auto& block: it->second) {
       for (auto i: block.references) {
+        VLOG(5) << "Decrementing refcount for absoluteIndex=" << i;
         table_.subRef(i);
       }
       if (block.vulnerable) {
