@@ -251,7 +251,7 @@ TEST(QPACKContextTests, TestDuplicate) {
 
 TEST(QPACKContextTests, TestTableSizeUpdate) {
   QPACKEncoder encoder(false, 100);
-  QPACKDecoder decoder(100);
+  QPACKDecoder decoder(200);
   vector<HPACKHeader> req;
   req.emplace_back("Blarf", "Blah");
   req.emplace_back("Blarf", "Blerg");
@@ -270,6 +270,23 @@ TEST(QPACKContextTests, TestTableSizeUpdate) {
   result = encoder.encode(req, 0, 3);
   EXPECT_EQ(encoder.getHeadersStored(), 2);
   verifyDecode(decoder, std::move(result), req);
+  EXPECT_EQ(decoder.getHeadersStored(), 2);
+}
+
+TEST(QPACKContextTests, TestTableSizeUpdateMax) {
+  // Encoder has table size 200 but decoder has 100.
+  // Encoder never sends a TSU, and overflows the table.
+  // Decoder fails
+  QPACKEncoder encoder(false, 200);
+  QPACKDecoder decoder(200);
+  vector<HPACKHeader> req;
+  req.emplace_back("Blarf", "Blah");
+  req.emplace_back("Blarf", "Blerg");
+  req.emplace_back("Blarf", "Blingo");
+  decoder.setHeaderTableMaxSize(100); // lower limit, should also shrink table
+  auto result = encoder.encode(req, 0, 1);
+  verifyDecode(decoder, std::move(result), req,
+               HPACK::DecodeError::INVALID_INDEX);
   EXPECT_EQ(decoder.getHeadersStored(), 2);
 }
 

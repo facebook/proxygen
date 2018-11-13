@@ -54,6 +54,14 @@ void HPACKDecoderBase::completeDecode(
   }
 }
 
+void HPACKDecoderBase::setHeaderTableMaxSize(
+    HeaderTable& table, uint32_t maxSize) {
+  maxTableSize_ = maxSize;
+  if (maxTableSize_ < table.capacity()) {
+    CHECK(table.setCapacity(maxTableSize_));
+  }
+}
+
 void HPACKDecoderBase::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
                                              HeaderTable& table) {
   uint64_t arg = 0;
@@ -64,7 +72,8 @@ void HPACKDecoderBase::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
   }
 
   if (arg > maxTableSize_) {
-    LOG(ERROR) << "Tried to increase size of the header table";
+    LOG(ERROR) << "Tried to increase size of the header table to " << arg
+               << " maxTableSize_=" << maxTableSize_;
     err_ = HPACK::DecodeError::INVALID_TABLE_SIZE;
     return;
   }

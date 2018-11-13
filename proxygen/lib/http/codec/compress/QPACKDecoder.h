@@ -55,6 +55,10 @@ class QPACKDecoder : public HPACKDecoderBase,
     maxBlocking_ = maxBlocking;
   }
 
+  void setHeaderTableMaxSize(uint32_t maxSize) {
+    HPACKDecoderBase::setHeaderTableMaxSize(table_, maxSize);
+  }
+
  private:
   bool isValid(bool isStatic, uint32_t index, bool aboveBase);
 

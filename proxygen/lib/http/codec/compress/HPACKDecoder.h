@@ -36,6 +36,11 @@ class HPACKDecoder : public HPACKDecoderBase,
                        uint32_t totalBytes,
                        HPACK::StreamingCallback* streamingCb);
 
+
+  void setHeaderTableMaxSize(uint32_t maxSize) {
+    HPACKDecoderBase::setHeaderTableMaxSize(table_, maxSize);
+  }
+
  private:
   bool isValid(uint32_t index);
 

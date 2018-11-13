@@ -39,9 +39,7 @@ class HPACKDecoderBase {
     return err_ != HPACK::DecodeError::NONE;
   }
 
-  void setHeaderTableMaxSize(uint32_t maxSize) {
-    maxTableSize_ = maxSize;
-  }
+  void setHeaderTableMaxSize(HeaderTable& table, uint32_t maxSize);
 
   void setMaxUncompressed(uint64_t maxUncompressed) {
     maxUncompressed_ = maxUncompressed;
