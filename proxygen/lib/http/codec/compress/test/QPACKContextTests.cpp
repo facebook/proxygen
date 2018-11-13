@@ -10,6 +10,7 @@
 #include <folly/Conv.h>
 #include <glog/logging.h>
 #include <folly/portability/GTest.h>
+#include <folly/Format.h>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
@@ -22,10 +23,12 @@ using namespace std;
 using namespace testing;
 
 namespace {
-void verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
-                  const std::vector<HPACKHeader>& expectedHeaders,
-                  HPACK::DecodeError expectedError = HPACK::DecodeError::NONE) {
+std::shared_ptr<bool>
+verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
+             const std::vector<HPACKHeader>& expectedHeaders,
+             HPACK::DecodeError expectedError = HPACK::DecodeError::NONE) {
   auto cb = std::make_shared<TestStreamingCallback>();
+  auto done = std::make_shared<bool>(false);
   if (result.control) {
     EXPECT_EQ(decoder.decodeEncoderStream(std::move(result.control)),
               HPACK::DecodeError::NONE);
@@ -33,19 +36,24 @@ void verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
   auto length = result.stream->computeChainDataLength();
   if (expectedError == HPACK::DecodeError::NONE) {
     cb->headersCompleteCb =
-      [&expectedHeaders, cb] () mutable {
+      [&expectedHeaders, cb, done] () mutable {
       std::vector<HPACKHeader> test;
       for (size_t i = 0; i < cb->headers.size(); i += 2) {
         test.emplace_back(cb->headers[i].str, cb->headers[i + 1].str);
       }
       EXPECT_EQ(cb->error, HPACK::DecodeError::NONE);
       EXPECT_EQ(test, expectedHeaders);
+      *done = true;
       cb.reset();
     };
   }
   // streamID only matters for cancellation
   decoder.decodeStreaming(0, std::move(result.stream), length, cb.get());
   EXPECT_EQ(cb->error, expectedError);
+  if (expectedError != HPACK::DecodeError::NONE) {
+    *done = true;
+  }
+  return done;
 }
 
 bool stringInOutput(IOBuf* stream, const std::string& expected) {
@@ -62,6 +70,11 @@ HPACK::DecodeError headerAck(QPACKDecoder& decoder, QPACKEncoder& encoder,
 HPACK::DecodeError cancelStream(QPACKDecoder& decoder, QPACKEncoder& encoder,
                                 uint64_t streamId) {
   return encoder.decodeDecoderStream(decoder.encodeCancelStream(streamId));
+}
+
+std::string toFixedLengthString(uint32_t i) {
+  CHECK_LT(i, 1000);
+  return folly::format("{:3}", i).str();
 }
 }
 
@@ -450,6 +463,116 @@ TEST(QPACKContextTests, TestDecodePartialControl) {
   EXPECT_EQ(decoder.getHeader(false, 1, 1, false), req[0]);
 }
 
+TEST(QPACKContextTests, WrapLRBehind) {
+  // This tests how LR wraps when the encoder and decoder have the same state
+  uint32_t tableSize = 1024;
+  uint32_t maxEntries = tableSize / 32;
+  uint32_t realMaxEntries = tableSize / (32 + sizeof("999"));
+
+  QPACKEncoder encoder(true, tableSize);
+  QPACKDecoder decoder(tableSize);
+  encoder.setMinFreeForTesting(0);
+  for (uint32_t decoderBase = 0; decoderBase < maxEntries * 3; decoderBase++) {
+    if (decoderBase > 0) {
+      // add one more header to decoder
+      vector<HPACKHeader> req;
+      VLOG(5) << "priming decoder with h=" << decoderBase
+              << " decoderBase=" << decoderBase;
+      req.emplace_back(toFixedLengthString(decoderBase), "");
+      auto result = encoder.encode(req, 10, 1);
+      EXPECT_NE(result.control, nullptr)
+        << "Every encode should produce an insert";
+      EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
+      EXPECT_EQ(encoder.decodeDecoderStream(decoder.encodeHeaderAck(1)),
+                HPACK::DecodeError::NONE);
+    }
+    for (auto largestRef =
+           std::max<int64_t>(0, int64_t(decoderBase) - realMaxEntries + 1);
+         largestRef <= decoderBase; largestRef++) {
+      VLOG(5) << "WrapLR test decoderBase=" << decoderBase
+              << " largestRef=" << largestRef;
+
+      // Now send encode a request for the given largest reference.
+      vector<HPACKHeader> req;
+      if (largestRef > 0) {
+        req.emplace_back(toFixedLengthString(largestRef), "");
+      } else {
+        req.emplace_back(":scheme", "https");
+      }
+      auto result = encoder.encode(req, 10, 2);
+      EXPECT_EQ(result.control, nullptr); // no inserts
+      CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
+      // the decoder should be able to immediately decode it
+      EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
+      encoder.decodeDecoderStream(decoder.encodeHeaderAck(2));
+    }
+  }
+}
+
+TEST(QPACKContextTests, WrapLRAhead) {
+  // This tests how LR wraps when the encoder is up to a full table ahead of the
+  // decoder.  tableSize is set such that realMaxEntries=64, which prevents
+  // LR from being too far from base index as to expand the prefix.
+  uint32_t tableSize = 4064;
+  uint32_t maxEntries = tableSize / 32;
+  uint32_t realMaxEntries = tableSize / (32 + sizeof("999"));
+
+  // With QPACK-02, this would have produced an encoded stream buffer of 4
+  // bytes.  Each loop of decoderBase is expensive, so start it at maxEntries,
+  // and only run it until it actually would have made a difference in
+  // the encoded size of largest reference.
+  CHECK_LE(realMaxEntries, 256);
+  for (uint32_t decoderBase = maxEntries;
+       decoderBase < (256 - realMaxEntries);
+       decoderBase++) {
+    QPACKEncoder encoder(true, tableSize);
+    QPACKDecoder decoder(tableSize);
+    encoder.setMaxVulnerable(realMaxEntries);
+    decoder.setMaxBlocking(realMaxEntries);
+    encoder.setMinFreeForTesting(0);
+    for (uint32_t i = 1; i <= decoderBase; i++) {
+      vector<HPACKHeader> req;
+      // populate the encoder and decode table to decoderBase.
+      VLOG(5) << "priming decoder with h=" << i
+              << " decoderBase=" << decoderBase;
+      req.emplace_back(toFixedLengthString(i), "");
+      auto result = encoder.encode(req, 10, 1);
+      EXPECT_NE(result.control, nullptr)
+        << "Every encode should produce an insert";
+      EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
+      EXPECT_EQ(encoder.decodeDecoderStream(decoder.encodeHeaderAck(1)),
+                HPACK::DecodeError::NONE);
+    }
+    folly::IOBufQueue controlQueue{folly::IOBufQueue::cacheChainLength()};
+    std::list<std::shared_ptr<bool>> allDone;
+    vector<vector<HPACKHeader>> reqs;
+    reqs.reserve(2 * realMaxEntries);
+    // encode realMaxEntries requests past decoderBase, and queue the decodes
+    // but don't process the inserts
+    for (auto largestRef = decoderBase + 1;
+         largestRef <= decoderBase + realMaxEntries; largestRef++) {
+      VLOG(5) << "WrapLR test decoderBase=" << decoderBase
+              << " largestRef=" << largestRef;
+      reqs.emplace_back();
+      auto& req = reqs.back();
+      req.emplace_back(toFixedLengthString(largestRef), "");
+      auto result = encoder.encode(req, 10, largestRef);
+      EXPECT_NE(result.control, nullptr)
+        << "Every encode should produce an insert";
+      controlQueue.append(std::move(result.control));
+      CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
+      // the decoder has to block because the control stream is pending.
+      // This verifies the whole batch of encodes against the same decoderBase
+      allDone.emplace_back(verifyDecode(decoder, std::move(result), req));
+    }
+    // control block should unblock all requests
+    decoder.decodeEncoderStream(controlQueue.move());
+    for (const auto& done: allDone) {
+      EXPECT_TRUE(*done);
+    }
+  }
+}
+
 void checkQError(QPACKDecoder& decoder, std::unique_ptr<IOBuf> buf,
                  const HPACK::DecodeError err) {
   auto cb = std::make_unique<TestStreamingCallback>();
@@ -484,7 +607,7 @@ TEST(QPACKContextTests, DecodeErrors) {
 
   VLOG(10) << "Exceeds blocking max";
   decoder.setMaxBlocking(0);
-  buf->writableData()[0] = 0x01;
+  buf->writableData()[0] = 0x02;
   buf->writableData()[1] = 0x00;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::TOO_MANY_BLOCKING);
 

@@ -54,10 +54,32 @@ void QPACKDecoder::decodeStreaming(
 
 uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   uint64_t largestReference;
-  err_ = dbuf.decodeInteger(largestReference);
+  uint64_t wireLR;
+  uint64_t maxEntries = table_.getMaxEntries();
+  uint64_t modulus = 2 * maxEntries;
+  err_ = dbuf.decodeInteger(wireLR);
   if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Decode error decoding largest reference err_=" << err_;
     return 0;
+  }
+  if (wireLR == 0) {
+    largestReference = 0;
+  } else {
+    wireLR--;
+    if (wireLR >= modulus) {
+      LOG(ERROR) << "Decode error LR out of range=" << wireLR;
+      err_ = HPACK::DecodeError::INVALID_INDEX;
+      return 0;
+    }
+    auto now = table_.getBaseIndex() % modulus;
+    if (now >= wireLR + maxEntries) {
+      // LR wrapped on more time than now
+      wireLR += modulus;
+    } else if (now + maxEntries < wireLR) {
+      // now wrapped one more time than LR
+      now += modulus;
+    }
+    largestReference = wireLR + (table_.getBaseIndex() - now);
   }
   VLOG(5) << "Decoded largestReference=" << largestReference;
   uint64_t delta = 0;

@@ -49,12 +49,12 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
   auto streamBlock = streamBuffer_.release();
 
   // encode the prefix
-
   if (largestReference == 0) {
     streamBuffer_.encodeInteger(0); // LR
     streamBuffer_.encodeInteger(0); // baseIndex
   } else {
-    streamBuffer_.encodeInteger(largestReference);
+    auto wireLR = (largestReference % (2 * table_.getMaxEntries())) + 1;
+    streamBuffer_.encodeInteger(wireLR);
     if (largestReference > baseIndex) {
       streamBuffer_.encodeInteger(largestReference - baseIndex,
                                   HPACK::Q_DELTA_BASE_NEG,

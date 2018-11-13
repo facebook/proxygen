@@ -95,7 +95,7 @@ const HPACKHeader& HeaderTable::getHeader(uint32_t index) const {
   return table_[toInternal(index)];
 }
 
-uint32_t HeaderTable::getMaxTableLength(uint32_t capacityVal) {
+uint32_t HeaderTable::getMaxTableLength(uint32_t capacityVal) const {
   // At a minimum an entry will take 32 bytes
   // No need to add an extra slot; i.e. a capacity of 32 to 63 bytes can hold
   // at most one entry.

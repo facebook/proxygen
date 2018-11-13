@@ -31,6 +31,10 @@ class QPACKHeaderTable : public HeaderTable {
   QPACKHeaderTable(const QPACKHeaderTable&) = delete;
   QPACKHeaderTable& operator=(const QPACKHeaderTable&) = delete;
 
+  uint32_t getMaxEntries() const {
+    return getMaxTableLength(capacity_);
+  }
+
   /**
    * Return Base Index - the total number of headers inserted to this table,
    * including evictions
@@ -81,6 +85,12 @@ class QPACKHeaderTable : public HeaderTable {
   bool add(HPACKHeader header) override;
 
   bool setCapacity(uint32_t capacity) override;
+
+  // This API is only for tests, and doesn't work correctly if the table is
+  // already populated.
+  void setMinFreeForTesting(uint32_t minFree) {
+    minFree_ = minFree;
+  }
 
   /**
    * Get the index of the given header, if found.  The index is relative to

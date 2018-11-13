@@ -62,6 +62,12 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
     maxVulnerable_ = maxVulnerable;
   }
 
+  // This API is only for tests, and doesn't work correctly if the table is
+  // already populated.
+  void setMinFreeForTesting(uint32_t minFree) {
+    table_.setMinFreeForTesting(minFree);
+  }
+
  private:
   bool allowVulnerable() const {
     return numVulnerable_ < maxVulnerable_;
