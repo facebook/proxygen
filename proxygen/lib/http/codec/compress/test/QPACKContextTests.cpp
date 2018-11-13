@@ -290,6 +290,56 @@ TEST(QPACKContextTests, TestTableSizeUpdateMax) {
   EXPECT_EQ(decoder.getHeadersStored(), 2);
 }
 
+TEST(QPACKContextTests, TestEncoderFlowControl) {
+  QPACKEncoder encoder(false, 170);
+  QPACKDecoder decoder(170);
+  vector<HPACKHeader> req;
+  req.emplace_back("Blarf", "Blah");
+  req.emplace_back("Blarf", "Blerg");
+  req.emplace_back("Blarf", "Blingo");
+  auto result = encoder.encode(req, 0, 1, 0);
+  EXPECT_EQ(result.control, nullptr);
+  verifyDecode(decoder, std::move(result), req,
+               HPACK::DecodeError::NONE);
+  EXPECT_EQ(decoder.getHeadersStored(), 0);
+
+  // There is enough room for the first header only
+  result = encoder.encode(req, 0, 1, 11);
+  EXPECT_EQ(result.control->computeChainDataLength(), 11);
+  EXPECT_FALSE(stringInOutput(result.stream.get(), "Blah"));
+  EXPECT_TRUE(stringInOutput(result.stream.get(), "Blerg"));
+  EXPECT_TRUE(stringInOutput(result.stream.get(), "Blingo"));
+  verifyDecode(decoder, std::move(result), req,
+               HPACK::DecodeError::NONE);
+  EXPECT_EQ(decoder.getHeadersStored(), 1);
+
+  // Blarf is name indexed, Blah is indexed, Blerg fits, Blingo is encoded but
+  // doesn't get used because it only half-fits
+  result = encoder.encode(req, 0, 1, 10);
+  EXPECT_EQ(result.control->computeChainDataLength(), 15);
+  EXPECT_FALSE(stringInOutput(result.stream.get(), "Blah"));
+  EXPECT_FALSE(stringInOutput(result.stream.get(), "Blerg"));
+  EXPECT_TRUE(stringInOutput(result.control.get(), "Blingo"));
+  EXPECT_TRUE(stringInOutput(result.stream.get(), "Blingo"));
+  auto controlTail = result.control->clone();
+  controlTail->trimStart(10);
+  result.control->trimEnd(5);
+  verifyDecode(decoder, std::move(result), req,
+               HPACK::DecodeError::NONE);
+  EXPECT_EQ(decoder.getHeadersStored(), 2);
+  EXPECT_EQ(decoder.decodeEncoderStream(std::move(controlTail)),
+            HPACK::DecodeError::NONE);
+  EXPECT_EQ(decoder.getHeadersStored(), 3);
+
+  // Blah is now drained, so the next encode should produce a duplicate we
+  // can't use
+  req.erase(req.begin() + 1, req.end());
+  result = encoder.encode(req, 0, 1, 0);
+  EXPECT_EQ(result.control->computeChainDataLength(), 1);
+  EXPECT_TRUE(stringInOutput(result.stream.get(), "Blah"));
+  verifyDecode(decoder, std::move(result), req,
+               HPACK::DecodeError::NONE);
+}
 
 TEST(QPACKContextTests, TestAcks) {
   QPACKEncoder encoder(false, 100);

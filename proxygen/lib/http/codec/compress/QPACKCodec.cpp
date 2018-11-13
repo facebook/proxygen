@@ -45,10 +45,13 @@ void QPACKCodec::recordCompressedSize(
 }
 
 QPACKEncoder::EncodeResult QPACKCodec::encode(
-  vector<Header>& headers, uint64_t streamId) noexcept {
+    vector<Header>& headers,
+    uint64_t streamId,
+    uint32_t maxEncoderStreamBytes) noexcept {
   auto prepared = compress::prepareHeaders(headers);
   encodedSize_.uncompressed = prepared.second;
-  auto res = encoder_.encode(prepared.first, encodeHeadroom_, streamId);
+  auto res = encoder_.encode(prepared.first, encodeHeadroom_, streamId,
+                             maxEncoderStreamBytes);
   recordCompressedSize(res);
   return res;
 }

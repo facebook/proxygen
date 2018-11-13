@@ -49,8 +49,8 @@ class HPACKEncoderBase {
 
  protected:
 
-  void handlePendingContextUpdate(HPACKEncodeBuffer& buf,
-                                  uint32_t tableCapacity);
+  uint32_t handlePendingContextUpdate(HPACKEncodeBuffer& buf,
+                                      uint32_t tableCapacity);
 
   const HeaderIndexingStrategy* indexingStrat_;
   HPACKEncodeBuffer streamBuffer_;

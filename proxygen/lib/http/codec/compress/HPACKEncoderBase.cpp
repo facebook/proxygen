@@ -11,15 +11,18 @@
 
 namespace proxygen {
 
-void HPACKEncoderBase::handlePendingContextUpdate(HPACKEncodeBuffer& buf,
-                                                  uint32_t tableCapacity) {
+uint32_t HPACKEncoderBase::handlePendingContextUpdate(HPACKEncodeBuffer& buf,
+                                                      uint32_t tableCapacity) {
   CHECK_EQ(HPACK::TABLE_SIZE_UPDATE.code, HPACK::Q_TABLE_SIZE_UPDATE.code) <<
     "Code assumes these are equal";
+  uint32_t encoded = 0;
   if (pendingContextUpdate_) {
     VLOG(5) << "Encoding table size update size=" << tableCapacity;
-    buf.encodeInteger(tableCapacity, HPACK::TABLE_SIZE_UPDATE);
+    encoded = buf.encodeInteger(tableCapacity, HPACK::TABLE_SIZE_UPDATE);
     pendingContextUpdate_ = false;
   }
+
+  return encoded;
 }
 
 }

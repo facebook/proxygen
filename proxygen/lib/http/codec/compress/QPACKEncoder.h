@@ -45,7 +45,8 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   EncodeResult encode(
     const std::vector<HPACKHeader>& headers,
     uint32_t headroom,
-    uint64_t streamId);
+    uint64_t streamId,
+    uint32_t maxEncoderStreamBytes=std::numeric_limits<uint32_t>::max());
 
   HPACK::DecodeError decodeDecoderStream(
       std::unique_ptr<folly::IOBuf> buf);
@@ -102,13 +103,13 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
                       uint32_t nameIndex,
                       const HPACK::Instruction& idxInstr);
 
-  void encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
-                            const HPACKHeader& header,
-                            bool isStaticName,
-                            uint32_t nameIndex,
-                            uint8_t staticFlag,
-                            const HPACK::Instruction& idxInstr,
-                            const HPACK::Instruction& litInstr);
+  uint32_t encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
+                                const HPACKHeader& header,
+                                bool isStaticName,
+                                uint32_t nameIndex,
+                                uint8_t staticFlag,
+                                const HPACK::Instruction& idxInstr,
+                                const HPACK::Instruction& litInstr);
 
   void trackReference(uint32_t index, uint32_t* largestReference);
 
@@ -117,6 +118,14 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   HPACK::DecodeError decodeHeaderAck(HPACKDecodeBuffer& dbuf,
                                      uint8_t prefixLength,
                                      bool all);
+
+  // Returns true if the most recently encoded value (duplicate, insert)
+  // fit in the encoder stream's flow control window.  The encoder will only
+  // make references to dynamic table entries that fit.  This prevents a nasty
+  // deadlock.
+  bool lastEntryAvailable() const {
+    return maxEncoderStreamBytes_ >= 0;
+  }
 
   HPACKEncodeBuffer controlBuffer_;
   using BlockReferences = std::set<uint32_t>;
@@ -130,6 +139,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   uint32_t maxDepends_{0};
   uint32_t maxVulnerable_{HPACK::kDefaultBlocking};
   uint32_t numVulnerable_{0};
+  int64_t maxEncoderStreamBytes_{0};
   folly::IOBufQueue decoderIngress_{folly::IOBufQueue::cacheChainLength()};
 };
 

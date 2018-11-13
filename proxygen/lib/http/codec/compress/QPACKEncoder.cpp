@@ -26,11 +26,14 @@ QPACKEncoder::QPACKEncoder(bool huffman, uint32_t tableSize) :
 QPACKEncoder::EncodeResult
 QPACKEncoder::encode(const vector<HPACKHeader>& headers,
                      uint32_t headroom,
-                     uint64_t streamId) {
+                     uint64_t streamId,
+                     uint32_t maxEncoderStreamBytes) {
   if (headroom) {
     streamBuffer_.addHeadroom(headroom);
   }
-  handlePendingContextUpdate(controlBuffer_, table_.capacity());
+  maxEncoderStreamBytes_ = maxEncoderStreamBytes;
+  maxEncoderStreamBytes_ -=
+    handlePendingContextUpdate(controlBuffer_, table_.capacity());
   return encodeQ(headers, streamId);
 }
 
@@ -120,10 +123,12 @@ void QPACKEncoder::encodeHeaderQ(
       getNameIndexQ(header.name);
 
     // Now check if we should emit an insertion on the control stream
+    // Don't try to index if we're out of encoder flow control
+    indexable &= maxEncoderStreamBytes_ > 0;
     if (indexable && table_.canIndex(header)) {
       encodeInsertQ(header, isStaticName, nameIndex);
       CHECK(table_.add(header.copy()));
-      if (allowVulnerable()) {
+      if (allowVulnerable() && lastEntryAvailable()) {
         index = table_.getBaseIndex();
       } else {
         index = 0;
@@ -167,6 +172,13 @@ std::pair<bool, uint32_t> QPACKEncoder::maybeDuplicate(
   if (res.first) {
     VLOG(4) << "Encoded duplicate index=" << relativeIndex;
     encodeDuplicate(relativeIndex);
+    // Note we will emit duplications even when we are out of flow control,
+    // but we won't reference them (eg: like we were at vulnerable max).
+    if (!lastEntryAvailable()) {
+      VLOG(4) << "Duplicate is not usable because it overran encoder flow "
+        "control";
+      return {true, 0};
+    }
   }
   return res;
 }
@@ -236,16 +248,18 @@ void QPACKEncoder::trackReference(uint32_t absoluteIndex,
 
 void QPACKEncoder::encodeDuplicate(uint32_t index) {
   DCHECK_GT(index, 0);
-  controlBuffer_.encodeInteger(index - 1, HPACK::Q_DUPLICATE);
+  maxEncoderStreamBytes_ -=
+    controlBuffer_.encodeInteger(index - 1, HPACK::Q_DUPLICATE);
 }
 
 void QPACKEncoder::encodeInsertQ(const HPACKHeader& header,
                                  bool isStaticName,
                                  uint32_t nameIndex) {
-  encodeLiteralQHelper(
-    controlBuffer_, header, isStaticName, nameIndex,
-    HPACK::Q_INSERT_NAME_REF_STATIC, HPACK::Q_INSERT_NAME_REF,
-    HPACK::Q_INSERT_NO_NAME_REF);
+  auto encoded = encodeLiteralQHelper(
+      controlBuffer_, header, isStaticName, nameIndex,
+      HPACK::Q_INSERT_NAME_REF_STATIC, HPACK::Q_INSERT_NAME_REF,
+      HPACK::Q_INSERT_NO_NAME_REF);
+  maxEncoderStreamBytes_ -= encoded;
 }
 
 void QPACKEncoder::encodeLiteralQ(const HPACKHeader& header,
@@ -260,13 +274,15 @@ void QPACKEncoder::encodeLiteralQ(const HPACKHeader& header,
       HPACK::Q_LITERAL);
 }
 
-void QPACKEncoder::encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
-                                        const HPACKHeader& header,
-                                        bool isStaticName,
-                                        uint32_t nameIndex,
-                                        uint8_t staticFlag,
-                                        const HPACK::Instruction& idxInstr,
-                                        const HPACK::Instruction& litInstr) {
+uint32_t QPACKEncoder::encodeLiteralQHelper(
+    HPACKEncodeBuffer& buffer,
+    const HPACKHeader& header,
+    bool isStaticName,
+    uint32_t nameIndex,
+    uint8_t staticFlag,
+    const HPACK::Instruction& idxInstr,
+    const HPACK::Instruction& litInstr) {
+  uint32_t encoded = 0;
   // name
   if (nameIndex) {
     VLOG(10) << "encoding name index=" << nameIndex;
@@ -276,13 +292,14 @@ void QPACKEncoder::encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
     if (isStaticName) {
       byte |= staticFlag;
     }
-    buffer.encodeInteger(nameIndex, byte, idxInstr.prefixLength);
+    encoded += buffer.encodeInteger(nameIndex, byte, idxInstr.prefixLength);
   } else {
-    buffer.encodeLiteral(litInstr.code, litInstr.prefixLength,
-                         header.name.get());
+    encoded += buffer.encodeLiteral(litInstr.code, litInstr.prefixLength,
+                                    header.name.get());
   }
   // value
-  buffer.encodeLiteral(header.value);
+  encoded += buffer.encodeLiteral(header.value);
+  return encoded;
 }
 
 HPACK::DecodeError QPACKEncoder::decodeDecoderStream(

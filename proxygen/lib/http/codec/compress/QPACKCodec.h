@@ -40,7 +40,9 @@ class QPACKCodec : public HeaderCodec {
 
   // QPACK encode: id is used for internal tracking of references
   QPACKEncoder::EncodeResult encode(
-    std::vector<compress::Header>& headers, uint64_t id) noexcept;
+      std::vector<compress::Header>& headers, uint64_t id,
+      uint32_t maxEncoderStreamBytes=
+      std::numeric_limits<uint32_t>::max()) noexcept;
 
   HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf) {
     // stats?
