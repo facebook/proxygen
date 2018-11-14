@@ -46,13 +46,6 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
                   ? FrameState::UPSTREAM_CONNECTION_PREFACE
                   : FrameState::DOWNSTREAM_CONNECTION_PREFACE) {
 
-  // Set headerCodec_ settings if specified, else let headerCodec_ utilize
-  // its own defaults
-  const auto decoderHeaderTableMaxSize = egressSettings_.getSetting(
-    SettingsId::HEADER_TABLE_SIZE);
-  if (decoderHeaderTableMaxSize) {
-    headerCodec_.setDecoderHeaderTableMaxSize(decoderHeaderTableMaxSize->value);
-  }
   const auto maxHeaderListSize = egressSettings_.getSetting(
     SettingsId::MAX_HEADER_LIST_SIZE);
   if (maxHeaderListSize) {
@@ -710,7 +703,10 @@ ErrorCode HTTP2Codec::parseSettings(Cursor& cursor) {
   auto err = http2::parseSettings(cursor, curHeader_, settings);
   RETURN_IF_ERROR(err);
   if (curHeader_.flags & http2::ACK) {
-    // for stats
+    if (pendingTableMaxSize_) {
+      headerCodec_.setDecoderHeaderTableMaxSize(*pendingTableMaxSize_);
+      pendingTableMaxSize_ = folly::none;
+    }
     if (callback_) {
       callback_->onSettingsAck();
     }
@@ -1458,7 +1454,12 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
   for (auto& setting: egressSettings_.getAllSettings()) {
     switch (setting.id) {
       case SettingsId::HEADER_TABLE_SIZE:
-        headerCodec_.setDecoderHeaderTableMaxSize(setting.value);
+        if (pendingTableMaxSize_) {
+          LOG(ERROR) << "Can't have more than one settings in flight, skipping";
+          continue;
+        } else {
+          pendingTableMaxSize_ = setting.value;
+        }
         break;
       case SettingsId::ENABLE_PUSH:
         if (transportDirection_ == TransportDirection::DOWNSTREAM) {

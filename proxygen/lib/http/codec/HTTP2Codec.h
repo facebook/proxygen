@@ -281,6 +281,7 @@ public:
 
   HeaderDecodeInfo decodeInfo_;
   std::vector<StreamID> virtualPriorityNodes_;
+  folly::Optional<uint32_t> pendingTableMaxSize_;
   bool reuseIOBufHeadroomForData_{true};
 
   // True if last parsed HEADERS frame was trailers.

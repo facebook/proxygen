@@ -1036,6 +1036,10 @@ TEST_F(HTTP2DownstreamSessionTest, ExheaderFromServer) {
     });
 
   EXPECT_CALL(pubHandler, setTransaction(_));
+  EXPECT_CALL(callbacks_, onSettings(_))
+    .WillOnce(InvokeWithoutArgs([&] {
+          clientCodec_->generateSettingsAck(requests_);
+        }));
   EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
   EXPECT_CALL(callbacks_, onHeadersComplete(cStreamId, _));
   EXPECT_CALL(callbacks_, onExMessageBegin(2, _, _, _));
