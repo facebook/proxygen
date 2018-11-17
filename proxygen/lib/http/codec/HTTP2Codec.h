@@ -226,6 +226,7 @@ public:
   ErrorCode checkNewStream(uint32_t stream, bool trailersAllowed);
   bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
   ErrorCode handleSettings(const std::deque<SettingPair>& settings);
+  void handleSettingsAck();
   size_t maxSendFrameSize() const {
     return (uint32_t)ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                        http2::kMaxFramePayloadLengthMin);

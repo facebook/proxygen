@@ -15,6 +15,7 @@
 
 #include <folly/Conv.h>
 #include <folly/Random.h>
+#include <folly/ThreadLocal.h>
 #include <folly/io/Cursor.h>
 #include <folly/tracing/ScopedTraceSection.h>
 #include <type_traits>
@@ -703,16 +704,20 @@ ErrorCode HTTP2Codec::parseSettings(Cursor& cursor) {
   auto err = http2::parseSettings(cursor, curHeader_, settings);
   RETURN_IF_ERROR(err);
   if (curHeader_.flags & http2::ACK) {
-    if (pendingTableMaxSize_) {
-      headerCodec_.setDecoderHeaderTableMaxSize(*pendingTableMaxSize_);
-      pendingTableMaxSize_ = folly::none;
-    }
-    if (callback_) {
-      callback_->onSettingsAck();
-    }
+    handleSettingsAck();
     return ErrorCode::NO_ERROR;
   }
   return handleSettings(settings);
+}
+
+void HTTP2Codec::handleSettingsAck() {
+  if (pendingTableMaxSize_) {
+    headerCodec_.setDecoderHeaderTableMaxSize(*pendingTableMaxSize_);
+    pendingTableMaxSize_ = folly::none;
+  }
+  if (callback_) {
+    callback_->onSettingsAck();
+  }
 }
 
 ErrorCode HTTP2Codec::handleSettings(const std::deque<SettingPair>& settings) {
@@ -1509,7 +1514,10 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
 }
 
 void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
-  static HTTP2Codec defaultCodec(TransportDirection::UPSTREAM);
+  static folly::ThreadLocalPtr<HTTP2Codec> defaultCodec;
+  if (!defaultCodec.get()) {
+    defaultCodec.reset(new HTTP2Codec(TransportDirection::UPSTREAM));
+  }
 
   auto& headers = request.getHeaders();
   headers.set(HTTP_HEADER_UPGRADE, http2::kProtocolCleartextString);
@@ -1517,7 +1525,9 @@ void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
     headers.add(HTTP_HEADER_CONNECTION, "Upgrade");
   }
   IOBufQueue writeBuf{IOBufQueue::cacheChainLength()};
-  defaultCodec.generateSettings(writeBuf);
+  defaultCodec->generateSettings(writeBuf);
+  // fake an ack since defaultCodec gets reused
+  defaultCodec->handleSettingsAck();
   writeBuf.trimStart(http2::kFrameHeaderSize);
   auto buf = writeBuf.move();
   buf->coalesce();
