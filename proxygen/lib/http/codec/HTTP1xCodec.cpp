@@ -79,36 +79,36 @@ appendString(IOBufQueue& queue, size_t& len, StringPiece str) {
 namespace proxygen {
 
 HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool forceUpstream1_1)
-  : callback_(nullptr),
-    ingressTxnID_(0),
-    egressTxnID_(0),
-    currentIngressBuf_(nullptr),
-    headerParseState_(HeaderParseState::kParsingHeaderIdle),
-    transportDirection_(direction),
-    keepaliveRequested_(KeepaliveRequested::UNSET),
-    forceUpstream1_1_(forceUpstream1_1),
-    parserActive_(false),
-    pendingEOF_(false),
-    parserPaused_(false),
-    parserError_(false),
-    requestPending_(false),
-    responsePending_(false),
-    egressChunked_(false),
-    inChunk_(false),
-    lastChunkWritten_(false),
-    keepalive_(true),
-    disableKeepalivePending_(false),
-    connectRequest_(false),
-    headRequest_(false),
-    expectNoResponseBody_(false),
-    mayChunkEgress_(false),
-    is1xxResponse_(false),
-    inRecvLastChunk_(false),
-    ingressUpgrade_(false),
-    ingressUpgradeComplete_(false),
-    egressUpgrade_(false),
-    nativeUpgrade_(false),
-    headersComplete_(false) {
+    : callback_(nullptr),
+      ingressTxnID_(0),
+      egressTxnID_(0),
+      currentIngressBuf_(nullptr),
+      headerParseState_(HeaderParseState::kParsingHeaderIdle),
+      transportDirection_(direction),
+      keepaliveRequested_(KeepaliveRequested::UNSET),
+      forceUpstream1_1_(forceUpstream1_1),
+      parserActive_(false),
+      pendingEOF_(false),
+      parserPaused_(false),
+      parserError_(false),
+      requestPending_(false),
+      responsePending_(false),
+      egressChunked_(false),
+      inChunk_(false),
+      lastChunkWritten_(false),
+      keepalive_(true),
+      disableKeepalivePending_(false),
+      connectRequest_(false),
+      headRequest_(false),
+      expectNoResponseBody_(false),
+      mayChunkEgress_(false),
+      is1xxResponse_(false),
+      inRecvLastChunk_(false),
+      ingressUpgrade_(false),
+      ingressUpgradeComplete_(false),
+      egressUpgrade_(false),
+      nativeUpgrade_(false),
+      headersComplete_(false) {
   switch (direction) {
   case TransportDirection::DOWNSTREAM:
     http_parser_init(&parser_, HTTP_REQUEST);
@@ -1379,6 +1379,12 @@ HTTP1xCodec::onMessageCompleteCB(http_parser* parser) {
 
 bool HTTP1xCodec::supportsNextProtocol(const std::string& npn) {
   return npn.length() == 8 && (npn == "http/1.0" || npn == "http/1.1");
+}
+
+HTTP1xCodec HTTP1xCodec::makeResponseCodec(bool mayChunkEgress) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  codec.mayChunkEgress_ = mayChunkEgress;
+  return codec;
 }
 
 } // proxygen

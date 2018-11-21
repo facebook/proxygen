@@ -24,6 +24,14 @@ class HTTP1xCodec : public HTTPCodec {
                        bool forceUpstream1_1 = false);
   ~HTTP1xCodec() override;
 
+  HTTP1xCodec(HTTP1xCodec&&) = default;
+
+  // Returns codec for response generation, allowing to set flags that are
+  // normally set during request processing.
+  // Normally codec processes request/response pair, but is also used for
+  // serialization and processes single message.
+  static HTTP1xCodec makeResponseCodec(bool mayChunkEgress);
+
   // HTTPCodec API
   CodecProtocol getProtocol() const override {
     return CodecProtocol::HTTP_1_1;

@@ -43,24 +43,29 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
                      size_t /*length*/) override {}
   void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {}
   void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
-                          std::unique_ptr<HTTPHeaders> /*trailers*/) override {}
+                          std::unique_ptr<HTTPHeaders> trailers) override {
+    trailersComplete++;
+    trailers_ = std::move(trailers);
+  }
   void onMessageComplete(HTTPCodec::StreamID /*stream*/,
                          bool /*upgrade*/) override {
     ++messageComplete;
   }
   void onError(HTTPCodec::StreamID /*stream*/,
-               const HTTPException& /*error*/,
+               const HTTPException& error,
                bool /*newTxn*/) override {
     ++errors;
-    LOG(ERROR) << "parse error";
+    LOG(ERROR) << "parse error " << error;
   }
 
   uint32_t headersComplete{0};
+  uint32_t trailersComplete{0};
   uint32_t messageComplete{0};
   uint32_t errors{0};
   uint32_t bodyLen{0};
   HTTPHeaderSize headerSize;
   std::unique_ptr<HTTPMessage> msg_;
+  std::unique_ptr<HTTPHeaders> trailers_;
 };
 
 unique_ptr<folly::IOBuf> getSimpleRequestData() {
@@ -634,6 +639,67 @@ TEST(HTTP1xCodecTest, TrailersAndEomAreNotGeneratedWhenNonChunked) {
   trailers.add("X-Test-Trailer", "test");
   EXPECT_EQ(0, codec.generateTrailers(buf, txnID, trailers));
   EXPECT_EQ(0, codec.generateEOM(buf, txnID));
+}
+
+TEST(HTTP1xCodecTest, TestChunkResponseSerialization) {
+  // When codec is used for response serialization, it never gets
+  // to process request. Verify we can still serialize chunked response
+  // when mayChunkEgress=true.
+  folly::IOBufQueue blob;
+
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(200);
+  resp.setIsChunked(true);
+  resp.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  resp.getHeaders().set("X-Custom-Header", "mac&cheese");
+
+  string bodyStr("pizza");
+  auto body = folly::IOBuf::copyBuffer(bodyStr);
+
+  HTTPHeaders trailers;
+  trailers.add("X-Test-Trailer", "chicken kyiv");
+
+  // serialize
+  HTTP1xCodec downCodec = HTTP1xCodec::makeResponseCodec(
+      /*mayChunkEgress=*/true);
+  HTTP1xCodecCallback downCallbacks;
+  downCodec.setCallback(&downCallbacks);
+  auto downStream = downCodec.createStream();
+
+  downCodec.generateHeader(blob, downStream, resp);
+  downCodec.generateBody(
+      blob, downStream, body->clone(), HTTPCodec::NoPadding, false);
+  downCodec.generateTrailers(blob, downStream, trailers);
+  downCodec.generateEOM(blob, downStream);
+
+  std::string tmp;
+  blob.appendToString(tmp);
+  VLOG(2) << "serializeMessage blob: " << tmp;
+
+  // deserialize
+  HTTP1xCodec upCodec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback upCallbacks;
+  upCodec.setCallback(&upCallbacks);
+
+  auto tmpBuf = blob.front()->clone();
+  while (tmpBuf) {
+    auto next = tmpBuf->pop();
+    upCodec.onIngress(*tmpBuf);
+    tmpBuf = std::move(next);
+  }
+  upCodec.onIngressEOF();
+
+  EXPECT_EQ(upCallbacks.headersComplete, 1);
+  EXPECT_EQ(upCallbacks.trailersComplete, 1);
+  EXPECT_EQ(upCallbacks.messageComplete, 1);
+  EXPECT_EQ(upCallbacks.errors, 0);
+
+  EXPECT_EQ(resp.getStatusCode(), upCallbacks.msg_->getStatusCode());
+  EXPECT_TRUE(
+      upCallbacks.msg_->getHeaders().exists(HTTP_HEADER_TRANSFER_ENCODING));
+  EXPECT_TRUE(upCallbacks.msg_->getHeaders().exists("X-Custom-Header"));
+  EXPECT_TRUE(upCallbacks.trailers_->exists("X-Test-Trailer"));
 }
 
 class ConnectionHeaderTest:
