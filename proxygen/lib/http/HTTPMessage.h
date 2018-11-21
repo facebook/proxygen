@@ -294,6 +294,13 @@ class HTTPMessage {
   }
 
   /**
+   * Move trailers out of current message
+   */
+  std::unique_ptr<HTTPHeaders> extractTrailers() {
+    return std::move(trailers_);
+  }
+
+  /**
    * Decrements Max-Forwards header, when present on OPTIONS or TRACE methods.
    *
    * Returns HTTP status code.

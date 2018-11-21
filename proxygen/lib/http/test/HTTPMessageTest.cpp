@@ -512,3 +512,14 @@ TEST(HttpMessage, TestProtocolStringAdvancedProtocol) {
   msg.setAdvancedProtocolString(advancedProtocol);
   EXPECT_EQ(msg.getProtocolString(), advancedProtocol);
 }
+
+TEST(HttpMessage, TestExtractTrailers) {
+  HTTPMessage msg;
+  auto trailers = std::make_unique<HTTPHeaders>();
+  HTTPHeaders* rawPointer = trailers.get();
+  trailers->add("The-trailer", "something");
+  msg.setTrailers(std::move(trailers));
+  auto trailers2 = msg.extractTrailers();
+  EXPECT_EQ(rawPointer, trailers2.get());
+  EXPECT_EQ(nullptr, msg.getTrailers());
+}
