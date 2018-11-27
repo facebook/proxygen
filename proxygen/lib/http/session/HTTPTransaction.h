@@ -1215,7 +1215,7 @@ class HTTPTransaction :
 
   bool getPrioritySampleSummary(PrioritySampleSummary& summary) const;
 
-  HPACKTableInfo& getHPACKTableInfo();
+  const CompressionInfo& getCompressionInfo() const;
 
   bool hasPendingBody() const {
     return deferredEgressBody_.chainLength() > 0;
@@ -1238,11 +1238,11 @@ class HTTPTransaction :
   void updateHandlerPauseState();
 
   /**
-   * Update the HPACKTableInfo (tableInfo_) struct
+   * Update the CompressionInfo (tableInfo_) struct
    */
-  void updateEgressHPACKTableInfo(HPACKTableInfo);
+  void updateEgressCompressionInfo(const CompressionInfo&);
 
-  void updateIngressHPACKTableInfo(HPACKTableInfo);
+  void updateIngressCompressionInfo(const CompressionInfo&);
 
   bool mustQueueIngress() const;
 
@@ -1367,7 +1367,7 @@ class HTTPTransaction :
 
   HTTPSessionStats* stats_{nullptr};
 
-  HPACKTableInfo tableInfo_;
+  CompressionInfo tableInfo_;
 
   /**
    * The recv window and associated data. This keeps track of how many

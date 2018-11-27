@@ -188,9 +188,7 @@ void HTTPTransaction::onIngressHeadersComplete(
   if (transportCallback_) {
     transportCallback_->headerBytesReceived(msg->getIngressHeaderSize());
   }
-  if (transport_.getCodec().getProtocol() == CodecProtocol::HTTP_2) {
-    updateIngressHPACKTableInfo(transport_.getCodec().getHPACKTableInfo());
-  }
+  updateIngressCompressionInfo(transport_.getCodec().getCompressionInfo());
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
     deferredIngress_->emplace(id_, HTTPEvent::Type::HEADERS_COMPLETE,
@@ -756,9 +754,7 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
   }
-  if (transport_.getCodec().getProtocol() == CodecProtocol::HTTP_2) {
-    updateEgressHPACKTableInfo(transport_.getCodec().getHPACKTableInfo());
-  }
+  updateEgressCompressionInfo(transport_.getCodec().getCompressionInfo());
   if (eom) {
     CHECK(HTTPTransactionEgressSM::transit(
           egressState_, HTTPTransactionEgressSM::Event::sendEOM));
@@ -1240,7 +1236,8 @@ void HTTPTransaction::updateHandlerPauseState() {
   }
 }
 
-void HTTPTransaction::updateIngressHPACKTableInfo(HPACKTableInfo tableInfo) {
+void HTTPTransaction::updateIngressCompressionInfo(
+    const CompressionInfo& tableInfo) {
     tableInfo_.ingressHeaderTableSize_ =
                             tableInfo.ingressHeaderTableSize_;
     tableInfo_.ingressBytesStored_ =
@@ -1249,7 +1246,8 @@ void HTTPTransaction::updateIngressHPACKTableInfo(HPACKTableInfo tableInfo) {
                             tableInfo.ingressHeadersStored_;
 }
 
-void HTTPTransaction::updateEgressHPACKTableInfo(HPACKTableInfo tableInfo) {
+void HTTPTransaction::updateEgressCompressionInfo(
+    const CompressionInfo& tableInfo) {
   tableInfo_.egressHeaderTableSize_ =
                             tableInfo.egressHeaderTableSize_;
   tableInfo_.egressBytesStored_ =
@@ -1258,7 +1256,7 @@ void HTTPTransaction::updateEgressHPACKTableInfo(HPACKTableInfo tableInfo) {
                             tableInfo.egressHeadersStored_;
 }
 
-HPACKTableInfo& HTTPTransaction::getHPACKTableInfo() {
+const CompressionInfo& HTTPTransaction::getCompressionInfo() const {
   return tableInfo_;
 }
 

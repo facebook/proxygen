@@ -45,6 +45,7 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/SPDYVersionSettings.h \
 	codec/SettingsId.h \
 	codec/TransportDirection.h \
+        codec/compress/CompressionInfo.h \
 	codec/compress/GzipHeaderCodec.h \
 	codec/compress/HeaderIndexingStrategy.h \
 	codec/compress/HPACKCodec.h \
@@ -59,7 +60,6 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/HPACKHeader.h \
 	codec/compress/HPACKHeaderName.h \
         codec/compress/HPACKStreamingCallback.h \
-        codec/compress/HPACKTableInfo.h \
 	codec/compress/Header.h \
 	codec/compress/HeaderCodec.h \
 	codec/compress/HeaderPiece.h \

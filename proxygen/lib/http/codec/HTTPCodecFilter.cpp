@@ -150,8 +150,8 @@ uint32_t PassThroughHTTPCodecFilter::numIncomingStreams() const {
 }
 
 // PassThroughHTTPCodec methods
-HPACKTableInfo PassThroughHTTPCodecFilter::getHPACKTableInfo() const {
-  return call_->getHPACKTableInfo();
+CompressionInfo PassThroughHTTPCodecFilter::getCompressionInfo() const {
+  return call_->getCompressionInfo();
 }
 
 CodecProtocol PassThroughHTTPCodecFilter::getProtocol() const {

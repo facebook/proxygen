@@ -335,9 +335,9 @@ class HTTPCodec {
    * Gets both the egress and ingress header table size, bytes stored in header
    * table, and the number of headers stored in the header table
   **/
-  virtual HPACKTableInfo getHPACKTableInfo() const {
-    HPACKTableInfo defaultHPACKTableInfo;
-    return defaultHPACKTableInfo;
+  virtual CompressionInfo getCompressionInfo() const {
+    static CompressionInfo defaultCompressionInfo;
+    return defaultCompressionInfo;
   }
 
   /**

@@ -110,7 +110,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   uint32_t numIncomingStreams() const override;
 
   // HTTPCodec methods
-  HPACKTableInfo getHPACKTableInfo() const override;
+  CompressionInfo getCompressionInfo() const override;
 
   CodecProtocol getProtocol() const override;
 

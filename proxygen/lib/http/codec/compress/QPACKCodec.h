@@ -96,13 +96,13 @@ class QPACKCodec : public HeaderCodec {
     decoder_.setMaxUncompressed(maxUncompressed);
   }
 
-  HPACKTableInfo getHPACKTableInfo() const {
-    return HPACKTableInfo(encoder_.getTableSize(),
-                          encoder_.getBytesStored(),
-                          encoder_.getHeadersStored(),
-                          decoder_.getTableSize(),
-                          decoder_.getBytesStored(),
-                          decoder_.getHeadersStored());
+  CompressionInfo getCompressionInfo() const {
+    return CompressionInfo(encoder_.getTableSize(),
+                           encoder_.getBytesStored(),
+                           encoder_.getHeadersStored(),
+                           decoder_.getTableSize(),
+                           decoder_.getBytesStored(),
+                           decoder_.getHeadersStored());
   }
 
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {

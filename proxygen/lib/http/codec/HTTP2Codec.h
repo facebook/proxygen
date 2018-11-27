@@ -148,8 +148,8 @@ public:
       uint8_t maxLevel) override;
   HTTPCodec::StreamID mapPriorityToDependency(uint8_t priority) const override;
 
-  HPACKTableInfo getHPACKTableInfo() const override {
-    return headerCodec_.getHPACKTableInfo();
+  CompressionInfo getCompressionInfo() const override {
+    return headerCodec_.getCompressionInfo();
   }
 
   //HTTP2Codec specific API
