@@ -112,9 +112,7 @@ folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
     case proxygen::SettingsId::THRIFT_CHANNEL_ID_DEPRECATED:
     case proxygen::SettingsId::THRIFT_CHANNEL_ID:
       return folly::none;
-    case proxygen::SettingsId::_HQ_HEADER_TABLE_SIZE:
     case proxygen::SettingsId::_HQ_NUM_PLACEHOLDERS:
-    case proxygen::SettingsId::_HQ_MAX_HEADER_LIST_SIZE:
     case proxygen::SettingsId::_HQ_QPACK_BLOCKED_STREAMS:
     case proxygen::SettingsId::SETTINGS_HTTP_CERT_AUTH:
       return folly::none;
