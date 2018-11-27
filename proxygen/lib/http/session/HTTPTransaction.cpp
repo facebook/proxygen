@@ -783,6 +783,10 @@ void HTTPTransaction::sendHeaders(const HTTPMessage& header) {
 
 void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
   DestructorGuard guard(this);
+  bool chunking =
+    ((egressState_ == HTTPTransactionEgressSM::State::ChunkHeaderSent) &&
+     !transport_.getCodec().supportsParallelRequests());  // see sendChunkHeader
+
   CHECK(HTTPTransactionEgressSM::transit(
       egressState_, HTTPTransactionEgressSM::Event::sendBody));
 
@@ -790,6 +794,14 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
     size_t bodyLen = body->computeChainDataLength();
     actualResponseLength_ = actualResponseLength_.value() + bodyLen;
 
+    if (chunking) {
+      // Note, this check doesn't account for cases where sendBody is called
+      // multiple times for a single chunk, and the total length exceeds the
+      // header.
+      DCHECK(!chunkHeaders_.empty());
+      DCHECK_LE(bodyLen, chunkHeaders_.back().length)
+        << "Sent body longer than chunk header ";
+    }
     if (isEnqueued()) {
       transport_.notifyEgressBodyBuffered(bodyLen);
     }
