@@ -13,6 +13,7 @@
 #include <folly/Memory.h>
 #include <folly/Singleton.h>
 #include <folly/String.h>
+#include <folly/detail/SingletonStackTrace.h>
 #include <fstream>
 #include <memory>
 #include <ostream>
@@ -157,7 +158,7 @@ void dumpBinToFile(const string& filename, const IOBuf* buf) {
 
 namespace logging_details {
 std::string getStackTrace() {
-  return folly::SingletonVault::stackTraceGetter().load()();
+  return folly::detail::getSingletonStackTrace();
 }
 }
 
