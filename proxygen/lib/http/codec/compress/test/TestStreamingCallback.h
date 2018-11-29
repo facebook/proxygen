@@ -10,6 +10,8 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 #include <folly/Expected.h>
 #include <folly/Function.h>
 
