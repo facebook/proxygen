@@ -56,6 +56,7 @@ AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h netdb.h stdint.h string.h sys/fil
 AC_CHECK_LIB([event], [event_set], [], [AC_MSG_ERROR([Unable to find libevent])])
 AC_CHECK_LIB([crypto], [MD5_Init], [], [AC_MSG_ERROR([Unable to find libcrypto])])
 AC_CHECK_LIB([ssl], [SSL_SESSION_new], [], [AC_MSG_ERROR([Unable to find libssl])])
+AC_CHECK_LIB([sodium], [sodium_init], [], [AC_MSG_ERROR([Unable to find libsodium])])
 AC_CHECK_LIB([z], [gzread], [], [AC_MSG_ERROR([Unable to find zlib])])
 AC_CHECK_LIB([folly],[getenv],[],[AC_MSG_ERROR(
              [Please install the folly library from https://github.com/facebook/folly])])
@@ -207,8 +208,7 @@ if test x"$HAVE_GPERF" != x"yes"; then
    AC_MSG_ERROR([Please install gperf first.])
 fi
 
-LIBS="$LIBS $BOOST_LDFLAGS -lpthread -pthread -lfolly -lglog"
-LIBS="$LIBS -ldouble-conversion -lboost_system -lboost_thread"
+LIBS="$LIBS -ldouble-conversion -lpthread -ldl $BOOST_LDFLAGS -lboost_context -lboost_filesystem -lboost_regex -lboost_program_options -lboost_system -lboost_thread"
 
 AM_CONDITIONAL([HAVE_STD_THREAD], [test "$ac_cv_header_features" = "yes"])
 AM_CONDITIONAL([HAVE_X86_64], [test "$build_cpu" = "x86_64"])
