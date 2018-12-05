@@ -18,6 +18,7 @@
 #include <boost/variant.hpp>
 
 #include <folly/Conv.h>
+#include <folly/lang/Exception.h>
 
 #include <map>
 #include <string>
@@ -84,7 +85,7 @@ class TraceEvent {
     template<typename T>
     struct ConvVisitor : boost::static_visitor<T> {
       T operator()(const std::vector<std::string>& /* Unused */) const {
-        throw Exception("Not supported for type");
+        folly::throw_exception<Exception>("Not supported for type");
       }
 
       template<typename U>
@@ -249,12 +250,14 @@ class TraceEvent {
   bool readMeta(TraceFieldType key, T& dest) const {
     const auto itr = metaData_.find(key);
     if (itr != metaData_.end()) {
-      try {
-        dest = itr->second.getValueAs<T>();
-        return true;
-      } catch (const std::exception&) {
-        return false;
-      }
+      return folly::catch_exception<std::exception const&>(
+          [&]() -> bool {
+            dest = itr->second.getValueAs<T>();
+            return true;
+          },
+          [](auto&&) -> bool {
+            return false;
+          });
     }
     return false;
   }
@@ -287,7 +290,7 @@ struct TraceEvent::MetaData::ConvVisitor<std::vector<std::string>> :
 
   template<typename U>
   std::vector<std::string> operator()(U& /* Unused */) const {
-    throw Exception("Not supported for type");
+    folly::throw_exception<Exception>("Not supported for type");
   }
 };
 
