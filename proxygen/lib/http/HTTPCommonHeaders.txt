@@ -87,6 +87,7 @@ X-Frame-Options
 X-Powered-By
 X-Real-IP
 X-Requested-With
+X-Thrift-Protocol
 X-UA-Compatible
 X-Wap-Profile
 X-XSS-Protection
