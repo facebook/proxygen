@@ -7,10 +7,12 @@
 # of patent rights can be found in the PATENTS file in the same directory.
 
 
+from __future__ import absolute_import, division, print_function, unicode_literals
+
+import optparse
 import os
 import re
 import sys
-import optparse
 
 
 def main(argv):
