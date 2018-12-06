@@ -89,7 +89,8 @@ DecodeError StructuredHeadersDecoder::decodeParameterisedList(
       return DecodeError::OK;
     }
 
-    if (buf_.removeSymbol(",", true) != DecodeError::OK) {
+    err = buf_.removeSymbol(",", true);
+    if (err != DecodeError::OK) {
       return err;
     }
 
