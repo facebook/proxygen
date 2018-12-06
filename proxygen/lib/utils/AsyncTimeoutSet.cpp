@@ -217,10 +217,8 @@ void AsyncTimeoutSet::timeoutExpired() noexcept {
     // on it will modify head_.
     Callback* cb = head_;
     head_->cancelTimeout();
-    auto old_ctx =
-      folly::RequestContext::setContext(cb->context_);
+    folly::RequestContextScopeGuard rctxScopeGuard(cb->context_);
     cb->timeoutExpired();
-    folly::RequestContext::setContext(old_ctx);
   }
 }
 
