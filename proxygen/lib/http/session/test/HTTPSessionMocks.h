@@ -402,6 +402,8 @@ ACTION_P(ExpectBodyLen, expectedLen) {
 class MockHTTPSessionInfoCallback : public HTTPSession::InfoCallback {
  public:
   MOCK_METHOD1(onCreate, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onTransportReady, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onConnectionError, void(const HTTPSessionBase&));
   MOCK_METHOD2(onIngressError, void(const HTTPSessionBase&, ProxygenError));
   MOCK_METHOD0(onIngressEOF, void());
   MOCK_METHOD2(onRead, void(const HTTPSessionBase&, size_t));
