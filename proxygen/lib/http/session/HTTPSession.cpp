@@ -2019,6 +2019,10 @@ bool HTTPSession::getCurrentTransportInfoWithoutUpdate(
   auto sock = sock_->getUnderlyingTransport<AsyncSocket>();
   if (sock) {
     tinfo->initWithSocket(sock);
+#if defined(__linux__) || defined(__FreeBSD__)
+    tinfo->readTcpCongestionControl(sock);
+    tinfo->readMaxPacingRate(sock);
+#endif // defined(__linux__) || defined(__FreeBSD__)
     return true;
   }
   return false;
