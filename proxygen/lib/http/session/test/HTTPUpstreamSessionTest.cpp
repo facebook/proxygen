@@ -2689,6 +2689,71 @@ TEST_F(HTTP2UpstreamSessionTest, AttachDetach) {
   httpSession_->destroy();
 }
 
+TEST_F(HTTP2UpstreamSessionTest, DetachFlowControlTimeout) {
+  folly::EventBase base;
+  auto timer =
+    folly::HHWheelTimer::newTimer(
+      &base,
+      std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+      TimeoutManager::InternalEnum::INTERNAL, std::chrono::milliseconds(500));
+  WheelTimerInstance timerInstance(timer.get());
+  uint64_t filterCount = 0;
+  auto fn = [&filterCount](HTTPCodecFilter* /*filter*/) { filterCount++; };
+
+  InSequence enforceOrder;
+  auto egressCodec = makeServerCodec();
+  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
+  egressCodec->generateConnectionPreface(output);
+  egressCodec->generateSettings(output);
+
+  for (auto i = 0; i < 2; i++) {
+    auto handler = openTransaction();
+    if (i == 1) {
+      handler->expectHeaders([&] (std::shared_ptr<HTTPMessage> msg) {
+          EXPECT_EQ(200, msg->getStatusCode());
+        });
+      handler->expectBody();
+      handler->expectEOM();
+
+      HTTPMessage resp;
+      resp.setStatusCode(200);
+      egressCodec->generateHeader(output, handler->txn_->getID(), resp);
+      egressCodec->generateBody(output, handler->txn_->getID(), makeBuf(20),
+                                HTTPCodec::NoPadding, true /* eom */);
+    } else {
+      handler->expectEgressPaused();
+      egressCodec->generateWindowUpdate(output, 0, 65536 * 2);
+    }
+    handler->expectDetachTransaction();
+
+    handler->txn_->sendHeaders(getPostRequest(65536 - 2 * i));
+    handler->txn_->sendBody(makeBuf(65536 - 2 * i));
+    handler->txn_->sendEOM();
+    if (i == 0) {
+      eventBase_.loopOnce();
+      handler->txn_->sendAbort();
+      // Even though there are no transactions, the fc timeout is still
+      // registered.
+      EXPECT_FALSE(httpSession_->isDetachable(false));
+    }
+
+    auto buf = output.move();
+    buf->coalesce();
+    readAndLoop(buf.get());
+
+    EXPECT_TRUE(httpSession_->isDetachable(false));
+    httpSession_->detachThreadLocals();
+    httpSession_->attachThreadLocals(&base, nullptr, timerInstance, nullptr, fn,
+                                     nullptr, nullptr);
+    EXPECT_EQ(filterCount, 2);
+    filterCount = 0;
+    base.loopOnce();
+  }
+  httpSession_->destroy();
+}
+
+
+
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest,
                            ImmediateEof);

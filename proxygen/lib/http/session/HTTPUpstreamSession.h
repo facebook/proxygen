@@ -90,8 +90,6 @@ class HTTPUpstreamSession final: public HTTPSession {
 
   void detachTransactions();
 
-  bool isDetachable(bool checkSocket=true) const override;
-
   void attachThreadLocals(folly::EventBase* eventBase,
                           folly::SSLContextPtr sslContext,
                           const WheelTimerInstance& timeout,

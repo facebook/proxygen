@@ -2990,6 +2990,14 @@ void HTTPSession::onLastByteEvent(
   byteEventTracker_->addAckByteEvent(sock_->getRawBytesWritten(), txn);
 }
 
+bool HTTPSession::isDetachable(bool checkSocket) const {
+  if (checkSocket && sock_ && !sock_->isDetachable()) {
+    return false;
+  }
+  return transactions_.size() == 0 && getNumIncomingStreams() == 0 &&
+    !writesPaused() && !flowControlTimeout_.isScheduled() &&
+    !writeTimeout_.isScheduled() && !drainTimeout_.isScheduled();
+}
 
 
 } // proxygen

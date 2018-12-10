@@ -232,6 +232,8 @@ class HTTPSession:
    */
   SecondaryAuthManager* getSecondAuthManager() const;
 
+  bool isDetachable(bool checkSocket=true) const override;
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated

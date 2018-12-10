@@ -162,14 +162,6 @@ void HTTPUpstreamSession::detachTransactions() {
   }
 }
 
-bool HTTPUpstreamSession::isDetachable(bool checkSocket) const {
-  if (checkSocket && sock_ && !sock_->isDetachable()) {
-    return false;
-  }
-  return transactions_.size() == 0 && getNumIncomingStreams() == 0 &&
-    !writesPaused();
-}
-
 void
 HTTPUpstreamSession::attachThreadLocals(
   folly::EventBase* eventBase,
