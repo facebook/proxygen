@@ -475,12 +475,12 @@ void HTTPTransaction::processIngressEOM() {
 }
 
 bool HTTPTransaction::isExpectingWindowUpdate() const {
-  return (useFlowControl_ && sendWindow_.getSize() <= 0);
+  return egressState_ != HTTPTransactionEgressSM::State::SendingDone &&
+         useFlowControl_ && sendWindow_.getSize() <= 0;
 }
 
 bool HTTPTransaction::isExpectingIngress() const {
-  return (!ingressPaused_ &&
-          (!isIngressEOMSeen() || isExpectingWindowUpdate()));
+  return isExpectingWindowUpdate() || (!ingressPaused_ && !isIngressEOMSeen());
 }
 
 void HTTPTransaction::updateReadTimeout() {

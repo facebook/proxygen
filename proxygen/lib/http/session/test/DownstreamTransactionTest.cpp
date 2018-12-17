@@ -174,6 +174,57 @@ TEST_F(DownstreamTransactionTest, NoWindowUpdate) {
   eventBase_.loop();
 }
 
+TEST_F(DownstreamTransactionTest, ExpectingWindowUpdate) {
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(157784760000),
+    nullptr,
+    true,
+    450,
+    100);
+  uint32_t reqBodySize = 220;
+
+  // Get a request, pause ingress, fill up the sendWindow, then expect for a
+  // timeout to be scheduled.
+  txn.onIngressHeadersComplete(makeGetRequest());
+  txn.pauseIngress();
+  txn.onIngressBody(makeBuf(reqBodySize), 0);
+  txn.onIngressEOM();
+  auto response = makeResponse(200);
+  txn.sendHeaders(*response.get());
+  txn.sendBody(makeBuf(reqBodySize));
+  txn.sendEOM();
+  txn.onWriteReady(1000, 1);
+  EXPECT_EQ(transactionTimeouts_->count(), 1);
+}
+
+TEST_F(DownstreamTransactionTest, NoWindowUpdateAfterDoneSending) {
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(157784760000),
+    nullptr,
+    true,
+    450,
+    220);
+  uint32_t reqBodySize = 220;
+
+  // Ensure that after flushing an EOM we are not expecting window update.
+  txn.onIngressHeadersComplete(makeGetRequest());
+  txn.onIngressBody(makeBuf(reqBodySize), 0);
+  auto response = makeResponse(200);
+  txn.sendHeaders(*response.get());
+  txn.sendBody(makeBuf(reqBodySize));
+  txn.sendEOM();
+  txn.onWriteReady(1000, 1);
+  txn.pauseIngress();
+  txn.onIngressEOM();
+  EXPECT_EQ(transactionTimeouts_->count(), 0);
+}
+
 /**
  * Testing window increase using window update; we're actually using this in
  * production to avoid bumping the window using the SETTINGS frame
