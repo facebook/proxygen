@@ -479,6 +479,28 @@ TEST(QPACKContextTests, TestDecodeQueueDelete) {
   EXPECT_EQ(cb2->headers.size(), 0);
 }
 
+TEST(QPACKContextTests, TestDecodeQueueResetSelf) {
+  // This test calls cancelStream from inside the callback from drainQueue
+  QPACKEncoder encoder(true, 100);
+  QPACKDecoder decoder(100);
+
+  vector<HPACKHeader> req1;
+  req1.emplace_back("Blarf", "Blah");
+  auto result1 = encoder.encode(req1, 0, 1);
+
+  // Decode #1, no control stream, queued
+  TestStreamingCallback cb1;
+  cb1.headersCompleteCb = [&] {
+    decoder.encodeCancelStream(1);
+  };
+  auto length = result1.stream->computeChainDataLength();
+  decoder.decodeStreaming(1, std::move(result1.stream), length, &cb1);
+
+  // Decode control stream #1, will unblock 1 and reset it
+  EXPECT_EQ(decoder.decodeEncoderStream(std::move(result1.control)),
+            HPACK::DecodeError::NONE);
+}
+
 TEST(QPACKContextTests, TestDecodeMaxUncompressed) {
   QPACKEncoder encoder(false, 64);
   QPACKDecoder decoder(64);

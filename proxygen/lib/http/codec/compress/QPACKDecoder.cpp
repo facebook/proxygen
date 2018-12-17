@@ -397,10 +397,12 @@ void QPACKDecoder::drainQueue() {
   auto it = queue_.begin();
   while (!queue_.empty() && it->first <= table_.getBaseIndex() &&
          !hasError()) {
-    if (decodeBlock(it->first, it->second)) {
+    auto id = it->first;
+    PendingBlock block = std::move(it->second);
+    queue_.erase(it);
+    if (decodeBlock(id, block)) {
       return;
     }
-    queue_.erase(it);
     it = queue_.begin();
   }
 }
