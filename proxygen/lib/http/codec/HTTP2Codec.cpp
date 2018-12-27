@@ -514,21 +514,23 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
     isReq = transportDirection_ == TransportDirection::DOWNSTREAM;
   }
 
+  // Validate circular dependencies.
+  if (priority && (curHeader_.stream == priority->streamDependency)) {
+    streamError(
+        folly::to<string>("Circular dependency for txn=", curHeader_.stream),
+        ErrorCode::PROTOCOL_ERROR,
+        curHeader_.type == http2::FrameType::HEADERS);
+    return ErrorCode::NO_ERROR;
+  }
+
   decodeInfo_.init(isReq, parsingDownstreamTrailers_);
   if (priority) {
-    if (curHeader_.stream == priority->streamDependency) {
-      streamError(folly::to<string>("Circular dependency for txn=",
-                                    curHeader_.stream),
-                  ErrorCode::PROTOCOL_ERROR,
-                  curHeader_.type == http2::FrameType::HEADERS);
-      return ErrorCode::NO_ERROR;
-    }
-
     decodeInfo_.msg->setHTTP2Priority(
         std::make_tuple(priority->streamDependency,
                         priority->exclusive,
                         priority->weight));
   }
+
   headerCodec_.decodeStreaming(
       headerCursor, curHeaderBlock_.chainLength(), this);
   msg = std::move(decodeInfo_.msg);
