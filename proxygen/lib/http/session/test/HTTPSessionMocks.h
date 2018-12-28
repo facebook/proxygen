@@ -222,6 +222,17 @@ class MockHTTPHandler
   }
 
   void expectTrailers(
+      std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onTrailers(testing::_))
+          .WillOnce(testing::InvokeWithoutArgs(callback))
+          .RetiresOnSaturation();
+    } else {
+      EXPECT_CALL(*this, onTrailers(testing::_));
+    }
+  }
+
+  void expectTrailers(
       std::function<void(std::shared_ptr<HTTPHeaders> trailers)> cb) {
     EXPECT_CALL(*this, onTrailers(testing::_))
         .WillOnce(testing::Invoke(cb))

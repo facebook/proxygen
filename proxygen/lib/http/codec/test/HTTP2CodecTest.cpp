@@ -2145,3 +2145,28 @@ TEST_F(HTTP2CodecTest, TrailersReplyMissingContinuation) {
   EXPECT_EQ(upstreamCodec_.getReceivedFrameCount(), 4);
 #endif
 }
+
+TEST_F(HTTP2CodecTest, TrailersNotLatest) {
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  upstreamCodec_.generateHeader(output_, 1, req);
+  upstreamCodec_.generateHeader(output_, 3, req);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  upstreamCodec_.generateTrailers(output_, 1, trailers);
+  upstreamCodec_.generateHeader(output_, 3, req);
+
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 2);
+  EXPECT_EQ(callbacks_.headersComplete, 2);
+  EXPECT_EQ(callbacks_.bodyCalls, 0);
+  EXPECT_EQ(callbacks_.trailers, 1);
+  EXPECT_NE(nullptr, callbacks_.msg->getTrailers());
+  EXPECT_EQ("pico-de-gallo",
+            callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}

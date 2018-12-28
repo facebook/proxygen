@@ -3568,3 +3568,35 @@ TEST_F(HTTP2DownstreamSessionTest, TestSetEgressSettings) {
   flushRequestsAndLoop();
   gracefulShutdown();
 }
+
+TEST_F(HTTP2DownstreamSessionTest, TestDuplicateRequestStream) {
+  // Send the following:
+  // HEADERS id=1
+  // HEADERS id=2
+  // HEADERS id=1 (trailers)
+  // HEADERS id=2 -> contains pseudo-headers after EOM so ignored
+  auto handler2 = addSimpleStrictHandler();
+  auto handler1 = addSimpleStrictHandler();
+  auto streamID1 = sendRequest("/withtrailers", 0, false);
+  auto streamID2 = sendRequest();
+  HTTPHeaders trailers;
+  trailers.add("Foo", "Bar");
+  clientCodec_->generateTrailers(requests_, streamID1, trailers);
+  clientCodec_->generateEOM(requests_, streamID1);
+
+  clientCodec_->generateHeader(requests_, streamID2, getGetRequest(), false);
+  handler1->expectHeaders();
+  handler2->expectHeaders();
+  handler2->expectEOM();
+  handler1->expectTrailers();
+  handler1->expectEOM([&] {
+      handler1->sendReplyWithBody(200, 100);
+      // 2 got an error after EOM, which gets ignored - need a response to
+      // cleanly terminate it
+      handler2->sendReplyWithBody(200, 100);
+    });
+  handler1->expectDetachTransaction();
+  handler2->expectDetachTransaction();
+  flushRequestsAndLoop();
+  gracefulShutdown();
+}

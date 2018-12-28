@@ -987,7 +987,7 @@ ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId, bool trailersAllowed) {
     VLOG(4) << "Parsing downstream trailers streamId=" << streamId;
   }
 
-  if (sessionClosing_ != ClosingState::CLOSED) {
+  if (sessionClosing_ != ClosingState::CLOSED && streamId > lastStreamID_) {
     lastStreamID_ = streamId;
   }
 
@@ -1313,6 +1313,7 @@ size_t HTTP2Codec::generateChunkTerminator(folly::IOBufQueue& /*writeBuf*/,
 size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& writeBuf,
                                     StreamID stream,
                                     const HTTPHeaders& trailers) {
+  VLOG(4) << "generating TRAILERS for stream=" << stream;
   std::vector<compress::Header> allHeaders;
   CodecUtil::appendHeaders(trailers, allHeaders, HTTP_HEADER_NONE);
 
