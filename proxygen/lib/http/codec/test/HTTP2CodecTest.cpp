@@ -283,6 +283,23 @@ TEST_F(HTTP2CodecTest, ExHeadersWithPriority) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HTTP2CodecTest, DuplicateExHeaders) {
+  downstreamCodec_.getEgressSettings()->setSetting(
+      SettingsId::ENABLE_EX_HEADERS, 1);
+  proxygen::http2::writeSettings(
+      output_, {{proxygen::SettingsId::ENABLE_EX_HEADERS, 1}});
+
+  auto req = getGetRequest();
+  upstreamCodec_.generateExHeader(
+      output_, 3, req, HTTPCodec::ExAttributes(1, true), /*eom=*/false);
+  upstreamCodec_.generateExHeader(
+      output_, 3, req, HTTPCodec::ExAttributes(1, true), /*eom=*/true);
+
+  parse();
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+}
+
 TEST_F(HTTP2CodecTest, IgnoreExHeadersIfNotEnabled) {
   downstreamCodec_.getEgressSettings()->setSetting(
       SettingsId::ENABLE_EX_HEADERS, 0);
@@ -1490,6 +1507,29 @@ TEST_F(HTTP2CodecTest, BasicPushPromise) {
                   HTTP_HEADER_CONTENT_TYPE));
     callbacks_.reset();
   }
+}
+
+TEST_F(HTTP2CodecTest, DuplicatePushPromise) {
+  auto settings = upstreamCodec_.getEgressSettings();
+  settings->setSetting(SettingsId::ENABLE_PUSH, 1);
+  upstreamCodec_.generateSettings(output_);
+  parse();
+  EXPECT_TRUE(upstreamCodec_.supportsPushTransactions());
+  EXPECT_TRUE(downstreamCodec_.supportsPushTransactions());
+
+  SetUpUpstreamTest();
+
+  HTTPCodec::StreamID assocStream = 7;
+  HTTPCodec::StreamID pushStream = downstreamCodec_.createStream();
+  HTTPMessage req = getGetRequest();
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  downstreamCodec_.generatePushPromise(output_, pushStream, req, assocStream);
+  downstreamCodec_.generatePushPromise(output_, pushStream, req, assocStream);
+
+  parseUpstream();
+
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
 TEST_F(HTTP2CodecTest, BadPushPromise) {

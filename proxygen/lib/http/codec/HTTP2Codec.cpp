@@ -975,19 +975,20 @@ ErrorCode HTTP2Codec::parseCertificate(Cursor& cursor) {
 }
 
 ErrorCode HTTP2Codec::checkNewStream(uint32_t streamId, bool trailersAllowed) {
-  if (streamId == 0) {
+  bool existingStream = (streamId <= lastStreamID_);
+  if (streamId == 0 || (!trailersAllowed && existingStream)) {
     goawayErrorMessage_ = folly::to<string>(
         "GOAWAY error: received streamID=", streamId,
         " as invalid new stream for lastStreamID_=", lastStreamID_);
     VLOG(4) << goawayErrorMessage_;
     return ErrorCode::PROTOCOL_ERROR;
   }
-  parsingDownstreamTrailers_ = trailersAllowed && (streamId <= lastStreamID_);
+  parsingDownstreamTrailers_ = trailersAllowed && existingStream;
   if (parsingDownstreamTrailers_) {
     VLOG(4) << "Parsing downstream trailers streamId=" << streamId;
   }
 
-  if (sessionClosing_ != ClosingState::CLOSED && streamId > lastStreamID_) {
+  if (sessionClosing_ != ClosingState::CLOSED && !existingStream) {
     lastStreamID_ = streamId;
   }
 
