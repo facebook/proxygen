@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 if [ "x$1" != "x" ];then
 	export HEADERS_LIST="$1"

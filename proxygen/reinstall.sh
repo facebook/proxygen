@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 ## Run this script to (re)install proxygen and its dependencies (fbthrift
 ## and folly). You must first compile all the dependencies before running this. This

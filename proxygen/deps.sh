@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 ## Run this script to build proxygen and run the tests. If you want to
 ## install proxygen to use in another C++ project on this machine, run

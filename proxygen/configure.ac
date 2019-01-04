@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.65)

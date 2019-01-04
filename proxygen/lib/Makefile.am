@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = test utils services http
 
 lib_LTLIBRARIES = libproxygenlib.la

@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = . test
 
 BUILT_SOURCES = TraceEventType.h TraceEventType.cpp TraceFieldType.h TraceFieldType.cpp

@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = .
 
 BUILT_SOURCES = googletest-release-1.8.0/googletest/src/gtest-all.cc
