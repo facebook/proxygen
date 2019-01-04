@@ -47,6 +47,9 @@ class HTTPAcceptor : public wangle::Acceptor {
   }
 
   const AcceptorConfiguration& getConfig() const { return accConfig_; }
+  const wangle::ServerSocketConfig& getServerSocketConfig() {
+    return Acceptor::getConfig();
+  }
 
  protected:
   AcceptorConfiguration accConfig_;
