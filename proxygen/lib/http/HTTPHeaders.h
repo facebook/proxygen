@@ -234,6 +234,12 @@ class HTTPHeaders {
   }
 
   /**
+   * Remove all possible versions of header eg. if x-y-z is the
+   * argument it will remove x-y_z, x_y-z and x_y_z too.
+   */
+  bool removeAllVersions(HTTPHeaderCode code, folly::StringPiece name);
+
+  /**
    * Remove all headers.
    */
   void removeAll();
@@ -329,6 +335,14 @@ void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
 #define ITERATE_OVER_STRINGS(String, Block) \
     ITERATE_OVER_CODES(HTTP_HEADER_OTHER, { \
   if (caseInsensitiveEqual((String), *headerNames_[pos])) { \
+    {Block} \
+  } \
+})
+
+// iterate over the positions of all headers with given name ignoring - and _
+#define ITERATE_OVER_STRINGS_ALL_VERSION(String, Block) \
+    ITERATE_OVER_CODES(HTTP_HEADER_OTHER, { \
+  if (caseUnderscoreInsensitiveEqual((String), *headerNames_[pos])) { \
     {Block} \
   } \
 })

@@ -153,6 +153,24 @@ TEST(HTTPMessage, TestHeaderRemove) {
   EXPECT_EQ(hdrs.getNumberOfValues("binky"), 2);
 }
 
+TEST(HTTPMessage, TestAllVersionsHeaderRemove) {
+  HTTPMessage msg;
+  HTTPHeaders& hdrs = msg.getHeaders();
+
+  hdrs.add("Jojo_1_2", "1");
+  hdrs.add("Binky", "2");
+  hdrs.add("Jojo_1-2", "3");
+  hdrs.add("Jojo-1_2", "4");
+  hdrs.add("Jojo-1-2", "4");
+  hdrs.removeAllVersions(HTTP_HEADER_NONE, "Jojo_1_2");
+  EXPECT_EQ(hdrs.size(), 1);
+
+  hdrs.add("Content-Length", "1");
+  hdrs.add("Content_Length", "2");
+  hdrs.removeAllVersions(HTTP_HEADER_CONTENT_LENGTH, "Content-Length");
+  EXPECT_EQ(hdrs.size(), 1);
+}
+
 TEST(HTTPMessage, TestSetHeader) {
   HTTPMessage msg;
   HTTPHeaders& hdrs = msg.getHeaders();
