@@ -94,7 +94,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
   void addPriorityNode(HTTPCodec::StreamID id,
                        HTTPCodec::StreamID parent) override{
-    addTransaction(id, {(uint32_t)parent, false, 0}, nullptr, true);
+    addTransaction(id, {parent, false, 0}, nullptr, true);
   }
 
   void addOrUpdatePriorityNode(HTTPCodec::StreamID id,

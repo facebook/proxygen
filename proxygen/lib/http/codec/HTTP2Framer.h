@@ -81,7 +81,9 @@ struct FrameHeader {
 static_assert(sizeof(FrameHeader) == 12, "The maths are not working");
 
 struct PriorityUpdate {
-  uint32_t streamDependency;
+  // StreamID is 64bit integer to accommodate both HTTP2 and HTTP3 streams so
+  // just validate the id for HTTP2 before encoding it on the wire
+  HTTPCodec::StreamID streamDependency;
   bool exclusive;
   uint8_t weight;
 };

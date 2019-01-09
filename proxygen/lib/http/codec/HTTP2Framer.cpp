@@ -82,7 +82,7 @@ size_t writeFrameHeader(IOBufQueue& queue,
     }
     headerSize += kFramePrioritySize;
     DCHECK_EQ(0, ~kLengthMask & length);
-    DCHECK_NE(priority->streamDependency, stream) << "Circular dependecy";
+    DCHECK_NE(priority->streamDependency, stream) << "Circular dependency";
   }
 
   // Add or remove padding flags
@@ -126,8 +126,9 @@ size_t writeFrameHeader(IOBufQueue& queue,
     appender.writeBE<uint8_t>(*padding);
   }
   if (priority) {
+    CHECK_LE(priority->streamDependency, std::numeric_limits<uint32_t>::max());
     writePriorityBody(appender,
-                      priority->streamDependency,
+                      (uint32_t)priority->streamDependency,
                       priority->exclusive,
                       priority->weight);
   }
