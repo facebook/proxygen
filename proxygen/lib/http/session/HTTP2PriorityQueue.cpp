@@ -460,7 +460,7 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
                                    HTTPTransaction *txn,
                                    bool permanent,
                                    uint64_t* depth) {
-  CHECK_NE(id, 0);
+  CHECK_NE(id, rootNodeId_);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
   CHECK(!txn || !permanent);
   Node *existingNode = find(id, depth);
@@ -481,7 +481,7 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   if (depth) {
     *depth = 1;
   }
-  if (pri.streamDependency != 0) {
+  if (pri.streamDependency != rootNodeId_) {
     Node* dep = find(pri.streamDependency, depth);
     if (dep == nullptr) {
       // specified a missing parent (timed out an idle node)?
