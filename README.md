@@ -135,6 +135,9 @@ copy of these docs by running `doxygen Doxyfile` from the project
 root. You'll want to look at `html/namespaceproxygen.html` to start. This
 will also generate `folly` documentation.
 
+### License
+See [LICENSE](LICENSE).
+
 ### Contributing
 Contributions to Proxygen are more than welcome. [Read the guidelines in CONTRIBUTING.md](CONTRIBUTING.md).
 Make sure you've [signed the CLA](https://code.facebook.com/cla) before sending in a pull request.

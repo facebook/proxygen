@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = . codec session test
 
 BUILT_SOURCES = HTTPCommonHeaders.h HTTPCommonHeaders.cpp
