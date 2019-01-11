@@ -180,7 +180,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   Node* find(HTTPCodec::StreamID id, uint64_t* depth = nullptr);
 
   Node* findInternal(HTTPCodec::StreamID id) {
-    if (id == 0) {
+    if (id == rootNodeId_) {
       return &root_;
     }
     return find(id);
@@ -260,7 +260,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
       if (parent_) {
         return parent_->id_;
       }
-      return 0;
+      return queue_.getRootId();
     }
 
     HTTPTransaction* getTransaction() const {
@@ -399,7 +399,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
     HTTP2PriorityQueue& queue_;
     Node *parent_{nullptr};
-    HTTPCodec::StreamID id_{0};
+    HTTPCodec::StreamID id_;
     uint16_t weight_{kDefaultWeight};
     HTTPTransaction *txn_{nullptr};
     bool isPermanent_{false};

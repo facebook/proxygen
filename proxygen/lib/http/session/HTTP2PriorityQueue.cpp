@@ -493,7 +493,9 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
         // its priority fields to default.
         parent = dynamic_cast<Node*>(
             addTransaction(pri.streamDependency,
-                           http2::DefaultPriority,
+                           {rootNodeId_,
+                            http2::DefaultPriority.exclusive,
+                            http2::DefaultPriority.weight},
                            nullptr,
                            permanent,
                            depth));
@@ -546,14 +548,17 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
 
   Node* newParent = find(pri.streamDependency, depth);
   if (!newParent) {
-    if (pri.streamDependency == 0 || numVirtualNodes_ >= maxVirtualNodes_) {
+    if (pri.streamDependency == rootNodeId_ ||
+        numVirtualNodes_ >= maxVirtualNodes_) {
       newParent = &root_;
     } else {
       // allocate a virtual node for non-existing parent in my depenency tree
       // then do normal priority processing
       newParent = dynamic_cast<Node*>(
           addTransaction(pri.streamDependency,
-                         http2::DefaultPriority,
+                         {rootNodeId_,
+                          http2::DefaultPriority.exclusive,
+                          http2::DefaultPriority.weight},
                          nullptr,
                          false,
                          depth));
@@ -617,7 +622,7 @@ HTTP2PriorityQueue::iterateBFS(
   const std::function<bool(HTTP2PriorityQueue&, HTTPCodec::StreamID,
                            HTTPTransaction *, double)>& fn,
   const std::function<bool()>& stopFn, bool all) {
-  Node::PendingList pendingNodes{{0, &root_, 1.0}};
+  Node::PendingList pendingNodes{{rootNodeId_, &root_, 1.0}};
   Node::PendingList newPendingNodes;
   bool stop = false;
 
@@ -660,7 +665,7 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
   updateEnqueuedWeight();
   Node::PendingList pendingNodes;
   Node::PendingList pendingNodesTmp;
-  pendingNodes.emplace_back(0, &root_, 1.0);
+  pendingNodes.emplace_back(rootNodeId_, &root_, 1.0);
   bool stop = false;
   do {
     while (!stop && !pendingNodes.empty()) {
@@ -693,7 +698,7 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
 
 HTTP2PriorityQueue::Node*
 HTTP2PriorityQueue::find(HTTPCodec::StreamID id, uint64_t* depth) {
-  if (id == 0) {
+  if (id == rootNodeId_) {
     return nullptr;
   }
   auto it = nodes_.find(id, Node::IdHash(), Node::IdNodeEqual());

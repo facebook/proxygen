@@ -26,6 +26,9 @@ using folly::test::MockTimeoutManager;
 namespace {
 static char* fakeTxn = (char*)0xface0000;
 
+const proxygen::HTTPCodec::StreamID kRootNodeId =
+    std::numeric_limits<uint64_t>::max();
+
 proxygen::HTTPTransaction* makeFakeTxn(proxygen::HTTPCodec::StreamID id) {
   return (proxygen::HTTPTransaction*)(fakeTxn + id);
 }
@@ -52,7 +55,7 @@ using IDList = std::list<std::pair<HTTPCodec::StreamID, uint8_t>>;
 class QueueTest : public testing::Test {
  public:
   explicit QueueTest(HHWheelTimer* timer=nullptr)
-      : q_(WheelTimerInstance(timer)) {
+      : q_(WheelTimerInstance(timer), kRootNodeId) {
   }
 
  protected:
@@ -85,10 +88,10 @@ class QueueTest : public testing::Test {
   }
 
   void buildSimpleTree() {
-    addTransaction(1, {0, false, 15});
-    addTransaction(3, {1, false, 3});
-    addTransaction(5, {1, false, 3});
-    addTransaction(7, {1, false, 7});
+    addTransaction(0, {kRootNodeId, false, 15});
+    addTransaction(3, {0, false, 3});
+    addTransaction(5, {0, false, 3});
+    addTransaction(7, {0, false, 7});
     addTransaction(9, {5, false, 7});
   }
 
@@ -128,7 +131,7 @@ class QueueTest : public testing::Test {
 TEST_F(QueueTest, Basic) {
   buildSimpleTree();
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {5, 25}, {9, 100}, {7, 50}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 25}, {5, 25}, {9, 100}, {7, 50}}));
 
   // Add another node, make sure we get the correct depth.
   uint64_t depth;
@@ -142,7 +145,7 @@ TEST_F(QueueTest, RemoveLeaf) {
   removeTransaction(3);
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {5, 33}, {9, 100}, {7, 66}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {5, 33}, {9, 100}, {7, 66}}));
 }
 
 TEST_F(QueueTest, RemoveParent) {
@@ -151,16 +154,16 @@ TEST_F(QueueTest, RemoveParent) {
   removeTransaction(5);
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {7, 50}, {9, 25}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 25}, {7, 50}, {9, 25}}));
 }
 
 TEST_F(QueueTest, RemoveParentWeights) {
   // weight_ / totalChildWeight_ < 1
-  addTransaction(1, {0, false, 0});
-  addTransaction(3, {1, false, 255});
-  addTransaction(5, {1, false, 255});
+  addTransaction(0, {kRootNodeId, false, 0});
+  addTransaction(3, {0, false, 255});
+  addTransaction(5, {0, false, 255});
 
-  removeTransaction(1);
+  removeTransaction(0);
   dump();
 
   EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
@@ -168,38 +171,38 @@ TEST_F(QueueTest, RemoveParentWeights) {
 
 TEST_F(QueueTest, NodeDepth) {
   uint64_t depth{33}; // initialize to some wrong value
-  addTransaction(1, {0, false, 15}, false, &depth);
+  addTransaction(0, {kRootNodeId, false, 15}, false, &depth);
   EXPECT_EQ(depth, 1);
 
-  addTransaction(3, {1, false, 3}, false, &depth);
+  addTransaction(3, {0, false, 3}, false, &depth);
   EXPECT_EQ(depth, 2);
 
   addTransaction(5, {3, true, 7}, false, &depth);
   EXPECT_EQ(depth, 3);
 
-  addTransaction(9, {1, false, 3}, true, &depth);
+  addTransaction(9, {0, false, 3}, true, &depth);
   EXPECT_EQ(depth, 2);
   EXPECT_EQ(q_.numPendingEgress(), 3);
   EXPECT_EQ(q_.numVirtualNodes(), 1);
 
   depth = 55; // some unlikely depth
-  addTransaction(9, {1, false, 31}, false, &depth);
+  addTransaction(9, {0, false, 31}, false, &depth);
   EXPECT_EQ(depth, 2);
   EXPECT_EQ(q_.numPendingEgress(), 4);
   EXPECT_EQ(q_.numVirtualNodes(), 0);
 
-  addTransaction(11, {1, true, 7}, false, &depth);
+  addTransaction(11, {0, true, 7}, false, &depth);
   EXPECT_EQ(depth, 2);
   EXPECT_EQ(q_.numPendingEgress(), 5);
   EXPECT_EQ(q_.numVirtualNodes(), 0);
 
-  addTransaction(13, {0, true, 23}, true, &depth);
+  addTransaction(13, {kRootNodeId, true, 23}, true, &depth);
   EXPECT_EQ(depth, 1);
   EXPECT_EQ(q_.numPendingEgress(), 5);
   EXPECT_EQ(q_.numVirtualNodes(), 1);
 
   depth = 77; // some unlikely depth
-  addTransaction(13, {0, true, 33}, false, &depth);
+  addTransaction(13, {kRootNodeId, true, 33}, false, &depth);
   EXPECT_EQ(depth, 1);
   EXPECT_EQ(q_.numPendingEgress(), 6);
   EXPECT_EQ(q_.numVirtualNodes(), 0);
@@ -209,19 +212,19 @@ TEST_F(QueueTest, UpdateWeight) {
   buildSimpleTree();
 
   uint64_t depth = 0;
-  updatePriority(5, {1, false, 7}, &depth);
+  updatePriority(5, {0, false, 7}, &depth);
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 20}, {5, 40}, {9, 100}, {7, 40}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 20}, {5, 40}, {9, 100}, {7, 40}}));
   EXPECT_EQ(depth, 2);
 }
 
 // Previously the code would allow duplicate entries in the priority tree under
 // certain circumstances.
 TEST_F(QueueTest, DuplicateID) {
-  q_.addOrUpdatePriorityNode(1, {0, false, 15});
-  addTransaction(1, {0, true, 15});
-  q_.addOrUpdatePriorityNode(3, {1, false, 15});
+  q_.addOrUpdatePriorityNode(0, {kRootNodeId, false, 15});
+  addTransaction(0, {kRootNodeId, true, 15});
+  q_.addOrUpdatePriorityNode(3, {0, false, 15});
   addTransaction(5, {3, false, 15});
   addTransaction(3, {5, false, 15});
   removeTransaction(5);
@@ -230,31 +233,31 @@ TEST_F(QueueTest, DuplicateID) {
   };
 
   dumpBFS(stopFn);
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 100}}));
 }
 
 TEST_F(QueueTest, UpdateWeightNotEnqueued) {
-  addTransaction(1, {0, false, 7});
+  addTransaction(0, {kRootNodeId, false, 7});
   addTransaction(3, {0, false, 7});
 
-  signalEgress(1, false);
+  signalEgress(0, false);
   signalEgress(3, false);
   uint64_t depth = 0;
-  updatePriority(1, {3, false, 7}, &depth);
+  updatePriority(0, {3, false, 7}, &depth);
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{3, 100}, {1, 100}}));
+  EXPECT_EQ(nodes_, IDList({{3, 100}, {0, 100}}));
   EXPECT_EQ(depth, 2);
 }
 
 TEST_F(QueueTest, UpdateWeightExcl) {
   buildSimpleTree();
 
-  updatePriority(5, {1, true, 7});
+  updatePriority(5, {0, true, 7});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {5, 100}, {9, 40}, {3, 20}, {7, 40}}));
-  signalEgress(1, false);
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {5, 100}, {9, 40}, {3, 20}, {7, 40}}));
+  signalEgress(0, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{5, 100}}));
 }
@@ -263,8 +266,8 @@ TEST_F(QueueTest, UpdateWeightExclDequeued) {
   buildSimpleTree();
 
   signalEgress(5, false);
-  updatePriority(5, {1, true, 7});
-  signalEgress(1, false);
+  updatePriority(5, {0, true, 7});
+  signalEgress(0, false);
   nextEgress();
 
   EXPECT_EQ(nodes_, IDList({{9, 40}, {7, 40}, {3, 20}}));
@@ -279,7 +282,7 @@ TEST_F(QueueTest, UpdateWeightUnknownParent) {
 
   EXPECT_EQ(
     nodes_,
-    IDList({{1, 50}, {3, 33}, {7, 66}, {97, 50}, {5, 100}, {9, 100}})
+    IDList({{0, 50}, {3, 33}, {7, 66}, {97, 50}, {5, 100}, {9, 100}})
   );
   EXPECT_EQ(depth, 2);
 
@@ -289,7 +292,7 @@ TEST_F(QueueTest, UpdateWeightUnknownParent) {
 
   EXPECT_EQ(
     nodes_,
-    IDList({{1, 33}, {3, 33}, {7, 66}, {97, 33}, {5, 100}, {99, 33}, {9, 100}})
+    IDList({{0, 33}, {3, 33}, {7, 66}, {97, 33}, {5, 100}, {99, 33}, {9, 100}})
   );
   EXPECT_EQ(depth, 2);
 }
@@ -300,19 +303,19 @@ TEST_F(QueueTest, UpdateParentSibling) {
   updatePriority(5, {3, false, 3});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 33}, {5, 100},
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 33}, {5, 100},
                                {9, 100}, {7, 66}}));
-  signalEgress(1, false);
+  signalEgress(0, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 66}, {3, 33}}));
 
   // Clear 5's egress (so it is only in the tree because 9 has egress) and move
   // it back.  Hit's a slightly different code path in reparent
   signalEgress(5, false);
-  updatePriority(5, {1, false, 3});
+  updatePriority(5, {0, false, 3});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {7, 50}, {5, 25}, {9, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 25}, {7, 50}, {5, 25}, {9, 100}}));
 
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {9, 25}}));
@@ -324,9 +327,9 @@ TEST_F(QueueTest, UpdateParentSiblingExcl) {
   updatePriority(7, {5, true, 3});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 50}, {5, 50},
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 50}, {5, 50},
                               {7, 100}, {9, 100}}));
-  signalEgress(1, false);
+  signalEgress(0, false);
   signalEgress(3, false);
   signalEgress(5, false);
   nextEgress();
@@ -336,21 +339,21 @@ TEST_F(QueueTest, UpdateParentSiblingExcl) {
 TEST_F(QueueTest, UpdateParentAncestor) {
   buildSimpleTree();
 
-  updatePriority(9, {0, false, 15});
+  updatePriority(9, {kRootNodeId, false, 15});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 25}, {5, 25}, {7, 50}, {9, 50}}));
+  EXPECT_EQ(nodes_, IDList({{0, 50}, {3, 25}, {5, 25}, {7, 50}, {9, 50}}));
   nextEgress();
-  EXPECT_EQ(nodes_, IDList({{1, 50}, {9, 50}}));
+  EXPECT_EQ(nodes_, IDList({{0, 50}, {9, 50}}));
 }
 
 TEST_F(QueueTest, UpdateParentAncestorExcl) {
   buildSimpleTree();
 
-  updatePriority(9, {0, true, 15});
+  updatePriority(9, {kRootNodeId, true, 15});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{9, 100}, {1, 100}, {3, 25}, {5, 25}, {7, 50}}));
+  EXPECT_EQ(nodes_, IDList({{9, 100}, {0, 100}, {3, 25}, {5, 25}, {7, 50}}));
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{9, 100}}));
 }
@@ -358,28 +361,28 @@ TEST_F(QueueTest, UpdateParentAncestorExcl) {
 TEST_F(QueueTest, UpdateParentDescendant) {
   buildSimpleTree();
 
-  updatePriority(1, {5, false, 7});
+  updatePriority(0, {5, false, 7});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{5, 100}, {9, 50}, {1, 50}, {3, 33}, {7, 66}}));
+  EXPECT_EQ(nodes_, IDList({{5, 100}, {9, 50}, {0, 50}, {3, 33}, {7, 66}}));
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{5, 100}}));
   signalEgress(5, false);
   nextEgress();
-  EXPECT_EQ(nodes_, IDList({{9, 50}, {1, 50}}));
+  EXPECT_EQ(nodes_, IDList({{9, 50}, {0, 50}}));
 }
 
 TEST_F(QueueTest, UpdateParentDescendantExcl) {
   buildSimpleTree();
 
-  updatePriority(1, {5, true, 7});
+  updatePriority(0, {5, true, 7});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{5, 100}, {1, 100}, {3, 20}, {7, 40}, {9, 40}}));
+  EXPECT_EQ(nodes_, IDList({{5, 100}, {0, 100}, {3, 20}, {7, 40}, {9, 40}}));
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{5, 100}}));
   signalEgress(5, false);
-  signalEgress(1, false);
+  signalEgress(0, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 40}, {9, 40}, {3, 20}}));
 }
@@ -387,11 +390,11 @@ TEST_F(QueueTest, UpdateParentDescendantExcl) {
 TEST_F(QueueTest, ExclusiveAdd) {
   buildSimpleTree();
 
-  addTransaction(11, {1, true, 100});
+  addTransaction(11, {0, true, 100});
 
   dump();
   EXPECT_EQ(nodes_, IDList({
-        {1, 100}, {11, 100}, {3, 25}, {5, 25}, {9, 100}, {7, 50}
+        {0, 100}, {11, 100}, {3, 25}, {5, 25}, {9, 100}, {7, 50}
       }));
 }
 
@@ -402,24 +405,24 @@ TEST_F(QueueTest, AddUnknown) {
 
   dump();
   EXPECT_EQ(nodes_, IDList({
-        {1, 50}, {3, 25}, {5, 25}, {9, 100}, {7, 50}, {75, 50}, {11, 100}
+        {0, 50}, {3, 25}, {5, 25}, {9, 100}, {7, 50}, {75, 50}, {11, 100}
       }));
 
   // Now let's add the missing parent node and check if it was
   // relocated properly
-  addTransaction(75, {1, false, 7});
+  addTransaction(75, {0, false, 7});
 
   dump();
   EXPECT_EQ(nodes_, IDList({
-        {1, 100}, {3, 16}, {5, 16}, {9, 100}, {7, 33}, {75, 33}, {11, 100}
+        {0, 100}, {3, 16}, {5, 16}, {9, 100}, {7, 33}, {75, 33}, {11, 100}
       }));
 }
 
 TEST_F(QueueTest, AddMax) {
-  addTransaction(1, {0, false, 255});
+  addTransaction(0, {kRootNodeId, false, 255});
 
   nextEgress();
-  EXPECT_EQ(nodes_, IDList({{1, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}}));
 }
 
 TEST_F(QueueTest, Misc) {
@@ -427,11 +430,11 @@ TEST_F(QueueTest, Misc) {
 
   EXPECT_FALSE(q_.empty());
   EXPECT_EQ(q_.numPendingEgress(), 5);
-  signalEgress(1, false);
+  signalEgress(0, false);
   EXPECT_EQ(q_.numPendingEgress(), 4);
   EXPECT_FALSE(q_.empty());
   removeTransaction(9);
-  removeTransaction(1);
+  removeTransaction(0);
   dump();
   EXPECT_EQ(nodes_, IDList({{3, 25}, {5, 25}, {7, 50}}));
 }
@@ -444,17 +447,17 @@ TEST_F(QueueTest, IterateBFS) {
   };
 
   dumpBFS(stopFn);
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 25}, {5, 25}, {7, 50}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 25}, {5, 25}, {7, 50}}));
 }
 
 TEST_F(QueueTest, NextEgress) {
   buildSimpleTree();
 
   nextEgress();
-  EXPECT_EQ(nodes_, IDList({{1, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}}));
 
   addTransaction(11, {7, false, 15});
-  signalEgress(1, false);
+  signalEgress(0, false);
 
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 50}, {3, 25}, {5, 25}}));
@@ -491,14 +494,14 @@ TEST_F(QueueTest, NextEgressExclusiveAdd) {
   buildSimpleTree();
 
   // clear all egress
-  signalEgress(1, false);
+  signalEgress(0, false);
   signalEgress(3, false);
   signalEgress(5, false);
   signalEgress(7, false);
   signalEgress(9, false);
 
   // Add a transaction with exclusive dependency, clear its egress
-  addTransaction(11, {1, true, 100});
+  addTransaction(11, {0, true, 100});
   signalEgress(11, false);
 
   // signal egress for a child that got moved via exclusive dep
@@ -512,13 +515,13 @@ TEST_F(QueueTest, NextEgressExclusiveAddWithEgress) {
   buildSimpleTree();
 
   // clear all egress, except 3
-  signalEgress(1, false);
+  signalEgress(0, false);
   signalEgress(5, false);
   signalEgress(7, false);
   signalEgress(9, false);
 
   // Add a transaction with exclusive dependency, clear its egress
-  addTransaction(11, {1, true, 100});
+  addTransaction(11, {0, true, 100});
   signalEgress(11, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{3, 100}}));
@@ -529,13 +532,13 @@ TEST_F(QueueTest, UpdatePriorityReparentSubtree) {
   buildSimpleTree();
 
   // clear all egress, except 9
-  signalEgress(1, false);
+  signalEgress(0, false);
   signalEgress(3, false);
   signalEgress(5, false);
   signalEgress(7, false);
 
   // Update priority of non-enqueued but in egress tree node
-  updatePriority(5, {1, false, 14}, nullptr);
+  updatePriority(5, {0, false, 14}, nullptr);
 
   // update 9's weight and reparent
   updatePriority(9, {3, false, 14}, nullptr);
@@ -548,7 +551,7 @@ TEST_F(QueueTest, NextEgressRemoveParent) {
   buildSimpleTree();
 
   // Clear egress for all except txn=9
-  signalEgress(1, false);
+  signalEgress(0, false);
   signalEgress(3, false);
   signalEgress(5, false);
   signalEgress(7, false);
@@ -567,38 +570,38 @@ TEST_F(QueueTest, NextEgressRemoveParent) {
 }
 
 TEST_F(QueueTest, AddExclusiveDescendantEnqueued) {
-  addTransaction(1, {0, false, 100});
-  addTransaction(3, {1, false, 100});
+  addTransaction(0, {kRootNodeId, false, 100});
+  addTransaction(3, {0, false, 100});
   addTransaction(5, {3, false, 100});
-  signalEgress(1, false);
+  signalEgress(0, false);
   signalEgress(3, false);
   // add a new exclusive child of 1.  1's child 3 is not enqueued but is in the
   // the egress tree.
-  addTransaction(7, {1, true, 100});
+  addTransaction(7, {0, true, 100});
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 100}}));
 }
 
 TEST_F(QueueTest, NextEgressRemoveParentEnqueued) {
-  addTransaction(1, {0, false, 100});
-  addTransaction(3, {1, false, 100});
+  addTransaction(0, {kRootNodeId, false, 100});
+  addTransaction(3, {0, false, 100});
   addTransaction(5, {3, false, 100});
   signalEgress(3, false);
   // When 3's children (5) are added to 1, both are already in the egress tree
   // and the signal does not need to propagate
   removeTransaction(3);
-  signalEgress(1, false);
+  signalEgress(0, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{5, 100}}));
 }
 
 TEST_F(QueueTest, NextEgressRemoveParentEnqueuedIndirect) {
-  addTransaction(1, {0, false, 100});
-  addTransaction(3, {1, false, 100});
+  addTransaction(0, {kRootNodeId, false, 100});
+  addTransaction(3, {0, false, 100});
   addTransaction(5, {3, false, 100});
-  addTransaction(7, {1, false, 100});
+  addTransaction(7, {0, false, 100});
   signalEgress(3, false);
-  signalEgress(1, false);
+  signalEgress(0, false);
   // When 3's children (5) are added to 1, both are already in the egress tree
   // and the signal does not need to propagate
   removeTransaction(3);
@@ -611,10 +614,10 @@ TEST_F(QueueTest, ChromeTest) {
   // add-exclusive, signal, clear and remove with 3 insertion points
   // (hi,mid,low).  Note the test uses rand32() with a particular seed so the
   // output is predictable.
-  HTTPCodec::StreamID pris[3] = {1, 3, 5};
-  addTransaction(1, {0, true, 99});
-  signalEgress(1, false);
-  addTransaction(3, {1, true, 99});
+  HTTPCodec::StreamID pris[3] = {0, 3, 5};
+  addTransaction(0, {kRootNodeId, true, 99});
+  signalEgress(0, false);
+  addTransaction(3, {0, true, 99});
   signalEgress(3, false);
   addTransaction(5, {3, true, 99});
   signalEgress(5, false);
@@ -681,13 +684,13 @@ TEST_F(QueueTest, ChromeTest) {
 }
 
 TEST_F(QueueTest, NextEgressSpdy) {
-  // 1 and 3 are vnodes representing pri 0 and 1
-  addTransaction(1, {0, false, 0}, true);
-  addTransaction(3, {1, false, 0}, true);
+  // 0 and 3 are vnodes representing pri 0 and 1
+  addTransaction(0, {kRootNodeId, false, 0}, true);
+  addTransaction(3, {0, false, 0}, true);
 
   // 7 and 9 are pri 0, 11 and 13 are pri 1
-  addTransaction(7, {1, false, 15});
-  addTransaction(9, {1, false, 15});
+  addTransaction(7, {0, false, 15});
+  addTransaction(9, {0, false, 15});
   addTransaction(11, {3, false, 15});
   addTransaction(13, {3, false, 15});
 
@@ -704,13 +707,13 @@ TEST_F(QueueTest, NextEgressSpdy) {
 }
 
 TEST_F(QueueTest, AddOrUpdate) {
-  q_.addOrUpdatePriorityNode(1, {0, false, 15});
-  q_.addOrUpdatePriorityNode(3, {0, false, 15});
+  q_.addOrUpdatePriorityNode(0, {kRootNodeId, false, 15});
+  q_.addOrUpdatePriorityNode(3, {kRootNodeId, false, 15});
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 50}}));
-  q_.addOrUpdatePriorityNode(1, {0, false, 3});
+  EXPECT_EQ(nodes_, IDList({{0, 50}, {3, 50}}));
+  q_.addOrUpdatePriorityNode(0, {kRootNodeId, false, 3});
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
+  EXPECT_EQ(nodes_, IDList({{0, 20}, {3, 80}}));
 }
 
 class DanglingQueueTestBase {
@@ -761,36 +764,36 @@ class DanglingQueueTest : public DanglingQueueTestBase, public QueueTest {
 };
 
 TEST_F(DanglingQueueTest, Basic) {
-  addTransaction(1, {0, false, 15});
-  removeTransaction(1);
+  addTransaction(0, {kRootNodeId, false, 15});
+  removeTransaction(0);
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}}));
   expireNodes();
   dump();
   EXPECT_EQ(nodes_, IDList({}));
 }
 
 TEST_F(DanglingQueueTest, Chain) {
-  addTransaction(1, {0, false, 15}, true);
-  addTransaction(3, {1, false, 15}, true);
+  addTransaction(0, {kRootNodeId, false, 15}, true);
+  addTransaction(3, {0, false, 15}, true);
   addTransaction(5, {3, false, 15}, true);
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 100}, {5, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 100}, {5, 100}}));
   expireNodes();
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 100}}));
   expireNodes();
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}}));
   expireNodes();
   dump();
   EXPECT_EQ(nodes_, IDList({}));
 }
 
 TEST_F(DanglingQueueTest, Drop) {
-  addTransaction(1, {0, false, 15}, true);
+  addTransaction(0, {kRootNodeId, false, 15}, true);
   addTransaction(3, {0, false, 15}, true);
-  addTransaction(5, {1, false, 15}, true);
+  addTransaction(5, {0, false, 15}, true);
   dump();
   q_.dropPriorityNodes();
   dump();
@@ -798,12 +801,12 @@ TEST_F(DanglingQueueTest, Drop) {
 }
 
 TEST_F(DanglingQueueTest, ExpireParentOfMismatchedTwins) {
-  addTransaction(1, {0, true, 219}, false);
-  addTransaction(3, {1, false, 146}, false);
-  addTransaction(5, {1, false, 146}, false);
+  addTransaction(0, {kRootNodeId, true, 219}, false);
+  addTransaction(3, {0, false, 146}, false);
+  addTransaction(5, {0, false, 146}, false);
   signalEgress(3, false);
   signalEgress(5, true);
-  removeTransaction(1);
+  removeTransaction(0);
   dump();
   tick();
   expireNodes();
@@ -822,21 +825,21 @@ TEST_F(DanglingQueueTest, Refresh) {
   // from checking the real time
   DummyTimeout t;
   timer_.scheduleTimeout(&t, std::chrono::seconds(300));
-  addTransaction(1, {0, false, 15});
-  addTransaction(3, {0, false, 15});
-  // 1 is now virtual
-  removeTransaction(1);
+  addTransaction(0, {kRootNodeId, false, 15});
+  addTransaction(3, {kRootNodeId, false, 15});
+  // 0 is now virtual
+  removeTransaction(0);
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 50}, {3, 50}}));
+  EXPECT_EQ(nodes_, IDList({{0, 50}, {3, 50}}));
   tick();
-  // before 1 times out, change it's priority, should still be there
-  updatePriority(1, {0, false, 3});
+  // before 0 times out, change it's priority, should still be there
+  updatePriority(0, {kRootNodeId, false, 3});
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
+  EXPECT_EQ(nodes_, IDList({{0, 20}, {3, 80}}));
 
   tick();
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 20}, {3, 80}}));
+  EXPECT_EQ(nodes_, IDList({{0, 20}, {3, 80}}));
   expireNodes();
   dump();
   EXPECT_EQ(nodes_, IDList({{3, 100}}));
@@ -846,11 +849,11 @@ TEST_F(DanglingQueueTest, Max) {
   buildSimpleTree();
   q_.setMaxVirtualNodes(3);
   for (auto i = 1; i <= 9; i += 2) {
-    removeTransaction(i);
+    removeTransaction(i == 1 ? 0 : i);
   }
   dump();
-  EXPECT_EQ(nodes_, IDList({{1, 100}, {3, 50}, {5, 50}}));
-  // 1 expires first and it re-weights 3 and 5, which extends their lifetime
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 50}, {5, 50}}));
+  // 0 expires first and it re-weights 3 and 5, which extends their lifetime
   expireNodes();
   dump();
   EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
@@ -863,7 +866,7 @@ TEST_F(QueueTest, Rebuild) {
   buildSimpleTree();
   q_.rebuildTree();
   dump();
-  EXPECT_EQ(nodes_, IDList({{3, 20}, {9, 20}, {5, 20}, {7, 20}, {1, 20}}));
+  EXPECT_EQ(nodes_, IDList({{3, 20}, {9, 20}, {5, 20}, {7, 20}, {0, 20}}));
 }
 
 }
