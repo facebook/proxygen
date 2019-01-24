@@ -23,11 +23,13 @@ class HPACKDecodeBuffer {
 
   explicit HPACKDecodeBuffer(folly::io::Cursor& cursorVal,
                              uint32_t totalBytes,
-                             uint32_t maxLiteralSize)
+                             uint32_t maxLiteralSize,
+                             bool endOfBufferIsError=true)
       : cursor_(cursorVal),
         totalBytes_(totalBytes),
         remainingBytes_(totalBytes),
-        maxLiteralSize_(maxLiteralSize) {}
+        maxLiteralSize_(maxLiteralSize),
+        endOfBufferIsError_(endOfBufferIsError) {}
 
   ~HPACKDecodeBuffer() {}
 
@@ -85,10 +87,15 @@ class HPACKDecodeBuffer {
   HPACK::DecodeError decodeLiteral(uint8_t nbit, folly::fbstring& literal);
 
 private:
+  void EOB_LOG(std::string msg,
+               HPACK::DecodeError code=
+               HPACK::DecodeError::BUFFER_UNDERFLOW) const;
+
   folly::io::Cursor& cursor_;
   uint32_t totalBytes_;
   uint32_t remainingBytes_;
   uint32_t maxLiteralSize_{std::numeric_limits<uint32_t>::max()};
+  bool endOfBufferIsError_{true};
 };
 
 }

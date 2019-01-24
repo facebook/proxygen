@@ -19,6 +19,15 @@ using proxygen::HPACK::DecodeError;
 
 namespace proxygen {
 
+void HPACKDecodeBuffer::EOB_LOG(std::string msg, DecodeError code) const {
+  if (endOfBufferIsError_ || code != DecodeError::BUFFER_UNDERFLOW) {
+    LOG(ERROR) << msg;
+  } else {
+    VLOG(4) << msg;
+  }
+}
+
+
 bool HPACKDecodeBuffer::empty() {
   return remainingBytes_ == 0;
 }
@@ -49,7 +58,7 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
                                              folly::fbstring& literal) {
   literal.clear();
   if (remainingBytes_ == 0) {
-    LOG(ERROR) << "remainingBytes_ == 0";
+    EOB_LOG("remainingBytes_ == 0");
     return DecodeError::BUFFER_UNDERFLOW;
   }
   auto byte = peek();
@@ -59,12 +68,12 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
   uint64_t size;
   DecodeError result = decodeInteger(nbit, size);
   if (result != DecodeError::NONE) {
-    LOG(ERROR) << "Could not decode literal size";
+    EOB_LOG("Could not decode literal size", result);
     return result;
   }
   if (size > remainingBytes_) {
-    LOG(ERROR) << "size > remainingBytes_ decoding literal size="
-               << size << " remainingBytes_=" << remainingBytes_;
+    EOB_LOG(folly::to<std::string>(
+                "size(", size, ") > remainingBytes_(", remainingBytes_, ")"));
     return DecodeError::BUFFER_UNDERFLOW;
   }
   if (size > maxLiteralSize_) {
@@ -100,7 +109,7 @@ DecodeError HPACKDecodeBuffer::decodeInteger(uint64_t& integer) {
 
 DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint64_t& integer) {
   if (remainingBytes_ == 0) {
-    LOG(ERROR) << "remainingBytes_ == 0";
+    EOB_LOG("remainingBytes_ == 0");
     return DecodeError::BUFFER_UNDERFLOW;
   }
   uint8_t byte = next();
@@ -116,7 +125,7 @@ DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint64_t& integer) {
   uint32_t fexp = 0;
   do {
     if (remainingBytes_ == 0) {
-      LOG(ERROR) << "remainingBytes_ == 0";
+      EOB_LOG("remainingBytes_ == 0");
       return DecodeError::BUFFER_UNDERFLOW;
     }
     byte = next();
