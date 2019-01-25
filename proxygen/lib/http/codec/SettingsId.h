@@ -50,9 +50,9 @@ enum class SettingsId : uint64_t {
 
   // From HQ
   //_HQ_HEADER_TABLE_SIZE = HQ_SETTINGS_MASK | 1, -- use HEADER_TABLE_SIZE
-  _HQ_NUM_PLACEHOLDERS = HQ_SETTINGS_MASK | 3,
   //_HQ_MAX_HEADER_LIST_SIZE = HQ_SETTINGS_MASK | 6, -- use MAX_HEADER_LIST_SIZE
   _HQ_QPACK_BLOCKED_STREAMS = HQ_SETTINGS_MASK | 7,
+  _HQ_NUM_PLACEHOLDERS = HQ_SETTINGS_MASK | 8,
 };
 
 using SettingPair = std::pair<SettingsId, uint32_t>;
