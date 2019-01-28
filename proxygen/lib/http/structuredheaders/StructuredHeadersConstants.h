@@ -11,6 +11,7 @@
 
 #include <unordered_map>
 #include <map>
+#include <vector>
 #include <boost/variant.hpp>
 
 namespace proxygen {
