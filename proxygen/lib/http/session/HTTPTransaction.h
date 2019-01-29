@@ -1021,6 +1021,25 @@ class HTTPTransaction :
   }
 
   /**
+   * @return true iff we should notify the error occured on EX_TXN
+   * This logic only applies to EX_TXN with QoS 0
+   */
+  bool shouldNotifyExTxnError(HTTPException::Direction errorDirection) const {
+    if (isUnidirectional()) {
+      if (isRemoteInitiated()) {
+        // We care about EGRESS errors in this case,
+        // because we marked EGRESS state to be completed
+        // If EGRESS error is happening, we need to know
+        // Same for INGRESS direction, when EX_TXN is not remoteInitiated()
+        return errorDirection == HTTPException::Direction::EGRESS;
+      } else {
+        return errorDirection == HTTPException::Direction::INGRESS;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Sets a transaction timeout value. If such a timeout was set, this
    * timeout will be used instead of the default timeout interval configured
    * in transactionIdleTimeouts_.

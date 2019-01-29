@@ -584,18 +584,21 @@ void HTTPTransaction::onError(const HTTPException& error) {
         // dead and we need to kill this transaction.
         markIngressComplete();
       }
-      if (wasEgressComplete) {
+      if (wasEgressComplete &&
+          !shouldNotifyExTxnError(HTTPException::Direction::EGRESS)) {
         notify = false;
       }
       break;
     case HTTPException::Direction::INGRESS:
-      if (isIngressEOMSeen()) {
+      if (isIngressEOMSeen() &&
+          !shouldNotifyExTxnError(HTTPException::Direction::INGRESS)) {
         // Not an error, for now
         ingressErrorSeen_ = true;
         return;
       }
       markIngressComplete();
-      if (wasIngressComplete) {
+      if (wasIngressComplete &&
+          !shouldNotifyExTxnError(HTTPException::Direction::INGRESS)) {
         notify = false;
       }
       break;

@@ -476,3 +476,82 @@ TEST_F(DownstreamTransactionTest, UnpausedFlowControlViolation) {
   txn.onIngressHeadersComplete(makePostRequest(401));
   txn.onIngressBody(makeBuf(401), 0);
 }
+
+TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnUnidirectional) {
+  // Test where the ex transaction using QoS0 gets Ingress error
+  HTTPTransaction exTxn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(2), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
+    nullptr, false, 0, 0, http2::DefaultPriority,
+    HTTPCodec::NoStream,
+    HTTPCodec::ExAttributes(1, true)
+  );
+
+  HTTPException err(HTTPException::Direction::INGRESS, "test");
+  err.setHttpStatusCode(400);
+
+  InSequence dummy;
+
+  EXPECT_CALL(handler_, setTransaction(&exTxn));
+  EXPECT_CALL(handler_, onError(_))
+    .WillOnce(Invoke([] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
+          ASSERT_EQ(std::string(ex.what()), "test");
+        }));
+  // onBody() is suppressed since ingress is complete after ingress onError()
+  // onEOM() is suppressed since ingress is complete after ingress onError()
+  EXPECT_CALL(transport_, sendAbort(_, _));
+  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(transport_, detach(&exTxn));
+
+  exTxn.setHandler(&handler_);
+  exTxn.onError(err);
+  // Since the transaction is already closed for ingress, giving it
+  // ingress body causes the transaction to be aborted and closed
+  // immediately.
+  exTxn.onIngressBody(makeBuf(10), 0);
+
+  eventBase_.loop();
+}
+
+TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnNonUnidirectional) {
+  // Test where the ex transaction using QoS0 gets Ingress error
+  HTTPTransaction exTxn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(2), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
+    nullptr, false, 0, 0, http2::DefaultPriority,
+    HTTPCodec::NoStream,
+    HTTPCodec::ExAttributes(1, true)
+  );
+
+  HTTPException err(HTTPException::Direction::INGRESS, "test");
+  err.setHttpStatusCode(400);
+
+  InSequence dummy;
+
+  EXPECT_CALL(handler_, setTransaction(&exTxn));
+  // Ingress error will propagate
+  // even if INGRESS state is completed for unidrectional ex_txn
+  EXPECT_CALL(handler_, onError(_))
+    .WillOnce(Invoke([] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
+          ASSERT_EQ(std::string(ex.what()), "test");
+        }));
+
+  EXPECT_CALL(transport_, sendAbort(_, _));
+  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(transport_, detach(&exTxn));
+
+  exTxn.setHandler(&handler_);
+  exTxn.onError(err);
+  // Since the transaction is already closed for ingress, giving it
+  // ingress body causes the transaction to be aborted and closed
+  // immediately.
+  exTxn.onIngressBody(makeBuf(10), 0);
+
+  eventBase_.loop();
+}
