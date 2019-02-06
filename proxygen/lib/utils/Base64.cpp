@@ -96,10 +96,8 @@ std::string Base64::encode(folly::ByteRange buffer) {
   BIO_write(bio.get(), buffer.data(), buffer.size());
   (void)BIO_flush(bio.get());
   BIO_get_mem_ptr(bio.get(), &bufferPtr);
-  (void)BIO_set_close(bio.get(), BIO_NOCLOSE);
 
   std::string result(bufferPtr->data, bufferPtr->length);
-  BUF_MEM_free(bufferPtr);
   return result;
 }
 
