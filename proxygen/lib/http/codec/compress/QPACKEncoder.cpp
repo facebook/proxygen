@@ -60,7 +60,7 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
     auto wireLR = (largestReference % (2 * table_.getMaxEntries())) + 1;
     streamBuffer_.encodeInteger(wireLR);
     if (largestReference > baseIndex) {
-      streamBuffer_.encodeInteger(largestReference - baseIndex,
+      streamBuffer_.encodeInteger(largestReference - baseIndex - 1,
                                   HPACK::Q_DELTA_BASE_NEG,
                                   HPACK::Q_DELTA_BASE.prefixLength);
     } else {

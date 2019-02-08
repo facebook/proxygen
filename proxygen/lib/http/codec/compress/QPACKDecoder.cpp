@@ -101,7 +101,7 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
-    baseIndex_ = largestReference - delta;
+    baseIndex_ = largestReference - delta - 1;
   } else {
     baseIndex_ = largestReference + delta;
   }
