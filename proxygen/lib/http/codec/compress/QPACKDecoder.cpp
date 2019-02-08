@@ -95,14 +95,28 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
     return 0;
   }
   if (neg) {
-    if (delta > largestReference) {
+    // delta must be smaller than LR
+    if (delta >= largestReference) {
       LOG(ERROR) << "Invalid delta=" << delta << " largestReference="
                  << largestReference;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
+    // The largest table we support is 2^32 - 1 / 32 entries, so
+    // largestReference (less any delta, etc) must be < 2^32.
+    CHECK_LE(largestReference - delta - 1,
+             std::numeric_limits<uint32_t>::max());
     baseIndex_ = largestReference - delta - 1;
   } else {
+    // base must be < 2^32
+    if (delta > std::numeric_limits<uint32_t>::max() ||
+        largestReference >=
+        uint64_t(std::numeric_limits<uint32_t>::max()) - delta) {
+      LOG(ERROR) << "Invalid delta=" << delta << " largestReference="
+                 << largestReference;
+      err_ = HPACK::DecodeError::INVALID_INDEX;
+      return 0;
+    }
     baseIndex_ = largestReference + delta;
   }
   VLOG(5) << "Decoded baseIndex_=" << baseIndex_;
@@ -294,6 +308,7 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(
     LOG(ERROR) << "Decode error decoding index err_=" << err_;
     return 0;
   }
+  CHECK_LT(index, std::numeric_limits<uint64_t>::max());
   index++;
   // validate the index
   if (index == 0 || !isValid(isStatic, index, aboveBase)) {
@@ -306,13 +321,19 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(
   return emit(header, streamingCb, emitted);
 }
 
-bool QPACKDecoder::isValid(bool isStatic, uint32_t index, bool aboveBase) {
+bool QPACKDecoder::isValid(bool isStatic, uint64_t index, bool aboveBase) {
+  if (index > std::numeric_limits<uint32_t>::max()) {
+    return false;
+  }
   if (isStatic) {
     return getStaticTable().isValid(index);
   } else {
-    uint32_t baseIndex = baseIndex_;
+    uint64_t baseIndex = baseIndex_;
     if (aboveBase) {
       baseIndex = baseIndex + index;
+      if (baseIndex > std::numeric_limits<uint32_t>::max()) {
+        return false;
+      }
       index = 1;
     }
     return table_.isValid(index, baseIndex);

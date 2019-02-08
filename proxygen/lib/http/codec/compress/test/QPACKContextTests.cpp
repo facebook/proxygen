@@ -694,9 +694,19 @@ TEST(QPACKContextTests, DecodeErrors) {
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   VLOG(10) << "Base delta too negative";
-  buf->writableData()[0] = 0x01;
-  buf->writableData()[1] = 0x82;
+  buf->writableData()[0] = 0x02;
+  buf->writableData()[1] = 0x83;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
+
+  VLOG(10) << "Base delta = LR";
+  buf->writableData()[1] = 0x81;
+  checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
+
+  VLOG(10) << "LR + deltaBase >= 2^32";
+  HPACKEncodeBuffer encBuf(128, true);
+  encBuf.encodeInteger(2);
+  encBuf.encodeInteger((uint64_t(1) << 32) - 1, HPACK::Q_DELTA_BASE);
+  checkQError(decoder, encBuf.release(), HPACK::DecodeError::INVALID_INDEX);
 
   VLOG(10) << "Exceeds blocking max";
   decoder.setMaxBlocking(0);
@@ -713,9 +723,22 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
-  VLOG(10) << "Literal index name index";
+  VLOG(10) << "Invalid literal name index";
   buf->writableData()[2] = 0x41;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
+
+  VLOG(10) << "Literal name index == 2^32 - 1";
+  encBuf.encodeInteger(0);
+  encBuf.encodeInteger(0);
+  encBuf.encodeInteger(std::numeric_limits<uint32_t>::max(),
+                       HPACK::Q_LITERAL_NAME_REF);
+  checkQError(decoder, encBuf.release(), HPACK::DecodeError::INVALID_INDEX);
+
+  VLOG(10) << "Post-base index > 2^32 - 1";
+  encBuf.encodeInteger(std::numeric_limits<uint32_t>::max() - 5);
+  encBuf.encodeInteger(0);
+  encBuf.encodeInteger(5, HPACK::Q_INDEXED);
+  checkQError(decoder, encBuf.release(), HPACK::DecodeError::INVALID_INDEX);
 
   VLOG(10) << "Literal bad name length";
   buf->writableData()[2] = 0x27;
@@ -764,9 +787,8 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->writableData()[7] = 0xFF;
   buf->writableData()[8] = 0xFF;
   buf->writableData()[9] = 0xFF;
-  buf->writableData()[10] = 0xFF;
-  buf->writableData()[11] = 0x01;
-  buf->append(11);
+  buf->writableData()[10] = 0x7F;
+  buf->append(10);
 
   VLOG(10) << "Bad header ack";
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
@@ -774,6 +796,9 @@ TEST(QPACKContextTests, DecodeErrors) {
 
   VLOG(10) << "Bad cancel";
   buf->writableData()[0] = 0x7F;
+  buf->writableData()[10] = 0xFF;
+  buf->writableData()[11] = 0x01;
+  buf->append(1);
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
 

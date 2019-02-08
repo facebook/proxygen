@@ -427,16 +427,17 @@ TEST_F(HPACKBufferTests, IntegerOverflow) {
  * test that we're able to decode the max integer
  */
 TEST_F(HPACKBufferTests, IntegerMax) {
+  uint64_t hpackMax = std::numeric_limits<uint64_t>::max() - 1;
   releaseData();
   // encoding with all the bit prefixes
   for (uint8_t bitprefix = 1; bitprefix <= 8; bitprefix++) {
-    encoder_.encodeInteger(std::numeric_limits<uint64_t>::max(), 0, bitprefix);
+    encoder_.encodeInteger(hpackMax, 0, bitprefix);
     // take the encoded data and shove it in the decoder
     releaseData();
     resetDecoder();
     uint64_t integer = 0;
     EXPECT_EQ(decoder_.decodeInteger(bitprefix, integer), DecodeError::NONE);
-    EXPECT_EQ(integer, std::numeric_limits<uint64_t>::max());
+    EXPECT_EQ(integer, hpackMax);
   }
 }
 

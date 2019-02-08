@@ -135,8 +135,8 @@ DecodeError HPACKDecodeBuffer::decodeInteger(uint8_t nbit, uint64_t& integer) {
       return DecodeError::INTEGER_OVERFLOW;
     }
     uint64_t add = (byte & 127) * f;
-    if (std::numeric_limits<uint64_t>::max() - integer < add) {
-      // overflow detected
+    if (std::numeric_limits<uint64_t>::max() - integer <= add) {
+      // overflow detected - we disallow uint64_t max.
       LOG(ERROR) << "overflow integer=" << integer << " add=" << add;
       return DecodeError::INTEGER_OVERFLOW;
     }

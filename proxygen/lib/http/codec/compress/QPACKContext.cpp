@@ -23,6 +23,7 @@ const HPACKHeader& QPACKContext::getHeader(bool isStatic,
     return getStaticTable().getHeader(index);
   }
   if (aboveBase) {
+    CHECK_LE(base, std::numeric_limits<uint32_t>::max() - index);
     base += index;
     index = 1;
   }

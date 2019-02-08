@@ -60,7 +60,7 @@ class QPACKDecoder : public HPACKDecoderBase,
   }
 
  private:
-  bool isValid(bool isStatic, uint32_t index, bool aboveBase);
+  bool isValid(bool isStatic, uint64_t index, bool aboveBase);
 
   uint32_t handleBaseIndex(HPACKDecodeBuffer& dbuf);
 
