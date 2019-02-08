@@ -513,7 +513,7 @@ TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
   // Use the existing AsyncServerSocket for binding
-  auto existingFd = serverSocket->getSocket();
+  auto existingFd = serverSocket->getNetworkSocket().toFd();
   options.useExistingSocket(std::move(serverSocket));
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
@@ -536,7 +536,7 @@ TEST(UseExistingSocket, TestWithSocketFd) {
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
   // Use the socket fd from the existing AsyncServerSocket for binding
-  auto existingFd = serverSocket->getSocket();
+  auto existingFd = serverSocket->getNetworkSocket().toFd();
   options.useExistingSocket(existingFd);
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
