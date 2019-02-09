@@ -29,15 +29,15 @@ TEST_F(QPACKHeaderTableTests, Indexing) {
   HPACKHeader accept("accept-encoding", "gzip");
   HPACKHeader agent("user-agent", "SeaMonkey");
 
-  EXPECT_EQ(table_.getBaseIndex(), 0);
+  EXPECT_EQ(table_.getInsertCount(), 0);
   table_.add(accept.copy());
-  EXPECT_EQ(table_.getBaseIndex(), 1);
+  EXPECT_EQ(table_.getInsertCount(), 1);
   // Vulnerable - in the table
   EXPECT_EQ(table_.getIndex(accept, false),
             std::numeric_limits<uint32_t>::max());
   // Allow vulnerable, get the index
   EXPECT_EQ(table_.getIndex(accept, true), 1);
-  EXPECT_TRUE(table_.onTableStateSync(1));
+  EXPECT_TRUE(table_.onInsertCountIncrement(1));
   EXPECT_EQ(table_.getIndex(accept, false), 1);
   table_.add(agent.copy());
   // Indexes move
@@ -58,7 +58,7 @@ TEST_F(QPACKHeaderTableTests, Eviction) {
   for (auto i = 1; i <= max; i++) {
     table_.addRef(i);
   }
-  table_.setMaxAcked(max);
+  table_.setAcknowledgedInsertCount(max);
   EXPECT_FALSE(table_.canIndex(accept));
   EXPECT_FALSE(table_.add(accept.copy()));
   table_.subRef(1);
@@ -86,7 +86,7 @@ TEST_F(QPACKHeaderTableTests, BadEviction) {
   EXPECT_EQ(table_.size(), max);
 
   // Ack all headers but mark the first as in use
-  table_.setMaxAcked(max);
+  table_.setAcknowledgedInsertCount(max);
   table_.addRef(1);
   EXPECT_FALSE(table_.setCapacity(capacity / 2));
 
@@ -103,18 +103,18 @@ TEST_F(QPACKHeaderTableTests, Wrapcount) {
 
   for (auto i = 0; i < 10; i++) {
     EXPECT_TRUE(table_.add(accept.copy()));
-    table_.setMaxAcked(i + 1);
+    table_.setAcknowledgedInsertCount(i + 1);
   }
   EXPECT_TRUE(table_.add(cookie.copy()));
   EXPECT_TRUE(table_.add(agent.copy()));
 
-  EXPECT_EQ(table_.getBaseIndex(), 12);
+  EXPECT_EQ(table_.getInsertCount(), 12);
   EXPECT_EQ(table_.getIndex(agent, true), 1);
   EXPECT_EQ(table_.getIndex(cookie, true), 2);
   EXPECT_EQ(table_.getIndex(accept, true), 3);
-  EXPECT_EQ(table_.getHeader(1, table_.getBaseIndex()), agent);
-  EXPECT_EQ(table_.getHeader(2, table_.getBaseIndex()), cookie);
-  EXPECT_EQ(table_.getHeader(table_.size(), table_.getBaseIndex()), accept);
+  EXPECT_EQ(table_.getHeader(1, table_.getInsertCount()), agent);
+  EXPECT_EQ(table_.getHeader(2, table_.getInsertCount()), cookie);
+  EXPECT_EQ(table_.getHeader(table_.size(), table_.getInsertCount()), accept);
 }
 
 TEST_F(QPACKHeaderTableTests, NameIndex) {
@@ -146,7 +146,7 @@ TEST_F(QPACKHeaderTableTests, Duplication) {
   for (auto i = 0; i < 6; i++) {
     EXPECT_TRUE(table_.add(accept.copy()));
     // Ack the first few entries so they can be evicted
-    table_.setMaxAcked(std::min(3u, table_.getBaseIndex()));
+    table_.setAcknowledgedInsertCount(std::min(3u, table_.getInsertCount()));
   }
 
   // successful duplicate, vulnerable allowed
@@ -157,7 +157,7 @@ TEST_F(QPACKHeaderTableTests, Duplication) {
   EXPECT_EQ(table_.size(), 6); // evicted 1
 
   // successful duplicate, vulnerable disallowed
-  EXPECT_TRUE(table_.onTableStateSync(3));
+  EXPECT_TRUE(table_.onInsertCountIncrement(3));
   res = table_.maybeDuplicate(table_.size(), false);
   EXPECT_TRUE(res.first);
   EXPECT_EQ(res.second, 0);
@@ -168,10 +168,10 @@ TEST_F(QPACKHeaderTableTests, Duplication) {
   EXPECT_FALSE(res.first);
   EXPECT_EQ(res.second, 0);
   EXPECT_EQ(table_.size(), 6); // nothing changed
-  EXPECT_EQ(table_.getBaseIndex(), 9);
+  EXPECT_EQ(table_.getInsertCount(), 9);
 
   // Hold a ref to oldest entry, prevents eviction
-  auto oldestAbsolute = table_.getBaseIndex() - table_.size() + 1;
+  auto oldestAbsolute = table_.getInsertCount() - table_.size() + 1;
   table_.addRef(oldestAbsolute);
 
   // Table should be full
@@ -189,7 +189,7 @@ TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
   for (auto i = 0; i < 8; i++) {
     EXPECT_TRUE(table_.add(thirtyNineBytes.copy()));
   }
-  table_.setMaxAcked(table_.getBaseIndex());
+  table_.setAcknowledgedInsertCount(table_.getInsertCount());
   // abs index = 1 is evictable, but index = 2 is referenced, so we can
   // insert up to (320 - 8 * 39) + 39 = 47
   table_.addRef(2);
@@ -210,7 +210,7 @@ TEST_F(QPACKHeaderTableTests, EvictNonDrained) {
   EXPECT_TRUE(table_.isDraining(3));
   EXPECT_FALSE(table_.isDraining(2));
 
-  table_.setMaxAcked(3);
+  table_.setAcknowledgedInsertCount(3);
   // Evicts small and med
   EXPECT_TRUE(table_.add(small2.copy()));
   EXPECT_EQ(table_.size(), 2);
@@ -227,7 +227,7 @@ TEST_F(QPACKHeaderTableTests, EvictNonDrained) {
 
 TEST_F(QPACKHeaderTableTests, BadSync) {
   // Can't ack more than is in the table
-  EXPECT_FALSE(table_.onTableStateSync(1));
+  EXPECT_FALSE(table_.onInsertCountIncrement(1));
 }
 
 }

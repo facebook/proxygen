@@ -239,7 +239,7 @@ TEST(QPACKContextTests, TestDuplicate) {
   // a=0 should now be draining
   auto result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
-  EXPECT_EQ(encoder.onTableStateSync(5), HPACK::DecodeError::NONE);
+  EXPECT_EQ(encoder.onInsertCountIncrement(5), HPACK::DecodeError::NONE);
   EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::NONE);
   req.erase(req.begin() + 1, req.end());
   result = encoder.encode(req, 0, 2);
@@ -257,7 +257,7 @@ TEST(QPACKContextTests, TestTableSizeUpdate) {
   req.emplace_back("Blarf", "Blerg");
   auto result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req);
-  EXPECT_EQ(encoder.onTableStateSync(2), HPACK::DecodeError::NONE);
+  EXPECT_EQ(encoder.onInsertCountIncrement(2), HPACK::DecodeError::NONE);
   EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::NONE);
   encoder.setHeaderTableSize(64, false); // This will evict the oldest header
   EXPECT_EQ(encoder.getHeadersStored(), 1);
@@ -344,7 +344,7 @@ TEST(QPACKContextTests, TestAcks) {
   QPACKEncoder encoder(false, 100);
   QPACKDecoder decoder(100);
   encoder.setMaxVulnerable(1);
-  EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::INVALID_ACK);
+  EXPECT_EQ(encoder.onInsertCountIncrement(1), HPACK::DecodeError::INVALID_ACK);
   EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::INVALID_ACK);
 
   vector<HPACKHeader> req;
@@ -381,7 +381,7 @@ TEST(QPACKContextTests, TestAcks) {
   // stream 2 block was pure literals
   EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::INVALID_ACK);
   EXPECT_EQ(cancelStream(decoder, encoder, 1), HPACK::DecodeError::NONE);
-  EXPECT_EQ(encoder.onTableStateSync(1), HPACK::DecodeError::NONE);
+  EXPECT_EQ(encoder.onInsertCountIncrement(1), HPACK::DecodeError::NONE);
 
   result = encoder.encode(req, 0, 2);
   // Encodes an insert
@@ -390,7 +390,7 @@ TEST(QPACKContextTests, TestAcks) {
   EXPECT_FALSE(stringInOutput(result.stream.get(), "foo"));
   verifyDecode(decoder, std::move(result), req);
 
-  EXPECT_EQ(encoder.onTableStateSync(0), HPACK::DecodeError::INVALID_ACK);
+  EXPECT_EQ(encoder.onInsertCountIncrement(0), HPACK::DecodeError::INVALID_ACK);
 }
 
 TEST(QPACKContextTests, TestImplicitAcks) {
@@ -588,8 +588,8 @@ TEST(QPACKContextTests, TestDecodePartialControl) {
   EXPECT_EQ(decoder.getHeader(false, 1, 1, false), req[0]);
 }
 
-TEST(QPACKContextTests, WrapLRBehind) {
-  // This tests how LR wraps when the encoder and decoder have the same state
+TEST(QPACKContextTests, WrapRICBehind) {
+  // This tests how RIC wraps when the encoder and decoder have the same state
   uint32_t tableSize = 1024;
   uint32_t maxEntries = tableSize / 32;
   uint32_t realMaxEntries = tableSize / (32 + sizeof("999"));
@@ -597,13 +597,13 @@ TEST(QPACKContextTests, WrapLRBehind) {
   QPACKEncoder encoder(true, tableSize);
   QPACKDecoder decoder(tableSize);
   encoder.setMinFreeForTesting(0);
-  for (uint32_t decoderBase = 0; decoderBase < maxEntries * 3; decoderBase++) {
-    if (decoderBase > 0) {
+  for (uint32_t decoderIC = 0; decoderIC < maxEntries * 3; decoderIC++) {
+    if (decoderIC > 0) {
       // add one more header to decoder
       vector<HPACKHeader> req;
-      VLOG(5) << "priming decoder with h=" << decoderBase
-              << " decoderBase=" << decoderBase;
-      req.emplace_back(toFixedLengthString(decoderBase), "");
+      VLOG(5) << "priming decoder with h=" << decoderIC
+              << " decoderIC=" << decoderIC;
+      req.emplace_back(toFixedLengthString(decoderIC), "");
       auto result = encoder.encode(req, 10, 1);
       EXPECT_NE(result.control, nullptr)
         << "Every encode should produce an insert";
@@ -611,16 +611,16 @@ TEST(QPACKContextTests, WrapLRBehind) {
       EXPECT_EQ(encoder.decodeDecoderStream(decoder.encodeHeaderAck(1)),
                 HPACK::DecodeError::NONE);
     }
-    for (auto largestRef =
-           std::max<int64_t>(0, int64_t(decoderBase) - realMaxEntries + 1);
-         largestRef <= decoderBase; largestRef++) {
-      VLOG(5) << "WrapLR test decoderBase=" << decoderBase
-              << " largestRef=" << largestRef;
+    for (auto requiredIC =
+           std::max<int64_t>(0, int64_t(decoderIC) - realMaxEntries + 1);
+         requiredIC <= decoderIC; requiredIC++) {
+      VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
+              << " requiredIC=" << requiredIC;
 
-      // Now send encode a request for the given largest reference.
+      // Now send encode a request for the given RIC.
       vector<HPACKHeader> req;
-      if (largestRef > 0) {
-        req.emplace_back(toFixedLengthString(largestRef), "");
+      if (requiredIC > 0) {
+        req.emplace_back(toFixedLengthString(requiredIC), "");
       } else {
         req.emplace_back(":scheme", "https");
       }
@@ -634,32 +634,32 @@ TEST(QPACKContextTests, WrapLRBehind) {
   }
 }
 
-TEST(QPACKContextTests, WrapLRAhead) {
-  // This tests how LR wraps when the encoder is up to a full table ahead of the
-  // decoder.  tableSize is set such that realMaxEntries=64, which prevents
-  // LR from being too far from base index as to expand the prefix.
+TEST(QPACKContextTests, WrapRICAhead) {
+  // This tests how RIC wraps when the encoder is up to a full table ahead of
+  // the decoder.  tableSize is set such that realMaxEntries=64, which prevents
+  // RIC from being too far from base index as to expand the prefix.
   uint32_t tableSize = 4064;
   uint32_t maxEntries = tableSize / 32;
   uint32_t realMaxEntries = tableSize / (32 + sizeof("999"));
 
   // With QPACK-02, this would have produced an encoded stream buffer of 4
-  // bytes.  Each loop of decoderBase is expensive, so start it at maxEntries,
+  // bytes.  Each loop of decoderIC is expensive, so start it at maxEntries,
   // and only run it until it actually would have made a difference in
-  // the encoded size of largest reference.
+  // the encoded size of required IC.
   CHECK_LE(realMaxEntries, 256);
-  for (uint32_t decoderBase = maxEntries;
-       decoderBase < (256 - realMaxEntries);
-       decoderBase++) {
+  for (uint32_t decoderIC = maxEntries;
+       decoderIC < (256 - realMaxEntries);
+       decoderIC++) {
     QPACKEncoder encoder(true, tableSize);
     QPACKDecoder decoder(tableSize);
     encoder.setMaxVulnerable(realMaxEntries);
     decoder.setMaxBlocking(realMaxEntries);
     encoder.setMinFreeForTesting(0);
-    for (uint32_t i = 1; i <= decoderBase; i++) {
+    for (uint32_t i = 1; i <= decoderIC; i++) {
       vector<HPACKHeader> req;
-      // populate the encoder and decode table to decoderBase.
+      // populate the encoder and decode table to decoderIC.
       VLOG(5) << "priming decoder with h=" << i
-              << " decoderBase=" << decoderBase;
+              << " decoderIC=" << decoderIC;
       req.emplace_back(toFixedLengthString(i), "");
       auto result = encoder.encode(req, 10, 1);
       EXPECT_NE(result.control, nullptr)
@@ -672,22 +672,22 @@ TEST(QPACKContextTests, WrapLRAhead) {
     std::list<std::shared_ptr<bool>> allDone;
     vector<vector<HPACKHeader>> reqs;
     reqs.reserve(2 * realMaxEntries);
-    // encode realMaxEntries requests past decoderBase, and queue the decodes
+    // encode realMaxEntries requests past decoderIC, and queue the decodes
     // but don't process the inserts
-    for (auto largestRef = decoderBase + 1;
-         largestRef <= decoderBase + realMaxEntries; largestRef++) {
-      VLOG(5) << "WrapLR test decoderBase=" << decoderBase
-              << " largestRef=" << largestRef;
+    for (auto requiredIC = decoderIC + 1;
+         requiredIC <= decoderIC + realMaxEntries; requiredIC++) {
+      VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
+              << " requiredIC=" << requiredIC;
       reqs.emplace_back();
       auto& req = reqs.back();
-      req.emplace_back(toFixedLengthString(largestRef), "");
-      auto result = encoder.encode(req, 10, largestRef);
+      req.emplace_back(toFixedLengthString(requiredIC), "");
+      auto result = encoder.encode(req, 10, requiredIC);
       EXPECT_NE(result.control, nullptr)
         << "Every encode should produce an insert";
       controlQueue.append(std::move(result.control));
       CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
       // the decoder has to block because the control stream is pending.
-      // This verifies the whole batch of encodes against the same decoderBase
+      // This verifies the whole batch of encodes against the same decoderIC
       allDone.emplace_back(verifyDecode(decoder, std::move(result), req));
     }
     // control block should unblock all requests
@@ -711,7 +711,7 @@ TEST(QPACKContextTests, DecodeErrors) {
   QPACKDecoder decoder(128);
   unique_ptr<IOBuf> buf = IOBuf::create(128);
 
-  VLOG(10) << "Largest ref invalid";
+  VLOG(10) << "Required IC invalid";
   buf->writableData()[0] = 0xFF;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
@@ -850,7 +850,7 @@ TEST(QPACKContextTests, TestEvictedNameReference) {
   decoder.decodeEncoderStream(std::move(result.control));
   decoder.decodeStreaming(1, result.stream->clone(),
                           result.stream->computeChainDataLength(), nullptr);
-  encoder.onTableStateSync(1);
+  encoder.onInsertCountIncrement(1);
   req.clear();
   req.emplace_back("x-accept-encoding", "barfoobarfoo");
   result = encoder.encode(req, 0, 2);

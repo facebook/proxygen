@@ -32,18 +32,18 @@ class QPACKHeaderTable : public HeaderTable {
   QPACKHeaderTable& operator=(const QPACKHeaderTable&) = delete;
 
   /**
-   * Return Base Index - the total number of headers inserted to this table,
+   * Return Insert Count - the total number of headers inserted to this table,
    * including evictions
    */
-  uint32_t getBaseIndex() const {
-    return baseIndex_;
+  uint32_t getInsertCount() const {
+    return insertCount_;
   }
 
   /**
    * Returns true if the absolute index has not been ack'ed yet.
    */
   bool isVulnerable(uint32_t absIndex) const {
-    return (absIndex > maxAcked_);
+    return (absIndex > ackedInsertCount_);
   }
 
   /**
@@ -90,7 +90,7 @@ class QPACKHeaderTable : public HeaderTable {
 
   /**
    * Get the index of the given header, if found.  The index is relative to
-   * head/baseIndex.  If allowVulnerable is true, the index returned may not
+   * head/insertCount.  If allowVulnerable is true, the index returned may not
    * have been acknowledged by the decoder.
    *
    * @return 0 in case the header is not found
@@ -100,7 +100,7 @@ class QPACKHeaderTable : public HeaderTable {
 
   /**
    * Get the table entry at the given external index.  If base is 0,
-   * index is relative to head/baseIndex.  If base is non-zero, index is
+   * index is relative to head/insertCount.  If base is non-zero, index is
    * relative to base.
    *
    * @return the header entry
@@ -109,7 +109,7 @@ class QPACKHeaderTable : public HeaderTable {
 
   /**
    * Checks if an external index is valid.  If base is 0,
-   * index is relative to head/baseIndex.  If base is non-zero, index is
+   * index is relative to head/insertCount.  If base is non-zero, index is
    * relative to base.
    */
   bool isValid(uint32_t index, uint32_t base = 0) const;
@@ -124,26 +124,26 @@ class QPACKHeaderTable : public HeaderTable {
   uint32_t nameIndex(const HPACKHeaderName& headerName,
                      bool allowVulnerable = true) const;
 
-  bool onTableStateSync(uint32_t inserts) {
+  bool onInsertCountIncrement(uint32_t numInserts) {
     // compare this way to avoid overflow
-    if (inserts > baseIndex_ ||
-        maxAcked_ > baseIndex_ - inserts) {
-      LOG(ERROR) << "Decoder ack'd too much maxAcked_="
-                 << maxAcked_ << " baseIndex_=" << baseIndex_
-                 << " inserts=" << inserts;
+    if (numInserts > insertCount_ ||
+        ackedInsertCount_ > insertCount_ - numInserts) {
+      LOG(ERROR) << "Decoder ack'd too much: ackedInsertCount_="
+                 << ackedInsertCount_ << " insertCount_=" << insertCount_
+                 << " numInserts=" << numInserts;
       return false;
     }
-    maxAcked_ += inserts;
-    CHECK_LE(maxAcked_, baseIndex_);
+    ackedInsertCount_ += numInserts;
+    CHECK_LE(ackedInsertCount_, insertCount_);
     return true;
   }
 
-  void setMaxAcked(uint32_t maxAcked) {
-    if (maxAcked < maxAcked_) {
+  void setAcknowledgedInsertCount(uint32_t ackInsertCount) {
+    if (ackInsertCount < ackedInsertCount_) {
       return;
     }
-    CHECK_LE(maxAcked, baseIndex_);
-    maxAcked_ = maxAcked;
+    CHECK_LE(ackInsertCount, insertCount_);
+    ackedInsertCount_ = ackInsertCount;
   }
 
   /**
@@ -151,15 +151,15 @@ class QPACKHeaderTable : public HeaderTable {
    */
   uint32_t relativeToAbsolute(uint32_t relativeIndex) const {
     DCHECK(isValid(relativeIndex, 0));
-    return baseIndex_ - relativeIndex + 1;
+    return insertCount_ - relativeIndex + 1;
   }
 
   /**
    * Convert an absolute index to a relative index
    */
   uint32_t absoluteToRelative(uint32_t absIndex) const {
-    CHECK_LE(absIndex, baseIndex_);
-    return baseIndex_ - absIndex + 1;
+    CHECK_LE(absIndex, insertCount_);
+    return insertCount_ - absIndex + 1;
   }
 
   /**
@@ -215,10 +215,10 @@ class QPACKHeaderTable : public HeaderTable {
   uint32_t internalToAbsolute(uint32_t internalIndex) const;
   uint32_t absoluteToInternal(uint32_t absoluteIndex) const;
 
-  uint32_t baseIndex_{0};
+  uint32_t insertCount_{0};
   uint32_t drainedBytes_{0};
   uint32_t minUsable_{1};
-  uint32_t maxAcked_{0};
+  uint32_t ackedInsertCount_{0};
   std::unique_ptr<std::vector<uint16_t>> refCount_;
   uint32_t minFree_{0};
 };

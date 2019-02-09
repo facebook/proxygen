@@ -30,10 +30,10 @@ void QPACKDecoder::decodeStreaming(
   Cursor cursor(block.get());
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   err_ = HPACK::DecodeError::NONE;
-  uint32_t largestReference = handleBaseIndex(dbuf);
-  if (largestReference > table_.getBaseIndex()) {
-    VLOG(5) << "largestReference=" << largestReference << " > baseIndex=" <<
-      table_.getBaseIndex() << ", queuing";
+  uint32_t requiredInsertCount = decodePrefix(dbuf);
+  if (requiredInsertCount > table_.getInsertCount()) {
+    VLOG(5) << "requiredInsertCount=" << requiredInsertCount
+            << " > insertCount=" << table_.getInsertCount() << ", queuing";
     if (queue_.size() >= maxBlocking_) {
       VLOG(2) << "QPACK queue is full size=" << queue_.size()
               << " maxBlocking_=" << maxBlocking_;
@@ -43,45 +43,45 @@ void QPACKDecoder::decodeStreaming(
       folly::IOBufQueue q;
       q.append(std::move(block));
       q.trimStart(dbuf.consumedBytes());
-      enqueueHeaderBlock(streamID, largestReference, baseIndex_,
+      enqueueHeaderBlock(streamID, requiredInsertCount, baseIndex_,
                          dbuf.consumedBytes(), q.move(),
                          totalBytes - dbuf.consumedBytes(), streamingCb);
     }
   } else {
-    decodeStreamingImpl(largestReference, 0, dbuf, streamingCb);
+    decodeStreamingImpl(requiredInsertCount, 0, dbuf, streamingCb);
   }
 }
 
-uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
-  uint64_t largestReference;
-  uint64_t wireLR;
+uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
+  uint64_t requiredInsertCount;
+  uint64_t wireRIC;
   uint64_t maxEntries = getMaxEntries(maxTableSize_);
   uint64_t modulus = 2 * maxEntries;
-  err_ = dbuf.decodeInteger(wireLR);
+  err_ = dbuf.decodeInteger(wireRIC);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding largest reference err_=" << err_;
+    LOG(ERROR) << "Decode error decoding requiredInsertCount err_=" << err_;
     return 0;
   }
-  if (wireLR == 0) {
-    largestReference = 0;
+  if (wireRIC == 0) {
+    requiredInsertCount = 0;
   } else {
-    wireLR--;
-    if (wireLR >= modulus) {
-      LOG(ERROR) << "Decode error LR out of range=" << wireLR;
+    wireRIC--;
+    if (wireRIC >= modulus) {
+      LOG(ERROR) << "Decode error RIC out of range=" << wireRIC;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
-    auto now = table_.getBaseIndex() % modulus;
-    if (now >= wireLR + maxEntries) {
-      // LR wrapped on more time than now
-      wireLR += modulus;
-    } else if (now + maxEntries < wireLR) {
-      // now wrapped one more time than LR
+    auto now = table_.getInsertCount() % modulus;
+    if (now >= wireRIC + maxEntries) {
+      // RIC wrapped on more time than now
+      wireRIC += modulus;
+    } else if (now + maxEntries < wireRIC) {
+      // now wrapped one more time than RIC
       now += modulus;
     }
-    largestReference = wireLR + (table_.getBaseIndex() - now);
+    requiredInsertCount = wireRIC + (table_.getInsertCount() - now);
   }
-  VLOG(5) << "Decoded largestReference=" << largestReference;
+  VLOG(5) << "Decoded requiredInsertCount=" << requiredInsertCount;
   uint64_t delta = 0;
   if (dbuf.empty()) {
     LOG(ERROR) << "Invalid prefix, no delta-base";
@@ -95,36 +95,36 @@ uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
     return 0;
   }
   if (neg) {
-    // delta must be smaller than LR
-    if (delta >= largestReference) {
-      LOG(ERROR) << "Invalid delta=" << delta << " largestReference="
-                 << largestReference;
+    // delta must be smaller than RIC
+    if (delta >= requiredInsertCount) {
+      LOG(ERROR) << "Invalid delta=" << delta << " requiredInsertCount="
+                 << requiredInsertCount;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
     // The largest table we support is 2^32 - 1 / 32 entries, so
-    // largestReference (less any delta, etc) must be < 2^32.
-    CHECK_LE(largestReference - delta - 1,
+    // requiredInsertCount (less any delta, etc) must be < 2^32.
+    CHECK_LE(requiredInsertCount - delta - 1,
              std::numeric_limits<uint32_t>::max());
-    baseIndex_ = largestReference - delta - 1;
+    baseIndex_ = requiredInsertCount - delta - 1;
   } else {
     // base must be < 2^32
     if (delta > std::numeric_limits<uint32_t>::max() ||
-        largestReference >=
+        requiredInsertCount >=
         uint64_t(std::numeric_limits<uint32_t>::max()) - delta) {
-      LOG(ERROR) << "Invalid delta=" << delta << " largestReference="
-                 << largestReference;
+      LOG(ERROR) << "Invalid delta=" << delta << " requiredInsertCount="
+                 << requiredInsertCount;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
-    baseIndex_ = largestReference + delta;
+    baseIndex_ = requiredInsertCount + delta;
   }
   VLOG(5) << "Decoded baseIndex_=" << baseIndex_;
-  return largestReference;
+  return requiredInsertCount;
 }
 
 void QPACKDecoder::decodeStreamingImpl(
-    uint32_t largestReference,
+    uint32_t requiredInsertCount,
     uint32_t consumed, HPACKDecodeBuffer& dbuf,
     HPACK::StreamingCallback* streamingCb) {
   uint32_t emittedSize = 0;
@@ -140,11 +140,11 @@ void QPACKDecoder::decodeStreamingImpl(
     emittedSize += 2;
   }
 
-  bool acknowledge = largestReference != 0;
+  bool acknowledge = requiredInsertCount != 0;
   if (!hasError()) {
     // lastAcked_ is only read in encodeTableStateSync, so all completed header
     // blocks must be call encodeHeaderAck BEFORE calling encodeTableStateSync.
-    lastAcked_ = std::max(lastAcked_, largestReference);
+    lastAcked_ = std::max(lastAcked_, requiredInsertCount);
   }
   completeDecode(HeaderCodec::Type::QPACK, streamingCb,
                  consumed + dbuf.consumedBytes(), emittedSize, acknowledge);
@@ -341,12 +341,12 @@ bool QPACKDecoder::isValid(bool isStatic, uint64_t index, bool aboveBase) {
 }
 
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeTableStateSync() {
-  uint32_t toAck = table_.getBaseIndex() - lastAcked_;
+  uint32_t toAck = table_.getInsertCount() - lastAcked_;
   if (toAck > 0) {
     VLOG(6) << "encodeTableStateSync toAck=" << toAck;
     HPACKEncodeBuffer ackEncoder(kGrowth, false);
-    ackEncoder.encodeInteger(toAck, HPACK::Q_TABLE_STATE_SYNC);
-    lastAcked_ = table_.getBaseIndex();
+    ackEncoder.encodeInteger(toAck, HPACK::Q_INSERT_COUNT_INC);
+    lastAcked_ = table_.getInsertCount();
     return ackEncoder.release();
   } else {
     return nullptr;
@@ -379,25 +379,25 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
 
 void QPACKDecoder::enqueueHeaderBlock(
   uint64_t streamID,
-  uint32_t largestReference,
+  uint32_t requiredInsertCount,
   uint32_t baseIndex,
   uint32_t consumed,
   std::unique_ptr<folly::IOBuf> block,
   size_t length,
   HPACK::StreamingCallback* streamingCb) {
   // TDOO: this queue is currently unbounded and has no timeouts
-  CHECK_GT(largestReference, table_.getBaseIndex());
+  CHECK_GT(requiredInsertCount, table_.getInsertCount());
   queue_.emplace(
     std::piecewise_construct,
-    std::forward_as_tuple(largestReference),
+    std::forward_as_tuple(requiredInsertCount),
     std::forward_as_tuple(streamID, baseIndex, length, consumed,
                           std::move(block), streamingCb));
   holBlockCount_++;
-  VLOG(5) << "queued block=" << largestReference << " len=" << length;
+  VLOG(5) << "queued block=" << requiredInsertCount << " len=" << length;
   queuedBytes_ += length;
 }
 
-bool QPACKDecoder::decodeBlock(uint32_t largestReference,
+bool QPACKDecoder::decodeBlock(uint32_t requiredInsertCount,
                                const PendingBlock& pending) {
   if (pending.length > 0) {
     VLOG(5) << "decodeBlock len=" << pending.length;
@@ -407,7 +407,8 @@ bool QPACKDecoder::decodeBlock(uint32_t largestReference,
     queuedBytes_ -= pending.length;
     baseIndex_ = pending.baseIndex;
     folly::DestructorCheck::Safety safety(*this);
-    decodeStreamingImpl(largestReference, pending.consumed, dbuf, pending.cb);
+    decodeStreamingImpl(requiredInsertCount, pending.consumed, dbuf,
+                        pending.cb);
     // The callback way destroy this, if so stop queue processing
     if (safety.destroyed()) {
       return true;
@@ -418,7 +419,7 @@ bool QPACKDecoder::decodeBlock(uint32_t largestReference,
 
 void QPACKDecoder::drainQueue() {
   auto it = queue_.begin();
-  while (!queue_.empty() && it->first <= table_.getBaseIndex() &&
+  while (!queue_.empty() && it->first <= table_.getInsertCount() &&
          !hasError()) {
     auto id = it->first;
     PendingBlock block = std::move(it->second);

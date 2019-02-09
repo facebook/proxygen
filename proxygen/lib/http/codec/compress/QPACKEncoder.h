@@ -53,7 +53,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   HPACK::DecodeError decodeDecoderStream(
       std::unique_ptr<folly::IOBuf> buf);
 
-  HPACK::DecodeError onTableStateSync(uint32_t inserts);
+  HPACK::DecodeError onInsertCountIncrement(uint32_t inserts);
 
   HPACK::DecodeError onHeaderAck(uint64_t streamId, bool all);
 
@@ -109,10 +109,11 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
   void encodeStreamLiteralQ(
     const HPACKHeader& header, bool isStaticName, uint32_t nameIndex,
-    uint32_t absoluteNameIndex, uint32_t baseIndex, uint32_t* largestReference);
+    uint32_t absoluteNameIndex, uint32_t baseIndex,
+    uint32_t* requiredInsertCount);
 
   void encodeHeaderQ(const HPACKHeader& header, uint32_t baseIndex,
-                     uint32_t* largestReference);
+                     uint32_t* requiredInsertCount);
 
   void encodeInsertQ(const HPACKHeader& header,
                      bool isStaticName,
@@ -132,7 +133,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
                                 const HPACK::Instruction& idxInstr,
                                 const HPACK::Instruction& litInstr);
 
-  void trackReference(uint32_t index, uint32_t* largestReference);
+  void trackReference(uint32_t index, uint32_t* requiredInsertCount);
 
   void encodeDuplicate(uint32_t index);
 

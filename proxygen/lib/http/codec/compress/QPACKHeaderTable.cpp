@@ -47,8 +47,8 @@ QPACKHeaderTable::QPACKHeaderTable(uint32_t capacityVal, bool trackReferences)
 }
 
 bool QPACKHeaderTable::add(HPACKHeader header) {
-  if (baseIndex_ == std::numeric_limits<uint32_t>::max()) {
-    LOG(ERROR) << "Cowardly refusing to add more entries since baseIndex_ "
+  if (insertCount_ == std::numeric_limits<uint32_t>::max()) {
+    LOG(ERROR) << "Cowardly refusing to add more entries since insertCount_ "
       " would wrap";
     return false;
   }
@@ -60,12 +60,12 @@ bool QPACKHeaderTable::add(HPACKHeader header) {
   if (refCount_) {
     (*refCount_)[head_] = 0;
   }
-  ++baseIndex_;
-  DCHECK_EQ(internalToAbsolute(head_), baseIndex_);
+  ++insertCount_;
+  DCHECK_EQ(internalToAbsolute(head_), insertCount_);
   // Increase minUsable_ until the free space + drainedBytes is >= minFree.
   // For HPACK, minFree is 0 and this is a no-op.
   while (capacity_ - bytes_ + drainedBytes_ < minFree_ &&
-         minUsable_ <= baseIndex_) {
+         minUsable_ <= insertCount_) {
     auto bytes = table_[absoluteToInternal(minUsable_)].bytes();
     VLOG(5) << "Draining absolute index " << minUsable_ << " bytes="
             << bytes << " drainedBytes_= " << (drainedBytes_ + bytes);
@@ -106,7 +106,7 @@ uint32_t QPACKHeaderTable::getIndexImpl(const HPACKHeaderName& headerName,
     auto i = *indexIt;
     if (nameOnly || table_[i].value == value) {
       // allow vulnerable or not vulnerable
-      if (allowVulnerable || internalToAbsolute(i) <= maxAcked_) {
+      if (allowVulnerable || internalToAbsolute(i) <= ackedInsertCount_) {
         // index *may* be draining, caller has to check
         return toExternal(i);
       } else {
@@ -138,7 +138,7 @@ uint32_t QPACKHeaderTable::removeLast() {
     CHECK_EQ((*refCount_)[idx], 0) << "Removed header with nonzero references";
   }
   auto removedBytes = HeaderTable::removeLast();
-  // Only non-zero when minUsable_ > baseIndex_ - size_.
+  // Only non-zero when minUsable_ > insertCount_ - size_.
   if (drainedBytes_ > 0) {
     VLOG(5) << "Removing draining entry=" << idx << " size=" << removedBytes
             << " drainedBytes_=" << drainedBytes_ << " new drainedBytes_="
@@ -150,7 +150,7 @@ uint32_t QPACKHeaderTable::removeLast() {
     if (size() > 0) {
       minUsable_ = internalToAbsolute(tail());
     } else {
-      minUsable_ = baseIndex_ + 1;
+      minUsable_ = insertCount_ + 1;
     }
   }
   return removedBytes;
@@ -159,8 +159,8 @@ uint32_t QPACKHeaderTable::removeLast() {
 void QPACKHeaderTable::increaseTableLengthTo(uint32_t newLength) {
   HeaderTable::increaseTableLengthTo(newLength);
   if (size_ > 0) {
-    DCHECK_EQ(internalToAbsolute(head_), baseIndex_);
-    DCHECK_EQ(internalToAbsolute(tail()), baseIndex_ - size_ + 1);
+    DCHECK_EQ(internalToAbsolute(head_), insertCount_);
+    DCHECK_EQ(internalToAbsolute(tail()), insertCount_ - size_ + 1);
   }
 }
 
@@ -196,8 +196,9 @@ bool QPACKHeaderTable::canEvict(uint32_t needed) {
   uint32_t freeable = 0;
   uint32_t i = tail();
   uint32_t nChecked = 0;
-  while (nChecked++ < size() && freeable < needed && ((*refCount_)[i] == 0) &&
-         internalToAbsolute(i) <= maxAcked_) { // don't evict unacked headers
+  while (nChecked++ < size() && freeable < needed &&
+         ((*refCount_)[i] == 0) && // don't evict referenced or unacked headers
+         internalToAbsolute(i) <= ackedInsertCount_) {
     freeable += table_[i].bytes();
     i = next(i);
   }
@@ -212,8 +213,8 @@ bool QPACKHeaderTable::canEvict(uint32_t needed) {
 bool QPACKHeaderTable::isValid(uint32_t index, uint32_t base) const {
   int64_t testIndex = index;
   if (base > 0) {
-    auto baseOffset = ((int64_t)base - (int64_t)baseIndex_);
-    // recompute relative to current baseIndex_.  testIndex may go negative
+    auto baseOffset = ((int64_t)base - (int64_t)insertCount_);
+    // recompute relative to current insertCount_.  testIndex may go negative
     // if this is a reference to an entry that hasn't arrived yet
     testIndex -= baseOffset;
   }
@@ -240,7 +241,7 @@ std::pair<bool, uint32_t> QPACKHeaderTable::maybeDuplicate(
     if (canIndex(header)) {
       CHECK(add(header.copy()));
       if (allowVulnerable) {
-        return {true, baseIndex_};
+        return {true, insertCount_};
       } else {
         return {true, 0};
       }

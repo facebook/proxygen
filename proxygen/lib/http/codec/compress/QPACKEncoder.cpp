@@ -15,7 +15,6 @@ using std::vector;
 namespace proxygen {
 
 QPACKEncoder::QPACKEncoder(bool huffman, uint32_t tableSize) :
-    // We only need the 'QPACK' table if we are using base index
     HPACKEncoderBase(huffman),
     QPACKContext(tableSize, true),
     controlBuffer_(kBufferGrowth, huffman),
@@ -44,28 +43,29 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
   // curOutstanding_ points to a local stack variable, it's mostly for
   // convenience so other methods invoked from here can access it.
   curOutstanding_ = &outstandingBlock;
-  auto baseIndex = table_.getBaseIndex();
+  auto baseIndex = table_.getInsertCount();
 
-  uint32_t largestReference = 0;
+  uint32_t requiredInsertCount = 0;
   for (const auto& header: headers) {
-    encodeHeaderQ(header, baseIndex, &largestReference);
+    encodeHeaderQ(header, baseIndex, &requiredInsertCount);
   }
 
   auto streamBlock = streamBuffer_.release();
 
   // encode the prefix
-  if (largestReference == 0) {
-    streamBuffer_.encodeInteger(0); // LR
-    streamBuffer_.encodeInteger(0); // baseIndex
+  if (requiredInsertCount == 0) {
+    streamBuffer_.encodeInteger(0); // required insert count
+    streamBuffer_.encodeInteger(0); // delta base
   } else {
-    auto wireLR = (largestReference % (2 * getMaxEntries(maxTableSize_))) + 1;
-    streamBuffer_.encodeInteger(wireLR);
-    if (largestReference > baseIndex) {
-      streamBuffer_.encodeInteger(largestReference - baseIndex - 1,
+    auto wireRIC =
+      (requiredInsertCount % (2 * getMaxEntries(maxTableSize_))) + 1;
+    streamBuffer_.encodeInteger(wireRIC);
+    if (requiredInsertCount > baseIndex) {
+      streamBuffer_.encodeInteger(requiredInsertCount - baseIndex - 1,
                                   HPACK::Q_DELTA_BASE_NEG,
                                   HPACK::Q_DELTA_BASE.prefixLength);
     } else {
-      streamBuffer_.encodeInteger(baseIndex - largestReference,
+      streamBuffer_.encodeInteger(baseIndex - requiredInsertCount,
                                   HPACK::Q_DELTA_BASE_POS,
                                   HPACK::Q_DELTA_BASE.prefixLength);
     }
@@ -90,7 +90,8 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
 }
 
 void QPACKEncoder::encodeHeaderQ(
-  const HPACKHeader& header, uint32_t baseIndex, uint32_t* largestReference) {
+  const HPACKHeader& header, uint32_t baseIndex,
+  uint32_t* requiredInsertCount) {
   uint32_t index = getStaticTable().getIndex(header);
   if (index > 0) {
     // static reference
@@ -130,7 +131,7 @@ void QPACKEncoder::encodeHeaderQ(
       encodeInsertQ(header, isStaticName, nameIndex);
       CHECK(table_.add(header.copy()));
       if (allowVulnerable() && lastEntryAvailable()) {
-        index = table_.getBaseIndex();
+        index = table_.getInsertCount();
       } else {
         index = 0;
         if (absoluteNameIndex > 0 &&
@@ -147,14 +148,14 @@ void QPACKEncoder::encodeHeaderQ(
       // Couldn't insert it: table full, not indexable, or table contains
       // vulnerable reference.  Encode a literal on the request stream.
       encodeStreamLiteralQ(header, isStaticName, nameIndex, absoluteNameIndex,
-                           baseIndex, largestReference);
+                           baseIndex, requiredInsertCount);
       return;
     }
   }
 
   // Encoding a dynamic index reference
   DCHECK_NE(index, 0);
-  trackReference(index, largestReference);
+  trackReference(index, requiredInsertCount);
   if (index > baseIndex) {
     streamBuffer_.encodeInteger(index - baseIndex - 1, HPACK::Q_INDEXED_POST);
   } else {
@@ -209,11 +210,12 @@ std::tuple<bool, uint32_t, uint32_t> QPACKEncoder::getNameIndexQ(
 
 void QPACKEncoder::encodeStreamLiteralQ(
   const HPACKHeader& header, bool isStaticName, uint32_t nameIndex,
-  uint32_t absoluteNameIndex, uint32_t baseIndex, uint32_t* largestReference) {
+  uint32_t absoluteNameIndex, uint32_t baseIndex,
+  uint32_t* requiredInsertCount) {
   if (absoluteNameIndex > 0) {
     // Dynamic name reference, vulnerability checks already done
     CHECK(absoluteNameIndex <= baseIndex || allowVulnerable());
-    trackReference(absoluteNameIndex, largestReference);
+    trackReference(absoluteNameIndex, requiredInsertCount);
   }
   if (absoluteNameIndex > baseIndex) {
     encodeLiteralQ(header,
@@ -231,11 +233,11 @@ void QPACKEncoder::encodeStreamLiteralQ(
 }
 
 void QPACKEncoder::trackReference(uint32_t absoluteIndex,
-                                  uint32_t* largestReference) {
+                                  uint32_t* requiredInsertCount) {
   CHECK_NE(absoluteIndex, 0);
   CHECK(curOutstanding_);
-  if (absoluteIndex > *largestReference) {
-    *largestReference = absoluteIndex;
+  if (absoluteIndex > *requiredInsertCount) {
+    *requiredInsertCount = absoluteIndex;
     if (table_.isVulnerable(absoluteIndex)) {
       curOutstanding_->vulnerable = true;
     }
@@ -317,13 +319,14 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
       err = decodeHeaderAck(dbuf, HPACK::Q_HEADER_ACK.prefixLength, false);
     } else if (byte & HPACK::Q_CANCEL_STREAM.code) {
       err = decodeHeaderAck(dbuf, HPACK::Q_CANCEL_STREAM.prefixLength, true);
-    } else { // TABLE_STATE_SYNC
-      uint64_t inserts = 0;
-      err = dbuf.decodeInteger(HPACK::Q_TABLE_STATE_SYNC.prefixLength, inserts);
+    } else { // INSERT_COUNT_INC
+      uint64_t numInserts = 0;
+      err = dbuf.decodeInteger(HPACK::Q_INSERT_COUNT_INC.prefixLength,
+                               numInserts);
       if (err == HPACK::DecodeError::NONE) {
-        err = onTableStateSync(inserts);
+        err = onInsertCountIncrement(numInserts);
       } else if (err != HPACK::DecodeError::BUFFER_UNDERFLOW) {
-        LOG(ERROR) << "Failed to decode num inserts, err=" << err;
+        LOG(ERROR) << "Failed to decode numInserts, err=" << err;
       }
     }
   } // while
@@ -349,8 +352,8 @@ HPACK::DecodeError QPACKEncoder::decodeHeaderAck(HPACKDecodeBuffer& dbuf,
   return err;
 }
 
-HPACK::DecodeError QPACKEncoder::onTableStateSync(uint32_t inserts) {
-  if (inserts == 0 || !table_.onTableStateSync(inserts)) {
+HPACK::DecodeError QPACKEncoder::onInsertCountIncrement(uint32_t inserts) {
+  if (inserts == 0 || !table_.onInsertCountIncrement(inserts)) {
     return HPACK::DecodeError::INVALID_ACK;
   }
   return HPACK::DecodeError::NONE;
@@ -396,11 +399,12 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
     if (block.vulnerable) {
       numVulnerable_--;
     }
-    // largest reference is implicitly acknowledged
+    // requiredInsertCount is implicitly acknowledged
     if (!block.references.empty()) {
-      auto largestReference = *block.references.rbegin();
-      VLOG(5) << "Implicitly acknowledging absoluteIndex=" << largestReference;
-      table_.setMaxAcked(largestReference);
+      auto requiredInsertCount = *block.references.rbegin();
+      VLOG(5) << "Implicitly acknowledging requiredInsertCount="
+              << requiredInsertCount;
+      table_.setAcknowledgedInsertCount(requiredInsertCount);
     }
   }
   if (it->second.empty()) {

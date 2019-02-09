@@ -65,9 +65,9 @@ class QPACKDecoder : public HPACKDecoderBase,
  private:
   bool isValid(bool isStatic, uint64_t index, bool aboveBase);
 
-  uint32_t handleBaseIndex(HPACKDecodeBuffer& dbuf);
+  uint32_t decodePrefix(HPACKDecodeBuffer& dbuf);
 
-  void decodeStreamingImpl(uint32_t largestReference,
+  void decodeStreamingImpl(uint32_t requiredInsertCount,
                            uint32_t consumed,
                            HPACKDecodeBuffer& dbuf,
                            HPACK::StreamingCallback* streamingCb);
@@ -95,7 +95,7 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   void enqueueHeaderBlock(
       uint64_t streamId,
-      uint32_t largestReference,
+      uint32_t requiredInsertCount,
       uint32_t baseIndex,
       uint32_t consumed,
       std::unique_ptr<folly::IOBuf> block,
@@ -121,7 +121,7 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   // Returns true if this object was destroyed by its callback.  Callers
   // should check the result and immediately return.
-  bool decodeBlock(uint32_t largestReference, const PendingBlock& pending);
+  bool decodeBlock(uint32_t requiredInsertCount, const PendingBlock& pending);
 
   void drainQueue();
 
