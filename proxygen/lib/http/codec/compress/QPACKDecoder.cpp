@@ -183,7 +183,7 @@ HPACK::DecodeError QPACKDecoder::decodeEncoderStream(
   ingress_.append(std::move(buf));
   Cursor cursor(ingress_.front());
   HPACKDecodeBuffer dbuf(cursor, ingress_.chainLength(), maxUncompressed_,
-                         /* endOfBufferIsError_=*/ false);
+                         /* endOfBufferIsError=*/ false);
 
   VLOG(6) << "Decoding control block";
   baseIndex_ = 0;

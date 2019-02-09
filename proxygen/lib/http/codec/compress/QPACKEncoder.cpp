@@ -309,7 +309,8 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
     std::unique_ptr<folly::IOBuf> buf) {
   decoderIngress_.append(std::move(buf));
   folly::io::Cursor cursor(decoderIngress_.front());
-  HPACKDecodeBuffer dbuf(cursor, decoderIngress_.chainLength(), 0);
+  HPACKDecodeBuffer dbuf(cursor, decoderIngress_.chainLength(), 0,
+                         /* endOfBufferIsError= */ false);
   HPACK::DecodeError err = HPACK::DecodeError::NONE;
   uint32_t consumed = 0;
   while (err == HPACK::DecodeError::NONE && !dbuf.empty()) {
