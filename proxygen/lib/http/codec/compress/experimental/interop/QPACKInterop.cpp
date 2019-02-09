@@ -70,8 +70,8 @@ void encodeBlocks(QPACKCodec& decoder,
       decoder.decodeEncoderStream(result.control->clone());
       writeFrame(appender, 0, std::move(result.control));
       if (FLAGS_ack) {
-        // There can be TSS when the decoder is non-blocking
-        auto res = decoder.encodeTableStateSync();
+        // There can be ICI when the decoder is non-blocking
+        auto res = decoder.encodeInsertCountInc();
         if (res) {
           encoder.decodeDecoderStream(std::move(res));
         }

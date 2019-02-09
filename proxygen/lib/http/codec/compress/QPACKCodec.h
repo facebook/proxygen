@@ -83,8 +83,8 @@ class QPACKCodec : public HeaderCodec {
     encoder_.onHeaderAck(streamId, true);
   }
 
-  std::unique_ptr<folly::IOBuf> encodeTableStateSync() {
-    return decoder_.encodeTableStateSync();
+  std::unique_ptr<folly::IOBuf> encodeInsertCountInc() {
+    return decoder_.encodeInsertCountInc();
   }
 
   std::unique_ptr<folly::IOBuf> encodeHeaderAck(uint64_t streamId) {

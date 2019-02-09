@@ -52,7 +52,7 @@ class QPACKScheme : public CompressionScheme {
     VLOG(4) << "Sending ack for seqn=" << seqn;
     auto res = std::make_unique<QPACKAck>(seqn, sendAck_++,
                                           server_.encodeHeaderAck(seqn),
-                                          server_.encodeTableStateSync());
+                                          server_.encodeInsertCountInc());
     return std::move(res);
   }
   void recvAck(std::unique_ptr<Ack> ack) override {

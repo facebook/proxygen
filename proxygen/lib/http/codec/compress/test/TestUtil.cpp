@@ -77,7 +77,7 @@ void encodeDecode(
   TestStreamingCallback cb;
   if (encoded.control) {
     decoder.decodeEncoderStream(std::move(encoded.control));
-    encoder.decodeDecoderStream(decoder.encodeTableStateSync());
+    encoder.decodeDecoderStream(decoder.encodeInsertCountInc());
   }
   CHECK(encoded.stream);
   auto length = encoded.stream->computeChainDataLength();

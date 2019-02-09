@@ -51,7 +51,7 @@ class QPACKTests : public testing::Test {
 
  protected:
   void controlAck() {
-    auto ack = server.encodeTableStateSync();
+    auto ack = server.encodeInsertCountInc();
     EXPECT_EQ(client.decodeDecoderStream(std::move(ack)),
               HPACK::DecodeError::NONE);
   }

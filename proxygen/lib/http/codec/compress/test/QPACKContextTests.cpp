@@ -95,7 +95,7 @@ TEST(QPACKContextTests, StaticOnly) {
   EXPECT_EQ(result.stream->data()[1], 0);
   verifyDecode(decoder, std::move(result), req);
   // nothing to ack
-  EXPECT_EQ(decoder.encodeTableStateSync(), nullptr);
+  EXPECT_EQ(decoder.encodeInsertCountInc(), nullptr);
 }
 
 TEST(QPACKContextTests, StaticNameIndex) {
@@ -523,7 +523,7 @@ TEST(QPACKContextTests, TestDecoderStreamChunked) {
   auto result = encoder.encode(req, 0, 1);
   EXPECT_EQ(decoder.decodeEncoderStream(std::move(result.control)),
             HPACK::DecodeError::NONE);
-  auto ack = decoder.encodeTableStateSync();
+  auto ack = decoder.encodeInsertCountInc();
   EXPECT_EQ(ack->computeChainDataLength(), 2);
   auto ackPart = ack->clone();
   ackPart->trimEnd(1);

@@ -146,8 +146,8 @@ void QPACKDecoder::decodeStreamingImpl(
 
   bool acknowledge = requiredInsertCount != 0;
   if (!hasError()) {
-    // lastAcked_ is only read in encodeTableStateSync, so all completed header
-    // blocks must be call encodeHeaderAck BEFORE calling encodeTableStateSync.
+    // lastAcked_ is only read in encodeInsertCountInc, so all completed header
+    // blocks must be call encodeHeaderAck BEFORE calling encodeInsertCountInc.
     lastAcked_ = std::max(lastAcked_, requiredInsertCount);
   }
   completeDecode(HeaderCodec::Type::QPACK, streamingCb,
@@ -344,10 +344,10 @@ bool QPACKDecoder::isValid(bool isStatic, uint64_t index, bool aboveBase) {
   }
 }
 
-std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeTableStateSync() {
+std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeInsertCountInc() {
   uint32_t toAck = table_.getInsertCount() - lastAcked_;
   if (toAck > 0) {
-    VLOG(6) << "encodeTableStateSync toAck=" << toAck;
+    VLOG(6) << "encodeInsertCountInc toAck=" << toAck;
     HPACKEncodeBuffer ackEncoder(kGrowth, false);
     ackEncoder.encodeInteger(toAck, HPACK::Q_INSERT_COUNT_INC);
     lastAcked_ = table_.getInsertCount();

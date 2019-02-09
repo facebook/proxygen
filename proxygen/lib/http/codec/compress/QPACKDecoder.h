@@ -37,7 +37,7 @@ class QPACKDecoder : public HPACKDecoderBase,
 
   HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf);
 
-  std::unique_ptr<folly::IOBuf> encodeTableStateSync();
+  std::unique_ptr<folly::IOBuf> encodeInsertCountInc();
 
   std::unique_ptr<folly::IOBuf> encodeHeaderAck(uint64_t streamId) const;
 
