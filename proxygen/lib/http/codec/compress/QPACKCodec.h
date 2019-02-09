@@ -57,8 +57,14 @@ class QPACKCodec : public HeaderCodec {
       uint32_t length,
       HPACK::StreamingCallback* streamingCb) noexcept;
 
-  void setEncoderHeaderTableSize(uint32_t size) {
-    encoder_.setHeaderTableSize(size);
+  // This function sets both the decoder's advertised max and the size the
+  // encoder will use.  The encoder has a limit of 64k.  This function can
+  // only be called once with a unique non-zero value.
+  //
+  // Returns false if it was previously called with a different non-zero value.
+  bool setEncoderHeaderTableSize(uint32_t size) {
+    VLOG(4) << __func__ << " size=" << size;
+    return encoder_.setHeaderTableSize(size);
   }
 
   void setDecoderHeaderTableMaxSize(uint32_t size) {

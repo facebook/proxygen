@@ -56,6 +56,9 @@ class QPACKDecoder : public HPACKDecoderBase,
   }
 
   void setHeaderTableMaxSize(uint32_t maxSize) {
+    CHECK(maxTableSize_ == 0 || maxTableSize_ == maxSize)
+      << "Cannot change non-zero max header table size, "
+      "maxTableSize_=" << maxTableSize_ << " maxSize=" << maxSize;
     HPACKDecoderBase::setHeaderTableMaxSize(table_, maxSize);
   }
 

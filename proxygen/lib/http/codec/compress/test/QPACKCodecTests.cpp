@@ -43,6 +43,11 @@ void headersEq(vector<Header>& headerVec, compress::HeaderPieceList& headers) {
 
 class QPACKTests : public testing::Test {
  public:
+  void SetUp() override {
+    server.setDecoderHeaderTableMaxSize(5120);
+    client.setDecoderHeaderTableMaxSize(5120);
+    EXPECT_TRUE(server.setEncoderHeaderTableSize(4096));
+  }
 
  protected:
   void controlAck() {
@@ -61,7 +66,17 @@ class QPACKTests : public testing::Test {
   QPACKCodec server;
 };
 
+TEST_F(QPACKTests, TestEncoderTableSize) {
+  EXPECT_TRUE(client.setEncoderHeaderTableSize(0));
+  EXPECT_TRUE(client.setEncoderHeaderTableSize(0));
+  EXPECT_TRUE(client.setEncoderHeaderTableSize(4096));
+  EXPECT_TRUE(client.setEncoderHeaderTableSize(4096));
+  EXPECT_FALSE(client.setEncoderHeaderTableSize(1024));
+  EXPECT_FALSE(client.setEncoderHeaderTableSize(5120));
+}
+
 TEST_F(QPACKTests, TestSimple) {
+  EXPECT_TRUE(client.setEncoderHeaderTableSize(4096));
   vector<Header> req = basicHeaders();
   auto encodeResult = client.encode(req, 1);
   ASSERT_NE(encodeResult.control.get(), nullptr);
@@ -74,9 +89,12 @@ TEST_F(QPACKTests, TestSimple) {
   auto result = cb.getResult();
   EXPECT_TRUE(!result.hasError());
   headersEq(req, result->headers);
+  EXPECT_GT(client.getCompressionInfo().egressHeadersStored_, 0);
+  EXPECT_GT(server.getCompressionInfo().ingressHeadersStored_, 0);
 }
 
 TEST_F(QPACKTests, TestAbsoluteIndex) {
+  EXPECT_TRUE(client.setEncoderHeaderTableSize(4096));
   int flights = 10;
   for (int i = 0; i < flights; i++) {
     vector<vector<string>> headers;
@@ -102,6 +120,8 @@ TEST_F(QPACKTests, TestAbsoluteIndex) {
     EXPECT_TRUE(!result.hasError());
     headersEq(req, result->headers);
   }
+  EXPECT_GT(client.getCompressionInfo().egressHeadersStored_, 0);
+  EXPECT_GT(server.getCompressionInfo().ingressHeadersStored_, 0);
 }
 
 TEST_F(QPACKTests, TestWithQueue) {
@@ -116,7 +136,7 @@ TEST_F(QPACKTests, TestWithQueue) {
   for (auto i = 0; i < flights * 4; i++) {
     values.push_back(folly::to<string>(i));
   }
-  client.setEncoderHeaderTableSize(1024);
+  EXPECT_TRUE(client.setEncoderHeaderTableSize(1024));
   for (auto f = 0; f < flights; f++) {
     vector<std::pair<unique_ptr<IOBuf>, TestStreamingCallback>> data;
     list<unique_ptr<IOBuf>> controlFrames;
@@ -168,6 +188,8 @@ TEST_F(QPACKTests, TestWithQueue) {
   // Skipping redundant table adds reduces the HOL block count
   EXPECT_EQ(server.getHolBlockCount(), 30);
 
+  EXPECT_GT(client.getCompressionInfo().egressHeadersStored_, 0);
+  EXPECT_GT(server.getCompressionInfo().ingressHeadersStored_, 0);
 }
 
 TEST_F(QPACKTests, HeaderCodecStats) {

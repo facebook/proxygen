@@ -25,6 +25,8 @@ class HPACKDecodeBuffer;
 class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
  public:
+  static const uint32_t kMaxHeaderTableSize = (1u << 16);
+
   explicit QPACKEncoder(bool huffman,
                         uint32_t tableSize=HPACK::kTableSize);
 
@@ -55,8 +57,27 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
   HPACK::DecodeError onHeaderAck(uint64_t streamId, bool all);
 
-  void setHeaderTableSize(uint32_t size) {
-    HPACKEncoderBase::setHeaderTableSize(table_, size);
+  bool setHeaderTableSize(uint32_t tableSize, bool updateMax=true) {
+    if (updateMax) {
+      // The peer's max is used whenn encoding RequiredInsertCouunt
+      if (maxTableSize_ != 0 && maxTableSize_ != tableSize) {
+        LOG(ERROR) << "Cannot change non-zero max header table size, "
+          "maxTableSize_=" << maxTableSize_ << " tableSize=" << tableSize;
+        return false;
+      }
+      maxTableSize_ = tableSize;
+    }
+    if (tableSize > kMaxHeaderTableSize) {
+      VLOG(2) << "Limiting table size from " << tableSize << " to " <<
+        kMaxHeaderTableSize;
+      tableSize = kMaxHeaderTableSize;
+    }
+    HPACKEncoderBase::setHeaderTableSize(table_, tableSize);
+    return true;
+  }
+
+  uint32_t getMaxHeaderTableSize() const {
+    return maxTableSize_;
   }
 
   void setMaxVulnerable(uint32_t maxVulnerable) {
@@ -139,6 +160,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   uint32_t maxDepends_{0};
   uint32_t maxVulnerable_{HPACK::kDefaultBlocking};
   uint32_t numVulnerable_{0};
+  uint32_t maxTableSize_{0};
   int64_t maxEncoderStreamBytes_{0};
   folly::IOBufQueue decoderIngress_{folly::IOBufQueue::cacheChainLength()};
 };

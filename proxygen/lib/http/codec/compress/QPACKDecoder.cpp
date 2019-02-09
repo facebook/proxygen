@@ -55,7 +55,7 @@ void QPACKDecoder::decodeStreaming(
 uint32_t QPACKDecoder::handleBaseIndex(HPACKDecodeBuffer& dbuf) {
   uint64_t largestReference;
   uint64_t wireLR;
-  uint64_t maxEntries = table_.getMaxEntries();
+  uint64_t maxEntries = getMaxEntries(maxTableSize_);
   uint64_t modulus = 2 * maxEntries;
   err_ = dbuf.decodeInteger(wireLR);
   if (err_ != HPACK::DecodeError::NONE) {

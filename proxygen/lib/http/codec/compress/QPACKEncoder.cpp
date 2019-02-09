@@ -18,7 +18,8 @@ QPACKEncoder::QPACKEncoder(bool huffman, uint32_t tableSize) :
     // We only need the 'QPACK' table if we are using base index
     HPACKEncoderBase(huffman),
     QPACKContext(tableSize, true),
-    controlBuffer_(kBufferGrowth, huffman) {
+    controlBuffer_(kBufferGrowth, huffman),
+    maxTableSize_(tableSize) {
   // Default the encoder indexing strategy; it can be updated later as well
   setHeaderIndexingStrategy(HeaderIndexingStrategy::getDefaultInstance());
 }
@@ -57,7 +58,7 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
     streamBuffer_.encodeInteger(0); // LR
     streamBuffer_.encodeInteger(0); // baseIndex
   } else {
-    auto wireLR = (largestReference % (2 * table_.getMaxEntries())) + 1;
+    auto wireLR = (largestReference % (2 * getMaxEntries(maxTableSize_))) + 1;
     streamBuffer_.encodeInteger(wireLR);
     if (largestReference > baseIndex) {
       streamBuffer_.encodeInteger(largestReference - baseIndex - 1,

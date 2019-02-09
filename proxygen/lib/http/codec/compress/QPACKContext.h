@@ -47,6 +47,10 @@ class QPACKContext {
   void describe(std::ostream& os) const;
 
  protected:
+  static uint32_t getMaxEntries(uint32_t tableSize) {
+    return tableSize / HPACKHeader::kMinLength;
+  }
+
   const StaticHeaderTable& getStaticTable() const {
     return QPACKStaticHeaderTable::get();
   }

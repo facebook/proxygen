@@ -31,10 +31,6 @@ class QPACKHeaderTable : public HeaderTable {
   QPACKHeaderTable(const QPACKHeaderTable&) = delete;
   QPACKHeaderTable& operator=(const QPACKHeaderTable&) = delete;
 
-  uint32_t getMaxEntries() const {
-    return getMaxTableLength(capacity_);
-  }
-
   /**
    * Return Base Index - the total number of headers inserted to this table,
    * including evictions

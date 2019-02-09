@@ -119,7 +119,7 @@ TEST(QPACKContextTests, StaticNameIndex) {
   req.clear();
   // testing static name indexes in literals (4 bits)
   encoder.onHeaderAck(1, false);
-  encoder.setHeaderTableSize(0);
+  encoder.setMaxVulnerable(0);
   req.emplace_back("set-cookie", "abc"); // idx=14
   req.emplace_back(":method", "DUDE"); // idx=15
   result = encoder.encode(req, 10, 1);
@@ -259,14 +259,14 @@ TEST(QPACKContextTests, TestTableSizeUpdate) {
   verifyDecode(decoder, std::move(result), req);
   EXPECT_EQ(encoder.onTableStateSync(2), HPACK::DecodeError::NONE);
   EXPECT_EQ(headerAck(decoder, encoder, 1), HPACK::DecodeError::NONE);
-  encoder.setHeaderTableSize(64); // This will evict the oldest header
+  encoder.setHeaderTableSize(64, false); // This will evict the oldest header
   EXPECT_EQ(encoder.getHeadersStored(), 1);
   result = encoder.encode(req, 0, 2);
   verifyDecode(decoder, std::move(result), req);
   EXPECT_EQ(decoder.getHeadersStored(), 1);
   EXPECT_EQ(headerAck(decoder, encoder, 2), HPACK::DecodeError::NONE);
 
-  encoder.setHeaderTableSize(100);
+  encoder.setHeaderTableSize(100, false);
   result = encoder.encode(req, 0, 3);
   EXPECT_EQ(encoder.getHeadersStored(), 2);
   verifyDecode(decoder, std::move(result), req);
@@ -278,12 +278,11 @@ TEST(QPACKContextTests, TestTableSizeUpdateMax) {
   // Encoder never sends a TSU, and overflows the table.
   // Decoder fails
   QPACKEncoder encoder(false, 200);
-  QPACKDecoder decoder(200);
+  QPACKDecoder decoder(100);
   vector<HPACKHeader> req;
   req.emplace_back("Blarf", "Blah");
   req.emplace_back("Blarf", "Blerg");
   req.emplace_back("Blarf", "Blingo");
-  decoder.setHeaderTableMaxSize(100); // lower limit, should also shrink table
   auto result = encoder.encode(req, 0, 1);
   verifyDecode(decoder, std::move(result), req,
                HPACK::DecodeError::INVALID_INDEX);
@@ -535,6 +534,39 @@ TEST(QPACKContextTests, TestDecoderStreamChunked) {
             HPACK::DecodeError::NONE);
   EXPECT_FALSE(encoder.getTable().isVulnerable(128));
   EXPECT_TRUE(encoder.getTable().isVulnerable(129));
+}
+
+TEST(QPACKContextTests, TestEncoderStreamReorder) {
+  QPACKEncoder encoder(false, 0);
+  QPACKDecoder decoder(0);
+
+  decoder.setHeaderTableMaxSize(4096);
+  encoder.setHeaderTableSize(4096);
+
+  vector<HPACKHeader> req;
+  req.emplace_back("dynamic", "header");
+  auto result = encoder.encode(req, 0, 1);
+  TestStreamingCallback cb1;
+  bool done = false;
+  cb1.headersCompleteCb = [&] {
+    done = true;
+  };
+  auto length = result.stream->computeChainDataLength();
+  decoder.decodeStreaming(1, std::move(result.stream), length, &cb1);
+  // Should be blocked on insert
+  EXPECT_FALSE(done);
+  EXPECT_EQ(decoder.decodeEncoderStream(std::move(result.control)),
+            HPACK::DecodeError::NONE);
+  EXPECT_TRUE(done);
+  EXPECT_EQ(*cb1.hpackHeaders(), req);
+}
+
+TEST(QPACKContextTests, TestEncoderTableLimit) {
+  QPACKEncoder encoder(false, 0);
+  encoder.setHeaderTableSize(std::numeric_limits<uint32_t>::max());
+  EXPECT_EQ(encoder.getTableSize(), 1u << 16);
+  EXPECT_EQ(encoder.getMaxHeaderTableSize(),
+            std::numeric_limits<uint32_t>::max());
 }
 
 TEST(QPACKContextTests, TestDecodePartialControl) {

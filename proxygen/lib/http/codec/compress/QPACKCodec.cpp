@@ -27,8 +27,9 @@ using std::vector;
 namespace proxygen {
 
 QPACKCodec::QPACKCodec()
-    : encoder_(true, HPACK::kTableSize),
-      decoder_(HPACK::kTableSize, maxUncompressed_) {}
+    // by default dynamic tables are 0 size
+    : encoder_(true, 0),
+      decoder_(0, maxUncompressed_) {}
 
 void QPACKCodec::recordCompressedSize(
   const QPACKEncoder::EncodeResult& encodeRes) {
