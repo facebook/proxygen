@@ -711,10 +711,18 @@ TEST(QPACKContextTests, DecodeErrors) {
   QPACKDecoder decoder(128);
   unique_ptr<IOBuf> buf = IOBuf::create(128);
 
-  VLOG(10) << "Required IC invalid";
+  VLOG(10) << "Required IC underflow";
   buf->writableData()[0] = 0xFF;
   buf->append(1);
   checkQError(decoder, buf->clone(), HPACK::DecodeError::BUFFER_UNDERFLOW);
+
+  VLOG(10) << "Required IC > 2*ME";
+  buf->writableData()[0] = 0x09;
+  checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
+
+  VLOG(10) << "Required IC invalid encoding";
+  buf->writableData()[0] = 0x06;
+  checkQError(decoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
   VLOG(10) << "Base delta missing";
   buf->writableData()[0] = 0x01;
@@ -745,6 +753,10 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->writableData()[0] = 0x02;
   buf->writableData()[1] = 0x00;
   checkQError(decoder, buf->clone(), HPACK::DecodeError::TOO_MANY_BLOCKING);
+
+  VLOG(10) << "Non-zero insert count when decoder disabled dynamic table";
+  QPACKDecoder zeroDecoder(0);
+  checkQError(zeroDecoder, buf->clone(), HPACK::DecodeError::INVALID_INDEX);
 
   // valid prefix
   buf->writableData()[0] = 0x00;

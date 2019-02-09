@@ -56,7 +56,8 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
   uint64_t requiredInsertCount;
   uint64_t wireRIC;
   uint64_t maxEntries = getMaxEntries(maxTableSize_);
-  uint64_t modulus = 2 * maxEntries;
+  uint64_t fullRange = 2 * maxEntries;
+
   err_ = dbuf.decodeInteger(wireRIC);
   if (err_ != HPACK::DecodeError::NONE) {
     LOG(ERROR) << "Decode error decoding requiredInsertCount err_=" << err_;
@@ -64,22 +65,25 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
   }
   if (wireRIC == 0) {
     requiredInsertCount = 0;
+  } else if (maxEntries == 0) {
+    LOG(ERROR) << "Encoder used dynamic table when not permitted, wireRIC=" <<
+      wireRIC;
+    err_ = HPACK::DecodeError::INVALID_INDEX;
+    return 0;
   } else {
-    wireRIC--;
-    if (wireRIC >= modulus) {
-      LOG(ERROR) << "Decode error RIC out of range=" << wireRIC;
-      err_ = HPACK::DecodeError::INVALID_INDEX;
-      return 0;
+    uint64_t maxValue = table_.getInsertCount() + maxEntries;
+    uint64_t maxWrapped = (maxValue / fullRange) * fullRange;
+    requiredInsertCount = maxWrapped + wireRIC - 1;
+    // If requiredInsertCount exceeds maxValue, the Encoder's value must have
+    // wrapped one fewer time
+    if (requiredInsertCount > maxValue) {
+      if (wireRIC > fullRange || requiredInsertCount < fullRange) {
+        LOG(ERROR) << "Decode error RIC out of range=" << wireRIC;
+        err_ = HPACK::DecodeError::INVALID_INDEX;
+        return 0;
+      }
+      requiredInsertCount -= fullRange;
     }
-    auto now = table_.getInsertCount() % modulus;
-    if (now >= wireRIC + maxEntries) {
-      // RIC wrapped on more time than now
-      wireRIC += modulus;
-    } else if (now + maxEntries < wireRIC) {
-      // now wrapped one more time than RIC
-      now += modulus;
-    }
-    requiredInsertCount = wireRIC + (table_.getInsertCount() - now);
   }
   VLOG(5) << "Decoded requiredInsertCount=" << requiredInsertCount;
   uint64_t delta = 0;
