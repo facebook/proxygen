@@ -727,6 +727,39 @@ TEST_F(HTTPDownstreamSessionTest, MovableBufferMultiple) {
   eventBase_.loop();
 }
 
+TEST_F(HTTPDownstreamSessionTest, MovableBufferChainedEmptyBuffer) {
+  InSequence enforceOrder;
+
+  auto handler = addSimpleNiceHandler();
+  handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
+    const HTTPHeaders& hdrs = msg->getHeaders();
+    EXPECT_EQ(2, hdrs.size());
+    EXPECT_TRUE(hdrs.exists("host"));
+    EXPECT_TRUE(hdrs.exists("connection"));
+
+    EXPECT_FALSE(msg->getIsChunked());
+    EXPECT_FALSE(msg->getIsUpgraded());
+    EXPECT_EQ("/somepath.php?param=foo", msg->getURL());
+    EXPECT_EQ("/somepath.php", msg->getPath());
+    EXPECT_EQ("param=foo", msg->getQueryString());
+    EXPECT_EQ(1, msg->getHTTPVersion().first);
+    EXPECT_EQ(1, msg->getHTTPVersion().second);
+  });
+  onEOMTerminateHandlerExpectShutdown(*handler);
+
+  auto buf = IOBuf::copyBuffer(
+      "GET /somepath.php?param=foo HTTP/1.1\r\n"
+      "Host: example.com\r\n");
+  buf->prependChain(IOBuf::create(0));
+  buf->prependChain(
+      IOBuf::copyBuffer("Connection: close\r\n"
+                        "\r\n"));
+  transport_->addMovableReadEvent(std::move(buf));
+  transport_->addReadEOF(milliseconds(0));
+  transport_->startReadEvents();
+  eventBase_.loop();
+}
+
 TEST_F(HTTPDownstreamSessionTest, PostChunked) {
   InSequence enforceOrder;
 

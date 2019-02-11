@@ -574,25 +574,19 @@ HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
 void
 HTTPSession::processReadData() {
   FOLLY_SCOPED_TRACE_SECTION("HTTPSession - processReadData");
-  // skip any empty IOBufs before feeding CODEC.
-  while (readBuf_.front() != nullptr && readBuf_.front()->length() == 0) {
-    readBuf_.pop_front();
-  }
 
   // Pass the ingress data through the codec to parse it. The codec
   // will invoke various methods of the HTTPSession as callbacks.
-  const IOBuf* currentReadBuf;
-  // It's possible for the last buffer in a chain to be empty here.
-  // AsyncTransport saw fd activity so asked for a read buffer, but it was
-  // SSL traffic and not enough to decrypt a whole record.  Later we invoke
-  // this function from the loop callback.
-  while (!ingressError_ &&
-         readsUnpaused() &&
-         ((currentReadBuf = readBuf_.front()) != nullptr &&
-          currentReadBuf->length() != 0)) {
+  while (!ingressError_ && readsUnpaused() && !readBuf_.empty()) {
+    // Skip any 0 length buffers before invoking the codec. Since readBuf_ is
+    // not empty, we are guaranteed to find a non-empty buffer.
+    while (readBuf_.front()->length() == 0) {
+      readBuf_.pop_front();
+    }
+
     // We're about to parse, make sure the parser is not paused
     codec_->setParserPaused(false);
-    size_t bytesParsed = codec_->onIngress(*currentReadBuf);
+    size_t bytesParsed = codec_->onIngress(*readBuf_.front());
     if (bytesParsed == 0) {
       // If the codec didn't make any progress with current input, we
       // better get more.
