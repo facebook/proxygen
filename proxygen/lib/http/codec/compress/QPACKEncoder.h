@@ -17,6 +17,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKEncoderBase.h>
 #include <vector>
 #include <set>
+#include <unordered_map>
 
 namespace proxygen {
 

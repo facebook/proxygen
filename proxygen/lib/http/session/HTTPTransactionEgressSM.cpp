@@ -9,10 +9,9 @@
  */
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 
-#include <unordered_map>
-
-#include <folly/hash/Hash.h>
 #include <folly/Indestructible.h>
+#include <folly/container/F14Map.h>
+#include <folly/hash/Hash.h>
 
 namespace proxygen {
 
@@ -22,7 +21,7 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
   using State = HTTPTransactionEgressSMData::State;
   using Event = HTTPTransactionEgressSMData::Event;
   using TransitionTable =
-      std::unordered_map<std::pair<State, Event>, State, folly::Hash>;
+      folly::F14FastMap<std::pair<State, Event>, State, folly::Hash>;
 
   //             +--> ChunkHeaderSent -> ChunkBodySent
   //             |      ^                    v

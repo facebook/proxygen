@@ -10,11 +10,11 @@
 #pragma once
 
 #include <list>
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
+
+#include <folly/container/F14Map.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
 namespace proxygen {
 
@@ -25,7 +25,8 @@ namespace proxygen {
 
 class HeaderTable {
  public:
-  using names_map = std::unordered_map<HPACKHeaderName, std::list<uint32_t>>;
+  // TODO: std::vector might be faster than std::list in the use case?
+  using names_map = folly::F14FastMap<HPACKHeaderName, std::list<uint32_t>>;
 
   explicit HeaderTable(uint32_t capacityVal) {
     init(capacityVal);

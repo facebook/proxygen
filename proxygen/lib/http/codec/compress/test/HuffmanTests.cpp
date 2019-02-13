@@ -7,12 +7,14 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <tuple>
+#include <unordered_set>
+
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
-#include <tuple>
 
 using namespace folly::io;
 using namespace folly;
