@@ -37,40 +37,39 @@ using std::vector;
 
 class TestPriorityMapBuilder : public HTTPUpstreamSession::PriorityMapFactory {
 public:
-  virtual std::unique_ptr<HTTPUpstreamSession::PriorityAdapter>
-     createVirtualStreams(HTTPPriorityMapFactoryProvider* session) const
-        override;
-  virtual ~TestPriorityMapBuilder() = default;
+ std::unique_ptr<HTTPUpstreamSession::PriorityAdapter> createVirtualStreams(
+     HTTPPriorityMapFactoryProvider* session) const override;
+ ~TestPriorityMapBuilder() override = default;
 
-  uint8_t hiPriWeight_{18};
-  uint8_t hiPriLevel_{0};
-  uint8_t loPriWeight_{2};
-  uint8_t loPriLevel_{2};
+ uint8_t hiPriWeight_{18};
+ uint8_t hiPriLevel_{0};
+ uint8_t loPriWeight_{2};
+ uint8_t loPriLevel_{2};
 };
 
 class TestPriorityAdapter : public HTTPUpstreamSession::PriorityAdapter {
 public:
-  virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
-      uint8_t level) override {
-    if (priorityMap_.empty()) {
-      return folly::none;
-    }
-    auto it = priorityMap_.find(level);
-    if (it == priorityMap_.end()) {
-      return minPriority_;
-    }
-    return it->second;
-  }
+ folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+     uint8_t level) override {
+   if (priorityMap_.empty()) {
+     return folly::none;
+   }
+   auto it = priorityMap_.find(level);
+   if (it == priorityMap_.end()) {
+     return minPriority_;
+   }
+   return it->second;
+ }
 
-  virtual ~TestPriorityAdapter() = default;
+ ~TestPriorityAdapter() override = default;
 
-  std::map<uint8_t, HTTPMessage::HTTPPriority> priorityMap_;
-  HTTPMessage::HTTPPriority minPriority_{std::make_tuple(0, false, 0)};
-  HTTPCodec::StreamID parentId_{0};
-  HTTPCodec::StreamID hiPriId_{0};
-  HTTPCodec::StreamID loPriId_{0};
-  HTTPMessage::HTTPPriority hiPri_{std::make_tuple(0, false, 0)};
-  HTTPMessage::HTTPPriority loPri_{std::make_tuple(0, false, 0)};
+ std::map<uint8_t, HTTPMessage::HTTPPriority> priorityMap_;
+ HTTPMessage::HTTPPriority minPriority_{std::make_tuple(0, false, 0)};
+ HTTPCodec::StreamID parentId_{0};
+ HTTPCodec::StreamID hiPriId_{0};
+ HTTPCodec::StreamID loPriId_{0};
+ HTTPMessage::HTTPPriority hiPri_{std::make_tuple(0, false, 0)};
+ HTTPMessage::HTTPPriority loPri_{std::make_tuple(0, false, 0)};
 };
 
 std::unique_ptr<HTTPUpstreamSession::PriorityAdapter>
