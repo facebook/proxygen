@@ -400,6 +400,7 @@ TEST_F(DownstreamTransactionTest, DeferredEgress) {
   txn.onIngressHeadersComplete(makeGetRequest());
 
   // onWriteReady, send, then dequeue (SPDY window now full)
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(-10));
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
 
   EXPECT_EQ(txn.onWriteReady(20, 1), false);

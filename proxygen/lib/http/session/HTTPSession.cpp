@@ -1679,7 +1679,6 @@ HTTPSession::sendBody(HTTPTransaction* txn,
                                             HTTPCodec::NoPadding,
                                             includeEOM);
   CHECK(inLoopCallback_);
-  pendingWriteSizeDelta_ -= bodyLen;
   bodyBytesPerWriteBuf_ += bodyLen;
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent() && byteEventTracker_) {
     byteEventTracker_->addFirstBodyByteEvent(offset, txn);
@@ -2001,10 +2000,10 @@ HTTPSession::notifyEgressBodyBuffered(int64_t bytes) noexcept {
   pendingWriteSizeDelta_ += bytes;
   // any net change requires us to update pause/resume state in the
   // loop callback
-  if (pendingWriteSizeDelta_ > 0) {
+  if (pendingWriteSizeDelta_ >= 0) {
     // pause inline, resume in loop
     updateWriteBufSize(0);
-  } else if (!isLoopCallbackScheduled()) {
+  } else if (!inLoopCallback_ && !isLoopCallbackScheduled()) {
     sock_->getEventBase()->runInLoop(this);
   }
 }

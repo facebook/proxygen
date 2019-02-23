@@ -802,11 +802,11 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
       DCHECK_LE(bodyLen, chunkHeaders_.back().length)
         << "Sent body longer than chunk header ";
     }
+    deferredEgressBody_.append(std::move(body));
     if (isEnqueued()) {
       transport_.notifyEgressBodyBuffered(bodyLen);
     }
   }
-  deferredEgressBody_.append(std::move(body));
   notifyTransportPendingEgress();
 }
 
@@ -981,6 +981,7 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                         sendWindow_.getSize(), " / ", sendWindow_.getCapacity())
                   : noneStr)
           << " trailers=" << ((trailers_) ? "yes" : "no") << " " << *this;
+  transport_.notifyEgressBodyBuffered(-bodyLen);
   if (sendEom && !trailers_) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
