@@ -1648,7 +1648,8 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     writeBuf_.append(std::move(goawayBuf));
   }
   if (includeEOM) {
-    commonEom(txn, 0, true);
+    CHECK_GE(newOffset, oldOffset);
+    commonEom(txn, newOffset - oldOffset, true);
   }
   scheduleWrite();
   onHeadersSent(headers, wasReusable);
