@@ -56,9 +56,8 @@ HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
   CHECK(handler);
 
   DestructorGuard dg(this);
-  auto txnID = txn->getID();
   txn->setHandler(handler);
-  setNewTransactionPauseState(txnID);
+  setNewTransactionPauseState(txn);
 }
 
 HTTPTransaction::Handler*
