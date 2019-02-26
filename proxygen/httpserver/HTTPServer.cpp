@@ -233,12 +233,12 @@ int HTTPServer::getListenSocket() const {
 
   auto serverSocket =
       std::dynamic_pointer_cast<folly::AsyncServerSocket>(bootstrapSockets[0]);
-  auto socketFds = serverSocket->getSockets();
+  auto socketFds = serverSocket->getNetworkSockets();
   if (socketFds.size() == 0) {
     return -1;
   }
 
-  return socketFds[0];
+  return socketFds[0].toFd();
 }
 
 

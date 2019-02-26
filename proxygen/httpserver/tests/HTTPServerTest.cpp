@@ -566,8 +566,13 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
   // Use the socket fd from the existing AsyncServerSocket for binding
-  auto existingFds = serverSocket->getSockets();
-  options.useExistingSockets(existingFds);
+  auto netSocks = serverSocket->getNetworkSockets();
+  std::vector<int> fdSocks;
+  fdSocks.reserve(netSocks.size());
+  for (auto s : netSocks) {
+    fdSocks.push_back(s.toFd());
+  }
+  options.useExistingSockets(fdSocks);
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
   auto st = std::make_unique<ServerThread>(server.get());
@@ -578,7 +583,7 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
   EXPECT_TRUE(st->start());
 
   auto socketFd = server->getListenSocket();
-  ASSERT_EQ(existingFds[0], socketFd);
+  ASSERT_EQ(fdSocks[0], socketFd);
 }
 
 class ScopedServerTest : public testing::Test {
