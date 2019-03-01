@@ -8,9 +8,6 @@
  *
  */
 #include <proxygen/lib/utils/Base64.h>
-
-#include <glog/logging.h>
-
 #include <folly/Range.h>
 #include <folly/portability/OpenSSL.h>
 #include <openssl/buffer.h>

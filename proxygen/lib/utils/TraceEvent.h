@@ -16,7 +16,6 @@
 #include <proxygen/lib/utils/TraceFieldType.h>
 
 #include <boost/variant.hpp>
-#include <glog/logging.h>
 
 #include <folly/Conv.h>
 #include <folly/lang/Exception.h>

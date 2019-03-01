@@ -9,8 +9,6 @@
  */
 #pragma once
 
-#include <glog/logging.h>
-
 #include <folly/Conv.h>
 #include <folly/String.h>
 #include <proxygen/lib/utils/Export.h>

@@ -9,8 +9,6 @@
  */
 #pragma once
 
-#include <glog/logging.h>
-
 #include <folly/FBVector.h>
 #include <folly/Optional.h>
 #include <proxygen/lib/utils/UtilInl.h>

@@ -9,8 +9,6 @@
  */
 #pragma once
 
-#include <glog/logging.h>
-
 #include <folly/SocketAddress.h>
 
 namespace proxygen {

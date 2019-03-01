@@ -9,9 +9,6 @@
  */
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
-
-#include <glog/logging.h>
-
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <sstream>
 
