@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <glog/logging.h>
+
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 
