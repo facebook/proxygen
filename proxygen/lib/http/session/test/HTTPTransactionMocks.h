@@ -112,7 +112,7 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   const folly::AsyncTransportWrapper* getUnderlyingTransport()
       const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
-      ->getUnderlyingTransport();
+      ->getUnderlyingTransportNonConst();
   }
   MOCK_CONST_METHOD0(isReplaySafe, bool());
   MOCK_METHOD1(setHTTP2PrioritiesEnabled, void(bool));
