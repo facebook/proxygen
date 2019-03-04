@@ -9,10 +9,13 @@
  */
 #pragma once
 
+#include <fizz/protocol/Certificate.h>
+#include <fizz/record/Types.h>
 #include <folly/IntrusiveList.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <folly/Optional.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
@@ -22,6 +25,7 @@
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/http/session/SecondaryAuthManager.h>
 #include <queue>
 #include <set>
 #include <folly/io/async/AsyncSocket.h>
@@ -174,6 +178,14 @@ class HTTPSession:
   size_t sendPriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri)
     override;
 
+  /**
+   * Send a CERTIFICATE_REQUEST frame. If the underlying protocol doesn't
+   * support secondary authentication, this is a no-op and 0 is returned.
+   */
+  size_t sendCertificateRequest(
+      std::unique_ptr<folly::IOBuf> certificateRequestContext,
+      std::vector<fizz::Extension> extensions) override;
+
   // public ManagedConnection methods
   void timeoutExpired() noexcept override {
       readTimeoutExpired();
@@ -207,6 +219,20 @@ class HTTPSession:
     }
     return false;
   }
+
+  /**
+   * Attach a SecondaryAuthManager to this session to control secondary
+   * certificate authentication in HTTP/2.
+   */
+  void setSecondAuthManager(
+      std::unique_ptr<SecondaryAuthManager> secondAuthManager);
+
+  /**
+   * Get the SecondaryAuthManager attached to this session.
+   */
+  SecondaryAuthManager* getSecondAuthManager() const;
+
+  bool isDetachable(bool checkSocket=true) const override;
 
  protected:
   /**
@@ -279,8 +305,6 @@ class HTTPSession:
 
   virtual bool allTransactionsStarted() const = 0;
 
-  void setNewTransactionPauseState(HTTPCodec::StreamID streamID);
-
   /**
    * Invoked when the transaction finishes sending a message and
    * appropriately shuts down reads and/or writes with respect to
@@ -342,6 +366,7 @@ class HTTPSession:
                           HTTPMessage* msg) override;
   void onExMessageBegin(HTTPCodec::StreamID streamID,
                         HTTPCodec::StreamID controlStream,
+                        bool unidirectional,
                         HTTPMessage* msg) override;
   void onHeadersComplete(HTTPCodec::StreamID streamID,
                          std::unique_ptr<HTTPMessage> msg) override;
@@ -366,8 +391,16 @@ class HTTPSession:
   void onSettingsAck()  override;
   void onPriority(HTTPCodec::StreamID stream,
                   const HTTPMessage::HTTPPriority&) override;
-  uint32_t numOutgoingStreams() const override { return outgoingStreams_; }
-  uint32_t numIncomingStreams() const override { return incomingStreams_; }
+  void onCertificateRequest(uint16_t requestId,
+                            std::unique_ptr<folly::IOBuf> authRequest) override;
+  void onCertificate(uint16_t certId,
+                     std::unique_ptr<folly::IOBuf> authenticator) override;
+  uint32_t numOutgoingStreams() const override {
+    return outgoingStreams_;
+  }
+  uint32_t numIncomingStreams() const override {
+    return incomingStreams_;
+  }
 
   // HTTPTransaction::Transport methods
   void pauseIngress(HTTPTransaction* txn) noexcept override;
@@ -382,9 +415,8 @@ class HTTPSession:
   size_t sendChunkHeader(HTTPTransaction* txn,
                          size_t length) noexcept override;
   size_t sendChunkTerminator(HTTPTransaction* txn) noexcept override;
-  size_t sendTrailers(HTTPTransaction* txn,
-                      const HTTPHeaders& trailers) noexcept override;
-  size_t sendEOM(HTTPTransaction* txn) noexcept override;
+  size_t sendEOM(HTTPTransaction* txn,
+                 const HTTPHeaders* trailers) noexcept override;
   size_t sendAbort(HTTPTransaction* txn,
                    ErrorCode statusCode) noexcept override;
   size_t sendPriority(HTTPTransaction* txn,
@@ -399,8 +431,9 @@ class HTTPSession:
     HTTPCodec::StreamID assocStreamId,
     HTTPTransaction::PushHandler* handler) noexcept override;
   HTTPTransaction* newExTransaction(
+    HTTPTransaction::Handler* handler,
     HTTPCodec::StreamID controlStream,
-    HTTPTransaction::Handler* handler) noexcept override;
+    bool unidirectional = false) noexcept override;
 
   const HTTPCodec& getCodec() const noexcept override {
     return codec_.getChainEnd();
@@ -469,7 +502,6 @@ class HTTPSession:
    * callbacks if the size has crossed the buffering limit.
    */
   void updateWriteCount();
-  void updateWriteBufSize(int64_t delta);
 
   /**
    * Tells us what would be the offset of the next byte to be
@@ -503,9 +535,9 @@ class HTTPSession:
    */
   HTTPTransaction* createTransaction(
     HTTPCodec::StreamID streamID,
-    folly::Optional<HTTPCodec::StreamID> assocStreamID,
-    folly::Optional<HTTPCodec::StreamID> controlStream,
-    http2::PriorityUpdate priority = http2::DefaultPriority);
+    const folly::Optional<HTTPCodec::StreamID>& assocStreamID,
+    const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
+    const http2::PriorityUpdate& priority = http2::DefaultPriority);
 
   /** Invoked by WriteSegment on completion of a write. */
   void onWriteSuccess(uint64_t bytesWritten);
@@ -564,7 +596,9 @@ class HTTPSession:
     }
   }
 
-  void resumeTransactions();
+  void pauseTransactions() override {
+    invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
+  }
 
   /**
    * This function invokes a callback on all transactions. It is safe,
@@ -653,9 +687,6 @@ class HTTPSession:
   /** Chain of ingress IOBufs */
   folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
 
-  /** Priority tree of transactions */
-  HTTP2PriorityQueue txnEgressQueue_;
-
   std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
 
   /** Count of transactions awaiting input */
@@ -698,6 +729,10 @@ class HTTPSession:
   void setupCodec();
   void onSetSendWindow(uint32_t windowSize);
   void onSetMaxInitiatedStreams(uint32_t maxTxns);
+
+  uint32_t getCertAuthSettingVal();
+
+  bool verifyCertAuthSetting(uint32_t value);
 
   void addLastByteEvent(HTTPTransaction* txn, uint64_t byteNo) noexcept;
 
@@ -911,12 +946,6 @@ class HTTPSession:
   uint64_t bytesScheduled_{0};
 
   /**
-   * The net change this event loop in the amount of buffered bytes
-   * for all this session's txns and socket write buffer.
-   */
-  int64_t pendingWriteSizeDelta_{0};
-
-  /**
    * Number of body un-encoded bytes in the write buffer per write iteration.
    */
   uint64_t bodyBytesPerWriteBuf_{0};
@@ -995,6 +1024,9 @@ class HTTPSession:
   };
   DrainTimeout drainTimeout_;
 
+  // secondary authentication manager
+  std::unique_ptr<SecondaryAuthManager> secondAuthManager_;
+
   enum SocketState {
     UNPAUSED = 0,
     PAUSED = 1,
@@ -1014,6 +1046,5 @@ class HTTPSession:
   bool inResume_:1;
   bool pendingPause_:1;
 };
-
 
 } // proxygen

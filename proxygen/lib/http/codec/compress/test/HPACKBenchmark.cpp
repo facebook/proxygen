@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
+#include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <folly/Benchmark.h>
 #include <folly/Range.h>
 
@@ -25,8 +26,11 @@ unique_ptr<IOBuf> encode(vector<HPACKHeader>& headers, HPACKEncoder& encoder) {
 void encodeDecode(vector<HPACKHeader>& headers, HPACKEncoder& encoder,
                   HPACKDecoder& decoder) {
   unique_ptr<IOBuf> encoded = encode(headers, encoder);
-  auto decodedHeaders = decoder.decode(encoded.get());
-  CHECK(!decoder.hasError());
+  CHECK(encoded);
+  TestStreamingCallback cb;
+  folly::io::Cursor c(encoded.get());
+  decoder.decodeStreaming(c, c.totalLength(), &cb);
+  CHECK(!cb.hasError());
 }
 
 

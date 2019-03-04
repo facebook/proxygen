@@ -15,6 +15,7 @@
 #include <folly/Range.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/SettingsId.h>
 #include <proxygen/lib/utils/Export.h>
 #include <string.h>
@@ -31,7 +32,7 @@ extern const Padding kNoPadding;
 
 //////// Types ////////
 
-enum class FrameType: uint8_t {
+enum class FrameType : uint8_t {
   DATA = 0,
   HEADERS = 1,
   PRIORITY = 2,
@@ -42,10 +43,17 @@ enum class FrameType: uint8_t {
   GOAWAY = 7,
   WINDOW_UPDATE = 8,
   CONTINUATION = 9,
-  ALTSVC = 10,  // not in current draft so frame type has not been assigned
+  ALTSVC = 10, // not in current draft so frame type has not been assigned
 
   // experimental use
   EX_HEADERS = 0xfb,
+
+  // For secondary certificate authentication in HTTP/2 as specified in the
+  // draft-ietf-httpbis-http2-secondary-certs-02.
+  CERTIFICATE_REQUEST = 0xf0,
+  CERTIFICATE = 0xf1,
+  CERTIFICATE_NEEDED = 0xf2,
+  USE_CERTIFICATE = 0xf3,
 };
 
 enum Flags {
@@ -54,6 +62,12 @@ enum Flags {
   END_HEADERS = 0x4,
   PADDED = 0x8,
   PRIORITY = 0x20,
+  // experimental flag for EX stream only
+  UNIDIRECTIONAL = 0x40,
+
+  // for secondary certificate authentication frames
+  UNSOLICITED = 0x1,
+  TO_BE_CONTINUED = 0x1,
 };
 
 struct FrameHeader {
@@ -67,7 +81,9 @@ struct FrameHeader {
 static_assert(sizeof(FrameHeader) == 12, "The maths are not working");
 
 struct PriorityUpdate {
-  uint32_t streamDependency;
+  // StreamID is 64bit integer to accommodate both HTTP2 and HTTP3 streams so
+  // just validate the id for HTTP2 before encoding it on the wire
+  HTTPCodec::StreamID streamDependency;
   bool exclusive;
   uint8_t weight;
 };
@@ -78,9 +94,9 @@ FB_EXPORT extern const PriorityUpdate DefaultPriority;
 
 //////// Functions ////////
 
-extern bool isValidFrameType(FrameType t);
+bool isValidFrameType(FrameType t);
 
-extern bool frameAffectsCompression(FrameType t);
+bool frameAffectsCompression(FrameType t);
 
 /**
  * This function returns true if the padding bit is set in the header
@@ -88,7 +104,7 @@ extern bool frameAffectsCompression(FrameType t);
  * @param header The frame header.
  * @return true if the padding bit is set, false otherwise.
  */
-extern bool frameHasPadding(const FrameHeader& header);
+bool frameHasPadding(const FrameHeader& header);
 
 //// Parsing ////
 
@@ -101,7 +117,7 @@ extern bool frameHasPadding(const FrameHeader& header);
  * @param header The frame header struct to populate.
  * @return Nothing if success. The connection error code if failure.
  */
-extern ErrorCode
+ErrorCode
 parseFrameHeader(folly::io::Cursor& cursor,
                  FrameHeader& header) noexcept;
 
@@ -118,19 +134,19 @@ parseFrameHeader(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseData(folly::io::Cursor& cursor,
-          FrameHeader header,
+          const FrameHeader& header,
           std::unique_ptr<folly::IOBuf>& outBuf,
           uint16_t& padding) noexcept;
 
 ErrorCode
 parseDataBegin(folly::io::Cursor& cursor,
-               FrameHeader header,
+               const FrameHeader& header,
                size_t& parsed,
                uint16_t& outPadding) noexcept;
 
-extern ErrorCode
+ErrorCode
 parseDataEnd(folly::io::Cursor& cursor,
              const size_t bufLen,
              const size_t pendingDataFramePaddingBytes,
@@ -150,16 +166,16 @@ parseDataEnd(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseHeaders(folly::io::Cursor& cursor,
-             FrameHeader header,
+             const FrameHeader& header,
              folly::Optional<PriorityUpdate>& outPriority,
              std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
-extern ErrorCode
+ErrorCode
 parseExHeaders(folly::io::Cursor& cursor,
-               FrameHeader header,
-               uint32_t& outControlStream,
+               const FrameHeader& header,
+               HTTPCodec::ExAttributes& outExAttributes,
                folly::Optional<PriorityUpdate>& outPriority,
                std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
@@ -175,9 +191,9 @@ parseExHeaders(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parsePriority(folly::io::Cursor& cursor,
-              FrameHeader header,
+              const FrameHeader& header,
               PriorityUpdate& outPriority) noexcept;
 
 /**
@@ -192,9 +208,9 @@ parsePriority(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseRstStream(folly::io::Cursor& cursor,
-               FrameHeader header,
+               const FrameHeader& header,
                ErrorCode& outCode) noexcept;
 
 /**
@@ -209,9 +225,9 @@ parseRstStream(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseSettings(folly::io::Cursor& cursor,
-              FrameHeader header,
+              const FrameHeader& header,
               std::deque<SettingPair>& settings) noexcept;
 
 /**
@@ -227,9 +243,9 @@ parseSettings(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parsePushPromise(folly::io::Cursor& cursor,
-                 FrameHeader header,
+                 const FrameHeader& header,
                  uint32_t& outPromisedStream,
                  std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
@@ -244,9 +260,9 @@ parsePushPromise(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parsePing(folly::io::Cursor& cursor,
-          FrameHeader header,
+          const FrameHeader& header,
           uint64_t& outData) noexcept;
 
 /**
@@ -263,9 +279,9 @@ parsePing(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseGoaway(folly::io::Cursor& cursor,
-            FrameHeader header,
+            const FrameHeader& header,
             uint32_t& outLastStreamID,
             ErrorCode& outCode,
             std::unique_ptr<folly::IOBuf>& outDebugData) noexcept;
@@ -281,9 +297,9 @@ parseGoaway(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseWindowUpdate(folly::io::Cursor& cursor,
-                  FrameHeader header,
+                  const FrameHeader& header,
                   uint32_t& outAmount) noexcept;
 
 /**
@@ -298,9 +314,9 @@ parseWindowUpdate(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseContinuation(folly::io::Cursor& cursor,
-                  FrameHeader header,
+                  const FrameHeader& header,
                   std::unique_ptr<folly::IOBuf>& outBuf) noexcept;
 
 /**
@@ -318,14 +334,51 @@ parseContinuation(folly::io::Cursor& cursor,
  * @return NO_ERROR for successful parse. The connection error code to
  *         return in a GOAWAY frame if failure.
  */
-extern ErrorCode
+ErrorCode
 parseAltSvc(folly::io::Cursor& cursor,
-            FrameHeader header,
+            const FrameHeader& header,
             uint32_t& outMaxAge,
             uint32_t& outPort,
             std::string& outProtocol,
             std::string& outHost,
             std::string& outOrigin) noexcept;
+
+/**
+ * This function parses the section of the CERTIFICATE_REQUEST frame after the
+ * common frame header.  It pulls header.length bytes from the cursor, so it is
+ * the caller's responsibility to ensure there is enough data available.
+ *
+ * @param cursor The cursor to pull data from.
+ * @param header The frame header for the frame being parsed.
+ * @param outRequestId The Request-ID identifying this certificate request.
+ * @param outAuthRequest Authenticator request in the frame, if any.
+ * @return NO_ERROR for successful parse. The connection error code to
+ *         return in a CERTIFICATE_REQUEST frame if failure.
+ */
+ErrorCode parseCertificateRequest(
+    folly::io::Cursor& cursor,
+    const FrameHeader& header,
+    uint16_t& outRequestId,
+    std::unique_ptr<folly::IOBuf>& outAuthRequest) noexcept;
+
+/**
+ * This function parses the section of the CERTIFICATE frame after the
+ * common frame header.  It pulls header.length bytes from the cursor, so it is
+ * the caller's responsibility to ensure there is enough data available.
+ *
+ * @param cursor The cursor to pull data from.
+ * @param header The frame header for the frame being parsed.
+ * @param outCertId The Cert-ID identifying the frame.
+ * @param outAuthenticator Authenticator fragment in the frame, if any.
+ * @return NO_ERROR for successful parse. The connection error code to
+ *         return in a CERTIFICATE frame if failure.
+ */
+ErrorCode
+parseCertificate(
+    folly::io::Cursor& cursor,
+    const FrameHeader& header,
+    uint16_t& outCertId,
+    std::unique_ptr<folly::IOBuf>& outAuthenticator) noexcept;
 
 //// Egress ////
 
@@ -344,7 +397,7 @@ parseAltSvc(folly::io::Cursor& cursor,
  *                           headroom is enough for frame header
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeData(folly::IOBufQueue& writeBuf,
           std::unique_ptr<folly::IOBuf> data,
           uint32_t stream,
@@ -368,7 +421,7 @@ writeData(folly::IOBufQueue& writeBuf,
  * @param endHeaders True iff no CONTINUATION frames will follow this frame.
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeHeaders(folly::IOBufQueue& writeBuf,
              std::unique_ptr<folly::IOBuf> headers,
              uint32_t stream,
@@ -386,8 +439,7 @@ writeHeaders(folly::IOBufQueue& writeBuf,
  *                 underlying buffers inside this function.
  * @param headers The encoded headers data to write out.
  * @param stream The stream identifier of the ExHEADERS frame.
- * @param controlStream The stream identifier of the control stream, with which
-                        this ExHEADERS associated.
+ * @param exAttributes Attributes specific to ExHEADERS frame.
  * @param priority If present, the priority depedency information to
  *                 update the stream with.
  * @param padding If not kNoPadding, adds 1 byte pad len and @padding pad bytes
@@ -395,13 +447,13 @@ writeHeaders(folly::IOBufQueue& writeBuf,
  * @param endHeaders True iff no CONTINUATION frames will follow this frame.
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeExHeaders(folly::IOBufQueue& writeBuf,
                std::unique_ptr<folly::IOBuf> headers,
                uint32_t stream,
-               uint32_t controlStream,
-               folly::Optional<PriorityUpdate> priority,
-               folly::Optional<uint8_t> padding,
+               const HTTPCodec::ExAttributes& exAttributes,
+               const folly::Optional<PriorityUpdate>& priority,
+               const folly::Optional<uint8_t>& padding,
                bool endStream,
                bool endHeaders) noexcept;
 
@@ -414,7 +466,7 @@ writeExHeaders(folly::IOBufQueue& writeBuf,
  * @param priority The priority depedency information to update the stream with.
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writePriority(folly::IOBufQueue& writeBuf,
               uint32_t stream,
               PriorityUpdate priority) noexcept;
@@ -429,7 +481,7 @@ writePriority(folly::IOBufQueue& writeBuf,
  * @param errorCode The error code returned in the frame.
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeRstStream(folly::IOBufQueue& writeBuf,
                uint32_t stream,
                ErrorCode errorCode) noexcept;
@@ -443,7 +495,7 @@ writeRstStream(folly::IOBufQueue& writeBuf,
  * @param settings The settings to send
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeSettings(folly::IOBufQueue& writeBuf,
               const std::deque<SettingPair>& settings);
 
@@ -451,7 +503,7 @@ writeSettings(folly::IOBufQueue& writeBuf,
  * Writes an entire empty SETTINGS frame, including the common frame
  * header. No settings can be transmitted with this frame.
  */
-extern size_t
+size_t
 writeSettingsAck(folly::IOBufQueue& writeBuf);
 
 /**
@@ -468,7 +520,7 @@ writeSettingsAck(folly::IOBufQueue& writeBuf);
  * @param endHeaders True iff no CONTINUATION frames will follow this frame.
  * @return The number of bytes written to writeBuf/
  */
-extern size_t
+size_t
 writePushPromise(folly::IOBufQueue& writeBuf,
                  uint32_t associatedStream,
                  uint32_t promisedStream,
@@ -484,7 +536,7 @@ writePushPromise(folly::IOBufQueue& writeBuf,
  * @param ack True iff this is a ping response.
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writePing(folly::IOBufQueue& writeBuf,
           uint64_t data,
           bool ack) noexcept;
@@ -500,7 +552,7 @@ writePing(folly::IOBufQueue& writeBuf,
  * @param debugData Optional debug information to add to the frame
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeGoaway(folly::IOBufQueue& writeBuf,
             uint32_t lastStreamID,
             ErrorCode errorCode,
@@ -516,7 +568,7 @@ writeGoaway(folly::IOBufQueue& writeBuf,
  * @param amount The number of bytes to AK
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeWindowUpdate(folly::IOBufQueue& writeBuf,
                   uint32_t stream,
                   uint32_t amount) noexcept;
@@ -534,7 +586,7 @@ writeWindowUpdate(folly::IOBufQueue& writeBuf,
  * @param headers The encoded headers data to write out.
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeContinuation(folly::IOBufQueue& queue,
                   uint32_t stream,
                   bool endHeaders,
@@ -553,7 +605,7 @@ writeContinuation(folly::IOBufQueue& queue,
  * @param origin The origin the alternative service is applicable to.
  * @return The number of bytes written to writeBuf.
  */
-extern size_t
+size_t
 writeAltSvc(folly::IOBufQueue& writeBuf,
             uint32_t stream,
             uint32_t maxAge,
@@ -563,11 +615,45 @@ writeAltSvc(folly::IOBufQueue& writeBuf,
             folly::StringPiece origin) noexcept;
 
 /**
+ * Generate an entire CERTIFICATE_REQUEST frame, including the common frame
+ * header.
+ *
+ * @param writeBuf The output queue to write to. It may grow or add
+ *                 underlying buffers inside this function.
+ * @param requestId The opaque Request-ID of this used to correlate subsequent
+ *                  certificate-related frames with this request.
+ * @param authRequest The encoded authenticator request.
+ * @return The number of bytes written to writeBuf.
+ */
+size_t
+writeCertificateRequest(folly::IOBufQueue& writeBuf,
+                        uint16_t requestId,
+                        std::unique_ptr<folly::IOBuf> authRequest);
+
+/**
+ * Generate an entire CERTIFICATE frame, including the common frame
+ * header.
+ *
+ * @param writeBuf The output queue to write to. It may grow or add
+ *                 underlying buffers inside this function.
+ * @param certId The opaque Cert-ID of this frame which is used to correlate
+ * subsequent certificate-related frames with this certificate.
+ * @param authenticator The encoded authenticator fragment.
+ * @param toBeContinued Indicates whether there is additional authenticator
+ * fragment.
+ * @return The number of bytes written to writeBuf.
+ */
+size_t writeCertificate(folly::IOBufQueue& writeBuf,
+                        uint16_t certId,
+                        std::unique_ptr<folly::IOBuf> authenticator,
+                        bool toBeContinued);
+
+/**
  * Get the string representation of the given FrameType
  *
  * @param type frame type
  *
  * @return string representation of the frame type
  */
-extern const char* getFrameTypeString(FrameType type);
+const char* getFrameTypeString(FrameType type);
 }}

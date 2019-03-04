@@ -39,12 +39,39 @@ namespace proxygen {
 class HTTPMessage {
  public:
 
+  enum WebSocketUpgrade {
+    NONE,
+    INGRESS,
+    EGRESS,
+  };
+
   HTTPMessage();
   ~HTTPMessage();
   HTTPMessage(HTTPMessage&& message) noexcept;
   HTTPMessage(const HTTPMessage& message);
   HTTPMessage& operator=(const HTTPMessage& message);
   HTTPMessage& operator=(HTTPMessage&& message);
+
+  // upgradeWebsocket_ can have three states, WebSocketUpgrade::NONE by
+  // default. WebSocketUpgrade::INGRESS is used by the codec to indicate a
+  // websocket upgrade request was received from downstream or a successful
+  // upgrade finished on an upstream stream.
+  // WebSocketUpgrade::EGRESS is used by the application handler to indicate
+  // websocket upgrade headers should be sent with the outgoing
+  // request/response. Based on upstream/downstream, the codec serializes the
+  // appropriate headers.
+  void setIngressWebsocketUpgrade() {
+    upgradeWebsocket_ = WebSocketUpgrade::INGRESS;
+  }
+  void setEgressWebsocketUpgrade() {
+    upgradeWebsocket_ = WebSocketUpgrade::EGRESS;
+  }
+  bool isIngressWebsocketUpgrade() const {
+    return upgradeWebsocket_ == WebSocketUpgrade::INGRESS;
+  }
+  bool isEgressWebsocketUpgrade() const {
+    return upgradeWebsocket_ == WebSocketUpgrade::EGRESS;
+  }
 
   /**
    * Is this a chunked message? (fpreq, fpresp)
@@ -247,6 +274,13 @@ class HTTPMessage {
   const HTTPHeaders& getHeaders() const { return headers_; }
 
   /**
+   * Move headers out of current message (returns rvalue ref)
+   */
+  HTTPHeaders&& extractHeaders() {
+    return std::move(headers_);
+  }
+
+  /**
    * Access the trailers
    */
   HTTPHeaders* getTrailers() { return trailers_.get(); }
@@ -257,6 +291,13 @@ class HTTPMessage {
    */
   void setTrailers(std::unique_ptr<HTTPHeaders>&& trailers) {
     trailers_ = std::move(trailers);
+  }
+
+  /**
+   * Move trailers out of current message
+   */
+  std::unique_ptr<HTTPHeaders> extractTrailers() {
+    return std::move(trailers_);
   }
 
   /**
@@ -337,6 +378,13 @@ class HTTPMessage {
    */
   void setStatusCode(uint16_t status);
   uint16_t getStatusCode() const;
+
+  void setUpgradeProtocol(std::string protocol) {
+    upgradeProtocol_ = std::make_unique<std::string>(std::move(protocol));
+  }
+  const std::string* getUpgradeProtocol() const {
+    return upgradeProtocol_.get();
+  }
 
   /**
    * Access the push status code
@@ -465,6 +513,8 @@ class HTTPMessage {
    */
   void dumpMessage(int verbosity) const;
 
+  void describe(std::ostream& os) const;
+
   /**
    * Print the message out, serializes through mutex
    * Used in shutdown path
@@ -506,6 +556,20 @@ class HTTPMessage {
     return protoStr_;
   }
 
+  /**
+   * Return the protocol string used by this HTTPMessage.
+   *
+   * If this HTTP message is using an advanced protocol, the protocol string
+   * will be the advanced protocol. If not, it will simply be the HTTP version.
+   */
+  const std::string& getProtocolString() const {
+    if (isAdvancedProto()) {
+      return *protoStr_;
+    }
+
+    return versionStr_;
+  }
+
   /* Setter and getter for the SPDY priority value (0 - 7).  When serialized
    * to SPDY/2, Codecs will collpase 0,1 -> 0, 2,3 -> 1, etc.
    *
@@ -532,7 +596,7 @@ class HTTPMessage {
   }
   uint8_t getPriority() const { return pri_; }
 
-  using HTTPPriority = std::tuple<uint32_t, bool, uint8_t>;
+  using HTTPPriority = std::tuple<uint64_t, bool, uint8_t>;
 
   folly::Optional<HTTPPriority> getHTTP2Priority()
     const {
@@ -770,7 +834,12 @@ class HTTPMessage {
 
   // used by atomicDumpMessage
   static std::mutex mutexDump_;
+
+  WebSocketUpgrade upgradeWebsocket_;
+  std::unique_ptr<std::string> upgradeProtocol_;
 };
+
+std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg);
 
 /**
  * Returns a std::string that has the control characters removed from the

@@ -35,6 +35,9 @@ class HTTP2PriorityQueueBase : public HTTPCodec::PriorityQueue {
 
   using Handle = BaseNode*;
 
+  explicit HTTP2PriorityQueueBase(HTTPCodec::StreamID rootNodeId)
+    : rootNodeId_(rootNodeId) {}
+
   virtual Handle addTransaction(HTTPCodec::StreamID id,
                                 http2::PriorityUpdate pri,
                                 HTTPTransaction *txn, bool permanent = false,
@@ -54,6 +57,13 @@ class HTTP2PriorityQueueBase : public HTTPCodec::PriorityQueue {
 
   // Notify the queue when a transaction no longer has egress
   virtual void clearPendingEgress(Handle h) = 0;
+
+  HTTPCodec::StreamID getRootId() {
+    return rootNodeId_;
+  }
+
+ protected:
+  HTTPCodec::StreamID rootNodeId_{0};
 };
 
 class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
@@ -67,13 +77,18 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
  public:
 
-  HTTP2PriorityQueue()
-      : nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)) {
+  HTTP2PriorityQueue(HTTPCodec::StreamID rootNodeId = 0)
+      : HTTP2PriorityQueueBase(rootNodeId),
+        nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)),
+        root_(*this, nullptr, rootNodeId, 1, nullptr) {
     root_.setPermanent();
   }
 
-  explicit HTTP2PriorityQueue(const WheelTimerInstance& timeout)
-      : nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)),
+  explicit HTTP2PriorityQueue(const WheelTimerInstance& timeout,
+                              HTTPCodec::StreamID rootNodeId = 0)
+      : HTTP2PriorityQueueBase(rootNodeId),
+        nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)),
+        root_(*this, nullptr, rootNodeId, 1, nullptr),
         timeout_(timeout) {
     root_.setPermanent();
   }
@@ -160,13 +175,12 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   uint32_t getRebuildCount() const { return rebuildCount_; }
   bool isRebuilt() const { return rebuildCount_ > 0; }
 
-
  private:
   // Find the node in priority tree
   Node* find(HTTPCodec::StreamID id, uint64_t* depth = nullptr);
 
   Node* findInternal(HTTPCodec::StreamID id) {
-    if (id == 0) {
+    if (id == rootNodeId_) {
       return &root_;
     }
     return find(id);
@@ -246,7 +260,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
       if (parent_) {
         return parent_->id_;
       }
-      return 0;
+      return queue_.getRootId();
     }
 
     HTTPTransaction* getTransaction() const {
@@ -373,6 +387,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     void timeoutExpired() noexcept override {
       VLOG(5) << "Node=" << id_ << " expired";
       CHECK(txn_ == nullptr);
+      queue_.pendingWeightChange_ = true;
       removeFromTree();
     }
 
@@ -384,7 +399,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
     HTTP2PriorityQueue& queue_;
     Node *parent_{nullptr};
-    HTTPCodec::StreamID id_{0};
+    HTTPCodec::StreamID id_;
     uint16_t weight_{kDefaultWeight};
     HTTPTransaction *txn_{nullptr};
     bool isPermanent_{false};
@@ -405,7 +420,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
   typename NodeMap::bucket_type nodeBuckets_[kNumBuckets];
   NodeMap nodes_;
-  Node root_{*this, nullptr, 0, 1, nullptr};
+  Node root_;
   uint32_t rebuildCount_{0};
   static uint32_t kMaxRebuilds_;
   uint64_t activeCount_{0};

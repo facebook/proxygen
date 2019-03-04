@@ -37,7 +37,7 @@ class EchoHandlerFixture : public testing::Test {
 
     // Since there is no easy way to verify that handler has deleted
     // itself, its advised to run test binary under AddressSanitzer
-    // or valgrind to verify that.
+    // to verify that.
   }
 
  protected:

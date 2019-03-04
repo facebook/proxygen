@@ -121,9 +121,9 @@ TEST(TraceEventTest, VectorDataStringValue) {
   data.push_back("C");
   traceEvent.addMeta(TraceFieldType::Protocol, data);
 
-  ASSERT_THROW(
-      traceEvent.getTraceFieldDataAs<std::string>(TraceFieldType::Protocol),
-      Exception);
+  ASSERT_EQ(
+      "[\"A\",\"B\",\"C\"]",
+      traceEvent.getTraceFieldDataAs<std::string>(TraceFieldType::Protocol));
 }
 
 TEST(TraceEventTest, VectorDataVectorValue) {
@@ -140,4 +140,110 @@ TEST(TraceEventTest, VectorDataVectorValue) {
           TraceFieldType::Protocol));
 
   EXPECT_THAT(extractedData, testing::ContainerEq(data));
+}
+
+TEST(TraceEventTest, IteratorValueTypeCheckInteger) {
+  TraceEvent traceEvent( (TraceEventType::TotalRequest) );
+  int64_t intData(13);
+  traceEvent.addMeta(TraceFieldType::Protocol, intData);
+
+  auto itr = traceEvent.getMetaDataItr();
+  ASSERT_TRUE(itr.isValid());
+  ASSERT_EQ(TraceFieldType::Protocol, itr.getKey());
+  ASSERT_EQ(typeid(int64_t), itr.type());
+
+  itr.next();
+  ASSERT_FALSE(itr.isValid());
+}
+
+TEST(TraceEventTest, IteratorValueTypeCheckString) {
+  TraceEvent traceEvent( (TraceEventType::TotalRequest) );
+  std::string strData("abc");
+  traceEvent.addMeta(TraceFieldType::Protocol, strData);
+
+  auto itr = traceEvent.getMetaDataItr();
+  ASSERT_TRUE(itr.isValid());
+  ASSERT_EQ(TraceFieldType::Protocol, itr.getKey());
+  ASSERT_EQ(typeid(std::string), itr.type());
+
+  itr.next();
+  ASSERT_FALSE(itr.isValid());
+}
+
+TEST(TraceEventTest, IteratorValueTypeCheckStringArray) {
+  TraceEvent traceEvent( (TraceEventType::TotalRequest) );
+  std::vector<std::string> arrData;
+  arrData.push_back("A");
+  arrData.push_back("B");
+  arrData.push_back("C");
+  traceEvent.addMeta(TraceFieldType::Protocol, arrData);
+
+  auto itr = traceEvent.getMetaDataItr();
+  ASSERT_TRUE(itr.isValid());
+  ASSERT_EQ(TraceFieldType::Protocol, itr.getKey());
+  ASSERT_EQ(typeid(std::vector<std::string>), itr.type());
+
+  itr.next();
+  ASSERT_FALSE(itr.isValid());
+}
+
+// To
+TEST(TraceEventTest, IntegerValueToString) {
+  TraceEvent traceEvent(TraceEventType::TotalRequest, 1);
+  traceEvent.start(TimePoint(std::chrono::milliseconds(100)));
+  traceEvent.end(TimePoint(std::chrono::milliseconds(200)));
+  int64_t intData(13);
+  traceEvent.addMeta(TraceFieldType::Protocol, intData);
+
+  std::ostringstream out;
+  out << "TraceEvent(";
+  out << "type='TotalRequest', ";
+  out << "id='" << traceEvent.getID() << "', ";
+  out << "parentID='1', ";
+  out << "start='100', ";
+  out << "end='200', ";
+  out << "metaData='{protocol: 13, }')";
+
+  ASSERT_EQ(out.str(), traceEvent.toString());
+}
+
+TEST(TraceEventTest, StringValueToString) {
+  TraceEvent traceEvent(TraceEventType::TotalRequest, 1);
+  traceEvent.start(TimePoint(std::chrono::milliseconds(100)));
+  traceEvent.end(TimePoint(std::chrono::milliseconds(200)));
+  std::string strData("abc");
+  traceEvent.addMeta(TraceFieldType::Protocol, strData);
+
+  std::ostringstream out;
+  out << "TraceEvent(";
+  out << "type='TotalRequest', ";
+  out << "id='" << traceEvent.getID() << "', ";
+  out << "parentID='1', ";
+  out << "start='100', ";
+  out << "end='200', ";
+  out << "metaData='{protocol: abc, }')";
+
+  ASSERT_EQ(out.str(), traceEvent.toString());
+}
+
+TEST(TraceEventTest, StringArrayValueToString) {
+  TraceEvent traceEvent(TraceEventType::TotalRequest, 1);
+  traceEvent.start(TimePoint(std::chrono::milliseconds(100)));
+  traceEvent.end(TimePoint(std::chrono::milliseconds(200)));
+  std::vector<std::string> arrData;
+  arrData.push_back("A");
+  arrData.push_back("B");
+  arrData.push_back("C");
+  traceEvent.addMeta(TraceFieldType::Protocol, arrData);
+
+  std::ostringstream out;
+  out << "TraceEvent(";
+  out << "type='TotalRequest', ";
+  out << "id='" << traceEvent.getID() << "', ";
+  out << "parentID='1', ";
+  out << "start='100', ";
+  out << "end='200', ";
+  out << "metaData='{protocol: [\"A\",\"B\",\"C\"], }')";
+
+  ASSERT_EQ(out.str(), traceEvent.toString());
 }

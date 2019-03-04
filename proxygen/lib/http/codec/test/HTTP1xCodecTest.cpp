@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/utils/Base64.h>
 
 using namespace proxygen;
 using namespace std;
@@ -42,22 +43,29 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
                      size_t /*length*/) override {}
   void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {}
   void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
-                          std::unique_ptr<HTTPHeaders> /*trailers*/) override {}
+                          std::unique_ptr<HTTPHeaders> trailers) override {
+    trailersComplete++;
+    trailers_ = std::move(trailers);
+  }
   void onMessageComplete(HTTPCodec::StreamID /*stream*/,
                          bool /*upgrade*/) override {
     ++messageComplete;
   }
   void onError(HTTPCodec::StreamID /*stream*/,
-               const HTTPException& /*error*/,
+               const HTTPException& error,
                bool /*newTxn*/) override {
-    LOG(ERROR) << "parse error";
+    ++errors;
+    LOG(ERROR) << "parse error " << error;
   }
 
   uint32_t headersComplete{0};
+  uint32_t trailersComplete{0};
   uint32_t messageComplete{0};
+  uint32_t errors{0};
   uint32_t bodyLen{0};
   HTTPHeaderSize headerSize;
   std::unique_ptr<HTTPMessage> msg_;
+  std::unique_ptr<HTTPHeaders> trailers_;
 };
 
 unique_ptr<folly::IOBuf> getSimpleRequestData() {
@@ -490,6 +498,208 @@ TEST(HTTP1xCodecTest, TestIgnoreUpstreamUpgrade) {
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.bodyLength, 15);
+}
+
+TEST(HTTP1xCodecTest, WebsocketUpgrade) {
+  HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
+  HTTP1xCodec downstreamCodec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback downStreamCallbacks;
+  HTTP1xCodecCallback upstreamCallbacks;
+  downstreamCodec.setCallback(&downStreamCallbacks);
+  upstreamCodec.setCallback(&upstreamCallbacks);
+
+  HTTPMessage req;
+  req.setHTTPVersion(1, 1);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  folly::IOBufQueue buf;
+  auto streamID = upstreamCodec.createStream();
+  upstreamCodec.generateHeader(buf, streamID, req);
+
+  downstreamCodec.onIngress(*buf.front());
+  EXPECT_EQ(downStreamCallbacks.headersComplete, 1);
+  EXPECT_TRUE(downStreamCallbacks.msg_->isIngressWebsocketUpgrade());
+  auto& headers = downStreamCallbacks.msg_->getHeaders();
+  auto ws_key_header = headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY);
+  EXPECT_NE(ws_key_header, empty_string);
+
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(101);
+  resp.setEgressWebsocketUpgrade();
+  buf.clear();
+  downstreamCodec.generateHeader(buf, streamID, resp);
+  upstreamCodec.onIngress(*buf.front());
+  EXPECT_EQ(upstreamCallbacks.headersComplete, 1);
+  headers = upstreamCallbacks.msg_->getHeaders();
+  auto ws_accept_header =
+    headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT);
+  EXPECT_NE(ws_accept_header, empty_string);
+}
+
+TEST(HTTP1xCodecTest, WebsocketUpgradeKeyError) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+
+  HTTPMessage req;
+  req.setHTTPVersion(1, 1);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  folly::IOBufQueue buf;
+  auto streamID = codec.createStream();
+  codec.generateHeader(buf, streamID, req);
+
+  auto resp = folly::IOBuf::copyBuffer(
+      "HTTP/1.1 200 OK\r\n"
+      "Connection: upgrade\r\n"
+      "Upgrade: websocket\r\n"
+      "\r\n");
+  codec.onIngress(*resp);
+  EXPECT_EQ(callbacks.headersComplete, 0);
+  EXPECT_EQ(callbacks.errors, 1);
+}
+
+TEST(HTTP1xCodecTest, WebsocketUpgradeHeaderSet) {
+  HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::GET);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  req.getHeaders().add(proxygen::HTTP_HEADER_UPGRADE, "Websocket");
+
+  folly::IOBufQueue buf;
+  upstreamCodec.generateHeader(buf, upstreamCodec.createStream(), req);
+
+  HTTP1xCodec downstreamCodec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  downstreamCodec.setCallback(&callbacks);
+  downstreamCodec.onIngress(*buf.front());
+  auto headers = callbacks.msg_->getHeaders();
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY),
+      empty_string);
+}
+
+TEST(HTTP1xCodecTest, WebsocketConnectionHeader) {
+  HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::GET);
+  req.setURL("/websocket");
+  req.setEgressWebsocketUpgrade();
+  req.getHeaders().add(proxygen::HTTP_HEADER_CONNECTION, "upgrade, keep-alive");
+  req.getHeaders().add(proxygen::HTTP_HEADER_SEC_WEBSOCKET_KEY,
+      "key should change");
+  req.getHeaders().add(proxygen::HTTP_HEADER_SEC_WEBSOCKET_ACCEPT,
+      "this should not be found");
+
+  folly::IOBufQueue buf;
+  upstreamCodec.generateHeader(buf, upstreamCodec.createStream(), req);
+  HTTP1xCodec downstreamCodec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  downstreamCodec.setCallback(&callbacks);
+  downstreamCodec.onIngress(*buf.front());
+  auto headers = callbacks.msg_->getHeaders();
+  auto ws_sec_key = headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY);
+  EXPECT_NE(ws_sec_key, empty_string);
+  EXPECT_NE(ws_sec_key, "key should change");
+
+  // We know the key is length 16
+  // https://tools.ietf.org/html/rfc6455#section-4.2.1.5
+  // for base64 % 3 leaves 1 byte so we expect padding of '=='
+  // hence this offset of 2 explicitly
+  EXPECT_NO_THROW(Base64::decode(ws_sec_key, 2));
+  EXPECT_EQ(16, Base64::decode(ws_sec_key, 2).length());
+
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT),
+      empty_string);
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+      "upgrade, keep-alive");
+}
+
+TEST(HTTP1xCodecTest, TrailersAndEomAreNotGeneratedWhenNonChunked) {
+  // Verify that generateTrailes and generateEom result in 0 bytes
+  // generated when message is not chunked.
+  // HTTP2 codec handles all BODY as regular non-chunked body, thus
+  // HTTPTransation SM transitions allow trailers after regular body. Which
+  // is not allowed in HTTP1.
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+
+  auto txnID = codec.createStream();
+
+  HTTPMessage msg;
+  msg.setHTTPVersion(1, 1);
+  msg.setURL("https://www.facebook.com/");
+  msg.getHeaders().set(HTTP_HEADER_HOST, "www.facebook.com");
+  msg.setIsChunked(false);
+
+  folly::IOBufQueue buf;
+  codec.generateHeader(buf, txnID, msg);
+
+  HTTPHeaders trailers;
+  trailers.add("X-Test-Trailer", "test");
+  EXPECT_EQ(0, codec.generateTrailers(buf, txnID, trailers));
+  EXPECT_EQ(0, codec.generateEOM(buf, txnID));
+}
+
+TEST(HTTP1xCodecTest, TestChunkResponseSerialization) {
+  // When codec is used for response serialization, it never gets
+  // to process request. Verify we can still serialize chunked response
+  // when mayChunkEgress=true.
+  folly::IOBufQueue blob;
+
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(200);
+  resp.setIsChunked(true);
+  resp.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  resp.getHeaders().set("X-Custom-Header", "mac&cheese");
+
+  string bodyStr("pizza");
+  auto body = folly::IOBuf::copyBuffer(bodyStr);
+
+  HTTPHeaders trailers;
+  trailers.add("X-Test-Trailer", "chicken kyiv");
+
+  // serialize
+  HTTP1xCodec downCodec = HTTP1xCodec::makeResponseCodec(
+      /*mayChunkEgress=*/true);
+  HTTP1xCodecCallback downCallbacks;
+  downCodec.setCallback(&downCallbacks);
+  auto downStream = downCodec.createStream();
+
+  downCodec.generateHeader(blob, downStream, resp);
+  downCodec.generateBody(
+      blob, downStream, body->clone(), HTTPCodec::NoPadding, false);
+  downCodec.generateTrailers(blob, downStream, trailers);
+  downCodec.generateEOM(blob, downStream);
+
+  std::string tmp;
+  blob.appendToString(tmp);
+  VLOG(2) << "serializeMessage blob: " << tmp;
+
+  // deserialize
+  HTTP1xCodec upCodec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback upCallbacks;
+  upCodec.setCallback(&upCallbacks);
+
+  auto tmpBuf = blob.front()->clone();
+  while (tmpBuf) {
+    auto next = tmpBuf->pop();
+    upCodec.onIngress(*tmpBuf);
+    tmpBuf = std::move(next);
+  }
+  upCodec.onIngressEOF();
+
+  EXPECT_EQ(upCallbacks.headersComplete, 1);
+  EXPECT_EQ(upCallbacks.trailersComplete, 1);
+  EXPECT_EQ(upCallbacks.messageComplete, 1);
+  EXPECT_EQ(upCallbacks.errors, 0);
+
+  EXPECT_EQ(resp.getStatusCode(), upCallbacks.msg_->getStatusCode());
+  EXPECT_TRUE(
+      upCallbacks.msg_->getHeaders().exists(HTTP_HEADER_TRANSFER_ENCODING));
+  EXPECT_TRUE(upCallbacks.msg_->getHeaders().exists("X-Custom-Header"));
+  EXPECT_TRUE(upCallbacks.trailers_->exists("X-Test-Trailer"));
 }
 
 class ConnectionHeaderTest:

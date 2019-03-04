@@ -18,6 +18,7 @@
 #include <boost/variant.hpp>
 
 #include <folly/Conv.h>
+#include <folly/lang/Exception.h>
 
 #include <map>
 #include <string>
@@ -77,10 +78,14 @@ class TraceEvent {
       return boost::apply_visitor(visitor, value_);
     }
 
+    const std::type_info& type() const {
+      return value_.type();
+    }
+
     template<typename T>
     struct ConvVisitor : boost::static_visitor<T> {
       T operator()(const std::vector<std::string>& /* Unused */) const {
-        throw Exception("Not supported for type");
+        folly::throw_exception<Exception>("Not supported for type");
       }
 
       template<typename U>
@@ -118,6 +123,10 @@ class TraceEvent {
     template<typename T>
     T getValueAs() const {
       return itr_->second.getValueAs<T>();
+    }
+
+    const std::type_info& type() const {
+      return itr_->second.type();
     }
 
     private:
@@ -241,12 +250,14 @@ class TraceEvent {
   bool readMeta(TraceFieldType key, T& dest) const {
     const auto itr = metaData_.find(key);
     if (itr != metaData_.end()) {
-      try {
-        dest = itr->second.getValueAs<T>();
-        return true;
-      } catch (const std::exception&) {
-        return false;
-      }
+      return folly::catch_exception<std::exception const&>(
+          [&]() -> bool {
+            dest = itr->second.getValueAs<T>();
+            return true;
+          },
+          [](auto&&) -> bool {
+            return false;
+          });
     }
     return false;
   }
@@ -279,8 +290,18 @@ struct TraceEvent::MetaData::ConvVisitor<std::vector<std::string>> :
 
   template<typename U>
   std::vector<std::string> operator()(U& /* Unused */) const {
-    throw Exception("Not supported for type");
+    folly::throw_exception<Exception>("Not supported for type");
   }
 };
 
+template<>
+struct TraceEvent::MetaData::ConvVisitor<std::string> :
+    boost::static_visitor<std::string> {
+  std::string operator()(const std::vector<std::string>& operand) const;
+
+  template<typename U>
+  std::string operator()(U& operand) const {
+    return folly::to<std::string>(operand);
+  }
+};
 }

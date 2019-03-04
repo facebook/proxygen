@@ -21,6 +21,17 @@ folly::ByteRange range(const char *str, int64_t len = -1) {
 }
 }
 
+TEST(Base64, BasicEncode) {
+  EXPECT_EQ(Base64::encode(range("a")), "YQ==");
+  EXPECT_EQ(Base64::encode(range("ab")), "YWI=");
+  EXPECT_EQ(Base64::encode(range("abc")), "YWJj");
+}
+
+TEST(Base64, BasicDecode) {
+  EXPECT_EQ(Base64::decode("YQ==", 2), "a");
+  EXPECT_EQ(Base64::decode("YWI=", 1), "ab");
+  EXPECT_EQ(Base64::decode("YWJj", 0), "abc");
+}
 
 TEST(Base64, Encode) {
   EXPECT_EQ(Base64::urlEncode(range("hello world")), "aGVsbG8gd29ybGQ");

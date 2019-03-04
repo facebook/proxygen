@@ -460,7 +460,7 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
                                    HTTPTransaction *txn,
                                    bool permanent,
                                    uint64_t* depth) {
-  CHECK_NE(id, 0);
+  CHECK_NE(id, rootNodeId_);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
   CHECK(!txn || !permanent);
   Node *existingNode = find(id, depth);
@@ -481,7 +481,7 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   if (depth) {
     *depth = 1;
   }
-  if (pri.streamDependency != 0) {
+  if (pri.streamDependency != rootNodeId_) {
     Node* dep = find(pri.streamDependency, depth);
     if (dep == nullptr) {
       // specified a missing parent (timed out an idle node)?
@@ -493,7 +493,9 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
         // its priority fields to default.
         parent = dynamic_cast<Node*>(
             addTransaction(pri.streamDependency,
-                           http2::DefaultPriority,
+                           {rootNodeId_,
+                            http2::DefaultPriority.exclusive,
+                            http2::DefaultPriority.weight},
                            nullptr,
                            permanent,
                            depth));
@@ -546,9 +548,25 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
 
   Node* newParent = find(pri.streamDependency, depth);
   if (!newParent) {
-    newParent = &root_;
-    VLOG(4) << "updatePriority missing parent, assigning root for txn="
-            << node->getID();
+    if (pri.streamDependency == rootNodeId_ ||
+        numVirtualNodes_ >= maxVirtualNodes_) {
+      newParent = &root_;
+    } else {
+      // allocate a virtual node for non-existing parent in my depenency tree
+      // then do normal priority processing
+      newParent = dynamic_cast<Node*>(
+          addTransaction(pri.streamDependency,
+                         {rootNodeId_,
+                          http2::DefaultPriority.exclusive,
+                          http2::DefaultPriority.weight},
+                         nullptr,
+                         false,
+                         depth));
+
+      CHECK_NOTNULL(newParent);
+      VLOG(4) << "updatePriority missing parent, creating virtual parent="
+              << newParent->getID() << " for txn=" << node->getID();
+    }
   }
 
   if (newParent->isDescendantOf(node)) {
@@ -604,7 +622,7 @@ HTTP2PriorityQueue::iterateBFS(
   const std::function<bool(HTTP2PriorityQueue&, HTTPCodec::StreamID,
                            HTTPTransaction *, double)>& fn,
   const std::function<bool()>& stopFn, bool all) {
-  Node::PendingList pendingNodes{{0, &root_, 1.0}};
+  Node::PendingList pendingNodes{{rootNodeId_, &root_, 1.0}};
   Node::PendingList newPendingNodes;
   bool stop = false;
 
@@ -647,7 +665,7 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
   updateEnqueuedWeight();
   Node::PendingList pendingNodes;
   Node::PendingList pendingNodesTmp;
-  pendingNodes.emplace_back(0, &root_, 1.0);
+  pendingNodes.emplace_back(rootNodeId_, &root_, 1.0);
   bool stop = false;
   do {
     while (!stop && !pendingNodes.empty()) {
@@ -680,7 +698,7 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
 
 HTTP2PriorityQueue::Node*
 HTTP2PriorityQueue::find(HTTPCodec::StreamID id, uint64_t* depth) {
-  if (id == 0) {
+  if (id == rootNodeId_) {
     return nullptr;
   }
   auto it = nodes_.find(id, Node::IdHash(), Node::IdNodeEqual());

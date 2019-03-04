@@ -146,6 +146,21 @@ bool HTTPHeaders::remove(HTTPHeaderCode code) {
   return removed;
 }
 
+bool HTTPHeaders::removeAllVersions(HTTPHeaderCode code,
+  folly::StringPiece name) {
+  bool removed = false;
+  if(code != HTTP_HEADER_OTHER) {
+    removed = remove(code);
+  }
+  ITERATE_OVER_STRINGS_ALL_VERSION(name, {
+    delete headerNames_[pos];
+    codes_[pos] = HTTP_HEADER_NONE;
+    removed = true;
+    ++deletedCount_;
+  });
+  return removed;
+}
+
 void HTTPHeaders::disposeOfHeaderNames() {
   for (size_t i = 0; i < codes_.size(); ++i) {
     if (codes_[i] == HTTP_HEADER_OTHER) {

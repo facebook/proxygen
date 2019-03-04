@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = . codec session test
 
 BUILT_SOURCES = HTTPCommonHeaders.h HTTPCommonHeaders.cpp
@@ -27,6 +28,7 @@ nobase_libproxygenhttp_HEADERS = \
 	Window.h \
 	codec/CodecDictionaries.h \
 	codec/CodecProtocol.h \
+	codec/DefaultHTTPCodecFactory.h \
 	codec/ErrorCode.h \
 	codec/FlowControlFilter.h \
 	codec/HTTP1xCodec.h \
@@ -39,11 +41,12 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/SPDYCodec.h \
 	codec/HTTPParallelCodec.h \
 	codec/SPDYConstants.h \
-	codec/SPDYUtil.h \
+	codec/CodecUtil.h \
 	codec/SPDYVersion.h \
 	codec/SPDYVersionSettings.h \
 	codec/SettingsId.h \
 	codec/TransportDirection.h \
+        codec/compress/CompressionInfo.h \
 	codec/compress/GzipHeaderCodec.h \
 	codec/compress/HeaderIndexingStrategy.h \
 	codec/compress/HPACKCodec.h \
@@ -51,12 +54,13 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/HPACKContext.h \
 	codec/compress/HPACKDecodeBuffer.h \
 	codec/compress/HPACKDecoder.h \
+	codec/compress/HPACKDecoderBase.h \
 	codec/compress/HPACKEncodeBuffer.h \
 	codec/compress/HPACKEncoder.h \
+	codec/compress/HPACKEncoderBase.h \
 	codec/compress/HPACKHeader.h \
 	codec/compress/HPACKHeaderName.h \
-	codec/compress/HPACKHeaderTableImpl.h \
-	codec/compress/HPACKTableInfo.h \
+        codec/compress/HPACKStreamingCallback.h \
 	codec/compress/Header.h \
 	codec/compress/HeaderCodec.h \
 	codec/compress/HeaderPiece.h \
@@ -64,8 +68,15 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/compress/Huffman.h \
 	codec/compress/Logging.h \
 	codec/compress/NoPathIndexingStrategy.h \
-	codec/compress/QPACKHeader.h \
+	codec/compress/QPACKCodec.h \
+	codec/compress/QPACKContext.h \
+	codec/compress/QPACKDecoder.h \
+	codec/compress/QPACKEncoder.h \
+	codec/compress/QPACKHeaderTable.h \
+	codec/compress/QPACKStaticHeaderTable.h \
 	codec/compress/StaticHeaderTable.h \
+	codec/HeaderConstants.h \
+	codec/HeaderDecodeInfo.h \
 	codec/HTTPRequestVerifier.h \
 	codec/HTTP2Codec.h \
 	codec/HTTP2Constants.h \
@@ -89,6 +100,8 @@ nobase_libproxygenhttp_HEADERS = \
 	session/HTTPTransactionIngressSM.h \
 	session/HTTPUpstreamSession.h \
 	session/HTTP2PriorityQueue.h \
+	session/SecondaryAuthManager.h \
+	session/SecondaryAuthManagerBase.h \
 	session/SimpleController.h \
 	session/TTLBAStats.h \
 	session/TransportFilter.h
@@ -96,6 +109,7 @@ nobase_libproxygenhttp_HEADERS = \
 libproxygenhttp_la_SOURCES = \
 	HTTPCommonHeaders.cpp \
 	codec/CodecProtocol.cpp \
+	codec/DefaultHTTPCodecFactory.cpp \
 	codec/compress/GzipHeaderCodec.cpp \
 	codec/compress/HeaderIndexingStrategy.cpp \
 	codec/compress/HeaderTable.cpp \
@@ -103,15 +117,25 @@ libproxygenhttp_la_SOURCES = \
 	codec/compress/HPACKContext.cpp \
 	codec/compress/HPACKDecodeBuffer.cpp \
 	codec/compress/HPACKDecoder.cpp \
+	codec/compress/HPACKDecoderBase.cpp \
 	codec/compress/HPACKEncodeBuffer.cpp \
 	codec/compress/HPACKEncoder.cpp \
+	codec/compress/HPACKEncoderBase.cpp \
 	codec/compress/HPACKHeader.cpp \
 	codec/compress/Huffman.cpp \
 	codec/compress/NoPathIndexingStrategy.cpp \
 	codec/compress/Logging.cpp \
+	codec/compress/QPACKCodec.cpp \
+	codec/compress/QPACKContext.cpp \
+	codec/compress/QPACKDecoder.cpp \
+	codec/compress/QPACKEncoder.cpp \
+	codec/compress/QPACKHeaderTable.cpp \
+	codec/compress/QPACKStaticHeaderTable.cpp \
 	codec/compress/StaticHeaderTable.cpp \
 	codec/ErrorCode.cpp \
-	codec/HTTP2Codec.cpp \
+	codec/HeaderConstants.cpp \
+	codec/HeaderDecodeInfo.cpp \
+        codec/HTTP2Codec.cpp \
 	codec/HTTP2Constants.cpp \
 	codec/HTTP2Framer.cpp \
 	codec/FlowControlFilter.cpp \
@@ -124,7 +148,7 @@ libproxygenhttp_la_SOURCES = \
 	codec/SPDYCodec.cpp \
 	codec/HTTPParallelCodec.cpp \
 	codec/SPDYConstants.cpp \
-	codec/SPDYUtil.cpp \
+	codec/CodecUtil.cpp \
 	codec/TransportDirection.cpp \
 	HTTPConnector.cpp \
 	HTTPConstants.cpp \
@@ -151,6 +175,7 @@ libproxygenhttp_la_SOURCES = \
 	session/HTTPUpstreamSession.cpp \
 	session/HTTP2PriorityQueue.cpp \
 	session/ByteEventTracker.cpp \
+	session/SecondaryAuthManager.cpp \
 	session/SimpleController.cpp \
 	session/TransportFilter.cpp \
 	Window.cpp
@@ -164,7 +189,8 @@ noinst_PROGRAMS = CompressionSimulator
 CompressionSimulator_SOURCES = \
 	codec/compress/test/HTTPArchive.cpp \
 	codec/compress/experimental/simulator/Main.cpp \
-	codec/compress/experimental/simulator/CompressionSimulator.cpp
+	codec/compress/experimental/simulator/CompressionSimulator.cpp \
+	codec/compress/experimental/simulator/CompressionUtils.cpp
 
 CompressionSimulatordir = $(includedir)/proxygen/lib/http/codec/compress/experimental/simulator
 CompressionSimulator_HEADERS = \
@@ -172,6 +198,7 @@ CompressionSimulator_HEADERS = \
 	codec/compress/experimental/simulator/CompressionScheme.h \
 	codec/compress/experimental/simulator/CompressionSimulator.h \
 	codec/compress/experimental/simulator/CompressionTypes.h \
+	codec/compress/experimental/simulator/CompressionUtils.h \
 	codec/compress/experimental/simulator/HPACKScheme.h \
 	codec/compress/experimental/simulator/QPACKScheme.h \
 	codec/compress/experimental/simulator/SimStreamingCallback.h

@@ -135,6 +135,25 @@ inline void getDateOffsetStr(char datebuf[32], int dayOffset) {
 }
 
 /**
+ * Helper method to convert TimePoint to a printable date and time string. It
+ * will convert static time to system time.
+ *
+ * @param time    TimePoint
+ * @return        a human readable date and time string at UTC timezone.
+ *                If there is any error, returns empty string.
+ */
+inline std::string getDateTimeStr(TimePoint tp) {
+  time_t t = toTimeT(tp);
+  struct tm final_tm;
+  gmtime_r(&t, &final_tm);
+  char buf[256];
+  if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S %z", &final_tm) > 0) {
+    return std::string(buf);
+  }
+  return "";
+}
+
+/**
  * Helper method to convert to OpenSSL type ASN1_TIME to a printable date and
  * time string.
  *

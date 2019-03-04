@@ -27,6 +27,8 @@ extern const uint32_t kFramePushPromiseSize;
 extern const uint32_t kFramePingSize;
 extern const uint32_t kFrameGoawaySize;
 extern const uint32_t kFrameWindowUpdateSize;
+extern const uint32_t kFrameCertificateRequestSizeBase;
+extern const uint32_t kFrameCertificateSizeBase;
 
 // These constants indicate the size of the required fields in the frame
 extern const uint32_t kFrameAltSvcSizeBase;
@@ -38,15 +40,11 @@ extern const uint32_t kInitialWindow;
 extern const uint32_t kMaxWindowUpdateSize;
 extern const uint32_t kMaxHeaderTableSize;
 
-extern const std::string kAuthority;
-extern const std::string kMethod;
-extern const std::string kPath;
-extern const std::string kScheme;
-extern const std::string kStatus;
+// The maximum size of the data buffer caching an authenticator.
+// For secondary authentication in HTTP/2.
+extern const uint32_t kMaxAuthenticatorBufSize;
 
-extern const std::string kHttp;
-extern const std::string kHttps;
-
+extern const uint32_t kMaxHeaderTableSize;
 extern const std::string kConnectionPreface;
 
 extern const std::string kProtocolString;
@@ -54,4 +52,5 @@ extern const std::string kProtocolDraftString;
 extern const std::string kProtocolExperimentalString;
 extern const std::string kProtocolCleartextString;
 extern const std::string kProtocolSettingsHeader;
+
 }}

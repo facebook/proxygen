@@ -12,7 +12,7 @@
 
 using namespace proxygen;
 
-TEST(WindowTest, basic) {
+TEST(WindowTest, Basic) {
   Window w(100);
   ASSERT_TRUE(w.free(10));
   ASSERT_EQ(w.getSize(), 110);
@@ -27,7 +27,7 @@ TEST(WindowTest, basic) {
   ASSERT_EQ(w.getSize(), 5);
 }
 
-TEST(WindowTest, change_capacity) {
+TEST(WindowTest, ChangeCapacity) {
   Window w(100);
   ASSERT_TRUE(w.setCapacity(10));
   ASSERT_EQ(w.getSize(), 10);
@@ -47,7 +47,7 @@ TEST(WindowTest, change_capacity) {
   ASSERT_EQ(w.getOutstanding(), 6);
 }
 
-TEST(WindowTest, exceed_window) {
+TEST(WindowTest, ExceedWindow) {
   Window w(100);
   ASSERT_TRUE(w.reserve(50));
   ASSERT_TRUE(w.reserve(40));
@@ -55,12 +55,12 @@ TEST(WindowTest, exceed_window) {
   ASSERT_FALSE(w.reserve(20));
 }
 
-TEST(WindowTest, overflow) {
+TEST(WindowTest, Overflow) {
   Window w(0);
   ASSERT_FALSE(w.reserve(std::numeric_limits<int32_t>::max()));
 }
 
-TEST(WindowTest, underflow) {
+TEST(WindowTest, Underflow) {
   Window w(100);
   ASSERT_TRUE(w.free(100)); // You can manually bump up the window
   ASSERT_TRUE(w.free(100)); // You can manually bump up the window
@@ -68,19 +68,19 @@ TEST(WindowTest, underflow) {
   ASSERT_FALSE(w.free(std::numeric_limits<int32_t>::max())); // to a point
 }
 
-TEST(WindowTest, huge_reserve) {
+TEST(WindowTest, HugeReserve) {
   Window w(100);
   ASSERT_FALSE(w.reserve(std::numeric_limits<uint32_t>::max()));
 }
 
-TEST(WindowTest, huge_free) {
+TEST(WindowTest, HugeFree) {
   Window w1(0);
   ASSERT_TRUE(w1.free(std::numeric_limits<int32_t>::max()));
   Window w2(1);
   ASSERT_FALSE(w2.free(std::numeric_limits<int32_t>::max()));
 }
 
-TEST(WindowTest, huge_free_2) {
+TEST(WindowTest, HugeFree2) {
   for (unsigned i = 0; i < 10; ++i) {
     Window w(i);
     ASSERT_TRUE(w.free(std::numeric_limits<int32_t>::max() - i));
@@ -88,7 +88,7 @@ TEST(WindowTest, huge_free_2) {
   }
 }
 
-TEST(WindowTest, bytes_outstanding) {
+TEST(WindowTest, BytesOutstanding) {
   Window w(100);
   ASSERT_EQ(w.getOutstanding(), 0);
   ASSERT_TRUE(w.reserve(20));
@@ -98,21 +98,21 @@ TEST(WindowTest, bytes_outstanding) {
   ASSERT_EQ(w.getOutstanding(), 0);
 }
 
-TEST(WindowTest, bytes_outstanding_after_fail) {
+TEST(WindowTest, BytesOutstandingAfterFail) {
   Window w(100);
   ASSERT_EQ(w.getOutstanding(), 0);
   ASSERT_FALSE(w.reserve(110));
   ASSERT_EQ(w.getOutstanding(), 0);
 }
 
-TEST(WindowTest, non_strict) {
+TEST(WindowTest, NonStrict) {
   Window w(100);
   ASSERT_TRUE(w.reserve(110, false));
   ASSERT_EQ(w.getOutstanding(), 110);
   ASSERT_EQ(w.getSize(), -10);
 }
 
-TEST(WindowTest, new_capacity_overflow) {
+TEST(WindowTest, NewCapacityOverflow) {
   Window w(0);
   ASSERT_TRUE(w.free(10));
   ASSERT_EQ(w.getOutstanding(), 0);

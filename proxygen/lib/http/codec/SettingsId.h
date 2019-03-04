@@ -16,8 +16,9 @@ namespace proxygen {
 
 // Will never be valid HTTP/2 which only has 16 bits
 #define SPDY_SETTINGS_MASK (1 << 16)
+#define HQ_SETTINGS_MASK (((uint64_t)1) << 32)
 
-enum class SettingsId: uint32_t {
+enum class SettingsId : uint64_t {
   // From HTTP/2
   HEADER_TABLE_SIZE = 1,
   ENABLE_PUSH = 2,
@@ -34,6 +35,9 @@ enum class SettingsId: uint32_t {
   ENABLE_EX_HEADERS = 0xfbfb,
   THRIFT_CHANNEL_ID = 0xf100,
 
+  // For secondary authentication in HTTP/2
+  SETTINGS_HTTP_CERT_AUTH = 0xff00,
+
   // From SPDY, mostly unused
   _SPDY_UPLOAD_BANDWIDTH = SPDY_SETTINGS_MASK | 1,
   _SPDY_DOWNLOAD_BANDWIDTH = SPDY_SETTINGS_MASK | 2,
@@ -42,7 +46,13 @@ enum class SettingsId: uint32_t {
   _SPDY_CURRENT_CWND = SPDY_SETTINGS_MASK | 5,
   _SPDY_DOWNLOAD_RETRANS_RATE = SPDY_SETTINGS_MASK | 6,
   //  INITIAL_WINDOW_SIZE = 7,
-  _SPDY_CLIENT_CERTIFICATE_VECTOR_SIZE = SPDY_SETTINGS_MASK  | 8
+  _SPDY_CLIENT_CERTIFICATE_VECTOR_SIZE = SPDY_SETTINGS_MASK | 8,
+
+  // From HQ
+  //_HQ_HEADER_TABLE_SIZE = HQ_SETTINGS_MASK | 1, -- use HEADER_TABLE_SIZE
+  //_HQ_MAX_HEADER_LIST_SIZE = HQ_SETTINGS_MASK | 6, -- use MAX_HEADER_LIST_SIZE
+  _HQ_QPACK_BLOCKED_STREAMS = HQ_SETTINGS_MASK | 7,
+  _HQ_NUM_PLACEHOLDERS = HQ_SETTINGS_MASK | 8,
 };
 
 using SettingPair = std::pair<SettingsId, uint32_t>;

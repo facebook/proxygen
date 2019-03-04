@@ -64,15 +64,15 @@ class DownstreamTransactionTest : public testing::Test {
                                return cur;
                              }));
     if (delayResponse) {
-      EXPECT_CALL(transport_, sendEOM(txn));
+      EXPECT_CALL(transport_, sendEOM(txn, _));
     } else {
-      EXPECT_CALL(transport_, sendEOM(txn))
-        .WillOnce(InvokeWithoutArgs([=]() {
-              CHECK_EQ(sent_, size);
-              txn->onIngressBody(makeBuf(size), 0);
-              txn->onIngressEOM();
-              return 5;
-            }));
+      EXPECT_CALL(transport_, sendEOM(txn, _))
+          .WillOnce(InvokeWithoutArgs([=]() {
+            CHECK_EQ(sent_, size);
+            txn->onIngressBody(makeBuf(size), 0);
+            txn->onIngressEOM();
+            return 5;
+          }));
     }
     EXPECT_CALL(handler_, onBody(_))
       .WillRepeatedly(Invoke([=](std::shared_ptr<folly::IOBuf> body) {
@@ -110,12 +110,13 @@ class DownstreamTransactionTest : public testing::Test {
   * Test that the the transaction properly forwards callbacks to the
   * handler and that it interacts with its transport as expected.
   */
-TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
+TEST_F(DownstreamTransactionTest, SimpleCallbackForwarding) {
   // flow control is disabled
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
   setupRequestResponseFlow(&txn, 100);
 
   txn.onIngressHeadersComplete(makeGetRequest());
@@ -125,11 +126,12 @@ TEST_F(DownstreamTransactionTest, simple_callback_forwarding) {
 /**
  * Testing that we're sending a window update for simple requests
  */
-TEST_F(DownstreamTransactionTest, regular_window_update) {
+TEST_F(DownstreamTransactionTest, RegularWindowUpdate) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     400,
@@ -145,11 +147,12 @@ TEST_F(DownstreamTransactionTest, regular_window_update) {
   eventBase_.loop();
 }
 
-TEST_F(DownstreamTransactionTest, no_window_update) {
+TEST_F(DownstreamTransactionTest, NoWindowUpdate) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     450, // more than 2x req size
@@ -171,16 +174,68 @@ TEST_F(DownstreamTransactionTest, no_window_update) {
   eventBase_.loop();
 }
 
+TEST_F(DownstreamTransactionTest, ExpectingWindowUpdate) {
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(157784760000),
+    nullptr,
+    true,
+    450,
+    100);
+  uint32_t reqBodySize = 220;
+
+  // Get a request, pause ingress, fill up the sendWindow, then expect for a
+  // timeout to be scheduled.
+  txn.onIngressHeadersComplete(makeGetRequest());
+  txn.pauseIngress();
+  txn.onIngressBody(makeBuf(reqBodySize), 0);
+  txn.onIngressEOM();
+  auto response = makeResponse(200);
+  txn.sendHeaders(*response.get());
+  txn.sendBody(makeBuf(reqBodySize));
+  txn.sendEOM();
+  txn.onWriteReady(1000, 1);
+  EXPECT_EQ(transactionTimeouts_->count(), 1);
+}
+
+TEST_F(DownstreamTransactionTest, NoWindowUpdateAfterDoneSending) {
+  HTTPTransaction txn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(1), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(157784760000),
+    nullptr,
+    true,
+    450,
+    220);
+  uint32_t reqBodySize = 220;
+
+  // Ensure that after flushing an EOM we are not expecting window update.
+  txn.onIngressHeadersComplete(makeGetRequest());
+  txn.onIngressBody(makeBuf(reqBodySize), 0);
+  auto response = makeResponse(200);
+  txn.sendHeaders(*response.get());
+  txn.sendBody(makeBuf(reqBodySize));
+  txn.sendEOM();
+  txn.onWriteReady(1000, 1);
+  txn.pauseIngress();
+  txn.onIngressEOM();
+  EXPECT_EQ(transactionTimeouts_->count(), 0);
+}
+
 /**
  * Testing window increase using window update; we're actually using this in
  * production to avoid bumping the window using the SETTINGS frame
  */
-TEST_F(DownstreamTransactionTest, window_increase) {
+TEST_F(DownstreamTransactionTest, WindowIncrease) {
   // set initial window size higher than per-stream window
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     spdy::kInitialWindow,
@@ -206,12 +261,13 @@ TEST_F(DownstreamTransactionTest, window_increase) {
  * Testing that we're not sending window update when per-stream window size is
  * smaller than the initial window size
  */
-TEST_F(DownstreamTransactionTest, window_decrease) {
+TEST_F(DownstreamTransactionTest, WindowDecrease) {
   // set initial window size higher than per-stream window
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     spdy::kInitialWindow,
@@ -230,7 +286,7 @@ TEST_F(DownstreamTransactionTest, window_decrease) {
   eventBase_.loop();
 }
 
-TEST_F(DownstreamTransactionTest, parse_error_cbs) {
+TEST_F(DownstreamTransactionTest, ParseErrorCbs) {
   // Test where the transaction gets on parse error and then a body
   // callback. This is possible because codecs are stateless between
   // frames.
@@ -238,7 +294,8 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
 
   HTTPException err(HTTPException::Direction::INGRESS, "test");
   err.setHttpStatusCode(400);
@@ -267,14 +324,15 @@ TEST_F(DownstreamTransactionTest, parse_error_cbs) {
   eventBase_.loop();
 }
 
-TEST_F(DownstreamTransactionTest, detach_from_notify) {
+TEST_F(DownstreamTransactionTest, DetachFromNotify) {
   unique_ptr<StrictMock<MockHTTPHandler>> handler(
     new StrictMock<MockHTTPHandler>);
 
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
 
   InSequence dummy;
 
@@ -304,7 +362,7 @@ TEST_F(DownstreamTransactionTest, detach_from_notify) {
   txn.onError(err);
 }
 
-TEST_F(DownstreamTransactionTest, deferred_egress) {
+TEST_F(DownstreamTransactionTest, DeferredEgress) {
   EXPECT_CALL(transport_, describe(_))
     .WillRepeatedly(Return());
   EXPECT_CALL(transport_, notifyPendingEgress())
@@ -313,7 +371,8 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr, true, 10, 10);
 
   InSequence dummy;
@@ -341,6 +400,7 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
   txn.onIngressHeadersComplete(makeGetRequest());
 
   // onWriteReady, send, then dequeue (SPDY window now full)
+  EXPECT_CALL(transport_, notifyEgressBodyBuffered(-10));
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
 
   EXPECT_EQ(txn.onWriteReady(20, 1), false);
@@ -360,14 +420,15 @@ TEST_F(DownstreamTransactionTest, deferred_egress) {
   txn.onError(err);
 }
 
-TEST_F(DownstreamTransactionTest, internal_error) {
+TEST_F(DownstreamTransactionTest, InternalError) {
   unique_ptr<StrictMock<MockHTTPHandler>> handler(
     new StrictMock<MockHTTPHandler>);
 
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()));
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500));
 
   InSequence dummy;
 
@@ -392,14 +453,15 @@ TEST_F(DownstreamTransactionTest, internal_error) {
   txn.sendAbort();
 }
 
-TEST_F(DownstreamTransactionTest, unpaused_flow_control_violation) {
+TEST_F(DownstreamTransactionTest, UnpausedFlowControlViolation) {
   StrictMock<MockHTTPHandler> handler;
 
   InSequence enforceOrder;
   HTTPTransaction txn(
     TransportDirection::DOWNSTREAM,
     HTTPCodec::StreamID(1), 1, transport_,
-    txnEgressQueue_, WheelTimerInstance(transactionTimeouts_.get()),
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
     nullptr,
     true, // flow control enabled
     400,
@@ -414,4 +476,83 @@ TEST_F(DownstreamTransactionTest, unpaused_flow_control_violation) {
   txn.setHandler(&handler);
   txn.onIngressHeadersComplete(makePostRequest(401));
   txn.onIngressBody(makeBuf(401), 0);
+}
+
+TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnUnidirectional) {
+  // Test where the ex transaction using QoS0 gets Ingress error
+  HTTPTransaction exTxn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(2), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
+    nullptr, false, 0, 0, http2::DefaultPriority,
+    HTTPCodec::NoStream,
+    HTTPCodec::ExAttributes(1, true)
+  );
+
+  HTTPException err(HTTPException::Direction::INGRESS, "test");
+  err.setHttpStatusCode(400);
+
+  InSequence dummy;
+
+  EXPECT_CALL(handler_, setTransaction(&exTxn));
+  EXPECT_CALL(handler_, onError(_))
+    .WillOnce(Invoke([] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
+          ASSERT_EQ(std::string(ex.what()), "test");
+        }));
+  // onBody() is suppressed since ingress is complete after ingress onError()
+  // onEOM() is suppressed since ingress is complete after ingress onError()
+  EXPECT_CALL(transport_, sendAbort(_, _));
+  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(transport_, detach(&exTxn));
+
+  exTxn.setHandler(&handler_);
+  exTxn.onError(err);
+  // Since the transaction is already closed for ingress, giving it
+  // ingress body causes the transaction to be aborted and closed
+  // immediately.
+  exTxn.onIngressBody(makeBuf(10), 0);
+
+  eventBase_.loop();
+}
+
+TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnNonUnidirectional) {
+  // Test where the ex transaction using QoS0 gets Ingress error
+  HTTPTransaction exTxn(
+    TransportDirection::DOWNSTREAM,
+    HTTPCodec::StreamID(2), 1, transport_,
+    txnEgressQueue_, transactionTimeouts_.get(),
+    std::chrono::milliseconds(500),
+    nullptr, false, 0, 0, http2::DefaultPriority,
+    HTTPCodec::NoStream,
+    HTTPCodec::ExAttributes(1, true)
+  );
+
+  HTTPException err(HTTPException::Direction::INGRESS, "test");
+  err.setHttpStatusCode(400);
+
+  InSequence dummy;
+
+  EXPECT_CALL(handler_, setTransaction(&exTxn));
+  // Ingress error will propagate
+  // even if INGRESS state is completed for unidrectional ex_txn
+  EXPECT_CALL(handler_, onError(_))
+    .WillOnce(Invoke([] (const HTTPException& ex) {
+          ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
+          ASSERT_EQ(std::string(ex.what()), "test");
+        }));
+
+  EXPECT_CALL(transport_, sendAbort(_, _));
+  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(transport_, detach(&exTxn));
+
+  exTxn.setHandler(&handler_);
+  exTxn.onError(err);
+  // Since the transaction is already closed for ingress, giving it
+  // ingress body causes the transaction to be aborted and closed
+  // immediately.
+  exTxn.onIngressBody(makeBuf(10), 0);
+
+  eventBase_.loop();
 }

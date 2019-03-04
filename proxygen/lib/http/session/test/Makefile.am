@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = .
 
 check_PROGRAMS = SessionTests
@@ -9,6 +10,7 @@ SessionTests_SOURCES = \
 	HTTPUpstreamSessionTest.cpp \
 	HTTP2PriorityQueueTest.cpp \
 	MockCodecDownstreamTest.cpp \
+	HTTPDefaultSessionCodecFactoryTest.cpp \
 	TestUtils.cpp
 
 SessionTests_LDADD = \

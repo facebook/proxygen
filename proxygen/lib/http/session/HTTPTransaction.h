@@ -353,10 +353,8 @@ class HTTPTransaction :
 
     virtual size_t sendChunkTerminator(HTTPTransaction* txn) noexcept = 0;
 
-    virtual size_t sendTrailers(HTTPTransaction* txn,
-                                const HTTPHeaders& trailers) noexcept = 0;
-
-    virtual size_t sendEOM(HTTPTransaction* txn) noexcept = 0;
+    virtual size_t sendEOM(HTTPTransaction* txn,
+                           const HTTPHeaders* trailers) noexcept = 0;
 
     virtual size_t sendAbort(HTTPTransaction* txn,
                              ErrorCode statusCode) noexcept = 0;
@@ -403,8 +401,9 @@ class HTTPTransaction :
       HTTPTransaction::PushHandler* handler) noexcept = 0;
 
     virtual HTTPTransaction* newExTransaction(
+      HTTPTransaction::Handler* handler,
       HTTPCodec::StreamID controlStream,
-      HTTPTransaction::Handler* handler) noexcept = 0;
+      bool unidirectional) noexcept = 0;
 
     virtual std::string getSecurityProtocol() const = 0;
 
@@ -418,6 +417,11 @@ class HTTPTransaction :
 
     virtual const folly::AsyncTransportWrapper* getUnderlyingTransport()
       const noexcept = 0;
+
+    /**
+     * Returns true if the underlying transport has completed full handshake.
+     */
+    virtual bool isReplaySafe() const = 0;
 
     virtual void setHTTP2PrioritiesEnabled(bool enabled) = 0;
     virtual bool getHTTP2PrioritiesEnabled() const = 0;
@@ -442,7 +446,9 @@ class HTTPTransaction :
                   uint32_t seqNo,
                   Transport& transport,
                   HTTP2PriorityQueueBase& egressQueue,
-                  const WheelTimerInstance& timeout,
+                  folly::HHWheelTimer* timer = nullptr,
+                  const folly::Optional<std::chrono::milliseconds>&
+                  defaultTimeout = folly::Optional<std::chrono::milliseconds>(),
                   HTTPSessionStats* stats = nullptr,
                   bool useFlowControl = false,
                   uint32_t receiveInitialWindowSize = 0,
@@ -450,8 +456,8 @@ class HTTPTransaction :
                   http2::PriorityUpdate = http2::DefaultPriority,
                   folly::Optional<HTTPCodec::StreamID> assocStreamId =
                   HTTPCodec::NoStream,
-                  folly::Optional<HTTPCodec::StreamID> controlStream =
-                  HTTPCodec::NoControlStream);
+                  folly::Optional<HTTPCodec::ExAttributes> exAttributes =
+                  HTTPCodec::NoExAttributes);
 
   ~HTTPTransaction() override;
 
@@ -749,6 +755,14 @@ class HTTPTransaction :
   }
 
   /**
+   * @return true iff the remote side initiated this transaction.
+   */
+  bool isRemoteInitiated() const {
+    return (direction_ == TransportDirection::DOWNSTREAM && id_ % 2 == 1) ||
+           (direction_ == TransportDirection::UPSTREAM && id_ % 2 == 0);
+  }
+
+  /**
    * @return true iff sendEOM() has been called.
    */
   bool isEgressEOMSeen() const {
@@ -839,18 +853,7 @@ class HTTPTransaction :
   virtual void sendTrailers(const HTTPHeaders& trailers) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::sendTrailers));
-    if (transport_.getCodec().supportsParallelRequests()) {
-      // SPDY supports trailers whenever
-      size_t nbytes = transport_.sendTrailers(this, trailers);
-      if (transportCallback_) {
-        HTTPHeaderSize size;
-        size.uncompressed = nbytes;
-        transportCallback_->headerBytesGenerated(size);
-      }
-    } else {
-      // HTTP requires them to go right before EOM
-      trailers_.reset(new HTTPHeaders(trailers));
-    }
+    trailers_.reset(new HTTPHeaders(trailers));
   }
 
   /**
@@ -978,8 +981,9 @@ class HTTPTransaction :
    * @return the new transaction for pubsub, or nullptr if a new push
    * transaction is impossible right now.
    */
-  virtual HTTPTransaction* newExTransaction(HTTPTransactionHandler* handler) {
-    auto txn = transport_.newExTransaction(id_, handler);
+  virtual HTTPTransaction* newExTransaction(HTTPTransactionHandler* handler,
+                                            bool unidirectional = false) {
+    auto txn = transport_.newExTransaction(handler, id_, unidirectional);
     if (txn) {
       exTransactions_.insert(txn->getID());
     }
@@ -1006,6 +1010,33 @@ class HTTPTransaction :
    */
   bool isPushed() const {
     return assocStreamId_.has_value();
+  }
+
+  bool isExTransaction() const {
+    return exAttributes_.has_value();
+  }
+
+  bool isUnidirectional() const {
+    return isExTransaction() && exAttributes_->unidirectional;
+  }
+
+  /**
+   * @return true iff we should notify the error occured on EX_TXN
+   * This logic only applies to EX_TXN with QoS 0
+   */
+  bool shouldNotifyExTxnError(HTTPException::Direction errorDirection) const {
+    if (isUnidirectional()) {
+      if (isRemoteInitiated()) {
+        // We care about EGRESS errors in this case,
+        // because we marked EGRESS state to be completed
+        // If EGRESS error is happening, we need to know
+        // Same for INGRESS direction, when EX_TXN is not remoteInitiated()
+        return errorDirection == HTTPException::Direction::EGRESS;
+      } else {
+        return errorDirection == HTTPException::Direction::INGRESS;
+      }
+    }
+    return false;
   }
 
   /**
@@ -1042,7 +1073,15 @@ class HTTPTransaction :
    * folly::none otherwise
    */
   folly::Optional<HTTPCodec::StreamID> getControlStream() const {
-    return controlStream_;
+    return exAttributes_ ? exAttributes_->controlStream : HTTPCodec::NoStream;
+  }
+
+
+  /*
+   * Returns attributes of EX stream (folly::none if not an EX transaction)
+   */
+  folly::Optional<HTTPCodec::ExAttributes> getExAttributes() const {
+    return exAttributes_;
   }
 
   /**
@@ -1055,7 +1094,7 @@ class HTTPTransaction :
   /**
    * Get a set of exTransactions associated with this transaction.
    */
-  const std::set<HTTPCodec::StreamID>& getExTransactions() const {
+  std::set<HTTPCodec::StreamID> getExTransactions() const {
     return exTransactions_;
   }
 
@@ -1078,10 +1117,8 @@ class HTTPTransaction :
    * Schedule or refresh the timeout for this transaction
    */
   void refreshTimeout() {
-    if (hasIdleTimeout()) {
-      timeout_.scheduleTimeout(this, getIdleTimeout());
-    } else {
-      timeout_.scheduleTimeout(this);
+    if (timer_ && hasIdleTimeout()) {
+      timer_->scheduleTimeout(this, transactionTimeout_.value());
     }
   }
 
@@ -1197,7 +1234,7 @@ class HTTPTransaction :
 
   bool getPrioritySampleSummary(PrioritySampleSummary& summary) const;
 
-  HPACKTableInfo& getHPACKTableInfo();
+  const CompressionInfo& getCompressionInfo() const;
 
   bool hasPendingBody() const {
     return deferredEgressBody_.chainLength() > 0;
@@ -1220,11 +1257,11 @@ class HTTPTransaction :
   void updateHandlerPauseState();
 
   /**
-   * Update the HPACKTableInfo (tableInfo_) struct
+   * Update the CompressionInfo (tableInfo_) struct
    */
-  void updateEgressHPACKTableInfo(HPACKTableInfo);
+  void updateEgressCompressionInfo(const CompressionInfo&);
 
-  void updateIngressHPACKTableInfo(HPACKTableInfo);
+  void updateIngressCompressionInfo(const CompressionInfo&);
 
   bool mustQueueIngress() const;
 
@@ -1346,10 +1383,10 @@ class HTTPTransaction :
     HTTPTransactionEgressSM::getNewInstance()};
   HTTPTransactionIngressSM::State ingressState_{
     HTTPTransactionIngressSM::getNewInstance()};
-  WheelTimerInstance timeout_;
+
   HTTPSessionStats* stats_{nullptr};
 
-  HPACKTableInfo tableInfo_;
+  CompressionInfo tableInfo_;
 
   /**
    * The recv window and associated data. This keeps track of how many
@@ -1398,9 +1435,9 @@ class HTTPTransaction :
   folly::Optional<HTTPCodec::StreamID> assocStreamId_;
 
   /**
-   * ID of control channel (for http2 Ex_HEADERS only)
+   * Attributes of http2 Ex_HEADERS
    */
-  folly::Optional<HTTPCodec::StreamID> controlStream_;
+  folly::Optional<HTTPCodec::ExAttributes> exAttributes_;
 
   /**
    * Set of all push transactions IDs associated with this transaction.
@@ -1473,6 +1510,8 @@ class HTTPTransaction :
    * Optional transaction timeout value.
    */
   folly::Optional<std::chrono::milliseconds> transactionTimeout_;
+
+  folly::HHWheelTimer* timer_;
 
   class PrioritySample;
   std::unique_ptr<PrioritySample> prioritySample_;

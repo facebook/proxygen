@@ -21,6 +21,7 @@ enum class CodecProtocol : uint8_t {
   SPDY_3,
   SPDY_3_1,
   HTTP_2,
+  HQ,
 };
 
 /**
@@ -48,6 +49,11 @@ FB_EXPORT extern bool isSpdyCodecProtocol(CodecProtocol protocol);
  * Check if the given protocol is HTTP2.
  */
 extern bool isHTTP2CodecProtocol(CodecProtocol protocol);
+
+/**
+ * Check if the given protocol is HQ
+ */
+extern bool isHQCodecProtocol(CodecProtocol protocol);
 
 /**
  * Check if the given protocol supports paraellel requests

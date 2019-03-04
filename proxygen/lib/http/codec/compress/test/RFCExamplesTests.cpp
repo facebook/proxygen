@@ -129,7 +129,7 @@ std::string unhexlify(const std::string& input) {
 }
 }
 
-TEST_P(RFCRequestTest, rfc_example_request) {
+TEST_P(RFCRequestTest, RfcExampleRequest) {
   HPACKEncoder encoder(GetParam().first);
   HPACKDecoder decoder;
   // first request
@@ -157,7 +157,7 @@ INSTANTIATE_TEST_CASE_P(Huffman,
                         ::testing::Values(d3, d4));
 
 
-TEST_P(RFCResponseTest, rfc_example_response) {
+TEST_P(RFCResponseTest, RfcExampleResponse) {
   // this test does some evictions
   uint32_t tableSize = 256;
   HPACKEncoder encoder(GetParam().first, tableSize);

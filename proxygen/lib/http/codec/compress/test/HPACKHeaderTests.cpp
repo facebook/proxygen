@@ -19,12 +19,12 @@ using namespace testing;
 class HPACKHeaderTests : public testing::Test {
 };
 
-TEST_F(HPACKHeaderTests, size) {
+TEST_F(HPACKHeaderTests, Size) {
   HPACKHeader h(":path", "/");
   EXPECT_EQ(h.bytes(), 32 + 5 + 1);
 }
 
-TEST_F(HPACKHeaderTests, operators) {
+TEST_F(HPACKHeaderTests, Operators) {
   HPACKHeader h0(":path", "/");
   HPACKHeader h1(":path", "/");
   HPACKHeader h2(":path", "/index.php");
@@ -46,7 +46,7 @@ TEST_F(HPACKHeaderTests, operators) {
   EXPECT_EQ(out.str(), ":path: /");
 }
 
-TEST_F(HPACKHeaderTests, has_value) {
+TEST_F(HPACKHeaderTests, HasValue) {
   HPACKHeader h1(":path", "");
   HPACKHeader h2(":path", "/");
   EXPECT_FALSE(h1.hasValue());
@@ -74,7 +74,7 @@ HPACKHeaderName destroyedHPACKHeaderName(std::string name) {
   return headerName;
 }
 
-TEST_F(HPACKHeaderNameTest, test_constructor) {
+TEST_F(HPACKHeaderNameTest, TestConstructor) {
   // Test constructor
   HPACKHeaderName name1("accept-encoding");
   HPACKHeaderName name2("content-length");
@@ -86,7 +86,7 @@ TEST_F(HPACKHeaderNameTest, test_constructor) {
   EXPECT_EQ(name4.get(), "uncommon-name-2");
 }
 
-TEST_F(HPACKHeaderNameTest, test_copy_constructor) {
+TEST_F(HPACKHeaderNameTest, TestCopyConstructor) {
   HPACKHeaderName name1("accept-encoding");
   HPACKHeaderName name2("uncommon-name");
 
@@ -101,7 +101,7 @@ TEST_F(HPACKHeaderNameTest, test_copy_constructor) {
   EXPECT_EQ(name6.get(), "uncommon-name");
 }
 
-TEST_F(HPACKHeaderNameTest, test_move_constructor) {
+TEST_F(HPACKHeaderNameTest, TestMoveConstructor) {
   HPACKHeaderName name1("accept-encoding");
   HPACKHeaderName name2("uncommon-name");
 
@@ -112,14 +112,22 @@ TEST_F(HPACKHeaderNameTest, test_move_constructor) {
   EXPECT_EQ(name4.get(), "uncommon-name");
 }
 
-TEST_F(HPACKHeaderNameTest, test_assignment_operators) {
+TEST_F(HPACKHeaderNameTest, TestAssignmentOperators) {
   std::string testHeaderName = "accept-encoding";
 
   HPACKHeaderName name1(testHeaderName);
   EXPECT_EQ(name1.get(), testHeaderName);
 
   // Explicitly test some self assignment overloads
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
+#endif
   name1 = name1;
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
   EXPECT_EQ(name1.get(), testHeaderName);
   HPACKHeaderName* pName1 = &name1;
   // Specifically require a temporary above to throw off the compiler/lint:
@@ -141,7 +149,7 @@ TEST_F(HPACKHeaderNameTest, test_assignment_operators) {
   EXPECT_EQ(name1.get(), otherHeaderName);
 }
 
-TEST_F(HPACKHeaderNameTest, test_get_size) {
+TEST_F(HPACKHeaderNameTest, TestGetSize) {
   // Test size()
   HPACKHeaderName name1("accept-encoding");
   HPACKHeaderName name2("uncommon-header_now");
@@ -149,7 +157,7 @@ TEST_F(HPACKHeaderNameTest, test_get_size) {
   EXPECT_EQ(name2.size(), 19);
 }
 
-TEST_F(HPACKHeaderNameTest, test_operators) {
+TEST_F(HPACKHeaderNameTest, TestOperators) {
   // Test operators
   HPACKHeaderName name1("aaa");
   HPACKHeaderName name2("bbb");
@@ -165,7 +173,7 @@ TEST_F(HPACKHeaderNameTest, test_operators) {
   CHECK(name1 <= name2);
 }
 
-TEST_F(HPACKHeaderNameTest, test_is_common_header) {
+TEST_F(HPACKHeaderNameTest, TestIsCommonHeader) {
   for (uint64_t j = 0; j < HTTPCommonHeaders::num_header_codes; ++j) {
     HTTPHeaderCode code = static_cast<HTTPHeaderCode>(j);
     HPACKHeader testHPACKHeader(

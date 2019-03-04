@@ -14,7 +14,10 @@
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
+#include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
+#include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -27,30 +30,29 @@ class HPACKContextTests : public testing::TestWithParam<bool> {
 class TestContext : public HPACKContext {
 
  public:
-  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize, false,
-                                                          false) {}
+  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize) {}
 
   void add(const HPACKHeader& header) {
-    table_.add(header);
+    table_.add(header.copy());
   }
 
 };
 
-TEST_F(HPACKContextTests, get_index) {
-  HPACKContext context(HPACK::kTableSize, false, false);
+TEST_F(HPACKContextTests, GetIndex) {
+  HPACKContext context(HPACK::kTableSize);
   HPACKHeader method(":method", "POST");
 
   // this will get it from the static table
-  CHECK_EQ(context.getIndex(method, -1, -1), 3);
+  CHECK_EQ(context.getIndex(method), 3);
 }
 
-TEST_F(HPACKContextTests, is_static) {
+TEST_F(HPACKContextTests, IsStatic) {
   TestContext context(HPACK::kTableSize);
   // add 10 headers to the table
   for (int i = 1; i <= 10; i++) {
     HPACKHeader header("name" + folly::to<string>(i),
                       "value" + folly::to<string>(i));
-    context.add(header);
+    context.add(std::move(header));
   }
   EXPECT_EQ(context.getTable().size(), 10);
 
@@ -62,7 +64,7 @@ TEST_F(HPACKContextTests, is_static) {
   EXPECT_EQ(context.isStatic(69), false);
 }
 
-TEST_F(HPACKContextTests, static_table) {
+TEST_F(HPACKContextTests, StaticTable) {
   auto& table = StaticHeaderTable::get();
   const HPACKHeader& first = table.getHeader(1);
   const HPACKHeader& methodPost = table.getHeader(3);
@@ -75,14 +77,15 @@ TEST_F(HPACKContextTests, static_table) {
   CHECK_EQ(last.name.get(), "www-authenticate");
 }
 
-TEST_F(HPACKContextTests, static_table_header_names_are_common) {
+TEST_F(HPACKContextTests, StaticTableHeaderNamesAreCommon) {
   auto& table = StaticHeaderTable::get();
   for (std::pair<HPACKHeaderName, std::list<uint32_t>> entry : table.names()) {
     EXPECT_TRUE(entry.first.isCommonHeader());
   }
 }
 
-TEST_F(HPACKContextTests, static_table_is_header_code_in_table_with_non_empty_value) {
+TEST_F(HPACKContextTests,
+       static_table_is_header_code_in_table_with_non_empty_value) {
   auto& table = StaticHeaderTable::get();
   for (uint32_t i = 1; i <= table.size(); ++i) {
     const HPACKHeader& staticTableHeader = table.getHeader(i);
@@ -93,7 +96,7 @@ TEST_F(HPACKContextTests, static_table_is_header_code_in_table_with_non_empty_va
   }
 }
 
-TEST_F(HPACKContextTests, static_index) {
+TEST_F(HPACKContextTests, StaticIndex) {
   TestContext context(HPACK::kTableSize);
   HPACKHeader authority(":authority", "");
   EXPECT_EQ(context.getHeader(1), authority);
@@ -105,7 +108,7 @@ TEST_F(HPACKContextTests, static_index) {
   EXPECT_EQ(context.getHeader(28), contentLength);
 }
 
-TEST_F(HPACKContextTests, encoder_multiple_values) {
+TEST_F(HPACKContextTests, EncoderMultipleValues) {
   HPACKEncoder encoder(true);
   vector<HPACKHeader> req;
   req.push_back(HPACKHeader("accept-encoding", "gzip"));
@@ -121,7 +124,7 @@ TEST_F(HPACKContextTests, encoder_multiple_values) {
   EXPECT_GT(encoded2->computeChainDataLength(), 0);
 }
 
-TEST_F(HPACKContextTests, decoder_large_header) {
+TEST_F(HPACKContextTests, DecoderLargeHeader) {
   // with this size basically the table will not be able to store any entry
   uint32_t size = 32;
   HPACKHeader header;
@@ -132,7 +135,7 @@ TEST_F(HPACKContextTests, decoder_large_header) {
   // add a static entry
   headers.push_back(HPACKHeader(":method", "GET"));
   auto buf = encoder.encode(headers);
-  auto decoded = decoder.decode(buf.get());
+  auto decoded = proxygen::hpack::decode(decoder, buf.get());
   EXPECT_EQ(encoder.getTable().size(), 0);
   EXPECT_EQ(decoder.getTable().size(), 0);
 }
@@ -140,7 +143,7 @@ TEST_F(HPACKContextTests, decoder_large_header) {
 /**
  * testing invalid memory access in the decoder; it has to always call peek()
  */
-TEST_F(HPACKContextTests, decoder_invalid_peek) {
+TEST_F(HPACKContextTests, DecoderInvalidPeek) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
   vector<HPACKHeader> headers;
@@ -152,7 +155,7 @@ TEST_F(HPACKContextTests, decoder_invalid_peek) {
   first->writableData()[0] = HPACK::INDEX_REF.code;
 
   first->appendChain(std::move(encoded));
-  auto decoded = decoder.decode(first.get());
+  auto decoded = proxygen::hpack::decode(decoder, first.get());
 
   EXPECT_FALSE(decoder.hasError());
   EXPECT_EQ(*decoded, headers);
@@ -161,7 +164,7 @@ TEST_F(HPACKContextTests, decoder_invalid_peek) {
 /**
  * similar with the one above, but slightly different code paths
  */
-TEST_F(HPACKContextTests, decoder_invalid_literal_peek) {
+TEST_F(HPACKContextTests, DecoderInvalidLiteralPeek) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
   vector<HPACKHeader> headers;
@@ -172,7 +175,7 @@ TEST_F(HPACKContextTests, decoder_invalid_literal_peek) {
   first->writableData()[0] = 0x3F;
 
   first->appendChain(std::move(encoded));
-  auto decoded = decoder.decode(first.get());
+  auto decoded = proxygen::hpack::decode(decoder, first.get());
 
   EXPECT_FALSE(decoder.hasError());
   EXPECT_EQ(*decoded, headers);
@@ -183,12 +186,12 @@ TEST_F(HPACKContextTests, decoder_invalid_literal_peek) {
  */
 void checkError(const IOBuf* buf, const HPACK::DecodeError err) {
   HPACKDecoder decoder;
-  auto decoded = decoder.decode(buf);
+  auto decoded = proxygen::hpack::decode(decoder, buf);
   EXPECT_TRUE(decoder.hasError());
   EXPECT_EQ(decoder.getError(), err);
 }
 
-TEST_F(HPACKContextTests, decode_errors) {
+TEST_F(HPACKContextTests, DecodeErrors) {
   unique_ptr<IOBuf> buf = IOBuf::create(128);
 
   // 1. simulate an error decoding the index for an indexed header name
@@ -203,6 +206,12 @@ TEST_F(HPACKContextTests, decode_errors) {
   buf->writableData()[2] = 0x7F;
   buf->append(2);
   checkError(buf.get(), HPACK::DecodeError::INVALID_INDEX);
+
+  // 2a. invalid integer for indexed header name
+  buf->writableData()[0] = 0x7F;
+  buf->writableData()[1] = 0xFF;
+  buf->writableData()[2] = 0xFF;
+  checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // 3. buffer overflow when decoding literal header name
   buf->writableData()[0] = 0x00;  // this will activate the non-indexed branch
@@ -233,12 +242,17 @@ TEST_F(HPACKContextTests, decode_errors) {
   buf->writableData()[2] = 0xFF;
   buf->writableData()[3] = 0xFF;
   buf->writableData()[4] = 0xFF;
-  buf->writableData()[5] = 0x7F;
-  buf->append(3);
+  buf->writableData()[5] = 0xFF;
+  buf->writableData()[6] = 0xFF;
+  buf->writableData()[7] = 0xFF;
+  buf->writableData()[8] = 0xFF;
+  buf->writableData()[9] = 0xFF;
+  buf->writableData()[10] = 0x7F;
+  buf->append(8);
   checkError(buf.get(), HPACK::DecodeError::INTEGER_OVERFLOW);
 }
 
-TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
+TEST_F(HPACKContextTests, ExcludeHeadersLargerThanTable) {
   HPACKEncoder encoder{true, 128};
   std::string longer = std::string(150, '.');
   HPACKHeader header1(longer, "header");
@@ -253,11 +267,11 @@ TEST_F(HPACKContextTests, exclude_headers_larger_than_table) {
 
   encoder.encode(headers);
 
-  CHECK_EQ(encoder.getIndex(headers[1], -1, -1), 0);
-  CHECK_EQ(encoder.getIndex(headers[0], -1, -1), 62);
+  CHECK_EQ(encoder.getIndex(headers[1]), 0);
+  CHECK_EQ(encoder.getIndex(headers[0]), 62);
 }
 
-TEST_P(HPACKContextTests, contextUpdate) {
+TEST_P(HPACKContextTests, ContextUpdate) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
   vector<HPACKHeader> headers;
@@ -272,7 +286,7 @@ TEST_P(HPACKContextTests, contextUpdate) {
   unique_ptr<IOBuf> first = IOBuf::create(128);
 
   first->appendChain(std::move(encoded));
-  auto decoded = decoder.decode(first.get());
+  auto decoded = proxygen::hpack::decode(decoder, first.get());
 
 
   EXPECT_EQ(decoder.hasError(), !setDecoderSize);

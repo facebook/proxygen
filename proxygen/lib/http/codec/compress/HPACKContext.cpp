@@ -8,26 +8,14 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
-#include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
-#include <proxygen/lib/http/codec/compress/QPACKHeader.h>
-
-#include <folly/io/IOBuf.h>
-
-using std::string;
 
 namespace proxygen {
 
-HPACKContext::HPACKContext(uint32_t tableSize, bool qpack, bool useBaseIndex) :
-    table_(std::unique_ptr<TableImpl>(
-             (qpack ?
-              (TableImpl*)new QPACKTableImpl() :
-              (TableImpl*)new HPACKHeaderTableImpl())), tableSize),
-    useBaseIndex_(useBaseIndex) {
-  table_.setAbsoluteIndexing(useBaseIndex);
+HPACKContext::HPACKContext(uint32_t tableSize) :
+    table_(tableSize) {
 }
 
-uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,
-                                int32_t curEpoch) const {
+uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
   // First consult the static header table if applicable
   // Applicability is determined by the following guided optimizations:
   // 1) The set of CommonHeaders includes all StaticTable headers and so we can
@@ -41,8 +29,9 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,
   if (header.value.empty()) {
     consultStaticTable = header.name.isCommonHeader();
   } else {
-    consultStaticTable = StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
-      header.name.getHeaderCode());
+    consultStaticTable =
+      StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
+        header.name.getHeaderCode());
   }
   if (consultStaticTable) {
     uint32_t staticIndex = getStaticTable().getIndex(header);
@@ -52,22 +41,20 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header, int32_t commitEpoch,
   }
 
   // Else check the dynamic table
-  uint32_t dynamicIndex = table_.getIndex(header, commitEpoch, curEpoch);
-  if (dynamicIndex && dynamicIndex != std::numeric_limits<uint32_t>::max()) {
+  uint32_t dynamicIndex = table_.getIndex(header);
+  if (dynamicIndex) {
     return dynamicToGlobalIndex(dynamicIndex);
   } else {
     return dynamicIndex;
   }
 }
 
-uint32_t HPACKContext::nameIndex(const HPACKHeaderName& headerName,
-                                 int32_t commitEpoch,
-                                 int32_t curEpoch) const {
+uint32_t HPACKContext::nameIndex(const HPACKHeaderName& headerName) const {
   uint32_t index = getStaticTable().nameIndex(headerName);
   if (index) {
     return staticToGlobalIndex(index);
   }
-  index = table_.nameIndex(headerName, commitEpoch, curEpoch);
+  index = table_.nameIndex(headerName);
   if (index) {
     return dynamicToGlobalIndex(index);
   }
@@ -78,27 +65,17 @@ bool HPACKContext::isStatic(uint32_t index) const {
   return index <= getStaticTable().size();
 }
 
-const HPACKHeader& HPACKContext::getStaticHeader(uint32_t index) {
-  DCHECK(isStatic(index));
-  return getStaticTable().getHeader(globalToStaticIndex(index));
-}
-
-const HPACKHeader& HPACKContext::getDynamicHeader(uint32_t index) {
-  DCHECK(!isStatic(index));
-  return table_.getHeader(globalToDynamicIndex(index));
-}
-
 const HPACKHeader& HPACKContext::getHeader(uint32_t index) {
   if (isStatic(index)) {
-    return getStaticHeader(index);
+    return getStaticTable().getHeader(globalToStaticIndex(index));
   }
-  return getDynamicHeader(index);
+  return table_.getHeader(globalToDynamicIndex(index));
 }
 
 void HPACKContext::seedHeaderTable(
   std::vector<HPACKHeader>& headers) {
-  for (const auto& header: headers) {
-    table_.add(header);
+  for (auto& header: headers) {
+    table_.add(std::move(header));
   }
 }
 

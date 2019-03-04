@@ -22,7 +22,7 @@ using namespace testing;
 class LoggingTests : public testing::Test {
 };
 
-TEST_F(LoggingTests, refset) {
+TEST_F(LoggingTests, Refset) {
   list<uint32_t> refset;
   refset.push_back(3);
   refset.push_back(5);
@@ -31,7 +31,7 @@ TEST_F(LoggingTests, refset) {
   EXPECT_EQ(out.str(), "\n[3 5 ]\n");
 }
 
-TEST_F(LoggingTests, dump_header_vector) {
+TEST_F(LoggingTests, DumpHeaderVector) {
   vector<HPACKHeader> headers;
   headers.push_back(HPACKHeader(":path", "index.html"));
   headers.push_back(HPACKHeader("content-type", "gzip"));
@@ -40,7 +40,7 @@ TEST_F(LoggingTests, dump_header_vector) {
   EXPECT_EQ(out.str(), ":path: index.html\ncontent-type: gzip\n\n");
 }
 
-TEST_F(LoggingTests, print_delta) {
+TEST_F(LoggingTests, PrintDelta) {
   vector<HPACKHeader> v1;
   v1.push_back(HPACKHeader(":path", "/"));
   v1.push_back(HPACKHeader(":host", "www.facebook.com"));
@@ -66,7 +66,7 @@ TEST_F(LoggingTests, print_delta) {
   EXPECT_EQ(printDelta(v1, v2), "\n + :a: b\n duplicate :a: b\n");
 }
 
-TEST_F(LoggingTests, dump_bin) {
+TEST_F(LoggingTests, DumpBin) {
   // test with an HPACKEncodeBuffer
   HPACKEncodeBuffer buf(128);
   buf.encodeLiteral("test");

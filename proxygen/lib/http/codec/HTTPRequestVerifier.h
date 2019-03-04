@@ -10,8 +10,8 @@
 #pragma once
 
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/SPDYUtil.h>
-#include <proxygen/lib/http/codec/HTTP2Framer.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
+#include <proxygen/lib/http/codec/HeaderConstants.h>
 
 namespace proxygen {
 
@@ -19,12 +19,22 @@ class HTTPRequestVerifier {
  public:
   explicit HTTPRequestVerifier() {}
 
+  void reset(HTTPMessage* msg) {
+    msg_ = msg;
+    error = "";
+    hasMethod_ = false;
+    hasPath_ = false;
+    hasScheme_ = false;
+    hasAuthority_ = false;
+    hasUpgradeProtocol_ = false;
+  }
+
   bool setMethod(folly::StringPiece method) {
     if (hasMethod_) {
       error = "Duplicate method";
       return false;
     }
-    if (!SPDYUtil::validateMethod(method)) {
+    if (!CodecUtil::validateMethod(method)) {
       error = "Invalid method";
       return false;
     }
@@ -39,7 +49,7 @@ class HTTPRequestVerifier {
       error = "Duplicate path";
       return false;
     }
-    if (!SPDYUtil::validateURL(path)) {
+    if (!CodecUtil::validateURL(path)) {
       error = "Invalid url";
       return false;
     }
@@ -55,13 +65,13 @@ class HTTPRequestVerifier {
       return false;
     }
     // This just checks for alpha chars
-    if (!SPDYUtil::validateMethod(scheme)) {
+    if (!CodecUtil::validateMethod(scheme)) {
       error = "Invalid scheme";
       return false;
     }
     hasScheme_ = true;
     // TODO support non http/https schemes
-    if (scheme == http2::kHttps) {
+    if (scheme == headers::kHttps) {
       assert(msg_ != nullptr);
       msg_->setSecure(true);
     }
@@ -73,7 +83,7 @@ class HTTPRequestVerifier {
       error = "Duplicate authority";
       return false;
     }
-    if (!SPDYUtil::validateHeaderValue(authority, SPDYUtil::STRICT)) {
+    if (!CodecUtil::validateHeaderValue(authority, CodecUtil::STRICT)) {
       error = "Invalid authority";
       return false;
     }
@@ -83,20 +93,32 @@ class HTTPRequestVerifier {
     return true;
   }
 
+  bool setUpgradeProtocol(folly::StringPiece protocol) {
+    if (hasUpgradeProtocol_) {
+      error = "Duplicate protocol";
+      return false;
+    }
+    setHasUpgradeProtocol(true);
+    msg_->setUpgradeProtocol(folly::to<std::string>(protocol));
+    return true;
+  }
+
   bool validate() {
     if (error.size()) {
       return false;
     }
     if (msg_->getMethod() == HTTPMethod::CONNECT) {
-      if (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_) {
-        error = folly::to<std::string>("Malformed CONNECT request m/a/s/p=",
+      if ((!hasUpgradeProtocol_ &&
+           (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_)) ||
+          (hasUpgradeProtocol_ && (!hasScheme_ || !hasPath_))) {
+        error = folly::to<std::string>("Malformed CONNECT request m/a/s/pa/pr=",
                                 hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_);
+                                hasScheme_, hasPath_, hasUpgradeProtocol_);
       }
-    } else if (!hasMethod_ || !hasScheme_ || !hasPath_) {
-      error = folly::to<std::string>("Malformed request m/a/s/p=",
+    } else if (hasUpgradeProtocol_ || !hasMethod_ || !hasScheme_ || !hasPath_) {
+      error = folly::to<std::string>("Malformed request m/a/s/pa/pr=",
                                 hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_);
+                                hasScheme_, hasPath_, hasUpgradeProtocol_);
     }
     return error.empty();
   }
@@ -121,6 +143,14 @@ class HTTPRequestVerifier {
     hasAuthority_ = hasAuthority;
   }
 
+  void setHasUpgradeProtocol(bool val) {
+    hasUpgradeProtocol_ = val;
+  }
+
+  bool hasUpgradeProtocol() {
+    return hasUpgradeProtocol_;
+  }
+
   std::string error;
 
  private:
@@ -129,6 +159,7 @@ class HTTPRequestVerifier {
   bool hasPath_{false};
   bool hasScheme_{false};
   bool hasAuthority_{false};
+  bool hasUpgradeProtocol_{false};
 };
 
 } // proxygen

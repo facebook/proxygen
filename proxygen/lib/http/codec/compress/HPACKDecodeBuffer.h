@@ -23,11 +23,13 @@ class HPACKDecodeBuffer {
 
   explicit HPACKDecodeBuffer(folly::io::Cursor& cursorVal,
                              uint32_t totalBytes,
-                             uint32_t maxLiteralSize)
+                             uint32_t maxLiteralSize,
+                             bool endOfBufferIsError=true)
       : cursor_(cursorVal),
         totalBytes_(totalBytes),
         remainingBytes_(totalBytes),
-        maxLiteralSize_(maxLiteralSize) {}
+        maxLiteralSize_(maxLiteralSize),
+        endOfBufferIsError_(endOfBufferIsError) {}
 
   ~HPACKDecodeBuffer() {}
 
@@ -70,12 +72,12 @@ class HPACKDecodeBuffer {
    * decode an integer from the current position, given a nbit prefix.
    * Ignores 8 - nbit bits in the first byte of the buffer.
    */
-  HPACK::DecodeError decodeInteger(uint8_t nbit, uint32_t& integer);
+  HPACK::DecodeError decodeInteger(uint8_t nbit, uint64_t& integer);
 
   /**
    * As above but with no prefix
    */
-  HPACK::DecodeError decodeInteger(uint32_t& integer);
+  HPACK::DecodeError decodeInteger(uint64_t& integer);
 
   /**
    * decode a literal starting from the current position
@@ -85,10 +87,15 @@ class HPACKDecodeBuffer {
   HPACK::DecodeError decodeLiteral(uint8_t nbit, folly::fbstring& literal);
 
 private:
+  void EOB_LOG(std::string msg,
+               HPACK::DecodeError code=
+               HPACK::DecodeError::BUFFER_UNDERFLOW) const;
+
   folly::io::Cursor& cursor_;
   uint32_t totalBytes_;
   uint32_t remainingBytes_;
   uint32_t maxLiteralSize_{std::numeric_limits<uint32_t>::max()};
+  bool endOfBufferIsError_{true};
 };
 
 }

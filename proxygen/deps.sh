@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 ## Run this script to build proxygen and run the tests. If you want to
 ## install proxygen to use in another C++ project on this machine, run
@@ -22,8 +23,8 @@ set -e
 start_dir=$(pwd)
 trap 'cd $start_dir' EXIT
 
-folly_rev=`cat $start_dir/../build/deps/github_hashes/facebook/folly-rev.txt|sed 's/Subproject commit //'`
-wangle_rev=`cat $start_dir/../build/deps/github_hashes/facebook/wangle-rev.txt|sed 's/Subproject commit //'`
+folly_rev=$(sed 's/Subproject commit //' "$start_dir"/../build/deps/github_hashes/facebook/folly-rev.txt)
+wangle_rev=$(sed 's/Subproject commit //' "$start_dir"/../build/deps/github_hashes/facebook/wangle-rev.txt)
 
 # Must execute from the directory containing this script
 cd "$(dirname "$0")"
@@ -49,7 +50,14 @@ sudo apt-get install -yq \
     libjemalloc-dev \
     libsnappy-dev \
     wget \
-    unzip
+    unzip \
+    libiberty-dev \
+    liblz4-dev \
+    liblzma-dev \
+    make \
+    zlib1g-dev \
+    binutils-dev \
+    libsodium-dev
 
 # Adding support for Ubuntu 12.04.x
 # Needs libdouble-conversion-dev, google-gflags and double-conversion
@@ -103,12 +111,12 @@ if [ ! -e folly/folly ]; then
 fi
 cd folly
 git fetch
-git checkout $folly_rev
+git checkout "$folly_rev"
 
 # Build folly
 mkdir -p _build
 cd _build
-cmake configure ..
+cmake configure .. -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 make -j$JOBS
 sudo make install
 
@@ -118,6 +126,22 @@ if test $? -ne 0; then
 fi
 cd ../..
 
+# Get fizz
+if [ ! -e fizz/fizz ]; then
+    echo "Cloning fizz"
+    git clone https://github.com/facebookincubator/fizz
+fi
+cd fizz
+git fetch
+
+# Build fizz
+mkdir -p build_
+cd build_
+cmake ../fizz
+make -j$JOBS
+sudo make install
+cd ../..
+
 # Get wangle
 if [ ! -e wangle/wangle ]; then
     echo "Cloning wangle"
@@ -125,12 +149,12 @@ if [ ! -e wangle/wangle ]; then
 fi
 cd wangle
 git fetch
-git checkout $wangle_rev
+git checkout "$wangle_rev"
 
 # Build wangle
 mkdir -p _build
 cd _build
-cmake configure ../wangle
+cmake configure ../wangle -DBUILD_SHARED_LIBS=ON -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 make -j$JOBS
 sudo make install
 

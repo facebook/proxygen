@@ -9,13 +9,12 @@
  */
 #pragma once
 
+#include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
 #include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPParallelCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
-#include <proxygen/lib/utils/Result.h>
-
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
 #include <bitset>
@@ -27,12 +26,12 @@ namespace proxygen {
  * An implementation of the framing layer for HTTP/2. Instances of this
  * class must not be used from multiple threads concurrently.
  */
-class HTTP2Codec: public HTTPParallelCodec, HeaderCodec::StreamingCallback {
+class HTTP2Codec: public HTTPParallelCodec, HPACK::StreamingCallback {
 public:
   void onHeader(const folly::fbstring& name,
                 const folly::fbstring& value) override;
-  void onHeadersComplete(HTTPHeaderSize decodedSize) override;
-  void onDecodeError(HeaderDecodeError decodeError) override;
+  void onHeadersComplete(HTTPHeaderSize decodedSize, bool acknowledge) override;
+  void onDecodeError(HPACK::DecodeError decodeError) override;
 
   explicit HTTP2Codec(TransportDirection direction);
   ~HTTP2Codec() override;
@@ -54,6 +53,10 @@ public:
                       const HTTPMessage& msg,
                       bool eom = false,
                       HTTPHeaderSize* size = nullptr) override;
+  void generateContinuation(folly::IOBufQueue& writeBuf,
+                            folly::IOBufQueue& queue,
+                            StreamID stream,
+                            size_t maxFrameSize);
   void generatePushPromise(folly::IOBufQueue& writeBuf,
                            StreamID stream,
                            const HTTPMessage& msg,
@@ -63,7 +66,7 @@ public:
   void generateExHeader(folly::IOBufQueue& writeBuf,
                         StreamID stream,
                         const HTTPMessage& msg,
-                        StreamID controlStream,
+                        const HTTPCodec::ExAttributes& exAttributes,
                         bool eom = false,
                         HTTPHeaderSize* size = nullptr) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
@@ -100,7 +103,13 @@ public:
   size_t generatePriority(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage::HTTPPriority& pri) override;
-
+  size_t generateCertificateRequest(
+      folly::IOBufQueue& writeBuf,
+      uint16_t requestId,
+      std::unique_ptr<folly::IOBuf> certificateRequestData) override;
+  size_t generateCertificate(folly::IOBufQueue& writeBuf,
+                             uint16_t certId,
+                             std::unique_ptr<folly::IOBuf> certData) override;
   const HTTPSettings* getIngressSettings() const override {
     return &ingressSettings_;
   }
@@ -139,8 +148,8 @@ public:
       uint8_t maxLevel) override;
   HTTPCodec::StreamID mapPriorityToDependency(uint8_t priority) const override;
 
-  HPACKTableInfo getHPACKTableInfo() const override {
-    return headerCodec_.getHPACKTableInfo();
+  CompressionInfo getCompressionInfo() const override {
+    return headerCodec_.getCompressionInfo();
   }
 
   //HTTP2Codec specific API
@@ -170,44 +179,16 @@ public:
   void generateHeaderImpl(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage& msg,
-                          folly::Optional<StreamID> assocStream,
-                          folly::Optional<StreamID> controlStream,
+                          const folly::Optional<StreamID>& assocStream,
+                          const folly::Optional<ExAttributes>& exAttributes,
                           bool eom,
                           HTTPHeaderSize* size);
+  std::unique_ptr<folly::IOBuf> encodeHeaders(
+      const HTTPHeaders& headers,
+      std::vector<compress::Header>& allHeaders,
+      HTTPHeaderSize* size);
 
-  class HeaderDecodeInfo {
-   public:
-    explicit HeaderDecodeInfo(HTTPRequestVerifier v)
-    : verifier(v) {}
-
-    void init(HTTPMessage* msgIn, bool isRequestIn) {
-      msg = msgIn;
-      isRequest = isRequestIn;
-      hasStatus = false;
-      hasContentLength = false;
-      contentLength = 0;
-      regularHeaderSeen = false;
-      parsingError = "";
-      decodeError = HeaderDecodeError::NONE;
-      verifier.error = "";
-      verifier.setMessage(msg);
-      verifier.setHasMethod(false);
-      verifier.setHasPath(false);
-      verifier.setHasScheme(false);
-      verifier.setHasAuthority(false);
-    }
-    // Change this to a map of decoded header blocks when we decide
-    // to concurrently decode partial header blocks
-    HTTPMessage* msg{nullptr};
-    HTTPRequestVerifier verifier;
-    bool isRequest{false};
-    bool hasStatus{false};
-    bool regularHeaderSeen{false};
-    bool hasContentLength{false};
-    uint32_t contentLength{0};
-    std::string parsingError;
-    HeaderDecodeError decodeError{HeaderDecodeError::NONE};
-  };
+  size_t generateHeaderCallbackWrapper(StreamID stream, http2::FrameType type, size_t length);
 
   ErrorCode parseFrame(folly::io::Cursor& cursor);
   ErrorCode parseAllData(folly::io::Cursor& cursor);
@@ -225,26 +206,37 @@ public:
   ErrorCode parseGoaway(folly::io::Cursor& cursor);
   ErrorCode parseContinuation(folly::io::Cursor& cursor);
   ErrorCode parseWindowUpdate(folly::io::Cursor& cursor);
+  ErrorCode parseCertificateRequest(folly::io::Cursor& cursor);
+  ErrorCode parseCertificate(folly::io::Cursor& cursor);
   ErrorCode parseHeadersImpl(
     folly::io::Cursor& cursor,
     std::unique_ptr<folly::IOBuf> headerBuf,
-    folly::Optional<http2::PriorityUpdate> priority,
-    folly::Optional<uint32_t> promisedStream,
-    folly::Optional<uint32_t> controlStream);
+    const folly::Optional<http2::PriorityUpdate>& priority,
+    const folly::Optional<uint32_t>& promisedStream,
+    const folly::Optional<ExAttributes>& exAttributes);
+  folly::Optional<ErrorCode> parseHeadersDecodeFrames(
+      const folly::Optional<http2::PriorityUpdate>& priority,
+      const folly::Optional<uint32_t>& promisedStream,
+      const folly::Optional<ExAttributes>& exAttributes,
+      std::unique_ptr<HTTPMessage>& msg);
+  folly::Optional<ErrorCode> parseHeadersCheckConcurrentStreams(
+      const folly::Optional<http2::PriorityUpdate>& priority);
 
   ErrorCode handleEndStream();
-  ErrorCode checkNewStream(uint32_t stream);
+  ErrorCode checkNewStream(uint32_t stream, bool trailersAllowed);
   bool checkConnectionError(ErrorCode, const folly::IOBuf* buf);
   ErrorCode handleSettings(const std::deque<SettingPair>& settings);
+  void handleSettingsAck();
   size_t maxSendFrameSize() const {
-    return ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
+    return (uint32_t)ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                        http2::kMaxFramePayloadLengthMin);
   }
   uint32_t maxRecvFrameSize() const {
-    return egressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
+    return (uint32_t)egressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
                                       http2::kMaxFramePayloadLengthMin);
   }
   void streamError(const std::string& msg, ErrorCode error, bool newTxn=false);
+  bool parsingTrailers() const;
 
   HPACKCodec headerCodec_;
 
@@ -252,6 +244,13 @@ public:
   http2::FrameHeader curHeader_;
   StreamID expectedContinuationStream_{0};
   bool pendingEndStreamHandling_{false};
+  bool ingressWebsocketUpgrade_{false};
+
+  std::unordered_set<StreamID> upgradedStreams_;
+
+  uint16_t curCertId_{0};
+  folly::IOBufQueue curAuthenticatorBlock_{
+      folly::IOBufQueue::cacheChainLength()};
 
   folly::IOBufQueue curHeaderBlock_{folly::IOBufQueue::cacheChainLength()};
   HTTPSettings ingressSettings_{
@@ -264,7 +263,6 @@ public:
     { SettingsId::ENABLE_PUSH, 0 },
     { SettingsId::MAX_FRAME_SIZE, 16384 },
     { SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17 }, // same as SPDYCodec
-    { SettingsId::ENABLE_CONNECT_PROTOCOL, 0},
   };
 #ifndef NDEBUG
   uint64_t receivedFrameCount_{0};
@@ -284,7 +282,20 @@ public:
 
   HeaderDecodeInfo decodeInfo_;
   std::vector<StreamID> virtualPriorityNodes_;
+  folly::Optional<uint32_t> pendingTableMaxSize_;
   bool reuseIOBufHeadroomForData_{true};
+
+  // True if last parsed HEADERS frame was trailers.
+  // Reset only when HEADERS frame is parsed, thus
+  // remains unchanged and used during CONTINUATION frame
+  // parsing as well.
+  // Applies only to DOWNSTREAM, for UPSTREAM we use
+  // diffrent heuristic - lack of status code.
+  bool parsingDownstreamTrailers_{false};
+
+  // CONTINUATION frame can follow either HEADERS or PUSH_PROMISE frames.
+  // Keeps frame type of iniating frame of header block.
+  http2::FrameType headerBlockFrameType_{http2::FrameType::DATA};
 };
 
 } // proxygen

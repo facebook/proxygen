@@ -28,7 +28,9 @@ class PushHandler;
  *   onError - Send a direct response back if no response has started and
  *             writing is still possible. Otherwise sends an abort.
  *
- * - Handles 100-continue case for you (by sending Continue response)
+ * - Handles the 100-continue case for you (by sending Continue response),
+ *   if RequestHandler returns false for canHandleExpect(). Otherwise,
+ *   RequestHandler is responsible for handling it.
  */
 class RequestHandlerAdaptor
     : public HTTPTransactionHandler,
@@ -64,8 +66,8 @@ class RequestHandlerAdaptor
   void resumeIngress() noexcept override;
   ResponseHandler* newPushedResponse(
     PushHandler* pushHandler) noexcept override;
-  ResponseHandler* newExMessage(ExMessageHandler* exHandler)
-    noexcept override;
+  ResponseHandler* newExMessage(ExMessageHandler* exHandler,
+                                bool unidirectional) noexcept override;
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override;
 
@@ -73,7 +75,6 @@ class RequestHandlerAdaptor
   void setError(ProxygenError err) noexcept;
 
   ProxygenError err_{kErrorNone};
-  bool responseStarted_{false};
 };
 
 }

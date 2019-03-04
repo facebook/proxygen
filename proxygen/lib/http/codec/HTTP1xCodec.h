@@ -24,6 +24,14 @@ class HTTP1xCodec : public HTTPCodec {
                        bool forceUpstream1_1 = false);
   ~HTTP1xCodec() override;
 
+  HTTP1xCodec(HTTP1xCodec&&) = default;
+
+  // Returns codec for response generation, allowing to set flags that are
+  // normally set during request processing.
+  // Normally codec processes request/response pair, but is also used for
+  // serialization and processes single message.
+  static HTTP1xCodec makeResponseCodec(bool mayChunkEgress);
+
   // HTTPCodec API
   CodecProtocol getProtocol() const override {
     return CodecProtocol::HTTP_1_1;
@@ -79,6 +87,7 @@ class HTTP1xCodec : public HTTPCodec {
     std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
   void setAllowedUpgradeProtocols(std::list<std::string> protocols);
+  const std::string& getAllowedUpgradeProtocols();
 
   /**
    * @returns true if the codec supports the given NPN protocol.
@@ -96,6 +105,10 @@ class HTTP1xCodec : public HTTPCodec {
     kParsingTrailerName,
     kParsingTrailerValue
   };
+
+  std::string generateWebsocketKey() const;
+  std::string generateWebsocketAccept(const std::string& acceptKey) const;
+  mutable std::string websockAcceptKey_;
 
   /** Used to keep track of whether a client requested keep-alive. This is
    * only useful to support HTTP 1.0 keep-alive for a downstream connection
@@ -128,6 +141,10 @@ class HTTP1xCodec : public HTTPCodec {
 
   /** Push out header name-value pair to hdrs and clear currentHeader*_ */
   void pushHeaderNameAndValue(HTTPHeaders& hdrs);
+
+  /** Serialize websocket headers into a buffer **/
+  void serializeWebsocketHeader(folly::IOBufQueue& writeBuf, size_t& len,
+      bool upstream);
 
   // Parser callbacks
   int onMessageBegin();

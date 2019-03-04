@@ -63,6 +63,47 @@ size_t parse(T* codec,
   return input.chainLength();
 }
 
+template<class T>
+size_t parseUnidirectional(T* codec,
+                           const uint8_t* inputData,
+                           uint32_t length,
+                           int32_t atOnce = 0,
+                           std::function<bool()> stopFn = [] { return false; }) {
+
+  const uint8_t* start = inputData;
+  size_t consumed = 0;
+  std::uniform_int_distribution<uint32_t> lenDistribution(1, length / 2 + 1);
+  std::mt19937 rng;
+
+  if (atOnce == 0) {
+    atOnce = length;
+  }
+
+  folly::IOBufQueue input(folly::IOBufQueue::cacheChainLength());
+  while (length > 0 && !stopFn()) {
+    if (consumed == 0) {
+      // Parser wants more data
+      uint32_t len = atOnce;
+      if (atOnce < 0) {
+        // use random chunks
+        len = lenDistribution(rng);
+      }
+      uint32_t chunkLen = std::min(length, len);
+      input.append(folly::IOBuf::copyBuffer(start, chunkLen));
+      start += chunkLen;
+      length -= chunkLen;
+    }
+    auto initialLength = input.chainLength();
+    auto ret = codec->onUnidirectionalIngress(input.move());
+    input.append(std::move(ret));
+    consumed = initialLength - input.chainLength();
+    if (input.front() == nullptr && consumed > 0) {
+      consumed = 0;
+    }
+  }
+  return input.chainLength();
+}
+
 class FakeHTTPCodecCallback : public HTTPCodec::Callback {
  public:
   FakeHTTPCodecCallback() {}
@@ -78,9 +119,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   }
   void onExMessageBegin(HTTPCodec::StreamID /*stream*/,
                         HTTPCodec::StreamID controlStream,
+                        bool unidirectional,
                         HTTPMessage*) override {
     messageBegin++;
     controlStreamId = controlStream;
+    isUnidirectional = unidirectional;
   }
   void onHeadersComplete(HTTPCodec::StreamID stream,
                          std::unique_ptr<HTTPMessage> inMsg) override {
@@ -103,10 +146,12 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {
     chunkComplete++;
   }
-  void onTrailersComplete(
-      HTTPCodec::StreamID /*stream*/,
-      std::unique_ptr<HTTPHeaders> /*inTrailers*/) override {
+  void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
+                          std::unique_ptr<HTTPHeaders> inTrailers) override {
     trailers++;
+    if (msg) {
+      msg->setTrailers(std::move(inTrailers));
+    }
   }
   void onMessageComplete(HTTPCodec::StreamID /*stream*/,
                          bool /*upgrade*/) override {
@@ -115,7 +160,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void onError(HTTPCodec::StreamID stream,
                const HTTPException& error,
                bool /*newStream*/) override {
-    if (stream) {
+    if (stream != sessionStreamId) {
       streamErrors++;
     } else {
       sessionErrors++;
@@ -128,10 +173,20 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastErrorCode = code;
   }
 
-  void onGoaway(uint64_t,
+  void onFrameHeader(
+    HTTPCodec::StreamID /*streamId*/,
+    uint8_t /*flags*/,
+    uint64_t /*length*/,
+    uint8_t /*type*/,
+    uint16_t /*version*/) override {
+    ++headerFrames;
+  }
+
+  void onGoaway(uint64_t lastStreamId,
                 ErrorCode,
                 std::unique_ptr<folly::IOBuf> debugData) override {
     ++goaways;
+    goawayStreamIds.emplace_back(lastStreamId);
     data.append(std::move(debugData));
   }
 
@@ -167,6 +222,20 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   void onSettingsAck() override {
     settingsAcks++;
+  }
+
+  void onCertificateRequest(
+      uint16_t requestId, std::unique_ptr<folly::IOBuf> authRequest) override {
+    certificateRequests++;
+    lastCertRequestId = requestId;
+    data.append(std::move(authRequest));
+  }
+
+  void onCertificate(uint16_t certId,
+                     std::unique_ptr<folly::IOBuf> authenticator) override {
+    certificates++;
+    lastCertId = certId;
+    data.append(std::move(authenticator));
   }
 
   bool onNativeProtocolUpgrade(HTTPCodec::StreamID,
@@ -223,10 +292,15 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     return std::bind(&FakeHTTPCodecCallback::sessionError, this);
   }
 
+  void setSessionStreamId(HTTPCodec::StreamID streamId) {
+    sessionStreamId = streamId;
+  }
+
   void reset() {
     headersCompleteId = 0;
     assocStreamId = 0;
     controlStreamId = 0;
+    isUnidirectional = false;
     messageBegin = 0;
     headersComplete = 0;
     messageComplete = 0;
@@ -245,8 +319,13 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     windowUpdateCalls = 0;
     settings = 0;
     settingsAcks = 0;
+    certificateRequests = 0;
+    lastCertRequestId = 0;
+    certificates = 0;
+    lastCertId = 0;
     windowSize = 0;
     maxStreams = 0;
+    headerFrames = 0;
     priority = HTTPMessage::HTTPPriority(0, false, 0);
     windowUpdates.clear();
     data.move();
@@ -260,6 +339,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "headersCompleteId: " << headersCompleteId;
     VLOG(verbosity) << "assocStreamId: " << assocStreamId;
     VLOG(verbosity) << "controlStreamId: " << controlStreamId;
+    VLOG(verbosity) << "unidirectional: " << isUnidirectional;
     VLOG(verbosity) << "messageBegin: " << messageBegin;
     VLOG(verbosity) << "headersComplete: " << headersComplete;
     VLOG(verbosity) << "bodyCalls: " << bodyCalls;
@@ -277,13 +357,20 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "windowUpdateCalls: " << windowUpdateCalls;
     VLOG(verbosity) << "settings: " << settings;
     VLOG(verbosity) << "settingsAcks: " << settingsAcks;
+    VLOG(verbosity) << "certificateRequests: " << certificateRequests;
+    VLOG(verbosity) << "lastCertRequestId: " << lastCertRequestId;
+    VLOG(verbosity) << "certificates: " << certificates;
+    VLOG(verbosity) << "lastCertId: " << lastCertId;
     VLOG(verbosity) << "windowSize: " << windowSize;
     VLOG(verbosity) << "maxStreams: " << maxStreams;
+    VLOG(verbosity) << "headerFrames: " << headerFrames;
   }
 
   HTTPCodec::StreamID headersCompleteId{0};
   HTTPCodec::StreamID assocStreamId{0};
   HTTPCodec::StreamID controlStreamId{0};
+  bool isUnidirectional{false};
+  HTTPCodec::StreamID sessionStreamId{0};
   uint32_t messageBegin{0};
   uint32_t headersComplete{0};
   uint32_t messageComplete{0};
@@ -303,15 +390,21 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint32_t settings{0};
   uint64_t numSettings{0};
   uint32_t settingsAcks{0};
-  uint32_t windowSize{0};
-  uint32_t maxStreams{0};
+  uint32_t certificateRequests{0};
+  uint16_t lastCertRequestId{0};
+  uint32_t certificates{0};
+  uint16_t lastCertId{0};
+  uint64_t windowSize{0};
+  uint64_t maxStreams{0};
+  uint32_t headerFrames{0};
   HTTPMessage::HTTPPriority priority{0, false, 0};
-  std::map<uint32_t, std::vector<uint32_t> > windowUpdates;
+  std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t> > windowUpdates;
   folly::IOBufQueue data;
 
   std::unique_ptr<HTTPMessage> msg;
   std::unique_ptr<HTTPException> lastParseError;
   ErrorCode lastErrorCode;
+  std::vector<HTTPCodec::StreamID> goawayStreamIds;
 };
 
 MATCHER_P(PtrBufHasLen, n, "") {

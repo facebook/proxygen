@@ -3,6 +3,7 @@
 :Path
 :Scheme
 :Status
+:Protocol
 Accept
 Accept-Charset
 Accept-Datetime
@@ -60,6 +61,8 @@ Range
 Referer
 Refresh
 Retry-After
+Sec-WebSocket-Key
+Sec-WebSocket-Accept
 Server
 Set-Cookie
 Sec-Token-Binding
@@ -84,6 +87,7 @@ X-Frame-Options
 X-Powered-By
 X-Real-IP
 X-Requested-With
+X-Thrift-Protocol
 X-UA-Compatible
 X-Wap-Profile
 X-XSS-Protection

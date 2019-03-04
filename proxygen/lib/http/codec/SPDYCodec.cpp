@@ -20,7 +20,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/CodecDictionaries.h>
-#include <proxygen/lib/http/codec/SPDYUtil.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/compress/GzipHeaderCodec.h>
 #include <proxygen/lib/utils/ParseURL.h>
 #include <proxygen/lib/utils/UtilInl.h>
@@ -46,21 +46,17 @@ namespace {
 const size_t kFrameSizeDataCommon = 8;     // common prefix of all data frames
 const size_t kFrameSizeControlCommon = 8;  // common prefix of all ctrl frames
 const size_t kFrameSizeSynStream = 10;     // SYN_STREAM
-const size_t kFrameSizeSynReplyv2 = 6;     // SYN_REPLY, SPDYv2
 const size_t kFrameSizeSynReplyv3 = 4;     // SPDYv3's SYN_REPLY is shorter
 const size_t kFrameSizeRstStream = 8;      // RST_STREAM
-const size_t kFrameSizeGoawayv2 = 4;       // GOAWAY, SPDYv2
 const size_t kFrameSizeGoawayv3 = 8;       // GOAWAY, SPDYv3
 const size_t kFrameSizeHeaders = 4;        // HEADERS
 const size_t kFrameSizePing = 4;           // PING
 const size_t kFrameSizeSettings = 4;       // SETTINGS
 const size_t kFrameSizeSettingsEntry = 8;  // Each entry in SETTINGS
 const size_t kFrameSizeWindowUpdate = 8;   // WINDOW_UPDATE
-const size_t kFrameSizeNameValuev2 = 2;    // The size in bytes of a
                                            // name/value pair
 const size_t kFrameSizeNameValuev3 = 4;    // The size in bytes of a
                                            // name/value pair
-const size_t kPriShiftv2 = 6;              // How many bits to shift pri, v2
 const size_t kPriShiftv3 = 5;              // How many bits to shift pri, v3
 
 const size_t kMaxUncompressed = 96 * 1024; // 96kb ought be enough for anyone
@@ -176,15 +172,14 @@ SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
   : HTTPParallelCodec(direction),
     versionSettings_(getVersionSettings(version)),
     frameState_(FrameState::FRAME_HEADER),
-    ctrl_(false) {
+    ctrl_(false),
+    headerCodec_(spdyCompressionLevel, versionSettings_) {
   VLOG(4) << "creating SPDY/" << static_cast<int>(versionSettings_.majorVersion)
           << "." << static_cast<int>(versionSettings_.minorVersion)
           << " codec";
-  headerCodec_ = std::make_unique<GzipHeaderCodec>(
-    spdyCompressionLevel, versionSettings_);
 
   // Limit uncompressed headers to 128kb
-  headerCodec_->setMaxUncompressed(kMaxUncompressed);
+  headerCodec_.setMaxUncompressed(kMaxUncompressed);
   nextEgressPingID_ = nextEgressStreamID_;
 }
 
@@ -196,7 +191,7 @@ void SPDYCodec::setMaxFrameLength(uint32_t maxFrameLength) {
 }
 
 void SPDYCodec::setMaxUncompressedHeaders(uint32_t maxUncompressed) {
-  headerCodec_->setMaxUncompressed(maxUncompressed);
+  headerCodec_.setMaxUncompressed(maxUncompressed);
 }
 
 CodecProtocol SPDYCodec::getProtocol() const {
@@ -350,7 +345,7 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       auto result = decodeHeaders(cursor);
       checkLength(0, "SYN_STREAM");
       onSynStream(assocStream, pri, slot,
-                  result.headers, headerCodec_->getDecodedSize());
+                  result.headers, headerCodec_.getDecodedSize());
       break;
     }
     case spdy::SYN_REPLY:
@@ -365,7 +360,7 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       auto result = decodeHeaders(cursor);
       checkLength(0, "SYN_REPLY");
       onSynReply(result.headers,
-                 headerCodec_->getDecodedSize());
+                 headerCodec_.getDecodedSize());
       break;
     }
     case spdy::RST_STREAM:
@@ -469,14 +464,14 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
 }
 
 HeaderDecodeResult SPDYCodec::decodeHeaders(Cursor& cursor) {
-  auto result = headerCodec_->decode(cursor, length_);
-  if (result.isError()) {
+  auto result = headerCodec_.decode(cursor, length_);
+  if (result.hasError()) {
     auto err = result.error();
-    if (err == HeaderDecodeError::HEADERS_TOO_LARGE ||
-        err == HeaderDecodeError::INFLATE_DICTIONARY ||
-        err == HeaderDecodeError::BAD_ENCODING) {
+    if (err == GzipDecodeError::HEADERS_TOO_LARGE ||
+        err == GzipDecodeError::INFLATE_DICTIONARY ||
+        err == GzipDecodeError::BAD_ENCODING) {
       // Fail stream only for FRAME_TOO_LARGE error
-      if (err == HeaderDecodeError::HEADERS_TOO_LARGE) {
+      if (err == GzipDecodeError::HEADERS_TOO_LARGE) {
         failStream(true, streamId_, spdy::RST_FRAME_TOO_LARGE);
       }
       throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
@@ -487,8 +482,8 @@ HeaderDecodeResult SPDYCodec::decodeHeaders(Cursor& cursor) {
                            "Error parsing header: " + folly::to<string>(err));
   }
 
-  length_ -= result.ok().bytesConsumed;
-  return result.ok();
+  length_ -= result->bytesConsumed;
+  return *result;
 }
 
 bool SPDYCodec::isSPDYReserved(const std::string& name) {
@@ -550,10 +545,10 @@ unique_ptr<IOBuf> SPDYCodec::encodeHeaders(
     allHeaders.emplace_back(code, name, value);
   });
 
-  headerCodec_->setEncodeHeadroom(headroom);
-  auto out = headerCodec_->encode(allHeaders);
+  headerCodec_.setEncodeHeadroom(headroom);
+  auto out = headerCodec_.encode(allHeaders);
   if (size) {
-    *size = headerCodec_->getEncodedSize();
+    *size = headerCodec_.getEncodedSize();
   }
 
   return out;
@@ -977,7 +972,7 @@ size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
     } else {
       appender.writeBE(flagsAndLength(0, *settingId));
     }
-    appender.writeBE(setting.value);
+    appender.writeBE<uint32_t>(setting.value);
   }
   DCHECK_EQ(writeBuf.chainLength(), expectedLength);
   return frameSize;
@@ -1084,7 +1079,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     folly::StringPiece name(inHeaders[i].str, off, len);
     folly::StringPiece value = inHeaders[i + 1].str;
     VLOG(5) << "Header " << name << ": " << value;
-    bool nameOk = SPDYUtil::validateHeaderName(name);
+    bool nameOk = CodecUtil::validateHeaderName(name);
     bool valueOk = false;
     bool isPath = false;
     bool isMethod = false;
@@ -1098,7 +1093,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
       }
       if ((version_ == 2 && name == "url") ||
           (version_ == 3 && off && name == "path")) {
-        valueOk = SPDYUtil::validateURL(value);
+        valueOk = CodecUtil::validateURL(value);
         isPath = true;
         if (hasPath) {
           throw SPDYStreamFailed(false, streamID, 400,
@@ -1106,14 +1101,14 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
         }
         hasPath = true;
       } else if ((version_ == 2 || off) && name == "method") {
-        valueOk = SPDYUtil::validateMethod(value);
+        valueOk = CodecUtil::validateMethod(value);
         isMethod = true;
         if (value == "CONNECT") {
           // We don't support CONNECT request for SPDY
           valueOk = false;
         }
       } else {
-        valueOk = SPDYUtil::validateHeaderValue(value, SPDYUtil::STRICT);
+        valueOk = CodecUtil::validateHeaderValue(value, CodecUtil::STRICT);
       }
     }
     if (!nameOk || !valueOk) {
@@ -1225,7 +1220,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     } else {
       bool hasGzip = false;
       bool hasDeflate = false;
-      if (!SPDYUtil::hasGzipAndDeflate(accept_encoding, hasGzip, hasDeflate)) {
+      if (!CodecUtil::hasGzipAndDeflate(accept_encoding, hasGzip, hasDeflate)) {
         string new_encoding = accept_encoding;
         if (!hasGzip) {
           new_encoding.append(", gzip");
@@ -1382,11 +1377,14 @@ void SPDYCodec::onSettings(const SettingList& settings) {
                    << ", value=" << cur.value
                    << ", and flags=" << std::hex << cur.flags << std::dec;
     }
-    auto id = spdy::spdyToHttpSettingsId((spdy::SettingsId)cur.id);
-    if (id) {
-      ingressSettings_.setSetting(*id, cur.value);
-      auto s = ingressSettings_.getSetting(*id);
-      settingsList.push_back(*s);
+    if (cur.id >= spdy::SettingsId::SETTINGS_UPLOAD_BANDWIDTH &&
+        cur.id <= spdy::SettingsId::SETTINGS_CLIENT_CERTIFICATE_VECTOR_SIZE) {
+      auto id = spdy::spdyToHttpSettingsId((spdy::SettingsId)cur.id);
+      if (id) {
+        ingressSettings_.setSetting(*id, cur.value);
+        auto s = ingressSettings_.getSetting(*id);
+        settingsList.push_back(*s);
+      }
     }
   }
   callback_->onSettings(settingsList);

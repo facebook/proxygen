@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = .
 
 lib_LTLIBRARIES = libproxygencurl.la
@@ -22,4 +23,3 @@ curl_SOURCES = \
 
 curl_LDADD = \
 	libproxygencurl.la
-

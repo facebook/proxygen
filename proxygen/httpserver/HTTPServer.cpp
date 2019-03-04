@@ -233,19 +233,19 @@ int HTTPServer::getListenSocket() const {
 
   auto serverSocket =
       std::dynamic_pointer_cast<folly::AsyncServerSocket>(bootstrapSockets[0]);
-  auto socketFds = serverSocket->getSockets();
+  auto socketFds = serverSocket->getNetworkSockets();
   if (socketFds.size() == 0) {
     return -1;
   }
 
-  return socketFds[0];
+  return socketFds[0].toFd();
 }
 
 
 void HTTPServer::updateTLSCredentials() {
   for (auto& bootstrap : bootstrap_) {
     bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
-      if (!acceptor) {
+      if (!acceptor || !acceptor->isSSL()) {
         return;
       }
       auto evb = acceptor->getEventBase();
@@ -262,7 +262,7 @@ void HTTPServer::updateTLSCredentials() {
 void HTTPServer::updateTicketSeeds(wangle::TLSTicketKeySeeds seeds) {
   for (auto& bootstrap : bootstrap_) {
     bootstrap.forEachWorker([&](wangle::Acceptor* acceptor) {
-      if (!acceptor) {
+      if (!acceptor || !acceptor->isSSL()) {
         return;
       }
       auto evb = acceptor->getEventBase();

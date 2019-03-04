@@ -105,6 +105,10 @@ public:
     sessionInfoCb_ = cb;
   }
 
+  virtual bool getHttp2PrioritiesEnabled() {
+    return accConfig_.HTTP2PrioritiesEnabled;
+  }
+
 protected:
   /**
    * This function is invoked when a new session is created to get the
@@ -133,7 +137,7 @@ protected:
   folly::AsyncSocket::UniquePtr makeNewAsyncSocket(folly::EventBase* base,
                                                    int fd) override {
     return folly::AsyncSocket::UniquePtr(
-      new folly::AsyncSocket(base, fd));
+        new folly::AsyncSocket(base, folly::NetworkSocket::fromFd(fd)));
   }
 
   virtual size_t dropIdleConnections(size_t num);

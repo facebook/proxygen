@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = .
 
 check_PROGRAMS = UtilTests TraceEventTest AsyncTimeoutSetTest
@@ -6,7 +7,6 @@ UtilTests_SOURCES = \
 	GenericFilterTest.cpp \
 	HTTPTimeTest.cpp \
 	ParseURLTest.cpp \
-	ResultTest.cpp \
 	UtilTest.cpp
 
 UtilTests_LDADD = \

@@ -153,6 +153,24 @@ TEST(HTTPMessage, TestHeaderRemove) {
   EXPECT_EQ(hdrs.getNumberOfValues("binky"), 2);
 }
 
+TEST(HTTPMessage, TestAllVersionsHeaderRemove) {
+  HTTPMessage msg;
+  HTTPHeaders& hdrs = msg.getHeaders();
+
+  hdrs.add("Jojo_1_2", "1");
+  hdrs.add("Binky", "2");
+  hdrs.add("Jojo_1-2", "3");
+  hdrs.add("Jojo-1_2", "4");
+  hdrs.add("Jojo-1-2", "4");
+  hdrs.removeAllVersions(HTTP_HEADER_NONE, "Jojo_1_2");
+  EXPECT_EQ(hdrs.size(), 1);
+
+  hdrs.add("Content-Length", "1");
+  hdrs.add("Content_Length", "2");
+  hdrs.removeAllVersions(HTTP_HEADER_CONTENT_LENGTH, "Content-Length");
+  EXPECT_EQ(hdrs.size(), 1);
+}
+
 TEST(HTTPMessage, TestSetHeader) {
   HTTPMessage msg;
   HTTPHeaders& hdrs = msg.getHeaders();
@@ -187,6 +205,7 @@ TEST(HTTPMessage, TestCombine) {
   headers.add("Combine", "third value");
   EXPECT_EQ(headers.combine("Combine"),
             "first value, second value, third value");
+  VLOG(4) << msg;
 }
 
 TEST(HTTPMessage, TestProxification) {
@@ -366,7 +385,7 @@ void testPathAndQuery(const string& url,
   EXPECT_EQ(msg.getQueryString(), expectedQuery);
 }
 
-TEST(getPathAndQuery, ParseURL) {
+TEST(GetPathAndQuery, ParseURL) {
   testPathAndQuery("http://localhost:80/foo?bar#qqq", "/foo", "bar");
   testPathAndQuery("localhost:80/foo?bar#qqq", "/foo", "bar");
   testPathAndQuery("localhost", "", "");
@@ -496,4 +515,29 @@ TEST(HTTPMessage, TestCheckForHeaderToken) {
                                       false));
   EXPECT_FALSE(msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "http2-settings",
                                        true));
+}
+
+TEST(HttpMessage, TestProtocolStringHTTPVersion) {
+  HTTPMessage msg;
+  msg.setHTTPVersion(1, 1);
+
+  EXPECT_EQ(msg.getProtocolString(), "1.1");
+}
+
+TEST(HttpMessage, TestProtocolStringAdvancedProtocol) {
+  HTTPMessage msg;
+  std::string advancedProtocol = "h2";
+  msg.setAdvancedProtocolString(advancedProtocol);
+  EXPECT_EQ(msg.getProtocolString(), advancedProtocol);
+}
+
+TEST(HttpMessage, TestExtractTrailers) {
+  HTTPMessage msg;
+  auto trailers = std::make_unique<HTTPHeaders>();
+  HTTPHeaders* rawPointer = trailers.get();
+  trailers->add("The-trailer", "something");
+  msg.setTrailers(std::move(trailers));
+  auto trailers2 = msg.extractTrailers();
+  EXPECT_EQ(rawPointer, trailers2.get());
+  EXPECT_EQ(nullptr, msg.getTrailers());
 }

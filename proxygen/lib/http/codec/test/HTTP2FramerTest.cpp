@@ -37,15 +37,13 @@ class HTTP2FramerTest : public testing::Test {
  public:
   HTTP2FramerTest() {}
 
-  template<typename... Args>
-  void parse(ErrorCode (*parseFn)(Cursor& cursor, FrameHeader, Args...),
-             FrameHeader& outHeader, Args&&... outArgs) {
+  template<typename ParseFunc, typename... Args>
+  void parse(ParseFunc&& parseFn, FrameHeader& outHeader, Args&&... outArgs) {
     parse(queue_.front(), parseFn, outHeader, std::forward<Args>(outArgs)...);
   }
 
-  template<typename... Args>
-  void parse(const IOBuf* data,
-             ErrorCode (*parseFn)(Cursor& cursor, FrameHeader, Args...),
+  template<typename ParseFunc, typename... Args>
+  void parse(const IOBuf* data, ParseFunc&& parseFn,
              FrameHeader& outHeader, Args&&... outArgs) {
     Cursor cursor(data);
     auto ret1 = parseFrameHeader(cursor, outHeader);
@@ -337,6 +335,172 @@ TEST_F(HTTP2FramerTest, WindowUpdate) {
   EXPECT_EQ(120, amount);
 }
 
+TEST_F(HTTP2FramerTest, CertificateRequest) {
+  string data("abcdef");
+  auto authRequest = makeBuf(6);
+  memcpy(authRequest->writableData(), data.data(), data.length());
+  uint16_t requestId = 120;
+  writeCertificateRequest(queue_, requestId, std::move(authRequest));
+
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parse(&parseCertificateRequest, header, outRequestId, outAuthRequest);
+
+  ASSERT_EQ(FrameType::CERTIFICATE_REQUEST, header.type);
+  ASSERT_EQ(0, header.stream);
+  ASSERT_EQ(0, header.flags);
+  ASSERT_EQ(kFrameCertificateRequestSizeBase + data.length(), header.length);
+  ASSERT_EQ(outRequestId, requestId);
+  ASSERT_EQ(outAuthRequest->computeChainDataLength(), data.length());
+  EXPECT_EQ(outAuthRequest->moveToFbString(), data);
+}
+
+TEST_F(HTTP2FramerTest, EmptyCertificateRequest) {
+  uint16_t requestId = 120;
+  writeCertificateRequest(queue_, requestId, nullptr);
+
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parse(&parseCertificateRequest, header, outRequestId, outAuthRequest);
+
+  ASSERT_EQ(FrameType::CERTIFICATE_REQUEST, header.type);
+  ASSERT_EQ(0, header.stream);
+  ASSERT_EQ(0, header.flags);
+  ASSERT_EQ(kFrameCertificateRequestSizeBase, header.length);
+  ASSERT_EQ(outRequestId, requestId);
+  ASSERT_FALSE(outAuthRequest);
+}
+
+TEST_F(HTTP2FramerTest, ShortCertificateRequest) {
+  // length field is too short for frame type
+  writeFrameHeaderManual(
+      queue_, 1, static_cast<uint8_t>(FrameType::CERTIFICATE_REQUEST), 0, 0);
+  QueueAppender appender(&queue_, 1);
+  appender.writeBE<uint8_t>(1);
+
+  Cursor cursor(queue_.front());
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parseFrameHeader(cursor, header);
+  auto ret =
+      parseCertificateRequest(cursor, header, outRequestId, outAuthRequest);
+  ASSERT_EQ(ErrorCode::FRAME_SIZE_ERROR, ret);
+}
+
+TEST_F(HTTP2FramerTest, CertificateRequestOnNonzeroStream) {
+  // received CERTIFICATE_REQUEST frame on nonzero stream
+  writeFrameHeaderManual(
+      queue_, 2, static_cast<uint8_t>(FrameType::CERTIFICATE_REQUEST), 0, 1);
+  QueueAppender appender(&queue_, 1);
+  appender.writeBE<uint16_t>(1);
+
+  Cursor cursor(queue_.front());
+  FrameHeader header;
+  uint16_t outRequestId;
+  std::unique_ptr<IOBuf> outAuthRequest;
+  parseFrameHeader(cursor, header);
+  auto ret =
+      parseCertificateRequest(cursor, header, outRequestId, outAuthRequest);
+  ASSERT_EQ(ErrorCode::PROTOCOL_ERROR, ret);
+}
+
+TEST_F(HTTP2FramerTest, EndingCertificate) {
+  string data("abcdef");
+  auto authenticator = makeBuf(6);
+  memcpy(authenticator->writableData(), data.data(), data.length());
+  uint16_t certId = 120;
+  // The last CERTIFICATE frame containing authenticator fragment.
+  writeCertificate(queue_, certId, std::move(authenticator), false);
+
+  FrameHeader header;
+  uint16_t outCertId;
+  std::unique_ptr<IOBuf> outAuthenticator;
+  parse(&parseCertificate, header, outCertId, outAuthenticator);
+
+  ASSERT_EQ(FrameType::CERTIFICATE, header.type);
+  ASSERT_EQ(0, header.stream);
+  ASSERT_EQ(0, header.flags);
+  ASSERT_EQ(kFrameCertificateSizeBase + data.length(), header.length);
+  ASSERT_EQ(outCertId, certId);
+  ASSERT_EQ(outAuthenticator->computeChainDataLength(), data.length());
+  EXPECT_EQ(outAuthenticator->moveToFbString(), data);
+}
+
+TEST_F(HTTP2FramerTest, Certificate) {
+  string data("abcdef");
+  auto authenticator = makeBuf(6);
+  memcpy(authenticator->writableData(), data.data(), data.length());
+  uint16_t certId = 120;
+  // CERTIFICATE frame containing an authenticator fragment but not the last
+  // fragment.
+  writeCertificate(queue_, certId, std::move(authenticator), true);
+
+  FrameHeader header;
+  uint16_t outCertId;
+  std::unique_ptr<IOBuf> outAuthenticator;
+  parse(&parseCertificate, header, outCertId, outAuthenticator);
+
+  ASSERT_EQ(FrameType::CERTIFICATE, header.type);
+  ASSERT_EQ(0, header.stream);
+  ASSERT_TRUE(TO_BE_CONTINUED & header.flags);
+  ASSERT_EQ(kFrameCertificateSizeBase + data.length(), header.length);
+  ASSERT_EQ(outCertId, certId);
+  ASSERT_EQ(outAuthenticator->computeChainDataLength(), data.length());
+  EXPECT_EQ(outAuthenticator->moveToFbString(), data);
+}
+
+TEST_F(HTTP2FramerTest, EmptyCertificate) {
+  uint16_t certId = 120;
+  writeCertificate(queue_, certId, nullptr, true);
+
+  FrameHeader header;
+  uint16_t outCertId;
+  std::unique_ptr<IOBuf> outAuthenticator;
+  parse(&parseCertificate, header, outCertId, outAuthenticator);
+
+  ASSERT_EQ(FrameType::CERTIFICATE, header.type);
+  ASSERT_EQ(0, header.stream);
+  ASSERT_TRUE(TO_BE_CONTINUED & header.flags);
+  ASSERT_EQ(kFrameCertificateSizeBase, header.length);
+  ASSERT_EQ(outCertId, certId);
+  ASSERT_FALSE(outAuthenticator);
+}
+
+TEST_F(HTTP2FramerTest, ShortCertificate) {
+  // length field is too short for frame type
+  writeFrameHeaderManual(
+      queue_, 1, static_cast<uint8_t>(FrameType::CERTIFICATE), 0, 0);
+  QueueAppender appender(&queue_, 1);
+  appender.writeBE<uint8_t>(1);
+
+  Cursor cursor(queue_.front());
+  FrameHeader header;
+  uint16_t outCertId;
+  std::unique_ptr<IOBuf> outAuthenticator;
+  parseFrameHeader(cursor, header);
+  auto ret = parseCertificate(cursor, header, outCertId, outAuthenticator);
+  ASSERT_EQ(ErrorCode::FRAME_SIZE_ERROR, ret);
+}
+
+TEST_F(HTTP2FramerTest, CertificateOnNonzeroStream) {
+  // received CERTIFICATE frame on nonzero stream
+  writeFrameHeaderManual(
+      queue_, 2, static_cast<uint8_t>(FrameType::CERTIFICATE), 0, 1);
+  QueueAppender appender(&queue_, 1);
+  appender.writeBE<uint16_t>(1);
+
+  Cursor cursor(queue_.front());
+  FrameHeader header;
+  uint16_t outCertId;
+  std::unique_ptr<IOBuf> outAuthenticator;
+  parseFrameHeader(cursor, header);
+  auto ret = parseCertificate(cursor, header, outCertId, outAuthenticator);
+  ASSERT_EQ(ErrorCode::PROTOCOL_ERROR, ret);
+}
+
 // TODO: auto generate this test for all frame types (except DATA)
 TEST_F(HTTP2FramerTest, ShortWindowUpdate) {
   // length field is too short for frame type
@@ -347,7 +511,7 @@ TEST_F(HTTP2FramerTest, ShortWindowUpdate) {
   Cursor cursor(queue_.front());
   FrameHeader header;
   uint32_t amount;
-  auto ret1 = parseFrameHeader(cursor, header);
+  parseFrameHeader(cursor, header);
   auto ret2 = parseWindowUpdate(cursor, header, amount);
   ASSERT_EQ(ErrorCode::FRAME_SIZE_ERROR, ret2);
 }
@@ -500,23 +664,51 @@ TEST_F(HTTP2FramerTest, ExHeaders) {
   auto body = makeBuf(500);
   uint32_t streamID = folly::Random::rand32(10, 1024) * 2 + 1;
   uint32_t controlStream = streamID - 2;
-  writeExHeaders(queue_, body->clone(), streamID, controlStream,
+  writeExHeaders(queue_, body->clone(), streamID,
+                 HTTPCodec::ExAttributes(controlStream, false),
                  {{0, true, 12}}, 200, false, false);
 
   FrameHeader header;
-  uint32_t outControlStreamID;
+  HTTPCodec::ExAttributes outExAttributes;
   folly::Optional<PriorityUpdate> priority;
   std::unique_ptr<IOBuf> outBuf;
-  parse(&parseExHeaders, header, outControlStreamID, priority, outBuf);
+  parse(&parseExHeaders, header, outExAttributes, priority, outBuf);
 
   ASSERT_EQ(FrameType::EX_HEADERS, header.type);
   ASSERT_EQ(streamID, header.stream);
-  ASSERT_EQ(controlStream, outControlStreamID);
+  ASSERT_EQ(controlStream, outExAttributes.controlStream);
   ASSERT_TRUE(PRIORITY & header.flags);
   ASSERT_FALSE(END_STREAM & header.flags);
   ASSERT_FALSE(END_HEADERS & header.flags);
+  ASSERT_FALSE(UNIDIRECTIONAL & header.flags);
+  ASSERT_FALSE(outExAttributes.unidirectional);
   ASSERT_EQ(0, priority->streamDependency);
   ASSERT_TRUE(priority->exclusive);
   ASSERT_EQ(12, priority->weight);
+  EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
+}
+
+TEST_F(HTTP2FramerTest, ExHeadersWithFlagsSet) {
+  auto body = makeBuf(500);
+  uint32_t streamID = folly::Random::rand32(10, 1024) * 2 + 1;
+  uint32_t controlStream = streamID - 2;
+  writeExHeaders(queue_, body->clone(), streamID,
+                 HTTPCodec::ExAttributes(controlStream, true),
+                 folly::none, 0, true, true);
+
+  FrameHeader header;
+  HTTPCodec::ExAttributes outExAttributes;
+  folly::Optional<PriorityUpdate> priority;
+  std::unique_ptr<IOBuf> outBuf;
+  parse(&parseExHeaders, header, outExAttributes, priority, outBuf);
+
+  ASSERT_EQ(FrameType::EX_HEADERS, header.type);
+  ASSERT_EQ(streamID, header.stream);
+  ASSERT_EQ(controlStream, outExAttributes.controlStream);
+  ASSERT_FALSE(PRIORITY & header.flags);
+  ASSERT_TRUE(END_STREAM & header.flags);
+  ASSERT_TRUE(END_HEADERS & header.flags);
+  ASSERT_TRUE(UNIDIRECTIONAL & header.flags);
+  ASSERT_TRUE(outExAttributes.unidirectional);
   EXPECT_EQ(outBuf->moveToFbString(), body->moveToFbString());
 }

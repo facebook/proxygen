@@ -65,43 +65,43 @@ void compressThenDecompress(ZlibCompressionType type,
 }
 
 // Try many different sizes because we've hit truncation problems before
-TEST_F(ZlibTests, compress_decompress_gzip_5000) {
+TEST_F(ZlibTests, CompressDecompressGzip5000) {
   ASSERT_NO_FATAL_FAILURE(
       { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(5000)); });
 }
 
-TEST_F(ZlibTests, compress_decompress_gzip_2000) {
+TEST_F(ZlibTests, CompressDecompressGzip2000) {
   ASSERT_NO_FATAL_FAILURE(
       { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(2000)); });
 }
 
-TEST_F(ZlibTests, compress_decompress_gzip_1024) {
+TEST_F(ZlibTests, CompressDecompressGzip1024) {
   ASSERT_NO_FATAL_FAILURE(
       { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(1024)); });
 }
 
-TEST_F(ZlibTests, compress_decompress_gzip_500) {
+TEST_F(ZlibTests, CompressDecompressGzip500) {
   ASSERT_NO_FATAL_FAILURE(
       { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(500)); });
 }
 
-TEST_F(ZlibTests, compress_decompress_gzip_50) {
+TEST_F(ZlibTests, CompressDecompressGzip50) {
   ASSERT_NO_FATAL_FAILURE(
       { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(50)); });
 }
 
-TEST_F(ZlibTests, compress_decompress_deflate) {
+TEST_F(ZlibTests, CompressDecompressDeflate) {
   ASSERT_NO_FATAL_FAILURE({
     compressThenDecompress(ZlibCompressionType::DEFLATE, 6, makeBuf(500));
   });
 }
 
-TEST_F(ZlibTests, compress_decompress_empty) {
+TEST_F(ZlibTests, CompressDecompressEmpty) {
   ASSERT_NO_FATAL_FAILURE(
       { compressThenDecompress(ZlibCompressionType::GZIP, 4, makeBuf(0)); });
 }
 
-TEST_F(ZlibTests, compress_decompress_chain) {
+TEST_F(ZlibTests, CompressDecompressChain) {
   ASSERT_NO_FATAL_FAILURE({
     auto buf = makeBuf(4);
     buf->appendChain(makeBuf(38));
@@ -111,7 +111,7 @@ TEST_F(ZlibTests, compress_decompress_chain) {
   });
 }
 
-TEST_F(ZlibTests, compress_decompress_streaming) {
+TEST_F(ZlibTests, CompressDecompressStreaming) {
   ASSERT_NO_FATAL_FAILURE({
     auto compressor =
         std::make_unique<ZlibStreamCompressor>(ZlibCompressionType::GZIP, 6);
@@ -134,7 +134,7 @@ TEST_F(ZlibTests, compress_decompress_streaming) {
   });
 }
 
-TEST_F(ZlibTests, compress_decompress_small_buffer) {
+TEST_F(ZlibTests, CompressDecompressSmallBuffer) {
   ASSERT_NO_FATAL_FAILURE({
     auto oldFlag = FLAGS_zlib_compressor_buffer_growth;
     auto guard = folly::makeGuard([&] {

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 if [ "x$1" != "x" ];then
 	export HEADERS_LIST="$1"
@@ -56,6 +57,10 @@ cat ${HEADERS_LIST?} | LC_ALL=C sort | uniq \
   }
 ' - "${FBCODE_DIR?}/proxygen/lib/http/HTTPCommonHeaders.template.gperf" \
 | ${GPERF:-gperf} -m5 --output-file="${INSTALL_DIR?}/HTTPCommonHeaders.cpp"
+# The generated C++ code is problematic for modern compilers with maximum
+# warnings turned on. To address that we use sed to modernize the fallthrough
+# comments into annotations
+sed -i -e 's:/\*FALLTHROUGH\*/:FOLLY_FALLTHROUGH;:g' "${INSTALL_DIR?}/HTTPCommonHeaders.cpp"
 if [[ "$(readlink -f test 2>/dev/null)" ]]; then
     sed -i  "s:$(readlink -f ${FBCODE_DIR?})/::g" "${INSTALL_DIR?}/HTTPCommonHeaders.cpp"
 fi

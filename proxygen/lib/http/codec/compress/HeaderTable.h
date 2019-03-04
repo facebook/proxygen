@@ -10,28 +10,13 @@
 #pragma once
 
 #include <list>
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 #include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
-namespace proxygen {
+#include <folly/container/F14Map.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
-class TableImpl {
- public:
-  virtual ~TableImpl() {}
-  virtual void init(size_t capacity) = 0;
-  virtual size_t size() const = 0;
-  virtual HPACKHeader& operator[] (size_t i) = 0;
-  virtual void resize(size_t size) = 0;
-  virtual void moveItems(size_t oldTail, size_t oldLength,
-                         size_t newLength) = 0;
-  virtual void add(size_t head, const HPACKHeaderName& name,
-                   const folly::fbstring& value, int32_t epoch) = 0;
-  virtual bool isValidEpoch(uint32_t i, int32_t commitEpoch,
-                            int32_t curEpoch) = 0;
-};
+namespace proxygen {
 
 /**
  * Data structure for maintaining indexed headers, based on a fixed-length ring
@@ -40,69 +25,40 @@ class TableImpl {
 
 class HeaderTable {
  public:
-  typedef std::unordered_map<HPACKHeaderName, std::list<uint32_t>> names_map;
+  // TODO: std::vector might be faster than std::list in the use case?
+  using names_map = folly::F14FastMap<HPACKHeaderName, std::list<uint32_t>>;
 
-  HeaderTable(std::unique_ptr<TableImpl> table, uint32_t capacityVal)
-      : table_(std::move(table)) {
+  explicit HeaderTable(uint32_t capacityVal) {
     init(capacityVal);
   }
 
-  ~HeaderTable() {}
+  virtual ~HeaderTable() {}
   HeaderTable(const HeaderTable&) = delete;
   HeaderTable& operator=(const HeaderTable&) = delete;
-
-  /**
-   * Initialize with a given capacity.
-   */
-  void init(uint32_t capacityVal);
-
-  void setAbsoluteIndexing(bool absoluteIndexing) {
-    CHECK_EQ(readBaseIndex_, -1) << "Attempted to change indexing scheme after "
-      "encoding has started";
-    if (absoluteIndexing) {
-      readBaseIndex_ = 0;
-      writeBaseIndex_ = 0;
-    } else {
-      readBaseIndex_ = -1;
-      writeBaseIndex_ = -1;
-    }
-  }
-
-  int64_t markBaseIndex() {
-    readBaseIndex_ = writeBaseIndex_;
-    return writeBaseIndex_;
-  }
-
-  void setBaseIndex(int64_t baseIndex) {
-    readBaseIndex_ = baseIndex;
-    writeBaseIndex_ = baseIndex;
-  }
 
   /**
    * Add the header entry at the beginning of the table (index=1)
    *
    * @return true if it was able to add the entry
    */
-  bool add(const HPACKHeader& header);
-  bool add(const HPACKHeader& header, int32_t epoch, bool& eviction);
+  virtual bool add(HPACKHeader header);
 
   /**
    * Get the index of the given header, if found.
    *
    * @return 0 in case the header is not found
    */
-  uint32_t getIndex(const HPACKHeader& header, int32_t commitEpoch = -1,
-                    int32_t curEpoch = -1) const;
+  uint32_t getIndex(const HPACKHeader& header) const;
 
   /**
-   * Get the table entry at the given index.
+   * Get the table entry at the given external index.
    *
    * @return the header entry
    */
   const HPACKHeader& getHeader(uint32_t index) const;
 
   /**
-   * Checks if an external index is valid
+   * Checks if an external index is valid.
    */
   bool isValid(uint32_t index) const;
 
@@ -123,8 +79,7 @@ class HeaderTable {
    * headers with the given name we pick the last one added to the header
    * table, but the way we pick the header can be arbitrary.
    */
-  uint32_t nameIndex(const HPACKHeaderName& headerName, int32_t commitEpoch=-1,
-                     int32_t curEpoch=-1) const;
+  uint32_t nameIndex(const HPACKHeaderName& headerName) const;
 
   /**
    * Table capacity, or maximum number of bytes we can hold.
@@ -137,13 +92,13 @@ class HeaderTable {
   * Returns the maximum table length required to support HPACK headers given
   * the specified capacity bytes
   */
-  uint32_t getMaxTableLength(uint32_t capacityVal);
+  uint32_t getMaxTableLength(uint32_t capacityVal) const;
 
   /**
    * Sets the current capacity of the header table, and evicts entries
-   * if needed.
+   * if needed.  Returns false if eviction failed.
    */
-  void setCapacity(uint32_t capacity);
+  virtual bool setCapacity(uint32_t capacity);
 
   /**
    * @return number of valid entries
@@ -163,7 +118,7 @@ class HeaderTable {
    * @return how many slots we have in the table
    */
   size_t length() const {
-    return table_->size();
+    return table_.size();
   }
 
   bool operator==(const HeaderTable& other) const;
@@ -177,17 +132,28 @@ class HeaderTable {
   static uint32_t toInternal(uint32_t head, uint32_t length,
                              uint32_t externalIndex);
 
- private:
+ protected:
+  /**
+   * Initialize with a given capacity.
+   */
+  void init(uint32_t capacityVal);
 
   /*
    * Increase table length to newLength
    */
-  void increaseTableLengthTo(uint32_t newLength);
+  virtual void increaseTableLengthTo(uint32_t newLength);
+
+  virtual void resizeTable(uint32_t newLength);
+
+  virtual void updateResizedTable(uint32_t oldTail, uint32_t oldLength,
+                                  uint32_t newLength);
 
   /**
    * Removes one header entry from the beginning of the header table.
+   *
+   * Returns the size of the removed header
    */
-  void removeLast();
+  virtual uint32_t removeLast();
 
   /**
    * Empties the underlying header table
@@ -197,7 +163,7 @@ class HeaderTable {
   /**
    * Evict entries to make space for the needed amount of bytes.
    */
-  uint32_t evict(uint32_t needed, uint32_t desiredCapacity);
+  virtual uint32_t evict(uint32_t needed, uint32_t desiredCapacity);
 
   /**
    * Move the index to the right.
@@ -221,14 +187,20 @@ class HeaderTable {
 
   uint32_t capacity_{0};
   uint32_t bytes_{0};     // size in bytes of the current entries
-  std::unique_ptr<TableImpl> table_;
+  std::vector<HPACKHeader> table_;
 
   uint32_t size_{0};    // how many entries we have in the table
   uint32_t head_{0};     // points to the first element of the ring
 
   names_map names_;
-  int64_t readBaseIndex_{-1};
-  int64_t writeBaseIndex_{-1};
+
+ private:
+  /*
+   * Shared implementation for getIndex and nameIndex
+   */
+  uint32_t getIndexImpl(const HPACKHeaderName& header,
+                        const folly::fbstring& value,
+                        bool nameOnly) const;
 };
 
 std::ostream& operator<<(std::ostream& os, const HeaderTable& table);

@@ -8,6 +8,7 @@
  *
  */
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/HPACKScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QMINScheme.h"
@@ -27,70 +28,6 @@ using namespace proxygen::compress;
 const size_t kMTU = 1400;
 
 const std::string kTestDir = getContainingDirectory(__FILE__).str();
-
-std::string combineCookieCrumbsSorted(std::vector<std::string> crumbs) {
-  std::string retval;
-  sort(crumbs.begin(), crumbs.end());
-  folly::join("; ", crumbs.begin(), crumbs.end(), retval);
-  return retval;
-}
-
-bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
-  bool allValuesPresent = true;
-  bool verifyCookies = false;
-  h1.forEachWithCode(
-      [&](HTTPHeaderCode code, const string& name, const string& value1) {
-        bool h2HasValue =
-            h2.forEachValueOfHeader(code, [&value1](const std::string& value2) {
-              return (value1 == value2);
-            });
-        if (!h2HasValue && code == HTTP_HEADER_COOKIE) {
-          verifyCookies = true;
-          return;
-        }
-        DCHECK(h2HasValue) << "h2 does not contain name=" << name
-                           << " value=" << value1;
-        allValuesPresent &= h2HasValue;
-      });
-
-  if (verifyCookies) {
-    const HTTPHeaders* headers[] = {
-        &h1,
-        &h2,
-    };
-    std::string cookies[2] = {
-        "",
-        "",
-    };
-    unsigned i;
-    for (i = 0; i < 2; ++i) {
-      std::vector<std::string> crumbs;
-      headers[i]->forEachValueOfHeader(HTTP_HEADER_COOKIE,
-                                       [&](const std::string& crumb) {
-                                         crumbs.push_back(crumb);
-                                         return false;
-                                       });
-      cookies[i] = combineCookieCrumbsSorted(crumbs);
-    }
-    if (cookies[0] == cookies[1]) {
-      LOG(INFO) << "Cookie crumbs are reordered";
-    } else {
-      LOG(INFO) << "Cookies are not equal: `" << cookies[0] << "' vs. `"
-                << cookies[1] << "'";
-      return false;
-    }
-  }
-
-  return allValuesPresent;
-}
-
-void verifyHeaders(const HTTPMessage& msg1, const HTTPMessage& msg2) {
-  DCHECK_EQ(msg1.getMethodString(), msg2.getMethodString());
-  DCHECK_EQ(msg1.getURL(), msg2.getURL());
-  DCHECK_EQ(msg1.isSecure(), msg2.isSecure());
-  DCHECK(containsAllHeaders(msg1.getHeaders(), msg2.getHeaders()));
-  DCHECK(containsAllHeaders(msg2.getHeaders(), msg1.getHeaders()));
-}
 
 } // namespace
 
@@ -200,18 +137,28 @@ void CompressionSimulator::flushRequests(CompressionScheme* scheme) {
 void CompressionSimulator::setupRequest(uint16_t index,
                                         HTTPMessage&& msg,
                                         std::chrono::milliseconds encodeDelay) {
+  // Normalize to relative paths
+  const auto& query = msg.getQueryString();
+  if (query.empty()) {
+    msg.setURL(msg.getPath());
+  } else {
+    msg.setURL(folly::to<string>(msg.getPath(), "?", query));
+  }
+
   auto scheme = getScheme(msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST));
   requests_.emplace_back(msg);
   auto decodeCompleteCB =
       [index, this, scheme](std::chrono::milliseconds holDelay) {
         // record processed timestamp
-        CHECK(callbacks_[index].getResult().isOk());
-        verifyHeaders(requests_[index], *callbacks_[index].getResult().ok());
+        CHECK(!callbacks_[index].getResult().hasError());
+        DCHECK_EQ(requests_[index], *callbacks_[index].getResult().value());
         stats_.holDelay += holDelay;
         VLOG(1) << "Finished decoding request=" << index
                 << " with holDelay=" << holDelay.count()
                 << " cumulative HoL delay=" << stats_.holDelay.count();
-        sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
+        if (callbacks_[index].acknowledge) {
+          sendAck(scheme, scheme->getAck(callbacks_[index].seqn));
+        }
       };
   callbacks_.emplace_back(index, decodeCompleteCB);
 
@@ -325,7 +272,8 @@ CompressionScheme* CompressionSimulator::getScheme(StringPiece domain) {
 unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
   switch (params_.type) {
     case SchemeType::QPACK:
-      return make_unique<QPACKScheme>(this, params_.tableSize);
+      return make_unique<QPACKScheme>(this, params_.tableSize,
+                                      params_.maxBlocking);
     case SchemeType::QMIN:
       return make_unique<QMINScheme>(this, params_.tableSize);
     case SchemeType::HPACK:
@@ -338,53 +286,15 @@ unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
 std::pair<FrameFlags, unique_ptr<IOBuf>> CompressionSimulator::encode(
     CompressionScheme* scheme, bool newPacket, uint16_t index) {
   VLOG(1) << "Start encoding request=" << index;
-  vector<compress::Header> allHeaders;
-  // The encode API is pretty bad.  We should just let HPACK directly encode
-  // HTTP messages
-  HTTPMessage& msg = requests_[index];
-  const string& method = msg.getMethodString();
-  allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, http2::kMethod, method);
-  if (msg.getMethod() != HTTPMethod::CONNECT) {
-    const string& scheme = (msg.isSecure() ? http2::kHttps : http2::kHttp);
-    const string& path = msg.getURL();
-    allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, http2::kScheme, scheme);
-    allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, http2::kPath, path);
-  }
-  msg.getHeaders().removeByPredicate(
-      [&](HTTPHeaderCode, const string& name, const string&) {
-        // HAR files contain actual serialized headers protocol headers like
-        // :authority, which we are re-adding above.  Strip them so our
-        // equality test works
-        return (name.size() > 0 && name[0] == ':');
-      });
-
-  const HTTPHeaders& headers = msg.getHeaders();
-  const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
-  if (!host.empty()) {
-    allHeaders.emplace_back(
-        HTTP_HEADER_COLON_AUTHORITY, http2::kAuthority, host);
-  }
-  // Cookies are coalesced in the HAR file but need to be added as separate
-  // headers to optimize compression ratio
+  // vector to hold cookie crumbs
   vector<string> cookies;
-  headers.forEachWithCode(
-      [&](HTTPHeaderCode code, const string& name, const string& value) {
-        if (code == HTTP_HEADER_COOKIE) {
-          vector<StringPiece> cookiePieces;
-          folly::split(';', value, cookiePieces);
-          cookies.reserve(cookies.size() + cookiePieces.size());
-          for (auto cookie : cookiePieces) {
-            cookies.push_back(ltrimWhitespace(cookie).str());
-            allHeaders.emplace_back(code, name, cookies.back());
-          }
-        } else if (code != HTTP_HEADER_HOST) {
-          allHeaders.emplace_back(code, name, value);
-        }
-      });
+  vector<compress::Header> allHeaders = prepareMessageForCompression(
+      requests_[index], cookies);
 
   auto before = stats_.uncompressed;
   auto res = scheme->encode(newPacket, std::move(allHeaders), stats_);
-  VLOG(1) << "Encoded request=" << index << " for host=" << host
+  VLOG(1) << "Encoded request=" << index << " for host="
+          << requests_[index].getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST)
           << " orig size=" << (stats_.uncompressed - before)
           << " block size=" << res.second->computeChainDataLength()
           << " cumulative bytes=" << stats_.compressed

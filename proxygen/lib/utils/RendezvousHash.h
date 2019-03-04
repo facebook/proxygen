@@ -29,7 +29,13 @@ class RendezvousHash : public ConsistentHash {
 
   size_t get(const uint64_t key, const size_t rank = 0) const override;
 
+  std::vector<size_t> selectNUnweighted(const uint64_t key,
+                                        const size_t rank) const;
+
  private:
+  size_t getNthByWeightedHash(const uint64_t key,
+                              const size_t modRank,
+                              std::vector<size_t>* returnRankIds) const;
   uint64_t computeHash(const char* data, size_t len) const;
 
   uint64_t computeHash(uint64_t i) const;

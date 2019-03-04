@@ -106,7 +106,7 @@ class ProxyHandler : public proxygen::RequestHandler,
       parent_.onServerEgressPaused();
     }
     void onEgressResumed() noexcept override {
-      parent_.onServerEgressPaused();
+      parent_.onServerEgressResumed();
     }
 
   };

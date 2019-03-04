@@ -418,12 +418,15 @@ TEST(SSL, TestUpdateTLSCredentials) {
   sslCfg.setCertificate(credFile.path().string(), credFile.path().string(), "");
   cfg.sslConfigs.push_back(sslCfg);
 
+  HTTPServer::IPConfig insecureCfg{folly::SocketAddress("127.0.0.1", 0),
+                                   HTTPServer::Protocol::HTTP};
+
   HTTPServerOptions options;
   options.threads = 4;
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
 
-  std::vector<HTTPServer::IPConfig> ips{cfg};
+  std::vector<HTTPServer::IPConfig> ips{cfg, insecureCfg};
   server->bind(ips);
 
   ServerThread st(server.get());
@@ -499,7 +502,6 @@ TEST(GetListenSocket, TestBootstrapWithBinding) {
 }
 
 TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
-  auto evb = EventBaseManager::get()->getEventBase();
   AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
   serverSocket->bind(0);
 
@@ -511,7 +513,7 @@ TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
   // Use the existing AsyncServerSocket for binding
-  auto existingFd = serverSocket->getSocket();
+  auto existingFd = serverSocket->getNetworkSocket().toFd();
   options.useExistingSocket(std::move(serverSocket));
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
@@ -525,7 +527,6 @@ TEST(UseExistingSocket, TestWithExistingAsyncServerSocket) {
 }
 
 TEST(UseExistingSocket, TestWithSocketFd) {
-  auto evb = EventBaseManager::get()->getEventBase();
   AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
   serverSocket->bind(0);
 
@@ -535,7 +536,7 @@ TEST(UseExistingSocket, TestWithSocketFd) {
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
   // Use the socket fd from the existing AsyncServerSocket for binding
-  auto existingFd = serverSocket->getSocket();
+  auto existingFd = serverSocket->getNetworkSocket().toFd();
   options.useExistingSocket(existingFd);
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
@@ -551,7 +552,6 @@ TEST(UseExistingSocket, TestWithSocketFd) {
 }
 
 TEST(UseExistingSocket, TestWithMultipleSocketFds) {
-  auto evb = EventBaseManager::get()->getEventBase();
   AsyncServerSocket::UniquePtr serverSocket(new folly::AsyncServerSocket);
   serverSocket->bind(0);
   try {
@@ -566,8 +566,13 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
   // Use the socket fd from the existing AsyncServerSocket for binding
-  auto existingFds = serverSocket->getSockets();
-  options.useExistingSockets(existingFds);
+  auto netSocks = serverSocket->getNetworkSockets();
+  std::vector<int> fdSocks;
+  fdSocks.reserve(netSocks.size());
+  for (auto s : netSocks) {
+    fdSocks.push_back(s.toFd());
+  }
+  options.useExistingSockets(fdSocks);
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
   auto st = std::make_unique<ServerThread>(server.get());
@@ -578,7 +583,7 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
   EXPECT_TRUE(st->start());
 
   auto socketFd = server->getListenSocket();
-  ASSERT_EQ(existingFds[0], socketFd);
+  ASSERT_EQ(fdSocks[0], socketFd);
 }
 
 class ScopedServerTest : public testing::Test {
@@ -655,14 +660,14 @@ class ScopedServerTest : public testing::Test {
         HTTPServer::Protocol::HTTP};
 };
 
-TEST_F(ScopedServerTest, start) {
+TEST_F(ScopedServerTest, Start) {
   auto server = createScopedServer();
   auto client = connectPlainText();
   auto resp = client->getResponse();
   EXPECT_EQ(200, resp->getStatusCode());
 }
 
-TEST_F(ScopedServerTest, startStrictSSL) {
+TEST_F(ScopedServerTest, StartStrictSSL) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
@@ -673,7 +678,7 @@ TEST_F(ScopedServerTest, startStrictSSL) {
   EXPECT_THROW(createScopedServer(), std::exception);
 }
 
-TEST_F(ScopedServerTest, startNotStrictSSL) {
+TEST_F(ScopedServerTest, StartNotStrictSSL) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
@@ -688,7 +693,7 @@ TEST_F(ScopedServerTest, startNotStrictSSL) {
   EXPECT_EQ(200, resp->getStatusCode());
 }
 
-TEST_F(ScopedServerTest, startSSLWithInsecure) {
+TEST_F(ScopedServerTest, StartSSLWithInsecure) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(

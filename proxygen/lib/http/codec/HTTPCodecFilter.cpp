@@ -25,8 +25,9 @@ void PassThroughHTTPCodecFilter::onPushMessageBegin(StreamID stream,
 
 void PassThroughHTTPCodecFilter::onExMessageBegin(StreamID stream,
                                                   StreamID controlStream,
+                                                  bool unidirectional,
                                                   HTTPMessage* msg) {
-  callback_->onExMessageBegin(stream, controlStream, msg);
+  callback_->onExMessageBegin(stream, controlStream, unidirectional, msg);
 }
 
 void PassThroughHTTPCodecFilter::onHeadersComplete(
@@ -62,9 +63,9 @@ void PassThroughHTTPCodecFilter::onMessageComplete(StreamID stream,
 }
 
 void PassThroughHTTPCodecFilter::onFrameHeader(
-    uint32_t stream_id,
+    StreamID stream_id,
     uint8_t flags,
-    uint32_t length,
+    uint64_t length,
     uint8_t type,
     uint16_t version) {
   callback_->onFrameHeader(stream_id, flags, length, type, version);
@@ -123,6 +124,23 @@ bool PassThroughHTTPCodecFilter::onNativeProtocolUpgrade(
                                             msg);
 }
 
+void PassThroughHTTPCodecFilter::onGenerateFrameHeader(StreamID streamID,
+                                                       uint8_t type,
+                                                       uint64_t length,
+                                                       uint16_t version) {
+   callback_->onGenerateFrameHeader(streamID, length, type, version);
+}
+
+void PassThroughHTTPCodecFilter::onCertificateRequest(
+    uint16_t requestId, std::unique_ptr<folly::IOBuf> authRequest) {
+  callback_->onCertificateRequest(requestId, std::move(authRequest));
+}
+
+void PassThroughHTTPCodecFilter::onCertificate(
+    uint16_t certId, std::unique_ptr<folly::IOBuf> authenticator) {
+  callback_->onCertificate(certId, std::move(authenticator));
+}
+
 uint32_t PassThroughHTTPCodecFilter::numOutgoingStreams() const {
   return callback_->numOutgoingStreams();
 }
@@ -132,8 +150,8 @@ uint32_t PassThroughHTTPCodecFilter::numIncomingStreams() const {
 }
 
 // PassThroughHTTPCodec methods
-HPACKTableInfo PassThroughHTTPCodecFilter::getHPACKTableInfo() const {
-  return call_->getHPACKTableInfo();
+CompressionInfo PassThroughHTTPCodecFilter::getCompressionInfo() const {
+  return call_->getCompressionInfo();
 }
 
 CodecProtocol PassThroughHTTPCodecFilter::getProtocol() const {
@@ -231,11 +249,12 @@ void PassThroughHTTPCodecFilter::generatePushPromise(folly::IOBufQueue& buf,
 void PassThroughHTTPCodecFilter::generateExHeader(folly::IOBufQueue& writeBuf,
                                                   StreamID stream,
                                                   const HTTPMessage& msg,
-                                                  StreamID controlStream,
+                                                  const HTTPCodec::ExAttributes&
+                                                  exAttributes,
                                                   bool eom,
                                                   HTTPHeaderSize* size) {
-  return call_->generateExHeader(writeBuf, stream, msg, controlStream, eom,
-                                 size);
+  return call_->generateExHeader(writeBuf, stream, msg, exAttributes,
+                                 eom, size);
 }
 
 size_t PassThroughHTTPCodecFilter::generateBody(
@@ -322,6 +341,20 @@ size_t PassThroughHTTPCodecFilter::generatePriority(
   return call_->generatePriority(writeBuf, stream, pri);
 }
 
+size_t PassThroughHTTPCodecFilter::generateCertificateRequest(
+    folly::IOBufQueue& writeBuf,
+    uint16_t requestId,
+    std::unique_ptr<folly::IOBuf> chain) {
+  return call_->generateCertificateRequest(
+      writeBuf, requestId, std::move(chain));
+}
+
+size_t PassThroughHTTPCodecFilter::generateCertificate(
+    folly::IOBufQueue& writeBuf,
+    uint16_t certId,
+    std::unique_ptr<folly::IOBuf> certData) {
+  return call_->generateCertificate(writeBuf, certId, std::move(certData));
+}
 
 HTTPSettings* PassThroughHTTPCodecFilter::getEgressSettings() {
   return call_->getEgressSettings();

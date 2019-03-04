@@ -89,6 +89,9 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
   void addReadEvent(const char* buf,
                     std::chrono::milliseconds delayFromPrevious=
                     std::chrono::milliseconds(0));
+  void addMovableReadEvent(std::unique_ptr<folly::IOBuf> buf,
+                           std::chrono::milliseconds delayFromPrevious =
+                               std::chrono::milliseconds(0));
   void addReadEOF(std::chrono::milliseconds delayFromPrevious);
   void addReadError(const folly::AsyncSocketException& ex,
                     std::chrono::milliseconds delayFromPrevious);

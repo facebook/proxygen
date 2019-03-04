@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 ## Run this script to build proxygen and run the tests. If you want to
 ## install proxygen to use in another C++ project on this machine, run
@@ -22,8 +23,8 @@ set -e
 start_dir=`pwd`
 trap "cd $start_dir" EXIT
 
-folly_rev=`cat $start_dir/../build/deps/github_hashes/facebook/folly-rev.txt|sed 's/Subproject commit //'`
-wangle_rev=`cat $start_dir/../build/deps/github_hashes/facebook/wangle-rev.txt|sed 's/Subproject commit //'`
+folly_rev=$(sed 's/Subproject commit //' "$start_dir"/../build/deps/github_hashes/facebook/folly-rev.txt)
+wangle_rev=$(sed 's/Subproject commit //' "$start_dir"/../build/deps/github_hashes/facebook/wangle-rev.txt)
 
 # Must execute from the directory containing this script
 cd "$(dirname "$0")"
@@ -71,7 +72,7 @@ if [ ! -e folly/folly ]; then
 fi
 cd folly/folly
 git fetch
-git checkout $folly_rev
+git checkout "$folly_rev"
 
 # Build folly
 autoreconf --install
@@ -92,7 +93,7 @@ if [ ! -e wangle/wangle ]; then
 fi
 cd wangle/wangle
 git fetch
-git checkout $wangle_rev
+git checkout "$wangle_rev"
 
 # Build wangle
 cmake .

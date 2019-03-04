@@ -17,8 +17,8 @@ namespace proxygen {
 
 class HPACKContext {
  public:
-  HPACKContext(uint32_t tableSize, bool qpack, bool useBaseIndex);
-  virtual ~HPACKContext() {}
+  explicit HPACKContext(uint32_t tableSize);
+  ~HPACKContext() {}
 
   /**
    * get the index of the given header by looking into both dynamic and static
@@ -26,21 +26,19 @@ class HPACKContext {
    *
    * @return 0 if cannot be found
    */
-  virtual uint32_t getIndex(const HPACKHeader& header,
-                            int32_t commitEpoch, int32_t curEpoch) const;
+  uint32_t getIndex(const HPACKHeader& header) const;
 
   /**
    * index of a header entry with the given name from dynamic or static table
    *
    * @return 0 if name not found
    */
-  virtual uint32_t nameIndex(const HPACKHeaderName& headerName,
-                             int32_t commitEpoch, int32_t curEpoch) const;
+  uint32_t nameIndex(const HPACKHeaderName& headerName) const;
 
   /**
    * @return true if the given index points to a static header entry
    */
-  virtual bool isStatic(uint32_t index) const;
+  bool isStatic(uint32_t index) const;
 
   /**
    * @return header at the given index by composing dynamic and static tables
@@ -51,34 +49,41 @@ class HPACKContext {
     return table_;
   }
 
+  uint32_t getTableSize() const {
+    return table_.capacity();
+  }
+
+  uint32_t getBytesStored() const {
+    return table_.bytes();
+  }
+
+  uint32_t getHeadersStored() const {
+    return table_.size();
+  }
+
   void seedHeaderTable(std::vector<HPACKHeader>& headers);
 
   void describe(std::ostream& os) const;
 
  protected:
-  virtual const StaticHeaderTable& getStaticTable() const {
+  const StaticHeaderTable& getStaticTable() const {
     return StaticHeaderTable::get();
   }
 
-  const HPACKHeader& getStaticHeader(uint32_t index);
-
-  const HPACKHeader& getDynamicHeader(uint32_t index);
-
-  virtual uint32_t globalToDynamicIndex(uint32_t index) const {
+  uint32_t globalToDynamicIndex(uint32_t index) const {
     return index - getStaticTable().size();
   }
-  virtual uint32_t globalToStaticIndex(uint32_t index) const {
+  uint32_t globalToStaticIndex(uint32_t index) const {
     return index;
   }
-  virtual uint32_t dynamicToGlobalIndex(uint32_t index) const {
+  uint32_t dynamicToGlobalIndex(uint32_t index) const {
     return index + getStaticTable().size();
   }
-  virtual uint32_t staticToGlobalIndex(uint32_t index) const {
+  uint32_t staticToGlobalIndex(uint32_t index) const {
     return index;
   }
 
   HeaderTable table_;
-  bool useBaseIndex_{false};
 };
 
 std::ostream& operator<<(std::ostream& os, const HPACKContext& context);

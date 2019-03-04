@@ -36,6 +36,7 @@ struct SimParams {
   bool blend;
   bool samePacketCompression;
   uint32_t tableSize;
+  uint32_t maxBlocking;
 };
 
 struct SimStats {

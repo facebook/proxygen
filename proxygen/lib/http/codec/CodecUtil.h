@@ -14,23 +14,20 @@
 #include <folly/Range.h>
 #include <stdint.h>
 #include <string>
+#include <proxygen/lib/utils/UtilInl.h>
+#include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/codec/compress/Header.h>
 
 namespace proxygen {
 
-class SPDYUtil {
+class CodecUtil {
  public:
   // If these are needed elsewhere, we can move them to a more generic
   // namespace/class later
   static const char http_tokens[256];
 
   static bool validateURL(folly::ByteRange url) {
-    for (auto p: url) {
-      if (p <= 0x20 || p == 0x7f) {
-        // no controls or unescaped spaces
-        return false;
-      }
-    }
-    return true;
+    return proxygen::validateURL(url);
   }
 
   static bool validateMethod(folly::ByteRange method) {
@@ -142,6 +139,13 @@ class SPDYUtil {
 
   static bool hasGzipAndDeflate(const std::string& value, bool& hasGzip,
                                 bool& hasDeflate);
-};
 
+  static std::vector<compress::Header> prepareMessageForCompression(
+      const HTTPMessage& msg,
+      std::vector<std::string>& temps);
+
+  static bool appendHeaders(const HTTPHeaders& inputHeaders,
+                            std::vector<compress::Header>& headers,
+                            HTTPHeaderCode headerToCheck);
+};
 }

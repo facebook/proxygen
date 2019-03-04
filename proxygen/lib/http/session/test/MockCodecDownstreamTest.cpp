@@ -19,6 +19,7 @@
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
+#include <proxygen/lib/http/session/test/MockSecondaryAuthManager.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
 #include <sstream>
@@ -26,10 +27,13 @@
 #include <folly/io/async/test/MockAsyncTransport.h>
 #include <vector>
 #include <boost/optional/optional_io.hpp>
+#include <fizz/record/Extensions.h>
+#include <fizz/record/Types.h>
 
 using folly::test::MockAsyncTransport;
 
 using namespace wangle;
+using namespace fizz;
 using namespace folly;
 using namespace proxygen;
 using namespace std;
@@ -37,6 +41,12 @@ using namespace testing;
 
 const HTTPSettings kDefaultIngressSettings{
   { SettingsId::INITIAL_WINDOW_SIZE, 65536 }
+};
+const HTTPSettings kIngressCertAuthSettings{
+  { SettingsId::SETTINGS_HTTP_CERT_AUTH, 128}
+};
+HTTPSettings kEgressCertAuthSettings{
+  { SettingsId::SETTINGS_HTTP_CERT_AUTH, 128}
 };
 
 class MockCodecDownstreamTest: public testing::Test {
@@ -197,7 +207,7 @@ class MockCodecDownstreamTest: public testing::Test {
   std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
 };
 
-TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
+TEST_F(MockCodecDownstreamTest, OnAbortThenTimeouts) {
   // Test what happens when txn1 (out of many transactions) gets an abort
   // followed by a transaction timeout followed by a write timeout
   MockHTTPHandler handler1;
@@ -270,7 +280,7 @@ TEST_F(MockCodecDownstreamTest, on_abort_then_timeouts) {
   eventBase_.loop();
 }
 
-TEST_F(MockCodecDownstreamTest, server_push) {
+TEST_F(MockCodecDownstreamTest, ServerPush) {
   MockHTTPHandler handler;
   MockHTTPPushHandler pushHandler;
   auto req = makeGetRequest();
@@ -321,7 +331,7 @@ TEST_F(MockCodecDownstreamTest, server_push) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
+TEST_F(MockCodecDownstreamTest, ServerPushAfterGoaway) {
   // Tests if goaway
   //   - drains acknowledged server push transactions
   //   - aborts server pushed transactions not created at the client
@@ -401,7 +411,7 @@ TEST_F(MockCodecDownstreamTest, server_push_after_goaway) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, server_push_abort) {
+TEST_F(MockCodecDownstreamTest, ServerPushAbort) {
   // Test that assoc txn and other push txns are not affected when client aborts
   // a push txn
   MockHTTPHandler handler;
@@ -474,7 +484,7 @@ TEST_F(MockCodecDownstreamTest, server_push_abort) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
+TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
   // Test that all associated push transactions are aborted when client aborts
   // the assoc stream
   MockHTTPHandler handler;
@@ -558,7 +568,7 @@ TEST_F(MockCodecDownstreamTest, server_push_abort_assoc) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, server_push_client_message) {
+TEST_F(MockCodecDownstreamTest, ServerPushClientMessage) {
   // Test that error is generated when client sends data on a pushed stream
   MockHTTPHandler handler;
   MockHTTPPushHandler pushHandler;
@@ -623,7 +633,7 @@ TEST_F(MockCodecDownstreamTest, server_push_client_message) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, read_timeout) {
+TEST_F(MockCodecDownstreamTest, ReadTimeout) {
   // Test read timeout path
   MockHTTPHandler handler1;
   auto req1 = makeGetRequest();
@@ -684,7 +694,7 @@ TEST_F(MockCodecDownstreamTest, read_timeout) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, ping) {
+TEST_F(MockCodecDownstreamTest, Ping) {
   // Test ping mechanism and that we prioritize the ping reply
   MockHTTPHandler handler1;
   auto req1 = makeGetRequest();
@@ -722,7 +732,7 @@ TEST_F(MockCodecDownstreamTest, ping) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, flow_control_abort) {
+TEST_F(MockCodecDownstreamTest, FlowControlAbort) {
   MockHTTPHandler handler1;
   auto req1 = makePostRequest();
 
@@ -758,7 +768,7 @@ TEST_F(MockCodecDownstreamTest, flow_control_abort) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, buffering) {
+TEST_F(MockCodecDownstreamTest, Buffering) {
   StrictMock<MockHTTPHandler> handler;
   auto req1 = makePostRequest(20);
   auto chunk = makeBuf(10);
@@ -813,7 +823,7 @@ TEST_F(MockCodecDownstreamTest, buffering) {
   eventBase_.loop();
 }
 
-TEST_F(MockCodecDownstreamTest, spdy_window) {
+TEST_F(MockCodecDownstreamTest, SpdyWindow) {
   // Test window updates
   MockHTTPHandler handler1;
   auto req1 = makeGetRequest();
@@ -841,7 +851,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
             // 12kb buffered -> pause upstream
           }));
     EXPECT_CALL(handler1, onEgressPaused())
-      .WillOnce(InvokeWithoutArgs([&handler1, this] () {
+      .WillOnce(InvokeWithoutArgs([this] () {
             eventBase_.runInLoop([this] {
                 // triggers 4k send, 8kb buffered, handler still paused
                 codecCallback_->onWindowUpdate(1, 4000);
@@ -856,19 +866,19 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
               }, 20);
           }));
     EXPECT_CALL(handler1, onEgressResumed())
-      .WillOnce(InvokeWithoutArgs([&handler1, this] () {
+      .WillOnce(InvokeWithoutArgs([&handler1] () {
             handler1.sendBody(4000);
             // 2kb send, 2kb buffered => pause upstream
           }));
     EXPECT_CALL(handler1, onEgressPaused())
-      .WillOnce(InvokeWithoutArgs([&handler1, this] () {
+      .WillOnce(InvokeWithoutArgs([this] () {
             eventBase_.runInLoop([this] {
                 // triggers 2kb send, resume
                 codecCallback_->onWindowUpdate(1, 4000);
               });
           }));
     EXPECT_CALL(handler1, onEgressResumed())
-      .WillOnce(InvokeWithoutArgs([&handler1, this] () {
+      .WillOnce(InvokeWithoutArgs([&handler1] () {
             handler1.txn_->sendEOM();
           }));
 
@@ -899,7 +909,7 @@ TEST_F(MockCodecDownstreamTest, spdy_window) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, double_resume) {
+TEST_F(MockCodecDownstreamTest, DoubleResume) {
   // Test spdy ping mechanism and egress re-ordering
   MockHTTPHandler handler1;
   auto req1 = makePostRequest(5);
@@ -1070,15 +1080,15 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   eventBase_.loop();
 }
 
-TEST_F(MockCodecDownstreamTest, conn_flow_control_blocked) {
+TEST_F(MockCodecDownstreamTest, ConnFlowControlBlocked) {
   testConnFlowControlBlocked(false);
 }
 
-TEST_F(MockCodecDownstreamTest, conn_flow_control_timeout) {
+TEST_F(MockCodecDownstreamTest, ConnFlowControlTimeout) {
   testConnFlowControlBlocked(true);
 }
 
-TEST_F(MockCodecDownstreamTest, unpaused_large_post) {
+TEST_F(MockCodecDownstreamTest, UnpausedLargePost) {
   // Make sure that a large POST that streams into the handler generates
   // connection level flow control so that the entire POST can be received.
   InSequence enforceOrder;
@@ -1116,7 +1126,7 @@ TEST_F(MockCodecDownstreamTest, unpaused_large_post) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
+TEST_F(MockCodecDownstreamTest, IngressPausedWindowUpdate) {
   // Test sending a large response body while the handler has ingress paused. We
   // should process the ingress window_updates and deliver the full body
   InSequence enforceOrder;
@@ -1168,7 +1178,7 @@ TEST_F(MockCodecDownstreamTest, ingress_paused_window_update) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, shutdown_then_send_push_headers) {
+TEST_F(MockCodecDownstreamTest, ShutdownThenSendPushHeaders) {
   // Test that notifying session of shutdown before sendHeaders() called on a
   // pushed txn lets that push txn finish.
   EXPECT_CALL(*codec_, supportsPushTransactions())
@@ -1222,7 +1232,7 @@ TEST_F(MockCodecDownstreamTest, shutdown_then_send_push_headers) {
   eventBase_.loop();
 }
 
-TEST_F(MockCodecDownstreamTest, read_iobuf_chain_shutdown) {
+TEST_F(MockCodecDownstreamTest, ReadIobufChainShutdown) {
   // Given an ingress IOBuf chain of 2 parts, if we shutdown after reading the
   // first part of the chain, we shouldn't read the second part.  One way to
   // simulate a 2 part chain is to put more ingress in readBuf while we are
@@ -1336,20 +1346,20 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
   EXPECT_FALSE(reusable_);
 }
 
-TEST_F(MockCodecDownstreamTest, send_double_goaway_timeout) {
+TEST_F(MockCodecDownstreamTest, SendDoubleGoawayTimeout) {
   testGoaway(true, true);
 }
-TEST_F(MockCodecDownstreamTest, send_double_goaway_idle) {
+TEST_F(MockCodecDownstreamTest, SendDoubleGoawayIdle) {
   testGoaway(true, false);
 }
-TEST_F(MockCodecDownstreamTest, send_goaway_timeout) {
+TEST_F(MockCodecDownstreamTest, SendGoawayTimeout) {
   testGoaway(false, true);
 }
-TEST_F(MockCodecDownstreamTest, send_goaway_idle) {
+TEST_F(MockCodecDownstreamTest, SendGoawayIdle) {
   testGoaway(false, false);
 }
 
-TEST_F(MockCodecDownstreamTest, drop_connection) {
+TEST_F(MockCodecDownstreamTest, DropConnection) {
   NiceMock<MockHTTPHandler> handler;
   MockHTTPHandler pushHandler;
 
@@ -1363,7 +1373,7 @@ TEST_F(MockCodecDownstreamTest, drop_connection) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, drop_connection_nogoaway) {
+TEST_F(MockCodecDownstreamTest, DropConnectionNogoaway) {
   NiceMock<MockHTTPHandler> handler;
   MockHTTPHandler pushHandler;
 
@@ -1377,7 +1387,7 @@ TEST_F(MockCodecDownstreamTest, drop_connection_nogoaway) {
   httpSession_->dropConnection();
 }
 
-TEST_F(MockCodecDownstreamTest, shutdown_then_error) {
+TEST_F(MockCodecDownstreamTest, ShutdownThenError) {
   // Test that we ignore any errors after we shutdown the socket in HTTPSession.
   onIngressImpl([&] {
       // This executes as the implementation of HTTPCodec::onIngress()
@@ -1401,7 +1411,7 @@ TEST_F(MockCodecDownstreamTest, shutdown_then_error) {
   eventBase_.loopOnce();
 }
 
-TEST_F(MockCodecDownstreamTest, ping_during_shutdown) {
+TEST_F(MockCodecDownstreamTest, PingDuringShutdown) {
   onIngressImpl([&] {
       InSequence dummy;
 
@@ -1422,10 +1432,42 @@ TEST_F(MockCodecDownstreamTest, ping_during_shutdown) {
     });
 }
 
-TEST_F(MockCodecDownstreamTest, settings_ack) {
+TEST_F(MockCodecDownstreamTest, SettingsAck) {
   EXPECT_CALL(*codec_, generateSettingsAck(_));
   codecCallback_->onSettings(
     {{SettingsId::INITIAL_WINDOW_SIZE, 4000}});
+  EXPECT_CALL(*codec_, onIngressEOF());
+  EXPECT_CALL(mockController_, detachSession(_));
+  httpSession_->dropConnection();
+}
+
+TEST_F(MockCodecDownstreamTest, TestSendCertificateRequest) {
+  auto certRequestContext = folly::IOBuf::copyBuffer("0123456789abcdef");
+  fizz::SignatureAlgorithms sigAlgs;
+  sigAlgs.supported_signature_algorithms.push_back(
+      SignatureScheme::ecdsa_secp256r1_sha256);
+  std::vector<fizz::Extension> extensions;
+  extensions.push_back(encodeExtension(std::move(sigAlgs)));
+
+  std::unique_ptr<StrictMock<MockSecondaryAuthManager>> secondAuthManager_(
+      new StrictMock<MockSecondaryAuthManager>());
+  httpSession_->setSecondAuthManager(std::move(secondAuthManager_));
+  auto authManager = dynamic_cast<MockSecondaryAuthManager*>(
+      httpSession_->getSecondAuthManager());
+  EXPECT_CALL(*codec_, getIngressSettings())
+      .WillOnce(Return(&kIngressCertAuthSettings));
+  EXPECT_CALL(*codec_, getEgressSettings())
+      .WillOnce(Return(&kEgressCertAuthSettings));
+  EXPECT_CALL(*authManager, createAuthRequest(_, _))
+      .WillOnce(InvokeWithoutArgs([]() {
+        return std::make_pair(120, IOBuf::copyBuffer("authenticatorrequest"));
+      }));
+  EXPECT_CALL(*codec_, generateCertificateRequest(_, _, _))
+      .WillOnce(Return(20));
+  auto encodedSize = httpSession_->sendCertificateRequest(
+      std::move(certRequestContext), std::move(extensions));
+  EXPECT_EQ(encodedSize, 20);
+
   EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
   httpSession_->dropConnection();

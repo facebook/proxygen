@@ -9,7 +9,9 @@
  */
 #pragma once
 
+#include <fizz/record/Types.h>
 #include <folly/io/async/SSLContext.h>
+#include <folly/io/IOBuf.h>
 #include <wangle/acceptor/ManagedConnection.h>
 #include <wangle/acceptor/TransportInfo.h>
 #include <proxygen/lib/utils/Time.h>
@@ -48,6 +50,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
     // Note: you must not start any asynchronous work from onCreate()
     virtual void onCreate(const HTTPSessionBase&) {}
+    virtual void onTransportReady(const HTTPSessionBase&) {}
+    virtual void onConnectionError(const HTTPSessionBase&) {}
     virtual void onFullHandshakeCompletion(const HTTPSessionBase&) {}
     virtual void onIngressError(const HTTPSessionBase&, ProxygenError) {}
     virtual void onIngressEOF() {}
@@ -82,7 +86,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     HTTPSessionController* controller,
     const wangle::TransportInfo& tinfo,
     InfoCallback* infoCallback,
-    std::unique_ptr<HTTPCodec> codec);
+    std::unique_ptr<HTTPCodec> codec,
+    const WheelTimerInstance& timeout,
+    HTTPCodec::StreamID rootNodeId);
 
   virtual ~HTTPSessionBase() {}
 
@@ -287,6 +293,16 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   virtual size_t sendPriority(HTTPCodec::StreamID id,
                               http2::PriorityUpdate pri) = 0;
 
+  /**
+   * Send a CERTIFICATE_REQUEST frame. If the underlying protocol doesn't
+   * support secondary authentication, this is a no-op and 0 is returned.
+   */
+  virtual size_t sendCertificateRequest(
+      std::unique_ptr<folly::IOBuf> /* certificateRequestContext */,
+      std::vector<fizz::Extension> /* extensions */) {
+    return 0;
+  }
+
   uint64_t getNumTxnServed() const {
     return transactionSeqNo_;
   }
@@ -405,6 +421,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   virtual HTTPTransaction* newTransaction(
     HTTPTransaction::Handler* handler) = 0;
 
+  virtual bool isReplaySafe() const = 0;
+
   /**
    * Returns true if the underlying transport can be used again in a new
    * request.
@@ -436,6 +454,18 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
  protected:
+  bool notifyEgressBodyBuffered(int64_t bytes, bool update);
+
+  void updateWriteBufSize(int64_t delta);
+
+  void updatePendingWrites();
+
+  virtual void pauseTransactions() = 0;
+
+  void resumeTransactions();
+
+  void setNewTransactionPauseState(HTTPTransaction* txn);
+
   /**
    * Install a direct response handler for the transaction based on the
    * error.
@@ -443,8 +473,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   void handleErrorDirectly(HTTPTransaction* txn,
                            const HTTPException& error);
 
-  bool onBody(std::unique_ptr<folly::IOBuf> chain, size_t length,
-              uint16_t padding, HTTPTransaction* txn);
+  bool onBodyImpl(std::unique_ptr<folly::IOBuf> chain, size_t length,
+                  uint16_t padding, HTTPTransaction* txn);
 
   bool notifyBodyProcessed(uint32_t bytes);
 
@@ -455,20 +485,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   bool ingressLimitExceeded() const {
     return pendingReadSize_ > readBufLimit_;
   }
-
-  /**
-   * Returns true iff egress should stop on this session.
-   */
-  bool egressLimitExceeded() const {
-    // Changed to >
-    return pendingWriteSize_ > writeBufLimit_;
-  }
-
-  void updatePendingWriteSize(int64_t delta) {
-    DCHECK(delta >= 0 || uint64_t(-delta) <= pendingWriteSize_);
-    pendingWriteSize_ += delta;
-  }
-
   void onCreateTransaction() {
     if (transactionSeqNo_ >= 1) {
       // idle duration only exists since the 2nd transaction in the session
@@ -532,6 +548,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   HTTPCodecFilterChain codec_;
 
+  HTTP2PriorityQueue txnEgressQueue_;
+
   /**
    * Maximum number of ingress body bytes that can be buffered across all
    * transactions for this single session/connection.
@@ -554,6 +572,12 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   static uint32_t egressBodySizeLimit_;
 
+  /** Address of this end of the connection */
+  folly::SocketAddress localAddr_;
+
+  /** Address of the remote end of the connection */
+  folly::SocketAddress peerAddr_;
+
  private:
   // Underlying controller_ is marked as private so that callers must utilize
   // getController/setController protected methods.  This ensures we have a
@@ -569,11 +593,13 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     }
   }
 
-  /** Address of this end of the TCP connection */
-  folly::SocketAddress localAddr_;
-
-  /** Address of the remote end of the TCP connection */
-  folly::SocketAddress peerAddr_;
+  /**
+   * Returns true iff egress should stop on this session.
+   */
+  bool egressLimitExceeded() const {
+    // Changed to >
+    return pendingWriteSize_ > writeBufLimit_;
+  }
 
   /**
    * The latest time when this session became idle status
@@ -623,6 +649,12 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   uint64_t pendingWriteSize_{0};
 
   /**
+   * The net change this event loop in the amount of buffered bytes
+   * for all this session's txns and socket write buffer.
+   */
+  int64_t pendingWriteSizeDelta_{0};
+
+  /**
    * Bytes of ingress data read from the socket, but not yet sent to a
    * transaction.
    */
@@ -630,6 +662,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   bool prioritySample_:1;
   bool h2PrioritiesEnabled_:1;
+  bool inResume_:1;
+  bool pendingPause_:1;
 
   /**
    * Indicates whether Ex Headers is supported in HTTPSession

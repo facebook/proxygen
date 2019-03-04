@@ -91,7 +91,9 @@ TEST_F(EgressStateMachineFixture, EgressChunkedTransitions) {
   follow(HTTPTransactionEgressSM::Event::sendChunkTerminator);
 
   follow(HTTPTransactionEgressSM::Event::sendTrailers);
+
   follow(HTTPTransactionEgressSM::Event::sendEOM);
+  follow(HTTPTransactionEgressSM::Event::eomFlushed);
 }
 
 TEST_F(EgressStateMachineFixture, NormalEgressTransitions) {
@@ -101,6 +103,24 @@ TEST_F(EgressStateMachineFixture, NormalEgressTransitions) {
   follow(HTTPTransactionEgressSM::Event::sendBody);
   follow(HTTPTransactionEgressSM::Event::sendBody);
   follow(HTTPTransactionEgressSM::Event::sendEOM);
+}
+
+TEST_F(EgressStateMachineFixture, NormalEgressTransitionsWithTrailers) {
+  follow(HTTPTransactionEgressSM::Event::sendHeaders);
+  follow(HTTPTransactionEgressSM::Event::sendBody);
+  follow(HTTPTransactionEgressSM::Event::sendBody);
+  follow(HTTPTransactionEgressSM::Event::sendBody);
+  follow(HTTPTransactionEgressSM::Event::sendBody);
+  follow(HTTPTransactionEgressSM::Event::sendTrailers);
+  follow(HTTPTransactionEgressSM::Event::sendEOM);
+  follow(HTTPTransactionEgressSM::Event::eomFlushed);
+}
+
+TEST_F(EgressStateMachineFixture, WeirdEgressTransitions) {
+  follow(HTTPTransactionEgressSM::Event::sendHeaders);
+  follow(HTTPTransactionEgressSM::Event::sendTrailers);
+  follow(HTTPTransactionEgressSM::Event::sendEOM);
+  follow(HTTPTransactionEgressSM::Event::eomFlushed);
 }
 
 // Ingress tests

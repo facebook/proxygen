@@ -9,10 +9,9 @@
  */
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 
-#include <unordered_map>
-
-#include <folly/hash/Hash.h>
 #include <folly/Indestructible.h>
+#include <folly/container/F14Map.h>
+#include <folly/hash/Hash.h>
 
 namespace proxygen {
 
@@ -22,7 +21,7 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
   using State = HTTPTransactionEgressSMData::State;
   using Event = HTTPTransactionEgressSMData::Event;
   using TransitionTable =
-      std::unordered_map<std::pair<State, Event>, State, folly::Hash>;
+      folly::F14FastMap<std::pair<State, Event>, State, folly::Hash>;
 
   //             +--> ChunkHeaderSent -> ChunkBodySent
   //             |      ^                    v
@@ -41,10 +40,12 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
       {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
 
       {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
+      {{State::HeadersSent, Event::sendTrailers}, State::TrailersSent},
       {{State::HeadersSent, Event::sendChunkHeader}, State::ChunkHeaderSent},
       {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
 
       {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
+      {{State::RegularBodySent, Event::sendTrailers}, State::TrailersSent},
       {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
 
       {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
@@ -56,12 +57,11 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
       {{State::ChunkTerminatorSent, Event::sendChunkHeader},
        State::ChunkHeaderSent},
       {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
-      {{State::HeadersSent, Event::sendTrailers}, State::TrailersSent},
       {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
 
       {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
 
-      {{State::EOMQueued, Event::eomFlushed}, State::SendingDone},
+      {{State::EOMQueued, Event::eomFlushed}, State::SendingDone}
     }
   };
 

@@ -40,7 +40,8 @@ void RequestHandlerAdaptor::detachTransaction() noexcept {
 
 void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
     noexcept {
-  if (msg->getHeaders().exists(HTTP_HEADER_EXPECT)) {
+  if (msg->getHeaders().exists(HTTP_HEADER_EXPECT) &&
+      !upstream_->canHandleExpect()) {
     auto expectation = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_EXPECT);
     if (!boost::iequals(expectation, "100-continue")) {
       setError(kErrorUnsupportedExpectation);
@@ -93,15 +94,10 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
     return;
   }
 
-  if (!txn_->canSendHeaders()) {
-    // Cannot send anything else
-    return;
-  }
-
   if (error.getProxygenError() == kErrorTimeout) {
     setError(kErrorTimeout);
 
-    if (responseStarted_) {
+    if (!txn_->canSendHeaders()) {
       sendAbort();
     } else {
       ResponseBuilder(this)
@@ -112,7 +108,7 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
   } else if (error.getDirection() == HTTPException::Direction::INGRESS) {
     setError(kErrorRead);
 
-    if (responseStarted_) {
+    if (!txn_->canSendHeaders()) {
       sendAbort();
     } else {
       ResponseBuilder(this)
@@ -143,7 +139,6 @@ void RequestHandlerAdaptor::onExTransaction(HTTPTransaction* txn) noexcept {
 }
 
 void RequestHandlerAdaptor::sendHeaders(HTTPMessage& msg) noexcept {
-  responseStarted_ = true;
   txn_->sendHeaders(msg);
 }
 
@@ -192,9 +187,10 @@ ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
 }
 
 ResponseHandler* RequestHandlerAdaptor::newExMessage(
-    ExMessageHandler* exHandler) noexcept {
+    ExMessageHandler* exHandler,
+    bool unidirectional) noexcept {
   RequestHandlerAdaptor* handler = new RequestHandlerAdaptor(exHandler);
-  getTransaction()->newExTransaction(handler);
+  getTransaction()->newExTransaction(handler, unidirectional);
   return handler;
 }
 

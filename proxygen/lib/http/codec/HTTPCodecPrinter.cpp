@@ -14,9 +14,9 @@
 namespace proxygen {
 
 void HTTPCodecPrinter::onFrameHeader(
-    uint32_t stream_id,
+    StreamID stream_id,
     uint8_t flags,
-    uint32_t length,
+    uint64_t length,
     uint8_t type,
     uint16_t version) {
   switch (call_->getProtocol()) {

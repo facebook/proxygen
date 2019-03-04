@@ -35,7 +35,7 @@ A note on compatibility: this project relies on system installed
 [folly](https://github.com/facebook/folly). If you rebase `proxygen` and `make` starts to fail, you likely
 need to update to the latest version of `folly`. Running
 `./deps.sh && ./reinstall.sh` will do this for you. We are still working
-on a solution to manage depencies more predictably.
+on a solution to manage dependencies more predictably.
 
 ##### Other Platforms
 
@@ -134,6 +134,9 @@ We use Doxygen for Proxygen's internal documentation. You can generate a
 copy of these docs by running `doxygen Doxyfile` from the project
 root. You'll want to look at `html/namespaceproxygen.html` to start. This
 will also generate `folly` documentation.
+
+### License
+See [LICENSE](LICENSE).
 
 ### Contributing
 Contributions to Proxygen are more than welcome. [Read the guidelines in CONTRIBUTING.md](CONTRIBUTING.md).

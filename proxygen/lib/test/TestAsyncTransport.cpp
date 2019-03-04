@@ -60,6 +60,16 @@ class TestAsyncTransport::ReadEvent {
       exception_(ex),
       delay_(delay) {}
 
+  ReadEvent(std::unique_ptr<IOBuf> buf, std::chrono::milliseconds delay)
+      : buffer_(nullptr),
+        readStart_(nullptr),
+        dataEnd_(nullptr),
+        isError_(false),
+        exception_(folly::AsyncSocketException::UNKNOWN, ""),
+        movableBuffer_(std::move(buf)),
+        delay_(delay) {
+  }
+
   ~ReadEvent() {
     free(buffer_);
   }
@@ -69,7 +79,7 @@ class TestAsyncTransport::ReadEvent {
   }
 
   bool isFinalEvent() const {
-    return buffer_ == nullptr;
+    return buffer_ == nullptr && movableBuffer_.get() == nullptr;
   }
 
   const char* getBuffer() const {
@@ -93,6 +103,14 @@ class TestAsyncTransport::ReadEvent {
     return exception_;
   }
 
+  bool isMovableBuffer() const {
+    return movableBuffer_.get() != nullptr;
+  }
+
+  std::unique_ptr<IOBuf> getMovableBuffer() {
+    return std::move(movableBuffer_);
+  }
+
  private:
   char* buffer_;
   char* readStart_;
@@ -100,6 +118,8 @@ class TestAsyncTransport::ReadEvent {
 
   bool isError_;
   folly::AsyncSocketException exception_;
+
+  std::unique_ptr<IOBuf> movableBuffer_;
 
   std::chrono::milliseconds delay_;
 };
@@ -451,6 +471,11 @@ TestAsyncTransport::addReadEvent(const char* buf,
   addReadEvent(buf, strlen(buf), delayFromPrevious);
 }
 
+void TestAsyncTransport::addMovableReadEvent(
+    std::unique_ptr<IOBuf> buf, std::chrono::milliseconds delayFromPrevious) {
+  addReadEvent(std::make_shared<ReadEvent>(std::move(buf), delayFromPrevious));
+}
+
 void
 TestAsyncTransport::addReadEOF(std::chrono::milliseconds delayFromPrevious) {
   addReadEvent(nullptr, 0, delayFromPrevious);
@@ -549,6 +574,20 @@ TestAsyncTransport::fireOneReadEvent() {
   CHECK_NOTNULL(readCallback_);
 
   const shared_ptr<ReadEvent>& event = readEvents_.front();
+
+  // Handle a read event using a movable buffer
+  if (event->isMovableBuffer()) {
+    CHECK(readCallback_->isBufferMovable());
+    readCallback_->readBufferAvailable(event->getMovableBuffer());
+    readEvents_.pop_front();
+
+    if (readEvents_.empty()) {
+      nextReadEventTime_ = {};
+    } else {
+      nextReadEventTime_ = prevReadEventTime_ + readEvents_.front()->getDelay();
+    }
+    return;
+  }
 
   // Note that we call getReadBuffer() here even if we know the next event may
   // be an EOF or an error.  This matches the behavior of AsyncSocket.

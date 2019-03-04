@@ -64,7 +64,7 @@ class HPACKBufferTests : public testing::Test {
   const uint8_t* data_{nullptr};
 };
 
-TEST_F(HPACKBufferTests, encode_integer) {
+TEST_F(HPACKBufferTests, EncodeInteger) {
   // all these fit in one byte
   EXPECT_EQ(encoder_.encodeInteger(7, 192, 6), 1);
   // this one fits perfectly, but needs an additional 0 byte
@@ -94,7 +94,7 @@ TEST_F(HPACKBufferTests, encode_integer) {
   EXPECT_EQ(data_[2], 10);  // 00001010
 }
 
-TEST_F(HPACKBufferTests, encode_plain_literal) {
+TEST_F(HPACKBufferTests, EncodePlainLiteral) {
   string literal("accept-encoding");
   EXPECT_EQ(encoder_.encodeLiteral(literal), 16);
   releaseData();
@@ -105,7 +105,7 @@ TEST_F(HPACKBufferTests, encode_plain_literal) {
   }
 }
 
-TEST_F(HPACKBufferTests, encode_plain_literal_n) {
+TEST_F(HPACKBufferTests, EncodePlainLiteralN) {
   string literal("accept-encodin"); // len=14
   // length must fit in 4 bits, with room for 3 bit instruction
   EXPECT_EQ(encoder_.encodeLiteral(0xE0, 4, literal), 15);
@@ -117,7 +117,7 @@ TEST_F(HPACKBufferTests, encode_plain_literal_n) {
   }
 }
 
-TEST_F(HPACKBufferTests, encode_huffman_literal) {
+TEST_F(HPACKBufferTests, EncodeHuffmanLiteral) {
   string accept("accept-encoding");
   HPACKEncodeBuffer encoder(512, true);
   uint32_t size = encoder.encodeLiteral(accept);
@@ -128,7 +128,7 @@ TEST_F(HPACKBufferTests, encode_huffman_literal) {
   EXPECT_EQ(data_[11], 0x7f);
 }
 
-TEST_F(HPACKBufferTests, encode_huffman_literal_n) {
+TEST_F(HPACKBufferTests, EncodeHuffmanLiteralN) {
   string accept("accept-encoding");
   HPACKEncodeBuffer encoder(512, true);
   uint32_t size = encoder.encodeLiteral(0xE0, 4, accept);
@@ -139,14 +139,14 @@ TEST_F(HPACKBufferTests, encode_huffman_literal_n) {
   EXPECT_EQ(data_[11], 0x7f);
 }
 
-TEST_F(HPACKBufferTests, decode_single_byte) {
+TEST_F(HPACKBufferTests, DecodeSingleByte) {
   buf_ = IOBuf::create(512);
   uint8_t* wdata = buf_->writableData();
   buf_->append(1);
   // 6-bit prefix
   *wdata = 67;
   resetDecoder();
-  uint32_t integer;
+  uint64_t integer;
   CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
   CHECK_EQ(integer, 67);
 
@@ -167,7 +167,7 @@ TEST_F(HPACKBufferTests, decode_single_byte) {
   CHECK_EQ(integer, 195);
 }
 
-TEST_F(HPACKBufferTests, decode_multi_byte) {
+TEST_F(HPACKBufferTests, DecodeMultiByte) {
   buf_ = IOBuf::create(512);
   uint8_t* wdata = buf_->writableData();
   // edge case - max value in a 2-bit space
@@ -175,7 +175,7 @@ TEST_F(HPACKBufferTests, decode_multi_byte) {
   wdata[0] = 67;
   wdata[1] = 0;
   resetDecoder();
-  uint32_t integer;
+  uint64_t integer;
   CHECK_EQ(decoder_.decodeInteger(2, integer), DecodeError::NONE);
   CHECK_EQ(integer, 3);
   CHECK_EQ(decoder_.cursor().length(), 0);
@@ -205,11 +205,11 @@ TEST_F(HPACKBufferTests, decode_multi_byte) {
   CHECK_EQ(decoder_.cursor().length(), 0);
 }
 
-TEST_F(HPACKBufferTests, decode_integer_error) {
+TEST_F(HPACKBufferTests, DecodeIntegerError) {
   buf_ = IOBuf::create(128);
   resetDecoder();
   // empty buffer
-  uint32_t integer;
+  uint64_t integer;
   CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::BUFFER_UNDERFLOW);
 
   // incomplete buffer
@@ -221,7 +221,7 @@ TEST_F(HPACKBufferTests, decode_integer_error) {
   CHECK_EQ(decoder_.decodeInteger(5, integer), DecodeError::BUFFER_UNDERFLOW);
 }
 
-TEST_F(HPACKBufferTests, decode_literal_error) {
+TEST_F(HPACKBufferTests, DecodeLiteralError) {
   buf_ = IOBuf::create(128);
 
   uint8_t* wdata = buf_->writableData();
@@ -241,7 +241,7 @@ TEST_F(HPACKBufferTests, decode_literal_error) {
   EXPECT_EQ(decoder_.decodeLiteral(literal), DecodeError::BUFFER_UNDERFLOW);
 }
 
-TEST_F(HPACKBufferTests, decode_literal_multi_buffer) {
+TEST_F(HPACKBufferTests, DecodeLiteralMultiBuffer) {
   auto buf1 = IOBuf::create(128);
   auto buf2 = IOBuf::create(128);
   // encode the size
@@ -271,7 +271,7 @@ TEST_F(HPACKBufferTests, decode_literal_multi_buffer) {
   EXPECT_EQ(literal[literal.size() - 1], 'y');
 }
 
-TEST_F(HPACKBufferTests, decode_huffman_literal_multi_buffer) {
+TEST_F(HPACKBufferTests, DecodeHuffmanLiteralMultiBuffer) {
   // "gzip" fits perfectly in a 3 bytes block
   std::array<uint8_t, 3> gzip{0x9b, 0xd9, 0xab};
   auto buf1 = IOBuf::create(128);
@@ -308,7 +308,7 @@ TEST_F(HPACKBufferTests, decode_huffman_literal_multi_buffer) {
   EXPECT_EQ(literal.rfind("gzip"), literal.size() - 4);
 }
 
-TEST_F(HPACKBufferTests, decode_huffman_literal_n) {
+TEST_F(HPACKBufferTests, DecodeHuffmanLiteralN) {
   // "gzip" fits perfectly in a 3 bytes block
   std::array<uint8_t, 3> gzip{0x9b, 0xd9, 0xab};
   uint32_t size = 3;
@@ -327,7 +327,7 @@ TEST_F(HPACKBufferTests, decode_huffman_literal_n) {
   EXPECT_EQ(literal.rfind("gzip"), literal.size() - 4);
 }
 
-TEST_F(HPACKBufferTests, decode_plain_literal) {
+TEST_F(HPACKBufferTests, DecodePlainLiteral) {
   buf_ = IOBuf::create(512);
   std::string gzip("gzip");
   folly::fbstring literal;
@@ -343,7 +343,7 @@ TEST_F(HPACKBufferTests, decode_plain_literal) {
 }
 
 
-TEST_F(HPACKBufferTests, decode_plain_literal_n) {
+TEST_F(HPACKBufferTests, DecodePlainLiteralN) {
   buf_ = IOBuf::create(512);
   std::string gzip("gzip");
   folly::fbstring literal;
@@ -358,7 +358,7 @@ TEST_F(HPACKBufferTests, decode_plain_literal_n) {
   CHECK_EQ(literal, gzip);
 }
 
-TEST_F(HPACKBufferTests, integer_encode_decode) {
+TEST_F(HPACKBufferTests, IntegerEncodeDecode) {
   HPACKEncodeBuffer encoder(512);
   // first encode
   uint32_t value = 145333;
@@ -367,7 +367,7 @@ TEST_F(HPACKBufferTests, integer_encode_decode) {
   resetDecoder();
   EXPECT_EQ(decoder_.cursor().length(), 4);
   // now decode
-  uint32_t integer;
+  uint64_t integer;
   EXPECT_EQ(decoder_.decodeInteger(5, integer), DecodeError::NONE);
   EXPECT_EQ(integer, value);
   EXPECT_EQ(decoder_.cursor().length(), 0);
@@ -384,20 +384,25 @@ TEST_F(HPACKBufferTests, integer_encode_decode) {
 /**
  * really large integers
  */
-TEST_F(HPACKBufferTests, integer_overflow) {
-  uint32_t integer;
+TEST_F(HPACKBufferTests, IntegerOverflow) {
+  uint64_t integer;
   buf_ = IOBuf::create(128);
   uint8_t *wdata = buf_->writableData();
 
   // enough headroom for both cases
-  buf_->append(7);
+  buf_->append(12);
   // overflow the accumulated value
   wdata[0] = 0xFF;
   wdata[1] = 0xFF;
   wdata[2] = 0xFF;
   wdata[3] = 0xFF;
   wdata[4] = 0xFF;
-  wdata[5] = 0x0F;
+  wdata[5] = 0xFF;
+  wdata[6] = 0xFF;
+  wdata[7] = 0xFF;
+  wdata[8] = 0xFF;
+  wdata[9] = 0xFF;
+  wdata[10] = 0x0F;
   resetDecoder();
   EXPECT_EQ(decoder_.decodeInteger(8, integer), DecodeError::INTEGER_OVERFLOW);
 
@@ -408,7 +413,12 @@ TEST_F(HPACKBufferTests, integer_overflow) {
   wdata[3] = 0x80;
   wdata[4] = 0x80;
   wdata[5] = 0x80;
-  wdata[6] = 0x01;
+  wdata[6] = 0x80;
+  wdata[7] = 0x80;
+  wdata[8] = 0x80;
+  wdata[9] = 0x80;
+  wdata[10] = 0x80;
+  wdata[11] = 0x01;
   resetDecoder();
   EXPECT_EQ(decoder_.decodeInteger(8, integer), DecodeError::INTEGER_OVERFLOW);
 }
@@ -416,17 +426,18 @@ TEST_F(HPACKBufferTests, integer_overflow) {
 /**
  * test that we're able to decode the max integer
  */
-TEST_F(HPACKBufferTests, integer_max) {
+TEST_F(HPACKBufferTests, IntegerMax) {
+  uint64_t hpackMax = std::numeric_limits<uint64_t>::max() - 1;
   releaseData();
   // encoding with all the bit prefixes
   for (uint8_t bitprefix = 1; bitprefix <= 8; bitprefix++) {
-    encoder_.encodeInteger(std::numeric_limits<uint32_t>::max(), 0, bitprefix);
+    encoder_.encodeInteger(hpackMax, 0, bitprefix);
     // take the encoded data and shove it in the decoder
     releaseData();
     resetDecoder();
-    uint32_t integer = 0;
+    uint64_t integer = 0;
     EXPECT_EQ(decoder_.decodeInteger(bitprefix, integer), DecodeError::NONE);
-    EXPECT_EQ(integer, std::numeric_limits<uint32_t>::max());
+    EXPECT_EQ(integer, hpackMax);
   }
 }
 
@@ -434,7 +445,7 @@ TEST_F(HPACKBufferTests, integer_max) {
  * making sure we're calling peek() before deferencing the first byte
  * to figure out if it's a huffman encoding or not
  */
-TEST_F(HPACKBufferTests, empty_iobuf_literal) {
+TEST_F(HPACKBufferTests, EmptyIobufLiteral) {
   // construct an IOBuf chain made of 1 empty chain and a literal
   unique_ptr<IOBuf> first = IOBuf::create(128);
   // set a trap by setting first byte to 128, which signals Huffman encoding
@@ -457,7 +468,7 @@ TEST_F(HPACKBufferTests, empty_iobuf_literal) {
 /**
  * the that we enforce a limit on the literal size
  */
-TEST_F(HPACKBufferTests, large_literal_error) {
+TEST_F(HPACKBufferTests, LargeLiteralError) {
   uint32_t largeSize = 10 + kMaxLiteralSize;
   // encode a large string
   string largeLiteral;

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Facebook, Inc. and its affiliates.
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -154,8 +155,9 @@ class FBCodeBuilder(object):
         return self.step('Diagnostics', [
             self.comment('Builder {0}'.format(repr(self))),
             self.run(ShellQuoted('hostname')),
-            self.run(ShellQuoted('cat /etc/issue')),
+            self.run(ShellQuoted('cat /etc/issue || echo no /etc/issue')),
             self.run(ShellQuoted('g++ --version || echo g++ not installed')),
+            self.run(ShellQuoted('cmake --version || echo cmake not installed')),
         ])
 
     def step(self, name, actions):
@@ -177,52 +179,52 @@ class FBCodeBuilder(object):
         '''
         raise NotImplementedError
 
+    def debian_deps(self):
+        return [
+            'autoconf-archive',
+            'bison',
+            'build-essential',
+            'cmake',
+            'curl',
+            'flex',
+            'git',
+            'gperf',
+            'joe',
+            'libboost-all-dev',
+            'libcap-dev',
+            'libdouble-conversion-dev',
+            'libevent-dev',
+            'libgflags-dev',
+            'libgoogle-glog-dev',
+            'libkrb5-dev',
+            'libpcre3-dev',
+            'libpthread-stubs0-dev',
+            'libnuma-dev',
+            'libsasl2-dev',
+            'libsnappy-dev',
+            'libsqlite3-dev',
+            'libssl-dev',
+            'libtool',
+            'netcat-openbsd',
+            'pkg-config',
+            'sudo',
+            'unzip',
+            'wget',
+        ]
+
     #
     # Specific build helpers
     #
 
     def install_debian_deps(self):
         actions = [
-            self.run(ShellQuoted(
-                'apt-get update && apt-get install -yq '
-                'autoconf-archive '
-                'bison '
-                'build-essential '
-                'cmake '
-                'curl '
-                'flex '
-                'git '
-                'gperf '
-                'joe '
-                'libboost-all-dev '
-                'libcap-dev '
-                'libdouble-conversion-dev '
-                'libevent-dev '
-                'libgflags-dev '
-                'libgoogle-glog-dev '
-                'libkrb5-dev '
-                'libnuma-dev '
-                'libsasl2-dev '
-                'libsnappy-dev '
-                'libsqlite3-dev '
-                'libssl-dev '
-                'libtool '
-                'netcat-openbsd '
-                'pkg-config '
-                'sudo '
-                'unzip '
-                'wget'
-            )),
+            self.run(
+                ShellQuoted('apt-get update && apt-get install -yq {deps}').format(
+                    deps=shell_join(' ', (
+                        ShellQuoted(dep) for dep in self.debian_deps())))
+            ),
         ]
         gcc_version = self.option('gcc_version')
-
-        # We need some extra packages to be able to install GCC 4.9 on 14.04.
-        if self.option('os_image') == 'ubuntu:14.04' and gcc_version == '4.9':
-            actions.append(self.run(ShellQuoted(
-                'apt-get install -yq software-properties-common && '
-                'add-apt-repository ppa:ubuntu-toolchain-r/test && '
-                'apt-get update'
-            )))
 
         # Make the selected GCC the default before building anything
         actions.extend([
@@ -240,30 +242,12 @@ class FBCodeBuilder(object):
             self.run(ShellQuoted('update-alternatives --config gcc')),
         ])
 
-        # Ubuntu 14.04 comes with a CMake version that is too old for mstch.
-        if self.option('os_image') == 'ubuntu:14.04':
-            actions.append(self.run(ShellQuoted(
-                'apt-get install -yq software-properties-common && '
-                'add-apt-repository ppa:george-edison55/cmake-3.x && '
-                'apt-get update && '
-                'apt-get upgrade -yq cmake'
-            )))
-
-        # Debian 8.6 comes with a CMake version that is too old for folly.
-        if self.option('os_image') == 'debian:8.6':
-            actions.append(self.run(ShellQuoted(
-                'echo deb http://ftp.debian.org/debian jessie-backports main '
-                '>> /etc/apt/sources.list.d/jessie-backports.list && '
-                'apt-get update && '
-                'apt-get -yq -t jessie-backports install cmake'
-            )))
-
         actions.extend(self.debian_ccache_setup_steps())
 
         return self.step('Install packages for Debian-based OS', actions)
 
     def debian_ccache_setup_steps(self):
-        raise []  # It's ok to ship a renderer without ccache support.
+        return []  # It's ok to ship a renderer without ccache support.
 
     def github_project_workdir(self, project, path):
         # Only check out a non-default branch if requested. This especially
@@ -303,7 +287,7 @@ class FBCodeBuilder(object):
         ))
 
     def parallel_make(self, make_vars=None):
-        return self.run(ShellQuoted('make -j {n} {vars}').format(
+        return self.run(ShellQuoted('make -j {n} VERBOSE=1 {vars}').format(
             n=self.option('make_parallelism'),
             vars=self._make_vars(make_vars),
         ))
@@ -311,20 +295,31 @@ class FBCodeBuilder(object):
     def make_and_install(self, make_vars=None):
         return [
             self.parallel_make(make_vars),
-            self.run(ShellQuoted('make install {vars}').format(
+            self.run(ShellQuoted('make install VERBOSE=1 {vars}').format(
                 vars=self._make_vars(make_vars),
             )),
         ]
 
-    def configure(self):
+    def configure(self, name=None):
+        autoconf_options = {}
+        if name is not None:
+            autoconf_options.update(
+                self.option('{0}:autoconf_options'.format(name), {})
+            )
         return [
             self.run(ShellQuoted(
                 'LDFLAGS="$LDFLAGS -L"{p}"/lib -Wl,-rpath="{p}"/lib" '
                 'CFLAGS="$CFLAGS -I"{p}"/include" '
                 'CPPFLAGS="$CPPFLAGS -I"{p}"/include" '
                 'PY_PREFIX={p} '
-                './configure --prefix={p}'
-            ).format(p=self.option('prefix'))),
+                './configure --prefix={p} {args}'
+            ).format(
+                p=self.option('prefix'),
+                args=shell_join(' ', (
+                    ShellQuoted('{k}={v}').format(k=k, v=v)
+                    for k, v in autoconf_options.items()
+                )),
+            )),
         ]
 
     def autoconf_install(self, name):
@@ -361,14 +356,14 @@ class FBCodeBuilder(object):
             self.cmake_configure(name, cmake_path) + self.make_and_install()
         )
 
-    def fb_github_autoconf_install(self, project_and_path):
+    def fb_github_autoconf_install(self, project_and_path, github_org='facebook'):
         return [
-            self.fb_github_project_workdir(project_and_path),
+            self.fb_github_project_workdir(project_and_path, github_org),
             self.autoconf_install(project_and_path),
         ]
 
-    def fb_github_cmake_install(self, project_and_path, cmake_path='..'):
+    def fb_github_cmake_install(self, project_and_path, cmake_path='..', github_org='facebook'):
         return [
-            self.fb_github_project_workdir(project_and_path),
+            self.fb_github_project_workdir(project_and_path, github_org),
             self.cmake_install(project_and_path, cmake_path),
         ]

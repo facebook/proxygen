@@ -9,12 +9,14 @@
  */
 #pragma once
 
+#include <stdint.h>
+
 namespace proxygen {
 
 /*
  * Struct to hold the encoder and decoder information
  */
-struct HPACKTableInfo {
+struct CompressionInfo {
   // Egress table info (encoder)
   uint32_t egressHeaderTableSize_{0};
   uint32_t egressBytesStored_{0};
@@ -25,7 +27,7 @@ struct HPACKTableInfo {
   uint32_t ingressBytesStored_{0};
   uint32_t ingressHeadersStored_{0};
 
-  HPACKTableInfo(uint32_t egressHeaderTableSize,
+  CompressionInfo(uint32_t egressHeaderTableSize,
                  uint32_t egressBytesStored,
                  uint32_t egressHeadersStored,
                  uint32_t ingressHeaderTableSize,
@@ -38,9 +40,9 @@ struct HPACKTableInfo {
       ingressBytesStored_(ingressBytesStored),
       ingressHeadersStored_(ingressHeadersStored) {}
 
-  HPACKTableInfo() {}
+  CompressionInfo() {}
 
-  bool operator==(const HPACKTableInfo& tableInfo) const {
+  bool operator==(const CompressionInfo& tableInfo) const {
     return egressHeaderTableSize_ == tableInfo.egressHeaderTableSize_ &&
            egressBytesStored_ == tableInfo.egressBytesStored_ &&
            egressHeadersStored_ == tableInfo.egressHeadersStored_ &&

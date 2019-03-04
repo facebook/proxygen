@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include <gmock/gmock.h>
+
 #include <proxygen/lib/http/HTTPMessageFilters.h>
 
 namespace proxygen {
@@ -17,26 +19,28 @@ static const std::string kMockFilterName = "MockFilter";
 
 class MockHTTPMessageFilter : public HTTPMessageFilter {
  public:
-  GMOCK_METHOD1_(, noexcept,, onHeadersComplete,
-                 void(std::shared_ptr<HTTPMessage>));
+  MOCK_QUALIFIED_METHOD1(onHeadersComplete,
+                         noexcept,
+                         void(std::shared_ptr<HTTPMessage>));
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
     onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
   }
 
-  GMOCK_METHOD1_(, noexcept,, onBody, void(std::shared_ptr<folly::IOBuf>));
+  MOCK_QUALIFIED_METHOD1(onBody, noexcept, void(std::shared_ptr<folly::IOBuf>));
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  GMOCK_METHOD1_(, noexcept,, onChunkHeader, void(size_t));
-  GMOCK_METHOD0_(, noexcept,, onChunkComplete, void());
-  GMOCK_METHOD1_(, noexcept,, onTrailers,
-                 void(std::shared_ptr<HTTPHeaders> trailers));
+  MOCK_QUALIFIED_METHOD1(onChunkHeader, noexcept, void(size_t));
+  MOCK_QUALIFIED_METHOD0(onChunkComplete, noexcept, void());
+  MOCK_QUALIFIED_METHOD1(onTrailers,
+                         noexcept,
+                         void(std::shared_ptr<HTTPHeaders> trailers));
   void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
     onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
-  GMOCK_METHOD0_(, noexcept,, onEOM, void());
-  GMOCK_METHOD1_(, noexcept,, onUpgrade, void(UpgradeProtocol));
-  GMOCK_METHOD1_(, noexcept,, onError, void(const HTTPException&));
+  MOCK_QUALIFIED_METHOD0(onEOM, noexcept, void());
+  MOCK_QUALIFIED_METHOD1(onUpgrade, noexcept, void(UpgradeProtocol));
+  MOCK_QUALIFIED_METHOD1(onError, noexcept, void(const HTTPException&));
 
   void nextOnHeadersCompletePublic(std::shared_ptr<HTTPMessage> msg) {
     std::unique_ptr<HTTPMessage> msgU(new HTTPMessage(*msg));

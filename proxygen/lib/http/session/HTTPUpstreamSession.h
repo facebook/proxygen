@@ -90,8 +90,6 @@ class HTTPUpstreamSession final: public HTTPSession {
 
   void detachTransactions();
 
-  bool isDetachable(bool checkSocket=true) const override;
-
   void attachThreadLocals(folly::EventBase* eventBase,
                           folly::SSLContextPtr sslContext,
                           const WheelTimerInstance& timeout,
@@ -112,6 +110,11 @@ class HTTPUpstreamSession final: public HTTPSession {
    *                not be null.
    */
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
+
+  /**
+   * Returns true if the underlying transport has completed full handshake.
+   */
+  bool isReplaySafe() const override;
 
   /**
    * Returns true if this session has no open transactions and the underlying

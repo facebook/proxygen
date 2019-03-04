@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = .
 
 check_LTLIBRARIES = libhpacktestutils.la
@@ -16,6 +17,9 @@ HPACKTests_SOURCES = \
         HeaderTableTests.cpp \
         HuffmanTests.cpp \
         LoggingTests.cpp \
+        QPACKCodecTests.cpp \
+        QPACKContextTests.cpp \
+        QPACKHeaderTableTests.cpp \
         RFCExamplesTests.cpp
 
 HPACKTests_LDADD = \

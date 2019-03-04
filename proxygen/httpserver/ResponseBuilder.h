@@ -118,6 +118,11 @@ class ResponseBuilder {
     return header(HTTP_HEADER_CONNECTION, "close");
   }
 
+  ResponseBuilder& trailers(const HTTPHeaders& trailers) {
+    trailers_.reset(new HTTPHeaders(trailers));
+    return *this;
+  }
+
   void sendWithEOM() {
     sendEOM_ = true;
     send();
@@ -162,6 +167,13 @@ class ResponseBuilder {
     }
 
     if (sendEOM_) {
+      if (trailers_) {
+        auto txn = txn_->getTransaction();
+        if (txn) {
+          txn->sendTrailers(*trailers_);
+        }
+        trailers_.reset();
+      }
       txn_->sendEOM();
     }
   }
@@ -192,11 +204,17 @@ class ResponseBuilder {
     txn_->sendEOM();
   }
 
+  ResponseBuilder& setEgressWebsocketHeaders() {
+    headers_->setEgressWebsocketUpgrade();
+    return *this;
+  }
+
  private:
   ResponseHandler* const txn_{nullptr};
 
   std::unique_ptr<HTTPMessage> headers_;
   std::unique_ptr<folly::IOBuf> body_;
+  std::unique_ptr<HTTPHeaders> trailers_;
 
   // If true, sends EOM.
   bool sendEOM_{false};

@@ -15,7 +15,7 @@ using namespace proxygen;
 class HTTPCommonHeadersTests : public testing::Test {
 };
 
-TEST_F(HTTPCommonHeadersTests, test_hashing) {
+TEST_F(HTTPCommonHeadersTests, TestHashing) {
   std::string common1("Content-Length");
   std::string common2("content-length");
   std::string uncommon("Uncommon");
@@ -30,7 +30,7 @@ TEST_F(HTTPCommonHeadersTests, test_hashing) {
   EXPECT_EQ(commonCode1, commonCode2);
 }
 
-TEST_F(HTTPCommonHeadersTests, test_two_tables_initialized) {
+TEST_F(HTTPCommonHeadersTests, TestTwoTablesInitialized) {
   std::string common("Content-Length");
   HTTPHeaderCode code = HTTPCommonHeaders::hash(common);
 

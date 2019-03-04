@@ -1,3 +1,4 @@
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 SUBDIRS = . test
 
 BUILT_SOURCES = TraceEventType.h TraceEventType.cpp TraceFieldType.h TraceFieldType.cpp
@@ -34,7 +35,6 @@ nobase_libutils_HEADERS = \
 	FilterChain.h \
 	HTTPTime.h \
 	ParseURL.h \
-	Result.h \
 	StateMachine.h \
 	TestUtils.h \
 	Time.h \

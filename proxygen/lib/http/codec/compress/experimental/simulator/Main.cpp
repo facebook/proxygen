@@ -27,6 +27,8 @@ DEFINE_int32(ooo_thresh, 0, "First seqn to allow ooo");
 DEFINE_int32(table_size, 4096, "HPACK dynamic table size");
 DEFINE_int64(seed, 0, "RNG seed");
 DEFINE_bool(blend, true, "Blend all facebook.com and fbcdn.net domains");
+DEFINE_int32(max_blocking, 100,
+             "Maximum number of vulnerable/blocking header blocks");
 DEFINE_bool(same_packet_compression,
             true,
             "Allow QPACK to compress across "
@@ -62,6 +64,7 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_seed == 0) {
     FLAGS_seed = folly::Random::rand64();
+    std::cout << "Seed: " << FLAGS_seed << std::endl;
   }
   SimParams p{t,
               FLAGS_seed,
@@ -72,7 +75,8 @@ int main(int argc, char* argv[]) {
               uint16_t(FLAGS_ooo_thresh),
               FLAGS_blend,
               FLAGS_same_packet_compression,
-              uint32_t(FLAGS_table_size)};
+              uint32_t(FLAGS_table_size),
+              uint32_t(FLAGS_max_blocking)};
   CompressionSimulator sim(p);
   if (sim.readInputFromFileAndSchedule(FLAGS_input)) {
     sim.run();

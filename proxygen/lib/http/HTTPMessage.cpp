@@ -70,7 +70,8 @@ HTTPMessage::HTTPMessage() :
     sslVersion_(0), sslCipher_(nullptr), protoStr_(nullptr), pri_(0),
     parsedCookies_(false), parsedQueryParams_(false),
     chunked_(false), upgraded_(false), wantsKeepalive_(true),
-    trailersAllowed_(false), secure_(false) {
+    trailersAllowed_(false), secure_(false),
+    upgradeWebsocket_(HTTPMessage::WebSocketUpgrade::NONE) {
 }
 
 HTTPMessage::~HTTPMessage() {
@@ -101,7 +102,8 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     upgraded_(message.upgraded_),
     wantsKeepalive_(message.wantsKeepalive_),
     trailersAllowed_(message.trailersAllowed_),
-    secure_(message.secure_) {
+    secure_(message.secure_),
+    upgradeWebsocket_(message.upgradeWebsocket_) {
   if (message.trailers_) {
     trailers_ = std::make_unique<HTTPHeaders>(*message.trailers_);
   }
@@ -133,7 +135,8 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept :
     upgraded_(message.upgraded_),
     wantsKeepalive_(message.wantsKeepalive_),
     trailersAllowed_(message.trailersAllowed_),
-    secure_(message.secure_) {
+    secure_(message.secure_),
+    upgradeWebsocket_(message.upgradeWebsocket_) {
 }
 
 HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
@@ -165,6 +168,7 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   wantsKeepalive_ = message.wantsKeepalive_;
   trailersAllowed_ = message.trailersAllowed_;
   secure_ = message.secure_;
+  upgradeWebsocket_ = message.upgradeWebsocket_;
 
   if (message.trailers_) {
     trailers_ = std::make_unique<HTTPHeaders>(*message.trailers_);
@@ -203,6 +207,7 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   wantsKeepalive_ = message.wantsKeepalive_;
   trailersAllowed_ = message.trailersAllowed_;
   secure_ = message.secure_;
+  upgradeWebsocket_ = message.upgradeWebsocket_;
 
   trailers_ = std::move(message.trailers_);
   return *this;
@@ -663,21 +668,26 @@ void HTTPMessage::splitNameValue(
   }
 }
 
-void HTTPMessage::dumpMessage(int vlogLevel) const {
-  if (!VLOG_IS_ON(vlogLevel)) {
-    return;
-  }
+std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg) {
+  msg.describe(os);
+  return os;
+}
 
-  VLOG(vlogLevel) << ", chunked: " << chunked_
-                  << ", upgraded: " << upgraded_
-                  << ", Fields for message:";
+void HTTPMessage::dumpMessage(int vlogLevel) const {
+  VLOG(vlogLevel) << *this;
+}
+
+void HTTPMessage::describe(std::ostream& os) const {
+  os << ", chunked: " << chunked_
+     << ", upgraded: " << upgraded_
+     << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.
   std::vector<std::pair<const char*, const std::string*>> fields {{
-    {"local_ip", &localIP_},
-    {"version", &versionStr_},
-    {"dst_ip", &dstIP_},
-    {"dst_port", &dstPort_},
+      {"local_ip", &localIP_},
+      {"version", &versionStr_},
+      {"dst_ip", &dstIP_},
+      {"dst_port", &dstPort_},
   }};
 
   if (fields_.type() == typeid(Request)) {
@@ -699,23 +709,23 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
 
   for (auto field : fields) {
     if (!field.second->empty()) {
-      VLOG(vlogLevel) << " " << field.first
-                      << ":" << stripCntrlChars(*field.second);
+      os << " " << field.first
+         << ":" << stripCntrlChars(*field.second) << std::endl;
     }
   }
 
   headers_.forEach([&] (const string& h, const string& v) {
-    VLOG(vlogLevel) << " " << stripCntrlChars(h) << ": "
-                    << stripCntrlChars(v);
-  });
+      os << " " << stripCntrlChars(h) << ": "
+         << stripCntrlChars(v) << std::endl;
+    });
   if (strippedPerHopHeaders_.size() > 0) {
-    VLOG(vlogLevel) << "Per-Hop Headers";
+    os << "Per-Hop Headers" << std::endl;
     strippedPerHopHeaders_.forEach([&] (const string& h, const string& v) {
-        VLOG(vlogLevel) << " " << stripCntrlChars(h) << ": "
-                        << stripCntrlChars(v);
+        os << " " << stripCntrlChars(h) << ": "
+           << stripCntrlChars(v) << std::endl;
       });
   }
- }
+}
 
 void
 HTTPMessage::atomicDumpMessage(int vlogLevel) const {
@@ -724,48 +734,7 @@ HTTPMessage::atomicDumpMessage(int vlogLevel) const {
 }
 
 void HTTPMessage::dumpMessageToSink(google::LogSink* logSink) const {
-  LOG_TO_SINK(logSink, INFO) << "Version: " << versionStr_
-                  << ", chunked: " << chunked_
-                  << ", upgraded: " << upgraded_;
-
-  // Common fields to both requests and responses.
-  std::vector<std::pair<const char*, const std::string*>> fields {{
-    {"local_ip", &localIP_},
-    {"version", &versionStr_},
-    {"dst_ip", &dstIP_},
-    {"dst_port", &dstPort_},
-  }};
-
-  if (fields_.type() == typeid(Request)) {
-    // Request fields.
-    const Request& req = request();
-    fields.push_back(make_pair("client_ip", &req.clientIP_));
-    fields.push_back(make_pair("client_port", &req.clientPort_));
-    fields.push_back(make_pair("method", &getMethodString()));
-    fields.push_back(make_pair("path", &req.path_));
-    fields.push_back(make_pair("query", &req.query_));
-    fields.push_back(make_pair("url", &req.url_));
-    fields.push_back(make_pair("push_status", &req.pushStatusStr_));
-  } else if (fields_.type() == typeid(Response)) {
-    // Response fields.
-    const Response& resp = response();
-    fields.push_back(make_pair("status", &resp.statusStr_));
-    fields.push_back(make_pair("status_msg", &resp.statusMsg_));
-  }
-
-  LOG_TO_SINK(logSink, INFO) << "Fields for message: ";
-  for (auto field : fields) {
-    if (!field.second->empty()) {
-      LOG_TO_SINK(logSink, INFO) << " " << field.first
-                                 << ":" << folly::backslashify(*field.second);
-    }
-  }
-
-  LOG_TO_SINK(logSink, INFO) << "Headers for message: ";
-  headers_.forEach([&logSink] (const string& h, const string& v) {
-    LOG_TO_SINK(logSink, INFO) << " " << folly::backslashify(h)
-                               << ": " << folly::backslashify(v);
-  });
+  LOG_TO_SINK(logSink, INFO) << *this;
 }
 
 bool HTTPMessage::computeKeepalive() const {

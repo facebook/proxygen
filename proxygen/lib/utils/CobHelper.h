@@ -12,6 +12,8 @@
 #include <atomic>
 #include <functional>
 
+#include <glog/logging.h>
+
 namespace proxygen {
 
 /**

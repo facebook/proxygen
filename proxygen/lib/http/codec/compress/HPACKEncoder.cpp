@@ -9,112 +9,63 @@
  */
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 
-#include <algorithm>
-#include <unordered_set>
-
-using folly::IOBuf;
-using std::list;
-using std::unique_ptr;
-using std::unordered_set;
 using std::vector;
-
-namespace {
-// Some number close to typical MTU + room for "overhead"
-const uint16_t kAutoFlushThreshold = 1400;
-}
 
 namespace proxygen {
 
-bool HPACKEncoder::sEnableAutoFlush_{false};
-
-HPACKEncoder::HPACKEncoder(bool huffman,
-                           uint32_t tableSize,
-                           bool emitSequenceNumbers,
-                           bool useBaseIndex,
-                           bool autoCommit) :
-    // We only need the 'QPACK' table if we are using sequent numbers
-    HPACKContext(tableSize, emitSequenceNumbers, useBaseIndex),
-    buffer_(kBufferGrowth, huffman),
-    emitSequenceNumbers_(emitSequenceNumbers),
-    autoCommit_(autoCommit) {
-  // Default the encoder indexing strategy; it can be updated later as well
-  setHeaderIndexingStrategy(HeaderIndexingStrategy::getDefaultInstance());
-}
-
-unique_ptr<IOBuf> HPACKEncoder::encode(const vector<HPACKHeader>& headers,
-                                       uint32_t headroom,
-                                       bool* eviction) {
-  if (!sEnableAutoFlush_) {
-    packetFlushed();
-  }
-  eviction_ = false;
+std::unique_ptr<folly::IOBuf>
+HPACKEncoder::encode(const vector<HPACKHeader>& headers, uint32_t headroom) {
   if (headroom) {
-    buffer_.addHeadroom(headroom);
+    streamBuffer_.addHeadroom(headroom);
   }
-  if (emitSequenceNumbers_) {
-    bytesInPacket_ += buffer_.appendSequenceNumber(nextSequenceNumber_);
-  }
-  if (useBaseIndex_) {
-    auto baseIndex = table_.markBaseIndex();
-    VLOG(10) << "Emitting base index=" << baseIndex;
-    bytesInPacket_ += buffer_.encodeInteger(baseIndex);
-  }
-  if (pendingContextUpdate_) {
-    bytesInPacket_ += buffer_.encodeInteger(
-      table_.capacity(), HPACK::TABLE_SIZE_UPDATE);
-    pendingContextUpdate_ = false;
-  }
+  handlePendingContextUpdate(streamBuffer_, table_.capacity());
   for (const auto& header : headers) {
     encodeHeader(header);
   }
-  if (eviction) {
-    *eviction = eviction_;
-  }
-  if (autoCommit_) {
-    commitEpoch_ = nextSequenceNumber_;
-  }
-  nextSequenceNumber_++;
-  return buffer_.release();
+  return streamBuffer_.release();
 }
 
-void HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
+bool HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
   if (header.bytes() > table_.capacity()) {
     // May want to investigate further whether or not this is wanted.
     // Flushing the table on a large header frees up some memory,
-    // however, there will be no compression do to an empty table, and
+    // however, there will be no compression due to an empty table, and
     // the table will fill up again fairly quickly
     indexing = false;
   }
-  HPACK::Instruction instruction = indexing ?
+
+  HPACK::Instruction instruction = (indexing) ?
     HPACK::LITERAL_INC_INDEX : HPACK::LITERAL;
-  // name
-  uint32_t index = nameIndex(header.name, commitEpoch_, nextSequenceNumber_);
-  if (index) {
-    VLOG(10) << "encoding name index=" << index;
-    bytesInPacket_ += buffer_.encodeInteger(index, instruction);
-  } else {
-    bytesInPacket_ += buffer_.encodeInteger(0, instruction);
-    bytesInPacket_ += buffer_.encodeLiteral(header.name.get());
-  }
-  // value
-  bytesInPacket_ += buffer_.encodeLiteral(header.value);
+
+  encodeLiteral(header, nameIndex(header.name), instruction);
   // indexed ones need to get added to the header table
   if (indexing) {
-    bool eviction;
-    table_.add(header, nextSequenceNumber_, eviction);
-    eviction_ |= eviction;
+    CHECK(table_.add(header.copy()));
   }
+  return true;
+}
+
+void HPACKEncoder::encodeLiteral(const HPACKHeader& header,
+                                 uint32_t nameIndex,
+                                 const HPACK::Instruction& instruction) {
+  // name
+  if (nameIndex) {
+    VLOG(10) << "encoding name index=" << nameIndex;
+    streamBuffer_.encodeInteger(nameIndex, instruction);
+  } else {
+    streamBuffer_.encodeInteger(0, instruction);
+    streamBuffer_.encodeLiteral(header.name.get());
+  }
+  // value
+  streamBuffer_.encodeLiteral(header.value);
 }
 
 void HPACKEncoder::encodeAsIndex(uint32_t index) {
-  bytesInPacket_ += buffer_.encodeInteger(index, HPACK::INDEX_REF);
+  VLOG(10) << "encoding index=" << index;
+  streamBuffer_.encodeInteger(index, HPACK::INDEX_REF);
 }
 
 void HPACKEncoder::encodeHeader(const HPACKHeader& header) {
-  if (sEnableAutoFlush_ && bytesInPacket_ > kAutoFlushThreshold) {
-    packetFlushed();
-  }
-
   // First determine whether the header is defined as indexable using the
   // set strategy if applicable, else assume it is indexable
   bool indexable = !indexingStrat_ || indexingStrat_->indexHeader(header);
@@ -127,13 +78,7 @@ void HPACKEncoder::encodeHeader(const HPACKHeader& header) {
   // as an override so we assume this is desired if such a case occurs
   uint32_t index = 0;
   if (indexable) {
-    index = getIndex(header, commitEpoch_, packetEpoch_);
-    if (index == std::numeric_limits<uint32_t>::max()) {
-      VLOG(5) << "Not indexing redundant header=" << header.name << " value=" <<
-        header.value;
-      index = 0;
-      indexable = false;
-    }
+    index = getIndex(header);
   }
 
   // Finally encode the header as determined above

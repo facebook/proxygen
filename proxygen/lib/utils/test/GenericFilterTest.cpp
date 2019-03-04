@@ -241,11 +241,11 @@ template<bool Owned> void GenericFilterTest<Owned>::testFilters(
 using OwnedGenericFilterTest = GenericFilterTest<true>;
 using UnownedGenericFilterTest = GenericFilterTest<false>;
 
-TEST_F(OwnedGenericFilterTest, empty_chain) {
+TEST_F(OwnedGenericFilterTest, EmptyChain) {
   basicTest();
 }
 
-TEST_F(OwnedGenericFilterTest, single_elem_chain) {
+TEST_F(OwnedGenericFilterTest, SingleElemChain) {
   auto filterUnique = std::make_unique<TestFilter<true>>();
   auto filter = filterUnique.get();
   chain().addFilters(std::move(filterUnique));
@@ -256,7 +256,7 @@ TEST_F(OwnedGenericFilterTest, single_elem_chain) {
   EXPECT_EQ(filter->on_, 1);
 }
 
-TEST_F(OwnedGenericFilterTest, multi_elem_chain) {
+TEST_F(OwnedGenericFilterTest, MultiElemChain) {
   auto f1 = std::make_unique<TestFilter<true>>();
   auto f2 = std::make_unique<TestFilter<true>>();
   auto f3 = std::make_unique<TestFilter<true>>();
@@ -273,7 +273,7 @@ TEST_F(OwnedGenericFilterTest, multi_elem_chain) {
   EXPECT_EQ(fp3->on_, 1);
 }
 
-TEST_F(OwnedGenericFilterTest, multi_elem_multi_add) {
+TEST_F(OwnedGenericFilterTest, MultiElemMultiAdd) {
   std::deque<TestFilter<true>*> filters;
   for (unsigned i = 0; i < 10; ++i) {
     auto filter = std::make_unique<TestFilter<true>>();
@@ -287,7 +287,7 @@ TEST_F(OwnedGenericFilterTest, multi_elem_multi_add) {
   }
 }
 
-TEST_F(OwnedGenericFilterTest, wants) {
+TEST_F(OwnedGenericFilterTest, Wants) {
   auto f1 = std::make_unique<TestFilter<true>>();
   auto f2 = std::make_unique<TestFilterNoCallback<true>>();
   auto f3 = std::make_unique<TestFilterNoCall<true>>();
@@ -312,7 +312,7 @@ TEST_F(OwnedGenericFilterTest, wants) {
   EXPECT_EQ(fp4->on_, 0);
 }
 
-TEST_F(OwnedGenericFilterTest, wants_multi_add) {
+TEST_F(OwnedGenericFilterTest, WantsMultiAdd) {
   auto f1 = std::make_unique<TestFilterNoCallback<true>>();
   auto f2 = std::make_unique<TestFilterNoCall<true>>();
   TestFilter<true>* fp1 = f1.get();
@@ -334,7 +334,7 @@ TEST_F(OwnedGenericFilterTest, wants_multi_add) {
   EXPECT_EQ(fp2->on_, 1);
 }
 
-TEST_F(OwnedGenericFilterTest, wants_multi_add_hard) {
+TEST_F(OwnedGenericFilterTest, WantsMultiAddHard) {
   const unsigned NUM_FILTERS = 5000;
   auto filters = getRandomFilters(NUM_FILTERS);
   // Now check the counts on each filter. Filters are pushed to the front
@@ -354,7 +354,7 @@ TEST_F(OwnedGenericFilterTest, wants_multi_add_hard) {
   }
 }
 
-TEST_F(OwnedGenericFilterTest, change_callback) {
+TEST_F(OwnedGenericFilterTest, ChangeCallback) {
   // The call-only filter in the chain doesn't want callbacks, so doing
   // chain()->setCallback() is an error! Instead, must use chain().setCallback()
   auto f = std::make_unique<TestFilterNoCallback<true>>();
@@ -375,7 +375,7 @@ TEST_F(OwnedGenericFilterTest, change_callback) {
   EXPECT_EQ(fp->on_, 0);
 }
 
-TEST_F(UnownedGenericFilterTest, all) {
+TEST_F(UnownedGenericFilterTest, All) {
   const unsigned NUM_FILTERS = 5000;
   auto filters = getRandomFilters(NUM_FILTERS);
   // Now check the counts on each filter
@@ -397,7 +397,7 @@ TEST_F(UnownedGenericFilterTest, all) {
   delete actor_;
 }
 
-TEST_F(OwnedGenericFilterTest, set_null_cb) {
+TEST_F(OwnedGenericFilterTest, SetNullCb) {
   // Some objects have a special behavior when the callback is set to
   // nullptr. So in this case, we need to make sure it propagates
   auto filters = getRandomFilters(100);
@@ -443,7 +443,7 @@ class TestFilterOddDeleteDo: public TestFilter<false> {
   int* const deletions_;
 };
 
-TEST_F(UnownedGenericFilterTest, delete_do) {
+TEST_F(UnownedGenericFilterTest, DeleteDo) {
   // Test where a filter in the middle of the chain deletes itself early
   int deletions = 0;
 
@@ -482,7 +482,7 @@ class TestFilterOddDeleteOn: public TestFilter<Owned> {
   int* const deletions_;
 };
 
-TEST_F(UnownedGenericFilterTest, delete_on) {
+TEST_F(UnownedGenericFilterTest, DeleteOn) {
   // Test where a filter in the middle of the chain deletes itself early
   int deletions = 0;
 
@@ -501,7 +501,7 @@ TEST_F(UnownedGenericFilterTest, delete_on) {
   delete actor_;
 }
 
-TEST_F(OwnedGenericFilterTest, delete_chain) {
+TEST_F(OwnedGenericFilterTest, DeleteChain) {
   // Add some filters to the chain and reset the chain. Make sure all the
   // filters are deleted.
   const unsigned NUM_FILTERS = 1000;
@@ -514,14 +514,14 @@ TEST_F(OwnedGenericFilterTest, delete_chain) {
   EXPECT_EQ(deletions, NUM_FILTERS);
 }
 
-TEST_F(OwnedGenericFilterTest, get_chain_end) {
+TEST_F(OwnedGenericFilterTest, GetChainEnd) {
   for (unsigned i = 1; i < 100; ++i) {
     auto filters = getRandomFilters(i);
     EXPECT_EQ(actor_, &chain().getChainEnd());
   }
 }
 
-TEST_F(OwnedGenericFilterTest, set_destination) {
+TEST_F(OwnedGenericFilterTest, SetDestination) {
   auto filters = getRandomFilters(20);
   EXPECT_CALL(*actor_, doA());
   chain()->doA();
@@ -532,7 +532,7 @@ TEST_F(OwnedGenericFilterTest, set_destination) {
   chain()->doA();
 }
 
-TEST_F(OwnedGenericFilterTest, foreach) {
+TEST_F(OwnedGenericFilterTest, Foreach) {
   auto filters = getRandomFilters(20);
   size_t count = 0;
   chain().foreach([&count] (GenericFilter<TesterInterface,

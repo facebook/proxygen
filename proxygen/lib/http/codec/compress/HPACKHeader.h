@@ -23,6 +23,10 @@ class HPACKHeader {
 
   HPACKHeader() {}
 
+  HPACKHeader(const HPACKHeaderName& name_,
+              const folly::fbstring& value_):
+      name(name_), value(value_) {}
+
   HPACKHeader(folly::StringPiece name_,
               folly::StringPiece value_):
       name(name_), value(value_.data(), value_.size()) {}
@@ -62,6 +66,10 @@ class HPACKHeader {
       return name > other.name;
     }
     return value > other.value;
+  }
+
+  HPACKHeader copy() const {
+    return HPACKHeader(name, value);
   }
 
   /**

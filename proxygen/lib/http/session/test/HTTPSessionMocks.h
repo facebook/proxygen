@@ -87,10 +87,19 @@ class HTTPHandlerBase {
 
   void sendReplyWithBody(uint32_t code,
                          uint32_t content_length,
-                         bool keepalive = true) {
+                         bool keepalive = true,
+                         bool sendEOM = true,
+                         bool hasTrailers = false) {
     sendHeaders(code, content_length, keepalive);
     sendBody(content_length);
-    txn_->sendEOM();
+    if (hasTrailers) {
+      HTTPHeaders trailers;
+      trailers.add("X-Trailer1", "Foo");
+      txn_->sendTrailers(trailers);
+    }
+    if (sendEOM) {
+      txn_->sendEOM();
+    }
   }
 
   void sendEOM() {
@@ -208,6 +217,24 @@ class MockHTTPHandler
 
   void expectHeaders(std::function<void(std::shared_ptr<HTTPMessage>)> cb) {
     EXPECT_CALL(*this, onHeadersComplete(testing::_))
+        .WillOnce(testing::Invoke(cb))
+        .RetiresOnSaturation();
+  }
+
+  void expectTrailers(
+      std::function<void()> callback = std::function<void()>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onTrailers(testing::_))
+          .WillOnce(testing::InvokeWithoutArgs(callback))
+          .RetiresOnSaturation();
+    } else {
+      EXPECT_CALL(*this, onTrailers(testing::_));
+    }
+  }
+
+  void expectTrailers(
+      std::function<void(std::shared_ptr<HTTPHeaders> trailers)> cb) {
+    EXPECT_CALL(*this, onTrailers(testing::_))
         .WillOnce(testing::Invoke(cb))
         .RetiresOnSaturation();
   }
@@ -386,6 +413,8 @@ ACTION_P(ExpectBodyLen, expectedLen) {
 class MockHTTPSessionInfoCallback : public HTTPSession::InfoCallback {
  public:
   MOCK_METHOD1(onCreate, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onTransportReady, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onConnectionError, void(const HTTPSessionBase&));
   MOCK_METHOD2(onIngressError, void(const HTTPSessionBase&, ProxygenError));
   MOCK_METHOD0(onIngressEOF, void());
   MOCK_METHOD2(onRead, void(const HTTPSessionBase&, size_t));

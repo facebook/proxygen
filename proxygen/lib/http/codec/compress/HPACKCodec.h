@@ -15,7 +15,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
-#include <proxygen/lib/http/codec/compress/HPACKTableInfo.h>
+#include <proxygen/lib/http/codec/compress/CompressionInfo.h>
 #include <string>
 #include <vector>
 
@@ -27,6 +27,11 @@ namespace proxygen {
 
 class HPACKHeader;
 
+namespace compress {
+std::pair<std::vector<HPACKHeader>, uint32_t> prepareHeaders(
+    std::vector<Header>& headers);
+}
+
 /*
  * Current version of the wire protocol. When we're making changes to the wire
  * protocol we need to change this version and the NPN string so that old
@@ -35,25 +40,16 @@ class HPACKHeader;
 
 class HPACKCodec : public HeaderCodec {
  public:
-  explicit HPACKCodec(TransportDirection direction,
-                      bool emitSequenceNumbers = false,
-                      bool useBaseIndex = false,
-                      bool autoCommit = true);
+  explicit HPACKCodec(TransportDirection direction);
   ~HPACKCodec() override {}
 
   std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers) noexcept override;
-
-  std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers, bool& eviction) noexcept;
-
-  Result<HeaderDecodeResult, HeaderDecodeError>
-  decode(folly::io::Cursor& cursor, uint32_t length) noexcept override;
+    std::vector<compress::Header>& headers) noexcept;
 
   void decodeStreaming(
       folly::io::Cursor& cursor,
       uint32_t length,
-      HeaderCodec::StreamingCallback* streamingCb) noexcept override;
+      HPACK::StreamingCallback* streamingCb) noexcept;
 
   void setEncoderHeaderTableSize(uint32_t size) {
     encoder_.setHeaderTableSize(size);
@@ -63,30 +59,20 @@ class HPACKCodec : public HeaderCodec {
     decoder_.setHeaderTableMaxSize(size);
   }
 
-  void setCommitEpoch(uint16_t commitEpoch) {
-    encoder_.setCommitEpoch(commitEpoch);
-  }
-
-
   void describe(std::ostream& os) const;
 
-  void setMaxUncompressed(uint32_t maxUncompressed) override {
+  void setMaxUncompressed(uint64_t maxUncompressed) override {
     HeaderCodec::setMaxUncompressed(maxUncompressed);
     decoder_.setMaxUncompressed(maxUncompressed);
   }
 
-  HPACKTableInfo getHPACKTableInfo() const {
-    return HPACKTableInfo(encoder_.getTableSize(),
-                          encoder_.getBytesStored(),
-                          encoder_.getHeadersStored(),
-                          decoder_.getTableSize(),
-                          decoder_.getBytesStored(),
-                          decoder_.getHeadersStored());
-  }
-
-  // Used for QPACK simulation
-  void packetFlushed() {
-    encoder_.packetFlushed();
+  CompressionInfo getCompressionInfo() const {
+    return CompressionInfo(encoder_.getTableSize(),
+                           encoder_.getBytesStored(),
+                           encoder_.getHeadersStored(),
+                           decoder_.getTableSize(),
+                           decoder_.getBytesStored(),
+                           decoder_.getHeadersStored());
   }
 
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {
@@ -101,6 +87,8 @@ class HPACKCodec : public HeaderCodec {
   HPACKDecoder decoder_;
 
  private:
+  void recordCompressedSize(const folly::IOBuf* buf);
+
   std::vector<HPACKHeader> decodedHeaders_;
 };
 

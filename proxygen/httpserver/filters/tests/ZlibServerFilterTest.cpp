@@ -209,7 +209,7 @@ class ZlibServerFilterTest : public Test {
 };
 
 // Basic smoke test
-TEST_F(ZlibServerFilterTest, nonchunked_compression) {
+TEST_F(ZlibServerFilterTest, NonchunkedCompression) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -221,7 +221,7 @@ TEST_F(ZlibServerFilterTest, nonchunked_compression) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, chunked_compression) {
+TEST_F(ZlibServerFilterTest, ChunkedCompression) {
   std::vector<std::string> chunks = {"Hello", " World"};
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
@@ -234,7 +234,7 @@ TEST_F(ZlibServerFilterTest, chunked_compression) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, parameterized_contenttype) {
+TEST_F(ZlibServerFilterTest, ParameterizedContenttype) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -246,7 +246,7 @@ TEST_F(ZlibServerFilterTest, parameterized_contenttype) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, mixedcase_contenttype) {
+TEST_F(ZlibServerFilterTest, MixedcaseContenttype) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -259,7 +259,7 @@ TEST_F(ZlibServerFilterTest, mixedcase_contenttype) {
 }
 
 // Client supports multiple possible compression encodings
-TEST_F(ZlibServerFilterTest, multiple_accepted_encodings) {
+TEST_F(ZlibServerFilterTest, MultipleAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -271,7 +271,7 @@ TEST_F(ZlibServerFilterTest, multiple_accepted_encodings) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, multiple_accepted_encodings_qvalues) {
+TEST_F(ZlibServerFilterTest, MultipleAcceptedEncodingsQvalues) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -283,7 +283,7 @@ TEST_F(ZlibServerFilterTest, multiple_accepted_encodings_qvalues) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, no_compressible_accepted_encodings) {
+TEST_F(ZlibServerFilterTest, NoCompressibleAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.compressme"),
@@ -295,7 +295,7 @@ TEST_F(ZlibServerFilterTest, no_compressible_accepted_encodings) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, missing_accepted_encodings) {
+TEST_F(ZlibServerFilterTest, MissingAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.compressme"),
@@ -308,7 +308,7 @@ TEST_F(ZlibServerFilterTest, missing_accepted_encodings) {
 }
 
 // Content is of an-uncompressible content-type
-TEST_F(ZlibServerFilterTest, uncompressible_contenttype) {
+TEST_F(ZlibServerFilterTest, UncompressibleContenttype) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.nocompress"),
@@ -320,7 +320,7 @@ TEST_F(ZlibServerFilterTest, uncompressible_contenttype) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, uncompressible_contenttype_param) {
+TEST_F(ZlibServerFilterTest, UncompressibleContenttypeParam) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.nocompress"),
@@ -333,7 +333,7 @@ TEST_F(ZlibServerFilterTest, uncompressible_contenttype_param) {
 }
 
 // Content is under the minimum compression size
-TEST_F(ZlibServerFilterTest, too_small_to_compress) {
+TEST_F(ZlibServerFilterTest, TooSmallToCompress) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.smallfry"),
@@ -347,7 +347,7 @@ TEST_F(ZlibServerFilterTest, too_small_to_compress) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, small_chunks_compress) {
+TEST_F(ZlibServerFilterTest, SmallChunksCompress) {
   // Expect this to compress despite being small because can't tell the content
   // length when we're chunked
   std::vector<std::string> chunks = {"Hello", " World"};
@@ -361,5 +361,80 @@ TEST_F(ZlibServerFilterTest, small_chunks_compress) {
                          createResponseChain(chunks),
                          4,
                          1000);
+  });
+}
+
+TEST_F(ZlibServerFilterTest, MinimumCompressSizeEqualToRequestSize){
+  auto requestBody = std::string("Hello World");
+  ASSERT_NO_FATAL_FAILURE({
+    exercise_compression(true,
+                         std::string("http://locahost/foo.compressme"),
+                         std::string("gzip"),
+                         std::string("gzip"),
+                         requestBody,
+                         std::string("text/html"),
+                         folly::IOBuf::copyBuffer(requestBody),
+                         4,
+                         requestBody.length());
+  });
+}
+
+TEST_F(ZlibServerFilterTest, NoResponseBody){
+  std::string acceptedEncoding = "gzip";
+  std::string expectedEncoding = "gzip";
+  std::string url = std::string("http://locahost/foo.compressme");
+  std::string responseContentType = std::string("text/html");
+  int32_t compressionLevel = 4;
+  uint32_t minimumCompressionSize = 0;
+
+  ASSERT_NO_FATAL_FAILURE({
+    // Request Handler Expectations
+    EXPECT_CALL(*requestHandler_, onEOM()).Times(1);
+
+    // Need to capture whatever the filter is for ResponseBuilder later
+    EXPECT_CALL(*requestHandler_, setResponseHandler(_))
+        .WillOnce(DoAll(SaveArg<0>(&downstream_), Return()));
+
+    // Response Handler Expectations
+    // Headers are only sent once
+    EXPECT_CALL(*responseHandler_, sendHeaders(_)).WillOnce(DoAll(
+        Invoke([&](HTTPMessage& msg) {
+          auto& headers = msg.getHeaders();
+          EXPECT_TRUE(msg.checkForHeaderToken(
+            HTTP_HEADER_CONTENT_ENCODING, expectedEncoding.c_str(), false));
+          if (msg.getIsChunked()) {
+            EXPECT_FALSE(headers.exists("Content-Length"));
+          } else {
+            //Content-Length is not set on chunked messages
+            EXPECT_TRUE(headers.exists("Content-Length"));
+          }
+        }),
+        Return()));
+
+    EXPECT_CALL(*responseHandler_, sendEOM()).Times(1);
+
+    /* Simulate Request/Response where no body message received */
+    HTTPMessage msg;
+    msg.setURL(url);
+    msg.getHeaders().set(HTTP_HEADER_ACCEPT_ENCODING, acceptedEncoding);
+
+    std::set<std::string> compressibleTypes = {"text/html"};
+    auto filterFactory = std::make_unique<ZlibServerFilterFactory>(
+        compressionLevel, minimumCompressionSize, compressibleTypes);
+
+    auto filter = filterFactory->onRequest(requestHandler_, &msg);
+    filter->setResponseHandler(responseHandler_.get());
+
+    // Send fake request
+    filter->onEOM();
+
+    ResponseBuilder(downstream_)
+      .status(200, "OK")
+      .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
+      .send();
+
+    ResponseBuilder(downstream_).sendWithEOM();
+
+    filter->requestComplete();
   });
 }

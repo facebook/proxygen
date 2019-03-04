@@ -9,16 +9,19 @@
  */
 #pragma once
 
+#include <folly/Expected.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/HTTP2Constants.h>
+#include <proxygen/lib/http/codec/HeaderConstants.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 
 namespace proxygen { namespace compress {
-class SimStreamingCallback : public HeaderCodec::StreamingCallback {
+class SimStreamingCallback : public HPACK::StreamingCallback {
  public:
   SimStreamingCallback(uint16_t index,
-                       std::function<void(std::chrono::milliseconds)> cb)
-      : requestIndex(index), headersCompleteCb(cb) {
+                       std::function<void(std::chrono::milliseconds)> cb,
+                       bool isP=false)
+      : requestIndex(index), headersCompleteCb(cb), isPublic(isP) {
   }
 
   SimStreamingCallback(SimStreamingCallback&& goner) noexcept {
@@ -31,17 +34,19 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
 
   void onHeader(const folly::fbstring& name,
                 const folly::fbstring& value) override {
-    if (name[0] == ':') {
-      if (name == http2::kMethod) {
+    if (name[0] == ':' && !isPublic) {
+      if (name == headers::kMethod) {
         msg.setMethod(value);
-      } else if (name == http2::kScheme) {
-        if (value == http2::kHttps) {
+      } else if (name == headers::kScheme) {
+        if (value == headers::kHttps) {
           msg.setSecure(true);
         }
-      } else if (name == http2::kAuthority) {
+      } else if (name == headers::kAuthority) {
         msg.getHeaders().add(HTTP_HEADER_HOST, value.toStdString());
-      } else if (name == http2::kPath) {
+      } else if (name == headers::kPath) {
         msg.setURL(value.toStdString());
+      } else if (name == headers::kStatus) {
+        msg.setStatusCode(folly::to<uint16_t>(value.toStdString()));
       } else {
         DCHECK(false) << "Bad header name=" << name << " value=" << value;
       }
@@ -50,7 +55,7 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
     }
   }
 
-  void onHeadersComplete(HTTPHeaderSize) override {
+  void onHeadersComplete(HTTPHeaderSize, bool ack) override {
     auto combinedCookie = msg.getHeaders().combine(HTTP_HEADER_COOKIE, "; ");
     if (!combinedCookie.empty()) {
       msg.getHeaders().set(HTTP_HEADER_COOKIE, combinedCookie);
@@ -59,22 +64,23 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
     if (holStart != TimeUtil::getZeroTimePoint()) {
       holDelay = millisecondsSince(holStart);
     }
+    acknowledge = ack;
     complete = true;
     if (headersCompleteCb) {
       headersCompleteCb(holDelay);
     }
   }
 
-  void onDecodeError(HeaderDecodeError decodeError) override {
+  void onDecodeError(HPACK::DecodeError decodeError) override {
     error = decodeError;
     DCHECK(false) << "Unexpected error in simulator";
   }
 
-  Result<proxygen::HTTPMessage*, HeaderDecodeError> getResult() {
-    if (error == HeaderDecodeError::NONE) {
+  folly::Expected<proxygen::HTTPMessage*, HPACK::DecodeError> getResult() {
+    if (error == HPACK::DecodeError::NONE) {
       return &msg;
     } else {
-      return error;
+      return folly::makeUnexpected(error);
     }
   }
 
@@ -88,11 +94,13 @@ class SimStreamingCallback : public HeaderCodec::StreamingCallback {
   uint16_t requestIndex{0};
   // Per domain request sequence number
   uint16_t seqn{0};
-  HeaderDecodeError error{HeaderDecodeError::NONE};
+  HPACK::DecodeError error{HPACK::DecodeError::NONE};
   proxygen::HTTPMessage msg;
   std::function<void(std::chrono::milliseconds)> headersCompleteCb;
   TimePoint holStart{TimeUtil::getZeroTimePoint()};
   bool complete{false};
+  bool isPublic{false};
+  bool acknowledge{false};
 };
 
 }} // namespace proxygen::compress

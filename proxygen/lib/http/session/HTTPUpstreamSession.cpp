@@ -19,6 +19,10 @@ namespace proxygen {
 
 HTTPUpstreamSession::~HTTPUpstreamSession() {}
 
+bool HTTPUpstreamSession::isReplaySafe() const {
+  return sock_ ? sock_->isReplaySafe() : false;
+}
+
 bool HTTPUpstreamSession::isReusable() const {
   VLOG(4) << "isReusable: " << *this
     << ", liveTransactions_=" << liveTransactions_
@@ -95,13 +99,12 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
   }
 
   auto txn = createTransaction(codec_->createStream(), HTTPCodec::NoStream,
-                               HTTPCodec::NoControlStream);
+                               HTTPCodec::NoExAttributes);
 
   if (txn) {
     DestructorGuard dg(this);
-    auto txnID = txn->getID();
     txn->setHandler(CHECK_NOTNULL(handler));
-    setNewTransactionPauseState(txnID);
+    setNewTransactionPauseState(txn);
   }
   return txn;
 }
@@ -156,14 +159,6 @@ void HTTPUpstreamSession::detachTransactions() {
     auto txn = transactions_.begin();
     detach(&txn->second);
   }
-}
-
-bool HTTPUpstreamSession::isDetachable(bool checkSocket) const {
-  if (checkSocket && sock_ && !sock_->isDetachable()) {
-    return false;
-  }
-  return transactions_.size() == 0 && getNumIncomingStreams() == 0 &&
-    !writesPaused();
 }
 
 void

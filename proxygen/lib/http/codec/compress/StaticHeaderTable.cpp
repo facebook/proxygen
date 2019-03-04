@@ -8,7 +8,6 @@
  *
  */
 #include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
-#include <proxygen/lib/http/codec/compress/HPACKHeaderTableImpl.h>
 
 #include <folly/Indestructible.h>
 
@@ -19,7 +18,7 @@ using std::list;
 using std::string;
 using std::vector;
 
-namespace proxygen {
+namespace {
 
 // Array of static header table entires pair
 // Note: if updating this table (should never have to but whatever), update
@@ -89,6 +88,9 @@ const char* s_tableEntries[][2] = {
 };
 
 const int kEntriesSize = sizeof(s_tableEntries) / (2 * sizeof(const char*));
+}
+
+namespace proxygen {
 
 bool StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
     HTTPHeaderCode headerCode) {
@@ -108,7 +110,7 @@ bool StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
 StaticHeaderTable::StaticHeaderTable(
     const char* entries[][2],
     int size)
-    : HeaderTable(std::make_unique<HPACKHeaderTableImpl>(), 0) {
+    : HeaderTable(0) {
   // calculate the size
   list<HPACKHeader> hlist;
   uint32_t byteCount = 0;
@@ -119,8 +121,8 @@ StaticHeaderTable::StaticHeaderTable(
   // initialize with a capacity that will exactly fit the static headers
   init(byteCount);
   hlist.reverse();
-  for (const auto& header : hlist) {
-    add(header);
+  for (auto& header : hlist) {
+    add(std::move(header));
   }
 }
 

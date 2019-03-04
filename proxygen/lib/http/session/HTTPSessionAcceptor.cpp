@@ -59,11 +59,15 @@ void HTTPSessionAcceptor::onNewConnection(
     folly::AsyncTransportWrapper::UniquePtr sock,
     const SocketAddress* peerAddress,
     const string& nextProtocol,
-    wangle::SecureTransportType /*secureTransportType*/,
+    wangle::SecureTransportType,
     const wangle::TransportInfo& tinfo) {
 
   unique_ptr<HTTPCodec> codec
-      = codecFactory_->getCodec(nextProtocol, TransportDirection::DOWNSTREAM);
+      = codecFactory_->getCodec(
+          nextProtocol,
+          TransportDirection::DOWNSTREAM,
+          // we assume if security protocol isn't empty, then it's TLS
+          !sock->getSecurityProtocol().empty());
 
   if (!codec) {
     VLOG(2) << "codecFactory_ failed to provide codec";
@@ -91,7 +95,8 @@ void HTTPSessionAcceptor::onNewConnection(
   }
 
   auto sessionInfoCb = sessionInfoCb_ ? sessionInfoCb_ : this;
-  VLOG(4) << "Created new session for peer " << *peerAddress;
+  VLOG(4) << "Created new " << nextProtocol
+          << " session for peer " << *peerAddress;
   HTTPDownstreamSession* session =
     new HTTPDownstreamSession(getTransactionTimeoutSet(), std::move(sock),
                               localAddress, *peerAddress,
@@ -104,7 +109,8 @@ void HTTPSessionAcceptor::onNewConnection(
   session->setEgressSettings(accConfig_.egressSettings);
 
   // set HTTP2 priorities flag on session object
-  session->setHTTP2PrioritiesEnabled(accConfig_.HTTP2PrioritiesEnabled);
+  auto HTTP2PrioritiesEnabled = getHttp2PrioritiesEnabled();
+  session->setHTTP2PrioritiesEnabled(HTTP2PrioritiesEnabled);
 
   // set flow control parameters
   session->setFlowControl(accConfig_.initialReceiveWindow,
@@ -120,7 +126,7 @@ void HTTPSessionAcceptor::onNewConnection(
 
 size_t HTTPSessionAcceptor::dropIdleConnections(size_t num) {
   // release in batch for more efficiency
-  VLOG(4) << "attempt to reelease resource";
+  VLOG(6) << "attempt to release resource";
   return downstreamConnectionManager_->dropIdleConnections(num);
 }
 

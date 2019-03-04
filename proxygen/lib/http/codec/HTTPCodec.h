@@ -46,15 +46,24 @@ class HTTPCodec {
    * A value of zero indicates an uninitialized/unknown/unspecified
    * StreamID.
    */
-  using StreamID = uint32_t;
+  using StreamID = uint64_t;
 
   static const folly::Optional<StreamID> NoStream;
-
-  static const folly::Optional<StreamID> NoControlStream;
 
   static const folly::Optional<uint8_t> NoPadding;
 
   static const StreamID MAX_STREAM_ID = 1u << 31;
+
+  struct ExAttributes {
+    ExAttributes() {}
+    ExAttributes(StreamID controlStreamId, bool isUnidirectional)
+      : controlStream(controlStreamId), unidirectional(isUnidirectional) {}
+
+    StreamID controlStream;
+    bool unidirectional;
+  };
+
+  static const folly::Optional<ExAttributes> NoExAttributes;
 
   class PriorityQueue {
    public:
@@ -97,6 +106,7 @@ class HTTPCodec {
      */
     virtual void onExMessageBegin(StreamID /* stream */,
                                   StreamID /* controlStream */,
+                                  bool /* unidirectional */,
                                   HTTPMessage* /* msg */) {}
 
     /**
@@ -194,9 +204,9 @@ class HTTPCodec {
      *       but HTTP/1.1 doesn't.
      */
     virtual void onFrameHeader(
-        uint32_t /* stream_id */,
+        StreamID /* stream_id */,
         uint8_t /* flags */,
-        uint32_t /* length */,
+        uint64_t /* length */,
         uint8_t /* type */,
         uint16_t /* version */ = 0) {}
 
@@ -267,6 +277,42 @@ class HTTPCodec {
     }
 
     /**
+     * Called after a header frame is generated.
+     * This only applies to framed codecs.
+     */
+    virtual void onGenerateFrameHeader(
+        StreamID /* stream_id */,
+        uint8_t /* type */,
+        uint64_t /* length */,
+        uint16_t /* version */ = 0) {}
+
+    /**
+     * Called upon receipt of a certificate request frame, for protocols that
+     * support secondary certificate authentication.
+     * @param requestId The Request-ID identifying the certificate request
+     * @param authRequest The authenticator request
+     * @note Not all protocols support secondary certificate authentication.
+     * HTTP/2 does, but HTTP/1.1 doesn't.
+     */
+    virtual void onCertificateRequest(
+        uint16_t /* requestId */,
+        std::unique_ptr<folly::IOBuf> /* authRequest */) {
+    }
+
+    /**
+     * Called upon receipt of an authenticator, for protocols that
+     * support secondary certificate authentication.
+     * @param certId The Cert-ID identifying this authenticator
+     * @param authenticator The authenticator request
+     * @note Not all protocols support secondary certificate authentication.
+     * HTTP/2 does, but HTTP/1.1 doesn't.
+     */
+    virtual void onCertificate(
+        uint16_t /* certId */,
+        std::unique_ptr<folly::IOBuf> /* authenticator */) {
+    }
+
+    /**
      * Return the number of open streams started by this codec callback.
      * Parallel codecs with a maximum number of streams will invoke this
      * to determine if a new stream exceeds the limit.
@@ -289,9 +335,9 @@ class HTTPCodec {
    * Gets both the egress and ingress header table size, bytes stored in header
    * table, and the number of headers stored in the header table
   **/
-  virtual HPACKTableInfo getHPACKTableInfo() const {
-    HPACKTableInfo defaultHPACKTableInfo;
-    return defaultHPACKTableInfo;
+  virtual CompressionInfo getCompressionInfo() const {
+    static CompressionInfo defaultCompressionInfo;
+    return defaultCompressionInfo;
   }
 
   /**
@@ -453,7 +499,7 @@ class HTTPCodec {
   virtual void generateExHeader(folly::IOBufQueue& /* writeBuf */,
                                 StreamID /* stream */,
                                 const HTTPMessage& /* msg */,
-                                StreamID /* controlStream */,
+                                const HTTPCodec::ExAttributes& /*exAttributes*/,
                                 bool /* eom = false */,
                                 HTTPHeaderSize* /* size = nullptr */) {}
 
@@ -506,7 +552,7 @@ class HTTPCodec {
                              StreamID stream) = 0;
 
   /**
-   * Generate any protocol framing needed to abort a connection.
+   * Generate any protocol framing needed to abort a stream.
    * @return number of bytes written
    */
   virtual size_t generateRstStream(folly::IOBufQueue& writeBuf,
@@ -514,7 +560,7 @@ class HTTPCodec {
                                    ErrorCode code) = 0;
 
   /**
-   * Generate any protocol framing needed to abort a stream.
+   * Generate any protocol framing needed to abort a connection.
    * @return number of bytes written
    */
   virtual size_t generateGoaway(
@@ -577,6 +623,29 @@ class HTTPCodec {
       const HTTPMessage::HTTPPriority& /* pri */) {
     return 0;
   }
+
+  /*
+   * Generate a CERTIFICATE_REQUEST message, if supported in the protocol
+   * implemented by the codec.
+   */
+  virtual size_t generateCertificateRequest(
+      folly::IOBufQueue& /* writeBuf */,
+      uint16_t /* requestId */,
+      std::unique_ptr<folly::IOBuf> /* chain */) {
+    return 0;
+  }
+
+  /*
+   * Generate a CERTIFICATE message, if supported in the protocol
+   * implemented by the codec.
+   */
+  virtual size_t generateCertificate(
+      folly::IOBufQueue& /* writeBuf */,
+      uint16_t /* certId */,
+      std::unique_ptr<folly::IOBuf> /* certData */) {
+    return 0;
+  }
+
   /*
    * The below interfaces need only be implemented if the codec supports
    * settings

@@ -106,7 +106,7 @@ MATCHER(IsFlowException, "") {
     !arg->hasProxygenError();
 }
 
-TEST_F(DefaultFlowControl, flow_control_construct) {
+TEST_F(DefaultFlowControl, FlowControlConstruct) {
   // Constructing the filter with a low capacity defaults to kInitialCapacity
   // initial capacity, so no window update should have been generated in
   // the constructor
@@ -135,7 +135,7 @@ TEST_F(DefaultFlowControl, flow_control_construct) {
                        ".*");
 }
 
-TEST_F(DefaultFlowControl, send_update) {
+TEST_F(DefaultFlowControl, SendUpdate) {
   // Make sure we send a window update when the window decreases below half
   InSequence enforceSequence;
   EXPECT_CALL(callback_, onBody(_, _, _))
@@ -151,7 +151,7 @@ TEST_F(DefaultFlowControl, send_update) {
   filter_->ingressBytesProcessed(writeBuf_, 1);
 }
 
-TEST_F(BigWindow, recv_too_much) {
+TEST_F(BigWindow, RecvTooMuch) {
   // Constructing the filter with a large capacity causes a WINDOW_UPDATE
   // for stream zero to be generated
   ASSERT_GT(writeBuf_.chainLength(), 0);
@@ -176,7 +176,7 @@ TEST_F(BigWindow, recv_too_much) {
   ASSERT_FALSE(chain_->isReusable());
 }
 
-TEST_F(BigWindow, remote_increase) {
+TEST_F(BigWindow, RemoteIncrease) {
   // The remote side sends us a window update for stream=0, increasing our
   // available window
   InSequence enforceSequence;
@@ -212,7 +212,7 @@ TEST_F(BigWindow, remote_increase) {
   ASSERT_FALSE(chain_->isReusable());
 }
 
-TEST_F(HTTPChecksTest, send_trace_body_death) {
+TEST_F(HTTPChecksTest, SendTraceBodyDeath) {
   // It is NOT allowed to send a TRACE with a body.
 
   HTTPMessage msg = getPostRequest();
@@ -221,7 +221,7 @@ TEST_F(HTTPChecksTest, send_trace_body_death) {
   EXPECT_DEATH_NO_CORE(chain_->generateHeader(writeBuf_, 0, msg), ".*");
 }
 
-TEST_F(HTTPChecksTest, send_get_body) {
+TEST_F(HTTPChecksTest, SendGetBody) {
   // It is allowed to send a GET with a content-length. It is up to the
   // server to ignore it.
 
@@ -233,7 +233,7 @@ TEST_F(HTTPChecksTest, send_get_body) {
   chain_->generateHeader(writeBuf_, 0, msg);
 }
 
-TEST_F(HTTPChecksTest, recv_trace_body) {
+TEST_F(HTTPChecksTest, RecvTraceBody) {
   // In proxygen, we deal with receiving a TRACE with a body by 400'ing it
 
   EXPECT_CALL(callback_, onError(_, _, _))

@@ -32,6 +32,7 @@ class MockResponseHandler : public ResponseHandler {
   GMOCK_METHOD1_(, noexcept, , sendChunkHeader, void(size_t));
   GMOCK_METHOD1_(, noexcept, , sendBody, void(std::shared_ptr<folly::IOBuf>));
   GMOCK_METHOD0_(, noexcept, , sendChunkTerminator, void());
+  GMOCK_METHOD1_(, noexcept, , sendTrailers, void(const HTTPHeaders&));
   GMOCK_METHOD0_(, noexcept, , sendEOM, void());
   GMOCK_METHOD0_(, noexcept, , sendAbort, void());
   GMOCK_METHOD0_(, noexcept, , refreshTimeout, void());
@@ -77,6 +78,7 @@ class MockRequestHandler : public RequestHandler {
   GMOCK_METHOD1_(, noexcept, , onError, void(ProxygenError));
   GMOCK_METHOD0_(, noexcept, , onEgressPaused, void());
   GMOCK_METHOD0_(, noexcept, , onEgressResumed, void());
+  GMOCK_METHOD0_(, noexcept, , canHandleExpect, bool());
 #ifdef __clang__
 # pragma clang diagnostic pop
 #endif

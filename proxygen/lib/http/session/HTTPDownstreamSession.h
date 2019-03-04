@@ -111,6 +111,11 @@ class HTTPDownstreamSession final: public HTTPSession {
     return nullptr;
   }
 
+  bool isReplaySafe() const override {
+    LOG(FATAL) << __func__ << " is an upstream interface";
+    return false;
+  }
+
   bool isReusable() const override {
     LOG(FATAL) << __func__ << " is an upstream interface";
     return false;

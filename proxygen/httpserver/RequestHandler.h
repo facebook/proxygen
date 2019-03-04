@@ -88,6 +88,14 @@ class RequestHandler {
   }
 
   /**
+   * Returns true if the handler is responsible for responding to Expect
+   * headers, false otherwise.
+   */
+  virtual bool canHandleExpect() noexcept {
+    return false;
+  }
+
+  /**
    * Implement in control stream handler to support incoming child EX streams.
    */
   virtual ExMessageHandler* getExHandler() noexcept {

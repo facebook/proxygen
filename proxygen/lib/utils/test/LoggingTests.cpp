@@ -20,7 +20,7 @@ using namespace testing;
 class LoggingTests : public testing::Test {
 };
 
-TEST_F(LoggingTests, print_hex_iobuf) {
+TEST_F(LoggingTests, PrintHexIobuf) {
   unique_ptr<IOBuf> buf = IOBuf::create(128);
   EXPECT_EQ(IOBufPrinter::printHexFolly(buf.get()), "");
   EXPECT_EQ(IOBufPrinter::printHex16(buf.get()), "");
@@ -46,7 +46,7 @@ TEST_F(LoggingTests, print_hex_iobuf) {
             "0cff 0010 fefe fefe fefe fefe fefe fefe \nfefe fefe ");
 }
 
-TEST_F(LoggingTests, hex_string) {
+TEST_F(LoggingTests, HexString) {
   uint8_t buf[] = {
     0x03, 0x04, 0x11, 0x22, 0xBB, 0xAA
   };
@@ -54,7 +54,7 @@ TEST_F(LoggingTests, hex_string) {
   EXPECT_EQ("03041122bbaa", hexStr(s));
 }
 
-TEST_F(LoggingTests, dump_bin) {
+TEST_F(LoggingTests, DumpBin) {
   // null IOBuf
   EXPECT_EQ(IOBufPrinter::printBin(nullptr), "");
 
@@ -73,7 +73,7 @@ TEST_F(LoggingTests, dump_bin) {
             "00110011 3 01110111 w 11111111   \n");
 }
 
-TEST_F(LoggingTests, dump_bin_to_file) {
+TEST_F(LoggingTests, DumpBinToFile) {
   struct stat fstat;
   string tmpfile("/tmp/test.bin");
 

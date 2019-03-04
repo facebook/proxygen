@@ -21,6 +21,7 @@ static const std::string http_1_1 = "http/1.1";
 static const std::string spdy_3 = "spdy/3";
 static const std::string spdy_3_1 = "spdy/3.1";
 static const std::string http_2 = "http/2";
+static const std::string hq = "hq";
 static const std::string empty = "";
 
 extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
@@ -33,6 +34,8 @@ extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
   } else if (protocolStr == http_2 || protocolStr == http2::kProtocolString ||
              protocolStr == http2::kProtocolCleartextString) {
     return CodecProtocol::HTTP_2;
+  } else if (protocolStr.find(hq) == 0) {
+    return CodecProtocol::HQ;
   } else {
     // return default protocol
     return CodecProtocol::HTTP_1_1;
@@ -47,6 +50,7 @@ extern const std::string& getCodecProtocolString(CodecProtocol proto) {
     case CodecProtocol::SPDY_3: return spdy_3;
     case CodecProtocol::SPDY_3_1: return spdy_3_1;
     case CodecProtocol::HTTP_2: return http_2;
+    case CodecProtocol::HQ: return hq;
   }
   LOG(FATAL) << "Unreachable";
   return empty;
@@ -58,7 +62,8 @@ extern bool isValidCodecProtocolStr(const std::string& protocolStr) {
          protocolStr == spdy_3_1 ||
          protocolStr == http2::kProtocolString ||
          protocolStr == http2::kProtocolCleartextString ||
-         protocolStr == http_2;
+         protocolStr == http_2 ||
+         protocolStr == hq;
 }
 
 extern CodecProtocol getCodecProtocolFromStr(const std::string& protocolStr) {
@@ -72,6 +77,10 @@ extern bool isSpdyCodecProtocol(CodecProtocol protocol) {
 
 extern bool isHTTP2CodecProtocol(CodecProtocol protocol) {
   return protocol == CodecProtocol::HTTP_2;
+}
+
+extern bool isHQCodecProtocol(CodecProtocol protocol) {
+  return protocol == CodecProtocol::HQ;
 }
 
 extern bool isParallelCodecProtocol(CodecProtocol protocol) {
@@ -120,7 +129,7 @@ checkForProtocolUpgrade(const std::string& clientUpgrade,
   return folly::none;
 }
 
-const folly::Optional<HTTPCodec::StreamID> HTTPCodec::NoControlStream =
+const folly::Optional<HTTPCodec::ExAttributes> HTTPCodec::NoExAttributes =
     folly::none;
 const folly::Optional<HTTPCodec::StreamID> HTTPCodec::NoStream =
     folly::none;

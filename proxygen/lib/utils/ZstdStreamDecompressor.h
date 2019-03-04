@@ -10,8 +10,10 @@
 #pragma once
 
 // We need access to zstd internals (to read frame headers etc.)
+#ifndef ZSTD_STATIC_LINKING_ONLY
 #define ZSTD_STATIC_LINKING_ONLY
 #define ZDICT_STATIC_LINKING_ONLY
+#endif
 
 #include <memory>
 #include <zstd.h>

@@ -11,8 +11,6 @@
 
 #include <proxygen/lib/http/codec/compress/HeaderTable.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
-#include <string>
-#include <vector>
 
 namespace proxygen {
 

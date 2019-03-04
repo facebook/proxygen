@@ -16,6 +16,7 @@
 #include <folly/io/async/AsyncSocket.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/http/codec/DefaultHTTPCodecFactory.h>
 
 namespace proxygen {
 
@@ -143,13 +144,14 @@ class HTTPConnector:
    */
   bool isBusy() const { return socket_.get(); }
 
+  void setHTTPCodecFactory(std::unique_ptr<DefaultHTTPCodecFactory> factory) {
+    httpCodecFactory_ = std::move(factory);
+  }
+
  protected:
   void connectSuccess() noexcept override;
   void connectErr(const folly::AsyncSocketException& ex)
     noexcept override;
-
-  std::unique_ptr<HTTPCodec> makeCodec(const std::string& chosenProto,
-                                       bool forceHTTP1xCodecTo1_1);
 
 
   Callback* cb_;
@@ -158,7 +160,7 @@ class HTTPConnector:
   wangle::TransportInfo transportInfo_;
   std::string plaintextProtocol_;
   TimePoint connectStart_;
-  bool forceHTTP1xCodecTo1_1_{false};
+  std::unique_ptr<DefaultHTTPCodecFactory> httpCodecFactory_;
 };
 
 }

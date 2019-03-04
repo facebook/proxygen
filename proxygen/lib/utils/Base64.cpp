@@ -45,7 +45,16 @@ std::string Base64::urlDecode(const std::string& urlB64message) {
        i++) {
     b64message[i] = '=';
   }
-  int decodeLen = b64message.length() * 3 / 4 - padding;
+  return decode(b64message, padding);
+}
+
+std::string Base64::decode(const std::string& b64message, int padding) {
+  if (b64message.length() % 4 != 0 || padding >= 3) {
+    return std::string();
+  }
+
+  std::unique_ptr<BIO, BIODeleter> bio, b64;
+  size_t decodeLen = b64message.length() * 3/4 - padding;
   std::string result(decodeLen, '\0');
 
   bio.reset(BIO_new_mem_buf((void*)b64message.data(), -1));
@@ -60,17 +69,15 @@ std::string Base64::urlDecode(const std::string& urlB64message) {
 
   // Do not use newlines to flush buffer
   BIO_set_flags(bio.get(), BIO_FLAGS_BASE64_NO_NL);
-  auto length = BIO_read(bio.get(), (char*)result.data(), b64message.length());
-  DCHECK_LE(length, decodeLen);
-  if (length < decodeLen) {
+  BIO_read(bio.get(), (char*)result.data(), b64message.length());
+  DCHECK_LE(result.length(), decodeLen);
+  if (result.length() < decodeLen) {
     return std::string();
   }
-
   return result;
 }
 
-// Encodes a binary safe base 64 string
-std::string Base64::urlEncode(folly::ByteRange buffer) {
+std::string Base64::encode(folly::ByteRange buffer) {
   std::unique_ptr<BIO, BIODeleter> bio, b64;
   BUF_MEM* bufferPtr;
 
@@ -89,10 +96,15 @@ std::string Base64::urlEncode(folly::ByteRange buffer) {
   BIO_write(bio.get(), buffer.data(), buffer.size());
   (void)BIO_flush(bio.get());
   BIO_get_mem_ptr(bio.get(), &bufferPtr);
-  (void)BIO_set_close(bio.get(), BIO_NOCLOSE);
 
-  std::string result(bufferPtr->length, 0);
-  folly::StringPiece sp(bufferPtr->data, bufferPtr->length);
+  std::string result(bufferPtr->data, bufferPtr->length);
+  return result;
+}
+
+// Encodes a binary safe base 64 string
+std::string Base64::urlEncode(folly::ByteRange buffer) {
+  std::string result = encode(buffer);
+  folly::StringPiece sp(result.data(), result.length());
   uint8_t padding = 0;
   std::transform(
     sp.begin(), sp.end(), result.begin(),
@@ -108,7 +120,7 @@ std::string Base64::urlEncode(folly::ByteRange buffer) {
     });
   DCHECK_LE(padding, result.length());
   result.resize(result.length() - padding);
-  BUF_MEM_free(bufferPtr);
   return result;
 }
+
 }

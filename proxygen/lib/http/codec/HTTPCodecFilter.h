@@ -41,7 +41,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                           HTTPMessage* msg) override;
 
   void onExMessageBegin(StreamID stream, StreamID controlStream,
-                        HTTPMessage* msg) override;
+                        bool unidirectional, HTTPMessage* msg) override;
 
   void onHeadersComplete(StreamID stream,
                          std::unique_ptr<HTTPMessage> msg) override;
@@ -59,9 +59,9 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   void onMessageComplete(StreamID stream, bool upgrade) override;
 
-  void onFrameHeader(uint32_t stream_id,
+  void onFrameHeader(StreamID stream_id,
                      uint8_t flags,
-                     uint32_t length,
+                     uint64_t length,
                      uint8_t type,
                      uint16_t version = 0) override;
 
@@ -94,12 +94,23 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                                const std::string& protocolString,
                                HTTPMessage& msg) override;
 
+  void onGenerateFrameHeader(StreamID streamID,
+                             uint8_t type,
+                             uint64_t length,
+                             uint16_t version) override;
+
+  void onCertificateRequest(uint16_t requestId,
+                            std::unique_ptr<folly::IOBuf> authRequest) override;
+
+  void onCertificate(uint16_t certId,
+                     std::unique_ptr<folly::IOBuf> authenticator) override;
+
   uint32_t numOutgoingStreams() const override;
 
   uint32_t numIncomingStreams() const override;
 
   // HTTPCodec methods
-  HPACKTableInfo getHPACKTableInfo() const override;
+  CompressionInfo getCompressionInfo() const override;
 
   CodecProtocol getProtocol() const override;
 
@@ -153,7 +164,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   void generateExHeader(folly::IOBufQueue& writeBuf,
                         StreamID stream,
                         const HTTPMessage& msg,
-                        StreamID controlStream,
+                        const HTTPCodec::ExAttributes& exAttributes,
                         bool eom,
                         HTTPHeaderSize* size) override;
 
@@ -203,6 +214,16 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
   size_t generatePriority(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage::HTTPPriority& pri) override;
+
+  size_t generateCertificateRequest(
+      folly::IOBufQueue& writeBuf,
+      uint16_t requestId,
+      std::unique_ptr<folly::IOBuf> chain) override;
+
+  size_t generateCertificate(
+      folly::IOBufQueue& writeBuf,
+      uint16_t certId,
+      std::unique_ptr<folly::IOBuf> certData) override;
 
   HTTPSettings* getEgressSettings() override;
 

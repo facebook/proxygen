@@ -59,6 +59,4 @@ struct MockHTTPCodecPair {
   static const int version = 0;
 };
 
-
-
 }
