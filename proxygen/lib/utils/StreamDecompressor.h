@@ -17,6 +17,8 @@ class IOBuf;
 
 namespace proxygen {
 
+enum class CompressionType : int { NONE, DEFLATE, GZIP, ZSTD };
+
 /**
  * Abstract base class for stream decompressor implementations.
  */

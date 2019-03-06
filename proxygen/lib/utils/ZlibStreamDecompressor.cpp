@@ -26,8 +26,8 @@ DEFINE_int64(zlib_buffer_minsize, 64,
 
 namespace proxygen {
 
-void ZlibStreamDecompressor::init(ZlibCompressionType type) {
-  DCHECK(type_ == ZlibCompressionType::NONE) << "Must be uninitialized";
+void ZlibStreamDecompressor::init(CompressionType type) {
+  DCHECK(type_ == CompressionType::NONE) << "Must be uninitialized";
   type_ = type;
   status_ = Z_OK;
   zlibStream_.zalloc = Z_NULL;
@@ -39,17 +39,19 @@ void ZlibStreamDecompressor::init(ZlibCompressionType type) {
   zlibStream_.avail_out = 0;
   zlibStream_.next_out = Z_NULL;
 
-  DCHECK(type != ZlibCompressionType::NONE);
-  status_ = inflateInit2(&zlibStream_, static_cast<int>(type_));
+  DCHECK(type == CompressionType::DEFLATE || type == CompressionType::GZIP);
+  auto windowBits =
+      type_ == CompressionType::GZIP ? GZIP_WINDOW_BITS : DEFLATE_WINDOW_BITS;
+  status_ = inflateInit2(&zlibStream_, windowBits);
 }
 
-ZlibStreamDecompressor::ZlibStreamDecompressor(ZlibCompressionType type)
-    : type_(ZlibCompressionType::NONE), status_(Z_OK) {
+ZlibStreamDecompressor::ZlibStreamDecompressor(CompressionType type)
+    : type_(CompressionType::NONE), status_(Z_OK) {
   init(type);
 }
 
 ZlibStreamDecompressor::~ZlibStreamDecompressor() {
-  if (type_ != ZlibCompressionType::NONE) {
+  if (type_ != CompressionType::NONE) {
     status_ = inflateEnd(&zlibStream_);
   }
 }

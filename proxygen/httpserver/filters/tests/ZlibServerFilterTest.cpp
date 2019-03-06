@@ -38,7 +38,7 @@ class ZlibServerFilterTest : public Test {
     // requesthandler is the server, responsehandler is the client
     requestHandler_ = new MockRequestHandler();
     responseHandler_ = std::make_unique<MockResponseHandler>(requestHandler_);
-    zd_ = std::make_unique<ZlibStreamDecompressor>(ZlibCompressionType::GZIP);
+    zd_ = std::make_unique<ZlibStreamDecompressor>(CompressionType::GZIP);
   }
 
   void TearDown() override {

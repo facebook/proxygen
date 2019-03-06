@@ -52,7 +52,7 @@ class ZlibServerFilter : public Filter {
 
     // Initialize compressor
     compressor_ = std::make_unique<ZlibStreamCompressor>(
-      proxygen::ZlibCompressionType::GZIP, compressionLevel_);
+        proxygen::CompressionType::GZIP, compressionLevel_);
     if (!compressor_ || compressor_->hasError()) {
       fail();
       return;

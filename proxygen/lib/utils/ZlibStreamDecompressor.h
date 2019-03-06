@@ -24,21 +24,23 @@ DECLARE_int64(zlib_decompresser_buffer_minsize);
 
 namespace proxygen {
 
-enum class ZlibCompressionType: int {
-  NONE = 0,
-  DEFLATE = 15,
-  GZIP = 31
-};
+/**
+ * These are misleading. See zlib.h for explanation of windowBits param. 31
+ * implies a window log of 15 with enabled detection and decoding of the gzip
+ * format.
+ */
+constexpr int GZIP_WINDOW_BITS = 31;
+constexpr int DEFLATE_WINDOW_BITS = 15;
 
 class ZlibStreamDecompressor : public StreamDecompressor {
  public:
-  explicit ZlibStreamDecompressor(ZlibCompressionType type);
+  explicit ZlibStreamDecompressor(CompressionType type);
 
   ZlibStreamDecompressor() { }
 
   ~ZlibStreamDecompressor();
 
-  void init(ZlibCompressionType type);
+  void init(CompressionType type);
 
   std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in) override;
 
@@ -53,7 +55,7 @@ class ZlibStreamDecompressor : public StreamDecompressor {
   }
 
  private:
-  ZlibCompressionType type_{ZlibCompressionType::NONE};
+  CompressionType type_{CompressionType::NONE};
   z_stream zlibStream_;
   int status_{-1};
 };
