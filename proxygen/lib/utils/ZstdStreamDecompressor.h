@@ -19,6 +19,8 @@
 #include <zstd.h>
 #include <zdict.h>
 
+#include <proxygen/lib/utils/StreamDecompressor.h>
+
 namespace folly {
 class IOBuf;
 }
@@ -33,12 +35,19 @@ enum class ZstdStatusType: int {
   ERROR,
  };
 
-
-class ZstdStreamDecompressor {
+class ZstdStreamDecompressor : public StreamDecompressor {
  public:
   explicit ZstdStreamDecompressor(size_t, std::string);
   ~ZstdStreamDecompressor();
-  std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in);
+  std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in) override;
+  // TODO: fix
+  bool hasError() override {
+    throw std::runtime_error("unimplemented");
+  }
+  // TODO: fix
+  bool finished() override {
+    throw std::runtime_error("unimplemented");
+  }
   ZstdStatusType getStatus() {return status_;};
   ZstdStatusType status_;
 

@@ -13,6 +13,8 @@
 #include <zlib.h>
 #include <folly/portability/GFlags.h>
 
+#include <proxygen/lib/utils/StreamDecompressor.h>
+
 namespace folly {
 class IOBuf;
 }
@@ -28,7 +30,7 @@ enum class ZlibCompressionType: int {
   GZIP = 31
 };
 
-class ZlibStreamDecompressor {
+class ZlibStreamDecompressor : public StreamDecompressor {
  public:
   explicit ZlibStreamDecompressor(ZlibCompressionType type);
 
@@ -38,19 +40,21 @@ class ZlibStreamDecompressor {
 
   void init(ZlibCompressionType type);
 
-  std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in);
+  std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in) override;
 
   int getStatus() { return status_; }
 
-  bool hasError() { return status_ != Z_OK && status_ != Z_STREAM_END; }
+  bool hasError() override {
+    return status_ != Z_OK && status_ != Z_STREAM_END;
+  }
 
-  bool finished() { return status_ == Z_STREAM_END; }
+  bool finished() override {
+    return status_ == Z_STREAM_END;
+  }
 
  private:
   ZlibCompressionType type_{ZlibCompressionType::NONE};
   z_stream zlibStream_;
   int status_{-1};
 };
-
-
 }
