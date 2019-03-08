@@ -9,10 +9,13 @@
  */
 #pragma once
 
+#include <vector>
+
 #include <folly/Optional.h>
 #include <folly/Range.h>
 #include <proxygen/lib/http/HTTPMethod.h>
 #include <string>
+#include <vector>
 
 namespace proxygen {
 
