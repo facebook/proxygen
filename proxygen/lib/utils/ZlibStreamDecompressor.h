@@ -10,19 +10,18 @@
 #pragma once
 
 #include <memory>
-#include <zlib.h>
-#include <folly/portability/GFlags.h>
-
 #include <proxygen/lib/utils/StreamDecompressor.h>
+#include <zlib.h>
 
 namespace folly {
 class IOBuf;
 }
 
-DECLARE_int64(zlib_decompresser_buffer_growth);
-DECLARE_int64(zlib_decompresser_buffer_minsize);
-
 namespace proxygen {
+
+namespace {
+constexpr uint64_t kZlibDecompressorBufferGrowthDefault = 480;
+constexpr uint64_t kZlibDecompressorBufferMinsizeDefault = 64;
 
 /**
  * These are misleading. See zlib.h for explanation of windowBits param. 31
@@ -31,12 +30,17 @@ namespace proxygen {
  */
 constexpr int GZIP_WINDOW_BITS = 31;
 constexpr int DEFLATE_WINDOW_BITS = 15;
+} // namespace
 
 class ZlibStreamDecompressor : public StreamDecompressor {
  public:
-  explicit ZlibStreamDecompressor(CompressionType type);
+  explicit ZlibStreamDecompressor(CompressionType type,
+                                  uint64_t zlib_decompressor_buffer_growth =
+                                      kZlibDecompressorBufferGrowthDefault,
+                                  uint64_t zlib_decompressor_buffer_minsize =
+                                      kZlibDecompressorBufferMinsizeDefault);
 
-  ZlibStreamDecompressor() { }
+  ZlibStreamDecompressor() = default;
 
   ~ZlibStreamDecompressor();
 
@@ -44,7 +48,9 @@ class ZlibStreamDecompressor : public StreamDecompressor {
 
   std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in) override;
 
-  int getStatus() { return status_; }
+  int getStatus() {
+    return status_;
+  }
 
   bool hasError() override {
     return status_ != Z_OK && status_ != Z_STREAM_END;
@@ -56,7 +62,10 @@ class ZlibStreamDecompressor : public StreamDecompressor {
 
  private:
   CompressionType type_{CompressionType::NONE};
+  uint64_t decompressor_buffer_growth_{kZlibDecompressorBufferGrowthDefault};
+  uint64_t decompressor_buffer_minsize_{
+      kZlibDecompressorBufferMinsizeDefault};
   z_stream zlibStream_;
   int status_{-1};
 };
-}
+} // namespace proxygen

@@ -14,16 +14,6 @@
 using folly::IOBuf;
 using std::unique_ptr;
 
-// IOBuf uses 24 bytes of data for bookeeping purposes, so requesting for 480
-// bytes of data will be rounded up to an allocation of 512 bytes.  (If we
-// requested for 512 bytes exactly IOBuf would round this up to 768, since it
-// needs 24 extra bytes of its own.)
-DEFINE_int64(zlib_buffer_growth, 480,
-             "The buffer growth size to use during IOBuf zlib inflation");
-DEFINE_int64(zlib_buffer_minsize, 64,
-             "The minimum buffer size to use before growing during IOBuf "
-             "zlib inflation");
-
 namespace proxygen {
 
 void ZlibStreamDecompressor::init(CompressionType type) {
@@ -45,8 +35,14 @@ void ZlibStreamDecompressor::init(CompressionType type) {
   status_ = inflateInit2(&zlibStream_, windowBits);
 }
 
-ZlibStreamDecompressor::ZlibStreamDecompressor(CompressionType type)
-    : type_(CompressionType::NONE), status_(Z_OK) {
+ZlibStreamDecompressor::ZlibStreamDecompressor(
+    CompressionType type,
+    uint64_t zlib_decompressor_buffer_growth,
+    uint64_t zlib_decompressor_buffer_minsize)
+    : type_(CompressionType::NONE),
+      decompressor_buffer_growth_(zlib_decompressor_buffer_growth),
+      decompressor_buffer_minsize_(zlib_decompressor_buffer_minsize),
+      status_(Z_OK) {
   init(type);
 }
 
@@ -57,9 +53,8 @@ ZlibStreamDecompressor::~ZlibStreamDecompressor() {
 }
 
 std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
-  auto out = IOBuf::create(FLAGS_zlib_buffer_growth);
-  auto appender = folly::io::Appender(out.get(),
-      FLAGS_zlib_buffer_growth);
+  auto out = IOBuf::create(decompressor_buffer_growth_);
+  auto appender = folly::io::Appender(out.get(), decompressor_buffer_growth_);
 
   const IOBuf* crtBuf = in;
   size_t offset = 0;
@@ -80,12 +75,12 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
       status_ = Z_STREAM_ERROR;
       // we should probably bump up a counter here
       LOG(ERROR) << "error uncompressing buffer: reached end of zlib data "
-        "before the end of the buffer";
+                    "before the end of the buffer";
       return nullptr;
     }
 
     // Ensure there is space in the output IOBuf
-    appender.ensure(FLAGS_zlib_buffer_minsize);
+    appender.ensure(decompressor_buffer_minsize_);
     DCHECK_GT(appender.length(), 0);
 
     const size_t origAvailIn = crtBuf->length() - offset;
@@ -110,4 +105,4 @@ std::unique_ptr<IOBuf> ZlibStreamDecompressor::decompress(const IOBuf* in) {
   return out;
 }
 
-}
+} // namespace proxygen
