@@ -18,8 +18,8 @@
 #endif
 
 #include <memory>
-#include <zstd.h>
 #include <zdict.h>
+#include <zstd.h>
 
 #include <folly/Memory.h>
 
