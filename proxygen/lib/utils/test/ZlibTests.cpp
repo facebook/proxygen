@@ -21,6 +21,8 @@ using namespace proxygen;
 using namespace std;
 using namespace testing;
 
+namespace {
+
 class ZlibTests : public testing::Test {};
 
 std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
@@ -63,6 +65,7 @@ void compressThenDecompress(CompressionType type,
 
   verify(type, std::move(buf), std::move(compressed));
 }
+} // anonymous namespace
 
 // Try many different sizes because we've hit truncation problems before
 TEST_F(ZlibTests, CompressDecompressGzip5000) {
