@@ -1402,7 +1402,8 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
 
   // Reset to  defaults
   maxConcurrentIncomingStreams_ = 100;
-  maxConcurrentOutgoingStreamsRemote_ = 10000;
+  maxConcurrentOutgoingStreamsRemote_ =
+    kDefaultMaxConcurrentOutgoingStreamsRemote;
 
   // overwrite destination, delay current codec deletion until the end
   // of the event loop

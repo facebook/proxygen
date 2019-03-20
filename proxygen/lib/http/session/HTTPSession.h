@@ -39,6 +39,7 @@ class HTTPSessionController;
 class HTTPSessionStats;
 
 #define PROXYGEN_HTTP_SESSION_USES_BASE  1
+constexpr uint32_t kDefaultMaxConcurrentOutgoingStreamsRemote = 100000;
 
 class HTTPSession:
   public HTTPSessionBase,
@@ -917,7 +918,8 @@ class HTTPSession:
    * but to be reasonable, assume the remote doesn't allow more than 100K
    * concurrent transactions on one connection.
    */
-  uint32_t maxConcurrentOutgoingStreamsRemote_{100000};
+  uint32_t maxConcurrentOutgoingStreamsRemote_{
+    kDefaultMaxConcurrentOutgoingStreamsRemote};
 
   /**
    * The maximum number of concurrent transactions that this session's peer
