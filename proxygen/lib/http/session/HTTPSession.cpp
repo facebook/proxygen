@@ -1401,7 +1401,7 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   CHECK(!codec_->supportsParallelRequests());
 
   // Reset to  defaults
-  maxConcurrentIncomingStreams_ = 100;
+  maxConcurrentIncomingStreams_ = kDefaultMaxConcurrentIncomingStreams;
   maxConcurrentOutgoingStreamsRemote_ =
     kDefaultMaxConcurrentOutgoingStreamsRemote;
 

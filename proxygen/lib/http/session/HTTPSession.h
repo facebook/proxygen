@@ -40,6 +40,7 @@ class HTTPSessionStats;
 
 #define PROXYGEN_HTTP_SESSION_USES_BASE  1
 constexpr uint32_t kDefaultMaxConcurrentOutgoingStreamsRemote = 100000;
+constexpr uint32_t kDefaultMaxConcurrentIncomingStreams = 100;
 
 class HTTPSession:
   public HTTPSessionBase,
@@ -925,7 +926,7 @@ class HTTPSession:
    * The maximum number of concurrent transactions that this session's peer
    * may create.
    */
-  uint32_t maxConcurrentIncomingStreams_{100};
+  uint32_t maxConcurrentIncomingStreams_{kDefaultMaxConcurrentIncomingStreams};
 
   /**
    * The number concurrent transactions initiated by this session
