@@ -19,33 +19,33 @@ class Service;
 class ServiceWorker;
 
 /**
- * RequestWorker extends WorkerThread, and also contains a list of
+ * RequestWorkerThread extends WorkerThread, and also contains a list of
  * ServiceWorkers running in this thread.
  */
-class RequestWorker : public WorkerThread {
+class RequestWorkerThread : public WorkerThread {
  public:
   class FinishCallback {
    public:
     virtual ~FinishCallback() noexcept {}
-    virtual void workerStarted(RequestWorker*) = 0;
-    virtual void workerFinished(RequestWorker*) = 0;
+    virtual void workerStarted(RequestWorkerThread*) = 0;
+    virtual void workerFinished(RequestWorkerThread*) = 0;
   };
 
   /**
-   * Create a new RequestWorker.
+   * Create a new RequestWorkerThread.
    *
    * @param proxygen  The object to notify when this worker finishes.
    * @param threadId  A unique ID for this worker.
    * @param evbName   The event base will ne named to this name (thread name)
    */
-  RequestWorker(
+  RequestWorkerThread(
     FinishCallback& callback, uint8_t threadId,
     const std::string& evbName = std::string());
 
   static uint64_t nextRequestId();
 
-  static RequestWorker* getRequestWorker() {
-    RequestWorker* self = dynamic_cast<RequestWorker*>(
+  static RequestWorkerThread* getRequestWorkerThread() {
+    RequestWorkerThread* self = dynamic_cast<RequestWorkerThread*>(
       WorkerThread::getCurrentWorkerThread());
     CHECK_NOTNULL(self);
     return self;
@@ -61,7 +61,7 @@ class RequestWorker : public WorkerThread {
 
   /**
    * For a given service, returns the ServiceWorker associated with this
-   * RequestWorker
+   * RequestWorkerThread
    */
   ServiceWorker* getServiceWorker(Service* service) const {
     auto it = serviceWorkers_.find(service);

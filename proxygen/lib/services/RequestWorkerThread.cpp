@@ -7,37 +7,37 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/services/RequestWorker.h>
+#include <proxygen/lib/services/RequestWorkerThread.h>
 
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/lib/services/ServiceWorker.h>
 
 namespace proxygen {
 
-RequestWorker::RequestWorker(
+RequestWorkerThread::RequestWorkerThread(
   FinishCallback& callback, uint8_t threadId, const std::string& evbName)
     : WorkerThread(folly::EventBaseManager::get(), evbName),
       nextRequestId_(static_cast<uint64_t>(threadId) << 56),
       callback_(callback) {
 }
 
-uint64_t RequestWorker::nextRequestId() {
-  return getRequestWorker()->nextRequestId_++;
+uint64_t RequestWorkerThread::nextRequestId() {
+  return getRequestWorkerThread()->nextRequestId_++;
 }
 
-void RequestWorker::flushStats() {
+void RequestWorkerThread::flushStats() {
   CHECK(getEventBase()->isInEventBaseThread());
   for (auto& p: serviceWorkers_) {
     p.second->flushStats();
   }
 }
 
-void RequestWorker::setup() {
+void RequestWorkerThread::setup() {
   WorkerThread::setup();
   callback_.workerStarted(this);
 }
 
-void RequestWorker::cleanup() {
+void RequestWorkerThread::cleanup() {
   WorkerThread::cleanup();
   callback_.workerFinished(this);
 }
