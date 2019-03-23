@@ -139,7 +139,7 @@ add_library(
     http/structuredheaders/StructuredHeadersEncoder.cpp
     http/structuredheaders/StructuredHeadersUtilities.cpp
     http/Window.cpp
-    services/RequestWorker.cpp
+    services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
     utils/AsyncTimeoutSet.cpp
