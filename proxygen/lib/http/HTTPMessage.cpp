@@ -680,6 +680,7 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
 void HTTPMessage::describe(std::ostream& os) const {
   os << ", chunked: " << chunked_
      << ", upgraded: " << upgraded_
+     << ", secure: " << secure_
      << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.
