@@ -226,6 +226,7 @@ class HTTPMessage {
   /**
    * Version constants
    */
+  static const std::pair<uint8_t, uint8_t> kHTTPVersion09;
   static const std::pair<uint8_t, uint8_t> kHTTPVersion10;
   static const std::pair<uint8_t, uint8_t> kHTTPVersion11;
 

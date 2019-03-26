@@ -446,7 +446,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   switch (transportDirection_) {
   case TransportDirection::DOWNSTREAM:
     DCHECK_NE(statusCode, 0);
-    if (version.first == 0 && version.second == 9) {
+    if (version == HTTPMessage::kHTTPVersion09) {
       return;
     }
     appendLiteral(writeBuf, len, "HTTP/");
@@ -494,7 +494,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   }
   egressChunked_ &= mayChunkEgress_;
   appendLiteral(writeBuf, len, CRLF);
-  if (version.first == 0 && version.second == 9) {
+  if (version == HTTPMessage::kHTTPVersion09) {
     parser_.http_major = 0;
     parser_.http_minor = 9;
     return;

@@ -98,6 +98,7 @@ TEST(HTTP1xCodecTest, Test09Req) {
   codec.onIngress(*buffer);
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(callbacks.msg_->getHTTPVersion(), HTTPMessage::kHTTPVersion09);
 }
 
 TEST(HTTP1xCodecTest, Test09ReqVers) {
