@@ -9,7 +9,6 @@
  */
 #pragma once
 
-#include <boost/heap/d_ary_heap.hpp>
 #include <climits>
 #include <folly/Optional.h>
 #include <folly/SocketAddress.h>
