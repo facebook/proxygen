@@ -611,6 +611,10 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
         connectionTokens.push_back(kUpgradeConnectionToken);
         lastConnectionToken++;
       }
+    } else {
+      LOG(ERROR) << folly::to<string>("Not serializing headers. "
+          "Upgrade headers present/txn: ",
+          hasUpgradeHeader, txn);
     }
   }
 
