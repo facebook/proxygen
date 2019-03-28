@@ -215,3 +215,4 @@ install(
     DESTINATION lib
 )
 
+add_subdirectory(test)
