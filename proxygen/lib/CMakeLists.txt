@@ -216,3 +216,8 @@ install(
 )
 
 add_subdirectory(test)
+add_subdirectory(http/test)
+add_subdirectory(http/structuredheaders/test)
+add_subdirectory(http/codec/test)
+add_subdirectory(http/codec/compress/test)
+add_subdirectory(http/session/test)
