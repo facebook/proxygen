@@ -45,6 +45,8 @@ list(APPEND
     -Wextra
 )
 
+include(ProxygenTest)
+
 add_subdirectory(proxygen)
 
 install(
