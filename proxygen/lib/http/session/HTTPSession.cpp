@@ -1731,7 +1731,7 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
       // Just for safety, the following bumps the refcount on this session
       // to keep it live until the loopCb runs
       shutdownTransportCb_.reset(new ShutdownTransportCallback(this));
-      sock_->getEventBase()->runInLoop(shutdownTransportCb_.get(), true);
+      sock_->getEventBase()->runInLoop(shutdownTransportCb_.get());
     }
   } else {
   maybeResumePausedPipelinedTransaction(oldStreamCount,
