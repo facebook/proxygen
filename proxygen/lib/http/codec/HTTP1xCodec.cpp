@@ -190,6 +190,7 @@ HTTP1xCodec::onIngress(const IOBuf& buf) {
       // HTTP/0.9 responses have no header block, so create a fake 200 response
       // and put the codec in upgrade mode
       onMessageBegin();
+      parser_.status_code = 200;
       msg_->setStatusCode(200);
       onHeadersComplete(0);
       parserActive_ = false;
