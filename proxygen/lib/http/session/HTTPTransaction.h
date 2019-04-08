@@ -307,6 +307,10 @@ class HTTPTransactionTransportCallback {
 
   virtual void trackedByteFlushed() noexcept {}
 
+  virtual void firstByteOffset(const uint64_t /* byteOffset */) noexcept {}
+
+  virtual void lastByteOffset(const uint64_t /* byteOffset */) noexcept {}
+
   virtual void lastByteAcked(std::chrono::milliseconds latency) noexcept = 0;
 
   virtual void headerBytesGenerated(HTTPHeaderSize& size) noexcept = 0;
@@ -674,12 +678,14 @@ class HTTPTransaction :
   /**
    * Invoked by the session when the first byte is flushed.
    */
-  void onEgressBodyFirstByte();
+  void onEgressBodyFirstByte(
+      const folly::Optional<uint64_t>& maybeByteOffset = folly::none);
 
   /**
    * Invoked by the session when the last byte is flushed.
    */
-  void onEgressBodyLastByte();
+  void onEgressBodyLastByte(
+      const folly::Optional<uint64_t>& maybeByteOffset = folly::none);
 
   /**
    * Invoked by the session when the tracked byte is flushed.
