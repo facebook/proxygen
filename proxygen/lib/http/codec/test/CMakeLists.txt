@@ -2,7 +2,7 @@ if(NOT BUILD_TESTING)
     return()
 endif()
 
-add_library(codectestutils OBJECT TestUtils.cpp)
+add_library(codectestutils STATIC TestUtils.cpp)
 target_include_directories(
     codectestutils PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

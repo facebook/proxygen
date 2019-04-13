@@ -1,4 +1,4 @@
-add_library(proxygencurl OBJECT CurlClient.cpp)
+add_library(proxygencurl STATIC CurlClient.cpp)
 target_include_directories(
     proxygencurl PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

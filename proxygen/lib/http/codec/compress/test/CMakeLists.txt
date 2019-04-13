@@ -2,7 +2,7 @@ if(NOT BUILD_TESTING)
     return()
 endif()
 
-add_library(hpacktestutils OBJECT TestUtil.cpp)
+add_library(hpacktestutils STATIC TestUtil.cpp)
 target_include_directories(
     hpacktestutils PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
