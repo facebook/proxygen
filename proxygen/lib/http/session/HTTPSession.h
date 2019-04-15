@@ -236,6 +236,12 @@ class HTTPSession:
 
   bool isDetachable(bool checkSocket=true) const override;
 
+  /**
+   * Returns true if this session is draining. This can happen if drain()
+   * is called explicitly, if a GOAWAY frame is received, or during shutdown.
+   */
+  bool isDraining() const override { return draining_; }
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated
@@ -449,12 +455,6 @@ class HTTPSession:
       const noexcept override {
     return sock_.get();
   }
-
-  /**
-   * Returns true if this session is draining. This can happen if drain()
-   * is called explicitly, if a GOAWAY frame is received, or during shutdown.
-   */
-  bool isDraining() const override { return draining_; }
 
   /**
    * Drains the current transactions and prevents new transactions from being
