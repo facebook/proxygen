@@ -70,10 +70,9 @@ class URL {
     port_(port),
     path_(path),
     query_(query),
-    fragment_(fragment),
-    url_(createUrl(scheme_, getHostAndPort(), path_, query_, fragment_)) {
-
+    fragment_(fragment) {
     setScheme(scheme, false);
+    url_ = createUrl(scheme_, getHostAndPort(), path_, query_, fragment_);
 
     if (port_ == 0) {
       port_ = isSecure() ? 443 : 80;
