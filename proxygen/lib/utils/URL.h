@@ -21,7 +21,7 @@ namespace proxygen {
 
 class URL {
  public:
-  explicit URL(const std::string& url = "") noexcept {
+  explicit URL(const std::string& url = "", bool secure=false) noexcept {
     valid_ = false;
 
     ParseURL parseUrl(url);
@@ -33,12 +33,7 @@ class URL {
     fragment_ = parseUrl.fragment().str();
     url_ = parseUrl.url().str();
 
-    scheme_ = parseUrl.scheme().str();
-    std::transform(scheme_.begin(),
-                   scheme_.end(),
-                   scheme_.begin(),
-                   ::tolower);
-    valid_ = (scheme_ == "http" || scheme_ == "https");
+    setScheme(parseUrl.scheme().str(), secure);
 
     if (parseUrl.port()) {
       port_ = parseUrl.port();
@@ -65,13 +60,12 @@ class URL {
     return out.str();
   }
 
-  URL(const std::string scheme,
-      const std::string host,
+  URL(const std::string& scheme,
+      const std::string& host,
       uint16_t port = 0,
-      const std::string path = "",
-      const std::string query = "",
-      const std::string fragment = "") noexcept :
-    scheme_(scheme),
+      const std::string& path = "",
+      const std::string& query = "",
+      const std::string& fragment = "") noexcept :
     host_(host),
     port_(port),
     path_(path),
@@ -79,12 +73,7 @@ class URL {
     fragment_(fragment),
     url_(createUrl(scheme_, getHostAndPort(), path_, query_, fragment_)) {
 
-    std::transform(scheme_.begin(),
-                   scheme_.end(),
-                   scheme_.begin(),
-                   ::tolower);
-
-    valid_ = (scheme == "http" || scheme == "https");
+    setScheme(scheme, false);
 
     if (port_ == 0) {
       port_ = isSecure() ? 443 : 80;
@@ -158,6 +147,21 @@ class URL {
   }
 
  private:
+  void setScheme(std::string scheme, bool secure) {
+    // empty scheme means it wasn't specified.  Caller can force it to secure
+    if (scheme.empty() && secure) {
+      scheme_ = "https";
+    } else {
+      scheme_ = std::move(scheme);
+    }
+    std::transform(scheme_.begin(),
+                   scheme_.end(),
+                   scheme_.begin(),
+                   ::tolower);
+
+    valid_ = (scheme_ == "http" || scheme_ == "https");
+  }
+
   std::string scheme_;
   std::string host_;
   uint16_t port_;
