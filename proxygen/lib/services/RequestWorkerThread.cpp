@@ -14,15 +14,25 @@
 
 namespace proxygen {
 
+static const uint32_t requestIdBits = 56;
+static const uint64_t requestIdMask = ((1ULL << requestIdBits) - 1);
+
 RequestWorkerThread::RequestWorkerThread(
   FinishCallback& callback, uint8_t threadId, const std::string& evbName)
     : WorkerThread(folly::EventBaseManager::get(), evbName),
-      nextRequestId_(static_cast<uint64_t>(threadId) << 56),
+      nextRequestId_(static_cast<uint64_t>(threadId) << requestIdBits),
       callback_(callback) {
 }
 
+uint8_t RequestWorkerThread::getWorkerId() const {
+  return static_cast<uint8_t>(nextRequestId_ >> requestIdBits);
+}
+
 uint64_t RequestWorkerThread::nextRequestId() {
-  return getRequestWorkerThread()->nextRequestId_++;
+  uint64_t requestId = getRequestWorkerThread()->nextRequestId_;
+  getRequestWorkerThread()->nextRequestId_ =
+    (requestId & ~requestIdMask) | ((requestId + 1) & requestIdMask);
+  return requestId;
 }
 
 void RequestWorkerThread::flushStats() {

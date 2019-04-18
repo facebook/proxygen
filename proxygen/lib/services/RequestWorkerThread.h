@@ -42,7 +42,15 @@ class RequestWorkerThread : public WorkerThread {
     FinishCallback& callback, uint8_t threadId,
     const std::string& evbName = std::string());
 
+  /**
+   * Return a unique 64bit identifier.
+   */
   static uint64_t nextRequestId();
+
+  /**
+   * Return unique 8bit worker ID.
+   */
+  uint8_t getWorkerId() const;
 
   static RequestWorkerThread* getRequestWorkerThread() {
     RequestWorkerThread* self = dynamic_cast<RequestWorkerThread*>(
