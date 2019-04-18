@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/URL.h>
+#include <fstream>
 
 namespace CurlService {
 
@@ -78,6 +79,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   }
 
 protected:
+  void sendBodyFromFile();
+
   proxygen::HTTPTransaction* txn_{nullptr};
   folly::EventBase* evb_{nullptr};
   proxygen::HTTPMethod httpMethod_;
@@ -91,6 +94,8 @@ protected:
   bool h2c_{false};
   unsigned short httpMajor_;
   unsigned short httpMinor_;
+  bool egressPaused_{false};
+  std::unique_ptr<std::ifstream> inputFile_;
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
 };
