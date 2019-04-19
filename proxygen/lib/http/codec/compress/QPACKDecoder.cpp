@@ -150,8 +150,11 @@ void QPACKDecoder::decodeStreamingImpl(
     // blocks must be call encodeHeaderAck BEFORE calling encodeInsertCountInc.
     lastAcked_ = std::max(lastAcked_, requiredInsertCount);
   }
+  auto compressedSize = pendingEncoderBytes_ +
+    consumed + dbuf.consumedBytes();
+  pendingEncoderBytes_ = 0;
   completeDecode(HeaderCodec::Type::QPACK, streamingCb,
-                 consumed + dbuf.consumedBytes(), emittedSize, acknowledge);
+                 compressedSize, emittedSize, acknowledge);
 }
 
 uint32_t QPACKDecoder::decodeHeaderQ(
@@ -196,6 +199,7 @@ HPACK::DecodeError QPACKDecoder::decodeEncoderStream(
       return HPACK::DecodeError::NONE;
     }
   }
+  pendingEncoderBytes_ += dbuf.consumedBytes();
   ingress_.trimStart(dbuf.consumedBytes());
   if (hasError()) {
     return err_;

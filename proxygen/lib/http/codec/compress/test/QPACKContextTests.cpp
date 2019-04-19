@@ -546,6 +546,8 @@ TEST(QPACKContextTests, TestEncoderStreamReorder) {
   vector<HPACKHeader> req;
   req.emplace_back("dynamic", "header");
   auto result = encoder.encode(req, 0, 1);
+  EXPECT_EQ(result.stream->computeChainDataLength() +
+            result.control->computeChainDataLength(), 21);
   TestStreamingCallback cb1;
   bool done = false;
   cb1.headersCompleteCb = [&] {
@@ -559,6 +561,8 @@ TEST(QPACKContextTests, TestEncoderStreamReorder) {
             HPACK::DecodeError::NONE);
   EXPECT_TRUE(done);
   EXPECT_EQ(*cb1.hpackHeaders(), req);
+  EXPECT_EQ(cb1.decodedSize_.uncompressed, 15);
+  EXPECT_EQ(cb1.decodedSize_.compressed, 21);
 }
 
 TEST(QPACKContextTests, TestEncoderTableLimit) {
