@@ -1592,7 +1592,7 @@ TEST_F(HTTP2CodecTest, BadServerPreface) {
 TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   HTTPMessage req = getGetRequest();
   string bigval(8691, '!');
-  bigval.append(8691, ' ');
+  bigval.append(8691, '@');
   req.getHeaders().add("x-headr", bigval);
   req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 7));
   upstreamCodec_.generateHeader(output_, 1, req);

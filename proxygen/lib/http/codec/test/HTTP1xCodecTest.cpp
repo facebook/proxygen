@@ -703,6 +703,20 @@ TEST(HTTP1xCodecTest, TestChunkResponseSerialization) {
   EXPECT_TRUE(upCallbacks.trailers_->exists("X-Test-Trailer"));
 }
 
+TEST(HTTP1xCodecTest, TestHeaderValueWhiteSpaces) {
+  HTTP1xCodecCallback callbacks;
+  auto buf = folly::IOBuf::copyBuffer(
+      "GET /status.php HTTP/1.1\r\nHost: www.facebook.com  \r\n"
+      "X-FB-HEADER: yay \r\n\r\n");
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  codec.setCallback(&callbacks);
+
+  codec.onIngress(*buf);
+  const auto& headers = callbacks.msg_->getHeaders();
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_HOST), "www.facebook.com");
+  EXPECT_EQ(headers.getSingleOrEmpty("X-FB-HEADER"), "yay");
+}
+
 class ConnectionHeaderTest:
     public TestWithParam<std::pair<std::list<string>, string>> {
  public:
