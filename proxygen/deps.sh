@@ -65,28 +65,26 @@ sudo apt-get install -yq \
 if ! sudo apt-get install -y libgoogle-glog-dev;
 then
   if [ ! -e google-glog ]; then
-    echo "fetching glog from svn (apt-get failed)"
-    svn checkout https://google-glog.googlecode.com/svn/trunk/ google-glog
-    (
-      cd google-glog
-      ./configure
-      make
-      sudo make install
-    )
+    echo "fetching glog from github.com"
+    git clone git@github.com:google/glog.git google-glog
+    cd google-glog
+    ./configure
+    make
+    sudo make install
+    cd ..
   fi
 fi
 
 if ! sudo apt-get install -y libgflags-dev;
 then
   if [ ! -e google-gflags ]; then
-    echo "Fetching gflags from svn (apt-get failed)"
-    svn checkout https://google-gflags.googlecode.com/svn/trunk/ google-gflags
-    (
-      cd google-gflags
-      ./configure
-      make
-      sudo make install
-    )
+    echo "fetching gflags from github.com"
+    git clone git@github.com:gflags/gflags gflags-gflags
+    mkdir build && cd build
+    ccmake ..
+    make
+    sudo make install
+    cd ..
   fi
 fi
 
