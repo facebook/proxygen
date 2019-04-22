@@ -48,6 +48,7 @@ fi
 if [ ! -e gflags-gflags ]; then
     echo "fetching gflags from github.com"
     git clone http://github.com/gflags/gflags gflags-gflags
+    cd gflags-gflags
     mkdir build && cd build
     ccmake ..
     make
