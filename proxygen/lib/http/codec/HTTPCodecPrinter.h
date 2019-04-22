@@ -29,7 +29,7 @@ class HTTPCodecPrinter: public PassThroughHTTPCodecFilter {
   void onFrameHeader(StreamID stream_id,
                      uint8_t flags,
                      uint64_t length,
-                     uint8_t type,
+                     uint64_t type,
                      uint16_t version = 0) override;
 
   /*

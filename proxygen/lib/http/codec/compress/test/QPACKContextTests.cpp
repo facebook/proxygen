@@ -546,6 +546,8 @@ TEST(QPACKContextTests, TestEncoderStreamReorder) {
   vector<HPACKHeader> req;
   req.emplace_back("dynamic", "header");
   auto result = encoder.encode(req, 0, 1);
+  EXPECT_EQ(result.stream->computeChainDataLength() +
+            result.control->computeChainDataLength(), 21);
   TestStreamingCallback cb1;
   bool done = false;
   cb1.headersCompleteCb = [&] {
@@ -559,6 +561,8 @@ TEST(QPACKContextTests, TestEncoderStreamReorder) {
             HPACK::DecodeError::NONE);
   EXPECT_TRUE(done);
   EXPECT_EQ(*cb1.hpackHeaders(), req);
+  EXPECT_EQ(cb1.decodedSize_.uncompressed, 15);
+  EXPECT_EQ(cb1.decodedSize_.compressed, 21);
 }
 
 TEST(QPACKContextTests, TestEncoderTableLimit) {
@@ -850,6 +854,13 @@ TEST(QPACKContextTests, DecodeErrors) {
   buf->writableData()[0] = 0x3F;
   EXPECT_EQ(encoder.decodeDecoderStream(buf->clone()),
             HPACK::DecodeError::INTEGER_OVERFLOW);
+
+  VLOG(10) << "Insert too large";
+  vector<HPACKHeader> req;
+  req.emplace_back(HPACKHeader("X-Header-Too-Big", "aaaaaaaaaaaaaaaaa"));
+  auto result = encoder.encode(req, 10, 1);
+  EXPECT_EQ(decoder2.decodeEncoderStream(std::move(result.control)),
+            HPACK::DecodeError::INSERT_TOO_LARGE);
 }
 
 TEST(QPACKContextTests, TestEvictedNameReference) {

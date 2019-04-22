@@ -42,3 +42,4 @@ gen-cpp2
 /proxygen/lib/utils/TraceEventType.h
 /proxygen/lib/utils/TraceFieldType.cpp
 /proxygen/lib/utils/TraceFieldType.h
+_build/

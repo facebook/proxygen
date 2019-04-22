@@ -21,6 +21,8 @@ using namespace proxygen;
 using namespace std;
 using namespace testing;
 
+namespace {
+
 class ZlibTests : public testing::Test {};
 
 std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
@@ -37,7 +39,7 @@ std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
   return out;
 }
 
-void verify(ZlibCompressionType type,
+void verify(CompressionType type,
             std::unique_ptr<IOBuf> original,
             std::unique_ptr<IOBuf> compressed) {
   auto zd = std::make_unique<ZlibStreamDecompressor>(type);
@@ -49,7 +51,7 @@ void verify(ZlibCompressionType type,
   ASSERT_TRUE(eq(original, decompressed));
 }
 
-void compressThenDecompress(ZlibCompressionType type,
+void compressThenDecompress(CompressionType type,
                             int level,
                             unique_ptr<IOBuf> buf) {
 
@@ -63,42 +65,42 @@ void compressThenDecompress(ZlibCompressionType type,
 
   verify(type, std::move(buf), std::move(compressed));
 }
+} // anonymous namespace
 
 // Try many different sizes because we've hit truncation problems before
 TEST_F(ZlibTests, CompressDecompressGzip5000) {
   ASSERT_NO_FATAL_FAILURE(
-      { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(5000)); });
+      { compressThenDecompress(CompressionType::GZIP, 6, makeBuf(5000)); });
 }
 
 TEST_F(ZlibTests, CompressDecompressGzip2000) {
   ASSERT_NO_FATAL_FAILURE(
-      { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(2000)); });
+      { compressThenDecompress(CompressionType::GZIP, 6, makeBuf(2000)); });
 }
 
 TEST_F(ZlibTests, CompressDecompressGzip1024) {
   ASSERT_NO_FATAL_FAILURE(
-      { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(1024)); });
+      { compressThenDecompress(CompressionType::GZIP, 6, makeBuf(1024)); });
 }
 
 TEST_F(ZlibTests, CompressDecompressGzip500) {
   ASSERT_NO_FATAL_FAILURE(
-      { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(500)); });
+      { compressThenDecompress(CompressionType::GZIP, 6, makeBuf(500)); });
 }
 
 TEST_F(ZlibTests, CompressDecompressGzip50) {
   ASSERT_NO_FATAL_FAILURE(
-      { compressThenDecompress(ZlibCompressionType::GZIP, 6, makeBuf(50)); });
+      { compressThenDecompress(CompressionType::GZIP, 6, makeBuf(50)); });
 }
 
 TEST_F(ZlibTests, CompressDecompressDeflate) {
-  ASSERT_NO_FATAL_FAILURE({
-    compressThenDecompress(ZlibCompressionType::DEFLATE, 6, makeBuf(500));
-  });
+  ASSERT_NO_FATAL_FAILURE(
+      { compressThenDecompress(CompressionType::DEFLATE, 6, makeBuf(500)); });
 }
 
 TEST_F(ZlibTests, CompressDecompressEmpty) {
   ASSERT_NO_FATAL_FAILURE(
-      { compressThenDecompress(ZlibCompressionType::GZIP, 4, makeBuf(0)); });
+      { compressThenDecompress(CompressionType::GZIP, 4, makeBuf(0)); });
 }
 
 TEST_F(ZlibTests, CompressDecompressChain) {
@@ -107,14 +109,14 @@ TEST_F(ZlibTests, CompressDecompressChain) {
     buf->appendChain(makeBuf(38));
     buf->appendChain(makeBuf(12));
     buf->appendChain(makeBuf(0));
-    compressThenDecompress(ZlibCompressionType::GZIP, 6, std::move(buf));
+    compressThenDecompress(CompressionType::GZIP, 6, std::move(buf));
   });
 }
 
 TEST_F(ZlibTests, CompressDecompressStreaming) {
   ASSERT_NO_FATAL_FAILURE({
     auto compressor =
-        std::make_unique<ZlibStreamCompressor>(ZlibCompressionType::GZIP, 6);
+        std::make_unique<ZlibStreamCompressor>(CompressionType::GZIP, 6);
 
     auto first = makeBuf(38);
     auto out = compressor->compress(first.get(), false);
@@ -130,7 +132,7 @@ TEST_F(ZlibTests, CompressDecompressStreaming) {
     auto empty = IOBuf::create(0);
     out->prev()->appendChain(compressor->compress(empty.get(), true));
 
-    verify(ZlibCompressionType::GZIP, std::move(first), std::move(out));
+    verify(CompressionType::GZIP, std::move(first), std::move(out));
   });
 }
 
@@ -143,6 +145,6 @@ TEST_F(ZlibTests, CompressDecompressSmallBuffer) {
     // NB: This is picked intentionally so we don't generate multiple
     // zlib flush markers as ZlibStreamDecompressor fatals on them.
     FLAGS_zlib_compressor_buffer_growth = 10;
-    compressThenDecompress(ZlibCompressionType::GZIP, 4, makeBuf(127));
+    compressThenDecompress(CompressionType::GZIP, 4, makeBuf(127));
   });
 }

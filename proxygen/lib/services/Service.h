@@ -16,7 +16,7 @@
 namespace proxygen {
 
 class ServiceWorker;
-class RequestWorker;
+class RequestWorkerThread;
 
 /*
  * A Service object represents a network service running in proxygen.
@@ -46,7 +46,7 @@ class Service {
    * if an error occurred initializing it.
    */
   virtual void init(folly::EventBase* mainEventBase,
-                    const std::list<RequestWorker*>& workers) = 0;
+                    const std::list<RequestWorkerThread*>& workers) = 0;
 
 
   /**
@@ -120,15 +120,15 @@ class Service {
   /**
    * Perform per-thread init.
    *
-   * This method will be called once for each RequestWorker thread, just after
+   * This method will be called once for each RequestWorkerThread thread, just after
    * the worker thread started.
    */
-  virtual void initWorkerState(RequestWorker*) {}
+  virtual void initWorkerState(RequestWorkerThread*) {}
 
   /**
    * Perform per-thread cleanup.
    *
-   * This method will be called once for each RequestWorker thread, just before
+   * This method will be called once for each RequestWorkerThread thread, just before
    * that thread is about to exit.  Note that this method is called from the
    * worker thread itself, not from the main thread.
    *
@@ -140,14 +140,14 @@ class Service {
    * cleanupWorkerState().  Once forceStop() is invoked, the remaining threads
    * will forcibly exit and then call cleanupWorkerState().)
    */
-  virtual void cleanupWorkerState(RequestWorker* /*worker*/) {}
+  virtual void cleanupWorkerState(RequestWorkerThread* /*worker*/) {}
 
   /**
    * Add a new ServiceWorker (subclasses should create one ServiceWorker
    * per worker thread)
    */
   void addServiceWorker(std::unique_ptr<ServiceWorker> worker,
-                        RequestWorker* reqWorker);
+                        RequestWorkerThread* reqWorker);
 
   /**
    * List of workers

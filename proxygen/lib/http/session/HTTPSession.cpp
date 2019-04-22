@@ -1401,8 +1401,9 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
   CHECK(!codec_->supportsParallelRequests());
 
   // Reset to  defaults
-  maxConcurrentIncomingStreams_ = 100;
-  maxConcurrentOutgoingStreamsRemote_ = 10000;
+  maxConcurrentIncomingStreams_ = kDefaultMaxConcurrentIncomingStreams;
+  maxConcurrentOutgoingStreamsRemote_ =
+    kDefaultMaxConcurrentOutgoingStreamsRemote;
 
   // overwrite destination, delay current codec deletion until the end
   // of the event loop
@@ -1703,39 +1704,38 @@ HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
   }
   auto oldStreamCount = getPipelineStreamCount();
   decrementTransactionCount(txn, false, true);
-  if (withRST || ((!codec_->isReusable() || readsShutdown()) &&
-                  transactions_.size() == 1)) {
-    // We should shutdown reads if we are closing with RST or we aren't
-    // interested in any further messages (ie if we are a downstream session).
-    // Upgraded sessions have independent ingress and egress, and the reads
-    // need not be shutdown on egress finish.
-    if (withRST) {
-      // Let any queued writes complete, but send a RST when done.
-      VLOG(4) << *this << " resetting egress after this message";
-      resetAfterDrainingWrites_ = true;
-      setCloseReason(ConnectionCloseReason::TRANSACTION_ABORT);
-      shutdownTransport(true, true);
-    } else {
-      // the reason is already set (either not reusable or readshutdown).
 
-      // Defer normal shutdowns until the end of the loop.  This
-      // handles an edge case with direct responses with Connection:
-      // close served before ingress EOM.  The remainder of the ingress
-      // message may be in the parse loop, so give it a chance to
-      // finish out and avoid a kErrorEOF
+  // We should shutdown reads if we are closing with RST or we aren't
+  // interested in any further messages (ie if we are a downstream session).
+  // Upgraded sessions have independent ingress and egress, and the reads
+  // need not be shutdown on egress finish.
+  if (withRST) {
+    // Let any queued writes complete, but send a RST when done.
+    VLOG(4) << *this << " resetting egress after this message";
+    resetAfterDrainingWrites_ = true;
+    setCloseReason(ConnectionCloseReason::TRANSACTION_ABORT);
+    shutdownTransport(true, true);
+  } else if (((!codec_->isReusable() || readsShutdown()) &&
+                    transactions_.size() == 1)) {
+    // the reason is already set (either not reusable or readshutdown).
 
-      // we can get here during shutdown, in that case do not schedule a
-      // shutdown callback again
-      if (!shutdownTransportCb_) {
-        // Just for safety, the following bumps the refcount on this session
-        // to keep it live until the loopCb runs
-        shutdownTransportCb_.reset(new ShutdownTransportCallback(this));
-        sock_->getEventBase()->runInLoop(shutdownTransportCb_.get(), true);
-      }
+    // Defer normal shutdowns until after the end of the loop.  This
+    // handles an edge case with direct responses with Connection:
+    // close served before ingress EOM.  The remainder of the ingress
+    // message may be in the parse loop, so give it a chance to
+    // finish out and avoid a kErrorEOF
+
+    // we can get here during shutdown, in that case do not schedule a
+    // shutdown callback again
+    if (!shutdownTransportCb_) {
+      // Just for safety, the following bumps the refcount on this session
+      // to keep it live until the loopCb runs
+      shutdownTransportCb_.reset(new ShutdownTransportCallback(this));
+      sock_->getEventBase()->runInLoop(shutdownTransportCb_.get());
     }
   } else {
-    maybeResumePausedPipelinedTransaction(oldStreamCount,
-                                          txn->getSequenceNumber());
+  maybeResumePausedPipelinedTransaction(oldStreamCount,
+                                        txn->getSequenceNumber());
   }
 }
 
@@ -1771,22 +1771,19 @@ size_t HTTPSession::sendAbort(HTTPTransaction* txn,
   // drain this transaction's writeBuf instead of flushing it
   // then enqueue the abort directly into the Session buffer,
   // hence with max priority.
-  size_t encodedSize = codec_->generateRstStream(writeBuf_,
+  size_t rstStreamSize = codec_->generateRstStream(writeBuf_,
                                                  txn->getID(),
                                                  statusCode);
 
   if (!codec_->isReusable()) {
-    // HTTP 1x codec does not support per stream abort so this will
-    // render the codec not reusable
     setCloseReason(ConnectionCloseReason::TRANSACTION_ABORT);
   }
 
   scheduleWrite();
 
-  // If the codec wasn't able to write a L7 message for the abort, then
-  // fall back to closing the transport with a TCP level RST
-  onEgressMessageFinished(txn, !encodedSize);
-  return encodedSize;
+  bool sendTcpRstFallback = !rstStreamSize;
+  onEgressMessageFinished(txn, sendTcpRstFallback);
+  return rstStreamSize;
 }
 
 size_t HTTPSession::sendPriority(HTTPTransaction* txn,

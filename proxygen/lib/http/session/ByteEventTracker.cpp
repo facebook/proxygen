@@ -43,10 +43,10 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
       txn->onEgressHeaderFirstByte();
       break;
     case ByteEvent::FIRST_BYTE:
-      txn->onEgressBodyFirstByte();
+      txn->onEgressBodyFirstByte(event.byteOffset_);
       break;
     case ByteEvent::LAST_BYTE:
-      txn->onEgressBodyLastByte();
+      txn->onEgressBodyLastByte(event.byteOffset_);
       if (callback_) {
         callback_->onLastByteEvent(txn, event.byteOffset_, event.eomTracked_);
       }

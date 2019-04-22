@@ -630,9 +630,6 @@ void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize,
       upgradedStreams_.erase(curHeader_.stream);
       // a websocket upgrade was sent on this stream.
       if (msg->getStatusCode() != 200) {
-        decodeInfo_.parsingError =
-          folly::to<string>("Invalid response code to a websocket upgrade: ",
-                            msg->getStatusCode());
         return;
       }
       msg->setIngressWebsocketUpgrade();

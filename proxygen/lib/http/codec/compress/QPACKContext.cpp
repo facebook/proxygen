@@ -9,6 +9,8 @@
  */
 #include <proxygen/lib/http/codec/compress/QPACKContext.h>
 
+#include <glog/logging.h>
+
 namespace proxygen {
 
 QPACKContext::QPACKContext(uint32_t tableSize, bool trackReferences) :

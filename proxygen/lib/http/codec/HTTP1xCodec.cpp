@@ -190,6 +190,7 @@ HTTP1xCodec::onIngress(const IOBuf& buf) {
       // HTTP/0.9 responses have no header block, so create a fake 200 response
       // and put the codec in upgrade mode
       onMessageBegin();
+      parser_.status_code = 200;
       msg_->setStatusCode(200);
       onHeadersComplete(0);
       parserActive_ = false;
@@ -446,7 +447,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   switch (transportDirection_) {
   case TransportDirection::DOWNSTREAM:
     DCHECK_NE(statusCode, 0);
-    if (version.first == 0 && version.second == 9) {
+    if (version == HTTPMessage::kHTTPVersion09) {
       return;
     }
     appendLiteral(writeBuf, len, "HTTP/");
@@ -494,7 +495,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   }
   egressChunked_ &= mayChunkEgress_;
   appendLiteral(writeBuf, len, CRLF);
-  if (version.first == 0 && version.second == 9) {
+  if (version == HTTPMessage::kHTTPVersion09) {
     parser_.http_major = 0;
     parser_.http_minor = 9;
     return;

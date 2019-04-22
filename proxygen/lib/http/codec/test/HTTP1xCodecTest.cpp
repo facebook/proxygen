@@ -98,6 +98,7 @@ TEST(HTTP1xCodecTest, Test09Req) {
   codec.onIngress(*buffer);
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.messageComplete, 1);
+  EXPECT_EQ(callbacks.msg_->getHTTPVersion(), HTTPMessage::kHTTPVersion09);
 }
 
 TEST(HTTP1xCodecTest, Test09ReqVers) {
@@ -700,6 +701,20 @@ TEST(HTTP1xCodecTest, TestChunkResponseSerialization) {
       upCallbacks.msg_->getHeaders().exists(HTTP_HEADER_TRANSFER_ENCODING));
   EXPECT_TRUE(upCallbacks.msg_->getHeaders().exists("X-Custom-Header"));
   EXPECT_TRUE(upCallbacks.trailers_->exists("X-Test-Trailer"));
+}
+
+TEST(HTTP1xCodecTest, TestHeaderValueWhiteSpaces) {
+  HTTP1xCodecCallback callbacks;
+  auto buf = folly::IOBuf::copyBuffer(
+      "GET /status.php HTTP/1.1\r\nHost: www.facebook.com  \r\n"
+      "X-FB-HEADER: yay \r\n\r\n");
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  codec.setCallback(&callbacks);
+
+  codec.onIngress(*buf);
+  const auto& headers = callbacks.msg_->getHeaders();
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_HOST), "www.facebook.com");
+  EXPECT_EQ(headers.getSingleOrEmpty("X-FB-HEADER"), "yay");
 }
 
 class ConnectionHeaderTest:

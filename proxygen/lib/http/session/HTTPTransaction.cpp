@@ -700,17 +700,25 @@ void HTTPTransaction::onEgressHeaderFirstByte() {
   }
 }
 
-void HTTPTransaction::onEgressBodyFirstByte() {
+void HTTPTransaction::onEgressBodyFirstByte(
+    const folly::Optional<uint64_t>& maybeByteOffset) {
   DestructorGuard g(this);
   if (transportCallback_) {
     transportCallback_->firstByteFlushed();
+    if (maybeByteOffset) {
+      transportCallback_->firstByteOffset(*maybeByteOffset);
+    }
   }
 }
 
-void HTTPTransaction::onEgressBodyLastByte() {
+void HTTPTransaction::onEgressBodyLastByte(
+    const folly::Optional<uint64_t>& maybeByteOffset) {
   DestructorGuard g(this);
   if (transportCallback_) {
     transportCallback_->lastByteFlushed();
+    if (maybeByteOffset) {
+      transportCallback_->lastByteOffset(*maybeByteOffset);
+    }
   }
 }
 
@@ -981,7 +989,8 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                         sendWindow_.getSize(), " / ", sendWindow_.getCapacity())
                   : noneStr)
           << " trailers=" << ((trailers_) ? "yes" : "no") << " " << *this;
-  transport_.notifyEgressBodyBuffered(-bodyLen);
+  DCHECK_LT(bodyLen, std::numeric_limits<int64_t>::max());
+  transport_.notifyEgressBodyBuffered(-static_cast<int64_t>(bodyLen));
   if (sendEom && !trailers_) {
     CHECK(HTTPTransactionEgressSM::transit(
             egressState_, HTTPTransactionEgressSM::Event::eomFlushed));

@@ -11,6 +11,7 @@
 
 #include <folly/FBVector.h>
 #include <folly/Range.h>
+#include <folly/String.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
 #include <proxygen/lib/utils/Export.h>
 #include <proxygen/lib/utils/UtilInl.h>
@@ -307,14 +308,16 @@ void HTTPHeaders::add(folly::StringPiece name, T&& value) {
   headerNames_.push_back((code == HTTP_HEADER_OTHER)
       ? new std::string(name.data(), name.size())
       : HTTPCommonHeaders::getPointerToHeaderName(code));
-  headerValues_.emplace_back(std::forward<T>(value));
+  auto s = folly::rtrimWhitespace(std::forward<T>(value));
+  headerValues_.emplace_back(s);
 }
 
 template <typename T> // T = string
 void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
   codes_.push_back(code);
   headerNames_.push_back(HTTPCommonHeaders::getPointerToHeaderName(code));
-  headerValues_.emplace_back(std::forward<T>(value));
+  auto s = folly::rtrimWhitespace(std::forward<T>(value));
+  headerValues_.emplace_back(s);
 }
 
 // iterate over the positions (in vector) of all headers with given code

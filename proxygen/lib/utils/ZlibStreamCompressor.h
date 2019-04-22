@@ -24,11 +24,11 @@ namespace proxygen {
 
 class ZlibStreamCompressor {
  public:
-  explicit ZlibStreamCompressor(ZlibCompressionType type, int level);
+  explicit ZlibStreamCompressor(CompressionType type, int level);
 
   ~ZlibStreamCompressor();
 
-  void init(ZlibCompressionType type, int level);
+  void init(CompressionType type, int level);
 
   std::unique_ptr<folly::IOBuf> compress(const folly::IOBuf* in,
                                          bool trailer = true);
@@ -40,7 +40,7 @@ class ZlibStreamCompressor {
   bool finished() { return status_ == Z_STREAM_END; }
 
  private:
-  ZlibCompressionType type_{ZlibCompressionType::NONE};
+  CompressionType type_{CompressionType::NONE};
   int level_{Z_DEFAULT_COMPRESSION};
   z_stream zlibStream_;
   int status_{-1};

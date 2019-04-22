@@ -22,6 +22,7 @@ static const std::string spdy_3 = "spdy/3";
 static const std::string spdy_3_1 = "spdy/3.1";
 static const std::string http_2 = "http/2";
 static const std::string hq = "hq";
+static const std::string h3 = "h3";
 static const std::string empty = "";
 
 extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
@@ -36,6 +37,8 @@ extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
     return CodecProtocol::HTTP_2;
   } else if (protocolStr.find(hq) == 0) {
     return CodecProtocol::HQ;
+  } else if (protocolStr.find(h3) == 0) {
+    return CodecProtocol::HTTP_3;
   } else {
     // return default protocol
     return CodecProtocol::HTTP_1_1;
@@ -50,6 +53,7 @@ extern const std::string& getCodecProtocolString(CodecProtocol proto) {
     case CodecProtocol::SPDY_3: return spdy_3;
     case CodecProtocol::SPDY_3_1: return spdy_3_1;
     case CodecProtocol::HTTP_2: return http_2;
+    case CodecProtocol::HTTP_3: return h3;
     case CodecProtocol::HQ: return hq;
   }
   LOG(FATAL) << "Unreachable";

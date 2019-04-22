@@ -48,9 +48,9 @@ int deflateHelper(z_stream* stream, IOBuf* out, int flush) {
 }
 }
 
-void ZlibStreamCompressor::init(ZlibCompressionType type, int32_t level) {
+void ZlibStreamCompressor::init(CompressionType type, int32_t level) {
 
-  DCHECK(type_ == ZlibCompressionType::NONE)
+  DCHECK(type_ == CompressionType::NONE)
       << "Attempt to re-initialize compression stream";
 
   type_ = type;
@@ -71,20 +71,22 @@ void ZlibStreamCompressor::init(ZlibCompressionType type, int32_t level) {
       << "Invalid Zlib compression level. level=" << level_;
 
   switch (type_) {
-  case ZlibCompressionType::GZIP:
-    status_ = deflateInit2(&zlibStream_,
-                           level_,
-                           Z_DEFLATED,
-                           static_cast<int32_t>(type),
-                           MAX_MEM_LEVEL,
-                           Z_DEFAULT_STRATEGY);
-    break;
-  case ZlibCompressionType::DEFLATE:
-    status_ = deflateInit(&zlibStream_, level);
-    break;
-  default:
-    DCHECK(false) << "Unsupported zlib compression type.";
-    break;
+    case CompressionType::GZIP: {
+      auto windowBits = type_ == CompressionType::GZIP ? GZIP_WINDOW_BITS
+                                                       : DEFLATE_WINDOW_BITS;
+      status_ = deflateInit2(&zlibStream_,
+                             level_,
+                             Z_DEFLATED,
+                             windowBits,
+                             MAX_MEM_LEVEL,
+                             Z_DEFAULT_STRATEGY);
+    } break;
+    case CompressionType::DEFLATE:
+      status_ = deflateInit(&zlibStream_, level);
+      break;
+    default:
+      DCHECK(false) << "Unsupported zlib compression type.";
+      break;
   }
 
   if (status_ != Z_OK) {
@@ -92,13 +94,13 @@ void ZlibStreamCompressor::init(ZlibCompressionType type, int32_t level) {
   }
 }
 
-ZlibStreamCompressor::ZlibStreamCompressor(ZlibCompressionType type, int level)
+ZlibStreamCompressor::ZlibStreamCompressor(CompressionType type, int level)
     : status_(Z_OK) {
   init(type, level);
 }
 
 ZlibStreamCompressor::~ZlibStreamCompressor() {
-  if (type_ != ZlibCompressionType::NONE) {
+  if (type_ != CompressionType::NONE) {
     status_ = deflateEnd(&zlibStream_);
   }
 }

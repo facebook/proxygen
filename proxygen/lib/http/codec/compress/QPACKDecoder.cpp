@@ -150,8 +150,11 @@ void QPACKDecoder::decodeStreamingImpl(
     // blocks must be call encodeHeaderAck BEFORE calling encodeInsertCountInc.
     lastAcked_ = std::max(lastAcked_, requiredInsertCount);
   }
+  auto compressedSize = pendingEncoderBytes_ +
+    consumed + dbuf.consumedBytes();
+  pendingEncoderBytes_ = 0;
   completeDecode(HeaderCodec::Type::QPACK, streamingCb,
-                 consumed + dbuf.consumedBytes(), emittedSize, acknowledge);
+                 compressedSize, emittedSize, acknowledge);
 }
 
 uint32_t QPACKDecoder::decodeHeaderQ(
@@ -196,6 +199,7 @@ HPACK::DecodeError QPACKDecoder::decodeEncoderStream(
       return HPACK::DecodeError::NONE;
     }
   }
+  pendingEncoderBytes_ += dbuf.consumedBytes();
   ingress_.trimStart(dbuf.consumedBytes());
   if (hasError()) {
     return err_;
@@ -227,7 +231,12 @@ void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
         dbuf, HPACK::Q_DUPLICATE.prefixLength, false, nullptr, &emitted);
     if (!hasError()) {
       CHECK(!emitted.empty());
-      table_.add(std::move(emitted[0]));
+      if (!table_.add(std::move(emitted[0]))) {
+        // the only case is the header was > table capacity.  But how can we
+        // duplicate such a header?
+        LOG(DFATAL) << "Encoder duplicated a header larger than capacity";
+        err_ = HPACK::DecodeError::INSERT_TOO_LARGE;
+      }
     }
   }
 }
@@ -293,7 +302,11 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
   uint32_t emittedSize = emit(partial->header, streamingCb, nullptr);
 
   if (indexing) {
-    table_.add(std::move(partial->header));
+    if (!table_.add(std::move(partial->header))) {
+      // the only case is the header was > table capacity
+      LOG(ERROR) << "Encoder inserted a header larger than capacity";
+      err_ = HPACK::DecodeError::INSERT_TOO_LARGE;
+    }
   }
 
   return emittedSize;
