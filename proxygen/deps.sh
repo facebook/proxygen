@@ -66,7 +66,7 @@ if ! sudo apt-get install -y libgoogle-glog-dev;
 then
   if [ ! -e google-glog ]; then
     echo "fetching glog from github.com"
-    git clone git@github.com:google/glog.git google-glog
+    git clone http://github.com/google/glog.git google-glog
     cd google-glog
     ./configure
     make
@@ -79,7 +79,7 @@ if ! sudo apt-get install -y libgflags-dev;
 then
   if [ ! -e google-gflags ]; then
     echo "fetching gflags from github.com"
-    git clone git@github.com:gflags/gflags gflags-gflags
+    git clone http://github.com/gflags/gflags gflags-gflags
     mkdir build && cd build
     ccmake ..
     make
