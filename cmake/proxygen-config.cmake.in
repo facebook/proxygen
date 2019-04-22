@@ -1,0 +1,35 @@
+#  Copyright (c) 2018, Facebook, Inc.
+#  All rights reserved.
+#
+#  This source code is licensed under the BSD-style license found in the
+#  LICENSE file in the root directory of this source tree.
+#
+# This module sets the following variables:
+#   proxygen_FOUND
+#   proxygen_INCLUDE_DIRS
+#
+# This module exports the following target:
+#    proxygen::proxygen
+#
+# which can be used with target_link_libraries() to pull in the proxygen
+# library.
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(folly)
+find_dependency(Fizz)
+find_dependency(wangle)
+find_dependency(ZLIB)
+find_dependency(OpenSSL)
+find_dependency(Threads)
+find_dependency(Boost COMPONENTS iostreams)
+
+if(NOT TARGET proxygen::proxygen)
+    include("${CMAKE_CURRENT_LIST_DIR}/proxygen-targets.cmake")
+    get_target_property(proxygen_INCLUDE_DIRS proxygen::proxygen INTERFACE_INCLUDE_DIRECTORIES)
+endif()
+
+if(NOT proxygen_FIND_QUIETLY)
+    message(STATUS "Found proxygen: ${PACKAGE_PREFIX_DIR}")
+endif()

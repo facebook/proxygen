@@ -9,11 +9,11 @@
  */
 #include "PushRequestHandler.h"
 
+#include "proxygen/httpserver/samples/push/PushStats.h"
+#include <folly/FileUtil.h>
+#include <proxygen/httpserver/PushHandler.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
-#include <proxygen/httpserver/PushHandler.h>
-#include <folly/FileUtil.h>
-#include "PushStats.h"
 
 using namespace proxygen;
 
@@ -29,12 +29,6 @@ std::string createLargeBody() {
     data += gPushBody;
   }
   return data;
-}
-
-std::string generateUrl(const HTTPMessage& message, const char* path) {
-  return HTTPMessage::createUrl(
-      message.isSecure() ? "https" : "http",
-      message.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST), path, "", "");
 }
 
 PushRequestHandler::PushRequestHandler(PushStats* stats) : stats_(stats) {
@@ -58,9 +52,10 @@ void PushRequestHandler::onRequest(
       LOG(INFO) << "sending large push ";
 
       ResponseBuilder(downstreamPush_)
-        .promise(generateUrl(*headers, "/largePush"),
-                 headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST))
-        .send();
+          .promise("/largePush",
+                   headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
+                   HTTPMethod::GET)
+          .send();
 
       ResponseBuilder(downstreamPush_)
         .status(200, "OK")
@@ -70,9 +65,10 @@ void PushRequestHandler::onRequest(
       LOG(INFO) << "sending small push ";
 
       ResponseBuilder(downstreamPush_)
-        .promise(generateUrl(*headers, "/pusheen"),
-                 headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST))
-        .send();
+          .promise("/pusheen",
+                   headers->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
+                   HTTPMethod::GET)
+          .send();
 
       ResponseBuilder(downstreamPush_)
         .status(200, "OK")
@@ -92,11 +88,11 @@ void PushRequestHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
 
 void PushRequestHandler::onEOM() noexcept {
   ResponseBuilder(downstream_)
-    .status(200, "OK")
-    .header("Request-Number",
-            folly::to<std::string>(stats_->getRequestCount()))
-    .body(std::move(body_))
-    .sendWithEOM();
+      .status(200, "OK")
+      .header("Request-Number",
+              folly::to<std::string>(stats_->getRequestCount()))
+      .body(std::move(body_))
+      .sendWithEOM();
 }
 
 void PushRequestHandler::onUpgrade(UpgradeProtocol /*protocol*/) noexcept {

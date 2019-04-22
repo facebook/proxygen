@@ -42,6 +42,7 @@ namespace proxygen {
 const int8_t HTTPMessage::kMaxPriority = 7;
 std::mutex HTTPMessage::mutexDump_;
 
+const pair<uint8_t, uint8_t> HTTPMessage::kHTTPVersion09(0, 9);
 const pair<uint8_t, uint8_t> HTTPMessage::kHTTPVersion10(1, 0);
 const pair<uint8_t, uint8_t> HTTPMessage::kHTTPVersion11(1, 1);
 
@@ -680,6 +681,7 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
 void HTTPMessage::describe(std::ostream& os) const {
   os << ", chunked: " << chunked_
      << ", upgraded: " << upgraded_
+     << ", secure: " << secure_
      << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.

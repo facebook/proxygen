@@ -10,47 +10,62 @@
 #pragma once
 
 #include <memory>
+#include <proxygen/lib/utils/StreamDecompressor.h>
 #include <zlib.h>
-#include <folly/portability/GFlags.h>
 
 namespace folly {
 class IOBuf;
 }
 
-DECLARE_int64(zlib_decompresser_buffer_growth);
-DECLARE_int64(zlib_decompresser_buffer_minsize);
-
 namespace proxygen {
 
-enum class ZlibCompressionType: int {
-  NONE = 0,
-  DEFLATE = 15,
-  GZIP = 31
-};
+namespace {
+constexpr uint64_t kZlibDecompressorBufferGrowthDefault = 480;
+constexpr uint64_t kZlibDecompressorBufferMinsizeDefault = 64;
 
-class ZlibStreamDecompressor {
+/**
+ * These are misleading. See zlib.h for explanation of windowBits param. 31
+ * implies a window log of 15 with enabled detection and decoding of the gzip
+ * format.
+ */
+constexpr int GZIP_WINDOW_BITS = 31;
+constexpr int DEFLATE_WINDOW_BITS = 15;
+} // namespace
+
+class ZlibStreamDecompressor : public StreamDecompressor {
  public:
-  explicit ZlibStreamDecompressor(ZlibCompressionType type);
+  explicit ZlibStreamDecompressor(CompressionType type,
+                                  uint64_t zlib_decompressor_buffer_growth =
+                                      kZlibDecompressorBufferGrowthDefault,
+                                  uint64_t zlib_decompressor_buffer_minsize =
+                                      kZlibDecompressorBufferMinsizeDefault);
 
-  ZlibStreamDecompressor() { }
+  ZlibStreamDecompressor() = default;
 
   ~ZlibStreamDecompressor();
 
-  void init(ZlibCompressionType type);
+  void init(CompressionType type);
 
-  std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in);
+  std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in) override;
 
-  int getStatus() { return status_; }
+  int getStatus() {
+    return status_;
+  }
 
-  bool hasError() { return status_ != Z_OK && status_ != Z_STREAM_END; }
+  bool hasError() override {
+    return status_ != Z_OK && status_ != Z_STREAM_END;
+  }
 
-  bool finished() { return status_ == Z_STREAM_END; }
+  bool finished() override {
+    return status_ == Z_STREAM_END;
+  }
 
  private:
-  ZlibCompressionType type_{ZlibCompressionType::NONE};
+  CompressionType type_{CompressionType::NONE};
+  uint64_t decompressor_buffer_growth_{kZlibDecompressorBufferGrowthDefault};
+  uint64_t decompressor_buffer_minsize_{
+      kZlibDecompressorBufferMinsizeDefault};
   z_stream zlibStream_;
   int status_{-1};
 };
-
-
-}
+} // namespace proxygen

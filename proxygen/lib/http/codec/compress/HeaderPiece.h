@@ -10,6 +10,9 @@
 #pragma once
 
 #include <deque>
+
+#include <glog/logging.h>
+
 #include <folly/Range.h>
 
 namespace proxygen { namespace compress {

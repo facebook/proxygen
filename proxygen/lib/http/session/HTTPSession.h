@@ -39,6 +39,8 @@ class HTTPSessionController;
 class HTTPSessionStats;
 
 #define PROXYGEN_HTTP_SESSION_USES_BASE  1
+constexpr uint32_t kDefaultMaxConcurrentOutgoingStreamsRemote = 100000;
+constexpr uint32_t kDefaultMaxConcurrentIncomingStreams = 100;
 
 class HTTPSession:
   public HTTPSessionBase,
@@ -233,6 +235,12 @@ class HTTPSession:
   SecondaryAuthManager* getSecondAuthManager() const;
 
   bool isDetachable(bool checkSocket=true) const override;
+
+  /**
+   * Returns true if this session is draining. This can happen if drain()
+   * is called explicitly, if a GOAWAY frame is received, or during shutdown.
+   */
+  bool isDraining() const override { return draining_; }
 
  protected:
   /**
@@ -447,12 +455,6 @@ class HTTPSession:
       const noexcept override {
     return sock_.get();
   }
-
-  /**
-   * Returns true if this session is draining. This can happen if drain()
-   * is called explicitly, if a GOAWAY frame is received, or during shutdown.
-   */
-  bool isDraining() const override { return draining_; }
 
   /**
    * Drains the current transactions and prevents new transactions from being
@@ -917,13 +919,14 @@ class HTTPSession:
    * but to be reasonable, assume the remote doesn't allow more than 100K
    * concurrent transactions on one connection.
    */
-  uint32_t maxConcurrentOutgoingStreamsRemote_{100000};
+  uint32_t maxConcurrentOutgoingStreamsRemote_{
+    kDefaultMaxConcurrentOutgoingStreamsRemote};
 
   /**
    * The maximum number of concurrent transactions that this session's peer
    * may create.
    */
-  uint32_t maxConcurrentIncomingStreams_{100};
+  uint32_t maxConcurrentIncomingStreams_{kDefaultMaxConcurrentIncomingStreams};
 
   /**
    * The number concurrent transactions initiated by this session

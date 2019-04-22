@@ -131,9 +131,10 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
     success = true;
     reusedSession = sock_->getSSLSessionReused();
     session.reset(sock_->getSSLSession());
-    if (sock_->getPeerCert()) {
+    if (sock_->getPeerCertificate()) {
       // keeps this alive until Cb is destroyed, even if sock is closed
-      peerCert_ = sock_->getPeerCert();
+      auto cert = sock_->getPeerCertificate();
+      peerCert_ = cert->getX509();
     }
     sock_->close();
   }
@@ -142,7 +143,12 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
     success = false;
   }
 
-  const X509* getPeerCert() { return peerCert_.get(); }
+  const X509* getPeerCert() {
+    if (!peerCert_) {
+      return nullptr;
+    }
+    return peerCert_.get();
+  }
 
   bool success{false};
   bool reusedSession{false};
@@ -214,8 +220,12 @@ class TestHandlerFactory : public RequestHandlerFactory {
       std::string certHeader("");
       auto txn = CHECK_NOTNULL(downstream_->getTransaction());
       auto& transport = txn->getTransport();
-      if (auto cert = transport.getUnderlyingTransport()->getPeerCert()) {
-        certHeader = OpenSSLCertUtils::getCommonName(*cert).value_or("");
+      if (auto cert =
+              transport.getUnderlyingTransport()->getPeerCertificate()) {
+        auto x509 = cert->getX509();
+        if (x509) {
+          certHeader = OpenSSLCertUtils::getCommonName(*x509).value_or("");
+        }
       }
       ResponseBuilder(downstream_)
           .status(200, "OK")
@@ -729,10 +739,14 @@ class ConnectionFilterTest : public ScopedServerTest {
            const std::string& /* nextProtocolName */,
            wangle::SecureTransportType /* secureTransportType */,
            const wangle::TransportInfo& /* tinfo */) {
-          auto cert = sock->getPeerCert();
-          if (!cert || OpenSSLCertUtils::getCommonName(*cert).value_or("") !=
+          auto cert = sock->getPeerCertificate();
+          if (!cert) {
+            throw std::runtime_error("Client cert is missing");
+          }
+          auto x509 = cert->getX509();
+          if (!x509 || OpenSSLCertUtils::getCommonName(*x509).value_or("") !=
                            "testuser1") {
-            throw std::runtime_error("Client cert is missing or invalid.");
+            throw std::runtime_error("Client cert is invalid.");
           }
         };
     return options;

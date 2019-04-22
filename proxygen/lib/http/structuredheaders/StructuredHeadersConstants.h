@@ -13,6 +13,7 @@
 #include <map>
 #include <vector>
 #include <boost/variant.hpp>
+#include <vector>
 
 namespace proxygen {
 

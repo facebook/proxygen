@@ -21,7 +21,7 @@ uint32_t HPACKDecoderBase::emit(const HPACKHeader& header,
     // copying HPACKHeader
     emitted->emplace_back(header.name.get(), header.value);
   }
-  return header.bytes();
+  return header.realBytes();
 }
 
 void HPACKDecoderBase::completeDecode(

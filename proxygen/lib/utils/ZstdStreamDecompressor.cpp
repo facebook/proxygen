@@ -10,84 +10,54 @@
 
 #include "ZstdStreamDecompressor.h"
 
-#include <folly/Range.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
+#include <folly/io/IOBufQueue.h>
 
-using folly::IOBuf;
-using std::unique_ptr;
-using namespace proxygen;
+namespace proxygen {
 
-ZstdStreamDecompressor::ZstdStreamDecompressor(size_t totalLen, std::string dictStr)
-  : totalLen_(totalLen) {
-  dStream_ = ZSTD_createDStream();
-  if (dictStr != "") {
-    dDict_ = ZSTD_createDDict(&dictStr, dictStr.length());
-    if (dStream_ == nullptr || dDict_ == nullptr ||
-        ZSTD_isError(ZSTD_initDStream_usingDDict(dStream_, dDict_))) {
-      status_ = ZstdStatusType::ERROR;
-    }
-  } else {
-    if (dStream_ == nullptr ||
-        ZSTD_isError(ZSTD_initDStream(dStream_))) {
-      status_ = ZstdStatusType::ERROR;
-    }
-  }
+void ZstdStreamDecompressor::freeDCtx(ZSTD_DCtx* dctx) {
+  ZSTD_freeDCtx(dctx);
 }
 
-ZstdStreamDecompressor::~ZstdStreamDecompressor() {
-  if (dStream_) {
-    ZSTD_freeDStream(dStream_);
-  }
-  if (dDict_) {
-    ZSTD_freeDDict(dDict_);
-  }
+ZstdStreamDecompressor::ZstdStreamDecompressor()
+    : status_(ZstdStatusType::NONE), dctx_(ZSTD_createDCtx()) {
 }
 
 std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
-  const folly::IOBuf* in) {
-  if (dStream_ == nullptr) {
+    const folly::IOBuf* in) {
+  if (!dctx_) {
     status_ = ZstdStatusType::ERROR;
+  }
+  if (hasError()) {
     return nullptr;
   }
 
-  auto out = folly::IOBuf::create(ZSTD_DStreamOutSize());
-
-  size_t buffOutSize = ZSTD_DStreamOutSize();
-  std::unique_ptr<unsigned char[]> buffOut(new unsigned char[buffOutSize]);
-  auto appender = folly::io::Appender(out.get(), buffOutSize);
+  const size_t outBufMinSize = 1; // avoid wasting space in existing bufs
+  const size_t outBufAllocSize = ZSTD_DStreamOutSize();
+  folly::IOBufQueue outqueue;
 
   for (const folly::ByteRange range : *in) {
-    ZSTD_inBuffer input = {range.data(), range.size(), 0};
-    while (input.pos < input.size) {
-      ZSTD_outBuffer output = {buffOut.get(), buffOutSize, 0};
-      size_t toRead = ZSTD_decompressStream(dStream_, &output, &input);
+    if (range.data() == nullptr) {
+      continue;
+    }
 
-      if (ZSTD_isError(toRead)) {
+    ZSTD_inBuffer ibuf = {range.data(), range.size(), 0};
+    while (ibuf.pos < ibuf.size) {
+      status_ = ZstdStatusType::CONTINUE;
+      auto outpair = outqueue.preallocate(outBufMinSize, outBufAllocSize);
+      ZSTD_outBuffer obuf = {outpair.first, outpair.second, 0};
+      auto ret = ZSTD_decompressStream(dctx_.get(), &obuf, &ibuf);
+      if (ZSTD_isError(ret)) {
         status_ = ZstdStatusType::ERROR;
         return nullptr;
+      } else if (ret == 0) {
+        status_ = ZstdStatusType::FINISHED;
       }
-
-      if (toRead == 0) {
-        ZSTD_resetDStream(dStream_);
-      }
-
-      if (output.pos > 0) {
-        size_t copied =
-          appender.pushAtMost((const uint8_t*)output.dst, output.pos);
-        CHECK(copied == output.pos);
-      }
-      totalDec_ += input.size;
-
-      if (totalDec_ < totalLen_) {
-        status_ = ZstdStatusType::CONTINUE;
-      } else if (totalDec_ > totalLen_) {
-        status_ = ZstdStatusType::ERROR;
-      } else {
-        status_ = ZstdStatusType::SUCCESS;
-      }
+      outqueue.postallocate(obuf.pos);
     }
   }
 
-  return out;
+  return outqueue.move();
 }
+} // namespace proxygen

@@ -92,7 +92,8 @@ enum class DecodeError : uint8_t {
   CANCELLED = 10,
   BAD_SEQUENCE_NUMBER = 11,
   INVALID_ACK = 12,
-  TOO_MANY_BLOCKING = 13
+  TOO_MANY_BLOCKING = 13,
+  INSERT_TOO_LARGE = 14
 };
 
 std::ostream& operator<<(std::ostream& os, DecodeError err);

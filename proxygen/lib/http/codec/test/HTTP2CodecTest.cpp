@@ -1592,7 +1592,7 @@ TEST_F(HTTP2CodecTest, BadServerPreface) {
 TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   HTTPMessage req = getGetRequest();
   string bigval(8691, '!');
-  bigval.append(8691, ' ');
+  bigval.append(8691, '@');
   req.getHeaders().add("x-headr", bigval);
   req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 7));
   upstreamCodec_.generateHeader(output_, 1, req);
@@ -1805,24 +1805,13 @@ TEST_F(HTTP2CodecTest, WebsocketDupProtocol) {
 }
 
 TEST_F(HTTP2CodecTest, WebsocketIncorrectResponse) {
-  parse();
-  SetUpUpstreamTest();
-  parseUpstream();
-
-  output_.clear();
-  HTTPMessage req = getGetRequest("/apples");
-  req.setSecure(true);
-  req.setEgressWebsocketUpgrade();
-  upstreamCodec_.generateHeader(output_, 1, req, false);
-  parse();
-
   output_.clear();
   HTTPMessage resp;
-  resp.setStatusCode(201);
-  resp.setStatusMessage("OK");
+  resp.setStatusCode(400);
+  resp.setStatusMessage("Bad Request");
   downstreamCodec_.generateHeader(output_, 1, resp);
   parseUpstream();
-  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
 }
 
 TEST_F(HTTP2CodecTest, TestAllEgressFrameTypeCallbacks) {

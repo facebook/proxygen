@@ -14,6 +14,7 @@
 #include <string>
 #include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
 #include <folly/FBString.h>
+#include <glog/logging.h>
 
 namespace proxygen {
 
@@ -44,10 +45,18 @@ class HPACKHeader {
   ~HPACKHeader() {}
 
   /**
+   * size of usable bytes of the header entry, does not include overhead
+   */
+  uint32_t realBytes() const {
+    DCHECK_LE(name.size() + value.size(), std::numeric_limits<uint32_t>::max());
+    return folly::to<uint32_t>(name.size() + value.size());
+  }
+
+  /**
    * size in bytes of the header entry, as defined in the HPACK spec
    */
   uint32_t bytes() const {
-    return folly::to<uint32_t>(kMinLength + name.size() + value.size());
+    return kMinLength + realBytes();
   }
 
   bool operator==(const HPACKHeader& other) const {

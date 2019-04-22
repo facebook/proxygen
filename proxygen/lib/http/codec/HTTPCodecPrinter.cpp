@@ -17,7 +17,7 @@ void HTTPCodecPrinter::onFrameHeader(
     StreamID stream_id,
     uint8_t flags,
     uint64_t length,
-    uint8_t type,
+    uint64_t type,
     uint16_t version) {
   switch (call_->getProtocol()) {
     case CodecProtocol::SPDY_3:

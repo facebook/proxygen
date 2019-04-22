@@ -842,14 +842,14 @@ TEST_F(HTTPDownstreamSessionTest, MultiMessage) {
                            "foo", milliseconds(0));
   transport_->addReadEvent("bar9876"
                            "POST /foo HTTP/1.1\r\n"
-                           "Host: exa", milliseconds(2));
+                           "Host: exa", milliseconds(20));
   transport_->addReadEvent("mple.com\r\n"
                            "Connection: close\r\n"
                            "Trans", milliseconds(0));
   transport_->addReadEvent("fer-encoding: chunked\r\n"
-                           "\r\n", milliseconds(2));
+                           "\r\n", milliseconds(20));
   transport_->addReadEvent("a\r\nsome ", milliseconds(0));
-  transport_->addReadEvent("data\n\r\n0\r\n\r\n", milliseconds(2));
+  transport_->addReadEvent("data\n\r\n0\r\n\r\n", milliseconds(20));
   transport_->addReadEOF(milliseconds(0));
   transport_->startReadEvents();
   eventBase_.loop();

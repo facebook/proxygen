@@ -24,8 +24,9 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
     headers.emplace_back(duplicate(name), name.size(), true, false);
     headers.emplace_back(duplicate(value), value.size(), true, false);
   }
-  void onHeadersComplete(HTTPHeaderSize /*decodedSize*/,
+  void onHeadersComplete(HTTPHeaderSize decodedSize,
                          bool /*acknowledge*/) override {
+    decodedSize_ = decodedSize;
     if (headersCompleteCb) {
       headersCompleteCb();
     }
@@ -71,6 +72,7 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
   }
 
   folly::Function<void()> headersCompleteCb;
+  HTTPHeaderSize decodedSize_;
 };
 
 }

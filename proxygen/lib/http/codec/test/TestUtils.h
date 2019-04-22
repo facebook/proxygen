@@ -177,7 +177,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     HTTPCodec::StreamID /*streamId*/,
     uint8_t /*flags*/,
     uint64_t /*length*/,
-    uint8_t /*type*/,
+    uint64_t /*type*/,
     uint16_t /*version*/) override {
     ++headerFrames;
   }

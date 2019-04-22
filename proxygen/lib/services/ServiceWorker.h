@@ -19,7 +19,7 @@
 namespace proxygen {
 
 class Service;
-class RequestWorker;
+class RequestWorkerThread;
 
 /**
  * ServiceWorker contains all of the per-thread information for a Service.
@@ -41,7 +41,7 @@ class ServiceWorker {
 
   using NamedAddressMap = std::map<std::string, AcceptorAddress>;
 
-  ServiceWorker(Service* service, RequestWorker* worker)
+  ServiceWorker(Service* service, RequestWorkerThread* worker)
       : service_(service), worker_(worker) {
   }
 
@@ -81,7 +81,7 @@ class ServiceWorker {
     }
   }
 
-  RequestWorker* getRequestWorker() const {
+  RequestWorkerThread* getRequestWorkerThread() const {
     return worker_;
   }
 
@@ -150,10 +150,10 @@ class ServiceWorker {
   Service* service_;
 
   /**
-   * The RequestWorker that is actually responsible for running the EventBase
+   * The RequestWorkerThread that is actually responsible for running the EventBase
    * loop in this thread.
    */
-  RequestWorker* worker_;
+  RequestWorkerThread* worker_;
 
   /**
    * A list of the Acceptor objects specific to this worker thread, one

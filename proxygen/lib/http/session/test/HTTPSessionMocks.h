@@ -136,6 +136,8 @@ class HTTPHandlerBase {
   }
 
   HTTPTransaction* txn_{nullptr};
+  HTTPTransaction* pushedTxn_{nullptr};
+
   std::shared_ptr<HTTPMessage> msg_;
 };
 
@@ -203,6 +205,11 @@ class MockHTTPHandler
   void expectTransaction(HTTPTransaction** pTxn = nullptr) {
     EXPECT_CALL(*this, setTransaction(testing::_))
         .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &txn_));
+  }
+
+  void expectPushedTransaction(HTTPTransaction** pTxn = nullptr) {
+    EXPECT_CALL(*this, onPushedTransaction(testing::_))
+        .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &pushedTxn_));
   }
 
   void expectHeaders(std::function<void()> callback = std::function<void()>()) {

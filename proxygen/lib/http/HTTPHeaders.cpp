@@ -80,7 +80,8 @@ void HTTPHeaders::addFromCodec(const char* str, size_t len, string&& value) {
   headerNames_.push_back((code == HTTP_HEADER_OTHER)
       ? new string(str, len)
       : HTTPCommonHeaders::getPointerToHeaderName(code));
-  headerValues_.emplace_back(std::move(value));
+  headerValues_.emplace_back(
+      folly::rtrimWhitespace(std::move(value)).toString());
 }
 
 bool HTTPHeaders::exists(folly::StringPiece name) const {

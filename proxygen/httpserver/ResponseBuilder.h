@@ -74,6 +74,14 @@ class ResponseBuilder {
     return *this;
   }
 
+  ResponseBuilder& promise(const std::string& url,
+                           const std::string& host,
+                           HTTPMethod method) {
+    promise(url, host);
+    headers_->setMethod(method);
+    return *this;
+  }
+
   ResponseBuilder& status(uint16_t code, const std::string& message) {
     headers_ = std::make_unique<HTTPMessage>();
     headers_->setHTTPVersion(1, 1);

@@ -10,7 +10,6 @@
 #include "CurlClient.h"
 
 #include <iostream>
-#include <fstream>
 
 #include <folly/FileUtil.h>
 #include <folly/String.h>
@@ -158,30 +157,33 @@ void CurlClient::sendRequest(HTTPTransaction* txn) {
 
   txn_->sendHeaders(request_);
 
-  unique_ptr<IOBuf> buf;
   if (httpMethod_ == HTTPMethod::POST) {
-
-    const uint16_t kReadSize = 4096;
-    ifstream inputFile(inputFilename_, ios::in | ios::binary);
-
-    // Reading from the file by chunks
-    // Important note: It's pretty bad to call a blocking i/o function like
-    // ifstream::read() in an eventloop - but for the sake of this simple
-    // example, we'll do it.
-    // An alternative would be to put this into some folly::AsyncReader
-    // object.
-    while (inputFile.good()) {
-      buf = IOBuf::createCombined(kReadSize);
-      inputFile.read((char*)buf->writableData(), kReadSize);
-      buf->append(inputFile.gcount());
-      txn_->sendBody(move(buf));
-    }
+    inputFile_ = std::make_unique<ifstream>(
+        inputFilename_, ios::in | ios::binary);
+    sendBodyFromFile();
+  } else {
+    txn_->sendEOM();
   }
+}
 
-  // note that sendBody() is called only for POST. It's fine not to call it
-  // at all.
-
-  txn_->sendEOM();
+void CurlClient::sendBodyFromFile() {
+  const uint16_t kReadSize = 4096;
+  CHECK(inputFile_);
+  // Reading from the file by chunks
+  // Important note: It's pretty bad to call a blocking i/o function like
+  // ifstream::read() in an eventloop - but for the sake of this simple
+  // example, we'll do it.
+  // An alternative would be to put this into some folly::AsyncReader
+  // object.
+  while (inputFile_->good() && !egressPaused_) {
+    unique_ptr<IOBuf> buf = IOBuf::createCombined(kReadSize);
+    inputFile_->read((char*)buf->writableData(), kReadSize);
+    buf->append(inputFile_->gcount());
+    txn_->sendBody(move(buf));
+  }
+  if (!egressPaused_) {
+    txn_->sendEOM();
+  }
 }
 
 void CurlClient::connectError(const folly::AsyncSocketException& ex) {
@@ -239,10 +241,15 @@ void CurlClient::onError(const HTTPException& error) noexcept {
 
 void CurlClient::onEgressPaused() noexcept {
   LOG_IF(INFO, loggingEnabled_) << "Egress paused";
+  egressPaused_ = true;
 }
 
 void CurlClient::onEgressResumed() noexcept {
   LOG_IF(INFO, loggingEnabled_) << "Egress resumed";
+  egressPaused_ = false;
+  if (inputFile_) {
+    sendBodyFromFile();
+  }
 }
 
 const string& CurlClient::getServerName() const {

@@ -263,6 +263,10 @@ class MockHTTPTransaction : public HTTPTransaction {
       .WillRepeatedly(testing::Return(true));
   }
 
+  void setupCodec(CodecProtocol protocol) {
+    EXPECT_CALL(mockCodec_, getProtocol())
+      .WillRepeatedly(testing::Return(protocol));
+  }
   testing::NiceMock<MockHTTPTransactionTransport> mockTransport_;
   const folly::SocketAddress defaultAddress_;
   MockHTTPCodec mockCodec_;
