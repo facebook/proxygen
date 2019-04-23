@@ -80,7 +80,7 @@ then
   if [ ! -e google-gflags ]; then
     echo "fetching gflags from github.com"
     git clone http://github.com/gflags/gflags gflags-gflags
-    cd google-glog
+    cd gflags-gflags
     mkdir build && cd build
     ccmake ..
     make
