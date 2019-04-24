@@ -66,8 +66,7 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
     VLOG(5) << " removing ByteEvent " << event;
     // explicitly remove from the list, in case delete event triggers a
     // callback that would absorb this ByteEventTracker.
-    event.listHook.unlink();
-    delete &event;
+    byteEvents_.pop_front_and_dispose([](ByteEvent* event) { delete event; });
   }
 
   if (advanceEOM) {
@@ -80,7 +79,7 @@ size_t ByteEventTracker::drainByteEvents() {
   size_t numEvents = 0;
   // everything is dead from here on, let's just drop all extra refs to txns
   while (!byteEvents_.empty()) {
-    delete &byteEvents_.front();
+    byteEvents_.pop_front_and_dispose([](ByteEvent* event) { delete event; });
     ++numEvents;
   }
   return numEvents;

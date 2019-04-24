@@ -97,7 +97,7 @@ class ByteEventTracker {
 
  protected:
   // byteEvents_ is in the ascending order of ByteEvent::byteOffset_
-  folly::IntrusiveList<ByteEvent, &ByteEvent::listHook> byteEvents_;
+  folly::CountedIntrusiveList<ByteEvent, &ByteEvent::listHook> byteEvents_;
 
   virtual void eomEventProcessed() {}
 

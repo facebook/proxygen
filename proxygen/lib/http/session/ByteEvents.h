@@ -32,7 +32,7 @@ class ByteEvent {
   virtual HTTPTransaction* getTransaction() { return nullptr; }
   virtual int64_t getLatency() { return -1; }
 
-  folly::IntrusiveListHook listHook;
+  folly::SafeIntrusiveListHook listHook;
   EventType eventType_:3; // packed w/ byteOffset_
   size_t eomTracked_:1;
   uint64_t byteOffset_:(8*sizeof(uint64_t)-4);
