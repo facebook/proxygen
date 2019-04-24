@@ -876,7 +876,7 @@ ErrorCode HTTP2Codec::parseGoaway(Cursor& cursor) {
   auto err = http2::parseGoaway(cursor, curHeader_, lastGoodStream, statusCode,
                                 debugData);
   if (statusCode != ErrorCode::NO_ERROR) {
-    VLOG(2) << "Goaway error statusCode=" << getErrorCodeString(statusCode)
+    VLOG(3) << "Goaway error statusCode=" << getErrorCodeString(statusCode)
             << " lastStream=" << lastGoodStream
             << " user-agent=" << userAgent_ <<  " debugData=" <<
       ((debugData) ? string((char*)debugData->data(), debugData->length()):
