@@ -12,6 +12,7 @@
 #include <folly/container/Foreach.h>
 #include <folly/Indestructible.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <ostream>
 #include <vector>
 
 #define HTTP_METHOD_STR(method) #method
