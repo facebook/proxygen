@@ -38,7 +38,7 @@ void QPACKDecoder::decodeStreaming(
       VLOG(2) << "QPACK queue is full size=" << queue_.size()
               << " maxBlocking_=" << maxBlocking_;
       err_ = HPACK::DecodeError::TOO_MANY_BLOCKING;
-      completeDecode(HeaderCodec::Type::QPACK, streamingCb, 0, 0, false);
+      completeDecode(HeaderCodec::Type::QPACK, streamingCb, 0, 0, 0, false);
     } else {
       folly::IOBufQueue q;
       q.append(std::move(block));
@@ -150,11 +150,11 @@ void QPACKDecoder::decodeStreamingImpl(
     // blocks must be call encodeHeaderAck BEFORE calling encodeInsertCountInc.
     lastAcked_ = std::max(lastAcked_, requiredInsertCount);
   }
-  auto compressedSize = pendingEncoderBytes_ +
-    consumed + dbuf.consumedBytes();
+  auto blockSize = consumed + dbuf.consumedBytes();
+  auto compressedSize = pendingEncoderBytes_ + blockSize;
   pendingEncoderBytes_ = 0;
   completeDecode(HeaderCodec::Type::QPACK, streamingCb,
-                 compressedSize, emittedSize, acknowledge);
+                 compressedSize, blockSize, emittedSize, acknowledge);
 }
 
 uint32_t QPACKDecoder::decodeHeaderQ(

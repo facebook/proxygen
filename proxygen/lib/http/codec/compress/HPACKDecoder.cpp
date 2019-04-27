@@ -36,9 +36,9 @@ void HPACKDecoder::decodeStreaming(
     }
     emittedSize += 2;
   }
-
-  completeDecode(HeaderCodec::Type::HPACK, streamingCb, dbuf.consumedBytes(),
-                 emittedSize);
+  auto compressedSize = dbuf.consumedBytes();
+  completeDecode(HeaderCodec::Type::HPACK, streamingCb, compressedSize,
+                 compressedSize, emittedSize);
 }
 
 uint32_t HPACKDecoder::decodeLiteralHeader(

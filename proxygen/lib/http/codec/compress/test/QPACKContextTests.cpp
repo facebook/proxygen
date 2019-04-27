@@ -562,6 +562,7 @@ TEST(QPACKContextTests, TestEncoderStreamReorder) {
   EXPECT_TRUE(done);
   EXPECT_EQ(*cb1.hpackHeaders(), req);
   EXPECT_EQ(cb1.decodedSize_.uncompressed, 15);
+  EXPECT_EQ(cb1.decodedSize_.compressedBlock, 3);
   EXPECT_EQ(cb1.decodedSize_.compressed, 21);
 }
 

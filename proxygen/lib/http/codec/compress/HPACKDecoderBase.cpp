@@ -28,6 +28,7 @@ void HPACKDecoderBase::completeDecode(
     HeaderCodec::Type type,
     HPACK::StreamingCallback* streamingCb,
     uint32_t compressedSize,
+    uint32_t compressedBlockSize,
     uint32_t emittedSize,
     bool acknowledge) {
   if (!streamingCb) {
@@ -46,6 +47,7 @@ void HPACKDecoderBase::completeDecode(
   } else {
     HTTPHeaderSize decodedSize;
     decodedSize.compressed = compressedSize;
+    decodedSize.compressedBlock = compressedBlockSize,
     decodedSize.uncompressed = emittedSize;
     if (streamingCb->stats) {
       streamingCb->stats->recordDecode(type, decodedSize);

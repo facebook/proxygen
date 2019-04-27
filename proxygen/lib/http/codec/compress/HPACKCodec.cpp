@@ -57,7 +57,9 @@ void HPACKCodec::recordCompressedSize(
   const IOBuf* stream) {
   encodedSize_.compressed = 0;
   if (stream) {
-    encodedSize_.compressed += stream->computeChainDataLength();
+    auto streamDataLength = stream->computeChainDataLength();
+    encodedSize_.compressed += streamDataLength;
+    encodedSize_.compressedBlock += streamDataLength;
   }
   if (stats_) {
     stats_->recordEncode(Type::HPACK, encodedSize_);

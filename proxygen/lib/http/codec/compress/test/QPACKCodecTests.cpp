@@ -207,8 +207,9 @@ TEST_F(QPACKTests, HeaderCodecStats) {
   EXPECT_EQ(stats.encodes, 1);
   EXPECT_EQ(stats.decodes, 0);
   EXPECT_EQ(stats.errors, 0);
-  EXPECT_TRUE(stats.encodedBytesCompr > 0);
-  EXPECT_TRUE(stats.encodedBytesUncompr > 0);
+  EXPECT_GT(stats.encodedBytesCompr, 0);
+  EXPECT_GT(stats.encodedBytesComprBlock, 0);
+  EXPECT_GT(stats.encodedBytesUncompr, 0);
   EXPECT_EQ(stats.decodedBytesCompr, 0);
   EXPECT_EQ(stats.decodedBytesUncompr, 0);
   server.setStats(nullptr);
@@ -229,6 +230,7 @@ TEST_F(QPACKTests, HeaderCodecStats) {
   EXPECT_GT(stats.decodedBytesCompr, 0);
   EXPECT_GT(stats.decodedBytesUncompr, 0);
   EXPECT_EQ(stats.encodedBytesCompr, 0);
+  EXPECT_EQ(stats.encodedBytesComprBlock, 0);
   EXPECT_EQ(stats.encodedBytesUncompr, 0);
   client.setStats(nullptr);
 }

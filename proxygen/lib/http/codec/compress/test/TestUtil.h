@@ -51,6 +51,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
     EXPECT_EQ(type, type_);
     encodes++;
     encodedBytesCompr += size.compressed;
+    encodedBytesComprBlock += size.compressedBlock;
     encodedBytesUncompr += size.uncompressed;
   }
 
@@ -75,6 +76,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
     encodes = 0;
     decodes = 0;
     encodedBytesCompr = 0;
+    encodedBytesComprBlock = 0;
     encodedBytesUncompr = 0;
     decodedBytesCompr = 0;
     decodedBytesUncompr = 0;
@@ -85,6 +87,7 @@ class TestHeaderCodecStats : public HeaderCodec::Stats {
   HeaderCodec::Type type_;
   uint32_t encodes{0};
   uint32_t encodedBytesCompr{0};
+  uint32_t encodedBytesComprBlock{0};
   uint32_t encodedBytesUncompr{0};
   uint32_t decodes{0};
   uint32_t decodedBytesCompr{0};

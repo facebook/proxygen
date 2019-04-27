@@ -34,11 +34,13 @@ QPACKCodec::QPACKCodec()
 void QPACKCodec::recordCompressedSize(
   const QPACKEncoder::EncodeResult& encodeRes) {
   encodedSize_.compressed = 0;
+  encodedSize_.compressedBlock = 0;
   if (encodeRes.control) {
     encodedSize_.compressed += encodeRes.control->computeChainDataLength();
   }
   if (encodeRes.stream) {
-    encodedSize_.compressed += encodeRes.stream->computeChainDataLength();
+    encodedSize_.compressedBlock = encodeRes.stream->computeChainDataLength();
+    encodedSize_.compressed += encodedSize_.compressedBlock;
   }
   if (stats_) {
     stats_->recordEncode(Type::QPACK, encodedSize_);
