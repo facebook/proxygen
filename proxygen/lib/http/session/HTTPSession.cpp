@@ -1661,7 +1661,7 @@ HTTPSession::sendBody(HTTPTransaction* txn,
   CHECK(inLoopCallback_);
   bodyBytesPerWriteBuf_ += bodyLen;
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent() && byteEventTracker_) {
-    byteEventTracker_->addFirstBodyByteEvent(offset, txn);
+    byteEventTracker_->addFirstBodyByteEvent(offset + 1, txn);
   }
 
   if (trackLastByteFlushed && encodedSize > 0 && byteEventTracker_) {
