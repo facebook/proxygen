@@ -305,6 +305,10 @@ class HTTPTransactionTransportCallback {
 
   virtual void lastByteFlushed() noexcept = 0;
 
+  virtual void firstByteTX() noexcept {}
+
+  virtual void lastByteTX() noexcept {}
+
   virtual void trackedByteFlushed() noexcept {}
 
   virtual void firstByteOffset(const uint64_t /* byteOffset */) noexcept {}
@@ -686,6 +690,16 @@ class HTTPTransaction :
    */
   void onEgressBodyLastByte(
       const folly::Optional<uint64_t>& maybeByteOffset = folly::none);
+
+  /**
+   * Invoked by the session when the first byte is transmitted by NIC.
+   */
+  void onEgressBodyFirstByteTX();
+
+  /**
+   * Invoked by the session when the last byte is transmitted by NIC.
+   */
+  void onEgressBodyLastByteTX();
 
   /**
    * Invoked by the session when the tracked byte is flushed.

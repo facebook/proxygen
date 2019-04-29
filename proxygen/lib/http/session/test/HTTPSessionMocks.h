@@ -464,6 +464,12 @@ class DummyHTTPSessionStats : public HTTPSessionStats {
   void recordTTLBATimeout() noexcept override{};
   void recordTTLBAEomPassed() noexcept override{};
   void recordTTLBATracked() noexcept override{};
+  void recordTTBTXExceedLimit() noexcept override{};
+  void recordTTBTXIOBSplitBySom() noexcept override{};
+  void recordTTBTXReceived() noexcept override{};
+  void recordTTBTXTimeout() noexcept override{};
+  void recordTTBTXNotFound() noexcept override{};
+  void recordTTBTXTracked() noexcept override{};
 };
 
 class MockHTTPSessionStats : public DummyHTTPSessionStats {

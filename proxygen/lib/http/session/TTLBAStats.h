@@ -22,6 +22,12 @@ class TTLBAStats {
   virtual void recordTTLBATimeout() noexcept = 0;
   virtual void recordTTLBAEomPassed() noexcept = 0;
   virtual void recordTTLBATracked() noexcept = 0;
+  virtual void recordTTBTXExceedLimit() noexcept = 0;
+  virtual void recordTTBTXIOBSplitBySom() noexcept = 0;
+  virtual void recordTTBTXReceived() noexcept = 0;
+  virtual void recordTTBTXTimeout() noexcept = 0;
+  virtual void recordTTBTXNotFound() noexcept = 0;
+  virtual void recordTTBTXTracked() noexcept = 0;
 };
 
 } // namespace proxygen

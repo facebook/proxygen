@@ -722,6 +722,20 @@ void HTTPTransaction::onEgressBodyLastByte(
   }
 }
 
+void HTTPTransaction::onEgressBodyFirstByteTX() {
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->firstByteTX();
+  }
+}
+
+void HTTPTransaction::onEgressBodyLastByteTX() {
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->lastByteTX();
+  }
+}
+
 void HTTPTransaction::onEgressTrackedByte() {
   DestructorGuard g(this);
   if (transportCallback_) {
