@@ -2017,7 +2017,7 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
   return false;
 }
 
-unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
+unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* som, bool* eom) {
   // limit ourselves to one outstanding write at a time (onWriteSuccess calls
   // scheduleWrite)
   if (numActiveWrites_ > 0 || writesShutdown()) {
@@ -2082,21 +2082,26 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* eom) {
       break;
     }
   }
+  *som = false;
   *eom = false;
   if (byteEventTracker_) {
-    uint64_t needed = byteEventTracker_->preSend(cork, eom, bytesWritten_);
+    uint64_t needed = byteEventTracker_->preSend(cork, som, eom, bytesWritten_);
     if (needed > 0) {
       VLOG(5) << *this << " writeBuf_.chainLength(): "
               << writeBuf_.chainLength() << " txnEgressQueue_.empty(): "
               << txnEgressQueue_.empty();
 
       if (needed < writeBuf_.chainLength()) {
-        // split the next EOM chunk
+        // split the next SOM / EOM chunk
         VLOG(5) << *this << " splitting " << needed << " bytes out of a "
                 << writeBuf_.chainLength() << " bytes IOBuf";
         *cork = true;
         if (sessionStats_) {
-          sessionStats_->recordTTLBAIOBSplitByEom();
+          if (*eom) {
+            sessionStats_->recordTTLBAIOBSplitByEom();
+          } else {
+            sessionStats_->recordTTBTXIOBSplitBySom();
+          }
         }
         return writeBuf_.split(needed);
       } else {
@@ -2135,8 +2140,9 @@ HTTPSession::runLoopCallback() noexcept {
     }
 
     bool cork = true;
+    bool som = false;
     bool eom = false;
-    unique_ptr<IOBuf> writeBuf = getNextToSend(&cork, &eom);
+    unique_ptr<IOBuf> writeBuf = getNextToSend(&cork, &som, &eom);
 
     if (!writeBuf) {
       break;
@@ -2159,6 +2165,7 @@ HTTPSession::runLoopCallback() noexcept {
     WriteSegment* segment = new WriteSegment(this, len);
     segment->setCork(cork);
     segment->setEOR(eom);
+    segment->setTimestampTX(som || eom); // timestamp for buffers w/ som or eom
 
     pendingWrites_.push_back(*segment);
     if (!writeTimeout_.isScheduled()) {
@@ -2844,7 +2851,7 @@ void HTTPSession::onPingReplyLatency(int64_t latency) noexcept {
   }
 }
 
-void HTTPSession::onDeleteAckEvent() noexcept {
+void HTTPSession::onDeleteTxnByteEvent() noexcept {
   if (readsShutdown()) {
     shutdownTransport(true, transactions_.empty());
   }
@@ -2876,22 +2883,36 @@ void HTTPSession::onReplaySafe() noexcept {
   waitingForReplaySafety_.clear();
 }
 
-void HTTPSession::onLastByteEvent(
-    HTTPTransaction* txn, uint64_t eomOffset, bool eomTracked) noexcept {
-  if (!sock_->isEorTrackingEnabled() || !eomTracked) {
+void HTTPSession::onFirstByteEvent(HTTPTransaction* txn,
+                                   uint64_t offset,
+                                   bool bufferWriteTracked) noexcept {
+  if (!sock_->isEorTrackingEnabled() || !bufferWriteTracked ||
+      offset != sock_->getAppBytesWritten()) {
+    return;
+  }
+  byteEventTracker_->addTxByteEvent(
+      sock_->getRawBytesWritten(), ByteEvent::EventType::FIRST_BYTE, txn);
+}
+
+void HTTPSession::onLastByteEvent(HTTPTransaction* txn,
+                                  uint64_t offset,
+                                  bool bufferWriteTracked) noexcept {
+  if (!sock_->isEorTrackingEnabled() || !bufferWriteTracked) {
     return;
   }
 
-  if (eomOffset != sock_->getAppBytesWritten()) {
-    VLOG(2) << "tracking ack to last app byte " << eomOffset
+  if (offset != sock_->getAppBytesWritten()) {
+    VLOG(2) << "tracking ack to last app byte " << offset
         << " while " << sock_->getAppBytesWritten()
         << " app bytes have already been written";
     return;
   }
 
   VLOG(5) << "tracking raw last byte " << sock_->getRawBytesWritten()
-          << " while the app last byte is " << eomOffset;
+          << " while the app last byte is " << offset;
 
+  byteEventTracker_->addTxByteEvent(
+      sock_->getRawBytesWritten(), ByteEvent::EventType::LAST_BYTE, txn);
   byteEventTracker_->addAckByteEvent(sock_->getRawBytesWritten(), txn);
 }
 

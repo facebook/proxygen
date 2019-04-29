@@ -400,7 +400,7 @@ class HTTPDownstreamTest : public testing::Test {
     auto byteEventTracker = new MockByteEventTracker(nullptr);
     httpSession_->setByteEventTracker(
       std::unique_ptr<ByteEventTracker>(byteEventTracker));
-    EXPECT_CALL(*byteEventTracker, preSend(_, _, _))
+    EXPECT_CALL(*byteEventTracker, preSend(_, _, _, _))
       .WillRepeatedly(Return(0));
     EXPECT_CALL(*byteEventTracker, drainByteEvents())
       .WillRepeatedly(Return(0));

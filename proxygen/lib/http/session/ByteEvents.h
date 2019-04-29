@@ -27,14 +27,25 @@ class ByteEvent {
   };
 
   ByteEvent(uint64_t byteOffset, EventType eventType)
-      : eventType_(eventType), eomTracked_(0), byteOffset_(byteOffset) {}
-  virtual ~ByteEvent() {}
+      : eventType_(eventType), bufferWriteTracked_(0), byteOffset_(byteOffset) {
+  }
+  virtual ~ByteEvent() {
+  }
   virtual HTTPTransaction* getTransaction() { return nullptr; }
   virtual int64_t getLatency() { return -1; }
 
   folly::SafeIntrusiveListHook listHook;
   EventType eventType_:3; // packed w/ byteOffset_
-  size_t eomTracked_:1;
+  // bufferWriteTracked_ is used by TX and ACK-tracking ByteEventTrackers to
+  // mark that timestamping has been requested for this ByteEvent. TX timestamps
+  // are requested for FIRST_BYTE and LAST_BYTE events, ACK timestamps are
+  // requested only for LAST_BYTE events.
+  //
+  // for ByteEvents with timestamps requested, TX and ACK timestamps can be
+  // captured by the ByteEventTracker::Callback handler by requesting them
+  // via calls to addTxByteEvent and addAckByteEvent respectively when the
+  // handler is processing callbacks for onFirstByteEvent and onLastByteEvent.
+  size_t bufferWriteTracked_:1; // packed w/ byteOffset_
   uint64_t byteOffset_:(8*sizeof(uint64_t)-4);
 };
 
@@ -83,6 +94,36 @@ class AckTimeout
  private:
   Callback* callback_;
   uint64_t byteNo_;
+};
+
+class TxByteEvent
+    : public TransactionByteEvent
+    , public AsyncTimeoutSet::Callback {
+ public:
+  /**
+   * The instances of TxByteEvent::Callback *MUST* outlive the ByteEvent it is
+   * registered on.
+   */
+  class Callback {
+   public:
+    virtual ~Callback() {
+    }
+    virtual void txTimeoutExpired(TxByteEvent* event) noexcept = 0;
+  };
+
+  TxByteEvent(TxByteEvent::Callback* callback,
+              uint64_t byteNo,
+              EventType eventType,
+              HTTPTransaction* txn)
+      : TransactionByteEvent(byteNo, eventType, txn), callback_(callback) {
+  }
+
+  void timeoutExpired() noexcept override {
+    callback_->txTimeoutExpired(this);
+  }
+
+ private:
+  Callback* callback_;
 };
 
 class AckByteEvent : public TransactionByteEvent {

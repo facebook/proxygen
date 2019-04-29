@@ -30,6 +30,7 @@ void ByteEventTracker::absorb(ByteEventTracker&& other) {
 // from a callback without causing problems
 bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
                                          uint64_t bytesWritten) {
+  bool advanceSOM = false;
   bool advanceEOM = false;
 
   while (!byteEvents_.empty() &&
@@ -44,11 +45,17 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
       break;
     case ByteEvent::FIRST_BYTE:
       txn->onEgressBodyFirstByte(event.byteOffset_);
+      if (callback_) {
+        callback_->onFirstByteEvent(
+            txn, event.byteOffset_, event.bufferWriteTracked_);
+      }
+      advanceSOM = true;
       break;
     case ByteEvent::LAST_BYTE:
       txn->onEgressBodyLastByte(event.byteOffset_);
       if (callback_) {
-        callback_->onLastByteEvent(txn, event.byteOffset_, event.eomTracked_);
+        callback_->onLastByteEvent(
+            txn, event.byteOffset_, event.bufferWriteTracked_);
       }
       advanceEOM = true;
       break;
@@ -69,6 +76,9 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
     byteEvents_.pop_front_and_dispose([](ByteEvent* event) { delete event; });
   }
 
+  if (advanceSOM) {
+    somEventProcessed();
+  }
   if (advanceEOM) {
     eomEventProcessed();
   }

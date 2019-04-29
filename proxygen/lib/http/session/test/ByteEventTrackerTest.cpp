@@ -23,9 +23,11 @@ class MockByteEventTrackerCallback:
     public ByteEventTracker::Callback {
  public:
   GMOCK_METHOD1_(, noexcept,, onPingReplyLatency, void(int64_t));
+  GMOCK_METHOD3_(, noexcept,, onFirstByteEvent, void(HTTPTransaction*,
+                                                    uint64_t, bool));
   GMOCK_METHOD3_(, noexcept,, onLastByteEvent, void(HTTPTransaction*,
                                                     uint64_t, bool));
-  GMOCK_METHOD0_(, noexcept,, onDeleteAckEvent, void());
+  GMOCK_METHOD0_(, noexcept,, onDeleteTxnByteEvent, void());
 };
 
 class ByteEventTrackerTest : public Test {

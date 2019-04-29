@@ -325,7 +325,7 @@ class HTTPSession:
    * Gets the next IOBuf to send (either writeBuf_ or new egress from
    * the priority queue), and sets cork appropriately
    */
-  std::unique_ptr<folly::IOBuf> getNextToSend(bool* cork, bool* eom);
+  std::unique_ptr<folly::IOBuf> getNextToSend(bool* cork, bool* som, bool* eom);
 
   void decrementTransactionCount(HTTPTransaction* txn,
                                  bool ingressEOM, bool egressEOM);
@@ -768,9 +768,13 @@ class HTTPSession:
 
   //ByteEventTracker::Callback functions
   void onPingReplyLatency(int64_t latency) noexcept override;
+  void onFirstByteEvent(HTTPTransaction* txn,
+                        uint64_t offset,
+                        bool bufferWriteTracked) noexcept override;
   void onLastByteEvent(HTTPTransaction* txn,
-                       uint64_t offset, bool eomTracked) noexcept override;
-  void onDeleteAckEvent() noexcept override;
+                       uint64_t offset,
+                       bool bufferWriteTracked) noexcept override;
+  void onDeleteTxnByteEvent() noexcept override;
 
   /**
    * Common EOM process shared by sendHeaders, sendBody and sendEOM
@@ -867,6 +871,14 @@ class HTTPSession:
         flags_ = flags_ | folly::WriteFlags::EOR;
       } else {
         unSet(flags_, folly::WriteFlags::EOR);
+      }
+    }
+
+    void setTimestampTX(bool timestampTx) {
+      if (timestampTx) {
+        flags_ = flags_ | folly::WriteFlags::TIMESTAMP_TX;
+      } else {
+        unSet(flags_, folly::WriteFlags::TIMESTAMP_TX);
       }
     }
 

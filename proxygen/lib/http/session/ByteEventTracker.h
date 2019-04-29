@@ -32,9 +32,13 @@ class ByteEventTracker {
    public:
     virtual ~Callback() {}
     virtual void onPingReplyLatency(int64_t latency) noexcept = 0;
+    virtual void onFirstByteEvent(HTTPTransaction* txn,
+                                  uint64_t offset,
+                                  bool bufferWriteTracked) noexcept = 0;
     virtual void onLastByteEvent(HTTPTransaction* txn,
-                                 uint64_t offset, bool eomTracked) noexcept = 0;
-    virtual void onDeleteAckEvent() noexcept = 0;
+                                 uint64_t offset,
+                                 bool bufferWriteTracked) noexcept = 0;
+    virtual void onDeleteTxnByteEvent() noexcept = 0;
   };
 
   virtual ~ByteEventTracker();
@@ -68,27 +72,36 @@ class ByteEventTracker {
                         TimePoint timestamp,
                         uint64_t bytesScheduled);
 
-  void addFirstBodyByteEvent(uint64_t offset, HTTPTransaction* txn);
+  virtual void addFirstBodyByteEvent(uint64_t offset,
+                                     HTTPTransaction* txn);
 
   virtual void addFirstHeaderByteEvent(uint64_t offset, HTTPTransaction* txn);
 
-  virtual void addLastByteEvent(HTTPTransaction* txn,
-                                uint64_t byteNo) noexcept;
+  virtual void addLastByteEvent(HTTPTransaction* txn, uint64_t byteNo) noexcept;
   virtual void addTrackedByteEvent(HTTPTransaction* txn,
                                    uint64_t byteNo) noexcept;
 
-  /** The base ByteEventTracker cannot track acks. */
-  virtual void addAckByteEvent(uint64_t /*offset*/, HTTPTransaction* /*txn*/) {}
+  /** The base ByteEventTracker cannot track NIC TX. */
+  virtual void addTxByteEvent(uint64_t /*offset*/,
+                              ByteEvent::EventType /*eventType*/,
+                              HTTPTransaction* /*txn*/) {
+  }
+
+  /** The base ByteEventTracker cannot track ACKs. */
+  virtual void addAckByteEvent(uint64_t /*offset*/, HTTPTransaction* /*txn*/) {
+  }
 
   /**
-   * HTTPSession uses preSend to truncate writes on an eom boundary.
-   * In Ack-tracking ByteEventTracker's, this should exmaine pending
-   * byte events and return the number of bytes until the next last
+   * HTTPSession uses preSend to truncate writes on an som or eom boundary.
+   *
+   * In TX and ACK-tracking ByteEventTrackers, this should examine pending
+   * byte events and return the number of bytes until the next first or last
    * byte event, or 0 if none are pending.  If non-zero is returned
-   * then eom may be set to indicate ack tracking is requested.
+   * then som and/or eom may be set to indicate that the buffer contains the
+   * start and/or end of a message so that relevant timestamping can be enabled.
    *
    */
-  virtual uint64_t preSend(bool* /*cork*/, bool* /*eom*/,
+  virtual uint64_t preSend(bool* /*cork*/, bool* /*som*/, bool* /*eom*/,
                            uint64_t /*bytesWritten*/) {
     return 0;
   }
@@ -99,6 +112,20 @@ class ByteEventTracker {
   // byteEvents_ is in the ascending order of ByteEvent::byteOffset_
   folly::CountedIntrusiveList<ByteEvent, &ByteEvent::listHook> byteEvents_;
 
+  /**
+   * Called when a FIRST_BYTE event is processed (som = start of message).
+   *
+   * Used for TX and ACK-tracking ByteEventTrackers to update cached position of
+   * the next FIRST_BYTE event.
+   */
+  virtual void somEventProcessed() {}
+
+  /**
+   * Called when a LAST_BYTE event is processed (eom = end of message).
+   *
+   * Used for TX and ACK-tracking ByteEventTrackers to update cached position of
+   * the next LAST_BYTE event.
+   */
   virtual void eomEventProcessed() {}
 
   Callback* callback_;

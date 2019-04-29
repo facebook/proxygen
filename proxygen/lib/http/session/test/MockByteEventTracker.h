@@ -29,7 +29,7 @@ class MockByteEventTracker : public ByteEventTracker {
       void(HTTPTransaction*, uint64_t));
   GMOCK_METHOD2_(, noexcept,, addLastByteEvent,
       void(HTTPTransaction*, uint64_t));
-  MOCK_METHOD3(preSend, uint64_t(bool*, bool*, uint64_t));
+  MOCK_METHOD4(preSend, uint64_t(bool*, bool*, bool*, uint64_t));
 };
 
 }
