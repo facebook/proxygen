@@ -704,10 +704,10 @@ void HTTPTransaction::onEgressBodyFirstByte(
     const folly::Optional<uint64_t>& maybeByteOffset) {
   DestructorGuard g(this);
   if (transportCallback_) {
-    transportCallback_->firstByteFlushed();
     if (maybeByteOffset) {
       transportCallback_->firstByteOffset(*maybeByteOffset);
     }
+    transportCallback_->firstByteFlushed();
   }
 }
 
@@ -715,10 +715,10 @@ void HTTPTransaction::onEgressBodyLastByte(
     const folly::Optional<uint64_t>& maybeByteOffset) {
   DestructorGuard g(this);
   if (transportCallback_) {
-    transportCallback_->lastByteFlushed();
     if (maybeByteOffset) {
       transportCallback_->lastByteOffset(*maybeByteOffset);
     }
+    transportCallback_->lastByteFlushed();
   }
 }
 
