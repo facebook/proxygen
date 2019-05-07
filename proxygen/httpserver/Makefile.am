@@ -1,5 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-SUBDIRS = . samples tests
+SUBDIRS = . samples
 
 lib_LTLIBRARIES = libproxygenhttpserver.la
 
