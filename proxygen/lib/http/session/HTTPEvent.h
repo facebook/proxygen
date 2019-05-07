@@ -61,9 +61,14 @@ class HTTPEvent {
         event_(event), upgrade_(false) {}
 
   HTTPEvent(HTTPCodec::StreamID streamID,
-            Type event, std::unique_ptr<folly::IOBuf> body):
-      body_(std::move(body)), streamID_(streamID), length_(0),
-      event_(event), upgrade_(false) {}
+            Type event,
+            std::unique_ptr<folly::IOBuf> body)
+      : body_(std::move(body)),
+        streamID_(streamID),
+        length_(0),
+        event_(event),
+        upgrade_(false) {
+  }
 
   HTTPEvent(HTTPCodec::StreamID streamID,
       Type event, std::unique_ptr<HTTPHeaders> trailers):

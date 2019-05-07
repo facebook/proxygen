@@ -119,7 +119,23 @@ class MockHTTPTransactionTransport: public HTTPTransaction::Transport {
   MOCK_CONST_METHOD0(getHTTP2PrioritiesEnabled, bool());
 
   MOCK_METHOD1(getHTTPPriority,
-      folly::Optional<const HTTPMessage::HTTPPriority>(uint8_t level));
+               folly::Optional<const HTTPMessage::HTTPPriority>(uint8_t level));
+
+  MOCK_METHOD1(peek,
+               folly::Expected<folly::Unit, ErrorCode>(
+                   const folly::Function<void(
+                       HTTPCodec::StreamID, uint64_t, const folly::IOBufQueue&)
+                                             const>&));
+
+  MOCK_METHOD1(consume, folly::Expected<folly::Unit, ErrorCode>(size_t));
+
+  MOCK_METHOD2(skipBodyTo,
+               folly::Expected<folly::Optional<uint64_t>, ErrorCode>(
+                   HTTPTransaction*, uint64_t));
+
+  MOCK_METHOD2(rejectBodyTo,
+               folly::Expected<folly::Optional<uint64_t>, ErrorCode>(
+                   HTTPTransaction*, uint64_t));
 
   MockHTTPCodec mockCodec_;
 };

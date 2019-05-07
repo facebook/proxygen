@@ -74,14 +74,14 @@ class DownstreamTransactionTest : public testing::Test {
             return 5;
           }));
     }
-    EXPECT_CALL(handler_, onBody(_))
-      .WillRepeatedly(Invoke([=](std::shared_ptr<folly::IOBuf> body) {
-            received_ += body->computeChainDataLength();
-          }));
-    EXPECT_CALL(handler_, onEOM())
-      .WillOnce(InvokeWithoutArgs([=] {
-            CHECK_EQ(received_, size);
-          }));
+    EXPECT_CALL(handler_, onBodyWithOffset(_, _))
+        .WillRepeatedly(
+            Invoke([=](uint64_t, std::shared_ptr<folly::IOBuf> body) {
+              received_ += body->computeChainDataLength();
+            }));
+    EXPECT_CALL(handler_, onEOM()).WillOnce(InvokeWithoutArgs([=] {
+      CHECK_EQ(received_, size);
+    }));
     EXPECT_CALL(transport_, notifyPendingEgress())
       .WillOnce(InvokeWithoutArgs([=] {
             txn->onWriteReady(size, 1);

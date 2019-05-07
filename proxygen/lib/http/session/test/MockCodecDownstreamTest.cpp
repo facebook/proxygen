@@ -239,7 +239,7 @@ TEST_F(MockCodecDownstreamTest, OnAbortThenTimeouts) {
           handler2.sendHeaders(200, 100);
           handler2.sendBody(100);
         }));
-  EXPECT_CALL(handler2, onBody(_));
+  EXPECT_CALL(handler2, onBodyWithOffset(_, _));
   EXPECT_CALL(handler2, onError(_))
     .WillOnce(Invoke([&] (const HTTPException& ex) {
           ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
@@ -804,7 +804,7 @@ TEST_F(MockCodecDownstreamTest, Buffering) {
   }
   codecCallback_->onMessageComplete(HTTPCodec::StreamID(1), false);
 
-  EXPECT_CALL(handler, onBody(_))
+  EXPECT_CALL(handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString(chunkStr))
     .WillOnce(ExpectString(chunkStr));
 
@@ -931,13 +931,13 @@ TEST_F(MockCodecDownstreamTest, DoubleResume) {
               handler1.txn_->resumeIngress();
             }, 50);
         }));
-  EXPECT_CALL(handler1, onBody(_))
-    .WillOnce(Invoke([&handler1, &bufStr] (
-                       std::shared_ptr<folly::IOBuf> chain) {
-          EXPECT_EQ(bufStr, chain->moveToFbString());
-          handler1.txn_->pauseIngress();
-          handler1.txn_->resumeIngress();
-        }));
+  EXPECT_CALL(handler1, onBodyWithOffset(_, _))
+      .WillOnce(Invoke(
+          [&handler1, &bufStr](uint64_t, std::shared_ptr<folly::IOBuf> chain) {
+            EXPECT_EQ(bufStr, chain->moveToFbString());
+            handler1.txn_->pauseIngress();
+            handler1.txn_->resumeIngress();
+          }));
 
   EXPECT_CALL(handler1, onEOM())
     .WillOnce(InvokeWithoutArgs([&handler1] () {
@@ -1107,7 +1107,8 @@ TEST_F(MockCodecDownstreamTest, UnpausedLargePost) {
   EXPECT_CALL(handler1, onHeadersComplete(_));
   for (unsigned i = 0; i < kNumChunks; ++i) {
     EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, spdy::kInitialWindow));
-    EXPECT_CALL(handler1, onBody(PtrBufHasLen(spdy::kInitialWindow)));
+    EXPECT_CALL(handler1,
+                onBodyWithOffset(_, PtrBufHasLen(spdy::kInitialWindow)));
     EXPECT_CALL(*codec_, generateWindowUpdate(_, 1, spdy::kInitialWindow));
   }
   EXPECT_CALL(handler1, onEOM());

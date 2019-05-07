@@ -446,7 +446,7 @@ TEST_F(SPDY3UpstreamSessionTest, ServerPush) {
           EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
                     "www.foo.com");
         }));
-  EXPECT_CALL(pushHandler, onBody(_));
+  EXPECT_CALL(pushHandler, onBodyWithOffset(_, _));
   EXPECT_CALL(pushHandler, onEOM());
   EXPECT_CALL(pushHandler, detachTransaction());
 
@@ -454,7 +454,7 @@ TEST_F(SPDY3UpstreamSessionTest, ServerPush) {
       EXPECT_FALSE(msg->getIsUpgraded());
       EXPECT_EQ(200, msg->getStatusCode());
     });
-  EXPECT_CALL(*handler, onBody(_));
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _));
   handler->expectEOM();
   handler->expectDetachTransaction();
 
@@ -1110,7 +1110,7 @@ void HTTPUpstreamTest<CodecPair>::testBasicRequestHttp10(bool keepalive) {
       EXPECT_EQ(keepalive ? "keep-alive" : "close",
                 msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION));
     });
-  EXPECT_CALL(*handler, onBody(_));
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _));
   handler->expectEOM();
   handler->expectDetachTransaction();
 
@@ -1398,7 +1398,7 @@ TEST_F(HTTPUpstreamSessionTest, 101Upgrade) {
       EXPECT_EQ(101, msg->getStatusCode());
     });
   EXPECT_CALL(*handler, onUpgrade(_));
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("Test Body\r\n"));
   handler->expectEOM();
   handler->expectDetachTransaction();
@@ -2078,7 +2078,7 @@ TEST_F(MockHTTPUpstreamTest, NoWindowUpdateOnDrain) {
       EXPECT_FALSE(msg->getIsUpgraded());
       EXPECT_EQ(200, msg->getStatusCode());
     });
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .Times(3);
   handler->expectEOM();
 
@@ -2197,7 +2197,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
       EXPECT_CALL(handler, onChunkHeader(_));
     }
     if (stage > 2) {
-      EXPECT_CALL(handler, onBody(_));
+      EXPECT_CALL(handler, onBodyWithOffset(_, _));
     }
     if (stage > 3) {
       EXPECT_CALL(handler, onChunkComplete());
@@ -2538,7 +2538,7 @@ TEST_F(MockHTTPUpstreamTest, HeadersThenBodyThenHeaders) {
   handler->txn_->sendHeaders(req);
 
   handler->expectHeaders();
-  EXPECT_CALL(*handler, onBody(_));
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _));
   // After getting the second headers, transaction will detach the handler
   handler->expectError([&] (const HTTPException& err) {
       EXPECT_TRUE(err.hasProxygenError());

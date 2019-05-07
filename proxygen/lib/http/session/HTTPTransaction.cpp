@@ -179,10 +179,15 @@ void HTTPTransaction::onIngressHeadersComplete(
         msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
     if (!contentLen.empty()) {
       try {
-        expectedContentLengthRemaining_ = folly::to<uint64_t>(contentLen);
+        expectedIngressContentLengthRemaining_ =
+            folly::to<uint64_t>(contentLen);
       } catch (const folly::ConversionError& ex) {
         LOG(ERROR) << "Invalid content-length: " << contentLen
                    << ", ex=" << ex.what() << *this;
+      }
+      if (expectedIngressContentLengthRemaining_) {
+        expectedIngressContentLength_ =
+            expectedIngressContentLengthRemaining_.value();
       }
     }
   }
@@ -213,8 +218,30 @@ void HTTPTransaction::processIngressHeadersComplete(
   }
 }
 
-void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
-                                    uint16_t padding) {
+bool HTTPTransaction::updateContentLengthRemaining(size_t len) {
+  if (expectedIngressContentLengthRemaining_.hasValue()) {
+    if (expectedIngressContentLengthRemaining_.value() >= len) {
+      expectedIngressContentLengthRemaining_ =
+          expectedIngressContentLengthRemaining_.value() - len;
+    } else {
+      auto errorMsg = folly::to<std::string>(
+          "Content-Length/body mismatch: received=",
+          len,
+          " expecting no more than ",
+          expectedIngressContentLengthRemaining_.value());
+      LOG(ERROR) << errorMsg << " " << *this;
+      if (handler_) {
+        HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
+        ex.setProxygenError(kErrorParseBody);
+        onError(ex);
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
+void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain, uint16_t padding) {
   FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBody");
   DestructorGuard g(this);
   if (isIngressEOMSeen()) {
@@ -229,25 +256,10 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
         HTTPTransactionIngressSM::Event::onBody)) {
     return;
   }
-  if (expectedContentLengthRemaining_.hasValue()) {
-    if (expectedContentLengthRemaining_.value() >= len) {
-      expectedContentLengthRemaining_ =
-        expectedContentLengthRemaining_.value() - len;
-    } else {
-      auto errorMsg = folly::to<std::string>(
-          "Content-Length/body mismatch: received=",
-          len,
-          " expecting no more than ",
-          expectedContentLengthRemaining_.value());
-      LOG(ERROR) << errorMsg << " " << *this;
-      if (handler_) {
-        HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
-        ex.setProxygenError(kErrorParseBody);
-        onError(ex);
-      }
-      return;
-    }
+  if (!updateContentLengthRemaining(len)) {
+    return;
   }
+
   if (transportCallback_) {
     transportCallback_->bodyBytesReceived(len);
   }
@@ -266,8 +278,8 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain,
   }
   if (mustQueueIngress()) {
     checkCreateDeferredIngress();
-    deferredIngress_->emplace(id_, HTTPEvent::Type::BODY,
-                              std::move(chain));
+    deferredIngress_->emplace(
+        id_, HTTPEvent::Type::BODY, std::move(chain));
     VLOG(4) << "Queued ingress event of type " << HTTPEvent::Type::BODY
             << " size=" << len << " " << *this;
   } else {
@@ -284,9 +296,10 @@ void HTTPTransaction::processIngressBody(unique_ptr<IOBuf> chain, size_t len) {
   }
   refreshTimeout();
   transport_.notifyIngressBodyProcessed(len);
+  auto chainLen = chain->computeChainDataLength();
   if (handler_) {
     if (!isIngressComplete()) {
-      handler_->onBody(std::move(chain));
+      handler_->onBodyWithOffset(ingressBodyOffset_, std::move(chain));
     }
 
     if (useFlowControl_ && !isIngressEOMSeen()) {
@@ -304,6 +317,7 @@ void HTTPTransaction::processIngressBody(unique_ptr<IOBuf> chain, size_t len) {
       }
     } // else don't care about window updates
   }
+  ingressBodyOffset_ += chainLen;
 }
 
 void HTTPTransaction::onIngressChunkHeader(size_t length) {
@@ -416,11 +430,11 @@ void HTTPTransaction::onIngressEOM() {
     sendAbort(ErrorCode::STREAM_CLOSED);
     return;
   }
-  if (expectedContentLengthRemaining_.hasValue() &&
-      expectedContentLengthRemaining_.value() > 0) {
+  if (expectedIngressContentLengthRemaining_.hasValue() &&
+      expectedIngressContentLengthRemaining_.value() > 0) {
     auto errorMsg = folly::to<std::string>(
         "Content-Length/body mismatch: expecting another ",
-        expectedContentLengthRemaining_.value());
+        expectedIngressContentLengthRemaining_.value());
     LOG(ERROR) << errorMsg << " " << *this;
     if (handler_) {
       HTTPException ex(HTTPException::Direction::INGRESS, errorMsg);
@@ -750,6 +764,53 @@ void HTTPTransaction::onEgressLastByteAck(std::chrono::milliseconds latency) {
   }
 }
 
+void HTTPTransaction::onLastEgressHeaderByteAcked() {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onLastEgressHeaderByteAcked");
+  egressHeadersDelivered_ = true;
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->lastEgressHeaderByteAcked();
+  }
+}
+
+void HTTPTransaction::onIngressBodyPeek(uint64_t bodyOffset,
+                                             const folly::IOBufQueue& chain) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodyPeek");
+  DestructorGuard g(this);
+  if (handler_) {
+    handler_->onBodyPeek(bodyOffset, chain);
+  }
+}
+
+void HTTPTransaction::onIngressBodySkipped(uint64_t nextBodyOffset) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodySkipped");
+  CHECK_LE(ingressBodyOffset_, nextBodyOffset);
+
+  uint64_t skipLen = nextBodyOffset - ingressBodyOffset_;
+  if (!updateContentLengthRemaining(skipLen)) {
+    return;
+  }
+  ingressBodyOffset_ = nextBodyOffset;
+
+  DestructorGuard g(this);
+  if (handler_) {
+    handler_->onBodySkipped(nextBodyOffset);
+  }
+}
+
+void HTTPTransaction::onIngressBodyRejected(uint64_t nextBodyOffset) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodyRejected");
+  DestructorGuard g(this);
+  if (nextBodyOffset <= *actualResponseLength_) {
+    return;
+  }
+  actualResponseLength_ = nextBodyOffset;
+
+  if (handler_) {
+    handler_->onBodyRejected(nextBodyOffset);
+  }
+}
+
 void HTTPTransaction::sendHeadersWithOptionalEOM(
     const HTTPMessage& headers,
     bool eom) {
@@ -800,6 +861,7 @@ void HTTPTransaction::sendHeadersWithEOM(const HTTPMessage& header) {
 }
 
 void HTTPTransaction::sendHeaders(const HTTPMessage& header) {
+  partiallyReliable_ = header.isPartiallyReliable();
   sendHeadersWithOptionalEOM(header, false);
 }
 
@@ -884,6 +946,8 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
     } // else we got called with only a pending EOM, handled below
   } else {
     // This body is expliticly chunked
+    CHECK(!partiallyReliable_)
+        << __func__ << ": chunking not supported in partially reliable mode.";
     while (!chunkHeaders_.empty() && canSend > 0) {
       Chunk& chunk = chunkHeaders_.front();
       if (!chunk.headerSent) {
@@ -1103,6 +1167,75 @@ void HTTPTransaction::sendAbort(ErrorCode statusCode) {
     size.uncompressed = nbytes;
     transportCallback_->headerBytesGenerated(size);
   }
+}
+
+folly::Expected<folly::Unit, ErrorCode> HTTPTransaction::peek(
+    PeekCallback peekCallback) {
+  return transport_.peek(peekCallback);
+}
+
+folly::Expected<folly::Unit, ErrorCode> HTTPTransaction::consume(
+    size_t amount) {
+  return transport_.consume(amount);
+}
+
+folly::Expected<folly::Optional<uint64_t>, ErrorCode>
+HTTPTransaction::skipBodyTo(uint64_t nextBodyOffset) {
+  if (!partiallyReliable_) {
+    LOG(ERROR) << __func__
+               << ": not permitted on non-partially reliable transaction.";
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  if (!egressHeadersDelivered_) {
+    LOG(ERROR) << __func__
+               << ": cannot send data expired before egress headers have been "
+                  "delivered.";
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  if (nextBodyOffset <= actualResponseLength_.value()) {
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+  actualResponseLength_ = nextBodyOffset;
+  return transport_.skipBodyTo(this, nextBodyOffset);
+}
+
+folly::Expected<folly::Optional<uint64_t>, ErrorCode>
+HTTPTransaction::rejectBodyTo(uint64_t nextBodyOffset) {
+  if (!partiallyReliable_) {
+    LOG(ERROR) << __func__
+               << ": not permitted on non-partially reliable transaction.";
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  if (expectedIngressContentLength_ && expectedIngressContentLengthRemaining_) {
+    if (nextBodyOffset > *expectedIngressContentLength_) {
+      return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+    }
+
+    auto currentBodyOffset = *expectedIngressContentLength_ -
+                             *expectedIngressContentLengthRemaining_;
+
+    if (nextBodyOffset <= currentBodyOffset) {
+      return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+    }
+
+    expectedIngressContentLengthRemaining_ =
+        *expectedIngressContentLength_ - nextBodyOffset;
+  }
+
+  if (nextBodyOffset <= ingressBodyOffset_) {
+      // Do not allow rejecting below already received body offset.
+      LOG(ERROR) << ": cannot reject body below already received offset; "
+                    "current received offset = "
+                 << ingressBodyOffset_
+                 << "; provided reject offset = " << nextBodyOffset;
+      return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+  ingressBodyOffset_ = nextBodyOffset;
+
+  return transport_.rejectBodyTo(this, nextBodyOffset);
 }
 
 void HTTPTransaction::pauseIngress() {
@@ -1580,6 +1713,5 @@ bool HTTPTransaction::getPrioritySampleSummary(
   }
   return false;
 }
-
 
 } // proxygen

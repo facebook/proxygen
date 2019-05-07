@@ -714,7 +714,7 @@ class HTTPMessage {
   /**
    * Marks the message partially reliable.
    * Partial reliability flag allows HTTP transaction to execute partially
-   * reliable API methods such as skipBody() and rejectBody().
+   * reliable API methods such as skipBodyTo() and rejectBodyTo().
    *
    * Message, once marked partially reliable, cannot go back to full
    * reliability, hence only one set method below.

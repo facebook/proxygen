@@ -591,7 +591,7 @@ TEST_F(HTTPDownstreamSessionTest, SingleBytesWithBody) {
       EXPECT_EQ(1, msg->getHTTPVersion().first);
       EXPECT_EQ(1, msg->getHTTPVersion().second);
     });
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("1"))
     .WillOnce(ExpectString("2"))
     .WillOnce(ExpectString("3"))
@@ -618,7 +618,7 @@ TEST_F(HTTPDownstreamSessionTest, SplitBody) {
       const HTTPHeaders& hdrs = msg->getHeaders();
       EXPECT_EQ(2, hdrs.size());
     });
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("12345"))
     .WillOnce(ExpectString("abcde"));
   onEOMTerminateHandlerExpectShutdown(*handler);
@@ -780,15 +780,15 @@ TEST_F(HTTPDownstreamSessionTest, PostChunked) {
       EXPECT_EQ(1, msg->getHTTPVersion().second);
     });
   EXPECT_CALL(*handler, onChunkHeader(3));
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("bar"));
   EXPECT_CALL(*handler, onChunkComplete());
   EXPECT_CALL(*handler, onChunkHeader(0x22));
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("0123456789abcdef\nfedcba9876543210\n"));
   EXPECT_CALL(*handler, onChunkComplete());
   EXPECT_CALL(*handler, onChunkHeader(3));
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("foo"));
   EXPECT_CALL(*handler, onChunkComplete());
   onEOMTerminateHandlerExpectShutdown(*handler);
@@ -820,7 +820,7 @@ TEST_F(HTTPDownstreamSessionTest, MultiMessage) {
 
   auto handler1 = addSimpleNiceHandler();
   handler1->expectHeaders();
-  EXPECT_CALL(*handler1, onBody(_))
+  EXPECT_CALL(*handler1, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("foo"))
     .WillOnce(ExpectString("bar9876"));
   handler1->expectEOM([&] { handler1->sendReply(); });
@@ -829,7 +829,7 @@ TEST_F(HTTPDownstreamSessionTest, MultiMessage) {
   auto handler2 = addSimpleNiceHandler();
   handler2->expectHeaders();
   EXPECT_CALL(*handler2, onChunkHeader(0xa));
-  EXPECT_CALL(*handler2, onBody(_))
+  EXPECT_CALL(*handler2, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("some "))
     .WillOnce(ExpectString("data\n"));
   EXPECT_CALL(*handler2, onChunkComplete());
@@ -867,7 +867,7 @@ TEST_F(HTTPDownstreamSessionTest, Connect) {
   EXPECT_CALL(*handler, onUpgrade(_));
 
   // Data should be received using onBody
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .WillOnce(ExpectString("12345"))
     .WillOnce(ExpectString("abcde"));
   onEOMTerminateHandlerExpectShutdown(*handler);
@@ -2836,7 +2836,7 @@ TEST_F(HTTP2DownstreamSessionTest, PaddingFlowControl) {
       eventBase_.runAfterDelay([&] { handler->txn_->resumeIngress(); },
                                100);
     });
-  EXPECT_CALL(*handler, onBody(_))
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
     .Times(129);
   handler->expectError();
   handler->expectDetachTransaction();

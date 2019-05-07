@@ -19,6 +19,7 @@
 
 #define GMOCK_NOEXCEPT_METHOD0(m, F) GMOCK_METHOD0_(, noexcept, , m, F)
 #define GMOCK_NOEXCEPT_METHOD1(m, F) GMOCK_METHOD1_(, noexcept, , m, F)
+#define GMOCK_NOEXCEPT_METHOD2(m, F) GMOCK_METHOD2_(, noexcept, , m, F)
 
 namespace proxygen {
 
@@ -169,6 +170,15 @@ class MockHTTPHandler
   }
   GMOCK_NOEXCEPT_METHOD1(onBody, void(std::shared_ptr<folly::IOBuf> chain));
 
+  void onBodyWithOffset(uint64_t bodyOffset,
+                        std::unique_ptr<folly::IOBuf> chain) noexcept override {
+    onBodyWithOffset(bodyOffset,
+                     std::shared_ptr<folly::IOBuf>(chain.release()));
+  }
+  GMOCK_NOEXCEPT_METHOD2(onBodyWithOffset,
+                         void(uint64_t bodyOffset,
+                              std::shared_ptr<folly::IOBuf> chain));
+
   GMOCK_NOEXCEPT_METHOD1(onChunkHeader, void(size_t length));
 
   GMOCK_NOEXCEPT_METHOD0(onChunkComplete, void());
@@ -195,6 +205,12 @@ class MockHTTPHandler
   GMOCK_NOEXCEPT_METHOD1(onPushedTransaction, void(HTTPTransaction*));
 
   GMOCK_NOEXCEPT_METHOD1(onExTransaction, void(HTTPTransaction*));
+
+  GMOCK_NOEXCEPT_METHOD2(onBodyPeek, void(uint64_t, const folly::IOBufQueue&));
+
+  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
+
+  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
 
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
     EXPECT_CALL(*this, setTransaction(testing::_))
@@ -258,15 +274,17 @@ class MockHTTPHandler
 
   void expectBody(std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onBody(testing::_))
+      EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_))
           .WillOnce(testing::InvokeWithoutArgs(callback));
     } else {
-      EXPECT_CALL(*this, onBody(testing::_));
+      EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_));
     }
   }
 
-  void expectBody(std::function<void(std::shared_ptr<folly::IOBuf>)> callback) {
-    EXPECT_CALL(*this, onBody(testing::_)).WillOnce(testing::Invoke(callback));
+  void expectBody(
+      std::function<void(uint64_t, std::shared_ptr<folly::IOBuf>)> callback) {
+    EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_))
+        .WillOnce(testing::Invoke(callback));
   }
 
   void expectChunkComplete(
@@ -360,6 +378,12 @@ class MockHTTPPushHandler
 
   GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
 
+  GMOCK_NOEXCEPT_METHOD2(onBodyPeek, void(uint64_t, const folly::IOBufQueue&));
+
+  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
+
+  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
+
   void sendPushHeaders(const std::string& path,
                        const std::string& host,
                        uint32_t content_length,
@@ -409,7 +433,7 @@ class MockUpstreamController : public HTTPUpstreamSessionController {
 };
 
 ACTION_P(ExpectString, expected) {
-  std::string bodystr((const char*)arg0->data(), arg0->length());
+  std::string bodystr((const char*)arg1->data(), arg1->length());
   EXPECT_EQ(bodystr, expected);
 }
 
