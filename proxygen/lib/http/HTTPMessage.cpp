@@ -71,7 +71,7 @@ HTTPMessage::HTTPMessage() :
     sslVersion_(0), sslCipher_(nullptr), protoStr_(nullptr), pri_(0),
     parsedCookies_(false), parsedQueryParams_(false),
     chunked_(false), upgraded_(false), wantsKeepalive_(true),
-    trailersAllowed_(false), secure_(false),
+    trailersAllowed_(false), secure_(false), partiallyReliable_(false),
     upgradeWebsocket_(HTTPMessage::WebSocketUpgrade::NONE) {
 }
 
@@ -104,6 +104,7 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     wantsKeepalive_(message.wantsKeepalive_),
     trailersAllowed_(message.trailersAllowed_),
     secure_(message.secure_),
+    partiallyReliable_(message.partiallyReliable_),
     upgradeWebsocket_(message.upgradeWebsocket_) {
   if (message.trailers_) {
     trailers_ = std::make_unique<HTTPHeaders>(*message.trailers_);
@@ -137,6 +138,7 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept :
     wantsKeepalive_(message.wantsKeepalive_),
     trailersAllowed_(message.trailersAllowed_),
     secure_(message.secure_),
+    partiallyReliable_(message.partiallyReliable_),
     upgradeWebsocket_(message.upgradeWebsocket_) {
 }
 
