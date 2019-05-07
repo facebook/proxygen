@@ -131,7 +131,7 @@ class MockHTTPCodec: public HTTPCodec {
     addPriorityNodes,
     size_t(PriorityQueue&, folly::IOBufQueue&, uint8_t));
   MOCK_CONST_METHOD1(mapPriorityToDependency, HTTPCodec::StreamID(uint8_t));
- };
+};
 
 class MockHTTPCodecCallback: public HTTPCodec::Callback {
  public:
@@ -149,12 +149,18 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
                          std::unique_ptr<HTTPMessage> msg) override {
     onHeadersComplete(stream, std::shared_ptr<HTTPMessage>(msg.release()));
   }
-  MOCK_METHOD3(onBody, void(HTTPCodec::StreamID,
-                            std::shared_ptr<folly::IOBuf>, uint8_t));
+  MOCK_METHOD3(onBody,
+               void(HTTPCodec::StreamID,
+                    std::shared_ptr<folly::IOBuf>,
+                    uint8_t));
   void onBody(HTTPCodec::StreamID stream,
-              std::unique_ptr<folly::IOBuf> chain, uint16_t padding) override {
-    onBody(stream, std::shared_ptr<folly::IOBuf>(chain.release()), padding);
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override {
+    onBody(stream,
+           std::shared_ptr<folly::IOBuf>(chain.release()),
+           padding);
   }
+  MOCK_METHOD2(onUnframedBodyStarted, void(HTTPCodec::StreamID, uint64_t));
   MOCK_METHOD2(onChunkHeader, void(HTTPCodec::StreamID, size_t));
   MOCK_METHOD1(onChunkComplete, void(HTTPCodec::StreamID));
   MOCK_METHOD2(onTrailersComplete, void(HTTPCodec::StreamID,

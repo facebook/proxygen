@@ -50,6 +50,8 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
               std::unique_ptr<folly::IOBuf> chain,
               uint16_t padding) override;
 
+  void onUnframedBodyStarted(StreamID stream, uint64_t streamOffset) override;
+
   void onChunkHeader(StreamID stream, size_t length) override;
 
   void onChunkComplete(StreamID stream) override;

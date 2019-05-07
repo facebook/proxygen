@@ -131,6 +131,16 @@ class HTTPCodec {
                         uint16_t padding) = 0;
 
     /**
+     * Called when DATA frame with length 0 headers arrives.
+     *
+     * @param stream        The stream ID
+     * @param streamOffset  Stream offset at which the body starts.
+     */
+    virtual void onUnframedBodyStarted(StreamID /* stream */,
+                                       uint64_t /* streamOffset */) {
+    }
+
+    /**
      * Called for each HTTP chunk header.
      *
      * onChunkHeader() will be called when the chunk header is received.  As
