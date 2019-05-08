@@ -69,6 +69,7 @@ then
     svn checkout https://google-glog.googlecode.com/svn/trunk/ google-glog
     (
       cd google-glog
+	  ./autogen.sh
       ./configure
       make
       sudo make install

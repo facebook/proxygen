@@ -39,7 +39,8 @@ if [ ! -e google-glog ]; then
     echo "fetching glog from github.com"
     git clone git@github.com:google/glog.git google-glog
     cd google-glog
-    ./configure
+    ./autogen.sh
+	./configure
     make
     sudo make install
     cd ..
