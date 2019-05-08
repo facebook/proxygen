@@ -1,5 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-SUBDIRS = . codec session test
+SUBDIRS = . codec connpool session test
 
 BUILT_SOURCES = HTTPCommonHeaders.h HTTPCommonHeaders.cpp
 
@@ -81,6 +81,10 @@ nobase_libproxygenhttp_HEADERS = \
 	codec/HTTP2Codec.h \
 	codec/HTTP2Constants.h \
 	codec/HTTP2Framer.h \
+	connpool/ServerIdleSessionController.h \
+	connpool/SessionHolder.h \
+	connpool/SessionPool.h \
+	connpool/ThreadIdleSessionController.h \
 	session/AckLatencyEvent.h \
 	session/ByteEventTracker.h \
 	session/ByteEvents.h \
@@ -150,6 +154,10 @@ libproxygenhttp_la_SOURCES = \
 	codec/SPDYConstants.cpp \
 	codec/CodecUtil.cpp \
 	codec/TransportDirection.cpp \
+	connpool/ServerIdleSessionController.cpp \
+	connpool/SessionHolder.cpp \
+	connpool/SessionPool.cpp \
+	connpool/ThreadIdleSessionController.cpp \
 	HTTPConnector.cpp \
 	HTTPConstants.cpp \
 	HTTPException.cpp \

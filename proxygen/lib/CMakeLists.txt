@@ -106,6 +106,10 @@ add_library(
     http/codec/SPDYCodec.cpp
     http/codec/SPDYConstants.cpp
     http/codec/TransportDirection.cpp
+    http/connpool/ServerIdleSessionController.cpp
+    http/connpool/SessionHolder.cpp
+    http/connpool/SessionPool.cpp
+    http/connpool/ThreadIdleSessionController.cpp
     http/experimental/RFC1867.cpp
     http/HTTPConnector.cpp
     http/HTTPConstants.cpp
@@ -214,4 +218,3 @@ install(
     EXPORT proxygen-exports
     DESTINATION lib
 )
-
