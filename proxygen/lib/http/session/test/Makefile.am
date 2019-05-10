@@ -6,6 +6,7 @@ SessionTests_SOURCES = \
 	HTTPTransactionSMTest.cpp \
 	DownstreamTransactionTest.cpp \
 	HTTPDownstreamSessionTest.cpp \
+	HTTPSessionAcceptorTest.cpp \
 	HTTPUpstreamSessionTest.cpp \
 	HTTP2PriorityQueueTest.cpp \
 	MockCodecDownstreamTest.cpp \
