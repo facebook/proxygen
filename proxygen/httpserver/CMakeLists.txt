@@ -23,6 +23,36 @@ install(
     DESTINATION lib
 )
 
+
+if (BUILD_QUIC)
+  add_executable(hq
+      samples/hq/main.cpp
+      samples/hq/SampleHandlers.cpp
+  )
+
+  target_compile_options(
+      hq
+      PRIVATE
+          ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
+  )
+
+  target_link_libraries(
+      hq
+      PUBLIC
+          proxygen
+          proxygencurl
+          mvfst::mvfst_transport
+          mvfst::mvfst_client
+          mvfst::mvfst_server
+  )
+
+  install(
+      TARGETS hq
+      EXPORT proxygen-exports
+      DESTINATION lib
+  )
+endif()
+
 file(
     GLOB_RECURSE PROXYGEN_HTTPSERVER_HEADERS_TOINSTALL
     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}

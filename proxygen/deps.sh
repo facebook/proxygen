@@ -192,7 +192,7 @@ if [ "$WITH_QUIC" == true ] ; then
   # Build proxygen with cmake
   mkdir -p _build
   cd _build
-  cmake ../..
+  cmake ../.. -DBUILD_QUIC=On
   make -j$JOBS
   sudo make install
   if test $? -ne 0; then

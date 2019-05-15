@@ -4,6 +4,14 @@ file(
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils
 )
 
+find_package(gflags CONFIG QUIET)
+if (gflags_FOUND)
+  message("module path: ${CMAKE_MODULE_PATH}")
+  message(STATUS "Found gflags from package config")
+else()
+  find_package(Gflags REQUIRED MODULE)
+endif()
+
 add_custom_command(
     OUTPUT ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.h
     COMMAND
@@ -62,6 +70,25 @@ add_custom_target(
         ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceFieldType.cpp
 )
 
+if (BUILD_QUIC)
+    set(
+        HTTP3_SOURCES
+        ${HTTP3_SOURCES}
+        http/HTTP3ErrorCode.cpp
+        http/codec/HQControlCodec.cpp
+        http/codec/HQFramedCodec.cpp
+        http/codec/HQFramer.cpp
+        http/codec/HQStreamCodec.cpp
+        http/codec/HQUnidirectionalCodec.cpp
+        http/codec/HQUtils.cpp
+        http/codec/UnframedBodyOffsetTracker.cpp
+        http/session/HQDownstreamSession.cpp
+        http/session/HQSession.cpp
+        http/session/HQStreamBase.cpp
+        http/session/HQUpstreamSession.cpp
+    )
+endif()
+
 add_library(
     proxygen STATIC
     http/codec/CodecProtocol.cpp
@@ -119,6 +146,7 @@ add_library(
     http/HTTPMethod.cpp
     http/ProxygenErrorEnum.cpp
     http/RFC2616.cpp
+    http/SynchronizedLruQuicPskCache.cpp
     http/session/ByteEvents.cpp
     http/session/ByteEventTracker.cpp
     http/session/CodecErrorResponseHandler.cpp
@@ -146,6 +174,8 @@ add_library(
     services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
+    transport/PersistentFizzPskCache.cpp
+    transport/PersistentQuicPskCache.cpp
     utils/AsyncTimeoutSet.cpp
     utils/Base64.cpp
     utils/CryptUtil.cpp
@@ -161,6 +191,7 @@ add_library(
     utils/ZlibStreamCompressor.cpp
     utils/ZlibStreamDecompressor.cpp
     utils/ZstdStreamDecompressor.cpp
+    ${HTTP3_SOURCES}
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.cpp
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceEventType.cpp
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceFieldType.cpp
@@ -189,6 +220,7 @@ target_link_libraries(
     zstd::zstd
     Boost::boost
     Boost::iostreams
+    ${GFLAGS_LIBRARIES}
 )
 
 # Install the headers, excluding unit testing related headers
