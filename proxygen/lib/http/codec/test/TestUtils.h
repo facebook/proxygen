@@ -242,8 +242,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
                                CodecProtocol,
                                const std::string&,
                                HTTPMessage&) override {
-     return true;
+    return true;
   }
+
+  MOCK_METHOD2(onBodyExpired, void(uint64_t, uint64_t));
+  MOCK_METHOD1(onBodyRejected, void(uint64_t));
 
   uint32_t numOutgoingStreams() const override {
     return 0;
