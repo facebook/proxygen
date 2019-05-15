@@ -35,3 +35,6 @@ foreach(header ${PROXYGEN_HTTPSERVER_HEADERS_TOINSTALL})
     get_filename_component(header_dir ${header} DIRECTORY)
     install(FILES ${header} DESTINATION include/proxygen/httpserver/${header_dir})
 endforeach()
+
+add_subdirectory(tests)
+add_subdirectory(filters/tests)

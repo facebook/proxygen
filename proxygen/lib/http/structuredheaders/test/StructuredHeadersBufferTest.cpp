@@ -11,11 +11,9 @@
 #include <string>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersConstants.h>
-#include <common/encode/Base64.h>
+#include <proxygen/lib/utils/Base64.h>
 
 namespace proxygen{
-
-using namespace facebook;
 
 class StructuredHeadersBufferTest : public testing::Test {
 };
