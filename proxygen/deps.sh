@@ -7,11 +7,15 @@
 
 # Parse args
 JOBS=8
-USAGE="./deps.sh [-j num_jobs]"
+WITH_QUIC=false
+USAGE="./deps.sh [-j num_jobs] [-q|--with-quic]"
 while [ "$1" != "" ]; do
   case $1 in
     -j | --jobs ) shift
                   JOBS=$1
+                  ;;
+    -q | --with-quic )
+                  WITH_QUIC=true
                   ;;
     * )           echo $USAGE
                   exit 1
@@ -135,8 +139,8 @@ cd fizz
 git fetch
 
 # Build fizz
-mkdir -p build_
-cd build_
+mkdir -p _build
+cd _build
 cmake ../fizz
 make -j$JOBS
 sudo make install
@@ -164,13 +168,48 @@ if test $? -ne 0; then
 fi
 cd ../..
 
-# Build proxygen
-autoreconf -ivf
-./configure
-make -j$JOBS
+if [ "$WITH_QUIC" == true ] ; then
+  # Get mvfst
+  if [ ! -e mvfst/quic ]; then
+      echo "Cloning mvfst"
+      git clone https://github.com/facebookincubator/mvfst
+  fi
+  cd mvfst
+  git fetch
 
-# Run tests
-LD_LIBRARY_PATH=/usr/local/lib make check
+  # Build mvfst
+  mkdir -p _build
+  cd _build
+  cmake ../
+  make -j$JOBS
+  sudo make install
+  if test $? -ne 0; then
+    echo "fatal: mvfst build failed"
+    exit -1
+  fi
+  cd ../..
 
-# Install the libs
-sudo make install
+  # Build proxygen with cmake
+  mkdir -p _build
+  cd _build
+  cmake ../..
+  make -j$JOBS
+  sudo make install
+  if test $? -ne 0; then
+    echo "fatal: proxygen build failed"
+    exit -1
+  fi
+else
+  # Build proxygen
+  autoreconf -ivf
+  ./configure
+  make -j$JOBS
+
+  # Run tests
+  LD_LIBRARY_PATH=/usr/local/lib make check
+
+  # Install the libs
+  sudo make install
+fi
+
+
