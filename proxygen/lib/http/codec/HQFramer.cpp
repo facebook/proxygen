@@ -277,10 +277,9 @@ WriteResult writeFrameHeader(IOBufQueue& queue,
   return *typeRes + *lengthRes;
 }
 
-WriteResult writeSimpleFrame(
-    IOBufQueue& queue,
-    FrameType type,
-    std::unique_ptr<folly::IOBuf> data) noexcept {
+WriteResult writeSimpleFrame(IOBufQueue& queue,
+                             FrameType type,
+                             std::unique_ptr<folly::IOBuf> data) noexcept {
   DCHECK(data);
   auto payloadSize = data->computeChainDataLength();
   auto headerSize = writeFrameHeader(queue, type, payloadSize);

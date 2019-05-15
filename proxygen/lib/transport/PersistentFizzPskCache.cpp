@@ -117,7 +117,7 @@ fizz::client::CachedPsk deserializePsk(const std::string& str,
 
   return psk;
 }
-}
+} // namespace proxygen
 
 namespace folly {
 
@@ -136,4 +136,4 @@ proxygen::PersistentCachedPsk convertTo(const dynamic& d) {
   psk.uses = folly::to<size_t>(d["uses"].asInt());
   return psk;
 }
-}
+} // namespace folly

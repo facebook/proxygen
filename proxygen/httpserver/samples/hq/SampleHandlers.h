@@ -62,6 +62,7 @@ class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
   void onEgressResumed() noexcept override {
   }
 
+  // clang-format off
   static const std::string& getH1QFooter() {
     FOLLY_EXPORT static const std::string footer(
 " __    __  .___________.___________..______      ___ ___       ___    ______\n"
@@ -95,6 +96,7 @@ class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
 "|__| |_______/       |__|     |__|        __\n"
 "                                         (__)\n"
     );
+    // clang-format on
     return footer;
   }
 
@@ -115,8 +117,8 @@ class EchoHandler : public BaseQuicHandler {
     VLOG(10) << "EchoHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
     VLOG(10) << "Setting http-version to " << version_;
-    sendFooter_ = (msg->getHTTPVersion() ==
-                   proxygen::HTTPMessage::kHTTPVersion09);
+    sendFooter_ =
+        (msg->getHTTPVersion() == proxygen::HTTPMessage::kHTTPVersion09);
     resp.setVersionString(version_);
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
@@ -264,8 +266,7 @@ class RandBytesGenHandler : public BaseQuicHandler {
     auto previousSize = data->size();
     if (previousSize < size_t(len)) {
       data->resize(len);
-      std::generate(
-          begin(*data) + previousSize, end(*data), std::ref(rbe));
+      std::generate(begin(*data) + previousSize, end(*data), std::ref(rbe));
     }
     return folly::IOBuf::wrapBuffer(folly::ByteRange(data->data(), len));
   }

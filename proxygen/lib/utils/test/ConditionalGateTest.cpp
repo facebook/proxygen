@@ -16,11 +16,9 @@
 
 using namespace proxygen;
 
-class ConditionalGateTest: public testing::Test {
+class ConditionalGateTest : public testing::Test {
  protected:
-  enum class Things: uint8_t {
-    Thing1 = 0, Thing2
-  };
+  enum class Things : uint8_t { Thing1 = 0, Thing2 };
   ConditionalGate<Things, 2> gate;
   bool done{false};
 };

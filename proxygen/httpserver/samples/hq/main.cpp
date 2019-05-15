@@ -12,16 +12,18 @@
 #include <folly/init/Init.h>
 #include <folly/ssl/Init.h>
 
-#include <proxygen/lib/transport/PersistentQuicPskCache.h>
 #include <proxygen/httpserver/samples/hq/ConnIdLogger.h>
 #include <proxygen/httpserver/samples/hq/HQClient.h>
 #include <proxygen/httpserver/samples/hq/HQServer.h>
+#include <proxygen/lib/transport/PersistentQuicPskCache.h>
 
 DEFINE_string(host, "::1", "HQ server hostname/IP");
 DEFINE_int32(port, 6666, "HQ server port");
 DEFINE_string(mode, "server", "Mode to run in: 'client' or 'server'");
 DEFINE_string(body, "", "Filename to read from for POST requests");
-DEFINE_string(path, "/", "(HQClient) url-path to send the request to, "
+DEFINE_string(path,
+              "/",
+              "(HQClient) url-path to send the request to, "
               "or a comma separated list of paths to fetch in parallel");
 DEFINE_string(httpversion, "1.1", "HTTP version string");
 DEFINE_string(protocol, "", "HQ protocol version e.g. h1q-fb or h1q-fb-v2");
@@ -40,12 +42,11 @@ DEFINE_bool(pacing, false, "Whether to enable pacing on HQServer");
 DEFINE_string(psk_file, "", "Cache file to use for QUIC psks");
 DEFINE_bool(early_data, false, "Whether to use 0-rtt");
 DEFINE_uint32(quic_batching_mode,
-        static_cast<uint32_t>(quic::QuicBatchingMode::BATCHING_MODE_NONE),
-        "QUIC batching mode");
-DEFINE_uint32(
-        quic_batching_num,
-        quic::kDefaultQuicBatchingNum,
-        "QUIC batching num");
+              static_cast<uint32_t>(quic::QuicBatchingMode::BATCHING_MODE_NONE),
+              "QUIC batching mode");
+DEFINE_uint32(quic_batching_num,
+              quic::kDefaultQuicBatchingNum,
+              "QUIC batching num");
 DEFINE_string(cert, "", "Certificate file path");
 DEFINE_string(key, "", "Private key file path");
 
@@ -106,8 +107,8 @@ int main(int argc, char* argv[]) {
   }
   transportSettings.maxRecvPacketSize = FLAGS_max_receive_packet_size;
   transportSettings.pacingEnabled = FLAGS_pacing;
-  transportSettings.batchingMode = quic::getQuicBatchingMode(
-                                    FLAGS_quic_batching_mode);
+  transportSettings.batchingMode =
+      quic::getQuicBatchingMode(FLAGS_quic_batching_mode);
   transportSettings.batchingNum = FLAGS_quic_batching_num;
   transportSettings.turnoffPMTUD = true;
   if (FLAGS_mode == "server") {
@@ -122,9 +123,8 @@ int main(int argc, char* argv[]) {
                     transportSettings,
                     draftVersion,
                     FLAGS_use_draft);
-    server.setTlsSettings(FLAGS_cert,
-                          FLAGS_key,
-                          fizz::server::ClientAuthMode::None);
+    server.setTlsSettings(
+        FLAGS_cert, FLAGS_key, fizz::server::ClientAuthMode::None);
     server.start();
     server.getAddress();
     server.run();
@@ -147,13 +147,12 @@ int main(int argc, char* argv[]) {
       client.setProtocol(FLAGS_protocol);
     }
     if (!FLAGS_psk_file.empty()) {
-      auto pskCache =
-          std::make_shared<proxygen::PersistentQuicPskCache>(
-              FLAGS_psk_file,
-              wangle::PersistentCacheConfig::Builder()
-                  .setCapacity(1000)
-                  .setSyncInterval(std::chrono::seconds(1))
-                  .build());
+      auto pskCache = std::make_shared<proxygen::PersistentQuicPskCache>(
+          FLAGS_psk_file,
+          wangle::PersistentCacheConfig::Builder()
+              .setCapacity(1000)
+              .setSyncInterval(std::chrono::seconds(1))
+              .build());
       client.setQuicPskCache(std::move(pskCache));
     }
     client.setEarlyData(FLAGS_early_data);

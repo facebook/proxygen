@@ -15,9 +15,9 @@
 
 #include <folly/io/async/ScopedEventBaseThread.h>
 
+#include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
 #include <proxygen/lib/http/SynchronizedLruQuicPskCache.h>
-#include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <quic/api/QuicSocket.h>

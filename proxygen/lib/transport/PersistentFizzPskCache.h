@@ -79,7 +79,7 @@ class PersistentFizzPskCache : public fizz::client::PskCache {
 
   std::unique_ptr<fizz::Factory> factory_;
 };
-}
+} // namespace proxygen
 
 namespace folly {
 
@@ -87,4 +87,4 @@ template <>
 dynamic toDynamic(const proxygen::PersistentCachedPsk& cached);
 template <>
 proxygen::PersistentCachedPsk convertTo(const dynamic& d);
-}
+} // namespace folly
