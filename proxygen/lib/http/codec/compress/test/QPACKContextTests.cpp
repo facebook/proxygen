@@ -192,6 +192,104 @@ TEST(QPACKContextTests, PostBaseNameIndexedLiteral) {
   verifyDecode(decoder, std::move(result), req);
 }
 
+TEST(QPACKContextTests, TestOutstandingListTooLong) {
+  QPACKEncoder encoder(false, 4096);
+  encoder.setMaxNumOutstandingBlocks(3);
+
+  for (int i = 0; i < 4; i++) {
+    vector<HPACKHeader> req;
+    req.emplace_back(
+      string("monkey" + folly::to<std::string>(i)),
+      folly::to<string>(i));
+    auto result = encoder.encode(req, 10, 7);
+
+    if (i == 3) {
+      // The header has been encoded as a literal
+      EXPECT_TRUE(stringInOutput(result.stream.get(), "monkey3"));
+    } else {
+      // The header is indexed
+      EXPECT_EQ(result.stream->computeChainDataLength(),
+                2 /*prefix*/ + 1 /*pb indexed*/);
+    }
+  }
+
+  // See that static references still work
+  vector<HPACKHeader> reqStatic1;
+  reqStatic1.emplace_back(":method", "GET");
+  auto result = encoder.encode(reqStatic1, 10, 7);
+
+  // The header is indexed
+  EXPECT_EQ(result.stream->computeChainDataLength(),
+            2 /*prefix*/ + 1 /*pb indexed*/);
+
+  // See that dynamic name references don't work
+  vector<HPACKHeader> reqDynamicName;
+  reqDynamicName.emplace_back("monkey2", "banana2");
+  result = encoder.encode(reqDynamicName, 10, 7);
+
+  // The header has been encoded as a literal
+  EXPECT_TRUE(stringInOutput(result.stream.get(), "monkey2"));
+
+  // See that static name references work
+  vector<HPACKHeader> reqStatic2;
+  reqStatic2.emplace_back(":authority", "potato");
+  result = encoder.encode(reqStatic2, 10, 7);
+
+  EXPECT_EQ(result.stream->computeChainDataLength(),
+            2 /*prefix*/ +
+            1 /*name index*/ +
+            1 /*value length*/ +
+            6 /*value bytes*/);
+
+  // Ack the header, and see that new dynamic references can be made
+  encoder.onHeaderAck(7, false);
+  result = encoder.encode(reqDynamicName, 10, 7);
+  EXPECT_EQ(result.stream->computeChainDataLength(),
+            2 /*prefix*/ + 1 /*pb indexed*/);
+}
+
+TEST(QPACKContextTests, TestOutstandingListAckingAll) {
+  QPACKEncoder encoder(false, 4096);
+  encoder.setMaxNumOutstandingBlocks(5);
+
+  for (int i = 0; i < 8; i++) {
+    vector<HPACKHeader> req;
+    std::string headerName = "monkey" + folly::to<std::string>(i);
+    req.emplace_back(headerName, folly::to<string>(i));
+
+    if (i < 3) {
+      // make stream 1's outstanding list have a size of 3
+      // all of these should be indexed
+      auto result = encoder.encode(req, 10, 1);
+      EXPECT_FALSE(stringInOutput(result.stream.get(), "monkey"));
+    } else if (i < 5) {
+      // make stream 2's outstanding list have a size of 2
+      // all of these should be indexed
+      auto result = encoder.encode(req, 10, 2);
+      EXPECT_FALSE(stringInOutput(result.stream.get(), "monkey"));
+    }
+
+    if (i == 4) {
+      // ack all three of stream 1's headers. This should leave room for three
+      // more
+      encoder.onHeaderAck(1, true);
+    }
+
+    if (i >= 4 && i < 7) {
+      // put in three more blocks into the outstanding list. These should be
+      // indexed.
+      auto result = encoder.encode(req, 10, 1);
+      EXPECT_FALSE(stringInOutput(result.stream.get(), "monkey"));
+    }
+
+    if (i == 7) {
+      // since we're at the limit of the number of outstanding blocks, this
+      // should be encoded as a literal
+      auto result = encoder.encode(req, 10, 1);
+      EXPECT_TRUE(stringInOutput(result.stream.get(), "monkey"));
+    }
+  }
+}
 
 TEST(QPACKContextTests, Unacknowledged) {
   QPACKEncoder encoder(true, 128);

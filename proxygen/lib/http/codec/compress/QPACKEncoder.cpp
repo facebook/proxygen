@@ -81,6 +81,7 @@ QPACKEncoder::encodeQ(const vector<HPACKHeader>& headers, uint64_t streamId) {
       DCHECK(allowVulnerable());
       numVulnerable_++;
     }
+    numOutstandingBlocks_++;
     outstanding_[streamId].emplace_back(std::move(outstandingBlock));
   }
   // Clear the pointer to our stack
@@ -165,7 +166,12 @@ void QPACKEncoder::encodeHeaderQ(
 
 bool QPACKEncoder::shouldIndex(const HPACKHeader& header) const {
   return (header.bytes() <= table_.capacity()) &&
-    (!indexingStrat_ || indexingStrat_->indexHeader(header));
+    (!indexingStrat_ || indexingStrat_->indexHeader(header)) &&
+    dynamicReferenceAllowed();
+}
+
+bool QPACKEncoder::dynamicReferenceAllowed() const {
+  return numOutstandingBlocks_ < maxNumOutstandingBlocks_;
 }
 
 std::pair<bool, uint32_t> QPACKEncoder::maybeDuplicate(
@@ -190,7 +196,7 @@ std::tuple<bool, uint32_t, uint32_t> QPACKEncoder::getNameIndexQ(
   uint32_t absoluteNameIndex = 0;
   uint32_t nameIndex = getStaticTable().nameIndex(headerName);
   bool isStatic = true;
-  if (nameIndex == 0) {
+  if (nameIndex == 0 && dynamicReferenceAllowed()) {
     // check dynamic table
     nameIndex = table_.nameIndex(headerName, allowVulnerable());
     if (nameIndex != 0) {
@@ -388,9 +394,11 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
         numVulnerable_--;
       }
     }
+    numOutstandingBlocks_ -= it->second.size();
     it->second.clear();
   } else {
     auto block = std::move(it->second.front());
+    numOutstandingBlocks_--;
     it->second.pop_front();
     // a different stream, sub all the references
     for (auto i: block.references) {
@@ -412,6 +420,10 @@ HPACK::DecodeError QPACKEncoder::onHeaderAck(uint64_t streamId, bool all) {
     outstanding_.erase(it);
   }
   return HPACK::DecodeError::NONE;
+}
+
+void QPACKEncoder::setMaxNumOutstandingBlocks(uint32_t value) {
+  maxNumOutstandingBlocks_ = value;
 }
 
 }

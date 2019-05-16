@@ -134,6 +134,10 @@ class QPACKCodec : public HeaderCodec {
     decoder_.setMaxBlocking(maxBlocking);
   }
 
+  void setMaxNumOutstandingBlocks(uint32_t value) {
+    encoder_.setMaxNumOutstandingBlocks(value);
+  }
+
  protected:
   QPACKEncoder encoder_;
   QPACKDecoder decoder_;
