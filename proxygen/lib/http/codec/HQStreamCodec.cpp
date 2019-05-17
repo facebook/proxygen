@@ -353,7 +353,6 @@ HQStreamCodec::onEgressBodySkip(uint64_t bodyOffset) {
       << __func__
       << ": partially reliable operation on non-partially reliable transport";
 
-  DCHECK(finalEgressHeadersSeen_);
   if (!finalEgressHeadersSeen_) {
     // Application is trying to skip body data before having sent headers.
     LOG(ERROR) << __func__ << ": egress skip before HEADERS sent";

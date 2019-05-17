@@ -516,7 +516,9 @@ TEST_F(HQPRCodecTest, TestOnIngressBodyRejectedStartWithBody) {
 }
 
 TEST_F(HQPRCodecTest, TestOnEgressBodyExpiredBeforeHeaders) {
-  EXPECT_DEATH(downstreamCodec_->onEgressBodySkip(13), "");
+  auto res = downstreamCodec_->onEgressBodySkip(13);
+  EXPECT_TRUE(res.hasError());
+  EXPECT_EQ(res.error(), hq::UnframedBodyOffsetTrackerError::INVALID_OFFSET);
 }
 
 TEST_F(HQPRCodecTest, TestOnEgressBodyExpiredStartWithSkip) {
