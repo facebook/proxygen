@@ -11,6 +11,7 @@
 
 #include <fizz/client/PskCache.h>
 #include <fizz/protocol/Factory.h>
+#include <fizz/protocol/OpenSSLFactory.h>
 #include <wangle/client/persistence/FilePersistentCache.h>
 
 namespace proxygen {
@@ -31,7 +32,7 @@ class PersistentFizzPskCache : public fizz::client::PskCache {
   PersistentFizzPskCache(const std::string& filename,
                          wangle::PersistentCacheConfig config,
                          std::unique_ptr<fizz::Factory> factory =
-                             std::make_unique<fizz::Factory>())
+                             std::make_unique<fizz::OpenSSLFactory>())
       : cache_(filename, std::move(config)), factory_(std::move(factory)) {
   }
 

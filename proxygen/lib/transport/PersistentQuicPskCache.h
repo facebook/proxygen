@@ -35,7 +35,7 @@ class PersistentQuicPskCache : public quic::QuicPskCache {
   PersistentQuicPskCache(const std::string& filename,
                          wangle::PersistentCacheConfig config,
                          std::unique_ptr<fizz::Factory> factory =
-                             std::make_unique<fizz::Factory>());
+                             std::make_unique<fizz::OpenSSLFactory>());
 
   void setMaxPskUses(size_t maxUses);
 
