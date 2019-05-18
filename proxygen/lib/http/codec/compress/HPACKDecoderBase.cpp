@@ -65,11 +65,14 @@ void HPACKDecoderBase::setHeaderTableMaxSize(
 }
 
 void HPACKDecoderBase::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
-                                             HeaderTable& table) {
+                                             HeaderTable& table,
+                                             bool isQpack) {
   uint64_t arg = 0;
   err_ = dbuf.decodeInteger(HPACK::TABLE_SIZE_UPDATE.prefixLength, arg);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
+    if (!isQpack || err_ != HPACK::DecodeError::BUFFER_UNDERFLOW) {
+      LOG(ERROR) << "Decode error decoding maxSize err_=" << err_;
+    }
     return;
   }
 

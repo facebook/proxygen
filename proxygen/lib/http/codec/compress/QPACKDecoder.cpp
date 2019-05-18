@@ -224,7 +224,7 @@ void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
         dbuf, true, false, HPACK::Q_INSERT_NO_NAME_REF.prefixLength, false,
         nullptr);
   } else if (byte & HPACK::Q_TABLE_SIZE_UPDATE.code) {
-    handleTableSizeUpdate(dbuf, table_);
+    handleTableSizeUpdate(dbuf, table_, true);
   } else { // must be Q_DUPLICATE=000
     headers_t emitted;
     decodeIndexedHeaderQ(
@@ -322,7 +322,9 @@ uint32_t QPACKDecoder::decodeIndexedHeaderQ(
   bool isStatic = !aboveBase && (dbuf.peek() & (1 << prefixLength));
   err_ = dbuf.decodeInteger(prefixLength, index);
   if (err_ != HPACK::DecodeError::NONE) {
-    LOG(ERROR) << "Decode error decoding index err_=" << err_;
+    if (streamingCb || err_ != HPACK::DecodeError::BUFFER_UNDERFLOW) {
+      LOG(ERROR) << "Decode error decoding index err_=" << err_;
+    }
     return 0;
   }
   CHECK_LT(index, std::numeric_limits<uint64_t>::max());

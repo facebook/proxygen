@@ -58,7 +58,11 @@ class HPACKDecoderBase {
       uint32_t emittedSize,
       bool acknowledge = false);
 
-  void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf, HeaderTable& table);
+  void handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
+                             HeaderTable& table,
+                             /* used to determine whether or not we log
+                                certain events */
+                             bool isQpack = false);
 
   HPACK::DecodeError err_{HPACK::DecodeError::NONE};
   uint32_t maxTableSize_;

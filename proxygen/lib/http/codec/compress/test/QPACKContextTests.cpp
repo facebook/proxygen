@@ -983,3 +983,62 @@ TEST(QPACKContextTests, TestEvictedNameReference) {
                           result.stream->computeChainDataLength(), &cb);
   EXPECT_FALSE(cb.hasError());
 }
+
+TEST(QPACKContextTests, TestFragmentTableSizeUpdate) {
+  QPACKEncoder encoder(true, 0);
+  QPACKDecoder decoder(0, 10000);
+
+  decoder.setHeaderTableMaxSize(5120);
+
+  EXPECT_TRUE(encoder.setHeaderTableSize(4096));
+  vector<HPACKHeader> headers;
+  headers.emplace_back("x-accept-encoding", "foobarfoobar");
+  auto encodeResult = encoder.encode(headers, 10, 1);
+
+  ASSERT_NE(encodeResult.control.get(), nullptr);
+
+  /*
+   * Split the control stream, so that the table size instruction is straddled
+   * between the two splits. The first instruction in the control stream is a
+   * table size instruction, with a value of 4096. This is due to the fact that
+   * we call client.setEncoderHeaderTableSize(4096).
+   */
+
+  // sanity check to confirm that the first instruction is indeed a table size
+  // update instruction.
+  uint8_t firstByte = *encodeResult.control->data();
+  EXPECT_GT(firstByte & HPACK::Q_TABLE_SIZE_UPDATE.code, 0);
+
+  auto controlLen = encodeResult.control->length();
+
+  // The first split has one byte
+  auto controlBegin = encodeResult.control->clone();
+  controlBegin->trimEnd(controlLen - 1);
+
+  // The second split has the remaining bytes
+  auto controlEnd = encodeResult.control->clone();
+  controlEnd->trimStart(1);
+
+  EXPECT_EQ(decoder.decodeEncoderStream(std::move(controlBegin)),
+            HPACK::DecodeError::NONE);
+  EXPECT_EQ(decoder.decodeEncoderStream(std::move(controlEnd)),
+            HPACK::DecodeError::NONE);
+
+  TestStreamingCallback cb;
+  auto length = encodeResult.stream->computeChainDataLength();
+  decoder.decodeStreaming(1, std::move(encodeResult.stream), length, &cb);
+  headerAck(decoder, encoder, 1);
+  auto result = cb.getResult();
+  EXPECT_TRUE(!result.hasError());
+
+  EXPECT_EQ(headers.size() * 2, result->headers.size());
+
+  size_t i = 0;
+  for (auto& h: headers) {
+    string name = h.name.get();
+    char *mutableName = (char *)name.data();
+    folly::toLowerAscii(mutableName, name.size());
+    EXPECT_EQ(name, result->headers[i++].str);
+    EXPECT_EQ(h.value, result->headers[i++].str);
+  }
+}
