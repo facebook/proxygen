@@ -492,6 +492,10 @@ class HQSession
       std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
           error);
 
+  void processControlStreamPreface(
+      quic::StreamId id,
+      const folly::Range<quic::QuicSocket::PeekIterator>& peekData) noexcept;
+
   /**
    * HQSession is an HTTPSessionBase that uses QUIC as the underlying transport
    *
@@ -900,6 +904,11 @@ class HQSession
 
     // process data in the read buffer, returns true if the codec is blocked
     bool processReadData();
+
+    // Process data from QUIC onDataAvailable callback.
+    void processPeekData(
+        const folly::Range<quic::QuicSocket::PeekIterator>& /* peekData */) {
+    }
 
     // HTTPCodec::Callback methods
     void onMessageBegin(HTTPCodec::StreamID streamID,

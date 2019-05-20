@@ -1038,7 +1038,7 @@ void HQSession::readControlStream(HQControlStream* ctrlStream) {
   ctrlStream->processReadData();
 }
 
-void HQSession::onDataAvailable(
+void HQSession::processControlStreamPreface(
     quic::StreamId id,
     const folly::Range<quic::QuicSocket::PeekIterator>& peekData) noexcept {
   if (peekData.empty()) {
@@ -1074,6 +1074,23 @@ void HQSession::onDataAvailable(
   // After reading the preface we can switch to the regular readCallback
   sock_->setPeekCallback(id, nullptr);
   sock_->setReadCallback(id, &unidirectionalReadCb_);
+}
+
+void HQSession::onDataAvailable(
+    quic::StreamId id,
+    const folly::Range<quic::QuicSocket::PeekIterator>& peekData) noexcept {
+  if (sock_->isBidirectionalStream(id)) {
+    auto hqStream = findNonDetachedStream(id);
+    if (!hqStream) {
+      if (streams_.find(id) != streams_.end()) {
+        LOG(ERROR) << __func__ << " event received for detached stream " << id;
+      }
+      return;
+    }
+    hqStream->processPeekData(peekData);
+  } else {
+    processControlStreamPreface(id, peekData);
+  }
 }
 
 void HQSession::unidirectionalReadAvailable(quic::StreamId id) {
