@@ -7,6 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <fizz/extensions/exportedauth/ExportedAuthenticator.h>
 #include <proxygen/lib/http/session/SecondaryAuthManager.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>

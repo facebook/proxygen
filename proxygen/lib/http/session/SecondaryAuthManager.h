@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <fizz/protocol/Certificate.h>
 #include <proxygen/lib/http/session/SecondaryAuthManagerBase.h>
 
 namespace proxygen {

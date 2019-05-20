@@ -25,7 +25,7 @@
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-#include <proxygen/lib/http/session/SecondaryAuthManager.h>
+#include <proxygen/lib/http/session/SecondaryAuthManagerBase.h>
 #include <queue>
 #include <set>
 #include <folly/io/async/AsyncSocket.h>
@@ -227,12 +227,12 @@ class HTTPSession:
    * certificate authentication in HTTP/2.
    */
   void setSecondAuthManager(
-      std::unique_ptr<SecondaryAuthManager> secondAuthManager);
+      std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager);
 
   /**
    * Get the SecondaryAuthManager attached to this session.
    */
-  SecondaryAuthManager* getSecondAuthManager() const;
+  SecondaryAuthManagerBase* getSecondAuthManager() const;
 
   bool isDetachable(bool checkSocket=true) const override;
 
@@ -1040,7 +1040,7 @@ class HTTPSession:
   DrainTimeout drainTimeout_;
 
   // secondary authentication manager
-  std::unique_ptr<SecondaryAuthManager> secondAuthManager_;
+  std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager_;
 
   enum SocketState {
     UNPAUSED = 0,

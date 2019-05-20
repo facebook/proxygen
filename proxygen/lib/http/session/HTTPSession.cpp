@@ -1792,11 +1792,11 @@ size_t HTTPSession::sendPriority(HTTPTransaction* txn,
 }
 
 void HTTPSession::setSecondAuthManager(
-    std::unique_ptr<SecondaryAuthManager> secondAuthManager) {
+    std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager) {
   secondAuthManager_ = std::move(secondAuthManager);
 }
 
-SecondaryAuthManager* HTTPSession::getSecondAuthManager() const {
+SecondaryAuthManagerBase* HTTPSession::getSecondAuthManager() const {
   return secondAuthManager_.get();
 }
 
@@ -1820,6 +1820,9 @@ size_t HTTPSession::sendCertificateRequest(
       VLOG(4) << "Secondary certificate authentication is not supported.";
       return 0;
     }
+  }
+  if (!secondAuthManager_) {
+    return 0;
   }
   auto authRequest = secondAuthManager_->createAuthRequest(
       std::move(certificateRequestContext), std::move(extensions));

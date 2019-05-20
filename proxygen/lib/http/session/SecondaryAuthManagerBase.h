@@ -9,8 +9,7 @@
  */
 #pragma once
 
-#include <fizz/extensions/exportedauth/ExportedAuthenticator.h>
-#include <fizz/protocol/Certificate.h>
+#include <fizz/protocol/AsyncFizzBase.h>
 #include <proxygen/lib/http/codec/TransportDirection.h>
 
 namespace proxygen {
