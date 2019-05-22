@@ -205,7 +205,6 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
     auto errorMsg = folly::to<std::string>("HQClient failed to connect, error=",
                                            toString(error.first));
     LOG(ERROR) << errorMsg;
-    throw std::runtime_error(errorMsg);
   }
 
  private:
