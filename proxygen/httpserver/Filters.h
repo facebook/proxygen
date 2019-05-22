@@ -125,6 +125,12 @@ class Filter : public RequestHandler, public ResponseHandler {
     return downstream_->newPushedResponse(handler);
   }
 
+  ResponseHandler* newExMessage(
+      ExMessageHandler* exHandler,
+      bool unidirectional) noexcept override {
+    return downstream_->newExMessage(exHandler, unidirectional);
+  }
+
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
     return downstream_->getSetupTransportInfo();
   }
