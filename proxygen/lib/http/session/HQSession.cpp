@@ -63,7 +63,7 @@ using namespace proxygen::hq;
 
 namespace proxygen {
 
-const std::string kH3FBCurrentDraft("h3-fb-04");
+const std::string kH3FBCurrentDraft("h3-fb-05");
 const std::string kH3CurrentDraft("h3-20");
 const std::string kHQCurrentDraft("hq-20");
 
