@@ -78,7 +78,7 @@ class HQDownstreamSessionTest : public HQSessionTest {
 
   Promise<Unit> sendRequestLater(HTTPMessage req, bool eof = false) {
     Promise<Unit> reqp;
-    reqp.getFuture().then(&eventBase_, [=] {
+    reqp.getSemiFuture().via(&eventBase_).thenValue([=](auto&&) {
       auto id = sendRequest(req, eof);
       socketDriver_->addReadEvent(
           id, getStream(id).buf.move(), milliseconds(0));

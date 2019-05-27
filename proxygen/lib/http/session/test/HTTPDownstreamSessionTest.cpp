@@ -129,13 +129,13 @@ class HTTPDownstreamTest : public testing::Test {
 
   Promise<Unit> sendRequestLater(HTTPMessage req, bool eof=false) {
     Promise<Unit> reqp;
-    reqp.getFuture().then(&eventBase_, [=] {
-        sendRequest(req);
-        transport_->addReadEvent(requests_, milliseconds(0));
-        if (eof) {
-          transport_->addReadEOF(milliseconds(0));
-        }
-      });
+    reqp.getSemiFuture().via(&eventBase_).thenValue([=](auto&&) {
+          sendRequest(req);
+          transport_->addReadEvent(requests_, milliseconds(0));
+          if (eof) {
+            transport_->addReadEOF(milliseconds(0));
+          }
+        });
     return reqp;
   }
 
