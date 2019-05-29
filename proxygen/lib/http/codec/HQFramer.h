@@ -31,6 +31,10 @@ const uint64_t kMaxGreaseIdIndex = 0x210842108421083;
 // Unframed body DATA frame length.
 const size_t kUnframedDataFrameLen = 0;
 
+// PushID mask
+// to make sure push id and stream id spaces are disjoint
+const uint64_t kPushIdMask = ((uint64_t)1) << 63;
+
 //////// Types ////////
 
 using PushId = uint64_t;

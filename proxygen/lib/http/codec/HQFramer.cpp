@@ -138,7 +138,7 @@ ParseResult parseCancelPush(folly::io::Cursor& cursor,
   if (!pushId) {
     return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_CANCEL_PUSH;
   }
-  outPushId = pushId->first;
+  outPushId = pushId->first | kPushIdMask;
   frameLength -= pushId->second;
   if (frameLength != 0) {
     return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_CANCEL_PUSH;
@@ -212,7 +212,7 @@ ParseResult parsePushPromise(folly::io::Cursor& cursor,
   if (!pushId) {
     return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE;
   }
-  outPushId = pushId->first;
+  outPushId = pushId->first | kPushIdMask;
   frameLength -= pushId->second;
 
   cursor.clone(outBuf, frameLength);
@@ -241,17 +241,17 @@ ParseResult parseGoaway(folly::io::Cursor& cursor,
 
 ParseResult parseMaxPushId(folly::io::Cursor& cursor,
                            const FrameHeader& header,
-                           quic::StreamId& outStreamId) noexcept {
+                           quic::StreamId& outPushId) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
   folly::IOBuf buf;
   auto frameLength = header.length;
 
-  auto streamId = quic::decodeQuicInteger(cursor, frameLength);
-  if (!streamId) {
+  auto pushId = quic::decodeQuicInteger(cursor, frameLength);
+  if (!pushId) {
     return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_MAX_PUSH_ID;
   }
-  outStreamId = streamId->first;
-  frameLength -= streamId->second;
+  outPushId = pushId->first | kPushIdMask;
+  frameLength -= pushId->second;
   if (frameLength != 0) {
     return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_MAX_PUSH_ID;
   }
@@ -341,6 +341,8 @@ WriteResult writePriority(IOBufQueue& queue, PriorityUpdate priority) noexcept {
 
 WriteResult writeCancelPush(folly::IOBufQueue& writeBuf,
                             PushId pushId) noexcept {
+  DCHECK(pushId & kPushIdMask);
+  pushId = pushId & ~kPushIdMask;
   auto pushIdSize = quic::getQuicIntegerSize(pushId);
   if (pushIdSize.hasError()) {
     return pushIdSize;
@@ -385,6 +387,8 @@ WriteResult writePushPromise(IOBufQueue& queue,
                              PushId pushId,
                              std::unique_ptr<folly::IOBuf> data) noexcept {
   DCHECK(data);
+  DCHECK(pushId & kPushIdMask);
+  pushId = pushId & ~kPushIdMask;
   auto pushIdSize = quic::getQuicIntegerSize(pushId);
   if (pushIdSize.hasError()) {
     return pushIdSize;
@@ -414,14 +418,16 @@ WriteResult writeGoaway(folly::IOBufQueue& writeBuf,
 }
 
 WriteResult writeMaxPushId(folly::IOBufQueue& writeBuf,
-                           PushId maxPushID) noexcept {
-  auto maxPushIdSize = quic::getQuicIntegerSize(maxPushID);
+                           PushId maxPushId) noexcept {
+  DCHECK(maxPushId & kPushIdMask);
+  maxPushId &= ~kPushIdMask;
+  auto maxPushIdSize = quic::getQuicIntegerSize(maxPushId);
   if (maxPushIdSize.hasError()) {
     return maxPushIdSize;
   }
   IOBufQueue queue{IOBufQueue::cacheChainLength()};
   QueueAppender appender(&queue, *maxPushIdSize);
-  quic::encodeQuicInteger(maxPushID, appender);
+  quic::encodeQuicInteger(maxPushId, appender);
   return writeSimpleFrame(writeBuf, FrameType::MAX_PUSH_ID, queue.move());
 }
 

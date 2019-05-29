@@ -682,7 +682,7 @@ TEST_F(HQCodecTest, DataFrameStreaming) {
 }
 
 TEST_F(HQCodecTest, PushPromiseFrame) {
-  hq::PushId pushId = 1234;
+  hq::PushId pushId = 1234 | kPushIdMask;
 
   HTTPMessage msg = getGetRequest();
   msg.getHeaders().add(HTTP_HEADER_USER_AGENT, "optimus-prime");
@@ -696,7 +696,7 @@ TEST_F(HQCodecTest, PushPromiseFrame) {
   EXPECT_EQ(callbacks_.headerFrames, 1);
   EXPECT_EQ(callbacks_.bodyCalls, 0);
   EXPECT_EQ(callbacks_.messageBegin, 1);
-  EXPECT_EQ(callbacks_.assocStreamId, pushId);
+  EXPECT_EQ(callbacks_.assocStreamId, pushId | kPushIdMask);
 }
 
 template <class T>

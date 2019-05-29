@@ -317,7 +317,7 @@ TEST_F(HQFramerTest, ParsePriorityFrameMalformedEmpty) {
 
 TEST_F(HQFramerTest, ParsePushPromiseFrameOK) {
   auto data = makeBuf(1000);
-  PushId inPushId = 4563;
+  PushId inPushId = 4563 | kPushIdMask;
   auto result = writePushPromise(queue_, inPushId, data->clone());
   EXPECT_FALSE(result.hasError());
 
@@ -325,7 +325,7 @@ TEST_F(HQFramerTest, ParsePushPromiseFrameOK) {
   PushId outPushId;
   std::unique_ptr<IOBuf> outBuf;
   parse(folly::none, parsePushPromise, outHeader, outPushId, outBuf);
-  EXPECT_EQ(outPushId, inPushId);
+  EXPECT_EQ(outPushId, inPushId | kPushIdMask);
   EXPECT_EQ(outBuf->moveToFbString(), data->moveToFbString());
 }
 
@@ -344,6 +344,10 @@ TEST_P(HQFramerTestIdOnlyFrames, TestIdOnlyFrame) {
   {
     queue_.move();
     uint64_t validVarLenInt = 123456;
+    if (GetParam().type == proxygen::hq::FrameType::MAX_PUSH_ID ||
+        GetParam().type == proxygen::hq::FrameType::CANCEL_PUSH) {
+      validVarLenInt |= kPushIdMask;
+    }
     auto result = GetParam().writeFn(queue_, validVarLenInt);
     EXPECT_FALSE(result.hasError());
 
@@ -366,6 +370,10 @@ TEST_P(HQFramerTestIdOnlyFrames, TestIdOnlyFrame) {
   {
     queue_.move();
     uint64_t validVarLenInt = 63; // requires just 1 byte
+    if (GetParam().type == proxygen::hq::FrameType::MAX_PUSH_ID ||
+        GetParam().type == proxygen::hq::FrameType::CANCEL_PUSH) {
+      validVarLenInt |= kPushIdMask;
+    }
     auto result = GetParam().writeFn(queue_, validVarLenInt);
     EXPECT_FALSE(result.hasError());
 
@@ -386,6 +394,10 @@ TEST_P(HQFramerTestIdOnlyFrames, TestIdOnlyFrame) {
   {
     queue_.move();
     uint64_t id = 3; // requires just 1 byte
+    if (GetParam().type == proxygen::hq::FrameType::MAX_PUSH_ID ||
+        GetParam().type == proxygen::hq::FrameType::CANCEL_PUSH) {
+      id |= kPushIdMask;
+    }
     auto result = GetParam().writeFn(queue_, id);
     EXPECT_FALSE(result.hasError());
 
