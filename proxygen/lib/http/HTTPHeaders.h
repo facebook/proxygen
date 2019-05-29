@@ -129,6 +129,18 @@ class HTTPHeaders {
   void rawSet(const std::string& name, const std::string& value) {
     set(name, value);
   }
+  /**
+   * This method will set only one version of the header, it will first
+   * Remove all possible versions of header eg. if x-y-z is the
+   * argument it will remove x-y_z, x_y-z and x_y_z too and then set the given
+   * header name, value.
+   */
+  void setOneVersion(folly::StringPiece name,
+                      HTTPHeaderCode code,
+                      const std::string& value) {
+    removeAllVersions(code, name);
+    add(name, value);
+  }
 
   /**
    * Do we have an instance of the given header?
