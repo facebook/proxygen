@@ -9,6 +9,7 @@
  */
 #pragma once
 #include <proxygen/lib/http/codec/HQControlCodec.h>
+#include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
@@ -115,6 +116,8 @@ class HQSession
     , public quic::QuicSocket::WriteCallback
     , public quic::QuicSocket::DeliveryCallback
     , public quic::QuicSocket::PeekCallback
+    , public quic::QuicSocket::DataExpiredCallback
+    , public quic::QuicSocket::DataRejectedCallback
     , public HTTPSessionBase
     , public folly::EventBase::LoopCallback {
 
@@ -225,6 +228,10 @@ class HQSession
   void onConnectionWriteError(
       std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
           error) noexcept override;
+
+  void onDataExpired(quic::StreamId id, uint64_t offset) noexcept override;
+
+  void onDataRejected(quic::StreamId id, uint64_t offset) noexcept override;
 
   // Only for UpstreamSession
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
@@ -451,6 +458,13 @@ class HQSession
     return sock_ && sock_->good() ? sock_->getPeerAddress() : peerAddr_;
   }
 
+  void setPartiallyReliableCallbacks(quic::StreamId id);
+
+  bool isPartialReliabilityEnabled() const noexcept {
+    CHECK(versionUtils_) << ": versionUtils is not set";
+    return versionUtils_->isPartialReliabilityEnabled();
+  }
+
  protected:
   /*
    * for HQ we need a read callback for unidirectional streams to read the
@@ -589,6 +603,7 @@ class HQSession
   std::shared_ptr<quic::QuicSocket> sock_;
 
  private:
+  std::unique_ptr<HTTPCodec> createStreamCodec(quic::StreamId streamId);
   HQStreamTransport* createStreamTransport(quic::StreamId streamId);
   bool createEgressControlStreams();
   HQControlStream* tryCreateIngressControlStream(quic::StreamId id,
@@ -907,8 +922,16 @@ class HQSession
 
     // Process data from QUIC onDataAvailable callback.
     void processPeekData(
-        const folly::Range<quic::QuicSocket::PeekIterator>& /* peekData */) {
-    }
+        const folly::Range<quic::QuicSocket::PeekIterator>& peekData);
+
+    // Process QUIC onDataExpired callback.
+    void processDataExpired(uint64_t streamOffset);
+
+    // Process QUIC onDataRejected callback.
+    void processDataRejected(uint64_t streamOffset);
+
+    // Helper to handle ingress skip/reject offset errors.
+    void onIngressSkipRejectError(hq::UnframedBodyOffsetTrackerError error);
 
     // HTTPCodec::Callback methods
     void onMessageBegin(HTTPCodec::StreamID streamID,
@@ -938,6 +961,9 @@ class HQSession
       auto len = chain->computeChainDataLength();
       session_.onBodyImpl(std::move(chain), len, padding, &txn_);
     }
+
+    void onUnframedBodyStarted(HTTPCodec::StreamID streamID,
+                               uint64_t streamOffset) override;
 
     void onChunkHeader(HTTPCodec::StreamID /* stream */,
                        size_t length) override {
@@ -1234,6 +1260,18 @@ class HQSession
 
     void generateGoaway();
 
+    // Partially reliable transport methods.
+    folly::Expected<folly::Unit, ErrorCode> peek(
+        HTTPTransaction::PeekCallback peekCallback) override;
+
+    folly::Expected<folly::Unit, ErrorCode> consume(size_t amount) override;
+
+    folly::Expected<folly::Optional<uint64_t>, ErrorCode> skipBodyTo(
+        HTTPTransaction* txn, uint64_t nextBodyOffset) override;
+
+    folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
+        HTTPTransaction* txn, uint64_t nextBodyOffset) override;
+
     /**
      * Returns whether or no we have any body bytes buffered in the stream, or
      * the txn has any body bytes buffered.
@@ -1356,7 +1394,7 @@ class HQSession
       session_.txnEgressQueue_.addPriorityNode(id, parent);
     }
 
-    uint64_t streamByteOffset() const {
+    uint64_t streamWriteByteOffset() const {
       return bytesWritten_ + writeBuf_.chainLength();
     }
 
@@ -1561,6 +1599,27 @@ class HQSession
     }
     virtual void setHeaderCodecStats(HeaderCodec::Stats*) {
     }
+    virtual bool isPartialReliabilityEnabled() const noexcept = 0;
+    virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onIngressPeekDataAvailable(uint64_t /* streamOffset */) {
+      LOG(FATAL) << ": called in base class";
+    }
+    virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onIngressDataExpired(uint64_t /* streamOffset */) {
+      LOG(FATAL) << ": called in base class";
+    }
+    virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onIngressDataRejected(uint64_t /* streamOffset */) {
+      LOG(FATAL) << ": called in base classn";
+    }
+    virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onEgressBodySkip(uint64_t /* bodyOffset */) {
+      LOG(FATAL) << ": called in base class";
+    }
+    virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onEgressBodyReject(uint64_t /* bodyOffset */) {
+      LOG(FATAL) << ": called in base class";
+    }
 
     HQSession& session_;
   };
@@ -1614,6 +1673,10 @@ class HQSession
     }
 
     void abortStream(quic::StreamId /*id*/) override {
+    }
+
+    bool isPartialReliabilityEnabled() const noexcept override {
+      return false;
     }
   };
 
@@ -1677,8 +1740,28 @@ class HQSession
       qpackCodec_.setStats(stats);
     }
 
+    bool isPartialReliabilityEnabled() const noexcept override {
+      return session_.sock_ && session_.sock_->isPartiallyReliableTransport();
+    }
+
+    folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onIngressPeekDataAvailable(uint64_t streamOffset) override;
+
+    folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onIngressDataExpired(uint64_t streamOffset) override;
+
+    folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onIngressDataRejected(uint64_t streamOffset) override;
+
+    folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onEgressBodySkip(uint64_t bodyOffset) override;
+
+    folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+    onEgressBodyReject(uint64_t bodyOffset) override;
+
    private:
     QPACKCodec qpackCodec_;
+    hq::HQStreamCodec* hqStreamCodecPtr_{nullptr};
   };
 
   class H1QFBV2VersionUtils : public H1QFBV1VersionUtils {
@@ -1719,6 +1802,10 @@ class HQSession
     }
 
     void checkSendingGoaway(const HTTPMessage& /*msg*/) override {
+    }
+
+    bool isPartialReliabilityEnabled() const noexcept override {
+      return false;
     }
   };
 

@@ -29,16 +29,26 @@ constexpr unsigned int kTransactionTimeout = 500;
 constexpr unsigned int kConnectTimeout = 500;
 constexpr size_t kQPACKTestDecoderMaxTableSize = 2048;
 
+constexpr uint8_t PR_BODY = 0;
+constexpr uint8_t PR_SKIP = 1;
+
+struct PartiallyReliableTestParams {
+  std::vector<uint8_t> bodyScript;
+};
+
 struct TestParams {
   std::string alpn_;
   bool shouldSendSettings_{true};
   uint64_t unidirectionalStreamsCredit = 3;
+  folly::Optional<PartiallyReliableTestParams> prParams;
 };
+
+std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript);
 
 std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info);
 
 size_t generateStreamPreface(folly::IOBufQueue& writeBuf,
-                             proxygen::hq::UnidirectionalStreamType type);
+                                   proxygen::hq::UnidirectionalStreamType type);
 
 folly::Optional<std::pair<proxygen::hq::UnidirectionalStreamType, size_t>>
 parseStreamPreface(folly::io::Cursor cursor, std::string alpn);
@@ -93,11 +103,12 @@ class HQSessionTest
     socketDriver_ = std::make_unique<quic::MockQuicSocketDriver>(
         &eventBase_,
         *hqSession_,
-        nullptr,
-        nullptr,
+        hqSession_,
+        hqSession_,
         direction_ == proxygen::TransportDirection::DOWNSTREAM
             ? quic::MockQuicSocketDriver::TransportEnum::SERVER
-            : quic::MockQuicSocketDriver::TransportEnum::CLIENT);
+            : quic::MockQuicSocketDriver::TransportEnum::CLIENT,
+        GetParam().prParams.hasValue());
 
     hqSession_->setSocket(socketDriver_->getSocket());
 

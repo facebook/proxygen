@@ -10,7 +10,6 @@
 #include <proxygen/lib/http/session/HQSession.h>
 
 #include <proxygen/lib/http/codec/HQControlCodec.h>
-#include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
@@ -80,6 +79,12 @@ void HQSession::setSessionStats(HTTPSessionStats* stats) {
   for (auto& it : streams_) {
     it.second.byteEventTracker_.setTTLBAStats(stats);
   }
+}
+
+void HQSession::setPartiallyReliableCallbacks(quic::StreamId id) {
+  sock_->setPeekCallback(id, this);
+  sock_->setDataExpiredCallback(id, this);
+  sock_->setDataRejectedCallback(id, this);
 }
 
 void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
@@ -860,6 +865,36 @@ void HQSession::HQVersionUtils::readDataProcessed() {
   }
 }
 
+folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+HQSession::HQVersionUtils::onIngressPeekDataAvailable(uint64_t streamOffset) {
+  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  return hqStreamCodecPtr_->onIngressDataAvailable(streamOffset);
+}
+
+folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+HQSession::HQVersionUtils::onIngressDataExpired(uint64_t streamOffset) {
+  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  return hqStreamCodecPtr_->onIngressDataExpired(streamOffset);
+}
+
+folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+HQSession::HQVersionUtils::onIngressDataRejected(uint64_t streamOffset) {
+  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  return hqStreamCodecPtr_->onIngressDataRejected(streamOffset);
+}
+
+folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+HQSession::HQVersionUtils::onEgressBodySkip(uint64_t bodyOffset) {
+  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  return hqStreamCodecPtr_->onEgressBodySkip(bodyOffset);
+}
+
+folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
+HQSession::HQVersionUtils::onEgressBodyReject(uint64_t bodyOffset) {
+  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  return hqStreamCodecPtr_->onEgressBodyReject(bodyOffset);
+}
+
 void HQSession::scheduleWrite() {
   // always call for the whole connection and iterate trough all the streams
   // in onWriteReady
@@ -956,6 +991,28 @@ void HQSession::readError(
         errorOnTransactionId(id, std::move(ex));
       });
   // clang-format on
+}
+
+void HQSession::onDataExpired(quic::StreamId id, uint64_t offset) noexcept {
+  auto hqStream = findNonDetachedStream(id);
+  if (!hqStream) {
+    if (streams_.find(id) != streams_.end()) {
+      LOG(ERROR) << __func__ << " event received for detached stream " << id;
+    }
+    return;
+  }
+  hqStream->processDataExpired(offset);
+}
+
+void HQSession::onDataRejected(quic::StreamId id, uint64_t offset) noexcept {
+  auto hqStream = findNonDetachedStream(id);
+  if (!hqStream) {
+    if (streams_.find(id) != streams_.end()) {
+      LOG(ERROR) << __func__ << " event received for detached stream " << id;
+    }
+    return;
+  }
+  hqStream->processDataRejected(offset);
 }
 
 void HQSession::timeoutExpired() noexcept {
@@ -1868,7 +1925,7 @@ HQSession::createStreamTransport(quic::StreamId streamId) {
           std::move(codec),
           WheelTimerInstance(transactionsTimeout_, getEventBase()),
           nullptr //   HTTPSessionStats* sessionStats_
-          ));
+        ));
   incrementSeqNo();
 
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
@@ -1895,7 +1952,7 @@ std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
   auto QPACKDecoderStream =
       session_.findControlStream(UnidirectionalStreamType::QPACK_DECODER);
   DCHECK(QPACKDecoderStream);
-  return std::make_unique<hq::HQStreamCodec>(
+  auto codec = std::make_unique<hq::HQStreamCodec>(
       streamId,
       session_.direction_,
       qpackCodec_,
@@ -1913,7 +1970,9 @@ std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
       },
       session_.egressSettings_,
       session_.ingressSettings_,
-      false);
+      session_.isPartialReliabilityEnabled());
+    hqStreamCodecPtr_ = codec.get();
+    return std::move(codec);
 }
 
 void HQSession::H1QFBV1VersionUtils::sendGoawayOnRequestStream(
@@ -2059,6 +2118,11 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
   CHECK(it != streams_.end());
   if (sock_) {
     sock_->setReadCallback(streamId, nullptr);
+    if (isPartialReliabilityEnabled()) {
+      sock_->setPeekCallback(streamId, nullptr);
+      sock_->setDataExpiredCallback(streamId, nullptr);
+      sock_->setDataRejectedCallback(streamId, nullptr);
+    }
   }
   streams_.erase(it);
   if (streams_.empty()) {
@@ -2121,6 +2185,67 @@ bool HQSession::HQStreamTransportBase::processReadData() {
     abortIngress();
   }
   return (readBuf_.chainLength() > 0);
+}
+
+void HQSession::HQStreamTransportBase::processPeekData(
+    const folly::Range<quic::QuicSocket::PeekIterator>& peekData) {
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  for (auto& item : peekData) {
+    auto streamOffset = item.offset;
+    const auto& chain = item.data;
+    auto bodyOffset =
+        session_.versionUtils_->onIngressPeekDataAvailable(streamOffset);
+    if (bodyOffset.hasError()) {
+      if (bodyOffset.error() != UnframedBodyOffsetTrackerError::NO_ERROR) {
+        LOG(ERROR) << __func__ << ": " << bodyOffset.error();
+      }
+    } else {
+      txn_.onIngressBodyPeek(*bodyOffset, chain);
+    }
+  }
+}
+
+void HQSession::HQStreamTransportBase::onIngressSkipRejectError(
+    hq::UnframedBodyOffsetTrackerError error) {
+  // These offset errors mean that the peer miscalculating/using wrong
+  // body/stream offsets, so we error out and kill the whole transaction.
+  //
+  // This will raise error on transaction handler, abort the stream and send
+  // STOP_SENDING/RST_STREAM to the peer.
+  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+                   toString(error));
+  ex.setCodecStatusCode(ErrorCode::_HTTP3_PR_INVALID_OFFSET);
+  errorOnTransaction(std::move(ex));
+}
+
+void HQSession::HQStreamTransportBase::processDataExpired(
+    uint64_t streamOffset) {
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  auto bodyOffset = session_.versionUtils_->onIngressDataExpired(streamOffset);
+  if (bodyOffset.hasError()) {
+    LOG(ERROR) << __func__ << ": " << bodyOffset.error();
+    onIngressSkipRejectError(bodyOffset.error());
+  } else {
+    txn_.onIngressBodySkipped(*bodyOffset);
+  }
+}
+
+void HQSession::HQStreamTransportBase::processDataRejected(
+    uint64_t streamOffset) {
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  auto bodyOffset = session_.versionUtils_->onIngressDataRejected(streamOffset);
+  if (bodyOffset.hasError()) {
+    LOG(ERROR) << __func__ << ": " << bodyOffset.error();
+    onIngressSkipRejectError(bodyOffset.error());
+  } else {
+    txn_.onIngressBodyRejected(*bodyOffset);
+  }
 }
 
 void HQSession::HQStreamTransportBase::onHeadersComplete(
@@ -2247,7 +2372,7 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
     session_.versionUtils_->checkSendingGoaway(headers);
   }
 
-  const uint64_t oldOffset = streamByteOffset();
+  const uint64_t oldOffset = streamWriteByteOffset();
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
   if (headers.isRequest() && txn->getAssocTxnId()) {
@@ -2261,7 +2386,7 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
     codecFilterChain->generateHeader(
         writeBuf_, *codecStreamId_, headers, includeEOM, size);
   }
-  const uint64_t newOffset = streamByteOffset();
+  const uint64_t newOffset = streamWriteByteOffset();
   if (size) {
     VLOG(3) << "sending headers, size=" << size->compressed
             << ", uncompressedSize=" << size->uncompressed << " txn=" << txn_;
@@ -2279,7 +2404,7 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
     session_.handleLastByteEvents(&byteEventTracker_,
                                   &txn_,
                                   newOffset - oldOffset,
-                                  streamByteOffset(),
+                                  streamWriteByteOffset(),
                                   true);
   }
   pendingEOM_ = includeEOM;
@@ -2298,6 +2423,16 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
                     "eom",
                     getStreamId(),
                     (uint64_t)timeDiff.count());
+  }
+
+  // If partial reliability is enabled, enable the callbacks.
+  if (session_.isPartialReliabilityEnabled() && headers.isPartiallyReliable()) {
+    // For requests, enable right away.
+    // For responses, enable only if response code is >= 200.
+    if (headers.isRequest() ||
+        (headers.isResponse() && headers.getStatusCode() >= 200)) {
+      session_.setPartiallyReliableCallbacks(*codecStreamId_);
+    }
   }
 }
 
@@ -2321,16 +2456,14 @@ size_t HQSession::HQStreamTransportBase::sendEOM(
   // handleLastByteEvents, since we're going to add a last byte event anyways.
   // This safely keeps the txn open until we egress the FIN to the transport.
   // At that point, the deliveryCallback should also be registered.
-  // Note: even if the byteEventTracker_ is already at streamByteOffset(),
+  // Note: even if the byteEventTracker_ is already at streamWriteByteOffset(),
   // it is still invoked with the same offset after egressing the FIN.
   bool pretendPiggybacked = (encodedSize == 0);
-  session_.handleLastByteEvents(&byteEventTracker_,
-                                &txn_,
-                                encodedSize,
-                                streamByteOffset(),
-                                pretendPiggybacked);
+  session_.handleLastByteEvents(
+      &byteEventTracker_, &txn_, encodedSize, streamWriteByteOffset(),
+      pretendPiggybacked);
   if (pretendPiggybacked) {
-    byteEventTracker_.addLastByteEvent(txn, streamByteOffset());
+    byteEventTracker_.addLastByteEvent(txn, streamWriteByteOffset());
   }
   // For H1 without chunked transfer-encoding, generateEOM is a no-op
   // We need to make sure writeChain(eom=true) gets called
@@ -2501,7 +2634,8 @@ size_t HQSession::HQStreamTransportBase::sendBody(
   VLOG(4) << __func__ << " len=" << body->computeChainDataLength()
           << " eof=" << includeEOM << " txn=" << txn_;
   DCHECK(txn == &txn_);
-  uint64_t offset = streamByteOffset();
+  uint64_t offset = streamWriteByteOffset();
+
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
   size_t encodedSize = codecFilterChain->generateBody(writeBuf_,
@@ -2515,7 +2649,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
 
   if (includeEOM) {
     session_.handleLastByteEvents(
-        &byteEventTracker_, &txn_, encodedSize, streamByteOffset(), true);
+        &byteEventTracker_, &txn_, encodedSize, streamWriteByteOffset(), true);
     VLOG(3) << "sending EOM in body for streamID=" << getStreamId()
             << " txn=" << txn_;
     pendingEOM_ = true;
@@ -2563,6 +2697,111 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
   // NOTE: for H2 this is where we create a new stream and transaction.
   // for HQ there is nothing to do here, except caching the codec streamID
   codecStreamId_ = streamID;
+}
+
+// Partially reliable transport callbacks.
+
+void HQSession::HQStreamTransportBase::onUnframedBodyStarted(
+    HTTPCodec::StreamID streamID, uint64_t /* streamOffset */) {
+  CHECK(session_.isPartialReliabilityEnabled())
+      << ": received " << __func__ << " but partial reliability is not enabled";
+  session_.setPartiallyReliableCallbacks(streamID);
+}
+
+folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(
+    HTTPTransaction::PeekCallback peekCallback) {
+  if (!codecStreamId_) {
+    LOG(ERROR) << __func__ << ": codec streamId is not set yet";
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  auto cb = [&](quic::StreamId streamId,
+                const folly::Range<quic::QuicSocket::PeekIterator>& range) {
+    for (const auto& entry : range) {
+      peekCallback(streamId, entry.offset, entry.data);
+    }
+  };
+  auto res = session_.sock_->peek(*codecStreamId_, std::move(cb));
+  if (res.hasError()) {
+    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
+  }
+  return folly::unit;
+}
+
+folly::Expected<folly::Unit, ErrorCode>
+HQSession::HQStreamTransportBase::consume(size_t amount) {
+  if (!codecStreamId_) {
+    LOG(ERROR) << __func__ << ": codec streamId is not set yet";
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  auto res = session_.sock_->consume(*codecStreamId_, amount);
+  if (res.hasError()) {
+    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
+  }
+  return folly::unit;
+}
+
+folly::Expected<folly::Optional<uint64_t>, ErrorCode>
+HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
+                                             uint64_t nextBodyOffset) {
+  DCHECK(txn == &txn_);
+  if (!session_.isPartialReliabilityEnabled()) {
+    LOG(ERROR) << __func__
+               << ": partially reliable operations are not supported";
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  auto streamOffset = session_.versionUtils_->onEgressBodySkip(nextBodyOffset);
+  if (streamOffset.hasError()) {
+    LOG(ERROR) << __func__ << ": " << streamOffset.error();
+    HTTPException ex(HTTPException::Direction::EGRESS,
+                     "failed to send a skip");
+    errorOnTransaction(std::move(ex));
+    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
+  }
+
+  CHECK(codecStreamId_) << "codecStreamId_ is not set";
+  auto res = session_.sock_->sendDataExpired(*codecStreamId_, *streamOffset);
+  if (res.hasValue()) {
+    return *res;
+  } else {
+    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
+  }
+}
+
+folly::Expected<folly::Optional<uint64_t>, ErrorCode>
+HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
+                                               uint64_t nextBodyOffset) {
+  VLOG(3) << __func__ << " txn=" << txn_;
+  DCHECK(txn == &txn_);
+  if (!session_.isPartialReliabilityEnabled()) {
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  auto streamOffset =
+      session_.versionUtils_->onEgressBodyReject(nextBodyOffset);
+  if (streamOffset.hasError()) {
+    LOG(ERROR) << __func__ << ": " << streamOffset.error();
+    HTTPException ex(HTTPException::Direction::EGRESS,
+                     "failed to send a reject");
+    errorOnTransaction(std::move(ex));
+    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
+  }
+
+  CHECK(codecStreamId_) << "codecStreamId_ is not set";
+  auto res = session_.sock_->sendDataRejected(*codecStreamId_, *streamOffset);
+  if (res.hasValue()) {
+    return *res;
+  } else {
+    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, const HQSession& session) {

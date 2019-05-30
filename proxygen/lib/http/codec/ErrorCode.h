@@ -41,6 +41,8 @@ enum class ErrorCode: uint8_t {
   // This code is *NOT* to be used outside of SPDYCodec. Delete this
   // when we deprecate SPDY.
   _SPDY_INVALID_STREAM = 100,
+  // Partially reliable bad offset code.
+  _HTTP3_PR_INVALID_OFFSET = 200,
 };
 
 extern const uint8_t kMaxErrorCode;

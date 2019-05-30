@@ -67,9 +67,27 @@ size_t generateStreamPreface(folly::IOBufQueue& writeBuf,
   return bytesWritten;
 }
 
+std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript) {
+  std::vector<std::string> paramsV;
+  for (const auto& item : bodyScript) {
+    if (item == PR_SKIP) {
+      paramsV.push_back("S"); // skip
+    } else {
+      paramsV.push_back("B"); // body
+    }
+  }
+  return folly::join("_", paramsV);
+}
+
 std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info) {
   std::vector<std::string> paramsV;
   folly::split("-", info.param.alpn_, paramsV);
+  if (info.param.prParams) {
+    paramsV.push_back("PR");
+    if (info.param.prParams->bodyScript.size()) {
+      paramsV.push_back(prBodyScriptToName(info.param.prParams->bodyScript));
+    }
+  }
   return folly::join("", paramsV);
 }
 

@@ -56,7 +56,7 @@ class HQUpstreamSessionTest : public HQSessionTest {
                   [] { return std::numeric_limits<uint64_t>::max(); },
                   egressSettings_,
                   ingressSettings_,
-                  false)};
+                  GetParam().prParams.hasValue())};
     } else {
       auto codec =
           std::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM, true);
@@ -85,6 +85,68 @@ class HQUpstreamSessionTest : public HQSessionTest {
       stream.codec->generateBody(
           stream.buf, stream.codecId, std::move(body), folly::none, eom);
     }
+  }
+
+  void startPartialResponse(quic::StreamId id,
+                    const HTTPMessage& resp,
+                    std::unique_ptr<folly::IOBuf> body = nullptr) {
+    auto c = makeCodec(id);
+    auto res =
+        streams_.emplace(std::piecewise_construct,
+                         std::forward_as_tuple(id),
+                         std::forward_as_tuple(c.first, std::move(c.second)));
+    auto& stream = res.first->second;
+    stream.readEOF = false;
+
+    const uint64_t frameHeaderSize = 2;
+    HTTPHeaderSize headerSize;
+    stream.codec->generateHeader(
+        stream.buf, stream.codecId, resp, false, &headerSize);
+    socketDriver_->streams_[id].writeBufOffset +=
+        (2 * frameHeaderSize) + headerSize.compressed;
+
+    if (body) {
+      socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
+          stream.buf, stream.codecId, std::move(body), folly::none, false);
+    }
+  }
+
+  void sendPartialBody(quic::StreamId id,
+                    std::unique_ptr<folly::IOBuf> body,
+                    bool eom = true) {
+    auto it = streams_.find(id);
+    CHECK(it != streams_.end());
+    auto& stream = it->second;
+
+    stream.readEOF = eom;
+    if (body) {
+      socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
+          stream.buf, stream.codecId, std::move(body), folly::none, eom);
+    }
+  }
+
+  void peerSendDataExpired(quic::StreamId id, uint64_t streamOffset) {
+    auto it = streams_.find(id);
+    CHECK(it != streams_.end());
+    auto& stream = it->second;
+
+    HQStreamCodec* hqStreamCodec = (HQStreamCodec*)stream.codec.get();
+    hqStreamCodec->onEgressBodySkip(streamOffset);
+  }
+
+  void peerReceiveDataRejected(quic::StreamId id, uint64_t streamOffset) {
+    auto it = streams_.find(id);
+    CHECK(it != streams_.end());
+    auto& stream = it->second;
+
+    HQStreamCodec* hqStreamCodec = (HQStreamCodec*)stream.codec.get();
+    hqStreamCodec->onIngressDataRejected(streamOffset);
+  }
+
+  quic::StreamId nextUnidirectionalStreamId() {
+    auto id = nextUnidirectionalStreamId_;
+    nextUnidirectionalStreamId_ += 4;
+    return id;
   }
 
   void SetUp() override {
@@ -151,17 +213,28 @@ class HQUpstreamSessionTest : public HQSessionTest {
     socketDriver_->addReadEvent(connControlStreamId_, writeBuf.move(), delay);
   }
 
-  std::unique_ptr<StrictMock<MockHTTPHandler>> openTransaction(
+  template <class HandlerType>
+  std::unique_ptr<StrictMock<HandlerType>> openTransactionBase(
       bool expectStartPaused = false) {
     // Returns a mock handler with txn_ field set in it
-    auto handler = std::make_unique<StrictMock<MockHTTPHandler>>();
+    auto handler = std::make_unique<StrictMock<HandlerType>>();
     handler->expectTransaction();
     if (expectStartPaused) {
       handler->expectEgressPaused();
     }
-    auto txn = hqSession_->newTransaction(handler.get());
+    HTTPTransaction* txn = hqSession_->newTransaction(handler.get());
     EXPECT_EQ(txn, handler->txn_);
     return handler;
+  }
+
+  std::unique_ptr<StrictMock<MockHTTPHandler>>
+  openTransaction() {
+    return openTransactionBase<MockHTTPHandler>();
+  }
+
+  std::unique_ptr<StrictMock<MockHqPrUpstreamHTTPHandler>>
+  openPrTransaction() {
+    return openTransactionBase<MockHqPrUpstreamHTTPHandler>();
   }
 
   void flushAndLoop(
@@ -248,6 +321,10 @@ using HQUpstreamSessionTestH1qv2 = HQUpstreamSessionTest;
 using HQUpstreamSessionTestH1qv2HQ = HQUpstreamSessionTest;
 // Use this test class for hq only tests
 using HQUpstreamSessionTestHQ = HQUpstreamSessionTest;
+// Use this test class for hq PR general tests
+using HQUpstreamSessionTestHQPR = HQUpstreamSessionTest;
+// Use this test class for hq PR scripted recv tests
+using HQUpstreamSessionTestHQPRRecvBodyScripted = HQUpstreamSessionTest;
 
 TEST_P(HQUpstreamSessionTest, SimpleGet) {
   auto handler = openTransaction();
@@ -774,12 +851,18 @@ TEST_P(HQUpstreamSessionTestH1qv1, TestConnectionClose) {
  */
 
 // Make sure all the tests keep working with all the supported protocol versions
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTest,
-                        Values(TestParams({.alpn_ = "h1q-fb"}),
-                               TestParams({.alpn_ = "h1q-fb-v2"}),
-                               TestParams({.alpn_ = "h3"})),
-                        paramsToTestName);
+INSTANTIATE_TEST_CASE_P(
+    HQUpstreamSessionTest,
+    HQUpstreamSessionTest,
+    Values(TestParams({.alpn_ = "h1q-fb"}),
+           TestParams({.alpn_ = "h1q-fb-v2"}),
+           TestParams({.alpn_ = "h3"}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(),
+                           }})),
+    paramsToTestName);
 
 // Instantiate h1 only tests
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
@@ -808,7 +891,291 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         paramsToTestName);
 
 // Instantiate hq only tests
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestHQ,
-                        Values(TestParams({.alpn_ = "h3"})),
-                        paramsToTestName);
+INSTANTIATE_TEST_CASE_P(
+    HQUpstreamSessionTest,
+    HQUpstreamSessionTestHQ,
+    Values(TestParams({.alpn_ = "h3"}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(),
+                           }})),
+    paramsToTestName);
+
+INSTANTIATE_TEST_CASE_P(
+    HQUpstreamSessionTest,
+    HQUpstreamSessionTestHQPRRecvBodyScripted,
+    Values(
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>({PR_BODY}),
+                        }}),
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>({PR_SKIP}),
+                        }}),
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>(
+                                {PR_BODY, PR_SKIP, PR_BODY}),
+                        }}),
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>(
+                                {PR_SKIP, PR_BODY, PR_SKIP}),
+                        }}),
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>({PR_BODY,
+                                                                PR_BODY,
+                                                                PR_SKIP,
+                                                                PR_BODY}),
+                        }}),
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>({PR_SKIP,
+                                                                PR_SKIP,
+                                                                PR_BODY,
+                                                                PR_SKIP}),
+                        }}),
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>({PR_SKIP,
+                                                                PR_SKIP}),
+                        }}),
+        TestParams({.alpn_ = "h3",
+                    .prParams =
+                        PartiallyReliableTestParams{
+                            .bodyScript = std::vector<uint8_t>({PR_BODY,
+                                                                PR_BODY}),
+                        }})),
+    paramsToTestName);
+
+TEST_P(HQUpstreamSessionTestHQPRRecvBodyScripted, GetPrBodyScriptedExpire) {
+  InSequence enforceOrder;
+
+  const auto& bodyScript = GetParam().prParams->bodyScript;
+
+  // Start a transaction and send headers only.
+  auto handler = openPrTransaction();
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  handler->txn_->sendHeaders(req);
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  auto resp = makeResponse(200, 0);
+  auto& response = std::get<0>(resp);
+  response->setPartiallyReliable();
+
+  uint64_t delta = 42;
+  size_t responseLen = delta * bodyScript.size();
+
+  response->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                             folly::to<std::string>(responseLen));
+
+  auto streamId = handler->txn_->getID();
+  startPartialResponse(streamId, *std::get<0>(resp));
+  flushAndLoopN(1);
+
+  uint64_t expectedStreamOffset = 0;
+  uint64_t bodyBytesProcessed = 0;
+  size_t c = 0;
+
+  for (const auto& item : bodyScript) {
+    bool eom = c == bodyScript.size() - 1;
+    switch (item) {
+      case PR_BODY:
+        // Send <delta> bytes of the body.
+        handler->expectBodyPeek(
+            [&](uint64_t offset, const folly::IOBufQueue& /* chain */) {
+              EXPECT_EQ(offset, bodyBytesProcessed);
+            });
+        EXPECT_CALL(*handler, onBodyWithOffset(bodyBytesProcessed, testing::_));
+        if (eom) {
+          handler->expectEOM();
+          handler->expectDetachTransaction();
+        }
+        sendPartialBody(streamId, makeBuf(delta), eom);
+        break;
+      case PR_SKIP:
+        // Expected offset on the wire.
+        expectedStreamOffset = socketDriver_->streams_[streamId].readOffset;
+
+        // Skip <delta> bytes of the body.
+        handler->expectBodySkipped([&](uint64_t offset) {
+          EXPECT_EQ(offset, bodyBytesProcessed + delta);
+        });
+        socketDriver_->deliverDataExpired(streamId,
+                                          expectedStreamOffset + delta);
+        if (eom) {
+          handler->expectEOM();
+          handler->expectDetachTransaction();
+        }
+
+        // Pass data expire through server codec to keep state in tact.
+        peerSendDataExpired(streamId, expectedStreamOffset + delta);
+
+        if (eom) {
+          sendPartialBody(streamId, nullptr, true);
+        }
+        break;
+      default:
+        CHECK(false) << "Unknown PR body script item: " << item;
+    }
+
+    if (eom) {
+      flushAndLoop();
+    } else {
+      flushAndLoopN(1);
+    }
+
+    Mock::VerifyAndClearExpectations(handler.get());
+
+    bodyBytesProcessed += delta;
+    c++;
+  }
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTestHQPRRecvBodyScripted, GetPrBodyScriptedReject) {
+  InSequence enforceOrder;
+
+  const auto& bodyScript = GetParam().prParams->bodyScript;
+
+  // Start a transaction and send headers only.
+  auto handler = openPrTransaction();
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  handler->txn_->sendHeaders(req);
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  auto resp = makeResponse(200, 0);
+  auto& response = std::get<0>(resp);
+  response->setPartiallyReliable();
+
+  uint64_t delta = 42;
+  size_t responseLen = delta * bodyScript.size();
+
+  response->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                             folly::to<std::string>(responseLen));
+
+  auto streamId = handler->txn_->getID();
+  startPartialResponse(streamId, *std::get<0>(resp));
+  flushAndLoopN(1);
+
+  folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectRes;
+  uint64_t bodyBytesProcessed = 0;
+  uint64_t oldReadOffset = 0;
+  size_t c = 0;
+
+  for (const auto& item : bodyScript) {
+    bool eom = c == bodyScript.size() - 1;
+    switch (item) {
+      case PR_BODY:
+        // Send <delta> bytes of the body.
+        handler->expectBodyPeek(
+            [&](uint64_t offset, const folly::IOBufQueue& /* chain */) {
+              EXPECT_EQ(offset, bodyBytesProcessed);
+            });
+        EXPECT_CALL(*handler, onBodyWithOffset(bodyBytesProcessed, testing::_));
+        if (eom) {
+          handler->expectEOM();
+          handler->expectDetachTransaction();
+        }
+        sendPartialBody(streamId, makeBuf(delta), eom);
+        break;
+      case PR_SKIP:
+        // Reject first <delta> bytes.
+        oldReadOffset = socketDriver_->streams_[streamId].readOffset;
+        rejectRes = handler->txn_->rejectBodyTo(bodyBytesProcessed + delta);
+        EXPECT_FALSE(rejectRes.hasError());
+        EXPECT_EQ(socketDriver_->streams_[streamId].readOffset,
+                  oldReadOffset + delta);
+
+        // Pass data reject through server codec to keep state in tact.
+        peerReceiveDataRejected(streamId, oldReadOffset + delta);
+
+        if (eom) {
+          handler->expectEOM();
+          handler->expectDetachTransaction();
+          sendPartialBody(streamId, nullptr, true);
+        }
+        break;
+      default:
+        CHECK(false) << "Unknown PR body script item: " << item;
+    }
+
+    if (eom) {
+      flushAndLoop();
+    } else {
+      flushAndLoopN(1);
+    }
+
+    Mock::VerifyAndClearExpectations(handler.get());
+
+    bodyBytesProcessed += delta;
+    c++;
+  }
+  hqSession_->closeWhenIdle();
+}
+
+INSTANTIATE_TEST_CASE_P(
+    HQUpstreamSessionTest,
+    HQUpstreamSessionTestHQPR,
+    Values(TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(),
+                           }})),
+    paramsToTestName);
+
+TEST_P(HQUpstreamSessionTestHQPR, TestWrongOffsetErrorCleanup) {
+  InSequence enforceOrder;
+
+  // Start a transaction and send headers only.
+  auto handler = openPrTransaction();
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  handler->txn_->sendHeaders(req);
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  auto resp = makeResponse(200, 0);
+  auto& response = std::get<0>(resp);
+  response->setPartiallyReliable();
+
+  const size_t responseLen = 42;
+  response->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,
+                             folly::to<std::string>(responseLen));
+
+  auto streamId = handler->txn_->getID();
+  startPartialResponse(streamId, *std::get<0>(resp));
+  flushAndLoopN(1);
+
+  handler->expectBodyPeek(
+      [&](uint64_t /* offset */, const folly::IOBufQueue& /* chain */) {});
+  EXPECT_CALL(*handler, onBodyWithOffset(testing::_, testing::_));
+  sendPartialBody(streamId, makeBuf(21), false);
+  flushAndLoopN(1);
+
+  // Give wrong offset to the session and expect transaction to abort and
+  // clean-up properly.
+  uint64_t wrongOffset = 1;
+  EXPECT_CALL(*handler, onError(_))
+      .WillOnce(Invoke([](const HTTPException& error) {
+        EXPECT_TRUE(std::string(error.what()).find("invalid offset") !=
+                    std::string::npos);
+      }));
+  handler->expectDetachTransaction();
+  hqSession_->onDataExpired(streamId, wrongOffset);
+
+  flushAndLoop();
+
+  hqSession_->closeWhenIdle();
+}

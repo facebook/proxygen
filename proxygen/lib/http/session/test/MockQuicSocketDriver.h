@@ -484,23 +484,25 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             [this]() -> bool { return partiallyReliableTransport_; }));
 
     EXPECT_CALL(*sock_, sendDataExpired(testing::_, testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [this](quic::StreamId id, uint64_t wireOffset)
-                -> folly::Expected<folly::Optional<uint64_t>, LocalErrorCode> {
+        .WillRepeatedly(
+            testing::Invoke([this](quic::StreamId id, uint64_t streamOffset)
+                                -> folly::Expected<folly::Optional<uint64_t>,
+                                                   LocalErrorCode> {
               checkNotReadOnlyStream(id);
               auto it = streams_.find(id);
               if (it == streams_.end()) {
-                return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
+                return folly::makeUnexpected(
+                    LocalErrorCode::STREAM_NOT_EXISTS);
               }
               CHECK_NE(it->second.writeState, CLOSED);
 
-              it->second.writeBufOffset = wireOffset;
-              return folly::makeExpected<LocalErrorCode>(wireOffset);
+              it->second.writeOffset = streamOffset;
+              return folly::makeExpected<LocalErrorCode>(streamOffset);
             }));
 
     EXPECT_CALL(*sock_, sendDataRejected(testing::_, testing::_))
         .WillRepeatedly(testing::Invoke(
-            [this](quic::StreamId id, uint64_t wireOffset)
+            [this](quic::StreamId id, uint64_t streamOffset)
                 -> folly::Expected<folly::Optional<uint64_t>, LocalErrorCode> {
               checkNotReadOnlyStream(id);
               auto it = streams_.find(id);
@@ -508,9 +510,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
               }
               CHECK_NE(it->second.readState, CLOSED);
-
-              it->second.readBufOffset = wireOffset;
-              return folly::makeExpected<LocalErrorCode>(wireOffset);
+              it->second.readOffset = streamOffset;
+              return folly::makeExpected<LocalErrorCode>(streamOffset);
             }));
   }
 
@@ -640,8 +641,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     }
 
     auto& stream = it->second;
-    if (offset > stream.readBufOffset) {
-      stream.readBufOffset = offset;
+    if (offset > stream.readOffset) {
+      stream.readOffset = offset;
     }
 
     CHECK(dataExpiredCb_);
@@ -655,8 +656,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     }
 
     auto& stream = it->second;
-    if (offset > stream.writeBufOffset) {
-      stream.writeBufOffset = offset;
+    if (offset > stream.writeOffset) {
+      stream.writeOffset = offset;
     }
 
     CHECK(dataRejectedCb_);
@@ -953,7 +954,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               tmpBuf->coalesce();
               stream.readBuf.append(std::move(tmpBuf));
               auto copyBuf = stream.readBuf.front()->clone();
-              copyBuf->advance(stream.readOffset);
               fakeReadBuffer.emplace_back(
                   std::move(copyBuf), stream.readOffset, false);
               stream.peekCB->onDataAvailable(
@@ -1046,7 +1046,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   void runLoopCallback() noexcept override {
     bool reschedule = false;
     for (auto& it : streams_) {
-      if (it.first != kConnectionStreamId && it.second.readState == OPEN &&
+      if (it.first != kConnectionStreamId &&
+          (it.second.readCB || it.second.peekCB) &&
+          it.second.readState == OPEN &&
           (!it.second.readBuf.empty() || it.second.readEOF)) {
         if (it.second.peekCB) {
           std::deque<StreamBuffer> fakeReadBuffer;

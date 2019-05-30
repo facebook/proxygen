@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/session/test/HQSessionTestCommon.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
+#include <proxygen/lib/http/session/test/HQSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
@@ -33,6 +34,40 @@ using namespace std::chrono;
 
 constexpr quic::StreamId kQPACKEncoderIngressStreamId = 6;
 constexpr quic::StreamId kQPACKEncoderEgressStreamId = 7;
+
+class TestTransportCallback : public HTTPTransactionTransportCallback {
+ public:
+  void firstHeaderByteFlushed() noexcept override {}
+
+  void firstByteFlushed() noexcept override {}
+
+  void lastByteFlushed() noexcept override {
+  }
+
+  void trackedByteFlushed() noexcept override {
+  }
+
+  void lastByteAcked(
+      std::chrono::milliseconds /* latency */) noexcept override {
+  }
+
+  void headerBytesGenerated(HTTPHeaderSize& size) noexcept override {
+    headerBytesGenerated_ += size.compressedBlock;
+  }
+
+  void headerBytesReceived(const HTTPHeaderSize& /* size */) noexcept override {
+  }
+
+  void bodyBytesGenerated(size_t /* nbytes */) noexcept override {
+  }
+
+  void bodyBytesReceived(size_t /* size */) noexcept override {
+  }
+
+  void lastEgressHeaderByteAcked() noexcept override {}
+
+  uint64_t headerBytesGenerated_{0};
+};
 
 class HQDownstreamSessionTest : public HQSessionTest {
  public:
@@ -149,9 +184,10 @@ class HQDownstreamSessionTest : public HQSessionTest {
     }
   }
 
-  std::unique_ptr<testing::StrictMock<MockHTTPHandler>>
-  addSimpleStrictHandler() {
-    auto handler = std::make_unique<testing::StrictMock<MockHTTPHandler>>();
+  template <class HandlerType>
+  std::unique_ptr<testing::StrictMock<HandlerType>>
+  addSimpleStrictHandlerBase() {
+    auto handler = std::make_unique<testing::StrictMock<HandlerType>>();
 
     // The ownership model here is suspect, but assume the callers won't destroy
     // handler before it's requested
@@ -164,6 +200,16 @@ class HQDownstreamSessionTest : public HQSessionTest {
         .WillOnce(testing::SaveArg<0>(&handler->txn_));
 
     return handler;
+  }
+
+  std::unique_ptr<testing::StrictMock<MockHTTPHandler>>
+  addSimpleStrictHandler() {
+    return addSimpleStrictHandlerBase<MockHTTPHandler>();
+  }
+
+  std::unique_ptr<testing::StrictMock<MockHqPrDownstreamHTTPHandler>>
+  addSimpleStrictPrHandler() {
+    return addSimpleStrictHandlerBase<MockHqPrDownstreamHTTPHandler>();
   }
 
   std::pair<quic::StreamId,
@@ -263,7 +309,7 @@ class HQDownstreamSessionTest : public HQSessionTest {
           [] { return std::numeric_limits<uint64_t>::max(); },
           egressSettings_,
           ingressSettings_,
-          false);
+          GetParam().prParams.hasValue());
     } else {
       return std::make_unique<HTTP1xCodec>(TransportDirection::UPSTREAM, true);
     }
@@ -308,6 +354,7 @@ class HQDownstreamSessionTest : public HQSessionTest {
   quic::StreamId nextStreamId_{0};
   quic::QuicSocket::TransportInfo transportInfo_;
   quic::QuicSocket::StreamTransportInfo streamTransInfo_;
+  TestTransportCallback transportCallback_;
 };
 
 class HQDownstreamSessionBeforeTransportReadyTest
@@ -330,6 +377,9 @@ using HQDownstreamSessionTestH1qv2 = HQDownstreamSessionTest;
 using HQDownstreamSessionTestH1qv2HQ = HQDownstreamSessionTest;
 // Use this test class for hq only tests
 using HQDownstreamSessionTestHQ = HQDownstreamSessionTest;
+// Use this test class for hq PR only tests
+using HQDownstreamSessionTestHQPR = HQDownstreamSessionTest;
+using HQDownstreamSessionTestHQPrBadOffset = HQDownstreamSessionTest;
 
 TEST_P(HQDownstreamSessionTest, SimpleGet) {
   auto idh = checkRequest();
@@ -2197,12 +2247,18 @@ TEST_P(HQDownstreamSessionTestHQ, controlStreamWriteError) {
  */
 
 // Make sure all the tests keep working with all the supported protocol versions
-INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
-                        HQDownstreamSessionTest,
-                        Values(TestParams({.alpn_ = "h1q-fb"}),
-                               TestParams({.alpn_ = "h1q-fb-v2"}),
-                               TestParams({.alpn_ = "h3"})),
-                        paramsToTestName);
+INSTANTIATE_TEST_CASE_P(
+    HQDownstreamSessionTest,
+    HQDownstreamSessionTest,
+    Values(TestParams({.alpn_ = "h1q-fb"}),
+           TestParams({.alpn_ = "h1q-fb-v2"}),
+           TestParams({.alpn_ = "h3"}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(),
+                           }})),
+    paramsToTestName);
 
 // Instantiate h1q only tests that work on all versions
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
@@ -2237,10 +2293,16 @@ INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         paramsToTestName);
 
 // Instantiate hq only tests
-INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
-                        HQDownstreamSessionTestHQ,
-                        Values(TestParams({.alpn_ = "h3"})),
-                        paramsToTestName);
+INSTANTIATE_TEST_CASE_P(
+    HQDownstreamSessionTest,
+    HQDownstreamSessionTestHQ,
+    Values(TestParams({.alpn_ = "h3"}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(),
+                           }})),
+    paramsToTestName);
 
 using DropConnectionInTransportReadyTest =
     HQDownstreamSessionBeforeTransportReadyTest;
@@ -2264,4 +2326,233 @@ TEST_P(DropConnectionInTransportReadyTest, TransportReadyFailure) {
       }));
   SetUpOnTransportReady();
   EXPECT_EQ(hqSession_->getQuicSocket(), nullptr);
+}
+
+// Instantiate hq PR only tests
+INSTANTIATE_TEST_CASE_P(
+    HQDownstreamSessionTest,
+    HQDownstreamSessionTestHQPR,
+    Values(TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>({PR_BODY}),
+                           }}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>({PR_SKIP}),
+                           }}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>({PR_BODY,
+                                                                   PR_SKIP}),
+                           }}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>({PR_SKIP,
+                                                                   PR_BODY}),
+                           }}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(
+                                   {PR_SKIP, PR_SKIP, PR_BODY, PR_SKIP}),
+                           }}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(
+                                   {PR_BODY, PR_BODY, PR_SKIP, PR_BODY}),
+                           }}),
+           TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>({PR_BODY,
+                                                                   PR_BODY,
+                                                                   PR_SKIP,
+                                                                   PR_BODY,
+                                                                   PR_SKIP,
+                                                                   PR_BODY,
+                                                                   PR_SKIP,
+                                                                   PR_SKIP}),
+                           }})),
+    paramsToTestName);
+
+TEST_P(HQDownstreamSessionTestHQPR, GetPrScriptedReject) {
+  InSequence enforceOrder;
+
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictPrHandler();
+  handler->expectHeaders();
+
+  const auto& bodyScript = GetParam().prParams->bodyScript;
+  uint64_t delta = 42;
+  size_t responseLen = delta * bodyScript.size();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendPrHeaders(200, responseLen);
+  });
+  flushRequestsAndLoopN(1);
+
+  size_t c = 0;
+  uint64_t bodyBytesProcessed = 0;
+  uint64_t streamOffset = 0;
+
+  const uint64_t startStreamOffset =
+      socketDriver_->streams_[streamId].writeOffset;
+
+  for (const auto& item : bodyScript) {
+    bool eom = c == bodyScript.size() - 1;
+
+    LOG(INFO) << "c: " << c << ", bodyBytesProcessed = " << bodyBytesProcessed;
+
+    switch (item) {
+      case PR_BODY:
+        // Send <delta> bytes of the body.
+        handler->sendBody(delta);
+        break;
+      case PR_SKIP:
+        // Reject first <delta> bytes.
+        handler->expectBodyRejected([&](uint64_t bodyOffset) {
+          EXPECT_EQ(bodyOffset, bodyBytesProcessed + delta);
+        });
+        streamOffset = startStreamOffset + bodyBytesProcessed + delta;
+        socketDriver_->deliverDataRejected(streamId, streamOffset);
+        break;
+      default:
+        CHECK(false) << "Unknown PR body script item: " << item;
+    }
+
+    if (eom) {
+      handler->sendEOM();
+      handler->expectDetachTransaction();
+      flushRequestsAndLoop();
+    } else {
+      flushRequestsAndLoopN(1);
+    }
+
+    Mock::VerifyAndClearExpectations(handler.get());
+
+    bodyBytesProcessed += delta;
+    c++;
+  }
+
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQPR, GetPrBodyScriptedExpire) {
+  InSequence enforceOrder;
+
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictPrHandler();
+  handler->expectHeaders();
+
+  const auto& bodyScript = GetParam().prParams->bodyScript;
+  uint64_t delta = 42;
+  size_t responseLen = delta * bodyScript.size();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendPrHeaders(200, responseLen);
+    handler->txn_->onLastEgressHeaderByteAcked();
+  });
+  flushRequestsAndLoopN(1);
+
+  size_t c = 0;
+  uint64_t bodyBytesProcessed = 0;
+  uint64_t oldWriteOffset = 0;
+  folly::Expected<folly::Optional<uint64_t>, ErrorCode> expireRes;
+
+  for (const auto& item : bodyScript) {
+    bool eom = c == bodyScript.size() - 1;
+
+    LOG(INFO) << "c: " << c << ", bodyBytesProcessed = " << bodyBytesProcessed;
+
+    switch (item) {
+      case PR_BODY:
+        // Send <delta> bytes of the body.
+        handler->sendBody(delta);
+        break;
+      case PR_SKIP:
+        // Expire <delta> bytes.
+        oldWriteOffset = socketDriver_->streams_[streamId].writeOffset;
+        expireRes = handler->txn_->skipBodyTo(bodyBytesProcessed + delta);
+        EXPECT_FALSE(expireRes.hasError());
+        EXPECT_EQ(socketDriver_->streams_[streamId].writeOffset,
+                  oldWriteOffset + delta);
+        break;
+      default:
+        CHECK(false) << "Unknown PR body script item: " << item;
+    }
+
+    if (eom) {
+      handler->sendEOM();
+      handler->expectDetachTransaction();
+      flushRequestsAndLoop();
+    } else {
+      flushRequestsAndLoopN(1);
+    }
+
+    Mock::VerifyAndClearExpectations(handler.get());
+
+    bodyBytesProcessed += delta;
+    c++;
+}
+
+  hqSession_->closeWhenIdle();
+}
+
+INSTANTIATE_TEST_CASE_P(
+    HQUpstreamSessionTest,
+    HQDownstreamSessionTestHQPrBadOffset,
+    Values(TestParams({.alpn_ = "h3",
+                       .prParams =
+                           PartiallyReliableTestParams{
+                               .bodyScript = std::vector<uint8_t>(),
+                           }})),
+    paramsToTestName);
+
+TEST_P(HQDownstreamSessionTestHQPrBadOffset, TestWrongOffsetErrorCleanup) {
+  InSequence enforceOrder;
+
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictPrHandler();
+  handler->expectHeaders();
+
+  const size_t responseLen = 42;
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendPrHeaders(200, responseLen);
+    handler->txn_->onLastEgressHeaderByteAcked();
+    handler->sendBody(21);
+  });
+  flushRequestsAndLoopN(1);
+
+  // Give wrong offset to the session and expect transaction to abort and
+  // clean-up properly.
+  uint64_t wrongOffset = 1;
+  EXPECT_CALL(*handler, onError(_))
+      .WillOnce(Invoke([](const HTTPException& error) {
+        EXPECT_TRUE(std::string(error.what()).find("invalid offset") !=
+                    std::string::npos);
+      }));
+  handler->expectDetachTransaction();
+  hqSession_->onDataRejected(streamId, wrongOffset);
+
+  flushRequestsAndLoop();
+
+  hqSession_->closeWhenIdle();
 }

@@ -12,6 +12,7 @@
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/session/HQSession.h>
+#include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 
 namespace proxygen {
@@ -162,5 +163,71 @@ class MockHQSession : public HQSession {
 
   HTTPCodec::StreamID lastStreamId_{1}; // streamID 0 is reserved
   HTTPTransaction::Handler* handler_;
-}; // namespace proxygen
+};
+
+class MockHqPrUpstreamHTTPHandler : public MockHTTPHandler {
+ public:
+  MockHqPrUpstreamHTTPHandler() {
+  }
+  MockHqPrUpstreamHTTPHandler(HTTPTransaction& txn,
+                              HTTPMessage* msg,
+                              const folly::SocketAddress& addr)
+      : MockHTTPHandler(txn, msg, addr) {
+  }
+
+  void sendPrHeaders(uint32_t code,
+                     uint32_t content_length,
+                     bool keepalive = true,
+                     HeaderMap headers = HeaderMap()) {
+    HTTPMessage reply;
+    reply.setStatusCode(code);
+    reply.setHTTPVersion(1, 1);
+    reply.setWantsKeepalive(keepalive);
+    reply.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH,
+                           folly::to<std::string>(content_length));
+    for (auto& nv : headers) {
+      reply.getHeaders().add(nv.first, nv.second);
+    }
+    reply.setPartiallyReliable();
+    txn_->sendHeaders(reply);
+  }
+
+  void expectBodyPeek(
+      std::function<void(uint64_t, const folly::IOBufQueue&)> callback =
+          std::function<void(uint64_t, const folly::IOBufQueue&)>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onBodyPeek(testing::_, testing::_))
+          .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onBodyPeek(testing::_, testing::_));
+    }
+  }
+
+  void expectBodySkipped(std::function<void(uint64_t)> callback =
+                             std::function<void(uint64_t)>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onBodySkipped(testing::_))
+          .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onBodySkipped(testing::_));
+    }
+  }
+
+  void expectBodyRejected(std::function<void(uint64_t)> callback =
+                              std::function<void(uint64_t)>()) {
+    if (callback) {
+      EXPECT_CALL(*this, onBodyRejected(testing::_))
+          .WillOnce(testing::Invoke(callback));
+    } else {
+      EXPECT_CALL(*this, onBodyRejected(testing::_));
+    }
+  }
+};
+
+using MockHqPrDownstreamHTTPHandler = MockHqPrUpstreamHTTPHandler;
+
+class FakeHQHTTPCodecCallback : public FakeHTTPCodecCallback {
+ public:
+};
+
 } // namespace proxygen

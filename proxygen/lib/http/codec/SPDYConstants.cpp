@@ -16,18 +16,19 @@ GoawayStatusCode errorCodeToGoaway(ErrorCode code) {
     case ErrorCode::NO_ERROR: return GOAWAY_OK;
     case ErrorCode::INTERNAL_ERROR: return GOAWAY_INTERNAL_ERROR;
     case ErrorCode::FLOW_CONTROL_ERROR: return GOAWAY_FLOW_CONTROL_ERROR;
-    case ErrorCode::PROTOCOL_ERROR:       break;
-    case ErrorCode::SETTINGS_TIMEOUT:     break;
-    case ErrorCode::STREAM_CLOSED:        break;
-    case ErrorCode::FRAME_SIZE_ERROR:     break;
-    case ErrorCode::REFUSED_STREAM:       break;
-    case ErrorCode::CANCEL:               break;
-    case ErrorCode::COMPRESSION_ERROR:    break;
-    case ErrorCode::CONNECT_ERROR:        break;
-    case ErrorCode::ENHANCE_YOUR_CALM:    break;
-    case ErrorCode::INADEQUATE_SECURITY:  break;
-    case ErrorCode::HTTP_1_1_REQUIRED:    break;
-    case ErrorCode::_SPDY_INVALID_STREAM: break;
+    case ErrorCode::PROTOCOL_ERROR:           break;
+    case ErrorCode::SETTINGS_TIMEOUT:         break;
+    case ErrorCode::STREAM_CLOSED:            break;
+    case ErrorCode::FRAME_SIZE_ERROR:         break;
+    case ErrorCode::REFUSED_STREAM:           break;
+    case ErrorCode::CANCEL:                   break;
+    case ErrorCode::COMPRESSION_ERROR:        break;
+    case ErrorCode::CONNECT_ERROR:            break;
+    case ErrorCode::ENHANCE_YOUR_CALM:        break;
+    case ErrorCode::INADEQUATE_SECURITY:      break;
+    case ErrorCode::HTTP_1_1_REQUIRED:        break;
+    case ErrorCode::_SPDY_INVALID_STREAM:     break;
+    case ErrorCode::_HTTP3_PR_INVALID_OFFSET: break;
   }
   return GOAWAY_PROTOCOL_ERROR;
 }
@@ -48,6 +49,7 @@ ResetStatusCode errorCodeToReset(ErrorCode code) {
     case ErrorCode::ENHANCE_YOUR_CALM: break;
     case ErrorCode::INADEQUATE_SECURITY: return RST_INVALID_CREDENTIALS;
     case ErrorCode::HTTP_1_1_REQUIRED: break;
+    case ErrorCode::_HTTP3_PR_INVALID_OFFSET: break;
     case ErrorCode::_SPDY_INVALID_STREAM: return RST_INVALID_STREAM;
   }
   return RST_PROTOCOL_ERROR;
