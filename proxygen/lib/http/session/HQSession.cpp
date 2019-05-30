@@ -20,6 +20,7 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 #include <boost/cast.hpp>
+#include <folly/Format.h>
 #include <folly/CppAttributes.h>
 #include <folly/ScopeGuard.h>
 #include <folly/io/IOBufQueue.h>
@@ -2123,6 +2124,13 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
       sock_->setDataExpiredCallback(streamId, nullptr);
       sock_->setDataRejectedCallback(streamId, nullptr);
     }
+    auto numActiveDeliveryCallbacks = hqStream->numActiveDeliveryCallbacks();
+    LOG_IF(DFATAL, numActiveDeliveryCallbacks > 0)
+        << __func__ << ": have pending delivery callbacks ("
+        << numActiveDeliveryCallbacks
+        << ") on the stream being detached; sess=" << *this
+        << "; txn=" << hqStream->txn_;
+    sock_->cancelDeliveryCallbacksForStream(streamId);
   }
   streams_.erase(it);
   if (streams_.empty()) {
@@ -2433,6 +2441,15 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
         (headers.isResponse() && headers.getStatusCode() >= 200)) {
       session_.setPartiallyReliableCallbacks(*codecStreamId_);
     }
+  }
+
+  if ((newOffset > 0) &&
+      (headers.isRequest() ||
+       (headers.isResponse() && headers.getStatusCode() >= 200))) {
+    // Track last egress header and notify the handler when the receiver acks
+    // the headers.
+    // We need to track last byte sent offset, so substract one here.
+    armEgressHeadersAckCb(newOffset - 1);
   }
 }
 
@@ -2802,6 +2819,76 @@ HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
   } else {
     return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
   }
+}
+
+void HQSession::HQStreamTransportBase::armEgressHeadersAckCb(
+    uint64_t streamOffset) {
+  auto res = session_.sock_->registerDeliveryCallback(
+      getEgressStreamId(), streamOffset, this);
+  if (res.hasError()) {
+
+    auto errStr = folly::sformat("failed to register delivery callback: {}",
+                                 toString(res.error()));
+    LOG(ERROR) << __func__ << ": " << errStr << "; sess=" << session_
+               << "; txn=" << txn_;
+    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, errStr);
+    errorOnTransaction(std::move(ex));
+    return;
+  }
+  numActiveDeliveryCallbacks_++;
+
+  // Increment pending byte events so the transaction won't detach until we get
+  // and ack/cancel from transport here.
+  txn_.incrementPendingByteEvents();
+
+  VLOG(3) << __func__
+          << ": registered ack callback for offset = " << streamOffset
+          << "; sess=" << session_ << "; txn=" << txn_;
+
+  egressHeadersAckOffset_ = streamOffset;
+}
+
+void HQSession::HQStreamTransportBase::onDeliveryAck(
+    quic::StreamId /* id */,
+    uint64_t offset,
+    std::chrono::microseconds /* rtt */) {
+  VLOG(3) << __func__ << ": got delivery ack for offset = " << offset
+          << "; sess=" << session_ << "; txn=" << txn_;
+
+  DCHECK_GT(numActiveDeliveryCallbacks_, 0);
+  numActiveDeliveryCallbacks_--;
+  txn_.decrementPendingByteEvents();
+
+  if (!egressHeadersAckOffset_) {
+    LOG(ERROR) << __func__
+               << ": received an unexpected onDeliveryAck event at offset "
+               << offset << "; sess=" << session_ << "; txn=" << txn_;
+    return;
+  }
+
+  // offset in callback is the last bytes
+  if (*egressHeadersAckOffset_ != offset) {
+    LOG(ERROR) << __func__
+               << ": unexpected offset for egress headers ack: expected "
+               << *egressHeadersAckOffset_ << ", received " << offset
+               << "; sess=" << session_ << "; txn=" << txn_;
+    return;
+  }
+
+  resetEgressHeadersAckOffset();
+  txn_.onLastEgressHeaderByteAcked();
+}
+
+void HQSession::HQStreamTransportBase::onCanceled(quic::StreamId id,
+                                                  uint64_t offset) {
+  VLOG(3) << __func__ << ": data cancelled on stream = " << id
+          << ", offset = " << offset << "; sess=" << session_
+          << "; txn=" << txn_;
+  DCHECK_GT(numActiveDeliveryCallbacks_, 0);
+  numActiveDeliveryCallbacks_--;
+
+  resetEgressHeadersAckOffset();
+  txn_.decrementPendingByteEvents();
 }
 
 std::ostream& operator<<(std::ostream& os, const HQSession& session) {

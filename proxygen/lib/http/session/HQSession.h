@@ -901,7 +901,8 @@ class HQSession
   class HQStreamTransportBase
       : public HQStreamBase
       , public HTTPTransaction::Transport
-      , public HTTP2PriorityQueueBase {
+      , public HTTP2PriorityQueueBase
+      , public quic::QuicSocket::DeliveryCallback {
    protected:
     HQStreamTransportBase(
         HQSession& session,
@@ -932,6 +933,13 @@ class HQSession
 
     // Helper to handle ingress skip/reject offset errors.
     void onIngressSkipRejectError(hq::UnframedBodyOffsetTrackerError error);
+
+    // QuicSocket::DeliveryCallback
+    void onDeliveryAck(quic::StreamId id,
+                       uint64_t offset,
+                       std::chrono::microseconds rtt) override;
+
+    void onCanceled(quic::StreamId id, uint64_t offset) override;
 
     // HTTPCodec::Callback methods
     void onMessageBegin(HTTPCodec::StreamID streamID,
@@ -1429,6 +1437,24 @@ class HQSession
 
     // Stream + session protocol info
     std::shared_ptr<QuicStreamProtocolInfo> quicStreamProtocolInfo_;
+
+    void armEgressHeadersAckCb(uint64_t streamOffset);
+    bool egressHeadersAckOffsetSet() const {
+      return egressHeadersAckOffset_.hasValue();
+    }
+
+    void resetEgressHeadersAckOffset() {
+      egressHeadersAckOffset_ = folly::none;
+    }
+
+    uint64_t numActiveDeliveryCallbacks() const {
+      return numActiveDeliveryCallbacks_;
+    }
+
+  private:
+    folly::Optional<uint64_t> egressHeadersAckOffset_;
+    // Track number of armed QUIC delivery callbacks.
+    uint64_t numActiveDeliveryCallbacks_{0};
   }; // HQStreamTransportBase
 
   class HQStreamTransport

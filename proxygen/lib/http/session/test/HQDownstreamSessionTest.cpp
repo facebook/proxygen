@@ -64,9 +64,12 @@ class TestTransportCallback : public HTTPTransactionTransportCallback {
   void bodyBytesReceived(size_t /* size */) noexcept override {
   }
 
-  void lastEgressHeaderByteAcked() noexcept override {}
+  void lastEgressHeaderByteAcked() noexcept override {
+    lastEgressHeadersByteDelivered_ = true;
+  }
 
   uint64_t headerBytesGenerated_{0};
+  bool lastEgressHeadersByteDelivered_{false};
 };
 
 class HQDownstreamSessionTest : public HQSessionTest {
@@ -2398,7 +2401,9 @@ TEST_P(HQDownstreamSessionTestHQPR, GetPrScriptedReject) {
     handler->txn_->setTransportCallback(&transportCallback_);
     handler->sendPrHeaders(200, responseLen);
   });
-  flushRequestsAndLoopN(1);
+  flushRequestsAndLoop();
+
+  EXPECT_TRUE(transportCallback_.lastEgressHeadersByteDelivered_);
 
   size_t c = 0;
   uint64_t bodyBytesProcessed = 0;
@@ -2463,9 +2468,10 @@ TEST_P(HQDownstreamSessionTestHQPR, GetPrBodyScriptedExpire) {
   handler->expectEOM([&]() {
     handler->txn_->setTransportCallback(&transportCallback_);
     handler->sendPrHeaders(200, responseLen);
-    handler->txn_->onLastEgressHeaderByteAcked();
   });
-  flushRequestsAndLoopN(1);
+  flushRequestsAndLoop();
+
+  EXPECT_TRUE(transportCallback_.lastEgressHeadersByteDelivered_);
 
   size_t c = 0;
   uint64_t bodyBytesProcessed = 0;
@@ -2553,6 +2559,58 @@ TEST_P(HQDownstreamSessionTestHQPrBadOffset, TestWrongOffsetErrorCleanup) {
   hqSession_->onDataRejected(streamId, wrongOffset);
 
   flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
 
+TEST_P(HQDownstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictPrHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendPrHeaders(200, 1723);
+  });
+
+  auto sock = socketDriver_->getSocket();
+
+  // This is a copy of the one in MockQuicSocketDriver, only hijacks data stream
+  // and forces an error.
+  EXPECT_CALL(*sock,
+              registerDeliveryCallback(testing::_, testing::_, testing::_))
+      .WillRepeatedly(
+          testing::Invoke([streamId, &socketDriver = socketDriver_](
+                              quic::StreamId id,
+                              uint64_t offset,
+                              MockQuicSocket::DeliveryCallback* cb)
+                              -> folly::Expected<folly::Unit, LocalErrorCode> {
+            if (id == streamId) {
+              return folly::makeUnexpected(LocalErrorCode::INVALID_OPERATION);
+            }
+
+            socketDriver->checkNotReadOnlyStream(id);
+            auto it = socketDriver->streams_.find(id);
+            if (it == socketDriver->streams_.end() ||
+                it->second.writeOffset >= offset) {
+              return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
+            }
+            CHECK_NE(it->second.writeState,
+                     MockQuicSocketDriver::StateEnum::CLOSED);
+            it->second.deliveryCallbacks.push_back({offset, cb});
+            return folly::unit;
+          }));
+
+  EXPECT_CALL(*handler, onError(_))
+      .WillOnce(Invoke([](const HTTPException& error) {
+        EXPECT_TRUE(std::string(error.what())
+                        .find("failed to register delivery callback") !=
+                    std::string::npos);
+      }));
+  handler->expectDetachTransaction();
+
+  flushRequestsAndLoop();
   hqSession_->closeWhenIdle();
 }

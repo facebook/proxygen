@@ -1005,7 +1005,7 @@ TEST_P(HQUpstreamSessionTestHQPRRecvBodyScripted, GetPrBodyScriptedExpire) {
         sendPartialBody(streamId, makeBuf(delta), eom);
         break;
       case PR_SKIP:
-        // Expected offset on the wire.
+        // Expected offset on the stream.
         expectedStreamOffset = socketDriver_->streams_[streamId].readOffset;
 
         // Skip <delta> bytes of the body.
@@ -1175,6 +1175,53 @@ TEST_P(HQUpstreamSessionTestHQPR, TestWrongOffsetErrorCleanup) {
   handler->expectDetachTransaction();
   hqSession_->onDataExpired(streamId, wrongOffset);
 
+  flushAndLoop();
+
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
+  auto handler = openPrTransaction();
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = handler->txn_->getID();
+  auto sock = socketDriver_->getSocket();
+
+  // This is a copy of the one in MockQuicSocketDriver, only hijacks data stream
+  // and forces an error.
+  EXPECT_CALL(*sock,
+              registerDeliveryCallback(testing::_, testing::_, testing::_))
+      .WillRepeatedly(
+          testing::Invoke([streamId, &socketDriver = socketDriver_](
+                              quic::StreamId id,
+                              uint64_t offset,
+                              MockQuicSocket::DeliveryCallback* cb)
+                              -> folly::Expected<folly::Unit, LocalErrorCode> {
+            if (id == streamId) {
+              return folly::makeUnexpected(LocalErrorCode::INVALID_OPERATION);
+            }
+
+            socketDriver->checkNotReadOnlyStream(id);
+            auto it = socketDriver->streams_.find(id);
+            if (it == socketDriver->streams_.end() ||
+                it->second.writeOffset >= offset) {
+              return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
+            }
+            CHECK_NE(it->second.writeState,
+                     MockQuicSocketDriver::StateEnum::CLOSED);
+            it->second.deliveryCallbacks.push_back({offset, cb});
+            return folly::unit;
+          }));
+
+  EXPECT_CALL(*handler, onError(_))
+      .WillOnce(Invoke([](const HTTPException& error) {
+        EXPECT_TRUE(std::string(error.what())
+                        .find("failed to register delivery callback") !=
+                    std::string::npos);
+      }));
+  handler->expectDetachTransaction();
+
+  handler->txn_->sendHeaders(req);
   flushAndLoop();
 
   hqSession_->closeWhenIdle();

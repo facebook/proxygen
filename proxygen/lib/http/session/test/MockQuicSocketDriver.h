@@ -821,6 +821,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   void setWriteError(StreamId streamId) {
     streams_[streamId].writeState = ERROR;
+    cancelDeliveryCallbacks(streamId, streams_[streamId]);
   }
 
   void addOnConnectionEndEvent(uint32_t millisecondsDelay) {
@@ -1010,6 +1011,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     auto& stream = streams_[streamId];
     stream.readState = CLOSED;
     stream.writeState = CLOSED;
+    cancelDeliveryCallbacks(streamId, stream);
   }
 
   void resumeWrites(StreamId streamId) {
