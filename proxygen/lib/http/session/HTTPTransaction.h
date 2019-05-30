@@ -1528,6 +1528,8 @@ class HTTPTransaction :
 
   void rateLimitTimeoutExpired();
 
+  void trimDeferredEgressBody(uint64_t bodyOffset);
+
   class RateLimitCallback : public folly::HHWheelTimer::Callback {
    public:
     explicit RateLimitCallback(HTTPTransaction& txn)

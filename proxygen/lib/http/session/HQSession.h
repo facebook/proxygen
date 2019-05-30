@@ -1280,6 +1280,8 @@ class HQSession
     folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
         HTTPTransaction* txn, uint64_t nextBodyOffset) override;
 
+    uint64_t trimPendingEgressBody(uint64_t wireOffset);
+
     /**
      * Returns whether or no we have any body bytes buffered in the stream, or
      * the txn has any body bytes buffered.

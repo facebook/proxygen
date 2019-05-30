@@ -2759,6 +2759,25 @@ HQSession::HQStreamTransportBase::consume(size_t amount) {
   return folly::unit;
 }
 
+uint64_t HQSession::HQStreamTransportBase::trimPendingEgressBody(
+    uint64_t trimOffset) {
+  if (bytesWritten_ > trimOffset) {
+    VLOG(3)
+        << __func__ << ": trim offset requested = " << trimOffset
+        << " is below bytes already committed  to the wire = " << bytesWritten_;
+    return 0;
+  }
+
+  auto trimBytes = trimOffset - bytesWritten_;
+  if (trimBytes > 0) {
+    writeBuf_.trimStartAtMost(trimBytes);
+    VLOG(3) << __func__ << ": discarding " << trimBytes
+               << " from egress buffer on stream " << getEgressStreamId();
+  }
+
+  return trimBytes;
+}
+
 folly::Expected<folly::Optional<uint64_t>, ErrorCode>
 HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
                                              uint64_t nextBodyOffset) {
@@ -2780,6 +2799,8 @@ HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
     errorOnTransaction(std::move(ex));
     return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
   }
+
+  trimPendingEgressBody(*streamOffset);
 
   CHECK(codecStreamId_) << "codecStreamId_ is not set";
   auto res = session_.sock_->sendDataExpired(*codecStreamId_, *streamOffset);

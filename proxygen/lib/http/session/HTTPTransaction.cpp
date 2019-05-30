@@ -876,7 +876,6 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
 
   if (body) {
     size_t bodyLen = body->computeChainDataLength();
-    actualResponseLength_ = actualResponseLength_.value() + bodyLen;
 
     if (chunking) {
       // Note, this check doesn't account for cases where sendBody is called
@@ -1084,6 +1083,8 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
     return 0;
   }
   updateReadTimeout();
+  actualResponseLength_ =
+      actualResponseLength_.value() + body->computeChainDataLength();
   nbytes = transport_.sendBody(this,
                                std::move(body),
                                sendEom && !trailers_,
@@ -1169,6 +1170,26 @@ void HTTPTransaction::sendAbort(ErrorCode statusCode) {
   }
 }
 
+void HTTPTransaction::trimDeferredEgressBody(uint64_t bodyOffset) {
+  CHECK(!useFlowControl_)
+      << ": trimming egress deferred body with flow control enabled";
+
+  // Current largest app offset already sent to transport.
+  auto curOffset = *actualResponseLength_;
+
+  if (bodyOffset > curOffset) {
+    // Check if we need to trim any bytes from pending egress not yet sent to
+    // the transport.
+    auto delta = bodyOffset - curOffset;
+    auto n = deferredEgressBody_.trimStartAtMost(delta);
+    VLOG(3) << __func__ << ": trimmed " << n
+            << " bytes from pending egress body";
+    if (n > 0) {
+      notifyTransportPendingEgress();
+    }
+  }
+}
+
 folly::Expected<folly::Unit, ErrorCode> HTTPTransaction::peek(
     PeekCallback peekCallback) {
   return transport_.peek(peekCallback);
@@ -1197,6 +1218,10 @@ HTTPTransaction::skipBodyTo(uint64_t nextBodyOffset) {
   if (nextBodyOffset <= actualResponseLength_.value()) {
     return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
   }
+
+  // Trim buffered egress body to nextBodyOffset.
+  trimDeferredEgressBody(nextBodyOffset);
+
   actualResponseLength_ = nextBodyOffset;
   return transport_.skipBodyTo(this, nextBodyOffset);
 }
