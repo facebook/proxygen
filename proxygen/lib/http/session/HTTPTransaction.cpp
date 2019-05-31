@@ -876,6 +876,7 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
 
   if (body) {
     size_t bodyLen = body->computeChainDataLength();
+    actualResponseLength_ = actualResponseLength_.value() + bodyLen;
 
     if (chunking) {
       // Note, this check doesn't account for cases where sendBody is called
@@ -1083,8 +1084,6 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
     return 0;
   }
   updateReadTimeout();
-  actualResponseLength_ =
-      actualResponseLength_.value() + body->computeChainDataLength();
   nbytes = transport_.sendBody(this,
                                std::move(body),
                                sendEom && !trailers_,
@@ -1174,19 +1173,16 @@ void HTTPTransaction::trimDeferredEgressBody(uint64_t bodyOffset) {
   CHECK(!useFlowControl_)
       << ": trimming egress deferred body with flow control enabled";
 
-  // Current largest app offset already sent to transport.
+  // Current largest body offset accepted from the application.
   auto curOffset = *actualResponseLength_;
 
-  if (bodyOffset > curOffset) {
-    // Check if we need to trim any bytes from pending egress not yet sent to
-    // the transport.
-    auto delta = bodyOffset - curOffset;
-    auto n = deferredEgressBody_.trimStartAtMost(delta);
-    VLOG(3) << __func__ << ": trimmed " << n
+  auto numBytesBuffered = deferredEgressBody_.chainLength();
+  if ((bodyOffset > curOffset) && (numBytesBuffered > 0)) {
+    // Trim any bytes from pending egress not yet sent to the transport.
+    // We might have anywhere from 0 to curOffset bytes buffered, trim them all.
+    deferredEgressBody_.clear();
+    VLOG(3) << __func__ << ": trimmed " << numBytesBuffered
             << " bytes from pending egress body";
-    if (n > 0) {
-      notifyTransportPendingEgress();
-    }
   }
 }
 
