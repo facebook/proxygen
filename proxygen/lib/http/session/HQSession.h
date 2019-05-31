@@ -31,6 +31,7 @@
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/http/session/ServerPushLifecycle.h>
 #include <proxygen/lib/utils/ConditionalGate.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/logging/QuicLogger.h>
@@ -137,6 +138,10 @@ class HQSession
   static constexpr uint8_t kMaxCodecStackDepth = 3;
 
  public:
+  void setServerPushLifecycleCallback(ServerPushLifecycleCallback* cb) {
+    serverPushLifecycleCb_ = cb;
+  }
+
   class ConnectCallback {
    public:
     virtual ~ConnectCallback() {
@@ -1616,6 +1621,14 @@ class HQSession
                                 priority,
                                 parentTxnId) {
     }
+
+    /**
+     * HQStreamTransport allows reception of push promises
+     */
+    void onPushMessageBegin(HTTPCodec::StreamID /* pushID */,
+                            HTTPCodec::StreamID /* assoc streamID */,
+                            HTTPMessage* /* msg */) override;
+
   }; // HQStreamTransport
 
   /**
@@ -2005,6 +2018,10 @@ class HQSession
   std::unordered_map<hq::UnidirectionalStreamType, HQControlStream>
       controlStreams_;
   HQUnidirStreamDispatcher unidirectionalReadDispatcher_;
+  // Callback pointer used for correctness testing. Not used
+  // for session logic.
+  ServerPushLifecycleCallback* serverPushLifecycleCb_{nullptr};
+
   // Maximum Stream ID received so far
   quic::StreamId maxIncomingStreamId_{0};
   // Maximum Stream ID that we are allowed to open, according to the remote

@@ -7,16 +7,17 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <folly/futures/Future.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/portability/GTest.h>
+#include <limits>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HQStreamLookup.h>
-#include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <proxygen/lib/http/session/test/HQSessionMocks.h>
 #include <proxygen/lib/http/session/test/HQSessionTestCommon.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
@@ -862,6 +863,7 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
   void SetUp() override {
     HQUpstreamSessionTest::SetUp();
     SetUpAssocHandler();
+    SetUpServerPushLifecycleCallbacks();
     nextPushId_ = kInitialPushId;
     lastPushPromiseHeadersSize_.compressed = 0;
     lastPushPromiseHeadersSize_.uncompressed = 0;
@@ -872,12 +874,16 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
     // Create the primary request
     assocHandler_ = openTransaction();
     assocHandler_->txn_->sendHeaders(getGetRequest());
-    assocHandler_->expectHeaders();
     assocHandler_->expectDetachTransaction();
   }
 
   void TearDown() override {
     HQUpstreamSessionTest::TearDown();
+  }
+
+  void SetUpServerPushLifecycleCallbacks() {
+    SLCcallback_ = std::make_unique<MockServerPushLifecycleCallback>();
+    hqSession_->setServerPushLifecycleCallback(SLCcallback_.get());
   }
 
   hq::PushId nextPushId() {
@@ -892,12 +898,86 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
     return (pushId % 2) == 1;
   }
 
+  void expectPushPromiseBegin(
+      std::function<void(HTTPCodec::StreamID, hq::PushId)> callback =
+          std::function<void(HTTPCodec::StreamID, hq::PushId)>()) {
+    SLCcallback_->expectPushPromiseBegin(callback);
+  }
+
+  void expectPushPromise(
+      std::function<void(HTTPCodec::StreamID, hq::PushId, HTTPMessage*)>
+          callback = std::function<
+              void(HTTPCodec::StreamID, hq::PushId, HTTPMessage*)>()) {
+    SLCcallback_->expectPushPromise(callback);
+  }
+
+  void expectNascentPushStreamBegin(
+      std::function<void(HTTPCodec::StreamID, bool)> callback =
+          std::function<void(HTTPCodec::StreamID, bool)>()) {
+    SLCcallback_->expectNascentPushStreamBegin(callback);
+  }
+
+  void expectNascentPushStream(
+      std::function<void(HTTPCodec::StreamID, hq::PushId, bool)> callback =
+          std::function<void(HTTPCodec::StreamID, hq::PushId, bool)>()) {
+    SLCcallback_->expectNascentPushStream(callback);
+  }
+
+  void expectNascentEof(
+      std::function<void(HTTPCodec::StreamID, folly::Optional<hq::PushId>)>
+          callback = std::function<void(HTTPCodec::StreamID,
+                                        folly::Optional<hq::PushId>)>()) {
+    SLCcallback_->expectNascentEof(callback);
+  }
+
+  void expectOrphanedNascentStream(
+      std::function<void(HTTPCodec::StreamID, folly::Optional<hq::PushId>)>
+          callback = std::function<void(HTTPCodec::StreamID,
+                                        folly::Optional<hq::PushId>)>()) {
+
+    SLCcallback_->expectOrphanedNascentStream(callback);
+  }
+
+  void expectHalfOpenPushedTxn(
+      std::function<
+          void(const HTTPTransaction*, hq::PushId, HTTPCodec::StreamID, bool)>
+          callback = std::function<void(const HTTPTransaction*,
+                                        hq::PushId,
+                                        HTTPCodec::StreamID,
+                                        bool)>()) {
+    SLCcallback_->expectHalfOpenPushedTxn(callback);
+  }
+
+  void expectPushedTxn(std::function<void(const HTTPTransaction*,
+                                          HTTPCodec::StreamID,
+                                          hq::PushId,
+                                          HTTPCodec::StreamID,
+                                          bool)> callback =
+                           std::function<void(const HTTPTransaction*,
+                                              HTTPCodec::StreamID,
+                                              hq::PushId,
+                                              HTTPCodec::StreamID,
+                                              bool)>()) {
+    SLCcallback_->expectPushedTxn(callback);
+  }
+
+  void expectPushedTxnTimeout(
+      std::function<void(const HTTPTransaction*)> callback =
+          std::function<void(const HTTPTransaction*)>()) {
+    SLCcallback_->expectPushedTxnTimeout(callback);
+  }
+
+  void expectOrphanedHalfOpenPushedTxn(
+      std::function<void(const HTTPTransaction*)> callback =
+          std::function<void(const HTTPTransaction*)>()) {
+    SLCcallback_->expectOrphanedHalfOpenPushedTxn(callback);
+  }
+
   void sendPushPromise(quic::StreamId streamId,
                        hq::PushId pushId = kUnknownPushId,
                        const std::string& url = "/",
                        proxygen::HTTPHeaderSize* outHeaderSize = nullptr,
                        bool eom = false) {
-
     auto promise = getGetRequest(url);
     promise.setURL(url);
 
@@ -951,22 +1031,53 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
   proxygen::HTTPHeaderSize lastPushPromiseHeadersSize_;
   hq::PushId nextPushId_;
   std::unique_ptr<StrictMock<MockHTTPHandler>> assocHandler_;
+
+  std::unique_ptr<MockServerPushLifecycleCallback> SLCcallback_;
 };
 
 TEST_P(HQUpstreamSessionTestHQPush, TestSendPushPromiseHelper) {
-  // the transaction is expected to timeout, since the PushPromise does not have
-  // EOF set, and it is not followed by a PushStream.
-  assocHandler_->expectError();
-
-  hq::PushId pushId = nextPushId();
-
   // the push promise is not followed by a push stream, and the eof is not
   // set.
   // The transaction is supposed to stay open and to time out eventually.
+  assocHandler_->expectError([&](const HTTPException& ex) {
+    ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
+  });
+  assocHandler_->expectHeaders();
+
+  expectPushPromiseBegin();
+
+  sendPushPromise(assocHandler_->txn_->getID(), getGetRequest(), nextPushId());
+  EXPECT_TRUE(lastPushPromiseHeadersSizeValid());
+
+  assocHandler_->txn_->sendEOM();
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
+  // the push promise is not followed by a push stream, and the eof is not
+  // set.
+  // The transaction is supposed to stay open and to time out eventually.
+  assocHandler_->expectError([&](const HTTPException& ex) {
+    ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
+  });
+  assocHandler_->expectHeaders();
+
+  hq::PushId pushId = nextPushId();
+
+  auto pushPromiseRequest = getGetRequest();
+
+  expectPushPromiseBegin(
+      [&](HTTPCodec::StreamID owningStreamId, hq::PushId promisedPushId) {
+        EXPECT_EQ(promisedPushId, pushId);
+        EXPECT_THAT(owningStreamId, assocHandler_->txn_->getID());
+      });
+
   sendPushPromise(assocHandler_->txn_->getID(), getGetRequest(), pushId);
   EXPECT_TRUE(lastPushPromiseHeadersSizeValid());
 
   assocHandler_->txn_->sendEOM();
+
   hqSession_->closeWhenIdle();
   flushAndLoop();
 }

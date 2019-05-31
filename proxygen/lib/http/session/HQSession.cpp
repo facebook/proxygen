@@ -3133,6 +3133,26 @@ void HQSession::HQStreamTransportBase::onCanceled(quic::StreamId id,
   txn_.decrementPendingByteEvents();
 }
 
+// Methods specific to StreamTransport subclasses
+void HQSession::HQStreamTransport::onPushMessageBegin(
+    HTTPCodec::StreamID pushID,
+    HTTPCodec::StreamID streamID,
+    HTTPMessage* /* msg */) {
+
+  VLOG(3) << __func__ << " streamID=" << streamID << " pushID=" << pushID
+          << ", txn= " << txn_;
+
+  if (session_.infoCallback_) {
+    session_.infoCallback_->onRequestBegin(session_);
+  }
+
+  // Notify the testing callbacks
+  if (session_.serverPushLifecycleCb_) {
+    session_.serverPushLifecycleCb_->onPushPromiseBegin(
+        streamID, static_cast<hq::PushId>(pushID));
+  }
+}
+
 std::ostream& operator<<(std::ostream& os, const HQSession& session) {
   session.describe(os);
   return os;

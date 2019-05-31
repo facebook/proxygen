@@ -161,6 +161,157 @@ class MockDispatcher : public HQUnidirStreamDispatcher::Callback {
   MOCK_METHOD2(processRejectedData, void(quic::StreamId, uint64_t));
 };
 
+class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
+ public:
+  virtual ~MockServerPushLifecycleCallback() = default;
+
+  MOCK_METHOD2(onPushPromiseBegin,
+               void(HTTPCodec::StreamID /* parent streamID */,
+                    hq::PushId /* pushID */));
+
+  MOCK_METHOD3(onPushPromise,
+               void(HTTPCodec::StreamID /* parent streamID */,
+                    hq::PushId /* pushID */,
+                    HTTPMessage* /* msg */));
+
+  MOCK_METHOD2(onNascentPushStreamBegin,
+               void(HTTPCodec::StreamID /* push stream ID */, bool /* eom */));
+
+  MOCK_METHOD3(onNascentPushStream,
+               void(HTTPCodec::StreamID /* push stream ID */,
+                    hq::PushId /* server push id */,
+                    bool /* eom */));
+
+  MOCK_METHOD2(onNascentEof,
+               void(HTTPCodec::StreamID /* push stream ID */,
+                    folly::Optional<hq::PushId> /* push id */));
+
+  MOCK_METHOD2(onOrphanedNascentStream,
+               void(HTTPCodec::StreamID /* push stream ID */,
+                    folly::Optional<hq::PushId> /* push id */));
+
+  MOCK_METHOD4(onHalfOpenPushedTxn,
+               void(const HTTPTransaction* /* txn */,
+                    hq::PushId /* push id */,
+                    HTTPCodec::StreamID /* assoc stream id */,
+                    bool /* eom */));
+
+  MOCK_METHOD5(onPushedTxn,
+               void(const HTTPTransaction* /* txn */,
+                    HTTPCodec::StreamID /* push stream id */,
+                    hq::PushId /* push id */,
+                    HTTPCodec::StreamID /* assoc stream id */,
+                    bool /* eom */));
+
+  MOCK_METHOD1(onPushedTxnTimeout, void(const HTTPTransaction* /* txn */));
+
+  MOCK_METHOD1(onOrphanedHalfOpenPushedTxn,
+               void(const HTTPTransaction* /* txn */));
+
+  using PushPromiseBeginF =
+      std::function<void(HTTPCodec::StreamID, hq::PushId)>;
+  using PushPromiseF =
+      std::function<void(HTTPCodec::StreamID, hq::PushId, HTTPMessage*)>;
+  using NascentPushStreamBeginF =
+      std::function<void(HTTPCodec::StreamID, bool)>;
+  using NascentPushStreamF =
+      std::function<void(HTTPCodec::StreamID, hq::PushId, bool)>;
+  using NascentEofF =
+      std::function<void(HTTPCodec::StreamID, folly::Optional<hq::PushId>)>;
+  using OrphanedNascentStreamF =
+      std::function<void(HTTPCodec::StreamID, folly::Optional<hq::PushId>)>;
+  using HalfOpenPushedTxnF = std::function<void(
+      const HTTPTransaction*, hq::PushId, HTTPCodec::StreamID, bool)>;
+  using PushedTxnF = std::function<void(const HTTPTransaction*,
+                                        HTTPCodec::StreamID,
+                                        hq::PushId,
+                                        HTTPCodec::StreamID,
+                                        bool)>;
+  using PushedTxnTimeoutF = std::function<void(const HTTPTransaction*)>;
+  using OrphanedHalfOpenPushedTxnF =
+      std::function<void(const HTTPTransaction*)>;
+
+  void expectPushPromiseBegin(PushPromiseBeginF impl = nullptr) {
+    auto& exp = EXPECT_CALL(*this, onPushPromiseBegin(testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectPushPromise(PushPromiseF impl = nullptr) {
+    auto& exp =
+        EXPECT_CALL(*this, onPushPromise(testing::_, testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectNascentPushStreamBegin(NascentPushStreamBeginF impl = nullptr) {
+    auto& exp =
+        EXPECT_CALL(*this, onNascentPushStreamBegin(testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectNascentPushStream(NascentPushStreamF impl = nullptr) {
+    auto& exp = EXPECT_CALL(
+        *this, onNascentPushStream(testing::_, testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectNascentEof(NascentEofF impl = nullptr) {
+    auto& exp = EXPECT_CALL(*this, onNascentEof(testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectOrphanedNascentStream(OrphanedNascentStreamF impl = nullptr) {
+    auto& exp =
+        EXPECT_CALL(*this, onOrphanedNascentStream(testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectHalfOpenPushedTxn(HalfOpenPushedTxnF impl = nullptr) {
+    auto& exp = EXPECT_CALL(
+        *this,
+        onHalfOpenPushedTxn(testing::_, testing::_, testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectPushedTxn(PushedTxnF impl = nullptr) {
+    auto& exp = EXPECT_CALL(
+        *this,
+        onPushedTxn(
+            testing::_, testing::_, testing::_, testing::_, testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectPushedTxnTimeout(PushedTxnTimeoutF impl = nullptr) {
+    auto& exp = EXPECT_CALL(*this, onPushedTxnTimeout(testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+  void expectOrphanedHalfOpenPushedTxn(
+      OrphanedHalfOpenPushedTxnF impl = nullptr) {
+    auto& exp = EXPECT_CALL(*this, onOrphanedHalfOpenPushedTxn(testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+};
+
 class MockConnectCallback : public HQSession::ConnectCallback {
  public:
   MOCK_METHOD0(connectSuccess, void());

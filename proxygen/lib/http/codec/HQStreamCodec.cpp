@@ -180,9 +180,16 @@ ParseResult HQStreamCodec::parsePushPromise(Cursor& cursor,
   if (res) {
     return res;
   }
+
+  // Notify the callback on beginning of a push promise.
+  // The callback will be further notified when the header block
+  // is fully parsed, via a call to `onHeadersComplete`.
+  // It is up to the callback to match the push promise
+  // with the headers block, via using same stream id
   if (callback_) {
     callback_->onPushMessageBegin(outPushId, streamId_, nullptr);
   }
+
   decodeInfo_.init(true /* isReq */, false /* isRequestTrailers */);
   auto headerDataLength = outHeaderData->computeChainDataLength();
   headerCodec_.decodeStreaming(
