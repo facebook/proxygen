@@ -169,6 +169,10 @@ class HQStreamMapping {
 
   virtual quic::StreamId getIngressStreamId() const = 0;
 
+  virtual bool hasIngressStreamId() const = 0;
+
+  virtual bool hasEgressStreamId() const = 0;
+
   // Safe way to check whether this HQStream is using that quicStream
   // see usage in HQSession::findControlStream
   virtual bool isUsing(quic::StreamId /* streamId */) const = 0;
@@ -229,7 +233,8 @@ class SSBidir : public virtual HQStreamMapping {
  public:
   virtual ~SSBidir() override = default;
 
-  explicit SSBidir(quic::StreamId streamId) : streamId_(streamId) {
+  explicit SSBidir(folly::Optional<quic::StreamId> streamId)
+      : streamId_(streamId) {
   }
 
   quic::StreamId getEgressStreamId() const override {
@@ -245,6 +250,14 @@ class SSBidir : public virtual HQStreamMapping {
       return streamId_.value() == streamId;
     }
     return false;
+  }
+
+  bool hasIngressStreamId() const override {
+    return streamId_.hasValue();
+  }
+
+  bool hasEgressStreamId() const override {
+    return streamId_.hasValue();
   }
 
   quic::StreamId getStreamId() const override {
@@ -271,7 +284,8 @@ class SSEgress : public SSBidir {
  public:
   virtual ~SSEgress() override = default;
 
-  explicit SSEgress(quic::StreamId singleStreamId) : SSBidir(singleStreamId) {
+  explicit SSEgress(folly::Optional<quic::StreamId> streamId)
+      : SSBidir(streamId) {
   }
 
   quic::StreamId getIngressStreamId() const override {
@@ -281,13 +295,18 @@ class SSEgress : public SSBidir {
   void setIngressStreamId(quic::StreamId /* streamId */) override {
     LOG(FATAL) << "Egress only stream can not be used for ingress";
   }
+
+  bool hasIngressStreamId() const override {
+    return false;
+  }
 }; // proxygen::detail::singlestream::Egress
 
 class SSIngress : public SSBidir {
  public:
   virtual ~SSIngress() override = default;
 
-  explicit SSIngress(quic::StreamId singleStreamId) : SSBidir(singleStreamId) {
+  explicit SSIngress(folly::Optional<quic::StreamId> streamId)
+      : SSBidir(streamId) {
   }
 
   quic::StreamId getEgressStreamId() const override {
@@ -296,6 +315,10 @@ class SSIngress : public SSBidir {
 
   void setEgressStreamId(quic::StreamId /* streamId */) override {
     LOG(FATAL) << "Ingress only stream can not be used for egress";
+  }
+
+  bool hasEgressStreamId() const override {
+    return false;
   }
 }; // proxygen::detail::singlestream::Ingres
 } // namespace singlestream
@@ -342,6 +365,14 @@ class CSBidir : public virtual HQStreamMapping {
     return false;
   }
 
+  bool hasIngressStreamId() const override {
+    return ingressStreamId_.hasValue();
+  }
+
+  bool hasEgressStreamId() const override {
+    return egressStreamId_.hasValue();
+  }
+
   quic::StreamId getStreamId() const override {
     LOG(FATAL) << "Ambiguous call 'getStreamId' on a composite stream";
   }
@@ -358,7 +389,7 @@ class CSBidir : public virtual HQStreamMapping {
   folly::Optional<quic::StreamId> egressStreamId_;
   folly::Optional<quic::StreamId> ingressStreamId_;
 }; // proxygen::detail::composite::Bidir
-} // namespace composite
-}; // namespace detail
 
+} // namespace composite
+} // namespace detail
 }; // namespace proxygen

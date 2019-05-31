@@ -26,6 +26,7 @@
 #include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HQStreamBase.h>
+#include <proxygen/lib/http/session/HQStreamLookup.h>
 #include <proxygen/lib/http/session/HQUnidirectionalCallbacks.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
@@ -123,6 +124,8 @@ class HQSession
   // Forward declarations
  protected:
   class HQStreamTransport;
+  class HQEgressPushStream;
+  class HQIngressPushStream;
   class HQStreamTransportBase;
 
  private:
@@ -275,21 +278,21 @@ class HQSession
   }
 
   bool hasActiveTransactions() const override {
-    return !streams_.empty();
+    return numberOfStreams() > 0;
   }
 
   uint32_t getNumOutgoingStreams() const override {
     // need transport API
-    return (direction_ == TransportDirection::DOWNSTREAM)
-               ? 0
-               : (uint32_t)streams_.size();
+    return static_cast<uint32_t>((direction_ == TransportDirection::DOWNSTREAM)
+                                     ? numberOfEgressPushStreams()
+                                     : numberOfEgressStreams());
   }
 
   uint32_t getNumIncomingStreams() const override {
     // need transport API
-    return (direction_ == TransportDirection::UPSTREAM)
-               ? 0
-               : (uint32_t)streams_.size();
+    return static_cast<uint32_t>((direction_ == TransportDirection::UPSTREAM)
+                                     ? numberOfIngressPushStreams()
+                                     : numberOfIngressStreams());
   }
 
   CodecProtocol getCodecProtocol() const override {
@@ -398,7 +401,7 @@ class HQSession
   void timeoutExpired() noexcept override;
 
   bool isBusy() const override {
-    return !streams_.empty();
+    return numberOfStreams() > 0;
   }
   void notifyPendingShutdown() override;
   void closeWhenIdle() override;
@@ -466,6 +469,47 @@ class HQSession
   }
 
  protected:
+  // Finds any transport-like stream that has not been detached
+  // by quic stream id
+  HQStreamTransportBase* findNonDetachedStream(quic::StreamId streamId);
+
+  //  Find any transport-like stream by quic stream id
+  HQStreamTransportBase* findStream(quic::StreamId streamId);
+
+  // Find any transport-like stream suitable for ingress (request/push-ingress)
+  HQStreamTransportBase* findIngressStream(quic::StreamId streamId,
+                                           bool includeDetached = false);
+  // Find any transport-like stream suitable for egress (request/push-egress)
+  HQStreamTransportBase* findEgressStream(quic::StreamId streamId,
+                                          bool includeDetached = false);
+
+  // Find an ingress push stream
+  HQIngressPushStream* findIngressPushStream(quic::StreamId);
+  HQIngressPushStream* findIngressPushStreamByPushId(hq::PushId);
+
+  // Find an ingress push stream
+  HQEgressPushStream* findEgressPushStream(quic::StreamId);
+  HQEgressPushStream* findEgressPushStreamByPushId(hq::PushId);
+
+  // Erase the stream. Returns true if the stream
+  // has been erased
+  bool eraseStream(quic::StreamId);
+  bool eraseStreamByPushId(hq::PushId);
+
+  // Find a control stream by type
+  HQControlStream* findControlStream(hq::UnidirectionalStreamType streamType);
+
+  // Find a control stream by stream id (either ingress or egress)
+  HQControlStream* findControlStream(quic::StreamId streamId);
+
+  // NOTE: for now we are using uint32_t as the limit for
+  // the number of streams.
+  uint32_t numberOfStreams() const;
+  uint32_t numberOfIngressStreams() const;
+  uint32_t numberOfEgressStreams() const;
+  uint32_t numberOfIngressPushStreams() const;
+  uint32_t numberOfEgressPushStreams() const;
+
   /*
    * for HQ we need a read callback for unidirectional streams to read the
    * stream type from the the wire to decide whether a stream is
@@ -660,7 +704,8 @@ class HQSession
   // helper functions for writes
   void writeRequestStreams(uint64_t maxEgress) noexcept;
   void scheduleWrite();
-  void handleWriteError(HQStreamTransport* hqStream, quic::QuicErrorCode err);
+  void handleWriteError(HQStreamTransportBase* hqStream,
+                        quic::QuicErrorCode err);
 
   /**
    * Handles the write to the socket and errors for a request stream.
@@ -716,40 +761,105 @@ class HQSession
   void errorOnTransactionId(quic::StreamId id, HTTPException ex);
 
   /**
+   * Shared implementation of "findXXXstream" methods
+   */
+  HQStreamTransportBase* findStreamImpl(quic::StreamId streamId,
+                                        bool includeEgress = true,
+                                        bool includeIngress = true,
+                                        bool includeDetached = true);
+
+  /**
+   * Shared implementation of "numberOfXXX" methods
+   */
+  uint32_t countStreamsImpl(bool includeEgress = true,
+                            bool includeIngress = true) const;
+
+  /**
    * The following functions invoke a callback on all or on all non-detached
    * request streams. It does an extra lookup per stream but it is safe. Note
    * that if the callback *adds* streams, they will not get the callback.
    */
   template <typename... Args1, typename... Args2>
-  void invokeOnAllStreams(std::function<void(HQStreamTransport*)> fn) {
+  void invokeOnAllStreams(std::function<void(HQStreamTransportBase*)> fn) {
     invokeOnStreamsImpl(
-        fn, std::bind(&HQSession::findStream, this, std::placeholders::_1));
+        fn,
+        std::bind(&HQSession::findStream, this, std::placeholders::_1),
+        std::bind(&HQSession::findIngressPushStreamByPushId,
+                  this,
+                  std::placeholders::_1));
   }
 
   template <typename... Args1, typename... Args2>
-  void invokeOnNonDetachedStreams(std::function<void(HQStreamTransport*)> fn) {
+  void invokeOnEgressStreams(std::function<void(HQStreamTransportBase*)> fn,
+                             bool includeDetached = false) {
+    invokeOnStreamsImpl(fn,
+                        std::bind(&HQSession::findEgressStream,
+                                  this,
+                                  std::placeholders::_1,
+                                  includeDetached));
+  }
+
+  template <typename... Args1, typename... Args2>
+  void invokeOnIngressStreams(std::function<void(HQStreamTransportBase*)> fn,
+                              bool includeDetached = false) {
+    invokeOnStreamsImpl(fn,
+                        std::bind(&HQSession::findIngressStream,
+                                  this,
+                                  std::placeholders::_1,
+                                  includeDetached),
+                        std::bind(&HQSession::findIngressPushStreamByPushId,
+                                  this,
+                                  std::placeholders::_1));
+  }
+
+  template <typename... Args1, typename... Args2>
+  void invokeOnNonDetachedStreams(
+      std::function<void(HQStreamTransportBase*)> fn) {
     invokeOnStreamsImpl(fn,
                         std::bind(&HQSession::findNonDetachedStream,
                                   this,
                                   std::placeholders::_1));
   }
 
+  // Apply the function on the streams found by the two locators.
+  // Note that same stream can be returned by a find-by-stream-id
+  // and find-by-push-id locators.
+  // This is mitigated by collecting the streams in an unordered set
+  // prior to application of the funtion
+  // Note that the function is allowed to delete a stream by invoking
+  // erase stream, but the locators are not allowed to do so.
+  // Note that neither the locators nor the function are allowed
+  // to call "invokeOnStreamsImpl"
   template <typename... Args1, typename... Args2>
   void invokeOnStreamsImpl(
-      std::function<void(HQStreamTransport*)> fn,
-      std::function<HQStreamTransport*(quic::StreamId)> findFn) {
+      std::function<void(HQStreamTransportBase*)> fn,
+      std::function<HQStreamTransportBase*(quic::StreamId)> findByStreamIdFn,
+      std::function<HQStreamTransportBase*(hq::PushId)> findByPushIdFn =
+          [](hq::PushId /* id */) { return nullptr; }) {
     DestructorGuard g(this);
-    std::vector<quic::StreamId> ids;
-    ids.reserve(streams_.size());
+    std::unordered_set<HQStreamTransportBase*> streams;
+    streams.reserve(numberOfStreams());
     for (const auto& txn : streams_) {
-      ids.push_back(txn.first);
-    }
-    for (auto idit = ids.begin(); idit != ids.end() && !streams_.empty();
-         ++idit) {
-      HQStreamTransport* stream = findFn(*idit);
-      if (stream) {
-        fn(stream);
+      HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
+      if (pstream) {
+        streams.insert(pstream);
       }
+    }
+    for (const auto& txn : egressPushStreams_) {
+      HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
+      if (pstream) {
+        streams.insert(pstream);
+      }
+    }
+    for (const auto& txn : ingressPushStreams_) {
+      HQStreamTransportBase* pstream = findByPushIdFn(txn.first);
+      if (pstream) {
+        streams.insert(pstream);
+      }
+    }
+    for (HQStreamTransportBase* pstream : streams) {
+      CHECK(pstream);
+      fn(pstream);
     }
   }
 
@@ -1118,14 +1228,18 @@ class HQSession
     void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
       if (session_.sock_) {
-        session_.sock_->pauseRead(getStreamId());
+        if (hasIngressStreamId()) {
+          session_.sock_->pauseRead(getIngressStreamId());
+        }
       } // else this is being torn down
     }
 
     void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
       if (session_.sock_) {
-        session_.sock_->resumeRead(getStreamId());
+        if (hasIngressStreamId()) {
+          session_.sock_->resumeRead(getIngressStreamId());
+        }
       } // else this is being torn down
     }
 
@@ -1855,17 +1969,6 @@ class HQSession
     }
   };
 
-  /**
-   * Finds a stream which has non been detached. This returns nullptr if
-   * the stream does not exist or the stream has already been detached.
-   */
-  HQStreamTransport* findNonDetachedStream(quic::StreamId streamId);
-  HQStreamTransport* findStream(quic::StreamId streamId);
-  // Find a control stream by type
-  HQControlStream* findControlStream(hq::UnidirectionalStreamType streamType);
-  // Find a control stream by stream id (either ingress or egress)
-  HQControlStream* findControlStream(quic::StreamId streamId);
-
   uint32_t getMaxConcurrentOutgoingStreamsRemote() const override {
     // need transport API
     return 100;
@@ -1888,6 +1991,16 @@ class HQSession
   HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
 
   std::unordered_map<quic::StreamId, HQStreamTransport> streams_;
+
+  // Incoming server push streams. Since the incoming push streams
+  // can be created before transport stream
+  std::unordered_map<hq::PushId, HQIngressPushStream> ingressPushStreams_;
+
+  // Lookup maps for matching ingress push streams to push ids
+  PushToStreamMap streamLookup_;
+
+  std::unordered_map<quic::StreamId, HQEgressPushStream> egressPushStreams_;
+
   using ControlStreamsKey = std::pair<quic::StreamId, hq::StreamDirection>;
   std::unordered_map<hq::UnidirectionalStreamType, HQControlStream>
       controlStreams_;

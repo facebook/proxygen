@@ -71,15 +71,15 @@ const http2::PriorityUpdate hqDefaultPriority{kSessionStreamId, false, 15};
 
 HQSession::~HQSession() {
   VLOG(3) << *this << " closing";
-  CHECK(streams_.empty());
+  CHECK_EQ(numberOfStreams(), 0);
   runDestroyCallbacks();
 }
 
 void HQSession::setSessionStats(HTTPSessionStats* stats) {
   HTTPSessionBase::setSessionStats(stats);
-  for (auto& it : streams_) {
-    it.second.byteEventTracker_.setTTLBAStats(stats);
-  }
+  invokeOnAllStreams([&stats](HQStreamTransportBase* stream) {
+    stream->byteEventTracker_.setTTLBAStats(stats);
+  });
 }
 
 void HQSession::setPartiallyReliableCallbacks(quic::StreamId id) {
@@ -528,9 +528,8 @@ void HQSession::drainImpl() {
 }
 
 void HQSession::H1QFBV1VersionUtils::sendGoaway() {
-  for (auto& it : session_.streams_) {
-    it.second.generateGoaway();
-  }
+  session_.invokeOnAllStreams(
+      [](HQStreamTransportBase* stream) { stream->generateGoaway(); });
 }
 
 void HQSession::GoawayUtils::sendGoaway(HQSession& session) {
@@ -668,7 +667,7 @@ void HQSession::dropConnectionWithError(
     return;
   }
   dropping_ = true;
-  if (!streams_.empty()) {
+  if (numberOfStreams() > 0) {
     // should deliver errors to all open streams, they will all detach-
     sock_->close(std::move(errorCode));
     sock_.reset();
@@ -676,7 +675,7 @@ void HQSession::dropConnectionWithError(
     // If the txn had no registered cbs, there could be streams left
     // But we are not supposed to unregister the read callback, so this really
     // shouldn't happen
-    invokeOnAllStreams([proxygenError](HQStreamTransport* stream) {
+    invokeOnAllStreams([proxygenError](HQStreamTransportBase* stream) {
       stream->errorOnTransaction(proxygenError, "Dropped connection");
     });
   } else {
@@ -692,7 +691,7 @@ void HQSession::dropConnectionWithError(
   drainState_ = DrainState::DONE;
   cancelLoopCallback();
   checkForShutdown();
-  CHECK(streams_.empty());
+  CHECK_EQ(numberOfStreams(), 0);
 }
 
 void HQSession::checkForShutdown() {
@@ -712,12 +711,9 @@ void HQSession::checkForShutdown() {
   // This is somewhat inefficient, checking every stream for possible detach
   // when we know explicitly earlier which ones are ready.  This is here to
   // minimize issues with iterator invalidation.
-  for (auto it = streams_.begin(); it != streams_.end();) {
-    auto& hqStream = it->second;
-    ++it;
-    hqStream.checkForDetach();
-  }
-  if (drainState_ == DrainState::DONE && streams_.empty() &&
+  invokeOnAllStreams(
+      [](HQStreamTransportBase* stream) { stream->checkForDetach(); });
+  if (drainState_ == DrainState::DONE && (numberOfStreams() == 0) &&
       !isLoopCallbackScheduled()) {
     if (sock_) {
       sock_->close(folly::none);
@@ -762,23 +758,108 @@ void HQSession::HQStreamTransportBase::errorOnTransaction(HTTPException ex) {
   }
 }
 
-HQSession::HQStreamTransport* FOLLY_NULLABLE
+HQSession::HQStreamTransportBase* FOLLY_NULLABLE
 HQSession::findNonDetachedStream(quic::StreamId streamId) {
+  return findStreamImpl(streamId,
+                        true /* includeEgress */,
+                        true /* includeIngress */,
+                        false /* includeDetached */);
+}
+
+HQSession::HQStreamTransportBase* FOLLY_NULLABLE
+HQSession::findStream(quic::StreamId streamId) {
+  return findStreamImpl(streamId,
+                        true /* includeEgress */,
+                        true /* includeIngress */,
+                        true /* includeDetached */);
+}
+
+HQSession::HQStreamTransportBase* FOLLY_NULLABLE
+HQSession::findIngressStream(quic::StreamId streamId, bool includeDetached) {
+  return findStreamImpl(streamId,
+                        false /* includeEgress */,
+                        true /* includeIngress */,
+                        includeDetached);
+}
+
+HQSession::HQStreamTransportBase* FOLLY_NULLABLE
+HQSession::findEgressStream(quic::StreamId streamId, bool includeDetached) {
+  return findStreamImpl(streamId,
+                        true /* includeEgress */,
+                        false /* includeIngress */,
+                        includeDetached);
+}
+
+HQSession::HQStreamTransportBase* FOLLY_NULLABLE
+HQSession::findStreamImpl(quic::StreamId streamId,
+                          bool includeEgress,
+                          bool includeIngress,
+                          bool includeDetached) {
+  HQStreamTransportBase* pstream{nullptr};
   auto it = streams_.find(streamId);
-  if (it == streams_.end() || it->second.detached_) {
+  if (it != streams_.end()) {
+    pstream = &it->second;
+  }
+  if (!pstream && includeIngress) {
+    pstream = findIngressPushStream(streamId);
+  }
+  if (!pstream && includeEgress) {
+    pstream = findEgressPushStream(streamId);
+  }
+  if (!pstream) {
+    return nullptr;
+  }
+  CHECK(pstream);
+  DCHECK(pstream->isUsing(streamId));
+  if (!includeDetached) {
+    if (pstream->detached_) {
+      return nullptr;
+    }
+  }
+  return pstream;
+}
+
+HQSession::HQIngressPushStream* FOLLY_NULLABLE
+HQSession::findIngressPushStream(quic::StreamId streamId) {
+  auto lookup = streamLookup_.by<quic_stream_id>();
+  auto res = lookup.find(streamId);
+  if (res == lookup.end()) {
+    return nullptr;
+  } else {
+    return findIngressPushStreamByPushId(res->get<push_id>());
+  }
+}
+
+HQSession::HQIngressPushStream* FOLLY_NULLABLE
+HQSession::findIngressPushStreamByPushId(hq::PushId pushId) {
+  auto it = ingressPushStreams_.find(pushId);
+  if (it == ingressPushStreams_.end()) {
     return nullptr;
   } else {
     return &it->second;
   }
 }
 
-HQSession::HQStreamTransport* FOLLY_NULLABLE
-HQSession::findStream(quic::StreamId streamId) {
-  auto it = streams_.find(streamId);
-  if (it == streams_.end()) {
+HQSession::HQEgressPushStream* FOLLY_NULLABLE
+HQSession::findEgressPushStream(quic::StreamId streamId) {
+  auto it = egressPushStreams_.find(streamId);
+  if (it == egressPushStreams_.end()) {
     return nullptr;
   } else {
-    return &it->second;
+    auto pstream = &it->second;
+    DCHECK(pstream->isUsing(streamId));
+    return pstream;
+  }
+}
+
+HQSession::HQEgressPushStream* FOLLY_NULLABLE
+HQSession::findEgressPushStreamByPushId(hq::PushId pushId) {
+  auto lookup = streamLookup_.by<push_id>();
+  auto res = lookup.find(pushId);
+  if (res == lookup.end()) {
+    return nullptr;
+  } else {
+    return findEgressPushStream(res->get<quic_stream_id>());
   }
 }
 
@@ -806,6 +887,89 @@ HQSession::findControlStream(quic::StreamId streamId) {
   }
 }
 
+bool HQSession::eraseStream(quic::StreamId streamId) {
+  // Try different possible locations and remove the
+  // stream
+  bool erased = false;
+  if (streams_.erase(streamId)) {
+    erased = true;
+  }
+
+  if (egressPushStreams_.erase(streamId)) {
+    CHECK(!erased) << "Double erase for " << streamId;
+    erased = true;
+  }
+
+  auto lookup = streamLookup_.by<quic_stream_id>();
+  auto rlookup = streamLookup_.by<push_id>();
+
+  auto res = lookup.find(streamId);
+  if (res != lookup.end()) {
+    auto pushId = res->get<push_id>();
+    // Ingress push stream may be using the push id
+    // erase it as well if present
+    ingressPushStreams_.erase(pushId);
+    // Unconditionally erase the lookup entry table
+    lookup.erase(res);
+    CHECK(rlookup.find(pushId) == rlookup.end());
+    CHECK(!erased) << "Double erase for " << streamId;
+    erased = true;
+  }
+
+  return erased;
+}
+
+bool HQSession::eraseStreamByPushId(hq::PushId pushId) {
+
+  bool erased = ingressPushStreams_.erase(pushId);
+
+  auto lookup = streamLookup_.by<push_id>();
+  // Reverse lookup for the postconditions CHECK
+  auto rlookup = streamLookup_.by<quic_stream_id>();
+
+  auto res = lookup.find(pushId);
+  if (res != lookup.end()) {
+    auto streamId = res->get<quic_stream_id>();
+    erased |= (lookup.erase(res) != lookup.end());
+    // The corresponding stream id should not be present in
+    // the reverse map
+    CHECK(rlookup.find(streamId) == rlookup.end());
+  }
+
+  return erased;
+}
+
+uint32_t HQSession::numberOfStreams() const {
+  return countStreamsImpl(true /* includeEgress */, true /* includeIngress */);
+}
+
+uint32_t HQSession::numberOfIngressStreams() const {
+  return countStreamsImpl(false /* includeEgress */, true /* inculdeIngress */);
+}
+
+uint32_t HQSession::numberOfEgressStreams() const {
+  return countStreamsImpl(true /* includeEgress */, false /* includeIngress */);
+}
+
+uint32_t HQSession::numberOfIngressPushStreams() const {
+  return ingressPushStreams_.size();
+}
+
+uint32_t HQSession::numberOfEgressPushStreams() const {
+  return egressPushStreams_.size();
+}
+
+uint32_t HQSession::countStreamsImpl(bool includeEgress,
+                                     bool includeIngress) const {
+  size_t result = streams_.size();
+  if (includeIngress) {
+    result += ingressPushStreams_.size();
+  }
+  if (includeEgress) {
+    result += egressPushStreams_.size();
+  }
+  return result;
+}
 void HQSession::runLoopCallback() noexcept {
   // We schedule this callback to run at the end of an event
   // loop iteration if either of two conditions has happened:
@@ -1056,7 +1220,7 @@ void HQSession::processRejectedData(quic::StreamId id, uint64_t offset) {
 
 void HQSession::timeoutExpired() noexcept {
   VLOG(3) << "ManagedConnection timeoutExpired " << *this;
-  if (!streams_.empty()) {
+  if (numberOfStreams() > 0) {
     VLOG(3) << "ignoring session timeout " << *this;
     resetTimeout();
     return;
@@ -1223,10 +1387,10 @@ void HQSession::controlStreamReadError(
 }
 
 void HQSession::readRequestStream(quic::StreamId id) noexcept {
-  auto hqStream = findNonDetachedStream(id);
+  auto hqStream = findIngressStream(id, false /* includeDetached */);
   if (!hqStream) {
     // can we even get readAvailable after a stream is marked for detach ?
-    DCHECK(streams_.find(id) != streams_.end());
+    DCHECK(findStream(id));
     return;
   }
   // Read as much as you possibly can!
@@ -1237,6 +1401,7 @@ void HQSession::readRequestStream(quic::StreamId id) noexcept {
     readError(id, {readRes.error(), folly::StringPiece("sync read error")});
     return;
   }
+
   resetTimeout();
   quic::Buf data = std::move(readRes.value().first);
   auto readSize = data ? data->computeChainDataLength() : 0;
@@ -1271,24 +1436,29 @@ void HQSession::processReadData() {
       // TODO: set a timeout?
       it = pendingProcessReadSet_.erase(it);
     });
-    auto hqIt = streams_.find(*it);
-    if (hqIt == streams_.end()) {
-      // ingress on a transaction may cause other transaction to get deleted
+
+    HQStreamTransportBase* ingressStream =
+        findIngressStream(*it, true /* includeDetached */);
+
+    if (!ingressStream) {
+      // ingress on a transaction may cause other transactions to get deleted
       continue;
     }
-    auto& hqStream = hqIt->second;
-    if (hqStream.detached_) {
+
+    // Check whether the stream has been detached
+    if (ingressStream->detached_) {
       VLOG(4) << __func__ << " killing pending read data for detached txn="
-              << hqStream.txn_;
-      hqStream.readBuf_.move();
-      hqStream.readEOF_ = false;
+              << ingressStream->txn_;
+      ingressStream->readBuf_.move();
+      ingressStream->readEOF_ = false;
       continue;
     }
+
     // Feed it to the codec
-    auto blocked = hqStream.processReadData();
+    auto blocked = ingressStream->processReadData();
     if (!blocked) {
-      if (hqStream.readEOF_) {
-        hqStream.onIngressEOF();
+      if (ingressStream->readEOF_) {
+        ingressStream->onIngressEOF();
       }
     }
   }
@@ -1395,7 +1565,7 @@ void HQSession::onGoaway(uint64_t lastGoodStreamID,
   // drains existing streams and prevents new streams to be created
   drainImpl();
 
-  invokeOnNonDetachedStreams([this, code](HQStreamTransport* stream) {
+  invokeOnNonDetachedStreams([this, code](HQStreamTransportBase* stream) {
     // Invoke onGoaway on all transactions
     stream->txn_.onGoaway(code);
     // Abort transactions which have been initiated locally but not created
@@ -1417,9 +1587,8 @@ void HQSession::onGoaway(uint64_t lastGoodStreamID,
 }
 
 void HQSession::pauseTransactions() {
-  for (auto& it : streams_) {
-    it.second.txn_.pauseEgress();
-  }
+  invokeOnEgressStreams(
+      [](HQStreamTransportBase* stream) { stream->txn_.pauseEgress(); });
 }
 
 void HQSession::notifyEgressBodyBuffered(int64_t bytes) {
@@ -1449,14 +1618,13 @@ void HQSession::onFlowControlUpdate(quic::StreamId id) noexcept {
     return;
   }
 
-  auto streamIt = streams_.find(id);
-  if (streamIt == streams_.end()) {
+  auto stream = findEgressStream(id);
+
+  if (!stream) {
     LOG(ERROR) << "Got flow control update for unknown streamID=" << id
                << " sess=" << this;
     return;
   }
-
-  auto stream = &streamIt->second;
 
   auto& txn = stream->txn_;
   // Check if this stream has flow control, or has only EOM pending
@@ -1669,7 +1837,7 @@ void HQSession::writeRequestStreams(uint64_t maxEgress) noexcept {
   nextEgressResults_.clear();
 }
 
-void HQSession::handleWriteError(HQStreamTransport* hqStream,
+void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
                                  quic::QuicErrorCode err) {
   // We call this INGRESS_AND_EGRESS so it fully terminates the
   // HTTPTransaction state machine.
@@ -1875,20 +2043,24 @@ void HQSession::onDeliveryAck(quic::StreamId id,
                               std::chrono::microseconds rtt) {
   VLOG(4) << __func__ << " sess=" << *this << ": streamID=" << id
           << " offset=" << offset;
-  auto streamIt = streams_.find(id);
-  DCHECK(streamIt != streams_.end());
-  auto stream = &streamIt->second;
-  stream->txn_.onEgressLastByteAck(
-      std::chrono::duration_cast<std::chrono::milliseconds>(rtt));
-  stream->txn_.decrementPendingByteEvents();
+
+  auto pEgressStream = findEgressStream(id, true /* includeDetached */);
+  DCHECK(pEgressStream);
+  if (pEgressStream) {
+    pEgressStream->txn_.onEgressLastByteAck(
+        std::chrono::duration_cast<std::chrono::milliseconds>(rtt));
+    pEgressStream->txn_.decrementPendingByteEvents();
+  } else {
+    LOG(ERROR) << __func__
+               << " not expecting to receive delivery ack for erased stream";
+  }
 }
 
 void HQSession::onCanceled(quic::StreamId id, uint64_t /*offset*/) {
-  VLOG(4) << __func__ << " sess=" << *this << ": streamID=" << id;
-  auto streamIt = streams_.find(id);
-  if (streamIt != streams_.end()) {
-    auto stream = &streamIt->second;
-    stream->txn_.decrementPendingByteEvents();
+  VLOG(3) << __func__ << " sess=" << *this << ": streamID=" << id;
+  auto pEgressStream = findEgressStream(id);
+  if (pEgressStream) {
+    pEgressStream->txn_.decrementPendingByteEvents();
   } else {
     LOG(DFATAL) << __func__ << " sess=" << *this << ": streamID=" << id
                 << " onCanceled but txn missing, aborted without reset?";
@@ -1927,14 +2099,21 @@ void HQSession::onGoawayAck() {
 
 HQSession::HQStreamTransport* FOLLY_NULLABLE
 HQSession::createStreamTransport(quic::StreamId streamId) {
-  VLOG(4) << __func__ << " sess=" << *this;
-  if (!sock_->good() || streams_.count(streamId)) {
+  VLOG(3) << __func__ << " sess=" << *this;
+
+  // Checking for egress and ingress streams as well
+  auto streamAlreadyExists = findStream(streamId);
+  if (!sock_->good() || streamAlreadyExists) {
     // Refuse to add a transaction on a closing session or if a
     // transaction of that ID already exists.
     return nullptr;
   }
 
-  if (streams_.empty()) {
+  // If this is the first transport, invoke the connection
+  // activation callbacks.
+  // NOTE: Should this be called when an an ingress push stream
+  // is created ?
+  if (numberOfStreams() == 0) {
     if (infoCallback_) {
       infoCallback_->onActivateConnection(*this);
     }
@@ -2043,7 +2222,7 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
   VLOG(4) << __func__ << " txn=" << txn_;
   CHECK(session_.sock_)
       << "Socket is null drainState=" << (int)session_.drainState_
-      << " streams=" << (int)session_.streams_.size();
+      << " streams=" << (int)session_.numberOfStreams();
   realCodec_ = std::move(codec);
   if (session_.version_ == HQVersion::HQ) {
     auto c = dynamic_cast<hq::HQStreamCodec*>(realCodec_.get());
@@ -2135,8 +2314,10 @@ bool HQSession::HQStreamTransportBase::getCurrentTransportInfo(
 
   // Update the HQStreamTransport-level protocol info with the
   // stream info from the the QUIC transport
-  session_.getCurrentStreamTransportInfo(quicStreamProtocolInfo_.get(),
-                                         getStreamId());
+  if (hasIngressStreamId() || hasEgressStreamId()) {
+    session_.getCurrentStreamTransportInfo(quicStreamProtocolInfo_.get(),
+                                           getStreamId());
+  }
 
   // Set the transport info query result to the HQStreamTransport protocol
   // info
@@ -2148,25 +2329,30 @@ bool HQSession::HQStreamTransportBase::getCurrentTransportInfo(
 void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
   auto streamId = hqStream->getStreamId();
   VLOG(4) << __func__ << " streamID=" << streamId;
-  auto it = streams_.find(streamId);
-  CHECK(it != streams_.end());
-  if (sock_) {
-    sock_->setReadCallback(streamId, nullptr);
-    sock_->setPeekCallback(streamId, nullptr);
-    if (isPartialReliabilityEnabled()) {
-      sock_->setDataExpiredCallback(streamId, nullptr);
-      sock_->setDataRejectedCallback(streamId, nullptr);
+  // Special case - streams that dont have either ingress stream id
+  // or egress stream id dont need to be actually detached
+  // prior to being erased
+  if (hqStream->hasIngressStreamId() || hqStream->hasEgressStreamId()) {
+    auto streamId = hqStream->getStreamId();
+    VLOG(4) << __func__ << " streamID=" << streamId;
+    CHECK(findStream(streamId));
+    if (sock_ && hqStream->hasIngressStreamId()) {
+      sock_->setReadCallback(streamId, nullptr);
+      sock_->setPeekCallback(streamId, nullptr);
+      if (isPartialReliabilityEnabled()) {
+        sock_->setDataExpiredCallback(streamId, nullptr);
+        sock_->setDataRejectedCallback(streamId, nullptr);
+      }
     }
-    auto numActiveDeliveryCallbacks = hqStream->numActiveDeliveryCallbacks();
-    LOG_IF(DFATAL, numActiveDeliveryCallbacks > 0)
-        << __func__ << ": have pending delivery callbacks ("
-        << numActiveDeliveryCallbacks
-        << ") on the stream being detached; sess=" << *this
-        << "; txn=" << hqStream->txn_;
-    sock_->cancelDeliveryCallbacksForStream(streamId);
+    eraseStream(streamId);
+  } else {
+    auto hqPushIngressStream = dynamic_cast<HQIngressPushStream*>(hqStream);
+    CHECK(hqPushIngressStream)
+        << "Only HQIngressPushStream streams are allowed to be non-bound";
+    eraseStreamByPushId(CHECK_NOTNULL(hqPushIngressStream)->getPushId());
   }
-  streams_.erase(it);
-  if (streams_.empty()) {
+
+  if (numberOfStreams() == 0) {
     if (infoCallback_) {
       infoCallback_->onDeactivateConnection(*this);
     }
@@ -2339,6 +2525,7 @@ void HQSession::HQStreamTransportBase::transactionTimeout(
   auto g = folly::makeGuard(setActiveCodec(__func__));
   VLOG(4) << __func__ << " txn=" << txn_;
   DCHECK(txn == &txn_);
+  DCHECK(hasIngressStreamId() || hasEgressStreamId());
   // A transaction has timed out.  If the transaction does not have
   // a Handler yet, because we haven't yet received the full request
   // headers, we give it a DirectResponseHandler that generates an
@@ -2368,9 +2555,11 @@ void HQSession::HQStreamTransportBase::transactionTimeout(
   // Tell the transaction about the timeout.  The transaction will
   // communicate the timeout to the handler, and the handler will
   // decide how to proceed.
-  session_.abortStream(HTTPException::Direction::INGRESS,
-                       getStreamId(),
-                       HTTP3::ErrorCode::HTTP_INTERNAL_ERROR);
+  if (hasIngressStreamId()) {
+    session_.abortStream(HTTPException::Direction::INGRESS,
+                         getIngressStreamId(),
+                         HTTP3::ErrorCode::HTTP_INTERNAL_ERROR);
+  }
   txn_.onIngressTimeout();
 }
 
