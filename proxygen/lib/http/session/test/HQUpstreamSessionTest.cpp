@@ -1042,7 +1042,10 @@ TEST_P(HQUpstreamSessionTestHQPush, TestSendPushPromiseHelper) {
   assocHandler_->expectError([&](const HTTPException& ex) {
     ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
   });
-  assocHandler_->expectHeaders();
+  // Once HQSession::HQStreamTransport::onPushPromiseHeadersComplete
+  // creates a real pushed transaction, the below expect needs
+  // to be uncommented.
+  // assocHandler_->expectPushedTransaction();
 
   expectPushPromiseBegin();
 
@@ -1061,7 +1064,10 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
   assocHandler_->expectError([&](const HTTPException& ex) {
     ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
   });
-  assocHandler_->expectHeaders();
+  // Once HQSession::HQStreamTransport::onPushPromiseHeadersComplete
+  // creates a real pushed transaction, the below expect needs
+  // to be uncommented.
+  // assocHandler_->expectPushedTransaction();
 
   hq::PushId pushId = nextPushId();
 
@@ -1070,10 +1076,29 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
   expectPushPromiseBegin(
       [&](HTTPCodec::StreamID owningStreamId, hq::PushId promisedPushId) {
         EXPECT_EQ(promisedPushId, pushId);
-        EXPECT_THAT(owningStreamId, assocHandler_->txn_->getID());
+        EXPECT_EQ(owningStreamId, assocHandler_->txn_->getID());
       });
 
-  sendPushPromise(assocHandler_->txn_->getID(), getGetRequest(), pushId);
+  expectPushPromise([&](HTTPCodec::StreamID owningStreamId,
+                        hq::PushId promisedPushId,
+                        HTTPMessage* msg) {
+    EXPECT_EQ(promisedPushId, pushId);
+    EXPECT_EQ(owningStreamId, assocHandler_->txn_->getID());
+
+    EXPECT_THAT(msg, NotNull());
+
+    auto expectedHeaders = pushPromiseRequest.getHeaders();
+    auto actualHeaders = msg->getHeaders();
+
+    expectedHeaders.forEach(
+        [&](const std::string& header, const std::string& /* val */) {
+          EXPECT_TRUE(actualHeaders.exists(header));
+          EXPECT_EQ(expectedHeaders.getNumberOfValues(header),
+                    actualHeaders.getNumberOfValues(header));
+        });
+  });
+
+  sendPushPromise(assocHandler_->txn_->getID(), pushPromiseRequest, pushId);
   EXPECT_TRUE(lastPushPromiseHeadersSizeValid());
 
   assocHandler_->txn_->sendEOM();

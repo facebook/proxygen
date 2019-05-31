@@ -418,6 +418,13 @@ class HQSession
    *
    * proxygenError is delivered to open transactions
    */
+  void dropConnectionWithError(quic::QuicErrorCode quicErrorCode,
+                               std::string quicError,
+                               ProxygenError proxygenError) {
+    dropConnectionWithError(std::make_pair(quicErrorCode, quicError),
+                            proxygenError);
+  }
+
   void dropConnectionWithError(
       std::pair<quic::QuicErrorCode, std::string> errorCode,
       ProxygenError proxygenError);
@@ -1078,16 +1085,21 @@ class HQSession
     void onMessageBegin(HTTPCodec::StreamID streamID,
                         HTTPMessage* /* msg */) override;
 
-    void onPushMessageBegin(HTTPCodec::StreamID /* streamID */,
+    void onPushMessageBegin(HTTPCodec::StreamID /* pushID */,
                             HTTPCodec::StreamID /* parentTxnId */,
-                            HTTPMessage* /* msg */) override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-    }
+                            HTTPMessage* /* msg */) override;
 
     void onExMessageBegin(HTTPCodec::StreamID /* streamID */,
                           HTTPCodec::StreamID /* controlStream */,
                           bool /* unidirectional */,
                           HTTPMessage* /* msg */) override {
+      LOG(ERROR) << __func__ << " txn=" << txn_ << " TODO";
+    }
+
+    virtual void onPushPromiseHeadersComplete(
+        hq::PushId /* pushID */,
+        HTTPCodec::StreamID /* assoc streamID */,
+        std::unique_ptr<HTTPMessage> /* msg */) {
       LOG(ERROR) << __func__ << " txn=" << txn_ << " TODO";
     }
 
@@ -1578,6 +1590,7 @@ class HQSession
     std::shared_ptr<QuicStreamProtocolInfo> quicStreamProtocolInfo_;
 
     void armEgressHeadersAckCb(uint64_t streamOffset);
+
     bool egressHeadersAckOffsetSet() const {
       return egressHeadersAckOffset_.hasValue();
     }
@@ -1594,6 +1607,14 @@ class HQSession
     folly::Optional<uint64_t> egressHeadersAckOffset_;
     // Track number of armed QUIC delivery callbacks.
     uint64_t numActiveDeliveryCallbacks_{0};
+
+    // Used to store last seen ingress push ID between
+    // the invocations of onPushPromiseBegin / onHeadersComplete.
+    // It is being reset by
+    //  - "onNewMessage" (in which case the push promise is being abandoned),
+    //  - "onPushMessageBegin" (which may be abandonned / duplicate message id)
+    //  - "onHeadersComplete" (not pending anymore)
+    folly::Optional<hq::PushId> ingressPushId_;
   }; // HQStreamTransportBase
 
   class HQStreamTransport
@@ -1622,12 +1643,10 @@ class HQSession
                                 parentTxnId) {
     }
 
-    /**
-     * HQStreamTransport allows reception of push promises
-     */
-    void onPushMessageBegin(HTTPCodec::StreamID /* pushID */,
-                            HTTPCodec::StreamID /* assoc streamID */,
-                            HTTPMessage* /* msg */) override;
+    void onPushPromiseHeadersComplete(
+        hq::PushId /* pushID */,
+        HTTPCodec::StreamID /* assoc streamID */,
+        std::unique_ptr<HTTPMessage> /* promise */) override;
 
   }; // HQStreamTransport
 

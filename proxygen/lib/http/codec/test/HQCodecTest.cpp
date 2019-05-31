@@ -26,10 +26,14 @@ using namespace proxygen;
 using namespace proxygen::hq;
 using namespace testing;
 
+// a FakeHTTPCodecCallback that can
+// be used as a unidirectional codec as well
 class FakeHQHTTPCodecCallback
     : public FakeHTTPCodecCallback
     , public HQUnidirectionalCodec::Callback {
  public:
+  // Delegate HQUnidirectionalCodec::Callback::onError
+  // to FakeHTTPCodecCallback::onError
   void onError(HTTPCodec::StreamID streamId,
                const HTTPException& ex,
                bool newTxn) override {

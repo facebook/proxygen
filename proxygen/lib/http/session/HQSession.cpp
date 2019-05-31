@@ -277,11 +277,9 @@ HQSession::createIngressControlStream(quic::StreamId id,
 
   if (ctrlStream->ingressCodec_) {
     LOG(ERROR) << "Too many " << streamType << " streams for sess=" << *this;
-    dropConnectionWithError(
-        std::make_pair(
-            HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
-            "HTTP wrong stream count"),
-        kErrorConnection);
+    dropConnectionWithError(HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
+                            "HTTP wrong stream count",
+                            kErrorConnection);
     return nullptr;
   }
 
@@ -648,8 +646,7 @@ void HQSession::closeWhenIdle() {
 
 void HQSession::dropConnection() {
   dropConnectionWithError(
-      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping"),
-      kErrorDropped);
+      HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping", kErrorDropped);
 }
 
 void HQSession::dropConnectionWithError(
@@ -1808,8 +1805,7 @@ void HQSession::handleSessionError(HQStreamBase* stream,
     HQSession::DestructorGuard dg(this);
     evb->runInLoop(
         [this, appError, appErrorMsg, proxygenError, sessionDg = dg]() {
-          dropConnectionWithError(std::make_pair(appError, appErrorMsg),
-                                  proxygenError);
+          dropConnectionWithError(appError, appErrorMsg, proxygenError);
         },
         false);
   }
@@ -2474,6 +2470,13 @@ void HQSession::HQStreamTransportBase::processDataRejected(
   }
 }
 
+// This method can be invoked via several paths:
+//  - last header in the response has arrived
+//  - triggered by QPACK
+//  - push promise has arrived
+//  - 1xx information header (e.g. 100 continue)
+// The method is safe to use in all the above scenarios
+// see specific comments in the method body
 void HQSession::HQStreamTransportBase::onHeadersComplete(
     HTTPCodec::StreamID streamID, std::unique_ptr<HTTPMessage> msg) {
   VLOG(4) << __func__ << " txn=" << txn_;
@@ -2484,6 +2487,9 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
   CHECK(codecStreamId_);
   CHECK_EQ(streamID, *codecStreamId_);
 
+  //  setupOnHeadersComplete is only implemented
+  //  in the HQDownstreamSession, which does not
+  //  receive push promises. Will only be called once
   session_.setupOnHeadersComplete(&txn_, msg.get());
   if (!txn_.getHandler()) {
     txn_.sendAbort();
@@ -2508,7 +2514,16 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
 
   // Tell the HTTPTransaction to start processing the message now
   // that the full ingress headers have arrived.
-  txn_.onIngressHeadersComplete(std::move(msg));
+  // Depending on the push promise latch, the message is delivered to
+  // the current transaction (no push promise) or to a freshly created
+  // pushed transaction. The latter is done via "onPushPromiseHeadersComplete"
+  // callback
+  if (ingressPushId_) {
+    onPushPromiseHeadersComplete(*ingressPushId_, streamID, std::move(msg));
+    ingressPushId_ = folly::none;
+  } else {
+    txn_.onIngressHeadersComplete(std::move(msg));
+  }
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
@@ -2928,13 +2943,31 @@ size_t HQSession::HQStreamTransportBase::sendChunkTerminator(
 
 void HQSession::HQStreamTransportBase::onMessageBegin(
     HTTPCodec::StreamID streamID, HTTPMessage* /* msg */) {
-  VLOG(4) << __func__ << " txn=" << txn_;
+  VLOG(4) << __func__ << " txn=" << txn_ << " streamID=" << streamID
+          << " ingressPushId=" << ingressPushId_.value_or(-1);
+
+  if (ingressPushId_) {
+    constexpr auto error =
+        "Received onMessageBegin in the middle of push promise";
+    LOG(ERROR) << error << " streamID=" << streamID << " session=" << session_;
+    session_.dropConnectionWithError(
+        HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
+        error,
+        kErrorDropped);
+    return;
+  }
+
   if (session_.infoCallback_) {
     session_.infoCallback_->onRequestBegin(session_);
   }
+
   // NOTE: for H2 this is where we create a new stream and transaction.
   // for HQ there is nothing to do here, except caching the codec streamID
   codecStreamId_ = streamID;
+
+  // Reset the pending pushID, since the subsequent invocation of
+  // `onHeadersComplete` won't be associated with a push
+  ingressPushId_ = folly::none;
 }
 
 // Partially reliable transport callbacks.
@@ -3134,13 +3167,24 @@ void HQSession::HQStreamTransportBase::onCanceled(quic::StreamId id,
 }
 
 // Methods specific to StreamTransport subclasses
-void HQSession::HQStreamTransport::onPushMessageBegin(
+void HQSession::HQStreamTransportBase::onPushMessageBegin(
     HTTPCodec::StreamID pushID,
-    HTTPCodec::StreamID streamID,
+    HTTPCodec::StreamID assocStreamID,
     HTTPMessage* /* msg */) {
+  VLOG(4) << __func__ << " txn=" << txn_ << " streamID=" << getIngressStreamId()
+          << " assocStreamID=" << assocStreamID
+          << " ingressPushId=" << ingressPushId_.value_or(-1);
 
-  VLOG(3) << __func__ << " streamID=" << streamID << " pushID=" << pushID
-          << ", txn= " << txn_;
+  if (ingressPushId_) {
+    constexpr auto error =
+        "Received onPushMessageBegin in the middle of push promise";
+    LOG(ERROR) << error;
+    session_.dropConnectionWithError(
+        HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
+        error,
+        kErrorDropped);
+    return;
+  }
 
   if (session_.infoCallback_) {
     session_.infoCallback_->onRequestBegin(session_);
@@ -3149,7 +3193,44 @@ void HQSession::HQStreamTransport::onPushMessageBegin(
   // Notify the testing callbacks
   if (session_.serverPushLifecycleCb_) {
     session_.serverPushLifecycleCb_->onPushPromiseBegin(
-        streamID, static_cast<hq::PushId>(pushID));
+        assocStreamID, static_cast<hq::PushId>(pushID));
+  }
+
+  ingressPushId_ = static_cast<hq::PushId>(pushID);
+}
+
+// Methods specific to StreamTransport subclasses
+void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
+    hq::PushId pushID,
+    HTTPCodec::StreamID assocStreamID,
+    std::unique_ptr<HTTPMessage> msg) {
+  VLOG(3) << "processing new Push Promise msg=" << msg.get()
+          << "streamID=" << assocStreamID << " maybePushID=" << pushID
+          << ", txn= " << txn_;
+
+  // If the session supports server push lifecycle management,
+  // let the session take care of the incoming (now complete) push promise
+  if (session_.serverPushLifecycleCb_) {
+    session_.serverPushLifecycleCb_->onPushPromise(
+        assocStreamID, pushID, msg.get());
+  }
+
+  // Create an ingress push stream
+  // NOTE: current code is a plug until the ingress push streams
+  // are actually created in the stack. I have put it here
+  // to ensure the txn notification logic is present in this diff.
+  auto ingressPushStream = session_.findIngressPushStreamByPushId(pushID);
+
+  if (ingressPushStream) {
+    // Notify the parent transaction that a pushed transaction has been
+    // successfully created.
+    txn_.onPushedTransaction(&ingressPushStream->txn_);
+
+    // Notify the new transaction that the push headers are ready.
+    // NOTE: This has to be called AFTER "onPushedTransaction" upcall
+    ingressPushStream->txn_.onIngressHeadersComplete(std::move(msg));
+  } else {
+    // close transaction?
   }
 }
 
