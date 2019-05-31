@@ -7,12 +7,16 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/http/session/HQUpstreamSession.h>
+#include <folly/futures/Future.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <folly/portability/GTest.h>
+#include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/http/session/HQStreamLookup.h>
+#include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <proxygen/lib/http/session/test/HQSessionMocks.h>
 #include <proxygen/lib/http/session/test/HQSessionTestCommon.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
@@ -22,9 +26,6 @@
 #include <quic/api/test/MockQuicSocket.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
-#include <folly/futures/Future.h>
-#include <folly/portability/GTest.h>
-
 using namespace proxygen;
 using namespace proxygen::hq;
 using namespace quic;
@@ -33,8 +34,11 @@ using namespace testing;
 using namespace std::chrono;
 using std::unique_ptr;
 
+namespace {
 constexpr quic::StreamId kQPACKEncoderIngressStreamId = 7;
 constexpr quic::StreamId kQPACKDecoderEgressStreamId = 10;
+
+} // namespace
 
 class HQUpstreamSessionTest : public HQSessionTest {
  public:
@@ -850,6 +854,124 @@ TEST_P(HQUpstreamSessionTestH1qv1, TestConnectionClose) {
 }
 
 /**
+ * Push tests
+ */
+
+class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
+ public:
+  void SetUp() override {
+    HQUpstreamSessionTest::SetUp();
+    SetUpAssocHandler();
+    nextPushId_ = kInitialPushId;
+    lastPushPromiseHeadersSize_.compressed = 0;
+    lastPushPromiseHeadersSize_.uncompressed = 0;
+    ;
+  }
+
+  void SetUpAssocHandler() {
+    // Create the primary request
+    assocHandler_ = openTransaction();
+    assocHandler_->txn_->sendHeaders(getGetRequest());
+    assocHandler_->expectHeaders();
+    assocHandler_->expectDetachTransaction();
+  }
+
+  void TearDown() override {
+    HQUpstreamSessionTest::TearDown();
+  }
+
+  hq::PushId nextPushId() {
+    auto id = nextPushId_;
+    nextPushId_ += kPushIdIncrement;
+    return id | hq::kPushIdMask;
+  }
+
+  // NOTE: Using odd numbers for push ids, to allow detecting
+  // subtle bugs where streamID and pushID are quietly misplaced
+  bool isPushIdValid(hq::PushId pushId) {
+    return (pushId % 2) == 1;
+  }
+
+  void sendPushPromise(quic::StreamId streamId,
+                       hq::PushId pushId = kUnknownPushId,
+                       const std::string& url = "/",
+                       proxygen::HTTPHeaderSize* outHeaderSize = nullptr,
+                       bool eom = false) {
+
+    auto promise = getGetRequest(url);
+    promise.setURL(url);
+
+    return sendPushPromise(streamId, promise, pushId, outHeaderSize, eom);
+  }
+
+  void sendPushPromise(quic::StreamId streamId,
+                       const HTTPMessage& promiseHeadersBlock,
+                       hq::PushId pushId = kUnknownPushId,
+                       proxygen::HTTPHeaderSize* outHeaderSize = nullptr,
+                       bool eom = false) {
+
+    // In case the user is not interested in knowing the size
+    // of headers, but just in the fact that the headers were
+    // written, use a temporary size for checks
+    if (outHeaderSize == nullptr) {
+      outHeaderSize = &lastPushPromiseHeadersSize_;
+    }
+
+    if (pushId == kUnknownPushId) {
+      pushId = nextPushId();
+    }
+
+    auto c = makeCodec(streamId);
+    auto res =
+        streams_.emplace(std::piecewise_construct,
+                         std::forward_as_tuple(streamId),
+                         std::forward_as_tuple(c.first, std::move(c.second)));
+
+    auto& pushPromiseRequest = res.first->second;
+    pushPromiseRequest.id = streamId;
+
+    // Push promises should not have EOF set.
+    pushPromiseRequest.readEOF = eom;
+
+    // Write the push promise to the request buffer.
+    // The push promise includes the headers
+    pushPromiseRequest.codec->generatePushPromise(pushPromiseRequest.buf,
+                                                  streamId,
+                                                  promiseHeadersBlock,
+                                                  pushId,
+                                                  eom,
+                                                  outHeaderSize);
+  }
+
+  bool lastPushPromiseHeadersSizeValid() {
+    return ((lastPushPromiseHeadersSize_.uncompressed > 0) &&
+            (lastPushPromiseHeadersSize_.compressed > 0));
+  }
+
+  proxygen::HTTPHeaderSize lastPushPromiseHeadersSize_;
+  hq::PushId nextPushId_;
+  std::unique_ptr<StrictMock<MockHTTPHandler>> assocHandler_;
+};
+
+TEST_P(HQUpstreamSessionTestHQPush, TestSendPushPromiseHelper) {
+  // the transaction is expected to timeout, since the PushPromise does not have
+  // EOF set, and it is not followed by a PushStream.
+  assocHandler_->expectError();
+
+  hq::PushId pushId = nextPushId();
+
+  // the push promise is not followed by a push stream, and the eof is not
+  // set.
+  // The transaction is supposed to stay open and to time out eventually.
+  sendPushPromise(assocHandler_->txn_->getID(), getGetRequest(), pushId);
+  EXPECT_TRUE(lastPushPromiseHeadersSizeValid());
+
+  assocHandler_->txn_->sendEOM();
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+/**
  * Instantiate the Parametrized test cases
  */
 
@@ -904,6 +1026,12 @@ INSTANTIATE_TEST_CASE_P(
                                .bodyScript = std::vector<uint8_t>(),
                            }})),
     paramsToTestName);
+
+// Instantiate tests for H3 Push functionality (requires HQ)
+INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+                        HQUpstreamSessionTestHQPush,
+                        Values(TestParams({.alpn_ = "h3"})),
+                        paramsToTestName);
 
 #ifdef PR_IS_WORKING
 INSTANTIATE_TEST_CASE_P(
@@ -1219,3 +1347,4 @@ TEST_P(HQUpstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
   hqSession_->closeWhenIdle();
 }
 #endif
+

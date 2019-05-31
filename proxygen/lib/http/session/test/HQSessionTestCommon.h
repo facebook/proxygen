@@ -11,11 +11,12 @@
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
+#include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
-#include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
+#include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 
 #define IS_H1Q_FB_V1 (GetParam().alpn_ == "h1q-fb")
@@ -28,6 +29,12 @@
 constexpr unsigned int kTransactionTimeout = 500;
 constexpr unsigned int kConnectTimeout = 500;
 constexpr size_t kQPACKTestDecoderMaxTableSize = 2048;
+// Used as a marker for unknown push ids
+const proxygen::hq::PushId kUnknownPushId =
+  std::numeric_limits<uint64_t>::max();
+constexpr proxygen::hq::PushId kInitialPushId = 12345;
+constexpr uint64_t kPushIdIncrement = 2;
+
 
 constexpr uint8_t PR_BODY = 0;
 constexpr uint8_t PR_SKIP = 1;
