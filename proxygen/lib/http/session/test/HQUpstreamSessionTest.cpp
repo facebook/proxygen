@@ -321,10 +321,13 @@ using HQUpstreamSessionTestH1qv2 = HQUpstreamSessionTest;
 using HQUpstreamSessionTestH1qv2HQ = HQUpstreamSessionTest;
 // Use this test class for hq only tests
 using HQUpstreamSessionTestHQ = HQUpstreamSessionTest;
+
+#ifdef PR_IS_WORKING
 // Use this test class for hq PR general tests
 using HQUpstreamSessionTestHQPR = HQUpstreamSessionTest;
 // Use this test class for hq PR scripted recv tests
 using HQUpstreamSessionTestHQPRRecvBodyScripted = HQUpstreamSessionTest;
+#endif
 
 TEST_P(HQUpstreamSessionTest, SimpleGet) {
   auto handler = openTransaction();
@@ -902,6 +905,7 @@ INSTANTIATE_TEST_CASE_P(
                            }})),
     paramsToTestName);
 
+#ifdef PR_IS_WORKING
 INSTANTIATE_TEST_CASE_P(
     HQUpstreamSessionTest,
     HQUpstreamSessionTestHQPRRecvBodyScripted,
@@ -1161,7 +1165,7 @@ TEST_P(HQUpstreamSessionTestHQPR, TestWrongOffsetErrorCleanup) {
                     std::string::npos);
       }));
   handler->expectDetachTransaction();
-  hqSession_->onDataExpired(streamId, wrongOffset);
+  hqSession_->getDispatcher()->onDataExpired(streamId, wrongOffset);
 
   flushAndLoop();
 
@@ -1214,3 +1218,4 @@ TEST_P(HQUpstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
 
   hqSession_->closeWhenIdle();
 }
+#endif

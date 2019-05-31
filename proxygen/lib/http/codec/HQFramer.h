@@ -39,6 +39,14 @@ const uint64_t kPushIdMask = ((uint64_t)1) << 63;
 
 using PushId = uint64_t;
 
+// Internally the push IDs have a high bit set
+// to prevent a collision with a stream id.
+bool isInternalPushId(PushId pushId);
+
+// Externally the push IDs do not have the high bit
+// set.
+bool isExternalPushId(PushId pushId);
+
 using ParseResult = folly::Optional<HTTP3::ErrorCode>;
 using WriteResult = folly::Expected<size_t, quic::TransportErrorCode>;
 

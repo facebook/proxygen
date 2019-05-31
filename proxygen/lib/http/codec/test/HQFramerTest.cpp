@@ -566,3 +566,14 @@ TEST_F(HQFramerTest, SettingsFrameUnknownId) {
   ASSERT_EQ(proxygen::hq::FrameType::SETTINGS, header.type);
   ASSERT_TRUE(outSettings.empty());
 }
+
+TEST_F(HQFramerTest, DecoratedPushIds) {
+  PushId testId = 10000;
+  PushId internalTestId = testId | kPushIdMask;
+
+  ASSERT_TRUE(proxygen::hq::isExternalPushId(testId));
+  ASSERT_FALSE(proxygen::hq::isInternalPushId(testId));
+
+  ASSERT_TRUE(proxygen::hq::isInternalPushId(internalTestId));
+  ASSERT_FALSE(proxygen::hq::isExternalPushId(internalTestId));
+}

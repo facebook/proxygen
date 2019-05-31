@@ -31,6 +31,14 @@ folly::Optional<uint64_t> getGreaseId(uint64_t n) {
   return (0x1F * n) + 0x21;
 }
 
+bool isInternalPushId(PushId pushId) {
+  return pushId & kPushIdMask;
+}
+
+bool isExternalPushId(PushId pushId) {
+  return !(pushId & kPushIdMask);
+}
+
 bool frameAffectsCompression(FrameType t) {
   return t == FrameType::HEADERS || t == FrameType::PUSH_PROMISE;
 }

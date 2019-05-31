@@ -8,6 +8,11 @@
  *
  */
 #pragma once
+
+#include <folly/io/IOBufQueue.h>
+#include <folly/io/async/AsyncSocket.h>
+#include <folly/io/async/DelayedDestructionBase.h>
+#include <folly/io/async/EventBase.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
@@ -21,15 +26,11 @@
 #include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HQStreamBase.h>
+#include <proxygen/lib/http/session/HQUnidirectionalCallbacks.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/ConditionalGate.h>
-
-#include <folly/io/IOBufQueue.h>
-#include <folly/io/async/AsyncSocket.h>
-#include <folly/io/async/DelayedDestructionBase.h>
-#include <folly/io/async/EventBase.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/logging/QuicLogger.h>
 
@@ -115,11 +116,9 @@ class HQSession
     , public quic::QuicSocket::ReadCallback
     , public quic::QuicSocket::WriteCallback
     , public quic::QuicSocket::DeliveryCallback
-    , public quic::QuicSocket::PeekCallback
-    , public quic::QuicSocket::DataExpiredCallback
-    , public quic::QuicSocket::DataRejectedCallback
     , public HTTPSessionBase
-    , public folly::EventBase::LoopCallback {
+    , public folly::EventBase::LoopCallback
+    , public HQUnidirStreamDispatcher::Callback {
 
   // Forward declarations
  protected:
@@ -229,10 +228,6 @@ class HQSession
       std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
           error) noexcept override;
 
-  void onDataExpired(quic::StreamId id, uint64_t offset) noexcept override;
-
-  void onDataRejected(quic::StreamId id, uint64_t offset) noexcept override;
-
   // Only for UpstreamSession
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
 
@@ -303,6 +298,11 @@ class HQSession
       return CodecProtocol::HTTP_1_1;
     }
     return versionUtils_->getCodecProtocol();
+  }
+
+  // for testing only
+  HQUnidirStreamDispatcher* getDispatcher() {
+    return &unidirectionalReadDispatcher_;
   }
 
   /**
@@ -470,41 +470,59 @@ class HQSession
    * for HQ we need a read callback for unidirectional streams to read the
    * stream type from the the wire to decide whether a stream is
    * a control stream, a header codec/decoder stream or a push stream
+   *
+   * This part is now implemented in HQUnidirStreamDispatcher
    */
-  class UnidirectionalStreamReadCallback
-      : public quic::QuicSocket::ReadCallback {
-   public:
-    explicit UnidirectionalStreamReadCallback(HQSession& session)
-        : session_(session) {
-    }
 
-    void readAvailable(quic::StreamId id) noexcept override {
-      session_.unidirectionalReadAvailable(id);
-    }
+  // Callback methods that are invoked by the dispatcher
+  void assignPeekCallback(
+      quic::StreamId /* id */,
+      hq::UnidirectionalStreamType /* type */,
+      size_t /* toConsume */,
+      quic::QuicSocket::PeekCallback* const /* cb */) override {
+    // Will be implemented in later diffs
+  }
 
-    virtual void readError(
-        quic::StreamId id,
-        std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-            error) noexcept override {
-      session_.unidirectionalReadError(id, error);
-    }
+  void onNewPushStream(quic::StreamId /* pushStreamId */,
+                       hq::PushId /* pushId */,
+                       size_t /* toConsume */) override {
+    // Will be implemented in later diffs
+  }
 
-    ~UnidirectionalStreamReadCallback() {
-    }
+  void assignReadCallback(
+      quic::StreamId /* id */,
+      hq::UnidirectionalStreamType /* type */,
+      size_t /* toConsume */,
+      quic::QuicSocket::ReadCallback* const /* cb */) override;
 
-   private:
-    HQSession& session_;
-  };
+  void rejectStream(quic::StreamId /* id */) override;
 
-  virtual void onDataAvailable(
-      quic::StreamId id,
-      const folly::Range<quic::QuicSocket::PeekIterator>&
-          peekData) noexcept override;
-  void unidirectionalReadAvailable(quic::StreamId id);
-  void unidirectionalReadError(
-      quic::StreamId id,
-      std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-          error);
+  bool isPartialReliabilityEnabled(quic::StreamId /* id */) override;
+
+  void onPartialDataAvailable(
+      quic::StreamId /* id */,
+      const HQUnidirStreamDispatcher::Callback::PeekData& /* data */) override;
+
+  void processExpiredData(quic::StreamId /* id */,
+                          uint64_t /* offset */) override;
+
+  void processRejectedData(quic::StreamId /* id */,
+                           uint64_t /* offset */) override;
+
+  folly::Optional<hq::UnidirectionalStreamType> parseStreamPreface(
+      uint64_t preface) override;
+
+  void controlStreamReadAvailable(quic::StreamId /* id */) override;
+
+  void controlStreamReadError(
+      quic::StreamId /* id */,
+      const HQUnidirStreamDispatcher::Callback::ReadError& /* err */) override;
+
+  void onGreaseDataAvailable(quic::StreamId /* id */,
+                             const folly::Range<quic::QuicSocket::PeekIterator>&
+                             /* peekData */) noexcept override {
+    // Will be implemented in even later diffs
+  }
 
   void processControlStreamPreface(
       quic::StreamId id,
@@ -540,7 +558,7 @@ class HQSession
         started_(false),
         dropping_(false),
         inLoopCallback_(false),
-        unidirectionalReadCb_(*this) {
+        unidirectionalReadDispatcher_(*this) {
     codec_.add<HTTPChecks>();
     // dummy, ingress, egress
     codecStack_.reserve(kMaxCodecStackDepth);
@@ -1672,7 +1690,7 @@ class HQSession
 
     folly::Optional<hq::UnidirectionalStreamType> parseStreamPreface(
         uint64_t /*preface*/) override {
-      CHECK(false);
+      LOG(FATAL) << "H1Q does not use stream preface";
       folly::assume_unreachable();
     }
 
@@ -1873,7 +1891,7 @@ class HQSession
   using ControlStreamsKey = std::pair<quic::StreamId, hq::StreamDirection>;
   std::unordered_map<hq::UnidirectionalStreamType, HQControlStream>
       controlStreams_;
-  UnidirectionalStreamReadCallback unidirectionalReadCb_;
+  HQUnidirStreamDispatcher unidirectionalReadDispatcher_;
   // Maximum Stream ID received so far
   quic::StreamId maxIncomingStreamId_{0};
   // Maximum Stream ID that we are allowed to open, according to the remote

@@ -83,9 +83,8 @@ void HQSession::setSessionStats(HTTPSessionStats* stats) {
 }
 
 void HQSession::setPartiallyReliableCallbacks(quic::StreamId id) {
-  sock_->setPeekCallback(id, this);
-  sock_->setDataExpiredCallback(id, this);
-  sock_->setDataRejectedCallback(id, this);
+  // sock_->setDataExpiredCallback(id, this);
+  // sock_->setDataRejectedCallback(id, this);
 }
 
 void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
@@ -119,7 +118,8 @@ void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
   DCHECK(!ctrlStream) << "duplicate " << __func__ << " for streamID=" << id;
   // This has to be a new control or push stream, but we haven't read the
   // preface yet
-  sock_->setPeekCallback(id, this);
+  // Assign the stream to the dispatcher
+  sock_->setPeekCallback(id, &unidirectionalReadDispatcher_);
 }
 
 void HQSession::onStopSending(quic::StreamId id,
@@ -994,7 +994,43 @@ void HQSession::readError(
   // clang-format on
 }
 
-void HQSession::onDataExpired(quic::StreamId id, uint64_t offset) noexcept {
+bool HQSession::isPartialReliabilityEnabled(quic::StreamId id) {
+  if (!isPartialReliabilityEnabled()) {
+    VLOG(10) << __func__ << " PR disabled for the session streamID=" << id;
+    return false;
+  }
+  auto hqStream = findNonDetachedStream(id);
+  if (!hqStream) {
+    VLOG(10) << __func__ << " stream possibly detached streamID=" << id;
+    return false;
+  }
+  if (!sock_->isBidirectionalStream(id)) {
+    VLOG(10) << __func__ << " PR disabled for unidirectional streamID=" << id;
+    return false;
+  }
+
+  VLOG(10) << __func__ << " PR enabled for streamID=" << id;
+  return true;
+}
+
+void HQSession::onPartialDataAvailable(
+    quic::StreamId id,
+    const HQUnidirStreamDispatcher::Callback::PeekData& partialData) {
+  DCHECK(isPartialReliabilityEnabled(id))
+      << "Must check whether the PR is enabled prior to calling " << __func__;
+  auto hqStream = findNonDetachedStream(id);
+  if (!hqStream) {
+    if (streams_.find(id) != streams_.end()) {
+      LOG(ERROR) << __func__ << " event received for detached stream " << id;
+    }
+    return;
+  }
+  hqStream->processPeekData(partialData);
+}
+
+void HQSession::processExpiredData(quic::StreamId id, uint64_t offset) {
+  DCHECK(isPartialReliabilityEnabled(id))
+      << "Must check whether the PR is enabled prior to calling " << __func__;
   auto hqStream = findNonDetachedStream(id);
   if (!hqStream) {
     if (streams_.find(id) != streams_.end()) {
@@ -1005,7 +1041,9 @@ void HQSession::onDataExpired(quic::StreamId id, uint64_t offset) noexcept {
   hqStream->processDataExpired(offset);
 }
 
-void HQSession::onDataRejected(quic::StreamId id, uint64_t offset) noexcept {
+void HQSession::processRejectedData(quic::StreamId id, uint64_t offset) {
+  DCHECK(isPartialReliabilityEnabled(id))
+      << "Must check whether the PR is enabled prior to calling " << __func__;
   auto hqStream = findNonDetachedStream(id);
   if (!hqStream) {
     if (streams_.find(id) != streams_.end()) {
@@ -1049,28 +1087,32 @@ HQSession::tryCreateIngressControlStream(quic::StreamId id, uint64_t preface) {
 
 folly::Optional<UnidirectionalStreamType>
 HQSession::H1QFBV2VersionUtils::parseStreamPreface(uint64_t preface) {
-  auto prefaceEnum = static_cast<UnidirectionalStreamType>(preface);
-  switch (prefaceEnum) {
-    case UnidirectionalStreamType::H1Q_CONTROL:
-      return prefaceEnum;
-    default:
-      break;
-  }
-  return folly::none;
+  hq::UnidirectionalTypeF parse = [](hq::UnidirectionalStreamType type)
+      -> folly::Optional<UnidirectionalStreamType> {
+    switch (type) {
+      case UnidirectionalStreamType::H1Q_CONTROL:
+        return type;
+      default:
+        return folly::none;
+    }
+  };
+  return hq::withType(preface, parse);
 }
 
 folly::Optional<UnidirectionalStreamType>
 HQSession::HQVersionUtils::parseStreamPreface(uint64_t preface) {
-  auto prefaceEnum = static_cast<UnidirectionalStreamType>(preface);
-  switch (prefaceEnum) {
-    case UnidirectionalStreamType::CONTROL:
-    case UnidirectionalStreamType::QPACK_ENCODER:
-    case UnidirectionalStreamType::QPACK_DECODER:
-      return prefaceEnum;
-    default:
-      break;
-  }
-  return folly::none;
+  hq::UnidirectionalTypeF parse = [](hq::UnidirectionalStreamType type)
+      -> folly::Optional<UnidirectionalStreamType> {
+    switch (type) {
+      case UnidirectionalStreamType::CONTROL:
+      case UnidirectionalStreamType::QPACK_ENCODER:
+      case UnidirectionalStreamType::QPACK_DECODER:
+        return type;
+      default:
+        return folly::none;
+    }
+  };
+  return hq::withType(preface, parse);
 }
 
 void HQSession::readControlStream(HQControlStream* ctrlStream) {
@@ -1096,62 +1138,53 @@ void HQSession::readControlStream(HQControlStream* ctrlStream) {
   ctrlStream->processReadData();
 }
 
-void HQSession::processControlStreamPreface(
-    quic::StreamId id,
-    const folly::Range<quic::QuicSocket::PeekIterator>& peekData) noexcept {
-  if (peekData.empty()) {
-    LOG(ERROR) << __func__ << " invoked with no data";
-    return;
-  }
-  // if not at offset 0, ignore
-  if (peekData.front().offset != 0) {
-    return;
-  }
-  // Look for a stream preface in the first read buffer
-  folly::io::Cursor cursor(peekData.front().data.front());
-  auto preface = quic::decodeQuicInteger(cursor);
-  if (!preface) {
-    return;
-  }
+// Dispatcher method implementation
+void HQSession::assignReadCallback(quic::StreamId id,
+                                   hq::UnidirectionalStreamType type,
+                                   size_t toConsume,
+                                   quic::QuicSocket::ReadCallback* const cb) {
+  CHECK(cb) << "Bug in dispatcher - null callback passed";
 
-  auto consumeRes = sock_->consume(id, preface->second);
-  CHECK(!consumeRes.hasError());
+  auto consumeRes = sock_->consume(id, toConsume);
+  CHECK(!consumeRes.hasError()) << "Unexpected error consuming bytes";
+
+  // Notify the read callback
   if (infoCallback_) {
-    infoCallback_->onRead(*this, preface->second);
+    infoCallback_->onRead(*this, toConsume);
   }
 
-  auto ctrlStream = tryCreateIngressControlStream(id, preface->first);
+  auto ctrlStream =
+      tryCreateIngressControlStream(id, static_cast<uint64_t>(type));
   if (!ctrlStream) {
-    // Do not read data for unknown unidirectional stream types.
-    // Send STOP_SENDING and rely on the peer sending a RESET to clear the
-    // stream in the transport.
-    sock_->stopSending(id, HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE);
+    rejectStream(id);
     return;
   }
 
   // After reading the preface we can switch to the regular readCallback
   sock_->setPeekCallback(id, nullptr);
-  sock_->setReadCallback(id, &unidirectionalReadCb_);
+  sock_->setReadCallback(id, cb);
+
+  // The transport will send notifications via the read callback
+  // for the *future* events, but not for this one.
+  // In case there is additional data on the control stream,
+  // it can be not seen until the next read notification.
+  // To mitigate that, we propagate the onReadAvailable to the control stream.
+  controlStreamReadAvailable(id);
 }
 
-void HQSession::onDataAvailable(
-    quic::StreamId id,
-    const folly::Range<quic::QuicSocket::PeekIterator>& peekData) noexcept {
-  if (sock_->isBidirectionalStream(id)) {
-    auto hqStream = findNonDetachedStream(id);
-    if (!hqStream) {
-      if (streams_.find(id) != streams_.end()) {
-        LOG(ERROR) << __func__ << " event received for detached stream " << id;
-      }
-      return;
-    }
-    hqStream->processPeekData(peekData);
-  } else {
-    processControlStreamPreface(id, peekData);
-  }
+void HQSession::rejectStream(quic::StreamId id) {
+  // Do not read data for unknown unidirectional stream types.
+  // Send STOP_SENDING and rely on the peer sending a RESET to clear the
+  // stream in the transport.
+  sock_->stopSending(id, HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE);
 }
 
-void HQSession::unidirectionalReadAvailable(quic::StreamId id) {
+folly::Optional<hq::UnidirectionalStreamType> HQSession::parseStreamPreface(
+    uint64_t preface) {
+  return versionUtils_->parseStreamPreface(preface);
+}
+
+void HQSession::controlStreamReadAvailable(quic::StreamId id) {
   VLOG(4) << __func__ << " sess=" << *this << ": streamID=" << id;
   auto ctrlStream = findControlStream(id);
   if (!ctrlStream) {
@@ -1163,9 +1196,9 @@ void HQSession::unidirectionalReadAvailable(quic::StreamId id) {
   readControlStream(ctrlStream);
 }
 
-void HQSession::unidirectionalReadError(
+void HQSession::controlStreamReadError(
     quic::StreamId id,
-    std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>> error) {
+    const HQUnidirStreamDispatcher::Callback::ReadError& error) {
   VLOG(4) << __func__ << " sess=" << *this << ": readError streamID=" << id
           << " error: " << error;
 
@@ -2119,8 +2152,8 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
   CHECK(it != streams_.end());
   if (sock_) {
     sock_->setReadCallback(streamId, nullptr);
+    sock_->setPeekCallback(streamId, nullptr);
     if (isPartialReliabilityEnabled()) {
-      sock_->setPeekCallback(streamId, nullptr);
       sock_->setDataExpiredCallback(streamId, nullptr);
       sock_->setDataRejectedCallback(streamId, nullptr);
     }

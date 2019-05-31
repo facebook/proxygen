@@ -30,6 +30,30 @@ enum class UnidirectionalStreamType : uint64_t {
 using StreamTypeType = std::underlying_type<UnidirectionalStreamType>::type;
 std::ostream& operator<<(std::ostream& os, UnidirectionalStreamType type);
 
+// Safe application onto the type.
+template <typename Ret>
+using UnidirectionalTypeFunctor =
+    std::function<folly::Optional<Ret>(UnidirectionalStreamType)>;
+
+using UnidirectionalTypeF = UnidirectionalTypeFunctor<UnidirectionalStreamType>;
+
+template <typename Ret>
+folly::Optional<Ret> withType(uint64_t typeval,
+                              UnidirectionalTypeFunctor<Ret> functor) {
+  auto casted = static_cast<UnidirectionalStreamType>(typeval);
+
+  switch (casted) {
+    case UnidirectionalStreamType::CONTROL:
+    case UnidirectionalStreamType::PUSH:
+    case UnidirectionalStreamType::QPACK_ENCODER:
+    case UnidirectionalStreamType::QPACK_DECODER:
+    case UnidirectionalStreamType::H1Q_CONTROL:
+      return functor(casted);
+    default:
+      return folly::none;
+  }
+}
+
 enum class StreamDirection : uint8_t { INGRESS, EGRESS };
 std::ostream& operator<<(std::ostream& os, StreamDirection direction);
 

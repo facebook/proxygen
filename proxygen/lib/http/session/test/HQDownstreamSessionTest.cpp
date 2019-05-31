@@ -2556,7 +2556,7 @@ TEST_P(HQDownstreamSessionTestHQPrBadOffset, TestWrongOffsetErrorCleanup) {
                     std::string::npos);
       }));
   handler->expectDetachTransaction();
-  hqSession_->onDataRejected(streamId, wrongOffset);
+  hqSession_->getDispatcher()->onDataRejected(streamId, wrongOffset);
 
   flushRequestsAndLoop();
   hqSession_->closeWhenIdle();
