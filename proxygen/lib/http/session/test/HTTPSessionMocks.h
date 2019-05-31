@@ -206,8 +206,6 @@ class MockHTTPHandler
 
   GMOCK_NOEXCEPT_METHOD1(onExTransaction, void(HTTPTransaction*));
 
-  GMOCK_NOEXCEPT_METHOD2(onBodyPeek, void(uint64_t, const folly::IOBufQueue&));
-
   GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
 
   GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
@@ -377,8 +375,6 @@ class MockHTTPPushHandler
   GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
 
   GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
-
-  GMOCK_NOEXCEPT_METHOD2(onBodyPeek, void(uint64_t, const folly::IOBufQueue&));
 
   GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
 

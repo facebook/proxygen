@@ -992,11 +992,6 @@ TEST_P(HQUpstreamSessionTestHQPRRecvBodyScripted, GetPrBodyScriptedExpire) {
     bool eom = c == bodyScript.size() - 1;
     switch (item) {
       case PR_BODY:
-        // Send <delta> bytes of the body.
-        handler->expectBodyPeek(
-            [&](uint64_t offset, const folly::IOBufQueue& /* chain */) {
-              EXPECT_EQ(offset, bodyBytesProcessed);
-            });
         EXPECT_CALL(*handler, onBodyWithOffset(bodyBytesProcessed, testing::_));
         if (eom) {
           handler->expectEOM();
@@ -1079,11 +1074,6 @@ TEST_P(HQUpstreamSessionTestHQPRRecvBodyScripted, GetPrBodyScriptedReject) {
     bool eom = c == bodyScript.size() - 1;
     switch (item) {
       case PR_BODY:
-        // Send <delta> bytes of the body.
-        handler->expectBodyPeek(
-            [&](uint64_t offset, const folly::IOBufQueue& /* chain */) {
-              EXPECT_EQ(offset, bodyBytesProcessed);
-            });
         EXPECT_CALL(*handler, onBodyWithOffset(bodyBytesProcessed, testing::_));
         if (eom) {
           handler->expectEOM();
@@ -1158,8 +1148,6 @@ TEST_P(HQUpstreamSessionTestHQPR, TestWrongOffsetErrorCleanup) {
   startPartialResponse(streamId, *std::get<0>(resp));
   flushAndLoopN(1);
 
-  handler->expectBodyPeek(
-      [&](uint64_t /* offset */, const folly::IOBufQueue& /* chain */) {});
   EXPECT_CALL(*handler, onBodyWithOffset(testing::_, testing::_));
   sendPartialBody(streamId, makeBuf(21), false);
   flushAndLoopN(1);

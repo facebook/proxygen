@@ -7,6 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+#pragma once
+
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
@@ -15,8 +17,6 @@
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
-
-#pragma once
 
 #define IS_H1Q_FB_V1 (GetParam().alpn_ == "h1q-fb")
 #define IS_H1Q_FB_V2 (GetParam().alpn_ == "h1q-fb-v2")
@@ -44,6 +44,10 @@ struct TestParams {
 };
 
 std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript);
+
+size_t encodeQuicIntegerWithAtLeast(uint64_t value,
+                                    uint8_t atLeast,
+                                    folly::io::QueueAppender& appender);
 
 std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info);
 
