@@ -696,7 +696,8 @@ TEST_F(HQCodecTest, PushPromiseFrame) {
   EXPECT_EQ(callbacks_.headerFrames, 1);
   EXPECT_EQ(callbacks_.bodyCalls, 0);
   EXPECT_EQ(callbacks_.messageBegin, 1);
-  EXPECT_EQ(callbacks_.assocStreamId, pushId | kPushIdMask);
+  EXPECT_EQ(callbacks_.pushId, pushId);
+  EXPECT_EQ(callbacks_.assocStreamId, streamId_);
 }
 
 template <class T>

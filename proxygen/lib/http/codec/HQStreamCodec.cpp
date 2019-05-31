@@ -181,7 +181,7 @@ ParseResult HQStreamCodec::parsePushPromise(Cursor& cursor,
     return res;
   }
   if (callback_) {
-    callback_->onPushMessageBegin(streamId_, outPushId, nullptr);
+    callback_->onPushMessageBegin(outPushId, streamId_, nullptr);
   }
   decodeInfo_.init(true /* isReq */, false /* isRequestTrailers */);
   auto headerDataLength = outHeaderData->computeChainDataLength();

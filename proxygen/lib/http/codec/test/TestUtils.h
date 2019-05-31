@@ -111,10 +111,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void onMessageBegin(HTTPCodec::StreamID /*stream*/, HTTPMessage*) override {
     messageBegin++;
   }
-  void onPushMessageBegin(HTTPCodec::StreamID /*stream*/,
+  void onPushMessageBegin(HTTPCodec::StreamID pushPromiseId,
                           HTTPCodec::StreamID assocStream,
                           HTTPMessage*) override {
     messageBegin++;
+    pushId = pushPromiseId;
     assocStreamId = assocStream;
   }
   void onExMessageBegin(HTTPCodec::StreamID /*stream*/,
@@ -302,6 +303,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void reset() {
     headersCompleteId = 0;
     assocStreamId = 0;
+    pushId = 0;
     controlStreamId = 0;
     isUnidirectional = false;
     messageBegin = 0;
@@ -341,6 +343,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "Dumping HTTP codec callback counters";
     VLOG(verbosity) << "headersCompleteId: " << headersCompleteId;
     VLOG(verbosity) << "assocStreamId: " << assocStreamId;
+    VLOG(verbosity) << "pushId: " << pushId;
     VLOG(verbosity) << "controlStreamId: " << controlStreamId;
     VLOG(verbosity) << "unidirectional: " << isUnidirectional;
     VLOG(verbosity) << "messageBegin: " << messageBegin;
@@ -371,6 +374,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   HTTPCodec::StreamID headersCompleteId{0};
   HTTPCodec::StreamID assocStreamId{0};
+  HTTPCodec::StreamID pushId{0};
   HTTPCodec::StreamID controlStreamId{0};
   bool isUnidirectional{false};
   HTTPCodec::StreamID sessionStreamId{0};

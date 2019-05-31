@@ -2327,8 +2327,6 @@ bool HQSession::HQStreamTransportBase::getCurrentTransportInfo(
 }
 
 void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
-  auto streamId = hqStream->getStreamId();
-  VLOG(4) << __func__ << " streamID=" << streamId;
   // Special case - streams that dont have either ingress stream id
   // or egress stream id dont need to be actually detached
   // prior to being erased
@@ -2346,6 +2344,7 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
     }
     eraseStream(streamId);
   } else {
+    VLOG(4) << __func__ << " streamID=NA";
     auto hqPushIngressStream = dynamic_cast<HQIngressPushStream*>(hqStream);
     CHECK(hqPushIngressStream)
         << "Only HQIngressPushStream streams are allowed to be non-bound";
