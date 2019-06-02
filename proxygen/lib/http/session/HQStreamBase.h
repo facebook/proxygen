@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
@@ -193,8 +194,10 @@ class HQStreamBase
     , public HTTPCodec::Callback {
  public:
   HQStreamBase() = delete;
-  HQStreamBase(HQSession& /* session */,
-               HTTPCodecFilterChain& /* codecFilterChain */);
+  HQStreamBase(
+      HQSession& /* session */,
+      HTTPCodecFilterChain& /* codecFilterChain */,
+      folly::Optional<hq::UnidirectionalStreamType> streamType = folly::none);
 
   virtual ~HQStreamBase() = default;
 
@@ -205,6 +208,19 @@ class HQStreamBase
   HTTPCodecFilterChain& codecFilterChain;
 
   const std::chrono::steady_clock::time_point createdTime;
+
+  size_t generateStreamPreface();
+
+  /* Stream type (for streams with prefaces only) */
+  folly::Optional<hq::UnidirectionalStreamType> type_;
+
+  /** Chain of ingress IOBufs */
+  folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
+
+  /** Queue of egress IOBufs */
+  folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
+
+  uint64_t bytesWritten_{0};
 
  protected:
   /** parent session **/

@@ -7,6 +7,7 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
+
 #pragma once
 
 #include <folly/io/IOBufQueue.h>
@@ -851,24 +852,28 @@ class HQSession
     DestructorGuard g(this);
     std::unordered_set<HQStreamTransportBase*> streams;
     streams.reserve(numberOfStreams());
+
     for (const auto& txn : streams_) {
       HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
       if (pstream) {
         streams.insert(pstream);
       }
     }
+
     for (const auto& txn : egressPushStreams_) {
       HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
       if (pstream) {
         streams.insert(pstream);
       }
     }
+
     for (const auto& txn : ingressPushStreams_) {
       HQStreamTransportBase* pstream = findByPushIdFn(txn.first);
       if (pstream) {
         streams.insert(pstream);
       }
     }
+
     for (HQStreamTransportBase* pstream : streams) {
       CHECK(pstream);
       fn(pstream);
@@ -950,13 +955,13 @@ class HQSession
                     quic::StreamId egressStreamId,
                     hq::UnidirectionalStreamType type)
         : detail::composite::CSBidir(egressStreamId, folly::none),
-          HQStreamBase(session, session.codec_),
-          type_(type) {
+          HQStreamBase(session, session.codec_, type) {
       createEgressCodec();
     }
 
     void createEgressCodec() {
-      switch (type_) {
+      CHECK(type_.hasValue());
+      switch (*type_) {
         case hq::UnidirectionalStreamType::H1Q_CONTROL:
         case hq::UnidirectionalStreamType::CONTROL:
           realCodec_ =
@@ -964,14 +969,15 @@ class HQSession
                                                    session_.direction_,
                                                    hq::StreamDirection::EGRESS,
                                                    session_.egressSettings_,
-                                                   type_);
+                                                   *type_);
           break;
         case hq::UnidirectionalStreamType::QPACK_ENCODER:
         case hq::UnidirectionalStreamType::QPACK_DECODER:
           // These are statically allocated in the session
           break;
         default:
-          LOG(FATAL) << "Failed to create egress codec.";
+          LOG(FATAL) << "Failed to create egress codec."
+            << " unrecognized stream type=" << static_cast<uint64_t>(*type_);
       }
     }
 
@@ -980,7 +986,6 @@ class HQSession
     }
 
     void processReadData();
-    size_t generateStreamPreface();
 
     // QuicSocket::DeliveryCallback
     void onDeliveryAck(quic::StreamId id,
@@ -1030,10 +1035,7 @@ class HQSession
       session_.onSettings(settings);
     }
 
-    hq::UnidirectionalStreamType type_;
     std::unique_ptr<hq::HQUnidirectionalCodec> ingressCodec_;
-    folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
-    folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
     bool readEOF_{false};
   };
 
@@ -1053,7 +1055,8 @@ class HQSession
         const WheelTimerInstance& timeout,
         HTTPSessionStats* stats = nullptr,
         http2::PriorityUpdate priority = hqDefaultPriority,
-        folly::Optional<HTTPCodec::StreamID> parentTxnId = HTTPCodec::NoStream);
+        folly::Optional<HTTPCodec::StreamID> parentTxnId = HTTPCodec::NoStream,
+        folly::Optional<hq::UnidirectionalStreamType> type = folly::none);
 
    public:
     HQStreamTransportBase() = delete;
@@ -1578,11 +1581,6 @@ class HQSession
     ConditionalGate<EOMType, 2> eomGate_;
 
     folly::Optional<HTTPCodec::StreamID> codecStreamId_;
-    /** Chain of ingress IOBufs */
-    folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
-    /** Queue of egress IOBufs */
-    folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
-    uint64_t bytesWritten_{0};
 
     ByteEventTracker byteEventTracker_;
 
@@ -1676,7 +1674,8 @@ class HQSession
                                 timeout,
                                 stats,
                                 priority,
-                                parentTxnId),
+                                parentTxnId,
+                                hq::UnidirectionalStreamType::PUSH),
           pushId_(pushId) {
     }
 
@@ -1733,7 +1732,8 @@ class HQSession
                                 timeout,
                                 stats,
                                 priority,
-                                parentTxnId),
+                                parentTxnId,
+                                hq::UnidirectionalStreamType::PUSH),
           pushId_(pushId) {
     }
 

@@ -48,6 +48,7 @@ enum class CodecType {
   CONTROL_DOWNSTREAM,
   H1Q_CONTROL_UPSTREAM,
   H1Q_CONTROL_DOWNSTREAM,
+  PUSH,
 };
 
 // This is a template since for regular tests the fixture has to be derived from

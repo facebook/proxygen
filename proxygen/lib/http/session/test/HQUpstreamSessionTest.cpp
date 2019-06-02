@@ -1048,6 +1048,7 @@ TEST_P(HQUpstreamSessionTestHQPush, TestSendPushPromiseHelper) {
   // assocHandler_->expectPushedTransaction();
 
   expectPushPromiseBegin();
+  expectPushPromise();
 
   sendPushPromise(assocHandler_->txn_->getID(), getGetRequest(), nextPushId());
   EXPECT_TRUE(lastPushPromiseHeadersSizeValid());

@@ -210,7 +210,8 @@ class HQSessionTest
     if (it == controlStreams_.end()) {
       folly::io::Cursor cursor(buf.get());
       auto preface = parseStreamPreface(cursor, getProtocolString());
-      CHECK(preface);
+      CHECK(preface) << "Preface can not be parsed protocolString="
+                     << getProtocolString();
 
       buf->trimStart(preface->second);
       switch (preface->first) {

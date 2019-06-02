@@ -251,15 +251,6 @@ bool HQSession::createEgressControlStream(UnidirectionalStreamType streamType) {
   return true;
 }
 
-size_t HQSession::HQControlStream::generateStreamPreface() {
-  VLOG(4) << "generating stream preface for " << type_
-          << " stream streamID=" << getEgressStreamId() << " sess=" << session_;
-  folly::io::QueueAppender appender(&writeBuf_, sizeof(uint64_t));
-  auto res =
-      quic::encodeQuicInteger(static_cast<hq::StreamTypeType>(type_), appender);
-  CHECK(!res.hasError());
-  return res.value();
-}
 
 HQSession::HQControlStream* FOLLY_NULLABLE
 HQSession::createIngressControlStream(quic::StreamId id,
@@ -2198,8 +2189,9 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
     const WheelTimerInstance& timeout,
     HTTPSessionStats* stats,
     http2::PriorityUpdate priority,
-    folly::Optional<HTTPCodec::StreamID> parentTxnId)
-    : HQStreamBase(session, session.codec_),
+    folly::Optional<HTTPCodec::StreamID> parentTxnId,
+    folly::Optional<hq::UnidirectionalStreamType> type)
+    : HQStreamBase(session, session.codec_, type),
       HTTP2PriorityQueueBase(kSessionStreamId),
       txn_(direction,
            static_cast<HTTPCodec::StreamID>(id),
@@ -2333,6 +2325,7 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
     if (sock_ && hqStream->hasIngressStreamId()) {
       sock_->setReadCallback(streamId, nullptr);
       sock_->setPeekCallback(streamId, nullptr);
+
       if (isPartialReliabilityEnabled()) {
         sock_->setDataExpiredCallback(streamId, nullptr);
         sock_->setDataRejectedCallback(streamId, nullptr);

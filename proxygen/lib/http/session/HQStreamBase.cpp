@@ -12,10 +12,13 @@
 
 namespace proxygen {
 
-HQStreamBase::HQStreamBase(HQSession& session,
-                           HTTPCodecFilterChain& codecFilterChain)
+HQStreamBase::HQStreamBase(
+    HQSession& session,
+    HTTPCodecFilterChain& codecFilterChain,
+    folly::Optional<hq::UnidirectionalStreamType> streamType)
     : codecFilterChain(codecFilterChain),
       createdTime(std::chrono::steady_clock::now()),
+      type_(streamType),
       session_(session) {
 }
 
@@ -82,5 +85,19 @@ folly::Function<void()> HQStreamBase::setActiveCodec(const std::string& where) {
     codecFilterChain.setCallback(session_.codecStack_.back().callback);
     realCodecPtr_ = codecPtr;
   };
+}
+
+size_t HQStreamBase::generateStreamPreface() {
+  // Request (aka HQStreamTransport) streams do not type set.
+  // If "generateStreamPreface" is invoked on those, its a bug
+  CHECK(type_.hasValue())
+      << "Can not generate preface on streams without a type";
+  VLOG(4) << "generating stream preface for " << type_.value()
+          << " stream streamID=" << getEgressStreamId() << " sess=" << session_;
+  folly::io::QueueAppender appender(&writeBuf_, sizeof(uint64_t));
+  auto res = quic::encodeQuicInteger(
+      static_cast<hq::StreamTypeType>(type_.value()), appender);
+  CHECK(!res.hasError());
+  return res.value();
 }
 }; // namespace proxygen
