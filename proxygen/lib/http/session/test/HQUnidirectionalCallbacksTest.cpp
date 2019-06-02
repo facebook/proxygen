@@ -111,6 +111,10 @@ TEST_F(UnidirectionalReadDispatcherTest, TestDispatchControlPreface) {
         ASSERT_EQ(cb, dispatcher_->controlStreamCallback());
       });
 
+  // Prior to sending data, give the dispatcher ownership
+  // on the stream id (like "onNewUnidirectionalStream" does)
+  dispatcher_->takeTemporaryOwnership(expectedId);
+
   // Attempt to write the preface
   // Expected invocation chain:
   //   sendData -> dispatcher->onData -> (...) -> assignReadCallback
@@ -123,7 +127,7 @@ TEST_F(UnidirectionalReadDispatcherTest,
        TestDispatchPushPrefaceNewPushStreamApi) {
 
   quic::StreamId expectedId = 5;
-  hq::PushId expectedPushId = 15;
+  hq::PushId expectedPushId = 151234567;
   uint8_t atLeastBytes = 4;
   // Mock the preface parsing
   dispatcherCallback_->expectParsePreface(
@@ -133,9 +137,13 @@ TEST_F(UnidirectionalReadDispatcherTest,
   dispatcherCallback_->expectOnNewPushStream(
       [&](quic::StreamId id, hq::PushId pushId, size_t consumed) {
         ASSERT_EQ(id, expectedId);
-        ASSERT_EQ(pushId, expectedPushId);
+        ASSERT_EQ(pushId, expectedPushId | hq::kPushIdMask);
         ASSERT_EQ(consumed, atLeastBytes + atLeastBytes);
       });
+
+  // Prior to sending data, give the dispatcher ownership
+  // on the stream id (like "onNewUnidirectionalStream" does)
+  dispatcher_->takeTemporaryOwnership(expectedId);
 
   // Attempt to write the preface
   // Expected invocation chain:
@@ -157,6 +165,10 @@ TEST_F(UnidirectionalReadDispatcherTest, TestRejectUnrecognizedPreface) {
   // Expect the reject call
   dispatcherCallback_->expectRejectStream(
       [&](quic::StreamId id) { ASSERT_EQ(id, expectedId); });
+
+  // Prior to sending data, give the dispatcher ownership
+  // on the stream id (like "onNewUnidirectionalStream" does)
+  dispatcher_->takeTemporaryOwnership(expectedId);
 
   // Attempt to write the preface
   // Expected invocation chain:

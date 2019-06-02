@@ -11,6 +11,7 @@
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
+#include <limits>
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
@@ -26,15 +27,17 @@
 #define ALPN_H1Q_FB_V2 (alpn == "h1q-fb-v2")
 #define ALPN_HQ (alpn.find("h3") == 0)
 
+namespace {
 constexpr unsigned int kTransactionTimeout = 500;
 constexpr unsigned int kConnectTimeout = 500;
 constexpr size_t kQPACKTestDecoderMaxTableSize = 2048;
-// Used as a marker for unknown push ids
+constexpr std::size_t kUnlimited = std::numeric_limits<std::size_t>::max();
 const proxygen::hq::PushId kUnknownPushId =
   std::numeric_limits<uint64_t>::max();
 constexpr proxygen::hq::PushId kInitialPushId = 12345;
-constexpr uint64_t kPushIdIncrement = 2;
-
+constexpr uint64_t kPushIdIncrement = 1;
+constexpr uint64_t kDefaultUnidirStreamCredit = 3;
+} // namespace
 
 constexpr uint8_t PR_BODY = 0;
 constexpr uint8_t PR_SKIP = 1;
@@ -46,8 +49,9 @@ struct PartiallyReliableTestParams {
 struct TestParams {
   std::string alpn_;
   bool shouldSendSettings_{true};
-  uint64_t unidirectionalStreamsCredit = 3;
   folly::Optional<PartiallyReliableTestParams> prParams;
+  uint64_t unidirectionalStreamsCredit{kDefaultUnidirStreamCredit};
+  std::size_t numBytesOnPushStream{kUnlimited};
 };
 
 std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript);
@@ -251,8 +255,12 @@ class HQSessionTest
       case proxygen::hq::UnidirectionalStreamType::QPACK_DECODER:
         parseReadData(&qpackDecoderCodec_, decoderReadBuf_, std::move(buf));
         break;
+      case proxygen::hq::UnidirectionalStreamType::PUSH:
+        CHECK(false) << "Ingress push streams should not go through "
+                     << "the unidirectional read path";
+        break;
       default:
-        CHECK(false) << "Unknown stream type";
+        CHECK(false) << "Unknown stream type=" << it->second;
     }
   }
 

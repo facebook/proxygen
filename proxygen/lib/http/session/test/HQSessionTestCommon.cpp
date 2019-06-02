@@ -88,6 +88,14 @@ std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info) {
       paramsV.push_back(prBodyScriptToName(info.param.prParams->bodyScript));
     }
   }
+  if (info.param.numBytesOnPushStream < kUnlimited) {
+    paramsV.push_back("_" +
+                      folly::to<std::string>(info.param.numBytesOnPushStream));
+  }
+  if (info.param.unidirectionalStreamsCredit != kDefaultUnidirStreamCredit) {
+    paramsV.push_back(
+        "_" + folly::to<std::string>(info.param.unidirectionalStreamsCredit));
+  }
   return folly::join("", paramsV);
 }
 
@@ -108,6 +116,7 @@ folly::Optional<std::pair<UnidirectionalStreamType, size_t>> parseStreamPreface(
       }
       break;
     case UnidirectionalStreamType::CONTROL:
+    case UnidirectionalStreamType::PUSH:
     case UnidirectionalStreamType::QPACK_ENCODER:
     case UnidirectionalStreamType::QPACK_DECODER:
       if (ALPN_HQ) {

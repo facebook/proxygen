@@ -8,6 +8,7 @@
  *
  */
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
+
 #include <folly/futures/Future.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/portability/GTest.h>
@@ -15,6 +16,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
+#include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/session/HQStreamLookup.h>
@@ -38,7 +40,6 @@ using std::unique_ptr;
 namespace {
 constexpr quic::StreamId kQPACKEncoderIngressStreamId = 7;
 constexpr quic::StreamId kQPACKDecoderEgressStreamId = 10;
-
 } // namespace
 
 class HQUpstreamSessionTest : public HQSessionTest {
@@ -288,6 +289,7 @@ class HQUpstreamSessionTest : public HQSessionTest {
         done = false;
       }
     }
+
     if (extraEventsFn) {
       extraEventsFn();
     }
@@ -299,15 +301,31 @@ class HQUpstreamSessionTest : public HQSessionTest {
     return done;
   }
 
+  StrictMock<MockController>& getMockController() {
+    return controllerContainer_.mockController;
+  }
+
+  // Representation of stream data
+  // If create with a push id, can be used
+  // as a push stream (requires writing the stream preface
+  // followed by unframed push id)
   struct ServerStream {
-    ServerStream(HTTPCodec::StreamID cId, std::unique_ptr<HTTPCodec> c)
-        : codecId(cId), codec(std::move(c)) {
+    ServerStream(HTTPCodec::StreamID cId,
+                 std::unique_ptr<HTTPCodec> c,
+                 folly::Optional<hq::PushId> pId = folly::none)
+        : codecId(cId), codec(std::move(c)), pushId(pId) {
     }
+
+    // Transport stream id
     HTTPCodec::StreamID id;
+
     IOBufQueue buf{IOBufQueue::cacheChainLength()};
     bool readEOF{false};
     HTTPCodec::StreamID codecId;
+
     std::unique_ptr<HTTPCodec> codec;
+
+    folly::Optional<hq::PushId> pushId;
   };
 
   MockConnectCallback connectCb_;
@@ -863,7 +881,6 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
   void SetUp() override {
     HQUpstreamSessionTest::SetUp();
     SetUpAssocHandler();
-    SetUpServerPushLifecycleCallbacks();
     nextPushId_ = kInitialPushId;
     lastPushPromiseHeadersSize_.compressed = 0;
     lastPushPromiseHeadersSize_.uncompressed = 0;
@@ -882,8 +899,10 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
   }
 
   void SetUpServerPushLifecycleCallbacks() {
-    SLCcallback_ = std::make_unique<MockServerPushLifecycleCallback>();
-    hqSession_->setServerPushLifecycleCallback(SLCcallback_.get());
+    if (!SLCcallback_) {
+      SLCcallback_ = std::make_unique<MockServerPushLifecycleCallback>();
+      hqSession_->setServerPushLifecycleCallback(SLCcallback_.get());
+    }
   }
 
   hq::PushId nextPushId() {
@@ -898,9 +917,66 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
     return (pushId % 2) == 1;
   }
 
+  using WriteFunctor = std::function<folly::Optional<size_t>(IOBufQueue&)>;
+  folly::Optional<size_t> writeUpTo(quic::StreamId id,
+                                    size_t maxlen,
+                                    WriteFunctor functor) {
+    // Lookup the stream
+    auto findRes = streams_.find(id);
+    if (findRes == streams_.end()) {
+      return folly::none;
+    }
+
+    IOBufQueue tmpbuf{IOBufQueue::cacheChainLength()};
+    auto funcres = functor(tmpbuf);
+    if (!funcres) {
+      return folly::none;
+    }
+
+    auto eventbuf = tmpbuf.splitAtMost(maxlen);
+    auto wlen = eventbuf->length();
+    CHECK_LE(wlen, maxlen) << "The written len must not exceed the max len";
+    socketDriver_->addReadEvent(id, std::move(eventbuf), milliseconds(0));
+    return wlen;
+  }
+
+  // Use the common facilities to write the quic integer
+  folly::Optional<size_t> writePushStreamPreface(quic::StreamId id,
+                                                 size_t maxlen) {
+    WriteFunctor f = [](IOBufQueue& outbuf) {
+      return generateStreamPreface(outbuf, hq::UnidirectionalStreamType::PUSH);
+    };
+
+    auto res = writeUpTo(id, maxlen, f);
+    return res;
+  }
+
+  folly::Optional<size_t> writeUnframedPushId(quic::StreamId id,
+                                              size_t maxlen,
+                                              hq::PushId pushId) {
+    CHECK(hq::isInternalPushId(pushId))
+        << "Expecting the push id to be in the internal representation";
+
+    // Since this method does not use a codec, we have to clear
+    // the internal push id bit ourselves
+    pushId &= ~hq::kPushIdMask;
+
+    WriteFunctor f = [=](IOBufQueue& outbuf) -> folly::Optional<size_t> {
+      folly::io::QueueAppender appender(&outbuf, 8);
+      uint8_t size = 1 << (folly::Random::rand32() % 4);
+      auto wlen = encodeQuicIntegerWithAtLeast(pushId, size, appender);
+      CHECK_GE(wlen, size);
+      return wlen;
+    };
+
+    auto res = writeUpTo(id, maxlen, f);
+    return res;
+  }
+
   void expectPushPromiseBegin(
       std::function<void(HTTPCodec::StreamID, hq::PushId)> callback =
           std::function<void(HTTPCodec::StreamID, hq::PushId)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectPushPromiseBegin(callback);
   }
 
@@ -908,18 +984,21 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
       std::function<void(HTTPCodec::StreamID, hq::PushId, HTTPMessage*)>
           callback = std::function<
               void(HTTPCodec::StreamID, hq::PushId, HTTPMessage*)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectPushPromise(callback);
   }
 
   void expectNascentPushStreamBegin(
       std::function<void(HTTPCodec::StreamID, bool)> callback =
           std::function<void(HTTPCodec::StreamID, bool)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectNascentPushStreamBegin(callback);
   }
 
   void expectNascentPushStream(
       std::function<void(HTTPCodec::StreamID, hq::PushId, bool)> callback =
           std::function<void(HTTPCodec::StreamID, hq::PushId, bool)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectNascentPushStream(callback);
   }
 
@@ -927,6 +1006,7 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
       std::function<void(HTTPCodec::StreamID, folly::Optional<hq::PushId>)>
           callback = std::function<void(HTTPCodec::StreamID,
                                         folly::Optional<hq::PushId>)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectNascentEof(callback);
   }
 
@@ -935,6 +1015,7 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
           callback = std::function<void(HTTPCodec::StreamID,
                                         folly::Optional<hq::PushId>)>()) {
 
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectOrphanedNascentStream(callback);
   }
 
@@ -945,6 +1026,7 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
                                         hq::PushId,
                                         HTTPCodec::StreamID,
                                         bool)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectHalfOpenPushedTxn(callback);
   }
 
@@ -958,18 +1040,21 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
                                               hq::PushId,
                                               HTTPCodec::StreamID,
                                               bool)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectPushedTxn(callback);
   }
 
   void expectPushedTxnTimeout(
       std::function<void(const HTTPTransaction*)> callback =
           std::function<void(const HTTPTransaction*)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectPushedTxnTimeout(callback);
   }
 
   void expectOrphanedHalfOpenPushedTxn(
       std::function<void(const HTTPTransaction*)> callback =
           std::function<void(const HTTPTransaction*)>()) {
+    SetUpServerPushLifecycleCallbacks();
     SLCcallback_->expectOrphanedHalfOpenPushedTxn(callback);
   }
 
@@ -1001,6 +1086,9 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
       pushId = nextPushId();
     }
 
+    CHECK(hq::isInternalPushId(pushId))
+        << "Expecting the push id to be in the internal representation";
+
     auto c = makeCodec(streamId);
     auto res =
         streams_.emplace(std::piecewise_construct,
@@ -1023,9 +1111,87 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
                                                   outHeaderSize);
   }
 
+  // Shared implementation for different push stream
+  // methods
+  ServerStream& createPushStreamImpl(quic::StreamId streamId,
+                                     hq::PushId pushId,
+                                     std::size_t len = kUnlimited,
+                                     bool eom = true) {
+
+    CHECK(hq::isInternalPushId(pushId))
+        << "Expecting the push id to be in the internal representation";
+
+    auto c = makeCodec(streamId);
+    // Setting a push id allows us to send push preface
+    auto res = streams_.emplace(
+        std::piecewise_construct,
+        std::forward_as_tuple(streamId),
+        std::forward_as_tuple(c.first, std::move(c.second), pushId));
+
+    auto& stream = res.first->second;
+    stream.id = stream.codec->createStream();
+    stream.readEOF = eom;
+
+    // Generate the push stream preface, and if there's enough headroom
+    // the unframed push id that follows it
+    auto prefaceRes = writePushStreamPreface(stream.id, len);
+    if (prefaceRes) {
+      len -= *prefaceRes;
+      writeUnframedPushId(stream.id, len, pushId);
+    }
+
+    return stream;
+  }
+
+  // Create a push stream with a header block and body
+  void createPushStream(quic::StreamId streamId,
+                        hq::PushId pushId,
+                        const HTTPMessage& resp,
+                        std::unique_ptr<folly::IOBuf> body = nullptr,
+                        bool eom = true) {
+
+    CHECK(hq::isInternalPushId(pushId))
+        << "Expecting the push id to be in the internal representation";
+
+    auto& stream = createPushStreamImpl(streamId, pushId, kUnlimited, eom);
+
+    // Write the response
+    stream.codec->generateHeader(
+        stream.buf, stream.codecId, resp, body == nullptr ? eom : false);
+    if (body) {
+      stream.codec->generateBody(
+          stream.buf, stream.codecId, std::move(body), folly::none, eom);
+    }
+  }
+
+  // Convenience method for creating a push stream without the
+  // need to allocate transport stream id
+  void createPushStream(hq::PushId pushId,
+                        const HTTPMessage& resp,
+                        std::unique_ptr<folly::IOBuf> body = nullptr,
+                        bool eom = true) {
+    return createPushStream(
+        nextUnidirectionalStreamId(), pushId, resp, std::move(body), eom);
+  }
+
+  // Create nascent stream (no body)
+  void createNascentPushStream(quic::StreamId streamId,
+                               hq::PushId pushId,
+                               std::size_t len = kUnlimited,
+                               bool eom = true) {
+    createPushStreamImpl(streamId, pushId, len, eom);
+  }
+
   bool lastPushPromiseHeadersSizeValid() {
     return ((lastPushPromiseHeadersSize_.uncompressed > 0) &&
             (lastPushPromiseHeadersSize_.compressed > 0));
+  }
+
+  void createNascentPushStream(hq::PushId pushId,
+                               std::size_t prefaceBytes = kUnlimited,
+                               bool eom = true) {
+    return createNascentPushStream(
+        nextUnidirectionalStreamId(), pushId, prefaceBytes, eom);
   }
 
   proxygen::HTTPHeaderSize lastPushPromiseHeadersSize_;
@@ -1035,28 +1201,8 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
   std::unique_ptr<MockServerPushLifecycleCallback> SLCcallback_;
 };
 
-TEST_P(HQUpstreamSessionTestHQPush, TestSendPushPromiseHelper) {
-  // the push promise is not followed by a push stream, and the eof is not
-  // set.
-  // The transaction is supposed to stay open and to time out eventually.
-  assocHandler_->expectError([&](const HTTPException& ex) {
-    ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
-  });
-  // Once HQSession::HQStreamTransport::onPushPromiseHeadersComplete
-  // creates a real pushed transaction, the below expect needs
-  // to be uncommented.
-  // assocHandler_->expectPushedTransaction();
-
-  expectPushPromiseBegin();
-  expectPushPromise();
-
-  sendPushPromise(assocHandler_->txn_->getID(), getGetRequest(), nextPushId());
-  EXPECT_TRUE(lastPushPromiseHeadersSizeValid());
-
-  assocHandler_->txn_->sendEOM();
-  hqSession_->closeWhenIdle();
-  flushAndLoop();
-}
+// Ingress push tests have different parameters
+using HQUpstreamSessionTestIngressHQPush = HQUpstreamSessionTestHQPush;
 
 TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
   // the push promise is not followed by a push stream, and the eof is not
@@ -1065,10 +1211,118 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
   assocHandler_->expectError([&](const HTTPException& ex) {
     ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
   });
-  // Once HQSession::HQStreamTransport::onPushPromiseHeadersComplete
-  // creates a real pushed transaction, the below expect needs
-  // to be uncommented.
-  // assocHandler_->expectPushedTransaction();
+  assocHandler_->expectPushedTransaction();
+
+  hq::PushId pushId = nextPushId();
+
+  ASSERT_TRUE(hq::isInternalPushId(pushId))
+      << "Expecting the push id to be in the internal representation";
+
+  auto pushPromiseRequest = getGetRequest();
+
+  expectPushPromiseBegin(
+      [&](HTTPCodec::StreamID owningStreamId, hq::PushId promisedPushId) {
+        EXPECT_EQ(promisedPushId, pushId);
+        EXPECT_EQ(owningStreamId, assocHandler_->txn_->getID());
+      });
+
+  expectPushPromise([&](HTTPCodec::StreamID owningStreamId,
+                        hq::PushId promisedPushId,
+                        HTTPMessage* msg) {
+    EXPECT_EQ(promisedPushId, pushId);
+    EXPECT_EQ(owningStreamId, assocHandler_->txn_->getID());
+
+    EXPECT_THAT(msg, NotNull());
+
+    auto expectedHeaders = pushPromiseRequest.getHeaders();
+    auto actualHeaders = msg->getHeaders();
+
+    expectedHeaders.forEach(
+        [&](const std::string& header, const std::string& /* val */) {
+          EXPECT_TRUE(actualHeaders.exists(header));
+          EXPECT_EQ(expectedHeaders.getNumberOfValues(header),
+                    actualHeaders.getNumberOfValues(header));
+        });
+  });
+
+  HTTPCodec::StreamID nascentStreamId;
+
+  expectNascentPushStreamBegin([&](HTTPCodec::StreamID streamId, bool isEOF) {
+    nascentStreamId = streamId;
+    EXPECT_FALSE(isEOF);
+  });
+
+  expectNascentPushStream([&](HTTPCodec::StreamID pushStreamId,
+                              hq::PushId pushStreamPushId,
+                              bool /* isEOF */) {
+    EXPECT_EQ(pushStreamPushId, pushId);
+    EXPECT_EQ(pushStreamId, nascentStreamId);
+  });
+
+  sendPushPromise(assocHandler_->txn_->getID(), pushPromiseRequest, pushId);
+  EXPECT_TRUE(lastPushPromiseHeadersSizeValid());
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  createPushStream(pushId, resp, makeBuf(100), true);
+
+  assocHandler_->txn_->sendEOM();
+
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQPush, TestIngressPushStream) {
+
+  hq::PushId pushId = nextPushId();
+
+  auto pushPromiseRequest = getGetRequest();
+
+  HTTPCodec::StreamID nascentStreamId;
+
+  expectNascentPushStreamBegin([&](HTTPCodec::StreamID streamId, bool isEOF) {
+    nascentStreamId = streamId;
+    EXPECT_FALSE(isEOF);
+  });
+
+  expectNascentPushStream([&](HTTPCodec::StreamID streamId,
+                              hq::PushId pushStreamPushId,
+                              bool isEOF) {
+    EXPECT_EQ(streamId, nascentStreamId);
+    EXPECT_EQ(pushId, pushStreamPushId);
+    EXPECT_EQ(isEOF, false);
+  });
+
+  // Since push promise is not sent, full ingress push stream
+  // not going to be created
+  /*
+    expectOrphanedNascentStream([&](HTTPCodec::StreamID streamId,
+                                    folly::Optional<hq::PushId> maybePushId) {
+      ASSERT_EQ(streamId, nascentStreamId);
+      EXPECT_EQ(maybePushId.has_value(), true);
+      EXPECT_EQ(maybePushId.value(), pushId);
+    });
+  */
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  createPushStream(pushId, resp, makeBuf(100), true);
+
+  // Currently, the new transaction is not created corectly,
+  // and an error is expected. to be extended in the following
+  // diffs which add creation of pushed transaction
+  assocHandler_->expectError();
+
+  assocHandler_->txn_->sendEOM();
+  hqSession_->closeWhenIdle();
+  flushAndLoop(); // One read for the letter, one read for quic integer. Is
+                  // enough?
+}
+
+TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseFollowedByPushStream) {
+  // the transaction is expected to timeout, since the PushPromise does not have
+  // EOF set, and it is not followed by a PushStream.
+  assocHandler_->expectError();
+  assocHandler_->expectPushedTransaction();
 
   hq::PushId pushId = nextPushId();
 
@@ -1099,8 +1353,108 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
         });
   });
 
-  sendPushPromise(assocHandler_->txn_->getID(), pushPromiseRequest, pushId);
-  EXPECT_TRUE(lastPushPromiseHeadersSizeValid());
+  HTTPCodec::StreamID nascentStreamId;
+
+  expectNascentPushStreamBegin([&](HTTPCodec::StreamID streamId, bool isEOF) {
+    nascentStreamId = streamId;
+    EXPECT_FALSE(isEOF);
+  });
+
+  // since push stream arrives after the promise,
+  // full ingress push stream has to be created
+  expectNascentPushStream([&](HTTPCodec::StreamID pushStreamId,
+                              hq::PushId pushStreamPushId,
+                              bool /* isEOF */) {
+    EXPECT_EQ(pushStreamPushId, pushId);
+    EXPECT_EQ(pushStreamId, nascentStreamId);
+  });
+
+  proxygen::HTTPHeaderSize pushPromiseSize;
+
+  sendPushPromise(assocHandler_->txn_->getID(),
+                  pushPromiseRequest,
+                  pushId,
+                  &pushPromiseSize);
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  createPushStream(pushId, resp, makeBuf(100), true);
+
+  assocHandler_->txn_->sendEOM();
+
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQPush, TestOnPushedTransaction) {
+  // the transaction is expected to timeout, since the PushPromise does not have
+  // EOF set, and it is not followed by a PushStream.
+  assocHandler_->expectError();
+  // assocHandler_->expectHeaders();
+
+  hq::PushId pushId = nextPushId();
+
+  auto pushPromiseRequest = getGetRequest();
+
+  proxygen::HTTPHeaderSize pushPromiseSize;
+
+  sendPushPromise(assocHandler_->txn_->getID(),
+                  pushPromiseRequest,
+                  pushId,
+                  &pushPromiseSize);
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  createPushStream(pushId, resp, makeBuf(100), true);
+
+  // Once both push promise and push stream have been received, a push
+  // transaction should be created
+  assocHandler_->expectPushedTransaction();
+
+  assocHandler_->txn_->sendEOM();
+
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQPush, TestOnPushedTransactionOutOfOrder) {
+  // the transaction is expected to timeout, since the PushPromise does not have
+  // EOF set, and it is not followed by a PushStream.
+  assocHandler_->expectError();
+  // assocHandler_->expectHeaders();
+
+  hq::PushId pushId = nextPushId();
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  createPushStream(pushId, resp, makeBuf(100), true);
+
+  auto pushPromiseRequest = getGetRequest();
+  proxygen::HTTPHeaderSize pushPromiseSize;
+  sendPushPromise(assocHandler_->txn_->getID(),
+                  pushPromiseRequest,
+                  pushId,
+                  &pushPromiseSize);
+
+  // Once both push promise and push stream have been received, a push
+  // transaction should be created
+  assocHandler_->expectPushedTransaction();
+
+  assocHandler_->txn_->sendEOM();
+
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQPush, TestOrphanedPushStream) {
+  // the transaction is expected to timeout, since the PushPromise does not have
+  // EOF set, and it is not followed by a PushStream.
+  assocHandler_->expectError();
+
+  hq::PushId pushId = nextPushId();
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  createPushStream(pushId, resp, makeBuf(100), true);
 
   assocHandler_->txn_->sendEOM();
 
@@ -1153,6 +1507,7 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         paramsToTestName);
 
 // Instantiate hq only tests
+#ifdef PR_IS_WORKING
 INSTANTIATE_TEST_CASE_P(
     HQUpstreamSessionTest,
     HQUpstreamSessionTestHQ,
@@ -1164,12 +1519,42 @@ INSTANTIATE_TEST_CASE_P(
                            }})),
     paramsToTestName);
 
+#else
+INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+                        HQUpstreamSessionTestHQ,
+                        Values(TestParams({.alpn_ = "h3"})),
+                        paramsToTestName);
+
+#endif
+
 // Instantiate tests for H3 Push functionality (requires HQ)
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestHQPush,
                         Values(TestParams({.alpn_ = "h3"})),
                         paramsToTestName);
 
+INSTANTIATE_TEST_CASE_P(
+    HQUpstreamSessionTest,
+    HQUpstreamSessionTestIngressHQPush,
+    Values(TestParams({.alpn_ = "h3", .numBytesOnPushStream = 8}),
+           TestParams({.alpn_ = "h3", .numBytesOnPushStream = 15}),
+           TestParams({.alpn_ = "h3", .numBytesOnPushStream = 16}),
+           TestParams({
+               .alpn_ = "h3",
+               .unidirectionalStreamsCredit = 4,
+               .numBytesOnPushStream = 8,
+           }),
+           TestParams({
+               .alpn_ = "h3",
+               .unidirectionalStreamsCredit = 4,
+               .numBytesOnPushStream = 15,
+           }),
+           TestParams({
+               .alpn_ = "h3",
+               .unidirectionalStreamsCredit = 4,
+               .numBytesOnPushStream = 16,
+           })),
+    paramsToTestName);
 #ifdef PR_IS_WORKING
 INSTANTIATE_TEST_CASE_P(
     HQUpstreamSessionTest,
@@ -1484,4 +1869,3 @@ TEST_P(HQUpstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
   hqSession_->closeWhenIdle();
 }
 #endif
-

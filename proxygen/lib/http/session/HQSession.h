@@ -500,7 +500,7 @@ class HQSession
   HQIngressPushStream* findIngressPushStream(quic::StreamId);
   HQIngressPushStream* findIngressPushStreamByPushId(hq::PushId);
 
-  // Find an ingress push stream
+  // Find an egress push stream
   HQEgressPushStream* findEgressPushStream(quic::StreamId);
   HQEgressPushStream* findEgressPushStreamByPushId(hq::PushId);
 
@@ -570,6 +570,16 @@ class HQSession
   void controlStreamReadError(
       quic::StreamId /* id */,
       const HQUnidirStreamDispatcher::Callback::ReadError& /* err */) override;
+
+  /**
+   * Attempt to bind an ingress push stream object (which has the txn)
+   * to a nascent stream (which has the transport/codec).
+   * If successful, remove the nascent stream and
+   * re-enable ingress.
+   * returns true if binding was successful
+   */
+  bool tryBindIngressStreamToTxn(hq::PushId pushId,
+                                 HQIngressPushStream* pushStream = nullptr);
 
   /**
    * HQSession is an HTTPSessionBase that uses QUIC as the underlying transport
@@ -692,6 +702,7 @@ class HQSession
   // helper functions for reads
   void readRequestStream(quic::StreamId id) noexcept;
   void readControlStream(HQControlStream* controlStream);
+
   void processReadData();
   void resumeReads(quic::StreamId id);
   void pauseReads(quic::StreamId id);
@@ -715,7 +726,7 @@ class HQSession
    * Handles the write to the socket and errors for a request stream.
    * Returns the number of bytes written from data.
    */
-  size_t handleWrite(HQStreamTransport* hqStream,
+  size_t handleWrite(HQStreamTransportBase* hqStream,
                      std::unique_ptr<folly::IOBuf> data,
                      size_t length,
                      bool sendEof);
@@ -1746,6 +1757,9 @@ class HQSession
       // has been received
     }
 
+    // Bind this stream to a transport stream
+    void bindTo(quic::StreamId transportStreamId);
+
     void onPushMessageBegin(HTTPCodec::StreamID pushId,
                             HTTPCodec::StreamID parentTxnId,
                             HTTPMessage* /* msg */) override {
@@ -2042,6 +2056,12 @@ class HQSession
   PushToStreamMap streamLookup_;
 
   std::unordered_map<quic::StreamId, HQEgressPushStream> egressPushStreams_;
+
+  // Cleanup all pending streams. Invoked in session timeout
+  size_t cleanupPendingStreams();
+
+  // Remove all callbacks from a stream during cleanup
+  void clearStreamCallbacks(quic::StreamId /* id */);
 
   using ControlStreamsKey = std::pair<quic::StreamId, hq::StreamDirection>;
   std::unordered_map<hq::UnidirectionalStreamType, HQControlStream>

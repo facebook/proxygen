@@ -49,8 +49,9 @@ void HQUnidirStreamDispatcher::onDataAvailable(
   auto type = sink_.parseStreamPreface(preface->first);
 
   if (!type) {
-    // Failed to identify the preface, signal error
-    sink_.rejectStream(id);
+    // Failed to identify the preface,
+    // release ownership and signal error
+    sink_.rejectStream(releaseOwnership(id));
     return;
   }
 
@@ -60,8 +61,12 @@ void HQUnidirStreamDispatcher::onDataAvailable(
     case hq::UnidirectionalStreamType::QPACK_ENCODER:
     case hq::UnidirectionalStreamType::QPACK_DECODER: {
       // This is a control stream, and it needs a read callback
+      // Pass ownership back to the sink
       sink_.assignReadCallback(
-          id, type.value(), consumed, controlStreamCallback());
+          releaseOwnership(id),
+          type.value(),
+          consumed,
+          controlStreamCallback());
       return;
     }
     case hq::UnidirectionalStreamType::PUSH: {
@@ -72,7 +77,10 @@ void HQUnidirStreamDispatcher::onDataAvailable(
       // Otherwise, continue using this callback
       if (pushId) {
         consumed += pushId->second;
-        sink_.onNewPushStream(id, pushId->first, consumed);
+        sink_.onNewPushStream(
+            releaseOwnership(id),
+            pushId->first | hq::kPushIdMask,
+            consumed);
       }
       return;
     }

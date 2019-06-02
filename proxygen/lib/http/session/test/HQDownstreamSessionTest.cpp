@@ -378,11 +378,15 @@ using HQDownstreamSessionTestH1qv1 = HQDownstreamSessionTest;
 using HQDownstreamSessionTestH1qv2 = HQDownstreamSessionTest;
 // Use this test class for h1q-fb-v2/hq common tests (goaway)
 using HQDownstreamSessionTestH1qv2HQ = HQDownstreamSessionTest;
+
 // Use this test class for hq only tests
 using HQDownstreamSessionTestHQ = HQDownstreamSessionTest;
 // Use this test class for hq PR only tests
 using HQDownstreamSessionTestHQPR = HQDownstreamSessionTest;
 using HQDownstreamSessionTestHQPrBadOffset = HQDownstreamSessionTest;
+
+// Use this test class for h3 server push tests
+using HQDownstreamSessionTestHQPush = HQDownstreamSessionTest;
 
 TEST_P(HQDownstreamSessionTest, SimpleGet) {
   auto idh = checkRequest();
@@ -2318,6 +2322,21 @@ INSTANTIATE_TEST_CASE_P(DropConnectionInTransportReadyTest,
                                TestParams({.alpn_ = "h1q-fb-v2",
                                            .unidirectionalStreamsCredit = 0})),
                         paramsToTestName);
+// Instantiate hq server push tests
+INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
+                        HQDownstreamSessionTestHQPush,
+                        Values(TestParams({.alpn_ = "h3",
+                                           .unidirectionalStreamsCredit = 8})),
+                        paramsToTestName);
+
+// Use this test class for mismatched alpn tests
+class HQDownstreamSessionTestUnsupportedAlpn : public HQDownstreamSessionTest {
+ public:
+  void SetUp() override {
+    SetUpBase();
+  }
+};
+
 TEST_P(DropConnectionInTransportReadyTest, TransportReadyFailure) {
   HQDownstreamSession::DestructorGuard dg(hqSession_);
   EXPECT_CALL(infoCb_, onTransportReady(_)).Times(0);

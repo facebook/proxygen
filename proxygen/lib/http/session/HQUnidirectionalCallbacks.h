@@ -103,6 +103,35 @@ class HQUnidirStreamDispatcher
 
   quic::QuicSocket::ReadCallback* controlStreamCallback() const;
 
+  // Take the temporary ownership of the stream.
+  // The ownership is released when the stream is passed
+  // to the sink
+  void takeTemporaryOwnership(quic::StreamId id) {
+    pendingStreams_.insert(id);
+  }
+
+  bool hasOwnership(quic::StreamId id) const {
+    return pendingStreams_.count(id) > 0;
+  }
+
+  quic::StreamId releaseOwnership(quic::StreamId id) {
+    DCHECK(hasOwnership(id))
+      << "Can not release ownership on unowned streamID=" << id;
+    bool found = pendingStreams_.erase(id);
+    DCHECK(found) << "Inconstency detected streamID=" << id;
+    return id;
+  }
+
+  size_t numberOfStreams() const {
+    return pendingStreams_.size();
+  }
+
+  void invokeOnPendingStreamIDs(std::function<void(quic::StreamId)> fn) {
+    for (auto& pendingStream : pendingStreams_) {
+      fn(pendingStream);
+    }
+  }
+
  private:
   // Callback for the control stream - follows the read api
   struct ControlCallback : public quic::QuicSocket::ReadCallback {
@@ -120,5 +149,6 @@ class HQUnidirStreamDispatcher
 
   std::unique_ptr<ControlCallback> controlStreamCallback_;
   Callback& sink_;
+  std::unordered_set<quic::StreamId> pendingStreams_;
 };
 } // namespace proxygen
