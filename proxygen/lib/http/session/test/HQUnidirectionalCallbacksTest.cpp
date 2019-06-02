@@ -75,18 +75,6 @@ class UnidirectionalReadDispatcherTest : public Test {
   std::unique_ptr<MockDispatcher> dispatcherCallback_;
 };
 
-TEST_F(UnidirectionalReadDispatcherTest, TestGreaseCallback) {
-  quic::StreamId expectedId = 5;
-  PeekData peekData;
-
-  dispatcherCallback_->expectGreaseDataAvailable(
-      [&](quic::StreamId id, const PeekData& /* tbd */) {
-        ASSERT_EQ(id, expectedId);
-      });
-
-  dispatcher_->greaseStreamCallback()->onDataAvailable(expectedId, peekData);
-}
-
 TEST_F(UnidirectionalReadDispatcherTest, TestControlStreamCallback) {
   quic::StreamId expectedId = 5;
   ReadError readError =

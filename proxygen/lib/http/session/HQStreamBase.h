@@ -9,15 +9,13 @@
  */
 #pragma once
 
+#include <folly/Optional.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
-
-#include <folly/Optional.h>
-
 #include <quic/codec/Types.h>
 
 /**

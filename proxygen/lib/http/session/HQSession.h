@@ -536,15 +536,11 @@ class HQSession
       quic::StreamId /* id */,
       hq::UnidirectionalStreamType /* type */,
       size_t /* toConsume */,
-      quic::QuicSocket::PeekCallback* const /* cb */) override {
-    // Will be implemented in later diffs
-  }
+      quic::QuicSocket::PeekCallback* const /* cb */) override;
 
   void onNewPushStream(quic::StreamId /* pushStreamId */,
                        hq::PushId /* pushId */,
-                       size_t /* toConsume */) override {
-    // Will be implemented in later diffs
-  }
+                       size_t /* toConsume */) override;
 
   void assignReadCallback(
       quic::StreamId /* id */,
@@ -574,16 +570,6 @@ class HQSession
   void controlStreamReadError(
       quic::StreamId /* id */,
       const HQUnidirStreamDispatcher::Callback::ReadError& /* err */) override;
-
-  void onGreaseDataAvailable(quic::StreamId /* id */,
-                             const folly::Range<quic::QuicSocket::PeekIterator>&
-                             /* peekData */) noexcept override {
-    // Will be implemented in even later diffs
-  }
-
-  void processControlStreamPreface(
-      quic::StreamId id,
-      const folly::Range<quic::QuicSocket::PeekIterator>& peekData) noexcept;
 
   /**
    * HQSession is an HTTPSessionBase that uses QUIC as the underlying transport
@@ -683,9 +669,14 @@ class HQSession
   bool createEgressControlStreams();
   HQControlStream* tryCreateIngressControlStream(quic::StreamId id,
                                                  uint64_t preface);
+
   bool createEgressControlStream(hq::UnidirectionalStreamType streamType);
+
   HQControlStream* createIngressControlStream(
       quic::StreamId id, hq::UnidirectionalStreamType streamType);
+
+  HQIngressPushStream* FOLLY_NULLABLE
+  createIngressPushStream(quic::StreamId parentStreamId, hq::PushId pushId);
 
   // gets the ALPN from the transport and returns whether the protocol is
   // supported. Drops the connection if not supported
@@ -2040,6 +2031,7 @@ class HQSession
    */
   HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
 
+  // Bidirectional transport streams
   std::unordered_map<quic::StreamId, HQStreamTransport> streams_;
 
   // Incoming server push streams. Since the incoming push streams

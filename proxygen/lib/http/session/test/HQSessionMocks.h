@@ -99,14 +99,6 @@ class MockDispatcher : public HQUnidirStreamDispatcher::Callback {
     }
   }
 
-  void expectGreaseDataAvailable(StreamPeekF impl = nullptr) {
-    auto& exp =
-        EXPECT_CALL(*this, onGreaseDataAvailable(::testing::_, ::testing::_));
-    if (impl) {
-      exp.WillOnce(::testing::Invoke(impl));
-    }
-  }
-
   void expectIsPartialReliabilityEnabled(StreamInspectF impl = nullptr) {
     auto& exp = EXPECT_CALL(*this, isPartialReliabilityEnabled(::testing::_));
     if (impl) {
@@ -155,7 +147,6 @@ class MockDispatcher : public HQUnidirStreamDispatcher::Callback {
   MOCK_METHOD1(rejectStream, void(quic::StreamId));
   MOCK_METHOD1(controlStreamReadAvailable, void(quic::StreamId));
   MOCK_METHOD2(controlStreamReadError, void(quic::StreamId, const ReadError&));
-  MOCK_METHOD2(onGreaseDataAvailable, void(quic::StreamId, const PeekData&));
   MOCK_METHOD2(onPartialDataAvailable, void(quic::StreamId, const PeekData&));
   MOCK_METHOD2(processExpiredData, void(quic::StreamId, uint64_t));
   MOCK_METHOD2(processRejectedData, void(quic::StreamId, uint64_t));

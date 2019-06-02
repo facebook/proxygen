@@ -74,11 +74,6 @@ class HQUnidirStreamDispatcher
     virtual void controlStreamReadError(quic::StreamId /* id */,
                                         const ReadError& /* error */) = 0;
 
-    // Grease data available - a stream type has been recognized by the
-    // sink (the session), but the data should be dropped.
-    virtual void onGreaseDataAvailable(quic::StreamId /* id */,
-                                       const PeekData& /* peekData */) = 0;
-
     virtual void onPartialDataAvailable(quic::StreamId /* id */,
                                         const PeekData& /* peekData */) = 0;
 
@@ -108,8 +103,6 @@ class HQUnidirStreamDispatcher
 
   quic::QuicSocket::ReadCallback* controlStreamCallback() const;
 
-  quic::QuicSocket::PeekCallback* greaseStreamCallback() const;
-
  private:
   // Callback for the control stream - follows the read api
   struct ControlCallback : public quic::QuicSocket::ReadCallback {
@@ -125,22 +118,7 @@ class HQUnidirStreamDispatcher
     Dispatcher::Callback& sink_;
   };
 
-  // Callback for the grease stream - follows the peek api
-  struct GreaseCallback : public quic::QuicSocket::PeekCallback {
-    using Dispatcher = HQUnidirStreamDispatcher;
-    explicit GreaseCallback(Dispatcher::Callback& sink) : sink_(sink) {
-    }
-    virtual ~GreaseCallback() override = default;
-    void onDataAvailable(
-        quic::StreamId /* id */,
-        const Callback::PeekData& /* peekData */) noexcept override;
-
-   protected:
-    Dispatcher::Callback& sink_;
-  };
-
   std::unique_ptr<ControlCallback> controlStreamCallback_;
-  std::unique_ptr<GreaseCallback> greaseStreamCallback_;
   Callback& sink_;
 };
 } // namespace proxygen

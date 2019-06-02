@@ -15,7 +15,6 @@ using namespace proxygen;
 HQUnidirStreamDispatcher::HQUnidirStreamDispatcher(
     HQUnidirStreamDispatcher::Callback& sink)
     : controlStreamCallback_(std::make_unique<ControlCallback>(sink)),
-      greaseStreamCallback_(std::make_unique<GreaseCallback>(sink)),
       sink_(sink) {
 }
 
@@ -78,11 +77,7 @@ void HQUnidirStreamDispatcher::onDataAvailable(
       return;
     }
     default: {
-      // This is neither push nor control, yet
-      // it is recognized by the sink. It is assumed to be
-      // grease, and it needs as peek callback
-      sink_.assignPeekCallback(
-          id, type.value(), consumed, greaseStreamCallback());
+      LOG(ERROR) << "Unrecognized type=" << static_cast<uint64_t>(type.value());
     }
   }
 }
@@ -110,11 +105,6 @@ HQUnidirStreamDispatcher::controlStreamCallback() const {
   return controlStreamCallback_.get();
 }
 
-quic::QuicSocket::PeekCallback* HQUnidirStreamDispatcher::greaseStreamCallback()
-    const {
-  return greaseStreamCallback_.get();
-}
-
 // Control stream callback implementation
 void HQUnidirStreamDispatcher::ControlCallback::readError(
     quic::StreamId id,
@@ -127,8 +117,3 @@ void HQUnidirStreamDispatcher::ControlCallback::readAvailable(
   sink_.controlStreamReadAvailable(id);
 }
 
-// Grease stream callback implementation
-void HQUnidirStreamDispatcher::GreaseCallback::onDataAvailable(
-    quic::StreamId id, const Callback::PeekData& peekData) noexcept {
-  sink_.onGreaseDataAvailable(id, peekData);
-}

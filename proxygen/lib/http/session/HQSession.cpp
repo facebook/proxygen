@@ -105,7 +105,10 @@ void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
 }
 
 void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
-  VLOG(4) << __func__ << " sess=" << *this << ": new streamID=" << id;
+  // This is where a new unidirectional ingress stream is available
+  // Try to check whether this is a push
+  // if yes, register this as a push
+  VLOG(3) << __func__ << " sess=" << *this << ": new streamID=" << id;
   // The transport should never call onNewUnidirectionalStream
   // before onTransportReady
   DCHECK(versionUtils_) << "The transport should never call " << __func__
@@ -114,6 +117,7 @@ void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
     return;
   }
 
+  // The new stream should not exist yet.
   auto ctrlStream = findControlStream(id);
   DCHECK(!ctrlStream) << "duplicate " << __func__ << " for streamID=" << id;
   // This has to be a new control or push stream, but we haven't read the
@@ -327,6 +331,36 @@ HQSession::HQVersionUtils::createControlCodec(hq::UnidirectionalStreamType type,
       LOG(FATAL) << "Failed to create ingress codec";
       return nullptr;
   }
+}
+
+HQSession::HQIngressPushStream* FOLLY_NULLABLE
+HQSession::createIngressPushStream(HTTPCodec::StreamID parentId,
+                                   hq::PushId pushId) {
+
+  // Check that a stream with this ID has not been created yet
+  DCHECK(!findIngressPushStreamByPushId(pushId))
+      << "Ingress stream with this push ID already exists pushID=" << pushId;
+
+  // Create the ingress push stream
+  auto matchPair = ingressPushStreams_.emplace(
+      std::piecewise_construct,
+      std::forward_as_tuple(pushId),
+      std::forward_as_tuple(
+          *this,
+          pushId,
+          parentId,
+          getNumTxnServed(),
+          WheelTimerInstance(transactionsTimeout_, getEventBase())));
+
+  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
+                             "existence check.";
+
+  // TODO: lookup whether a matching quic stream exists. If yes, bind the
+  // ingress push stream to the quic stream
+
+  // Note: ingress push streams are HQ specific, therefore
+  // goaway message is not sent on the stream itself.
+  return &matchPair.first->second;
 }
 
 bool HQSession::getAndCheckApplicationProtocol() {
@@ -958,6 +992,7 @@ uint32_t HQSession::countStreamsImpl(bool includeEgress,
   }
   return result;
 }
+
 void HQSession::runLoopCallback() noexcept {
   // We schedule this callback to run at the end of an event
   // loop iteration if either of two conditions has happened:
@@ -1082,7 +1117,8 @@ void HQSession::pauseReads(quic::StreamId streamId) {
 }
 
 void HQSession::readAvailable(quic::StreamId id) noexcept {
-  VLOG(4) << __func__ << " sess=" << *this
+  // this is the bidirectional callback
+  VLOG(3) << __func__ << " sess=" << *this
           << ": readAvailable on streamID=" << id;
   if (readsPerLoop_ >= kMaxReadsPerLoop) {
     VLOG(2) << __func__ << " sess=" << *this
@@ -1295,6 +1331,8 @@ void HQSession::assignReadCallback(quic::StreamId id,
                                    hq::UnidirectionalStreamType type,
                                    size_t toConsume,
                                    quic::QuicSocket::ReadCallback* const cb) {
+  VLOG(4) << __func__ << " streamID=" << id << " type=" << type
+          << " toConsume=" << toConsume << " cb=" << std::hex << cb;
   CHECK(cb) << "Bug in dispatcher - null callback passed";
 
   auto consumeRes = sock_->consume(id, toConsume);
@@ -1324,6 +1362,22 @@ void HQSession::assignReadCallback(quic::StreamId id,
   controlStreamReadAvailable(id);
 }
 
+// Dispatcher method implementation
+void HQSession::assignPeekCallback(quic::StreamId id,
+                                   hq::UnidirectionalStreamType type,
+                                   size_t toConsume,
+                                   quic::QuicSocket::PeekCallback* const cb) {
+  VLOG(4) << __func__ << " streamID=" << id << " type=" << type
+          << " toConsume=" << toConsume << " cb=" << std::hex << cb;
+  CHECK(cb) << "Bug in dispatcher - null callback passed";
+
+  auto consumeRes = sock_->consume(id, toConsume);
+  CHECK(!consumeRes.hasError()) << "Unexpected error consuming bytes";
+
+  // Install the new peek callback
+  sock_->setPeekCallback(id, cb);
+}
+
 void HQSession::rejectStream(quic::StreamId id) {
   // Do not read data for unknown unidirectional stream types.
   // Send STOP_SENDING and rely on the peer sending a RESET to clear the
@@ -1334,6 +1388,49 @@ void HQSession::rejectStream(quic::StreamId id) {
 folly::Optional<hq::UnidirectionalStreamType> HQSession::parseStreamPreface(
     uint64_t preface) {
   return versionUtils_->parseStreamPreface(preface);
+}
+
+// Attempt to create a new push stream - uses a workaround
+// api until the Peek API in the transport is stabilized
+void HQSession::onNewPushStream(quic::StreamId pushStreamId,
+                                hq::PushId pushId,
+                                size_t toConsume) {
+  VLOG(4) << __func__ << " streamID=" << pushStreamId << " pushId=" << pushId;
+
+  bool eom = false;
+  if (serverPushLifecycleCb_) {
+    serverPushLifecycleCb_->onNascentPushStreamBegin(pushStreamId, eom);
+  }
+
+  auto consumeRes = sock_->consume(pushStreamId, toConsume);
+  CHECK(!consumeRes.hasError())
+      << "Unexpected error " << consumeRes.error() << " while consuming "
+      << toConsume << " bytes from stream=" << pushStreamId
+      << " pushId=" << pushId;
+
+  // Replace the peek callback with a read callback and pause the read callback
+  sock_->setReadCallback(pushStreamId, this);
+  sock_->setPeekCallback(pushStreamId, nullptr);
+  sock_->pauseRead(pushStreamId);
+
+  streamLookup_.push_back(PushToStreamMap::value_type(pushId, pushStreamId));
+
+  VLOG(4) << __func__ << " assigned lookup from pushID=" << pushId
+          << " to streamID=" << pushStreamId;
+
+  // We have successfully read the push id. Notify the testing callbacks
+  if (serverPushLifecycleCb_) {
+    serverPushLifecycleCb_->onNascentPushStream(pushStreamId, pushId, eom);
+  }
+
+  // Current code is a plug
+  // Add the streamId <-> pushId mapping to the streamLookup_
+  // Find ingress push stream if exists
+  auto ingressPushStream = findIngressPushStreamByPushId(pushId);
+
+  if (ingressPushStream) {
+    // Bind the ingress push stream to the stream id
+  }
 }
 
 void HQSession::controlStreamReadAvailable(quic::StreamId id) {
@@ -1448,6 +1545,7 @@ void HQSession::processReadData() {
       if (ingressStream->readEOF_) {
         ingressStream->onIngressEOF();
       }
+      continue;
     }
   }
 }
