@@ -2183,9 +2183,8 @@ void HQSession::H1QFBV1VersionUtils::sendGoawayOnRequestStream(
 HQSession::HQStreamTransportBase::HQStreamTransportBase(
     HQSession& session,
     TransportDirection direction,
-    quic::StreamId id,
+    HTTPCodec::StreamID txnId,
     uint32_t seqNo,
-    std::unique_ptr<HTTPCodec> codec,
     const WheelTimerInstance& timeout,
     HTTPSessionStats* stats,
     http2::PriorityUpdate priority,
@@ -2194,7 +2193,7 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
     : HQStreamBase(session, session.codec_, type),
       HTTP2PriorityQueueBase(kSessionStreamId),
       txn_(direction,
-           static_cast<HTTPCodec::StreamID>(id),
+           txnId,
            seqNo,
            *this,
            *this,
@@ -2208,27 +2207,45 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
            parentTxnId),
       byteEventTracker_(nullptr) {
   VLOG(4) << __func__ << " txn=" << txn_;
+  byteEventTracker_.setTTLBAStats(session_.sessionStats_);
+  quicStreamProtocolInfo_ = std::make_shared<QuicStreamProtocolInfo>();
+}
+
+void HQSession::HQStreamTransportBase::initCodec(
+    std::unique_ptr<HTTPCodec> codec, const std::string& where) {
+  VLOG(3) << where << " " << __func__ << " txn=" << txn_;
   CHECK(session_.sock_)
       << "Socket is null drainState=" << (int)session_.drainState_
       << " streams=" << (int)session_.numberOfStreams();
   realCodec_ = std::move(codec);
   if (session_.version_ == HQVersion::HQ) {
     auto c = dynamic_cast<hq::HQStreamCodec*>(realCodec_.get());
-    CHECK(c);
+    CHECK(c) << "HQ should use HQStream codec";
     c->setActivationHook([this] { return setActiveCodec("self"); });
   }
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  if (direction == TransportDirection::UPSTREAM) {
+  if (session_.direction_ == TransportDirection::UPSTREAM) {
     codecStreamId_ = codecFilterChain->createStream();
   }
+  hasCodec_ = true;
+}
+
+void HQSession::HQStreamTransportBase::initIngress(const std::string& where) {
+  VLOG(3) << where << " " << __func__ << " txn=" << txn_;
+  CHECK(session_.sock_)
+      << "Socket is null drainState=" << (int)session_.drainState_
+      << " streams=" << session_.numberOfStreams();
+
   if (session_.receiveStreamWindowSize_.hasValue()) {
     session_.sock_->setStreamFlowControlWindow(
-        id, session_.receiveStreamWindowSize_.value());
+        getIngressStreamId(), session_.receiveStreamWindowSize_.value());
   }
+
+  auto g = folly::makeGuard(setActiveCodec(where));
+
   codecFilterChain->setCallback(this);
-  byteEventTracker_.setTTLBAStats(session_.sessionStats_);
-  quicStreamProtocolInfo_ = std::make_shared<QuicStreamProtocolInfo>();
   eomGate_.then([this] { txn_.onIngressEOM(); });
+  hasIngress_ = true;
 }
 
 HTTPTransaction* FOLLY_NULLABLE

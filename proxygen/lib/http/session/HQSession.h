@@ -1051,15 +1051,27 @@ class HQSession
         TransportDirection direction,
         quic::StreamId id,
         uint32_t seqNo,
-        std::unique_ptr<HTTPCodec> codec,
         const WheelTimerInstance& timeout,
         HTTPSessionStats* stats = nullptr,
         http2::PriorityUpdate priority = hqDefaultPriority,
         folly::Optional<HTTPCodec::StreamID> parentTxnId = HTTPCodec::NoStream,
         folly::Optional<hq::UnidirectionalStreamType> type = folly::none);
 
+    void initCodec(std::unique_ptr<HTTPCodec> /* codec */,
+                   const std::string& /* where */);
+
+    void initIngress(const std::string& /* where */);
+
    public:
     HQStreamTransportBase() = delete;
+
+    bool hasCodec() const {
+      return hasCodec_;
+    }
+
+    bool hasIngress() const {
+      return hasIngress_;
+    }
 
     // process data in the read buffer, returns true if the codec is blocked
     bool processReadData();
@@ -1575,6 +1587,8 @@ class HQSession
     bool pendingEOM_{false};
     // have read EOF
     bool readEOF_{false};
+    bool hasCodec_{false};
+    bool hasIngress_{false};
     bool detached_{false};
     bool ingressError_{false};
     enum class EOMType { CODEC, TRANSPORT };
@@ -1622,23 +1636,25 @@ class HQSession
     HQStreamTransport(
         HQSession& session,
         TransportDirection direction,
-        quic::StreamId id,
+        quic::StreamId streamId,
         uint32_t seqNo,
         std::unique_ptr<HTTPCodec> codec,
         const WheelTimerInstance& timeout,
         HTTPSessionStats* stats = nullptr,
         http2::PriorityUpdate priority = hqDefaultPriority,
         folly::Optional<HTTPCodec::StreamID> parentTxnId = HTTPCodec::NoStream)
-        : detail::singlestream::SSBidir(id),
+        : detail::singlestream::SSBidir(streamId),
           HQStreamTransportBase(session,
                                 direction,
-                                id,
+                                static_cast<HTTPCodec::StreamID>(streamId),
                                 seqNo,
-                                std::move(codec),
                                 timeout,
                                 stats,
                                 priority,
                                 parentTxnId) {
+      // Request streams are eagerly initialized
+      initCodec(std::move(codec), __func__);
+      initIngress(__func__);
     }
 
     void onPushPromiseHeadersComplete(
@@ -1668,15 +1684,17 @@ class HQSession
         : detail::singlestream::SSEgress(streamId),
           HQStreamTransportBase(session,
                                 TransportDirection::DOWNSTREAM,
-                                streamId,
+                                static_cast<HTTPCodec::StreamID>(pushId),
                                 seqNo,
-                                std::move(codec),
                                 timeout,
                                 stats,
                                 priority,
                                 parentTxnId,
                                 hq::UnidirectionalStreamType::PUSH),
           pushId_(pushId) {
+      // Request streams are eagerly initialized
+      initCodec(std::move(codec), __func__);
+      // DONT init ingress on egress-only stream
     }
 
     hq::PushId getPushId() const {
@@ -1715,26 +1733,26 @@ class HQSession
       , public HQSession::HQStreamTransportBase {
    public:
     HQIngressPushStream(HQSession& session,
-                        quic::StreamId streamId,
                         hq::PushId pushId,
                         folly::Optional<HTTPCodec::StreamID> parentTxnId,
                         uint32_t seqNo,
-                        std::unique_ptr<HTTPCodec> codec,
                         const WheelTimerInstance& timeout,
                         HTTPSessionStats* stats = nullptr,
                         http2::PriorityUpdate priority = hqDefaultPriority)
-        : detail::singlestream::SSIngress(streamId),
+        : detail::singlestream::SSIngress(folly::none),
           HQStreamTransportBase(session,
                                 TransportDirection::UPSTREAM,
-                                streamId,
+                                static_cast<HTTPCodec::StreamID>(pushId),
                                 seqNo,
-                                std::move(codec),
                                 timeout,
                                 stats,
                                 priority,
                                 parentTxnId,
                                 hq::UnidirectionalStreamType::PUSH),
           pushId_(pushId) {
+      // Ingress push streams are not initialized
+      // until after the nascent push stream
+      // has been received
     }
 
     void onPushMessageBegin(HTTPCodec::StreamID pushId,
