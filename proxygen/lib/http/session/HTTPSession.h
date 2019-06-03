@@ -491,6 +491,16 @@ class HTTPSession:
   void shutdownTransportWithReset(ProxygenError errorCode,
                                   const std::string& errorMsg = "");
 
+  /**
+   * Immediately shuts down read events by unhooking the read callback.
+   *
+   * Since read events must be enabled to receive socket error messages (which
+   * include timestamps), disables and drains socket timestamping events in byte
+   * tracker to prevent connection shutdown from stalling due to pending
+   * timestamp events.
+   */
+  void shutdownRead();
+
   // EventBase::LoopCallback methods
   void runLoopCallback() noexcept override;
 

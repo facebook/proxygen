@@ -2303,8 +2303,7 @@ HTTPSession::shutdownTransport(bool shutdownReads,
   if (shutdownReads && !readsShutdown()) {
     notifyIngressShutdown = true;
     // TODO: send an RST if readBuf_ is non empty?
-    sock_->setReadCB(nullptr);
-    reads_ = SocketState::SHUTDOWN;
+    shutdownRead();
     if (!transactions_.empty() && error == kErrorConnectionReset) {
       if (infoCallback_ != nullptr) {
         infoCallback_->onIngressError(*this, error);
@@ -2346,8 +2345,7 @@ void HTTPSession::shutdownTransportWithReset(
   VLOG(4) << "shutdownTransportWithReset";
 
   if (!readsShutdown()) {
-    sock_->setReadCB(nullptr);
-    reads_ = SocketState::SHUTDOWN;
+    shutdownRead();
   }
 
   if (!writesShutdown()) {
@@ -2382,6 +2380,20 @@ void HTTPSession::shutdownTransportWithReset(
   checkForShutdown();
 }
 
+void HTTPSession::shutdownRead() {
+  VLOG(10) << *this << " shutting down reads";
+  sock_->setReadCB(nullptr);
+  reads_ = SocketState::SHUTDOWN;
+  // disable socket timestamp events as we're shutting down reads
+  // (once reads are disabled, we cannot receive socket timestamp events)
+  if (byteEventTracker_) {
+    const auto numEventDrained =
+        byteEventTracker_->disableSocketTimestampEvents();
+    VLOG(10) << *this << " drained " << numEventDrained
+             << " pending socket timestamp events when shutting down reads";
+  }
+}
+
 void
 HTTPSession::checkForShutdown() {
   VLOG(10) << *this << " checking for shutdown, readShutdown="
@@ -2394,12 +2406,11 @@ HTTPSession::checkForShutdown() {
   if (writesShutdown() && transactions_.empty() &&
       !isLoopCallbackScheduled()) {
     VLOG(4) << "destroying " << *this;
-    sock_->setReadCB(nullptr);
+    shutdownRead();
     auto asyncSocket = sock_->getUnderlyingTransport<folly::AsyncSocket>();
     if (asyncSocket) {
       asyncSocket->setBufferCallback(nullptr);
     }
-    reads_ = SocketState::SHUTDOWN;
     if (resetSocketOnShutdown_) {
       sock_->closeWithReset();
     } else {

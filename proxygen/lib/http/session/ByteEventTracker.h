@@ -81,6 +81,17 @@ class ByteEventTracker {
   virtual void addTrackedByteEvent(HTTPTransaction* txn,
                                    uint64_t byteNo) noexcept;
 
+  /**
+   * Disables socket timestamp tracking and drains any related events.
+   *
+   * Returns the number of socket timestamp events drained, if any.
+   * Only implemented for trackers with socket timestamp capabilities.
+   */
+  virtual size_t disableSocketTimestampEvents() {
+   // not implemented for base ByteEventTracker
+   return 0;
+  }
+
   /** The base ByteEventTracker cannot track NIC TX. */
   virtual void addTxByteEvent(uint64_t /*offset*/,
                               ByteEvent::EventType /*eventType*/,
