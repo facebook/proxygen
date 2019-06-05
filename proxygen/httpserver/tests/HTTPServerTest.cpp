@@ -33,7 +33,6 @@ using folly::AsyncSSLSocket;
 using folly::AsyncServerSocket;
 using folly::EventBaseManager;
 using folly::SSLContext;
-using folly::SSLContext;
 using folly::SocketAddress;
 
 namespace {
