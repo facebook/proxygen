@@ -19,6 +19,9 @@
 #include <fizz/server/TicketCodec.h>
 #include <folly/FileUtil.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <proxygen/httpserver/HTTPTransactionHandlerAdaptor.h>
+#include <proxygen/httpserver/HTTPServer.h>
+#include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
@@ -123,6 +126,42 @@ CzoemuHOSmcvQpU604U+J20FO2gaiYJFxz1h1v+Z/9edY9R9NCwmyFa3LfI=
 
 static std::atomic<bool> shouldPassHealthChecks{true};
 
+class Dispatcher {
+ public:
+  static proxygen::HTTPTransactionHandler* getRequestHandler(
+      proxygen::HTTPMessage* msg, const std::string& version) {
+    DCHECK(msg);
+    const std::string& path = msg->getPath();
+    if (path == "/" || path == "/echo") {
+      return new EchoHandler(version);
+    }
+    if (path == "/continue") {
+      return new ContinueHandler(version);
+    }
+    if (path.size() > 1 && path[0] == '/' && std::isdigit(path[1])) {
+      return new RandBytesGenHandler(version);
+    }
+    if (path == "/status") {
+      return new HealthCheckHandler(shouldPassHealthChecks, version);
+    }
+    if (path == "/status_ok") {
+      shouldPassHealthChecks = true;
+      return new HealthCheckHandler(true, version);
+    }
+    if (path == "/status_fail") {
+      shouldPassHealthChecks = false;
+      return new HealthCheckHandler(true, version);
+    }
+
+    if (path == "/wait" || path == "/release") {
+      return new WaitReleaseHandler(
+          folly::EventBaseManager::get()->getEventBase(), version);
+    }
+
+    return new DummyHandler;
+  }
+};
+
 class HQSessionController : public proxygen::HTTPSessionController {
  public:
   using StreamData = std::pair<folly::IOBufQueue, bool>;
@@ -150,38 +189,8 @@ class HQSessionController : public proxygen::HTTPSessionController {
 
   proxygen::HTTPTransactionHandler* getRequestHandler(
       proxygen::HTTPTransaction& /*txn*/, proxygen::HTTPMessage* msg) override {
-
-    DCHECK(msg);
-    const std::string& path = msg->getPath();
-    if (path == "/" || path == "/echo") {
-      return new EchoHandler(version_);
-    }
-    if (path == "/continue") {
-      return new ContinueHandler(version_);
-    }
-    if (path.size() > 1 && path[0] == '/' && std::isdigit(path[1])) {
-      return new RandBytesGenHandler(version_);
-    }
-    if (path == "/status") {
-      return new HealthCheckHandler(shouldPassHealthChecks, version_);
-    }
-    if (path == "/status_ok") {
-      shouldPassHealthChecks = true;
-      return new HealthCheckHandler(true, version_);
-    }
-    if (path == "/status_fail") {
-      shouldPassHealthChecks = false;
-      return new HealthCheckHandler(true, version_);
-    }
-
-    if (path == "/wait" || path == "/release") {
-      return new WaitReleaseHandler(
-          folly::EventBaseManager::get()->getEventBase(), version_);
-    }
-
-    return new DummyHandler;
+    return Dispatcher::getRequestHandler(msg, version_);
   }
-
   proxygen::HTTPTransactionHandler* getParseErrorHandler(
       proxygen::HTTPTransaction* /*txn*/,
       const proxygen::HTTPException& /*error*/,
@@ -366,5 +375,67 @@ class HQServer {
   std::shared_ptr<quic::QuicServer> server_;
   folly::Baton<> cv_;
 };
+
+class H2Server {
+  class SampleHandlerFactory : public proxygen::RequestHandlerFactory {
+   public:
+    void onServerStart(folly::EventBase* /*evb*/) noexcept override {}
+    void onServerStop() noexcept override {}
+    proxygen::RequestHandler* onRequest(
+        proxygen::RequestHandler*,
+        proxygen::HTTPMessage* msg) noexcept override {
+      return new proxygen::HTTPTransactionHandlerAdaptor(
+          Dispatcher::getRequestHandler(msg, "1.1"));
+    }
+  };
+ public:
+  static std::thread run(folly::SocketAddress addr,
+                  std::string& certFile,
+                  std::string& keyFile,
+                  uint32_t connFlowControl,
+                  uint32_t streamFlowControl) {
+    std::vector<proxygen::HTTPServer::IPConfig> IPs = {
+      {addr, proxygen::HTTPServer::Protocol::HTTP2}
+    };
+
+    proxygen::HTTPServerOptions options;
+    // This is fine for now.
+    options.threads = 1;
+    options.idleTimeout = std::chrono::milliseconds(60000);
+    options.shutdownOn = {SIGINT, SIGTERM};
+    options.enableContentCompression = false;
+    options.handlerFactories = proxygen::RequestHandlerChain()
+      .addThen<SampleHandlerFactory>()
+      .build();
+    options.initialReceiveWindow = uint32_t(streamFlowControl);
+    options.receiveStreamWindowSize = uint32_t(connFlowControl);
+    options.receiveSessionWindowSize = connFlowControl;
+    options.h2cEnabled = false;
+    wangle::SSLContextConfig sslCfg;
+    sslCfg.isDefault = true;
+    if (!certFile.empty() && !keyFile.empty()) {
+      sslCfg.setCertificate(certFile, keyFile, "");
+    } else {
+      sslCfg.setCertificateBuf(kDefaultCertData, kDefaultKeyData);
+    }
+    sslCfg.setNextProtocols({"h2"});
+    IPs[0].sslConfigs.emplace_back(sslCfg);
+
+
+    // Start HTTPServer mainloop in a separate thread
+    std::thread t([IPs=std::move(IPs), options=std::move(options)] () mutable  {
+        {
+          proxygen::HTTPServer server(std::move(options));
+          server.bind(IPs);
+          server.start();
+        }
+        // HTTPServer traps the SIGINT.  resignal HQServer
+        raise(SIGINT);
+      });
+
+    return t;
+  }
+};
+
 
 }} // namespace quic::samples

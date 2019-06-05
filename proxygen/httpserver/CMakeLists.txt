@@ -41,6 +41,7 @@ if (BUILD_QUIC)
       PUBLIC
           proxygen
           proxygencurl
+          proxygenhttpserver
           mvfst::mvfst_transport
           mvfst::mvfst_client
           mvfst::mvfst_server

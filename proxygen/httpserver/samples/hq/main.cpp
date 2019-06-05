@@ -19,6 +19,7 @@
 
 DEFINE_string(host, "::1", "HQ server hostname/IP");
 DEFINE_int32(port, 6666, "HQ server port");
+DEFINE_int32(h2port, 6667, "HTTP/2 server port");
 DEFINE_string(mode, "server", "Mode to run in: 'client' or 'server'");
 DEFINE_string(body, "", "Filename to read from for POST requests");
 DEFINE_string(path,
@@ -116,6 +117,11 @@ int main(int argc, char* argv[]) {
       LOG(ERROR) << "the 'body' argument is allowed only in client mode";
       return -3;
     }
+
+    auto h2server = H2Server::run(
+        folly::SocketAddress(FLAGS_host, FLAGS_h2port, true),
+        FLAGS_cert, FLAGS_key,
+        FLAGS_stream_flow_control, FLAGS_conn_flow_control);
     HQServer server(FLAGS_host,
                     FLAGS_port,
                     FLAGS_httpversion,
@@ -128,6 +134,7 @@ int main(int argc, char* argv[]) {
     server.start();
     server.getAddress();
     server.run();
+    h2server.join();
   } else if (FLAGS_mode == "client") {
     if (FLAGS_host.empty() || FLAGS_port == 0) {
       LOG(ERROR) << "H1Client expected --host and --port";
