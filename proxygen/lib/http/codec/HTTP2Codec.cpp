@@ -1522,9 +1522,8 @@ void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
 
   auto& headers = request.getHeaders();
   headers.set(HTTP_HEADER_UPGRADE, http2::kProtocolCleartextString);
-  if (!request.checkForHeaderToken(HTTP_HEADER_CONNECTION, "Upgrade", false)) {
-    headers.add(HTTP_HEADER_CONNECTION, "Upgrade");
-  }
+  bool addUpgrade =
+    !request.checkForHeaderToken(HTTP_HEADER_CONNECTION, "Upgrade", false);
   IOBufQueue writeBuf{IOBufQueue::cacheChainLength()};
   defaultCodec->generateSettings(writeBuf);
   // fake an ack since defaultCodec gets reused
@@ -1534,9 +1533,16 @@ void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
   buf->coalesce();
   headers.set(http2::kProtocolSettingsHeader,
               base64url_encode(folly::ByteRange(buf->data(), buf->length())));
-  if (!request.checkForHeaderToken(HTTP_HEADER_CONNECTION,
-                                   http2::kProtocolSettingsHeader.c_str(),
-                                   false)) {
+  bool addSettings = !request.checkForHeaderToken(
+      HTTP_HEADER_CONNECTION,
+      http2::kProtocolSettingsHeader.c_str(),
+      false);
+  if (addUpgrade && addSettings) {
+    headers.add(HTTP_HEADER_CONNECTION, folly::to<string>(
+                    "Upgrade, ", http2::kProtocolSettingsHeader));
+  } else if (addUpgrade) {
+    headers.add(HTTP_HEADER_CONNECTION, "Upgrade");
+  } else if (addSettings) {
     headers.add(HTTP_HEADER_CONNECTION, http2::kProtocolSettingsHeader);
   }
 }

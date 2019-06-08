@@ -1654,9 +1654,9 @@ TEST_F(HTTP2CodecTest, TestMultipleIdenticalContentLengthHeaders) {
   EXPECT_EQ(callbacks_.headersComplete, 1);
 }
 
-TEST_F(HTTP2CodecTest, CleartextUpgrade) {
-  HTTPMessage req = getGetRequest("/guacamole");
-  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+
+namespace {
+void testRequestUpgrade(HTTPMessage& req, size_t numConnectionHeaders) {
   HTTP2Codec::requestUpgrade(req);
   EXPECT_EQ(req.getHeaders().getSingleOrEmpty(HTTP_HEADER_UPGRADE), "h2c");
   EXPECT_TRUE(req.checkForHeaderToken(HTTP_HEADER_CONNECTION,
@@ -1664,9 +1664,30 @@ TEST_F(HTTP2CodecTest, CleartextUpgrade) {
   EXPECT_TRUE(req.checkForHeaderToken(
                 HTTP_HEADER_CONNECTION,
                 http2::kProtocolSettingsHeader.c_str(), false));
+  EXPECT_EQ(req.getHeaders().getNumberOfValues(HTTP_HEADER_CONNECTION),
+            numConnectionHeaders);
   EXPECT_GT(
     req.getHeaders().getSingleOrEmpty(http2::kProtocolSettingsHeader).length(),
     0);
+}
+}
+
+TEST_F(HTTP2CodecTest, CleartextUpgrade) {
+  HTTPMessage req = getGetRequest("/guacamole");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+  testRequestUpgrade(req, 1);
+  req.stripPerHopHeaders();
+
+  req.getHeaders().add(HTTP_HEADER_CONNECTION, "Foo");
+  testRequestUpgrade(req, 2);
+  req.stripPerHopHeaders();
+
+  req.getHeaders().add(HTTP_HEADER_CONNECTION, "Upgrade");
+  testRequestUpgrade(req, 2);
+  req.stripPerHopHeaders();
+
+  req.getHeaders().add(HTTP_HEADER_CONNECTION, "HTTP2-Settings");
+  testRequestUpgrade(req, 2);
 }
 
 TEST_F(HTTP2CodecTest, HTTP2SettingsSuccess) {
