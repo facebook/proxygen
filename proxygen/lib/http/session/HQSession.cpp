@@ -2133,8 +2133,8 @@ size_t HQSession::handleWrite(HQStreamTransportBase* hqStream,
   hqStream->bytesWritten_ += sent;
   // hqStream's byteEventTracker cannot be changed, so no need to pass
   // shared_ptr or use in while loop
-  hqStream->byteEventTracker_.processByteEvents(nullptr,
-                                                hqStream->bytesWritten_);
+  hqStream->byteEventTracker_.processByteEvents(
+      nullptr, hqStream->streamEgressCommittedByteOffset());
   return sent;
 }
 
@@ -3249,14 +3249,15 @@ HQSession::HQStreamTransportBase::consume(size_t amount) {
 
 uint64_t HQSession::HQStreamTransportBase::trimPendingEgressBody(
     uint64_t trimOffset) {
-  if (bytesWritten_ > trimOffset) {
-    VLOG(3)
-        << __func__ << ": trim offset requested = " << trimOffset
-        << " is below bytes already committed  to the wire = " << bytesWritten_;
+  const auto bytesCommited = streamEgressCommittedByteOffset();
+  if (bytesCommited > trimOffset) {
+    VLOG(3) << __func__ << ": trim offset requested = " << trimOffset
+            << " is below bytes already committed  to the wire = "
+            << bytesCommited;
     return 0;
   }
 
-  auto trimBytes = trimOffset - bytesWritten_;
+  auto trimBytes = trimOffset - bytesCommited;
   if (trimBytes > 0) {
     writeBuf_.trimStartAtMost(trimBytes);
     VLOG(3) << __func__ << ": discarding " << trimBytes
@@ -3288,7 +3289,7 @@ HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
     return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
   }
 
-  trimPendingEgressBody(*streamOffset);
+  bytesSkipped_ += trimPendingEgressBody(*streamOffset);
 
   CHECK(codecStreamId_) << "codecStreamId_ is not set";
   auto res = session_.sock_->sendDataExpired(*codecStreamId_, *streamOffset);

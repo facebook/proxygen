@@ -1570,8 +1570,20 @@ class HQSession
       session_.txnEgressQueue_.addPriorityNode(id, parent);
     }
 
+    /**
+     * How many egress bytes we committed to transport, both written and
+     * skipped.
+     */
+    uint64_t streamEgressCommittedByteOffset() const {
+      return bytesWritten_ + bytesSkipped_;
+    }
+
+    /**
+     * streamEgressCommittedByteOffset() plus any pending bytes in the egress
+     * queue.
+     */
     uint64_t streamWriteByteOffset() const {
-      return bytesWritten_ + writeBuf_.chainLength();
+      return streamEgressCommittedByteOffset() + writeBuf_.chainLength();
     }
 
     void abortIngress();

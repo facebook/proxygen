@@ -218,7 +218,10 @@ class HQStreamBase
   /** Queue of egress IOBufs */
   folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
 
-  uint64_t bytesWritten_{0};
+  uint64_t bytesWritten_{0}; // Accounts for egress bytes written on the
+                             // stream.
+  uint64_t bytesSkipped_{0}; // Accounts for egress bytes skipped on the
+                             // stream.
 
  protected:
   /** parent session **/
