@@ -268,6 +268,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 if (maxLen == 0) {
                   maxLen = std::numeric_limits<size_t>::max();
                 }
+                // Gather all buffers in the queue so that split won't
+                // run dry
+                stream.readBuf.gather(stream.readBuf.chainLength());
+
                 result.first = stream.readBuf.splitAtMost(maxLen).release();
                 result.second = stream.readBuf.empty() && stream.readEOF;
                 if (result.second) {
@@ -1043,6 +1047,22 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   std::shared_ptr<MockQuicSocket> getSocket() {
     return sock_;
+  }
+
+  void enablePartialReliability() {
+    EXPECT_CALL(*sock_, setDataExpiredCallback(testing::_, testing::_))
+      .WillRepeatedly(testing::Invoke(
+            [this](StreamId id, QuicSocket::DataExpiredCallback* cb) {
+              dataExpiredCb_ = cb;
+              return folly::unit;
+              }));
+
+    EXPECT_CALL(*sock_, setDataRejectedCallback(testing::_, testing::_))
+      .WillRepeatedly(testing::Invoke(
+            [this](StreamId id, QuicSocket::DataRejectedCallback* cb) {
+              dataRejectedCb_ = cb;
+              return folly::unit;
+              }));
   }
 
   void runLoopCallback() noexcept override {

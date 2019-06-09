@@ -83,8 +83,8 @@ void HQSession::setSessionStats(HTTPSessionStats* stats) {
 }
 
 void HQSession::setPartiallyReliableCallbacks(quic::StreamId id) {
-  // sock_->setDataExpiredCallback(id, this);
-  // sock_->setDataRejectedCallback(id, this);
+  sock_->setDataExpiredCallback(id, &unidirectionalReadDispatcher_);
+  sock_->setDataRejectedCallback(id, &unidirectionalReadDispatcher_);
 }
 
 void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {

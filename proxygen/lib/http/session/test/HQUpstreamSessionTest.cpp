@@ -29,6 +29,7 @@
 #include <quic/api/test/MockQuicSocket.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
+
 using namespace proxygen;
 using namespace proxygen::hq;
 using namespace quic;
@@ -238,11 +239,6 @@ class HQUpstreamSessionTest : public HQSessionTest {
     return openTransactionBase<MockHTTPHandler>();
   }
 
-  std::unique_ptr<StrictMock<MockHqPrUpstreamHTTPHandler>>
-  openPrTransaction() {
-    return openTransactionBase<MockHqPrUpstreamHTTPHandler>();
-  }
-
   void flushAndLoop(
       bool eof = false,
       milliseconds eofDelay = milliseconds(0),
@@ -345,12 +341,32 @@ using HQUpstreamSessionTestH1qv2HQ = HQUpstreamSessionTest;
 // Use this test class for hq only tests
 using HQUpstreamSessionTestHQ = HQUpstreamSessionTest;
 
-#ifdef PR_IS_WORKING
+class HQUpstreamSessionPRTest : public HQUpstreamSessionTest {
+public:
+  void SetUp() override {
+    // propagate setup call
+    HQUpstreamSessionTest::SetUp();
+    // enable callbacks
+    socketDriver_->enablePartialReliability();
+  }
+
+  void TearDown() override {
+    // propagate tear down call
+    HQUpstreamSessionTest::TearDown();
+  }
+
+  std::unique_ptr<StrictMock<MockHqPrUpstreamHTTPHandler>>
+  openPrTransaction() {
+    return openTransactionBase<MockHqPrUpstreamHTTPHandler>();
+  }
+
+};
+
 // Use this test class for hq PR general tests
-using HQUpstreamSessionTestHQPR = HQUpstreamSessionTest;
+using HQUpstreamSessionTestHQPR = HQUpstreamSessionPRTest;
 // Use this test class for hq PR scripted recv tests
-using HQUpstreamSessionTestHQPRRecvBodyScripted = HQUpstreamSessionTest;
-#endif
+using HQUpstreamSessionTestHQPRRecvBodyScripted = HQUpstreamSessionPRTest;
+
 
 TEST_P(HQUpstreamSessionTest, SimpleGet) {
   auto handler = openTransaction();
@@ -1507,7 +1523,6 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         paramsToTestName);
 
 // Instantiate hq only tests
-#ifdef PR_IS_WORKING
 INSTANTIATE_TEST_CASE_P(
     HQUpstreamSessionTest,
     HQUpstreamSessionTestHQ,
@@ -1518,14 +1533,6 @@ INSTANTIATE_TEST_CASE_P(
                                .bodyScript = std::vector<uint8_t>(),
                            }})),
     paramsToTestName);
-
-#else
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestHQ,
-                        Values(TestParams({.alpn_ = "h3"})),
-                        paramsToTestName);
-
-#endif
 
 // Instantiate tests for H3 Push functionality (requires HQ)
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
@@ -1555,7 +1562,7 @@ INSTANTIATE_TEST_CASE_P(
                .numBytesOnPushStream = 16,
            })),
     paramsToTestName);
-#ifdef PR_IS_WORKING
+
 INSTANTIATE_TEST_CASE_P(
     HQUpstreamSessionTest,
     HQUpstreamSessionTestHQPRRecvBodyScripted,
@@ -1868,4 +1875,3 @@ TEST_P(HQUpstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
 
   hqSession_->closeWhenIdle();
 }
-#endif
