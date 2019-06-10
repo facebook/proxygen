@@ -1496,12 +1496,16 @@ size_t HQSession::cleanupPendingStreams() {
 }
 
 void HQSession::clearStreamCallbacks(quic::StreamId id) {
-  sock_->setReadCallback(id, nullptr);
-  sock_->setPeekCallback(id, nullptr);
+  if (sock_) {
+    sock_->setReadCallback(id, nullptr);
+    sock_->setPeekCallback(id, nullptr);
 
-  if (isPartialReliabilityEnabled()) {
-    sock_->setDataExpiredCallback(id, nullptr);
-    sock_->setDataRejectedCallback(id, nullptr);
+    if (isPartialReliabilityEnabled()) {
+      sock_->setDataExpiredCallback(id, nullptr);
+      sock_->setDataRejectedCallback(id, nullptr);
+    }
+  } else {
+    VLOG(4) << "Attempt to clear callbacks on closed socket";
   }
 }
 
