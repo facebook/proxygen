@@ -24,6 +24,10 @@ std::string serializePsk(const fizz::client::CachedPsk& psk) {
       std::chrono::duration_cast<std::chrono::seconds>(
           psk.ticketExpirationTime.time_since_epoch())
           .count();
+  uint64_t ticketHandshakeTime =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          psk.ticketHandshakeTime.time_since_epoch())
+          .count();
 
   auto serialized = IOBuf::create(0);
   io::Appender appender(serialized.get(), 512);
@@ -54,6 +58,7 @@ std::string serializePsk(const fizz::client::CachedPsk& psk) {
       x509 ? folly::ssl::OpenSSLCertUtils::derEncode(*x509) : nullptr,
       appender);
   fizz::detail::write(psk.maxEarlyDataSize, appender);
+  fizz::detail::write(ticketHandshakeTime, appender);
 
   return serialized->moveToFbString().toStdString();
 }
@@ -114,6 +119,11 @@ fizz::client::CachedPsk deserializePsk(const std::string& str,
   }
 
   fizz::detail::read(psk.maxEarlyDataSize, cursor);
+
+  uint64_t ticketHandshakeTime;
+  fizz::detail::read(ticketHandshakeTime, cursor);
+  psk.ticketHandshakeTime = std::chrono::time_point<std::chrono::system_clock>(
+      std::chrono::milliseconds(ticketHandshakeTime));
 
   return psk;
 }
