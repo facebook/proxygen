@@ -528,6 +528,24 @@ TEST_P(HQUpstreamSessionTest, DropConnectionTwiceWithPendingStreams) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQUpstreamSessionTest, DropConnectionAfterCloseWhenIdle) {
+  HQSession::DestructorGuard dg(hqSession_);
+  hqSession_->closeWhenIdle();
+  flushAndLoopN(1);
+  hqSession_->dropConnection();
+}
+
+TEST_P(HQUpstreamSessionTest, DropConnectionWithStreamAfterCloseWhenIdle) {
+  HQSession::DestructorGuard dg(hqSession_);
+  auto handler = openTransaction();
+  handler->txn_->sendHeaders(getGetRequest());
+  hqSession_->closeWhenIdle();
+  flushAndLoopN(1);
+  handler->expectError();
+  handler->expectDetachTransaction();
+  hqSession_->dropConnection();
+}
+
 TEST_P(HQUpstreamSessionTest, NotifyConnectCallbackBeforeDestruct) {
   MockConnectCallback connectCb;
   dynamic_cast<HQUpstreamSession*>(hqSession_)->setConnectCallback(&connectCb);
@@ -812,6 +830,23 @@ TEST_P(HQUpstreamSessionTestHQ, DelayedQPACKAfterReset) {
                               std::move(qpackData2));
   eventBase_.loopOnce();
   hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTestHQ, TestDropConnectionSynchronously) {
+  std::unique_ptr<testing::NiceMock<proxygen::MockHTTPSessionInfoCallback>>
+      infoCb = std::make_unique<
+          testing::NiceMock<proxygen::MockHTTPSessionInfoCallback>>();
+  auto handler = openTransaction();
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->expectError();
+  handler->expectDetachTransaction();
+  hqSession_->setInfoCallback(infoCb.get());
+  // the session is destroyed synchronously, so the destroy callback gets
+  // invoked
+  EXPECT_CALL(*infoCb.get(), onDestroy(_)).Times(1);
+  hqSession_->dropConnection();
+  infoCb.reset();
+  eventBase_.loopOnce();
 }
 
 // This test is checking two different scenarios for different protocol

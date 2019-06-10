@@ -2038,6 +2038,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, ExtraSettings) {
       EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
     });
   handler->expectDetachTransaction();
+  flushRequestsAndLoopN(1);
 
   // Need to use a new codec. Since generating settings twice is
   // forbidden
@@ -2208,6 +2209,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, eofControlStream) {
       EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
     });
   handler->expectDetachTransaction();
+  flushRequestsAndLoopN(1);
   socketDriver_->addReadEOF(connControlStreamId_);
   flushRequestsAndLoop();
 }
@@ -2223,6 +2225,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, resetControlStream) {
       EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
     });
   handler->expectDetachTransaction();
+  flushRequestsAndLoopN(1);
   socketDriver_->addReadError(connControlStreamId_,
                              HTTP3::ErrorCode::HTTP_INTERNAL_ERROR);
   flushRequestsAndLoop();

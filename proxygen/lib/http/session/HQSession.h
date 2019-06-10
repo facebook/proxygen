@@ -419,13 +419,6 @@ class HQSession
    *
    * proxygenError is delivered to open transactions
    */
-  void dropConnectionWithError(quic::QuicErrorCode quicErrorCode,
-                               std::string quicError,
-                               ProxygenError proxygenError) {
-    dropConnectionWithError(std::make_pair(quicErrorCode, quicError),
-                            proxygenError);
-  }
-
   void dropConnectionWithError(
       std::pair<quic::QuicErrorCode, std::string> errorCode,
       ProxygenError proxygenError);
@@ -943,6 +936,9 @@ class HQSession
   bool started_ : 1;
   bool dropping_ : 1;
   bool inLoopCallback_ : 1;
+  folly::Optional<
+      std::pair<std::pair<quic::QuicErrorCode, std::string>, ProxygenError>>
+      dropInNextLoop_;
 
   // A control stream is created as egress first, then the ingress counterpart
   // is linked as soon as we read the stream preface on the associated stream

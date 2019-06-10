@@ -273,8 +273,8 @@ HQSession::createIngressControlStream(quic::StreamId id,
 
   if (ctrlStream->ingressCodec_) {
     LOG(ERROR) << "Too many " << streamType << " streams for sess=" << *this;
-    dropConnectionWithError(HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
-                            "HTTP wrong stream count",
+    dropConnectionWithError(std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
+                            "HTTP wrong stream count"),
                             kErrorConnection);
     return nullptr;
   }
@@ -730,7 +730,7 @@ void HQSession::closeWhenIdle() {
 
 void HQSession::dropConnection() {
   dropConnectionWithError(
-      HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping", kErrorDropped);
+      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping"), kErrorDropped);
 }
 
 void HQSession::dropConnectionWithError(
@@ -743,7 +743,7 @@ void HQSession::dropConnectionWithError(
   // deleted naturally in checkForShutdown.
   // We can get here with drainState_ == DONE, if somthing is holding a
   // DestructorGuardon the session when it gets dropped.
-  if (dropping_ || drainState_ == DrainState::DONE) {
+  if (dropping_) {
     VLOG(5) << "Already dropping sess=" << *this;
     return;
   }
@@ -764,10 +764,14 @@ void HQSession::dropConnectionWithError(
     //  notify + drop  (PENDING)
     //  notify + CLOSE_SENT (in last request) + reset (no response) + drop
     //  CLOSE_RECEIVED (in last response) + drop
-    // In any of these cases, it's ok to just close the socket
-    // this should be closeNow()
-    sock_->close(folly::none);
-    sock_.reset();
+    // In any of these cases, it's ok to just close the socket.
+    // Note that the socket could already be deleted in case multiple calls
+    // happen, under a destructod guard.
+    if (sock_) {
+      // this should be closeNow()
+      sock_->close(folly::none);
+      sock_.reset();
+    }
   }
   drainState_ = DrainState::DONE;
   cancelLoopCallback();
@@ -1082,6 +1086,12 @@ void HQSession::runLoopCallback() noexcept {
     checkForShutdown();
     inLoopCallback_ = false;
   });
+
+  if (dropInNextLoop_.hasValue()) {
+    dropConnectionWithError(dropInNextLoop_->first, dropInNextLoop_->second);
+    return;
+  }
+
   readsPerLoop_ = 0;
 
   // First process the read data
@@ -2003,15 +2013,14 @@ void HQSession::handleSessionError(HQStreamBase* stream,
   }
   // we cannot just simply drop the connection here, since in case of a
   // close received from the remote, we may have other readError callbacks on
-  // other streams after this one. So run in the next loop iteration
-  auto evb = getEventBase();
-  if (evb) {
-    HQSession::DestructorGuard dg(this);
-    evb->runInLoop(
-        [this, appError, appErrorMsg, proxygenError, sessionDg = dg]() {
-          dropConnectionWithError(appError, appErrorMsg, proxygenError);
-        },
-        false);
+  // other streams after this one. So run in the next loop callback, in this
+  // same loop
+  if (!dropInNextLoop_.hasValue()) {
+    dropInNextLoop_ =
+        std::make_pair(std::make_pair(appError, appErrorMsg), proxygenError);
+    scheduleLoopCallback(true);
+  } else {
+    VLOG(4) << "Session already scheduled to be dropped: sess=" << *this;
   }
 }
 
@@ -3189,8 +3198,8 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
         "Received onMessageBegin in the middle of push promise";
     LOG(ERROR) << error << " streamID=" << streamID << " session=" << session_;
     session_.dropConnectionWithError(
-        HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
-        error,
+        std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
+        error),
         kErrorDropped);
     return;
   }
@@ -3419,8 +3428,8 @@ void HQSession::HQStreamTransportBase::onPushMessageBegin(
         "Received onPushMessageBegin in the middle of push promise";
     LOG(ERROR) << error;
     session_.dropConnectionWithError(
-        HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
-        error,
+        std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
+        error),
         kErrorDropped);
     return;
   }
