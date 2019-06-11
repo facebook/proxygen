@@ -45,9 +45,9 @@ DEFINE_bool(early_data, false, "Whether to use 0-rtt");
 DEFINE_uint32(quic_batching_mode,
               static_cast<uint32_t>(quic::QuicBatchingMode::BATCHING_MODE_NONE),
               "QUIC batching mode");
-DEFINE_uint32(quic_batching_num,
-              quic::kDefaultQuicBatchingNum,
-              "QUIC batching num");
+DEFINE_uint32(quic_batch_size,
+              quic::kDefaultQuicMaxBatchSize,
+              "Maximum number of packets that can be batched in Quic");
 DEFINE_string(cert, "", "Certificate file path");
 DEFINE_string(key, "", "Private key file path");
 
@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
   transportSettings.pacingEnabled = FLAGS_pacing;
   transportSettings.batchingMode =
       quic::getQuicBatchingMode(FLAGS_quic_batching_mode);
-  transportSettings.batchingNum = FLAGS_quic_batching_num;
+  transportSettings.maxBatchSize = FLAGS_quic_batch_size;
   transportSettings.turnoffPMTUD = true;
   if (FLAGS_mode == "server") {
     if (FLAGS_body != "") {
