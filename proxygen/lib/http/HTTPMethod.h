@@ -15,6 +15,15 @@
 
 namespace proxygen {
 
+/**
+ * Defined in winnt.h
+ * Several proxygen files include folly/portability/OpenSSL.h
+ *   -> folly/portability/Windows.h -> Windows.h -> winnt.h
+ */
+#if defined(_WIN32) && defined(DELETE)
+#undef DELETE
+#endif
+
 // Ordered by frequency to minimize time spent in iteration
 #define HTTP_METHOD_GEN(x) \
   x(GET),                  \
