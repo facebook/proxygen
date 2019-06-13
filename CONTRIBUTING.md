@@ -39,7 +39,7 @@ the process outlined on that page and do not file a public issue.
 * 80 character line length
 * Use `Type* foo` not `Type *foo`.
 * Align parameters passed to functions.
-* Prefer `folly::make_unique<Foo>` to `new Foo`. In general, we discourage
+* Prefer `std::make_unique<Foo>` to `new Foo`. In general, we discourage
 use of raw `new` or `delete`.
 
 ## License
