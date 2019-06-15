@@ -1459,6 +1459,7 @@ bool HTTPTransaction::onPushedTransaction(HTTPTransaction* pushTxn) {
     VLOG(4) << "Cannot add a pushed txn to an unhandled txn";
     return false;
   }
+  refreshTimeout();
   handler_->onPushedTransaction(pushTxn);
   if (!pushTxn->getHandler()) {
     VLOG(4) << "Failed to create a handler for push transaction";
