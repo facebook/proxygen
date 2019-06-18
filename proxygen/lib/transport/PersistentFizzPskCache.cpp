@@ -120,10 +120,16 @@ fizz::client::CachedPsk deserializePsk(const std::string& str,
 
   fizz::detail::read(psk.maxEarlyDataSize, cursor);
 
-  uint64_t ticketHandshakeTime;
-  fizz::detail::read(ticketHandshakeTime, cursor);
-  psk.ticketHandshakeTime = std::chrono::time_point<std::chrono::system_clock>(
-      std::chrono::milliseconds(ticketHandshakeTime));
+  if (!cursor.isAtEnd()) {
+    uint64_t ticketHandshakeTime;
+    fizz::detail::read(ticketHandshakeTime, cursor);
+    psk.ticketHandshakeTime = std::chrono::time_point<std::chrono::system_clock>(
+        std::chrono::milliseconds(ticketHandshakeTime));
+  } else {
+    // Just assign it now();
+    psk.ticketHandshakeTime = std::chrono::system_clock::now();
+  }
+
 
   return psk;
 }
