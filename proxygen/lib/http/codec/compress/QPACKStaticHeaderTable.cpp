@@ -145,7 +145,7 @@ namespace proxygen {
  * sed -e's/^/HTTP_HEADER_/g' -e's/-/_/g' -e's/:/COLON_/g'
  */
 bool QPACKStaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
-    HTTPHeaderCode headerCode) {
+    HTTPHeaderCode /*headerCode*/) {
   LOG(FATAL) << __func__ << " not supported for QPACK";
   return false;
 }

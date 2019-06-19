@@ -1746,6 +1746,7 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
           break;
         case hq::SettingId::NUM_PLACEHOLDERS:
           numPlaceholders = setting.value;
+          (void)numPlaceholders;
           break;
       }
     }
@@ -1974,7 +1975,7 @@ void HQSession::handleSessionError(HQStreamBase* stream,
     appErrorMsg = "HTTP error on request stream";
     // for request streams this function must be called with an ApplicationError
     folly::variant_match(err,
-                         [&](quic::ApplicationErrorCode error) {},
+                         [&](quic::ApplicationErrorCode /*error*/) {},
                          [](auto&) { DCHECK(false); });
   }
   // errors on a control stream means we must drop the entire connection,

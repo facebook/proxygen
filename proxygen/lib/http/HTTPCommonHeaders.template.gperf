@@ -23,7 +23,10 @@ namespace proxygen {
 %enum
 %define class-name HTTPCommonHeadersInternal
 
-struct HTTPCommonHeaderName { const char* name; HTTPHeaderCode code; };
+struct HTTPCommonHeaderName { 
+    const char* name; 
+    HTTPHeaderCode code = HTTP_HEADER_NONE; 
+};
 
 
 

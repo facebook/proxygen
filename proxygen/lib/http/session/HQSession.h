@@ -1223,7 +1223,7 @@ class HQSession
       VLOG(4) << __func__ << " txn=" << txn_;
     }
 
-    void onSettings(const SettingsList& settings) override {
+    void onSettings(const SettingsList& /*settings*/) override {
       VLOG(4) << __func__ << " txn=" << txn_;
     }
 

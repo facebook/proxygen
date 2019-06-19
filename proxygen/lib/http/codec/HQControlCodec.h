@@ -108,7 +108,7 @@ class HQControlCodec
     return false;
   }
 
-  void setHeaderCodecStats(HeaderCodec::Stats* hcStats) override {
+  void setHeaderCodecStats(HeaderCodec::Stats* /*hcStats*/) override {
     CHECK(false) << __func__ << " not supported";
   }
 

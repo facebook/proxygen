@@ -64,7 +64,7 @@ class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
 
   // clang-format off
   static const std::string& getH1QFooter() {
-    FOLLY_EXPORT static const std::string footer(
+    static const std::string footer(
 " __    __  .___________.___________..______      ___ ___       ___    ______\n"
 "|  |  |  | |           |           ||   _  \\    /  // _ \\     / _ \\  |      \\\n"
 "|  |__|  | `---|  |----`---|  |----`|  |_)  |  /  /| | | |   | (_) | `----)  |\n"
