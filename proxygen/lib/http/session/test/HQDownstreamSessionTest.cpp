@@ -134,20 +134,6 @@ class HQDownstreamSessionTest : public HQSessionTest {
 
   void SetUpBase() {
     folly::EventBaseManager::get()->clearEventBase();
-    transportInfo_ = {.srtt = std::chrono::microseconds(100),
-                      .rttvar = std::chrono::microseconds(0),
-                      .writableBytes = 0,
-                      .congestionWindow = 1500,
-                      .packetsRetransmitted = 0,
-                      .timeoutBasedLoss = 0,
-                      .pto = std::chrono::microseconds(0),
-                      .bytesSent = 0,
-                      .bytesRecvd = 0,
-                      .ptoCount = 0,
-                      .totalPTOCount = 0};
-    EXPECT_CALL(*socketDriver_->getSocket(), getTransportInfo())
-        .WillRepeatedly(Return(transportInfo_));
-
     streamTransInfo_ = {.totalHeadOfLineBlockedTime =
                             std::chrono::milliseconds(100),
                         .holbCount = 2,
@@ -355,7 +341,6 @@ class HQDownstreamSessionTest : public HQSessionTest {
 
   std::unordered_map<quic::StreamId, ClientStream> requests_;
   quic::StreamId nextStreamId_{0};
-  quic::QuicSocket::TransportInfo transportInfo_;
   quic::QuicSocket::StreamTransportInfo streamTransInfo_;
   TestTransportCallback transportCallback_;
 };
@@ -2009,8 +1994,13 @@ TEST_P(HQDownstreamSessionTest, ProcessReadDataOnDetachedStream) {
 using HQDownstreamSessionTestHQNoSettings = HQDownstreamSessionTest;
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestHQNoSettings,
-                        Values(TestParams({.alpn_ = "h3",
-                                           .shouldSendSettings_ = false})),
+                        Values(
+                          []{
+                             TestParams tp;
+                             tp.alpn_ = "h3";
+                             tp.shouldSendSettings_ = false;
+                             return tp;
+                            }()),
                         paramsToTestName);
 TEST_P(HQDownstreamSessionTestHQNoSettings, SimpleGet) {
   auto idh = checkRequest();
@@ -2263,11 +2253,14 @@ INSTANTIATE_TEST_CASE_P(
     Values(TestParams({.alpn_ = "h1q-fb"}),
            TestParams({.alpn_ = "h1q-fb-v2"}),
            TestParams({.alpn_ = "h3"}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>(),
-                           }})),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>(),
+              };
+              return tp;
+             }()),
     paramsToTestName);
 
 // Instantiate h1q only tests that work on all versions
@@ -2307,11 +2300,14 @@ INSTANTIATE_TEST_CASE_P(
     HQDownstreamSessionTest,
     HQDownstreamSessionTestHQ,
     Values(TestParams({.alpn_ = "h3"}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>(),
-                           }})),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>(),
+              };
+              return tp;
+             }()),
     paramsToTestName);
 
 using DropConnectionInTransportReadyTest =
@@ -2320,16 +2316,29 @@ using DropConnectionInTransportReadyTest =
 INSTANTIATE_TEST_CASE_P(DropConnectionInTransportReadyTest,
                         DropConnectionInTransportReadyTest,
                         Values(TestParams({.alpn_ = "unsupported"}),
-                               TestParams({.alpn_ = "h3",
-                                           .unidirectionalStreamsCredit = 1}),
-                               TestParams({.alpn_ = "h1q-fb-v2",
-                                           .unidirectionalStreamsCredit = 0})),
+                        []{
+                           TestParams tp;
+                           tp.alpn_ = "h3";
+                           tp.unidirectionalStreamsCredit = 1;
+                           return tp;
+                          }(),
+                        []{
+                           TestParams tp;
+                           tp.alpn_ = "h1q-fb-v2";
+                           tp.unidirectionalStreamsCredit = 0;
+                           return tp;
+                          }()),
                         paramsToTestName);
 // Instantiate hq server push tests
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestHQPush,
-                        Values(TestParams({.alpn_ = "h3",
-                                           .unidirectionalStreamsCredit = 8})),
+                        Values(
+                        []{
+                           TestParams tp;
+                           tp.alpn_ = "h3";
+                           tp.unidirectionalStreamsCredit = 8;
+                           return tp;
+                          }()),
                         paramsToTestName);
 
 // Use this test class for mismatched alpn tests
@@ -2357,52 +2366,67 @@ TEST_P(DropConnectionInTransportReadyTest, TransportReadyFailure) {
 INSTANTIATE_TEST_CASE_P(
     HQDownstreamSessionTest,
     HQDownstreamSessionTestHQPR,
-    Values(TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>({PR_BODY}),
-                           }}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>({PR_SKIP}),
-                           }}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>({PR_BODY,
-                                                                   PR_SKIP}),
-                           }}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>({PR_SKIP,
-                                                                   PR_BODY}),
-                           }}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>(
-                                   {PR_SKIP, PR_SKIP, PR_BODY, PR_SKIP}),
-                           }}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>(
-                                   {PR_BODY, PR_BODY, PR_SKIP, PR_BODY}),
-                           }}),
-           TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>({PR_BODY,
-                                                                   PR_BODY,
-                                                                   PR_SKIP,
-                                                                   PR_BODY,
-                                                                   PR_SKIP,
-                                                                   PR_BODY,
-                                                                   PR_SKIP,
-                                                                   PR_SKIP}),
-                           }})),
+    Values(
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>({PR_BODY}),
+              };
+              return tp;
+             }(),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>({PR_SKIP}),
+              };
+              return tp;
+             }(),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>({PR_BODY,PR_SKIP}),
+              };
+              return tp;
+             }(),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>({PR_SKIP,PR_BODY}),
+              };
+              return tp;
+             }(),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>(
+                    {PR_SKIP, PR_SKIP, PR_BODY, PR_SKIP}),
+              };
+              return tp;
+             }(),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>(
+                    {PR_BODY, PR_BODY, PR_SKIP, PR_BODY}),
+              };
+              return tp;
+             }(),
+           []{
+              TestParams tp;
+              tp.alpn_ = "h3";
+              tp.prParams = PartiallyReliableTestParams{
+                .bodyScript = std::vector<uint8_t>({
+                    PR_BODY, PR_BODY, PR_SKIP, PR_BODY, PR_SKIP, PR_BODY,
+                    PR_SKIP, PR_SKIP}),
+              };
+              return tp;
+             }()),
     paramsToTestName);
 
 TEST_P(HQDownstreamSessionTestHQPR, GetPrScriptedReject) {
@@ -2542,11 +2566,15 @@ TEST_P(HQDownstreamSessionTestHQPR, GetPrBodyScriptedExpire) {
 INSTANTIATE_TEST_CASE_P(
     HQUpstreamSessionTest,
     HQDownstreamSessionTestHQPrBadOffset,
-    Values(TestParams({.alpn_ = "h3",
-                       .prParams =
-                           PartiallyReliableTestParams{
-                               .bodyScript = std::vector<uint8_t>(),
-                           }})),
+    Values(
+      []{
+        TestParams tp;
+        tp.alpn_ = "h3";
+        tp.prParams = PartiallyReliableTestParams{
+          .bodyScript = std::vector<uint8_t>(),
+        };
+        return tp;
+      }()),
     paramsToTestName);
 
 TEST_P(HQDownstreamSessionTestHQPrBadOffset, TestWrongOffsetErrorCleanup) {

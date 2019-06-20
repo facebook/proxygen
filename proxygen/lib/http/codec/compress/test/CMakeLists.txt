@@ -13,6 +13,8 @@ add_library(hpacktestutils STATIC TestUtil.cpp)
 target_include_directories(
     hpacktestutils PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    ${LIBGMOCK_INCLUDE_DIR}
+    ${LIBGTEST_INCLUDE_DIR}
 )
 target_link_libraries(hpacktestutils PRIVATE proxygen)
 

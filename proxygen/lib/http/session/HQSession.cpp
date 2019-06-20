@@ -1729,7 +1729,7 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
 
   uint32_t tableSize = kDefaultIngressHeaderTableSize;
   uint32_t blocked = kDefaultIngressQpackBlockedStream;
-  uint32_t numPlaceholders = kDefaultIngressNumPlaceHolders;
+  FOLLY_MAYBE_UNUSED uint32_t numPlaceholders = kDefaultIngressNumPlaceHolders;
   for (auto& setting : settings) {
     auto id = httpToHqSettingsId(setting.id);
     if (id) {
@@ -1746,7 +1746,6 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
           break;
         case hq::SettingId::NUM_PLACEHOLDERS:
           numPlaceholders = setting.value;
-          (void)numPlaceholders;
           break;
       }
     }

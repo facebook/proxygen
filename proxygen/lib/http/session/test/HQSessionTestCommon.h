@@ -147,6 +147,29 @@ class HQSessionTest
             .Times(testing::AtLeast(numCtrlStreams_));
       }
     }
+    quic::QuicSocket::TransportInfo transportInfo = {
+                      .srtt = std::chrono::microseconds(100),
+                      .rttvar = std::chrono::microseconds(0),
+                      .lrtt = std::chrono::microseconds(0),
+                      .mrtt = std::chrono::microseconds(0),
+                      .writableBytes = 0,
+                      .congestionWindow = 1500,
+                      .pacingBurstSize = 0,
+                      .pacingInterval = std::chrono::microseconds(0),
+                      .packetsRetransmitted = 0,
+                      .timeoutBasedLoss = 0,
+                      .pto = std::chrono::microseconds(0),
+                      .bytesSent = 0,
+                      .bytesAcked = 0,
+                      .bytesRecvd = 0,
+                      .totalBytesRetransmitted = 0,
+                      .ptoCount = 0,
+                      .totalPTOCount = 0,
+                      .largestPacketAckedByPeer = 0,
+                      .largestPacketSent = 0,
+    };
+    EXPECT_CALL(*socketDriver_->getSocket(), getTransportInfo())
+        .WillRepeatedly(testing::Return(transportInfo));
   }
 
   bool createControlStreams() {

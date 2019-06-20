@@ -13,6 +13,8 @@ add_library(codectestutils STATIC TestUtils.cpp)
 target_include_directories(
     codectestutils PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    ${LIBGMOCK_INCLUDE_DIR}
+    ${LIBGTEST_INCLUDE_DIR}
 )
 target_link_libraries(codectestutils PRIVATE proxygen)
 
@@ -24,8 +26,32 @@ proxygen_add_test(TARGET CodecTests
     HTTP2CodecTest.cpp
     HTTP2FramerTest.cpp
     SPDYCodecTest.cpp
+    ${HTTP3_CODEC_TESTS}
   DEPENDS
     codectestutils
     proxygen
     testmain
 )
+
+if (BUILD_QUIC)
+  proxygen_add_test(TARGET HQFramerTests
+    SOURCES
+      HQFramerTest.cpp
+    DEPENDS
+      codectestutils
+      proxygen
+      testmain
+      mvfst::mvfst_codec_types
+  )
+
+  proxygen_add_test(TARGET HQCodecTests
+    SOURCES
+      HQCodecTest.cpp
+      UnframedBodyOffsetTrackerTest.cpp
+    DEPENDS
+      codectestutils
+      proxygen
+      testmain
+      mvfst::mvfst_codec_types
+  )
+endif()

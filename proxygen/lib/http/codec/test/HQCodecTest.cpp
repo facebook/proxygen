@@ -13,7 +13,6 @@
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/QPACKDecoderCodec.h>
 #include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
-#include <proxygen/lib/http/codec/test/HQFramerTest.h>
 #include <proxygen/lib/http/codec/TransportDirection.h>
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>

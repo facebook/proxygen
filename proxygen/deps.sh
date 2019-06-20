@@ -192,13 +192,15 @@ if [ "$WITH_QUIC" == true ] ; then
   # Build proxygen with cmake
   mkdir -p _build
   cd _build
-  cmake ../.. -DBUILD_QUIC=On
+  cmake ../.. -DBUILD_QUIC=On -DBUILD_TESTING=On
   make -j$JOBS
   sudo make install
   if test $? -ne 0; then
     echo "fatal: proxygen build failed"
     exit -1
   fi
+  # run the tests
+  make test
 else
   # Build proxygen
   autoreconf -ivf
