@@ -13,9 +13,9 @@
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/session/test/HQSessionMocks.h>
 #include <proxygen/lib/http/session/test/HQSessionTestCommon.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
-#include <proxygen/lib/http/session/test/HQSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
@@ -37,9 +37,11 @@ constexpr quic::StreamId kQPACKEncoderEgressStreamId = 7;
 
 class TestTransportCallback : public HTTPTransactionTransportCallback {
  public:
-  void firstHeaderByteFlushed() noexcept override {}
+  void firstHeaderByteFlushed() noexcept override {
+  }
 
-  void firstByteFlushed() noexcept override {}
+  void firstByteFlushed() noexcept override {
+  }
 
   void lastByteFlushed() noexcept override {
   }
@@ -1077,8 +1079,8 @@ TEST_P(HQDownstreamSessionTest, TransportErrorWithOpenStream) {
     });
   });
   handler->expectError([](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorConnectionReset);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorConnectionReset);
+  });
   handler->expectDetachTransaction();
   flushRequestsAndLoop();
 }
@@ -1094,8 +1096,8 @@ TEST_P(HQDownstreamSessionTest, WriteError) {
     hqSession_->closeWhenIdle();
   });
   handler->expectError([](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorWrite);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorWrite);
+  });
   handler->expectDetachTransaction();
   flushRequestsAndLoop();
 }
@@ -1630,8 +1632,8 @@ TEST_P(HQDownstreamSessionTest, CurrentTransportInfo) {
 
   handler->expectDetachTransaction();
   handler->expectError([&](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorDropped);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorDropped);
+  });
 
   flushRequestsAndLoop();
   hqSession_->dropConnection();
@@ -1700,8 +1702,8 @@ TEST_P(HQDownstreamSessionTest, LocalErrQueuedEgress) {
   handler->expectEgressPaused();
   flushRequestsAndLoopN(2);
   handler->expectError([](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorShutdown);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorShutdown);
+  });
   handler->expectDetachTransaction();
   socketDriver_->deliverConnectionError(
       std::make_pair(quic::LocalErrorCode::CONNECTION_RESET, ""));
@@ -1929,8 +1931,8 @@ TEST_P(HQDownstreamSessionTestHQ, DelayedQPACKStopSendingReset) {
   // cancel this request
   socketDriver_->addStopSending(id, HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED);
   socketDriver_->addReadError(id,
-                             HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED,
-                             std::chrono::milliseconds(0));
+                              HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED,
+                              std::chrono::milliseconds(0));
   flushRequestsAndLoopN(1);
 
   // Now send the dependency
@@ -1994,13 +1996,12 @@ TEST_P(HQDownstreamSessionTest, ProcessReadDataOnDetachedStream) {
 using HQDownstreamSessionTestHQNoSettings = HQDownstreamSessionTest;
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestHQNoSettings,
-                        Values(
-                          []{
-                             TestParams tp;
-                             tp.alpn_ = "h3";
-                             tp.shouldSendSettings_ = false;
-                             return tp;
-                            }()),
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          tp.shouldSendSettings_ = false;
+                          return tp;
+                        }()),
                         paramsToTestName);
 TEST_P(HQDownstreamSessionTestHQNoSettings, SimpleGet) {
   auto idh = checkRequest();
@@ -2025,8 +2026,8 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, ExtraSettings) {
   handler->expectHeaders();
   handler->expectEOM();
   handler->expectError([&](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
+  });
   handler->expectDetachTransaction();
   flushRequestsAndLoopN(1);
 
@@ -2160,8 +2161,8 @@ TEST_P(HQDownstreamSessionTest, dropWhilePaused) {
   flushRequestsAndLoop();
 
   handler1->expectError([&](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorDropped);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorDropped);
+  });
   handler1->expectDetachTransaction();
   hqSession_->dropConnection();
 }
@@ -2196,8 +2197,8 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, eofControlStream) {
   handler->expectHeaders();
   handler->expectEOM();
   handler->expectError([&](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
+  });
   handler->expectDetachTransaction();
   flushRequestsAndLoopN(1);
   socketDriver_->addReadEOF(connControlStreamId_);
@@ -2212,12 +2213,12 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, resetControlStream) {
   handler->expectHeaders();
   handler->expectEOM();
   handler->expectError([&](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
+  });
   handler->expectDetachTransaction();
   flushRequestsAndLoopN(1);
   socketDriver_->addReadError(connControlStreamId_,
-                             HTTP3::ErrorCode::HTTP_INTERNAL_ERROR);
+                              HTTP3::ErrorCode::HTTP_INTERNAL_ERROR);
   flushRequestsAndLoop();
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
             HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
@@ -2229,12 +2230,10 @@ TEST_P(HQDownstreamSessionTestHQ, controlStreamWriteError) {
   InSequence handlerSequence;
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
-  handler->expectEOM([&handler] {
-      handler->sendHeaders(200, 100);
-    });
+  handler->expectEOM([&handler] { handler->sendHeaders(200, 100); });
   handler->expectError([&](const HTTPException& ex) {
-      EXPECT_EQ(ex.getProxygenError(), kErrorWrite);
-    });
+    EXPECT_EQ(ex.getProxygenError(), kErrorWrite);
+  });
   handler->expectDetachTransaction();
   socketDriver_->setWriteError(kQPACKEncoderEgressStreamId);
   flushRequestsAndLoop();
@@ -2247,21 +2246,20 @@ TEST_P(HQDownstreamSessionTestHQ, controlStreamWriteError) {
  */
 
 // Make sure all the tests keep working with all the supported protocol versions
-INSTANTIATE_TEST_CASE_P(
-    HQDownstreamSessionTest,
-    HQDownstreamSessionTest,
-    Values(TestParams({.alpn_ = "h1q-fb"}),
-           TestParams({.alpn_ = "h1q-fb-v2"}),
-           TestParams({.alpn_ = "h3"}),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>(),
-              };
-              return tp;
-             }()),
-    paramsToTestName);
+INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
+                        HQDownstreamSessionTest,
+                        Values(TestParams({.alpn_ = "h1q-fb"}),
+                               TestParams({.alpn_ = "h1q-fb-v2"}),
+                               TestParams({.alpn_ = "h3"}),
+                               [] {
+                                 TestParams tp;
+                                 tp.alpn_ = "h3";
+                                 tp.prParams = PartiallyReliableTestParams{
+                                     .bodyScript = std::vector<uint8_t>(),
+                                 };
+                                 return tp;
+                               }()),
+                        paramsToTestName);
 
 // Instantiate h1q only tests that work on all versions
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
@@ -2296,19 +2294,18 @@ INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         paramsToTestName);
 
 // Instantiate hq only tests
-INSTANTIATE_TEST_CASE_P(
-    HQDownstreamSessionTest,
-    HQDownstreamSessionTestHQ,
-    Values(TestParams({.alpn_ = "h3"}),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>(),
-              };
-              return tp;
-             }()),
-    paramsToTestName);
+INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
+                        HQDownstreamSessionTestHQ,
+                        Values(TestParams({.alpn_ = "h3"}),
+                               [] {
+                                 TestParams tp;
+                                 tp.alpn_ = "h3";
+                                 tp.prParams = PartiallyReliableTestParams{
+                                     .bodyScript = std::vector<uint8_t>(),
+                                 };
+                                 return tp;
+                               }()),
+                        paramsToTestName);
 
 using DropConnectionInTransportReadyTest =
     HQDownstreamSessionBeforeTransportReadyTest;
@@ -2316,29 +2313,28 @@ using DropConnectionInTransportReadyTest =
 INSTANTIATE_TEST_CASE_P(DropConnectionInTransportReadyTest,
                         DropConnectionInTransportReadyTest,
                         Values(TestParams({.alpn_ = "unsupported"}),
-                        []{
-                           TestParams tp;
-                           tp.alpn_ = "h3";
-                           tp.unidirectionalStreamsCredit = 1;
-                           return tp;
-                          }(),
-                        []{
-                           TestParams tp;
-                           tp.alpn_ = "h1q-fb-v2";
-                           tp.unidirectionalStreamsCredit = 0;
-                           return tp;
-                          }()),
+                               [] {
+                                 TestParams tp;
+                                 tp.alpn_ = "h3";
+                                 tp.unidirectionalStreamsCredit = 1;
+                                 return tp;
+                               }(),
+                               [] {
+                                 TestParams tp;
+                                 tp.alpn_ = "h1q-fb-v2";
+                                 tp.unidirectionalStreamsCredit = 0;
+                                 return tp;
+                               }()),
                         paramsToTestName);
 // Instantiate hq server push tests
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestHQPush,
-                        Values(
-                        []{
-                           TestParams tp;
-                           tp.alpn_ = "h3";
-                           tp.unidirectionalStreamsCredit = 8;
-                           return tp;
-                          }()),
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          tp.unidirectionalStreamsCredit = 8;
+                          return tp;
+                        }()),
                         paramsToTestName);
 
 // Use this test class for mismatched alpn tests
@@ -2367,66 +2363,71 @@ INSTANTIATE_TEST_CASE_P(
     HQDownstreamSessionTest,
     HQDownstreamSessionTestHQPR,
     Values(
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>({PR_BODY}),
-              };
-              return tp;
-             }(),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>({PR_SKIP}),
-              };
-              return tp;
-             }(),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>({PR_BODY,PR_SKIP}),
-              };
-              return tp;
-             }(),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>({PR_SKIP,PR_BODY}),
-              };
-              return tp;
-             }(),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>(
-                    {PR_SKIP, PR_SKIP, PR_BODY, PR_SKIP}),
-              };
-              return tp;
-             }(),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>(
-                    {PR_BODY, PR_BODY, PR_SKIP, PR_BODY}),
-              };
-              return tp;
-             }(),
-           []{
-              TestParams tp;
-              tp.alpn_ = "h3";
-              tp.prParams = PartiallyReliableTestParams{
-                .bodyScript = std::vector<uint8_t>({
-                    PR_BODY, PR_BODY, PR_SKIP, PR_BODY, PR_SKIP, PR_BODY,
-                    PR_SKIP, PR_SKIP}),
-              };
-              return tp;
-             }()),
+        [] {
+          TestParams tp;
+          tp.alpn_ = "h3";
+          tp.prParams = PartiallyReliableTestParams{
+              .bodyScript = std::vector<uint8_t>({PR_BODY}),
+          };
+          return tp;
+        }(),
+        [] {
+          TestParams tp;
+          tp.alpn_ = "h3";
+          tp.prParams = PartiallyReliableTestParams{
+              .bodyScript = std::vector<uint8_t>({PR_SKIP}),
+          };
+          return tp;
+        }(),
+        [] {
+          TestParams tp;
+          tp.alpn_ = "h3";
+          tp.prParams = PartiallyReliableTestParams{
+              .bodyScript = std::vector<uint8_t>({PR_BODY, PR_SKIP}),
+          };
+          return tp;
+        }(),
+        [] {
+          TestParams tp;
+          tp.alpn_ = "h3";
+          tp.prParams = PartiallyReliableTestParams{
+              .bodyScript = std::vector<uint8_t>({PR_SKIP, PR_BODY}),
+          };
+          return tp;
+        }(),
+        [] {
+          TestParams tp;
+          tp.alpn_ = "h3";
+          tp.prParams = PartiallyReliableTestParams{
+              .bodyScript =
+                  std::vector<uint8_t>({PR_SKIP, PR_SKIP, PR_BODY, PR_SKIP}),
+          };
+          return tp;
+        }(),
+        [] {
+          TestParams tp;
+          tp.alpn_ = "h3";
+          tp.prParams = PartiallyReliableTestParams{
+              .bodyScript =
+                  std::vector<uint8_t>({PR_BODY, PR_BODY, PR_SKIP, PR_BODY}),
+          };
+          return tp;
+        }(),
+        [] {
+          TestParams tp;
+          tp.alpn_ = "h3";
+          tp.prParams = PartiallyReliableTestParams{
+              .bodyScript = std::vector<uint8_t>({PR_BODY,
+                                                  PR_BODY,
+                                                  PR_SKIP,
+                                                  PR_BODY,
+                                                  PR_SKIP,
+                                                  PR_BODY,
+                                                  PR_SKIP,
+                                                  PR_SKIP}),
+          };
+          return tp;
+        }()),
     paramsToTestName);
 
 TEST_P(HQDownstreamSessionTestHQPR, GetPrScriptedReject) {
@@ -2558,24 +2559,22 @@ TEST_P(HQDownstreamSessionTestHQPR, GetPrBodyScriptedExpire) {
 
     bodyBytesProcessed += delta;
     c++;
-}
+  }
 
   hqSession_->closeWhenIdle();
 }
 
-INSTANTIATE_TEST_CASE_P(
-    HQUpstreamSessionTest,
-    HQDownstreamSessionTestHQPrBadOffset,
-    Values(
-      []{
-        TestParams tp;
-        tp.alpn_ = "h3";
-        tp.prParams = PartiallyReliableTestParams{
-          .bodyScript = std::vector<uint8_t>(),
-        };
-        return tp;
-      }()),
-    paramsToTestName);
+INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+                        HQDownstreamSessionTestHQPrBadOffset,
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          tp.prParams = PartiallyReliableTestParams{
+                              .bodyScript = std::vector<uint8_t>(),
+                          };
+                          return tp;
+                        }()),
+                        paramsToTestName);
 
 TEST_P(HQDownstreamSessionTestHQPrBadOffset, TestWrongOffsetErrorCleanup) {
   InSequence enforceOrder;

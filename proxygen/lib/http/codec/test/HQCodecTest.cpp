@@ -7,8 +7,8 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <folly/portability/GTest.h>
 #include <folly/portability/GMock.h>
+#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/QPACKDecoderCodec.h>
@@ -119,7 +119,7 @@ class HQCodecTestFixture : public T {
     size_t n = queue_.chainLength();
     parse();
     EXPECT_EQ(callbacks_.headerFrames, 1);
-    EXPECT_EQ(callbacks_.headersComplete , 1);
+    EXPECT_EQ(callbacks_.headersComplete, 1);
     EXPECT_EQ(callbacks_.bodyCalls, 0);
     EXPECT_EQ(callbacks_.bodyLength, 0);
     return n;
@@ -233,7 +233,7 @@ TEST_F(HQPRCodecTest, DataFrameZeroLength) {
   parse();
   EXPECT_EQ(callbacks_.headerFrames, 1);
   EXPECT_EQ(callbacks_.bodyCalls, 2);
-  EXPECT_EQ(callbacks_.bodyLength, data->length()*2);
+  EXPECT_EQ(callbacks_.bodyLength, data->length() * 2);
 
   bodyStreamOffsetStart = ingressPrBodyTracker.getBodyStreamStartOffset();
   EXPECT_FALSE(bodyStreamOffsetStart.hasError());
@@ -247,8 +247,7 @@ TEST_F(HQPRCodecTest, DataFrameZeroLengthWithHeaders) {
   size_t n = addAndCheckSimpleHeaders();
 
   auto data = makeBuf(500);
-  n += writeFrameHeaderManual(
-      queue_, static_cast<uint8_t>(FrameType::DATA), 0);
+  n += writeFrameHeaderManual(queue_, static_cast<uint8_t>(FrameType::DATA), 0);
   queue_.append(data->clone());
   parse();
   EXPECT_EQ(callbacks_.headerFrames, 2);
@@ -265,7 +264,7 @@ TEST_F(HQPRCodecTest, DataFrameZeroLengthWithHeaders) {
   parse();
   EXPECT_EQ(callbacks_.headerFrames, 2);
   EXPECT_EQ(callbacks_.bodyCalls, 2);
-  EXPECT_EQ(callbacks_.bodyLength, data->length()*2);
+  EXPECT_EQ(callbacks_.bodyLength, data->length() * 2);
 
   bodyStreamOffsetStart = ingressPrBodyTracker.getBodyStreamStartOffset();
   EXPECT_FALSE(bodyStreamOffsetStart.hasError());
@@ -284,8 +283,7 @@ TEST_F(HQPRCodecTest, TestOnIngressBodyPeek) {
   EXPECT_EQ(res.error(), UnframedBodyOffsetTrackerError::NO_ERROR);
 
   auto data = makeBuf(500);
-  n += writeFrameHeaderManual(
-      queue_, static_cast<uint8_t>(FrameType::DATA), 0);
+  n += writeFrameHeaderManual(queue_, static_cast<uint8_t>(FrameType::DATA), 0);
   queue_.append(data->clone());
   parse();
   EXPECT_EQ(callbacks_.headerFrames, 2);
@@ -484,8 +482,7 @@ TEST_F(HQPRCodecTest, TestOnIngressBodyRejectedStartWithSkip) {
   res = downstreamCodec_->onIngressDataRejected(testStreamOffset);
   EXPECT_FALSE(res.hasError());
   EXPECT_EQ(*res, expectedBodyAppOffset);
-  EXPECT_EQ(egressPrBodyTracker.getBodyBytesProcessed(),
-            expectedBodyAppOffset);
+  EXPECT_EQ(egressPrBodyTracker.getBodyBytesProcessed(), expectedBodyAppOffset);
 }
 
 TEST_F(HQPRCodecTest, TestOnIngressBodyRejectedStartWithBody) {
@@ -578,8 +575,7 @@ TEST_F(HQPRCodecTest, TestOnEgressBodyExpiredStartWithBody) {
   EXPECT_EQ(egressPrBodyTracker.getBodyBytesProcessed(), 500);
 
   uint64_t testAppOffset = 817;
-  auto expectedstreamOffset =
-      downstreamCodec_->onEgressBodySkip(testAppOffset);
+  auto expectedstreamOffset = downstreamCodec_->onEgressBodySkip(testAppOffset);
   EXPECT_FALSE(expectedstreamOffset.hasError());
   EXPECT_EQ(*expectedstreamOffset, bodyStreamOffset + testAppOffset);
 }
@@ -620,7 +616,7 @@ TEST_F(HQPRCodecTest, TestOnEgressBodyRejectedStartWithSkip) {
   auto bodyStreamOffsetStart = ingressPrBodyTracker.getBodyStreamStartOffset();
   EXPECT_FALSE(bodyStreamOffsetStart.hasError());
   EXPECT_EQ(*bodyStreamOffsetStart, bodyStreamOffset);
-  EXPECT_EQ(ingressPrBodyTracker.getBodyBytesProcessed(),  testAppOffset + 500);
+  EXPECT_EQ(ingressPrBodyTracker.getBodyBytesProcessed(), testAppOffset + 500);
 
   testAppOffset = 673;
   streamOffset = upstreamCodec_->onEgressBodyReject(testAppOffset);

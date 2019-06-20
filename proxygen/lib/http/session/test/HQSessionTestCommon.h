@@ -33,7 +33,7 @@ constexpr unsigned int kConnectTimeout = 500;
 constexpr size_t kQPACKTestDecoderMaxTableSize = 2048;
 constexpr std::size_t kUnlimited = std::numeric_limits<std::size_t>::max();
 const proxygen::hq::PushId kUnknownPushId =
-  std::numeric_limits<uint64_t>::max();
+    std::numeric_limits<uint64_t>::max();
 constexpr proxygen::hq::PushId kInitialPushId = 12345;
 constexpr uint64_t kPushIdIncrement = 1;
 constexpr uint64_t kDefaultUnidirStreamCredit = 3;
@@ -63,7 +63,7 @@ size_t encodeQuicIntegerWithAtLeast(uint64_t value,
 std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info);
 
 size_t generateStreamPreface(folly::IOBufQueue& writeBuf,
-                                   proxygen::hq::UnidirectionalStreamType type);
+                             proxygen::hq::UnidirectionalStreamType type);
 
 folly::Optional<std::pair<proxygen::hq::UnidirectionalStreamType, size_t>>
 parseStreamPreface(folly::io::Cursor cursor, std::string alpn);
@@ -148,25 +148,25 @@ class HQSessionTest
       }
     }
     quic::QuicSocket::TransportInfo transportInfo = {
-                      .srtt = std::chrono::microseconds(100),
-                      .rttvar = std::chrono::microseconds(0),
-                      .lrtt = std::chrono::microseconds(0),
-                      .mrtt = std::chrono::microseconds(0),
-                      .writableBytes = 0,
-                      .congestionWindow = 1500,
-                      .pacingBurstSize = 0,
-                      .pacingInterval = std::chrono::microseconds(0),
-                      .packetsRetransmitted = 0,
-                      .timeoutBasedLoss = 0,
-                      .pto = std::chrono::microseconds(0),
-                      .bytesSent = 0,
-                      .bytesAcked = 0,
-                      .bytesRecvd = 0,
-                      .totalBytesRetransmitted = 0,
-                      .ptoCount = 0,
-                      .totalPTOCount = 0,
-                      .largestPacketAckedByPeer = 0,
-                      .largestPacketSent = 0,
+        .srtt = std::chrono::microseconds(100),
+        .rttvar = std::chrono::microseconds(0),
+        .lrtt = std::chrono::microseconds(0),
+        .mrtt = std::chrono::microseconds(0),
+        .writableBytes = 0,
+        .congestionWindow = 1500,
+        .pacingBurstSize = 0,
+        .pacingInterval = std::chrono::microseconds(0),
+        .packetsRetransmitted = 0,
+        .timeoutBasedLoss = 0,
+        .pto = std::chrono::microseconds(0),
+        .bytesSent = 0,
+        .bytesAcked = 0,
+        .bytesRecvd = 0,
+        .totalBytesRetransmitted = 0,
+        .ptoCount = 0,
+        .totalPTOCount = 0,
+        .largestPacketAckedByPeer = 0,
+        .largestPacketSent = 0,
     };
     EXPECT_CALL(*socketDriver_->getSocket(), getTransportInfo())
         .WillRepeatedly(testing::Return(transportInfo));

@@ -20,8 +20,8 @@
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 #include <boost/cast.hpp>
-#include <folly/Format.h>
 #include <folly/CppAttributes.h>
+#include <folly/Format.h>
 #include <folly/ScopeGuard.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/AsyncSocket.h>
@@ -256,7 +256,6 @@ bool HQSession::createEgressControlStream(UnidirectionalStreamType streamType) {
   return true;
 }
 
-
 HQSession::HQControlStream* FOLLY_NULLABLE
 HQSession::createIngressControlStream(quic::StreamId id,
                                       UnidirectionalStreamType streamType) {
@@ -273,9 +272,10 @@ HQSession::createIngressControlStream(quic::StreamId id,
 
   if (ctrlStream->ingressCodec_) {
     LOG(ERROR) << "Too many " << streamType << " streams for sess=" << *this;
-    dropConnectionWithError(std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
-                            "HTTP wrong stream count"),
-                            kErrorConnection);
+    dropConnectionWithError(
+        std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
+                       "HTTP wrong stream count"),
+        kErrorConnection);
     return nullptr;
   }
 
@@ -462,8 +462,7 @@ void HQSession::setVersionUtils() {
       versionUtils_ = std::make_unique<HQVersionUtils>(*this);
       break;
     default:
-      LOG(FATAL) << "No Version Utils for version "
-                 << alpn_;
+      LOG(FATAL) << "No Version Utils for version " << alpn_;
   }
   versionUtilsReady_.set();
 }
@@ -525,8 +524,7 @@ bool HQSession::getCurrentTransportInfo(wangle::TransportInfo* tinfo) {
 bool HQSession::getCurrentTransportInfoWithoutUpdate(
     wangle::TransportInfo* tinfo) const {
   tinfo->validTcpinfo = true;
-  tinfo->appProtocol =
-      std::make_shared<std::string>(alpn_);
+  tinfo->appProtocol = std::make_shared<std::string>(alpn_);
   tinfo->securityType = kQUICProtocolName;
   tinfo->protocolInfo = quicInfo_;
   if (sock_) {
@@ -730,7 +728,8 @@ void HQSession::closeWhenIdle() {
 
 void HQSession::dropConnection() {
   dropConnectionWithError(
-      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping"), kErrorDropped);
+      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping"),
+      kErrorDropped);
 }
 
 void HQSession::dropConnectionWithError(
@@ -778,8 +777,9 @@ void HQSession::dropConnectionWithError(
   checkForShutdown();
   unidirectionalReadDispatcher_.invokeOnPendingStreamIDs(
       [&](quic::StreamId pendingStreamId) {
-        LOG(ERROR) << __func__ << " pendingStreamStillOpen: " << pendingStreamId;
-    });
+        LOG(ERROR) << __func__
+                   << " pendingStreamStillOpen: " << pendingStreamId;
+      });
   CHECK_EQ(numberOfStreams(), 0);
 }
 
@@ -1482,9 +1482,9 @@ size_t HQSession::cleanupPendingStreams() {
 
   // Collect the pending stream ids from the dispatcher
   unidirectionalReadDispatcher_.invokeOnPendingStreamIDs(
-    [&](quic::StreamId pendingStreamId) {
-      streamsToCleanup.push_back(pendingStreamId);
-  });
+      [&](quic::StreamId pendingStreamId) {
+        streamsToCleanup.push_back(pendingStreamId);
+      });
 
   // Find stream ids which have been added to the stream
   // lookup but lack matching HQIngressPushStream
@@ -1498,7 +1498,7 @@ size_t HQSession::cleanupPendingStreams() {
   }
 
   // Clean up the streams by detaching all callbacks
-  for (auto pendingStreamId: streamsToCleanup) {
+  for (auto pendingStreamId : streamsToCleanup) {
     clearStreamCallbacks(pendingStreamId);
   }
 
@@ -1592,7 +1592,8 @@ void HQSession::controlStreamReadError(
     return;
   }
 
-  handleSessionError(ctrlStream, StreamDirection::INGRESS,
+  handleSessionError(ctrlStream,
+                     StreamDirection::INGRESS,
                      quicControlStreamError(error.first),
                      toProxygenError(error.first));
 }
@@ -1902,10 +1903,10 @@ uint64_t HQSession::controlStreamWriteImpl(HQControlStream* ctrlStream,
         << "Got error=" << flowControl.error() << " streamID=" << egressStreamId
         << " bufLen=" << static_cast<int>(ctrlStream->writeBuf_.chainLength())
         << " readEOF=" << ctrlStream->readEOF_;
-    handleSessionError(
-        ctrlStream, StreamDirection::EGRESS,
-        quicControlStreamError(flowControl.error()),
-        toProxygenError(flowControl.error()));
+    handleSessionError(ctrlStream,
+                       StreamDirection::EGRESS,
+                       quicControlStreamError(flowControl.error()),
+                       toProxygenError(flowControl.error()));
     return 0;
   }
 
@@ -1929,7 +1930,8 @@ uint64_t HQSession::controlStreamWriteImpl(HQControlStream* ctrlStream,
 
   if (writeRes.hasError()) {
     // Going to call this a write error no matter what the underlying reason was
-    handleSessionError(ctrlStream, StreamDirection::EGRESS,
+    handleSessionError(ctrlStream,
+                       StreamDirection::EGRESS,
                        quicControlStreamError(writeRes.error()),
                        kErrorWrite);
     return 0;
@@ -2347,7 +2349,7 @@ HQSession::createStreamTransport(quic::StreamId streamId) {
           std::move(codec),
           WheelTimerInstance(transactionsTimeout_, getEventBase()),
           nullptr //   HTTPSessionStats* sessionStats_
-        ));
+          ));
   incrementSeqNo();
 
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
@@ -2393,8 +2395,8 @@ std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
       session_.egressSettings_,
       session_.ingressSettings_,
       session_.isPartialReliabilityEnabled());
-    hqStreamCodecPtr_ = codec.get();
-    return std::move(codec);
+  hqStreamCodecPtr_ = codec.get();
+  return std::move(codec);
 }
 
 void HQSession::H1QFBV1VersionUtils::sendGoawayOnRequestStream(
@@ -2955,9 +2957,11 @@ size_t HQSession::HQStreamTransportBase::sendEOM(
   // Note: even if the byteEventTracker_ is already at streamWriteByteOffset(),
   // it is still invoked with the same offset after egressing the FIN.
   bool pretendPiggybacked = (encodedSize == 0);
-  session_.handleLastByteEvents(
-      &byteEventTracker_, &txn_, encodedSize, streamWriteByteOffset(),
-      pretendPiggybacked);
+  session_.handleLastByteEvents(&byteEventTracker_,
+                                &txn_,
+                                encodedSize,
+                                streamWriteByteOffset(),
+                                pretendPiggybacked);
   if (pretendPiggybacked) {
     byteEventTracker_.addLastByteEvent(txn, streamWriteByteOffset());
   }
@@ -3052,9 +3056,10 @@ void HQSession::HQStreamTransportBase::onError(HTTPCodec::StreamID streamID,
   ingressError_ = true;
 
   if (streamID == kSessionStreamId) {
-    session_.handleSessionError(
-        this, StreamDirection::INGRESS, toHTTP3ErrorCode(error),
-        kErrorConnection);
+    session_.handleSessionError(this,
+                                StreamDirection::INGRESS,
+                                toHTTP3ErrorCode(error),
+                                kErrorConnection);
     return;
   }
 
@@ -3199,7 +3204,7 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
     LOG(ERROR) << error << " streamID=" << streamID << " session=" << session_;
     session_.dropConnectionWithError(
         std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
-        error),
+                       error),
         kErrorDropped);
     return;
   }
@@ -3264,9 +3269,9 @@ uint64_t HQSession::HQStreamTransportBase::trimPendingEgressBody(
     uint64_t trimOffset) {
   const auto bytesCommited = streamEgressCommittedByteOffset();
   if (bytesCommited > trimOffset) {
-    VLOG(3) << __func__ << ": trim offset requested = " << trimOffset
-            << " is below bytes already committed  to the wire = "
-            << bytesCommited;
+    VLOG(3)
+        << __func__ << ": trim offset requested = " << trimOffset
+        << " is below bytes already committed  to the wire = " << bytesCommited;
     return 0;
   }
 
@@ -3274,7 +3279,7 @@ uint64_t HQSession::HQStreamTransportBase::trimPendingEgressBody(
   if (trimBytes > 0) {
     writeBuf_.trimStartAtMost(trimBytes);
     VLOG(3) << __func__ << ": discarding " << trimBytes
-               << " from egress buffer on stream " << getEgressStreamId();
+            << " from egress buffer on stream " << getEgressStreamId();
   }
 
   return trimBytes;
@@ -3296,8 +3301,7 @@ HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
   auto streamOffset = session_.versionUtils_->onEgressBodySkip(nextBodyOffset);
   if (streamOffset.hasError()) {
     LOG(ERROR) << __func__ << ": " << streamOffset.error();
-    HTTPException ex(HTTPException::Direction::EGRESS,
-                     "failed to send a skip");
+    HTTPException ex(HTTPException::Direction::EGRESS, "failed to send a skip");
     errorOnTransaction(std::move(ex));
     return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
   }
@@ -3429,7 +3433,7 @@ void HQSession::HQStreamTransportBase::onPushMessageBegin(
     LOG(ERROR) << error;
     session_.dropConnectionWithError(
         std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
-        error),
+                       error),
         kErrorDropped);
     return;
   }
