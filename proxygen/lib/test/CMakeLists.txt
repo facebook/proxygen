@@ -17,6 +17,7 @@ target_include_directories(
     ${LIBGTEST_INCLUDE_DIR}
 )
 target_link_libraries(testtransport PRIVATE proxygen)
+add_dependencies(testtransport googletest)
 
 add_library(testmain STATIC TestMain.cpp)
 target_include_directories(
@@ -26,3 +27,4 @@ target_include_directories(
     ${LIBGTEST_INCLUDE_DIR}
 )
 target_link_libraries(testmain PRIVATE Folly::folly)
+add_dependencies(testmain googletest)
