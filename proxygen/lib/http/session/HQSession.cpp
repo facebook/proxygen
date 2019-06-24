@@ -108,7 +108,7 @@ void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
   // This is where a new unidirectional ingress stream is available
   // Try to check whether this is a push
   // if yes, register this as a push
-  VLOG(3) << __func__ << " sess=" << *this << ": new streamID=" << id;
+  VLOG(4) << __func__ << " sess=" << *this << ": new streamID=" << id;
   // The transport should never call onNewUnidirectionalStream
   // before onTransportReady
   DCHECK(versionUtils_) << "The transport should never call " << __func__
@@ -118,8 +118,8 @@ void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
   }
 
   // The new stream should not exist yet.
-  auto ctrlStream = findControlStream(id);
-  DCHECK(!ctrlStream) << "duplicate " << __func__ << " for streamID=" << id;
+  auto existingStream = findStream(id);
+  DCHECK(!existingStream) << "duplicate " << __func__ << " for streamID=" << id;
   // This has to be a new control or push stream, but we haven't read the
   // preface yet
   // Assign the stream to the dispatcher
@@ -400,6 +400,7 @@ HQSession::HQIngressPushStream* HQSession::createIngressPushStream(
           parentId,
           getNumTxnServed(),
           WheelTimerInstance(transactionsTimeout_, getEventBase())));
+  incrementSeqNo();
 
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
                              "existence check.";
@@ -416,9 +417,47 @@ HQSession::HQIngressPushStream* HQSession::createIngressPushStream(
           << (bound ? newIngressPushStream->getIngressStreamId()
                     : static_cast<unsigned long>(-1));
 
-  // Note: ingress push streams are HQ specific, therefore
-  // goaway message is not sent on the stream itself.
   return newIngressPushStream;
+}
+
+HQSession::HQEgressPushStream* FOLLY_NULLABLE
+HQSession::createEgressPushStream(hq::PushId pushId, quic::StreamId streamId) {
+
+  VLOG(4) << __func__
+    << "sess=" << *this << " pushId=" << pushId
+    << " drainState_=" << drainState_
+    << " streamId=" << streamId;
+
+  // Version utils SHOULD be created before a stream transport is created
+  DCHECK(versionUtils_);
+
+  // Use version utils to ensure that the session is not in draining state
+  if (!versionUtils_->checkNewStream(streamId)) {
+    VLOG(3) << __func__ << " Not creating - session is draining"
+      << " sess=" << *this << " pushId=" << pushId
+      << " drainState_=" << drainState_ << " streamId=" << streamId;
+      return nullptr;
+  }
+
+  auto codec = versionUtils_->createCodec(streamId);
+
+  auto matchPair = egressPushStreams_.emplace(
+      std::piecewise_construct,
+      std::forward_as_tuple(streamId),
+      std::forward_as_tuple(
+          *this,
+          streamId,
+          pushId,
+          folly::none,
+          getNumTxnServed(),
+          std::move(codec),
+          WheelTimerInstance(transactionsTimeout_, getEventBase())));
+  incrementSeqNo();
+
+  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
+                             "existence check.";
+
+  return &matchPair.first->second;
 }
 
 bool HQSession::getAndCheckApplicationProtocol() {
@@ -1203,7 +1242,7 @@ void HQSession::pauseReads(quic::StreamId streamId) {
 
 void HQSession::readAvailable(quic::StreamId id) noexcept {
   // this is the bidirectional callback
-  VLOG(3) << __func__ << " sess=" << *this
+  VLOG(4) << __func__ << " sess=" << *this
           << ": readAvailable on streamID=" << id;
   if (readsPerLoop_ >= kMaxReadsPerLoop) {
     VLOG(2) << __func__ << " sess=" << *this
@@ -1550,13 +1589,15 @@ void HQSession::onNewPushStream(quic::StreamId pushStreamId,
     serverPushLifecycleCb_->onNascentPushStream(pushStreamId, pushId, eom);
   }
 
-  // Current code is a plug
-  // Add the streamId <-> pushId mapping to the streamLookup_
-  // Find ingress push stream if exists
+  // If the transaction for the incoming push stream has been created
+  // already, bind the new stream to the transaction
   auto ingressPushStream = findIngressPushStreamByPushId(pushId);
 
   if (ingressPushStream) {
-    // Bind the ingress push stream to the stream id
+    auto bound = tryBindIngressStreamToTxn(pushId, ingressPushStream);
+    VLOG(4) << __func__
+            << " bound=" << bound << " pushID=" << pushId
+            << " pushStreamID=" << pushStreamId << " to txn ";
   }
 }
 

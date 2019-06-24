@@ -681,6 +681,9 @@ class HQSession
   HQIngressPushStream* FOLLY_NULLABLE
   createIngressPushStream(quic::StreamId parentStreamId, hq::PushId pushId);
 
+  HQEgressPushStream* createEgressPushStream(hq::PushId pushId,
+                                             quic::StreamId streamId);
+
   // gets the ALPN from the transport and returns whether the protocol is
   // supported. Drops the connection if not supported
   bool getAndCheckApplicationProtocol();
