@@ -11,6 +11,7 @@
 
 #include <folly/portability/GFlags.h>
 #include <memory>
+#include <proxygen/lib/utils/StreamCompressor.h>
 #include <proxygen/lib/utils/ZlibStreamDecompressor.h>
 #include <zlib.h>
 
@@ -22,7 +23,7 @@ DECLARE_int64(zlib_compressor_buffer_growth);
 
 namespace proxygen {
 
-class ZlibStreamCompressor {
+class ZlibStreamCompressor : public StreamCompressor {
  public:
   explicit ZlibStreamCompressor(CompressionType type, int level);
 
@@ -31,11 +32,13 @@ class ZlibStreamCompressor {
   void init(CompressionType type, int level);
 
   std::unique_ptr<folly::IOBuf> compress(const folly::IOBuf* in,
-                                         bool trailer = true);
+                                         bool trailer = true) override;
 
   int getStatus() { return status_; }
 
-  bool hasError() { return status_ != Z_OK && status_ != Z_STREAM_END; }
+  bool hasError() override {
+    return status_ != Z_OK && status_ != Z_STREAM_END;
+  }
 
   bool finished() { return status_ == Z_STREAM_END; }
 

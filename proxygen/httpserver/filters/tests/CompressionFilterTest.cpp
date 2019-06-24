@@ -13,7 +13,7 @@
 
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
-#include <proxygen/httpserver/filters/ZlibServerFilter.h>
+#include <proxygen/httpserver/filters/CompressionFilter.h>
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
 #include <proxygen/httpserver/Mocks.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
@@ -32,7 +32,7 @@ MATCHER_P(IOBufEquals,
   return actual == expected;
 }
 
-class ZlibServerFilterTest : public Test {
+class CompressionFilterTest : public Test {
  public:
   void SetUp() override {
     // requesthandler is the server, responsehandler is the client
@@ -49,10 +49,10 @@ class ZlibServerFilterTest : public Test {
   }
 
  protected:
-  ZlibServerFilter* filter_{nullptr};
+  CompressionFilter* filter_{nullptr};
   MockRequestHandler* requestHandler_;
   std::unique_ptr<MockResponseHandler> responseHandler_;
-  std::unique_ptr<ZlibStreamDecompressor> zd_;
+  std::unique_ptr<StreamDecompressor> zd_;
   ResponseHandler* downstream_{nullptr};
 
   void exercise_compression(bool expectCompression,
@@ -121,8 +121,7 @@ class ZlibServerFilterTest : public Test {
 
               if (expectCompression) {
                 processedBody = zd_->decompress(body.get());
-                ASSERT_FALSE(zd_->hasError())
-                    << "Failed to decompress body. r=" << zd_->getStatus();
+                ASSERT_FALSE(zd_->hasError()) << "Failed to decompress body!";
               } else {
                 processedBody = folly::IOBuf::copyBuffer(
                     body->data(), body->length(), 0, 0);
@@ -145,8 +144,12 @@ class ZlibServerFilterTest : public Test {
     msg.getHeaders().set(HTTP_HEADER_ACCEPT_ENCODING, acceptedEncoding);
 
     std::set<std::string> compressibleTypes = {"text/html"};
-    auto filterFactory = std::make_unique<ZlibServerFilterFactory>(
-        compressionLevel, minimumCompressionSize, compressibleTypes);
+
+    CompressionFilterFactory::Options opts;
+    opts.zlibCompressionLevel = compressionLevel;
+    opts.minimumCompressionSize = minimumCompressionSize;
+    opts.compressibleContentTypes = compressibleTypes;
+    auto filterFactory = std::make_unique<CompressionFilterFactory>(opts);
 
     auto filter = filterFactory->onRequest(requestHandler_, &msg);
     filter->setResponseHandler(responseHandler_.get());
@@ -209,7 +212,7 @@ class ZlibServerFilterTest : public Test {
 };
 
 // Basic smoke test
-TEST_F(ZlibServerFilterTest, NonchunkedCompression) {
+TEST_F(CompressionFilterTest, NonchunkedCompression) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -221,7 +224,7 @@ TEST_F(ZlibServerFilterTest, NonchunkedCompression) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, ChunkedCompression) {
+TEST_F(CompressionFilterTest, ChunkedCompression) {
   std::vector<std::string> chunks = {"Hello", " World"};
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
@@ -234,7 +237,7 @@ TEST_F(ZlibServerFilterTest, ChunkedCompression) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, ParameterizedContenttype) {
+TEST_F(CompressionFilterTest, ParameterizedContenttype) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -246,7 +249,7 @@ TEST_F(ZlibServerFilterTest, ParameterizedContenttype) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, MixedcaseContenttype) {
+TEST_F(CompressionFilterTest, MixedcaseContenttype) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -259,7 +262,7 @@ TEST_F(ZlibServerFilterTest, MixedcaseContenttype) {
 }
 
 // Client supports multiple possible compression encodings
-TEST_F(ZlibServerFilterTest, MultipleAcceptedEncodings) {
+TEST_F(CompressionFilterTest, MultipleAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -271,7 +274,7 @@ TEST_F(ZlibServerFilterTest, MultipleAcceptedEncodings) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, MultipleAcceptedEncodingsQvalues) {
+TEST_F(CompressionFilterTest, MultipleAcceptedEncodingsQvalues) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
                          std::string("http://locahost/foo.compressme"),
@@ -283,7 +286,7 @@ TEST_F(ZlibServerFilterTest, MultipleAcceptedEncodingsQvalues) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, NoCompressibleAcceptedEncodings) {
+TEST_F(CompressionFilterTest, NoCompressibleAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.compressme"),
@@ -295,7 +298,7 @@ TEST_F(ZlibServerFilterTest, NoCompressibleAcceptedEncodings) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, MissingAcceptedEncodings) {
+TEST_F(CompressionFilterTest, MissingAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.compressme"),
@@ -308,7 +311,7 @@ TEST_F(ZlibServerFilterTest, MissingAcceptedEncodings) {
 }
 
 // Content is of an-uncompressible content-type
-TEST_F(ZlibServerFilterTest, UncompressibleContenttype) {
+TEST_F(CompressionFilterTest, UncompressibleContenttype) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.nocompress"),
@@ -320,7 +323,7 @@ TEST_F(ZlibServerFilterTest, UncompressibleContenttype) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, UncompressibleContenttypeParam) {
+TEST_F(CompressionFilterTest, UncompressibleContenttypeParam) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.nocompress"),
@@ -333,7 +336,7 @@ TEST_F(ZlibServerFilterTest, UncompressibleContenttypeParam) {
 }
 
 // Content is under the minimum compression size
-TEST_F(ZlibServerFilterTest, TooSmallToCompress) {
+TEST_F(CompressionFilterTest, TooSmallToCompress) {
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(false,
                          std::string("http://locahost/foo.smallfry"),
@@ -347,7 +350,7 @@ TEST_F(ZlibServerFilterTest, TooSmallToCompress) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, SmallChunksCompress) {
+TEST_F(CompressionFilterTest, SmallChunksCompress) {
   // Expect this to compress despite being small because can't tell the content
   // length when we're chunked
   std::vector<std::string> chunks = {"Hello", " World"};
@@ -364,7 +367,7 @@ TEST_F(ZlibServerFilterTest, SmallChunksCompress) {
   });
 }
 
-TEST_F(ZlibServerFilterTest, MinimumCompressSizeEqualToRequestSize){
+TEST_F(CompressionFilterTest, MinimumCompressSizeEqualToRequestSize){
   auto requestBody = std::string("Hello World");
   ASSERT_NO_FATAL_FAILURE({
     exercise_compression(true,
@@ -379,7 +382,7 @@ TEST_F(ZlibServerFilterTest, MinimumCompressSizeEqualToRequestSize){
   });
 }
 
-TEST_F(ZlibServerFilterTest, NoResponseBody){
+TEST_F(CompressionFilterTest, NoResponseBody){
   std::string acceptedEncoding = "gzip";
   std::string expectedEncoding = "gzip";
   std::string url = std::string("http://locahost/foo.compressme");
@@ -419,8 +422,12 @@ TEST_F(ZlibServerFilterTest, NoResponseBody){
     msg.getHeaders().set(HTTP_HEADER_ACCEPT_ENCODING, acceptedEncoding);
 
     std::set<std::string> compressibleTypes = {"text/html"};
-    auto filterFactory = std::make_unique<ZlibServerFilterFactory>(
-        compressionLevel, minimumCompressionSize, compressibleTypes);
+
+    CompressionFilterFactory::Options opts;
+    opts.zlibCompressionLevel = compressionLevel;
+    opts.minimumCompressionSize = minimumCompressionSize;
+    opts.compressibleContentTypes = compressibleTypes;
+    auto filterFactory = std::make_unique<CompressionFilterFactory>(opts);
 
     auto filter = filterFactory->onRequest(requestHandler_, &msg);
     filter->setResponseHandler(responseHandler_.get());
