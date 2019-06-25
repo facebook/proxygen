@@ -42,7 +42,18 @@ find_package(Zstd REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Threads)
-find_package(Boost 1.58 REQUIRED COMPONENTS iostreams)
+find_package(Boost 1.58 REQUIRED
+  COMPONENTS
+    iostreams
+    context
+    chrono
+    date_time
+    filesystem
+    program_options
+    regex
+    system
+    thread
+)
 
 list(APPEND
     _PROXYGEN_COMMON_COMPILE_OPTIONS
