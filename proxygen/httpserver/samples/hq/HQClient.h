@@ -10,10 +10,12 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <thread>
 
 #include <folly/io/async/ScopedEventBaseThread.h>
+#include <folly/json.h>
 
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
@@ -21,6 +23,7 @@
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <quic/api/QuicSocket.h>
+#include <quic/logging/FileQLogger.h>
 #include <quic/client/QuicClientTransport.h>
 #include <quic/common/Timers.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
@@ -37,7 +40,9 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
            quic::TransportSettings transportSettings,
            folly::Optional<quic::QuicVersion> draftVersion,
            bool useDraftFirst,
-           const std::chrono::milliseconds txnTimeout)
+           const std::chrono::milliseconds txnTimeout,
+           const std::string& qLoggerPath,
+           bool prettyJson)
       : host_(host),
         port_(port),
         body_(body),
@@ -46,7 +51,9 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
         transportSettings_(transportSettings),
         draftVersion_(draftVersion),
         useDraftFirst_(useDraftFirst),
-        txnTimeout_(txnTimeout) {
+        txnTimeout_(txnTimeout),
+        qLoggerPath_(qLoggerPath),
+        prettyJson_(prettyJson) {
     headers_ = CurlService::CurlClient::parseHeaders(headers);
     if (transportSettings_.pacingEnabled) {
       pacingTimer_ = TimerHighRes::newTimer(
@@ -112,6 +119,11 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
           std::make_shared<proxygen::SynchronizedLruQuicPskCache>(1000);
     }
     quicClient_->setPskCache(quicPskCache_);
+    if (!qLoggerPath_.empty()) {
+      qLogger_ = std::make_shared<quic::FileQLogger>();
+      qLogger_->dcid = quicClient_->getClientConnectionId();
+      quicClient_->setQLogger(qLogger_);
+    }
     wangle::TransportInfo tinfo;
     session_ = new proxygen::HQUpstreamSession(txnTimeout_,
                                                std::chrono::milliseconds(2000),
@@ -131,6 +143,10 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
     quicClient_->start(session_);
 
     evb_.loop();
+
+    if (!qLoggerPath_.empty()) {
+      qLogger_->outputLogsToFile(qLoggerPath_, prettyJson_);
+    }
   }
 
   ~HQClient() = default;
@@ -221,10 +237,13 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
   folly::Optional<quic::QuicVersion> draftVersion_;
   bool useDraftFirst_;
   std::chrono::milliseconds txnTimeout_;
+  std::string qLoggerPath_;
   folly::EventBase evb_;
   proxygen::HQUpstreamSession* session_;
   std::list<CurlService::CurlClient> curls_;
   std::shared_ptr<QuicPskCache> quicPskCache_;
   bool earlyData_{false};
+  bool prettyJson_{true};
+  std::shared_ptr<FileQLogger> qLogger_;
 };
 }} // namespace quic::samples

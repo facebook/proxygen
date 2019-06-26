@@ -50,6 +50,11 @@ DEFINE_uint32(quic_batch_size,
               "Maximum number of packets that can be batched in Quic");
 DEFINE_string(cert, "", "Certificate file path");
 DEFINE_string(key, "", "Private key file path");
+DEFINE_string(qlogger_path, "", "Path to the directory where qlog files"
+                                "will be written. File is called <CID>.qlog");
+DEFINE_bool(pretty_json,
+            true,
+            "Whether to use pretty json for QLogger output");
 
 using namespace quic::samples;
 
@@ -149,7 +154,9 @@ int main(int argc, char* argv[]) {
                     transportSettings,
                     draftVersion,
                     FLAGS_use_draft,
-                    std::chrono::milliseconds(FLAGS_txn_timeout));
+                    std::chrono::milliseconds(FLAGS_txn_timeout),
+                    FLAGS_qlogger_path,
+                    FLAGS_pretty_json);
     if (!FLAGS_protocol.empty()) {
       client.setProtocol(FLAGS_protocol);
     }
