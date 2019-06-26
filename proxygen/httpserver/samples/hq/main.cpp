@@ -133,7 +133,9 @@ int main(int argc, char* argv[]) {
                     std::chrono::milliseconds(FLAGS_txn_timeout),
                     transportSettings,
                     draftVersion,
-                    FLAGS_use_draft);
+                    FLAGS_use_draft,
+                    FLAGS_qlogger_path,
+                    FLAGS_pretty_json);
     server.setTlsSettings(
         FLAGS_cert, FLAGS_key, fizz::server::ClientAuthMode::None);
     server.start();

@@ -26,6 +26,7 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
+#include <quic/logging/FileQLogger.h>
 #include <quic/server/QuicServer.h>
 #include <quic/server/QuicServerTransport.h>
 #include <quic/server/QuicSharedUDPSocketFactory.h>
@@ -162,7 +163,8 @@ class Dispatcher {
   }
 };
 
-class HQSessionController : public proxygen::HTTPSessionController {
+class HQSessionController :
+ public proxygen::HTTPSessionController, proxygen::HTTPSession::InfoCallback {
  public:
   using StreamData = std::pair<folly::IOBufQueue, bool>;
 
@@ -174,10 +176,11 @@ class HQSessionController : public proxygen::HTTPSessionController {
   proxygen::HQSession* createSession(
       const std::chrono::milliseconds txnTimeout) {
     wangle::TransportInfo tinfo;
-    session_ = new proxygen::HQDownstreamSession(txnTimeout,
-                                                 this,
-                                                 tinfo,
-                                                 nullptr); // InfoCallback
+    session_ = new proxygen::HQDownstreamSession(
+                txnTimeout,
+                dynamic_cast<HTTPSessionController*>(this),
+                tinfo,
+                dynamic_cast<InfoCallback*>(this));
     return session_;
   }
 
@@ -185,6 +188,12 @@ class HQSessionController : public proxygen::HTTPSessionController {
     CHECK(session_);
     session_->setSocket(std::move(sock));
     session_->startNow();
+  }
+
+  void onDestroy(const proxygen::HTTPSessionBase&) override {
+    if (!qLoggerPath_.empty()) {
+      qLogger_->outputLogsToFile(qLoggerPath_, prettyJson_);
+    }
   }
 
   proxygen::HTTPTransactionHandler* getRequestHandler(
@@ -211,9 +220,20 @@ class HQSessionController : public proxygen::HTTPSessionController {
     delete this;
   }
 
+ void setQLoggerInfo(
+   std::shared_ptr<FileQLogger> qLogger, std::string qLoggerPath,
+   bool prettyJson) {
+    qLogger_ = qLogger;
+    qLoggerPath_ = qLoggerPath;
+    prettyJson_ = prettyJson;
+ }
+
  private:
   proxygen::HQSession* session_{nullptr};
   std::string version_;
+  std::shared_ptr<FileQLogger> qLogger_;
+  std::string qLoggerPath_;
+  bool prettyJson_;
 };
 
 class HQServerTransportFactory : public quic::QuicServerTransportFactory {
@@ -223,10 +243,14 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
 
   HQServerTransportFactory(folly::SocketAddress localAddr,
                            const std::string& version,
-                           const std::chrono::milliseconds txnTimeout)
+                           const std::chrono::milliseconds txnTimeout,
+                           std::string qLoggerPath,
+                           bool prettyJson)
       : localAddr_(std::move(localAddr)),
         txnTimeout_(txnTimeout),
-        version_(version) {
+        version_(version),
+        qLoggerPath_(qLoggerPath),
+        prettyJson_(prettyJson) {
   }
 
   quic::QuicServerTransport::Ptr make(
@@ -237,10 +261,18 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
           ctx) noexcept override {
     // Session controller is self owning
     auto hqSessionController = new HQSessionController(version_);
+    std::shared_ptr<FileQLogger> qLogger;
+    if (!qLoggerPath_.empty()) {
+      qLogger = std::make_shared<quic::FileQLogger>();
+      hqSessionController->setQLoggerInfo(qLogger, qLoggerPath_, prettyJson_);
+    }
     auto session = hqSessionController->createSession(txnTimeout_);
     CHECK(evb == socket->getEventBase());
     auto transport =
         quic::QuicServerTransport::make(evb, std::move(socket), *session, ctx);
+    if (!qLoggerPath_.empty()) {
+      transport->setQLogger(qLogger);
+    }
     hqSessionController->startSession(transport);
     return transport;
   }
@@ -249,6 +281,8 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
   folly::SocketAddress localAddr_;
   std::chrono::milliseconds txnTimeout_;
   std::string version_;
+  std::string qLoggerPath_;
+  bool prettyJson_;
 };
 
 class HQServer {
@@ -260,18 +294,21 @@ class HQServer {
       const std::chrono::milliseconds txnTimeout,
       quic::TransportSettings transportSettings = quic::TransportSettings(),
       folly::Optional<quic::QuicVersion> draftVersion = folly::none,
-      bool useDraftFirst = true)
+      bool useDraftFirst = true,
+      std::string qLoggerPath = "",
+      bool prettyJson = true)
       : host_(host),
         port_(port),
         txnTimeout_(txnTimeout),
-        server_(quic::QuicServer::createQuicServer()) {
+        server_(quic::QuicServer::createQuicServer()),
+        qLoggerPath_(qLoggerPath),
+        prettyJson_(prettyJson) {
     localAddr_.setFromHostPort(host_, port_);
     server_->setCongestionControllerFactory(
         std::make_shared<DefaultCongestionControllerFactory>());
     server_->setTransportSettings(transportSettings);
-    server_->setQuicServerTransportFactory(
-        std::make_unique<HQServerTransportFactory>(
-            localAddr_, version, txnTimeout_));
+    server_->setQuicServerTransportFactory(std::make_unique<HQServerTransportFactory>(
+        localAddr_, version, txnTimeout_, qLoggerPath_, prettyJson_));
     server_->setQuicUDPSocketFactory(
         std::make_unique<QuicSharedUDPSocketFactory>());
     server_->setHealthCheckToken("health");
@@ -374,6 +411,8 @@ class HQServer {
   folly::EventBase eventbase_;
   std::shared_ptr<quic::QuicServer> server_;
   folly::Baton<> cv_;
+  std::string qLoggerPath_;
+  bool prettyJson_{true};
 };
 
 class H2Server {
