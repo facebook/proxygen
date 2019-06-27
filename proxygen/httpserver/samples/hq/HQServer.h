@@ -178,9 +178,9 @@ class HQSessionController :
     wangle::TransportInfo tinfo;
     session_ = new proxygen::HQDownstreamSession(
                 txnTimeout,
-                dynamic_cast<HTTPSessionController*>(this),
+                this,
                 tinfo,
-                dynamic_cast<InfoCallback*>(this));
+                this);
     return session_;
   }
 
@@ -224,7 +224,7 @@ class HQSessionController :
    std::shared_ptr<FileQLogger> qLogger, std::string qLoggerPath,
    bool prettyJson) {
     qLogger_ = qLogger;
-    qLoggerPath_ = qLoggerPath;
+    qLoggerPath_ = std::move(qLoggerPath);
     prettyJson_ = prettyJson;
  }
 
@@ -249,7 +249,7 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
       : localAddr_(std::move(localAddr)),
         txnTimeout_(txnTimeout),
         version_(version),
-        qLoggerPath_(qLoggerPath),
+        qLoggerPath_(std::move(qLoggerPath)),
         prettyJson_(prettyJson) {
   }
 
@@ -301,7 +301,7 @@ class HQServer {
         port_(port),
         txnTimeout_(txnTimeout),
         server_(quic::QuicServer::createQuicServer()),
-        qLoggerPath_(qLoggerPath),
+        qLoggerPath_(std::move(qLoggerPath)),
         prettyJson_(prettyJson) {
     localAddr_.setFromHostPort(host_, port_);
     server_->setCongestionControllerFactory(
