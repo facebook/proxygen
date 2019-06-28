@@ -1789,11 +1789,12 @@ class HQSession
 
     // Egress only stream should not pause ingress
     void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
-      LOG(ERROR) << __func__ << "Ingress function called on egress-only stream";
-      session_.dropConnectionWithError(
-          std::make_pair(HTTP3::ErrorCode::HTTP_INTERNAL_ERROR,
-                         "Ingress function called on egress-only stream"),
-          kErrorUnknown);
+      VLOG(4) << __func__ << " Ingress function called on egress-only stream, ignoring";
+    }
+
+    // Egress only stream should not pause ingress
+    void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
+      VLOG(4) << __func__ << " Ingress function called on egress-only stream, ignoring";
     }
 
    private:
