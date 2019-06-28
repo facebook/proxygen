@@ -118,7 +118,7 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
     }
 
   } else {
-    setError(kErrorWrite);
+    setError(error.hasProxygenError() ? error.getProxygenError() : kErrorWrite);
   }
 
   // Wait for detachTransaction to clean up

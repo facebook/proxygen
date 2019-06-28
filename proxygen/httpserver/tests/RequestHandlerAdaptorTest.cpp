@@ -7,11 +7,11 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <folly/portability/GTest.h>
-#include <folly/portability/GMock.h>
-#include "proxygen/httpserver/Mocks.h"
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
+#include "proxygen/httpserver/Mocks.h"
 #include "proxygen/lib/http/session/test/HTTPTransactionMocks.h"
+#include <folly/portability/GMock.h>
+#include <folly/portability/GTest.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -33,8 +33,8 @@ struct StubRequestHandlerAdaptor : public RequestHandlerAdaptor {
 
 void testExpectHandling(bool handlerResponds) {
   StrictMock<MockRequestHandler> requestHandler_;
-  EXPECT_CALL(requestHandler_, canHandleExpect()).WillOnce(
-    Return(handlerResponds));
+  EXPECT_CALL(requestHandler_, canHandleExpect())
+      .WillOnce(Return(handlerResponds));
   EXPECT_CALL(requestHandler_, onRequest(_));
   auto adaptor = std::make_shared<StubRequestHandlerAdaptor>(&requestHandler_);
   auto msg = std::make_unique<HTTPMessage>();
@@ -49,16 +49,34 @@ TEST(RequestHandlerAdaptorTest, Expect) {
   testExpectHandling(false /* handlerResponds */);
 }
 
-TEST(RequestHandlerAdaptorTest, onError) {
+TEST(RequestHandlerAdaptorTest, onTimeoutError) {
   NiceMock<MockRequestHandler> requestHandler_;
   auto adaptor = new RequestHandlerAdaptor(&requestHandler_);
   NiceMock<MockHTTPTransactionTransport> transport;
   HTTP2PriorityQueue egressQueue;
-  HTTPTransaction txn(TransportDirection::DOWNSTREAM,
-                      1, 1, transport, egressQueue);
+  HTTPTransaction txn(
+      TransportDirection::DOWNSTREAM, 1, 1, transport, egressQueue);
   txn.setHandler(adaptor);
   // egress timeout error
   HTTPException ex(HTTPException::Direction::EGRESS, "egress timeout");
   ex.setProxygenError(kErrorTimeout);
+  EXPECT_CALL(requestHandler_, onError(kErrorTimeout));
+  txn.onError(ex);
+}
+
+TEST(RequestHandlerAdaptorTest, onStreamAbortError) {
+  NiceMock<MockRequestHandler> requestHandler_;
+  auto adaptor = new RequestHandlerAdaptor(&requestHandler_);
+  NiceMock<MockHTTPTransactionTransport> transport;
+  HTTP2PriorityQueue egressQueue;
+  HTTPTransaction txn(
+      TransportDirection::DOWNSTREAM, 1, 1, transport, egressQueue);
+  txn.setHandler(adaptor);
+  // stream abort cancel error
+  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+                   "stream abort");
+  ex.setProxygenError(kErrorStreamAbort);
+  // expect notifying the request handler
+  EXPECT_CALL(requestHandler_, onError(kErrorStreamAbort));
   txn.onError(ex);
 }
