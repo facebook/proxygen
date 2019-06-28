@@ -116,7 +116,7 @@ class HQUnidirStreamDispatcher
 
   quic::StreamId releaseOwnership(quic::StreamId id) {
     DCHECK(hasOwnership(id))
-      << "Can not release ownership on unowned streamID=" << id;
+        << "Can not release ownership on unowned streamID=" << id;
     bool found = pendingStreams_.erase(id);
     DCHECK(found) << "Inconstency detected streamID=" << id;
     return id;

@@ -31,11 +31,15 @@ class ByteEvent {
   }
   virtual ~ByteEvent() {
   }
-  virtual HTTPTransaction* getTransaction() { return nullptr; }
-  virtual int64_t getLatency() { return -1; }
+  virtual HTTPTransaction* getTransaction() {
+    return nullptr;
+  }
+  virtual int64_t getLatency() {
+    return -1;
+  }
 
   folly::SafeIntrusiveListHook listHook;
-  EventType eventType_:3; // packed w/ byteOffset_
+  EventType eventType_ : 3; // packed w/ byteOffset_
   // bufferWriteTracked_ is used by TX and ACK-tracking ByteEventTrackers to
   // mark that timestamping has been requested for this ByteEvent. TX timestamps
   // are requested for FIRST_BYTE and LAST_BYTE events, ACK timestamps are
@@ -45,8 +49,8 @@ class ByteEvent {
   // captured by the ByteEventTracker::Callback handler by requesting them
   // via calls to addTxByteEvent and addAckByteEvent respectively when the
   // handler is processing callbacks for onFirstByteEvent and onLastByteEvent.
-  size_t bufferWriteTracked_:1; // packed w/ byteOffset_
-  uint64_t byteOffset_:(8*sizeof(uint64_t)-4);
+  size_t bufferWriteTracked_ : 1; // packed w/ byteOffset_
+  uint64_t byteOffset_ : (8 * sizeof(uint64_t) - 4);
 };
 
 std::ostream& operator<<(std::ostream& os, const ByteEvent& txn);
@@ -71,8 +75,7 @@ class TransactionByteEvent : public ByteEvent {
   HTTPTransaction* txn_;
 };
 
-class AckTimeout
-    : public AsyncTimeoutSet::Callback {
+class AckTimeout : public AsyncTimeoutSet::Callback {
  public:
   /**
    * The instances of AckTimeout::Callback *MUST* outlive the AckTimeout it is
@@ -80,12 +83,14 @@ class AckTimeout
    */
   class Callback {
    public:
-    virtual ~Callback() {}
+    virtual ~Callback() {
+    }
     virtual void ackTimeoutExpired(uint64_t byteNo) noexcept = 0;
   };
 
   AckTimeout(Callback* callback, uint64_t byteNo)
-      : callback_(callback), byteNo_(byteNo) {}
+      : callback_(callback), byteNo_(byteNo) {
+  }
 
   void timeoutExpired() noexcept override {
     callback_->ackTimeoutExpired(byteNo_);
@@ -133,7 +138,8 @@ class AckByteEvent : public TransactionByteEvent {
                EventType eventType,
                HTTPTransaction* txn)
       : TransactionByteEvent(byteNo, eventType, txn),
-        timeout(callback, byteNo) {}
+        timeout(callback, byteNo) {
+  }
 
   AckTimeout timeout;
 };
@@ -142,11 +148,12 @@ class PingByteEvent : public ByteEvent {
  public:
   PingByteEvent(uint64_t byteOffset, TimePoint pingRequestReceivedTime)
       : ByteEvent(byteOffset, PING_REPLY_SENT),
-        pingRequestReceivedTime_(pingRequestReceivedTime) {}
+        pingRequestReceivedTime_(pingRequestReceivedTime) {
+  }
 
   int64_t getLatency() override;
 
   TimePoint pingRequestReceivedTime_;
 };
 
-} // proxygen
+} // namespace proxygen

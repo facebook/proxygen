@@ -13,16 +13,16 @@
 
 namespace proxygen {
 
-const char* const kTypeStrings[] =  {
-  "FIRST_BYTE",
-  "LAST_BYTE",
-  "PING_REPLY_SENT",
-  "FIRST_HEADER_BYTE",
+const char* const kTypeStrings[] = {
+    "FIRST_BYTE",
+    "LAST_BYTE",
+    "PING_REPLY_SENT",
+    "FIRST_HEADER_BYTE",
 };
 
 std::ostream& operator<<(std::ostream& os, const ByteEvent& be) {
   os << folly::to<std::string>(
-    "(", kTypeStrings[be.eventType_], ", ", be.byteOffset_, ")");
+      "(", kTypeStrings[be.eventType_], ", ", be.byteOffset_, ")");
   return os;
 }
 
@@ -30,4 +30,4 @@ int64_t PingByteEvent::getLatency() {
   return millisecondsSince(pingRequestReceivedTime_).count();
 }
 
-} // proxygen
+} // namespace proxygen

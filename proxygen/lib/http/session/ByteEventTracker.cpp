@@ -40,34 +40,34 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
     auto txn = event.getTransaction();
 
     switch (event.eventType_) {
-    case ByteEvent::FIRST_HEADER_BYTE:
-      txn->onEgressHeaderFirstByte();
-      break;
-    case ByteEvent::FIRST_BYTE:
-      txn->onEgressBodyFirstByte(event.byteOffset_);
-      if (callback_) {
-        callback_->onFirstByteEvent(
-            txn, event.byteOffset_, event.bufferWriteTracked_);
-      }
-      advanceSOM = true;
-      break;
-    case ByteEvent::LAST_BYTE:
-      txn->onEgressBodyLastByte(event.byteOffset_);
-      if (callback_) {
-        callback_->onLastByteEvent(
-            txn, event.byteOffset_, event.bufferWriteTracked_);
-      }
-      advanceEOM = true;
-      break;
-    case ByteEvent::TRACKED_BYTE:
-      txn->onEgressTrackedByte();
-      break;
-    case ByteEvent::PING_REPLY_SENT:
-      latency = event.getLatency();
-      if (callback_) {
-        callback_->onPingReplyLatency(latency);
-      }
-      break;
+      case ByteEvent::FIRST_HEADER_BYTE:
+        txn->onEgressHeaderFirstByte();
+        break;
+      case ByteEvent::FIRST_BYTE:
+        txn->onEgressBodyFirstByte(event.byteOffset_);
+        if (callback_) {
+          callback_->onFirstByteEvent(
+              txn, event.byteOffset_, event.bufferWriteTracked_);
+        }
+        advanceSOM = true;
+        break;
+      case ByteEvent::LAST_BYTE:
+        txn->onEgressBodyLastByte(event.byteOffset_);
+        if (callback_) {
+          callback_->onLastByteEvent(
+              txn, event.byteOffset_, event.bufferWriteTracked_);
+        }
+        advanceEOM = true;
+        break;
+      case ByteEvent::TRACKED_BYTE:
+        txn->onEgressTrackedByte();
+        break;
+      case ByteEvent::PING_REPLY_SENT:
+        latency = event.getLatency();
+        if (callback_) {
+          callback_->onPingReplyLatency(latency);
+        }
+        break;
     }
 
     VLOG(5) << " removing ByteEvent " << event;
@@ -95,21 +95,19 @@ size_t ByteEventTracker::drainByteEvents() {
   return numEvents;
 }
 
-void ByteEventTracker::addLastByteEvent(
-    HTTPTransaction* txn,
-    uint64_t byteNo) noexcept {
+void ByteEventTracker::addLastByteEvent(HTTPTransaction* txn,
+                                        uint64_t byteNo) noexcept {
   VLOG(5) << " adding last byte event for " << byteNo;
-  TransactionByteEvent* event = new TransactionByteEvent(
-      byteNo, ByteEvent::LAST_BYTE, txn);
+  TransactionByteEvent* event =
+      new TransactionByteEvent(byteNo, ByteEvent::LAST_BYTE, txn);
   byteEvents_.push_back(*event);
 }
 
-void ByteEventTracker::addTrackedByteEvent(
-    HTTPTransaction* txn,
-    uint64_t byteNo) noexcept {
+void ByteEventTracker::addTrackedByteEvent(HTTPTransaction* txn,
+                                           uint64_t byteNo) noexcept {
   VLOG(5) << " adding tracked byte event for " << byteNo;
-  TransactionByteEvent* event = new TransactionByteEvent(
-      byteNo, ByteEvent::TRACKED_BYTE, txn);
+  TransactionByteEvent* event =
+      new TransactionByteEvent(byteNo, ByteEvent::TRACKED_BYTE, txn);
   byteEvents_.push_back(*event);
 }
 
@@ -145,9 +143,7 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
 void ByteEventTracker::addFirstBodyByteEvent(uint64_t offset,
                                              HTTPTransaction* txn) {
   byteEvents_.push_back(
-      *new TransactionByteEvent(
-          offset, ByteEvent::FIRST_BYTE,
-          txn));
+      *new TransactionByteEvent(offset, ByteEvent::FIRST_BYTE, txn));
 }
 
 void ByteEventTracker::addFirstHeaderByteEvent(uint64_t offset,
@@ -155,9 +151,7 @@ void ByteEventTracker::addFirstHeaderByteEvent(uint64_t offset,
   // onWriteSuccess() is called after the entire header has been written.
   // It does not catch partial write case.
   byteEvents_.push_back(
-      *new TransactionByteEvent(offset,
-                                ByteEvent::FIRST_HEADER_BYTE,
-                                txn));
+      *new TransactionByteEvent(offset, ByteEvent::FIRST_HEADER_BYTE, txn));
 }
 
-} // proxygen
+} // namespace proxygen

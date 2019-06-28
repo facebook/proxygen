@@ -9,18 +9,18 @@
  */
 #pragma once
 
+#include <folly/io/async/AsyncTransport.h>
 #include <folly/io/async/EventBase.h>
 #include <proxygen/lib/utils/FilterChain.h>
-#include <folly/io/async/AsyncTransport.h>
 
 namespace proxygen {
 
-typedef GenericFilter<
-  folly::AsyncTransportWrapper,
-  folly::AsyncTransportWrapper::ReadCallback,
-  &folly::AsyncTransportWrapper::setReadCB,
-  true,
-  folly::AsyncTransportWrapper::Destructor> TransportFilter;
+typedef GenericFilter<folly::AsyncTransportWrapper,
+                      folly::AsyncTransportWrapper::ReadCallback,
+                      &folly::AsyncTransportWrapper::setReadCB,
+                      true,
+                      folly::AsyncTransportWrapper::Destructor>
+    TransportFilter;
 
 /**
  * An implementation of Transport that passes through all calls and also
@@ -28,14 +28,14 @@ typedef GenericFilter<
  * interested in intercepting every function. See AsyncTransport.h for
  * documentation on these methods
  */
-class PassThroughTransportFilter: public TransportFilter {
+class PassThroughTransportFilter : public TransportFilter {
  public:
   /**
    * By default, the filter gets both calls and callbacks
    */
-  explicit PassThroughTransportFilter(bool calls = true,
-                                      bool callbacks = true):
-      TransportFilter(calls, callbacks) {}
+  explicit PassThroughTransportFilter(bool calls = true, bool callbacks = true)
+      : TransportFilter(calls, callbacks) {
+  }
 
   // AsyncTransportWrapper::ReadCallback methods
 
@@ -45,29 +45,27 @@ class PassThroughTransportFilter: public TransportFilter {
 
   void readEOF() noexcept override;
 
-  void readErr(const folly::AsyncSocketException& ex)
-    noexcept override;
+  void readErr(const folly::AsyncSocketException& ex) noexcept override;
 
   // AsyncTransport methods
 
-  void setReadCB(
-    folly::AsyncTransportWrapper::ReadCallback* callback) override;
+  void setReadCB(folly::AsyncTransportWrapper::ReadCallback* callback) override;
 
-  folly::AsyncTransportWrapper::ReadCallback* getReadCallback()
-    const override;
+  folly::AsyncTransportWrapper::ReadCallback* getReadCallback() const override;
 
   void write(folly::AsyncTransportWrapper::WriteCallback* callback,
-             const void* buf, size_t bytes,
+             const void* buf,
+             size_t bytes,
              folly::WriteFlags flags) override;
 
   void writev(folly::AsyncTransportWrapper::WriteCallback* callback,
-              const iovec* vec, size_t count,
+              const iovec* vec,
+              size_t count,
               folly::WriteFlags flags) override;
 
-  void writeChain(
-    folly::AsyncTransportWrapper::WriteCallback* callback,
-    std::unique_ptr<folly::IOBuf>&& iob,
-    folly::WriteFlags flags) override;
+  void writeChain(folly::AsyncTransportWrapper::WriteCallback* callback,
+                  std::unique_ptr<folly::IOBuf>&& iob,
+                  folly::WriteFlags flags) override;
 
   void close() override;
 
@@ -99,11 +97,9 @@ class PassThroughTransportFilter: public TransportFilter {
 
   uint32_t getSendTimeout() const override;
 
-  void getLocalAddress(
-  folly::SocketAddress* address) const override;
+  void getLocalAddress(folly::SocketAddress* address) const override;
 
-  void getPeerAddress(
-  folly::SocketAddress* address) const override;
+  void getPeerAddress(folly::SocketAddress* address) const override;
 
   void setEorTracking(bool track) override;
 
@@ -113,11 +109,11 @@ class PassThroughTransportFilter: public TransportFilter {
   size_t getRawBytesReceived() const override;
 };
 
-typedef FilterChain<
-  folly::AsyncTransportWrapper,
-  folly::AsyncTransportWrapper::ReadCallback,
-  PassThroughTransportFilter,
-  &folly::AsyncTransportWrapper::setReadCB,
-  false> TransportFilterChain;
+typedef FilterChain<folly::AsyncTransportWrapper,
+                    folly::AsyncTransportWrapper::ReadCallback,
+                    PassThroughTransportFilter,
+                    &folly::AsyncTransportWrapper::setReadCB,
+                    false>
+    TransportFilterChain;
 
-}
+} // namespace proxygen

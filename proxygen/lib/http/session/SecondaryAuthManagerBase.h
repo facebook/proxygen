@@ -16,7 +16,6 @@ namespace proxygen {
 
 class SecondaryAuthManagerBase {
  public:
-
   virtual ~SecondaryAuthManagerBase() = default;
 
   /**

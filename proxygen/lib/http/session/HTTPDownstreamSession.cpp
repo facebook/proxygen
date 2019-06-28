@@ -9,9 +9,9 @@
  */
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 
+#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
-#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 
 #include <folly/CppAttributes.h>
 
@@ -20,8 +20,7 @@ namespace proxygen {
 HTTPDownstreamSession::~HTTPDownstreamSession() {
 }
 
-void
-HTTPDownstreamSession::startNow() {
+void HTTPDownstreamSession::startNow() {
   // Create virtual nodes should happen before startNow since ingress may come
   // before we can finish startNow. Since maxLevel = 0, this is a no-op unless
   // SPDY is used. And no frame will be sent to peer, so ignore returned value.
@@ -29,9 +28,8 @@ HTTPDownstreamSession::startNow() {
   HTTPSession::startNow();
 }
 
-void
-HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
-                                              HTTPMessage* msg) {
+void HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
+                                                   HTTPMessage* msg) {
   VLOG(5) << "setupOnHeadersComplete txn=" << txn << ", id=" << txn->getID()
           << ", handlder=" << txn->getHandler() << ", msg=" << msg;
   if (txn->getHandler()) {
@@ -60,15 +58,13 @@ HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
   setNewTransactionPauseState(txn);
 }
 
-HTTPTransaction::Handler*
-HTTPDownstreamSession::getTransactionTimeoutHandler(
-  HTTPTransaction* txn) {
+HTTPTransaction::Handler* HTTPDownstreamSession::getTransactionTimeoutHandler(
+    HTTPTransaction* txn) {
   return getController()->getTransactionTimeoutHandler(txn, getLocalAddress());
 }
 
-void
-HTTPDownstreamSession::onHeadersSent(const HTTPMessage& headers,
-                                     bool codecWasReusable) {
+void HTTPDownstreamSession::onHeadersSent(const HTTPMessage& headers,
+                                          bool codecWasReusable) {
   if (!codec_->isReusable()) {
     // If the codec turned unreusable, some thing wrong must have happened.
     // Basically, the proxy decides the connection is not reusable.
@@ -93,7 +89,7 @@ HTTPDownstreamSession::onHeadersSent(const HTTPMessage& headers,
 }
 
 bool HTTPDownstreamSession::allTransactionsStarted() const {
-  for (const auto& txn: transactions_) {
+  for (const auto& txn : transactions_) {
     if (txn.second.isPushed() && !txn.second.isEgressStarted()) {
       return false;
     }
@@ -101,19 +97,19 @@ bool HTTPDownstreamSession::allTransactionsStarted() const {
   return true;
 }
 
-bool
-HTTPDownstreamSession::onNativeProtocolUpgrade(
-  HTTPCodec::StreamID streamID, CodecProtocol protocol,
-  const std::string& protocolString,
-  HTTPMessage& msg) {
-  VLOG(4) << *this << " onNativeProtocolUpgrade streamID=" << streamID <<
-    " protocol=" << protocolString;
+bool HTTPDownstreamSession::onNativeProtocolUpgrade(
+    HTTPCodec::StreamID streamID,
+    CodecProtocol protocol,
+    const std::string& protocolString,
+    HTTPMessage& msg) {
+  VLOG(4) << *this << " onNativeProtocolUpgrade streamID=" << streamID
+          << " protocol=" << protocolString;
   auto txn = findTransaction(streamID);
   CHECK(txn);
   if (txn->canSendHeaders()) {
     // Create the new Codec
-    auto codec = HTTPCodecFactory::getCodec(protocol,
-                                            TransportDirection::DOWNSTREAM);
+    auto codec =
+        HTTPCodecFactory::getCodec(protocol, TransportDirection::DOWNSTREAM);
     CHECK(codec);
     if (!codec->onIngressUpgradeMessage(msg)) {
       VLOG(4) << *this << " codec rejected upgrade";
@@ -135,7 +131,7 @@ HTTPDownstreamSession::onNativeProtocolUpgrade(
 
     // This will actually switch the protocol
     bool ret = HTTPSession::onNativeProtocolUpgradeImpl(
-      streamID, std::move(codec), protocolString);
+        streamID, std::move(codec), protocolString);
     if (ret) {
       codec_->addPriorityNodes(txnEgressQueue_, writeBuf_, 0);
     }
@@ -146,4 +142,4 @@ HTTPDownstreamSession::onNativeProtocolUpgrade(
   }
 }
 
-} // proxygen
+} // namespace proxygen

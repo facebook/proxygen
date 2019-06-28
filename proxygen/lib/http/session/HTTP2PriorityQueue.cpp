@@ -16,19 +16,20 @@ namespace proxygen {
 
 uint32_t HTTP2PriorityQueue::kMaxRebuilds_ = 3;
 std::chrono::milliseconds HTTP2PriorityQueue::kNodeLifetime_ =
-  std::chrono::seconds(30);
+    std::chrono::seconds(30);
 
 HTTP2PriorityQueue::Node::Node(HTTP2PriorityQueue& queue,
                                HTTP2PriorityQueue::Node* inParent,
                                HTTPCodec::StreamID id,
-                               uint8_t weight, HTTPTransaction *txn)
+                               uint8_t weight,
+                               HTTPTransaction* txn)
     : queue_(queue),
       parent_(inParent),
       id_(id),
       weight_(weight + 1),
       txn_(txn) {
-  DCHECK(queue_.nodes_.find(id_,
-                            IdHash(), IdNodeEqual()) == queue_.nodes_.end());
+  DCHECK(queue_.nodes_.find(id_, IdHash(), IdNodeEqual()) ==
+         queue_.nodes_.end());
   queue_.nodes_.insert(*this);
 }
 
@@ -39,9 +40,8 @@ HTTP2PriorityQueue::Node::~Node() {
 }
 
 // Add a new node as a child of this node
-HTTP2PriorityQueue::Node*
-HTTP2PriorityQueue::Node::emplaceNode(
-  unique_ptr<HTTP2PriorityQueue::Node> node, bool exclusive) {
+HTTP2PriorityQueue::Node* HTTP2PriorityQueue::Node::emplaceNode(
+    unique_ptr<HTTP2PriorityQueue::Node> node, bool exclusive) {
   CHECK(!node->isEnqueued());
   list<unique_ptr<Node>> children;
   CHECK_NE(id_, node->id_) << "Tried to create a loop in the tree";
@@ -63,11 +63,10 @@ HTTP2PriorityQueue::Node::emplaceNode(
   return res;
 }
 
-void
-HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
+void HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
   list<unique_ptr<Node>> emptyChilden;
   uint64_t totalEnqueuedWeight = 0;
-  for (auto& child: children) {
+  for (auto& child : children) {
     if (child->inEgressTree()) {
       totalEnqueuedWeight += child->weight_;
       child->parent_->removeEnqueuedChild(child.get());
@@ -87,9 +86,8 @@ HTTP2PriorityQueue::Node::addChildren(list<unique_ptr<Node>>&& children) {
   }
 }
 
-HTTP2PriorityQueue::Node*
-HTTP2PriorityQueue::Node::addChild(
-  unique_ptr<HTTP2PriorityQueue::Node> child) {
+HTTP2PriorityQueue::Node* HTTP2PriorityQueue::Node::addChild(
+    unique_ptr<HTTP2PriorityQueue::Node> child) {
   CHECK_NE(id_, child->id_) << "Tried to create a loop in the tree";
   child->parent_ = this;
   totalChildWeight_ += child->weight_;
@@ -99,8 +97,8 @@ HTTP2PriorityQueue::Node::addChild(
   return raw;
 }
 
-unique_ptr<HTTP2PriorityQueue::Node>
-HTTP2PriorityQueue::Node::detachChild(Node* node) {
+unique_ptr<HTTP2PriorityQueue::Node> HTTP2PriorityQueue::Node::detachChild(
+    Node* node) {
   CHECK(!node->isEnqueued());
   totalChildWeight_ -= node->weight_;
   auto it = node->self_;
@@ -113,9 +111,8 @@ HTTP2PriorityQueue::Node::detachChild(Node* node) {
   return res;
 }
 
-HTTP2PriorityQueue::Node*
-HTTP2PriorityQueue::Node::reparent(HTTP2PriorityQueue::Node* newParent,
-                                   bool exclusive) {
+HTTP2PriorityQueue::Node* HTTP2PriorityQueue::Node::reparent(
+    HTTP2PriorityQueue::Node* newParent, bool exclusive) {
   // Save enqueued_ and totalEnqueuedWeight_, clear them and restore
   // after reparenting
   bool wasInEgressTree = inEgressTree();
@@ -141,8 +138,8 @@ HTTP2PriorityQueue::Node::reparent(HTTP2PriorityQueue::Node* newParent,
 }
 
 // Returns true if this is a descendant of node
-bool
-HTTP2PriorityQueue::Node::isDescendantOf(HTTP2PriorityQueue::Node *node) const {
+bool HTTP2PriorityQueue::Node::isDescendantOf(
+    HTTP2PriorityQueue::Node* node) const {
   Node* cur = parent_;
   while (cur) {
     if (cur->id_ == node->id_) {
@@ -156,27 +153,25 @@ HTTP2PriorityQueue::Node::isDescendantOf(HTTP2PriorityQueue::Node *node) const {
 // Here "enqueued" means enqueued or enqueued descendent - part of the
 // nextEgress computation.
 
-void
-HTTP2PriorityQueue::Node::addEnqueuedChild(HTTP2PriorityQueue::Node* node) {
+void HTTP2PriorityQueue::Node::addEnqueuedChild(
+    HTTP2PriorityQueue::Node* node) {
   CHECK(!node->enqueuedHook_.is_linked());
   enqueuedChildren_.push_back(*node);
 }
 
-void
-HTTP2PriorityQueue::Node::removeEnqueuedChild(HTTP2PriorityQueue::Node* node) {
+void HTTP2PriorityQueue::Node::removeEnqueuedChild(
+    HTTP2PriorityQueue::Node* node) {
   CHECK(node->enqueuedHook_.is_linked());
   enqueuedChildren_.erase(enqueuedChildren_.iterator_to(*node));
 }
 
-void
-HTTP2PriorityQueue::Node::signalPendingEgress() {
+void HTTP2PriorityQueue::Node::signalPendingEgress() {
   enqueued_ = true;
   propagatePendingEgressSignal(this);
 }
 
-void
-HTTP2PriorityQueue::Node::propagatePendingEgressSignal(
-  HTTP2PriorityQueue::Node *node) {
+void HTTP2PriorityQueue::Node::propagatePendingEgressSignal(
+    HTTP2PriorityQueue::Node* node) {
   Node* parent = node->parent_;
   bool stop = node->totalEnqueuedWeight_ > 0;
   // Continue adding node->weight_ to parent_->totalEnqueuedWeight_ as
@@ -191,16 +186,14 @@ HTTP2PriorityQueue::Node::propagatePendingEgressSignal(
   }
 }
 
-void
-HTTP2PriorityQueue::Node::clearPendingEgress() {
+void HTTP2PriorityQueue::Node::clearPendingEgress() {
   CHECK(enqueued_);
   enqueued_ = false;
   propagatePendingEgressClear(this);
 }
 
-void
-HTTP2PriorityQueue::Node::propagatePendingEgressClear(
-  HTTP2PriorityQueue::Node* node) {
+void HTTP2PriorityQueue::Node::propagatePendingEgressClear(
+    HTTP2PriorityQueue::Node* node) {
   Node* parent = node->parent_;
   bool stop = node->inEgressTree();
   // Continue subtracting node->weight_ from parent_->totalEnqueuedWeight_
@@ -217,8 +210,7 @@ HTTP2PriorityQueue::Node::propagatePendingEgressClear(
 }
 
 // Set a new weight for this node
-void
-HTTP2PriorityQueue::Node::updateWeight(uint8_t weight) {
+void HTTP2PriorityQueue::Node::updateWeight(uint8_t weight) {
   int16_t delta = weight - weight_ + 1;
   weight_ = weight + 1;
   parent_->totalChildWeight_ += delta;
@@ -229,12 +221,11 @@ HTTP2PriorityQueue::Node::updateWeight(uint8_t weight) {
 }
 
 // Removes the node from the tree
-void
-HTTP2PriorityQueue::Node::removeFromTree() {
+void HTTP2PriorityQueue::Node::removeFromTree() {
   if (!children_.empty()) {
     // update child weights so they sum to (approximately) this node's weight.
     double r = double(weight_) / totalChildWeight_;
-    for (auto& child: children_) {
+    for (auto& child : children_) {
       uint64_t newWeight = std::max(uint64_t(child->weight_ * r), uint64_t(1));
       CHECK_LE(newWeight, 256);
       child->updateWeight(uint8_t(newWeight) - 1);
@@ -257,11 +248,11 @@ HTTP2PriorityQueue::Node::removeFromTree() {
   (void)parent_->detachChild(this);
 }
 
-bool
-HTTP2PriorityQueue::Node::iterate(
-  const std::function<bool(HTTPCodec::StreamID,
-                           HTTPTransaction *, double)>& fn,
-  const std::function<bool()>& stopFn, bool all) {
+bool HTTP2PriorityQueue::Node::iterate(
+    const std::function<bool(HTTPCodec::StreamID, HTTPTransaction*, double)>&
+        fn,
+    const std::function<bool()>& stopFn,
+    bool all) {
   bool stop = false;
   if (stopFn()) {
     return true;
@@ -269,10 +260,10 @@ HTTP2PriorityQueue::Node::iterate(
 #ifndef NDEBUG
   CHECK_EQ(totalEnqueuedWeight_, totalEnqueuedWeightCheck_);
 #endif
-  if (parent_ /* exclude root */  && (all || isEnqueued())) {
+  if (parent_ /* exclude root */ && (all || isEnqueued())) {
     stop = fn(id_, txn_, getRelativeWeight());
   }
-  for (auto& child: children_) {
+  for (auto& child : children_) {
     if (stop || stopFn()) {
       return true;
     }
@@ -281,13 +272,15 @@ HTTP2PriorityQueue::Node::iterate(
   return stop;
 }
 
-bool
-HTTP2PriorityQueue::Node::visitBFS(
-  double relativeParentWeight,
-  const std::function<bool(HTTP2PriorityQueue& queue, HTTPCodec::StreamID,
-                           HTTPTransaction *, double)>& fn,
-  bool all,
-  PendingList& pendingNodes, bool enqueuedChildren) {
+bool HTTP2PriorityQueue::Node::visitBFS(
+    double relativeParentWeight,
+    const std::function<bool(HTTP2PriorityQueue& queue,
+                             HTTPCodec::StreamID,
+                             HTTPTransaction*,
+                             double)>& fn,
+    bool all,
+    PendingList& pendingNodes,
+    bool enqueuedChildren) {
   bool invoke = (parent_ != nullptr && (all || isEnqueued()));
   auto relativeEnqueuedWeight = getRelativeEnqueuedWeight();
 
@@ -305,15 +298,15 @@ HTTP2PriorityQueue::Node::visitBFS(
         pendingNodes.emplace_back(child->id_, &(*child), newRelWeight);
       }
     } else {
-      for (auto& child: children_) {
+      for (auto& child : children_) {
         pendingNodes.emplace_back(child->id_, child.get(), newRelWeight);
       }
     }
   }
 
   // Invoke fn last in case it deletes this node
-  if (invoke && fn(queue_, id_, txn_,
-                   relativeParentWeight * relativeEnqueuedWeight)) {
+  if (invoke &&
+      fn(queue_, id_, txn_, relativeParentWeight * relativeEnqueuedWeight)) {
     return true;
   }
 
@@ -321,10 +314,9 @@ HTTP2PriorityQueue::Node::visitBFS(
 }
 
 #ifndef NDEBUG
-void
-HTTP2PriorityQueue::Node::updateEnqueuedWeight(bool activeNodes) {
+void HTTP2PriorityQueue::Node::updateEnqueuedWeight(bool activeNodes) {
   totalEnqueuedWeightCheck_ = totalChildWeight_;
-  for (auto& child: children_) {
+  for (auto& child : children_) {
     child->updateEnqueuedWeight(activeNodes);
   }
   if (activeNodes) {
@@ -340,9 +332,8 @@ HTTP2PriorityQueue::Node::updateEnqueuedWeight(bool activeNodes) {
 }
 #endif
 
-void
-HTTP2PriorityQueue::Node::dropPriorityNodes() {
-  for (auto it = children_.begin(); it != children_.end(); ) {
+void HTTP2PriorityQueue::Node::dropPriorityNodes() {
+  for (auto it = children_.begin(); it != children_.end();) {
     auto& child = *it++;
     child->dropPriorityNodes();
   }
@@ -351,8 +342,7 @@ HTTP2PriorityQueue::Node::dropPriorityNodes() {
   }
 }
 
-void
-HTTP2PriorityQueue::Node::convertVirtualNode(HTTPTransaction* txn) {
+void HTTP2PriorityQueue::Node::convertVirtualNode(HTTPTransaction* txn) {
   CHECK(!txn_);
   CHECK(!isPermanent_);
   CHECK_GT(queue_.numVirtualNodes_, 0);
@@ -361,8 +351,7 @@ HTTP2PriorityQueue::Node::convertVirtualNode(HTTPTransaction* txn) {
   cancelTimeout();
 }
 
-uint64_t
-HTTP2PriorityQueue::Node::calculateDepth(bool includeVirtual) const {
+uint64_t HTTP2PriorityQueue::Node::calculateDepth(bool includeVirtual) const {
   uint64_t depth = 0;
   const Node* cur = this;
   while (cur->getParent() != nullptr) {
@@ -374,8 +363,7 @@ HTTP2PriorityQueue::Node::calculateDepth(bool includeVirtual) const {
   return depth;
 }
 
-void
-HTTP2PriorityQueue::Node::flattenSubtree() {
+void HTTP2PriorityQueue::Node::flattenSubtree() {
   std::list<std::unique_ptr<Node>> oldChildren_;
   // Move the old children to a temporary list
   std::swap(oldChildren_, children_);
@@ -390,32 +378,28 @@ HTTP2PriorityQueue::Node::flattenSubtree() {
   totalEnqueuedWeightCheck_ = 0;
 #endif
   totalChildWeight_ = 0;
-  std::for_each(
-    children_.begin(),
-    children_.end(),
-    [this](const std::unique_ptr<Node>& child) {
-      totalChildWeight_ += child->weight_;
-      if (child->enqueued_) {
-        totalEnqueuedWeight_ += child->weight_;
+  std::for_each(children_.begin(),
+                children_.end(),
+                [this](const std::unique_ptr<Node>& child) {
+                  totalChildWeight_ += child->weight_;
+                  if (child->enqueued_) {
+                    totalEnqueuedWeight_ += child->weight_;
 #ifndef NDEBUG
-        totalEnqueuedWeightCheck_ += child->weight_;
+                    totalEnqueuedWeightCheck_ += child->weight_;
 #endif
-      }
-    }
-  );
+                  }
+                });
 }
 
-void
-HTTP2PriorityQueue::Node::flattenSubtreeDFS(Node* subtreeRoot) {
+void HTTP2PriorityQueue::Node::flattenSubtreeDFS(Node* subtreeRoot) {
   for (auto& child : children_) {
     child->flattenSubtreeDFS(subtreeRoot);
     addChildToNewSubtreeRoot(std::move(child), subtreeRoot);
   }
 }
 
-void
-HTTP2PriorityQueue::Node::addChildToNewSubtreeRoot(std::unique_ptr<Node> child,
-                                                   Node* subtreeRoot) {
+void HTTP2PriorityQueue::Node::addChildToNewSubtreeRoot(
+    std::unique_ptr<Node> child, Node* subtreeRoot) {
   child->children_.clear();
   child->parent_ = subtreeRoot;
   child->weight_ = kDefaultWeight;
@@ -440,9 +424,8 @@ void HTTP2PriorityQueue::detachThreadLocals() {
   timeout_ = WheelTimerInstance();
 }
 
-void
-HTTP2PriorityQueue::addOrUpdatePriorityNode(HTTPCodec::StreamID id,
-                                            http2::PriorityUpdate pri) {
+void HTTP2PriorityQueue::addOrUpdatePriorityNode(HTTPCodec::StreamID id,
+                                                 http2::PriorityUpdate pri) {
   auto handle = find(id);
   if (handle) {
     // already added
@@ -454,16 +437,16 @@ HTTP2PriorityQueue::addOrUpdatePriorityNode(HTTPCodec::StreamID id,
   }
 }
 
-HTTP2PriorityQueue::Handle
-HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
-                                   http2::PriorityUpdate pri,
-                                   HTTPTransaction *txn,
-                                   bool permanent,
-                                   uint64_t* depth) {
+HTTP2PriorityQueue::Handle HTTP2PriorityQueue::addTransaction(
+    HTTPCodec::StreamID id,
+    http2::PriorityUpdate pri,
+    HTTPTransaction* txn,
+    bool permanent,
+    uint64_t* depth) {
   CHECK_NE(id, rootNodeId_);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
   CHECK(!txn || !permanent);
-  Node *existingNode = find(id, depth);
+  Node* existingNode = find(id, depth);
   if (existingNode) {
     CHECK(!permanent);
     existingNode->convertVirtualNode(CHECK_NOTNULL(txn));
@@ -514,8 +497,8 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
       }
     }
   }
-  VLOG(4) << "Adding id=" << id << " with parent=" << parent->getID() <<
-    " and weight=" << ((uint16_t)pri.weight + 1);
+  VLOG(4) << "Adding id=" << id << " with parent=" << parent->getID()
+          << " and weight=" << ((uint16_t)pri.weight + 1);
   auto node = std::make_unique<Node>(*this, parent, id, pri.weight, txn);
   if (permanent) {
     node->setPermanent();
@@ -527,17 +510,18 @@ HTTP2PriorityQueue::addTransaction(HTTPCodec::StreamID id,
   return result;
 }
 
-HTTP2PriorityQueue::Handle
-HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
-                                   http2::PriorityUpdate pri,
-                                   uint64_t* depth) {
+HTTP2PriorityQueue::Handle HTTP2PriorityQueue::updatePriority(
+    HTTP2PriorityQueue::Handle handle,
+    http2::PriorityUpdate pri,
+    uint64_t* depth) {
   Node* node = CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle));
   pendingWeightChange_ = true;
-  VLOG(4) << "Updating id=" << node->getID() << " with parent=" <<
-    pri.streamDependency << " and weight=" << ((uint16_t)pri.weight + 1);
+  VLOG(4) << "Updating id=" << node->getID()
+          << " with parent=" << pri.streamDependency
+          << " and weight=" << ((uint16_t)pri.weight + 1);
   node->updateWeight(pri.weight);
-  CHECK_NE(pri.streamDependency, node->getID()) <<
-    "Tried to create a loop in the tree";
+  CHECK_NE(pri.streamDependency, node->getID())
+      << "Tried to create a loop in the tree";
   if (pri.streamDependency == node->parentID() && !pri.exclusive) {
     // no move
     if (depth) {
@@ -554,14 +538,14 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
     } else {
       // allocate a virtual node for non-existing parent in my depenency tree
       // then do normal priority processing
-      newParent = dynamic_cast<Node*>(
-          addTransaction(pri.streamDependency,
-                         {rootNodeId_,
-                          http2::DefaultPriority.exclusive,
-                          http2::DefaultPriority.weight},
-                         nullptr,
-                         false,
-                         depth));
+      newParent =
+          dynamic_cast<Node*>(addTransaction(pri.streamDependency,
+                                             {rootNodeId_,
+                                              http2::DefaultPriority.exclusive,
+                                              http2::DefaultPriority.weight},
+                                             nullptr,
+                                             false,
+                                             depth));
 
       CHECK_NOTNULL(newParent);
       VLOG(4) << "updatePriority missing parent, creating virtual parent="
@@ -579,8 +563,7 @@ HTTP2PriorityQueue::updatePriority(HTTP2PriorityQueue::Handle handle,
   return node;
 }
 
-void
-HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
+void HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
   Node* node = CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle));
   pendingWeightChange_ = true;
   // TODO: or require the node to do it?
@@ -597,31 +580,30 @@ HTTP2PriorityQueue::removeTransaction(HTTP2PriorityQueue::Handle handle) {
   }
 }
 
-void
-HTTP2PriorityQueue::signalPendingEgress(Handle handle) {
+void HTTP2PriorityQueue::signalPendingEgress(Handle handle) {
   if (!handle->isEnqueued()) {
     CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle))
-      ->signalPendingEgress();
+        ->signalPendingEgress();
     activeCount_++;
     pendingWeightChange_ = true;
   }
 }
 
-void
-HTTP2PriorityQueue::clearPendingEgress(Handle handle) {
+void HTTP2PriorityQueue::clearPendingEgress(Handle handle) {
   CHECK_GT(activeCount_, 0);
   // clear does a CHECK on handle->isEnqueued()
   CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(handle))
-    ->clearPendingEgress();
+      ->clearPendingEgress();
   activeCount_--;
   pendingWeightChange_ = true;
 }
 
-void
-HTTP2PriorityQueue::iterateBFS(
-  const std::function<bool(HTTP2PriorityQueue&, HTTPCodec::StreamID,
-                           HTTPTransaction *, double)>& fn,
-  const std::function<bool()>& stopFn, bool all) {
+void HTTP2PriorityQueue::iterateBFS(
+    const std::function<bool(
+        HTTP2PriorityQueue&, HTTPCodec::StreamID, HTTPTransaction*, double)>&
+        fn,
+    const std::function<bool()>& stopFn,
+    bool all) {
   Node::PendingList pendingNodes{{rootNodeId_, &root_, 1.0}};
   Node::PendingList newPendingNodes;
   bool stop = false;
@@ -632,8 +614,11 @@ HTTP2PriorityQueue::iterateBFS(
     while (!stop && !pendingNodes.empty()) {
       Node* node = findInternal(pendingNodes.front().id);
       if (node) {
-        stop = node->visitBFS(pendingNodes.front().ratio, fn, all,
-                              newPendingNodes, false /* all children */);
+        stop = node->visitBFS(pendingNodes.front().ratio,
+                              fn,
+                              all,
+                              newPendingNodes,
+                              false /* all children */);
       }
       pendingNodes.pop_front();
     }
@@ -641,17 +626,16 @@ HTTP2PriorityQueue::iterateBFS(
   }
 }
 
-bool
-HTTP2PriorityQueue::nextEgressResult(HTTP2PriorityQueue& queue,
-                                     HTTPCodec::StreamID,
-                                     HTTPTransaction* txn, double r) {
+bool HTTP2PriorityQueue::nextEgressResult(HTTP2PriorityQueue& queue,
+                                          HTTPCodec::StreamID,
+                                          HTTPTransaction* txn,
+                                          double r) {
   queue.nextEgressResults_->emplace_back(txn, r);
   return false;
 }
 
-void
-HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
-                               bool spdyMode) {
+void HTTP2PriorityQueue::nextEgress(
+    HTTP2PriorityQueue::NextEgressResult& result, bool spdyMode) {
   struct WeightCmp {
     bool operator()(const std::pair<HTTPTransaction*, double>& t1,
                     const std::pair<HTTPTransaction*, double>& t2) {
@@ -671,8 +655,10 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
     while (!stop && !pendingNodes.empty()) {
       Node* node = pendingNodes.front().node;
       if (node) {
-        stop = node->visitBFS(pendingNodes.front().ratio, nextEgressResult,
-                              false, pendingNodesTmp,
+        stop = node->visitBFS(pendingNodes.front().ratio,
+                              nextEgressResult,
+                              false,
+                              pendingNodesTmp,
                               true /* enqueued children */);
       }
       pendingNodes.pop_front();
@@ -681,11 +667,11 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
     // then normalize the ratios.
     if (spdyMode && !result.empty() && !pendingNodesTmp.empty()) {
       double totalRatio = 0;
-      for (auto &txnPair: result) {
+      for (auto& txnPair : result) {
         totalRatio += txnPair.second;
       }
       CHECK_GT(totalRatio, 0);
-      for (auto &txnPair: result) {
+      for (auto& txnPair : result) {
         txnPair.second = txnPair.second / totalRatio;
       }
       break;
@@ -696,8 +682,8 @@ HTTP2PriorityQueue::nextEgress(HTTP2PriorityQueue::NextEgressResult& result,
   nextEgressResults_ = nullptr;
 }
 
-HTTP2PriorityQueue::Node*
-HTTP2PriorityQueue::find(HTTPCodec::StreamID id, uint64_t* depth) {
+HTTP2PriorityQueue::Node* HTTP2PriorityQueue::find(HTTPCodec::StreamID id,
+                                                   uint64_t* depth) {
   if (id == rootNodeId_) {
     return nullptr;
   }
@@ -711,8 +697,7 @@ HTTP2PriorityQueue::find(HTTPCodec::StreamID id, uint64_t* depth) {
   return &(*it);
 }
 
-void
-HTTP2PriorityQueue::updateEnqueuedWeight() {
+void HTTP2PriorityQueue::updateEnqueuedWeight() {
 #ifndef NDEBUG
   if (pendingWeightChange_) {
     root_.updateEnqueuedWeight(activeCount_ > 0);
@@ -723,11 +708,10 @@ HTTP2PriorityQueue::updateEnqueuedWeight() {
 
 // Internal error handling
 
-void
-HTTP2PriorityQueue::rebuildTree() {
+void HTTP2PriorityQueue::rebuildTree() {
   CHECK_LE(rebuildCount_ + 1, kMaxRebuilds_);
   root_.flattenSubtree();
   rebuildCount_++;
 }
 
-}
+} // namespace proxygen

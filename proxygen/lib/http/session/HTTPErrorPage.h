@@ -23,22 +23,23 @@ namespace proxygen {
  * Proxygen can return in response to various error conditions.
  */
 class HTTPErrorPage {
-public:
+ public:
   struct Page {
     Page(const std::string& pageContentType,
-        std::unique_ptr<folly::IOBuf> pageContent) :
-      contentType(pageContentType), content(std::move(pageContent)) {}
+         std::unique_ptr<folly::IOBuf> pageContent)
+        : contentType(pageContentType), content(std::move(pageContent)) {
+    }
 
-    Page(Page&& other) noexcept :
-      contentType(other.contentType),
-      content(std::move(other.content)) {
+    Page(Page&& other) noexcept
+        : contentType(other.contentType), content(std::move(other.content)) {
     }
 
     const std::string contentType;
     std::unique_ptr<folly::IOBuf> content;
   };
 
-  virtual ~HTTPErrorPage() {}
+  virtual ~HTTPErrorPage() {
+  }
 
   virtual Page generate(uint64_t requestID,
                         unsigned httpStatusCode,
@@ -50,11 +51,11 @@ public:
 /**
  * Static error page generator.
  */
-class HTTPStaticErrorPage: public HTTPErrorPage {
-public:
+class HTTPStaticErrorPage : public HTTPErrorPage {
+ public:
   explicit HTTPStaticErrorPage(
-    std::unique_ptr<folly::IOBuf> content,
-    const std::string& contentType = "text/html; charset=utf-8");
+      std::unique_ptr<folly::IOBuf> content,
+      const std::string& contentType = "text/html; charset=utf-8");
 
   Page generate(uint64_t requestID,
                 unsigned httpStatusCode,
@@ -62,9 +63,9 @@ public:
                 std::unique_ptr<folly::IOBuf> body,
                 const std::string& detailReason) const override;
 
-private:
+ private:
   std::unique_ptr<folly::IOBuf> content_;
   std::string contentType_;
 };
 
-} // proxygen
+} // namespace proxygen

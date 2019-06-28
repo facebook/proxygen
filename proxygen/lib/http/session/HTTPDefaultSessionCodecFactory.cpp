@@ -9,9 +9,9 @@
  */
 #include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
 
-#include <proxygen/lib/http/codec/HTTP2Constants.h>
-#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 
 namespace proxygen {
@@ -41,12 +41,12 @@ std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
     auto codec = std::make_unique<HTTP1xCodec>(direction);
     if (!isTLS) {
       codec->setAllowedUpgradeProtocols(
-        accConfig_.allowedPlaintextUpgradeProtocols);
+          accConfig_.allowedPlaintextUpgradeProtocols);
     }
     return std::move(codec);
   } else if (auto version = SPDYCodec::getVersion(nextProtocol)) {
-    return std::make_unique<SPDYCodec>(direction, *version,
-                                         accConfig_.spdyCompressionLevel);
+    return std::make_unique<SPDYCodec>(
+        direction, *version, accConfig_.spdyCompressionLevel);
   } else if (nextProtocol == http2::kProtocolString ||
              nextProtocol == http2::kProtocolDraftString ||
              nextProtocol == http2::kProtocolExperimentalString) {
@@ -57,4 +57,4 @@ std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
 
   return nullptr;
 }
-}
+} // namespace proxygen

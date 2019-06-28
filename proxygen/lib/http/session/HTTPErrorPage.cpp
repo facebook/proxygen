@@ -16,9 +16,8 @@ using std::string;
 namespace proxygen {
 
 HTTPStaticErrorPage::HTTPStaticErrorPage(std::unique_ptr<folly::IOBuf> content,
-                                         const string& contentType):
-    content_(std::move(content)),
-    contentType_(contentType) {
+                                         const string& contentType)
+    : content_(std::move(content)), contentType_(contentType) {
 }
 
 HTTPErrorPage::Page HTTPStaticErrorPage::generate(
@@ -31,4 +30,4 @@ HTTPErrorPage::Page HTTPStaticErrorPage::generate(
   return HTTPErrorPage::Page(contentType_, content_->clone());
 }
 
-}
+} // namespace proxygen

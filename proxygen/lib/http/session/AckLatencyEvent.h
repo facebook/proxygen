@@ -20,4 +20,4 @@ struct AckLatencyEvent {
   std::chrono::nanoseconds latency;
 };
 
-}
+} // namespace proxygen

@@ -16,8 +16,7 @@ namespace proxygen {
 
 class HTTPTransactionEgressSMData {
  public:
-
-  enum class State: uint8_t {
+  enum class State : uint8_t {
     Start,
     HeadersSent,
     RegularBodySent,
@@ -29,7 +28,7 @@ class HTTPTransactionEgressSMData {
     SendingDone
   };
 
-  enum class Event: uint8_t {
+  enum class Event : uint8_t {
     // API accessible transitions
     sendHeaders,
     sendBody,
@@ -60,4 +59,4 @@ std::ostream& operator<<(std::ostream& os,
 
 using HTTPTransactionEgressSM = StateMachine<HTTPTransactionEgressSMData>;
 
-}
+} // namespace proxygen

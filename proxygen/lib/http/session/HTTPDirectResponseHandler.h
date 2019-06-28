@@ -15,11 +15,11 @@ namespace proxygen {
 
 class HTTPErrorPage;
 
-class HTTPDirectResponseHandler:
-  public HTTPTransaction::Handler {
-public:
-  HTTPDirectResponseHandler(unsigned statusCode, const std::string& statusMsg,
-      const HTTPErrorPage* errorPage = nullptr);
+class HTTPDirectResponseHandler : public HTTPTransaction::Handler {
+ public:
+  HTTPDirectResponseHandler(unsigned statusCode,
+                            const std::string& statusMsg,
+                            const HTTPErrorPage* errorPage = nullptr);
 
   void forceConnectionClose(bool close) {
     forceConnectionClose_ = close;
@@ -34,19 +34,19 @@ public:
   void onUpgrade(UpgradeProtocol protocol) noexcept override;
   void onError(const HTTPException& error) noexcept override;
   // These are no-ops since the direct response is already in memory
-  void onEgressPaused() noexcept override {};
-  void onEgressResumed() noexcept override {};
+  void onEgressPaused() noexcept override{};
+  void onEgressResumed() noexcept override{};
 
-private:
- ~HTTPDirectResponseHandler() override;
+ private:
+  ~HTTPDirectResponseHandler() override;
 
   HTTPTransaction* txn_;
   const HTTPErrorPage* errorPage_;
   std::string statusMessage_;
   unsigned statusCode_;
-  bool headersSent_:1;
-  bool eomSent_:1;
-  bool forceConnectionClose_:1;
+  bool headersSent_ : 1;
+  bool eomSent_ : 1;
+  bool forceConnectionClose_ : 1;
 };
 
-} // proxygen
+} // namespace proxygen

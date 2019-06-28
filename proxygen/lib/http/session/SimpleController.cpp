@@ -20,7 +20,7 @@ SimpleController::SimpleController(HTTPSessionAcceptor* acceptor)
 }
 
 HTTPTransactionHandler* SimpleController::getRequestHandler(
-  HTTPTransaction& txn, HTTPMessage* msg) {
+    HTTPTransaction& txn, HTTPMessage* msg) {
   return acceptor_->newHandler(txn, msg);
 }
 
@@ -34,9 +34,10 @@ HTTPTransactionHandler* SimpleController::getParseErrorHandler(
   }
 
   auto errorPage = acceptor_->getErrorPage(localAddress);
-  return createErrorHandler(error.hasHttpStatusCode() ?
-                            error.getHttpStatusCode() : 400,
-                            "Bad Request", errorPage);
+  return createErrorHandler(
+      error.hasHttpStatusCode() ? error.getHttpStatusCode() : 400,
+      "Bad Request",
+      errorPage);
 }
 
 HTTPTransactionHandler* SimpleController::getTransactionTimeoutHandler(
@@ -46,21 +47,21 @@ HTTPTransactionHandler* SimpleController::getTransactionTimeoutHandler(
   return createErrorHandler(408, "Client timeout", errorPage);
 }
 
-void SimpleController::attachSession(HTTPSessionBase* /*sess*/) {}
+void SimpleController::attachSession(HTTPSessionBase* /*sess*/) {
+}
 
-void SimpleController::detachSession(const HTTPSessionBase* /*sess*/) {}
+void SimpleController::detachSession(const HTTPSessionBase* /*sess*/) {
+}
 
 HTTPTransactionHandler* SimpleController::createErrorHandler(
     uint32_t statusCode,
     const std::string& statusMessage,
     const HTTPErrorPage* errorPage) {
 
-  return new HTTPDirectResponseHandler(statusCode,
-                                       statusMessage,
-                                       errorPage);
+  return new HTTPDirectResponseHandler(statusCode, statusMessage, errorPage);
 }
 
 std::chrono::milliseconds SimpleController::getGracefulShutdownTimeout() const {
   return acceptor_->getGracefulShutdownTimeout();
 }
-}
+} // namespace proxygen

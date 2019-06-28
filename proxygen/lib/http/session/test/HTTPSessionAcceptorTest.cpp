@@ -8,19 +8,19 @@
  *
  */
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
-#include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
-#include <proxygen/lib/utils/TestUtils.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/test/MockAsyncServerSocket.h>
 #include <folly/io/async/test/MockAsyncSocket.h>
+#include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
+#include <proxygen/lib/utils/TestUtils.h>
 
 using namespace proxygen;
 using namespace testing;
 
 using folly::AsyncSocket;
 using folly::AsyncSSLSocket;
-using folly::test::MockAsyncSocket;
 using folly::SocketAddress;
+using folly::test::MockAsyncSocket;
 using wangle::SecureTransportType;
 
 namespace {
@@ -32,7 +32,7 @@ const std::string kTestDir = getContainingDirectory(__FILE__).str();
 class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
  public:
   explicit HTTPTargetSessionAcceptor(const AcceptorConfiguration& accConfig)
-  : HTTPSessionAcceptor(accConfig) {
+      : HTTPSessionAcceptor(accConfig) {
   }
 
   HTTPTransaction::Handler* newHandler(HTTPTransaction& /*txn*/,
@@ -40,7 +40,7 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
     return new MockHTTPHandler();
   }
 
-  void onCreate(const HTTPSessionBase& session) override{
+  void onCreate(const HTTPSessionBase& session) override {
     EXPECT_EQ(expectedProto_,
               getCodecProtocolString(session.getCodecProtocol()));
     sessionsCreated_++;
@@ -67,15 +67,12 @@ class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
   std::string expectedProto_;
 };
 
-class HTTPSessionAcceptorTestBase :
-    public ::testing::TestWithParam<const char*> {
+class HTTPSessionAcceptorTestBase
+    : public ::testing::TestWithParam<const char*> {
  public:
-
   virtual void setupSSL() {
     sslCtxConfig_.setCertificate(
-      kTestDir + "test_cert1.pem",
-      kTestDir + "test_cert1.key",
-      "");
+        kTestDir + "test_cert1.pem", kTestDir + "test_cert1.key", "");
 
     sslCtxConfig_.isDefault = true;
     config_->sslContextConfigs.emplace_back(sslCtxConfig_);
@@ -103,12 +100,10 @@ class HTTPSessionAcceptorTestBase :
   folly::test::MockAsyncServerSocket mockServerSocket_;
 };
 
-class HTTPSessionAcceptorTestNPN :
-    public HTTPSessionAcceptorTestBase {};
-class HTTPSessionAcceptorTestNPNPlaintext :
-    public HTTPSessionAcceptorTestBase {};
-class HTTPSessionAcceptorTestNPNJunk :
-    public HTTPSessionAcceptorTestBase {};
+class HTTPSessionAcceptorTestNPN : public HTTPSessionAcceptorTestBase {};
+class HTTPSessionAcceptorTestNPNPlaintext
+    : public HTTPSessionAcceptorTestBase {};
+class HTTPSessionAcceptorTestNPNJunk : public HTTPSessionAcceptorTestBase {};
 
 // Verify HTTPSessionAcceptor creates the correct codec based on NPN
 TEST_P(HTTPSessionAcceptorTestNPN, Npn) {
@@ -126,17 +121,12 @@ TEST_P(HTTPSessionAcceptorTestNPN, Npn) {
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
   acceptor_->connectionReady(
-      std::move(sock),
-      clientAddress,
-      proto,
-      SecureTransportType::TLS,
-      tinfo);
+      std::move(sock), clientAddress, proto, SecureTransportType::TLS, tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
   EXPECT_EQ(acceptor_->sessionCreationErrors_, 0);
 }
 
-char const* protos1[] = { "h2-14", "h2", "spdy/3.1", "spdy/3",
-                          "http/1.1", "" };
+char const* protos1[] = {"h2-14", "h2", "spdy/3.1", "spdy/3", "http/1.1", ""};
 INSTANTIATE_TEST_CASE_P(NPNPositive,
                         HTTPSessionAcceptorTestNPN,
                         ::testing::ValuesIn(protos1));
@@ -155,16 +145,12 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, PlaintextProtocols) {
   SocketAddress clientAddress;
   wangle::TransportInfo tinfo;
   acceptor_->connectionReady(
-      std::move(sock),
-      clientAddress,
-      "",
-      SecureTransportType::NONE,
-      tinfo);
+      std::move(sock), clientAddress, "", SecureTransportType::NONE, tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 1);
   EXPECT_EQ(acceptor_->sessionCreationErrors_, 0);
 }
 
-char const* protos2[] = { "spdy/3", "h2c" };
+char const* protos2[] = {"spdy/3", "h2c"};
 INSTANTIATE_TEST_CASE_P(NPNPlaintext,
                         HTTPSessionAcceptorTestNPNPlaintext,
                         ::testing::ValuesIn(protos2));
@@ -177,11 +163,7 @@ TEST_F(HTTPSessionAcceptorTestNPNJunk, Npn) {
   wangle::TransportInfo tinfo;
   EXPECT_CALL(*sock.get(), closeNow());
   acceptor_->connectionReady(
-      std::move(sock),
-      clientAddress,
-      proto,
-      SecureTransportType::NONE,
-      tinfo);
+      std::move(sock), clientAddress, proto, SecureTransportType::NONE, tinfo);
   EXPECT_EQ(acceptor_->sessionsCreated_, 0);
   EXPECT_EQ(acceptor_->sessionCreationErrors_, 1);
 }

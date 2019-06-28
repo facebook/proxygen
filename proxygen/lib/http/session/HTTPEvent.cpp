@@ -44,4 +44,4 @@ std::ostream& operator<<(std::ostream& os, HTTPEvent::Type e) {
   return os;
 }
 
-}
+} // namespace proxygen

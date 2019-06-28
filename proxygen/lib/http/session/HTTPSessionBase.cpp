@@ -23,30 +23,28 @@ uint32_t HTTPSessionBase::maxReadBufferSize_ = 4000;
 uint32_t HTTPSessionBase::egressBodySizeLimit_ = 4096;
 uint32_t HTTPSessionBase::kDefaultWriteBufLimit = 65536;
 
-
-HTTPSessionBase::HTTPSessionBase(
-  const SocketAddress& localAddr,
-  const SocketAddress& peerAddr,
-  HTTPSessionController* controller,
-  const TransportInfo& tinfo,
-  InfoCallback* infoCallback,
-  std::unique_ptr<HTTPCodec> codec,
-  const WheelTimerInstance& timeout,
-  HTTPCodec::StreamID rootNodeId) :
-    infoCallback_(infoCallback),
-    transportInfo_(tinfo),
-    codec_(std::move(codec)),
-    txnEgressQueue_(isHTTP2CodecProtocol(codec_->getProtocol()) ?
-                    WheelTimerInstance(timeout) :
-                    WheelTimerInstance(),
-                    rootNodeId),
-    localAddr_(localAddr),
-    peerAddr_(peerAddr),
-    prioritySample_(false),
-    h2PrioritiesEnabled_(true),
-    inResume_(false),
-    pendingPause_(false),
-    exHeadersEnabled_(false) {
+HTTPSessionBase::HTTPSessionBase(const SocketAddress& localAddr,
+                                 const SocketAddress& peerAddr,
+                                 HTTPSessionController* controller,
+                                 const TransportInfo& tinfo,
+                                 InfoCallback* infoCallback,
+                                 std::unique_ptr<HTTPCodec> codec,
+                                 const WheelTimerInstance& timeout,
+                                 HTTPCodec::StreamID rootNodeId)
+    : infoCallback_(infoCallback),
+      transportInfo_(tinfo),
+      codec_(std::move(codec)),
+      txnEgressQueue_(isHTTP2CodecProtocol(codec_->getProtocol())
+                          ? WheelTimerInstance(timeout)
+                          : WheelTimerInstance(),
+                      rootNodeId),
+      localAddr_(localAddr),
+      peerAddr_(peerAddr),
+      prioritySample_(false),
+      h2PrioritiesEnabled_(true),
+      inResume_(false),
+      pendingPause_(false),
+      exHeadersEnabled_(false) {
 
   // If we receive IPv4-mapped IPv6 addresses, convert them to IPv4.
   localAddr_.tryConvertToIPv4();
@@ -80,12 +78,14 @@ void HTTPSessionBase::initCodecHeaderIndexingStrategy() {
   if (controller_ && isHTTP2CodecProtocol(codec_->getProtocol())) {
     HTTP2Codec* h2Codec = static_cast<HTTP2Codec*>(codec_.getChainEndPtr());
     h2Codec->setHeaderIndexingStrategy(
-      controller_->getHeaderIndexingStrategy());
+        controller_->getHeaderIndexingStrategy());
   }
 }
 
-bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain, size_t length,
-                                 uint16_t padding, HTTPTransaction* txn) {
+bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
+                                 size_t length,
+                                 uint16_t padding,
+                                 HTTPTransaction* txn) {
   DestructorGuard dg(this);
   auto oldSize = pendingReadSize_;
   pendingReadSize_ += length + padding;
@@ -94,10 +94,8 @@ bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain, size_t len
     // Transaction must have buffered something and not called
     // notifyBodyProcessed() on it.
     VLOG(4) << *this << " Enqueued ingress. Ingress buffer uses "
-            << pendingReadSize_  << " of "  << readBufLimit_
-            << " bytes.";
-    if (pendingReadSize_ > readBufLimit_ &&
-        oldSize <= readBufLimit_) {
+            << pendingReadSize_ << " of " << readBufLimit_ << " bytes.";
+    if (pendingReadSize_ > readBufLimit_ && oldSize <= readBufLimit_) {
       if (infoCallback_) {
         infoCallback_->onIngressLimitExceeded(*this);
       }
@@ -112,17 +110,15 @@ bool HTTPSessionBase::notifyBodyProcessed(uint32_t bytes) {
   auto oldSize = pendingReadSize_;
   pendingReadSize_ -= bytes;
   VLOG(4) << *this << " Dequeued " << bytes << " bytes of ingress. "
-    << "Ingress buffer uses " << pendingReadSize_  << " of "
-    << readBufLimit_ << " bytes.";
-  if (oldSize > readBufLimit_ &&
-      pendingReadSize_ <= readBufLimit_) {
+          << "Ingress buffer uses " << pendingReadSize_ << " of "
+          << readBufLimit_ << " bytes.";
+  if (oldSize > readBufLimit_ && pendingReadSize_ <= readBufLimit_) {
     return true;
   }
   return false;
 }
 
-bool
-HTTPSessionBase::notifyEgressBodyBuffered(int64_t bytes, bool update) {
+bool HTTPSessionBase::notifyEgressBodyBuffered(int64_t bytes, bool update) {
   pendingWriteSizeDelta_ += bytes;
   VLOG(4) << __func__ << " pwsd=" << pendingWriteSizeDelta_;
   // any net change requires us to update pause/resume state in the
@@ -135,8 +131,7 @@ HTTPSessionBase::notifyEgressBodyBuffered(int64_t bytes, bool update) {
   return true;
 }
 
-void
-HTTPSessionBase::updateWriteBufSize(int64_t delta) {
+void HTTPSessionBase::updateWriteBufSize(int64_t delta) {
   // This is the sum of body bytes buffered within transactions_ and in
   // the sock_'s write buffer.
   delta += pendingWriteSizeDelta_;
@@ -180,8 +175,10 @@ void HTTPSessionBase::resumeTransactions() {
   CHECK(!inResume_);
   inResume_ = true;
   DestructorGuard g(this);
-  auto resumeFn = [] (HTTP2PriorityQueue&, HTTPCodec::StreamID,
-                      HTTPTransaction *txn, double) {
+  auto resumeFn = [](HTTP2PriorityQueue&,
+                     HTTPCodec::StreamID,
+                     HTTPTransaction* txn,
+                     double) {
     if (txn) {
       txn->resumeEgress();
     }
@@ -200,9 +197,7 @@ void HTTPSessionBase::resumeTransactions() {
   }
 }
 
-
-void
-HTTPSessionBase::setNewTransactionPauseState(HTTPTransaction* txn) {
+void HTTPSessionBase::setNewTransactionPauseState(HTTPTransaction* txn) {
   if (!egressLimitExceeded()) {
     return;
   }
@@ -213,9 +208,8 @@ HTTPSessionBase::setNewTransactionPauseState(HTTPTransaction* txn) {
   txn->pauseEgress();
 }
 
-void
-HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
-                                     const HTTPException& error) {
+void HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
+                                          const HTTPException& error) {
   VLOG(4) << *this << " creating direct error handler";
   DCHECK(txn);
   auto handler = getParseErrorHandler(txn, error);
@@ -230,9 +224,8 @@ HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
   txn->onError(error);
 }
 
-HTTPTransaction::Handler*
-HTTPSessionBase::getParseErrorHandler(HTTPTransaction* txn,
-                                      const HTTPException& error) {
+HTTPTransaction::Handler* HTTPSessionBase::getParseErrorHandler(
+    HTTPTransaction* txn, const HTTPException& error) {
   // we encounter an error before we finish reading the ingress headers.
   if (codec_->getTransportDirection() == TransportDirection::UPSTREAM) {
     // do not return the parse error handler for upstreams, since all we
@@ -257,12 +250,11 @@ void HTTPSessionBase::attachToSessionController() {
   }
 }
 
-void HTTPSessionBase::handleLastByteEvents(
-  ByteEventTracker* byteEventTracker,
-  HTTPTransaction* txn,
-  size_t encodedSize,
-  size_t byteOffset,
-  bool piggybacked)  {
+void HTTPSessionBase::handleLastByteEvents(ByteEventTracker* byteEventTracker,
+                                           HTTPTransaction* txn,
+                                           size_t encodedSize,
+                                           size_t byteOffset,
+                                           bool piggybacked) {
   // TODO: sort out the TransportCallback for all the EOM handling cases.
   //  Current code has the same behavior as before when there wasn't commonEom.
   //  The issue here is onEgressBodyLastByte can be called twice, depending on
@@ -276,8 +268,8 @@ void HTTPSessionBase::handleLastByteEvents(
   // in case encodedSize == 0 we won't get TTLBA which is acceptable
   // noting the fact that we don't have a response body
   if (byteEventTracker && (encodedSize > 0)) {
-     byteEventTracker->addLastByteEvent(txn, byteOffset);
+    byteEventTracker->addLastByteEvent(txn, byteOffset);
   }
 }
 
-}
+} // namespace proxygen

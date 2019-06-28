@@ -27,7 +27,8 @@ class HTTPTransactionHandler;
 
 class HTTPSessionController {
  public:
-  virtual ~HTTPSessionController() {}
+  virtual ~HTTPSessionController() {
+  }
 
   /**
    * Will be invoked whenever HTTPSession successfully parses a
@@ -40,8 +41,8 @@ class HTTPSessionController {
    * setTransaction.  The request message will be passed in
    * onHeadersComplete.
    */
-  virtual HTTPTransactionHandler* getRequestHandler(
-    HTTPTransaction& txn, HTTPMessage* msg) = 0;
+  virtual HTTPTransactionHandler* getRequestHandler(HTTPTransaction& txn,
+                                                    HTTPMessage* msg) = 0;
 
   /**
    * Will be invoked when HTTPSession is unable to parse a new request
@@ -50,16 +51,15 @@ class HTTPSessionController {
    * error contains specific information about what went wrong
    */
   virtual HTTPTransactionHandler* getParseErrorHandler(
-    HTTPTransaction* txn,
-    const HTTPException& error,
-    const folly::SocketAddress& localAddress) = 0;
+      HTTPTransaction* txn,
+      const HTTPException& error,
+      const folly::SocketAddress& localAddress) = 0;
 
   /**
    * Will be invoked when HTTPSession times out parsing a new request.
    */
   virtual HTTPTransactionHandler* getTransactionTimeoutHandler(
-    HTTPTransaction* txn,
-    const folly::SocketAddress& localAddress) = 0;
+      HTTPTransaction* txn, const folly::SocketAddress& localAddress) = 0;
 
   /**
    * Inform the controller it is associated with this particular session.
@@ -74,7 +74,8 @@ class HTTPSessionController {
   /**
    * Inform the controller that the session's codec changed
    */
-  virtual void onSessionCodecChange(HTTPSessionBase* /*session*/) {}
+  virtual void onSessionCodecChange(HTTPSessionBase* /*session*/) {
+  }
 
   /**
    * Optionally allow the session to query custom graceful shutdown timeout.
@@ -97,7 +98,6 @@ class HTTPSessionController {
     return HeaderIndexingStrategy::getDefaultInstance();
   }
 };
-
 
 class HTTPUpstreamSessionController : public HTTPSessionController {
   HTTPTransactionHandler* getRequestHandler(HTTPTransaction& /*txn*/,
@@ -131,4 +131,4 @@ class HTTPUpstreamSessionController : public HTTPSessionController {
   }
 };
 
-} // proxygen
+} // namespace proxygen

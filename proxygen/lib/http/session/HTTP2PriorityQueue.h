@@ -15,20 +15,20 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 
-#include <list>
-#include <deque>
 #include <boost/intrusive/unordered_set.hpp>
+#include <deque>
+#include <list>
 
 namespace proxygen {
 
 class HTTPTransaction;
 
-
 class HTTP2PriorityQueueBase : public HTTPCodec::PriorityQueue {
  public:
   class BaseNode {
    public:
-    virtual ~BaseNode() {}
+    virtual ~BaseNode() {
+    }
     virtual bool isEnqueued() const = 0;
     virtual uint64_t calculateDepth(bool includeVirtual = true) const = 0;
   };
@@ -36,18 +36,19 @@ class HTTP2PriorityQueueBase : public HTTPCodec::PriorityQueue {
   using Handle = BaseNode*;
 
   explicit HTTP2PriorityQueueBase(HTTPCodec::StreamID rootNodeId)
-    : rootNodeId_(rootNodeId) {}
+      : rootNodeId_(rootNodeId) {
+  }
 
   virtual Handle addTransaction(HTTPCodec::StreamID id,
                                 http2::PriorityUpdate pri,
-                                HTTPTransaction *txn, bool permanent = false,
+                                HTTPTransaction* txn,
+                                bool permanent = false,
                                 uint64_t* depth = nullptr) = 0;
 
   // update the priority of an existing node
-  virtual Handle updatePriority(
-    Handle handle,
-    http2::PriorityUpdate pri,
-    uint64_t* depth = nullptr) = 0;
+  virtual Handle updatePriority(Handle handle,
+                                http2::PriorityUpdate pri,
+                                uint64_t* depth = nullptr) = 0;
 
   // Remove the transaction from the priority tree
   virtual void removeTransaction(Handle handle) = 0;
@@ -70,13 +71,12 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
  private:
   class Node;
-  using NodeMap = boost::intrusive::unordered_set<
-    Node, boost::intrusive::constant_time_size<false>>;
+  using NodeMap = boost::intrusive::
+      unordered_set<Node, boost::intrusive::constant_time_size<false>>;
 
   static const size_t kNumBuckets = 100;
 
  public:
-
   HTTP2PriorityQueue(HTTPCodec::StreamID rootNodeId = 0)
       : HTTP2PriorityQueueBase(rootNodeId),
         nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)),
@@ -108,7 +108,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   void clearPendingEgress(Handle h) override;
 
   void addPriorityNode(HTTPCodec::StreamID id,
-                       HTTPCodec::StreamID parent) override{
+                       HTTPCodec::StreamID parent) override {
     addTransaction(id, {parent, false, 0}, nullptr, true);
   }
 
@@ -120,15 +120,16 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   }
 
   // adds new transaction (possibly nullptr) to the priority tree
-  Handle addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
-                        HTTPTransaction *txn, bool permanent = false,
+  Handle addTransaction(HTTPCodec::StreamID id,
+                        http2::PriorityUpdate pri,
+                        HTTPTransaction* txn,
+                        bool permanent = false,
                         uint64_t* depth = nullptr) override;
 
   // update the priority of an existing node
-  Handle updatePriority(
-      Handle handle,
-      http2::PriorityUpdate pri,
-      uint64_t* depth = nullptr) override;
+  Handle updatePriority(Handle handle,
+                        http2::PriorityUpdate pri,
+                        uint64_t* depth = nullptr) override;
 
   // Remove the transaction from the priority tree
   void removeTransaction(Handle handle) override;
@@ -147,18 +148,21 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     return numVirtualNodes_;
   }
 
-  void iterate(const std::function<bool(HTTPCodec::StreamID,
-                                        HTTPTransaction *, double)>& fn,
-               const std::function<bool()>& stopFn, bool all) {
+  void iterate(const std::function<
+                   bool(HTTPCodec::StreamID, HTTPTransaction*, double)>& fn,
+               const std::function<bool()>& stopFn,
+               bool all) {
     updateEnqueuedWeight();
     root_.iterate(fn, stopFn, all);
   }
 
   // stopFn is only evaluated once per level
-  void iterateBFS(const std::function<bool(HTTP2PriorityQueue&,
-                                           HTTPCodec::StreamID,
-                                           HTTPTransaction *, double)>& fn,
-                  const std::function<bool()>& stopFn, bool all);
+  void iterateBFS(
+      const std::function<bool(
+          HTTP2PriorityQueue&, HTTPCodec::StreamID, HTTPTransaction*, double)>&
+          fn,
+      const std::function<bool()>& stopFn,
+      bool all);
 
   using NextEgressResult = std::vector<std::pair<HTTPTransaction*, double>>;
 
@@ -172,8 +176,12 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   // Rebuilds tree by making all non-root nodes direct children of the root and
   // weight reset to the default 16
   void rebuildTree();
-  uint32_t getRebuildCount() const { return rebuildCount_; }
-  bool isRebuilt() const { return rebuildCount_ > 0; }
+  uint32_t getRebuildCount() const {
+    return rebuildCount_;
+  }
+  bool isRebuilt() const {
+    return rebuildCount_ > 0;
+  }
 
  private:
   // Find the node in priority tree
@@ -190,7 +198,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     return timeout_ && kNodeLifetime_.count() > 0;
   }
 
-  void scheduleNodeExpiration(Node *node) {
+  void scheduleNodeExpiration(Node* node) {
     if (timeout_) {
       VLOG(5) << "scheduling expiration for node=" << node->getID();
       DCHECK_GT(kNodeLifetime_.count(), 0);
@@ -199,7 +207,8 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   }
 
   static bool nextEgressResult(HTTP2PriorityQueue& queue,
-                               HTTPCodec::StreamID id, HTTPTransaction* txn,
+                               HTTPCodec::StreamID id,
+                               HTTPTransaction* txn,
                                double r);
 
   void updateEnqueuedWeight();
@@ -207,15 +216,18 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
  private:
   typedef boost::intrusive::link_mode<boost::intrusive::auto_unlink> link_mode;
 
-  class Node : public BaseNode,
-               public folly::HHWheelTimer::Callback,
-               public boost::intrusive::unordered_set_base_hook<link_mode> {
+  class Node
+      : public BaseNode
+      , public folly::HHWheelTimer::Callback
+      , public boost::intrusive::unordered_set_base_hook<link_mode> {
    public:
-
     static const uint16_t kDefaultWeight = 16;
 
-    Node(HTTP2PriorityQueue& queue, Node* inParent, HTTPCodec::StreamID id,
-         uint8_t weight, HTTPTransaction *txn);
+    Node(HTTP2PriorityQueue& queue,
+         Node* inParent,
+         HTTPCodec::StreamID id,
+         uint8_t weight,
+         HTTPTransaction* txn);
 
     ~Node() override;
 
@@ -291,7 +303,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     Node* reparent(Node* newParent, bool exclusive);
 
     // Returns true if this is a descendant of node
-    bool isDescendantOf(Node *node) const;
+    bool isDescendantOf(Node* node) const;
 
     // True if this Node is in the egress queue
     bool isEnqueued() const override {
@@ -335,25 +347,29 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
      *   txn - HTTPTransaction for the node
      *   ratio - weight of this txn relative to all peers (not just enequeued)
      */
-    bool iterate(const std::function<bool(HTTPCodec::StreamID,
-                                          HTTPTransaction *, double)>& fn,
-                 const std::function<bool()>& stopFn, bool all);
+    bool iterate(const std::function<
+                     bool(HTTPCodec::StreamID, HTTPTransaction*, double)>& fn,
+                 const std::function<bool()>& stopFn,
+                 bool all);
 
     struct PendingNode {
       HTTPCodec::StreamID id;
       Node* node;
       double ratio;
-      PendingNode(HTTPCodec::StreamID i, Node* n, double r) :
-          id(i), node(n), ratio(r) {}
+      PendingNode(HTTPCodec::StreamID i, Node* n, double r)
+          : id(i), node(n), ratio(r) {
+      }
     };
 
     using PendingList = std::deque<PendingNode>;
     bool visitBFS(double relativeParentWeight,
                   const std::function<bool(HTTP2PriorityQueue& queue,
                                            HTTPCodec::StreamID,
-                                           HTTPTransaction *, double)>& fn,
+                                           HTTPTransaction*,
+                                           double)>& fn,
                   bool all,
-                  PendingList& pendingNodes, bool enqueuedChildren);
+                  PendingList& pendingNodes,
+                  bool enqueuedChildren);
 
     void updateEnqueuedWeight(bool activeNodes);
 
@@ -380,7 +396,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
     void removeEnqueuedChild(HTTP2PriorityQueue::Node* node);
 
-    static void propagatePendingEgressSignal(Node *node);
+    static void propagatePendingEgressSignal(Node* node);
 
     static void propagatePendingEgressClear(Node* node);
 
@@ -398,10 +414,10 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     }
 
     HTTP2PriorityQueue& queue_;
-    Node *parent_{nullptr};
+    Node* parent_{nullptr};
     HTTPCodec::StreamID id_;
     uint16_t weight_{kDefaultWeight};
-    HTTPTransaction *txn_{nullptr};
+    HTTPTransaction* txn_{nullptr};
     bool isPermanent_{false};
     bool enqueued_{false};
 #ifndef NDEBUG
@@ -433,4 +449,4 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   static std::chrono::milliseconds kNodeLifetime_;
 };
 
-}
+} // namespace proxygen

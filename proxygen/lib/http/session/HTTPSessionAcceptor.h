@@ -9,13 +9,13 @@
  */
 #pragma once
 
+#include <folly/io/async/AsyncSSLSocket.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPErrorPage.h>
 #include <proxygen/lib/http/session/SimpleController.h>
 #include <proxygen/lib/services/HTTPAcceptor.h>
-#include <folly/io/async/AsyncSSLSocket.h>
 
 namespace proxygen {
 
@@ -25,10 +25,10 @@ class HTTPSessionStats;
  * Specialization of Acceptor that serves as an abstract base for
  * acceptors that support HTTP and related protocols.
  */
-class HTTPSessionAcceptor:
-  public HTTPAcceptor,
-  private HTTPSessionBase::InfoCallback {
-public:
+class HTTPSessionAcceptor
+    : public HTTPAcceptor
+    , private HTTPSessionBase::InfoCallback {
+ public:
   explicit HTTPSessionAcceptor(const AcceptorConfiguration& accConfig);
   explicit HTTPSessionAcceptor(const AcceptorConfiguration& accConfig,
                                std::shared_ptr<HTTPCodecFactory> codecFactory);
@@ -94,8 +94,8 @@ public:
    * handler later via setTransaction.  The request message will be passed
    * in onHeadersComplete.
    */
-  virtual HTTPTransaction::Handler* newHandler(
-    HTTPTransaction& txn, HTTPMessage* msg) noexcept = 0;
+  virtual HTTPTransaction::Handler* newHandler(HTTPTransaction& txn,
+                                               HTTPMessage* msg) noexcept = 0;
 
   /**
    * Set an HTTPSession::InfoCallback to use for each session instead of the
@@ -109,7 +109,7 @@ public:
     return accConfig_.HTTP2PrioritiesEnabled;
   }
 
-protected:
+ protected:
   /**
    * This function is invoked when a new session is created to get the
    * controller to associate with the new session. Child classes may
@@ -127,12 +127,11 @@ protected:
   }
 
   // Acceptor methods
-  void onNewConnection(
-    folly::AsyncTransportWrapper::UniquePtr sock,
-    const folly::SocketAddress* address,
-    const std::string& nextProtocol,
-    wangle::SecureTransportType secureTransportType,
-    const wangle::TransportInfo& tinfo) override;
+  void onNewConnection(folly::AsyncTransportWrapper::UniquePtr sock,
+                       const folly::SocketAddress* address,
+                       const std::string& nextProtocol,
+                       wangle::SecureTransportType secureTransportType,
+                       const wangle::TransportInfo& tinfo) override;
 
   folly::AsyncSocket::UniquePtr makeNewAsyncSocket(folly::EventBase* base,
                                                    int fd) override {
@@ -142,7 +141,8 @@ protected:
 
   virtual size_t dropIdleConnections(size_t num);
 
-  virtual void onSessionCreationError(ProxygenError /*error*/) {}
+  virtual void onSessionCreationError(ProxygenError /*error*/) {
+  }
 
  private:
   HTTPSessionAcceptor(const HTTPSessionAcceptor&) = delete;
@@ -166,4 +166,4 @@ protected:
   static const folly::SocketAddress unknownSocketAddress_;
 };
 
-} // proxygen
+} // namespace proxygen

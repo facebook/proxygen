@@ -1672,8 +1672,7 @@ void HQSession::onNewPushStream(quic::StreamId pushStreamId,
 
   if (ingressPushStream) {
     auto bound = tryBindIngressStreamToTxn(pushId, ingressPushStream);
-    VLOG(4) << __func__
-            << " bound=" << bound << " pushID=" << pushId
+    VLOG(4) << __func__ << " bound=" << bound << " pushID=" << pushId
             << " pushStreamID=" << pushStreamId << " to txn ";
   }
 }

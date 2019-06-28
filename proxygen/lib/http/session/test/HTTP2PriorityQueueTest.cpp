@@ -19,8 +19,8 @@
 
 using namespace std::placeholders;
 using namespace testing;
-using folly::Random;
 using folly::HHWheelTimer;
+using folly::Random;
 using folly::test::MockTimeoutManager;
 
 namespace {
@@ -39,14 +39,14 @@ proxygen::HTTPCodec::StreamID getTxnID(proxygen::HTTPTransaction* txn) {
 
 // folly::Random::rand32 is broken because it takes RNG by value
 uint32_t rand32(uint32_t max, folly::Random::DefaultGenerator& rng) {
-    if (max == 0) {
-      return 0;
-    }
-
-    return std::uniform_int_distribution<uint32_t>(0, max - 1)(rng);
+  if (max == 0) {
+    return 0;
   }
 
+  return std::uniform_int_distribution<uint32_t>(0, max - 1)(rng);
 }
+
+} // namespace
 
 namespace proxygen {
 
@@ -54,15 +54,16 @@ using IDList = std::list<std::pair<HTTPCodec::StreamID, uint8_t>>;
 
 class QueueTest : public testing::Test {
  public:
-  explicit QueueTest(HHWheelTimer* timer=nullptr)
+  explicit QueueTest(HHWheelTimer* timer = nullptr)
       : q_(WheelTimerInstance(timer), kRootNodeId) {
   }
 
  protected:
-  void addTransaction(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
-                     bool pnode=false, uint64_t* depth = nullptr) {
-    HTTP2PriorityQueue::Handle h =
-      q_.addTransaction(
+  void addTransaction(HTTPCodec::StreamID id,
+                      http2::PriorityUpdate pri,
+                      bool pnode = false,
+                      uint64_t* depth = nullptr) {
+    HTTP2PriorityQueue::Handle h = q_.addTransaction(
         id, pri, pnode ? nullptr : makeFakeTxn(id), false, depth);
     handles_.insert(std::make_pair(id, h));
     if (!pnode) {
@@ -74,7 +75,8 @@ class QueueTest : public testing::Test {
     q_.removeTransaction(handles_[id]);
   }
 
-  void updatePriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri,
+  void updatePriority(HTTPCodec::StreamID id,
+                      http2::PriorityUpdate pri,
                       uint64_t* depth = nullptr) {
     handles_[id] = q_.updatePriority(handles_[id], pri, depth);
   }
@@ -95,8 +97,10 @@ class QueueTest : public testing::Test {
     addTransaction(9, {5, false, 7});
   }
 
-  bool visitNode(HTTP2PriorityQueue&, HTTPCodec::StreamID id,
-                 HTTPTransaction*, double r) {
+  bool visitNode(HTTP2PriorityQueue&,
+                 HTTPCodec::StreamID id,
+                 HTTPTransaction*,
+                 double r) {
     nodes_.push_back(std::make_pair(id, r * 100));
     return false;
   }
@@ -104,20 +108,21 @@ class QueueTest : public testing::Test {
   void dump() {
     nodes_.clear();
     q_.iterate(std::bind(&QueueTest::visitNode, this, std::ref(q_), _1, _2, _3),
-               [] { return false; }, true);
+               [] { return false; },
+               true);
   }
 
   void dumpBFS(const std::function<bool()>& stopFn) {
     nodes_.clear();
-    q_.iterateBFS(std::bind(&QueueTest::visitNode, this, _1, _2, _3, _4),
-                  stopFn, true);
+    q_.iterateBFS(
+        std::bind(&QueueTest::visitNode, this, _1, _2, _3, _4), stopFn, true);
   }
 
-  void nextEgress(bool spdyMode=false) {
+  void nextEgress(bool spdyMode = false) {
     HTTP2PriorityQueue::NextEgressResult nextEgressResults;
     q_.nextEgress(nextEgressResults, spdyMode);
     nodes_.clear();
-    for (auto p: nextEgressResults) {
+    for (auto p : nextEgressResults) {
       nodes_.push_back(std::make_pair(getTxnID(p.first), p.second * 100));
     }
   }
@@ -126,7 +131,6 @@ class QueueTest : public testing::Test {
   std::map<HTTPCodec::StreamID, HTTP2PriorityQueue::Handle> handles_;
   IDList nodes_;
 };
-
 
 TEST_F(QueueTest, Basic) {
   buildSimpleTree();
@@ -228,9 +232,7 @@ TEST_F(QueueTest, DuplicateID) {
   addTransaction(5, {3, false, 15});
   addTransaction(3, {5, false, 15});
   removeTransaction(5);
-  auto stopFn = [] {
-    return false;
-  };
+  auto stopFn = [] { return false; };
 
   dumpBFS(stopFn);
   EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 100}}));
@@ -280,10 +282,8 @@ TEST_F(QueueTest, UpdateWeightUnknownParent) {
   updatePriority(5, {97, false, 15}, &depth);
   dump();
 
-  EXPECT_EQ(
-    nodes_,
-    IDList({{0, 50}, {3, 33}, {7, 66}, {97, 50}, {5, 100}, {9, 100}})
-  );
+  EXPECT_EQ(nodes_,
+            IDList({{0, 50}, {3, 33}, {7, 66}, {97, 50}, {5, 100}, {9, 100}}));
   EXPECT_EQ(depth, 2);
 
   depth = 0;
@@ -291,9 +291,9 @@ TEST_F(QueueTest, UpdateWeightUnknownParent) {
   dump();
 
   EXPECT_EQ(
-    nodes_,
-    IDList({{0, 33}, {3, 33}, {7, 66}, {97, 33}, {5, 100}, {99, 33}, {9, 100}})
-  );
+      nodes_,
+      IDList(
+          {{0, 33}, {3, 33}, {7, 66}, {97, 33}, {5, 100}, {99, 33}, {9, 100}}));
   EXPECT_EQ(depth, 2);
 }
 
@@ -303,8 +303,7 @@ TEST_F(QueueTest, UpdateParentSibling) {
   updatePriority(5, {3, false, 3});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 33}, {5, 100},
-                               {9, 100}, {7, 66}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 33}, {5, 100}, {9, 100}, {7, 66}}));
   signalEgress(0, false);
   nextEgress();
   EXPECT_EQ(nodes_, IDList({{7, 66}, {3, 33}}));
@@ -327,8 +326,7 @@ TEST_F(QueueTest, UpdateParentSiblingExcl) {
   updatePriority(7, {5, true, 3});
   dump();
 
-  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 50}, {5, 50},
-                              {7, 100}, {9, 100}}));
+  EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 50}, {5, 50}, {7, 100}, {9, 100}}));
   signalEgress(0, false);
   signalEgress(3, false);
   signalEgress(5, false);
@@ -393,9 +391,8 @@ TEST_F(QueueTest, ExclusiveAdd) {
   addTransaction(11, {0, true, 100});
 
   dump();
-  EXPECT_EQ(nodes_, IDList({
-        {0, 100}, {11, 100}, {3, 25}, {5, 25}, {9, 100}, {7, 50}
-      }));
+  EXPECT_EQ(nodes_,
+            IDList({{0, 100}, {11, 100}, {3, 25}, {5, 25}, {9, 100}, {7, 50}}));
 }
 
 TEST_F(QueueTest, AddUnknown) {
@@ -404,18 +401,24 @@ TEST_F(QueueTest, AddUnknown) {
   addTransaction(11, {75, false, 15});
 
   dump();
-  EXPECT_EQ(nodes_, IDList({
-        {0, 50}, {3, 25}, {5, 25}, {9, 100}, {7, 50}, {75, 50}, {11, 100}
-      }));
+  EXPECT_EQ(
+      nodes_,
+      IDList(
+          {{0, 50}, {3, 25}, {5, 25}, {9, 100}, {7, 50}, {75, 50}, {11, 100}}));
 
   // Now let's add the missing parent node and check if it was
   // relocated properly
   addTransaction(75, {0, false, 7});
 
   dump();
-  EXPECT_EQ(nodes_, IDList({
-        {0, 100}, {3, 16}, {5, 16}, {9, 100}, {7, 33}, {75, 33}, {11, 100}
-      }));
+  EXPECT_EQ(nodes_,
+            IDList({{0, 100},
+                    {3, 16},
+                    {5, 16},
+                    {9, 100},
+                    {7, 33},
+                    {75, 33},
+                    {11, 100}}));
 }
 
 TEST_F(QueueTest, AddMax) {
@@ -442,9 +445,7 @@ TEST_F(QueueTest, Misc) {
 TEST_F(QueueTest, IterateBFS) {
   buildSimpleTree();
 
-  auto stopFn = [this] {
-    return nodes_.size() > 2;
-  };
+  auto stopFn = [this] { return nodes_.size() > 2; };
 
   dumpBFS(stopFn);
   EXPECT_EQ(nodes_, IDList({{0, 100}, {3, 25}, {5, 25}, {7, 50}}));
@@ -679,7 +680,6 @@ TEST_F(QueueTest, ChromeTest) {
       nextEgress();
       EXPECT_GT(nodes_.size(), 0);
     }
-
   }
 }
 
@@ -721,19 +721,19 @@ class DanglingQueueTestBase {
   DanglingQueueTestBase() {
     // Just under two ticks
     HTTP2PriorityQueue::setNodeLifetime(
-      std::chrono::milliseconds(2 * HHWheelTimer::DEFAULT_TICK_INTERVAL - 1));
+        std::chrono::milliseconds(2 * HHWheelTimer::DEFAULT_TICK_INTERVAL - 1));
     EXPECT_CALL(timeoutManager_, scheduleTimeout(_, _))
-      .WillRepeatedly(Invoke([this] (folly::AsyncTimeout* timeout,
-                                     std::chrono::milliseconds) {
-                               timeouts_.push_back(timeout);
-                               return true;
-                             }));
+        .WillRepeatedly(Invoke(
+            [this](folly::AsyncTimeout* timeout, std::chrono::milliseconds) {
+              timeouts_.push_back(timeout);
+              return true;
+            }));
   }
 
  protected:
   void expireNodes() {
     std::this_thread::sleep_for(
-      std::chrono::milliseconds(2 * HHWheelTimer::DEFAULT_TICK_INTERVAL));
+        std::chrono::milliseconds(2 * HHWheelTimer::DEFAULT_TICK_INTERVAL));
     // Node lifetime it just under two ticks, so firing twice expires all nodes
     tick();
     tick();
@@ -742,7 +742,7 @@ class DanglingQueueTestBase {
   void tick() {
     std::list<folly::AsyncTimeout*> timeouts;
     std::swap(timeouts_, timeouts);
-    for (auto timeout: timeouts) {
+    for (auto timeout : timeouts) {
       timeout->timeoutExpired();
     }
   }
@@ -755,11 +755,11 @@ class DanglingQueueTestBase {
 // Order declaration of the base classes for this fixture matters here: we want
 // to pass the timer initialized as part of DanglingQueueTest into to QueueTest,
 // so it must be initialized first.
-class DanglingQueueTest : public DanglingQueueTestBase, public QueueTest {
+class DanglingQueueTest
+    : public DanglingQueueTestBase
+    , public QueueTest {
  public:
-  DanglingQueueTest() :
-    DanglingQueueTestBase(),
-    QueueTest(&timer_) {
+  DanglingQueueTest() : DanglingQueueTestBase(), QueueTest(&timer_) {
   }
 };
 
@@ -814,8 +814,7 @@ TEST_F(DanglingQueueTest, ExpireParentOfMismatchedTwins) {
   EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
 }
 
-
-class DummyTimeout: public HHWheelTimer::Callback {
+class DummyTimeout : public HHWheelTimer::Callback {
   void timeoutExpired() noexcept override {
   }
 };
@@ -869,4 +868,4 @@ TEST_F(QueueTest, Rebuild) {
   EXPECT_EQ(nodes_, IDList({{3, 20}, {9, 20}, {5, 20}, {7, 20}, {0, 20}}));
 }
 
-}
+} // namespace proxygen

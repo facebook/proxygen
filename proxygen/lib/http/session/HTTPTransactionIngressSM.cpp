@@ -32,48 +32,53 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
   using TransitionTable = std::map<std::pair<State, Event>, State>;
 
   static const folly::Indestructible<TransitionTable> transitions{
-    TransitionTable{
-    {{State::Start, Event::onHeaders}, State::HeadersReceived},
+      TransitionTable{
+          {{State::Start, Event::onHeaders}, State::HeadersReceived},
 
-    // For HTTP receiving 100 response, then a regular response
-    {{State::HeadersReceived, Event::onHeaders}, State::HeadersReceived},
+          // For HTTP receiving 100 response, then a regular response
+          {{State::HeadersReceived, Event::onHeaders}, State::HeadersReceived},
 
-    {{State::HeadersReceived, Event::onBody}, State::RegularBodyReceived},
-    {{State::HeadersReceived, Event::onChunkHeader},
-     State::ChunkHeaderReceived},
-    // special case - 0 byte body with trailers
-    {{State::HeadersReceived, Event::onTrailers}, State::TrailersReceived},
-    {{State::HeadersReceived, Event::onUpgrade}, State::UpgradeComplete},
-    {{State::HeadersReceived, Event::onEOM}, State::EOMQueued},
+          {{State::HeadersReceived, Event::onBody}, State::RegularBodyReceived},
+          {{State::HeadersReceived, Event::onChunkHeader},
+           State::ChunkHeaderReceived},
+          // special case - 0 byte body with trailers
+          {{State::HeadersReceived, Event::onTrailers},
+           State::TrailersReceived},
+          {{State::HeadersReceived, Event::onUpgrade}, State::UpgradeComplete},
+          {{State::HeadersReceived, Event::onEOM}, State::EOMQueued},
 
-    {{State::RegularBodyReceived, Event::onBody}, State::RegularBodyReceived},
-    // HTTP2 supports trailers and doesn't handle body as chunked events
-    {{State::RegularBodyReceived, Event::onTrailers}, State::TrailersReceived},
-    {{State::RegularBodyReceived, Event::onEOM}, State::EOMQueued},
+          {{State::RegularBodyReceived, Event::onBody},
+           State::RegularBodyReceived},
+          // HTTP2 supports trailers and doesn't handle body as chunked events
+          {{State::RegularBodyReceived, Event::onTrailers},
+           State::TrailersReceived},
+          {{State::RegularBodyReceived, Event::onEOM}, State::EOMQueued},
 
-    {{State::ChunkHeaderReceived, Event::onBody}, State::ChunkBodyReceived},
+          {{State::ChunkHeaderReceived, Event::onBody},
+           State::ChunkBodyReceived},
 
-    {{State::ChunkBodyReceived, Event::onBody}, State::ChunkBodyReceived},
-    {{State::ChunkBodyReceived, Event::onChunkComplete}, State::ChunkCompleted},
+          {{State::ChunkBodyReceived, Event::onBody}, State::ChunkBodyReceived},
+          {{State::ChunkBodyReceived, Event::onChunkComplete},
+           State::ChunkCompleted},
 
-    {{State::ChunkCompleted, Event::onChunkHeader}, State::ChunkHeaderReceived},
-    // TODO: "trailers" may be received at any time due to the SPDY HEADERS
-    // frame coming at any time. We might want to have a
-    // TransactionStateMachineFactory that takes a codec and generates the
-    // appropriate transaction state machine from that.
-    {{State::ChunkCompleted, Event::onTrailers}, State::TrailersReceived},
-    {{State::ChunkCompleted, Event::onEOM}, State::EOMQueued},
+          {{State::ChunkCompleted, Event::onChunkHeader},
+           State::ChunkHeaderReceived},
+          // TODO: "trailers" may be received at any time due to the SPDY
+          // HEADERS frame coming at any time. We might want to have a
+          // TransactionStateMachineFactory that takes a codec and generates the
+          // appropriate transaction state machine from that.
+          {{State::ChunkCompleted, Event::onTrailers}, State::TrailersReceived},
+          {{State::ChunkCompleted, Event::onEOM}, State::EOMQueued},
 
-    {{State::TrailersReceived, Event::onEOM}, State::EOMQueued},
+          {{State::TrailersReceived, Event::onEOM}, State::EOMQueued},
 
-    {{State::UpgradeComplete, Event::onBody}, State::UpgradeComplete},
-    {{State::UpgradeComplete, Event::onEOM}, State::EOMQueued},
+          {{State::UpgradeComplete, Event::onBody}, State::UpgradeComplete},
+          {{State::UpgradeComplete, Event::onEOM}, State::EOMQueued},
 
-    {{State::EOMQueued, Event::eomFlushed}, State::ReceivingDone},
-    }
-  };
+          {{State::EOMQueued, Event::eomFlushed}, State::ReceivingDone},
+      }};
 
-  auto const &it = transitions->find(std::make_pair(s, e));
+  auto const& it = transitions->find(std::make_pair(s, e));
   if (it == transitions->end()) {
     return std::make_pair(s, false);
   }
@@ -151,4 +156,4 @@ std::ostream& operator<<(std::ostream& os,
   return os;
 }
 
-}
+} // namespace proxygen

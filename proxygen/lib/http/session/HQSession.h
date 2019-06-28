@@ -1004,8 +1004,9 @@ class HQSession
           // These are statically allocated in the session
           break;
         default:
-          LOG(FATAL) << "Failed to create egress codec."
-            << " unrecognized stream type=" << static_cast<uint64_t>(*type_);
+          LOG(FATAL)
+              << "Failed to create egress codec."
+              << " unrecognized stream type=" << static_cast<uint64_t>(*type_);
       }
     }
 
@@ -1671,7 +1672,7 @@ class HQSession
       return numActiveDeliveryCallbacks_;
     }
 
-  private:
+   private:
     folly::Optional<uint64_t> egressHeadersAckOffset_;
     // Track number of armed QUIC delivery callbacks.
     uint64_t numActiveDeliveryCallbacks_{0};
@@ -2188,7 +2189,6 @@ class HQSession
   std::shared_ptr<QuicProtocolInfo> quicInfo_;
   folly::Optional<HQVersion> version_;
   std::string alpn_;
-
 
  protected:
   HTTPSettings egressSettings_{

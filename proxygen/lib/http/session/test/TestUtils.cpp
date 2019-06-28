@@ -39,9 +39,8 @@ folly::HHWheelTimer::UniquePtr makeTimeoutSet(EventBase* evb) {
 
 testing::NiceMock<MockAsyncTransport>* newMockTransport(EventBase* evb) {
   auto transport = new testing::NiceMock<MockAsyncTransport>();
-  EXPECT_CALL(*transport, getEventBase())
-    .WillRepeatedly(testing::Return(evb));
+  EXPECT_CALL(*transport, getEventBase()).WillRepeatedly(testing::Return(evb));
   return transport;
 }
 
-}
+} // namespace proxygen

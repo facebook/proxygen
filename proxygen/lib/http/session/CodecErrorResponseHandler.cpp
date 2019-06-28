@@ -18,18 +18,17 @@ using std::unique_ptr;
 namespace proxygen {
 
 CodecErrorResponseHandler::CodecErrorResponseHandler(ErrorCode /*statusCode*/)
-    : txn_(nullptr) {}
+    : txn_(nullptr) {
+}
 
 CodecErrorResponseHandler::~CodecErrorResponseHandler() {
 }
 
-void
-CodecErrorResponseHandler::setTransaction(HTTPTransaction* txn) noexcept {
+void CodecErrorResponseHandler::setTransaction(HTTPTransaction* txn) noexcept {
   txn_ = txn;
 }
 
-void
-CodecErrorResponseHandler::detachTransaction() noexcept {
+void CodecErrorResponseHandler::detachTransaction() noexcept {
   delete this;
 }
 
@@ -47,16 +46,16 @@ void CodecErrorResponseHandler::onTrailers(
   VLOG(4) << "discarding request trailers";
 }
 
-void
-CodecErrorResponseHandler::onEOM() noexcept {
+void CodecErrorResponseHandler::onEOM() noexcept {
 }
 
 void CodecErrorResponseHandler::onUpgrade(
-    UpgradeProtocol /*protocol*/) noexcept {}
+    UpgradeProtocol /*protocol*/) noexcept {
+}
 
 void CodecErrorResponseHandler::onError(const HTTPException& error) noexcept {
   VLOG(4) << "processing error " << error;
   txn_->sendAbort();
 }
 
-} // proxygen
+} // namespace proxygen

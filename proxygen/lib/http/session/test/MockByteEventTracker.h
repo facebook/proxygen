@@ -17,19 +17,20 @@ namespace proxygen {
 class MockByteEventTracker : public ByteEventTracker {
  public:
   explicit MockByteEventTracker(Callback* callback)
-      : ByteEventTracker(callback) {}
+      : ByteEventTracker(callback) {
+  }
 
   MOCK_METHOD3(addPingByteEvent, void(size_t, TimePoint, uint64_t));
   MOCK_METHOD2(addFirstBodyByteEvent, void(uint64_t, HTTPTransaction*));
   MOCK_METHOD2(addFirstHeaderByteEvent, void(uint64_t, HTTPTransaction*));
   MOCK_METHOD0(drainByteEvents, size_t());
-  MOCK_METHOD2(processByteEvents, bool(std::shared_ptr<ByteEventTracker>,
-                                       uint64_t));
-  GMOCK_METHOD2_(, noexcept,, addTrackedByteEvent,
-      void(HTTPTransaction*, uint64_t));
-  GMOCK_METHOD2_(, noexcept,, addLastByteEvent,
-      void(HTTPTransaction*, uint64_t));
+  MOCK_METHOD2(processByteEvents,
+               bool(std::shared_ptr<ByteEventTracker>, uint64_t));
+  GMOCK_METHOD2_(
+      , noexcept, , addTrackedByteEvent, void(HTTPTransaction*, uint64_t));
+  GMOCK_METHOD2_(
+      , noexcept, , addLastByteEvent, void(HTTPTransaction*, uint64_t));
   MOCK_METHOD4(preSend, uint64_t(bool*, bool*, bool*, uint64_t));
 };
 
-}
+} // namespace proxygen

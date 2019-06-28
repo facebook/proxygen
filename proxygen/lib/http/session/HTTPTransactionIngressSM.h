@@ -9,16 +9,15 @@
  */
 #pragma once
 
-#include <map>
 #include <iosfwd>
+#include <map>
 #include <proxygen/lib/utils/StateMachine.h>
 
 namespace proxygen {
 
 class HTTPTransactionIngressSMData {
  public:
-
-  enum class State: uint8_t {
+  enum class State : uint8_t {
     Start,
     HeadersReceived,
     RegularBodyReceived,
@@ -31,7 +30,7 @@ class HTTPTransactionIngressSMData {
     ReceivingDone,
   };
 
-  enum class Event: uint8_t {
+  enum class Event : uint8_t {
     // API accessible transitions
     onHeaders,
     onBody,
@@ -63,4 +62,4 @@ std::ostream& operator<<(std::ostream& os,
 
 using HTTPTransactionIngressSM = StateMachine<HTTPTransactionIngressSMData>;
 
-}
+} // namespace proxygen

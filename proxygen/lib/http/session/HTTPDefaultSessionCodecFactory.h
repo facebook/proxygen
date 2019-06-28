@@ -19,7 +19,8 @@ class HTTPDefaultSessionCodecFactory : public HTTPCodecFactory {
  public:
   explicit HTTPDefaultSessionCodecFactory(
       const AcceptorConfiguration& accConfig);
-  ~HTTPDefaultSessionCodecFactory() override {}
+  ~HTTPDefaultSessionCodecFactory() override {
+  }
 
   /**
    * Get a codec instance
@@ -34,4 +35,4 @@ class HTTPDefaultSessionCodecFactory : public HTTPCodecFactory {
   folly::Optional<bool> alwaysUseHTTP2_{};
 };
 
-} // proxygen
+} // namespace proxygen

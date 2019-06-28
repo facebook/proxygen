@@ -62,11 +62,10 @@ void HQUnidirStreamDispatcher::onDataAvailable(
     case hq::UnidirectionalStreamType::QPACK_DECODER: {
       // This is a control stream, and it needs a read callback
       // Pass ownership back to the sink
-      sink_.assignReadCallback(
-          releaseOwnership(id),
-          type.value(),
-          consumed,
-          controlStreamCallback());
+      sink_.assignReadCallback(releaseOwnership(id),
+                               type.value(),
+                               consumed,
+                               controlStreamCallback());
       return;
     }
     case hq::UnidirectionalStreamType::PUSH: {
@@ -78,9 +77,7 @@ void HQUnidirStreamDispatcher::onDataAvailable(
       if (pushId) {
         consumed += pushId->second;
         sink_.onNewPushStream(
-            releaseOwnership(id),
-            pushId->first | hq::kPushIdMask,
-            consumed);
+            releaseOwnership(id), pushId->first | hq::kPushIdMask, consumed);
       }
       return;
     }
@@ -124,4 +121,3 @@ void HQUnidirStreamDispatcher::ControlCallback::readAvailable(
     quic::StreamId id) noexcept {
   sink_.controlStreamReadAvailable(id);
 }
-

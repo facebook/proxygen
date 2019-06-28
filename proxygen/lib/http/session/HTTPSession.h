@@ -12,10 +12,12 @@
 #include <fizz/protocol/Certificate.h>
 #include <fizz/record/Types.h>
 #include <folly/IntrusiveList.h>
+#include <folly/Optional.h>
 #include <folly/io/IOBufQueue.h>
+#include <folly/io/async/AsyncSSLSocket.h>
+#include <folly/io/async/AsyncSocket.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/HHWheelTimer.h>
-#include <folly/Optional.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
@@ -26,33 +28,31 @@
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/SecondaryAuthManagerBase.h>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 #include <queue>
 #include <set>
-#include <folly/io/async/AsyncSocket.h>
-#include <folly/io/async/AsyncSSLSocket.h>
 #include <vector>
-#include <proxygen/lib/utils/WheelTimerInstance.h>
 
 namespace proxygen {
 
 class HTTPSessionController;
 class HTTPSessionStats;
 
-#define PROXYGEN_HTTP_SESSION_USES_BASE  1
+#define PROXYGEN_HTTP_SESSION_USES_BASE 1
 constexpr uint32_t kDefaultMaxConcurrentOutgoingStreamsRemote = 100000;
 constexpr uint32_t kDefaultMaxConcurrentIncomingStreams = 100;
 
-class HTTPSession:
-  public HTTPSessionBase,
-  public HTTPTransaction::Transport,
-  public ByteEventTracker::Callback,
-  protected folly::AsyncTransport::BufferCallback,
-  protected HTTPPriorityMapFactoryProvider,
-  private FlowControlFilter::Callback,
-  private HTTPCodec::Callback,
-  private folly::EventBase::LoopCallback,
-  private folly::AsyncTransportWrapper::ReadCallback,
-  private folly::AsyncTransport::ReplaySafetyCallback {
+class HTTPSession
+    : public HTTPSessionBase
+    , public HTTPTransaction::Transport
+    , public ByteEventTracker::Callback
+    , protected folly::AsyncTransport::BufferCallback
+    , protected HTTPPriorityMapFactoryProvider
+    , private FlowControlFilter::Callback
+    , private HTTPCodec::Callback
+    , private folly::EventBase::LoopCallback
+    , private folly::AsyncTransportWrapper::ReadCallback
+    , private folly::AsyncTransport::ReplaySafetyCallback {
  public:
   using UniquePtr = std::unique_ptr<HTTPSession, Destructor>;
 
@@ -87,7 +87,9 @@ class HTTPSession:
     return incomingStreams_;
   }
 
-  ByteEventTracker* getByteEventTracker() { return byteEventTracker_.get(); }
+  ByteEventTracker* getByteEventTracker() {
+    return byteEventTracker_.get();
+  }
 
   void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker);
 
@@ -103,10 +105,9 @@ class HTTPSession:
    * @param receiveSessionWindowSize  per-session receive window; sent
    *                                  via a WINDOW_UPDATE frame
    */
-  void setFlowControl(
-   size_t initialReceiveWindow,
-   size_t receiveStreamWindowSize,
-   size_t receiveSessionWindowSize) override;
+  void setFlowControl(size_t initialReceiveWindow,
+                      size_t receiveStreamWindowSize,
+                      size_t receiveSessionWindowSize) override;
 
   /**
    * Set outgoing settings for this session
@@ -129,8 +130,7 @@ class HTTPSession:
     return HTTPSessionBase::getPeerAddress();
   }
 
-  const wangle::TransportInfo& getSetupTransportInfo() const noexcept
-    override {
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
     return HTTPSessionBase::getSetupTransportInfo();
   }
 
@@ -177,8 +177,8 @@ class HTTPSession:
    * As above, but updates an existing priority node.  Do not use for
    * real nodes, prefer HTTPTransaction::changePriority.
    */
-  size_t sendPriority(HTTPCodec::StreamID id, http2::PriorityUpdate pri)
-    override;
+  size_t sendPriority(HTTPCodec::StreamID id,
+                      http2::PriorityUpdate pri) override;
 
   /**
    * Send a CERTIFICATE_REQUEST frame. If the underlying protocol doesn't
@@ -190,7 +190,7 @@ class HTTPSession:
 
   // public ManagedConnection methods
   void timeoutExpired() noexcept override {
-      readTimeoutExpired();
+    readTimeoutExpired();
   }
 
   void describe(std::ostream& os) const override;
@@ -201,7 +201,7 @@ class HTTPSession:
   void dumpConnectionState(uint8_t loglevel) override;
 
   bool getCurrentTransportInfoWithoutUpdate(
-    wangle::TransportInfo* tinfo) const override;
+      wangle::TransportInfo* tinfo) const override;
 
   void setHeaderCodecStats(HeaderCodec::Stats* stats) override {
     codec_->setHeaderCodecStats(stats);
@@ -234,13 +234,15 @@ class HTTPSession:
    */
   SecondaryAuthManagerBase* getSecondAuthManager() const;
 
-  bool isDetachable(bool checkSocket=true) const override;
+  bool isDetachable(bool checkSocket = true) const override;
 
   /**
    * Returns true if this session is draining. This can happen if drain()
    * is called explicitly, if a GOAWAY frame is received, or during shutdown.
    */
-  bool isDraining() const override { return draining_; }
+  bool isDraining() const override {
+    return draining_;
+  }
 
  protected:
   /**
@@ -267,26 +269,24 @@ class HTTPSession:
    * @param InfoCallback         Optional callback to be informed of session
    *                               lifecycle events.
    */
-  HTTPSession(
-      const WheelTimerInstance& timeout,
-      folly::AsyncTransportWrapper::UniquePtr sock,
-      const folly::SocketAddress& localAddr,
-      const folly::SocketAddress& peerAddr,
-      HTTPSessionController* controller,
-      std::unique_ptr<HTTPCodec> codec,
-      const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback);
+  HTTPSession(const WheelTimerInstance& timeout,
+              folly::AsyncTransportWrapper::UniquePtr sock,
+              const folly::SocketAddress& localAddr,
+              const folly::SocketAddress& peerAddr,
+              HTTPSessionController* controller,
+              std::unique_ptr<HTTPCodec> codec,
+              const wangle::TransportInfo& tinfo,
+              InfoCallback* infoCallback);
 
   // thrift uses WheelTimer
-  HTTPSession(
-      folly::HHWheelTimer* transactionTimeouts,
-      folly::AsyncTransportWrapper::UniquePtr sock,
-      const folly::SocketAddress& localAddr,
-      const folly::SocketAddress& peerAddr,
-      HTTPSessionController* controller,
-      std::unique_ptr<HTTPCodec> codec,
-      const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback);
+  HTTPSession(folly::HHWheelTimer* transactionTimeouts,
+              folly::AsyncTransportWrapper::UniquePtr sock,
+              const folly::SocketAddress& localAddr,
+              const folly::SocketAddress& peerAddr,
+              HTTPSessionController* controller,
+              std::unique_ptr<HTTPCodec> codec,
+              const wangle::TransportInfo& tinfo,
+              InfoCallback* infoCallback);
 
   ~HTTPSession() override;
 
@@ -302,14 +302,14 @@ class HTTPSession:
    * Called by transactionTimeout if the transaction has no handler.
    */
   virtual HTTPTransaction::Handler* getTransactionTimeoutHandler(
-    HTTPTransaction* txn) = 0;
+      HTTPTransaction* txn) = 0;
 
   /**
    * Invoked when headers have been sent.
    */
-  virtual void onHeadersSent(
-      const HTTPMessage& /* headers */,
-      bool /* codecWasReusable */) {}
+  virtual void onHeadersSent(const HTTPMessage& /* headers */,
+                             bool /* codecWasReusable */) {
+  }
 
   virtual bool allTransactionsStarted() const = 0;
 
@@ -318,8 +318,7 @@ class HTTPSession:
    * appropriately shuts down reads and/or writes with respect to
    * downstream or upstream semantics.
    */
-  void onEgressMessageFinished(HTTPTransaction* txn,
-                               bool withRST = false);
+  void onEgressMessageFinished(HTTPTransaction* txn, bool withRST = false);
 
   /**
    * Gets the next IOBuf to send (either writeBuf_ or new egress from
@@ -328,7 +327,8 @@ class HTTPSession:
   std::unique_ptr<folly::IOBuf> getNextToSend(bool* cork, bool* som, bool* eom);
 
   void decrementTransactionCount(HTTPTransaction* txn,
-                                 bool ingressEOM, bool egressEOM);
+                                 bool ingressEOM,
+                                 bool egressEOM);
 
   size_t getCodecSendWindowSize() const;
 
@@ -345,7 +345,7 @@ class HTTPSession:
                                    const std::string& protocolString);
 
   virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
-    uint8_t) override {
+      uint8_t) override {
     return folly::none;
   }
 
@@ -360,8 +360,7 @@ class HTTPSession:
   void readBufferAvailable(std::unique_ptr<folly::IOBuf>) noexcept override;
   void processReadData();
   void readEOF() noexcept override;
-  void readErr(
-      const folly::AsyncSocketException&) noexcept override;
+  void readErr(const folly::AsyncSocketException&) noexcept override;
 
   std::string getSecurityProtocol() const override {
     return sock_->getSecurityProtocol();
@@ -379,16 +378,17 @@ class HTTPSession:
   void onHeadersComplete(HTTPCodec::StreamID streamID,
                          std::unique_ptr<HTTPMessage> msg) override;
   void onBody(HTTPCodec::StreamID streamID,
-              std::unique_ptr<folly::IOBuf> chain, uint16_t padding) override;
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t padding) override;
   void onChunkHeader(HTTPCodec::StreamID stream, size_t length) override;
   void onChunkComplete(HTTPCodec::StreamID stream) override;
   void onTrailersComplete(HTTPCodec::StreamID streamID,
-      std::unique_ptr<HTTPHeaders> trailers) override;
+                          std::unique_ptr<HTTPHeaders> trailers) override;
   void onMessageComplete(HTTPCodec::StreamID streamID, bool upgrade) override;
   void onError(HTTPCodec::StreamID streamID,
-               const HTTPException& error, bool newTxn) override;
-  void onAbort(HTTPCodec::StreamID streamID,
-               ErrorCode code) override;
+               const HTTPException& error,
+               bool newTxn) override;
+  void onAbort(HTTPCodec::StreamID streamID, ErrorCode code) override;
   void onGoaway(uint64_t lastGoodStreamID,
                 ErrorCode code,
                 std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
@@ -396,7 +396,7 @@ class HTTPSession:
   void onPingReply(uint64_t uniqueID) override;
   void onWindowUpdate(HTTPCodec::StreamID stream, uint32_t amount) override;
   void onSettings(const SettingsList& settings) override;
-  void onSettingsAck()  override;
+  void onSettingsAck() override;
   void onPriority(HTTPCodec::StreamID stream,
                   const HTTPMessage::HTTPPriority&) override;
   void onCertificateRequest(uint16_t requestId,
@@ -418,10 +418,11 @@ class HTTPSession:
                    const HTTPMessage& headers,
                    HTTPHeaderSize* size,
                    bool includeEOM) noexcept override;
-  size_t sendBody(HTTPTransaction* txn, std::unique_ptr<folly::IOBuf>,
-                  bool includeEOM, bool trackLastByteFlushed) noexcept override;
-  size_t sendChunkHeader(HTTPTransaction* txn,
-                         size_t length) noexcept override;
+  size_t sendBody(HTTPTransaction* txn,
+                  std::unique_ptr<folly::IOBuf>,
+                  bool includeEOM,
+                  bool trackLastByteFlushed) noexcept override;
+  size_t sendChunkHeader(HTTPTransaction* txn, size_t length) noexcept override;
   size_t sendChunkTerminator(HTTPTransaction* txn) noexcept override;
   size_t sendEOM(HTTPTransaction* txn,
                  const HTTPHeaders* trailers) noexcept override;
@@ -436,12 +437,12 @@ class HTTPSession:
   void notifyIngressBodyProcessed(uint32_t bytes) noexcept override;
   void notifyEgressBodyBuffered(int64_t bytes) noexcept override;
   HTTPTransaction* newPushedTransaction(
-    HTTPCodec::StreamID assocStreamId,
-    HTTPTransaction::PushHandler* handler) noexcept override;
+      HTTPCodec::StreamID assocStreamId,
+      HTTPTransaction::PushHandler* handler) noexcept override;
   HTTPTransaction* newExTransaction(
-    HTTPTransaction::Handler* handler,
-    HTTPCodec::StreamID controlStream,
-    bool unidirectional = false) noexcept override;
+      HTTPTransaction::Handler* handler,
+      HTTPCodec::StreamID controlStream,
+      bool unidirectional = false) noexcept override;
 
   const HTTPCodec& getCodec() const noexcept override {
     return codec_.getChainEnd();
@@ -451,8 +452,8 @@ class HTTPSession:
    * Returns the underlying AsyncTransportWrapper.
    * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
    */
-  const folly::AsyncTransportWrapper* getUnderlyingTransport()
-      const noexcept override {
+  const folly::AsyncTransportWrapper* getUnderlyingTransport() const
+      noexcept override {
     return sock_.get();
   }
 
@@ -546,17 +547,16 @@ class HTTPSession:
    * already exists
    */
   HTTPTransaction* createTransaction(
-    HTTPCodec::StreamID streamID,
-    const folly::Optional<HTTPCodec::StreamID>& assocStreamID,
-    const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
-    const http2::PriorityUpdate& priority = http2::DefaultPriority);
+      HTTPCodec::StreamID streamID,
+      const folly::Optional<HTTPCodec::StreamID>& assocStreamID,
+      const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
+      const http2::PriorityUpdate& priority = http2::DefaultPriority);
 
   /** Invoked by WriteSegment on completion of a write. */
   void onWriteSuccess(uint64_t bytesWritten);
 
   /** Invoked by WriteSegment on write failure. */
-  void onWriteError(size_t bytesWritten,
-      const folly::AsyncSocketException& ex);
+  void onWriteError(size_t bytesWritten, const folly::AsyncSocketException& ex);
 
   /** Check whether to shut down the transport after a write completes. */
   void onWriteCompleted();
@@ -591,12 +591,12 @@ class HTTPSession:
    * but runs in O(n*log n) and if the callback *adds* transactions,
    * they will not get the callback.
    */
-  template<typename... Args1, typename... Args2>
+  template <typename... Args1, typename... Args2>
   void invokeOnAllTransactions(void (HTTPTransaction::*fn)(Args1...),
                                Args2&&... args) {
     DestructorGuard g(this);
     std::vector<HTTPCodec::StreamID> ids;
-    for (const auto& txn: transactions_) {
+    for (const auto& txn : transactions_) {
       ids.push_back(txn.first);
     }
     for (auto idit = ids.begin(); idit != ids.end() && !transactions_.empty();
@@ -681,13 +681,17 @@ class HTTPSession:
   }
 
   // protected members
-  class WriteTimeout :
-      public folly::HHWheelTimer::Callback {
+  class WriteTimeout : public folly::HHWheelTimer::Callback {
    public:
-    explicit WriteTimeout(HTTPSession* session) : session_(session) {}
-    ~WriteTimeout() override {}
+    explicit WriteTimeout(HTTPSession* session) : session_(session) {
+    }
+    ~WriteTimeout() override {
+    }
 
-    void timeoutExpired() noexcept override { session_->writeTimeoutExpired(); }
+    void timeoutExpired() noexcept override {
+      session_->writeTimeoutExpired();
+    }
+
    private:
     HTTPSession* session_;
   };
@@ -718,13 +722,13 @@ class HTTPSession:
    * Indicates if the session is waiting for existing transactions to close.
    * Once all transactions close, the session will be deleted.
    */
-  bool draining_:1;
+  bool draining_ : 1;
 
-  bool started_:1;
+  bool started_ : 1;
 
-  bool writesDraining_:1;
-  bool resetAfterDrainingWrites_:1;
-  bool ingressError_:1;
+  bool writesDraining_ : 1;
+  bool resetAfterDrainingWrites_ : 1;
+  bool ingressError_ : 1;
 
  private:
   uint32_t getMaxConcurrentOutgoingStreamsRemote() const override {
@@ -776,7 +780,7 @@ class HTTPSession:
     return connFlowControl_ && connFlowControl_->getAvailableSend() == 0;
   }
 
-  //ByteEventTracker::Callback functions
+  // ByteEventTracker::Callback functions
   void onPingReplyLatency(int64_t latency) noexcept override;
   void onFirstByteEvent(HTTPTransaction* txn,
                         uint64_t offset,
@@ -794,10 +798,9 @@ class HTTPSession:
    * @param piggybacked     whether this eom is a separate sendEOM or
    *                          piggybacked in sendHeaders and sendBody
    */
-  void commonEom(
-      HTTPTransaction* txn,
-      size_t encodedSize,
-      bool piggybacked) noexcept;
+  void commonEom(HTTPTransaction* txn,
+                 size_t encodedSize,
+                 bool piggybacked) noexcept;
 
   /**
    * Add a ReplaySafetyCallback requesting notification when the transport has
@@ -863,8 +866,7 @@ class HTTPSession:
    * Helper class to track write buffers until they have been fully written and
    * can be deleted.
    */
-  class WriteSegment :
-    public folly::AsyncTransportWrapper::WriteCallback {
+  class WriteSegment : public folly::AsyncTransportWrapper::WriteCallback {
    public:
     WriteSegment(HTTPSession* session, uint64_t length);
 
@@ -908,13 +910,12 @@ class HTTPSession:
 
     // AsyncTransport::WriteCallback methods
     void writeSuccess() noexcept override;
-    void writeErr(
-        size_t bytesWritten,
-        const folly::AsyncSocketException&) noexcept override;
+    void writeErr(size_t bytesWritten,
+                  const folly::AsyncSocketException&) noexcept override;
 
     folly::IntrusiveListHook listHook;
-   private:
 
+   private:
     /**
      * Unlink this segment from the list.
      */
@@ -922,11 +923,10 @@ class HTTPSession:
 
     HTTPSession* session_;
     uint64_t length_;
-    folly::WriteFlags flags_{
-      folly::WriteFlags::NONE};
+    folly::WriteFlags flags_{folly::WriteFlags::NONE};
   };
   using WriteSegmentList =
-    folly::IntrusiveList<WriteSegment, &WriteSegment::listHook>;
+      folly::IntrusiveList<WriteSegment, &WriteSegment::listHook>;
   WriteSegmentList pendingWrites_;
 
   /**
@@ -942,7 +942,7 @@ class HTTPSession:
    * concurrent transactions on one connection.
    */
   uint32_t maxConcurrentOutgoingStreamsRemote_{
-    kDefaultMaxConcurrentOutgoingStreamsRemote};
+      kDefaultMaxConcurrentOutgoingStreamsRemote};
 
   /**
    * The maximum number of concurrent transactions that this session's peer
@@ -994,21 +994,22 @@ class HTTPSession:
 
   class ShutdownTransportCallback : public folly::EventBase::LoopCallback {
    public:
-    explicit ShutdownTransportCallback(HTTPSession* session) :
-        session_(session),
-        dg_(std::make_unique<DestructorGuard>(session)) { }
-
-    ~ShutdownTransportCallback() override { }
-
-    void runLoopCallback() noexcept override {
-        VLOG(4) << *session_ << " shutdown from onEgressMessageFinished";
-        bool shutdownReads =
-            session_->isDownstream() && !session_->ingressUpgraded_;
-        session_->shutdownTransport(shutdownReads, true);
-        dg_.reset();
+    explicit ShutdownTransportCallback(HTTPSession* session)
+        : session_(session), dg_(std::make_unique<DestructorGuard>(session)) {
     }
 
-  private:
+    ~ShutdownTransportCallback() override {
+    }
+
+    void runLoopCallback() noexcept override {
+      VLOG(4) << *session_ << " shutdown from onEgressMessageFinished";
+      bool shutdownReads =
+          session_->isDownstream() && !session_->ingressUpgraded_;
+      session_->shutdownTransport(shutdownReads, true);
+      dg_.reset();
+    }
+
+   private:
     HTTPSession* session_;
     std::unique_ptr<DestructorGuard> dg_;
   };
@@ -1016,8 +1017,10 @@ class HTTPSession:
 
   class FlowControlTimeout : public folly::HHWheelTimer::Callback {
    public:
-    explicit FlowControlTimeout(HTTPSession* session) : session_(session) {}
-    ~FlowControlTimeout() override {}
+    explicit FlowControlTimeout(HTTPSession* session) : session_(session) {
+    }
+    ~FlowControlTimeout() override {
+    }
 
     void timeoutExpired() noexcept override {
       session_->flowControlTimeoutExpired();
@@ -1030,6 +1033,7 @@ class HTTPSession:
     void setTimeoutDuration(std::chrono::milliseconds duration) {
       duration_ = duration;
     }
+
    private:
     HTTPSession* session_;
     std::chrono::milliseconds duration_{std::chrono::milliseconds(0)};
@@ -1038,12 +1042,15 @@ class HTTPSession:
 
   class DrainTimeout : public folly::HHWheelTimer::Callback {
    public:
-    explicit DrainTimeout(HTTPSession* session) : session_(session) {}
-    ~DrainTimeout() override {}
+    explicit DrainTimeout(HTTPSession* session) : session_(session) {
+    }
+    ~DrainTimeout() override {
+    }
 
     void timeoutExpired() noexcept override {
       session_->closeWhenIdle();
     }
+
    private:
     HTTPSession* session_;
   };
@@ -1058,18 +1065,18 @@ class HTTPSession:
     SHUTDOWN = 2,
   };
 
-  SocketState reads_:2;
-  SocketState writes_:2;
+  SocketState reads_ : 2;
+  SocketState writes_ : 2;
 
   /**
    * Indicates whether an upgrade request has been received from the codec.
    */
-  bool ingressUpgraded_:1;
-  bool resetSocketOnShutdown_:1;
+  bool ingressUpgraded_ : 1;
+  bool resetSocketOnShutdown_ : 1;
   // indicates a fatal error that prevents further ingress data processing
-  bool inLoopCallback_:1;
-  bool inResume_:1;
-  bool pendingPause_:1;
+  bool inLoopCallback_ : 1;
+  bool inResume_ : 1;
+  bool pendingPause_ : 1;
 };
 
-} // proxygen
+} // namespace proxygen

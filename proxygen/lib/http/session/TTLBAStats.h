@@ -13,7 +13,8 @@ namespace proxygen {
 
 class TTLBAStats {
  public:
-  virtual ~TTLBAStats() noexcept {}
+  virtual ~TTLBAStats() noexcept {
+  }
 
   virtual void recordTTLBAExceedLimit() noexcept = 0;
   virtual void recordTTLBAIOBSplitByEom() noexcept = 0;

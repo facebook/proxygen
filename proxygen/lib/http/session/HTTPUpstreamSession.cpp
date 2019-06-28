@@ -11,13 +11,14 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 
 #include <folly/io/async/AsyncSSLSocket.h>
-#include <wangle/acceptor/ConnectionManager.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <wangle/acceptor/ConnectionManager.h>
 
 namespace proxygen {
 
-HTTPUpstreamSession::~HTTPUpstreamSession() {}
+HTTPUpstreamSession::~HTTPUpstreamSession() {
+}
 
 bool HTTPUpstreamSession::isReplaySafe() const {
   return sock_ ? sock_->isReplaySafe() : false;
@@ -25,45 +26,35 @@ bool HTTPUpstreamSession::isReplaySafe() const {
 
 bool HTTPUpstreamSession::isReusable() const {
   VLOG(4) << "isReusable: " << *this
-    << ", liveTransactions_=" << liveTransactions_
-    << ", isClosing()=" << isClosing()
-    << ", sock_->connecting()=" << sock_->connecting()
-    << ", codec_->isReusable()=" << codec_->isReusable()
-    << ", codec_->isBusy()=" << codec_->isBusy()
-    << ", numActiveWrites_=" << numActiveWrites_
-    << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
-    << ", ingressError_=" << ingressError_
-    << ", hasMoreWrites()=" << hasMoreWrites()
-    << ", codec_->supportsParallelRequests()="
-         << codec_->supportsParallelRequests();
-  return
-    !isClosing() &&
-    !sock_->connecting() &&
-    codec_->isReusable() &&
-    !codec_->isBusy() &&
-    !ingressError_ &&
-    (codec_->supportsParallelRequests() || (
-      // These conditions only apply to serial codec sessions
-      !hasMoreWrites() &&
-      liveTransactions_ == 0 &&
-      !writeTimeout_.isScheduled()));
+          << ", liveTransactions_=" << liveTransactions_
+          << ", isClosing()=" << isClosing()
+          << ", sock_->connecting()=" << sock_->connecting()
+          << ", codec_->isReusable()=" << codec_->isReusable()
+          << ", codec_->isBusy()=" << codec_->isBusy()
+          << ", numActiveWrites_=" << numActiveWrites_
+          << ", writeTimeout_.isScheduled()=" << writeTimeout_.isScheduled()
+          << ", ingressError_=" << ingressError_
+          << ", hasMoreWrites()=" << hasMoreWrites()
+          << ", codec_->supportsParallelRequests()="
+          << codec_->supportsParallelRequests();
+  return !isClosing() && !sock_->connecting() && codec_->isReusable() &&
+         !codec_->isBusy() && !ingressError_ &&
+         (codec_->supportsParallelRequests() ||
+          (
+              // These conditions only apply to serial codec sessions
+              !hasMoreWrites() && liveTransactions_ == 0 &&
+              !writeTimeout_.isScheduled()));
 }
 
 bool HTTPUpstreamSession::isClosing() const {
-  VLOG(5) << "isClosing: " << *this
-    << ", sock_->good()=" << sock_->good()
-    << ", draining_=" << draining_
-    << ", readsShutdown()=" << readsShutdown()
-    << ", writesShutdown()=" << writesShutdown()
-    << ", writesDraining_=" << writesDraining_
-    << ", resetAfterDrainingWrites_=" << resetAfterDrainingWrites_;
-  return
-    !sock_->good() ||
-    draining_ ||
-    readsShutdown() ||
-    writesShutdown() ||
-    writesDraining_ ||
-    resetAfterDrainingWrites_;
+  VLOG(5) << "isClosing: " << *this << ", sock_->good()=" << sock_->good()
+          << ", draining_=" << draining_
+          << ", readsShutdown()=" << readsShutdown()
+          << ", writesShutdown()=" << writesShutdown()
+          << ", writesDraining_=" << writesDraining_
+          << ", resetAfterDrainingWrites_=" << resetAfterDrainingWrites_;
+  return !sock_->good() || draining_ || readsShutdown() || writesShutdown() ||
+         writesDraining_ || resetAfterDrainingWrites_;
 }
 
 void HTTPUpstreamSession::startNow() {
@@ -78,17 +69,15 @@ void HTTPUpstreamSession::startNow() {
     // TODO/T17420249 Move this to the PriorityAdapter and remove it from the
     // codec.
     auto bytes = codec_->addPriorityNodes(
-        txnEgressQueue_,
-        writeBuf_,
-        maxVirtualPriorityLevel_);
+        txnEgressQueue_, writeBuf_, maxVirtualPriorityLevel_);
     if (bytes) {
       scheduleWrite();
     }
   }
 }
 
-HTTPTransaction*
-HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
+HTTPTransaction* HTTPUpstreamSession::newTransaction(
+    HTTPTransaction::Handler* handler) {
   if (!supportsMoreTransactions() || draining_) {
     // This session doesn't support any more parallel transactions
     return nullptr;
@@ -98,8 +87,8 @@ HTTPUpstreamSession::newTransaction(HTTPTransaction::Handler* handler) {
     startNow();
   }
 
-  auto txn = createTransaction(codec_->createStream(), HTTPCodec::NoStream,
-                               HTTPCodec::NoExAttributes);
+  auto txn = createTransaction(
+      codec_->createStream(), HTTPCodec::NoStream, HTTPCodec::NoExAttributes);
 
   if (txn) {
     DestructorGuard dg(this);
@@ -116,7 +105,7 @@ HTTPTransaction::Handler* HTTPUpstreamSession::getTransactionTimeoutHandler(
 }
 
 bool HTTPUpstreamSession::allTransactionsStarted() const {
-  for (const auto& txn: transactions_) {
+  for (const auto& txn : transactions_) {
     if (!txn.second.isPushed() && !txn.second.isEgressStarted()) {
       return false;
     }
@@ -125,12 +114,13 @@ bool HTTPUpstreamSession::allTransactionsStarted() const {
 }
 
 bool HTTPUpstreamSession::onNativeProtocolUpgrade(
-  HTTPCodec::StreamID streamID, CodecProtocol protocol,
-  const std::string& protocolString,
-  HTTPMessage&) {
+    HTTPCodec::StreamID streamID,
+    CodecProtocol protocol,
+    const std::string& protocolString,
+    HTTPMessage&) {
 
-  VLOG(4) << *this << " onNativeProtocolUpgrade streamID=" << streamID <<
-    " protocol=" << protocolString;
+  VLOG(4) << *this << " onNativeProtocolUpgrade streamID=" << streamID
+          << " protocol=" << protocolString;
 
   if (protocol != CodecProtocol::HTTP_2) {
     return false;
@@ -140,13 +130,11 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   std::unique_ptr<HTTPCodec> codec =
       std::make_unique<HTTP2Codec>(TransportDirection::UPSTREAM);
 
-  bool ret = onNativeProtocolUpgradeImpl(streamID, std::move(codec),
-                                         protocolString);
+  bool ret =
+      onNativeProtocolUpgradeImpl(streamID, std::move(codec), protocolString);
   if (ret) {
     auto bytes = codec_->addPriorityNodes(
-      txnEgressQueue_,
-      writeBuf_,
-      maxVirtualPriorityLevel_);
+        txnEgressQueue_, writeBuf_, maxVirtualPriorityLevel_);
     if (bytes) {
       scheduleWrite();
     }
@@ -161,14 +149,14 @@ void HTTPUpstreamSession::detachTransactions() {
   }
 }
 
-void
-HTTPUpstreamSession::attachThreadLocals(
-  folly::EventBase* eventBase,
-  folly::SSLContextPtr sslContext,
-  const WheelTimerInstance& timeout,
-  HTTPSessionStats* stats, FilterIteratorFn fn,
-  HeaderCodec::Stats* headerCodecStats,
-  HTTPSessionController* controller) {
+void HTTPUpstreamSession::attachThreadLocals(
+    folly::EventBase* eventBase,
+    folly::SSLContextPtr sslContext,
+    const WheelTimerInstance& timeout,
+    HTTPSessionStats* stats,
+    FilterIteratorFn fn,
+    HeaderCodec::Stats* headerCodecStats,
+    HTTPSessionController* controller) {
   txnEgressQueue_.attachThreadLocals(timeout);
   timeout_ = timeout;
   setController(controller);
@@ -177,7 +165,7 @@ HTTPUpstreamSession::attachThreadLocals(
     sock_->attachEventBase(eventBase);
     maybeAttachSSLContext(sslContext);
   }
-  codec_.foreach(fn);
+  codec_.foreach (fn);
   codec_->setHeaderCodecStats(headerCodecStats);
   resumeReadsImpl();
   rescheduleLoopCallbacks();
@@ -193,8 +181,7 @@ void HTTPUpstreamSession::maybeAttachSSLContext(
 #endif
 }
 
-void
-HTTPUpstreamSession::detachThreadLocals(bool detachSSLContext) {
+void HTTPUpstreamSession::detachThreadLocals(bool detachSSLContext) {
   CHECK(transactions_.empty());
   cancelLoopCallbacks();
   pauseReadsImpl();
@@ -225,4 +212,4 @@ void HTTPUpstreamSession::maybeDetachSSLContext() const {
 #endif
 }
 
-} // proxygen
+} // namespace proxygen

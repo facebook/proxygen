@@ -488,15 +488,13 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             [this]() -> bool { return partiallyReliableTransport_; }));
 
     EXPECT_CALL(*sock_, sendDataExpired(testing::_, testing::_))
-        .WillRepeatedly(
-            testing::Invoke([this](quic::StreamId id, uint64_t streamOffset)
-                                -> folly::Expected<folly::Optional<uint64_t>,
-                                                   LocalErrorCode> {
+        .WillRepeatedly(testing::Invoke(
+            [this](quic::StreamId id, uint64_t streamOffset)
+                -> folly::Expected<folly::Optional<uint64_t>, LocalErrorCode> {
               checkNotReadOnlyStream(id);
               auto it = streams_.find(id);
               if (it == streams_.end()) {
-                return folly::makeUnexpected(
-                    LocalErrorCode::STREAM_NOT_EXISTS);
+                return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
               }
               CHECK_NE(it->second.writeState, CLOSED);
 
@@ -1051,18 +1049,18 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   void enablePartialReliability() {
     EXPECT_CALL(*sock_, setDataExpiredCallback(testing::_, testing::_))
-      .WillRepeatedly(testing::Invoke(
+        .WillRepeatedly(testing::Invoke(
             [this](StreamId id, QuicSocket::DataExpiredCallback* cb) {
               dataExpiredCb_ = cb;
               return folly::unit;
-              }));
+            }));
 
     EXPECT_CALL(*sock_, setDataRejectedCallback(testing::_, testing::_))
-      .WillRepeatedly(testing::Invoke(
+        .WillRepeatedly(testing::Invoke(
             [this](StreamId id, QuicSocket::DataRejectedCallback* cb) {
               dataRejectedCb_ = cb;
               return folly::unit;
-              }));
+            }));
   }
 
   void runLoopCallback() noexcept override {

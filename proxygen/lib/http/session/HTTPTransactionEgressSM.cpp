@@ -33,39 +33,39 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
   //             +------------> RegularBodySent -------+
 
   static const folly::Indestructible<TransitionTable> transitions{
-    TransitionTable{
-      {{State::Start, Event::sendHeaders}, State::HeadersSent},
+      TransitionTable{
+          {{State::Start, Event::sendHeaders}, State::HeadersSent},
 
-      // For HTTP sending 100 response, then a regular response
-      {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
+          // For HTTP sending 100 response, then a regular response
+          {{State::HeadersSent, Event::sendHeaders}, State::HeadersSent},
 
-      {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
-      {{State::HeadersSent, Event::sendTrailers}, State::TrailersSent},
-      {{State::HeadersSent, Event::sendChunkHeader}, State::ChunkHeaderSent},
-      {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
+          {{State::HeadersSent, Event::sendBody}, State::RegularBodySent},
+          {{State::HeadersSent, Event::sendTrailers}, State::TrailersSent},
+          {{State::HeadersSent, Event::sendChunkHeader},
+           State::ChunkHeaderSent},
+          {{State::HeadersSent, Event::sendEOM}, State::EOMQueued},
 
-      {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
-      {{State::RegularBodySent, Event::sendTrailers}, State::TrailersSent},
-      {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
+          {{State::RegularBodySent, Event::sendBody}, State::RegularBodySent},
+          {{State::RegularBodySent, Event::sendTrailers}, State::TrailersSent},
+          {{State::RegularBodySent, Event::sendEOM}, State::EOMQueued},
 
-      {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
+          {{State::ChunkHeaderSent, Event::sendBody}, State::ChunkBodySent},
 
-      {{State::ChunkBodySent, Event::sendBody}, State::ChunkBodySent},
-      {{State::ChunkBodySent, Event::sendChunkTerminator},
-       State::ChunkTerminatorSent},
+          {{State::ChunkBodySent, Event::sendBody}, State::ChunkBodySent},
+          {{State::ChunkBodySent, Event::sendChunkTerminator},
+           State::ChunkTerminatorSent},
 
-      {{State::ChunkTerminatorSent, Event::sendChunkHeader},
-       State::ChunkHeaderSent},
-      {{State::ChunkTerminatorSent, Event::sendTrailers}, State::TrailersSent},
-      {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
+          {{State::ChunkTerminatorSent, Event::sendChunkHeader},
+           State::ChunkHeaderSent},
+          {{State::ChunkTerminatorSent, Event::sendTrailers},
+           State::TrailersSent},
+          {{State::ChunkTerminatorSent, Event::sendEOM}, State::EOMQueued},
 
-      {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
+          {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
 
-      {{State::EOMQueued, Event::eomFlushed}, State::SendingDone}
-    }
-  };
+          {{State::EOMQueued, Event::eomFlushed}, State::SendingDone}}};
 
-  auto const &it = transitions->find(std::make_pair(s, e));
+  auto const& it = transitions->find(std::make_pair(s, e));
   if (it == transitions->end()) {
     return std::make_pair(s, false);
   }
@@ -137,4 +137,4 @@ std::ostream& operator<<(std::ostream& os,
   return os;
 }
 
-}
+} // namespace proxygen
