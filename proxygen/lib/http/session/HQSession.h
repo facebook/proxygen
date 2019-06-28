@@ -240,6 +240,11 @@ class HQSession
   // Only for UpstreamSession
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
 
+  // Create a new pushed transaction.
+  HTTPTransaction* newPushedTransaction(
+      HTTPCodec::StreamID, /* parentRequestStreamId */
+      HTTPTransaction::PushHandler* /* handler */);
+
   void startNow() override;
 
   void describe(std::ostream& os) const override {
@@ -668,27 +673,43 @@ class HQSession
 
  private:
   std::unique_ptr<HTTPCodec> createStreamCodec(quic::StreamId streamId);
+
+  // Creates a request stream. All streams that are not control streams
+  // or Push streams are request streams.
   HQStreamTransport* createStreamTransport(quic::StreamId streamId);
+
   bool createEgressControlStreams();
   HQControlStream* tryCreateIngressControlStream(quic::StreamId id,
                                                  uint64_t preface);
 
+  // Creates outgoing control stream.
   bool createEgressControlStream(hq::UnidirectionalStreamType streamType);
 
+  // Creates incoming control stream
   HQControlStream* createIngressControlStream(
       quic::StreamId id, hq::UnidirectionalStreamType streamType);
 
-  HQIngressPushStream* FOLLY_NULLABLE
-  createIngressPushStream(quic::StreamId parentStreamId, hq::PushId pushId);
+  // Create ingress push stream.
+  HQIngressPushStream* createIngressPushStream(quic::StreamId parentStreamId,
+                                               hq::PushId pushId);
 
-  HQEgressPushStream* createEgressPushStream(hq::PushId pushId,
-                                             quic::StreamId streamId);
+  HQEgressPushStream* FOLLY_NULLABLE
+  createEgressPushStream(hq::PushId pushId,
+                         quic::StreamId streamId,
+                         quic::StreamId parentStreamId);
+
+  // Value of the next pushId, used for outgoing push transactions
+  // This variable does not have the hq::kPushIdMask set
+  hq::PushId nextAvailablePushId_{0};
 
   // gets the ALPN from the transport and returns whether the protocol is
   // supported. Drops the connection if not supported
   bool getAndCheckApplicationProtocol();
+
+  // Use ALPN to set the correct version utils strategy.
   void setVersionUtils();
 
+  // Used during 2-phased GOAWAY messages
   void onDeliveryAck(quic::StreamId id,
                      uint64_t offset,
                      std::chrono::microseconds rtt) override;
@@ -699,8 +720,14 @@ class HQSession
   void readRequestStream(quic::StreamId id) noexcept;
   void readControlStream(HQControlStream* controlStream);
 
+  // Runs the codecs on all request streams that have received data
+  // during the last event loop
   void processReadData();
+
+  // Pausing reads prevents the read callback to be invoked on the stream
   void resumeReads(quic::StreamId id);
+
+  // Resuming the reads allows the read callback to be involved
   void pauseReads(quic::StreamId id);
 
   void pauseTransactions() override;
@@ -749,7 +776,7 @@ class HQSession
    * in the write buffer.
    * Returns the number of bytes written to the transport
    */
-  uint64_t requestStreamWriteImpl(HQStreamTransport* hqStream,
+  uint64_t requestStreamWriteImpl(HQStreamTransportBase* hqStream,
                                   uint64_t maxEgress,
                                   double ratio);
 
@@ -1305,13 +1332,29 @@ class HQSession
         HTTPTransaction* /* txn */,
         const http2::PriorityUpdate& /* pri */) noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
+      CHECK(hasEgressStreamId())
+          << __func__ << " invoked on stream without egress";
       return 0;
     }
 
     size_t sendWindowUpdate(HTTPTransaction* /* txn */,
                             uint32_t /* bytes */) noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
+      CHECK(hasEgressStreamId())
+          << __func__ << " invoked on stream without egress";
       return 0;
+    }
+
+    // Send a push promise. Has different implementations in
+    // request streams / push streams
+    virtual void sendPushPromise(HTTPTransaction* /* txn */,
+                                 folly::Optional<hq::PushId> /* pushId */,
+                                 const HTTPMessage& /* headers */,
+                                 HTTPHeaderSize* /* outSize */,
+                                 bool /* includeEOM */) {
+      VLOG(4) << __func__ << " txn=" << txn_;
+      CHECK(hasEgressStreamId())
+          << __func__ << " invoked on stream without egress";
     }
 
     void notifyPendingEgress() noexcept override;
@@ -1368,8 +1411,8 @@ class HQSession
     HTTPTransaction* newPushedTransaction(
         HTTPCodec::StreamID /* parentTxnId */,
         HTTPTransaction::PushHandler* /* handler */) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      return nullptr;
+      LOG(FATAL) << __func__ << " Only available via request stream";
+      folly::assume_unreachable();
     }
 
     HTTPTransaction* newExTransaction(
@@ -1670,6 +1713,16 @@ class HQSession
       initIngress(__func__);
     }
 
+    HTTPTransaction* newPushedTransaction(
+        HTTPCodec::StreamID /* parentTxnId */,
+        HTTPTransaction::PushHandler* /* handler */) noexcept override;
+
+    void sendPushPromise(HTTPTransaction* /* txn */,
+                         folly::Optional<hq::PushId> /* pushId */,
+                         const HTTPMessage& /* headers */,
+                         HTTPHeaderSize* /* outSize */,
+                         bool /* includeEOM */) override;
+
     void onPushPromiseHeadersComplete(
         hq::PushId /* pushID */,
         HTTPCodec::StreamID /* assoc streamID */,
@@ -1722,11 +1775,20 @@ class HQSession
       DCHECK(txn == &txn_);
     }
 
+    void sendPushPromise(HTTPTransaction* /* txn */,
+                         folly::Optional<hq::PushId> /* pushId */,
+                         const HTTPMessage& /* headers */,
+                         HTTPHeaderSize* /* outSize */,
+                         bool /* includeEOM */) override;
+
+    /**
+     * Write the encoded push id to the egress stream.
+     */
+    size_t generateStreamPushId();
+
     // Egress only stream should not pause ingress
     void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
       LOG(ERROR) << __func__ << "Ingress function called on egress-only stream";
-      // Seems like an API problem - the handler called pause on txn?
-      // Perhaps this should be a DCHECK?
       session_.dropConnectionWithError(
           std::make_pair(HTTP3::ErrorCode::HTTP_INTERNAL_ERROR,
                          "Ingress function called on egress-only stream"),
@@ -1766,6 +1828,16 @@ class HQSession
       // Ingress push streams are not initialized
       // until after the nascent push stream
       // has been received
+      // notify the testing callbacks that a half-opened push transaction
+      // has been created
+
+      // NOTE: change the API to avoid accepting parent txn ids
+      // as optional
+      CHECK(parentTxnId.has_value());
+      if (session_.serverPushLifecycleCb_) {
+        session_.serverPushLifecycleCb_->onHalfOpenPushedTxn(
+            &txn_, pushId, *parentTxnId, false);
+      }
     }
 
     // Bind this stream to a transport stream
@@ -1782,6 +1854,12 @@ class HQSession
           std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM,
                          "Push promise over a push stream"),
           kErrorConnection);
+    }
+
+    size_t sendAbortImpl(quic::ApplicationErrorCode /* errorCode */,
+                         std::string errorMsg) {
+      LOG(ERROR) << "No-op abort on ingress-only stream " << errorMsg;
+      return 0;
     }
 
     hq::PushId getPushId() const {
@@ -2039,6 +2117,9 @@ class HQSession
     // need transport API
     return 100;
   }
+
+  // This is the current method of creating new push IDs.
+  hq::PushId createNewPushId(quic::StreamId txnID);
 
   using HTTPCodecPtr = std::unique_ptr<HTTPCodec>;
   struct CodecStackEntry {

@@ -28,6 +28,7 @@ class HQStreamCodec
     : public HQFramedCodec
     , public HPACK::StreamingCallback {
  public:
+  HQStreamCodec() = delete;
   HQStreamCodec(StreamID streamId,
                 TransportDirection direction,
                 QPACKCodec& headerCodec,
