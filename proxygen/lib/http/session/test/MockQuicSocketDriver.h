@@ -330,8 +330,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 data = folly::IOBuf::create(0);
               }
               // clip to FCW
-              size_t length = std::min(data->computeChainDataLength(),
-                                       stream.flowControlWindow);
+              uint64_t length = std::min(
+                  static_cast<uint64_t>(data->computeChainDataLength()),
+                  stream.flowControlWindow);
               length = std::min(length, connState.flowControlWindow);
               folly::IOBufQueue dataBuf{folly::IOBufQueue::cacheChainLength()};
               dataBuf.append(data->clone());

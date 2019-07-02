@@ -1,4 +1,3 @@
-find_package(mvfst REQUIRED)
 
 add_subdirectory(external)
 add_subdirectory(lib)

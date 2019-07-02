@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree. An additional grant
 # of patent rights can be found in the PATENTS file in the same directory.
 
-if(NOT BUILD_TESTING)
+if(NOT BUILD_TESTS)
     return()
 endif()
 
@@ -16,7 +16,11 @@ target_include_directories(
     ${LIBGMOCK_INCLUDE_DIR}
     ${LIBGTEST_INCLUDE_DIR}
 )
-target_link_libraries(codectestutils PRIVATE proxygen)
+target_compile_options(
+    codectestutils PRIVATE
+    ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
+)
+target_link_libraries(codectestutils PUBLIC proxygen)
 
 proxygen_add_test(TARGET CodecTests
   SOURCES
@@ -26,7 +30,6 @@ proxygen_add_test(TARGET CodecTests
     HTTP2CodecTest.cpp
     HTTP2FramerTest.cpp
     SPDYCodecTest.cpp
-    ${HTTP3_CODEC_TESTS}
   DEPENDS
     codectestutils
     proxygen
@@ -53,5 +56,6 @@ if (BUILD_QUIC)
       proxygen
       testmain
       mvfst::mvfst_codec_types
+      mvfst::mvfst_state_machine
   )
 endif()

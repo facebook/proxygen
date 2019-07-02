@@ -1,6 +1,6 @@
 proxygen_add_test(TARGET HTTPServerFilterTests
   SOURCES
-    ZlibServerFilterTest.cpp
+  CompressionFilterTest.cpp
   DEPENDS
     proxygen
     proxygenhttpserver

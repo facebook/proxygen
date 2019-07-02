@@ -4,9 +4,9 @@
 #  This source code is licensed under the BSD-style license found in the
 #  LICENSE file in the root directory of this source tree.
 
-option(BUILD_TESTING  "Enable tests" OFF)
+option(BUILD_TESTS  "Enable tests" OFF)
 include(CTest)
-if(BUILD_TESTING)
+if(BUILD_TESTS)
   include(GoogleTest)
   include(ExternalProject)
 
@@ -43,7 +43,7 @@ if(BUILD_TESTING)
 endif()
 
 function(proxygen_add_test)
-    if(NOT BUILD_TESTING)
+    if(NOT BUILD_TESTS)
         return()
     endif()
 
@@ -69,6 +69,9 @@ function(proxygen_add_test)
     )
     target_include_directories(${PROXYGEN_TEST_TARGET} PRIVATE 
       "${PROXYGEN_TEST_INCLUDES}"
+    )
+    target_compile_options(${PROXYGEN_TEST_TARGET} PRIVATE 
+      "${_PROXYGEN_COMMON_COMPILE_OPTIONS}"
     )
 
     gtest_add_tests(TARGET ${PROXYGEN_TEST_TARGET}

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree. An additional grant
 # of patent rights can be found in the PATENTS file in the same directory.
 
-if(NOT BUILD_TESTING)
+if(NOT BUILD_TESTS)
     return()
 endif()
 
@@ -16,7 +16,11 @@ target_include_directories(
     ${LIBGMOCK_INCLUDE_DIR}
     ${LIBGTEST_INCLUDE_DIR}
 )
-target_link_libraries(testtransport PRIVATE proxygen)
+target_compile_options(
+    testtransport PRIVATE
+    ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
+)
+target_link_libraries(testtransport PUBLIC proxygen)
 add_dependencies(testtransport googletest)
 
 add_library(testmain STATIC TestMain.cpp)
@@ -26,5 +30,9 @@ target_include_directories(
     ${LIBGMOCK_INCLUDE_DIR}
     ${LIBGTEST_INCLUDE_DIR}
 )
-target_link_libraries(testmain PRIVATE Folly::folly)
+target_link_libraries(testmain PUBLIC Folly::folly)
+target_compile_options(
+    testmain PRIVATE
+    ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
+)
 add_dependencies(testmain googletest)

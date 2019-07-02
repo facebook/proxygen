@@ -36,8 +36,9 @@ endif()
 
 # Dependencies
 find_package(folly REQUIRED)
-find_package(Fizz REQUIRED)
 find_package(wangle REQUIRED)
+find_package(Fizz REQUIRED)
+find_package(mvfst QUIET)
 find_package(Zstd REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
@@ -61,6 +62,32 @@ list(APPEND
     -Wall
     -Wextra
 )
+
+SET(GFLAG_DEPENDENCIES "")
+SET(PROXYGEN_EXTRA_LINK_LIBRARIES "")
+SET(PROXYGEN_EXTRA_INCLUDE_DIRECTORIES "")
+
+find_package(gflags CONFIG QUIET)
+if (gflags_FOUND)
+  message("module path: ${CMAKE_MODULE_PATH}")
+  message(STATUS "Found gflags from package config")
+  if (TARGET gflags-shared)
+    list(APPEND GFLAG_DEPENDENCIES gflags-shared)
+  elseif (TARGET gflags)
+    list(APPEND GFLAG_DEPENDENCIES gflags)
+  else()
+    message(FATAL_ERROR
+            "Unable to determine the target name for the GFlags package.")
+  endif()
+  list(APPEND CMAKE_REQUIRED_LIBRARIES ${GFLAGS_LIBRARIES})
+  list(APPEND CMAKE_REQUIRED_INCLUDES ${GFLAGS_INCLUDE_DIR})
+else()
+  find_package(Gflags REQUIRED MODULE)
+  list(APPEND PROXYGEN_EXTRA_LINK_LIBRARIES ${LIBGFLAGS_LIBRARY})
+  list(APPEND PROXYGEN_EXTRA_INCLUDE_DIRECTORIES ${LIBGFLAGS_INCLUDE_DIR})
+  list(APPEND CMAKE_REQUIRED_LIBRARIES ${LIBGFLAGS_LIBRARY})
+  list(APPEND CMAKE_REQUIRED_INCLUDES ${LIBGFLAGS_INCLUDE_DIR})
+endif()
 
 include(ProxygenTest)
 

@@ -23,7 +23,6 @@ install(
     DESTINATION lib
 )
 
-
 if (BUILD_QUIC)
   add_executable(hq
       samples/hq/main.cpp
