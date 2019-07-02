@@ -5,7 +5,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import specs.fizz as fizz
 import specs.folly as folly
 import specs.mvfst as mvfst
-import specs.proxygen as proxygen
 import specs.proxygen_quic as proxygen_quic
 import specs.sodium as sodium
 import specs.wangle as wangle
@@ -18,20 +17,11 @@ from shell_quoting import ShellQuoted
 
 def fbcode_builder_spec(builder):
     return {
-        "depends_on": [
-            folly,
-            wangle,
-            fizz,
-            sodium,
-            zstd,
-            mvfst,
-            proxygen_quic,
-            proxygen,
-        ],
+        "depends_on": [folly, wangle, fizz, sodium, zstd, mvfst, proxygen_quic],
         "steps": [
-            # Tests for the legacy build with no QUIC/HTTP3
+            # Tests for the full build with no QUIC/HTTP3
             # Proxygen is the last step, so we are still in its working dir.
-            builder.step("Run proxygen tests", [builder.run(ShellQuoted("make check"))])
+            builder.step("Run proxygen tests", [builder.run(ShellQuoted("make test"))])
         ],
     }
 
