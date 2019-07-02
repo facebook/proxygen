@@ -7,7 +7,7 @@ Facebook. Internally, it is used as the basis for building many HTTP
 servers, proxies, and clients. This release focuses on the common HTTP
 abstractions and our simple HTTPServer framework. Future releases will
 provide simple client APIs as well. The framework supports HTTP/1.1,
-SPDY/3, SPDY/3.1, and HTTP/2. The goal is to provide a simple,
+SPDY/3, SPDY/3.1, HTTP/2 and HTTP/3. The goal is to provide a simple,
 performant, and modern C++ HTTP library.
 
 We have a Google group for general discussions at https://groups.google.com/d/forum/facebook-proxygen.
@@ -17,25 +17,18 @@ also has more background on the project.
 
 ### Installing
 
-Note that currently this project has only been tested on Ubuntu 14.04,
-although it likely works on many other platforms. Support for Mac OSX is
-incomplete.
+Note that currently this project has been tested on Ubuntu 18.04 and Mac OSX
+although it likely works on many other platforms.
 
 You will need at least 3 GiB of memory to compile `proxygen` and its
 dependencies.
 
 ##### Easy Install
 
-Just run `./deps.sh` from the `proxygen/` directory to get and build all
-the dependencies and `proxygen`. It will also run all the tests. Then run
-`./reinstall.sh` to install it. You can run `./deps.sh && ./reinstall.sh`
-whenever to rebase the dependencies, and then rebuild and reinstall `proxygen`.
-
-A note on compatibility: this project relies on system installed
-[folly](https://github.com/facebook/folly). If you rebase `proxygen` and `make` starts to fail, you likely
-need to update to the latest version of `folly`. Running
-`./deps.sh && ./reinstall.sh` will do this for you. We are still working
-on a solution to manage dependencies more predictably.
+Just run `./build.sh` from the `proxygen/` directory to get and build all
+the dependencies and `proxygen`. You can run the tests manually with `cd _build/ && make test`. 
+Then run `./install.sh` to install it. You can remove the temporary build directory (`_build`) and `./build.sh && ./install.sh`
+to rebase the dependencies, and then rebuild and reinstall `proxygen`.
 
 ##### Other Platforms
 
@@ -50,7 +43,7 @@ Directory structure and contents:
 |----------------------------|-------------------------------------------------------------------------------|
 | `proxygen/external/`       | Contains non-installed 3rd-party code proxygen depends on.                    |
 | `proxygen/lib/`            | Core networking abstractions.                                                 |
-| `proxygen/lib/http/`       | HTTP specific code.                                                           |
+| `proxygen/lib/http/`       | HTTP specific code. (including HTTP/2 and HTTP/3)                             |
 | `proxygen/lib/services/`   | Connection management and server code.                                        |
 | `proxygen/lib/utils/`      | Miscellaneous helper code.                                                    |
 | `proxygen/httpserver/`     | Contains code wrapping `proxygen/lib/` for building simple C++ http servers. We recommend building on top of these APIs. |
@@ -102,14 +95,10 @@ protected member `ResponseHandler* downstream_` to send the response.
 
 Proxygen is a library. After installing it, you can build your own C++
 server. Try `cd`ing to the directory containing the echo server at
-`proxygen/httpserver/samples/echo/`. You can then build it with this one
-liner:
+`proxygen/httpserver/samples/echo/`.
 
-<code>
-g++ -std=c++14 -o my_echo EchoServer.cpp EchoHandler.cpp -lproxygenhttpserver -lfolly -lglog -lgflags -pthread
-</code>
-
-After running `./my_echo`, we can verify it works using curl in a different terminal:
+After building proxygen you can start the echo server with `_build/proxygen/httpserver/echo`
+and verify it works using curl in a different terminal:
 ```shell
 $ curl -v http://localhost:11000/
 *   Trying 127.0.0.1...
@@ -127,6 +116,33 @@ $ curl -v http://localhost:11000/
 <
 * Connection #0 to host localhost left intact
 ```
+
+You can find other samples: 
+  * a simple server that supports HTTP/2 server push (`_build/proxygen/httpserver/push`), 
+  * a simple server for static files (`_build/proxygen/httpserver/static`)
+  * a simple fwdproxy (`_build/proxygen/httpserver/proxy`)
+  * a curl-like client (`_build/proxygen/httpclient/samples/curl/pcurl`)
+
+### QUIC and HTTP/3
+
+Proxygen supports HTTP/3!
+
+It depends on Facebook's [mvfst](https://github.com/facebookincubator/mvfst)
+library for the [IETF QUIC](https://github.com/quicwg/base-drafts) transport
+implementation, so we have made that dependency optional.  You can build the
+HTTP/3 code, tests and sample binaries with `./build.sh --with-quic`.
+
+This will also build a handy commandline utility that can be used as an HTTP/3
+server and client.
+
+Sample usage:
+```shell
+_build/proxygen/httpserver/hq --mode=server
+_build/proxygen/httpserver/hq --mode=client --path=/
+```
+The utility supports the [qlog](https://github.com/quiclog/internet-drafts)
+logging format; just start the server with the `--qlogger_path` option and many
+knobs to tune both the quic transport and the http layer.
 
 ### Documentation
 
