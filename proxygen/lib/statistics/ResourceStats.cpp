@@ -14,7 +14,8 @@
 namespace proxygen {
 
 ResourceStats::ResourceStats(std::unique_ptr<Resources> resources)
-    : resources_(std::move(resources)), data_(resources_->getCurrentData()) {}
+    : resources_(std::move(resources)), data_(resources_->getCurrentData()) {
+}
 
 ResourceStats::~ResourceStats() {
   stopRefresh();
@@ -59,8 +60,7 @@ const ResourceData& ResourceStats::getCurrentLoadData() const {
       tlData.getLastUpdateTime() +
               std::chrono::milliseconds(tlData.getUpdateInterval()) <=
           currentTime) {
-    apache::thrift::concurrency::RWGuard g(
-        dataMutex_, apache::thrift::concurrency::RW_READ);
+    folly::SharedMutex::ReadHolder g(dataMutex_);
     if (data_.getLastUpdateTime() != tlData.getLastUpdateTime()) {
       // Should be fine using the default assignment operator the compiler
       // gave us I think...this will stop being true if data starts storing
@@ -76,8 +76,7 @@ void ResourceStats::updateCachedData() {
 
   data.setUpdateInterval(refreshPeriodMs_);
   {
-    apache::thrift::concurrency::RWGuard g(
-        dataMutex_, apache::thrift::concurrency::RW_WRITE);
+    folly::SharedMutex::WriteHolder g(dataMutex_);
 
     // Reset the last update time in case there was a delay acquiring the lock.
     // Not explicitly necessary as the function scheduler is set to use a

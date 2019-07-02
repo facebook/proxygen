@@ -9,12 +9,11 @@
  */
 #pragma once
 
+#include "proxygen/lib/statistics/ResourceData.h"
 #include <atomic>
 #include <chrono>
+#include <folly/SharedMutex.h>
 #include <folly/experimental/FunctionScheduler.h>
-#include <mutex>
-#include "proxygen/lib/statistics/ResourceData.h"
-#include <thrift/lib/cpp/concurrency/Mutex.h>
 
 namespace proxygen {
 
@@ -104,7 +103,7 @@ class ResourceStats {
    * mutex is for synchronization purposes.
    */
   ResourceData data_;
-  apache::thrift::concurrency::ReadWriteMutex dataMutex_;
+  folly::SharedMutex dataMutex_;
 
   // Refresh management fields
 
