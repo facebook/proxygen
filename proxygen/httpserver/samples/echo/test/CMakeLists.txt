@@ -5,10 +5,11 @@
 # LICENSE file in the root directory of this source tree. An additional gran
 # of patent rights can be found in the PATENTS file in the same directory.
 
-proxygen_add_test(TARGET HTTPServerTests
+proxygen_add_test(TARGET EchoHandlerTests
   SOURCES
-    HTTPServerTest.cpp
-    RequestHandlerAdaptorTest.cpp
+    EchoHandlerTest.cpp
+    ../EchoServer.cpp
+    ../EchoHandler.cpp
   DEPENDS
     proxygen
     proxygenhttpserver

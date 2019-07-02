@@ -102,6 +102,7 @@ endif()
 
 add_library(
     proxygen STATIC
+    healthcheck/ServerHealthCheckerCallback.cpp
     http/codec/CodecProtocol.cpp
     http/codec/CodecUtil.cpp
     http/codec/compress/GzipHeaderCodec.cpp
@@ -184,6 +185,7 @@ add_library(
     services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
+    statistics/ResourceStats.cpp
     transport/PersistentFizzPskCache.cpp
     utils/AsyncTimeoutSet.cpp
     utils/Base64.cpp
@@ -264,6 +266,7 @@ install(
 add_subdirectory(test)
 add_subdirectory(http/test)
 add_subdirectory(http/structuredheaders/test)
+add_subdirectory(http/connpool/test)
 add_subdirectory(http/codec/test)
 add_subdirectory(http/codec/compress/test)
 add_subdirectory(http/session/test)

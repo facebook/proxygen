@@ -26,6 +26,7 @@ proxygen_add_test(TARGET HPACKTests
   SOURCES
     HeaderPieceTests.cpp
     HeaderTableTests.cpp
+    HTTPArchive.cpp
     HPACKBufferTests.cpp
     HPACKCodecTests.cpp
     HPACKContextTests.cpp

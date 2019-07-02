@@ -5,12 +5,26 @@
 # LICENSE file in the root directory of this source tree. An additional grant
 # of patent rights can be found in the PATENTS file in the same directory.
 
-proxygen_add_test(TARGET AsyncTimeoutSetTest DEPENDS proxygen testmain)
-proxygen_add_test(TARGET TraceEventTest DEPENDS proxygen testmain)
+proxygen_add_test(TARGET AsyncTimeoutSetTest
+  SOURCES
+    AsyncTimeoutSetTest.cpp
+  DEPENDS
+    proxygen
+    testmain
+)
+
+proxygen_add_test(TARGET TraceEventTest
+  SOURCES
+    TraceEventTest.cpp
+  DEPENDS
+    proxygen
+    testmain
+)
 
 proxygen_add_test(TARGET UtilTests
   SOURCES
     Base64Test.cpp
+    ConditionalGateTest.cpp
     CryptUtilTest.cpp
     GenericFilterTest.cpp
     HTTPTimeTest.cpp
@@ -21,7 +35,7 @@ proxygen_add_test(TARGET UtilTests
     TimeTest.cpp
     UtilTest.cpp
     ZlibTests.cpp
-    ZstdTests.cpp
+    #ZstdTests.cpp
   DEPENDS
     proxygen
     testmain
