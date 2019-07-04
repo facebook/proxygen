@@ -103,7 +103,7 @@ class ResourceStats {
    * mutex is for synchronization purposes.
    */
   ResourceData data_;
-  folly::SharedMutex dataMutex_;
+  mutable folly::SharedMutex dataMutex_;
 
   // Refresh management fields
 

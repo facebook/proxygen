@@ -11,6 +11,39 @@
 
 #include <glog/logging.h>
 
+namespace {
+// tries to acquire a read lock on a given mutex
+// consider contributing it to folly
+class ReadTryGuard {
+  public:
+    explicit ReadTryGuard(
+        folly::SharedMutex& lock)
+      : lock_(&lock) {
+      bool locked = lock_->try_lock();
+      if (!locked) {
+        lock_ = nullptr;
+      }
+    }
+    ReadTryGuard(const ReadTryGuard&) = delete;
+    ReadTryGuard& operator=(const ReadTryGuard&) = delete;
+
+    explicit operator bool() const {
+      return lock_ != nullptr;
+    }
+    void release() {
+      if (lock_) {
+        lock_->unlock();
+        lock_ = nullptr;
+      }
+    }
+    ~ReadTryGuard() {
+      release();
+    }
+  private:
+    folly::SharedMutex* lock_ = nullptr;
+};
+}
+
 namespace proxygen {
 
 ResourceStats::ResourceStats(std::unique_ptr<Resources> resources)
@@ -55,17 +88,23 @@ void ResourceStats::stopRefresh() {
 
 const ResourceData& ResourceStats::getCurrentLoadData() const {
   thread_local ResourceData tlData;
-  std::chrono::milliseconds currentTime = ResourceData::getEpochTime();
-  if (tlData.getLastUpdateTime() == std::chrono::milliseconds(0) ||
-      tlData.getLastUpdateTime() +
-              std::chrono::milliseconds(tlData.getUpdateInterval()) <=
-          currentTime) {
-    folly::SharedMutex::ReadHolder g(dataMutex_);
-    if (data_.getLastUpdateTime() != tlData.getLastUpdateTime()) {
-      // Should be fine using the default assignment operator the compiler
-      // gave us I think...this will stop being true if data starts storing
-      // pointers.
-      tlData = data_;
+  // Note - we're checking data last update time without lock.
+  // We are ok with scarifying some accuracy, not detecting
+  // the data was updated, for performance.
+  // See D15915152
+  if (tlData.getLastUpdateTime() != data_.getLastUpdateTime()) {
+      std::chrono::milliseconds currentTime = ResourceData::getEpochTime();
+      if (tlData.getLastUpdateTime() == std::chrono::milliseconds(0) ||
+          tlData.getLastUpdateTime() +
+                  std::chrono::milliseconds(tlData.getUpdateInterval()) <=
+              currentTime) {
+        ReadTryGuard g(dataMutex_);
+        if (g) {
+          // Should be fine using the default assignment operator the compiler
+          // gave us I think...this will stop being true if data starts storing
+          // pointers.
+          tlData = data_;
+        }
     }
   }
   return tlData;
