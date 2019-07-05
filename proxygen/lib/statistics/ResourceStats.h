@@ -87,9 +87,8 @@ class ResourceStats {
    * Method is virtual for testing reasons.
    */
   virtual const ResourceData& getCurrentLoadData() const;
-
  protected:
-  void updateCachedData();
+  virtual void updateCachedData();
 
   /**
    * Abstraction that enables callers to provide their own implementations
