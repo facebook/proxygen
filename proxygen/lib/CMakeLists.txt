@@ -182,6 +182,8 @@ add_library(
     http/structuredheaders/StructuredHeadersEncoder.cpp
     http/structuredheaders/StructuredHeadersUtilities.cpp
     http/Window.cpp
+    pools/generators/FileServerListGenerator.cpp
+    pools/generators/ServerListGenerator.cpp
     services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
