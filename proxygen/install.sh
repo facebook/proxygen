@@ -13,8 +13,10 @@ trap 'cd $start_dir' EXIT
 cd "$(dirname "$0")"
 
 cd _build
-sudo make uninstall
+# Uninstall is expected to fail the first time
+sudo make uninstall || true
 sudo make install
 
 # Make sure the libraries are available
-sudo /sbin/ldconfig
+# Linux only
+sudo /sbin/ldconfig || true
