@@ -10,12 +10,12 @@ target_compile_options(
 
 target_link_libraries(proxygencurl PUBLIC proxygen)
 
-add_executable(pcurl CurlClientMain.cpp)
+add_executable(proxygen_curl CurlClientMain.cpp)
 target_link_libraries(
-    pcurl PUBLIC
+    proxygen_curl PUBLIC
     proxygencurl
 )
 target_compile_options(
-    pcurl PRIVATE
+    proxygen_curl PRIVATE
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )

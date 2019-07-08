@@ -118,10 +118,10 @@ $ curl -v http://localhost:11000/
 ```
 
 You can find other samples: 
-  * a simple server that supports HTTP/2 server push (`_build/proxygen/httpserver/push`), 
-  * a simple server for static files (`_build/proxygen/httpserver/static`)
-  * a simple fwdproxy (`_build/proxygen/httpserver/proxy`)
-  * a curl-like client (`_build/proxygen/httpclient/samples/curl/pcurl`)
+  * a simple server that supports HTTP/2 server push (`_build/proxygen/httpserver/proxygen_push`), 
+  * a simple server for static files (`_build/proxygen/httpserver/proxygen_static`)
+  * a simple fwdproxy (`_build/proxygen/httpserver/proxygen_proxy`)
+  * a curl-like client (`_build/proxygen/httpclient/samples/curl/proxygen_curl`)
 
 ### QUIC and HTTP/3
 

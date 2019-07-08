@@ -21,86 +21,86 @@ install(
     DESTINATION lib
 )
 
-add_executable(push
+add_executable(proxygen_push
     samples/push/PushServer.cpp
     samples/push/PushRequestHandler.cpp
 )
 target_compile_options(
-    push
+    proxygen_push
     PRIVATE
         ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
 target_link_libraries(
-    push
+    proxygen_push
     PUBLIC
         proxygen
         proxygenhttpserver
 )
 install(
-    TARGETS push
+    TARGETS proxygen_push
     EXPORT proxygen-exports
     DESTINATION bin
 )
 
-add_executable(proxy
+add_executable(proxygen_proxy
     samples/proxy/ProxyServer.cpp
     samples/proxy/ProxyHandler.cpp
 )
 target_compile_options(
-    proxy
+    proxygen_proxy
     PRIVATE
         ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
 target_link_libraries(
-    proxy
+    proxygen_proxy
     PUBLIC
         proxygen
         proxygenhttpserver
 )
 install(
-    TARGETS proxy
+    TARGETS proxygen_proxy
     EXPORT proxygen-exports
     DESTINATION bin
 )
 
-add_executable(static
+add_executable(proxygen_static
     samples/static/StaticServer.cpp
     samples/static/StaticHandler.cpp
 )
 target_compile_options(
-    static
+    proxygen_static
     PRIVATE
         ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
 target_link_libraries(
-    static
+    proxygen_static
     PUBLIC
         proxygen
         proxygenhttpserver
 )
 install(
-    TARGETS static
+    TARGETS proxygen_static
     EXPORT proxygen-exports
     DESTINATION bin
 )
 
-add_executable(echo
+add_executable(proxygen_echo
     samples/echo/EchoServer.cpp
     samples/echo/EchoHandler.cpp
 )
 target_compile_options(
-    echo
+    proxygen_echo
     PRIVATE
         ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
 target_link_libraries(
-    echo
+    proxygen_echo
     PUBLIC
         proxygen
         proxygenhttpserver
 )
 install(
-    TARGETS echo
+    TARGETS proxygen_echo
     EXPORT proxygen-exports
     DESTINATION bin
 )
