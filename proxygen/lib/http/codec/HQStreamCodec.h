@@ -173,6 +173,14 @@ class HQStreamCodec
     return transportSupportsPartialReliability_;
   }
 
+  TrackerOffsetResult getEgressBodyOffset(uint64_t streamOffset) const {
+    return egressPrBodyTracker_.streamToBodyOffset(streamOffset);
+  }
+
+  TrackerOffsetResult appToStreamOffset(uint64_t bodyOffset) {
+    return egressPrBodyTracker_.appTostreamOffset(bodyOffset);
+  }
+
  protected:
   ParseResult checkFrameAllowed(FrameType type) override;
   ParseResult parseData(folly::io::Cursor& cursor,

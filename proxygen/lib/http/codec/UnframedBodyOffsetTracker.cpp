@@ -64,6 +64,21 @@ TrackerOffsetResult UnframedBodyOffsetTracker::appTostreamOffset(
   return *bodyStartstreamOffset_ + bodyOffset;
 }
 
+TrackerOffsetResult UnframedBodyOffsetTracker::streamToBodyOffset(
+    uint64_t streamOffset) const {
+  if (!bodyStartstreamOffset_) {
+    return folly::makeUnexpected(
+        UnframedBodyOffsetTrackerError::START_OFFSET_NOT_SET);
+  }
+
+  if (streamOffset < *bodyStartstreamOffset_) {
+    return folly::makeUnexpected(
+        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
+  }
+
+  return streamOffset - *bodyStartstreamOffset_;
+}
+
 std::string toString(UnframedBodyOffsetTrackerError error) {
   switch (error) {
     case UnframedBodyOffsetTrackerError::NO_ERROR:

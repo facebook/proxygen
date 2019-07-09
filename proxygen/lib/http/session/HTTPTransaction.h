@@ -372,6 +372,12 @@ class HTTPTransactionTransportCallback {
   virtual void lastEgressHeaderByteAcked() noexcept {
   }
 
+  virtual void bodyBytesDelivered(uint64_t /* bodyOffset */) noexcept {
+  }
+
+  virtual void bodyBytesDeliveryCancelled(uint64_t /* bodyOffset */) noexcept {
+  }
+
   virtual ~HTTPTransactionTransportCallback() {
   }
 };
@@ -514,6 +520,15 @@ class HTTPTransaction
      */
     virtual folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
         HTTPTransaction* /* txn */, uint64_t /* nextBodyOffset */) {
+      LOG(FATAL) << __func__ << " not supported";
+      __builtin_unreachable();
+    }
+
+    /**
+     * Ask transport to track and ack body delivery.
+     */
+    virtual folly::Expected<folly::Unit, ErrorCode> trackEgressBodyDelivery(
+        uint64_t /* bodyOffset */) {
       LOG(FATAL) << __func__ << " not supported";
       __builtin_unreachable();
     }
@@ -807,6 +822,18 @@ class HTTPTransaction
    * peer.
    */
   void onLastEgressHeaderByteAcked();
+
+  /**
+   * Invoked by the session when egress body has been acked by the
+   * peer. Called for each sendBody() call if body bytes tracking is enabled.
+   */
+  void onEgressBodyBytesAcked(uint64_t bodyOffset);
+
+  /**
+   * Invoked by the session when egress body delivery has been cancelled by the
+   * peer.
+   */
+  void onEgressBodyDeliveryCanceled(uint64_t bodyOffset);
 
   /**
    * Invoked by the session when data to peek into is available on trasport
@@ -1394,6 +1421,15 @@ class HTTPTransaction
     enableLastByteFlushedTracking_ = enabled;
   }
 
+  folly::Expected<folly::Unit, ErrorCode>
+  setBodyLastByteDeliveryTrackingEnabled(bool enabled) {
+    if (!partiallyReliable_) {
+      return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+    }
+    enableBodyLastByteDeliveryTracking_ = enabled;
+    return folly::unit;
+  }
+
   /**
    * Allows the caller to peek into underlying transport's read buffer.
    * This, together with consume(), forms a scatter/gather API.
@@ -1714,6 +1750,7 @@ class HTTPTransaction
   bool priorityFallback_ : 1;
   bool headRequest_ : 1;
   bool enableLastByteFlushedTracking_ : 1;
+  bool enableBodyLastByteDeliveryTracking_ : 1;
 
   static uint64_t egressBufferLimit_;
 

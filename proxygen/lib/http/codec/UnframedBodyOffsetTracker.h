@@ -69,6 +69,11 @@ class UnframedBodyOffsetTracker {
    */
   TrackerOffsetResult appTostreamOffset(uint64_t bodyOffset) const;
 
+  /**
+   * Translates stream offset given into body offset.
+   */
+  TrackerOffsetResult streamToBodyOffset(uint64_t streamOffset) const;
+
  private:
   /**
    * Where body starts in transport stream offset.

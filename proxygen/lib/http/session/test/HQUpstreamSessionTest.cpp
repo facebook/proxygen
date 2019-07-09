@@ -348,6 +348,7 @@ class HQUpstreamSessionPRTest : public HQUpstreamSessionTest {
 using HQUpstreamSessionTestHQPR = HQUpstreamSessionPRTest;
 // Use this test class for hq PR scripted recv tests
 using HQUpstreamSessionTestHQPRRecvBodyScripted = HQUpstreamSessionPRTest;
+using HQUpstreamSessionTestHQPRDeliveryAck = HQUpstreamSessionPRTest;
 
 TEST_P(HQUpstreamSessionTest, SimpleGet) {
   auto handler = openTransaction();
@@ -1911,7 +1912,8 @@ TEST_P(HQUpstreamSessionTestHQPR, TestWrongOffsetErrorCleanup) {
   hqSession_->closeWhenIdle();
 }
 
-TEST_P(HQUpstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
+TEST_P(HQUpstreamSessionTestHQPRDeliveryAck,
+       DropConnectionWithDeliveryAckCbSetError) {
   auto handler = openPrTransaction();
   auto req = getGetRequest();
   req.setPartiallyReliable();
@@ -1957,3 +1959,15 @@ TEST_P(HQUpstreamSessionTestHQPR, DropConnectionWithDeliveryAckCbSetError) {
 
   hqSession_->closeWhenIdle();
 }
+
+INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+                        HQUpstreamSessionTestHQPRDeliveryAck,
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          tp.prParams = PartiallyReliableTestParams{
+                              .bodyScript = std::vector<uint8_t>(),
+                          };
+                          return tp;
+                        }()),
+                        paramsToTestName);

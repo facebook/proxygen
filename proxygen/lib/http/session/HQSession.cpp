@@ -1280,6 +1280,18 @@ HQSession::HQVersionUtils::onEgressBodyReject(uint64_t bodyOffset) {
   return hqStreamCodecPtr_->onEgressBodyReject(bodyOffset);
 }
 
+hq::TrackerOffsetResult HQSession::HQVersionUtils::getEgressBodyOffset(
+    uint64_t streamOffset) const {
+  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  return hqStreamCodecPtr_->getEgressBodyOffset(streamOffset);
+}
+
+hq::TrackerOffsetResult HQSession::HQVersionUtils::appToStreamOffset(
+    uint64_t bodyOffset) const {
+  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  return hqStreamCodecPtr_->appToStreamOffset(bodyOffset);
+}
+
 void HQSession::scheduleWrite() {
   // always call for the whole connection and iterate trough all the streams
   // in onWriteReady
@@ -3314,7 +3326,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
     HTTPTransaction* txn,
     std::unique_ptr<folly::IOBuf> body,
     bool includeEOM,
-    bool /* unused */) noexcept {
+    bool /* trackLastByteFlushed */) noexcept {
   VLOG(4) << __func__ << " len=" << body->computeChainDataLength()
           << " eof=" << includeEOM << " txn=" << txn_;
   CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
@@ -3530,17 +3542,42 @@ HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
   }
 }
 
-void HQSession::HQStreamTransportBase::armEgressHeadersAckCb(
-    uint64_t streamOffset) {
+folly::Expected<folly::Unit, ErrorCode>
+HQSession::HQStreamTransportBase::trackEgressBodyDelivery(uint64_t bodyOffset) {
+  if (!session_.isPartialReliabilityEnabled()) {
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  auto streamOffset = session_.versionUtils_->appToStreamOffset(bodyOffset);
+  if (streamOffset.hasError()) {
+    LOG(ERROR) << __func__
+                << ": body offset tracker error: " << streamOffset.error();
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  if (*streamOffset == 0) {
+    LOG(ERROR) << __func__ << ": incorrect body stream offset == 0";
+    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  }
+
+  // We need to track last byte sent offset, so substract one here.
+  armEgressBodyAckCb(*streamOffset - 1);
+
+  return folly::unit;
+}
+
+void HQSession::HQStreamTransportBase::armStreamAckCb(uint64_t streamOffset) {
   auto res = session_.sock_->registerDeliveryCallback(
       getEgressStreamId(), streamOffset, this);
   if (res.hasError()) {
-
     auto errStr = folly::sformat("failed to register delivery callback: {}",
                                  toString(res.error()));
-    LOG(ERROR) << __func__ << ": " << errStr << "; sess=" << session_
-               << "; txn=" << txn_;
+    LOG(ERROR) << __func__ << ": " << errStr;
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, errStr);
+    ex.setProxygenError(kErrorNetwork);
     errorOnTransaction(std::move(ex));
     return;
   }
@@ -3553,8 +3590,74 @@ void HQSession::HQStreamTransportBase::armEgressHeadersAckCb(
   VLOG(4) << __func__
           << ": registered ack callback for offset = " << streamOffset
           << "; sess=" << session_ << "; txn=" << txn_;
+}
 
+void HQSession::HQStreamTransportBase::armEgressHeadersAckCb(
+    uint64_t streamOffset) {
+  armStreamAckCb(streamOffset);
   egressHeadersAckOffset_ = streamOffset;
+}
+
+void HQSession::HQStreamTransportBase::armEgressBodyAckCb(
+    uint64_t streamOffset) {
+  armStreamAckCb(streamOffset);
+  egressBodyAckOffsets_.insert(streamOffset);
+}
+
+void HQSession::HQStreamTransportBase::handleHeadersAcked(
+    uint64_t streamOffset) {
+  CHECK(egressHeadersAckOffset_) << ": egressHeadersAckOffset_ is not set";
+  if (*egressHeadersAckOffset_ != streamOffset) {
+    LOG(ERROR) << __func__
+               << ": unexpected offset for egress headers ack: expected "
+               << *egressHeadersAckOffset_ << ", received " << streamOffset;
+    return;
+  }
+
+  resetEgressHeadersAckOffset();
+  txn_.onLastEgressHeaderByteAcked();
+}
+
+void HQSession::HQStreamTransportBase::handleBodyAcked(uint64_t streamOffset) {
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  auto bodyOffset = session_.versionUtils_->getEgressBodyOffset(streamOffset);
+  if (bodyOffset.hasError()) {
+    LOG(DFATAL) << __func__
+                << ": body offset tracker error: " << bodyOffset.error();
+    HTTPException ex(HTTPException::Direction::EGRESS,
+                     toString(bodyOffset.error()));
+    // Setting error to unknown here, because there is no existing error that
+    // describes wrong transport offset well enough. Plus, if this ever happens,
+    // this has to be some unknown/local/logical bug that we need to fix.
+    ex.setProxygenError(kErrorUnknown);
+    errorOnTransaction(std::move(ex));
+    return;
+  }
+
+  resetEgressBodyAckOffset(streamOffset);
+  txn_.onEgressBodyBytesAcked(*bodyOffset);
+}
+
+void HQSession::HQStreamTransportBase::handleBodyCancelled(
+    uint64_t streamOffset) {
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(session_.versionUtils_) << ": version utils are not set";
+
+  auto bodyOffset = session_.versionUtils_->getEgressBodyOffset(streamOffset);
+  if (bodyOffset.hasError()) {
+    LOG(ERROR) << __func__
+               << ": body offset tracker error: " << bodyOffset.error();
+    HTTPException ex(HTTPException::Direction::EGRESS,
+                     toString(bodyOffset.error()));
+    ex.setProxygenError(kErrorUnknown);
+    errorOnTransaction(std::move(ex));
+    return;
+  }
+
+  resetEgressBodyAckOffset(streamOffset);
+  txn_.onEgressBodyDeliveryCanceled(*bodyOffset);
 }
 
 void HQSession::HQStreamTransportBase::onDeliveryAck(
@@ -3568,24 +3671,19 @@ void HQSession::HQStreamTransportBase::onDeliveryAck(
   numActiveDeliveryCallbacks_--;
   txn_.decrementPendingByteEvents();
 
-  if (!egressHeadersAckOffset_) {
-    LOG(ERROR) << __func__
-               << ": received an unexpected onDeliveryAck event at offset "
-               << offset << "; sess=" << session_ << "; txn=" << txn_;
+  if (egressHeadersAckOffset_) {
+    handleHeadersAcked(offset);
     return;
   }
 
-  // offset in callback is the last bytes
-  if (*egressHeadersAckOffset_ != offset) {
-    LOG(ERROR) << __func__
-               << ": unexpected offset for egress headers ack: expected "
-               << *egressHeadersAckOffset_ << ", received " << offset
-               << "; sess=" << session_ << "; txn=" << txn_;
+  if (egressBodyAckOffsets_.find(offset) != egressBodyAckOffsets_.end()) {
+    handleBodyAcked(offset);
     return;
   }
 
-  resetEgressHeadersAckOffset();
-  txn_.onLastEgressHeaderByteAcked();
+  LOG(DFATAL) << __func__
+             << ": received an unexpected onDeliveryAck event at offset "
+             << offset << "; sess=" << session_ << "; txn=" << txn_;
 }
 
 void HQSession::HQStreamTransportBase::onCanceled(quic::StreamId id,
@@ -3595,9 +3693,21 @@ void HQSession::HQStreamTransportBase::onCanceled(quic::StreamId id,
           << "; txn=" << txn_;
   DCHECK_GT(numActiveDeliveryCallbacks_, 0);
   numActiveDeliveryCallbacks_--;
-
-  resetEgressHeadersAckOffset();
   txn_.decrementPendingByteEvents();
+
+  if (egressHeadersAckOffset_) {
+    resetEgressHeadersAckOffset();
+    return;
+  }
+
+  if (egressBodyAckOffsets_.find(offset) != egressBodyAckOffsets_.end()) {
+    handleBodyCancelled(offset);
+    return;
+  }
+
+  LOG(DFATAL) << __func__
+             << ": received an unexpected onCanceled event at offset "
+             << offset;
 }
 
 // Methods specific to StreamTransport subclasses

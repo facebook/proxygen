@@ -516,6 +516,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               it->second.readOffset = streamOffset;
               return folly::makeExpected<LocalErrorCode>(streamOffset);
             }));
+
+    EXPECT_CALL(*sock_, cancelDeliveryCallbacksForStream(testing::_))
+        .WillRepeatedly(testing::Invoke([this](quic::StreamId id) -> void {
+          cancelDeliveryCallbacks(id, streams_[id]);
+        }));
   }
 
   quic::StreamId getMaxStreamId() {

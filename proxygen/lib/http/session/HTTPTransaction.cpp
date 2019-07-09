@@ -70,6 +70,7 @@ HTTPTransaction::HTTPTransaction(
       priorityFallback_(false),
       headRequest_(false),
       enableLastByteFlushedTracking_(false),
+      enableBodyLastByteDeliveryTracking_(false),
       transactionTimeout_(defaultTimeout),
       timer_(timer) {
 
@@ -771,6 +772,22 @@ void HTTPTransaction::onLastEgressHeaderByteAcked() {
   }
 }
 
+void HTTPTransaction::onEgressBodyBytesAcked(uint64_t bodyOffset) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onEgressBodyBytesAcked");
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->bodyBytesDelivered(bodyOffset);
+  }
+}
+
+void HTTPTransaction::onEgressBodyDeliveryCanceled(uint64_t bodyOffset) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onEgressBodyDeliveryCanceled");
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->bodyBytesDeliveryCancelled(bodyOffset);
+  }
+}
+
 void HTTPTransaction::onIngressBodyPeek(uint64_t bodyOffset,
                                         const folly::IOBufQueue& chain) {
   FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodyPeek");
@@ -885,6 +902,17 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
           << "Sent body longer than chunk header ";
     }
     deferredEgressBody_.append(std::move(body));
+    if (enableBodyLastByteDeliveryTracking_) {
+      auto res = transport_.trackEgressBodyDelivery(*actualResponseLength_);
+      if (res.hasError()) {
+        HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+          folly::to<std::string>("Failed to arm body bytes tracking: "
+                                 , res.error()));
+        ex.setProxygenError(kErrorUnknown);
+        onError(ex);
+        return;
+      }
+    }
     if (isEnqueued()) {
       transport_.notifyEgressBodyBuffered(bodyLen);
     }

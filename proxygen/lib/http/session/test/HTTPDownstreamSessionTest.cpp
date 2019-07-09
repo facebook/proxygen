@@ -1458,7 +1458,7 @@ TEST_F(HTTPDownstreamSessionTest, TestTrackedByteEventTracker) {
   handler1->expectHeaders();
   handler1->expectEOM([&handler1, &bytesToSend]() {
     handler1->sendHeaders(200, 200);
-    handler1->sendBodyWithLastByteTracking(bytesToSend);
+    handler1->sendBodyWithLastByteFlushedTracking(bytesToSend);
     handler1->txn_->sendEOM();
   });
 

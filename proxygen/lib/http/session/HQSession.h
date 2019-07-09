@@ -1489,6 +1489,9 @@ class HQSession
     folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
         HTTPTransaction* txn, uint64_t nextBodyOffset) override;
 
+    folly::Expected<folly::Unit, ErrorCode> trackEgressBodyDelivery(
+        uint64_t bodyOffset) override;
+
     uint64_t trimPendingEgressBody(uint64_t wireOffset);
 
     /**
@@ -1658,14 +1661,14 @@ class HQSession
     // Stream + session protocol info
     std::shared_ptr<QuicStreamProtocolInfo> quicStreamProtocolInfo_;
 
+    void armStreamAckCb(uint64_t streamOffset);
     void armEgressHeadersAckCb(uint64_t streamOffset);
-
-    bool egressHeadersAckOffsetSet() const {
-      return egressHeadersAckOffset_.hasValue();
-    }
-
+    void armEgressBodyAckCb(uint64_t streamOffset);
     void resetEgressHeadersAckOffset() {
       egressHeadersAckOffset_ = folly::none;
+    }
+    void resetEgressBodyAckOffset(uint64_t offset) {
+      egressBodyAckOffsets_.erase(offset);
     }
 
     uint64_t numActiveDeliveryCallbacks() const {
@@ -1673,7 +1676,11 @@ class HQSession
     }
 
    private:
+    void handleHeadersAcked(uint64_t streamOffset);
+    void handleBodyAcked(uint64_t streamOffset);
+    void handleBodyCancelled(uint64_t streamOffset);
     folly::Optional<uint64_t> egressHeadersAckOffset_;
+    std::unordered_set<uint64_t> egressBodyAckOffsets_;
     // Track number of armed QUIC delivery callbacks.
     uint64_t numActiveDeliveryCallbacks_{0};
 
@@ -1926,6 +1933,14 @@ class HQSession
     onEgressBodyReject(uint64_t /* bodyOffset */) {
       LOG(FATAL) << ": called in base class";
     }
+    virtual hq::TrackerOffsetResult getEgressBodyOffset(
+        uint64_t /* streamOffset */) const {
+      LOG(FATAL) << ": called in base class";
+    }
+    virtual hq::TrackerOffsetResult appToStreamOffset(
+        uint64_t /* bodyOffset */) const {
+      LOG(FATAL) << ": called in base class";
+    }
 
     HQSession& session_;
   };
@@ -2064,6 +2079,12 @@ class HQSession
 
     folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
     onEgressBodyReject(uint64_t bodyOffset) override;
+
+    hq::TrackerOffsetResult getEgressBodyOffset(
+        uint64_t streamOffset) const override;
+
+    hq::TrackerOffsetResult appToStreamOffset(
+        uint64_t bodyOffset) const override;
 
    private:
     QPACKCodec qpackCodec_;
