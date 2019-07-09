@@ -1115,9 +1115,6 @@ class HQSession
     // Process QUIC onDataRejected callback.
     void processDataRejected(uint64_t streamOffset);
 
-    // Helper to handle ingress skip/reject offset errors.
-    void onIngressSkipRejectError(hq::UnframedBodyOffsetTrackerError error);
-
     // QuicSocket::DeliveryCallback
     void onDeliveryAck(quic::StreamId id,
                        uint64_t offset,

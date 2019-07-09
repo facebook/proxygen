@@ -2611,16 +2611,12 @@ TEST_P(HQDownstreamSessionTestHQPrBadOffset, TestWrongOffsetErrorCleanup) {
   });
   flushRequestsAndLoopN(1);
 
-  // Give wrong offset to the session and expect transaction to abort and
-  // clean-up properly.
+  // Give wrong offset to the session and expect transaction to finish properly.
+  // Wrong offset is a soft error, error message is printed to the log.
   uint64_t wrongOffset = 1;
-  EXPECT_CALL(*handler, onError(_))
-      .WillOnce(Invoke([](const HTTPException& error) {
-        EXPECT_TRUE(std::string(error.what()).find("invalid offset") !=
-                    std::string::npos);
-      }));
   handler->expectDetachTransaction();
   hqSession_->getDispatcher()->onDataRejected(streamId, wrongOffset);
+  handler->sendEOM();
 
   flushRequestsAndLoop();
   hqSession_->closeWhenIdle();

@@ -2842,19 +2842,6 @@ void HQSession::HQStreamTransportBase::processPeekData(
   }
 }
 
-void HQSession::HQStreamTransportBase::onIngressSkipRejectError(
-    hq::UnframedBodyOffsetTrackerError error) {
-  // These offset errors mean that the peer miscalculating/using wrong
-  // body/stream offsets, so we error out and kill the whole transaction.
-  //
-  // This will raise error on transaction handler, abort the stream and send
-  // STOP_SENDING/RST_STREAM to the peer.
-  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-                   toString(error));
-  ex.setCodecStatusCode(ErrorCode::_HTTP3_PR_INVALID_OFFSET);
-  errorOnTransaction(std::move(ex));
-}
-
 void HQSession::HQStreamTransportBase::processDataExpired(
     uint64_t streamOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
@@ -2862,8 +2849,8 @@ void HQSession::HQStreamTransportBase::processDataExpired(
 
   auto bodyOffset = session_.versionUtils_->onIngressDataExpired(streamOffset);
   if (bodyOffset.hasError()) {
-    LOG(ERROR) << __func__ << ": " << bodyOffset.error();
-    onIngressSkipRejectError(bodyOffset.error());
+    VLOG(4) << __func__ << ": got an invalid (possibly stale) skip offset: "
+            << bodyOffset.error();
   } else {
     txn_.onIngressBodySkipped(*bodyOffset);
   }
@@ -2876,8 +2863,8 @@ void HQSession::HQStreamTransportBase::processDataRejected(
 
   auto bodyOffset = session_.versionUtils_->onIngressDataRejected(streamOffset);
   if (bodyOffset.hasError()) {
-    LOG(ERROR) << __func__ << ": " << bodyOffset.error();
-    onIngressSkipRejectError(bodyOffset.error());
+    VLOG(4) << __func__ << ": got an invalid (possibly stale) reject offset:"
+            << bodyOffset.error();
   } else {
     txn_.onIngressBodyRejected(*bodyOffset);
   }
