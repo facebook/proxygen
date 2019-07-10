@@ -266,6 +266,11 @@ class HTTPTransactionHandler {
   }
 
   /**
+   * Inform the handler that unframed body is starting.
+   */
+  virtual void onUnframedBodyStarted(uint64_t /* offset */) noexcept {}
+
+  /**
    * Inform the handler that data arrived into underlying transport's read
    * buffer.
    */
@@ -765,6 +770,16 @@ class HTTPTransaction
    * versions of HTTP that support per transaction flow control.
    */
   void onIngressSetSendWindow(uint32_t newWindowSize);
+
+  /**
+   * Ivoked by the session when it gets the start of the unframed body.
+   */
+  void onIngressUnframedBodyStarted(uint64_t offset) {
+    partiallyReliable_ = true;
+    if (handler_) {
+      handler_->onUnframedBodyStarted(offset);
+    }
+  }
 
   /**
    * Notify this transaction that it is ok to egress.  Returns true if there
@@ -1772,7 +1787,8 @@ class HTTPTransaction
   std::unique_ptr<PrioritySample> prioritySample_;
 
   // Signals if the transaction is partially reliable.
-  // Set on first sendHeaders() call;
+  // Set on first sendHeaders() call on egress or with setPartiallyReliable() on
+  // ingress.
   bool partiallyReliable_{false};
 
   // Prevents the application from calling skipBodyTo() before egress

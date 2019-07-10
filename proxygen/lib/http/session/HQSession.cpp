@@ -3406,10 +3406,11 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
 // Partially reliable transport callbacks.
 
 void HQSession::HQStreamTransportBase::onUnframedBodyStarted(
-    HTTPCodec::StreamID streamID, uint64_t /* streamOffset */) {
+    HTTPCodec::StreamID streamID, uint64_t streamOffset) {
   CHECK(session_.isPartialReliabilityEnabled())
       << ": received " << __func__ << " but partial reliability is not enabled";
   session_.setPartiallyReliableCallbacks(streamID);
+  txn_.onIngressUnframedBodyStarted(streamOffset);
 }
 
 folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(

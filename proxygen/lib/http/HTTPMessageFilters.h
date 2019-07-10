@@ -55,6 +55,15 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   void onError(const HTTPException& error) noexcept override {
     nextTransactionHandler_->onError(error);
   }
+  void onUnframedBodyStarted(uint64_t offset) noexcept override {
+    nextTransactionHandler_->onUnframedBodyStarted(offset);
+  }
+  void onBodySkipped(uint64_t offset) noexcept override {
+    nextTransactionHandler_->onBodySkipped(offset);
+  }
+  void onBodyRejected(uint64_t offset) noexcept override {
+    nextTransactionHandler_->onBodyRejected(offset);
+  }
 
   // These HTTPTransaction::Handler callbacks cannot be overrwritten
   void setTransaction(HTTPTransaction* txn) noexcept final {

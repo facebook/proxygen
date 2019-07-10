@@ -684,6 +684,7 @@ void HTTPMessage::describe(std::ostream& os) const {
   os << ", chunked: " << chunked_
      << ", upgraded: " << upgraded_
      << ", secure: " << secure_
+     << ", partially reliable: " << partiallyReliable_
      << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.
