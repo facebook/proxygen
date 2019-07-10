@@ -50,9 +50,10 @@ class UnframedBodyOffsetTracker {
   void addBodyBytesProcessed(uint64_t n);
 
   /**
-   * Pushes body bytes processed forward.
+   * Pushes body bytes processed forward if new offset is larger than already
+   * registered offset.
    */
-  bool moveBodyBytesProcessed(uint64_t appSkipOffset);
+  bool maybeMoveBodyBytesProcessed(uint64_t appSkipOffset);
 
   /**
    * Returns body bytes processed so far.

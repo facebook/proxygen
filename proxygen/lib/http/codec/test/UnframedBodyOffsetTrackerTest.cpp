@@ -51,16 +51,16 @@ TEST(UnframedBodyOffsetTrackerTest, TestAddBodyBytesProcessed) {
   EXPECT_EQ(tracker.getBodyBytesProcessed(), 53);
 }
 
-TEST(UnframedBodyOffsetTrackerTest, TestMoveBodyBytesProcessed) {
+TEST(UnframedBodyOffsetTrackerTest, TestMaybeMoveBodyBytesProcessed) {
   const uint64_t streamOffset = 42;
   UnframedBodyOffsetTracker tracker{};
   auto res = tracker.startBodyTracking(streamOffset);
   EXPECT_FALSE(res.hasError());
-  EXPECT_TRUE(tracker.moveBodyBytesProcessed(17));
+  EXPECT_TRUE(tracker.maybeMoveBodyBytesProcessed(17));
   EXPECT_EQ(tracker.getBodyBytesProcessed(), 17);
 }
 
-TEST(UnframedBodyOffsetTrackerTest, TestMoveBodyBytesProcessedFalse) {
+TEST(UnframedBodyOffsetTrackerTest, TestMaybeMoveBodyBytesProcessedFalse) {
   const uint64_t streamOffset = 42;
   UnframedBodyOffsetTracker tracker{};
   auto res = tracker.startBodyTracking(streamOffset);
@@ -68,8 +68,7 @@ TEST(UnframedBodyOffsetTrackerTest, TestMoveBodyBytesProcessedFalse) {
 
   tracker.addBodyBytesProcessed(53);
   EXPECT_EQ(tracker.getBodyBytesProcessed(), 53);
-
-  EXPECT_FALSE(tracker.moveBodyBytesProcessed(17));
+  EXPECT_FALSE(tracker.maybeMoveBodyBytesProcessed(17));
 }
 
 TEST(UnframedBodyOffsetTrackerTest, TestGetBodyStreamStartOffset) {

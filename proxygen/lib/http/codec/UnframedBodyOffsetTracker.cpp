@@ -32,7 +32,7 @@ void UnframedBodyOffsetTracker::addBodyBytesProcessed(uint64_t n) {
   appBodyBytesProcessed_ += n;
 }
 
-bool UnframedBodyOffsetTracker::moveBodyBytesProcessed(
+bool UnframedBodyOffsetTracker::maybeMoveBodyBytesProcessed(
     uint64_t appSkipOffset) {
   if (appSkipOffset <= appBodyBytesProcessed_) {
     return false;

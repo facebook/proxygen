@@ -291,14 +291,8 @@ HQStreamCodec::onIngressDataExpired(uint64_t streamOffset) {
   }
 
   auto bodyOffset = streamOffset - *bodyStreamStart;
-  auto updated = ingressPrBodyTracker_.moveBodyBytesProcessed(bodyOffset);
-
-  if (updated) {
-    return bodyOffset;
-  } else {
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
+  ingressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
+  return bodyOffset;
 }
 
 folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
@@ -317,14 +311,6 @@ HQStreamCodec::onIngressDataRejected(uint64_t streamOffset) {
   }
 
   auto bytesSent = getCodecTotalEgressBytes();
-  // Shouldn't happen, but still check.
-  if (streamOffset <= bytesSent) {
-    LOG(ERROR) << "got stream offset (" << streamOffset
-               << ") <= than bytes already sent (" << bytesSent << ")";
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
   if (!egressPrBodyTracker_.bodyStarted()) {
     egressPrBodyTracker_.startBodyTracking(bytesSent);
   }
@@ -344,14 +330,8 @@ HQStreamCodec::onIngressDataRejected(uint64_t streamOffset) {
   }
 
   auto bodyOffset = streamOffset - *bodyStreamStart;
-  auto updated = egressPrBodyTracker_.moveBodyBytesProcessed(bodyOffset);
-
-  if (updated && callback_) {
-    return bodyOffset;
-  } else {
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
+  egressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
+  return bodyOffset;
 }
 
 folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
@@ -373,17 +353,13 @@ HQStreamCodec::onEgressBodySkip(uint64_t bodyOffset) {
     egressPrBodyTracker_.startBodyTracking(bytesSent);
   }
 
-  auto updated = egressPrBodyTracker_.moveBodyBytesProcessed(bodyOffset);
-  if (updated) {
-    auto streamOffset = egressPrBodyTracker_.appTostreamOffset(bodyOffset);
-    if (streamOffset.hasError()) {
-      LOG(ERROR) << __func__ << ": error: " << streamOffset.error();
-      return folly::makeUnexpected(streamOffset.error());
-    }
-    return *streamOffset;
+  egressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
+  auto streamOffset = egressPrBodyTracker_.appTostreamOffset(bodyOffset);
+  if (streamOffset.hasError()) {
+    LOG(ERROR) << __func__ << ": error: " << streamOffset.error();
+    return folly::makeUnexpected(streamOffset.error());
   }
-
-  return folly::makeUnexpected(UnframedBodyOffsetTrackerError::INVALID_OFFSET);
+  return *streamOffset;
 }
 
 folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
@@ -402,17 +378,13 @@ HQStreamCodec::onEgressBodyReject(uint64_t bodyOffset) {
   CHECK(ingressPrBodyTracker_.bodyStarted())
       << ": partially realible body tracker not started";
 
-  auto updated = ingressPrBodyTracker_.moveBodyBytesProcessed(bodyOffset);
-  if (updated) {
-    auto streamOffset = ingressPrBodyTracker_.appTostreamOffset(bodyOffset);
-    if (streamOffset.hasError()) {
-      LOG(ERROR) << __func__ << ": error: " << streamOffset.error();
-      return folly::makeUnexpected(streamOffset.error());
-    }
-    return *streamOffset;
+  ingressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
+  auto streamOffset = ingressPrBodyTracker_.appTostreamOffset(bodyOffset);
+  if (streamOffset.hasError()) {
+    LOG(ERROR) << __func__ << ": error: " << streamOffset.error();
+    return folly::makeUnexpected(streamOffset.error());
   }
-
-  return folly::makeUnexpected(UnframedBodyOffsetTrackerError::INVALID_OFFSET);
+  return *streamOffset;
 }
 
 void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
