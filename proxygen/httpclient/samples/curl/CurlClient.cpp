@@ -36,14 +36,16 @@ CurlClient::CurlClient(EventBase* evb,
                        const string& inputFilename,
                        bool h2c,
                        unsigned short httpMajor,
-                       unsigned short httpMinor)
+                       unsigned short httpMinor,
+                       bool partiallyReliable)
     : evb_(evb),
       httpMethod_(httpMethod),
       url_(url),
       inputFilename_(inputFilename),
       h2c_(h2c),
       httpMajor_(httpMajor),
-      httpMinor_(httpMinor) {
+      httpMinor_(httpMinor),
+      partiallyReliable_(partiallyReliable) {
   if (proxy != nullptr) {
     proxy_ = std::make_unique<URL>(proxy->getUrl());
   }
@@ -153,6 +155,10 @@ void CurlClient::sendRequest(HTTPTransaction* txn) {
   }
   if (loggingEnabled_) {
     request_.dumpMessage(4);
+  }
+
+  if (partiallyReliable_) {
+    request_.setPartiallyReliable();
   }
 
   txn_->sendHeaders(request_);

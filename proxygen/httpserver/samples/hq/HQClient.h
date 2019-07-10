@@ -16,9 +16,12 @@
 
 #include <folly/io/async/ScopedEventBaseThread.h>
 #include <folly/json.h>
+#include <folly/io/async/AsyncTimeout.h>
+#include <folly/io/async/EventBaseManager.h>
 
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
+#include <proxygen/httpserver/samples/hq/PartiallyReliableCurlClient.h>
 #include <proxygen/lib/http/SynchronizedLruQuicPskCache.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
@@ -29,6 +32,7 @@
 #include <quic/congestion_control/CongestionControllerFactory.h>
 
 namespace quic { namespace samples {
+
 class HQClient : private proxygen::HQSession::ConnectCallback {
  public:
   HQClient(const std::string& host,
@@ -42,7 +46,9 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
            bool useDraftFirst,
            const std::chrono::milliseconds txnTimeout,
            const std::string& qLoggerPath,
-           bool prettyJson)
+           bool prettyJson,
+           bool usePartialReliability = false,
+           folly::Optional<uint64_t> prChunkDelayMs = folly::none)
       : host_(host),
         port_(port),
         body_(body),
@@ -53,7 +59,9 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
         useDraftFirst_(useDraftFirst),
         txnTimeout_(txnTimeout),
         qLoggerPath_(qLoggerPath),
-        prettyJson_(prettyJson) {
+        prettyJson_(prettyJson),
+        usePartialReliability_(usePartialReliability),
+        prChunkDelayMs_(prChunkDelayMs) {
     headers_ = CurlService::CurlClient::parseHeaders(headers);
     if (transportSettings_.pacingEnabled) {
       pacingTimer_ = TimerHighRes::newTimer(
@@ -190,20 +198,36 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
     folly::split(',', path_, paths);
     for (const auto& path : paths) {
       proxygen::URL requestUrl(path.str(), /*secure=*/true);
-      curls_.emplace_back(&evb_,
-                          (body_ == "" ? proxygen::HTTPMethod::GET
-                                       : proxygen::HTTPMethod::POST),
-                          requestUrl,
-                          nullptr,
-                          headers_,
-                          body_,
-                          false,
-                          http_major,
-                          http_minor);
-      curls_.back().setLogging(true);
-      auto txn = session_->newTransaction(&curls_.back());
+      if (usePartialReliability_) {
+        curls_.emplace_back(std::make_unique<PartiallyReliableCurlClient>(
+            &evb_,
+            (body_ == "" ? proxygen::HTTPMethod::GET
+                         : proxygen::HTTPMethod::POST),
+            requestUrl,
+            nullptr,
+            headers_,
+            body_,
+            false,
+            http_major,
+            http_minor,
+            prChunkDelayMs_));
+      } else {
+        curls_.emplace_back(std::make_unique<CurlService::CurlClient>(
+            &evb_,
+            (body_ == "" ? proxygen::HTTPMethod::GET
+                         : proxygen::HTTPMethod::POST),
+            requestUrl,
+            nullptr,
+            headers_,
+            body_,
+            false,
+            http_major,
+            http_minor));
+      }
+      curls_.back()->setLogging(true);
+      auto txn = session_->newTransaction(curls_.back().get());
       if (txn) {
-        curls_.back().sendRequest(txn);
+        curls_.back()->sendRequest(txn);
       } else {
         LOG(ERROR) << "Failed to get transaction for path=" << path;
       }
@@ -240,10 +264,12 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
   std::string qLoggerPath_;
   folly::EventBase evb_;
   proxygen::HQUpstreamSession* session_;
-  std::list<CurlService::CurlClient> curls_;
+  std::list<std::unique_ptr<CurlService::CurlClient>> curls_;
   std::shared_ptr<QuicPskCache> quicPskCache_;
   bool earlyData_{false};
   bool prettyJson_{true};
   std::shared_ptr<FileQLogger> qLogger_;
+  bool usePartialReliability_;
+  folly::Optional<uint64_t> prChunkDelayMs_;
 };
 }} // namespace quic::samples

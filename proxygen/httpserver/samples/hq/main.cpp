@@ -56,6 +56,21 @@ DEFINE_bool(pretty_json,
             true,
             "Whether to use pretty json for QLogger output");
 
+// Partially reliable flags.
+DEFINE_bool(use_pr, false, "Use partial reliability");
+DEFINE_uint32(pr_chunk_size,
+              16,
+              "Chunk size to use for partially realible server handler");
+DEFINE_uint32(pr_chunk_delay_ms,
+              0,
+              "Max delay for the body chunks in partially reliable mode");
+// Example of starting a server streaming body in chunks in partially realible
+// mode (serve 17-byte body chunks with random delay from 0 to 500 ms):
+//    hq -mode server -use_pr -protocol="h3-20" -pr_chunk_size 17 -pr_chunk_delay_ms 500
+// Example of starting a client requesting a partial reliable streaming with
+// delay cap of 150 ms:
+//    hq -mode client -use_pr -protocol="h3-20" -path="/pr_cat" -pr_chunk_delay_ms 150
+
 using namespace quic::samples;
 
 quic::CongestionControlType flagsToCongestionControlType(
@@ -117,6 +132,7 @@ int main(int argc, char* argv[]) {
       quic::getQuicBatchingMode(FLAGS_quic_batching_mode);
   transportSettings.maxBatchSize = FLAGS_quic_batch_size;
   transportSettings.turnoffPMTUD = true;
+  transportSettings.partialReliabilityEnabled = FLAGS_use_pr;
   if (FLAGS_mode == "server") {
     if (FLAGS_body != "") {
       LOG(ERROR) << "the 'body' argument is allowed only in client mode";
@@ -135,7 +151,9 @@ int main(int argc, char* argv[]) {
                     draftVersion,
                     FLAGS_use_draft,
                     FLAGS_qlogger_path,
-                    FLAGS_pretty_json);
+                    FLAGS_pretty_json,
+                    FLAGS_pr_chunk_size,
+                    FLAGS_pr_chunk_delay_ms);
     server.setTlsSettings(
         FLAGS_cert, FLAGS_key, fizz::server::ClientAuthMode::None);
     server.start();
@@ -158,7 +176,9 @@ int main(int argc, char* argv[]) {
                     FLAGS_use_draft,
                     std::chrono::milliseconds(FLAGS_txn_timeout),
                     FLAGS_qlogger_path,
-                    FLAGS_pretty_json);
+                    FLAGS_pretty_json,
+                    FLAGS_use_pr,
+                    FLAGS_pr_chunk_delay_ms);
     if (!FLAGS_protocol.empty()) {
       client.setProtocol(FLAGS_protocol);
     }

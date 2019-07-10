@@ -30,7 +30,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
              const std::string& inputFilename,
              bool h2c = false,
              unsigned short httpMajor = 1,
-             unsigned short httpMinor = 1);
+             unsigned short httpMinor = 1,
+             bool partiallyReliable = false);
 
   virtual ~CurlClient() = default;
 
@@ -64,7 +65,9 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   void sendRequest(proxygen::HTTPTransaction* txn);
 
   // Getters
-  folly::SSLContextPtr getSSLContext() { return sslContext_; }
+  folly::SSLContextPtr getSSLContext() {
+    return sslContext_;
+  }
 
   const std::string& getServerName() const;
 
@@ -96,6 +99,7 @@ protected:
   unsigned short httpMinor_;
   bool egressPaused_{false};
   std::unique_ptr<std::ifstream> inputFile_;
+  bool partiallyReliable_{false};
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
 };

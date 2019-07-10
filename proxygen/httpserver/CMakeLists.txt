@@ -109,6 +109,7 @@ if (BUILD_QUIC)
   add_executable(hq
       samples/hq/main.cpp
       samples/hq/SampleHandlers.cpp
+      samples/hq/PartiallyReliableCurlClient.cpp
   )
   target_compile_options(
       hq

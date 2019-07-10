@@ -17,7 +17,12 @@
 #include <random>
 #include <vector>
 
+//#include <common/logging/logging.h>
+#include <folly/Random.h>
 #include <folly/ThreadLocal.h>
+#include <folly/io/async/AsyncTimeout.h>
+#include <folly/io/async/EventBaseManager.h>
+#include <proxygen/httpserver/samples/hq/PartiallyReliableCurlClient.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace quic { namespace samples {
@@ -151,6 +156,149 @@ class EchoHandler : public BaseQuicHandler {
 
  private:
   bool sendFooter_{false};
+};
+
+/**
+ * Streams ASCII cat in partially realible mode.
+ */
+class PrCatHandler
+    : public EchoHandler
+    , public proxygen::HTTPTransactionTransportCallback
+    , public folly::AsyncTimeout {
+ public:
+  explicit PrCatHandler(const std::string& version,
+                            folly::Optional<uint64_t> prChunkSize,
+                            folly::Optional<uint64_t> prChunkDelayMs)
+      : EchoHandler(version),
+        chunkSize_(prChunkSize),
+        chunkDelayMs_(prChunkDelayMs) {
+    if (!chunkSize_) {
+      chunkSize_ = 16;
+    }
+    if (!chunkDelayMs_) {
+      chunkDelayMs_ = 0;
+    }
+  }
+
+  PrCatHandler() = delete;
+
+  void setPrParams(folly::Optional<uint64_t> prChunkSize,
+                   folly::Optional<uint64_t> prChunkDelayMs) {
+    chunkSize_ = prChunkSize;
+    chunkDelayMs_ = prChunkDelayMs;
+  }
+
+  // HTTPTransactionTransportCallback
+  void firstHeaderByteFlushed() noexcept override {
+  }
+
+  void firstByteFlushed() noexcept override {
+  }
+
+  void lastByteFlushed() noexcept override {
+  }
+
+  void trackedByteFlushed() noexcept override {
+  }
+
+  void lastByteAcked(
+      std::chrono::milliseconds /* latency */) noexcept override {
+  }
+
+  void headerBytesGenerated(
+      proxygen::HTTPHeaderSize& /* size */) noexcept override {
+  }
+
+  void headerBytesReceived(
+      const proxygen::HTTPHeaderSize& /* size */) noexcept override {
+  }
+
+  void bodyBytesGenerated(size_t /* nbytes */) noexcept override {
+  }
+
+  void bodyBytesReceived(size_t /* size */) noexcept override {
+  }
+
+  void lastEgressHeaderByteAcked() noexcept override {
+    attachEventBase(folly::EventBaseManager::get()->getEventBase());
+    timeoutExpired();
+  }
+
+  void onEOM() noexcept override {
+  }
+
+  void onHeadersComplete(
+      std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
+    VLOG(10) << "PrCatHandler::onHeadersComplete";
+    proxygen::HTTPMessage resp;
+    VLOG(10) << "Setting http-version to " << version_;
+    resp.setVersionString(version_);
+    resp.setStatusCode(200);
+    resp.setStatusMessage("Ok");
+    resp.getHeaders().add("pr-chunk-size", folly::to<std::string>(*chunkSize_));
+    resp.stripPerHopHeaders();
+    resp.setWantsKeepalive(true);
+    resp.setPartiallyReliable();
+    txn_->setTransportCallback(this);
+    txn_->sendHeaders(resp);
+  }
+
+  void onBodyPeek(uint64_t offset,
+                       const folly::IOBufQueue& chain) noexcept override {
+    LOG(INFO) << __func__ << ": got " << chain.chainLength()
+              << " bytes at offset " << offset;
+  }
+
+  void onBodySkipped(uint64_t newOffset) noexcept override {
+    LOG(FATAL) << __func__ << ": wrong side to receive this callback ";
+  }
+
+  void onBodyRejected(uint64_t offset) noexcept override {
+    cancelTimeout();
+    LOG(INFO) << __func__ << ": data for chunk " << curPartNum_
+               << " (offset = " << offset << ") cancelled ( was scheduled with "
+               << delayMs_ << "ms delay)";
+
+    auto chunk = dataSndr_.generateChunk();
+    CHECK(chunk);
+    bool eom = !dataSndr_.hasMoreData();
+
+    if (eom) {
+      LOG(INFO) << __func__ << ":    sending EOM after last chunk "
+                 << curPartNum_;
+      txn_->sendEOM();
+    } else {
+      curPartNum_ = offset / *chunkSize_;
+      delayMs_ = folly::Random::rand64(*chunkDelayMs_);
+      scheduleTimeout(delayMs_);
+    }
+  }
+
+  void timeoutExpired() noexcept override {
+    LOG(INFO) << ": sending body part " << curPartNum_ << " with delay "
+              << delayMs_ << " ms";
+    auto chunk = dataSndr_.generateChunk();
+    CHECK(chunk);
+    bool eom = !dataSndr_.hasMoreData();
+
+    txn_->sendBody(std::move(*chunk));
+    if (eom) {
+      LOG(INFO) << __func__ << ":    sending EOM with chunk " << curPartNum_;
+      txn_->sendEOM();
+    } else {
+      delayMs_ = folly::Random::rand64(*chunkDelayMs_);
+      scheduleTimeout(delayMs_);
+    }
+
+    curPartNum_++;
+  }
+
+private:
+  uint64_t delayMs_{0};
+  uint64_t curPartNum_{0};
+  folly::Optional<uint64_t> chunkSize_;
+  folly::Optional<uint64_t> chunkDelayMs_;
+  PartiallyReliableSender dataSndr_{*chunkSize_};
 };
 
 class ContinueHandler : public EchoHandler {

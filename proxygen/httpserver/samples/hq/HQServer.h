@@ -127,10 +127,18 @@ CzoemuHOSmcvQpU604U+J20FO2gaiYJFxz1h1v+Z/9edY9R9NCwmyFa3LfI=
 
 static std::atomic<bool> shouldPassHealthChecks{true};
 
+struct PartiallyReliableHandlerParams {
+  bool partialReliabilityEnabled{false};
+  folly::Optional<uint64_t> prChunkSize;
+  folly::Optional<uint64_t> prChunkDelayMs;
+};
+
 class Dispatcher {
  public:
   static proxygen::HTTPTransactionHandler* getRequestHandler(
-      proxygen::HTTPMessage* msg, const std::string& version) {
+      proxygen::HTTPMessage* msg,
+      const std::string& version,
+      folly::Optional<PartiallyReliableHandlerParams> prParams = folly::none) {
     DCHECK(msg);
     const std::string& path = msg->getPath();
     if (path == "/" || path == "/echo") {
@@ -159,6 +167,16 @@ class Dispatcher {
           folly::EventBaseManager::get()->getEventBase(), version);
     }
 
+    if (path == "/pr_cat") {
+      if (!prParams || !prParams->partialReliabilityEnabled) {
+        LOG(ERROR) << "/pr_cat can only be accessed via partially reliable "
+                      "transaction";
+      } else {
+        return new PrCatHandler(
+            version, prParams->prChunkSize, prParams->prChunkDelayMs);
+      }
+    }
+
     return new DummyHandler;
   }
 };
@@ -168,7 +186,12 @@ class HQSessionController :
  public:
   using StreamData = std::pair<folly::IOBufQueue, bool>;
 
-  HQSessionController(const std::string& version) : version_(version) {
+  HQSessionController(const std::string& version,
+                      folly::Optional<uint64_t> prChunkSize = folly::none,
+                      folly::Optional<uint64_t> prChunkDelayMs = folly::none)
+      : version_(version) {
+    prParams.prChunkSize = prChunkSize;
+    prParams.prChunkDelayMs = prChunkDelayMs;
   }
 
   ~HQSessionController() override = default;
@@ -198,7 +221,9 @@ class HQSessionController :
 
   proxygen::HTTPTransactionHandler* getRequestHandler(
       proxygen::HTTPTransaction& /*txn*/, proxygen::HTTPMessage* msg) override {
-    return Dispatcher::getRequestHandler(msg, version_);
+    prParams.partialReliabilityEnabled =
+        session_->isPartialReliabilityEnabled();
+    return Dispatcher::getRequestHandler(msg, version_, prParams);
   }
   proxygen::HTTPTransactionHandler* getParseErrorHandler(
       proxygen::HTTPTransaction* /*txn*/,
@@ -234,6 +259,7 @@ class HQSessionController :
   std::shared_ptr<FileQLogger> qLogger_;
   std::string qLoggerPath_;
   bool prettyJson_;
+  PartiallyReliableHandlerParams prParams;
 };
 
 class HQServerTransportFactory : public quic::QuicServerTransportFactory {
@@ -245,12 +271,16 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
                            const std::string& version,
                            const std::chrono::milliseconds txnTimeout,
                            std::string qLoggerPath,
-                           bool prettyJson)
+                           bool prettyJson,
+                           folly::Optional<uint64_t> prChunkSize = folly::none,
+                           folly::Optional<uint64_t> prChunkDelayMs = folly::none)
       : localAddr_(std::move(localAddr)),
         txnTimeout_(txnTimeout),
         version_(version),
         qLoggerPath_(std::move(qLoggerPath)),
-        prettyJson_(prettyJson) {
+        prettyJson_(prettyJson),
+        prChunkSize_(prChunkSize),
+        prChunkDelayMs_(prChunkDelayMs) {
   }
 
   quic::QuicServerTransport::Ptr make(
@@ -260,7 +290,8 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
       std::shared_ptr<const fizz::server::FizzServerContext>
           ctx) noexcept override {
     // Session controller is self owning
-    auto hqSessionController = new HQSessionController(version_);
+    auto hqSessionController =
+        new HQSessionController(version_, prChunkSize_, prChunkDelayMs_);
     std::shared_ptr<FileQLogger> qLogger;
     if (!qLoggerPath_.empty()) {
       qLogger = std::make_shared<quic::FileQLogger>();
@@ -283,6 +314,8 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
   std::string version_;
   std::string qLoggerPath_;
   bool prettyJson_;
+  folly::Optional<uint64_t> prChunkSize_;
+  folly::Optional<uint64_t> prChunkDelayMs_;
 };
 
 class HQServer {
@@ -296,7 +329,9 @@ class HQServer {
       folly::Optional<quic::QuicVersion> draftVersion = folly::none,
       bool useDraftFirst = true,
       std::string qLoggerPath = "",
-      bool prettyJson = true)
+      bool prettyJson = true,
+      folly::Optional<uint64_t> prChunkSize = folly::none,
+      folly::Optional<uint64_t> prChunkDelayMs = folly::none)
       : host_(host),
         port_(port),
         txnTimeout_(txnTimeout),
@@ -308,7 +343,7 @@ class HQServer {
         std::make_shared<DefaultCongestionControllerFactory>());
     server_->setTransportSettings(transportSettings);
     server_->setQuicServerTransportFactory(std::make_unique<HQServerTransportFactory>(
-        localAddr_, version, txnTimeout_, qLoggerPath_, prettyJson_));
+        localAddr_, version, txnTimeout_, qLoggerPath_, prettyJson_, prChunkSize, prChunkDelayMs));
     server_->setQuicUDPSocketFactory(
         std::make_unique<QuicSharedUDPSocketFactory>());
     server_->setHealthCheckToken("health");
