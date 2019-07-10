@@ -100,7 +100,7 @@ void HQStreamCodec::onIngressPartiallyReliableBodyStarted(
   // streamOffset becomes the beginning (0-offset) of the body offset.
   ingressPrBodyTracker_.startBodyTracking(streamOffset);
 
-  partiallyReliable_ = true;
+  ingressPartiallyReliable_ = true;
 
   if (callback_) {
     callback_->onUnframedBodyStarted(streamId_, streamOffset);
@@ -250,7 +250,8 @@ HQStreamCodec::onIngressDataExpired(uint64_t streamOffset) {
       << __func__
       << ": partially reliable operation on non-partially reliable transport";
 
-  CHECK(partiallyReliable_) << __func__ << ": partiallyReliable_ is false";
+  CHECK(ingressPartiallyReliable_)
+      << __func__ << ": ingressPartiallyReliable_ is false";
 
   if (!finalIngressHeadersSeen_) {
     // If we haven't received headers fully yet, ignore dataExpired.
@@ -375,8 +376,10 @@ HQStreamCodec::onEgressBodyReject(uint64_t bodyOffset) {
         UnframedBodyOffsetTrackerError::INVALID_OFFSET);
   }
 
-  CHECK(ingressPrBodyTracker_.bodyStarted())
-      << ": partially realible body tracker not started";
+  auto bytesSent = getCodecTotalEgressBytes();
+  if (!ingressPrBodyTracker_.bodyStarted()) {
+    ingressPrBodyTracker_.startBodyTracking(bytesSent);
+  }
 
   ingressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
   auto streamOffset = ingressPrBodyTracker_.appTostreamOffset(bodyOffset);
@@ -458,7 +461,10 @@ void HQStreamCodec::generateHeader(folly::IOBufQueue& writeBuf,
   DCHECK_EQ(stream, streamId_);
 
   // Partial reliability might already be set by ingress.
-  partiallyReliable_ = partiallyReliable_ || msg.isPartiallyReliable();
+  egressPartiallyReliable_ =
+      egressPartiallyReliable_ || msg.isPartiallyReliable();
+
+
 
   generateHeaderImpl(writeBuf, msg, folly::none, size);
 
@@ -468,7 +474,7 @@ void HQStreamCodec::generateHeader(folly::IOBufQueue& writeBuf,
     finalEgressHeadersSeen_ = true;
   }
 
-  if (partiallyReliable_ && finalEgressHeadersSeen_) {
+  if (egressPartiallyReliable_ && finalEgressHeadersSeen_) {
     // Piggyback a 0-length DATA frame to kick off partially reliable body
     // streaming.
     CHECK(!egressPrBodyTracker_.bodyStarted())
@@ -494,7 +500,7 @@ void HQStreamCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
                                         HTTPHeaderSize* size) {
   DCHECK_EQ(stream, streamId_);
   DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
-  CHECK(!partiallyReliable_)
+  CHECK(!egressPartiallyReliable_)
       << __func__ << ": not allowed in partially reliable mode";
   generateHeaderImpl(writeBuf, msg, pushId, size);
 }
@@ -536,7 +542,7 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
 
   WriteResult res;
   if (pushId) {
-    CHECK(!partiallyReliable_)
+    CHECK(!egressPartiallyReliable_)
         << ": push promise not allowed on partially reliable message";
     res = hq::writePushPromise(writeBuf, *pushId, std::move(result.stream));
   } else {
@@ -589,7 +595,7 @@ size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
   DCHECK_EQ(stream, streamId_);
 
   size_t bytesWritten = 0;
-  if (partiallyReliable_) {
+  if (egressPartiallyReliable_) {
     bytesWritten =
         generatePartiallyReliableBodyImpl(writeBuf, std::move(chain));
   } else {

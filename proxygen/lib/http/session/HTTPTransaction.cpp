@@ -875,7 +875,7 @@ void HTTPTransaction::sendHeadersWithEOM(const HTTPMessage& header) {
 }
 
 void HTTPTransaction::sendHeaders(const HTTPMessage& header) {
-  partiallyReliable_ = header.isPartiallyReliable();
+  partiallyReliable_ = partiallyReliable_ || header.isPartiallyReliable();
   sendHeadersWithOptionalEOM(header, false);
 }
 

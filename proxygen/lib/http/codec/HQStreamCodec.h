@@ -181,6 +181,14 @@ class HQStreamCodec
     return egressPrBodyTracker_.appTostreamOffset(bodyOffset);
   }
 
+  bool isIngressPartiallyRealible() const {
+    return ingressPartiallyReliable_;
+  }
+
+  bool isEgressPartiallyRealible() const {
+    return egressPartiallyReliable_;
+  }
+
  protected:
   ParseResult checkFrameAllowed(FrameType type) override;
   ParseResult parseData(folly::io::Cursor& cursor,
@@ -237,8 +245,9 @@ class HQStreamCodec
   // - do not allow len 0.
   bool transportSupportsPartialReliability_{false};
 
-  // This dictates what to do when generating body.
-  bool partiallyReliable_{false};
+  // Ingress and egress have independent partial reliability.
+  bool ingressPartiallyReliable_{false};
+  bool egressPartiallyReliable_{false};
 
   // Partially reliable body offset trackers.
   UnframedBodyOffsetTracker ingressPrBodyTracker_{};

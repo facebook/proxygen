@@ -358,6 +358,25 @@ TEST_F(HQPRCodecTest, TestOnIngressBodyExpiredBadstreamOffset) {
 }
 */
 
+TEST_F(HQPRCodecTest, TestSplitPrEnabled) {
+  const auto& ingressPrBodyTracker = upstreamCodec_->getIngressPrBodyTracker();
+  HTTPMessage resp = getResponse(200, 500);
+  resp.setPartiallyReliable();
+  auto streamId = upstreamCodec_->createStream();
+  uint64_t bodyStreamOffset = queue_.chainLength();
+  downstreamCodec_->generateHeader(queue_, streamId, resp, false, nullptr);
+  bodyStreamOffset = queue_.chainLength() - bodyStreamOffset;
+  parseUpstream();
+  EXPECT_TRUE(ingressPrBodyTracker.bodyStarted());
+
+  // For upstream, only ingress should be PR-enabled.
+  EXPECT_TRUE(upstreamCodec_->isIngressPartiallyRealible());
+  EXPECT_FALSE(upstreamCodec_->isEgressPartiallyRealible());
+  // The other way around for downstream.
+  EXPECT_FALSE(downstreamCodec_->isIngressPartiallyRealible());
+  EXPECT_TRUE(downstreamCodec_->isEgressPartiallyRealible());
+}
+
 TEST_F(HQPRCodecTest, TestOnIngressBodyExpiredStartWithSkip) {
   const auto& ingressPrBodyTracker = upstreamCodec_->getIngressPrBodyTracker();
   HTTPMessage resp = getResponse(200, 500);
