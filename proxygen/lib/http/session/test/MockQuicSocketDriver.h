@@ -66,6 +66,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         deliveryCallbacks;
     uint64_t flowControlWindow{65536};
     bool isControl{false};
+    uint64_t lastSkipOffset{0};
   };
   bool partiallyReliableTransport_{false};
 
@@ -499,7 +500,14 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               }
               CHECK_NE(it->second.writeState, CLOSED);
 
-              it->second.writeOffset = streamOffset;
+              if (streamOffset > it->second.lastSkipOffset &&
+                  streamOffset > it->second.writeOffset) {
+                it->second.lastSkipOffset = streamOffset;
+              }
+
+              if (streamOffset > it->second.writeOffset) {
+                it->second.writeOffset = streamOffset;
+              }
               return folly::makeExpected<LocalErrorCode>(streamOffset);
             }));
 

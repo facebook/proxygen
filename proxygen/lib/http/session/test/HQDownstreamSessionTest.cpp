@@ -60,7 +60,8 @@ class TestTransportCallback : public HTTPTransactionTransportCallback {
   void headerBytesReceived(const HTTPHeaderSize& /* size */) noexcept override {
   }
 
-  void bodyBytesGenerated(size_t /* nbytes */) noexcept override {
+  void bodyBytesGenerated(size_t nbytes) noexcept override {
+    bodyBytesGenerated_ += nbytes;
   }
 
   void bodyBytesReceived(size_t /* size */) noexcept override {
@@ -86,6 +87,7 @@ class TestTransportCallback : public HTTPTransactionTransportCallback {
   uint64_t bodyBytesDeliveredOffset_{0};
   uint64_t numBodyBytesCanceledCalls_{0};
   uint64_t bodyBytesCanceledOffset_{0};
+  uint64_t bodyBytesGenerated_{0};
 };
 
 class HQDownstreamSessionTest : public HQSessionTest {
@@ -386,6 +388,7 @@ using HQDownstreamSessionTestHQ = HQDownstreamSessionTest;
 using HQDownstreamSessionTestHQPR = HQDownstreamSessionTest;
 using HQDownstreamSessionTestHQPrBadOffset = HQDownstreamSessionTest;
 using HQDownstreamSessionTestHQPRDeliveryAck = HQDownstreamSessionTest;
+using HQDownstreamSessionTestHQPrSkips = HQDownstreamSessionTest;
 
 // Use this test class for h3 server push tests
 using HQDownstreamSessionTestHQPush = HQDownstreamSessionTest;
@@ -2580,6 +2583,155 @@ TEST_P(HQDownstreamSessionTestHQPR, GetPrBodyScriptedExpire) {
 }
 
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+                        HQDownstreamSessionTestHQPrSkips,
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          tp.prParams = PartiallyReliableTestParams{
+                              .bodyScript = std::vector<uint8_t>(),
+                          };
+                          return tp;
+                        }()),
+                        paramsToTestName);
+
+TEST_P(HQDownstreamSessionTestHQPrSkips, BodySkipWhileBuferred) {
+  InSequence enforceOrder;
+
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictPrHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendPrHeaders(200, 42);
+  });
+  flushRequestsAndLoop();
+  EXPECT_TRUE(transportCallback_.lastEgressHeadersByteDelivered_);
+
+  // Send the body and EOM.
+  handler->sendBody(42);
+  handler->sendEOM();
+
+  // Now send skip for the first half of the body.
+  // The body is currently buferred in transaction egress.
+  auto oldWriteOffset = socketDriver_->streams_[streamId].writeOffset;
+  auto expireRes = handler->txn_->skipBodyTo(21);
+  EXPECT_FALSE(expireRes.hasError());
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  // Write offset on mock socket should be that of sent headers (oldWriteOffset)
+  // + full body (42).
+  EXPECT_EQ(socketDriver_->streams_[streamId].writeOffset, oldWriteOffset + 42);
+  // Last skip offset should be that of sent headers (oldWriteOffset) + half of
+  // the body (21).
+  EXPECT_EQ(socketDriver_->streams_[streamId].lastSkipOffset,
+            oldWriteOffset + 21);
+
+  // Number of body bytes actually sent.
+  EXPECT_EQ(transportCallback_.bodyBytesGenerated_, 21);
+
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQPrSkips, BodySkipTwiceWhileBuferred) {
+  InSequence enforceOrder;
+
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictPrHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendPrHeaders(200, 100);
+  });
+  flushRequestsAndLoop();
+  EXPECT_TRUE(transportCallback_.lastEgressHeadersByteDelivered_);
+
+  // Send the body and EOM.
+  handler->sendBody(100);
+  handler->sendEOM();
+
+  // Now send skip for the first half of the body.
+  // The body is currently buferred in transaction egress.
+  auto oldWriteOffset = socketDriver_->streams_[streamId].writeOffset;
+  auto expireRes = handler->txn_->skipBodyTo(50);
+  EXPECT_FALSE(expireRes.hasError());
+
+  // Skip again.
+  expireRes = handler->txn_->skipBodyTo(75);
+  EXPECT_FALSE(expireRes.hasError());
+
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  // Write offset on mock socket should be that of sent headers (oldWriteOffset)
+  // + full body.
+  EXPECT_EQ(socketDriver_->streams_[streamId].writeOffset,
+            oldWriteOffset + 100);
+  // Last skip offset should be that of sent headers (oldWriteOffset) + 3/4 of
+  // the body.
+  EXPECT_EQ(socketDriver_->streams_[streamId].lastSkipOffset,
+            oldWriteOffset + 75);
+
+  // Number of body bytes actually sent.
+  EXPECT_EQ(transportCallback_.bodyBytesGenerated_, 25);
+
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQPrSkips, BodySkipAfterSentToTransport) {
+  InSequence enforceOrder;
+
+  auto req = getGetRequest();
+  req.setPartiallyReliable();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictPrHandler();
+  handler->expectHeaders();
+
+  size_t responseLen = 42;
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendPrHeaders(200, responseLen);
+  });
+  flushRequestsAndLoop();
+  EXPECT_TRUE(transportCallback_.lastEgressHeadersByteDelivered_);
+
+  // Send the body and flush requests - that will drain transaction egress
+  // buffer to the transport.
+  auto oldWriteOffset = socketDriver_->streams_[streamId].writeOffset;
+  handler->sendBody(42);
+  flushRequestsAndLoop();
+  EXPECT_EQ(socketDriver_->streams_[streamId].writeOffset, oldWriteOffset + 42);
+  EXPECT_EQ(transportCallback_.bodyBytesGenerated_, 42);
+
+  // Now send skip. It's too late for the transaction anyway, so nothing should
+  // happen.
+  oldWriteOffset = socketDriver_->streams_[streamId].writeOffset;
+  auto expireRes = handler->txn_->skipBodyTo(21);
+  EXPECT_FALSE(expireRes.hasError());
+
+  handler->sendEOM();
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+
+  // Write offset on mock socket should not change.
+  EXPECT_EQ(socketDriver_->streams_[streamId].writeOffset, oldWriteOffset);
+  // Last skip offset should never be set, e.g. 0.
+  EXPECT_EQ(socketDriver_->streams_[streamId].lastSkipOffset, 0);
+
+  hqSession_->closeWhenIdle();
+}
+
+INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestHQPrBadOffset,
                         Values([] {
                           TestParams tp;

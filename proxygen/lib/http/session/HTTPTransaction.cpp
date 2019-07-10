@@ -1110,6 +1110,7 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
     return 0;
   }
   updateReadTimeout();
+  egressBodyBytesCommittedToTransport_ += body->computeChainDataLength();
   nbytes = transport_.sendBody(this,
                                std::move(body),
                                sendEom && !trailers_,
@@ -1198,16 +1199,27 @@ void HTTPTransaction::trimDeferredEgressBody(uint64_t bodyOffset) {
   CHECK(!useFlowControl_)
       << ": trimming egress deferred body with flow control enabled";
 
-  // Current largest body offset accepted from the application.
-  auto curOffset = *actualResponseLength_;
+  if (deferredEgressBody_.chainLength() == 0) {
+    // Nothing to trim.
+    return;
+  }
 
-  auto numBytesBuffered = deferredEgressBody_.chainLength();
-  if ((bodyOffset > curOffset) && (numBytesBuffered > 0)) {
-    // Trim any bytes from pending egress not yet sent to the transport.
-    // We might have anywhere from 0 to curOffset bytes buffered, trim them all.
-    deferredEgressBody_.clear();
-    VLOG(3) << __func__ << ": trimmed " << numBytesBuffered
+  // We only need to trim buffered bytes that are over those already committed.
+  // So if the new offset is below what we already gave to the transport, just
+  // return.
+  if (bodyOffset <= egressBodyBytesCommittedToTransport_ ) {
+    return;
+  }
+
+  auto bytesToTrim = bodyOffset - egressBodyBytesCommittedToTransport_;
+  // Update committed offset to the new skip offset.
+  egressBodyBytesCommittedToTransport_ = bodyOffset;
+  auto trimmedBytes = deferredEgressBody_.trimStartAtMost(bytesToTrim);
+
+  if (trimmedBytes > 0) {
+    VLOG(3) << __func__ << ": trimmed " << trimmedBytes
             << " bytes from pending egress body";
+    notifyTransportPendingEgress();
   }
 }
 
@@ -1236,14 +1248,12 @@ HTTPTransaction::skipBodyTo(uint64_t nextBodyOffset) {
     return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
   }
 
-  if (nextBodyOffset <= actualResponseLength_.value()) {
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
   // Trim buffered egress body to nextBodyOffset.
   trimDeferredEgressBody(nextBodyOffset);
 
-  actualResponseLength_ = nextBodyOffset;
+  if (nextBodyOffset > actualResponseLength_.value()) {
+    actualResponseLength_ = nextBodyOffset;
+  }
   return transport_.skipBodyTo(this, nextBodyOffset);
 }
 

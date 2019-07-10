@@ -1733,6 +1733,9 @@ class HTTPTransaction
   folly::Optional<uint64_t> expectedIngressContentLengthRemaining_;
   folly::Optional<uint64_t> expectedResponseLength_;
   folly::Optional<uint64_t> actualResponseLength_{0};
+  // Keeps track of how many bytes the transaction passed to the transport so
+  // far.
+  uint64_t egressBodyBytesCommittedToTransport_{0};
 
   bool ingressPaused_ : 1;
   bool egressPaused_ : 1;
