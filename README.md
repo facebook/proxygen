@@ -97,7 +97,7 @@ Proxygen is a library. After installing it, you can build your own C++
 server. Try `cd`ing to the directory containing the echo server at
 `proxygen/httpserver/samples/echo/`.
 
-After building proxygen you can start the echo server with `_build/proxygen/httpserver/echo`
+After building proxygen you can start the echo server with `_build/proxygen/httpserver/proxygen_echo`
 and verify it works using curl in a different terminal:
 ```shell
 $ curl -v http://localhost:11000/

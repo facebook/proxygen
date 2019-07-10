@@ -21,13 +21,14 @@ function detect_platform() {
 }
 
 function install_dependencies_linux() {
-  # Some extra dependencies for Ubuntu 13.10 and 14.04
   sudo apt-get install -yq \
     git \
     cmake \
     g++ \
     flex \
     bison \
+    libgflags-dev \
+    libgoogle-glog-dev \
     libkrb5-dev \
     libsasl2-dev \
     libnuma-dev \
@@ -35,7 +36,6 @@ function install_dependencies_linux() {
     libssl-dev \
     libcap-dev \
     gperf \
-    autoconf-archive \
     libevent-dev \
     libtool \
     libboost-all-dev \
@@ -51,50 +51,6 @@ function install_dependencies_linux() {
     binutils-dev \
     libsodium-dev \
     libzstd-dev
-
-  # Adding support for Ubuntu 12.04.x
-  # Needs libdouble-conversion-dev, google-gflags and double-conversion
-  # deps.sh in folly builds anyways (no trap there)
-  if ! sudo apt-get install -y libgoogle-glog-dev;
-  then
-    if [ ! -e google-glog ]; then
-      echo "fetching glog from svn (apt-get failed)"
-      svn checkout https://google-glog.googlecode.com/svn/trunk/ google-glog
-      (
-        cd google-glog
-        ./configure
-        make
-        sudo make install
-      )
-    fi
-  fi
-
-  if ! sudo apt-get install -y libgflags-dev;
-  then
-    if [ ! -e google-gflags ]; then
-    echo "Fetching gflags from svn (apt-get failed)"
-      svn checkout https://google-gflags.googlecode.com/svn/trunk/ google-gflags
-      (
-        cd google-gflags
-        ./configure
-        make
-        sudo make install
-      )
-    fi
-  fi
-
-  if  ! sudo apt-get install -y libdouble-conversion-dev;
-  then
-    if [ ! -e double-conversion ]; then
-      echo "Fetching double-conversion from git (apt-get failed)"
-      git clone https://github.com/floitsch/double-conversion.git double-conversion
-      (
-        cd double-conversion
-        cmake . -DBUILD_SHARED_LIBS=ON
-        sudo make install
-      )
-    fi
-  fi
 }
 
 function install_dependencies_mac() {
