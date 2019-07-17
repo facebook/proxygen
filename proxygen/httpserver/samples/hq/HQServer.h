@@ -353,6 +353,7 @@ class HQServer {
       versions.push_back(*draftVersion);
     }
     versions.push_back(QuicVersion::MVFST);
+    versions.push_back(QuicVersion::MVFST_OLD);
     if (!useDraftFirst && draftVersion) {
       versions.push_back(*draftVersion);
     }
