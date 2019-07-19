@@ -2931,7 +2931,7 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
                   session_.sock_,
                   "on_headers",
                   getStreamId(),
-                  (uint64_t)timeDiff.count());
+                  static_cast<uint64_t>(timeDiff.count()));
 }
 
 void HQSession::HQStreamTransportBase::transactionTimeout(
@@ -3081,13 +3081,13 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
                   session_.sock_,
                   "headers",
                   getStreamId(),
-                  (uint64_t)timeDiff.count());
+                  static_cast<uint64_t>(timeDiff.count()));
   if (includeEOM) {
     QUIC_TRACE_SOCK(stream_event,
                     session_.sock_,
                     "eom",
                     getStreamId(),
-                    (uint64_t)timeDiff.count());
+                    static_cast<uint64_t>(timeDiff.count()));
   }
 
   // If partial reliability is enabled, enable the callbacks.
@@ -3152,7 +3152,7 @@ size_t HQSession::HQStreamTransportBase::sendEOM(
                   session_.sock_,
                   "eom",
                   getStreamId(),
-                  (uint64_t)timeDiff.count());
+                  static_cast<uint64_t>(timeDiff.count()));
   return encodedSize;
 }
 
@@ -3258,7 +3258,7 @@ void HQSession::HQStreamTransportBase::onError(HTTPCodec::StreamID streamID,
                   session_.sock_,
                   "on_error",
                   getStreamId(),
-                  (uint64_t)timeDiff.count());
+                  static_cast<uint64_t>(timeDiff.count()));
 }
 
 void HQSession::HQStreamTransportBase::onResetStream(HTTP3::ErrorCode errorCode,
@@ -3343,7 +3343,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
                     session_.sock_,
                     "eom",
                     getStreamId(),
-                    (uint64_t)timeDiff.count());
+                    static_cast<uint64_t>(timeDiff.count()));
   }
   return encodedSize;
 }
