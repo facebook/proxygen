@@ -79,7 +79,9 @@ void ServerListGenerator::listServersBlocking(vector<ServerConfig>* results,
 
   if (callback.status != ServerListCallback::SUCCESS) {
     if (!callback.errorPtr) {
-      LOG(FATAL) << "ServerListGenerator finished without invoking callback";
+      LOG(FATAL)
+          << "ServerListGenerator finished without invoking callback, timeout:"
+          << timeout.count();
     }
     std::rethrow_exception(callback.errorPtr);
   }
