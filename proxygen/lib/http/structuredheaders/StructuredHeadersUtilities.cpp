@@ -9,10 +9,9 @@
  */
 
 #include "StructuredHeadersUtilities.h"
-#include <boost/archive/iterators/binary_from_base64.hpp>
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
 #include "StructuredHeadersConstants.h"
+
+#include "proxygen/lib/utils/Base64.h"
 
 namespace proxygen {
 namespace StructuredHeaders {
@@ -107,31 +106,23 @@ std::string decodeBase64(
 
   if (encoded.size() == 0) {
     // special case, to prevent an integer overflow down below.
-    return "";
+    return std::string();
   }
 
-  using namespace boost::archive::iterators;
-  using b64it =
-    transform_width<binary_from_base64<std::string::const_iterator>, 8, 6>;
+  int padding = 0;
+  for (auto it = encoded.rbegin();
+       padding < 2 && it != encoded.rend() && *it == '=';
+       ++it) {
+    ++padding;
+  }
 
-  std::string decoded = std::string(b64it(std::begin(encoded)),
-                                    b64it(std::end(encoded)));
-
-  uint32_t numPadding = std::count(encoded.begin(), encoded.end(), '=');
-  decoded.erase(decoded.end() - numPadding, decoded.end());
-
-  return decoded;
+  return Base64::decode(encoded, padding);
 }
 
 std::string encodeBase64(const std::string& input) {
-  using namespace boost::archive::iterators;
-  using b64it = base64_from_binary<transform_width<const char*, 6, 8>>;
-
-  auto data = input.data();
-  std::string encoded(b64it(data), b64it(data + (input.length())));
-  encoded.append((3 - (input.length() % 3)) % 3, '=');
-
-  return encoded;
+  return Base64::encode(folly::ByteRange(
+                            reinterpret_cast<const uint8_t*>(input.c_str()),
+                            input.length()));
 }
 
 }
