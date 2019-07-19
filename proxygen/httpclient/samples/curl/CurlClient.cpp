@@ -192,6 +192,15 @@ void CurlClient::sendBodyFromFile() {
   }
 }
 
+void CurlClient::printMessageImpl(proxygen::HTTPMessage* msg,
+                                  const std::string& tag) {
+  if (!loggingEnabled_) {
+    return;
+  }
+  cout << tag;
+  msg->dumpMessage(10);
+}
+
 void CurlClient::connectError(const folly::AsyncSocketException& ex) {
   LOG_IF(ERROR, loggingEnabled_) << "Coudln't connect to "
                                  << url_.getHostAndPort() << ":" << ex.what();
@@ -205,14 +214,7 @@ void CurlClient::detachTransaction() noexcept {
 
 void CurlClient::onHeadersComplete(unique_ptr<HTTPMessage> msg) noexcept {
   response_ = std::move(msg);
-  if (!loggingEnabled_) {
-    return;
-  }
-  cout << response_->getStatusCode() << " "
-       << response_->getStatusMessage() << endl;
-  response_->getHeaders().forEach([&](const string& header, const string& val) {
-    cout << header << ": " << val << endl;
-  });
+  printMessageImpl(response_.get());
 }
 
 void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
@@ -258,12 +260,57 @@ void CurlClient::onEgressResumed() noexcept {
   }
 }
 
+void CurlClient::onPushedTransaction(
+    proxygen::HTTPTransaction* pushedTxn) noexcept {
+  //
+  pushTxnHandlers_.emplace_back(std::make_unique<CurlPushHandler>(this));
+  pushedTxn->setHandler(pushTxnHandlers_.back().get());
+  // Add implementation of the push transaction reception here
+}
+
 const string& CurlClient::getServerName() const {
   const string& res = request_.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST);
   if (res.empty()) {
     return url_.getHost();
   }
   return res;
+}
+
+// CurlPushHandler methods
+void CurlClient::CurlPushHandler::setTransaction(
+    proxygen::HTTPTransaction* txn) noexcept {
+  LOG_IF(INFO, parent_->loggingEnabled_) << "Received pushed transaction";
+  pushedTxn_ = txn;
+}
+
+void CurlClient::CurlPushHandler::detachTransaction() noexcept {
+  LOG_IF(INFO, parent_->loggingEnabled_) << "Detached pushed transaction";
+}
+
+void CurlClient::CurlPushHandler::onHeadersComplete(
+    std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
+  if (!seenOnHeadersComplete_) {
+    seenOnHeadersComplete_ = true;
+    promise_ = std::move(msg);
+    parent_->printMessageImpl(promise_.get(), "[PP] ");
+  } else {
+    response_ = std::move(msg);
+    parent_->printMessageImpl(response_.get(), "[PR] ");
+  }
+}
+
+void CurlClient::CurlPushHandler::onBody(
+    std::unique_ptr<folly::IOBuf> chain) noexcept {
+  parent_->onBody(std::move(chain));
+}
+
+void CurlClient::CurlPushHandler::onEOM() noexcept {
+  LOG_IF(INFO, parent_->loggingEnabled_) << "Got PushTxn EOM";
+}
+
+void CurlClient::CurlPushHandler::onError(
+    const proxygen::HTTPException& error) noexcept {
+  parent_->onError(error);
 }
 
 }  // namespace CurlService

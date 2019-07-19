@@ -18,6 +18,7 @@
 #include <vector>
 
 //#include <common/logging/logging.h>
+#include <folly/FileUtil.h>
 #include <folly/Random.h>
 #include <folly/ThreadLocal.h>
 #include <folly/io/async/AsyncTimeout.h>
@@ -322,8 +323,7 @@ class ContinueHandler : public EchoHandler {
     }
     EchoHandler::onHeadersComplete(std::move(msg));
   }
-
-}; // namespace samples
+};
 
 class RandBytesGenHandler : public BaseQuicHandler {
  public:
@@ -595,6 +595,61 @@ class WaitReleaseHandler : public BaseQuicHandler {
   std::string path_;
   uint32_t id_{0};
   folly::EventBase* evb_;
+};
+
+namespace {
+constexpr auto kPushFileName = "pusheen.txt";
+};
+
+class ServerPushHandler : public BaseQuicHandler {
+  class ServerPushTxnHandler : public proxygen::HTTPPushTransactionHandler {
+    void setTransaction(
+        proxygen::HTTPTransaction* /* txn */) noexcept override {
+    }
+
+    void detachTransaction() noexcept override {
+    }
+
+    void onError(const proxygen::HTTPException& /* error */) noexcept override {
+    }
+
+    void onEgressPaused() noexcept override {
+    }
+
+    void onEgressResumed() noexcept override {
+    }
+  };
+
+ public:
+  explicit ServerPushHandler(const std::string& version);
+
+  void onHeadersComplete(
+      std::unique_ptr<proxygen::HTTPMessage> /* msg */) noexcept override;
+
+  void onBody(std::unique_ptr<folly::IOBuf> /* chain */) noexcept override;
+
+  void onEOM() noexcept override;
+
+  void onError(const proxygen::HTTPException& /*error*/) noexcept override;
+
+  void detachTransaction() noexcept override {
+  }
+
+ private:
+  void sendPushPromise(proxygen::HTTPTransaction* /* pushTxn */,
+                       const std::string& /* path */);
+
+  void sendErrorResponse(const std::string& /* body */);
+
+  void sendPushResponse(proxygen::HTTPTransaction* /* pushTxn */,
+                        const std::string& /* url */,
+                        const std::string& /* body */,
+                        bool /* eom */);
+
+  void sendOkResponse(const std::string& /* body */, bool /* eom */);
+
+  std::string path_;
+  ServerPushTxnHandler pushTxnHandler_;
 };
 
 }} // namespace quic::samples

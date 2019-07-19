@@ -21,6 +21,50 @@ namespace CurlService {
 class CurlClient : public proxygen::HTTPConnector::Callback,
                    public proxygen::HTTPTransactionHandler {
 
+  class CurlPushHandler : public proxygen::HTTPTransactionHandler {
+
+   public:
+    explicit CurlPushHandler(CurlClient* parent) : parent_{parent} {
+    }
+
+    void setTransaction(proxygen::HTTPTransaction* /*txn*/) noexcept override;
+
+    void detachTransaction() noexcept override;
+
+    void onHeadersComplete(
+        std::unique_ptr<proxygen::HTTPMessage> /*msg*/) noexcept override;
+
+    void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override;
+
+    void onEOM() noexcept override;
+
+    void onError(const proxygen::HTTPException& /*error*/) noexcept override;
+
+    void onTrailers(
+        std::unique_ptr<proxygen::HTTPHeaders> /*trailers*/) noexcept override {
+    }
+
+    void onUpgrade(proxygen::UpgradeProtocol /*protocol*/) noexcept override {
+    }
+
+    void onEgressResumed() noexcept override {
+    }
+
+    void onEgressPaused() noexcept override {
+    }
+
+   private:
+    // hack around the ambiguous API
+    bool seenOnHeadersComplete_{false};
+    // the pushed transaction
+    proxygen::HTTPTransaction* pushedTxn_{nullptr};
+    // information about the request
+
+    std::unique_ptr<proxygen::HTTPMessage> promise_;
+    std::unique_ptr<proxygen::HTTPMessage> response_;
+    CurlClient* parent_;
+  };
+
  public:
   CurlClient(folly::EventBase* evb,
              proxygen::HTTPMethod httpMethod,
@@ -61,6 +105,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
   void onError(const proxygen::HTTPException& error) noexcept override;
   void onEgressPaused() noexcept override;
   void onEgressResumed() noexcept override;
+  void onPushedTransaction(
+      proxygen::HTTPTransaction* /* pushedTxn */) noexcept override;
 
   void sendRequest(proxygen::HTTPTransaction* txn);
 
@@ -84,6 +130,9 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
 protected:
   void sendBodyFromFile();
 
+  void printMessageImpl(proxygen::HTTPMessage* msg,
+                        const std::string& tag = "");
+
   proxygen::HTTPTransaction* txn_{nullptr};
   folly::EventBase* evb_{nullptr};
   proxygen::HTTPMethod httpMethod_;
@@ -102,6 +151,9 @@ protected:
   bool partiallyReliable_{false};
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
+  std::vector<std::unique_ptr<CurlPushHandler>> pushTxnHandlers_;
+
+  friend class CurlPushHandler;
 };
 
 } // CurlService namespace

@@ -12,8 +12,7 @@
 #include <iostream>
 #include <string>
 
-#include <proxygen/httpserver/samples/hq/SampleHandlers.h>
-
+#include <boost/algorithm/string.hpp>
 #include <fizz/server/AeadTicketCipher.h>
 #include <fizz/server/CertManager.h>
 #include <fizz/server/TicketCodec.h>
@@ -22,6 +21,7 @@
 #include <proxygen/httpserver/HTTPTransactionHandlerAdaptor.h>
 #include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
+#include <proxygen/httpserver/samples/hq/SampleHandlers.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
@@ -71,6 +71,8 @@ j9aXkPagbL/an2g05K0hIhyANbER7HAZlJ21pJdCIQ==
 -----END CERTIFICATE-----
 )";
 
+// The private key below is only used for test purposes
+// @lint-ignore-every PRIVATEKEY
 const std::string kDefaultKeyData = R"(
 -----BEGIN RSA PRIVATE KEY-----
 MIIJKAIBAAKCAgEAtdmzj5icITxowAvmBY2MtGbYRmIUdagqm3jaifzL5Jl1vXF1
@@ -177,6 +179,10 @@ class Dispatcher {
       }
     }
 
+    if (boost::algorithm::starts_with(path, "/push")) {
+      return new ServerPushHandler(version);
+    }
+
     return new DummyHandler;
   }
 };
@@ -225,6 +231,7 @@ class HQSessionController :
         session_->isPartialReliabilityEnabled();
     return Dispatcher::getRequestHandler(msg, version_, prParams);
   }
+
   proxygen::HTTPTransactionHandler* getParseErrorHandler(
       proxygen::HTTPTransaction* /*txn*/,
       const proxygen::HTTPException& /*error*/,
