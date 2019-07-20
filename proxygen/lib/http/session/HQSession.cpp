@@ -2461,6 +2461,7 @@ void HQSession::HQEgressPushStream::sendPushPromise(
         std::make_pair(quic::TransportErrorCode::STREAM_STATE_ERROR,
                        "Send push promise on a stream without a parent"),
         kErrorConnection);
+    return;
   }
   // Redirect to the parent transaction
   parentStream->sendPushPromise(txn, pushId_, headers, size, includeEOM);
