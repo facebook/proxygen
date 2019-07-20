@@ -186,6 +186,33 @@ TEST_F(HQFramerTest, ParsePriorityFramePrioritizeRoot) {
         priority);
 }
 
+TEST_F(HQFramerTest, ParsePriorityFramePrioritizedIdOptional) {
+  auto result = writePriority(queue_,
+                              {
+                                  // prioritizedType
+                                  PriorityElementType::REQUEST_STREAM,
+                                  // dependencyType
+                                  PriorityElementType::TREE_ROOT,
+                                  true, // exclusive
+                                  123,  // prioritizedElementId
+                                  234,  // elementDependencyId (ignored!)
+                                  30,   // weight
+                              });
+  EXPECT_FALSE(result.hasError());
+
+  FrameHeader header;
+  PriorityUpdate priority;
+
+  parse(folly::none, &parsePriority, header, priority);
+  EXPECT_EQ(FrameType::PRIORITY, header.type);
+  EXPECT_EQ(priority.prioritizedType, PriorityElementType::REQUEST_STREAM);
+  EXPECT_EQ(priority.dependencyType, PriorityElementType::TREE_ROOT);
+  EXPECT_TRUE(priority.exclusive);
+  EXPECT_EQ(123, priority.prioritizedElementId);
+  EXPECT_EQ(0, priority.elementDependencyId);
+  EXPECT_EQ(30, priority.weight);
+}
+
 TEST_F(HQFramerTest, ParsePriorityWrongWeight) {
   auto result = writePriority(queue_,
                               {

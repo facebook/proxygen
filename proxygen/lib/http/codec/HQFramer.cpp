@@ -117,12 +117,14 @@ ParseResult parsePriority(folly::io::Cursor& cursor,
   outPriority.prioritizedElementId = prioritizedElementId->first;
   frameLength -= prioritizedElementId->second;
 
-  auto elementDependencyId = quic::decodeQuicInteger(cursor, frameLength);
-  if (!elementDependencyId) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
+  if (outPriority.dependencyType != PriorityElementType::TREE_ROOT) {
+    auto elementDependencyId = quic::decodeQuicInteger(cursor, frameLength);
+    if (!elementDependencyId) {
+      return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
+    }
+    outPriority.elementDependencyId = elementDependencyId->first;
+    frameLength -= elementDependencyId->second;
   }
-  outPriority.elementDependencyId = elementDependencyId->first;
-  frameLength -= elementDependencyId->second;
 
   if (!cursor.canAdvance(sizeof(uint8_t))) {
     return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
@@ -325,14 +327,18 @@ WriteResult writePriority(IOBufQueue& queue, PriorityUpdate priority) noexcept {
     return prioritizedElementIdSize;
   }
 
-  auto elementDependencyIdSize =
-      quic::getQuicIntegerSize(priority.elementDependencyId);
-  if (elementDependencyIdSize.hasError()) {
-    return elementDependencyIdSize;
-  }
 
-  size_t payloadSize = *prioritizedElementIdSize + *elementDependencyIdSize +
+  size_t payloadSize = *prioritizedElementIdSize +
                        2 * sizeof(uint8_t);
+
+  if (priority.dependencyType != PriorityElementType::TREE_ROOT) {
+    auto elementDependencyIdSize =
+      quic::getQuicIntegerSize(priority.elementDependencyId);
+    if (elementDependencyIdSize.hasError()) {
+      return elementDependencyIdSize;
+    }
+    payloadSize += *elementDependencyIdSize;
+  }
 
   const auto headerSize =
       writeFrameHeader(queue, FrameType::PRIORITY, payloadSize);
@@ -342,7 +348,9 @@ WriteResult writePriority(IOBufQueue& queue, PriorityUpdate priority) noexcept {
   QueueAppender appender(&queue, payloadSize);
   appender.writeBE<uint8_t>(flags);
   quic::encodeQuicInteger(priority.prioritizedElementId, appender);
-  quic::encodeQuicInteger(priority.elementDependencyId, appender);
+  if (priority.dependencyType != PriorityElementType::TREE_ROOT) {
+    quic::encodeQuicInteger(priority.elementDependencyId, appender);
+  }
   appender.writeBE<uint8_t>(priority.weight);
   return *headerSize + payloadSize;
 }
