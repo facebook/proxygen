@@ -9,49 +9,19 @@
  */
 #include "proxygen/lib/statistics/ResourceStats.h"
 
+#include <folly/synchronization/Rcu.h>
 #include <glog/logging.h>
-
-namespace {
-// tries to acquire a read lock on a given mutex
-// consider contributing it to folly
-class ReadTryGuard {
-  public:
-    explicit ReadTryGuard(
-        folly::SharedMutex& lock)
-      : lock_(&lock) {
-      bool locked = lock_->try_lock();
-      if (!locked) {
-        lock_ = nullptr;
-      }
-    }
-    ReadTryGuard(const ReadTryGuard&) = delete;
-    ReadTryGuard& operator=(const ReadTryGuard&) = delete;
-
-    explicit operator bool() const {
-      return lock_ != nullptr;
-    }
-    void release() {
-      if (lock_) {
-        lock_->unlock();
-        lock_ = nullptr;
-      }
-    }
-    ~ReadTryGuard() {
-      release();
-    }
-  private:
-    folly::SharedMutex* lock_ = nullptr;
-};
-}
 
 namespace proxygen {
 
 ResourceStats::ResourceStats(std::unique_ptr<Resources> resources)
-    : resources_(std::move(resources)), data_(resources_->getCurrentData()) {
+    : resources_(std::move(resources)),
+      data_(new ResourceData(resources_->getCurrentData())) {
 }
 
 ResourceStats::~ResourceStats() {
   stopRefresh();
+  modifyData(nullptr);
 }
 
 void ResourceStats::refreshWithPeriod(std::chrono::milliseconds periodMs) {
@@ -87,44 +57,29 @@ void ResourceStats::stopRefresh() {
 }
 
 const ResourceData& ResourceStats::getCurrentLoadData() const {
-  thread_local ResourceData tlData;
-  // Note - we're checking data last update time without lock.
-  // We are ok with scarifying some accuracy, not detecting
-  // the data was updated, for performance.
-  // See D15915152
-  if (tlData.getLastUpdateTime() != data_.getLastUpdateTime()) {
-      std::chrono::milliseconds currentTime = ResourceData::getEpochTime();
-      if (tlData.getLastUpdateTime() == std::chrono::milliseconds(0) ||
-          tlData.getLastUpdateTime() +
-                  std::chrono::milliseconds(tlData.getUpdateInterval()) <=
-              currentTime) {
-        ReadTryGuard g(dataMutex_);
-        if (g) {
-          // Should be fine using the default assignment operator the compiler
-          // gave us I think...this will stop being true if data starts storing
-          // pointers.
-          tlData = data_;
-        }
+  {
+    folly::rcu_reader guard;
+    auto* loadedData = data_.load();
+    if (loadedData->getLastUpdateTime() != tlData_->getLastUpdateTime()) {
+      // Should be fine using the default assignment operator the compiler
+      // gave us I think...this will stop being true if loadedData starts
+      // storing pointers.
+      *tlData_ = *loadedData;
     }
   }
-  return tlData;
+  return *tlData_;
 }
 
 void ResourceStats::updateCachedData() {
-  auto data = resources_->getCurrentData();
+  modifyData(new ResourceData(resources_->getCurrentData()));
+}
 
-  data.setUpdateInterval(refreshPeriodMs_);
-  {
-    folly::SharedMutex::WriteHolder g(dataMutex_);
-
-    // Reset the last update time in case there was a delay acquiring the lock.
-    // Not explicitly necessary as the function scheduler is set to use a
-    // steady clock but we want to make sure we never get in a situation
-    // where lock contention burns us.
-    data.refreshLastUpdateTime();
-
-    data_ = data;
-  }
+void ResourceStats::modifyData(ResourceData* newData) {
+  auto* oldData = data_.load();
+  // Default copy constructor should be fine here much as above...this will
+  // stop being true if data starts storing pointers.
+  data_.store(newData);
+  folly::rcu_retire(oldData);
 }
 
 } // namespace proxygen
