@@ -147,6 +147,8 @@ function setup_fizz() {
   fi
   cd "$FIZZ_DIR"
   git fetch
+  FIZZ_REV=$(sed 's/Subproject commit //' "$START_DIR"/../build/deps/github_hashes/facebookincubator/fizz-rev.txt)
+  git checkout "$FIZZ_REV"
   echo -e "${COLOR_GREEN}Building Fizz ${COLOR_OFF}"
   mkdir -p "$FIZZ_BUILD_DIR"
   cd "$FIZZ_BUILD_DIR" || exit
@@ -193,6 +195,8 @@ function setup_mvfst() {
   fi
   cd "$MVFST_DIR"
   git fetch
+  MVFST_REV=$(sed 's/Subproject commit //' "$START_DIR"/../build/deps/github_hashes/facebookincubator/mvfst-rev.txt)
+  git checkout "$MVFST_REV"
   echo -e "${COLOR_GREEN}Building Mvfst ${COLOR_OFF}"
   mkdir -p "$MVFST_BUILD_DIR"
   cd "$MVFST_BUILD_DIR" || exit
