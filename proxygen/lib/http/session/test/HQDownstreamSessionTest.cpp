@@ -2259,6 +2259,31 @@ TEST_P(HQDownstreamSessionTestHQ, controlStreamWriteError) {
             HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
 }
 
+TEST_P(HQDownstreamSessionTestHQ, TooManyControlStreams) {
+  // This creates a request stream, so that we can check the HTTP3::ErrorCode
+  // at the end of the test. With no active streams we would drop the
+  // connection with no error instead.
+  sendRequest();
+  InSequence handlerSequence;
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM();
+  handler->expectError([&](const HTTPException& ex) {
+    EXPECT_EQ(ex.getProxygenError(), kErrorConnection);
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoopN(1);
+
+  // Create an extra control stream, that causes the connection to get dropped
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  generateStreamPreface(writeBuf, UnidirectionalStreamType::CONTROL);
+  socketDriver_->addReadEvent(14, writeBuf.move());
+
+  flushRequestsAndLoop();
+  EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
+            HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT);
+}
+
 /**
  * Instantiate the Parametrized test cases
  */

@@ -272,7 +272,7 @@ HQSession::createIngressControlStream(quic::StreamId id,
 
   if (ctrlStream->ingressCodec_) {
     LOG(ERROR) << "Too many " << streamType << " streams for sess=" << *this;
-    dropConnectionWithError(
+    dropConnectionAsync(
         std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
                        "HTTP wrong stream count"),
         kErrorConnection);
@@ -545,7 +545,7 @@ void HQSession::onConnectionError(
 
   // force close all streams.
   // close with error won't invoke any connection callback, reentrancy safe
-  dropConnectionWithError(std::move(code), proxygenErr);
+  dropConnectionSync(std::move(code), proxygenErr);
 }
 
 bool HQSession::getCurrentTransportInfo(wangle::TransportInfo* tinfo) {
@@ -830,12 +830,23 @@ void HQSession::closeWhenIdle() {
 }
 
 void HQSession::dropConnection() {
-  dropConnectionWithError(
+  dropConnectionSync(
       std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping"),
       kErrorDropped);
 }
 
-void HQSession::dropConnectionWithError(
+void HQSession::dropConnectionAsync(
+    std::pair<quic::QuicErrorCode, std::string> errorCode,
+    ProxygenError proxygenError) {
+  if (!dropInNextLoop_.hasValue()) {
+    dropInNextLoop_ = std::make_pair(errorCode, proxygenError);
+    scheduleLoopCallback(true);
+  } else {
+    VLOG(4) << "Session already scheduled to be dropped: sess=" << *this;
+  }
+}
+
+void HQSession::dropConnectionSync(
     std::pair<quic::QuicErrorCode, std::string> errorCode,
     ProxygenError proxygenError) {
   VLOG(4) << __func__ << " sess=" << *this;
@@ -1200,7 +1211,7 @@ void HQSession::runLoopCallback() noexcept {
   });
 
   if (dropInNextLoop_.hasValue()) {
-    dropConnectionWithError(dropInNextLoop_->first, dropInNextLoop_->second);
+    dropConnectionSync(dropInNextLoop_->first, dropInNextLoop_->second);
     return;
   }
 
@@ -2146,13 +2157,8 @@ void HQSession::handleSessionError(HQStreamBase* stream,
   // close received from the remote, we may have other readError callbacks on
   // other streams after this one. So run in the next loop callback, in this
   // same loop
-  if (!dropInNextLoop_.hasValue()) {
-    dropInNextLoop_ =
-        std::make_pair(std::make_pair(appError, appErrorMsg), proxygenError);
-    scheduleLoopCallback(true);
-  } else {
-    VLOG(4) << "Session already scheduled to be dropped: sess=" << *this;
-  }
+  dropConnectionAsync(std::make_pair(appError, appErrorMsg),
+                           proxygenError);
 }
 
 void HQSession::writeRequestStreams(uint64_t maxEgress) noexcept {
@@ -2457,7 +2463,7 @@ void HQSession::HQEgressPushStream::sendPushPromise(
   auto parentStreamId = txn->getAssocTxnId();
   auto parentStream = session_.findNonDetachedStream(*parentStreamId);
   if (!parentStream) {
-    session_.dropConnectionWithError(
+    session_.dropConnectionAsync(
         std::make_pair(quic::TransportErrorCode::STREAM_STATE_ERROR,
                        "Send push promise on a stream without a parent"),
         kErrorConnection);
@@ -3384,7 +3390,7 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
     constexpr auto error =
         "Received onMessageBegin in the middle of push promise";
     LOG(ERROR) << error << " streamID=" << streamID << " session=" << session_;
-    session_.dropConnectionWithError(
+    session_.dropConnectionAsync(
         std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
                        error),
         kErrorDropped);
@@ -3712,7 +3718,7 @@ void HQSession::HQStreamTransportBase::onPushMessageBegin(
     constexpr auto error =
         "Received onPushMessageBegin in the middle of push promise";
     LOG(ERROR) << error;
-    session_.dropConnectionWithError(
+    session_.dropConnectionAsync(
         std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
                        error),
         kErrorDropped);

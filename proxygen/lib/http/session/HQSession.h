@@ -420,11 +420,21 @@ class HQSession
   void dumpConnectionState(uint8_t /*loglevel*/) override {
   }
 
-  /* errorCode is passed to transport CLOSE_CONNNECTION frame
+  /*
+   * dropConnectionSync drops the connection immediately.
+   * This means that when invoked internally may need a destructor guard and
+   * the socket will be invalid after it is invoked.
+   *
+   * errorCode is passed to transport CLOSE_CONNNECTION frame
    *
    * proxygenError is delivered to open transactions
    */
-  void dropConnectionWithError(
+  void dropConnectionSync(
+      std::pair<quic::QuicErrorCode, std::string> errorCode,
+      ProxygenError proxygenError);
+
+  // Invokes dropConnectionSync at the beginning of the next loopCallback
+  void dropConnectionAsync(
       std::pair<quic::QuicErrorCode, std::string> errorCode,
       ProxygenError proxygenError);
 
@@ -1856,7 +1866,7 @@ class HQSession
                  << "Push streams are not allowed to receive push promises"
                  << " txn=" << txn_ << " pushID=" << pushId
                  << " parentTxnId=" << parentTxnId;
-      session_.dropConnectionWithError(
+      session_.dropConnectionAsync(
           std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM,
                          "Push promise over a push stream"),
           kErrorConnection);
