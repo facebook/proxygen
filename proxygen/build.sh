@@ -50,7 +50,8 @@ function install_dependencies_linux() {
     zlib1g-dev \
     binutils-dev \
     libsodium-dev \
-    libzstd-dev
+    libzstd-dev \
+    libdouble-conversion-dev
 }
 
 function install_dependencies_mac() {
