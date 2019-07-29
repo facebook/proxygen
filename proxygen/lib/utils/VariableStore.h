@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2014-present, Facebook, Inc.
+ *  Copyright (c) 2019-present, Facebook, Inc.
  *  All rights reserved.
  *
  *  This source code is licensed under the BSD-style license found in the
@@ -33,6 +33,11 @@ class VariableStore {
   void set(const std::string& id, const std::string& value) {
     variables_[id] = value;
   }
+
+  /**
+   * Copy subset of variables <varNames> from this to <dst>.
+   */
+  void copyVarsTo(const std::vector<std::string>& varNames, VariableStore* dst);
 
  private:
   folly::F14FastMap<std::string, std::string> variables_;

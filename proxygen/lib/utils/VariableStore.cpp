@@ -7,15 +7,14 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-#include <proxygen/lib/utils/VariableStoreUtil.h>
+#include <proxygen/lib/utils/VariableStore.h>
 
 namespace proxygen {
 
-void copyVars(const std::vector<std::string>& varNames,
-              const VariableStore* src,
-              VariableStore* dst) {
+void VariableStore::copyVarsTo(const std::vector<std::string>& varNames,
+                               VariableStore* dst) {
   for (const auto& varName : varNames) {
-    auto value = src->get(varName);
+    auto value = get(varName);
     if (value.hasValue()) {
       dst->set(varName, *value);
     }
