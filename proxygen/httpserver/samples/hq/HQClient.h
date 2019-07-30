@@ -127,11 +127,6 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
           std::make_shared<proxygen::SynchronizedLruQuicPskCache>(1000);
     }
     quicClient_->setPskCache(quicPskCache_);
-    if (!qLoggerPath_.empty()) {
-      qLogger_ = std::make_shared<quic::FileQLogger>();
-      qLogger_->dcid = quicClient_->getClientConnectionId();
-      quicClient_->setQLogger(qLogger_);
-    }
     wangle::TransportInfo tinfo;
     session_ = new proxygen::HQUpstreamSession(txnTimeout_,
                                                std::chrono::milliseconds(2000),
@@ -139,6 +134,13 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
                                                tinfo,
                                                nullptr); // codecfiltercallback
 
+     if (!qLoggerPath_.empty()) {
+       qLogger_ = std::make_shared<quic::FileQLogger>(
+         getCodecProtocolString(session_->getCodecProtocol()),
+         kQLogClientVantagePoint);
+       qLogger_->dcid = quicClient_->getClientConnectionId();
+       quicClient_->setQLogger(qLogger_);
+     }
     // Need this for Interop since we use HTTP0.9
     session_->setForceUpstream1_1(false);
 
