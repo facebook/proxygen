@@ -75,6 +75,7 @@ if (BUILD_QUIC)
         ${HTTP3_SOURCES}
         http/SynchronizedLruQuicPskCache.cpp
         http/HTTP3ErrorCode.cpp
+        http/HQConnector.cpp
         http/codec/HQControlCodec.cpp
         http/codec/HQFramedCodec.cpp
         http/codec/HQFramer.cpp
@@ -151,6 +152,7 @@ add_library(
     http/connpool/ThreadIdleSessionController.cpp
     http/experimental/RFC1867.cpp
     http/HTTPConnector.cpp
+    http/HTTPConnectorWithFizz.cpp
     http/HTTPConstants.cpp
     http/HTTPException.cpp
     http/HTTPHeaders.cpp

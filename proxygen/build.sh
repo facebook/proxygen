@@ -156,6 +156,7 @@ function setup_fizz() {
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
+    -DBUILD_TESTS=ON                            \
     "$FIZZ_DIR/fizz"
   make -j "$JOBS"
   make install
@@ -272,4 +273,3 @@ cmake                                     \
 make -j "$JOBS"
 echo -e "${COLOR_GREEN}Proxygen build is complete. To run unit test: \
   cd _build/ && make test ${COLOR_OFF}"
-

@@ -8,6 +8,7 @@
 proxygen_add_test(TARGET LibHTTPTests
   SOURCES
     HTTPCommonHeadersTests.cpp
+    HTTPConnectorWithFizzTest.cpp
     HTTPMessageTest.cpp
     RFC2616Test.cpp
     WindowTest.cpp
