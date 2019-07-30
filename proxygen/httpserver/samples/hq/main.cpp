@@ -31,7 +31,7 @@ DEFINE_string(protocol, "", "HQ protocol version e.g. h1q-fb or h1q-fb-v2");
 DEFINE_int32(draft_version, 0, "Draft version to use, 0 is default");
 DEFINE_bool(use_draft, true, "Use draft version as first version");
 DEFINE_string(logdir, "/tmp/logs", "Directory to store connection logs");
-DEFINE_string(congestion, "cubic", "newreno/cubic/bbr/none");
+DEFINE_string(congestion, "newreno", "newreno/cubic/bbr/copa/none");
 DEFINE_int32(conn_flow_control, 1024 * 1024, "Connection flow control");
 DEFINE_int32(stream_flow_control, 65 * 1024, "Stream flow control");
 DEFINE_int32(max_receive_packet_size,
@@ -81,6 +81,8 @@ quic::CongestionControlType flagsToCongestionControlType(
     return quic::CongestionControlType::NewReno;
   } else if (congestionControlType == "bbr") {
     return quic::CongestionControlType::BBR;
+  } else if (congestionControlType == "copa") {
+    return quic::CongestionControlType::Copa;
   } else if (congestionControlType == "none") {
     return quic::CongestionControlType::None;
   }
