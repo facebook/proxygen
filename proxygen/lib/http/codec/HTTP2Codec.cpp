@@ -1155,6 +1155,10 @@ void HTTP2Codec::generateHeaderImpl(
       DCHECK_GE(remainingFrameSize, http2::kFramePrioritySize)
         << "no enough space for priority? frameHeadroom=" << remainingFrameSize;
       remainingFrameSize -= http2::kFramePrioritySize;
+      if (pri->streamDependency == stream) {
+        LOG(ERROR) << "Overwriting circular dependency for stream=" << stream;
+        pri = http2::DefaultPriority;
+      }
     }
     auto chunk = queue.split(std::min(remainingFrameSize, queue.chainLength()));
 

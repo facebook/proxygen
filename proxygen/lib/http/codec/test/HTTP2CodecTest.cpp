@@ -1394,6 +1394,13 @@ TEST_F(HTTP2CodecTest, BadHeaderPriority) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HTTP2CodecTest, CircularHeaderPriority) {
+  HTTPMessage req = getGetRequest();
+  req.setHTTP2Priority(HTTPMessage::HTTPPriority(1, false, 7));
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
+}
+
+
 TEST_F(HTTP2CodecTest, DuplicateBadHeaderPriority) {
   // Sent an initial header with a circular dependency
   HTTPMessage req = getGetRequest();

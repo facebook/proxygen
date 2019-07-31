@@ -685,6 +685,21 @@ TEST_F(HTTP2UpstreamSessionTest, TestPriority) {
   EXPECT_EQ(sessionDestroyed_, true);
 }
 
+TEST_F(HTTP2UpstreamSessionTest, TestCircularPriority) {
+  InSequence enforceOrder;
+  auto handler1 = openTransaction();
+
+  auto req = getGetRequest();
+  // send request with circular dep
+  req.setHTTP2Priority(HTTPMessage::HTTPPriority(1, false, 255));
+  handler1->sendRequest(req);
+  handler1->terminate();
+  handler1->expectDetachTransaction();
+  httpSession_->dropConnection();
+  eventBase_.loop();
+  EXPECT_EQ(sessionDestroyed_, true);
+}
+
 TEST_F(HTTP2UpstreamSessionTest, TestSettingsAck) {
   auto serverCodec = makeServerCodec();
   folly::IOBufQueue buf{IOBufQueue::cacheChainLength()};

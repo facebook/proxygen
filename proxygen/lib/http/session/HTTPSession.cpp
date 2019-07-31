@@ -1550,7 +1550,11 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
     // upstream picks priority
     if (getHTTP2PrioritiesEnabled()) {
       auto pri = getMessagePriority(&headers);
-      txn->onPriorityUpdate(pri);
+      if (pri.streamDependency == txn->getID()) {
+        LOG(ERROR) << "Attempted to create circular dependency txn=" << *this;
+      } else {
+        txn->onPriorityUpdate(pri);
+      }
     }
   }
 
