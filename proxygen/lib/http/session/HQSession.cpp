@@ -29,6 +29,7 @@
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <quic/logging/QLoggerConstants.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
 namespace {
@@ -1763,6 +1764,10 @@ void HQSession::readRequestStream(quic::StreamId id) noexcept {
   if (hqStream->readEOF_) {
     auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - hqStream->createdTime);
+    if (sock_ && sock_->getState() && sock_->getState()->qLogger) {
+      sock_->getState()->qLogger->addStreamStateUpdate(
+        id, quic::kEOM);
+    }
     QUIC_TRACE_SOCK(stream_event,
                     sock_,
                     "on_eom",
@@ -1961,6 +1966,11 @@ void HQSession::onFlowControlUpdate(quic::StreamId id) noexcept {
 
   auto ctrlStream = findControlStream(id);
   if (ctrlStream && flowControl->sendWindowAvailable > 0) {
+    if (sock_ && sock_->getState() && sock_->getState()->qLogger) {
+      sock_->getState()->qLogger->addStreamStateUpdate(
+        id,
+        quic::getFlowControlWindowAvailable(flowControl->sendWindowAvailable));
+    }
     QUIC_TRACE_SOCK(stream_event,
                     sock_,
                     "on_flow_control",
@@ -1984,6 +1994,11 @@ void HQSession::onFlowControlUpdate(quic::StreamId id) noexcept {
       (!stream->hasPendingBody() && stream->hasPendingEOM())) {
     // TODO: are we intentionally piggyback the time value for flow control
     // window here?
+    if (sock_ && sock_->getState() && sock_->getState()->qLogger) {
+      sock_->getState()->qLogger->addStreamStateUpdate(
+        id,
+        quic::getFlowControlWindowAvailable(flowControl->sendWindowAvailable));
+    }
     QUIC_TRACE_SOCK(stream_event,
                     sock_,
                     "on_flow_control",
@@ -2362,6 +2377,10 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
   if (flowControlBlocked) {
     // TODO: this one doesn't create trouble, but it's certainly not logging the
     // extra params anyway.
+    if (sock_ && sock_->getState() && sock_->getState()->qLogger) {
+      sock_->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kStreamBlocked);
+    }
     QUIC_TRACE_SOCK(stream_event,
                     sock_,
                     "stream_blocked",
@@ -2934,10 +2953,16 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+      streamId, quic::kOnHeaders);
+  }
   QUIC_TRACE_SOCK(stream_event,
-                  session_.sock_,
+                  sock,
                   "on_headers",
-                  getStreamId(),
+                  streamId,
                   static_cast<uint64_t>(timeDiff.count()));
 }
 
@@ -3016,6 +3041,10 @@ void HQSession::abortStream(HTTPException::Direction dir,
 }
 
 void HQSession::HQVersionUtils::abortStream(quic::StreamId id) {
+  auto sock = session_.sock_;
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(id, quic::kAbort);
+  }
   auto cancel = qpackCodec_.encodeCancelStream(id);
   auto QPACKDecoderStream =
       session_.findControlStream(hq::UnidirectionalStreamType::QPACK_DECODER);
@@ -3084,12 +3113,22 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+      streamId, quic::kOnHeaders);
+  }
   QUIC_TRACE_SOCK(stream_event,
                   session_.sock_,
                   "headers",
-                  getStreamId(),
+                  streamId,
                   static_cast<uint64_t>(timeDiff.count()));
   if (includeEOM) {
+    if (sock && sock->getState() && sock->getState()->qLogger) {
+      sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kEOM);
+    }
     QUIC_TRACE_SOCK(stream_event,
                     session_.sock_,
                     "eom",
@@ -3155,10 +3194,16 @@ size_t HQSession::HQStreamTransportBase::sendEOM(
   notifyPendingEgress();
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+      streamId, quic::kEOM);
+  }
   QUIC_TRACE_SOCK(stream_event,
-                  session_.sock_,
+                  sock,
                   "eom",
-                  getStreamId(),
+                  streamId,
                   static_cast<uint64_t>(timeDiff.count()));
   return encodedSize;
 }
@@ -3261,10 +3306,16 @@ void HQSession::HQStreamTransportBase::onError(HTTPCodec::StreamID streamID,
   txn_.onError(error);
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+      streamId, quic::kOnError);
+  }
   QUIC_TRACE_SOCK(stream_event,
                   session_.sock_,
                   "on_error",
-                  getStreamId(),
+                  streamId,
                   static_cast<uint64_t>(timeDiff.count()));
 }
 
@@ -3346,10 +3397,16 @@ size_t HQSession::HQStreamTransportBase::sendBody(
     pendingEOM_ = true;
     auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - createdTime);
+    auto sock = session_.sock_;
+    auto streamId = getStreamId();
+    if (sock && sock->getState() && sock->getState()->qLogger) {
+      sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kEOM);
+    }
     QUIC_TRACE_SOCK(stream_event,
                     session_.sock_,
                     "eom",
-                    getStreamId(),
+                    streamId,
                     static_cast<uint64_t>(timeDiff.count()));
   }
   return encodedSize;
@@ -3779,16 +3836,26 @@ void HQSession::HQStreamTransport::sendPushPromise(
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+      streamId, quic::kPushPromise);
+  }
   QUIC_TRACE_SOCK(stream_event,
-                  session_.sock_,
+                  sock,
                   "push_promise",
-                  getStreamId(),
+                  streamId,
                   (uint64_t)timeDiff.count());
   if (includeEOM) {
+    if (sock && sock->getState() && sock->getState()->qLogger) {
+      sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kEOM);
+    }
     QUIC_TRACE_SOCK(stream_event,
-                    session_.sock_,
+                    sock,
                     "eom",
-                    getStreamId(),
+                    streamId,
                     (uint64_t)timeDiff.count());
   }
 }
