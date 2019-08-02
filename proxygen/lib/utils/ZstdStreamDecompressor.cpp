@@ -33,9 +33,10 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
     return nullptr;
   }
 
-  const size_t outBufMinSize = 1; // avoid wasting space in existing bufs
   const size_t outBufAllocSize = ZSTD_DStreamOutSize();
-  folly::IOBufQueue outqueue;
+
+  auto out = folly::IOBuf::create(outBufAllocSize);
+  auto appender = folly::io::Appender(out.get(), outBufAllocSize);
 
   for (const folly::ByteRange range : *in) {
     if (range.data() == nullptr) {
@@ -45,8 +46,10 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
     ZSTD_inBuffer ibuf = {range.data(), range.size(), 0};
     while (ibuf.pos < ibuf.size) {
       status_ = ZstdStatusType::CONTINUE;
-      auto outpair = outqueue.preallocate(outBufMinSize, outBufAllocSize);
-      ZSTD_outBuffer obuf = {outpair.first, outpair.second, 0};
+      appender.ensure(outBufAllocSize);
+      DCHECK_GT(appender.length(), 0);
+
+      ZSTD_outBuffer obuf = {appender.writableData(), appender.length(), 0};
       auto ret = ZSTD_decompressStream(dctx_.get(), &obuf, &ibuf);
       if (ZSTD_isError(ret)) {
         status_ = ZstdStatusType::ERROR;
@@ -54,10 +57,11 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
       } else if (ret == 0) {
         status_ = ZstdStatusType::FINISHED;
       }
-      outqueue.postallocate(obuf.pos);
+
+      appender.append(obuf.pos);
     }
   }
 
-  return outqueue.move();
+  return out;
 }
 } // namespace proxygen
