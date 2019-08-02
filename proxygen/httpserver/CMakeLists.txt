@@ -108,6 +108,7 @@ install(
 if (BUILD_QUIC)
   add_executable(hq
       samples/hq/main.cpp
+      samples/hq/FizzContext.cpp
       samples/hq/HQParams.cpp
       samples/hq/SampleHandlers.cpp
       samples/hq/PartiallyReliableCurlClient.cpp
