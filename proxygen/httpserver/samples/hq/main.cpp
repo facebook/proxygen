@@ -14,62 +14,10 @@
 
 #include <proxygen/httpserver/samples/hq/ConnIdLogger.h>
 #include <proxygen/httpserver/samples/hq/HQClient.h>
+#include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/httpserver/samples/hq/HQServer.h>
 #include <proxygen/lib/transport/PersistentQuicPskCache.h>
 
-DEFINE_string(host, "::1", "HQ server hostname/IP");
-DEFINE_int32(port, 6666, "HQ server port");
-DEFINE_int32(h2port, 6667, "HTTP/2 server port");
-DEFINE_string(mode, "server", "Mode to run in: 'client' or 'server'");
-DEFINE_string(body, "", "Filename to read from for POST requests");
-DEFINE_string(path,
-              "/",
-              "(HQClient) url-path to send the request to, "
-              "or a comma separated list of paths to fetch in parallel");
-DEFINE_string(httpversion, "1.1", "HTTP version string");
-DEFINE_string(protocol, "", "HQ protocol version e.g. h1q-fb or h1q-fb-v2");
-DEFINE_int32(draft_version, 0, "Draft version to use, 0 is default");
-DEFINE_bool(use_draft, true, "Use draft version as first version");
-DEFINE_string(logdir, "/tmp/logs", "Directory to store connection logs");
-DEFINE_string(congestion, "newreno", "newreno/cubic/bbr/copa/none");
-DEFINE_int32(conn_flow_control, 1024 * 1024, "Connection flow control");
-DEFINE_int32(stream_flow_control, 65 * 1024, "Stream flow control");
-DEFINE_int32(max_receive_packet_size,
-             quic::kDefaultUDPReadBufferSize,
-             "Max UDP packet size Quic can receive");
-DEFINE_int32(txn_timeout, 120000, "HTTP Transaction Timeout");
-DEFINE_string(headers, "", "List of N=V headers separated by ,");
-DEFINE_bool(pacing, false, "Whether to enable pacing on HQServer");
-DEFINE_string(psk_file, "", "Cache file to use for QUIC psks");
-DEFINE_bool(early_data, false, "Whether to use 0-rtt");
-DEFINE_uint32(quic_batching_mode,
-              static_cast<uint32_t>(quic::QuicBatchingMode::BATCHING_MODE_NONE),
-              "QUIC batching mode");
-DEFINE_uint32(quic_batch_size,
-              quic::kDefaultQuicMaxBatchSize,
-              "Maximum number of packets that can be batched in Quic");
-DEFINE_string(cert, "", "Certificate file path");
-DEFINE_string(key, "", "Private key file path");
-DEFINE_string(qlogger_path, "", "Path to the directory where qlog files"
-                                "will be written. File is called <CID>.qlog");
-DEFINE_bool(pretty_json,
-            true,
-            "Whether to use pretty json for QLogger output");
-
-// Partially reliable flags.
-DEFINE_bool(use_pr, false, "Use partial reliability");
-DEFINE_uint32(pr_chunk_size,
-              16,
-              "Chunk size to use for partially realible server handler");
-DEFINE_uint32(pr_chunk_delay_ms,
-              0,
-              "Max delay for the body chunks in partially reliable mode");
-// Example of starting a server streaming body in chunks in partially realible
-// mode (serve 17-byte body chunks with random delay from 0 to 500 ms):
-//    hq -mode server -use_pr -protocol="h3-20" -pr_chunk_size 17 -pr_chunk_delay_ms 500
-// Example of starting a client requesting a partial reliable streaming with
-// delay cap of 150 ms:
-//    hq -mode client -use_pr -protocol="h3-20" -path="/pr_cat" -pr_chunk_delay_ms 150
 
 using namespace quic::samples;
 
@@ -196,7 +144,7 @@ int main(int argc, char* argv[]) {
     client.setEarlyData(FLAGS_early_data);
     client.start();
   } else {
-    LOG(ERROR) << "Unknown mode specified: " << FLAGS_mode;
+    LOG(ERROR) << "Unknown mode specified: '" << FLAGS_mode << "'";
     return -1;
   }
   return 0;

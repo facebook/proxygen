@@ -229,7 +229,7 @@ class PrCatHandler
   }
 
   void onHeadersComplete(
-      std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
+      std::unique_ptr<proxygen::HTTPMessage> /* msg */) noexcept override {
     VLOG(10) << "PrCatHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
     VLOG(10) << "Setting http-version to " << version_;
@@ -250,7 +250,7 @@ class PrCatHandler
               << " bytes at offset " << offset;
   }
 
-  void onBodySkipped(uint64_t newOffset) noexcept override {
+  void onBodySkipped(uint64_t /* newOffset */) noexcept override {
     LOG(FATAL) << __func__ << ": wrong side to receive this callback ";
   }
 
@@ -500,11 +500,15 @@ class HealthCheckHandler : public BaseQuicHandler {
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
     VLOG(10) << "HealthCheckHandler::onHeadersComplete";
-    assert(msg->getMethod() == proxygen::HTTPMethod::GET);
     proxygen::HTTPMessage resp;
     resp.setVersionString(version_);
-    resp.setStatusCode(healthy_ ? 200 : 400);
-    resp.setStatusMessage(healthy_ ? "Ok" : "Not Found");
+    if (msg->getMethod() == proxygen::HTTPMethod::GET) {
+      resp.setStatusCode(healthy_ ? 200 : 400);
+      resp.setStatusMessage(healthy_ ? "Ok" : "Not Found");
+    } else {
+      resp.setStatusCode(405);
+      resp.setStatusMessage("Method not allowed");
+    }
     resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     txn_->sendHeaders(resp);
