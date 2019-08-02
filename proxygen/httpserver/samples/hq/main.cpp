@@ -111,38 +111,16 @@ int main(int argc, char* argv[]) {
     server.run();
     h2server.join();
   } else if (FLAGS_mode == "client") {
+    // NOTE: this is a partial transition from flags to params.
     if (FLAGS_host.empty() || FLAGS_port == 0) {
       LOG(ERROR) << "H1Client expected --host and --port";
       return -2;
     }
-    HQClient client(FLAGS_host,
-                    FLAGS_port,
-                    FLAGS_headers,
-                    FLAGS_body,
-                    FLAGS_path,
-                    FLAGS_httpversion,
-                    transportSettings,
-                    draftVersion,
-                    FLAGS_use_draft,
-                    std::chrono::milliseconds(FLAGS_txn_timeout),
-                    FLAGS_qlogger_path,
-                    FLAGS_pretty_json,
-                    FLAGS_use_pr,
-                    FLAGS_pr_chunk_delay_ms);
-    if (!FLAGS_protocol.empty()) {
-      client.setProtocol(FLAGS_protocol);
-    }
-    if (!FLAGS_psk_file.empty()) {
-      auto pskCache = std::make_shared<proxygen::PersistentQuicPskCache>(
-          FLAGS_psk_file,
-          wangle::PersistentCacheConfig::Builder()
-              .setCapacity(1000)
-              .setSyncInterval(std::chrono::seconds(1))
-              .build());
-      client.setQuicPskCache(std::move(pskCache));
-    }
-    client.setEarlyData(FLAGS_early_data);
-    client.start();
+    initializeParams()
+      .then([](const HQParams& params) {
+          DCHECK(params->mode == HQMode::CLIENT);
+          startClient(params);
+          });
   } else {
     LOG(ERROR) << "Unknown mode specified: '" << FLAGS_mode << "'";
     return -1;
