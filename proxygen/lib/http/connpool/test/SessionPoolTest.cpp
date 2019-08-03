@@ -15,6 +15,7 @@
 #include "proxygen/lib/http/connpool/ThreadIdleSessionController.h"
 
 #include <folly/io/async/EventBaseManager.h>
+#include <folly/portability/GFlags.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
 using namespace proxygen;
