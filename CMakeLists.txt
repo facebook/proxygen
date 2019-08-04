@@ -25,12 +25,12 @@ file(MAKE_DIRECTORY ${PROXYGEN_GENERATED_ROOT})
 
 # Build-time program requirements.
 find_program(PROXYGEN_PYTHON python)
-if(PROXYGEN_PYTHON-NOTFOUND)
+if(NOT PROXYGEN_PYTHON)
     message(FATAL_ERROR "python is required for the proxygen build")
 endif()
 
 find_program(PROXYGEN_GPERF gperf)
-if(PROXYGEN_GPERF-NOTFOUND)
+if(NOT PROXYGEN_GPERF)
     message(FATAL_ERROR "gperf is required for the proxygen build")
 endif()
 
