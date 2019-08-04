@@ -23,6 +23,7 @@
 #include <folly/ThreadLocal.h>
 #include <folly/io/async/AsyncTimeout.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/httpserver/samples/hq/PartiallyReliableCurlClient.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
@@ -35,10 +36,7 @@ using random_bytes_engine =
 
 class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
  public:
-  explicit BaseQuicHandler(const std::string& version) : version_(version) {
-  }
-
-  BaseQuicHandler() : version_("1.1") {
+  explicit BaseQuicHandler(const HQParams& params) : params_(params) {
   }
 
   void setTransaction(proxygen::HTTPTransaction* txn) noexcept override {
@@ -107,13 +105,17 @@ class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
   }
 
  protected:
+  const std::string& getHttpVersion() const {
+    return params_->httpVersion.canonical;
+  }
+
   proxygen::HTTPTransaction* txn_{nullptr};
-  std::string version_;
+  const HQParams& params_;
 };
 
 class EchoHandler : public BaseQuicHandler {
  public:
-  explicit EchoHandler(const std::string& version) : BaseQuicHandler(version) {
+  explicit EchoHandler(const HQParams& params) : BaseQuicHandler(params) {
   }
 
   EchoHandler() = default;
@@ -122,10 +124,10 @@ class EchoHandler : public BaseQuicHandler {
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
     VLOG(10) << "EchoHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << version_;
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
     sendFooter_ =
         (msg->getHTTPVersion() == proxygen::HTTPMessage::kHTTPVersion09);
-    resp.setVersionString(version_);
+    resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
     msg->getHeaders().forEach(
@@ -167,12 +169,10 @@ class PrCatHandler
     , public proxygen::HTTPTransactionTransportCallback
     , public folly::AsyncTimeout {
  public:
-  explicit PrCatHandler(const std::string& version,
-                            folly::Optional<uint64_t> prChunkSize,
-                            folly::Optional<uint64_t> prChunkDelayMs)
-      : EchoHandler(version),
-        chunkSize_(prChunkSize),
-        chunkDelayMs_(prChunkDelayMs) {
+  explicit PrCatHandler(const HQParams& params)
+      : EchoHandler(params),
+        chunkSize_(params->prChunkSize),
+        chunkDelayMs_(params->prChunkDelayMs) {
     if (!chunkSize_) {
       chunkSize_ = 16;
     }
@@ -232,8 +232,8 @@ class PrCatHandler
       std::unique_ptr<proxygen::HTTPMessage> /* msg */) noexcept override {
     VLOG(10) << "PrCatHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << version_;
-    resp.setVersionString(version_);
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
     resp.getHeaders().add("pr-chunk-size", folly::to<std::string>(*chunkSize_));
@@ -304,7 +304,7 @@ private:
 
 class ContinueHandler : public EchoHandler {
  public:
-  explicit ContinueHandler(const std::string& version) : EchoHandler(version) {
+  explicit ContinueHandler(const HQParams& params) : EchoHandler(params) {
   }
 
   ContinueHandler() = default;
@@ -313,8 +313,8 @@ class ContinueHandler : public EchoHandler {
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
     VLOG(10) << "ContinueHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << version_;
-    resp.setVersionString(version_);
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
     if (msg->getHeaders().getSingleOrEmpty(proxygen::HTTP_HEADER_EXPECT) ==
         "100-continue") {
       resp.setStatusCode(100);
@@ -327,8 +327,8 @@ class ContinueHandler : public EchoHandler {
 
 class RandBytesGenHandler : public BaseQuicHandler {
  public:
-  explicit RandBytesGenHandler(const std::string& version)
-      : BaseQuicHandler(version) {
+  explicit RandBytesGenHandler(const HQParams& params)
+      : BaseQuicHandler(params) {
   }
 
   RandBytesGenHandler() = default;
@@ -355,8 +355,8 @@ class RandBytesGenHandler : public BaseQuicHandler {
     }
 
     proxygen::HTTPMessage resp;
-    VLOG(10) << "Setting http-version to " << version_;
-    resp.setVersionString(version_);
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
     txn_->sendHeaders(resp);
@@ -449,7 +449,7 @@ class RandBytesGenHandler : public BaseQuicHandler {
 
 class DummyHandler : public BaseQuicHandler {
  public:
-  explicit DummyHandler(const std::string& version) : BaseQuicHandler(version) {
+  explicit DummyHandler(const HQParams& params) : BaseQuicHandler(params) {
   }
 
   DummyHandler() = default;
@@ -458,7 +458,8 @@ class DummyHandler : public BaseQuicHandler {
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
     VLOG(10) << "DummyHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    resp.setVersionString(version_);
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
     resp.stripPerHopHeaders();
@@ -493,15 +494,16 @@ class DummyHandler : public BaseQuicHandler {
 
 class HealthCheckHandler : public BaseQuicHandler {
  public:
-  HealthCheckHandler(bool healthy, const std::string& version)
-      : BaseQuicHandler(version), healthy_(healthy) {
+  HealthCheckHandler(bool healthy, const HQParams& params)
+      : BaseQuicHandler(params), healthy_(healthy) {
   }
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
     VLOG(10) << "HealthCheckHandler::onHeadersComplete";
     proxygen::HTTPMessage resp;
-    resp.setVersionString(version_);
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
     if (msg->getMethod() == proxygen::HTTPMethod::GET) {
       resp.setStatusCode(healthy_ ? 200 : 400);
       resp.setStatusMessage(healthy_ ? "Ok" : "Not Found");
@@ -537,8 +539,8 @@ class HealthCheckHandler : public BaseQuicHandler {
 
 class WaitReleaseHandler : public BaseQuicHandler {
  public:
-  WaitReleaseHandler(folly::EventBase* evb, const std::string& version)
-      : BaseQuicHandler(version), evb_(evb) {
+  WaitReleaseHandler(folly::EventBase* evb, const HQParams& params)
+      : BaseQuicHandler(params), evb_(evb) {
   }
 
   void onHeadersComplete(
@@ -546,7 +548,8 @@ class WaitReleaseHandler : public BaseQuicHandler {
 
   void sendErrorResponse(const std::string& body) {
     proxygen::HTTPMessage resp;
-    resp.setVersionString(version_);
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
     resp.setStatusCode(400);
     resp.setStatusMessage("ERROR");
     resp.setWantsKeepalive(false);
@@ -557,7 +560,8 @@ class WaitReleaseHandler : public BaseQuicHandler {
 
   void sendOkResponse(const std::string& body, bool eom) {
     proxygen::HTTPMessage resp;
-    resp.setVersionString(version_);
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("OK");
     resp.setWantsKeepalive(true);
@@ -614,7 +618,7 @@ class ServerPushHandler : public BaseQuicHandler {
     void detachTransaction() noexcept override {
     }
 
-    void onError(const proxygen::HTTPException& /* error */) noexcept override {
+    void onError(const proxygen::HTTPException& /* err */) noexcept override {
     }
 
     void onEgressPaused() noexcept override {
@@ -625,7 +629,8 @@ class ServerPushHandler : public BaseQuicHandler {
   };
 
  public:
-  explicit ServerPushHandler(const std::string& version);
+  explicit ServerPushHandler(const HQParams& params) : BaseQuicHandler(params) {
+  }
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> /* msg */) noexcept override;

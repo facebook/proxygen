@@ -18,14 +18,16 @@
 #include <regex>
 #include <string>
 
+#include <proxygen/httpserver/samples/hq/HQParams.h>
+
 namespace proxygen {
 
 struct ConnIdLogSink : google::LogSink {
   using FileEntry =
       std::pair<folly::File, std::chrono::system_clock::time_point>;
 
-  ConnIdLogSink(const std::string& logDir, const std::string& prefix)
-      : logDir_(logDir), prefix_(prefix) {
+  ConnIdLogSink(const quic::samples::HQParams& params)
+      : logDir_(params->logdir), prefix_(params->logprefix) {
   }
 
   void send(google::LogSeverity severity,
