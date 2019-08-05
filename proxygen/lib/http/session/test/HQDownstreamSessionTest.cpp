@@ -2607,7 +2607,7 @@ TEST_P(HQDownstreamSessionTestHQPR, GetPrBodyScriptedExpire) {
   hqSession_->closeWhenIdle();
 }
 
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestHQPrSkips,
                         Values([] {
                           TestParams tp;
