@@ -73,6 +73,14 @@ HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg,
     return new ServerPushHandler(params);
   }
 
+  if (path == "/pr_scripted_skip") {
+    return new PrSkipHandler(params);
+  }
+
+  if (path == "/pr_scripted_reject") {
+    return new PrRejectHandler(params);
+  }
+
   return new DummyHandler(params);
 }
 
