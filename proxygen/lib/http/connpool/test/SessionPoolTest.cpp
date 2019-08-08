@@ -536,12 +536,11 @@ TEST_F(SessionPoolFixture, MoveIdleSessionBetweenThreadsTest) {
   t2InitBaton.wait();
   // Simulate thread2 asking thread1 for an idle session
   evb2.runInEventBaseThread([&] {
-    ctrl.getIdleSession().thenValue(folly::makeAsyncTask(
-        &evb2, [&](HTTPSessionBase* idleSession) {
+    ctrl.getIdleSession().then(&evb2, [&](HTTPSessionBase* idleSession) {
       ASSERT_EQ(idleSession, session);
       // Not re-attaching it to thread2 so ctrl will be empty
       transferBaton.post();
-    }));
+    });
   });
   transferBaton.wait();
   EXPECT_EQ(ctrl.popBestIdlePool(), nullptr);
