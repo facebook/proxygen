@@ -218,6 +218,12 @@ void initializeHttpSettings(HQParamsBuilder& builder) {
   builder.httpHeadersString = FLAGS_headers;
   builder.httpHeaders =
       CurlService::CurlClient::parseHeaders(builder.httpHeadersString);
+
+  // Set the host header
+  if (!builder.httpHeaders.exists(proxygen::HTTP_HEADER_HOST)) {
+    builder.httpHeaders.set(proxygen::HTTP_HEADER_HOST, builder.host);
+  }
+
 } // initializeHttpSettings
 
 void initializePartialReliabilitySettings(HQParamsBuilder& builder) {
@@ -248,10 +254,10 @@ void initializeFizzSettings(HQParamsBuilder& builder) {
     builder.pskCache =
         std::make_shared<proxygen::SynchronizedLruQuicPskCache>(1000);
   }
-  
+
   if (FLAGS_client_auth_mode == "none") {
     builder.clientAuth = fizz::server::ClientAuthMode::None;
-  } else if (FLAGS_client_auth_mode == "optional") { 
+  } else if (FLAGS_client_auth_mode == "optional") {
     builder.clientAuth = fizz::server::ClientAuthMode::Optional;
   } else if (FLAGS_client_auth_mode == "required") {
     builder.clientAuth = fizz::server::ClientAuthMode::Required;
