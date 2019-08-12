@@ -129,24 +129,6 @@ class ByteEventTracker {
   // byteEvents_ is in the ascending order of ByteEvent::byteOffset_
   folly::CountedIntrusiveList<ByteEvent, &ByteEvent::listHook> byteEvents_;
 
-  /**
-   * Called when a FIRST_BYTE event is processed (som = start of message).
-   *
-   * Used for TX and ACK-tracking ByteEventTrackers to update cached position of
-   * the next FIRST_BYTE event.
-   */
-  virtual void somEventProcessed() {
-  }
-
-  /**
-   * Called when a LAST_BYTE event is processed (eom = end of message).
-   *
-   * Used for TX and ACK-tracking ByteEventTrackers to update cached position of
-   * the next LAST_BYTE event.
-   */
-  virtual void eomEventProcessed() {
-  }
-
   Callback* callback_;
 };
 
