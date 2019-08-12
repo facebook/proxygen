@@ -75,73 +75,49 @@ class TransactionByteEvent : public ByteEvent {
   HTTPTransaction* txn_;
 };
 
-class AckTimeout : public AsyncTimeoutSet::Callback {
- public:
-  /**
-   * The instances of AckTimeout::Callback *MUST* outlive the AckTimeout it is
-   * registered on.
-   */
-  class Callback {
-   public:
-    virtual ~Callback() {
-    }
-    virtual void ackTimeoutExpired(uint64_t byteNo) noexcept = 0;
-  };
-
-  AckTimeout(Callback* callback, uint64_t byteNo)
-      : callback_(callback), byteNo_(byteNo) {
-  }
-
-  void timeoutExpired() noexcept override {
-    callback_->ackTimeoutExpired(byteNo_);
-  }
-
- private:
-  Callback* callback_;
-  uint64_t byteNo_;
-};
-
-class TxByteEvent
+/**
+ * TimestampByteEvents are used to wait for TX and ACK timestamps.
+ *
+ * Contain a timeout that determines when the timestamp event expires (e.g., we
+ * stop waiting to receive the timestamp from the system).
+ */
+class TimestampByteEvent
     : public TransactionByteEvent
     , public AsyncTimeoutSet::Callback {
  public:
+  enum TimestampType {
+    TX,
+    ACK,
+  };
   /**
-   * The instances of TxByteEvent::Callback *MUST* outlive the ByteEvent it is
-   * registered on.
+   * The instances of TimestampByteEvent::Callback *MUST* outlive the ByteEvent
+   * it is registered on.
    */
   class Callback {
    public:
     virtual ~Callback() {
     }
-    virtual void txTimeoutExpired(TxByteEvent* event) noexcept = 0;
+    virtual void timeoutExpired(TimestampByteEvent* event) noexcept = 0;
   };
 
-  TxByteEvent(TxByteEvent::Callback* callback,
-              uint64_t byteNo,
-              EventType eventType,
-              HTTPTransaction* txn)
-      : TransactionByteEvent(byteNo, eventType, txn), callback_(callback) {
+  TimestampByteEvent(TimestampByteEvent::Callback* callback,
+                     TimestampType timestampType,
+                     uint64_t byteNo,
+                     EventType eventType,
+                     HTTPTransaction* txn)
+      : TransactionByteEvent(byteNo, eventType, txn),
+        timestampType_(timestampType),
+        callback_(callback) {
   }
 
   void timeoutExpired() noexcept override {
-    callback_->txTimeoutExpired(this);
+    callback_->timeoutExpired(this);
   }
+
+  const TimestampType timestampType_;
 
  private:
   Callback* callback_;
-};
-
-class AckByteEvent : public TransactionByteEvent {
- public:
-  AckByteEvent(AckTimeout::Callback* callback,
-               uint64_t byteNo,
-               EventType eventType,
-               HTTPTransaction* txn)
-      : TransactionByteEvent(byteNo, eventType, txn),
-        timeout(callback, byteNo) {
-  }
-
-  AckTimeout timeout;
 };
 
 class PingByteEvent : public ByteEvent {
