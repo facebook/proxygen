@@ -10,7 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/session/AckLatencyEvent.h>
-#include <proxygen/lib/http/session/ByteEvents.h>
+#include <proxygen/lib/http/session/TransactionByteEvents.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/Time.h>
 

@@ -10,12 +10,12 @@
 #pragma once
 
 #include <folly/IntrusiveList.h>
-#include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <proxygen/lib/utils/Time.h>
 
 namespace proxygen {
 
+class HTTPTransaction;
 class ByteEvent {
  public:
   enum EventType {
@@ -54,71 +54,6 @@ class ByteEvent {
 };
 
 std::ostream& operator<<(std::ostream& os, const ByteEvent& txn);
-
-class TransactionByteEvent : public ByteEvent {
- public:
-  TransactionByteEvent(uint64_t byteNo,
-                       EventType eventType,
-                       HTTPTransaction* txn)
-      : ByteEvent(byteNo, eventType), txn_(txn) {
-    txn_->incrementPendingByteEvents();
-  }
-
-  ~TransactionByteEvent() {
-    txn_->decrementPendingByteEvents();
-  }
-
-  HTTPTransaction* getTransaction() override {
-    return txn_;
-  }
-
-  HTTPTransaction* txn_;
-};
-
-/**
- * TimestampByteEvents are used to wait for TX and ACK timestamps.
- *
- * Contain a timeout that determines when the timestamp event expires (e.g., we
- * stop waiting to receive the timestamp from the system).
- */
-class TimestampByteEvent
-    : public TransactionByteEvent
-    , public AsyncTimeoutSet::Callback {
- public:
-  enum TimestampType {
-    TX,
-    ACK,
-  };
-  /**
-   * The instances of TimestampByteEvent::Callback *MUST* outlive the ByteEvent
-   * it is registered on.
-   */
-  class Callback {
-   public:
-    virtual ~Callback() {
-    }
-    virtual void timeoutExpired(TimestampByteEvent* event) noexcept = 0;
-  };
-
-  TimestampByteEvent(TimestampByteEvent::Callback* callback,
-                     TimestampType timestampType,
-                     uint64_t byteNo,
-                     EventType eventType,
-                     HTTPTransaction* txn)
-      : TransactionByteEvent(byteNo, eventType, txn),
-        timestampType_(timestampType),
-        callback_(callback) {
-  }
-
-  void timeoutExpired() noexcept override {
-    callback_->timeoutExpired(this);
-  }
-
-  const TimestampType timestampType_;
-
- private:
-  Callback* callback_;
-};
 
 class PingByteEvent : public ByteEvent {
  public:
