@@ -22,6 +22,7 @@
 #include <proxygen/lib/http/ProxygenErrorEnum.h>
 #include <proxygen/lib/http/Window.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/http/session/ByteEvents.h>
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
 #include <proxygen/lib/http/session/HTTPEvent.h>
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
@@ -349,22 +350,16 @@ class HTTPTransactionTransportCallback {
 
   virtual void lastByteFlushed() noexcept = 0;
 
-  virtual void firstByteTX() noexcept {
-  }
-
-  virtual void lastByteTX() noexcept {
-  }
-
   virtual void trackedByteFlushed() noexcept {
   }
 
-  virtual void firstByteOffset(const uint64_t /* byteOffset */) noexcept {
-  }
-
-  virtual void lastByteOffset(const uint64_t /* byteOffset */) noexcept {
-  }
-
   virtual void lastByteAcked(std::chrono::milliseconds latency) noexcept = 0;
+
+  virtual void trackedByteEventTX(const ByteEvent& /* event */) noexcept {
+  }
+
+  virtual void trackedByteEventAck(const ByteEvent& /* event */) noexcept {
+  }
 
   virtual void headerBytesGenerated(HTTPHeaderSize& size) noexcept = 0;
 
@@ -800,24 +795,12 @@ class HTTPTransaction
   /**
    * Invoked by the session when the first byte is flushed.
    */
-  void onEgressBodyFirstByte(
-      const folly::Optional<uint64_t>& maybeByteOffset = folly::none);
+  void onEgressBodyFirstByte();
 
   /**
    * Invoked by the session when the last byte is flushed.
    */
-  void onEgressBodyLastByte(
-      const folly::Optional<uint64_t>& maybeByteOffset = folly::none);
-
-  /**
-   * Invoked by the session when the first byte is transmitted by NIC.
-   */
-  void onEgressBodyFirstByteTX();
-
-  /**
-   * Invoked by the session when the last byte is transmitted by NIC.
-   */
-  void onEgressBodyLastByteTX();
+  void onEgressBodyLastByte();
 
   /**
    * Invoked by the session when the tracked byte is flushed.
@@ -849,6 +832,18 @@ class HTTPTransaction
    * peer.
    */
   void onEgressBodyDeliveryCanceled(uint64_t bodyOffset);
+
+  /**
+   * Invoked by the session when a tracked ByteEvent is transmitted by NIC.
+   */
+  void onEgressTrackedByteEventTX(const ByteEvent& event);
+
+  /**
+   * Invoked by the session when a tracked ByteEvent is ACKed by remote peer.
+   *
+   * LAST_BYTE events are processed by legacy functions.
+   */
+  void onEgressTrackedByteEventAck(const ByteEvent& event);
 
   /**
    * Invoked by the session when data to peek into is available on trasport

@@ -713,39 +713,17 @@ void HTTPTransaction::onEgressHeaderFirstByte() {
   }
 }
 
-void HTTPTransaction::onEgressBodyFirstByte(
-    const folly::Optional<uint64_t>& maybeByteOffset) {
+void HTTPTransaction::onEgressBodyFirstByte() {
   DestructorGuard g(this);
   if (transportCallback_) {
-    if (maybeByteOffset) {
-      transportCallback_->firstByteOffset(*maybeByteOffset);
-    }
     transportCallback_->firstByteFlushed();
   }
 }
 
-void HTTPTransaction::onEgressBodyLastByte(
-    const folly::Optional<uint64_t>& maybeByteOffset) {
+void HTTPTransaction::onEgressBodyLastByte() {
   DestructorGuard g(this);
   if (transportCallback_) {
-    if (maybeByteOffset) {
-      transportCallback_->lastByteOffset(*maybeByteOffset);
-    }
     transportCallback_->lastByteFlushed();
-  }
-}
-
-void HTTPTransaction::onEgressBodyFirstByteTX() {
-  DestructorGuard g(this);
-  if (transportCallback_) {
-    transportCallback_->firstByteTX();
-  }
-}
-
-void HTTPTransaction::onEgressBodyLastByteTX() {
-  DestructorGuard g(this);
-  if (transportCallback_) {
-    transportCallback_->lastByteTX();
   }
 }
 
@@ -785,6 +763,20 @@ void HTTPTransaction::onEgressBodyDeliveryCanceled(uint64_t bodyOffset) {
   DestructorGuard g(this);
   if (transportCallback_) {
     transportCallback_->bodyBytesDeliveryCancelled(bodyOffset);
+  }
+}
+
+void HTTPTransaction::onEgressTrackedByteEventTX(const ByteEvent& event) {
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->trackedByteEventTX(event);
+  }
+}
+
+void HTTPTransaction::onEgressTrackedByteEventAck(const ByteEvent& event) {
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->trackedByteEventAck(event);
   }
 }
 
