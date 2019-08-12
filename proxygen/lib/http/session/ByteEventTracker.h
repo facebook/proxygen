@@ -122,6 +122,10 @@ class ByteEventTracker {
   }
 
  protected:
+  // the last value of byteWritten passed to processByteEvents
+  // should always increase
+  uint64_t bytesWritten_ = 0;
+
   // byteEvents_ is in the ascending order of ByteEvent::byteOffset_
   folly::CountedIntrusiveList<ByteEvent, &ByteEvent::listHook> byteEvents_;
 

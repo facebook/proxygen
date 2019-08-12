@@ -30,6 +30,10 @@ void ByteEventTracker::absorb(ByteEventTracker&& other) {
 // from a callback without causing problems
 bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
                                          uint64_t bytesWritten) {
+  // update our local cache of the number of bytes written so far
+  DCHECK(bytesWritten >= bytesWritten_);
+  bytesWritten_ = bytesWritten;
+
   while (!byteEvents_.empty() &&
          (byteEvents_.front().byteOffset_ <= bytesWritten)) {
     ByteEvent& event = byteEvents_.front();
@@ -54,6 +58,9 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
         if (callback_) {
           callback_->onPingReplyLatency(latency);
         }
+        break;
+      case ByteEvent::SECOND_TO_LAST_PACKET:
+        // we don't track the write flush, so do nothing...
         break;
     }
 

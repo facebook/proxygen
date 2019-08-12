@@ -24,6 +24,7 @@ class ByteEvent {
     PING_REPLY_SENT,
     FIRST_HEADER_BYTE,
     TRACKED_BYTE,
+    SECOND_TO_LAST_PACKET,
   };
 
   ByteEvent(uint64_t byteOffset, EventType eventType)

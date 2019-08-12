@@ -20,6 +20,8 @@ const char* const kTypeStrings[] = {
     "LAST_BYTE",
     "PING_REPLY_SENT",
     "FIRST_HEADER_BYTE",
+    "TRACKED_BYTE",
+    "SECOND_TO_LAST_PACKET",
 };
 
 std::ostream& operator<<(std::ostream& os, const ByteEvent& be) {
