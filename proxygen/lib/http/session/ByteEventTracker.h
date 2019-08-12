@@ -33,12 +33,8 @@ class ByteEventTracker {
     virtual ~Callback() {
     }
     virtual void onPingReplyLatency(int64_t latency) noexcept = 0;
-    virtual void onFirstByteEvent(HTTPTransaction* txn,
-                                  uint64_t offset,
-                                  bool bufferWriteTracked) noexcept = 0;
-    virtual void onLastByteEvent(HTTPTransaction* txn,
-                                 uint64_t offset,
-                                 bool bufferWriteTracked) noexcept = 0;
+    virtual void onTxnByteEventWrittenToBuf(
+        const ByteEvent& event) noexcept = 0;
     virtual void onDeleteTxnByteEvent() noexcept = 0;
   };
 

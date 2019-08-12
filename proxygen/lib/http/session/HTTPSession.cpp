@@ -2836,38 +2836,22 @@ void HTTPSession::onReplaySafe() noexcept {
   waitingForReplaySafety_.clear();
 }
 
-void HTTPSession::onFirstByteEvent(HTTPTransaction* txn,
-                                   uint64_t offset,
-                                   bool bufferWriteTracked) noexcept {
-  if (!sock_->isEorTrackingEnabled() || !bufferWriteTracked ||
-      offset != sock_->getAppBytesWritten()) {
-    return;
-  }
-  byteEventTracker_->addTxByteEvent(
-      sock_->getRawBytesWritten(), ByteEvent::EventType::FIRST_BYTE, txn);
-}
-
-void HTTPSession::onLastByteEvent(HTTPTransaction* txn,
-                                  uint64_t offset,
-                                  bool bufferWriteTracked) noexcept {
-  if (!sock_->isEorTrackingEnabled() || !bufferWriteTracked) {
+void HTTPSession::onTxnByteEventWrittenToBuf(const ByteEvent& event) noexcept {
+  if (!sock_->isEorTrackingEnabled() || event.getTransaction() == nullptr ||
+      event.byteOffset_ != sock_->getAppBytesWritten()) {
     return;
   }
 
-  if (offset != sock_->getAppBytesWritten()) {
-    VLOG(2) << "tracking ack to last app byte " << offset << " while "
-            << sock_->getAppBytesWritten()
-            << " app bytes have already been written";
-    return;
+  // by default, we're going to add TX and ACK events whenever they're available
+  const auto& txn = event.getTransaction();
+  if (event.timestampTx_) {
+    byteEventTracker_->addTxByteEvent(
+        sock_->getRawBytesWritten(), event.eventType_, txn);
   }
-
-  VLOG(5) << "tracking raw last byte " << sock_->getRawBytesWritten()
-          << " while the app last byte is " << offset;
-
-  byteEventTracker_->addTxByteEvent(
-      sock_->getRawBytesWritten(), ByteEvent::EventType::LAST_BYTE, txn);
-  byteEventTracker_->addAckByteEvent(
-      sock_->getRawBytesWritten(), ByteEvent::EventType::LAST_BYTE, txn);
+  if (event.timestampAck_) {
+    byteEventTracker_->addAckByteEvent(
+        sock_->getRawBytesWritten(), event.eventType_, txn);
+  }
 }
 
 bool HTTPSession::isDetachable(bool checkSocket) const {

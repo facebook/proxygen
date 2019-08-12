@@ -113,12 +113,15 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
     return corkCount_;
   }
 
-  size_t getAppBytesWritten() const override { return 0; }
-  size_t getRawBytesWritten() const override { return 0; }
+  void setAppBytesWritten(size_t bytes) { appBytesWritten_ = bytes; }
+  void setRawBytesWritten(size_t bytes) { rawBytesWritten_ = bytes; }
+
+  size_t getAppBytesWritten() const override { return appBytesWritten_; }
+  size_t getRawBytesWritten() const override { return rawBytesWritten_; }
   size_t getAppBytesReceived() const override { return 0; }
   size_t getRawBytesReceived() const override { return 0; }
-  bool isEorTrackingEnabled() const override { return false; }
-  void setEorTracking(bool) override { return; }
+  bool isEorTrackingEnabled() const override { return eorTrackingEnabled_; }
+  void setEorTracking(bool flag) override { eorTrackingEnabled_ = flag; }
 
  private:
   enum StateEnum {
@@ -159,6 +162,9 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
   std::deque< std::pair<std::shared_ptr<WriteEvent>, AsyncTransportWrapper::WriteCallback*>>
     pendingWriteEvents_;
 
+  size_t appBytesWritten_{0};
+  size_t rawBytesWritten_{0};
+  bool eorTrackingEnabled_{false};
   uint32_t eorCount_{0};
   uint32_t corkCount_{0};
 };

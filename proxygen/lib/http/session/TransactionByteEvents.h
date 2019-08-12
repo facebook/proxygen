@@ -27,7 +27,7 @@ class TransactionByteEvent : public ByteEvent {
      txn_->decrementPendingByteEvents();
    }
 
-  HTTPTransaction* getTransaction() override {
+  HTTPTransaction* getTransaction() const override {
     return txn_;
   }
 

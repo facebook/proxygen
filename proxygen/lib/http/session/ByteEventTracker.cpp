@@ -42,17 +42,9 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
         break;
       case ByteEvent::FIRST_BYTE:
         txn->onEgressBodyFirstByte(event.byteOffset_);
-        if (callback_) {
-          callback_->onFirstByteEvent(
-              txn, event.byteOffset_, event.bufferWriteTracked_);
-        }
         break;
       case ByteEvent::LAST_BYTE:
         txn->onEgressBodyLastByte(event.byteOffset_);
-        if (callback_) {
-          callback_->onLastByteEvent(
-              txn, event.byteOffset_, event.bufferWriteTracked_);
-        }
         break;
       case ByteEvent::TRACKED_BYTE:
         txn->onEgressTrackedByte();
@@ -63,6 +55,11 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
           callback_->onPingReplyLatency(latency);
         }
         break;
+    }
+
+    // deliver to the callback
+    if (callback_) {
+      callback_->onTxnByteEventWrittenToBuf(event);
     }
 
     VLOG(5) << " removing ByteEvent " << event;

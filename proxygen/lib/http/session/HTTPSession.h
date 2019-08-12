@@ -784,12 +784,7 @@ class HTTPSession
 
   // ByteEventTracker::Callback functions
   void onPingReplyLatency(int64_t latency) noexcept override;
-  void onFirstByteEvent(HTTPTransaction* txn,
-                        uint64_t offset,
-                        bool bufferWriteTracked) noexcept override;
-  void onLastByteEvent(HTTPTransaction* txn,
-                       uint64_t offset,
-                       bool bufferWriteTracked) noexcept override;
+  void onTxnByteEventWrittenToBuf(const ByteEvent& event) noexcept override;
   void onDeleteTxnByteEvent() noexcept override;
 
   /**

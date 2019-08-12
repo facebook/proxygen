@@ -26,6 +26,7 @@
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPSessionTest.h>
+#include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 #include <proxygen/lib/http/session/test/MockByteEventTracker.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
@@ -1472,6 +1473,89 @@ TEST_F(HTTPDownstreamSessionTest, TestTrackedByteEventTracker) {
   handler1->expectDetachTransaction();
   handler1->txn_->decrementPendingByteEvents();
   gracefulShutdown();
+}
+
+struct TestOnTxnByteEventWrittenToBufParams {
+  uint64_t byteOffset{0};
+  ByteEvent::EventType eventType;
+  bool timestampTx{false};
+  bool timestampAck{false};
+};
+
+class OnTxnByteEventWrittenToBufTest
+    : public HTTPDownstreamSessionTest
+    , public ::testing::WithParamInterface<
+          TestOnTxnByteEventWrittenToBufParams> {
+ public:
+  static std::vector<TestOnTxnByteEventWrittenToBufParams> getTestingValues() {
+    std::vector<TestOnTxnByteEventWrittenToBufParams> vals;
+    for (const auto& byteOffset : {0, 1, 2}) {
+      for (const auto& eventType : {ByteEvent::EventType::FIRST_BYTE,
+                                    ByteEvent::EventType::LAST_BYTE,
+                                    ByteEvent::EventType::TRACKED_BYTE}) {
+        for (const auto& timestampTx : {true, false}) {
+          for (const auto& timestampAck : {true, false}) {
+            TestOnTxnByteEventWrittenToBufParams params;
+            params.byteOffset = byteOffset;
+            params.eventType = eventType;
+            params.timestampTx = timestampTx;
+            params.timestampAck = timestampAck;
+            vals.push_back(params);
+          }
+        }
+      }
+    }
+    return vals;
+  }
+};
+
+INSTANTIATE_TEST_CASE_P(
+    HTTPDownstreamSessionTest,
+    OnTxnByteEventWrittenToBufTest,
+    ::testing::ValuesIn(OnTxnByteEventWrittenToBufTest::getTestingValues()));
+
+TEST_P(OnTxnByteEventWrittenToBufTest, TestOnTxnByteEventWrittenToBuf) {
+  HTTP2PriorityQueue txnEgressQueue;
+  NiceMock<MockHTTPTransactionTransport> transport;
+  HTTPTransaction txn{TransportDirection::DOWNSTREAM,
+                      HTTPCodec::StreamID(1),
+                      1,
+                      transport,
+                      txnEgressQueue};
+
+  const auto byteEventTracker = setMockByteEventTracker();
+  const auto params = GetParam();
+  InSequence enforceOrder;
+
+  transport_->setEorTracking(true);
+  transport_->setAppBytesWritten(params.byteOffset);
+  transport_->setRawBytesWritten(params.byteOffset);
+  if (params.timestampTx) {
+    EXPECT_CALL(*byteEventTracker,
+                addTxByteEvent(params.byteOffset, params.eventType, &txn))
+        .WillOnce(Invoke([&](uint64_t /*offset*/,
+                             ByteEvent::EventType /*eventType*/,
+                             HTTPTransaction* /*txn*/) {
+          // do nothing
+        }));
+  }
+  if (params.timestampAck) {
+    EXPECT_CALL(*byteEventTracker,
+                addAckByteEvent(params.byteOffset, params.eventType, &txn))
+        .WillOnce(Invoke([&](uint64_t /*offset*/,
+                             ByteEvent::EventType /*eventType*/,
+                             HTTPTransaction* /*txn*/) {
+          // do nothing
+        }));
+  }
+
+  const auto byteEvent = make_shared<TransactionByteEvent>(
+      params.byteOffset, params.eventType, &txn);
+  byteEvent->timestampTx_ = params.timestampTx;
+  byteEvent->timestampAck_ = params.timestampAck;
+  byteEventTracker->onTxnByteEventWrittenToBuf(*byteEvent);
+
+  cleanup();
 }
 
 TEST_F(HTTP2DownstreamSessionTest, Trailers) {

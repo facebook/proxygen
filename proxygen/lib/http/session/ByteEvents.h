@@ -27,11 +27,20 @@ class ByteEvent {
   };
 
   ByteEvent(uint64_t byteOffset, EventType eventType)
-      : eventType_(eventType), bufferWriteTracked_(0), byteOffset_(byteOffset) {
+      : eventType_(eventType),
+        timestampTx_(false),
+        timestampAck_(false),
+        byteOffset_(byteOffset) {
   }
   virtual ~ByteEvent() {
   }
-  virtual HTTPTransaction* getTransaction() {
+  EventType getType() const {
+    return eventType_;
+  }
+  uint64_t getByteOffset() const {
+    return byteOffset_;
+  }
+  virtual HTTPTransaction* getTransaction() const {
     return nullptr;
   }
   virtual int64_t getLatency() {
@@ -40,17 +49,20 @@ class ByteEvent {
 
   folly::SafeIntrusiveListHook listHook;
   EventType eventType_ : 3; // packed w/ byteOffset_
-  // bufferWriteTracked_ is used by TX and ACK-tracking ByteEventTrackers to
-  // mark that timestamping has been requested for this ByteEvent. TX timestamps
-  // are requested for FIRST_BYTE and LAST_BYTE events, ACK timestamps are
-  // requested only for LAST_BYTE events.
+  // (tx|ack)Tracked_ is used by TX and ACK-tracking ByteEventTrackers to
+  // mark if TX and/or ACK timestamping has been requested for this ByteEvent.
+  // The ByteEventTracker's configuration determines which events TX and ACK
+  // timestamping is requested for.
   //
-  // for ByteEvents with timestamps requested, TX and ACK timestamps can be
+  // For ByteEvents with timestamps requested, TX and ACK timestamps can be
   // captured by the ByteEventTracker::Callback handler by requesting them
   // via calls to addTxByteEvent and addAckByteEvent respectively when the
-  // handler is processing callbacks for onFirstByteEvent and onLastByteEvent.
-  size_t bufferWriteTracked_ : 1; // packed w/ byteOffset_
-  uint64_t byteOffset_ : (8 * sizeof(uint64_t) - 4);
+  // handler is processing the callback for onByteEvent. If the handler does
+  // not add these events, the timestamps will still be generated but will not
+  // be delivered to the handler.
+  bool timestampTx_ : 1; // packed w/ byteOffset_
+  bool timestampAck_ : 1; // packed w/ byteOffset_
+  uint64_t byteOffset_ : (8 * sizeof(uint64_t) - 5);
 };
 
 std::ostream& operator<<(std::ostream& os, const ByteEvent& txn);
