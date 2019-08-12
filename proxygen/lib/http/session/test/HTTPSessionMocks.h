@@ -477,15 +477,14 @@ class DummyHTTPSessionStats : public HTTPSessionStats {
   void recordTransactionStalled() noexcept override{};
   void recordSessionStalled() noexcept override{};
 
+  void recordPresendIOSplit() noexcept override{};
+  void recordPresendExceedLimit() noexcept override{};
   void recordTTLBAExceedLimit() noexcept override{};
-  void recordTTLBAIOBSplitByEom() noexcept override{};
   void recordTTLBANotFound() noexcept override{};
   void recordTTLBAReceived() noexcept override{};
   void recordTTLBATimeout() noexcept override{};
-  void recordTTLBAEomPassed() noexcept override{};
   void recordTTLBATracked() noexcept override{};
   void recordTTBTXExceedLimit() noexcept override{};
-  void recordTTBTXIOBSplitBySom() noexcept override{};
   void recordTTBTXReceived() noexcept override{};
   void recordTTBTXTimeout() noexcept override{};
   void recordTTBTXNotFound() noexcept override{};

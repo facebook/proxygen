@@ -106,18 +106,16 @@ class ByteEventTracker {
   }
 
   /**
-   * HTTPSession uses preSend to truncate writes on an som or eom boundary.
+   * HTTPSession uses preSend to truncate writes when timestamping is required.
    *
-   * In TX and ACK-tracking ByteEventTrackers, this should examine pending
-   * byte events and return the number of bytes until the next first or last
-   * byte event, or 0 if none are pending.  If non-zero is returned
-   * then som and/or eom may be set to indicate that the buffer contains the
-   * start and/or end of a message so that relevant timestamping can be enabled.
-   *
+   * In TX and ACK-tracking ByteEventTrackers, preSend should examine pending
+   * byte events and return the number of bytes until the next byte requiring
+   * timestamping or 0 if none are pending. In addition, when returning non-zero
+   * value preSend should indicate the timestamping required (TX and/or ACK).
    */
   virtual uint64_t preSend(bool* /*cork*/,
-                           bool* /*som*/,
-                           bool* /*eom*/,
+                           bool* /*timestampTx*/,
+                           bool* /*timestampAck*/,
                            uint64_t /*bytesWritten*/) {
     return 0;
   }

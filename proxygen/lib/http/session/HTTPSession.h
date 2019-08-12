@@ -324,7 +324,9 @@ class HTTPSession
    * Gets the next IOBuf to send (either writeBuf_ or new egress from
    * the priority queue), and sets cork appropriately
    */
-  std::unique_ptr<folly::IOBuf> getNextToSend(bool* cork, bool* som, bool* eom);
+  std::unique_ptr<folly::IOBuf> getNextToSend(bool* cork,
+                                              bool* timestampTx,
+                                              bool* timestampAck);
 
   void decrementTransactionCount(HTTPTransaction* txn,
                                  bool ingressEOM,

@@ -1978,7 +1978,8 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
   return false;
 }
 
-unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* som, bool* eom) {
+unique_ptr<IOBuf> HTTPSession::getNextToSend(
+    bool* cork, bool* timestampTx, bool* timestampAck) {
   // limit ourselves to one outstanding write at a time (onWriteSuccess calls
   // scheduleWrite)
   if (numActiveWrites_ > 0 || writesShutdown()) {
@@ -2043,10 +2044,11 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* som, bool* eom) {
       break;
     }
   }
-  *som = false;
-  *eom = false;
+  *timestampTx = false;
+  *timestampAck = false;
   if (byteEventTracker_) {
-    uint64_t needed = byteEventTracker_->preSend(cork, som, eom, bytesWritten_);
+    uint64_t needed = byteEventTracker_->preSend(
+        cork, timestampTx, timestampAck, bytesWritten_);
     if (needed > 0) {
       VLOG(5) << *this
               << " writeBuf_.chainLength(): " << writeBuf_.chainLength()
@@ -2058,11 +2060,7 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork, bool* som, bool* eom) {
                 << writeBuf_.chainLength() << " bytes IOBuf";
         *cork = true;
         if (sessionStats_) {
-          if (*eom) {
-            sessionStats_->recordTTLBAIOBSplitByEom();
-          } else {
-            sessionStats_->recordTTBTXIOBSplitBySom();
-          }
+          sessionStats_->recordPresendIOSplit();
         }
         return writeBuf_.split(needed);
       } else {
@@ -2099,16 +2097,19 @@ void HTTPSession::runLoopCallback() noexcept {
     }
 
     bool cork = true;
-    bool som = false;
-    bool eom = false;
-    unique_ptr<IOBuf> writeBuf = getNextToSend(&cork, &som, &eom);
+    bool timestampTx = false;
+    bool timestampAck = false;
+    unique_ptr<IOBuf> writeBuf =
+        getNextToSend(&cork, &timestampTx, &timestampAck);
 
     if (!writeBuf) {
       break;
     }
     uint64_t len = writeBuf->computeChainDataLength();
     VLOG(11) << *this << " bytes of egress to be written: " << len
-             << " cork:" << cork << " eom:" << eom;
+             << " cork:" << cork
+             << " timestampTx:" << timestampTx
+             << " timestampAck:" << timestampAck;
     if (len == 0) {
       checkForShutdown();
       return;
@@ -2121,8 +2122,8 @@ void HTTPSession::runLoopCallback() noexcept {
 
     WriteSegment* segment = new WriteSegment(this, len);
     segment->setCork(cork);
-    segment->setEOR(eom);
-    segment->setTimestampTX(som || eom); // timestamp for buffers w/ som or eom
+    segment->setTimestampTX(timestampTx);
+    segment->setEOR(timestampAck);
 
     pendingWrites_.push_back(*segment);
     if (!writeTimeout_.isScheduled()) {
@@ -2131,8 +2132,10 @@ void HTTPSession::runLoopCallback() noexcept {
     }
     numActiveWrites_++;
     VLOG(4) << *this << " writing " << len
-            << ", activeWrites=" << numActiveWrites_ << " cork=" << cork
-            << " eom=" << eom;
+            << ", activeWrites=" << numActiveWrites_
+            << " cork:" << cork
+            << " timestampTx:" << timestampTx
+            << " timestampAck:" << timestampAck;
     bytesScheduled_ += len;
     sock_->writeChain(segment, std::move(writeBuf), segment->getFlags());
     if (numActiveWrites_ > 0) {
