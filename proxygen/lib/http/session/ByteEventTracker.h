@@ -10,8 +10,8 @@
 #pragma once
 
 #include <proxygen/lib/http/session/AckLatencyEvent.h>
-#include <proxygen/lib/http/session/TransactionByteEvents.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
+#include <proxygen/lib/http/session/TransactionByteEvents.h>
 #include <proxygen/lib/utils/Time.h>
 
 namespace proxygen {
@@ -102,7 +102,9 @@ class ByteEventTracker {
   }
 
   /** The base ByteEventTracker cannot track ACKs. */
-  virtual void addAckByteEvent(uint64_t /*offset*/, HTTPTransaction* /*txn*/) {
+  virtual void addAckByteEvent(uint64_t /*offset*/,
+                               ByteEvent::EventType /*eventType*/,
+                               HTTPTransaction* /*txn*/) {
   }
 
   /**

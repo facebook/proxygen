@@ -2866,7 +2866,8 @@ void HTTPSession::onLastByteEvent(HTTPTransaction* txn,
 
   byteEventTracker_->addTxByteEvent(
       sock_->getRawBytesWritten(), ByteEvent::EventType::LAST_BYTE, txn);
-  byteEventTracker_->addAckByteEvent(sock_->getRawBytesWritten(), txn);
+  byteEventTracker_->addAckByteEvent(
+      sock_->getRawBytesWritten(), ByteEvent::EventType::LAST_BYTE, txn);
 }
 
 bool HTTPSession::isDetachable(bool checkSocket) const {
