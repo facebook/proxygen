@@ -3382,6 +3382,72 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
   this->eventBase_.loop();
 }
 
+TEST_F(HTTP2DownstreamSessionTest, TestExceedControlMsgRateLimit) {
+  auto streamid = clientCodec_->createStream();
+
+  httpSession_->setMaxControlMsgsPerInterval(10);
+
+  // Send 7 PRIORITY, 1 SETTINGS, and 3 PING frames. This should exceed the
+  // limit of 10, causing us to drop the connection.
+  for (int i = 0; i < 7; i++) {
+    clientCodec_->generatePriority(
+      requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+  }
+
+  clientCodec_->generateSettings(requests_);
+
+  for (int i = 0; i < 3; i++) {
+    clientCodec_->generatePingRequest(requests_);
+  }
+
+  expectDetachSession();
+
+  flushRequestsAndLoopN(1);
+}
+
+TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimit) {
+  auto streamid = clientCodec_->createStream();
+
+  httpSession_->setMaxControlMsgsPerInterval(10);
+  httpSession_->setControlMsgIntervalDuration(0);
+
+  // Send 7 PRIORITY, 1 SETTINGS, and 2 PING frames. This doesn't exceed the
+  // limit of 10.
+  for (int i = 0; i < 7; i++) {
+    clientCodec_->generatePriority(
+      requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+  }
+
+  clientCodec_->generateSettings(requests_);
+
+  for (int i = 0; i < 2; i++) {
+    clientCodec_->generatePingRequest(requests_);
+  }
+
+  // We should reset the number of control frames seen, enabling us to send
+  // more without hitting the rate limit
+  flushRequestsAndLoopN(2);
+
+  // Send 10 control frames. This is just within the rate limits that we have
+  // set.
+  for (int i = 0; i < 5; i++) {
+    clientCodec_->generatePriority(
+      requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+  }
+
+  clientCodec_->generateSettings(requests_);
+
+  for (int i = 0; i < 4; i++) {
+    clientCodec_->generatePingRequest(requests_);
+  }
+
+  flushRequestsAndLoopN(2);
+
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  this->eventBase_.loop();
+}
+
 TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeightsTinyWindow) {
   httpSession_->setWriteBufferLimit(2 * 65536);
   InSequence enforceOrder;

@@ -42,6 +42,11 @@ class HTTPSessionStats;
 constexpr uint32_t kDefaultMaxConcurrentOutgoingStreamsRemote = 100000;
 constexpr uint32_t kDefaultMaxConcurrentIncomingStreams = 100;
 
+// These constants define the rate at which we limit the receipt of resets,
+// settings, pings, and priorities
+constexpr uint32_t kDefaultMaxControlMsgsPerInterval = 50000;
+constexpr uint32_t kDefaultControlMsgDuration = 100;
+
 class HTTPSession
     : public HTTPSessionBase
     , public HTTPTransaction::Transport
@@ -228,6 +233,14 @@ class HTTPSession
    */
   void setSecondAuthManager(
       std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager);
+
+  void setMaxControlMsgsPerInterval(uint32_t val) {
+      maxControlMsgsPerInterval_ = val;
+  }
+
+  void setControlMsgIntervalDuration(uint32_t val) {
+      controlMsgIntervalDuration_ = val;
+  }
 
   /**
    * Get the SecondaryAuthManager attached to this session.
@@ -855,6 +868,11 @@ class HTTPSession
 
   void incrementOutgoingStreams();
 
+  // returns true if the threshold has been exceeded
+  bool incrementNumControlMsgsInCurLoop(http2::FrameType frameType);
+
+  void scheduleResetNumControlMsgs();
+
   // private members
 
   std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
@@ -971,6 +989,22 @@ class HTTPSession
    * Number of body un-encoded bytes in the write buffer per write iteration.
    */
   uint64_t bodyBytesPerWriteBuf_{0};
+
+  /**
+   * Number of Control messages seen in the current interval. This is a
+   * shared_ptr, as opposed to an uint64_t because we don't want to run into
+   * lifetime issues where the HTTPSession is destructed, and the rate
+   * limiting function is still scheduled to run on the event base.
+   */
+  std::shared_ptr<uint64_t> numControlMsgsInCurrentInterval_;
+
+  /*
+   * If the number of control messages in a controlMsgIntervalDuration_
+   * millisecond interval exceeds maxControlMsgsPerInterval_, we drop the
+   * connection
+   */
+  uint32_t maxControlMsgsPerInterval_{kDefaultMaxControlMsgsPerInterval};
+  uint32_t controlMsgIntervalDuration_{kDefaultControlMsgDuration};
 
   /**
    * Container to hold the results of HTTP2PriorityQueue::nextEgress

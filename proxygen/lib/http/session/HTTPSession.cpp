@@ -177,6 +177,8 @@ HTTPSession::HTTPSession(const WheelTimerInstance& timeout,
   if (!sock_->isReplaySafe()) {
     sock_->setReplaySafetyCallback(this);
   }
+
+  numControlMsgsInCurrentInterval_ = std::make_shared<uint64_t>(0);
 }
 
 uint32_t HTTPSession::getCertAuthSettingVal() {
@@ -1113,6 +1115,11 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
 void HTTPSession::onAbort(HTTPCodec::StreamID streamID, ErrorCode code) {
   VLOG(4) << "stream abort on " << *this << ", streamID=" << streamID
           << ", code=" << getErrorCodeString(code);
+
+  if (incrementNumControlMsgsInCurLoop(http2::FrameType::RST_STREAM)) {
+    return;
+  }
+
   HTTPTransaction* txn = findTransaction(streamID);
   if (!txn) {
     VLOG(4) << *this
@@ -1212,6 +1219,10 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
 void HTTPSession::onPingRequest(uint64_t uniqueID) {
   VLOG(4) << *this << " got ping request with id=" << uniqueID;
 
+  if (incrementNumControlMsgsInCurLoop(http2::FrameType::PING)) {
+    return;
+  }
+
   TimePoint timestamp = getCurrentTime();
 
   // Insert the ping reply to the head of writeBuf_
@@ -1254,6 +1265,9 @@ void HTTPSession::onWindowUpdate(HTTPCodec::StreamID streamID,
 
 void HTTPSession::onSettings(const SettingsList& settings) {
   DestructorGuard g(this);
+  if (incrementNumControlMsgsInCurLoop(http2::FrameType::SETTINGS)) {
+    return;
+  }
   for (auto& setting : settings) {
     if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
       onSetSendWindow(setting.value);
@@ -1282,7 +1296,8 @@ void HTTPSession::onSettingsAck() {
 
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
                              const HTTPMessage::HTTPPriority& pri) {
-  if (!getHTTP2PrioritiesEnabled()) {
+  if (!getHTTP2PrioritiesEnabled() ||
+      incrementNumControlMsgsInCurLoop(http2::FrameType::PRIORITY)) {
     return;
   }
   http2::PriorityUpdate h2Pri{
@@ -2537,6 +2552,33 @@ HTTPTransaction* HTTPSession::createTransaction(
 void HTTPSession::incrementOutgoingStreams() {
   outgoingStreams_++;
   HTTPSessionBase::onNewOutgoingStream(outgoingStreams_);
+}
+
+bool HTTPSession::incrementNumControlMsgsInCurLoop(http2::FrameType frameType) {
+  if (*numControlMsgsInCurrentInterval_ == 0) {
+    scheduleResetNumControlMsgs();
+  }
+
+  (*numControlMsgsInCurrentInterval_)++;
+  if (*numControlMsgsInCurrentInterval_ > maxControlMsgsPerInterval_) {
+    LOG(ERROR) << *this
+               << " dropping connection due to too many control messages, "
+               << "num control messages = "
+               << *numControlMsgsInCurrentInterval_
+               << ", most recent frame type = "
+               << getFrameTypeString(frameType);
+    dropConnection();
+    return true;
+  }
+
+  return false;
+}
+
+void HTTPSession::scheduleResetNumControlMsgs() {
+  auto ptr = numControlMsgsInCurrentInterval_;
+  sock_->getEventBase()->runAfterDelay([ptr]() {
+     *ptr = 0;
+  }, controlMsgIntervalDuration_);
 }
 
 void HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
