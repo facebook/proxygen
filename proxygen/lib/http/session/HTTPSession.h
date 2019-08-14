@@ -42,10 +42,12 @@ class HTTPSessionStats;
 constexpr uint32_t kDefaultMaxConcurrentOutgoingStreamsRemote = 100000;
 constexpr uint32_t kDefaultMaxConcurrentIncomingStreams = 100;
 
-// These constants define the rate at which we limit the receipt of resets,
-// settings, pings, and priorities
+// These constants define the rate at which we limit certain events.
 constexpr uint32_t kDefaultMaxControlMsgsPerInterval = 50000;
-constexpr uint32_t kDefaultControlMsgDuration = 100;
+constexpr uint32_t kDefaultControlMsgDuration = 100; // milliseconds
+
+constexpr uint32_t kDefaultMaxDirectErrorHandlingPerInterval = 100;
+constexpr uint32_t kDefaultDirectErrorHandlingDuration = 100; // milliseconds
 
 class HTTPSession
     : public HTTPSessionBase
@@ -241,6 +243,15 @@ class HTTPSession
   void setControlMsgIntervalDuration(uint32_t val) {
       controlMsgIntervalDuration_ = val;
   }
+
+  void setMaxDirectErrorHandlingPerInterval(uint32_t val) {
+      maxDirectErrorHandlingPerInterval_ = val;
+  }
+
+  void setDirectErrorHandlingIntervalDuration(uint32_t val) {
+      directErrorHandlingIntervalDuration_ = val;
+  }
+
 
   /**
    * Get the SecondaryAuthManager attached to this session.
@@ -869,9 +880,14 @@ class HTTPSession
   void incrementOutgoingStreams();
 
   // returns true if the threshold has been exceeded
-  bool incrementNumControlMsgsInCurLoop(http2::FrameType frameType);
+  bool incrementNumControlMsgsInCurInterval(http2::FrameType frameType);
+
+  // returns true if the rate limiting threshold has been exceeded
+  bool incrementDirectErrorHandlingInCurInterval();
 
   void scheduleResetNumControlMsgs();
+
+  void scheduleResetDirectErrorHandling();
 
   // private members
 
@@ -990,13 +1006,20 @@ class HTTPSession
    */
   uint64_t bodyBytesPerWriteBuf_{0};
 
-  /**
-   * Number of Control messages seen in the current interval. This is a
-   * shared_ptr, as opposed to an uint64_t because we don't want to run into
-   * lifetime issues where the HTTPSession is destructed, and the rate
-   * limiting function is still scheduled to run on the event base.
-   */
-  std::shared_ptr<uint64_t> numControlMsgsInCurrentInterval_;
+  struct RateLimitingCounters {
+    /**
+     * The two variables below keep track of the number of Control messages,
+     * and the number of error handling events that are handled by a newly created
+     * transaction handler seen in the current interval, respectively. These are
+     * shared_ptrs, as opposed to uint64_ts because we don't want to run into
+     * lifetime issues where the HTTPSession is destructed, and the rate
+     * limiting function is still scheduled to run on the event base.
+     */
+    uint64_t numControlMsgsInCurrentInterval{0};
+    uint64_t numDirectErrorHandlingInCurrentInterval{0};
+  };
+
+  std::shared_ptr<RateLimitingCounters> rateLimitingCounters_;
 
   /*
    * If the number of control messages in a controlMsgIntervalDuration_
@@ -1005,6 +1028,9 @@ class HTTPSession
    */
   uint32_t maxControlMsgsPerInterval_{kDefaultMaxControlMsgsPerInterval};
   uint32_t controlMsgIntervalDuration_{kDefaultControlMsgDuration};
+
+  uint32_t maxDirectErrorHandlingPerInterval_{kDefaultMaxDirectErrorHandlingPerInterval};
+  uint32_t directErrorHandlingIntervalDuration_{kDefaultDirectErrorHandlingDuration};
 
   /**
    * Container to hold the results of HTTP2PriorityQueue::nextEgress

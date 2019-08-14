@@ -3382,7 +3382,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
   this->eventBase_.loop();
 }
 
-TEST_F(HTTP2DownstreamSessionTest, TestExceedControlMsgRateLimit) {
+TEST_F(HTTP2DownstreamSessionTest, TestControlMsgRateLimitExceeded) {
   auto streamid = clientCodec_->createStream();
 
   httpSession_->setMaxControlMsgsPerInterval(10);
@@ -3405,7 +3405,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestExceedControlMsgRateLimit) {
   flushRequestsAndLoopN(1);
 }
 
-TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimit) {
+TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
   auto streamid = clientCodec_->createStream();
 
   httpSession_->setMaxControlMsgsPerInterval(10);
@@ -3446,6 +3446,59 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimit) {
   httpSession_->closeWhenIdle();
   expectDetachSession();
   this->eventBase_.loop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitTouched) {
+  httpSession_->setMaxDirectErrorHandlingPerInterval(10);
+  httpSession_->setDirectErrorHandlingIntervalDuration(0);
+
+  // Send ten messages, each of which cause direct error handling. Since
+  // this doesn't exceed the limit, this should not cause the connection
+  // to be dropped.
+  for (int i = 0; i < 10; i++) {
+    auto req = getGetRequest();
+    // Invalid method, causes the error to be handled directly
+    req.setMethod("11111111");
+    sendRequest(req, false);
+  }
+
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
+               WillRepeatedly(Return(nullptr));
+
+  flushRequestsAndLoop();
+
+  for (int i = 0; i < 10; i++) {
+    auto req = getGetRequest();
+    // Invalid method, causes the error to be handled directly
+    req.setMethod("11111111");
+    sendRequest(req, false);
+  }
+
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
+               WillRepeatedly(Return(nullptr));
+
+  flushRequestsAndLoop();
+  gracefulShutdown();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitExceeded) {
+  httpSession_->setMaxDirectErrorHandlingPerInterval(10);
+  httpSession_->setDirectErrorHandlingIntervalDuration(0);
+
+  // Send eleven messages, each of which causes direct error handling. Since
+  // this exceeds the limit, the connection should be dropped.
+  for (int i = 0; i < 11; i++) {
+    auto req = getGetRequest();
+    // Invalid method, causes the error to be handled directly
+    req.setMethod("11111111");
+    sendRequest(req, false);
+  }
+
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
+               WillRepeatedly(Return(nullptr));
+
+  expectDetachSession();
+  flushRequestsAndLoopN(2);
 }
 
 TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeightsTinyWindow) {

@@ -178,7 +178,7 @@ HTTPSession::HTTPSession(const WheelTimerInstance& timeout,
     sock_->setReplaySafetyCallback(this);
   }
 
-  numControlMsgsInCurrentInterval_ = std::make_shared<uint64_t>(0);
+  rateLimitingCounters_ = std::make_shared<RateLimitingCounters>();
 }
 
 uint32_t HTTPSession::getCertAuthSettingVal() {
@@ -1087,7 +1087,12 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
         infoCallback_->onRequestBegin(*this);
       }
       if (txn) {
-        handleErrorDirectly(txn, error);
+        if (incrementDirectErrorHandlingInCurInterval()) {
+          // The rate limit has been exceeded
+          return;
+        } else {
+          handleErrorDirectly(txn, error);
+        }
       }
     } else if (newTxn) {
       onNewTransactionParseError(streamID, error);
@@ -1100,7 +1105,12 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
 
   if (!txn->getHandler() &&
       txn->getEgressState() == HTTPTransactionEgressSM::State::Start) {
-    handleErrorDirectly(txn, error);
+    if (incrementDirectErrorHandlingInCurInterval()) {
+      // The rate limit has been exceeded
+      return;
+    } else {
+      handleErrorDirectly(txn, error);
+    }
     return;
   }
 
@@ -1116,7 +1126,7 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID, ErrorCode code) {
   VLOG(4) << "stream abort on " << *this << ", streamID=" << streamID
           << ", code=" << getErrorCodeString(code);
 
-  if (incrementNumControlMsgsInCurLoop(http2::FrameType::RST_STREAM)) {
+  if (incrementNumControlMsgsInCurInterval(http2::FrameType::RST_STREAM)) {
     return;
   }
 
@@ -1219,7 +1229,7 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
 void HTTPSession::onPingRequest(uint64_t uniqueID) {
   VLOG(4) << *this << " got ping request with id=" << uniqueID;
 
-  if (incrementNumControlMsgsInCurLoop(http2::FrameType::PING)) {
+  if (incrementNumControlMsgsInCurInterval(http2::FrameType::PING)) {
     return;
   }
 
@@ -1265,7 +1275,7 @@ void HTTPSession::onWindowUpdate(HTTPCodec::StreamID streamID,
 
 void HTTPSession::onSettings(const SettingsList& settings) {
   DestructorGuard g(this);
-  if (incrementNumControlMsgsInCurLoop(http2::FrameType::SETTINGS)) {
+  if (incrementNumControlMsgsInCurInterval(http2::FrameType::SETTINGS)) {
     return;
   }
   for (auto& setting : settings) {
@@ -1297,7 +1307,7 @@ void HTTPSession::onSettingsAck() {
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
                              const HTTPMessage::HTTPPriority& pri) {
   if (!getHTTP2PrioritiesEnabled() ||
-      incrementNumControlMsgsInCurLoop(http2::FrameType::PRIORITY)) {
+      incrementNumControlMsgsInCurInterval(http2::FrameType::PRIORITY)) {
     return;
   }
   http2::PriorityUpdate h2Pri{
@@ -2554,19 +2564,52 @@ void HTTPSession::incrementOutgoingStreams() {
   HTTPSessionBase::onNewOutgoingStream(outgoingStreams_);
 }
 
-bool HTTPSession::incrementNumControlMsgsInCurLoop(http2::FrameType frameType) {
-  if (*numControlMsgsInCurrentInterval_ == 0) {
+bool HTTPSession::incrementNumControlMsgsInCurInterval(
+    http2::FrameType frameType) {
+  if (rateLimitingCounters_->numControlMsgsInCurrentInterval == 0) {
+    // The first time we get a "control message", we schedule a
+    // function on the event base that clears out the value of
+    // numControlMsgsInCurrentInterval. Once it is cleared, the next
+    // such event that fires causes the function to be scheduled, and the
+    // cycle repeats.
     scheduleResetNumControlMsgs();
   }
 
-  (*numControlMsgsInCurrentInterval_)++;
-  if (*numControlMsgsInCurrentInterval_ > maxControlMsgsPerInterval_) {
-    LOG(ERROR) << *this
-               << " dropping connection due to too many control messages, "
+  (rateLimitingCounters_->numControlMsgsInCurrentInterval)++;
+  if (rateLimitingCounters_->numControlMsgsInCurrentInterval >
+      maxControlMsgsPerInterval_) {
+    LOG(ERROR) << " dropping connection due to too many control messages, "
                << "num control messages = "
-               << *numControlMsgsInCurrentInterval_
+               << rateLimitingCounters_->numControlMsgsInCurrentInterval
                << ", most recent frame type = "
-               << getFrameTypeString(frameType);
+               << getFrameTypeString(frameType) << " "
+               << *this;
+    dropConnection();
+    return true;
+  }
+
+  return false;
+}
+
+bool HTTPSession::incrementDirectErrorHandlingInCurInterval() {
+  if (rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval == 0) {
+    // The first time a direct error handling event fires, we schedule a
+    // function on the event base that clears out the value of
+    // numDirectErrorHandlingInCurrentInterval. Once it is cleared, the next
+    // such event that fires causes the function to be scheduled, and the
+    // cycle repeats.
+    scheduleResetDirectErrorHandling();
+  }
+
+  (rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval)++;
+  if (rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval >
+      maxDirectErrorHandlingPerInterval_) {
+    LOG(ERROR) << " dropping connection due to too many newly created txns "
+               << " when directly handling errors,"
+               << "num direct error handling cases = "
+               << rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval
+               << " "
+               << *this;
     dropConnection();
     return true;
   }
@@ -2575,10 +2618,17 @@ bool HTTPSession::incrementNumControlMsgsInCurLoop(http2::FrameType frameType) {
 }
 
 void HTTPSession::scheduleResetNumControlMsgs() {
-  auto ptr = numControlMsgsInCurrentInterval_;
+  auto ptr = rateLimitingCounters_;
   sock_->getEventBase()->runAfterDelay([ptr]() {
-     *ptr = 0;
+     ptr->numControlMsgsInCurrentInterval = 0;
   }, controlMsgIntervalDuration_);
+}
+
+void HTTPSession::scheduleResetDirectErrorHandling() {
+  auto ptr = rateLimitingCounters_;
+  sock_->getEventBase()->runAfterDelay([ptr]() {
+     ptr->numDirectErrorHandlingInCurrentInterval = 0;
+  }, directErrorHandlingIntervalDuration_);
 }
 
 void HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
