@@ -536,7 +536,8 @@ TEST_F(SessionPoolFixture, MoveIdleSessionBetweenThreadsTest) {
   t2InitBaton.wait();
   // Simulate thread2 asking thread1 for an idle session
   evb2.runInEventBaseThread([&] {
-    ctrl.getIdleSession().then(&evb2, [&](HTTPSessionBase* idleSession) {
+    ctrl.getIdleSession().via(&evb2).thenValue([&](
+        HTTPSessionBase* idleSession) {
       ASSERT_EQ(idleSession, session);
       // Not re-attaching it to thread2 so ctrl will be empty
       transferBaton.post();
