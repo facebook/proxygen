@@ -110,11 +110,14 @@ class HQSessionTest
       LOG(FATAL) << "wrong TransportEnum";
     }
 
-    egressControlCodec_ = std::make_unique<proxygen::hq::HQControlCodec>(
-        nextUnidirectionalStreamId_,
-        direction_,
-        proxygen::hq::StreamDirection::EGRESS,
-        egressSettings_);
+    if (!IS_H1Q_FB_V1) {
+      egressControlCodec_ =
+        std::make_unique<proxygen::hq::HQControlCodec>(
+          nextUnidirectionalStreamId_,
+          direction_,
+          proxygen::hq::StreamDirection::EGRESS,
+          egressSettings_);
+    }
     socketDriver_ = std::make_unique<quic::MockQuicSocketDriver>(
         &eventBase_,
         *hqSession_,
@@ -239,7 +242,6 @@ class HQSessionTest
       auto preface = parseStreamPreface(cursor, getProtocolString());
       CHECK(preface) << "Preface can not be parsed protocolString="
                      << getProtocolString();
-
       buf->trimStart(preface->second);
       switch (preface->first) {
         case proxygen::hq::UnidirectionalStreamType::H1Q_CONTROL:

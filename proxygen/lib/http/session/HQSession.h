@@ -750,7 +750,7 @@ class HQSession
   void scheduleLoopCallback(bool thisIteration = false);
 
   // helper functions for writes
-  void writeRequestStreams(uint64_t maxEgress) noexcept;
+  uint64_t writeRequestStreams(uint64_t maxEgress) noexcept;
   void scheduleWrite();
   void handleWriteError(HQStreamTransportBase* hqStream,
                         quic::QuicErrorCode err);

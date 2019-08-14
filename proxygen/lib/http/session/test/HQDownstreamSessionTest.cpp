@@ -751,76 +751,109 @@ std::unique_ptr<folly::IOBuf> getSimpleRequestData() {
   return folly::IOBuf::copyBuffer(req);
 }
 
-std::pair<size_t, size_t> estimateResponseSize(HTTPMessage msg,
-                                               size_t contentLength,
-                                               size_t chunkSize) {
+std::tuple<size_t, size_t, size_t>
+estimateResponseSize(bool isHq,
+                     HTTPMessage msg,
+                     size_t contentLength,
+                     size_t chunkSize) {
   folly::IOBufQueue estimateSizeBuf{folly::IOBufQueue::cacheChainLength()};
-  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
-  MockHTTPCodecCallback callback;
-  EXPECT_CALL(callback, onHeadersComplete(_, _));
-  EXPECT_CALL(callback, onMessageBegin(_, _));
-  codec.setCallback(&callback);
-  auto txn = codec.createStream();
-  codec.onIngress(*getSimpleRequestData());
+  std::unique_ptr<HTTPCodec> codec;
+  QPACKCodec qpackCodec;
+  folly::IOBufQueue encoderWriteBuf{folly::IOBufQueue::cacheChainLength()};
+  folly::IOBufQueue decoderWriteBuf{folly::IOBufQueue::cacheChainLength()};
+  HTTPSettings dummySettings;
+  qpackCodec.setEncoderHeaderTableSize(kQPACKTestDecoderMaxTableSize);
+  if (isHq) {
+    codec = std::make_unique<hq::HQStreamCodec>(
+      0,
+      TransportDirection::DOWNSTREAM,
+      qpackCodec,
+      encoderWriteBuf,
+      decoderWriteBuf,
+      [] { return std::numeric_limits<uint64_t>::max(); },
+      dummySettings,
+      dummySettings,
+      false);
+  } else {
+    codec = std::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM, true);
+  }
 
-  codec.generateHeader(estimateSizeBuf, txn, msg);
+  MockHTTPCodecCallback callback;
+  codec->setCallback(&callback);
+  auto txn = codec->createStream();
+
+  if (!isHq) {
+    EXPECT_CALL(callback, onHeadersComplete(_, _));
+    EXPECT_CALL(callback, onMessageBegin(_, _));
+    codec->onIngress(*getSimpleRequestData());
+  }
+
+  codec->generateHeader(estimateSizeBuf, txn, msg);
   size_t currentLength = contentLength;
 
   bool chunking = (chunkSize != 0);
   if (!chunking) {
     chunkSize = std::numeric_limits<size_t>::max();
   }
+  auto currentSize = estimateSizeBuf.chainLength();
   while (currentLength > 0) {
     uint32_t toSend = std::min(currentLength, chunkSize);
     std::vector<uint8_t> buf;
     buf.resize(toSend, 'a');
     if (chunking) {
-      codec.generateChunkHeader(estimateSizeBuf, txn, toSend);
+      codec->generateChunkHeader(estimateSizeBuf, txn, toSend);
     }
-    codec.generateBody(estimateSizeBuf,
-                       txn,
-                       folly::IOBuf::copyBuffer(folly::range(buf)),
-                       HTTPCodec::NoPadding,
-                       false);
+    codec->generateBody(estimateSizeBuf,
+                        txn,
+                        folly::IOBuf::copyBuffer(folly::range(buf)),
+                        HTTPCodec::NoPadding,
+                        false);
     if (chunking) {
-      codec.generateChunkTerminator(estimateSizeBuf, txn);
+      codec->generateChunkTerminator(estimateSizeBuf, txn);
     }
     currentLength -= toSend;
   }
-  auto currentSize = estimateSizeBuf.chainLength();
-  codec.generateEOM(estimateSizeBuf, txn);
+  size_t framingOverhead = estimateSizeBuf.chainLength() - currentSize -
+    contentLength;
+  currentSize = estimateSizeBuf.chainLength();
+  codec->generateEOM(estimateSizeBuf, txn);
 
   size_t eomSize = estimateSizeBuf.chainLength() - currentSize;
   size_t estimatedSize = estimateSizeBuf.chainLength();
-  return std::make_pair(estimatedSize, eomSize);
+  return std::tuple<size_t, size_t, size_t>(
+    estimatedSize, framingOverhead, eomSize);
 }
 
-// estimateResponseSize only works for h1
-TEST_P(HQDownstreamSessionTestH1q, PendingEomBuffered) {
+TEST_P(HQDownstreamSessionTest, PendingEomBuffered) {
   size_t contentLength = 100;
   size_t chunkSize = 5;
 
   auto reply = makeResponse(200);
   reply->setIsChunked(true);
   size_t estimatedSize = 0;
+  size_t framingOverhead = 0;
   size_t eomSize = 0;
-  std::tie(estimatedSize, eomSize) =
-      estimateResponseSize(*reply, contentLength, chunkSize);
+  std::tie(estimatedSize, framingOverhead, eomSize) =
+    estimateResponseSize(IS_HQ, *reply, contentLength, chunkSize);
+  // EOMs are 0 bytes in H3, but there is framing overhead of at least two
+  // bytes.
+  auto bytesWithheld = (IS_HQ) ? 2 : eomSize;
 
   auto id = sendRequest();
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler, contentLength, chunkSize] {
-    handler->sendChunkedReplyWithBody(200, contentLength, chunkSize, true);
+      handler->sendChunkedReplyWithBody(200, contentLength, chunkSize, false,
+                                        true);
   });
 
-  // Initialize the flow control window to just less than the estimated size of
-  // the eom codec which the codec generates..
-  socketDriver_->setStreamFlowControlWindow(id, estimatedSize - eomSize);
+  // Set the flow control window to be less than the EOM overhead added by
+  // the codec
+  socketDriver_->setStreamFlowControlWindow(id, estimatedSize - bytesWithheld);
   flushRequestsAndLoop();
   CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
-            estimatedSize - eomSize);
+            estimatedSize - bytesWithheld);
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
 
   handler->expectDetachTransaction();
@@ -832,42 +865,105 @@ TEST_P(HQDownstreamSessionTestH1q, PendingEomBuffered) {
   hqSession_->closeWhenIdle();
 }
 
-// estimateResponseSize only works for h1
-TEST_P(HQDownstreamSessionTestH1q, PendingEomQueuedNotFlushed) {
+TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushed) {
   auto reply = makeResponse(200);
   reply->setWantsKeepalive(true);
   reply->getHeaders().add(HTTP_HEADER_CONTENT_LENGTH,
                           folly::to<std::string>(1));
   size_t estimatedSize = 0;
+  size_t framingOverhead = 0;
   size_t eomSize = 0;
-  std::tie(estimatedSize, eomSize) = estimateResponseSize(*reply, 1, 0);
-  // There is no way to queue an EOM only anymore.  Add a body byte
+  std::tie(estimatedSize, framingOverhead, eomSize) =
+    estimateResponseSize(IS_HQ, *reply, 1, 0);
   CHECK_EQ(eomSize, 0);
-  eomSize = 1;
+  // There's no EOM and no framing overhead for h1q, withhold the body byte
+  auto bytesWithheld = IS_HQ ? framingOverhead : 1;
 
-  auto id = sendRequest();
+  auto id = sendRequest(getGetRequest());
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
-  handler->expectEOM(
-      [&handler] { handler->sendReplyWithBody(200, 1, true, true); });
+  handler->expectEOM([&handler, this, id, estimatedSize, bytesWithheld] {
+      // Initialize the flow control window to just less than the
+      // estimated size of the eom codec which the codec generates..
+      socketDriver_->setStreamFlowControlWindow(id,
+                                                estimatedSize - bytesWithheld);
+      handler->sendReplyWithBody(200, 1);
+    });
 
-  // Initialize the flow control window to just less than the estimated size of
-  // the eom codec which the codec generates..
-  socketDriver_->setStreamFlowControlWindow(id, estimatedSize - eomSize);
-  handler->expectEgressPaused();
+  if (!IS_HQ) {
+    // h3 doesn't withold the body byte, so it doesn't get paused/resumed.
+    // We could force it to hold the byte back too, but the test is more
+    // interesting this way.
+    handler->expectEgressPaused();
+  }
   flushRequestsAndLoop();
   CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
-            estimatedSize - eomSize);
+            estimatedSize - bytesWithheld);
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
 
-  handler->expectEgressResumed();
+  if (!IS_HQ) {
+    handler->expectEgressResumed();
+  }
   handler->expectDetachTransaction();
   socketDriver_->getSocket()->setStreamFlowControlWindow(id, estimatedSize);
 
   CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(), estimatedSize);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQ, PendingEomQueuedNotFlushedConn) {
+  // flush control streams first
+  flushRequestsAndLoop();
+  CHECK(eventBase_.loop());
+
+  auto reply = makeResponse(200);
+  reply->setWantsKeepalive(true);
+  size_t estimatedSize = 0;
+  size_t framingOverhead = 0;
+  size_t eomSize = 0;
+  std::tie(estimatedSize, framingOverhead, eomSize) =
+    estimateResponseSize(IS_HQ, *reply, 1, 0);
+
+  // No EOM yet
+  auto id = sendRequest(getGetRequest(), false);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&handler] {
+      handler->sendHeaders(200, 1);
+    });
+  flushRequestsAndLoopN(1);
+
+  socketDriver_->addReadEOF(id, std::chrono::milliseconds(0));
+  handler->expectEOM([&handler, this] {
+      handler->txn_->sendBody(makeBuf(1));
+      handler->txn_->sendEOM();
+      socketDriver_->setConnectionFlowControlWindow(1);
+    });
+
+  // Set the conn flow control to be enough for the body byte but not enough
+  // for the framing overhead
+  auto remaining = framingOverhead + eomSize;
+  flushRequestsAndLoop();
+  CHECK(eventBase_.loop());
+  EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
+            estimatedSize - remaining);
+  EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
+
+  handler->expectDetachTransaction();
+  for (size_t i = 0; i < remaining; i++) {
+    socketDriver_->getSocket()->setConnectionFlowControlWindow(1);
+
+    CHECK(eventBase_.loop());
+    EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
+              estimatedSize - remaining + i);
+
+    EXPECT_TRUE(socketDriver_->streams_[id].writeEOF != (i < remaining - 1));
+  }
+
+  // Need flow control for goaway
+  socketDriver_->getSocket()->setConnectionFlowControlWindow(100);
   hqSession_->closeWhenIdle();
 }
 

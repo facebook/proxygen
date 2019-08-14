@@ -1230,7 +1230,7 @@ void HQSession::runLoopCallback() noexcept {
   // Then write the request streams
   if (!txnEgressQueue_.empty() && maxToSend_ > 0) {
     // TODO: we could send FIN only?
-    writeRequestStreams(maxToSend_);
+    maxToSend_ = writeRequestStreams(maxToSend_);
   }
   // Zero out maxToSend_ here.  We won't egress anything else until the next
   // onWriteReady call
@@ -2176,7 +2176,7 @@ void HQSession::handleSessionError(HQStreamBase* stream,
                            proxygenError);
 }
 
-void HQSession::writeRequestStreams(uint64_t maxEgress) noexcept {
+uint64_t HQSession::writeRequestStreams(uint64_t maxEgress) noexcept {
   // requestStreamWriteImpl may call txn->onWriteReady
   txnEgressQueue_.nextEgress(nextEgressResults_);
   for (auto it = nextEgressResults_.begin(); it != nextEgressResults_.end();
@@ -2196,6 +2196,7 @@ void HQSession::writeRequestStreams(uint64_t maxEgress) noexcept {
     }
   }
   nextEgressResults_.clear();
+  return maxEgress;
 }
 
 void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
@@ -2372,6 +2373,7 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
     infoCallback_->onWrite(*this, sent);
   }
   CHECK_GE(maxEgress, sent);
+
 
   bool flowControlBlocked = (sent == streamSendWindow && !sendEof);
   if (flowControlBlocked) {
@@ -3409,6 +3411,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
                     streamId,
                     static_cast<uint64_t>(timeDiff.count()));
   }
+  notifyPendingEgress();
   return encodedSize;
 }
 
