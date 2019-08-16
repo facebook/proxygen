@@ -11,6 +11,7 @@
 #include <folly/json.h>
 
 #include <proxygen/httpserver/samples/hq/FizzContext.h>
+#include <proxygen/httpserver/samples/hq/HQLoggerHelper.h>
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
 #include <proxygen/httpserver/samples/hq/PartiallyReliableCurlClient.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
@@ -54,9 +55,6 @@ void HQClient::start() {
 
   evb_.loop();
 
-  if (qLogger_) {
-    qLogger_->outputLogsToFile(params_->qLoggerPath, params_->prettyJson);
-  }
 }
 
 proxygen::HTTPTransaction* FOLLY_NULLABLE HQClient::sendRequest(
@@ -146,10 +144,10 @@ void HQClient::initializeQLogger() {
     return;
   }
 
-  auto qLogger = std::make_shared<quic::FileQLogger>();
+  auto qLogger = std::make_shared<HQLoggerHelper>(params_->qLoggerPath,
+                                                  params_->prettyJson);
   qLogger->dcid = quicClient_->getClientConnectionId();
-  quicClient_->setQLogger(qLogger);
-  qLogger_ = std::move(qLogger);
+  quicClient_->setQLogger(std::move(qLogger));
 }
 
 void startClient(const HQParams& params) {

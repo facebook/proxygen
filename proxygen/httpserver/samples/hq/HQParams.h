@@ -23,7 +23,6 @@
 #include <proxygen/lib/http/HTTPMethod.h>
 #include <quic/QuicConstants.h>
 #include <quic/client/handshake/QuicPskCache.h>
-#include <quic/logging/FileQLogger.h>
 #include <quic/server/QuicServerTransport.h>
 
 // NOTE: flags are defined in HQParams.cpp
@@ -159,7 +158,6 @@ public:
   folly::Optional<uint64_t> prChunkDelayMs;
 
   // QLogger section
-  std::shared_ptr<quic::FileQLogger> qLogger;
   std::string qLoggerPath;
   bool prettyJson;
 

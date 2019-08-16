@@ -39,8 +39,6 @@ class Dispatcher {
       proxygen::HTTPMessage* /* msg */, const HQParams& /* params */);
 };
 
-void outputQLog(const HQParams& /* params */);
-
 /**
  * HQSessionController creates new HQSession objects
  *

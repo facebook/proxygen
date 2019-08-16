@@ -50,8 +50,6 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
 
   std::shared_ptr<quic::QuicClientTransport> quicClient_;
 
-  std::shared_ptr<quic::FileQLogger> qLogger_;
-
   TimerHighRes::SharedPtr pacingTimer_;
 
   folly::EventBase evb_;

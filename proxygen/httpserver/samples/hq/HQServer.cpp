@@ -9,6 +9,7 @@
 #include <proxygen/httpserver/HTTPTransactionHandlerAdaptor.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/httpserver/samples/hq/FizzContext.h>
+#include <proxygen/httpserver/samples/hq/HQLoggerHelper.h>
 #include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/httpserver/samples/hq/SampleHandlers.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
@@ -85,9 +86,6 @@ HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg,
 }
 
 void outputQLog(const HQParams& params) {
-  if (!params->qLoggerPath.empty() && params->qLogger.get()) {
-    params->qLogger->outputLogsToFile(params->qLoggerPath, params->prettyJson);
-  }
 }
 
 HQSessionController::HQSessionController(const HQParams& params)
@@ -107,7 +105,6 @@ void HQSessionController::startSession(std::shared_ptr<QuicSocket> sock) {
 }
 
 void HQSessionController::onDestroy(const HTTPSessionBase&) {
-  outputQLog(params_);
 }
 
 HTTPTransactionHandler* HQSessionController::getRequestHandler(
@@ -152,7 +149,8 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
   auto transport =
       QuicServerTransport::make(evb, std::move(socket), *session, ctx);
   if (!params_->qLoggerPath.empty()) {
-    transport->setQLogger(params_->qLogger);
+    transport->setQLogger(std::make_shared<HQLoggerHelper>(
+        params_->qLoggerPath, params_->prettyJson));
   }
   hqSessionController->startSession(transport);
   return transport;

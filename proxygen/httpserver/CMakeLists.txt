@@ -110,6 +110,7 @@ if (BUILD_QUIC)
       samples/hq/main.cpp
       samples/hq/FizzContext.cpp
       samples/hq/HQClient.cpp
+      samples/hq/HQLoggerHelper.cpp
       samples/hq/HQServer.cpp
       samples/hq/HQParams.cpp
       samples/hq/SampleHandlers.cpp
