@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
 #include <proxygen/lib/http/codec/compress/QPACKContext.h>
 #include <folly/io/async/DestructorCheck.h>
+#include <map>
 
 namespace proxygen {
 
