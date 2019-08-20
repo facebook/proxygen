@@ -82,13 +82,15 @@ class HQSessionTest
     , public proxygen::hq::HQUnidirectionalCodec::Callback {
 
  protected:
-  explicit HQSessionTest(proxygen::TransportDirection direction)
+  explicit HQSessionTest(
+      proxygen::TransportDirection direction,
+      folly::Optional<TestParams> overrideParams = folly::none)
       : direction_(direction),
+        overrideParams_(overrideParams),
         qpackEncoderCodec_(qpackCodec_, *this),
         qpackDecoderCodec_(qpackCodec_, *this)
 
   {
-
     if (direction_ == proxygen::TransportDirection::DOWNSTREAM) {
       hqSession_ = new proxygen::HQDownstreamSession(
           std::chrono::milliseconds(kTransactionTimeout),
@@ -111,8 +113,7 @@ class HQSessionTest
     }
 
     if (!IS_H1Q_FB_V1) {
-      egressControlCodec_ =
-        std::make_unique<proxygen::hq::HQControlCodec>(
+      egressControlCodec_ = std::make_unique<proxygen::hq::HQControlCodec>(
           nextUnidirectionalStreamId_,
           direction_,
           proxygen::hq::StreamDirection::EGRESS,
@@ -314,7 +315,34 @@ class HQSessionTest
     return controllerContainer_.mockController;
   }
 
+ public:
+  quic::MockQuicSocketDriver* getSocketDriver() {
+    return socketDriver_.get();
+  }
+
+  proxygen::HQSession* getSession() {
+    return hqSession_;
+  }
+
+  void setSessionDestroyCallback(
+      folly::Function<void(const proxygen::HTTPSessionBase&)> cb) {
+    EXPECT_CALL(infoCb_, onDestroy(testing::_))
+        .WillOnce(testing::Invoke(
+            [&](const proxygen::HTTPSessionBase&) { cb(*hqSession_); }));
+  }
+
+  const TestParams& GetParam() const {
+    if (overrideParams_) {
+      return *overrideParams_;
+    } else {
+      const testing::TestWithParam<TestParams>* base = this;
+      return base->GetParam();
+    }
+  }
+
+ protected:
   proxygen::TransportDirection direction_;
+  folly::Optional<TestParams> overrideParams_;
   // Unidirectional Stream Codecs used for Ingress Only
   proxygen::hq::QPACKEncoderCodec qpackEncoderCodec_;
   proxygen::hq::QPACKDecoderCodec qpackDecoderCodec_;
