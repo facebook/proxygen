@@ -1,28 +1,6 @@
 *~
 \#*\#
 
-# downloaded dependencies
-/proxygen/folly/
-/proxygen/lib/test/gmock*
-
-# autoreconf artifacts
-/proxygen/aclocal.m4
-/proxygen/autom4te.cache/
-/proxygen/build-aux/
-/proxygen/config.guess
-/proxygen/config.h
-/proxygen/config.h.in
-/proxygen/config.status
-/proxygen/configure
-/proxygen/proxygen-config.h
-Makefile.in
-
-# Configure artifacts
-.deps
-.dirstamp
-_configs.sed
-Makefile
-
 # Build artifacts
 .libs
 *.log
@@ -33,7 +11,6 @@ Makefile
 *.la
 gen-cpp
 gen-cpp2
-*.m4
 
 # Generated files
 /proxygen/lib/http/HTTPCommonHeaders.cpp
