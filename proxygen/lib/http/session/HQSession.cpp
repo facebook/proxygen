@@ -1607,6 +1607,10 @@ void HQSession::rejectStream(quic::StreamId id) {
   // Send STOP_SENDING and rely on the peer sending a RESET to clear the
   // stream in the transport.
   sock_->stopSending(id, HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE);
+  // It is safe to stop reading from this stream.
+  // The peer is supposed to reset it on receipt of a STOP_SENDING
+  sock_->setPeekCallback(id, nullptr);
+  sock_->setReadCallback(id, nullptr);
 }
 
 folly::Optional<hq::UnidirectionalStreamType> HQSession::parseStreamPreface(

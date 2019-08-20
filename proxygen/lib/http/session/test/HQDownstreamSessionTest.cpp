@@ -2215,6 +2215,23 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ,
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTestHQ, DataOnUnknownControlStream) {
+  auto randPreface = hq::UnidirectionalStreamType(
+      *getGreaseId(folly::Random::rand32(16)));
+  // Create  unidirectional stream with an unknown stream preface
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  generateStreamPreface(writeBuf, randPreface);
+  socketDriver_->addReadEvent(14, writeBuf.move());
+  flushRequestsAndLoop();
+
+  // Send an extra varint on the same stream, ignoring STOP_SENDING
+  folly::IOBufQueue writeBuf2{folly::IOBufQueue::cacheChainLength()};
+  generateStreamPreface(writeBuf2, randPreface);
+  socketDriver_->addReadEvent(14, writeBuf.move());
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTestH1qv2HQ, eofControlStream) {
   sendRequest();
 
