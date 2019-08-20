@@ -21,7 +21,10 @@ def fbcode_builder_spec(builder):
         "steps": [
             # Tests for the full build with no QUIC/HTTP3
             # Proxygen is the last step, so we are still in its working dir.
-            builder.step("Run proxygen tests", [builder.run(ShellQuoted("make test"))])
+            builder.step(
+                "Run proxygen tests",
+                [builder.run(ShellQuoted("env CTEST_OUTPUT_ON_FAILURE=1 make test"))],
+            )
         ],
     }
 
