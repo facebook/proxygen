@@ -1177,8 +1177,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
           (!it.second.readBuf.empty() || it.second.readEOF)) {
         if (it.second.peekCB) {
           std::deque<StreamBuffer> fakeReadBuffer;
-          auto copyBuf = it.second.readBuf.front()->clone();
-          auto copyBufLen = copyBuf->computeChainDataLength();
+          std::unique_ptr<folly::IOBuf> copyBuf;
+          std::size_t copyBufLen = 0;
+          if (it.second.readBuf.chainLength() > 0) {
+            copyBuf = it.second.readBuf.front()->clone();
+            copyBufLen = copyBuf->computeChainDataLength();
+          }
           ERROR_IF(it.second.readBufOffset < copyBufLen,
                    folly::format("readOffset({}) is lower than current read "
                                  "buffer offset({}) for streamId={}",
