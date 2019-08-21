@@ -70,6 +70,10 @@ const ResourceData& ResourceStats::getCurrentLoadData() const {
   return *tlData_;
 }
 
+const ResourceData& ResourceStats::getPreviousLoadData() const {
+  return *tlData_;
+}
+
 void ResourceStats::updateCachedData() {
   modifyData(new ResourceData(resources_->getCurrentData()));
 }

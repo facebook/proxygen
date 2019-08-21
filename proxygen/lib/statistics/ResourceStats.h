@@ -87,6 +87,9 @@ class ResourceStats {
    * Method is virtual for testing reasons.
    */
   virtual const ResourceData& getCurrentLoadData() const;
+  // Same as above except no local update will be performed, even if newer
+  // data is available.
+  virtual const ResourceData& getPreviousLoadData() const;
 
  protected:
   void updateCachedData();
