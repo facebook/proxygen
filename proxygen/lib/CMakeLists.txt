@@ -233,7 +233,7 @@ target_link_libraries(
     Folly::folly
     fizz::fizz
     wangle::wangle
-    zstd::zstd
+    zstd
     Boost::boost
     Boost::iostreams
     ${HTTP3_DEPEND_LIBS}

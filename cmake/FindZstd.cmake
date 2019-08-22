@@ -27,14 +27,14 @@ mark_as_advanced(
   ZSTD_INCLUDE_DIR
 )
 
-if(NOT TARGET zstd::zstd)
+if(NOT TARGET zstd)
     if("${ZSTD_LIBRARIES}" MATCHES ".*.a$")
-        add_library(zstd::zstd STATIC IMPORTED)
+        add_library(zstd STATIC IMPORTED)
     else()
-        add_library(zstd::zstd SHARED IMPORTED)
+        add_library(zstd SHARED IMPORTED)
     endif()
     set_target_properties(
-        zstd::zstd
+        zstd
         PROPERTIES
             IMPORTED_LOCATION ${ZSTD_LIBRARIES}
             INTERFACE_INCLUDE_DIRECTORIES ${ZSTD_INCLUDE_DIR}
