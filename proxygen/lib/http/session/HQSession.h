@@ -827,7 +827,6 @@ class HQSession
    * request streams. It does an extra lookup per stream but it is safe. Note
    * that if the callback *adds* streams, they will not get the callback.
    */
-  template <typename... Args1, typename... Args2>
   void invokeOnAllStreams(std::function<void(HQStreamTransportBase*)> fn) {
     invokeOnStreamsImpl(
         fn,
@@ -837,7 +836,6 @@ class HQSession
                   std::placeholders::_1));
   }
 
-  template <typename... Args1, typename... Args2>
   void invokeOnEgressStreams(std::function<void(HQStreamTransportBase*)> fn,
                              bool includeDetached = false) {
     invokeOnStreamsImpl(fn,
@@ -847,7 +845,6 @@ class HQSession
                                   includeDetached));
   }
 
-  template <typename... Args1, typename... Args2>
   void invokeOnIngressStreams(std::function<void(HQStreamTransportBase*)> fn,
                               bool includeDetached = false) {
     invokeOnStreamsImpl(fn,
@@ -860,7 +857,6 @@ class HQSession
                                   std::placeholders::_1));
   }
 
-  template <typename... Args1, typename... Args2>
   void invokeOnNonDetachedStreams(
       std::function<void(HQStreamTransportBase*)> fn) {
     invokeOnStreamsImpl(fn,
@@ -878,7 +874,6 @@ class HQSession
   // erase stream, but the locators are not allowed to do so.
   // Note that neither the locators nor the function are allowed
   // to call "invokeOnStreamsImpl"
-  template <typename... Args1, typename... Args2>
   void invokeOnStreamsImpl(
       std::function<void(HQStreamTransportBase*)> fn,
       std::function<HQStreamTransportBase*(quic::StreamId)> findByStreamIdFn,
