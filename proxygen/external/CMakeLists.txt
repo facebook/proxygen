@@ -11,3 +11,5 @@ target_include_directories(
     proxygen_http_parser PRIVATE
     ${PROXYGEN_FBCODE_ROOT}
 )
+install(FILES http_parser/http_parser.h DESTINATION
+        include/proxygen/external/http_parser)
