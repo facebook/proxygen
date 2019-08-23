@@ -530,7 +530,7 @@ HTTP2PriorityQueue::Handle HTTP2PriorityQueue::updatePriority(
     return handle;
   }
 
-  Node* newParent = find(pri.streamDependency, depth);
+  Node* newParent = find(pri.streamDependency);
   if (!newParent) {
     if (pri.streamDependency == rootNodeId_ ||
         numVirtualNodes_ >= maxVirtualNodes_) {
@@ -544,8 +544,7 @@ HTTP2PriorityQueue::Handle HTTP2PriorityQueue::updatePriority(
                                               http2::DefaultPriority.exclusive,
                                               http2::DefaultPriority.weight},
                                              nullptr,
-                                             false,
-                                             depth));
+                                             false));
 
       CHECK_NOTNULL(newParent);
       VLOG(4) << "updatePriority missing parent, creating virtual parent="
