@@ -95,6 +95,11 @@ class Service {
   virtual void pauseListening() {}
 
   /**
+   * Drain remaining client connections; invoked from proxygen's main thread.
+   */
+  virtual void drainConnections() {}
+
+  /**
    * Forcibly stop "pct" (0.0 to 1.0) of the remaining client connections.
    *
    * If the service does not stop on its own after stopAccepting() is called,
