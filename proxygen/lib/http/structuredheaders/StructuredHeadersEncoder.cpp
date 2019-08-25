@@ -9,7 +9,6 @@
  */
 
 #include "StructuredHeadersEncoder.h"
-#include <typeinfo>
 #include <boost/lexical_cast.hpp>
 #include <boost/variant.hpp>
 #include <glog/logging.h>

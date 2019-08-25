@@ -10,13 +10,11 @@
 #define PROXYGEN_HTTPHEADERS_IMPL
 #include <proxygen/lib/http/HTTPHeaders.h>
 
-#include <folly/portability/GFlags.h>
 
 #include <glog/logging.h>
 
 using std::bitset;
 using std::string;
-using std::vector;
 
 namespace proxygen {
 

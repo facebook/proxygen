@@ -20,13 +20,10 @@
 #include <string>
 
 using folly::IOBuf;
-using folly::ThreadLocalPtr;
 using folly::io::Cursor;
 using namespace proxygen;
 using proxygen::compress::Header;
 using proxygen::compress::HeaderPiece;
-using proxygen::compress::HeaderPieceList;
-using proxygen::spdy::kMaxFrameLength;
 using std::string;
 using std::unique_ptr;
 using std::vector;

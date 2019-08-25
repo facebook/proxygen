@@ -16,7 +16,6 @@
 using namespace testing;
 using std::unique_ptr;
 using std::map;
-using std::list;
 using std::string;
 using std::pair;
 using folly::IOBuf;

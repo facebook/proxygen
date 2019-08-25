@@ -12,11 +12,7 @@
 #include <folly/Indestructible.h>
 
 #include <glog/logging.h>
-#include <list>
 
-using std::list;
-using std::string;
-using std::vector;
 
 namespace {
 

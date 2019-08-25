@@ -19,8 +19,6 @@
 using namespace ProxyService;
 using namespace proxygen;
 
-using folly::EventBase;
-using folly::EventBaseManager;
 using folly::SocketAddress;
 using folly::HHWheelTimer;
 

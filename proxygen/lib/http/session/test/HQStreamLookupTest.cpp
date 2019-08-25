@@ -14,7 +14,6 @@
 #include "proxygen/lib/http/session/HQStreamLookup.h"
 
 using namespace proxygen;
-using namespace folly;
 using namespace testing;
 
 namespace {

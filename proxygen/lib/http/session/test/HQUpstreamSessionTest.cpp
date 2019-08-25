@@ -35,7 +35,6 @@ using namespace quic;
 using namespace folly;
 using namespace testing;
 using namespace std::chrono;
-using std::unique_ptr;
 
 namespace {
 constexpr quic::StreamId kQPACKEncoderIngressStreamId = 7;

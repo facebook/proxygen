@@ -13,8 +13,6 @@
 #include <proxygen/lib/http/codec/compress/Logging.h>
 #include <sstream>
 
-using namespace std;
-using namespace testing;
 
 namespace proxygen {
 

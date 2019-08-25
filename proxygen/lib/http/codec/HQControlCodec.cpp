@@ -15,7 +15,6 @@
 
 namespace proxygen { namespace hq {
 
-using namespace folly;
 using namespace folly::io;
 
 ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {

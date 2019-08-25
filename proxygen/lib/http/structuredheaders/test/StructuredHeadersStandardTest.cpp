@@ -12,7 +12,6 @@
 #include <folly/portability/GTest.h>
 #include <boost/algorithm/string/trim.hpp>
 
-using namespace ::testing;
 
 namespace proxygen {
 

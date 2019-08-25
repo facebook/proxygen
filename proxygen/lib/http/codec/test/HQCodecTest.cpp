@@ -20,7 +20,6 @@
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 
 using namespace folly;
-using namespace folly::io;
 using namespace proxygen;
 using namespace proxygen::hq;
 using namespace testing;

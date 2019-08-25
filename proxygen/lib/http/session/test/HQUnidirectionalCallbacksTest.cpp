@@ -16,9 +16,7 @@
 
 using namespace proxygen;
 using namespace quic;
-using namespace folly;
 using namespace testing;
-using namespace std::chrono;
 
 class UnidirectionalReadDispatcherTest : public Test {
  public:

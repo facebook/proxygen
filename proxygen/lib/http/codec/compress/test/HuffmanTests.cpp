@@ -19,9 +19,7 @@
 using namespace folly::io;
 using namespace folly;
 using namespace proxygen::huffman;
-using namespace proxygen;
 using namespace std;
-using namespace testing;
 
 class HuffmanTests : public testing::Test {
  protected:

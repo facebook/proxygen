@@ -11,8 +11,6 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 
-using namespace folly;
-using namespace folly::io;
 
 namespace proxygen { namespace hq {
 

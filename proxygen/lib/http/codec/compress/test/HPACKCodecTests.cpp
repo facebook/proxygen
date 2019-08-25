@@ -26,7 +26,6 @@ using namespace proxygen::compress;
 using namespace proxygen::hpack;
 using namespace proxygen;
 using namespace std;
-using namespace testing;
 
 bool isLowercase(StringPiece str) {
   for (auto ch : str) {

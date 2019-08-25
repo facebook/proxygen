@@ -15,7 +15,6 @@
 #include <proxygen/lib/utils/FilterChain.h>
 #include <stdlib.h>
 
-using namespace folly;
 using namespace proxygen;
 using namespace testing;
 

@@ -11,11 +11,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
-#include <folly/Conv.h>
-#include <folly/String.h>
-#include <folly/io/Cursor.h>
 #include <glog/logging.h>
-#include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 
 namespace proxygen {

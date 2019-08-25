@@ -21,7 +21,6 @@ using folly::AsyncSocket;
 using folly::AsyncSSLSocket;
 using folly::SocketAddress;
 using folly::test::MockAsyncSocket;
-using wangle::SecureTransportType;
 
 namespace {
 

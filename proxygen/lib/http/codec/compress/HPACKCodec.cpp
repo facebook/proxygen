@@ -18,8 +18,6 @@
 using folly::IOBuf;
 using folly::io::Cursor;
 using proxygen::compress::Header;
-using proxygen::compress::HeaderPiece;
-using proxygen::compress::HeaderPieceList;
 using std::unique_ptr;
 using std::vector;
 

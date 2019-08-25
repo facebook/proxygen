@@ -16,7 +16,6 @@
 #include <proxygen/lib/services/AcceptorConfiguration.h>
 
 using namespace proxygen;
-using namespace testing;
 
 TEST(HTTPDefaultSessionCodecFactoryTest, GetCodecSPDY) {
   AcceptorConfiguration conf;

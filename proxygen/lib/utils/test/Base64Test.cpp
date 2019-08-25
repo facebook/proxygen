@@ -10,9 +10,7 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/utils/Base64.h>
 
-using namespace testing;
 using namespace proxygen;
-using std::string;
 
 namespace {
 folly::ByteRange range(const char *str, int64_t len = -1) {

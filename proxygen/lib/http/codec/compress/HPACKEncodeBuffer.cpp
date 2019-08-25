@@ -15,7 +15,6 @@
 #include <proxygen/lib/utils/Logging.h>
 
 using folly::IOBuf;
-using proxygen::huffman::HuffTree;
 using std::string;
 using std::unique_ptr;
 

@@ -17,7 +17,6 @@
 
 using namespace proxygen;
 using namespace std;
-using namespace testing;
 
 class LoggingTests : public testing::Test {
 };

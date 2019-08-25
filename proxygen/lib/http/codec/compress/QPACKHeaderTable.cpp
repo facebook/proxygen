@@ -11,9 +11,6 @@
 
 #include <glog/logging.h>
 
-using std::list;
-using std::pair;
-using std::string;
 
 namespace {
 // For tables 0..384     minFree = 48

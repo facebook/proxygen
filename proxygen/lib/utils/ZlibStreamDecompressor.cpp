@@ -12,7 +12,6 @@
 #include <folly/io/Cursor.h>
 
 using folly::IOBuf;
-using std::unique_ptr;
 
 namespace proxygen {
 

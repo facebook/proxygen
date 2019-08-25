@@ -12,8 +12,6 @@
 #include <folly/io/async/DelayedDestruction.h>
 #include <string>
 
-using std::string;
-using std::vector;
 
 namespace proxygen {
 

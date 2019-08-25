@@ -13,9 +13,7 @@
 #include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
-using folly::AsyncSocket;
 using folly::SocketAddress;
-using std::list;
 using std::string;
 using std::unique_ptr;
 

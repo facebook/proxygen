@@ -28,17 +28,10 @@
 using fizz::AsyncFizzBase;
 using folly::AsyncSocket;
 using folly::AsyncSocketException;
-using folly::AsyncSSLSocket;
-using folly::AsyncTransport;
 using folly::AsyncTransportWrapper;
 using folly::IOBuf;
-using folly::IOBufQueue;
 using folly::SocketAddress;
-using folly::WriteFlags;
-using folly::io::QueueAppender;
-using std::make_unique;
 using std::pair;
-using std::set;
 using std::string;
 using std::unique_ptr;
 using std::vector;

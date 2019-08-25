@@ -15,8 +15,6 @@
 
 #include <proxygen/external/http_parser/http_parser.h>
 
-using folly::fbstring;
-using std::string;
 
 namespace proxygen {
 

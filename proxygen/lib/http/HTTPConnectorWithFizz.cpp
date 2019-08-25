@@ -10,7 +10,6 @@
 #include <proxygen/lib/http/HTTPConnectorWithFizz.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
-using namespace fizz;
 using namespace fizz::client;
 
 namespace proxygen {

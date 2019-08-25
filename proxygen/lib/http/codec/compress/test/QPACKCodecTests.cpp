@@ -19,13 +19,11 @@
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 #include <vector>
 
-using namespace folly::io;
 using namespace folly;
 using namespace proxygen::compress;
 using namespace proxygen::hpack;
 using namespace proxygen;
 using namespace std;
-using namespace testing;
 
 namespace {
 void headersEq(vector<Header>& headerVec, compress::HeaderPieceList& headers) {

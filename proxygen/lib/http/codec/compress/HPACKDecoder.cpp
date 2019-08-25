@@ -11,10 +11,7 @@
 
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 
-using folly::IOBuf;
 using folly::io::Cursor;
-using std::unique_ptr;
-using proxygen::HPACK::DecodeError;
 
 namespace proxygen {
 

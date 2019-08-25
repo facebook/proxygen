@@ -10,7 +10,6 @@
 #include <proxygen/lib/utils/Logging.h>
 
 #include <folly/Format.h>
-#include <folly/Memory.h>
 #include <folly/Singleton.h>
 #include <folly/String.h>
 #include <folly/detail/SingletonStackTrace.h>
@@ -23,7 +22,6 @@
 
 using folly::IOBuf;
 using folly::StringPiece;
-using std::ostream;
 using std::string;
 using std::stringstream;
 using std::unique_ptr;

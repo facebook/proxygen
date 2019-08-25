@@ -27,13 +27,11 @@ using proxygen::HQDownstreamSession;
 using proxygen::HQSession;
 using proxygen::HTTPException;
 using proxygen::HTTPMessage;
-using proxygen::HTTPServerOptions;
 using proxygen::HTTPSessionBase;
 using proxygen::HTTPTransaction;
 using proxygen::HTTPTransactionHandler;
 using proxygen::HTTPTransactionHandlerAdaptor;
 using proxygen::RequestHandler;
-using proxygen::RequestHandlerChain;
 using quic::QuicServerTransport;
 using quic::QuicSocket;
 

@@ -18,7 +18,6 @@ using namespace folly::io;
 using namespace folly;
 using namespace proxygen;
 using namespace std;
-using namespace testing;
 using proxygen::HPACK::DecodeError;
 
 namespace {

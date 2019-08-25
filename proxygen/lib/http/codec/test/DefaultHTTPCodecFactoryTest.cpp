@@ -9,14 +9,12 @@
  */
 #include <proxygen/lib/http/codec/DefaultHTTPCodecFactory.h>
 #include <folly/portability/GTest.h>
-#include <limits>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
 
 using namespace proxygen;
-using namespace testing;
 
 TEST(DefaultHTTPCodecFactoryTest, GetCodec) {
   DefaultHTTPCodecFactory factory(false);

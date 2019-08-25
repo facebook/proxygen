@@ -12,9 +12,7 @@
 #include <folly/Indestructible.h>
 #include <folly/portability/Sockets.h>
 
-using folly::IOBuf;
 using std::pair;
-using std::string;
 
 namespace proxygen { namespace huffman {
 

@@ -20,7 +20,6 @@
 using namespace folly;
 using namespace proxygen;
 using namespace std;
-using namespace testing;
 
 namespace {
 std::shared_ptr<bool>

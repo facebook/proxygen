@@ -11,7 +11,6 @@
 
 #include <glog/logging.h>
 
-#include <folly/portability/Time.h>
 
 namespace proxygen {
 

@@ -16,7 +16,6 @@
 #include <folly/io/Cursor.h>
 
 using namespace folly::io;
-using namespace folly;
 using namespace std;
 using namespace testing;
 

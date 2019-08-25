@@ -26,10 +26,8 @@
 using namespace folly;
 using namespace folly::ssl;
 using namespace proxygen;
-using namespace testing;
 using namespace CurlService;
 
-using folly::AsyncSSLSocket;
 using folly::AsyncServerSocket;
 using folly::EventBaseManager;
 using folly::SSLContext;

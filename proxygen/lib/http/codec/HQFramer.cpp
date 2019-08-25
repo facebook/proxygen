@@ -8,7 +8,6 @@
  *
  */
 #include <proxygen/lib/http/codec/HQFramer.h>
-#include <folly/tracing/ScopedTraceSection.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <quic/codec/QuicInteger.h>
 

@@ -8,7 +8,6 @@
  *
  */
 // Copyright 2004-present Facebook.  All rights reserved.
-#include <atomic>
 
 #include <folly/portability/GTest.h>
 

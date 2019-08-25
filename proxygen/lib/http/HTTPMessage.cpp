@@ -16,12 +16,9 @@
 #include <string>
 #include <vector>
 
-using folly::IOBuf;
-using folly::Optional;
 using folly::StringPiece;
 using std::pair;
 using std::string;
-using std::unique_ptr;
 
 namespace {
 const string kHeaderStr_ = "header.";

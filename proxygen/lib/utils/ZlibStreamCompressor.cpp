@@ -12,9 +12,7 @@
 #include <folly/lang/Bits.h>
 #include <folly/io/Cursor.h>
 
-using namespace folly;
 using folly::IOBuf;
-using std::unique_ptr;
 
 // IOBuf uses 24 bytes of data for bookeeping purposes, so requesting for 4073
 // bytes of data will be rounded up to an allocation of 1 page.

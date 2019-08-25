@@ -23,7 +23,6 @@
 using namespace CurlService;
 using namespace folly;
 using namespace proxygen;
-using std::vector;
 
 DEFINE_string(http_method, "GET",
     "HTTP method to use. GET or POST are supported");

@@ -19,11 +19,7 @@
 using namespace proxygen;
 using namespace testing;
 
-using folly::IOBuf;
-using folly::IOBufQueue;
-using std::string;
 using std::unique_ptr;
-using std::vector;
 
 class DownstreamTransactionTest : public testing::Test {
  public:

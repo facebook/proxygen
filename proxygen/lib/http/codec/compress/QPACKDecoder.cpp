@@ -10,10 +10,7 @@
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
 
-using folly::IOBuf;
 using folly::io::Cursor;
-using std::unique_ptr;
-using proxygen::HPACK::DecodeError;
 
 namespace {
 const uint32_t kGrowth = 100;

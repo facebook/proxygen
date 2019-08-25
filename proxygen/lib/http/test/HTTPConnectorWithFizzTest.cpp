@@ -21,7 +21,6 @@
 using namespace proxygen;
 using namespace testing;
 using namespace folly;
-using namespace fizz;
 using namespace fizz::server;
 
 class MockHTTPConnectorCallback : public HTTPConnector::Callback {

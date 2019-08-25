@@ -33,7 +33,6 @@ using namespace testing;
 
 using std::string;
 using std::unique_ptr;
-using std::vector;
 
 class TestPriorityMapBuilder : public HTTPUpstreamSession::PriorityMapFactory {
  public:

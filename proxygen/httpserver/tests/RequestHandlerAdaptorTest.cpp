@@ -13,7 +13,6 @@
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 
-using namespace folly;
 using namespace proxygen;
 using namespace testing;
 

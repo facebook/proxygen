@@ -11,7 +11,6 @@
 #include <folly/Benchmark.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
 
-using namespace folly;
 using namespace proxygen;
 
 // buck build @mode/opt proxygen/lib/http/test:http_headers_benchmark

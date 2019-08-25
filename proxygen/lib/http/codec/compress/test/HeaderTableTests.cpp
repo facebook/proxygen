@@ -15,7 +15,6 @@
 #include <sstream>
 
 using namespace std;
-using namespace testing;
 
 namespace proxygen {
 

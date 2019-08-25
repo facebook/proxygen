@@ -33,7 +33,6 @@
 #include <wangle/acceptor/ConnectionManager.h>
 
 using namespace folly::io;
-using namespace wangle;
 using namespace folly;
 using namespace proxygen;
 using namespace std;

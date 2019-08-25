@@ -12,7 +12,6 @@
 #include <folly/Conv.h>
 
 using folly::IOBuf;
-using std::string;
 using std::unique_ptr;
 
 namespace proxygen {

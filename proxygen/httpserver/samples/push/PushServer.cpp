@@ -20,8 +20,6 @@
 using namespace PushService;
 using namespace proxygen;
 
-using folly::EventBase;
-using folly::EventBaseManager;
 using folly::SocketAddress;
 
 using Protocol = HTTPServer::Protocol;

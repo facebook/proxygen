@@ -21,7 +21,6 @@
 using namespace folly;
 using namespace proxygen;
 using namespace std;
-using namespace testing;
 
 using RfcParam = std::pair<bool, vector<string>>;
 

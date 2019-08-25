@@ -20,7 +20,6 @@
 #include <folly/tracing/ScopedTraceSection.h>
 #include <type_traits>
 
-using namespace proxygen::compress;
 using namespace folly::io;
 using namespace folly;
 

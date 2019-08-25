@@ -10,7 +10,6 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/UnframedBodyOffsetTracker.h>
 
-using namespace testing;
 using UnframedBodyOffsetTracker =
     proxygen::hq::UnframedBodyOffsetTracker;
 

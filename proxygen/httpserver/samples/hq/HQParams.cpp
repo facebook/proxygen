@@ -77,7 +77,6 @@ DEFINE_uint32(pr_chunk_delay_ms,
 //    hq -mode client -use_pr -protocol="h3-20" -path="/pr_cat"
 //    -pr_chunk_delay_ms 150
 
-using namespace folly;
 
 namespace quic { namespace samples {
 

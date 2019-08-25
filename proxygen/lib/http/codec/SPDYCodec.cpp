@@ -13,7 +13,6 @@
 #include <boost/algorithm/string.hpp>
 #include <folly/Conv.h>
 #include <folly/Memory.h>
-#include <folly/ScopeGuard.h>
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <glog/logging.h>
@@ -33,7 +32,6 @@ using folly::io::Cursor;
 using folly::io::RWPrivateCursor;
 using proxygen::compress::Header;
 using proxygen::compress::HeaderPieceList;
-using std::pair;
 using std::string;
 using std::unique_ptr;
 using std::vector;

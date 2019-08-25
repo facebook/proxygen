@@ -12,7 +12,6 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <signal.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 

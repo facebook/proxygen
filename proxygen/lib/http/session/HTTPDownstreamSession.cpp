@@ -13,7 +13,6 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
-#include <folly/CppAttributes.h>
 
 namespace proxygen {
 

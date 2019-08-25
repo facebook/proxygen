@@ -20,7 +20,6 @@
 
 namespace proxygen { namespace hq {
 
-using namespace proxygen::compress;
 using namespace folly::io;
 using namespace folly;
 

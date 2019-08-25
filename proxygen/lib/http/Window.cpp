@@ -9,7 +9,6 @@
  */
 #include <proxygen/lib/http/Window.h>
 
-#include <folly/portability/GFlags.h>
 
 #include <glog/logging.h>
 #include <limits>

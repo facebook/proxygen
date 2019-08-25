@@ -19,11 +19,8 @@
 #include <proxygen/httpserver/filters/CompressionFilter.h>
 #include <wangle/ssl/SSLContextManager.h>
 
-using folly::AsyncServerSocket;
-using folly::EventBase;
 using folly::EventBaseManager;
 using folly::IOThreadPoolExecutor;
-using folly::SocketAddress;
 using folly::ThreadPoolExecutor;
 
 namespace proxygen {

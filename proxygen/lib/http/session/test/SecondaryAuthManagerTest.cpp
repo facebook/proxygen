@@ -23,9 +23,6 @@ using namespace proxygen;
 using namespace fizz;
 using namespace fizz::test;
 using namespace folly;
-using namespace folly::test;
-using namespace folly::io;
-using namespace std;
 
 StringPiece expected_auth_request = {
     "120000303132333435363738396162636465660008000d000400020403"};

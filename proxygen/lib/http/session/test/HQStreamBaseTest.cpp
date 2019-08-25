@@ -13,7 +13,6 @@
 #include <folly/portability/GTest.h>
 
 using namespace proxygen;
-using namespace proxygen::detail;
 using namespace testing;
 
 /**

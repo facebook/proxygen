@@ -12,11 +12,7 @@
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 
 using namespace proxygen;
-using namespace proxygen::hq;
-using namespace quic;
-using namespace folly;
 using namespace testing;
-using namespace std::chrono;
 /**
  * A test case to validate that mocks exported by HQsesion
  * work correctly

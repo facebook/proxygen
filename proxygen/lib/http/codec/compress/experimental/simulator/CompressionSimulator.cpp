@@ -19,10 +19,8 @@
 
 using namespace std;
 using namespace folly;
-using namespace proxygen;
 
 namespace {
-using namespace proxygen::compress;
 
 // This needs to be synchronized with HPACKEncoder::kAutoFlushThreshold.
 const size_t kMTU = 1400;

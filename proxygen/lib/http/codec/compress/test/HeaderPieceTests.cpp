@@ -12,7 +12,6 @@
 #include <proxygen/lib/http/codec/compress/HeaderPiece.h>
 
 using namespace proxygen::compress;
-using namespace testing;
 
 class HeaderPieceTests : public testing::Test {};
 
