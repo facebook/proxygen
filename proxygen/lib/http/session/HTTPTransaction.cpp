@@ -1744,6 +1744,12 @@ void HTTPTransaction::updateTransactionBytesSent(uint64_t bytes) {
   }
 }
 
+void HTTPTransaction::checkIfEgressRateLimitedByUpstream() {
+  if(deferredEgressBody_.empty() && !hasPendingEOM() && transportCallback_) {
+    transportCallback_->egressBufferEmpty();
+  }
+}
+
 bool HTTPTransaction::getPrioritySampleSummary(
     HTTPTransaction::PrioritySampleSummary& summary) const {
   if (prioritySample_) {

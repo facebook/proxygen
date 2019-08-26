@@ -336,6 +336,7 @@ class MockHTTPTransactionTransportCallback
   GMOCK_METHOD1_(, noexcept, , lastByteAcked, void(std::chrono::milliseconds));
   GMOCK_METHOD1_(, noexcept, , trackedByteEventTX, void(const ByteEvent&));
   GMOCK_METHOD1_(, noexcept, , trackedByteEventAck, void(const ByteEvent&));
+  GMOCK_METHOD0_(, noexcept, , egressBufferEmpty, void());
   GMOCK_METHOD1_(, noexcept, , headerBytesGenerated, void(HTTPHeaderSize&));
   GMOCK_METHOD1_(
       , noexcept, , headerBytesReceived, void(const HTTPHeaderSize&));

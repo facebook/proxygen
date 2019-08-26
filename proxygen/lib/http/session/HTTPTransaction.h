@@ -361,6 +361,9 @@ class HTTPTransactionTransportCallback {
   virtual void trackedByteEventAck(const ByteEvent& /* event */) noexcept {
   }
 
+  virtual void egressBufferEmpty() noexcept {
+  }
+
   virtual void headerBytesGenerated(HTTPHeaderSize& size) noexcept = 0;
 
   virtual void headerBytesReceived(const HTTPHeaderSize& size) noexcept = 0;
@@ -1407,6 +1410,7 @@ class HTTPTransaction
   void updateRelativeWeight(double ratio);
   void updateSessionBytesSheduled(uint64_t bytes);
   void updateTransactionBytesSent(uint64_t bytes);
+  void checkIfEgressRateLimitedByUpstream();
 
   struct PrioritySampleSummary {
     struct WeightedAverage {
