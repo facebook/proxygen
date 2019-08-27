@@ -8,6 +8,7 @@
  *
  */
 // Use this main function in gtest unit tests to enable glog
+#include <folly/portability/GFlags.h>
 #include <folly/portability/GTest.h>
 #include <glog/logging.h>
 
