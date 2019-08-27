@@ -429,9 +429,8 @@ class HQSession
    *
    * proxygenError is delivered to open transactions
    */
-  void dropConnectionSync(
-      std::pair<quic::QuicErrorCode, std::string> errorCode,
-      ProxygenError proxygenError);
+  void dropConnectionSync(std::pair<quic::QuicErrorCode, std::string> errorCode,
+                          ProxygenError proxygenError);
 
   // Invokes dropConnectionSync at the beginning of the next loopCallback
   void dropConnectionAsync(
@@ -829,40 +828,37 @@ class HQSession
    */
   void invokeOnAllStreams(std::function<void(HQStreamTransportBase*)> fn) {
     invokeOnStreamsImpl(
-        fn,
-        std::bind(&HQSession::findStream, this, std::placeholders::_1),
-        std::bind(&HQSession::findIngressPushStreamByPushId,
-                  this,
-                  std::placeholders::_1));
+        std::move(fn),
+        [this](quic::StreamId id) { return this->findStream(id); },
+        [this](hq::PushId id) {
+          return this->findIngressPushStreamByPushId(id);
+        });
   }
 
   void invokeOnEgressStreams(std::function<void(HQStreamTransportBase*)> fn,
                              bool includeDetached = false) {
-    invokeOnStreamsImpl(fn,
-                        std::bind(&HQSession::findEgressStream,
-                                  this,
-                                  std::placeholders::_1,
-                                  includeDetached));
+    invokeOnStreamsImpl(std::move(fn),
+                        [this, includeDetached](quic::StreamId id) {
+                          return this->findEgressStream(id, includeDetached);
+                        });
   }
 
   void invokeOnIngressStreams(std::function<void(HQStreamTransportBase*)> fn,
                               bool includeDetached = false) {
-    invokeOnStreamsImpl(fn,
-                        std::bind(&HQSession::findIngressStream,
-                                  this,
-                                  std::placeholders::_1,
-                                  includeDetached),
-                        std::bind(&HQSession::findIngressPushStreamByPushId,
-                                  this,
-                                  std::placeholders::_1));
+    invokeOnStreamsImpl(std::move(fn),
+                        [this, includeDetached](quic::StreamId id) {
+                          return this->findIngressStream(id, includeDetached);
+                        },
+                        [this](hq::PushId id) {
+                          return this->findIngressPushStreamByPushId(id);
+                        });
   }
 
   void invokeOnNonDetachedStreams(
       std::function<void(HQStreamTransportBase*)> fn) {
-    invokeOnStreamsImpl(fn,
-                        std::bind(&HQSession::findNonDetachedStream,
-                                  this,
-                                  std::placeholders::_1));
+    invokeOnStreamsImpl(std::move(fn), [this](quic::StreamId id) {
+      return this->findNonDetachedStream(id);
+    });
   }
 
   // Apply the function on the streams found by the two locators.
@@ -1798,12 +1794,14 @@ class HQSession
 
     // Egress only stream should not pause ingress
     void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__ << " Ingress function called on egress-only stream, ignoring";
+      VLOG(4) << __func__
+              << " Ingress function called on egress-only stream, ignoring";
     }
 
     // Egress only stream should not pause ingress
     void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__ << " Ingress function called on egress-only stream, ignoring";
+      VLOG(4) << __func__
+              << " Ingress function called on egress-only stream, ignoring";
     }
 
    private:
