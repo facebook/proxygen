@@ -27,17 +27,19 @@ class DirectResponseHandler : public RequestHandler {
         body_(folly::IOBuf::copyBuffer(body)) {
   }
 
-  void onRequest(std::unique_ptr<HTTPMessage> /*headers*/) noexcept override {}
+  void onRequest(std::unique_ptr<HTTPMessage> /*headers*/) noexcept override {
+    ResponseBuilder(downstream_)
+        .status(code_, std::move(message_))
+        .body(std::move(body_))
+        .send();
+  }
 
   void onBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept override {}
 
   void onUpgrade(proxygen::UpgradeProtocol /*prot*/) noexcept override {}
 
   void onEOM() noexcept override {
-    ResponseBuilder(downstream_)
-        .status(code_, std::move(message_))
-        .body(std::move(body_))
-        .sendWithEOM();
+    ResponseBuilder(downstream_).sendWithEOM();
   }
 
   void requestComplete() noexcept override {
