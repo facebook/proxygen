@@ -155,6 +155,17 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
 
 FizzClientContextPtr createFizzClientContext(const HQParams& params) {
   auto ctx = std::make_shared<fizz::client::FizzClientContext>();
+
+  std::string certData = kDefaultCertData;
+  if (!params->certificateFilePath.empty()) {
+    folly::readFile(params->certificateFilePath.c_str(), certData);
+  }
+  std::string keyData = kDefaultKeyData;
+  if (!params->keyFilePath.empty()) {
+    folly::readFile(params->keyFilePath.c_str(), keyData);
+  }
+  auto cert = fizz::CertUtils::makeSelfCert(certData, keyData);
+  ctx->setClientCertificate(std::move(cert));
   ctx->setSupportedAlpns(params->supportedAlpns);
   ctx->setDefaultShares(
       {fizz::NamedGroup::x25519, fizz::NamedGroup::secp256r1});
