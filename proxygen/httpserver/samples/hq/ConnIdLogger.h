@@ -74,8 +74,8 @@ struct ConnIdLogSink : google::LogSink {
                                         line,
                                         ' ',
                                         testMsg);
-      ::write(fd, msg.c_str(), msg.size());
-      ::write(fd, "<br/>", 5);
+      FOLLY_MAYBE_UNUSED auto writeRes = ::write(fd, msg.c_str(), msg.size());
+      writeRes = ::write(fd, "<br/>", 5);
     } // else, not for a specific CID
   }
 

@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+include(CheckCXXCompilerFlag)
 
 project(
     proxygen
@@ -62,6 +63,19 @@ list(APPEND
     -Wall
     -Wextra
 )
+
+CHECK_CXX_COMPILER_FLAG(-Wnoexcept-type COMPILER_HAS_W_NOEXCEPT_TYPE)
+if (COMPILER_HAS_W_NOEXCEPT_TYPE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-noexcept-type")
+endif()
+CHECK_CXX_COMPILER_FLAG(-Wunused-parameter COMPILER_HAS_W_UNUSED_PARAMETER)
+if (COMPILER_HAS_W_UNUSED_PARAMETER)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
+endif()
+CHECK_CXX_COMPILER_FLAG(-Wmissing-field-initializers COMPILER_HAS_W_MISSING_FIELD_INITIALIZERS)
+if (COMPILER_HAS_W_MISSING_FIELD_INITIALIZERS)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
+endif()
 
 SET(GFLAG_DEPENDENCIES "")
 SET(PROXYGEN_EXTRA_LINK_LIBRARIES "")
