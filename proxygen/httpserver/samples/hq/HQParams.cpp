@@ -201,6 +201,9 @@ void initializeHttpSettings(HQParamsBuilder& builder) {
   // HTTP section
   // NOTE: handler factories are assigned by H2Server class
   // before starting.
+  builder.h2port = FLAGS_h2port;
+  builder.localH2Address =
+        folly::SocketAddress(builder.host, builder.h2port, true);
   builder.httpServerThreads = 1;
   builder.httpServerIdleTimeout = std::chrono::milliseconds(60000);
   builder.httpServerShutdownOn = {SIGINT, SIGTERM};

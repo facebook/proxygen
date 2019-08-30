@@ -137,6 +137,8 @@ public:
   bool earlyData;
 
   // HTTP section
+  uint16_t h2port;
+  folly::Optional<folly::SocketAddress> localH2Address;
   HTTPVersion httpVersion;
   std::string httpHeadersString;
   proxygen::HTTPHeaders httpHeaders;

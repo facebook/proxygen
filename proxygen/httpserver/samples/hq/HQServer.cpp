@@ -240,7 +240,7 @@ std::unique_ptr<H2Server::AcceptorConfig> H2Server::createServerAcceptorConfig(
     const HQParams& params) {
   auto acceptorConfig = std::make_unique<AcceptorConfig>();
   proxygen::HTTPServer::IPConfig ipConfig(
-      params->localAddress.value(), proxygen::HTTPServer::Protocol::HTTP2);
+      params->localH2Address.value(), proxygen::HTTPServer::Protocol::HTTP2);
   ipConfig.sslConfigs.emplace_back(createSSLContext(params));
   acceptorConfig->push_back(ipConfig);
   return acceptorConfig;
