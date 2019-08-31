@@ -12,6 +12,8 @@
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 
+#include <folly/lang/Assume.h>
+
 namespace proxygen { namespace hq {
 
 /*
@@ -38,13 +40,13 @@ class HQFramedCodec : public HTTPCodec {
   // Only implemented in the Stream Codec
   CodecProtocol getProtocol() const override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Only implemented in the Stream Codec
   const std::string& getUserAgent() const override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   TransportDirection getTransportDirection() const override {
@@ -54,7 +56,7 @@ class HQFramedCodec : public HTTPCodec {
   // Stream multiplexing handled at the transport
   HTTPCodec::StreamID createStream() override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   void setCallback(proxygen::HTTPCodec::Callback* callback) override {
@@ -93,7 +95,7 @@ class HQFramedCodec : public HTTPCodec {
   // no connection preface for HQ
   size_t generateConnectionPreface(folly::IOBufQueue& /*writeBuf*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Stream Codec
@@ -103,7 +105,7 @@ class HQFramedCodec : public HTTPCodec {
                       bool /*eom = false*/,
                       HTTPHeaderSize* /*size = nullptr*/) override {
     LOG(FATAL) << __func__ << " must be implemented in child class";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Stream Codec
@@ -114,7 +116,7 @@ class HQFramedCodec : public HTTPCodec {
                            bool /*eom = false*/,
                            HTTPHeaderSize* /*size = nullptr*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Not Supported for the time being
@@ -134,7 +136,7 @@ class HQFramedCodec : public HTTPCodec {
                       folly::Optional<uint8_t> /*padding*/,
                       bool /*eom*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // HQ has no chunk headers
@@ -142,14 +144,14 @@ class HQFramedCodec : public HTTPCodec {
                              StreamID /*stream*/,
                              size_t /*length*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // HQ has no chunk terminators
   size_t generateChunkTerminator(folly::IOBufQueue& /*writeBuf*/,
                                  StreamID /*stream*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // HQ has no trailers
@@ -157,14 +159,14 @@ class HQFramedCodec : public HTTPCodec {
                           StreamID /*stream*/,
                           const HTTPHeaders& /*trailers*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Only valid for the Stream Codec
   size_t generateEOM(folly::IOBufQueue& /*writeBuf*/,
                      StreamID /*stream*/) override {
     LOG(FATAL) << __func__ << " must be implemented in child class";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Handled at the transport layer
@@ -172,7 +174,7 @@ class HQFramedCodec : public HTTPCodec {
                            StreamID /*stream*/,
                            ErrorCode /*statusCode*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Control Codec
@@ -182,32 +184,32 @@ class HQFramedCodec : public HTTPCodec {
       ErrorCode /*statusCode*/,
       std::unique_ptr<folly::IOBuf> /*debugData = nullptr*/) override {
     LOG(FATAL) << __func__ << " must be implemented in child class";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Handled at the transport layer
   size_t generatePingRequest(folly::IOBufQueue& /*writeBuf*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Handled at the transport layer
   size_t generatePingReply(folly::IOBufQueue& /*writeBuf*/,
                            uint64_t /*uniqueID*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Control Codec
   size_t generateSettings(folly::IOBufQueue& /*writeBuf*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // No Settings ACK in HQ
   size_t generateSettingsAck(folly::IOBufQueue& /*writeBuf*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Flow Control Handled at the transport layer
@@ -215,7 +217,7 @@ class HQFramedCodec : public HTTPCodec {
                               StreamID /*stream*/,
                               uint32_t /*delta*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Control Codec
@@ -223,25 +225,25 @@ class HQFramedCodec : public HTTPCodec {
                           StreamID /*stream*/,
                           const HTTPMessage::HTTPPriority& /*pri*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Control Codec
   const HTTPSettings* getIngressSettings() const override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Control Codec
   HTTPSettings* getEgressSettings() override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // Flow Control Handled at the transport layer
   uint32_t getDefaultWindowSize() const override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   bool supportsPushTransactions() const override {
@@ -263,7 +265,7 @@ class HQFramedCodec : public HTTPCodec {
   // only valid on the Stream Codec
   bool isRequest(StreamID /*id*/) const {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Control Codec
@@ -271,21 +273,21 @@ class HQFramedCodec : public HTTPCodec {
                           folly::IOBufQueue& /*writeBuf*/,
                           uint8_t /*maxLevel*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // only valid for the Control Codec
   HTTPCodec::StreamID mapPriorityToDependency(
       uint8_t /*priority*/) const override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   // HTTPCodec has a default implementation, override that here to fail.
   // StreamCodec returns the QPACK table info
   CompressionInfo getCompressionInfo() const override {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
  protected:
@@ -294,61 +296,61 @@ class HQFramedCodec : public HTTPCodec {
   virtual ParseResult parseData(folly::io::Cursor& /*cursor*/,
                                 const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parseHeaders(folly::io::Cursor& /*cursor*/,
                                    const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parsePriority(folly::io::Cursor& /*cursor*/,
                                     const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parseCancelPush(folly::io::Cursor& /*cursor*/,
                                       const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parseSettings(folly::io::Cursor& /*cursor*/,
                                     const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parsePushPromise(folly::io::Cursor& /*cursor*/,
                                        const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parseGoaway(folly::io::Cursor& /*cursor*/,
                                   const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parseMaxPushId(folly::io::Cursor& /*cursor*/,
                                      const FrameHeader& /*header*/) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual ParseResult parsePartiallyReliableData(
       folly::io::Cursor& /* cursor */) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   virtual void onIngressPartiallyReliableBodyStarted(
       uint64_t /* streamOffset */) {
     LOG(FATAL) << __func__ << " not supported on this codec";
-    __builtin_unreachable();
+    folly::assume_unreachable();
   }
 
   uint64_t getCodecTotalBytesParsed() const {

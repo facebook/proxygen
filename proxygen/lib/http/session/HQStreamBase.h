@@ -10,6 +10,7 @@
 #pragma once
 
 #include <folly/Optional.h>
+#include <folly/lang/Assume.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
@@ -307,6 +308,7 @@ class SSEgress : public SSBidir {
 
   quic::StreamId getIngressStreamId() const override {
     LOG(FATAL) << "Egress only stream can not be used for ingress";
+    folly::assume_unreachable();
   }
 
   void setIngressStreamId(quic::StreamId /* streamId */) override {
@@ -328,6 +330,7 @@ class SSIngress : public SSBidir {
 
   quic::StreamId getEgressStreamId() const override {
     LOG(FATAL) << "Ingress only stream can not be used for egress";
+    folly::assume_unreachable();
   }
 
   void setEgressStreamId(quic::StreamId /* streamId */) override {
@@ -392,6 +395,7 @@ class CSBidir : public virtual HQStreamMapping {
 
   quic::StreamId getStreamId() const override {
     LOG(FATAL) << "Ambiguous call 'getStreamId' on a composite stream";
+    folly::assume_unreachable();
   }
 
   void setIngressStreamId(quic::StreamId streamId) override {

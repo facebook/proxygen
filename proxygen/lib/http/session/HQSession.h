@@ -14,6 +14,7 @@
 #include <folly/io/async/AsyncSocket.h>
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/EventBase.h>
+#include <folly/lang/Assume.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
@@ -1916,30 +1917,37 @@ class HQSession
     virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
     onIngressPeekDataAvailable(uint64_t /* streamOffset */) {
       LOG(FATAL) << ": called in base class";
+      folly::assume_unreachable();
     }
     virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
     onIngressDataExpired(uint64_t /* streamOffset */) {
       LOG(FATAL) << ": called in base class";
+      folly::assume_unreachable();
     }
     virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
     onIngressDataRejected(uint64_t /* streamOffset */) {
-      LOG(FATAL) << ": called in base classn";
+      LOG(FATAL) << ": called in base class";
+      folly::assume_unreachable();
     }
     virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
     onEgressBodySkip(uint64_t /* bodyOffset */) {
       LOG(FATAL) << ": called in base class";
+      folly::assume_unreachable();
     }
     virtual folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
     onEgressBodyReject(uint64_t /* bodyOffset */) {
       LOG(FATAL) << ": called in base class";
+      folly::assume_unreachable();
     }
     virtual hq::TrackerOffsetResult getEgressBodyOffset(
         uint64_t /* streamOffset */) const {
       LOG(FATAL) << ": called in base class";
+      folly::assume_unreachable();
     }
     virtual hq::TrackerOffsetResult appToStreamOffset(
         uint64_t /* bodyOffset */) const {
       LOG(FATAL) << ": called in base class";
+      folly::assume_unreachable();
     }
 
     HQSession& session_;

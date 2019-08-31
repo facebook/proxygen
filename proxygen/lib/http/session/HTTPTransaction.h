@@ -15,6 +15,7 @@
 #include <folly/io/async/AsyncTransport.h>
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <folly/lang/Assume.h>
 #include <iosfwd>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
@@ -500,13 +501,13 @@ class HTTPTransaction
     virtual folly::Expected<folly::Unit, ErrorCode> peek(
         PeekCallback /* peekCallback */) {
       LOG(FATAL) << __func__ << " not supported";
-      __builtin_unreachable();
+      folly::assume_unreachable();
     }
 
     virtual folly::Expected<folly::Unit, ErrorCode> consume(
         size_t /* amount */) {
       LOG(FATAL) << __func__ << " not supported";
-      __builtin_unreachable();
+      folly::assume_unreachable();
     }
 
     /**
@@ -515,7 +516,7 @@ class HTTPTransaction
     virtual folly::Expected<folly::Optional<uint64_t>, ErrorCode> skipBodyTo(
         HTTPTransaction* /* txn */, uint64_t /* nextBodyOffset */) {
       LOG(FATAL) << __func__ << " not supported";
-      __builtin_unreachable();
+      folly::assume_unreachable();
     }
 
     /**
@@ -524,7 +525,7 @@ class HTTPTransaction
     virtual folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
         HTTPTransaction* /* txn */, uint64_t /* nextBodyOffset */) {
       LOG(FATAL) << __func__ << " not supported";
-      __builtin_unreachable();
+      folly::assume_unreachable();
     }
 
     /**
@@ -533,7 +534,7 @@ class HTTPTransaction
     virtual folly::Expected<folly::Unit, ErrorCode> trackEgressBodyDelivery(
         uint64_t /* bodyOffset */) {
       LOG(FATAL) << __func__ << " not supported";
-      __builtin_unreachable();
+      folly::assume_unreachable();
     }
   };
 
