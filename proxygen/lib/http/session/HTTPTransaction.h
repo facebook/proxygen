@@ -1432,6 +1432,10 @@ class HTTPTransaction
     return deferredEgressBody_.chainLength() > 0;
   }
 
+  size_t getOutstandingEgressBodyBytes() const {
+    return deferredEgressBody_.chainLength();
+  }
+
   void setLastByteFlushedTrackingEnabled(bool enabled) {
     enableLastByteFlushedTracking_ = enabled;
   }
