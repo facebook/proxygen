@@ -13,6 +13,16 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/build/fbcode_builder/CMake"
   ${CMAKE_MODULE_PATH})
 
+option(BUILD_SHARED_LIBS
+  "If enabled, build proxygen as a shared library.  \
+  This is generally discouraged, since proxygen does not commit to having \
+  a stable ABI."
+  OFF
+)
+# Mark BUILD_SHARED_LIBS as an "advanced" option, since enabling it
+# is generally discouraged.
+mark_as_advanced(BUILD_SHARED_LIBS)
+
 # PROXYGEN_FBCODE_ROOT is where the top level proxygen/ directory resides, so
 # an #include <proxygen/path/to/file> will resolve to
 # $PROXYGEN_FBCODE_ROOT/proxygen/path/to/file on disk
