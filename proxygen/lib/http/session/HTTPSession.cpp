@@ -1967,6 +1967,7 @@ bool HTTPSession::getCurrentTransportInfoWithoutUpdate(
     tinfo->readTcpCongestionControl(sock);
     tinfo->readMaxPacingRate(sock);
 #endif // defined(__linux__) || defined(__FreeBSD__)
+    tinfo->totalBytes = sock->getRawBytesWritten();
     return true;
   }
   return false;
