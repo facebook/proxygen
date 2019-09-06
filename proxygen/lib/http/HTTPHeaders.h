@@ -319,7 +319,7 @@ void HTTPHeaders::add(folly::StringPiece name, T&& value) {
   codes_.push_back(code);
   headerNames_.push_back((code == HTTP_HEADER_OTHER)
       ? new std::string(name.data(), name.size())
-      : HTTPCommonHeaders::getPointerToHeaderName(code));
+      : HTTPCommonHeaders::getPointerToName(code));
   auto s = folly::rtrimWhitespace(std::forward<T>(value));
   headerValues_.emplace_back(s);
 }
@@ -327,7 +327,7 @@ void HTTPHeaders::add(folly::StringPiece name, T&& value) {
 template <typename T> // T = string
 void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
   codes_.push_back(code);
-  headerNames_.push_back(HTTPCommonHeaders::getPointerToHeaderName(code));
+  headerNames_.push_back(HTTPCommonHeaders::getPointerToName(code));
   auto s = folly::rtrimWhitespace(std::forward<T>(value));
   headerValues_.emplace_back(s);
 }

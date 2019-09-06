@@ -53,7 +53,7 @@ void HTTPHeaders::add(folly::StringPiece name, folly::StringPiece value) {
   codes_.push_back(code);
   headerNames_.push_back((code == HTTP_HEADER_OTHER)
       ? new std::string(name.data(), name.size())
-      : HTTPCommonHeaders::getPointerToHeaderName(code));
+      : HTTPCommonHeaders::getPointerToName(code));
   headerValues_.emplace_back(value.data(), value.size());
 }
 
@@ -77,7 +77,7 @@ void HTTPHeaders::addFromCodec(const char* str, size_t len, string&& value) {
   codes_.push_back(code);
   headerNames_.push_back((code == HTTP_HEADER_OTHER)
       ? new string(str, len)
-      : HTTPCommonHeaders::getPointerToHeaderName(code));
+      : HTTPCommonHeaders::getPointerToName(code));
   headerValues_.emplace_back(
       folly::rtrimWhitespace(std::move(value)).toString());
 }

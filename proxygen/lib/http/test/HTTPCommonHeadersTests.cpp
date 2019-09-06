@@ -34,59 +34,61 @@ TEST_F(HTTPCommonHeadersTests, TestTwoTablesInitialized) {
   std::string common("Content-Length");
   HTTPHeaderCode code = HTTPCommonHeaders::hash(common);
 
-  EXPECT_EQ(*HTTPCommonHeaders::getPointerToHeaderName(code), "Content-Length");
+  EXPECT_EQ(*HTTPCommonHeaders::getPointerToName(code), "Content-Length");
   EXPECT_EQ(
-    *HTTPCommonHeaders::getPointerToHeaderName(
+    *HTTPCommonHeaders::getPointerToName(
       code, HTTPCommonHeaderTableType::TABLE_LOWERCASE), "content-length");
 }
 
 TEST_F(HTTPCommonHeadersTests, TestIsCommonHeaderNameFromTable) {
   // The first two hardcoded headers are not considered actual common headers
   EXPECT_FALSE(
-    HTTPCommonHeaders::isHeaderNameFromTable(
-      HTTPCommonHeaders::getPointerToHeaderName(HTTP_HEADER_NONE),
-      TABLE_CAMELCASE));
+    HTTPCommonHeaders::isNameFromTable(
+      HTTPCommonHeaders::getPointerToName(HTTP_HEADER_NONE),
+      HTTPCommonHeaderTableType::TABLE_CAMELCASE));
   EXPECT_FALSE(
-    HTTPCommonHeaders::isHeaderNameFromTable(
-      HTTPCommonHeaders::getPointerToHeaderName(HTTP_HEADER_OTHER),
-      TABLE_CAMELCASE));
+    HTTPCommonHeaders::isNameFromTable(
+      HTTPCommonHeaders::getPointerToName(HTTP_HEADER_OTHER),
+      HTTPCommonHeaderTableType::TABLE_CAMELCASE));
 
   // Verify that the first actual common header in the address table checks out
   // Assuming there is at least one common header in the table (first two
   // entries are HTTP_HEADER_NONE and HTTP_HEADER_OTHER)
-  if (HTTPCommonHeaders::num_header_codes > HTTPHeaderCodeCommonOffset) {
+  if (HTTPCommonHeaders::num_codes > HTTPHeaderCodeCommonOffset) {
     EXPECT_TRUE(
-      HTTPCommonHeaders::isHeaderNameFromTable(
-        HTTPCommonHeaders::getPointerToHeaderName(
+      HTTPCommonHeaders::isNameFromTable(
+        HTTPCommonHeaders::getPointerToName(
           static_cast<HTTPHeaderCode>(HTTPHeaderCodeCommonOffset + 1)),
-        TABLE_CAMELCASE));
+        HTTPCommonHeaderTableType::TABLE_CAMELCASE));
 
     // Verify that the last header in the common address table checks out
     EXPECT_TRUE(
-      HTTPCommonHeaders::isHeaderNameFromTable(
-        HTTPCommonHeaders::getPointerToHeaderName(
+      HTTPCommonHeaders::isNameFromTable(
+        HTTPCommonHeaders::getPointerToName(
           static_cast<HTTPHeaderCode>(
-            HTTPCommonHeaders::num_header_codes - 1)), TABLE_CAMELCASE));
+            HTTPCommonHeaders::num_codes - 1)),
+        HTTPCommonHeaderTableType::TABLE_CAMELCASE));
   }
 
   // Verify that a random header is not identified as being part of the common
   // address table
   std::string externalHeader = "externalHeader";
-  EXPECT_FALSE(HTTPCommonHeaders::isHeaderNameFromTable(
-    &externalHeader, TABLE_CAMELCASE));
+  EXPECT_FALSE(HTTPCommonHeaders::isNameFromTable(
+    &externalHeader, HTTPCommonHeaderTableType::TABLE_CAMELCASE));
 }
 
 TEST_F(HTTPCommonHeadersTests, TestGetHeaderCodeFromTableCommonHeaderName) {
   for (uint64_t j = HTTPHeaderCodeCommonOffset;
-       j < HTTPCommonHeaders::num_header_codes; ++j) {
+       j < HTTPCommonHeaders::num_codes; ++j) {
     HTTPHeaderCode code = static_cast<HTTPHeaderCode>(j);
     EXPECT_TRUE(
       code ==
-      HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
-        HTTPCommonHeaders::getPointerToHeaderName(code), TABLE_CAMELCASE));
+      HTTPCommonHeaders::getCodeFromTableName(
+        HTTPCommonHeaders::getPointerToName(code),
+        HTTPCommonHeaderTableType::TABLE_CAMELCASE));
   }
   std::string externalHeader = "externalHeader";
   EXPECT_TRUE(HTTP_HEADER_OTHER ==
-    HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
-      &externalHeader, TABLE_CAMELCASE));
+    HTTPCommonHeaders::getCodeFromTableName(
+      &externalHeader, HTTPCommonHeaderTableType::TABLE_CAMELCASE));
 }

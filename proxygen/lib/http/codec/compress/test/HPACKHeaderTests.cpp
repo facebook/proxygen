@@ -176,10 +176,10 @@ TEST_F(HPACKHeaderNameTest, TestOperators) {
 }
 
 TEST_F(HPACKHeaderNameTest, TestIsCommonHeader) {
-  for (uint64_t j = 0; j < HTTPCommonHeaders::num_header_codes; ++j) {
+  for (uint64_t j = 0; j < HTTPCommonHeaders::num_codes; ++j) {
     HTTPHeaderCode code = static_cast<HTTPHeaderCode>(j);
     HPACKHeader testHPACKHeader(
-      *HTTPCommonHeaders::getPointerToHeaderName(code), "");
+      *HTTPCommonHeaders::getPointerToName(code), "");
 
     bool checkResult = j >= HTTPHeaderCodeCommonOffset;
     EXPECT_EQ(testHPACKHeader.name.isCommonHeader(), checkResult);

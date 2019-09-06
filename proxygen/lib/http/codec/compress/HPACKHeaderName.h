@@ -112,15 +112,16 @@ class HPACKHeaderName {
    * Returns the HTTPHeaderCode associated with the wrapped address_
    */
   HTTPHeaderCode getHeaderCode() const {
-    return HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
-      address_, TABLE_LOWERCASE);
+    return HTTPCommonHeaders::getCodeFromTableName(
+      address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }
 
   /*
    * Returns whether the name pointed to by this instance is a common header
    */
   bool isCommonHeader() const {
-    return HTTPCommonHeaders::isHeaderNameFromTable(address_, TABLE_LOWERCASE);
+    return HTTPCommonHeaders::isNameFromTable(
+      address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }
 
   /*
@@ -146,8 +147,8 @@ class HPACKHeaderName {
       std::transform(name.begin(), name.end(), newAddress->begin(), ::tolower);
       address_ = newAddress;
     } else {
-      address_ = HTTPCommonHeaders::getPointerToHeaderName(
-        headerCode, TABLE_LOWERCASE);
+      address_ = HTTPCommonHeaders::getPointerToName(
+        headerCode, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
     }
   }
 
@@ -188,8 +189,8 @@ class HPACKHeaderName {
     if (address_ == nullptr) {
       return false;
     } else {
-      return !HTTPCommonHeaders::isHeaderNameFromTable(
-        address_, TABLE_LOWERCASE);
+      return !HTTPCommonHeaders::isNameFromTable(
+        address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
     }
   }
 

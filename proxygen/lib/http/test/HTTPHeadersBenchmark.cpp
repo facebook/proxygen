@@ -29,7 +29,7 @@ namespace {
 std::vector<HTTPHeaderCode> getTestHeaderCodes() {
   std::vector<HTTPHeaderCode> testHeaderCodes;
   for (uint64_t j = HTTPHeaderCodeCommonOffset;
-       j < HTTPCommonHeaders::num_header_codes; ++j) {
+       j < HTTPCommonHeaders::num_codes; ++j) {
     testHeaderCodes.push_back(static_cast<HTTPHeaderCode>(j));
   }
   return testHeaderCodes;
@@ -38,16 +38,16 @@ std::vector<HTTPHeaderCode> getTestHeaderCodes() {
 std::vector<const std::string *> getTestHeaderStrings() {
   std::vector<const std::string *> testHeaderStrings;
   for (uint64_t j = HTTPHeaderCodeCommonOffset;
-       j < HTTPCommonHeaders::num_header_codes; ++j) {
+       j < HTTPCommonHeaders::num_codes; ++j) {
     testHeaderStrings.push_back(
-      HTTPCommonHeaders::getPointerToHeaderName(
+      HTTPCommonHeaders::getPointerToName(
         static_cast<HTTPHeaderCode>(j)));
   }
   return testHeaderStrings;
 }
 
 static const std::string* testHeaderNames =
-  HTTPCommonHeaders::getPointerToHeaderName(HTTP_HEADER_NONE);
+  HTTPCommonHeaders::getPointerToName(HTTP_HEADER_NONE);
 
 static const std::vector<HTTPHeaderCode> testHeaderCodes = getTestHeaderCodes();
 
@@ -67,9 +67,9 @@ void HTTPCommonHeadersHashBench(int iters) {
 void HTTPCommonHeadersGetHeaderCodeFromTableCommonHeaderNameBench(int iters) {
   for (int i = 0; i < iters; ++i) {
     for (uint64_t j = HTTPHeaderCodeCommonOffset;
-         j < HTTPCommonHeaders::num_header_codes; ++j) {
-      HTTPCommonHeaders::getHeaderCodeFromTableCommonHeaderName(
-        &testHeaderNames[j], TABLE_CAMELCASE);
+         j < HTTPCommonHeaders::num_codes; ++j) {
+      HTTPCommonHeaders::getCodeFromTableName(
+        &testHeaderNames[j], HTTPCommonHeaderTableType::TABLE_CAMELCASE);
     }
   }
 }
@@ -85,7 +85,7 @@ BENCHMARK(HTTPCommonHeadersGetHeaderCodeFromTableCommonHeaderName, iters) {
 void memchrBench(int iters) {
   for (int i = 0; i < iters; ++i) {
     for (uint64_t j = HTTPHeaderCodeCommonOffset;
-         j < HTTPCommonHeaders::num_header_codes; ++j) {
+         j < HTTPCommonHeaders::num_codes; ++j) {
       CHECK(
         memchr(
           (void*)testHeaderCodes.data(), static_cast<HTTPHeaderCode>(j),
@@ -97,8 +97,8 @@ void memchrBench(int iters) {
 void stdFindBench(int iters) {
   for (int i = 0; i < iters; ++i) {
     for (uint64_t j = HTTPHeaderCodeCommonOffset;
-         j < HTTPCommonHeaders::num_header_codes; ++j) {
-      auto address = HTTPCommonHeaders::getPointerToHeaderName(
+         j < HTTPCommonHeaders::num_codes; ++j) {
+      auto address = HTTPCommonHeaders::getPointerToName(
         static_cast<HTTPHeaderCode>(j));
       CHECK(
         std::find(

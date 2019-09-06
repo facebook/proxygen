@@ -25,7 +25,7 @@ struct Header {
 
   Header(HTTPHeaderCode c,
          const std::string& v)
-    : code(c), name(HTTPCommonHeaders::getPointerToHeaderName(c)), value(&v) {}
+    : code(c), name(HTTPCommonHeaders::getPointerToName(c)), value(&v) {}
 
   Header(HTTPHeaderCode c,
          const std::string& n,

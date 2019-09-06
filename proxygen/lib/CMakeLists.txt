@@ -13,30 +13,19 @@ file(
 
 add_custom_command(
     OUTPUT ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.h
-    COMMAND
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.h.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
-        ${PROXYGEN_FBCODE_ROOT}
-        ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http
-    DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.h.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.template.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
-    COMMENT "Generating HTTPCommonHeaders.h"
-)
-add_custom_command(
     OUTPUT ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.cpp
     COMMAND
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.cpp.sh
+        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.sh
         ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
         ${PROXYGEN_FBCODE_ROOT}
         ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http
-        ${PROXYGEN_GPERF}
     DEPENDS
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.h.sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.template.gperf
+        ${CMAKE_CURRENT_SOURCE_DIR}/http/gen_HTTPCommonHeaders.sh
         ${CMAKE_CURRENT_SOURCE_DIR}/http/HTTPCommonHeaders.txt
-    COMMENT "Generating HTTPCommonHeaders.cpp"
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/gen_perfect_hash_table.sh
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/perfect_hash_table_template.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/utils/perfect_hash_table_template.cpp.gperf
+    COMMENT "Generating HTTPCommonHeaders.h and HTTPCommonHeaders.cpp"
 )
 add_custom_command(
     OUTPUT

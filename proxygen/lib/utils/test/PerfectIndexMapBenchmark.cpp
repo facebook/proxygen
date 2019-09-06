@@ -12,6 +12,7 @@
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
 #include <proxygen/lib/utils/PerfectIndexMap.h>
 #include <unordered_map>
+#include <folly/container/F14Map.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -21,16 +22,16 @@ using namespace proxygen;
 // ============================================================================
 // proxygen/lib/utils/test/PerfectIndexMapBenchmark.cpprelative  time/iter  iters/s
 // ============================================================================
-// proxygen/lib/utils/test/PerfectIndexMapBenchmark.cpprelative  time/iter  iters/s
-// ============================================================================
-// UnorderedMapUniqueInserts                                    8.80us  113.62K
-// UnorderedMapUniqueGets                                       9.95us  100.49K
-// PerfectIndexMapUniqueInsertsCode                             3.12us  320.90K
-// PerfectIndexMapUniqueInsertsHashCodeString                   7.35us  136.09K
-// PerfectIndexMapUniqueInsertsHashOtherString                 37.07us   26.98K
-// PerfectIndexMapUniqueGetsCode                                4.71us  212.23K
-// PerfectIndexMapUniqueGetsCodeString                          8.97us  111.49K
-// PerfectIndexMapUniqueGetsOtherString                        36.23us   27.60K
+// F14UniqueInserts                                             4.95us  202.03K
+// F14UniqueGets                                                4.79us  208.62K
+// UnorderedMapUniqueInserts                                    6.45us  154.97K
+// UnorderedMapUniqueGets                                       7.25us  138.01K
+// PerfectIndexMapUniqueInsertsCode                             2.59us  386.13K
+// PerfectIndexMapUniqueInsertsHashCodeString                   6.45us  155.10K
+// PerfectIndexMapUniqueInsertsHashOtherString                 29.62us   33.76K
+// PerfectIndexMapUniqueGetsCode                                3.56us  281.26K
+// PerfectIndexMapUniqueGetsCodeString                          7.77us  128.65K
+// PerfectIndexMapUniqueGetsOtherString                        32.05us   31.20K
 // ============================================================================
 
 namespace {
@@ -38,7 +39,7 @@ namespace {
 std::vector<HTTPHeaderCode> getTestHeaderCodes() {
   std::vector<HTTPHeaderCode> testHeaderCodes;
   for (uint64_t j = HTTPHeaderCodeCommonOffset;
-       j < HTTPCommonHeaders::num_header_codes; ++j) {
+       j < HTTPCommonHeaders::num_codes; ++j) {
     testHeaderCodes.push_back(static_cast<HTTPHeaderCode>(j));
   }
   return testHeaderCodes;
@@ -47,9 +48,9 @@ std::vector<HTTPHeaderCode> getTestHeaderCodes() {
 std::vector<const std::string *> getTestHeaderCodeStrings() {
   std::vector<const std::string *> testHeadersCodeStrings;
   for (uint64_t j = HTTPHeaderCodeCommonOffset;
-       j < HTTPCommonHeaders::num_header_codes; ++j) {
+       j < HTTPCommonHeaders::num_codes; ++j) {
     testHeadersCodeStrings.push_back(
-      HTTPCommonHeaders::getPointerToHeaderName(
+      HTTPCommonHeaders::getPointerToName(
         static_cast<HTTPHeaderCode>(j)));
   }
   return testHeadersCodeStrings;
@@ -58,10 +59,10 @@ std::vector<const std::string *> getTestHeaderCodeStrings() {
 std::vector<const std::string *> getTestHeaderOtherStrings() {
   std::vector<const std::string *> testHeadersOtherStrings;
   for (uint64_t j = HTTPHeaderCodeCommonOffset;
-       j < HTTPCommonHeaders::num_header_codes; ++j) {
+       j < HTTPCommonHeaders::num_codes; ++j) {
     testHeadersOtherStrings.push_back(
       new std::string(
-        *HTTPCommonHeaders::getPointerToHeaderName(
+        *HTTPCommonHeaders::getPointerToName(
           static_cast<HTTPHeaderCode>(j))
         + "0"));
   }
@@ -94,6 +95,31 @@ void UnorderedMapInsertBench(
     for (auto const& keyAndValue: keysAndValues) {
       // Modeled after old impl of varstore
       testMap[*keyAndValue] = *keyAndValue;
+    }
+  }
+}
+void F14InsertBench(
+    folly::F14FastMap<std::string,std::string>& testMap,
+    const std::vector<const std::string *>& keysAndValues, int iters) {
+  for (int i = 0; i < iters; ++i) {
+    for (auto const& keyAndValue: keysAndValues) {
+      // Modeled after old impl of varstore
+      testMap[*keyAndValue] = *keyAndValue;
+    }
+  }
+}
+
+void F14GetBench(
+    folly::F14FastMap<std::string,std::string>& testMap,
+    const std::vector<const std::string *>& keys, int iters) {
+  for (int i = 0; i < iters; ++i) {
+    for (auto const& key: keys) {
+      // Modeled after old impl of varstore
+      auto it = testMap.find(*key);
+      folly::Optional<std::string> result = (
+        it == testMap.end() ?
+        folly::none : (folly::Optional<std::string>)it->second);
+      CHECK(result != folly::none);
     }
   }
 }
@@ -153,6 +179,26 @@ void PerfectIndexMapGetStringBench(
   }
 }
 
+folly::F14FastMap<std::string, std::string> bF14UniqueInsertsMap;
+BENCHMARK(F14UniqueInserts, iters) {
+  F14InsertBench(
+    bF14UniqueInsertsMap, testHeadersCodeStrings, iters);
+}
+
+folly::F14FastMap<std::string, std::string>
+    getBenchF14UniqueGetsTestMap() {
+  folly::F14FastMap<std::string, std::string> testMap;
+  F14InsertBench(testMap, testHeadersCodeStrings, 1);
+  return testMap;
+}
+
+folly::F14FastMap<std::string, std::string> bF14UniqueGetsMap =
+  getBenchF14UniqueGetsTestMap();
+BENCHMARK(F14UniqueGets, iters) {
+  F14GetBench(
+    bF14UniqueGetsMap, testHeadersCodeStrings, iters);
+}
+
 std::unordered_map<std::string, std::string> bUnorderedMapUniqueInsertsMap;
 BENCHMARK(UnorderedMapUniqueInserts, iters) {
   UnorderedMapInsertBench(
@@ -165,6 +211,7 @@ std::unordered_map<std::string, std::string>
   UnorderedMapInsertBench(testMap, testHeadersCodeStrings, 1);
   return testMap;
 }
+
 std::unordered_map<std::string, std::string> bUnorderedMapUniqueGetsMap =
   getBenchUnorderedMapUniqueGetsTestMap();
 BENCHMARK(UnorderedMapUniqueGets, iters) {

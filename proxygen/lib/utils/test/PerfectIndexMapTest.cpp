@@ -71,7 +71,7 @@ typedef testing::Types<
       false,
       true,
       HTTPHeaderCodeCommonOffset,
-      HTTPCommonHeaders::num_header_codes>,
+      HTTPCommonHeaders::num_codes>,
     PerfectIndexMapTestsTemplateParams<
       HTTPHeaderCode,
       HTTP_HEADER_OTHER,
@@ -80,7 +80,7 @@ typedef testing::Types<
       true,
       true,
       HTTPHeaderCodeCommonOffset,
-      HTTPCommonHeaders::num_header_codes>,
+      HTTPCommonHeaders::num_codes>,
     PerfectIndexMapTestsTemplateParams<
       HTTPHeaderCode,
       HTTP_HEADER_OTHER,
@@ -89,7 +89,7 @@ typedef testing::Types<
       true,
       false,
       HTTPHeaderCodeCommonOffset,
-      HTTPCommonHeaders::num_header_codes>,
+      HTTPCommonHeaders::num_codes>,
     PerfectIndexMapTestsTemplateParams<
       HTTPHeaderCode,
       HTTP_HEADER_OTHER,
@@ -98,7 +98,7 @@ typedef testing::Types<
       false,
       false,
       HTTPHeaderCodeCommonOffset,
-      HTTPCommonHeaders::num_header_codes>
+      HTTPCommonHeaders::num_codes>
   > TestTypes;
 TYPED_TEST_CASE(PerfectIndexMapTests, TestTypes);
 
