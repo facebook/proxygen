@@ -41,5 +41,6 @@ function generate_perfect_hash_table {
   # The reason this line is removed is the '...'s are actually expanded to
   # absolute paths on the build machine which prevents buck's cache from being
   # used effectively.
-  sed -i  "/\\/* Command-line: /d" "${7?}"
+  # Prefer perl to sed so that it works on both Mac and Linux.
+  perl -n -i -e "print unless m /\\/* Command-line: /" "${7?}"
 }
