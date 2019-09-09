@@ -22,6 +22,7 @@ const HPACKHeader& QPACKContext::getHeader(bool isStatic,
                                            uint32_t base,
                                            bool aboveBase) {
   if (isStatic) {
+    staticRefs_++;
     return getStaticTable().getHeader(index);
   }
   if (aboveBase) {

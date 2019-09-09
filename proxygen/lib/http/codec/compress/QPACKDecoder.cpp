@@ -253,6 +253,8 @@ void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
         // duplicate such a header?
         LOG(DFATAL) << "Encoder duplicated a header larger than capacity";
         err_ = HPACK::DecodeError::INSERT_TOO_LARGE;
+      } else {
+        duplications_++;
       }
     }
   }

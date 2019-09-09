@@ -87,8 +87,8 @@ TEST_F(QPACKTests, TestSimple) {
   auto result = cb.getResult();
   EXPECT_TRUE(!result.hasError());
   headersEq(req, result->headers);
-  EXPECT_GT(client.getCompressionInfo().egressHeadersStored_, 0);
-  EXPECT_GT(server.getCompressionInfo().ingressHeadersStored_, 0);
+  EXPECT_GT(client.getCompressionInfo().egress.headersStored_, 0);
+  EXPECT_GT(server.getCompressionInfo().ingress.headersStored_, 0);
 }
 
 TEST_F(QPACKTests, TestAbsoluteIndex) {
@@ -118,8 +118,8 @@ TEST_F(QPACKTests, TestAbsoluteIndex) {
     EXPECT_TRUE(!result.hasError());
     headersEq(req, result->headers);
   }
-  EXPECT_GT(client.getCompressionInfo().egressHeadersStored_, 0);
-  EXPECT_GT(server.getCompressionInfo().ingressHeadersStored_, 0);
+  EXPECT_GT(client.getCompressionInfo().egress.headersStored_, 0);
+  EXPECT_GT(server.getCompressionInfo().ingress.headersStored_, 0);
 }
 
 TEST_F(QPACKTests, TestWithQueue) {
@@ -186,8 +186,8 @@ TEST_F(QPACKTests, TestWithQueue) {
   // Skipping redundant table adds reduces the HOL block count
   EXPECT_EQ(server.getHolBlockCount(), 30);
 
-  EXPECT_GT(client.getCompressionInfo().egressHeadersStored_, 0);
-  EXPECT_GT(server.getCompressionInfo().ingressHeadersStored_, 0);
+  EXPECT_GT(client.getCompressionInfo().egress.headersStored_, 0);
+  EXPECT_GT(server.getCompressionInfo().ingress.headersStored_, 0);
 }
 
 TEST_F(QPACKTests, HeaderCodecStats) {

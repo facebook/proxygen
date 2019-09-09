@@ -45,6 +45,22 @@ class QPACKContext {
     return table_.size();
   }
 
+  uint32_t getInsertCount() const {
+    return table_.getInsertCount();
+  }
+
+  uint32_t getBlockedInserts() const {
+    return blockedInsertions_;
+  }
+
+  uint32_t getDuplications() const {
+    return duplications_;
+  }
+
+  uint32_t getStaticRefs() const {
+    return staticRefs_;
+  }
+
   void seedHeaderTable(std::vector<HPACKHeader>& headers);
 
   void describe(std::ostream& os) const;
@@ -59,6 +75,9 @@ class QPACKContext {
   }
 
   QPACKHeaderTable table_;
+  uint32_t blockedInsertions_{0};
+  uint32_t duplications_{0};
+  uint32_t staticRefs_{0};
 };
 
 std::ostream& operator<<(std::ostream& os, const QPACKContext& context);

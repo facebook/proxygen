@@ -315,7 +315,7 @@ TEST_P(HQDownstreamSessionTest, SimpleGet) {
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   if (IS_HQ) {
     // Checks that the server response is sent using the QPACK dynamic table
-    CHECK_GE(qpackCodec_.getCompressionInfo().ingressHeaderTableSize_, 0);
+    CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
   }
   hqSession_->closeWhenIdle();
 }
@@ -627,7 +627,7 @@ TEST_P(HQDownstreamSessionTest, OnConnectionWindowPartialBody) {
     EXPECT_GT(socketDriver_->streams_[kQPACKEncoderEgressStreamId]
                   .writeBuf.chainLength(),
               0);
-    EXPECT_GT(qpackCodec_.getCompressionInfo().egressHeaderTableSize_, 0);
+    EXPECT_GT(qpackCodec_.getCompressionInfo().egress.headerTableSize_, 0);
   }
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
   // Open the flow control window
@@ -2035,7 +2035,7 @@ TEST_P(HQDownstreamSessionTestHQNoSettings, SimpleGet) {
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   // Checks that the server response is sent without the QPACK dynamic table
-  CHECK_EQ(qpackCodec_.getCompressionInfo().ingressHeaderTableSize_, 0);
+  CHECK_EQ(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
 
   // TODO: Check that QPACK does not use the dynamic table for the response
   hqSession_->closeWhenIdle();
@@ -2210,7 +2210,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ,
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
   if (IS_HQ) {
     // Checks that the server response is sent using the QPACK dynamic table
-    CHECK_GE(qpackCodec_.getCompressionInfo().ingressHeaderTableSize_, 0);
+    CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
   }
   hqSession_->closeWhenIdle();
 }

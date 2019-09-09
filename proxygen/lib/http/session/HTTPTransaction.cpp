@@ -1447,16 +1447,12 @@ void HTTPTransaction::updateHandlerPauseState() {
 
 void HTTPTransaction::updateIngressCompressionInfo(
     const CompressionInfo& tableInfo) {
-  tableInfo_.ingressHeaderTableSize_ = tableInfo.ingressHeaderTableSize_;
-  tableInfo_.ingressBytesStored_ = tableInfo.ingressBytesStored_;
-  tableInfo_.ingressHeadersStored_ = tableInfo.ingressHeadersStored_;
+  tableInfo_.ingress = tableInfo.ingress;
 }
 
 void HTTPTransaction::updateEgressCompressionInfo(
     const CompressionInfo& tableInfo) {
-  tableInfo_.egressHeaderTableSize_ = tableInfo.egressHeaderTableSize_;
-  tableInfo_.egressBytesStored_ = tableInfo.egressBytesStored_;
-  tableInfo_.egressHeadersStored_ = tableInfo.egressHeadersStored_;
+  tableInfo_.egress = tableInfo.egress;
 }
 
 const CompressionInfo& HTTPTransaction::getCompressionInfo() const {

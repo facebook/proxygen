@@ -35,6 +35,7 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
   if (consultStaticTable) {
     uint32_t staticIndex = getStaticTable().getIndex(header);
     if (staticIndex) {
+      staticRefs_++;
       return staticToGlobalIndex(staticIndex);
     }
   }
@@ -51,6 +52,7 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
 uint32_t HPACKContext::nameIndex(const HPACKHeaderName& headerName) const {
   uint32_t index = getStaticTable().nameIndex(headerName);
   if (index) {
+    staticRefs_++;
     return staticToGlobalIndex(index);
   }
   index = table_.nameIndex(headerName);
@@ -66,6 +68,7 @@ bool HPACKContext::isStatic(uint32_t index) const {
 
 const HPACKHeader& HPACKContext::getHeader(uint32_t index) {
   if (isStatic(index)) {
+    staticRefs_++;
     return getStaticTable().getHeader(globalToStaticIndex(index));
   }
   return table_.getHeader(globalToDynamicIndex(index));

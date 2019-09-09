@@ -66,6 +66,14 @@ class HPACKContext {
 
   void describe(std::ostream& os) const;
 
+  uint32_t getStaticRefs() const {
+    return staticRefs_;
+  }
+
+  uint32_t getInsertCount() const {
+    return table_.getInsertCount();
+  }
+
  protected:
   const StaticHeaderTable& getStaticTable() const {
     return StaticHeaderTable::get();
@@ -85,6 +93,7 @@ class HPACKContext {
   }
 
   HeaderTable table_;
+  mutable uint32_t staticRefs_{0};
 };
 
 std::ostream& operator<<(std::ostream& os, const HPACKContext& context);

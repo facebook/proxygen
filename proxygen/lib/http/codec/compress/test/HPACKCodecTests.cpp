@@ -260,7 +260,7 @@ TEST_F(HPACKCodecTests, DefaultHeaderIndexingStrategy) {
 
   // Control equality check; all basic headers were indexed
   client.encode(headers);
-  EXPECT_EQ(client.getCompressionInfo().egressHeadersStored_,
+  EXPECT_EQ(client.getCompressionInfo().egress.headersStored_,
             headersIndexableSize);
 
   // Verify HPACKCodec by default utilizes the default header indexing strategy
@@ -277,7 +277,7 @@ TEST_F(HPACKCodecTests, DefaultHeaderIndexingStrategy) {
   headers.insert(headers.end(), noIndexHeaders.begin(), noIndexHeaders.end());
   HPACKCodec testCodec{TransportDirection::UPSTREAM};
   testCodec.encode(headers);
-  EXPECT_EQ(testCodec.getCompressionInfo().egressHeadersStored_,
+  EXPECT_EQ(testCodec.getCompressionInfo().egress.headersStored_,
             headersIndexableSize);
 }
 

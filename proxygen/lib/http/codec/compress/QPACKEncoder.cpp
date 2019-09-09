@@ -96,6 +96,7 @@ void QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
   uint32_t index = getStaticTable().getIndex(header);
   if (index > 0) {
     // static reference
+    staticRefs_++;
     streamBuffer_.encodeInteger(index - 1,
                                 HPACK::Q_INDEXED.code | HPACK::Q_INDEXED_STATIC,
                                 HPACK::Q_INDEXED.prefixLength);
@@ -128,23 +129,26 @@ void QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
     // Now check if we should emit an insertion on the control stream
     // Don't try to index if we're out of encoder flow control
     indexable &= maxEncoderStreamBytes_ > 0;
-    if (indexable && table_.canIndex(header)) {
-      encodeInsertQ(header, isStaticName, nameIndex);
-      CHECK(table_.add(header.copy()));
-      if (allowVulnerable() && lastEntryAvailable()) {
-        index = table_.getInsertCount();
-      } else {
-        index = 0;
-        if (absoluteNameIndex > 0 &&
-            !table_.isValid(table_.absoluteToRelative(absoluteNameIndex))) {
-          // The insert may have invalidated the name index.
-          isStaticName = true;
-          nameIndex = 0;
-          absoluteNameIndex = 0;
+    if (indexable) {
+      if (table_.canIndex(header)) {
+        encodeInsertQ(header, isStaticName, nameIndex);
+        CHECK(table_.add(header.copy()));
+        if (allowVulnerable() && lastEntryAvailable()) {
+          index = table_.getInsertCount();
+        } else {
+          index = 0;
+          if (absoluteNameIndex > 0 &&
+              !table_.isValid(table_.absoluteToRelative(absoluteNameIndex))) {
+            // The insert may have invalidated the name index.
+            isStaticName = true;
+            nameIndex = 0;
+            absoluteNameIndex = 0;
+          }
         }
+      } else {
+        blockedInsertions_++;
       }
     }
-
     if (index == 0) {
       // Couldn't insert it: table full, not indexable, or table contains
       // vulnerable reference.  Encode a literal on the request stream.
@@ -182,6 +186,7 @@ std::pair<bool, uint32_t> QPACKEncoder::maybeDuplicate(uint32_t relativeIndex) {
   auto res = table_.maybeDuplicate(relativeIndex, allowVulnerable());
   if (res.first) {
     VLOG(4) << "Encoded duplicate index=" << relativeIndex;
+    duplications_++;
     encodeDuplicate(relativeIndex);
     // Note we will emit duplications even when we are out of flow control,
     // but we won't reference them (eg: like we were at vulnerable max).
@@ -310,6 +315,8 @@ uint32_t QPACKEncoder::encodeLiteralQHelper(
     nameIndex -= 1; // we already know it's not 0
     uint8_t byte = idxInstr.code;
     if (isStaticName) {
+      // This counts static refs on the encoder stream
+      staticRefs_++;
       byte |= staticFlag;
     }
     encoded += buffer.encodeInteger(nameIndex, byte, idxInstr.prefixLength);
