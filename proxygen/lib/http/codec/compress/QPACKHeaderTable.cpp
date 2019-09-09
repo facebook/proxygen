@@ -57,7 +57,6 @@ bool QPACKHeaderTable::add(HPACKHeader header) {
   if (refCount_) {
     (*refCount_)[head_] = 0;
   }
-  ++insertCount_;
   DCHECK_EQ(internalToAbsolute(head_), insertCount_);
   // Increase minUsable_ until the free space + drainedBytes is >= minFree.
   // For HPACK, minFree is 0 and this is a no-op.

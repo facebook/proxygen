@@ -54,6 +54,7 @@ bool HeaderTable::add(HPACKHeader header) {
   table_[head_] = std::move(header);
 
   ++size_;
+  ++insertCount_;
   return true;
 }
 
