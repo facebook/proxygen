@@ -197,6 +197,11 @@ void initializeTransportSettings(HQParamsBuilder& builder) {
   builder.transportSettings.maxBatchSize = FLAGS_quic_batch_size;
   builder.transportSettings.turnoffPMTUD = true;
   builder.transportSettings.partialReliabilityEnabled = FLAGS_use_pr;
+  if (builder.mode == HQMode::CLIENT) {
+    // There is no good reason to keep the socket around for a drain period for
+    // a commandline client
+    builder.transportSettings.shouldDrain = false;
+  }
 
 } // initializeTransportSettings
 
