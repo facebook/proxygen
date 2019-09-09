@@ -81,7 +81,7 @@ TEST(HTTP1xCodecTest, TestSimpleHeaders) {
   codec.onIngress(*buffer);
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
-  EXPECT_EQ(callbacks.headerSize.compressed, 0);
+  EXPECT_EQ(callbacks.headerSize.compressed, callbacks.headerSize.uncompressed);
 }
 
 TEST(HTTP1xCodecTest, Test09Req) {
@@ -93,7 +93,7 @@ TEST(HTTP1xCodecTest, Test09Req) {
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.messageComplete, 1);
   EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
-  EXPECT_EQ(callbacks.headerSize.compressed, 0);
+  EXPECT_EQ(callbacks.headerSize.compressed, callbacks.headerSize.uncompressed);
   buffer = folly::IOBuf::copyBuffer(string("\r\n"));
   codec.onIngress(*buffer);
   EXPECT_EQ(callbacks.headersComplete, 1);
@@ -110,7 +110,7 @@ TEST(HTTP1xCodecTest, Test09ReqVers) {
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.messageComplete, 1);
   EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
-  EXPECT_EQ(callbacks.headerSize.compressed, 0);
+  EXPECT_EQ(callbacks.headerSize.compressed, callbacks.headerSize.uncompressed);
 }
 
 TEST(HTTP1xCodecTest, Test09Resp) {

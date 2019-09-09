@@ -1128,6 +1128,7 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
 
   headersComplete_ = true;
   headerSize_.uncompressed += len;
+  headerSize_.compressed += len;
   msg_->setIngressHeaderSize(headerSize_);
 
   if (userAgent_.empty()) {
