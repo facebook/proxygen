@@ -10,8 +10,8 @@
 #include <folly/Range.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
-#include <glog/logging.h>
 #include <folly/portability/GTest.h>
+#include <glog/logging.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKQueue.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
@@ -43,8 +43,8 @@ struct DecodeResult {
   uint32_t bytesConsumed;
 };
 
-folly::Expected<DecodeResult, HPACK::DecodeError>
-decode(HPACKCodec& codec, Cursor& cursor, uint32_t length) noexcept {
+folly::Expected<DecodeResult, HPACK::DecodeError> decode(
+    HPACKCodec& codec, Cursor& cursor, uint32_t length) noexcept {
   TestStreamingCallback cb;
   codec.decodeStreaming(cursor, length, &cb);
   if (cb.hasError()) {
@@ -52,12 +52,11 @@ decode(HPACKCodec& codec, Cursor& cursor, uint32_t length) noexcept {
     return folly::makeUnexpected(cb.error);
   }
   return DecodeResult{std::move(cb.getResult()->headers),
-      cb.getResult()->bytesConsumed};
+                      cb.getResult()->bytesConsumed};
 }
 
-folly::Expected<DecodeResult, HPACK::DecodeError>
-encodeDecode(HPACKCodec& encoder, HPACKCodec& decoder,
-             vector<Header>&& headers) {
+folly::Expected<DecodeResult, HPACK::DecodeError> encodeDecode(
+    HPACKCodec& encoder, HPACKCodec& decoder, vector<Header>&& headers) {
   unique_ptr<IOBuf> encoded = encoder.encode(headers);
   Cursor c(encoded.get());
   return decode(decoder, c, c.totalLength());
@@ -70,11 +69,10 @@ uint64_t bufLen(const std::unique_ptr<IOBuf>& buf) {
   return 0;
 }
 
-}
+} // namespace
 
 class HPACKCodecTests : public testing::Test {
  protected:
-
   HPACKCodec client{TransportDirection::UPSTREAM};
   HPACKCodec server{TransportDirection::DOWNSTREAM};
 };
@@ -88,11 +86,9 @@ TEST_F(HPACKCodecTests, Request) {
 }
 
 TEST_F(HPACKCodecTests, Response) {
-  vector<vector<string>> headers = {
-    {"content-length", "80"},
-    {"content-encoding", "gzip"},
-    {"x-fb-debug", "sdfgrwer"}
-  };
+  vector<vector<string>> headers = {{"content-length", "80"},
+                                    {"content-encoding", "gzip"},
+                                    {"x-fb-debug", "sdfgrwer"}};
   vector<Header> req = headersFromArray(headers);
 
   for (int i = 0; i < 3; i++) {
@@ -119,11 +115,9 @@ TEST_F(HPACKCodecTests, Headroom) {
  * makes sure that the encoder will lowercase the header names
  */
 TEST_F(HPACKCodecTests, LowercasingHeaderNames) {
-  vector<vector<string>> headers = {
-    {"Content-Length", "80"},
-    {"Content-Encoding", "gzip"},
-    {"X-FB-Debug", "bleah"}
-  };
+  vector<vector<string>> headers = {{"Content-Length", "80"},
+                                    {"Content-Encoding", "gzip"},
+                                    {"X-FB-Debug", "bleah"}};
   auto result = encodeDecode(server, client, headersFromArray(headers));
   EXPECT_TRUE(!result.hasError());
   auto& decoded = result->headers;
@@ -138,12 +132,10 @@ TEST_F(HPACKCodecTests, LowercasingHeaderNames) {
  * as expected by the SPDY codec.
  */
 TEST_F(HPACKCodecTests, MultivalueHeaders) {
-  vector<vector<string>> headers = {
-    {"Content-Length", "80"},
-    {"Content-Encoding", "gzip"},
-    {"X-FB-Dup", "bleah"},
-    {"X-FB-Dup", "hahaha"}
-  };
+  vector<vector<string>> headers = {{"Content-Length", "80"},
+                                    {"Content-Encoding", "gzip"},
+                                    {"X-FB-Dup", "bleah"},
+                                    {"X-FB-Dup", "hahaha"}};
   auto result = encodeDecode(server, client, headersFromArray(headers));
   EXPECT_TRUE(!result.hasError());
   auto& decoded = result->headers;
@@ -161,9 +153,7 @@ TEST_F(HPACKCodecTests, MultivalueHeaders) {
  * test that we're propagating the error correctly in the decoder
  */
 TEST_F(HPACKCodecTests, DecodeError) {
-  vector<vector<string>> headers = {
-    {"Content-Length", "80"}
-  };
+  vector<vector<string>> headers = {{"Content-Length", "80"}};
   vector<Header> req = headersFromArray(headers);
 
   unique_ptr<IOBuf> encodedReq = server.encode(req);
@@ -185,10 +175,9 @@ TEST_F(HPACKCodecTests, DecodeError) {
  */
 TEST_F(HPACKCodecTests, HeaderCodecStats) {
   vector<vector<string>> headers = {
-    {"Content-Length", "80"},
-    {"Content-Encoding", "gzip"},
-    {"X-FB-Debug", "eirtijvdgtccffkutnbttcgbfieghgev"}
-  };
+      {"Content-Length", "80"},
+      {"Content-Encoding", "gzip"},
+      {"X-FB-Debug", "eirtijvdgtccffkutnbttcgbfieghgev"}};
   vector<Header> resp = headersFromArray(headers);
 
   TestHeaderCodecStats stats(HeaderCodec::Type::HPACK);
@@ -240,7 +229,6 @@ TEST_F(HPACKCodecTests, UncompressedSizeLimit) {
   EXPECT_EQ(result.error(), HPACK::DecodeError::HEADERS_TOO_LARGE);
 }
 
-
 /**
  * Size limit stats
  */
@@ -280,28 +268,25 @@ TEST_F(HPACKCodecTests, DefaultHeaderIndexingStrategy) {
   // The below is quite verbose but that is because Header constructors use
   // references and so we need the actual strings to not go out of scope
   vector<vector<string>> noIndexHeadersStrings = {
-    {"content-length", "80"},
-    {":path", "/some/random/file.jpg"},
-    {":path", "checks_for_="},
-    {"if-modified-since", "some_value"},
-    {"last-modified", "some_value"}
-  };
+      {"content-length", "80"},
+      {":path", "/some/random/file.jpg"},
+      {":path", "checks_for_="},
+      {"if-modified-since", "some_value"},
+      {"last-modified", "some_value"}};
   vector<Header> noIndexHeaders = headersFromArray(noIndexHeadersStrings);
   headers.insert(headers.end(), noIndexHeaders.begin(), noIndexHeaders.end());
   HPACKCodec testCodec{TransportDirection::UPSTREAM};
   testCodec.encode(headers);
-  EXPECT_EQ(
-    testCodec.getCompressionInfo().egressHeadersStored_, headersIndexableSize);
+  EXPECT_EQ(testCodec.getCompressionInfo().egressHeadersStored_,
+            headersIndexableSize);
 }
-
 
 class HPACKQueueTests : public testing::TestWithParam<int> {
  public:
-  HPACKQueueTests()
-      : queue(std::make_unique<HPACKQueue>(server)) {}
+  HPACKQueueTests() : queue(std::make_unique<HPACKQueue>(server)) {
+  }
 
  protected:
-
   HPACKCodec client{TransportDirection::UPSTREAM};
   HPACKCodec server{TransportDirection::DOWNSTREAM};
   std::unique_ptr<HPACKQueue> queue;
@@ -331,13 +316,13 @@ TEST_F(HPACKQueueTests, QueueReorder) {
   }
 
   std::vector<int> insertOrder{1, 3, 2, 0};
-  for (auto i: insertOrder) {
+  for (auto i : insertOrder) {
     auto& encodedReq = data[i].first;
     auto len = bufLen(encodedReq);
-    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &data[i].second,
-                             false);
+    queue->enqueueHeaderBlock(
+        i, std::move(encodedReq), len, &data[i].second, false);
   }
-  for (auto& d: data) {
+  for (auto& d : data) {
     auto result = d.second.getResult();
     EXPECT_TRUE(!result.hasError());
     EXPECT_EQ(result->headers.size(), 12);
@@ -354,14 +339,14 @@ TEST_F(HPACKQueueTests, QueueReorderOoo) {
   }
 
   std::vector<int> insertOrder{0, 3, 2, 1};
-  for (auto i: insertOrder) {
+  for (auto i : insertOrder) {
     auto& encodedReq = data[i].first;
     auto len = bufLen(encodedReq);
     // Allow idx 3 to be decoded out of order
-    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &data[i].second,
-                              i == 3);
+    queue->enqueueHeaderBlock(
+        i, std::move(encodedReq), len, &data[i].second, i == 3);
   }
-  for (auto& d: data) {
+  for (auto& d : data) {
     auto result = d.second.getResult();
     EXPECT_TRUE(!result.hasError());
     EXPECT_EQ(result->headers.size(), 12);
@@ -375,7 +360,7 @@ TEST_F(HPACKQueueTests, QueueError) {
 
   bool expectOk = true;
   // ok, dup, ok, lower
-  for (auto i: std::vector<int>({0, 0, 1, 0, 3, 3, 2})) {
+  for (auto i : std::vector<int>({0, 0, 1, 0, 3, 3, 2})) {
     unique_ptr<IOBuf> encodedReq = client.encode(req);
     auto len = bufLen(encodedReq);
     cb.reset();
@@ -404,19 +389,17 @@ TEST_P(HPACKQueueTests, QueueDeleted) {
   }
 
   std::vector<int> insertOrder{0, 3, 2, 1};
-  for (auto i: insertOrder) {
+  for (auto i : insertOrder) {
     auto& encodedReq = data[i].first;
     auto len = bufLen(encodedReq);
 
     // Allow idx 3 to be decoded out of order
-    queue->enqueueHeaderBlock(i, std::move(encodedReq), len, &data[i].second,
-                             i == 3);
+    queue->enqueueHeaderBlock(
+        i, std::move(encodedReq), len, &data[i].second, i == 3);
     if (!queue) {
       break;
     }
   }
 }
 
-INSTANTIATE_TEST_CASE_P(Queue,
-                        HPACKQueueTests,
-                        ::testing::Values(0, 1, 2, 3));
+INSTANTIATE_TEST_CASE_P(Queue, HPACKQueueTests, ::testing::Values(0, 1, 2, 3));

@@ -897,9 +897,10 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
     if (enableBodyLastByteDeliveryTracking_) {
       auto res = transport_.trackEgressBodyDelivery(*actualResponseLength_);
       if (res.hasError()) {
-        HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-          folly::to<std::string>("Failed to arm body bytes tracking: "
-                                 , res.error()));
+        HTTPException ex(
+            HTTPException::Direction::INGRESS_AND_EGRESS,
+            folly::to<std::string>("Failed to arm body bytes tracking: ",
+                                   res.error()));
         ex.setProxygenError(kErrorUnknown);
         onError(ex);
         return;
@@ -1199,7 +1200,7 @@ void HTTPTransaction::trimDeferredEgressBody(uint64_t bodyOffset) {
   // We only need to trim buffered bytes that are over those already committed.
   // So if the new offset is below what we already gave to the transport, just
   // return.
-  if (bodyOffset <= egressBodyBytesCommittedToTransport_ ) {
+  if (bodyOffset <= egressBodyBytesCommittedToTransport_) {
     return;
   }
 
@@ -1745,7 +1746,7 @@ void HTTPTransaction::updateTransactionBytesSent(uint64_t bytes) {
 }
 
 void HTTPTransaction::checkIfEgressRateLimitedByUpstream() {
-  if(deferredEgressBody_.empty() && !hasPendingEOM() && transportCallback_) {
+  if (deferredEgressBody_.empty() && !hasPendingEOM() && transportCallback_) {
     transportCallback_->egressBufferEmpty();
   }
 }

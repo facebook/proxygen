@@ -11,8 +11,7 @@
 
 namespace proxygen {
 
-HPACKContext::HPACKContext(uint32_t tableSize) :
-    table_(tableSize) {
+HPACKContext::HPACKContext(uint32_t tableSize) : table_(tableSize) {
 }
 
 uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
@@ -30,8 +29,8 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
     consultStaticTable = header.name.isCommonHeader();
   } else {
     consultStaticTable =
-      StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
-        header.name.getHeaderCode());
+        StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
+            header.name.getHeaderCode());
   }
   if (consultStaticTable) {
     uint32_t staticIndex = getStaticTable().getIndex(header);
@@ -72,9 +71,8 @@ const HPACKHeader& HPACKContext::getHeader(uint32_t index) {
   return table_.getHeader(globalToDynamicIndex(index));
 }
 
-void HPACKContext::seedHeaderTable(
-  std::vector<HPACKHeader>& headers) {
-  for (auto& header: headers) {
+void HPACKContext::seedHeaderTable(std::vector<HPACKHeader>& headers) {
+  for (auto& header : headers) {
     table_.add(std::move(header));
   }
 }
@@ -88,4 +86,4 @@ std::ostream& operator<<(std::ostream& os, const HPACKContext& context) {
   return os;
 }
 
-}
+} // namespace proxygen

@@ -11,17 +11,17 @@
 
 #include <memory>
 #include <proxygen/lib/http/codec/TransportDirection.h>
+#include <proxygen/lib/http/codec/compress/CompressionInfo.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
-#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
-#include <proxygen/lib/http/codec/compress/CompressionInfo.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <string>
 #include <vector>
 
 namespace folly { namespace io {
 class Cursor;
-}}
+}} // namespace folly::io
 
 namespace proxygen {
 
@@ -41,15 +41,15 @@ std::pair<std::vector<HPACKHeader>, uint32_t> prepareHeaders(
 class HPACKCodec : public HeaderCodec {
  public:
   explicit HPACKCodec(TransportDirection direction);
-  ~HPACKCodec() override {}
+  ~HPACKCodec() override {
+  }
 
   std::unique_ptr<folly::IOBuf> encode(
-    std::vector<compress::Header>& headers) noexcept;
+      std::vector<compress::Header>& headers) noexcept;
 
-  void decodeStreaming(
-      folly::io::Cursor& cursor,
-      uint32_t length,
-      HPACK::StreamingCallback* streamingCb) noexcept;
+  void decodeStreaming(folly::io::Cursor& cursor,
+                       uint32_t length,
+                       HPACK::StreamingCallback* streamingCb) noexcept;
 
   void setEncoderHeaderTableSize(uint32_t size) {
     encoder_.setHeaderTableSize(size);
@@ -93,4 +93,4 @@ class HPACKCodec : public HeaderCodec {
 };
 
 std::ostream& operator<<(std::ostream& os, const HPACKCodec& codec);
-}
+} // namespace proxygen

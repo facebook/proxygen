@@ -28,19 +28,21 @@ struct CompressionInfo {
   uint32_t ingressHeadersStored_{0};
 
   CompressionInfo(uint32_t egressHeaderTableSize,
-                 uint32_t egressBytesStored,
-                 uint32_t egressHeadersStored,
-                 uint32_t ingressHeaderTableSize,
-                 uint32_t ingressBytesStored,
-                 uint32_t ingressHeadersStored) :
-      egressHeaderTableSize_(egressHeaderTableSize),
-      egressBytesStored_(egressBytesStored),
-      egressHeadersStored_(egressHeadersStored),
-      ingressHeaderTableSize_(ingressHeaderTableSize),
-      ingressBytesStored_(ingressBytesStored),
-      ingressHeadersStored_(ingressHeadersStored) {}
+                  uint32_t egressBytesStored,
+                  uint32_t egressHeadersStored,
+                  uint32_t ingressHeaderTableSize,
+                  uint32_t ingressBytesStored,
+                  uint32_t ingressHeadersStored)
+      : egressHeaderTableSize_(egressHeaderTableSize),
+        egressBytesStored_(egressBytesStored),
+        egressHeadersStored_(egressHeadersStored),
+        ingressHeaderTableSize_(ingressHeaderTableSize),
+        ingressBytesStored_(ingressBytesStored),
+        ingressHeadersStored_(ingressHeadersStored) {
+  }
 
-  CompressionInfo() {}
+  CompressionInfo() {
+  }
 
   bool operator==(const CompressionInfo& tableInfo) const {
     return egressHeaderTableSize_ == tableInfo.egressHeaderTableSize_ &&

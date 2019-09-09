@@ -2216,8 +2216,8 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ,
 }
 
 TEST_P(HQDownstreamSessionTestHQ, DataOnUnknownControlStream) {
-  auto randPreface = hq::UnidirectionalStreamType(
-      *getGreaseId(folly::Random::rand32(16)));
+  auto randPreface =
+      hq::UnidirectionalStreamType(*getGreaseId(folly::Random::rand32(16)));
   // Create  unidirectional stream with an unknown stream preface
   folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
   generateStreamPreface(writeBuf, randPreface);

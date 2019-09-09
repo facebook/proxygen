@@ -12,16 +12,16 @@
 #include <memory>
 #include <proxygen/lib/http/codec/TransportDirection.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h> // table info
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
+#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
-#include <proxygen/lib/http/codec/compress/HeaderIndexingStrategy.h>
-#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <string>
 #include <vector>
 
 namespace folly { namespace io {
 class Cursor;
-}}
+}} // namespace folly::io
 
 namespace proxygen {
 
@@ -36,13 +36,15 @@ class HPACKHeader;
 class QPACKCodec : public HeaderCodec {
  public:
   QPACKCodec();
-  ~QPACKCodec() override {}
+  ~QPACKCodec() override {
+  }
 
   // QPACK encode: id is used for internal tracking of references
   QPACKEncoder::EncodeResult encode(
-      std::vector<compress::Header>& headers, uint64_t id,
-      uint32_t maxEncoderStreamBytes=
-      std::numeric_limits<uint32_t>::max()) noexcept;
+      std::vector<compress::Header>& headers,
+      uint64_t id,
+      uint32_t maxEncoderStreamBytes =
+          std::numeric_limits<uint32_t>::max()) noexcept;
 
   HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf) {
     // stats?
@@ -51,11 +53,10 @@ class QPACKCodec : public HeaderCodec {
 
   // QPACK blocking decode.  The decoder may queue the block if there are
   // unsatisfied dependencies
-  void decodeStreaming(
-      uint64_t streamId,
-      std::unique_ptr<folly::IOBuf> block,
-      uint32_t length,
-      HPACK::StreamingCallback* streamingCb) noexcept;
+  void decodeStreaming(uint64_t streamId,
+                       std::unique_ptr<folly::IOBuf> block,
+                       uint32_t length,
+                       HPACK::StreamingCallback* streamingCb) noexcept;
 
   // This function sets both the decoder's advertised max and the size the
   // encoder will use.  The encoder has a limit of 64k.  This function can
@@ -72,8 +73,7 @@ class QPACKCodec : public HeaderCodec {
   }
 
   // Process bytes on the decoder stream
-  HPACK::DecodeError decodeDecoderStream(
-      std::unique_ptr<folly::IOBuf> buf) {
+  HPACK::DecodeError decodeDecoderStream(std::unique_ptr<folly::IOBuf> buf) {
     return encoder_.decodeDecoderStream(std::move(buf));
   }
 
@@ -149,4 +149,4 @@ class QPACKCodec : public HeaderCodec {
 };
 
 std::ostream& operator<<(std::ostream& os, const QPACKCodec& codec);
-}
+} // namespace proxygen

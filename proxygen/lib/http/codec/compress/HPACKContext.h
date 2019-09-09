@@ -18,7 +18,8 @@ namespace proxygen {
 class HPACKContext {
  public:
   explicit HPACKContext(uint32_t tableSize);
-  ~HPACKContext() {}
+  ~HPACKContext() {
+  }
 
   /**
    * get the index of the given header by looking into both dynamic and static
@@ -88,4 +89,4 @@ class HPACKContext {
 
 std::ostream& operator<<(std::ostream& os, const HPACKContext& context);
 
-}
+} // namespace proxygen

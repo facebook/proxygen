@@ -18,12 +18,15 @@ namespace proxygen {
 class QPACKContext {
  public:
   QPACKContext(uint32_t tableSize, bool trackReferences);
-  ~QPACKContext() {}
+  ~QPACKContext() {
+  }
 
   /**
    * @return header at the given index by composing dynamic and static tables
    */
-  const HPACKHeader& getHeader(bool isStatic, uint32_t index, uint32_t base,
+  const HPACKHeader& getHeader(bool isStatic,
+                               uint32_t index,
+                               uint32_t base,
                                bool aboveBase);
 
   const QPACKHeaderTable& getTable() const {
@@ -60,4 +63,4 @@ class QPACKContext {
 
 std::ostream& operator<<(std::ostream& os, const QPACKContext& context);
 
-}
+} // namespace proxygen

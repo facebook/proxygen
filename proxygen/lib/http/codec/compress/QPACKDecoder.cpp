@@ -19,11 +19,10 @@ const uint32_t kGrowth = 100;
 namespace proxygen {
 
 // Blocking implementation - may queue
-void QPACKDecoder::decodeStreaming(
-    uint64_t streamID,
-    std::unique_ptr<folly::IOBuf> block,
-    uint32_t totalBytes,
-    HPACK::StreamingCallback* streamingCb) {
+void QPACKDecoder::decodeStreaming(uint64_t streamID,
+                                   std::unique_ptr<folly::IOBuf> block,
+                                   uint32_t totalBytes,
+                                   HPACK::StreamingCallback* streamingCb) {
   Cursor cursor(block.get());
   HPACKDecodeBuffer dbuf(cursor, totalBytes, maxUncompressed_);
   err_ = HPACK::DecodeError::NONE;
@@ -40,9 +39,13 @@ void QPACKDecoder::decodeStreaming(
       folly::IOBufQueue q;
       q.append(std::move(block));
       q.trimStart(dbuf.consumedBytes());
-      enqueueHeaderBlock(streamID, requiredInsertCount, baseIndex_,
-                         dbuf.consumedBytes(), q.move(),
-                         totalBytes - dbuf.consumedBytes(), streamingCb);
+      enqueueHeaderBlock(streamID,
+                         requiredInsertCount,
+                         baseIndex_,
+                         dbuf.consumedBytes(),
+                         q.move(),
+                         totalBytes - dbuf.consumedBytes(),
+                         streamingCb);
     }
   } else {
     decodeStreamingImpl(requiredInsertCount, 0, dbuf, streamingCb);
@@ -63,8 +66,8 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
   if (wireRIC == 0) {
     requiredInsertCount = 0;
   } else if (maxEntries == 0) {
-    LOG(ERROR) << "Encoder used dynamic table when not permitted, wireRIC=" <<
-      wireRIC;
+    LOG(ERROR) << "Encoder used dynamic table when not permitted, wireRIC="
+               << wireRIC;
     err_ = HPACK::DecodeError::INVALID_INDEX;
     return 0;
   } else {
@@ -98,8 +101,8 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
   if (neg) {
     // delta must be smaller than RIC
     if (delta >= requiredInsertCount) {
-      LOG(ERROR) << "Invalid delta=" << delta << " requiredInsertCount="
-                 << requiredInsertCount;
+      LOG(ERROR) << "Invalid delta=" << delta
+                 << " requiredInsertCount=" << requiredInsertCount;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
@@ -112,9 +115,9 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
     // base must be < 2^32
     if (delta > std::numeric_limits<uint32_t>::max() ||
         requiredInsertCount >=
-        uint64_t(std::numeric_limits<uint32_t>::max()) - delta) {
-      LOG(ERROR) << "Invalid delta=" << delta << " requiredInsertCount="
-                 << requiredInsertCount;
+            uint64_t(std::numeric_limits<uint32_t>::max()) - delta) {
+      LOG(ERROR) << "Invalid delta=" << delta
+                 << " requiredInsertCount=" << requiredInsertCount;
       err_ = HPACK::DecodeError::INVALID_INDEX;
       return 0;
     }
@@ -124,17 +127,17 @@ uint32_t QPACKDecoder::decodePrefix(HPACKDecodeBuffer& dbuf) {
   return requiredInsertCount;
 }
 
-void QPACKDecoder::decodeStreamingImpl(
-    uint32_t requiredInsertCount,
-    uint32_t consumed, HPACKDecodeBuffer& dbuf,
-    HPACK::StreamingCallback* streamingCb) {
+void QPACKDecoder::decodeStreamingImpl(uint32_t requiredInsertCount,
+                                       uint32_t consumed,
+                                       HPACKDecodeBuffer& dbuf,
+                                       HPACK::StreamingCallback* streamingCb) {
   uint32_t emittedSize = 0;
 
   while (!hasError() && !dbuf.empty()) {
     emittedSize += decodeHeaderQ(dbuf, streamingCb);
     if (emittedSize > maxUncompressed_) {
-      LOG(ERROR) << "exceeded uncompressed size limit of "
-                 << maxUncompressed_ << " bytes";
+      LOG(ERROR) << "exceeded uncompressed size limit of " << maxUncompressed_
+                 << " bytes";
       err_ = HPACK::DecodeError::HEADERS_TOO_LARGE;
       break;
     }
@@ -150,21 +153,27 @@ void QPACKDecoder::decodeStreamingImpl(
   auto blockSize = consumed + dbuf.consumedBytes();
   auto compressedSize = pendingEncoderBytes_ + blockSize;
   pendingEncoderBytes_ = 0;
-  completeDecode(HeaderCodec::Type::QPACK, streamingCb,
-                 compressedSize, blockSize, emittedSize, acknowledge);
+  completeDecode(HeaderCodec::Type::QPACK,
+                 streamingCb,
+                 compressedSize,
+                 blockSize,
+                 emittedSize,
+                 acknowledge);
 }
 
-uint32_t QPACKDecoder::decodeHeaderQ(
-    HPACKDecodeBuffer& dbuf,
-    HPACK::StreamingCallback* streamingCb) {
+uint32_t QPACKDecoder::decodeHeaderQ(HPACKDecodeBuffer& dbuf,
+                                     HPACK::StreamingCallback* streamingCb) {
   uint8_t byte = dbuf.peek();
   if (byte & HPACK::Q_INDEXED.code) {
     return decodeIndexedHeaderQ(
         dbuf, HPACK::Q_INDEXED.prefixLength, false, streamingCb, nullptr);
   } else if (byte & HPACK::Q_LITERAL_NAME_REF.code) {
-    return decodeLiteralHeaderQ(
-        dbuf, false, true, HPACK::Q_LITERAL_NAME_REF.prefixLength, false,
-        streamingCb);
+    return decodeLiteralHeaderQ(dbuf,
+                                false,
+                                true,
+                                HPACK::Q_LITERAL_NAME_REF.prefixLength,
+                                false,
+                                streamingCb);
   } else if (byte & HPACK::Q_LITERAL.code) {
     return decodeLiteralHeaderQ(
         dbuf, false, false, HPACK::Q_LITERAL.prefixLength, false, streamingCb);
@@ -172,9 +181,12 @@ uint32_t QPACKDecoder::decodeHeaderQ(
     return decodeIndexedHeaderQ(
         dbuf, HPACK::Q_INDEXED_POST.prefixLength, true, streamingCb, nullptr);
   } else { // Q_LITERAL_NAME_REF_POST
-    return decodeLiteralHeaderQ(
-        dbuf, false, true, HPACK::Q_LITERAL_NAME_REF_POST.prefixLength, true,
-        streamingCb);
+    return decodeLiteralHeaderQ(dbuf,
+                                false,
+                                true,
+                                HPACK::Q_LITERAL_NAME_REF_POST.prefixLength,
+                                true,
+                                streamingCb);
   }
 }
 
@@ -182,8 +194,10 @@ HPACK::DecodeError QPACKDecoder::decodeEncoderStream(
     std::unique_ptr<folly::IOBuf> buf) {
   ingress_.append(std::move(buf));
   Cursor cursor(ingress_.front());
-  HPACKDecodeBuffer dbuf(cursor, ingress_.chainLength(), maxUncompressed_,
-                         /* endOfBufferIsError=*/ false);
+  HPACKDecodeBuffer dbuf(cursor,
+                         ingress_.chainLength(),
+                         maxUncompressed_,
+                         /* endOfBufferIsError=*/false);
 
   VLOG(6) << "Decoding control block";
   baseIndex_ = 0;
@@ -213,13 +227,19 @@ void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
       byte & HPACK::Q_INSERT_NAME_REF.code) {
     // If partial state is VALUE, it might have been a NO_NAME_REF instruction,
     // but we've already parsed the name, so it doesn't matter
-    decodeLiteralHeaderQ(
-        dbuf, true, true, HPACK::Q_INSERT_NAME_REF.prefixLength, false,
-        nullptr);
+    decodeLiteralHeaderQ(dbuf,
+                         true,
+                         true,
+                         HPACK::Q_INSERT_NAME_REF.prefixLength,
+                         false,
+                         nullptr);
   } else if (byte & HPACK::Q_INSERT_NO_NAME_REF.code) {
-    decodeLiteralHeaderQ(
-        dbuf, true, false, HPACK::Q_INSERT_NO_NAME_REF.prefixLength, false,
-        nullptr);
+    decodeLiteralHeaderQ(dbuf,
+                         true,
+                         false,
+                         HPACK::Q_INSERT_NO_NAME_REF.prefixLength,
+                         false,
+                         nullptr);
   } else if (byte & HPACK::Q_TABLE_SIZE_UPDATE.code) {
     handleTableSizeUpdate(dbuf, table_, true);
   } else { // must be Q_DUPLICATE=000
@@ -267,8 +287,8 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
         err_ = HPACK::DecodeError::INVALID_INDEX;
         return 0;
       }
-      partial->header.name = getHeader(
-          isStaticName, nameIndex, baseIndex_, aboveBase).name;
+      partial->header.name =
+          getHeader(isStaticName, nameIndex, baseIndex_, aboveBase).name;
     } else {
       folly::fbstring headerName;
       err_ = dbuf.decodeLiteral(prefixLength, headerName);
@@ -393,21 +413,23 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
   return ackEncoder.release();
 }
 
-void QPACKDecoder::enqueueHeaderBlock(
-  uint64_t streamID,
-  uint32_t requiredInsertCount,
-  uint32_t baseIndex,
-  uint32_t consumed,
-  std::unique_ptr<folly::IOBuf> block,
-  size_t length,
-  HPACK::StreamingCallback* streamingCb) {
+void QPACKDecoder::enqueueHeaderBlock(uint64_t streamID,
+                                      uint32_t requiredInsertCount,
+                                      uint32_t baseIndex,
+                                      uint32_t consumed,
+                                      std::unique_ptr<folly::IOBuf> block,
+                                      size_t length,
+                                      HPACK::StreamingCallback* streamingCb) {
   // TDOO: this queue is currently unbounded and has no timeouts
   CHECK_GT(requiredInsertCount, table_.getInsertCount());
-  queue_.emplace(
-    std::piecewise_construct,
-    std::forward_as_tuple(requiredInsertCount),
-    std::forward_as_tuple(streamID, baseIndex, length, consumed,
-                          std::move(block), streamingCb));
+  queue_.emplace(std::piecewise_construct,
+                 std::forward_as_tuple(requiredInsertCount),
+                 std::forward_as_tuple(streamID,
+                                       baseIndex,
+                                       length,
+                                       consumed,
+                                       std::move(block),
+                                       streamingCb));
   holBlockCount_++;
   VLOG(5) << "queued block=" << requiredInsertCount << " len=" << length;
   queuedBytes_ += length;
@@ -423,8 +445,8 @@ bool QPACKDecoder::decodeBlock(uint32_t requiredInsertCount,
     queuedBytes_ -= pending.length;
     baseIndex_ = pending.baseIndex;
     folly::DestructorCheck::Safety safety(*this);
-    decodeStreamingImpl(requiredInsertCount, pending.consumed, dbuf,
-                        pending.cb);
+    decodeStreamingImpl(
+        requiredInsertCount, pending.consumed, dbuf, pending.cb);
     // The callback way destroy this, if so stop queue processing
     if (safety.destroyed()) {
       return true;
@@ -447,4 +469,4 @@ void QPACKDecoder::drainQueue() {
   }
 }
 
-}
+} // namespace proxygen
