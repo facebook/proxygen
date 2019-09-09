@@ -33,6 +33,9 @@ DEFINE_string(protocol, "", "HQ protocol version e.g. h1q-fb or h1q-fb-v2");
 DEFINE_int32(draft_version, 0, "Draft version to use, 0 is default");
 DEFINE_bool(use_draft, true, "Use draft version as first version");
 DEFINE_string(logdir, "/tmp/logs", "Directory to store connection logs");
+DEFINE_bool(log_response,
+            true,
+            "Whether to log the response content to stderr");
 DEFINE_string(congestion, "cubic", "newreno/cubic/bbr/none");
 DEFINE_int32(conn_flow_control, 1024 * 1024, "Connection flow control");
 DEFINE_int32(stream_flow_control, 65 * 1024, "Stream flow control");
@@ -76,7 +79,6 @@ DEFINE_uint32(pr_chunk_delay_ms,
 // delay cap of 150 ms:
 //    hq -mode client -use_pr -protocol="h3-20" -path="/pr_cat"
 //    -pr_chunk_delay_ms 150
-
 
 namespace quic { namespace samples {
 
@@ -131,6 +133,7 @@ void initializeCommonSettings(HQParamsBuilder& builder) {
   builder.port = FLAGS_port;
 
   builder.logdir = FLAGS_logdir;
+  builder.logResponse = FLAGS_log_response;
   if (FLAGS_mode == "server") {
     builder.mode = HQMode::SERVER;
     builder.logprefix = "server";
@@ -203,7 +206,7 @@ void initializeHttpSettings(HQParamsBuilder& builder) {
   // before starting.
   builder.h2port = FLAGS_h2port;
   builder.localH2Address =
-        folly::SocketAddress(builder.host, builder.h2port, true);
+      folly::SocketAddress(builder.host, builder.h2port, true);
   builder.httpServerThreads = 1;
   builder.httpServerIdleTimeout = std::chrono::milliseconds(60000);
   builder.httpServerShutdownOn = {SIGINT, SIGTERM};
@@ -270,12 +273,13 @@ void initializeFizzSettings(HQParamsBuilder& builder) {
 HQParamsBuilder::HQInvalidParams validate(const HQParamsBuilder& params) {
 
   HQParamsBuilder::HQInvalidParams invalidParams;
-#define INVALID_PARAM(param, error)                                           \
-  do {                                                                        \
-    HQParamsBuilder::HQInvalidParam invalid = {.name = #param,                \
-                              .value = folly::to<std::string>(FLAGS_##param), \
-                              .errorMsg = error};                             \
-    invalidParams.push_back(invalid);                                         \
+#define INVALID_PARAM(param, error)                     \
+  do {                                                  \
+    HQParamsBuilder::HQInvalidParam invalid = {         \
+        .name = #param,                                 \
+        .value = folly::to<std::string>(FLAGS_##param), \
+        .errorMsg = error};                             \
+    invalidParams.push_back(invalid);                   \
   } while (false);
 
   // Validate the common settings
@@ -356,7 +360,6 @@ bool HTTPVersion::parse(const std::string& verString) {
   }
 }
 
-
 HQParamsBuilder::HQParamsBuilder(initializer_list initial) {
   // Save the values of the flags, so that changing
   // flags values is safe
@@ -390,8 +393,8 @@ bool HQParamsBuilder::valid() const noexcept {
   return invalidParams_.empty();
 }
 
-const HQParamsBuilder::HQInvalidParams&
-HQParamsBuilder::invalidParams() const noexcept {
+const HQParamsBuilder::HQInvalidParams& HQParamsBuilder::invalidParams() const
+    noexcept {
   return invalidParams_;
 }
 

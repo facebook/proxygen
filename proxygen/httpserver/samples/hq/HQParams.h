@@ -9,10 +9,10 @@
  */
 #pragma once
 
+#include <initializer_list>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
-#include <initializer_list>
 
 #include <folly/Optional.h>
 #include <folly/SocketAddress.h>
@@ -25,54 +25,6 @@
 #include <quic/client/handshake/QuicPskCache.h>
 #include <quic/server/QuicServerTransport.h>
 
-// NOTE: flags are defined in HQParams.cpp
-// and termporarily declared here until both HQClient
-// and HQServer are transitioned to use HQParams
-DECLARE_string(host);
-DECLARE_int32(port);
-DECLARE_int32(h2port);
-DECLARE_string(mode);
-DECLARE_string(body);
-DECLARE_string(path);
-DECLARE_string(httpversion);
-DECLARE_string(protocol);
-DECLARE_int32(draft_version);
-DECLARE_bool(use_draft);
-DECLARE_string(logdir);
-DECLARE_string(congestion);
-DECLARE_int32(conn_flow_control);
-DECLARE_int32(stream_flow_control);
-DECLARE_int32(max_receive_packet_size);
-DECLARE_int32(txn_timeout);
-DECLARE_string(headers);
-DECLARE_bool(pacing);
-DECLARE_string(psk_file);
-DECLARE_bool(early_data);
-DECLARE_uint32(quic_batching_mode);
-DECLARE_uint32(quic_batch_size);
-DECLARE_string(cert);
-DECLARE_string(key);
-DECLARE_string(qlogger_path);
-DECLARE_bool(pretty_json);
-
-// Partially reliable flags.
-DECLARE_bool(use_pr);
-DECLARE_uint32(pr_chunk_size);
-DECLARE_uint32(pr_chunk_delay_ms);
-// Example of starting a server streaming body in chunks in partially realible
-// mode (serve 17-byte body chunks with random delay from 0 to 500 ms):
-//    hq -mode server
-//        -use_pr
-//        -protocol="h3-20"
-//        -pr_chunk_size 17
-//        -pr_chunk_delay_ms 500
-// Example of starting a client requesting a partial reliable streaming with
-// delay cap of 150 ms:
-//    hq -mode client
-//        -use_pr
-//        -protocol="h3-20"
-//        -path="/pr_cat"
-//        -pr_chunk_delay_ms 150
 namespace quic { namespace samples {
 
 struct HTTPVersion {
@@ -93,7 +45,7 @@ std::ostream& operator<<(std::ostream& o, const HQMode& m);
  * Used to pass common settings between different components
  */
 class HQParamsBuilder {
-public:
+ public:
   using value_type = std::map<std::string, std::string>::value_type;
   using initializer_list = std::initializer_list<value_type>;
 
@@ -111,7 +63,9 @@ public:
 
   bool valid() const noexcept;
 
-  explicit operator bool() const noexcept { return valid(); }
+  explicit operator bool() const noexcept {
+    return valid();
+  }
 
   const HQInvalidParams& invalidParams() const noexcept;
 
@@ -119,6 +73,7 @@ public:
   HQMode mode;
   std::string logprefix;
   std::string logdir;
+  bool logResponse;
 
   // Transport section
   std::string host;
@@ -170,7 +125,7 @@ public:
   std::shared_ptr<quic::QuicPskCache> pskCache;
   fizz::server::ClientAuthMode clientAuth{fizz::server::ClientAuthMode::None};
 
-private:
+ private:
   HQInvalidParams invalidParams_;
 };
 

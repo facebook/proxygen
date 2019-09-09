@@ -82,7 +82,7 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
                 params_->httpVersion.major,
                 params_->httpVersion.minor);
 
-  client->setLogging(true);
+  client->setLogging(params_->logResponse);
   auto txn = session_->newTransaction(client.get());
   if (!txn) {
     return nullptr;
