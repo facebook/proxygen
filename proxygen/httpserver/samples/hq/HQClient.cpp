@@ -54,11 +54,10 @@ void HQClient::start() {
   quicClient_->start(session_);
 
   evb_.loop();
-
 }
 
-proxygen::HTTPTransaction* FOLLY_NULLABLE HQClient::sendRequest(
-    const proxygen::URL& requestUrl) {
+proxygen::HTTPTransaction* FOLLY_NULLABLE
+HQClient::sendRequest(const proxygen::URL& requestUrl) {
   std::unique_ptr<CurlService::CurlClient> client =
       params_->partialReliabilityEnabled
           ? std::make_unique<PartiallyReliableCurlClient>(
@@ -144,8 +143,8 @@ void HQClient::initializeQLogger() {
     return;
   }
 
-  auto qLogger = std::make_shared<HQLoggerHelper>(params_->qLoggerPath,
-                                                  params_->prettyJson);
+  auto qLogger = std::make_shared<HQLoggerHelper>(
+      params_->qLoggerPath, params_->prettyJson, kQLogClientVantagePoint);
   qLogger->dcid = quicClient_->getClientConnectionId();
   quicClient_->setQLogger(std::move(qLogger));
 }

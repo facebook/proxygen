@@ -148,15 +148,14 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
       QuicServerTransport::make(evb, std::move(socket), *session, ctx);
   if (!params_->qLoggerPath.empty()) {
     transport->setQLogger(std::make_shared<HQLoggerHelper>(
-        params_->qLoggerPath, params_->prettyJson));
+        params_->qLoggerPath, params_->prettyJson, kQLogServerVantagePoint));
   }
   hqSessionController->startSession(transport);
   return transport;
 }
 
 HQServer::HQServer(const HQParams& params)
-  : params_(params)
-  , server_(quic::QuicServer::createQuicServer()) {
+    : params_(params), server_(quic::QuicServer::createQuicServer()) {
   server_->setCongestionControllerFactory(
       std::make_shared<DefaultCongestionControllerFactory>());
   server_->setTransportSettings(params_->transportSettings);
