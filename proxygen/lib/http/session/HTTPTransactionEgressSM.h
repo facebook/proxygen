@@ -25,7 +25,10 @@ class HTTPTransactionEgressSMData {
     ChunkTerminatorSent,
     TrailersSent,
     EOMQueued,
-    SendingDone
+    SendingDone,
+
+    // Must be last
+    NumStates
   };
 
   enum class Event : uint8_t {
@@ -38,6 +41,9 @@ class HTTPTransactionEgressSMData {
     sendEOM,
     // Internal state transitions
     eomFlushed,
+
+    // Must be last
+    NumEvents
   };
 
   static State getInitialState() {

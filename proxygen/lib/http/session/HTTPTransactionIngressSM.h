@@ -28,6 +28,9 @@ class HTTPTransactionIngressSMData {
     UpgradeComplete,
     EOMQueued,
     ReceivingDone,
+
+    // Must be last
+    NumStates
   };
 
   enum class Event : uint8_t {
@@ -41,6 +44,9 @@ class HTTPTransactionIngressSMData {
     onEOM,
     // Internal state transitions
     eomFlushed,
+
+    // Must be last
+    NumEvents
   };
 
   static State getInitialState() {
