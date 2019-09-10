@@ -24,18 +24,19 @@ using std::vector;
 namespace proxygen {
 
 namespace compress {
-  std::pair<vector<HPACKHeader>, uint32_t> prepareHeaders(
-      vector<Header>& headers) {
+uint32_t prepareHeaders(const vector<Header>& headers,
+                        vector<HPACKHeader>& converted) {
   // convert to HPACK API format
-  std::pair<vector<HPACKHeader>, uint32_t> converted;
-  converted.first.reserve(headers.size());
+  uint32_t uncompressed = 0;
+  converted.clear();
+  converted.reserve(headers.size());
   for (const auto& h : headers) {
     // HPACKHeader automatically lowercases
-    converted.first.emplace_back(*h.name, *h.value);
-    auto& header = converted.first.back();
-    converted.second += header.name.size() + header.value.size() + 2;
+    converted.emplace_back(*h.name, *h.value);
+    auto& header = converted.back();
+    uncompressed += header.name.size() + header.value.size() + 2;
   }
-  return converted;
+  return uncompressed;
 }
 }
 
@@ -44,9 +45,9 @@ HPACKCodec::HPACKCodec(TransportDirection /*direction*/)
       decoder_(HPACK::kTableSize, maxUncompressed_) {}
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
-  auto prepared = compress::prepareHeaders(headers);
-  encodedSize_.uncompressed = prepared.second;
-  auto buf = encoder_.encode(prepared.first, encodeHeadroom_);
+  static thread_local vector<HPACKHeader> prepared;
+  encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
+  auto buf = encoder_.encode(prepared, encodeHeadroom_);
   recordCompressedSize(buf.get());
   return buf;
 }

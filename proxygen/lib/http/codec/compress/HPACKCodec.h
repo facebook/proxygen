@@ -28,8 +28,8 @@ namespace proxygen {
 class HPACKHeader;
 
 namespace compress {
-std::pair<std::vector<HPACKHeader>, uint32_t> prepareHeaders(
-    std::vector<Header>& headers);
+uint32_t prepareHeaders(
+  const std::vector<Header>& headers, std::vector<HPACKHeader>& prepared);
 }
 
 /*

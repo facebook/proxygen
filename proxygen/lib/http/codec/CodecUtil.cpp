@@ -81,8 +81,8 @@ bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
 
 std::vector<compress::Header> CodecUtil::prepareMessageForCompression(
     const HTTPMessage& msg,
+    std::vector<compress::Header>& allHeaders,
     std::vector<std::string>& temps) {
-  std::vector<compress::Header> allHeaders;
   if (msg.isRequest()) {
     if (msg.isEgressWebsocketUpgrade()) {
       allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD,

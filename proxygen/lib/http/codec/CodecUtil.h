@@ -142,6 +142,7 @@ class CodecUtil {
 
   static std::vector<compress::Header> prepareMessageForCompression(
       const HTTPMessage& msg,
+      std::vector<compress::Header>& allHeaders,
       std::vector<std::string>& temps);
 
   static bool appendHeaders(const HTTPHeaders& inputHeaders,

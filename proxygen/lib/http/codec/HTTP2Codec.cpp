@@ -1138,8 +1138,11 @@ void HTTP2Codec::generateHeaderImpl(
            exAttributes);
   }
 
-  std::vector<std::string> temps;
-  auto allHeaders = CodecUtil::prepareMessageForCompression(msg, temps);
+  static thread_local std::vector<std::string> temps;
+  static thread_local std::vector<compress::Header> allHeaders;
+  temps.clear();
+  allHeaders.clear();
+  CodecUtil::prepareMessageForCompression(msg, allHeaders, temps);
   auto out = encodeHeaders(msg.getHeaders(), allHeaders, size);
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   queue.append(std::move(out));

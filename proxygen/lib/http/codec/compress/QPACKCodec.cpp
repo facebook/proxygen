@@ -46,9 +46,9 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
     vector<Header>& headers,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) noexcept {
-  auto prepared = compress::prepareHeaders(headers);
-  encodedSize_.uncompressed = prepared.second;
-  auto res = encoder_.encode(prepared.first, encodeHeadroom_, streamId,
+  static thread_local std::vector<HPACKHeader> prepared;
+  encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
+  auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,
                              maxEncoderStreamBytes);
   recordCompressedSize(res);
   return res;
