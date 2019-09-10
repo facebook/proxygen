@@ -92,12 +92,12 @@ class HTTPMessage {
                         std::string ipStr = empty_string,
                         std::string portStr = empty_string) {
     request().clientAddress_ = addr;
-    if (ipStr.empty() || portStr.empty()) {
-      request().clientIP_ = addr.getAddressStr();
-      request().clientPort_ = folly::to<std::string>(addr.getPort());
-    } else {
+    if (!ipStr.empty() && !portStr.empty()) {
       request().clientIP_ = std::move(ipStr);
       request().clientPort_ = std::move(portStr);
+    } else {
+      request().clientIP_.clear();
+      request().clientPort_.clear();
     }
   }
 
@@ -106,10 +106,19 @@ class HTTPMessage {
   }
 
   const std::string& getClientIP() const {
+    if (request().clientIP_.empty() &&
+        request().clientAddress_.isInitialized()) {
+      request().clientIP_ = request().clientAddress_.getAddressStr();
+    }
     return request().clientIP_;
   }
 
   const std::string& getClientPort() const {
+    if (request().clientPort_.empty() &&
+        request().clientAddress_.isInitialized()) {
+      request().clientPort_ = folly::to<std::string>(
+        request().clientAddress_.getPort());
+    }
     return request().clientPort_;
   }
 
@@ -120,12 +129,12 @@ class HTTPMessage {
                      std::string addressStr = empty_string,
                      std::string portStr = empty_string) {
     dstAddress_ = addr;
-    if (addressStr.empty() || portStr.empty()) {
-      dstIP_ = addr.getAddressStr();
-      dstPort_ = folly::to<std::string>(addr.getPort());
-    } else {
+    if (!addressStr.empty() && !portStr.empty()) {
       dstIP_ = std::move(addressStr);
       dstPort_ = std::move(portStr);
+    } else {
+      dstIP_.clear();
+      dstPort_.clear();
     }
   }
 
@@ -134,10 +143,16 @@ class HTTPMessage {
   }
 
   const std::string& getDstIP() const {
+    if (dstIP_.empty() && dstAddress_.isInitialized()) {
+      dstIP_ = dstAddress_.getAddressStr();
+    }
     return dstIP_;
   }
 
   const std::string& getDstPort() const {
+    if (dstPort_.empty() && dstAddress_.isInitialized()) {
+      dstPort_ = folly::to<std::string>(dstAddress_.getPort());
+    }
     return dstPort_;
   }
 
@@ -756,8 +771,8 @@ class HTTPMessage {
    */
   struct Request {
     folly::SocketAddress clientAddress_;
-    std::string clientIP_;
-    std::string clientPort_;
+    mutable std::string clientIP_;
+    mutable std::string clientPort_;
     mutable boost::variant<boost::blank, std::string, HTTPMethod> method_;
     std::string path_;
     std::string query_;
@@ -774,8 +789,8 @@ class HTTPMessage {
   };
 
   folly::SocketAddress dstAddress_;
-  std::string dstIP_;
-  std::string dstPort_;
+  mutable std::string dstIP_;
+  mutable std::string dstPort_;
 
   std::string localIP_;
   std::string versionStr_;

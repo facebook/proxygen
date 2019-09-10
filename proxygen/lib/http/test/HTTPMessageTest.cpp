@@ -211,15 +211,30 @@ TEST(HTTPMessage, TestProxification) {
   HTTPMessage msg;
 
   folly::SocketAddress dstAddr("192.168.1.1", 1887);
-  folly::SocketAddress clientAddr("74.125.127.9", 1987);
   msg.setDstAddress(dstAddr);
   msg.setLocalIp("10.0.0.1");
+
   msg.ensureHostHeader();
   msg.setWantsKeepalive(false);
 
   HTTPHeaders& hdrs = msg.getHeaders();
   EXPECT_EQ("192.168.1.1", hdrs.getSingleOrEmpty(HTTP_HEADER_HOST));
   EXPECT_FALSE(msg.wantsKeepalive());
+}
+
+TEST(HTTPMessage, TestSetClientAddress) {
+  HTTPMessage msg;
+
+  folly::SocketAddress clientAddr("74.125.127.9", 1987);
+  msg.setClientAddress(clientAddr);
+  EXPECT_EQ(msg.getClientIP(), "74.125.127.9");
+  EXPECT_EQ(msg.getClientPort(), "1987");
+
+  // Test updating client address
+  folly::SocketAddress clientAddr2("74.125.127.8", 1988);
+  msg.setClientAddress(clientAddr2);
+  EXPECT_EQ(msg.getClientIP(), "74.125.127.8");
+  EXPECT_EQ(msg.getClientPort(), "1988");
 }
 
 TEST(HTTPMessage, TestKeepaliveCheck) {
