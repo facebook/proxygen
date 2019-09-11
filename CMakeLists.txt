@@ -58,7 +58,6 @@ find_package(Boost 1.58 REQUIRED
   COMPONENTS
     iostreams
     context
-    chrono
     date_time
     filesystem
     program_options
