@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <folly/Format.h>
 #include <folly/ScopeGuard.h>
+#include <folly/SingletonThreadLocal.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
@@ -509,8 +510,12 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                        const HTTPMessage& msg,
                                        folly::Optional<StreamID> pushId,
                                        HTTPHeaderSize* size) {
-  static thread_local std::vector<std::string> temps;
-  static thread_local std::vector<compress::Header> allHeaders;
+  struct TempsTag{};
+  struct AllHeadersTag{};
+  auto& temps = folly::SingletonThreadLocal<std::vector<std::string>,
+                                            TempsTag>::get();
+  auto& allHeaders = folly::SingletonThreadLocal<std::vector<compress::Header>,
+                                                 AllHeadersTag>::get();
   temps.clear();
   allHeaders.clear();
   CodecUtil::prepareMessageForCompression(msg, allHeaders, temps);

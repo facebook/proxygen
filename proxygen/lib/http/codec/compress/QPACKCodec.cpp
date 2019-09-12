@@ -10,6 +10,7 @@
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 
 #include <algorithm>
+#include <folly/SingletonThreadLocal.h>
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h> // for prepareHeaders
@@ -46,7 +47,9 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
     vector<Header>& headers,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) noexcept {
-  static thread_local std::vector<HPACKHeader> prepared;
+  struct PreparedTag{};
+  auto& prepared = folly::SingletonThreadLocal<std::vector<HPACKHeader>,
+                                               PreparedTag>::get();
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
   auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,
                              maxEncoderStreamBytes);

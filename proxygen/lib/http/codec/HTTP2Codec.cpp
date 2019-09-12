@@ -16,6 +16,7 @@
 #include <folly/Conv.h>
 #include <folly/Random.h>
 #include <folly/ThreadLocal.h>
+#include <folly/SingletonThreadLocal.h>
 #include <folly/io/Cursor.h>
 #include <folly/tracing/ScopedTraceSection.h>
 #include <type_traits>
@@ -1138,8 +1139,12 @@ void HTTP2Codec::generateHeaderImpl(
            exAttributes);
   }
 
-  static thread_local std::vector<std::string> temps;
-  static thread_local std::vector<compress::Header> allHeaders;
+  struct TempsTag{};
+  struct AllHeadersTag{};
+  auto& temps = folly::SingletonThreadLocal<std::vector<std::string>,
+                                            TempsTag>::get();
+  auto& allHeaders = folly::SingletonThreadLocal<std::vector<compress::Header>,
+                                                 AllHeadersTag>::get();
   temps.clear();
   allHeaders.clear();
   CodecUtil::prepareMessageForCompression(msg, allHeaders, temps);
