@@ -23,6 +23,9 @@ option(BUILD_SHARED_LIBS
 # is generally discouraged.
 mark_as_advanced(BUILD_SHARED_LIBS)
 
+include(FBBuildOptions)
+fb_activate_static_library_option()
+
 # PROXYGEN_FBCODE_ROOT is where the top level proxygen/ directory resides, so
 # an #include <proxygen/path/to/file> will resolve to
 # $PROXYGEN_FBCODE_ROOT/proxygen/path/to/file on disk
