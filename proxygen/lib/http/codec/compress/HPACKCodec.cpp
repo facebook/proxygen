@@ -10,7 +10,7 @@
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
 #include <algorithm>
-#include <folly/SingletonThreadLocal.h>
+#include <folly/ThreadLocal.h>
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
@@ -46,9 +46,8 @@ HPACKCodec::HPACKCodec(TransportDirection /*direction*/)
       decoder_(HPACK::kTableSize, maxUncompressed_) {}
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
-  struct PreparedTag{};
-  auto& prepared = folly::SingletonThreadLocal<std::vector<HPACKHeader>,
-                                               PreparedTag>::get();
+  folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
+  auto& prepared = *preparedTL.get();
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
   auto buf = encoder_.encode(prepared, encodeHeadroom_);
   recordCompressedSize(buf.get());
