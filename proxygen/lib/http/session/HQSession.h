@@ -293,6 +293,10 @@ class HQSession
     return numberOfStreams() > 0;
   }
 
+  uint32_t getNumStreams() const override {
+    return numberOfStreams();
+  }
+
   uint32_t getNumOutgoingStreams() const override {
     // need transport API
     return static_cast<uint32_t>((direction_ == TransportDirection::DOWNSTREAM)

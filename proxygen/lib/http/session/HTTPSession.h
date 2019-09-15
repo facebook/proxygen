@@ -86,6 +86,10 @@ class HTTPSession
     return !transactions_.empty();
   }
 
+  uint32_t getNumStreams() const override {
+    return static_cast<uint32_t>(transactions_.size());
+  }
+
   uint32_t getNumOutgoingStreams() const override {
     return outgoingStreams_;
   }

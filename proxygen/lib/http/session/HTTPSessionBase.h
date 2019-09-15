@@ -178,6 +178,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     return (getNumOutgoingStreams() < getMaxConcurrentOutgoingStreams());
   }
 
+  virtual uint32_t getNumStreams() const = 0;
+
   virtual uint32_t getNumOutgoingStreams() const = 0;
 
   // SimpleSessionPool
