@@ -579,9 +579,9 @@ bool HQSession::getCurrentTransportInfoWithoutUpdate(
     tinfo->rtt = quicInfo.srtt;
     tinfo->rtt_var = static_cast<int64_t>(quicInfo.rttvar.count());
     // Cwnd is logged in terms of MSS.
-    // TODO: this is incorrect if Quic negotiates a different mss.
     tinfo->cwnd = static_cast<int64_t>(quicInfo.congestionWindow /
-                                       quic::kDefaultUDPSendPacketLen);
+                                       quicInfo.mss);
+    tinfo->mss = quicInfo.mss;
     tinfo->cwndBytes = static_cast<int64_t>(quicInfo.congestionWindow);
     tinfo->rtx = static_cast<int64_t>(quicInfo.packetsRetransmitted);
     tinfo->rtx_tm = static_cast<int64_t>(quicInfo.timeoutBasedLoss);
