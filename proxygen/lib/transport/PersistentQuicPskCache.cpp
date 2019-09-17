@@ -38,7 +38,8 @@ folly::Optional<quic::QuicCachedPsk> PersistentQuicPskCache::getPsk(
   }
   try {
     quic::QuicCachedPsk quicCachedPsk;
-    quicCachedPsk.cachedPsk = deserializePsk(cachedPsk->fizzPsk, *factory_);
+    quicCachedPsk.cachedPsk =
+      fizz::client::deserializePsk(cachedPsk->fizzPsk, *factory_);
 
     auto buf = folly::IOBuf::wrapBuffer(cachedPsk->quicParams.data(),
                                         cachedPsk->quicParams.length());
@@ -79,7 +80,7 @@ folly::Optional<quic::QuicCachedPsk> PersistentQuicPskCache::getPsk(
 void PersistentQuicPskCache::putPsk(const std::string& identity,
                                     quic::QuicCachedPsk quicCachedPsk) {
   PersistentQuicCachedPsk cachedPsk;
-  cachedPsk.fizzPsk = serializePsk(quicCachedPsk.cachedPsk);
+  cachedPsk.fizzPsk = fizz::client::serializePsk(quicCachedPsk.cachedPsk);
 
   auto quicParams = folly::IOBuf::create(0);
   folly::io::Appender appender(quicParams.get(), 512);
