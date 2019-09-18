@@ -79,7 +79,7 @@ bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
 }
 
 
-std::vector<compress::Header> CodecUtil::prepareMessageForCompression(
+void CodecUtil::prepareMessageForCompression(
     const HTTPMessage& msg,
     std::vector<compress::Header>& allHeaders,
     std::vector<std::string>& temps) {
@@ -125,7 +125,6 @@ std::vector<compress::Header> CodecUtil::prepareMessageForCompression(
     temps.emplace_back(HTTPMessage::formatDateHeader());
     allHeaders.emplace_back(HTTP_HEADER_DATE, temps.back());
   }
-  return allHeaders;
 }
 
 bool CodecUtil::appendHeaders(const HTTPHeaders& inputHeaders,
