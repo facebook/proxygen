@@ -127,10 +127,19 @@ function setup_folly() {
     MAYBE_DISABLE_JEMALLOC="-DFOLLY_USE_JEMALLOC=0"
   fi
 
+  MAYBE_USE_STATIC_DEPS=""
+  MAYBE_BUILD_TESTS=""
+  if [ "$BUILD_FOR_FUZZING" == true ] ; then
+    MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
+    MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+  fi
+
   cmake                                           \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
+    "$MAYBE_USE_STATIC_DEPS"                      \
+    "$MAYBE_BUILD_TESTS"                          \
     $MAYBE_DISABLE_JEMALLOC                       \
     ..
   make -j "$JOBS"
@@ -153,10 +162,20 @@ function setup_fizz() {
   echo -e "${COLOR_GREEN}Building Fizz ${COLOR_OFF}"
   mkdir -p "$FIZZ_BUILD_DIR"
   cd "$FIZZ_BUILD_DIR" || exit
+
+  MAYBE_USE_STATIC_DEPS=""
+  MAYBE_USE_SODIUM_STATIC_LIBS=""
+  if [ "$BUILD_FOR_FUZZING" == true ] ; then
+    MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
+    MAYBE_USE_SODIUM_STATIC_LIBS="-Dsodium_USE_STATIC_LIBS=ON"
+  fi
+
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     -DBUILD_TESTS=ON                            \
+    "$MAYBE_USE_STATIC_DEPS"                    \
+    "$MAYBE_USE_SODIUM_STATIC_LIBS"             \
     "$FIZZ_DIR/fizz"
   make -j "$JOBS"
   make install
@@ -178,9 +197,19 @@ function setup_wangle() {
   echo -e "${COLOR_GREEN}Building Wangle ${COLOR_OFF}"
   mkdir -p "$WANGLE_BUILD_DIR"
   cd "$WANGLE_BUILD_DIR" || exit
+
+  MAYBE_USE_STATIC_DEPS=""
+  MAYBE_BUILD_TESTS=""
+  if [ "$BUILD_FOR_FUZZING" == true ] ; then
+    MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
+    MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+  fi
+
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
+    "$MAYBE_USE_STATIC_DEPS"                    \
+    "$MAYBE_BUILD_TESTS"                        \
     "$WANGLE_DIR/wangle"
   make -j "$JOBS"
   make install
@@ -202,9 +231,20 @@ function setup_mvfst() {
   echo -e "${COLOR_GREEN}Building Mvfst ${COLOR_OFF}"
   mkdir -p "$MVFST_BUILD_DIR"
   cd "$MVFST_BUILD_DIR" || exit
+
+  MAYBE_USE_STATIC_DEPS=""
+  MAYBE_BUILD_TESTS=""
+  if [ "$BUILD_FOR_FUZZING" == true ] ; then
+    MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
+    MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+  fi
+
+
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
+    "$MAYBE_USE_STATIC_DEPS"                    \
+    "$MAYBE_BUILD_TESTS"                        \
     "$MVFST_DIR"
   make -j "$JOBS"
   make install
@@ -212,13 +252,11 @@ function setup_mvfst() {
   cd "$BWD" || exit
 }
 
-detect_platform
-install_dependencies
-
 # Parse args
 JOBS=8
 WITH_QUIC=false
-USAGE="./deps.sh [-j num_jobs] [-q|--with-quic] [-m|--no-jemalloc]"
+INSTALL_DEPENDENCIES=true
+USAGE="./deps.sh [-j num_jobs] [-q|--with-quic] [-m|--no-jemalloc] [--no-install-dependencies]"
 while [ "$1" != "" ]; do
   case $1 in
     -j | --jobs ) shift
@@ -230,12 +268,23 @@ while [ "$1" != "" ]; do
     -m | --no-jemalloc )
                   NO_JEMALLOC=true
                   ;;
+    --no-install-dependencies )
+                  INSTALL_DEPENDENCIES=false
+          ;;
+    --build-for-fuzzing )
+                  BUILD_FOR_FUZZING=true
+      ;;
     * )           echo $USAGE
                   exit 1
 esac
 shift
 done
 
+detect_platform
+
+if [ "$INSTALL_DEPENDENCIES" == true ] ; then
+  install_dependencies
+fi
 
 BUILD_DIR=_build
 mkdir -p $BUILD_DIR
@@ -260,6 +309,15 @@ if [ "$WITH_QUIC" == true ] ; then
   MAYBE_BUILD_QUIC="-DBUILD_QUIC=On"
 fi
 
+MAYBE_BUILD_FUZZERS=""
+MAYBE_USE_STATIC_DEPS=""
+MAYBE_LIB_FUZZING_ENGINE=""
+if [ "$BUILD_FOR_FUZZING" == true ] ; then
+  MAYBE_BUILD_FUZZERS="-DBUILD_FUZZERS=ON"
+  MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
+  MAYBE_LIB_FUZZING_ENGINE="-DLIB_FUZZING_ENGINE='$LIB_FUZZING_ENGINE'"
+fi
+
 # Build proxygen with cmake
 cd "$BWD" || exit
 cmake                                     \
@@ -268,6 +326,9 @@ cmake                                     \
   -DCMAKE_INSTALL_PREFIX="$BWD"           \
   $MAYBE_BUILD_QUIC                       \
   -DBUILD_TESTS=On                        \
+  "$MAYBE_BUILD_FUZZERS"                  \
+  "$MAYBE_USE_STATIC_DEPS"                \
+  "$MAYBE_LIB_FUZZING_ENGINE"             \
   ../..
 
 make -j "$JOBS"
