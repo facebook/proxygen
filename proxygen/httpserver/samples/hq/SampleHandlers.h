@@ -605,6 +605,11 @@ class RandBytesGenHandler : public BaseQuicHandler {
 
  private:
   void sendBodyInChunks() {
+    if (error_) {
+      LOG(ERROR) << "sendBodyInChunks no-op, error_=true";
+      txn_->sendAbort();
+      return;
+    }
     uint64_t iter = respBodyLen_ / kMaxChunkSize;
     if (respBodyLen_ % kMaxChunkSize != 0) {
       ++iter;
@@ -650,16 +655,19 @@ class RandBytesGenHandler : public BaseQuicHandler {
     resp.setWantsKeepalive(true);
     txn_->sendHeaders(resp);
     txn_->sendBody(folly::IOBuf::copyBuffer(errorMsg));
+    txn_->sendEOM();
+    error_ = true;
   }
 
-  const uint64_t kMaxAllowedLength{10 * 1024 * 1024}; // 10 MB
+  const uint64_t kMaxAllowedLength{1000 * 1024 * 1024}; // 1 GB
   const uint64_t kMaxChunkSize{100 * 1024};           // 100 KB
   const std::string kErrorMsg =
-      folly::to<std::string>("More than 10 MB of data requested. ",
+      folly::to<std::string>("More than 1GB of data requested. ",
                              "Please request for smaller size.");
   uint64_t respBodyLen_;
   bool paused_{false};
   bool eomSent_{false};
+  bool error_{false};
 };
 
 class DummyHandler : public BaseQuicHandler {
