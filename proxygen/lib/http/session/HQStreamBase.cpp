@@ -35,6 +35,11 @@ const HTTPCodec& HQStreamBase::getCodec() const noexcept {
   return *CHECK_NOTNULL(&codecFilterChain.getChainEnd());
 }
 
+
+HQSession& HQStreamBase::getSession() const noexcept {
+  return session_;
+}
+
 /**
  * The session maintains a codecStack which contains the history of
  * setActiveCodec calls.  The stack has a pointer to where the active codec

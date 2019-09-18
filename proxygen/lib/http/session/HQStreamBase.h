@@ -202,6 +202,8 @@ class HQStreamBase
 
   const HTTPCodec& getCodec() const noexcept;
 
+  HQSession& getSession() const noexcept;
+
   folly::Function<void()> setActiveCodec(const std::string& /* where */);
 
   HTTPCodecFilterChain& codecFilterChain;

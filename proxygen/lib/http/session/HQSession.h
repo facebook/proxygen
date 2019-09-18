@@ -125,11 +125,12 @@ class HQSession
     , public HQUnidirStreamDispatcher::Callback {
 
   // Forward declarations
+ public:
+  class HQStreamTransportBase;
  protected:
   class HQStreamTransport;
   class HQEgressPushStream;
   class HQIngressPushStream;
-  class HQStreamTransportBase;
 
  private:
   class HQControlStream;
@@ -1074,7 +1075,7 @@ class HQSession
     bool readEOF_{false};
   };
 
- protected:
+ public:
   class HQStreamTransportBase
       : public HQStreamBase
       , public HTTPTransaction::Transport
@@ -1696,6 +1697,7 @@ class HQSession
     folly::Optional<hq::PushId> ingressPushId_;
   }; // HQStreamTransportBase
 
+ protected:
   class HQStreamTransport
       : public detail::singlestream::SSBidir
       , public HQStreamTransportBase {
