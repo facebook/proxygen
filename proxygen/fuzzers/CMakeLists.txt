@@ -15,6 +15,17 @@ function(proxygen_add_fuzzer)
     set(multi_value_args SOURCES DEPENDS INCLUDES EXTRA_ARGS)
     cmake_parse_arguments(PARSE_ARGV 0 PROXYGEN_FUZZ "${options}" "${one_value_args}" "${multi_value_args}")
 
+    # Remove any references to the main we have from gmock
+    # So we can use the one provided by the fuzzing engine
+    set(LIBGMOCK_LIBRARIES_NO_MAIN ${LIBGMOCK_LIBRARIES})
+    list(REMOVE_ITEM
+         LIBGMOCK_LIBRARIES_NO_MAIN
+         "${GTEST_BINARY_DIR}/${CMAKE_CFG_INTDIR}/googlemock/${CMAKE_STATIC_LIBRARY_PREFIX}gmock_main${CMAKE_STATIC_LIBRARY_SUFFIX}"
+         gmock_main
+         gmock_maind
+         GTest::gmock_main
+    )
+
     if(NOT PROXYGEN_FUZZ_TARGET)
       message(FATAL_ERROR "The TARGET parameter is mandatory.")
     endif()
@@ -37,7 +48,7 @@ function(proxygen_add_fuzzer)
       "${_PROXYGEN_COMMON_COMPILE_OPTIONS}"
     )
     target_link_libraries(${PROXYGEN_FUZZ_TARGET} PRIVATE
-      ${LIBGMOCK_LIBRARIES}
+      ${LIBGMOCK_LIBRARIES_NO_MAIN}
       ${LIB_FUZZING_ENGINE}
     )
     target_include_directories(${PROXYGEN_FUZZ_TARGET} SYSTEM PRIVATE
