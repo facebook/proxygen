@@ -46,6 +46,7 @@ using HQDownstreamSessionTestHQ = HQDownstreamSessionTest;
 // Use this test class for hq PR only tests
 using HQDownstreamSessionTestHQPR = HQDownstreamSessionTest;
 using HQDownstreamSessionTestHQPrBadOffset = HQDownstreamSessionTest;
+using HQDownstreamSessionTestHQDeliveryAck = HQDownstreamSessionTest;
 using HQDownstreamSessionTestHQPRDeliveryAck = HQDownstreamSessionTest;
 using HQDownstreamSessionTestHQPrSkips = HQDownstreamSessionTest;
 
@@ -2824,6 +2825,215 @@ TEST_P(HQDownstreamSessionTestHQPrBadOffset, TestWrongOffsetErrorCleanup) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTestHQDeliveryAck,
+       DropConnectionWithDeliveryAckCbSetError) {
+  auto req = getGetRequest();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendHeaders(200, 1723);
+  });
+
+  auto sock = socketDriver_->getSocket();
+
+  // This is a copy of the one in MockQuicSocketDriver, only hijacks data stream
+  // and forces an error.
+  EXPECT_CALL(*sock,
+              registerDeliveryCallback(testing::_, testing::_, testing::_))
+      .WillRepeatedly(
+          testing::Invoke([streamId, &socketDriver = socketDriver_](
+                              quic::StreamId id,
+                              uint64_t offset,
+                              MockQuicSocket::DeliveryCallback* cb)
+                              -> folly::Expected<folly::Unit, LocalErrorCode> {
+            if (id == streamId) {
+              return folly::makeUnexpected(LocalErrorCode::INVALID_OPERATION);
+            }
+
+            socketDriver->checkNotReadOnlyStream(id);
+            auto it = socketDriver->streams_.find(id);
+            if (it == socketDriver->streams_.end() ||
+                it->second.writeOffset >= offset) {
+              return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
+            }
+            CHECK_NE(it->second.writeState,
+                     MockQuicSocketDriver::StateEnum::CLOSED);
+            it->second.deliveryCallbacks.push_back({offset, cb});
+            return folly::unit;
+          }));
+
+  EXPECT_CALL(*handler, onError(_))
+      .WillOnce(Invoke([](const HTTPException& error) {
+        EXPECT_TRUE(std::string(error.what())
+                        .find("failed to register delivery callback") !=
+                    std::string::npos);
+      }));
+  handler->expectDetachTransaction();
+
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryAck) {
+  auto req = getGetRequest();
+  sendRequest(req);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendHeaders(200, 42);
+    auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
+    EXPECT_TRUE(res);
+    handler->sendBody(42);
+    handler->sendEOM();
+  });
+
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  EXPECT_EQ(transportCallback_.numBodyBytesDeliveredCalls_, 1);
+  EXPECT_EQ(transportCallback_.bodyBytesDeliveredOffset_, 41);
+
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryAckMultiple) {
+  auto req = getGetRequest();
+  sendRequest(req);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendHeaders(200, 42 + 17);
+    auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
+    EXPECT_TRUE(res);
+    handler->sendBody(42);
+    handler->sendBody(17);
+    handler->sendEOM();
+  });
+
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  EXPECT_EQ(transportCallback_.numBodyBytesDeliveredCalls_, 2);
+  EXPECT_EQ(transportCallback_.bodyBytesDeliveredOffset_, 41 + 17);
+
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryErr) {
+  auto req = getGetRequest();
+  auto streamId = sendRequest(req);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendHeaders(200, 42);
+    auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
+    EXPECT_TRUE(res);
+  });
+  flushRequestsAndLoop();
+  EXPECT_TRUE(transportCallback_.lastEgressHeadersByteDelivered_);
+
+  // One day, txn_->sendHeaders() will return number of bytes written, and we
+  // won't need this. For now, H3 frame headers size is 2 bytes.
+  const uint64_t frameHeaderSize = 2;
+  const uint64_t streamOffsetAfterHeaders =
+      (2 * frameHeaderSize) + transportCallback_.headerBytesGenerated_;
+
+  auto sock = socketDriver_->getSocket();
+
+  // This is a copy of the one in MockQuicSocketDriver, only hijacks data stream
+  // and forces an error.
+  EXPECT_CALL(*sock,
+              registerDeliveryCallback(testing::_, testing::_, testing::_))
+      .WillRepeatedly(testing::Invoke(
+          [streamId,
+           &streamOffsetAfterHeaders = streamOffsetAfterHeaders,
+           &socketDriver = socketDriver_](quic::StreamId id,
+                                          uint64_t offset,
+                                          MockQuicSocket::DeliveryCallback* cb)
+              -> folly::Expected<folly::Unit, LocalErrorCode> {
+            if (id == streamId && offset > streamOffsetAfterHeaders) {
+              for (auto& it : socketDriver->streams_) {
+                auto& stream = it.second;
+                stream.readState = quic::MockQuicSocketDriver::ERROR;
+                stream.writeState = quic::MockQuicSocketDriver::ERROR;
+              }
+              return folly::makeUnexpected(LocalErrorCode::INVALID_OPERATION);
+            }
+
+            socketDriver->checkNotReadOnlyStream(id);
+            auto it = socketDriver->streams_.find(id);
+            if (it == socketDriver->streams_.end() ||
+                it->second.writeOffset >= offset) {
+              return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
+            }
+            CHECK_NE(it->second.writeState,
+                     MockQuicSocketDriver::StateEnum::CLOSED);
+            it->second.deliveryCallbacks.push_back({offset, cb});
+            return folly::unit;
+          }));
+
+  EXPECT_CALL(*handler, onError(_))
+      .WillOnce(Invoke([& handler = handler](const HTTPException& error) {
+        EXPECT_TRUE(std::string(error.what())
+                        .find("failed to register delivery callback") !=
+                    std::string::npos);
+        handler->txn_->sendAbort();
+      }));
+
+  handler->expectDetachTransaction();
+
+  handler->sendBody(42);
+  flushRequestsAndLoop();
+}
+
+TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryCancel) {
+  auto req = getGetRequest();
+  sendRequest(req);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+
+  // Start the response.
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    handler->sendHeaders(200, 42);
+    auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
+    EXPECT_TRUE(res);
+    handler->sendBody(42);
+    // handler->sendEOM();
+  });
+
+  flushRequestsAndLoopN(1);
+
+  EXPECT_CALL(*handler, onError(_)).Times(1);
+  handler->expectDetachTransaction();
+  socketDriver_->deliverErrorOnAllStreams(
+      std::make_pair(LocalErrorCode::INVALID_OPERATION, "fake error"));
+  flushRequestsAndLoop();
+
+  EXPECT_EQ(transportCallback_.numBodyBytesCanceledCalls_, 1);
+  EXPECT_EQ(transportCallback_.bodyBytesCanceledOffset_, 41);
+}
+
+INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
+                        HQDownstreamSessionTestHQDeliveryAck,
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          return tp;
+                        }()),
+                        paramsToTestName);
+
 TEST_P(HQDownstreamSessionTestHQPRDeliveryAck,
        DropConnectionWithDeliveryAckCbSetError) {
   auto req = getGetRequest();
@@ -2890,7 +3100,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck, TestBodyDeliveryAck) {
     handler->txn_->setTransportCallback(&transportCallback_);
     handler->sendPrHeaders(200, 42);
     auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
-    EXPECT_FALSE(res.hasError());
+    EXPECT_TRUE(res);
     handler->sendBody(42);
     handler->sendEOM();
   });
@@ -2915,7 +3125,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck, TestBodyDeliveryAckMultiple) {
     handler->txn_->setTransportCallback(&transportCallback_);
     handler->sendPrHeaders(200, 42 + 17);
     auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
-    EXPECT_FALSE(res.hasError());
+    EXPECT_TRUE(res);
     handler->sendBody(42);
     handler->sendBody(17);
     handler->sendEOM();
@@ -2941,7 +3151,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck, TestBodyDeliveryAckWithSkips) {
     handler->txn_->setTransportCallback(&transportCallback_);
     handler->sendPrHeaders(200, 42);
     auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
-    EXPECT_FALSE(res.hasError());
+    EXPECT_TRUE(res);
     handler->sendBody(42);
   });
 
@@ -2982,7 +3192,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck, TestBodyDeliveryErr) {
     handler->txn_->setTransportCallback(&transportCallback_);
     handler->sendPrHeaders(200, 42);
     auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
-    EXPECT_FALSE(res.hasError());
+    EXPECT_TRUE(res);
   });
   flushRequestsAndLoop();
   EXPECT_TRUE(transportCallback_.lastEgressHeadersByteDelivered_);
@@ -3053,7 +3263,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck, TestBodyDeliveryCancel) {
     handler->txn_->setTransportCallback(&transportCallback_);
     handler->sendPrHeaders(200, 42);
     auto res = handler->txn_->setBodyLastByteDeliveryTrackingEnabled(true);
-    EXPECT_FALSE(res.hasError());
+    EXPECT_TRUE(res);
     handler->sendBody(42);
     // handler->sendEOM();
   });

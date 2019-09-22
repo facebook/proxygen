@@ -536,8 +536,7 @@ class HTTPTransaction
     /**
      * Ask transport to track and ack body delivery.
      */
-    virtual folly::Expected<folly::Unit, ErrorCode> trackEgressBodyDelivery(
-        uint64_t /* bodyOffset */) {
+    virtual void trackEgressBodyDelivery(uint64_t /* bodyOffset */) {
       LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
@@ -1445,25 +1444,26 @@ class HTTPTransaction
     enableLastByteFlushedTracking_ = enabled;
   }
 
-  folly::Expected<folly::Unit, ErrorCode>
-  setBodyLastByteDeliveryTrackingEnabled(bool enabled) {
-    if (!partiallyReliable_) {
-      return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
+  bool setBodyLastByteDeliveryTrackingEnabled(bool enabled) {
+    if (transport_.getSessionType() != Transport::Type::QUIC) {
+      return false;
     }
+
     enableBodyLastByteDeliveryTracking_ = enabled;
-    return folly::unit;
+    return true;
   }
 
-  /**
-   * Allows the caller to peek into underlying transport's read buffer.
-   * This, together with consume(), forms a scatter/gather API.
-   *
-   * @param peekCallback  A callback that will be executed on each contiguous
-   *                      byte range in transport's read buffer. Number of byte
-   *                      ranges is determined by the number of gaps in the
-   *                      read buffer.
-   */
-  folly::Expected<folly::Unit, ErrorCode> peek(PeekCallback peekCallback);
+/**
+ * Allows the caller to peek into underlying transport's read buffer.
+ * This, together with consume(), forms a scatter/gather API.
+ *
+ * @param peekCallback  A callback that will be executed on each contiguous
+ *                      byte range in transport's read buffer. Number of byte
+ *                      ranges is determined by the number of gaps in the
+ *                      read buffer.
+ */
+folly::Expected<folly::Unit, ErrorCode>
+peek(PeekCallback peekCallback);
 
   /**
    * Allows the caller to consume bytes from the beginning of the read buffer in

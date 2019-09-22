@@ -1495,8 +1495,7 @@ class HQSession
     folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
         HTTPTransaction* txn, uint64_t nextBodyOffset) override;
 
-    folly::Expected<folly::Unit, ErrorCode> trackEgressBodyDelivery(
-        uint64_t bodyOffset) override;
+    void trackEgressBodyDelivery(uint64_t bodyOffset) override;
 
     uint64_t trimPendingEgressBody(uint64_t wireOffset);
 
@@ -1685,6 +1684,10 @@ class HQSession
     void handleHeadersAcked(uint64_t streamOffset);
     void handleBodyAcked(uint64_t streamOffset);
     void handleBodyCancelled(uint64_t streamOffset);
+    // Egress headers offset.
+    // This is updated every time we send headers. Needed for body delivery
+    // callbacks to calculate body offset properly.
+    uint64_t egressHeadersStreamOffset_{0};
     folly::Optional<uint64_t> egressHeadersAckOffset_;
     std::unordered_set<uint64_t> egressBodyAckOffsets_;
     // Track number of armed QUIC delivery callbacks.
@@ -1947,16 +1950,6 @@ class HQSession
       LOG(FATAL) << ": called in base class";
       folly::assume_unreachable();
     }
-    virtual hq::TrackerOffsetResult getEgressBodyOffset(
-        uint64_t /* streamOffset */) const {
-      LOG(FATAL) << ": called in base class";
-      folly::assume_unreachable();
-    }
-    virtual hq::TrackerOffsetResult appToStreamOffset(
-        uint64_t /* bodyOffset */) const {
-      LOG(FATAL) << ": called in base class";
-      folly::assume_unreachable();
-    }
 
     HQSession& session_;
   };
@@ -2095,12 +2088,6 @@ class HQSession
 
     folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
     onEgressBodyReject(uint64_t bodyOffset) override;
-
-    hq::TrackerOffsetResult getEgressBodyOffset(
-        uint64_t streamOffset) const override;
-
-    hq::TrackerOffsetResult appToStreamOffset(
-        uint64_t bodyOffset) const override;
 
    private:
     QPACKCodec qpackCodec_;

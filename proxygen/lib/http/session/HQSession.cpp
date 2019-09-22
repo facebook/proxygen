@@ -1292,18 +1292,6 @@ HQSession::HQVersionUtils::onEgressBodyReject(uint64_t bodyOffset) {
   return hqStreamCodecPtr_->onEgressBodyReject(bodyOffset);
 }
 
-hq::TrackerOffsetResult HQSession::HQVersionUtils::getEgressBodyOffset(
-    uint64_t streamOffset) const {
-  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
-  return hqStreamCodecPtr_->getEgressBodyOffset(streamOffset);
-}
-
-hq::TrackerOffsetResult HQSession::HQVersionUtils::appToStreamOffset(
-    uint64_t bodyOffset) const {
-  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
-  return hqStreamCodecPtr_->appToStreamOffset(bodyOffset);
-}
-
 void HQSession::scheduleWrite() {
   // always call for the whole connection and iterate trough all the streams
   // in onWriteReady
@@ -3097,6 +3085,7 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
       writeBuf_, *codecStreamId_, headers, includeEOM, size);
 
   const uint64_t newOffset = streamWriteByteOffset();
+  egressHeadersStreamOffset_ = newOffset;
   if (size) {
     VLOG(4) << "sending headers, size=" << size->compressed
             << ", uncompressedSize=" << size->uncompressed << " txn=" << txn_;
@@ -3606,31 +3595,16 @@ HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
   }
 }
 
-folly::Expected<folly::Unit, ErrorCode>
-HQSession::HQStreamTransportBase::trackEgressBodyDelivery(uint64_t bodyOffset) {
-  if (!session_.isPartialReliabilityEnabled()) {
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
+void HQSession::HQStreamTransportBase::trackEgressBodyDelivery(
+    uint64_t bodyOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
-
-  auto streamOffset = session_.versionUtils_->appToStreamOffset(bodyOffset);
-  if (streamOffset.hasError()) {
-    LOG(ERROR) << __func__
-                << ": body offset tracker error: " << streamOffset.error();
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  if (*streamOffset == 0) {
-    LOG(ERROR) << __func__ << ": incorrect body stream offset == 0";
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
+  uint64_t streamOffset = egressHeadersStreamOffset_ + bodyOffset;
   // We need to track last byte sent offset, so substract one here.
-  armEgressBodyAckCb(*streamOffset - 1);
-
-  return folly::unit;
+  auto offset = streamOffset - 1;
+  armEgressBodyAckCb(offset);
+  VLOG(4) << __func__ << ": armed body delivery callback for offset=" << offset
+          << "; last egress headers offset=" << egressHeadersStreamOffset_
+          << "; txn=" << txn_;
 }
 
 void HQSession::HQStreamTransportBase::armStreamAckCb(uint64_t streamOffset) {
@@ -3658,12 +3632,16 @@ void HQSession::HQStreamTransportBase::armStreamAckCb(uint64_t streamOffset) {
 
 void HQSession::HQStreamTransportBase::armEgressHeadersAckCb(
     uint64_t streamOffset) {
+  VLOG(4) << __func__ << ": registering headers delivery callback for offset = "
+          << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
   armStreamAckCb(streamOffset);
   egressHeadersAckOffset_ = streamOffset;
 }
 
 void HQSession::HQStreamTransportBase::armEgressBodyAckCb(
     uint64_t streamOffset) {
+  VLOG(4) << __func__ << ": registering body delivery callback for offset = "
+          << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
   armStreamAckCb(streamOffset);
   egressBodyAckOffsets_.insert(streamOffset);
 }
@@ -3678,6 +3656,10 @@ void HQSession::HQStreamTransportBase::handleHeadersAcked(
     return;
   }
 
+  VLOG(4) << __func__
+          << ": got delivery ack for egress headers, stream offset = "
+          << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
+
   resetEgressHeadersAckOffset();
   txn_.onLastEgressHeaderByteAcked();
 }
@@ -3686,22 +3668,15 @@ void HQSession::HQStreamTransportBase::handleBodyAcked(uint64_t streamOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(session_.versionUtils_) << ": version utils are not set";
 
-  auto bodyOffset = session_.versionUtils_->getEgressBodyOffset(streamOffset);
-  if (bodyOffset.hasError()) {
-    LOG(DFATAL) << __func__
-                << ": body offset tracker error: " << bodyOffset.error();
-    HTTPException ex(HTTPException::Direction::EGRESS,
-                     toString(bodyOffset.error()));
-    // Setting error to unknown here, because there is no existing error that
-    // describes wrong transport offset well enough. Plus, if this ever happens,
-    // this has to be some unknown/local/logical bug that we need to fix.
-    ex.setProxygenError(kErrorUnknown);
-    errorOnTransaction(std::move(ex));
-    return;
-  }
+  CHECK_GE(streamOffset, egressHeadersStreamOffset_);
+  uint64_t bodyOffset = streamOffset - egressHeadersStreamOffset_;
+
+  VLOG(4) << __func__
+          << ": got delivery ack for egress body, bodyOffset = " << bodyOffset
+          << "; sess=" << session_ << "; txn=" << txn_;
 
   resetEgressBodyAckOffset(streamOffset);
-  txn_.onEgressBodyBytesAcked(*bodyOffset);
+  txn_.onEgressBodyBytesAcked(bodyOffset);
 }
 
 void HQSession::HQStreamTransportBase::handleBodyCancelled(
@@ -3709,19 +3684,11 @@ void HQSession::HQStreamTransportBase::handleBodyCancelled(
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(session_.versionUtils_) << ": version utils are not set";
 
-  auto bodyOffset = session_.versionUtils_->getEgressBodyOffset(streamOffset);
-  if (bodyOffset.hasError()) {
-    LOG(ERROR) << __func__
-               << ": body offset tracker error: " << bodyOffset.error();
-    HTTPException ex(HTTPException::Direction::EGRESS,
-                     toString(bodyOffset.error()));
-    ex.setProxygenError(kErrorUnknown);
-    errorOnTransaction(std::move(ex));
-    return;
-  }
+  CHECK_GE(streamOffset, egressHeadersStreamOffset_);
+  uint64_t bodyOffset = streamOffset - egressHeadersStreamOffset_;
 
   resetEgressBodyAckOffset(streamOffset);
-  txn_.onEgressBodyDeliveryCanceled(*bodyOffset);
+  txn_.onEgressBodyDeliveryCanceled(bodyOffset);
 }
 
 void HQSession::HQStreamTransportBase::onDeliveryAck(

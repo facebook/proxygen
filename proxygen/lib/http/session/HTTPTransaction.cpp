@@ -894,17 +894,8 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
           << "Sent body longer than chunk header ";
     }
     deferredEgressBody_.append(std::move(body));
-    if (enableBodyLastByteDeliveryTracking_) {
-      auto res = transport_.trackEgressBodyDelivery(*actualResponseLength_);
-      if (res.hasError()) {
-        HTTPException ex(
-            HTTPException::Direction::INGRESS_AND_EGRESS,
-            folly::to<std::string>("Failed to arm body bytes tracking: ",
-                                   res.error()));
-        ex.setProxygenError(kErrorUnknown);
-        onError(ex);
-        return;
-      }
+    if (*actualResponseLength_ && enableBodyLastByteDeliveryTracking_) {
+      transport_.trackEgressBodyDelivery(*actualResponseLength_);
     }
     if (isEnqueued()) {
       transport_.notifyEgressBodyBuffered(bodyLen);
