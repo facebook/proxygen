@@ -2770,6 +2770,11 @@ bool HQSession::HQStreamTransportBase::getCurrentTransportInfo(
   return success;
 }
 
+HTTPTransaction::Transport::Type
+HQSession::HQStreamTransportBase::getSessionType() const noexcept {
+  return session_.getType();
+}
+
 void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
   // Special case - streams that dont have either ingress stream id
   // or egress stream id dont need to be actually detached

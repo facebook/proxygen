@@ -457,6 +457,9 @@ class HTTPTransaction
 
     virtual bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) = 0;
 
+    virtual HTTPTransaction::Transport::Type getSessionType() const
+        noexcept = 0;
+
     virtual const HTTPCodec& getCodec() const noexcept = 0;
 
     /*

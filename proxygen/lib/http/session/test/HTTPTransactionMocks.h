@@ -107,6 +107,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
   }
 
   MOCK_METHOD1(getCurrentTransportInfo, bool(wangle::TransportInfo*));
+  GMOCK_METHOD0_(
+      , const noexcept, , getSessionType, HTTPTransaction::Transport::Type());
   GMOCK_METHOD0_(, noexcept, , getCodecNonConst, const HTTPCodec&());
   const HTTPCodec& getCodec() const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)->getCodecNonConst();

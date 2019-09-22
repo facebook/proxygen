@@ -1997,6 +1997,10 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
   return false;
 }
 
+HTTPTransaction::Transport::Type HTTPSession::getSessionType() const noexcept {
+  return getType();
+}
+
 unique_ptr<IOBuf> HTTPSession::getNextToSend(
     bool* cork, bool* timestampTx, bool* timestampAck) {
   // limit ourselves to one outstanding write at a time (onWriteSuccess calls

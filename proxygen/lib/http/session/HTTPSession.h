@@ -147,6 +147,8 @@ class HTTPSession
 
   bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
 
+  HTTPTransaction::Transport::Type getSessionType() const noexcept override;
+
   /**
    * Set the maximum number of transactions the remote can open at once.
    */

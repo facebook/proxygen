@@ -1400,6 +1400,8 @@ class HQSession
 
     bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
 
+    HTTPTransaction::Transport::Type getSessionType() const noexcept override;
+
     virtual const HTTPCodec& getCodec() const noexcept override {
       return HQStreamBase::getCodec();
     }
