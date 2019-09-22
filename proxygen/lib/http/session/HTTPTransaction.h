@@ -400,6 +400,8 @@ class HTTPTransaction
 
   class Transport {
    public:
+   enum class Type : uint8_t { TCP, QUIC };
+
     virtual ~Transport() {
     }
 

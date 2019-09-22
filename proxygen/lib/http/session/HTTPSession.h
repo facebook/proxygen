@@ -63,8 +63,8 @@ class HTTPSession
  public:
   using UniquePtr = std::unique_ptr<HTTPSession, Destructor>;
 
-  HTTPSessionBase::SessionType getType() const noexcept override {
-    return HTTPSessionBase::SessionType::HTTP;
+  HTTPTransaction::Transport::Type getType() const noexcept override {
+    return HTTPTransaction::Transport::Type::TCP;
   }
 
   folly::AsyncTransportWrapper* getTransport() override {

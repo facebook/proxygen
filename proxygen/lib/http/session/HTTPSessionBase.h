@@ -34,7 +34,6 @@ class HTTPPriorityMapFactoryProvider {
 
 class HTTPSessionBase : public wangle::ManagedConnection {
  public:
-  enum class SessionType { HTTP, HQ };
 
   /**
    * Optional callback interface that the HTTPSessionBase
@@ -154,7 +153,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     sessionStats_ = stats;
   }
 
-  virtual SessionType getType() const noexcept = 0;
+  virtual HTTPTransaction::Transport::Type getType() const noexcept = 0;
 
   virtual folly::AsyncTransportWrapper* getTransport() = 0;
 

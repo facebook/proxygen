@@ -177,8 +177,8 @@ class HQSession
 
   virtual ~HQSession();
 
-  HTTPSessionBase::SessionType getType() const noexcept override {
-    return HTTPSessionBase::SessionType::HQ;
+  HTTPTransaction::Transport::Type getType() const noexcept override {
+    return HTTPTransaction::Transport::Type::QUIC;
   }
 
   void setSocket(std::shared_ptr<quic::QuicSocket> sock) noexcept {
