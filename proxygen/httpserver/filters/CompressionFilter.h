@@ -50,8 +50,14 @@ class CompressionFilter : public Filter {
 
     chunked_ = msg.getIsChunked();
 
+    // Skip if it is already compressed
+    auto alreadyCompressed =
+        !msg.getHeaders()
+             .getSingleOrEmpty(HTTP_HEADER_CONTENT_ENCODING)
+             .empty();
+
     // Make final determination of whether to compress
-    compress_ = isCompressibleContentType(msg) &&
+    compress_ = !alreadyCompressed && isCompressibleContentType(msg) &&
                 (chunked_ || isMinimumCompressibleSize(msg));
 
     // Add the header
