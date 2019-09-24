@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <folly/Benchmark.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <proxygen/lib/http/HTTPHeaders.h>
 
 using namespace proxygen;
 
@@ -114,6 +115,40 @@ BENCHMARK(memchr, iters) {
 
 BENCHMARK(stdFind, iters) {
   stdFindBench(iters);
+}
+
+void addCodeBench(int nHeaders, int hdrSize, int iters) {
+  std::string value(hdrSize, 'a');
+  for (int i = 0; i < iters; ++i) {
+    HTTPHeaders headers;
+    for (int j = 0; j < nHeaders; ++j) {
+      headers.add(HTTP_HEADER_HOST, value);
+    }
+  }
+}
+
+BENCHMARK(addCode4_headers_8_length, iters) {
+  addCodeBench(4, 8, iters);
+}
+
+BENCHMARK(addCode4_headers_32_length, iters) {
+  addCodeBench(4, 32, iters);
+}
+
+BENCHMARK(addCode16_headers_8_length, iters) {
+  addCodeBench(16, 8, iters);
+}
+
+BENCHMARK(addCode16_headers_32_length, iters) {
+  addCodeBench(16, 32, iters);
+}
+
+BENCHMARK(addCode24_headers_8_length, iters) {
+  addCodeBench(24, 8, iters);
+}
+
+BENCHMARK(addCode24_headers_32_length, iters) {
+  addCodeBench(24, 32, iters);
 }
 
 int main(int argc, char** argv) {
