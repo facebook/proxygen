@@ -735,7 +735,7 @@ class HTTPSession
   /** Chain of ingress IOBufs */
   folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
 
-  std::map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
+  std::unordered_map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
 
   /** Count of transactions awaiting input */
   uint32_t liveTransactions_{0};

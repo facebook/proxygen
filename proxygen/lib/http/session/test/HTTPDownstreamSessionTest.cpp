@@ -1415,8 +1415,6 @@ TEST_F(HTTP2DownstreamSessionTest, InvalidControlStream) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, SetByteEventTracker) {
-  InSequence enforceOrder;
-
   // Send two requests with writes paused, which will queue several byte events,
   // including last byte events which are holding a reference to the
   // transaction.
@@ -1941,13 +1939,6 @@ TEST_F(HTTPDownstreamSessionTest, WriteTimeoutPipeline) {
   auto handler2 = addSimpleNiceHandler();
   handler2->expectHeaders();
   handler2->expectEOM();
-  handler1->expectError([&](const HTTPException& ex) {
-    ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
-    ASSERT_EQ(folly::to<std::string>("WriteTimeout on transaction id: ",
-                                     handler1->txn_->getID()),
-              std::string(ex.what()));
-    handler1->txn_->sendAbort();
-  });
   handler2->expectError([&](const HTTPException& ex) {
     ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
     ASSERT_EQ(folly::to<std::string>("WriteTimeout on transaction id: ",
@@ -1956,6 +1947,13 @@ TEST_F(HTTPDownstreamSessionTest, WriteTimeoutPipeline) {
     handler2->txn_->sendAbort();
   });
   handler2->expectDetachTransaction();
+  handler1->expectError([&](const HTTPException& ex) {
+    ASSERT_EQ(ex.getProxygenError(), kErrorWriteTimeout);
+    ASSERT_EQ(folly::to<std::string>("WriteTimeout on transaction id: ",
+                                     handler1->txn_->getID()),
+              std::string(ex.what()));
+    handler1->txn_->sendAbort();
+  });
   handler1->expectDetachTransaction();
   expectDetachSession();
 
@@ -2581,8 +2579,8 @@ TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
     handler1->txn_->sendBody(std::move(makeBuf(12001)));
     this->resumeWritesAfterDelay(milliseconds(50));
   });
-  handler1->expectEgressPaused();
   handler2->expectEgressPaused();
+  handler1->expectEgressPaused();
   auto handler3 = this->addSimpleStrictHandler();
   handler3->expectEgressPaused();
   handler3->expectHeaders();
@@ -2596,9 +2594,9 @@ TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
   // HTTP/2 priority is not implemented, so handler3 is like another 0 pri txn
   handler2->expectEgressResumed();
   IF_HTTP2(handler3->expectEgressResumed());
+  IF_HTTP2(handler3->expectEgressPaused());
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
-  IF_HTTP2(handler3->expectEgressPaused());
 
   handler1->expectEgressResumed();
   handler2->expectEgressResumed([&] {
@@ -2610,9 +2608,9 @@ TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
   // handler3 not resumed
   IF_HTTP2(handler3->expectEgressResumed());
 
+  IF_HTTP2(handler3->expectEgressPaused());
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
-  IF_HTTP2(handler3->expectEgressPaused());
 
   handler1->expectEgressResumed();
   handler2->expectEgressResumed([&] {
@@ -2637,7 +2635,6 @@ TYPED_TEST_P(HTTPDownstreamTest, TestMaxTxns) {
   auto maxTxns = settings->getSetting(SettingsId::MAX_CONCURRENT_STREAMS, 100);
   std::list<unique_ptr<StrictMock<MockHTTPHandler>>> handlers;
   {
-    InSequence enforceOrder;
     for (auto i = 0U; i < maxTxns; i++) {
       this->sendRequest();
       auto handler = this->addSimpleStrictHandler();
@@ -2762,21 +2759,20 @@ TEST_F(SPDY31DownstreamTest, TestEOFOnBlockedSession) {
   sendRequest();
   sendRequest();
 
-  InSequence handlerSequence;
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1] {
-    handler1->sendHeaders(200, 40000);
-    handler1->sendBody(32769);
-  });
+      handler1->sendHeaders(200, 40000);
+      handler1->sendBody(32769);
+    });
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
   handler2->expectEOM([&handler2, this] {
-    handler2->sendHeaders(200, 40000);
-    handler2->sendBody(32768);
-    eventBase_.runInLoop([this] { transport_->addReadEOF(milliseconds(0)); });
-  });
-
+      handler2->sendHeaders(200, 40000);
+      handler2->sendBody(32768);
+      eventBase_.runInLoop([this] {
+          transport_->addReadEOF(milliseconds(0)); });
+    });
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
   handler1->expectEgressResumed();

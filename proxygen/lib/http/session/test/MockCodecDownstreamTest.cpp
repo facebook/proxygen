@@ -939,7 +939,6 @@ TEST_F(MockCodecDownstreamTest, DoubleResume) {
 void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   // Let the connection level flow control window fill and then make sure
   // control frames still can be processed
-  InSequence enforceOrder;
   NiceMock<MockHTTPHandler> handler1;
   NiceMock<MockHTTPHandler> handler2;
   auto wantToWrite = spdy::kInitialWindow + 50000;

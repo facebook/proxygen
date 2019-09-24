@@ -564,7 +564,6 @@ TEST_F(SPDY3UpstreamSessionTest, TestUnderLimitOnWriteError) {
 }
 
 TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
-  InSequence enforceOrder;
   auto handler1 = openTransaction();
   auto handler2 = openTransaction();
 
@@ -613,7 +612,6 @@ TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
 }
 
 TEST_F(HTTP2UpstreamSessionTest, TestPriority) {
-  InSequence enforceOrder;
   // virtual priority node with pri=8
   auto priGroupID = httpSession_->sendPriority({0, false, 7});
   auto handler1 = openTransaction();
@@ -2341,7 +2339,6 @@ TEST_F(MockHTTPUpstreamTest, DrainBeforeSendHeaders) {
 TEST_F(MockHTTP2UpstreamTest, ReceiveDoubleGoaway) {
   // Test that we handle receiving two goaways correctly
 
-  InSequence enforceOrder;
   auto req = getGetRequest();
 
   // Open 2 txns but doesn't send headers yet

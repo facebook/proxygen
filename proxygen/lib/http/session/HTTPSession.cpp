@@ -750,11 +750,15 @@ void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
     // There must be at least two transactions (we just checked). The previous
     // txns haven't completed yet. Pause reads until they complete
     DCHECK_GE(transactions_.size(), 2);
-    for (auto it = ++transactions_.rbegin(); it != transactions_.rend(); ++it) {
-      DCHECK(it->second.isIngressEOMSeen());
-      it->second.pauseIngress();
+    std::map<HTTPCodec::StreamID, HTTPTransaction*> sortedTxns;
+    for (auto& txn: transactions_) {
+      sortedTxns.emplace(txn.first, &txn.second);
     }
-    transactions_.rbegin()->second.pauseIngress();
+    for (auto it = ++sortedTxns.rbegin(); it != sortedTxns.rend(); ++it) {
+      DCHECK(it->second->isIngressEOMSeen());
+      it->second->pauseIngress();
+    }
+    sortedTxns.rbegin()->second->pauseIngress();
     DCHECK_EQ(liveTransactions_, 0);
     DCHECK(readsPaused());
   }
@@ -1176,7 +1180,7 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // Abort transactions which have been initiated but not created
   // successfully at the remote end. Upstream transactions are created
   // with odd transaction IDs and downstream transactions with even IDs.
-  vector<HTTPCodec::StreamID> ids;
+  std::vector<HTTPCodec::StreamID> ids;
   auto firstStream = HTTPCodec::NoStream;
 
   for (const auto& txn : transactions_) {
@@ -1842,7 +1846,9 @@ bool HTTPSession::maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
   if (!codec_->supportsParallelRequests() && !transactions_.empty() &&
       getPipelineStreamCount() < oldStreamCount &&
       getPipelineStreamCount() == 1) {
-    auto& nextTxn = transactions_.rbegin()->second;
+    auto txnIt = transactions_.find(txnSeqn + 2);
+    CHECK(txnIt != transactions_.end());
+    auto& nextTxn = txnIt->second;
     DCHECK_EQ(nextTxn.getSequenceNumber(), txnSeqn + 1);
     DCHECK(!nextTxn.isIngressComplete());
     DCHECK(nextTxn.isIngressPaused());
