@@ -623,7 +623,7 @@ void HTTP2Codec::onHeadersComplete(HTTPHeaderSize decodedSize,
       msg->getMethod() == HTTPMethod::CONNECT) {
     msg->setIngressWebsocketUpgrade();
     ingressWebsocketUpgrade_ = true;
-  } else {
+  } else if (!upgradedStreams_.empty()) {
     auto it = upgradedStreams_.find(curHeader_.stream);
     if (it != upgradedStreams_.end()) {
       upgradedStreams_.erase(curHeader_.stream);
