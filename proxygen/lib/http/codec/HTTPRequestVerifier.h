@@ -89,7 +89,7 @@ class HTTPRequestVerifier {
     }
     hasAuthority_ = true;
     assert(msg_ != nullptr);
-    msg_->getHeaders().add(HTTP_HEADER_HOST, authority.str());
+    msg_->getHeaders().add(HTTP_HEADER_HOST, authority);
     return true;
   }
 
