@@ -28,9 +28,8 @@ HTTP2PriorityQueue::Node::Node(HTTP2PriorityQueue& queue,
       id_(id),
       weight_(weight + 1),
       txn_(txn) {
-  DCHECK(queue_.nodes_.find(id_, IdHash(), IdNodeEqual()) ==
-         queue_.nodes_.end());
-  queue_.nodes_.insert(*this);
+  auto result = queue_.nodes_.emplace(id_, this);
+  DCHECK(result.second);
 }
 
 HTTP2PriorityQueue::Node::~Node() {
@@ -690,14 +689,14 @@ HTTP2PriorityQueue::Node* HTTP2PriorityQueue::find(HTTPCodec::StreamID id,
   if (id == rootNodeId_) {
     return nullptr;
   }
-  auto it = nodes_.find(id, Node::IdHash(), Node::IdNodeEqual());
+  auto it = nodes_.find(id);
   if (it == nodes_.end()) {
     return nullptr;
   }
   if (depth) {
-    *depth = it->calculateDepth();
+    *depth = it->second->calculateDepth();
   }
-  return &(*it);
+  return it->second;
 }
 
 void HTTP2PriorityQueue::updateEnqueuedWeight() {
