@@ -46,6 +46,7 @@ DEFINE_int32(txn_timeout, 120000, "HTTP Transaction Timeout");
 DEFINE_string(httpauth, "", "HTTP Authority field, defaults to --host");
 DEFINE_string(headers, "", "List of N=V headers separated by ,");
 DEFINE_bool(pacing, false, "Whether to enable pacing on HQServer");
+DEFINE_int32(pacing_timer_tick_interval_us, 200, "Pacing timer resolution")
 DEFINE_string(psk_file, "", "Cache file to use for QUIC psks");
 DEFINE_bool(early_data, false, "Whether to use 0-rtt");
 DEFINE_uint32(quic_batching_mode,
@@ -192,6 +193,10 @@ void initializeTransportSettings(HQParamsBuilder& builder) {
   }
   builder.transportSettings.maxRecvPacketSize = FLAGS_max_receive_packet_size;
   builder.transportSettings.pacingEnabled = FLAGS_pacing;
+  if (builder.transportSettings.pacingEnabled) {
+    builder.transportSettings.pacingTimerTickInterval =
+        std::chrono::microseconds(FLAGS_pacing_timer_tick_interval_us);
+  }
   builder.transportSettings.batchingMode =
       quic::getQuicBatchingMode(FLAGS_quic_batching_mode);
   builder.transportSettings.maxBatchSize = FLAGS_quic_batch_size;
