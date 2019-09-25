@@ -446,12 +446,16 @@ HTTP2PriorityQueue::Handle HTTP2PriorityQueue::addTransaction(
   CHECK_NE(id, rootNodeId_);
   CHECK_NE(id, pri.streamDependency) << "Tried to create a loop in the tree";
   CHECK(!txn || !permanent);
-  Node* existingNode = find(id, depth);
-  if (existingNode) {
-    CHECK(!permanent);
-    existingNode->convertVirtualNode(CHECK_NOTNULL(txn));
-    updatePriority(existingNode, pri);
-    return existingNode;
+  if (largestId_ && id <= *largestId_) {
+    Node* existingNode = find(id, depth);
+    if (existingNode) {
+      CHECK(!permanent);
+      existingNode->convertVirtualNode(CHECK_NOTNULL(txn));
+      updatePriority(existingNode, pri);
+      return existingNode;
+    }
+  } else {
+    largestId_ = id;
   }
   if (!txn) {
     if (numVirtualNodes_ >= maxVirtualNodes_) {

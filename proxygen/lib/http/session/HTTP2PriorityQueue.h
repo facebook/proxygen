@@ -442,6 +442,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   uint64_t activeCount_{0};
   uint32_t maxVirtualNodes_{50};
   uint32_t numVirtualNodes_{0};
+  folly::Optional<HTTPCodec::StreamID> largestId_;
   bool pendingWeightChange_{false};
   WheelTimerInstance timeout_;
 
