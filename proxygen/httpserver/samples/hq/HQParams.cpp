@@ -46,7 +46,7 @@ DEFINE_int32(txn_timeout, 120000, "HTTP Transaction Timeout");
 DEFINE_string(httpauth, "", "HTTP Authority field, defaults to --host");
 DEFINE_string(headers, "", "List of N=V headers separated by ,");
 DEFINE_bool(pacing, false, "Whether to enable pacing on HQServer");
-DEFINE_int32(pacing_timer_tick_interval_us, 200, "Pacing timer resolution")
+DEFINE_int32(pacing_timer_tick_interval_us, 200, "Pacing timer resolution");
 DEFINE_string(psk_file, "", "Cache file to use for QUIC psks");
 DEFINE_bool(early_data, false, "Whether to use 0-rtt");
 DEFINE_uint32(quic_batching_mode,
