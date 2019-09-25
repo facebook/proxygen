@@ -598,10 +598,10 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersCheckConcurrentStreams(
   return folly::Optional<ErrorCode>();
 }
 
-void HTTP2Codec::onHeader(const folly::fbstring& name,
+void HTTP2Codec::onHeader(const HPACKHeaderName& name,
                           const folly::fbstring& value) {
   if (decodeInfo_.onHeader(name, value)) {
-    if (name == "user-agent" && userAgent_.empty()) {
+    if (userAgent_.empty() && name.getHeaderCode() == HTTP_HEADER_USER_AGENT) {
       userAgent_ = value.toStdString();
     }
   } else {

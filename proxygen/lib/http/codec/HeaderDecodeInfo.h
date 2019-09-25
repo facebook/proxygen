@@ -10,6 +10,7 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
 #include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
 
 namespace proxygen {
@@ -32,7 +33,7 @@ class HeaderDecodeInfo {
     verifier.reset(msg.get());
   }
 
-  bool onHeader(const folly::fbstring& name, const folly::fbstring& value);
+  bool onHeader(const HPACKHeaderName& name, const folly::fbstring& value);
 
   void onHeadersComplete(HTTPHeaderSize decodedSize);
 

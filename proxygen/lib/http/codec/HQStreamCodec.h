@@ -156,7 +156,7 @@ class HQStreamCodec
 
   CompressionInfo getCompressionInfo() const override;
 
-  void onHeader(const folly::fbstring& name,
+  void onHeader(const HPACKHeaderName& name,
                 const folly::fbstring& value) override;
   void onHeadersComplete(HTTPHeaderSize decodedSize, bool acknowledge) override;
   void onDecodeError(HPACK::DecodeError decodeError) override;

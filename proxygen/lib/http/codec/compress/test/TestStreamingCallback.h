@@ -19,8 +19,9 @@ namespace proxygen {
 
 class TestStreamingCallback : public HPACK::StreamingCallback {
  public:
-  void onHeader(const folly::fbstring& name,
+  void onHeader(const HPACKHeaderName& hname,
                 const folly::fbstring& value) override {
+    auto name = hname.get();
     headers.emplace_back(duplicate(name), name.size(), true, false);
     headers.emplace_back(duplicate(value), value.size(), true, false);
   }

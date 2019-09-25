@@ -16,7 +16,7 @@ uint32_t HPACKDecoderBase::emit(const HPACKHeader& header,
                                 HPACK::StreamingCallback* streamingCb,
                                 headers_t* emitted) {
   if (streamingCb) {
-    streamingCb->onHeader(header.name.get(), header.value);
+    streamingCb->onHeader(header.name, header.value);
   } else if (emitted) {
     // copying HPACKHeader
     emitted->emplace_back(header.name.get(), header.value);

@@ -11,13 +11,14 @@
 
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
 
 namespace proxygen { namespace HPACK {
   class StreamingCallback {
    public:
     virtual ~StreamingCallback() {}
 
-    virtual void onHeader(const folly::fbstring& name,
+    virtual void onHeader(const HPACKHeaderName& name,
                           const folly::fbstring& value) = 0;
     virtual void onHeadersComplete(HTTPHeaderSize decodedSize,
                                    bool acknowledge) = 0;

@@ -212,13 +212,13 @@ class QIFCallback : public HPACK::StreamingCallback {
     id(id_),
     of(of_) {}
 
-  void onHeader(const folly::fbstring& name,
+  void onHeader(const HPACKHeaderName& name,
                 const folly::fbstring& value) override {
     if (first) {
       of << "# stream " << id << std::endl;
       first = false;
     }
-    of << name << "\t" << value << std::endl;
+    of << name.get() << "\t" << value << std::endl;
   }
   void onHeadersComplete(HTTPHeaderSize /*decodedSize*/,
                          bool /*acknowledge*/) override {

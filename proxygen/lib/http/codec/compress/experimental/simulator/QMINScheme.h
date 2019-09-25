@@ -401,7 +401,7 @@ class QMINScheme : public CompressionScheme {
       decoded_size += name_len + val_len;
       std::string name{outbuf, name_len};
       std::string value{outbuf + name_len, val_len};
-      callback.onHeader(name, value);
+      callback.onHeader(HPACKHeaderName(folly::StringPiece(name)), value);
     }
 
     if (0 != qmin_dec_stream_done(qms_dec, stream_id)) {
