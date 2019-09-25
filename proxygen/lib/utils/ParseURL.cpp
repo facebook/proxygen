@@ -56,6 +56,11 @@ static bool validateScheme(folly::StringPiece url) {
 }
 
 void ParseURL::parse() noexcept {
+  if (url_.size() == 1 && url_[0] == '/') {
+    path_ = url_;
+    valid_ = true;
+    return;
+  }
   if (validateScheme(url_)) {
     struct http_parser_url u;
     memset(&u, 0, sizeof(struct http_parser_url)); // init before used
