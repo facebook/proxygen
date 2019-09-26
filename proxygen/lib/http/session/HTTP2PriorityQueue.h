@@ -15,7 +15,7 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 
-#include <unordered_map>
+#include <boost/intrusive/unordered_set.hpp>
 #include <deque>
 #include <list>
 
@@ -71,12 +71,15 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
  private:
   class Node;
+  using NodeMap = boost::intrusive::
+      unordered_set<Node, boost::intrusive::constant_time_size<false>>;
 
   static const size_t kNumBuckets = 100;
 
  public:
   HTTP2PriorityQueue(HTTPCodec::StreamID rootNodeId = 0)
       : HTTP2PriorityQueueBase(rootNodeId),
+        nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)),
         root_(*this, nullptr, rootNodeId, 1, nullptr) {
     root_.setPermanent();
   }
@@ -84,6 +87,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   explicit HTTP2PriorityQueue(const WheelTimerInstance& timeout,
                               HTTPCodec::StreamID rootNodeId = 0)
       : HTTP2PriorityQueueBase(rootNodeId),
+        nodes_(NodeMap::bucket_traits(nodeBuckets_, kNumBuckets)),
         root_(*this, nullptr, rootNodeId, 1, nullptr),
         timeout_(timeout) {
     root_.setPermanent();
@@ -214,7 +218,8 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
   class Node
       : public BaseNode
-    , public folly::HHWheelTimer::Callback {
+      , public folly::HHWheelTimer::Callback
+      , public boost::intrusive::unordered_set_base_hook<link_mode> {
    public:
     static const uint16_t kDefaultWeight = 16;
 
@@ -225,6 +230,31 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
          HTTPTransaction* txn);
 
     ~Node() override;
+
+    // Functor comparing id to node and vice-versa
+    struct IdNodeEqual {
+      bool operator()(const HTTPCodec::StreamID& id, const Node& node) {
+        return id == node.id_;
+      }
+      bool operator()(const Node& node, const HTTPCodec::StreamID& id) {
+        return node.id_ == id;
+      }
+    };
+
+    // Hash function
+    struct IdHash {
+      size_t operator()(const HTTPCodec::StreamID& id) const {
+        return boost::hash<HTTPCodec::StreamID>()(id);
+      }
+    };
+
+    // Equality and hash operators (for intrusive set)
+    friend bool operator==(const Node& lhs, const Node& rhs) {
+      return lhs.id_ == rhs.id_;
+    }
+    friend std::size_t hash_value(const Node& node) {
+      return IdHash()(node.id_);
+    }
 
     void setPermanent() {
       isPermanent_ = true;
@@ -404,8 +434,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
     folly::IntrusiveList<Node, &Node::enqueuedHook_> enqueuedChildren_;
   };
 
-  using NodeMap = std::unordered_map<HTTPCodec::StreamID, Node*>;
-
+  typename NodeMap::bucket_type nodeBuckets_[kNumBuckets];
   NodeMap nodes_;
   Node root_;
   uint32_t rebuildCount_{0};
