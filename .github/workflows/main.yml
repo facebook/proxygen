@@ -91,6 +91,8 @@ jobs:
       run: python build/fbcode_builder/getdeps.py build mvfst
     - name: Build wangle
       run: python build/fbcode_builder/getdeps.py build wangle
+    - name: Build gperf
+      run: python build/fbcode_builder/getdeps.py build --no-tests gperf
     - name: Build proxygen
       run: python build/fbcode_builder/getdeps.py build --src-dir=. proxygen
     - name: Test proxygen
@@ -179,6 +181,8 @@ jobs:
       run: python build/fbcode_builder/getdeps.py build mvfst
     - name: Build wangle
       run: python build/fbcode_builder/getdeps.py build wangle
+    - name: Build gperf
+      run: python build/fbcode_builder/getdeps.py build --no-tests gperf
     - name: Build proxygen
       run: python build/fbcode_builder/getdeps.py build --src-dir=. proxygen
     - name: Test proxygen
