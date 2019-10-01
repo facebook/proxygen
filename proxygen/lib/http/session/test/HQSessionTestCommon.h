@@ -157,6 +157,7 @@ class HQSessionTest
         .lrtt = std::chrono::microseconds(0),
         .mrtt = std::chrono::microseconds(0),
         .mss = quic::kDefaultUDPSendPacketLen,
+        .congestionControlType = quic::CongestionControlType::None,
         .writableBytes = 0,
         .congestionWindow = 1500,
         .pacingBurstSize = 0,
