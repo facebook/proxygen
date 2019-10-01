@@ -29,6 +29,7 @@
 #include <folly/io/async/DelayedDestructionBase.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <quic/QuicConstants.h>
 #include <quic/logging/QLoggerConstants.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
@@ -578,6 +579,8 @@ bool HQSession::getCurrentTransportInfoWithoutUpdate(
     auto quicInfo = sock_->getTransportInfo();
     tinfo->rtt = quicInfo.srtt;
     tinfo->rtt_var = static_cast<int64_t>(quicInfo.rttvar.count());
+    tinfo->caAlgo = std::string(
+        congestionControlTypeToString(quicInfo.congestionControlType));
     // Cwnd is logged in terms of MSS.
     tinfo->cwnd = static_cast<int64_t>(quicInfo.congestionWindow /
                                        quicInfo.mss);
