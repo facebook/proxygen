@@ -7,7 +7,7 @@ Facebook. Internally, it is used as the basis for building many HTTP
 servers, proxies, and clients. This release focuses on the common HTTP
 abstractions and our simple HTTPServer framework. Future releases will
 provide simple client APIs as well. The framework supports HTTP/1.1,
-SPDY/3, SPDY/3.1, HTTP/2 and HTTP/3. The goal is to provide a simple,
+SPDY/3, SPDY/3.1, HTTP/2, and HTTP/3. The goal is to provide a simple,
 performant, and modern C++ HTTP library.
 
 We have a Google group for general discussions at https://groups.google.com/d/forum/facebook-proxygen.
@@ -33,7 +33,7 @@ to rebase the dependencies, and then rebuild and reinstall `proxygen`.
 ##### Other Platforms
 
 If you are running on another platform, you may need to install several
-packages first. Proxygen and `folly` are all autotools based projects.
+packages first. Proxygen and `folly` are all Autotools based projects.
 
 ### Introduction
 
@@ -55,19 +55,19 @@ transaction, and handler. These are the lowest level abstractions, and we
 don't generally recommend building off of these directly.
 
 When bytes are read off the wire, the `HTTPCodec` stored inside
-`HTTPSession` parses these into higher level objects and associates with
+`HTTPSession` parses these into higher-level objects and associates with
 it a transaction identifier. The codec then calls into `HTTPSession` which
 is responsible for maintaining the mapping between transaction identifier
 and `HTTPTransaction` objects. Each HTTP request/response pair has a
 separate `HTTPTransaction` object. Finally, `HTTPTransaction` forwards the
-call to a handler object which implements `HTTPTransaction::Handler`. The
+call to a handler object which implements `HTTPTransaction:: Handler`. The
 handler is responsible for implementing business logic for the request or
 response.
 
 The handler then calls back into the transaction to generate egress
 (whether the egress is a request or response). The call flows from the
 transaction back to the session, which uses the codec to convert the
-higher level semantics of the particular call into the appropriate bytes
+higher-level semantics of the particular call into the appropriate bytes
 to send on the wire.
 
 The same handler and transaction interfaces are used to both create requests
@@ -78,7 +78,7 @@ requests.
 
 ![Core Proxygen Architecture](CoreProxygenArchitecture.png)
 
-Moving into higher levels of abstraction, `proxygen/httpserver` has a
+Moving into higher levels of abstraction, `proxygen/HTTP server` has a
 simpler set of APIs and is the recommended way to interface with `proxygen`
 when acting as a server if you don't need the full control of the lower
 level abstractions.
@@ -93,8 +93,8 @@ protected member `ResponseHandler* downstream_` to send the response.
 
 ### Using it
 
-Proxygen is a library. After installing it, you can build your own C++
-server. Try `cd`ing to the directory containing the echo server at
+Proxygen is a library. After installing it, you can build your C++
+server. Try `cd` ing to the directory containing the echo server at
 `proxygen/httpserver/samples/echo/`.
 
 After building proxygen you can start the echo server with `_build/proxygen/httpserver/proxygen_echo`
@@ -132,7 +132,7 @@ library for the [IETF QUIC](https://github.com/quicwg/base-drafts) transport
 implementation, so we have made that dependency optional.  You can build the
 HTTP/3 code, tests and sample binaries with `./build.sh --with-quic`.
 
-This will also build a handy commandline utility that can be used as an HTTP/3
+This will also build a handy command-line utility that can be used as an HTTP/3
 server and client.
 
 Sample usage:
@@ -147,7 +147,7 @@ knobs to tune both the quic transport and the http layer.
 ### Documentation
 
 We use Doxygen for Proxygen's internal documentation. You can generate a
-copy of these docs by running `doxygen Doxyfile` from the project
+copy of these docs by running `Doxygen Doxyfile` from the project
 root. You'll want to look at `html/namespaceproxygen.html` to start. This
 will also generate `folly` documentation.
 
