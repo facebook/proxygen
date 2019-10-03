@@ -65,6 +65,8 @@ class QueueTest : public testing::Test {
                       uint64_t* depth = nullptr) {
     HTTP2PriorityQueue::Handle h = q_.addTransaction(
         id, pri, pnode ? nullptr : makeFakeTxn(id), false, depth);
+    // Blow away the old handle.  Hopefully the caller knows what they are doing
+    handles_.erase(id);
     handles_.insert(std::make_pair(id, h));
     if (!pnode) {
       signalEgress(id, 1);
@@ -812,6 +814,19 @@ TEST_F(DanglingQueueTest, ExpireParentOfMismatchedTwins) {
   expireNodes();
   dump();
   EXPECT_EQ(nodes_, IDList({{3, 50}, {5, 50}}));
+}
+
+TEST_F(DanglingQueueTest, AddExpireAdd) {
+  // Add a virtual node
+  addTransaction(0, {kRootNodeId, true, 219}, true);
+  // expire it
+  expireNodes();
+  dump();
+  EXPECT_TRUE(q_.empty());
+  // Add a real node with the same id
+  addTransaction(0, {kRootNodeId, true, 219}, false);
+  dump();
+  EXPECT_EQ(nodes_, IDList({{0, 100}}));
 }
 
 class DummyTimeout : public HHWheelTimer::Callback {

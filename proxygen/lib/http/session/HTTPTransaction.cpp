@@ -17,6 +17,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/RFC2616.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
+#include <sstream>
 
 using folly::IOBuf;
 using std::unique_ptr;
