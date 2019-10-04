@@ -427,15 +427,16 @@ void HTTPMessage::parseQueryParams() const {
   splitNameValue(req.query_, '&', '=',
         [this] (string&& paramName, string&& paramValue) {
 
-    auto it = queryParams_.find(paramName);
-    if (it == queryParams_.end()) {
-      queryParams_.emplace(std::move(paramName), std::move(paramValue));
-    } else {
-      // We have some unit tests that make sure we always return the last
-      // value when there are duplicate parameters. I don't think this really
-      // matters, but for now we might as well maintain the same behavior.
-      it->second = std::move(paramValue);
-    }
+    // auto it = queryParams_.find(paramName);
+    // if (it == queryParams_.end()) {
+    //   queryParams_.emplace(std::move(paramName), std::move(paramValue));
+    // } else {
+    //   // We have some unit tests that make sure we always return the last
+    //   // value when there are duplicate parameters. I don't think this really
+    //   // matters, but for now we might as well maintain the same behavior.
+    //   it->second = std::move(paramValue);
+    // }
+    queryParams_.emplace(std::move(paramName), std::move(paramValue));
   });
 }
 
@@ -491,7 +492,20 @@ std::string HTTPMessage::getDecodedQueryParam(const std::string& name) const {
   return result;
 }
 
-const std::map<std::string, std::string>& HTTPMessage::getQueryParams() const {
+const std::pair< std::multimap<std::string,std::string>::iterator, 
+  std::multimap<std::string,std::string>::iterator > HTTPMessage::getQueryParams(const std::string& name) const
+  {
+    if (!parsedQueryParams_) {
+      parseQueryParams();
+    }
+
+    std::pair< std::multimap<std::string,std::string>::iterator, std::multimap<std::string,std::string>::iterator > ret;
+    ret = queryParams_.equal_range(name);
+
+    return ret;
+  }
+
+const std::multimap<std::string, std::string>& HTTPMessage::getQueryParams() const {
   // Parse the query parameters if we haven't done so yet
   if (!parsedQueryParams_) {
     parseQueryParams();
@@ -539,13 +553,15 @@ bool HTTPMessage::setQueryParam(const std::string& name,
     parseQueryParams();
   }
 
-  queryParams_[name] = value;
+  // queryParams_[name] = value;
+  queryParams_.insert(std::pair<std::string, std::string>(name, value));
+
   auto query = createQueryString(queryParams_, request().query_.length());
   return setQueryString(query);
 }
 
 std::string HTTPMessage::createQueryString(
-    const std::map<std::string, std::string>& params, uint32_t maxLength) {
+    const std::multimap<std::string, std::string>& params, uint32_t maxLength) {
   std::string query;
   query.reserve(maxLength);
   for (auto it = params.begin(); it != params.end(); it++) {
