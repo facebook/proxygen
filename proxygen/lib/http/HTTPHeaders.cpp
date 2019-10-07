@@ -58,10 +58,10 @@ void HTTPHeaders::add(folly::StringPiece name, folly::StringPiece value) {
 void HTTPHeaders::add(HTTPHeaders::headers_initializer_list l) {
   for (auto& p : l) {
     if (p.first.type_ == HTTPHeaderName::CODE) {
-      add(p.first.code_, std::string(p.second.data(), p.second.size()));
+      add(p.first.code_, folly::StringPiece(p.second.data(), p.second.size()));
     }
     else {
-      add(p.first.name_, std::string(p.second.data(), p.second.size()));
+      add(p.first.name_, folly::StringPiece(p.second.data(), p.second.size()));
     }
   }
 }
@@ -72,11 +72,11 @@ void HTTPHeaders::rawAdd(const std::string& name, const std::string& value) {
 
 void HTTPHeaders::addFromCodec(const char* str, size_t len, string&& value) {
   const HTTPHeaderCode code = HTTPCommonHeaders::hash(str, len);
-  emplace_back(code,
-               (code == HTTP_HEADER_OTHER)
-                ? new string(str, len)
-                : (std::string*)HTTPCommonHeaders::getPointerToName(code),
-                folly::rtrimWhitespace(std::move(value)).toString());
+  auto namePtr = (code == HTTP_HEADER_OTHER)
+    ? new string(str, len)
+    : (std::string*)HTTPCommonHeaders::getPointerToName(code);
+
+  emplace_back(code, namePtr, std::move(value));
 }
 
 bool HTTPHeaders::exists(folly::StringPiece name) const {

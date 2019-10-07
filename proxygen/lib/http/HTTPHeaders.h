@@ -31,7 +31,7 @@ extern const std::string empty_string;
  */
 inline bool isLWS(char c) {
   // Technically \r and \n are only allowed in LWS if they appear together.
-  if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+  if (c == ' ' || c == '\n' || c == '\t' || c == '\r') {
     return true;
   }
   return false;
@@ -104,8 +104,20 @@ class HTTPHeaders {
    * header name exist, they will be retained.
    */
   void add(folly::StringPiece name, folly::StringPiece value);
+  void add(folly::StringPiece name, char const* value) {
+    add(name, folly::StringPiece(value));
+  }
+  void add(folly::StringPiece name, char* value) {
+    add(name, folly::StringPiece(value));
+  }
   template <typename T> // T = string
   void add(folly::StringPiece name, T&& value);
+  void add(HTTPHeaderCode code, char const* value) {
+    add(code, folly::StringPiece(value));
+  }
+  void add(HTTPHeaderCode code, char* value) {
+    add(code, folly::StringPiece(value));
+  }
   template <typename T> // T = string
   void add(HTTPHeaderCode code, T&& value);
   void add(headers_initializer_list l);
@@ -364,10 +376,16 @@ class HTTPHeaders {
     ensure(length_ + 1);
     codes()[length_] = code;
     names()[length_] = name;
-    new (values() + length_++)std::string(std::forward<T>(value));
+    std::string* p = values() + length_++;
+    new (p)std::string(std::forward<T>(value));
+    if (!p->empty() && isLWS(p->back())) {
+      auto sp = folly::rtrimWhitespace(*p);
+      p->resize(sp.size());
+    }
   }
 
 };
+
 
 // Implementation follows - it has to be in the .h because of the templates
 
@@ -375,18 +393,16 @@ template <typename T> // T = string
 void HTTPHeaders::add(folly::StringPiece name, T&& value) {
   assert(name.size());
   const HTTPHeaderCode code = HTTPCommonHeaders::hash(name.data(), name.size());
-  emplace_back(code,
-               ((code == HTTP_HEADER_OTHER)
-                ? new std::string(name.data(), name.size())
-                : (std::string*)HTTPCommonHeaders::getPointerToName(code)),
-               folly::rtrimWhitespace(std::forward<T>(value)));
+  auto namePtr = ((code == HTTP_HEADER_OTHER)
+                  ? new std::string(name.data(), name.size())
+                  : (std::string*)HTTPCommonHeaders::getPointerToName(code));
+  emplace_back(code, namePtr, std::forward<T>(value));
 }
 
 template <typename T> // T = string
 void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
-  emplace_back(code,
-               (std::string*)HTTPCommonHeaders::getPointerToName(code),
-               folly::rtrimWhitespace(std::forward<T>(value)));
+  auto namePtr = (std::string*)HTTPCommonHeaders::getPointerToName(code);
+  emplace_back(code, namePtr, std::forward<T>(value));
 }
 
 // iterate over the positions (in vector) of all headers with given code
