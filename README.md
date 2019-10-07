@@ -87,7 +87,7 @@ The basic components here are `HTTPServer`, `RequestHandlerFactory`, and
 `RequestHandler`. An `HTTPServer` takes some configuration and is given a
 `RequestHandlerFactory`. Once the server is started, the installed
 `RequestHandlerFactory` spawns a `RequestHandler` for each HTTP
-request. `RequestHandler` is a simple interface users of the library
+request. `RequestHandler` is a simple interface user of the library
 implement. Subclasses of `RequestHandler` should use the inherited
 protected member `ResponseHandler* downstream_` to send the response.
 
