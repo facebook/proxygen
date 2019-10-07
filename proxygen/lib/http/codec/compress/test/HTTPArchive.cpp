@@ -159,11 +159,11 @@ unique_ptr<HTTPArchive> HTTPArchive::fromFile(const string& filename) {
                                      entries[i]["startedDateTime"].asString(),
                                      true);
     if (msg.getHeaders().size() != 0) {
-      har->requests.push_back(msg);
+      har->requests.emplace_back(std::move(msg));
     }
     msg = extractMessage(entries[i]["response"], "", false);
     if (msg.getHeaders().size() != 0) {
-      har->responses.push_back(msg);
+      har->responses.emplace_back(std::move(msg));
     }
   }
 

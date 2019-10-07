@@ -42,19 +42,17 @@ bitset<256>& HTTPHeaders::perHopHeaderCodes() {
 
 HTTPHeaders::HTTPHeaders() :
   deletedCount_(0) {
-  codes_.reserve(kInitialVectorReserve);
-  headerNames_.reserve(kInitialVectorReserve);
-  headerValues_.reserve(kInitialVectorReserve);
+  resize(kInitialVectorReserve);
 }
 
 void HTTPHeaders::add(folly::StringPiece name, folly::StringPiece value) {
   CHECK(name.size());
   const HTTPHeaderCode code = HTTPCommonHeaders::hash(name.data(), name.size());
-  codes_.push_back(code);
-  headerNames_.push_back((code == HTTP_HEADER_OTHER)
-      ? new std::string(name.data(), name.size())
-      : HTTPCommonHeaders::getPointerToName(code));
-  headerValues_.emplace_back(value.data(), value.size());
+  emplace_back(code,
+               ((code == HTTP_HEADER_OTHER)
+                ? new std::string(name.data(), name.size())
+                : (std::string*)HTTPCommonHeaders::getPointerToName(code)),
+               value);
 }
 
 void HTTPHeaders::add(HTTPHeaders::headers_initializer_list l) {
@@ -74,12 +72,11 @@ void HTTPHeaders::rawAdd(const std::string& name, const std::string& value) {
 
 void HTTPHeaders::addFromCodec(const char* str, size_t len, string&& value) {
   const HTTPHeaderCode code = HTTPCommonHeaders::hash(str, len);
-  codes_.push_back(code);
-  headerNames_.push_back((code == HTTP_HEADER_OTHER)
-      ? new string(str, len)
-      : HTTPCommonHeaders::getPointerToName(code));
-  headerValues_.emplace_back(
-      folly::rtrimWhitespace(std::move(value)).toString());
+  emplace_back(code,
+               (code == HTTP_HEADER_OTHER)
+                ? new string(str, len)
+                : (std::string*)HTTPCommonHeaders::getPointerToName(code),
+                folly::rtrimWhitespace(std::move(value)).toString());
 }
 
 bool HTTPHeaders::exists(folly::StringPiece name) const {
@@ -94,10 +91,7 @@ bool HTTPHeaders::exists(folly::StringPiece name) const {
 }
 
 bool HTTPHeaders::exists(HTTPHeaderCode code) const {
-  if (codes_.data() == nullptr) {
-      return false;
-  }
-  return memchr((void*)codes_.data(), code, codes_.size()) != nullptr;
+  return memchr((void*)codes(), code, length_) != nullptr;
 }
 
 size_t HTTPHeaders::getNumberOfValues(HTTPHeaderCode code) const {
@@ -126,8 +120,8 @@ bool HTTPHeaders::remove(folly::StringPiece name) {
   } else {
     bool removed = false;
     ITERATE_OVER_STRINGS(name, {
-      delete headerNames_[pos];
-      codes_[pos] = HTTP_HEADER_NONE;
+      delete names()[pos];
+      codes()[pos] = HTTP_HEADER_NONE;
       removed = true;
       ++deletedCount_;
     });
@@ -138,7 +132,7 @@ bool HTTPHeaders::remove(folly::StringPiece name) {
 bool HTTPHeaders::remove(HTTPHeaderCode code) {
   bool removed = false;
   ITERATE_OVER_CODES(code, {
-    codes_[pos] = HTTP_HEADER_NONE;
+    codes()[pos] = HTTP_HEADER_NONE;
     removed = true;
     ++deletedCount_;
   });
@@ -152,8 +146,8 @@ bool HTTPHeaders::removeAllVersions(HTTPHeaderCode code,
     removed = remove(code);
   }
   ITERATE_OVER_STRINGS_ALL_VERSION(name, {
-    delete headerNames_[pos];
-    codes_[pos] = HTTP_HEADER_NONE;
+    delete names()[pos];
+    codes()[pos] = HTTP_HEADER_NONE;
     removed = true;
     ++deletedCount_;
   });
@@ -161,77 +155,87 @@ bool HTTPHeaders::removeAllVersions(HTTPHeaderCode code,
 }
 
 void HTTPHeaders::disposeOfHeaderNames() {
-  for (size_t i = 0; i < codes_.size(); ++i) {
-    if (codes_[i] == HTTP_HEADER_OTHER) {
-      delete headerNames_[i];
+  ITERATE_OVER_CODES(HTTP_HEADER_OTHER, {
+      delete names()[pos];
+    });
+}
+
+void HTTPHeaders::destroy() {
+  auto c = codes();
+  auto n = names();
+  auto v = values();
+  for (size_t i = 0; i < length_; ++i) {
+    if (c[i] == HTTP_HEADER_OTHER) {
+      delete n[i];
     }
+    auto p = v + i;
+    p->~string();
   }
 }
 
 HTTPHeaders::~HTTPHeaders () {
-  disposeOfHeaderNames();
+  destroy();
 }
 
 HTTPHeaders::HTTPHeaders(const HTTPHeaders& hdrs) :
-  codes_(hdrs.codes_),
-  headerNames_(hdrs.headerNames_),
-  headerValues_(hdrs.headerValues_),
+  length_(0),
+  capacity_(0),
   deletedCount_(hdrs.deletedCount_) {
-  for (size_t i = 0; i < codes_.size(); ++i) {
-    if (codes_[i] == HTTP_HEADER_OTHER) {
-      headerNames_[i] = new string(*hdrs.headerNames_[i]);
-    }
-  }
+  copyFrom(hdrs);
 }
 
 HTTPHeaders::HTTPHeaders(HTTPHeaders&& hdrs) noexcept :
-    codes_(std::move(hdrs.codes_)),
-    headerNames_(std::move(hdrs.headerNames_)),
-    headerValues_(std::move(hdrs.headerValues_)),
-    deletedCount_(hdrs.deletedCount_) {
-  hdrs.removeAll();
+  memory_(std::move(hdrs.memory_)),
+  length_(hdrs.length_),
+  capacity_(hdrs.capacity_),
+  deletedCount_(hdrs.deletedCount_) {
+  hdrs.length_ = 0;
+}
+
+void HTTPHeaders::copyFrom(const HTTPHeaders& other) {
+  resize(other.capacity_);
+  memcpy(codes(), other.codes(), other.length_);
+  for (size_t i = 0; i < other.length_; i++) {
+    if (codes()[i] == HTTP_HEADER_OTHER) {
+      names()[i] = new std::string(*other.names()[i]);
+    } else {
+      names()[i] = other.names()[i];
+    }
+    new (values() + i) std::string(other.values()[i]);
+  }
+  length_ = other.length_;
 }
 
 HTTPHeaders& HTTPHeaders::operator= (const HTTPHeaders& hdrs) {
   if (this != &hdrs) {
-    disposeOfHeaderNames();
-    codes_ = hdrs.codes_;
-    headerNames_ = hdrs.headerNames_;
-    headerValues_ = hdrs.headerValues_;
-    deletedCount_ = hdrs.deletedCount_;
-    for (size_t i = 0; i < codes_.size(); ++i) {
-      if (codes_[i] == HTTP_HEADER_OTHER) {
-        headerNames_[i] = new string(*hdrs.headerNames_[i]);
-      }
-    }
+    removeAll();
+    copyFrom(hdrs);
   }
   return *this;
 }
 
 HTTPHeaders& HTTPHeaders::operator= (HTTPHeaders&& hdrs) {
   if (this != &hdrs) {
-    codes_ = std::move(hdrs.codes_);
-    headerNames_ = std::move(hdrs.headerNames_);
-    headerValues_ = std::move(hdrs.headerValues_);
+    removeAll();
+    memory_ = std::move(hdrs.memory_);
+    length_ = hdrs.length_;
+    capacity_ = hdrs.capacity_;
     deletedCount_ = hdrs.deletedCount_;
 
-    hdrs.removeAll();
+    hdrs.length_ = 0;
   }
 
   return *this;
 }
 
 void HTTPHeaders::removeAll() {
-  disposeOfHeaderNames();
-
-  codes_.clear();
-  headerNames_.clear();
-  headerValues_.clear();
+  destroy();
+  length_ = 0;
   deletedCount_ = 0;
 }
 
 size_t HTTPHeaders::size() const {
-  return codes_.size() - deletedCount_;
+  return length_ - deletedCount_;
 }
 
 bool
@@ -242,20 +246,19 @@ HTTPHeaders::transferHeaderIfPresent(folly::StringPiece name,
                                                       name.size());
   if (code == HTTP_HEADER_OTHER) {
     ITERATE_OVER_STRINGS(name, {
-      strippedHeaders.codes_.push_back(HTTP_HEADER_OTHER);
-      // in the next line, ownership of pointer goes to strippedHeaders
-      strippedHeaders.headerNames_.push_back(headerNames_[pos]);
-      strippedHeaders.headerValues_.push_back(headerValues_[pos]);
-      codes_[pos] = HTTP_HEADER_NONE;
+      strippedHeaders.emplace_back(HTTP_HEADER_OTHER,
+                                   names()[pos],
+                                   std::move(values()[pos]));
+      codes()[pos] = HTTP_HEADER_NONE;
       transferred = true;
       ++deletedCount_;
     });
   } else { // code != HTTP_HEADER_OTHER
     ITERATE_OVER_CODES(code, {
-      strippedHeaders.codes_.push_back(code);
-      strippedHeaders.headerNames_.push_back(headerNames_[pos]);
-      strippedHeaders.headerValues_.push_back(headerValues_[pos]);
-      codes_[pos] = HTTP_HEADER_NONE;
+      strippedHeaders.emplace_back(code,
+                                   names()[pos],
+                                   std::move(values()[pos]));
+      codes()[pos] = HTTP_HEADER_NONE;
       transferred = true;
       ++deletedCount_;
     });
@@ -311,25 +314,26 @@ HTTPHeaders::stripPerHopHeaders(HTTPHeaders& strippedHeaders) {
 
   // Strip hop-by-hop headers
   auto& perHopHeaders = perHopHeaderCodes();
-  for (size_t i = 0; i < codes_.size(); ++i) {
-    if (perHopHeaders[codes_[i]]) {
-      strippedHeaders.codes_.push_back(codes_[i]);
-      strippedHeaders.headerNames_.push_back(headerNames_[i]);
-      strippedHeaders.headerValues_.push_back(headerValues_[i]);
-      codes_[i] = HTTP_HEADER_NONE;
+  for (size_t i = 0; i < length_; ++i) {
+    if (perHopHeaders[codes()[i]]) {
+      strippedHeaders.emplace_back(codes()[i],
+                                   names()[i],
+                                   std::move(values()[i]));
+      codes()[i] = HTTP_HEADER_NONE;
       ++deletedCount_;
-      VLOG(5) << "Stripped hop-by-hop header " << *headerNames_[i];
+      VLOG(5) << "Stripped hop-by-hop header " << *names()[i];
     }
   }
 }
 
 void HTTPHeaders::copyTo(HTTPHeaders& hdrs) const {
-  for (size_t i = 0; i < codes_.size(); ++i) {
-    if (codes_[i] != HTTP_HEADER_NONE) {
-      hdrs.codes_.push_back(codes_[i]);
-      hdrs.headerNames_.push_back((codes_[i] == HTTP_HEADER_OTHER) ?
-          new string(*headerNames_[i]) : headerNames_[i]);
-      hdrs.headerValues_.push_back(headerValues_[i]);
+  hdrs.ensure(hdrs.size() + size());
+  for (size_t i = 0; i < length_; ++i) {
+    if (codes()[i] != HTTP_HEADER_NONE) {
+      hdrs.emplace_back(codes()[i],
+                        ((codes()[i] == HTTP_HEADER_OTHER) ?
+                         new string(*names()[i]) : names()[i]),
+                        values()[i]);
     }
   }
 }

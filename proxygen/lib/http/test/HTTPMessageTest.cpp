@@ -531,21 +531,21 @@ TEST(HTTPMessage, TestCheckForHeaderToken) {
                                        true));
 }
 
-TEST(HttpMessage, TestProtocolStringHTTPVersion) {
+TEST(HTTPMessage, TestProtocolStringHTTPVersion) {
   HTTPMessage msg;
   msg.setHTTPVersion(1, 1);
 
   EXPECT_EQ(msg.getProtocolString(), "1.1");
 }
 
-TEST(HttpMessage, TestProtocolStringAdvancedProtocol) {
+TEST(HTTPMessage, TestProtocolStringAdvancedProtocol) {
   HTTPMessage msg;
   std::string advancedProtocol = "h2";
   msg.setAdvancedProtocolString(advancedProtocol);
   EXPECT_EQ(msg.getProtocolString(), advancedProtocol);
 }
 
-TEST(HttpMessage, TestExtractTrailers) {
+TEST(HTTPMessage, TestExtractTrailers) {
   HTTPMessage msg;
   auto trailers = std::make_unique<HTTPHeaders>();
   HTTPHeaders* rawPointer = trailers.get();
@@ -554,4 +554,59 @@ TEST(HttpMessage, TestExtractTrailers) {
   auto trailers2 = msg.extractTrailers();
   EXPECT_EQ(rawPointer, trailers2.get());
   EXPECT_EQ(nullptr, msg.getTrailers());
+}
+
+namespace {
+  const size_t kInitialVectorReserve = 16;
+}
+
+
+TEST(HTTPHeaders, GrowTest) {
+  HTTPHeaders headers;
+  for (size_t i = 0; i < kInitialVectorReserve * 2; i++) {
+    headers.add(folly::to<std::string>(i), std::string(50, 'a' + i));
+  }
+  EXPECT_EQ(headers.getSingleOrEmpty("0")[0], 'a');
+  EXPECT_EQ(headers.getSingleOrEmpty("25")[0], 'z');
+}
+
+
+TEST(HTTPHeaders, ClearTest) {
+  HTTPHeaders headers;
+  for (size_t i = 0; i < kInitialVectorReserve * 2; i++) {
+    headers.add(folly::to<std::string>(i), std::string(50, 'a' + i));
+  }
+  EXPECT_EQ(headers.getSingleOrEmpty("25")[0], 'z');
+  headers.removeAll();
+  EXPECT_EQ(headers.size(), 0);
+  for (size_t i = 0; i < kInitialVectorReserve * 2; i++) {
+    headers.add(folly::to<std::string>(i), std::string(50, 'A' + i));
+  }
+  EXPECT_EQ(headers.getSingleOrEmpty("25")[0], 'Z');
+}
+
+
+void copyAndMoveTest(size_t multiplier) {
+  HTTPHeaders headers;
+  for (size_t i = 0; i < kInitialVectorReserve * multiplier; i++) {
+    headers.add(folly::to<std::string>(i), std::string(50, 'a' + i));
+  }
+  HTTPHeaders headers2(headers);
+  EXPECT_EQ(headers2.getSingleOrEmpty("3")[0], 'd');
+  HTTPHeaders headers3;
+  headers3.add("blown", "away");
+  headers3 = headers2;
+  EXPECT_EQ(headers2.getSingleOrEmpty("4")[0], 'e');
+  HTTPHeaders headers4(std::move(headers3));
+  EXPECT_EQ(headers4.getSingleOrEmpty("5")[0], 'f');
+  HTTPHeaders headers5;
+  headers5.add("blown", "away");
+  headers5 = std::move(headers4);
+  EXPECT_EQ(headers5.getSingleOrEmpty("6")[0], 'g');
+}
+
+TEST(HTTPHeaders, CopyAndMoveTest) {
+  copyAndMoveTest(1);
+  copyAndMoveTest(2);
+  copyAndMoveTest(3);
 }
