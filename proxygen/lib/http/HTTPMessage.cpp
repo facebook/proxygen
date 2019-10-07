@@ -47,7 +47,11 @@ void HTTPMessage::stripPerHopHeaders() {
   // Some code paths end up recyling a single HTTPMessage instance for multiple
   // requests, and adding their own per-hop headers each time. In that case, we
   // don't want to accumulate these headers.
-  strippedPerHopHeaders_.removeAll();
+  if (!strippedPerHopHeaders_) {
+    strippedPerHopHeaders_ = std::make_unique<HTTPHeaders>();
+  } else {
+    strippedPerHopHeaders_->removeAll();
+  }
 
   if (!trailersAllowed_) {
     // Because stripPerHopHeaders can be called multiple times, don't
@@ -55,7 +59,7 @@ void HTTPMessage::stripPerHopHeaders() {
     trailersAllowed_ = checkForHeaderToken(HTTP_HEADER_TE, "trailers", false);
   }
 
-  headers_.stripPerHopHeaders(strippedPerHopHeaders_);
+  headers_.stripPerHopHeaders(*strippedPerHopHeaders_);
 }
 
 HTTPMessage::HTTPMessage() :
@@ -88,7 +92,6 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     queryParams_(message.queryParams_),
     version_(message.version_),
     headers_(message.headers_),
-    strippedPerHopHeaders_(message.strippedPerHopHeaders_),
     sslVersion_(message.sslVersion_),
     sslCipher_(message.sslCipher_),
     protoStr_(message.protoStr_),
@@ -103,6 +106,10 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     secure_(message.secure_),
     partiallyReliable_(message.partiallyReliable_),
     upgradeWebsocket_(message.upgradeWebsocket_) {
+  if (message.strippedPerHopHeaders_) {
+    strippedPerHopHeaders_ = std::make_unique<HTTPHeaders>(
+      *message.strippedPerHopHeaders_);
+  }
   if (message.trailers_) {
     trailers_ = std::make_unique<HTTPHeaders>(*message.trailers_);
   }
@@ -155,7 +162,12 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   queryParams_ = message.queryParams_;
   version_ = message.version_;
   headers_ = message.headers_;
-  strippedPerHopHeaders_ = message.strippedPerHopHeaders_;
+  if (message.strippedPerHopHeaders_) {
+    strippedPerHopHeaders_ = std::make_unique<HTTPHeaders>(
+      *message.strippedPerHopHeaders_);
+  } else {
+    strippedPerHopHeaders_.reset();
+  }
   sslVersion_ = message.sslVersion_;
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
@@ -720,9 +732,9 @@ void HTTPMessage::describe(std::ostream& os) const {
       os << " " << stripCntrlChars(h) << ": "
          << stripCntrlChars(v) << std::endl;
     });
-  if (strippedPerHopHeaders_.size() > 0) {
+  if (strippedPerHopHeaders_ && strippedPerHopHeaders_->size() > 0) {
     os << "Per-Hop Headers" << std::endl;
-    strippedPerHopHeaders_.forEach([&] (const string& h, const string& v) {
+    strippedPerHopHeaders_->forEach([&] (const string& h, const string& v) {
         os << " " << stripCntrlChars(h) << ": "
            << stripCntrlChars(v) << std::endl;
       });
@@ -768,10 +780,11 @@ bool HTTPMessage::computeKeepalive() const {
       // header to be present for the connection to be persistent.
       if (checkForHeaderToken(
               HTTP_HEADER_CONNECTION, kKeepAliveConnToken.c_str(), false) ||
-          doHeaderTokenCheck(strippedPerHopHeaders_,
-                             HTTP_HEADER_CONNECTION,
-                             kKeepAliveConnToken.c_str(),
-                             false)) {
+          (strippedPerHopHeaders_ &&
+           doHeaderTokenCheck(*strippedPerHopHeaders_,
+                              HTTP_HEADER_CONNECTION,
+                              kKeepAliveConnToken.c_str(),
+                              false))) {
         return true;
       }
       return false;

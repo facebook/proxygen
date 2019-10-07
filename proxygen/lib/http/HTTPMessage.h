@@ -551,7 +551,8 @@ class HTTPMessage {
   void stripPerHopHeaders();
 
   const HTTPHeaders& getStrippedPerHopHeaders() const {
-    return strippedPerHopHeaders_;
+    CHECK(strippedPerHopHeaders_) << "call stripPerHopHeaders first";
+    return *strippedPerHopHeaders_;
   }
 
   void setSecure(bool secure) { secure_ = secure; }
@@ -844,7 +845,7 @@ class HTTPMessage {
 
   std::pair<uint8_t, uint8_t> version_;
   HTTPHeaders headers_;
-  HTTPHeaders strippedPerHopHeaders_;
+  std::unique_ptr<HTTPHeaders> strippedPerHopHeaders_;
   HTTPHeaderSize size_;
   std::unique_ptr<HTTPHeaders> trailers_;
 
