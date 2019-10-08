@@ -9,6 +9,7 @@
  */
 #pragma once
 
+#include <folly/Format.h>
 #include <folly/io/async/EventBase.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
