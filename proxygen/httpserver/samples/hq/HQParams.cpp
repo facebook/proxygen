@@ -73,6 +73,9 @@ DEFINE_uint32(pr_chunk_delay_ms,
               0,
               "Max delay for the body chunks in partially reliable mode");
 DEFINE_bool(connect_udp, false, "Whether or not to use connected udp sockets");
+DEFINE_uint32(max_cwnd_mss,
+              quic::kLargeMaxCwndInMss,
+              "Max cwnd in unit of mss");
 // Example of starting a server streaming body in chunks in partially realible
 // mode (serve 17-byte body chunks with random delay from 0 to 500 ms):
 //    hq -mode server -use_pr -protocol="h3-20" -pr_chunk_size 17
@@ -209,6 +212,7 @@ void initializeTransportSettings(HQParamsBuilder& builder) {
     builder.transportSettings.shouldDrain = false;
   }
   builder.transportSettings.connectUDP = FLAGS_connect_udp;
+  builder.transportSettings.maxCwndInMss = FLAGS_max_cwnd_mss;
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParamsBuilder& builder) {
