@@ -129,9 +129,11 @@ function setup_folly() {
 
   MAYBE_USE_STATIC_DEPS=""
   MAYBE_BUILD_TESTS=""
+  MAYBE_BUILD_SHARED_LIBS=""
   if [ "$BUILD_FOR_FUZZING" == true ] ; then
     MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
     MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+    MAYBE_BUILD_SHARED_LIBS="-DBUILD_SHARED_LIBS=OFF"
   fi
 
   cmake                                           \
@@ -139,6 +141,7 @@ function setup_folly() {
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
     "$MAYBE_USE_STATIC_DEPS"                      \
+    "$MAYBE_BUILD_SHARED_LIBS"                    \
     "$MAYBE_BUILD_TESTS"                          \
     $MAYBE_DISABLE_JEMALLOC                       \
     ..
@@ -165,9 +168,11 @@ function setup_fizz() {
 
   MAYBE_USE_STATIC_DEPS=""
   MAYBE_USE_SODIUM_STATIC_LIBS=""
+  MAYBE_BUILD_SHARED_LIBS=""
   if [ "$BUILD_FOR_FUZZING" == true ] ; then
     MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
     MAYBE_USE_SODIUM_STATIC_LIBS="-Dsodium_USE_STATIC_LIBS=ON"
+    MAYBE_BUILD_SHARED_LIBS="-DBUILD_SHARED_LIBS=OFF"
   fi
 
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
@@ -175,6 +180,7 @@ function setup_fizz() {
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     -DBUILD_TESTS=ON                            \
     "$MAYBE_USE_STATIC_DEPS"                    \
+    "$MAYBE_BUILD_SHARED_LIBS"                  \
     "$MAYBE_USE_SODIUM_STATIC_LIBS"             \
     "$FIZZ_DIR/fizz"
   make -j "$JOBS"
@@ -200,15 +206,18 @@ function setup_wangle() {
 
   MAYBE_USE_STATIC_DEPS=""
   MAYBE_BUILD_TESTS=""
+  MAYBE_BUILD_SHARED_LIBS=""
   if [ "$BUILD_FOR_FUZZING" == true ] ; then
     MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
     MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+    MAYBE_BUILD_SHARED_LIBS="-DBUILD_SHARED_LIBS=OFF"
   fi
 
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     "$MAYBE_USE_STATIC_DEPS"                    \
+    "$MAYBE_BUILD_SHARED_LIBS"                  \
     "$MAYBE_BUILD_TESTS"                        \
     "$WANGLE_DIR/wangle"
   make -j "$JOBS"
@@ -234,9 +243,11 @@ function setup_mvfst() {
 
   MAYBE_USE_STATIC_DEPS=""
   MAYBE_BUILD_TESTS=""
+  MAYBE_BUILD_SHARED_LIBS=""
   if [ "$BUILD_FOR_FUZZING" == true ] ; then
     MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
     MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+    MAYBE_BUILD_SHARED_LIBS="-DBUILD_SHARED_LIBS=OFF"
   fi
 
 
@@ -244,6 +255,7 @@ function setup_mvfst() {
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     "$MAYBE_USE_STATIC_DEPS"                    \
+    "$MAYBE_BUILD_SHARED_LIBS"                  \
     "$MAYBE_BUILD_TESTS"                        \
     "$MVFST_DIR"
   make -j "$JOBS"
@@ -312,10 +324,12 @@ fi
 MAYBE_BUILD_FUZZERS=""
 MAYBE_USE_STATIC_DEPS=""
 MAYBE_LIB_FUZZING_ENGINE=""
+MAYBE_BUILD_SHARED_LIBS=""
 if [ "$BUILD_FOR_FUZZING" == true ] ; then
   MAYBE_BUILD_FUZZERS="-DBUILD_FUZZERS=ON"
   MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
   MAYBE_LIB_FUZZING_ENGINE="-DLIB_FUZZING_ENGINE='$LIB_FUZZING_ENGINE'"
+  MAYBE_BUILD_SHARED_LIBS="-DBUILD_SHARED_LIBS=OFF"
 fi
 
 # Build proxygen with cmake
@@ -327,6 +341,7 @@ cmake                                     \
   $MAYBE_BUILD_QUIC                       \
   -DBUILD_TESTS=On                        \
   "$MAYBE_BUILD_FUZZERS"                  \
+  "$MAYBE_BUILD_SHARED_LIBS"              \
   "$MAYBE_USE_STATIC_DEPS"                \
   "$MAYBE_LIB_FUZZING_ENGINE"             \
   ../..
