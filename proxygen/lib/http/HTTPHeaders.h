@@ -292,7 +292,7 @@ class HTTPHeaders {
   static std::bitset<256>& perHopHeaderCodes();
 
  private:
-  std::vector<uint8_t> memory_;
+  std::unique_ptr<uint8_t[]> memory_;
   size_t length_{0};
   size_t capacity_{0};
   size_t deletedCount_;
@@ -300,11 +300,11 @@ class HTTPHeaders {
   void copyFrom(const HTTPHeaders& hdrs);
 
   HTTPHeaderCode* codes() const {
-    return (HTTPHeaderCode*)(memory_.data());
+    return (HTTPHeaderCode*)(memory_.get());
   }
 
   std::string** names() const {
-    return names(memory_.data(), capacity_);
+    return names(memory_.get(), capacity_);
   }
 
   std::string** names(const uint8_t *memory, size_t capacity) const {
@@ -312,7 +312,7 @@ class HTTPHeaders {
   }
 
   std::string* values() const {
-   return values(memory_.data(), capacity_);
+   return values(memory_.get(), capacity_);
   }
 
   std::string* values(const uint8_t* memory, size_t capacity) const {
@@ -355,13 +355,12 @@ class HTTPHeaders {
     if (capacity <= capacity_) {
       return;
     }
-    std::vector<uint8_t> newMemory;
-    newMemory.reserve(capacity * kRecSize);
+    auto newMemory = std::make_unique<uint8_t[]>(capacity * kRecSize);
     if (length_ > 0) {
-      memcpy(newMemory.data(), codes(), length_);
-      memcpy(names(newMemory.data(), capacity), names(),
+      memcpy(newMemory.get(), codes(), length_);
+      memcpy(names(newMemory.get(), capacity), names(),
              sizeof(std::string*) * length_);
-      auto vNew = values(newMemory.data(), capacity);
+      auto vNew = values(newMemory.get(), capacity);
       auto v = values();
       for (size_t i = 0; i < length_; i++) {
         new (vNew + i)std::string(std::move(v[i]));
