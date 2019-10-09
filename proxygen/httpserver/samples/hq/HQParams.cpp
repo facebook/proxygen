@@ -222,7 +222,7 @@ void initializeHttpSettings(HQParamsBuilder& builder) {
   builder.h2port = FLAGS_h2port;
   builder.localH2Address =
       folly::SocketAddress(builder.host, builder.h2port, true);
-  builder.httpServerThreads = 1;
+  builder.httpServerThreads = std::thread::hardware_concurrency();
   builder.httpServerIdleTimeout = std::chrono::milliseconds(60000);
   builder.httpServerShutdownOn = {SIGINT, SIGTERM};
   builder.httpServerEnableContentCompression = false;
