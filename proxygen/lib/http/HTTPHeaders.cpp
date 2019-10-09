@@ -91,7 +91,7 @@ bool HTTPHeaders::exists(folly::StringPiece name) const {
 }
 
 bool HTTPHeaders::exists(HTTPHeaderCode code) const {
-  return memchr((void*)codes(), code, length_) != nullptr;
+  return codes() != nullptr && memchr((void*)codes(), code, length_) != nullptr;
 }
 
 size_t HTTPHeaders::getNumberOfValues(HTTPHeaderCode code) const {
