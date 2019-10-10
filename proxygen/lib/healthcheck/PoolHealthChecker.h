@@ -52,7 +52,8 @@ class PoolHealthChecker {
    * avoid redundant local health checks.
    */
   virtual void setLastExternalUpdateTime(
-      const folly::SocketAddress& serverAddress, TimePoint t) = 0;
+      std::vector<folly::SocketAddress>&& addresses,
+      TimePoint t) {}
 
   virtual ~PoolHealthChecker() {
   }
