@@ -2003,6 +2003,15 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
   return false;
 }
 
+void HTTPSession::getFlowControlInfo(
+    HTTPTransaction::FlowControlInfo* info) {
+  info->flowControlEnabled_ = connFlowControl_ != nullptr;
+  if (connFlowControl_) {
+    info->sessionRecvWindow_ = connFlowControl_->getRecvWindow().getCapacity();
+    info->sessionSendWindow_ = connFlowControl_->getSendWindow().getSize();
+  }
+}
+
 HTTPTransaction::Transport::Type HTTPSession::getSessionType() const noexcept {
   return getType();
 }

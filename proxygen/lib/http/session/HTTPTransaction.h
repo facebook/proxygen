@@ -397,6 +397,13 @@ class HTTPTransaction
       const folly::Function<void(HTTPCodec::StreamID streamId,
                                  uint64_t /* bodyOffset */,
                                  const folly::IOBufQueue& /* chain */) const>&;
+  struct FlowControlInfo {
+    bool flowControlEnabled_{false};
+    int64_t sessionSendWindow_{-1};
+    int64_t sessionRecvWindow_{-1};
+    int64_t streamSendWindow_{-1};
+    int64_t streamRecvWindow_{-1};
+  };
 
   class Transport {
    public:
@@ -456,6 +463,8 @@ class HTTPTransaction
         noexcept = 0;
 
     virtual bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) = 0;
+
+    virtual void getFlowControlInfo(FlowControlInfo* info) = 0;
 
     virtual HTTPTransaction::Transport::Type getSessionType() const
         noexcept = 0;
@@ -658,6 +667,12 @@ class HTTPTransaction
 
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const {
     transport_.getCurrentTransportInfo(tinfo);
+  }
+
+  void getCurrentFlowControlInfo(FlowControlInfo* info) const {
+    transport_.getFlowControlInfo(info);
+    info->streamSendWindow_ = sendWindow_.getCapacity();
+    info->streamRecvWindow_ = recvWindow_.getCapacity();
   }
 
   HTTPSessionStats* getSessionStats() const {

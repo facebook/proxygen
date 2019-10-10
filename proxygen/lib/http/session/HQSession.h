@@ -1400,6 +1400,11 @@ class HQSession
 
     bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
 
+    void getFlowControlInfo(HTTPTransaction::FlowControlInfo* /*info*/)
+        override {
+      // Not implemented
+    }
+
     HTTPTransaction::Transport::Type getSessionType() const noexcept override;
 
     virtual const HTTPCodec& getCodec() const noexcept override {

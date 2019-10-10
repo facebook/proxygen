@@ -147,6 +147,8 @@ class HTTPSession
 
   bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
 
+  void getFlowControlInfo(HTTPTransaction::FlowControlInfo* info) override;
+
   HTTPTransaction::Transport::Type getSessionType() const noexcept override;
 
   /**

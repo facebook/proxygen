@@ -99,6 +99,14 @@ class FlowControlFilter:
                               StreamID stream,
                               uint32_t delta) override;
 
+  const Window& getSendWindow() const {
+    return sendWindow_;
+  }
+
+  const Window& getRecvWindow() const {
+    return recvWindow_;
+  }
+
  private:
 
   Callback& notify_;
