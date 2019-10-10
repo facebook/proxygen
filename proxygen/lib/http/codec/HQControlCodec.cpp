@@ -60,13 +60,6 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
   return folly::none;
 }
 
-ParseResult HQControlCodec::parsePriority(Cursor& cursor,
-                                          const FrameHeader& header) {
-  PriorityUpdate outPriority;
-  auto res = hq::parsePriority(cursor, header, outPriority);
-  return res;
-}
-
 ParseResult HQControlCodec::parseCancelPush(Cursor& cursor,
                                             const FrameHeader& header) {
   PushId outPushId;
@@ -90,11 +83,6 @@ ParseResult HQControlCodec::parseSettings(Cursor& cursor,
       case hq::SettingId::HEADER_TABLE_SIZE:
       case hq::SettingId::MAX_HEADER_LIST_SIZE:
       case hq::SettingId::QPACK_BLOCKED_STREAMS:
-        break;
-      case hq::SettingId::NUM_PLACEHOLDERS:
-        if (transportDirection_ == TransportDirection::DOWNSTREAM) {
-          return HTTP3::ErrorCode::HTTP_WRONG_SETTING_DIRECTION;
-        }
         break;
       default:
         continue; // ignore unknown settings
@@ -160,10 +148,6 @@ size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
         case hq::SettingId::HEADER_TABLE_SIZE:
         case hq::SettingId::MAX_HEADER_LIST_SIZE:
         case hq::SettingId::QPACK_BLOCKED_STREAMS:
-          break;
-        case hq::SettingId::NUM_PLACEHOLDERS:
-          CHECK_NE(setting.value, 0);
-          CHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
           break;
       }
       settings.emplace_back(*id, (SettingValue)setting.value);

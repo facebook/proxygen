@@ -1232,7 +1232,7 @@ TEST_P(HQDownstreamSessionTestH1q, BadHttpHeaders) {
 
 TEST_P(HQDownstreamSessionTestHQ, BadHttpHeaders) {
   auto id = nextStreamId();
-  std::array<uint8_t, 4> badHeaders{0x02, 0x01, 0x00, 0x81};
+  std::array<uint8_t, 4> badHeaders{0x01, 0x02, 0x00, 0x81};
   auto buf = folly::IOBuf::copyBuffer(badHeaders.data(), badHeaders.size());
   socketDriver_->addReadEvent(id, std::move(buf), milliseconds(0));
   socketDriver_->addReadEOF(id);

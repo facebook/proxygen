@@ -29,8 +29,6 @@ class HQDownstreamSession : public HQSession {
                   proxygen::TransportDirection::DOWNSTREAM,
                   tinfo,
                   sessionInfoCb) {
-    egressSettings_.setSetting(SettingsId::_HQ_NUM_PLACEHOLDERS,
-                               hq::kDefaultEgressNumPlaceHolders);
   }
 
   void onTransportReady() noexcept override;

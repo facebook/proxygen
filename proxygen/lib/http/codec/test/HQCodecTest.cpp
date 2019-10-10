@@ -901,9 +901,6 @@ std::string frameParamsToTestName(
     case FrameType::HEADERS:
       testName += "Headers";
       break;
-    case FrameType::PRIORITY:
-      testName += "Priority";
-      break;
     case FrameType::CANCEL_PUSH:
       testName += "CancelPush";
       break;
@@ -1008,7 +1005,6 @@ INSTANTIATE_TEST_CASE_P(
     Values(
         (FrameAllowedParams){CodecType::DOWNSTREAM, FrameType::DATA, true},
         (FrameAllowedParams){CodecType::DOWNSTREAM, FrameType::HEADERS, true},
-        (FrameAllowedParams){CodecType::DOWNSTREAM, FrameType::PRIORITY, false},
         (FrameAllowedParams){
             CodecType::DOWNSTREAM, FrameType::CANCEL_PUSH, false},
         (FrameAllowedParams){CodecType::DOWNSTREAM, FrameType::SETTINGS, false},
@@ -1030,8 +1026,6 @@ INSTANTIATE_TEST_CASE_P(
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::HEADERS, false},
         (FrameAllowedParams){
-            CodecType::CONTROL_UPSTREAM, FrameType::PRIORITY, true},
-        (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::CANCEL_PUSH, true},
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::SETTINGS, true},
@@ -1050,8 +1044,6 @@ INSTANTIATE_TEST_CASE_P(
             CodecType::CONTROL_DOWNSTREAM, FrameType::DATA, false},
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::HEADERS, false},
-        (FrameAllowedParams){
-            CodecType::CONTROL_DOWNSTREAM, FrameType::PRIORITY, true},
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::CANCEL_PUSH, true},
         (FrameAllowedParams){
@@ -1091,8 +1083,6 @@ INSTANTIATE_TEST_CASE_P(
         (FrameAllowedParams){
             CodecType::H1Q_CONTROL_UPSTREAM, FrameType::HEADERS, false},
         (FrameAllowedParams){
-            CodecType::H1Q_CONTROL_UPSTREAM, FrameType::PRIORITY, false},
-        (FrameAllowedParams){
             CodecType::H1Q_CONTROL_UPSTREAM, FrameType::CANCEL_PUSH, false},
         (FrameAllowedParams){
             CodecType::H1Q_CONTROL_UPSTREAM, FrameType::SETTINGS, false},
@@ -1113,8 +1103,6 @@ INSTANTIATE_TEST_CASE_P(
             CodecType::H1Q_CONTROL_DOWNSTREAM, FrameType::DATA, false},
         (FrameAllowedParams){
             CodecType::H1Q_CONTROL_DOWNSTREAM, FrameType::HEADERS, false},
-        (FrameAllowedParams){
-            CodecType::H1Q_CONTROL_DOWNSTREAM, FrameType::PRIORITY, false},
         (FrameAllowedParams){
             CodecType::H1Q_CONTROL_DOWNSTREAM, FrameType::CANCEL_PUSH, false},
         (FrameAllowedParams){
@@ -1154,8 +1142,6 @@ INSTANTIATE_TEST_CASE_P(
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::HEADERS, false},
         (FrameAllowedParams){
-            CodecType::CONTROL_UPSTREAM, FrameType::PRIORITY, false},
-        (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::CANCEL_PUSH, false},
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::PUSH_PROMISE, false},
@@ -1173,8 +1159,6 @@ INSTANTIATE_TEST_CASE_P(
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::HEADERS, false},
         (FrameAllowedParams){
-            CodecType::CONTROL_DOWNSTREAM, FrameType::PRIORITY, false},
-        (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::CANCEL_PUSH, false},
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::PUSH_PROMISE, false},
@@ -1189,61 +1173,3 @@ INSTANTIATE_TEST_CASE_P(
                              FrameType(*getGreaseId(3434343434)),
                              false}),
     frameParamsToTestName);
-
-using HQCodecDeathTest = HQCodecTest;
-
-TEST_F(HQCodecDeathTest, SettingsNumPlaceholdersZeroWriteFails) {
-  HTTPSettings settings;
-  settings.setSetting(SettingsId::_HQ_NUM_PLACEHOLDERS, 0);
-  HQControlCodec codec(0x1111,
-                       TransportDirection::UPSTREAM,
-                       StreamDirection::EGRESS,
-                       settings,
-                       UnidirectionalStreamType::CONTROL);
-  EXPECT_EXIT(codec.generateSettings(queueCtrl_),
-              ::testing::KilledBySignal(SIGABRT),
-              "Check failed: setting.value != 0");
-}
-
-TEST_F(HQCodecDeathTest, SettingsNumPlaceholdersUpstreamWriteFails) {
-  HTTPSettings settings;
-  settings.setSetting(SettingsId::_HQ_NUM_PLACEHOLDERS,
-                      hq::kDefaultEgressNumPlaceHolders);
-  HQControlCodec codec(0x1111,
-                       TransportDirection::UPSTREAM,
-                       StreamDirection::EGRESS,
-                       settings,
-                       UnidirectionalStreamType::CONTROL);
-  EXPECT_EXIT(
-      codec.generateSettings(queueCtrl_),
-      ::testing::KilledBySignal(SIGABRT),
-      "Check failed: transportDirection_ == TransportDirection::DOWNSTREAM");
-}
-
-TEST_F(HQCodecTest, SettingsNumPlaceholdersDownstreamParseFails) {
-  HTTPSettings settings;
-  settings.setSetting(SettingsId::_HQ_NUM_PLACEHOLDERS,
-                      hq::kDefaultEgressNumPlaceHolders);
-  HQControlCodec codec(0x1111,
-                       TransportDirection::DOWNSTREAM,
-                       StreamDirection::EGRESS,
-                       settings,
-                       UnidirectionalStreamType::CONTROL);
-  codec.generateSettings(queueCtrl_);
-  parseControl(CodecType::CONTROL_DOWNSTREAM);
-  EXPECT_EQ(callbacks_.headerFrames, 1);
-  EXPECT_EQ(callbacks_.sessionErrors, 1);
-}
-
-TEST_F(HQCodecTest, SettingsNumPlaceholdersDownstreamWriteUpstreamParseOk) {
-  HTTPSettings settings;
-  settings.setSetting(SettingsId::_HQ_NUM_PLACEHOLDERS,
-                      hq::kDefaultEgressNumPlaceHolders);
-  HQControlCodec codec(0x1111,
-                       TransportDirection::DOWNSTREAM,
-                       StreamDirection::EGRESS,
-                       settings,
-                       UnidirectionalStreamType::CONTROL);
-  codec.generateSettings(queueCtrl_);
-  parseControl(CodecType::CONTROL_UPSTREAM);
-}

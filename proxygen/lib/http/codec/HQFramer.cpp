@@ -63,79 +63,6 @@ ParseResult parseHeaders(folly::io::Cursor& cursor,
   return folly::none;
 }
 
-uint8_t encodePriorityFlags(PriorityUpdate priority) {
-  uint8_t flags = 0x00;
-  flags |= (priority.prioritizedType << PRIORITIZED_TYPE_POS);
-  flags |= (priority.dependencyType << DEPENDENCY_TYPE_POS);
-  if (priority.exclusive) {
-    flags |= PRIORITY_EXCLUSIVE_MASK;
-  }
-  return flags;
-}
-
-bool decodePriorityFlags(uint8_t flags, PriorityUpdate& outPriority) {
-  outPriority.prioritizedType = static_cast<PriorityElementType>(
-      (flags & (0x03 << PRIORITIZED_TYPE_POS)) >> PRIORITIZED_TYPE_POS);
-  outPriority.dependencyType = static_cast<PriorityElementType>(
-      (flags & (0x03 << DEPENDENCY_TYPE_POS)) >> DEPENDENCY_TYPE_POS);
-  outPriority.exclusive = (flags & PRIORITY_EXCLUSIVE_MASK);
-  uint8_t empty = flags & (0x07 << PRIORITY_EMPTY_POS);
-  if (empty != 0) {
-    return false;
-  }
-  return true;
-}
-
-ParseResult parsePriority(folly::io::Cursor& cursor,
-                          const FrameHeader& header,
-                          PriorityUpdate& outPriority) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
-  folly::IOBuf buf;
-  auto frameLength = header.length;
-
-  if (!cursor.canAdvance(sizeof(uint8_t))) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
-  }
-
-  uint8_t flags = cursor.readBE<uint8_t>();
-  frameLength -= sizeof(uint8_t);
-  bool res = decodePriorityFlags(flags, outPriority);
-  if (!res) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
-  }
-
-  // A PRIORITY frame that prioritizes the root of the tree is not allowed
-  if (outPriority.prioritizedType == PriorityElementType::TREE_ROOT) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
-  }
-
-  auto prioritizedElementId = quic::decodeQuicInteger(cursor, frameLength);
-  if (!prioritizedElementId) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
-  }
-  outPriority.prioritizedElementId = prioritizedElementId->first;
-  frameLength -= prioritizedElementId->second;
-
-  if (outPriority.dependencyType != PriorityElementType::TREE_ROOT) {
-    auto elementDependencyId = quic::decodeQuicInteger(cursor, frameLength);
-    if (!elementDependencyId) {
-      return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
-    }
-    outPriority.elementDependencyId = elementDependencyId->first;
-    frameLength -= elementDependencyId->second;
-  }
-
-  if (!cursor.canAdvance(sizeof(uint8_t))) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
-  }
-  outPriority.weight = cursor.readBE<uint8_t>();
-  frameLength -= sizeof(uint8_t);
-  if (frameLength != 0) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY;
-  }
-  return folly::none;
-}
-
 ParseResult parseCancelPush(folly::io::Cursor& cursor,
                             const FrameHeader& header,
                             PushId& outPushId) noexcept {
@@ -174,7 +101,6 @@ decodeSettingValue(folly::io::Cursor& cursor,
   // unknown ones
   switch (settingId) {
     case SettingId::HEADER_TABLE_SIZE:
-    case SettingId::NUM_PLACEHOLDERS:
     case SettingId::MAX_HEADER_LIST_SIZE:
     case SettingId::QPACK_BLOCKED_STREAMS:
       return value;
@@ -317,43 +243,6 @@ WriteResult writeHeaders(IOBufQueue& queue,
   return writeSimpleFrame(queue, FrameType::HEADERS, std::move(data));
 }
 
-WriteResult writePriority(IOBufQueue& queue, PriorityUpdate priority) noexcept {
-  uint8_t flags = encodePriorityFlags(priority);
-
-  auto prioritizedElementIdSize =
-      quic::getQuicIntegerSize(priority.prioritizedElementId);
-  if (prioritizedElementIdSize.hasError()) {
-    return prioritizedElementIdSize;
-  }
-
-
-  size_t payloadSize = *prioritizedElementIdSize +
-                       2 * sizeof(uint8_t);
-
-  if (priority.dependencyType != PriorityElementType::TREE_ROOT) {
-    auto elementDependencyIdSize =
-      quic::getQuicIntegerSize(priority.elementDependencyId);
-    if (elementDependencyIdSize.hasError()) {
-      return elementDependencyIdSize;
-    }
-    payloadSize += *elementDependencyIdSize;
-  }
-
-  const auto headerSize =
-      writeFrameHeader(queue, FrameType::PRIORITY, payloadSize);
-  if (headerSize.hasError()) {
-    return headerSize;
-  }
-  QueueAppender appender(&queue, payloadSize);
-  appender.writeBE<uint8_t>(flags);
-  quic::encodeQuicInteger(priority.prioritizedElementId, appender);
-  if (priority.dependencyType != PriorityElementType::TREE_ROOT) {
-    quic::encodeQuicInteger(priority.elementDependencyId, appender);
-  }
-  appender.writeBE<uint8_t>(priority.weight);
-  return *headerSize + payloadSize;
-}
-
 WriteResult writeCancelPush(folly::IOBufQueue& writeBuf,
                             PushId pushId) noexcept {
   DCHECK(pushId & kPushIdMask);
@@ -452,8 +341,6 @@ const char* getFrameTypeString(FrameType type) {
       return "DATA";
     case FrameType::HEADERS:
       return "HEADERS";
-    case FrameType::PRIORITY:
-      return "PRIORITY";
     case FrameType::CANCEL_PUSH:
       return "CANCEL_PUSH";
     case FrameType::SETTINGS:

@@ -29,8 +29,6 @@ ParseResult HQFramedCodec::parseFrame(Cursor& cursor) {
       return parseData(cursor, curHeader_);
     case hq::FrameType::HEADERS:
       return parseHeaders(cursor, curHeader_);
-    case hq::FrameType::PRIORITY:
-      return parsePriority(cursor, curHeader_);
     case hq::FrameType::CANCEL_PUSH:
       return parseCancelPush(cursor, curHeader_);
     case hq::FrameType::SETTINGS:

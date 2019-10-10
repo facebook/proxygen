@@ -137,211 +137,6 @@ INSTANTIATE_TEST_CASE_P(
                parseHeaders,
                HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_HEADERS}));
 
-TEST_F(HQFramerTest, ParsePriorityFrameOk) {
-  auto result = writePriority(queue_,
-                              {
-                                  // prioritizedType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  // dependencyType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  true, // exclusive
-                                  123,  // prioritizedElementId
-                                  234,  // elementDependencyId
-                                  30,   // weight
-                              });
-  EXPECT_FALSE(result.hasError());
-
-  FrameHeader header;
-  PriorityUpdate priority;
-  parse(folly::none, &parsePriority, header, priority);
-
-  EXPECT_EQ(FrameType::PRIORITY, header.type);
-  EXPECT_EQ(priority.prioritizedType, PriorityElementType::REQUEST_STREAM);
-  EXPECT_EQ(priority.dependencyType, PriorityElementType::REQUEST_STREAM);
-  EXPECT_TRUE(priority.exclusive);
-  EXPECT_EQ(123, priority.prioritizedElementId);
-  EXPECT_EQ(234, priority.elementDependencyId);
-  EXPECT_EQ(30, priority.weight);
-}
-
-TEST_F(HQFramerTest, ParsePriorityFramePrioritizeRoot) {
-  auto result = writePriority(queue_,
-                              {
-                                  // prioritizedType
-                                  PriorityElementType::TREE_ROOT,
-                                  // dependencyType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  true, // exclusive
-                                  123,  // prioritizedElementId
-                                  234,  // elementDependencyId
-                                  30,   // weight
-                              });
-  EXPECT_FALSE(result.hasError());
-
-  FrameHeader header;
-  PriorityUpdate priority;
-  parse(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY,
-        &parsePriority,
-        header,
-        priority);
-}
-
-TEST_F(HQFramerTest, ParsePriorityFramePrioritizedIdOptional) {
-  auto result = writePriority(queue_,
-                              {
-                                  // prioritizedType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  // dependencyType
-                                  PriorityElementType::TREE_ROOT,
-                                  true, // exclusive
-                                  123,  // prioritizedElementId
-                                  234,  // elementDependencyId (ignored!)
-                                  30,   // weight
-                              });
-  EXPECT_FALSE(result.hasError());
-
-  FrameHeader header;
-  PriorityUpdate priority;
-
-  parse(folly::none, &parsePriority, header, priority);
-  EXPECT_EQ(FrameType::PRIORITY, header.type);
-  EXPECT_EQ(priority.prioritizedType, PriorityElementType::REQUEST_STREAM);
-  EXPECT_EQ(priority.dependencyType, PriorityElementType::TREE_ROOT);
-  EXPECT_TRUE(priority.exclusive);
-  EXPECT_EQ(123, priority.prioritizedElementId);
-  EXPECT_EQ(0, priority.elementDependencyId);
-  EXPECT_EQ(30, priority.weight);
-}
-
-TEST_F(HQFramerTest, ParsePriorityWrongWeight) {
-  auto result = writePriority(queue_,
-                              {
-                                  // prioritizedType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  // dependencyType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  true, // exclusive
-                                  1,    // prioritizedElementId
-                                  2,    // elementDependencyId
-                                  30,   // weight
-                              });
-  EXPECT_FALSE(result.hasError());
-  // Flip a bit in the buffer so to force the varlength integer parsing logic
-  // to read extra bytes for prioritizedElementId.
-  auto buf = queue_.move();
-  buf->coalesce();
-  RWPrivateCursor cursor(buf.get());
-  // 2 bytes frame header (payload length is 4) + 1 byte for flags
-  cursor.skip(3);
-  // This will cause the parser to not have enough data to read for the
-  // weight field
-  cursor.writeBE<uint8_t>(0x42);
-  queue_.append(std::move(buf));
-
-  FrameHeader header;
-  PriorityUpdate priority;
-  parse(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY,
-        &parsePriority,
-        header,
-        priority);
-}
-
-TEST_F(HQFramerTest, ParsePriorityWrongElementDependency) {
-  auto result = writePriority(queue_,
-                              {
-                                  // prioritizedType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  // dependencyType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  true, // exclusive
-                                  1,    // prioritizedElementId
-                                  2,    // elementDependencyId
-                                  255,  // weight
-                              });
-  EXPECT_FALSE(result.hasError());
-  // Flip a bit in the buffer so to force the varlength integer parsing logic
-  // to read extra bytes for prioritizedElementId.
-  auto buf = queue_.move();
-  buf->coalesce();
-  RWPrivateCursor cursor(buf.get());
-  // 2 bytes frame header (payload length is 4) + 1 byte for flags
-  cursor.skip(3);
-  // This will cause the parser to read two bytes (instead of 1) for the
-  // prioritizedElementId, then one byte for the elementDependencyId from what
-  // was written as the weight field. weight being all 1s the parser will try to
-  // read an 8-byte quic integer and there are not enough bytes available
-  cursor.writeBE<uint8_t>(0x42);
-  queue_.append(std::move(buf));
-
-  FrameHeader header;
-  PriorityUpdate priority;
-  parse(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY,
-        &parsePriority,
-        header,
-        priority);
-}
-
-TEST_F(HQFramerTest, ParsePriorityTrailingJunk) {
-  auto result = writePriority(queue_,
-                              {
-                                  // prioritizedType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  // dependencyType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  true, // exclusive
-                                  1,    // prioritizedElementId
-                                  2,    // elementDependencyId
-                                  255,  // weight
-                              });
-  EXPECT_FALSE(result.hasError());
-  // Trim the frame header off
-  queue_.trimStart(2);
-  auto buf = queue_.move();
-  // Put in a new frame header (too long)
-  auto badLength = buf->computeChainDataLength() + 4;
-  writeFrameHeaderManual(
-      queue_, static_cast<uint64_t>(FrameType::PRIORITY), badLength);
-  queue_.append(std::move(buf));
-  queue_.append(IOBuf::copyBuffer("junk"));
-
-  FrameHeader header;
-  PriorityUpdate priority;
-  parse(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY,
-        &parsePriority,
-        header,
-        priority);
-}
-
-TEST_F(HQFramerTest, ParsePriorityFrameMalformedEmpty) {
-  auto result = writePriority(queue_,
-                              {
-                                  // prioritizedType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  // dependencyType
-                                  PriorityElementType::REQUEST_STREAM,
-                                  true, // exclusive
-                                  1,    // prioritizedElementId
-                                  2,    // elementDependencyId
-                                  30,   // weight
-                              });
-  EXPECT_FALSE(result.hasError());
-  // modify the flags field so that the 'empty' field is not zero
-  auto buf = queue_.move();
-  buf->coalesce();
-  RWPrivateCursor cursor(buf.get());
-  // 2 bytes frame header (payload length is 4)
-  cursor.skip(2);
-  cursor.writeBE<uint8_t>(0x0E);
-  queue_.append(std::move(buf));
-
-  FrameHeader header;
-  PriorityUpdate priority;
-  parse(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY,
-        &parsePriority,
-        header,
-        priority);
-}
-
 TEST_F(HQFramerTest, ParsePushPromiseFrameOK) {
   auto data = makeBuf(1000);
   PushId inPushId = 4563 | kPushIdMask;
@@ -466,7 +261,6 @@ INSTANTIATE_TEST_CASE_P(
 
 TEST_F(HQFramerTest, SettingsFrameOK) {
   deque<hq::SettingPair> settings = {
-      {hq::SettingId::NUM_PLACEHOLDERS, (SettingValue)3},
       {hq::SettingId::MAX_HEADER_LIST_SIZE, (SettingValue)4},
       // Unknown IDs get ignored, and identifiers of the format
       // "0x1f * N + 0x21" are reserved exactly for this
@@ -517,11 +311,7 @@ TEST_P(HQFramerTestSettingsValues, ValueAllowed) {
 INSTANTIATE_TEST_CASE_P(
     SettingsValuesAllowedTests,
     HQFramerTestSettingsValues,
-    Values((SettingsValuesParams){hq::SettingId::NUM_PLACEHOLDERS, 0, true},
-           (SettingsValuesParams){hq::SettingId::NUM_PLACEHOLDERS,
-                                  std::numeric_limits<uint32_t>::max(),
-                                  true},
-           (SettingsValuesParams){hq::SettingId::MAX_HEADER_LIST_SIZE, 0, true},
+    Values((SettingsValuesParams){hq::SettingId::MAX_HEADER_LIST_SIZE, 0, true},
            (SettingsValuesParams){hq::SettingId::MAX_HEADER_LIST_SIZE,
                                   std::numeric_limits<uint32_t>::max(),
                                   true},
@@ -549,7 +339,6 @@ TEST_F(HQFramerTest, SettingsFrameEmpty) {
 
 TEST_F(HQFramerTest, SettingsFrameTrailingJunk) {
   deque<hq::SettingPair> settings = {
-      {hq::SettingId::NUM_PLACEHOLDERS, (SettingValue)3},
       {hq::SettingId::MAX_HEADER_LIST_SIZE, (SettingValue)4},
       // Unknown IDs get ignored, and identifiers of the format
       // "0x1f * N + 0x21" are reserved exactly for this

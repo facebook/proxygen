@@ -53,7 +53,6 @@ ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
     case hq::FrameType::SETTINGS:
     case hq::FrameType::GOAWAY:
     case hq::FrameType::MAX_PUSH_ID:
-    case hq::FrameType::PRIORITY:
     case hq::FrameType::CANCEL_PUSH:
       return HTTP3::ErrorCode::HTTP_WRONG_STREAM;
     case hq::FrameType::PUSH_PROMISE:

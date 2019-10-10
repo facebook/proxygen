@@ -797,9 +797,6 @@ size_t HQSession::HQVersionUtils::sendSettings() {
           break;
         case hq::SettingId::MAX_HEADER_LIST_SIZE:
           break;
-        case hq::SettingId::NUM_PLACEHOLDERS:
-          // TODO: priorities not implemented yet
-          break;
       }
     }
   }
@@ -1880,15 +1877,11 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
           // this setting is stored in ingressSettings_ and enforced in the
           // StreamCodec
           break;
-        case hq::SettingId::NUM_PLACEHOLDERS:
-          numPlaceholders = setting.value;
-          break;
       }
     }
   }
   qpackCodec_.setEncoderHeaderTableSize(tableSize);
   qpackCodec_.setMaxVulnerable(blocked);
-  // TODO: set the num placeholder value
   VLOG(3) << "Applied SETTINGS sess=" << session_ << " size=" << tableSize
           << " blocked=" << blocked;
 }

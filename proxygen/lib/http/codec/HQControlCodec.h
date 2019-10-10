@@ -126,8 +126,6 @@ class HQControlCodec
 
  protected:
   ParseResult checkFrameAllowed(FrameType type) override;
-  ParseResult parsePriority(folly::io::Cursor& cursor,
-                            const FrameHeader& header) override;
   ParseResult parseCancelPush(folly::io::Cursor& cursor,
                               const FrameHeader& header) override;
   ParseResult parseSettings(folly::io::Cursor& cursor,

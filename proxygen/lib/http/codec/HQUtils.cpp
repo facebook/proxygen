@@ -138,8 +138,6 @@ folly::Optional<hq::SettingId> httpToHqSettingsId(proxygen::SettingsId id) {
       return hq::SettingId::HEADER_TABLE_SIZE;
     case proxygen::SettingsId::MAX_HEADER_LIST_SIZE:
       return hq::SettingId::MAX_HEADER_LIST_SIZE;
-    case proxygen::SettingsId::_HQ_NUM_PLACEHOLDERS:
-      return hq::SettingId::NUM_PLACEHOLDERS;
     case proxygen::SettingsId::_HQ_QPACK_BLOCKED_STREAMS:
       return hq::SettingId::QPACK_BLOCKED_STREAMS;
     default:
@@ -152,8 +150,6 @@ folly::Optional<proxygen::SettingsId> hqToHttpSettingsId(hq::SettingId id) {
   switch (id) {
     case hq::SettingId::HEADER_TABLE_SIZE:
       return proxygen::SettingsId::HEADER_TABLE_SIZE;
-    case hq::SettingId::NUM_PLACEHOLDERS:
-      return proxygen::SettingsId::_HQ_NUM_PLACEHOLDERS;
     case hq::SettingId::MAX_HEADER_LIST_SIZE:
       return proxygen::SettingsId::MAX_HEADER_LIST_SIZE;
     case hq::SettingId::QPACK_BLOCKED_STREAMS:

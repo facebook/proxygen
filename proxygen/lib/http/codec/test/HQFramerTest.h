@@ -29,18 +29,6 @@ size_t writeFrameHeaderManual(folly::IOBufQueue& queue,
 // Write a valid frame for each frame type
 void writeValidFrame(folly::IOBufQueue& queue, proxygen::hq::FrameType type) {
   switch (type) {
-    case proxygen::hq::FrameType::PRIORITY:
-      proxygen::hq::writePriority(
-          queue,
-          {
-              proxygen::hq::PriorityElementType::REQUEST_STREAM,
-              proxygen::hq::PriorityElementType::REQUEST_STREAM,
-              true,
-              123,
-              234,
-              30,
-          });
-      break;
     case proxygen::hq::FrameType::SETTINGS:
       proxygen::hq::writeSettings(
           queue,
