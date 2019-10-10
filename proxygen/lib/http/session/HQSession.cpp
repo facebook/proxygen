@@ -3906,4 +3906,33 @@ std::ostream& operator<<(std::ostream& os, const HQSession& session) {
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, HQSession::DrainState drainState) {
+  switch (drainState) {
+    case HQSession::DrainState::NONE:
+      os << "none";
+      break;
+    case HQSession::DrainState::PENDING:
+      os << "pending";
+      break;
+    case HQSession::DrainState::CLOSE_SENT:
+      os << "close_sent";
+      break;
+    case HQSession::DrainState::CLOSE_RECEIVED:
+      os << "close_recvd";
+      break;
+    case HQSession::DrainState::FIRST_GOAWAY:
+      os << "first_goaway";
+      break;
+    case HQSession::DrainState::SECOND_GOAWAY:
+      os << "second_goaway";
+      break;
+    case HQSession::DrainState::DONE:
+      os << "done";
+      break;
+    default:
+      folly::assume_unreachable();
+  }
+  return os;
+}
+
 } // namespace proxygen

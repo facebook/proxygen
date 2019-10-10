@@ -267,6 +267,7 @@ class HQSession
          << ", local=" << getLocalAddress() << ", " << getPeerAddress()
          << "=upstream";
     }
+    os << ", drain=" << drainState_;
   }
 
   void onGoaway(uint64_t lastGoodStreamID,
@@ -2235,6 +2236,11 @@ class HQSession
   // NOTE: introduce better decoupling between the streams
   // and the containing session, then remove the friendship.
   friend class HQStreamBase;
+
+  // To let the operator<< access DrainState which is private
+  friend std::ostream& operator<<(std::ostream&, DrainState);
 }; // HQSession
+
+std::ostream& operator<<(std::ostream& os, HQSession::DrainState drainState);
 
 } // namespace proxygen
