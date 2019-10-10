@@ -413,11 +413,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               connState.readState = CLOSED;
               connState.writeState = CLOSED;
               if (errorCode) {
-                folly::variant_match(errorCode->first,
-                                     [&](quic::ApplicationErrorCode err) {
-                                       connState.error = err;
-                                     },
-                                     [](auto err) {});
+                quic::ApplicationErrorCode* err =
+                    errorCode->first.asApplicationErrorCode();
+                if (err) {
+                  connState.error = *err;
+                }
               }
               sock_->cb_ = nullptr;
               deliverConnectionError(errorCode.value_or(std::make_pair(
@@ -679,16 +679,24 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     auto cb = sock_->cb_;
     sock_->cb_ = nullptr;
     if (cb) {
-      bool noError =
-          folly::variant_match(error.first,
-                               [](const LocalErrorCode& err) {
-                                 return err == LocalErrorCode::NO_ERROR ||
-                                        err == LocalErrorCode::IDLE_TIMEOUT;
-                               },
-                               [](const TransportErrorCode& err) {
-                                 return err == TransportErrorCode::NO_ERROR;
-                               },
-                               [](const auto&) { return false; });
+      bool noError = false;
+      switch (error.first.type()) {
+        case QuicErrorCode::Type::LocalErrorCode_E: {
+          LocalErrorCode& err = *error.first.asLocalErrorCode();
+          noError = err == LocalErrorCode::NO_ERROR ||
+                    err == LocalErrorCode::IDLE_TIMEOUT;
+          break;
+        }
+        case QuicErrorCode::Type::TransportErrorCode_E: {
+          TransportErrorCode& err = *error.first.asTransportErrorCode();
+          noError = err == TransportErrorCode::NO_ERROR;
+          break;
+        }
+        case QuicErrorCode::Type::ApplicationErrorCode_E: {
+          noError = false;
+          break;
+        }
+      }
       if (noError) {
         cb->onConnectionEnd();
       } else {
@@ -1036,12 +1044,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             }
             if (event.error && event.stopSending) {
               if (sock_->cb_) {
-                folly::variant_match(*event.error,
-                                     [&](quic::ApplicationErrorCode err) {
-                                       sock_->cb_->onStopSending(event.streamId,
-                                                                 err);
-                                     },
-                                     [](auto err) {});
+                quic::ApplicationErrorCode* err =
+                    event.error->asApplicationErrorCode();
+                if (err) {
+                  sock_->cb_->onStopSending(event.streamId, *err);
+                }
               }
               return;
             }

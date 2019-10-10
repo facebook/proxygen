@@ -120,18 +120,17 @@ HTTP3::ErrorCode toHTTP3ErrorCode(const HTTPException& ex) {
   return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
 }
 
-ProxygenError
-toProxygenError(quic::QuicErrorCode error, bool fromPeer) {
-  return folly::variant_match(
-      error,
-      [&](quic::ApplicationErrorCode) {
-        return fromPeer ? kErrorConnectionReset : kErrorConnection;
-      },
-      [&](quic::LocalErrorCode) { return kErrorShutdown; },
-      [&](quic::TransportErrorCode) { return kErrorConnectionReset; }
-  );
+ProxygenError toProxygenError(quic::QuicErrorCode error, bool fromPeer) {
+  switch (error.type()) {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode_E:
+      return fromPeer ? kErrorConnectionReset : kErrorConnection;
+    case quic::QuicErrorCode::Type::LocalErrorCode_E:
+      return kErrorShutdown;
+    case quic::QuicErrorCode::Type::TransportErrorCode_E:
+      return kErrorConnectionReset;
+  }
+  folly::assume_unreachable();
 }
-
 
 folly::Optional<hq::SettingId> httpToHqSettingsId(proxygen::SettingsId id) {
   switch (id) {

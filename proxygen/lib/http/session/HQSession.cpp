@@ -45,20 +45,16 @@ static const std::string kQUICProtocolName("QUIC");
 // that we want to send.  If we receive an application error code, convert to
 // HTTP_CLOSED_CRITICAL_STREAM
 quic::QuicErrorCode quicControlStreamError(quic::QuicErrorCode error) {
-  return folly::variant_match(
-      error,
-      [&](quic::ApplicationErrorCode) {
-        return quic::QuicErrorCode(
-            proxygen::HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
-      },
-      [](quic::LocalErrorCode errorCode) {
-        return quic::QuicErrorCode(errorCode);
-      },
-      [](quic::TransportErrorCode errorCode) {
-        return quic::QuicErrorCode(errorCode);
-      });
+  switch (error.type()) {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode_E:
+      return quic::QuicErrorCode(
+          proxygen::HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
+    case quic::QuicErrorCode::Type::LocalErrorCode_E:
+    case quic::QuicErrorCode::Type::TransportErrorCode_E:
+      return error;
+  }
+  folly::assume_unreachable();
 }
-
 } // namespace
 
 using namespace proxygen::hq;
@@ -1354,44 +1350,47 @@ void HQSession::readError(
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                    folly::to<std::string>("Got error=", quic::toString(error)));
 
-  // clang-format off
-  folly::variant_match(
-      error.first,
-      [this, id, &ex](quic::ApplicationErrorCode ec) {
-        auto errorCode = static_cast<HTTP3::ErrorCode>(ec);
-        VLOG(3) << "readError: QUIC Application Error: " << toString(errorCode)
-                << " streamID=" << id << " sess=" << *this;
-        auto stream = findNonDetachedStream(id);
-        if (stream) {
-          stream->onResetStream(errorCode, std::move(ex));
-        } else {
-          // When a stream is erased, it's callback is cancelled, so it really
-          // should be here
-          VLOG(3) << "readError: received application error="
-                  << toString(errorCode)
-                  << " for detached streamID=" << id
-                  << " sess=" << *this;
-        }
-      },
-      [this, id, &ex](quic::LocalErrorCode errorCode) {
-        VLOG(3) << "readError: QUIC Local Error: " << errorCode
-                << " streamID=" << id << " sess=" << *this;
-        if (errorCode == quic::LocalErrorCode::CONNECT_FAILED) {
-          ex.setProxygenError(kErrorConnect);
-        } else {
-          ex.setProxygenError(kErrorShutdown);
-        }
-        errorOnTransactionId(id, std::move(ex));
-      },
-      [this, id, &ex](quic::TransportErrorCode errorCode) {
-        VLOG(3) << "readError: QUIC Transport Error: " << errorCode
-                << " streamID=" << id << " sess=" << *this;
-        ex.setProxygenError(kErrorConnectionReset);
-        // TODO: set Quic error when quic is OSS
-        ex.setErrno(uint32_t(errorCode));
-        errorOnTransactionId(id, std::move(ex));
-      });
-  // clang-format on
+  switch (error.first.type()) {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode_E: {
+      auto errorCode =
+          static_cast<HTTP3::ErrorCode>(*error.first.asApplicationErrorCode());
+      VLOG(3) << "readError: QUIC Application Error: " << toString(errorCode)
+              << " streamID=" << id << " sess=" << *this;
+      auto stream = findNonDetachedStream(id);
+      if (stream) {
+        stream->onResetStream(errorCode, std::move(ex));
+      } else {
+        // When a stream is erased, it's callback is cancelled, so it really
+        // should be here
+        VLOG(3)
+            << "readError: received application error=" << toString(errorCode)
+            << " for detached streamID=" << id << " sess=" << *this;
+      }
+      break;
+    }
+    case quic::QuicErrorCode::Type::LocalErrorCode_E: {
+      quic::LocalErrorCode& errorCode = *error.first.asLocalErrorCode();
+      VLOG(3) << "readError: QUIC Local Error: " << errorCode
+              << " streamID=" << id << " sess=" << *this;
+      if (errorCode == quic::LocalErrorCode::CONNECT_FAILED) {
+        ex.setProxygenError(kErrorConnect);
+      } else {
+        ex.setProxygenError(kErrorShutdown);
+      }
+      errorOnTransactionId(id, std::move(ex));
+      break;
+    }
+    case quic::QuicErrorCode::Type::TransportErrorCode_E: {
+      quic::TransportErrorCode& errorCode = *error.first.asTransportErrorCode();
+      VLOG(3) << "readError: QUIC Transport Error: " << errorCode
+              << " streamID=" << id << " sess=" << *this;
+      ex.setProxygenError(kErrorConnectionReset);
+      // TODO: set Quic error when quic is OSS
+      ex.setErrno(uint32_t(errorCode));
+      errorOnTransactionId(id, std::move(ex));
+      break;
+    }
+  }
 }
 
 bool HQSession::isPartialReliabilityEnabled(quic::StreamId id) {
@@ -1716,12 +1715,8 @@ void HQSession::controlStreamReadError(
   auto ctrlStream = findControlStream(id);
 
   if (!ctrlStream) {
-    bool shouldLog =
-        folly::variant_match(error.first,
-                             [&](quic::LocalErrorCode err) {
-                               return err != quic::LocalErrorCode::NO_ERROR;
-                             },
-                             [](auto&) { return true; });
+    const quic::LocalErrorCode* err = error.first.asLocalErrorCode();
+    bool shouldLog = !err || (*err != quic::LocalErrorCode::NO_ERROR);
     LOG_IF(ERROR, shouldLog)
         << __func__ << " received read error=" << error
         << " for unknown control streamID=" << id << " sess=" << *this;
@@ -2125,39 +2120,33 @@ void HQSession::handleSessionError(HQStreamBase* stream,
                << " streamID=" << id << " Dropping connection. sess=" << *this;
     appErrorMsg = "HTTP error on request stream";
     // for request streams this function must be called with an ApplicationError
-    folly::variant_match(err,
-                         [&](quic::ApplicationErrorCode /*error*/) {},
-                         [](auto&) { DCHECK(false); });
+    DCHECK(err.asApplicationErrorCode());
   }
   // errors on a control stream means we must drop the entire connection,
   // but there are some errors that we expect during shutdown
-  bool shouldDrop = folly::variant_match(
-      err,
-      [&](quic::ApplicationErrorCode error) {
-        // An ApplicationErrorCode is expected when
-        //  1. The peer resets a control stream
-        //  2. A control codec detects a connection error on a control stream
-        //  3. A stream codec detects a connection level error (eg: compression)
-        // We always want to drop the connection in these cases.
-        appError = static_cast<HTTP3::ErrorCode>(error);
-        return true;
-      },
-      [](quic::LocalErrorCode errorCode) {
-        // a LocalErrorCode::NO_ERROR is expected whenever the socket gets
-        // closed without error
-        return (errorCode != quic::LocalErrorCode::NO_ERROR);
-      },
-      [](quic::TransportErrorCode errorCode) {
-        // a TransportErrorCode::NO_ERROR is expected whenever the socket gets
-        // closed without error from the remote
-        return (errorCode != quic::TransportErrorCode::NO_ERROR);
-      },
-      [](auto&) { return true; });
-
+  bool shouldDrop = false;
+  switch (err.type()) {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode_E:
+      // An ApplicationErrorCode is expected when
+      //  1. The peer resets a control stream
+      //  2. A control codec detects a connection error on a control stream
+      //  3. A stream codec detects a connection level error (eg: compression)
+      // We always want to drop the connection in these cases.
+      appError = static_cast<HTTP3::ErrorCode>(*err.asApplicationErrorCode());
+      shouldDrop = true;
+      break;
+    case quic::QuicErrorCode::Type::LocalErrorCode_E:
+      // a LocalErrorCode::NO_ERROR is expected whenever the socket gets
+      // closed without error
+      shouldDrop = (*err.asLocalErrorCode() != quic::LocalErrorCode::NO_ERROR);
+      break;
+    case quic::QuicErrorCode::Type::TransportErrorCode_E:
+      shouldDrop = true;
+      break;
+  }
   if (!shouldDrop) {
     return;
   }
-
   if (ctrlStream && appError == HTTP3::ErrorCode::HTTP_NO_ERROR) {
     // If we got a local or transport error reading or writing on a
     // control stream, send CLOSED_CRITICAL_STREAM.
@@ -2201,25 +2190,26 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                    folly::to<std::string>("Got error=", quic::toString(err)));
   // TODO: set Quic error when quic is OSS
-  folly::variant_match(err,
-                       [&ex](quic::ApplicationErrorCode error) {
-                         // If we have an application error code, it must have
-                         // come from the peer (most likely STOP_SENDING). This
-                         // is logically a stream abort, not a write error
-                         ex.setCodecStatusCode(hqToHttpErrorCode(
-                             static_cast<HTTP3::ErrorCode>(error)));
-                         ex.setProxygenError(kErrorStreamAbort);
-                         return true;
-                       },
-                       [&ex](quic::LocalErrorCode errorCode) {
-                         ex.setErrno(uint32_t(errorCode));
-                         ex.setProxygenError(kErrorWrite);
-                         return true;
-                       },
-                       [](quic::TransportErrorCode errorCode) {
-                         CHECK(false) << "Unexpected errorCode=" << errorCode;
-                         return false;
-                       });
+  switch (err.type()) {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode_E: {
+      // If we have an application error code, it must have
+      // come from the peer (most likely STOP_SENDING). This
+      // is logically a stream abort, not a write error
+      ex.setCodecStatusCode(hqToHttpErrorCode(
+          static_cast<HTTP3::ErrorCode>(*err.asApplicationErrorCode())));
+      ex.setProxygenError(kErrorStreamAbort);
+      break;
+    }
+    case quic::QuicErrorCode::Type::LocalErrorCode_E: {
+      ex.setErrno(uint32_t(*err.asLocalErrorCode()));
+      ex.setProxygenError(kErrorWrite);
+      break;
+    }
+    case quic::QuicErrorCode::Type::TransportErrorCode_E: {
+      CHECK(false) << "Unexpected errorCode=" << *err.asTransportErrorCode();
+      break;
+    }
+  }
   // Do I need a dguard here?
   abortStream(ex.getDirection(),
               hqStream->getStreamId(),
