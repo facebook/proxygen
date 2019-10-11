@@ -610,3 +610,44 @@ TEST(HTTPHeaders, CopyAndMoveTest) {
   copyAndMoveTest(2);
   copyAndMoveTest(3);
 }
+
+void checkPrettyPrint(const HTTPHeaders& h) {
+  EXPECT_EQ(h.size(), 2);
+}
+
+TEST(HTTPHeaders, PrettyPrint) {
+  HTTPHeaders headers;
+  headers.add(HTTP_HEADER_HOST, "www.facebook.com");
+  headers.add(HTTP_HEADER_CONNECTION, "close");
+  headers.add("Foo", "Bar");
+  headers.remove(HTTP_HEADER_CONNECTION);
+  checkPrettyPrint(headers);
+}
+
+void checkPrettyPrintMsg(const HTTPMessage& m) {
+  EXPECT_EQ(m.getMethodString(), "SPECIAL");
+}
+
+TEST(HTTPMessage, PrettyPrint) {
+  HTTPMessage request;
+  request.setURL("/foo/bar.php?n=v");
+  request.setHTTPVersion(1, 1);
+  request.setMethod("SPECIAL");
+  request.setIsChunked(true);
+  folly::SocketAddress addr;
+  addr.setFromHostPort("localhost", 9999);
+  request.setClientAddress(addr);
+  request.getClientIP();
+  request.getClientPort();
+  request.getHeaders().add(HTTP_HEADER_HOST, "www.intstagram.com");
+  request.getHeaders().add("Bar", "Foo");
+  checkPrettyPrintMsg(request);
+
+  HTTPMessage response;
+  response.setStatusCode(418);
+  response.setStatusMessage("I am a teapot");
+  response.setHTTPVersion(3, 0);
+  response.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "0");
+  response.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "text/plain");
+  checkPrettyPrint(response.getHeaders());
+}
