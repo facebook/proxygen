@@ -7,7 +7,6 @@
  *  of patent rights can be found in the PATENTS file in the same directory.
  *
  */
-// Copyright 2004-present Facebook.  All rights reserved.
 
 #include <folly/portability/GTest.h>
 

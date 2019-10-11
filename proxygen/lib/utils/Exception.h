@@ -23,7 +23,7 @@ class Exception : public std::exception {
  public:
   explicit Exception(std::string const& msg);
   Exception(const Exception&);
-  Exception(Exception& other) : Exception(folly::as_const(other)) {} // @nolint
+  Exception(Exception& other) : Exception(folly::as_const(other)) {}
   Exception(Exception&&) noexcept;
 
   template <typename... Args>
