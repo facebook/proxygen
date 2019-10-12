@@ -198,17 +198,20 @@ class HTTPMessage {
     VLOG(9) << "setURL: " << url;
 
     // Set the URL, path, and query string parameters
-    ParseURL u(url);
+    auto& req = request();
+    req.url_ = std::forward<T>(url);
+    ParseURL u(req.url_);
     if (u.valid()) {
-      VLOG(9) << "set path: " << u.path() << " query:" << u.query();
-      request().path_ = u.path().str();
-      request().query_ = u.query().str();
+      VLOG(9) << "set path: " << u.path() << " query:"
+              << u.query();
+      req.path_ = u.path();
+      req.query_ = u.query();
+      req.pathStr_ = folly::none;
+      req.queryStr_ = folly::none;
       unparseQueryParams();
     } else {
-      VLOG(4) << "Error in parsing URL: " << url;
+      VLOG(4) << "Error in parsing URL: " << req.url_;
     }
-
-    request().url_ = std::forward<T>(url);
     return u;
   }
   // The template function above doesn't work with char*,
@@ -225,15 +228,37 @@ class HTTPMessage {
 
   /**
    * Access the path component (fpreq)
+   *
+   * getPath will lazily allocate a string object, which is generally
+   * more expensive.  Prefer getPathAsStringPiece.
    */
   const std::string& getPath() const {
+    auto& req = request();
+    if (!req.pathStr_.hasValue()) {
+      req.pathStr_.emplace(req.path_.data(), req.path_.size());
+    }
+    return *req.pathStr_;
+  }
+
+  folly::StringPiece getPathAsStringPiece() const {
     return request().path_;
   }
 
   /**
    * Access the query component (fpreq)
+   *
+   * getQueryString will lazily allocate a string object, which is generally
+   * more expensive.  Prefer getQueryStringAsStringPiece.
    */
   const std::string& getQueryString() const {
+    auto& req = request();
+    if (!req.queryStr_.hasValue()) {
+      req.queryStr_.emplace(req.query_.data(), req.query_.size());
+    }
+    return *req.queryStr_;
+  }
+
+  folly::StringPiece getQueryStringAsStringPiece() const {
     return request().query_;
   }
 
@@ -698,13 +723,13 @@ class HTTPMessage {
    * invoke callback once with each name,value pair.
    */
   static void splitNameValuePieces(
-      const std::string& input,
+      folly::StringPiece input,
       char pairDelim,
       char valueDelim,
       std::function<void(folly::StringPiece, folly::StringPiece)> callback);
 
   static void splitNameValue(
-      const std::string& input,
+      folly::StringPiece input,
       char pairDelim,
       char valueDelim,
       std::function<void(std::string&&, std::string&&)> callback);
@@ -774,8 +799,10 @@ class HTTPMessage {
     mutable std::string clientIP_;
     mutable std::string clientPort_;
     mutable boost::variant<boost::blank, std::string, HTTPMethod> method_;
-    std::string path_;
-    std::string query_;
+    folly::StringPiece path_;
+    folly::StringPiece query_;
+    mutable folly::Optional<std::string> pathStr_;
+    mutable folly::Optional<std::string> queryStr_;
     std::string url_;
 
     uint16_t pushStatus_;
@@ -885,7 +912,7 @@ std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg);
 template<typename Str>
 std::string stripCntrlChars(const Str& str) {
   std::string res;
-  res.reserve(str.length());
+  res.reserve(str.size());
   for (size_t i = 0; i < str.size(); ++i) {
     if (!(str[i] <= 0x1F || str[i] == 0x7F)) {
       res += str[i];

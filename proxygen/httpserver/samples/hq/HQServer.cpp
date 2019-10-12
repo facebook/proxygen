@@ -48,7 +48,7 @@ static std::atomic<bool> shouldPassHealthChecks{true};
 HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg,
                                                       const HQParams& params) {
   DCHECK(msg);
-  const std::string& path = msg->getPath();
+  auto path = msg->getPathAsStringPiece();
   if (path == "/" || path == "/echo") {
     return new EchoHandler(params);
   }

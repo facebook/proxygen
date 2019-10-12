@@ -54,4 +54,13 @@ inline bool validateURL(folly::ByteRange url) {
   }
   return true;
 }
+
+inline size_t findLastOf(folly::StringPiece sp, char c) {
+  size_t pos = sp.size();
+  while (--pos != std::string::npos && sp[pos] != c) {
+    // pass
+  }
+  return pos;
+}
+
 }

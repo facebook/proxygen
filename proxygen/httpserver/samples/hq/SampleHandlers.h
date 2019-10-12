@@ -549,16 +549,17 @@ class RandBytesGenHandler : public BaseQuicHandler {
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
+    auto path = msg->getPathAsStringPiece();
     VLOG(10) << "RandBytesGenHandler::onHeadersComplete";
-    VLOG(1) << "Request path: " << msg->getPath();
-    CHECK(msg->getPath().size() > 1);
+    VLOG(1) << "Request path: " << path;
+    CHECK_GE(path.size(), 1);
     try {
-      respBodyLen_ = folly::to<uint64_t>(msg->getPath().substr(1));
+      respBodyLen_ = folly::to<uint64_t>(path.subpiece(1));
     } catch (const folly::ConversionError& ex) {
       auto errorMsg = folly::to<std::string>(
           "Invalid URL: cannot extract requested response-length from url "
           "path: ",
-          msg->getPath());
+          path);
       LOG(ERROR) << errorMsg;
       sendError(errorMsg);
       return;

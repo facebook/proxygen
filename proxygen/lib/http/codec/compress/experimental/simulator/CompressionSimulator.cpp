@@ -135,11 +135,11 @@ void CompressionSimulator::setupRequest(uint16_t index,
                                         HTTPMessage&& msg,
                                         std::chrono::milliseconds encodeDelay) {
   // Normalize to relative paths
-  const auto& query = msg.getQueryString();
+  auto query = msg.getQueryStringAsStringPiece();
   if (query.empty()) {
-    msg.setURL(msg.getPath());
+    msg.setURL(msg.getPathAsStringPiece());
   } else {
-    msg.setURL(folly::to<string>(msg.getPath(), "?", query));
+    msg.setURL(folly::to<string>(msg.getPathAsStringPiece(), "?", query));
   }
 
   auto scheme = getScheme(msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST));

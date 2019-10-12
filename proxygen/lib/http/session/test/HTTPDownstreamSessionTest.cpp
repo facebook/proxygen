@@ -506,8 +506,8 @@ TEST_F(HTTPDownstreamSessionTest, Http10NoHeaders) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("/", msg->getURL());
-    EXPECT_EQ("/", msg->getPath());
-    EXPECT_EQ("", msg->getQueryString());
+    EXPECT_EQ("/", msg->getPathAsStringPiece());
+    EXPECT_EQ("", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(0, msg->getHTTPVersion().second);
   });
@@ -527,8 +527,8 @@ TEST_F(HTTPDownstreamSessionTest, Http10NoHeadersEof) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("http://example.com/foo?bar", msg->getURL());
-    EXPECT_EQ("/foo", msg->getPath());
-    EXPECT_EQ("bar", msg->getQueryString());
+    EXPECT_EQ("/foo", msg->getPathAsStringPiece());
+    EXPECT_EQ("bar", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(0, msg->getHTTPVersion().second);
   });
@@ -552,8 +552,8 @@ TEST_F(HTTPDownstreamSessionTest, SingleBytes) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("/somepath.php?param=foo", msg->getURL());
-    EXPECT_EQ("/somepath.php", msg->getPath());
-    EXPECT_EQ("param=foo", msg->getQueryString());
+    EXPECT_EQ("/somepath.php", msg->getPathAsStringPiece());
+    EXPECT_EQ("param=foo", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
@@ -583,8 +583,8 @@ TEST_F(HTTPDownstreamSessionTest, SingleBytesWithBody) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("/somepath.php?param=foo", msg->getURL());
-    EXPECT_EQ("/somepath.php", msg->getPath());
-    EXPECT_EQ("param=foo", msg->getQueryString());
+    EXPECT_EQ("/somepath.php", msg->getPathAsStringPiece());
+    EXPECT_EQ("param=foo", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
@@ -647,8 +647,8 @@ TEST_F(HTTPDownstreamSessionTest, MovableBuffer) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("/somepath.php?param=foo", msg->getURL());
-    EXPECT_EQ("/somepath.php", msg->getPath());
-    EXPECT_EQ("param=foo", msg->getQueryString());
+    EXPECT_EQ("/somepath.php", msg->getPathAsStringPiece());
+    EXPECT_EQ("param=foo", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
@@ -677,8 +677,8 @@ TEST_F(HTTPDownstreamSessionTest, MovableBufferChained) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("/somepath.php?param=foo", msg->getURL());
-    EXPECT_EQ("/somepath.php", msg->getPath());
-    EXPECT_EQ("param=foo", msg->getQueryString());
+    EXPECT_EQ("/somepath.php", msg->getPathAsStringPiece());
+    EXPECT_EQ("param=foo", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
@@ -709,8 +709,8 @@ TEST_F(HTTPDownstreamSessionTest, MovableBufferMultiple) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("/somepath.php?param=foo", msg->getURL());
-    EXPECT_EQ("/somepath.php", msg->getPath());
-    EXPECT_EQ("param=foo", msg->getQueryString());
+    EXPECT_EQ("/somepath.php", msg->getPathAsStringPiece());
+    EXPECT_EQ("param=foo", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
@@ -740,8 +740,8 @@ TEST_F(HTTPDownstreamSessionTest, MovableBufferChainedEmptyBuffer) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("/somepath.php?param=foo", msg->getURL());
-    EXPECT_EQ("/somepath.php", msg->getPath());
-    EXPECT_EQ("param=foo", msg->getQueryString());
+    EXPECT_EQ("/somepath.php", msg->getPathAsStringPiece());
+    EXPECT_EQ("param=foo", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
@@ -773,8 +773,8 @@ TEST_F(HTTPDownstreamSessionTest, PostChunked) {
     EXPECT_TRUE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ("http://example.com/cgi-bin/foo.aspx?abc&def", msg->getURL());
-    EXPECT_EQ("/cgi-bin/foo.aspx", msg->getPath());
-    EXPECT_EQ("abc&def", msg->getQueryString());
+    EXPECT_EQ("/cgi-bin/foo.aspx", msg->getPathAsStringPiece());
+    EXPECT_EQ("abc&def", msg->getQueryStringAsStringPiece());
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });

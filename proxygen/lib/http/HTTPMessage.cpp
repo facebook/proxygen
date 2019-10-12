@@ -105,6 +105,9 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message) :
     secure_(message.secure_),
     partiallyReliable_(message.partiallyReliable_),
     upgradeWebsocket_(message.upgradeWebsocket_) {
+  if (isRequest()) {
+    setURL(request().url_);
+  }
   if (message.strippedPerHopHeaders_) {
     strippedPerHopHeaders_ = std::make_unique<HTTPHeaders>(
       *message.strippedPerHopHeaders_);
@@ -143,6 +146,9 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept :
     secure_(message.secure_),
     partiallyReliable_(message.partiallyReliable_),
     upgradeWebsocket_(message.upgradeWebsocket_) {
+  if (isRequest()) {
+    setURL(request().url_);
+  }
 }
 
 HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
@@ -157,6 +163,9 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   localIP_ = message.localIP_;
   versionStr_ = message.versionStr_;
   fields_ = message.fields_;
+  if (isRequest()) {
+    setURL(request().url_);
+  }
   cookies_ = message.cookies_;
   queryParams_ = message.queryParams_;
   version_ = message.version_;
@@ -201,6 +210,9 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   localIP_ = std::move(message.localIP_);
   versionStr_ = std::move(message.versionStr_);
   fields_ = std::move(message.fields_);
+  if (isRequest()) {
+    setURL(request().url_);
+  }
   cookies_ = std::move(message.cookies_);
   queryParams_ = std::move(message.queryParams_);
   version_ = message.version_;
@@ -219,7 +231,6 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   trailersAllowed_ = message.trailersAllowed_;
   secure_ = message.secure_;
   upgradeWebsocket_ = message.upgradeWebsocket_;
-
   trailers_ = std::move(message.trailers_);
   return *this;
 }
@@ -515,16 +526,17 @@ bool HTTPMessage::setQueryString(const std::string& query) {
 
   if (u.valid()) {
     // Recreate the URL by just changing the query string
-    request().url_ = createUrl(u.scheme(),
-                               u.authority(),
-                               u.path(),
-                               query, // new query string
-                               u.fragment());
-    request().query_ = query;
+    setURL(createUrl(u.scheme(),
+                     u.authority(),
+                     u.path(),
+                     query, // new query string
+                     u.fragment()));
+    unparseQueryParams();
     return true;
   }
 
-  VLOG(4) << "Error parsing URL during setQueryString: " << request().url_;
+  VLOG(4) << "Error parsing URL during setQueryString: "
+          << request().url_;
   return false;
 }
 
@@ -539,7 +551,7 @@ bool HTTPMessage::removeQueryParam(const std::string& name) {
     return false;
   }
 
-  auto query = createQueryString(queryParams_, request().query_.length());
+  auto query = createQueryString(queryParams_, request().query_.size());
   return setQueryString(query);
 }
 
@@ -551,7 +563,7 @@ bool HTTPMessage::setQueryParam(const std::string& name,
   }
 
   queryParams_[name] = value;
-  auto query = createQueryString(queryParams_, request().query_.length());
+  auto query = createQueryString(queryParams_, request().query_.size());
   return setQueryString(query);
 }
 
@@ -592,12 +604,11 @@ std::string HTTPMessage::createUrl(const folly::StringPiece scheme,
 }
 
 void HTTPMessage::splitNameValuePieces(
-        const string& input,
+        folly::StringPiece sp,
         char pairDelim,
         char valueDelim,
         std::function<void(StringPiece, StringPiece)> callback) {
 
-  StringPiece sp(input);
   while (!sp.empty()) {
     size_t pairDelimPos = sp.find(pairDelim);
     StringPiece keyValue;
@@ -637,7 +648,7 @@ StringPiece HTTPMessage::trim(StringPiece sp) {
 }
 
 void HTTPMessage::splitNameValue(
-        const string& input,
+        folly::StringPiece input,
         char pairDelim,
         char valueDelim,
         std::function<void(string&&, string&&)> callback) {
@@ -696,34 +707,34 @@ void HTTPMessage::describe(std::ostream& os) const {
      << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.
-  std::vector<std::pair<const char*, const std::string*>> fields {{
-      {"local_ip", &localIP_},
-      {"version", &versionStr_},
-      {"dst_ip", &dstIP_},
-      {"dst_port", &dstPort_},
+  std::vector<std::pair<const char*, folly::StringPiece>> fields {{
+      {"local_ip", localIP_},
+      {"version", versionStr_},
+      {"dst_ip", dstIP_},
+      {"dst_port", dstPort_},
   }};
 
   if (fields_.type() == typeid(Request)) {
     // Request fields.
     const Request& req = request();
-    fields.push_back(make_pair("client_ip", &req.clientIP_));
-    fields.push_back(make_pair("client_port", &req.clientPort_));
-    fields.push_back(make_pair("method", &getMethodString()));
-    fields.push_back(make_pair("path", &req.path_));
-    fields.push_back(make_pair("query", &req.query_));
-    fields.push_back(make_pair("url", &req.url_));
-    fields.push_back(make_pair("push_status", &req.pushStatusStr_));
+    fields.emplace_back("client_ip", req.clientIP_);
+    fields.emplace_back("client_port", req.clientPort_);
+    fields.emplace_back("method", getMethodString());
+    fields.emplace_back("path", req.path_);
+    fields.emplace_back("query", req.query_);
+    fields.emplace_back("url", req.url_);
+    fields.emplace_back("push_status", req.pushStatusStr_);
   } else if (fields_.type() == typeid(Response)) {
     // Response fields.
     const Response& resp = response();
-    fields.push_back(make_pair("status", &resp.statusStr_));
-    fields.push_back(make_pair("status_msg", &resp.statusMsg_));
+    fields.emplace_back("status", resp.statusStr_);
+    fields.emplace_back("status_msg", resp.statusMsg_);
   }
 
   for (auto field : fields) {
-    if (!field.second->empty()) {
+    if (!field.second.empty()) {
       os << " " << field.first
-         << ":" << stripCntrlChars(*field.second) << std::endl;
+         << ":" << stripCntrlChars(field.second) << std::endl;
     }
   }
 

@@ -394,7 +394,9 @@ void testPathAndQuery(const string& url,
   msg.setURL(url);
 
   EXPECT_EQ(msg.getURL(), url);
+  EXPECT_EQ(msg.getPathAsStringPiece(), expectedPath);
   EXPECT_EQ(msg.getPath(), expectedPath);
+  EXPECT_EQ(msg.getQueryStringAsStringPiece(), expectedQuery);
   EXPECT_EQ(msg.getQueryString(), expectedQuery);
 }
 
@@ -452,7 +454,7 @@ void testRemoveQueryParam(const string& url,
   EXPECT_EQ(msg.removeQueryParam(queryParam), expectedChange);
 
   EXPECT_EQ(msg.getURL(), expectedUrl);
-  EXPECT_EQ(msg.getQueryString(), expectedQuery);
+  EXPECT_EQ(msg.getQueryStringAsStringPiece(), expectedQuery);
 }
 
 TEST(HTTPMessage, RemoveQueryParamTests) {
@@ -489,7 +491,7 @@ void testSetQueryParam(const string& url,
   EXPECT_EQ(msg.setQueryParam(queryParam, paramValue), expectedChange);
 
   EXPECT_EQ(msg.getURL(), expectedUrl);
-  EXPECT_EQ(msg.getQueryString(), expectedQuery);
+  EXPECT_EQ(msg.getQueryStringAsStringPiece(), expectedQuery);
 }
 
 TEST(HTTPMessage, SetQueryParamTests) {

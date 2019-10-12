@@ -440,7 +440,7 @@ TEST_F(SPDY3UpstreamSessionTest, ServerPush) {
         EXPECT_EQ(httpSession_->getNumIncomingStreams(), 1);
         EXPECT_TRUE(msg->getIsChunked());
         EXPECT_FALSE(msg->getIsUpgraded());
-        EXPECT_EQ(msg->getPath(), "/");
+        EXPECT_EQ(msg->getPathAsStringPiece(), "/");
         EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
                   "www.foo.com");
       }));
@@ -811,7 +811,7 @@ TEST_F(HTTP2UpstreamSessionTest, ExheaderFromServer) {
         pubHandler.txn_ = pubTxn;
       }));
   pubHandler.expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
-    EXPECT_EQ(msg->getPath(), "/messaging");
+    EXPECT_EQ(msg->getPathAsStringPiece(), "/messaging");
   });
   pubHandler.expectEOM([&]() { pubHandler.txn_->sendAbort(); });
   pubHandler.expectDetachTransaction();
@@ -1849,7 +1849,7 @@ TEST_F(HTTP2UpstreamSessionTest, ServerPush) {
     EXPECT_EQ(httpSession_->getNumIncomingStreams(), 1);
     EXPECT_TRUE(msg->getIsChunked());
     EXPECT_FALSE(msg->getIsUpgraded());
-    EXPECT_EQ(msg->getPath(), "/");
+    EXPECT_EQ(msg->getPathAsStringPiece(), "/");
     EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
               "www.foo.com");
   });

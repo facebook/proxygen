@@ -98,13 +98,14 @@ void ServerPushHandler::onHeadersComplete(
     return;
   }
 
-  VLOG(2) << "Received GET request for " << msg->getPath() << " at: "
+  VLOG(2) << "Received GET request for " << path_ << " at: "
           << std::chrono::duration_cast<std::chrono::microseconds>(
               std::chrono::steady_clock::now().time_since_epoch()).count();
 
   std::string gPushResponseBody;
   std::vector<std::string> pathPieces;
-  boost::split(pathPieces, msg->getPath(), boost::is_any_of("/"));
+  std::string path = path_;
+  boost::split(pathPieces, path, boost::is_any_of("/"));
   int responseSize = 0;
   int numResponses = 1;
 

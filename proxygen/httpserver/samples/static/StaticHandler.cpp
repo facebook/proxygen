@@ -36,11 +36,13 @@ void StaticHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
   // characters like '//' or '..'
   try {
     // + 1 to kill leading /
-    file_ = std::make_unique<folly::File>(headers->getPath().c_str() + 1);
+    file_ = std::make_unique<folly::File>(
+      headers->getPathAsStringPiece().subpiece(1));
   } catch (const std::system_error& ex) {
     ResponseBuilder(downstream_)
       .status(404, "Not Found")
-      .body(folly::to<std::string>("Could not find ", headers->getPath(),
+      .body(folly::to<std::string>("Could not find ",
+                                   headers->getPathAsStringPiece(),
                                    " ex=", folly::exceptionStr(ex)))
       .sendWithEOM();
     return;

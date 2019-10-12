@@ -47,7 +47,7 @@ void PushRequestHandler::onRequest(
       return;
     }
 
-    if(headers->getPath() == "/requestLargePush") {
+    if(headers->getPathAsStringPiece() == "/requestLargePush") {
       LOG(INFO) << "sending large push ";
 
       ResponseBuilder(downstreamPush_)
