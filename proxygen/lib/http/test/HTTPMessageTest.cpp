@@ -655,3 +655,17 @@ TEST(HTTPMessage, PrettyPrint) {
   response.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "text/plain");
   checkPrettyPrint(response.getHeaders());
 }
+
+TEST(HTTPHeaders, GetSetOnResize) {
+  HTTPHeaders headers;
+  for (size_t i = 0; i < kInitialVectorReserve - 1; i++) {
+    headers.add(HTTP_HEADER_CONNECTION, "token");
+  }
+  std::string value(32, 'a');
+  headers.add(HTTP_HEADER_SERVER, value);
+  EXPECT_EQ(headers.size(), kInitialVectorReserve);
+  auto& v = headers.getSingleOrEmpty(HTTP_HEADER_SERVER);
+  headers.set(HTTP_HEADER_SERVER, v);
+
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_SERVER), value);
+}

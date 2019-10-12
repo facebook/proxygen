@@ -370,7 +370,31 @@ class HTTPHeaders {
   }
 
   template <typename T>
-  void emplace_back(HTTPHeaderCode code, std::string* name, T&& value) {
+  typename std::enable_if<
+    std::is_same<T, const std::string&>::value ||
+    std::is_same<T, std::string&&>::value>::type
+   emplace_back(HTTPHeaderCode code, std::string* name, T&& value) {
+    auto v = values();
+    void* valuePtr = (void*)&value;
+    if (length_ == capacity_ && valuePtr >= (void*)v &&
+        valuePtr < (void*)(v + length_)) {
+      std::string savedValue = std::forward<T>(value);
+      emplace_back_impl(code, name, std::move(savedValue));
+    } else {
+      emplace_back_impl(code, name, std::forward<T>(value));
+    }
+  }
+
+  template <typename T>
+  typename std::enable_if<
+    !std::is_same<T, const std::string&>::value &&
+    !std::is_same<T, std::string&&>::value>::type
+   emplace_back(HTTPHeaderCode code, std::string* name, T&& value) {
+    emplace_back_impl(code, name, std::forward<T>(value));
+  }
+
+  template <typename T>
+  void emplace_back_impl(HTTPHeaderCode code, std::string* name, T&& value) {
     ensure(length_ + 1);
     codes()[length_] = code;
     names()[length_] = name;
