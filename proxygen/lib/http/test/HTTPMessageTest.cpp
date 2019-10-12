@@ -228,6 +228,9 @@ TEST(HTTPMessage, TestSetClientAddress) {
   msg.setClientAddress(clientAddr);
   EXPECT_EQ(msg.getClientIP(), "74.125.127.9");
   EXPECT_EQ(msg.getClientPort(), "1987");
+  // Now try cached path
+  EXPECT_EQ(msg.getClientIP(), "74.125.127.9");
+  EXPECT_EQ(msg.getClientPort(), "1987");
 
   // Test updating client address
   folly::SocketAddress clientAddr2("74.125.127.8", 1988);

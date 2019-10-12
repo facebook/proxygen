@@ -90,13 +90,18 @@ class HTTPMessage {
   void setClientAddress(const folly::SocketAddress& addr,
                         std::string ipStr = empty_string,
                         std::string portStr = empty_string) {
-    request().clientAddress_ = addr;
+    auto& req = request();
+    req.clientAddress_ = addr;
     if (!ipStr.empty() && !portStr.empty()) {
-      request().clientIP_ = std::move(ipStr);
-      request().clientPort_ = std::move(portStr);
+      req.clientIP_.emplace(std::move(ipStr));
+      req.clientPort_.emplace(std::move(portStr));
     } else {
-      request().clientIP_.clear();
-      request().clientPort_.clear();
+      if (req.clientIP_) {
+        req.clientIP_->clear();
+      }
+      if (req.clientPort_) {
+        req.clientPort_->clear();
+      }
     }
   }
 
@@ -105,20 +110,28 @@ class HTTPMessage {
   }
 
   const std::string& getClientIP() const {
-    if (request().clientIP_.empty() &&
-        request().clientAddress_.isInitialized()) {
-      request().clientIP_ = request().clientAddress_.getAddressStr();
+    auto& req = request();
+    if (!req.clientIP_ || req.clientIP_->empty()) {
+      if (req.clientAddress_.isInitialized()) {
+        req.clientIP_.emplace(req.clientAddress_.getAddressStr());
+      } else {
+        return empty_string;
+      }
     }
-    return request().clientIP_;
+    return *req.clientIP_;
   }
 
   const std::string& getClientPort() const {
-    if (request().clientPort_.empty() &&
-        request().clientAddress_.isInitialized()) {
-      request().clientPort_ = folly::to<std::string>(
-        request().clientAddress_.getPort());
+    auto& req = request();
+    if (!req.clientPort_ || req.clientPort_->empty()) {
+      if (req.clientAddress_.isInitialized()) {
+        req.clientPort_.emplace(
+          folly::to<std::string>(req.clientAddress_.getPort()));
+      } else {
+        return empty_string;
+      }
     }
-    return request().clientPort_;
+    return *req.clientPort_;
   }
 
   /**
@@ -430,7 +443,7 @@ class HTTPMessage {
    * Access the push status code
    */
   void setPushStatusCode(const uint16_t status);
-  const std::string& getPushStatusStr() const;
+  std::string getPushStatusStr() const;
   uint16_t getPushStatusCode() const;
 
   /**
@@ -796,8 +809,8 @@ class HTTPMessage {
    */
   struct Request {
     folly::SocketAddress clientAddress_;
-    mutable std::string clientIP_;
-    mutable std::string clientPort_;
+    mutable folly::Optional<std::string> clientIP_;
+    mutable folly::Optional<std::string> clientPort_;
     mutable boost::variant<boost::blank, std::string, HTTPMethod> method_;
     folly::StringPiece path_;
     folly::StringPiece query_;
@@ -806,7 +819,6 @@ class HTTPMessage {
     std::string url_;
 
     uint16_t pushStatus_;
-    std::string pushStatusStr_;
   };
 
   struct Response {

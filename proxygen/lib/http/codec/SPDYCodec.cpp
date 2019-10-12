@@ -599,8 +599,9 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
 
   CHECK_GT(versionSettings_.majorVersion, 2) << "SPDY/2 no longer supported";
 
+  string pushString;
   if (isPushed) {
-    const string& pushString = msg.getPushStatusStr();
+    pushString = msg.getPushStatusStr();
     allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, pushString);
   } else {
     allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);

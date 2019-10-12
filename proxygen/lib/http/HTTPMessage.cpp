@@ -276,9 +276,15 @@ const std::string& HTTPMessage::getMethodString() const {
 }
 
 void HTTPMessage::setHTTPVersion(uint8_t maj, uint8_t min) {
+  DCHECK_LT(maj, 10) << "Whoa, HTTP/10+!";
+  DCHECK_LT(min, 10) << "Whoa, 10+ minor versions!";
+  versionStr_.reserve(3);
+  versionStr_.clear();
   version_.first = maj;
   version_.second = min;
-  versionStr_ = folly::to<string>(maj, ".", min);
+  versionStr_.append(1, maj + '0');
+  versionStr_.append(1, '.');
+  versionStr_.append(1, min + '0');
 }
 
 const pair<uint8_t, uint8_t>& HTTPMessage::getHTTPVersion() const {
@@ -365,11 +371,10 @@ uint16_t HTTPMessage::getStatusCode() const {
 
 void HTTPMessage::setPushStatusCode(uint16_t status) {
   request().pushStatus_ = status;
-  request().pushStatusStr_ = folly::to<string>(status);
 }
 
-const std::string& HTTPMessage::getPushStatusStr() const{
-  return request().pushStatusStr_;
+std::string HTTPMessage::getPushStatusStr() const{
+  return folly::to<string>(request().pushStatus_);
 }
 
 uint16_t HTTPMessage::getPushStatusCode() const{
@@ -714,16 +719,26 @@ void HTTPMessage::describe(std::ostream& os) const {
       {"dst_port", dstPort_},
   }};
 
+  std::string pushStatusMessage;
   if (fields_.type() == typeid(Request)) {
     // Request fields.
     const Request& req = request();
-    fields.emplace_back("client_ip", req.clientIP_);
-    fields.emplace_back("client_port", req.clientPort_);
+    if (req.clientIP_) {
+      fields.emplace_back("client_ip", *req.clientIP_);
+    } else {
+      fields.emplace_back("client_ip", empty_string);
+    }
+    if (req.clientPort_) {
+      fields.emplace_back("client_port", *req.clientPort_);
+    } else {
+      fields.emplace_back("client_port", empty_string);
+    }
     fields.emplace_back("method", getMethodString());
     fields.emplace_back("path", req.path_);
     fields.emplace_back("query", req.query_);
     fields.emplace_back("url", req.url_);
-    fields.emplace_back("push_status", req.pushStatusStr_);
+    pushStatusMessage = getPushStatusStr();
+    fields.emplace_back("push_status", pushStatusMessage);
   } else if (fields_.type() == typeid(Response)) {
     // Response fields.
     const Response& resp = response();
