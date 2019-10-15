@@ -527,16 +527,19 @@ const std::map<std::string, std::string>& HTTPMessage::getQueryParams() const {
 }
 
 bool HTTPMessage::setQueryString(const std::string& query) {
+  return setQueryStringImpl(query, true);
+}
+
+bool HTTPMessage::setQueryStringImpl(const std::string& query, bool unparse) {
   ParseURL u(request().url_);
 
   if (u.valid()) {
     // Recreate the URL by just changing the query string
-    setURL(createUrl(u.scheme(),
-                     u.authority(),
-                     u.path(),
-                     query, // new query string
-                     u.fragment()));
-    unparseQueryParams();
+    setURLImpl(createUrl(u.scheme(),
+                         u.authority(),
+                         u.path(),
+                         query, // new query string
+                         u.fragment()), unparse);
     return true;
   }
 
@@ -557,7 +560,7 @@ bool HTTPMessage::removeQueryParam(const std::string& name) {
   }
 
   auto query = createQueryString(queryParams_, request().query_.size());
-  return setQueryString(query);
+  return setQueryStringImpl(query, false);
 }
 
 bool HTTPMessage::setQueryParam(const std::string& name,
@@ -569,7 +572,7 @@ bool HTTPMessage::setQueryParam(const std::string& name,
 
   queryParams_[name] = value;
   auto query = createQueryString(queryParams_, request().query_.size());
-  return setQueryString(query);
+  return setQueryStringImpl(query, false);
 }
 
 std::string HTTPMessage::createQueryString(

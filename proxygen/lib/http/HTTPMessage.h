@@ -208,6 +208,11 @@ class HTTPMessage {
    */
   template <typename T> // T = string
   ParseURL setURL(T&& url) {
+    return setURLImpl(std::forward<T>(url), true);
+  }
+
+  template <typename T> // T = string
+  ParseURL setURLImpl(T&& url, bool unparse) {
     VLOG(9) << "setURL: " << url;
 
     // Set the URL, path, and query string parameters
@@ -221,7 +226,9 @@ class HTTPMessage {
       req.query_ = u.query();
       req.pathStr_ = folly::none;
       req.queryStr_ = folly::none;
-      unparseQueryParams();
+      if (unparse) {
+        unparseQueryParams();
+      }
     } else {
       VLOG(4) << "Error in parsing URL: " << req.url_;
     }
@@ -789,6 +796,7 @@ class HTTPMessage {
 
   void parseCookies() const;
 
+  bool setQueryStringImpl(const std::string& queryString, bool unparse);
   void parseQueryParams() const;
   void unparseQueryParams();
 

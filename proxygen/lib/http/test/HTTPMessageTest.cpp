@@ -75,6 +75,12 @@ TEST(HTTPMessage, TestParseQueryParamsSimple) {
   EXPECT_EQ(msg.getIntQueryParam("dup"), 2);
   EXPECT_ANY_THROW(msg.getIntQueryParam("abc"));
   EXPECT_ANY_THROW(msg.getIntQueryParam("second"));
+
+  const auto& param = msg.getQueryParam("seq");
+  msg.setQueryParam("foo", "bar");
+  EXPECT_EQ(param, "123456");
+  msg.removeQueryParam("foo");
+  EXPECT_EQ(param, "123456");
 }
 
 TEST(HTTPMessage, TestParseQueryParamsComplex) {
