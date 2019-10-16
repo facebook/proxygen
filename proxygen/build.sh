@@ -134,6 +134,9 @@ function setup_folly() {
   MAYBE_USE_STATIC_DEPS=""
   MAYBE_BUILD_TESTS=""
   MAYBE_BUILD_SHARED_LIBS=""
+  if [ "$NO_BUILD_TESTS" == true ] ; then
+    MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+  fi
   if [ "$BUILD_FOR_FUZZING" == true ] ; then
     MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
     MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
@@ -211,6 +214,9 @@ function setup_wangle() {
   MAYBE_USE_STATIC_DEPS=""
   MAYBE_BUILD_TESTS=""
   MAYBE_BUILD_SHARED_LIBS=""
+  if [ "$NO_BUILD_TESTS" == true ] ; then
+    MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+  fi
   if [ "$BUILD_FOR_FUZZING" == true ] ; then
     MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
     MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
@@ -248,6 +254,9 @@ function setup_mvfst() {
   MAYBE_USE_STATIC_DEPS=""
   MAYBE_BUILD_TESTS=""
   MAYBE_BUILD_SHARED_LIBS=""
+  if [ "$NO_BUILD_TESTS" == true ] ; then
+    MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+  fi
   if [ "$BUILD_FOR_FUZZING" == true ] ; then
     MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
     MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
@@ -290,6 +299,9 @@ while [ "$1" != "" ]; do
     --build-for-fuzzing )
                   BUILD_FOR_FUZZING=true
       ;;
+    -t | --no-tests )
+                  BUILD_TESTS=true
+      ;;
     * )           echo $USAGE
                   exit 1
 esac
@@ -329,6 +341,10 @@ MAYBE_BUILD_FUZZERS=""
 MAYBE_USE_STATIC_DEPS=""
 MAYBE_LIB_FUZZING_ENGINE=""
 MAYBE_BUILD_SHARED_LIBS=""
+MAYBE_BUILD_TESTS="-DBUILD_TESTS=ON"
+if [ "$NO_BUILD_TESTS" == true ] ; then
+  MAYBE_BUILD_TESTS="-DBUILD_TESTS=OFF"
+fi
 if [ "$BUILD_FOR_FUZZING" == true ] ; then
   MAYBE_BUILD_FUZZERS="-DBUILD_FUZZERS=ON"
   MAYBE_USE_STATIC_DEPS="-DUSE_STATIC_DEPS_ON_UNIX=ON"
@@ -342,8 +358,8 @@ cmake                                     \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
   -DCMAKE_PREFIX_PATH="$DEPS_DIR"         \
   -DCMAKE_INSTALL_PREFIX="$BWD"           \
-  $MAYBE_BUILD_QUIC                       \
-  -DBUILD_TESTS=On                        \
+  "$MAYBE_BUILD_QUIC"                     \
+  "$MAYBE_BUILD_TESTS"                    \
   "$MAYBE_BUILD_FUZZERS"                  \
   "$MAYBE_BUILD_SHARED_LIBS"              \
   "$MAYBE_USE_STATIC_DEPS"                \
