@@ -88,6 +88,10 @@ HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg,
     return new PrRejectHandler(params);
   }
 
+  if (path.startsWith("/static/")) {
+    return new StaticFileHandler(params);
+  }
+
   return new DummyHandler(params);
 }
 

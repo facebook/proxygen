@@ -71,10 +71,6 @@ DEFINE_uint32(pr_chunk_size,
 DEFINE_uint32(pr_chunk_delay_ms,
               0,
               "Max delay for the body chunks in partially reliable mode");
-DEFINE_bool(connect_udp, false, "Whether or not to use connected udp sockets");
-DEFINE_uint32(max_cwnd_mss,
-              quic::kLargeMaxCwndInMss,
-              "Max cwnd in unit of mss");
 // Example of starting a server streaming body in chunks in partially realible
 // mode (serve 17-byte body chunks with random delay from 0 to 500 ms):
 //    hq -mode server -use_pr -protocol="h3-20" -pr_chunk_size 17
@@ -83,6 +79,11 @@ DEFINE_uint32(max_cwnd_mss,
 // delay cap of 150 ms:
 //    hq -mode client -use_pr -protocol="h3-20" -path="/pr_cat"
 //    -pr_chunk_delay_ms 150
+DEFINE_bool(connect_udp, false, "Whether or not to use connected udp sockets");
+DEFINE_uint32(max_cwnd_mss,
+              quic::kLargeMaxCwndInMss,
+              "Max cwnd in unit of mss");
+DEFINE_string(static_root, "./", "Path to serve static files from.");
 
 namespace quic { namespace samples {
 
@@ -257,6 +258,10 @@ void initializeQLogSettings(HQParams& hqParams) {
   hqParams.prettyJson = FLAGS_pretty_json;
 } // initializeQLogSettings
 
+void initializeStaticSettings(HQParams& hqParams) {
+  hqParams.staticRoot = FLAGS_static_root;
+} // initializeStaticSettings
+
 void initializeFizzSettings(HQParams& hqParams) {
   hqParams.earlyData = FLAGS_early_data;
   hqParams.certificateFilePath = FLAGS_cert;
@@ -397,6 +402,8 @@ HQParamsBuilderFromCmdline::HQParamsBuilderFromCmdline(initializer_list initial)
   initializeQLogSettings(hqParams_);
 
   initializeFizzSettings(hqParams_);
+
+  initializeStaticSettings(hqParams_);
 
   for (auto& err : validate(hqParams_)) {
     invalidParams_.push_back(err);

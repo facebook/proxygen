@@ -16,8 +16,10 @@
 #include <random>
 #include <vector>
 
-//#include <common/logging/logging.h>
+#include <folly/executors/GlobalExecutor.h>
+#include <folly/File.h>
 #include <folly/FileUtil.h>
+#include <folly/Memory.h>
 #include <folly/Random.h>
 #include <folly/ThreadLocal.h>
 #include <folly/io/async/AsyncTimeout.h>
@@ -144,7 +146,6 @@ class EchoHandler : public BaseQuicHandler {
         [&](const std::string& header, const std::string& val) {
           resp.getHeaders().add(folly::to<std::string>("x-echo-", header), val);
         });
-    resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     txn_->sendHeaders(resp);
   }
@@ -244,7 +245,6 @@ class PrCatHandler
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
     resp.getHeaders().add("pr-chunk-size", folly::to<std::string>(*chunkSize_));
-    resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     resp.setPartiallyReliable();
     txn_->setTransportCallback(this);
@@ -347,7 +347,6 @@ class PrSkipHandler
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
-    resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     resp.setPartiallyReliable();
     txn_->sendHeaders(resp);
@@ -466,7 +465,6 @@ class PrRejectHandler
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
-    resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     resp.setPartiallyReliable();
     txn_->sendHeaders(resp);
@@ -651,7 +649,6 @@ class RandBytesGenHandler : public BaseQuicHandler {
     proxygen::HTTPMessage resp;
     resp.setStatusCode(400);
     resp.setStatusMessage("Bad Request");
-    resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     txn_->sendHeaders(resp);
     txn_->sendBody(folly::IOBuf::copyBuffer(errorMsg));
@@ -685,7 +682,6 @@ class DummyHandler : public BaseQuicHandler {
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
-    resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     txn_->sendHeaders(resp);
     if (msg->getMethod() == proxygen::HTTPMethod::GET) {
@@ -734,7 +730,6 @@ class HealthCheckHandler : public BaseQuicHandler {
       resp.setStatusCode(405);
       resp.setStatusMessage("Method not allowed");
     }
-    resp.stripPerHopHeaders();
     resp.setWantsKeepalive(true);
     txn_->sendHeaders(resp);
 
@@ -882,6 +877,118 @@ class ServerPushHandler : public BaseQuicHandler {
 
   std::string path_;
   ServerPushTxnHandler pushTxnHandler_;
+};
+
+class StaticFileHandler : public BaseQuicHandler {
+ public:
+  explicit StaticFileHandler(const HQParams& params)
+      : BaseQuicHandler(params), staticRoot_(params.staticRoot) {
+  }
+
+  void onHeadersComplete(
+      std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
+    auto path = msg->getPathAsStringPiece();
+    VLOG(10) << "StaticFileHandler::onHeadersComplete";
+    VLOG(4) << "Request path: " << path;
+    if (path.contains("..")) {
+      sendError("Path cannot contain ..");
+      return;
+    }
+    try {
+      // Strip /static/ and join with /.
+      file_ = std::make_unique<folly::File>(
+          folly::to<std::string>(staticRoot_, "/", path.subpiece(8)));
+    } catch (const std::system_error& ex) {
+      auto errorMsg = folly::to<std::string>(
+          "Invalid URL: cannot open requested file. "
+          "path: ",
+          path);
+      LOG(ERROR) << errorMsg;
+      sendError(errorMsg);
+      return;
+    }
+    proxygen::HTTPMessage resp;
+    VLOG(10) << "Setting http-version to " << getHttpVersion();
+    resp.setVersionString(getHttpVersion());
+    resp.setStatusCode(200);
+    resp.setStatusMessage("Ok");
+    txn_->sendHeaders(resp);
+    // use a CPU executor since read(2) of a file can block
+    folly::getCPUExecutor()->add(
+        std::bind(&StaticFileHandler::readFile,
+                  this,
+                  folly::EventBaseManager::get()->getEventBase()));
+  }
+
+  void onBody(std::unique_ptr<folly::IOBuf> /*chain*/) noexcept override {
+  }
+
+  void onEOM() noexcept override {
+  }
+
+  void onError(const proxygen::HTTPException& /*error*/) noexcept override {
+    VLOG(10) << "StaticFileHandler::onError";
+    txn_->sendAbort();
+  }
+
+  void onEgressPaused() noexcept override {
+    VLOG(10) << "StaticFileHandler::onEgressPaused";
+    paused_ = true;
+  }
+
+  void onEgressResumed() noexcept override {
+    VLOG(10) << "StaticFileHandler::onEgressResumed";
+    paused_ = false;
+    folly::getCPUExecutor()->add(
+        std::bind(&StaticFileHandler::readFile,
+                  this,
+                  folly::EventBaseManager::get()->getEventBase()));
+  }
+
+ private:
+  void readFile(folly::EventBase* evb) {
+    folly::IOBufQueue buf;
+    while (file_ && !paused_) {
+      // read 4k-ish chunks and foward each one to the client
+      auto data = buf.preallocate(4096, 4096);
+      auto rc = folly::readNoInt(file_->fd(), data.first, data.second);
+      if (rc < 0) {
+        // error
+        VLOG(4) << "Read error=" << rc;
+        file_.reset();
+        evb->runInEventBaseThread([this] {
+          LOG(ERROR) << "Error reading file";
+          txn_->sendAbort();
+        });
+        break;
+      } else if (rc == 0) {
+        // done
+        file_.reset();
+        VLOG(4) << "Read EOF";
+        evb->runInEventBaseThread([this] { txn_->sendEOM(); });
+        break;
+      } else {
+        buf.postallocate(rc);
+        evb->runInEventBaseThread([this, body = buf.move()]() mutable {
+          txn_->sendBody(std::move(body));
+        });
+      }
+    }
+  }
+
+  void sendError(const std::string& errorMsg) {
+    proxygen::HTTPMessage resp;
+    resp.setStatusCode(400);
+    resp.setStatusMessage("Bad Request");
+    resp.setWantsKeepalive(true);
+    txn_->sendHeaders(resp);
+    txn_->sendBody(folly::IOBuf::copyBuffer(errorMsg));
+    txn_->sendEOM();
+  }
+
+  std::unique_ptr<folly::File> file_;
+  std::atomic<bool> paused_{false};
+  const std::string staticRoot_;
 };
 
 }} // namespace quic::samples

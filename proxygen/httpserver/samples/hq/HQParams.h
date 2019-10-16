@@ -95,6 +95,9 @@ struct HQParams {
   std::string qLoggerPath;
   bool prettyJson;
 
+  // Static options
+  std::string staticRoot;
+
   // Fizz options
   std::string certificateFilePath;
   std::string keyFilePath;
