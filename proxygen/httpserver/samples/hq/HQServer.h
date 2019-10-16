@@ -28,6 +28,10 @@
 
 namespace quic { namespace samples {
 
+using HTTPTransactionHandlerProvider =
+    std::function<proxygen::HTTPTransactionHandler*(
+        proxygen::HTTPMessage*, const HQParams&)>;
+
 /**
  * The Dispatcher object is responsible for spawning
  * new request handlers, based on the path.
@@ -54,7 +58,8 @@ class HQSessionController
  public:
   using StreamData = std::pair<folly::IOBufQueue, bool>;
 
-  explicit HQSessionController(const HQParams& /* params */);
+  explicit HQSessionController(
+      const HQParams& /* params */, const HTTPTransactionHandlerProvider&);
 
   ~HQSessionController() override = default;
 
@@ -90,11 +95,15 @@ class HQSessionController
   proxygen::HQSession* session_{nullptr};
   // Configuration params
   const HQParams& params_;
+  // Provider of HTTPTransactionHandler, owned by HQServerTransportFactory
+  const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider_;
 };
 
 class HQServerTransportFactory : public quic::QuicServerTransportFactory {
  public:
-  explicit HQServerTransportFactory(const HQParams& params);
+  explicit HQServerTransportFactory(
+      const HQParams& params,
+      const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider);
   ~HQServerTransportFactory() override = default;
 
   // Creates new quic server transport
@@ -108,11 +117,15 @@ class HQServerTransportFactory : public quic::QuicServerTransportFactory {
  private:
   // Configuration params
   const HQParams& params_;
+  // Provider of HTTPTransactionHandler
+  HTTPTransactionHandlerProvider httpTransactionHandlerProvider_;
 };
 
 class HQServer {
  public:
-  explicit HQServer(const HQParams& params);
+  explicit HQServer(
+      const HQParams& params,
+      HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
 
   //  TODO is this needed? can it be invoked in constructor?
   //  TODO is the params argument needed? why not params_ field?
@@ -144,7 +157,9 @@ class HQServer {
 class H2Server {
   class SampleHandlerFactory : public proxygen::RequestHandlerFactory {
    public:
-    explicit SampleHandlerFactory(const HQParams& params);
+    explicit SampleHandlerFactory(
+        const HQParams& params,
+        HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
 
     void onServerStart(folly::EventBase* /*evb*/) noexcept override;
 
@@ -156,16 +171,20 @@ class H2Server {
 
    private:
     const HQParams& params_;
+    HTTPTransactionHandlerProvider httpTransactionHandlerProvider_;
   }; // SampleHandlerFactory
 
  public:
   static std::unique_ptr<proxygen::HTTPServerOptions> createServerOptions(
-      const HQParams& /* params */);
+      const HQParams& /* params */,
+      HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
   using AcceptorConfig = std::vector<proxygen::HTTPServer::IPConfig>;
   static std::unique_ptr<AcceptorConfig> createServerAcceptorConfig(
       const HQParams& /* params */);
   // Starts H2 server in a background thread
-  static std::thread run(const HQParams& params);
+  static std::thread run(
+      const HQParams& params,
+      HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
 };
 
 void startServer(const HQParams& params);

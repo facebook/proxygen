@@ -98,8 +98,11 @@ HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg,
 void outputQLog(const HQParams& params) {
 }
 
-HQSessionController::HQSessionController(const HQParams& params)
-    : params_(params) {
+HQSessionController::HQSessionController(
+  const HQParams& params,
+  const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider)
+    : params_(params),
+      httpTransactionHandlerProvider_(httpTransactionHandlerProvider) {
 }
 
 HQSession* HQSessionController::createSession() {
@@ -119,7 +122,7 @@ void HQSessionController::onDestroy(const HTTPSessionBase&) {
 
 HTTPTransactionHandler* HQSessionController::getRequestHandler(
     HTTPTransaction& /*txn*/, HTTPMessage* msg) {
-  return Dispatcher::getRequestHandler(msg, params_);
+  return httpTransactionHandlerProvider_(msg, params_);
 }
 
 HTTPTransactionHandler* FOLLY_NULLABLE
@@ -143,8 +146,11 @@ void HQSessionController::detachSession(const HTTPSessionBase* /*session*/) {
   delete this;
 }
 
-HQServerTransportFactory::HQServerTransportFactory(const HQParams& params)
-    : params_(params) {
+HQServerTransportFactory::HQServerTransportFactory(
+  const HQParams& params,
+  const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider)
+    : params_(params),
+      httpTransactionHandlerProvider_(httpTransactionHandlerProvider) {
 }
 
 QuicServerTransport::Ptr HQServerTransportFactory::make(
@@ -153,7 +159,8 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
     const folly::SocketAddress& /* peerAddr */,
     std::shared_ptr<const FizzServerContext> ctx) noexcept {
   // Session controller is self owning
-  auto hqSessionController = new HQSessionController(params_);
+  auto hqSessionController = new HQSessionController(
+    params_, httpTransactionHandlerProvider_);
   auto session = hqSessionController->createSession();
   CHECK_EQ(evb, socket->getEventBase());
   auto transport =
@@ -166,13 +173,17 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
   return transport;
 }
 
-HQServer::HQServer(const HQParams& params)
-    : params_(params), server_(quic::QuicServer::createQuicServer()) {
+HQServer::HQServer(
+  const HQParams& params,
+  HTTPTransactionHandlerProvider httpTransactionHandlerProvider)
+  : params_(params)
+  , server_(quic::QuicServer::createQuicServer()) {
   server_->setCongestionControllerFactory(
       std::make_shared<DefaultCongestionControllerFactory>());
   server_->setTransportSettings(params_.transportSettings);
   server_->setQuicServerTransportFactory(
-      std::make_unique<HQServerTransportFactory>(params_));
+      std::make_unique<HQServerTransportFactory>(
+        params_, std::move(httpTransactionHandlerProvider)));
   server_->setQuicUDPSocketFactory(
       std::make_unique<QuicSharedUDPSocketFactory>());
   server_->setHealthCheckToken("health");
@@ -209,8 +220,12 @@ void HQServer::rejectNewConnections(bool reject) {
   server_->rejectNewConnections(reject);
 }
 
-H2Server::SampleHandlerFactory::SampleHandlerFactory(const HQParams& params)
-    : params_(params) {
+H2Server::SampleHandlerFactory::SampleHandlerFactory(
+  const HQParams& params,
+  HTTPTransactionHandlerProvider httpTransactionHandlerProvider)
+    : params_(params),
+      httpTransactionHandlerProvider_(
+        std::move(httpTransactionHandlerProvider)) {
 }
 
 void H2Server::SampleHandlerFactory::onServerStart(
@@ -223,11 +238,12 @@ void H2Server::SampleHandlerFactory::onServerStop() noexcept {
 RequestHandler* H2Server::SampleHandlerFactory::onRequest(
     RequestHandler*, HTTPMessage* msg) noexcept {
   return new HTTPTransactionHandlerAdaptor(
-      Dispatcher::getRequestHandler(msg, params_));
+      httpTransactionHandlerProvider_(msg, params_));
 }
 
 std::unique_ptr<proxygen::HTTPServerOptions> H2Server::createServerOptions(
-    const HQParams& params) {
+    const HQParams& params,
+    HTTPTransactionHandlerProvider httpTransactionHandlerProvider) {
   auto serverOptions = std::make_unique<proxygen::HTTPServerOptions>();
 
   serverOptions->threads = params.httpServerThreads;
@@ -242,7 +258,9 @@ std::unique_ptr<proxygen::HTTPServerOptions> H2Server::createServerOptions(
   serverOptions->receiveSessionWindowSize =
       params.transportSettings.advertisedInitialConnectionWindowSize;
   serverOptions->handlerFactories = proxygen::RequestHandlerChain()
-                                        .addThen<SampleHandlerFactory>(params)
+                                        .addThen<SampleHandlerFactory>(
+                                          params,
+                                          std::move(httpTransactionHandlerProvider))
                                         .build();
   return serverOptions;
 }
@@ -257,13 +275,21 @@ std::unique_ptr<H2Server::AcceptorConfig> H2Server::createServerAcceptorConfig(
   return acceptorConfig;
 }
 
-std::thread H2Server::run(const HQParams& params) {
+std::thread H2Server::run(
+  const HQParams& params,
+  HTTPTransactionHandlerProvider httpTransactionHandlerProvider) {
 
   // Start HTTPServer mainloop in a separate thread
-  std::thread t([params = params]() mutable {
+  std::thread t(
+    [
+      params = folly::copy(params),
+      httpTransactionHandlerProvider =
+        std::move(httpTransactionHandlerProvider)]() mutable {
     {
       auto acceptorConfig = createServerAcceptorConfig(params);
-      auto serverOptions = createServerOptions(params);
+      auto serverOptions = createServerOptions(
+        params,
+        std::move(httpTransactionHandlerProvider));
       proxygen::HTTPServer server(std::move(*serverOptions));
       server.bind(std::move(*acceptorConfig));
       server.start();
@@ -277,9 +303,9 @@ std::thread H2Server::run(const HQParams& params) {
 
 void startServer(const HQParams& params) {
   // Run H2 server in a separate thread
-  auto h2server = H2Server::run(params);
+  auto h2server = H2Server::run(params, Dispatcher::getRequestHandler);
   // Run HQ server
-  HQServer server(params);
+  HQServer server(params, Dispatcher::getRequestHandler);
   server.start();
   // Wait until the quic server initializes
   server.getAddress();
