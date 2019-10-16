@@ -300,7 +300,7 @@ while [ "$1" != "" ]; do
                   BUILD_FOR_FUZZING=true
       ;;
     -t | --no-tests )
-                  BUILD_TESTS=true
+                  NO_BUILD_TESTS=true
       ;;
     * )           echo $USAGE
                   exit 1
