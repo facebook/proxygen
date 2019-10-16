@@ -41,33 +41,11 @@ enum class HQMode { INVALID, CLIENT, SERVER };
 std::ostream& operator<<(std::ostream& o, const HQMode& m);
 
 /**
- * Used to pass common settings between different components
+ * Struct to hold both HTTP/3 and HTTP/2 settings for HQ
+ *
+ * TODO: Split h2 and h3
  */
-class HQParamsBuilder {
- public:
-  using value_type = std::map<std::string, std::string>::value_type;
-  using initializer_list = std::initializer_list<value_type>;
-
-  struct HQInvalidParam {
-    std::string name;
-    std::string value;
-    std::string errorMsg;
-  };
-
-  using HQInvalidParams = std::vector<HQInvalidParam>;
-
-  HQParamsBuilder();
-
-  explicit HQParamsBuilder(initializer_list);
-
-  bool valid() const noexcept;
-
-  explicit operator bool() const noexcept {
-    return valid();
-  }
-
-  const HQInvalidParams& invalidParams() const noexcept;
-
+struct HQParams {
   // General section
   HQMode mode;
   std::string logprefix;
@@ -123,19 +101,46 @@ class HQParamsBuilder {
   std::string pskFilePath;
   std::shared_ptr<quic::QuicPskCache> pskCache;
   fizz::server::ClientAuthMode clientAuth{fizz::server::ClientAuthMode::None};
+};
+
+struct HQInvalidParam {
+  std::string name;
+  std::string value;
+  std::string errorMsg;
+};
+
+using HQInvalidParams = std::vector<HQInvalidParam>;
+
+/**
+ * A Builder class for HQParams that will build HQParams from command line
+ * parameters processed by GFlag.
+ */
+class HQParamsBuilderFromCmdline {
+ public:
+  using value_type = std::map<std::string, std::string>::value_type;
+  using initializer_list = std::initializer_list<value_type>;
+
+  explicit HQParamsBuilderFromCmdline(initializer_list);
+
+  bool valid() const noexcept;
+
+  explicit operator bool() const noexcept { return valid(); }
+
+  const HQInvalidParams& invalidParams() const noexcept;
+
+  HQParams build() noexcept;
 
  private:
   HQInvalidParams invalidParams_;
+  HQParams hqParams_;
 };
-
-// Externally only the frozen type is used
-using HQParams = std::shared_ptr<HQParamsBuilder>;
 
 // Output convenience
 std::ostream& operator<<(std::ostream&, HQParams&);
 
 // Initialized the parameters from the cmdline flags
-const folly::Expected<HQParams, HQParamsBuilder::HQInvalidParams>
-initializeParams(HQParamsBuilder::initializer_list initial = {});
+const folly::Expected<HQParams, HQInvalidParams>
+initializeParamsFromCmdline(
+  HQParamsBuilderFromCmdline::initializer_list initial = {});
 
 }} // namespace quic::samples

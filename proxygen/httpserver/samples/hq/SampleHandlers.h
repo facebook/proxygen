@@ -116,7 +116,7 @@ class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
 
  protected:
   const std::string& getHttpVersion() const {
-    return params_->httpVersion.canonical;
+    return params_.httpVersion.canonical;
   }
 
   proxygen::HTTPTransaction* txn_{nullptr};
@@ -214,8 +214,8 @@ class PrCatHandler
  public:
   explicit PrCatHandler(const HQParams& params)
       : EchoHandler(params),
-        chunkSize_(params->prChunkSize),
-        chunkDelayMs_(params->prChunkDelayMs) {
+        chunkSize_(params.prChunkSize),
+        chunkDelayMs_(params.prChunkDelayMs) {
   }
 
   PrCatHandler() = delete;

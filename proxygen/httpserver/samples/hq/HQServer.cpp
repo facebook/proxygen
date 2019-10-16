@@ -100,7 +100,7 @@ HQSessionController::HQSessionController(const HQParams& params)
 
 HQSession* HQSessionController::createSession() {
   wangle::TransportInfo tinfo;
-  session_ = new HQDownstreamSession(params_->txnTimeout, this, tinfo, this);
+  session_ = new HQDownstreamSession(params_.txnTimeout, this, tinfo, this);
   return session_;
 }
 
@@ -154,9 +154,9 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
   CHECK_EQ(evb, socket->getEventBase());
   auto transport =
       QuicServerTransport::make(evb, std::move(socket), *session, ctx);
-  if (!params_->qLoggerPath.empty()) {
+  if (!params_.qLoggerPath.empty()) {
     transport->setQLogger(std::make_shared<HQLoggerHelper>(
-        params_->qLoggerPath, params_->prettyJson, kQLogServerVantagePoint));
+        params_.qLoggerPath, params_.prettyJson, kQLogServerVantagePoint));
   }
   hqSessionController->startSession(transport);
   return transport;
@@ -166,13 +166,13 @@ HQServer::HQServer(const HQParams& params)
     : params_(params), server_(quic::QuicServer::createQuicServer()) {
   server_->setCongestionControllerFactory(
       std::make_shared<DefaultCongestionControllerFactory>());
-  server_->setTransportSettings(params_->transportSettings);
+  server_->setTransportSettings(params_.transportSettings);
   server_->setQuicServerTransportFactory(
       std::make_unique<HQServerTransportFactory>(params_));
   server_->setQuicUDPSocketFactory(
       std::make_unique<QuicSharedUDPSocketFactory>());
   server_->setHealthCheckToken("health");
-  server_->setSupportedVersion(params_->quicVersions);
+  server_->setSupportedVersion(params_.quicVersions);
   server_->setFizzContext(createFizzServerContext(params_));
 }
 
@@ -181,7 +181,7 @@ void HQServer::setTlsSettings(const HQParams& params) {
 }
 
 void HQServer::start() {
-  server_->start(params_->localAddress.value(),
+  server_->start(params_.localAddress.value(),
                  std::thread::hardware_concurrency());
 }
 
@@ -226,17 +226,17 @@ std::unique_ptr<proxygen::HTTPServerOptions> H2Server::createServerOptions(
     const HQParams& params) {
   auto serverOptions = std::make_unique<proxygen::HTTPServerOptions>();
 
-  serverOptions->threads = params->httpServerThreads;
-  serverOptions->idleTimeout = params->httpServerIdleTimeout;
-  serverOptions->shutdownOn = params->httpServerShutdownOn;
+  serverOptions->threads = params.httpServerThreads;
+  serverOptions->idleTimeout = params.httpServerIdleTimeout;
+  serverOptions->shutdownOn = params.httpServerShutdownOn;
   serverOptions->enableContentCompression =
-      params->httpServerEnableContentCompression;
+      params.httpServerEnableContentCompression;
   serverOptions->initialReceiveWindow =
-      params->transportSettings.advertisedInitialBidiLocalStreamWindowSize;
+      params.transportSettings.advertisedInitialBidiLocalStreamWindowSize;
   serverOptions->receiveStreamWindowSize =
-      params->transportSettings.advertisedInitialBidiLocalStreamWindowSize;
+      params.transportSettings.advertisedInitialBidiLocalStreamWindowSize;
   serverOptions->receiveSessionWindowSize =
-      params->transportSettings.advertisedInitialConnectionWindowSize;
+      params.transportSettings.advertisedInitialConnectionWindowSize;
   serverOptions->handlerFactories = proxygen::RequestHandlerChain()
                                         .addThen<SampleHandlerFactory>(params)
                                         .build();
@@ -247,7 +247,7 @@ std::unique_ptr<H2Server::AcceptorConfig> H2Server::createServerAcceptorConfig(
     const HQParams& params) {
   auto acceptorConfig = std::make_unique<AcceptorConfig>();
   proxygen::HTTPServer::IPConfig ipConfig(
-      params->localH2Address.value(), proxygen::HTTPServer::Protocol::HTTP2);
+      params.localH2Address.value(), proxygen::HTTPServer::Protocol::HTTP2);
   ipConfig.sslConfigs.emplace_back(createSSLContext(params));
   acceptorConfig->push_back(ipConfig);
   return acceptorConfig;

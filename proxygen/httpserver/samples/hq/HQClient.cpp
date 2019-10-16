@@ -31,9 +31,9 @@
 namespace quic { namespace samples {
 
 HQClient::HQClient(const HQParams& params) : params_(params) {
-  if (params->transportSettings.pacingEnabled) {
+  if (params_.transportSettings.pacingEnabled) {
     pacingTimer_ = TimerHighRes::newTimer(
-        &evb_, params->transportSettings.pacingTimerTickInterval);
+        &evb_, params_.transportSettings.pacingTimerTickInterval);
   }
 }
 
@@ -44,7 +44,7 @@ void HQClient::start() {
 
   // TODO: turn on cert verification
   wangle::TransportInfo tinfo;
-  session_ = new proxygen::HQUpstreamSession(params_->txnTimeout,
+  session_ = new proxygen::HQUpstreamSession(params_.txnTimeout,
                                              std::chrono::milliseconds(2000),
                                              nullptr, // controller
                                              tinfo,
@@ -57,7 +57,7 @@ void HQClient::start() {
   session_->setSocket(quicClient_);
   session_->setConnectCallback(this);
 
-  LOG(INFO) << "HQClient connecting to " << params_->remoteAddress->describe();
+  LOG(INFO) << "HQClient connecting to " << params_.remoteAddress->describe();
   session_->startNow();
   quicClient_->start(session_);
 
@@ -67,30 +67,30 @@ void HQClient::start() {
 proxygen::HTTPTransaction* FOLLY_NULLABLE
 HQClient::sendRequest(const proxygen::URL& requestUrl) {
   std::unique_ptr<CurlService::CurlClient> client =
-      params_->partialReliabilityEnabled
+      params_.partialReliabilityEnabled
           ? std::make_unique<PartiallyReliableCurlClient>(
                 &evb_,
-                params_->httpMethod,
+                params_.httpMethod,
                 requestUrl,
                 nullptr,
-                params_->httpHeaders,
-                params_->httpBody,
+                params_.httpHeaders,
+                params_.httpBody,
                 false,
-                params_->httpVersion.major,
-                params_->httpVersion.minor,
-                params_->prChunkDelayMs)
+                params_.httpVersion.major,
+                params_.httpVersion.minor,
+                params_.prChunkDelayMs)
           : std::make_unique<CurlService::CurlClient>(
                 &evb_,
-                params_->httpMethod,
+                params_.httpMethod,
                 requestUrl,
                 nullptr,
-                params_->httpHeaders,
-                params_->httpBody,
+                params_.httpHeaders,
+                params_.httpBody,
                 false,
-                params_->httpVersion.major,
-                params_->httpVersion.minor);
+                params_.httpVersion.major,
+                params_.httpVersion.minor);
 
-  client->setLogging(params_->logResponse);
+  client->setLogging(params_.logResponse);
   auto txn = session_->newTransaction(client.get());
   if (!txn) {
     return nullptr;
@@ -101,8 +101,8 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
 }
 
 void HQClient::connectSuccess() {
-  VLOG(10) << "http-version:" << params_->httpVersion;
-  for (const auto& path : params_->httpPaths) {
+  VLOG(10) << "http-version:" << params_.httpVersion;
+  for (const auto& path : params_.httpPaths) {
     proxygen::URL requestUrl(path.str(), /*secure=*/true);
     sendRequest(requestUrl);
   }
@@ -125,19 +125,19 @@ void HQClient::initializeQuicClient() {
       std::make_shared<quic::QuicClientTransport>(&evb_, std::move(sock));
 
   client->setPacingTimer(pacingTimer_);
-  client->setHostname(params_->host);
+  client->setHostname(params_.host);
   client->setFizzClientContext(createFizzClientContext(params_));
   // This is only for testing, this should not be use in prod
   client->setCertificateVerifier(
       std::make_unique<
           proxygen::InsecureVerifierDangerousDoNotUseInProduction>());
-  client->addNewPeerAddress(params_->remoteAddress.value());
+  client->addNewPeerAddress(params_.remoteAddress.value());
   client->setCongestionControllerFactory(
       std::make_shared<quic::DefaultCongestionControllerFactory>());
-  client->setTransportSettings(params_->transportSettings);
-  client->setSupportedVersions(params_->quicVersions);
+  client->setTransportSettings(params_.transportSettings);
+  client->setSupportedVersions(params_.quicVersions);
 
-  client->setPskCache(params_->pskCache);
+  client->setPskCache(params_.pskCache);
   quicClient_ = std::move(client);
 }
 
@@ -147,12 +147,12 @@ void HQClient::initializeQLogger() {
   }
   // Not used immediately, but if not set
   // the qlogger wont be able to report. Checking early
-  if (params_->qLoggerPath.empty()) {
+  if (params_.qLoggerPath.empty()) {
     return;
   }
 
   auto qLogger = std::make_shared<HQLoggerHelper>(
-      params_->qLoggerPath, params_->prettyJson, kQLogClientVantagePoint);
+      params_.qLoggerPath, params_.prettyJson, kQLogClientVantagePoint);
   qLogger->dcid = quicClient_->getClientConnectionId();
   quicClient_->setQLogger(std::move(qLogger));
 }

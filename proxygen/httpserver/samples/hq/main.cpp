@@ -29,17 +29,17 @@ int main(int argc, char* argv[]) {
   folly::init(&argc, &argv, false);
   folly::ssl::init();
 
-  return initializeParams()
+  return initializeParamsFromCmdline()
       .then([](const HQParams& params) {
         // TODO: move sink to params
         proxygen::ConnIdLogSink sink(params);
         if (sink.isValid()) {
           AddLogSink(&sink);
-        } else if (!params->logdir.empty()) {
-          LOG(ERROR) << "Cannot open " << params->logdir;
+        } else if (!params.logdir.empty()) {
+          LOG(ERROR) << "Cannot open " << params.logdir;
         }
 
-        switch (params->mode) {
+        switch (params.mode) {
           case HQMode::SERVER:
             startServer(params);
             break;

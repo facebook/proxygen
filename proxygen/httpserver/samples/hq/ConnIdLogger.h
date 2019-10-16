@@ -26,7 +26,7 @@ struct ConnIdLogSink : google::LogSink {
       std::pair<folly::File, std::chrono::system_clock::time_point>;
 
   ConnIdLogSink(const quic::samples::HQParams& params)
-      : logDir_(params->logdir), prefix_(params->logprefix) {
+      : logDir_(params.logdir), prefix_(params.logprefix) {
   }
 
   void send(google::LogSeverity severity,

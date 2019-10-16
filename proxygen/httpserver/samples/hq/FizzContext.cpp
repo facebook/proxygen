@@ -113,12 +113,12 @@ namespace quic { namespace samples {
 FizzServerContextPtr createFizzServerContext(const HQParams& params) {
 
   std::string certData = kDefaultCertData;
-  if (!params->certificateFilePath.empty()) {
-    folly::readFile(params->certificateFilePath.c_str(), certData);
+  if (!params.certificateFilePath.empty()) {
+    folly::readFile(params.certificateFilePath.c_str(), certData);
   }
   std::string keyData = kDefaultKeyData;
-  if (!params->keyFilePath.empty()) {
-    folly::readFile(params->keyFilePath.c_str(), keyData);
+  if (!params.keyFilePath.empty()) {
+    folly::readFile(params.keyFilePath.c_str(), keyData);
   }
   auto cert = fizz::CertUtils::makeSelfCert(certData, keyData);
   auto certManager = std::make_unique<fizz::server::CertManager>();
@@ -134,8 +134,8 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
   folly::Random::secureRandom(ticketSeed.data(), ticketSeed.size());
   ticketCipher->setTicketSecrets({{folly::range(ticketSeed)}});
   serverCtx->setTicketCipher(ticketCipher);
-  serverCtx->setClientAuthMode(params->clientAuth);
-  serverCtx->setSupportedAlpns(params->supportedAlpns);
+  serverCtx->setClientAuthMode(params.clientAuth);
+  serverCtx->setSupportedAlpns(params.supportedAlpns);
   serverCtx->setSendNewSessionTicket(false);
   serverCtx->setEarlyDataFbOnly(false);
   serverCtx->setVersionFallbackEnabled(false);
@@ -156,19 +156,19 @@ FizzClientContextPtr createFizzClientContext(const HQParams& params) {
   auto ctx = std::make_shared<fizz::client::FizzClientContext>();
 
   std::string certData = kDefaultCertData;
-  if (!params->certificateFilePath.empty()) {
-    folly::readFile(params->certificateFilePath.c_str(), certData);
+  if (!params.certificateFilePath.empty()) {
+    folly::readFile(params.certificateFilePath.c_str(), certData);
   }
   std::string keyData = kDefaultKeyData;
-  if (!params->keyFilePath.empty()) {
-    folly::readFile(params->keyFilePath.c_str(), keyData);
+  if (!params.keyFilePath.empty()) {
+    folly::readFile(params.keyFilePath.c_str(), keyData);
   }
   auto cert = fizz::CertUtils::makeSelfCert(certData, keyData);
   ctx->setClientCertificate(std::move(cert));
-  ctx->setSupportedAlpns(params->supportedAlpns);
+  ctx->setSupportedAlpns(params.supportedAlpns);
   ctx->setDefaultShares(
       {fizz::NamedGroup::x25519, fizz::NamedGroup::secp256r1});
-  ctx->setSendEarlyData(params->earlyData);
+  ctx->setSendEarlyData(params.earlyData);
   return ctx;
 }
 
@@ -176,8 +176,8 @@ wangle::SSLContextConfig createSSLContext(const HQParams& params) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.clientVerification = folly::SSLContext::SSLVerifyPeerEnum::VERIFY;
-  if (!params->certificateFilePath.empty() && !params->keyFilePath.empty()) {
-    sslCfg.setCertificate(params->certificateFilePath, params->keyFilePath, "");
+  if (!params.certificateFilePath.empty() && !params.keyFilePath.empty()) {
+    sslCfg.setCertificate(params.certificateFilePath, params.keyFilePath, "");
   } else {
     sslCfg.setCertificateBuf(kDefaultCertData, kDefaultKeyData);
   }
