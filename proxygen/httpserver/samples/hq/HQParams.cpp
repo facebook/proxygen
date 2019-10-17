@@ -83,7 +83,8 @@ DEFINE_bool(connect_udp, false, "Whether or not to use connected udp sockets");
 DEFINE_uint32(max_cwnd_mss,
               quic::kLargeMaxCwndInMss,
               "Max cwnd in unit of mss");
-DEFINE_string(static_root, "./", "Path to serve static files from.");
+DEFINE_string(static_root, "",
+              "Path to serve static files from. Disabled if empty.");
 
 namespace quic { namespace samples {
 
@@ -259,6 +260,9 @@ void initializeQLogSettings(HQParams& hqParams) {
 } // initializeQLogSettings
 
 void initializeStaticSettings(HQParams& hqParams) {
+
+  CHECK(FLAGS_static_root.empty() || hqParams.mode == HQMode::SERVER)
+    << "static_root only allowed in server mode";
   hqParams.staticRoot = FLAGS_static_root;
 } // initializeStaticSettings
 

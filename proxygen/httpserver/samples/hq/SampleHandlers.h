@@ -897,7 +897,7 @@ class StaticFileHandler : public BaseQuicHandler {
     try {
       // Strip /static/ and join with /.
       file_ = std::make_unique<folly::File>(
-          folly::to<std::string>(staticRoot_, "/", path.subpiece(8)));
+          folly::to<std::string>(staticRoot_, "/", path));
     } catch (const std::system_error& ex) {
       auto errorMsg = folly::to<std::string>(
           "Invalid URL: cannot open requested file. "
