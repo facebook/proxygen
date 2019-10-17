@@ -1752,7 +1752,7 @@ void HQSession::readRequestStream(quic::StreamId id) noexcept {
         std::chrono::steady_clock::now() - hqStream->createdTime);
     if (sock_ && sock_->getState() && sock_->getState()->qLogger) {
       sock_->getState()->qLogger->addStreamStateUpdate(
-        id, quic::kEOM);
+        id, quic::kOnEOM);
     }
     QUIC_TRACE_SOCK(stream_event,
                     sock_,
@@ -3102,7 +3102,7 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
   auto streamId = getStreamId();
   if (sock && sock->getState() && sock->getState()->qLogger) {
     sock->getState()->qLogger->addStreamStateUpdate(
-      streamId, quic::kOnHeaders);
+      streamId, quic::kHeaders);
   }
   QUIC_TRACE_SOCK(stream_event,
                   session_.sock_,
