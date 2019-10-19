@@ -245,6 +245,15 @@ TEST(HTTPMessage, TestSetClientAddress) {
   EXPECT_EQ(msg.getClientPort(), "1988");
 }
 
+TEST(HTTPMessage, BizarreVersions) {
+  HTTPMessage msg;
+
+  msg.setHTTPVersion(0, 22);
+  EXPECT_EQ(msg.getVersionString(), "0.22");
+  msg.setHTTPVersion(10, 1);
+  EXPECT_EQ(msg.getVersionString(), "10.1");
+}
+
 TEST(HTTPMessage, TestKeepaliveCheck) {
   {
     HTTPMessage msg;

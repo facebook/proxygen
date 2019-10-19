@@ -276,15 +276,17 @@ const std::string& HTTPMessage::getMethodString() const {
 }
 
 void HTTPMessage::setHTTPVersion(uint8_t maj, uint8_t min) {
-  DCHECK_LT(maj, 10) << "Whoa, HTTP/10+!";
-  DCHECK_LT(min, 10) << "Whoa, 10+ minor versions!";
-  versionStr_.reserve(3);
-  versionStr_.clear();
   version_.first = maj;
   version_.second = min;
-  versionStr_.append(1, maj + '0');
-  versionStr_.append(1, '.');
-  versionStr_.append(1, min + '0');
+  if (version_.first >= 10 || version_.second >= 10) {
+    versionStr_ = folly::to<std::string>(maj, '.', min);
+  } else {
+    versionStr_.reserve(3);
+    versionStr_.clear();
+    versionStr_.append(1, maj + '0');
+    versionStr_.append(1, '.');
+    versionStr_.append(1, min + '0');
+  }
 }
 
 const pair<uint8_t, uint8_t>& HTTPMessage::getHTTPVersion() const {
