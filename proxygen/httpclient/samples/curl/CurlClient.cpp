@@ -8,8 +8,8 @@
 
 #include "CurlClient.h"
 
-#include <sys/stat.h>
 #include <iostream>
+#include <sys/stat.h>
 
 #include <folly/FileUtil.h>
 #include <folly/String.h>
@@ -17,8 +17,8 @@
 #include <folly/io/async/SSLOptions.h>
 #include <folly/portability/GFlags.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -51,13 +51,13 @@ CurlClient::CurlClient(EventBase* evb,
   }
 
   outputStream_ = std::make_unique<std::ostream>(std::cout.rdbuf());
-  headers.forEach([this] (const string& header, const string& val) {
-      request_.getHeaders().add(header, val);
-    });
+  headers.forEach([this](const string& header, const string& val) {
+    request_.getHeaders().add(header, val);
+  });
 }
 
 bool CurlClient::saveResponseToFile(const std::string& outputFilename) {
-  std::streambuf * buf;
+  std::streambuf* buf;
   if (outputFilename.empty()) {
     return false;
   }
@@ -67,8 +67,8 @@ bool CurlClient::saveResponseToFile(const std::string& outputFilename) {
     auto filename = folly::to<std::string>(outputFilename, suffix);
     struct stat statBuf;
     if (stat(filename.c_str(), &statBuf) == -1) {
-      outputFile_ = std::make_unique<ofstream>(
-          filename, ios::out | ios::binary);
+      outputFile_ =
+          std::make_unique<ofstream>(filename, ios::out | ios::binary);
       if (*outputFile_ && outputFile_->good()) {
         buf = outputFile_->rdbuf();
         outputStream_ = std::make_unique<std::ostream>(buf);
@@ -84,7 +84,7 @@ HTTPHeaders CurlClient::parseHeaders(const std::string& headersString) {
   vector<StringPiece> headersList;
   HTTPHeaders headers;
   folly::split(",", headersString, headersList);
-  for (const auto& headerPair: headersList) {
+  for (const auto& headerPair : headersList) {
     vector<StringPiece> nv;
     folly::split('=', headerPair, nv);
     if (nv.size() > 0) {
@@ -115,22 +115,22 @@ void CurlClient::initializeSsl(const string& caPath,
     sslContext_->loadCertKeyPairFromFiles(certPath.c_str(), keyPath.c_str());
   }
   list<string> nextProtoList;
-  folly::splitTo<string>(',', nextProtos, std::inserter(nextProtoList,
-                                                        nextProtoList.begin()));
+  folly::splitTo<string>(
+      ',', nextProtos, std::inserter(nextProtoList, nextProtoList.begin()));
   sslContext_->setAdvertisedNextProtocols(nextProtoList);
   h2c_ = false;
 }
 
 void CurlClient::sslHandshakeFollowup(HTTPUpstreamSession* session) noexcept {
-  AsyncSSLSocket* sslSocket = dynamic_cast<AsyncSSLSocket*>(
-    session->getTransport());
+  AsyncSSLSocket* sslSocket =
+      dynamic_cast<AsyncSSLSocket*>(session->getTransport());
 
   const unsigned char* nextProto = nullptr;
   unsigned nextProtoLength = 0;
   sslSocket->getSelectedNextProtocol(&nextProto, &nextProtoLength);
   if (nextProto) {
-    VLOG(1) << "Client selected next protocol " <<
-      string((const char*)nextProto, nextProtoLength);
+    VLOG(1) << "Client selected next protocol "
+            << string((const char*)nextProto, nextProtoLength);
   } else {
     VLOG(1) << "Client did not select a next protocol";
   }
@@ -189,8 +189,8 @@ void CurlClient::sendRequest(HTTPTransaction* txn) {
   txn_->sendHeaders(request_);
 
   if (httpMethod_ == HTTPMethod::POST) {
-    inputFile_ = std::make_unique<ifstream>(
-        inputFilename_, ios::in | ios::binary);
+    inputFile_ =
+        std::make_unique<ifstream>(inputFilename_, ios::in | ios::binary);
     sendBodyFromFile();
   } else {
     txn_->sendEOM();
@@ -227,8 +227,8 @@ void CurlClient::printMessageImpl(proxygen::HTTPMessage* msg,
 }
 
 void CurlClient::connectError(const folly::AsyncSocketException& ex) {
-  LOG_IF(ERROR, loggingEnabled_) << "Coudln't connect to "
-                                 << url_.getHostAndPort() << ":" << ex.what();
+  LOG_IF(ERROR, loggingEnabled_)
+      << "Coudln't connect to " << url_.getHostAndPort() << ":" << ex.what();
 }
 
 void CurlClient::setTransaction(HTTPTransaction*) noexcept {
@@ -339,4 +339,4 @@ void CurlClient::CurlPushHandler::onError(
   parent_->onError(error);
 }
 
-}  // namespace CurlService
+} // namespace CurlService

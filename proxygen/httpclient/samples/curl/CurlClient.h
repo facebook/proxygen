@@ -10,15 +10,16 @@
 
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
+#include <fstream>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/URL.h>
-#include <fstream>
 
 namespace CurlService {
 
-class CurlClient : public proxygen::HTTPConnector::Callback,
-                   public proxygen::HTTPTransactionHandler {
+class CurlClient
+    : public proxygen::HTTPConnector::Callback
+    , public proxygen::HTTPTransactionHandler {
 
   class CurlPushHandler : public proxygen::HTTPTransactionHandler {
 
@@ -128,7 +129,7 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
     loggingEnabled_ = enabled;
   }
 
-protected:
+ protected:
   void sendBodyFromFile();
 
   void printMessageImpl(proxygen::HTTPMessage* msg,
@@ -159,4 +160,4 @@ protected:
   friend class CurlPushHandler;
 };
 
-} // CurlService namespace
+} // namespace CurlService

@@ -84,7 +84,8 @@ DEFINE_bool(connect_udp, false, "Whether or not to use connected udp sockets");
 DEFINE_uint32(max_cwnd_mss,
               quic::kLargeMaxCwndInMss,
               "Max cwnd in unit of mss");
-DEFINE_string(static_root, "",
+DEFINE_string(static_root,
+              "",
               "Path to serve static files from. Disabled if empty.");
 
 namespace quic { namespace samples {
@@ -178,10 +179,10 @@ void initializeTransportSettings(HQParams& hqParams) {
     hqParams.supportedAlpns = {hqParams.protocol};
   } else {
     hqParams.supportedAlpns = {"h1q-fb",
-                              "h1q-fb-v2",
-                              proxygen::kH3FBCurrentDraft,
-                              proxygen::kH3CurrentDraft,
-                              proxygen::kHQCurrentDraft};
+                               "h1q-fb-v2",
+                               proxygen::kH3FBCurrentDraft,
+                               proxygen::kH3CurrentDraft,
+                               proxygen::kHQCurrentDraft};
   }
 
   hqParams.transportSettings.advertisedInitialConnectionWindowSize =
@@ -264,7 +265,7 @@ void initializeQLogSettings(HQParams& hqParams) {
 void initializeStaticSettings(HQParams& hqParams) {
 
   CHECK(FLAGS_static_root.empty() || hqParams.mode == HQMode::SERVER)
-    << "static_root only allowed in server mode";
+      << "static_root only allowed in server mode";
   hqParams.staticRoot = FLAGS_static_root;
 } // initializeStaticSettings
 
@@ -384,8 +385,8 @@ bool HTTPVersion::parse(const std::string& verString) {
   }
 }
 
-
-HQParamsBuilderFromCmdline::HQParamsBuilderFromCmdline(initializer_list initial) {
+HQParamsBuilderFromCmdline::HQParamsBuilderFromCmdline(
+    initializer_list initial) {
   // Save the values of the flags, so that changing
   // flags values is safe
   gflags::FlagSaver saver;
@@ -420,8 +421,8 @@ bool HQParamsBuilderFromCmdline::valid() const noexcept {
   return invalidParams_.empty();
 }
 
-const HQInvalidParams&
-HQParamsBuilderFromCmdline::invalidParams() const noexcept {
+const HQInvalidParams& HQParamsBuilderFromCmdline::invalidParams() const
+    noexcept {
   return invalidParams_;
 }
 
@@ -429,8 +430,8 @@ HQParams HQParamsBuilderFromCmdline::build() noexcept {
   return hqParams_;
 }
 
-const folly::Expected<HQParams, HQInvalidParams>
-initializeParamsFromCmdline(HQParamsBuilderFromCmdline::initializer_list defaultValues) {
+const folly::Expected<HQParams, HQInvalidParams> initializeParamsFromCmdline(
+    HQParamsBuilderFromCmdline::initializer_list defaultValues) {
   auto builder = std::make_shared<HQParamsBuilderFromCmdline>(defaultValues);
 
   // Wrap up and return

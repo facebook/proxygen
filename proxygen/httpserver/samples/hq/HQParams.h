@@ -128,7 +128,9 @@ class HQParamsBuilderFromCmdline {
 
   bool valid() const noexcept;
 
-  explicit operator bool() const noexcept { return valid(); }
+  explicit operator bool() const noexcept {
+    return valid();
+  }
 
   const HQInvalidParams& invalidParams() const noexcept;
 
@@ -143,8 +145,7 @@ class HQParamsBuilderFromCmdline {
 std::ostream& operator<<(std::ostream&, HQParams&);
 
 // Initialized the parameters from the cmdline flags
-const folly::Expected<HQParams, HQInvalidParams>
-initializeParamsFromCmdline(
-  HQParamsBuilderFromCmdline::initializer_list initial = {});
+const folly::Expected<HQParams, HQInvalidParams> initializeParamsFromCmdline(
+    HQParamsBuilderFromCmdline::initializer_list initial = {});
 
 }} // namespace quic::samples

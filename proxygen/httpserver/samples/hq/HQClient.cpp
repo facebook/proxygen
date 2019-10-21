@@ -109,7 +109,8 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
     filename = folly::to<std::string>(params_.outdir, "/", filename);
     canWrite = client->saveResponseToFile(filename);
     if (!canWrite) {
-      LOG(ERROR) << "Can not write output to file '" << filename << "' printing to stdout instead";
+      LOG(ERROR) << "Can not write output to file '" << filename
+                 << "' printing to stdout instead";
     }
   }
   client->sendRequest(txn);
