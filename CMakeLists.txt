@@ -11,6 +11,8 @@ project(
     proxygen
 )
 
+cmake_policy(SET CMP0074 NEW)
+
 set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
   # for in-fbsource builds
@@ -65,12 +67,22 @@ find_package(Boost 1.58 REQUIRED
     thread
 )
 
-list(APPEND
+if (MSVC)
+  list(APPEND
+    _PROXYGEN_COMMON_COMPILE_OPTIONS
+    /std:c++14
+    /Wall
+  )
+else()
+  list(APPEND
     _PROXYGEN_COMMON_COMPILE_OPTIONS
     -std=c++14
     -Wall
     -Wextra
-)
+  )
+endif()
+
+include_directories(${ZLIB_INCLUDE_DIR})
 
 CHECK_CXX_COMPILER_FLAG(-Wnoexcept-type COMPILER_HAS_W_NOEXCEPT_TYPE)
 if (COMPILER_HAS_W_NOEXCEPT_TYPE)
