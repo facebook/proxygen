@@ -78,6 +78,8 @@ class CurlClient : public proxygen::HTTPConnector::Callback,
 
   virtual ~CurlClient() = default;
 
+  bool saveResponseToFile(const std::string& outputFilename);
+
   static proxygen::HTTPHeaders parseHeaders(const std::string& headersString);
 
   // initial SSL related structures
@@ -147,6 +149,8 @@ protected:
   unsigned short httpMinor_;
   bool egressPaused_{false};
   std::unique_ptr<std::ifstream> inputFile_;
+  std::unique_ptr<std::ofstream> outputFile_;
+  std::unique_ptr<std::ostream> outputStream_;
   bool partiallyReliable_{false};
 
   std::unique_ptr<proxygen::HTTPMessage> response_;

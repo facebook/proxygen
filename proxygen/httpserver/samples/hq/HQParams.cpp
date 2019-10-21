@@ -32,6 +32,7 @@ DEFINE_string(protocol, "", "HQ protocol version e.g. h1q-fb or h1q-fb-v2");
 DEFINE_int32(draft_version, 0, "Draft version to use, 0 is default");
 DEFINE_bool(use_draft, true, "Use draft version as first version");
 DEFINE_string(logdir, "/tmp/logs", "Directory to store connection logs");
+DEFINE_string(outdir, "", "Directory to store responses");
 DEFINE_bool(log_response,
             true,
             "Whether to log the response content to stderr");
@@ -150,6 +151,7 @@ void initializeCommonSettings(HQParams& hqParams) {
     hqParams.logprefix = "client";
     hqParams.remoteAddress =
         folly::SocketAddress(hqParams.host, hqParams.port, true);
+    hqParams.outdir = FLAGS_outdir;
   }
 }
 

@@ -50,6 +50,7 @@ struct HQParams {
   HQMode mode;
   std::string logprefix;
   std::string logdir;
+  std::string outdir;
   bool logResponse;
 
   // Transport section

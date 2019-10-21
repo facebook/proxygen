@@ -8,6 +8,7 @@
 
 #include "CurlClient.h"
 
+#include <sys/stat.h>
 #include <iostream>
 
 #include <folly/FileUtil.h>
@@ -49,9 +50,34 @@ CurlClient::CurlClient(EventBase* evb,
     proxy_ = std::make_unique<URL>(proxy->getUrl());
   }
 
+  outputStream_ = std::make_unique<std::ostream>(std::cout.rdbuf());
   headers.forEach([this] (const string& header, const string& val) {
       request_.getHeaders().add(header, val);
     });
+}
+
+bool CurlClient::saveResponseToFile(const std::string& outputFilename) {
+  std::streambuf * buf;
+  if (outputFilename.empty()) {
+    return false;
+  }
+  uint16_t tries = 0;
+  while (tries < std::numeric_limits<uint16_t>::max()) {
+    std::string suffix = (tries == 0) ? "" : folly::to<std::string>("_", tries);
+    auto filename = folly::to<std::string>(outputFilename, suffix);
+    struct stat statBuf;
+    if (stat(filename.c_str(), &statBuf) == -1) {
+      outputFile_ = std::make_unique<ofstream>(
+          filename, ios::out | ios::binary);
+      if (*outputFile_ && outputFile_->good()) {
+        buf = outputFile_->rdbuf();
+        outputStream_ = std::make_unique<std::ostream>(buf);
+        return true;
+      }
+    }
+    tries++;
+  }
+  return false;
 }
 
 HTTPHeaders CurlClient::parseHeaders(const std::string& headersString) {
@@ -220,11 +246,12 @@ void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
   if (!loggingEnabled_) {
     return;
   }
+  CHECK(outputStream_);
   if (chain) {
     const IOBuf* p = chain.get();
     do {
-      cout.write((const char*)p->data(), p->length());
-      cout.flush();
+      outputStream_->write((const char*)p->data(), p->length());
+      outputStream_->flush();
       p = p->next();
     } while (p != chain.get());
   }

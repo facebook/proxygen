@@ -23,6 +23,7 @@
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
 #include <proxygen/httpserver/samples/hq/PartiallyReliableCurlClient.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/utils/UtilInl.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/client/QuicClientTransport.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
@@ -94,6 +95,22 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
   auto txn = session_->newTransaction(client.get());
   if (!txn) {
     return nullptr;
+  }
+  if (!params_.outdir.empty()) {
+    bool canWrite = false;
+    // default output file name
+    std::string filename = "hq.out";
+    // try to get the name from the path
+    folly::StringPiece path = requestUrl.getPath();
+    size_t offset = proxygen::findLastOf(path, '/');
+    if (offset != std::string::npos && (offset + 1) != path.size()) {
+      filename = std::string(path.subpiece(offset + 1));
+    }
+    filename = folly::to<std::string>(params_.outdir, "/", filename);
+    canWrite = client->saveResponseToFile(filename);
+    if (!canWrite) {
+      LOG(ERROR) << "Can not write output to file '" << filename << "' printing to stdout instead";
+    }
   }
   client->sendRequest(txn);
   curls_.emplace_back(std::move(client));
