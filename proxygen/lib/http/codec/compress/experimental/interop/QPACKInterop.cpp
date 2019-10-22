@@ -61,15 +61,22 @@ void encodeBlocks(QPACKCodec& decoder,
                               result.stream->computeChainDataLength(),
                               &cb);
       writeFrame(appender, streamId, std::move(result.stream));
-      if (FLAGS_ack && cb.acknowledge) {
-        encoder.decodeDecoderStream(decoder.encodeHeaderAck(streamId));
-      }
     }
     if (result.control) {
       decoder.decodeEncoderStream(result.control->clone());
       writeFrame(appender, 0, std::move(result.control));
       if (FLAGS_ack) {
         // There can be ICI when the decoder is non-blocking
+        auto res = decoder.encodeInsertCountInc();
+        if (res) {
+          encoder.decodeDecoderStream(std::move(res));
+        }
+      }
+    }
+    if (FLAGS_ack) {
+      if (cb.acknowledge) {
+        encoder.decodeDecoderStream(decoder.encodeHeaderAck(streamId));
+      } else {
         auto res = decoder.encodeInsertCountInc();
         if (res) {
           encoder.decodeDecoderStream(std::move(res));
@@ -409,8 +416,12 @@ int interopQIF(QPACKCodec& decoder) {
 int main(int argc, char** argv) {
   folly::init(&argc, &argv, true);
   QPACKCodec decoder;
+  decoder.setEncoderHeaderTableSize(FLAGS_table_size);
+  std::vector<compress::Header> empty;
+  auto res = decoder.encode(empty, 0);
   decoder.setMaxBlocking(FLAGS_max_blocking);
   decoder.setDecoderHeaderTableMaxSize(FLAGS_table_size);
+  decoder.decodeEncoderStream(std::move(res.control));
   if (!FLAGS_har.empty()) {
     return interopHAR(decoder);
   } else {

@@ -198,8 +198,8 @@ bool QPACKHeaderTable::canEvict(uint32_t needed) {
     i = next(i);
   }
   if (freeable < needed) {
-    VLOG(5) << "header=" << table_[i].name << " blocked eviction, recount="
-            << (*refCount_)[i];
+    VLOG(5) << "header=" << table_[i].name << ":" << table_[i].value
+            << " blocked eviction, recount=" << (*refCount_)[i];
     return false;
   }
   return true;

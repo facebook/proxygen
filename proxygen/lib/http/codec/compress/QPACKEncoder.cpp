@@ -70,7 +70,9 @@ QPACKEncoder::EncodeResult QPACKEncoder::encodeQ(
     }
   }
   auto streamBuffer = streamBuffer_.release();
-  streamBuffer->prependChain(std::move(streamBlock));
+  if (streamBlock) {
+    streamBuffer->prependChain(std::move(streamBlock));
+  }
 
   auto controlBuf = controlBuffer_.release();
   // curOutstanding_.references could be empty, if the block encodes only static
