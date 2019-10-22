@@ -1509,7 +1509,10 @@ void HTTPSession::resumeIngress(HTTPTransaction* txn) noexcept {
     }
   }
 
-  if (liveTransactions_ == 1) {
+  // This function can be called from detach(), in which case liveTransactions_
+  // may go to 1 briefly, even though we are still anit-pipelining.
+  if (liveTransactions_ == 1 &&
+      (codec_->supportsParallelRequests() || getPipelineStreamCount() <= 1)) {
     resumeReads();
   }
 }
@@ -1842,17 +1845,21 @@ void HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
 // and there is still a pipelinable stream, then it was pipelining
 bool HTTPSession::maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
                                                         uint32_t txnSeqn) {
-  if (!codec_->supportsParallelRequests() && !transactions_.empty() &&
-      getPipelineStreamCount() < oldStreamCount &&
-      getPipelineStreamCount() == 1) {
-    auto txnIt = transactions_.find(txnSeqn + 2);
-    CHECK(txnIt != transactions_.end());
-    auto& nextTxn = txnIt->second;
-    DCHECK_EQ(nextTxn.getSequenceNumber(), txnSeqn + 1);
-    DCHECK(!nextTxn.isIngressComplete());
-    DCHECK(nextTxn.isIngressPaused());
-    VLOG(4) << "Resuming paused pipelined txn " << nextTxn;
-    nextTxn.resumeIngress();
+  if (!codec_->supportsParallelRequests() && !transactions_.empty()) {
+    auto pipelineStreamCount = getPipelineStreamCount();
+    if (pipelineStreamCount < oldStreamCount &&
+        pipelineStreamCount == 1) {
+      // For H1, StreamID = txnSeqn + 1
+      auto curStreamId = txnSeqn + 1;
+      auto txnIt = transactions_.find(curStreamId + 1);
+      CHECK(txnIt != transactions_.end());
+      auto& nextTxn = txnIt->second;
+      DCHECK_EQ(nextTxn.getSequenceNumber(), txnSeqn + 1);
+      DCHECK(!nextTxn.isIngressComplete());
+      DCHECK(nextTxn.isIngressPaused());
+      VLOG(4) << "Resuming paused pipelined txn " << nextTxn;
+      nextTxn.resumeIngress();
+    }
     return true;
   }
   return false;

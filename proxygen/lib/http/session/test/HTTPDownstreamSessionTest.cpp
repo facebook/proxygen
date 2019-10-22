@@ -285,17 +285,29 @@ class HTTPDownstreamTest : public testing::Test {
     clientCodec_ = HTTPCodecFactory::getCodec(expectedProtocol,
                                               TransportDirection::UPSTREAM);
   }
+  void expectResponse(uint32_t code,
+                      bool expectBody,
+                      bool stopParsing = true) {
+    expectResponse(code, ErrorCode::NO_ERROR, false, false, expectBody,
+                   stopParsing);
+  }
+
   void expectResponse(uint32_t code = 200,
                       ErrorCode errorCode = ErrorCode::NO_ERROR,
                       bool expect100 = false,
-                      bool expectGoaway = false) {
-    expectResponses(1, code, errorCode, expect100, expectGoaway);
+                      bool expectGoaway = false,
+                      bool expectBody = true,
+                      bool stopParsing = false) {
+    expectResponses(1, code, errorCode, expect100, expectGoaway, expectBody,
+                    stopParsing);
   }
   void expectResponses(uint32_t n,
                        uint32_t code = 200,
                        ErrorCode errorCode = ErrorCode::NO_ERROR,
                        bool expect100 = false,
-                       bool expectGoaway = false) {
+                       bool expectGoaway = false,
+                       bool expectBody = true,
+                       bool stopParsing = false) {
     clientCodec_->setCallback(&callbacks_);
     if (isParallelCodecProtocol(clientCodec_->getProtocol())) {
       EXPECT_CALL(callbacks_, onSettings(_))
@@ -358,14 +370,25 @@ class HTTPDownstreamTest : public testing::Test {
               EXPECT_EQ(error, errorCode);
             }));
       }
-      EXPECT_CALL(callbacks_, onBody(_, _, _)).RetiresOnSaturation();
-      EXPECT_CALL(callbacks_, onMessageComplete(_, _)).RetiresOnSaturation();
+      if (expectBody) {
+        EXPECT_CALL(callbacks_, onBody(_, _, _)).RetiresOnSaturation();
+      }
+      EXPECT_CALL(callbacks_, onMessageComplete(_, _))
+        .WillOnce(InvokeWithoutArgs([i, n, stopParsing, this] {
+              if (stopParsing && i == n - 1) {
+                clientCodec_->setParserPaused(true);
+                breakParseOutput_ = true;
+              }
+            }))
+        .RetiresOnSaturation();
     }
     parseOutput(*clientCodec_);
   }
 
   void parseOutput(HTTPCodec& clientCodec) {
     auto writeEvents = transport_->getWriteEvents();
+    clientCodec.setParserPaused(false);
+    breakParseOutput_ = false;
     while (!breakParseOutput_ &&
            (!writeEvents->empty() || !parseOutputStream_.empty())) {
       if (!writeEvents->empty()) {
@@ -396,7 +419,7 @@ class HTTPDownstreamTest : public testing::Test {
   }
 
   MockByteEventTracker* setMockByteEventTracker() {
-    auto byteEventTracker = new MockByteEventTracker(nullptr);
+    auto byteEventTracker = new NiceMock<MockByteEventTracker>(nullptr);
     httpSession_->setByteEventTracker(
         std::unique_ptr<ByteEventTracker>(byteEventTracker));
     EXPECT_CALL(*byteEventTracker, preSend(_, _, _, _))
@@ -1135,6 +1158,59 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipeline) {
   handler1->txn_->decrementPendingByteEvents();
   gracefulShutdown();
 }
+
+TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipelineError) {
+  HTTPDirectResponseHandler* errorHandler =
+    new HTTPDirectResponseHandler(400, "Bad Request");
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
+               WillOnce(Return(errorHandler));
+
+  // Test a real pipelining case as well.  First request is done waiting for
+  // ack, then receive a pipelined request and an error.
+  auto byteEventTracker = setMockByteEventTracker();
+  InSequence enforceOrder;
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1]() {
+    handler1->sendReplyWithBody(200, 100);
+  });
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
+      .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
+        txn->incrementPendingByteEvents();
+      }));
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM();
+
+  // send first request
+  sendRequest();
+  // send a second request too, response for request 1 will arrive
+  sendRequest();
+  flushRequestsAndLoopN(2);
+  expectResponse(200);
+
+  // send a garbage character which will trigger a 400
+  transport_->addReadEvent("?", milliseconds(0));
+  flushRequestsAndLoop();
+
+  // When the byte event is cleared, txn1 will go away
+  handler1->expectDetachTransaction();
+  handler1->txn_->decrementPendingByteEvents();
+  flushRequestsAndLoop();
+
+  // Now send a reply to 2.  Reads will be resumed and we'll get a 400 for the
+  // garbage character
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
+  handler2->expectDetachTransaction();
+  handler2->sendReplyWithBody(200, 100);
+  HTTPSession::DestructorGuard g(httpSession_);
+  flushRequestsAndLoop();
+  expectResponse(200, true);
+  expectResponse(400, false, false);
+  expectDetachSession();
+}
+
 
 /*
  * The sequence of streams are generated in the following order:
