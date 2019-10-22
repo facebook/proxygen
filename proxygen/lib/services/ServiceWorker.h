@@ -121,15 +121,8 @@ class ServiceWorker {
     drainingAcceptors_.clear();
   }
 
-  wangle::IConnectionCounter* getConnectionCounter() {
-    return &connectionCounter_;
-  }
-
   virtual void forceStop() {
   }
-
- protected:
-  wangle::SimpleConnectionCounter connectionCounter_;
 
  private:
   // Forbidden copy constructor and assignment operator
@@ -149,8 +142,8 @@ class ServiceWorker {
   Service* service_;
 
   /**
-   * The RequestWorkerThread that is actually responsible for running the EventBase
-   * loop in this thread.
+   * The RequestWorkerThread that is actually responsible for running the
+   * EventBase loop in this thread.
    */
   RequestWorkerThread* worker_;
 
