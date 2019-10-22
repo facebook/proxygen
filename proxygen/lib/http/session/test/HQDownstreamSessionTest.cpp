@@ -1265,6 +1265,30 @@ TEST_P(HQDownstreamSessionTestH1qv1, ShutdownWithTwoTxn) {
   flushRequestsAndLoop();
 }
 
+TEST_P(HQDownstreamSessionTestH1q, SendEmptyResponseHeadersOnly) {
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::GET);
+  req.setHTTPVersion(0, 9);
+  req.setURL("/");
+  sendRequest(req);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM([&] {
+    HTTPMessage resp;
+    resp.setStatusCode(200);
+    resp.setHTTPVersion(0, 9);
+    handler->txn_->sendHeaders(resp);
+    eventBase_.runAfterDelay(
+      [&] {
+        handler->txn_->sendEOM();
+      },
+      10);
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTest, SendFinOnly) {
   HTTPMessage req;
   req.setMethod(HTTPMethod::GET);

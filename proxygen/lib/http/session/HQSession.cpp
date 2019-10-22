@@ -3094,7 +3094,10 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
   }
 
   pendingEOM_ = includeEOM;
-  notifyPendingEgress();
+  // Headers can be empty for a 0.9 response
+  if (writeBuf_.chainLength() > 0 || pendingEOM_) {
+    notifyPendingEgress();
+  }
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
