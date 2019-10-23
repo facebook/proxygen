@@ -345,7 +345,11 @@ class HTTPHeaders {
     }
     double targetCapacity = capacity_;
     while (targetCapacity < minCapacity) {
-      targetCapacity = targetCapacity * 3 / 2;
+      if (targetCapacity == 0) {
+        targetCapacity = kInitialVectorReserve;
+      } else {
+        targetCapacity = targetCapacity * 3 / 2;
+      }
     }
     resize(targetCapacity);
   }

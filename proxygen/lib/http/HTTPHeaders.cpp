@@ -90,7 +90,7 @@ bool HTTPHeaders::exists(folly::StringPiece name) const {
 }
 
 bool HTTPHeaders::exists(HTTPHeaderCode code) const {
-  return codes() != nullptr && memchr((void*)codes(), code, length_) != nullptr;
+  return length_ > 0 && memchr((void*)codes(), code, length_) != nullptr;
 }
 
 size_t HTTPHeaders::getNumberOfValues(HTTPHeaderCode code) const {
@@ -189,10 +189,12 @@ HTTPHeaders::HTTPHeaders(HTTPHeaders&& hdrs) noexcept :
   capacity_(hdrs.capacity_),
   deletedCount_(hdrs.deletedCount_) {
   hdrs.length_ = 0;
+  hdrs.capacity_ = 0;
+  hdrs.deletedCount_ = 0;
 }
 
 void HTTPHeaders::copyFrom(const HTTPHeaders& other) {
-  resize(other.capacity_);
+  ensure(other.capacity_);
   memcpy(codes(), other.codes(), other.length_);
   for (size_t i = 0; i < other.length_; i++) {
     if (codes()[i] == HTTP_HEADER_OTHER) {
@@ -216,12 +218,12 @@ HTTPHeaders& HTTPHeaders::operator= (const HTTPHeaders& hdrs) {
 HTTPHeaders& HTTPHeaders::operator= (HTTPHeaders&& hdrs) {
   if (this != &hdrs) {
     removeAll();
-    memory_ = std::move(hdrs.memory_);
+    std::swap(memory_, hdrs.memory_);
+    std::swap(capacity_, hdrs.capacity_);
     length_ = hdrs.length_;
-    capacity_ = hdrs.capacity_;
-    deletedCount_ = hdrs.deletedCount_;
-
     hdrs.length_ = 0;
+    deletedCount_ = hdrs.deletedCount_;
+    hdrs.deletedCount_ = 0;
   }
 
   return *this;
