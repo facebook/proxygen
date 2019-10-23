@@ -145,6 +145,7 @@ add_library(
     http/HTTPException.cpp
     http/HTTPHeaders.cpp
     http/HTTPMessage.cpp
+    http/HTTPMessageFilters.cpp
     http/HTTPMethod.cpp
     http/ProxygenErrorEnum.cpp
     http/RFC2616.cpp

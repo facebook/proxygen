@@ -29,7 +29,9 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
+  MOCK_QUALIFIED_METHOD0(pause, noexcept, void());
   MOCK_QUALIFIED_METHOD1(onChunkHeader, noexcept, void(size_t));
+  MOCK_QUALIFIED_METHOD1(resume, noexcept, void(uint64_t));
   MOCK_QUALIFIED_METHOD0(onChunkComplete, noexcept, void());
   MOCK_QUALIFIED_METHOD1(onTrailers,
                          noexcept,
@@ -48,6 +50,10 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
 
   const std::string& getFilterName() noexcept override {
     return kMockFilterName;
+  }
+
+  boost::variant<HTTPMessageFilter*, HTTPTransaction*> getPrevElement() {
+    return prev_;
   }
 
   [[noreturn]] std::unique_ptr<HTTPMessageFilter> clone() noexcept override {

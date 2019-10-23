@@ -22,6 +22,12 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   void setNextTransactionHandler(HTTPTransaction::Handler* next) {
     nextTransactionHandler_ = CHECK_NOTNULL(next);
   }
+  virtual void setPrevFilter(HTTPMessageFilter* prev) noexcept {
+    prev_ = CHECK_NOTNULL(prev);
+  }
+  virtual void setPrevTxn(HTTPTransaction* prev) noexcept {
+    prev_ = CHECK_NOTNULL(prev);
+  }
   HTTPTransaction::Handler* getNextTransactionHandler() {
     return nextTransactionHandler_;
   }
@@ -87,29 +93,37 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   virtual const std::string& getFilterName() noexcept {
     return kMessageFilterDefaultName_;
   }
+
+  virtual void pause() noexcept;
+
+  virtual void resume(uint64_t offset) noexcept;
  protected:
-  void nextOnHeadersComplete(std::unique_ptr<HTTPMessage> msg) {
+  virtual void nextOnHeadersComplete(std::unique_ptr<HTTPMessage> msg) {
     nextTransactionHandler_->onHeadersComplete(std::move(msg));
   }
-  void nextOnBody(std::unique_ptr<folly::IOBuf> chain) {
+  virtual void nextOnBody(std::unique_ptr<folly::IOBuf> chain) {
     nextTransactionHandler_->onBody(std::move(chain));
   }
-  void nextOnChunkHeader(size_t length) {
+  virtual void nextOnChunkHeader(size_t length) {
     nextTransactionHandler_->onChunkHeader(length);
   }
-  void nextOnChunkComplete() {
+  virtual void nextOnChunkComplete() {
     nextTransactionHandler_->onChunkComplete();
   }
-  void nextOnTrailers(std::unique_ptr<HTTPHeaders> trailers) {
+  virtual void nextOnTrailers(std::unique_ptr<HTTPHeaders> trailers) {
     nextTransactionHandler_->onTrailers(std::move(trailers));
   }
-  void nextOnEOM() {
+  virtual void nextOnEOM() {
     nextTransactionHandler_->onEOM();
   }
-  void nextOnError(const HTTPException& ex) {
+  virtual void nextOnError(const HTTPException& ex) {
     nextTransactionHandler_->onError(ex);
   }
   HTTPTransaction::Handler* nextTransactionHandler_{nullptr};
+
+  boost::variant<HTTPMessageFilter*, HTTPTransaction*> prev_;
+
+  bool nextElementIsPaused_{false};
 };
 
 } // proxygen
