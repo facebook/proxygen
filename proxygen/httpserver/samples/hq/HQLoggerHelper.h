@@ -23,7 +23,7 @@ class HQLoggerHelper : public ::quic::FileQLogger {
  public:
   HQLoggerHelper(const std::string& /* path */,
                  bool /* pretty */,
-                 const std::string& /*vantagePoint*/);
+                 quic::VantagePoint);
 
   ~HQLoggerHelper() override;
 

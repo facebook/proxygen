@@ -12,8 +12,8 @@ using namespace quic::samples;
 
 HQLoggerHelper::HQLoggerHelper(const std::string& path,
                                bool pretty,
-                               const std::string& vantagePoint)
-    : quic::FileQLogger(quic::kHTTP3ProtocolType, vantagePoint),
+                               quic::VantagePoint vantagePoint)
+    : quic::FileQLogger(vantagePoint, quic::kHTTP3ProtocolType),
       outputPath_(path),
       pretty_(pretty) {
 }
