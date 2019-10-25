@@ -133,6 +133,20 @@ TEST(HTTP1xCodecTest, Test09Resp) {
   EXPECT_EQ(callbacks.messageComplete, 1);
 }
 
+TEST(HTTP1xCodecTest, TestO9NoVersion) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  HTTPMessage req;
+  auto id = codec.createStream();
+  req.setHTTPVersion(0, 9);
+  req.setMethod(HTTPMethod::GET);
+  req.setURL("/yeah");
+  folly::IOBufQueue buf;
+  codec.generateHeader(buf, id, req, true);
+  EXPECT_TRUE(folly::IOBufEqualTo()(
+      *buf.front(), *folly::IOBuf::copyBuffer("GET /yeah\r\n")));
+}
+
 TEST(HTTP1xCodecTest, TestBadHeaders) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
   MockHTTPCodecCallback callbacks;
