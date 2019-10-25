@@ -9,7 +9,6 @@
 #include "proxygen/lib/ssl/ThreadLocalSSLStats.h"
 
 using facebook::fb303::AVG;
-using facebook::fb303::COUNT;
 using facebook::fb303::PERCENT;
 using facebook::fb303::RATE;
 using facebook::fb303::SUM;
