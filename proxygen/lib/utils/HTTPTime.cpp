@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/utils/HTTPTime.h>
 
-#include <glog/logging.h>
+#include <folly/portability/Time.h>
 
 
 namespace proxygen {
@@ -31,7 +31,6 @@ folly::Optional<int64_t> parseHTTPDateTime(const std::string& s) {
     return folly::Optional<int64_t>(timegm(&tm));
   }
 
-  LOG(INFO) << "Invalid http time: " << s;
   return folly::none;
 }
 
