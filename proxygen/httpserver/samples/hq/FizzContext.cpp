@@ -127,9 +127,7 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
   auto serverCtx = std::make_shared<fizz::server::FizzServerContext>();
   serverCtx->setCertManager(std::move(certManager));
   auto ticketCipher = std::make_shared<fizz::server::AeadTicketCipher<
-      fizz::OpenSSLEVPCipher<fizz::AESGCM128>,
-      fizz::server::TicketCodec<fizz::server::CertificateStorage::X509>,
-      fizz::HkdfImpl<fizz::Sha256>>>();
+      fizz::server::TicketCodec<fizz::server::CertificateStorage::X509>>>();
   std::array<uint8_t, 32> ticketSeed;
   folly::Random::secureRandom(ticketSeed.data(), ticketSeed.size());
   ticketCipher->setTicketSecrets({{folly::range(ticketSeed)}});
