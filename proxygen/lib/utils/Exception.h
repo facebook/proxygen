@@ -15,6 +15,10 @@
 
 namespace proxygen {
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4521) // 'proxygen::Exception': multiple copy ctors
+#endif
 /**
  * Base class for all exceptions.
  */
@@ -53,5 +57,8 @@ class Exception : public std::exception {
   int code_;
   ProxygenError proxygenError_{kErrorNone};
 };
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 }

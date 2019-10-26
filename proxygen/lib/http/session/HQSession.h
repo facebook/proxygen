@@ -976,6 +976,11 @@ class HQSession
       std::pair<std::pair<quic::QuicErrorCode, std::string>, ProxygenError>>
       dropInNextLoop_;
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4250) // inherits 'proxygen::detail::..' via dominance
+#endif
+
   // A control stream is created as egress first, then the ingress counterpart
   // is linked as soon as we read the stream preface on the associated stream
   class HQControlStream
@@ -1895,6 +1900,9 @@ class HQSession
     hq::PushId pushId_; // The push id in context of which this stream is
                         // received
   };                    // HQIngressPushStream
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
  private:
   class VersionUtils {
