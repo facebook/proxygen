@@ -299,7 +299,12 @@ class HTTPHeaders {
   void copyFrom(const HTTPHeaders& hdrs);
 
   HTTPHeaderCode* codes() const {
-    return (HTTPHeaderCode*)(memory_.get());
+    return codes(memory_.get(), capacity_);
+  }
+
+  HTTPHeaderCode* codes(const uint8_t* memory, size_t capacity) const {
+    return (HTTPHeaderCode*)(
+      memory + capacity * (sizeof(std::string*) + sizeof(std::string)));
   }
 
   std::string** names() const {
@@ -307,16 +312,15 @@ class HTTPHeaders {
   }
 
   std::string** names(const uint8_t *memory, size_t capacity) const {
-    return (std::string**)(memory + (capacity * sizeof(uint8_t)));
+    return (std::string**)(memory + capacity * sizeof(std::string));
   }
 
   std::string* values() const {
    return values(memory_.get(), capacity_);
   }
 
-  std::string* values(const uint8_t* memory, size_t capacity) const {
-   return (std::string*)(
-     memory + (capacity * (sizeof(uint8_t) + sizeof(std::string*))));
+  std::string* values(const uint8_t* memory, size_t) const {
+   return (std::string*)(memory);
   }
 
   /**
@@ -343,6 +347,7 @@ class HTTPHeaders {
     if (capacity_ >= minCapacity) {
       return;
     }
+
     double targetCapacity = capacity_;
     while (targetCapacity < minCapacity) {
       if (targetCapacity == 0) {
@@ -360,7 +365,7 @@ class HTTPHeaders {
     }
     auto newMemory = std::make_unique<uint8_t[]>(capacity * kRecSize);
     if (length_ > 0) {
-      memcpy(newMemory.get(), codes(), length_);
+      memcpy(codes(newMemory.get(), capacity), codes(), length_);
       memcpy(names(newMemory.get(), capacity), names(),
              sizeof(std::string*) * length_);
       auto vNew = values(newMemory.get(), capacity);
