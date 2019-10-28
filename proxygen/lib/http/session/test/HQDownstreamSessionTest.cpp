@@ -577,10 +577,15 @@ TEST_P(HQDownstreamSessionTest, OnConnectionWindowPartialHeaders) {
   auto id = sendRequest();
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
-  handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
+  handler->expectEOM([&handler] {
+      handler->sendHeaders(200, 100);
+      handler->txn_->sendBody(makeBuf(100));
+    });
   // TODO: we should probably pause egress on conn limited.
-  // handler->expectEgressPaused();
-  // handler->expectEgressResumed();
+  handler->expectEgressPaused();
+  handler->expectEgressResumed([&handler] {
+      handler->txn_->sendEOM();
+    });
   handler->expectDetachTransaction();
 
   // Initialize the flow control window to less than the response body
@@ -2326,6 +2331,85 @@ TEST_P(HQDownstreamSessionTestHQ, TooManyControlStreams) {
   flushRequestsAndLoop();
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
             HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT);
+}
+
+TEST_P(HQDownstreamSessionTest, TestUniformPauseState) {
+  sendRequest("/", 1);
+  sendRequest("/", 1);
+
+  InSequence handlerSequence;
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM();
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&] {
+    handler1->sendHeaders(200, 24002);
+    // triggers pause of all txns
+    // If I set to 0, then I never get onWriteReady.
+    // HQSession needs to runInLoop and pauseTransactions if onWriteReady
+    // never comes?
+    socketDriver_->setConnectionFlowControlWindow(1);
+    handler1->txn_->sendBody(makeBuf(12001));
+  });
+  // HQ streams invocations are unordered set
+  handler2->expectEgressPaused();
+  handler1->expectEgressPaused();
+
+  flushRequestsAndLoopN(3);
+  sendRequest("/", 2);
+
+  auto handler3 = addSimpleStrictHandler();
+  handler3->expectEgressPaused();
+  handler3->expectHeaders();
+  handler3->expectEOM([this] {
+      eventBase_.runAfterDelay([this] {
+          socketDriver_->setConnectionFlowControlWindow(65536);
+        }, 50);
+    });
+
+  handler2->expectEgressResumed();
+  handler1->expectEgressResumed([&] {
+    // resume does not trigger another pause,
+    handler1->txn_->sendBody(makeBuf(12001));
+    socketDriver_->setConnectionFlowControlWindow(1);
+    eventBase_.runAfterDelay([this] {
+        socketDriver_->setConnectionFlowControlWindow(65536);
+      }, 50);
+  });
+  handler3->expectEgressResumed();
+  handler1->expectEgressPaused();
+  handler2->expectEgressPaused();
+  handler3->expectEgressPaused();
+
+  handler2->expectEgressResumed();
+  handler1->expectEgressResumed([&] {
+    handler2->sendHeaders(200, 12001);
+    handler2->txn_->sendBody(makeBuf(12001));
+    socketDriver_->setConnectionFlowControlWindow(1);
+    eventBase_.runAfterDelay([this] {
+        socketDriver_->setConnectionFlowControlWindow(65536);
+      }, 50);
+  });
+  handler3->expectEgressResumed();
+
+  handler1->expectEgressPaused();
+  handler2->expectEgressPaused();
+  handler3->expectEgressPaused();
+
+  handler2->expectEgressResumed();
+  handler1->expectEgressResumed([&] {
+    handler1->txn_->sendEOM();
+    handler2->txn_->sendEOM();
+  });
+  handler3->expectEgressResumed([&] { handler3->txn_->sendAbort(); });
+
+  handler3->expectDetachTransaction();
+  handler2->expectDetachTransaction();
+  handler1->expectDetachTransaction();
+
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
 }
 
 /**

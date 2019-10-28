@@ -1493,13 +1493,15 @@ TEST_F(HTTP2DownstreamSessionTest, SetByteEventTracker) {
   // Send two requests with writes paused, which will queue several byte events,
   // including last byte events which are holding a reference to the
   // transaction.
-  transport_->pauseWrites();
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1]() { handler1->sendReplyWithBody(200, 100); });
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
-  handler2->expectEOM([&handler2]() { handler2->sendReplyWithBody(200, 100); });
+  handler2->expectEOM([&handler2, this]() {
+      handler2->sendReplyWithBody(200, 100);
+      transport_->pauseWrites();
+    });
 
   sendRequest();
   sendRequest();
@@ -1792,12 +1794,12 @@ TEST_F(SPDY3DownstreamSessionTest, HttpPausedBuffered) {
   });
   handler1->expectEgressPaused();
   auto handler2 = addSimpleNiceHandler();
-  handler2->expectEgressPaused();
   handler2->expectHeaders();
   handler2->expectEOM([&] {
     eventBase_.runInLoop(
         [&] { transport_->addReadEvent(rst, milliseconds(0)); });
   });
+  handler2->expectEgressPaused();
   handler1->expectError([&](const HTTPException& ex) {
     ASSERT_EQ(ex.getProxygenError(), kErrorStreamAbort);
     resumeWritesInLoop();
@@ -2632,14 +2634,12 @@ TYPED_TEST_P(HTTPDownstreamTest, TestBodySizeLimit) {
   }
 
 TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
-  this->httpSession_->setWriteBufferLimit(12000);
   this->clientCodec_->getEgressSettings()->setSetting(
       SettingsId::INITIAL_WINDOW_SIZE, 1000000);
   this->clientCodec_->generateSettings(this->requests_);
   this->clientCodec_->generateWindowUpdate(this->requests_, 0, 1000000);
   this->sendRequest("/", 1);
   this->sendRequest("/", 1);
-  this->sendRequest("/", 2);
 
   InSequence handlerSequence;
   auto handler1 = this->addSimpleStrictHandler();
@@ -2652,24 +2652,30 @@ TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
     // triggers pause of all txns
     this->transport_->pauseWrites();
     handler1->txn_->sendBody(std::move(makeBuf(12001)));
-    this->resumeWritesAfterDelay(milliseconds(50));
   });
   handler2->expectEgressPaused();
   handler1->expectEgressPaused();
+
+  this->flushRequestsAndLoopN(2);
+  this->sendRequest("/", 2);
+
   auto handler3 = this->addSimpleStrictHandler();
   handler3->expectEgressPaused();
   handler3->expectHeaders();
-  handler3->expectEOM();
+  handler3->expectEOM([this] {
+      this->resumeWritesAfterDelay(milliseconds(50));
+    });
 
   handler1->expectEgressResumed([&] {
     // resume does not trigger another pause,
     handler1->txn_->sendBody(std::move(makeBuf(12001)));
+    this->transport_->pauseWrites();
+    this->resumeWritesAfterDelay(milliseconds(50));
   });
-  // handler2 gets a fair shot, handler3 is not resumed
-  // HTTP/2 priority is not implemented, so handler3 is like another 0 pri txn
+  // All handlers gets a fair shot
   handler2->expectEgressResumed();
-  IF_HTTP2(handler3->expectEgressResumed());
-  IF_HTTP2(handler3->expectEgressPaused());
+  handler3->expectEgressResumed();
+  handler3->expectEgressPaused();
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
 
@@ -2680,10 +2686,9 @@ TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
     this->transport_->pauseWrites();
     this->resumeWritesAfterDelay(milliseconds(50));
   });
-  // handler3 not resumed
-  IF_HTTP2(handler3->expectEgressResumed());
+  handler3->expectEgressResumed();
 
-  IF_HTTP2(handler3->expectEgressPaused());
+  handler3->expectEgressPaused();
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
 
@@ -2763,12 +2768,15 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyMaxConcurrentStreams) {
     req2p.setValue();
   });
   auto handler2 = addSimpleStrictHandler();
+  handler2->expectEgressPaused();
   handler2->expectHeaders();
-  handler2->expectEOM([&handler2, this] {
-    handler2->sendReplyWithBody(200, 100);
-    resumeWritesInLoop();
+  handler2->expectEOM([this] {
+      resumeWritesInLoop();
   });
   handler1->expectDetachTransaction();
+  handler2->expectEgressResumed([&handler2] {
+      handler2->sendReplyWithBody(200, 100);
+    });
   handler2->expectDetachTransaction();
 
   expectDetachSession();
@@ -2850,8 +2858,6 @@ TEST_F(SPDY31DownstreamTest, TestEOFOnBlockedSession) {
     });
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
-  handler1->expectEgressResumed();
-  handler2->expectEgressResumed();
   handler1->expectError([&](const HTTPException& ex) {
     EXPECT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS_AND_EGRESS);
   });
@@ -3128,6 +3134,8 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
   });
   EXPECT_CALL(pushHandler, setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
+  EXPECT_CALL(pushHandler, onEgressPaused());
+  handler->expectEgressPaused();
   EXPECT_CALL(pushHandler, onError(_));
   EXPECT_CALL(pushHandler, detachTransaction());
   handler->expectError();

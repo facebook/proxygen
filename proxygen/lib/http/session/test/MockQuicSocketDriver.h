@@ -132,6 +132,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     EXPECT_CALL(*sock_, getTransportSettings())
         .WillRepeatedly(testing::ReturnRef(transportSettings_));
 
+    EXPECT_CALL(*sock_, getConnectionBufferAvailable())
+        .WillRepeatedly(testing::Return(bufferAvailable_));
+
     EXPECT_CALL(*sock_, getClientConnectionId())
         .WillRepeatedly(
             testing::Return(quic::ConnectionId({0x11, 0x11, 0x11, 0x11})));
@@ -1222,6 +1225,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   bool strictErrorCheck_{true};
   folly::EventBase* eventBase_;
   TransportSettings transportSettings_;
+  uint64_t bufferAvailable_{std::numeric_limits<uint64_t>::max()};
   // keeping this ordered for better debugging
   std::map<StreamId, StreamState> streams_;
   std::list<folly::Func> events_;

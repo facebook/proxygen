@@ -382,6 +382,8 @@ class HTTPSession
     return folly::none;
   }
 
+  void setNewTransactionPauseState(HTTPTransaction* txn) override;
+
   void readTimeoutExpired() noexcept;
   void writeTimeoutExpired() noexcept;
   void flowControlTimeoutExpired() noexcept;

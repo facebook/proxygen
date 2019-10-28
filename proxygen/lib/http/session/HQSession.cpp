@@ -1199,9 +1199,18 @@ void HQSession::runLoopCallback() noexcept {
 
   inLoopCallback_ = true;
   HQSession::DestructorGuard dg(this);
-  auto scopeg = folly::makeGuard([this] {
+  auto scopeg = folly::makeGuard([this, toSend=maxToSend_] {
     // This ScopeGuard needs to be under the above DestructorGuard
     updatePendingWrites();
+    if (toSend > 0) {
+      if (txnEgressQueue_.empty()) {
+        // We wrote out everything
+        resumeTransactions();
+      } else {
+        // We couldn't write everything, the socket is backpressuring
+        pauseTransactions();
+      }
+    }
     checkForShutdown();
     inLoopCallback_ = false;
   });
@@ -1926,8 +1935,52 @@ void HQSession::onGoaway(uint64_t lastGoodStreamID,
 }
 
 void HQSession::pauseTransactions() {
+  writesPaused_ = true;
   invokeOnEgressStreams(
       [](HQStreamTransportBase* stream) { stream->txn_.pauseEgress(); });
+}
+
+void HQSession::resumeTransactions() {
+  DestructorGuard g(this);
+  auto resumeFn = [this](HTTP2PriorityQueue&,
+                         HTTPCodec::StreamID id,
+                         HTTPTransaction* txn,
+                         double) {
+    if (txn && !txn->isEgressComplete() && sock_) {
+      auto flowControl = sock_->getStreamFlowControl(id);
+      if (!flowControl.hasError() && flowControl->sendWindowAvailable > 0) {
+        txn->resumeEgress();
+      }
+    }
+    return false;
+  };
+  auto stopFn = [this] {
+    return !hasActiveTransactions();
+  };
+
+  txnEgressQueue_.iterateBFS(resumeFn, stopFn, true /* all */);
+  writesPaused_ = false;
+}
+
+void HQSession::setNewTransactionPauseState(HTTPTransaction* txn) {
+  bool pauseNew = writesPaused_;
+  if (!pauseNew && sock_) {
+    if (sock_->getConnectionBufferAvailable() == 0) {
+      pauseNew = true;
+    } else {
+      auto flowControl = sock_->getConnectionFlowControl();
+      if (!flowControl.hasError() && flowControl->sendWindowAvailable == 0) {
+        pauseNew = true;
+      }
+    }
+  }
+  if (pauseNew) {
+    CHECK(txn);
+    // If writes are paused, start this txn off in the egress paused state
+    VLOG(4) << *this << " starting streamID=" << txn->getID()
+            << " egress paused";
+    txn->pauseEgress();
+  }
 }
 
 void HQSession::notifyEgressBodyBuffered(int64_t bytes) {

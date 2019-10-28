@@ -483,9 +483,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual void pauseTransactions() = 0;
 
-  void resumeTransactions();
+  virtual void resumeTransactions();
 
-  void setNewTransactionPauseState(HTTPTransaction* txn);
+  virtual void setNewTransactionPauseState(HTTPTransaction* txn) = 0;
 
   /**
    * Install a direct response handler for the transaction based on the
@@ -615,14 +615,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   /**
-   * Returns true iff egress should stop on this session.
-   */
-  bool egressLimitExceeded() const {
-    // Changed to >
-    return pendingWriteSize_ > writeBufLimit_;
-  }
-
-  /**
    * The latest time when this session became idle status
    */
   TimePoint latestActive_{};
@@ -681,8 +673,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   bool prioritySample_ : 1;
   bool h2PrioritiesEnabled_ : 1;
-  bool inResume_ : 1;
-  bool pendingPause_ : 1;
 
   /**
    * Indicates whether Ex Headers is supported in HTTPSession

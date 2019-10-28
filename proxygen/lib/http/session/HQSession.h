@@ -583,6 +583,8 @@ class HQSession
       quic::StreamId /* id */,
       const HQUnidirStreamDispatcher::Callback::ReadError& /* err */) override;
 
+  void setNewTransactionPauseState(HTTPTransaction* txn) override;
+
   /**
    * Attempt to bind an ingress push stream object (which has the txn)
    * to a nascent stream (which has the transport/codec).
@@ -745,6 +747,8 @@ class HQSession
   void pauseReads(quic::StreamId id);
 
   void pauseTransactions() override;
+
+  void resumeTransactions() override;
 
   void notifyEgressBodyBuffered(int64_t bytes);
 
@@ -2219,6 +2223,7 @@ class HQSession
   bool scheduledWrite_{false};
 
   bool forceUpstream1_1_{true};
+  bool writesPaused_{false};
 
   /** Reads in the current loop iteration */
   uint16_t readsPerLoop_{0};

@@ -587,7 +587,7 @@ TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
   // when this handler is resumed, re-pause the pipe
   handler1->expectEgressResumed([&] {
       handler1->txn_->sendBody(makeBuf(4000));
-      handler2->txn_->sendBody(makeBuf(62000));
+      pauseWrites_ = true;
     });
   // handler2 will get a shot
   handler2->expectEgressResumed();
@@ -600,6 +600,8 @@ TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
   // They both get resumed
   handler1->expectEgressResumed([&] { handler1->txn_->sendEOM(); });
   handler2->expectEgressResumed([&] { handler2->txn_->sendEOM(); });
+
+  resumeWrites();
 
   this->eventBase_.loop();
 
@@ -1287,6 +1289,7 @@ TEST_F(HTTPUpstreamTimeoutTest, WriteTimeoutAfterResponse) {
     EXPECT_EQ(200, msg->getStatusCode());
   });
   handler->expectEOM();
+  handler->expectEgressPaused();
   handler->expectError([&](const HTTPException& err) {
     EXPECT_TRUE(err.hasProxygenError());
     ASSERT_EQ(err.getDirection(), HTTPException::Direction::INGRESS_AND_EGRESS);

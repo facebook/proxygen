@@ -642,6 +642,16 @@ HTTPTransaction* HTTPSession::newPushedTransaction(
   return txn;
 }
 
+void HTTPSession::setNewTransactionPauseState(HTTPTransaction* txn) {
+  if (!writesPaused()) {
+    return;
+  }
+  CHECK(txn);
+  // If writes are paused, start this txn off in the egress paused state
+  VLOG(4) << *this << " starting streamID=" << txn->getID() << " egress paused";
+  txn->pauseEgress();
+}
+
 HTTPTransaction* FOLLY_NULLABLE
 HTTPSession::newExTransaction(HTTPTransaction::Handler* handler,
                               HTTPCodec::StreamID controlStream,
@@ -2227,10 +2237,12 @@ void HTTPSession::updateWriteCount() {
     // Exceeded limit. Pause reading on the incoming stream.
     VLOG(3) << "Pausing egress for " << *this;
     writes_ = SocketState::PAUSED;
+    pauseTransactions();
   } else if (numActiveWrites_ == 0 && writesPaused()) {
     // Dropped below limit. Resume reading on the incoming stream if needed.
     VLOG(3) << "Resuming egress for " << *this;
     writes_ = SocketState::UNPAUSED;
+    resumeTransactions();
   }
 }
 
@@ -2868,11 +2880,13 @@ void HTTPSession::errorOnTransactionId(HTTPCodec::StreamID id,
 
 void HTTPSession::onConnectionSendWindowOpen() {
   flowControlTimeout_.cancelTimeout();
+  resumeTransactions();
   // We can write more now. Schedule a write.
   scheduleWrite();
 }
 
 void HTTPSession::onConnectionSendWindowClosed() {
+  pauseTransactions();
   if (!txnEgressQueue_.empty()) {
     VLOG(4) << *this << " session stalled by flow control";
     if (sessionStats_) {
