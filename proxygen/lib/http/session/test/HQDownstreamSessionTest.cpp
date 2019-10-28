@@ -359,10 +359,11 @@ TEST_P(HQDownstreamSessionTest, HttpRateLimitNormal) {
     // At 640kbps, this should take slightly over 800ms
     handler1->sendHeaders(200, rspLengthBytes);
     handler1->sendBody(rspLengthBytes);
-    handler1->txn_->sendEOM();
   });
   EXPECT_CALL(*handler1, onEgressPaused()).Times(AtLeast(1));
-  EXPECT_CALL(*handler1, onEgressResumed()).Times(AtLeast(1));
+  handler1->expectEgressResumed([&handler1] {
+      handler1->txn_->sendEOM();
+    });
   handler1->expectDetachTransaction();
   flushRequestsAndLoop();
 
@@ -534,9 +535,14 @@ TEST_P(HQDownstreamSessionTest, OnFlowControlUpdate) {
   auto id = sendRequest();
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
-  handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
+  handler->expectEOM([&handler] {
+      handler->sendHeaders(200, 100);
+      handler->txn_->sendBody(makeBuf(100));
+    });
   handler->expectEgressPaused();
-  handler->expectEgressResumed();
+  handler->expectEgressResumed([&handler] {
+      handler->txn_->sendEOM();
+    });
   handler->expectDetachTransaction();
 
   // Initialize the flow control window to less than the response body
@@ -804,21 +810,12 @@ TEST_P(HQDownstreamSessionTest, PendingEomQueuedNotFlushed) {
     handler->sendReplyWithBody(200, 1);
   });
 
-  if (!IS_HQ) {
-    // h3 doesn't withold the body byte, so it doesn't get paused/resumed.
-    // We could force it to hold the byte back too, but the test is more
-    // interesting this way.
-    handler->expectEgressPaused();
-  }
   flushRequestsAndLoop();
   CHECK(eventBase_.loop());
   EXPECT_GE(socketDriver_->streams_[id].writeBuf.chainLength(),
             estimatedSize - bytesWithheld);
   EXPECT_FALSE(socketDriver_->streams_[id].writeEOF);
 
-  if (!IS_HQ) {
-    handler->expectEgressResumed();
-  }
   handler->expectDetachTransaction();
   socketDriver_->getSocket()->setStreamFlowControlWindow(id, estimatedSize);
 
@@ -1521,7 +1518,6 @@ TEST_P(HQDownstreamSessionTest, SendOnFlowControlPaused) {
   });
   handler->expectEgressPaused([&handler] { handler->txn_->sendEOM(); });
   flushRequestsAndLoop();
-  handler->expectEgressResumed();
   socketDriver_->setStreamFlowControlWindow(id, 100);
   handler->expectDetachTransaction();
   eventBase_.loop();
@@ -2181,7 +2177,6 @@ TEST_P(HQDownstreamSessionTest, onErrorEmptyEnqueued) {
     // will think it is enqueued, but session will not.
     handler1->expectEgressPaused();
     handler1->sendBody(101);
-    handler1->sendEOM();
     eventBase_.runInLoop([&handler1, this, id1] {
       handler1->expectError();
       handler1->expectDetachTransaction();

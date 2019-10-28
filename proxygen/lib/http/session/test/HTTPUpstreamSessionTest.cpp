@@ -149,11 +149,12 @@ class HTTPUpstreamTest
   }
 
   void resumeWrites() {
+    std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs;
+    std::swap(cbs, cbs_);
     pauseWrites_ = false;
-    for (auto cb : cbs_) {
+    for (auto cb : cbs) {
       handleWrite(cb);
     }
-    cbs_.clear();
   }
 
   virtual void onWriteChain(
@@ -579,17 +580,19 @@ TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
   handler2->expectEgressPaused();
 
   // send body
-  handler1->txn_->sendBody(makeBuf(70000));
-  handler2->txn_->sendBody(makeBuf(70000));
+  handler1->txn_->sendBody(makeBuf(60000));
+  handler2->txn_->sendBody(makeBuf(60000));
   eventBase_.loopOnce();
 
   // when this handler is resumed, re-pause the pipe
-  handler1->expectEgressResumed(
-      [&] { handler1->txn_->sendBody(makeBuf(70000)); });
+  handler1->expectEgressResumed([&] {
+      handler1->txn_->sendBody(makeBuf(4000));
+      handler2->txn_->sendBody(makeBuf(62000));
+    });
   // handler2 will get a shot
   handler2->expectEgressResumed();
 
-  // both handlers will be paused
+  // But the handlers pause again
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
   resumeWrites();

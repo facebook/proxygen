@@ -26,6 +26,7 @@ namespace proxygen {
 namespace {
 const int64_t kApproximateMTU = 1400;
 const std::chrono::seconds kRateLimitMaxDelay(10);
+const uint64_t kMaxBufferPerTxn = 65536;
 } // namespace
 
 HTTPTransaction::HTTPTransaction(
@@ -1411,26 +1412,38 @@ void HTTPTransaction::notifyTransportPendingEgress() {
 }
 
 void HTTPTransaction::updateHandlerPauseState() {
+  if (isEgressEOMSeen()) {
+    VLOG(4) << "transaction already egress complete, not updating pause state "
+            << *this;
+    return;
+  }
   int64_t availWindow =
       sendWindow_.getSize() - deferredEgressBody_.chainLength();
   // do not count transaction stalled if no more bytes to send,
   // i.e. when availWindow == 0
   if (useFlowControl_ && availWindow < 0 && !flowControlPaused_) {
-    VLOG(4) << "transaction stalled by flow control" << *this;
+    VLOG(4) << "transaction stalled by flow control txn=" << *this;
     if (stats_) {
       stats_->recordTransactionStalled();
     }
   }
   flowControlPaused_ = useFlowControl_ && availWindow <= 0;
+  bool bufferFull = deferredEgressBody_.chainLength() > kMaxBufferPerTxn;
   bool handlerShouldBePaused =
-      egressPaused_ || flowControlPaused_ || egressRateLimited_;
+      egressPaused_ || flowControlPaused_ || egressRateLimited_ || bufferFull;
+
+  if (!egressPaused_ && bufferFull) {
+    VLOG(4) << "Not resuming handler, buffer full, txn=" << *this;
+  }
 
   if (handler_ && handlerShouldBePaused != handlerEgressPaused_) {
     if (handlerShouldBePaused) {
       handlerEgressPaused_ = true;
+      VLOG(4) << "egress paused txn=" << *this;
       handler_->onEgressPaused();
     } else {
       handlerEgressPaused_ = false;
+      VLOG(4) << "egress resumed txn=" << *this;
       handler_->onEgressResumed();
     }
   }
