@@ -480,8 +480,9 @@ class HTTPTransaction
     virtual bool isDraining() const = 0;
 
     virtual HTTPTransaction* newPushedTransaction(
-        HTTPCodec::StreamID assocStreamId,
-        HTTPTransaction::PushHandler* handler) noexcept = 0;
+                           HTTPCodec::StreamID assocStreamId,
+                           HTTPTransaction::PushHandler* handler,
+                           ProxygenError* error = nullptr) noexcept = 0;
 
     virtual HTTPTransaction* newExTransaction(HTTPTransaction::Handler* handler,
                                               HTTPCodec::StreamID controlStream,
@@ -1168,16 +1169,19 @@ class HTTPTransaction
    * transaction is impossible right now.
    */
   virtual HTTPTransaction* newPushedTransaction(
-      HTTPPushTransactionHandler* handler) {
+      HTTPPushTransactionHandler* handler,
+      ProxygenError* error = nullptr) {
     // Pushed transactions do support partially reliable mode, however push
     // promises should be only generated on a fully reliable transaction.
     CHECK(!partiallyReliable_)
         << __func__
         << ": push promises not supported in partially reliable mode.";
     if (isEgressEOMSeen()) {
+      SET_PROXYGEN_ERROR_IF(error,
+        ProxygenError::kErrorEgressEOMSeenOnParentStream);
       return nullptr;
     }
-    auto txn = transport_.newPushedTransaction(id_, handler);
+    auto txn = transport_.newPushedTransaction(id_, handler, error);
     if (txn) {
       pushedTransactions_.insert(txn->getID());
     }

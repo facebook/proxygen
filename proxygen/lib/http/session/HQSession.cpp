@@ -613,18 +613,22 @@ hq::PushId HQSession::createNewPushId(quic::StreamId txnID) {
 // Only supported in Downstream session
 HTTPTransaction* FOLLY_NULLABLE
 HQSession::newPushedTransaction(HTTPCodec::StreamID parentRequestStreamId,
-                                HTTPTransaction::PushHandler* handler) {
+                                HTTPTransaction::PushHandler* handler,
+                                ProxygenError* error) {
 
   if (drainState_ != DrainState::NONE) {
     VLOG(3) << __func__ << " Not creating transaction - draining "
             << drainState_;
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorTransportIsDraining);
     return nullptr;
   }
 
   auto parentRequestStream = findNonDetachedStream(parentRequestStreamId);
   if (!parentRequestStream) {
-    VLOG(3) << __func__ << " Not crating trnasaction - request stream StreamID="
+    VLOG(3) << __func__
+            << " Not creating transaction - request stream StreamID="
             << parentRequestStreamId << " not found";
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorParentStreamNotExist);
     return nullptr;
   }
 
@@ -637,6 +641,7 @@ HQSession::newPushedTransaction(HTTPCodec::StreamID parentRequestStreamId,
   // NOTE: should be cleaned up when the transaction is closed
   if (!pushStreamId) {
     VLOG(3) << __func__ << " failed to create new unidirectional stream";
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
     return nullptr;
   }
 
@@ -648,6 +653,7 @@ HQSession::newPushedTransaction(HTTPCodec::StreamID parentRequestStreamId,
 
   if (!pushStream) {
     LOG(ERROR) << "Creation of the push stream failed, pushID=" << pushId;
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
     return nullptr;
   }
 
@@ -3891,13 +3897,15 @@ void HQSession::HQStreamTransport::sendPushPromise(
 HTTPTransaction* FOLLY_NULLABLE
 HQSession::HQStreamTransport::newPushedTransaction(
     HTTPCodec::StreamID parentRequestStreamId,
-    HTTPTransaction::PushHandler* handler) noexcept {
+    HTTPTransaction::PushHandler* handler,
+    ProxygenError* error) noexcept {
 
   CHECK_EQ(parentRequestStreamId, txn_.getID());
 
   return session_.newPushedTransaction(
       parentRequestStreamId, // stream id of the egress push stream
-      handler);
+      handler,
+      error);
 }
 
 void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(

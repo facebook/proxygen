@@ -615,27 +615,36 @@ void HTTPSession::readErr(const AsyncSocketException& ex) noexcept {
 
 HTTPTransaction* HTTPSession::newPushedTransaction(
     HTTPCodec::StreamID assocStreamId,
-    HTTPTransaction::PushHandler* handler) noexcept {
+    HTTPTransaction::PushHandler* handler,
+    ProxygenError* error) noexcept {
   if (!codec_->supportsPushTransactions()) {
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorPushNotSupported);
     return nullptr;
   }
   CHECK(isDownstream());
   CHECK_NOTNULL(handler);
-  if (draining_ || (outgoingStreams_ >= maxConcurrentOutgoingStreamsRemote_)) {
+  if (draining_) {
+    // This session doesn't support any more push transactions
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorTransportIsDraining);
+    return nullptr;
+  }
+
+  if (outgoingStreams_ >= maxConcurrentOutgoingStreamsRemote_) {
     // This session doesn't support any more push transactions
     // This could be an actual problem - since a single downstream SPDY session
     // might be connected to N upstream hosts, each of which send M pushes,
     // which exceeds the limit.
     // should we queue?
+    SET_PROXYGEN_ERROR_IF(error,
+      ProxygenError::kErrorMaxConcurrentOutgoingStreamLimitReached);
     return nullptr;
   }
 
   HTTPTransaction* txn = createTransaction(
-      codec_->createStream(), assocStreamId, HTTPCodec::NoExAttributes);
+      codec_->createStream(), assocStreamId, HTTPCodec::NoExAttributes, http2::DefaultPriority, error);
   if (!txn) {
     return nullptr;
   }
-
   DestructorGuard dg(this);
   txn->setHandler(handler);
   setNewTransactionPauseState(txn);
@@ -2526,10 +2535,17 @@ HTTPTransaction* HTTPSession::createTransaction(
     HTTPCodec::StreamID streamID,
     const folly::Optional<HTTPCodec::StreamID>& assocStreamID,
     const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
-    const http2::PriorityUpdate& priority) {
-  if (!sock_->good() || transactions_.count(streamID)) {
-    // Refuse to add a transaction on a closing session or if a
-    // transaction of that ID already exists.
+    const http2::PriorityUpdate& priority,
+    ProxygenError* error) {
+  if (!sock_->good()) {
+    // Refuse to add a transaction on a closing session
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorBadSocket);
+    return nullptr;
+  }
+
+  if (transactions_.count(streamID)) {
+    // Refuse to add a transaction if a transaction of that ID already exists.
+    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorDuplicatedStreamId);
     return nullptr;
   }
 

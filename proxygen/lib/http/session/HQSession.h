@@ -243,7 +243,8 @@ class HQSession
   // Create a new pushed transaction.
   HTTPTransaction* newPushedTransaction(
       HTTPCodec::StreamID, /* parentRequestStreamId */
-      HTTPTransaction::PushHandler* /* handler */);
+      HTTPTransaction::PushHandler*, /* handler */
+      ProxygenError* error = nullptr);
 
   void startNow() override;
 
@@ -1430,7 +1431,8 @@ class HQSession
 
     HTTPTransaction* newPushedTransaction(
         HTTPCodec::StreamID /* parentTxnId */,
-        HTTPTransaction::PushHandler* /* handler */) noexcept override {
+        HTTPTransaction::PushHandler* /* handler */,
+        ProxygenError* /* error */ = nullptr) noexcept override {
       LOG(FATAL) << __func__ << " Only available via request stream";
       folly::assume_unreachable();
     }
@@ -1746,7 +1748,8 @@ class HQSession
 
     HTTPTransaction* newPushedTransaction(
         HTTPCodec::StreamID /* parentTxnId */,
-        HTTPTransaction::PushHandler* /* handler */) noexcept override;
+        HTTPTransaction::PushHandler* /* handler */,
+        ProxygenError* error = nullptr) noexcept override;
 
     void sendPushPromise(HTTPTransaction* /* txn */,
                          folly::Optional<hq::PushId> /* pushId */,

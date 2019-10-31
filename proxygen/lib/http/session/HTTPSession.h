@@ -473,7 +473,8 @@ class HTTPSession
   void notifyEgressBodyBuffered(int64_t bytes) noexcept override;
   HTTPTransaction* newPushedTransaction(
       HTTPCodec::StreamID assocStreamId,
-      HTTPTransaction::PushHandler* handler) noexcept override;
+      HTTPTransaction::PushHandler* handler,
+      ProxygenError* error = nullptr) noexcept override;
   HTTPTransaction* newExTransaction(
       HTTPTransaction::Handler* handler,
       HTTPCodec::StreamID controlStream,
@@ -585,7 +586,8 @@ class HTTPSession
       HTTPCodec::StreamID streamID,
       const folly::Optional<HTTPCodec::StreamID>& assocStreamID,
       const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
-      const http2::PriorityUpdate& priority = http2::DefaultPriority);
+      const http2::PriorityUpdate& priority = http2::DefaultPriority,
+      ProxygenError* error = nullptr);
 
   /** Invoked by WriteSegment on completion of a write. */
   void onWriteSuccess(uint64_t bytesWritten);

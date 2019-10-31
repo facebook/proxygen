@@ -70,12 +70,13 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
   GMOCK_METHOD1_(, noexcept, , notifyEgressBodyBuffered, void(int64_t));
   GMOCK_METHOD0_(
       , noexcept, , getLocalAddressNonConst, const folly::SocketAddress&());
-  GMOCK_METHOD2_(,
+  GMOCK_METHOD3_(,
                  noexcept,
                  ,
                  newPushedTransaction,
                  HTTPTransaction*(HTTPCodec::StreamID assocStreamId,
-                                  HTTPTransaction::PushHandler* handler));
+                                  HTTPTransaction::PushHandler* handler,
+                                  ProxygenError* error));
   GMOCK_METHOD3_(,
                  noexcept,
                  ,
@@ -306,8 +307,8 @@ class MockHTTPTransaction : public HTTPTransaction {
   MOCK_METHOD0(pauseIngress, void());
   MOCK_METHOD0(resumeIngress, void());
   MOCK_CONST_METHOD0(handlerEgressPaused, bool());
-  MOCK_METHOD1(newPushedTransaction,
-               HTTPTransaction*(HTTPPushTransactionHandler*));
+  MOCK_METHOD2(newPushedTransaction,
+               HTTPTransaction*(HTTPPushTransactionHandler*, ProxygenError*));
   MOCK_METHOD1(setReceiveWindow, void(uint32_t));
   MOCK_CONST_METHOD0(getReceiveWindow, const Window&());
 

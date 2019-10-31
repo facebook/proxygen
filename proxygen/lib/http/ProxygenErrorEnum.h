@@ -10,6 +10,12 @@
 
 namespace proxygen {
 
+#define SET_PROXYGEN_ERROR_IF(errorPtr, error) do { \
+  if (errorPtr) {                                   \
+    *errorPtr = error;                              \
+  }                                                 \
+} while(false)
+
 // Max must be the last one.
 #define PROXYGEN_ERROR_GEN(x)                   \
     x(None),                                    \
@@ -64,6 +70,15 @@ namespace proxygen {
     x(EarlyDataFailed),                         \
     x(AuthRequired),                            \
     x(Unauthorized),                            \
+    x(EgressEOMSeenOnParentStream),             \
+    x(TransportIsDraining),                     \
+    x(ParentStreamNotExist),                    \
+    x(CreatingStream),                          \
+    x(PushNotSupported),                        \
+    x(MaxConcurrentOutgoingStreamLimitReached), \
+    x(BadSocket),                               \
+    x(DuplicatedStreamId),                      \
+    x(ClientTransactionGone),                   \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63
