@@ -300,7 +300,7 @@ int HTTPMessage::processMaxForwards() {
       int64_t max_forwards = 0;
       try {
         max_forwards = folly::to<int64_t>(value);
-      } catch (const std::range_error& ex) {
+      } catch (const std::range_error&) {
         return 400;
       }
 
@@ -502,7 +502,7 @@ int HTTPMessage::getIntQueryParam(const std::string& name) const {
 int HTTPMessage::getIntQueryParam(const std::string& name, int defval) const {
   try {
     return getIntQueryParam(name);
-  } catch (const std::exception& ex) {
+  } catch (const std::exception&) {
   }
 
   return defval;

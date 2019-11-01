@@ -373,7 +373,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
 
   try {
     numNV = versionSettings_.parseSizeFun(&headerCursor);
-  } catch (const std::out_of_range& ex) {
+  } catch (const std::out_of_range&) {
     return folly::makeUnexpected(GzipDecodeError::BAD_ENCODING);
   }
 
@@ -382,7 +382,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
     try {
       len = versionSettings_.parseSizeFun(&headerCursor);
       uncompressedLength -= versionSettings_.nameValueSize;
-    } catch (const std::out_of_range& ex) {
+    } catch (const std::out_of_range&) {
       return folly::makeUnexpected(GzipDecodeError::BAD_ENCODING);
     }
 

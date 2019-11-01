@@ -1147,7 +1147,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
           int32_t code = -1;
           try {
             code = folly::to<unsigned int>(codePiece);
-          } catch (const std::range_error& ex) {
+          } catch (const std::range_error&) {
             // Toss out the range error cause the exception will get it
           }
           if (code >= 100 && code <= 999) {
@@ -1172,7 +1172,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
             int16_t code = -1;
             try {
               code = folly::to<uint16_t>(value);
-            } catch (const std::range_error& ex) {
+            } catch (const std::range_error&) {
               // eat the push status
             }
             if (code >= 100 && code <= 999) {
