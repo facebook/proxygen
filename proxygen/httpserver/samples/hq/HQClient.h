@@ -35,6 +35,8 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
   proxygen::HTTPTransaction* sendRequest(
       const proxygen::URL& requestUrl);
 
+  void sendRequests(bool closeSession = true);
+
   void connectSuccess() override;
 
   void onReplaySafe() override;

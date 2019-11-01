@@ -87,6 +87,9 @@ DEFINE_uint32(max_cwnd_mss,
 DEFINE_string(static_root,
               "",
               "Path to serve static files from. Disabled if empty.");
+DEFINE_bool(migrate_client,
+            false,
+            "(HQClient) Should the HQClient make two sets of requests and switch sockets in the middle.");
 
 namespace quic { namespace samples {
 
@@ -217,6 +220,7 @@ void initializeTransportSettings(HQParams& hqParams) {
   }
   hqParams.transportSettings.connectUDP = FLAGS_connect_udp;
   hqParams.transportSettings.maxCwndInMss = FLAGS_max_cwnd_mss;
+  hqParams.transportSettings.disableMigration = false;
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParams& hqParams) {
@@ -247,6 +251,8 @@ void initializeHttpSettings(HQParams& hqParams) {
   if (!hqParams.httpHeaders.exists(proxygen::HTTP_HEADER_HOST)) {
     hqParams.httpHeaders.set(proxygen::HTTP_HEADER_HOST, hqParams.host);
   }
+
+  hqParams.migrateClient = FLAGS_migrate_client;
 
 } // initializeHttpSettings
 

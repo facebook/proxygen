@@ -105,6 +105,8 @@ struct HQParams {
   std::string pskFilePath;
   std::shared_ptr<quic::QuicPskCache> pskCache;
   fizz::server::ClientAuthMode clientAuth{fizz::server::ClientAuthMode::None};
+
+  bool migrateClient{false};
 };
 
 struct HQInvalidParam {

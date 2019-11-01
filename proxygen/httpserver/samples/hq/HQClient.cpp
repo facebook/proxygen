@@ -62,6 +62,13 @@ void HQClient::start() {
   session_->startNow();
   quicClient_->start(session_);
 
+  // This is to flush the CFIN out so the server will see the handshake as
+  // complete.
+  evb_.loopForever();
+  if (params_.migrateClient) {
+    quicClient_->replaceSocket(std::make_unique<folly::AsyncUDPSocket>(&evb_));
+    sendRequests();
+  }
   evb_.loop();
 }
 
@@ -118,18 +125,26 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
   return txn;
 }
 
-void HQClient::connectSuccess() {
+void HQClient::sendRequests(bool closeSession) {
   VLOG(10) << "http-version:" << params_.httpVersion;
   for (const auto& path : params_.httpPaths) {
     proxygen::URL requestUrl(path.str(), /*secure=*/true);
     sendRequest(requestUrl);
+
   }
-  session_->drain();
-  session_->closeWhenIdle();
+  if (closeSession) {
+    session_->drain();
+    session_->closeWhenIdle();
+  }
+}
+
+void HQClient::connectSuccess() {
+  sendRequests(!params_.migrateClient);
 }
 
 void HQClient::onReplaySafe() {
   VLOG(10) << "Transport replay safe";
+  evb_.terminateLoopSoon();
 }
 
 void HQClient::connectError(std::pair<quic::QuicErrorCode, std::string> error) {
