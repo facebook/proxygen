@@ -48,6 +48,8 @@ const uint64_t kDefaultPartiallyReliableChunkDelayMs = 0;
 
 class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
  public:
+  BaseQuicHandler() = delete;
+
   explicit BaseQuicHandler(const HQParams& params) : params_(params) {
   }
 
@@ -130,7 +132,7 @@ class EchoHandler : public BaseQuicHandler {
   explicit EchoHandler(const HQParams& params) : BaseQuicHandler(params) {
   }
 
-  EchoHandler() = default;
+  EchoHandler() = delete;
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
@@ -519,7 +521,7 @@ class ContinueHandler : public EchoHandler {
   explicit ContinueHandler(const HQParams& params) : EchoHandler(params) {
   }
 
-  ContinueHandler() = default;
+  ContinueHandler() = delete;
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
@@ -543,7 +545,7 @@ class RandBytesGenHandler : public BaseQuicHandler {
       : BaseQuicHandler(params) {
   }
 
-  RandBytesGenHandler() = default;
+  RandBytesGenHandler() = delete;
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
@@ -672,7 +674,7 @@ class DummyHandler : public BaseQuicHandler {
   explicit DummyHandler(const HQParams& params) : BaseQuicHandler(params) {
   }
 
-  DummyHandler() = default;
+  DummyHandler() = delete;
 
   void onHeadersComplete(
       std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override {
