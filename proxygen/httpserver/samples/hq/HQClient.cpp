@@ -159,7 +159,7 @@ void HQClient::initializeQuicClient() {
 
   client->setPacingTimer(pacingTimer_);
   client->setHostname(params_.host);
-  client->setFizzClientContext(createFizzClientContext(params_));
+  client->setFizzClientQuicHandshakeContext(createFizzClientContext(params_));
   // This is only for testing, this should not be use in prod
   client->setCertificateVerifier(
       std::make_unique<

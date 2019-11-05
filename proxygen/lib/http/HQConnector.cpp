@@ -59,7 +59,7 @@ void HQConnector::connect(
   auto sock = std::make_unique<folly::AsyncUDPSocket>(eventBase);
   auto quicClient =
       quic::QuicClientTransport::newClient(eventBase, std::move(sock));
-  quicClient->setFizzClientContext(fizzContext);
+  quicClient->setFizzClientQuicHandshakeContext(fizzContext);
   quicClient->setCertificateVerifier(std::move(verifier));
   quicClient->setHostname(sni.value_or(connectAddr.getAddressStr()));
   quicClient->addNewPeerAddress(connectAddr);
