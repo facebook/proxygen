@@ -79,6 +79,7 @@ namespace proxygen {
     x(BadSocket),                               \
     x(DuplicatedStreamId),                      \
     x(ClientTransactionGone),                   \
+    x(NetworkSwitch),                           \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63
