@@ -399,32 +399,19 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
     EXPECT_CALL(*sock_, closeGracefully())
         .WillRepeatedly(testing::Invoke([this]() {
-          flushWrites();
-          auto& connState = streams_[kConnectionStreamId];
-          connState.readState = CLOSED;
-          connState.writeState = CLOSED;
+          closeConnection();
           expectStreamsIdle();
         }));
 
-    EXPECT_CALL(*sock_, close(testing::_))
-        .WillOnce(testing::Invoke(
+    // For the purpose of testing close and closeNe=ow are identical
+    EXPECT_CALL(*sock_, closeNow(testing::_))
+        .WillRepeatedly(testing::Invoke(
             [this](folly::Optional<std::pair<QuicErrorCode, std::string>>
-                       errorCode) {
-              flushWrites();
-              auto& connState = streams_[kConnectionStreamId];
-              connState.readState = CLOSED;
-              connState.writeState = CLOSED;
-              if (errorCode) {
-                quic::ApplicationErrorCode* err =
-                    errorCode->first.asApplicationErrorCode();
-                if (err) {
-                  connState.error = *err;
-                }
-              }
-              sock_->cb_ = nullptr;
-              deliverConnectionError(errorCode.value_or(std::make_pair(
-                  LocalErrorCode::NO_ERROR, "Closing socket with no error")));
-            }));
+                       errorCode) { closeImpl(errorCode); }));
+    EXPECT_CALL(*sock_, close(testing::_))
+        .WillRepeatedly(testing::Invoke(
+            [this](folly::Optional<std::pair<QuicErrorCode, std::string>>
+                       errorCode) { closeImpl(errorCode); }));
     EXPECT_CALL(*sock_, resetStream(testing::_, testing::_))
         .WillRepeatedly(testing::Invoke(
             [this](quic::StreamId id, quic::ApplicationErrorCode error) {
@@ -856,6 +843,30 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         50);
   }
 
+  void closeConnection() {
+    flushWrites();
+    auto& connState = streams_[kConnectionStreamId];
+    connState.readState = CLOSED;
+    connState.writeState = CLOSED;
+  }
+
+  void closeImpl(
+      folly::Optional<std::pair<QuicErrorCode, std::string>> errorCode) {
+
+    closeConnection();
+    if (errorCode) {
+      quic::ApplicationErrorCode* err =
+          errorCode->first.asApplicationErrorCode();
+      if (err) {
+        auto& connState = streams_[kConnectionStreamId];
+        connState.error = *err;
+      }
+    }
+    sock_->cb_ = nullptr;
+    deliverConnectionError(errorCode.value_or(std::make_pair(
+        LocalErrorCode::NO_ERROR, "Closing socket with no error")));
+  }
+
   void flushWrites(StreamId id = kConnectionStreamId) {
     auto& connState = streams_[kConnectionStreamId];
     for (auto& it : streams_) {
@@ -1038,6 +1049,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               stream.readState = OPEN;
               if (sock_->cb_) {
                 if (sock_->isUnidirectionalStream(event.streamId)) {
+                  stream.writeState = CLOSED;
                   sock_->cb_->onNewUnidirectionalStream(event.streamId);
                 } else {
                   sock_->cb_->onNewBidirectionalStream(event.streamId);
