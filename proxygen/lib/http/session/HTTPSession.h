@@ -888,7 +888,9 @@ class HTTPSession
   bool maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
                                              uint32_t txnSeqn);
 
-  void incrementOutgoingStreams();
+  void incrementOutgoingStreams(HTTPTransaction* txn);
+  void incrementIncomingStreams(HTTPTransaction* txn);
+
 
   // returns true if the threshold has been exceeded
   bool incrementNumControlMsgsInCurInterval(http2::FrameType frameType);

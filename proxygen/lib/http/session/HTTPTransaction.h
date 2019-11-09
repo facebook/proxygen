@@ -1345,10 +1345,14 @@ class HTTPTransaction
     return ret;
   }
 
-  bool testAndClearActive() {
-    bool ret = inActiveSet_;
-    inActiveSet_ = false;
+  bool testAndClearIsCountedTowardsStreamLimit() {
+    bool ret = isCountedTowardsStreamLimit_;
+    isCountedTowardsStreamLimit_ = false;
     return ret;
+  }
+
+  void setIsCountedTowardsStreamLimit() {
+    isCountedTowardsStreamLimit_ = true;
   }
 
   /**
@@ -1790,7 +1794,7 @@ peek(PeekCallback peekCallback);
   bool firstByteSent_ : 1;
   bool firstHeaderByteSent_ : 1;
   bool inResume_ : 1;
-  bool inActiveSet_ : 1;
+  bool isCountedTowardsStreamLimit_ : 1;
   bool ingressErrorSeen_ : 1;
   bool priorityFallback_ : 1;
   bool headRequest_ : 1;

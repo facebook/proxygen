@@ -1619,7 +1619,7 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
 
   // for push response count towards the MAX_CONCURRENT_STREAMS limit
   if (isDownstream() && headers.isResponse() && txn->isPushed()) {
-    incrementOutgoingStreams();
+    incrementOutgoingStreams(txn);
   }
 
   // For all upstream headers, addFirstHeaderByteEvent should be added
@@ -1847,11 +1847,13 @@ void HTTPSession::decrementTransactionCount(HTTPTransaction* txn,
                                             bool egressEOM) {
   if ((isUpstream() && !txn->isPushed()) ||
       (isDownstream() && txn->isPushed())) {
-    if (ingressEOM && txn->testAndClearActive()) {
+    if (ingressEOM && txn->testAndClearIsCountedTowardsStreamLimit()) {
+      DCHECK_NE(outgoingStreams_, 0);
       outgoingStreams_--;
     }
   } else {
-    if (egressEOM && txn->testAndClearActive()) {
+    if (egressEOM && txn->testAndClearIsCountedTowardsStreamLimit()) {
+      DCHECK_NE(incomingStreams_, 0);
       incomingStreams_--;
     }
   }
@@ -2601,18 +2603,27 @@ HTTPTransaction* HTTPSession::createTransaction(
   txn->setReceiveWindow(receiveStreamWindowSize_);
 
   if (isUpstream() && !txn->isPushed()) {
-    incrementOutgoingStreams();
+    incrementOutgoingStreams(txn);
     // do not count towards MAX_CONCURRENT_STREAMS for PUSH_PROMISE
   } else if (!(isDownstream() && txn->isPushed())) {
-    incomingStreams_++;
+    incrementIncomingStreams(txn);
   }
+  // Downstream push is counted in HTTPSession::sendHeaders
 
   return txn;
 }
 
-void HTTPSession::incrementOutgoingStreams() {
+void HTTPSession::incrementOutgoingStreams(HTTPTransaction* txn) {
+  DCHECK(txn);
   outgoingStreams_++;
+  txn->setIsCountedTowardsStreamLimit();
   HTTPSessionBase::onNewOutgoingStream(outgoingStreams_);
+}
+
+void HTTPSession::incrementIncomingStreams(HTTPTransaction* txn) {
+  DCHECK(txn);
+  incomingStreams_++;
+  txn->setIsCountedTowardsStreamLimit();
 }
 
 bool HTTPSession::incrementNumControlMsgsInCurInterval(

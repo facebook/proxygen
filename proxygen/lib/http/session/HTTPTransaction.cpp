@@ -66,7 +66,7 @@ HTTPTransaction::HTTPTransaction(
       firstByteSent_(false),
       firstHeaderByteSent_(false),
       inResume_(false),
-      inActiveSet_(true),
+      isCountedTowardsStreamLimit_(false),
       ingressErrorSeen_(false),
       priorityFallback_(false),
       headRequest_(false),

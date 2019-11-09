@@ -3151,6 +3151,7 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
 
   parseOutput(*clientCodec_);
   expectDetachSession();
+  EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
 }
 
 TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeightsTinyRatio) {
