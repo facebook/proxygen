@@ -409,9 +409,14 @@ writeData(folly::IOBufQueue& writeBuf,
  * combined length of the data buffer and the padding and priority fields MUST
  * NOT exceed 2^14 - 1, which is kMaxFramePayloadLength.
  *
+ * @param headerBuf Buffer that will contain the frame header and other fields
+ *                  before the header block.  Must be sized correctly and
+ *                  in the queue.  Call calculatePreHeaderBlockSize/preallocate/
+ *                  postallocate.
+ * @param headeBufLen Length of headerBuf
  * @param writeBuf The output queue to write to. It may grow or add
  *                 underlying buffers inside this function.
- * @param headers The encoded headers data to write out.
+ * @param headersLen The length of the encoded headers data (already in writBuf)
  * @param stream The stream identifier of the HEADERS frame.
  * @param priority If present, the priority depedency information to
  *                 update the stream with.
@@ -421,8 +426,9 @@ writeData(folly::IOBufQueue& writeBuf,
  * @return The number of bytes written to writeBuf.
  */
 size_t
-writeHeaders(folly::IOBufQueue& writeBuf,
-             std::unique_ptr<folly::IOBuf> headers,
+writeHeaders(uint8_t* headerBuf, size_t headerBufLen,
+             folly::IOBufQueue& queue,
+             size_t headersLen,
              uint32_t stream,
              folly::Optional<PriorityUpdate> priority,
              folly::Optional<uint8_t> padding,
@@ -434,9 +440,14 @@ writeHeaders(folly::IOBufQueue& writeBuf,
  * header. The combined length of the data buffer and the padding and priority
  * fields MUST NOT exceed 2^14 - 1, which is kMaxFramePayloadLength.
  *
- * @param writeBuf The output queue to write to. It may grow or add
+ * @param headerBuf Buffer that will contain the frame header and other fields
+ *                  before the header block.  Must be sized correctly and
+ *                  in the queue.  Call calculatePreHeaderBlockSize/preallocate/
+ *                  postallocate.
+ * @param headeBufLen Length of headerBuf
+ * @param queue The output queue to write to. It may grow or add
  *                 underlying buffers inside this function.
- * @param headers The encoded headers data to write out.
+ * @param headersLen The length encoded headers (already in queue).
  * @param stream The stream identifier of the ExHEADERS frame.
  * @param exAttributes Attributes specific to ExHEADERS frame.
  * @param priority If present, the priority depedency information to
@@ -447,8 +458,9 @@ writeHeaders(folly::IOBufQueue& writeBuf,
  * @return The number of bytes written to writeBuf.
  */
 size_t
-writeExHeaders(folly::IOBufQueue& writeBuf,
-               std::unique_ptr<folly::IOBuf> headers,
+writeExHeaders(uint8_t* headerBuf, size_t headerBufLen,
+               folly::IOBufQueue& queue,
+               size_t headersLen,
                uint32_t stream,
                const HTTPCodec::ExAttributes& exAttributes,
                const folly::Optional<PriorityUpdate>& priority,
@@ -509,23 +521,31 @@ writeSettingsAck(folly::IOBufQueue& writeBuf);
  * Writes an entire PUSH_PROMISE frame, including the common frame
  * header.
  *
- * @param writeBuf The output queue to write to. It may grow or add
- *                 underlying buffers inside this function.
+ * @param headerBuf Buffer that will contain the frame header and other fields
+ *                  before the header block.  Must be sized correctly and
+ *                  in the queue.  Call calculatePreHeaderBlockSize/preallocate/
+ *                  postallocate.
+ * @param headeBufLen Length of headerBuf
+ * @param queue The output queue to write to. It may grow or add
+ *              underlying buffers inside this function.
  * @param associatedStream The identifier of the stream the promised
  *                         stream is associated with.
  * @param promisedStream The identifier of the promised stream.
- * @param headers The encoded headers to include in the push promise frame.
+ * @param headersLen The length of the encoded headers (already in queue).
  * @param padding If not kNoPadding, adds 1 byte pad len and @padding pad bytes
  * @param endHeaders True iff no CONTINUATION frames will follow this frame.
  * @return The number of bytes written to writeBuf/
  */
 size_t
-writePushPromise(folly::IOBufQueue& writeBuf,
+writePushPromise(uint8_t* headerBuf, size_t headerBufLen,
+                 folly::IOBufQueue& queue,
                  uint32_t associatedStream,
                  uint32_t promisedStream,
-                 std::unique_ptr<folly::IOBuf> headers,
+                 size_t headersLen,
                  folly::Optional<uint8_t> padding,
                  bool endHeaders) noexcept;
+
+
 /**
  * Generate an entire PING frame, including the common frame header.
  *
@@ -655,4 +675,22 @@ size_t writeCertificate(folly::IOBufQueue& writeBuf,
  * @return string representation of the frame type
  */
 const char* getFrameTypeString(FrameType type);
-}}
+
+/**
+ * Calculate the amount of space needed for the frame header and any payload
+ * components that come before the header block.
+ *
+ * @param hasAssociatedStream Set for PUSH_PROMISE
+ * @param hasExAttributes Set for EX_HEADERS
+ * @param hasPriority Set if there is priority
+ * @param hasPadding Set if there is padding
+ */
+uint8_t
+calculatePreHeaderBlockSize(
+  bool hasAssocStream,
+  bool hasExAttributes,
+  bool hasPriority,
+  bool hasPadding);
+
+}
+}

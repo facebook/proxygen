@@ -287,9 +287,16 @@ TEST_F(HTTP2FramerTest, Priority) {
 }
 
 TEST_F(HTTP2FramerTest, HeadersWithPaddingAndPriority) {
-  auto body = makeBuf(500);
-  writeHeaders(queue_, body->clone(), 1, {{0, true, 12}}, 200,
-               false, false);
+  auto headersLen = 500;
+  auto body = makeBuf(headersLen);
+  http2::PriorityUpdate pri{0, true, 12};
+  uint8_t padding = 200;
+  auto headerSize = calculatePreHeaderBlockSize(false, false, true, true);
+  auto fheader = queue_.preallocate(headerSize, 32);
+  queue_.postallocate(headerSize);
+  queue_.append(body->clone());
+  writeHeaders((uint8_t*)fheader.first, fheader.second, queue_, headersLen,
+               1, pri, padding, false, false);
 
   FrameHeader header;
   folly::Optional<PriorityUpdate> priority;
@@ -630,8 +637,15 @@ TEST_F(HTTP2FramerTest, UnknownSetting) {
 }
 
 TEST_F(HTTP2FramerTest, PushPromise) {
-  auto body = makeBuf(500);
-  writePushPromise(queue_, 21, 22, body->clone(), 255, true);
+  auto headersLen = 500;
+  auto body = makeBuf(headersLen);
+  uint8_t padding = 255;
+  auto headerSize = calculatePreHeaderBlockSize(22, false, false, true);
+  auto fheader = queue_.preallocate(headerSize, 32);
+  queue_.postallocate(headerSize);
+  queue_.append(body->clone());
+  writePushPromise((uint8_t*)fheader.first, fheader.second, queue_,
+                   21, 22, headersLen, padding, true);
 
   FrameHeader header;
   uint32_t promisedStream;
@@ -660,12 +674,20 @@ TEST_F(HTTP2FramerTest, Continuation) {
 }
 
 TEST_F(HTTP2FramerTest, ExHeaders) {
-  auto body = makeBuf(500);
   uint32_t streamID = folly::Random::rand32(10, 1024) * 2 + 1;
   uint32_t controlStream = streamID - 2;
-  writeExHeaders(queue_, body->clone(), streamID,
-                 HTTPCodec::ExAttributes(controlStream, false),
-                 {{0, true, 12}}, 200, false, false);
+  HTTPCodec::ExAttributes attr(controlStream, false);
+  auto headersLen = 500;
+  auto body = makeBuf(headersLen);
+  http2::PriorityUpdate pri{0, true, 12};
+  uint8_t padding = 200;
+  auto headerSize = calculatePreHeaderBlockSize(false, true, true, true);
+  auto fheader = queue_.preallocate(headerSize, 32);
+  queue_.postallocate(headerSize);
+  queue_.append(body->clone());
+
+  writeExHeaders((uint8_t*)fheader.first, fheader.second, queue_, headersLen,
+                 streamID, attr, pri, padding, false, false);
 
   FrameHeader header;
   HTTPCodec::ExAttributes outExAttributes;
@@ -688,12 +710,20 @@ TEST_F(HTTP2FramerTest, ExHeaders) {
 }
 
 TEST_F(HTTP2FramerTest, ExHeadersWithFlagsSet) {
-  auto body = makeBuf(500);
   uint32_t streamID = folly::Random::rand32(10, 1024) * 2 + 1;
   uint32_t controlStream = streamID - 2;
-  writeExHeaders(queue_, body->clone(), streamID,
-                 HTTPCodec::ExAttributes(controlStream, true),
-                 folly::none, 0, true, true);
+  HTTPCodec::ExAttributes attr(controlStream, false);
+  auto headersLen = 500;
+  auto body = makeBuf(headersLen);
+  uint8_t padding = 0;
+  auto headerSize = calculatePreHeaderBlockSize(false, true, false, true);
+  auto fheader = queue_.preallocate(headerSize, 32);
+  queue_.postallocate(headerSize);
+  queue_.append(body->clone());
+
+  writeExHeaders((uint8_t*)fheader.first, fheader.second, queue_, headersLen,
+                 streamID, HTTPCodec::ExAttributes(controlStream, true),
+                 folly::none, padding, true, true);
 
   FrameHeader header;
   HTTPCodec::ExAttributes outExAttributes;

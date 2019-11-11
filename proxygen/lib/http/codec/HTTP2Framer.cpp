@@ -44,6 +44,21 @@ void writePriorityBody(QueueAppender& appender,
   appender.writeBE<uint8_t>(weight);
 }
 
+void writePriorityBody(uint8_t* buf,
+                       uint32_t streamDependency,
+                       bool exclusive,
+                       uint8_t weight) {
+  DCHECK_EQ(0, ~kUint31Mask & streamDependency);
+
+  if (exclusive) {
+    streamDependency |= ~kUint31Mask;
+  }
+  streamDependency = htonl(streamDependency);
+  memcpy(buf, &streamDependency, sizeof(streamDependency));
+  buf += sizeof(streamDependency);
+  *buf = weight;
+}
+
 void writePadding(IOBufQueue& queue, folly::Optional<uint8_t> size) {
   if (size && *size > 0) {
     auto out = queue.preallocate(*size, *size);
@@ -57,17 +72,14 @@ void writePadding(IOBufQueue& queue, folly::Optional<uint8_t> size) {
  * bits that sometimes come right after the frame header. Returns the
  * length field written to the common frame header.
  */
-size_t writeFrameHeader(IOBufQueue& queue,
-                        uint32_t length,
-                        FrameType type,
-                        uint8_t flags,
-                        uint32_t stream,
-                        folly::Optional<uint8_t> padding,
-                        folly::Optional<PriorityUpdate> priority,
-                        std::unique_ptr<IOBuf> payload,
-                        bool reuseIOBufHeadroom = true) noexcept {
-  size_t headerSize = kFrameHeaderSize;
 
+size_t computeLengthAndType(uint32_t length,
+                            FrameType type,
+                            uint8_t& flags,
+                            uint32_t stream,
+                            folly::Optional<uint8_t> padding,
+                            folly::Optional<PriorityUpdate> priority,
+                            size_t& headerSize) {
   // the acceptable length is now conditional based on state :(
   DCHECK_EQ(0, ~kLengthMask & length);
   DCHECK_EQ(0, ~kUint31Mask & stream);
@@ -99,8 +111,24 @@ size_t writeFrameHeader(IOBufQueue& queue,
 
   DCHECK_EQ(0, ~kLengthMask & length);
   DCHECK_EQ(true, isValidFrameType(type));
-  uint32_t lengthAndType =
-    ((kLengthMask & length) << 8) | static_cast<uint8_t>(type);
+  return ((kLengthMask & length) << 8) | static_cast<uint8_t>(type);
+}
+
+// There are two versions of writeFrameHeader.  One takes an IOBufQueue and
+// uses a QueueAppender.  The other takes a raw buffer.
+
+size_t writeFrameHeader(IOBufQueue& queue,
+                        uint32_t length,
+                        FrameType type,
+                        uint8_t flags,
+                        uint32_t stream,
+                        folly::Optional<uint8_t> padding,
+                        folly::Optional<PriorityUpdate> priority,
+                        std::unique_ptr<IOBuf> payload,
+                        bool reuseIOBufHeadroom = true) noexcept {
+  size_t headerSize = kFrameHeaderSize;
+  uint32_t lengthAndType = computeLengthAndType(length, type, flags, stream,
+                                                padding, priority, headerSize);
 
   uint64_t payloadLength = 0;
   if (reuseIOBufHeadroom && payload && !payload->isSharedOne() &&
@@ -136,6 +164,45 @@ size_t writeFrameHeader(IOBufQueue& queue,
   }
   queue.append(std::move(payload));
 
+  return length;
+}
+
+size_t writeFrameHeader(uint8_t* buf, size_t bufLen,
+                        uint32_t length,
+                        FrameType type,
+                        uint8_t flags,
+                        uint32_t stream,
+                        folly::Optional<uint8_t> padding,
+                        folly::Optional<PriorityUpdate> priority) noexcept {
+  size_t headerSize = kFrameHeaderSize;
+  uint32_t lengthAndType = computeLengthAndType(length, type, flags, stream,
+                                                padding, priority, headerSize);
+
+  CHECK_GE(bufLen, headerSize);
+  lengthAndType = htonl(lengthAndType);
+  memcpy(buf, &lengthAndType, sizeof(lengthAndType));
+  buf += sizeof(lengthAndType);
+  *buf = flags;
+  buf++;
+  stream &= kUint31Mask;
+  stream = htonl(stream);
+  memcpy(buf, &stream, sizeof(stream));
+  buf += sizeof(stream);
+  bufLen -= kFrameHeaderSize;
+
+  if (padding) {
+    CHECK_GE(bufLen, 1);
+    *buf = *padding;
+    buf++;
+    bufLen--;
+  }
+  if (priority) {
+    CHECK_GE(bufLen, kFramePrioritySize);
+    CHECK_LE(priority->streamDependency, std::numeric_limits<uint32_t>::max());
+    writePriorityBody(buf, (uint32_t)priority->streamDependency,
+                      priority->exclusive,
+                      priority->weight);
+  }
   return length;
 }
 
@@ -634,16 +701,33 @@ writeData(IOBufQueue& queue,
   return kFrameHeaderSize + frameLen;
 }
 
+uint8_t
+calculatePreHeaderBlockSize(
+  bool hasAssocStream,
+  bool hasExAttributes,
+  bool hasPriority,
+  bool hasPadding) {
+  uint8_t headerSize = http2::kFrameHeaderSize +
+    ((hasAssocStream || hasExAttributes) ? sizeof(uint32_t) : 0);
+  if (hasPriority && !hasAssocStream) {
+    headerSize += http2::kFramePrioritySize;
+  }
+  if (hasPadding) {
+    headerSize += 1;
+  }
+  return headerSize;
+}
+
 size_t
-writeHeaders(IOBufQueue& queue,
-             std::unique_ptr<IOBuf> headers,
+writeHeaders(uint8_t* header, size_t headerLen,
+             IOBufQueue& queue,
+             size_t headersLen,
              uint32_t stream,
              folly::Optional<PriorityUpdate> priority,
              folly::Optional<uint8_t> padding,
              bool endStream,
              bool endHeaders) noexcept {
   DCHECK_NE(0, stream);
-  const auto dataLen = (headers) ? headers->computeChainDataLength() : 0;
   uint32_t flags = 0;
   if (priority) {
     flags |= PRIORITY;
@@ -655,21 +739,21 @@ writeHeaders(IOBufQueue& queue,
     flags |= END_HEADERS;
   }
   // padding flags handled directly inside writeFrameHeader()
-  const auto frameLen = writeFrameHeader(queue,
-                                         dataLen,
+  const auto frameLen = writeFrameHeader(header, headerLen,
+                                         headersLen,
                                          FrameType::HEADERS,
                                          flags,
                                          stream,
                                          padding,
-                                         priority,
-                                         std::move(headers));
+                                         priority);
   writePadding(queue, padding);
   return kFrameHeaderSize + frameLen;
 }
 
 size_t
-writeExHeaders(IOBufQueue& queue,
-               std::unique_ptr<IOBuf> headers,
+writeExHeaders(uint8_t* header, size_t headerLen,
+               IOBufQueue& queue,
+               size_t headersLen,
                uint32_t stream,
                const HTTPCodec::ExAttributes& exAttributes,
                const folly::Optional<PriorityUpdate>& priority,
@@ -683,7 +767,6 @@ writeExHeaders(IOBufQueue& queue,
   DCHECK(0x1 & exAttributes.controlStream) <<
     "controlStream should be initiated by client";
 
-  const auto dataLen = (headers) ? headers->computeChainDataLength() : 0;
   uint32_t flags = 0;
   if (priority) {
     flags |= PRIORITY;
@@ -698,20 +781,22 @@ writeExHeaders(IOBufQueue& queue,
     flags |= UNIDIRECTIONAL;
   }
 
-  const auto frameLen = writeFrameHeader(queue,
-                                         dataLen + kFrameStreamIDSize,
+  const auto frameLen = writeFrameHeader(header, headerLen,
+                                         headersLen + kFrameStreamIDSize,
                                          FrameType::EX_HEADERS,
                                          flags,
                                          stream,
                                          padding,
-                                         priority,
-                                         nullptr);
+                                         priority);
+  uint8_t* csPtr = header + kFrameHeaderSize + ((padding) ? 1 : 0) +
+    ((priority) ? kFramePrioritySize : 0);
+  auto controlStream = htonl(exAttributes.controlStream);
+  memcpy(csPtr, &controlStream, sizeof(controlStream));
   QueueAppender appender(&queue, frameLen);
-  appender.writeBE<uint32_t>(exAttributes.controlStream);
-  queue.append(std::move(headers));
   writePadding(queue, padding);
   return kFrameHeaderSize + frameLen;
 }
+
 
 size_t
 writePriority(IOBufQueue& queue,
@@ -783,10 +868,11 @@ writeSettingsAck(IOBufQueue& queue) {
 }
 
 size_t
-writePushPromise(IOBufQueue& queue,
+writePushPromise(uint8_t* header, size_t headerLen,
+                 IOBufQueue& queue,
                  uint32_t associatedStream,
                  uint32_t promisedStream,
-                 std::unique_ptr<IOBuf> headers,
+                 size_t headersLen,
                  folly::Optional<uint8_t> padding,
                  bool endHeaders) noexcept {
   DCHECK_NE(0, promisedStream);
@@ -795,18 +881,19 @@ writePushPromise(IOBufQueue& queue,
   DCHECK_EQ(1, 0x1 & associatedStream);
   DCHECK_EQ(0, ~kUint31Mask & promisedStream);
 
-  const auto dataLen = headers->computeChainDataLength();
-  const auto frameLen = writeFrameHeader(queue,
-                                         dataLen + kFramePushPromiseSize,
+  const auto frameLen = writeFrameHeader(header, headerLen,
+                                         headersLen + kFramePushPromiseSize,
                                          FrameType::PUSH_PROMISE,
                                          endHeaders ? END_HEADERS : 0,
                                          associatedStream,
                                          padding,
-                                         folly::none,
-                                         nullptr);
-  QueueAppender appender(&queue, frameLen);
-  appender.writeBE<uint32_t>(promisedStream);
-  queue.append(std::move(headers));
+                                         folly::none);
+  promisedStream = htonl(promisedStream);
+  uint8_t* psPtr = header + kFrameHeaderSize;
+  if (padding) {
+    psPtr++;
+  }
+  memcpy(psPtr, &promisedStream, sizeof(promisedStream));
   writePadding(queue, padding);
   return kFrameHeaderSize + frameLen;
 }

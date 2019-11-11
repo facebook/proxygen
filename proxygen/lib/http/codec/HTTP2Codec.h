@@ -175,6 +175,11 @@ public:
   }
 
  private:
+  size_t splitCompressed(size_t compressed,
+                         uint32_t remainingFrameSize,
+                         folly::IOBufQueue& writeBuf,
+                         folly::IOBufQueue& queue);
+
   void generateHeaderImpl(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage& msg,
@@ -182,7 +187,8 @@ public:
                           const folly::Optional<ExAttributes>& exAttributes,
                           bool eom,
                           HTTPHeaderSize* size);
-  std::unique_ptr<folly::IOBuf> encodeHeaders(
+  void encodeHeaders(
+      folly::IOBufQueue& writeBuf,
       const HTTPHeaders& headers,
       std::vector<compress::Header>& allHeaders,
       HTTPHeaderSize* size);

@@ -33,6 +33,8 @@ std::string base64url_decode(const std::string& str) {
   return proxygen::Base64::urlDecode(str);
 }
 
+const size_t kDefaultGrowth = 4000;
+
 }
 
 namespace proxygen {
@@ -1096,6 +1098,23 @@ void HTTP2Codec::generateExHeader(folly::IOBufQueue& writeBuf,
                      size);
 }
 
+size_t HTTP2Codec::splitCompressed(size_t compressed,
+                                   uint32_t remainingFrameSize,
+                                   folly::IOBufQueue& writeBuf,
+                                   folly::IOBufQueue& queue) {
+  CHECK_GT(compressed, 0) << "compressed block must be at least 1 byte";
+  auto chunkLen = compressed;
+  if (chunkLen > remainingFrameSize) {
+    // There's more here than fits in one frame.  Put the remainder in queue
+    chunkLen = remainingFrameSize;
+    auto tailSize = compressed - remainingFrameSize;
+    auto head = writeBuf.split(writeBuf.chainLength() - tailSize);
+    queue.append(writeBuf.move());
+    writeBuf.append(std::move(head));
+  }
+  return chunkLen;
+}
+
 void HTTP2Codec::generateHeaderImpl(
     folly::IOBufQueue& writeBuf,
     StreamID stream,
@@ -1104,6 +1123,10 @@ void HTTP2Codec::generateHeaderImpl(
     const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
     bool eom,
     HTTPHeaderSize* size) {
+  HTTPHeaderSize localSize;
+  if (!size) {
+    size = &localSize;
+  }
   if (assocStream) {
     CHECK(!exAttributes);
     VLOG(4) << "generating PUSH_PROMISE for stream=" << stream;
@@ -1144,65 +1167,76 @@ void HTTP2Codec::generateHeaderImpl(
   temps.clear();
   allHeaders.clear();
   CodecUtil::prepareMessageForCompression(msg, allHeaders, temps);
-  auto out = encodeHeaders(msg.getHeaders(), allHeaders, size);
-  IOBufQueue queue(IOBufQueue::cacheChainLength());
-  queue.append(std::move(out));
+
+  auto httpPri = msg.getHTTP2Priority();
+  folly::Optional<http2::PriorityUpdate> pri;
+  if (httpPri) {
+    pri = http2::PriorityUpdate{std::get<0>(*httpPri), std::get<1>(*httpPri),
+                                  std::get<2>(*httpPri)};
+    if (pri->streamDependency == stream) {
+      LOG(ERROR) << "Overwriting circular dependency for stream=" << stream;
+      pri = http2::DefaultPriority;
+    }
+  }
+  auto headerSize = http2::calculatePreHeaderBlockSize(
+    assocStream.hasValue(),
+    exAttributes.hasValue(),
+    pri.hasValue(),
+    false);
   auto maxFrameSize = maxSendFrameSize();
-  if (queue.chainLength() > 0) {
-    folly::Optional<http2::PriorityUpdate> pri;
-    auto res = msg.getHTTP2Priority();
-    auto remainingFrameSize = maxFrameSize;
-    if (res) {
-      pri = http2::PriorityUpdate{std::get<0>(*res), std::get<1>(*res),
-                                  std::get<2>(*res)};
-      DCHECK_GE(remainingFrameSize, http2::kFramePrioritySize)
-        << "no enough space for priority? frameHeadroom=" << remainingFrameSize;
-      remainingFrameSize -= http2::kFramePrioritySize;
-      if (pri->streamDependency == stream) {
-        LOG(ERROR) << "Overwriting circular dependency for stream=" << stream;
-        pri = http2::DefaultPriority;
-      }
-    }
-    auto chunk = queue.split(std::min(remainingFrameSize, queue.chainLength()));
+  uint32_t remainingFrameSize =
+    maxFrameSize - headerSize + http2::kFrameHeaderSize;
+  auto frameHeader = writeBuf.preallocate(headerSize, kDefaultGrowth);
+  writeBuf.postallocate(headerSize);
+  encodeHeaders(writeBuf, msg.getHeaders(), allHeaders, size);
 
-    bool endHeaders = queue.chainLength() == 0;
-
-    if (assocStream) {
-      DCHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
-      DCHECK(!eom);
-      generateHeaderCallbackWrapper(stream, http2::FrameType::PUSH_PROMISE,
-                                    http2::writePushPromise(writeBuf,
-                                                            *assocStream,
-                                                            stream,
-                                                            std::move(chunk),
-                                                            http2::kNoPadding,
-                                                            endHeaders));
-    } else if (exAttributes) {
-      generateHeaderCallbackWrapper(
-        stream,
-        http2::FrameType::EX_HEADERS,
-        http2::writeExHeaders(writeBuf,
-                              std::move(chunk),
+  IOBufQueue queue(IOBufQueue::cacheChainLength());
+  auto chunkLen = splitCompressed(size->compressed, remainingFrameSize,
+                                  writeBuf, queue);
+  bool endHeaders = queue.chainLength() == 0;
+  if (assocStream) {
+    DCHECK_EQ(transportDirection_, TransportDirection::DOWNSTREAM);
+    DCHECK(!eom);
+    generateHeaderCallbackWrapper(
+      stream, http2::FrameType::PUSH_PROMISE,
+      http2::writePushPromise((uint8_t*)frameHeader.first,
+                              frameHeader.second,
+                              writeBuf,
+                              *assocStream,
                               stream,
-                              *exAttributes,
-                              pri,
+                              chunkLen,
                               http2::kNoPadding,
-                              eom,
                               endHeaders));
-    } else {
-      generateHeaderCallbackWrapper(stream, http2::FrameType::HEADERS,
-                                    http2::writeHeaders(writeBuf,
-                                                        std::move(chunk),
-                                                        stream,
-                                                        pri,
-                                                        http2::kNoPadding,
-                                                        eom,
-                                                        endHeaders));
-    }
+  } else if (exAttributes) {
+    generateHeaderCallbackWrapper(
+      stream,
+      http2::FrameType::EX_HEADERS,
+      http2::writeExHeaders((uint8_t*)frameHeader.first,
+                            frameHeader.second,
+                            writeBuf,
+                            chunkLen,
+                            stream,
+                            *exAttributes,
+                            pri,
+                            http2::kNoPadding,
+                            eom,
+                            endHeaders));
+  } else {
+    generateHeaderCallbackWrapper(
+      stream, http2::FrameType::HEADERS,
+      http2::writeHeaders((uint8_t*)frameHeader.first,
+                          frameHeader.second,
+                          writeBuf,
+                          chunkLen,
+                          stream,
+                          pri,
+                          http2::kNoPadding,
+                          eom,
+                          endHeaders));
+  }
 
-    if (!endHeaders) {
-      generateContinuation(writeBuf, queue, stream, maxFrameSize);
-    }
+  if (!endHeaders) {
+    generateContinuation(writeBuf, queue, stream, maxFrameSize);
   }
 }
 
@@ -1223,13 +1257,12 @@ void HTTP2Codec::generateContinuation(folly::IOBufQueue& writeBuf,
   }
 }
 
-std::unique_ptr<folly::IOBuf> HTTP2Codec::encodeHeaders(
+void HTTP2Codec::encodeHeaders(
+    folly::IOBufQueue& writeBuf,
     const HTTPHeaders& headers,
     std::vector<compress::Header>& allHeaders,
     HTTPHeaderSize* size) {
-  headerCodec_.setEncodeHeadroom(http2::kFrameHeaderSize +
-                                 http2::kFrameHeadersBaseMaxSize);
-  auto out = headerCodec_.encode(allHeaders);
+  headerCodec_.encode(allHeaders, writeBuf);
   if (size) {
     *size = headerCodec_.getEncodedSize();
   }
@@ -1249,7 +1282,6 @@ std::unique_ptr<folly::IOBuf> HTTP2Codec::encodeHeaders(
                << headers.size() << " all headers="
                << serializedHeaders;
   }
-  return out;
 }
 
 size_t HTTP2Codec::generateHeaderCallbackWrapper(StreamID stream,
@@ -1322,30 +1354,30 @@ size_t HTTP2Codec::generateTrailers(folly::IOBufQueue& writeBuf,
   std::vector<compress::Header> allHeaders;
   CodecUtil::appendHeaders(trailers, allHeaders, HTTP_HEADER_NONE);
 
-  HTTPHeaderSize size;
-  auto out = encodeHeaders(trailers, allHeaders, &size);
-
+  HTTPHeaderSize size{0, 0, 0};
+  uint8_t headerSize = http2::kFrameHeaderSize;
+  auto remainingFrameSize = maxSendFrameSize();
+  auto frameHeader = writeBuf.preallocate(headerSize, kDefaultGrowth);
+  writeBuf.postallocate(headerSize);
+  encodeHeaders(writeBuf, trailers, allHeaders, &size);
   IOBufQueue queue(IOBufQueue::cacheChainLength());
-  queue.append(std::move(out));
-  auto maxFrameSize = maxSendFrameSize();
-  if (queue.chainLength() > 0) {
-    folly::Optional<http2::PriorityUpdate> pri;
-    auto remainingFrameSize = maxFrameSize;
-    auto chunk = queue.split(std::min(remainingFrameSize, queue.chainLength()));
-    bool endHeaders = queue.chainLength() == 0;
-    generateHeaderCallbackWrapper(stream,
-                                  http2::FrameType::HEADERS,
-                                  http2::writeHeaders(writeBuf,
-                                                      std::move(chunk),
-                                                      stream,
-                                                      pri,
-                                                      http2::kNoPadding,
-                                                      true /*eom*/,
-                                                      endHeaders));
+  auto chunkLen = splitCompressed(size.compressed, remainingFrameSize,
+                                  writeBuf, queue);
+  bool endHeaders = queue.chainLength() == 0;
+  generateHeaderCallbackWrapper(stream,
+                                http2::FrameType::HEADERS,
+                                http2::writeHeaders((uint8_t*)frameHeader.first,
+                                                    frameHeader.second,
+                                                    writeBuf,
+                                                    chunkLen,
+                                                    stream,
+                                                    folly::none,
+                                                    http2::kNoPadding,
+                                                    true /*eom*/,
+                                                    endHeaders));
 
-    if (!endHeaders) {
-      generateContinuation(writeBuf, queue, stream, maxFrameSize);
-    }
+  if (!endHeaders) {
+    generateContinuation(writeBuf, queue, stream, remainingFrameSize);
   }
 
   return size.compressed;
