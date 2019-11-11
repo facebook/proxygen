@@ -2250,9 +2250,12 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
       // If we have an application error code, it must have
       // come from the peer (most likely STOP_SENDING). This
       // is logically a stream abort, not a write error
-      ex.setCodecStatusCode(hqToHttpErrorCode(
-          static_cast<HTTP3::ErrorCode>(*err.asApplicationErrorCode())));
-      ex.setProxygenError(kErrorStreamAbort);
+      auto h3ErrorCode =
+          static_cast<HTTP3::ErrorCode>(*err.asApplicationErrorCode());
+      ex.setCodecStatusCode(hqToHttpErrorCode(h3ErrorCode));
+      ex.setProxygenError(h3ErrorCode == HTTP3::ErrorCode::HTTP_REQUEST_REJECTED
+                              ? kErrorStreamUnacknowledged
+                              : kErrorStreamAbort);
       break;
     }
     case quic::QuicErrorCode::Type::LocalErrorCode_E: {

@@ -829,6 +829,31 @@ TEST_P(HQUpstreamSessionTestHQ, TestDropConnectionSynchronously) {
   eventBase_.loopOnce();
 }
 
+TEST_P(HQUpstreamSessionTestHQ, TestOnStopSendingHTTPRequestRejected) {
+  auto handler = openTransaction();
+  auto streamId = handler->txn_->getID();
+  handler->txn_->sendHeaders(getGetRequest());
+  eventBase_.loopOnce();
+  EXPECT_CALL(*socketDriver_->getSocket(),
+              resetStream(streamId, HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED))
+      .Times(2) // See comment in HTTPSession::handleWriteError
+      .WillRepeatedly(
+          Invoke([&](quic::StreamId id, quic::ApplicationErrorCode) {
+            // setWriteError will cancaleDeliveryCallbacks which will invoke
+            // onCanceled to decrementPendingByteEvents on the txn.
+            socketDriver_->setWriteError(id);
+            return folly::unit;
+          }));
+  EXPECT_CALL(*handler, onError(_))
+      .Times(1)
+      .WillOnce(Invoke([](HTTPException ex) {
+        EXPECT_EQ(kErrorStreamUnacknowledged, ex.getProxygenError());
+      }));
+  handler->expectDetachTransaction();
+  hqSession_->onStopSending(streamId, HTTP3::ErrorCode::HTTP_REQUEST_REJECTED);
+  hqSession_->closeWhenIdle();
+}
+
 // This test is checking two different scenarios for different protocol
 //   - in HQ we already have sent SETTINGS in SetUp, so tests that multiple
 //     setting frames are not allowed
