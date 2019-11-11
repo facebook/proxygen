@@ -23,8 +23,7 @@ namespace proxygen {
  */
 class ServerIdleSessionController {
  public:
-  explicit ServerIdleSessionController(unsigned int maxIdleCount = 2)
-      : maxIdleCount_(maxIdleCount) {
+  explicit ServerIdleSessionController() {
   }
 
   /**
@@ -43,6 +42,14 @@ class ServerIdleSessionController {
    * Stop all session transfers.
    */
   void markForDeath();
+
+  /**
+   * Resize idle pool.
+   */
+  void setMaxIdleCount(unsigned int maxIdleCount) {
+    std::lock_guard<std::mutex> lock(lock_);
+    maxIdleCount_ = maxIdleCount;
+  }
 
  protected:
   struct IdleSessionInfo {
@@ -78,7 +85,8 @@ class ServerIdleSessionController {
   std::unordered_map<const HTTPSessionBase*, IdleSessionListIter> sessionMap_;
   bool markedForDeath_{false};
 
-  const unsigned int maxIdleCount_;
+  // Default idle pool size to 2.
+  unsigned int maxIdleCount_{2};
 };
 
 } // namespace proxygen
