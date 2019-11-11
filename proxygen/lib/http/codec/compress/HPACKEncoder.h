@@ -31,6 +31,10 @@ class HPACKEncoder : public HPACKEncoderBase, public HPACKContext {
     const std::vector<HPACKHeader>& headers,
     uint32_t headroom = 0);
 
+  void encode(
+    const std::vector<HPACKHeader>& headers,
+    folly::IOBufQueue& writeBuf);
+
   void setHeaderTableSize(uint32_t size) {
     HPACKEncoderBase::setHeaderTableSize(table_, size);
   }

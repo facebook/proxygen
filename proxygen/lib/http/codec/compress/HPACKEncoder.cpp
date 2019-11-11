@@ -24,6 +24,17 @@ HPACKEncoder::encode(const vector<HPACKHeader>& headers, uint32_t headroom) {
   return streamBuffer_.release();
 }
 
+void
+HPACKEncoder::encode(const vector<HPACKHeader>& headers,
+                     folly::IOBufQueue& writeBuf) {
+  streamBuffer_.setWriteBuf(&writeBuf);
+  handlePendingContextUpdate(streamBuffer_, table_.capacity());
+  for (const auto& header : headers) {
+    encodeHeader(header);
+  }
+  streamBuffer_.setWriteBuf(nullptr);
+}
+
 bool HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
   if (header.bytes() > table_.capacity()) {
     // May want to investigate further whether or not this is wanted.

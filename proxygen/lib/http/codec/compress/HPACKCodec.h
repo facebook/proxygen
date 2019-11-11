@@ -46,6 +46,10 @@ class HPACKCodec : public HeaderCodec {
   std::unique_ptr<folly::IOBuf> encode(
       std::vector<compress::Header>& headers) noexcept;
 
+  void encode(
+      std::vector<compress::Header>& headers,
+      folly::IOBufQueue& writeBuf) noexcept;
+
   void decodeStreaming(folly::io::Cursor& cursor,
                        uint32_t length,
                        HPACK::StreamingCallback* streamingCb) noexcept;
@@ -91,6 +95,7 @@ class HPACKCodec : public HeaderCodec {
 
  private:
   void recordCompressedSize(const folly::IOBuf* buf);
+  void recordCompressedSize(size_t size);
 
   std::vector<HPACKHeader> decodedHeaders_;
 };

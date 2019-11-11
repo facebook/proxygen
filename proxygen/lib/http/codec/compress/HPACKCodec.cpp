@@ -53,6 +53,16 @@ unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   return buf;
 }
 
+void HPACKCodec::encode(
+  vector<Header>& headers, folly::IOBufQueue& writeBuf) noexcept {
+  folly::ThreadLocal<vector<HPACKHeader>> preparedTL;
+  auto& prepared = *preparedTL.get();
+  encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
+  auto prevSize = writeBuf.chainLength();
+  encoder_.encode(prepared, writeBuf);
+  recordCompressedSize(writeBuf.chainLength() - prevSize);
+}
+
 void HPACKCodec::recordCompressedSize(
   const IOBuf* stream) {
   encodedSize_.compressed = 0;
@@ -61,6 +71,15 @@ void HPACKCodec::recordCompressedSize(
     encodedSize_.compressed += streamDataLength;
     encodedSize_.compressedBlock += streamDataLength;
   }
+  if (stats_) {
+    stats_->recordEncode(Type::HPACK, encodedSize_);
+  }
+}
+
+void HPACKCodec::recordCompressedSize(
+  size_t size) {
+  encodedSize_.compressed = size;
+  encodedSize_.compressedBlock += size;
   if (stats_) {
     stats_->recordEncode(Type::HPACK, encodedSize_);
   }

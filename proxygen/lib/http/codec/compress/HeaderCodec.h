@@ -18,6 +18,7 @@
 
 namespace folly {
 class IOBuf;
+class IOBufQueue;
 }
 
 namespace folly { namespace io {

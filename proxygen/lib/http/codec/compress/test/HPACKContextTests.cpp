@@ -269,6 +269,17 @@ TEST_F(HPACKContextTests, ExcludeHeadersLargerThanTable) {
   CHECK_EQ(encoder.getIndex(headers[0]), 62);
 }
 
+TEST_F(HPACKContextTests, EncodeToWriteBuf) {
+  HPACKEncoder encoder(true);
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  vector<HPACKHeader> headers;
+  headers.push_back(HPACKHeader("x-fb-debug", "test"));
+
+  encoder.encode(headers, writeBuf);
+  EXPECT_GT(writeBuf.chainLength(), 0);
+}
+
+
 TEST_P(HPACKContextTests, ContextUpdate) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
