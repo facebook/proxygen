@@ -102,17 +102,6 @@ class WorkerThread {
   }
 
   /**
-   * Returns a bool that indicates whether this function itself was called
-   * from the underlying thread.  Useful for callers to gate executing
-   * enqueued funcs on destruction as in this case the thread actually
-   * destroying this object, and not the worker thread, may flush out any
-   * remaining funcs on the event base destruction.
-   */
-  bool isInWorkerThread() const noexcept {
-    return getThreadId() == std::this_thread::get_id();
-  }
-
-  /**
    * Get the current WorkerThread running this thread.
    *
    * Returns nullptr if called from a thread that is not running inside
