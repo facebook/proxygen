@@ -129,6 +129,15 @@ TEST(HTTPMessage, TestParseQueryParamsComplex) {
   }
 }
 
+TEST(HTTPMessage, SetInvalidURL) {
+  HTTPMessage msg;
+
+  msg.setURL("http://www.foooooooooooooooooooo.com/bar");
+  EXPECT_EQ(msg.getPathAsStringPiece(), "/bar");
+  msg.setURL("/\t/?tbtkkukgrenncdlvlgbigerblcgjbkgb=1");
+  EXPECT_EQ(msg.getPathAsStringPiece(), "");
+}
+
 TEST(HTTPMessage, TestHeaderPreservation) {
   HTTPMessage msg;
   HTTPHeaders& hdrs = msg.getHeaders();

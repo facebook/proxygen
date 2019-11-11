@@ -224,13 +224,15 @@ class HTTPMessage {
               << u.query();
       req.path_ = u.path();
       req.query_ = u.query();
-      req.pathStr_ = folly::none;
-      req.queryStr_ = folly::none;
-      if (unparse) {
-        unparseQueryParams();
-      }
     } else {
       VLOG(4) << "Error in parsing URL: " << req.url_;
+      req.path_.clear();
+      req.query_.clear();
+    }
+    req.pathStr_ = folly::none;
+    req.queryStr_ = folly::none;
+    if (unparse) {
+      unparseQueryParams();
     }
     return u;
   }
