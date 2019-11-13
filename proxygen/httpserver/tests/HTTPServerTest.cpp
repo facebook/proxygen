@@ -100,7 +100,7 @@ TEST(MultiBind, HandlesListenFailures) {
   // to listen on a FD that another socket is listening on fails.
   try {
     socket->listen(1024);
-  } catch (const std::exception& ex) {
+  } catch (const std::exception&) {
     return;
   }
 
@@ -562,7 +562,7 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
   serverSocket->bind(0);
   try {
     serverSocket->bind(1024);
-  } catch (const std::exception& ex) {
+  } catch (const std::exception&) {
     // This is fine because we are trying to bind to multiple ports
   }
 

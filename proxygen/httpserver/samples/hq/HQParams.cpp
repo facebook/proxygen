@@ -381,7 +381,7 @@ bool HTTPVersion::parse(const std::string& verString) {
     minor = folly::to<uint16_t>(minorVer);
     canonical = folly::to<std::string>(major, ".", minor);
     return true;
-  } catch (const folly::ConversionError& ex) {
+  } catch (const folly::ConversionError&) {
     LOG(ERROR) << "Invalid http-version string: " << version
                << ", defaulting to HTTP/1.1";
     major = 1;

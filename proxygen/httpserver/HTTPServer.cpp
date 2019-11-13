@@ -151,7 +151,7 @@ void HTTPServer::start(std::function<void()> onSuccess,
         bootstrap_[i].bind(addresses_[i].address);
       }
     }
-  } catch (const std::exception& ex) {
+  } catch (const std::exception&) {
     stop();
 
     if (onError) {

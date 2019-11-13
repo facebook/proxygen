@@ -555,7 +555,7 @@ class RandBytesGenHandler : public BaseQuicHandler {
     CHECK_GE(path.size(), 1);
     try {
       respBodyLen_ = folly::to<uint64_t>(path.subpiece(1));
-    } catch (const folly::ConversionError& ex) {
+    } catch (const folly::ConversionError&) {
       auto errorMsg = folly::to<std::string>(
           "Invalid URL: cannot extract requested response-length from url "
           "path: ",
@@ -900,7 +900,7 @@ class StaticFileHandler : public BaseQuicHandler {
       // Strip /static/ and join with /.
       file_ = std::make_unique<folly::File>(
           folly::to<std::string>(staticRoot_, "/", path));
-    } catch (const std::system_error& ex) {
+    } catch (const std::system_error&) {
       auto errorMsg = folly::to<std::string>(
           "Invalid URL: cannot open requested file. "
           "path: ",
