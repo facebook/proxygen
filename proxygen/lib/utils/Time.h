@@ -52,6 +52,11 @@ inline time_t toTimeT(TimePoint t) {
   return std::chrono::system_clock::to_time_t(toSystemTimePoint(t));
 }
 
+inline std::chrono::microseconds microsecondsSinceEpoch() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+    std::chrono::system_clock::now().time_since_epoch());
+}
+
 inline std::chrono::milliseconds millisecondsSinceEpoch() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
     std::chrono::system_clock::now().time_since_epoch());
@@ -185,6 +190,10 @@ class TimeUtilGeneric {
    */
   virtual uint64_t msSinceEpoch() {
     return millisecondsSinceEpoch().count();
+  }
+
+  virtual uint64_t microsSinceEpoch() {
+    return microsecondsSinceEpoch().count();
   }
 };
 
