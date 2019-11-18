@@ -8,6 +8,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import specs.fizz as fizz
+import specs.fmt as fmt
 import specs.folly as folly
 import specs.mvfst as mvfst
 import specs.proxygen_quic as proxygen_quic
@@ -22,7 +23,7 @@ from shell_quoting import ShellQuoted
 
 def fbcode_builder_spec(builder):
     return {
-        "depends_on": [folly, wangle, fizz, sodium, zstd, mvfst, proxygen_quic],
+        "depends_on": [fmt, folly, wangle, fizz, sodium, zstd, mvfst, proxygen_quic],
         "steps": [
             # Tests for the full build with no QUIC/HTTP3
             # Proxygen is the last step, so we are still in its working dir.

@@ -45,6 +45,7 @@ if(NOT PROXYGEN_GPERF)
 endif()
 
 # Dependencies
+find_package(fmt REQUIRED)
 find_package(folly REQUIRED)
 find_package(wangle REQUIRED)
 find_package(Fizz REQUIRED)
