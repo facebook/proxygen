@@ -55,7 +55,8 @@ function install_dependencies_linux() {
     binutils-dev \
     libsodium-dev \
     libzstd-dev \
-    libdouble-conversion-dev
+    libdouble-conversion-dev \
+    libfmt-dev 
 }
 
 function install_dependencies_mac() {
@@ -72,7 +73,8 @@ function install_dependencies_mac() {
     xz                       \
     openssl                  \
     libsodium                \
-    zstd
+    zstd                     \
+    fmt
 
   brew link                 \
     cmake                   \
@@ -86,7 +88,8 @@ function install_dependencies_mac() {
     openssl                 \
     xz                      \
     libsodium               \
-    zstd
+    zstd                    \
+    fmt
 }
 
 function install_dependencies() {
