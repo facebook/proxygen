@@ -26,6 +26,7 @@
 #include <proxygen/lib/utils/UtilInl.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/client/QuicClientTransport.h>
+#include <quic/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
 #include <quic/logging/FileQLogger.h>
 
@@ -154,16 +155,15 @@ void HQClient::connectError(std::pair<quic::QuicErrorCode, std::string> error) {
 
 void HQClient::initializeQuicClient() {
   auto sock = std::make_unique<folly::AsyncUDPSocket>(&evb_);
-  auto client =
-      std::make_shared<quic::QuicClientTransport>(&evb_, std::move(sock));
-
+  auto client = std::make_shared<quic::QuicClientTransport>(
+      &evb_,
+      std::move(sock),
+      quic::FizzClientQuicHandshakeContext::Builder().setFizzClientContext(
+          createFizzClientContext(params_)).setCertificateVerifier(
+          std::make_unique<
+              proxygen::InsecureVerifierDangerousDoNotUseInProduction>()).build());
   client->setPacingTimer(pacingTimer_);
   client->setHostname(params_.host);
-  client->setFizzClientQuicHandshakeContext(createFizzClientContext(params_));
-  // This is only for testing, this should not be use in prod
-  client->setCertificateVerifier(
-      std::make_unique<
-          proxygen::InsecureVerifierDangerousDoNotUseInProduction>());
   client->addNewPeerAddress(params_.remoteAddress.value());
   client->setCongestionControllerFactory(
       std::make_shared<quic::DefaultCongestionControllerFactory>());

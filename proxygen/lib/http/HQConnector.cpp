@@ -10,6 +10,7 @@
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <proxygen/lib/http/session/HQSession.h>
 #include <quic/api/QuicSocket.h>
+#include <quic/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
 
 using namespace folly;
@@ -57,10 +58,13 @@ void HQConnector::connect(
 
   DCHECK(!isBusy());
   auto sock = std::make_unique<folly::AsyncUDPSocket>(eventBase);
-  auto quicClient =
-      quic::QuicClientTransport::newClient(eventBase, std::move(sock));
-  quicClient->setFizzClientQuicHandshakeContext(fizzContext);
-  quicClient->setCertificateVerifier(std::move(verifier));
+  auto quicClient = quic::QuicClientTransport::newClient(
+      eventBase,
+      std::move(sock),
+      quic::FizzClientQuicHandshakeContext::Builder()
+          .setFizzClientContext(fizzContext)
+          .setCertificateVerifier(std::move(verifier))
+          .build());
   quicClient->setHostname(sni.value_or(connectAddr.getAddressStr()));
   quicClient->addNewPeerAddress(connectAddr);
   quicClient->setCongestionControllerFactory(
