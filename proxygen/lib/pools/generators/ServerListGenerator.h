@@ -44,6 +44,12 @@ class ServerListGenerator {
 
     std::string name;
     folly::SocketAddress address;
+    // A field for other addresses that alias the same server.
+    // For example a server may have a v4 and a v6 address.
+    // Most vector implementations start with a cap of 0 so minimal memory
+    // would be used when unused and is why this is still separated from
+    // the above preferred address.
+    std::vector<folly::SocketAddress> altAddresses;
     std::map<std::string, std::string> properties;
     // Optional parameter. It's only set if a server belongs to a group, which
     // is configured in Pool Config.
