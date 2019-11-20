@@ -782,7 +782,7 @@ void HTTPTransaction::onEgressTrackedByteEventAck(const ByteEvent& event) {
 }
 
 void HTTPTransaction::onIngressBodyPeek(uint64_t bodyOffset,
-                                        const folly::IOBufQueue& chain) {
+                                        const folly::IOBuf& chain) {
   FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodyPeek");
   DestructorGuard g(this);
   if (handler_) {

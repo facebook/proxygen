@@ -49,7 +49,7 @@ void PartiallyReliableCurlClient::onError(
 }
 
 void PartiallyReliableCurlClient::onBodyPeek(
-    uint64_t offset, const folly::IOBufQueue& /* chain */) noexcept {
+    uint64_t offset, const folly::IOBuf& /* chain */) noexcept {
   LOG_IF(INFO, loggingEnabled_)
       << "Got " << __func__ << " at offset " << offset;
 }

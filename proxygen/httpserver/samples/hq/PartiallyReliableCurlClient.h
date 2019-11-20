@@ -71,7 +71,7 @@ class PartiallyReliableCurlClient
   void onError(const proxygen::HTTPException& error) noexcept override;
 
   void onBodyPeek(uint64_t offset,
-                  const folly::IOBufQueue& /* chain */) noexcept override;
+                  const folly::IOBuf& /* chain */) noexcept override;
 
   void onBodySkipped(uint64_t offset) noexcept override;
 

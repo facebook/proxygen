@@ -254,8 +254,8 @@ class PrCatHandler
   }
 
   void onBodyPeek(uint64_t offset,
-                       const folly::IOBufQueue& chain) noexcept override {
-    LOG(INFO) << __func__ << ": got " << chain.chainLength()
+                       const folly::IOBuf& chain) noexcept override {
+    LOG(INFO) << __func__ << ": got " << chain.computeChainDataLength()
               << " bytes at offset " << offset;
   }
 

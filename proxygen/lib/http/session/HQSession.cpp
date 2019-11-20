@@ -2916,7 +2916,8 @@ void HQSession::HQStreamTransportBase::processPeekData(
         LOG(ERROR) << __func__ << ": " << bodyOffset.error();
       }
     } else {
-      txn_.onIngressBodyPeek(*bodyOffset, chain);
+      CHECK(chain.front()) << "Got peek data for an empty chain.";
+      txn_.onIngressBodyPeek(*bodyOffset, *chain.front());
     }
   }
 }
@@ -3546,7 +3547,7 @@ folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(
   auto cb = [&](quic::StreamId streamId,
                 const folly::Range<quic::QuicSocket::PeekIterator>& range) {
     for (const auto& entry : range) {
-      peekCallback(streamId, entry.offset, entry.data);
+      peekCallback(streamId, entry.offset, *entry.data.front());
     }
   };
   auto res = session_.sock_->peek(*codecStreamId_, std::move(cb));

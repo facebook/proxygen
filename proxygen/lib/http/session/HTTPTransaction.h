@@ -276,7 +276,7 @@ class HTTPTransactionHandler {
    * buffer.
    */
   virtual void onBodyPeek(uint64_t /* offset */,
-                          const folly::IOBufQueue& /* chain */) noexcept {
+                          const folly::IOBuf& /* chain */) noexcept {
   }
 
   /**
@@ -395,7 +395,7 @@ class HTTPTransaction
   using PeekCallback =
       const folly::Function<void(HTTPCodec::StreamID streamId,
                                  uint64_t /* bodyOffset */,
-                                 const folly::IOBufQueue& /* chain */) const>&;
+                                 const folly::IOBuf& /* chain */) const>&;
   struct FlowControlInfo {
     bool flowControlEnabled_{false};
     int64_t sessionSendWindow_{-1};
@@ -872,7 +872,7 @@ class HTTPTransaction
    * Invoked by the session when data to peek into is available on trasport
    * layer.
    */
-  void onIngressBodyPeek(uint64_t bodyOffset, const folly::IOBufQueue& chain);
+  void onIngressBodyPeek(uint64_t bodyOffset, const folly::IOBuf& chain);
 
   /**
    * Invoked by the session when transaction receives a skip from the peer.

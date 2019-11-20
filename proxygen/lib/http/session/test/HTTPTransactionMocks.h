@@ -158,7 +158,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
   MOCK_METHOD1(peek,
                folly::Expected<folly::Unit, ErrorCode>(
                    const folly::Function<void(
-                       HTTPCodec::StreamID, uint64_t, const folly::IOBufQueue&)
+                       HTTPCodec::StreamID, uint64_t, const folly::IOBuf&)
                                              const>&));
 
   MOCK_METHOD1(consume, folly::Expected<folly::Unit, ErrorCode>(size_t));
