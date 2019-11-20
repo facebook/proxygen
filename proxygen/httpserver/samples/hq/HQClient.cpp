@@ -67,7 +67,8 @@ void HQClient::start() {
   // complete.
   evb_.loopForever();
   if (params_.migrateClient) {
-    quicClient_->replaceSocket(std::make_unique<folly::AsyncUDPSocket>(&evb_));
+    quicClient_->onNetworkSwitch(
+      std::make_unique<folly::AsyncUDPSocket>(&evb_));
     sendRequests();
   }
   evb_.loop();
