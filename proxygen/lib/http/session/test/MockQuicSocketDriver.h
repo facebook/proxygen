@@ -411,7 +411,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     EXPECT_CALL(*sock_, close(testing::_))
         .WillRepeatedly(testing::Invoke(
             [this](folly::Optional<std::pair<QuicErrorCode, std::string>>
-                       errorCode) { closeImpl(errorCode); }));
+                       errorCode) {
+              // close does not invoke onConnectionEnd/onConnectionError
+              sock_->cb_ = nullptr;
+              closeImpl(errorCode);
+            }));
     EXPECT_CALL(*sock_, resetStream(testing::_, testing::_))
         .WillRepeatedly(testing::Invoke(
             [this](quic::StreamId id, quic::ApplicationErrorCode error) {
@@ -862,9 +866,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         connState.error = *err;
       }
     }
-    sock_->cb_ = nullptr;
     deliverConnectionError(errorCode.value_or(std::make_pair(
         LocalErrorCode::NO_ERROR, "Closing socket with no error")));
+    sock_->cb_ = nullptr;
   }
 
   void flushWrites(StreamId id = kConnectionStreamId) {
