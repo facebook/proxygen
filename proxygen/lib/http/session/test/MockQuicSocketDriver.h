@@ -453,7 +453,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                     auto id = item.first;
                     const auto& s = item.second;
                     return (sock_->isUnidirectionalStream(id) &&
-                            s.readState != CLOSED && s.writeState != CLOSED);
+                            s.writeState != CLOSED);
                   });
               if (activeUniStreams >= unidirectionalStreamsCredit_) {
                 return folly::makeUnexpected(
@@ -463,6 +463,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               auto streamId = nextUnidirectionalStreamId_;
               nextUnidirectionalStreamId_ += 4;
               streams_[streamId];
+              // caller of createUnidirectionalStream should not expect a
+              // readState is Open.
+              streams_[streamId].readState = CLOSED;
               return streamId;
             }));
     EXPECT_CALL(*sock_, getStreamWriteOffset(testing::_))
