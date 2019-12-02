@@ -25,3 +25,9 @@ target_compile_options(
     proxygen_curl PRIVATE
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
+
+install(
+    TARGETS proxygen_curl
+    EXPORT proxygen-exports
+    DESTINATION bin
+)

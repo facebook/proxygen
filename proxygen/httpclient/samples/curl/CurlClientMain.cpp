@@ -7,11 +7,12 @@
  */
 
 #include <folly/portability/GFlags.h>
-
-#include "proxygen/httpclient/samples/curl/CurlClient.h"
+#include <folly/init/Init.h>
+#include <folly/ssl/Init.h>
 #include <folly/SocketAddress.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
+#include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 
 using namespace CurlService;
@@ -46,9 +47,13 @@ DEFINE_bool(log_response,
             "Whether to log the response content to stderr");
 
 int main(int argc, char* argv[]) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-  google::InitGoogleLogging(argv[0]);
-  google::InstallFailureSignalHandler();
+#if FOLLY_HAVE_LIBGFLAGS
+  // Enable glog logging to stderr by default.
+  gflags::SetCommandLineOptionWithMode(
+      "logtostderr", "1", gflags::SET_FLAGS_DEFAULT);
+#endif
+  folly::init(&argc, &argv, false);
+  folly::ssl::init();
 
   EventBase evb;
   URL url(FLAGS_url);
