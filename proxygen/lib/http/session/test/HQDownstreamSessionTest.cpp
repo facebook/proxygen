@@ -1312,12 +1312,24 @@ TEST_P(HQDownstreamSessionTest, SendFinOnly) {
 }
 
 TEST_P(HQDownstreamSessionTest, PauseResume) {
-  auto id = sendRequest(getPostRequest(10), false);
+  auto id = sendRequest(getPostRequest(65547), false);
   auto& request = getStream(id);
   auto handler = addSimpleStrictHandler();
+  // Handler pauses as soon as it receives headers.  Nothing buffered so
+  // transport continues reading
   handler->expectHeaders([&handler] { handler->txn_->pauseIngress(); });
   flushRequestsAndLoop();
+  EXPECT_FALSE(socketDriver_->isStreamPaused(id));
+
+  // Generate some body, but over the limit.  The session (currently) reads
+  // everything from the transport, so it will exceed the limit and pause
+  request.codec->generateBody(
+      request.buf, request.id, makeBuf(65537), HTTPCodec::NoPadding, true);
+  flushRequestsAndLoop();
   EXPECT_TRUE(socketDriver_->isStreamPaused(id));
+  EXPECT_TRUE(socketDriver_->streams_[id].readBuf.empty());
+
+  // Now send some more data, all buffered
   request.codec->generateBody(
       request.buf, request.id, makeBuf(10), HTTPCodec::NoPadding, true);
   request.readEOF = true;
@@ -1325,8 +1337,9 @@ TEST_P(HQDownstreamSessionTest, PauseResume) {
   EXPECT_FALSE(socketDriver_->streams_[id].readBuf.empty());
   hqSession_->closeWhenIdle();
 
-  // After resume, body and EOM delivered
-  handler->expectBody();
+  // After resume, body (2 calls) and EOM delivered
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+    .Times(2);
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectDetachTransaction();
   handler->txn_->resumeIngress();

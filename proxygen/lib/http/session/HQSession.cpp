@@ -1323,16 +1323,32 @@ void HQSession::scheduleLoopCallback(bool thisIteration) {
 }
 
 void HQSession::resumeReads(quic::StreamId streamId) {
-  VLOG(4) << __func__ << " sess=" << *this << ": resuming reads";
+  VLOG(4) << __func__ << " sess=" << *this << ": resuming reads id="
+          << streamId;
   sock_->resumeRead(streamId);
   scheduleLoopCallback(true);
   // TODO: ideally we should cancel the managed timeout when all the streams are
   // paused and then restart it when the timeouts are unpaused
 }
 
+void HQSession::resumeReads() {
+  VLOG(4) << __func__ << " sess=" << *this << ": resuming reads";
+  invokeOnIngressStreams([this] (HQStreamTransportBase* hqStream) {
+      sock_->resumeRead(hqStream->getIngressStreamId());
+    });
+}
+
+
 void HQSession::pauseReads(quic::StreamId streamId) {
-  VLOG(4) << __func__ << " sess=" << *this << ": pausing reads";
+  VLOG(4) << __func__ << " sess=" << *this << ": pausing reads id=" << streamId;
   sock_->pauseRead(streamId);
+}
+
+void HQSession::pauseReads() {
+  VLOG(4) << __func__ << " sess=" << *this << ": pausing reads";
+  invokeOnIngressStreams([this] (HQStreamTransportBase* hqStream) {
+      sock_->pauseRead(hqStream->getIngressStreamId());
+    });
 }
 
 void HQSession::readAvailable(quic::StreamId id) noexcept {

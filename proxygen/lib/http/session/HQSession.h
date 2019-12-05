@@ -342,6 +342,7 @@ class HQSession
       sock_->setConnectionFlowControlWindow(receiveSessionWindowSize);
     }
     receiveStreamWindowSize_ = (uint32_t)receiveStreamWindowSize;
+    HTTPSessionBase::setReadBufferLimit((uint32_t)receiveSessionWindowSize);
   }
 
   /**
@@ -744,8 +745,14 @@ class HQSession
   // Pausing reads prevents the read callback to be invoked on the stream
   void resumeReads(quic::StreamId id);
 
+  // Resume all ingress transactions
+  void resumeReads();
+
   // Resuming the reads allows the read callback to be involved
   void pauseReads(quic::StreamId id);
+
+  // Pause all ingress transactions
+  void pauseReads();
 
   void pauseTransactions() override;
 
@@ -1169,7 +1176,9 @@ class HQSession
       VLOG(4) << __func__ << " txn=" << txn_;
       CHECK(chain);
       auto len = chain->computeChainDataLength();
-      session_.onBodyImpl(std::move(chain), len, padding, &txn_);
+      if (session_.onBodyImpl(std::move(chain), len, padding, &txn_)) {
+        session_.pauseReads();
+      };
     }
 
     void onUnframedBodyStarted(HTTPCodec::StreamID streamID,
@@ -1299,22 +1308,17 @@ class HQSession
     }
 
     // HTTPTransaction::Transport methods
+
+
+    // For parity with H2, pause/resumeIngress now a no-op.  All transactions
+    // will pause when total buffered egress exceeds the configured limit, which
+    // should be equal to the recv flow control window
     void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
-      if (session_.sock_) {
-        if (hasIngressStreamId()) {
-          session_.sock_->pauseRead(getIngressStreamId());
-        }
-      } // else this is being torn down
     }
 
     void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
-      if (session_.sock_) {
-        if (hasIngressStreamId()) {
-          session_.sock_->resumeRead(getIngressStreamId());
-        }
-      } // else this is being torn down
     }
 
     void transactionTimeout(HTTPTransaction* /* txn */) noexcept override;
@@ -1382,7 +1386,9 @@ class HQSession
 
     void notifyIngressBodyProcessed(uint32_t bytes) noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
-      session_.notifyBodyProcessed(bytes);
+      if (session_.notifyBodyProcessed(bytes)) {
+        session_.resumeReads();
+      }
     }
 
     void notifyEgressBodyBuffered(int64_t bytes) noexcept override {
