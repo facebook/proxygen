@@ -1241,8 +1241,8 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   errorOnTransactionIds(ids, kErrorStreamUnacknowledged);
 }
 
-void HTTPSession::onPingRequest(uint64_t uniqueID) {
-  VLOG(4) << *this << " got ping request with id=" << uniqueID;
+void HTTPSession::onPingRequest(uint64_t data) {
+  VLOG(4) << *this << " got ping request with data=" << data;
 
   if (incrementNumControlMsgsInCurInterval(http2::FrameType::PING)) {
     return;
@@ -1252,7 +1252,7 @@ void HTTPSession::onPingRequest(uint64_t uniqueID) {
 
   // Insert the ping reply to the head of writeBuf_
   folly::IOBufQueue pingBuf(folly::IOBufQueue::cacheChainLength());
-  codec_->generatePingReply(pingBuf, uniqueID);
+  codec_->generatePingReply(pingBuf, data);
   size_t pingSize = pingBuf.chainLength();
   pingBuf.append(writeBuf_.move());
   writeBuf_.append(pingBuf.move());
@@ -1264,8 +1264,8 @@ void HTTPSession::onPingRequest(uint64_t uniqueID) {
   scheduleWrite();
 }
 
-void HTTPSession::onPingReply(uint64_t uniqueID) {
-  VLOG(4) << *this << " got ping reply with id=" << uniqueID;
+void HTTPSession::onPingReply(uint64_t data) {
+  VLOG(4) << *this << " got ping reply with id=" << data;
   if (infoCallback_) {
     infoCallback_->onPingReplyReceived();
   }
@@ -2487,7 +2487,8 @@ bool HTTPSession::shouldShutdown() const {
 }
 
 size_t HTTPSession::sendPing() {
-  const size_t bytes = codec_->generatePingRequest(writeBuf_);
+  uint64_t data = folly::Random::rand64();
+  const size_t bytes = codec_->generatePingRequest(writeBuf_, data);
   if (bytes) {
     scheduleWrite();
   }

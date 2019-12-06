@@ -912,26 +912,27 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
   return frameSize;
 }
 
-size_t SPDYCodec::generatePingRequest(IOBufQueue& writeBuf) {
+size_t SPDYCodec::generatePingRequest(IOBufQueue& writeBuf,
+                                      folly::Optional<uint64_t> /* data */) {
   const auto id = nextEgressPingID_;
   nextEgressPingID_ += 2;
   VLOG(4) << "Generating ping request with id=" << id;
   return generatePingCommon(writeBuf, id);
 }
 
-size_t SPDYCodec::generatePingReply(IOBufQueue& writeBuf, uint64_t uniqueID) {
-  VLOG(4) << "Generating ping reply with id=" << uniqueID;
-  return generatePingCommon(writeBuf, uniqueID);
+size_t SPDYCodec::generatePingReply(IOBufQueue& writeBuf, uint64_t data) {
+  VLOG(4) << "Generating ping reply with id=" << data;
+  return generatePingCommon(writeBuf, data);
 }
 
-size_t SPDYCodec::generatePingCommon(IOBufQueue& writeBuf, uint64_t uniqueID) {
+size_t SPDYCodec::generatePingCommon(IOBufQueue& writeBuf, uint64_t data) {
   const size_t frameSize = kFrameSizeControlCommon + kFrameSizePing;
   const size_t expectedLength = writeBuf.chainLength() + frameSize;
   QueueAppender appender(&writeBuf, frameSize);
   appender.writeBE(versionSettings_.controlVersion);
   appender.writeBE(uint16_t(spdy::PING));
   appender.writeBE(flagsAndLength(0, kFrameSizePing));
-  appender.writeBE(uint32_t(uniqueID));
+  appender.writeBE(uint32_t(data));
   DCHECK_EQ(writeBuf.chainLength(), expectedLength);
   return frameSize;
 }
@@ -1388,8 +1389,8 @@ void SPDYCodec::onSettings(const SettingList& settings) {
   callback_->onSettings(settingsList);
 }
 
-void SPDYCodec::onPing(uint32_t uniqueID) noexcept {
-  bool odd = uniqueID & 0x1;
+void SPDYCodec::onPing(uint32_t data) noexcept {
+  bool odd = data & 0x1;
   bool isReply = true;
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
     if (odd) {
@@ -1400,14 +1401,14 @@ void SPDYCodec::onPing(uint32_t uniqueID) noexcept {
   }
 
   if (isReply) {
-    if (uniqueID >= nextEgressPingID_) {
-      LOG(INFO) << "Received reply for pingID=" << uniqueID
+    if (data >= nextEgressPingID_) {
+      LOG(INFO) << "Received reply for pingID=" << data
                 << " that was never sent";
       return;
     }
-    callback_->onPingReply(uniqueID);
+    callback_->onPingReply(data);
   } else {
-    callback_->onPingRequest(uniqueID);
+    callback_->onPingRequest(data);
   }
 }
 

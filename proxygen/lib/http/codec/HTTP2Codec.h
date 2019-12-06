@@ -91,9 +91,10 @@ public:
     StreamID lastStream,
     ErrorCode statusCode,
     std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
-  size_t generatePingRequest(folly::IOBufQueue& writeBuf) override;
+  size_t generatePingRequest(folly::IOBufQueue& writeBuf,
+                         folly::Optional<uint64_t> data = folly::none) override;
   size_t generatePingReply(folly::IOBufQueue& writeBuf,
-                           uint64_t uniqueID) override;
+                           uint64_t data) override;
   size_t generateSettings(folly::IOBufQueue& writeBuf) override;
   size_t generateSettingsAck(folly::IOBufQueue& writeBuf) override;
   size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,

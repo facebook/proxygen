@@ -1262,11 +1262,11 @@ class HQSession
       VLOG(4) << __func__ << " txn=" << txn_;
     }
 
-    void onPingRequest(uint64_t /* uniqueID */) override {
+    void onPingRequest(uint64_t /* data */) override {
       VLOG(4) << __func__ << " txn=" << txn_;
     }
 
-    void onPingReply(uint64_t /* uniqueID */) override {
+    void onPingReply(uint64_t /* data */) override {
       // This method should not get called
       LOG(FATAL) << __func__ << " txn=" << txn_;
     }

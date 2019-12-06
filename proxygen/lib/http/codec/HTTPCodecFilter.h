@@ -77,9 +77,9 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                 ErrorCode code,
                 std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
-  void onPingRequest(uint64_t uniqueID) override;
+  void onPingRequest(uint64_t data) override;
 
-  void onPingReply(uint64_t uniqueID) override;
+  void onPingReply(uint64_t data) override;
 
   void onWindowUpdate(StreamID stream, uint32_t amount) override;
 
@@ -199,10 +199,11 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
     ErrorCode statusCode,
     std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
-  size_t generatePingRequest(folly::IOBufQueue& writeBuf) override;
+  size_t generatePingRequest(folly::IOBufQueue& writeBuf,
+                         folly::Optional<uint64_t> data = folly::none) override;
 
   size_t generatePingReply(folly::IOBufQueue& writeBuf,
-                           uint64_t uniqueID) override;
+                           uint64_t data) override;
 
   size_t generateSettings(folly::IOBufQueue& writeBuf) override;
 

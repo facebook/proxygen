@@ -58,14 +58,14 @@ void SPDYStatsFilter::onGoaway(uint64_t lastGoodStreamID,
   callback_->onGoaway(lastGoodStreamID, statusCode, std::move(debugData));
 }
 
-void SPDYStatsFilter::onPingRequest(uint64_t uniqueID) {
+void SPDYStatsFilter::onPingRequest(uint64_t data) {
   counters_->recordIngressPingRequest();
-  callback_->onPingRequest(uniqueID);
+  callback_->onPingRequest(data);
 }
 
-void SPDYStatsFilter::onPingReply(uint64_t uniqueID) {
+void SPDYStatsFilter::onPingReply(uint64_t data) {
   counters_->recordIngressPingReply();
-  callback_->onPingReply(uniqueID);
+  callback_->onPingReply(data);
 }
 
 void SPDYStatsFilter::onWindowUpdate(StreamID stream, uint32_t amount) {
@@ -145,15 +145,17 @@ size_t SPDYStatsFilter::generateGoaway(
   return written;
 }
 
-size_t SPDYStatsFilter::generatePingRequest(folly::IOBufQueue& writeBuf) {
+size_t SPDYStatsFilter::generatePingRequest(
+    folly::IOBufQueue& writeBuf,
+    folly::Optional<uint64_t> data) {
   counters_->recordEgressPingRequest();
-  return call_->generatePingRequest(writeBuf);
+  return call_->generatePingRequest(writeBuf, data);
 }
 
 size_t SPDYStatsFilter::generatePingReply(folly::IOBufQueue& writeBuf,
-                                          uint64_t uniqueID) {
+                                          uint64_t data) {
   counters_->recordEgressPingReply();
-  return call_->generatePingReply(writeBuf, uniqueID);
+  return call_->generatePingReply(writeBuf, data);
 }
 
 size_t SPDYStatsFilter::generateSettings(folly::IOBufQueue& buf) {

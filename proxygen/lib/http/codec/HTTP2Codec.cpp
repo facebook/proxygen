@@ -1478,20 +1478,23 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
                               std::move(debugData)));
 }
 
-size_t HTTP2Codec::generatePingRequest(folly::IOBufQueue& writeBuf) {
+size_t HTTP2Codec::generatePingRequest(folly::IOBufQueue& writeBuf,
+                                       folly::Optional<uint64_t> data) {
   // should probably let the caller specify when integrating with session
   // we know HTTPSession sets up events to track ping latency
-  uint64_t opaqueData = folly::Random::rand64();
-  VLOG(4) << "Generating ping request with opaqueData=" << opaqueData;
+  if (!data.hasValue()) {
+    data = folly::Random::rand64();
+  }
+  VLOG(4) << "Generating ping request with data=" << *data;
   return generateHeaderCallbackWrapper(0, http2::FrameType::PING,
-                                       http2::writePing(writeBuf, opaqueData, false /* no ack */));
+                                       http2::writePing(writeBuf, *data, false /* no ack */));
 }
 
 size_t HTTP2Codec::generatePingReply(folly::IOBufQueue& writeBuf,
-                                     uint64_t uniqueID) {
-  VLOG(4) << "Generating ping reply with opaqueData=" << uniqueID;
+                                     uint64_t data) {
+  VLOG(4) << "Generating ping reply with data=" << data;
   return generateHeaderCallbackWrapper(0, http2::FrameType::PING,
-                                       http2::writePing(writeBuf, uniqueID, true /* ack */));
+                                       http2::writePing(writeBuf, data, true /* ack */));
 }
 
 size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {

@@ -427,8 +427,8 @@ class HTTPSession
   void onGoaway(uint64_t lastGoodStreamID,
                 ErrorCode code,
                 std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
-  void onPingRequest(uint64_t uniqueID) override;
-  void onPingReply(uint64_t uniqueID) override;
+  void onPingRequest(uint64_t data) override;
+  void onPingReply(uint64_t data) override;
   void onWindowUpdate(HTTPCodec::StreamID stream, uint32_t amount) override;
   void onSettings(const SettingsList& settings) override;
   void onSettingsAck() override;

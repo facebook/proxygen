@@ -94,16 +94,16 @@ class HTTPCodecPrinter: public PassThroughHTTPCodecFilter {
    * Called from SPDYCodec::onPing()
    *             HTTP2Codec::parsePing()
    */
-  void onPingRequest(uint64_t uniqueID) override;
+  void onPingRequest(uint64_t data) override;
 
   /*
    * Called from SPDYCodec::onPing()
    *             HTTP2Codec::parsePing()
    */
-  void onPingReply(uint64_t uniqueID) override;
+  void onPingReply(uint64_t data) override;
 
  protected:
-  void printPing(uint64_t uniqueID);
+  void printPing(uint64_t data);
 };
 
 }

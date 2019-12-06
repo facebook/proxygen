@@ -94,12 +94,12 @@ void PassThroughHTTPCodecFilter::onGoaway(
   callback_->onGoaway(lastGoodStreamID, code, std::move(debugData));
 }
 
-void PassThroughHTTPCodecFilter::onPingRequest(uint64_t uniqueID) {
-  callback_->onPingRequest(uniqueID);
+void PassThroughHTTPCodecFilter::onPingRequest(uint64_t data) {
+  callback_->onPingRequest(data);
 }
 
-void PassThroughHTTPCodecFilter::onPingReply(uint64_t uniqueID) {
-  callback_->onPingReply(uniqueID);
+void PassThroughHTTPCodecFilter::onPingReply(uint64_t data) {
+  callback_->onPingReply(data);
 }
 
 void PassThroughHTTPCodecFilter::onWindowUpdate(StreamID stream,
@@ -313,14 +313,14 @@ size_t PassThroughHTTPCodecFilter::generateGoaway(
 }
 
 size_t PassThroughHTTPCodecFilter::generatePingRequest(
-    folly::IOBufQueue& writeBuf) {
-  return call_->generatePingRequest(writeBuf);
+    folly::IOBufQueue& writeBuf, folly::Optional<uint64_t> data) {
+  return call_->generatePingRequest(writeBuf, data);
 }
 
 size_t PassThroughHTTPCodecFilter::generatePingReply(
     folly::IOBufQueue& writeBuf,
-    uint64_t uniqueID) {
-  return call_->generatePingReply(writeBuf, uniqueID);
+    uint64_t data) {
+  return call_->generatePingReply(writeBuf, data);
 }
 
 size_t PassThroughHTTPCodecFilter::generateSettings(folly::IOBufQueue& buf) {

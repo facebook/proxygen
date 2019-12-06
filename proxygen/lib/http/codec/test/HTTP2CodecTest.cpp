@@ -863,7 +863,7 @@ TEST_F(HTTP2CodecTest, BasicData) {
   EXPECT_EQ(callbacks_.bodyLength, 5);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
-  EXPECT_EQ(callbacks_.data.move()->moveToFbString(), data);
+  EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), data);
 }
 
 TEST_F(HTTP2CodecTest, LongData) {
@@ -882,7 +882,7 @@ TEST_F(HTTP2CodecTest, LongData) {
   EXPECT_EQ(callbacks_.bodyLength, 100);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
-  EXPECT_EQ(callbacks_.data.move()->moveToFbString(), buf->moveToFbString());
+  EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), buf->moveToFbString());
 }
 
 TEST_F(HTTP2CodecTest, MalformedPaddingLength) {
@@ -984,7 +984,7 @@ TEST_F(HTTP2CodecTest, DataFramePartialDataWithNoAppByte) {
   EXPECT_EQ(callbacks_.paddingBytes, padding + 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
-  EXPECT_EQ(callbacks_.data.move()->moveToFbString(), buf->moveToFbString());
+  EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), buf->moveToFbString());
 }
 
 TEST_F(HTTP2CodecTest, BasicRst) {
@@ -1074,7 +1074,7 @@ TEST_F(HTTP2CodecTest, BasicGoaway) {
 
   parse();
   EXPECT_EQ(callbacks_.goaways, 1);
-  EXPECT_EQ(callbacks_.data.move()->moveToFbString(), "debugData");
+  EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), "debugData");
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
@@ -1141,7 +1141,7 @@ TEST_F(HTTP2CodecTest, DoubleGoawayWithError) {
 
   parseUpstream();
   EXPECT_EQ(callbacks_.goaways, 1);
-  EXPECT_EQ(callbacks_.data.move()->moveToFbString(), "debugData");
+  EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), "debugData");
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
@@ -1582,7 +1582,7 @@ TEST_F(HTTP2CodecTest, BasicCertificateRequest) {
   parse();
   EXPECT_EQ(callbacks_.certificateRequests, 1);
   EXPECT_EQ(callbacks_.lastCertRequestId, requestId);
-  EXPECT_EQ(callbacks_.data.move()->moveToFbString(), "authRequestData");
+  EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), "authRequestData");
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
@@ -1596,7 +1596,7 @@ TEST_F(HTTP2CodecTest, BasicCertificate) {
   parse();
   EXPECT_EQ(callbacks_.certificates, 1);
   EXPECT_EQ(callbacks_.lastCertId, certId);
-  EXPECT_EQ(callbacks_.data.move()->moveToFbString(), "authenticatorData");
+  EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), "authenticatorData");
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }

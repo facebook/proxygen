@@ -90,6 +90,11 @@ class MockHTTPCodec: public HTTPCodec {
   }
 
   MOCK_METHOD1(generatePingRequest, size_t(folly::IOBufQueue&));
+  size_t generatePingRequest(folly::IOBufQueue& writeBuf,
+                             folly::Optional<uint64_t> /* data */) override {
+    return generatePingRequest(writeBuf);
+  }
+
   MOCK_METHOD2(generatePingReply, size_t(folly::IOBufQueue&,
                                          uint64_t));
   MOCK_METHOD1(generateSettings, size_t(folly::IOBufQueue&));
