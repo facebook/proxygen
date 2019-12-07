@@ -2017,6 +2017,8 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
     tinfo->sslResume = transportInfo_.sslResume;
     tinfo->appProtocol = transportInfo_.appProtocol;
     tinfo->sslError = transportInfo_.sslError;
+    tinfo->localAddr = std::make_shared<folly::SocketAddress>(getLocalAddress());
+    tinfo->remoteAddr = std::make_shared<folly::SocketAddress>(getPeerAddress());
 #if defined(__linux__) || defined(__FreeBSD__)
     // update connection transport info with the latest RTT
     if (tinfo->tcpinfo.tcpi_rtt > 0) {
