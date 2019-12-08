@@ -1334,8 +1334,10 @@ void HQSession::resumeReads(quic::StreamId streamId) {
 void HQSession::resumeReads() {
   VLOG(4) << __func__ << " sess=" << *this << ": resuming reads";
   invokeOnIngressStreams([this] (HQStreamTransportBase* hqStream) {
+    if (sock_) {
       sock_->resumeRead(hqStream->getIngressStreamId());
-    });
+    }
+  });
 }
 
 
