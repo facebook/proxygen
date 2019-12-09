@@ -144,7 +144,10 @@ HTTPSession::HTTPSession(const WheelTimerInstance& timeout,
       writes_(SocketState::UNPAUSED),
       ingressUpgraded_(false),
       resetSocketOnShutdown_(false),
-      inLoopCallback_(false) {
+      inLoopCallback_(false),
+      inResume_(false),
+      pendingPause_(false),
+      writeBufSplit_(false) {
   byteEventTracker_ = std::make_shared<ByteEventTracker>(this);
   initialReceiveWindow_ = receiveStreamWindowSize_ = receiveSessionWindowSize_ =
       codec_->getDefaultWindowSize();
@@ -1250,15 +1253,29 @@ void HTTPSession::onPingRequest(uint64_t data) {
 
   TimePoint timestamp = getCurrentTime();
 
-  // Insert the ping reply to the head of writeBuf_
-  folly::IOBufQueue pingBuf(folly::IOBufQueue::cacheChainLength());
-  codec_->generatePingReply(pingBuf, data);
-  size_t pingSize = pingBuf.chainLength();
-  pingBuf.append(writeBuf_.move());
-  writeBuf_.append(pingBuf.move());
+  uint64_t bytesScheduledBeforePing = 0;
+  size_t pingSize = 0;
+  if (writeBufSplit_) {
+    // Stick the ping at the end, we don't know that writeBuf_ begins on a
+    // frame boundary anymore
+    bytesScheduledBeforePing = sessionByteOffset();
+    pingSize = codec_->generatePingReply(writeBuf_, data);
+  } else {
+    // Insert the ping reply to the head of writeBuf_
+    folly::IOBufQueue pingBuf(folly::IOBufQueue::cacheChainLength());
+    pingSize = codec_->generatePingReply(pingBuf, data);
+    pingBuf.append(writeBuf_.move());
+    writeBuf_.append(pingBuf.move());
+    bytesScheduledBeforePing = bytesScheduled_;
+  }
 
   if (byteEventTracker_) {
-    byteEventTracker_->addPingByteEvent(pingSize, timestamp, bytesScheduled_);
+    // addPingByteEvent has logic to shift all ByteEvents after
+    // 'bytesScheduledBeforePing'.  In the case where we're putting it at the
+    // end, there will be no events with an offset as high - so it will be a
+    // no-op.
+    byteEventTracker_->addPingByteEvent(pingSize, timestamp,
+                                        bytesScheduledBeforePing);
   }
 
   scheduleWrite();
@@ -2129,6 +2146,7 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(
         if (sessionStats_) {
           sessionStats_->recordPresendIOSplit();
         }
+        writeBufSplit_ = true;
         return writeBuf_.split(needed);
       } else {
         CHECK_EQ(needed, writeBuf_.chainLength());

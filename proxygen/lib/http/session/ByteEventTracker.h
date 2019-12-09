@@ -69,7 +69,7 @@ class ByteEventTracker {
    */
   void addPingByteEvent(size_t pingSize,
                         TimePoint timestamp,
-                        uint64_t bytesScheduled);
+                        uint64_t bytesScheduledBeforePing);
 
   virtual void addFirstBodyByteEvent(uint64_t offset, HTTPTransaction* txn);
 

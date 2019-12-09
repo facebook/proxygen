@@ -224,6 +224,7 @@ class HTTPDownstreamTest : public testing::Test {
       milliseconds initialDelay = milliseconds(0),
       std::function<void()> extraEventsFn = std::function<void()>()) {
     transport_->addReadEvent(requests_, initialDelay);
+    requests_.move();
     if (extraEventsFn) {
       extraEventsFn();
     }
@@ -401,6 +402,7 @@ class HTTPDownstreamTest : public testing::Test {
         writeEvents->pop_front();
       }
       uint32_t consumed = clientCodec.onIngress(*parseOutputStream_.front());
+      ASSERT_TRUE(consumed > 0 || !writeEvents->empty());
       parseOutputStream_.split(consumed);
     }
     if (!breakParseOutput_) {
@@ -1211,6 +1213,79 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipelineError) {
   expectDetachSession();
 }
 
+TEST_F(HTTP2DownstreamSessionTest, TestPing) {
+  // send a request with a PING, should get the PING first
+  auto handler = addSimpleStrictHandler();
+  sendRequest();
+  auto pingData = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  std::chrono::steady_clock::now().time_since_epoch()).count();
+  clientCodec_->generatePingRequest(requests_, pingData);
+  handler->expectHeaders();
+  handler->expectEOM([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  handler->expectGoaway();
+  flushRequestsAndLoopN(1);
+  handler->expectDetachTransaction();
+  HTTPSession::DestructorGuard g(httpSession_);
+  gracefulShutdown();
+
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  clientCodec_->setCallback(&callbacks);
+
+  InSequence enforceOrder;
+  EXPECT_CALL(callbacks, onPingReply(pingData));
+  EXPECT_CALL(callbacks, onHeadersComplete(_, _));
+  parseOutput(*clientCodec_);
+}
+
+TEST_F(HTTP2DownstreamSessionTest, TestPingWithPreSendSplit) {
+  auto byteEventTracker = new NiceMock<MockByteEventTracker>(nullptr);
+  EXPECT_CALL(*byteEventTracker, drainByteEvents()).WillRepeatedly(Return(0));
+  EXPECT_CALL(*byteEventTracker, processByteEvents(_, _))
+    .WillRepeatedly(Invoke([](std::shared_ptr<ByteEventTracker> self,
+                              uint64_t bytesWritten) {
+          return self->ByteEventTracker::processByteEvents(self, bytesWritten);
+      }));
+
+  // send a request with a PING, should get the PING first
+  auto pingData = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  std::chrono::steady_clock::now().time_since_epoch()).count();
+  auto handler = addSimpleStrictHandler();
+  sendRequest();
+  handler->expectHeaders();
+  handler->expectEOM([this, &handler, byteEventTracker, pingData] {
+      // set the new tracker now, so we don't get invoked when sending SETTINGS
+      httpSession_->setByteEventTracker(
+        std::unique_ptr<ByteEventTracker>(byteEventTracker));
+      // Pause writes so only the first write goes through and the remainder
+      // gets buffered in writeBuf_
+      transport_->pauseWrites();
+      handler->sendReplyWithBody(200, 100);
+      eventBase_.runInLoop([this, pingData] {
+          IOBufQueue pingBuf{IOBufQueue::cacheChainLength()};
+          clientCodec_->generatePingRequest(pingBuf, pingData);
+          transport_->addReadEvent(pingBuf, milliseconds(0));
+          transport_->resumeWrites();
+        });
+    });
+  // Split the write buffer on a non-frame boundary the first time
+  EXPECT_CALL(*byteEventTracker, preSend(_, _, _, _))
+    .WillOnce(Return(1))
+    .WillRepeatedly(Return(0));
+  handler->expectDetachTransaction();
+  flushRequestsAndLoopN(2);
+  HTTPSession::DestructorGuard g(httpSession_);
+  gracefulShutdown();
+
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  clientCodec_->setCallback(&callbacks);
+
+  InSequence enforceOrder;
+  EXPECT_CALL(callbacks, onHeadersComplete(_, _));
+  EXPECT_CALL(callbacks, onPingReply(pingData));
+  parseOutput(*clientCodec_);
+}
 
 /*
  * The sequence of streams are generated in the following order:
