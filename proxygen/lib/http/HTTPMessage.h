@@ -729,14 +729,14 @@ class HTTPMessage {
    * @returns true if this HTTPMessage represents an HTTP request
    */
   bool isRequest() const {
-    return fields_.which() == 1;
+    return fields_.which_ == MessageType::REQUEST;
   }
 
   /**
    * @returns true if this HTTPMessage represents an HTTP response
    */
   bool isResponse() const {
-    return fields_.which() == 2;
+    return fields_.which_ == MessageType::RESPONSE;
   }
 
   /**
@@ -844,42 +844,123 @@ class HTTPMessage {
   std::string localIP_;
   std::string versionStr_;
 
-  mutable boost::variant<boost::blank, Request, Response> fields_;
-
-  Request& request() {
-    DCHECK(fields_.which() == 0 || fields_.which() == 1) << fields_.which();
-    if (fields_.which() == 0) {
-      fields_ = Request();
+  enum class MessageType: uint8_t {
+    NONE = 0,
+    REQUEST = 1,
+    RESPONSE = 2
+  };
+  struct Fields {
+    Fields() = default;
+    Fields(const Fields& other) {
+      copyFrom(other);
     }
 
-    return boost::get<Request>(fields_);
+    Fields& operator=(const Fields& other) {
+      clear();
+      copyFrom(other);
+      return *this;
+    }
+
+    ~Fields() {
+      clear();
+    }
+
+    void clear() {
+      switch (which_) {
+        case MessageType::REQUEST:
+          data_.request.~Request();
+          break;
+        case MessageType::RESPONSE:
+          data_.response.~Response();
+          break;
+        case MessageType::NONE:
+          break;
+      }
+      which_ = MessageType::NONE;
+    }
+
+    void copyFrom(const Fields& other) {
+      which_ = other.which_;
+      switch (which_) {
+        case MessageType::REQUEST:
+          new (&data_.request) Request(other.data_.request);
+          break;
+        case MessageType::RESPONSE:
+          new (&data_.response) Response(other.data_.response);
+          break;
+        case MessageType::NONE:
+          break;
+      }
+    }
+
+    Fields(Fields&& other) {
+      moveFrom(std::move(other));
+    }
+
+    Fields& operator=(Fields&& other) {
+      clear();
+      moveFrom(std::move(other));
+      return *this;
+    }
+
+    void moveFrom(Fields&& other) {
+      which_ = other.which_;
+      switch (which_) {
+        case MessageType::REQUEST:
+          new (&data_.request) Request(std::move(other.data_.request));
+          break;
+        case MessageType::RESPONSE:
+          new (&data_.response) Response(
+            std::move(other.data_.response));
+          break;
+        case MessageType::NONE:
+          break;
+      }
+    }
+
+    mutable MessageType which_{MessageType::NONE};
+    mutable union Data {
+      Data() {}
+      ~Data() {}
+      Request request;
+      Response response;
+    } data_;
+  } fields_;
+
+  //mutable boost::variant<boost::blank, Request, Response> fields_;
+
+  Request& request() {
+    DCHECK(fields_.which_ == MessageType::NONE ||
+           fields_.which_ == MessageType::REQUEST)
+      << int(fields_.which_);
+    if (fields_.which_ == MessageType::NONE) {
+      fields_.which_ = MessageType::REQUEST;
+      new (&fields_.data_.request) Request();
+    }
+
+    return fields_.data_.request;
   }
 
   const Request& request() const {
-    DCHECK(fields_.which() == 0 || fields_.which() == 1) << fields_.which();
-    if (fields_.which() == 0) {
-      fields_ = Request();
-    }
-
-    return boost::get<const Request>(fields_);
+    auto msg = const_cast<HTTPMessage*>(this);
+    return msg->request();
   }
 
   Response& response() {
-    DCHECK(fields_.which() == 0 || fields_.which() == 2) << fields_.which();
-    if (fields_.which() == 0) {
-      fields_ = Response();
+    DCHECK(fields_.which_ == MessageType::NONE ||
+           fields_.which_ == MessageType::RESPONSE)
+      << int(fields_.which_);
+    if (fields_.which_ == MessageType::NONE) {
+      fields_.which_ = MessageType::RESPONSE;
+      new (&fields_.data_.response) Response();
     }
 
-    return boost::get<Response>(fields_);
+    return fields_.data_.response;
   }
 
   const Response& response() const {
-    DCHECK(fields_.which() == 0 || fields_.which() == 2) << fields_.which();
-    if (fields_.which() == 0) {
-      fields_ = Response();
-    }
-
-    return boost::get<const Response>(fields_);
+    auto msg = const_cast<HTTPMessage*>(this);
+    return msg->response();
   }
 
   /*
