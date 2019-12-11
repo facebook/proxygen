@@ -20,6 +20,7 @@ SimpleController::SimpleController(HTTPSessionAcceptor* acceptor)
 
 HTTPTransactionHandler* SimpleController::getRequestHandler(
     HTTPTransaction& txn, HTTPMessage* msg) {
+  CHECK(acceptor_) << "Requires an acceptor, or override this method";
   return acceptor_->newHandler(txn, msg);
 }
 
@@ -32,7 +33,7 @@ HTTPTransactionHandler* SimpleController::getParseErrorHandler(
     return new CodecErrorResponseHandler(error.getCodecStatusCode());
   }
 
-  auto errorPage = acceptor_->getErrorPage(localAddress);
+  auto errorPage = acceptor_ ? acceptor_->getErrorPage(localAddress) : nullptr;
   return createErrorHandler(
       error.hasHttpStatusCode() ? error.getHttpStatusCode() : 400,
       "Bad Request",
@@ -42,7 +43,7 @@ HTTPTransactionHandler* SimpleController::getParseErrorHandler(
 HTTPTransactionHandler* SimpleController::getTransactionTimeoutHandler(
     HTTPTransaction* /*txn*/, const folly::SocketAddress& localAddress) {
 
-  auto errorPage = acceptor_->getErrorPage(localAddress);
+  auto errorPage = acceptor_ ? acceptor_->getErrorPage(localAddress) : nullptr;
   return createErrorHandler(408, "Client timeout", errorPage);
 }
 
@@ -61,6 +62,7 @@ HTTPTransactionHandler* SimpleController::createErrorHandler(
 }
 
 std::chrono::milliseconds SimpleController::getGracefulShutdownTimeout() const {
-  return acceptor_->getGracefulShutdownTimeout();
+  return acceptor_ ? acceptor_->getGracefulShutdownTimeout() :
+    std::chrono::milliseconds(0);
 }
 } // namespace proxygen
