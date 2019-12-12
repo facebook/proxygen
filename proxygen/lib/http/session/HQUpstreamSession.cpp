@@ -154,4 +154,11 @@ void HQUpstreamSession::detachThreadLocals(bool) {
   }
 }
 
+void HQUpstreamSession::onNetworkSwitch(
+    std::unique_ptr<folly::AsyncUDPSocket> newSock) noexcept {
+  if (sock_) {
+    sock_->onNetworkSwitch(std::move(newSock));
+  }
+}
+
 } // namespace proxygen

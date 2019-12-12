@@ -84,6 +84,9 @@ class HQUpstreamSession : public HQSession {
 
   void detachThreadLocals(bool) override;
 
+  void onNetworkSwitch(std::unique_ptr<folly::AsyncUDPSocket>)
+    noexcept override;
+
  private:
   ~HQUpstreamSession() override;
 

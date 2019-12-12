@@ -11,6 +11,7 @@
 #include <fizz/record/Types.h>
 #include <folly/io/IOBuf.h>
 #include <folly/io/async/SSLContext.h>
+#include <folly/io/async/AsyncUDPSocket.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/Time.h>
@@ -365,6 +366,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   wangle::TransportInfo& getSetupTransportInfo() noexcept {
     return transportInfo_;
   }
+
+  virtual void onNetworkSwitch(
+    std::unique_ptr<folly::AsyncUDPSocket>) noexcept {}
 
   /**
    * If the connection is closed by remote end
