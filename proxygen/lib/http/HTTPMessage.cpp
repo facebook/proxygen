@@ -725,7 +725,7 @@ void HTTPMessage::describe(std::ostream& os) const {
   }};
 
   std::string pushStatusMessage;
-  if (fields_.type() == typeid(Request)) {
+  if (fields_.which_ == MessageType::REQUEST) {
     // Request fields.
     const Request& req = request();
     if (req.clientIP_) {
@@ -744,7 +744,7 @@ void HTTPMessage::describe(std::ostream& os) const {
     fields.emplace_back("url", req.url_);
     pushStatusMessage = getPushStatusStr();
     fields.emplace_back("push_status", pushStatusMessage);
-  } else if (fields_.type() == typeid(Response)) {
+  } else if (fields_.which_ == MessageType::RESPONSE) {
     // Response fields.
     const Response& resp = response();
     fields.emplace_back("status", resp.statusStr_);

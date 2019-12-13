@@ -584,6 +584,15 @@ TEST(HTTPMessage, TestExtractTrailers) {
   EXPECT_EQ(nullptr, msg.getTrailers());
 }
 
+TEST(HTTPMessage, TestMoveCopy) {
+  HTTPMessage m1;
+  m1.setURL(std::string(32, 'a'));
+  HTTPMessage m2;
+  m2.setURL(std::string(32, 'b'));
+  m2 = m1;
+  m2 = std::move(m1);
+}
+
 namespace {
   const size_t kInitialVectorReserve = 16;
 }
