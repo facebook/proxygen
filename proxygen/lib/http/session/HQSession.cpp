@@ -2247,8 +2247,8 @@ uint64_t HQSession::writeRequestStreams(uint64_t maxEgress) noexcept {
     maxEgress -= sent;
 
     if (maxEgress == 0 && std::next(it) != nextEgressResults_.end()) {
-      VLOG(2) << __func__ << " sess=" << *this
-              << "got more to send than the transport could take";
+      VLOG(3) << __func__ << " sess=" << *this
+              << " got more to send than the transport could take";
       break;
     }
   }
