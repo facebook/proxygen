@@ -560,6 +560,8 @@ bool HQSession::getCurrentTransportInfo(wangle::TransportInfo* tinfo) {
     quicInfo_->totalPTOCount = quicInfo.totalPTOCount;
     quicInfo_->totalTransportBytesSent = quicInfo.bytesSent;
     quicInfo_->totalTransportBytesRecvd = quicInfo.bytesRecvd;
+    quicInfo_->transportSettings = sock_->getTransportSettings();
+    tinfo->protocolInfo = quicInfo_;
   }
   return true;
 }
