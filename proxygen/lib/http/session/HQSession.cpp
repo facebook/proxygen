@@ -1276,31 +1276,31 @@ void HQSession::HQVersionUtils::readDataProcessed() {
 
 folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
 HQSession::HQVersionUtils::onIngressPeekDataAvailable(uint64_t streamOffset) {
-  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  CHECK(hqStreamCodecPtr_);
   return hqStreamCodecPtr_->onIngressDataAvailable(streamOffset);
 }
 
 folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
 HQSession::HQVersionUtils::onIngressDataExpired(uint64_t streamOffset) {
-  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  CHECK(hqStreamCodecPtr_);
   return hqStreamCodecPtr_->onIngressDataExpired(streamOffset);
 }
 
 folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
 HQSession::HQVersionUtils::onIngressDataRejected(uint64_t streamOffset) {
-  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  CHECK(hqStreamCodecPtr_);
   return hqStreamCodecPtr_->onIngressDataRejected(streamOffset);
 }
 
 folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
 HQSession::HQVersionUtils::onEgressBodySkip(uint64_t bodyOffset) {
-  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  CHECK(hqStreamCodecPtr_);
   return hqStreamCodecPtr_->onEgressBodySkip(bodyOffset);
 }
 
 folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
 HQSession::HQVersionUtils::onEgressBodyReject(uint64_t bodyOffset) {
-  CHECK(hqStreamCodecPtr_) << ": HQStreamCodecPtr is not set";
+  CHECK(hqStreamCodecPtr_);
   return hqStreamCodecPtr_->onEgressBodyReject(bodyOffset);
 }
 
@@ -2919,7 +2919,7 @@ bool HQSession::HQStreamTransportBase::processReadData() {
 void HQSession::HQStreamTransportBase::processPeekData(
     const folly::Range<quic::QuicSocket::PeekIterator>& peekData) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
+  CHECK(session_.versionUtils_);
 
   for (auto& item : peekData) {
     auto streamOffset = item.offset;
@@ -2940,7 +2940,7 @@ void HQSession::HQStreamTransportBase::processPeekData(
 void HQSession::HQStreamTransportBase::processDataExpired(
     uint64_t streamOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
+  CHECK(session_.versionUtils_);
 
   auto bodyOffset = session_.versionUtils_->onIngressDataExpired(streamOffset);
   if (bodyOffset.hasError()) {
@@ -2954,7 +2954,7 @@ void HQSession::HQStreamTransportBase::processDataExpired(
 void HQSession::HQStreamTransportBase::processDataRejected(
     uint64_t streamOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
+  CHECK(session_.versionUtils_);
 
   auto bodyOffset = session_.versionUtils_->onIngressDataRejected(streamOffset);
   if (bodyOffset.hasError()) {
@@ -3555,7 +3555,7 @@ void HQSession::HQStreamTransportBase::onUnframedBodyStarted(
 folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(
     HTTPTransaction::PeekCallback peekCallback) {
   if (!codecStreamId_) {
-    LOG(ERROR) << "unframedBody: codec streamId is not set yet";
+    LOG(ERROR) << "codec streamId is not set yet";
     return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
   }
 
@@ -3616,7 +3616,7 @@ HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
   }
 
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
+  CHECK(session_.versionUtils_);
 
   auto streamOffset = session_.versionUtils_->onEgressBodySkip(nextBodyOffset);
   if (streamOffset.hasError()) {
@@ -3628,7 +3628,7 @@ HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
 
   bytesSkipped_ += trimPendingEgressBody(*streamOffset);
 
-  CHECK(codecStreamId_) << "codecStreamId_ is not set";
+  CHECK(codecStreamId_);
   auto res = session_.sock_->sendDataExpired(*codecStreamId_, *streamOffset);
   if (res.hasValue()) {
     return *res;
@@ -3647,7 +3647,7 @@ HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
   }
 
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
+  CHECK(session_.versionUtils_);
 
   auto streamOffset =
       session_.versionUtils_->onEgressBodyReject(nextBodyOffset);
@@ -3659,7 +3659,7 @@ HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
     return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
   }
 
-  CHECK(codecStreamId_) << "codecStreamId_ is not set";
+  CHECK(codecStreamId_);
   auto res = session_.sock_->sendDataRejected(*codecStreamId_, *streamOffset);
   if (res.hasValue()) {
     return *res;
@@ -3721,7 +3721,7 @@ void HQSession::HQStreamTransportBase::armEgressBodyAckCb(
 
 void HQSession::HQStreamTransportBase::handleHeadersAcked(
     uint64_t streamOffset) {
-  CHECK(egressHeadersAckOffset_) << ": egressHeadersAckOffset_ is not set";
+  CHECK(egressHeadersAckOffset_);
   if (*egressHeadersAckOffset_ != streamOffset) {
     LOG(ERROR) << ": bad offset for egress headers ack: e="
                << *egressHeadersAckOffset_ << ", r=" << streamOffset;
@@ -3738,7 +3738,7 @@ void HQSession::HQStreamTransportBase::handleHeadersAcked(
 
 void HQSession::HQStreamTransportBase::handleBodyAcked(uint64_t streamOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
+  CHECK(session_.versionUtils_);
 
   CHECK_GE(streamOffset, egressHeadersStreamOffset_);
   uint64_t bodyOffset = streamOffset - egressHeadersStreamOffset_;
@@ -3754,7 +3754,7 @@ void HQSession::HQStreamTransportBase::handleBodyAcked(uint64_t streamOffset) {
 void HQSession::HQStreamTransportBase::handleBodyCancelled(
     uint64_t streamOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_) << ": version utils are not set";
+  CHECK(session_.versionUtils_);
 
   CHECK_GE(streamOffset, egressHeadersStreamOffset_);
   uint64_t bodyOffset = streamOffset - egressHeadersStreamOffset_;

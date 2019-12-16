@@ -491,7 +491,7 @@ class HQSession
   void setPartiallyReliableCallbacks(quic::StreamId id);
 
   bool isPartialReliabilityEnabled() const noexcept {
-    CHECK(versionUtils_) << ": versionUtils is not set";
+    CHECK(versionUtils_);
     return versionUtils_->isPartialReliabilityEnabled();
   }
 
