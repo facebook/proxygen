@@ -3690,8 +3690,8 @@ void HQSession::HQStreamTransportBase::armStreamAckCb(uint64_t streamOffset) {
   auto res = session_.sock_->registerDeliveryCallback(
       getEgressStreamId(), streamOffset, this);
   if (res.hasError()) {
-    auto errStr = folly::sformat("failed to register delivery callback: {}",
-                                 toString(res.error()));
+    auto errStr = folly::to<std::string>(
+      "failed to register delivery callback: ", toString(res.error()));
     LOG(ERROR) << __func__ << ": " << errStr;
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, errStr);
     ex.setProxygenError(kErrorNetwork);
