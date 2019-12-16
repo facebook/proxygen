@@ -1443,45 +1443,41 @@ bool HQSession::isPartialReliabilityEnabled(quic::StreamId id) {
   return true;
 }
 
+HQSession::HQStreamTransportBase* FOLLY_NULLABLE
+HQSession::getPRStream(quic::StreamId id, const char *event) {
+  DCHECK(isPartialReliabilityEnabled(id))
+    << "PR not enabled prior to " << event;
+  auto hqStream = findStream(id);
+  if (hqStream) {
+    if (hqStream->detached_) {
+      LOG(ERROR) << event << " event received for detached stream " << id;
+      return nullptr;
+    }
+  }
+  return hqStream;
+}
+
 void HQSession::onPartialDataAvailable(
     quic::StreamId id,
     const HQUnidirStreamDispatcher::Callback::PeekData& partialData) {
-  DCHECK(isPartialReliabilityEnabled(id))
-      << "Must check whether the PR is enabled prior to calling " << __func__;
-  auto hqStream = findNonDetachedStream(id);
-  if (!hqStream) {
-    if (streams_.find(id) != streams_.end()) {
-      LOG(ERROR) << __func__ << " event received for detached stream " << id;
-    }
-    return;
+  auto hqStream = getPRStream(id, "data");
+  if (hqStream) {
+    hqStream->processPeekData(partialData);
   }
-  hqStream->processPeekData(partialData);
 }
 
 void HQSession::processExpiredData(quic::StreamId id, uint64_t offset) {
-  DCHECK(isPartialReliabilityEnabled(id))
-      << "Must check whether the PR is enabled prior to calling " << __func__;
-  auto hqStream = findNonDetachedStream(id);
-  if (!hqStream) {
-    if (streams_.find(id) != streams_.end()) {
-      LOG(ERROR) << __func__ << " event received for detached stream " << id;
-    }
-    return;
+  auto hqStream = getPRStream(id, "expired");
+  if (hqStream) {
+    hqStream->processDataExpired(offset);
   }
-  hqStream->processDataExpired(offset);
 }
 
 void HQSession::processRejectedData(quic::StreamId id, uint64_t offset) {
-  DCHECK(isPartialReliabilityEnabled(id))
-      << "Must check whether the PR is enabled prior to calling " << __func__;
-  auto hqStream = findNonDetachedStream(id);
-  if (!hqStream) {
-    if (streams_.find(id) != streams_.end()) {
-      LOG(ERROR) << __func__ << " event received for detached stream " << id;
-    }
-    return;
+  auto hqStream = getPRStream(id, "rejected");
+  if (hqStream) {
+    hqStream->processDataRejected(offset);
   }
-  hqStream->processDataRejected(offset);
 }
 
 void HQSession::timeoutExpired() noexcept {

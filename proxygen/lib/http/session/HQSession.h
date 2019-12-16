@@ -2169,6 +2169,9 @@ class HQSession
     return 100;
   }
 
+  HQStreamTransportBase* FOLLY_NULLABLE
+  getPRStream(quic::StreamId id, const char *event);
+
   // This is the current method of creating new push IDs.
   hq::PushId createNewPushId(quic::StreamId txnID);
 
