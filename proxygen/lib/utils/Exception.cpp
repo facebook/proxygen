@@ -12,6 +12,8 @@ namespace proxygen {
 
 Exception::Exception(std::string const& msg) : msg_(msg), code_(0) {}
 
+Exception::Exception(const char* msg) : msg_(msg), code_(0) {}
+
 Exception::Exception(const Exception& other)
     : msg_(other.msg_),
       code_(other.code_),
