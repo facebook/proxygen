@@ -1157,14 +1157,14 @@ class HQSession
                           HTTPCodec::StreamID /* controlStream */,
                           bool /* unidirectional */,
                           HTTPMessage* /* msg */) override {
-      LOG(ERROR) << __func__ << " txn=" << txn_ << " TODO";
+      LOG(ERROR) << "exMessage: txn=" << txn_ << " TODO";
     }
 
     virtual void onPushPromiseHeadersComplete(
         hq::PushId /* pushID */,
         HTTPCodec::StreamID /* assoc streamID */,
         std::unique_ptr<HTTPMessage> /* msg */) {
-      LOG(ERROR) << __func__ << " txn=" << txn_ << " TODO";
+      LOG(ERROR) << "push promise: txn=" << txn_ << " TODO";
     }
 
     void onHeadersComplete(HTTPCodec::StreamID streamID,
@@ -1889,13 +1889,12 @@ class HQSession
     void onPushMessageBegin(HTTPCodec::StreamID pushId,
                             HTTPCodec::StreamID parentTxnId,
                             HTTPMessage* /* msg */) override {
-      LOG(ERROR) << __func__
-                 << "Push streams are not allowed to receive push promises"
+      LOG(ERROR) << "Push promise on push stream"
                  << " txn=" << txn_ << " pushID=" << pushId
                  << " parentTxnId=" << parentTxnId;
       session_.dropConnectionAsync(
           std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM,
-                         "Push promise over a push stream"),
+                         "Push promise on push stream"),
           kErrorConnection);
     }
 

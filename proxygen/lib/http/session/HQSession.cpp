@@ -2479,8 +2479,7 @@ void HQSession::onDeliveryAck(quic::StreamId id,
         std::chrono::duration_cast<std::chrono::milliseconds>(rtt));
     pEgressStream->txn_.decrementPendingByteEvents();
   } else {
-    LOG(ERROR) << __func__
-               << " not expecting to receive delivery ack for erased stream";
+    LOG(ERROR) << " not expecting to receive delivery ack for erased stream";
   }
 }
 
@@ -2929,7 +2928,7 @@ void HQSession::HQStreamTransportBase::processPeekData(
         session_.versionUtils_->onIngressPeekDataAvailable(streamOffset);
     if (bodyOffset.hasError()) {
       if (bodyOffset.error() != UnframedBodyOffsetTrackerError::NO_ERROR) {
-        LOG(ERROR) << __func__ << ": " << bodyOffset.error();
+        LOG(ERROR) << "peek: " << bodyOffset.error();
       }
     } else {
       CHECK(chain.front()) << "Got peek data for an empty chain.";
@@ -3556,7 +3555,7 @@ void HQSession::HQStreamTransportBase::onUnframedBodyStarted(
 folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(
     HTTPTransaction::PeekCallback peekCallback) {
   if (!codecStreamId_) {
-    LOG(ERROR) << __func__ << ": codec streamId is not set yet";
+    LOG(ERROR) << "unframedBody: codec streamId is not set yet";
     return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
   }
 
@@ -3576,7 +3575,7 @@ folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(
 folly::Expected<folly::Unit, ErrorCode>
 HQSession::HQStreamTransportBase::consume(size_t amount) {
   if (!codecStreamId_) {
-    LOG(ERROR) << __func__ << ": codec streamId is not set yet";
+    LOG(ERROR) << "codec streamId is not set yet";
     return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
   }
 
@@ -3612,8 +3611,7 @@ HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
                                              uint64_t nextBodyOffset) {
   DCHECK(txn == &txn_);
   if (!session_.isPartialReliabilityEnabled()) {
-    LOG(ERROR) << __func__
-               << ": partially reliable operations are not supported";
+    LOG(ERROR) << "PR not supported";
     return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
   }
 
@@ -3622,7 +3620,7 @@ HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
 
   auto streamOffset = session_.versionUtils_->onEgressBodySkip(nextBodyOffset);
   if (streamOffset.hasError()) {
-    LOG(ERROR) << __func__ << ": " << streamOffset.error();
+    LOG(ERROR) << "skipBodyTo: " << streamOffset.error();
     HTTPException ex(HTTPException::Direction::EGRESS, "failed to send a skip");
     errorOnTransaction(std::move(ex));
     return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
@@ -3654,7 +3652,7 @@ HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
   auto streamOffset =
       session_.versionUtils_->onEgressBodyReject(nextBodyOffset);
   if (streamOffset.hasError()) {
-    LOG(ERROR) << __func__ << ": " << streamOffset.error();
+    LOG(ERROR) << "rejectBodyTo: " << streamOffset.error();
     HTTPException ex(HTTPException::Direction::EGRESS,
                      "failed to send a reject");
     errorOnTransaction(std::move(ex));
@@ -3688,7 +3686,7 @@ void HQSession::HQStreamTransportBase::armStreamAckCb(uint64_t streamOffset) {
   if (res.hasError()) {
     auto errStr = folly::to<std::string>(
       "failed to register delivery callback: ", toString(res.error()));
-    LOG(ERROR) << __func__ << ": " << errStr;
+    LOG(ERROR) << errStr;
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, errStr);
     ex.setProxygenError(kErrorNetwork);
     errorOnTransaction(std::move(ex));
@@ -3725,9 +3723,8 @@ void HQSession::HQStreamTransportBase::handleHeadersAcked(
     uint64_t streamOffset) {
   CHECK(egressHeadersAckOffset_) << ": egressHeadersAckOffset_ is not set";
   if (*egressHeadersAckOffset_ != streamOffset) {
-    LOG(ERROR) << __func__
-               << ": unexpected offset for egress headers ack: expected "
-               << *egressHeadersAckOffset_ << ", received " << streamOffset;
+    LOG(ERROR) << ": bad offset for egress headers ack: e="
+               << *egressHeadersAckOffset_ << ", r=" << streamOffset;
     return;
   }
 
