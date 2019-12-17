@@ -1056,8 +1056,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               stream.readState = OPEN;
               if (sock_->cb_) {
                 if (sock_->isUnidirectionalStream(event.streamId)) {
-                  stream.writeState = CLOSED;
-                  sock_->cb_->onNewUnidirectionalStream(event.streamId);
+                  if (isPeerStream(event.streamId)) {
+                      stream.writeState = CLOSED;
+                      sock_->cb_->onNewUnidirectionalStream(event.streamId);
+                  } else {
+                    CHECK(event.error) << "Non-error on self-uni stream";
+                  }
                 } else {
                   sock_->cb_->onNewBidirectionalStream(event.streamId);
                 }
@@ -1101,6 +1105,14 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         },
         cumulativeDelay_.count());
   }
+
+  bool isPeerStream(quic::StreamId id) {
+    return ((transportType_ == TransportEnum::SERVER &&
+            sock_->isClientStream(id)) ||
+            (transportType_ == TransportEnum::CLIENT &&
+             sock_->isServerStream(id)));
+  }
+
 
   void pauseOrResumeWrites(StreamState& stream, quic::StreamId streamId) {
     if (stream.writeState == OPEN && stream.flowControlWindow == 0) {

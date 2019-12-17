@@ -2491,6 +2491,113 @@ INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                                }()),
                         paramsToTestName);
 
+TEST_P(HQDownstreamSessionTestHQPush, SimplePush) {
+  auto id = sendRequest("/", 1);
+  HTTPMessage promiseReq, res;
+  promiseReq.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
+  promiseReq.setURL("/");
+  res.setStatusCode(200);
+  res.setStatusMessage("Ohai");
+
+  auto handler = addSimpleStrictHandler();
+  StrictMock<MockHTTPPushHandler> pushHandler;
+  handler->expectHeaders();
+  HTTPCodec::StreamID pushStreamId = 0;
+  handler->expectEOM([&] {
+      // Generate response for the associated stream
+      handler->txn_->sendHeaders(res);
+      handler->txn_->sendBody(makeBuf(100));
+
+      // Different from H2, this counts as an outgoing stream as soon as the
+      // txn is created.
+      // TODO: maybe create the stream lazily when trying to send the real
+      // headers instead?
+      auto outgoingStreams = hqSession_->getNumOutgoingStreams();
+      auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+      ASSERT_NE(pushTxn, nullptr);
+      EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
+      // Generate a push request (PUSH_PROMISE)
+      pushTxn->sendHeaders(promiseReq);
+      pushStreamId = pushTxn->getID();
+      LOG(INFO) << "pushStreamId=" << pushStreamId;
+      pushTxn->sendHeaders(res);
+      pushTxn->sendBody(makeBuf(200));
+      pushTxn->sendEOM();
+    });
+  EXPECT_CALL(pushHandler, setTransaction(_))
+      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
+  EXPECT_CALL(pushHandler, detachTransaction());
+
+  flushRequestsAndLoopN(1);
+  handler->txn_->sendEOM();
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
+  EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
+  auto pushIt = pushes_.find(pushStreamId & ~hq::kPushIdMask);
+  ASSERT_TRUE(pushIt != pushes_.end());
+  EXPECT_GT(socketDriver_->streams_[pushIt->second].writeBuf.chainLength(),
+            110);
+  EXPECT_TRUE(socketDriver_->streams_[pushIt->second].writeEOF);
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQPush, StopSending) {
+  auto id = sendRequest("/", 1);
+  HTTPMessage req, res;
+  req.getHeaders().set("HOST", "www.foo.com");
+  req.setURL("https://www.foo.com/");
+  res.setStatusCode(200);
+  res.setStatusMessage("Ohai");
+
+  auto handler = addSimpleStrictHandler();
+  StrictMock<MockHTTPPushHandler> pushHandler;
+  handler->expectHeaders();
+  HTTPCodec::StreamID pushStreamId = 0;
+  handler->expectEOM([&] {
+      // Generate response for the associated stream
+      handler->txn_->sendHeaders(res);
+      handler->txn_->sendBody(makeBuf(100));
+
+      // Different from H2, this counts as an outgoing stream as soon as the
+      // txn is created.
+      // TODO: maybe create the stream lazily when trying to send the real
+      // headers instead?
+      auto outgoingStreams = hqSession_->getNumOutgoingStreams();
+      auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+      ASSERT_NE(pushTxn, nullptr);
+      EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
+      // Generate a push request (PUSH_PROMISE)
+      pushTxn->sendHeaders(req);
+      pushStreamId = pushTxn->getID();
+      LOG(INFO) << "pushStreamId=" << pushStreamId;
+      pushTxn->sendHeaders(res);
+      pushTxn->sendBody(makeBuf(200));
+      // NO EOM
+    });
+  EXPECT_CALL(pushHandler, setTransaction(_))
+      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
+  EXPECT_CALL(pushHandler, onError(_));
+  EXPECT_CALL(pushHandler, detachTransaction());
+
+  flushRequestsAndLoopN(1);
+  handler->txn_->sendEOM();
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
+  EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
+  auto pushIt = pushes_.find(pushStreamId & ~hq::kPushIdMask);
+  ASSERT_TRUE(pushIt != pushes_.end());
+  EXPECT_GT(socketDriver_->streams_[pushIt->second].writeBuf.chainLength(),
+            110);
+  EXPECT_FALSE(socketDriver_->streams_[pushIt->second].writeEOF);
+  // Cancel the push with stop sending
+  socketDriver_->addStopSending(pushIt->second,
+                                HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED);
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 using DropConnectionInTransportReadyTest =
     HQDownstreamSessionBeforeTransportReadyTest;
 

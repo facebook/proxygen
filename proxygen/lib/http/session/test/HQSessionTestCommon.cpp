@@ -99,7 +99,7 @@ std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info) {
 }
 
 folly::Optional<std::pair<UnidirectionalStreamType, size_t>> parseStreamPreface(
-    folly::io::Cursor cursor, std::string alpn) {
+    folly::io::Cursor& cursor, std::string alpn) {
   CHECK(!ALPN_H1Q_FB_V1);
   auto res = quic::decodeQuicInteger(cursor);
   if (!res) {
