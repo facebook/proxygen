@@ -1268,6 +1268,19 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
         nextUnidirectionalStreamId(), pushId, prefaceBytes, eom);
   }
 
+  std::unique_ptr<MockHTTPHandler> expectPushResponse() {
+    auto pushHandler = std::make_unique<MockHTTPHandler>();
+    pushHandler->expectTransaction();
+    assocHandler_->expectPushedTransaction(pushHandler.get());
+    // Promise/Response - with no lambda it lacks RetiresOnSaturation
+    pushHandler->expectHeaders([] (std::shared_ptr<HTTPMessage>) {});
+    pushHandler->expectHeaders([] (std::shared_ptr<HTTPMessage>) {});
+    pushHandler->expectBody();
+    pushHandler->expectEOM();
+    pushHandler->expectDetachTransaction();
+    return pushHandler;
+  }
+
   proxygen::HTTPHeaderSize lastPushPromiseHeadersSize_;
   hq::PushId nextPushId_;
   std::unique_ptr<StrictMock<MockHTTPHandler>> assocHandler_;
@@ -1285,7 +1298,6 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
   assocHandler_->expectError([&](const HTTPException& ex) {
     ASSERT_EQ(ex.getProxygenError(), kErrorTimeout);
   });
-  assocHandler_->expectPushedTransaction();
 
   hq::PushId pushId = nextPushId();
 
@@ -1342,6 +1354,8 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
 
   assocHandler_->txn_->sendEOM();
 
+  auto pushHandler = expectPushResponse();
+
   hqSession_->closeWhenIdle();
   flushAndLoop();
 }
@@ -1396,7 +1410,6 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseFollowedByPushStream) {
   // the transaction is expected to timeout, since the PushPromise does not have
   // EOF set, and it is not followed by a PushStream.
   assocHandler_->expectError();
-  assocHandler_->expectPushedTransaction();
 
   hq::PushId pushId = nextPushId();
 
@@ -1455,6 +1468,8 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseFollowedByPushStream) {
 
   assocHandler_->txn_->sendEOM();
 
+  auto pushHandler = expectPushResponse();
+
   hqSession_->closeWhenIdle();
   flushAndLoop();
 }
@@ -1482,9 +1497,9 @@ TEST_P(HQUpstreamSessionTestHQPush, TestOnPushedTransaction) {
 
   // Once both push promise and push stream have been received, a push
   // transaction should be created
-  assocHandler_->expectPushedTransaction();
-
   assocHandler_->txn_->sendEOM();
+
+  auto pushHandler = expectPushResponse();
 
   hqSession_->closeWhenIdle();
   flushAndLoop();
@@ -1511,7 +1526,7 @@ TEST_P(HQUpstreamSessionTestHQPush, TestOnPushedTransactionOutOfOrder) {
 
   // Once both push promise and push stream have been received, a push
   // transaction should be created
-  assocHandler_->expectPushedTransaction();
+  auto pushHandler = expectPushResponse();
 
   assocHandler_->txn_->sendEOM();
 

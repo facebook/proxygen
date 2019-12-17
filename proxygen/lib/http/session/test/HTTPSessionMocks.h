@@ -220,9 +220,13 @@ class MockHTTPHandler
         .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &txn_));
   }
 
-  void expectPushedTransaction(HTTPTransaction** pTxn = nullptr) {
+  void expectPushedTransaction(HTTPTransactionHandler* handler=nullptr) {
     EXPECT_CALL(*this, onPushedTransaction(testing::_))
-        .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &pushedTxn_));
+      .WillOnce(testing::Invoke([handler] (HTTPTransaction* txn) {
+            if (handler) {
+              txn->setHandler(handler);
+            }
+          }));
   }
 
   void expectHeaders(std::function<void()> callback = std::function<void()>()) {
