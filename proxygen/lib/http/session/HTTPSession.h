@@ -1052,6 +1052,8 @@ class HTTPSession
 
   std::shared_ptr<ByteEventTracker> byteEventTracker_{nullptr};
 
+  HTTPTransaction* lastTxn_{nullptr};
+
   /**
    * Max number of bytes to egress per session
    */

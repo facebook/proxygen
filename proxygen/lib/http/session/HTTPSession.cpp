@@ -890,6 +890,8 @@ void HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
     return;
   }
 
+  HTTPTransaction::DestructorGuard dg(txn);
+
   const char* sslCipher =
       transportInfo_.sslCipher ? transportInfo_.sslCipher->c_str() : nullptr;
   msg->setSecureInfo(transportInfo_.sslVersion, sslCipher);
@@ -924,9 +926,8 @@ void HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   }
 
   // The txn may have already been aborted by the handler.
-  // Verify that the txn still exists before ingress callbacks.
-  txn = findTransaction(streamID);
-  if (!txn) {
+  // Verify that the txn is not done.
+  if (txn->isIngressComplete() && txn->isEgressComplete()) {
     return;
   }
 
@@ -1937,6 +1938,9 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
 
   auto oldStreamCount = getPipelineStreamCount();
   decrementTransactionCount(txn, true, true);
+  if (lastTxn_ == txn) {
+    lastTxn_ = nullptr;
+  }
   transactions_.erase(it);
 
   if (transactions_.empty()) {
@@ -2546,11 +2550,15 @@ size_t HTTPSession::sendPriorityImpl(HTTPCodec::StreamID id,
 }
 
 HTTPTransaction* HTTPSession::findTransaction(HTTPCodec::StreamID streamID) {
+  if (lastTxn_ && streamID == lastTxn_->getID()) {
+    return lastTxn_;
+  }
   auto it = transactions_.find(streamID);
   if (it == transactions_.end()) {
     return nullptr;
   } else {
-    return &it->second;
+    lastTxn_ = &it->second;
+    return lastTxn_;
   }
 }
 
