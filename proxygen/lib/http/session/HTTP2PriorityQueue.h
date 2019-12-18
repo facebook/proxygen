@@ -179,6 +179,8 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
   }
 
  private:
+  static Node* nodeFromBaseNode(BaseNode* bnode);
+
   // Find the node in priority tree
   Node* find(HTTPCodec::StreamID id, uint64_t* depth = nullptr);
 
