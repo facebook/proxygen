@@ -628,25 +628,10 @@ class HTTPSession
    * but runs in O(n*log n) and if the callback *adds* transactions,
    * they will not get the callback.
    */
-  template <typename... Args1, typename... Args2>
-  void invokeOnAllTransactions(void (HTTPTransaction::*fn)(Args1...),
-                               Args2&&... args) {
-    DestructorGuard g(this);
-    std::vector<HTTPCodec::StreamID> ids;
-    for (const auto& txn : transactions_) {
-      ids.push_back(txn.first);
-    }
-    for (auto idit = ids.begin(); idit != ids.end() && !transactions_.empty();
-         ++idit) {
-      auto txn = findTransaction(*idit);
-      if (txn != nullptr) {
-        (txn->*fn)(std::forward<Args2>(args)...);
-      }
-    }
-  }
+  void invokeOnAllTransactions(folly::Function<void(HTTPTransaction*)> fn);
 
   void pauseTransactions() override {
-    invokeOnAllTransactions(&HTTPTransaction::pauseEgress);
+    invokeOnAllTransactions([] (HTTPTransaction* txn) { txn->pauseEgress(); });
   }
 
   /**

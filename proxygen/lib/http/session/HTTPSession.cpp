@@ -1197,7 +1197,9 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // We give the less-forceful onGoaway() first so that transactions have
   // a chance to do stat tracking before potentially getting a forceful
   // onError().
-  invokeOnAllTransactions(&HTTPTransaction::onGoaway, code);
+  invokeOnAllTransactions([code] (HTTPTransaction* txn) {
+      txn->onGoaway(code);
+    });
 
   // Abort transactions which have been initiated but not created
   // successfully at the remote end. Upstream transactions are created
@@ -1493,7 +1495,9 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
 
 void HTTPSession::onSetSendWindow(uint32_t windowSize) {
   VLOG(4) << *this << " got send window size adjustment. new=" << windowSize;
-  invokeOnAllTransactions(&HTTPTransaction::onIngressSetSendWindow, windowSize);
+  invokeOnAllTransactions([windowSize] (HTTPTransaction* txn) {
+      txn->onIngressSetSendWindow(windowSize);
+    });
 }
 
 void HTTPSession::onSetMaxInitiatedStreams(uint32_t maxTxns) {
@@ -2173,8 +2177,9 @@ void HTTPSession::runLoopCallback() noexcept {
     // This ScopeGuard needs to be under the above DestructorGuard
     updatePendingWrites();
     if (!hasMoreWrites()) {
-      invokeOnAllTransactions(
-          &HTTPTransaction::checkIfEgressRateLimitedByUpstream);
+      invokeOnAllTransactions([] (HTTPTransaction* txn) {
+          txn->checkIfEgressRateLimitedByUpstream();
+        });
     }
     checkForShutdown();
   });
@@ -2183,8 +2188,9 @@ void HTTPSession::runLoopCallback() noexcept {
   for (uint32_t i = 0; i < kMaxWritesPerLoop; ++i) {
     bodyBytesPerWriteBuf_ = 0;
     if (isPrioritySampled()) {
-      invokeOnAllTransactions(&HTTPTransaction::updateContentionsCount,
-                              txnEgressQueue_.numPendingEgress());
+      invokeOnAllTransactions([this] (HTTPTransaction* txn) {
+          txn->updateContentionsCount(txnEgressQueue_.numPendingEgress());
+        });
     }
 
     bool cork = true;
@@ -2207,8 +2213,9 @@ void HTTPSession::runLoopCallback() noexcept {
     }
 
     if (isPrioritySampled()) {
-      invokeOnAllTransactions(&HTTPTransaction::updateSessionBytesSheduled,
-                              bodyBytesPerWriteBuf_);
+      invokeOnAllTransactions([this] (HTTPTransaction* txn) {
+          txn->updateSessionBytesSheduled(bodyBytesPerWriteBuf_);
+        });
     }
 
     WriteSegment* segment = new WriteSegment(this, len);
@@ -2380,7 +2387,9 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
                                             ", ",
                                             getPeerAddress().describe()));
     ex.setProxygenError(error);
-    invokeOnAllTransactions(&HTTPTransaction::onError, ex);
+    invokeOnAllTransactions([&ex] (HTTPTransaction* txn) {
+        txn->onError(ex);
+      });
   }
 
   // Close the socket only after the onError() callback on the txns
@@ -2767,8 +2776,9 @@ void HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
     if (numActiveWrites_ == 0 && hasMoreWrites()) {
       runLoopCallback();
     } else {
-      invokeOnAllTransactions(
-          &HTTPTransaction::checkIfEgressRateLimitedByUpstream);
+      invokeOnAllTransactions([] (HTTPTransaction* txn) {
+          txn->checkIfEgressRateLimitedByUpstream();
+        });
     }
   }
   onWriteCompleted();
@@ -3048,5 +3058,23 @@ bool HTTPSession::isDetachable(bool checkSocket) const {
          !writesPaused() && !flowControlTimeout_.isScheduled() &&
          !writeTimeout_.isScheduled() && !drainTimeout_.isScheduled();
 }
+
+void HTTPSession::invokeOnAllTransactions(
+    folly::Function<void(HTTPTransaction*)> fn) {
+  DestructorGuard g(this);
+  std::vector<HTTPCodec::StreamID> ids;
+  for (const auto& txn : transactions_) {
+    ids.push_back(txn.first);
+  }
+  for (auto idit = ids.begin(); idit != ids.end() && !transactions_.empty();
+       ++idit) {
+    auto txn = findTransaction(*idit);
+    if (txn != nullptr) {
+      fn(txn);
+    }
+  }
+}
+
+
 
 } // namespace proxygen
