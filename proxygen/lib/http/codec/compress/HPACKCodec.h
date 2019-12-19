@@ -53,7 +53,8 @@ class HPACKCodec : public HeaderCodec {
 
   void encodeHTTP(
       const HTTPMessage& msg,
-      folly::IOBufQueue& writeBuf) noexcept;
+      folly::IOBufQueue& writeBuf,
+      bool includeDate) noexcept;
 
 
   void decodeStreaming(folly::io::Cursor& cursor,

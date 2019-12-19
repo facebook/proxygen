@@ -1180,7 +1180,7 @@ void HTTP2Codec::generateHeaderImpl(
     maxFrameSize - headerSize + http2::kFrameHeaderSize;
   auto frameHeader = writeBuf.preallocate(headerSize, kDefaultGrowth);
   writeBuf.postallocate(headerSize);
-  headerCodec_.encodeHTTP(msg, writeBuf);
+  headerCodec_.encodeHTTP(msg, writeBuf, addDateToResponse_);
   *size = headerCodec_.getEncodedSize();
 
   IOBufQueue queue(IOBufQueue::cacheChainLength());

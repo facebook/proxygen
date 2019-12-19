@@ -175,6 +175,10 @@ public:
     return headerCodec_.getHeaderIndexingStrategy();
   }
 
+  void setAddDateHeaderToResponse(bool addDateHeader) {
+    addDateToResponse_ = addDateHeader;
+  }
+
  private:
   size_t splitCompressed(size_t compressed,
                          uint32_t remainingFrameSize,
@@ -298,6 +302,7 @@ public:
   // Applies only to DOWNSTREAM, for UPSTREAM we use
   // diffrent heuristic - lack of status code.
   bool parsingDownstreamTrailers_{false};
+  bool addDateToResponse_{true};
 
   // CONTINUATION frame can follow either HEADERS or PUSH_PROMISE frames.
   // Keeps frame type of iniating frame of header block.

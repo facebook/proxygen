@@ -66,7 +66,8 @@ void HPACKCodec::encode(
 }
 
 void HPACKCodec::encodeHTTP(
-  const HTTPMessage& msg, folly::IOBufQueue& writeBuf) noexcept {
+  const HTTPMessage& msg, folly::IOBufQueue& writeBuf,
+  bool includeDate) noexcept {
   auto prevSize = writeBuf.chainLength();
   encoder_.startEncode(writeBuf);
 
@@ -149,7 +150,7 @@ void HPACKCodec::encodeHTTP(
   });
 
 
-  if (msg.isResponse() && !hasDateHeader) {
+  if (includeDate && msg.isResponse() && !hasDateHeader) {
     uncompressed += encoder_.encodeHeader(
       HTTP_HEADER_DATE, HTTPMessage::formatDateHeader());
   }

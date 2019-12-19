@@ -81,7 +81,8 @@ bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
 void CodecUtil::prepareMessageForCompression(
     const HTTPMessage& msg,
     std::vector<compress::Header>& allHeaders,
-    std::vector<std::string>& temps) {
+    std::vector<std::string>& temps,
+    bool addDateToResponse) {
   if (msg.isRequest()) {
     if (msg.isEgressWebsocketUpgrade()) {
       allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD,
@@ -120,7 +121,7 @@ void CodecUtil::prepareMessageForCompression(
   bool hasDateHeader =
       appendHeaders(msg.getHeaders(), allHeaders, HTTP_HEADER_DATE);
 
-  if (msg.isResponse() && !hasDateHeader) {
+  if (addDateToResponse && msg.isResponse() && !hasDateHeader) {
     temps.emplace_back(HTTPMessage::formatDateHeader());
     allHeaders.emplace_back(HTTP_HEADER_DATE, temps.back());
   }
