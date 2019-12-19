@@ -725,49 +725,54 @@ void HTTPMessage::describe(std::ostream& os) const {
   }};
 
   std::string pushStatusMessage;
-  if (fields_.which_ == MessageType::REQUEST) {
+  if (isRequest()) {
     // Request fields.
     const Request& req = request();
-    if (req.clientIP_) {
-      fields.emplace_back("client_ip", *req.clientIP_);
-    } else {
-      fields.emplace_back("client_ip", empty_string);
-    }
-    if (req.clientPort_) {
-      fields.emplace_back("client_port", *req.clientPort_);
-    } else {
-      fields.emplace_back("client_port", empty_string);
-    }
-    fields.emplace_back("method", getMethodString());
-    fields.emplace_back("path", req.path_);
-    fields.emplace_back("query", req.query_);
-    fields.emplace_back("url", req.url_);
     pushStatusMessage = getPushStatusStr();
-    fields.emplace_back("push_status", pushStatusMessage);
-  } else if (fields_.which_ == MessageType::RESPONSE) {
+    fields.insert(fields.end(), {
+        { "client_ip", req.clientIP_ ? *req.clientIP_ : empty_string },
+        { "client_port", req.clientPort_ ? *req.clientPort_ : empty_string },
+        { "method", getMethodString() },
+        { "path", req.path_ },
+        { "query", req.query_ },
+        { "url", req.url_ },
+        { "push_status", pushStatusMessage }
+      });
+
+  } else if (isResponse()) {
     // Response fields.
     const Response& resp = response();
-    fields.emplace_back("status", resp.statusStr_);
-    fields.emplace_back("status_msg", resp.statusMsg_);
+    fields.insert(fields.end(), {
+        { "status", resp.statusStr_ },
+        { "status_msg", resp.statusMsg_ }
+      });
   }
 
-  for (auto field : fields) {
+  for (auto& field : fields) {
     if (!field.second.empty()) {
       os << " " << field.first
          << ":" << stripCntrlChars(field.second) << std::endl;
     }
   }
 
-  headers_.forEach([&] (const string& h, const string& v) {
-      os << " " << stripCntrlChars(h) << ": "
-         << stripCntrlChars(v) << std::endl;
-    });
-  if (strippedPerHopHeaders_ && strippedPerHopHeaders_->size() > 0) {
-    os << "Per-Hop Headers" << std::endl;
-    strippedPerHopHeaders_->forEach([&] (const string& h, const string& v) {
+  // This little loop prints the headers and (if present) any per-hop headers
+  // that were stripped.  It executes at most twice.
+  bool first = true;
+  const HTTPHeaders* hdrs = &headers_;
+  while (hdrs) {
+    if (!first && hdrs->size() != 0) {
+      os << "Per-Hop Headers" << std::endl;
+    }
+    hdrs->forEach([&os] (const string& h, const string& v) {
         os << " " << stripCntrlChars(h) << ": "
            << stripCntrlChars(v) << std::endl;
       });
+    if (first) {
+      hdrs = strippedPerHopHeaders_.get();
+      first = false;
+    } else {
+      hdrs = nullptr;
+    }
   }
 }
 
@@ -834,94 +839,21 @@ bool HTTPMessage::doHeaderTokenCheck(const HTTPHeaders& headers,
                                      const HTTPHeaderCode headerCode,
                                      char const* token,
                                      bool caseSensitive) const {
-  StringPiece tokenPiece(token);
-  string lowerToken;
-  if (!caseSensitive) {
-    lowerToken = token;
-    boost::to_lower(lowerToken, defaultLocale);
-    tokenPiece.reset(lowerToken);
-  }
-
-  // Search through all of the headers with this name.
-  // forEachValueOfHeader will return true iff it was "broken" prematurely
-  // with "return true" in the lambda-function
   return headers.forEachValueOfHeader(headerCode, [&] (const string& value) {
-    string lower;
-    // Use StringPiece, since it implements a faster find() than std::string
-    StringPiece headerValue;
-    if (caseSensitive) {
-      headerValue.reset(value);
-    } else {
-      // TODO: We only perform ASCII lowering right now.  Technically the
-      // headers could contain data in other encodings, if encoded according
-      // to RFC 2047 (encoded strings will start with "=?").
-      lower = value;
-      boost::to_lower(lower, defaultLocale);
-      headerValue.reset(lower);
-    }
-
-    // Look for the specified token
-    size_t idx = 0;
-    size_t end = headerValue.size();
-    while (idx < end) {
-      idx = headerValue.find(tokenPiece, idx);
-      if (idx == string::npos) {
-        break;
-      }
-
-      // Search backwards to make sure we found the value at the beginning
-      // of a token.
-      bool at_token_start = false;
-      size_t prev = idx;
-      while (true) {
-        if (prev == 0) {
-          at_token_start = true;
-          break;
-        }
-        --prev;
-        char c = headerValue[prev];
-        if (c == ',') {
-          at_token_start = true;
-          break;
-        }
-        if (!isLWS(c)) {
-          // not at a token start
-          break;
+      std::vector<folly::StringPiece> tokens;
+      folly::split(",", value, tokens);
+      for (auto t: tokens) {
+        t = trim(t);
+        if (caseSensitive) {
+          if (t == token) {
+            return true;
+          }
+        } else if (caseInsensitiveEqual(t, token)) {
+          return true;
         }
       }
-      if (!at_token_start) {
-        idx += 1;
-        continue;
-      }
-
-      // Search forwards to see if we found the value at the end of a token
-      bool at_token_end = false;
-      size_t next = idx + tokenPiece.size();
-      while (true) {
-        if (next >= end) {
-          at_token_end = true;
-          break;
-        }
-        char c = headerValue[next];
-        if (c == ',') {
-          at_token_end = true;
-          break;
-        }
-        if (!isLWS(c)) {
-          // not at a token end
-          break;
-        }
-        ++next;
-      }
-      if (at_token_end) {
-        // We found the token we're looking for
-        return true;
-      }
-
-      idx += 1;
-    }
-    return false; // keep processing
-  });
+      return false;
+    });
 }
 
 const char* HTTPMessage::getDefaultReason(uint16_t status) {
@@ -972,6 +904,27 @@ const char* HTTPMessage::getDefaultReason(uint16_t status) {
   // Note: Some Microsoft clients behave badly if the reason string
   // is left empty.  Therefore return a non-empty string here.
   return "-";
+}
+
+ParseURL HTTPMessage::setURLImplInternal(bool unparse) {
+  auto& req = request();
+  ParseURL u(req.url_);
+  if (u.valid()) {
+    VLOG(9) << "set path: " << u.path() << " query:"
+            << u.query();
+    req.path_ = u.path();
+    req.query_ = u.query();
+  } else {
+    VLOG(4) << "Error in parsing URL: " << req.url_;
+    req.path_.clear();
+    req.query_.clear();
+  }
+  req.pathStr_ = folly::none;
+  req.queryStr_ = folly::none;
+  if (unparse) {
+    unparseQueryParams();
+  }
+  return u;
 }
 
 } // proxygen

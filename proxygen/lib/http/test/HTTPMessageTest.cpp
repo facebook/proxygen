@@ -435,6 +435,26 @@ TEST(GetPathAndQuery, ParseURL) {
   testPathAndQuery("#?hello", "", "");
 }
 
+TEST(HTTPMessage, CheckHeaderForToken) {
+  HTTPMessage msg;
+  std::vector<std::pair<std::string, bool>> tests{
+    { "close", true },
+    { "xclose", false },
+    { "closex", false },
+    { "close, foo", true },
+    { "close, ", true },
+    { "foo, close", true },
+    { ", close", true },
+    { "close, close, ", true }
+  };
+
+  for (auto& test: tests) {
+    msg.getHeaders().set(HTTP_HEADER_CONNECTION, test.first);
+    EXPECT_TRUE(msg.checkForHeaderToken(
+                  HTTP_HEADER_CONNECTION, "close", false) == test.second);
+  }
+}
+
 TEST(HTTPHeaders, AddStringPiece) {
   const char foo[] = "name:value";
   HTTPHeaders headers;

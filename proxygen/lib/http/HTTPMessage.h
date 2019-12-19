@@ -211,31 +211,6 @@ class HTTPMessage {
     return setURLImpl(std::forward<T>(url), true);
   }
 
-  template <typename T> // T = string
-  ParseURL setURLImpl(T&& url, bool unparse) {
-    VLOG(9) << "setURL: " << url;
-
-    // Set the URL, path, and query string parameters
-    auto& req = request();
-    req.url_ = std::forward<T>(url);
-    ParseURL u(req.url_);
-    if (u.valid()) {
-      VLOG(9) << "set path: " << u.path() << " query:"
-              << u.query();
-      req.path_ = u.path();
-      req.query_ = u.query();
-    } else {
-      VLOG(4) << "Error in parsing URL: " << req.url_;
-      req.path_.clear();
-      req.query_.clear();
-    }
-    req.pathStr_ = folly::none;
-    req.queryStr_ = folly::none;
-    if (unparse) {
-      unparseQueryParams();
-    }
-    return u;
-  }
   // The template function above doesn't work with char*,
   // so explicitly convert to a string first.
   void setURL(const char* url) {
@@ -797,6 +772,17 @@ class HTTPMessage {
  private:
 
   void parseCookies() const;
+
+  template <typename T> // T = string
+  ParseURL setURLImpl(T&& url, bool unparse) {
+    VLOG(9) << "setURL: " << url;
+
+    // Set the URL, path, and query string parameters
+    request().url_ = std::forward<T>(url);
+    return setURLImplInternal(unparse);
+  }
+
+  ParseURL setURLImplInternal(bool unparse);
 
   bool setQueryStringImpl(const std::string& queryString, bool unparse);
   void parseQueryParams() const;
