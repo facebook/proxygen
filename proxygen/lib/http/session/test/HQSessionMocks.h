@@ -434,6 +434,23 @@ class MockHQSession : public HQSession {
     return txn_.get();
   }
 
+  HQStreamTransportBase* findPushStream(quic::StreamId) override {
+    return nullptr;
+  }
+
+  void findPushStreams(std::unordered_set<HQStreamTransportBase*>& ) override {}
+  bool erasePushStream(quic::StreamId) override { return false; }
+  uint32_t getNumOutgoingStreams() const override{
+    return static_cast<uint32_t>(streams_.size());
+  }
+  uint32_t getNumIncomingStreams() const override{
+    return static_cast<uint32_t>(streams_.size());
+  }
+
+  void onNewPushStream(quic::StreamId /* streamId */,
+                       hq::PushId /* pushId */,
+                       size_t /* to consume */) override {};
+
   const std::chrono::milliseconds transactionTimeout_;
   const proxygen::TransportDirection direction_;
 

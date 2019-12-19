@@ -26,7 +26,6 @@
 #include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HQStreamBase.h>
-#include <proxygen/lib/http/session/HQStreamLookup.h>
 #include <proxygen/lib/http/session/HQUnidirectionalCallbacks.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
@@ -127,8 +126,6 @@ class HQSession
   class HQStreamTransportBase;
  protected:
   class HQStreamTransport;
-  class HQEgressPushStream;
-  class HQIngressPushStream;
 
  private:
   class HQControlStream;
@@ -240,12 +237,6 @@ class HQSession
   // Only for UpstreamSession
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
 
-  // Create a new pushed transaction.
-  HTTPTransaction* newPushedTransaction(
-      HTTPCodec::StreamID, /* parentRequestStreamId */
-      HTTPTransaction::PushHandler*, /* handler */
-      ProxygenError* error = nullptr);
-
   void startNow() override;
 
   void describe(std::ostream& os) const override {
@@ -291,25 +282,11 @@ class HQSession
   }
 
   bool hasActiveTransactions() const override {
-    return numberOfStreams() > 0;
+    return getNumStreams() > 0;
   }
 
   uint32_t getNumStreams() const override {
-    return numberOfStreams();
-  }
-
-  uint32_t getNumOutgoingStreams() const override {
-    // need transport API
-    return static_cast<uint32_t>((direction_ == TransportDirection::DOWNSTREAM)
-                                     ? numberOfEgressPushStreams()
-                                     : numberOfEgressStreams());
-  }
-
-  uint32_t getNumIncomingStreams() const override {
-    // need transport API
-    return static_cast<uint32_t>((direction_ == TransportDirection::UPSTREAM)
-                                     ? numberOfIngressPushStreams()
-                                     : numberOfIngressStreams());
+    return getNumOutgoingStreams() + getNumIncomingStreams();
   }
 
   CodecProtocol getCodecProtocol() const override {
@@ -419,7 +396,7 @@ class HQSession
   void timeoutExpired() noexcept override;
 
   bool isBusy() const override {
-    return numberOfStreams() > 0;
+    return getNumStreams() > 0;
   }
   void notifyPendingShutdown() override;
   void closeWhenIdle() override;
@@ -510,18 +487,18 @@ class HQSession
   HQStreamTransportBase* findEgressStream(quic::StreamId streamId,
                                           bool includeDetached = false);
 
-  // Find an ingress push stream
-  HQIngressPushStream* findIngressPushStream(quic::StreamId);
-  HQIngressPushStream* findIngressPushStreamByPushId(hq::PushId);
-
-  // Find an egress push stream
-  HQEgressPushStream* findEgressPushStream(quic::StreamId);
-  HQEgressPushStream* findEgressPushStreamByPushId(hq::PushId);
-
   // Erase the stream. Returns true if the stream
   // has been erased
   bool eraseStream(quic::StreamId);
-  bool eraseStreamByPushId(hq::PushId);
+
+  virtual bool erasePushStream(quic::StreamId streamId) = 0;
+
+  virtual bool eraseStreamByPushId(hq::PushId) { return false; }
+
+  void resumeReadsForPushStream(quic::StreamId streamId) {
+    pendingProcessReadSet_.insert(streamId);
+    resumeReads(streamId);
+  }
 
   // Find a control stream by type
   HQControlStream* findControlStream(hq::UnidirectionalStreamType streamType);
@@ -529,13 +506,15 @@ class HQSession
   // Find a control stream by stream id (either ingress or egress)
   HQControlStream* findControlStream(quic::StreamId streamId);
 
-  // NOTE: for now we are using uint32_t as the limit for
-  // the number of streams.
-  uint32_t numberOfStreams() const;
-  uint32_t numberOfIngressStreams() const;
-  uint32_t numberOfEgressStreams() const;
-  uint32_t numberOfIngressPushStreams() const;
-  uint32_t numberOfEgressPushStreams() const;
+  virtual HQStreamTransportBase* createIngressPushStream(
+     quic::StreamId, hq::PushId) { return nullptr; }
+
+  virtual void eraseUnboundStream(HQStreamTransportBase*) {}
+
+  virtual HTTPTransaction* newPushedTransaction(
+      HTTPCodec::StreamID, /* parentRequestStreamId */
+      HTTPTransaction::PushHandler*, /* handler */
+      ProxygenError*) { return nullptr; }
 
   /*
    * for HQ we need a read callback for unidirectional streams to read the
@@ -551,10 +530,6 @@ class HQSession
       hq::UnidirectionalStreamType /* type */,
       size_t /* toConsume */,
       quic::QuicSocket::PeekCallback* const /* cb */) override;
-
-  void onNewPushStream(quic::StreamId /* pushStreamId */,
-                       hq::PushId /* pushId */,
-                       size_t /* toConsume */) override;
 
   void assignReadCallback(
       quic::StreamId /* id */,
@@ -586,16 +561,6 @@ class HQSession
       const HQUnidirStreamDispatcher::Callback::ReadError& /* err */) override;
 
   void setNewTransactionPauseState(HTTPTransaction* txn) override;
-
-  /**
-   * Attempt to bind an ingress push stream object (which has the txn)
-   * to a nascent stream (which has the transport/codec).
-   * If successful, remove the nascent stream and
-   * re-enable ingress.
-   * returns true if binding was successful
-   */
-  bool tryBindIngressStreamToTxn(hq::PushId pushId,
-                                 HQIngressPushStream* pushStream = nullptr);
 
   /**
    * HQSession is an HTTPSessionBase that uses QUIC as the underlying transport
@@ -689,6 +654,10 @@ class HQSession
 
   std::shared_ptr<quic::QuicSocket> sock_;
 
+  // Callback pointer used for correctness testing. Not used
+  // for session logic.
+  ServerPushLifecycleCallback* serverPushLifecycleCb_{nullptr};
+
  private:
   std::unique_ptr<HTTPCodec> createStreamCodec(quic::StreamId streamId);
 
@@ -707,18 +676,7 @@ class HQSession
   HQControlStream* createIngressControlStream(
       quic::StreamId id, hq::UnidirectionalStreamType streamType);
 
-  // Create ingress push stream.
-  HQIngressPushStream* createIngressPushStream(quic::StreamId parentStreamId,
-                                               hq::PushId pushId);
-
-  HQEgressPushStream* FOLLY_NULLABLE
-  createEgressPushStream(hq::PushId pushId,
-                         quic::StreamId streamId,
-                         quic::StreamId parentStreamId);
-
-  // Value of the next pushId, used for outgoing push transactions
-  // This variable does not have the hq::kPushIdMask set
-  hq::PushId nextAvailablePushId_{0};
+  virtual void cleanupUnboundPushStreams(std::vector<quic::StreamId>&) {}
 
   // gets the ALPN from the transport and returns whether the protocol is
   // supported. Drops the connection if not supported
@@ -847,9 +805,7 @@ class HQSession
     invokeOnStreamsImpl(
         std::move(fn),
         [this](quic::StreamId id) { return this->findStream(id); },
-        [this](hq::PushId id) {
-          return this->findIngressPushStreamByPushId(id);
-        });
+        true);
   }
 
   void invokeOnEgressStreams(std::function<void(HQStreamTransportBase*)> fn,
@@ -866,9 +822,7 @@ class HQSession
                         [this, includeDetached](quic::StreamId id) {
                           return this->findIngressStream(id, includeDetached);
                         },
-                        [this](hq::PushId id) {
-                          return this->findIngressPushStreamByPushId(id);
-                        });
+                        true);
   }
 
   void invokeOnNonDetachedStreams(
@@ -877,6 +831,11 @@ class HQSession
       return this->findNonDetachedStream(id);
     });
   }
+
+  virtual HQStreamTransportBase* findPushStream(quic::StreamId) = 0;
+
+  virtual void findPushStreams(
+    std::unordered_set<HQStreamTransportBase*>& streams) = 0;
 
   // Apply the function on the streams found by the two locators.
   // Note that same stream can be returned by a find-by-stream-id
@@ -890,11 +849,10 @@ class HQSession
   void invokeOnStreamsImpl(
       std::function<void(HQStreamTransportBase*)> fn,
       std::function<HQStreamTransportBase*(quic::StreamId)> findByStreamIdFn,
-      std::function<HQStreamTransportBase*(hq::PushId)> findByPushIdFn =
-          [](hq::PushId /* id */) { return nullptr; }) {
+      bool includePush = false) {
     DestructorGuard g(this);
     std::unordered_set<HQStreamTransportBase*> streams;
-    streams.reserve(numberOfStreams());
+    streams.reserve(getNumStreams());
 
     for (const auto& txn : streams_) {
       HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
@@ -903,18 +861,8 @@ class HQSession
       }
     }
 
-    for (const auto& txn : egressPushStreams_) {
-      HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
-      if (pstream) {
-        streams.insert(pstream);
-      }
-    }
-
-    for (const auto& txn : ingressPushStreams_) {
-      HQStreamTransportBase* pstream = findByPushIdFn(txn.first);
-      if (pstream) {
-        streams.insert(pstream);
-      }
+    if (includePush) {
+      findPushStreams(streams);
     }
 
     for (HQStreamTransportBase* pstream : streams) {
@@ -1770,148 +1718,6 @@ class HQSession
 
   }; // HQStreamTransport
 
-  /**
-   * Server side representation of a push stream
-   * Does not support ingress
-   */
-  class HQEgressPushStream
-      : public detail::singlestream::SSEgress
-      , public HQStreamTransportBase {
-   public:
-    HQEgressPushStream(HQSession& session,
-                       quic::StreamId streamId,
-                       hq::PushId pushId,
-                       folly::Optional<HTTPCodec::StreamID> parentTxnId,
-                       uint32_t seqNo,
-                       std::unique_ptr<HTTPCodec> codec,
-                       const WheelTimerInstance& timeout,
-                       HTTPSessionStats* stats = nullptr,
-                       http2::PriorityUpdate priority = hqDefaultPriority)
-        : detail::singlestream::SSEgress(streamId),
-          HQStreamTransportBase(session,
-                                TransportDirection::DOWNSTREAM,
-                                static_cast<HTTPCodec::StreamID>(pushId),
-                                seqNo,
-                                timeout,
-                                stats,
-                                priority,
-                                parentTxnId,
-                                hq::UnidirectionalStreamType::PUSH),
-          pushId_(pushId) {
-      // Request streams are eagerly initialized
-      initCodec(std::move(codec), __func__);
-      // DONT init ingress on egress-only stream
-    }
-
-    hq::PushId getPushId() const {
-      return pushId_;
-    }
-
-    // Unlike request streams and ingres push streams,
-    // the egress push stream does not have to flush
-    // ingress queues
-    void transactionTimeout(HTTPTransaction* txn) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      DCHECK(txn == &txn_);
-    }
-
-    void sendPushPromise(HTTPTransaction* /* txn */,
-                         folly::Optional<hq::PushId> /* pushId */,
-                         const HTTPMessage& /* headers */,
-                         HTTPHeaderSize* /* outSize */,
-                         bool /* includeEOM */) override;
-
-    /**
-     * Write the encoded push id to the egress stream.
-     */
-    size_t generateStreamPushId();
-
-    // Egress only stream should not pause ingress
-    void pauseIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__
-              << " Ingress function called on egress-only stream, ignoring";
-    }
-
-    // Egress only stream should not pause ingress
-    void resumeIngress(HTTPTransaction* /* txn */) noexcept override {
-      VLOG(4) << __func__
-              << " Ingress function called on egress-only stream, ignoring";
-    }
-
-   private:
-    hq::PushId pushId_; // The push id in context of which this stream is sent
-  };                    // HQEgressPushStream
-
-  /**
-   * Client-side representation of a push stream.
-   * Does not support egress operations.
-   */
-  class HQIngressPushStream
-      : public detail::singlestream::SSIngress
-      , public HQSession::HQStreamTransportBase {
-   public:
-    HQIngressPushStream(HQSession& session,
-                        hq::PushId pushId,
-                        folly::Optional<HTTPCodec::StreamID> parentTxnId,
-                        uint32_t seqNo,
-                        const WheelTimerInstance& timeout,
-                        HTTPSessionStats* stats = nullptr,
-                        http2::PriorityUpdate priority = hqDefaultPriority)
-        : detail::singlestream::SSIngress(folly::none),
-          HQStreamTransportBase(session,
-                                TransportDirection::UPSTREAM,
-                                static_cast<HTTPCodec::StreamID>(pushId),
-                                seqNo,
-                                timeout,
-                                stats,
-                                priority,
-                                parentTxnId,
-                                hq::UnidirectionalStreamType::PUSH),
-          pushId_(pushId) {
-      // Ingress push streams are not initialized
-      // until after the nascent push stream
-      // has been received
-      // notify the testing callbacks that a half-opened push transaction
-      // has been created
-
-      // NOTE: change the API to avoid accepting parent txn ids
-      // as optional
-      CHECK(parentTxnId.has_value());
-      if (session_.serverPushLifecycleCb_) {
-        session_.serverPushLifecycleCb_->onHalfOpenPushedTxn(
-            &txn_, pushId, *parentTxnId, false);
-      }
-    }
-
-    // Bind this stream to a transport stream
-    void bindTo(quic::StreamId transportStreamId);
-
-    void onPushMessageBegin(HTTPCodec::StreamID pushId,
-                            HTTPCodec::StreamID parentTxnId,
-                            HTTPMessage* /* msg */) override {
-      LOG(ERROR) << "Push promise on push stream"
-                 << " txn=" << txn_ << " pushID=" << pushId
-                 << " parentTxnId=" << parentTxnId;
-      session_.dropConnectionAsync(
-          std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM,
-                         "Push promise on push stream"),
-          kErrorConnection);
-    }
-
-    size_t sendAbortImpl(quic::ApplicationErrorCode /* errorCode */,
-                         std::string errorMsg) {
-      LOG(ERROR) << "No-op abort on ingress-only stream " << errorMsg;
-      return 0;
-    }
-
-    hq::PushId getPushId() const {
-      return pushId_;
-    }
-
-   private:
-    hq::PushId pushId_; // The push id in context of which this stream is
-                        // received
-  };                    // HQIngressPushStream
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -2171,9 +1977,6 @@ class HQSession
   HQStreamTransportBase* FOLLY_NULLABLE
   getPRStream(quic::StreamId id, const char *event);
 
-  // This is the current method of creating new push IDs.
-  hq::PushId createNewPushId(quic::StreamId txnID);
-
   using HTTPCodecPtr = std::unique_ptr<HTTPCodec>;
   struct CodecStackEntry {
     HTTPCodecPtr* codecPtr;
@@ -2190,18 +1993,6 @@ class HQSession
    */
   HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
 
-  // Bidirectional transport streams
-  std::unordered_map<quic::StreamId, HQStreamTransport> streams_;
-
-  // Incoming server push streams. Since the incoming push streams
-  // can be created before transport stream
-  std::unordered_map<hq::PushId, HQIngressPushStream> ingressPushStreams_;
-
-  // Lookup maps for matching ingress push streams to push ids
-  PushToStreamMap streamLookup_;
-
-  std::unordered_map<quic::StreamId, HQEgressPushStream> egressPushStreams_;
-
   // Cleanup all pending streams. Invoked in session timeout
   size_t cleanupPendingStreams();
 
@@ -2212,9 +2003,6 @@ class HQSession
   std::unordered_map<hq::UnidirectionalStreamType, HQControlStream>
       controlStreams_;
   HQUnidirStreamDispatcher unidirectionalReadDispatcher_;
-  // Callback pointer used for correctness testing. Not used
-  // for session logic.
-  ServerPushLifecycleCallback* serverPushLifecycleCb_{nullptr};
 
   // Maximum Stream ID received so far
   quic::StreamId maxIncomingStreamId_{0};
@@ -2261,6 +2049,10 @@ class HQSession
 
   // To let the operator<< access DrainState which is private
   friend std::ostream& operator<<(std::ostream&, DrainState);
+
+  // Bidirectional transport streams
+  std::unordered_map<quic::StreamId, HQStreamTransport> streams_;
+
 }; // HQSession
 
 std::ostream& operator<<(std::ostream& os, HQSession::DrainState drainState);

@@ -68,7 +68,6 @@ const http2::PriorityUpdate hqDefaultPriority{kSessionStreamId, false, 15};
 
 HQSession::~HQSession() {
   VLOG(3) << *this << " closing";
-  CHECK_EQ(numberOfStreams(), 0);
   runDestroyCallbacks();
 }
 
@@ -331,139 +330,6 @@ HQSession::HQVersionUtils::createControlCodec(hq::UnidirectionalStreamType type,
   }
 }
 
-bool HQSession::tryBindIngressStreamToTxn(hq::PushId pushId,
-                                          HQIngressPushStream* pushStream) {
-  // lookup pending nascent stream id
-
-  VLOG(4) << __func__
-          << " attempting to find pending stream id for pushID=" << pushId;
-  auto lookup = streamLookup_.by<push_id>();
-  VLOG(4) << __func__ << " lookup table contains " << lookup.size()
-          << " elements";
-  auto res = lookup.find(pushId);
-  if (res == lookup.end()) {
-    VLOG(4) << __func__ << " pushID=" << pushId
-            << " not found in the lookup table";
-    return false;
-  }
-  auto streamId = res->get<quic_stream_id>();
-
-  if (pushStream == nullptr) {
-    VLOG(4) << __func__ << " ingress stream hint not passed.";
-    pushStream = findIngressPushStreamByPushId(pushId);
-    if (!pushStream) {
-      VLOG(4) << __func__ << " ingress stream with pushID=" << pushId
-              << " not found.";
-      return false;
-    }
-  }
-
-  VLOG(4) << __func__ << " attempting to bind streamID=" << streamId
-          << " to pushID=" << pushId;
-  pushStream->bindTo(streamId);
-
-  // Check postconditions - the ingress push stream
-  // should own both the push id and the stream id.
-  // No nascent stream should own the stream id
-  auto streamById = findIngressPushStream(streamId);
-  auto streamByPushId = findIngressPushStreamByPushId(pushId);
-
-  DCHECK_EQ(streamId, pushStream->getIngressStreamId());
-  DCHECK(streamById) << "Ingress stream must be bound to the streamID="
-                     << streamId;
-  DCHECK(streamByPushId) << "Ingress stream must be found by the pushID="
-                         << pushId;
-  DCHECK_EQ(streamById, streamByPushId) << "Must be same stream";
-
-  VLOG(4) << __func__ << " successfully bound streamID=" << streamId
-          << " to pushID=" << pushId;
-  return true;
-}
-
-HQSession::HQIngressPushStream* HQSession::createIngressPushStream(
-    HTTPCodec::StreamID parentId, hq::PushId pushId) {
-
-  // Check that a stream with this ID has not been created yet
-  DCHECK(!findIngressPushStreamByPushId(pushId))
-      << "Ingress stream with this push ID already exists pushID=" << pushId;
-
-  auto matchPair = ingressPushStreams_.emplace(
-      std::piecewise_construct,
-      std::forward_as_tuple(pushId),
-      std::forward_as_tuple(
-          *this,
-          pushId,
-          parentId,
-          getNumTxnServed(),
-          WheelTimerInstance(transactionsTimeout_, getEventBase())));
-
-  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
-                             "existence check.";
-
-  auto newIngressPushStream = &matchPair.first->second;
-
-  // If there is a nascent stream ready to be bound to the newly
-  // created ingress stream, do it now.
-  auto bound = tryBindIngressStreamToTxn(pushId, newIngressPushStream);
-
-  VLOG(4) << "Successfully created new ingress push stream"
-          << " pushID=" << pushId << " parentStreamID=" << parentId
-          << " bound=" << bound << " streamID="
-          << (bound ? newIngressPushStream->getIngressStreamId()
-                    : static_cast<unsigned long>(-1));
-
-  return newIngressPushStream;
-}
-
-HQSession::HQEgressPushStream* FOLLY_NULLABLE HQSession::createEgressPushStream(
-    hq::PushId pushId, quic::StreamId streamId, quic::StreamId parentStreamId) {
-
-  VLOG(4) << __func__ << "sess=" << *this << " pushId=" << pushId
-          << " drainState_=" << drainState_ << " streamId=" << streamId
-          << " parentStreamId=" << parentStreamId;
-
-  // Version utils SHOULD be created before a stream transport is created
-  DCHECK(versionUtils_);
-
-  // Use version utils to ensure that the session is not in draining state
-  if (!versionUtils_->checkNewStream(streamId)) {
-    VLOG(3) << __func__ << " Not creating - session is draining"
-            << " sess=" << *this << " pushId=" << pushId
-            << " drainState_=" << drainState_ << " streamId=" << streamId
-            << " parentStreamId=" << parentStreamId;
-    return nullptr;
-  }
-
-  auto codec = versionUtils_->createCodec(streamId);
-
-  auto matchPair = egressPushStreams_.emplace(
-      std::piecewise_construct,
-      std::forward_as_tuple(streamId),
-      std::forward_as_tuple(
-          *this,
-          streamId,
-          pushId,
-          parentStreamId,
-          getNumTxnServed(),
-          std::move(codec),
-          WheelTimerInstance(transactionsTimeout_, getEventBase())));
-  incrementSeqNo();
-
-  CHECK(matchPair.second) << "Emplacement failed, despite earlier "
-                             "existence check.";
-
-  // Generate the stream preface
-  matchPair.first->second.generateStreamPreface();
-
-  // Generate the push id
-  matchPair.first->second.generateStreamPushId();
-
-  // Notify pending egress on the stream
-  matchPair.first->second.notifyPendingEgress();
-
-  return &matchPair.first->second;
-}
-
 bool HQSession::getAndCheckApplicationProtocol() {
   CHECK(sock_);
   auto alpn = sock_->getAppProtocol();
@@ -602,69 +468,6 @@ bool HQSession::getCurrentStreamTransportInfo(QuicStreamProtocolInfo* qspinfo,
     }
   }
   return false;
-}
-
-// Return a new push id that can be used for outgoing transactions
-hq::PushId HQSession::createNewPushId(quic::StreamId txnID) {
-  auto newPushId = nextAvailablePushId_++ | hq::kPushIdMask;
-  streamLookup_.push_back(PushToStreamMap::value_type(newPushId, txnID));
-  return newPushId;
-}
-
-// this is the creation of outgoing pushed transaction
-// Only supported in Downstream session
-HTTPTransaction* FOLLY_NULLABLE
-HQSession::newPushedTransaction(HTTPCodec::StreamID parentRequestStreamId,
-                                HTTPTransaction::PushHandler* handler,
-                                ProxygenError* error) {
-
-  if (drainState_ != DrainState::NONE) {
-    VLOG(3) << __func__ << " Not creating transaction - draining "
-            << drainState_;
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorTransportIsDraining);
-    return nullptr;
-  }
-
-  auto parentRequestStream = findNonDetachedStream(parentRequestStreamId);
-  if (!parentRequestStream) {
-    VLOG(3) << __func__
-            << " Not creating transaction - request stream StreamID="
-            << parentRequestStreamId << " not found";
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorParentStreamNotExist);
-    return nullptr;
-  }
-
-  // Allocate a new egress unidirectional stream from the socket
-  // this method will throw exception on failure
-  auto pushStreamId = sock_->createUnidirectionalStream();
-
-  // Record the newly created push transaction in the session
-  // NOTE: should be stored in the transaction
-  // NOTE: should be cleaned up when the transaction is closed
-  if (!pushStreamId) {
-    VLOG(3) << __func__ << " failed to create new unidirectional stream";
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
-    return nullptr;
-  }
-
-  auto pushId = createNewPushId(pushStreamId.value());
-
-  // Create the actual outgoing Egress Push stream.
-  auto pushStream = createEgressPushStream(
-      pushId, pushStreamId.value(), parentRequestStreamId);
-
-  if (!pushStream) {
-    LOG(ERROR) << "Creation of the push stream failed, pushID=" << pushId;
-    SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
-    return nullptr;
-  }
-
-  VLOG(5) << "New pushed transaction: pushId=" << pushId
-          << "; pushStreamId=" << pushStreamId.value()
-          << "; assocStreamId=" << parentRequestStreamId;
-
-  pushStream->txn_.setHandler(handler);
-  return &pushStream->txn_;
 }
 
 void HQSession::HQStreamTransportBase::generateGoaway() {
@@ -865,7 +668,7 @@ void HQSession::dropConnectionSync(
     return;
   }
   dropping_ = true;
-  if (numberOfStreams() > 0) {
+  if (getNumStreams() > 0) {
     // should deliver errors to all open streams, they will all detach-
     sock_->close(std::move(errorCode));
     sock_.reset();
@@ -899,7 +702,7 @@ void HQSession::dropConnectionSync(
           VLOG(5) << __func__ << " pendingStreamStillOpen: " << pendingStreamId;
         });
   }
-  CHECK_EQ(numberOfStreams(), 0);
+  CHECK_EQ(getNumStreams(), 0);
 }
 
 void HQSession::checkForShutdown() {
@@ -928,7 +731,7 @@ void HQSession::checkForShutdown() {
   // minimize issues with iterator invalidation.
   invokeOnAllStreams(
       [](HQStreamTransportBase* stream) { stream->checkForDetach(); });
-  if (drainState_ == DrainState::DONE && (numberOfStreams() == 0) &&
+  if (drainState_ == DrainState::DONE && (getNumStreams() == 0) &&
       !isLoopCallbackScheduled()) {
     if (sock_) {
       sock_->close(folly::none);
@@ -1016,11 +819,8 @@ HQSession::findStreamImpl(quic::StreamId streamId,
   if (it != streams_.end()) {
     pstream = &it->second;
   }
-  if (!pstream && includeIngress) {
-    pstream = findIngressPushStream(streamId);
-  }
-  if (!pstream && includeEgress) {
-    pstream = findEgressPushStream(streamId);
+  if (!pstream && (includeIngress || includeEgress)) {
+    pstream = findPushStream(streamId);
   }
   if (!pstream) {
     return nullptr;
@@ -1033,51 +833,6 @@ HQSession::findStreamImpl(quic::StreamId streamId,
     }
   }
   return pstream;
-}
-
-HQSession::HQIngressPushStream* FOLLY_NULLABLE
-HQSession::findIngressPushStream(quic::StreamId streamId) {
-  auto lookup = streamLookup_.by<quic_stream_id>();
-  auto res = lookup.find(streamId);
-  if (res == lookup.end()) {
-    return nullptr;
-  } else {
-    return findIngressPushStreamByPushId(res->get<push_id>());
-  }
-}
-
-HQSession::HQIngressPushStream* FOLLY_NULLABLE
-HQSession::findIngressPushStreamByPushId(hq::PushId pushId) {
-  VLOG(4) << __func__ << " looking up ingress push stream by pushID=" << pushId;
-  auto it = ingressPushStreams_.find(pushId);
-  if (it == ingressPushStreams_.end()) {
-    return nullptr;
-  } else {
-    return &it->second;
-  }
-}
-
-HQSession::HQEgressPushStream* FOLLY_NULLABLE
-HQSession::findEgressPushStream(quic::StreamId streamId) {
-  auto it = egressPushStreams_.find(streamId);
-  if (it == egressPushStreams_.end()) {
-    return nullptr;
-  } else {
-    auto pstream = &it->second;
-    DCHECK(pstream->isUsing(streamId));
-    return pstream;
-  }
-}
-
-HQSession::HQEgressPushStream* FOLLY_NULLABLE
-HQSession::findEgressPushStreamByPushId(hq::PushId pushId) {
-  auto lookup = streamLookup_.by<push_id>();
-  auto res = lookup.find(pushId);
-  if (res == lookup.end()) {
-    return nullptr;
-  } else {
-    return findEgressPushStream(res->get<quic_stream_id>());
-  }
 }
 
 HQSession::HQControlStream* FOLLY_NULLABLE
@@ -1107,96 +862,15 @@ HQSession::findControlStream(quic::StreamId streamId) {
 bool HQSession::eraseStream(quic::StreamId streamId) {
   // Try different possible locations and remove the
   // stream
-  uint8_t erasedBitmask = 0;
-  constexpr uint8_t STREAMS = 1;
-  constexpr uint8_t INGRESS_PUSH_STREAMS = 1 << 1;
-  constexpr uint8_t EGRESS_PUSH_STREAMS = 1 << 2;
-
+  bool erased = false;
   if (streams_.erase(streamId)) {
-    erasedBitmask |= STREAMS;
+    erased = true;
   }
 
-  if (egressPushStreams_.erase(streamId)) {
-    erasedBitmask |= EGRESS_PUSH_STREAMS;
-  }
-
-  auto lookup = streamLookup_.by<quic_stream_id>();
-  auto rlookup = streamLookup_.by<push_id>();
-
-  auto res = lookup.find(streamId);
-  if (res != lookup.end()) {
-    auto pushId = res->get<push_id>();
-    // Ingress push stream may be using the push id
-    // erase it as well if present
-    if (ingressPushStreams_.erase(pushId)) {
-      erasedBitmask |= INGRESS_PUSH_STREAMS;
-    }
-    // Unconditionally erase the lookup entry table
-    lookup.erase(res);
-    CHECK(rlookup.find(pushId) == rlookup.end());
-  }
-
-  // If more than one bit is set in the erasedBitmask,
-  // something is really fishy
-  CHECK(!(erasedBitmask & (erasedBitmask - 1)))
-      << " Double erase for " << streamId
-      << " ;streams_: " << bool(erasedBitmask & STREAMS)
-      << " ;ingressPushStreams_: " << bool(erasedBitmask & INGRESS_PUSH_STREAMS)
-      << " ;egressPushtreams_: " << bool(erasedBitmask & EGRESS_PUSH_STREAMS);
-
-  return erasedBitmask != 0;
-}
-
-bool HQSession::eraseStreamByPushId(hq::PushId pushId) {
-
-  bool erased = ingressPushStreams_.erase(pushId);
-
-  auto lookup = streamLookup_.by<push_id>();
-  // Reverse lookup for the postconditions CHECK
-  auto rlookup = streamLookup_.by<quic_stream_id>();
-
-  auto res = lookup.find(pushId);
-  if (res != lookup.end()) {
-    auto streamId = res->get<quic_stream_id>();
-    erased |= (lookup.erase(res) != lookup.end());
-    // The corresponding stream id should not be present in
-    // the reverse map
-    CHECK(rlookup.find(streamId) == rlookup.end());
-  }
+  // TODO: only do this when stream is server-uni
+  erased |= erasePushStream(streamId);
 
   return erased;
-}
-
-uint32_t HQSession::numberOfStreams() const {
-  return countStreamsImpl(true /* includeEgress */, true /* includeIngress */);
-}
-
-uint32_t HQSession::numberOfIngressStreams() const {
-  return countStreamsImpl(false /* includeEgress */, true /* inculdeIngress */);
-}
-
-uint32_t HQSession::numberOfEgressStreams() const {
-  return countStreamsImpl(true /* includeEgress */, false /* includeIngress */);
-}
-
-uint32_t HQSession::numberOfIngressPushStreams() const {
-  return ingressPushStreams_.size();
-}
-
-uint32_t HQSession::numberOfEgressPushStreams() const {
-  return egressPushStreams_.size();
-}
-
-uint32_t HQSession::countStreamsImpl(bool includeEgress,
-                                     bool includeIngress) const {
-  size_t result = streams_.size();
-  if (includeIngress) {
-    result += ingressPushStreams_.size();
-  }
-  if (includeEgress) {
-    result += egressPushStreams_.size();
-  }
-  return result;
 }
 
 void HQSession::runLoopCallback() noexcept {
@@ -1482,7 +1156,7 @@ void HQSession::processRejectedData(quic::StreamId id, uint64_t offset) {
 
 void HQSession::timeoutExpired() noexcept {
   VLOG(3) << "ManagedConnection timeoutExpired " << *this;
-  if (numberOfStreams() > 0) {
+  if (getNumStreams() > 0) {
     VLOG(3) << "ignoring session timeout " << *this;
     resetTimeout();
     return;
@@ -1644,16 +1318,7 @@ size_t HQSession::cleanupPendingStreams() {
         streamsToCleanup.push_back(pendingStreamId);
       });
 
-  // Find stream ids which have been added to the stream
-  // lookup but lack matching HQIngressPushStream
-  auto lookup = streamLookup_.by<push_id>();
-  for (auto res : lookup) {
-    auto streamId = res.get<quic_stream_id>();
-    auto pushId = res.get<quic_stream_id>();
-    if (!ingressPushStreams_.count(pushId)) {
-      streamsToCleanup.push_back(streamId);
-    }
-  }
+  cleanupUnboundPushStreams(streamsToCleanup);
 
   // Clean up the streams by detaching all callbacks
   for (auto pendingStreamId : streamsToCleanup) {
@@ -1674,51 +1339,6 @@ void HQSession::clearStreamCallbacks(quic::StreamId id) {
     }
   } else {
     VLOG(4) << "Attempt to clear callbacks on closed socket";
-  }
-}
-
-void HQSession::onNewPushStream(quic::StreamId pushStreamId,
-                                hq::PushId pushId,
-                                size_t toConsume) {
-  VLOG(4) << __func__ << " streamID=" << pushStreamId << " pushId=" << pushId;
-
-  bool eom = false;
-  if (serverPushLifecycleCb_) {
-    serverPushLifecycleCb_->onNascentPushStreamBegin(pushStreamId, eom);
-  }
-
-  auto consumeRes = sock_->consume(pushStreamId, toConsume);
-  CHECK(!consumeRes.hasError())
-      << "Unexpected error " << consumeRes.error() << " while consuming "
-      << toConsume << " bytes from stream=" << pushStreamId
-      << " pushId=" << pushId;
-
-  // Replace the peek callback with a read callback and pause the read callback
-  sock_->setReadCallback(pushStreamId, this);
-  sock_->setPeekCallback(pushStreamId, nullptr);
-  sock_->pauseRead(pushStreamId);
-
-  // Increment the sequence no to account for the new transport-like stream
-  incrementSeqNo();
-
-  streamLookup_.push_back(PushToStreamMap::value_type(pushId, pushStreamId));
-
-  VLOG(4) << __func__ << " assigned lookup from pushID=" << pushId
-          << " to streamID=" << pushStreamId;
-
-  // We have successfully read the push id. Notify the testing callbacks
-  if (serverPushLifecycleCb_) {
-    serverPushLifecycleCb_->onNascentPushStream(pushStreamId, pushId, eom);
-  }
-
-  // If the transaction for the incoming push stream has been created
-  // already, bind the new stream to the transaction
-  auto ingressPushStream = findIngressPushStreamByPushId(pushId);
-
-  if (ingressPushStream) {
-    auto bound = tryBindIngressStreamToTxn(pushId, ingressPushStream);
-    VLOG(4) << __func__ << " bound=" << bound << " pushID=" << pushId
-            << " pushStreamID=" << pushStreamId << " to txn ";
   }
 }
 
@@ -2524,49 +2144,6 @@ void HQSession::onGoawayAck() {
   scheduleLoopCallback(false);
 }
 
-// Push-stream implementation of the "sendPushPromise"
-// It invokes HQStreamTransport::sendPushPromise
-// Since this method does not uses codecs directly, it should not
-// set an active codec
-void HQSession::HQEgressPushStream::sendPushPromise(
-    HTTPTransaction* txn,
-    folly::Optional<hq::PushId> pushId,
-    const HTTPMessage& headers,
-    HTTPHeaderSize* size,
-    bool includeEOM) {
-
-  CHECK(txn) << "Must be invoked on a live transaction";
-  CHECK(txn->getAssocTxnId())
-      << "Must be invoked on a transaction with a parent";
-  CHECK_EQ(txn_.getID(), txn->getID()) << " Transaction stream mismatch";
-  CHECK(pushId == folly::none) << " The push id is stored in the egress stream,"
-                               << " and should not be passed by the session";
-
-  auto parentStreamId = txn->getAssocTxnId();
-  auto parentStream = session_.findNonDetachedStream(*parentStreamId);
-  if (!parentStream) {
-    session_.dropConnectionAsync(
-        std::make_pair(quic::TransportErrorCode::STREAM_STATE_ERROR,
-                       "Send push promise on a stream without a parent"),
-        kErrorConnection);
-    return;
-  }
-  // Redirect to the parent transaction
-  parentStream->sendPushPromise(txn, pushId_, headers, size, includeEOM);
-}
-
-size_t HQSession::HQEgressPushStream::generateStreamPushId() {
-  // reserve space for max quic interger len
-  folly::io::QueueAppender appender(&writeBuf_, 8);
-
-  auto externalPushId = pushId_ & ~hq::kPushIdMask;
-  auto result = quic::encodeQuicInteger(externalPushId, appender);
-  CHECK(!result.hasError())
-      << __func__ << " QUIC integer encoding error value=" << externalPushId;
-
-  return *result;
-}
-
 HQSession::HQStreamTransport* FOLLY_NULLABLE
 HQSession::createStreamTransport(quic::StreamId streamId) {
   VLOG(3) << __func__ << " sess=" << *this;
@@ -2586,7 +2163,7 @@ HQSession::createStreamTransport(quic::StreamId streamId) {
   // activation callbacks.
   // NOTE: Should this be called when an an ingress push stream
   // is created ?
-  if (numberOfStreams() == 0) {
+  if (getNumStreams() == 0) {
     if (infoCallback_) {
       infoCallback_->onActivateConnection(*this);
     }
@@ -2703,7 +2280,7 @@ void HQSession::HQStreamTransportBase::initCodec(
   VLOG(3) << where << " " << __func__ << " txn=" << txn_;
   CHECK(session_.sock_)
       << "Socket is null drainState=" << (int)session_.drainState_
-      << " streams=" << session_.numberOfStreams();
+      << " streams=" << session_.getNumStreams();
   realCodec_ = std::move(codec);
   if (session_.version_ == HQVersion::HQ) {
     auto c = dynamic_cast<hq::HQStreamCodec*>(realCodec_.get());
@@ -2721,7 +2298,7 @@ void HQSession::HQStreamTransportBase::initIngress(const std::string& where) {
   VLOG(3) << where << " " << __func__ << " txn=" << txn_;
   CHECK(session_.sock_)
       << "Socket is null drainState=" << (int)session_.drainState_
-      << " streams=" << session_.numberOfStreams();
+      << " streams=" << session_.getNumStreams();
 
   if (session_.receiveStreamWindowSize_.hasValue()) {
     session_.sock_->setStreamFlowControlWindow(
@@ -2846,14 +2423,11 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
     eraseStream(streamId);
   } else {
     VLOG(4) << __func__ << " streamID=NA";
-    auto hqPushIngressStream = dynamic_cast<HQIngressPushStream*>(hqStream);
-    CHECK(hqPushIngressStream)
-        << "Only HQIngressPushStream streams are allowed to be non-bound";
-    eraseStreamByPushId(CHECK_NOTNULL(hqPushIngressStream)->getPushId());
+    eraseUnboundStream(hqStream);
   }
 
   // If there are no established streams left, close the connection
-  if (numberOfStreams() == 0) {
+  if (getNumStreams() == 0) {
     cleanupPendingStreams();
     if (infoCallback_) {
       infoCallback_->onDeactivateConnection(*this);
@@ -3942,6 +3516,8 @@ void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
   // Create ingress push stream (will also create the transaction)
   // If a corresponding nascent push stream is ready, it will be
   // bound to the newly created stream.
+  // virtual function call into UpstreamSession.  This will crash if it happens
+  // downstream.
   auto pushStream = session_.createIngressPushStream(assocStreamID, pushID);
   CHECK(pushStream);
 
@@ -3952,41 +3528,6 @@ void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
   // Notify the *pushed* transaction on the push promise headers
   // This has to be called AFTER "onPushedTransaction" upcall
   pushStream->txn_.onIngressHeadersComplete(std::move(msg));
-}
-
-void HQSession::HQIngressPushStream::bindTo(quic::StreamId streamId) {
-  // Ensure the nascent push stream is in correct state
-  // and that its push id matches this stream's push id
-  DCHECK(txn_.getAssocTxnId().has_value());
-  VLOG(4) << __func__ << " Binding streamID=" << streamId
-          << " to txn=" << txn_.getID();
-  // Initialize this stream's codec with the id of the transport stream
-  auto codec = session_.versionUtils_->createCodec(streamId);
-  initCodec(std::move(codec), __func__);
-  DCHECK_EQ(*codecStreamId_, streamId);
-
-  // Now that the codec is initialized, set the stream ID
-  // of the push stream
-  setIngressStreamId(streamId);
-  DCHECK_EQ(getIngressStreamId(), streamId);
-
-  // Enable ingress on this stream. Read callback for the stream's
-  // id will be transferred to the HQSession
-  initIngress(__func__);
-
-  // Re-enable reads
-  session_.pendingProcessReadSet_.insert(streamId);
-  session_.resumeReads(streamId);
-
-  // Notify testing callbacks that a full push transaction
-  // has been successfully initialized
-  if (session_.serverPushLifecycleCb_) {
-    session_.serverPushLifecycleCb_->onPushedTxn(&txn_,
-                                                 streamId,
-                                                 getPushId(),
-                                                 txn_.getAssocTxnId().value(),
-                                                 false /* eof */);
-  }
 }
 
 std::ostream& operator<<(std::ostream& os, const HQSession& session) {
