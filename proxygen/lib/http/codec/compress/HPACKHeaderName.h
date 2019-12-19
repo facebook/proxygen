@@ -16,6 +16,7 @@
 #include <boost/variant.hpp>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
 #include <folly/Range.h>
+#include <glog/logging.h>
 
 namespace proxygen {
 
@@ -31,6 +32,12 @@ class HPACKHeaderName {
 
   explicit HPACKHeaderName(folly::StringPiece name) {
     storeAddress(name);
+  }
+  explicit HPACKHeaderName(HTTPHeaderCode headerCode) {
+    CHECK_NE(headerCode, HTTP_HEADER_NONE);
+    CHECK_NE(headerCode, HTTP_HEADER_OTHER);
+    address_ = HTTPCommonHeaders::getPointerToName(
+      headerCode, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }
   HPACKHeaderName(const HPACKHeaderName& headerName) {
     copyAddress(headerName);

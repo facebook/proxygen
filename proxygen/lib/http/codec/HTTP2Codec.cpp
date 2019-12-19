@@ -1160,14 +1160,6 @@ void HTTP2Codec::generateHeaderImpl(
            exAttributes);
   }
 
-  folly::ThreadLocal<std::vector<std::string>> tempsTL;
-  folly::ThreadLocal<std::vector<compress::Header>> allHeadersTL;
-  auto& temps = *tempsTL.get();
-  auto& allHeaders = *allHeadersTL.get();
-  temps.clear();
-  allHeaders.clear();
-  CodecUtil::prepareMessageForCompression(msg, allHeaders, temps);
-
   auto httpPri = msg.getHTTP2Priority();
   folly::Optional<http2::PriorityUpdate> pri;
   if (httpPri) {
@@ -1188,7 +1180,8 @@ void HTTP2Codec::generateHeaderImpl(
     maxFrameSize - headerSize + http2::kFrameHeaderSize;
   auto frameHeader = writeBuf.preallocate(headerSize, kDefaultGrowth);
   writeBuf.postallocate(headerSize);
-  encodeHeaders(writeBuf, msg.getHeaders(), allHeaders, size);
+  headerCodec_.encodeHTTP(msg, writeBuf);
+  *size = headerCodec_.getEncodedSize();
 
   IOBufQueue queue(IOBufQueue::cacheChainLength());
   auto chunkLen = splitCompressed(size->compressed, remainingFrameSize,

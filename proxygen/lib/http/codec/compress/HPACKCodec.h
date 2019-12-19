@@ -25,6 +25,7 @@ class Cursor;
 namespace proxygen {
 
 class HPACKHeader;
+class HTTPMessage;
 
 namespace compress {
 uint32_t prepareHeaders(
@@ -49,6 +50,11 @@ class HPACKCodec : public HeaderCodec {
   void encode(
       std::vector<compress::Header>& headers,
       folly::IOBufQueue& writeBuf) noexcept;
+
+  void encodeHTTP(
+      const HTTPMessage& msg,
+      folly::IOBufQueue& writeBuf) noexcept;
+
 
   void decodeStreaming(folly::io::Cursor& cursor,
                        uint32_t length,

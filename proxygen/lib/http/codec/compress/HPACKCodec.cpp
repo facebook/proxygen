@@ -13,6 +13,8 @@
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/HeaderConstants.h>
+#include <proxygen/lib/http/HTTPMessage.h>
 #include <iosfwd>
 
 using folly::IOBuf;
@@ -62,6 +64,101 @@ void HPACKCodec::encode(
   encoder_.encode(prepared, writeBuf);
   recordCompressedSize(writeBuf.chainLength() - prevSize);
 }
+
+void HPACKCodec::encodeHTTP(
+  const HTTPMessage& msg, folly::IOBufQueue& writeBuf) noexcept {
+  auto prevSize = writeBuf.chainLength();
+  encoder_.startEncode(writeBuf);
+
+  auto uncompressed = 0;
+  if (msg.isRequest()) {
+    if (msg.isEgressWebsocketUpgrade()) {
+      uncompressed += encoder_.encodeHeader(
+        HTTP_HEADER_COLON_METHOD,
+        methodToString(HTTPMethod::CONNECT));
+      uncompressed += encoder_.encodeHeader(HTTP_HEADER_COLON_PROTOCOL,
+                                            headers::kWebsocketString);
+    } else {
+      uncompressed += encoder_.encodeHeader(HTTP_HEADER_COLON_METHOD,
+                                            msg.getMethodString());
+    }
+
+    if (msg.getMethod() != HTTPMethod::CONNECT ||
+        msg.isEgressWebsocketUpgrade()) {
+      uncompressed += encoder_.encodeHeader(
+        HTTP_HEADER_COLON_SCHEME,
+        (msg.isSecure() ? headers::kHttps : headers::kHttp));
+      uncompressed += encoder_.encodeHeader(
+        HTTP_HEADER_COLON_PATH, msg.getURL());
+    }
+    const HTTPHeaders& headers = msg.getHeaders();
+    const std::string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
+    if (!host.empty()) {
+      uncompressed += encoder_.encodeHeader(HTTP_HEADER_COLON_AUTHORITY, host);
+    }
+  } else {
+    if (msg.isEgressWebsocketUpgrade()) {
+      uncompressed += encoder_.encodeHeader(
+        HTTP_HEADER_COLON_STATUS, headers::kStatus200);
+    } else {
+      uncompressed += encoder_.encodeHeader(
+        HTTP_HEADER_COLON_STATUS,
+        folly::to<std::string>(msg.getStatusCode()));
+    }
+    // HEADERS frames do not include a version or reason string.
+  }
+
+  bool hasDateHeader = false;
+  // Add the HTTP headers supplied by the caller, but skip
+  // any per-hop headers that aren't supported in HTTP/2.
+  msg.getHeaders().forEachWithCode([&](HTTPHeaderCode code,
+                                       const std::string& name,
+                                       const std::string& value) {
+    static const std::bitset<256> s_perHopHeaderCodes{[] {
+      std::bitset<256> bs;
+      // HTTP/1.x per-hop headers that have no meaning in HTTP/2
+      bs[HTTP_HEADER_CONNECTION] = true;
+      bs[HTTP_HEADER_HOST] = true;
+      bs[HTTP_HEADER_KEEP_ALIVE] = true;
+      bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+      bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+      bs[HTTP_HEADER_UPGRADE] = true;
+      bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
+      bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
+      return bs;
+    }()};
+
+    if (s_perHopHeaderCodes[code] || name.empty() || name[0] == ':') {
+      DCHECK(!name.empty()) << "Empty header";
+      DCHECK_NE(name[0], ':') << "Invalid header=" << name;
+      return;
+    }
+    // Note this code will not drop headers named by Connection.  That's the
+    // caller's job
+
+    // see HTTP/2 spec, 8.1.2
+    DCHECK(name != "TE" || value == "trailers");
+    if ((!name.empty() && name[0] != ':') && code != HTTP_HEADER_HOST) {
+      if (code == HTTP_HEADER_OTHER) {
+        uncompressed += encoder_.encodeHeader(name, value);
+      } else {
+        uncompressed += encoder_.encodeHeader(code, value);
+      }
+    }
+    hasDateHeader =  (code == HTTP_HEADER_DATE);
+  });
+
+
+  if (msg.isResponse() && !hasDateHeader) {
+    uncompressed += encoder_.encodeHeader(
+      HTTP_HEADER_DATE, HTTPMessage::formatDateHeader());
+  }
+
+  encoder_.completeEncode();
+  encodedSize_.uncompressed = uncompressed;
+  recordCompressedSize(writeBuf.chainLength() - prevSize);
+}
+
 
 void HPACKCodec::recordCompressedSize(
   const IOBuf* stream) {

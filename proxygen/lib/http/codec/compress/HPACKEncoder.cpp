@@ -35,6 +35,34 @@ HPACKEncoder::encode(const vector<HPACKHeader>& headers,
   streamBuffer_.setWriteBuf(nullptr);
 }
 
+void
+HPACKEncoder::startEncode(folly::IOBufQueue& writeBuf) {
+  streamBuffer_.setWriteBuf(&writeBuf);
+  handlePendingContextUpdate(streamBuffer_, table_.capacity());
+}
+
+void
+HPACKEncoder::completeEncode() {
+  streamBuffer_.setWriteBuf(nullptr);
+}
+
+size_t
+HPACKEncoder::encodeHeader(HTTPHeaderCode code, const std::string& value) {
+  HPACKHeaderName name(code);
+  size_t uncompressed = name.size() + value.size() + 2;
+  encodeHeader(HPACKHeader(name, value));
+  return uncompressed;
+}
+
+size_t
+HPACKEncoder::encodeHeader(const std::string& nameStr,
+                           const std::string& value) {
+  HPACKHeaderName name(nameStr);
+  size_t uncompressed = name.size() + value.size() + 2;
+  encodeHeader(HPACKHeader(name, value));
+  return uncompressed;
+}
+
 bool HPACKEncoder::encodeAsLiteral(const HPACKHeader& header, bool indexing) {
   if (header.bytes() > table_.capacity()) {
     // May want to investigate further whether or not this is wanted.

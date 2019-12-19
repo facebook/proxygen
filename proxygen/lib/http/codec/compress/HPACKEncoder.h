@@ -35,6 +35,14 @@ class HPACKEncoder : public HPACKEncoderBase, public HPACKContext {
     const std::vector<HPACKHeader>& headers,
     folly::IOBufQueue& writeBuf);
 
+  void startEncode(folly::IOBufQueue& writeBuf);
+
+  size_t encodeHeader(HTTPHeaderCode code, const std::string& value);
+
+  size_t encodeHeader(const std::string& name, const std::string& value);
+
+  void completeEncode();
+
   void setHeaderTableSize(uint32_t size) {
     HPACKEncoderBase::setHeaderTableSize(table_, size);
   }
