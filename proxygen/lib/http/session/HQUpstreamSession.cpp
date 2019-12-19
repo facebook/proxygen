@@ -163,37 +163,17 @@ void HQUpstreamSession::onNetworkSwitch(
 }
 
 bool HQUpstreamSession::tryBindIngressStreamToTxn(
+    quic::StreamId streamId,
     hq::PushId pushId,
     HQIngressPushStream* pushStream) {
   // lookup pending nascent stream id
-
-  VLOG(4) << __func__
-          << " attempting to find pending stream id for pushID=" << pushId;
-  auto lookup = streamLookup_.by<push_id>();
-  VLOG(4) << __func__ << " lookup table contains " << lookup.size()
-          << " elements";
-  auto res = lookup.find(pushId);
-  if (res == lookup.end()) {
-    VLOG(4) << __func__ << " pushID=" << pushId
-            << " not found in the lookup table";
-    return false;
-  }
-  auto streamId = res->get<quic_stream_id>();
-
-  if (pushStream == nullptr) {
-    VLOG(4) << __func__ << " ingress stream hint not passed.";
-    pushStream = findIngressPushStreamByPushId(pushId);
-    if (!pushStream) {
-      VLOG(4) << __func__ << " ingress stream with pushID=" << pushId
-              << " not found.";
-      return false;
-    }
-  }
+  CHECK(pushStream);
 
   VLOG(4) << __func__ << " attempting to bind streamID=" << streamId
           << " to pushID=" << pushId;
   pushStream->bindTo(streamId);
 
+#if DEBUG
   // Check postconditions - the ingress push stream
   // should own both the push id and the stream id.
   // No nascent stream should own the stream id
@@ -206,12 +186,14 @@ bool HQUpstreamSession::tryBindIngressStreamToTxn(
   DCHECK(streamByPushId) << "Ingress stream must be found by the pushID="
                          << pushId;
   DCHECK_EQ(streamById, streamByPushId) << "Must be same stream";
+#endif
 
   VLOG(4) << __func__ << " successfully bound streamID=" << streamId
           << " to pushID=" << pushId;
   return true;
 }
 
+// Called when we receive a push promise
 HQUpstreamSession::HQStreamTransportBase*
 HQUpstreamSession::createIngressPushStream(
     HTTPCodec::StreamID parentId, hq::PushId pushId) {
@@ -237,7 +219,15 @@ HQUpstreamSession::createIngressPushStream(
 
   // If there is a nascent stream ready to be bound to the newly
   // created ingress stream, do it now.
-  auto bound = tryBindIngressStreamToTxn(pushId, newIngressPushStream);
+  bool bound = false;
+  auto res = pushIdToStreamId_.find(pushId);
+  if (res == pushIdToStreamId_.end()) {
+    VLOG(4) << __func__ << " pushID=" << pushId
+            << " not found in the lookup table, size="
+            << pushIdToStreamId_.size();
+  } else {
+    bound = tryBindIngressStreamToTxn(res->second, pushId, newIngressPushStream);
+  }
 
   VLOG(4) << "Successfully created new ingress push stream"
           << " pushID=" << pushId << " parentStreamID=" << parentId
@@ -255,12 +245,11 @@ HQUpstreamSession::findPushStream(quic::StreamId streamId) {
 
 HQUpstreamSession::HQIngressPushStream* FOLLY_NULLABLE
 HQUpstreamSession::findIngressPushStream(quic::StreamId streamId) {
-  auto lookup = streamLookup_.by<quic_stream_id>();
-  auto res = lookup.find(streamId);
-  if (res == lookup.end()) {
+  auto res = streamIdToPushId_.find(streamId);
+  if (res == streamIdToPushId_.end()) {
     return nullptr;
   } else {
-    return findIngressPushStreamByPushId(res->get<push_id>());
+    return findIngressPushStreamByPushId(res->second);
   }
 }
 
@@ -278,42 +267,19 @@ HQUpstreamSession::findIngressPushStreamByPushId(hq::PushId pushId) {
 bool
 HQUpstreamSession::erasePushStream(
     quic::StreamId streamId) {
-  auto lookup = streamLookup_.by<quic_stream_id>();
-  auto rlookup = streamLookup_.by<push_id>();
-
-  auto res = lookup.find(streamId);
-  if (res != lookup.end()) {
-    auto pushId = res->get<push_id>();
+  auto res = streamIdToPushId_.find(streamId);
+  if (res != streamIdToPushId_.end()) {
+    auto pushId = res->second;
     // Ingress push stream may be using the push id
     // erase it as well if present
     ingressPushStreams_.erase(pushId);
 
-    // Unconditionally erase the lookup entry table
-    lookup.erase(res);
-    CHECK(rlookup.find(pushId) == rlookup.end());
+    // Unconditionally erase the lookup entry tables
+    streamIdToPushId_.erase(res);
+    pushIdToStreamId_.erase(pushId);
     return true;
   }
   return false;
-}
-
-bool
-HQUpstreamSession::eraseStreamByPushId(hq::PushId pushId) {
-  bool erased = ingressPushStreams_.erase(pushId);
-
-  auto lookup = streamLookup_.by<push_id>();
-  // Reverse lookup for the postconditions CHECK
-  auto rlookup = streamLookup_.by<quic_stream_id>();
-
-  auto res = lookup.find(pushId);
-  if (res != lookup.end()) {
-    auto streamId = res->get<quic_stream_id>();
-    erased |= (lookup.erase(res) != lookup.end());
-    // The corresponding stream id should not be present in
-    // the reverse map
-    CHECK(rlookup.find(streamId) == rlookup.end());
-  }
-
-  return erased;
 }
 
 uint32_t HQUpstreamSession::numberOfIngressPushStreams() const {
@@ -346,7 +312,8 @@ void HQUpstreamSession::onNewPushStream(quic::StreamId pushStreamId,
   // Increment the sequence no to account for the new transport-like stream
   incrementSeqNo();
 
-  streamLookup_.push_back(PushToStreamMap::value_type(pushId, pushStreamId));
+  pushIdToStreamId_.emplace(pushId, pushStreamId);
+  streamIdToPushId_.emplace(pushStreamId, pushId);
 
   VLOG(4) << __func__ << " assigned lookup from pushID=" << pushId
           << " to streamID=" << pushStreamId;
@@ -361,7 +328,8 @@ void HQUpstreamSession::onNewPushStream(quic::StreamId pushStreamId,
   auto ingressPushStream = findIngressPushStreamByPushId(pushId);
 
   if (ingressPushStream) {
-    auto bound = tryBindIngressStreamToTxn(pushId, ingressPushStream);
+    auto bound = tryBindIngressStreamToTxn(
+      pushStreamId, pushId, ingressPushStream);
     VLOG(4) << __func__ << " bound=" << bound << " pushID=" << pushId
             << " pushStreamID=" << pushStreamId << " to txn ";
   }
@@ -407,21 +375,23 @@ void HQUpstreamSession::HQIngressPushStream::bindTo(quic::StreamId streamId) {
   }
 }
 
+// This can only be unbound in that it has not received a stream ID yet
 void HQUpstreamSession::eraseUnboundStream(HQStreamTransportBase* hqStream) {
   auto hqPushIngressStream = dynamic_cast<HQIngressPushStream*>(hqStream);
   CHECK(hqPushIngressStream)
     << "Only HQIngressPushStream streams are allowed to be non-bound";
-  eraseStreamByPushId(hqPushIngressStream->getPushId());
+  // This is what makes it unbound, it also cannot be in the map
+  DCHECK(!hqStream->hasIngressStreamId());
+  auto pushId = hqPushIngressStream->getPushId();
+  DCHECK(pushIdToStreamId_.find(pushId) == pushIdToStreamId_.end());
+  ingressPushStreams_.erase(pushId);
 }
 
 void HQUpstreamSession::cleanupUnboundPushStreams(
     std::vector<quic::StreamId> &streamsToCleanup) {
-  // Find stream ids which have been added to the stream
-  // lookup but lack matching HQIngressPushStream
-  auto lookup = streamLookup_.by<push_id>();
-  for (auto res : lookup) {
-    auto streamId = res.get<quic_stream_id>();
-    auto pushId = res.get<quic_stream_id>();
+  for (auto& it : streamIdToPushId_) {
+    auto streamId = it.first;
+    auto pushId = it.second;
     if (!ingressPushStreams_.count(pushId)) {
       streamsToCleanup.push_back(streamId);
     }

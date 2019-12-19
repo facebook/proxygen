@@ -8,7 +8,6 @@
 
 #pragma once
 #include <proxygen/lib/http/session/HQSession.h>
-#include <proxygen/lib/http/session/HQStreamLookup.h>
 
 #include <folly/io/async/HHWheelTimer.h>
 
@@ -193,12 +192,12 @@ class HQUpstreamSession : public HQSession {
   /**
    * Attempt to bind an ingress push stream object (which has the txn)
    * to a nascent stream (which has the transport/codec).
-   * If successful, remove the nascent stream and
-   * re-enable ingress.
    * returns true if binding was successful
    */
-  bool tryBindIngressStreamToTxn(hq::PushId pushId,
-                                 HQIngressPushStream* pushStream = nullptr);
+  bool tryBindIngressStreamToTxn(
+      quic::StreamId streamID,
+      hq::PushId pushId,
+      HQIngressPushStream* pushStream = nullptr);
 
   // Create ingress push stream.
   HQStreamTransportBase* createIngressPushStream(quic::StreamId parentStreamId,
@@ -214,8 +213,6 @@ class HQUpstreamSession : public HQSession {
   }
 
   bool erasePushStream(quic::StreamId streamId) override;
-
-  bool eraseStreamByPushId(hq::PushId) override;
 
   void eraseUnboundStream(HQStreamTransportBase*) override;
 
@@ -255,7 +252,8 @@ class HQUpstreamSession : public HQSession {
   ConnCallbackState connCbState_{ConnCallbackState::NONE};
 
   // Lookup maps for matching ingress push streams to push ids
-  PushToStreamMap streamLookup_;
+  folly::F14FastMap<hq::PushId, quic::StreamId> pushIdToStreamId_;
+  folly::F14FastMap<quic::StreamId, hq::PushId> streamIdToPushId_;
 };
 
 } // namespace proxygen

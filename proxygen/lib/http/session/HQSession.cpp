@@ -18,7 +18,6 @@
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
-#include <boost/cast.hpp>
 #include <folly/CppAttributes.h>
 #include <folly/Format.h>
 #include <folly/ScopeGuard.h>
@@ -3504,7 +3503,7 @@ void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
     HTTPCodec::StreamID assocStreamID,
     std::unique_ptr<HTTPMessage> msg) {
   VLOG(4) << "processing new Push Promise msg=" << msg.get()
-          << "streamID=" << assocStreamID << " maybePushID=" << pushID
+          << " streamID=" << assocStreamID << " maybePushID=" << pushID
           << ", txn= " << txn_;
 
   // Notify the testing callbacks

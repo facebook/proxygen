@@ -155,7 +155,7 @@ HQDownstreamSession::newPushedTransaction(
     return nullptr;
   }
 
-  VLOG(5) << "New pushed transaction: pushId=" << pushId
+  VLOG(4) << "New pushed transaction: pushId=" << pushId
           << "; pushStreamId=" << pushStreamId.value()
           << "; assocStreamId=" << parentRequestStreamId;
 
