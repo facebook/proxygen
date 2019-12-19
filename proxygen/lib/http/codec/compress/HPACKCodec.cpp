@@ -103,7 +103,7 @@ void HPACKCodec::encodeHTTP(
     } else {
       uncompressed += encoder_.encodeHeader(
         HTTP_HEADER_COLON_STATUS,
-        folly::to<std::string>(msg.getStatusCode()));
+        folly::to<folly::fbstring>(msg.getStatusCode()));
     }
     // HEADERS frames do not include a version or reason string.
   }

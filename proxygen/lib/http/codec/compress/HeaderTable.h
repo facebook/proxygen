@@ -58,6 +58,14 @@ class HeaderTable {
   uint32_t getIndex(const HPACKHeader& header) const;
 
   /**
+   * Get the index of the given header, if found.
+   *
+   * @return 0 in case the header is not found
+   */
+  uint32_t getIndex(const HPACKHeaderName& name,
+                    folly::StringPiece value) const;
+
+  /**
    * Get the table entry at the given external index.
    *
    * @return the header entry
@@ -207,7 +215,7 @@ class HeaderTable {
    * Shared implementation for getIndex and nameIndex
    */
   uint32_t getIndexImpl(const HPACKHeaderName& header,
-                        const folly::fbstring& value,
+                        folly::StringPiece value,
                         bool nameOnly) const;
 };
 

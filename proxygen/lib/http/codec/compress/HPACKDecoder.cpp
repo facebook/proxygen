@@ -111,7 +111,7 @@ uint32_t HPACKDecoder::decodeIndexedHeader(
     return 0;
   }
 
-  auto& header = getHeader(index);
+  const auto& header = getHeader(index);
   return emit(header, streamingCb, emitted);
 }
 

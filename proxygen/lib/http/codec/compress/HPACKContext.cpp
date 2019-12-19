@@ -14,6 +14,11 @@ HPACKContext::HPACKContext(uint32_t tableSize) : table_(tableSize) {
 }
 
 uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
+  return getIndex(header.name, header.value);
+}
+
+uint32_t HPACKContext::getIndex(const HPACKHeaderName& name,
+                                folly::StringPiece value) const {
   // First consult the static header table if applicable
   // Applicability is determined by the following guided optimizations:
   // 1) The set of CommonHeaders includes all StaticTable headers and so we can
@@ -24,15 +29,15 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
   // match, we know that if our header has a value and is not part of the very
   // small subset of header names, there is no point consulting the StaticTable
   bool consultStaticTable = false;
-  if (header.value.empty()) {
-    consultStaticTable = header.name.isCommonHeader();
+  if (value.empty()) {
+    consultStaticTable = name.isCommonHeader();
   } else {
     consultStaticTable =
         StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
-            header.name.getHeaderCode());
+            name.getHeaderCode());
   }
   if (consultStaticTable) {
-    uint32_t staticIndex = getStaticTable().getIndex(header);
+    uint32_t staticIndex = getStaticTable().getIndex(name, value);
     if (staticIndex) {
       staticRefs_++;
       return staticToGlobalIndex(staticIndex);
@@ -40,7 +45,7 @@ uint32_t HPACKContext::getIndex(const HPACKHeader& header) const {
   }
 
   // Else check the dynamic table
-  uint32_t dynamicIndex = table_.getIndex(header);
+  uint32_t dynamicIndex = table_.getIndex(name, value);
   if (dynamicIndex) {
     return dynamicToGlobalIndex(dynamicIndex);
   } else {

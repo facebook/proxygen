@@ -39,6 +39,8 @@ class HPACKEncoder : public HPACKEncoderBase, public HPACKContext {
 
   size_t encodeHeader(HTTPHeaderCode code, const std::string& value);
 
+  size_t encodeHeader(HTTPHeaderCode code, folly::fbstring&& value);
+
   size_t encodeHeader(const std::string& name, const std::string& value);
 
   void completeEncode();
@@ -50,11 +52,34 @@ class HPACKEncoder : public HPACKEncoderBase, public HPACKContext {
  private:
   void encodeAsIndex(uint32_t index);
 
-  void encodeHeader(const HPACKHeader& header);
+  // movable name and value
+  void encodeHeader(HPACKHeaderName&& name, folly::fbstring&& value);
 
-  bool encodeAsLiteral(const HPACKHeader& header, bool indexing);
+  // movable name
+  void encodeHeader(HPACKHeaderName&& name, folly::StringPiece value);
 
-  void encodeLiteral(const HPACKHeader& header,
+  // neither movable
+  void encodeHeader(const HPACKHeaderName& name, folly::StringPiece value);
+
+  bool encodeHeaderImpl(const HPACKHeaderName& name,
+                        folly::StringPiece value,
+                        bool& indexable);
+
+  bool encodeAsLiteral(HPACKHeaderName&& name, folly::fbstring&& value,
+                       bool indexing);
+
+  bool encodeAsLiteral(HPACKHeaderName&& name, folly::StringPiece value,
+                       bool indexing);
+
+  bool encodeAsLiteral(const HPACKHeaderName& name, folly::StringPiece value,
+                       bool indexing);
+
+  void encodeAsLiteralImpl(const HPACKHeaderName& name,
+                           folly::StringPiece value,
+                           bool& indexing);
+
+  void encodeLiteral(const HPACKHeaderName& name,
+                     folly::StringPiece value,
                      uint32_t nameIndex,
                      const HPACK::Instruction& instruction);
 };

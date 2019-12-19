@@ -61,8 +61,13 @@ uint32_t HeaderTable::getIndex(const HPACKHeader& header) const {
   return getIndexImpl(header.name, header.value, false);
 }
 
+uint32_t HeaderTable::getIndex(const HPACKHeaderName& name,
+                               folly::StringPiece value) const {
+  return getIndexImpl(name, value, false);
+}
+
 uint32_t HeaderTable::getIndexImpl(const HPACKHeaderName& headerName,
-                                   const folly::fbstring& value,
+                                   folly::StringPiece value,
                                    bool nameOnly) const {
   auto it = names_.find(headerName);
   if (it == names_.end()) {
@@ -83,7 +88,7 @@ bool HeaderTable::hasName(const HPACKHeaderName& headerName) {
 }
 
 uint32_t HeaderTable::nameIndex(const HPACKHeaderName& headerName) const {
-  folly::fbstring value;
+  folly::StringPiece value;
   return getIndexImpl(headerName, value, true /* name only */);
 }
 

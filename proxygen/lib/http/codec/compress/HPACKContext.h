@@ -28,6 +28,9 @@ class HPACKContext {
    */
   uint32_t getIndex(const HPACKHeader& header) const;
 
+  uint32_t getIndex(const HPACKHeaderName& name,
+                    folly::StringPiece value) const;
+
   /**
    * index of a header entry with the given name from dynamic or static table
    *

@@ -57,13 +57,13 @@ TEST_F(HPACKHeaderTests, HasValue) {
 TEST_F(HPACKHeaderTests, HeaderIndexingStrategyBasic) {
   HeaderIndexingStrategy indexingStrat;
   HPACKHeader path(":path", "index.php?q=42");
-  EXPECT_FALSE(indexingStrat.indexHeader(path));
+  EXPECT_FALSE(indexingStrat.indexHeader(path.name, path.value));
   HPACKHeader cdn(":path", "/hprofile-ak-prn1/49496_6024432_1026115112_n.jpg");
-  EXPECT_FALSE(indexingStrat.indexHeader(cdn));
+  EXPECT_FALSE(indexingStrat.indexHeader(cdn.name, cdn.value));
   HPACKHeader clen("content-length", "512");
-  EXPECT_FALSE(indexingStrat.indexHeader(clen));
+  EXPECT_FALSE(indexingStrat.indexHeader(clen.name, clen.value));
   HPACKHeader data("data", "value");
-  EXPECT_TRUE(indexingStrat.indexHeader(data));
+  EXPECT_TRUE(indexingStrat.indexHeader(data.name, data.value));
 }
 
 class HPACKHeaderNameTest : public testing::Test {

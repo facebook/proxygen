@@ -24,8 +24,21 @@ class HPACKHeader {
   HPACKHeader() {}
 
   HPACKHeader(const HPACKHeaderName& name_,
-              const folly::fbstring& value_):
-      name(name_), value(value_) {}
+              folly::StringPiece value_):
+      name(name_), value(value_.data(), value_.size()) {}
+
+  // this one is usually with a code
+  HPACKHeader(const HPACKHeaderName& name_,
+              folly::fbstring&& value_):
+      name(name_), value(std::move(value_)) {}
+
+  HPACKHeader(HPACKHeaderName&& name_,
+              folly::fbstring&& value_):
+      name(std::move(name_)), value(std::move(value_)) {}
+
+  HPACKHeader(HPACKHeaderName&& name_,
+              folly::StringPiece value_):
+      name(std::move(name_)), value(value_.data(), value_.size()) {}
 
   HPACKHeader(folly::StringPiece name_,
               folly::StringPiece value_):
@@ -47,8 +60,12 @@ class HPACKHeader {
    * size of usable bytes of the header entry, does not include overhead
    */
   uint32_t realBytes() const {
-    DCHECK_LE(name.size() + value.size(), std::numeric_limits<uint32_t>::max());
-    return folly::to<uint32_t>(name.size() + value.size());
+    return realBytes(name.size(), value.size());
+  }
+
+  static uint32_t realBytes(uint64_t nameSize, uint64_t valueSize) {
+    DCHECK_LE(nameSize + valueSize, std::numeric_limits<uint32_t>::max());
+    return folly::to<uint32_t>(nameSize + valueSize);
   }
 
   /**
@@ -56,6 +73,10 @@ class HPACKHeader {
    */
   uint32_t bytes() const {
     return kMinLength + realBytes();
+  }
+
+  static uint32_t bytes(uint32_t nameSize, uint32_t valueSize) {
+    return kMinLength + realBytes(nameSize, valueSize);
   }
 
   bool operator==(const HPACKHeader& other) const {

@@ -175,7 +175,8 @@ void QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
 
 bool QPACKEncoder::shouldIndex(const HPACKHeader& header) const {
   return (header.bytes() <= table_.capacity()) &&
-         (!indexingStrat_ || indexingStrat_->indexHeader(header)) &&
+    (!indexingStrat_ ||
+     indexingStrat_->indexHeader(header.name, header.value)) &&
          dynamicReferenceAllowed();
 }
 

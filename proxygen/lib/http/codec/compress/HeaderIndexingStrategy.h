@@ -26,7 +26,8 @@ class HeaderIndexingStrategy {
   // Virtual method for subclasses to implement as they see fit
   // Returns a bool that indicates whether the specified header should be
   // indexed
-  virtual bool indexHeader(const HPACKHeader& header) const;
+  virtual bool indexHeader(const HPACKHeaderName& name,
+                           folly::StringPiece value) const;
 };
 
 }
