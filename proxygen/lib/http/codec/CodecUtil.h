@@ -29,9 +29,13 @@ class CodecUtil {
     return proxygen::validateURL(url);
   }
 
+  static bool isalpha(uint8_t c) {
+    return ((unsigned int)(c | 32) - 97) < 26U;
+  }
+
   static bool validateMethod(folly::ByteRange method) {
     for (auto p: method) {
-      if (!isalpha(p)) {
+      if (!CodecUtil::isalpha(p)) {
         // methods are all characters
         return false;
       }
