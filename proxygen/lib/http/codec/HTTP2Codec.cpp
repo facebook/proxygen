@@ -523,7 +523,7 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
     return ErrorCode::NO_ERROR;
   }
 
-  decodeInfo_.init(isReq, parsingDownstreamTrailers_);
+  decodeInfo_.init(isReq, parsingDownstreamTrailers_, validateHeaders_);
   if (priority) {
     decodeInfo_.msg->setHTTP2Priority(
         std::make_tuple(priority->streamDependency,

@@ -77,12 +77,13 @@ class HTTPRequestVerifier {
     return true;
   }
 
-  bool setAuthority(folly::StringPiece authority) {
+  bool setAuthority(folly::StringPiece authority, bool validate=true) {
     if (hasAuthority_) {
       error = "Duplicate authority";
       return false;
     }
-    if (!CodecUtil::validateHeaderValue(authority, CodecUtil::STRICT)) {
+    if (validate &&
+        !CodecUtil::validateHeaderValue(authority, CodecUtil::STRICT)) {
       error = "Invalid authority";
       return false;
     }

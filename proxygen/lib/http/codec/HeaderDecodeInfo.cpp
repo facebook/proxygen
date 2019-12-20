@@ -42,7 +42,7 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
           ok = verifier.setScheme(valueSp);
           break;
         case HTTP_HEADER_COLON_AUTHORITY:
-          ok = verifier.setAuthority(valueSp);
+          ok = verifier.setAuthority(valueSp, validate_);
           break;
         case HTTP_HEADER_COLON_PATH:
           ok = verifier.setPath(valueSp);
@@ -95,9 +95,10 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
       }
       contentLength_ = cl;
     }
-    bool nameOk = headerCode != HTTP_HEADER_OTHER ||
+    bool nameOk = !validate_ || headerCode != HTTP_HEADER_OTHER ||
       CodecUtil::validateHeaderName(nameSp);
-    bool valueOk = CodecUtil::validateHeaderValue(valueSp, CodecUtil::STRICT);
+    bool valueOk = !validate_ ||
+      CodecUtil::validateHeaderValue(valueSp, CodecUtil::STRICT);
     if (!nameOk || !valueOk) {
       parsingError = folly::to<string>("Bad header value: name=",
                                        nameSp, " value=", valueSp);

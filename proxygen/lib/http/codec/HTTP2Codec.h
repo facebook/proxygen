@@ -179,6 +179,10 @@ public:
     addDateToResponse_ = addDateHeader;
   }
 
+  void setValidateHeaders(bool validate) {
+    validateHeaders_ = validate;
+  }
+
  private:
   size_t splitCompressed(size_t compressed,
                          uint32_t remainingFrameSize,
@@ -303,6 +307,7 @@ public:
   // diffrent heuristic - lack of status code.
   bool parsingDownstreamTrailers_{false};
   bool addDateToResponse_{true};
+  bool validateHeaders_{true};
 
   // CONTINUATION frame can follow either HEADERS or PUSH_PROMISE frames.
   // Keeps frame type of iniating frame of header block.

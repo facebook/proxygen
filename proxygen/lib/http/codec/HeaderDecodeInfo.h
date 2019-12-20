@@ -18,11 +18,12 @@ class HTTPMessage;
 
 class HeaderDecodeInfo {
  public:
-  void init(bool isRequestIn, bool isRequestTrailers) {
+  void init(bool isRequestIn, bool isRequestTrailers, bool validate=true) {
     CHECK(!msg);
     msg.reset(new HTTPMessage());
     isRequest_ = isRequestIn;
     isRequestTrailers_ = isRequestTrailers;
+    validate_ = validate;
     hasStatus_ = false;
     contentLength_ = folly::none;
     regularHeaderSeen_ = false;
@@ -48,9 +49,11 @@ class HeaderDecodeInfo {
  private:
   bool isRequest_{false};
   bool isRequestTrailers_{false};
+  bool validate_{true};
   bool hasStatus_{false};
   bool regularHeaderSeen_{false};
   bool pseudoHeaderSeen_{false};
+
   folly::Optional<uint32_t> contentLength_;
 };
 
