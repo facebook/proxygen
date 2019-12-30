@@ -12,7 +12,7 @@ performant, and modern C++ HTTP library.
 
 We have a Google group for general discussions at https://groups.google.com/d/forum/facebook-proxygen.
 
-The [original blog post](https://code.facebook.com/posts/1503205539947302)
+The [original blog post](https://engineering.fb.com/production-engineering/introducing-proxygen-facebook-s-c-http-framework/)
 also has more background on the project.
 
 ### Installing
