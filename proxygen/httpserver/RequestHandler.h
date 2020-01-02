@@ -99,6 +99,7 @@ class RequestHandler {
    */
   virtual ExMessageHandler* getExHandler() noexcept {
     LOG(FATAL) << "Not implemented";
+    folly::assume_unreachable();
   }
 
   virtual ResponseHandler* getDownstream() noexcept {

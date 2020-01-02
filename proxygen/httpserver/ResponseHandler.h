@@ -80,6 +80,7 @@ class ResponseHandler {
                                         bool /*unidirectional*/ = false)
       noexcept {
     LOG(FATAL) << "newExMessage not supported";
+    folly::assume_unreachable();
   }
 
   // Accessors for Transport/Connection information
