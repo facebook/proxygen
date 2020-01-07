@@ -187,7 +187,7 @@ void HQClient::initializeQLogger() {
   }
 
   auto qLogger = std::make_shared<HQLoggerHelper>(
-      params_.qLoggerPath, params_.prettyJson, quic::VantagePoint::CLIENT);
+      params_.qLoggerPath, params_.prettyJson, quic::VantagePoint::Client);
   quicClient_->setQLogger(std::move(qLogger));
 }
 
