@@ -46,7 +46,7 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
     vector<Header>& headers,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) noexcept {
-  folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
+  static folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
   auto& prepared = *preparedTL.get();
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
   auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,

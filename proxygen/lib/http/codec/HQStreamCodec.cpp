@@ -508,8 +508,8 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                        const HTTPMessage& msg,
                                        folly::Optional<StreamID> pushId,
                                        HTTPHeaderSize* size) {
-  folly::ThreadLocal<std::vector<std::string>> tempsTL;
-  folly::ThreadLocal<std::vector<compress::Header>> allHeadersTL;
+  static folly::ThreadLocal<std::vector<std::string>> tempsTL;
+  static folly::ThreadLocal<std::vector<compress::Header>> allHeadersTL;
   auto& temps = *tempsTL.get();
   auto& allHeaders = *allHeadersTL.get();
   temps.clear();
