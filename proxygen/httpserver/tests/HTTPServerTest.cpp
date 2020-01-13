@@ -45,8 +45,8 @@ class ServerThread {
   HTTPServer* server_{nullptr};
 
  public:
-
-  explicit ServerThread(HTTPServer* server) : server_(server) {}
+  explicit ServerThread(HTTPServer* server) : server_(server) {
+  }
   ~ServerThread() {
     if (server_) {
       server_->stop();
@@ -66,6 +66,57 @@ class ServerThread {
     });
     barrier_.wait();
     return !throws;
+  }
+};
+
+/**
+ * Similar to ServerThread except it waits on a folly::Baton before exit the
+ * thread.
+ *
+ * The reason you need this is that when start() is run on one thread, the main
+ * EVB inside a HTTPServer is owned by a threadlocal which dies when thread
+ * exits, which is a time point you don't control. So if you have code that
+ * requires the EVB doesn't die (for example, the TestRepeatStopCalls test
+ * case), you'd want to delay the thread exit point until you are done with your
+ * stop() calls.
+ *
+ * A better solution would be to change the EVB ownership inside HTTPServer.
+ */
+class WaitableServerThread {
+ private:
+  boost::barrier barrier_{2};
+  std::thread t_;
+  HTTPServer* server_{nullptr};
+  folly::Baton<true, std::atomic> baton_;
+
+ public:
+  explicit WaitableServerThread(HTTPServer* server) : server_(server) {
+  }
+
+  ~WaitableServerThread() {
+    if (server_) {
+      server_->stop();
+    }
+    t_.join();
+  }
+
+  bool start() {
+    bool throws = false;
+    t_ = std::thread([&]() {
+      server_->start([&]() { barrier_.wait(); },
+                     [&](std::exception_ptr /*ex*/) {
+                       throws = true;
+                       server_ = nullptr;
+                       barrier_.wait();
+                     });
+      baton_.wait();
+    });
+    barrier_.wait();
+    return !throws;
+  }
+
+  void exitThread() {
+    baton_.post();
   }
 };
 
@@ -111,12 +162,14 @@ TEST(MultiBind, HandlesListenFailures) {
 TEST(HttpServerStartStop, TestRepeatStopCalls) {
   HTTPServerOptions options;
   auto server = std::make_unique<HTTPServer>(std::move(options));
-  auto st = std::make_unique<ServerThread>(server.get());
+  auto st = std::make_unique<WaitableServerThread>(server.get());
   EXPECT_TRUE(st->start());
 
   server->stop();
   // Calling stop again should be benign.
   server->stop();
+  // Let the WaitableServerThread exit
+  st->exitThread();
 }
 
 // Make an SSL connection to the server
