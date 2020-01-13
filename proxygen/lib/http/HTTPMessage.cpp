@@ -20,10 +20,6 @@ using std::pair;
 using std::string;
 
 namespace {
-const string kHeaderStr_ = "header.";
-const string kQueryStr_ = "query.";
-const string kCookieStr = "cookie.";
-
 /**
  * Create a C locale once and pass it to all the boost string methods
  * that would otherwise create and destruct a temporary locale object
