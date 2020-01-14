@@ -67,6 +67,11 @@ inline std::chrono::seconds secondsSinceEpoch() {
     std::chrono::system_clock::now().time_since_epoch());
 }
 
+inline std::chrono::microseconds microsecondsSinceEpoch(TimePoint t) {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+    toSystemTimePoint(t).time_since_epoch());
+}
+
 inline std::chrono::milliseconds millisecondsSinceEpoch(TimePoint t) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
     toSystemTimePoint(t).time_since_epoch());
