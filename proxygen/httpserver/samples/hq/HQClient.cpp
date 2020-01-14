@@ -167,6 +167,9 @@ void HQClient::initializeQuicClient() {
   client->setPacingTimer(pacingTimer_);
   client->setHostname(params_.host);
   client->addNewPeerAddress(params_.remoteAddress.value());
+  if (params_.localAddress.hasValue()) {
+    client->setLocalAddress(*params_.localAddress);
+  }
   client->setCongestionControllerFactory(
       std::make_shared<quic::DefaultCongestionControllerFactory>());
   client->setTransportSettings(params_.transportSettings);

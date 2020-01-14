@@ -21,6 +21,7 @@
 DEFINE_string(host, "::1", "HQ server hostname/IP");
 DEFINE_int32(port, 6666, "HQ server port");
 DEFINE_int32(h2port, 6667, "HTTP/2 server port");
+DEFINE_string(local_address, "", "Local Address to bind to. Client only.");
 DEFINE_string(mode, "server", "Mode to run in: 'client' or 'server'");
 DEFINE_string(body, "", "Filename to read from for POST requests");
 DEFINE_string(path,
@@ -146,6 +147,8 @@ void initializeCommonSettings(HQParams& hqParams) {
   hqParams.logdir = FLAGS_logdir;
   hqParams.logResponse = FLAGS_log_response;
   if (FLAGS_mode == "server") {
+    CHECK(FLAGS_local_address.empty())
+        << "local_address only allowed in client mode";
     hqParams.mode = HQMode::SERVER;
     hqParams.logprefix = "server";
     hqParams.localAddress =
@@ -155,6 +158,10 @@ void initializeCommonSettings(HQParams& hqParams) {
     hqParams.logprefix = "client";
     hqParams.remoteAddress =
         folly::SocketAddress(hqParams.host, hqParams.port, true);
+    if (!FLAGS_local_address.empty()) {
+      hqParams.localAddress =
+        folly::SocketAddress(FLAGS_local_address, 0, true);
+    }
     hqParams.outdir = FLAGS_outdir;
   }
 }
