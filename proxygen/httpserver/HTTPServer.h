@@ -163,6 +163,9 @@ class HTTPServer final {
    */
   void updateTicketSeeds(wangle::TLSTicketKeySeeds seeds);
 
+ protected:
+  folly::Expected<folly::Unit, std::exception_ptr> startTcpServer();
+
  private:
   std::shared_ptr<HTTPServerOptions> options_;
 
