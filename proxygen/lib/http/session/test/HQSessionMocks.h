@@ -307,6 +307,7 @@ class MockConnectCallback : public HQSession::ConnectCallback {
   MOCK_METHOD0(connectSuccess, void());
   MOCK_METHOD0(onReplaySafe, void());
   MOCK_METHOD1(connectError, void(std::pair<quic::QuicErrorCode, std::string>));
+  MOCK_METHOD0(onFirstPeerPacketProcessed, void());
 };
 
 class MockHQSession : public HQSession {

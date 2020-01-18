@@ -57,6 +57,8 @@ class HQUpstreamSession : public HQSession {
 
   void onReplaySafe() noexcept override;
 
+  void onFirstPeerPacketProcessed() noexcept override;
+
   void handleReplaySafe() noexcept;
 
   HTTPTransaction::Handler* getTransactionTimeoutHandler(

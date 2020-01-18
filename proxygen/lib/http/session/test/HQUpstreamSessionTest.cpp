@@ -545,6 +545,18 @@ TEST_P(HQUpstreamSessionTest, DropFromConnectError) {
   eventBase_.loop();
 }
 
+TEST_P(HQUpstreamSessionTest, FirstPeerPacketProcessed) {
+  MockConnectCallback connectCb;
+  HQUpstreamSession* upstreamSess =
+      dynamic_cast<HQUpstreamSession*>(hqSession_);
+  upstreamSess->setConnectCallback(&connectCb);
+  EXPECT_CALL(connectCb, onFirstPeerPacketProcessed());
+  upstreamSess->onFirstPeerPacketProcessed();
+
+  upstreamSess->closeWhenIdle();
+  eventBase_.loopOnce();
+}
+
 TEST_P(HQUpstreamSessionTest, NotifyReplaySafeAfterTransportReady) {
   MockConnectCallback connectCb;
   HQUpstreamSession* upstreamSess =

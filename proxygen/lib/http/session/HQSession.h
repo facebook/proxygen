@@ -168,6 +168,11 @@ class HQSession
      */
     virtual void connectError(
         std::pair<quic::QuicErrorCode, std::string> code) = 0;
+
+    /**
+     * Callback for the first time transport has processed a packet from peer.
+     */
+    virtual void onFirstPeerPacketProcessed() {}
   };
 
   virtual ~HQSession();

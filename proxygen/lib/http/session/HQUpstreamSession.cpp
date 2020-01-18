@@ -41,6 +41,13 @@ void HQUpstreamSession::onTransportReady() noexcept {
   connectSuccess();
 }
 
+void HQUpstreamSession::onFirstPeerPacketProcessed() noexcept {
+  HQUpstreamSession::DestructorGuard dg(this);
+  if (connectCb_) {
+    connectCb_->onFirstPeerPacketProcessed();
+  }
+}
+
 void HQUpstreamSession::connectSuccess() noexcept {
   HQUpstreamSession::DestructorGuard dg(this);
   if (connectCb_) {
