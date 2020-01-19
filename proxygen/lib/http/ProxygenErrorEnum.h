@@ -80,6 +80,7 @@ namespace proxygen {
     x(DuplicatedStreamId),                      \
     x(ClientTransactionGone),                   \
     x(NetworkSwitch),                           \
+    x(Forbidden),                               \
     x(Max)
 
 // Increase this if you add more error types and Max exceeds 63
