@@ -9,6 +9,7 @@
 #pragma once
 
 #include <folly/IntrusiveList.h>
+#include <folly/Portability.h>
 #include <proxygen/lib/utils/AsyncTimeoutSet.h>
 #include <proxygen/lib/utils/Time.h>
 
@@ -26,12 +27,15 @@ class ByteEvent {
     SECOND_TO_LAST_PACKET,
   };
 
+  FOLLY_PUSH_WARNING
+  FOLLY_CLANG_DISABLE_WARNING("-Wsigned-enum-bitfield")
   ByteEvent(uint64_t byteOffset, EventType eventType)
       : eventType_(eventType),
         timestampTx_(false),
         timestampAck_(false),
         byteOffset_(byteOffset) {
   }
+  FOLLY_POP_WARNING
   virtual ~ByteEvent() {
   }
   EventType getType() const {
