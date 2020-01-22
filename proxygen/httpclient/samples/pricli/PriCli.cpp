@@ -18,7 +18,6 @@
 
 using namespace folly;
 using namespace proxygen;
-using std::vector;
 
 DEFINE_string(server, "localhost", "server to connect to");
 DEFINE_int32(port, 443, "port to connect to");
