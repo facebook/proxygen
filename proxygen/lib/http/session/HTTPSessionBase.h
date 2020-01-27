@@ -25,6 +25,7 @@ class HTTPTransaction;
 class ByteEventTracker;
 
 constexpr uint32_t kDefaultMaxConcurrentOutgoingStreams = 100;
+constexpr int kRttAlpha = 8;
 
 class HTTPPriorityMapFactoryProvider {
  public:
@@ -248,6 +249,33 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual bool getHTTP2PrioritiesEnabled() const {
     return h2PrioritiesEnabled_;
+  }
+
+  /**
+   * Turn HTTP2 Ping-based RTT measure on/off
+   **/
+  virtual void setMeasureRttEnabled(bool /* enabled */) {
+    // enabling this feature is delegated to subclasses
+  }
+
+  bool getMeasureRttEnabled() const {
+    return shouldMeasureRtt_;
+  }
+
+  struct MeasuredRTT {
+    explicit MeasuredRTT(std::chrono::milliseconds rtt) {
+      srtt = rtt;
+      minrtt = rtt;
+      last = rtt;
+    }
+
+    std::chrono::milliseconds srtt;
+    std::chrono::milliseconds minrtt;
+    std::chrono::milliseconds last;
+  };
+
+  folly::Optional<MeasuredRTT> getMeasuredRtt() const {
+    return measuredRtt_;
   }
 
   /**
@@ -560,6 +588,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   void initCodecHeaderIndexingStrategy();
 
+  void updateRtt(std::chrono::milliseconds rttSample);
+
   /**
    * Attaches Session to RevproxyController instance if it's set
    */
@@ -567,7 +597,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   HTTPSessionStats* sessionStats_{nullptr};
 
-  InfoCallback* infoCallback_{nullptr}; // maybe can move to protected
+  InfoCallback* infoCallback_{nullptr};
 
   wangle::TransportInfo transportInfo_;
 
@@ -602,6 +632,17 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   /** Address of the remote end of the connection */
   folly::SocketAddress peerAddr_;
+
+  /**
+   * Measured RTT, equal to folly::none if estimation is turned off, or
+   * if no samples have been collected yet
+   */
+  folly::Optional<MeasuredRTT> measuredRtt_;
+
+  /**
+   * Indicates whether to estimate the RTT at the session layer
+   **/
+  bool shouldMeasureRtt_{false};
 
  private:
   // Underlying controller_ is marked as private so that callers must utilize

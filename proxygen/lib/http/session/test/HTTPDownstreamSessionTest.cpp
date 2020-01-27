@@ -4009,3 +4009,13 @@ TEST_F(HTTP2DownstreamSessionTest, TestDuplicateRequestStream) {
   flushRequestsAndLoop();
   gracefulShutdown();
 }
+
+TEST_F(HTTP2DownstreamSessionTest, TestPingPreserveData) {
+  auto pingData = std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::steady_clock::now().time_since_epoch()).count();
+  clientCodec_->generatePingRequest(requests_, pingData);
+  EXPECT_CALL(callbacks_, onPingReply(pingData));
+  flushRequestsAndLoop();
+  parseOutput(*clientCodec_);
+  gracefulShutdown();
+}

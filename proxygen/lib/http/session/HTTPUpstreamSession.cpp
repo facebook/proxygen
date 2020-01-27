@@ -141,6 +141,13 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   return ret;
 }
 
+void HTTPUpstreamSession::setMeasureRttEnabled(bool enabled) {
+  shouldMeasureRtt_ = enabled;
+  if (!shouldMeasureRtt_) {
+    measuredRtt_ = folly::none;
+  }
+}
+
 void HTTPUpstreamSession::detachTransactions() {
   while (!transactions_.empty()) {
     auto txn = transactions_.begin();

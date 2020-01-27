@@ -133,6 +133,8 @@ class HTTPUpstreamSession final : public HTTPSession {
     HTTPSession::drain();
   }
 
+  void setMeasureRttEnabled(bool enabled) override;
+
   virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
       uint8_t level) override {
     if (!priorityAdapter_) {
