@@ -1453,6 +1453,19 @@ class HQSession
                                        hqDefaultPriority.weight);
     }
 
+    void setRttMeasurementEnabled(bool /* enabled */) override { }
+
+    bool isRttMeasurementEnabled() const override {
+      return false;
+    }
+
+    folly::Optional<std::chrono::milliseconds> getMeasuredSrtt()
+        const override {
+      return folly::none;
+    }
+
+    void measureRttWithPing() override { }
+
     void generateGoaway();
 
     // Partially reliable transport methods.

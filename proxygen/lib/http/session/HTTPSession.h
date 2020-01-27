@@ -132,6 +132,26 @@ class HTTPSession
     HTTPSessionBase::setHTTP2PrioritiesEnabled(enabled);
   }
 
+  void setRttMeasurementEnabled(bool enabled) override {
+    setMeasureRttEnabled(enabled);
+  }
+
+  bool isRttMeasurementEnabled() const override {
+    return getMeasureRttEnabled();
+  }
+
+  folly::Optional<std::chrono::milliseconds> getMeasuredSrtt() const override {
+    if (!measuredRtt_.hasValue()) {
+      return folly::none;
+    }
+    return measuredRtt_->srtt;
+  }
+
+  void measureRttWithPing() override {
+    sendPing();
+  }
+
+
   const folly::SocketAddress& getLocalAddress() const noexcept override {
     return HTTPSessionBase::getLocalAddress();
   }

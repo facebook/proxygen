@@ -512,6 +512,11 @@ class HTTPTransaction
     virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
         uint8_t level) = 0;
 
+    virtual void setRttMeasurementEnabled(bool enabled) = 0;
+    virtual bool isRttMeasurementEnabled() const = 0;
+    virtual folly::Optional<std::chrono::milliseconds> getMeasuredSrtt() const = 0;
+    virtual void measureRttWithPing() = 0;
+
     virtual folly::Expected<folly::Unit, ErrorCode> peek(
         PeekCallback /* peekCallback */) {
       LOG(FATAL) << __func__ << " not supported";
