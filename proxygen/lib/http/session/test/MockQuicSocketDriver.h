@@ -95,13 +95,15 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       QuicSocket::DataExpiredCallback* dataExpiredCb,
       QuicSocket::DataRejectedCallback* dataRejectedCb,
       TransportEnum transportType,
-      bool partiallyReliableTransport = false)
+      bool partiallyReliableTransport = false,
+      std::string alpn = "h1q-fb")
       : partiallyReliableTransport_(partiallyReliableTransport),
         eventBase_(eventBase),
         transportType_(transportType),
         sock_(std::make_shared<MockQuicSocket>(eventBase, cb)),
         dataExpiredCb_(dataExpiredCb),
-        dataRejectedCb_(dataRejectedCb) {
+        dataRejectedCb_(dataRejectedCb),
+        alpn_(alpn) {
 
     if (transportType_ == TransportEnum::SERVER) {
       nextBidirectionalStreamId_ = 1;
@@ -1269,10 +1271,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   uint64_t nextUnidirectionalStreamId_;
   uint64_t unidirectionalStreamsCredit_;
   std::shared_ptr<bool> deleted_{new bool(false)};
-  std::string alpn_ = "h1q-fb";
   LocalAppCallback* localAppCb_{nullptr};
   QuicSocket::DataExpiredCallback* dataExpiredCb_;
   QuicSocket::DataRejectedCallback* dataRejectedCb_;
+  std::string alpn_;
 }; // namespace quic
 
 } // namespace quic
