@@ -959,7 +959,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               stream.peekCB = nullptr;
               stream.pendingWriteCb = nullptr;
             }
-            cb->onConnectionEnd();
+            if (cb) {
+              cb->onConnectionEnd();
+            }
           }
         },
         millisecondsDelay);
