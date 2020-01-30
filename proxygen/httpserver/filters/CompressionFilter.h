@@ -222,6 +222,8 @@ class CompressionFilterFactory : public RequestHandlerFactory {
     std::set<std::string> compressibleContentTypes = {};
     int32_t zlibCompressionLevel = 4;
     int32_t zstdCompressionLevel = 8;
+    bool enableZstd = false;
+    bool independentChunks = false;
   };
 
   CompressionFilterFactory(const Options& opts)
@@ -229,7 +231,9 @@ class CompressionFilterFactory : public RequestHandlerFactory {
         zlibCompressionLevel_(opts.zlibCompressionLevel),
         zstdCompressionLevel_(opts.zstdCompressionLevel),
         compressibleContentTypes_(std::make_shared<std::set<std::string>>(
-            opts.compressibleContentTypes)) {
+            opts.compressibleContentTypes)),
+        enableZstd_(opts.enableZstd),
+        independentChunks_(opts.independentChunks) {
   }
 
   virtual ~CompressionFilterFactory() {
@@ -259,9 +263,9 @@ class CompressionFilterFactory : public RequestHandlerFactory {
         return new CompressionFilter{
             h,
             minimumCompressionSize_,
-            [level =
-                 zstdCompressionLevel_]() -> std::unique_ptr<StreamCompressor> {
-              return std::make_unique<ZstdStreamCompressor>(level);
+            [level = zstdCompressionLevel_, independent = independentChunks_]()
+                -> std::unique_ptr<StreamCompressor> {
+              return std::make_unique<ZstdStreamCompressor>(level, independent);
             },
             "zstd",
             compressibleContentTypes_};
@@ -286,9 +290,12 @@ class CompressionFilterFactory : public RequestHandlerFactory {
     }
 
     auto it = std::find_if(
-        output.begin(), output.end(), [](RFC2616::TokenQPair elem) {
+        output.begin(),
+        output.end(),
+        [enableZstd = enableZstd_](RFC2616::TokenQPair elem) {
           return elem.first.compare(folly::StringPiece("gzip")) == 0 ||
-                 elem.first.compare(folly::StringPiece("zstd")) == 0;
+                 (enableZstd &&
+                  elem.first.compare(folly::StringPiece("zstd")) == 0);
         });
 
     if (it == output.end()) {
@@ -308,5 +315,7 @@ class CompressionFilterFactory : public RequestHandlerFactory {
   const int32_t zlibCompressionLevel_;
   const int32_t zstdCompressionLevel_;
   const std::shared_ptr<std::set<std::string>> compressibleContentTypes_;
+  const bool enableZstd_;
+  const bool independentChunks_;
 };
 } // namespace proxygen

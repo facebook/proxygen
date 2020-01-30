@@ -180,6 +180,7 @@ class CompressionFilterTest : public Test {
     opts.zlibCompressionLevel = compressionLevel;
     opts.minimumCompressionSize = minimumCompressionSize;
     opts.compressibleContentTypes = compressibleTypes;
+    opts.enableZstd = true;
     auto filterFactory = std::make_unique<CompressionFilterFactory>(opts);
 
     auto filter = filterFactory->onRequest(requestHandler_, &msg);
@@ -513,6 +514,7 @@ TYPED_TEST(CompressionFilterTest, NoResponseBody) {
     optCompressionLevel = compressionLevel;
     opts.minimumCompressionSize = minimumCompressionSize;
     opts.compressibleContentTypes = compressibleTypes;
+    opts.enableZstd = true;
     auto filterFactory = std::make_unique<CompressionFilterFactory>(opts);
 
     auto filter = filterFactory->onRequest(requestHandler, &msg);

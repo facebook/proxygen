@@ -119,9 +119,9 @@ void compressThenDecompressPieces(
 }
 
 void compressDecompressPiecesProxygenCodec(
-    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces) {
+    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces, bool independent) {
   auto codec = std::make_unique<ZstdStreamCompressor>(
-      folly::io::COMPRESSION_LEVEL_DEFAULT);
+      folly::io::COMPRESSION_LEVEL_DEFAULT, independent);
 
   std::vector<std::unique_ptr<folly::IOBuf>> compressed_pieces;
 
@@ -196,6 +196,15 @@ TEST_F(ZstdTests, CompressDecompressStreamingProxygen) {
   input_pieces.push_back(makeBuf(4096));
   input_pieces.push_back(makeBuf(0));
 
-  ASSERT_NO_FATAL_FAILURE(
-      { compressDecompressPiecesProxygenCodec(std::move(input_pieces)); });
+  compressDecompressPiecesProxygenCodec(std::move(input_pieces), false);
+}
+
+TEST_F(ZstdTests, CompressDecompressStreamingProxygenIndependent) {
+  std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
+  input_pieces.push_back(makeBuf(38));
+  input_pieces.push_back(makeBuf(12));
+  input_pieces.push_back(makeBuf(4096));
+  input_pieces.push_back(makeBuf(0));
+
+  compressDecompressPiecesProxygenCodec(std::move(input_pieces), true);
 }

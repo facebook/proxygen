@@ -12,9 +12,11 @@
 
 namespace proxygen {
 
-ZstdStreamCompressor::ZstdStreamCompressor(int compressionLevel)
+ZstdStreamCompressor::ZstdStreamCompressor(int compressionLevel,
+                                           bool independentChunks)
     : codec_(folly::io::getStreamCodec(folly::io::CodecType::ZSTD,
-                                       compressionLevel)) {
+                                       compressionLevel)),
+      independent_(independentChunks) {
 }
 
 ZstdStreamCompressor::~ZstdStreamCompressor() {
@@ -38,13 +40,17 @@ std::unique_ptr<folly::IOBuf> ZstdStreamCompressor::compress(
       in = &clone;
     }
 
+    auto op = last || independent_ ? folly::io::StreamCodec::FlushOp::END
+                                   : folly::io::StreamCodec::FlushOp::FLUSH;
+    if (independent_) {
+      codec_->resetStream(in->length());
+    }
+
     auto compressBound = codec_->maxCompressedLength(in->length());
     auto out = folly::IOBuf::create(compressBound + 1);
 
     folly::ByteRange inrange{in->data(), in->length()};
     folly::MutableByteRange outrange{out->writableTail(), out->tailroom()};
-    auto op = last ? folly::io::StreamCodec::FlushOp::END
-                   : folly::io::StreamCodec::FlushOp::FLUSH;
 
     auto success = codec_->compressStream(inrange, outrange, op);
 

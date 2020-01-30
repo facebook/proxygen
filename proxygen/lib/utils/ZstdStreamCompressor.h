@@ -23,7 +23,24 @@ namespace proxygen {
 
 class ZstdStreamCompressor : public StreamCompressor {
  public:
-  explicit ZstdStreamCompressor(int compressionLevel);
+  /**
+   * The Zstd content-coding for HTTP allows us to use multiple Zstd frames
+   * in a single message, if we want. This gives us some freedom to choose how
+   * to perform the compression.
+   *
+   * When independentChunks == false, this compressor produces a single frame,
+   * maintaining the history of the stream across chunks, so that previous
+   * content can be used to compress new chunks. This necessitates holding that
+   * history in memory (the memory cost of which is worth considering if you
+   * are holding many long-lived streams open).
+   *
+   * When independentChunks == true, each chunk is emitted as an independent
+   * frame. This means they can't take advantage of previous chunks, so you
+   * will get a worse compression ratio. However, no state needs to be stored
+   * between chunks, so there's no memory footprint cost.
+   */
+  explicit ZstdStreamCompressor(int compressionLevel,
+                                bool independentChunks = false);
 
   virtual ~ZstdStreamCompressor() override;
 
@@ -36,6 +53,7 @@ class ZstdStreamCompressor : public StreamCompressor {
 
  private:
   std::unique_ptr<folly::io::StreamCodec> codec_;
+  const bool independent_;
   bool error_ = false;
 };
 } // namespace proxygen
