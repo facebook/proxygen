@@ -194,6 +194,7 @@ add_library(
     utils/WheelTimerInstance.cpp
     utils/ZlibStreamCompressor.cpp
     utils/ZlibStreamDecompressor.cpp
+    utils/ZstdStreamCompressor.cpp
     utils/ZstdStreamDecompressor.cpp
     ${HTTP3_SOURCES}
     ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.cpp

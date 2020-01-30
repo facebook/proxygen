@@ -13,6 +13,7 @@
 #include <folly/io/IOBuf.h>
 #include <folly/portability/GTest.h>
 #include <glog/logging.h>
+#include <proxygen/lib/utils/ZstdStreamCompressor.h>
 #include <proxygen/lib/utils/ZstdStreamDecompressor.h>
 
 using namespace folly;
@@ -70,7 +71,8 @@ void verifyPieces(std::unique_ptr<IOBuf> original,
 
 std::unique_ptr<folly::IOBuf> compress(
     const std::unique_ptr<folly::IOBuf>& in) {
-  auto codec = folly::io::getCodec(folly::io::CodecType::ZSTD);
+  auto codec = std::make_unique<ZstdStreamCompressor>(
+      folly::io::COMPRESSION_LEVEL_DEFAULT);
   auto out = codec->compress(in.get());
   return out;
 }
@@ -101,7 +103,7 @@ void compressThenDecompressPieces(
       folly::MutableByteRange crange(cpiece->writableData(),
                                      cpiece->tailroom());
       done = codec->compressStream(irange, crange, op);
-      cpiece->append(crange.begin() - cpiece->data());
+      cpiece->append(crange.begin() - cpiece->tail());
       compressed_pieces.push_back(std::move(cpiece));
     } while (irange.size() || !done);
   }
@@ -115,6 +117,30 @@ void compressThenDecompressPieces(
 
   verifyPieces(std::move(input), std::move(compressed_pieces));
 }
+
+void compressDecompressPiecesProxygenCodec(
+    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces) {
+  auto codec = std::make_unique<ZstdStreamCompressor>(
+      folly::io::COMPRESSION_LEVEL_DEFAULT);
+
+  std::vector<std::unique_ptr<folly::IOBuf>> compressed_pieces;
+
+  size_t i = 0;
+  for (const auto& piece : input_pieces) {
+    const auto end = ++i == input_pieces.size();
+    compressed_pieces.push_back(codec->compress(piece.get(), end));
+  }
+
+  // assembles from back to front
+  auto input = folly::IOBuf::create(0);
+  while (!input_pieces.empty()) {
+    input->appendChain(std::move(input_pieces.back()));
+    input_pieces.pop_back();
+  }
+
+  verifyPieces(std::move(input), std::move(compressed_pieces));
+}
+
 } // anonymous namespace
 
 // Try many different sizes because we've hit truncation problems before
@@ -145,9 +171,9 @@ TEST_F(ZstdTests, CompressDecompressEmpty) {
 TEST_F(ZstdTests, CompressDecompressChain) {
   ASSERT_NO_FATAL_FAILURE({
     auto buf = makeBuf(4);
-    buf->appendChain(makeBuf(38));
-    buf->appendChain(makeBuf(12));
-    buf->appendChain(makeBuf(0));
+    buf->prependChain(makeBuf(38));
+    buf->prependChain(makeBuf(12));
+    buf->prependChain(makeBuf(0));
     compressThenDecompress(std::move(buf));
   });
 }
@@ -161,4 +187,15 @@ TEST_F(ZstdTests, CompressDecompressStreaming) {
 
   ASSERT_NO_FATAL_FAILURE(
       { compressThenDecompressPieces(std::move(input_pieces)); });
+}
+
+TEST_F(ZstdTests, CompressDecompressStreamingProxygen) {
+  std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
+  input_pieces.push_back(makeBuf(38));
+  input_pieces.push_back(makeBuf(12));
+  input_pieces.push_back(makeBuf(4096));
+  input_pieces.push_back(makeBuf(0));
+
+  ASSERT_NO_FATAL_FAILURE(
+      { compressDecompressPiecesProxygenCodec(std::move(input_pieces)); });
 }

@@ -9,12 +9,14 @@
 #pragma once
 
 #include <folly/Memory.h>
+#include <folly/compression/Compression.h>
 
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/lib/http/RFC2616.h>
 #include <proxygen/lib/utils/StreamCompressor.h>
 #include <proxygen/lib/utils/ZlibStreamCompressor.h>
+#include <proxygen/lib/utils/ZstdStreamCompressor.h>
 
 namespace proxygen {
 
@@ -68,8 +70,7 @@ class CompressionFilter : public Filter {
     // Initialize compressor
     compressor_ = compressorFactory_();
     if (!compressor_ || compressor_->hasError()) {
-      fail();
-      return;
+      return fail();
     }
 
     // If it's chunked or not being compressed then the headers can be sent
@@ -143,8 +144,7 @@ class CompressionFilter : public Filter {
       auto compressed = compressor_->compress(emptyBuffer.get(), true);
 
       if (compressor_->hasError()) {
-        fail();
-        return;
+        return fail();
       }
 
       // "Inject" a chunk with the trailer.
@@ -210,8 +210,9 @@ class CompressionFilter : public Filter {
 class CompressionFilterFactory : public RequestHandlerFactory {
  private:
   enum class CodecType : uint8_t {
-    ZLIB = 0,
-    NO_COMPRESSION = 1,
+    NO_COMPRESSION = 0,
+    ZLIB = 1,
+    ZSTD = 2,
   };
 
  public:
@@ -220,11 +221,13 @@ class CompressionFilterFactory : public RequestHandlerFactory {
     uint32_t minimumCompressionSize = 1000;
     std::set<std::string> compressibleContentTypes = {};
     int32_t zlibCompressionLevel = 4;
+    int32_t zstdCompressionLevel = 8;
   };
 
   CompressionFilterFactory(const Options& opts)
       : minimumCompressionSize_(opts.minimumCompressionSize),
         zlibCompressionLevel_(opts.zlibCompressionLevel),
+        zstdCompressionLevel_(opts.zstdCompressionLevel),
         compressibleContentTypes_(std::make_shared<std::set<std::string>>(
             opts.compressibleContentTypes)) {
   }
@@ -252,6 +255,16 @@ class CompressionFilterFactory : public RequestHandlerFactory {
             },
             "gzip",
             compressibleContentTypes_};
+      case CodecType::ZSTD:
+        return new CompressionFilter{
+            h,
+            minimumCompressionSize_,
+            [level =
+                 zstdCompressionLevel_]() -> std::unique_ptr<StreamCompressor> {
+              return std::make_unique<ZstdStreamCompressor>(level);
+            },
+            "zstd",
+            compressibleContentTypes_};
       case CodecType::NO_COMPRESSION:
         return h;
     };
@@ -274,17 +287,26 @@ class CompressionFilterFactory : public RequestHandlerFactory {
 
     auto it = std::find_if(
         output.begin(), output.end(), [](RFC2616::TokenQPair elem) {
-          return elem.first.compare(folly::StringPiece("gzip")) == 0;
+          return elem.first.compare(folly::StringPiece("gzip")) == 0 ||
+                 elem.first.compare(folly::StringPiece("zstd")) == 0;
         });
 
     if (it == output.end()) {
       return CodecType::NO_COMPRESSION;
     }
-    return CodecType::ZLIB;
+    if (it->first == "zstd") {
+      return CodecType::ZSTD;
+    } else if (it->first == "gzip") {
+      return CodecType::ZLIB;
+    } else {
+      DCHECK(false) << "found unexpected content-coding selection";
+      return CodecType::NO_COMPRESSION;
+    }
   }
 
   const uint32_t minimumCompressionSize_;
   const int32_t zlibCompressionLevel_;
+  const int32_t zstdCompressionLevel_;
   const std::shared_ptr<std::set<std::string>> compressibleContentTypes_;
 };
 } // namespace proxygen

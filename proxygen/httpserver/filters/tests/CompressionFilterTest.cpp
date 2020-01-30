@@ -6,16 +6,19 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <type_traits>
+
 #include <folly/Conv.h>
 #include <folly/ScopeGuard.h>
 #include <folly/io/IOBuf.h>
 
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
-#include <proxygen/httpserver/filters/CompressionFilter.h>
-#include <proxygen/lib/utils/ZlibStreamCompressor.h>
 #include <proxygen/httpserver/Mocks.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include <proxygen/httpserver/filters/CompressionFilter.h>
+#include <proxygen/lib/utils/ZlibStreamCompressor.h>
+#include <proxygen/lib/utils/ZstdStreamDecompressor.h>
 
 using namespace proxygen;
 using namespace testing;
@@ -31,13 +34,40 @@ MATCHER_P(IOBufEquals,
   return actual == expected;
 }
 
+struct ZlibTest {
+  static std::unique_ptr<StreamDecompressor> makeDecompressor() {
+    return std::make_unique<ZlibStreamDecompressor>(CompressionType::GZIP);
+  }
+  static std::string getExpectedEncoding() {
+    return "gzip";
+  }
+  static int32_t getCompressionLevel() {
+    return 4 /* default */;
+  }
+};
+
+struct ZstdTest {
+  static std::unique_ptr<StreamDecompressor> makeDecompressor() {
+    return std::make_unique<ZstdStreamDecompressor>();
+  }
+  static std::string getExpectedEncoding() {
+    return "zstd";
+  }
+  static int32_t getCompressionLevel() {
+    return 4 /* default */;
+  }
+};
+
+template <typename T>
 class CompressionFilterTest : public Test {
  public:
+  using CodecType = T;
+
   void SetUp() override {
     // requesthandler is the server, responsehandler is the client
     requestHandler_ = new MockRequestHandler();
     responseHandler_ = std::make_unique<MockResponseHandler>(requestHandler_);
-    zd_ = std::make_unique<ZlibStreamDecompressor>(CompressionType::GZIP);
+    zd_ = T::makeDecompressor();
   }
 
   void TearDown() override {
@@ -61,7 +91,7 @@ class CompressionFilterTest : public Test {
                             std::string originalRequestBody,
                             std::string responseContentType,
                             std::unique_ptr<folly::IOBuf> originalResponseBody,
-                            int32_t compressionLevel = 4,
+                            int32_t compressionLevel = T::getCompressionLevel(),
                             uint32_t minimumCompressionSize = 1,
                             bool sendCompressedResponse = false) {
 
@@ -84,22 +114,24 @@ class CompressionFilterTest : public Test {
 
     // Response Handler Expectations
     // Headers are only sent once
-    EXPECT_CALL(*responseHandler_, sendHeaders(_)).WillOnce(DoAll(
-        Invoke([&](HTTPMessage& msg) {
-          auto& headers = msg.getHeaders();
-          if (expectCompression) {
-            EXPECT_TRUE(msg.checkForHeaderToken(
-                HTTP_HEADER_CONTENT_ENCODING, expectedEncoding.c_str(), false));
-          }
+    EXPECT_CALL(*responseHandler_, sendHeaders(_))
+        .WillOnce(DoAll(Invoke([&](HTTPMessage& msg) {
+                          auto& headers = msg.getHeaders();
+                          if (expectCompression) {
+                            EXPECT_TRUE(msg.checkForHeaderToken(
+                                HTTP_HEADER_CONTENT_ENCODING,
+                                expectedEncoding.c_str(),
+                                false));
+                          }
 
-          if (msg.getIsChunked()) {
-            EXPECT_FALSE(headers.exists("Content-Length"));
-          } else {
-            //Content-Length is not set on chunked messages
-            EXPECT_TRUE(headers.exists("Content-Length"));
-          }
-        }),
-        Return()));
+                          if (msg.getIsChunked()) {
+                            EXPECT_FALSE(headers.exists("Content-Length"));
+                          } else {
+                            // Content-Length is not set on chunked messages
+                            EXPECT_TRUE(headers.exists("Content-Length"));
+                          }
+                        }),
+                        Return()));
 
     if (isResponseChunked) {
       // The final chunk has 0 body
@@ -116,7 +148,6 @@ class CompressionFilterTest : public Test {
         .Times(chunkCount)
         .WillRepeatedly(DoAll(
             Invoke([&](std::shared_ptr<folly::IOBuf> body) {
-
               std::unique_ptr<folly::IOBuf> processedBody;
 
               if (expectCompression) {
@@ -162,9 +193,9 @@ class CompressionFilterTest : public Test {
     if (isResponseChunked) {
 
       ResponseBuilder(downstream_)
-        .status(200, "OK")
-        .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
-        .send();
+          .status(200, "OK")
+          .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
+          .send();
 
       folly::IOBuf* crtBuf;
       crtBuf = originalResponseBody.get();
@@ -176,8 +207,8 @@ class CompressionFilterTest : public Test {
 
       ResponseBuilder(downstream_).sendWithEOM();
 
-    } else if(sendCompressedResponse) {
-       // Send unchunked response
+    } else if (sendCompressedResponse) {
+      // Send unchunked response
       ResponseBuilder(downstream_)
           .status(200, "OK")
           .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
@@ -218,230 +249,255 @@ class CompressionFilterTest : public Test {
   }
 };
 
+typedef ::testing::Types<ZlibTest, ZstdTest> CompressionCodecs;
+
+TYPED_TEST_CASE(CompressionFilterTest, CompressionCodecs);
+
 // Basic smoke test
-TEST_F(CompressionFilterTest, NonchunkedCompression) {
+TYPED_TEST(CompressionFilterTest, NonchunkedCompression) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(true,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               std::string("Hello World"),
+                               std::string("text/html"),
+                               folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
-TEST_F(CompressionFilterTest, ChunkedCompression) {
+TYPED_TEST(CompressionFilterTest, ChunkedCompression) {
+  using Codec = typename TestFixture::CodecType;
   std::vector<std::string> chunks = {"Hello", " World"};
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         createResponseChain(chunks));
+    this->exercise_compression(true,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               std::string("Hello World"),
+                               std::string("text/html"),
+                               this->createResponseChain(chunks));
   });
 }
 
-TEST_F(CompressionFilterTest, ParameterizedContenttype) {
+TYPED_TEST(CompressionFilterTest, ParameterizedContenttype) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("text/html; param1"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(true,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               std::string("Hello World"),
+                               std::string("text/html; param1"),
+                               folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
-TEST_F(CompressionFilterTest, MixedcaseContenttype) {
+TYPED_TEST(CompressionFilterTest, MixedcaseContenttype) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("Text/Html; param1"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(true,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               std::string("Hello World"),
+                               std::string("Text/Html; param1"),
+                               folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
 // Client supports multiple possible compression encodings
-TEST_F(CompressionFilterTest, MultipleAcceptedEncodings) {
+TYPED_TEST(CompressionFilterTest, MultipleAcceptedEncodings) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip, identity, deflate"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(
+        true,
+        std::string("http://locahost/foo.compressme"),
+        Codec::getExpectedEncoding() + ", identity, deflate",
+        Codec::getExpectedEncoding(),
+        std::string("Hello World"),
+        std::string("text/html"),
+        folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
 // Server skips compressing if the response is already compressed
-TEST_F(CompressionFilterTest, ResponseAlreadyCompressedTest) {
+TYPED_TEST(CompressionFilterTest, ResponseAlreadyCompressedTest) {
+  using Codec = typename TestFixture::CodecType;
   auto compressor =
       std::make_unique<ZlibStreamCompressor>(CompressionType::GZIP, 4);
-  auto compressed =
-      compressor->compress(folly::IOBuf::copyBuffer("Hello World").get());
+  auto fakeCompressed = folly::IOBuf::copyBuffer("helloimsupposedlycompressed");
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         std::move(compressed),
-                         4,
-                         1,
-                         true /*SendCompressedResponse*/);
+    this->exercise_compression(false,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               std::string("helloimsupposedlycompressed"),
+                               std::string("text/html"),
+                               std::move(fakeCompressed),
+                               4,
+                               1,
+                               true /*SendCompressedResponse*/);
   });
 }
 
-TEST_F(CompressionFilterTest, MultipleAcceptedEncodingsQvalues) {
+TYPED_TEST(CompressionFilterTest, MultipleAcceptedEncodingsQvalues) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip; q=.7;, identity"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(
+        true,
+        std::string("http://locahost/foo.compressme"),
+        Codec::getExpectedEncoding() + "; q=.7;, identity",
+        Codec::getExpectedEncoding(),
+        std::string("Hello World"),
+        std::string("text/html"),
+        folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
-TEST_F(CompressionFilterTest, NoCompressibleAcceptedEncodings) {
+TYPED_TEST(CompressionFilterTest, NoCompressibleAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(false,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("identity; q=.7;"),
-                         std::string(""),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(false,
+                               std::string("http://locahost/foo.compressme"),
+                               std::string("identity; q=.7;"),
+                               std::string(""),
+                               std::string("Hello World"),
+                               std::string("text/html"),
+                               folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
-TEST_F(CompressionFilterTest, MissingAcceptedEncodings) {
+TYPED_TEST(CompressionFilterTest, MissingAcceptedEncodings) {
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(false,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string(""),
-                         std::string(""),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(false,
+                               std::string("http://locahost/foo.compressme"),
+                               std::string(""),
+                               std::string(""),
+                               std::string("Hello World"),
+                               std::string("text/html"),
+                               folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
 // Content is of an-uncompressible content-type
-TEST_F(CompressionFilterTest, UncompressibleContenttype) {
+TYPED_TEST(CompressionFilterTest, UncompressibleContenttype) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(false,
-                         std::string("http://locahost/foo.nocompress"),
-                         std::string("gzip"),
-                         std::string(""),
-                         std::string("Hello World"),
-                         std::string("image/jpeg"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(false,
+                               std::string("http://locahost/foo.nocompress"),
+                               Codec::getExpectedEncoding(),
+                               std::string(""),
+                               std::string("Hello World"),
+                               std::string("image/jpeg"),
+                               folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
-TEST_F(CompressionFilterTest, UncompressibleContenttypeParam) {
+TYPED_TEST(CompressionFilterTest, UncompressibleContenttypeParam) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(false,
-                         std::string("http://locahost/foo.nocompress"),
-                         std::string("gzip"),
-                         std::string(""),
-                         std::string("Hello World"),
-                         std::string("application/jpeg; param1"),
-                         folly::IOBuf::copyBuffer("Hello World"));
+    this->exercise_compression(false,
+                               std::string("http://locahost/foo.nocompress"),
+                               Codec::getExpectedEncoding(),
+                               std::string(""),
+                               std::string("Hello World"),
+                               std::string("application/jpeg; param1"),
+                               folly::IOBuf::copyBuffer("Hello World"));
   });
 }
 
 // Content is under the minimum compression size
-TEST_F(CompressionFilterTest, TooSmallToCompress) {
+TYPED_TEST(CompressionFilterTest, TooSmallToCompress) {
+  using Codec = typename TestFixture::CodecType;
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(false,
-                         std::string("http://locahost/foo.smallfry"),
-                         std::string("gzip"),
-                         std::string(""),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         folly::IOBuf::copyBuffer("Hello World"),
-                         4,
-                         1000);
+    this->exercise_compression(false,
+                               std::string("http://locahost/foo.smallfry"),
+                               Codec::getExpectedEncoding(),
+                               std::string(""),
+                               std::string("Hello World"),
+                               std::string("text/html"),
+                               folly::IOBuf::copyBuffer("Hello World"),
+                               Codec::getCompressionLevel(),
+                               1000);
   });
 }
 
-TEST_F(CompressionFilterTest, SmallChunksCompress) {
+TYPED_TEST(CompressionFilterTest, SmallChunksCompress) {
   // Expect this to compress despite being small because can't tell the content
   // length when we're chunked
+  using Codec = typename TestFixture::CodecType;
   std::vector<std::string> chunks = {"Hello", " World"};
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip"),
-                         std::string("gzip"),
-                         std::string("Hello World"),
-                         std::string("text/html"),
-                         createResponseChain(chunks),
-                         4,
-                         1000);
+    this->exercise_compression(true,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               std::string("Hello World"),
+                               std::string("text/html"),
+                               this->createResponseChain(chunks),
+                               Codec::getCompressionLevel(),
+                               1000);
   });
 }
 
-TEST_F(CompressionFilterTest, MinimumCompressSizeEqualToRequestSize){
+TYPED_TEST(CompressionFilterTest, MinimumCompressSizeEqualToRequestSize) {
+  using Codec = typename TestFixture::CodecType;
   auto requestBody = std::string("Hello World");
   ASSERT_NO_FATAL_FAILURE({
-    exercise_compression(true,
-                         std::string("http://locahost/foo.compressme"),
-                         std::string("gzip"),
-                         std::string("gzip"),
-                         requestBody,
-                         std::string("text/html"),
-                         folly::IOBuf::copyBuffer(requestBody),
-                         4,
-                         requestBody.length());
+    this->exercise_compression(true,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               requestBody,
+                               std::string("text/html"),
+                               folly::IOBuf::copyBuffer(requestBody),
+                               Codec::getCompressionLevel(),
+                               requestBody.length());
   });
 }
 
-TEST_F(CompressionFilterTest, NoResponseBody){
-  std::string acceptedEncoding = "gzip";
-  std::string expectedEncoding = "gzip";
+TYPED_TEST(CompressionFilterTest, NoResponseBody) {
+  using Codec = typename TestFixture::CodecType;
+
+  std::string acceptedEncoding = Codec::getExpectedEncoding();
+  std::string expectedEncoding = Codec::getExpectedEncoding();
   std::string url = std::string("http://locahost/foo.compressme");
   std::string responseContentType = std::string("text/html");
-  int32_t compressionLevel = 4;
+  int32_t compressionLevel = Codec::getCompressionLevel();
   uint32_t minimumCompressionSize = 0;
+
+  auto& requestHandler = this->requestHandler_;
+  auto& downstream = this->downstream_;
+  auto& responseHandler = this->responseHandler_;
 
   ASSERT_NO_FATAL_FAILURE({
     // Request Handler Expectations
-    EXPECT_CALL(*requestHandler_, onEOM()).Times(1);
+    EXPECT_CALL(*requestHandler, onEOM()).Times(1);
 
     // Need to capture whatever the filter is for ResponseBuilder later
-    EXPECT_CALL(*requestHandler_, setResponseHandler(_))
-        .WillOnce(DoAll(SaveArg<0>(&downstream_), Return()));
+    EXPECT_CALL(*requestHandler, setResponseHandler(_))
+        .WillOnce(DoAll(SaveArg<0>(&downstream), Return()));
 
     // Response Handler Expectations
     // Headers are only sent once
-    EXPECT_CALL(*responseHandler_, sendHeaders(_)).WillOnce(DoAll(
-        Invoke([&](HTTPMessage& msg) {
-          auto& headers = msg.getHeaders();
-          EXPECT_TRUE(msg.checkForHeaderToken(
-            HTTP_HEADER_CONTENT_ENCODING, expectedEncoding.c_str(), false));
-          if (msg.getIsChunked()) {
-            EXPECT_FALSE(headers.exists("Content-Length"));
-          } else {
-            //Content-Length is not set on chunked messages
-            EXPECT_TRUE(headers.exists("Content-Length"));
-          }
-        }),
-        Return()));
+    EXPECT_CALL(*responseHandler, sendHeaders(_))
+        .WillOnce(DoAll(Invoke([&](HTTPMessage& msg) {
+                          auto& headers = msg.getHeaders();
+                          EXPECT_TRUE(msg.checkForHeaderToken(
+                              HTTP_HEADER_CONTENT_ENCODING,
+                              expectedEncoding.c_str(),
+                              false));
+                          if (msg.getIsChunked()) {
+                            EXPECT_FALSE(headers.exists("Content-Length"));
+                          } else {
+                            // Content-Length is not set on chunked messages
+                            EXPECT_TRUE(headers.exists("Content-Length"));
+                          }
+                        }),
+                        Return()));
 
-    EXPECT_CALL(*responseHandler_, sendEOM()).Times(1);
+    EXPECT_CALL(*responseHandler, sendEOM()).Times(1);
 
     /* Simulate Request/Response where no body message received */
     HTTPMessage msg;
@@ -451,23 +507,26 @@ TEST_F(CompressionFilterTest, NoResponseBody){
     std::set<std::string> compressibleTypes = {"text/html"};
 
     CompressionFilterFactory::Options opts;
-    opts.zlibCompressionLevel = compressionLevel;
+    auto& optCompressionLevel = Codec::getExpectedEncoding() == "gzip"
+                                    ? opts.zlibCompressionLevel
+                                    : opts.zstdCompressionLevel;
+    optCompressionLevel = compressionLevel;
     opts.minimumCompressionSize = minimumCompressionSize;
     opts.compressibleContentTypes = compressibleTypes;
     auto filterFactory = std::make_unique<CompressionFilterFactory>(opts);
 
-    auto filter = filterFactory->onRequest(requestHandler_, &msg);
-    filter->setResponseHandler(responseHandler_.get());
+    auto filter = filterFactory->onRequest(requestHandler, &msg);
+    filter->setResponseHandler(responseHandler.get());
 
     // Send fake request
     filter->onEOM();
 
-    ResponseBuilder(downstream_)
-      .status(200, "OK")
-      .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
-      .send();
+    ResponseBuilder(downstream)
+        .status(200, "OK")
+        .header(HTTP_HEADER_CONTENT_TYPE, responseContentType)
+        .send();
 
-    ResponseBuilder(downstream_).sendWithEOM();
+    ResponseBuilder(downstream).sendWithEOM();
 
     filter->requestComplete();
   });
