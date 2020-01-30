@@ -140,7 +140,6 @@ bool HQSession::H1QFBV1VersionUtils::checkNewStream(quic::StreamId id) {
     session_.abortStream(HTTPException::Direction::INGRESS_AND_EGRESS,
                          id,
                          HTTP3::ErrorCode::HTTP_WRONG_STREAM);
-    QUIC_TRACE_SOCK(stream_event, session_.sock_, "abort", id, 0);
     return false;
   }
   return true;
@@ -154,7 +153,6 @@ bool HQSession::GoawayUtils::checkNewStream(HQSession& session,
     session.abortStream(HTTPException::Direction::INGRESS_AND_EGRESS,
                         id,
                         HTTP3::ErrorCode::HTTP_WRONG_STREAM);
-    QUIC_TRACE_SOCK(stream_event, session.sock_, "abort", id, 0);
     return false;
   }
   // Cancel any stream that is out of the range allowed by GOAWAY
@@ -172,7 +170,6 @@ bool HQSession::GoawayUtils::checkNewStream(HQSession& session,
       session.abortStream(HTTPException::Direction::INGRESS_AND_EGRESS,
                           id,
                           HTTP3::ErrorCode::HTTP_REQUEST_REJECTED);
-      QUIC_TRACE_SOCK(stream_event, session.sock_, "abort", id, 0);
       return false;
     }
   }
@@ -1404,11 +1401,6 @@ void HQSession::readRequestStream(quic::StreamId id) noexcept {
       sock_->getState()->qLogger->addStreamStateUpdate(
         id, quic::kOnEOM, timeDiff);
     }
-    QUIC_TRACE_SOCK(stream_event,
-                    sock_,
-                    "on_eom",
-                    hqStream->getStreamId(),
-                    folly::to<uint64_t>(timeDiff.count()));
   }
   // Just buffer the data and postpone processing in the loop callback
   hqStream->readBuf_.append(std::move(data));
@@ -1649,11 +1641,6 @@ void HQSession::onFlowControlUpdate(quic::StreamId id) noexcept {
           std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::steady_clock::now() - ctrlStream->createdTime));
     }
-    QUIC_TRACE_SOCK(stream_event,
-                    sock_,
-                    "on_flow_control",
-                    id,
-                    flowControl->sendWindowAvailable);
     scheduleWrite();
     return;
   }
@@ -1679,11 +1666,6 @@ void HQSession::onFlowControlUpdate(quic::StreamId id) noexcept {
           std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::steady_clock::now() - stream->createdTime));
     }
-    QUIC_TRACE_SOCK(stream_event,
-                    sock_,
-                    "on_flow_control",
-                    stream->getStreamId(),
-                    flowControl->sendWindowAvailable);
     if (stream->hasPendingEgress()) {
       txnEgressQueue_.signalPendingEgress(stream->queueHandle_.getHandle());
     }
@@ -2064,13 +2046,6 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
           std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::steady_clock::now() - hqStream->createdTime));
     }
-    QUIC_TRACE_SOCK(stream_event,
-                    sock_,
-                    "stream_blocked",
-                    streamId,
-                    streamSendWindow,
-                    canSend,
-                    (int)hqStream->hasPendingEgress());
   }
   // sendAbort can clear the egress queue, so this stream may no longer be
   // enqueued
@@ -2601,11 +2576,6 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     sock->getState()->qLogger->addStreamStateUpdate(
       streamId, quic::kOnHeaders, timeDiff);
   }
-  QUIC_TRACE_SOCK(stream_event,
-                  sock,
-                  "on_headers",
-                  streamId,
-                  static_cast<uint64_t>(timeDiff.count()));
 }
 
 void HQSession::HQStreamTransportBase::transactionTimeout(
@@ -2766,21 +2736,11 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
     sock->getState()->qLogger->addStreamStateUpdate(
       streamId, quic::kHeaders, timeDiff);
   }
-  QUIC_TRACE_SOCK(stream_event,
-                  session_.sock_,
-                  "headers",
-                  streamId,
-                  static_cast<uint64_t>(timeDiff.count()));
   if (includeEOM) {
     if (sock && sock->getState() && sock->getState()->qLogger) {
       sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kEOM, timeDiff);
     }
-    QUIC_TRACE_SOCK(stream_event,
-                    session_.sock_,
-                    "eom",
-                    getStreamId(),
-                    static_cast<uint64_t>(timeDiff.count()));
   }
 
   // If partial reliability is enabled, enable the callbacks.
@@ -2847,11 +2807,6 @@ size_t HQSession::HQStreamTransportBase::sendEOM(
     sock->getState()->qLogger->addStreamStateUpdate(
       streamId, quic::kEOM, timeDiff);
   }
-  QUIC_TRACE_SOCK(stream_event,
-                  sock,
-                  "eom",
-                  streamId,
-                  static_cast<uint64_t>(timeDiff.count()));
   return encodedSize;
 }
 
@@ -2874,14 +2829,6 @@ size_t HQSession::HQStreamTransportBase::sendAbortImpl(HTTP3::ErrorCode code,
 
   abortEgress(true);
   // We generated 0 application bytes so return 0?
-  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - createdTime);
-  QUIC_TRACE_SOCK(stream_event,
-                  session_.sock_,
-                  "abort",
-                  getStreamId(),
-                  timeDiff.count(),
-                  errorMsg);
   return 0;
 }
 
@@ -2959,11 +2906,6 @@ void HQSession::HQStreamTransportBase::onError(HTTPCodec::StreamID streamID,
     sock->getState()->qLogger->addStreamStateUpdate(
       streamId, quic::kOnError, timeDiff);
   }
-  QUIC_TRACE_SOCK(stream_event,
-                  session_.sock_,
-                  "on_error",
-                  streamId,
-                  static_cast<uint64_t>(timeDiff.count()));
 }
 
 void HQSession::HQStreamTransportBase::onResetStream(HTTP3::ErrorCode errorCode,
@@ -3050,11 +2992,6 @@ size_t HQSession::HQStreamTransportBase::sendBody(
       sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kEOM, timeDiff);
     }
-    QUIC_TRACE_SOCK(stream_event,
-                    session_.sock_,
-                    "eom",
-                    streamId,
-                    static_cast<uint64_t>(timeDiff.count()));
   }
   notifyPendingEgress();
   return encodedSize;
@@ -3466,21 +3403,11 @@ void HQSession::HQStreamTransport::sendPushPromise(
     sock->getState()->qLogger->addStreamStateUpdate(
       streamId, quic::kPushPromise, timeDiff);
   }
-  QUIC_TRACE_SOCK(stream_event,
-                  sock,
-                  "push_promise",
-                  streamId,
-                  (uint64_t)timeDiff.count());
   if (includeEOM) {
     if (sock && sock->getState() && sock->getState()->qLogger) {
       sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kEOM, timeDiff);
     }
-    QUIC_TRACE_SOCK(stream_event,
-                    sock,
-                    "eom",
-                    streamId,
-                    (uint64_t)timeDiff.count());
   }
 }
 
