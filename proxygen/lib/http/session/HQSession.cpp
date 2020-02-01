@@ -2173,6 +2173,9 @@ HQSession::createStreamTransport(quic::StreamId streamId) {
     versionUtils_->sendGoawayOnRequestStream(matchPair.first->second);
   }
 
+  // tracks max historical streams
+  HTTPSessionBase::onNewOutgoingStream(getNumOutgoingStreams());
+
   return &matchPair.first->second;
 }
 

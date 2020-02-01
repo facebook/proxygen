@@ -105,6 +105,9 @@ HQDownstreamSession::createEgressPushStream(
   // Notify pending egress on the stream
   matchPair.first->second.notifyPendingEgress();
 
+  // tracks max historical streams
+  HTTPSessionBase::onNewOutgoingStream(getNumOutgoingStreams());
+
   return &matchPair.first->second;
 }
 

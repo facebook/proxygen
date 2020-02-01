@@ -386,6 +386,37 @@ TEST_P(HQUpstreamSessionTest, DropConnectionWithEarlyDataFailedError) {
       {HTTP3::ErrorCode::GIVEUP_ZERO_RTT, "quic loses race"});
 }
 
+TEST_P(HQUpstreamSessionTest, TestGetHistoricalMaxOutgoingStreams) {
+  EXPECT_EQ(hqSession_->getHistoricalMaxOutgoingStreams(), 0);
+  auto handler = openTransaction();
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+  auto resp = makeResponse(200, 100);
+  sendResponse(handler->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               true);
+  auto handler1 = openTransaction();
+  handler1->txn_->sendHeaders(getGetRequest());
+  handler1->txn_->sendEOM();
+  handler1->expectHeaders();
+  handler1->expectBody();
+  handler1->expectEOM();
+  handler1->expectDetachTransaction();
+  auto resp1 = makeResponse(200, 100);
+  sendResponse(handler1->txn_->getID(),
+               *std::get<0>(resp1),
+               std::move(std::get<1>(resp1)),
+               true);
+  flushAndLoop();
+  EXPECT_EQ(hqSession_->getHistoricalMaxOutgoingStreams(), 2);
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQUpstreamSessionTest, ResponseTermedByFin) {
   auto handler = openTransaction();
   handler->txn_->sendHeaders(getGetRequest());
