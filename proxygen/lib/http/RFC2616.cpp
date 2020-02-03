@@ -17,7 +17,7 @@
 namespace {
 
 /* Wapper around strtoul(3) */
-bool strtoulWrapper(const char *&curs, const char *end, unsigned long& val) {
+bool strtoulWrapper(const char*& curs, const char* end, unsigned long& val) {
   char* endptr = nullptr;
 
   unsigned long v = strtoul(curs, &endptr, 10);
@@ -35,7 +35,14 @@ bool strtoulWrapper(const char *&curs, const char *end, unsigned long& val) {
   return true;
 }
 
+bool equalsIgnoreCase(folly::StringPiece s1, folly::StringPiece s2) {
+  if (s1.size() != s2.size()) {
+    return false;
+  }
+  return std::equal(
+      s1.begin(), s1.end(), s2.begin(), folly::AsciiCaseInsensitive());
 }
+} // namespace
 
 namespace proxygen { namespace RFC2616 {
 
@@ -51,61 +58,50 @@ BodyAllowed isRequestBodyAllowed(folly::Optional<HTTPMethod> method) {
 }
 
 bool responseBodyMustBeEmpty(unsigned status) {
-  return (status == 304 || status == 204 ||
-          (100 <= status && status < 200));
+  return (status == 304 || status == 204 || (100 <= status && status < 200));
 }
 
 bool bodyImplied(const HTTPHeaders& headers) {
   return headers.exists(HTTP_HEADER_TRANSFER_ENCODING) ||
-    headers.exists(HTTP_HEADER_CONTENT_LENGTH);
+         headers.exists(HTTP_HEADER_CONTENT_LENGTH);
 }
 
-bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair> &output) {
-  bool result = true;
-  static folly::ThreadLocal<std::vector<folly::StringPiece>> tokens;
-  tokens->clear();
-  folly::split(",", value, *tokens, true /*ignore empty*/);
-  for (auto& token: *tokens) {
-    auto pos = token.find(';');
-    double qvalue = 1.0;
-    if (pos != std::string::npos) {
-      auto qpos = token.find("q=", pos);
-      if (qpos != std::string::npos) {
-        folly::StringPiece qvalueStr(token.data() + qpos + 2,
-                                     token.size() - (qpos + 2));
-        try {
-          qvalue = folly::to<double>(&qvalueStr);
-        } catch (const std::range_error&) {
-          // q=<some garbage>
-          result = false;
-        }
-        // we could validate that the remainder of qvalueStr was all whitespace,
-        // for now we just discard it
-      } else {
-        // ; but no q=
-        result = false;
-      }
-      token.reset(token.start(), pos);
-    }
-    // strip leading whitespace
-    while (token.size() > 0 && isspace(token[0])) {
-      token.reset(token.start() + 1, token.size() - 1);
-    }
-    if (token.size() == 0) {
-      // empty token
-      result = false;
-    } else {
-      output.emplace_back(token, qvalue);
+double parseQvalue(const EncodingParams& params) {
+  double qvalue = 1.0;
+  for (const auto& paramPair : params) {
+    if (paramPair.first == "q") {
+      qvalue = folly::to<double>(paramPair.second);
     }
   }
-  return result && output.size() > 0;
+  return qvalue;
 }
 
-bool parseByteRangeSpec(
-    folly::StringPiece value,
-    unsigned long& outFirstByte,
-    unsigned long& outLastByte,
-    unsigned long& outInstanceLength) {
+bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair>& output) {
+  bool success = true;
+  try {
+    auto encodings = parseEncoding(value);
+
+    for (const auto& pair : encodings) {
+      double qvalue = 1.0;
+      try {
+        qvalue = parseQvalue(pair.second);
+      } catch (const std::range_error&) {
+        // q=<some garbage>
+        success = false;
+      }
+      output.emplace_back(pair.first, qvalue);
+    }
+  } catch (const std::exception& /*ex*/) {
+    success = false;
+  }
+
+  return success;
+}
+
+bool parseByteRangeSpec(folly::StringPiece value,
+                        unsigned long& outFirstByte,
+                        unsigned long& outLastByte,
+                        unsigned long& outInstanceLength) {
   // We should start with "bytes "
   if (!value.startsWith("bytes ")) {
     return false;
@@ -169,4 +165,71 @@ bool parseByteRangeSpec(
   return true;
 }
 
-}}
+EncodingList parseEncoding(const folly::StringPiece header) {
+  EncodingList result;
+  std::vector<folly::StringPiece> topLevelTokens;
+  folly::split(',', header, topLevelTokens, true /*ignore empty*/);
+
+  if (topLevelTokens.empty()) {
+    throw std::runtime_error("Header value mustn't be empty.");
+  }
+
+  for (auto topLevelToken : topLevelTokens) {
+    std::vector<folly::StringPiece> secondLevelTokens;
+    folly::split(';', topLevelToken, secondLevelTokens, true /*ignore empty*/);
+
+    if (secondLevelTokens.empty()) {
+      throw std::runtime_error("Encoding must have name.");
+    }
+
+    auto encoding = folly::trimWhitespace(secondLevelTokens.front());
+    if (encoding.empty()) {
+      throw std::runtime_error("Empty encoding!");
+    }
+    EncodingParams params;
+    params.reserve(secondLevelTokens.size() - 1);
+    auto it = secondLevelTokens.begin();
+    while (++it != secondLevelTokens.end()) {
+      auto val = *it;
+      auto key = val.split_step('=');
+
+      key = folly::trimWhitespace(key);
+      val = folly::trimWhitespace(val);
+
+      if (key.empty()) {
+        throw std::runtime_error("Param key must not be empty!");
+      }
+
+      params.emplace_back(key, val);
+    }
+    result.emplace_back(encoding, std::move(params));
+  }
+  return result;
+}
+
+bool acceptsEncoding(const folly::StringPiece header,
+                     const folly::StringPiece encoding) {
+  try {
+    auto encodings = parseEncoding(header);
+    return acceptsEncoding(encodings, encoding);
+  } catch (const std::exception&) {
+    return false;
+  }
+}
+
+bool acceptsEncoding(const EncodingList& encodings,
+                     const folly::StringPiece encoding) {
+  for (const auto& pair : encodings) {
+    if (equalsIgnoreCase(pair.first, encoding)) {
+      try {
+        auto qval = parseQvalue(pair.second);
+        return qval > 0;
+      } catch (const std::exception&) {
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+}} // namespace proxygen::RFC2616

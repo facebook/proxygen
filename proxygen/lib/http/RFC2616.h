@@ -70,7 +70,36 @@ bool bodyImplied(const HTTPHeaders& headers);
  */
 using TokenQPair = std::pair<folly::StringPiece, double>;
 
-bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair> &output);
+bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair>& output);
+
+using EncodingParams =
+    std::vector<std::pair<folly::StringPiece, folly::StringPiece>>;
+using EncodingList = std::vector<std::pair<folly::StringPiece, EncodingParams>>;
+
+/*
+ * Parse a request into components.
+ *
+ * E.g., "gzip;q=0.5, zstd;q=0.5;wl=16, *" into:
+ * [
+ *   ("gzip", [ ("q", "0.5") ]),
+ *   ("zstd", [ ("q", "0.5"), ("wl", "16") ]),
+ *   ("*", [])
+ * ]
+ */
+EncodingList parseEncoding(const folly::StringPiece header);
+
+/*
+ * For given Accept-Encoding header, returns if encoding is accepted (is in
+ * list and q > 0).
+ */
+bool acceptsEncoding(const folly::StringPiece header,
+                     const folly::StringPiece encoding);
+
+/**
+ * Equivalent if you've already parsed the header separately.
+ */
+bool acceptsEncoding(const EncodingList& encodings,
+                     const folly::StringPiece encoding);
 
 /**
  * Parse an RFC 2616 section 14.16 "bytes A-B/C" string and returns them as the
@@ -83,10 +112,10 @@ bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair> &output);
  * Note that is ONLY suitable for use in parsing "Content-Range" response
  * headers. The "Range" request header has different but similar syntax.
  */
-bool parseByteRangeSpec(
-    folly::StringPiece value,
-    unsigned long& firstByte,
-    unsigned long& lastByte,
-    unsigned long& instanceLength);
+bool parseByteRangeSpec(folly::StringPiece value,
+                        unsigned long& firstByte,
+                        unsigned long& lastByte,
+                        unsigned long& instanceLength);
 
-}}
+} // namespace RFC2616
+} // namespace proxygen

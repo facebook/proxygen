@@ -18,76 +18,86 @@ TEST(QvalueTest, Basic) {
 
   std::vector<RFC2616::TokenQPair> output;
 
-  string test1("iso-8859-5, unicode-1-1;q=0.8");
-  EXPECT_TRUE(RFC2616::parseQvalues(test1, output));
-  EXPECT_EQ(output.size(), 2);
-  EXPECT_EQ(output[0].first.compare(folly::StringPiece("iso-8859-5")), 0);
-  EXPECT_DOUBLE_EQ(output[0].second, 1);
-  EXPECT_EQ(output[1].first.compare(folly::StringPiece("unicode-1-1")), 0);
-  EXPECT_DOUBLE_EQ(output[1].second, 0.8);
-  output.clear();
+  {
+    string test("iso-8859-5, unicode-1-1;q=0.8");
+    EXPECT_TRUE(RFC2616::parseQvalues(test, output));
+    EXPECT_EQ(output.size(), 2);
+    EXPECT_EQ(output[0].first.compare(folly::StringPiece("iso-8859-5")), 0);
+    EXPECT_DOUBLE_EQ(output[0].second, 1);
+    EXPECT_EQ(output[1].first.compare(folly::StringPiece("unicode-1-1")), 0);
+    EXPECT_DOUBLE_EQ(output[1].second, 0.8);
+    output.clear();
+  }
 
-  string test2("compress, gzip");
-  EXPECT_TRUE(RFC2616::parseQvalues(test2, output));
-  EXPECT_EQ(output.size(), 2);
-  EXPECT_EQ(output[0].first.compare(folly::StringPiece("compress")), 0);
-  EXPECT_DOUBLE_EQ(output[0].second, 1);
-  EXPECT_EQ(output[1].first.compare(folly::StringPiece("gzip")), 0);
-  EXPECT_DOUBLE_EQ(output[1].second, 1);
-  output.clear();
+  {
+    string test("compress, gzip");
+    EXPECT_TRUE(RFC2616::parseQvalues(test, output));
+    EXPECT_EQ(output.size(), 2);
+    EXPECT_EQ(output[0].first.compare(folly::StringPiece("compress")), 0);
+    EXPECT_DOUBLE_EQ(output[0].second, 1);
+    EXPECT_EQ(output[1].first.compare(folly::StringPiece("gzip")), 0);
+    EXPECT_DOUBLE_EQ(output[1].second, 1);
+    output.clear();
+  }
 
-  string test3("");
-  // The spec says a blank one is ok but empty headers are disallowed in SPDY?
-  EXPECT_FALSE(RFC2616::parseQvalues(test3, output));
-  EXPECT_EQ(output.size(), 0);
+  {
+    string test("");
+    // The spec says a blank one is ok but empty headers are disallowed in SPDY?
+    EXPECT_FALSE(RFC2616::parseQvalues(test, output));
+    EXPECT_EQ(output.size(), 0);
+  }
 
-  string test4("compress;q=0.5, gzip;q=1.0");
-  EXPECT_TRUE(RFC2616::parseQvalues(test4, output));
-  EXPECT_EQ(output.size(), 2);
-  EXPECT_EQ(output[0].first.compare(folly::StringPiece("compress")), 0);
-  EXPECT_DOUBLE_EQ(output[0].second, 0.5);
-  EXPECT_EQ(output[1].first.compare(folly::StringPiece("gzip")), 0);
-  EXPECT_DOUBLE_EQ(output[1].second, 1.0);
-  output.clear();
+  {
+    string test(" ");
+    // The spec says a blank one is ok but empty headers are disallowed in SPDY?
+    EXPECT_FALSE(RFC2616::parseQvalues(test, output));
+    EXPECT_EQ(output.size(), 0);
+  }
 
-  string test5("gzip;q=1.0, identity; q=0.5, *;q=0");
-  EXPECT_TRUE(RFC2616::parseQvalues(test5, output));
-  EXPECT_EQ(output.size(), 3);
-  EXPECT_EQ(output[0].first.compare(folly::StringPiece("gzip")), 0);
-  EXPECT_DOUBLE_EQ(output[0].second, 1);
-  EXPECT_EQ(output[1].first.compare(folly::StringPiece("identity")), 0);
-  EXPECT_DOUBLE_EQ(output[1].second, 0.5);
-  EXPECT_EQ(output[2].first.compare(folly::StringPiece("*")), 0);
-  EXPECT_DOUBLE_EQ(output[2].second, 0);
-  output.clear();
+  {
+    string test("compress;q=0.5, gzip;q=1.0");
+    EXPECT_TRUE(RFC2616::parseQvalues(test, output));
+    EXPECT_EQ(output.size(), 2);
+    EXPECT_EQ(output[0].first.compare(folly::StringPiece("compress")), 0);
+    EXPECT_DOUBLE_EQ(output[0].second, 0.5);
+    EXPECT_EQ(output[1].first.compare(folly::StringPiece("gzip")), 0);
+    EXPECT_DOUBLE_EQ(output[1].second, 1.0);
+    output.clear();
+  }
 
-  string test6("da, en-gb;q=0.8, en;q=0.7");
-  EXPECT_TRUE(RFC2616::parseQvalues(test6, output));
-  EXPECT_EQ(output.size(), 3);
-  EXPECT_EQ(output[0].first.compare(folly::StringPiece("da")), 0);
-  EXPECT_DOUBLE_EQ(output[0].second, 1);
-  EXPECT_EQ(output[1].first.compare(folly::StringPiece("en-gb")), 0);
-  EXPECT_DOUBLE_EQ(output[1].second, 0.8);
-  EXPECT_EQ(output[2].first.compare(folly::StringPiece("en")), 0);
-  EXPECT_DOUBLE_EQ(output[2].second, 0.7);
-  output.clear();
+  {
+    string test("gzip;q=1.0, identity; q=0.5, *;q=0");
+    EXPECT_TRUE(RFC2616::parseQvalues(test, output));
+    EXPECT_EQ(output.size(), 3);
+    EXPECT_EQ(output[0].first.compare(folly::StringPiece("gzip")), 0);
+    EXPECT_DOUBLE_EQ(output[0].second, 1);
+    EXPECT_EQ(output[1].first.compare(folly::StringPiece("identity")), 0);
+    EXPECT_DOUBLE_EQ(output[1].second, 0.5);
+    EXPECT_EQ(output[2].first.compare(folly::StringPiece("*")), 0);
+    EXPECT_DOUBLE_EQ(output[2].second, 0);
+    output.clear();
+  }
+
+  {
+    string test("da, en-gb;q=0.8, en;q=0.7");
+    EXPECT_TRUE(RFC2616::parseQvalues(test, output));
+    EXPECT_EQ(output.size(), 3);
+    EXPECT_EQ(output[0].first.compare(folly::StringPiece("da")), 0);
+    EXPECT_DOUBLE_EQ(output[0].second, 1);
+    EXPECT_EQ(output[1].first.compare(folly::StringPiece("en-gb")), 0);
+    EXPECT_DOUBLE_EQ(output[1].second, 0.8);
+    EXPECT_EQ(output[2].first.compare(folly::StringPiece("en")), 0);
+    EXPECT_DOUBLE_EQ(output[2].second, 0.7);
+    output.clear();
+  }
 }
 
 TEST(QvalueTest, Extras) {
 
   std::vector<RFC2616::TokenQPair> output;
 
-  string test1("  iso-8859-5,    unicode-1-1;  q=0.8  hi mom!");
-  EXPECT_TRUE(RFC2616::parseQvalues(test1, output));
-  EXPECT_EQ(output.size(), 2);
-  EXPECT_EQ(output[0].first.compare(folly::StringPiece("iso-8859-5")), 0);
-  EXPECT_DOUBLE_EQ(output[0].second, 1);
-  EXPECT_EQ(output[1].first.compare(folly::StringPiece("unicode-1-1")), 0);
-  EXPECT_DOUBLE_EQ(output[1].second, 0.8);
-  output.clear();
-
-  string test2("gzip");
-  EXPECT_TRUE(RFC2616::parseQvalues(test2, output));
+  string test("gzip");
+  EXPECT_TRUE(RFC2616::parseQvalues(test, output));
   EXPECT_EQ(output.size(), 1);
   EXPECT_EQ(output[0].first.compare(folly::StringPiece("gzip")), 0);
   EXPECT_DOUBLE_EQ(output[0].second, 1);
@@ -114,16 +124,64 @@ TEST(QvalueTest, Invalids) {
   EXPECT_EQ(output[0].first.compare(folly::StringPiece("gzip")), 0);
   EXPECT_DOUBLE_EQ(output[0].second, 1);
   output.clear();
+}
 
-  string test4("gzip; whoohoo, defalte");
-  EXPECT_FALSE(RFC2616::parseQvalues(test4, output));
-  EXPECT_EQ(output.size(), 2);
-  EXPECT_EQ(output[0].first.compare(folly::StringPiece("gzip")), 0);
-  EXPECT_DOUBLE_EQ(output[0].second, 1);
-  EXPECT_EQ(output[1].first.compare(folly::StringPiece("defalte")), 0);
-  EXPECT_DOUBLE_EQ(output[1].second, 1);
-  output.clear();
+TEST(ParseEncodingTest, Simple) {
+  string test("zstd;q=1.0;wl=20,gzip;q=0.0");
+  auto encodings = RFC2616::parseEncoding(test);
+  EXPECT_EQ(encodings,
+            (RFC2616::EncodingList{{"zstd", {{"q", "1.0"}, {"wl", "20"}}},
+                                   {"gzip", {{"q", "0.0"}}}}));
+}
 
+TEST(ParseEncodingTest, Whitespace) {
+  string test("zstd ; q =\t1.0 ; wl = 20 , gzip ;\t q = 0.0");
+  auto encodings = RFC2616::parseEncoding(test);
+  EXPECT_EQ(encodings,
+            (RFC2616::EncodingList{{"zstd", {{"q", "1.0"}, {"wl", "20"}}},
+                                   {"gzip", {{"q", "0.0"}}}}));
+}
+
+TEST(ParseEncodingTest, Invalid) {
+  EXPECT_THROW(RFC2616::parseEncoding(""), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" "), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(","), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" ,"), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(", "), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" , "), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" , , "), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(";"), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" ;"), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding("; "), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" ; "), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" ; ; "), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding(" ; ; , ; ;"), std::runtime_error);
+
+  EXPECT_THROW(RFC2616::parseEncoding("zstd;=,gzip"), std::runtime_error);
+  EXPECT_THROW(RFC2616::parseEncoding("zstd;=wat,gzip"), std::runtime_error);
+}
+
+TEST(AcceptEncodingTest, Simple) {
+  EXPECT_TRUE(RFC2616::acceptsEncoding("zstd", "zstd"));
+  EXPECT_TRUE(RFC2616::acceptsEncoding("zstd, gzip", "zstd"));
+  EXPECT_FALSE(RFC2616::acceptsEncoding("gzip", "zstd"));
+  EXPECT_FALSE(RFC2616::acceptsEncoding("*", "zstd"));
+}
+
+TEST(AcceptEncodingTest, QValues) {
+  EXPECT_TRUE(RFC2616::acceptsEncoding("zstd", "zstd"));
+  EXPECT_TRUE(RFC2616::acceptsEncoding("zstd;q=1.0", "zstd"));
+  EXPECT_TRUE(RFC2616::acceptsEncoding("zstd;q=wat", "zstd"));
+  EXPECT_FALSE(RFC2616::acceptsEncoding("zstd;q=0.0", "zstd"));
+}
+
+TEST(AcceptEncodingTest, Whitespace) {
+  EXPECT_TRUE(RFC2616::acceptsEncoding(" zstd ", "zstd"));
+  EXPECT_TRUE(RFC2616::acceptsEncoding(" zstd ,", "zstd"));
+  EXPECT_TRUE(RFC2616::acceptsEncoding("gzip, br \t, \tzstd ", "zstd"));
+  EXPECT_FALSE(RFC2616::acceptsEncoding("gzip, \tdeflate, br \t ", "zstd"));
+  EXPECT_FALSE(RFC2616::acceptsEncoding("zstd;q=0.0", "zstd"));
+  EXPECT_FALSE(RFC2616::acceptsEncoding("zstd; q = 0.0 ", "zstd"));
 }
 
 TEST(ByteRangeSpecTest, Valids) {
