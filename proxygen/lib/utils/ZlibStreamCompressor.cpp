@@ -45,13 +45,12 @@ int deflateHelper(z_stream* stream, IOBuf* out, int flush) {
 }
 }
 
-void ZlibStreamCompressor::init(CompressionType type, int32_t level) {
+void ZlibStreamCompressor::init() {
+  if (init_) {
+    return;
+  }
+  init_ = true;
 
-  DCHECK(type_ == CompressionType::NONE)
-      << "Attempt to re-initialize compression stream";
-
-  type_ = type;
-  level_ = level;
   status_ = Z_OK;
 
   zlibStream_.zalloc = Z_NULL;
@@ -79,7 +78,7 @@ void ZlibStreamCompressor::init(CompressionType type, int32_t level) {
                              Z_DEFAULT_STRATEGY);
     } break;
     case CompressionType::DEFLATE:
-      status_ = deflateInit(&zlibStream_, level);
+      status_ = deflateInit(&zlibStream_, level_);
       break;
     default:
       DCHECK(false) << "Unsupported zlib compression type.";
@@ -92,12 +91,11 @@ void ZlibStreamCompressor::init(CompressionType type, int32_t level) {
 }
 
 ZlibStreamCompressor::ZlibStreamCompressor(CompressionType type, int level)
-    : status_(Z_OK) {
-  init(type, level);
+    : type_(type), level_(level) {
 }
 
 ZlibStreamCompressor::~ZlibStreamCompressor() {
-  if (type_ != CompressionType::NONE) {
+  if (init_) {
     status_ = deflateEnd(&zlibStream_);
   }
 }
@@ -107,6 +105,7 @@ ZlibStreamCompressor::~ZlibStreamCompressor() {
 // true on the final compression call.
 std::unique_ptr<IOBuf> ZlibStreamCompressor::compress(const IOBuf* in,
                                                       bool trailer) {
+  init();
   auto bufferLength = FLAGS_zlib_compressor_buffer_growth;
 
   auto out = addOutputBuffer(&zlibStream_, bufferLength);

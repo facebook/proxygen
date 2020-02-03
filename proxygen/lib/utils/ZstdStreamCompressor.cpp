@@ -14,12 +14,17 @@ namespace proxygen {
 
 ZstdStreamCompressor::ZstdStreamCompressor(int compressionLevel,
                                            bool independentChunks)
-    : codec_(folly::io::getStreamCodec(folly::io::CodecType::ZSTD,
-                                       compressionLevel)),
+    : codec_(nullptr),
+      compressionLevel_(compressionLevel),
       independent_(independentChunks) {
 }
 
-ZstdStreamCompressor::~ZstdStreamCompressor() {
+folly::io::StreamCodec& ZstdStreamCompressor::getCodec() {
+  if (!codec_) {
+    codec_ = folly::io::getStreamCodec(folly::io::CodecType::ZSTD,
+                                       compressionLevel_);
+  }
+  return *codec_;
 }
 
 std::unique_ptr<folly::IOBuf> ZstdStreamCompressor::compress(
@@ -42,17 +47,18 @@ std::unique_ptr<folly::IOBuf> ZstdStreamCompressor::compress(
 
     auto op = last || independent_ ? folly::io::StreamCodec::FlushOp::END
                                    : folly::io::StreamCodec::FlushOp::FLUSH;
+    auto& codec = getCodec();
     if (independent_) {
-      codec_->resetStream(in->length());
+      codec.resetStream(in->length());
     }
 
-    auto compressBound = codec_->maxCompressedLength(in->length());
+    auto compressBound = codec.maxCompressedLength(in->length());
     auto out = folly::IOBuf::create(compressBound + 1);
 
     folly::ByteRange inrange{in->data(), in->length()};
     folly::MutableByteRange outrange{out->writableTail(), out->tailroom()};
 
-    auto success = codec_->compressStream(inrange, outrange, op);
+    auto success = codec.compressStream(inrange, outrange, op);
 
     if (!success) {
       error_ = true;

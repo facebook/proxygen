@@ -28,7 +28,7 @@ class ZlibStreamCompressor : public StreamCompressor {
 
   ~ZlibStreamCompressor();
 
-  void init(CompressionType type, int level);
+  void init();
 
   std::unique_ptr<folly::IOBuf> compress(const folly::IOBuf* in,
                                          bool trailer = true) override;
@@ -45,6 +45,7 @@ class ZlibStreamCompressor : public StreamCompressor {
   CompressionType type_{CompressionType::NONE};
   int level_{Z_DEFAULT_COMPRESSION};
   z_stream zlibStream_;
-  int status_{-1};
+  int status_{Z_OK};
+  bool init_{false};
 };
 }

@@ -42,7 +42,7 @@ class ZstdStreamCompressor : public StreamCompressor {
   explicit ZstdStreamCompressor(int compressionLevel,
                                 bool independentChunks = false);
 
-  virtual ~ZstdStreamCompressor() override;
+  virtual ~ZstdStreamCompressor() override = default;
 
   virtual std::unique_ptr<folly::IOBuf> compress(const folly::IOBuf*,
                                                  bool last = true) override;
@@ -52,7 +52,10 @@ class ZstdStreamCompressor : public StreamCompressor {
   }
 
  private:
+  folly::io::StreamCodec& getCodec();
+
   std::unique_ptr<folly::io::StreamCodec> codec_;
+  const int compressionLevel_;
   const bool independent_;
   bool error_ = false;
 };
