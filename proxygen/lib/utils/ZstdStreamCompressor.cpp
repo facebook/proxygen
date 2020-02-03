@@ -70,6 +70,10 @@ std::unique_ptr<folly::IOBuf> ZstdStreamCompressor::compress(
 
     out->append(outrange.begin() - out->tail());
 
+    if (op == folly::io::StreamCodec::FlushOp::END) {
+      codec_.reset();
+    }
+
     return out;
   } catch (const std::exception&) {
     error_ = true;
