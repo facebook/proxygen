@@ -134,6 +134,11 @@ void ServerPushHandler::onHeadersComplete(
     // Create a pushed transaction and handler
     auto pushedTxn = txn_->newPushedTransaction(&pushTxnHandler_);
 
+    if (!pushedTxn) {
+      LOG(ERROR) << "Could not create push txn; stop pushing";
+      break;
+    }
+
     // Send a promise for the pushed resource
     sendPushPromise(pushedTxn, pushedResourceUrl);
 
