@@ -19,6 +19,7 @@
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/File.h>
 #include <folly/FileUtil.h>
+#include <folly/Format.h>
 #include <folly/Memory.h>
 #include <folly/Random.h>
 #include <folly/ThreadLocal.h>
@@ -46,11 +47,11 @@ constexpr folly::StringPiece kPartiallyReliableChunkDelayCapMsHeader{
 const uint64_t kDefaultPartiallyReliableChunkSize = 16;
 const uint64_t kDefaultPartiallyReliableChunkDelayMs = 0;
 
-class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
+class BaseSampleHandler : public proxygen::HTTPTransactionHandler {
  public:
-  BaseQuicHandler() = delete;
+  BaseSampleHandler() = delete;
 
-  explicit BaseQuicHandler(const HQParams& params) : params_(params) {
+  explicit BaseSampleHandler(const HQParams& params) : params_(params) {
   }
 
   void setTransaction(proxygen::HTTPTransaction* txn) noexcept override {
@@ -78,6 +79,16 @@ class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
   }
 
   void onEgressResumed() noexcept override {
+  }
+
+  void maybeAddAltSvcHeader(proxygen::HTTPMessage& msg) const {
+    if (params_.protocol.empty() || params_.port == 0) {
+      return;
+    }
+    msg.getHeaders().add(
+      proxygen::HTTP_HEADER_ALT_SVC,
+      folly::format(
+        "{}=\":{}\"; ma=3600", params_.protocol, params_.port).str());
   }
 
   // clang-format off
@@ -127,9 +138,9 @@ class BaseQuicHandler : public proxygen::HTTPTransactionHandler {
   const HQParams& params_;
 };
 
-class EchoHandler : public BaseQuicHandler {
+class EchoHandler : public BaseSampleHandler {
  public:
-  explicit EchoHandler(const HQParams& params) : BaseQuicHandler(params) {
+  explicit EchoHandler(const HQParams& params) : BaseSampleHandler(params) {
   }
 
   EchoHandler() = delete;
@@ -149,6 +160,7 @@ class EchoHandler : public BaseQuicHandler {
           resp.getHeaders().add(folly::to<std::string>("x-echo-", header), val);
         });
     resp.setWantsKeepalive(true);
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
   }
 
@@ -533,16 +545,17 @@ class ContinueHandler : public EchoHandler {
         "100-continue") {
       resp.setStatusCode(100);
       resp.setStatusMessage("Continue");
+      maybeAddAltSvcHeader(resp);
       txn_->sendHeaders(resp);
     }
     EchoHandler::onHeadersComplete(std::move(msg));
   }
 };
 
-class RandBytesGenHandler : public BaseQuicHandler {
+class RandBytesGenHandler : public BaseSampleHandler {
  public:
   explicit RandBytesGenHandler(const HQParams& params)
-      : BaseQuicHandler(params) {
+      : BaseSampleHandler(params) {
   }
 
   RandBytesGenHandler() = delete;
@@ -574,6 +587,7 @@ class RandBytesGenHandler : public BaseQuicHandler {
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     if (msg->getMethod() == proxygen::HTTPMethod::GET) {
       sendBodyInChunks();
@@ -652,6 +666,7 @@ class RandBytesGenHandler : public BaseQuicHandler {
     resp.setStatusCode(400);
     resp.setStatusMessage("Bad Request");
     resp.setWantsKeepalive(true);
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     txn_->sendBody(folly::IOBuf::copyBuffer(errorMsg));
     txn_->sendEOM();
@@ -669,9 +684,9 @@ class RandBytesGenHandler : public BaseQuicHandler {
   bool error_{false};
 };
 
-class DummyHandler : public BaseQuicHandler {
+class DummyHandler : public BaseSampleHandler {
  public:
-  explicit DummyHandler(const HQParams& params) : BaseQuicHandler(params) {
+  explicit DummyHandler(const HQParams& params) : BaseSampleHandler(params) {
   }
 
   DummyHandler() = delete;
@@ -685,6 +700,7 @@ class DummyHandler : public BaseQuicHandler {
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
     resp.setWantsKeepalive(true);
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     if (msg->getMethod() == proxygen::HTTPMethod::GET) {
       txn_->sendBody(folly::IOBuf::copyBuffer(kDummyMessage));
@@ -713,10 +729,10 @@ class DummyHandler : public BaseQuicHandler {
                              "response with random bytes");
 };
 
-class HealthCheckHandler : public BaseQuicHandler {
+class HealthCheckHandler : public BaseSampleHandler {
  public:
   HealthCheckHandler(bool healthy, const HQParams& params)
-      : BaseQuicHandler(params), healthy_(healthy) {
+      : BaseSampleHandler(params), healthy_(healthy) {
   }
 
   void onHeadersComplete(
@@ -733,6 +749,7 @@ class HealthCheckHandler : public BaseQuicHandler {
       resp.setStatusMessage("Method not allowed");
     }
     resp.setWantsKeepalive(true);
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
 
     txn_->sendBody(
@@ -757,10 +774,10 @@ class HealthCheckHandler : public BaseQuicHandler {
   bool healthy_;
 };
 
-class WaitReleaseHandler : public BaseQuicHandler {
+class WaitReleaseHandler : public BaseSampleHandler {
  public:
   WaitReleaseHandler(folly::EventBase* evb, const HQParams& params)
-      : BaseQuicHandler(params), evb_(evb) {
+      : BaseSampleHandler(params), evb_(evb) {
   }
 
   void onHeadersComplete(
@@ -773,6 +790,7 @@ class WaitReleaseHandler : public BaseQuicHandler {
     resp.setStatusCode(400);
     resp.setStatusMessage("ERROR");
     resp.setWantsKeepalive(false);
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     txn_->sendBody(folly::IOBuf::copyBuffer(body));
     txn_->sendEOM();
@@ -786,6 +804,7 @@ class WaitReleaseHandler : public BaseQuicHandler {
     resp.setStatusMessage("OK");
     resp.setWantsKeepalive(true);
     resp.setIsChunked(true);
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     txn_->sendBody(folly::IOBuf::copyBuffer(body));
     if (eom) {
@@ -829,7 +848,7 @@ namespace {
 constexpr auto kPushFileName = "pusheen.txt";
 };
 
-class ServerPushHandler : public BaseQuicHandler {
+class ServerPushHandler : public BaseSampleHandler {
   class ServerPushTxnHandler : public proxygen::HTTPPushTransactionHandler {
     void setTransaction(
         proxygen::HTTPTransaction* /* txn */) noexcept override {
@@ -849,7 +868,7 @@ class ServerPushHandler : public BaseQuicHandler {
   };
 
  public:
-  explicit ServerPushHandler(const HQParams& params) : BaseQuicHandler(params) {
+  explicit ServerPushHandler(const HQParams& params) : BaseSampleHandler(params) {
   }
 
   void onHeadersComplete(
@@ -881,10 +900,10 @@ class ServerPushHandler : public BaseQuicHandler {
   ServerPushTxnHandler pushTxnHandler_;
 };
 
-class StaticFileHandler : public BaseQuicHandler {
+class StaticFileHandler : public BaseSampleHandler {
  public:
   explicit StaticFileHandler(const HQParams& params)
-      : BaseQuicHandler(params), staticRoot_(params.staticRoot) {
+      : BaseSampleHandler(params), staticRoot_(params.staticRoot) {
   }
 
   void onHeadersComplete(
@@ -914,6 +933,7 @@ class StaticFileHandler : public BaseQuicHandler {
     resp.setVersionString(getHttpVersion());
     resp.setStatusCode(200);
     resp.setStatusMessage("Ok");
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     // use a CPU executor since read(2) of a file can block
     folly::getCPUExecutor()->add(
@@ -983,6 +1003,7 @@ class StaticFileHandler : public BaseQuicHandler {
     resp.setStatusCode(400);
     resp.setStatusMessage("Bad Request");
     resp.setWantsKeepalive(true);
+    maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     txn_->sendBody(folly::IOBuf::copyBuffer(errorMsg));
     txn_->sendEOM();
