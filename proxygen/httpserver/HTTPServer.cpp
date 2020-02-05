@@ -161,7 +161,8 @@ void HTTPServer::start(std::function<void()> onSuccess,
                        std::function<void(std::exception_ptr)> onError) {
   mainEventBase_ = EventBaseManager::get()->getEventBase();
 
-  if (auto tcpStarted = startTcpServer(); tcpStarted.hasError()) {
+  auto tcpStarted = startTcpServer();
+  if (tcpStarted.hasError()) {
     if (onError) {
       onError(tcpStarted.error());
       return;
