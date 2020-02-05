@@ -55,8 +55,7 @@ function install_dependencies_linux() {
     binutils-dev \
     libsodium-dev \
     libzstd-dev \
-    libdouble-conversion-dev \
-    libfmt-dev 
+    libdouble-conversion-dev
 }
 
 function install_dependencies_mac() {
@@ -73,8 +72,7 @@ function install_dependencies_mac() {
     xz                       \
     openssl                  \
     libsodium                \
-    zstd                     \
-    fmt
+    zstd
 
   brew link                 \
     cmake                   \
@@ -88,8 +86,7 @@ function install_dependencies_mac() {
     openssl                 \
     xz                      \
     libsodium               \
-    zstd                    \
-    fmt
+    zstd
 }
 
 function install_dependencies() {
@@ -102,6 +99,34 @@ function install_dependencies() {
     echo -e "${COLOR_RED}[ ERROR ] Unknown platform: $PLATFORM ${COLOR_OFF}"
     exit 1
   fi
+}
+
+function setup_fmt() {
+  FMT_DIR=$DEPS_DIR/fmt
+  FMT_BUILD_DIR=$DEPS_DIR/fmt/build/
+
+  if [ ! -d "$FMT_DIR" ] ; then
+    echo -e "${COLOR_GREEN}[ INFO ] Cloning fmt repo ${COLOR_OFF}"
+    git clone https://github.com/fmtlib/fmt.git  "$FMT_DIR"
+  fi
+  cd "$FMT_DIR"
+  git fetch
+  git checkout master
+  echo -e "${COLOR_GREEN}Building fmt ${COLOR_OFF}"
+  mkdir -p "$FMT_BUILD_DIR"
+  cd "$FMT_BUILD_DIR" || exit
+
+  cmake                                           \
+    -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
+    -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
+    -DFMT_DOC=OFF                                 \
+    -DFMT_TEST=OFF                                \
+    ..
+  make -j "$JOBS"
+  make install
+  echo -e "${COLOR_GREEN}fmt is installed ${COLOR_OFF}"
+  cd "$BWD" || exit
 }
 
 function setup_folly() {
@@ -331,6 +356,7 @@ mkdir -p "$DEPS_DIR"
 # Must execute from the directory containing this script
 cd "$(dirname "$0")"
 
+setup_fmt
 setup_folly
 setup_fizz
 setup_wangle
