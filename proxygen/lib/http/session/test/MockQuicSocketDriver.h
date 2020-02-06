@@ -429,6 +429,15 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               cancelDeliveryCallbacks(id, stream);
               return folly::unit;
             }));
+    EXPECT_CALL(*sock_, unsetAllReadCallbacks())
+        .WillRepeatedly(testing::Invoke([this]() {
+          for (auto& stream : streams_) {
+            if (!(sock_->isUnidirectionalStream(stream.first) &&
+                  isSendingStream(stream.first))) {
+              stream.second.readCB = nullptr;
+            }
+          }
+        }));
     EXPECT_CALL(*sock_, stopSending(testing::_, testing::_))
         .WillRepeatedly(testing::Invoke(
             [this](quic::StreamId id, quic::ApplicationErrorCode error) {
@@ -1061,8 +1070,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               if (sock_->cb_) {
                 if (sock_->isUnidirectionalStream(event.streamId)) {
                   if (isPeerStream(event.streamId)) {
-                      stream.writeState = CLOSED;
-                      sock_->cb_->onNewUnidirectionalStream(event.streamId);
+                    stream.writeState = CLOSED;
+                    sock_->cb_->onNewUnidirectionalStream(event.streamId);
                   } else {
                     CHECK(event.error) << "Non-error on self-uni stream";
                   }
@@ -1111,12 +1120,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   }
 
   bool isPeerStream(quic::StreamId id) {
-    return ((transportType_ == TransportEnum::SERVER &&
-            sock_->isClientStream(id)) ||
-            (transportType_ == TransportEnum::CLIENT &&
-             sock_->isServerStream(id)));
+    return (
+        (transportType_ == TransportEnum::SERVER &&
+         sock_->isClientStream(id)) ||
+        (transportType_ == TransportEnum::CLIENT && sock_->isServerStream(id)));
   }
-
 
   void pauseOrResumeWrites(StreamState& stream, quic::StreamId streamId) {
     if (stream.writeState == OPEN && stream.flowControlWindow == 0) {
