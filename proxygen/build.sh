@@ -9,6 +9,9 @@
 ## install proxygen to use in another C++ project on this machine, run
 ## the sibling file `reinstall.sh`.
 
+# Obtain the base directory this script resides in.
+BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
 # Useful constants
 COLOR_RED="\033[0;31m"
 COLOR_GREEN="\033[0;32m"
@@ -101,6 +104,18 @@ function install_dependencies() {
   fi
 }
 
+function synch_dependency_to_commit() {
+  # Utility function to synch a dependency to a specific commit. Takes two arguments:
+  #   - $1: folder of the dependency's git repository
+  #   - $2: path to the text file containing the desired commit hash
+  DEP_REV=$(sed 's/Subproject commit //' "$2")
+  pushd "$1"
+  git fetch
+  # Disable git warning about detached head when checking out a specific commit.
+  git -c advice.detachedHead=false checkout "$DEP_REV"
+  popd
+}
+
 function setup_fmt() {
   FMT_DIR=$DEPS_DIR/fmt
   FMT_BUILD_DIR=$DEPS_DIR/fmt/build/
@@ -137,10 +152,7 @@ function setup_folly() {
     echo -e "${COLOR_GREEN}[ INFO ] Cloning folly repo ${COLOR_OFF}"
     git clone https://github.com/facebook/folly.git "$FOLLY_DIR"
   fi
-  cd $FOLLY_DIR
-  git fetch
-  FOLLY_REV=$(sed 's/Subproject commit //' "$START_DIR"/../build/deps/github_hashes/facebook/folly-rev.txt)
-  git checkout "$FOLLY_REV"
+  synch_dependency_to_commit "$FOLLY_DIR" "$BASE_DIR"/../build/deps/github_hashes/facebook/folly-rev.txt
   if [ "$PLATFORM" = "Mac" ]; then
     # Homebrew installs OpenSSL in a non-default location on MacOS >= Mojave
     # 10.14 because MacOS has its own SSL implementation.  If we find the
@@ -193,10 +205,7 @@ function setup_fizz() {
     echo -e "${COLOR_GREEN}[ INFO ] Cloning fizz repo ${COLOR_OFF}"
     git clone https://github.com/facebookincubator/fizz "$FIZZ_DIR"
   fi
-  cd "$FIZZ_DIR"
-  git fetch
-  FIZZ_REV=$(sed 's/Subproject commit //' "$START_DIR"/../build/deps/github_hashes/facebookincubator/fizz-rev.txt)
-  git checkout "$FIZZ_REV"
+  synch_dependency_to_commit "$FIZZ_DIR" "$BASE_DIR"/../build/deps/github_hashes/facebookincubator/fizz-rev.txt
   echo -e "${COLOR_GREEN}Building Fizz ${COLOR_OFF}"
   mkdir -p "$FIZZ_BUILD_DIR"
   cd "$FIZZ_BUILD_DIR" || exit
@@ -231,10 +240,7 @@ function setup_wangle() {
     echo -e "${COLOR_GREEN}[ INFO ] Cloning wangle repo ${COLOR_OFF}"
     git clone https://github.com/facebook/wangle "$WANGLE_DIR"
   fi
-  cd "$WANGLE_DIR"
-  git fetch
-  WANGLE_REV=$(sed 's/Subproject commit //' "$START_DIR"/../build/deps/github_hashes/facebook/wangle-rev.txt)
-  git checkout "$WANGLE_REV"
+  synch_dependency_to_commit "$WANGLE_DIR" "$BASE_DIR"/../build/deps/github_hashes/facebook/wangle-rev.txt
   echo -e "${COLOR_GREEN}Building Wangle ${COLOR_OFF}"
   mkdir -p "$WANGLE_BUILD_DIR"
   cd "$WANGLE_BUILD_DIR" || exit
@@ -271,10 +277,7 @@ function setup_mvfst() {
     echo -e "${COLOR_GREEN}[ INFO ] Cloning mvfst repo ${COLOR_OFF}"
     git clone https://github.com/facebookincubator/mvfst "$MVFST_DIR"
   fi
-  cd "$MVFST_DIR"
-  git fetch
-  MVFST_REV=$(sed 's/Subproject commit //' "$START_DIR"/../build/deps/github_hashes/facebookincubator/mvfst-rev.txt)
-  git checkout "$MVFST_REV"
+  synch_dependency_to_commit "$MVFST_DIR" "$BASE_DIR"/../build/deps/github_hashes/facebookincubator/mvfst-rev.txt
   echo -e "${COLOR_GREEN}Building Mvfst ${COLOR_OFF}"
   mkdir -p "$MVFST_BUILD_DIR"
   cd "$MVFST_BUILD_DIR" || exit
@@ -346,8 +349,7 @@ BUILD_DIR=_build
 mkdir -p $BUILD_DIR
 
 set -e nounset
-START_DIR=$(pwd)
-trap 'cd $START_DIR' EXIT
+trap 'cd $BASE_DIR' EXIT
 cd $BUILD_DIR || exit
 BWD=$(pwd)
 DEPS_DIR=$BWD/deps
