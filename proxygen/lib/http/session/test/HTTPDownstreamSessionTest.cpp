@@ -2640,6 +2640,31 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyTimeoutWin) {
 
 TYPED_TEST_CASE_P(HTTPDownstreamTest);
 
+TYPED_TEST_P(HTTPDownstreamTest, TestMaxTxnOverriding) {
+  this->httpSession_->setEgressSettings(
+      {{SettingsId::MAX_CONCURRENT_STREAMS, 1}});
+
+  auto handler = this->addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM();
+
+  this->sendRequest();
+  // This one is over the limit
+  auto streamId = this->sendRequest();
+
+  this->flushRequestsAndLoop();
+
+  EXPECT_CALL(this->callbacks_, onSettings(_));
+  EXPECT_CALL(this->callbacks_, onAbort(streamId, ErrorCode::REFUSED_STREAM));
+
+  this->parseOutput(*this->clientCodec_);
+  handler->sendReplyWithBody(200, 100);
+  handler->expectDetachTransaction();
+
+  this->flushRequestsAndLoop();
+  this->cleanup();
+}
+
 TYPED_TEST_P(HTTPDownstreamTest, TestWritesDraining) {
   auto badCodec =
       makeServerCodec<typename TypeParam::Codec>(TypeParam::version);
@@ -2863,7 +2888,8 @@ REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
                            TestWritesDraining,
                            TestBodySizeLimit,
                            TestUniformPauseState,
-                           TestMaxTxns);
+                           TestMaxTxns,
+                           TestMaxTxnOverriding);
 
 typedef ::testing::Types<SPDY3CodecPair, SPDY3_1CodecPair, HTTP2CodecPair>
     ParallelCodecs;

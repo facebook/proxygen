@@ -347,6 +347,9 @@ void HTTPSession::setEgressSettings(const SettingsList& inSettings) {
   if (settings) {
     for (const auto& setting : inSettings) {
       settings->setSetting(setting.id, setting.value);
+      if (setting.id == SettingsId::MAX_CONCURRENT_STREAMS) {
+        maxConcurrentIncomingStreams_ = setting.value;
+      }
     }
   }
 }
