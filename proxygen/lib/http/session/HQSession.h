@@ -405,7 +405,7 @@ class HQSession
   }
   void notifyPendingShutdown() override;
   void closeWhenIdle() override;
-  void dropConnection() override;
+  void dropConnection(const std::string& errorMsg = "") override;
   void dumpConnectionState(uint8_t /*loglevel*/) override {
   }
 

@@ -476,7 +476,7 @@ void HTTPSession::immediateShutdown() {
   checkForShutdown();
 }
 
-void HTTPSession::dropConnection() {
+void HTTPSession::dropConnection(const std::string& errorMsg) {
   VLOG(4) << "dropping " << *this;
   if (!sock_ || (readsShutdown() && writesShutdown())) {
     VLOG(4) << *this << " already shutdown";
@@ -495,7 +495,7 @@ void HTTPSession::dropConnection() {
       return;
     }
   }
-  shutdownTransportWithReset(kErrorDropped);
+  shutdownTransportWithReset(kErrorDropped, errorMsg);
 }
 
 void HTTPSession::dumpConnectionState(uint8_t /*loglevel*/) {

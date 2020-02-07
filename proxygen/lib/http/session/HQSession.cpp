@@ -632,10 +632,10 @@ void HQSession::closeWhenIdle() {
   checkForShutdown();
 }
 
-void HQSession::dropConnection() {
-  dropConnectionSync(
-      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, "Stopping"),
-      kErrorDropped);
+void HQSession::dropConnection(const std::string& errorMsg) {
+  auto msg = errorMsg.empty() ? "Stopping" : errorMsg;
+  dropConnectionSync(std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, msg),
+                     kErrorDropped);
 }
 
 void HQSession::dropConnectionAsync(
