@@ -155,8 +155,7 @@ void CurlClient::connectSuccess(HTTPUpstreamSession* session) {
   session->closeWhenIdle();
 }
 
-void CurlClient::sendRequest(HTTPTransaction* txn) {
-  txn_ = txn;
+void CurlClient::setupHeaders() {
   request_.setMethod(httpMethod_);
   request_.setHTTPVersion(httpMajor_, httpMinor_);
   if (proxy_) {
@@ -185,7 +184,11 @@ void CurlClient::sendRequest(HTTPTransaction* txn) {
   if (partiallyReliable_) {
     request_.setPartiallyReliable();
   }
+}
 
+void CurlClient::sendRequest(HTTPTransaction* txn) {
+  txn_ = txn;
+  setupHeaders();
   txn_->sendHeaders(request_);
 
   if (httpMethod_ == HTTPMethod::POST) {

@@ -132,6 +132,8 @@ class CurlClient
  protected:
   void sendBodyFromFile();
 
+  void setupHeaders();
+
   void printMessageImpl(proxygen::HTTPMessage* msg,
                         const std::string& tag = "");
 
