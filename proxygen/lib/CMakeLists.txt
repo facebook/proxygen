@@ -178,6 +178,7 @@ add_library(
     services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
+    ssl/ProxygenSSL.cpp
     statistics/ResourceStats.cpp
     transport/PersistentFizzPskCache.cpp
     utils/AsyncTimeoutSet.cpp
