@@ -417,6 +417,29 @@ TEST_P(HQUpstreamSessionTest, TestGetHistoricalMaxOutgoingStreams) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQUpstreamSessionTest, InjectTraceEvent) {
+  EXPECT_EQ(hqSession_->getHistoricalMaxOutgoingStreams(), 0);
+
+  auto handler = openTransaction();
+  handler->expectDetachTransaction();
+
+  auto handler1 = openTransaction();
+  handler1->expectDetachTransaction();
+
+  EXPECT_CALL(*handler, traceEventAvailable(_)).Times(1);
+  EXPECT_CALL(*handler1, traceEventAvailable(_)).Times(1);
+
+  TraceEvent te(TraceEventType::TotalRequest);
+  hqSession_->injectTraceEventIntoAllTransactions(te);
+
+  handler->txn_->sendAbort();
+  handler1->txn_->sendAbort();
+
+  flushAndLoop();
+  EXPECT_EQ(hqSession_->getHistoricalMaxOutgoingStreams(), 2);
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQUpstreamSessionTest, ResponseTermedByFin) {
   auto handler = openTransaction();
   handler->txn_->sendHeaders(getGetRequest());

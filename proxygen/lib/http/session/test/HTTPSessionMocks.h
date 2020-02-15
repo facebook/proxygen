@@ -209,6 +209,8 @@ class MockHTTPHandler
 
   GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
 
+  GMOCK_NOEXCEPT_METHOD1(traceEventAvailable, void(TraceEvent));
+
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
     EXPECT_CALL(*this, setTransaction(testing::_))
         .WillOnce(testing::Invoke(callback))

@@ -869,6 +869,15 @@ bool HQSession::eraseStream(quic::StreamId streamId) {
   return erased;
 }
 
+void HQSession::injectTraceEventIntoAllTransactions(TraceEvent& event) {
+  invokeOnAllStreams([event](HQStreamTransportBase* stream) {
+    HTTPTransactionHandler *handler = stream->txn_.getHandler();
+    if (handler != nullptr) {
+      handler->traceEventAvailable(event);
+    }
+  });
+}
+
 void HQSession::runLoopCallback() noexcept {
   // We schedule this callback to run at the end of an event
   // loop iteration if either of two conditions has happened:

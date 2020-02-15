@@ -295,6 +295,8 @@ class HTTPSession
     return draining_;
   }
 
+  virtual void injectTraceEventIntoAllTransactions(TraceEvent& event) override;
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated

@@ -2612,6 +2612,40 @@ TEST_F(MockHTTPUpstreamTest, ForceShutdownInSetTransaction) {
   (void)httpSession_->newTransaction(&handler);
 }
 
+// Creates two Handlers, and asserts that each one receives
+// an injectTraceEvent call.
+TEST_F(MockHTTPUpstreamTest, InjectTraceEvent) {
+  StrictMock<MockHTTPHandler> handler;
+  handler.expectTransaction([&](HTTPTransaction* txn) {
+    handler.txn_ = txn;
+  });
+  // Boilerplate because the session and all handlers have to be
+  // dropped and errored out.
+  handler.expectError([&](const HTTPException& err) {});
+  handler.expectDetachTransaction();
+
+  StrictMock<MockHTTPHandler> handler2;
+  handler2.expectTransaction([&](HTTPTransaction* txn) {
+    handler2.txn_ = txn;
+  });
+  // Boilerplate because the session and all handlers have to be
+  // dropped and errored out.
+  handler2.expectError([&](const HTTPException& err) {});
+  handler2.expectDetachTransaction();
+
+  EXPECT_CALL(handler, traceEventAvailable(_)).Times(1);
+  EXPECT_CALL(handler2, traceEventAvailable(_)).Times(1);
+
+
+  (void)httpSession_->newTransaction(&handler);
+  (void)httpSession_->newTransaction(&handler2);
+  TraceEvent te(TraceEventType::TotalRequest);
+  httpSession_->injectTraceEventIntoAllTransactions(te);
+  // Boilerplate because test shutdown expects the test finishes
+  // with the session in a shut-down state.
+  httpSession_->dropConnection();
+}
+
 TEST_F(HTTP2UpstreamSessionTest, TestReplaySafetyCallback) {
   auto sock = dynamic_cast<HTTPTransaction::Transport*>(httpSession_);
 

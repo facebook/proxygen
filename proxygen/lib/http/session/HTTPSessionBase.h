@@ -506,6 +506,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     return exHeadersEnabled_;
   }
 
+ virtual void injectTraceEventIntoAllTransactions(TraceEvent&) = 0;
+
  protected:
   bool notifyEgressBodyBuffered(int64_t bytes, bool update);
 

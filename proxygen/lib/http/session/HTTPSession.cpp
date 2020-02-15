@@ -3101,6 +3101,15 @@ void HTTPSession::invokeOnAllTransactions(
   }
 }
 
+void HTTPSession::injectTraceEventIntoAllTransactions(TraceEvent& event) {
+  invokeOnAllTransactions([event](HTTPTransaction *txn) mutable {
+    HTTPTransactionHandler *handler = txn->getHandler();
+    if (handler != nullptr) {;
+      handler->traceEventAvailable(event);
+    }
+  });
+}
+
 
 
 } // namespace proxygen
