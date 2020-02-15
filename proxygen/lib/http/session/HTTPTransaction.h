@@ -29,6 +29,8 @@
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
+#include <proxygen/lib/utils/TraceEvent.h>
+#include <proxygen/lib/utils/TraceEventObserver.h>
 #include <set>
 #include <wangle/acceptor/TransportInfo.h>
 
@@ -130,7 +132,7 @@ class TransactionInfo {
 
 class HTTPSessionStats;
 class HTTPTransaction;
-class HTTPTransactionHandler {
+class HTTPTransactionHandler : public TraceEventObserver {
  public:
   /**
    * Called once per transaction. This notifies the handler of which
@@ -616,6 +618,10 @@ class HTTPTransaction
   }
 
   const Handler* getHandler() const {
+    return handler_;
+  }
+
+  Handler* getHandler() {
     return handler_;
   }
 

@@ -13,10 +13,16 @@
 namespace proxygen {
 
 /*
- * Obersver interface to record trace events.
+ * Observer interface to record trace events.
+ *
+ * Subclasses of TraceEventObserver may log the trace events
+ * to a destination analytics pipeline or forward them elsewhere.
  */
 struct TraceEventObserver {
   virtual ~TraceEventObserver() {}
+  /**
+   * Lets the handler receive an arbitrary TraceEvent.
+   */
   virtual void traceEventAvailable(TraceEvent) noexcept {}
   virtual void emitTraceEvents(std::vector<TraceEvent>) noexcept {}
 };
