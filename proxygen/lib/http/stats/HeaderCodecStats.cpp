@@ -9,7 +9,6 @@
 #include "proxygen/lib/http/stats/HeaderCodecStats.h"
 
 using facebook::fb303::AVG;
-using facebook::fb303::RATE;
 using facebook::fb303::SUM;
 using std::string;
 

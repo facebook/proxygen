@@ -33,7 +33,6 @@ using folly::SocketAddress;
 using std::pair;
 using std::string;
 using std::unique_ptr;
-using std::vector;
 using wangle::TransportInfo;
 
 namespace {

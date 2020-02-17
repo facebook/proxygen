@@ -2265,7 +2265,6 @@ class TestAbortPost : public MockHTTPUpstreamTest {
   }
 };
 
-typedef TestAbortPost<0> TestAbortPost0;
 typedef TestAbortPost<1> TestAbortPost1;
 typedef TestAbortPost<2> TestAbortPost2;
 typedef TestAbortPost<3> TestAbortPost3;

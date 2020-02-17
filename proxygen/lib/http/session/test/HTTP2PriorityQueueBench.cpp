@@ -12,8 +12,6 @@
 
 #include <algorithm>
 
-using namespace std;
-using namespace folly;
 using namespace proxygen;
 
 namespace {
