@@ -10,6 +10,7 @@
 #include <folly/init/Init.h>
 #include <folly/ssl/Init.h>
 #include <folly/SocketAddress.h>
+#include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
@@ -107,7 +108,7 @@ int main(int argc, char* argv[]) {
   if (!FLAGS_plaintext_proto.empty()) {
     connector.setPlaintextProtocol(FLAGS_plaintext_proto);
   }
-  static const AsyncSocket::OptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
+  static const SocketOptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
 
   if (url.isSecure()) {
     curlClient.initializeSsl(

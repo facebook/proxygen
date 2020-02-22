@@ -8,6 +8,7 @@
 
 #include <folly/portability/GFlags.h>
 
+#include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
 #include <folly/SocketAddress.h>
@@ -237,7 +238,7 @@ int main(int argc, char* argv[]) {
   if (!FLAGS_plaintext_proto.empty()) {
     connector.setPlaintextProtocol(FLAGS_plaintext_proto);
   }
-  static const AsyncSocket::OptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
+  static const SocketOptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
 
   if (FLAGS_use_tls) {
     auto sslContext = initializeSsl(FLAGS_ca_path, FLAGS_next_protos);

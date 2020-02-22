@@ -9,13 +9,14 @@
 #pragma once
 
 #include <wangle/acceptor/TransportInfo.h>
+#include <folly/io/SocketOptionMap.h>
+#include <folly/io/async/AsyncSocket.h>
 #include <folly/io/async/SSLContext.h>
 #include <folly/io/async/HHWheelTimer.h>
-#include <proxygen/lib/utils/Time.h>
-#include <folly/io/async/AsyncSocket.h>
-#include <proxygen/lib/utils/WheelTimerInstance.h>
-#include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/DefaultHTTPCodecFactory.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/utils/Time.h>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 
 namespace proxygen {
 
@@ -99,8 +100,8 @@ class HTTPConnector:
     folly::EventBase* eventBase,
     const folly::SocketAddress& connectAddr,
     std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
-    const folly::AsyncSocket::OptionMap& socketOptions =
-      folly::AsyncSocket::emptyOptionMap,
+    const folly::SocketOptionMap& socketOptions =
+      folly::emptySocketOptionMap,
     const folly::SocketAddress& bindAddr =
       folly::AsyncSocket::anyAddress());
 
@@ -125,8 +126,8 @@ class HTTPConnector:
     const std::shared_ptr<folly::SSLContext>& ctx,
     SSL_SESSION* session = nullptr,
     std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
-    const folly::AsyncSocket::OptionMap& socketOptions =
-      folly::AsyncSocket::emptyOptionMap,
+    const folly::SocketOptionMap& socketOptions =
+      folly::emptySocketOptionMap,
     const folly::SocketAddress& bindAddr =
     folly::AsyncSocket::anyAddress(),
     const std::string& serverName = empty_string);

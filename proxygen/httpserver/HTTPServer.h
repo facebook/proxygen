@@ -9,6 +9,7 @@
 #pragma once
 
 #include <wangle/ssl/SSLContextConfig.h>
+#include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBase.h>
 #include <wangle/bootstrap/ServerBootstrap.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
@@ -75,7 +76,7 @@ class HTTPServer final {
      */
     bool strictSSL{true};
 
-    folly::Optional<folly::AsyncSocket::OptionMap> acceptorSocketOptions;
+    folly::Optional<folly::SocketOptionMap> acceptorSocketOptions;
   };
 
   /**

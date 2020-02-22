@@ -15,6 +15,7 @@
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 
 
@@ -59,7 +60,7 @@ void HTTPConnector::connect(
   EventBase* eventBase,
   const folly::SocketAddress& connectAddr,
   std::chrono::milliseconds timeoutMs,
-  const AsyncSocket::OptionMap& socketOptions,
+  const SocketOptionMap& socketOptions,
   const folly::SocketAddress& bindAddr) {
 
   DCHECK(!isBusy());
@@ -78,7 +79,7 @@ void HTTPConnector::connectSSL(
   const shared_ptr<SSLContext>& context,
   SSL_SESSION* session,
   std::chrono::milliseconds timeoutMs,
-  const AsyncSocket::OptionMap& socketOptions,
+  const SocketOptionMap& socketOptions,
   const folly::SocketAddress& bindAddr,
   const std::string& serverName) {
 

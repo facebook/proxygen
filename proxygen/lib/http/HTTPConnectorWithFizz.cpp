@@ -9,6 +9,8 @@
 #include <proxygen/lib/http/HTTPConnectorWithFizz.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
+#include <folly/io/SocketOptionMap.h>
+
 using namespace fizz::client;
 
 namespace proxygen {
@@ -20,7 +22,7 @@ void HTTPConnectorWithFizz::connectFizz(
     std::shared_ptr<const fizz::CertificateVerifier> verifier,
     std::chrono::milliseconds totalTimeout,
     std::chrono::milliseconds tcpConnectTimeout,
-    const folly::AsyncSocket::OptionMap& socketOptions,
+    const folly::SocketOptionMap& socketOptions,
     const folly::SocketAddress& bindAddr,
     folly::Optional<std::string> sni,
     folly::Optional<std::string> pskIdentity) {

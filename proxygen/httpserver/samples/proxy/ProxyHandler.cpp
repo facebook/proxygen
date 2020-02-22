@@ -12,8 +12,9 @@
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/utils/URL.h>
-#include <folly/portability/GFlags.h>
+#include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <folly/portability/GFlags.h>
 
 #include "ProxyStats.h"
 
@@ -76,7 +77,7 @@ void ProxyHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
     upstreamSock_->connect(this, addr, FLAGS_proxy_connect_timeout);
   } else {
     // A more sophisticated proxy would have a connection pool here
-    const folly::AsyncSocket::OptionMap opts{
+    const folly::SocketOptionMap opts{
       {{SOL_SOCKET, SO_REUSEADDR}, 1}};
     downstream_->pauseIngress();
     connector_.connect(folly::EventBaseManager::get()->getEventBase(), addr,

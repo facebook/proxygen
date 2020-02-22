@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/HQConnector.h>
+#include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <proxygen/lib/http/session/HQSession.h>
 #include <quic/api/QuicSocket.h>
@@ -50,7 +51,7 @@ void HQConnector::connect(
     std::shared_ptr<const FizzClientContext> fizzContext,
     std::shared_ptr<const fizz::CertificateVerifier> verifier,
     std::chrono::milliseconds connectTimeout,
-    const AsyncSocket::OptionMap& /* socketOptions */,
+    const SocketOptionMap& /* socketOptions */,
     folly::Optional<std::string> sni,
     std::shared_ptr<quic::Logger> logger,
     std::shared_ptr<quic::QLogger> qLogger,
