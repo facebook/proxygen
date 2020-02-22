@@ -57,7 +57,7 @@ class HQConnector : public HQSession::ConnectCallback {
       std::shared_ptr<const fizz::client::FizzClientContext> fizzContext,
       std::shared_ptr<const fizz::CertificateVerifier> verifier,
       std::chrono::milliseconds connectTimeout = std::chrono::milliseconds(0),
-      const folly::SocketOptionMap& /* socketOptions */ =
+      const folly::SocketOptionMap& socketOptions =
           folly::emptySocketOptionMap,
       folly::Optional<std::string> sni = folly::none,
       std::shared_ptr<quic::Logger> logger = nullptr,

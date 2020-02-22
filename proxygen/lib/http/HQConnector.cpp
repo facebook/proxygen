@@ -51,7 +51,7 @@ void HQConnector::connect(
     std::shared_ptr<const FizzClientContext> fizzContext,
     std::shared_ptr<const fizz::CertificateVerifier> verifier,
     std::chrono::milliseconds connectTimeout,
-    const SocketOptionMap& /* socketOptions */,
+    const SocketOptionMap& socketOptions,
     folly::Optional<std::string> sni,
     std::shared_ptr<quic::Logger> logger,
     std::shared_ptr<quic::QLogger> qLogger,
@@ -75,6 +75,7 @@ void HQConnector::connect(
   quicClient->setLogger(std::move(logger));
   quicClient->setQLogger(std::move(qLogger));
   quicClient->setLoopDetectorCallback(std::move(quicLoopDetectorCallback));
+  quicClient->setSocketOptions(socketOptions);
   session_ = new proxygen::HQUpstreamSession(transactionTimeout_,
                                              connectTimeout,
                                              nullptr, // controller
