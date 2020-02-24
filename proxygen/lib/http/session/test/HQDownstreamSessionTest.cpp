@@ -1021,7 +1021,7 @@ TEST_P(HQDownstreamSessionTest, DropConnectionPendingEgress) {
 }
 
 TEST_P(HQDownstreamSessionTest, TestInfoCallbacks) {
-  sendRequest();
+  folly::Optional<HTTPCodec::StreamID> id = sendRequest();
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
@@ -1029,7 +1029,7 @@ TEST_P(HQDownstreamSessionTest, TestInfoCallbacks) {
   EXPECT_CALL(infoCb_, onRequestBegin(_)).Times(1);
   EXPECT_CALL(infoCb_, onActivateConnection(_)).Times(1);
   EXPECT_CALL(infoCb_, onIngressMessage(_, _)).Times(1);
-  EXPECT_CALL(infoCb_, onRead(_, _)).Times(AtLeast(2));
+  EXPECT_CALL(infoCb_, onRead(_, _, id)).Times(AtLeast(2));
   EXPECT_CALL(infoCb_, onWrite(_, _)).Times(AtLeast(1));
   EXPECT_CALL(infoCb_, onDestroy(_)).Times(1);
   EXPECT_CALL(infoCb_, onRequestEnd(_, _)).Times(1);

@@ -735,7 +735,7 @@ TEST_F(HTTP2UpstreamSessionTest, TestSettingsInfoCallbacks) {
   MockHTTPSessionInfoCallback infoCb;
   httpSession_->setInfoCallback(&infoCb);
 
-  EXPECT_CALL(infoCb, onRead(_, _)).Times(2);
+  EXPECT_CALL(infoCb, onRead(_, _, _)).Times(2);
   EXPECT_CALL(infoCb, onWrite(_, _)).Times(1);
   EXPECT_CALL(infoCb, onDestroy(_)).Times(1);
 
@@ -2685,7 +2685,7 @@ TEST_F(HTTP2UpstreamSessionTest, TestChainedBufIngress) {
   MockHTTPSessionInfoCallback infoCb;
   this->httpSession_->setInfoCallback(&infoCb);
 
-  EXPECT_CALL(infoCb, onRead(_, 7));
+  EXPECT_CALL(infoCb, onRead(_, 7, _));
   readCallback_->readBufferAvailable(std::move(buf));
 
   httpSession_->destroy();

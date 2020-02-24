@@ -526,7 +526,7 @@ void HTTPSession::readDataAvailable(size_t readSize) noexcept {
   readBuf_.postallocate(readSize);
 
   if (infoCallback_) {
-    infoCallback_->onRead(*this, readSize);
+    infoCallback_->onRead(*this, readSize, HTTPCodec::NoStream);
   }
 
   processReadData();
@@ -547,7 +547,7 @@ void HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
   readBuf_.append(std::move(readBuf));
 
   if (infoCallback_) {
-    infoCallback_->onRead(*this, readSize);
+    infoCallback_->onRead(*this, readSize, HTTPCodec::NoStream);
   }
 
   processReadData();

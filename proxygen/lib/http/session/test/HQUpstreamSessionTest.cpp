@@ -1509,6 +1509,9 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseFollowedByPushStream) {
 
   expectNascentPushStreamBegin([&](HTTPCodec::StreamID streamId, bool isEOF) {
     nascentStreamId = streamId;
+    folly::Optional<HTTPCodec::StreamID> expectedReadId(nascentStreamId);
+    EXPECT_CALL(infoCb_, onRead(testing::_, testing::_, expectedReadId))
+      .Times(testing::AtLeast(1));
     EXPECT_FALSE(isEOF);
   });
 

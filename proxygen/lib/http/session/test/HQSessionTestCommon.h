@@ -138,18 +138,28 @@ class HQSessionTest
     socketDriver_->unidirectionalStreamsCredit_ =
         GetParam().unidirectionalStreamsCredit;
 
+    EXPECT_CALL(infoCb_, onRead(testing::_, testing::_, testing::_))
+      .Times(testing::AnyNumber());
     if (!IS_H1Q_FB_V1) {
 
       numCtrlStreams_ = (IS_H1Q_FB_V2 ? 1 : (IS_HQ ? 3 : 0));
       socketDriver_->setLocalAppCallback(this);
 
       if (GetParam().unidirectionalStreamsCredit >= numCtrlStreams_) {
+        auto dirModifier =
+          (direction_ == proxygen::TransportDirection::DOWNSTREAM) ? 0 : 1;
         EXPECT_CALL(infoCb_, onWrite(testing::_, testing::_))
             .Times(testing::AtLeast(numCtrlStreams_));
-        EXPECT_CALL(infoCb_, onRead(testing::_, testing::_))
-            .Times(testing::AtLeast(numCtrlStreams_));
+        for (auto i = 0; i < numCtrlStreams_; i++) {
+          folly::Optional<proxygen::HTTPCodec::StreamID> expectedStreamID =
+            i * 4 + 2 + dirModifier;
+          EXPECT_CALL(infoCb_, onRead(testing::_, testing::_,
+                                      expectedStreamID))
+            .Times(testing::AtLeast(1));
+        }
       }
     }
+
     quic::QuicSocket::TransportInfo transportInfo = {
         .srtt = std::chrono::microseconds(100),
         .rttvar = std::chrono::microseconds(0),

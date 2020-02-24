@@ -1238,7 +1238,9 @@ void HQSession::readControlStream(HQControlStream* ctrlStream) {
   ctrlStream->readEOF_ = readRes.value().second;
 
   if (infoCallback_) {
-    infoCallback_->onRead(*this, readSize);
+    infoCallback_->onRead(
+      *this, readSize,
+      static_cast<HTTPCodec::StreamID>(ctrlStream->getIngressStreamId()));
   }
   // GOAWAY may trigger session destroy, need a guard for that
   DestructorGuard dg(this);
@@ -1259,7 +1261,8 @@ void HQSession::assignReadCallback(quic::StreamId id,
 
   // Notify the read callback
   if (infoCallback_) {
-    infoCallback_->onRead(*this, toConsume);
+    infoCallback_->onRead(
+      *this, toConsume, static_cast<HTTPCodec::StreamID>(id));
   }
 
   auto ctrlStream =
@@ -1415,7 +1418,7 @@ void HQSession::readRequestStream(quic::StreamId id) noexcept {
   hqStream->readBuf_.append(std::move(data));
 
   if (infoCallback_) {
-    infoCallback_->onRead(*this, readSize);
+    infoCallback_->onRead(*this, readSize, hqStream->getStreamId());
   }
 
   pendingProcessReadSet_.insert(id);

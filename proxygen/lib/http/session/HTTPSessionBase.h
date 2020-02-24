@@ -60,6 +60,15 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     }
     virtual void onRead(const HTTPSessionBase&, size_t /*bytesRead*/) {
     }
+    /**
+     * New version of the API.  Includes the stream these bytes belong to,
+     * or HTTPCodec::NoStream if unknown.  bytesRead can be 0 if the stream
+     * ended.
+     */
+    virtual void onRead(const HTTPSessionBase& sess, size_t bytesRead,
+                        folly::Optional<HTTPCodec::StreamID> /*stream id*/) {
+      onRead(sess, bytesRead);
+    }
     virtual void onWrite(const HTTPSessionBase&, size_t /*bytesWritten*/) {
     }
     virtual void onRequestBegin(const HTTPSessionBase&) {
