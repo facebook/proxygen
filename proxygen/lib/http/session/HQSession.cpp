@@ -2433,11 +2433,43 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
 }
 
 void HQSession::HQControlStream::processReadData() {
+  bool isControl = (*type_ == hq::UnidirectionalStreamType::H1Q_CONTROL ||
+                        *type_ == hq::UnidirectionalStreamType::CONTROL);
+  std::unique_ptr<HTTPCodec> savedCodec;
+  HQUnidirectionalCodec* ingressCodecPtr = ingressCodec_.get();
+  if (isControl) {
+    // We need ingressCodec_ to be realCodec_, to correctly wire up the filter
+    // chain callbacks
+    savedCodec = std::move(realCodec_);
+    realCodec_.reset(static_cast<HQControlCodec*>(ingressCodec_.release()));
+    CHECK(!ingressCodec_);
+  }
+  auto g1 = folly::makeGuard([&] {
+      if (!isControl) {
+        return;
+      }
+      CHECK(!ingressCodec_);
+      ingressCodec_.reset(static_cast<HQControlCodec*>(realCodec_.release()));
+      realCodec_ = std::move(savedCodec);
+    });
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(ingressCodec_->isIngress());
+  if (isControl) {
+    // Now ingressCodec_ has been pushed onto the codec stack.  Restore the
+    // egress codec, in case an ingress callback triggers egress
+    CHECK(!realCodec_);
+    realCodec_ = std::move(savedCodec);
+  }
+  auto g2 = folly::makeGuard([&] {
+      if (!isControl) {
+        return;
+      }
+      savedCodec = std::move(realCodec_);
+    });
+
+  CHECK(ingressCodecPtr->isIngress());
   auto initialLength = readBuf_.chainLength();
   if (initialLength > 0) {
-    auto ret = ingressCodec_->onUnidirectionalIngress(readBuf_.move());
+    auto ret = ingressCodecPtr->onUnidirectionalIngress(readBuf_.move());
     VLOG(4) << "streamID=" << getIngressStreamId() << " parsed bytes="
             << static_cast<int>(initialLength - readBuf_.chainLength())
             << " from readBuf remain=" << readBuf_.chainLength()
@@ -2445,7 +2477,7 @@ void HQSession::HQControlStream::processReadData() {
     readBuf_.append(std::move(ret));
   }
   if (readEOF_ && readBuf_.chainLength() == 0) {
-    ingressCodec_->onUnidirectionalIngressEOF();
+    ingressCodecPtr->onUnidirectionalIngressEOF();
   }
 }
 

@@ -2112,6 +2112,28 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, ExtraSettings) {
             HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME);
 }
 
+using HQDownstreamSessionFilterTestHQ = HQDownstreamSessionTestHQ;
+TEST_P(HQDownstreamSessionFilterTestHQ, ControlStreamFilters) {
+  uint64_t settingsReceived = 0;
+
+  class TestFilter : public PassThroughHTTPCodecFilter {
+  public:
+    explicit TestFilter(uint64_t& settingsReceived)
+      : settingsReceived_(settingsReceived) {}
+
+    void onSettings(const SettingsList& settings) override {
+      settingsReceived_++;
+    }
+    uint64_t& settingsReceived_;
+  };
+
+  hqSession_->addCodecFilter<TestFilter>(settingsReceived);
+  sendSettings();
+  flushRequestsAndLoop();
+  EXPECT_EQ(settingsReceived, 1);
+  hqSession_->closeWhenIdle();
+}
+
 using HQDownstreamSessionDeathTestH1qv2HQ = HQDownstreamSessionTestH1qv2HQ;
 TEST_P(HQDownstreamSessionDeathTestH1qv2HQ, WriteExtraSettings) {
   EXPECT_EXIT(sendSettings(),
@@ -2457,6 +2479,13 @@ INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestH1qv2HQ,
                         Values(TestParams({.alpn_ = "h1q-fb-v2"}),
                                TestParams({.alpn_ = "h3"})),
+                        paramsToTestName);
+
+INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
+                        HQDownstreamSessionFilterTestHQ,
+                        Values(
+                          TestParams({.alpn_ = "h3",
+                                .shouldSendSettings_ = false})),
                         paramsToTestName);
 
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionBeforeTransportReadyTest,

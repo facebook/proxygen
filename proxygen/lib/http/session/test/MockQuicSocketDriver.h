@@ -1093,9 +1093,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             if (stream.peekCB && stream.readState != PAUSED &&
                 stream.readBuf.front()) {
               std::deque<StreamBuffer> fakeReadBuffer;
-              auto tmpBuf = stream.readBuf.move();
-              tmpBuf->coalesce();
-              stream.readBuf.append(std::move(tmpBuf));
+              stream.readBuf.gather(stream.readBuf.chainLength());
               auto copyBuf = stream.readBuf.front()->clone();
               fakeReadBuffer.emplace_back(
                   std::move(copyBuf), stream.readOffset, false);
