@@ -127,7 +127,7 @@ ParseResult parseSettings(folly::io::Cursor& cursor,
       return settingValue.error();
     }
 
-    if (settingValue->hasValue()) {
+    if (settingValue->has_value()) {
       settings.emplace_back(settingId, settingValue->value());
     }
   }

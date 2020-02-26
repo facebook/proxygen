@@ -47,7 +47,7 @@ void TLConnectionStats::recordRequest() {
 
 void TLConnectionStats::recordResponse(folly::Optional<uint16_t> responseCode) {
   resp_.add(1);
-  if (responseCode.hasValue()) {
+  if (responseCode.has_value()) {
     responseCodes_.addStatus(responseCode.value());
   }
 }

@@ -59,7 +59,7 @@ class HQUpstreamSessionTest : public HQSessionTest {
                   [] { return std::numeric_limits<uint64_t>::max(); },
                   egressSettings_,
                   ingressSettings_,
-                  GetParam().prParams.hasValue())};
+                  GetParam().prParams.has_value())};
     } else {
       auto codec =
           std::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM, true);
@@ -1253,7 +1253,7 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
                                      std::size_t len = kUnlimited,
                                      bool eom = true) {
 
-    if (pushId.hasValue()) {
+    if (pushId.has_value()) {
       CHECK(hq::isInternalPushId(*pushId))
           << "Expecting the push id to be in the internal representation";
     }
@@ -1272,7 +1272,7 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
     // Generate the push stream preface, and if there's enough headroom
     // the unframed push id that follows it
     auto prefaceRes = writePushStreamPreface(stream.id, len);
-    if (pushId.hasValue()) {
+    if (pushId.has_value()) {
       if (prefaceRes) {
         len -= *prefaceRes;
         writeUnframedPushId(stream.id, len, *pushId);

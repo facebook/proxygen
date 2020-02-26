@@ -219,7 +219,7 @@ void HTTPTransaction::processIngressHeadersComplete(
 }
 
 bool HTTPTransaction::updateContentLengthRemaining(size_t len) {
-  if (expectedIngressContentLengthRemaining_.hasValue()) {
+  if (expectedIngressContentLengthRemaining_.has_value()) {
     if (expectedIngressContentLengthRemaining_.value() >= len) {
       expectedIngressContentLengthRemaining_ =
           expectedIngressContentLengthRemaining_.value() - len;
@@ -428,7 +428,7 @@ void HTTPTransaction::onIngressEOM() {
     sendAbort(ErrorCode::STREAM_CLOSED);
     return;
   }
-  if (expectedIngressContentLengthRemaining_.hasValue() &&
+  if (expectedIngressContentLengthRemaining_.has_value() &&
       expectedIngressContentLengthRemaining_.value() > 0) {
     auto errorMsg = folly::to<std::string>(
         "Content-Length/body mismatch: expecting another ",

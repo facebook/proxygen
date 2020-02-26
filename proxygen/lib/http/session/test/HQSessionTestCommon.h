@@ -126,7 +126,7 @@ class HQSessionTest
         direction_ == proxygen::TransportDirection::DOWNSTREAM
             ? quic::MockQuicSocketDriver::TransportEnum::SERVER
             : quic::MockQuicSocketDriver::TransportEnum::CLIENT,
-        GetParam().prParams.hasValue());
+        GetParam().prParams.has_value());
 
     hqSession_->setSocket(socketDriver_->getSocket());
 

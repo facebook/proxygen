@@ -110,10 +110,10 @@ TEST(SecondaryAuthManagerTest, Authenticator) {
   auto isValid = authManager.validateAuthenticator(
       fizzBase, TransportDirection::UPSTREAM, certId, std::move(authenticator));
   auto cachedCertId = authManager.getCertId(requestId);
-  EXPECT_TRUE(cachedCertId.hasValue());
+  EXPECT_TRUE(cachedCertId.has_value());
   EXPECT_EQ(*cachedCertId, certId);
   auto peerCert = authManager.getPeerCert(certId);
-  EXPECT_TRUE(peerCert.hasValue());
+  EXPECT_TRUE(peerCert.has_value());
   EXPECT_EQ((*peerCert).size(), 1);
   EXPECT_EQ(expected_cert,
             StringPiece(hexlify(((*peerCert)[0].cert_data)->coalesce())));

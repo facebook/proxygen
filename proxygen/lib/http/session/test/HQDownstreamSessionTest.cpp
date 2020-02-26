@@ -273,7 +273,7 @@ std::unique_ptr<proxygen::HTTPCodec> HQDownstreamSessionTest::makeCodec(
         [] { return std::numeric_limits<uint64_t>::max(); },
         egressSettings_,
         ingressSettings_,
-        GetParam().prParams.hasValue());
+        GetParam().prParams.has_value());
   } else {
     return std::make_unique<proxygen::HTTP1xCodec>(
         proxygen::TransportDirection::UPSTREAM, true);

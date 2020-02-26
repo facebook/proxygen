@@ -94,7 +94,7 @@ folly::Function<void()> HQStreamBase::setActiveCodec(const std::string& where) {
 size_t HQStreamBase::generateStreamPreface() {
   // Request (aka HQStreamTransport) streams do not type set.
   // If "generateStreamPreface" is invoked on those, its a bug
-  CHECK(type_.hasValue())
+  CHECK(type_.has_value())
       << "Can not generate preface on streams without a type";
   VLOG(4) << "generating stream preface for " << type_.value()
           << " stream streamID=" << getEgressStreamId() << " sess=" << session_;

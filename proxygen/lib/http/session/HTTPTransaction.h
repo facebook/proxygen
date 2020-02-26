@@ -1275,7 +1275,7 @@ class HTTPTransaction
    * Does this transaction have an idle timeout set?
    */
   bool hasIdleTimeout() const {
-    return transactionTimeout_.hasValue();
+    return transactionTimeout_.has_value();
   }
 
   /**

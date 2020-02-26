@@ -964,7 +964,7 @@ class HQSession
     }
 
     void createEgressCodec() {
-      CHECK(type_.hasValue());
+      CHECK(type_.has_value());
       switch (*type_) {
         case hq::UnidirectionalStreamType::H1Q_CONTROL:
         case hq::UnidirectionalStreamType::CONTROL:

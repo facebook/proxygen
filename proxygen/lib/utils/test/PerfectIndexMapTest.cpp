@@ -194,14 +194,14 @@ TYPED_TEST(PerfectIndexMapTests, OtherStringCaseSensitivity) {
   folly::Optional<std::string> optional;
   if (TypeParam::TCaseInsensitive) {
     optional = this->testMap_.getSingleOrNone(modTestString);
-    ASSERT_TRUE(optional.hasValue());
+    ASSERT_TRUE(optional.has_value());
     ASSERT_EQ(optional.value(), testString);
 
     this->testMap_.set(modTestString, modTestString);
     EXPECT_EQ(this->testMap_.size(), currentCount);
 
     optional = this->testMap_.getSingleOrNone(testString);
-    ASSERT_TRUE(optional.hasValue());
+    ASSERT_TRUE(optional.has_value());
     ASSERT_EQ(optional.value(), modTestString);
   } else {
     this->testMap_.set(modTestString, modTestString);
@@ -211,11 +211,11 @@ TYPED_TEST(PerfectIndexMapTests, OtherStringCaseSensitivity) {
     EXPECT_EQ(this->testMap_.size(), currentCount);
 
     optional = this->testMap_.getSingleOrNone(testString);
-    ASSERT_TRUE(optional.hasValue());
+    ASSERT_TRUE(optional.has_value());
     ASSERT_EQ(optional.value(), testString);
 
     optional = this->testMap_.getSingleOrNone(modTestString);
-    ASSERT_TRUE(optional.hasValue());
+    ASSERT_TRUE(optional.has_value());
     ASSERT_EQ(optional.value(), modTestString);
   }
 
@@ -224,7 +224,7 @@ TYPED_TEST(PerfectIndexMapTests, OtherStringCaseSensitivity) {
     this->testMap_.add(addModTestString, addModTestString);
     optional = this->testMap_.getSingleOrNone(testString);
     if (TypeParam::TCaseInsensitive) {
-      EXPECT_FALSE(optional.hasValue());
+      EXPECT_FALSE(optional.has_value());
     } else {
       EXPECT_TRUE(optional.has_value());
     }

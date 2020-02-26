@@ -80,7 +80,7 @@ class HTTPException : public proxygen::Exception {
 
   // Accessors for Codec specific status codes
   bool hasCodecStatusCode() const {
-    return codecStatusCode_.hasValue();
+    return codecStatusCode_.has_value();
   }
   void setCodecStatusCode(ErrorCode statusCode) {
     codecStatusCode_ = statusCode;

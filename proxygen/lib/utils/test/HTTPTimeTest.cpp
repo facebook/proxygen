@@ -12,25 +12,25 @@
 using proxygen::parseHTTPDateTime;
 
 TEST(HTTPTimeTests, InvalidTimeTest) {
-  EXPECT_FALSE(parseHTTPDateTime("Hello, World").hasValue());
-  EXPECT_FALSE(parseHTTPDateTime("Sun, 33 Nov 1994 08:49:37 GMT").hasValue());
-  EXPECT_FALSE(parseHTTPDateTime("Sun, 06 Nov 1800").hasValue());
+  EXPECT_FALSE(parseHTTPDateTime("Hello, World").has_value());
+  EXPECT_FALSE(parseHTTPDateTime("Sun, 33 Nov 1994 08:49:37 GMT").has_value());
+  EXPECT_FALSE(parseHTTPDateTime("Sun, 06 Nov 1800").has_value());
 }
 
 TEST(HTTPTimeTests, ValidTimeTest) {
   // From http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3
-  EXPECT_TRUE(parseHTTPDateTime("Sun, 06 Nov 1994 08:49:37 GMT").hasValue());
-  EXPECT_TRUE(parseHTTPDateTime("Sunday, 06-Nov-94 08:49:37 GMT").hasValue());
-  EXPECT_TRUE(parseHTTPDateTime("Sun Nov  6 08:49:37 1994").hasValue());
+  EXPECT_TRUE(parseHTTPDateTime("Sun, 06 Nov 1994 08:49:37 GMT").has_value());
+  EXPECT_TRUE(parseHTTPDateTime("Sunday, 06-Nov-94 08:49:37 GMT").has_value());
+  EXPECT_TRUE(parseHTTPDateTime("Sun Nov  6 08:49:37 1994").has_value());
 }
 
 TEST(HTTPTimeTests, EqualTimeTest) {
   auto a = parseHTTPDateTime("Thu, 07 Mar 2013 08:49:37 GMT");
-  EXPECT_TRUE(a.hasValue());
+  EXPECT_TRUE(a.has_value());
   auto b = parseHTTPDateTime("Thursday, 07-Mar-13 08:49:37 GMT");
-  EXPECT_TRUE(b.hasValue());
+  EXPECT_TRUE(b.has_value());
   auto c = parseHTTPDateTime("Thu Mar 7 08:49:37 2013");
-  EXPECT_TRUE(c.hasValue());
+  EXPECT_TRUE(c.has_value());
 
   EXPECT_EQ(a.value(), b.value());
   EXPECT_EQ(a.value(), c.value());
@@ -39,11 +39,11 @@ TEST(HTTPTimeTests, EqualTimeTest) {
 
 TEST(HTTPTimeTests, ReallyOldTimeTest) {
   auto a = parseHTTPDateTime("Thu, 07 Mar 1770 08:49:37 GMT");
-  EXPECT_TRUE(a.hasValue());
+  EXPECT_TRUE(a.has_value());
   auto b = parseHTTPDateTime("Thu, 07 Mar 1771 08:49:37 GMT");
-  EXPECT_TRUE(b.hasValue());
+  EXPECT_TRUE(b.has_value());
   auto c = parseHTTPDateTime("Thu, 07 Mar 1980 08:49:37 GMT");
-  EXPECT_TRUE(c.hasValue());
+  EXPECT_TRUE(c.has_value());
 
   EXPECT_LT(a, b);
   EXPECT_LT(a, c);
@@ -82,7 +82,7 @@ TEST(HTTPTimeTests, TzToUnixTsTest) {
   EXPECT_EQ(m.value(), 2147483647);
 
   auto n = parseHTTPDateTime("Thu, 01 Jan 1970 00:00:01 PST");
-  EXPECT_FALSE(n.hasValue());
+  EXPECT_FALSE(n.has_value());
   auto o = parseHTTPDateTime("Thu, 01 Jan 1970 00:00:01");
-  EXPECT_FALSE(o.hasValue());
+  EXPECT_FALSE(o.has_value());
 }

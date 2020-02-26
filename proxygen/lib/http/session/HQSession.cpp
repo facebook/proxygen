@@ -641,7 +641,7 @@ void HQSession::dropConnection(const std::string& errorMsg) {
 void HQSession::dropConnectionAsync(
     std::pair<quic::QuicErrorCode, std::string> errorCode,
     ProxygenError proxygenError) {
-  if (!dropInNextLoop_.hasValue()) {
+  if (!dropInNextLoop_.has_value()) {
     dropInNextLoop_ = std::make_pair(errorCode, proxygenError);
     scheduleLoopCallback(true);
   } else {
@@ -902,7 +902,7 @@ void HQSession::runLoopCallback() noexcept {
     inLoopCallback_ = false;
   });
 
-  if (dropInNextLoop_.hasValue()) {
+  if (dropInNextLoop_.has_value()) {
     dropConnectionSync(dropInNextLoop_->first, dropInNextLoop_->second);
     return;
   }
@@ -2289,7 +2289,7 @@ void HQSession::HQStreamTransportBase::initIngress(const std::string& where) {
       << "Socket is null drainState=" << (int)session_.drainState_
       << " streams=" << session_.getNumStreams();
 
-  if (session_.receiveStreamWindowSize_.hasValue()) {
+  if (session_.receiveStreamWindowSize_.has_value()) {
     session_.sock_->setStreamFlowControlWindow(
         getIngressStreamId(), session_.receiveStreamWindowSize_.value());
   }
@@ -3417,7 +3417,7 @@ void HQSession::HQStreamTransport::sendPushPromise(
     bool includeEOM) {
   CHECK(txn);
 
-  CHECK(pushId.hasValue()) << " Request stream impl expects pushID to be set";
+  CHECK(pushId.has_value()) << " Request stream impl expects pushID to be set";
   const uint64_t oldOffset = streamWriteByteOffset();
   auto g = folly::makeGuard(setActiveCodec(__func__));
 

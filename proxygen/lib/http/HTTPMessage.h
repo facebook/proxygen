@@ -231,7 +231,7 @@ class HTTPMessage {
    */
   const std::string& getPath() const {
     auto& req = request();
-    if (!req.pathStr_.hasValue()) {
+    if (!req.pathStr_.has_value()) {
       req.pathStr_.emplace(req.path_.data(), req.path_.size());
     }
     return *req.pathStr_;
@@ -249,7 +249,7 @@ class HTTPMessage {
    */
   const std::string& getQueryString() const {
     auto& req = request();
-    if (!req.queryStr_.hasValue()) {
+    if (!req.queryStr_.has_value()) {
       req.queryStr_.emplace(req.query_.data(), req.query_.size());
     }
     return *req.queryStr_;

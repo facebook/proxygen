@@ -25,7 +25,7 @@ UnframedBodyOffsetTracker::startBodyTracking(uint64_t streamOffset) {
 }
 
 bool UnframedBodyOffsetTracker::bodyStarted() const {
-  return bodyStartstreamOffset_.hasValue();
+  return bodyStartstreamOffset_.has_value();
 }
 
 void UnframedBodyOffsetTracker::addBodyBytesProcessed(uint64_t n) {

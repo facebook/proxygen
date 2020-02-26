@@ -82,7 +82,7 @@ proxygen::HTTPMessage extractMessage(folly::dynamic& obj,
       msg.setURL(obj["url"].asString());
       msg.setMethod(obj["method"].asString());
       auto t = parseHTTPArchiveTime(timeStr);
-      if (t.hasValue()) {
+      if (t.has_value()) {
         msg.setStartTime(t.value());
       }
     } else {

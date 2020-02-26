@@ -426,7 +426,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
   if (curHeader_.flags & http2::END_HEADERS) {
     auto errorCode =
         parseHeadersDecodeFrames(priority, promisedStream, exAttributes, msg);
-    if (errorCode.hasValue()) {
+    if (errorCode.has_value()) {
       return errorCode.value();
     }
   }
@@ -439,7 +439,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
   // Report back what we've parsed
   if (callback_) {
     auto concurError = parseHeadersCheckConcurrentStreams(priority);
-    if (concurError.hasValue()) {
+    if (concurError.has_value()) {
       return concurError.value();
     }
     uint32_t headersCompleteStream = curHeader_.stream;
@@ -1170,11 +1170,10 @@ void HTTP2Codec::generateHeaderImpl(
       pri = http2::DefaultPriority;
     }
   }
-  auto headerSize = http2::calculatePreHeaderBlockSize(
-    assocStream.hasValue(),
-    exAttributes.hasValue(),
-    pri.hasValue(),
-    false);
+  auto headerSize = http2::calculatePreHeaderBlockSize(assocStream.has_value(),
+                                                       exAttributes.has_value(),
+                                                       pri.has_value(),
+                                                       false);
   auto maxFrameSize = maxSendFrameSize();
   uint32_t remainingFrameSize =
     maxFrameSize - headerSize + http2::kFrameHeaderSize;
@@ -1475,7 +1474,7 @@ size_t HTTP2Codec::generatePingRequest(folly::IOBufQueue& writeBuf,
                                        folly::Optional<uint64_t> data) {
   // should probably let the caller specify when integrating with session
   // we know HTTPSession sets up events to track ping latency
-  if (!data.hasValue()) {
+  if (!data.has_value()) {
     data = folly::Random::rand64();
   }
   VLOG(4) << "Generating ping request with data=" << *data;

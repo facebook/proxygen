@@ -946,13 +946,13 @@ HTTP1xCodec::onHeadersComplete(size_t len) {
     // values
     folly::Optional<folly::StringPiece> contentLen;
     bool error = hdrs.forEachValueOfHeader(
-        HTTP_HEADER_CONTENT_LENGTH, [&] (folly::StringPiece value) -> bool {
-      if (!contentLen.hasValue()) {
-        contentLen = value;
-        return false;
-      }
-      return (contentLen.value() != value);
-    });
+        HTTP_HEADER_CONTENT_LENGTH, [&](folly::StringPiece value) -> bool {
+          if (!contentLen.has_value()) {
+            contentLen = value;
+            return false;
+          }
+          return (contentLen.value() != value);
+        });
 
     if (error) {
       LOG(ERROR) << "Invalid message, multiple Content-Length headers";

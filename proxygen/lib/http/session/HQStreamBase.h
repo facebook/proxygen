@@ -272,11 +272,11 @@ class SSBidir : public virtual HQStreamMapping {
   }
 
   bool hasIngressStreamId() const override {
-    return streamId_.hasValue();
+    return streamId_.has_value();
   }
 
   bool hasEgressStreamId() const override {
-    return streamId_.hasValue();
+    return streamId_.has_value();
   }
 
   quic::StreamId getStreamId() const override {
@@ -387,11 +387,11 @@ class CSBidir : public virtual HQStreamMapping {
   }
 
   bool hasIngressStreamId() const override {
-    return ingressStreamId_.hasValue();
+    return ingressStreamId_.has_value();
   }
 
   bool hasEgressStreamId() const override {
-    return egressStreamId_.hasValue();
+    return egressStreamId_.has_value();
   }
 
   quic::StreamId getStreamId() const override {

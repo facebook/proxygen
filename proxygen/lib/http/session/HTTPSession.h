@@ -141,7 +141,7 @@ class HTTPSession
   }
 
   folly::Optional<std::chrono::milliseconds> getMeasuredSrtt() const override {
-    if (!measuredRtt_.hasValue()) {
+    if (!measuredRtt_.has_value()) {
       return folly::none;
     }
     return measuredRtt_->srtt;

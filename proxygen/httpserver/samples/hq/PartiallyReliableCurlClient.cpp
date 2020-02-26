@@ -17,7 +17,7 @@ void PartiallyReliableCurlClient::onHeadersComplete(
     chunkSize_ = folly::to<uint64_t>(value);
   }
 
-  if (!chunkSize_.hasValue()) {
+  if (!chunkSize_.has_value()) {
     LOG(ERROR) << __func__
                << ": no pr-chunk-size header found in response headers";
     txn_->sendEOM();

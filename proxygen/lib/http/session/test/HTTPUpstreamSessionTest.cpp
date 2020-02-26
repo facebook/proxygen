@@ -2841,7 +2841,7 @@ TEST_P(HTTP2UpstreamSessionTestMeasureRTT, TestPingMeasureRtt) {
 
   EXPECT_FALSE(httpSession_->getMeasureRttEnabled());
   auto measuredRtt = httpSession_->getMeasuredRtt();
-  EXPECT_FALSE(measuredRtt.hasValue());
+  EXPECT_FALSE(measuredRtt.has_value());
   httpSession_->setMeasureRttEnabled(GetParam());
 
   auto serverCodec = makeServerCodec();
@@ -2867,18 +2867,18 @@ TEST_P(HTTP2UpstreamSessionTestMeasureRTT, TestPingMeasureRtt) {
 
   measuredRtt = httpSession_->getMeasuredRtt();
   if (GetParam()) {
-    EXPECT_TRUE(measuredRtt.hasValue());
+    EXPECT_TRUE(measuredRtt.has_value());
     EXPECT_GE(measuredRtt->srtt, fakeRttMs);
     EXPECT_GE(measuredRtt->minrtt, fakeRttMs);
     EXPECT_GE(measuredRtt->last, fakeRttMs);
   } else {
-    EXPECT_FALSE(measuredRtt.hasValue());
+    EXPECT_FALSE(measuredRtt.has_value());
   }
 
   // re-setting to false also clears the measured RTT
   httpSession_->setMeasureRttEnabled(false);
   measuredRtt = httpSession_->getMeasuredRtt();
-  EXPECT_FALSE(measuredRtt.hasValue());
+  EXPECT_FALSE(measuredRtt.has_value());
 
   httpSession_->destroy();
 }
