@@ -59,10 +59,6 @@ TLSSLStats::TLSSLStats(const std::string& prefix)
       newSSLHandshakeShed_(prefix + "_ssl_handshake_shed_new", SUM, RATE),
       sslHandshakeErrors_(prefix + "_ssl_handshake_errors", SUM, PERCENT),
       sslHandshakeSuccesses_(prefix + "_ssl_handshake_successes", SUM),
-      zeroHandshakeErrors_(prefix + "_zero_handshake_errors", SUM, PERCENT),
-      zeroHandshakeSuccesses_(prefix + "_zero_handshake_successes", SUM),
-      zeroConfigUpdateErrors_(prefix + "_zero_config_update_errors", SUM),
-      zeroConfigUpdateSuccesses_(prefix + "_zero_config_update_successes", SUM),
       fizzHandshakeErrors_(prefix + "_fizz_handshake_errors", SUM, PERCENT),
       fizzHandshakeProtocolErrors_(prefix + "_fizz_handshake_protocol_errors",
                                    SUM),
@@ -177,15 +173,6 @@ void TLSSLStats::recordSSLHandshake(bool success) {
   }
 }
 
-void TLSSLStats::recordZeroHandshake(bool success) {
-  if (success) {
-    zeroHandshakeSuccesses_.add(1);
-    zeroHandshakeErrors_.add(0);
-  } else {
-    zeroHandshakeErrors_.add(1);
-  }
-}
-
 void TLSSLStats::recordFizzHandshake(bool success) {
   if (success) {
     fizzHandshakeSuccesses_.add(1);
@@ -225,14 +212,6 @@ void TLSSLStats::recordPskType(folly::Optional<fizz::PskType> pskType) {
       fizzPskTypeResumption_.add(1);
       break;
   }
-}
-
-void TLSSLStats::recordZeroConfigUpdateSuccess() {
-  zeroConfigUpdateSuccesses_.add(1);
-}
-
-void TLSSLStats::recordZeroConfigUpdateError() {
-  zeroConfigUpdateErrors_.add(1);
 }
 
 } // namespace proxygen

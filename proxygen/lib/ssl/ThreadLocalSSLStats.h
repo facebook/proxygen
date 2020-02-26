@@ -33,18 +33,12 @@ class ProxygenSSLStats : public wangle::SSLStats {
    */
   virtual void recordSSLHandshake(bool success) = 0;
 
-  virtual void recordZeroHandshake(bool success) = 0;
-
   virtual void recordFizzHandshake(bool success) = 0;
 
   // Protocol level errors only
   virtual void recordFizzHandshakeProtocolError() = 0;
 
   virtual void recordTFOSuccess() = 0;
-
-  virtual void recordZeroConfigUpdateSuccess() = 0;
-
-  virtual void recordZeroConfigUpdateError() = 0;
 };
 
 class TLSSLStats : public ProxygenSSLStats {
@@ -84,17 +78,11 @@ class TLSSLStats : public ProxygenSSLStats {
    */
   void recordSSLHandshake(bool success) override;
 
-  void recordZeroHandshake(bool success) override;
-
   void recordFizzHandshake(bool success) override;
 
   void recordFizzHandshakeProtocolError() override;
 
   void recordTFOSuccess() override;
-
-  void recordZeroConfigUpdateSuccess() override;
-
-  void recordZeroConfigUpdateError() override;
 
  private:
   // Forbidden copy constructor and assignment operator
@@ -134,10 +122,6 @@ class TLSSLStats : public ProxygenSSLStats {
   BaseStats::TLTimeseries newSSLHandshakeShed_;
   BaseStats::TLTimeseries sslHandshakeErrors_;
   BaseStats::TLTimeseries sslHandshakeSuccesses_;
-  BaseStats::TLTimeseries zeroHandshakeErrors_;
-  BaseStats::TLTimeseries zeroHandshakeSuccesses_;
-  BaseStats::TLTimeseries zeroConfigUpdateErrors_;
-  BaseStats::TLTimeseries zeroConfigUpdateSuccesses_;
   BaseStats::TLTimeseries fizzHandshakeErrors_;
   BaseStats::TLTimeseries fizzHandshakeProtocolErrors_;
   BaseStats::TLTimeseries fizzHandshakeSuccesses_;
