@@ -64,6 +64,10 @@ class HTTPSessionBase : public wangle::ManagedConnection {
      * New version of the API.  Includes the stream these bytes belong to,
      * or HTTPCodec::NoStream if unknown.  bytesRead can be 0 if the stream
      * ended.
+     *
+     * If onRead is currently implemented with the old signature (without stream ID),
+     * safest path is to keep it and change it to call onRead with the new signature
+     * that includes the stream ID with folly::none as the Stream ID.
      */
     virtual void onRead(const HTTPSessionBase& sess, size_t bytesRead,
                         folly::Optional<HTTPCodec::StreamID> /*stream id*/) {
