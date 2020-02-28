@@ -13,7 +13,7 @@
 
 namespace {
 constexpr auto FIZZ_PSK = "psk";
-constexpr auto QUIC_PARAMS = "quic";
+constexpr auto QUIC_PARAMS = "quic1";
 constexpr auto USES = "uses";
 } // namespace
 
@@ -43,7 +43,6 @@ folly::Optional<quic::QuicCachedPsk> PersistentQuicPskCache::getPsk(
     auto buf = folly::IOBuf::wrapBuffer(cachedPsk->quicParams.data(),
                                         cachedPsk->quicParams.length());
     folly::io::Cursor cursor(buf.get());
-    fizz::detail::read(quicCachedPsk.transportParams.negotiatedVersion, cursor);
     fizz::detail::read(quicCachedPsk.transportParams.idleTimeout, cursor);
     fizz::detail::read(quicCachedPsk.transportParams.maxRecvPacketSize, cursor);
     fizz::detail::read(quicCachedPsk.transportParams.initialMaxData, cursor);
@@ -83,8 +82,6 @@ void PersistentQuicPskCache::putPsk(const std::string& identity,
 
   auto quicParams = folly::IOBuf::create(0);
   folly::io::Appender appender(quicParams.get(), 512);
-  fizz::detail::write(quicCachedPsk.transportParams.negotiatedVersion,
-                      appender);
   fizz::detail::write(quicCachedPsk.transportParams.idleTimeout, appender);
   fizz::detail::write(quicCachedPsk.transportParams.maxRecvPacketSize,
                       appender);
