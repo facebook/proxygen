@@ -191,7 +191,7 @@ void TLSSLStats::recordTFOSuccess() {
 }
 
 void TLSSLStats::recordPskType(folly::Optional<fizz::PskType> pskType) {
-  if (!pskType.hasValue()) {
+  if (!pskType.has_value()) {
     return;
   }
   auto pskTypeVal = pskType.value();
