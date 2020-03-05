@@ -60,8 +60,8 @@ using namespace proxygen::hq;
 namespace proxygen {
 
 const std::string kH3FBCurrentDraft("h3-fb-05");
-const std::string kH3CurrentDraft("h3-24");
-const std::string kHQCurrentDraft("hq-24");
+const std::string kH3CurrentDraft("h3-27");
+const std::string kHQCurrentDraft("hq-27");
 
 const http2::PriorityUpdate hqDefaultPriority{kSessionStreamId, false, 15};
 
