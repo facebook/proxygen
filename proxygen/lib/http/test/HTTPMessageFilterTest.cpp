@@ -55,3 +55,38 @@ TEST(HTTPMessageFilter, TestFilterPauseResumePropagatedToTxn) {
   EXPECT_CALL(mockTxn, resumeIngress());
   testFilter2.resume(10);
 }
+
+TEST(HTTPMessageFilter, TestFilterOnBodyDataTracking) {
+  //             next
+  // testFilter -----> mockFilter
+
+  TestFilter testFilter;
+  MockHTTPMessageFilter mockFilter;
+  mockFilter.setTrackDataPassedThrough(true);
+
+  testFilter.setNextTransactionHandler(&mockFilter);
+
+  EXPECT_CALL(mockFilter, onBody(testing::_)).Times(1);
+
+  std::string bodyContent = "Hello";
+  auto body = folly::IOBuf::copyBuffer(bodyContent);
+  testFilter.onBody(std::move(body));
+  auto dataPassedToNext = mockFilter.bodyDataSinceLastCheck();
+  dataPassedToNext->coalesce();
+  auto len = dataPassedToNext->computeChainDataLength();
+  EXPECT_EQ(bodyContent.size(), len);
+  const char* p = reinterpret_cast<const char*>(dataPassedToNext->data());
+  EXPECT_EQ(bodyContent, std::string(p, len));
+
+  EXPECT_CALL(mockFilter, onBody(testing::_)).Times(1);
+
+  bodyContent = "World";
+  body = folly::IOBuf::copyBuffer(bodyContent);
+  testFilter.onBody(std::move(body));
+  dataPassedToNext = mockFilter.bodyDataSinceLastCheck();
+  dataPassedToNext->coalesce();
+  len = dataPassedToNext->computeChainDataLength();
+  EXPECT_EQ(bodyContent.size(), len);
+  p = reinterpret_cast<const char*>(dataPassedToNext->data());
+  EXPECT_EQ(bodyContent, std::string(p, len));
+}

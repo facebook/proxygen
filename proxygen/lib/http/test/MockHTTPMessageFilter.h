@@ -27,6 +27,9 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
 
   MOCK_QUALIFIED_METHOD1(onBody, noexcept, void(std::shared_ptr<folly::IOBuf>));
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
+    if (trackDataPassedThrough_) {
+      bodyDataReceived_.append(chain->clone());
+    }
     onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
   MOCK_QUALIFIED_METHOD0(pause, noexcept, void());
@@ -64,6 +67,18 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
   void nextOnEOMPublic() {
     nextOnEOM();
   }
+
+  std::unique_ptr<folly::IOBuf> bodyDataSinceLastCheck() {
+    return bodyDataReceived_.move();
+  }
+
+  void setTrackDataPassedThrough(bool track) {
+    trackDataPassedThrough_ = track;
+  }
+
+private:
+  folly::IOBufQueue bodyDataReceived_{folly::IOBufQueue::cacheChainLength()};
+  bool trackDataPassedThrough_{false};
 };
 
 }
