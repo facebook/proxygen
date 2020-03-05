@@ -168,7 +168,7 @@ void initializeCommonSettings(HQParams& hqParams) {
 
 void initializeTransportSettings(HQParams& hqParams) {
   // Transport section
-  hqParams.quicVersions = {quic::QuicVersion::MVFST};
+  hqParams.quicVersions = {quic::QuicVersion::MVFST, quic::QuicVersion::MVFST_D24};
   if (FLAGS_draft_version != 0) {
     auto draftVersion =
         static_cast<quic::QuicVersion>(0xff000000 | FLAGS_draft_version);
