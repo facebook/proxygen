@@ -145,6 +145,14 @@ class ServerPushLifecycleCallback {
   virtual void onOrphanedHalfOpenPushedTxn(
       const HTTPTransaction* /* txn */) = 0;
 
+  /**
+   * Push ID limit exceeded, possibly closing the stream
+   */
+  virtual void onPushIdLimitExceeded(
+      hq::PushId /* incoming push id */,
+      folly::Optional<hq::PushId> /* maximal allowed push id */,
+      folly::Optional<HTTPCodec::StreamID> /* possible push stream */) = 0;
+
 }; // ServerPushLifecycleCallback
 
 } // namespace proxygen

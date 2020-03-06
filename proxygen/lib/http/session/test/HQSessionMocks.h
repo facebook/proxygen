@@ -198,6 +198,11 @@ class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
   MOCK_METHOD1(onOrphanedHalfOpenPushedTxn,
                void(const HTTPTransaction* /* txn */));
 
+  MOCK_METHOD3(onPushIdLimitExceeded,
+               void(hq::PushId /* incoming push id */,
+                    folly::Optional<hq::PushId> /* max allowed push id */,
+                    folly::Optional<HTTPCodec::StreamID> /* stream */));
+
   using PushPromiseBeginF =
       std::function<void(HTTPCodec::StreamID, hq::PushId)>;
   using PushPromiseF =
@@ -220,6 +225,11 @@ class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
   using PushedTxnTimeoutF = std::function<void(const HTTPTransaction*)>;
   using OrphanedHalfOpenPushedTxnF =
       std::function<void(const HTTPTransaction*)>;
+
+  using PushIdLimitExceededF = std::function<void(
+                        hq::PushId,
+                        folly::Optional<hq::PushId>,
+                        folly::Optional<HTTPCodec::StreamID>)>;
 
   void expectPushPromiseBegin(PushPromiseBeginF impl = nullptr) {
     auto& exp = EXPECT_CALL(*this, onPushPromiseBegin(testing::_, testing::_));
@@ -296,6 +306,15 @@ class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
   void expectOrphanedHalfOpenPushedTxn(
       OrphanedHalfOpenPushedTxnF impl = nullptr) {
     auto& exp = EXPECT_CALL(*this, onOrphanedHalfOpenPushedTxn(testing::_));
+    if (impl) {
+      exp.WillOnce(testing::Invoke(impl));
+    }
+  }
+
+    void expectPushIdLimitExceeded(
+      PushIdLimitExceededF impl = nullptr) {
+    auto& exp = EXPECT_CALL(
+        *this, onPushIdLimitExceeded(testing::_, testing::_, testing::_));
     if (impl) {
       exp.WillOnce(testing::Invoke(impl));
     }
