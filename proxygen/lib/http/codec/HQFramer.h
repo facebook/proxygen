@@ -46,6 +46,14 @@ bool isInternalPushId(PushId pushId);
 // set.
 bool isExternalPushId(PushId pushId);
 
+// Validate the given push ID.
+bool isValidPushId(
+    folly::Optional<PushId> /* max valid push id value */,
+    PushId /* push id to validate */);
+
+// Compare push IDs after stripping the kPushBitMask
+bool comparePushId(PushId /* lhs */, PushId /* rhs */);
+
 using ParseResult = folly::Optional<HTTP3::ErrorCode>;
 using WriteResult = folly::Expected<size_t, quic::TransportErrorCode>;
 

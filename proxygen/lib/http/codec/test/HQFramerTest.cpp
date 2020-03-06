@@ -67,6 +67,24 @@ class HQFramerTestFixture : public T {
 
 class HQFramerTest : public HQFramerTestFixture<testing::Test> {};
 
+TEST_F(HQFramerTest, TestValidPushId) {
+  PushId maxValidPushId = 10 | kPushIdMask;
+  PushId validPushId = 9 | kPushIdMask;
+  PushId exceedingPushId = 11 | kPushIdMask;
+
+  auto expectValid = isValidPushId(maxValidPushId, validPushId);
+  EXPECT_TRUE(expectValid);
+
+  auto expectTooLarge = isValidPushId(maxValidPushId, exceedingPushId);
+  EXPECT_FALSE(expectTooLarge);
+
+  auto expectMatching = isValidPushId(maxValidPushId, maxValidPushId);
+  EXPECT_TRUE(expectMatching);
+
+  auto expectEmpty = isValidPushId(folly::none, validPushId);
+  EXPECT_FALSE(expectEmpty);
+}
+
 TEST_F(HQFramerTest, TestWriteFrameHeaderManual) {
   auto res = writeFrameHeaderManual(
       queue_, 0, static_cast<uint8_t>(proxygen::hq::FrameType::DATA));

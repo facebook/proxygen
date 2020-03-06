@@ -37,6 +37,24 @@ bool isExternalPushId(PushId pushId) {
   return !(pushId & kPushIdMask);
 }
 
+// Return 0 if (lhs < rhs), 1 otherwise
+bool comparePushId(PushId lhs, PushId rhs) {
+  return ((lhs & ~kPushIdMask) < (rhs & ~kPushIdMask)) ? false : true;
+}
+
+bool isValidPushId(folly::Optional<PushId> maxAllowedPushId, PushId pushId) {
+  if (!maxAllowedPushId.hasValue()) {
+    VLOG(3) << __func__ << "maximum push ID value has not been set";
+    return false;
+  } else if (!comparePushId(maxAllowedPushId.value(), pushId)) {
+    VLOG(3) << __func__ << "given pushid=" << pushId << "exceeds possible push ID value "
+      << "maxAllowedPushId_=" << maxAllowedPushId.value();
+    return false;
+  }
+
+  return true;
+}
+
 bool frameAffectsCompression(FrameType t) {
   return t == FrameType::HEADERS || t == FrameType::PUSH_PROMISE;
 }

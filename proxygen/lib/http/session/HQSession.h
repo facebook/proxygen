@@ -136,6 +136,10 @@ class HQSession
   static constexpr uint8_t kMaxCodecStackDepth = 3;
 
  public:
+  folly::Optional<hq::PushId> getMaxAllowedPushId() {
+    return maxAllowedPushId_;
+  }
+
   void setServerPushLifecycleCallback(ServerPushLifecycleCallback* cb) {
     serverPushLifecycleCb_ = cb;
   }
@@ -722,6 +726,14 @@ class HQSession
   void resumeTransactions() override;
 
   void notifyEgressBodyBuffered(int64_t bytes);
+
+  // The max allowed push id value. Value folly::none indicates that
+  // a. For downstream session: MAX_PUSH_ID has not been received
+  // b. For upstream session: MAX_PUSH_ID has been explicitly set to none
+  // In both cases, maxAllowedPushId_ == folly::none means that no push id
+  // is allowed. Default to kEightByteLimit assuming this session will
+  // be using push.
+  folly::Optional<hq::PushId> maxAllowedPushId_ {folly::none};
 
   // Schedule the loop callback.
   // To keep this consistent with EventBase::runInLoop run in the next loop

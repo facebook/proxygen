@@ -308,6 +308,12 @@ void HQDownstreamSessionTest::expectTransactionTimeout(
   handler.expectDetachTransaction();
 }
 
+TEST_P(HQDownstreamSessionTest, GetMaxPushIdOK) {
+  folly::Optional<hq::PushId> expectedId = hqSession_->getMaxAllowedPushId();
+  EXPECT_EQ(expectedId, folly::none);
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTest, SimpleGet) {
   auto idh = checkRequest();
   flushRequestsAndLoop();
