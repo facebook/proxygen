@@ -118,6 +118,8 @@ class SessionHolder : private HTTPSessionBase::InfoCallback {
   void onIngressEOF() override {
   }
   void onRead(const HTTPSessionBase&, size_t bytesRead) override;
+  void onRead(const HTTPSessionBase& sess, size_t bytesRead,
+              folly::Optional<HTTPCodec::StreamID> /*stream id*/) override;
   void onWrite(const HTTPSessionBase&, size_t bytesWritten) override;
   void onRequestBegin(const HTTPSessionBase&) override;
   void onRequestEnd(const HTTPSessionBase&,

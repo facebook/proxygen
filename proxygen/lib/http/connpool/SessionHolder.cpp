@@ -164,11 +164,15 @@ void SessionHolder::onIngressError(const HTTPSessionBase& session,
 }
 
 void SessionHolder::onRead(const HTTPSessionBase& session, size_t bytesRead) {
+  onRead(session, bytesRead, folly::none);
+}
+  void SessionHolder::onRead(const HTTPSessionBase& session, size_t bytesRead,
+                             folly::Optional<HTTPCodec::StreamID> streamId) {
   if (stats_) {
     stats_->onRead(bytesRead);
   }
   if (originalSessionInfoCb_) {
-    originalSessionInfoCb_->onRead(session, bytesRead);
+    originalSessionInfoCb_->onRead(session, bytesRead, streamId);
   }
 }
 
