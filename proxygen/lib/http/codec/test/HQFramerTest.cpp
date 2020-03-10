@@ -295,6 +295,44 @@ TEST_F(HQFramerTest, SettingsFrameOK) {
   ASSERT_EQ(settings, outSettings);
 }
 
+TEST_F(HQFramerTest, MaxPushIdFrameOK) {
+  // Add kPushIdMask to denote this is a max Push ID
+  PushId maxPushId = 10 | hq::kPushIdMask;
+  writeMaxPushId(queue_, maxPushId);
+
+  FrameHeader header;
+  PushId resultingPushId;
+  parse(folly::none, &parseMaxPushId, header, resultingPushId);
+
+  // Ensure header of frame and Push ID value are equivalent
+  // when writing and parsing
+  ASSERT_EQ(proxygen::hq::FrameType::MAX_PUSH_ID, header.type);
+  ASSERT_EQ(maxPushId, resultingPushId);
+}
+
+TEST_F(HQFramerTest, MaxPushIdFrameLargePushId) {
+  // Test with largest possible number
+  PushId maxPushId = quic::kEightByteLimit | hq::kPushIdMask;
+  writeMaxPushId(queue_, maxPushId);
+
+  FrameHeader header;
+  PushId resultingPushId;
+  parse(folly::none, &parseMaxPushId, header, resultingPushId);
+
+  // Ensure header of frame and Push ID value are equivalent
+  // when writing and parsing
+  ASSERT_EQ(proxygen::hq::FrameType::MAX_PUSH_ID, header.type);
+  ASSERT_EQ(maxPushId, resultingPushId);
+}
+
+TEST_F(HQFramerTest, MaxPushIdTooLarge) {
+  // Test kEightByteLimit + 1 as over the limit
+  PushId maxPushId = (quic::kEightByteLimit + 1) | hq::kPushIdMask;
+  auto res = writeMaxPushId(queue_, maxPushId);
+
+  ASSERT_TRUE(res.hasError());
+}
+
 struct SettingsValuesParams {
   hq::SettingId id;
   hq::SettingValue value;
