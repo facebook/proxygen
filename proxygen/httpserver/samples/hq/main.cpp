@@ -29,28 +29,34 @@ int main(int argc, char* argv[]) {
   folly::init(&argc, &argv, false);
   folly::ssl::init();
 
-  return initializeParamsFromCmdline()
-      .then([](const HQParams& params) {
-        // TODO: move sink to params
-        proxygen::ConnIdLogSink sink(params);
-        if (sink.isValid()) {
-          AddLogSink(&sink);
-        } else if (!params.logdir.empty()) {
-          LOG(ERROR) << "Cannot open " << params.logdir;
-        }
+  auto expectedParams = initializeParamsFromCmdline();
+  if (expectedParams) {
+    auto& params = expectedParams.value();
+    // TODO: move sink to params
+    proxygen::ConnIdLogSink sink(params);
+    if (sink.isValid()) {
+      AddLogSink(&sink);
+    } else if (!params.logdir.empty()) {
+      LOG(ERROR) << "Cannot open " << params.logdir;
+    }
 
-        switch (params.mode) {
-          case HQMode::SERVER:
-            startServer(params);
-            break;
-          case HQMode::CLIENT:
-            startClient(params);
-            break;
-          default:
-            LOG(ERROR) << "Unknown mode specified: ";
-            return -1;
-        }
-        return 0;
-      })
-      .value();
+    switch (params.mode) {
+      case HQMode::SERVER:
+        startServer(params);
+        break;
+      case HQMode::CLIENT:
+        startClient(params);
+        break;
+      default:
+        LOG(ERROR) << "Unknown mode specified: ";
+        return -1;
+    }
+    return 0;
+  }
+  else {
+    for (auto& param : expectedParams.error()) {
+      LOG(ERROR) << "Invalid param: " << param.name << " " << param.value << " "
+                 << param.errorMsg;
+    }
+  }
 }
