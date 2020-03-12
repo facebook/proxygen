@@ -13,7 +13,11 @@ using namespace quic::samples;
 HQLoggerHelper::HQLoggerHelper(const std::string& path,
                                bool pretty,
                                quic::VantagePoint vantagePoint)
-    : quic::FileQLogger(vantagePoint, quic::kHTTP3ProtocolType),
+    : quic::FileQLogger(vantagePoint,
+                        quic::kHTTP3ProtocolType,
+                        path,
+                        pretty,
+                        false /* streaming */),
       outputPath_(path),
       pretty_(pretty) {
 }
