@@ -216,6 +216,10 @@ class ResponseBuilder {
     return *this;
   }
 
+  const HTTPMessage* getHeaders() const {
+    return headers_.get();
+  }
+
  private:
   ResponseHandler* const txn_{nullptr};
 
