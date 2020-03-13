@@ -125,10 +125,11 @@ class HTTPServer final {
    * Stop HTTPServer.
    *
    * Can be called from any thread, but only after start() has called
-   * onSuccess.  Server will stop listening for new connections and will
-   * wait for running requests to finish.
+   * onSuccess.  Server will stop listening for new connections and drop all
+   * connections immediately. Before calling stop(), you may want to make sure
+   * to properly drain and close on-going requests/connections.
    *
-   * TODO: Separate method to do hard shutdown?
+   * TODO: Separate method to do graceful shutdown?
    */
   void stop();
 
