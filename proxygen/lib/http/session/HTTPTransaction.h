@@ -1382,7 +1382,8 @@ class HTTPTransaction
    * to decrementPendingByteEvents or the transaction will never be destroyed.
    */
   void incrementPendingByteEvents() {
-    CHECK_LT(pendingByteEvents_, std::numeric_limits<uint8_t>::max());
+    CHECK_LT(pendingByteEvents_,
+             std::numeric_limits<decltype(pendingByteEvents_)>::max());
     pendingByteEvents_++;
   }
 
@@ -1785,7 +1786,7 @@ peek(PeekCallback peekCallback);
    * could take on multiple 1xx values, and then take on 200.
    */
   uint16_t lastResponseStatus_{0};
-  uint8_t pendingByteEvents_{0};
+  uint64_t pendingByteEvents_{0};
   folly::Optional<uint64_t> expectedIngressContentLength_;
   folly::Optional<uint64_t> expectedIngressContentLengthRemaining_;
   folly::Optional<uint64_t> expectedResponseLength_;
