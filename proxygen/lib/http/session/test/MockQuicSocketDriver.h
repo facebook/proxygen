@@ -426,6 +426,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               stream.error = error;
               stream.writeState = ERROR;
               stream.pendingWriteBuf.move();
+              stream.pendingWriteCb = nullptr;
               cancelDeliveryCallbacks(id, stream);
               return folly::unit;
             }));
@@ -778,6 +779,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
           folly::format("called notifyPendingWrite twice for streamId={}", id)
               .str(),
           return folly::unit);
+
+      if (wcb == nullptr) {
+        return folly::makeUnexpected(LocalErrorCode::INVALID_WRITE_CALLBACK);
+      }
+
       stream.pendingWriteCb = wcb;
       eventBase_->runInLoop(
           [this, id, &stream, deleted = deleted_] {
@@ -982,9 +988,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     if (millisecondsDelay == 0) {
       eventBase_->runInLoop(std::move(cob), true);
     } else {
-      // runAfterDelay doesn't guarantee order if two events run after the same
-      // delay.  So queue the function and only use runAfterDelay to signal
-      // the event.
+      // runAfterDelay doesn't guarantee order if two events run after the
+      // same delay.  So queue the function and only use runAfterDelay to
+      // signal the event.
       events_.emplace_back(std::move(cob));
       eventBase_->runAfterDelay(
           [this] {
