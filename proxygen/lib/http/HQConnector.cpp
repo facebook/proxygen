@@ -65,13 +65,13 @@ void HQConnector::connect(
       quic::FizzClientQuicHandshakeContext::Builder()
           .setFizzClientContext(fizzContext)
           .setCertificateVerifier(std::move(verifier))
+          .setPskCache(quicPskCache_)
           .build());
   quicClient->setHostname(sni.value_or(connectAddr.getAddressStr()));
   quicClient->addNewPeerAddress(connectAddr);
   quicClient->setCongestionControllerFactory(
       std::make_shared<quic::DefaultCongestionControllerFactory>());
   quicClient->setTransportSettings(transportSettings_);
-  quicClient->setPskCache(quicPskCache_);
   quicClient->setLogger(std::move(logger));
   quicClient->setQLogger(std::move(qLogger));
   quicClient->setLoopDetectorCallback(std::move(quicLoopDetectorCallback));

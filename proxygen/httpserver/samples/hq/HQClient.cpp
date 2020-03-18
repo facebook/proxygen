@@ -160,10 +160,13 @@ void HQClient::initializeQuicClient() {
   auto client = std::make_shared<quic::QuicClientTransport>(
       &evb_,
       std::move(sock),
-      quic::FizzClientQuicHandshakeContext::Builder().setFizzClientContext(
-          createFizzClientContext(params_)).setCertificateVerifier(
-          std::make_unique<
-              proxygen::InsecureVerifierDangerousDoNotUseInProduction>()).build());
+      quic::FizzClientQuicHandshakeContext::Builder()
+          .setFizzClientContext(createFizzClientContext(params_))
+          .setCertificateVerifier(
+              std::make_unique<
+                  proxygen::InsecureVerifierDangerousDoNotUseInProduction>())
+          .setPskCache(params_.pskCache)
+          .build());
   client->setPacingTimer(pacingTimer_);
   client->setHostname(params_.host);
   client->addNewPeerAddress(params_.remoteAddress.value());
@@ -175,7 +178,6 @@ void HQClient::initializeQuicClient() {
   client->setTransportSettings(params_.transportSettings);
   client->setSupportedVersions(params_.quicVersions);
 
-  client->setPskCache(params_.pskCache);
   quicClient_ = std::move(client);
 }
 
