@@ -31,6 +31,8 @@ DecodeError StructuredHeadersBuffer::parseItem(StructuredHeaderItem& result) {
       return parseBinaryContent(result);
     } else if (std::isdigit(firstCharacter) || firstCharacter == '-') {
       return parseNumber(result);
+    } else if (firstCharacter == '?') {
+      return parseBoolean(result);
     } else {
       return handleDecodeError(DecodeError::INVALID_CHARACTER);
     }
@@ -92,6 +94,29 @@ DecodeError StructuredHeadersBuffer::parseNumber(StructuredHeaderItem& result) {
     return parseFloat(input, result);
   }
 
+  return DecodeError::OK;
+}
+
+DecodeError StructuredHeadersBuffer::parseBoolean(
+    StructuredHeaderItem& result) {
+  if (removeSymbol("?", true) != DecodeError::OK) {
+    CHECK(false) << "Only invoked after peeking a '?'";
+  }
+  if (isEmpty()) {
+    return handleDecodeError(DecodeError::UNEXPECTED_END_OF_BUFFER);
+  }
+
+  auto ch = peek();
+  if (ch != '0' && ch != '1') {
+    return handleDecodeError(DecodeError::INVALID_CHARACTER);
+  }
+
+  result.tag = StructuredHeaderItem::Type::BOOLEAN;
+  result.value = static_cast<bool>(ch - '0');
+  advanceCursor();
+  if (!isEmpty()) {
+      return handleDecodeError(DecodeError::VALUE_TOO_LONG);
+  }
   return DecodeError::OK;
 }
 

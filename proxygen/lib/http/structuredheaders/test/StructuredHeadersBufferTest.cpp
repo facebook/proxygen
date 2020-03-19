@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersBuffer.h>
 #include <string>
 #include <folly/portability/GTest.h>
+#include <folly/Conv.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersConstants.h>
 
 namespace proxygen{
@@ -211,6 +212,49 @@ TEST_F(StructuredHeadersBufferTest, TestIntegerUnderflow) {
   StructuredHeaderItem output;
   auto err = shd.parseItem(output);
   EXPECT_NE(err, StructuredHeaders::DecodeError::OK);
+}
+
+TEST_F(StructuredHeadersBufferTest, TestBool) {
+  for (auto i = 0; i < 2; i++) {
+    std::string input = folly::to<std::string>("?", i);
+    StructuredHeadersBuffer shd(input);
+    StructuredHeaderItem output;
+    auto err = shd.parseItem(output);
+    EXPECT_EQ(err, StructuredHeaders::DecodeError::OK);
+    EXPECT_EQ(output.tag, StructuredHeaderItem::Type::BOOLEAN);
+    bool expected = i;
+    EXPECT_EQ(output.get<bool>(), expected);
+  }
+}
+
+TEST_F(StructuredHeadersBufferTest, TestBoolInvalidChars) {
+  std::string input = "?2";
+  StructuredHeadersBuffer shd(input);
+  StructuredHeaderItem output;
+  auto err = shd.parseItem(output);
+  EXPECT_EQ(err, StructuredHeaders::DecodeError::INVALID_CHARACTER);
+}
+
+TEST_F(StructuredHeadersBufferTest, TestBoolWrongLength) {
+  std::vector<std::string> inputs{ "?", "?10" };
+  for (auto& input: inputs) {
+    StructuredHeadersBuffer shd(input);
+    StructuredHeaderItem output;
+    auto err = shd.parseItem(output);
+    EXPECT_EQ(err,
+              (input.length() > 2 ?
+               StructuredHeaders::DecodeError::VALUE_TOO_LONG :
+               StructuredHeaders::DecodeError::UNEXPECTED_END_OF_BUFFER));
+  }
+}
+
+TEST_F(StructuredHeadersBufferTest, TestBool2) {
+
+  std::string input = "?2";
+  StructuredHeadersBuffer shd(input);
+  StructuredHeaderItem output;
+  auto err = shd.parseItem(output);
+  EXPECT_EQ(err, StructuredHeaders::DecodeError::INVALID_CHARACTER);
 }
 
 TEST_F(StructuredHeadersBufferTest, TestFloat) {

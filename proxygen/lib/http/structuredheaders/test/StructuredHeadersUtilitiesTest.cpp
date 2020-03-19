@@ -147,18 +147,18 @@ TEST_F(StructuredHeadersUtilitiesTest, Test_BinaryContentEmpty) {
 
 TEST_F(StructuredHeadersUtilitiesTest, TestItemTypeMatchesContentGood) {
   StructuredHeaderItem item;
-  item.value = "\"potato\"";
+  item.value = std::string("\"potato\"");
   item.tag = StructuredHeaderItem::Type::STRING;
   EXPECT_TRUE(itemTypeMatchesContent(item));
 
-  item.value = "a_800";
+  item.value = std::string("a_800");
   item.tag = StructuredHeaderItem::Type::IDENTIFIER;
   EXPECT_TRUE(itemTypeMatchesContent(item));
 
   item.tag = StructuredHeaderItem::Type::NONE;
   EXPECT_TRUE(itemTypeMatchesContent(item));
 
-  item.value = "hello";
+  item.value = std::string("hello");
   item.tag = StructuredHeaderItem::Type::BINARYCONTENT;
   EXPECT_TRUE(itemTypeMatchesContent(item));
 
@@ -174,7 +174,7 @@ TEST_F(StructuredHeadersUtilitiesTest, TestItemTypeMatchesContentGood) {
 TEST_F(StructuredHeadersUtilitiesTest, TestItemTypeMatchesContentBad) {
   StructuredHeaderItem item;
 
-  item.value = "hello";
+  item.value = std::string("hello");
   item.tag = StructuredHeaderItem::Type::DOUBLE;
   EXPECT_FALSE(itemTypeMatchesContent(item));
   item.tag = StructuredHeaderItem::Type::INT64;

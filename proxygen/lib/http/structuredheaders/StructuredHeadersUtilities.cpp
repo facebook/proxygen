@@ -90,6 +90,8 @@ bool itemTypeMatchesContent(
       return input.value.type() == typeid(std::string);
     case StructuredHeaderItem::Type::INT64:
       return input.value.type() == typeid(int64_t);
+    case StructuredHeaderItem::Type::BOOLEAN:
+      return input.value.type() == typeid(bool);
     case StructuredHeaderItem::Type::DOUBLE:
       return input.value.type() == typeid(double);
     case StructuredHeaderItem::Type::NONE:

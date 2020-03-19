@@ -49,6 +49,8 @@ class StructuredHeadersEncoder {
 
    EncodeError encodeInteger(int64_t input);
 
+   EncodeError encodeBoolean(bool input);
+
    EncodeError encodeFloat(double input);
 
    EncodeError handleEncodeError(EncodeError err,

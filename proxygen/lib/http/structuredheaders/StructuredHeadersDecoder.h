@@ -19,6 +19,8 @@ public:
 
   explicit StructuredHeadersDecoder(const std::string& s): buf_(s) {}
 
+  explicit StructuredHeadersDecoder(folly::StringPiece s): buf_(s) {}
+
   StructuredHeaders::DecodeError decodeItem(StructuredHeaderItem& result);
 
   StructuredHeaders::DecodeError

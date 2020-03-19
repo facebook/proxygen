@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
 #include <unordered_map>
+#include <folly/Conv.h>
 #include <folly/portability/GTest.h>
 #include <folly/portability/GMock.h>
 
@@ -42,6 +43,21 @@ TEST_F(StructuredHeadersEncoderTest, TestIntegerNegative) {
 
   EXPECT_EQ(err, EncodeError::OK);
   EXPECT_EQ(encoder.get(), "-2018");
+}
+
+TEST_F(StructuredHeadersEncoderTest, TestBoolean) {
+  StructuredHeaderItem item;
+  for (auto i = 0; i < 2; i++) {
+    bool val = i;
+    item.tag = StructuredHeaderItem::Type::BOOLEAN;
+    item.value = val;
+
+    StructuredHeadersEncoder encoder;
+    auto err = encoder.encodeItem(item);
+
+    EXPECT_EQ(err, EncodeError::OK);
+    EXPECT_EQ(encoder.get(), folly::to<std::string>("?", (val ? "1" : "0")));
+  }
 }
 
 TEST_F(StructuredHeadersEncoderTest, TestFloat) {

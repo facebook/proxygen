@@ -23,6 +23,10 @@ public:
     content_(s),
     originalContent_(s) {}
 
+  explicit StructuredHeadersBuffer(folly::StringPiece s) :
+    content_(s),
+    originalContent_(s) {}
+
   /*
    * helper functions used to extract various lower-level items from a sequence
    * of bytes. These will be called from higher level functions which parse
@@ -48,6 +52,8 @@ private:
   DecodeError parseBinaryContent(StructuredHeaderItem& result);
 
   DecodeError parseNumber(StructuredHeaderItem& result);
+
+  DecodeError parseBoolean(StructuredHeaderItem& result);
 
   DecodeError parseString(StructuredHeaderItem& result);
 

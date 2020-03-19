@@ -21,10 +21,14 @@ static const int kMaxValidFloatLength = 16;
 /* tagged union for an item in a structured header */
 class StructuredHeaderItem {
  public:
-  enum class Type { NONE, STRING, BINARYCONTENT, IDENTIFIER, DOUBLE, INT64 };
+  enum class Type { NONE, STRING, BINARYCONTENT, IDENTIFIER, DOUBLE, INT64,
+      BOOLEAN };
+
+  using VariantType = boost::variant<bool, int64_t, double, std::string>;
+
   StructuredHeaderItem() = default;
   StructuredHeaderItem(
-      Type tagIn, boost::variant<int64_t, double, const std::string&> valueIn)
+      Type tagIn, VariantType valueIn)
       : tag(tagIn), value(valueIn) {
   }
 
@@ -42,8 +46,13 @@ class StructuredHeaderItem {
     }
   }
 
+  template<typename T>
+  T get() const {
+    return boost::get<T>(value);
+  }
+
   Type tag;
-  boost::variant<int64_t, double, std::string> value;
+  VariantType value;
 };
 
 struct ParameterisedIdentifier {

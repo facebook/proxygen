@@ -124,6 +124,8 @@ EncodeError StructuredHeadersEncoder::encodeItem(
       return encodeString(boost::get<std::string>(input.value));
     case StructuredHeaderItem::Type::INT64:
       return encodeInteger(boost::get<int64_t>(input.value));
+    case StructuredHeaderItem::Type::BOOLEAN:
+      return encodeBoolean(boost::get<bool>(input.value));
     case StructuredHeaderItem::Type::DOUBLE:
       return encodeFloat(boost::get<double>(input.value));
     case StructuredHeaderItem::Type::BINARYCONTENT:
@@ -168,6 +170,13 @@ EncodeError StructuredHeadersEncoder::encodeString(const std::string& input) {
 EncodeError StructuredHeadersEncoder::encodeInteger(int64_t input) {
 
   outputStream_ << input;
+
+  return EncodeError::OK;
+}
+
+EncodeError StructuredHeadersEncoder::encodeBoolean(bool input) {
+
+  outputStream_ << '?' << (input ? '1' : '0');
 
   return EncodeError::OK;
 }
