@@ -91,9 +91,12 @@ HTTPHeaders CurlClient::parseHeaders(const std::string& headersString) {
       if (nv[0].empty()) {
         continue;
       }
-      StringPiece value("");
+      std::string value("");
+      for (size_t i = 1; i < nv.size(); i++) {
+        value += folly::to<std::string>(nv[i], '=');
+      }
       if (nv.size() > 1) {
-        value = nv[1];
+        value.pop_back();
       } // trim anything else
       headers.add(nv[0], value);
     }
