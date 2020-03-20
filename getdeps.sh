@@ -6,10 +6,10 @@ if [[ -d "$TOOLCHAIN_DIR" ]]; then
     PATH="$TOOLCHAIN_DIR:$PATH"
 fi
 
-PROXYGEN_DIR=$(dirname "$0")
+PROJECT_DIR=$(dirname "$0")
 GETDEPS_PATHS=(
-    "$PROXYGEN_DIR/build/fbcode_builder/getdeps.py"
-    "$PROXYGEN_DIR/../../opensource/fbcode_builder/getdeps.py"
+    "$PROJECT_DIR/build/fbcode_builder/getdeps.py"
+    "$PROJECT_DIR/../../opensource/fbcode_builder/getdeps.py"
 )
 
 ROOT_DIR=$(pwd)
