@@ -15,6 +15,7 @@
 #include <folly/Random.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/async/AsyncSSLSocket.h>
+#include <folly/small_vector.h>
 #include <folly/tracing/ScopedTraceSection.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
@@ -34,6 +35,13 @@ using std::pair;
 using std::string;
 using std::unique_ptr;
 using wangle::TransportInfo;
+#if !FOLLY_MOBILE
+template <class T, std::size_t N, class S>
+using SmallVec = folly::small_vector<T, N, S>;
+#else
+template <class T, std::size_t N, class S>
+using SmallVec = std::vector<T>;
+#endif
 
 namespace {
 static const uint32_t kMinReadSize = 1460;
@@ -3087,7 +3095,8 @@ bool HTTPSession::isDetachable(bool checkSocket) const {
 void HTTPSession::invokeOnAllTransactions(
     folly::Function<void(HTTPTransaction*)> fn) {
   DestructorGuard g(this);
-  std::vector<HTTPCodec::StreamID> ids;
+  SmallVec<HTTPCodec::StreamID, 100, uint16_t> ids;
+  ids.reserve(transactions_.size());
   for (const auto& txn : transactions_) {
     ids.push_back(txn.first);
   }
