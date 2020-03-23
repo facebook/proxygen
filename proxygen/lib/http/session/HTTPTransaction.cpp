@@ -183,7 +183,7 @@ void HTTPTransaction::onIngressHeadersComplete(
             folly::to<uint64_t>(contentLen);
       } catch (const folly::ConversionError& ex) {
         LOG(ERROR) << "Invalid content-length: " << contentLen
-                   << ", ex=" << ex.what() << *this;
+                   << ", ex=" << ex.what() << " " << *this;
       }
       if (expectedIngressContentLengthRemaining_) {
         expectedIngressContentLength_ =
@@ -839,7 +839,7 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
         expectedResponseLength_ = folly::to<uint64_t>(contentLen);
       } catch (const folly::ConversionError& ex) {
         LOG(ERROR) << "Invalid content-length: " << contentLen
-                   << ", ex=" << ex.what() << *this;
+                   << ", ex=" << ex.what() << " " << *this;
       }
     }
   }
@@ -1369,10 +1369,10 @@ void HTTPTransaction::pauseEgress() {
 }
 
 void HTTPTransaction::resumeEgress() {
-  VLOG(4) << "asked to resume egress" << *this;
+  VLOG(4) << "asked to resume egress " << *this;
   DestructorGuard g(this);
   if (!egressPaused_) {
-    VLOG(4) << "egress already not paused" << *this;
+    VLOG(4) << "egress already not paused " << *this;
     return;
   }
   egressPaused_ = false;
