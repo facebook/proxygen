@@ -20,6 +20,7 @@ namespace proxygen {
 struct ResourceData {
  public:
   ResourceData() = default;
+  virtual ~ResourceData() = default;
 
   /**
    * Gets the cpu ratio utilization (0, 1.0 over the last update interval)
