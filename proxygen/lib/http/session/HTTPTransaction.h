@@ -1609,7 +1609,7 @@ peek(PeekCallback peekCallback);
   }
 
   bool hasPendingEOM() const {
-    return deferredEgressBody_.chainLength() == 0 && isEgressEOMQueued();
+    return isEgressEOMQueued() && deferredEgressBody_.chainLength() == 0;
   }
 
   bool isExpectingIngress() const;

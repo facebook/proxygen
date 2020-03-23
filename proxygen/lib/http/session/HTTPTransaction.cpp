@@ -1746,7 +1746,8 @@ void HTTPTransaction::updateTransactionBytesSent(uint64_t bytes) {
 }
 
 void HTTPTransaction::checkIfEgressRateLimitedByUpstream() {
-  if (deferredEgressBody_.empty() && !hasPendingEOM() && transportCallback_) {
+  if (transportCallback_ && !isEgressEOMQueued() &&
+      deferredEgressBody_.chainLength() == 0) {
     transportCallback_->egressBufferEmpty();
   }
 }
