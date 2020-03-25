@@ -483,6 +483,11 @@ class HQSession
     return versionUtils_->isPartialReliabilityEnabled();
   }
 
+  // Returns creation time point for logging of handshake duration
+  const std::chrono::steady_clock::time_point& getCreatedTime() const {
+    return createTime_;
+  }
+
  protected:
   // Finds any transport-like stream that has not been detached
   // by quic stream id
@@ -601,7 +606,8 @@ class HQSession
         started_(false),
         dropping_(false),
         inLoopCallback_(false),
-        unidirectionalReadDispatcher_(*this) {
+        unidirectionalReadDispatcher_(*this),
+        createTime_(std::chrono::steady_clock::now()) {
     codec_.add<HTTPChecks>();
     // dummy, ingress, egress
     codecStack_.reserve(kMaxCodecStackDepth);
@@ -2082,6 +2088,9 @@ class HQSession
 
   // Bidirectional transport streams
   std::unordered_map<quic::StreamId, HQStreamTransport> streams_;
+
+  // Creation time (for handshake time tracking)
+  std::chrono::steady_clock::time_point createTime_;
 
 }; // HQSession
 
