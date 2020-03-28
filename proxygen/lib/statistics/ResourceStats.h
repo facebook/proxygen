@@ -28,6 +28,7 @@ class ResourceStats : public PeriodicStats<ResourceData> {
    * proc loadavg.
    */
   explicit ResourceStats(std::unique_ptr<Resources> resources);
+  ~ResourceStats();
 
  protected:
   /**

@@ -16,6 +16,12 @@ ResourceStats::ResourceStats(std::unique_ptr<Resources> resources)
       resources_(std::move(resources)) {
 }
 
+ResourceStats::~ResourceStats() {
+  // Stop refreshing on destruction so the function scheduler thread can
+  // not access destructed class members.
+  stopRefresh();
+}
+
 ResourceData* ResourceStats::getNewData() const {
   return new ResourceData(resources_->getCurrentData());
 }
