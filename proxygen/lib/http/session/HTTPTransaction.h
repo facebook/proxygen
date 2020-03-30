@@ -387,6 +387,7 @@ class HTTPTransactionTransportCallback {
   }
 };
 
+class HTTPSessionBase;
 class HTTPTransaction
     : public folly::HHWheelTimer::Callback
     , public folly::DelayedDestructionBase {
@@ -510,6 +511,8 @@ class HTTPTransaction
 
     virtual void setHTTP2PrioritiesEnabled(bool enabled) = 0;
     virtual bool getHTTP2PrioritiesEnabled() const = 0;
+
+    virtual HTTPSessionBase* getHTTPSessionBase() = 0;
 
     virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
         uint8_t level) = 0;

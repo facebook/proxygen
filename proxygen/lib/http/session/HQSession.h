@@ -1085,6 +1085,10 @@ class HQSession
 
     void initIngress(const std::string& /* where */);
 
+    HTTPSessionBase* getHTTPSessionBase() override {
+      return &(getSession());
+    }
+
    public:
     HQStreamTransportBase() = delete;
 

@@ -52,6 +52,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                     trackLastByteFlushed);
   }
 
+  GMOCK_METHOD0_(, , , getHTTPSessionBase, HTTPSessionBase*());
   GMOCK_METHOD2_(
       , noexcept, , sendChunkHeader, size_t(HTTPTransaction*, size_t));
   GMOCK_METHOD1_(, noexcept, , sendChunkTerminator, size_t(HTTPTransaction*));

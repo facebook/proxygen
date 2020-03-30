@@ -101,6 +101,10 @@ class HTTPSession
     return byteEventTracker_.get();
   }
 
+  HTTPSessionBase* getHTTPSessionBase() override {
+    return this;
+  }
+
   void setByteEventTracker(std::shared_ptr<ByteEventTracker> byteEventTracker);
 
   void setSessionStats(HTTPSessionStats* stats) override;
