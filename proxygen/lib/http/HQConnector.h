@@ -53,6 +53,7 @@ class HQConnector : public HQSession::ConnectCallback {
 
   void connect(
       folly::EventBase* eventBase,
+      folly::Optional<folly::SocketAddress> localAddr,
       const folly::SocketAddress& connectAddr,
       std::shared_ptr<const fizz::client::FizzClientContext> fizzContext,
       std::shared_ptr<const fizz::CertificateVerifier> verifier,

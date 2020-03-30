@@ -47,6 +47,7 @@ void HQConnector::setQuicPskCache(
 
 void HQConnector::connect(
     EventBase* eventBase,
+    folly::Optional<folly::SocketAddress> localAddr,
     const folly::SocketAddress& connectAddr,
     std::shared_ptr<const FizzClientContext> fizzContext,
     std::shared_ptr<const fizz::CertificateVerifier> verifier,
@@ -69,6 +70,9 @@ void HQConnector::connect(
           .build());
   quicClient->setHostname(sni.value_or(connectAddr.getAddressStr()));
   quicClient->addNewPeerAddress(connectAddr);
+  if (localAddr.hasValue()) {
+    quicClient->setLocalAddress(*localAddr);
+  }
   quicClient->setCongestionControllerFactory(
       std::make_shared<quic::DefaultCongestionControllerFactory>());
   quicClient->setTransportSettings(transportSettings_);
