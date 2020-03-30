@@ -19,6 +19,18 @@
 using proxygen::compress::Header;
 using std::vector;
 
+/**
+ * On some mobile platforms we don't always get a chance to stop proxygen
+ * eventbase. That leads to static object being cleaned up by system while
+ * proxygen tries to access them, which is bad. The speedup from making
+ * some variable static isn't necessary on mobile clients anyway.
+ */
+#ifdef FOLLY_MOBILE
+#define QPACK_STATIC
+#else
+#define QPACK_STATIC static
+#endif
+
 namespace proxygen {
 
 QPACKCodec::QPACKCodec()
@@ -46,7 +58,7 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
     vector<Header>& headers,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) noexcept {
-  static folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
+  QPACK_STATIC folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
   auto& prepared = *preparedTL.get();
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
   auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,

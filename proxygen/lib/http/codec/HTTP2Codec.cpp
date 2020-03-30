@@ -1549,7 +1549,7 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
 }
 
 void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
-  static folly::ThreadLocalPtr<HTTP2Codec> defaultCodec;
+  CODEC_STATIC folly::ThreadLocalPtr<HTTP2Codec> defaultCodec;
   if (!defaultCodec.get()) {
     defaultCodec.reset(new HTTP2Codec(TransportDirection::UPSTREAM));
   }

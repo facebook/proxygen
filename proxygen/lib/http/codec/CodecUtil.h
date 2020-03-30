@@ -19,6 +19,18 @@
 
 namespace proxygen {
 
+/**
+ * On some mobile platforms we don't always get a chance to stop proxygen
+ * eventbase. That leads to static object being cleaned up by system while
+ * proxygen tries to access them, which is bad. The speedup from making
+ * some variable static isn't necessary on mobile clients anyway.
+ */
+#ifdef FOLLY_MOBILE
+#define CODEC_STATIC
+#else
+#define CODEC_STATIC static
+#endif
+
 class CodecUtil {
  public:
   // If these are needed elsewhere, we can move them to a more generic

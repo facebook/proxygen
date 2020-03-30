@@ -15,18 +15,6 @@
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 
-/**
- * On some mobile platforms we don't always get a chance to stop proxygen
- * eventbase. That leads to static object being cleaned up by system while
- * proxygen tries to access them, which is bad. The speedup from making
- * some variable static isn't necessary on mobile clients anyway. 
- */
-#ifdef FOLLY_MOBILE
-#define HQ_STATIC
-#else
-#define HQ_STATIC static
-#endif
-
 namespace proxygen { namespace hq {
 
 using namespace folly;
@@ -520,8 +508,8 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                        const HTTPMessage& msg,
                                        folly::Optional<StreamID> pushId,
                                        HTTPHeaderSize* size) {
-  HQ_STATIC folly::ThreadLocal<std::vector<std::string>> tempsTL;
-  HQ_STATIC folly::ThreadLocal<std::vector<compress::Header>> allHeadersTL;
+  CODEC_STATIC folly::ThreadLocal<std::vector<std::string>> tempsTL;
+  CODEC_STATIC folly::ThreadLocal<std::vector<compress::Header>> allHeadersTL;
   auto& temps = *tempsTL.get();
   auto& allHeaders = *allHeadersTL.get();
   temps.clear();

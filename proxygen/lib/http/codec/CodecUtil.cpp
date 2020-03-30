@@ -59,7 +59,7 @@ const char CodecUtil::http_tokens[256] = {
 
 bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
                                  bool& hasDeflate) {
-  static folly::ThreadLocal<std::vector<RFC2616::TokenQPair>> output;
+  CODEC_STATIC folly::ThreadLocal<std::vector<RFC2616::TokenQPair>> output;
   output->clear();
   hasGzip = false;
   hasDeflate = false;
