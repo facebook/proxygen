@@ -27,8 +27,9 @@ namespace proxygen {
       x(http_response_header_block_size), x(http_response_header_size),        \
       x(http_response_incomplete), x(http_response_status),                    \
       x(http_response_timeout), x(http_response_transfer_coding),              \
-      x(http_upgrade_failed), x(proxy_internal_error), x(proxy_loop_detected), \
-      x(tls_error), x(tls_expired_peer_certificate), x(tls_handshake_error),   \
+      x(http_upgrade_failed), x(proxy_internal_response),                      \
+      x(proxy_internal_error), x(proxy_loop_detected), x(tls_error),           \
+      x(tls_expired_peer_certificate), x(tls_handshake_error),                 \
       x(tls_missing_proxy_certificate), x(tls_rejected_proxy_certificate),     \
       x(tls_unexpected_peer_certificate), x(tls_unexpected_peer_identity),     \
       x(tls_untrusted_peer_certificate),                                       \
