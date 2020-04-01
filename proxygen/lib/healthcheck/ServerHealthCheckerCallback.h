@@ -22,6 +22,10 @@ struct ServerLoadInfo {
   double cpuSys{-1.};
   double cpuIdle{-1.};
   LoadType queueLen{0};
+  bool operator!=(const ServerLoadInfo& rhs) {
+    return cpuUser != rhs.cpuUser || cpuSys != rhs.cpuSys ||
+           cpuIdle != rhs.cpuIdle || queueLen != rhs.queueLen;
+  }
 };
 
 enum class HealthCheckSource {
