@@ -487,6 +487,10 @@ void HTTPSession::dropConnection(const std::string& errorMsg) {
   VLOG(4) << "dropping " << *this;
   if (!sock_ || (readsShutdown() && writesShutdown())) {
     VLOG(4) << *this << " already shutdown";
+    DCHECK(!shutdownTransportCb_) << "Why is there a shutdownTransportCb_?";
+    if (isLoopCallbackScheduled()) {
+      immediateShutdown();
+    }
     return;
   }
 
@@ -2420,6 +2424,11 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
       });
   }
 
+  if (readsShutdown() && writesShutdown()) {
+    // No need to defer shutdown
+    shutdownTransportCb_.reset();
+  }
+
   // Close the socket only after the onError() callback on the txns
   // and handler has been detached.
   checkForShutdown();
@@ -2460,6 +2469,10 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode,
   if (isLoopCallbackScheduled()) {
     cancelLoopCallback();
   }
+
+  // If there was a pending transport shutdown, we don't need it anymore
+  shutdownTransportCb_.reset();
+
   // onError() callbacks or drainByteEvents() could result in txns detaching
   // due to CallbackGuards going out of scope. Close the socket only after
   // the txns are detached.

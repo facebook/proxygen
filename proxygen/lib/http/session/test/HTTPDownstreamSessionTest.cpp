@@ -4045,3 +4045,45 @@ TEST_F(HTTP2DownstreamSessionTest, TestPingPreserveData) {
   parseOutput(*clientCodec_);
   gracefulShutdown();
 }
+
+
+TEST_F(HTTP2DownstreamSessionTest, DropConnectionWithPendingShutdownCallback) {
+  // A request to set up EOM writing in the loop later.
+  auto handler = addSimpleStrictHandler();
+  sendRequest();
+  handler->expectHeaders();
+  handler->expectEOM([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  flushRequestsAndLoopN(1);
+  handler->expectDetachTransaction();
+  HTTPSession::DestructorGuard g(httpSession_);
+
+  // To avoid onWriteComplete which will shutdownTransport
+  transport_->pauseWrites();
+
+  // To schedule the ShutdownTransportCallback
+  flushRequestsAndLoopN(1, true);
+
+  expectDetachSession();
+  httpSession_->dropConnection("Async drop");
+}
+
+TEST_F(HTTP2DownstreamSessionTest, DropAlreadyShuttingDownConnection) {
+  // A request to set up EOM writing in the loop later.
+  auto handler = addSimpleStrictHandler();
+  sendRequest();
+  handler->expectHeaders();
+  handler->expectEOM([&handler] {
+      handler->sendReplyWithBody(200, 100);
+    });
+  flushRequestsAndLoopN(1);
+  handler->expectDetachTransaction();
+  HTTPSession::DestructorGuard g(httpSession_);
+
+  // This would shutdownTransport
+  flushRequestsAndLoopN(1, true);
+
+  expectDetachSession();
+  httpSession_->dropConnection("Async drop");
+}

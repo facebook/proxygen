@@ -1088,8 +1088,9 @@ class HTTPSession
       VLOG(4) << *session_ << " shutdown from onEgressMessageFinished";
       bool shutdownReads =
           session_->isDownstream() && !session_->ingressUpgraded_;
+      auto dg = dg_.release();
       session_->shutdownTransport(shutdownReads, true);
-      dg_.reset();
+      delete dg;
     }
 
    private:
