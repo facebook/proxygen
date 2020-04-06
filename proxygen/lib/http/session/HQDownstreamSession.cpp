@@ -234,7 +234,10 @@ size_t HQDownstreamSession::HQEgressPushStream::generateStreamPushId() {
   folly::io::QueueAppender appender(&writeBuf_, 8);
 
   auto externalPushId = pushId_ & ~hq::kPushIdMask;
-  auto result = quic::encodeQuicInteger(externalPushId, appender);
+  auto result = quic::encodeQuicInteger(
+      externalPushId, [appender = std::move(appender)](auto val) mutable {
+        appender.writeBE(val);
+      });
   CHECK(!result.hasError())
       << __func__ << " QUIC integer encoding error value=" << externalPushId;
 

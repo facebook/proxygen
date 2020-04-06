@@ -218,11 +218,15 @@ WriteResult writeFrameHeader(IOBufQueue& queue,
                              FrameType type,
                              uint64_t length) noexcept {
   QueueAppender appender(&queue, kMaxFrameHeaderSize);
-  auto typeRes = quic::encodeQuicInteger(static_cast<uint64_t>(type), appender);
+  auto appenderOp = [appender = std::move(appender)](auto val) mutable {
+    appender.writeBE(val);
+  };
+  auto typeRes = quic::encodeQuicInteger(
+      static_cast<uint64_t>(type), appenderOp);
   if (typeRes.hasError()) {
     return typeRes;
   }
-  auto lengthRes = quic::encodeQuicInteger(length, appender);
+  auto lengthRes = quic::encodeQuicInteger(length, appenderOp);
   if (lengthRes.hasError()) {
     return lengthRes;
   }
@@ -270,7 +274,10 @@ WriteResult writeCancelPush(folly::IOBufQueue& writeBuf,
   }
   IOBufQueue queue{IOBufQueue::cacheChainLength()};
   QueueAppender appender(&queue, *pushIdSize);
-  quic::encodeQuicInteger(pushId, appender);
+  quic::encodeQuicInteger(pushId,
+                          [appender = std::move(appender)](auto val) mutable {
+                            appender.writeBE(val);
+                          });
   return writeSimpleFrame(writeBuf, FrameType::CANCEL_PUSH, queue.move());
 }
 
@@ -297,9 +304,12 @@ WriteResult writeSettings(IOBufQueue& queue,
   }
   // write the frame payload
   QueueAppender appender(&queue, settingsSize);
+  auto appenderOp = [appender = std::move(appender)](auto val) mutable {
+    appender.writeBE(val);
+  };
   for (const auto& setting : settings) {
-    quic::encodeQuicInteger(static_cast<uint64_t>(setting.first), appender);
-    quic::encodeQuicInteger(setting.second, appender);
+    quic::encodeQuicInteger(static_cast<uint64_t>(setting.first), appenderOp);
+    quic::encodeQuicInteger(setting.second, appenderOp);
   }
   return *headerSize + settingsSize;
 }
@@ -321,7 +331,7 @@ WriteResult writePushPromise(IOBufQueue& queue,
     return headerSize;
   }
   QueueAppender appender(&queue, payloadSize);
-  quic::encodeQuicInteger(pushId, appender);
+  quic::encodeQuicInteger(pushId, [&](auto val) { appender.writeBE(val); });
   appender.insert(std::move(data));
   return *headerSize + payloadSize;
 }
@@ -334,7 +344,10 @@ WriteResult writeGoaway(folly::IOBufQueue& writeBuf,
   }
   IOBufQueue queue{IOBufQueue::cacheChainLength()};
   QueueAppender appender(&queue, *lastStreamIdSize);
-  quic::encodeQuicInteger(lastStreamId, appender);
+  quic::encodeQuicInteger(lastStreamId,
+                          [appender = std::move(appender)](auto val) mutable {
+                            appender.writeBE(val);
+                          });
   return writeSimpleFrame(writeBuf, FrameType::GOAWAY, queue.move());
 }
 
@@ -348,7 +361,10 @@ WriteResult writeMaxPushId(folly::IOBufQueue& writeBuf,
   }
   IOBufQueue queue{IOBufQueue::cacheChainLength()};
   QueueAppender appender(&queue, *maxPushIdSize);
-  quic::encodeQuicInteger(maxPushId, appender);
+  quic::encodeQuicInteger(maxPushId,
+                          [appender = std::move(appender)](auto val) mutable {
+                            appender.writeBE(val);
+                          });
   return writeSimpleFrame(writeBuf, FrameType::MAX_PUSH_ID, queue.move());
 }
 
