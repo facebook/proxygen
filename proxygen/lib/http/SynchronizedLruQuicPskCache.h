@@ -10,7 +10,7 @@
 
 #include <folly/Synchronized.h>
 #include <folly/container/EvictingCacheMap.h>
-#include <quic/client/handshake/QuicPskCache.h>
+#include <quic/fizz/client/handshake/QuicPskCache.h>
 
 namespace proxygen {
 

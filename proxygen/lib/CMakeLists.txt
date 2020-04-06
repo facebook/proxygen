@@ -83,6 +83,7 @@ if (BUILD_QUIC)
       ${HTTP3_DEPEND_LIBS}
       mvfst::mvfst_transport
       mvfst::mvfst_client
+      mvfst::mvfst_fizz_client
       mvfst::mvfst_server
       mvfst::mvfst_codec_types
       mvfst::mvfst_state_machine

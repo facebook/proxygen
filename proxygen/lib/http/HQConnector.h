@@ -14,7 +14,7 @@
 #include <quic/api/LoopDetectorCallback.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/client/QuicClientTransport.h>
-#include <quic/client/handshake/QuicPskCache.h>
+#include <quic/fizz/client/handshake/QuicPskCache.h>
 #include <quic/logging/QLogger.h>
 
 namespace proxygen {

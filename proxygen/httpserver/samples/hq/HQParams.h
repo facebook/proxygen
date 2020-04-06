@@ -21,7 +21,7 @@
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/HTTPMethod.h>
 #include <quic/QuicConstants.h>
-#include <quic/client/handshake/QuicPskCache.h>
+#include <quic/fizz/client/handshake/QuicPskCache.h>
 #include <quic/server/QuicServerTransport.h>
 
 namespace quic { namespace samples {

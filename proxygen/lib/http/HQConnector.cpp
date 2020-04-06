@@ -11,7 +11,7 @@
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <proxygen/lib/http/session/HQSession.h>
 #include <quic/api/QuicSocket.h>
-#include <quic/client/handshake/FizzClientQuicHandshakeContext.h>
+#include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
 
 using namespace folly;
