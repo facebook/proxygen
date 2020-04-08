@@ -107,6 +107,33 @@ IN+p06Nnnm2ZVTRebTx/WnnG+lTXSOuBuGAGpuOSa3yi84kFfYxBFgGcgUQt4i1M
 CzoemuHOSmcvQpU604U+J20FO2gaiYJFxz1h1v+Z/9edY9R9NCwmyFa3LfI=
 -----END RSA PRIVATE KEY-----
 )";
+
+const std::string kPrime256v1CertData = R"(
+-----BEGIN CERTIFICATE-----
+MIICkDCCAjWgAwIBAgIJAOILJQbZxXtaMAoGCCqGSM49BAMCMIGjMQswCQYDVQQG
+EwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTETMBEGA1UEBwwKTWVubG8gUGFyazER
+MA8GA1UECgwIUHJveHlnZW4xETAPBgNVBAsMCFByb3h5Z2VuMREwDwYDVQQDDAhQ
+cm94eWdlbjExMC8GCSqGSIb3DQEJARYiZmFjZWJvb2stcHJveHlnZW5AZ29vZ2xl
+Z3JvdXBzLmNvbTAeFw0yMDA0MDcyMDMyMDRaFw0zMDA0MDUyMDMyMDRaMIGjMQsw
+CQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTETMBEGA1UEBwwKTWVubG8g
+UGFyazERMA8GA1UECgwIUHJveHlnZW4xETAPBgNVBAsMCFByb3h5Z2VuMREwDwYD
+VQQDDAhQcm94eWdlbjExMC8GCSqGSIb3DQEJARYiZmFjZWJvb2stcHJveHlnZW5A
+Z29vZ2xlZ3JvdXBzLmNvbTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABB5MtBjA
+TaKYREMWTIbzK6utt7Jjb3xWcWowKeN14WFz8sDqvHcAufaN8OP2NBHRAZGi4UDs
+1thkXHtSPcc7DT+jUDBOMB0GA1UdDgQWBBSWhUXpZWkCj6YywA8iZIvl52GvzDAf
+BgNVHSMEGDAWgBSWhUXpZWkCj6YywA8iZIvl52GvzDAMBgNVHRMEBTADAQH/MAoG
+CCqGSM49BAMCA0kAMEYCIQCduzLSWUJ2RgxYvNiApmmH9Yml/s7T2bB2r6+1wlPw
+OgIhAPfLxzClQvbpPvchgQkWEJTsMgmI/CgNWX02SIzeg934
+-----END CERTIFICATE-----
+)";
+
+const std::string kPrime256v1KeyData = R"(
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg/NeWSkmQEmaO2f0T
+5ogGmfvwGId3k5i8o8hJOoV9pOuhRANCAAQeTLQYwE2imERDFkyG8yurrbeyY298
+VnFqMCnjdeFhc/LA6rx3ALn2jfDj9jQR0QGRouFA7NbYZFx7Uj3HOw0/
+-----END PRIVATE KEY-----
+)";
 }; // namespace
 
 namespace quic { namespace samples {
@@ -123,6 +150,10 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
   auto cert = fizz::CertUtils::makeSelfCert(certData, keyData);
   auto certManager = std::make_unique<fizz::server::CertManager>();
   certManager->addCert(std::move(cert), true);
+
+  auto cert2 = fizz::CertUtils::makeSelfCert(
+      kPrime256v1CertData, kPrime256v1KeyData);
+  certManager->addCert(std::move(cert2), false);
 
   auto serverCtx = std::make_shared<fizz::server::FizzServerContext>();
   serverCtx->setCertManager(std::move(certManager));
