@@ -690,7 +690,11 @@ HTTPSession::newExTransaction(HTTPTransaction::Handler* handler,
     return nullptr;
   }
   if (draining_ || (outgoingStreams_ >= maxConcurrentOutgoingStreamsRemote_)) {
-    LOG(ERROR) << "cannot support any more transactions in " << *this;
+    LOG(ERROR) << "cannot support any more transactions in " << *this
+            << " isDraining: " << draining_
+            << " outgoing streams: " << outgoingStreams_
+            << " max concurrent outgoing streams: "
+            << maxConcurrentOutgoingStreamsRemote_;
     return nullptr;
   }
 
