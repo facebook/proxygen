@@ -45,6 +45,13 @@ class QPACKCodec : public HeaderCodec {
       uint32_t maxEncoderStreamBytes =
           std::numeric_limits<uint32_t>::max()) noexcept;
 
+  QPACKEncoder::EncodeResult encodeHTTP(
+      const HTTPMessage& msg,
+      bool includeDate,
+      uint64_t id,
+      uint32_t maxEncoderStreamBytes =
+          std::numeric_limits<uint32_t>::max()) noexcept;
+
   HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf) {
     // stats?
     return decoder_.decodeEncoderStream(std::move(buf));

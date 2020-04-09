@@ -14,23 +14,13 @@
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h> // for prepareHeaders
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
+#include <proxygen/lib/http/codec/HeaderConstants.h>
+#include <proxygen/lib/http/HTTPMessage.h>
 #include <iosfwd>
 
 using proxygen::compress::Header;
 using std::vector;
-
-/**
- * On some mobile platforms we don't always get a chance to stop proxygen
- * eventbase. That leads to static object being cleaned up by system while
- * proxygen tries to access them, which is bad. The speedup from making
- * some variable static isn't necessary on mobile clients anyway.
- */
-#ifdef FOLLY_MOBILE
-#define QPACK_STATIC
-#else
-#define QPACK_STATIC static
-#endif
-
 namespace proxygen {
 
 QPACKCodec::QPACKCodec()
@@ -58,13 +48,112 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
     vector<Header>& headers,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) noexcept {
-  QPACK_STATIC folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
-  auto& prepared = *preparedTL.get();
+  std::vector<HPACKHeader> prepared;
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
   auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,
                              maxEncoderStreamBytes);
   recordCompressedSize(res);
   return res;
+}
+
+QPACKEncoder::EncodeResult QPACKCodec::encodeHTTP(
+  const HTTPMessage& msg,
+  bool includeDate,
+  uint64_t streamId,
+  uint32_t maxEncoderStreamBytes) noexcept {
+  auto baseIndex = encoder_.startEncode(0, maxEncoderStreamBytes);
+  uint32_t requiredInsertCount = 0;
+
+  auto uncompressed = 0;
+  if (msg.isRequest()) {
+    if (msg.isEgressWebsocketUpgrade()) {
+      uncompressed += encoder_.encodeHeaderQ(
+        HPACKHeaderName(HTTP_HEADER_COLON_METHOD),
+        methodToString(HTTPMethod::CONNECT),
+        baseIndex, requiredInsertCount);
+      uncompressed += encoder_.encodeHeaderQ(
+        HPACKHeaderName(HTTP_HEADER_COLON_PROTOCOL),
+        headers::kWebsocketString,
+        baseIndex, requiredInsertCount);
+    } else {
+      uncompressed += encoder_.encodeHeaderQ(
+        HPACKHeaderName(HTTP_HEADER_COLON_METHOD),
+        msg.getMethodString(),
+        baseIndex, requiredInsertCount);
+    }
+
+    if (msg.getMethod() != HTTPMethod::CONNECT ||
+        msg.isEgressWebsocketUpgrade()) {
+      uncompressed += encoder_.encodeHeaderQ(
+        HPACKHeaderName(HTTP_HEADER_COLON_SCHEME),
+        (msg.isSecure() ? headers::kHttps : headers::kHttp),
+        baseIndex, requiredInsertCount);
+      uncompressed += encoder_.encodeHeaderQ(
+        HPACKHeaderName(HTTP_HEADER_COLON_PATH), msg.getURL(),
+        baseIndex, requiredInsertCount);
+    }
+    const HTTPHeaders& headers = msg.getHeaders();
+    const std::string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
+    if (!host.empty()) {
+      uncompressed += encoder_.encodeHeaderQ(
+         HPACKHeaderName(HTTP_HEADER_COLON_AUTHORITY), host,
+         baseIndex, requiredInsertCount);
+    }
+  } else {
+    if (msg.isEgressWebsocketUpgrade()) {
+      uncompressed += encoder_.encodeHeaderQ(
+        HPACKHeaderName(HTTP_HEADER_COLON_STATUS), headers::kStatus200,
+        baseIndex, requiredInsertCount);
+    } else {
+      uncompressed += encoder_.encodeHeaderQ(
+        HPACKHeaderName(HTTP_HEADER_COLON_STATUS),
+                    folly::to<folly::fbstring>(msg.getStatusCode()),
+        baseIndex, requiredInsertCount);
+    }
+    // HEADERS frames do not include a version or reason string.
+  }
+
+  bool hasDateHeader = false;
+  // Add the HTTP headers supplied by the caller, but skip
+  // any per-hop headers that aren't supported in HTTP/2.
+  msg.getHeaders().forEachWithCode([&](HTTPHeaderCode code,
+                                       const std::string& name,
+                                       const std::string& value) {
+    if (CodecUtil::perHopHeaderCodes()[code] ||
+        name.empty() || name[0] == ':') {
+      DCHECK(!name.empty()) << "Empty header";
+      DCHECK_NE(name[0], ':') << "Invalid header=" << name;
+      return;
+    }
+    // Note this code will not drop headers named by Connection.  That's the
+    // caller's job
+
+    // see HTTP/2 spec, 8.1.2
+    DCHECK(name != "TE" || value == "trailers");
+    if ((!name.empty() && name[0] != ':') && code != HTTP_HEADER_HOST) {
+      if (code == HTTP_HEADER_OTHER) {
+        uncompressed += encoder_.encodeHeaderQ(HPACKHeaderName(name), value,
+                                               baseIndex, requiredInsertCount);
+      } else {
+        uncompressed += encoder_.encodeHeaderQ(HPACKHeaderName(code), value,
+                                               baseIndex, requiredInsertCount);
+      }
+    }
+    hasDateHeader =  (code == HTTP_HEADER_DATE);
+  });
+
+
+  if (includeDate && msg.isResponse() && !hasDateHeader) {
+    uncompressed += encoder_.encodeHeaderQ(
+      HPACKHeaderName(HTTP_HEADER_DATE), HTTPMessage::formatDateHeader(),
+      baseIndex, requiredInsertCount);
+  }
+
+  auto result = encoder_.completeEncode(
+    streamId, baseIndex, requiredInsertCount);
+  encodedSize_.uncompressed = uncompressed;
+  recordCompressedSize(result);
+  return result;
 }
 
 void QPACKCodec::decodeStreaming(

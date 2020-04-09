@@ -77,56 +77,6 @@ bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
   return hasGzip && hasDeflate;
 }
 
-
-void CodecUtil::prepareMessageForCompression(
-    const HTTPMessage& msg,
-    std::vector<compress::Header>& allHeaders,
-    std::vector<std::string>& temps,
-    bool addDateToResponse) {
-  if (msg.isRequest()) {
-    if (msg.isEgressWebsocketUpgrade()) {
-      allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD,
-          methodToString(HTTPMethod::CONNECT));
-      allHeaders.emplace_back(HTTP_HEADER_COLON_PROTOCOL,
-                              headers::kWebsocketString);
-    } else {
-      const std::string& method = msg.getMethodString();
-      allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, method);
-    }
-
-    if (msg.getMethod() != HTTPMethod::CONNECT ||
-        msg.isEgressWebsocketUpgrade()) {
-      const std::string& scheme =
-        (msg.isSecure() ? headers::kHttps : headers::kHttp);
-      const std::string& path = msg.getURL();
-      allHeaders.emplace_back(HTTP_HEADER_COLON_SCHEME, scheme);
-      allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, path);
-    }
-    const HTTPHeaders& headers = msg.getHeaders();
-    const std::string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
-    if (!host.empty()) {
-      allHeaders.emplace_back(HTTP_HEADER_COLON_AUTHORITY, host);
-    }
-  } else {
-    temps.reserve(3); // must be large enough so that emplace does not resize
-    if (msg.isEgressWebsocketUpgrade()) {
-      temps.emplace_back(headers::kStatus200);
-    } else {
-      temps.emplace_back(folly::to<std::string>(msg.getStatusCode()));
-    }
-    allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, temps.back());
-    // HEADERS frames do not include a version or reason string.
-  }
-
-  bool hasDateHeader =
-      appendHeaders(msg.getHeaders(), allHeaders, HTTP_HEADER_DATE);
-
-  if (addDateToResponse && msg.isResponse() && !hasDateHeader) {
-    temps.emplace_back(HTTPMessage::formatDateHeader());
-    allHeaders.emplace_back(HTTP_HEADER_DATE, temps.back());
-  }
-}
-
 bool CodecUtil::appendHeaders(const HTTPHeaders& inputHeaders,
                               std::vector<compress::Header>& headers,
                               HTTPHeaderCode headerToCheck) {
@@ -169,5 +119,22 @@ bool CodecUtil::appendHeaders(const HTTPHeaders& inputHeaders,
   });
 
   return headerToCheckExists;
+}
+
+const std::bitset<256>& CodecUtil::perHopHeaderCodes() {
+  static const std::bitset<256> s_perHopHeaderCodes{[] {
+      std::bitset<256> bs;
+      // HTTP/1.x per-hop headers that have no meaning in HTTP/2
+      bs[HTTP_HEADER_CONNECTION] = true;
+      bs[HTTP_HEADER_HOST] = true;
+      bs[HTTP_HEADER_KEEP_ALIVE] = true;
+      bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+      bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+      bs[HTTP_HEADER_UPGRADE] = true;
+      bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
+      bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
+      return bs;
+    }()};
+  return s_perHopHeaderCodes;
 }
 }

@@ -155,14 +155,10 @@ class CodecUtil {
   static bool hasGzipAndDeflate(const std::string& value, bool& hasGzip,
                                 bool& hasDeflate);
 
-  static void prepareMessageForCompression(
-      const HTTPMessage& msg,
-      std::vector<compress::Header>& allHeaders,
-      std::vector<std::string>& temps,
-      bool addDateToResponse=true);
-
   static bool appendHeaders(const HTTPHeaders& inputHeaders,
                             std::vector<compress::Header>& headers,
                             HTTPHeaderCode headerToCheck);
+
+  static const std::bitset<256>& perHopHeaderCodes();
 };
 }

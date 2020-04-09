@@ -13,6 +13,7 @@
 #include <folly/String.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HeaderConstants.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <iosfwd>
@@ -115,21 +116,8 @@ void HPACKCodec::encodeHTTP(
   msg.getHeaders().forEachWithCode([&](HTTPHeaderCode code,
                                        const std::string& name,
                                        const std::string& value) {
-    static const std::bitset<256> s_perHopHeaderCodes{[] {
-      std::bitset<256> bs;
-      // HTTP/1.x per-hop headers that have no meaning in HTTP/2
-      bs[HTTP_HEADER_CONNECTION] = true;
-      bs[HTTP_HEADER_HOST] = true;
-      bs[HTTP_HEADER_KEEP_ALIVE] = true;
-      bs[HTTP_HEADER_PROXY_CONNECTION] = true;
-      bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
-      bs[HTTP_HEADER_UPGRADE] = true;
-      bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
-      bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
-      return bs;
-    }()};
-
-    if (s_perHopHeaderCodes[code] || name.empty() || name[0] == ':') {
+    if (CodecUtil::perHopHeaderCodes()[code] ||
+        name.empty() || name[0] == ':') {
       DCHECK(!name.empty()) << "Empty header";
       DCHECK_NE(name[0], ':') << "Invalid header=" << name;
       return;

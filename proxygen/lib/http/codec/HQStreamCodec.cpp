@@ -508,15 +508,8 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                        const HTTPMessage& msg,
                                        folly::Optional<StreamID> pushId,
                                        HTTPHeaderSize* size) {
-  CODEC_STATIC folly::ThreadLocal<std::vector<std::string>> tempsTL;
-  CODEC_STATIC folly::ThreadLocal<std::vector<compress::Header>> allHeadersTL;
-  auto& temps = *tempsTL.get();
-  auto& allHeaders = *allHeadersTL.get();
-  temps.clear();
-  allHeaders.clear();
-  CodecUtil::prepareMessageForCompression(msg, allHeaders, temps);
   auto result =
-      headerCodec_.encode(allHeaders, streamId_, maxEncoderStreamData());
+    headerCodec_.encodeHTTP(msg, true, streamId_, maxEncoderStreamData());
   if (size) {
     *size = headerCodec_.getEncodedSize();
   }
