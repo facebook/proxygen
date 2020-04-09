@@ -28,15 +28,13 @@ QPACKCodec::QPACKCodec()
     : encoder_(true, 0),
       decoder_(0, maxUncompressed_) {}
 
-void QPACKCodec::recordCompressedSize(
-  const QPACKEncoder::EncodeResult& encodeRes) {
+void QPACKCodec::recordCompressedSize(const folly::IOBuf* stream,
+                                      size_t controlSize) {
   encodedSize_.compressed = 0;
   encodedSize_.compressedBlock = 0;
-  if (encodeRes.control) {
-    encodedSize_.compressed += encodeRes.control->computeChainDataLength();
-  }
-  if (encodeRes.stream) {
-    encodedSize_.compressedBlock = encodeRes.stream->computeChainDataLength();
+  encodedSize_.compressed += controlSize;
+  if (stream) {
+    encodedSize_.compressedBlock = stream->computeChainDataLength();
     encodedSize_.compressed += encodedSize_.compressedBlock;
   }
   if (stats_) {
@@ -52,17 +50,21 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
   auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,
                              maxEncoderStreamBytes);
-  recordCompressedSize(res);
+  size_t controlSize = res.control ?
+    res.control->computeChainDataLength() : 0;
+  recordCompressedSize(res.stream.get(), controlSize);
   return res;
 }
 
-QPACKEncoder::EncodeResult QPACKCodec::encodeHTTP(
+std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
+  folly::IOBufQueue& controlQueue,
   const HTTPMessage& msg,
   bool includeDate,
   uint64_t streamId,
   uint32_t maxEncoderStreamBytes) noexcept {
-  auto baseIndex = encoder_.startEncode(0, maxEncoderStreamBytes);
+  auto baseIndex = encoder_.startEncode(controlQueue, 0, maxEncoderStreamBytes);
   uint32_t requiredInsertCount = 0;
+  auto prevSize = controlQueue.chainLength();
 
   auto uncompressed = 0;
   if (msg.isRequest()) {
@@ -152,7 +154,7 @@ QPACKEncoder::EncodeResult QPACKCodec::encodeHTTP(
   auto result = encoder_.completeEncode(
     streamId, baseIndex, requiredInsertCount);
   encodedSize_.uncompressed = uncompressed;
-  recordCompressedSize(result);
+  recordCompressedSize(result.get(), controlQueue.chainLength() - prevSize);
   return result;
 }
 

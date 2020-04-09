@@ -28,7 +28,8 @@ QPACKEncoder::EncodeResult QPACKEncoder::encode(
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) {
   // This routine is now used only for testing
-  startEncode(headroom, maxEncoderStreamBytes);
+  folly::IOBufQueue controlQueue{folly::IOBufQueue::cacheChainLength()};
+  startEncode(controlQueue, headroom, maxEncoderStreamBytes);
   auto baseIndex = table_.getInsertCount();
 
   uint32_t requiredInsertCount = 0;
@@ -37,12 +38,17 @@ QPACKEncoder::EncodeResult QPACKEncoder::encode(
                   baseIndex, /*ref*/requiredInsertCount);
   }
 
-  return completeEncode(streamId, baseIndex, requiredInsertCount);
+  return {
+    controlQueue.move(),
+    completeEncode(streamId, baseIndex, requiredInsertCount)
+  };
 }
 
 uint32_t QPACKEncoder::startEncode(
+    folly::IOBufQueue& controlQueue,
     uint32_t headroom,
     uint32_t maxEncoderStreamBytes) {
+  controlBuffer_.setWriteBuf(&controlQueue);
   if (headroom) {
     streamBuffer_.addHeadroom(headroom);
   }
@@ -54,7 +60,7 @@ uint32_t QPACKEncoder::startEncode(
 }
 
 
-QPACKEncoder::EncodeResult QPACKEncoder::completeEncode(
+std::unique_ptr<folly::IOBuf> QPACKEncoder::completeEncode(
     uint64_t streamId,
     uint32_t baseIndex,
     uint32_t requiredInsertCount) {
@@ -83,7 +89,6 @@ QPACKEncoder::EncodeResult QPACKEncoder::completeEncode(
     streamBuffer->prependChain(std::move(streamBlock));
   }
 
-  auto controlBuf = controlBuffer_.release();
   // curOutstanding_.references could be empty, if the block encodes only static
   // headers and/or literals.  If so we don't track anything.
   if (!curOutstanding_.references.empty()) {
@@ -96,7 +101,8 @@ QPACKEncoder::EncodeResult QPACKEncoder::completeEncode(
     curOutstanding_.vulnerable = false;
   }
 
-  return {std::move(controlBuf), std::move(streamBuffer)};
+  controlBuffer_.setWriteBuf(nullptr);
+  return streamBuffer;
 }
 
 size_t QPACKEncoder::encodeHeaderQ(HPACKHeaderName name,

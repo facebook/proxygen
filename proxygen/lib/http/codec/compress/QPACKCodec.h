@@ -45,7 +45,8 @@ class QPACKCodec : public HeaderCodec {
       uint32_t maxEncoderStreamBytes =
           std::numeric_limits<uint32_t>::max()) noexcept;
 
-  QPACKEncoder::EncodeResult encodeHTTP(
+  std::unique_ptr<folly::IOBuf> encodeHTTP(
+      folly::IOBufQueue& controlQueue,
       const HTTPMessage& msg,
       bool includeDate,
       uint64_t id,
@@ -157,7 +158,8 @@ class QPACKCodec : public HeaderCodec {
   QPACKDecoder decoder_;
 
  private:
-  void recordCompressedSize(const QPACKEncoder::EncodeResult& encodeRes);
+  void recordCompressedSize(const folly::IOBuf* stream,
+                            size_t controlSize);
 
   std::vector<HPACKHeader> decodedHeaders_;
 };

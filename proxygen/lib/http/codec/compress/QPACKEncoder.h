@@ -93,7 +93,8 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
   void setMaxNumOutstandingBlocks(uint32_t value);
 
-  uint32_t startEncode(uint32_t headroom,
+  uint32_t startEncode(folly::IOBufQueue& controlQueue,
+                       uint32_t headroom,
                        uint32_t maxEncoderStreamBytes);
 
   size_t encodeHeaderQ(HPACKHeaderName name,
@@ -101,8 +102,9 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
                        uint32_t baseIndex,
                        uint32_t& requiredInsertCount);
 
-  EncodeResult completeEncode(uint64_t streamId, uint32_t baseIndex,
-                              uint32_t requiredInsertCount);
+  std::unique_ptr<folly::IOBuf> completeEncode(
+      uint64_t streamId, uint32_t baseIndex,
+      uint32_t requiredInsertCount);
 
  private:
   bool allowVulnerable() const {

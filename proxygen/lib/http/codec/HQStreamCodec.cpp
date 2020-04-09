@@ -509,7 +509,8 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                        folly::Optional<StreamID> pushId,
                                        HTTPHeaderSize* size) {
   auto result =
-    headerCodec_.encodeHTTP(msg, true, streamId_, maxEncoderStreamData());
+    headerCodec_.encodeHTTP(qpackEncoderWriteBuf_,
+                            msg, true, streamId_, maxEncoderStreamData());
   if (size) {
     *size = headerCodec_.getEncodedSize();
   }
@@ -533,17 +534,13 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
   // HTTP2/2 serializes priority here, but HQ priorities need to go on the
   // control stream
 
-  if (result.control) {
-    qpackEncoderWriteBuf_.append(std::move(result.control));
-  }
-
   WriteResult res;
   if (pushId) {
     CHECK(!egressPartiallyReliable_)
         << ": push promise not allowed on partially reliable message";
-    res = hq::writePushPromise(writeBuf, *pushId, std::move(result.stream));
+    res = hq::writePushPromise(writeBuf, *pushId, std::move(result));
   } else {
-    res = hq::writeHeaders(writeBuf, std::move(result.stream));
+    res = hq::writeHeaders(writeBuf, std::move(result));
   }
 
   if (res.hasValue()) {
