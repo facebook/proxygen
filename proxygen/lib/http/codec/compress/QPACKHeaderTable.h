@@ -43,10 +43,12 @@ class QPACKHeaderTable : public HeaderTable {
    * Returns true if the header can be added to the table.  May be linear
    * in the number of entries
    */
-  bool canIndex(const HPACKHeader& header) {
-    auto totalBytes = bytes_ + header.bytes();
+  bool canIndex(const HPACKHeaderName& name,
+                folly::StringPiece value) {
+    auto headerBytes = HPACKHeader::bytes(name.size(), value.size());
+    auto totalBytes = bytes_ + headerBytes;
     // Don't index headers that would immediately be drained
-    return ((header.bytes() <= (capacity_ - minFree_)) &&
+    return ((headerBytes <= (capacity_ - minFree_)) &&
             (totalBytes <= capacity_ || canEvict(totalBytes - capacity_)));
   }
 
@@ -89,6 +91,10 @@ class QPACKHeaderTable : public HeaderTable {
    * @return 0 in case the header is not found
    */
   uint32_t getIndex(const HPACKHeader& header,
+                    bool allowVulnerable = true) const;
+
+  uint32_t getIndex(const HPACKHeaderName& name,
+                    folly::StringPiece value,
                     bool allowVulnerable = true) const;
 
   /**
@@ -171,7 +177,7 @@ class QPACKHeaderTable : public HeaderTable {
    * Shared implementation for getIndex and nameIndex
    */
   uint32_t getIndexImpl(const HPACKHeaderName& header,
-                        const folly::fbstring& value,
+                        folly::StringPiece value,
                         bool nameOnly,
                         bool allowVulnerable=true) const;
 

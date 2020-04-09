@@ -96,7 +96,9 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   uint32_t startEncode(uint32_t headroom,
                        uint32_t maxEncoderStreamBytes);
 
-  size_t encodeHeaderQ(const HPACKHeader& header, uint32_t baseIndex,
+  size_t encodeHeaderQ(const HPACKHeaderName& name,
+                       folly::StringPiece value,
+                       uint32_t baseIndex,
                        uint32_t& requiredInsertCount);
 
   EncodeResult completeEncode(uint64_t streamId, uint32_t baseIndex,
@@ -107,7 +109,8 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
     return numVulnerable_ < maxVulnerable_;
   }
 
-  bool shouldIndex(const HPACKHeader& header) const;
+  bool shouldIndex(const HPACKHeaderName& name,
+                   folly::StringPiece value) const;
 
   bool dynamicReferenceAllowed() const;
 
@@ -119,22 +122,27 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
     const HPACKHeaderName& headerName);
 
   size_t encodeStreamLiteralQ(
-    const HPACKHeader& header, bool isStaticName, uint32_t nameIndex,
+    const HPACKHeaderName& name,
+    folly::StringPiece value,
+    bool isStaticName, uint32_t nameIndex,
     uint32_t absoluteNameIndex, uint32_t baseIndex,
     uint32_t& requiredInsertCount);
 
-  void encodeInsertQ(const HPACKHeader& header,
+  void encodeInsertQ(const HPACKHeaderName& name,
+                     folly::StringPiece value,
                      bool isStaticName,
                      uint32_t nameIndex);
 
-  size_t encodeLiteralQ(const HPACKHeader& header,
+  size_t encodeLiteralQ(const HPACKHeaderName& name,
+                        folly::StringPiece value,
                         bool isStaticName,
                         bool postBase,
                         uint32_t nameIndex,
                         const HPACK::Instruction& idxInstr);
 
   uint32_t encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
-                                const HPACKHeader& header,
+                                const HPACKHeaderName& name,
+                                folly::StringPiece value,
                                 bool isStaticName,
                                 uint32_t nameIndex,
                                 uint8_t staticFlag,

@@ -85,8 +85,14 @@ uint32_t QPACKHeaderTable::getIndex(const HPACKHeader& header,
   return getIndexImpl(header.name, header.value, false, allowVulnerable);
 }
 
+uint32_t QPACKHeaderTable::getIndex(const HPACKHeaderName& name,
+                                    folly::StringPiece value,
+                                    bool allowVulnerable) const {
+  return getIndexImpl(name, value, false, allowVulnerable);
+}
+
 uint32_t QPACKHeaderTable::getIndexImpl(const HPACKHeaderName& headerName,
-                                        const folly::fbstring& value,
+                                        folly::StringPiece value,
                                         bool nameOnly,
                                         bool allowVulnerable) const {
   auto it = names_.find(headerName);
@@ -233,7 +239,7 @@ std::pair<bool, uint32_t> QPACKHeaderTable::maybeDuplicate(
   if (absIndex < minUsable_) {
     // draining
     const HPACKHeader& header = getHeader(relativeIndex);
-    if (canIndex(header)) {
+    if (canIndex(header.name, header.value)) {
       CHECK(add(header.copy()));
       if (allowVulnerable) {
         return {true, insertCount_};

@@ -65,7 +65,8 @@ class HPACKHeader {
 
   static uint32_t realBytes(uint64_t nameSize, uint64_t valueSize) {
     DCHECK_LE(nameSize + valueSize, std::numeric_limits<uint32_t>::max());
-    return folly::to<uint32_t>(nameSize + valueSize);
+    return folly::tryTo<uint32_t>(nameSize + valueSize)
+      .value_or(std::numeric_limits<uint32_t>::max());
   }
 
   /**
@@ -75,8 +76,11 @@ class HPACKHeader {
     return kMinLength + realBytes();
   }
 
-  static uint32_t bytes(uint32_t nameSize, uint32_t valueSize) {
-    return kMinLength + realBytes(nameSize, valueSize);
+  static uint32_t bytes(uint64_t nameSize, uint64_t valueSize) {
+    DCHECK_LE(kMinLength + nameSize + valueSize,
+              std::numeric_limits<uint32_t>::max());
+    return folly::tryTo<uint32_t>(kMinLength + realBytes(nameSize, valueSize))
+      .value_or(std::numeric_limits<uint32_t>::max());
   }
 
   bool operator==(const HPACKHeader& other) const {

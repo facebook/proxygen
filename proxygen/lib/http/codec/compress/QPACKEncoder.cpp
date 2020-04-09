@@ -33,7 +33,8 @@ QPACKEncoder::EncodeResult QPACKEncoder::encode(
 
   uint32_t requiredInsertCount = 0;
   for (const auto& header : headers) {
-    encodeHeaderQ(header, baseIndex, /*ref*/requiredInsertCount);
+    encodeHeaderQ(header.name, header.value,
+                  baseIndex, /*ref*/requiredInsertCount);
   }
 
   return completeEncode(streamId, baseIndex, requiredInsertCount);
@@ -98,11 +99,12 @@ QPACKEncoder::EncodeResult QPACKEncoder::completeEncode(
   return {std::move(controlBuf), std::move(streamBuffer)};
 }
 
-size_t QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
+size_t QPACKEncoder::encodeHeaderQ(const HPACKHeaderName& name,
+                                   folly::StringPiece value,
                                    uint32_t baseIndex,
                                    uint32_t& requiredInsertCount) {
-  size_t uncompressed = header.realBytes() + 2;
-  uint32_t index = getStaticTable().getIndex(header);
+  size_t uncompressed = HPACKHeader::realBytes(name.size(), value.size()) + 2;
+  uint32_t index = getStaticTable().getIndex(name, value);
   if (index > 0) {
     // static reference
     staticRefs_++;
@@ -112,9 +114,9 @@ size_t QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
     return uncompressed;
   }
 
-  bool indexable = shouldIndex(header);
+  bool indexable = shouldIndex(name, value);
   if (indexable) {
-    index = table_.getIndex(header, allowVulnerable());
+    index = table_.getIndex(name, value, allowVulnerable());
     if (index == QPACKHeaderTable::UNACKED) {
       index = 0;
       indexable = false;
@@ -132,16 +134,15 @@ size_t QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
     uint32_t nameIndex = 0;
     uint32_t absoluteNameIndex = 0;
     bool isStaticName = false;
-    std::tie(isStaticName, nameIndex, absoluteNameIndex) =
-        getNameIndexQ(header.name);
+    std::tie(isStaticName, nameIndex, absoluteNameIndex) = getNameIndexQ(name);
 
     // Now check if we should emit an insertion on the control stream
     // Don't try to index if we're out of encoder flow control
     indexable &= maxEncoderStreamBytes_ > 0;
     if (indexable) {
-      if (table_.canIndex(header)) {
-        encodeInsertQ(header, isStaticName, nameIndex);
-        CHECK(table_.add(header.copy()));
+      if (table_.canIndex(name, value)) {
+        encodeInsertQ(name, value, isStaticName, nameIndex);
+        CHECK(table_.add(HPACKHeader(name, value)));
         if (allowVulnerable() && lastEntryAvailable()) {
           index = table_.getInsertCount();
         } else {
@@ -161,7 +162,8 @@ size_t QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
     if (index == 0) {
       // Couldn't insert it: table full, not indexable, or table contains
       // vulnerable reference.  Encode a literal on the request stream.
-      encodeStreamLiteralQ(header,
+      encodeStreamLiteralQ(name,
+                           value,
                            isStaticName,
                            nameIndex,
                            absoluteNameIndex,
@@ -182,10 +184,11 @@ size_t QPACKEncoder::encodeHeaderQ(const HPACKHeader& header,
   return uncompressed;
 }
 
-bool QPACKEncoder::shouldIndex(const HPACKHeader& header) const {
-  return (header.bytes() <= table_.capacity()) &&
+bool QPACKEncoder::shouldIndex(const HPACKHeaderName& name,
+                               folly::StringPiece value) const {
+  return (HPACKHeader::bytes(name.size(), value.size()) <= table_.capacity()) &&
     (!indexingStrat_ ||
-     indexingStrat_->indexHeader(header.name, header.value)) &&
+     indexingStrat_->indexHeader(name, value)) &&
          dynamicReferenceAllowed();
 }
 
@@ -233,7 +236,8 @@ std::tuple<bool, uint32_t, uint32_t> QPACKEncoder::getNameIndexQ(
       isStatic, nameIndex, absoluteNameIndex);
 }
 
-size_t QPACKEncoder::encodeStreamLiteralQ(const HPACKHeader& header,
+size_t QPACKEncoder::encodeStreamLiteralQ(const HPACKHeaderName& name,
+                                          folly::StringPiece value,
                                           bool isStaticName,
                                           uint32_t nameIndex,
                                           uint32_t absoluteNameIndex,
@@ -245,14 +249,16 @@ size_t QPACKEncoder::encodeStreamLiteralQ(const HPACKHeader& header,
     trackReference(absoluteNameIndex, requiredInsertCount);
   }
   if (absoluteNameIndex > baseIndex) {
-    return encodeLiteralQ(header,
+    return encodeLiteralQ(name,
+                          value,
                           false, /* not static */
                           true,  /* post base */
                           absoluteNameIndex - baseIndex,
                           HPACK::Q_LITERAL_NAME_REF_POST);
   } else {
     return encodeLiteralQ(
-      header,
+      name,
+      value,
       isStaticName,
       false, /* not post base */
       isStaticName ? nameIndex : baseIndex - absoluteNameIndex + 1,
@@ -282,11 +288,13 @@ void QPACKEncoder::encodeDuplicate(uint32_t index) {
       controlBuffer_.encodeInteger(index - 1, HPACK::Q_DUPLICATE);
 }
 
-void QPACKEncoder::encodeInsertQ(const HPACKHeader& header,
+void QPACKEncoder::encodeInsertQ(const HPACKHeaderName& name,
+                                 folly::StringPiece value,
                                  bool isStaticName,
                                  uint32_t nameIndex) {
   auto encoded = encodeLiteralQHelper(controlBuffer_,
-                                      header,
+                                      name,
+                                      value,
                                       isStaticName,
                                       nameIndex,
                                       HPACK::Q_INSERT_NAME_REF_STATIC,
@@ -295,14 +303,16 @@ void QPACKEncoder::encodeInsertQ(const HPACKHeader& header,
   maxEncoderStreamBytes_ -= encoded;
 }
 
-size_t QPACKEncoder::encodeLiteralQ(const HPACKHeader& header,
+size_t QPACKEncoder::encodeLiteralQ(const HPACKHeaderName& name,
+                                    folly::StringPiece value,
                                     bool isStaticName,
                                     bool postBase,
                                     uint32_t nameIndex,
                                     const HPACK::Instruction& idxInstr) {
   DCHECK(!isStaticName || !postBase);
   return encodeLiteralQHelper(streamBuffer_,
-                              header,
+                              name,
+                              value,
                               isStaticName,
                               nameIndex,
                               HPACK::Q_LITERAL_STATIC,
@@ -312,7 +322,8 @@ size_t QPACKEncoder::encodeLiteralQ(const HPACKHeader& header,
 
 uint32_t QPACKEncoder::encodeLiteralQHelper(
     HPACKEncodeBuffer& buffer,
-    const HPACKHeader& header,
+    const HPACKHeaderName& name,
+    folly::StringPiece value,
     bool isStaticName,
     uint32_t nameIndex,
     uint8_t staticFlag,
@@ -333,10 +344,10 @@ uint32_t QPACKEncoder::encodeLiteralQHelper(
     encoded += buffer.encodeInteger(nameIndex, byte, idxInstr.prefixLength);
   } else {
     encoded += buffer.encodeLiteral(
-        litInstr.code, litInstr.prefixLength, header.name.get());
+        litInstr.code, litInstr.prefixLength, name.get());
   }
   // value
-  encoded += buffer.encodeLiteral(header.value);
+  encoded += buffer.encodeLiteral(value);
   return encoded;
 }
 

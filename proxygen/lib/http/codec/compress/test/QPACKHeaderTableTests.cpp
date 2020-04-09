@@ -56,16 +56,16 @@ TEST_F(QPACKHeaderTableTests, Eviction) {
     table_.addRef(i);
   }
   table_.setAcknowledgedInsertCount(max);
-  EXPECT_FALSE(table_.canIndex(accept));
+  EXPECT_FALSE(table_.canIndex(accept.name, accept.value));
   EXPECT_FALSE(table_.add(accept.copy()));
   table_.subRef(1);
-  EXPECT_TRUE(table_.canIndex(accept));
+  EXPECT_TRUE(table_.canIndex(accept.name, accept.value));
   EXPECT_TRUE(table_.add(accept.copy()));
 
   table_.subRef(3);
-  EXPECT_FALSE(table_.canIndex(accept));
+  EXPECT_FALSE(table_.canIndex(accept.name, accept.value));
   table_.subRef(2);
-  EXPECT_TRUE(table_.canIndex(accept));
+  EXPECT_TRUE(table_.canIndex(accept.name, accept.value));
 }
 
 TEST_F(QPACKHeaderTableTests, BadEviction) {
@@ -172,7 +172,7 @@ TEST_F(QPACKHeaderTableTests, Duplication) {
   table_.addRef(oldestAbsolute);
 
   // Table should be full
-  EXPECT_FALSE(table_.canIndex(accept));
+  EXPECT_FALSE(table_.canIndex(accept.name, accept.value));
 
   res = table_.maybeDuplicate(table_.size(), true);
   EXPECT_FALSE(res.first);
@@ -190,7 +190,7 @@ TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
   // abs index = 1 is evictable, but index = 2 is referenced, so we can
   // insert up to (320 - 8 * 39) + 39 = 47
   table_.addRef(2);
-  EXPECT_TRUE(table_.canIndex(fortySevenBytes));
+  EXPECT_TRUE(table_.canIndex(fortySevenBytes.name, fortySevenBytes.value));
   EXPECT_TRUE(table_.add(fortySevenBytes.copy()));
 }
 
