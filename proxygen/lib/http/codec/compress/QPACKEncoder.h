@@ -93,6 +93,15 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
   void setMaxNumOutstandingBlocks(uint32_t value);
 
+  uint32_t startEncode(uint32_t headroom,
+                       uint32_t maxEncoderStreamBytes);
+
+  size_t encodeHeaderQ(const HPACKHeader& header, uint32_t baseIndex,
+                       uint32_t& requiredInsertCount);
+
+  EncodeResult completeEncode(uint64_t streamId, uint32_t baseIndex,
+                              uint32_t requiredInsertCount);
+
  private:
   bool allowVulnerable() const {
     return numVulnerable_ < maxVulnerable_;
@@ -106,29 +115,23 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
 
   std::pair<bool, uint32_t> maybeDuplicate(uint32_t relativeIndex);
 
-  QPACKEncoder::EncodeResult
-  encodeQ(const std::vector<HPACKHeader>& headers, uint64_t streamId);
-
   std::tuple<bool, uint32_t, uint32_t> getNameIndexQ(
     const HPACKHeaderName& headerName);
 
-  void encodeStreamLiteralQ(
+  size_t encodeStreamLiteralQ(
     const HPACKHeader& header, bool isStaticName, uint32_t nameIndex,
     uint32_t absoluteNameIndex, uint32_t baseIndex,
-    uint32_t* requiredInsertCount);
-
-  void encodeHeaderQ(const HPACKHeader& header, uint32_t baseIndex,
-                     uint32_t* requiredInsertCount);
+    uint32_t& requiredInsertCount);
 
   void encodeInsertQ(const HPACKHeader& header,
                      bool isStaticName,
                      uint32_t nameIndex);
 
-  void encodeLiteralQ(const HPACKHeader& header,
-                      bool isStaticName,
-                      bool postBase,
-                      uint32_t nameIndex,
-                      const HPACK::Instruction& idxInstr);
+  size_t encodeLiteralQ(const HPACKHeader& header,
+                        bool isStaticName,
+                        bool postBase,
+                        uint32_t nameIndex,
+                        const HPACK::Instruction& idxInstr);
 
   uint32_t encodeLiteralQHelper(HPACKEncodeBuffer& buffer,
                                 const HPACKHeader& header,
@@ -138,7 +141,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
                                 const HPACK::Instruction& idxInstr,
                                 const HPACK::Instruction& litInstr);
 
-  void trackReference(uint32_t index, uint32_t* requiredInsertCount);
+  void trackReference(uint32_t index, uint32_t& requiredInsertCount);
 
   void encodeDuplicate(uint32_t index);
 
@@ -162,7 +165,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   };
   // Map streamID -> list of table index references for each outstanding block;
   std::unordered_map<uint64_t, std::list<OutstandingBlock>> outstanding_;
-  OutstandingBlock* curOutstanding_{nullptr};
+  OutstandingBlock curOutstanding_;
   uint32_t maxDepends_{0};
   uint32_t maxVulnerable_{HPACK::kDefaultBlocking};
   uint32_t numVulnerable_{0};
