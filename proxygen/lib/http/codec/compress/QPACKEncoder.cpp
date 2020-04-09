@@ -27,13 +27,13 @@ QPACKEncoder::EncodeResult QPACKEncoder::encode(
     uint32_t headroom,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes) {
-
+  // This routine is now used only for testing
   startEncode(headroom, maxEncoderStreamBytes);
   auto baseIndex = table_.getInsertCount();
 
   uint32_t requiredInsertCount = 0;
   for (const auto& header : headers) {
-    encodeHeaderQ(header.name, header.value,
+    encodeHeaderQ(HPACKHeaderName(header.name), header.value,
                   baseIndex, /*ref*/requiredInsertCount);
   }
 
@@ -99,7 +99,7 @@ QPACKEncoder::EncodeResult QPACKEncoder::completeEncode(
   return {std::move(controlBuf), std::move(streamBuffer)};
 }
 
-size_t QPACKEncoder::encodeHeaderQ(const HPACKHeaderName& name,
+size_t QPACKEncoder::encodeHeaderQ(HPACKHeaderName name,
                                    folly::StringPiece value,
                                    uint32_t baseIndex,
                                    uint32_t& requiredInsertCount) {
@@ -142,10 +142,14 @@ size_t QPACKEncoder::encodeHeaderQ(const HPACKHeaderName& name,
     if (indexable) {
       if (table_.canIndex(name, value)) {
         encodeInsertQ(name, value, isStaticName, nameIndex);
-        CHECK(table_.add(HPACKHeader(name, value)));
+        CHECK(table_.add(HPACKHeader(std::move(name), value)));
         if (allowVulnerable() && lastEntryAvailable()) {
           index = table_.getInsertCount();
+          // name is invalid on this branch, but index must be non-zero since
+          // we inserted just above.
         } else {
+          // We still need name.  Get it from the table
+          name = getHeader(false, 1, table_.getInsertCount(), false).name;
           index = 0;
           if (absoluteNameIndex > 0 &&
               !table_.isValid(table_.absoluteToRelative(absoluteNameIndex))) {

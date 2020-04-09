@@ -96,7 +96,7 @@ class QPACKEncoder : public HPACKEncoderBase, public QPACKContext {
   uint32_t startEncode(uint32_t headroom,
                        uint32_t maxEncoderStreamBytes);
 
-  size_t encodeHeaderQ(const HPACKHeaderName& name,
+  size_t encodeHeaderQ(HPACKHeaderName name,
                        folly::StringPiece value,
                        uint32_t baseIndex,
                        uint32_t& requiredInsertCount);
