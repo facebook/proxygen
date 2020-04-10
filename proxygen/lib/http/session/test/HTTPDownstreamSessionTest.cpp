@@ -2733,81 +2733,6 @@ TYPED_TEST_P(HTTPDownstreamTest, TestBodySizeLimit) {
     X;                                                              \
   }
 
-TYPED_TEST_P(HTTPDownstreamTest, TestUniformPauseState) {
-  this->clientCodec_->getEgressSettings()->setSetting(
-      SettingsId::INITIAL_WINDOW_SIZE, 1000000);
-  this->clientCodec_->generateSettings(this->requests_);
-  this->clientCodec_->generateWindowUpdate(this->requests_, 0, 1000000);
-  this->sendRequest("/", 1);
-  this->sendRequest("/", 1);
-
-  InSequence handlerSequence;
-  auto handler1 = this->addSimpleStrictHandler();
-  handler1->expectHeaders();
-  handler1->expectEOM();
-  auto handler2 = this->addSimpleStrictHandler();
-  handler2->expectHeaders();
-  handler2->expectEOM([&] {
-    handler1->sendHeaders(200, 24002);
-    // triggers pause of all txns
-    this->transport_->pauseWrites();
-    handler1->txn_->sendBody(std::move(makeBuf(12001)));
-  });
-  handler2->expectEgressPaused();
-  handler1->expectEgressPaused();
-
-  this->flushRequestsAndLoopN(2);
-  this->sendRequest("/", 2);
-
-  auto handler3 = this->addSimpleStrictHandler();
-  handler3->expectEgressPaused();
-  handler3->expectHeaders();
-  handler3->expectEOM([this] {
-      this->resumeWritesAfterDelay(milliseconds(50));
-    });
-
-  handler1->expectEgressResumed([&] {
-    // resume does not trigger another pause,
-    handler1->txn_->sendBody(std::move(makeBuf(12001)));
-    this->transport_->pauseWrites();
-    this->resumeWritesAfterDelay(milliseconds(50));
-  });
-  // All handlers gets a fair shot
-  handler2->expectEgressResumed();
-  handler3->expectEgressResumed();
-  handler3->expectEgressPaused();
-  handler1->expectEgressPaused();
-  handler2->expectEgressPaused();
-
-  handler1->expectEgressResumed();
-  handler2->expectEgressResumed([&] {
-    handler2->sendHeaders(200, 12001);
-    handler2->txn_->sendBody(std::move(makeBuf(12001)));
-    this->transport_->pauseWrites();
-    this->resumeWritesAfterDelay(milliseconds(50));
-  });
-  handler3->expectEgressResumed();
-
-  handler3->expectEgressPaused();
-  handler1->expectEgressPaused();
-  handler2->expectEgressPaused();
-
-  handler1->expectEgressResumed();
-  handler2->expectEgressResumed([&] {
-    handler1->txn_->sendEOM();
-    handler2->txn_->sendEOM();
-  });
-  handler3->expectEgressResumed([&] { handler3->txn_->sendAbort(); });
-
-  handler3->expectDetachTransaction();
-  handler1->expectDetachTransaction();
-  handler2->expectDetachTransaction();
-
-  this->flushRequestsAndLoop();
-
-  this->cleanup();
-}
-
 // Test exceeding the MAX_CONCURRENT_STREAMS setting.  The txn should get
 // REFUSED_STREAM, and other streams can complete normally
 TYPED_TEST_P(HTTPDownstreamTest, TestMaxTxns) {
@@ -2887,7 +2812,6 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyMaxConcurrentStreams) {
 REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
                            TestWritesDraining,
                            TestBodySizeLimit,
-                           TestUniformPauseState,
                            TestMaxTxns,
                            TestMaxTxnOverriding);
 

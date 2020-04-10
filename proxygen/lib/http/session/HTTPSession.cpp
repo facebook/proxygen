@@ -15,7 +15,6 @@
 #include <folly/Random.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/async/AsyncSSLSocket.h>
-#include <folly/small_vector.h>
 #include <folly/tracing/ScopedTraceSection.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
@@ -35,13 +34,6 @@ using std::pair;
 using std::string;
 using std::unique_ptr;
 using wangle::TransportInfo;
-#if !FOLLY_MOBILE
-template <class T, std::size_t N, class S>
-using SmallVec = folly::small_vector<T, N, S>;
-#else
-template <class T, std::size_t N, class S>
-using SmallVec = std::vector<T>;
-#endif
 
 namespace {
 static const uint32_t kMinReadSize = 1460;
@@ -1225,19 +1217,18 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   std::vector<HTTPCodec::StreamID> ids;
   auto firstStream = HTTPCodec::NoStream;
 
-  for (const auto& txn : transactions_) {
-    auto streamID = txn.first;
-    if (((bool)(streamID & 0x01) == isUpstream()) &&
-        (streamID > lastGoodStreamID)) {
+  for (const auto& id : transactionIds_) {
+    if (((bool)(id & 0x01) == isUpstream()) &&
+        (id > lastGoodStreamID)) {
       if (firstStream == HTTPCodec::NoStream) {
         // transactions_ is a set so it should be sorted by stream id.
         // We will defer adding the firstStream to the id list until
         // we can determine whether we have a codec error code.
-        firstStream = streamID;
+        firstStream = id;
         continue;
       }
 
-      ids.push_back(streamID);
+      ids.push_back(id);
     }
   }
 
@@ -1932,6 +1923,7 @@ bool HTTPSession::maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
       auto curStreamId = txnSeqn + 1;
       auto txnIt = transactions_.find(curStreamId + 1);
       CHECK(txnIt != transactions_.end());
+      DCHECK(transactionIds_.count(curStreamId + 1));
       auto& nextTxn = txnIt->second;
       DCHECK_EQ(nextTxn.getSequenceNumber(), txnSeqn + 1);
       DCHECK(!nextTxn.isIngressComplete());
@@ -1950,6 +1942,7 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
   auto txnSeqn = txn->getSequenceNumber();
   auto it = transactions_.find(txn->getID());
   DCHECK(it != transactions_.end());
+  DCHECK(transactionIds_.count(txn->getID()));
 
   if (txn->isIngressPaused()) {
     // Someone detached a transaction that was paused.  Make the resumeIngress
@@ -1981,6 +1974,8 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
   if (lastTxn_ == txn) {
     lastTxn_ = nullptr;
   }
+  DCHECK(transactionIds_.count(it->first));
+  transactionIds_.erase(it->first);
   transactions_.erase(it);
 
   if (transactions_.empty()) {
@@ -2612,8 +2607,10 @@ HTTPTransaction* HTTPSession::findTransaction(HTTPCodec::StreamID streamID) {
   }
   auto it = transactions_.find(streamID);
   if (it == transactions_.end()) {
+    DCHECK(transactionIds_.count(streamID) == 0);
     return nullptr;
   } else {
+    DCHECK(transactionIds_.count(streamID));
     lastTxn_ = &it->second;
     return lastTxn_;
   }
@@ -2667,6 +2664,7 @@ HTTPTransaction* HTTPSession::createTransaction(
 
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
                              "existence check.";
+  transactionIds_.emplace(streamID);
 
   HTTPTransaction* txn = &matchPair.first->second;
 
@@ -2959,9 +2957,9 @@ bool HTTPSession::hasMoreWrites() const {
 void HTTPSession::errorOnAllTransactions(ProxygenError err,
                                          const std::string& errorMsg) {
   std::vector<HTTPCodec::StreamID> ids;
-  for (const auto& txn : transactions_) {
-    ids.push_back(txn.first);
-  }
+  ids.reserve(transactionIds_.size());
+  std::copy(
+      transactionIds_.begin(), transactionIds_.end(), std::back_inserter(ids));
   errorOnTransactionIds(ids, err, errorMsg);
 }
 
@@ -3112,11 +3110,10 @@ bool HTTPSession::isDetachable(bool checkSocket) const {
 void HTTPSession::invokeOnAllTransactions(
     folly::Function<void(HTTPTransaction*)> fn) {
   DestructorGuard g(this);
-  SmallVec<HTTPCodec::StreamID, 100, uint16_t> ids;
-  ids.reserve(transactions_.size());
-  for (const auto& txn : transactions_) {
-    ids.push_back(txn.first);
-  }
+  std::vector<HTTPCodec::StreamID> ids;
+  ids.reserve(transactionIds_.size());
+  std::copy(
+      transactionIds_.begin(), transactionIds_.end(), std::back_inserter(ids));
   for (auto idit = ids.begin(); idit != ids.end() && !transactions_.empty();
        ++idit) {
     auto txn = findTransaction(*idit);

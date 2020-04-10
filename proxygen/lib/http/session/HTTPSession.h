@@ -10,6 +10,8 @@
 
 #include <fizz/protocol/Certificate.h>
 #include <fizz/record/Types.h>
+#include <folly/container/F14Map.h>
+#include <folly/container/F14Set.h>
 #include <folly/IntrusiveList.h>
 #include <folly/Optional.h>
 #include <folly/io/IOBufQueue.h>
@@ -751,7 +753,8 @@ class HTTPSession
   /** Chain of ingress IOBufs */
   folly::IOBufQueue readBuf_{folly::IOBufQueue::cacheChainLength()};
 
-  std::unordered_map<HTTPCodec::StreamID, HTTPTransaction> transactions_;
+  folly::F14NodeMap<HTTPCodec::StreamID, HTTPTransaction> transactions_;
+  folly::F14FastSet<HTTPCodec::StreamID> transactionIds_;
 
   /** Count of transactions awaiting input */
   uint32_t liveTransactions_{0};
