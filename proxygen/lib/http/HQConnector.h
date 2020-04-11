@@ -63,8 +63,8 @@ class HQConnector : public HQSession::ConnectCallback {
       folly::Optional<std::string> sni = folly::none,
       std::shared_ptr<quic::Logger> logger = nullptr,
       std::shared_ptr<quic::QLogger> qLogger = nullptr,
-      std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback =
-          nullptr);
+      std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback = nullptr,
+      std::shared_ptr<quic::QuicTransportStatsCallback> quicTransportStatsCallback = nullptr);
 
   std::chrono::milliseconds timeElapsed();
 

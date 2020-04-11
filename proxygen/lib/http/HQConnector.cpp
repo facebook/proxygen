@@ -56,7 +56,8 @@ void HQConnector::connect(
     folly::Optional<std::string> sni,
     std::shared_ptr<quic::Logger> logger,
     std::shared_ptr<quic::QLogger> qLogger,
-    std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback) {
+    std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback,
+    std::shared_ptr<quic::QuicTransportStatsCallback> quicTransportStatsCallback) {
 
   DCHECK(!isBusy());
   auto sock = std::make_unique<folly::AsyncUDPSocket>(eventBase);
@@ -79,6 +80,7 @@ void HQConnector::connect(
   quicClient->setLogger(std::move(logger));
   quicClient->setQLogger(std::move(qLogger));
   quicClient->setLoopDetectorCallback(std::move(quicLoopDetectorCallback));
+  quicClient->setTransportStatsCallback(std::move(quicTransportStatsCallback));
   quicClient->setSocketOptions(socketOptions);
   session_ = new proxygen::HQUpstreamSession(transactionTimeout_,
                                              connectTimeout,
