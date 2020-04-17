@@ -1413,6 +1413,9 @@ void HQSession::readRequestStream(quic::StreamId id) noexcept {
       sock_->getState()->qLogger->addStreamStateUpdate(
         id, quic::kOnEOM, timeDiff);
     }
+  } else if (readSize == 0) {
+    VLOG(3) << "Got a blank read, ignoring sess=" << *this;
+    return;
   }
   // Just buffer the data and postpone processing in the loop callback
   hqStream->readBuf_.append(std::move(data));
@@ -2483,7 +2486,6 @@ void HQSession::HQControlStream::processReadData() {
 
 bool HQSession::HQStreamTransportBase::processReadData() {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  const folly::IOBuf* currentReadBuf;
   if (eomGate_.get(EOMType::CODEC) && readBuf_.chainLength() > 0) {
     // why are we calling processReadData with no data?
     VLOG(3) << " Received data after HTTP EOM for txn=" << txn_
@@ -2493,9 +2495,13 @@ bool HQSession::HQStreamTransportBase::processReadData() {
     errorOnTransaction(std::move(ex));
     return false;
   }
-  while (!ingressError_ && (currentReadBuf = readBuf_.front()) != nullptr &&
-         currentReadBuf->length() != 0) {
-    size_t bytesParsed = codecFilterChain->onIngress(*currentReadBuf);
+  while (!ingressError_ && readBuf_.chainLength() > 0) {
+    // Skip any 0 length buffers before invoking the codec. Since readBuf_ is
+    // not empty, we are guaranteed to find a non-empty buffer.
+    while (readBuf_.front()->length() == 0) {
+      readBuf_.pop_front();
+    }
+    size_t bytesParsed = codecFilterChain->onIngress(*readBuf_.front());
     VLOG(4) << "streamID=" << getStreamId()
             << " parsed bytes=" << static_cast<int>(bytesParsed)
             << " from readBuf remain=" << readBuf_.chainLength()

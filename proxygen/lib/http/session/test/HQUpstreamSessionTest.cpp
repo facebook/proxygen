@@ -1019,7 +1019,6 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
     nextPushId_ = kInitialPushId;
     lastPushPromiseHeadersSize_.compressed = 0;
     lastPushPromiseHeadersSize_.uncompressed = 0;
-    ;
   }
 
   void SetUpAssocHandler() {
@@ -1352,6 +1351,48 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
 
   std::unique_ptr<MockServerPushLifecycleCallback> SLCcallback_;
 };
+
+TEST_P(HQUpstreamSessionTestHQPush, DelayedQPACKPush) {
+  assocHandler_->txn_->sendAbort();
+  assocHandler_ = openTransaction();
+  assocHandler_->txn_->sendHeaders(getGetRequest());
+  assocHandler_->txn_->sendEOM();
+  assocHandler_->expectHeaders();
+  assocHandler_->expectBody();
+  auto pushHandler = expectPushResponse();
+  assocHandler_->expectEOM();
+  assocHandler_->expectDetachTransaction();
+
+  auto resp = makeResponse(200, 100);
+  sendResponse(assocHandler_->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               false);
+  flushAndLoopN(1);
+  auto pushPromiseRequest = getGetRequest();
+  pushPromiseRequest.getHeaders().set("Dynamic1", "a");
+  hq::PushId pushId = nextPushId();
+  sendPushPromise(assocHandler_->txn_->getID(), pushPromiseRequest, pushId);
+  sendPartialBody(assocHandler_->txn_->getID(), nullptr, true);
+
+  auto control = encoderWriteBuf_.move();
+  flushAndLoopN(1);
+
+  encoderWriteBuf_.append(std::move(control));
+  flushAndLoopN(1);
+
+  HTTPMessage pushResp;
+  pushResp.setStatusCode(200);
+  pushResp.getHeaders().set("Dynamic2", "b");
+  createPushStream(pushId, pushResp, makeBuf(100), true);
+
+  control = encoderWriteBuf_.move();
+  flushAndLoopN(1);
+
+  encoderWriteBuf_.append(std::move(control));
+  flushAndLoop();
+  hqSession_->closeWhenIdle();
+}
 
 // Ingress push tests have different parameters
 using HQUpstreamSessionTestIngressHQPush = HQUpstreamSessionTestHQPush;
