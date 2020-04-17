@@ -67,6 +67,10 @@ class Filter : public RequestHandler, public ResponseHandler {
     delete this;
   }
 
+  void onGoaway(ErrorCode code) noexcept override {
+    upstream_->onGoaway(code);
+  }
+
   void onEgressPaused() noexcept override {
     upstream_->onEgressPaused();
   }

@@ -78,3 +78,16 @@ TEST(RequestHandlerAdaptorTest, onStreamAbortError) {
   EXPECT_CALL(requestHandler_, onError(kErrorStreamAbort));
   txn.onError(ex);
 }
+
+TEST(RequestHandlerAdaptorTest, onGoaway) {
+  NiceMock<MockRequestHandler> requestHandler_;
+  auto adaptor = std::make_shared<RequestHandlerAdaptor>(&requestHandler_);
+  NiceMock<MockHTTPTransactionTransport> transport;
+  HTTP2PriorityQueue egressQueue;
+  HTTPTransaction txn(
+      TransportDirection::DOWNSTREAM, 1, 1, transport, egressQueue);
+  txn.setHandler(adaptor.get());
+  // expect goaway is fired
+  EXPECT_CALL(requestHandler_, onGoaway(ErrorCode::NO_ERROR));
+  txn.onGoaway(ErrorCode::NO_ERROR);
+}

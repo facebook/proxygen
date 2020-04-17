@@ -49,6 +49,7 @@ class RequestHandlerAdaptor
   void onEOM() noexcept override;
   void onUpgrade(UpgradeProtocol protocol) noexcept override;
   void onError(const HTTPException& error) noexcept override;
+  void onGoaway(ErrorCode code) noexcept override;
   void onEgressPaused() noexcept override;
   void onEgressResumed() noexcept override;
   void onExTransaction(HTTPTransaction* txn) noexcept override;

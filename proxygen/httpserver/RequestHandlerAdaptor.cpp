@@ -123,6 +123,10 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
   // Wait for detachTransaction to clean up
 }
 
+void RequestHandlerAdaptor::onGoaway(ErrorCode code) noexcept {
+  upstream_->onGoaway(code);
+}
+
 void RequestHandlerAdaptor::onEgressPaused() noexcept {
   upstream_->onEgressPaused();
 }

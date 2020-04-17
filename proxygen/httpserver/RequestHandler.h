@@ -76,6 +76,12 @@ class RequestHandler {
   virtual void onError(ProxygenError err) noexcept = 0;
 
   /**
+   * Signals from HTTP layer when we receive GOAWAY frame.
+   */
+  virtual void onGoaway(ErrorCode /*code*/) noexcept {
+  }
+
+  /**
    * Signals from HTTP layer when client queue is full or empty. If you are
    * sending a streaming response, consider implementing these and acting
    * accordingly. Saves your server from running out of memory.
