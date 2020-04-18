@@ -699,6 +699,9 @@ HTTPSession::newExTransaction(HTTPTransaction::Handler* handler,
     return nullptr;
   }
 
+  // we find a control stream, let's track it
+  controlStreamIds_.emplace(controlStream);
+
   DestructorGuard dg(this);
   txn->setHandler(handler);
   setNewTransactionPauseState(txn);
@@ -1254,6 +1257,18 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   }
 
   errorOnTransactionIds(ids, kErrorStreamUnacknowledged);
+
+  // Control stream is a long lived stream, if we gracefully shut down without
+  // notifying it, the client might believe a control stream is still valid and
+  // continue sending us ExStream, which will lead to stream abort issue.
+  std::vector<HTTPCodec::StreamID> csToBeAborted;
+  for (auto const& csId : controlStreamIds_) {
+    if (std::find(ids.begin(), ids.end(), csId) == ids.end() &&
+        csId != firstStream) {
+      csToBeAborted.emplace_back(csId);
+    }
+  }
+  errorOnTransactionIds(csToBeAborted, kErrorStreamAbort);
 }
 
 void HTTPSession::onPingRequest(uint64_t data) {
@@ -1968,6 +1983,9 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
       controlTxn->removeExTransaction(streamID);
     }
   }
+
+  // do not track a detached control stream
+  controlStreamIds_.erase(txn->getID());
 
   auto oldStreamCount = getPipelineStreamCount();
   decrementTransactionCount(txn, true, true);

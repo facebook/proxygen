@@ -1998,6 +1998,67 @@ TEST_F(MockHTTPUpstreamTest, IngressGoawayDrain) {
   // Session will delete itself after getting the response
 }
 
+/*
+ * 1. Setup ControlStream 1, respond with 200
+ * 2. Send ExStream 3, make HttpSession believes Stream 1 is a ControlStream
+ * 3. Trigger GOAWAY, Stream should be aborted.
+ */
+
+TEST_F(MockHTTPUpstreamTest, ControlStreamGoaway) {
+  // Tests whether a recognized control stream is aborted
+  // when session receiving a GOAWAY
+
+  HTTPSettings settings;
+  settings.setSetting(SettingsId::ENABLE_EX_HEADERS, 1);
+  EXPECT_CALL(*codecPtr_, getEgressSettings()).WillOnce(Return(&settings));
+
+  InSequence enforceOrder;
+
+  auto handler = openTransaction();
+
+  // Create a dummy request
+  auto pub = getGetRequest("/sub/fyi");
+  NiceMock<MockHTTPHandler> pubHandler;
+  handler->expectHeaders([&] {
+    auto* pubTxn = handler->txn_->newExTransaction(&pubHandler);
+    pubTxn->setHandler(&pubHandler);
+    pubHandler.txn_ = pubTxn;
+
+    pubTxn->sendHeaders(pub);
+    pubTxn->sendBody(makeBuf(200));
+    pubTxn->sendEOM();
+  });
+
+  pubHandler.expectHeaders();
+  pubHandler.expectEOM();
+
+  // expect goaway
+  pubHandler.expectGoaway();
+  handler->expectGoaway();
+
+  handler->expectError([&](const HTTPException& err) {
+    EXPECT_TRUE(err.hasProxygenError());
+    EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
+    ASSERT_EQ("StreamAbort on transaction id: 1", std::string(err.what()));
+  });
+  handler->expectDetachTransaction();
+  pubHandler.expectDetachTransaction();
+
+  auto resp = makeResponse(200);
+  // send header to stream 1 first
+  codecCb_->onHeadersComplete(1, std::move(resp));
+
+  resp = makeResponse(200);
+  codecCb_->onHeadersComplete(3, std::move(resp));
+  codecCb_->onMessageComplete(3, false);
+
+  // Receive GOAWAY frame with last good stream as max int
+  codecCb_->onGoaway(std::numeric_limits<int32_t>::max(), ErrorCode::NO_ERROR);
+  codecCb_->onMessageComplete(1, false);
+
+  eventBase_.loop();
+}
+
 TEST_F(MockHTTPUpstreamTest, Goaway) {
   // Make sure existing txns complete successfully even if we drain the
   // upstream session

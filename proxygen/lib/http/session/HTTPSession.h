@@ -270,19 +270,19 @@ class HTTPSession
       std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager);
 
   void setMaxControlMsgsPerInterval(uint32_t val) {
-      maxControlMsgsPerInterval_ = val;
+    maxControlMsgsPerInterval_ = val;
   }
 
   void setControlMsgIntervalDuration(uint32_t val) {
-      controlMsgIntervalDuration_ = val;
+    controlMsgIntervalDuration_ = val;
   }
 
   void setMaxDirectErrorHandlingPerInterval(uint32_t val) {
-      maxDirectErrorHandlingPerInterval_ = val;
+    maxDirectErrorHandlingPerInterval_ = val;
   }
 
   void setDirectErrorHandlingIntervalDuration(uint32_t val) {
-      directErrorHandlingIntervalDuration_ = val;
+    directErrorHandlingIntervalDuration_ = val;
   }
 
 
@@ -755,6 +755,12 @@ class HTTPSession
 
   folly::F14NodeMap<HTTPCodec::StreamID, HTTPTransaction> transactions_;
   folly::F14FastSet<HTTPCodec::StreamID> transactionIds_;
+
+  /**
+   * Track all current known control streams we have within this session. A stream
+   * is considered as a control stream, after some ExStream is associated with it.
+   **/
+  folly::F14FastSet<HTTPCodec::StreamID> controlStreamIds_;
 
   /** Count of transactions awaiting input */
   uint32_t liveTransactions_{0};
