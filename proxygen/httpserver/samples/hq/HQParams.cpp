@@ -43,6 +43,11 @@ DEFINE_int32(stream_flow_control, 65 * 1024, "Stream flow control");
 DEFINE_int32(max_receive_packet_size,
              quic::kDefaultUDPReadBufferSize,
              "Max UDP packet size Quic can receive");
+
+DEFINE_uint32(num_gro_buffers,
+              quic::kDefaultNumGROBuffers,
+              "Number of GRO buffers");
+
 DEFINE_int32(txn_timeout, 120000, "HTTP Transaction Timeout");
 DEFINE_string(httpauth, "", "HTTP Authority field, defaults to --host");
 DEFINE_string(headers, "", "List of N=V headers separated by ,");
@@ -207,6 +212,7 @@ void initializeTransportSettings(HQParams& hqParams) {
         hqParams.congestionControl.value();
   }
   hqParams.transportSettings.maxRecvPacketSize = FLAGS_max_receive_packet_size;
+  hqParams.transportSettings.numGROBuffers_ = FLAGS_num_gro_buffers;
   hqParams.transportSettings.pacingEnabled = FLAGS_pacing;
   if (hqParams.transportSettings.pacingEnabled) {
     hqParams.transportSettings.pacingTimerTickInterval =
