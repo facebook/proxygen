@@ -148,7 +148,9 @@ add_library(
     http/HTTPMessage.cpp
     http/HTTPMessageFilters.cpp
     http/HTTPMethod.cpp
+    http/StatusTypeEnum.cpp
     http/ProxygenErrorEnum.cpp
+    http/ProxyStatus.cpp
     http/RFC2616.cpp
     http/session/ByteEvents.cpp
     http/session/ByteEventTracker.cpp
