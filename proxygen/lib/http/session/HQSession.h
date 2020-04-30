@@ -1490,6 +1490,11 @@ class HQSession
 
     void measureRttWithPing() override { }
 
+    folly::Optional<HTTPTransaction::ConnectionToken>
+      getConnectionToken() const noexcept override {
+        return session_.connectionToken_;
+      }
+
     void generateGoaway();
 
     // Partially reliable transport methods.

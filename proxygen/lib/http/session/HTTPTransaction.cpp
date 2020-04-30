@@ -1279,6 +1279,11 @@ HTTPTransaction::rejectBodyTo(uint64_t nextBodyOffset) {
   return transport_.rejectBodyTo(this, nextBodyOffset);
 }
 
+folly::Optional<HTTPTransaction::ConnectionToken>
+HTTPTransaction::getConnectionToken() const noexcept {
+  return transport_.getConnectionToken();
+}
+
 void HTTPTransaction::pauseIngress() {
   VLOG(4) << "pauseIngress request " << *this;
   DestructorGuard g(this);

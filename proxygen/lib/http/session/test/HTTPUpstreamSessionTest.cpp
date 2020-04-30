@@ -2888,6 +2888,27 @@ TEST_F(HTTP2UpstreamSessionTest, TestPingPreserveData) {
   httpSession_->destroy();
 }
 
+TEST_F(HTTP2UpstreamSessionTest, TestConnectionToken) {
+  auto handler = openTransaction();
+  handler->expectError();
+  handler->expectDetachTransaction();
+
+  // The transaction should not have a connection token
+  // by default.
+  EXPECT_EQ(handler->txn_->getConnectionToken(), folly::none);
+
+  // Passing connection token to a session should
+  // make it visible to the transaction.
+  HTTPTransaction::ConnectionToken connToken{1234};
+  httpSession_->setConnectionToken(connToken);
+
+  EXPECT_NE(handler->txn_->getConnectionToken(), folly::none);
+  EXPECT_EQ(*handler->txn_->getConnectionToken(), connToken);
+
+  eventBase_.loop();
+  httpSession_->dropConnection();
+}
+
 class HTTP2UpstreamSessionTestMeasureRTT:
   public HTTP2UpstreamSessionTest,
   public testing::WithParamInterface<bool> {};

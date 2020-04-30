@@ -501,6 +501,10 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual void injectTraceEventIntoAllTransactions(TraceEvent&) = 0;
 
+  void setConnectionToken(const HTTPTransaction::ConnectionToken& token) noexcept {
+    connectionToken_ = token;
+  }
+
  protected:
   bool notifyEgressBodyBuffered(int64_t bytes, bool update);
 
@@ -640,6 +644,11 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * Indicates whether to estimate the RTT at the session layer
    **/
   bool shouldMeasureRtt_{false};
+
+  /**
+   * Optional connection token associated with this session.
+   */
+  folly::Optional<HTTPTransaction::ConnectionToken> connectionToken_;
 
  private:
   // Underlying controller_ is marked as private so that callers must utilize

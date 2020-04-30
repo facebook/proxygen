@@ -626,6 +626,34 @@ TEST_P(HQUpstreamSessionTest, NotifyReplaySafeAfterTransportReady) {
   eventBase_.loopOnce();
 }
 
+
+TEST_P(HQUpstreamSessionTest, TestConnectionToken) {
+  HQSession::DestructorGuard dg(hqSession_);
+  auto handler = openTransaction();
+  handler->expectError();
+  handler->expectDetachTransaction();
+
+  // The transaction should not have a connection token
+  // by default.
+  EXPECT_EQ(handler->txn_->getConnectionToken(), folly::none);
+
+  // Passing connection token to a session should
+  // make it visible to the transaction.
+  HTTPTransaction::ConnectionToken connToken{1234};
+  hqSession_->setConnectionToken(connToken);
+
+  EXPECT_NE(handler->txn_->getConnectionToken(), folly::none);
+  EXPECT_EQ(*handler->txn_->getConnectionToken(), connToken);
+
+  // Clean up the session and the transaction.
+  hqSession_->onConnectionError(
+      std::make_pair(quic::LocalErrorCode::CONNECT_FAILED,
+                     "Connect Failure with Open streams"));
+  eventBase_.loop();
+  EXPECT_EQ(hqSession_->getConnectionCloseReason(),
+            ConnectionCloseReason::SHUTDOWN);
+}
+
 TEST_P(HQUpstreamSessionTest, OnConnectionErrorWithOpenStreams) {
   HQSession::DestructorGuard dg(hqSession_);
   auto handler = openTransaction();

@@ -179,6 +179,17 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                folly::Expected<folly::Optional<uint64_t>, ErrorCode>(
                    HTTPTransaction*, uint64_t));
 
+  GMOCK_METHOD0_(,
+                 const noexcept,
+                 ,
+                 getConnectionToken,
+                 folly::Optional<HTTPTransaction::ConnectionToken>());
+
+  void setConnectionToken(HTTPTransaction::ConnectionToken token) {
+    EXPECT_CALL(*this, getConnectionToken())
+        .WillRepeatedly(testing::Return(token));
+  }
+
   MockHTTPCodec mockCodec_;
 };
 

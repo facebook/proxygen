@@ -157,6 +157,10 @@ class HTTPSession
     sendPing();
   }
 
+  folly::Optional<HTTPTransaction::ConnectionToken>
+    getConnectionToken() const noexcept override {
+      return connectionToken_;
+    }
 
   const folly::SocketAddress& getLocalAddress() const noexcept override {
     return HTTPSessionBase::getLocalAddress();

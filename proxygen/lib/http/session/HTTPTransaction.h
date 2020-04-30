@@ -407,6 +407,15 @@ class HTTPTransaction
     int64_t streamRecvWindow_{-1};
   };
 
+
+  /**
+   * Opaque token that identifies the underlying connection.
+   * Transaction handlers can use this token to group different
+   * Transport instances by the distinct underlying connections.
+   * Its uniqueness is not enforced by the Transport.
+   */
+  using ConnectionToken = uint64_t;
+
   class Transport {
    public:
    enum class Type : uint8_t { TCP, QUIC };
@@ -559,6 +568,8 @@ class HTTPTransaction
       LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
+
+    virtual folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const noexcept = 0;
   };
 
   using TransportCallback = HTTPTransactionTransportCallback;
@@ -1546,6 +1557,8 @@ peek(PeekCallback peekCallback);
    */
   folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
       uint64_t nextBodyOffset);
+
+  folly::Optional<ConnectionToken> getConnectionToken() const noexcept;
 
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
