@@ -2069,6 +2069,8 @@ class HQSession
   bool forceUpstream1_1_{true};
   bool writesPaused_{false};
 
+  bool isInOnStopSending_{false};
+
   /** Reads in the current loop iteration */
   uint16_t readsPerLoop_{0};
   std::unordered_set<quic::StreamId> pendingProcessReadSet_;

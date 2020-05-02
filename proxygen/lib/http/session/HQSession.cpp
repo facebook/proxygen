@@ -124,6 +124,10 @@ void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
 
 void HQSession::onStopSending(quic::StreamId id,
                               quic::ApplicationErrorCode error) noexcept {
+  isInOnStopSending_ = true;
+  SCOPE_EXIT {
+    isInOnStopSending_ = false;
+  };
   auto errorCode = static_cast<HTTP3::ErrorCode>(error);
   VLOG(3) << __func__ << " sess=" << *this << ": new streamID=" << id
           << " error=" << toString(errorCode);
@@ -389,6 +393,8 @@ void HQSession::onReplaySafe() noexcept {
 void HQSession::onConnectionError(
     std::pair<quic::QuicErrorCode, std::string> code) noexcept {
   // the connector will drop the connection in case of connect error
+  CHECK(!isInOnStopSending_)
+      << "got connection error during onStopSending: " << code.second;
   HQSession::DestructorGuard dg(this);
   VLOG(4) << __func__ << " sess=" << *this
           << ": connection error=" << code.second;
