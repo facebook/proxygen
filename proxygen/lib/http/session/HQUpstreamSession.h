@@ -166,10 +166,17 @@ class HQUpstreamSession : public HQSession {
           kErrorConnection);
     }
 
-    size_t sendAbortImpl(quic::ApplicationErrorCode /* errorCode */,
-                         std::string errorMsg) {
-      LOG(ERROR) << "No-op abort on ingress-only stream " << errorMsg;
-      return 0;
+    // Abort procedure that is specific to ingress push streams.
+    size_t sendAbort(HTTPTransaction* txn,
+                     ErrorCode errorCode) noexcept override {
+      // TBD: send "cancel push" here.
+
+      return sendAbortImpl(hq::toHTTP3ErrorCode(errorCode),
+          folly::to<std::string>("Application aborts pushed txn,"
+            " errorCode=", getErrorCodeString(errorCode),
+            " pushID=", getPushId(),
+            " txn=", txn->getID(),
+            " hasIngressStream=", hasIngressStreamId()));
     }
 
     hq::PushId getPushId() const {

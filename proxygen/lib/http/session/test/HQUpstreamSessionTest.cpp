@@ -1611,6 +1611,86 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseFollowedByPushStream) {
   flushAndLoop();
 }
 
+TEST_P(HQUpstreamSessionTestHQPush, TestAbortedPushedTransactionAfterPromise) {
+  assocHandler_->txn_->sendAbort();
+  assocHandler_ = openTransaction();
+  assocHandler_->txn_->sendHeaders(getGetRequest());
+  assocHandler_->txn_->sendEOM();
+  assocHandler_->expectHeaders();
+  assocHandler_->expectBody();
+  assocHandler_->expectEOM();
+  assocHandler_->expectDetachTransaction();
+
+  auto resp = makeResponse(200, 100);
+  sendResponse(assocHandler_->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               false);
+  flushAndLoopN(1);
+
+  auto pushHandler = std::make_unique<MockHTTPHandler>();
+  pushHandler->expectTransaction();
+  assocHandler_->expectPushedTransaction(pushHandler.get());
+  // Abort the pushed transaction upon reception of the push promise.
+  pushHandler->expectHeaders([&] (std::shared_ptr<HTTPMessage>) {
+      pushHandler->txn_->sendAbort();
+      });
+
+  auto pushPromiseRequest = getGetRequest();
+  hq::PushId pushId = nextPushId();
+  sendPushPromise(assocHandler_->txn_->getID(), pushPromiseRequest, pushId);
+  // Send body to close the main request stream
+  sendPartialBody(assocHandler_->txn_->getID(), nullptr, true);
+  pushHandler->expectDetachTransaction();
+
+  flushAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTestHQPush, TestAbortedPushedTransactionAfterResponse) {
+  assocHandler_->txn_->sendAbort();
+  assocHandler_ = openTransaction();
+  assocHandler_->txn_->sendHeaders(getGetRequest());
+  assocHandler_->txn_->sendEOM();
+  assocHandler_->expectHeaders();
+  assocHandler_->expectBody();
+  assocHandler_->expectEOM();
+  assocHandler_->expectDetachTransaction();
+
+  auto resp = makeResponse(200, 100);
+  sendResponse(assocHandler_->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               false);
+  flushAndLoopN(1);
+
+  auto pushHandler = std::make_unique<MockHTTPHandler>();
+  pushHandler->expectTransaction();
+  assocHandler_->expectPushedTransaction(pushHandler.get());
+  // Expect normal promise.
+  pushHandler->expectHeaders([] (std::shared_ptr<HTTPMessage>) {});
+
+  auto pushPromiseRequest = getGetRequest();
+  pushPromiseRequest.getHeaders().set("Dynamic1", "a");
+  hq::PushId pushId = nextPushId();
+  sendPushPromise(assocHandler_->txn_->getID(), pushPromiseRequest, pushId);
+  sendPartialBody(assocHandler_->txn_->getID(), nullptr, true);
+  flushAndLoopN(1);
+
+  // Abort the pushed transaction on response.
+  pushHandler->expectHeaders([&] (std::shared_ptr<HTTPMessage>) {
+      pushHandler->txn_->sendAbort();
+      });
+  pushHandler->expectDetachTransaction();
+  HTTPMessage pushResp;
+  pushResp.setStatusCode(200);
+  pushResp.getHeaders().set("Dynamic2", "b");
+  createPushStream(pushId, pushResp, makeBuf(100), true);
+
+  flushAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQUpstreamSessionTestHQPush, TestOnPushedTransaction) {
   // the transaction is expected to timeout, since the PushPromise does not have
   // EOF set, and it is not followed by a PushStream.
