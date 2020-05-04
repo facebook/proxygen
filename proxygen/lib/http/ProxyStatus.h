@@ -28,7 +28,7 @@ class ProxyStatus {
  public:
   ProxyStatus() {
   }
-  ~ProxyStatus() {
+  virtual ~ProxyStatus() {
   }
   explicit ProxyStatus(StatusType statusType);
 
@@ -38,8 +38,8 @@ class ProxyStatus {
   void setStatusType(StatusType statusType);
   ProxyStatus& setProxy(const std::string& proxy);
   ProxyStatus& setUpstreamIP(const std::string& upstreamIP);
-  ProxyStatus& setProxyStatusParameter(folly::StringPiece name,
-                                       const std::string& text);
+  virtual ProxyStatus& setProxyStatusParameter(folly::StringPiece name,
+                                               const std::string& text);
 
   std::string str() const;
 
