@@ -10,6 +10,7 @@
 
 #include <folly/Optional.h>
 #include <folly/lang/Assume.h>
+#include <proxygen/lib/http/HTTPException.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
@@ -172,6 +173,10 @@ class HQStreamMapping {
 
   virtual bool hasEgressStreamId() const = 0;
 
+  bool hasStreamId() const {
+    return hasIngressStreamId() || hasEgressStreamId();
+  }
+
   // Safe way to check whether this HQStream is using that quicStream
   // see usage in HQSession::findControlStream
   virtual bool isUsing(quic::StreamId /* streamId */) const = 0;
@@ -181,6 +186,8 @@ class HQStreamMapping {
   virtual void setIngressStreamId(quic::StreamId /* streamId */) = 0;
 
   virtual void setEgressStreamId(quic::StreamId /* streamId */) = 0;
+
+  virtual HTTPException::Direction getStreamDirection() const = 0;
 };
 
 /**
@@ -292,6 +299,10 @@ class SSBidir : public virtual HQStreamMapping {
     streamId_ = streamId;
   }
 
+  virtual HTTPException::Direction getStreamDirection() const override {
+    return HTTPException::Direction::INGRESS_AND_EGRESS;
+  }
+
  protected:
   folly::Optional<quic::StreamId> streamId_;
 }; // proxygen::detail::singlestream::Bidir
@@ -319,6 +330,11 @@ class SSEgress : public SSBidir {
   bool hasIngressStreamId() const override {
     return false;
   }
+
+  virtual HTTPException::Direction getStreamDirection() const override {
+    return HTTPException::Direction::EGRESS;
+  }
+
 }; // proxygen::detail::singlestream::Egress
 
 class SSIngress : public SSBidir {
@@ -341,6 +357,11 @@ class SSIngress : public SSBidir {
   bool hasEgressStreamId() const override {
     return false;
   }
+
+  virtual HTTPException::Direction getStreamDirection() const override {
+    return HTTPException::Direction::INGRESS;
+  }
+
 }; // proxygen::detail::singlestream::Ingres
 } // namespace singlestream
 
@@ -405,6 +426,10 @@ class CSBidir : public virtual HQStreamMapping {
 
   void setEgressStreamId(quic::StreamId streamId) override {
     egressStreamId_ = streamId;
+  }
+
+  virtual HTTPException::Direction getStreamDirection() const override {
+    return HTTPException::Direction::INGRESS_AND_EGRESS;
   }
 
  private:

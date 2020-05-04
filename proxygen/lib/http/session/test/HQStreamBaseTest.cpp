@@ -156,3 +156,26 @@ TEST_F(HQStreamDeathTest, TestCompositeBidirEmptyEgress) {
               KilledBySignal(SIGABRT),
               "Ambiguous call 'getStreamId' on a composite stream");
 }
+
+TEST_F(HQStreamBaseTest, TestGetStreamDirection) {
+    EXPECT_EQ(ssEgressMapping_->getStreamDirection(),
+        HTTPException::Direction::EGRESS);
+
+    EXPECT_EQ(ssIngressMapping_->getStreamDirection(),
+        HTTPException::Direction::INGRESS);
+
+    EXPECT_EQ(ssBidirMapping_->getStreamDirection(),
+        HTTPException::Direction::INGRESS_AND_EGRESS);
+
+    EXPECT_EQ(csBidirMappingEmpty_->getStreamDirection(),
+        HTTPException::Direction::INGRESS_AND_EGRESS);
+
+    EXPECT_EQ(csBidirMappingEgressSet_->getStreamDirection(),
+        HTTPException::Direction::INGRESS_AND_EGRESS);
+
+    EXPECT_EQ(csBidirMappingIngressSet_->getStreamDirection(),
+        HTTPException::Direction::INGRESS_AND_EGRESS);
+
+    EXPECT_EQ(csBidirMappingBothSet_->getStreamDirection(),
+        HTTPException::Direction::INGRESS_AND_EGRESS);
+}
