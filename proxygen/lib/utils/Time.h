@@ -147,7 +147,7 @@ inline void getDateOffsetStr(char datebuf[32], int dayOffset) {
  * Helper method to convert TimePoint to a printable date and time string. It
  * will convert static time to system time.
  *
- * @param time    TimePoint
+ * @param tp      TimePoint
  * @return        a human readable date and time string at UTC timezone.
  *                If there is any error, returns empty string.
  */
