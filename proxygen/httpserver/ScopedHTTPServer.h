@@ -9,6 +9,7 @@
 #pragma once
 
 #include <boost/thread.hpp>
+#include <chrono>
 #include <folly/io/async/SSLContext.h>
 #include <folly/system/ThreadName.h>
 #include <proxygen/httpserver/HTTPServer.h>
@@ -19,7 +20,7 @@ namespace proxygen {
 template <typename HandlerType>
 class ScopedHandler : public RequestHandler {
  public:
-  explicit ScopedHandler(HandlerType* ptr): handlerPtr_(ptr) {
+  explicit ScopedHandler(HandlerType* ptr) : handlerPtr_(ptr) {
   }
 
   void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept override {
@@ -30,7 +31,8 @@ class ScopedHandler : public RequestHandler {
     requestBody_.append(std::move(body));
   }
 
-  void onUpgrade(proxygen::UpgradeProtocol) noexcept override {}
+  void onUpgrade(proxygen::UpgradeProtocol) noexcept override {
+  }
 
   void onEOM() noexcept override {
     try {
@@ -50,9 +52,14 @@ class ScopedHandler : public RequestHandler {
     }
   }
 
-  void requestComplete() noexcept override { delete this; }
+  void requestComplete() noexcept override {
+    delete this;
+  }
 
-  void onError(ProxygenError) noexcept override { delete this; }
+  void onError(ProxygenError) noexcept override {
+    delete this;
+  }
+
  private:
   HandlerType* const handlerPtr_{nullptr};
 
@@ -63,7 +70,7 @@ class ScopedHandler : public RequestHandler {
 template <typename HandlerType>
 class ScopedHandlerFactory : public RequestHandlerFactory {
  public:
-  explicit ScopedHandlerFactory(HandlerType handler): handler_(handler) {
+  explicit ScopedHandlerFactory(HandlerType handler) : handler_(handler) {
   }
 
   void onServerStart(folly::EventBase*) noexcept override {
@@ -75,6 +82,7 @@ class ScopedHandlerFactory : public RequestHandlerFactory {
   RequestHandler* onRequest(RequestHandler*, HTTPMessage*) noexcept override {
     return new ScopedHandler<HandlerType>(&handler_);
   }
+
  private:
   HandlerType handler_;
 };
@@ -92,16 +100,17 @@ class ScopedHTTPServer final {
    */
   template <typename HandlerType>
   static std::unique_ptr<ScopedHTTPServer> start(
-    HandlerType handler,
-    int port = 0,
-    int numThreads = 4,
-    std::unique_ptr<wangle::SSLContextConfig> sslCfg = nullptr);
+      HandlerType handler,
+      int port = 0,
+      int numThreads = 4,
+      std::unique_ptr<wangle::SSLContextConfig> sslCfg = nullptr,
+      std::chrono::milliseconds idleTimeoutMs = std::chrono::milliseconds(0));
 
   /**
    * Start a server listening with the requested IPConfig and server opts
    */
-  static std::unique_ptr<ScopedHTTPServer> start(
-    HTTPServer::IPConfig cfg, HTTPServerOptions options);
+  static std::unique_ptr<ScopedHTTPServer> start(HTTPServer::IPConfig cfg,
+                                                 HTTPServerOptions options);
 
   /**
    * Get the port the server is listening on. This is helpful if the port was
@@ -126,10 +135,8 @@ class ScopedHTTPServer final {
   }
 
  private:
-  ScopedHTTPServer(std::thread thread,
-                   std::unique_ptr<HTTPServer> server)
-      : thread_(std::move(thread)),
-        server_(std::move(server)) {
+  ScopedHTTPServer(std::thread thread, std::unique_ptr<HTTPServer> server)
+      : thread_(std::move(thread)), server_(std::move(server)) {
   }
 
   std::thread thread_;
@@ -141,11 +148,13 @@ inline std::unique_ptr<ScopedHTTPServer> ScopedHTTPServer::start(
     HandlerType handler,
     int port,
     int numThreads,
-    std::unique_ptr<wangle::SSLContextConfig> sslCfg) {
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg,
+    std::chrono::milliseconds idleTimeoutMs) {
 
   std::unique_ptr<RequestHandlerFactory> f =
       std::make_unique<ScopedHandlerFactory<HandlerType>>(handler);
-  return start(std::move(f), port, numThreads, std::move(sslCfg));
+  return start(
+      std::move(f), port, numThreads, std::move(sslCfg), idleTimeoutMs);
 }
 
 template <>
@@ -154,15 +163,13 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
     std::unique_ptr<RequestHandlerFactory> f,
     int port,
     int numThreads,
-    std::unique_ptr<wangle::SSLContextConfig> sslCfg) {
+    std::unique_ptr<wangle::SSLContextConfig> sslCfg,
+    std::chrono::milliseconds idleTimeoutMs) {
   // This will handle both IPv4 and IPv6 cases
   folly::SocketAddress addr;
   addr.setFromLocalPort(port);
 
-  HTTPServer::IPConfig cfg {
-    addr,
-    HTTPServer::Protocol::HTTP
-  };
+  HTTPServer::IPConfig cfg{addr, HTTPServer::Protocol::HTTP};
 
   if (sslCfg) {
     cfg.sslConfigs.push_back(*sslCfg);
@@ -171,15 +178,16 @@ ScopedHTTPServer::start<std::unique_ptr<RequestHandlerFactory>>(
   HTTPServerOptions options;
   options.threads = numThreads;
   options.handlerFactories.push_back(std::move(f));
+  if (idleTimeoutMs.count() > 0) {
+    options.idleTimeout = idleTimeoutMs;
+  }
   return start(std::move(cfg), std::move(options));
 }
 
-inline std::unique_ptr<ScopedHTTPServer>
-ScopedHTTPServer::start(
-    HTTPServer::IPConfig cfg,
-    HTTPServerOptions options) {
+inline std::unique_ptr<ScopedHTTPServer> ScopedHTTPServer::start(
+    HTTPServer::IPConfig cfg, HTTPServerOptions options) {
 
-  std::vector<HTTPServer::IPConfig> IPs = { std::move(cfg) };
+  std::vector<HTTPServer::IPConfig> IPs = {std::move(cfg)};
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
   server->bind(IPs);
@@ -188,17 +196,17 @@ ScopedHTTPServer::start(
   std::exception_ptr eptr;
   auto barrier = std::make_shared<boost::barrier>(2);
 
-  std::thread t = std::thread([&, barrier] () {
+  std::thread t = std::thread([&, barrier]() {
     server->start(
-      [&, barrier] () {
-        folly::setThreadName("http-acceptor");
-        barrier->wait();
-      },
-      [&, barrier] (std::exception_ptr ex) {
-        eptr = ex;
-        barrier->wait();
-      });
-    });
+        [&, barrier]() {
+          folly::setThreadName("http-acceptor");
+          barrier->wait();
+        },
+        [&, barrier](std::exception_ptr ex) {
+          eptr = ex;
+          barrier->wait();
+        });
+  });
 
   // Wait for server to start
   barrier->wait();
@@ -212,4 +220,4 @@ ScopedHTTPServer::start(
       new ScopedHTTPServer(std::move(t), std::move(server)));
 }
 
-}
+} // namespace proxygen
