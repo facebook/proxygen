@@ -180,13 +180,17 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                    HTTPTransaction*, uint64_t));
 
   GMOCK_METHOD0_(,
-                 const noexcept,
+                 noexcept,
                  ,
-                 getConnectionToken,
+                 getConnectionTokenNonConst,
                  folly::Optional<HTTPTransaction::ConnectionToken>());
+  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const noexcept override {
+    return const_cast<MockHTTPTransactionTransport*>(this)
+        ->getConnectionTokenNonConst();
+  }
 
   void setConnectionToken(HTTPTransaction::ConnectionToken token) {
-    EXPECT_CALL(*this, getConnectionToken())
+    EXPECT_CALL(*this, getConnectionTokenNonConst())
         .WillRepeatedly(testing::Return(token));
   }
 
