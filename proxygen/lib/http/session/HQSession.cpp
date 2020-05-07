@@ -2328,7 +2328,7 @@ HQSession::newTransaction(HTTPTransaction::Handler* handler) {
   // TODO stream limit handling
   auto quicStreamId = sock_->createBidirectionalStream();
   if (!quicStreamId) {
-    VLOG(3) << __func__ << " failed to create new stream: " << this;
+    VLOG(2) << __func__ << " failed to create new stream: " << this;
     return nullptr;
   }
 

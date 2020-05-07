@@ -141,7 +141,7 @@ HQDownstreamSession::newPushedTransaction(
   // NOTE: should be stored in the transaction
   // NOTE: should be cleaned up when the transaction is closed
   if (!pushStreamId) {
-    VLOG(3) << __func__ << " failed to create new unidirectional stream";
+    VLOG(2) << __func__ << " failed to create new unidirectional stream";
     SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorCreatingStream);
     return nullptr;
   }
