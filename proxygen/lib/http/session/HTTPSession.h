@@ -307,6 +307,30 @@ class HTTPSession
 
   virtual void injectTraceEventIntoAllTransactions(TraceEvent& event) override;
 
+  bool readsUnpaused() const {
+    return reads_ == SocketState::UNPAUSED;
+  }
+
+  bool readsPaused() const {
+    return reads_ == SocketState::PAUSED;
+  }
+
+  bool readsShutdown() const {
+    return reads_ == SocketState::SHUTDOWN;
+  }
+
+  bool writesUnpaused() const {
+    return writes_ == SocketState::UNPAUSED;
+  }
+
+  bool writesPaused() const {
+    return writes_ == SocketState::PAUSED;
+  }
+
+  bool writesShutdown() const {
+    return writes_ == SocketState::SHUTDOWN;
+  }
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated
@@ -689,30 +713,6 @@ class HTTPSession
 
   void pauseReadsImpl();
   void resumeReadsImpl();
-
-  bool readsUnpaused() const {
-    return reads_ == SocketState::UNPAUSED;
-  }
-
-  bool readsPaused() const {
-    return reads_ == SocketState::PAUSED;
-  }
-
-  bool readsShutdown() const {
-    return reads_ == SocketState::SHUTDOWN;
-  }
-
-  bool writesUnpaused() const {
-    return writes_ == SocketState::UNPAUSED;
-  }
-
-  bool writesPaused() const {
-    return writes_ == SocketState::PAUSED;
-  }
-
-  bool writesShutdown() const {
-    return writes_ == SocketState::SHUTDOWN;
-  }
 
   void rescheduleLoopCallbacks() {
     if (!isLoopCallbackScheduled()) {

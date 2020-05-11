@@ -2110,6 +2110,8 @@ void HTTPSession::getFlowControlInfo(
   if (connFlowControl_) {
     info->sessionRecvWindow_ = connFlowControl_->getRecvWindow().getCapacity();
     info->sessionSendWindow_ = connFlowControl_->getSendWindow().getSize();
+    info->sessionRecvOutstanding_ = connFlowControl_->getRecvWindow().getOutstanding();
+    info->sessionSendOutstanding_ = connFlowControl_->getSendWindow().getOutstanding();
   }
 }
 

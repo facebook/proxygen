@@ -403,8 +403,12 @@ class HTTPTransaction
     bool flowControlEnabled_{false};
     int64_t sessionSendWindow_{-1};
     int64_t sessionRecvWindow_{-1};
+    int64_t sessionSendOutstanding_{-1};
+    int64_t sessionRecvOutstanding_{-1};
     int64_t streamSendWindow_{-1};
     int64_t streamRecvWindow_{-1};
+    int64_t streamSendOutstanding_{-1};
+    int64_t streamRecvOutstanding_{-1};
   };
 
 
@@ -697,7 +701,9 @@ class HTTPTransaction
   void getCurrentFlowControlInfo(FlowControlInfo* info) const {
     transport_.getFlowControlInfo(info);
     info->streamSendWindow_ = sendWindow_.getCapacity();
+    info->streamSendOutstanding_ = sendWindow_.getOutstanding();
     info->streamRecvWindow_ = recvWindow_.getCapacity();
+    info->streamRecvOutstanding_ = recvWindow_.getOutstanding();
   }
 
   HTTPSessionStats* getSessionStats() const {
