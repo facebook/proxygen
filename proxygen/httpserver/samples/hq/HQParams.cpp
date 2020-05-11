@@ -237,6 +237,7 @@ void initializeTransportSettings(HQParams& hqParams) {
     // There is no good reason to keep the socket around for a drain period for
     // a commandline client
     hqParams.transportSettings.shouldDrain = false;
+    hqParams.transportSettings.attemptEarlyData = FLAGS_early_data;
   }
   hqParams.transportSettings.connectUDP = FLAGS_connect_udp;
   hqParams.transportSettings.maxCwndInMss = FLAGS_max_cwnd_mss;
