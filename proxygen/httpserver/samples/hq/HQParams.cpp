@@ -102,6 +102,7 @@ DEFINE_string(static_root,
 DEFINE_bool(migrate_client,
             false,
             "(HQClient) Should the HQClient make two sets of requests and switch sockets in the middle.");
+DEFINE_bool(use_inplace_write, false, "Transport use inplace packet build and socket writing");
 
 namespace quic { namespace samples {
 
@@ -242,6 +243,9 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.transportSettings.connectUDP = FLAGS_connect_udp;
   hqParams.transportSettings.maxCwndInMss = FLAGS_max_cwnd_mss;
   hqParams.transportSettings.disableMigration = false;
+  if (hqParams.mode == HQMode::SERVER && FLAGS_use_inplace_write) {
+    hqParams.transportSettings.dataPathType = quic::DataPathType::ContinuousMemory;
+  }
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParams& hqParams) {
