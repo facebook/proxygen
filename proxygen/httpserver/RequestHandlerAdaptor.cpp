@@ -28,8 +28,10 @@ void RequestHandlerAdaptor::setTransaction(HTTPTransaction* txn) noexcept {
 }
 
 void RequestHandlerAdaptor::detachTransaction() noexcept {
-  if (err_ == kErrorNone) {
-    upstream_->requestComplete();
+  if (upstream_) {
+    auto upstream = upstream_;
+    upstream_ = nullptr;
+    upstream->requestComplete();
   }
 
   // Otherwise we would have got some error call back and invoked onError
@@ -39,6 +41,9 @@ void RequestHandlerAdaptor::detachTransaction() noexcept {
 
 void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
     noexcept {
+  if (!upstream_) {
+    return;
+  }
   if (msg->getHeaders().exists(HTTP_HEADER_EXPECT) &&
       !upstream_->canHandleExpect()) {
     auto expectation = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_EXPECT);
@@ -57,13 +62,15 @@ void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
     }
   }
 
-  // Only in case of no error
-  if (err_ == kErrorNone) {
+  if (upstream_) {
     upstream_->onRequest(std::move(msg));
   }
 }
 
 void RequestHandlerAdaptor::onBody(std::unique_ptr<folly::IOBuf> c) noexcept {
+  if (!upstream_) {
+    return;
+  }
   upstream_->onBody(std::move(c));
 }
 
@@ -78,18 +85,21 @@ void RequestHandlerAdaptor::onTrailers(
 }
 
 void RequestHandlerAdaptor::onEOM() noexcept {
-  if (err_ == kErrorNone) {
-    upstream_->onEOM();
+  if (!upstream_) {
+    return;
   }
+  upstream_->onEOM();
 }
 
 void RequestHandlerAdaptor::onUpgrade(UpgradeProtocol protocol) noexcept {
+  if (!upstream_) {
+    return;
+  }
   upstream_->onUpgrade(protocol);
 }
 
 void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
-  if (err_ != kErrorNone) {
-    // we have already handled an error and upstream would have been deleted
+  if (!upstream_) {
     return;
   }
 
@@ -124,18 +134,30 @@ void RequestHandlerAdaptor::onError(const HTTPException& error) noexcept {
 }
 
 void RequestHandlerAdaptor::onGoaway(ErrorCode code) noexcept {
+  if (!upstream_) {
+    return;
+  }
   upstream_->onGoaway(code);
 }
 
 void RequestHandlerAdaptor::onEgressPaused() noexcept {
+  if (!upstream_) {
+    return;
+  }
   upstream_->onEgressPaused();
 }
 
 void RequestHandlerAdaptor::onEgressResumed() noexcept {
+  if (!upstream_) {
+    return;
+  }
   upstream_->onEgressResumed();
 }
 
 void RequestHandlerAdaptor::onExTransaction(HTTPTransaction* txn) noexcept {
+  if (!upstream_) {
+    return;
+  }
   // Create handler for child EX transaction.
   auto handler = new RequestHandlerAdaptor(upstream_->getExHandler());
   txn->setHandler(handler);
@@ -209,7 +231,9 @@ void RequestHandlerAdaptor::getCurrentTransportInfo(
 
 void RequestHandlerAdaptor::setError(ProxygenError err) noexcept {
   err_ = err;
-  upstream_->onError(err);
+  auto upstream = upstream_;
+  upstream_ = nullptr;
+  upstream->onError(err);
 }
 
 }
