@@ -7,10 +7,11 @@
  */
 
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
-#include "proxygen/httpserver/Mocks.h"
-#include "proxygen/lib/http/session/test/HTTPTransactionMocks.h"
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/httpserver/Mocks.h>
+#include <proxygen/lib/http/codec/test/TestUtils.h>
+#include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 
 using namespace proxygen;
 using namespace testing;
@@ -45,6 +46,22 @@ void testExpectHandling(bool handlerResponds) {
 TEST(RequestHandlerAdaptorTest, Expect) {
   testExpectHandling(true /* handlerResponds */);
   testExpectHandling(false /* handlerResponds */);
+}
+
+TEST(RequestHandlerAdaptorTest, ExpectInvalid) {
+  auto requestHandler_ = std::make_unique<StrictMock<MockRequestHandler>>();
+  auto adaptor =
+      std::make_shared<StubRequestHandlerAdaptor>(requestHandler_.get());
+  EXPECT_CALL(*requestHandler_, canHandleExpect()).WillOnce(Return(false));
+  EXPECT_CALL(*requestHandler_, onError(_)).WillOnce(Invoke([&](ProxygenError) {
+    requestHandler_.reset();
+  }));
+  auto msg = std::make_unique<HTTPMessage>();
+  msg->getHeaders().add("Expect", "INVALID");
+  auto txHandler = std::dynamic_pointer_cast<HTTPTransactionHandler>(adaptor);
+  txHandler->onHeadersComplete(std::move(msg));
+  auto buf = proxygen::makeBuf(100);
+  txHandler->onBody(std::move(buf));
 }
 
 TEST(RequestHandlerAdaptorTest, onTimeoutError) {
