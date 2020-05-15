@@ -57,6 +57,10 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   }
   if (ipConfig.acceptorSocketOptions.has_value()) {
     conf.setSocketOptions(ipConfig.acceptorSocketOptions.value());
+    auto it = ipConfig.acceptorSocketOptions->find({SOL_SOCKET, SO_REUSEPORT});
+    if (it != ipConfig.acceptorSocketOptions->end() && it->second != 0) {
+      conf.reusePort = true;
+    }
   }
   return conf;
 }
