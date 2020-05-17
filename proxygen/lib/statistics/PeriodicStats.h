@@ -150,6 +150,10 @@ class PeriodicStats {
    * Returns a new instance of T data that will be owned and cached
    * by this class.  Subclasses can implement accordingly to override the
    * returned instance.
+   *
+   * If nullptr is returned, no update is performed.  Subclasses can leverage
+   * this flow in case no new data is available or if they want the current
+   * data to remain in use.
    */
   virtual T* getNewData() const = 0;
 
@@ -168,9 +172,12 @@ class PeriodicStats {
    * purposes.
    */
   void updateCachedData() {
-    modifyData(getNewData());
-    if (refreshCb_) {
-      refreshCb_();
+    auto* newData = getNewData();
+    if (newData) {
+      modifyData(newData);
+      if (refreshCb_) {
+        refreshCb_();
+      }
     }
   }
 

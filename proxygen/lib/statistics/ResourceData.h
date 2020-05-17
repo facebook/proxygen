@@ -12,12 +12,14 @@
 #include <stdint.h>
 #include <vector>
 
+#include "proxygen/lib/statistics/PeriodicStatsDataBase.h"
+
 namespace proxygen {
 
 /**
  * Container struct to store various resource utilization data.
  */
-struct ResourceData {
+struct ResourceData : public PeriodicStatsDataBase {
  public:
   ResourceData() = default;
   virtual ~ResourceData() = default;
@@ -229,14 +231,6 @@ struct ResourceData {
            pressureUdpMemLimit_ != 0 && minUdpMemLimit_ != 0;
   }
 
-  /**
-   * Gets the time (from epoch) when this record was created (so for
-   * which the utilization metrics are valid).
-   */
-  std::chrono::milliseconds getLastUpdateTime() const {
-    return time_;
-  }
-
   void setCpuStats(double cpuRatioUtil,
                    double cpuSoftIrqRatioUtil,
                    std::vector<double>&& softIrqCpuCoreRatioUtils) {
@@ -276,23 +270,6 @@ struct ResourceData {
     maxUdpMemLimit_ = maxThreshold;
   }
 
-  /**
-   * Refreshes the time (from epoch) when this record was created (so for
-   * which the utilization metrics are valid).
-   */
-  void refreshLastUpdateTime() {
-    time_ = getEpochTime();
-  }
-  void setLastUpdateTime(std::chrono::milliseconds updateTime) {
-    time_ = updateTime;
-  }
-
-  // Helper method to get ms since epoch.
-  static std::chrono::milliseconds getEpochTime() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch());
-  }
-
  protected:
   // Convert an absolute integer value and max limit to a float point ratio.
   double calculateRatio(uint64_t value, uint64_t maxLimit) const {
@@ -316,9 +293,6 @@ struct ResourceData {
   uint64_t maxUdpMemLimit_{0};
   uint64_t pressureUdpMemLimit_{0};
   uint64_t minUdpMemLimit_{0};
-
-  // Refresh management fields
-  std::chrono::milliseconds time_{0};
 };
 
 /**
