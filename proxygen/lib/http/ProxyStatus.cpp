@@ -29,8 +29,7 @@ StatusType ProxyStatus::getStatusType() const {
   return statusType_;
 }
 
-void ProxyStatus::setStatusType(StatusType statusType)
-{
+void ProxyStatus::setStatusType(StatusType statusType) {
   statusType_ = statusType;
   pIdent_.identifier = getStatusTypeString(statusType_);
 };
@@ -59,13 +58,17 @@ bool ProxyStatus::hasUpstreamIP() const {
          pIdent_.parameterMap.end();
 }
 
-std::string ProxyStatus::str() const {
+std::string ProxyStatus::toString() const {
   StructuredHeaders::ParameterisedList plist;
   StructuredHeadersEncoder encoder;
   plist.emplace_back(std::move(pIdent_));
   encoder.encodeParameterisedList(plist);
 
   return encoder.get();
+}
+
+bool ProxyStatus::isEmpty() const {
+  return statusType_ == StatusType::ENUM_COUNT;
 }
 
 } // namespace proxygen

@@ -27,6 +27,7 @@ namespace proxygen {
 class ProxyStatus {
  public:
   ProxyStatus() {
+    statusType_ = StatusType::ENUM_COUNT;
   }
   virtual ~ProxyStatus() {
   }
@@ -41,7 +42,13 @@ class ProxyStatus {
   virtual ProxyStatus& setProxyStatusParameter(folly::StringPiece name,
                                                const std::string& text);
 
-  std::string str() const;
+  // Serialize ProxyStatus to std::string
+  // e.g. proxy-status: destination_unavailable; \
+  // e_proxy="devbig623.prn2"; e_upip="fe:de:fa:ce:fe:de:fa:ce"
+  std::string toString() const;
+
+  // Check if the ProxyStatus is empty
+  bool isEmpty() const;
 
  protected:
   StructuredHeaders::ParameterisedIdentifier pIdent_;
