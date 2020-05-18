@@ -43,6 +43,7 @@ DEFINE_int32(stream_flow_control, 65 * 1024, "Stream flow control");
 DEFINE_int32(max_receive_packet_size,
              quic::kDefaultUDPReadBufferSize,
              "Max UDP packet size Quic can receive");
+DEFINE_int64(rate_limit, -1, "Connection rate limit per second per thread");
 
 DEFINE_uint32(num_gro_buffers,
               quic::kDefaultNumGROBuffers,
@@ -245,6 +246,9 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.transportSettings.disableMigration = false;
   if (hqParams.mode == HQMode::SERVER && FLAGS_use_inplace_write) {
     hqParams.transportSettings.dataPathType = quic::DataPathType::ContinuousMemory;
+  }
+  if (FLAGS_rate_limit > 0) {
+    hqParams.rateLimitPerThread = FLAGS_rate_limit;
   }
 } // initializeTransportSettings
 

@@ -68,6 +68,7 @@ struct HQParams {
   std::string congestionControlName;
   folly::Optional<quic::CongestionControlType> congestionControl;
   bool earlyData;
+  folly::Optional<int64_t> rateLimitPerThread;
 
   // HTTP section
   uint16_t h2port;
