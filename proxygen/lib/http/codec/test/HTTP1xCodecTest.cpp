@@ -78,7 +78,9 @@ TEST(HTTP1xCodecTest, TestSimpleHeaders) {
   codec.setCallback(&callbacks);
   auto buffer = getSimpleRequestData();
   codec.onIngress(*buffer);
-  EXPECT_EQ(callbacks.headersComplete, 1);
+  // Call it twice so we catch that we reset compressed size
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 2);
   EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
   EXPECT_EQ(callbacks.headerSize.compressed, callbacks.headerSize.uncompressed);
 }

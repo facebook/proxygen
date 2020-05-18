@@ -819,6 +819,7 @@ int
 HTTP1xCodec::onMessageBegin() {
   headersComplete_ = false;
   headerSize_.uncompressed = 0;
+  headerSize_.compressed = 0;
   headerParseState_ = HeaderParseState::kParsingHeaderStart;
   msg_.reset(new HTTPMessage());
   trailers_.reset();
