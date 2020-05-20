@@ -77,7 +77,7 @@ appendString(IOBufQueue& queue, size_t& len, StringPiece str) {
 
 namespace proxygen {
 
-HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool forceUpstream1_1)
+HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool force1_1)
     : callback_(nullptr),
       ingressTxnID_(0),
       egressTxnID_(0),
@@ -85,7 +85,7 @@ HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool forceUpstream1_1)
       headerParseState_(HeaderParseState::kParsingHeaderIdle),
       transportDirection_(direction),
       keepaliveRequested_(KeepaliveRequested::UNSET),
-      forceUpstream1_1_(forceUpstream1_1),
+      force1_1_(force1_1),
       parserActive_(false),
       pendingEOF_(false),
       parserPaused_(false),
@@ -449,6 +449,9 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     if (version == HTTPMessage::kHTTPVersion09) {
       return;
     }
+    if (force1_1_ && version < HTTPMessage::kHTTPVersion11) {
+      version = HTTPMessage::kHTTPVersion11;
+    }
     appendLiteral(writeBuf, len, "HTTP/");
     appendUint(writeBuf, len, version.first);
     appendLiteral(writeBuf, len, ".");
@@ -459,7 +462,7 @@ HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     appendString(writeBuf, len, statusMessage);
     break;
   case TransportDirection::UPSTREAM:
-    if (forceUpstream1_1_ && version < HTTPMessage::kHTTPVersion11) {
+    if (force1_1_ && version < HTTPMessage::kHTTPVersion11) {
       version = HTTPMessage::kHTTPVersion11;
     }
     if (msg.isEgressWebsocketUpgrade()) {

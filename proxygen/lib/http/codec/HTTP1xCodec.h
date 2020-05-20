@@ -20,7 +20,7 @@ namespace proxygen {
 class HTTP1xCodec : public HTTPCodec {
  public:
   explicit HTTP1xCodec(TransportDirection direction,
-                       bool forceUpstream1_1 = false);
+                       bool force1_1 = false);
   ~HTTP1xCodec() override;
 
   HTTP1xCodec(HTTP1xCodec&&) = default;
@@ -178,7 +178,7 @@ class HTTP1xCodec : public HTTPCodec {
   TransportDirection transportDirection_;
   KeepaliveRequested keepaliveRequested_; // only used in DOWNSTREAM mode
   std::pair<CodecProtocol, std::string> upgradeResult_; // DOWNSTREAM only
-  bool forceUpstream1_1_:1; // Use HTTP/1.1 upstream even if msg is 1.0
+  bool force1_1_:1; // Use HTTP/1.1 even if msg is 1.0
   bool parserActive_:1;
   bool pendingEOF_:1;
   bool parserPaused_:1;

@@ -62,7 +62,7 @@ class HQUpstreamSessionTest : public HQSessionTest {
                   GetParam().prParams.has_value())};
     } else {
       auto codec =
-          std::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM, true);
+          std::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM);
       // When the codec is created, need to fake the request
       FakeHTTPCodecCallback cb;
       codec->setCallback(&cb);

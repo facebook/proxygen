@@ -137,7 +137,6 @@ TEST(HTTP1xCodecTest, Test09Resp) {
 
 TEST(HTTP1xCodecTest, TestO9NoVersion) {
   HTTP1xCodec codec(TransportDirection::UPSTREAM);
-  HTTP1xCodecCallback callbacks;
   HTTPMessage req;
   auto id = codec.createStream();
   req.setHTTPVersion(0, 9);
@@ -147,6 +146,87 @@ TEST(HTTP1xCodecTest, TestO9NoVersion) {
   codec.generateHeader(buf, id, req, true);
   EXPECT_TRUE(folly::IOBufEqualTo()(
       *buf.front(), *folly::IOBuf::copyBuffer("GET /yeah\r\n")));
+}
+
+TEST(HTTP1xCodecTest, TestKeepalive09_10) {
+  HTTP1xCodec codec1(TransportDirection::DOWNSTREAM, true);
+  HTTP1xCodecCallback callbacks1;
+  codec1.setCallback(&callbacks1);
+  auto buffer = folly::IOBuf::copyBuffer(string("GET /yeah\r\n"));
+  codec1.onIngress(*buffer);
+  EXPECT_EQ(callbacks1.headersComplete, 1);
+  EXPECT_EQ(callbacks1.messageComplete, 1);
+  EXPECT_EQ(callbacks1.msg_->getHTTPVersion(), HTTPMessage::kHTTPVersion09);
+  HTTPCodec::StreamID id = 1;
+  HTTPMessage resp;
+  resp.setHTTPVersion(0, 9);
+  resp.setStatusCode(200);
+  resp.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "0");
+  resp.getHeaders().set(HTTP_HEADER_DATE, "");
+  folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+  codec1.generateHeader(buf, id, resp, true);
+  // Even if forced to HTTP/1.1, HTTP/0.9 has no headers
+  EXPECT_EQ(buf.chainLength(), 0);
+  EXPECT_FALSE(codec1.isReusable());
+
+  HTTP1xCodec codec2(TransportDirection::DOWNSTREAM, true);
+  HTTP1xCodecCallback callbacks2;
+  codec2.setCallback(&callbacks2);
+  buffer = folly::IOBuf::copyBuffer(string("GET /yeah HTTP/1.0\r\n\r\n"));
+  codec2.onIngress(*buffer);
+  EXPECT_EQ(callbacks2.headersComplete, 1);
+  EXPECT_EQ(callbacks2.messageComplete, 1);
+  EXPECT_EQ(callbacks2.msg_->getHTTPVersion(), HTTPMessage::kHTTPVersion10);
+  resp.setHTTPVersion(1, 0);
+  codec2.generateHeader(buf, id, resp, true);
+
+  EXPECT_TRUE(folly::IOBufEqualTo()(
+      *buf.front(), *folly::IOBuf::copyBuffer(
+       "HTTP/1.1 200 \r\n"
+       "Date: \r\n"
+       "Connection: close\r\n"
+       "Content-Length: 0\r\n\r\n")));
+  EXPECT_FALSE(codec2.isReusable());
+  buf.move();
+
+  HTTP1xCodec codec3(TransportDirection::DOWNSTREAM, true);
+  HTTP1xCodecCallback callbacks3;
+  codec3.setCallback(&callbacks3);
+  buffer = folly::IOBuf::copyBuffer(string("GET /yeah HTTP/1.0\r\n"
+                                           "Connection: keep-alive\r\n\r\n"));
+  codec3.onIngress(*buffer);
+  EXPECT_EQ(callbacks3.headersComplete, 1);
+  EXPECT_EQ(callbacks3.messageComplete, 1);
+  EXPECT_EQ(callbacks3.msg_->getHTTPVersion(), HTTPMessage::kHTTPVersion10);
+  codec3.generateHeader(buf, id, resp, true);
+  EXPECT_TRUE(folly::IOBufEqualTo()(
+      *buf.front(), *folly::IOBuf::copyBuffer(
+       "HTTP/1.1 200 \r\n"
+       "Date: \r\n"
+       "Connection: keep-alive\r\n"
+       "Content-Length: 0\r\n\r\n")));
+  EXPECT_TRUE(codec3.isReusable());
+  buf.move();
+
+  HTTP1xCodec codec4(TransportDirection::DOWNSTREAM, true);
+  HTTP1xCodecCallback callbacks4;
+  codec4.setCallback(&callbacks4);
+  buffer = folly::IOBuf::copyBuffer(string("GET /yeah HTTP/1.0\r\n\r\n"));
+  codec4.onIngress(*buffer);
+  EXPECT_EQ(callbacks4.headersComplete, 1);
+  EXPECT_EQ(callbacks4.messageComplete, 1);
+  EXPECT_EQ(callbacks4.msg_->getHTTPVersion(), HTTPMessage::kHTTPVersion10);
+  resp.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  resp.getHeaders().remove(HTTP_HEADER_CONTENT_LENGTH);
+  resp.setIsChunked(true);
+  codec4.generateHeader(buf, id, resp, true);
+  EXPECT_TRUE(folly::IOBufEqualTo()(
+      *buf.front(), *folly::IOBuf::copyBuffer(
+       "HTTP/1.1 200 \r\n"
+       "Date: \r\n"
+       "Connection: close\r\n\r\n")));
+  EXPECT_FALSE(codec4.isReusable());
+  buf.move();
 }
 
 TEST(HTTP1xCodecTest, TestBadHeaders) {
