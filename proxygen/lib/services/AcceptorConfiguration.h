@@ -31,13 +31,6 @@ namespace proxygen {
  */
 struct AcceptorConfiguration : public wangle::ServerSocketConfig {
   /**
-   * Determines if the VIP should accept traffic from only internal or
-   * external clients. Internal VIPs have different behavior
-   * (e.g. Via headers, etc).
-   */
-  bool internal{false};
-
-  /**
   * Determines if connection should respect HTTP2 priorities
   **/
   bool HTTP2PrioritiesEnabled{true};

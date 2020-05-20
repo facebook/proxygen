@@ -48,20 +48,6 @@ class HTTPSessionAcceptor
   }
 
   /**
-   * Set an alternate error page generator to use for internal clients.
-   */
-  void setDiagnosticErrorPage(std::unique_ptr<HTTPErrorPage> generator) {
-    diagnosticErrorPage_ = std::move(generator);
-  }
-
-  /**
-   * Access the diagnostic error page generator.
-   */
-  const HTTPErrorPage* getDiagnosticErrorPage() const {
-    return diagnosticErrorPage_.get();
-  }
-
-  /**
    * Access the right error page generator for a connection.
    * @param   localAddr  Address of the local end of the connection.
    * @return  The diagnostic error page generator if one has been
@@ -149,9 +135,6 @@ class HTTPSessionAcceptor
 
   /** General-case error page generator */
   std::unique_ptr<HTTPErrorPage> defaultErrorPage_;
-
-  /** Generator of more detailed error pages for internal clients */
-  std::unique_ptr<HTTPErrorPage> diagnosticErrorPage_;
 
   std::shared_ptr<HTTPCodecFactory> codecFactory_{};
 

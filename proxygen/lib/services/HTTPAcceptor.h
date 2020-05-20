@@ -24,13 +24,6 @@ class HTTPAcceptor : public wangle::Acceptor {
   }
 
   /**
-   * Returns true if this server is internal to facebook
-   */
-  bool isInternal() const {
-    return accConfig_.internal;
-  }
-
-  /**
    * Access the general-purpose timeout manager for transactions.
    */
   virtual const WheelTimerInstance& getTransactionTimeoutSet() {

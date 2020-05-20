@@ -42,11 +42,6 @@ HTTPSessionAcceptor::~HTTPSessionAcceptor() {
 const HTTPErrorPage* HTTPSessionAcceptor::getErrorPage(
     const SocketAddress& addr) const {
   const HTTPErrorPage* errorPage = nullptr;
-  if (isInternal()) {
-    if (addr.isPrivateAddress()) {
-      errorPage = diagnosticErrorPage_.get();
-    }
-  }
   if (errorPage == nullptr) {
     errorPage = defaultErrorPage_.get();
   }
