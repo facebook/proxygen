@@ -90,3 +90,32 @@ TEST(HTTPMessageFilter, TestFilterOnBodyDataTracking) {
   p = reinterpret_cast<const char*>(dataPassedToNext->data());
   EXPECT_EQ(bodyContent, std::string(p, len));
 }
+
+TEST(HTTPMessageFilter, TestFilterPauseResumeAfterTxnDetached) {
+  //              prev               prev               prev
+  // testFilter2 -----> mockFilter -----> testFilter1 -----> mockTxn
+
+  TestFilter testFilter1;
+  TestFilter testFilter2;
+  MockHTTPMessageFilter mockFilter;
+
+  HTTP2PriorityQueue q;
+  MockHTTPTransaction mockTxn(TransportDirection::UPSTREAM, 1, 0, q);
+
+  testFilter2.setPrevFilter(&mockFilter);
+  mockFilter.setPrevFilter(&testFilter1);
+  testFilter1.setPrevTxn(&mockTxn);
+
+  testFilter1.setNextTransactionHandler(&mockFilter);
+  mockFilter.setNextTransactionHandler(&testFilter2);
+
+  testFilter1.detachTransaction();
+
+  EXPECT_CALL(mockTxn, pauseIngress()).Times(0);
+  EXPECT_CALL(mockFilter, pause());
+  testFilter2.pause();
+
+  EXPECT_CALL(mockTxn, resumeIngress()).Times(0);
+  EXPECT_CALL(mockFilter, resume(10));
+  testFilter2.resume(10);
+}

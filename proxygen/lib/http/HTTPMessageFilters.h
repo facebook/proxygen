@@ -8,16 +8,17 @@
 
 #pragma once
 
-#include <folly/io/async/DestructorCheck.h>
 #include <folly/Memory.h>
+#include <folly/io/async/DestructorCheck.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
 
 static const std::string kMessageFilterDefaultName_ = "Unknown";
 
-class HTTPMessageFilter: public HTTPTransaction::Handler,
-                         public folly::DestructorCheck {
+class HTTPMessageFilter
+    : public HTTPTransaction::Handler
+    , public folly::DestructorCheck {
  public:
   void setNextTransactionHandler(HTTPTransaction::Handler* next) {
     nextTransactionHandler_ = CHECK_NOTNULL(next);
@@ -32,7 +33,7 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
     return nextTransactionHandler_;
   }
 
-  virtual std::unique_ptr<HTTPMessageFilter> clone () noexcept = 0;
+  virtual std::unique_ptr<HTTPMessageFilter> clone() noexcept = 0;
 
   // These HTTPTransaction::Handler callbacks may be overwritten
   // The default behavior is to pass the call through.
@@ -75,7 +76,14 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
     nextTransactionHandler_->setTransaction(txn);
   }
   void detachTransaction() noexcept final {
-    nextTransactionHandler_->detachTransaction();
+    if (prev_.which() == 1) {
+      // After detachTransaction(), the HTTPTransaction will destruct itself.
+      // Set it to nullptr to avoid holding a stale pointer.
+      prev_ = static_cast<HTTPTransaction*>(nullptr);
+    }
+    if (nextTransactionHandler_) {
+      nextTransactionHandler_->detachTransaction();
+    }
   }
   void onEgressPaused() noexcept final {
     nextTransactionHandler_->onEgressPaused();
@@ -97,6 +105,7 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   virtual void pause() noexcept;
 
   virtual void resume(uint64_t offset) noexcept;
+
  protected:
   virtual void nextOnHeadersComplete(std::unique_ptr<HTTPMessage> msg) {
     nextTransactionHandler_->onHeadersComplete(std::move(msg));
@@ -126,4 +135,4 @@ class HTTPMessageFilter: public HTTPTransaction::Handler,
   bool nextElementIsPaused_{false};
 };
 
-} // proxygen
+} // namespace proxygen
