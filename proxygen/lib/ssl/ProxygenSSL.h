@@ -8,35 +8,48 @@
 
 #pragma once
 
+#include <folly/portability/OpenSSL.h>
+#include <folly/ssl/Init.h>
+#include <glog/logging.h>
+
 namespace proxygen {
 
 class ProxygenSSL {
  public:
   /**
    * Initialize OpenSSL library and creates SSL app context
-   * indices. Call prior to any pool creation.
+   * indices.
    */
-  static void init();
+  static void init() {
+    // Note: this is technically not required on OpenSSL >= 1.1.0, since OpenSSL
+    // will correctly initialize itself if any public API methods (such as
+    // SSL_CTX_get_ex_new_index) are invoked
+    folly::ssl::init();
+  }
+
   static int getSSLAppContextConfigIndex() {
-    return sCertAppCtxtConfigIndex_;
+    static auto index = [] {
+      auto idx =
+          SSL_CTX_get_ex_new_index(0,
+                                   (void*)"proxygen client context config",
+                                   nullptr,
+                                   nullptr,
+                                   nullptr);
+      CHECK(idx >= 0);
+      return idx;
+    }();
+    return index;
   }
+
   static int getSSLAppContextStatsIndex() {
-    return sCertAppCtxtStatsIndex_;
+    static auto index = [] {
+      auto idx = SSL_CTX_get_ex_new_index(
+          0, (void*)"proxygen wangle::SSLStats", nullptr, nullptr, nullptr);
+      CHECK(idx >= 0);
+      return idx;
+    }();
+    return index;
   }
-  static int getX509CertNameIndex() {
-    return sX509CertNameIndex_;
-  }
-
- private:
-  // App context indices within SSL
-  static int sCertAppCtxtConfigIndex_;
-  static int sCertAppCtxtStatsIndex_;
-
-  // X509 ex index for cert name
-  static int sX509CertNameIndex_;
-
-  static void createSSLAppContextIndices();
-  static void createX509AppContextIndices();
 };
 
 } // namespace proxygen
