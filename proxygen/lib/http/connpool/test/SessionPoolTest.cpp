@@ -15,6 +15,7 @@
 
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/portability/GFlags.h>
+#include <folly/synchronization/Baton.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
 using namespace proxygen;
