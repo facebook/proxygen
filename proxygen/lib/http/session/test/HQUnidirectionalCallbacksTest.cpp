@@ -26,7 +26,7 @@ class UnidirectionalReadDispatcherTest : public Test {
     incomingData_.clear();
     dispatcherCallback_ = std::make_unique<MockDispatcher>();
     dispatcher_ =
-        std::make_unique<HQUnidirStreamDispatcher>(*dispatcherCallback_);
+        std::make_unique<HQUnidirStreamDispatcher>(*dispatcherCallback_, proxygen::TransportDirection::UPSTREAM);
   }
 
   void TearDown() override {

@@ -11,9 +11,9 @@
 using namespace proxygen;
 
 HQUnidirStreamDispatcher::HQUnidirStreamDispatcher(
-    HQUnidirStreamDispatcher::Callback& sink)
+    HQUnidirStreamDispatcher::Callback& sink, proxygen::TransportDirection direction)
     : controlStreamCallback_(std::make_unique<ControlCallback>(sink)),
-      sink_(sink) {
+      sink_(sink), direction_(direction) {
 }
 
 void HQUnidirStreamDispatcher::onDataAvailable(
@@ -74,6 +74,11 @@ void HQUnidirStreamDispatcher::onDataAvailable(
       return;
     }
     case hq::UnidirectionalStreamType::PUSH: {
+      // ingress push streams are not allowed on the server
+      if (direction_ == proxygen::TransportDirection::DOWNSTREAM) {
+        sink_.rejectStream(releaseOwnership(id));
+        return;
+      }
       // Try to read the push id from the stream
       auto pushId = quic::decodeQuicInteger(cursor);
       // If successfully read the push id, call sink

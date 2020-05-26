@@ -606,7 +606,7 @@ class HQSession
         started_(false),
         dropping_(false),
         inLoopCallback_(false),
-        unidirectionalReadDispatcher_(*this),
+        unidirectionalReadDispatcher_(*this, direction),
         createTime_(std::chrono::steady_clock::now()) {
     codec_.add<HTTPChecks>();
     // dummy, ingress, egress

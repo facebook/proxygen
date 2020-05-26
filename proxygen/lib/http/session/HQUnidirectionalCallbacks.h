@@ -85,7 +85,7 @@ class HQUnidirStreamDispatcher
     virtual ~Callback() = default;
   }; // Callback
 
-  explicit HQUnidirStreamDispatcher(Callback& sink);
+  explicit HQUnidirStreamDispatcher(Callback& sink, proxygen::TransportDirection direction);
 
   virtual ~HQUnidirStreamDispatcher() override = default;
 
@@ -148,5 +148,6 @@ class HQUnidirStreamDispatcher
   std::unique_ptr<ControlCallback> controlStreamCallback_;
   Callback& sink_;
   std::unordered_set<quic::StreamId> pendingStreams_;
+  proxygen::TransportDirection direction_;
 };
 } // namespace proxygen
