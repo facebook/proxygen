@@ -80,6 +80,12 @@ class HQSessionTest
     , public quic::MockQuicSocketDriver::LocalAppCallback
     , public proxygen::hq::HQUnidirectionalCodec::Callback {
 
+ public:
+  void SetUp() override {
+  }
+  void TearDown() override {
+  }
+
  protected:
   explicit HQSessionTest(
       proxygen::TransportDirection direction,
@@ -139,7 +145,7 @@ class HQSessionTest
         GetParam().unidirectionalStreamsCredit;
 
     EXPECT_CALL(infoCb_, onRead(testing::_, testing::_, testing::_))
-      .Times(testing::AnyNumber());
+        .Times(testing::AnyNumber());
     if (!IS_H1Q_FB_V1) {
 
       numCtrlStreams_ = (IS_H1Q_FB_V2 ? 1 : (IS_HQ ? 3 : 0));
@@ -147,15 +153,14 @@ class HQSessionTest
 
       if (GetParam().unidirectionalStreamsCredit >= numCtrlStreams_) {
         auto dirModifier =
-          (direction_ == proxygen::TransportDirection::DOWNSTREAM) ? 0 : 1;
+            (direction_ == proxygen::TransportDirection::DOWNSTREAM) ? 0 : 1;
         EXPECT_CALL(infoCb_, onWrite(testing::_, testing::_))
             .Times(testing::AtLeast(numCtrlStreams_));
         for (auto i = 0; i < numCtrlStreams_; i++) {
           folly::Optional<proxygen::HTTPCodec::StreamID> expectedStreamID =
-            i * 4 + 2 + dirModifier;
-          EXPECT_CALL(infoCb_, onRead(testing::_, testing::_,
-                                      expectedStreamID))
-            .Times(testing::AtLeast(1));
+              i * 4 + 2 + dirModifier;
+          EXPECT_CALL(infoCb_, onRead(testing::_, testing::_, expectedStreamID))
+              .Times(testing::AtLeast(1));
         }
       }
     }
@@ -268,19 +273,20 @@ class HQSessionTest
         case proxygen::hq::UnidirectionalStreamType::QPACK_ENCODER:
         case proxygen::hq::UnidirectionalStreamType::QPACK_DECODER:
           break;
-        case proxygen::hq::UnidirectionalStreamType::PUSH:
-          {
-            auto pushIt = std::find_if(
-              pushes_.begin(), pushes_.end(),
-              [id] (std::pair<quic::StreamId, proxygen::hq::PushId> entry) {
-                return id == entry.first; });
-            if (pushIt == pushes_.end()) {
-              auto pushId = quic::decodeQuicInteger(cursor);
-              if (pushId) {
-                pushes_.emplace(pushId->first, id);
-              }
+        case proxygen::hq::UnidirectionalStreamType::PUSH: {
+          auto pushIt = std::find_if(
+              pushes_.begin(),
+              pushes_.end(),
+              [id](std::pair<quic::StreamId, proxygen::hq::PushId> entry) {
+                return id == entry.first;
+              });
+          if (pushIt == pushes_.end()) {
+            auto pushId = quic::decodeQuicInteger(cursor);
+            if (pushId) {
+              pushes_.emplace(pushId->first, id);
             }
           }
+        }
           return;
         default:
           CHECK(false) << "Unknown stream preface=" << preface->first;

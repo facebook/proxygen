@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/http/session/test/HQUpstreamSessionTest.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 
 #include <folly/futures/Future.h>
@@ -39,277 +40,240 @@ constexpr quic::StreamId kQPACKEncoderIngressStreamId = 7;
 constexpr quic::StreamId kQPACKDecoderEgressStreamId = 10;
 } // namespace
 
-class HQUpstreamSessionTest : public HQSessionTest {
- public:
-  HQUpstreamSessionTest()
-      : HQSessionTest(proxygen::TransportDirection::UPSTREAM) {
+std::pair<HTTPCodec::StreamID, std::unique_ptr<HTTPCodec>>
+HQUpstreamSessionTest::makeCodec(HTTPCodec::StreamID id) {
+  if (IS_HQ) {
+    return {id,
+            std::make_unique<hq::HQStreamCodec>(
+                id,
+                TransportDirection::DOWNSTREAM,
+                qpackCodec_,
+                encoderWriteBuf_,
+                decoderWriteBuf_,
+                [] { return std::numeric_limits<uint64_t>::max(); },
+                egressSettings_,
+                ingressSettings_,
+                GetParam().prParams.has_value())};
+  } else {
+    auto codec = std::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM);
+    // When the codec is created, need to fake the request
+    FakeHTTPCodecCallback cb;
+    codec->setCallback(&cb);
+    codec->onIngress(*folly::IOBuf::copyBuffer("GET / HTTP/1.1\r\n\r\n"));
+    return {1, std::move(codec)};
   }
+}
 
- protected:
-  std::pair<HTTPCodec::StreamID, std::unique_ptr<HTTPCodec>> makeCodec(
-      HTTPCodec::StreamID id) {
-    if (IS_HQ) {
-      return {id,
-              std::make_unique<hq::HQStreamCodec>(
-                  id,
-                  TransportDirection::DOWNSTREAM,
-                  qpackCodec_,
-                  encoderWriteBuf_,
-                  decoderWriteBuf_,
-                  [] { return std::numeric_limits<uint64_t>::max(); },
-                  egressSettings_,
-                  ingressSettings_,
-                  GetParam().prParams.has_value())};
-    } else {
-      auto codec =
-          std::make_unique<HTTP1xCodec>(TransportDirection::DOWNSTREAM);
-      // When the codec is created, need to fake the request
-      FakeHTTPCodecCallback cb;
-      codec->setCallback(&cb);
-      codec->onIngress(*folly::IOBuf::copyBuffer("GET / HTTP/1.1\r\n\r\n"));
-      return {1, std::move(codec)};
+void HQUpstreamSessionTest::sendResponse(quic::StreamId id,
+                                         const HTTPMessage& resp,
+                                         std::unique_ptr<folly::IOBuf> body,
+                                         bool eom) {
+  auto c = makeCodec(id);
+  auto res =
+      streams_.emplace(std::piecewise_construct,
+                       std::forward_as_tuple(id),
+                       std::forward_as_tuple(c.first, std::move(c.second)));
+  auto& stream = res.first->second;
+  stream.readEOF = eom;
+  stream.codec->generateHeader(
+      stream.buf, stream.codecId, resp, body == nullptr ? eom : false);
+  if (body && body->computeChainDataLength() > 0) {
+    stream.codec->generateBody(
+        stream.buf, stream.codecId, std::move(body), folly::none, eom);
+  }
+}
+
+void HQUpstreamSessionTest::startPartialResponse(
+    quic::StreamId id,
+    const HTTPMessage& resp,
+    std::unique_ptr<folly::IOBuf> body) {
+  auto c = makeCodec(id);
+  auto res =
+      streams_.emplace(std::piecewise_construct,
+                       std::forward_as_tuple(id),
+                       std::forward_as_tuple(c.first, std::move(c.second)));
+  auto& stream = res.first->second;
+  stream.readEOF = false;
+
+  const uint64_t frameHeaderSize = 2;
+  HTTPHeaderSize headerSize;
+  stream.codec->generateHeader(
+      stream.buf, stream.codecId, resp, false, &headerSize);
+  socketDriver_->streams_[id].writeBufOffset +=
+      (2 * frameHeaderSize) + headerSize.compressed;
+
+  if (body) {
+    socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
+        stream.buf, stream.codecId, std::move(body), folly::none, false);
+  }
+}
+
+void HQUpstreamSessionTest::sendPartialBody(quic::StreamId id,
+                                            std::unique_ptr<folly::IOBuf> body,
+                                            bool eom) {
+  auto it = streams_.find(id);
+  CHECK(it != streams_.end());
+  auto& stream = it->second;
+
+  stream.readEOF = eom;
+  if (body) {
+    socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
+        stream.buf, stream.codecId, std::move(body), folly::none, eom);
+  }
+}
+
+void HQUpstreamSessionTest::peerSendDataExpired(quic::StreamId id,
+                                                uint64_t streamOffset) {
+  auto it = streams_.find(id);
+  CHECK(it != streams_.end());
+  auto& stream = it->second;
+
+  HQStreamCodec* hqStreamCodec = (HQStreamCodec*)stream.codec.get();
+  hqStreamCodec->onEgressBodySkip(streamOffset);
+}
+
+void HQUpstreamSessionTest::peerReceiveDataRejected(quic::StreamId id,
+                                                    uint64_t streamOffset) {
+  auto it = streams_.find(id);
+  CHECK(it != streams_.end());
+  auto& stream = it->second;
+
+  HQStreamCodec* hqStreamCodec = (HQStreamCodec*)stream.codec.get();
+  hqStreamCodec->onIngressDataRejected(streamOffset);
+}
+
+quic::StreamId HQUpstreamSessionTest::nextUnidirectionalStreamId() {
+  auto id = nextUnidirectionalStreamId_;
+  nextUnidirectionalStreamId_ += 4;
+  return id;
+}
+
+void HQUpstreamSessionTest::SetUp() {
+  folly::EventBaseManager::get()->clearEventBase();
+  localAddress_.setFromIpPort("0.0.0.0", 0);
+  peerAddress_.setFromIpPort("127.0.0.0", 443);
+  EXPECT_CALL(*socketDriver_->getSocket(), getLocalAddress())
+      .WillRepeatedly(ReturnRef(localAddress_));
+
+  EXPECT_CALL(*socketDriver_->getSocket(), getPeerAddress())
+      .WillRepeatedly(ReturnRef(peerAddress_));
+  EXPECT_CALL(*socketDriver_->getSocket(), getAppProtocol())
+      .WillRepeatedly(Return(getProtocolString()));
+  HTTPSession::setDefaultWriteBufferLimit(65536);
+  HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
+  dynamic_cast<HQUpstreamSession*>(hqSession_)->setConnectCallback(&connectCb_);
+
+  EXPECT_CALL(connectCb_, connectSuccess());
+
+  hqSession_->onTransportReady();
+
+  createControlStreams();
+
+  flushAndLoop();
+  if (IS_HQ) {
+    EXPECT_EQ(httpCallbacks_.settings, 1);
+  }
+}
+
+void HQUpstreamSessionTest::TearDown() {
+  if (!IS_H1Q_FB_V1) {
+    // With control streams we may need an extra loop for proper shutdown
+    if (!socketDriver_->isClosed()) {
+      // Send the first GOAWAY with MAX_STREAM_ID immediately
+      sendGoaway(quic::kEightByteLimit);
+      // Schedule the second GOAWAY with the last seen stream ID, after some
+      // delay
+      sendGoaway(socketDriver_->getMaxStreamId(), milliseconds(50));
+    }
+    eventBase_.loopOnce();
+  }
+}
+
+void HQUpstreamSessionTest::sendGoaway(quic::StreamId lastStreamId,
+                                       milliseconds delay) {
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  egressControlCodec_->generateGoaway(
+      writeBuf, lastStreamId, ErrorCode::NO_ERROR);
+  socketDriver_->addReadEvent(connControlStreamId_, writeBuf.move(), delay);
+}
+
+template <class HandlerType>
+std::unique_ptr<StrictMock<HandlerType>>
+HQUpstreamSessionTest::openTransactionBase(bool expectStartPaused) {
+  // Returns a mock handler with txn_ field set in it
+  auto handler = std::make_unique<StrictMock<HandlerType>>();
+  handler->expectTransaction();
+  if (expectStartPaused) {
+    handler->expectEgressPaused();
+  }
+  HTTPTransaction* txn = hqSession_->newTransaction(handler.get());
+  EXPECT_EQ(txn, handler->txn_);
+  return handler;
+}
+
+std::unique_ptr<StrictMock<MockHTTPHandler>>
+HQUpstreamSessionTest::openTransaction() {
+  return openTransactionBase<MockHTTPHandler>();
+}
+
+void HQUpstreamSessionTest::flushAndLoop(bool eof,
+                                         milliseconds eofDelay,
+                                         milliseconds initialDelay,
+                                         std::function<void()> extraEventsFn) {
+  flush(eof, eofDelay, initialDelay, extraEventsFn);
+  CHECK(eventBase_.loop());
+}
+
+void HQUpstreamSessionTest::flushAndLoopN(uint64_t n,
+                                          bool eof,
+                                          milliseconds eofDelay,
+                                          milliseconds initialDelay,
+                                          std::function<void()> extraEventsFn) {
+  flush(eof, eofDelay, initialDelay, extraEventsFn);
+  for (uint64_t i = 0; i < n; i++) {
+    eventBase_.loopOnce();
+  }
+}
+
+bool HQUpstreamSessionTest::flush(bool eof,
+                                  milliseconds eofDelay,
+                                  milliseconds initialDelay,
+                                  std::function<void()> extraEventsFn) {
+  bool done = true;
+  if (!encoderWriteBuf_.empty()) {
+    socketDriver_->addReadEvent(
+        kQPACKEncoderIngressStreamId, encoderWriteBuf_.move(), milliseconds(0));
+  }
+  for (auto& stream : streams_) {
+    if (socketDriver_->isStreamIdle(stream.first)) {
+      continue;
+    }
+    if (stream.second.buf.chainLength() > 0) {
+      socketDriver_->addReadEvent(
+          stream.first, stream.second.buf.move(), initialDelay);
+      done = false;
+    }
+    // EOM -> stream EOF
+    if (stream.second.readEOF) {
+      socketDriver_->addReadEOF(stream.first, eofDelay);
+      done = false;
     }
   }
 
-  void sendResponse(quic::StreamId id,
-                    const HTTPMessage& resp,
-                    std::unique_ptr<folly::IOBuf> body = nullptr,
-                    bool eom = true) {
-    auto c = makeCodec(id);
-    auto res =
-        streams_.emplace(std::piecewise_construct,
-                         std::forward_as_tuple(id),
-                         std::forward_as_tuple(c.first, std::move(c.second)));
-    auto& stream = res.first->second;
-    stream.readEOF = eom;
-    stream.codec->generateHeader(
-        stream.buf, stream.codecId, resp, body == nullptr ? eom : false);
-    if (body && body->computeChainDataLength() > 0) {
-      stream.codec->generateBody(
-          stream.buf, stream.codecId, std::move(body), folly::none, eom);
-    }
+  if (extraEventsFn) {
+    extraEventsFn();
   }
-
-  void startPartialResponse(quic::StreamId id,
-                            const HTTPMessage& resp,
-                            std::unique_ptr<folly::IOBuf> body = nullptr) {
-    auto c = makeCodec(id);
-    auto res =
-        streams_.emplace(std::piecewise_construct,
-                         std::forward_as_tuple(id),
-                         std::forward_as_tuple(c.first, std::move(c.second)));
-    auto& stream = res.first->second;
-    stream.readEOF = false;
-
-    const uint64_t frameHeaderSize = 2;
-    HTTPHeaderSize headerSize;
-    stream.codec->generateHeader(
-        stream.buf, stream.codecId, resp, false, &headerSize);
-    socketDriver_->streams_[id].writeBufOffset +=
-        (2 * frameHeaderSize) + headerSize.compressed;
-
-    if (body) {
-      socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
-          stream.buf, stream.codecId, std::move(body), folly::none, false);
-    }
+  if (eof || eofDelay.count() > 0) {
+    /*  wonkiness.  Should somehow close the connection?
+     * socketDriver_->addReadEOF(1, eofDelay);
+     */
   }
+  return done;
+}
 
-  void sendPartialBody(quic::StreamId id,
-                       std::unique_ptr<folly::IOBuf> body,
-                       bool eom = true) {
-    auto it = streams_.find(id);
-    CHECK(it != streams_.end());
-    auto& stream = it->second;
-
-    stream.readEOF = eom;
-    if (body) {
-      socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
-          stream.buf, stream.codecId, std::move(body), folly::none, eom);
-    }
-  }
-
-  void peerSendDataExpired(quic::StreamId id, uint64_t streamOffset) {
-    auto it = streams_.find(id);
-    CHECK(it != streams_.end());
-    auto& stream = it->second;
-
-    HQStreamCodec* hqStreamCodec = (HQStreamCodec*)stream.codec.get();
-    hqStreamCodec->onEgressBodySkip(streamOffset);
-  }
-
-  void peerReceiveDataRejected(quic::StreamId id, uint64_t streamOffset) {
-    auto it = streams_.find(id);
-    CHECK(it != streams_.end());
-    auto& stream = it->second;
-
-    HQStreamCodec* hqStreamCodec = (HQStreamCodec*)stream.codec.get();
-    hqStreamCodec->onIngressDataRejected(streamOffset);
-  }
-
-  quic::StreamId nextUnidirectionalStreamId() {
-    auto id = nextUnidirectionalStreamId_;
-    nextUnidirectionalStreamId_ += 4;
-    return id;
-  }
-
-  void SetUp() override {
-    folly::EventBaseManager::get()->clearEventBase();
-    localAddress_.setFromIpPort("0.0.0.0", 0);
-    peerAddress_.setFromIpPort("127.0.0.0", 443);
-    EXPECT_CALL(*socketDriver_->getSocket(), getLocalAddress())
-        .WillRepeatedly(ReturnRef(localAddress_));
-
-    EXPECT_CALL(*socketDriver_->getSocket(), getPeerAddress())
-        .WillRepeatedly(ReturnRef(peerAddress_));
-    EXPECT_CALL(*socketDriver_->getSocket(), getAppProtocol())
-        .WillRepeatedly(Return(getProtocolString()));
-    HTTPSession::setDefaultWriteBufferLimit(65536);
-    HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
-    dynamic_cast<HQUpstreamSession*>(hqSession_)
-        ->setConnectCallback(&connectCb_);
-
-    EXPECT_CALL(connectCb_, connectSuccess());
-
-    hqSession_->onTransportReady();
-
-    createControlStreams();
-
-    flushAndLoop();
-    if (IS_HQ) {
-      EXPECT_EQ(httpCallbacks_.settings, 1);
-    }
-  }
-
-  void TearDown() override {
-    if (!IS_H1Q_FB_V1) {
-      // With control streams we may need an extra loop for proper shutdown
-      if (!socketDriver_->isClosed()) {
-        // Send the first GOAWAY with MAX_STREAM_ID immediately
-        sendGoaway(quic::kEightByteLimit);
-        // Schedule the second GOAWAY with the last seen stream ID, after some
-        // delay
-        sendGoaway(socketDriver_->getMaxStreamId(), milliseconds(50));
-      }
-      eventBase_.loopOnce();
-    }
-  }
-
-  void sendGoaway(quic::StreamId lastStreamId,
-                  milliseconds delay = milliseconds(0)) {
-    folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
-    egressControlCodec_->generateGoaway(
-        writeBuf, lastStreamId, ErrorCode::NO_ERROR);
-    socketDriver_->addReadEvent(connControlStreamId_, writeBuf.move(), delay);
-  }
-
-  template <class HandlerType>
-  std::unique_ptr<StrictMock<HandlerType>> openTransactionBase(
-      bool expectStartPaused = false) {
-    // Returns a mock handler with txn_ field set in it
-    auto handler = std::make_unique<StrictMock<HandlerType>>();
-    handler->expectTransaction();
-    if (expectStartPaused) {
-      handler->expectEgressPaused();
-    }
-    HTTPTransaction* txn = hqSession_->newTransaction(handler.get());
-    EXPECT_EQ(txn, handler->txn_);
-    return handler;
-  }
-
-  std::unique_ptr<StrictMock<MockHTTPHandler>> openTransaction() {
-    return openTransactionBase<MockHTTPHandler>();
-  }
-
-  void flushAndLoop(
-      bool eof = false,
-      milliseconds eofDelay = milliseconds(0),
-      milliseconds initialDelay = milliseconds(0),
-      std::function<void()> extraEventsFn = std::function<void()>()) {
-    flush(eof, eofDelay, initialDelay, extraEventsFn);
-    CHECK(eventBase_.loop());
-  }
-
-  void flushAndLoopN(
-      uint64_t n,
-      bool eof = false,
-      milliseconds eofDelay = milliseconds(0),
-      milliseconds initialDelay = milliseconds(0),
-      std::function<void()> extraEventsFn = std::function<void()>()) {
-    flush(eof, eofDelay, initialDelay, extraEventsFn);
-    for (uint64_t i = 0; i < n; i++) {
-      eventBase_.loopOnce();
-    }
-  }
-
-  bool flush(bool eof = false,
-             milliseconds eofDelay = milliseconds(0),
-             milliseconds initialDelay = milliseconds(0),
-             std::function<void()> extraEventsFn = std::function<void()>()) {
-    bool done = true;
-    if (!encoderWriteBuf_.empty()) {
-      socketDriver_->addReadEvent(kQPACKEncoderIngressStreamId,
-                                  encoderWriteBuf_.move(),
-                                  milliseconds(0));
-    }
-    for (auto& stream : streams_) {
-      if (socketDriver_->isStreamIdle(stream.first)) {
-        continue;
-      }
-      if (stream.second.buf.chainLength() > 0) {
-        socketDriver_->addReadEvent(
-            stream.first, stream.second.buf.move(), initialDelay);
-        done = false;
-      }
-      // EOM -> stream EOF
-      if (stream.second.readEOF) {
-        socketDriver_->addReadEOF(stream.first, eofDelay);
-        done = false;
-      }
-    }
-
-    if (extraEventsFn) {
-      extraEventsFn();
-    }
-    if (eof || eofDelay.count() > 0) {
-      /*  wonkiness.  Should somehow close the connection?
-       * socketDriver_->addReadEOF(1, eofDelay);
-       */
-    }
-    return done;
-  }
-
-  StrictMock<MockController>& getMockController() {
-    return controllerContainer_.mockController;
-  }
-
-  // Representation of stream data
-  // If create with a push id, can be used
-  // as a push stream (requires writing the stream preface
-  // followed by unframed push id)
-  struct ServerStream {
-    ServerStream(HTTPCodec::StreamID cId,
-                 std::unique_ptr<HTTPCodec> c,
-                 folly::Optional<hq::PushId> pId = folly::none)
-        : codecId(cId), codec(std::move(c)), pushId(pId) {
-    }
-
-    // Transport stream id
-    HTTPCodec::StreamID id;
-
-    IOBufQueue buf{IOBufQueue::cacheChainLength()};
-    bool readEOF{false};
-    HTTPCodec::StreamID codecId;
-
-    std::unique_ptr<HTTPCodec> codec;
-
-    folly::Optional<hq::PushId> pushId;
-  };
-
-  MockConnectCallback connectCb_;
-  std::unordered_map<quic::StreamId, ServerStream> streams_;
-  folly::IOBufQueue encoderWriteBuf_{folly::IOBufQueue::cacheChainLength()};
-  folly::IOBufQueue decoderWriteBuf_{folly::IOBufQueue::cacheChainLength()};
-};
+StrictMock<MockController>& HQUpstreamSessionTest::getMockController() {
+  return controllerContainer_.mockController;
+}
 
 // Use this test class for h1q-fb only tests
 using HQUpstreamSessionTestH1q = HQUpstreamSessionTest;
@@ -625,7 +589,6 @@ TEST_P(HQUpstreamSessionTest, NotifyReplaySafeAfterTransportReady) {
   upstreamSess->closeWhenIdle();
   eventBase_.loopOnce();
 }
-
 
 TEST_P(HQUpstreamSessionTest, TestConnectionToken) {
   HQSession::DestructorGuard dg(hqSession_);
@@ -1365,8 +1328,8 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
     pushHandler->expectTransaction();
     assocHandler_->expectPushedTransaction(pushHandler.get());
     // Promise/Response - with no lambda it lacks RetiresOnSaturation
-    pushHandler->expectHeaders([] (std::shared_ptr<HTTPMessage>) {});
-    pushHandler->expectHeaders([] (std::shared_ptr<HTTPMessage>) {});
+    pushHandler->expectHeaders([](std::shared_ptr<HTTPMessage>) {});
+    pushHandler->expectHeaders([](std::shared_ptr<HTTPMessage>) {});
     pushHandler->expectBody();
     pushHandler->expectEOM();
     pushHandler->expectDetachTransaction();
@@ -1580,7 +1543,7 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseFollowedByPushStream) {
     nascentStreamId = streamId;
     folly::Optional<HTTPCodec::StreamID> expectedReadId(nascentStreamId);
     EXPECT_CALL(infoCb_, onRead(testing::_, testing::_, expectedReadId))
-      .Times(testing::AtLeast(1));
+        .Times(testing::AtLeast(1));
     EXPECT_FALSE(isEOF);
   });
 
@@ -1632,9 +1595,8 @@ TEST_P(HQUpstreamSessionTestHQPush, TestAbortedPushedTransactionAfterPromise) {
   pushHandler->expectTransaction();
   assocHandler_->expectPushedTransaction(pushHandler.get());
   // Abort the pushed transaction upon reception of the push promise.
-  pushHandler->expectHeaders([&] (std::shared_ptr<HTTPMessage>) {
-      pushHandler->txn_->sendAbort();
-      });
+  pushHandler->expectHeaders(
+      [&](std::shared_ptr<HTTPMessage>) { pushHandler->txn_->sendAbort(); });
 
   auto pushPromiseRequest = getGetRequest();
   hq::PushId pushId = nextPushId();
@@ -1668,7 +1630,7 @@ TEST_P(HQUpstreamSessionTestHQPush, TestAbortedPushedTransactionAfterResponse) {
   pushHandler->expectTransaction();
   assocHandler_->expectPushedTransaction(pushHandler.get());
   // Expect normal promise.
-  pushHandler->expectHeaders([] (std::shared_ptr<HTTPMessage>) {});
+  pushHandler->expectHeaders([](std::shared_ptr<HTTPMessage>) {});
 
   auto pushPromiseRequest = getGetRequest();
   pushPromiseRequest.getHeaders().set("Dynamic1", "a");
@@ -1678,9 +1640,8 @@ TEST_P(HQUpstreamSessionTestHQPush, TestAbortedPushedTransactionAfterResponse) {
   flushAndLoopN(1);
 
   // Abort the pushed transaction on response.
-  pushHandler->expectHeaders([&] (std::shared_ptr<HTTPMessage>) {
-      pushHandler->txn_->sendAbort();
-      });
+  pushHandler->expectHeaders(
+      [&](std::shared_ptr<HTTPMessage>) { pushHandler->txn_->sendAbort(); });
   pushHandler->expectDetachTransaction();
   HTTPMessage pushResp;
   pushResp.setStatusCode(200);
