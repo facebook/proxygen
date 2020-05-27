@@ -77,23 +77,51 @@ void HTTPUpstreamSession::startNow() {
 
 HTTPTransaction* HTTPUpstreamSession::newTransaction(
     HTTPTransaction::Handler* handler) {
-  if (!supportsMoreTransactions() || draining_) {
-    // This session doesn't support any more parallel transactions
+  auto txn = newTransactionWithError(handler);
+  if (txn.hasError()) {
     return nullptr;
+  }
+  return txn.value();
+}
+
+folly::Expected<HTTPTransaction*, HTTPUpstreamSession::NewTransactionError>
+HTTPUpstreamSession::newTransactionWithError(
+    HTTPTransaction::Handler* handler) {
+  if (!supportsMoreTransactions()) {
+    // This session doesn't support any more parallel transactions
+    return folly::makeUnexpected<NewTransactionError>(
+        "Number of HTTP outgoing transactions reaches limit in the session");
+  } else if (draining_) {
+    return folly::makeUnexpected<NewTransactionError>(
+        "Connection is draining");
   }
 
   if (!started_) {
     startNow();
   }
 
+  ProxygenError error;
   auto txn = createTransaction(
-      codec_->createStream(), HTTPCodec::NoStream, HTTPCodec::NoExAttributes);
+      codec_->createStream(), HTTPCodec::NoStream, HTTPCodec::NoExAttributes,
+      http2::DefaultPriority, &error);
 
-  if (txn) {
-    DestructorGuard dg(this);
-    txn->setHandler(CHECK_NOTNULL(handler));
-    setNewTransactionPauseState(txn);
+  if (!txn) {
+    switch (error) {
+    case ProxygenError::kErrorBadSocket:
+      return folly::makeUnexpected<NewTransactionError>(
+          "Socket connection is closing");
+    case ProxygenError::kErrorDuplicatedStreamId:
+      return folly::makeUnexpected<NewTransactionError>(
+          "HTTP Stream ID already exists");
+    default:
+      return folly::makeUnexpected<NewTransactionError>(
+          "Unknown error when creating HTTP transaction");
+    }
   }
+
+  DestructorGuard dg(this);
+  txn->setHandler(CHECK_NOTNULL(handler));
+  setNewTransactionPauseState(txn);
   return txn;
 }
 

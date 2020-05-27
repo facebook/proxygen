@@ -19,6 +19,8 @@ class HTTPSessionStats;
 class SPDYStats;
 
 class HTTPUpstreamSession final : public HTTPSession {
+  using NewTransactionError = std::string;
+
  public:
   /**
    * @param sock           An open socket on which any applicable TLS
@@ -142,6 +144,9 @@ class HTTPUpstreamSession final : public HTTPSession {
     }
     return priorityAdapter_->getHTTPPriority(level);
   }
+
+  folly::Expected<HTTPTransaction*, NewTransactionError>
+  newTransactionWithError(HTTPTransaction::Handler* handler);
 
  private:
   ~HTTPUpstreamSession() override;
