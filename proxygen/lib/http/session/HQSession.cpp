@@ -3302,8 +3302,9 @@ void HQSession::HQStreamTransportBase::handleHeadersAcked(
     uint64_t streamOffset) {
   CHECK(egressHeadersAckOffset_);
   if (*egressHeadersAckOffset_ != streamOffset) {
-    LOG(ERROR) << ": bad offset for egress headers ack: e="
-               << *egressHeadersAckOffset_ << ", r=" << streamOffset;
+    LOG(ERROR)
+        << ": bad offset for egress headers ack: e=" << *egressHeadersAckOffset_
+        << ", r=" << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
     return;
   }
 
