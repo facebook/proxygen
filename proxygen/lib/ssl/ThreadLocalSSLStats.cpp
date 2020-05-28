@@ -64,6 +64,7 @@ TLSSLStats::TLSSLStats(const std::string& prefix)
                                    SUM),
       fizzHandshakeSuccesses_(prefix + "_fizz_handshake_successes", SUM),
       tfoSuccess_(prefix + "_tfo_success", SUM),
+      sslServerCertExpiring_(prefix + "_ssl_server_cert_expiring", SUM),
       fizzPskTypeNotSupported_(prefix + "_fizz_psktype_not_supported", SUM),
       fizzPskTypeNotAttempted_(prefix + "_fizz_psktype_not_attempted", SUM),
       fizzPskTypeRejected_(prefix + "_fizz_psktype_rejected", SUM),
@@ -212,6 +213,10 @@ void TLSSLStats::recordPskType(folly::Optional<fizz::PskType> pskType) {
       fizzPskTypeResumption_.add(1);
       break;
   }
+}
+
+void TLSSLStats::recordServerCertExpiring() noexcept {
+  sslServerCertExpiring_.add(1);
 }
 
 } // namespace proxygen

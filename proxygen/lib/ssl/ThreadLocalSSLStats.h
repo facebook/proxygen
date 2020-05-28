@@ -39,6 +39,8 @@ class ProxygenSSLStats : public wangle::SSLStats {
   virtual void recordFizzHandshakeProtocolError() = 0;
 
   virtual void recordTFOSuccess() = 0;
+
+  virtual void recordServerCertExpiring() noexcept = 0;
 };
 
 class TLSSLStats : public ProxygenSSLStats {
@@ -84,6 +86,8 @@ class TLSSLStats : public ProxygenSSLStats {
 
   void recordTFOSuccess() override;
 
+  void recordServerCertExpiring() noexcept override;
+
  private:
   // Forbidden copy constructor and assignment operator
   TLSSLStats(TLSSLStats const&) = delete;
@@ -126,6 +130,7 @@ class TLSSLStats : public ProxygenSSLStats {
   BaseStats::TLTimeseries fizzHandshakeProtocolErrors_;
   BaseStats::TLTimeseries fizzHandshakeSuccesses_;
   BaseStats::TLTimeseries tfoSuccess_;
+  BaseStats::TLTimeseries sslServerCertExpiring_;
 
   // PskTypes counters
   BaseStats::TLTimeseries fizzPskTypeNotSupported_;
