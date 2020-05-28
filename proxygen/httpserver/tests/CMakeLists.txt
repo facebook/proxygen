@@ -9,6 +9,7 @@ proxygen_add_test(TARGET HTTPServerTests
     HTTPServerTest.cpp
     RequestHandlerAdaptorTest.cpp
   DEPENDS
+    codectestutils
     proxygen
     proxygenhttpserver
     proxygencurl
