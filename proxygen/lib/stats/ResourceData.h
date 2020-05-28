@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <vector>
 
-#include "proxygen/lib/statistics/PeriodicStatsDataBase.h"
+#include "proxygen/lib/stats/PeriodicStatsDataBase.h"
 
 namespace proxygen {
 

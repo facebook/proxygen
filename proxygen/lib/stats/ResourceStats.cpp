@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/statistics/ResourceStats.h"
+#include "proxygen/lib/stats/ResourceStats.h"
 
 namespace proxygen {
 

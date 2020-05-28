@@ -181,7 +181,7 @@ add_library(
     services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
-    statistics/ResourceStats.cpp
+    stats/ResourceStats.cpp
     transport/PersistentFizzPskCache.cpp
     utils/AsyncTimeoutSet.cpp
     utils/Base64.cpp

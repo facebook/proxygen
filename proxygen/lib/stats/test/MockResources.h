@@ -11,7 +11,7 @@
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 
-#include "proxygen/lib/statistics/ResourceData.h"
+#include "proxygen/lib/stats/ResourceData.h"
 
 using namespace proxygen;
 

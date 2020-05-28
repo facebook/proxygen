@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "proxygen/lib/statistics/PeriodicStats.h"
+#include "proxygen/lib/stats/PeriodicStats.h"
 
 #include <chrono>
 #include <folly/portability/GTest.h>

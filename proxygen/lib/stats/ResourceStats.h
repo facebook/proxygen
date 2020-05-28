@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "proxygen/lib/statistics/PeriodicStats.h"
-#include "proxygen/lib/statistics/ResourceData.h"
+#include "proxygen/lib/stats/PeriodicStats.h"
+#include "proxygen/lib/stats/ResourceData.h"
 
 namespace proxygen {
 

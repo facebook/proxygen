@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/statistics/ResourceStats.h"
-#include "proxygen/lib/statistics/test/MockResources.h"
-#include "proxygen/lib/statistics/test/PeriodicStatsTestHelper.h"
+#include "proxygen/lib/stats/ResourceStats.h"
+#include "proxygen/lib/stats/test/MockResources.h"
+#include "proxygen/lib/stats/test/PeriodicStatsTestHelper.h"
 
 #include <folly/portability/GTest.h>
 
