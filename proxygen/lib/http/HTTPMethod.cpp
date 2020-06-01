@@ -8,7 +8,6 @@
 
 #include <proxygen/lib/http/HTTPMethod.h>
 
-#include <folly/container/Foreach.h>
 #include <folly/Indestructible.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <ostream>
@@ -35,8 +34,10 @@ const StringVector& getMethodStrings() {
 namespace proxygen {
 
 folly::Optional<HTTPMethod> stringToMethod(folly::StringPiece method) {
-  FOR_EACH_ENUMERATE(index, cur, getMethodStrings()) {
-    if (caseInsensitiveEqual(*cur, method)) {
+  const auto& strings = getMethodStrings();
+  for (size_t index = 0; index < strings.size(); ++index) {
+    const auto& cur = strings[index];
+    if (caseInsensitiveEqual(cur, method)) {
       return HTTPMethod(index);
     }
   }

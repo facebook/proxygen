@@ -7,7 +7,6 @@
  */
 
 #include <proxygen/lib/utils/RendezvousHash.h>
-#include <folly/container/Foreach.h>
 #include <folly/hash/Hash.h>
 #include <map>
 #include <algorithm>
@@ -145,14 +144,15 @@ size_t RendezvousHash::getNthByWeightedHash(
   if (modRank != 0) {
     scaledWeights.reserve(weights_.size());
   }
-  FOR_EACH_ENUMERATE(i, entry, weights_) {
+  for (size_t i = 0; i < weights_.size(); ++i) {
+    const auto& entry = weights_[i];
     // combine the hash with the cluster together
-    double combinedHash = computeHash(entry->first + key);
+    double combinedHash = computeHash(entry.first + key);
     double scaledHash =
         (double)combinedHash / std::numeric_limits<uint64_t>::max();
     double scaledWeight = 0;
-    if (entry->second != 0) {
-      scaledWeight = pow(scaledHash, (double)1 / entry->second);
+    if (entry.second != 0) {
+      scaledWeight = pow(scaledHash, (double)1 / entry.second);
     }
     if (modRank == 0) {
       if (scaledWeight > maxWeight) {
