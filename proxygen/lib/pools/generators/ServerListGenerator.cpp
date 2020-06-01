@@ -16,39 +16,6 @@ using proxygen::ServerListGenerator;
 using std::vector;
 using std::chrono::milliseconds;
 
-namespace {
-
-class ServerListCallback : public ServerListGenerator::Callback {
- public:
-  enum StatusEnum {
-    NOT_FINISHED,
-    SUCCESS,
-    ERROR,
-    CANCELLED,
-  };
-
-  explicit ServerListCallback() : status(NOT_FINISHED) {
-  }
-
-  void onServerListAvailable(
-      vector<ServerListGenerator::ServerConfig>&& results) noexcept override {
-    servers.swap(results);
-    status = SUCCESS;
-  }
-  void onServerListError(std::exception_ptr error) noexcept override {
-    errorPtr = error;
-    status = ERROR;
-  }
-  virtual void serverListRequestCancelled() {
-    status = CANCELLED;
-  }
-
-  StatusEnum status;
-  vector<ServerListGenerator::ServerConfig> servers;
-  std::exception_ptr errorPtr;
-};
-
-} // unnamed namespace
 
 namespace proxygen {
 

@@ -209,4 +209,36 @@ class ServerListGenerator {
 
 using ServerConfigList = std::vector<ServerListGenerator::ServerConfig>;
 
+// A default ServerListGenerator::Callback interface for consumers that
+// simply want the call status and result returned directly.
+class ServerListCallback : public ServerListGenerator::Callback {
+ public:
+  enum StatusEnum {
+    NOT_FINISHED,
+    SUCCESS,
+    ERROR,
+    CANCELLED,
+  };
+
+  explicit ServerListCallback() : status(NOT_FINISHED) {
+  }
+
+  void onServerListAvailable(
+      std::vector<ServerListGenerator::ServerConfig>&& results) noexcept override {
+    servers.swap(results);
+    status = SUCCESS;
+  }
+  void onServerListError(std::exception_ptr error) noexcept override {
+    errorPtr = error;
+    status = ERROR;
+  }
+  virtual void serverListRequestCancelled() {
+    status = CANCELLED;
+  }
+
+  StatusEnum status;
+  std::vector<ServerListGenerator::ServerConfig> servers;
+  std::exception_ptr errorPtr;
+};
+
 } // namespace proxygen
