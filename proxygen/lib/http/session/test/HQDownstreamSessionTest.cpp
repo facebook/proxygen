@@ -1341,6 +1341,13 @@ TEST_P(HQDownstreamSessionTest, PauseResume) {
   request.readEOF = true;
   flushRequestsAndLoop();
   EXPECT_FALSE(socketDriver_->streams_[id].readBuf.empty());
+
+  auto id2 = sendRequest();
+  auto handler2 = addSimpleStrictHandler();
+  // stream 2 will start paused at the transport, so even headers are parsed.
+  flushRequestsAndLoopN(1);
+  EXPECT_FALSE(socketDriver_->streams_[id2].readBuf.empty());
+  EXPECT_TRUE(socketDriver_->isStreamPaused(id2));
   hqSession_->closeWhenIdle();
 
   // After resume, body (2 calls) and EOM delivered
@@ -1348,6 +1355,11 @@ TEST_P(HQDownstreamSessionTest, PauseResume) {
     .Times(2);
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectDetachTransaction();
+  handler2->expectHeaders([&handler2] {
+      handler2->sendReplyWithBody(200, 100);
+    });
+  handler2->expectEOM();
+  handler2->expectDetachTransaction();
   handler->txn_->resumeIngress();
   eventBase_.loop();
 }

@@ -85,6 +85,8 @@ bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
                                  HTTPTransaction* txn) {
   DestructorGuard dg(this);
   auto oldSize = pendingReadSize_;
+  CHECK_LE(pendingReadSize_,
+           std::numeric_limits<uint32_t>::max() - length - padding);
   pendingReadSize_ += length + padding;
   txn->onIngressBody(std::move(chain), padding);
   if (oldSize < pendingReadSize_) {

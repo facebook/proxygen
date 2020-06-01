@@ -96,6 +96,9 @@ void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
   hqStream = createStreamTransport(id);
   DCHECK(hqStream);
   sock_->setReadCallback(id, this);
+  if (ingressLimitExceeded()) {
+    sock_->pauseRead(id);
+  }
   maxIncomingStreamId_ = std::max(maxIncomingStreamId_, id);
 }
 
