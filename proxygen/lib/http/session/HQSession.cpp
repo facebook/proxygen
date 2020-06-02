@@ -1750,20 +1750,19 @@ uint64_t HQSession::controlStreamWriteImpl(HQControlStream* ctrlStream,
   auto sendLen = std::min(canSend, ctrlStream->writeBuf_.chainLength());
   auto tryWriteBuf = ctrlStream->writeBuf_.splitAtMost(canSend);
 
-  CHECK_GE(sendLen, 0);
   VLOG(4) << __func__ << " before write sess=" << *this
           << ": streamID=" << egressStreamId << " maxEgress=" << maxEgress
-          << " sendWindow=" << streamSendWindow
-          << " tryToSend=" << tryWriteBuf->computeChainDataLength();
+          << " sendWindow=" << streamSendWindow << " sendLen=" << sendLen;
 
-  auto writeRes = writeBase(egressStreamId,
-                            &ctrlStream->writeBuf_,
-                            std::move(tryWriteBuf),
-                            sendLen,
-                            false,
-                            nullptr);
+  auto writeRes = sock_->writeChain(egressStreamId,
+                                    std::move(tryWriteBuf),
+                                    false /*eof*/,
+                                    false /*cork*/,
+                                    nullptr);
 
   if (writeRes.hasError()) {
+    LOG(ERROR) << " Got error=" << writeRes.error()
+               << " streamID=" << egressStreamId;
     // Going to call this a write error no matter what the underlying reason was
     handleSessionError(ctrlStream,
                        StreamDirection::EGRESS,
@@ -1772,17 +1771,15 @@ uint64_t HQSession::controlStreamWriteImpl(HQControlStream* ctrlStream,
     return 0;
   }
 
-  size_t sent = *writeRes;
   VLOG(4)
       << __func__ << " after write sess=" << *this
-      << ": streamID=" << ctrlStream->getEgressStreamId() << " sent=" << sent
+      << ": streamID=" << ctrlStream->getEgressStreamId() << " sent=" << sendLen
       << " buflen=" << static_cast<int>(ctrlStream->writeBuf_.chainLength());
   if (infoCallback_) {
-    infoCallback_->onWrite(*this, sent);
+    infoCallback_->onWrite(*this, sendLen);
   }
 
-  CHECK_GE(maxEgress, sent);
-  return sent;
+  return sendLen;
 }
 
 void HQSession::handleSessionError(HQStreamBase* stream,
@@ -1910,46 +1907,27 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
   hqStream->errorOnTransaction(std::move(ex));
 }
 
-folly::Expected<size_t, quic::LocalErrorCode> HQSession::writeBase(
-    quic::StreamId id,
-    folly::IOBufQueue* writeBuf,
-    std::unique_ptr<folly::IOBuf> data,
-    size_t tryToSend,
-    bool sendEof,
-    quic::QuicSocket::DeliveryCallback* deliveryCallback) {
-
-  auto writeRes = sock_->writeChain(id,
-                                    std::move(data),
-                                    sendEof,
-                                    false, // cork
-                                    deliveryCallback);
-  if (writeRes.hasError()) {
-    LOG(ERROR) << " Got error=" << writeRes.error() << " streamID=" << id;
-    return folly::makeUnexpected(writeRes.error());
-  }
-  return tryToSend;
-}
-
 size_t HQSession::handleWrite(HQStreamTransportBase* hqStream,
                               std::unique_ptr<folly::IOBuf> data,
-                              size_t tryToSend,
+                              size_t dataChainLen,
                               bool sendEof) {
   quic::QuicSocket::DeliveryCallback* deliveryCallback =
       sendEof ? this : nullptr;
 
-  auto writeRes = writeBase(hqStream->getEgressStreamId(),
-                            &hqStream->writeBuf_,
-                            std::move(data),
-                            tryToSend,
-                            sendEof,
-                            deliveryCallback);
+  auto writeRes = sock_->writeChain(hqStream->getEgressStreamId(),
+                                    std::move(data),
+                                    sendEof,
+                                    false /*cork*/,
+                                    deliveryCallback);
   if (writeRes.hasError()) {
+    LOG(ERROR) << " Got error=" << writeRes.error()
+               << " streamID=" << hqStream->getEgressStreamId();
     handleWriteError(hqStream, writeRes.error());
     return 0;
   }
 
-  auto sent = *writeRes;
-  if (sent == tryToSend && sendEof) {
+  auto sent = dataChainLen;
+  if (sendEof) {
     // This will hold the transaction open until onDeliveryAck or onCanceled
     DCHECK(deliveryCallback);
     hqStream->txn_.incrementPendingByteEvents();

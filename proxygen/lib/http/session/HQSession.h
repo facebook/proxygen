@@ -758,23 +758,8 @@ class HQSession
    */
   size_t handleWrite(HQStreamTransportBase* hqStream,
                      std::unique_ptr<folly::IOBuf> data,
-                     size_t length,
+                     size_t dataChainLen,
                      bool sendEof);
-
-  /**
-   * Wraps calls to the socket writeChain and handles the case where the
-   * transport gives data back to the caller. To be used for both request and
-   * control streams. Returns the number of bytes written from data if success,
-   * in case of error returns the transport error, and leaves error handling to
-   * the caller
-   */
-  folly::Expected<size_t, quic::LocalErrorCode> writeBase(
-      quic::StreamId id,
-      folly::IOBufQueue* writeBuf,
-      std::unique_ptr<folly::IOBuf> data,
-      size_t tryToSend,
-      bool sendEof,
-      quic::QuicSocket::DeliveryCallback* deliveryCallback = nullptr);
 
   /**
    * Helper function to perform writes on a single request stream
