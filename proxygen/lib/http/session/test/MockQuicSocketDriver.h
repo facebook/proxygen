@@ -396,7 +396,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                   flushWrites();
                 }
               });
-              return dataBuf.move().release();
+              CHECK(dataBuf.empty());
+              return folly::unit;
             }));
 
     EXPECT_CALL(*sock_, closeGracefully())

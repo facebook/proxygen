@@ -1927,24 +1927,7 @@ folly::Expected<size_t, quic::LocalErrorCode> HQSession::writeBase(
     LOG(ERROR) << " Got error=" << writeRes.error() << " streamID=" << id;
     return folly::makeUnexpected(writeRes.error());
   }
-
-  auto notWrittenBuf = std::move(writeRes.value());
-  auto sent = tryToSend;
-  if (notWrittenBuf && !notWrittenBuf->empty()) {
-    // The transport gave back some data, prepend to the write buffer.
-    // According to the QuicSocket API this should never happen if we are
-    // enforcing the flow control limits
-    VLOG(4) << "stream " << id << " got "
-            << notWrittenBuf->computeChainDataLength()
-            << " bytes back from the transport";
-    sent -= notWrittenBuf->computeChainDataLength();
-    VLOG(4) << __func__ << " sess=" << *this << ": streamID=" << id
-            << " tryToSend: " << tryToSend << " actual bytes sent: " << sent;
-    auto tmpBuf = writeBuf->move();
-    writeBuf->append(std::move(notWrittenBuf));
-    writeBuf->append(std::move(tmpBuf));
-  }
-  return sent;
+  return tryToSend;
 }
 
 size_t HQSession::handleWrite(HQStreamTransportBase* hqStream,
