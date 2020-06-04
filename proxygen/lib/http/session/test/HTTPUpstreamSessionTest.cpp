@@ -2012,37 +2012,44 @@ TEST_F(MockHTTPUpstreamTest, ControlStreamGoaway) {
   settings.setSetting(SettingsId::ENABLE_EX_HEADERS, 1);
   EXPECT_CALL(*codecPtr_, getEgressSettings()).WillOnce(Return(&settings));
 
-  InSequence enforceOrder;
-
   auto handler = openTransaction();
 
   // Create a dummy request
   auto pub = getGetRequest("/sub/fyi");
   NiceMock<MockHTTPHandler> pubHandler;
-  handler->expectHeaders([&] {
-    auto* pubTxn = handler->txn_->newExTransaction(&pubHandler);
-    pubTxn->setHandler(&pubHandler);
-    pubHandler.txn_ = pubTxn;
 
-    pubTxn->sendHeaders(pub);
-    pubTxn->sendBody(makeBuf(200));
-    pubTxn->sendEOM();
-  });
+  {
+    InSequence enforceOrder;
+    handler->expectHeaders([&] {
+      auto* pubTxn = handler->txn_->newExTransaction(&pubHandler);
+      pubTxn->setHandler(&pubHandler);
+      pubHandler.txn_ = pubTxn;
 
-  pubHandler.expectHeaders();
-  pubHandler.expectEOM();
+      pubTxn->sendHeaders(pub);
+      pubTxn->sendBody(makeBuf(200));
+      pubTxn->sendEOM();
+    });
+
+    pubHandler.expectHeaders();
+    pubHandler.expectEOM();
+  }
 
   // expect goaway
+  // transactionIds is stored in unordered set(F14FastSet), the invocation
+  // order of each txn's goaway method is not deterministic
   pubHandler.expectGoaway();
   handler->expectGoaway();
 
-  handler->expectError([&](const HTTPException& err) {
-    EXPECT_TRUE(err.hasProxygenError());
-    EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
-    ASSERT_EQ("StreamAbort on transaction id: 1", std::string(err.what()));
-  });
-  handler->expectDetachTransaction();
-  pubHandler.expectDetachTransaction();
+  {
+    InSequence enforceOrder;
+    handler->expectError([&](const HTTPException& err) {
+      EXPECT_TRUE(err.hasProxygenError());
+      EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
+      ASSERT_EQ("StreamAbort on transaction id: 1", std::string(err.what()));
+    });
+    handler->expectDetachTransaction();
+    pubHandler.expectDetachTransaction();
+  }
 
   auto resp = makeResponse(200);
   // send header to stream 1 first
