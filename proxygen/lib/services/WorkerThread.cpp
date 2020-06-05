@@ -14,13 +14,60 @@
 #include <glog/logging.h>
 #include <signal.h>
 
+#if defined(__linux__) && !FOLLY_MOBILE &&\
+        __has_include(<folly/experimental/io/IoUringBackend.h>)
+#include <folly/experimental/io/IoUringBackend.h>
+
+DEFINE_int32(pwt_io_uring_capacity, -1, "io_uring backend capacity");
+DEFINE_int32(pwt_io_uring_max_submit, 128, "io_uring backend max submit");
+DEFINE_int32(pwt_io_uring_max_get, -1, "io_uring backend max get");
+DEFINE_bool(
+    pwt_io_uring_use_registered_fds,
+    false,
+    "io_uring backend use registered fds");
+
+namespace {
+std::unique_ptr<folly::EventBaseBackendBase> getEventBaseBackend() {
+  if (FLAGS_pwt_io_uring_capacity > 0) {
+    try {
+      folly::PollIoBackend::Options options;
+      options.setCapacity(static_cast<size_t>(FLAGS_pwt_io_uring_capacity))
+          .setMaxSubmit(static_cast<size_t>(FLAGS_pwt_io_uring_max_submit))
+          .setMaxGet(static_cast<size_t>(FLAGS_pwt_io_uring_max_get))
+          .setUseRegisteredFds(FLAGS_pwt_io_uring_use_registered_fds);
+
+      auto ret = std::make_unique<folly::IoUringBackend>(options);
+      LOG(INFO) << "Allocating io_uring backend(" << FLAGS_pwt_io_uring_capacity
+                << "," << FLAGS_pwt_io_uring_max_submit
+                << "," << FLAGS_pwt_io_uring_max_get
+                << "," << FLAGS_pwt_io_uring_use_registered_fds
+                << "): " << ret.get();
+
+      return ret;
+    } catch (const std::exception& ex) {
+      LOG(INFO) << "Failure creating io_uring backend: " << ex.what();
+    }
+  }
+  return  folly::EventBase::getDefaultBackend();
+}
+} // namespace
+#else
+namespace {
+std::unique_ptr<folly::EventBaseBackendBase> getEventBaseBackend() {
+    return folly::EventBase::getDefaultBackend();
+}
+} // namespace
+#endif
+
+
 namespace proxygen {
 
 FOLLY_TLS WorkerThread* WorkerThread::currentWorker_ = nullptr;
 
 WorkerThread::WorkerThread(
   folly::EventBaseManager* eventBaseManager, const std::string& evbName)
-    : eventBaseManager_(eventBaseManager) {
+    : eventBase_(getEventBaseBackend()),
+    eventBaseManager_(eventBaseManager) {
   // Only set the event base name if not empty.
   // While not ideal, this preserves the previous program name inheritance
   // behavior.
