@@ -170,7 +170,6 @@ add_library(
     http/session/HTTPUpstreamSession.cpp
     http/session/SecondaryAuthManager.cpp
     http/session/SimpleController.cpp
-    http/session/TransportFilter.cpp
     http/structuredheaders/StructuredHeadersBuffer.cpp
     http/structuredheaders/StructuredHeadersDecoder.cpp
     http/structuredheaders/StructuredHeadersEncoder.cpp
