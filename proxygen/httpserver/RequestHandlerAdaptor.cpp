@@ -8,7 +8,7 @@
 
 #include <proxygen/httpserver/RequestHandlerAdaptor.h>
 
-#include <boost/algorithm/string.hpp>
+#include <folly/Range.h>
 #include <proxygen/httpserver/ExMessageHandler.h>
 #include <proxygen/httpserver/PushHandler.h>
 #include <proxygen/httpserver/RequestHandler.h>
@@ -39,6 +39,10 @@ void RequestHandlerAdaptor::detachTransaction() noexcept {
   delete this;
 }
 
+namespace {
+constexpr folly::StringPiece k100Continue{"100-continue"};
+} // namespace
+
 void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
     noexcept {
   if (!upstream_) {
@@ -47,7 +51,7 @@ void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
   if (msg->getHeaders().exists(HTTP_HEADER_EXPECT) &&
       !upstream_->canHandleExpect()) {
     auto expectation = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_EXPECT);
-    if (!boost::iequals(expectation, "100-continue")) {
+    if (!k100Continue.equals(expectation, folly::AsciiCaseInsensitive())) {
       setError(kErrorUnsupportedExpectation);
 
       ResponseBuilder(this)
