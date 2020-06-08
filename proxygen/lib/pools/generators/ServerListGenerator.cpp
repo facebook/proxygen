@@ -12,7 +12,6 @@
 #include <folly/io/async/EventBase.h>
 
 using folly::EventBase;
-using proxygen::ServerListGenerator;
 using std::vector;
 using std::chrono::milliseconds;
 
