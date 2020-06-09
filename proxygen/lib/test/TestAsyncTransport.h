@@ -15,7 +15,7 @@
 #include <proxygen/lib/utils/Time.h>
 #include <folly/io/async/AsyncTransport.h>
 
-class TestAsyncTransport : public folly::AsyncTransportWrapper,
+class TestAsyncTransport : public folly::AsyncTransport,
                            private folly::AsyncTimeout {
  public:
   class WriteEvent {
@@ -47,17 +47,17 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
   explicit TestAsyncTransport(folly::EventBase* eventBase);
 
   // AsyncTransport methods
-  void setReadCB(AsyncTransportWrapper::ReadCallback* callback) override;
+  void setReadCB(folly::AsyncTransport::ReadCallback* callback) override;
   ReadCallback* getReadCallback() const override;
-  void write(AsyncTransportWrapper::WriteCallback* callback,
+  void write(folly::AsyncTransport::WriteCallback* callback,
              const void* buf, size_t bytes,
              folly::WriteFlags flags =
              folly::WriteFlags::NONE) override;
-  void writev(AsyncTransportWrapper::WriteCallback* callback,
+  void writev(folly::AsyncTransport::WriteCallback* callback,
               const struct iovec* vec, size_t count,
               folly::WriteFlags flags =
               folly::WriteFlags::NONE) override;
-  void writeChain(AsyncTransportWrapper::WriteCallback* callback,
+  void writeChain(folly::AsyncTransport::WriteCallback* callback,
                   std::unique_ptr<folly::IOBuf>&& iob,
                   folly::WriteFlags flags =
                   folly::WriteFlags::NONE) override;
@@ -149,7 +149,7 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
   void timeoutExpired() noexcept override;
 
   folly::EventBase* eventBase_;
-  folly::AsyncTransportWrapper::ReadCallback* readCallback_;
+  folly::AsyncTransport::ReadCallback* readCallback_;
   uint32_t sendTimeout_;
 
   proxygen::TimePoint prevReadEventTime_{};
@@ -158,8 +158,9 @@ class TestAsyncTransport : public folly::AsyncTransportWrapper,
   StateEnum writeState_;
   std::deque< std::shared_ptr<ReadEvent> > readEvents_;
   std::deque< std::shared_ptr<WriteEvent> > writeEvents_;
-  std::deque< std::pair<std::shared_ptr<WriteEvent>, AsyncTransportWrapper::WriteCallback*>>
-    pendingWriteEvents_;
+  std::deque<std::pair<std::shared_ptr<WriteEvent>,
+                       folly::AsyncTransport::WriteCallback*>>
+      pendingWriteEvents_;
 
   size_t appBytesWritten_{0};
   size_t rawBytesWritten_{0};

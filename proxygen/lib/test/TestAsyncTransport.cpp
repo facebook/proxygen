@@ -13,6 +13,7 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/AsyncSocketException.h>
 
+using folly::AsyncTransport;
 using folly::WriteFlags;
 using folly::AsyncSocketException;
 using folly::AsyncTimeout;
@@ -196,7 +197,7 @@ TestAsyncTransport::TestAsyncTransport(EventBase* eventBase)
 }
 
 void
-TestAsyncTransport::setReadCB(AsyncTransportWrapper::ReadCallback* callback) {
+TestAsyncTransport::setReadCB(AsyncTransport::ReadCallback* callback) {
   if (readCallback_ == callback) {
     return;
   }
@@ -246,7 +247,7 @@ TestAsyncTransport::getReadCallback() const {
 }
 
 void
-TestAsyncTransport::write(AsyncTransportWrapper::WriteCallback* callback,
+TestAsyncTransport::write(AsyncTransport::WriteCallback* callback,
                           const void* buf, size_t bytes,
                           WriteFlags flags) {
   iovec op;
@@ -256,7 +257,7 @@ TestAsyncTransport::write(AsyncTransportWrapper::WriteCallback* callback,
 }
 
 void
-TestAsyncTransport::writev(AsyncTransportWrapper::WriteCallback* callback,
+TestAsyncTransport::writev(AsyncTransport::WriteCallback* callback,
                            const iovec* vec, size_t count,
                            WriteFlags flags) {
   if (isSet(flags, WriteFlags::CORK)) {
@@ -284,7 +285,7 @@ TestAsyncTransport::writev(AsyncTransportWrapper::WriteCallback* callback,
 }
 
 void
-TestAsyncTransport::writeChain(AsyncTransportWrapper::WriteCallback* callback,
+TestAsyncTransport::writeChain(AsyncTransport::WriteCallback* callback,
                                std::unique_ptr<folly::IOBuf>&& iob,
                                WriteFlags flags) {
   size_t count = iob->countChainElements();
@@ -311,7 +312,7 @@ TestAsyncTransport::closeNow() {
     readState_ = kStateClosed;
 
     if (readCallback_ != nullptr) {
-      folly::AsyncTransportWrapper::ReadCallback* callback = readCallback_;
+      folly::AsyncTransport::ReadCallback* callback = readCallback_;
       readCallback_ = nullptr;
       callback->readEOF();
     }
