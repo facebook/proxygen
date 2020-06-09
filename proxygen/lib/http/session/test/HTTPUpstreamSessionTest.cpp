@@ -149,7 +149,7 @@ class HTTPUpstreamTest
   }
 
   void resumeWrites() {
-    std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs;
+    std::vector<folly::AsyncTransport::WriteCallback*> cbs;
     std::swap(cbs, cbs_);
     pauseWrites_ = false;
     for (auto cb : cbs) {
@@ -158,7 +158,7 @@ class HTTPUpstreamTest
   }
 
   virtual void onWriteChain(
-      folly::AsyncTransportWrapper::WriteCallback* callback,
+      folly::AsyncTransport::WriteCallback* callback,
       std::shared_ptr<IOBuf> iob,
       WriteFlags) {
     if (pauseWrites_) {
@@ -171,7 +171,7 @@ class HTTPUpstreamTest
     handleWrite(callback);
   }
 
-  void handleWrite(folly::AsyncTransportWrapper::WriteCallback* callback) {
+  void handleWrite(folly::AsyncTransport::WriteCallback* callback) {
     if (failWrites_) {
       AsyncSocketException ex(AsyncSocketException::UNKNOWN, "");
       callback->writeErr(0, ex);
@@ -215,7 +215,7 @@ class HTTPUpstreamTest
     }
     httpSession_ = new HTTPUpstreamSession(
         transactionTimeouts_.get(),
-        std::move(AsyncTransportWrapper::UniquePtr(transport_)),
+        std::move(AsyncTransport::UniquePtr(transport_)),
         localAddr_,
         peerAddr_,
         std::move(codec),
@@ -370,7 +370,7 @@ class HTTPUpstreamTest
   EventBase eventBase_;
   EventBase* eventBasePtr_{&eventBase_};
   MockAsyncTransport* transport_; // invalid once httpSession_ is destroyed
-  folly::AsyncTransportWrapper::ReadCallback* readCallback_{nullptr};
+  folly::AsyncTransport::ReadCallback* readCallback_{nullptr};
   folly::AsyncTransport::ReplaySafetyCallback* replaySafetyCallback_{nullptr};
   folly::HHWheelTimer::UniquePtr transactionTimeouts_;
   std::vector<int64_t> flowControl_;
@@ -379,7 +379,7 @@ class HTTPUpstreamTest
   SocketAddress peerAddr_{"127.0.0.1", 12345};
   HTTPUpstreamSession* httpSession_{nullptr};
   IOBufQueue writes_{IOBufQueue::cacheChainLength()};
-  std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
+  std::vector<folly::AsyncTransport::WriteCallback*> cbs_;
   bool failWrites_{false};
   bool pauseWrites_{false};
   bool writeInLoop_{false};
@@ -905,7 +905,7 @@ class HTTP2UpstreamSessionWithVirtualNodesTest
         .WillRepeatedly(ReturnPointee(&transportGood_));
     EXPECT_CALL(*transport_, closeNow())
         .WillRepeatedly(Assign(&transportGood_, false));
-    AsyncTransportWrapper::UniquePtr transportPtr(transport_);
+    AsyncTransport::UniquePtr transportPtr(transport_);
     httpSession_ = new HTTPUpstreamSession(transactionTimeouts_.get(),
                                            std::move(transportPtr),
                                            localAddr_,
@@ -1682,7 +1682,7 @@ TEST_F(HTTPUpstreamRecvStreamTest, UpgradeFlowControl) {
 
 class NoFlushUpstreamSessionTest : public HTTPUpstreamTest<SPDY3CodecPair> {
  public:
-  void onWriteChain(folly::AsyncTransportWrapper::WriteCallback* callback,
+  void onWriteChain(folly::AsyncTransport::WriteCallback* callback,
                     std::shared_ptr<IOBuf>,
                     WriteFlags) override {
     if (!timesCalled_++) {
@@ -1702,7 +1702,7 @@ class NoFlushUpstreamSessionTest : public HTTPUpstreamTest<SPDY3CodecPair> {
 
  private:
   uint32_t timesCalled_{0};
-  std::vector<folly::AsyncTransportWrapper::WriteCallback*> cbs_;
+  std::vector<folly::AsyncTransport::WriteCallback*> cbs_;
 };
 
 TEST_F(NoFlushUpstreamSessionTest, SessionPausedStartPaused) {

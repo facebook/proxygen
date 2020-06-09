@@ -112,7 +112,7 @@ class HTTPSessionAcceptor
   }
 
   // Acceptor methods
-  void onNewConnection(folly::AsyncTransportWrapper::UniquePtr sock,
+  void onNewConnection(folly::AsyncTransport::UniquePtr sock,
                        const folly::SocketAddress* address,
                        const std::string& nextProtocol,
                        wangle::SecureTransportType secureTransportType,

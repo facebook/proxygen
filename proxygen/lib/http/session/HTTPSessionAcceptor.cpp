@@ -49,7 +49,7 @@ const HTTPErrorPage* HTTPSessionAcceptor::getErrorPage(
 }
 
 void HTTPSessionAcceptor::onNewConnection(
-    folly::AsyncTransportWrapper::UniquePtr sock,
+    folly::AsyncTransport::UniquePtr sock,
     const SocketAddress* peerAddress,
     const string& nextProtocol,
     wangle::SecureTransportType,

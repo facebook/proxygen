@@ -25,7 +25,7 @@ class HTTPDownstreamSession final : public HTTPSession {
    *                     whatever HTTP-like wire format this session needs.
    */
   HTTPDownstreamSession(const WheelTimerInstance& timeout,
-                        folly::AsyncTransportWrapper::UniquePtr&& sock,
+                        folly::AsyncTransport::UniquePtr&& sock,
                         const folly::SocketAddress& localAddr,
                         const folly::SocketAddress& peerAddr,
                         HTTPSessionController* controller,
@@ -45,7 +45,7 @@ class HTTPDownstreamSession final : public HTTPSession {
 
   // allows using HTTPDownstreamSession with HHWheelTimer when it is not shared
   HTTPDownstreamSession(folly::HHWheelTimer* timer,
-                        folly::AsyncTransportWrapper::UniquePtr&& sock,
+                        folly::AsyncTransport::UniquePtr&& sock,
                         const folly::SocketAddress& localAddr,
                         const folly::SocketAddress& peerAddr,
                         HTTPSessionController* controller,

@@ -156,7 +156,7 @@ class HTTPConnector:
 
   Callback* cb_;
   WheelTimerInstance timeout_;
-  folly::AsyncTransportWrapper::UniquePtr socket_;
+  folly::AsyncTransport::UniquePtr socket_;
   wangle::TransportInfo transportInfo_;
   std::string plaintextProtocol_;
   TimePoint connectStart_;

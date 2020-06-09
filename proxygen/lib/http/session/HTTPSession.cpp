@@ -27,7 +27,7 @@
 using fizz::AsyncFizzBase;
 using folly::AsyncSocket;
 using folly::AsyncSocketException;
-using folly::AsyncTransportWrapper;
+using folly::AsyncTransport;
 using folly::IOBuf;
 using folly::SocketAddress;
 using std::pair;
@@ -96,7 +96,7 @@ void HTTPSession::WriteSegment::writeErr(
 }
 
 HTTPSession::HTTPSession(folly::HHWheelTimer* transactionTimeouts,
-                         AsyncTransportWrapper::UniquePtr sock,
+                         AsyncTransport::UniquePtr sock,
                          const SocketAddress& localAddr,
                          const SocketAddress& peerAddr,
                          HTTPSessionController* controller,
@@ -114,7 +114,7 @@ HTTPSession::HTTPSession(folly::HHWheelTimer* transactionTimeouts,
 }
 
 HTTPSession::HTTPSession(const WheelTimerInstance& timeout,
-                         AsyncTransportWrapper::UniquePtr sock,
+                         AsyncTransport::UniquePtr sock,
                          const SocketAddress& localAddr,
                          const SocketAddress& peerAddr,
                          HTTPSessionController* controller,

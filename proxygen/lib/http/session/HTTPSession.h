@@ -59,7 +59,7 @@ class HTTPSession
     , private FlowControlFilter::Callback
     , private HTTPCodec::Callback
     , private folly::EventBase::LoopCallback
-    , private folly::AsyncTransportWrapper::ReadCallback
+    , private folly::AsyncTransport::ReadCallback
     , private folly::AsyncTransport::ReplaySafetyCallback {
  public:
   using UniquePtr = std::unique_ptr<HTTPSession, Destructor>;
@@ -68,7 +68,7 @@ class HTTPSession
     return HTTPTransaction::Transport::Type::TCP;
   }
 
-  folly::AsyncTransportWrapper* getTransport() override {
+  folly::AsyncTransport* getTransport() override {
     return sock_.get();
   }
 
@@ -79,7 +79,7 @@ class HTTPSession
     return nullptr;
   }
 
-  const folly::AsyncTransportWrapper* getTransport() const override {
+  const folly::AsyncTransport* getTransport() const override {
     return sock_.get();
   }
 
@@ -357,7 +357,7 @@ class HTTPSession
    *                               lifecycle events.
    */
   HTTPSession(const WheelTimerInstance& timeout,
-              folly::AsyncTransportWrapper::UniquePtr sock,
+              folly::AsyncTransport::UniquePtr sock,
               const folly::SocketAddress& localAddr,
               const folly::SocketAddress& peerAddr,
               HTTPSessionController* controller,
@@ -367,7 +367,7 @@ class HTTPSession
 
   // thrift uses WheelTimer
   HTTPSession(folly::HHWheelTimer* transactionTimeouts,
-              folly::AsyncTransportWrapper::UniquePtr sock,
+              folly::AsyncTransport::UniquePtr sock,
               const folly::SocketAddress& localAddr,
               const folly::SocketAddress& peerAddr,
               HTTPSessionController* controller,
@@ -444,7 +444,7 @@ class HTTPSession
   void writeTimeoutExpired() noexcept;
   void flowControlTimeoutExpired() noexcept;
 
-  // AsyncTransportWrapper::ReadCallback methods
+  // AsyncTransport::ReadCallback methods
   void getReadBuffer(void** buf, size_t* bufSize) override;
   void readDataAvailable(size_t readSize) noexcept override;
   bool isBufferMovable() noexcept override;
@@ -541,10 +541,10 @@ class HTTPSession
   }
 
   /**
-   * Returns the underlying AsyncTransportWrapper.
+   * Returns the underlying AsyncTransport.
    * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
    */
-  const folly::AsyncTransportWrapper* getUnderlyingTransport() const
+  const folly::AsyncTransport* getUnderlyingTransport() const
       noexcept override {
     return sock_.get();
   }
@@ -769,7 +769,7 @@ class HTTPSession
   /** Count of transactions awaiting input */
   uint32_t liveTransactions_{0};
 
-  folly::AsyncTransportWrapper::UniquePtr sock_;
+  folly::AsyncTransport::UniquePtr sock_;
 
   WheelTimerInstance timeout_;
 
@@ -934,7 +934,7 @@ class HTTPSession
    * Helper class to track write buffers until they have been fully written and
    * can be deleted.
    */
-  class WriteSegment : public folly::AsyncTransportWrapper::WriteCallback {
+  class WriteSegment : public folly::AsyncTransport::WriteCallback {
    public:
     WriteSegment(HTTPSession* session, uint64_t length);
 

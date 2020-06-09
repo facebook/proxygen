@@ -34,7 +34,7 @@ class HTTPUpstreamSession final : public HTTPSession {
    */
   HTTPUpstreamSession(
       const WheelTimerInstance& timeout,
-      folly::AsyncTransportWrapper::UniquePtr&& sock,
+      folly::AsyncTransport::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
       std::unique_ptr<HTTPCodec> codec,
@@ -65,7 +65,7 @@ class HTTPUpstreamSession final : public HTTPSession {
   // uses folly::HHWheelTimer instance which is used on client side & thrift
   HTTPUpstreamSession(
       folly::HHWheelTimer* timeout,
-      folly::AsyncTransportWrapper::UniquePtr&& sock,
+      folly::AsyncTransport::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
       std::unique_ptr<HTTPCodec> codec,

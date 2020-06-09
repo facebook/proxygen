@@ -67,7 +67,7 @@ class HTTPDownstreamTest : public testing::Test {
 
     httpSession_ = new HTTPDownstreamSession(
         transactionTimeouts_.get(),
-        std::move(AsyncTransportWrapper::UniquePtr(transport_)),
+        std::move(AsyncTransport::UniquePtr(transport_)),
         localAddr,
         peerAddr,
         &mockController_,
@@ -986,7 +986,7 @@ TEST(HTTPDownstreamTest, ParseErrorNoTxn) {
       .WillRepeatedly(Assign(&transportGood, false));
   EXPECT_CALL(*transport, writeChain(_, _, _))
       .WillRepeatedly(
-          Invoke([&](folly::AsyncTransportWrapper::WriteCallback* callback,
+          Invoke([&](folly::AsyncTransport::WriteCallback* callback,
                      const shared_ptr<IOBuf>&,
                      WriteFlags) { callback->writeSuccess(); }));
 
@@ -994,7 +994,7 @@ TEST(HTTPDownstreamTest, ParseErrorNoTxn) {
   auto transactionTimeouts = makeInternalTimeoutSet(&evb);
   auto session =
       new HTTPDownstreamSession(transactionTimeouts.get(),
-                                AsyncTransportWrapper::UniquePtr(transport),
+                                AsyncTransport::UniquePtr(transport),
                                 localAddr,
                                 peerAddr,
                                 &mockController,
@@ -1025,7 +1025,7 @@ TEST(HTTPDownstreamTest, ByteEventsDrained) {
   // Create the downstream session
   auto session =
       new HTTPDownstreamSession(transactionTimeouts.get(),
-                                AsyncTransportWrapper::UniquePtr(transport),
+                                AsyncTransport::UniquePtr(transport),
                                 localAddr,
                                 peerAddr,
                                 &mockController,

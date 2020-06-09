@@ -783,7 +783,7 @@ class ConnectionFilterTest : public ScopedServerTest {
                                    .addThen<TestHandlerFactory>()
                                    .build();
     options.newConnectionFilter =
-        [](const folly::AsyncTransportWrapper* sock,
+        [](const folly::AsyncTransport* sock,
            const folly::SocketAddress* /* address */,
            const std::string& /* nextProtocolName */,
            wangle::SecureTransportType /* secureTransportType */,

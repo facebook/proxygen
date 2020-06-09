@@ -31,7 +31,7 @@ class HTTPServerOptions {
    * for validating client cert before processing the request.
    */
   using NewConnectionFilter =
-      folly::Function<void(const folly::AsyncTransportWrapper* /* sock */,
+      folly::Function<void(const folly::AsyncTransport* /* sock */,
                            const folly::SocketAddress* /* address */,
                            const std::string& /* nextProtocolName */,
                            SecureTransportType /* secureTransportType */,

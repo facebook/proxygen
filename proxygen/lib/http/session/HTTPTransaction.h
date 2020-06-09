@@ -514,7 +514,7 @@ class HTTPTransaction
 
     virtual bool needToBlockForReplaySafety() const = 0;
 
-    virtual const folly::AsyncTransportWrapper* getUnderlyingTransport() const
+    virtual const folly::AsyncTransport* getUnderlyingTransport() const
         noexcept = 0;
 
     /**

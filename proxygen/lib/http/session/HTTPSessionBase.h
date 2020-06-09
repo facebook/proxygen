@@ -144,9 +144,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual HTTPTransaction::Transport::Type getType() const noexcept = 0;
 
-  virtual folly::AsyncTransportWrapper* getTransport() = 0;
+  virtual folly::AsyncTransport* getTransport() = 0;
 
-  virtual const folly::AsyncTransportWrapper* getTransport() const = 0;
+  virtual const folly::AsyncTransport* getTransport() const = 0;
 
   virtual folly::EventBase* getEventBase() const = 0;
 

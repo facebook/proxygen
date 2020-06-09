@@ -275,7 +275,7 @@ class HQSession
 
   void onSettings(const SettingsList& settings);
 
-  folly::AsyncTransportWrapper* getTransport() override {
+  folly::AsyncTransport* getTransport() override {
     return nullptr;
   }
 
@@ -286,7 +286,7 @@ class HQSession
     return nullptr;
   }
 
-  const folly::AsyncTransportWrapper* getTransport() const override {
+  const folly::AsyncTransport* getTransport() const override {
     return nullptr;
   }
 
@@ -1438,7 +1438,7 @@ class HQSession
       return false;
     }
 
-    const folly::AsyncTransportWrapper* getUnderlyingTransport() const
+    const folly::AsyncTransport* getUnderlyingTransport() const
         noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
       return nullptr;

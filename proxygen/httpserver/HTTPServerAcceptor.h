@@ -42,7 +42,7 @@ class HTTPServerAcceptor final : public HTTPSessionAcceptor {
   HTTPTransaction::Handler* newHandler(HTTPTransaction& txn,
                                        HTTPMessage* msg) noexcept override;
 
-  void onNewConnection(folly::AsyncTransportWrapper::UniquePtr sock,
+  void onNewConnection(folly::AsyncTransport::UniquePtr sock,
                        const folly::SocketAddress* address,
                        const std::string& nextProtocolName,
                        wangle::SecureTransportType secureTransportType,

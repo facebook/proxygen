@@ -125,8 +125,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
   MOCK_CONST_METHOD0(isDraining, bool());
   MOCK_CONST_METHOD0(getSecurityProtocol, std::string());
 
-  MOCK_CONST_METHOD0(getTransport, const folly::AsyncTransportWrapper*());
-  MOCK_METHOD0(getTransport, folly::AsyncTransportWrapper*());
+  MOCK_CONST_METHOD0(getTransport, const folly::AsyncTransport*());
+  MOCK_METHOD0(getTransport, folly::AsyncTransport*());
 
   GMOCK_METHOD1_(,
                  noexcept,
@@ -144,8 +144,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                  noexcept,
                  ,
                  getUnderlyingTransportNonConst,
-                 const folly::AsyncTransportWrapper*());
-  const folly::AsyncTransportWrapper* getUnderlyingTransport() const
+                 const folly::AsyncTransport*());
+  const folly::AsyncTransport* getUnderlyingTransport() const
       noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
         ->getUnderlyingTransportNonConst();

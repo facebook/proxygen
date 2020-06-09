@@ -118,7 +118,7 @@ HTTPTransactionHandler* HTTPServerAcceptor::newHandler(
 }
 
 void HTTPServerAcceptor::onNewConnection(
-    folly::AsyncTransportWrapper::UniquePtr sock,
+    folly::AsyncTransport::UniquePtr sock,
     const SocketAddress* address,
     const std::string& nextProtocolName,
     SecureTransportType secureTransportType,
