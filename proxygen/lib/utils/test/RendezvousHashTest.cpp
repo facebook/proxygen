@@ -30,7 +30,7 @@ TEST(RendezvousHash, Consistency) {
       mapping[i] = hashes.get(i, rank);
     }
 
-    FOR_EACH_KV(key, expected, mapping) {
+    for (auto&& [key, expected] : mapping) {
       EXPECT_EQ(expected, hashes.get(key, rank));
     }
   }
@@ -53,7 +53,7 @@ TEST(RendezvousHash, ConsistencyWithNewNode) {
   nodes.emplace_back(folly::to<std::string>("key", numNodes), 1);
   hashes.build(nodes);
   // traffic should only flow to the new node
-  FOR_EACH_KV (key, expected, mapping) {
+  for (auto&& [key, expected] : mapping) {
     size_t id = hashes.get(key);
     EXPECT_TRUE(expected == id || numNodes == int(id));
   }
@@ -82,7 +82,7 @@ TEST(RendezvousHash, ConsistencyWithIncreasedWeight) {
   hashes.build(nodes);
 
   // traffic shouldn't flow at all
-  FOR_EACH_KV (key, expected, mapping) {
+  for (auto&& [key, expected] : mapping) {
     EXPECT_EQ(expected, hashes.get(key));
   }
 }
@@ -112,7 +112,7 @@ TEST(RendezvousHash, ConsistentFlowToIncreasedWeightNode) {
   }
   hashes.build(nodes);
   // traffic should only flow to the first node
-  FOR_EACH_KV (key, expected, mapping) {
+  for (auto&& [key, expected] : mapping) {
     size_t id = hashes.get(key);
     EXPECT_TRUE(expected == id || 0 == int(id));
   }
@@ -145,7 +145,7 @@ TEST(RendezvousHash, ConsistentFlowToDecreasedWeightNodes) {
   }
 
   hashes.build(nodes);
-  FOR_EACH_KV (key, expected, mapping) {
+  for (auto&& [key, expected] : mapping) {
     // traffic should only flow to nodes with decreased nodes
     size_t id = hashes.get(key);
     EXPECT_TRUE(expected == id || id >= 5);
@@ -176,7 +176,7 @@ TEST(RendezvousHash, ConsistentFlowToDecreasedWeightNode) {
   // zero the weight of the last node
   nodes.emplace_back(folly::to<std::string>("key", numNodes-1), 0);
   hashes.build(nodes);
-  FOR_EACH_KV (key, expected, mapping) {
+  for (auto&& [key, expected] : mapping) {
     // traffic should only flow from the zero weight cluster to others
     size_t id = hashes.get(key);
     if (expected == (uint64_t)numNodes-1) {
@@ -210,7 +210,7 @@ TEST(RendezvousHash, ConsistencyWithDecreasedWeight) {
   hashes.build(nodes);
 
   // traffic shouldn't flow at all
-  FOR_EACH_KV (key, expected, mapping) {
+  for (auto&& [key, expected] : mapping) {
     EXPECT_EQ(expected, hashes.get(key));
   }
 }
