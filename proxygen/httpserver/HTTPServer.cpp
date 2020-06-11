@@ -209,8 +209,10 @@ void HTTPServer::stop() {
   }
 
   if (mainEventBase_) {
-    mainEventBase_->terminateLoopSoon();
-    mainEventBase_ = nullptr;
+    // This HTTPServer object may be destoyed by the main thread once
+    // terminateLoopSoon() is called, so terminateLoopSoon() should be the last
+    // operation here.
+    std::exchange(mainEventBase_, nullptr)->terminateLoopSoon();
   }
 }
 
