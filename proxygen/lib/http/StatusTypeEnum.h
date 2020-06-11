@@ -47,7 +47,8 @@ namespace proxygen {
       /* APP-SPECIFIC STATUS TYPES */ x(manifest_invalid_status),              \
       x(manifest_is_empty), x(manifest_parsing_error),                         \
       x(manifest_missing_representation), x(manifest_with_0_bitrate),          \
-      x(manifest_with_no_tracks), x(manifest_with_wrong_track), x(ENUM_COUNT)
+      x(manifest_with_no_tracks), x(manifest_with_wrong_track),                \
+      x(cache_lease_queue_hard_timeout), x(ENUM_COUNT)
 
 #define STATUS_TYPE_ENUM(statusType) statusType
 
