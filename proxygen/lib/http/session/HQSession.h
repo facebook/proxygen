@@ -51,6 +51,7 @@ enum class HQVersion : uint8_t {
 
 extern const std::string kH3FBCurrentDraft;
 extern const std::string kH3CurrentDraft;
+extern const std::string kH3LegacyDraft;
 extern const std::string kHQCurrentDraft;
 
 // Default Priority Node

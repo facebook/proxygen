@@ -60,8 +60,9 @@ using namespace proxygen::hq;
 namespace proxygen {
 
 const std::string kH3FBCurrentDraft("h3-fb-05");
-const std::string kH3CurrentDraft("h3-27");
-const std::string kHQCurrentDraft("hq-27");
+const std::string kH3LegacyDraft("h3-27");
+const std::string kH3CurrentDraft("h3-29");
+const std::string kHQCurrentDraft("hq-29");
 
 const http2::PriorityUpdate hqDefaultPriority{kSessionStreamId, false, 15};
 
@@ -338,7 +339,7 @@ bool HQSession::getAndCheckApplicationProtocol() {
       version_ = HQVersion::H1Q_FB_V1;
     } else if (alpn == kH1QV2ProtocolString) {
       version_ = HQVersion::H1Q_FB_V2;
-    } else if (alpn == kH3FBCurrentDraft || alpn == kH3CurrentDraft) {
+    } else if (alpn == kH3FBCurrentDraft || alpn == kH3CurrentDraft || alpn == kH3LegacyDraft) {
       version_ = HQVersion::HQ;
     }
   }
