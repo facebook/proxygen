@@ -49,7 +49,7 @@ class PeriodicStats {
   }
   virtual ~PeriodicStats() {
     stopRefresh();
-    modifyData(nullptr);
+    modifyData(nullptr, /*sync=*/true);
   }
 
   /**
@@ -158,12 +158,16 @@ class PeriodicStats {
   virtual T* getNewData() const = 0;
 
   // Wrapper for updating and retiring old cached data_ via RCU.
-  void modifyData(T* newData) {
-    auto* oldData = data_.load();
-    // Default copy constructor should be fine here much as above...this will
-    // stop being true if data starts storing pointers.
-    data_.store(newData);
-    folly::rcu_retire(oldData);
+  // The 'sync' parameter controls whether the previous object is deleted
+  // right away vs in a delayed fashion
+  void modifyData(T* newData, bool sync = false) {
+    auto* oldData = data_.exchange(newData);
+    if (sync) {
+      folly::synchronize_rcu();
+      delete oldData;
+    } else {
+      folly::rcu_retire(oldData);
+    }
   }
 
   /**
