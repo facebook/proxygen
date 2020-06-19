@@ -165,6 +165,7 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
   serverCtx->setTicketCipher(ticketCipher);
   serverCtx->setClientAuthMode(params.clientAuth);
   serverCtx->setSupportedAlpns(params.supportedAlpns);
+  serverCtx->setRequireAlpn(true);
   serverCtx->setSendNewSessionTicket(false);
   serverCtx->setEarlyDataFbOnly(false);
   serverCtx->setVersionFallbackEnabled(false);
