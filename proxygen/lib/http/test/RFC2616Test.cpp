@@ -16,7 +16,7 @@ using RFC2616::parseByteRangeSpec;
 
 TEST(QvalueTest, Basic) {
 
-  std::vector<RFC2616::TokenQPair> output;
+  RFC2616::TokenPairVec output;
 
   {
     string test("iso-8859-5, unicode-1-1;q=0.8");
@@ -94,7 +94,7 @@ TEST(QvalueTest, Basic) {
 
 TEST(QvalueTest, Extras) {
 
-  std::vector<RFC2616::TokenQPair> output;
+  RFC2616::TokenPairVec output;
 
   string test("gzip");
   EXPECT_TRUE(RFC2616::parseQvalues(test, output));
@@ -106,7 +106,7 @@ TEST(QvalueTest, Extras) {
 
 TEST(QvalueTest, Invalids) {
 
-  std::vector<RFC2616::TokenQPair> output;
+  RFC2616::TokenPairVec output;
 
   string test1(",,,");
   EXPECT_FALSE(RFC2616::parseQvalues(test1, output));

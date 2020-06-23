@@ -279,7 +279,7 @@ class CompressionFilterFactory : public RequestHandlerFactory {
   // Check whether the client supports a compression type we support
   CodecType determineCompressionType(HTTPMessage* msg) noexcept {
 
-    std::vector<RFC2616::TokenQPair> output;
+    RFC2616::TokenPairVec output;
 
     // Accept encoding header could have qvalues (gzip; q=5.0)
     auto acceptEncodingHeader =

@@ -1549,19 +1549,15 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
 }
 
 void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
-  CODEC_STATIC folly::ThreadLocalPtr<HTTP2Codec> defaultCodec;
-  if (!defaultCodec.get()) {
-    defaultCodec.reset(new HTTP2Codec(TransportDirection::UPSTREAM));
-  }
+  HTTP2Codec defaultCodec{TransportDirection::UPSTREAM};
 
   auto& headers = request.getHeaders();
   headers.set(HTTP_HEADER_UPGRADE, http2::kProtocolCleartextString);
   bool addUpgrade =
     !request.checkForHeaderToken(HTTP_HEADER_CONNECTION, "Upgrade", false);
   IOBufQueue writeBuf{IOBufQueue::cacheChainLength()};
-  defaultCodec->generateSettings(writeBuf);
-  // fake an ack since defaultCodec gets reused
-  defaultCodec->handleSettingsAck();
+  // TODO staatic generateSettings
+  defaultCodec.generateSettings(writeBuf);
   writeBuf.trimStart(http2::kFrameHeaderSize);
   auto buf = writeBuf.move();
   buf->coalesce();

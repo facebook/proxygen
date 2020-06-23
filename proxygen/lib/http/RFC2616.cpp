@@ -76,7 +76,7 @@ double parseQvalue(const EncodingParams& params) {
   return qvalue;
 }
 
-bool parseQvalues(folly::StringPiece value, std::vector<TokenQPair>& output) {
+bool parseQvalues(folly::StringPiece value, TokenPairVec& output) {
   bool success = true;
   try {
     auto encodings = parseEncoding(value);

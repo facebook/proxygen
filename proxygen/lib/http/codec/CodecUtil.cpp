@@ -59,12 +59,12 @@ const char CodecUtil::http_tokens[256] = {
 
 bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
                                  bool& hasDeflate) {
-  CODEC_STATIC folly::ThreadLocal<std::vector<RFC2616::TokenQPair>> output;
-  output->clear();
+  RFC2616::TokenPairVec output;
+  output.reserve(RFC2616::kTokenPairVecDefaultSize);
   hasGzip = false;
   hasDeflate = false;
-  RFC2616::parseQvalues(value, *output);
-  for (const auto& encodingQ: *output) {
+  RFC2616::parseQvalues(value, output);
+  for (const auto& encodingQ: output) {
     std::string lower(encodingQ.first.str());
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     // RFC says 3 sig figs
