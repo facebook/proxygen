@@ -40,6 +40,14 @@ size_t parse(T* codec,
   }
 
   folly::IOBufQueue input(folly::IOBufQueue::cacheChainLength());
+
+  //allow testing of error case for length 0
+  if (length == 0)
+  {
+    input.append(folly::IOBuf::copyBuffer(start, length));
+    return codec->onIngress(*input.front());
+  }
+
   while (length > 0 && !stopFn()) {
     if (consumed == 0) {
       // Parser wants more data
