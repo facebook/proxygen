@@ -47,7 +47,7 @@ void HQClient::start() {
   // TODO: turn on cert verification
   wangle::TransportInfo tinfo;
   session_ = new proxygen::HQUpstreamSession(params_.txnTimeout,
-                                             std::chrono::milliseconds(2000),
+                                             params_.connectTimeout,
                                              nullptr, // controller
                                              tinfo,
                                              nullptr); // codecfiltercallback

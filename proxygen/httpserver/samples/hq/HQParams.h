@@ -69,6 +69,7 @@ struct HQParams {
   folly::Optional<quic::CongestionControlType> congestionControl;
   bool earlyData;
   folly::Optional<int64_t> rateLimitPerThread;
+  std::chrono::milliseconds connectTimeout;
 
   // HTTP section
   uint16_t h2port;
