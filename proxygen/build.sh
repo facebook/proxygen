@@ -31,6 +31,7 @@ function install_dependencies_linux() {
   sudo apt-get install -yq \
     git \
     cmake \
+    m4 \
     g++ \
     flex \
     bison \
@@ -65,6 +66,7 @@ function install_dependencies_mac() {
   # install the default dependencies from homebrew
   brew install               \
     cmake                    \
+    m4                       \
     boost                    \
     double-conversion        \
     gflags                   \
