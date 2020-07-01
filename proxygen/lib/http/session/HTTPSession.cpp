@@ -527,6 +527,12 @@ void HTTPSession::readDataAvailable(size_t readSize) noexcept {
 
   DestructorGuard dg(this);
   resetTimeout();
+
+  if (ingressError_) {
+    VLOG(3) << "discarding readBuf due to ingressError_ sess=" << *this
+            << " bytes=" << readSize;
+    return;
+  }
   readBuf_.postallocate(readSize);
 
   if (infoCallback_) {
@@ -546,8 +552,15 @@ void HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
       "HTTPSession - readBufferAvailable", "readSize", readSize);
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
 
+
   DestructorGuard dg(this);
   resetTimeout();
+
+  if (ingressError_) {
+    VLOG(3) << "discarding readBuf due to ingressError_ sess=" << *this
+            << " bytes=" << readSize;
+    return;
+  }
   readBuf_.append(std::move(readBuf));
 
   if (infoCallback_) {
@@ -1786,23 +1799,30 @@ void HTTPSession::onEgressMessageFinished(HTTPTransaction* txn, bool withRST) {
     resetAfterDrainingWrites_ = true;
     setCloseReason(ConnectionCloseReason::TRANSACTION_ABORT);
     shutdownTransport(true, true);
-  } else if (((!codec_->isReusable() || readsShutdown()) &&
-              transactions_.size() == 1)) {
-    // the reason is already set (either not reusable or readshutdown).
+  } else if (!codec_->isReusable() || readsShutdown()) {
+    if (transactions_.size() == 1) {
+      // the reason is already set (either not reusable or readshutdown).
 
-    // Defer normal shutdowns until after the end of the loop.  This
-    // handles an edge case with direct responses with Connection:
-    // close served before ingress EOM.  The remainder of the ingress
-    // message may be in the parse loop, so give it a chance to
-    // finish out and avoid a kErrorEOF
+      // Defer normal shutdowns until after the end of the loop.  This
+      // handles an edge case with direct responses with Connection:
+      // close served before ingress EOM.  The remainder of the ingress
+      // message may be in the parse loop, so give it a chance to
+      // finish out and avoid a kErrorEOF
 
-    // we can get here during shutdown, in that case do not schedule a
-    // shutdown callback again
-    if (!shutdownTransportCb_) {
-      // Just for safety, the following bumps the refcount on this session
-      // to keep it live until the loopCb runs
-      shutdownTransportCb_.reset(new ShutdownTransportCallback(this));
-      sock_->getEventBase()->runInLoop(shutdownTransportCb_.get());
+      // we can get here during shutdown, in that case do not schedule a
+      // shutdown callback again
+      if (!shutdownTransportCb_) {
+        // Just for safety, the following bumps the refcount on this session
+        // to keep it live until the loopCb runs
+        shutdownTransportCb_.reset(new ShutdownTransportCallback(this));
+        sock_->getEventBase()->runInLoop(shutdownTransportCb_.get());
+      }
+    } else {
+      // Parsing of new transactions is not going to work anymore, but we can't
+      // shutdown immediately because there are outstanding transactions.
+      // This sets the draining_ flag, which will trigger shutdown checks as
+      // existing transactions detach.
+      drain();
     }
   } else {
     maybeResumePausedPipelinedTransaction(oldStreamCount,

@@ -1213,6 +1213,46 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipelineError) {
   expectDetachSession();
 }
 
+TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingConnError) {
+  // Send a request, response waits on a byte event
+  // Then send an error.  The session should close when the byte event completes
+  HTTPDirectResponseHandler* errorHandler =
+    new HTTPDirectResponseHandler(400, "Bad Request");
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
+               WillOnce(Return(errorHandler));
+
+  auto byteEventTracker = setMockByteEventTracker();
+  InSequence enforceOrder;
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&handler1]() {
+    handler1->sendReplyWithBody(200, 100);
+  });
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
+      .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
+        txn->incrementPendingByteEvents();
+      }));
+
+  // send first request
+  sendRequest();
+  flushRequestsAndLoopN(2);
+  expectResponse(200);
+
+  // send a garbage character which will trigger a 400
+  transport_->addReadEvent("?", milliseconds(0));
+  flushRequestsAndLoop();
+
+  expectResponse(400, false, false);
+  // When the byte event is cleared, txn1 will go away
+  handler1->expectDetachTransaction();
+  // Add a 1 MB read - it shouldn't be buffered in the session
+  transport_->addMovableReadEvent(makeBuf(1000000), milliseconds(0));
+  eventBase_.loop();
+  expectDetachSession();
+  handler1->txn_->decrementPendingByteEvents();
+}
+
 TEST_F(HTTP2DownstreamSessionTest, TestPing) {
   // send a request with a PING, should get the PING first
   auto handler = addSimpleStrictHandler();
