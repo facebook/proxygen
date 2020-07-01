@@ -1156,14 +1156,14 @@ class HTTPSession
   // secondary authentication manager
   std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager_;
 
-  enum SocketState {
+  enum class SocketState : uint8_t {
     UNPAUSED = 0,
     PAUSED = 1,
     SHUTDOWN = 2,
   };
 
-  SocketState reads_ : 2;
-  SocketState writes_ : 2;
+  SocketState reads_;
+  SocketState writes_;
 
   /**
    * Indicates whether an upgrade request has been received from the codec.
