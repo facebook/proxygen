@@ -51,50 +51,6 @@ static constexpr folly::StringPiece kServerLabel =
 
 namespace proxygen {
 
-HTTPSession::WriteSegment::WriteSegment(HTTPSession* session, uint64_t length)
-    : session_(session), length_(length) {
-}
-
-void HTTPSession::WriteSegment::remove() {
-  DCHECK(session_);
-  DCHECK(listHook.is_linked());
-  listHook.unlink();
-}
-
-void HTTPSession::WriteSegment::detach() {
-  remove();
-  session_ = nullptr;
-}
-
-void HTTPSession::WriteSegment::writeSuccess() noexcept {
-  // Unlink this write segment from the list before calling
-  // the session's onWriteSuccess() callback because, in the
-  // case where this is the last write for the connection,
-  // onWriteSuccess() looks for an empty write segment list
-  // as one of the criteria for shutting down the connection.
-  remove();
-
-  // session_ should never be nullptr for a successful write
-  // The session is only cleared after a write error or timeout, and all
-  // AsyncTransport write failures are fatal.  If session_ is nullptr at this
-  // point it means the AsyncTransport implementation is not failing
-  // subsequent writes correctly after an error.
-  session_->onWriteSuccess(length_);
-  delete this;
-}
-
-void HTTPSession::WriteSegment::writeErr(
-    size_t bytesWritten, const AsyncSocketException& ex) noexcept {
-  // After one segment fails to write, we clear the session_
-  // pointer in all subsequent write segments, so we ignore their
-  // writeError() callbacks.
-  if (session_) {
-    remove();
-    session_->onWriteError(bytesWritten, ex);
-  }
-  delete this;
-}
-
 HTTPSession::HTTPSession(folly::HHWheelTimer* transactionTimeouts,
                          AsyncTransport::UniquePtr sock,
                          const SocketAddress& localAddr,
@@ -407,7 +363,7 @@ void HTTPSession::readTimeoutExpired() noexcept {
 void HTTPSession::writeTimeoutExpired() noexcept {
   VLOG(4) << "Write timeout for " << *this;
 
-  CHECK(!pendingWrites_.empty());
+  CHECK(pendingWrite_.hasValue());
   DestructorGuard g(this);
 
   setCloseReason(ConnectionCloseReason::TIMEOUT);
@@ -1076,7 +1032,7 @@ void HTTPSession::onMessageComplete(HTTPCodec::StreamID streamID,
   // If the connection is not reusable, we close the read side of it
   // but not the write side.  There are two reasons why more writes
   // may occur after this point:
-  //   * If there are previous writes buffered up in the pendingWrites_
+  //   * If there are previous writes buffered up in the
   //     queue, we need to attempt to complete them.
   //   * The Handler associated with the transaction may want to
   //     produce more egress data when the ingress message is fully
@@ -2289,12 +2245,15 @@ void HTTPSession::runLoopCallback() noexcept {
         });
     }
 
-    WriteSegment* segment = new WriteSegment(this, len);
-    segment->setCork(cork);
-    segment->setTimestampTX(timestampTx);
-    segment->setEOR(timestampAck);
+    folly::WriteFlags flags = folly::WriteFlags::NONE;
+    flags |= (cork) ? folly::WriteFlags::CORK : folly::WriteFlags::NONE;
+    flags |= (timestampTx) ? folly::WriteFlags::TIMESTAMP_TX
+      : folly::WriteFlags::NONE;
+    flags |= (timestampAck) ? folly::WriteFlags::EOR
+      : folly::WriteFlags::NONE;
+    CHECK(!pendingWrite_.hasValue());
+    pendingWrite_.emplace(len, DestructorGuard(this));
 
-    pendingWrites_.push_back(*segment);
     if (!writeTimeout_.isScheduled()) {
       // Any performance concern here?
       timeout_.scheduleTimeout(&writeTimeout_);
@@ -2306,7 +2265,7 @@ void HTTPSession::runLoopCallback() noexcept {
             << " timestampTx:" << timestampTx
             << " timestampAck:" << timestampAck;
     bytesScheduled_ += len;
-    sock_->writeChain(segment, std::move(writeBuf), segment->getFlags());
+    sock_->writeChain(this, std::move(writeBuf), flags);
     if (numActiveWrites_ > 0) {
       updateWriteCount();
       HTTPSessionBase::notifyEgressBodyBuffered(len, false);
@@ -2485,8 +2444,7 @@ void HTTPSession::shutdownTransportWithReset(ProxygenError errorCode,
   if (!writesShutdown()) {
     writes_ = SocketState::SHUTDOWN;
     IOBuf::destroy(writeBuf_.move());
-    while (!pendingWrites_.empty()) {
-      pendingWrites_.front().detach();
+    if (pendingWrite_.hasValue()) {
       numActiveWrites_--;
     }
     VLOG(4) << *this << " cancel write timer";
@@ -2817,18 +2775,16 @@ void HTTPSession::scheduleResetDirectErrorHandling() {
   }, directErrorHandlingIntervalDuration_);
 }
 
-void HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
+void HTTPSession::writeSuccess() noexcept {
+  CHECK(pendingWrite_.hasValue());
   DestructorGuard dg(this);
+  auto bytesWritten = pendingWrite_->first;
   bytesWritten_ += bytesWritten;
   transportInfo_.totalBytes += bytesWritten;
   CHECK(writeTimeout_.isScheduled());
-  if (pendingWrites_.empty()) {
-    VLOG(10) << "Cancel write timer on last successful write";
-    writeTimeout_.cancelTimeout();
-  } else {
-    VLOG(10) << "Refresh write timer on writeSuccess";
-    timeout_.scheduleTimeout(&writeTimeout_);
-  }
+  VLOG(10) << "Cancel write timer on last successful write";
+  writeTimeout_.cancelTimeout();
+  pendingWrite_.reset();
 
   if (infoCallback_) {
     infoCallback_->onWrite(*this, bytesWritten);
@@ -2879,9 +2835,12 @@ void HTTPSession::onWriteSuccess(uint64_t bytesWritten) {
   }
 }
 
-void HTTPSession::onWriteError(size_t bytesWritten,
-                               const AsyncSocketException& ex) {
+void HTTPSession::writeErr(size_t bytesWritten,
+                           const AsyncSocketException& ex) noexcept {
   VLOG(4) << *this << " write error: " << ex.what();
+  DestructorGuard dg(this);
+  DCHECK(pendingWrite_.hasValue());
+  pendingWrite_.reset();
   if (infoCallback_) {
     infoCallback_->onWrite(*this, bytesWritten);
   }
@@ -2906,7 +2865,7 @@ void HTTPSession::onWriteCompleted() {
   }
 
   // Don't shutdown if there might be more writes
-  if (!pendingWrites_.empty()) {
+  if (pendingWrite_.hasValue()) {
     return;
   }
 
@@ -2986,11 +2945,10 @@ void HTTPSession::resumeReadsImpl() {
 
 bool HTTPSession::hasMoreWrites() const {
   VLOG(10) << __PRETTY_FUNCTION__ << " numActiveWrites_: " << numActiveWrites_
-           << " pendingWrites_.empty(): " << pendingWrites_.empty()
-           << " pendingWrites_.size(): " << pendingWrites_.size()
+           << " pendingWrite_.hasValue(): " << pendingWrite_.hasValue()
            << " txnEgressQueue_.empty(): " << txnEgressQueue_.empty();
 
-  return (numActiveWrites_ != 0) || !pendingWrites_.empty() ||
+  return (numActiveWrites_ != 0) || pendingWrite_.hasValue() ||
          writeBuf_.front() || !txnEgressQueue_.empty();
 }
 

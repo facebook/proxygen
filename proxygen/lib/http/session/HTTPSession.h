@@ -60,7 +60,8 @@ class HTTPSession
     , private HTTPCodec::Callback
     , private folly::EventBase::LoopCallback
     , private folly::AsyncTransport::ReadCallback
-    , private folly::AsyncTransport::ReplaySafetyCallback {
+    , private folly::AsyncTransport::ReplaySafetyCallback
+    , private folly::AsyncTransport::WriteCallback {
  public:
   using UniquePtr = std::unique_ptr<HTTPSession, Destructor>;
 
@@ -646,10 +647,11 @@ class HTTPSession
       ProxygenError* error = nullptr);
 
   /** Invoked by WriteSegment on completion of a write. */
-  void onWriteSuccess(uint64_t bytesWritten);
+  void writeSuccess() noexcept override;
 
   /** Invoked by WriteSegment on write failure. */
-  void onWriteError(size_t bytesWritten, const folly::AsyncSocketException& ex);
+  void writeErr(size_t bytesWritten,
+                const folly::AsyncSocketException& ex) noexcept override;
 
   /** Check whether to shut down the transport after a write completes. */
   void onWriteCompleted();
@@ -930,72 +932,8 @@ class HTTPSession
 
   std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
 
-  /**
-   * Helper class to track write buffers until they have been fully written and
-   * can be deleted.
-   */
-  class WriteSegment : public folly::AsyncTransport::WriteCallback {
-   public:
-    WriteSegment(HTTPSession* session, uint64_t length);
-
-    void setCork(bool cork) {
-      if (cork) {
-        flags_ = flags_ | folly::WriteFlags::CORK;
-      } else {
-        unSet(flags_, folly::WriteFlags::CORK);
-      }
-    }
-
-    void setEOR(bool eor) {
-      if (eor) {
-        flags_ = flags_ | folly::WriteFlags::EOR;
-      } else {
-        unSet(flags_, folly::WriteFlags::EOR);
-      }
-    }
-
-    void setTimestampTX(bool timestampTx) {
-      if (timestampTx) {
-        flags_ = flags_ | folly::WriteFlags::TIMESTAMP_TX;
-      } else {
-        unSet(flags_, folly::WriteFlags::TIMESTAMP_TX);
-      }
-    }
-
-    /**
-     * Clear the session. This is used if the session
-     * does not want to receive future notification about this segment.
-     */
-    void detach();
-
-    folly::WriteFlags getFlags() {
-      return flags_;
-    }
-
-    uint64_t getLength() const {
-      return length_;
-    }
-
-    // AsyncTransport::WriteCallback methods
-    void writeSuccess() noexcept override;
-    void writeErr(size_t bytesWritten,
-                  const folly::AsyncSocketException&) noexcept override;
-
-    folly::IntrusiveListHook listHook;
-
-   private:
-    /**
-     * Unlink this segment from the list.
-     */
-    void remove();
-
-    HTTPSession* session_;
-    uint64_t length_;
-    folly::WriteFlags flags_{folly::WriteFlags::NONE};
-  };
-  using WriteSegmentList =
-      folly::IntrusiveList<WriteSegment, &WriteSegment::listHook>;
-  WriteSegmentList pendingWrites_;
+  folly::Optional<std::pair<uint64_t, HTTPSession::DestructorGuard>>
+    pendingWrite_;
 
   /**
    * Connection level flow control for SPDY >= 3.1 and HTTP/2
