@@ -141,7 +141,7 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
                                                baseIndex, requiredInsertCount);
       }
     }
-    hasDateHeader =  (code == HTTP_HEADER_DATE);
+    hasDateHeader |= ((code == HTTP_HEADER_DATE) ? 1 : 0);
   });
 
 

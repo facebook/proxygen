@@ -134,7 +134,7 @@ void HPACKCodec::encodeHTTP(
         uncompressed += encoder_.encodeHeader(code, value);
       }
     }
-    hasDateHeader =  (code == HTTP_HEADER_DATE);
+    hasDateHeader |= ((code == HTTP_HEADER_DATE) ? 1 : 0);
   });
 
 
