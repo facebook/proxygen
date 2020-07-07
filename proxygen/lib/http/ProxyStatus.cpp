@@ -10,7 +10,6 @@
 
 #include <glog/logging.h>
 
-using proxygen::StructuredHeaders::StructuredHeaderItem;
 
 namespace {
 
