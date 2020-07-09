@@ -3219,6 +3219,63 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
   EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
 }
 
+TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
+  // Create a dummy request and a dummy response messages
+  HTTPMessage req, res;
+  req.getHeaders().set("HOST", "www.foo.com");
+  req.setURL("https://www.foo.com/");
+  res.setStatusCode(200);
+  res.setStatusMessage("Ohai");
+
+  // enable server push
+  clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
+  clientCodec_->generateSettings(requests_);
+  // generateHeader() will create a session and a transaction
+  auto assocStreamId = HTTPCodec::StreamID(3);
+  clientCodec_->generateHeader(
+      requests_, assocStreamId, getGetRequest(), true, nullptr);
+
+  auto handler = addSimpleStrictHandler();
+  StrictMock<MockHTTPPushHandler> pushHandler1;
+
+  //InSequence handlerSequence;
+  handler->expectHeaders([&] {
+    // Generate response for the associated stream
+    this->transport_->pauseWrites();
+    handler->txn_->sendHeaders(res);
+    handler->txn_->sendBody(makeBuf(100));
+
+    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler1);
+    ASSERT_NE(pushTxn, nullptr);
+    // Generate a push request (PUSH_PROMISE)
+    pushTxn->sendHeaders(req);
+  });
+  EXPECT_CALL(pushHandler1, setTransaction(_))
+      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler1.txn_ = txn; }));
+  handler->expectEOM();
+  handler->expectEgressPaused();
+  EXPECT_CALL(pushHandler1, onEgressPaused());
+
+  EXPECT_CALL(pushHandler1, onError(_))
+    .WillOnce(InvokeWithoutArgs([&] {
+          StrictMock<MockHTTPPushHandler> pushHandler2;
+          auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler2);
+          EXPECT_EQ(pushTxn, nullptr);
+        }));
+  EXPECT_CALL(pushHandler1, detachTransaction());
+  handler->expectError();
+  handler->expectDetachTransaction();
+
+  transport_->addReadEvent(requests_, milliseconds(0));
+  transport_->startReadEvents();
+  HTTPSession::DestructorGuard g(httpSession_);
+  eventBase_.loop();
+
+  parseOutput(*clientCodec_);
+  expectDetachSession();
+  EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
+}
+
 TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeightsTinyRatio) {
   // Create a transaction with egress and a ratio small enough that
   // ratio*4096 < 1.

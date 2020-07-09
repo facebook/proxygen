@@ -2620,7 +2620,7 @@ HTTPTransaction* HTTPSession::createTransaction(
     const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
     const http2::PriorityUpdate& priority,
     ProxygenError* error) {
-  if (!sock_->good()) {
+  if (!sock_->good() || writesShutdown()) {
     // Refuse to add a transaction on a closing session
     SET_PROXYGEN_ERROR_IF(error, ProxygenError::kErrorBadSocket);
     return nullptr;
