@@ -418,7 +418,7 @@ class HTTPTransaction
    * Transport instances by the distinct underlying connections.
    * Its uniqueness is not enforced by the Transport.
    */
-  using ConnectionToken = uint64_t;
+  using ConnectionToken = std::string;
 
   class Transport {
    public:

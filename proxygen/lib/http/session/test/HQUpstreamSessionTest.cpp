@@ -602,7 +602,7 @@ TEST_P(HQUpstreamSessionTest, TestConnectionToken) {
 
   // Passing connection token to a session should
   // make it visible to the transaction.
-  HTTPTransaction::ConnectionToken connToken{1234};
+  HTTPTransaction::ConnectionToken connToken{"TOKEN1234"};
   hqSession_->setConnectionToken(connToken);
 
   EXPECT_NE(handler->txn_->getConnectionToken(), folly::none);
