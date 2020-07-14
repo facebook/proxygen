@@ -127,8 +127,8 @@ function setup_fmt() {
     git clone https://github.com/fmtlib/fmt.git  "$FMT_DIR"
   fi
   cd "$FMT_DIR"
-  git fetch
-  git checkout master
+  git fetch --tags
+  git checkout 6.2.1
   echo -e "${COLOR_GREEN}Building fmt ${COLOR_OFF}"
   mkdir -p "$FMT_BUILD_DIR"
   cd "$FMT_BUILD_DIR" || exit
