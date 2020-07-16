@@ -20,7 +20,7 @@
 #include <proxygen/httpserver/ScopedHTTPServer.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/utils/TestUtils.h>
-#include <wangle/client/ssl/SSLSession.h>
+#include <folly/ssl/OpenSSLPtrTypes.h>
 
 using namespace folly;
 using namespace folly::ssl;
@@ -201,7 +201,7 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
 
   bool success{false};
   bool reusedSession{false};
-  wangle::SSLSessionPtr session;
+  folly::ssl::SSLSessionUniquePtr session;
   folly::AsyncSSLSocket* sock_{nullptr};
   folly::ssl::X509UniquePtr peerCert_{nullptr};
 };
