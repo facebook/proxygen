@@ -2142,7 +2142,7 @@ TEST_P(HQUpstreamSessionTestHQPRDeliveryAck,
           testing::Invoke([streamId, &socketDriver = socketDriver_](
                               quic::StreamId id,
                               uint64_t offset,
-                              MockQuicSocket::DeliveryCallback* cb)
+                              MockQuicSocket::ByteEventCallback* cb)
                               -> folly::Expected<folly::Unit, LocalErrorCode> {
             if (id == streamId) {
               return folly::makeUnexpected(LocalErrorCode::INVALID_OPERATION);

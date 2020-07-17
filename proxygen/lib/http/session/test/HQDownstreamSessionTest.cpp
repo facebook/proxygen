@@ -3117,7 +3117,7 @@ TEST_P(HQDownstreamSessionTestHQDeliveryAck,
           testing::Invoke([streamId, &socketDriver = socketDriver_](
                               quic::StreamId id,
                               uint64_t offset,
-                              MockQuicSocket::DeliveryCallback* cb)
+                              MockQuicSocket::ByteEventCallback* cb)
                               -> folly::Expected<folly::Unit, LocalErrorCode> {
             if (id == streamId) {
               return folly::makeUnexpected(LocalErrorCode::INVALID_OPERATION);
@@ -3229,7 +3229,7 @@ TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryErr) {
            &streamOffsetAfterHeaders = streamOffsetAfterHeaders,
            &socketDriver = socketDriver_](quic::StreamId id,
                                           uint64_t offset,
-                                          MockQuicSocket::DeliveryCallback* cb)
+                                          MockQuicSocket::ByteEventCallback* cb)
               -> folly::Expected<folly::Unit, LocalErrorCode> {
             if (id == streamId && offset > streamOffsetAfterHeaders) {
               for (auto& it : socketDriver->streams_) {
@@ -3327,7 +3327,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck,
           testing::Invoke([streamId, &socketDriver = socketDriver_](
                               quic::StreamId id,
                               uint64_t offset,
-                              MockQuicSocket::DeliveryCallback* cb)
+                              MockQuicSocket::ByteEventCallback* cb)
                               -> folly::Expected<folly::Unit, LocalErrorCode> {
             if (id == streamId) {
               return folly::makeUnexpected(LocalErrorCode::INVALID_OPERATION);
@@ -3483,7 +3483,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck, TestBodyDeliveryErr) {
            &streamOffsetAfterHeaders = streamOffsetAfterHeaders,
            &socketDriver = socketDriver_](quic::StreamId id,
                                           uint64_t offset,
-                                          MockQuicSocket::DeliveryCallback* cb)
+                                          MockQuicSocket::ByteEventCallback* cb)
               -> folly::Expected<folly::Unit, LocalErrorCode> {
             if (id == streamId && offset > streamOffsetAfterHeaders) {
               for (auto& it : socketDriver->streams_) {

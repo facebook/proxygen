@@ -80,7 +80,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     folly::Optional<quic::ApplicationErrorCode> error;
     QuicSocket::ReadCallback* readCB{nullptr};
     QuicSocket::PeekCallback* peekCB{nullptr};
-    std::list<std::pair<uint64_t, QuicSocket::DeliveryCallback*>>
+    std::list<std::pair<uint64_t, QuicSocket::ByteEventCallback*>>
         deliveryCallbacks;
     uint64_t flowControlWindow{65536};
     bool isControl{false};
@@ -523,7 +523,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         .WillRepeatedly(testing::Invoke(
             [this](quic::StreamId id,
                    uint64_t offset,
-                   MockQuicSocket::DeliveryCallback* cb)
+                   MockQuicSocket::ByteEventCallback* cb)
                 -> folly::Expected<folly::Unit, LocalErrorCode> {
               checkNotReadOnlyStream(id);
               auto it = streams_.find(id);
@@ -761,8 +761,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   void cancelDeliveryCallbacks(quic::StreamId id, StreamState& stream) {
     while (!stream.deliveryCallbacks.empty()) {
-      stream.deliveryCallbacks.front().second->onCanceled(
-          id, stream.deliveryCallbacks.front().first);
+      QuicSocket::ByteEvent cancellation = {};
+      cancellation.id = id;
+      cancellation.offset = stream.deliveryCallbacks.front().first;
+      cancellation.type = QuicSocket::ByteEvent::Type::ACK;
+      stream.deliveryCallbacks.front().second->onByteEventCanceled(
+          cancellation);
       stream.deliveryCallbacks.pop_front();
     }
   }
@@ -858,10 +862,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
           }
           while (!stream.deliveryCallbacks.empty() &&
                  stream.deliveryCallbacks.front().first <= stream.writeOffset) {
-            stream.deliveryCallbacks.front().second->onDeliveryAck(
-                id,
-                stream.deliveryCallbacks.front().first,
-                std::chrono::milliseconds(0));
+            QuicSocket::ByteEvent byteEvent = {};
+            byteEvent.id = id;
+            byteEvent.offset = stream.deliveryCallbacks.front().first;
+            byteEvent.type = QuicSocket::ByteEvent::Type::ACK;
+            stream.deliveryCallbacks.front().second->onByteEvent(byteEvent);
             stream.deliveryCallbacks.pop_front();
           }
         },
