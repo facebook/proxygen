@@ -373,6 +373,7 @@ class MockHTTPTransactionTransportCallback
       , noexcept, , headerBytesReceived, void(const HTTPHeaderSize&));
   GMOCK_METHOD1_(, noexcept, , bodyBytesGenerated, void(size_t));
   GMOCK_METHOD1_(, noexcept, , bodyBytesReceived, void(size_t));
+  GMOCK_METHOD0_(, noexcept, , transportAppRateLimited, void());
 };
 
 #if defined(__clang__) && __clang_major__ >= 3 && __clang_minor__ >= 6

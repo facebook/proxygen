@@ -1602,6 +1602,46 @@ TEST_P(HQDownstreamSessionTest, ByteEvents) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTest, AppRateLimited) {
+  sendRequest();
+  auto handler = addSimpleStrictHandler();
+  MockHTTPTransactionTransportCallback callback;
+  handler->expectHeaders([&handler, &callback] {
+    handler->txn_->setTransportCallback(&callback);
+  });
+  handler->expectEOM([this, &handler] {
+    handler->sendHeaders(200, 150);
+    handler->txn_->sendBody(makeBuf(100));
+    // force trigger onAppRateLimited
+    hqSession_->onAppRateLimited();
+  });
+  EXPECT_CALL(callback, headerBytesGenerated(_));
+  EXPECT_CALL(callback, bodyBytesGenerated(Ge(100))); // For HQ it's 100
+  EXPECT_CALL(callback, firstHeaderByteFlushed());
+  EXPECT_CALL(callback, firstByteFlushed());
+  EXPECT_CALL(callback, transportAppRateLimited());
+  flushRequestsAndLoop();
+
+  // send some more bytes and force trigger onAppRateLimited
+  EXPECT_CALL(callback, bodyBytesGenerated(Ge(50))); // For HQ it's 52
+  EXPECT_CALL(callback, transportAppRateLimited());
+  handler->txn_->sendBody(makeBuf(50));
+  hqSession_->onAppRateLimited();
+  flushRequestsAndLoop();
+
+  // Send the EOM, txn should not detach yet
+  EXPECT_CALL(callback, bodyBytesGenerated(0));
+  EXPECT_CALL(callback, lastByteFlushed());
+  handler->txn_->sendEOM(); // 0 length EOM
+  flushRequestsAndLoopN(1);
+
+  // Let the delivery callback fire, now it can cleanup
+  EXPECT_CALL(callback, lastByteAcked(_));
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTest, LastByteEventZeroSize) {
   sendRequest();
   auto handler = addSimpleStrictHandler();

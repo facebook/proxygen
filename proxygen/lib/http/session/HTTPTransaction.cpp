@@ -781,6 +781,13 @@ void HTTPTransaction::onEgressTrackedByteEventAck(const ByteEvent& event) {
   }
 }
 
+void HTTPTransaction::onEgressTransportAppRateLimited() {
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->transportAppRateLimited();
+  }
+}
+
 void HTTPTransaction::onIngressBodyPeek(uint64_t bodyOffset,
                                         const folly::IOBuf& chain) {
   FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodyPeek");

@@ -30,6 +30,8 @@ class HQDownstreamSession : public HQSession {
 
   void onTransportReady() noexcept override;
 
+  void onAppRateLimited() noexcept override;
+
   HTTPTransaction::Handler* getTransactionTimeoutHandler(
       HTTPTransaction* txn) override {
     return getController()->getTransactionTimeoutHandler(txn,

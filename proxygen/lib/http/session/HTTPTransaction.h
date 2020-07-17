@@ -383,6 +383,8 @@ class HTTPTransactionTransportCallback {
   virtual void bodyBytesDeliveryCancelled(uint64_t /* bodyOffset */) noexcept {
   }
 
+  virtual void transportAppRateLimited() noexcept {}
+
   virtual ~HTTPTransactionTransportCallback() {
   }
 };
@@ -898,6 +900,13 @@ class HTTPTransaction
    * LAST_BYTE events are processed by legacy functions.
    */
   void onEgressTrackedByteEventAck(const ByteEvent& event);
+
+  /**
+   * Invoked if the egress transport becomes app rate limited.
+   *
+   * TODO(bschlinker): Add support for QUIC.
+   */
+  void onEgressTransportAppRateLimited();
 
   /**
    * Invoked by the session when data to peek into is available on trasport

@@ -20,6 +20,13 @@ void HQDownstreamSession::onTransportReady() noexcept {
   }
 }
 
+void HQDownstreamSession::onAppRateLimited() noexcept {
+  invokeOnEgressStreams(([](HQStreamTransportBase* stream) {
+                          stream->txn_.onEgressTransportAppRateLimited();
+                        }),
+                        false /* includeDetached */);
+}
+
 void HQDownstreamSession::onConnectionErrorHandler(
     std::pair<quic::QuicErrorCode, std::string> /* error */) noexcept {
   if (infoCallback_) {

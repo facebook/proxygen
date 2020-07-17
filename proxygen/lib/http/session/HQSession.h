@@ -504,6 +504,81 @@ class HQSession
   HQStreamTransportBase* findEgressStream(quic::StreamId streamId,
                                           bool includeDetached = false);
 
+  /**
+   * The following functions invoke a callback on all or on all non-detached
+   * request streams. It does an extra lookup per stream but it is safe. Note
+   * that if the callback *adds* streams, they will not get the callback.
+   */
+  void invokeOnAllStreams(std::function<void(HQStreamTransportBase*)> fn) {
+    invokeOnStreamsImpl(
+        std::move(fn),
+        [this](quic::StreamId id) { return this->findStream(id); },
+        true);
+  }
+
+  void invokeOnEgressStreams(std::function<void(HQStreamTransportBase*)> fn,
+                             bool includeDetached = false) {
+    invokeOnStreamsImpl(std::move(fn),
+                        [this, includeDetached](quic::StreamId id) {
+                          return this->findEgressStream(id, includeDetached);
+                        });
+  }
+
+  void invokeOnIngressStreams(std::function<void(HQStreamTransportBase*)> fn,
+                              bool includeDetached = false) {
+    invokeOnStreamsImpl(std::move(fn),
+                        [this, includeDetached](quic::StreamId id) {
+                          return this->findIngressStream(id, includeDetached);
+                        },
+                        true);
+  }
+
+  void invokeOnNonDetachedStreams(
+      std::function<void(HQStreamTransportBase*)> fn) {
+    invokeOnStreamsImpl(std::move(fn), [this](quic::StreamId id) {
+      return this->findNonDetachedStream(id);
+    });
+  }
+
+  virtual HQStreamTransportBase* findPushStream(quic::StreamId) = 0;
+
+  virtual void findPushStreams(
+    std::unordered_set<HQStreamTransportBase*>& streams) = 0;
+
+  // Apply the function on the streams found by the two locators.
+  // Note that same stream can be returned by a find-by-stream-id
+  // and find-by-push-id locators.
+  // This is mitigated by collecting the streams in an unordered set
+  // prior to application of the funtion
+  // Note that the function is allowed to delete a stream by invoking
+  // erase stream, but the locators are not allowed to do so.
+  // Note that neither the locators nor the function are allowed
+  // to call "invokeOnStreamsImpl"
+  void invokeOnStreamsImpl(
+      std::function<void(HQStreamTransportBase*)> fn,
+      std::function<HQStreamTransportBase*(quic::StreamId)> findByStreamIdFn,
+      bool includePush = false) {
+    DestructorGuard g(this);
+    std::unordered_set<HQStreamTransportBase*> streams;
+    streams.reserve(getNumStreams());
+
+    for (const auto& txn : streams_) {
+      HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
+      if (pstream) {
+        streams.insert(pstream);
+      }
+    }
+
+    if (includePush) {
+      findPushStreams(streams);
+    }
+
+    for (HQStreamTransportBase* pstream : streams) {
+      CHECK(pstream);
+      fn(pstream);
+    }
+  }
+
   // Erase the stream. Returns true if the stream
   // has been erased
   bool eraseStream(quic::StreamId);
@@ -804,81 +879,6 @@ class HQSession
    */
   uint32_t countStreamsImpl(bool includeEgress = true,
                             bool includeIngress = true) const;
-
-  /**
-   * The following functions invoke a callback on all or on all non-detached
-   * request streams. It does an extra lookup per stream but it is safe. Note
-   * that if the callback *adds* streams, they will not get the callback.
-   */
-  void invokeOnAllStreams(std::function<void(HQStreamTransportBase*)> fn) {
-    invokeOnStreamsImpl(
-        std::move(fn),
-        [this](quic::StreamId id) { return this->findStream(id); },
-        true);
-  }
-
-  void invokeOnEgressStreams(std::function<void(HQStreamTransportBase*)> fn,
-                             bool includeDetached = false) {
-    invokeOnStreamsImpl(std::move(fn),
-                        [this, includeDetached](quic::StreamId id) {
-                          return this->findEgressStream(id, includeDetached);
-                        });
-  }
-
-  void invokeOnIngressStreams(std::function<void(HQStreamTransportBase*)> fn,
-                              bool includeDetached = false) {
-    invokeOnStreamsImpl(std::move(fn),
-                        [this, includeDetached](quic::StreamId id) {
-                          return this->findIngressStream(id, includeDetached);
-                        },
-                        true);
-  }
-
-  void invokeOnNonDetachedStreams(
-      std::function<void(HQStreamTransportBase*)> fn) {
-    invokeOnStreamsImpl(std::move(fn), [this](quic::StreamId id) {
-      return this->findNonDetachedStream(id);
-    });
-  }
-
-  virtual HQStreamTransportBase* findPushStream(quic::StreamId) = 0;
-
-  virtual void findPushStreams(
-    std::unordered_set<HQStreamTransportBase*>& streams) = 0;
-
-  // Apply the function on the streams found by the two locators.
-  // Note that same stream can be returned by a find-by-stream-id
-  // and find-by-push-id locators.
-  // This is mitigated by collecting the streams in an unordered set
-  // prior to application of the funtion
-  // Note that the function is allowed to delete a stream by invoking
-  // erase stream, but the locators are not allowed to do so.
-  // Note that neither the locators nor the function are allowed
-  // to call "invokeOnStreamsImpl"
-  void invokeOnStreamsImpl(
-      std::function<void(HQStreamTransportBase*)> fn,
-      std::function<HQStreamTransportBase*(quic::StreamId)> findByStreamIdFn,
-      bool includePush = false) {
-    DestructorGuard g(this);
-    std::unordered_set<HQStreamTransportBase*> streams;
-    streams.reserve(getNumStreams());
-
-    for (const auto& txn : streams_) {
-      HQStreamTransportBase* pstream = findByStreamIdFn(txn.first);
-      if (pstream) {
-        streams.insert(pstream);
-      }
-    }
-
-    if (includePush) {
-      findPushStreams(streams);
-    }
-
-    for (HQStreamTransportBase* pstream : streams) {
-      CHECK(pstream);
-      fn(pstream);
-    }
-  }
 
   std::list<folly::AsyncTransport::ReplaySafetyCallback*>
       waitingForReplaySafety_;
