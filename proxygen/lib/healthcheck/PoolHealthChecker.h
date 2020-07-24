@@ -40,7 +40,8 @@ class PoolHealthChecker {
       const std::string& name,
       const folly::SocketAddress& address,
       bool isSecure,
-      std::shared_ptr<ServerHealthCheckerCallback> callback) = 0;
+      std::shared_ptr<ServerHealthCheckerCallback> callback,
+      const folly::SocketAddress& bindAddress = folly::AsyncSocket::anyAddress()) = 0;
 
   virtual void removeServer(const folly::SocketAddress& address) = 0;
 
