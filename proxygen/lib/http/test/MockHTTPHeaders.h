@@ -26,7 +26,7 @@ namespace proxygen {
  * directly.
  */
 class HasHTTPHeaderMatcherImpl :
-    public ::testing::MatcherInterface<HTTPHeaders&> {
+    public ::testing::MatcherInterface<const HTTPHeaders&> {
  public:
   explicit HasHTTPHeaderMatcherImpl(std::string name) :
       name_(name) {
@@ -75,7 +75,7 @@ class HasHTTPHeaderMatcherImpl :
 };
 
 // Factory function for matching an HTTPHeaders that contains the given header
-inline ::testing::Matcher<HTTPHeaders&>
+inline ::testing::Matcher<const HTTPHeaders&>
 HasHTTPHeader(std::string name) {
   return ::testing::MakeMatcher(new HasHTTPHeaderMatcherImpl(name));
 }
@@ -83,7 +83,7 @@ HasHTTPHeader(std::string name) {
 
 // Factory function for matching an HTTPHeaders that contains the given header
 // and has it set to the specified value
-inline ::testing::Matcher<HTTPHeaders&>
+inline ::testing::Matcher<const HTTPHeaders&>
 HasHTTPHeader(std::string name, std::string value) {
   return ::testing::MakeMatcher(new HasHTTPHeaderMatcherImpl(name, value));
 }
