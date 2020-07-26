@@ -33,6 +33,7 @@ proxygen_add_test(TARGET UtilTests
     RendezvousHashTest.cpp
     TimeTest.cpp
     UtilTest.cpp
+    WeakRefCountedPtrTest.cpp
     ZlibTests.cpp
     #ZstdTests.cpp
   DEPENDS
