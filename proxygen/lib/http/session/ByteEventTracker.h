@@ -65,6 +65,15 @@ class ByteEventTracker {
                                  uint64_t bytesWritten);
 
   /**
+   * Called when a ByteEvent offset has been written to the socket.
+   *
+   * Triggered by processByteEvents. Can be overridden by subclasses to trigger
+   * adding timestamps on socket writes.
+   */
+  virtual void onByteEventWrittenToSocket(const ByteEvent& /* event */) {
+  }
+
+  /**
    * The following methods add byte events for tracking
    */
   void addPingByteEvent(size_t pingSize,

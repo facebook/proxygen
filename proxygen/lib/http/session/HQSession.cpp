@@ -2204,7 +2204,7 @@ void HQSession::H1QFBV1VersionUtils::sendGoawayOnRequestStream(
 HQSession::HQStreamTransportBase::HQStreamTransportBase(
     HQSession& session,
     TransportDirection direction,
-    HTTPCodec::StreamID txnId,
+    quic::StreamId streamId,
     uint32_t seqNo,
     const WheelTimerInstance& timeout,
     HTTPSessionStats* stats,
@@ -2214,7 +2214,7 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
     : HQStreamBase(session, session.codec_, type),
       HTTP2PriorityQueueBase(kSessionStreamId),
       txn_(direction,
-           txnId,
+           static_cast<HTTPCodec::StreamID>(streamId),
            seqNo,
            *this,
            *this,
@@ -2226,7 +2226,9 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
            0,     // sendInitialWindowSize,
            priority,
            parentTxnId),
-      byteEventTracker_(nullptr) {
+      byteEventTracker_(nullptr,
+                        session.getQuicSocket(),
+                        streamId) {
   VLOG(4) << __func__ << " txn=" << txn_;
   byteEventTracker_.setTTLBAStats(session_.sessionStats_);
   quicStreamProtocolInfo_ = std::make_shared<QuicStreamProtocolInfo>();

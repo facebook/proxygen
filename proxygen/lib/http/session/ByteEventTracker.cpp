@@ -61,6 +61,10 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
         break;
     }
 
+    // notify that the offset the ByteEvent is associated with has been written
+    // to the socket
+    onByteEventWrittenToSocket(event);
+
     // deliver to the callback
     if (callback_) {
       callback_->onTxnByteEventWrittenToBuf(event);

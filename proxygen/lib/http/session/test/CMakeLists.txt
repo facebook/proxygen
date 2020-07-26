@@ -30,6 +30,7 @@ proxygen_add_test(TARGET SessionTests
 if (BUILD_QUIC)
   proxygen_add_test(TARGET HQSessionTests
     SOURCES
+      HQByteEventTrackerTest.cpp
       HQDownstreamSessionTest.cpp
       HQSessionMocksTest.cpp
       HQSessionTestCommon.cpp
@@ -46,5 +47,3 @@ if (BUILD_QUIC)
       mvfst::mvfst_state_machine
   )
 endif()
-
-

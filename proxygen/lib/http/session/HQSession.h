@@ -24,7 +24,7 @@
 #include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/codec/QPACKDecoderCodec.h>
 #include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
-#include <proxygen/lib/http/session/ByteEventTracker.h>
+#include <proxygen/lib/http/session/HQByteEventTracker.h>
 #include <proxygen/lib/http/session/HQStreamBase.h>
 #include <proxygen/lib/http/session/HQUnidirectionalCallbacks.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
@@ -1058,7 +1058,7 @@ class HQSession
     HQStreamTransportBase(
         HQSession& session,
         TransportDirection direction,
-        quic::StreamId id,
+        quic::StreamId streamId,
         uint32_t seqNo,
         const WheelTimerInstance& timeout,
         HTTPSessionStats* stats = nullptr,
@@ -1661,7 +1661,7 @@ class HQSession
 
     folly::Optional<HTTPCodec::StreamID> codecStreamId_;
 
-    ByteEventTracker byteEventTracker_;
+    HQByteEventTracker byteEventTracker_;
 
     // Stream + session protocol info
     std::shared_ptr<QuicStreamProtocolInfo> quicStreamProtocolInfo_;
@@ -1720,7 +1720,7 @@ class HQSession
         : detail::singlestream::SSBidir(streamId),
           HQStreamTransportBase(session,
                                 direction,
-                                static_cast<HTTPCodec::StreamID>(streamId),
+                                streamId,
                                 seqNo,
                                 timeout,
                                 stats,

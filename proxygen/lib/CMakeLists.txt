@@ -71,6 +71,7 @@ if (BUILD_QUIC)
         http/codec/HQUnidirectionalCodec.cpp
         http/codec/HQUtils.cpp
         http/codec/UnframedBodyOffsetTracker.cpp
+        http/session/HQByteEventTracker.cpp
         http/session/HQDownstreamSession.cpp
         http/session/HQSession.cpp
         http/session/HQStreamBase.cpp

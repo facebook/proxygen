@@ -1422,6 +1422,10 @@ class HTTPTransaction
     pendingByteEvents_--;
   }
 
+  uint64_t getNumPendingByteEvents() const {
+    return pendingByteEvents_;
+  }
+
   /**
    * Timeout callback for this transaction.  The timer is active
    * until the ingress message is complete or terminated by error.
