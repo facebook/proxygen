@@ -205,6 +205,13 @@ void HTTPSessionBase::attachToSessionController() {
   }
 }
 
+void HTTPSessionBase::informSessionControllerTransportReady() {
+  auto controllerPtr = getController();
+  if (controllerPtr) {
+    controllerPtr->onTransportReady(this);
+  }
+}
+
 void HTTPSessionBase::handleLastByteEvents(ByteEventTracker* byteEventTracker,
                                            HTTPTransaction* txn,
                                            size_t encodedSize,

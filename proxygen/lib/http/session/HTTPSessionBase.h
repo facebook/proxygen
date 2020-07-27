@@ -592,9 +592,14 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   void updateRtt(std::chrono::milliseconds rttSample);
 
   /**
-   * Attaches Session to RevproxyController instance if it's set
+   * Attaches session to HTTPSessionController.
    */
   void attachToSessionController();
+
+  /**
+   * Informs HTTPSessionController that transport is ready.
+   */
+  void informSessionControllerTransportReady();
 
   HTTPSessionStats* sessionStats_{nullptr};
 

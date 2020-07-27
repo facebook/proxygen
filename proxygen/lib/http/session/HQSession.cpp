@@ -206,6 +206,8 @@ bool HQSession::onTransportReadyCommon() noexcept {
   if (drainState_ == DrainState::PENDING) {
     versionUtils_->sendGoaway();
   }
+
+  informSessionControllerTransportReady();
   return true;
 }
 

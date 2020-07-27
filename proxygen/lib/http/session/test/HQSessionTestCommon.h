@@ -51,6 +51,7 @@ struct TestParams {
   folly::Optional<PartiallyReliableTestParams> prParams;
   uint64_t unidirectionalStreamsCredit{kDefaultUnidirStreamCredit};
   std::size_t numBytesOnPushStream{kUnlimited};
+  bool expectOnTransportReady{true};
 };
 
 std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript);
@@ -93,7 +94,8 @@ class HQSessionTest
       : direction_(direction),
         overrideParams_(overrideParams),
         qpackEncoderCodec_(qpackCodec_, *this),
-        qpackDecoderCodec_(qpackCodec_, *this)
+        qpackDecoderCodec_(qpackCodec_, *this),
+        controllerContainer_(GetParam())
 
   {
     if (direction_ == proxygen::TransportDirection::DOWNSTREAM) {
@@ -335,8 +337,12 @@ class HQSessionTest
   }
 
   struct MockControllerContainer {
-    MockControllerContainer() {
+    explicit MockControllerContainer(TestParams params) {
+      testing::InSequence s;
       EXPECT_CALL(mockController, attachSession(testing::_));
+      if (params.expectOnTransportReady) {
+        EXPECT_CALL(mockController, onTransportReady(testing::_));
+      }
       EXPECT_CALL(mockController, detachSession(testing::_));
     }
     testing::StrictMock<proxygen::MockController> mockController;

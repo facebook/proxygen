@@ -123,6 +123,7 @@ HTTPSession::HTTPSession(const WheelTimerInstance& timeout,
         controllerPtr->getSessionFlowControlTimeout());
   }
   attachToSessionController();
+  informSessionControllerTransportReady();
 
   if (!sock_->isReplaySafe()) {
     sock_->setReplaySafetyCallback(this);

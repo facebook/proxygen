@@ -2690,17 +2690,22 @@ using DropConnectionInTransportReadyTest =
 
 INSTANTIATE_TEST_CASE_P(DropConnectionInTransportReadyTest,
                         DropConnectionInTransportReadyTest,
-                        Values(TestParams({.alpn_ = "unsupported"}),
+                        Values(TestParams({
+                                   .alpn_ = "unsupported",
+                                   .expectOnTransportReady = false,
+                               }),
                                [] {
                                  TestParams tp;
                                  tp.alpn_ = "h3";
                                  tp.unidirectionalStreamsCredit = 1;
+                                 tp.expectOnTransportReady = false;
                                  return tp;
                                }(),
                                [] {
                                  TestParams tp;
                                  tp.alpn_ = "h1q-fb-v2";
                                  tp.unidirectionalStreamsCredit = 0;
+                                 tp.expectOnTransportReady = false;
                                  return tp;
                                }()),
                         paramsToTestName);

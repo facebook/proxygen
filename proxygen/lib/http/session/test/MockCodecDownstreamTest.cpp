@@ -66,6 +66,7 @@ class MockCodecDownstreamTest : public testing::Test {
     EXPECT_CALL(mockController_, getGracefulShutdownTimeout())
         .WillRepeatedly(Return(std::chrono::milliseconds(0)));
     EXPECT_CALL(mockController_, attachSession(_));
+    EXPECT_CALL(mockController_, onTransportReady(_));
     EXPECT_CALL(*codec_, setCallback(_))
         .WillRepeatedly(SaveArg<0>(&codecCallback_));
     EXPECT_CALL(*codec_, supportsParallelRequests())

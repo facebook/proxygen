@@ -50,10 +50,16 @@ class HTTPDownstreamTest : public testing::Test {
         flowControl_(flowControl) {
     EXPECT_CALL(mockController_, getGracefulShutdownTimeout())
         .WillRepeatedly(Return(std::chrono::milliseconds(0)));
-    EXPECT_CALL(mockController_, attachSession(_))
-        .WillRepeatedly(Invoke([&](HTTPSessionBase* session) {
-          session->setPrioritySampled(true);
-        }));
+
+    {
+      InSequence s;
+      EXPECT_CALL(mockController_, attachSession(_))
+          .WillRepeatedly(Invoke([&](HTTPSessionBase* session) {
+            session->setPrioritySampled(true);
+          }));
+      EXPECT_CALL(mockController_, onTransportReady(_));
+    }
+
     HTTPSession::setDefaultReadBufferLimit(65536);
     auto codec = makeServerCodec<typename C::Codec>(C::version);
     rawCodec_ = codec.get();
