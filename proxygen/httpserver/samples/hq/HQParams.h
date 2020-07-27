@@ -70,6 +70,7 @@ struct HQParams {
   bool earlyData;
   folly::Optional<int64_t> rateLimitPerThread;
   std::chrono::milliseconds connectTimeout;
+  std::string ccpConfig;
 
   // HTTP section
   uint16_t h2port;

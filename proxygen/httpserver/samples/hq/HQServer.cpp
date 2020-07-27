@@ -23,7 +23,7 @@
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
-#include <quic/congestion_control/CongestionControllerFactory.h>
+#include <quic/congestion_control/ServerCongestionControllerFactory.h>
 #include <quic/logging/FileQLogger.h>
 #include <quic/server/QuicServer.h>
 #include <quic/server/QuicServerTransport.h>
@@ -179,8 +179,9 @@ HQServer::HQServer(
   : params_(params)
   , server_(quic::QuicServer::createQuicServer()) {
   server_->setCongestionControllerFactory(
-      std::make_shared<DefaultCongestionControllerFactory>());
+      std::make_shared<ServerCongestionControllerFactory>());
   server_->setTransportSettings(params_.transportSettings);
+  server_->setCcpConfig(params_.ccpConfig);
   server_->setQuicServerTransportFactory(
       std::make_unique<HQServerTransportFactory>(
         params_, std::move(httpTransactionHandlerProvider)));

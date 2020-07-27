@@ -106,6 +106,8 @@ DEFINE_bool(migrate_client,
             "(HQClient) Should the HQClient make two sets of requests and switch sockets in the middle.");
 DEFINE_bool(use_inplace_write, false, "Transport use inplace packet build and socket writing");
 
+DEFINE_string(ccp_config, "", "Additional args to pass to ccp. Ccp disabled if empty string.");
+
 namespace quic { namespace samples {
 
 std::ostream& operator<<(std::ostream& o, const HTTPVersion& v) {
@@ -140,6 +142,8 @@ folly::Optional<quic::CongestionControlType> flagsToCongestionControlType(
     return quic::CongestionControlType::BBR;
   } else if (congestionControlType == "none") {
     return quic::CongestionControlType::None;
+  } else if (congestionControlType == "ccp") {
+    return quic::CongestionControlType::CCP;
   }
   return folly::none;
 }
@@ -256,6 +260,7 @@ void initializeTransportSettings(HQParams& hqParams) {
     hqParams.rateLimitPerThread = FLAGS_rate_limit;
   }
   hqParams.connectTimeout = std::chrono::milliseconds(FLAGS_connect_timeout);
+  hqParams.ccpConfig = FLAGS_ccp_config;
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParams& hqParams) {
