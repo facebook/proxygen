@@ -469,11 +469,11 @@ class HQSession
   }
 
   // Override HTTPSessionBase address getter functions
-  const folly::SocketAddress& getLocalAddress() const noexcept {
+  const folly::SocketAddress& getLocalAddress() const noexcept override {
     return sock_ && sock_->good() ? sock_->getLocalAddress() : localAddr_;
   }
 
-  const folly::SocketAddress& getPeerAddress() const noexcept {
+  const folly::SocketAddress& getPeerAddress() const noexcept override {
     return sock_ && sock_->good() ? sock_->getPeerAddress() : peerAddr_;
   }
 

@@ -362,10 +362,10 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   // public HTTPTransaction::Transport overrides
-  const folly::SocketAddress& getLocalAddress() const noexcept /*override*/ {
+  virtual const folly::SocketAddress& getLocalAddress() const noexcept {
     return localAddr_;
   }
-  const folly::SocketAddress& getPeerAddress() const noexcept /*override*/ {
+  virtual const folly::SocketAddress& getPeerAddress() const noexcept {
     return peerAddr_;
   }
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept
