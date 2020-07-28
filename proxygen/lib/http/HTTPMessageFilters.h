@@ -16,9 +16,8 @@ namespace proxygen {
 
 static const std::string kMessageFilterDefaultName_ = "Unknown";
 
-class HTTPMessageFilter
-    : public HTTPTransaction::Handler
-    , public folly::DestructorCheck {
+class HTTPMessageFilter : public HTTPTransaction::Handler,
+                          public folly::DestructorCheck {
  public:
   void setNextTransactionHandler(HTTPTransaction::Handler* next) {
     nextTransactionHandler_ = CHECK_NOTNULL(next);
@@ -106,6 +105,31 @@ class HTTPMessageFilter
 
   virtual void resume(uint64_t offset) noexcept;
 
+  // This is called by the handler when it wants to detach from the transaction.
+  // After this call, the handler and the transaction can be destroyed without
+  // notifying each other. We pass the call through the filter chain to
+  // avoid holding a stale pointer to the transaction.
+  void detachHandlerFromTransaction() noexcept {
+    if (prev_.which() == 0) {
+      auto prev = boost::get<HTTPMessageFilter*>(prev_);
+      if (prev) {
+        // prev points to another filter, popagate the call.
+        prev->detachHandlerFromTransaction();
+      }
+    } else {
+      auto prev = boost::get<HTTPTransaction*>(prev_);
+      if (prev) {
+        // prev points to the transaction, detach the handler from the
+        // transaction.
+        prev->setHandler(nullptr);
+        // Set the pointer to nullptr. It is not safe to use the pointer since
+        // after this the transaction can be destroyed without notifying the
+        // filter.
+        prev_ = static_cast<HTTPTransaction*>(nullptr);
+      }
+    }
+  }
+
  protected:
   virtual void nextOnHeadersComplete(std::unique_ptr<HTTPMessage> msg) {
     nextTransactionHandler_->onHeadersComplete(std::move(msg));
@@ -130,7 +154,8 @@ class HTTPMessageFilter
   }
   HTTPTransaction::Handler* nextTransactionHandler_{nullptr};
 
-  boost::variant<HTTPMessageFilter*, HTTPTransaction*> prev_;
+  boost::variant<HTTPMessageFilter*, HTTPTransaction*> prev_ =
+      static_cast<HTTPTransaction*>(nullptr);
 
   bool nextElementIsPaused_{false};
 };

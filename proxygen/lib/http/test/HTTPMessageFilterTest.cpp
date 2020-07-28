@@ -119,3 +119,26 @@ TEST(HTTPMessageFilter, TestFilterPauseResumeAfterTxnDetached) {
   EXPECT_CALL(mockFilter, resume(10));
   testFilter2.resume(10);
 }
+
+TEST(HTTPMessageFilter, TestFilterDetachHandlerFromTransaction) {
+  //              prev               prev
+  // testFilter2 -----> testFilter1 -----> mockTxn
+
+  TestFilter testFilter1;
+  TestFilter testFilter2;
+
+  HTTP2PriorityQueue q;
+  MockHTTPTransaction mockTxn(TransportDirection::UPSTREAM, 1, 0, q);
+
+  testFilter2.setPrevFilter(&testFilter1);
+  testFilter1.setPrevTxn(&mockTxn);
+
+  EXPECT_CALL(mockTxn, setHandler(nullptr));
+  testFilter2.detachHandlerFromTransaction();
+}
+
+TEST(HTTPMessageFilter, TestFilterDetachHandlerNoTransaction) {
+  TestFilter testFilter1;
+  // detach when filter does not hold a pointer to transaction
+  EXPECT_NO_THROW(testFilter1.detachHandlerFromTransaction());
+}
