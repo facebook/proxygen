@@ -234,15 +234,4 @@ void HTTPSessionBase::handleLastByteEvents(ByteEventTracker* byteEventTracker,
   }
 }
 
-void HTTPSessionBase::updateRtt(std::chrono::milliseconds rttSample) {
-  if (measuredRtt_.has_value()) {
-    measuredRtt_->srtt = measuredRtt_->srtt * (kRttAlpha - 1) / kRttAlpha +
-      (rttSample / kRttAlpha);
-    measuredRtt_->minrtt = std::min(measuredRtt_->minrtt, rttSample);
-    measuredRtt_->last = rttSample;
-  } else {
-    measuredRtt_ = MeasuredRTT(rttSample);
-  }
-}
-
 } // namespace proxygen

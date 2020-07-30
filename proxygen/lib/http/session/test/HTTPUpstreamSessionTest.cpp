@@ -2875,7 +2875,6 @@ TEST_F(HTTP2UpstreamSessionTest, DetachFlowControlTimeout) {
   httpSession_->destroy();
 }
 
-
 TEST_F(HTTP2UpstreamSessionTest, TestPingPreserveData) {
   auto serverCodec = makeServerCodec();
   folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
@@ -2914,62 +2913,6 @@ TEST_F(HTTP2UpstreamSessionTest, TestConnectionToken) {
 
   eventBase_.loop();
   httpSession_->dropConnection();
-}
-
-class HTTP2UpstreamSessionTestMeasureRTT:
-  public HTTP2UpstreamSessionTest,
-  public testing::WithParamInterface<bool> {};
-
-INSTANTIATE_TEST_CASE_P(
-  HTTP2UpstreamSessionTestMeasureRTT,
-  HTTP2UpstreamSessionTestMeasureRTT,
-  Values(true, false));
-
-TEST_P(HTTP2UpstreamSessionTestMeasureRTT, TestPingMeasureRtt) {
-  std::chrono::milliseconds fakeRttMs(100);
-
-  EXPECT_FALSE(httpSession_->getMeasureRttEnabled());
-  auto measuredRtt = httpSession_->getMeasuredRtt();
-  EXPECT_FALSE(measuredRtt.has_value());
-  httpSession_->setMeasureRttEnabled(GetParam());
-
-  auto serverCodec = makeServerCodec();
-  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
-  serverCodec->generateConnectionPreface(output);
-  serverCodec->generateSettings(output);
-
-  NiceMock<MockHTTPCodecCallback> callbacks;
-  serverCodec->setCallback(&callbacks);
-  EXPECT_CALL(callbacks, onPingRequest(_))
-        .WillRepeatedly(Invoke([&](uint64_t recvPingData) {
-           // faking it without the need to sleep
-           serverCodec->generatePingReply(
-             output, recvPingData - fakeRttMs.count());
-           auto buf = output.move();
-           buf->coalesce();
-           readAndLoop(buf.get());
-        }));
-
-  httpSession_->sendPing();
-  eventBase_.loop();
-  parseOutput(*serverCodec);
-
-  measuredRtt = httpSession_->getMeasuredRtt();
-  if (GetParam()) {
-    EXPECT_TRUE(measuredRtt.has_value());
-    EXPECT_GE(measuredRtt->srtt, fakeRttMs);
-    EXPECT_GE(measuredRtt->minrtt, fakeRttMs);
-    EXPECT_GE(measuredRtt->last, fakeRttMs);
-  } else {
-    EXPECT_FALSE(measuredRtt.has_value());
-  }
-
-  // re-setting to false also clears the measured RTT
-  httpSession_->setMeasureRttEnabled(false);
-  measuredRtt = httpSession_->getMeasuredRtt();
-  EXPECT_FALSE(measuredRtt.has_value());
-
-  httpSession_->destroy();
 }
 
 // Register and instantiate all our type-paramterized tests

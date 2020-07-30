@@ -1279,25 +1279,7 @@ void HTTPSession::onPingRequest(uint64_t data) {
 }
 
 void HTTPSession::onPingReply(uint64_t data) {
-  VLOG(4) << *this << " got ping reply with data=" << data;
-
-  if (getMeasureRttEnabled()) {
-    std::chrono::milliseconds pingTime(data);
-
-    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::steady_clock::now().time_since_epoch());
-    auto pingDuration = now - pingTime;
-    if (pingDuration < std::chrono::milliseconds(0)) {
-      VLOG(4) << *this
-              << " discarding RTT sample. PING timestamp is in the future";
-    } else if (pingDuration > timeout_.getDefaultTimeout()) {
-      VLOG(4) << *this
-              << " discarding RTT sample. Sample too large.";
-    } else {
-      updateRtt(pingDuration);
-    }
-  }
-
+  VLOG(4) << *this << " got ping reply with id=" << data;
   if (infoCallback_) {
     infoCallback_->onPingReplyReceived();
   }
@@ -2557,12 +2539,7 @@ bool HTTPSession::shouldShutdown() const {
 }
 
 size_t HTTPSession::sendPing() {
-
-  folly::Optional<uint64_t> data = folly::none;
-  if (getMeasureRttEnabled()) {
-    data = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now().time_since_epoch()).count();
-  }
+  uint64_t data = folly::Random::rand64();
   const size_t bytes = codec_->generatePingRequest(writeBuf_, data);
   if (bytes) {
     scheduleWrite();
