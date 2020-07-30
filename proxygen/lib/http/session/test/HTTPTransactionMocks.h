@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <folly/portability/GMock.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
@@ -153,12 +152,6 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
   MOCK_CONST_METHOD0(isReplaySafe, bool());
   MOCK_METHOD1(setHTTP2PrioritiesEnabled, void(bool));
   MOCK_CONST_METHOD0(getHTTP2PrioritiesEnabled, bool());
-
-  MOCK_METHOD1(setRttMeasurementEnabled, void(bool));
-  MOCK_CONST_METHOD0(isRttMeasurementEnabled, bool());
-  MOCK_CONST_METHOD0(getMeasuredSrtt,
-               folly::Optional<std::chrono::milliseconds>());
-  MOCK_METHOD0(measureRttWithPing, void());
 
   MOCK_METHOD1(getHTTPPriority,
                folly::Optional<const HTTPMessage::HTTPPriority>(uint8_t level));

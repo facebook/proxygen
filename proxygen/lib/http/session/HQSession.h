@@ -1463,19 +1463,6 @@ class HQSession
                                        hqDefaultPriority.weight);
     }
 
-    void setRttMeasurementEnabled(bool /* enabled */) override { }
-
-    bool isRttMeasurementEnabled() const override {
-      return false;
-    }
-
-    folly::Optional<std::chrono::milliseconds> getMeasuredSrtt()
-        const override {
-      return folly::none;
-    }
-
-    void measureRttWithPing() override { }
-
     folly::Optional<HTTPTransaction::ConnectionToken>
       getConnectionToken() const noexcept override {
         return session_.connectionToken_;
