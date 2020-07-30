@@ -331,17 +331,19 @@ class MockConnectCallback : public HQSession::ConnectCallback {
 
 class MockHQSession : public HQSession {
  public:
-  MockHQSession(const std::chrono::milliseconds transactionsTimeout =
-                    std::chrono::milliseconds(5000),
-                proxygen::TransportDirection direction =
-                    proxygen::TransportDirection::UPSTREAM)
-      : HQSession(transactionsTimeout,
-                  nullptr,
-                  direction,
+  MockHQSession(const folly::Optional<std::chrono::milliseconds>&
+                    transactionsTimeout = folly::none,
+                HTTPSessionController* controller = nullptr,
+                const folly::Optional<proxygen::TransportDirection>& direction =
+                    folly::none)
+      : HQSession(transactionsTimeout.value_or(getDefaultTransactionTimeout()),
+                  controller,
+                  direction.value_or(getMockDefaultDirection()),
                   wangle::TransportInfo(),
                   nullptr),
-        transactionTimeout_(transactionsTimeout),
-        direction_(direction),
+        transactionTimeout_(
+            transactionsTimeout.value_or(getDefaultTransactionTimeout())),
+        direction_(direction.value_or(getMockDefaultDirection())),
         quicProtocolInfo_(std::make_shared<QuicProtocolInfo>()),
         quicStreamProtocolInfo_(std::make_shared<QuicStreamProtocolInfo>()) {
     LOG(INFO) << "Creating mock transaction on stream " << lastStreamId_;
@@ -357,6 +359,14 @@ class MockHQSession : public HQSession {
                   txn_->HTTPTransaction::setHandler(handler);
                 })),
             ::testing::Return(txn_.get())));
+  }
+
+  static std::chrono::milliseconds getDefaultTransactionTimeout() {
+    return std::chrono::milliseconds(5000);
+  }
+
+  static proxygen::TransportDirection getMockDefaultDirection() {
+    return proxygen::TransportDirection::UPSTREAM;
   }
 
   bool isDetachable(bool) const override {
