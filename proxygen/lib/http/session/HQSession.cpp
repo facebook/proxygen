@@ -1315,7 +1315,7 @@ void HQSession::rejectStream(quic::StreamId id) {
   // It is safe to stop reading from this stream.
   // The peer is supposed to reset it on receipt of a STOP_SENDING
   sock_->setPeekCallback(id, nullptr);
-  sock_->setReadCallback(id, nullptr);
+  sock_->setReadCallback(id, nullptr, folly::none);
 }
 
 folly::Optional<hq::UnidirectionalStreamType> HQSession::parseStreamPreface(
@@ -1344,7 +1344,7 @@ size_t HQSession::cleanupPendingStreams() {
 
 void HQSession::clearStreamCallbacks(quic::StreamId id) {
   if (sock_) {
-    sock_->setReadCallback(id, nullptr);
+    sock_->setReadCallback(id, nullptr, folly::none);
     sock_->setPeekCallback(id, nullptr);
 
     if (isPartialReliabilityEnabled()) {
