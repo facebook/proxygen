@@ -1309,13 +1309,11 @@ void HQSession::assignPeekCallback(quic::StreamId id,
 
 void HQSession::rejectStream(quic::StreamId id) {
   // Do not read data for unknown unidirectional stream types.
-  // Send STOP_SENDING and rely on the peer sending a RESET to clear the
-  // stream in the transport.
-  sock_->stopSending(id, HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE);
-  // It is safe to stop reading from this stream.
-  // The peer is supposed to reset it on receipt of a STOP_SENDING
+  // setReadCallback will send STOP_SENDING and rely on the peer sending a RESET
+  // to clear the stream in the transport. It is safe to stop reading from this
+  // stream. The peer is supposed to reset it on receipt of a STOP_SENDING
+  sock_->setReadCallback(id, nullptr, HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE);
   sock_->setPeekCallback(id, nullptr);
-  sock_->setReadCallback(id, nullptr, folly::none);
 }
 
 folly::Optional<hq::UnidirectionalStreamType> HQSession::parseStreamPreface(
@@ -2666,7 +2664,9 @@ void HQSession::abortStream(HTTPException::Direction dir,
       (sock_->isBidirectionalStream(id) || isPeerUniStream(id))) {
     // Any INGRESS abort generates a QPACK cancel
     versionUtils_->abortStream(id);
-    sock_->stopSending(id, err);
+    // This will do the stopSending for us.
+    sock_->setReadCallback(id, nullptr, err);
+    sock_->setPeekCallback(id, nullptr);
   }
   if (dir != HTTPException::Direction::INGRESS &&
       (sock_->isBidirectionalStream(id) || isSelfUniStream(id))) {
