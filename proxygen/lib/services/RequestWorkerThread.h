@@ -44,6 +44,11 @@ class RequestWorkerThread : public WorkerThread {
                       const std::string& evbName = std::string());
 
   /**
+   * Reset the underlying event base prior to WorkerThread destruction.
+   */
+  ~RequestWorkerThread() override;
+
+  /**
    * Return a unique 64bit identifier.
    */
   static uint64_t nextRequestId();

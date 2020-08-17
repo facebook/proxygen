@@ -27,8 +27,8 @@ namespace proxygen {
  */
 class WorkerThread {
  public:
-  explicit WorkerThread(
-    folly::EventBaseManager* ebm, const std::string& evbName = std::string());
+  explicit WorkerThread(folly::EventBaseManager* ebm,
+                        const std::string& evbName = std::string());
   virtual ~WorkerThread();
 
   /**
@@ -82,7 +82,7 @@ class WorkerThread {
    * Get the EventBase used to drive the events in this worker thread.
    */
   folly::EventBase* getEventBase() {
-    return &eventBase_;
+    return eventBase_.get();
   }
 
   /**
@@ -115,6 +115,13 @@ class WorkerThread {
   virtual void setup();
   virtual void cleanup();
 
+  /**
+   * Resets the underlying WorkerThread event base.  This should only be
+   * called from a destructor and is protected so that subclasses may leverage
+   * it as needed.
+   */
+  void resetEventBase();
+
  private:
   enum class State : uint8_t {
     IDLE,           // Not yet started
@@ -125,22 +132,19 @@ class WorkerThread {
   };
 
   // Forbidden copy constructor and assignment operator
-  WorkerThread(WorkerThread const &) = delete;
-  WorkerThread& operator=(WorkerThread const &) = delete;
+  WorkerThread(WorkerThread const&) = delete;
+  WorkerThread& operator=(WorkerThread const&) = delete;
 
   void runLoop();
 
-  // Ensure eventBase_ is first among class members so that it is also
-  // destroyed first and thus other members are valid at the time of
-  // destruction.
-  folly::EventBase eventBase_;
   State state_{State::IDLE};
   std::thread thread_;
   std::mutex joinLock_;
   folly::EventBaseManager* eventBaseManager_{nullptr};
+  std::unique_ptr<folly::EventBase> eventBase_;
 
   // A thread-local pointer to the current WorkerThread for this thread
   static FOLLY_TLS WorkerThread* currentWorker_;
 };
 
-} // proxygen
+} // namespace proxygen
