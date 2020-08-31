@@ -35,7 +35,6 @@ namespace {
 static const uint16_t kMaxReadsPerLoop = 16;
 static const std::string kNoProtocolString("");
 static const std::string kH1QV1ProtocolString("h1q-fb");
-static const std::string kH1QLigerProtocolString("h1q");
 static const std::string kH1QV2ProtocolString("h1q-fb-v2");
 static const std::string kQUICProtocolName("QUIC");
 
@@ -336,8 +335,7 @@ bool HQSession::getAndCheckApplicationProtocol() {
   CHECK(sock_);
   auto alpn = sock_->getAppProtocol();
   if (alpn) {
-    if (alpn == kH1QV1ProtocolString || alpn == kH1QLigerProtocolString ||
-        alpn == kHQCurrentDraft) {
+    if (alpn == kH1QV1ProtocolString || alpn == kHQCurrentDraft) {
       version_ = HQVersion::H1Q_FB_V1;
     } else if (alpn == kH1QV2ProtocolString) {
       version_ = HQVersion::H1Q_FB_V2;

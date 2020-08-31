@@ -30,7 +30,7 @@ DEFINE_string(path,
               "or a comma separated list of paths to fetch in parallel");
 DEFINE_int32(connect_timeout, 2000, "(HQClient) connect timeout in ms");
 DEFINE_string(httpversion, "1.1", "HTTP version string");
-DEFINE_string(protocol, "", "HQ protocol version e.g. h1q-fb or h1q-fb-v2");
+DEFINE_string(protocol, "", "HQ protocol version e.g. h3-29 or hq-fb-05");
 DEFINE_int32(draft_version, 0, "Draft version to use, 0 is default");
 DEFINE_bool(use_draft, true, "Use draft version as first version");
 DEFINE_string(logdir, "/tmp/logs", "Directory to store connection logs");
