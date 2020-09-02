@@ -1405,6 +1405,44 @@ TEST_F(HTTP2CodecTest, SettingsTableSizeEarlyShrink) {
   EXPECT_EQ("x-coolio", headers.getSingleOrEmpty(HTTP_HEADER_CONTENT_TYPE));
 }
 
+
+TEST_F(HTTP2CodecTest, ConcurrentStreams) {
+  auto settings = upstreamCodec_.getEgressSettings();
+  settings->setSetting(SettingsId::ENABLE_PUSH, 1);
+  settings->setSetting(SettingsId::MAX_CONCURRENT_STREAMS, 0);
+  upstreamCodec_.generateSettings(output_);
+  HTTPMessage req = getGetRequest();
+  upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
+
+  parse();
+  EXPECT_EQ(callbacks_.maxStreams, 0);
+
+  callbacks_.reset();
+  SetUpUpstreamTest();
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  downstreamCodec_.generateHeader(output_, 1, resp, false /* eom */);
+  downstreamCodec_.generatePushPromise(output_, 2, req, 1);
+  parseUpstream();
+  EXPECT_EQ(callbacks_.messageBegin, 2);
+  EXPECT_EQ(callbacks_.headersComplete, 2);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  EXPECT_NE(callbacks_.msg, nullptr);
+  EXPECT_EQ(callbacks_.pushId, 2);
+  EXPECT_EQ(callbacks_.assocStreamId, 1);
+  callbacks_.reset();
+  downstreamCodec_.generateHeader(output_, 2, resp, true /* eom */);
+  parseUpstream();
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getCodecStatusCode(),
+            ErrorCode::REFUSED_STREAM);
+}
+
+
+
 TEST_F(HTTP2CodecTest, BasicPriority) {
   auto pri = HTTPMessage::HTTPPriority(0, true, 1);
   upstreamCodec_.generatePriority(output_, 1, pri);

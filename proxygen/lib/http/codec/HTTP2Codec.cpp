@@ -580,8 +580,9 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
 
 folly::Optional<ErrorCode> HTTP2Codec::parseHeadersCheckConcurrentStreams(
     const folly::Optional<http2::PriorityUpdate>& priority) {
-  if (curHeader_.type == http2::FrameType::HEADERS ||
-      curHeader_.type == http2::FrameType::EX_HEADERS) {
+  if (!isInitiatedStream(curHeader_.stream) &&
+      (curHeader_.type == http2::FrameType::HEADERS ||
+       curHeader_.type == http2::FrameType::EX_HEADERS)) {
     if (curHeader_.flags & http2::PRIORITY) {
       DCHECK(priority);
       // callback_->onPriority(priority.get());
