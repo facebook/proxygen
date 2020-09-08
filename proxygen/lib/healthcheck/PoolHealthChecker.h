@@ -36,12 +36,22 @@ class PoolHealthChecker {
    */
   virtual void deleteAllCheckers() = 0;
 
+  /**
+   * Add a new server to the healthchecker.
+   *
+   * Bind the HC socket to <bindAddress>, if provided.
+   * Add <extraSockOpts> to socket options, if provided.
+   * Replace HC address with <overrideAddress>, if provided.
+   *   Still use <address> or <name> to identify the server.
+   */
   virtual void addServer(
       const std::string& name,
       const folly::SocketAddress& address,
       bool isSecure,
       std::shared_ptr<ServerHealthCheckerCallback> callback,
-      const folly::SocketAddress& bindAddress = folly::AsyncSocket::anyAddress()) = 0;
+      folly::Optional<folly::SocketAddress> /* bindAddress */ = folly::none,
+      folly::Optional<folly::SocketOptionMap> /*extraSockOpts */ = folly::none,
+      folly::Optional<folly::SocketAddress> /* overrideAddress */ = folly::none) = 0;
 
   virtual void removeServer(const folly::SocketAddress& address) = 0;
 
