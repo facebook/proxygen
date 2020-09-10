@@ -179,6 +179,7 @@ class HQSessionTest
         .pacingBurstSize = 0,
         .pacingInterval = std::chrono::microseconds(0),
         .packetsRetransmitted = 0,
+        .packetsSpuriouslyLost = 0,
         .timeoutBasedLoss = 0,
         .pto = std::chrono::microseconds(0),
         .bytesSent = 0,

@@ -367,9 +367,7 @@ TEST_P(HQDownstreamSessionTest, HttpRateLimitNormal) {
     handler1->sendBody(rspLengthBytes);
   });
   EXPECT_CALL(*handler1, onEgressPaused()).Times(AtLeast(1));
-  handler1->expectEgressResumed([&handler1] {
-      handler1->txn_->sendEOM();
-    });
+  handler1->expectEgressResumed([&handler1] { handler1->txn_->sendEOM(); });
   handler1->expectDetachTransaction();
   flushRequestsAndLoop();
 
@@ -542,13 +540,11 @@ TEST_P(HQDownstreamSessionTest, OnFlowControlUpdate) {
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler] {
-      handler->sendHeaders(200, 100);
-      handler->txn_->sendBody(makeBuf(100));
-    });
+    handler->sendHeaders(200, 100);
+    handler->txn_->sendBody(makeBuf(100));
+  });
   handler->expectEgressPaused();
-  handler->expectEgressResumed([&handler] {
-      handler->txn_->sendEOM();
-    });
+  handler->expectEgressResumed([&handler] { handler->txn_->sendEOM(); });
   handler->expectDetachTransaction();
 
   // Initialize the flow control window to less than the response body
@@ -584,14 +580,12 @@ TEST_P(HQDownstreamSessionTest, OnConnectionWindowPartialHeaders) {
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler] {
-      handler->sendHeaders(200, 100);
-      handler->txn_->sendBody(makeBuf(100));
-    });
+    handler->sendHeaders(200, 100);
+    handler->txn_->sendBody(makeBuf(100));
+  });
   // TODO: we should probably pause egress on conn limited.
   handler->expectEgressPaused();
-  handler->expectEgressResumed([&handler] {
-      handler->txn_->sendEOM();
-    });
+  handler->expectEgressResumed([&handler] { handler->txn_->sendEOM(); });
   handler->expectDetachTransaction();
 
   // Initialize the flow control window to less than the response body
@@ -1286,11 +1280,7 @@ TEST_P(HQDownstreamSessionTestH1q, SendEmptyResponseHeadersOnly) {
     resp.setStatusCode(200);
     resp.setHTTPVersion(0, 9);
     handler->txn_->sendHeaders(resp);
-    eventBase_.runAfterDelay(
-      [&] {
-        handler->txn_->sendEOM();
-      },
-      10);
+    eventBase_.runAfterDelay([&] { handler->txn_->sendEOM(); }, 10);
   });
   handler->expectDetachTransaction();
   flushRequestsAndLoop();
@@ -1351,13 +1341,11 @@ TEST_P(HQDownstreamSessionTest, PauseResume) {
   hqSession_->closeWhenIdle();
 
   // After resume, body (2 calls) and EOM delivered
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
-    .Times(2);
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _)).Times(2);
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectDetachTransaction();
-  handler2->expectHeaders([&handler2] {
-      handler2->sendReplyWithBody(200, 100);
-    });
+  handler2->expectHeaders(
+      [&handler2] { handler2->sendReplyWithBody(200, 100); });
   handler2->expectEOM();
   handler2->expectDetachTransaction();
   handler->txn_->resumeIngress();
@@ -2175,9 +2163,10 @@ TEST_P(HQDownstreamSessionFilterTestHQ, ControlStreamFilters) {
   uint64_t settingsReceived = 0;
 
   class TestFilter : public PassThroughHTTPCodecFilter {
-  public:
+   public:
     explicit TestFilter(uint64_t& settingsReceived)
-      : settingsReceived_(settingsReceived) {}
+        : settingsReceived_(settingsReceived) {
+    }
 
     void onSettings(const SettingsList& settings) override {
       settingsReceived_++;
@@ -2456,19 +2445,17 @@ TEST_P(HQDownstreamSessionTest, TestUniformPauseState) {
   handler3->expectEgressPaused();
   handler3->expectHeaders();
   handler3->expectEOM([this] {
-      eventBase_.runAfterDelay([this] {
-          socketDriver_->setConnectionFlowControlWindow(65536);
-        }, 50);
-    });
+    eventBase_.runAfterDelay(
+        [this] { socketDriver_->setConnectionFlowControlWindow(65536); }, 50);
+  });
 
   handler2->expectEgressResumed();
   handler1->expectEgressResumed([&] {
     // resume does not trigger another pause,
     handler1->txn_->sendBody(makeBuf(12001));
     socketDriver_->setConnectionFlowControlWindow(1);
-    eventBase_.runAfterDelay([this] {
-        socketDriver_->setConnectionFlowControlWindow(65536);
-      }, 50);
+    eventBase_.runAfterDelay(
+        [this] { socketDriver_->setConnectionFlowControlWindow(65536); }, 50);
   });
   handler3->expectEgressResumed();
   handler1->expectEgressPaused();
@@ -2480,9 +2467,8 @@ TEST_P(HQDownstreamSessionTest, TestUniformPauseState) {
     handler2->sendHeaders(200, 12001);
     handler2->txn_->sendBody(makeBuf(12001));
     socketDriver_->setConnectionFlowControlWindow(1);
-    eventBase_.runAfterDelay([this] {
-        socketDriver_->setConnectionFlowControlWindow(65536);
-      }, 50);
+    eventBase_.runAfterDelay(
+        [this] { socketDriver_->setConnectionFlowControlWindow(65536); }, 50);
   });
   handler3->expectEgressResumed();
 
@@ -2541,9 +2527,8 @@ INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
 
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionFilterTestHQ,
-                        Values(
-                          TestParams({.alpn_ = "h3",
-                                .shouldSendSettings_ = false})),
+                        Values(TestParams({.alpn_ = "h3",
+                                           .shouldSendSettings_ = false})),
                         paramsToTestName);
 
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionBeforeTransportReadyTest,
@@ -2591,26 +2576,26 @@ TEST_P(HQDownstreamSessionTestHQPush, SimplePush) {
   handler->expectHeaders();
   HTTPCodec::StreamID pushStreamId = 0;
   handler->expectEOM([&] {
-      // Generate response for the associated stream
-      handler->txn_->sendHeaders(res);
-      handler->txn_->sendBody(makeBuf(100));
+    // Generate response for the associated stream
+    handler->txn_->sendHeaders(res);
+    handler->txn_->sendBody(makeBuf(100));
 
-      // Different from H2, this counts as an outgoing stream as soon as the
-      // txn is created.
-      // TODO: maybe create the stream lazily when trying to send the real
-      // headers instead?
-      auto outgoingStreams = hqSession_->getNumOutgoingStreams();
-      auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-      ASSERT_NE(pushTxn, nullptr);
-      EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
-      // Generate a push request (PUSH_PROMISE)
-      pushTxn->sendHeaders(promiseReq);
-      pushStreamId = pushTxn->getID();
-      LOG(INFO) << "pushStreamId=" << pushStreamId;
-      pushTxn->sendHeaders(res);
-      pushTxn->sendBody(makeBuf(200));
-      pushTxn->sendEOM();
-    });
+    // Different from H2, this counts as an outgoing stream as soon as the
+    // txn is created.
+    // TODO: maybe create the stream lazily when trying to send the real
+    // headers instead?
+    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
+    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+    ASSERT_NE(pushTxn, nullptr);
+    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
+    // Generate a push request (PUSH_PROMISE)
+    pushTxn->sendHeaders(promiseReq);
+    pushStreamId = pushTxn->getID();
+    LOG(INFO) << "pushStreamId=" << pushStreamId;
+    pushTxn->sendHeaders(res);
+    pushTxn->sendBody(makeBuf(200));
+    pushTxn->sendEOM();
+  });
   EXPECT_CALL(pushHandler, setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
   EXPECT_CALL(pushHandler, detachTransaction());
@@ -2642,26 +2627,26 @@ TEST_P(HQDownstreamSessionTestHQPush, StopSending) {
   handler->expectHeaders();
   HTTPCodec::StreamID pushStreamId = 0;
   handler->expectEOM([&] {
-      // Generate response for the associated stream
-      handler->txn_->sendHeaders(res);
-      handler->txn_->sendBody(makeBuf(100));
+    // Generate response for the associated stream
+    handler->txn_->sendHeaders(res);
+    handler->txn_->sendBody(makeBuf(100));
 
-      // Different from H2, this counts as an outgoing stream as soon as the
-      // txn is created.
-      // TODO: maybe create the stream lazily when trying to send the real
-      // headers instead?
-      auto outgoingStreams = hqSession_->getNumOutgoingStreams();
-      auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
-      ASSERT_NE(pushTxn, nullptr);
-      EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
-      // Generate a push request (PUSH_PROMISE)
-      pushTxn->sendHeaders(req);
-      pushStreamId = pushTxn->getID();
-      LOG(INFO) << "pushStreamId=" << pushStreamId;
-      pushTxn->sendHeaders(res);
-      pushTxn->sendBody(makeBuf(200));
-      // NO EOM
-    });
+    // Different from H2, this counts as an outgoing stream as soon as the
+    // txn is created.
+    // TODO: maybe create the stream lazily when trying to send the real
+    // headers instead?
+    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
+    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+    ASSERT_NE(pushTxn, nullptr);
+    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
+    // Generate a push request (PUSH_PROMISE)
+    pushTxn->sendHeaders(req);
+    pushStreamId = pushTxn->getID();
+    LOG(INFO) << "pushStreamId=" << pushStreamId;
+    pushTxn->sendHeaders(res);
+    pushTxn->sendBody(makeBuf(200));
+    // NO EOM
+  });
   EXPECT_CALL(pushHandler, setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
   EXPECT_CALL(pushHandler, onError(_));
@@ -2690,24 +2675,27 @@ using DropConnectionInTransportReadyTest =
 
 INSTANTIATE_TEST_CASE_P(DropConnectionInTransportReadyTest,
                         DropConnectionInTransportReadyTest,
-                        Values(TestParams({
-                                   .alpn_ = "unsupported",
-                                   .expectOnTransportReady = false,
-                               }),
-                               [] {
-                                 TestParams tp;
-                                 tp.alpn_ = "h3";
-                                 tp.unidirectionalStreamsCredit = 1;
-                                 tp.expectOnTransportReady = false;
-                                 return tp;
-                               }(),
-                               [] {
-                                 TestParams tp;
-                                 tp.alpn_ = "h1q-fb-v2";
-                                 tp.unidirectionalStreamsCredit = 0;
-                                 tp.expectOnTransportReady = false;
-                                 return tp;
-                               }()),
+                        Values(
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "unsupported";
+                              tp.expectOnTransportReady = false;
+                              return tp;
+                            }(),
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h3";
+                              tp.unidirectionalStreamsCredit = 1;
+                              tp.expectOnTransportReady = false;
+                              return tp;
+                            }(),
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h1q-fb-v2";
+                              tp.unidirectionalStreamsCredit = 0;
+                              tp.expectOnTransportReady = false;
+                              return tp;
+                            }()),
                         paramsToTestName);
 // Instantiate hq server push tests
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
