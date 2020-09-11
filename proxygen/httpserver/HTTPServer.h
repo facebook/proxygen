@@ -8,14 +8,14 @@
 
 #pragma once
 
-#include <wangle/ssl/SSLContextConfig.h>
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBase.h>
-#include <wangle/bootstrap/ServerBootstrap.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <thread>
+#include <wangle/bootstrap/ServerBootstrap.h>
+#include <wangle/ssl/SSLContextConfig.h>
 
 namespace proxygen {
 
@@ -31,7 +31,7 @@ class HTTPServer final {
    * For each IP you can specify HTTP protocol to use.  You can use plain old
    * HTTP/1.1 protocol or SPDY/3.1 for now.
    */
-  enum class Protocol: uint8_t {
+  enum class Protocol : uint8_t {
     HTTP,
     SPDY,
     HTTP2,
@@ -41,9 +41,8 @@ class HTTPServer final {
     IPConfig(folly::SocketAddress a,
              Protocol p,
              std::shared_ptr<HTTPCodecFactory> c = nullptr)
-        : address(a),
-          protocol(p),
-          codecFactory(c) {}
+        : address(a), protocol(p), codecFactory(c) {
+    }
 
     folly::SocketAddress address;
     Protocol protocol;
@@ -193,4 +192,4 @@ class HTTPServer final {
   HTTPSession::InfoCallback* sessionInfoCb_{nullptr};
 };
 
-}
+} // namespace proxygen

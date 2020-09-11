@@ -17,7 +17,6 @@ namespace proxygen {
  */
 class ExMessageHandler : public RequestHandler {
  public:
-
   virtual void onUpgrade(proxygen::UpgradeProtocol /*prot*/) noexcept override {
     LOG(FATAL) << "ExMessageHandler doesn't support upgrade";
   }
@@ -27,4 +26,4 @@ class ExMessageHandler : public RequestHandler {
   }
 };
 
-}
+} // namespace proxygen

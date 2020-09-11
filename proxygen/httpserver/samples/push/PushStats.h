@@ -39,4 +39,4 @@ class PushStats {
   uint64_t reqCount_{0};
 };
 
-}
+} // namespace PushService

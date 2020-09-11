@@ -39,4 +39,4 @@ class ProxyStats {
   uint64_t reqCount_{0};
 };
 
-}
+} // namespace ProxyService

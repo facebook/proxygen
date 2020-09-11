@@ -30,10 +30,8 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
 
   void start();
 
-
  private:
-  proxygen::HTTPTransaction* sendRequest(
-      const proxygen::URL& requestUrl);
+  proxygen::HTTPTransaction* sendRequest(const proxygen::URL& requestUrl);
 
   void sendRequests(bool closeSession = true);
 

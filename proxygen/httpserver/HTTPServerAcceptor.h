@@ -16,14 +16,13 @@ namespace proxygen {
 
 class HTTPServerAcceptor final : public HTTPSessionAcceptor {
  public:
-  static AcceptorConfiguration makeConfig(
-    const HTTPServer::IPConfig& ipConfig,
-    const HTTPServerOptions& opts);
+  static AcceptorConfiguration makeConfig(const HTTPServer::IPConfig& ipConfig,
+                                          const HTTPServerOptions& opts);
 
   static std::unique_ptr<HTTPServerAcceptor> make(
-    const AcceptorConfiguration& conf,
-    const HTTPServerOptions& opts,
-    const std::shared_ptr<HTTPCodecFactory>& codecFactory = nullptr);
+      const AcceptorConfiguration& conf,
+      const HTTPServerOptions& opts,
+      const std::shared_ptr<HTTPCodecFactory>& codecFactory = nullptr);
 
   /**
    * Invokes the given method when all the connections are drained
@@ -55,4 +54,4 @@ class HTTPServerAcceptor final : public HTTPSessionAcceptor {
   const std::vector<RequestHandlerFactory*> handlerFactories_{nullptr};
 };
 
-}
+} // namespace proxygen

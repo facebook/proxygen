@@ -8,11 +8,11 @@
 
 #include "StaticHandler.h"
 
-#include <proxygen/httpserver/RequestHandler.h>
-#include <proxygen/httpserver/ResponseBuilder.h>
-#include <folly/io/async/EventBaseManager.h>
 #include <folly/FileUtil.h>
 #include <folly/executors/GlobalExecutor.h>
+#include <folly/io/async/EventBaseManager.h>
+#include <proxygen/httpserver/RequestHandler.h>
+#include <proxygen/httpserver/ResponseBuilder.h>
 
 using namespace proxygen;
 
@@ -27,9 +27,9 @@ namespace StaticService {
 void StaticHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
   if (headers->getMethod() != HTTPMethod::GET) {
     ResponseBuilder(downstream_)
-      .status(400, "Bad method")
-      .body("Only GET is supported")
-      .sendWithEOM();
+        .status(400, "Bad method")
+        .body("Only GET is supported")
+        .sendWithEOM();
     return;
   }
   // a real webserver would validate this path didn't contain malicious
@@ -37,24 +37,24 @@ void StaticHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
   try {
     // + 1 to kill leading /
     file_ = std::make_unique<folly::File>(
-      headers->getPathAsStringPiece().subpiece(1));
+        headers->getPathAsStringPiece().subpiece(1));
   } catch (const std::system_error& ex) {
     ResponseBuilder(downstream_)
-      .status(404, "Not Found")
-      .body(folly::to<std::string>("Could not find ",
-                                   headers->getPathAsStringPiece(),
-                                   " ex=", folly::exceptionStr(ex)))
-      .sendWithEOM();
+        .status(404, "Not Found")
+        .body(folly::to<std::string>("Could not find ",
+                                     headers->getPathAsStringPiece(),
+                                     " ex=",
+                                     folly::exceptionStr(ex)))
+        .sendWithEOM();
     return;
   }
-  ResponseBuilder(downstream_)
-    .status(200, "Ok")
-    .send();
+  ResponseBuilder(downstream_).status(200, "Ok").send();
   // use a CPU executor since read(2) of a file can block
   readFileScheduled_ = true;
   folly::getCPUExecutor()->add(
-    std::bind(&StaticHandler::readFile, this,
-              folly::EventBaseManager::get()->getEventBase()));
+      std::bind(&StaticHandler::readFile,
+                this,
+                folly::EventBaseManager::get()->getEventBase()));
 }
 
 void StaticHandler::readFile(folly::EventBase* evb) {
@@ -68,37 +68,33 @@ void StaticHandler::readFile(folly::EventBase* evb) {
       VLOG(4) << "Read error=" << rc;
       file_.reset();
       evb->runInEventBaseThread([this] {
-          LOG(ERROR) << "Error reading file";
-          downstream_->sendAbort();
-        });
+        LOG(ERROR) << "Error reading file";
+        downstream_->sendAbort();
+      });
       break;
     } else if (rc == 0) {
       // done
       file_.reset();
       VLOG(4) << "Read EOF";
-      evb->runInEventBaseThread([this] {
-          ResponseBuilder(downstream_)
-            .sendWithEOM();
-        });
+      evb->runInEventBaseThread(
+          [this] { ResponseBuilder(downstream_).sendWithEOM(); });
       break;
     } else {
       buf.postallocate(rc);
-      evb->runInEventBaseThread([this, body=buf.move()] () mutable {
-          ResponseBuilder(downstream_)
-            .body(std::move(body))
-            .send();
-        });
+      evb->runInEventBaseThread([this, body = buf.move()]() mutable {
+        ResponseBuilder(downstream_).body(std::move(body)).send();
+      });
     }
   }
 
   // Notify the request thread that we terminated the readFile loop
   evb->runInEventBaseThread([this] {
-      readFileScheduled_ = false;
-      if (!checkForCompletion() && !paused_) {
-        VLOG(4) << "Resuming deferred readFile";
-        onEgressResumed();
-      }
-    });
+    readFileScheduled_ = false;
+    if (!checkForCompletion() && !paused_) {
+      VLOG(4) << "Resuming deferred readFile";
+      onEgressResumed();
+    }
+  });
 }
 
 void StaticHandler::onEgressPaused() noexcept {
@@ -114,13 +110,13 @@ void StaticHandler::onEgressResumed() noexcept {
   if (!readFileScheduled_ && file_) {
     readFileScheduled_ = true;
     folly::getCPUExecutor()->add(
-      std::bind(&StaticHandler::readFile, this,
-                folly::EventBaseManager::get()->getEventBase()));
+        std::bind(&StaticHandler::readFile,
+                  this,
+                  folly::EventBaseManager::get()->getEventBase()));
   } else {
     VLOG(4) << "Deferred scheduling readFile";
   }
 }
-
 
 void StaticHandler::onBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept {
   // ignore, only support GET
@@ -154,4 +150,4 @@ bool StaticHandler::checkForCompletion() {
   return false;
 }
 
-}
+} // namespace StaticService

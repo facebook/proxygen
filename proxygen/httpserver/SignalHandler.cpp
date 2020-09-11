@@ -21,10 +21,12 @@ SignalHandler::SignalHandler(HTTPServer* server)
 }
 
 void SignalHandler::install(const std::vector<int>& signals) {
-  for (const int& signal: signals) {
+  for (const int& signal : signals) {
     registerSignalHandler(signal);
   }
 }
 
-void SignalHandler::signalReceived(int /*signum*/) noexcept { server_->stop(); }
+void SignalHandler::signalReceived(int /*signum*/) noexcept {
+  server_->stop();
 }
+} // namespace proxygen

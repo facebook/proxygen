@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <folly/Memory.h>
 #include <folly/File.h>
+#include <folly/Memory.h>
 #include <proxygen/httpserver/RequestHandler.h>
 
 namespace proxygen {
@@ -20,8 +20,8 @@ namespace StaticService {
 
 class StaticHandler : public proxygen::RequestHandler {
  public:
-  void onRequest(std::unique_ptr<proxygen::HTTPMessage> headers)
-      noexcept override;
+  void onRequest(
+      std::unique_ptr<proxygen::HTTPMessage> headers) noexcept override;
 
   void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override;
 
@@ -47,4 +47,4 @@ class StaticHandler : public proxygen::RequestHandler {
   bool finished_{false};
 };
 
-}
+} // namespace StaticService

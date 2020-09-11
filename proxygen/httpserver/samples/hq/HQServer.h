@@ -29,8 +29,8 @@
 namespace quic { namespace samples {
 
 using HTTPTransactionHandlerProvider =
-    std::function<proxygen::HTTPTransactionHandler*(
-        proxygen::HTTPMessage*, const HQParams&)>;
+    std::function<proxygen::HTTPTransactionHandler*(proxygen::HTTPMessage*,
+                                                    const HQParams&)>;
 
 /**
  * The Dispatcher object is responsible for spawning
@@ -58,8 +58,8 @@ class HQSessionController
  public:
   using StreamData = std::pair<folly::IOBufQueue, bool>;
 
-  explicit HQSessionController(
-      const HQParams& /* params */, const HTTPTransactionHandlerProvider&);
+  explicit HQSessionController(const HQParams& /* params */,
+                               const HTTPTransactionHandlerProvider&);
 
   ~HQSessionController() override = default;
 

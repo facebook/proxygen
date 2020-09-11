@@ -32,8 +32,8 @@ class PushHandler;
  *   RequestHandler is responsible for handling it.
  */
 class RequestHandlerAdaptor
-    : public HTTPTransactionHandler,
-      public ResponseHandler {
+    : public HTTPTransactionHandler
+    , public ResponseHandler {
  public:
   explicit RequestHandlerAdaptor(RequestHandler* requestHandler);
 
@@ -65,7 +65,7 @@ class RequestHandlerAdaptor
   void pauseIngress() noexcept override;
   void resumeIngress() noexcept override;
   ResponseHandler* newPushedResponse(
-    PushHandler* pushHandler) noexcept override;
+      PushHandler* pushHandler) noexcept override;
   ResponseHandler* newExMessage(ExMessageHandler* exHandler,
                                 bool unidirectional) noexcept override;
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override;
@@ -77,4 +77,4 @@ class RequestHandlerAdaptor
   ProxygenError err_{kErrorNone};
 };
 
-}
+} // namespace proxygen

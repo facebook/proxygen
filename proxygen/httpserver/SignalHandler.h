@@ -21,11 +21,12 @@ class HTTPServer;
  *
  * Note: Should only be created from the thread invoking `HTTPServer::start()`.
  */
-class SignalHandler: private folly::AsyncSignalHandler {
+class SignalHandler : private folly::AsyncSignalHandler {
  public:
   explicit SignalHandler(HTTPServer* server);
 
   void install(const std::vector<int>& signals);
+
  private:
   // AsyncSignalHandler
   void signalReceived(int signum) noexcept override;
@@ -33,4 +34,4 @@ class SignalHandler: private folly::AsyncSignalHandler {
   HTTPServer* const server_{nullptr};
 };
 
-}
+} // namespace proxygen

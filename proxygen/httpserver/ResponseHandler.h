@@ -46,7 +46,8 @@ class ResponseHandler {
       : upstream_(CHECK_NOTNULL(upstream)) {
   }
 
-  virtual ~ResponseHandler() {}
+  virtual ~ResponseHandler() {
+  }
 
   /**
    * NOTE: We take response message as non-const reference, to allow filters
@@ -74,11 +75,11 @@ class ResponseHandler {
   virtual void resumeIngress() noexcept = 0;
 
   virtual ResponseHandler* newPushedResponse(
-    PushHandler* pushHandler) noexcept = 0;
+      PushHandler* pushHandler) noexcept = 0;
 
-  virtual ResponseHandler* newExMessage(ExMessageHandler* /*exHandler*/,
-                                        bool /*unidirectional*/ = false)
-      noexcept {
+  virtual ResponseHandler* newExMessage(
+      ExMessageHandler* /*exHandler*/,
+      bool /*unidirectional*/ = false) noexcept {
     LOG(FATAL) << "newExMessage not supported";
     folly::assume_unreachable();
   }
@@ -98,4 +99,4 @@ class ResponseHandler {
   HTTPTransaction* txn_{nullptr};
 };
 
-}
+} // namespace proxygen

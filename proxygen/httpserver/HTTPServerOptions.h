@@ -138,17 +138,17 @@ class HTTPServerOptions {
    * Content types to compress, all entries as lowercase
    */
   std::set<std::string> contentCompressionTypes = {
-    "application/javascript",
-    "application/json",
-    "application/x-javascript",
-    "application/xhtml+xml",
-    "application/xml",
-    "application/xml+rss",
-    "text/css",
-    "text/html",
-    "text/javascript",
-    "text/plain",
-    "text/xml",
+      "application/javascript",
+      "application/json",
+      "application/x-javascript",
+      "application/xhtml+xml",
+      "application/xml",
+      "application/xml+rss",
+      "text/css",
+      "text/html",
+      "text/javascript",
+      "text/plain",
+      "text/xml",
   };
 
   /**
@@ -188,4 +188,4 @@ class HTTPServerOptions {
    */
   NewConnectionFilter newConnectionFilter;
 };
-}
+} // namespace proxygen

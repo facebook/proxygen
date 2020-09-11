@@ -60,12 +60,10 @@ DEFINE_bool(early_data, false, "Whether to use 0-rtt");
 DEFINE_uint32(quic_batching_mode,
               static_cast<uint32_t>(quic::QuicBatchingMode::BATCHING_MODE_NONE),
               "QUIC batching mode");
-DEFINE_bool(quic_use_thread_local_batching,
-                false,
-                "Use thread local batching");
+DEFINE_bool(quic_use_thread_local_batching, false, "Use thread local batching");
 DEFINE_uint32(quic_thread_local_delay_us,
-                1000,
-                "Thread local delay in microseconds");
+              1000,
+              "Thread local delay in microseconds");
 DEFINE_uint32(quic_batch_size,
               quic::kDefaultQuicMaxBatchSize,
               "Maximum number of packets that can be batched in Quic");
@@ -103,10 +101,15 @@ DEFINE_string(static_root,
               "Path to serve static files from. Disabled if empty.");
 DEFINE_bool(migrate_client,
             false,
-            "(HQClient) Should the HQClient make two sets of requests and switch sockets in the middle.");
-DEFINE_bool(use_inplace_write, false, "Transport use inplace packet build and socket writing");
+            "(HQClient) Should the HQClient make two sets of requests and "
+            "switch sockets in the middle.");
+DEFINE_bool(use_inplace_write,
+            false,
+            "Transport use inplace packet build and socket writing");
 
-DEFINE_string(ccp_config, "", "Additional args to pass to ccp. Ccp disabled if empty string.");
+DEFINE_string(ccp_config,
+              "",
+              "Additional args to pass to ccp. Ccp disabled if empty string.");
 
 namespace quic { namespace samples {
 
@@ -178,7 +181,7 @@ void initializeCommonSettings(HQParams& hqParams) {
         folly::SocketAddress(hqParams.host, hqParams.port, true);
     if (!FLAGS_local_address.empty()) {
       hqParams.localAddress =
-        folly::SocketAddress(FLAGS_local_address, 0, true);
+          folly::SocketAddress(FLAGS_local_address, 0, true);
     }
     hqParams.outdir = FLAGS_outdir;
   }
@@ -239,9 +242,9 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.transportSettings.batchingMode =
       quic::getQuicBatchingMode(FLAGS_quic_batching_mode);
   hqParams.transportSettings.useThreadLocalBatching =
-          FLAGS_quic_use_thread_local_batching;
+      FLAGS_quic_use_thread_local_batching;
   hqParams.transportSettings.threadLocalDelay =
-          std::chrono::microseconds(FLAGS_quic_thread_local_delay_us);
+      std::chrono::microseconds(FLAGS_quic_thread_local_delay_us);
   hqParams.transportSettings.maxBatchSize = FLAGS_quic_batch_size;
   hqParams.transportSettings.turnoffPMTUD = true;
   hqParams.transportSettings.partialReliabilityEnabled = FLAGS_use_pr;
@@ -255,7 +258,8 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.transportSettings.maxCwndInMss = FLAGS_max_cwnd_mss;
   hqParams.transportSettings.disableMigration = false;
   if (hqParams.mode == HQMode::SERVER && FLAGS_use_inplace_write) {
-    hqParams.transportSettings.dataPathType = quic::DataPathType::ContinuousMemory;
+    hqParams.transportSettings.dataPathType =
+        quic::DataPathType::ContinuousMemory;
   }
   if (FLAGS_rate_limit > 0) {
     hqParams.rateLimitPerThread = FLAGS_rate_limit;

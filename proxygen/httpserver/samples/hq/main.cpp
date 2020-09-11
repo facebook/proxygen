@@ -17,7 +17,6 @@
 #include <proxygen/httpserver/samples/hq/HQServer.h>
 #include <proxygen/lib/transport/PersistentQuicPskCache.h>
 
-
 using namespace quic::samples;
 
 int main(int argc, char* argv[]) {
@@ -52,8 +51,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     return 0;
-  }
-  else {
+  } else {
     for (auto& param : expectedParams.error()) {
       LOG(ERROR) << "Invalid param: " << param.name << " " << param.value << " "
                  << param.errorMsg;

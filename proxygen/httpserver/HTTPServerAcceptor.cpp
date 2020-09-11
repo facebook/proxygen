@@ -20,8 +20,7 @@ using folly::SocketAddress;
 namespace proxygen {
 
 AcceptorConfiguration HTTPServerAcceptor::makeConfig(
-    const HTTPServer::IPConfig& ipConfig,
-    const HTTPServerOptions& opts) {
+    const HTTPServer::IPConfig& ipConfig, const HTTPServerOptions& opts) {
 
   AcceptorConfiguration conf;
   conf.bindAddress = ipConfig.address;
@@ -35,7 +34,7 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
 
   if (opts.enableExHeaders) {
     conf.egressSettings.push_back(
-      HTTPSetting(SettingsId::ENABLE_EX_HEADERS, 1));
+        HTTPSetting(SettingsId::ENABLE_EX_HEADERS, 1));
   }
 
   if (ipConfig.protocol == HTTPServer::Protocol::SPDY) {
@@ -43,7 +42,7 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
   } else if (ipConfig.protocol == HTTPServer::Protocol::HTTP2) {
     conf.plaintextProtocol = http2::kProtocolCleartextString;
   } else if (opts.h2cEnabled) {
-    conf.allowedPlaintextUpgradeProtocols = { http2::kProtocolCleartextString };
+    conf.allowedPlaintextUpgradeProtocols = {http2::kProtocolCleartextString};
   }
 
   conf.sslContextConfigs = ipConfig.sslConfigs;
@@ -66,13 +65,13 @@ AcceptorConfiguration HTTPServerAcceptor::makeConfig(
 }
 
 std::unique_ptr<HTTPServerAcceptor> HTTPServerAcceptor::make(
-  const AcceptorConfiguration& conf,
-  const HTTPServerOptions& opts,
-  const std::shared_ptr<HTTPCodecFactory>& codecFactory) {
+    const AcceptorConfiguration& conf,
+    const HTTPServerOptions& opts,
+    const std::shared_ptr<HTTPCodecFactory>& codecFactory) {
   // Create a copy of the filter chain in reverse order since we need to create
   // Handlers in that order.
   std::vector<RequestHandlerFactory*> handlerFactories;
-  for (auto& f: opts.handlerFactories) {
+  for (auto& f : opts.handlerFactories) {
     handlerFactories.push_back(f.get());
   }
   std::reverse(handlerFactories.begin(), handlerFactories.end());
@@ -99,8 +98,7 @@ HTTPServerAcceptor::~HTTPServerAcceptor() {
 }
 
 HTTPTransactionHandler* HTTPServerAcceptor::newHandler(
-    HTTPTransaction& txn,
-    HTTPMessage* msg) noexcept {
+    HTTPTransaction& txn, HTTPMessage* msg) noexcept {
 
   SocketAddress clientAddr, vipAddr;
   txn.getPeerAddress(clientAddr);
@@ -110,7 +108,7 @@ HTTPTransactionHandler* HTTPServerAcceptor::newHandler(
 
   // Create filters chain
   RequestHandler* h = nullptr;
-  for (auto& factory: handlerFactories_) {
+  for (auto& factory : handlerFactories_) {
     h = factory->onRequest(h, msg);
   }
 
@@ -143,4 +141,4 @@ void HTTPServerAcceptor::onConnectionsDrained() {
   }
 }
 
-}
+} // namespace proxygen

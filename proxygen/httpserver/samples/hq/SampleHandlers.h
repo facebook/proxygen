@@ -16,13 +16,13 @@
 #include <random>
 #include <vector>
 
-#include <folly/executors/GlobalExecutor.h>
 #include <folly/File.h>
 #include <folly/FileUtil.h>
 #include <folly/Format.h>
 #include <folly/Memory.h>
 #include <folly/Random.h>
 #include <folly/ThreadLocal.h>
+#include <folly/executors/GlobalExecutor.h>
 #include <folly/io/async/AsyncTimeout.h>
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/httpserver/samples/hq/HQParams.h>
@@ -86,9 +86,9 @@ class BaseSampleHandler : public proxygen::HTTPTransactionHandler {
       return;
     }
     msg.getHeaders().add(
-      proxygen::HTTP_HEADER_ALT_SVC,
-      folly::format(
-        "{}=\":{}\"; ma=3600", params_.protocol, params_.port).str());
+        proxygen::HTTP_HEADER_ALT_SVC,
+        folly::format("{}=\":{}\"; ma=3600", params_.protocol, params_.port)
+            .str());
   }
 
   // clang-format off
@@ -266,7 +266,7 @@ class PrCatHandler
   }
 
   void onBodyPeek(uint64_t offset,
-                       const folly::IOBuf& chain) noexcept override {
+                  const folly::IOBuf& chain) noexcept override {
     LOG(INFO) << __func__ << ": got " << chain.computeChainDataLength()
               << " bytes at offset " << offset;
   }
@@ -278,8 +278,8 @@ class PrCatHandler
   void onBodyRejected(uint64_t offset) noexcept override {
     cancelTimeout();
     LOG(INFO) << __func__ << ": data for chunk " << curPartNum_
-               << " (offset = " << offset << ") cancelled ( was scheduled with "
-               << delayMs_ << "ms delay)";
+              << " (offset = " << offset << ") cancelled ( was scheduled with "
+              << delayMs_ << "ms delay)";
 
     auto chunk = dataSndr_.generateChunk();
     CHECK(chunk);
@@ -287,7 +287,7 @@ class PrCatHandler
 
     if (eom) {
       LOG(INFO) << __func__ << ":    sending EOM after last chunk "
-                 << curPartNum_;
+                << curPartNum_;
       txn_->sendEOM();
     } else {
       curPartNum_ = offset / *chunkSize_;
@@ -315,7 +315,7 @@ class PrCatHandler
     curPartNum_++;
   }
 
-private:
+ private:
   uint64_t delayMs_{0};
   uint64_t curPartNum_{0};
   folly::Optional<uint64_t> chunkSize_{kDefaultPartiallyReliableChunkSize};
@@ -419,7 +419,7 @@ class PrSkipHandler
     curPartNum_++;
   }
 
-private:
+ private:
   uint64_t delayMs_{0};
   uint64_t curPartNum_{0};
 
@@ -506,7 +506,7 @@ class PrRejectHandler
       if (script.length() == 0) {
         txn_->sendEOM();
       } else {
-        scheduleTimeout(clientDelayCapMs_/3);
+        scheduleTimeout(clientDelayCapMs_ / 3);
       }
     } else {
       scheduleTimeout(clientDelayCapMs_ * 2);
@@ -522,7 +522,7 @@ class PrRejectHandler
     sendScriptedBody();
   }
 
-private:
+ private:
   std::string script;
   uint64_t chunkSize_{0};
   uint64_t clientDelayCapMs_{0};
@@ -674,10 +674,9 @@ class RandBytesGenHandler : public BaseSampleHandler {
   }
 
   const uint64_t kMaxAllowedLength{1000 * 1024 * 1024}; // 1 GB
-  const uint64_t kMaxChunkSize{100 * 1024};           // 100 KB
-  const std::string kErrorMsg =
-      folly::to<std::string>("More than 1GB of data requested. ",
-                             "Please request for smaller size.");
+  const uint64_t kMaxChunkSize{100 * 1024};             // 100 KB
+  const std::string kErrorMsg = folly::to<std::string>(
+      "More than 1GB of data requested. ", "Please request for smaller size.");
   uint64_t respBodyLen_;
   bool paused_{false};
   bool eomSent_{false};
@@ -868,7 +867,8 @@ class ServerPushHandler : public BaseSampleHandler {
   };
 
  public:
-  explicit ServerPushHandler(const HQParams& params) : BaseSampleHandler(params) {
+  explicit ServerPushHandler(const HQParams& params)
+      : BaseSampleHandler(params) {
   }
 
   void onHeadersComplete(

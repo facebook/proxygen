@@ -23,8 +23,8 @@ class PushRequestHandler : public proxygen::RequestHandler {
  public:
   explicit PushRequestHandler(PushStats* stats);
 
-  void onRequest(std::unique_ptr<proxygen::HTTPMessage> headers)
-      noexcept override;
+  void onRequest(
+      std::unique_ptr<proxygen::HTTPMessage> headers) noexcept override;
 
   void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override;
 
@@ -44,4 +44,4 @@ class PushRequestHandler : public proxygen::RequestHandler {
   proxygen::ResponseHandler* downstreamPush_{nullptr};
 };
 
-}
+} // namespace PushService

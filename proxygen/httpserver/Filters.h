@@ -25,10 +25,11 @@ namespace proxygen {
  *
  * The default implementation just lets everything pass through.
  */
-class Filter : public RequestHandler, public ResponseHandler {
+class Filter
+    : public RequestHandler
+    , public ResponseHandler {
  public:
-  explicit Filter(RequestHandler* upstream)
-      : ResponseHandler(upstream) {
+  explicit Filter(RequestHandler* upstream) : ResponseHandler(upstream) {
   }
 
   // Request handler
@@ -128,9 +129,8 @@ class Filter : public RequestHandler, public ResponseHandler {
     return downstream_->newPushedResponse(handler);
   }
 
-  ResponseHandler* newExMessage(
-      ExMessageHandler* exHandler,
-      bool unidirectional) noexcept override {
+  ResponseHandler* newExMessage(ExMessageHandler* exHandler,
+                                bool unidirectional) noexcept override {
     return downstream_->newExMessage(exHandler, unidirectional);
   }
 
@@ -141,7 +141,6 @@ class Filter : public RequestHandler, public ResponseHandler {
   void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override {
     downstream_->getCurrentTransportInfo(tinfo);
   }
-
 };
 
-}
+} // namespace proxygen

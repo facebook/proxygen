@@ -20,12 +20,13 @@ namespace proxygen {
 
 class MockResponseHandler : public ResponseHandler {
  public:
-  explicit MockResponseHandler(RequestHandler* h) : ResponseHandler(h) {}
+  explicit MockResponseHandler(RequestHandler* h) : ResponseHandler(h) {
+  }
 #ifdef __clang__
-# pragma clang diagnostic push
-# if __clang_major__ > 3 || __clang_minor__ >= 6
-#  pragma clang diagnostic ignored "-Winconsistent-missing-override"
-# endif
+#pragma clang diagnostic push
+#if __clang_major__ > 3 || __clang_minor__ >= 6
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#endif
 #endif
   GMOCK_METHOD1_(, noexcept, , sendHeaders, void(HTTPMessage&));
   GMOCK_METHOD1_(, noexcept, , sendChunkHeader, void(size_t));
@@ -37,12 +38,12 @@ class MockResponseHandler : public ResponseHandler {
   GMOCK_METHOD0_(, noexcept, , refreshTimeout, void());
   GMOCK_METHOD0_(, noexcept, , pauseIngress, void());
   GMOCK_METHOD0_(, noexcept, , resumeIngress, void());
-  GMOCK_METHOD1_(, noexcept, , newPushedResponse,
-                 ResponseHandler*(PushHandler*));
+  GMOCK_METHOD1_(
+      , noexcept, , newPushedResponse, ResponseHandler*(PushHandler*));
 
   MOCK_CONST_METHOD1(getCurrentTransportInfo, void(wangle::TransportInfo*));
 #ifdef __clang__
-# pragma clang diagnostic pop
+#pragma clang diagnostic pop
 #endif
 
   const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
@@ -63,10 +64,10 @@ class MockResponseHandler : public ResponseHandler {
 class MockRequestHandler : public RequestHandler {
  public:
 #ifdef __clang__
-# pragma clang diagnostic push
-# if __clang_major__ > 3 || __clang_minor__ >= 6
-#  pragma clang diagnostic ignored "-Winconsistent-missing-override"
-# endif
+#pragma clang diagnostic push
+#if __clang_major__ > 3 || __clang_minor__ >= 6
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#endif
 #endif
   GMOCK_METHOD1_(, noexcept, , setResponseHandler, void(ResponseHandler*));
   GMOCK_METHOD1_(, noexcept, , onRequest, void(std::shared_ptr<HTTPMessage>));
@@ -80,7 +81,7 @@ class MockRequestHandler : public RequestHandler {
   GMOCK_METHOD0_(, noexcept, , onEgressResumed, void());
   GMOCK_METHOD0_(, noexcept, , canHandleExpect, bool());
 #ifdef __clang__
-# pragma clang diagnostic pop
+#pragma clang diagnostic pop
 #endif
 
   void onRequest(std::unique_ptr<HTTPMessage> headers) noexcept override {
@@ -96,4 +97,4 @@ class MockRequestHandler : public RequestHandler {
   }
 };
 
-}
+} // namespace proxygen

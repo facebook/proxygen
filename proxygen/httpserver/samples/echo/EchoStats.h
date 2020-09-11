@@ -39,4 +39,4 @@ class EchoStats {
   uint64_t reqCount_{0};
 };
 
-}
+} // namespace EchoService

@@ -6,13 +6,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/portability/GFlags.h>
-#include <folly/init/Init.h>
-#include <folly/ssl/Init.h>
 #include <folly/SocketAddress.h>
+#include <folly/init/Init.h>
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
+#include <folly/portability/GFlags.h>
+#include <folly/ssl/Init.h>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 

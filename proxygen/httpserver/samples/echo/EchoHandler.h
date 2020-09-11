@@ -23,8 +23,8 @@ class EchoHandler : public proxygen::RequestHandler {
  public:
   explicit EchoHandler(EchoStats* stats);
 
-  void onRequest(std::unique_ptr<proxygen::HTTPMessage> headers)
-      noexcept override;
+  void onRequest(
+      std::unique_ptr<proxygen::HTTPMessage> headers) noexcept override;
 
   void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override;
 
@@ -42,4 +42,4 @@ class EchoHandler : public proxygen::RequestHandler {
   std::unique_ptr<folly::IOBuf> body_;
 };
 
-}
+} // namespace EchoService

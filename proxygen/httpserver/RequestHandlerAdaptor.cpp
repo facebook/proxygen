@@ -43,8 +43,8 @@ namespace {
 constexpr folly::StringPiece k100Continue{"100-continue"};
 } // namespace
 
-void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
-    noexcept {
+void RequestHandlerAdaptor::onHeadersComplete(
+    std::unique_ptr<HTTPMessage> msg) noexcept {
   if (!upstream_) {
     return;
   }
@@ -59,10 +59,7 @@ void RequestHandlerAdaptor::onHeadersComplete(std::unique_ptr<HTTPMessage> msg)
           .closeConnection()
           .sendWithEOM();
     } else {
-      ResponseBuilder(this)
-        .status(100, "Continue")
-        .send();
-
+      ResponseBuilder(this).status(100, "Continue").send();
     }
   }
 
@@ -78,7 +75,8 @@ void RequestHandlerAdaptor::onBody(std::unique_ptr<folly::IOBuf> c) noexcept {
   upstream_->onBody(std::move(c));
 }
 
-void RequestHandlerAdaptor::onChunkHeader(size_t /*length*/) noexcept {}
+void RequestHandlerAdaptor::onChunkHeader(size_t /*length*/) noexcept {
+}
 
 void RequestHandlerAdaptor::onChunkComplete() noexcept {
 }
@@ -204,7 +202,7 @@ void RequestHandlerAdaptor::resumeIngress() noexcept {
 }
 
 ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
-  PushHandler* pushHandler) noexcept {
+    PushHandler* pushHandler) noexcept {
   auto pushTxn = txn_->newPushedTransaction(pushHandler->getHandler());
   if (!pushTxn) {
     // Codec doesn't support push
@@ -216,20 +214,19 @@ ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
 }
 
 ResponseHandler* RequestHandlerAdaptor::newExMessage(
-    ExMessageHandler* exHandler,
-    bool unidirectional) noexcept {
+    ExMessageHandler* exHandler, bool unidirectional) noexcept {
   RequestHandlerAdaptor* handler = new RequestHandlerAdaptor(exHandler);
   getTransaction()->newExTransaction(handler, unidirectional);
   return handler;
 }
 
-const wangle::TransportInfo&
-RequestHandlerAdaptor::getSetupTransportInfo() const noexcept {
+const wangle::TransportInfo& RequestHandlerAdaptor::getSetupTransportInfo()
+    const noexcept {
   return txn_->getSetupTransportInfo();
 }
 
 void RequestHandlerAdaptor::getCurrentTransportInfo(
-  wangle::TransportInfo* tinfo) const {
+    wangle::TransportInfo* tinfo) const {
   txn_->getCurrentTransportInfo(tinfo);
 }
 
@@ -240,4 +237,4 @@ void RequestHandlerAdaptor::setError(ProxygenError err) noexcept {
   upstream->onError(err);
 }
 
-}
+} // namespace proxygen

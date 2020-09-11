@@ -18,9 +18,7 @@ namespace proxygen {
  */
 class DirectResponseHandler : public RequestHandler {
  public:
-  DirectResponseHandler(int code,
-                        std::string message,
-                        std::string body)
+  DirectResponseHandler(int code, std::string message, std::string body)
       : code_(code),
         message_(std::move(message)),
         body_(folly::IOBuf::copyBuffer(body)) {
@@ -33,9 +31,11 @@ class DirectResponseHandler : public RequestHandler {
         .send();
   }
 
-  void onBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept override {}
+  void onBody(std::unique_ptr<folly::IOBuf> /*body*/) noexcept override {
+  }
 
-  void onUpgrade(proxygen::UpgradeProtocol /*prot*/) noexcept override {}
+  void onUpgrade(proxygen::UpgradeProtocol /*prot*/) noexcept override {
+  }
 
   void onEOM() noexcept override {
     ResponseBuilder(downstream_).sendWithEOM();
@@ -45,7 +45,9 @@ class DirectResponseHandler : public RequestHandler {
     delete this;
   }
 
-  void onError(ProxygenError /*err*/) noexcept override { delete this; }
+  void onError(ProxygenError /*err*/) noexcept override {
+    delete this;
+  }
 
  private:
   const int code_;
@@ -53,4 +55,4 @@ class DirectResponseHandler : public RequestHandler {
   std::unique_ptr<folly::IOBuf> body_;
 };
 
-}
+} // namespace proxygen

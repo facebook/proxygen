@@ -9,8 +9,8 @@
 #pragma once
 
 #include <folly/Optional.h>
-#include <folly/io/IOBuf.h>
 #include <folly/io/Cursor.h>
+#include <folly/io/IOBuf.h>
 
 #include <map>
 
@@ -130,7 +130,8 @@ class PartiallyReliableSender : public PartiallyReliablePeerBase {
   bool hasMoreData() const;
 
  private:
-   folly::IOBufQueue sndBuf_{folly::IOBufQueue::cacheChainLength()};
+  folly::IOBufQueue sndBuf_{folly::IOBufQueue::cacheChainLength()};
+  // clang-format off
    const std::string cat{
  "                                                                               \n"
  "                     .............                .***.             .***.      \n"
@@ -155,7 +156,8 @@ class PartiallyReliableSender : public PartiallyReliablePeerBase {
  "            ***.$.$.* .*  .*.*.*    .*.*.* $.$.$****.......  *. *. $ *. *. $   \n"
  "                   ***.$.$.$.$.....$.$.****               **..$..$.*..$..$.*   \n"
  "                                                                               \n"
- };
+      // clang-format on
+  };
 };
 
 }} // namespace quic::samples

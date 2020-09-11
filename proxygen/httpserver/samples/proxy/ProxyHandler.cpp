@@ -8,13 +8,13 @@
 
 #include "ProxyHandler.h"
 
+#include <folly/io/SocketOptionMap.h>
+#include <folly/io/async/EventBaseManager.h>
+#include <folly/portability/GFlags.h>
 #include <proxygen/httpserver/RequestHandler.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/utils/URL.h>
-#include <folly/io/SocketOptionMap.h>
-#include <folly/io/async/EventBaseManager.h>
-#include <folly/portability/GFlags.h>
 
 #include "ProxyStats.h"
 
@@ -22,8 +22,7 @@ using namespace proxygen;
 using std::string;
 using std::unique_ptr;
 
-DEFINE_int32(proxy_connect_timeout, 1000,
-    "connect timeout in milliseconds");
+DEFINE_int32(proxy_connect_timeout, 1000, "connect timeout in milliseconds");
 
 namespace {
 static const uint32_t kMinReadSize = 1460;
@@ -32,14 +31,12 @@ static const uint32_t kMaxReadSize = 4000;
 static const uint8_t READS_SHUTDOWN = 1;
 static const uint8_t WRITES_SHUTDOWN = 2;
 static const uint8_t CLOSED = READS_SHUTDOWN | WRITES_SHUTDOWN;
-}
+} // namespace
 
 namespace ProxyService {
 
-ProxyHandler::ProxyHandler(ProxyStats* stats, folly::HHWheelTimer* timer):
-    stats_(stats),
-    connector_{this, timer},
-    serverHandler_(*this) {
+ProxyHandler::ProxyHandler(ProxyStats* stats, folly::HHWheelTimer* timer)
+    : stats_(stats), connector_{this, timer}, serverHandler_(*this) {
 }
 
 ProxyHandler::~ProxyHandler() {
@@ -61,13 +58,12 @@ void ProxyHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
     addr.setFromHostPort(url.getHost(), url.getPort());
   } catch (...) {
     ResponseBuilder(downstream_)
-      .status(503, "Bad Gateway")
-      .body(folly::to<string>("Could not parse server from URL: ",
-                              request_->getURL()))
-      .sendWithEOM();
+        .status(503, "Bad Gateway")
+        .body(folly::to<string>("Could not parse server from URL: ",
+                                request_->getURL()))
+        .sendWithEOM();
     return;
   }
-
 
   downstream_->pauseIngress();
   LOG(INFO) << "Trying to connect to " << addr;
@@ -77,10 +73,10 @@ void ProxyHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
     upstreamSock_->connect(this, addr, FLAGS_proxy_connect_timeout);
   } else {
     // A more sophisticated proxy would have a connection pool here
-    const folly::SocketOptionMap opts{
-      {{SOL_SOCKET, SO_REUSEADDR}, 1}};
+    const folly::SocketOptionMap opts{{{SOL_SOCKET, SO_REUSEADDR}, 1}};
     downstream_->pauseIngress();
-    connector_.connect(folly::EventBaseManager::get()->getEventBase(), addr,
+    connector_.connect(folly::EventBaseManager::get()->getEventBase(),
+                       addr,
                        std::chrono::milliseconds(FLAGS_proxy_connect_timeout),
                        opts);
   }
@@ -88,8 +84,8 @@ void ProxyHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
 
 void ProxyHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
   if (txn_) {
-    LOG(INFO) << "Forwarding " <<
-      ((body) ? body->computeChainDataLength() : 0) << " body bytes to server";
+    LOG(INFO) << "Forwarding " << ((body) ? body->computeChainDataLength() : 0)
+              << " body bytes to server";
     txn_->sendBody(std::move(body));
   } else if (upstreamSock_) {
     upstreamEgressPaused_ = true;
@@ -99,8 +95,8 @@ void ProxyHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
       onServerEgressPaused();
     }
   } else {
-    LOG(WARNING) << "Dropping " <<
-      ((body) ? body->computeChainDataLength() : 0) << " body bytes to server";
+    LOG(WARNING) << "Dropping " << ((body) ? body->computeChainDataLength() : 0)
+                 << " body bytes to server";
   }
 }
 
@@ -130,9 +126,7 @@ void ProxyHandler::connectSuccess(HTTPUpstreamSession* session) {
 void ProxyHandler::connectError(const folly::AsyncSocketException& ex) {
   LOG(ERROR) << "Failed to connect: " << folly::exceptionStr(ex);
   if (!clientTerminated_) {
-    ResponseBuilder(downstream_)
-      .status(503, "Bad Gateway")
-      .sendWithEOM();
+    ResponseBuilder(downstream_).status(503, "Bad Gateway").sendWithEOM();
   } else {
     abortDownstream();
     checkForShutdown();
@@ -140,7 +134,7 @@ void ProxyHandler::connectError(const folly::AsyncSocketException& ex) {
 }
 
 void ProxyHandler::onServerHeadersComplete(
-  unique_ptr<HTTPMessage> msg) noexcept {
+    unique_ptr<HTTPMessage> msg) noexcept {
   CHECK(!clientTerminated_);
   LOG(INFO) << "Forwarding " << msg->getStatusCode() << " response to client";
   downstream_->sendHeaders(*msg);
@@ -148,8 +142,8 @@ void ProxyHandler::onServerHeadersComplete(
 
 void ProxyHandler::onServerBody(std::unique_ptr<folly::IOBuf> chain) noexcept {
   CHECK(!clientTerminated_);
-  LOG(INFO) << "Forwarding " <<
-    ((chain) ? chain->computeChainDataLength() : 0) << " body bytes to client";
+  LOG(INFO) << "Forwarding " << ((chain) ? chain->computeChainDataLength() : 0)
+            << " body bytes to client";
   downstream_->sendBody(std::move(chain));
 }
 
@@ -232,9 +226,7 @@ bool ProxyHandler::checkForShutdown() {
 
 void ProxyHandler::connectSuccess() noexcept {
   LOG(INFO) << "Connected to upstream " << upstreamSock_;
-  ResponseBuilder(downstream_)
-    .status(200, "OK")
-    .send();
+  ResponseBuilder(downstream_).status(200, "OK").send();
   upstreamSock_->setReadCB(this);
   downstream_->resumeIngress();
 }
@@ -244,8 +236,8 @@ void ProxyHandler::connectErr(const folly::AsyncSocketException& ex) noexcept {
 }
 
 void ProxyHandler::getReadBuffer(void** bufReturn, size_t* lenReturn) {
-  std::pair<void*,uint32_t> readSpace = body_.preallocate(kMinReadSize,
-                                                          kMaxReadSize);
+  std::pair<void*, uint32_t> readSpace =
+      body_.preallocate(kMinReadSize, kMaxReadSize);
   *bufReturn = readSpace.first;
   *lenReturn = readSpace.second;
 }
@@ -278,12 +270,12 @@ void ProxyHandler::writeSuccess() noexcept {
 
 void ProxyHandler::writeErr(size_t /*bytesWritten*/,
                             const folly::AsyncSocketException& ex) noexcept {
-  LOG(ERROR) << "Server write error: " << folly::exceptionStr(ex);;
+  LOG(ERROR) << "Server write error: " << folly::exceptionStr(ex);
+  ;
   upstreamEgressPaused_ = false;
   abortDownstream();
   upstreamSock_.reset();
   checkForShutdown();
 }
 
-
-}
+} // namespace ProxyService

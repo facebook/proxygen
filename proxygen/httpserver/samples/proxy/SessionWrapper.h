@@ -17,7 +17,7 @@ class SessionWrapper : public proxygen::HTTPSession::InfoCallback {
 
  public:
   explicit SessionWrapper(proxygen::HTTPUpstreamSession* session)
-    : session_(session) {
+      : session_(session) {
     session_->setInfoCallback(this);
   }
 
@@ -37,4 +37,4 @@ class SessionWrapper : public proxygen::HTTPSession::InfoCallback {
   }
 };
 
-}
+} // namespace ProxyService

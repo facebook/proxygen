@@ -151,8 +151,8 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
   auto certManager = std::make_unique<fizz::server::CertManager>();
   certManager->addCert(std::move(cert), true);
 
-  auto cert2 = fizz::CertUtils::makeSelfCert(
-      kPrime256v1CertData, kPrime256v1KeyData);
+  auto cert2 =
+      fizz::CertUtils::makeSelfCert(kPrime256v1CertData, kPrime256v1KeyData);
   certManager->addCert(std::move(cert2), false);
 
   auto serverCtx = std::make_shared<fizz::server::FizzServerContext>();

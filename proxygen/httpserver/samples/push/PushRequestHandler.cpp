@@ -24,7 +24,7 @@ std::string gPushBody;
 // Create a large body so we can give time for the push request to be made
 std::string createLargeBody() {
   std::string data = gPushBody;
-  while(data.size() < 1000*1000) {
+  while (data.size() < 1000 * 1000) {
     data += gPushBody;
   }
   return data;
@@ -33,12 +33,12 @@ std::string createLargeBody() {
 PushRequestHandler::PushRequestHandler(PushStats* stats) : stats_(stats) {
   if (gPushBody.empty()) {
     CHECK(folly::readFile(kPushFileName.c_str(), gPushBody))
-      << "Failed to read push file=" << kPushFileName;
+        << "Failed to read push file=" << kPushFileName;
   }
 }
 
 void PushRequestHandler::onRequest(
-  std::unique_ptr<HTTPMessage> headers) noexcept {
+    std::unique_ptr<HTTPMessage> headers) noexcept {
   stats_->recordRequest();
   if (!headers->getHeaders().getSingleOrEmpty("X-PushIt").empty()) {
     downstreamPush_ = downstream_->newPushedResponse(new PushHandler);
@@ -47,7 +47,7 @@ void PushRequestHandler::onRequest(
       return;
     }
 
-    if(headers->getPathAsStringPiece() == "/requestLargePush") {
+    if (headers->getPathAsStringPiece() == "/requestLargePush") {
       LOG(INFO) << "sending large push ";
 
       ResponseBuilder(downstreamPush_)
@@ -57,9 +57,9 @@ void PushRequestHandler::onRequest(
           .send();
 
       ResponseBuilder(downstreamPush_)
-        .status(200, "OK")
-        .body(createLargeBody())
-        .sendWithEOM();
+          .status(200, "OK")
+          .body(createLargeBody())
+          .sendWithEOM();
     } else {
       LOG(INFO) << "sending small push ";
 
@@ -70,9 +70,9 @@ void PushRequestHandler::onRequest(
           .send();
 
       ResponseBuilder(downstreamPush_)
-        .status(200, "OK")
-        .body(gPushBody)
-        .sendWithEOM();
+          .status(200, "OK")
+          .body(gPushBody)
+          .sendWithEOM();
     }
   }
 }
@@ -106,4 +106,4 @@ void PushRequestHandler::onError(ProxygenError /*err*/) noexcept {
   delete this;
 }
 
-}
+} // namespace PushService

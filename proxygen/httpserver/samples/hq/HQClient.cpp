@@ -26,8 +26,8 @@
 #include <proxygen/lib/utils/UtilInl.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/client/QuicClientTransport.h>
-#include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
+#include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <quic/logging/FileQLogger.h>
 
 namespace quic { namespace samples {
@@ -68,7 +68,7 @@ void HQClient::start() {
   evb_.loopForever();
   if (params_.migrateClient) {
     quicClient_->onNetworkSwitch(
-      std::make_unique<folly::AsyncUDPSocket>(&evb_));
+        std::make_unique<folly::AsyncUDPSocket>(&evb_));
     sendRequests();
   }
   evb_.loop();
@@ -132,7 +132,6 @@ void HQClient::sendRequests(bool closeSession) {
   for (const auto& path : params_.httpPaths) {
     proxygen::URL requestUrl(path.str(), /*secure=*/true);
     sendRequest(requestUrl);
-
   }
   if (closeSession) {
     session_->drain();

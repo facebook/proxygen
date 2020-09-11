@@ -112,7 +112,8 @@ class RequestHandler {
     return downstream_;
   }
 
-  virtual ~RequestHandler() {}
+  virtual ~RequestHandler() {
+  }
 
  protected:
   /**
@@ -122,4 +123,4 @@ class RequestHandler {
   ResponseHandler* downstream_{nullptr};
 };
 
-}
+} // namespace proxygen

@@ -17,7 +17,8 @@ namespace proxygen {
  */
 class RequestHandlerFactory {
  public:
-  virtual ~RequestHandlerFactory() {}
+  virtual ~RequestHandlerFactory() {
+  }
 
   /**
    * Invoked in each thread server is going to handle requests
@@ -72,4 +73,4 @@ class RequestHandlerChain {
   std::vector<std::unique_ptr<RequestHandlerFactory>> chain_;
 };
 
-}
+} // namespace proxygen

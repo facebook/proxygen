@@ -99,8 +99,8 @@ void outputQLog(const HQParams& params) {
 }
 
 HQSessionController::HQSessionController(
-  const HQParams& params,
-  const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider)
+    const HQParams& params,
+    const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider)
     : params_(params),
       httpTransactionHandlerProvider_(httpTransactionHandlerProvider) {
 }
@@ -147,8 +147,8 @@ void HQSessionController::detachSession(const HTTPSessionBase* /*session*/) {
 }
 
 HQServerTransportFactory::HQServerTransportFactory(
-  const HQParams& params,
-  const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider)
+    const HQParams& params,
+    const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider)
     : params_(params),
       httpTransactionHandlerProvider_(httpTransactionHandlerProvider) {
 }
@@ -159,8 +159,8 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
     const folly::SocketAddress& /* peerAddr */,
     std::shared_ptr<const FizzServerContext> ctx) noexcept {
   // Session controller is self owning
-  auto hqSessionController = new HQSessionController(
-    params_, httpTransactionHandlerProvider_);
+  auto hqSessionController =
+      new HQSessionController(params_, httpTransactionHandlerProvider_);
   auto session = hqSessionController->createSession();
   CHECK_EQ(evb, socket->getEventBase());
   auto transport =
@@ -174,17 +174,16 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
 }
 
 HQServer::HQServer(
-  const HQParams& params,
-  HTTPTransactionHandlerProvider httpTransactionHandlerProvider)
-  : params_(params)
-  , server_(quic::QuicServer::createQuicServer()) {
+    const HQParams& params,
+    HTTPTransactionHandlerProvider httpTransactionHandlerProvider)
+    : params_(params), server_(quic::QuicServer::createQuicServer()) {
   server_->setCongestionControllerFactory(
       std::make_shared<ServerCongestionControllerFactory>());
   server_->setTransportSettings(params_.transportSettings);
   server_->setCcpConfig(params_.ccpConfig);
   server_->setQuicServerTransportFactory(
       std::make_unique<HQServerTransportFactory>(
-        params_, std::move(httpTransactionHandlerProvider)));
+          params_, std::move(httpTransactionHandlerProvider)));
   server_->setQuicUDPSocketFactory(
       std::make_unique<QuicSharedUDPSocketFactory>());
   server_->setHealthCheckToken("health");
@@ -225,11 +224,11 @@ void HQServer::rejectNewConnections(bool reject) {
 }
 
 H2Server::SampleHandlerFactory::SampleHandlerFactory(
-  const HQParams& params,
-  HTTPTransactionHandlerProvider httpTransactionHandlerProvider)
+    const HQParams& params,
+    HTTPTransactionHandlerProvider httpTransactionHandlerProvider)
     : params_(params),
       httpTransactionHandlerProvider_(
-        std::move(httpTransactionHandlerProvider)) {
+          std::move(httpTransactionHandlerProvider)) {
 }
 
 void H2Server::SampleHandlerFactory::onServerStart(
@@ -261,11 +260,11 @@ std::unique_ptr<proxygen::HTTPServerOptions> H2Server::createServerOptions(
       params.transportSettings.advertisedInitialBidiLocalStreamWindowSize;
   serverOptions->receiveSessionWindowSize =
       params.transportSettings.advertisedInitialConnectionWindowSize;
-  serverOptions->handlerFactories = proxygen::RequestHandlerChain()
-                                        .addThen<SampleHandlerFactory>(
-                                          params,
-                                          std::move(httpTransactionHandlerProvider))
-                                        .build();
+  serverOptions->handlerFactories =
+      proxygen::RequestHandlerChain()
+          .addThen<SampleHandlerFactory>(
+              params, std::move(httpTransactionHandlerProvider))
+          .build();
   return serverOptions;
 }
 
@@ -280,20 +279,17 @@ std::unique_ptr<H2Server::AcceptorConfig> H2Server::createServerAcceptorConfig(
 }
 
 std::thread H2Server::run(
-  const HQParams& params,
-  HTTPTransactionHandlerProvider httpTransactionHandlerProvider) {
+    const HQParams& params,
+    HTTPTransactionHandlerProvider httpTransactionHandlerProvider) {
 
   // Start HTTPServer mainloop in a separate thread
-  std::thread t(
-    [
-      params = folly::copy(params),
-      httpTransactionHandlerProvider =
-        std::move(httpTransactionHandlerProvider)]() mutable {
+  std::thread t([params = folly::copy(params),
+                 httpTransactionHandlerProvider =
+                     std::move(httpTransactionHandlerProvider)]() mutable {
     {
       auto acceptorConfig = createServerAcceptorConfig(params);
       auto serverOptions = createServerOptions(
-        params,
-        std::move(httpTransactionHandlerProvider));
+          params, std::move(httpTransactionHandlerProvider));
       proxygen::HTTPServer server(std::move(*serverOptions));
       server.bind(std::move(*acceptorConfig));
       server.start();

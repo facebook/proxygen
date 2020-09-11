@@ -54,21 +54,18 @@ void PartiallyReliableCurlClient::onBodyPeek(
       << "Got " << __func__ << " at offset " << offset;
 }
 
-void PartiallyReliableCurlClient::onBodySkipped(
-    uint64_t offset) noexcept {
+void PartiallyReliableCurlClient::onBodySkipped(uint64_t offset) noexcept {
   LOG_IF(INFO, loggingEnabled_)
       << "Got " << __func__ << " at offset " << offset;
 }
 
-void PartiallyReliableCurlClient::onBodyRejected(
-    uint64_t offset) noexcept {
+void PartiallyReliableCurlClient::onBodyRejected(uint64_t offset) noexcept {
   LOG_IF(INFO, loggingEnabled_)
       << "Got " << __func__ << " at offset " << offset;
 }
 
 void PartiallyReliableCurlClient::onBodyWithOffset(
-    uint64_t bodyOffset,
-    std::unique_ptr<folly::IOBuf> chain) noexcept {
+    uint64_t bodyOffset, std::unique_ptr<folly::IOBuf> chain) noexcept {
   // Cancel any pending timeouts.
   cancelTimeout();
 

@@ -8,14 +8,14 @@
 
 #include <folly/portability/GFlags.h>
 
+#include <folly/SocketAddress.h>
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/SSLContext.h>
-#include <folly/SocketAddress.h>
+#include <folly/io/async/SSLOptions.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
-#include <folly/io/async/SSLOptions.h>
 
 using namespace folly;
 using namespace proxygen;
@@ -23,41 +23,46 @@ using namespace proxygen;
 DEFINE_string(server, "localhost", "server to connect to");
 DEFINE_int32(port, 443, "port to connect to");
 DEFINE_bool(use_tls, true, "use TLS to connect");
-DEFINE_string(ca_path, "/etc/ssl/certs/ca-certificates.crt",
-    "Path to trusted CA file");  // default for Ubuntu 14.04
-DEFINE_int32(http_client_connect_timeout, 1000,
-    "connect timeout in milliseconds");
-DEFINE_int32(request_timeout, 1000,
-    "Request timeout in milliseconds");
+DEFINE_string(ca_path,
+              "/etc/ssl/certs/ca-certificates.crt",
+              "Path to trusted CA file"); // default for Ubuntu 14.04
+DEFINE_int32(http_client_connect_timeout,
+             1000,
+             "connect timeout in milliseconds");
+DEFINE_int32(request_timeout, 1000, "Request timeout in milliseconds");
 DEFINE_int32(recv_window, 65536, "Flow control receive window for h2/spdy");
-DEFINE_string(next_protos, "h2,h2-14,spdy/3.1,spdy/3,http/1.1",
-    "Next protocol string for NPN/ALPN");
+DEFINE_string(next_protos,
+              "h2,h2-14,spdy/3.1,spdy/3,http/1.1",
+              "Next protocol string for NPN/ALPN");
 DEFINE_string(plaintext_proto, "", "plaintext protocol");
 DEFINE_bool(excl, true, "make high-pri exclusive");
 
 namespace {
 
-class PriorityClient : public proxygen::HTTPConnector::Callback,
-                       public AsyncTimeout {
-public:
-  explicit PriorityClient(folly::EventBase* evb)
-    : AsyncTimeout(evb) {}
+class PriorityClient
+    : public proxygen::HTTPConnector::Callback
+    , public AsyncTimeout {
+ public:
+  explicit PriorityClient(folly::EventBase* evb) : AsyncTimeout(evb) {
+  }
 
  private:
   class InfiniteHandler : public proxygen::HTTPTransactionHandler {
    public:
     explicit InfiniteHandler(PriorityClient& priCli)
-      : priCli_(priCli),
-        start_(std::chrono::steady_clock::now()) {}
+        : priCli_(priCli), start_(std::chrono::steady_clock::now()) {
+    }
 
-    void setTransaction(HTTPTransaction*) noexcept override {}
+    void setTransaction(HTTPTransaction*) noexcept override {
+    }
 
-    void detachTransaction() noexcept override { delete this; }
+    void detachTransaction() noexcept override {
+      delete this;
+    }
 
-    void onHeadersComplete(std::unique_ptr<HTTPMessage> headers)
-      noexcept override {
-      LOG(INFO) << "Infinite headers; code="
-                << headers->getStatusCode();
+    void onHeadersComplete(
+        std::unique_ptr<HTTPMessage> headers) noexcept override {
+      LOG(INFO) << "Infinite headers; code=" << headers->getStatusCode();
     }
 
     void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
@@ -67,14 +72,15 @@ public:
       VLOG(1) << "Infinite body len=" << len << " total=" << total_;
     }
 
-    void onTrailers(std::unique_ptr<HTTPHeaders>)
-      noexcept override {}
+    void onTrailers(std::unique_ptr<HTTPHeaders>) noexcept override {
+    }
 
     void onEOM() noexcept override {
       auto finish = std::chrono::steady_clock::now();
       LOG(INFO) << "Infinite EOM, lat="
-                << std::chrono::duration_cast<std::chrono::milliseconds>
-        (finish - start_).count();
+                << std::chrono::duration_cast<std::chrono::milliseconds>(
+                       finish - start_)
+                       .count();
       priCli_.sendLong();
     }
 
@@ -83,9 +89,12 @@ public:
       exit(1);
     }
 
-    void onUpgrade(UpgradeProtocol) noexcept override {}
-    void onEgressPaused() noexcept override {}
-    void onEgressResumed() noexcept override {}
+    void onUpgrade(UpgradeProtocol) noexcept override {
+    }
+    void onEgressPaused() noexcept override {
+    }
+    void onEgressResumed() noexcept override {
+    }
 
     PriorityClient& priCli_;
     uint64_t total_{0};
@@ -100,33 +109,39 @@ public:
 
    public:
     SegmentHandler(uint32_t segNo, PriorityClient& priCli)
-      : segNo_(segNo),
-        priCli_(priCli),
-        start_(std::chrono::steady_clock::now()) {}
+        : segNo_(segNo),
+          priCli_(priCli),
+          start_(std::chrono::steady_clock::now()) {
+    }
 
-    void setTransaction(HTTPTransaction*) noexcept override {}
+    void setTransaction(HTTPTransaction*) noexcept override {
+    }
 
-    void detachTransaction() noexcept override { delete this; }
+    void detachTransaction() noexcept override {
+      delete this;
+    }
 
-    void onHeadersComplete(std::unique_ptr<HTTPMessage> headers)
-      noexcept override {
-      LOG(INFO) << "Segment=" << segNo_ << " headers; code="
-                << headers->getStatusCode();
+    void onHeadersComplete(
+        std::unique_ptr<HTTPMessage> headers) noexcept override {
+      LOG(INFO) << "Segment=" << segNo_
+                << " headers; code=" << headers->getStatusCode();
       priCli_.highPriHeaders();
     }
 
     void onBody(std::unique_ptr<folly::IOBuf> body) noexcept override {
-      VLOG(1) << "Segment=" << segNo_ << " body len="
-              << body->computeChainDataLength();
+      VLOG(1) << "Segment=" << segNo_
+              << " body len=" << body->computeChainDataLength();
     }
 
-    void onTrailers(std::unique_ptr<HTTPHeaders>) noexcept override {}
+    void onTrailers(std::unique_ptr<HTTPHeaders>) noexcept override {
+    }
 
     void onEOM() noexcept override {
       auto finish = std::chrono::steady_clock::now();
       LOG(INFO) << "Segment=" << segNo_ << " EOM, lat="
-                << std::chrono::duration_cast<std::chrono::milliseconds>
-        (finish - start_).count();
+                << std::chrono::duration_cast<std::chrono::milliseconds>(
+                       finish - start_)
+                       .count();
       priCli_.highPriComplete();
       priCli_.scheduleTimeout(2000);
     }
@@ -136,36 +151,38 @@ public:
       priCli_.scheduleTimeout(2000);
     }
 
-    void onUpgrade(UpgradeProtocol) noexcept override {}
-    void onEgressPaused() noexcept override {}
-    void onEgressResumed() noexcept override {}
+    void onUpgrade(UpgradeProtocol) noexcept override {
+    }
+    void onEgressPaused() noexcept override {
+    }
+    void onEgressResumed() noexcept override {
+    }
   };
 
   // HTTPConnector methods
   void connectSuccess(proxygen::HTTPUpstreamSession* session) override {
     session_ = session;
-    session_->setFlowControl(FLAGS_recv_window, FLAGS_recv_window,
-                             FLAGS_recv_window * 10);
+    session_->setFlowControl(
+        FLAGS_recv_window, FLAGS_recv_window, FLAGS_recv_window * 10);
     lowPriID_ = session_->sendPriority({0, true, 255});
     sendLong();
     timeoutExpired();
   }
 
   void sendLong() {
-    sendRequest("/1000000000",
-                {lowPriID_, false, 0}, new InfiniteHandler(*this)
-                );
+    sendRequest(
+        "/1000000000", {lowPriID_, false, 0}, new InfiniteHandler(*this));
   }
 
   void connectError(const folly::AsyncSocketException& ex) override {
-    LOG(ERROR) << "Coudln't connect to "
-               << FLAGS_server << ":" << FLAGS_port << ":" << ex.what();
+    LOG(ERROR) << "Coudln't connect to " << FLAGS_server << ":" << FLAGS_port
+               << ":" << ex.what();
   }
 
   void timeoutExpired() noexcept override {
     LOG(INFO) << "Requesting Segment=" << segNo_;
-    sendRequest("/128000", {0, FLAGS_excl, 255},
-                new SegmentHandler(segNo_++, *this));
+    sendRequest(
+        "/128000", {0, FLAGS_excl, 255}, new SegmentHandler(segNo_++, *this));
     lowPriSinceHighPri_ = 0;
   }
 
@@ -182,7 +199,8 @@ public:
     LOG(INFO) << "lowPriSinceHighPri_ before eom=" << lowPriSinceHighPri_;
   }
 
-  HTTPCodec::StreamID sendRequest(std::string url, http2::PriorityUpdate pri,
+  HTTPCodec::StreamID sendRequest(std::string url,
+                                  http2::PriorityUpdate pri,
                                   HTTPTransactionHandler* handler) {
     HTTPMessage req;
     req.setMethod(HTTPMethod::GET);
@@ -203,8 +221,7 @@ public:
 };
 
 std::shared_ptr<folly::SSLContext> initializeSsl(
-  const std::string& caPath,
-  const std::string& nextProtos) {
+    const std::string& caPath, const std::string& nextProtos) {
   auto sslContext = std::make_shared<folly::SSLContext>();
   sslContext->setOptions(SSL_OP_NO_COMPRESSION);
   sslContext->setCipherList(folly::ssl::SSLCommonOptions::ciphers());
@@ -212,14 +229,13 @@ std::shared_ptr<folly::SSLContext> initializeSsl(
     sslContext->loadTrustedCertificates(caPath.c_str());
   }
   std::list<std::string> nextProtoList;
-  folly::splitTo<std::string>(',', nextProtos, std::inserter(
-    nextProtoList,
-    nextProtoList.begin()));
+  folly::splitTo<std::string>(
+      ',', nextProtos, std::inserter(nextProtoList, nextProtoList.begin()));
   sslContext->setAdvertisedNextProtocols(nextProtoList);
   return sslContext;
 }
 
-}
+} // namespace
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -232,9 +248,10 @@ int main(int argc, char* argv[]) {
   SocketAddress addr(FLAGS_server, FLAGS_port, true);
   LOG(INFO) << "Trying to connect to " << addr;
 
-  HTTPConnector connector(&pricli,
-    WheelTimerInstance(std::chrono::milliseconds(FLAGS_request_timeout),
-                       &evb));
+  HTTPConnector connector(
+      &pricli,
+      WheelTimerInstance(std::chrono::milliseconds(FLAGS_request_timeout),
+                         &evb));
   if (!FLAGS_plaintext_proto.empty()) {
     connector.setPlaintextProtocol(FLAGS_plaintext_proto);
   }
@@ -252,8 +269,11 @@ int main(int argc, char* argv[]) {
         folly::AsyncSocket::anyAddress(),
         FLAGS_server);
   } else {
-    connector.connect(&evb, addr,
-        std::chrono::milliseconds(FLAGS_http_client_connect_timeout), opts);
+    connector.connect(
+        &evb,
+        addr,
+        std::chrono::milliseconds(FLAGS_http_client_connect_timeout),
+        opts);
   }
 
   evb.loop();

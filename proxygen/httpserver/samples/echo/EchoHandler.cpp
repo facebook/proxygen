@@ -17,7 +17,7 @@ using namespace proxygen;
 
 namespace EchoService {
 
-EchoHandler::EchoHandler(EchoStats* stats): stats_(stats) {
+EchoHandler::EchoHandler(EchoStats* stats) : stats_(stats) {
 }
 
 void EchoHandler::onRequest(std::unique_ptr<HTTPMessage> /*headers*/) noexcept {
@@ -34,11 +34,11 @@ void EchoHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
 
 void EchoHandler::onEOM() noexcept {
   ResponseBuilder(downstream_)
-    .status(200, "OK")
-    .header("Request-Number",
-            folly::to<std::string>(stats_->getRequestCount()))
-    .body(std::move(body_))
-    .sendWithEOM();
+      .status(200, "OK")
+      .header("Request-Number",
+              folly::to<std::string>(stats_->getRequestCount()))
+      .body(std::move(body_))
+      .sendWithEOM();
 }
 
 void EchoHandler::onUpgrade(UpgradeProtocol /*protocol*/) noexcept {
@@ -49,5 +49,7 @@ void EchoHandler::requestComplete() noexcept {
   delete this;
 }
 
-void EchoHandler::onError(ProxygenError /*err*/) noexcept { delete this; }
+void EchoHandler::onError(ProxygenError /*err*/) noexcept {
+  delete this;
 }
+} // namespace EchoService
