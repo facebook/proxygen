@@ -47,9 +47,8 @@ bool isInternalPushId(PushId pushId);
 bool isExternalPushId(PushId pushId);
 
 // Validate the given push ID.
-bool isValidPushId(
-    folly::Optional<PushId> /* max valid push id value */,
-    PushId /* push id to validate */);
+bool isValidPushId(folly::Optional<PushId> /* max valid push id value */,
+                   PushId /* push id to validate */);
 
 // Compare push IDs after stripping the kPushBitMask
 bool comparePushId(PushId /* lhs */, PushId /* rhs */);

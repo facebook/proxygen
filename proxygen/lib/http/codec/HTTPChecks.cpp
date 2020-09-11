@@ -15,11 +15,12 @@ namespace proxygen {
 void HTTPChecks::onHeadersComplete(StreamID stream,
                                    std::unique_ptr<HTTPMessage> msg) {
 
-  if (msg->isRequest() && (RFC2616::isRequestBodyAllowed(msg->getMethod())
-                           == RFC2616::BodyAllowed::NOT_ALLOWED) &&
+  if (msg->isRequest() &&
+      (RFC2616::isRequestBodyAllowed(msg->getMethod()) ==
+       RFC2616::BodyAllowed::NOT_ALLOWED) &&
       RFC2616::bodyImplied(msg->getHeaders())) {
-    HTTPException ex(
-      HTTPException::Direction::INGRESS, "RFC2616: Request Body Not Allowed");
+    HTTPException ex(HTTPException::Direction::INGRESS,
+                     "RFC2616: Request Body Not Allowed");
     ex.setProxygenError(kErrorParseHeader);
     // setting the status code means that the error is at the HTTP layer and
     // that parsing succeeded.
@@ -46,4 +47,4 @@ void HTTPChecks::generateHeader(folly::IOBufQueue& writeBuf,
   call_->generateHeader(writeBuf, stream, msg, eom, sizeOut);
 }
 
-}
+} // namespace proxygen

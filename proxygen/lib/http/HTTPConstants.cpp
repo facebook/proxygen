@@ -12,8 +12,7 @@ namespace proxygen {
 
 #define CONNECTION_CLOSE_REASON_STRING(e, r) r,
 const char* connectionCloseStrings[] = {
-  CONNECTION_CLOSE_REASON_GEN(CONNECTION_CLOSE_REASON_STRING)
-};
+    CONNECTION_CLOSE_REASON_GEN(CONNECTION_CLOSE_REASON_STRING)};
 #undef CONNECTION_CLOSE_REASON_STRING
 
 const char* getConnectionCloseReasonStringByIndex(unsigned int index) {
@@ -28,4 +27,4 @@ const char* getConnectionCloseReasonString(ConnectionCloseReason r) {
   return connectionCloseStrings[(unsigned int)r];
 }
 
-}
+} // namespace proxygen

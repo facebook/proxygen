@@ -10,7 +10,6 @@
 
 #include <glog/logging.h>
 
-
 namespace {
 // For tables 0..384     minFree = 48
 // For tables 385..4096  minFree = tableSize/8
@@ -28,7 +27,7 @@ uint32_t getMinFree(uint32_t tableSize) {
                   kMaxMinFree);
 }
 
-}
+} // namespace
 
 namespace proxygen {
 
@@ -45,7 +44,7 @@ QPACKHeaderTable::QPACKHeaderTable(uint32_t capacityVal, bool trackReferences)
 bool QPACKHeaderTable::add(HPACKHeader header) {
   if (insertCount_ == std::numeric_limits<uint32_t>::max()) {
     LOG(ERROR) << "Cowardly refusing to add more entries since insertCount_ "
-      " would wrap";
+                  " would wrap";
     return false;
   }
 
@@ -62,9 +61,9 @@ bool QPACKHeaderTable::add(HPACKHeader header) {
   while (capacity_ - bytes_ + drainedBytes_ < minFree_ &&
          minUsable_ <= insertCount_) {
     auto bytes = table_[absoluteToInternal(minUsable_)].bytes();
-    VLOG(5) << "Draining absolute index " << minUsable_ << " bytes="
-            << bytes << " drainedBytes_= " << (drainedBytes_ + bytes);
-    drainedBytes_  += bytes;
+    VLOG(5) << "Draining absolute index " << minUsable_ << " bytes=" << bytes
+            << " drainedBytes_= " << (drainedBytes_ + bytes);
+    drainedBytes_ += bytes;
     minUsable_++;
   }
   return true;
@@ -142,12 +141,12 @@ uint32_t QPACKHeaderTable::removeLast() {
   // Only non-zero when minUsable_ > insertCount_ - size_.
   if (drainedBytes_ > 0) {
     VLOG(5) << "Removing draining entry=" << idx << " size=" << removedBytes
-            << " drainedBytes_=" << drainedBytes_ << " new drainedBytes_="
-            << (int32_t(drainedBytes_) - removedBytes);
+            << " drainedBytes_=" << drainedBytes_
+            << " new drainedBytes_=" << (int32_t(drainedBytes_) - removedBytes);
     CHECK_GE(drainedBytes_, removedBytes);
     drainedBytes_ -= removedBytes;
   } else {
-      // Keep minUsable_ as a valid index when evicting an undrained header
+    // Keep minUsable_ as a valid index when evicting an undrained header
     if (size() > 0) {
       minUsable_ = internalToAbsolute(tail());
     } else {
@@ -172,8 +171,9 @@ void QPACKHeaderTable::resizeTable(uint32_t newLength) {
   }
 }
 
-void QPACKHeaderTable::updateResizedTable(
-    uint32_t oldTail, uint32_t oldLength, uint32_t newLength) {
+void QPACKHeaderTable::updateResizedTable(uint32_t oldTail,
+                                          uint32_t oldLength,
+                                          uint32_t newLength) {
   HeaderTable::updateResizedTable(oldTail, oldLength, newLength);
   if (refCount_) {
     std::move_backward(refCount_->begin() + oldTail,
@@ -228,8 +228,7 @@ bool QPACKHeaderTable::isValid(uint32_t index, uint32_t base) const {
 // the duplicate.  If duplication is unsuccessful, or vulnerable references are
 // not allowed, return 0.
 std::pair<bool, uint32_t> QPACKHeaderTable::maybeDuplicate(
-      uint32_t relativeIndex,
-      bool allowVulnerable) {
+    uint32_t relativeIndex, bool allowVulnerable) {
   if (relativeIndex == UNACKED) {
     return {false, 0};
   }
@@ -269,19 +268,17 @@ void QPACKHeaderTable::subRef(uint32_t absIndex) {
 
 // Converts an array index in [0..table_.size() - 1] to an absolute
 // external index
-uint32_t QPACKHeaderTable::internalToAbsolute(
-  uint32_t internalIndex) const {
+uint32_t QPACKHeaderTable::internalToAbsolute(uint32_t internalIndex) const {
   return relativeToAbsolute(toExternal(internalIndex));
 }
 
 // Converts an absolute index to an array index in [0..table_.size() - 1]
-uint32_t QPACKHeaderTable::absoluteToInternal(
-  uint32_t absoluteIndex) const {
+uint32_t QPACKHeaderTable::absoluteToInternal(uint32_t absoluteIndex) const {
   return toInternal(absoluteToRelative(absoluteIndex), 0);
 }
 
-uint32_t QPACKHeaderTable::toInternal(
-    uint32_t externalIndex, uint32_t base) const {
+uint32_t QPACKHeaderTable::toInternal(uint32_t externalIndex,
+                                      uint32_t base) const {
   if (base > 0) {
     uint32_t absIndex = base - externalIndex + 1;
     externalIndex = absoluteToRelative(absIndex);
@@ -289,4 +286,4 @@ uint32_t QPACKHeaderTable::toInternal(
   return HeaderTable::toInternal(externalIndex);
 }
 
-}
+} // namespace proxygen

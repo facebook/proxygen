@@ -145,9 +145,8 @@ size_t SPDYStatsFilter::generateGoaway(
   return written;
 }
 
-size_t SPDYStatsFilter::generatePingRequest(
-    folly::IOBufQueue& writeBuf,
-    folly::Optional<uint64_t> data) {
+size_t SPDYStatsFilter::generatePingRequest(folly::IOBufQueue& writeBuf,
+                                            folly::Optional<uint64_t> data) {
   counters_->recordEgressPingRequest();
   return call_->generatePingRequest(writeBuf, data);
 }

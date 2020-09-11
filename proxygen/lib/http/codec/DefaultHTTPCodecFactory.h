@@ -26,8 +26,9 @@ class DefaultHTTPCodecFactory : public HTTPCodecFactory {
   void setForceHTTP1xCodecTo1_1(bool forceHTTP1xCodecTo1_1) {
     forceHTTP1xCodecTo1_1_ = forceHTTP1xCodecTo1_1;
   }
+
  protected:
   bool forceHTTP1xCodecTo1_1_{false};
 };
 
-} // proxygen
+} // namespace proxygen

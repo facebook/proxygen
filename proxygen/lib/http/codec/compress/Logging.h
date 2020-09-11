@@ -17,12 +17,12 @@ namespace proxygen {
 
 std::ostream& operator<<(std::ostream& os, const std::list<uint32_t>* refset);
 
-std::ostream& operator<<(std::ostream& os, const std::vector<HPACKHeader> &v);
+std::ostream& operator<<(std::ostream& os, const std::vector<HPACKHeader>& v);
 
 /**
  * print the difference between 2 sorted list of headers
  */
-std::string printDelta(const std::vector<HPACKHeader> &v1,
-                       const std::vector<HPACKHeader> &v2);
+std::string printDelta(const std::vector<HPACKHeader>& v1,
+                       const std::vector<HPACKHeader>& v2);
 
-}
+} // namespace proxygen

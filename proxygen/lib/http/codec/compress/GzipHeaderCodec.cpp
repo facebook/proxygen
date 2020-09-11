@@ -39,17 +39,18 @@ const size_t kMaxExpandedHeaderLineBytes = 80 * 1024;
 struct ZlibConfig {
 
   ZlibConfig(SPDYVersion inVersion, int inCompressionLevel)
-      : version(inVersion), compressionLevel(inCompressionLevel) {}
+      : version(inVersion), compressionLevel(inCompressionLevel) {
+  }
 
   bool operator==(const ZlibConfig& lhs) const {
     return (version == lhs.version) &&
-      (compressionLevel == lhs.compressionLevel);
+           (compressionLevel == lhs.compressionLevel);
   }
 
   bool operator<(const ZlibConfig& lhs) const {
     return (version < lhs.version) ||
-        ((version == lhs.version) &&
-         (compressionLevel < lhs.compressionLevel));
+           ((version == lhs.version) &&
+            (compressionLevel < lhs.compressionLevel));
   }
   SPDYVersion version;
   int compressionLevel;
@@ -109,18 +110,19 @@ static const ZlibContext* getZlibContext(SPDYVersionSettings versionSettings,
     newContext->deflater.opaque = Z_NULL;
     newContext->deflater.avail_in = 0;
     newContext->deflater.next_in = Z_NULL;
-    int windowBits  = (compressionLevel == Z_NO_COMPRESSION) ? 8 : 11;
-    int r = deflateInit2(
-        &(newContext->deflater),
-        compressionLevel,
-        Z_DEFLATED, // compression method
-        windowBits, // log2 of the compression window size, negative value
-                    // means raw deflate output format w/o libz header
-        1,          // memory size for internal compression state, 1-9
-        Z_DEFAULT_STRATEGY);
+    int windowBits = (compressionLevel == Z_NO_COMPRESSION) ? 8 : 11;
+    int r = deflateInit2(&(newContext->deflater),
+                         compressionLevel,
+                         Z_DEFLATED, // compression method
+                         windowBits, // log2 of the compression window size,
+                                     // negative value means raw deflate output
+                                     // format w/o libz header
+                         1, // memory size for internal compression state, 1-9
+                         Z_DEFAULT_STRATEGY);
     CHECK_EQ(r, Z_OK);
     if (compressionLevel != Z_NO_COMPRESSION) {
-      r = deflateSetDictionary(&(newContext->deflater), versionSettings.dict,
+      r = deflateSetDictionary(&(newContext->deflater),
+                               versionSettings.dict,
                                versionSettings.dictSize);
       CHECK_EQ(r, Z_OK);
     }
@@ -159,11 +161,10 @@ GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
   inflateCopy(&inflater_, const_cast<z_stream*>(&(context->inflater)));
 }
 
-GzipHeaderCodec::GzipHeaderCodec(int compressionLevel,
-                                 SPDYVersion version)
-    : GzipHeaderCodec(
-        compressionLevel,
-        SPDYCodec::getVersionSettings(version)) {}
+GzipHeaderCodec::GzipHeaderCodec(int compressionLevel, SPDYVersion version)
+    : GzipHeaderCodec(compressionLevel,
+                      SPDYCodec::getVersionSettings(version)) {
+}
 
 GzipHeaderCodec::~GzipHeaderCodec() {
   deflateEnd(&deflater_);
@@ -221,9 +222,9 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
       versionSettings_.appendSizeFun(dst, header.name->length());
 
       // lowercasing the header name inline
-      char* nameBegin = (char *)dst;
+      char* nameBegin = (char*)dst;
       appendString(dst, *header.name);
-      folly::toLowerAscii((char *)nameBegin, header.name->size());
+      folly::toLowerAscii((char*)nameBegin, header.name->size());
 
       lastValueLenPtr = dst;
       lastValueLen = header.value->length();
@@ -235,7 +236,7 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
       // More complicated case: we do need to combine values.
       if (lastValueLen > 0) {
         // Only nul terminate if previous value was non-empty
-        *dst++ = 0;  // SPDY uses a null byte as a separator
+        *dst++ = 0; // SPDY uses a null byte as a separator
         lastValueLen++;
       }
       appendString(dst, *header.value);
@@ -283,8 +284,8 @@ unique_ptr<IOBuf> GzipHeaderCodec::encode(vector<Header>& headers) noexcept {
   return out;
 }
 
-folly::Expected<HeaderDecodeResult, GzipDecodeError>
-GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
+folly::Expected<HeaderDecodeResult, GzipDecodeError> GzipHeaderCodec::decode(
+    Cursor& cursor, uint32_t length) noexcept {
   outHeaders_.clear();
 
   // empty header block
@@ -300,7 +301,7 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
     auto next = cursor.peek();
     uint32_t chunkLen = std::min((uint32_t)next.second, length);
     inflater_.avail_in = chunkLen;
-    inflater_.next_in = (uint8_t *)next.first;
+    inflater_.next_in = (uint8_t*)next.first;
     do {
       if (uncompressed.tailroom() == 0) {
         // This code should not execute, since we throw an error if the
@@ -316,8 +317,8 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
       if (r == Z_NEED_DICT) {
         // we cannot initialize the inflater dictionary before calling inflate()
         // as it checks the adler-32 checksum of the supplied dictionary
-        r = inflateSetDictionary(&inflater_, versionSettings_.dict,
-                                 versionSettings_.dictSize);
+        r = inflateSetDictionary(
+            &inflater_, versionSettings_.dict, versionSettings_.dictSize);
         if (r != Z_OK) {
           LOG(ERROR) << "inflate set dictionary failed with error=" << r;
           return folly::makeUnexpected(GzipDecodeError::INFLATE_DICTIONARY);
@@ -362,9 +363,8 @@ GzipHeaderCodec::decode(Cursor& cursor, uint32_t length) noexcept {
   return HeaderDecodeResult{outHeaders_, consumed};
 }
 
-folly::Expected<size_t, GzipDecodeError>
-GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
-                                 uint32_t uncompressedLength) noexcept {
+folly::Expected<size_t, GzipDecodeError> GzipHeaderCodec::parseNameValues(
+    const folly::IOBuf& uncompressed, uint32_t uncompressedLength) noexcept {
 
   size_t expandedHeaderLineBytes = 0;
   Cursor headerCursor(&uncompressed);
@@ -393,16 +393,15 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
     auto next = headerCursor.peek();
     try {
       if (len > uncompressedLength) {
-        throw std::out_of_range(
-          folly::to<string>("bad length=", len, " uncompressedLength=",
-                            uncompressedLength));
+        throw std::out_of_range(folly::to<string>(
+            "bad length=", len, " uncompressedLength=", uncompressedLength));
       } else if (next.second >= len) {
         // string is contiguous, just put a pointer into the headers structure
-        outHeaders_.emplace_back((char *)next.first, len, false, false);
+        outHeaders_.emplace_back((char*)next.first, len, false, false);
         headerCursor.skip(len);
       } else {
         // string is not contiguous, allocate a buffer and pull into it
-        unique_ptr<char[]> data (new char[len]);
+        unique_ptr<char[]> data(new char[len]);
         headerCursor.pull(data.get(), len);
         outHeaders_.emplace_back(data.release(), len, true, false);
       }
@@ -415,7 +414,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
     }
     if (i % 2 == 0) {
       headerName = &outHeaders_.back();
-      for (const char c: headerName->str) {
+      for (const char c : headerName->str) {
         if (c < 0x20 || c > 0x7e || ('A' <= c && c <= 'Z')) {
           LOG(ERROR) << "invalid header value";
           return folly::makeUnexpected(GzipDecodeError::INVALID_HEADER_VALUE);
@@ -427,7 +426,7 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
       const char* valueStart = headerValue.str.data();
       const char* pos = valueStart;
       const char* stop = valueStart + headerValue.str.size();
-      while(pos < stop) {
+      while (pos < stop) {
         if (*pos == '\0') {
           if (pos - valueStart == 0) {
             LOG(ERROR) << "empty header value for header=" << headerName;
@@ -437,12 +436,11 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
             headerValue.str.reset(valueStart, pos - valueStart);
             first = false;
           } else {
-            outHeaders_.emplace_back(headerName->str.data(),
-                                     headerName->str.size(),
-                                     false, true);
+            outHeaders_.emplace_back(
+                headerName->str.data(), headerName->str.size(), false, true);
             outHeaders_.emplace_back(valueStart, pos - valueStart, false, true);
-            expandedHeaderLineBytes += ((pos - valueStart) +
-                                        headerName->str.size());
+            expandedHeaderLineBytes +=
+                ((pos - valueStart) + headerName->str.size());
           }
           valueStart = pos + 1;
         }
@@ -454,9 +452,8 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
           LOG(ERROR) << "empty header value for header=" << headerName;
           return folly::makeUnexpected(GzipDecodeError::EMPTY_HEADER_VALUE);
         }
-        outHeaders_.emplace_back(headerName->str.data(),
-                                 headerName->str.size(),
-                                 false, true);
+        outHeaders_.emplace_back(
+            headerName->str.data(), headerName->str.size(), false, true);
         outHeaders_.emplace_back(valueStart, pos - valueStart, false, true);
         expandedHeaderLineBytes += (pos - valueStart) + headerName->str.size();
       }
@@ -466,4 +463,4 @@ GzipHeaderCodec::parseNameValues(const folly::IOBuf& uncompressed,
   return expandedHeaderLineBytes;
 }
 
-}
+} // namespace proxygen

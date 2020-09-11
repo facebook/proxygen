@@ -32,4 +32,4 @@ std::string getDateTimeStr(const ASN1_TIME* const time) {
 
   return ((readResult <= 0) ? "" : std::string(buf));
 }
-}
+} // namespace proxygen

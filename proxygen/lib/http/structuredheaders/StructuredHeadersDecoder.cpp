@@ -12,18 +12,18 @@ namespace proxygen {
 
 using namespace StructuredHeaders;
 
-DecodeError StructuredHeadersDecoder::decodeItem(
-  StructuredHeaderItem& result) {
-    auto err = buf_.parseItem(result);
-    if (err != DecodeError::OK) {
-      return err;
-    }
-    return buf_.isEmpty() ?
-      DecodeError::OK : buf_.handleDecodeError(DecodeError::INVALID_CHARACTER);
+DecodeError StructuredHeadersDecoder::decodeItem(StructuredHeaderItem& result) {
+  auto err = buf_.parseItem(result);
+  if (err != DecodeError::OK) {
+    return err;
+  }
+  return buf_.isEmpty()
+             ? DecodeError::OK
+             : buf_.handleDecodeError(DecodeError::INVALID_CHARACTER);
 }
 
 DecodeError StructuredHeadersDecoder::decodeList(
-   std::vector<StructuredHeaderItem>& result) {
+    std::vector<StructuredHeaderItem>& result) {
 
   while (!buf_.isEmpty()) {
 
@@ -61,7 +61,7 @@ DecodeError StructuredHeadersDecoder::decodeDictionary(Dictionary& result) {
 }
 
 DecodeError StructuredHeadersDecoder::decodeParameterisedList(
-  ParameterisedList& result) {
+    ParameterisedList& result) {
 
   while (!buf_.isEmpty()) {
 
@@ -93,15 +93,14 @@ DecodeError StructuredHeadersDecoder::decodeParameterisedList(
     }
 
     buf_.removeOptionalWhitespace();
-
   }
 
   return buf_.handleDecodeError(DecodeError::UNEXPECTED_END_OF_BUFFER);
 }
 
 DecodeError StructuredHeadersDecoder::decodeMap(
-  std::unordered_map<std::string, StructuredHeaderItem>& result,
-  MapType mapType) {
+    std::unordered_map<std::string, StructuredHeaderItem>& result,
+    MapType mapType) {
 
   std::string delimiter = (mapType == MapType::PARAMETERISED_MAP) ? ";" : ",";
 
@@ -162,7 +161,6 @@ DecodeError StructuredHeadersDecoder::decodeMap(
   }
 
   return buf_.handleDecodeError(DecodeError::UNEXPECTED_END_OF_BUFFER);
-
 }
 
-}
+} // namespace proxygen

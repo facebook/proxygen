@@ -8,8 +8,8 @@
 
 #include "proxygen/lib/utils/ZlibStreamCompressor.h"
 
-#include <folly/lang/Bits.h>
 #include <folly/io/Cursor.h>
+#include <folly/lang/Bits.h>
 
 using folly::IOBuf;
 
@@ -43,7 +43,7 @@ int deflateHelper(z_stream* stream, IOBuf* out, int flush) {
 
   return deflate(stream, flush);
 }
-}
+} // namespace
 
 void ZlibStreamCompressor::init() {
   if (init_) {
@@ -157,4 +157,4 @@ std::unique_ptr<IOBuf> ZlibStreamCompressor::compress(const IOBuf* in,
 
   return out;
 }
-}
+} // namespace proxygen

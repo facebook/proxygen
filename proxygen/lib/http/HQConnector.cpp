@@ -11,8 +11,8 @@
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <proxygen/lib/http/session/HQSession.h>
 #include <quic/api/QuicSocket.h>
-#include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <quic/congestion_control/CongestionControllerFactory.h>
+#include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
 
 using namespace folly;
 using namespace std;
@@ -57,7 +57,8 @@ void HQConnector::connect(
     std::shared_ptr<quic::Logger> logger,
     std::shared_ptr<quic::QLogger> qLogger,
     std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback,
-    std::shared_ptr<quic::QuicTransportStatsCallback> quicTransportStatsCallback) {
+    std::shared_ptr<quic::QuicTransportStatsCallback>
+        quicTransportStatsCallback) {
 
   DCHECK(!isBusy());
   auto sock = std::make_unique<folly::AsyncUDPSocket>(eventBase);

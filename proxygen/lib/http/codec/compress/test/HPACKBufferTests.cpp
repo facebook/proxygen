@@ -29,8 +29,7 @@ class HPACKBufferTests : public testing::Test {
    * most of the tests need a tiny slice of data, so we're setting up
    * a queue with one IOBuf of 512 bytes in it
    */
-  HPACKBufferTests() : encoder_(512),
-                       decoder_(cursor_, 0, kMaxLiteralSize) {
+  HPACKBufferTests() : encoder_(512), decoder_(cursor_, 0, kMaxLiteralSize) {
   }
 
  protected:
@@ -70,18 +69,18 @@ TEST_F(HPACKBufferTests, EncodeInteger) {
   EXPECT_EQ(encoder_.encodeInteger(255, 0, 8), 2);
   releaseData();
   EXPECT_EQ(buf_->length(), 5);
-  EXPECT_EQ(data_[0], 199);  // 11000111
-  EXPECT_EQ(data_[1], 199);  // 11000111
+  EXPECT_EQ(data_[0], 199); // 11000111
+  EXPECT_EQ(data_[1], 199); // 11000111
   EXPECT_EQ(data_[2], 0);
-  EXPECT_EQ(data_[3], 255);  // 11111111
+  EXPECT_EQ(data_[3], 255); // 11111111
   EXPECT_EQ(data_[4], 0);
 
   // multiple byte span
   EXPECT_EQ(encoder_.encodeInteger(7, 192, 2), 2);
   releaseData();
   EXPECT_EQ(buf_->length(), 2);
-  EXPECT_EQ(data_[0], 195);  // 11000011
-  EXPECT_EQ(data_[1], 4);    // 00000100
+  EXPECT_EQ(data_[0], 195); // 11000011
+  EXPECT_EQ(data_[1], 4);   // 00000100
 
   // the one from the spec - 1337
   EXPECT_EQ(encoder_.encodeInteger(1337, 0, 5), 3);
@@ -154,7 +153,7 @@ TEST_F(HPACKBufferTests, DecodeSingleByte) {
   CHECK_EQ(integer, 3);
 
   // set a bit in the prefix - it should not affect the decoded value
-  *wdata = 195;  // 195 = 128 + 67
+  *wdata = 195; // 195 = 128 + 67
   resetDecoder();
   CHECK_EQ(decoder_.decodeInteger(7, integer), DecodeError::NONE);
   CHECK_EQ(integer, 67);
@@ -340,7 +339,6 @@ TEST_F(HPACKBufferTests, DecodePlainLiteral) {
   CHECK_EQ(literal, gzip);
 }
 
-
 TEST_F(HPACKBufferTests, DecodePlainLiteralN) {
   buf_ = IOBuf::create(512);
   std::string gzip("gzip");
@@ -385,7 +383,7 @@ TEST_F(HPACKBufferTests, IntegerEncodeDecode) {
 TEST_F(HPACKBufferTests, IntegerOverflow) {
   uint64_t integer;
   buf_ = IOBuf::create(128);
-  uint8_t *wdata = buf_->writableData();
+  uint8_t* wdata = buf_->writableData();
 
   // enough headroom for both cases
   buf_->append(12);

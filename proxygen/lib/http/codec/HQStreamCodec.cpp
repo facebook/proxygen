@@ -463,8 +463,6 @@ void HQStreamCodec::generateHeader(folly::IOBufQueue& writeBuf,
   egressPartiallyReliable_ =
       egressPartiallyReliable_ || msg.isPartiallyReliable();
 
-
-
   generateHeaderImpl(writeBuf, msg, folly::none, size);
 
   // For requests, set final header seen flag right away.
@@ -508,9 +506,8 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
                                        const HTTPMessage& msg,
                                        folly::Optional<StreamID> pushId,
                                        HTTPHeaderSize* size) {
-  auto result =
-    headerCodec_.encodeHTTP(qpackEncoderWriteBuf_,
-                            msg, true, streamId_, maxEncoderStreamData());
+  auto result = headerCodec_.encodeHTTP(
+      qpackEncoderWriteBuf_, msg, true, streamId_, maxEncoderStreamData());
   if (size) {
     *size = headerCodec_.getEncodedSize();
   }
@@ -552,7 +549,7 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
 }
 
 size_t HQStreamCodec::generateBodyImpl(folly::IOBufQueue& writeBuf,
-                                   std::unique_ptr<folly::IOBuf> chain) {
+                                       std::unique_ptr<folly::IOBuf> chain) {
   auto result = hq::writeData(writeBuf, std::move(chain));
   if (result) {
     return *result;

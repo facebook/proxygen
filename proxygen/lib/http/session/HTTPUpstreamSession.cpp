@@ -92,8 +92,7 @@ HTTPUpstreamSession::newTransactionWithError(
     return folly::makeUnexpected<NewTransactionError>(
         "Number of HTTP outgoing transactions reaches limit in the session");
   } else if (draining_) {
-    return folly::makeUnexpected<NewTransactionError>(
-        "Connection is draining");
+    return folly::makeUnexpected<NewTransactionError>("Connection is draining");
   }
 
   if (!started_) {
@@ -101,21 +100,23 @@ HTTPUpstreamSession::newTransactionWithError(
   }
 
   ProxygenError error;
-  auto txn = createTransaction(
-      codec_->createStream(), HTTPCodec::NoStream, HTTPCodec::NoExAttributes,
-      http2::DefaultPriority, &error);
+  auto txn = createTransaction(codec_->createStream(),
+                               HTTPCodec::NoStream,
+                               HTTPCodec::NoExAttributes,
+                               http2::DefaultPriority,
+                               &error);
 
   if (!txn) {
     switch (error) {
-    case ProxygenError::kErrorBadSocket:
-      return folly::makeUnexpected<NewTransactionError>(
-          "Socket connection is closing");
-    case ProxygenError::kErrorDuplicatedStreamId:
-      return folly::makeUnexpected<NewTransactionError>(
-          "HTTP Stream ID already exists");
-    default:
-      return folly::makeUnexpected<NewTransactionError>(
-          "Unknown error when creating HTTP transaction");
+      case ProxygenError::kErrorBadSocket:
+        return folly::makeUnexpected<NewTransactionError>(
+            "Socket connection is closing");
+      case ProxygenError::kErrorDuplicatedStreamId:
+        return folly::makeUnexpected<NewTransactionError>(
+            "HTTP Stream ID already exists");
+      default:
+        return folly::makeUnexpected<NewTransactionError>(
+            "Unknown error when creating HTTP transaction");
     }
   }
 

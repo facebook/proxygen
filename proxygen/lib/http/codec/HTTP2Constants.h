@@ -9,8 +9,8 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <proxygen/lib/http/codec/ErrorCode.h>
+#include <string>
 
 namespace proxygen { namespace http2 {
 
@@ -52,4 +52,4 @@ extern const std::string kProtocolExperimentalString;
 extern const std::string kProtocolCleartextString;
 extern const std::string kProtocolSettingsHeader;
 
-}}
+}} // namespace proxygen::http2

@@ -17,8 +17,7 @@
 using namespace proxygen;
 using namespace std;
 
-class HPACKHeaderTests : public testing::Test {
-};
+class HPACKHeaderTests : public testing::Test {};
 
 TEST_F(HPACKHeaderTests, Size) {
   HPACKHeader h(":path", "/");
@@ -66,11 +65,10 @@ TEST_F(HPACKHeaderTests, HeaderIndexingStrategyBasic) {
   EXPECT_TRUE(indexingStrat.indexHeader(data.name, data.value));
 }
 
-class HPACKHeaderNameTest : public testing::Test {
-};
+class HPACKHeaderNameTest : public testing::Test {};
 
 HPACKHeaderName destroyedHPACKHeaderName(std::string name) {
-  //return a HPACKHeaderName that goes destroyed
+  // return a HPACKHeaderName that goes destroyed
   HPACKHeaderName headerName(name);
   return headerName;
 }
@@ -177,8 +175,7 @@ TEST_F(HPACKHeaderNameTest, TestOperators) {
 TEST_F(HPACKHeaderNameTest, TestIsCommonHeader) {
   for (uint64_t j = 0; j < HTTPCommonHeaders::num_codes; ++j) {
     HTTPHeaderCode code = static_cast<HTTPHeaderCode>(j);
-    HPACKHeader testHPACKHeader(
-      *HTTPCommonHeaders::getPointerToName(code), "");
+    HPACKHeader testHPACKHeader(*HTTPCommonHeaders::getPointerToName(code), "");
 
     bool checkResult = j >= HTTPHeaderCodeCommonOffset;
     EXPECT_EQ(testHPACKHeader.name.isCommonHeader(), checkResult);

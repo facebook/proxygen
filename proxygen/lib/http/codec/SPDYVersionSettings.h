@@ -13,7 +13,7 @@
 
 namespace folly { namespace io {
 class Cursor;
-}}
+}} // namespace folly::io
 
 namespace proxygen {
 
@@ -43,4 +43,4 @@ struct SPDYVersionSettings {
   const std::string& protocolVersionString;
 };
 
-}
+} // namespace proxygen

@@ -19,9 +19,8 @@ namespace proxygen {
  */
 class HPACKEncoderBase {
  public:
-
   explicit HPACKEncoderBase(bool huffman)
-    : streamBuffer_(kBufferGrowth, huffman) {
+      : streamBuffer_(kBufferGrowth, huffman) {
     indexingStrat_ = HeaderIndexingStrategy::getDefaultInstance();
   }
 
@@ -47,7 +46,6 @@ class HPACKEncoderBase {
   }
 
  protected:
-
   uint32_t handlePendingContextUpdate(HPACKEncodeBuffer& buf,
                                       uint32_t tableCapacity);
 
@@ -56,5 +54,4 @@ class HPACKEncoderBase {
   bool pendingContextUpdate_{false};
 };
 
-
-}
+} // namespace proxygen

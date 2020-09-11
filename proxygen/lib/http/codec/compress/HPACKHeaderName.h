@@ -9,14 +9,14 @@
 #pragma once
 
 #include <algorithm>
-#include <cstdint>
-#include <functional>
-#include <string>
-#include <iostream>
 #include <boost/variant.hpp>
-#include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <cstdint>
 #include <folly/Range.h>
+#include <functional>
 #include <glog/logging.h>
+#include <iostream>
+#include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <string>
 
 namespace proxygen {
 
@@ -28,7 +28,8 @@ namespace proxygen {
  */
 class HPACKHeaderName {
  public:
-  HPACKHeaderName() {}
+  HPACKHeaderName() {
+  }
 
   explicit HPACKHeaderName(folly::StringPiece name) {
     storeAddress(name);
@@ -37,7 +38,7 @@ class HPACKHeaderName {
     CHECK_NE(headerCode, HTTP_HEADER_NONE);
     CHECK_NE(headerCode, HTTP_HEADER_OTHER);
     address_ = HTTPCommonHeaders::getPointerToName(
-      headerCode, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
+        headerCode, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }
   HPACKHeaderName(const HPACKHeaderName& headerName) {
     copyAddress(headerName);
@@ -74,7 +75,7 @@ class HPACKHeaderName {
    */
   bool operator==(const HPACKHeaderName& headerName) const {
     return address_ == headerName.address_ ||
-      *address_ == *(headerName.address_);
+           *address_ == *(headerName.address_);
   }
   bool operator!=(const HPACKHeaderName& headerName) const {
     // Utilize the == overloaded operator
@@ -119,7 +120,7 @@ class HPACKHeaderName {
    */
   HTTPHeaderCode getHeaderCode() const {
     return HTTPCommonHeaders::getCodeFromTableName(
-      address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
+        address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }
 
   /*
@@ -127,7 +128,7 @@ class HPACKHeaderName {
    */
   bool isCommonHeader() const {
     return HTTPCommonHeaders::isNameFromTable(
-      address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
+        address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }
 
   /*
@@ -145,8 +146,8 @@ class HPACKHeaderName {
    * Store a reference to either a common header or newly allocated string
    */
   void storeAddress(folly::StringPiece name) {
-    HTTPHeaderCode headerCode = HTTPCommonHeaders::hash(
-      name.data(), name.size());
+    HTTPHeaderCode headerCode =
+        HTTPCommonHeaders::hash(name.data(), name.size());
     if (headerCode == HTTPHeaderCode::HTTP_HEADER_NONE ||
         headerCode == HTTPHeaderCode::HTTP_HEADER_OTHER) {
       std::string* newAddress = new std::string(name.size(), 0);
@@ -154,7 +155,7 @@ class HPACKHeaderName {
       address_ = newAddress;
     } else {
       address_ = HTTPCommonHeaders::getPointerToName(
-        headerCode, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
+          headerCode, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
     }
   }
 
@@ -196,7 +197,7 @@ class HPACKHeaderName {
       return false;
     } else {
       return !HTTPCommonHeaders::isNameFromTable(
-        address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
+          address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
     }
   }
 
@@ -212,15 +213,15 @@ inline std::ostream& operator<<(std::ostream& os, const HPACKHeaderName& name) {
   return os;
 }
 
-} // proxygen
+} // namespace proxygen
 
 namespace std {
 
-template<>
+template <>
 struct hash<proxygen::HPACKHeaderName> {
   size_t operator()(const proxygen::HPACKHeaderName& headerName) const {
     return std::hash<std::string>()(headerName.get());
   }
 };
 
-} // std
+} // namespace std

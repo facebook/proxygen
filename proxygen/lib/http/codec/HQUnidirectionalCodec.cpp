@@ -10,7 +10,6 @@
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
 
-
 namespace proxygen { namespace hq {
 
 std::ostream& operator<<(std::ostream& os, UnidirectionalStreamType type) {

@@ -8,13 +8,13 @@
 
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
-#include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
+#include <proxygen/lib/http/codec/SPDYCodec.h>
 
 namespace proxygen {
 
 std::unique_ptr<HTTPCodec> HTTPCodecFactory::getCodec(
-  CodecProtocol protocol, TransportDirection direction) {
+    CodecProtocol protocol, TransportDirection direction) {
   switch (protocol) {
     case CodecProtocol::HTTP_1_1:
       return std::make_unique<HTTP1xCodec>(direction);
@@ -30,4 +30,4 @@ std::unique_ptr<HTTPCodec> HTTPCodecFactory::getCodec(
   }
 }
 
-}
+} // namespace proxygen

@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/Window.h>
+#include <folly/portability/GTest.h>
 
 using namespace proxygen;
 

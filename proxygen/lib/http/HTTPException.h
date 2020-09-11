@@ -56,13 +56,11 @@ class HTTPException : public proxygen::Exception {
   }
 
   bool isIngressException() const {
-    return dir_ == Direction::INGRESS ||
-      dir_ == Direction::INGRESS_AND_EGRESS;
+    return dir_ == Direction::INGRESS || dir_ == Direction::INGRESS_AND_EGRESS;
   }
 
   bool isEgressException() const {
-    return dir_ == Direction::EGRESS ||
-      dir_ == Direction::INGRESS_AND_EGRESS;
+    return dir_ == Direction::EGRESS || dir_ == Direction::INGRESS_AND_EGRESS;
   }
 
   // Accessors for HTTP error codes
@@ -118,7 +116,6 @@ class HTTPException : public proxygen::Exception {
   }
 
  private:
-
   Direction dir_;
   uint32_t httpStatusCode_{0};
   folly::Optional<ErrorCode> codecStatusCode_;
@@ -131,4 +128,4 @@ class HTTPException : public proxygen::Exception {
 
 std::ostream& operator<<(std::ostream& os, const HTTPException& ex);
 
-}
+} // namespace proxygen

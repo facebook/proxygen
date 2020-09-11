@@ -8,16 +8,14 @@
 
 #include <folly/portability/GTest.h>
 #include <memory>
-#include <proxygen/lib/http/codec/compress/QPACKHeaderTable.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>
+#include <proxygen/lib/http/codec/compress/QPACKHeaderTable.h>
 #include <sstream>
-
 
 namespace proxygen {
 
 class QPACKHeaderTableTests : public testing::Test {
  public:
-
  protected:
   QPACKHeaderTable table_{320, true};
 };
@@ -177,7 +175,6 @@ TEST_F(QPACKHeaderTableTests, Duplication) {
   res = table_.maybeDuplicate(table_.size(), true);
   EXPECT_FALSE(res.first);
   EXPECT_EQ(res.second, 0);
-
 }
 
 TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
@@ -195,9 +192,9 @@ TEST_F(QPACKHeaderTableTests, CanEvictWithRoom) {
 }
 
 TEST_F(QPACKHeaderTableTests, EvictNonDrained) {
-  HPACKHeader small("ab", "cd"); // 36 bytes
-  HPACKHeader small2("abcd", std::string(14, 'b')); // 50 bytes
-  HPACKHeader med(std::string(20, 'a'), std::string(20, 'b')); // 72
+  HPACKHeader small("ab", "cd");                                 // 36 bytes
+  HPACKHeader small2("abcd", std::string(14, 'b'));              // 50 bytes
+  HPACKHeader med(std::string(20, 'a'), std::string(20, 'b'));   // 72
   HPACKHeader large(std::string(34, 'a'), std::string(34, 'b')); // 100
 
   table_.setCapacity(220);
@@ -227,4 +224,4 @@ TEST_F(QPACKHeaderTableTests, BadSync) {
   EXPECT_FALSE(table_.onInsertCountIncrement(1));
 }
 
-}
+} // namespace proxygen

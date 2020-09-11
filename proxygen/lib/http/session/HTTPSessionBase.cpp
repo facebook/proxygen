@@ -156,9 +156,7 @@ void HTTPSessionBase::resumeTransactions() {
     }
     return false;
   };
-  auto stopFn = [this] {
-    return (!hasActiveTransactions());
-  };
+  auto stopFn = [this] { return (!hasActiveTransactions()); };
 
   txnEgressQueue_.iterateBFS(resumeFn, stopFn, true /* all */);
 }

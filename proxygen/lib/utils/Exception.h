@@ -17,7 +17,7 @@ namespace proxygen {
 
 #ifdef _MSC_VER
 #pragma warning(push)
-#pragma warning(disable: 4521) // 'proxygen::Exception': multiple copy ctors
+#pragma warning(disable : 4521) // 'proxygen::Exception': multiple copy ctors
 #endif
 /**
  * Base class for all exceptions.
@@ -27,31 +27,42 @@ class Exception : public std::exception {
   explicit Exception(std::string const& msg);
   explicit Exception(const char* msg);
   Exception(const Exception&);
-  Exception(Exception& other) : Exception(folly::as_const(other)) {}
+  Exception(Exception& other) : Exception(folly::as_const(other)) {
+  }
   Exception(Exception&&) noexcept;
 
   template <typename... Args>
   explicit Exception(Args&&... args)
-      : msg_(folly::to<std::string>(std::forward<Args>(args)...)), code_(0) {}
+      : msg_(folly::to<std::string>(std::forward<Args>(args)...)), code_(0) {
+  }
 
-  ~Exception(void) noexcept override {}
+  ~Exception(void) noexcept override {
+  }
 
   // std::exception methods
   const char* what(void) const noexcept override;
 
   // Accessors for code
-  void setCode(int code) { code_ = code; }
+  void setCode(int code) {
+    code_ = code;
+  }
 
-  int getCode() const { return code_; }
+  int getCode() const {
+    return code_;
+  }
 
   // Accessors for ProxygenError
-  bool hasProxygenError() const { return (proxygenError_ != kErrorNone); }
+  bool hasProxygenError() const {
+    return (proxygenError_ != kErrorNone);
+  }
 
   void setProxygenError(ProxygenError proxygenError) {
     proxygenError_ = proxygenError;
   }
 
-  ProxygenError getProxygenError() const { return proxygenError_; }
+  ProxygenError getProxygenError() const {
+    return proxygenError_;
+  }
 
  private:
   const std::string msg_;
@@ -62,4 +73,4 @@ class Exception : public std::exception {
 #pragma warning(pop)
 #endif
 
-}
+} // namespace proxygen

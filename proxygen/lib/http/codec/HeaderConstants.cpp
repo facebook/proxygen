@@ -23,4 +23,4 @@ const std::string kHttps("https");
 const std::string kWebsocketString("websocket");
 const std::string kStatus200("200");
 
-}}
+}} // namespace proxygen::headers

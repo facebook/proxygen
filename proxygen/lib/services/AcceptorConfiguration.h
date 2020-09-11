@@ -11,13 +11,13 @@
 #include <chrono>
 #include <fcntl.h>
 #include <folly/String.h>
-#include <wangle/acceptor/ServerSocketConfig.h>
+#include <folly/io/async/AsyncSocket.h>
 #include <list>
+#include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <folly/io/async/AsyncSocket.h>
-#include <proxygen/lib/http/codec/HTTPSettings.h>
+#include <wangle/acceptor/ServerSocketConfig.h>
 #include <zlib.h>
 
 namespace proxygen {
@@ -31,8 +31,8 @@ namespace proxygen {
  */
 struct AcceptorConfiguration : public wangle::ServerSocketConfig {
   /**
-  * Determines if connection should respect HTTP2 priorities
-  **/
+   * Determines if connection should respect HTTP2 priorities
+   **/
   bool HTTP2PrioritiesEnabled{true};
 
   /**
@@ -97,4 +97,4 @@ struct AcceptorConfiguration : public wangle::ServerSocketConfig {
   int64_t writeBufferLimit{-1};
 };
 
-} // proxygen
+} // namespace proxygen

@@ -9,8 +9,8 @@
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionSimulator.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/HPACKScheme.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
 #include "proxygen/lib/http/codec/compress/experimental/simulator/QMINScheme.h"
+#include "proxygen/lib/http/codec/compress/experimental/simulator/QPACKScheme.h"
 
 #include <proxygen/lib/http/codec/compress/test/HTTPArchive.h>
 #include <proxygen/lib/utils/TestUtils.h>
@@ -269,8 +269,8 @@ CompressionScheme* CompressionSimulator::getScheme(StringPiece domain) {
 unique_ptr<CompressionScheme> CompressionSimulator::makeScheme() {
   switch (params_.type) {
     case SchemeType::QPACK:
-      return make_unique<QPACKScheme>(this, params_.tableSize,
-                                      params_.maxBlocking);
+      return make_unique<QPACKScheme>(
+          this, params_.tableSize, params_.maxBlocking);
     case SchemeType::QMIN:
       return make_unique<QMINScheme>(this, params_.tableSize);
     case SchemeType::HPACK:
@@ -285,8 +285,8 @@ std::pair<FrameFlags, unique_ptr<IOBuf>> CompressionSimulator::encode(
   VLOG(1) << "Start encoding request=" << index;
   // vector to hold cookie crumbs
   vector<string> cookies;
-  vector<compress::Header> allHeaders = prepareMessageForCompression(
-      requests_[index], cookies);
+  vector<compress::Header> allHeaders =
+      prepareMessageForCompression(requests_[index], cookies);
 
   auto before = stats_.uncompressed;
   auto res = scheme->encode(newPacket, std::move(allHeaders), stats_);

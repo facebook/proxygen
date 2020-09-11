@@ -10,10 +10,10 @@
 
 #include <fizz/protocol/Certificate.h>
 #include <fizz/record/Types.h>
-#include <folly/container/F14Map.h>
-#include <folly/container/F14Set.h>
 #include <folly/IntrusiveList.h>
 #include <folly/Optional.h>
+#include <folly/container/F14Map.h>
+#include <folly/container/F14Set.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/AsyncSocket.h>
@@ -139,10 +139,10 @@ class HTTPSession
     HTTPSessionBase::setHTTP2PrioritiesEnabled(enabled);
   }
 
-  folly::Optional<HTTPTransaction::ConnectionToken>
-    getConnectionToken() const noexcept override {
-      return connectionToken_;
-    }
+  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const
+      noexcept override {
+    return connectionToken_;
+  }
 
   const folly::SocketAddress& getLocalAddress() const noexcept override {
     return HTTPSessionBase::getLocalAddress();
@@ -270,7 +270,6 @@ class HTTPSession
   void setDirectErrorHandlingIntervalDuration(uint32_t val) {
     directErrorHandlingIntervalDuration_ = val;
   }
-
 
   /**
    * Get the SecondaryAuthManager attached to this session.
@@ -670,7 +669,7 @@ class HTTPSession
   void invokeOnAllTransactions(folly::Function<void(HTTPTransaction*)> fn);
 
   void pauseTransactions() override {
-    invokeOnAllTransactions([] (HTTPTransaction* txn) { txn->pauseEgress(); });
+    invokeOnAllTransactions([](HTTPTransaction* txn) { txn->pauseEgress(); });
   }
 
   /**
@@ -744,8 +743,9 @@ class HTTPSession
   folly::F14FastSet<HTTPCodec::StreamID> transactionIds_;
 
   /**
-   * Track all current known control streams we have within this session. A stream
-   * is considered as a control stream, after some ExStream is associated with it.
+   * Track all current known control streams we have within this session. A
+   *stream is considered as a control stream, after some ExStream is associated
+   *with it.
    **/
   folly::F14FastSet<HTTPCodec::StreamID> controlStreamIds_;
 
@@ -898,7 +898,6 @@ class HTTPSession
   void incrementOutgoingStreams(HTTPTransaction* txn);
   void incrementIncomingStreams(HTTPTransaction* txn);
 
-
   // returns true if the threshold has been exceeded
   bool incrementNumControlMsgsInCurInterval(http2::FrameType frameType);
 
@@ -914,7 +913,7 @@ class HTTPSession
   std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
 
   folly::Optional<std::pair<uint64_t, HTTPSession::DestructorGuard>>
-    pendingWrite_;
+      pendingWrite_;
 
   /**
    * Connection level flow control for SPDY >= 3.1 and HTTP/2
@@ -965,11 +964,11 @@ class HTTPSession
   struct RateLimitingCounters {
     /**
      * The two variables below keep track of the number of Control messages,
-     * and the number of error handling events that are handled by a newly created
-     * transaction handler seen in the current interval, respectively. These are
-     * shared_ptrs, as opposed to uint64_ts because we don't want to run into
-     * lifetime issues where the HTTPSession is destructed, and the rate
-     * limiting function is still scheduled to run on the event base.
+     * and the number of error handling events that are handled by a newly
+     * created transaction handler seen in the current interval, respectively.
+     * These are shared_ptrs, as opposed to uint64_ts because we don't want to
+     * run into lifetime issues where the HTTPSession is destructed, and the
+     * rate limiting function is still scheduled to run on the event base.
      */
     uint64_t numControlMsgsInCurrentInterval{0};
     uint64_t numDirectErrorHandlingInCurrentInterval{0};
@@ -985,8 +984,10 @@ class HTTPSession
   uint32_t maxControlMsgsPerInterval_{kDefaultMaxControlMsgsPerInterval};
   uint32_t controlMsgIntervalDuration_{kDefaultControlMsgDuration};
 
-  uint32_t maxDirectErrorHandlingPerInterval_{kDefaultMaxDirectErrorHandlingPerInterval};
-  uint32_t directErrorHandlingIntervalDuration_{kDefaultDirectErrorHandlingDuration};
+  uint32_t maxDirectErrorHandlingPerInterval_{
+      kDefaultMaxDirectErrorHandlingPerInterval};
+  uint32_t directErrorHandlingIntervalDuration_{
+      kDefaultDirectErrorHandlingDuration};
 
   /**
    * Container to hold the results of HTTP2PriorityQueue::nextEgress

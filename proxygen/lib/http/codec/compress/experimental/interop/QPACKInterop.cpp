@@ -11,11 +11,11 @@
 #include <folly/init/Init.h>
 #include <folly/io/Cursor.h>
 #include <folly/portability/GFlags.h>
+#include <fstream>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/SimStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/test/HTTPArchive.h>
-#include <fstream>
 
 using namespace proxygen;
 using namespace proxygen::compress;
@@ -57,7 +57,8 @@ void encodeBlocks(QPACKCodec& decoder,
     // always write stream before control to test decoder blocking
     SimStreamingCallback cb(streamId, nullptr);
     if (result.stream) {
-      decoder.decodeStreaming(streamId, result.stream->clone(),
+      decoder.decodeStreaming(streamId,
+                              result.stream->clone(),
                               result.stream->computeChainDataLength(),
                               &cb);
       writeFrame(appender, streamId, std::move(result.stream));
@@ -89,9 +90,9 @@ void encodeBlocks(QPACKCodec& decoder,
     bytesOut += writevFull(outputF.fd(), iov.data(), iov.size());
     streamId++;
   }
-  LOG(INFO) << "Encoded " << (streamId - 1) << " streams.  Bytes in="
-            << bytesIn << " Bytes out=" << bytesOut << " Ratio="
-            << int32_t(100 * (1 - (bytesOut / double(bytesIn))));
+  LOG(INFO) << "Encoded " << (streamId - 1) << " streams.  Bytes in=" << bytesIn
+            << " Bytes out=" << bytesOut
+            << " Ratio=" << int32_t(100 * (1 - (bytesOut / double(bytesIn))));
 }
 
 void encodeHar(QPACKCodec& decoder, const proxygen::HTTPArchive& har) {
@@ -108,9 +109,10 @@ class Reader {
   std::string filename;
 
  public:
-  explicit Reader(const std::string& fname)
-      : filename(fname) {}
-  virtual ~Reader() {}
+  explicit Reader(const std::string& fname) : filename(fname) {
+  }
+  virtual ~Reader() {
+  }
 
   virtual ssize_t read() {
     ssize_t rc = -1;
@@ -126,7 +128,7 @@ class Reader {
       inbuf.postallocate(rc);
       onIngress(inbuf);
     } while (rc != 0);
-    if (!inbuf.empty())  {
+    if (!inbuf.empty()) {
       LOG(ERROR) << "Premature end of file";
       return 1;
     }
@@ -141,15 +143,14 @@ class CompressedReader : public Reader {
   enum { HEADER, DATA } state{HEADER};
   uint64_t streamId{0};
   uint32_t length{0};
-  std::function<void(uint64_t, uint32_t,
-                     std::unique_ptr<folly::IOBuf>)> callback;
+  std::function<void(uint64_t, uint32_t, std::unique_ptr<folly::IOBuf>)>
+      callback;
 
  public:
   explicit CompressedReader(
-      std::function<void(uint64_t, uint32_t,
-                         std::unique_ptr<folly::IOBuf>)> cb)
-      : Reader(FLAGS_input),
-        callback(cb) {}
+      std::function<void(uint64_t, uint32_t, std::unique_ptr<folly::IOBuf>)> cb)
+      : Reader(FLAGS_input), callback(cb) {
+  }
 
   void onIngress(folly::IOBufQueue& inbuf) override {
     while (true) {
@@ -177,21 +178,21 @@ class CompressedReader : public Reader {
 
 int decodeAndVerify(QPACKCodec& decoder, const proxygen::HTTPArchive& har) {
   std::map<uint64_t, SimStreamingCallback> streams;
-  CompressedReader creader(
-      [&] (uint64_t streamId, uint32_t length,
-           std::unique_ptr<folly::IOBuf> buf) {
-        if (streamId == 0) {
-          CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
-                   HPACK::DecodeError::NONE);
-        } else {
-          auto res = streams.emplace(std::piecewise_construct,
-                                     std::forward_as_tuple(streamId),
-                                     std::forward_as_tuple(streamId, nullptr,
-                                                           FLAGS_public));
-          decoder.decodeStreaming(
-              streamId, std::move(buf), length, &res.first->second);
-        }
-      });
+  CompressedReader creader([&](uint64_t streamId,
+                               uint32_t length,
+                               std::unique_ptr<folly::IOBuf> buf) {
+    if (streamId == 0) {
+      CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
+               HPACK::DecodeError::NONE);
+    } else {
+      auto res = streams.emplace(
+          std::piecewise_construct,
+          std::forward_as_tuple(streamId),
+          std::forward_as_tuple(streamId, nullptr, FLAGS_public));
+      decoder.decodeStreaming(
+          streamId, std::move(buf), length, &res.first->second);
+    }
+  });
   if (creader.read()) {
     return 1;
   }
@@ -214,9 +215,8 @@ int decodeAndVerify(QPACKCodec& decoder, const proxygen::HTTPArchive& har) {
 
 class QIFCallback : public HPACK::StreamingCallback {
  public:
-  QIFCallback(uint64_t id_, std::ofstream& of_) :
-    id(id_),
-    of(of_) {}
+  QIFCallback(uint64_t id_, std::ofstream& of_) : id(id_), of(of_) {
+  }
 
   void onHeader(const HPACKHeaderName& name,
                 const folly::fbstring& value) override {
@@ -245,37 +245,37 @@ int decodeToQIF(QPACKCodec& decoder) {
   std::ofstream of(FLAGS_output, std::ofstream::trunc);
   std::map<uint64_t, QIFCallback> streams;
   uint64_t encoderStreamBytes = 0;
-  CompressedReader creader(
-      [&] (uint64_t streamId, uint32_t length,
-           std::unique_ptr<folly::IOBuf> buf) {
-        if (streamId == 0) {
-          CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
-                   HPACK::DecodeError::NONE);
-          encoderStreamBytes += length;
-        } else {
-          auto res = streams.emplace(std::piecewise_construct,
-                                     std::forward_as_tuple(streamId),
-                                     std::forward_as_tuple(streamId, of));
-          decoder.decodeStreaming(
-              streamId, std::move(buf), length, &res.first->second);
-        }
-      });
+  CompressedReader creader([&](uint64_t streamId,
+                               uint32_t length,
+                               std::unique_ptr<folly::IOBuf> buf) {
+    if (streamId == 0) {
+      CHECK_EQ(decoder.decodeEncoderStream(std::move(buf)),
+               HPACK::DecodeError::NONE);
+      encoderStreamBytes += length;
+    } else {
+      auto res = streams.emplace(std::piecewise_construct,
+                                 std::forward_as_tuple(streamId),
+                                 std::forward_as_tuple(streamId, of));
+      decoder.decodeStreaming(
+          streamId, std::move(buf), length, &res.first->second);
+    }
+  });
   if (creader.read()) {
     return 1;
   }
 
   for (const auto& stream : streams) {
-    CHECK(stream.second.complete) << "Stream " << stream.first <<
-      " didn't complete";
+    CHECK(stream.second.complete)
+        << "Stream " << stream.first << " didn't complete";
   }
   LOG(INFO) << "encoderStreamBytes=" << encoderStreamBytes;
   return 0;
 }
 
 int interopHAR(QPACKCodec& decoder) {
-  std::unique_ptr<HTTPArchive> har = (FLAGS_public) ?
-    HTTPArchive::fromPublicFile(FLAGS_har) :
-    HTTPArchive::fromFile(FLAGS_har);
+  std::unique_ptr<HTTPArchive> har =
+      (FLAGS_public) ? HTTPArchive::fromPublicFile(FLAGS_har)
+                     : HTTPArchive::fromFile(FLAGS_har);
   if (!har) {
     LOG(ERROR) << "Failed to read har file='" << FLAGS_har << "'";
     return 1;
@@ -298,8 +298,7 @@ struct QIFReader : public Reader {
   enum { LINESTART, COMMENT, NAME, VALUE, EOL } state_{LINESTART};
   bool seenR{false};
 
-  QIFReader()
-      : Reader(FLAGS_input) {
+  QIFReader() : Reader(FLAGS_input) {
     strings.reserve(32768);
   }
 
@@ -321,8 +320,7 @@ struct QIFReader : public Reader {
     Cursor c(input.front());
     while (!c.isAtEnd()) {
       switch (state_) {
-        case LINESTART:
-        {
+        case LINESTART: {
           seenR = false;
           auto p = c.peek();
           switch (p.first[0]) {
@@ -343,15 +341,12 @@ struct QIFReader : public Reader {
           break;
         }
         case COMMENT:
-          c.skipWhile([] (uint8_t ch) {
-              return !iseol(ch);
-            });
+          c.skipWhile([](uint8_t ch) { return !iseol(ch); });
           if (!c.isAtEnd()) {
             state_ = EOL;
           }
           break;
-        case EOL:
-        {
+        case EOL: {
           auto p = c.peek();
           if (p.first[0] == '\n') {
             c.skip(1);
@@ -365,9 +360,7 @@ struct QIFReader : public Reader {
           break;
         }
         case NAME:
-          strings.back() += c.readWhile([] (uint8_t ch) {
-              return ch != '\t';
-            });
+          strings.back() += c.readWhile([](uint8_t ch) { return ch != '\t'; });
           if (!c.isAtEnd()) {
             c.skip(1);
             state_ = VALUE;
@@ -375,14 +368,11 @@ struct QIFReader : public Reader {
           }
           break;
         case VALUE:
-          strings.back() += c.readWhile([] (uint8_t ch) {
-              return !iseol(ch);
-            });
+          strings.back() += c.readWhile([](uint8_t ch) { return !iseol(ch); });
           if (!c.isAtEnd()) {
             CHECK_GE(strings.size(), 2);
-            blocks.back().emplace_back(
-                compress::Header::makeHeaderForTest(
-                    *(strings.rbegin() + 1), *strings.rbegin()));
+            blocks.back().emplace_back(compress::Header::makeHeaderForTest(
+                *(strings.rbegin() + 1), *strings.rbegin()));
             state_ = EOL;
           }
           break;
@@ -390,7 +380,6 @@ struct QIFReader : public Reader {
     }
     input.move();
   }
-
 };
 
 int interopQIF(QPACKCodec& decoder) {
@@ -411,7 +400,7 @@ int interopQIF(QPACKCodec& decoder) {
   return 0;
 }
 
-}
+} // namespace
 
 int main(int argc, char** argv) {
   folly::init(&argc, &argv, true);

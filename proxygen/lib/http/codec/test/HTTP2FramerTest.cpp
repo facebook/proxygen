@@ -23,8 +23,11 @@ using namespace proxygen::http2;
 using namespace proxygen;
 using namespace std;
 
-void writeFrameHeaderManual(IOBufQueue& queue, uint32_t length, uint8_t type,
-                            uint8_t flags, uint32_t stream) {
+void writeFrameHeaderManual(IOBufQueue& queue,
+                            uint32_t length,
+                            uint8_t type,
+                            uint8_t flags,
+                            uint32_t stream) {
   QueueAppender appender(&queue, kFrameHeaderSize);
   uint32_t lengthAndType = length << 8 | type;
   appender.writeBE<uint32_t>(lengthAndType);
@@ -34,16 +37,19 @@ void writeFrameHeaderManual(IOBufQueue& queue, uint32_t length, uint8_t type,
 
 class HTTP2FramerTest : public testing::Test {
  public:
-  HTTP2FramerTest() {}
+  HTTP2FramerTest() {
+  }
 
-  template<typename ParseFunc, typename... Args>
+  template <typename ParseFunc, typename... Args>
   void parse(ParseFunc&& parseFn, FrameHeader& outHeader, Args&&... outArgs) {
     parse(queue_.front(), parseFn, outHeader, std::forward<Args>(outArgs)...);
   }
 
-  template<typename ParseFunc, typename... Args>
-  void parse(const IOBuf* data, ParseFunc&& parseFn,
-             FrameHeader& outHeader, Args&&... outArgs) {
+  template <typename ParseFunc, typename... Args>
+  void parse(const IOBuf* data,
+             ParseFunc&& parseFn,
+             FrameHeader& outHeader,
+             Args&&... outArgs) {
     Cursor cursor(data);
     auto ret1 = parseFrameHeader(cursor, outHeader);
     ASSERT_EQ(ret1, ErrorCode::NO_ERROR);
@@ -56,15 +62,16 @@ class HTTP2FramerTest : public testing::Test {
     dataFrameTest(body.get(), dataLen, padLen);
   }
 
-  void dataFrameTest(IOBuf* body, uint32_t dataLen,
+  void dataFrameTest(IOBuf* body,
+                     uint32_t dataLen,
                      folly::Optional<uint8_t> padLen) {
     uint32_t frameLen = uint32_t(dataLen);
     if (padLen) {
       frameLen += 1 + *padLen;
     }
     if (frameLen > kMaxFramePayloadLength) {
-      EXPECT_DEATH_NO_CORE(writeData(queue_, body->clone(), 1, padLen,
-                                     false, true), ".*");
+      EXPECT_DEATH_NO_CORE(
+          writeData(queue_, body->clone(), 1, padLen, false, true), ".*");
     } else {
       writeData(queue_, body->clone(), 1, padLen, false, true);
 
@@ -107,9 +114,8 @@ TEST_F(HTTP2FramerTest, ManyDataFrameSizes) {
 }
 
 TEST_F(HTTP2FramerTest, BadStreamData) {
-  writeFrameHeaderManual(queue_, 0,
-                         static_cast<uint8_t>(FrameType::DATA),
-                         0, 0);
+  writeFrameHeaderManual(
+      queue_, 0, static_cast<uint8_t>(FrameType::DATA), 0, 0);
   FrameHeader outHeader;
   std::unique_ptr<IOBuf> outBuf;
   uint16_t padding = 0;
@@ -120,9 +126,8 @@ TEST_F(HTTP2FramerTest, BadStreamData) {
 }
 
 TEST_F(HTTP2FramerTest, BadStreamSettings) {
-  writeFrameHeaderManual(queue_, 0,
-                         static_cast<uint8_t>(FrameType::SETTINGS),
-                         ACK, 1);
+  writeFrameHeaderManual(
+      queue_, 0, static_cast<uint8_t>(FrameType::SETTINGS), ACK, 1);
   FrameHeader outHeader;
   std::deque<SettingPair> outSettings;
   Cursor cursor(queue_.front());
@@ -153,7 +158,11 @@ TEST_F(HTTP2FramerTest, NoHeadroomOptimization) {
   auto headRoomSize = kFrameHeaderSize + kFramePrioritySize * 2 + 10;
   buf->advance(headRoomSize);
   buf->append(20); // make a positive length
-  writeData(queue_, std::move(buf), 1, Padding(0), false,
+  writeData(queue_,
+            std::move(buf),
+            1,
+            Padding(0),
+            false,
             false /* reuseIOBufHeadroom */);
   auto queueHead = queue_.front();
   EXPECT_TRUE(queueHead->isChained());
@@ -172,7 +181,11 @@ TEST_F(HTTP2FramerTest, UseHeadroomOptimization) {
   auto headRoomSize = kFrameHeaderSize + kFramePrioritySize * 2 + 10;
   buf->advance(headRoomSize);
   buf->append(20); // make a positive length
-  writeData(queue_, std::move(buf), 1, Padding(0), false,
+  writeData(queue_,
+            std::move(buf),
+            1,
+            Padding(0),
+            false,
             true /* reuseIOBufHeadroom */);
   // There won't be a chain, frame header is written in-place into our IOBuf:
   auto queueNode = queue_.front();
@@ -185,7 +198,8 @@ TEST_F(HTTP2FramerTest, BadStreamId) {
   // We should crash on DBG builds if the stream id > 2^31 - 1
   EXPECT_DEATH_NO_CORE(writeRstStream(queue_,
                                       static_cast<uint32_t>(-1),
-                                      ErrorCode::PROTOCOL_ERROR), ".*");
+                                      ErrorCode::PROTOCOL_ERROR),
+                       ".*");
 }
 
 TEST_F(HTTP2FramerTest, RstStream) {
@@ -245,30 +259,26 @@ TEST_F(HTTP2FramerTest, GoawayDebugData) {
 // An invalid error code. Used to test a bug where
 // a macro expansion caused us to read the error code twice
 TEST_F(HTTP2FramerTest, GoawayDoubleRead) {
-    writeFrameHeaderManual(
-      queue_,
-      kFrameGoawaySize,
-      static_cast<uint8_t>(FrameType::GOAWAY),
-      0,
-      0);
+  writeFrameHeaderManual(
+      queue_, kFrameGoawaySize, static_cast<uint8_t>(FrameType::GOAWAY), 0, 0);
 
-    QueueAppender appender(&queue_, kFrameGoawaySize);
-    appender.writeBE<uint32_t>(0);
-    // Here's the invalid value:
-    appender.writeBE<uint32_t>(static_cast<uint32_t>(0xffffffff));
+  QueueAppender appender(&queue_, kFrameGoawaySize);
+  appender.writeBE<uint32_t>(0);
+  // Here's the invalid value:
+  appender.writeBE<uint32_t>(static_cast<uint32_t>(0xffffffff));
 
-    uint32_t outLastStreamID;
-    ErrorCode outCode;
-    std::unique_ptr<IOBuf> outDebugData;
-    FrameHeader outHeader;
-    Cursor cursor(queue_.front());
+  uint32_t outLastStreamID;
+  ErrorCode outCode;
+  std::unique_ptr<IOBuf> outDebugData;
+  FrameHeader outHeader;
+  Cursor cursor(queue_.front());
 
-    auto ret1 = parseFrameHeader(cursor, outHeader);
-    ASSERT_EQ(ErrorCode::NO_ERROR, ret1);
-    ASSERT_EQ(FrameType::GOAWAY, outHeader.type);
-    auto ret2 = parseGoaway(cursor, outHeader, outLastStreamID,
-                            outCode, outDebugData);
-    ASSERT_EQ(ErrorCode::PROTOCOL_ERROR, ret2);
+  auto ret1 = parseFrameHeader(cursor, outHeader);
+  ASSERT_EQ(ErrorCode::NO_ERROR, ret1);
+  ASSERT_EQ(FrameType::GOAWAY, outHeader.type);
+  auto ret2 =
+      parseGoaway(cursor, outHeader, outLastStreamID, outCode, outDebugData);
+  ASSERT_EQ(ErrorCode::PROTOCOL_ERROR, ret2);
 }
 
 TEST_F(HTTP2FramerTest, Priority) {
@@ -295,8 +305,15 @@ TEST_F(HTTP2FramerTest, HeadersWithPaddingAndPriority) {
   auto fheader = queue_.preallocate(headerSize, 32);
   queue_.postallocate(headerSize);
   queue_.append(body->clone());
-  writeHeaders((uint8_t*)fheader.first, fheader.second, queue_, headersLen,
-               1, pri, padding, false, false);
+  writeHeaders((uint8_t*)fheader.first,
+               fheader.second,
+               queue_,
+               headersLen,
+               1,
+               pri,
+               padding,
+               false,
+               false);
 
   FrameHeader header;
   folly::Optional<PriorityUpdate> priority;
@@ -510,9 +527,8 @@ TEST_F(HTTP2FramerTest, CertificateOnNonzeroStream) {
 // TODO: auto generate this test for all frame types (except DATA)
 TEST_F(HTTP2FramerTest, ShortWindowUpdate) {
   // length field is too short for frame type
-  writeFrameHeaderManual(queue_, 0,
-                         static_cast<uint8_t>(FrameType::WINDOW_UPDATE),
-                         0, 0);
+  writeFrameHeaderManual(
+      queue_, 0, static_cast<uint8_t>(FrameType::WINDOW_UPDATE), 0, 0);
 
   Cursor cursor(queue_.front());
   FrameHeader header;
@@ -555,8 +571,13 @@ TEST_F(HTTP2FramerTest, AltSvc) {
   string outProtocol;
   string outHost;
   string outOrigin;
-  parse(&parseAltSvc, header, outMaxAge, outPort, outProtocol,
-        outHost, outOrigin);
+  parse(&parseAltSvc,
+        header,
+        outMaxAge,
+        outPort,
+        outProtocol,
+        outHost,
+        outOrigin);
 
   ASSERT_EQ(FrameType::ALTSVC, header.type);
   ASSERT_EQ(2, header.stream);
@@ -644,8 +665,14 @@ TEST_F(HTTP2FramerTest, PushPromise) {
   auto fheader = queue_.preallocate(headerSize, 32);
   queue_.postallocate(headerSize);
   queue_.append(body->clone());
-  writePushPromise((uint8_t*)fheader.first, fheader.second, queue_,
-                   21, 22, headersLen, padding, true);
+  writePushPromise((uint8_t*)fheader.first,
+                   fheader.second,
+                   queue_,
+                   21,
+                   22,
+                   headersLen,
+                   padding,
+                   true);
 
   FrameHeader header;
   uint32_t promisedStream;
@@ -686,8 +713,16 @@ TEST_F(HTTP2FramerTest, ExHeaders) {
   queue_.postallocate(headerSize);
   queue_.append(body->clone());
 
-  writeExHeaders((uint8_t*)fheader.first, fheader.second, queue_, headersLen,
-                 streamID, attr, pri, padding, false, false);
+  writeExHeaders((uint8_t*)fheader.first,
+                 fheader.second,
+                 queue_,
+                 headersLen,
+                 streamID,
+                 attr,
+                 pri,
+                 padding,
+                 false,
+                 false);
 
   FrameHeader header;
   HTTPCodec::ExAttributes outExAttributes;
@@ -721,9 +756,16 @@ TEST_F(HTTP2FramerTest, ExHeadersWithFlagsSet) {
   queue_.postallocate(headerSize);
   queue_.append(body->clone());
 
-  writeExHeaders((uint8_t*)fheader.first, fheader.second, queue_, headersLen,
-                 streamID, HTTPCodec::ExAttributes(controlStream, true),
-                 folly::none, padding, true, true);
+  writeExHeaders((uint8_t*)fheader.first,
+                 fheader.second,
+                 queue_,
+                 headersLen,
+                 streamID,
+                 HTTPCodec::ExAttributes(controlStream, true),
+                 folly::none,
+                 padding,
+                 true,
+                 true);
 
   FrameHeader header;
   HTTPCodec::ExAttributes outExAttributes;

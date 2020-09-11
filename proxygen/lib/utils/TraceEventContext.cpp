@@ -21,4 +21,4 @@ bool TraceEventContext::isAllTraceEventNeeded() const {
   return allTraceEventNeeded_;
 }
 
-}
+} // namespace proxygen

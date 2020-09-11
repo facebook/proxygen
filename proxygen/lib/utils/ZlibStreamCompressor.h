@@ -33,13 +33,17 @@ class ZlibStreamCompressor : public StreamCompressor {
   std::unique_ptr<folly::IOBuf> compress(const folly::IOBuf* in,
                                          bool trailer = true) override;
 
-  int getStatus() { return status_; }
+  int getStatus() {
+    return status_;
+  }
 
   bool hasError() override {
     return status_ != Z_OK && status_ != Z_STREAM_END;
   }
 
-  bool finished() { return status_ == Z_STREAM_END; }
+  bool finished() {
+    return status_ == Z_STREAM_END;
+  }
 
  private:
   CompressionType type_{CompressionType::NONE};
@@ -48,4 +52,4 @@ class ZlibStreamCompressor : public StreamCompressor {
   int status_{Z_OK};
   bool init_{false};
 };
-}
+} // namespace proxygen

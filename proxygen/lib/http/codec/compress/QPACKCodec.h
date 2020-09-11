@@ -158,8 +158,7 @@ class QPACKCodec : public HeaderCodec {
   QPACKDecoder decoder_;
 
  private:
-  void recordCompressedSize(const folly::IOBuf* stream,
-                            size_t controlSize);
+  void recordCompressedSize(const folly::IOBuf* stream, size_t controlSize);
 
   std::vector<HPACKHeader> decodedHeaders_;
 };

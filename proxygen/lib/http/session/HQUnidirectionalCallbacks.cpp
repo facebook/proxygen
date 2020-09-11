@@ -11,9 +11,11 @@
 using namespace proxygen;
 
 HQUnidirStreamDispatcher::HQUnidirStreamDispatcher(
-    HQUnidirStreamDispatcher::Callback& sink, proxygen::TransportDirection direction)
+    HQUnidirStreamDispatcher::Callback& sink,
+    proxygen::TransportDirection direction)
     : controlStreamCallback_(std::make_unique<ControlCallback>(sink)),
-      sink_(sink), direction_(direction) {
+      sink_(sink),
+      direction_(direction) {
 }
 
 void HQUnidirStreamDispatcher::onDataAvailable(

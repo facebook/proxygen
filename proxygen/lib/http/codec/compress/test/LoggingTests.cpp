@@ -17,8 +17,7 @@
 using namespace proxygen;
 using namespace std;
 
-class LoggingTests : public testing::Test {
-};
+class LoggingTests : public testing::Test {};
 
 TEST_F(LoggingTests, Refset) {
   list<uint32_t> refset;

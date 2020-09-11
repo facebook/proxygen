@@ -62,8 +62,7 @@ class ZlibStreamDecompressor : public StreamDecompressor {
  private:
   CompressionType type_{CompressionType::NONE};
   uint64_t decompressor_buffer_growth_{kZlibDecompressorBufferGrowthDefault};
-  uint64_t decompressor_buffer_minsize_{
-      kZlibDecompressorBufferMinsizeDefault};
+  uint64_t decompressor_buffer_minsize_{kZlibDecompressorBufferMinsizeDefault};
   z_stream zlibStream_;
   int status_{-1};
 };

@@ -22,7 +22,7 @@ namespace proxygen {
 // frames to convey the reasons for the stream or connection error.
 
 // We only need <1 byte to represent it in memory
-enum class ErrorCode: uint8_t {
+enum class ErrorCode : uint8_t {
   NO_ERROR = 0,
   PROTOCOL_ERROR = 1,
   INTERNAL_ERROR = 2,
@@ -51,4 +51,4 @@ extern const uint8_t kMaxErrorCode;
  */
 extern const char* getErrorCodeString(ErrorCode error);
 
-}
+} // namespace proxygen

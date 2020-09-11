@@ -41,11 +41,10 @@ inline std::chrono::time_point<ClockType> getCurrentTime() {
   return ClockType::now();
 }
 
-inline std::chrono::system_clock::time_point
-toSystemTimePoint(TimePoint t) {
+inline std::chrono::system_clock::time_point toSystemTimePoint(TimePoint t) {
   return std::chrono::system_clock::now() +
-    std::chrono::duration_cast<std::chrono::system_clock::duration>(
-      t - SteadyClock::now());
+         std::chrono::duration_cast<std::chrono::system_clock::duration>(
+             t - SteadyClock::now());
 }
 
 inline time_t toTimeT(TimePoint t) {
@@ -54,56 +53,53 @@ inline time_t toTimeT(TimePoint t) {
 
 inline std::chrono::microseconds microsecondsSinceEpoch() {
   return std::chrono::duration_cast<std::chrono::microseconds>(
-    std::chrono::system_clock::now().time_since_epoch());
+      std::chrono::system_clock::now().time_since_epoch());
 }
 
 inline std::chrono::milliseconds millisecondsSinceEpoch() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
-    std::chrono::system_clock::now().time_since_epoch());
+      std::chrono::system_clock::now().time_since_epoch());
 }
 
 inline std::chrono::seconds secondsSinceEpoch() {
   return std::chrono::duration_cast<std::chrono::seconds>(
-    std::chrono::system_clock::now().time_since_epoch());
+      std::chrono::system_clock::now().time_since_epoch());
 }
 
 inline std::chrono::microseconds microsecondsSinceEpoch(TimePoint t) {
   return std::chrono::duration_cast<std::chrono::microseconds>(
-    toSystemTimePoint(t).time_since_epoch());
+      toSystemTimePoint(t).time_since_epoch());
 }
 
 inline std::chrono::milliseconds millisecondsSinceEpoch(TimePoint t) {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
-    toSystemTimePoint(t).time_since_epoch());
+      toSystemTimePoint(t).time_since_epoch());
 }
 
 inline std::chrono::seconds secondsSinceEpoch(TimePoint t) {
   return std::chrono::duration_cast<std::chrono::seconds>(
-    toSystemTimePoint(t).time_since_epoch());
+      toSystemTimePoint(t).time_since_epoch());
 }
 
 template <typename ClockType = SteadyClock>
 inline std::chrono::microseconds microsecondsBetween(
     std::chrono::time_point<ClockType> finish,
     std::chrono::time_point<ClockType> start) {
-  return std::chrono::duration_cast<std::chrono::microseconds>(
-    finish - start);
+  return std::chrono::duration_cast<std::chrono::microseconds>(finish - start);
 }
 
 template <typename ClockType = SteadyClock>
 inline std::chrono::milliseconds millisecondsBetween(
     std::chrono::time_point<ClockType> finish,
     std::chrono::time_point<ClockType> start) {
-  return std::chrono::duration_cast<std::chrono::milliseconds>(
-    finish - start);
+  return std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
 }
 
 template <typename ClockType = SteadyClock>
 inline std::chrono::seconds secondsBetween(
     std::chrono::time_point<ClockType> finish,
     std::chrono::time_point<ClockType> start) {
-  return std::chrono::duration_cast<std::chrono::seconds>(
-    finish - start);
+  return std::chrono::duration_cast<std::chrono::seconds>(finish - start);
 }
 
 template <typename ClockType = SteadyClock>
@@ -178,7 +174,8 @@ std::string getDateTimeStr(const ASN1_TIME* const time);
 template <typename ClockType = SteadyClock>
 class TimeUtilGeneric {
  public:
-  virtual ~TimeUtilGeneric() {}
+  virtual ~TimeUtilGeneric() {
+  }
 
   virtual std::chrono::time_point<ClockType> now() const {
     return getCurrentTime<ClockType>();
@@ -206,4 +203,4 @@ class TimeUtilGeneric {
 // made it TimeUtilGeneric
 using TimeUtil = TimeUtilGeneric<>;
 
-}
+} // namespace proxygen

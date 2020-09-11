@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <folly/Memory.h>
 #include <folly/Function.h>
+#include <folly/Memory.h>
 #include <glog/logging.h>
 #include <memory>
 #include <utility>
@@ -34,9 +34,14 @@ namespace proxygen {
  * from the appropriate virtual function and not forward that function call
  * along the chain, or the filter will not work and may have errors!
  */
-template <typename T1, typename T2, void (T1::*set_callback)(T2*),
-          bool TakeOwnership, typename Dp = std::default_delete<T1> >
-class GenericFilter: public T1, public T2 {
+template <typename T1,
+          typename T2,
+          void (T1::*set_callback)(T2*),
+          bool TakeOwnership,
+          typename Dp = std::default_delete<T1>>
+class GenericFilter
+    : public T1
+    , public T2 {
  public:
   using Filter = GenericFilter<T1, T2, set_callback, TakeOwnership, Dp>;
   /**
@@ -45,9 +50,9 @@ class GenericFilter: public T1, public T2 {
    * @param callbacks You will intercept calls to T2 interface iff you
    *                  pass true for this parameter.
    */
-  GenericFilter(bool calls, bool callbacks):
-      kWantsCalls_(calls),
-      kWantsCallbacks_(callbacks) {}
+  GenericFilter(bool calls, bool callbacks)
+      : kWantsCalls_(calls), kWantsCallbacks_(callbacks) {
+  }
 
   ~GenericFilter() override {
     if (TakeOwnership) {
@@ -153,7 +158,6 @@ class GenericFilter: public T1, public T2 {
   T2* callback_{nullptr};
 
  private:
-
   void setCallbackInternalImpl(T2* cb, T2* sourceSet) {
     if (callback_ != cb) {
       callback_ = cb;
@@ -201,27 +205,31 @@ class GenericFilter: public T1, public T2 {
  * false, the filters must delete themselves at the correct time). FilterType
  * must have GenericFilter as an ancestor.
  */
-template <typename T1, typename T2, typename FilterType,
-          void (T1::*set_callback)(T2*), bool TakeOwnership>
-class FilterChain: private FilterType {
+template <typename T1,
+          typename T2,
+          typename FilterType,
+          void (T1::*set_callback)(T2*),
+          bool TakeOwnership>
+class FilterChain : private FilterType {
  public:
-  explicit FilterChain(std::unique_ptr<T1> destination):
-      FilterType(false, false) {
-    static_assert(TakeOwnership, "unique_ptr constructor only available "
+  explicit FilterChain(std::unique_ptr<T1> destination)
+      : FilterType(false, false) {
+    static_assert(TakeOwnership,
+                  "unique_ptr constructor only available "
                   "if the chain owns the filters.");
     this->call_ = CHECK_NOTNULL(destination.release());
-    this->callback_ = nullptr; //must call setCallback() explicitly
+    this->callback_ = nullptr; // must call setCallback() explicitly
     this->callSource_ = this;
     this->callbackSource_ = this->call_;
     this->chainEnd_ = this->call_;
   }
 
-  explicit FilterChain(T1* destination):
-      FilterType(false, false) {
-    static_assert(!TakeOwnership, "raw pointer constructor only available "
+  explicit FilterChain(T1* destination) : FilterType(false, false) {
+    static_assert(!TakeOwnership,
+                  "raw pointer constructor only available "
                   "if the chain doesn't own the filters.");
     this->call_ = CHECK_NOTNULL(destination);
-    this->callback_ = nullptr; //must call setCallback() explicitly
+    this->callback_ = nullptr; // must call setCallback() explicitly
     this->callSource_ = this;
     this->callbackSource_ = this->call_;
     this->chainEnd_ = this->call_;
@@ -231,7 +239,9 @@ class FilterChain: private FilterType {
    * Set the callback for this entire filter chain. Setting this to null will
    * uninstall the callback from the concrete object at the end of the chain.
    */
-  void setCallback(T2* cb) override { this->setCallbackInternalImpl(cb, cb); }
+  void setCallback(T2* cb) override {
+    this->setCallbackInternalImpl(cb, cb);
+  }
 
   /**
    * Returns the head of the call chain. Do* not* call T1::set_callback() on
@@ -246,8 +256,8 @@ class FilterChain: private FilterType {
   }
 
   /**
-  * Returns the concrete implementation at the end of the filter chain.
-  */
+   * Returns the concrete implementation at the end of the filter chain.
+   */
   T1* getChainEndPtr() {
     return chainEnd_;
   }
@@ -257,7 +267,8 @@ class FilterChain: private FilterType {
 
   using FilterChainType = GenericFilter<T1, T2, set_callback, TakeOwnership>;
   std::unique_ptr<T1> setDestination(std::unique_ptr<T1> destination) {
-    static_assert(TakeOwnership, "unique_ptr setDestination only available "
+    static_assert(TakeOwnership,
+                  "unique_ptr setDestination only available "
                   "if the chain owns the filters.");
     // find the last filter in the chain, and the last filter that wants calls,
     // callbacks
@@ -296,7 +307,7 @@ class FilterChain: private FilterType {
   /**
    * Adds filters with the given types to the front of the chain.
    */
-  template<typename C, typename C2, typename... Types>
+  template <typename C, typename C2, typename... Types>
   typename std::enable_if<std::is_constructible<C>::value>::type addFilters() {
     // Callback <-> F1 <-> F2 ... <-> F_new <-> Destination
     this->append(new C());
@@ -306,7 +317,7 @@ class FilterChain: private FilterType {
   /**
    * Base case of above function where we add a single filter.
    */
-  template<typename C>
+  template <typename C>
   typename std::enable_if<std::is_constructible<C>::value>::type addFilters() {
     this->append(new C());
   }
@@ -315,17 +326,19 @@ class FilterChain: private FilterType {
    * Adds already constructed filters (inside unique_ptr) to the front of the
    * chain.
    */
-  template<typename C, typename... Types>
+  template <typename C, typename... Types>
   void addFilters(std::unique_ptr<C> cur, Types&&... remaining) {
-    static_assert(TakeOwnership, "addFilters() can only take "
+    static_assert(TakeOwnership,
+                  "addFilters() can only take "
                   "unique_ptr if the chain owns the filters");
     this->append(cur.release());
     addFilters(std::forward<Types>(remaining)...);
   }
 
-  template<typename C, typename... Types>
+  template <typename C, typename... Types>
   void addFilters(C* cur, Types&&... remaining) {
-    static_assert(!TakeOwnership, "addFilters() can only take "
+    static_assert(!TakeOwnership,
+                  "addFilters() can only take "
                   "pointers if the chain doesn't own the filters");
     this->append(cur);
     addFilters(std::forward<Types>(remaining)...);
@@ -335,17 +348,21 @@ class FilterChain: private FilterType {
    * Another way to add filters. This way is similar to 'emplace_front' and
    * returns a reference to itself so you can chain add() calls if you like.
    */
-  template<typename C, typename... Args>
-  FilterChain<T1, T2, FilterType, set_callback, TakeOwnership>&
-  add(Args&&... args) {
+  template <typename C, typename... Args>
+  FilterChain<T1, T2, FilterType, set_callback, TakeOwnership>& add(
+      Args&&... args) {
     this->append(new C(std::forward<Args>(args)...));
     return *this;
   }
 
-  const T1* operator->() const { return call(); }
-  T1* operator->() { return call(); }
+  const T1* operator->() const {
+    return call();
+  }
+  T1* operator->() {
+    return call();
+  }
 
-  void foreach(folly::FunctionRef<void(FilterChainType*)> fn) {
+  void foreach (folly::FunctionRef<void(FilterChainType*)> fn) {
     auto cur = this->next_;
     while (cur) {
       auto filter = cur;
@@ -360,9 +377,10 @@ class FilterChain: private FilterType {
    * public since trying to add zero filters doesn't make sense from a public
    * API pov.
    */
-  void addFilters() {}
+  void addFilters() {
+  }
 
   T1* chainEnd_;
 };
 
-}
+} // namespace proxygen

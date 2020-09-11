@@ -64,7 +64,7 @@ class ByteEvent {
   // handler is processing the callback for onByteEvent. If the handler does
   // not add these events, the timestamps will still be generated but will not
   // be delivered to the handler.
-  bool timestampTx_ : 1; // packed w/ byteOffset_
+  bool timestampTx_ : 1;  // packed w/ byteOffset_
   bool timestampAck_ : 1; // packed w/ byteOffset_
   uint64_t byteOffset_ : (8 * sizeof(uint64_t) - 5);
 };

@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <folly/Optional.h>
 #include <folly/Expected.h>
+#include <folly/Optional.h>
 
 namespace proxygen { namespace hq {
 
@@ -36,7 +36,8 @@ using TrackerOffsetResult =
 class UnframedBodyOffsetTracker {
  public:
   ~UnframedBodyOffsetTracker() = default;
-  explicit UnframedBodyOffsetTracker() {}
+  explicit UnframedBodyOffsetTracker() {
+  }
 
   folly::Expected<folly::Unit, UnframedBodyOffsetTrackerError>
   startBodyTracking(uint64_t streamOffset);

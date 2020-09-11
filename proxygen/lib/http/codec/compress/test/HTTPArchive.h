@@ -33,4 +33,4 @@ class HTTPArchive {
   static uint32_t getSize(const HTTPMessage& msg);
   static uint32_t getSize(const std::vector<HPACKHeader>& headers);
 };
-}
+} // namespace proxygen

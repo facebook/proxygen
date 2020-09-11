@@ -18,11 +18,11 @@ namespace proxygen {
 #pragma clang diagnostic ignored "-Winconsistent-missing-override"
 #endif
 
-class MockHTTPCodec: public HTTPCodec {
+class MockHTTPCodec : public HTTPCodec {
  public:
   MOCK_CONST_METHOD0(getProtocol, CodecProtocol());
   MOCK_CONST_METHOD0(getUserAgent, const std::string&());
-  MOCK_CONST_METHOD0(getTransportDirection,  TransportDirection());
+  MOCK_CONST_METHOD0(getTransportDirection, TransportDirection());
   MOCK_CONST_METHOD0(supportsStreamFlowControl, bool());
   MOCK_CONST_METHOD0(supportsSessionFlowControl, bool());
   MOCK_METHOD0(createStream, HTTPCodec::StreamID());
@@ -37,22 +37,25 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_CONST_METHOD0(closeOnEgressComplete, bool());
   MOCK_CONST_METHOD0(supportsParallelRequests, bool());
   MOCK_CONST_METHOD0(supportsPushTransactions, bool());
-  MOCK_METHOD5(generateHeader, void(folly::IOBufQueue&,
-                                    HTTPCodec::StreamID,
-                                    const HTTPMessage&,
-                                    bool eom,
-                                    HTTPHeaderSize*));
-  MOCK_METHOD6(generatePushPromise, void(folly::IOBufQueue&,
-                                         HTTPCodec::StreamID,
-                                         const HTTPMessage&,
-                                         HTTPCodec::StreamID,
-                                         bool eom,
-                                         HTTPHeaderSize*));
-  MOCK_METHOD5(generateBody, size_t(folly::IOBufQueue&,
-                                    HTTPCodec::StreamID,
-                                    std::shared_ptr<folly::IOBuf>,
-                                    folly::Optional<uint8_t>,
-                                    bool));
+  MOCK_METHOD5(generateHeader,
+               void(folly::IOBufQueue&,
+                    HTTPCodec::StreamID,
+                    const HTTPMessage&,
+                    bool eom,
+                    HTTPHeaderSize*));
+  MOCK_METHOD6(generatePushPromise,
+               void(folly::IOBufQueue&,
+                    HTTPCodec::StreamID,
+                    const HTTPMessage&,
+                    HTTPCodec::StreamID,
+                    bool eom,
+                    HTTPHeaderSize*));
+  MOCK_METHOD5(generateBody,
+               size_t(folly::IOBufQueue&,
+                      HTTPCodec::StreamID,
+                      std::shared_ptr<folly::IOBuf>,
+                      folly::Optional<uint8_t>,
+                      bool));
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       HTTPCodec::StreamID stream,
                       std::unique_ptr<folly::IOBuf> chain,
@@ -64,28 +67,29 @@ class MockHTTPCodec: public HTTPCodec {
                         padding,
                         eom);
   }
-  MOCK_METHOD3(generateChunkHeader, size_t(folly::IOBufQueue&,
-                                           HTTPCodec::StreamID,
-                                           size_t));
-  MOCK_METHOD2(generateChunkTerminator, size_t(folly::IOBufQueue&,
-                                               HTTPCodec::StreamID));
-  MOCK_METHOD3(generateTrailers, size_t(folly::IOBufQueue&,
-                                        HTTPCodec::StreamID,
-                                        const HTTPHeaders&));
-  MOCK_METHOD2(generateEOM, size_t(folly::IOBufQueue&,
-                                   HTTPCodec::StreamID));
-  MOCK_METHOD3(generateRstStream, size_t(folly::IOBufQueue&,
-                                         HTTPCodec::StreamID,
-                                         ErrorCode));
-  MOCK_METHOD4(generateGoaway, size_t(folly::IOBufQueue&,
-                                      StreamID,
-                                      ErrorCode,
-                                      std::shared_ptr<folly::IOBuf>));
+  MOCK_METHOD3(generateChunkHeader,
+               size_t(folly::IOBufQueue&, HTTPCodec::StreamID, size_t));
+  MOCK_METHOD2(generateChunkTerminator,
+               size_t(folly::IOBufQueue&, HTTPCodec::StreamID));
+  MOCK_METHOD3(generateTrailers,
+               size_t(folly::IOBufQueue&,
+                      HTTPCodec::StreamID,
+                      const HTTPHeaders&));
+  MOCK_METHOD2(generateEOM, size_t(folly::IOBufQueue&, HTTPCodec::StreamID));
+  MOCK_METHOD3(generateRstStream,
+               size_t(folly::IOBufQueue&, HTTPCodec::StreamID, ErrorCode));
+  MOCK_METHOD4(generateGoaway,
+               size_t(folly::IOBufQueue&,
+                      StreamID,
+                      ErrorCode,
+                      std::shared_ptr<folly::IOBuf>));
   size_t generateGoaway(folly::IOBufQueue& writeBuf,
                         StreamID lastStream,
                         ErrorCode statusCode,
                         std::unique_ptr<folly::IOBuf> debugData) override {
-    return generateGoaway(writeBuf, lastStream, statusCode,
+    return generateGoaway(writeBuf,
+                          lastStream,
+                          statusCode,
                           std::shared_ptr<folly::IOBuf>(debugData.release()));
   }
 
@@ -95,8 +99,7 @@ class MockHTTPCodec: public HTTPCodec {
     return generatePingRequest(writeBuf);
   }
 
-  MOCK_METHOD2(generatePingReply, size_t(folly::IOBufQueue&,
-                                         uint64_t));
+  MOCK_METHOD2(generatePingReply, size_t(folly::IOBufQueue&, uint64_t));
   MOCK_METHOD1(generateSettings, size_t(folly::IOBufQueue&));
   MOCK_METHOD1(generateSettingsAck, size_t(folly::IOBufQueue&));
   MOCK_METHOD3(generateWindowUpdate,
@@ -131,24 +134,21 @@ class MockHTTPCodec: public HTTPCodec {
   MOCK_CONST_METHOD0(getIngressSettings, const HTTPSettings*());
   MOCK_METHOD0(enableDoubleGoawayDrain, void());
   MOCK_CONST_METHOD0(getDefaultWindowSize, uint32_t());
-  MOCK_METHOD3(
-    addPriorityNodes,
-    size_t(PriorityQueue&, folly::IOBufQueue&, uint8_t));
+  MOCK_METHOD3(addPriorityNodes,
+               size_t(PriorityQueue&, folly::IOBufQueue&, uint8_t));
   MOCK_CONST_METHOD1(mapPriorityToDependency, HTTPCodec::StreamID(uint8_t));
 };
 
-class MockHTTPCodecCallback: public HTTPCodec::Callback {
+class MockHTTPCodecCallback : public HTTPCodec::Callback {
  public:
   MOCK_METHOD2(onMessageBegin, void(HTTPCodec::StreamID, HTTPMessage*));
-  MOCK_METHOD3(onPushMessageBegin, void(HTTPCodec::StreamID,
-                                        HTTPCodec::StreamID,
-                                        HTTPMessage*));
-  MOCK_METHOD4(onExMessageBegin, void(HTTPCodec::StreamID,
-                                      HTTPCodec::StreamID,
-                                      bool,
-                                      HTTPMessage*));
-  MOCK_METHOD2(onHeadersComplete, void(HTTPCodec::StreamID,
-                                       std::shared_ptr<HTTPMessage>));
+  MOCK_METHOD3(onPushMessageBegin,
+               void(HTTPCodec::StreamID, HTTPCodec::StreamID, HTTPMessage*));
+  MOCK_METHOD4(
+      onExMessageBegin,
+      void(HTTPCodec::StreamID, HTTPCodec::StreamID, bool, HTTPMessage*));
+  MOCK_METHOD2(onHeadersComplete,
+               void(HTTPCodec::StreamID, std::shared_ptr<HTTPMessage>));
   void onHeadersComplete(HTTPCodec::StreamID stream,
                          std::unique_ptr<HTTPMessage> msg) override {
     onHeadersComplete(stream, std::shared_ptr<HTTPMessage>(msg.release()));
@@ -160,23 +160,21 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
   void onBody(HTTPCodec::StreamID stream,
               std::unique_ptr<folly::IOBuf> chain,
               uint16_t padding) override {
-    onBody(stream,
-           std::shared_ptr<folly::IOBuf>(chain.release()),
-           padding);
+    onBody(stream, std::shared_ptr<folly::IOBuf>(chain.release()), padding);
   }
   MOCK_METHOD2(onUnframedBodyStarted, void(HTTPCodec::StreamID, uint64_t));
   MOCK_METHOD2(onChunkHeader, void(HTTPCodec::StreamID, size_t));
   MOCK_METHOD1(onChunkComplete, void(HTTPCodec::StreamID));
-  MOCK_METHOD2(onTrailersComplete, void(HTTPCodec::StreamID,
-                                        std::shared_ptr<HTTPHeaders>));
+  MOCK_METHOD2(onTrailersComplete,
+               void(HTTPCodec::StreamID, std::shared_ptr<HTTPHeaders>));
   void onTrailersComplete(HTTPCodec::StreamID stream,
                           std::unique_ptr<HTTPHeaders> trailers) override {
     onTrailersComplete(stream,
                        std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
   MOCK_METHOD2(onMessageComplete, void(HTTPCodec::StreamID, bool));
-  MOCK_METHOD3(onError, void(HTTPCodec::StreamID,
-                             std::shared_ptr<HTTPException>, bool));
+  MOCK_METHOD3(onError,
+               void(HTTPCodec::StreamID, std::shared_ptr<HTTPException>, bool));
   void onError(HTTPCodec::StreamID stream,
                const HTTPException& exc,
                bool newStream) override {
@@ -185,13 +183,15 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
             newStream);
   }
   MOCK_METHOD5(onFrameHeader,
-      void(uint64_t, uint8_t, uint64_t, uint64_t, uint16_t));
+               void(uint64_t, uint8_t, uint64_t, uint64_t, uint16_t));
   MOCK_METHOD2(onAbort, void(HTTPCodec::StreamID, ErrorCode));
   MOCK_METHOD3(onGoaway,
                void(uint64_t, ErrorCode, std::shared_ptr<folly::IOBuf>));
-  void onGoaway(uint64_t lastGoodStreamID, ErrorCode code,
+  void onGoaway(uint64_t lastGoodStreamID,
+                ErrorCode code,
                 std::unique_ptr<folly::IOBuf> debugData) override {
-    onGoaway(lastGoodStreamID, code,
+    onGoaway(lastGoodStreamID,
+             code,
              std::shared_ptr<folly::IOBuf>(debugData.release()));
   }
   MOCK_METHOD1(onPingRequest, void(uint64_t));
@@ -199,8 +199,8 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
   MOCK_METHOD2(onWindowUpdate, void(HTTPCodec::StreamID, uint32_t));
   MOCK_METHOD1(onSettings, void(const SettingsList&));
   MOCK_METHOD0(onSettingsAck, void());
-  MOCK_METHOD2(onPriority, void(HTTPCodec::StreamID,
-                                const HTTPMessage::HTTPPriority&));
+  MOCK_METHOD2(onPriority,
+               void(HTTPCodec::StreamID, const HTTPMessage::HTTPPriority&));
   MOCK_METHOD2(onCertificateRequest,
                void(uint16_t, std::shared_ptr<folly::IOBuf>));
   void onCertificateRequest(
@@ -214,11 +214,13 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
                      std::unique_ptr<folly::IOBuf> certData) override {
     onCertificate(certId, std::shared_ptr<folly::IOBuf>(certData.release()));
   }
-  MOCK_METHOD4(onNativeProtocolUpgrade, bool(HTTPCodec::StreamID, CodecProtocol,
-                                             const std::string&,
-                                             HTTPMessage&));
+  MOCK_METHOD4(onNativeProtocolUpgrade,
+               bool(HTTPCodec::StreamID,
+                    CodecProtocol,
+                    const std::string&,
+                    HTTPMessage&));
   MOCK_METHOD4(onGenerateFrameHeader,
-      void(HTTPCodec::StreamID, uint8_t, uint64_t, uint16_t));
+               void(HTTPCodec::StreamID, uint8_t, uint64_t, uint16_t));
   MOCK_CONST_METHOD0(numOutgoingStreams, uint32_t());
   MOCK_CONST_METHOD0(numIncomingStreams, uint32_t());
 };
@@ -227,4 +229,4 @@ class MockHTTPCodecCallback: public HTTPCodec::Callback {
 #pragma clang diagnostic pop
 #endif
 
-}
+} // namespace proxygen

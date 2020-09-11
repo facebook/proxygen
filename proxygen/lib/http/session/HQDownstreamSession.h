@@ -61,7 +61,7 @@ class HQDownstreamSession : public HQSession {
   }
   // Create a new pushed transaction.
   HTTPTransaction* newPushedTransaction(
-      HTTPCodec::StreamID, /* parentRequestStreamId */
+      HTTPCodec::StreamID,           /* parentRequestStreamId */
       HTTPTransaction::PushHandler*, /* handler */
       ProxygenError* error = nullptr) override;
 
@@ -176,7 +176,7 @@ class HQDownstreamSession : public HQSession {
 
   // Only need to search ingress push streams, so this is a no-op
   void findPushStreams(
-    std::unordered_set<HQStreamTransportBase*>& streams) override {
+      std::unordered_set<HQStreamTransportBase*>& streams) override {
     for (auto& pstream : egressPushStreams_) {
       streams.insert(&pstream.second);
     }
@@ -196,7 +196,6 @@ class HQDownstreamSession : public HQSession {
   // Value of the next pushId, used for outgoing push transactions
   // This variable does not have the hq::kPushIdMask set
   hq::PushId nextAvailablePushId_{0};
-
 };
 
 } // namespace proxygen

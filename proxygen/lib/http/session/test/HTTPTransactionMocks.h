@@ -156,11 +156,11 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
   MOCK_METHOD1(getHTTPPriority,
                folly::Optional<const HTTPMessage::HTTPPriority>(uint8_t level));
 
-  MOCK_METHOD1(peek,
-               folly::Expected<folly::Unit, ErrorCode>(
-                   const folly::Function<void(
-                       HTTPCodec::StreamID, uint64_t, const folly::IOBuf&)
-                                             const>&));
+  MOCK_METHOD1(
+      peek,
+      folly::Expected<folly::Unit, ErrorCode>(
+          const folly::Function<void(
+              HTTPCodec::StreamID, uint64_t, const folly::IOBuf&) const>&));
 
   MOCK_METHOD1(consume, folly::Expected<folly::Unit, ErrorCode>(size_t));
 
@@ -177,7 +177,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                  ,
                  getConnectionTokenNonConst,
                  folly::Optional<HTTPTransaction::ConnectionToken>());
-  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const noexcept override {
+  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const
+      noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
         ->getConnectionTokenNonConst();
   }

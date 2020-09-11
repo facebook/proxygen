@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/utils/WeakRefCountedPtr.h>
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
-#include <proxygen/lib/utils/WeakRefCountedPtr.h>
 
 using namespace testing;
 
@@ -22,7 +22,8 @@ class TestClass : public EnableWeakRefCountedPtr<TestClass> {
 class TestDerivedClass : public TestClass {
  public:
   using TestClass::TestClass;
-  void onlyDerivedFunc() const {}
+  void onlyDerivedFunc() const {
+  }
 };
 
 TEST(WeakRefCountedPtrTest, JustTarget) {

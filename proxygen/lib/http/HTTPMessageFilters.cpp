@@ -45,4 +45,4 @@ void HTTPMessageFilter::resume(uint64_t offset) noexcept {
   }
 }
 
-}
+} // namespace proxygen

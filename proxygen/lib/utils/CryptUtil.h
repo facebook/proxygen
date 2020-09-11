@@ -18,4 +18,4 @@ std::string base64Encode(folly::ByteRange text);
 
 // MD5 encode using openssl
 std::string md5Encode(folly::ByteRange text);
-}
+} // namespace proxygen

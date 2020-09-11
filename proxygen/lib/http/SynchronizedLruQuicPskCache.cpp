@@ -27,7 +27,7 @@ folly::Optional<quic::QuicCachedPsk> SynchronizedLruQuicPskCache::getPsk(
                       : "none");
       cacheMap->erase(result);
       return folly::none;
-      }
+    }
     return result->second;
   } else {
     return folly::none;

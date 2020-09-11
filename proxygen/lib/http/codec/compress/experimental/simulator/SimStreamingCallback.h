@@ -11,15 +11,15 @@
 #include <folly/Expected.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HeaderConstants.h>
-#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 #include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 
 namespace proxygen { namespace compress {
 class SimStreamingCallback : public HPACK::StreamingCallback {
  public:
   SimStreamingCallback(uint16_t index,
                        std::function<void(std::chrono::milliseconds)> cb,
-                       bool isP=false)
+                       bool isP = false)
       : requestIndex(index), headersCompleteCb(cb), isPublic(isP) {
   }
 

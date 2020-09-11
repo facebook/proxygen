@@ -7,16 +7,15 @@
  */
 
 #include <folly/io/IOBuf.h>
-#include <glog/logging.h>
 #include <folly/portability/GTest.h>
+#include <glog/logging.h>
 #include <proxygen/lib/utils/Logging.h>
 
 using namespace folly;
 using namespace proxygen;
 using namespace std;
 
-class LoggingTests : public testing::Test {
-};
+class LoggingTests : public testing::Test {};
 
 TEST_F(LoggingTests, PrintHexIobuf) {
   unique_ptr<IOBuf> buf = IOBuf::create(128);
@@ -45,10 +44,8 @@ TEST_F(LoggingTests, PrintHexIobuf) {
 }
 
 TEST_F(LoggingTests, HexString) {
-  uint8_t buf[] = {
-    0x03, 0x04, 0x11, 0x22, 0xBB, 0xAA
-  };
-  string s((const char *)buf, sizeof(buf));
+  uint8_t buf[] = {0x03, 0x04, 0x11, 0x22, 0xBB, 0xAA};
+  string s((const char*)buf, sizeof(buf));
   EXPECT_EQ("03041122bbaa", hexStr(s));
 }
 
@@ -96,108 +93,126 @@ TEST_F(LoggingTests, DumpBinToFile) {
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW(false, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW(false, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW(true, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_LT_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_LT(5, 4, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_LT(5, 4, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_LT(3, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_LE_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_LE(5, 4, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_LE(5, 4, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_LE(3, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
-  EXPECT_NO_THROW([]{
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_LE(4, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_GT_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_GT(3, 4, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_GT(3, 4, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_GT(5, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_GE_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_GE(3, 4, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_GE(3, 4, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_GE(5, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
-  EXPECT_NO_THROW([]{
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_GE(4, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_EQ_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_EQ(5, 4, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_EQ(5, 4, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_EQ(4, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_NE_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_NE(4, 4, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_NE(4, 4, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_NE(3, 4, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_NOT_NULL_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_NOT_NULL(nullptr, ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_NOT_NULL(nullptr, ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_NOT_NULL("hello", ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }
 
 TEST_F(LoggingTests, CHECK_LOG_AND_THROW_NULL_TEST) {
-  EXPECT_THROW([]{
-    CHECK_LOG_AND_THROW_NULL("hello", ERROR, runtime_error)
-      << "Test log and exception message";
-  }(), runtime_error);
-  EXPECT_NO_THROW([]{
+  EXPECT_THROW(
+      [] {
+        CHECK_LOG_AND_THROW_NULL("hello", ERROR, runtime_error)
+            << "Test log and exception message";
+      }(),
+      runtime_error);
+  EXPECT_NO_THROW([] {
     CHECK_LOG_AND_THROW_NULL(nullptr, ERROR, runtime_error)
-      << "This should not be logged";
+        << "This should not be logged";
   });
 }

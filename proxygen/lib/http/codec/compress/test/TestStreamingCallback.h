@@ -8,11 +8,11 @@
 
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
-#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 #include <folly/Expected.h>
 #include <folly/Function.h>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 
 namespace proxygen {
 
@@ -62,7 +62,6 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
     return result;
   }
 
-
   compress::HeaderPieceList headers;
   HPACK::DecodeError error{HPACK::DecodeError::NONE};
   char* duplicate(const folly::fbstring& str) {
@@ -75,4 +74,4 @@ class TestStreamingCallback : public HPACK::StreamingCallback {
   HTTPHeaderSize decodedSize_;
 };
 
-}
+} // namespace proxygen

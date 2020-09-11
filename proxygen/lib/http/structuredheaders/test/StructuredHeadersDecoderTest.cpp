@@ -7,13 +7,12 @@
  */
 
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
-#include <string>
 #include <folly/portability/GTest.h>
+#include <string>
 
-namespace proxygen{
+namespace proxygen {
 
-class StructuredHeadersDecoderTest : public testing::Test {
-};
+class StructuredHeadersDecoderTest : public testing::Test {};
 
 TEST_F(StructuredHeadersDecoderTest, TestItem) {
   std::string input = "645643";
@@ -163,7 +162,7 @@ TEST_F(StructuredHeadersDecoderTest, TestParamListManyElts) {
   EXPECT_EQ(pl[1].parameterMap.size(), 2);
   EXPECT_EQ(pl[1].parameterMap["q"].tag, StructuredHeaderItem::Type::STRING);
   EXPECT_EQ(pl[1].parameterMap["r"].tag,
-    StructuredHeaderItem::Type::BINARYCONTENT);
+            StructuredHeaderItem::Type::BINARYCONTENT);
   EXPECT_EQ(pl[1].parameterMap["q"], std::string("9"));
   EXPECT_EQ(pl[1].parameterMap["r"], std::string("max is awesome"));
 }
@@ -221,4 +220,4 @@ TEST_F(StructuredHeadersDecoderTest, TestParamListNullValues) {
   EXPECT_EQ(pl[1].parameterMap["burger"].tag, StructuredHeaderItem::Type::NONE);
 }
 
-}
+} // namespace proxygen

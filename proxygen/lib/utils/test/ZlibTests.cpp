@@ -137,9 +137,8 @@ TEST_F(ZlibTests, CompressDecompressStreaming) {
 TEST_F(ZlibTests, CompressDecompressSmallBuffer) {
   ASSERT_NO_FATAL_FAILURE({
     auto oldFlag = FLAGS_zlib_compressor_buffer_growth;
-    auto guard = folly::makeGuard([&] {
-      FLAGS_zlib_compressor_buffer_growth = oldFlag;
-    });
+    auto guard = folly::makeGuard(
+        [&] { FLAGS_zlib_compressor_buffer_growth = oldFlag; });
     // NB: This is picked intentionally so we don't generate multiple
     // zlib flush markers as ZlibStreamDecompressor fatals on them.
     FLAGS_zlib_compressor_buffer_growth = 10;

@@ -8,15 +8,15 @@
 
 #pragma once
 
-#include <wangle/acceptor/TransportInfo.h>
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/AsyncSocket.h>
-#include <folly/io/async/SSLContext.h>
 #include <folly/io/async/HHWheelTimer.h>
+#include <folly/io/async/SSLContext.h>
 #include <proxygen/lib/http/codec/DefaultHTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
+#include <wangle/acceptor/TransportInfo.h>
 
 namespace proxygen {
 
@@ -28,8 +28,7 @@ extern const std::string empty_string;
  * can be reused, even to connect to different addresses, but it can only
  * service setting up one connection at a time.
  */
-class HTTPConnector:
-      protected folly::AsyncSocket::ConnectCallback {
+class HTTPConnector : protected folly::AsyncSocket::ConnectCallback {
  public:
   /**
    * This class defines the pure virtual interface on which to receive the
@@ -37,10 +36,10 @@ class HTTPConnector:
    */
   class Callback {
    public:
-    virtual ~Callback() {}
+    virtual ~Callback() {
+    }
     virtual void connectSuccess(HTTPUpstreamSession* session) = 0;
-    virtual void connectError(
-      const folly::AsyncSocketException& ex) = 0;
+    virtual void connectError(const folly::AsyncSocketException& ex) = 0;
   };
 
   /**
@@ -97,13 +96,11 @@ class HTTPConnector:
    * @param bindAddr Optional address to bind to locally.
    */
   void connect(
-    folly::EventBase* eventBase,
-    const folly::SocketAddress& connectAddr,
-    std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
-    const folly::SocketOptionMap& socketOptions =
-      folly::emptySocketOptionMap,
-    const folly::SocketAddress& bindAddr =
-      folly::AsyncSocket::anyAddress());
+      folly::EventBase* eventBase,
+      const folly::SocketAddress& connectAddr,
+      std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
+      const folly::SocketOptionMap& socketOptions = folly::emptySocketOptionMap,
+      const folly::SocketAddress& bindAddr = folly::AsyncSocket::anyAddress());
 
   /**
    * Begin the process of getting a secure connection to the server
@@ -121,16 +118,14 @@ class HTTPConnector:
    * @param bindAddr Optional address to bind to locally.
    */
   void connectSSL(
-    folly::EventBase* eventBase,
-    const folly::SocketAddress& connectAddr,
-    const std::shared_ptr<folly::SSLContext>& ctx,
-    SSL_SESSION* session = nullptr,
-    std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
-    const folly::SocketOptionMap& socketOptions =
-      folly::emptySocketOptionMap,
-    const folly::SocketAddress& bindAddr =
-    folly::AsyncSocket::anyAddress(),
-    const std::string& serverName = empty_string);
+      folly::EventBase* eventBase,
+      const folly::SocketAddress& connectAddr,
+      const std::shared_ptr<folly::SSLContext>& ctx,
+      SSL_SESSION* session = nullptr,
+      std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
+      const folly::SocketOptionMap& socketOptions = folly::emptySocketOptionMap,
+      const folly::SocketAddress& bindAddr = folly::AsyncSocket::anyAddress(),
+      const std::string& serverName = empty_string);
 
   /**
    * @returns the number of milliseconds since connecting began, or
@@ -142,7 +137,9 @@ class HTTPConnector:
    * @returns true iff this connector is busy setting up a connection. If
    * this is false, it is safe to call connect() or connectSSL() on it again.
    */
-  bool isBusy() const { return socket_.get(); }
+  bool isBusy() const {
+    return socket_.get();
+  }
 
   void setHTTPCodecFactory(std::unique_ptr<DefaultHTTPCodecFactory> factory) {
     httpCodecFactory_ = std::move(factory);
@@ -150,9 +147,7 @@ class HTTPConnector:
 
  protected:
   void connectSuccess() noexcept override;
-  void connectErr(const folly::AsyncSocketException& ex)
-    noexcept override;
-
+  void connectErr(const folly::AsyncSocketException& ex) noexcept override;
 
   Callback* cb_;
   WheelTimerInstance timeout_;
@@ -163,4 +158,4 @@ class HTTPConnector:
   std::unique_ptr<DefaultHTTPCodecFactory> httpCodecFactory_;
 };
 
-}
+} // namespace proxygen

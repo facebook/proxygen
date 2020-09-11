@@ -48,12 +48,11 @@ const HTTPErrorPage* HTTPSessionAcceptor::getErrorPage(
   return errorPage;
 }
 
-void HTTPSessionAcceptor::onNewConnection(
-    folly::AsyncTransport::UniquePtr sock,
-    const SocketAddress* peerAddress,
-    const string& nextProtocol,
-    wangle::SecureTransportType,
-    const wangle::TransportInfo& tinfo) {
+void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
+                                          const SocketAddress* peerAddress,
+                                          const string& nextProtocol,
+                                          wangle::SecureTransportType,
+                                          const wangle::TransportInfo& tinfo) {
 
   unique_ptr<HTTPCodec> codec = codecFactory_->getCodec(
       nextProtocol,

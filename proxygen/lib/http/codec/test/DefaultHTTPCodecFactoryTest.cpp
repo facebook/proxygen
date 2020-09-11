@@ -22,7 +22,8 @@ TEST(DefaultHTTPCodecFactoryTest, GetCodec) {
   SPDYCodec* spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());
   EXPECT_NE(spdyCodec, nullptr);
 
-  codec = factory.getCodec(http2::kProtocolString, TransportDirection::UPSTREAM, true);
+  codec = factory.getCodec(
+      http2::kProtocolString, TransportDirection::UPSTREAM, true);
   HTTP2Codec* http2Codec = dynamic_cast<HTTP2Codec*>(codec.get());
   EXPECT_NE(http2Codec, nullptr);
 

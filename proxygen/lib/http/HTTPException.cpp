@@ -14,19 +14,19 @@
 namespace proxygen {
 
 HTTPException::HTTPException(Direction dir, const std::string& msg)
-  : Exception(msg),
-    dir_(dir) {}
+    : Exception(msg), dir_(dir) {
+}
 
 HTTPException::HTTPException(Direction dir, const char* msg)
-  : Exception(msg),
-    dir_(dir) {}
+    : Exception(msg), dir_(dir) {
+}
 
-HTTPException::HTTPException(const HTTPException& ex) :
-  Exception(static_cast<const Exception&>(ex)),
-  dir_(ex.dir_),
-  httpStatusCode_(ex.httpStatusCode_),
-  codecStatusCode_(ex.codecStatusCode_),
-  errno_(ex.errno_) {
+HTTPException::HTTPException(const HTTPException& ex)
+    : Exception(static_cast<const Exception&>(ex)),
+      dir_(ex.dir_),
+      httpStatusCode_(ex.httpStatusCode_),
+      codecStatusCode_(ex.codecStatusCode_),
+      errno_(ex.errno_) {
   if (ex.currentIngressBuf_) {
     currentIngressBuf_ = ex.currentIngressBuf_->clone();
   }
@@ -45,11 +45,11 @@ std::ostream& operator<<(std::ostream& os, const HTTPException& ex) {
   os << "what=\"" << ex.what()
      << "\", direction=" << static_cast<int>(ex.getDirection())
      << ", proxygenError=" << getErrorString(ex.getProxygenError())
-     << ", codecStatusCode=" << (ex.hasCodecStatusCode() ?
-                                 getErrorCodeString(ex.getCodecStatusCode()) :
-                                 "-1")
+     << ", codecStatusCode="
+     << (ex.hasCodecStatusCode() ? getErrorCodeString(ex.getCodecStatusCode())
+                                 : "-1")
      << ", httpStatusCode=" << ex.getHttpStatusCode();
   return os;
 }
 
-}
+} // namespace proxygen

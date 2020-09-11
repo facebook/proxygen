@@ -7,17 +7,17 @@
  */
 
 #include "StructuredHeadersEncoder.h"
+#include "StructuredHeadersUtilities.h" // @manual=:utils
 #include <boost/lexical_cast.hpp>
 #include <boost/variant.hpp>
 #include <glog/logging.h>
-#include "StructuredHeadersUtilities.h" // @manual=:utils
 
 namespace proxygen {
 
 using namespace StructuredHeaders;
 
 EncodeError StructuredHeadersEncoder::encodeList(
-  const std::vector<StructuredHeaderItem>& input) {
+    const std::vector<StructuredHeaderItem>& input) {
 
   if (input.empty()) {
     return handleEncodeError(EncodeError::EMPTY_DATA_STRUCTURE);
@@ -29,7 +29,7 @@ EncodeError StructuredHeadersEncoder::encodeList(
       return err;
     }
 
-    if (std::next(it, 1)!= input.end()) {
+    if (std::next(it, 1) != input.end()) {
       outputStream_ << ", ";
     }
   }
@@ -38,7 +38,7 @@ EncodeError StructuredHeadersEncoder::encodeList(
 }
 
 EncodeError StructuredHeadersEncoder::encodeDictionary(
-  const Dictionary& input) {
+    const Dictionary& input) {
 
   if (input.empty()) {
     return handleEncodeError(EncodeError::EMPTY_DATA_STRUCTURE);
@@ -66,7 +66,7 @@ EncodeError StructuredHeadersEncoder::encodeDictionary(
 }
 
 EncodeError StructuredHeadersEncoder::encodeParameterisedList(
-  const ParameterisedList& input) {
+    const ParameterisedList& input) {
 
   if (input.empty()) {
     return handleEncodeError(EncodeError::EMPTY_DATA_STRUCTURE);
@@ -78,8 +78,8 @@ EncodeError StructuredHeadersEncoder::encodeParameterisedList(
       return err;
     }
 
-    for (auto it2 = it1->parameterMap.begin();
-      it2 != it1->parameterMap.end(); it2++) {
+    for (auto it2 = it1->parameterMap.begin(); it2 != it1->parameterMap.end();
+         it2++) {
 
       outputStream_ << "; ";
 
@@ -105,15 +105,13 @@ EncodeError StructuredHeadersEncoder::encodeParameterisedList(
   return EncodeError::OK;
 }
 
-StructuredHeadersEncoder::StructuredHeadersEncoder():
-   output_(),
-   buf_(output_),
-   outputStream_(&buf_) {
+StructuredHeadersEncoder::StructuredHeadersEncoder()
+    : output_(), buf_(output_), outputStream_(&buf_) {
   outputStream_.precision(kMaxValidFloatLength - 1);
 }
 
 EncodeError StructuredHeadersEncoder::encodeItem(
-  const StructuredHeaderItem& input) {
+    const StructuredHeaderItem& input) {
 
   if (!itemTypeMatchesContent(input)) {
     return handleEncodeError(EncodeError::ITEM_TYPE_MISMATCH);
@@ -129,8 +127,7 @@ EncodeError StructuredHeadersEncoder::encodeItem(
     case StructuredHeaderItem::Type::DOUBLE:
       return encodeFloat(boost::get<double>(input.value));
     case StructuredHeaderItem::Type::BINARYCONTENT:
-      return encodeBinaryContent(
-        boost::get<std::string>(input.value));
+      return encodeBinaryContent(boost::get<std::string>(input.value));
     default:
       return handleEncodeError(EncodeError::ENCODING_NULL_ITEM);
   }
@@ -139,7 +136,7 @@ EncodeError StructuredHeadersEncoder::encodeItem(
 }
 
 EncodeError StructuredHeadersEncoder::encodeBinaryContent(
-   const std::string& input) {
+    const std::string& input) {
 
   outputStream_ << "*";
   outputStream_ << encodeBase64(input);
@@ -189,7 +186,7 @@ EncodeError StructuredHeadersEncoder::encodeFloat(double input) {
 }
 
 EncodeError StructuredHeadersEncoder::encodeIdentifier(
-  const std::string &input) {
+    const std::string& input) {
 
   if (!isValidIdentifier(input)) {
     return handleEncodeError(EncodeError::BAD_IDENTIFIER, input);
@@ -200,18 +197,19 @@ EncodeError StructuredHeadersEncoder::encodeIdentifier(
 
 // Used to print an error when a string type (eg: a string or binary content)
 // was involved in the error
-EncodeError StructuredHeadersEncoder::handleEncodeError(EncodeError err,
-  const std::string &culprit) {
+EncodeError StructuredHeadersEncoder::handleEncodeError(
+    EncodeError err, const std::string& culprit) {
 
-  LOG_EVERY_N(ERROR, 1000) << "Error message: " <<
-    encodeErrorDescription.at(err) << " .The culprit was: " << culprit;
+  LOG_EVERY_N(ERROR, 1000)
+      << "Error message: " << encodeErrorDescription.at(err)
+      << " .The culprit was: " << culprit;
   return err;
 }
 
 // Used to print more general error messages (eg: empty data structure)
 EncodeError StructuredHeadersEncoder::handleEncodeError(EncodeError err) {
-  LOG_EVERY_N(ERROR, 1000) << "Error message: " <<
-    encodeErrorDescription.at(err);
+  LOG_EVERY_N(ERROR, 1000) << "Error message: "
+                           << encodeErrorDescription.at(err);
   return err;
 }
 
@@ -220,4 +218,4 @@ std::string StructuredHeadersEncoder::get() {
   return std::move(output_);
 }
 
-}
+} // namespace proxygen

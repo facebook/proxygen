@@ -12,7 +12,6 @@
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
-
 namespace proxygen {
 
 HTTPDownstreamSession::~HTTPDownstreamSession() {

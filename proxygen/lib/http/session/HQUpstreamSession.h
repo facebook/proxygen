@@ -86,8 +86,8 @@ class HQUpstreamSession : public HQSession {
 
   void detachThreadLocals(bool) override;
 
-  void onNetworkSwitch(std::unique_ptr<folly::AsyncUDPSocket>)
-    noexcept override;
+  void onNetworkSwitch(
+      std::unique_ptr<folly::AsyncUDPSocket>) noexcept override;
 
   uint32_t getNumOutgoingStreams() const override {
     // need transport API
@@ -146,8 +146,7 @@ class HQUpstreamSession : public HQSession {
       CHECK(parentTxnId.has_value());
       auto cb = ((HQUpstreamSession&)session_).serverPushLifecycleCb_;
       if (cb) {
-        cb->onHalfOpenPushedTxn(
-            &txn_, pushId, *parentTxnId, false);
+        cb->onHalfOpenPushedTxn(&txn_, pushId, *parentTxnId, false);
       }
     }
 
@@ -171,12 +170,17 @@ class HQUpstreamSession : public HQSession {
                      ErrorCode errorCode) noexcept override {
       // TBD: send "cancel push" here.
 
-      return sendAbortImpl(hq::toHTTP3ErrorCode(errorCode),
+      return sendAbortImpl(
+          hq::toHTTP3ErrorCode(errorCode),
           folly::to<std::string>("Application aborts pushed txn,"
-            " errorCode=", getErrorCodeString(errorCode),
-            " pushID=", getPushId(),
-            " txn=", txn->getID(),
-            " hasIngressStream=", hasIngressStreamId()));
+                                 " errorCode=",
+                                 getErrorCodeString(errorCode),
+                                 " pushID=",
+                                 getPushId(),
+                                 " txn=",
+                                 txn->getID(),
+                                 " hasIngressStream=",
+                                 hasIngressStreamId()));
     }
 
     hq::PushId getPushId() const {
@@ -203,10 +207,9 @@ class HQUpstreamSession : public HQSession {
    * to a nascent stream (which has the transport/codec).
    * returns true if binding was successful
    */
-  bool tryBindIngressStreamToTxn(
-      quic::StreamId streamID,
-      hq::PushId pushId,
-      HQIngressPushStream* pushStream = nullptr);
+  bool tryBindIngressStreamToTxn(quic::StreamId streamID,
+                                 hq::PushId pushId,
+                                 HQIngressPushStream* pushStream = nullptr);
 
   // Create ingress push stream.
   HQStreamTransportBase* createIngressPushStream(quic::StreamId parentStreamId,
@@ -215,7 +218,7 @@ class HQUpstreamSession : public HQSession {
   HQStreamTransportBase* findPushStream(quic::StreamId id) override;
 
   void findPushStreams(
-    std::unordered_set<HQStreamTransportBase*>& streams) override {
+      std::unordered_set<HQStreamTransportBase*>& streams) override {
     for (auto& pstream : ingressPushStreams_) {
       streams.insert(&pstream.second);
     }
@@ -228,8 +231,8 @@ class HQUpstreamSession : public HQSession {
   void cleanupUnboundPushStreams(std::vector<quic::StreamId>&) override;
 
   void onNewPushStream(quic::StreamId /* pushStreamId */,
-                               hq::PushId /* pushId */,
-                               size_t /* toConsume */) override;
+                       hq::PushId /* pushId */,
+                       size_t /* toConsume */) override;
 
   // Incoming server push streams. Since the incoming push streams
   // can be created before transport stream

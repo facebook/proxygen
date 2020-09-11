@@ -65,9 +65,9 @@ TEST_F(HuffmanTests, Encode) {
   EXPECT_EQ(size, 3);
   const IOBuf* buf = bufQueue.front();
   const uint8_t* data = buf->data();
-  EXPECT_EQ(data[0], 0x9b);  // 10011011
-  EXPECT_EQ(data[1], 0xd9);  // 11011001
-  EXPECT_EQ(data[2], 0xab);  // 10101011
+  EXPECT_EQ(data[0], 0x9b); // 10011011
+  EXPECT_EQ(data[1], 0xd9); // 11011001
+  EXPECT_EQ(data[2], 0xab); // 10101011
 
   // size must equal with the actual encoding
   folly::fbstring accept("accept-encoding");
@@ -106,9 +106,7 @@ TEST_F(HuffmanTests, Decode) {
  */
 TEST_F(HuffmanTests, NonPrintableDecode) {
   // character code 9 and 38 (&) that have 24 + 8 = 32 bits
-  uint8_t buffer1[4] = {
-    0xFF, 0xFF, 0xEA, 0xF8
-  };
+  uint8_t buffer1[4] = {0xFF, 0xFF, 0xEA, 0xF8};
   folly::fbstring literal;
   tree_.decode(buffer1, 4, literal);
   EXPECT_EQ(literal.size(), 2);
@@ -117,14 +115,12 @@ TEST_F(HuffmanTests, NonPrintableDecode) {
 
   // two weird characters and padding
   // 1 and 240 will have 26 + 23 = 49 bits + 7 bits padding
-  uint8_t buffer2[7] = {
-    0xFF, 0xFF, 0xB1, 0xFF, 0xFF, 0xF5, 0xFF
-  };
+  uint8_t buffer2[7] = {0xFF, 0xFF, 0xB1, 0xFF, 0xFF, 0xF5, 0xFF};
   literal.clear();
   tree_.decode(buffer2, 7, literal);
   EXPECT_EQ(literal.size(), 2);
-  EXPECT_EQ((uint8_t) literal[0], 1);
-  EXPECT_EQ((uint8_t) literal[1], 240);
+  EXPECT_EQ((uint8_t)literal[0], 1);
+  EXPECT_EQ((uint8_t)literal[1], 240);
 }
 
 TEST_F(HuffmanTests, ExampleCom) {
@@ -146,10 +142,13 @@ TEST_F(HuffmanTests, ExampleCom) {
 
 TEST_F(HuffmanTests, UserAgent) {
   folly::fbstring user_agent(
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) AppleWebKit/537.51"
-    ".1 (KHTML, like Gecko) Mobile/11B554a [FBAN/FBIOS;FBAV/6.7;FBBV/566055;FBD"
-    "V/iPhone5,1;FBMD/iPhone;FBSN/iPhone OS;FBSV/7.0.4;FBSS/2; FBCR/AT&T;FBID/p"
-    "hone;FBLC/en_US;FBOP/5]");
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 7_0_4 like Mac OS X) "
+      "AppleWebKit/537.51"
+      ".1 (KHTML, like Gecko) Mobile/11B554a "
+      "[FBAN/FBIOS;FBAV/6.7;FBBV/566055;FBD"
+      "V/iPhone5,1;FBMD/iPhone;FBSN/iPhone OS;FBSV/7.0.4;FBSS/2; "
+      "FBCR/AT&T;FBID/p"
+      "hone;FBLC/en_US;FBOP/5]");
   IOBufQueue bufQueue;
   QueueAppender appender(&bufQueue, 512);
   appender.ensure(512);
@@ -195,13 +194,12 @@ TEST_F(HuffmanTests, FitInBuffer) {
  * eosCodeBits stores the number of bits for the End-Of-String character
  *   codes
  */
-uint32_t treeDfs(
-    const SuperHuffNode *allSnodes,
-    const uint32_t &snodeIndex,
-    const uint32_t &depth,
-    const uint32_t &fullCode,
-    const uint32_t &eosCode,
-    const uint32_t &eosCodeBits) {
+uint32_t treeDfs(const SuperHuffNode* allSnodes,
+                 const uint32_t& snodeIndex,
+                 const uint32_t& depth,
+                 const uint32_t& fullCode,
+                 const uint32_t& eosCode,
+                 const uint32_t& eosCodeBits) {
 
   EXPECT_TRUE(depth < 4);
 
@@ -214,8 +212,8 @@ uint32_t treeDfs(
     uint32_t newFullCode = fullCode ^ (i << (24 - 8 * depth));
     uint32_t eosCodeDepth = (eosCodeBits - 1) / 8;
 
-    if(eosCodeDepth == depth
-        && (newFullCode >> (32 - eosCodeBits)) == eosCode) {
+    if (eosCodeDepth == depth &&
+        (newFullCode >> (32 - eosCodeBits)) == eosCode) {
 
       // this condition corresponds to an EOS code
       // this should be a leaf that doesn't have supernode or bits set
@@ -244,13 +242,12 @@ uint32_t treeDfs(
       EXPECT_TRUE(node.data.superNodeIndex < 46);
 
       // keep track of leaf counts for this subtree
-      subtreeLeafCount += treeDfs(
-          allSnodes,
-          node.data.superNodeIndex,
-          depth + 1,
-          newFullCode,
-          eosCode,
-          eosCodeBits);
+      subtreeLeafCount += treeDfs(allSnodes,
+                                  node.data.superNodeIndex,
+                                  depth + 1,
+                                  newFullCode,
+                                  eosCode,
+                                  eosCodeBits);
     }
   }
   return subtreeLeafCount + leaves.size();
@@ -262,8 +259,8 @@ uint32_t treeDfs(
  */
 class TestingHuffTree : public HuffTree {
  public:
-
-  explicit TestingHuffTree(const HuffTree& tree) : HuffTree(tree) {}
+  explicit TestingHuffTree(const HuffTree& tree) : HuffTree(tree) {
+  }
 
   const SuperHuffNode* getInternalTable() {
     return table_;
@@ -273,7 +270,6 @@ class TestingHuffTree : public HuffTree {
     TestingHuffTree reqTree(huffTree());
     return reqTree;
   }
-
 };
 
 TEST_F(HuffmanTests, SanityChecks) {

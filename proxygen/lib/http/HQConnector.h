@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <folly/io/SocketOptionMap.h>
 #include <fizz/client/AsyncFizzClient.h>
+#include <folly/io/SocketOptionMap.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <quic/api/LoopDetectorCallback.h>
 #include <quic/api/QuicSocket.h>
@@ -58,13 +58,14 @@ class HQConnector : public HQSession::ConnectCallback {
       std::shared_ptr<const fizz::client::FizzClientContext> fizzContext,
       std::shared_ptr<const fizz::CertificateVerifier> verifier,
       std::chrono::milliseconds connectTimeout = std::chrono::milliseconds(0),
-      const folly::SocketOptionMap& socketOptions =
-          folly::emptySocketOptionMap,
+      const folly::SocketOptionMap& socketOptions = folly::emptySocketOptionMap,
       folly::Optional<std::string> sni = folly::none,
       std::shared_ptr<quic::Logger> logger = nullptr,
       std::shared_ptr<quic::QLogger> qLogger = nullptr,
-      std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback = nullptr,
-      std::shared_ptr<quic::QuicTransportStatsCallback> quicTransportStatsCallback = nullptr);
+      std::shared_ptr<quic::LoopDetectorCallback> quicLoopDetectorCallback =
+          nullptr,
+      std::shared_ptr<quic::QuicTransportStatsCallback>
+          quicTransportStatsCallback = nullptr);
 
   std::chrono::milliseconds timeElapsed();
 

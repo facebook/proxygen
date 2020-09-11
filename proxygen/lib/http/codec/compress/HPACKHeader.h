@@ -9,44 +9,45 @@
 #pragma once
 
 #include <folly/Conv.h>
-#include <ostream>
-#include <string>
-#include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
 #include <folly/FBString.h>
 #include <glog/logging.h>
+#include <ostream>
+#include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
+#include <string>
 
 namespace proxygen {
 
 class HPACKHeader {
-  public:
+ public:
   static const uint32_t kMinLength = 32;
 
-  HPACKHeader() {}
+  HPACKHeader() {
+  }
 
-  HPACKHeader(const HPACKHeaderName& name_,
-              folly::StringPiece value_):
-      name(name_), value(value_.data(), value_.size()) {}
+  HPACKHeader(const HPACKHeaderName& name_, folly::StringPiece value_)
+      : name(name_), value(value_.data(), value_.size()) {
+  }
 
   // this one is usually with a code
-  HPACKHeader(const HPACKHeaderName& name_,
-              folly::fbstring&& value_):
-      name(name_), value(std::move(value_)) {}
+  HPACKHeader(const HPACKHeaderName& name_, folly::fbstring&& value_)
+      : name(name_), value(std::move(value_)) {
+  }
 
-  HPACKHeader(HPACKHeaderName&& name_,
-              folly::fbstring&& value_):
-      name(std::move(name_)), value(std::move(value_)) {}
+  HPACKHeader(HPACKHeaderName&& name_, folly::fbstring&& value_)
+      : name(std::move(name_)), value(std::move(value_)) {
+  }
 
-  HPACKHeader(HPACKHeaderName&& name_,
-              folly::StringPiece value_):
-      name(std::move(name_)), value(value_.data(), value_.size()) {}
+  HPACKHeader(HPACKHeaderName&& name_, folly::StringPiece value_)
+      : name(std::move(name_)), value(value_.data(), value_.size()) {
+  }
 
-  HPACKHeader(folly::StringPiece name_,
-              folly::StringPiece value_):
-      name(name_), value(value_.data(), value_.size()) {}
+  HPACKHeader(folly::StringPiece name_, folly::StringPiece value_)
+      : name(name_), value(value_.data(), value_.size()) {
+  }
 
   HPACKHeader(HPACKHeader&& goner) noexcept
-      : name(std::move(goner.name)),
-        value(std::move(goner.value)) {}
+      : name(std::move(goner.name)), value(std::move(goner.value)) {
+  }
 
   HPACKHeader& operator=(HPACKHeader&& goner) noexcept {
     std::swap(name, goner.name);
@@ -54,7 +55,8 @@ class HPACKHeader {
     return *this;
   }
 
-  ~HPACKHeader() {}
+  ~HPACKHeader() {
+  }
 
   /**
    * size of usable bytes of the header entry, does not include overhead
@@ -66,7 +68,7 @@ class HPACKHeader {
   static uint32_t realBytes(uint64_t nameSize, uint64_t valueSize) {
     DCHECK_LE(nameSize + valueSize, std::numeric_limits<uint32_t>::max());
     return folly::tryTo<uint32_t>(nameSize + valueSize)
-      .value_or(std::numeric_limits<uint32_t>::max());
+        .value_or(std::numeric_limits<uint32_t>::max());
   }
 
   /**
@@ -80,7 +82,7 @@ class HPACKHeader {
     DCHECK_LE(kMinLength + nameSize + valueSize,
               std::numeric_limits<uint32_t>::max());
     return folly::tryTo<uint32_t>(kMinLength + realBytes(nameSize, valueSize))
-      .value_or(std::numeric_limits<uint32_t>::max());
+        .value_or(std::numeric_limits<uint32_t>::max());
   }
 
   bool operator==(const HPACKHeader& other) const {
@@ -118,4 +120,4 @@ class HPACKHeader {
 
 std::ostream& operator<<(std::ostream& os, const HPACKHeader& h);
 
-}
+} // namespace proxygen

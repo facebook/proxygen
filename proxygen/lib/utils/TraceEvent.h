@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <proxygen/lib/utils/Export.h>
 #include <proxygen/lib/utils/Exception.h>
+#include <proxygen/lib/utils/Export.h>
 #include <proxygen/lib/utils/Time.h>
 #include <proxygen/lib/utils/TraceEventType.h>
 #include <proxygen/lib/utils/TraceFieldType.h>
@@ -25,11 +25,9 @@
 #include <vector>
 
 namespace proxygen {
-  // Helpers used to make TraceEventType/TraceFieldType can be used with GLOG
-  FB_EXPORT std::ostream& operator<<(
-      std::ostream& os, TraceEventType eventType);
-  FB_EXPORT std::ostream& operator<<(
-      std::ostream& os, TraceFieldType fieldType);
+// Helpers used to make TraceEventType/TraceFieldType can be used with GLOG
+FB_EXPORT std::ostream& operator<<(std::ostream& os, TraceEventType eventType);
+FB_EXPORT std::ostream& operator<<(std::ostream& os, TraceFieldType fieldType);
 
 /**
  * Simple structure to track timing of event in request flow then we can
@@ -45,34 +43,31 @@ class TraceEvent {
     template <typename T,
               typename = typename std::enable_if<std::is_integral<T>::value,
                                                  void>::type>
-    /* implicit */ MetaData(T value)
-        : value_(folly::to<int64_t>(value)) {}
-
-    /* implicit */ MetaData(const std::string& value) :
-      value_(value) {
+    /* implicit */ MetaData(T value) : value_(folly::to<int64_t>(value)) {
     }
 
-    /* implicit */ MetaData(std::string&& value) :
-      value_(std::move(value)) {
+    /* implicit */ MetaData(const std::string& value) : value_(value) {
     }
 
-    /* implicit */ MetaData(const char* value) :
-      value_(std::string(value)) {
+    /* implicit */ MetaData(std::string&& value) : value_(std::move(value)) {
     }
 
-    /* implicit */ MetaData(const folly::fbstring& value) :
-      value_(value.toStdString()) {
+    /* implicit */ MetaData(const char* value) : value_(std::string(value)) {
     }
 
-    /* implicit */ MetaData(const std::vector<std::string>& value) :
-      value_(value) {
+    /* implicit */ MetaData(const folly::fbstring& value)
+        : value_(value.toStdString()) {
     }
 
-    /* implicit */ MetaData(std::vector<std::string>&& value) :
-      value_(std::move(value)) {
+    /* implicit */ MetaData(const std::vector<std::string>& value)
+        : value_(value) {
     }
 
-    template<typename T>
+    /* implicit */ MetaData(std::vector<std::string>&& value)
+        : value_(std::move(value)) {
+    }
+
+    template <typename T>
     T getValueAs() const {
       ConvVisitor<T> visitor;
       return boost::apply_visitor(visitor, value_);
@@ -82,13 +77,13 @@ class TraceEvent {
       return value_.type();
     }
 
-    template<typename T>
+    template <typename T>
     struct ConvVisitor : boost::static_visitor<T> {
       T operator()(const std::vector<std::string>& /* Unused */) const {
         folly::throw_exception<Exception>("Not supported for type");
       }
 
-      template<typename U>
+      template <typename U>
       T operator()(U& operand) const {
         return folly::to<T>(operand);
       }
@@ -101,12 +96,12 @@ class TraceEvent {
 
   class Iterator {
    public:
-    explicit Iterator(const TraceEvent& event) :
-      event_(event),
-      itr_(event.metaData_.begin()) {
+    explicit Iterator(const TraceEvent& event)
+        : event_(event), itr_(event.metaData_.begin()) {
     }
 
-    ~Iterator() {}
+    ~Iterator() {
+    }
 
     void next() {
       ++itr_;
@@ -120,7 +115,7 @@ class TraceEvent {
       return itr_->first;
     }
 
-    template<typename T>
+    template <typename T>
     T getValueAs() const {
       return itr_->second.getValueAs<T>();
     }
@@ -129,12 +124,10 @@ class TraceEvent {
       return itr_->second.type();
     }
 
-    private:
-     const TraceEvent& event_;
-     MetaDataMap::const_iterator itr_;
-
+   private:
+    const TraceEvent& event_;
+    MetaDataMap::const_iterator itr_;
   };
-
 
   FB_EXPORT explicit TraceEvent(TraceEventType type, uint32_t parentID = 0);
 
@@ -196,7 +189,7 @@ class TraceEvent {
     return metaData_.count(field);
   }
 
-  template<typename T>
+  template <typename T>
   T getTraceFieldDataAs(TraceFieldType field) const {
     const auto itr = metaData_.find(field);
     CHECK(itr != metaData_.end());
@@ -215,22 +208,22 @@ class TraceEvent {
     return Iterator(*this);
   }
 
-  template<typename T>
+  template <typename T>
   bool addMeta(TraceFieldType key, T&& value) {
     MetaData val(std::forward<T>(value));
     return addMetaInternal(key, std::move(val));
   }
 
-  template<typename T>
+  template <typename T>
   bool addMeta(TraceFieldType key, const T& value) {
     MetaData val(value);
     return addMetaInternal(key, std::move(val));
   }
 
-  template<typename T>
+  template <typename T>
   bool readIntMeta(TraceFieldType key, T& dest) const {
     static_assert(std::is_integral<T>::value && !std::is_same<T, bool>::value,
-        "readIntMeta should take an intergral type of paremeter");
+                  "readIntMeta should take an intergral type of paremeter");
     return readMeta(key, dest);
   }
 
@@ -240,13 +233,12 @@ class TraceEvent {
 
   std::string toString() const;
 
-  friend std::ostream& operator << (std::ostream& out,
-                                    const TraceEvent& event);
+  friend std::ostream& operator<<(std::ostream& out, const TraceEvent& event);
 
   friend class Iterator;
 
  private:
-  template<typename T>
+  template <typename T>
   bool readMeta(TraceFieldType key, T& dest) const {
     const auto itr = metaData_.find(key);
     if (itr != metaData_.end()) {
@@ -255,9 +247,7 @@ class TraceEvent {
             dest = itr->second.getValueAs<T>();
             return true;
           },
-          [](auto&&) -> bool {
-            return false;
-          });
+          [](auto &&) -> bool { return false; });
     }
     return false;
   }
@@ -277,31 +267,30 @@ class TraceEvent {
   TimePoint start_;
   TimePoint end_;
   MetaDataMap metaData_;
-
 };
 
-template<>
-struct TraceEvent::MetaData::ConvVisitor<std::vector<std::string>> :
-    boost::static_visitor<std::vector<std::string>> {
+template <>
+struct TraceEvent::MetaData::ConvVisitor<std::vector<std::string>>
+    : boost::static_visitor<std::vector<std::string>> {
   std::vector<std::string> operator()(
       const std::vector<std::string>& operand) const {
     return operand;
   }
 
-  template<typename U>
+  template <typename U>
   std::vector<std::string> operator()(U& /* Unused */) const {
     folly::throw_exception<Exception>("Not supported for type");
   }
 };
 
-template<>
-struct TraceEvent::MetaData::ConvVisitor<std::string> :
-    boost::static_visitor<std::string> {
+template <>
+struct TraceEvent::MetaData::ConvVisitor<std::string>
+    : boost::static_visitor<std::string> {
   std::string operator()(const std::vector<std::string>& operand) const;
 
-  template<typename U>
+  template <typename U>
   std::string operator()(U& operand) const {
     return folly::to<std::string>(operand);
   }
 };
-}
+} // namespace proxygen

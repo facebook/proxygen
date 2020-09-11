@@ -16,8 +16,9 @@ namespace proxygen {
 
 static const std::string kMessageFilterDefaultName_ = "Unknown";
 
-class HTTPMessageFilter : public HTTPTransaction::Handler,
-                          public folly::DestructorCheck {
+class HTTPMessageFilter
+    : public HTTPTransaction::Handler
+    , public folly::DestructorCheck {
  public:
   void setNextTransactionHandler(HTTPTransaction::Handler* next) {
     nextTransactionHandler_ = CHECK_NOTNULL(next);

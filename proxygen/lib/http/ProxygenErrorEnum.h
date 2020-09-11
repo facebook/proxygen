@@ -10,12 +10,14 @@
 
 namespace proxygen {
 
-#define SET_PROXYGEN_ERROR_IF(errorPtr, error) do { \
-  if (errorPtr) {                                   \
-    *errorPtr = error;                              \
-  }                                                 \
-} while(false)
+#define SET_PROXYGEN_ERROR_IF(errorPtr, error) \
+  do {                                         \
+    if (errorPtr) {                            \
+      *errorPtr = error;                       \
+    }                                          \
+  } while (false)
 
+// clang-format off
 // Max must be the last one.
 #define PROXYGEN_ERROR_GEN(x)                   \
     x(None),                                    \
@@ -82,15 +84,14 @@ namespace proxygen {
     x(NetworkSwitch),                           \
     x(Forbidden),                               \
     x(Max)
+// clang-format on
 
 // Increase this if you add more error types and Max exceeds 63
 #define PROXYGEN_ERROR_BITSIZE 6
 
 #define PROXYGEN_ERROR_ENUM(error) kError##error
 
-enum ProxygenError {
-  PROXYGEN_ERROR_GEN(PROXYGEN_ERROR_ENUM)
-};
+enum ProxygenError { PROXYGEN_ERROR_GEN(PROXYGEN_ERROR_ENUM) };
 
 #undef PROXYGEN_ERROR_ENUM
 
@@ -98,4 +99,4 @@ extern const char* getErrorString(ProxygenError error);
 
 extern const char* getErrorStringByIndex(int i);
 
-}
+} // namespace proxygen

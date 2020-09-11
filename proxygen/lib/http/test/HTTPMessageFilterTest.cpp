@@ -7,13 +7,13 @@
  */
 
 #include <proxygen/lib/http/HTTPMessageFilters.h>
-#include <proxygen/lib/http/test/MockHTTPMessageFilter.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
+#include <proxygen/lib/http/test/MockHTTPMessageFilter.h>
 
 using namespace proxygen;
 
 class TestFilter : public HTTPMessageFilter {
-  std::unique_ptr<HTTPMessageFilter> clone () noexcept override {
+  std::unique_ptr<HTTPMessageFilter> clone() noexcept override {
     return nullptr;
   }
 };

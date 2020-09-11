@@ -62,7 +62,7 @@ HTTPTransactionHandler* SimpleController::createErrorHandler(
 }
 
 std::chrono::milliseconds SimpleController::getGracefulShutdownTimeout() const {
-  return acceptor_ ? acceptor_->getGracefulShutdownTimeout() :
-    std::chrono::milliseconds(0);
+  return acceptor_ ? acceptor_->getGracefulShutdownTimeout()
+                   : std::chrono::milliseconds(0);
 }
 } // namespace proxygen

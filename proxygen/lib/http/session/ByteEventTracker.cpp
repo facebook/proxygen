@@ -11,7 +11,6 @@
 #include <folly/io/async/DelayedDestruction.h>
 #include <string>
 
-
 namespace proxygen {
 
 ByteEventTracker::~ByteEventTracker() {

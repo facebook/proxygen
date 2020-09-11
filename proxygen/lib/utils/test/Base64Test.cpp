@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/portability/GTest.h>
 #include <proxygen/lib/utils/Base64.h>
+#include <folly/portability/GTest.h>
 
 using namespace proxygen;
 
@@ -16,7 +16,7 @@ folly::ByteRange range(const char *str, int64_t len = -1) {
   return folly::ByteRange((const unsigned char *)str,
                           len >= 0 ? len : strlen(str));
 }
-}
+} // namespace
 
 TEST(Base64, BasicEncode) {
   EXPECT_EQ(Base64::encode(range("a")), "YQ==");

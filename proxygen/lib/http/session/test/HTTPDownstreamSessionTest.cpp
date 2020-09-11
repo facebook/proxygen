@@ -292,11 +292,9 @@ class HTTPDownstreamTest : public testing::Test {
     clientCodec_ = HTTPCodecFactory::getCodec(expectedProtocol,
                                               TransportDirection::UPSTREAM);
   }
-  void expectResponse(uint32_t code,
-                      bool expectBody,
-                      bool stopParsing = true) {
-    expectResponse(code, ErrorCode::NO_ERROR, false, false, expectBody,
-                   stopParsing);
+  void expectResponse(uint32_t code, bool expectBody, bool stopParsing = true) {
+    expectResponse(
+        code, ErrorCode::NO_ERROR, false, false, expectBody, stopParsing);
   }
 
   void expectResponse(uint32_t code = 200,
@@ -305,8 +303,8 @@ class HTTPDownstreamTest : public testing::Test {
                       bool expectGoaway = false,
                       bool expectBody = true,
                       bool stopParsing = false) {
-    expectResponses(1, code, errorCode, expect100, expectGoaway, expectBody,
-                    stopParsing);
+    expectResponses(
+        1, code, errorCode, expect100, expectGoaway, expectBody, stopParsing);
   }
   void expectResponses(uint32_t n,
                        uint32_t code = 200,
@@ -381,13 +379,13 @@ class HTTPDownstreamTest : public testing::Test {
         EXPECT_CALL(callbacks_, onBody(_, _, _)).RetiresOnSaturation();
       }
       EXPECT_CALL(callbacks_, onMessageComplete(_, _))
-        .WillOnce(InvokeWithoutArgs([i, n, stopParsing, this] {
-              if (stopParsing && i == n - 1) {
-                clientCodec_->setParserPaused(true);
-                breakParseOutput_ = true;
-              }
-            }))
-        .RetiresOnSaturation();
+          .WillOnce(InvokeWithoutArgs([i, n, stopParsing, this] {
+            if (stopParsing && i == n - 1) {
+              clientCodec_->setParserPaused(true);
+              breakParseOutput_ = true;
+            }
+          }))
+          .RetiresOnSaturation();
     }
     parseOutput(*clientCodec_);
   }
@@ -991,22 +989,20 @@ TEST(HTTPDownstreamTest, ParseErrorNoTxn) {
   EXPECT_CALL(*transport, closeNow())
       .WillRepeatedly(Assign(&transportGood, false));
   EXPECT_CALL(*transport, writeChain(_, _, _))
-      .WillRepeatedly(
-          Invoke([&](folly::AsyncTransport::WriteCallback* callback,
-                     const shared_ptr<IOBuf>&,
-                     WriteFlags) { callback->writeSuccess(); }));
+      .WillRepeatedly(Invoke([&](folly::AsyncTransport::WriteCallback* callback,
+                                 const shared_ptr<IOBuf>&,
+                                 WriteFlags) { callback->writeSuccess(); }));
 
   // Create the downstream session, thus initializing codecCallback
   auto transactionTimeouts = makeInternalTimeoutSet(&evb);
-  auto session =
-      new HTTPDownstreamSession(transactionTimeouts.get(),
-                                AsyncTransport::UniquePtr(transport),
-                                localAddr,
-                                peerAddr,
-                                &mockController,
-                                std::move(codec),
-                                mockTransportInfo,
-                                nullptr);
+  auto session = new HTTPDownstreamSession(transactionTimeouts.get(),
+                                           AsyncTransport::UniquePtr(transport),
+                                           localAddr,
+                                           peerAddr,
+                                           &mockController,
+                                           std::move(codec),
+                                           mockTransportInfo,
+                                           nullptr);
   session->startNow();
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, "foo");
   ex.setProxygenError(kErrorParseHeader);
@@ -1029,15 +1025,14 @@ TEST(HTTPDownstreamTest, ByteEventsDrained) {
   auto transactionTimeouts = makeInternalTimeoutSet(&evb);
 
   // Create the downstream session
-  auto session =
-      new HTTPDownstreamSession(transactionTimeouts.get(),
-                                AsyncTransport::UniquePtr(transport),
-                                localAddr,
-                                peerAddr,
-                                &mockController,
-                                std::move(codec),
-                                mockTransportInfo,
-                                nullptr);
+  auto session = new HTTPDownstreamSession(transactionTimeouts.get(),
+                                           AsyncTransport::UniquePtr(transport),
+                                           localAddr,
+                                           peerAddr,
+                                           &mockController,
+                                           std::move(codec),
+                                           mockTransportInfo,
+                                           nullptr);
   session->setByteEventTracker(
       std::unique_ptr<ByteEventTracker>(byteEventTracker));
 
@@ -1169,9 +1164,9 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipeline) {
 
 TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipelineError) {
   HTTPDirectResponseHandler* errorHandler =
-    new HTTPDirectResponseHandler(400, "Bad Request");
-  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
-               WillOnce(Return(errorHandler));
+      new HTTPDirectResponseHandler(400, "Bad Request");
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _))
+      .WillOnce(Return(errorHandler));
 
   // Test a real pipelining case as well.  First request is done waiting for
   // ack, then receive a pipelined request and an error.
@@ -1180,9 +1175,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipelineError) {
 
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
-  handler1->expectEOM([&handler1]() {
-    handler1->sendReplyWithBody(200, 100);
-  });
+  handler1->expectEOM([&handler1]() { handler1->sendReplyWithBody(200, 100); });
   EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
       .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
         txn->incrementPendingByteEvents();
@@ -1223,18 +1216,16 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingConnError) {
   // Send a request, response waits on a byte event
   // Then send an error.  The session should close when the byte event completes
   HTTPDirectResponseHandler* errorHandler =
-    new HTTPDirectResponseHandler(400, "Bad Request");
-  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
-               WillOnce(Return(errorHandler));
+      new HTTPDirectResponseHandler(400, "Bad Request");
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _))
+      .WillOnce(Return(errorHandler));
 
   auto byteEventTracker = setMockByteEventTracker();
   InSequence enforceOrder;
 
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
-  handler1->expectEOM([&handler1]() {
-    handler1->sendReplyWithBody(200, 100);
-  });
+  handler1->expectEOM([&handler1]() { handler1->sendReplyWithBody(200, 100); });
   EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
       .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
         txn->incrementPendingByteEvents();
@@ -1264,12 +1255,11 @@ TEST_F(HTTP2DownstreamSessionTest, TestPing) {
   auto handler = addSimpleStrictHandler();
   sendRequest();
   auto pingData = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  std::chrono::steady_clock::now().time_since_epoch()).count();
+                      std::chrono::steady_clock::now().time_since_epoch())
+                      .count();
   clientCodec_->generatePingRequest(requests_, pingData);
   handler->expectHeaders();
-  handler->expectEOM([&handler] {
-      handler->sendReplyWithBody(200, 100);
-    });
+  handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectGoaway();
   flushRequestsAndLoopN(1);
   handler->expectDetachTransaction();
@@ -1289,36 +1279,37 @@ TEST_F(HTTP2DownstreamSessionTest, TestPingWithPreSendSplit) {
   auto byteEventTracker = new NiceMock<MockByteEventTracker>(nullptr);
   EXPECT_CALL(*byteEventTracker, drainByteEvents()).WillRepeatedly(Return(0));
   EXPECT_CALL(*byteEventTracker, processByteEvents(_, _))
-    .WillRepeatedly(Invoke([](std::shared_ptr<ByteEventTracker> self,
-                              uint64_t bytesWritten) {
-          return self->ByteEventTracker::processByteEvents(self, bytesWritten);
+      .WillRepeatedly(Invoke([](std::shared_ptr<ByteEventTracker> self,
+                                uint64_t bytesWritten) {
+        return self->ByteEventTracker::processByteEvents(self, bytesWritten);
       }));
 
   // send a request with a PING, should get the PING first
   auto pingData = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  std::chrono::steady_clock::now().time_since_epoch()).count();
+                      std::chrono::steady_clock::now().time_since_epoch())
+                      .count();
   auto handler = addSimpleStrictHandler();
   sendRequest();
   handler->expectHeaders();
   handler->expectEOM([this, &handler, byteEventTracker, pingData] {
-      // set the new tracker now, so we don't get invoked when sending SETTINGS
-      httpSession_->setByteEventTracker(
+    // set the new tracker now, so we don't get invoked when sending SETTINGS
+    httpSession_->setByteEventTracker(
         std::unique_ptr<ByteEventTracker>(byteEventTracker));
-      // Pause writes so only the first write goes through and the remainder
-      // gets buffered in writeBuf_
-      transport_->pauseWrites();
-      handler->sendReplyWithBody(200, 100);
-      eventBase_.runInLoop([this, pingData] {
-          IOBufQueue pingBuf{IOBufQueue::cacheChainLength()};
-          clientCodec_->generatePingRequest(pingBuf, pingData);
-          transport_->addReadEvent(pingBuf, milliseconds(0));
-          transport_->resumeWrites();
-        });
+    // Pause writes so only the first write goes through and the remainder
+    // gets buffered in writeBuf_
+    transport_->pauseWrites();
+    handler->sendReplyWithBody(200, 100);
+    eventBase_.runInLoop([this, pingData] {
+      IOBufQueue pingBuf{IOBufQueue::cacheChainLength()};
+      clientCodec_->generatePingRequest(pingBuf, pingData);
+      transport_->addReadEvent(pingBuf, milliseconds(0));
+      transport_->resumeWrites();
     });
+  });
   // Split the write buffer on a non-frame boundary the first time
   EXPECT_CALL(*byteEventTracker, preSend(_, _, _, _))
-    .WillOnce(Return(1))
-    .WillRepeatedly(Return(0));
+      .WillOnce(Return(1))
+      .WillRepeatedly(Return(0));
   handler->expectDetachTransaction();
   flushRequestsAndLoopN(2);
   HTTPSession::DestructorGuard g(httpSession_);
@@ -1620,9 +1611,9 @@ TEST_F(HTTP2DownstreamSessionTest, SetByteEventTracker) {
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
   handler2->expectEOM([&handler2, this]() {
-      handler2->sendReplyWithBody(200, 100);
-      transport_->pauseWrites();
-    });
+    handler2->sendReplyWithBody(200, 100);
+    transport_->pauseWrites();
+  });
 
   sendRequest();
   sendRequest();
@@ -2841,13 +2832,10 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyMaxConcurrentStreams) {
   auto handler2 = addSimpleStrictHandler();
   handler2->expectEgressPaused();
   handler2->expectHeaders();
-  handler2->expectEOM([this] {
-      resumeWritesInLoop();
-  });
+  handler2->expectEOM([this] { resumeWritesInLoop(); });
   handler1->expectDetachTransaction();
-  handler2->expectEgressResumed([&handler2] {
-      handler2->sendReplyWithBody(200, 100);
-    });
+  handler2->expectEgressResumed(
+      [&handler2] { handler2->sendReplyWithBody(200, 100); });
   handler2->expectDetachTransaction();
 
   expectDetachSession();
@@ -2916,17 +2904,16 @@ TEST_F(SPDY31DownstreamTest, TestEOFOnBlockedSession) {
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1] {
-      handler1->sendHeaders(200, 40000);
-      handler1->sendBody(32769);
-    });
+    handler1->sendHeaders(200, 40000);
+    handler1->sendBody(32769);
+  });
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
   handler2->expectEOM([&handler2, this] {
-      handler2->sendHeaders(200, 40000);
-      handler2->sendBody(32768);
-      eventBase_.runInLoop([this] {
-          transport_->addReadEOF(milliseconds(0)); });
-    });
+    handler2->sendHeaders(200, 40000);
+    handler2->sendBody(32768);
+    eventBase_.runInLoop([this] { transport_->addReadEOF(milliseconds(0)); });
+  });
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
   handler1->expectError([&](const HTTPException& ex) {
@@ -3244,7 +3231,7 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
   auto handler = addSimpleStrictHandler();
   StrictMock<MockHTTPPushHandler> pushHandler1;
 
-  //InSequence handlerSequence;
+  // InSequence handlerSequence;
   handler->expectHeaders([&] {
     // Generate response for the associated stream
     this->transport_->pauseWrites();
@@ -3262,12 +3249,11 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
   handler->expectEgressPaused();
   EXPECT_CALL(pushHandler1, onEgressPaused());
 
-  EXPECT_CALL(pushHandler1, onError(_))
-    .WillOnce(InvokeWithoutArgs([&] {
-          StrictMock<MockHTTPPushHandler> pushHandler2;
-          auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler2);
-          EXPECT_EQ(pushTxn, nullptr);
-        }));
+  EXPECT_CALL(pushHandler1, onError(_)).WillOnce(InvokeWithoutArgs([&] {
+    StrictMock<MockHTTPPushHandler> pushHandler2;
+    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler2);
+    EXPECT_EQ(pushTxn, nullptr);
+  }));
   EXPECT_CALL(pushHandler1, detachTransaction());
   handler->expectError();
   handler->expectDetachTransaction();
@@ -3598,7 +3584,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgRateLimitExceeded) {
   // limit of 10, causing us to drop the connection.
   for (int i = 0; i < 7; i++) {
     clientCodec_->generatePriority(
-      requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+        requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
   }
 
   clientCodec_->generateSettings(requests_);
@@ -3622,7 +3608,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
   // limit of 10.
   for (int i = 0; i < 7; i++) {
     clientCodec_->generatePriority(
-      requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+        requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
   }
 
   clientCodec_->generateSettings(requests_);
@@ -3639,7 +3625,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
   // set.
   for (int i = 0; i < 5; i++) {
     clientCodec_->generatePriority(
-      requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+        requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
   }
 
   clientCodec_->generateSettings(requests_);
@@ -3669,8 +3655,8 @@ TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitTouched) {
     sendRequest(req, false);
   }
 
-  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
-               WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _))
+      .WillRepeatedly(Return(nullptr));
 
   flushRequestsAndLoop();
 
@@ -3681,8 +3667,8 @@ TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitTouched) {
     sendRequest(req, false);
   }
 
-  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
-               WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _))
+      .WillRepeatedly(Return(nullptr));
 
   flushRequestsAndLoop();
   gracefulShutdown();
@@ -3701,8 +3687,8 @@ TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitExceeded) {
     sendRequest(req, false);
   }
 
-  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _)).
-               WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(mockController_, getParseErrorHandler(_, _, _))
+      .WillRepeatedly(Return(nullptr));
 
   expectDetachSession();
   flushRequestsAndLoopN(2);
@@ -4065,7 +4051,8 @@ TEST_F(HTTP2DownstreamSessionTest, TestDuplicateRequestStream) {
 
 TEST_F(HTTP2DownstreamSessionTest, TestPingPreserveData) {
   auto pingData = std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::steady_clock::now().time_since_epoch()).count();
+                      std::chrono::steady_clock::now().time_since_epoch())
+                      .count();
   clientCodec_->generatePingRequest(requests_, pingData);
   EXPECT_CALL(callbacks_, onPingReply(pingData));
   flushRequestsAndLoop();
@@ -4073,15 +4060,12 @@ TEST_F(HTTP2DownstreamSessionTest, TestPingPreserveData) {
   gracefulShutdown();
 }
 
-
 TEST_F(HTTP2DownstreamSessionTest, DropConnectionWithPendingShutdownCallback) {
   // A request to set up EOM writing in the loop later.
   auto handler = addSimpleStrictHandler();
   sendRequest();
   handler->expectHeaders();
-  handler->expectEOM([&handler] {
-      handler->sendReplyWithBody(200, 100);
-    });
+  handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   flushRequestsAndLoopN(1);
   handler->expectDetachTransaction();
   HTTPSession::DestructorGuard g(httpSession_);
@@ -4101,9 +4085,7 @@ TEST_F(HTTP2DownstreamSessionTest, DropAlreadyShuttingDownConnection) {
   auto handler = addSimpleStrictHandler();
   sendRequest();
   handler->expectHeaders();
-  handler->expectEOM([&handler] {
-      handler->sendReplyWithBody(200, 100);
-    });
+  handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   flushRequestsAndLoopN(1);
   handler->expectDetachTransaction();
   HTTPSession::DestructorGuard g(httpSession_);

@@ -8,9 +8,9 @@
 
 #pragma once
 
+#include <proxygen/lib/utils/ConsistentHash.h>
 #include <string>
 #include <vector>
-#include <proxygen/lib/utils/ConsistentHash.h>
 
 namespace proxygen {
 /*
@@ -42,4 +42,4 @@ class RendezvousHash : public ConsistentHash {
   std::vector<std::pair<uint64_t, uint64_t>> weights_;
 };
 
-} // proxygen
+} // namespace proxygen

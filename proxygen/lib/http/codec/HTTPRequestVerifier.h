@@ -16,7 +16,8 @@ namespace proxygen {
 
 class HTTPRequestVerifier {
  public:
-  explicit HTTPRequestVerifier() {}
+  explicit HTTPRequestVerifier() {
+  }
 
   void reset(HTTPMessage* msg) {
     msg_ = msg;
@@ -77,7 +78,7 @@ class HTTPRequestVerifier {
     return true;
   }
 
-  bool setAuthority(folly::StringPiece authority, bool validate=true) {
+  bool setAuthority(folly::StringPiece authority, bool validate = true) {
     if (hasAuthority_) {
       error = "Duplicate authority";
       return false;
@@ -112,13 +113,19 @@ class HTTPRequestVerifier {
            (!hasMethod_ || !hasAuthority_ || hasScheme_ || hasPath_)) ||
           (hasUpgradeProtocol_ && (!hasScheme_ || !hasPath_))) {
         error = folly::to<std::string>("Malformed CONNECT request m/a/s/pa/pr=",
-                                hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_, hasUpgradeProtocol_);
+                                       hasMethod_,
+                                       hasAuthority_,
+                                       hasScheme_,
+                                       hasPath_,
+                                       hasUpgradeProtocol_);
       }
     } else if (hasUpgradeProtocol_ || !hasMethod_ || !hasScheme_ || !hasPath_) {
       error = folly::to<std::string>("Malformed request m/a/s/pa/pr=",
-                                hasMethod_, hasAuthority_,
-                                hasScheme_, hasPath_, hasUpgradeProtocol_);
+                                     hasMethod_,
+                                     hasAuthority_,
+                                     hasScheme_,
+                                     hasPath_,
+                                     hasUpgradeProtocol_);
     }
     return error.empty();
   }
@@ -162,4 +169,4 @@ class HTTPRequestVerifier {
   bool hasUpgradeProtocol_{false};
 };
 
-} // proxygen
+} // namespace proxygen

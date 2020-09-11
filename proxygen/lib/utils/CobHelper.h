@@ -24,9 +24,8 @@ class CobHelper {
   CobHelper(size_t itemsLeft,
             const std::function<void()>& cob,
             const std::function<void(const std::exception&)>& ecob)
-  : itemsLeft_(itemsLeft)
-, cob_(cob)
-, ecob_(ecob) {}
+      : itemsLeft_(itemsLeft), cob_(cob), ecob_(ecob) {
+  }
 
   void setError(const std::string& emsg) {
     CHECK(!emsg.empty());
@@ -41,6 +40,7 @@ class CobHelper {
 
     allDone();
   }
+
  private:
   void allDone() {
     if (!emsg_.empty()) {
@@ -58,4 +58,4 @@ class CobHelper {
   std::function<void(const std::exception&)> ecob_;
 };
 
-}
+} // namespace proxygen

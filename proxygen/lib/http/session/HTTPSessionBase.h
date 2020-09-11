@@ -40,16 +40,24 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   class InfoCallback {
    public:
-    virtual ~InfoCallback() {}
+    virtual ~InfoCallback() {
+    }
 
     // Note: you must not start any asynchronous work from onCreate()
-    virtual void onCreate(const HTTPSessionBase&) {}
-    virtual void onTransportReady(const HTTPSessionBase&) {}
-    virtual void onConnectionError(const HTTPSessionBase&) {}
-    virtual void onFullHandshakeCompletion(const HTTPSessionBase&) {}
-    virtual void onIngressError(const HTTPSessionBase&, ProxygenError) {}
-    virtual void onIngressEOF() {}
-    virtual void onRead(const HTTPSessionBase&, size_t /*bytesRead*/) {}
+    virtual void onCreate(const HTTPSessionBase&) {
+    }
+    virtual void onTransportReady(const HTTPSessionBase&) {
+    }
+    virtual void onConnectionError(const HTTPSessionBase&) {
+    }
+    virtual void onFullHandshakeCompletion(const HTTPSessionBase&) {
+    }
+    virtual void onIngressError(const HTTPSessionBase&, ProxygenError) {
+    }
+    virtual void onIngressEOF() {
+    }
+    virtual void onRead(const HTTPSessionBase&, size_t /*bytesRead*/) {
+    }
     /**
      * New version of the API.  Includes the stream these bytes belong to,
      * or HTTPCodec::NoStream if unknown.  bytesRead can be 0 if the stream
@@ -59,47 +67,64 @@ class HTTPSessionBase : public wangle::ManagedConnection {
      * ID), safest path is to keep it and change it to call onRead with the new
      * signature that includes the stream ID with folly::none as the Stream ID.
      */
-    virtual void onRead(
-        const HTTPSessionBase& sess,
-        size_t bytesRead,
-        folly::Optional<HTTPCodec::StreamID> /*stream id*/) {
+    virtual void onRead(const HTTPSessionBase& sess,
+                        size_t bytesRead,
+                        folly::Optional<HTTPCodec::StreamID> /*stream id*/) {
       onRead(sess, bytesRead);
     }
-    virtual void onWrite(const HTTPSessionBase&, size_t /*bytesWritten*/) {}
-    virtual void onRequestBegin(const HTTPSessionBase&) {}
-    virtual void onRequestEnd(
-        const HTTPSessionBase&,
-        uint32_t /*maxIngressQueueSize*/) {}
-    virtual void onActivateConnection(const HTTPSessionBase&) {}
-    virtual void onDeactivateConnection(const HTTPSessionBase&) {}
+    virtual void onWrite(const HTTPSessionBase&, size_t /*bytesWritten*/) {
+    }
+    virtual void onRequestBegin(const HTTPSessionBase&) {
+    }
+    virtual void onRequestEnd(const HTTPSessionBase&,
+                              uint32_t /*maxIngressQueueSize*/) {
+    }
+    virtual void onActivateConnection(const HTTPSessionBase&) {
+    }
+    virtual void onDeactivateConnection(const HTTPSessionBase&) {
+    }
     // Note: you must not start any asynchronous work from onDestroy()
-    virtual void onDestroy(const HTTPSessionBase&) {}
-    virtual void onIngressMessage(const HTTPSessionBase&, const HTTPMessage&) {}
-    virtual void onIngressLimitExceeded(const HTTPSessionBase&) {}
-    virtual void onIngressPaused(const HTTPSessionBase&) {}
-    virtual void onTransactionDetached(const HTTPSessionBase&) {}
-    virtual void onPingReplySent(int64_t /*latency*/) {}
-    virtual void onPingReplyReceived() {}
-    virtual void onSettingsOutgoingStreamsFull(const HTTPSessionBase&) {}
-    virtual void onSettingsOutgoingStreamsNotFull(const HTTPSessionBase&) {}
-    virtual void onFlowControlWindowClosed(const HTTPSessionBase&) {}
-    virtual void onEgressBuffered(const HTTPSessionBase&) {}
-    virtual void onEgressBufferCleared(const HTTPSessionBase&) {}
-    virtual void onSettings(const HTTPSessionBase&, const SettingsList&) {}
-    virtual void onSettingsAck(const HTTPSessionBase&) {}
+    virtual void onDestroy(const HTTPSessionBase&) {
+    }
+    virtual void onIngressMessage(const HTTPSessionBase&, const HTTPMessage&) {
+    }
+    virtual void onIngressLimitExceeded(const HTTPSessionBase&) {
+    }
+    virtual void onIngressPaused(const HTTPSessionBase&) {
+    }
+    virtual void onTransactionDetached(const HTTPSessionBase&) {
+    }
+    virtual void onPingReplySent(int64_t /*latency*/) {
+    }
+    virtual void onPingReplyReceived() {
+    }
+    virtual void onSettingsOutgoingStreamsFull(const HTTPSessionBase&) {
+    }
+    virtual void onSettingsOutgoingStreamsNotFull(const HTTPSessionBase&) {
+    }
+    virtual void onFlowControlWindowClosed(const HTTPSessionBase&) {
+    }
+    virtual void onEgressBuffered(const HTTPSessionBase&) {
+    }
+    virtual void onEgressBufferCleared(const HTTPSessionBase&) {
+    }
+    virtual void onSettings(const HTTPSessionBase&, const SettingsList&) {
+    }
+    virtual void onSettingsAck(const HTTPSessionBase&) {
+    }
   };
 
-  HTTPSessionBase(
-      const folly::SocketAddress& localAddr,
-      const folly::SocketAddress& peerAddr,
-      HTTPSessionController* controller,
-      const wangle::TransportInfo& tinfo,
-      InfoCallback* infoCallback,
-      std::unique_ptr<HTTPCodec> codec,
-      const WheelTimerInstance& timeout,
-      HTTPCodec::StreamID rootNodeId);
+  HTTPSessionBase(const folly::SocketAddress& localAddr,
+                  const folly::SocketAddress& peerAddr,
+                  HTTPSessionController* controller,
+                  const wangle::TransportInfo& tinfo,
+                  InfoCallback* infoCallback,
+                  std::unique_ptr<HTTPCodec> codec,
+                  const WheelTimerInstance& timeout,
+                  HTTPCodec::StreamID rootNodeId);
 
-  virtual ~HTTPSessionBase() {}
+  virtual ~HTTPSessionBase() {
+  }
 
   /**
    * Set the read buffer limit to be used for all new HTTPSessionBase objects.
@@ -153,9 +178,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * Called by handleErrorDirectly (when handling parse errors) if the
    * transaction has no handler.
    */
-  HTTPTransaction::Handler* getParseErrorHandler(
-      HTTPTransaction* txn,
-      const HTTPException& error);
+  HTTPTransaction::Handler* getParseErrorHandler(HTTPTransaction* txn,
+                                                 const HTTPException& error);
 
   virtual bool hasActiveTransactions() const = 0;
 
@@ -180,9 +204,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   virtual uint32_t getMaxConcurrentOutgoingStreamsRemote() const = 0;
 
   uint32_t getMaxConcurrentOutgoingStreams() const {
-    return std::min(
-        maxConcurrentOutgoingStreamsConfig_,
-        getMaxConcurrentOutgoingStreamsRemote());
+    return std::min(maxConcurrentOutgoingStreamsConfig_,
+                    getMaxConcurrentOutgoingStreamsRemote());
   }
 
   HTTPSessionController* getController() const {
@@ -220,10 +243,9 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * @param receiveSessionWindowSize  per-session receive window; sent
    *                                  via a WINDOW_UPDATE frame
    */
-  virtual void setFlowControl(
-      size_t initialReceiveWindow,
-      size_t receiveStreamWindowSize,
-      size_t receiveSessionWindowSize) = 0;
+  virtual void setFlowControl(size_t initialReceiveWindow,
+                              size_t receiveStreamWindowSize,
+                              size_t receiveSessionWindowSize) = 0;
 
   /**
    * Set outgoing settings for this session
@@ -305,9 +327,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * As above, but updates an existing priority node.  Do not use for
    * real nodes, prefer HTTPTransaction::changePriority.
    */
-  virtual size_t sendPriority(
-      HTTPCodec::StreamID id,
-      http2::PriorityUpdate pri) = 0;
+  virtual size_t sendPriority(HTTPCodec::StreamID id,
+                              http2::PriorityUpdate pri) = 0;
 
   /**
    * Send a CERTIFICATE_REQUEST frame. If the underlying protocol doesn't
@@ -360,7 +381,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   virtual void onNetworkSwitch(
-      std::unique_ptr<folly::AsyncUDPSocket>) noexcept {}
+      std::unique_ptr<folly::AsyncUDPSocket>) noexcept {
+  }
 
   /**
    * If the connection is closed by remote end
@@ -418,14 +440,13 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual bool isDetachable(bool checkSocket) const = 0;
 
-  virtual void attachThreadLocals(
-      folly::EventBase* eventBase,
-      folly::SSLContextPtr sslContext,
-      const WheelTimerInstance& timeout,
-      HTTPSessionStats* stats,
-      FilterIteratorFn fn,
-      HeaderCodec::Stats* headerCodecStats,
-      HTTPSessionController* controller) = 0;
+  virtual void attachThreadLocals(folly::EventBase* eventBase,
+                                  folly::SSLContextPtr sslContext,
+                                  const WheelTimerInstance& timeout,
+                                  HTTPSessionStats* stats,
+                                  FilterIteratorFn fn,
+                                  HeaderCodec::Stats* headerCodecStats,
+                                  HTTPSessionController* controller) = 0;
 
   virtual void detachThreadLocals(bool detachSSLContext = false) = 0;
 
@@ -473,7 +494,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual void injectTraceEventIntoAllTransactions(TraceEvent&) = 0;
 
-  void setConnectionToken(const HTTPTransaction::ConnectionToken& token) noexcept {
+  void setConnectionToken(
+      const HTTPTransaction::ConnectionToken& token) noexcept {
     connectionToken_ = token;
   }
 
@@ -496,11 +518,10 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   void handleErrorDirectly(HTTPTransaction* txn, const HTTPException& error);
 
-  bool onBodyImpl(
-      std::unique_ptr<folly::IOBuf> chain,
-      size_t length,
-      uint16_t padding,
-      HTTPTransaction* txn);
+  bool onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
+                  size_t length,
+                  uint16_t padding,
+                  HTTPTransaction* txn);
 
   bool notifyBodyProcessed(uint32_t bytes);
 
@@ -538,12 +559,11 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     }
   }
 
-  static void handleLastByteEvents(
-      ByteEventTracker* byteEventTracker,
-      HTTPTransaction* txn,
-      size_t encodedSize,
-      size_t byteOffset,
-      bool piggybacked);
+  static void handleLastByteEvents(ByteEventTracker* byteEventTracker,
+                                   HTTPTransaction* txn,
+                                   size_t encodedSize,
+                                   size_t byteOffset,
+                                   bool piggybacked);
 
   void runDestroyCallbacks();
 

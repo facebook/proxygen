@@ -6,11 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
-#include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
-#include <folly/portability/GTest.h>
 #include <boost/algorithm/string/trim.hpp>
-
+#include <folly/portability/GTest.h>
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
 
 namespace proxygen {
 
@@ -21,21 +20,13 @@ namespace proxygen {
  */
 
 static const std::vector<std::pair<std::string, std::string>>
-  kLegalStringTests =
-  {
-    {"\"foo\"", "foo"},
-    {"\"foo \\\"bar\\\"\"", "foo \"bar\""}
-  };
+    kLegalStringTests = {{"\"foo\"", "foo"},
+                         {"\"foo \\\"bar\\\"\"", "foo \"bar\""}};
 
 static const std::vector<std::pair<std::string, std::string>>
-  kLegalBinContentTests =
-  {
-    {"*aGVsbG8=*", "NBSWY3DP"},
-    {"**", ""}
-  };
+    kLegalBinContentTests = {{"*aGVsbG8=*", "NBSWY3DP"}, {"**", ""}};
 
-static const std::vector<std::pair<std::string, int64_t>> kLegalIntTests =
-  {
+static const std::vector<std::pair<std::string, int64_t>> kLegalIntTests = {
     {"42", 42},
     {"0", 0},
     {"00", 0},
@@ -44,17 +35,12 @@ static const std::vector<std::pair<std::string, int64_t>> kLegalIntTests =
     {"042", 42},
     {"-042", -42},
     {"9223372036854775807", std::numeric_limits<int64_t>::max()},
-    {"-9223372036854775808", std::numeric_limits<int64_t>::min()}
-  };
+    {"-9223372036854775808", std::numeric_limits<int64_t>::min()}};
 
-static const std::vector<std::pair<std::string, double>> kLegalFloatTests =
-  {
-    {"1.23", 1.23},
-    {"-1.23", -1.23}
-  };
+static const std::vector<std::pair<std::string, double>> kLegalFloatTests = {
+    {"1.23", 1.23}, {"-1.23", -1.23}};
 
-static const std::vector<std::string> kIllegalItemTests =
-  {
+static const std::vector<std::string> kIllegalItemTests = {
     "'foo'",
     "\"foo",
     "\"foo \\,\"",
@@ -72,18 +58,12 @@ static const std::vector<std::string> kIllegalItemTests =
     "9223372036854775808",
     "-9223372036854775809",
     "1.5.4",
-    "1..4"
-  };
+    "1..4"};
 
-static const std::vector<std::string> kIllegalListTests =
-  {
-    "1, 42,",
-    "1,,42"
-  };
+static const std::vector<std::string> kIllegalListTests = {"1, 42,", "1,,42"};
 
 class StructuredHeadersStandardTest : public testing::Test {
-public:
-
+ public:
   bool decode32(std::string input, std::string& output) {
 
     uint32_t numBlocks = input.length() / 8;
@@ -118,8 +98,7 @@ public:
     return true;
   }
 
-private:
-
+ private:
   /*
    * Applies the following transformation to the input to produce output:
    * for each character in the input, convert it to the byte value of that
@@ -157,15 +136,15 @@ private:
 
     // Remove any padding and make each character of the input represent the
     // byte value of that character, as per the rfc4648 encoding
-    boost::trim_right_if(input, [](char c){return c == '=';});
+    boost::trim_right_if(input, [](char c) { return c == '='; });
     input = convertBase32ToBinary(input);
 
     // 8 byte buffer
     int64_t buffer = 0;
 
-    for(int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++) {
 
-      if(input[i + blockNum * 8] >= 32) {
+      if (input[i + blockNum * 8] >= 32) {
         // a base32 value cannot be greater than or equal to 32
         return false;
       }
@@ -187,33 +166,31 @@ private:
   }
 };
 
-class LegalStringTests : public StructuredHeadersStandardTest,
-                public ::testing::WithParamInterface<
-                          std::pair<std::string, std::string>> {
-};
+class LegalStringTests
+    : public StructuredHeadersStandardTest
+    , public ::testing::WithParamInterface<
+          std::pair<std::string, std::string>> {};
 
-class LegalBinaryContentTests : public StructuredHeadersStandardTest,
-                public ::testing::WithParamInterface<
-                          std::pair<std::string, std::string>> {
-};
+class LegalBinaryContentTests
+    : public StructuredHeadersStandardTest
+    , public ::testing::WithParamInterface<
+          std::pair<std::string, std::string>> {};
 
-class LegalIntegerTests : public StructuredHeadersStandardTest,
-                public ::testing::WithParamInterface<
-                          std::pair<std::string, int64_t>> {
-};
+class LegalIntegerTests
+    : public StructuredHeadersStandardTest
+    , public ::testing::WithParamInterface<std::pair<std::string, int64_t>> {};
 
-class LegalFloatTests : public StructuredHeadersStandardTest,
-                public ::testing::WithParamInterface<
-                          std::pair<std::string, double>> {
-};
+class LegalFloatTests
+    : public StructuredHeadersStandardTest
+    , public ::testing::WithParamInterface<std::pair<std::string, double>> {};
 
-class IllegalItemTest : public StructuredHeadersStandardTest,
-                public ::testing::WithParamInterface<std::string> {
-};
+class IllegalItemTest
+    : public StructuredHeadersStandardTest
+    , public ::testing::WithParamInterface<std::string> {};
 
-class IllegalListTest : public StructuredHeadersStandardTest,
-                public ::testing::WithParamInterface<std::string> {
-};
+class IllegalListTest
+    : public StructuredHeadersStandardTest
+    , public ::testing::WithParamInterface<std::string> {};
 
 TEST_P(LegalStringTests, LegalStrings) {
   std::string input(GetParam().first);
@@ -273,22 +250,28 @@ TEST_P(IllegalListTest, IllegalList) {
   EXPECT_NE(err, StructuredHeaders::DecodeError::OK);
 }
 
-INSTANTIATE_TEST_CASE_P(TestLegalStrings, LegalStringTests,
+INSTANTIATE_TEST_CASE_P(TestLegalStrings,
+                        LegalStringTests,
                         ::testing::ValuesIn(kLegalStringTests));
 
-INSTANTIATE_TEST_CASE_P(TestLegalBinaryContent, LegalBinaryContentTests,
+INSTANTIATE_TEST_CASE_P(TestLegalBinaryContent,
+                        LegalBinaryContentTests,
                         ::testing::ValuesIn(kLegalBinContentTests));
 
-INSTANTIATE_TEST_CASE_P(TestLegalInts, LegalIntegerTests,
+INSTANTIATE_TEST_CASE_P(TestLegalInts,
+                        LegalIntegerTests,
                         ::testing::ValuesIn(kLegalIntTests));
 
-INSTANTIATE_TEST_CASE_P(TestLegalFloats, LegalFloatTests,
+INSTANTIATE_TEST_CASE_P(TestLegalFloats,
+                        LegalFloatTests,
                         ::testing::ValuesIn(kLegalFloatTests));
 
-INSTANTIATE_TEST_CASE_P(TestIllegalItems, IllegalItemTest,
+INSTANTIATE_TEST_CASE_P(TestIllegalItems,
+                        IllegalItemTest,
                         ::testing::ValuesIn(kIllegalItemTests));
 
-INSTANTIATE_TEST_CASE_P(TestIllegalLists, IllegalListTest,
+INSTANTIATE_TEST_CASE_P(TestIllegalLists,
+                        IllegalListTest,
                         ::testing::ValuesIn(kIllegalListTests));
 
 TEST_F(StructuredHeadersStandardTest, TestBasicList) {
@@ -357,4 +340,4 @@ TEST_F(StructuredHeadersStandardTest, TestExtraWhitespaceList) {
   EXPECT_EQ(v[1], int64_t(42));
 }
 
-}
+} // namespace proxygen

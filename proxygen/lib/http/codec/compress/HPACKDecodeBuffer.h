@@ -19,25 +19,25 @@ namespace proxygen {
 
 class HPACKDecodeBuffer {
  public:
-
   explicit HPACKDecodeBuffer(folly::io::Cursor& cursorVal,
                              uint32_t totalBytes,
                              uint32_t maxLiteralSize,
-                             bool endOfBufferIsError=true)
+                             bool endOfBufferIsError = true)
       : cursor_(cursorVal),
         totalBytes_(totalBytes),
         remainingBytes_(totalBytes),
         maxLiteralSize_(maxLiteralSize),
-        endOfBufferIsError_(endOfBufferIsError) {}
+        endOfBufferIsError_(endOfBufferIsError) {
+  }
 
-  ~HPACKDecodeBuffer() {}
+  ~HPACKDecodeBuffer() {
+  }
 
   void reset(folly::io::Cursor& cursorVal) {
     reset(cursorVal, folly::to<uint32_t>(cursorVal.totalLength()));
   }
 
-  void reset(folly::io::Cursor& cursorVal,
-             uint32_t totalBytes) {
+  void reset(folly::io::Cursor& cursorVal, uint32_t totalBytes) {
     cursor_ = cursorVal;
     totalBytes_ = totalBytes;
     remainingBytes_ = totalBytes;
@@ -85,10 +85,10 @@ class HPACKDecodeBuffer {
 
   HPACK::DecodeError decodeLiteral(uint8_t nbit, folly::fbstring& literal);
 
-private:
-  void EOB_LOG(std::string msg,
-               HPACK::DecodeError code=
-               HPACK::DecodeError::BUFFER_UNDERFLOW) const;
+ private:
+  void EOB_LOG(
+      std::string msg,
+      HPACK::DecodeError code = HPACK::DecodeError::BUFFER_UNDERFLOW) const;
 
   folly::io::Cursor& cursor_;
   uint32_t totalBytes_;
@@ -97,4 +97,4 @@ private:
   bool endOfBufferIsError_{true};
 };
 
-}
+} // namespace proxygen

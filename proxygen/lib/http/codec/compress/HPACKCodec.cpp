@@ -9,14 +9,14 @@
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
 #include <algorithm>
-#include <folly/ThreadLocal.h>
 #include <folly/String.h>
+#include <folly/ThreadLocal.h>
 #include <folly/io/Cursor.h>
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <iosfwd>
+#include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HeaderConstants.h>
-#include <proxygen/lib/http/HTTPMessage.h>
-#include <iosfwd>
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
 using folly::IOBuf;
 using folly::io::Cursor;
@@ -41,11 +41,12 @@ uint32_t prepareHeaders(const vector<Header>& headers,
   }
   return uncompressed;
 }
-}
+} // namespace compress
 
 HPACKCodec::HPACKCodec(TransportDirection /*direction*/)
     : encoder_(true, HPACK::kTableSize),
-      decoder_(HPACK::kTableSize, maxUncompressed_) {}
+      decoder_(HPACK::kTableSize, maxUncompressed_) {
+}
 
 unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   folly::ThreadLocal<std::vector<HPACKHeader>> preparedTL;
@@ -56,8 +57,8 @@ unique_ptr<IOBuf> HPACKCodec::encode(vector<Header>& headers) noexcept {
   return buf;
 }
 
-void HPACKCodec::encode(
-  vector<Header>& headers, folly::IOBufQueue& writeBuf) noexcept {
+void HPACKCodec::encode(vector<Header>& headers,
+                        folly::IOBufQueue& writeBuf) noexcept {
   folly::ThreadLocal<vector<HPACKHeader>> preparedTL;
   auto& prepared = *preparedTL.get();
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
@@ -66,9 +67,9 @@ void HPACKCodec::encode(
   recordCompressedSize(writeBuf.chainLength() - prevSize);
 }
 
-void HPACKCodec::encodeHTTP(
-  const HTTPMessage& msg, folly::IOBufQueue& writeBuf,
-  bool includeDate) noexcept {
+void HPACKCodec::encodeHTTP(const HTTPMessage& msg,
+                            folly::IOBufQueue& writeBuf,
+                            bool includeDate) noexcept {
   auto prevSize = writeBuf.chainLength();
   encoder_.startEncode(writeBuf);
 
@@ -76,8 +77,7 @@ void HPACKCodec::encodeHTTP(
   if (msg.isRequest()) {
     if (msg.isEgressWebsocketUpgrade()) {
       uncompressed += encoder_.encodeHeader(
-        HTTP_HEADER_COLON_METHOD,
-        methodToString(HTTPMethod::CONNECT));
+          HTTP_HEADER_COLON_METHOD, methodToString(HTTPMethod::CONNECT));
       uncompressed += encoder_.encodeHeader(HTTP_HEADER_COLON_PROTOCOL,
                                             headers::kWebsocketString);
     } else {
@@ -88,10 +88,10 @@ void HPACKCodec::encodeHTTP(
     if (msg.getMethod() != HTTPMethod::CONNECT ||
         msg.isEgressWebsocketUpgrade()) {
       uncompressed += encoder_.encodeHeader(
-        HTTP_HEADER_COLON_SCHEME,
-        (msg.isSecure() ? headers::kHttps : headers::kHttp));
-      uncompressed += encoder_.encodeHeader(
-        HTTP_HEADER_COLON_PATH, msg.getURL());
+          HTTP_HEADER_COLON_SCHEME,
+          (msg.isSecure() ? headers::kHttps : headers::kHttp));
+      uncompressed +=
+          encoder_.encodeHeader(HTTP_HEADER_COLON_PATH, msg.getURL());
     }
     const HTTPHeaders& headers = msg.getHeaders();
     const std::string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
@@ -100,12 +100,12 @@ void HPACKCodec::encodeHTTP(
     }
   } else {
     if (msg.isEgressWebsocketUpgrade()) {
-      uncompressed += encoder_.encodeHeader(
-        HTTP_HEADER_COLON_STATUS, headers::kStatus200);
+      uncompressed +=
+          encoder_.encodeHeader(HTTP_HEADER_COLON_STATUS, headers::kStatus200);
     } else {
       uncompressed += encoder_.encodeHeader(
-        HTTP_HEADER_COLON_STATUS,
-        folly::to<folly::fbstring>(msg.getStatusCode()));
+          HTTP_HEADER_COLON_STATUS,
+          folly::to<folly::fbstring>(msg.getStatusCode()));
     }
     // HEADERS frames do not include a version or reason string.
   }
@@ -116,8 +116,8 @@ void HPACKCodec::encodeHTTP(
   msg.getHeaders().forEachWithCode([&](HTTPHeaderCode code,
                                        const std::string& name,
                                        const std::string& value) {
-    if (CodecUtil::perHopHeaderCodes()[code] ||
-        name.empty() || name[0] == ':') {
+    if (CodecUtil::perHopHeaderCodes()[code] || name.empty() ||
+        name[0] == ':') {
       DCHECK(!name.empty()) << "Empty header";
       DCHECK_NE(name[0], ':') << "Invalid header=" << name;
       return;
@@ -137,10 +137,9 @@ void HPACKCodec::encodeHTTP(
     hasDateHeader |= ((code == HTTP_HEADER_DATE) ? 1 : 0);
   });
 
-
   if (includeDate && msg.isResponse() && !hasDateHeader) {
-    uncompressed += encoder_.encodeHeader(
-      HTTP_HEADER_DATE, HTTPMessage::formatDateHeader());
+    uncompressed += encoder_.encodeHeader(HTTP_HEADER_DATE,
+                                          HTTPMessage::formatDateHeader());
   }
 
   encoder_.completeEncode();
@@ -148,9 +147,7 @@ void HPACKCodec::encodeHTTP(
   recordCompressedSize(writeBuf.chainLength() - prevSize);
 }
 
-
-void HPACKCodec::recordCompressedSize(
-  const IOBuf* stream) {
+void HPACKCodec::recordCompressedSize(const IOBuf* stream) {
   encodedSize_.compressed = 0;
   if (stream) {
     auto streamDataLength = stream->computeChainDataLength();
@@ -162,8 +159,7 @@ void HPACKCodec::recordCompressedSize(
   }
 }
 
-void HPACKCodec::recordCompressedSize(
-  size_t size) {
+void HPACKCodec::recordCompressedSize(size_t size) {
   encodedSize_.compressed = size;
   encodedSize_.compressedBlock += size;
   if (stats_) {
@@ -189,4 +185,4 @@ std::ostream& operator<<(std::ostream& os, const HPACKCodec& codec) {
   return os;
 }
 
-}
+} // namespace proxygen

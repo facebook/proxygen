@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYConstants.h>
-#include <proxygen/lib/http/codec/test/TestUtils.h>
 
 #include <boost/optional/optional_io.hpp>
 #include <folly/Random.h>
@@ -21,8 +21,7 @@ using namespace testing;
 namespace proxygen {
 
 const HTTPSettings kDefaultIngressSettings{
-  {SettingsId::INITIAL_WINDOW_SIZE, 65536}
-};
+    {SettingsId::INITIAL_WINDOW_SIZE, 65536}};
 
 std::unique_ptr<HTTPMessage> getPriorityMessage(uint8_t priority) {
   auto ret = std::make_unique<HTTPMessage>();
@@ -45,19 +44,18 @@ std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
   return out;
 }
 
-std::unique_ptr<testing::NiceMock<MockHTTPCodec>>
-makeMockParallelCodec(TransportDirection dir) {
+std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeMockParallelCodec(
+    TransportDirection dir) {
   auto codec = std::make_unique<testing::NiceMock<MockHTTPCodec>>();
   EXPECT_CALL(*codec, supportsParallelRequests())
-    .WillRepeatedly(testing::Return(true));
+      .WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*codec, getProtocol())
-    .WillRepeatedly(testing::Return(CodecProtocol::SPDY_3_1));
-  EXPECT_CALL(*codec, isReusable())
-    .WillRepeatedly(testing::Return(true));
+      .WillRepeatedly(testing::Return(CodecProtocol::SPDY_3_1));
+  EXPECT_CALL(*codec, isReusable()).WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*codec, getTransportDirection())
-    .WillRepeatedly(testing::Return(dir));
+      .WillRepeatedly(testing::Return(dir));
   EXPECT_CALL(*codec, getIngressSettings())
-    .WillRepeatedly(testing::Return(&kDefaultIngressSettings));
+      .WillRepeatedly(testing::Return(&kDefaultIngressSettings));
   return codec;
 }
 
@@ -66,8 +64,7 @@ makeDownstreamParallelCodec() {
   return makeMockParallelCodec(TransportDirection::DOWNSTREAM);
 }
 
-std::unique_ptr<testing::NiceMock<MockHTTPCodec>>
-makeUpstreamParallelCodec() {
+std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeUpstreamParallelCodec() {
   return makeMockParallelCodec(TransportDirection::UPSTREAM);
 }
 
@@ -87,9 +84,8 @@ HTTPMessage getBigGetRequest(const std::string& url) {
   req.setHTTPVersion(1, 1);
   req.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
-  req.getHeaders().add(
-      "x-huge-header",
-      std::string(http2::kMaxFramePayloadLengthMin, '!'));
+  req.getHeaders().add("x-huge-header",
+                       std::string(http2::kMaxFramePayloadLengthMin, '!'));
   return req;
 }
 
@@ -149,7 +145,7 @@ std::unique_ptr<HTTPMessage> makeResponse(uint16_t statusCode) {
   return resp;
 }
 
-std::tuple<std::unique_ptr<HTTPMessage>, std::unique_ptr<folly::IOBuf> >
+std::tuple<std::unique_ptr<HTTPMessage>, std::unique_ptr<folly::IOBuf>>
 makeResponse(uint16_t statusCode, size_t len) {
   auto resp = makeResponse(statusCode);
   resp->getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, folly::to<string>(len));
@@ -157,7 +153,8 @@ makeResponse(uint16_t statusCode, size_t len) {
 }
 
 HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
-                              HTTPMethod method, uint32_t bodyLen) {
+                              HTTPMethod method,
+                              uint32_t bodyLen) {
   HTTPMessage req = getGetRequest();
   req.setMethod(method);
   req.getHeaders().set(HTTP_HEADER_UPGRADE, upgradeHeader);
@@ -246,10 +243,10 @@ void fakeMockCodec(MockHTTPCodec& codec) {
       }));
 
   EXPECT_CALL(codec, generatePingRequest(_))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf) {
-                             writeBuf.append(makeBuf(6));
-                             return 6;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf) {
+        writeBuf.append(makeBuf(6));
+        return 6;
+      }));
 
   EXPECT_CALL(codec, generatePingReply(_, _))
       .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf, uint64_t /*id*/) {
@@ -258,10 +255,10 @@ void fakeMockCodec(MockHTTPCodec& codec) {
       }));
 
   EXPECT_CALL(codec, generateSettings(_))
-    .WillRepeatedly(Invoke([] (folly::IOBufQueue& writeBuf) {
-                             writeBuf.append(makeBuf(6));
-                             return 6;
-                           }));
+      .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf) {
+        writeBuf.append(makeBuf(6));
+        return 6;
+      }));
 
   EXPECT_CALL(codec, generateWindowUpdate(_, _, _))
       .WillRepeatedly(Invoke([](folly::IOBufQueue& writeBuf,
@@ -287,4 +284,4 @@ void fakeMockCodec(MockHTTPCodec& codec) {
         return 6;
       }));
 }
-}
+} // namespace proxygen

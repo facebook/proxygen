@@ -13,34 +13,37 @@
 
 namespace proxygen {
 
-typedef GenericFilter<
-  HTTPCodec,
-  HTTPCodec::Callback,
-  &HTTPCodec::setCallback,
-  true> HTTPCodecFilter;
+typedef GenericFilter<HTTPCodec,
+                      HTTPCodec::Callback,
+                      &HTTPCodec::setCallback,
+                      true>
+    HTTPCodecFilter;
 
 /**
  * An implementation of HTTPCodecFilter that passes through all calls. This is
  * useful to subclass if you aren't interested in intercepting every function.
  * See HTTPCodec.h for documentation on these methods.
  */
-class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
+class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
  public:
   /**
    * By default, the filter gets both calls and callbacks
    */
-  explicit PassThroughHTTPCodecFilter(bool calls = true,
-                                      bool callbacks = true):
-      HTTPCodecFilter(calls, callbacks) {}
+  explicit PassThroughHTTPCodecFilter(bool calls = true, bool callbacks = true)
+      : HTTPCodecFilter(calls, callbacks) {
+  }
 
   // HTTPCodec::Callback methods
   void onMessageBegin(StreamID stream, HTTPMessage* msg) override;
 
-  void onPushMessageBegin(StreamID stream, StreamID assocStream,
+  void onPushMessageBegin(StreamID stream,
+                          StreamID assocStream,
                           HTTPMessage* msg) override;
 
-  void onExMessageBegin(StreamID stream, StreamID controlStream,
-                        bool unidirectional, HTTPMessage* msg) override;
+  void onExMessageBegin(StreamID stream,
+                        StreamID controlStream,
+                        bool unidirectional,
+                        HTTPMessage* msg) override;
 
   void onHeadersComplete(StreamID stream,
                          std::unique_ptr<HTTPMessage> msg) override;
@@ -70,8 +73,7 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                const HTTPException& error,
                bool newStream = false) override;
 
-  void onAbort(StreamID stream,
-               ErrorCode code) override;
+  void onAbort(StreamID stream, ErrorCode code) override;
 
   void onGoaway(uint64_t lastGoodStreamID,
                 ErrorCode code,
@@ -186,24 +188,23 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
                           StreamID stream,
                           const HTTPHeaders& trailers) override;
 
-  size_t generateEOM(folly::IOBufQueue& writeBuf,
-                     StreamID stream) override;
+  size_t generateEOM(folly::IOBufQueue& writeBuf, StreamID stream) override;
 
   size_t generateRstStream(folly::IOBufQueue& writeBuf,
                            StreamID stream,
                            ErrorCode statusCode) override;
 
   size_t generateGoaway(
-    folly::IOBufQueue& writeBuf,
-    StreamID lastStream,
-    ErrorCode statusCode,
-    std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
+      folly::IOBufQueue& writeBuf,
+      StreamID lastStream,
+      ErrorCode statusCode,
+      std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
-  size_t generatePingRequest(folly::IOBufQueue& writeBuf,
-                         folly::Optional<uint64_t> data = folly::none) override;
+  size_t generatePingRequest(
+      folly::IOBufQueue& writeBuf,
+      folly::Optional<uint64_t> data = folly::none) override;
 
-  size_t generatePingReply(folly::IOBufQueue& writeBuf,
-                           uint64_t data) override;
+  size_t generatePingReply(folly::IOBufQueue& writeBuf, uint64_t data) override;
 
   size_t generateSettings(folly::IOBufQueue& writeBuf) override;
 
@@ -222,10 +223,9 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
       uint16_t requestId,
       std::unique_ptr<folly::IOBuf> chain) override;
 
-  size_t generateCertificate(
-      folly::IOBufQueue& writeBuf,
-      uint16_t certId,
-      std::unique_ptr<folly::IOBuf> certData) override;
+  size_t generateCertificate(folly::IOBufQueue& writeBuf,
+                             uint16_t certId,
+                             std::unique_ptr<folly::IOBuf> certData) override;
 
   HTTPSettings* getEgressSettings() override;
 
@@ -239,21 +239,20 @@ class PassThroughHTTPCodecFilter: public HTTPCodecFilter {
 
   uint32_t getDefaultWindowSize() const override;
 
-  size_t addPriorityNodes(
-      PriorityQueue& queue,
-      folly::IOBufQueue& writeBuf,
-      uint8_t maxLevel) override;
+  size_t addPriorityNodes(PriorityQueue& queue,
+                          folly::IOBufQueue& writeBuf,
+                          uint8_t maxLevel) override;
 
   StreamID mapPriorityToDependency(uint8_t priority) const override;
 
   int8_t mapDependencyToPriority(StreamID parent) const override;
 };
 
-typedef FilterChain<
-  HTTPCodec,
-  HTTPCodec::Callback,
-  PassThroughHTTPCodecFilter,
-  &HTTPCodec::setCallback,
-  true> HTTPCodecFilterChain;
+typedef FilterChain<HTTPCodec,
+                    HTTPCodec::Callback,
+                    PassThroughHTTPCodecFilter,
+                    &HTTPCodec::setCallback,
+                    true>
+    HTTPCodecFilterChain;
 
-}
+} // namespace proxygen

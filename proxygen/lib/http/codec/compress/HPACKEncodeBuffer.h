@@ -19,13 +19,12 @@ namespace proxygen {
 class HPACKEncodeBuffer {
 
  public:
-  HPACKEncodeBuffer(
-    uint32_t growthSize,
-    bool huffmanEnabled);
+  HPACKEncodeBuffer(uint32_t growthSize, bool huffmanEnabled);
 
   explicit HPACKEncodeBuffer(uint32_t growthSize);
 
-  ~HPACKEncodeBuffer() {}
+  ~HPACKEncodeBuffer() {
+  }
 
   /**
    * transfer ownership of the underlying IOBuf's
@@ -79,7 +78,8 @@ class HPACKEncodeBuffer {
    *
    * @return bytes used for encoding
    */
-  uint32_t encodeLiteral(uint8_t instruction, uint8_t nbit,
+  uint32_t encodeLiteral(uint8_t instruction,
+                         uint8_t nbit,
                          folly::StringPiece literal);
 
   /**
@@ -91,7 +91,8 @@ class HPACKEncodeBuffer {
    * encodes a string using huffman encoding QPACK style, where
    * literal length has an nbit prefix.
    */
-  uint32_t encodeHuffman(uint8_t instruction, uint8_t nbit,
+  uint32_t encodeHuffman(uint8_t instruction,
+                         uint8_t nbit,
                          folly::StringPiece literal);
 
   /**
@@ -109,7 +110,6 @@ class HPACKEncodeBuffer {
   }
 
  private:
-
   /**
    * append one byte at the end of buffer ensuring we always have enough space
    */
@@ -122,4 +122,4 @@ class HPACKEncodeBuffer {
   bool huffmanEnabled_;
 };
 
-}
+} // namespace proxygen

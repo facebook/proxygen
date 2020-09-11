@@ -19,7 +19,6 @@ TEST(UtilTest, CaseInsensitiveEqual) {
   ASSERT_FALSE(caseInsensitiveEqual("FO", "FOO"));
 }
 
-
 TEST(UtilTest, findLastOf) {
   folly::StringPiece p1("");
   folly::StringPiece p2(".");

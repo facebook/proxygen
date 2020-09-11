@@ -226,10 +226,10 @@ class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
   using OrphanedHalfOpenPushedTxnF =
       std::function<void(const HTTPTransaction*)>;
 
-  using PushIdLimitExceededF = std::function<void(
-                        hq::PushId,
-                        folly::Optional<hq::PushId>,
-                        folly::Optional<HTTPCodec::StreamID>)>;
+  using PushIdLimitExceededF =
+      std::function<void(hq::PushId,
+                         folly::Optional<hq::PushId>,
+                         folly::Optional<HTTPCodec::StreamID>)>;
 
   void expectPushPromiseBegin(PushPromiseBeginF impl = nullptr) {
     auto& exp = EXPECT_CALL(*this, onPushPromiseBegin(testing::_, testing::_));
@@ -311,8 +311,7 @@ class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
     }
   }
 
-    void expectPushIdLimitExceeded(
-      PushIdLimitExceededF impl = nullptr) {
+  void expectPushIdLimitExceeded(PushIdLimitExceededF impl = nullptr) {
     auto& exp = EXPECT_CALL(
         *this, onPushIdLimitExceeded(testing::_, testing::_, testing::_));
     if (impl) {
@@ -468,18 +467,21 @@ class MockHQSession : public HQSession {
     return nullptr;
   }
 
-  void findPushStreams(std::unordered_set<HQStreamTransportBase*>& ) override {}
-  bool erasePushStream(quic::StreamId) override { return false; }
-  uint32_t getNumOutgoingStreams() const override{
+  void findPushStreams(std::unordered_set<HQStreamTransportBase*>&) override {
+  }
+  bool erasePushStream(quic::StreamId) override {
+    return false;
+  }
+  uint32_t getNumOutgoingStreams() const override {
     return static_cast<uint32_t>(streams_.size());
   }
-  uint32_t getNumIncomingStreams() const override{
+  uint32_t getNumIncomingStreams() const override {
     return static_cast<uint32_t>(streams_.size());
   }
 
   void onNewPushStream(quic::StreamId /* streamId */,
                        hq::PushId /* pushId */,
-                       size_t /* to consume */) override {};
+                       size_t /* to consume */) override{};
 
   const std::chrono::milliseconds transactionTimeout_;
   const proxygen::TransportDirection direction_;

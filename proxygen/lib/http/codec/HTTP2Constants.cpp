@@ -58,4 +58,4 @@ const std::string kProtocolExperimentalString("h2-fb");
 const std::string kProtocolCleartextString("h2c");
 const std::string kProtocolSettingsHeader("HTTP2-Settings");
 
-}}
+}} // namespace proxygen::http2

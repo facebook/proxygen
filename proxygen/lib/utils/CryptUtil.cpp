@@ -8,8 +8,8 @@
 
 #include <proxygen/lib/utils/CryptUtil.h>
 
-#include <iomanip>
 #include <folly/portability/OpenSSL.h>
+#include <iomanip>
 #include <openssl/buffer.h>
 #include <openssl/md5.h>
 #include <sstream>
@@ -65,10 +65,10 @@ std::string md5Encode(folly::ByteRange text) {
   // convert digest to hex string
   std::ostringstream ss;
   ss << std::hex << std::setfill('0');
-  for(int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+  for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
     ss << std::setw(2) << (unsigned int)digest[i];
   }
   return ss.str();
 }
 
-}
+} // namespace proxygen

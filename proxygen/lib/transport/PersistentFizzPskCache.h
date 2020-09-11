@@ -14,7 +14,6 @@
 #include <fizz/protocol/OpenSSLFactory.h>
 #include <wangle/client/persistence/FilePersistentCache.h>
 
-
 namespace proxygen {
 
 struct PersistentCachedPsk {
@@ -43,7 +42,7 @@ class PersistentFizzPskCache : public fizz::client::PskCache {
     if (serialized) {
       try {
         auto deserialized =
-          fizz::client::deserializePsk(serialized->serialized, *factory_);
+            fizz::client::deserializePsk(serialized->serialized, *factory_);
         serialized->uses++;
         if (maxPskUses_ != 0 && serialized->uses >= maxPskUses_) {
           cache_.remove(identity);

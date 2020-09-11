@@ -10,7 +10,6 @@
 
 #include <glog/logging.h>
 
-
 namespace {
 
 constexpr folly::StringPiece kProxyParam{"e_proxy"};

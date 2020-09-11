@@ -12,9 +12,9 @@
 
 #include <proxygen/lib/http/codec/HQFramedCodec.h>
 #include <proxygen/lib/http/codec/HQFramer.h>
-#include <proxygen/lib/http/codec/UnframedBodyOffsetTracker.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
+#include <proxygen/lib/http/codec/UnframedBodyOffsetTracker.h>
 #include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 
 namespace proxygen {
@@ -95,14 +95,14 @@ class HQStreamCodec
   /**
    * Takes bodyOffset and translates it into stream offset.
    */
-  folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
-  onEgressBodySkip(uint64_t bodyOffset);
+  folly::Expected<uint64_t, UnframedBodyOffsetTrackerError> onEgressBodySkip(
+      uint64_t bodyOffset);
 
   /**
    * Takes bodyOffset and translates it into stream offset.
    */
-  folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
-  onEgressBodyReject(uint64_t bodyOffset);
+  folly::Expected<uint64_t, UnframedBodyOffsetTrackerError> onEgressBodyReject(
+      uint64_t bodyOffset);
 
   void generateHeader(folly::IOBufQueue& writeBuf,
                       StreamID stream,

@@ -69,4 +69,4 @@ checkForProtocolUpgrade(const std::string& clientUpgrade,
                         const std::string& serverUpgrade,
                         bool serverMode);
 
-}
+} // namespace proxygen

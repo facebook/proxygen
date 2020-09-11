@@ -66,8 +66,9 @@ void HQDownstreamSession::detachThreadLocals(bool) {
 }
 
 HQDownstreamSession::HQEgressPushStream* FOLLY_NULLABLE
-HQDownstreamSession::createEgressPushStream(
-    hq::PushId pushId, quic::StreamId streamId, quic::StreamId parentStreamId) {
+HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
+                                            quic::StreamId streamId,
+                                            quic::StreamId parentStreamId) {
 
   VLOG(4) << __func__ << "sess=" << *this << " pushId=" << pushId
           << " isClosing()=" << isClosing() << " streamId=" << streamId
@@ -119,8 +120,7 @@ HQDownstreamSession::createEgressPushStream(
 }
 
 // this is the creation of outgoing pushed transaction
-HTTPTransaction* FOLLY_NULLABLE
-HQDownstreamSession::newPushedTransaction(
+HTTPTransaction* FOLLY_NULLABLE HQDownstreamSession::newPushedTransaction(
     HTTPCodec::StreamID parentRequestStreamId,
     HTTPTransaction::PushHandler* handler,
     ProxygenError* error) {
@@ -173,8 +173,8 @@ HQDownstreamSession::newPushedTransaction(
   return &pushStream->txn_;
 }
 
-HQSession::HQStreamTransportBase*
-HQDownstreamSession::findPushStream(quic::StreamId streamId) {
+HQSession::HQStreamTransportBase* HQDownstreamSession::findPushStream(
+    quic::StreamId streamId) {
   return findEgressPushStream(streamId);
 }
 
@@ -190,9 +190,7 @@ HQDownstreamSession::findEgressPushStream(quic::StreamId streamId) {
   }
 }
 
-bool
-HQDownstreamSession::erasePushStream(
-    quic::StreamId streamId) {
+bool HQDownstreamSession::erasePushStream(quic::StreamId streamId) {
   return egressPushStreams_.erase(streamId);
 }
 
@@ -256,6 +254,5 @@ hq::PushId HQDownstreamSession::createNewPushId() {
   auto newPushId = nextAvailablePushId_++ | hq::kPushIdMask;
   return newPushId;
 }
-
 
 } // namespace proxygen

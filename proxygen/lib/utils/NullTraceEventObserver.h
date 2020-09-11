@@ -15,7 +15,8 @@ namespace proxygen {
  * A no-op trace event observer
  */
 struct NullTraceEventObserver : public TraceEventObserver {
-  void traceEventAvailable(TraceEvent) noexcept override {}
+  void traceEventAvailable(TraceEvent) noexcept override {
+  }
 };
 
-}
+} // namespace proxygen

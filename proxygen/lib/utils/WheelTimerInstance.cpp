@@ -17,8 +17,8 @@ namespace proxygen {
 WheelTimerInstance::WheelTimerInstance() {
 }
 
-WheelTimerInstance::WheelTimerInstance(folly::HHWheelTimer* timer) :
-  wheelTimerPtr_(timer) {
+WheelTimerInstance::WheelTimerInstance(folly::HHWheelTimer* timer)
+    : wheelTimerPtr_(timer) {
   if (timer) {
     // If you use an external timer with no default timeout set, you will get
     // a check failed if you attempt to schedule a default timeout.
@@ -27,8 +27,8 @@ WheelTimerInstance::WheelTimerInstance(folly::HHWheelTimer* timer) :
 }
 
 WheelTimerInstance::WheelTimerInstance(
-    std::chrono::milliseconds defaultTimeoutMS,
-    folly::EventBase* eventBase) : defaultTimeoutMS_(defaultTimeoutMS) {
+    std::chrono::milliseconds defaultTimeoutMS, folly::EventBase* eventBase)
+    : defaultTimeoutMS_(defaultTimeoutMS) {
   if (!eventBase) {
     eventBase = folly::EventBaseManager::get()->getEventBase();
   }
@@ -36,14 +36,14 @@ WheelTimerInstance::WheelTimerInstance(
 }
 
 WheelTimerInstance::WheelTimerInstance(const WheelTimerInstance& timerInstance)
-  : wheelTimerPtr_(timerInstance.wheelTimerPtr_),
-    defaultTimeoutMS_(timerInstance.defaultTimeoutMS_) {
+    : wheelTimerPtr_(timerInstance.wheelTimerPtr_),
+      defaultTimeoutMS_(timerInstance.defaultTimeoutMS_) {
 }
 
 WheelTimerInstance::WheelTimerInstance(
     WheelTimerInstance&& timerInstance) noexcept
-  : wheelTimerPtr_(std::move(timerInstance.wheelTimerPtr_)),
-    defaultTimeoutMS_(std::move(timerInstance.defaultTimeoutMS_)) {
+    : wheelTimerPtr_(std::move(timerInstance.wheelTimerPtr_)),
+      defaultTimeoutMS_(std::move(timerInstance.defaultTimeoutMS_)) {
 }
 
 std::chrono::milliseconds WheelTimerInstance::getDefaultTimeout() const {
@@ -76,8 +76,8 @@ WheelTimerInstance& WheelTimerInstance::operator=(const WheelTimerInstance& t) {
   return *this;
 }
 
-WheelTimerInstance& WheelTimerInstance::
-    operator=(const WheelTimerInstance&& timer) {
+WheelTimerInstance& WheelTimerInstance::operator=(
+    const WheelTimerInstance&& timer) {
   wheelTimerPtr_ = std::move(timer.wheelTimerPtr_);
   defaultTimeoutMS_ = std::move(timer.defaultTimeoutMS_);
   return *this;
@@ -87,4 +87,4 @@ WheelTimerInstance::operator bool() const {
   return (wheelTimerPtr_ != nullptr);
 }
 
-}
+} // namespace proxygen

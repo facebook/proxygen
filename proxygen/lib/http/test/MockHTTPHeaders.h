@@ -25,16 +25,14 @@ namespace proxygen {
  * Use the factory functions below in tests rather than using this class
  * directly.
  */
-class HasHTTPHeaderMatcherImpl :
-    public ::testing::MatcherInterface<const HTTPHeaders&> {
+class HasHTTPHeaderMatcherImpl
+    : public ::testing::MatcherInterface<const HTTPHeaders&> {
  public:
-  explicit HasHTTPHeaderMatcherImpl(std::string name) :
-      name_(name) {
+  explicit HasHTTPHeaderMatcherImpl(std::string name) : name_(name) {
   }
 
-  HasHTTPHeaderMatcherImpl(std::string name, std::string value) :
-      name_(name),
-      value_(value) {
+  HasHTTPHeaderMatcherImpl(std::string name, std::string value)
+      : name_(name), value_(value) {
   }
 
   bool MatchAndExplain(
@@ -42,11 +40,11 @@ class HasHTTPHeaderMatcherImpl :
       ::testing::MatchResultListener* /*listener*/) const override {
     bool matches = false;
     headers.forEach([&](const std::string& name, const std::string& value) {
-        if (name_ != name) {
-          return;
-        }
+      if (name_ != name) {
+        return;
+      }
 
-        matches = matches || !value_ || *value_ == value;
+      matches = matches || !value_ || *value_ == value;
     });
 
     return matches;
@@ -64,8 +62,8 @@ class HasHTTPHeaderMatcherImpl :
     if (!value_) {
       *os << "does not have the '" << name_ << "' header";
     } else {
-      *os << "does not have the '" << name_ << "' header " <<
-        "equal to '" << *value_ << "'";
+      *os << "does not have the '" << name_ << "' header "
+          << "equal to '" << *value_ << "'";
     }
   }
 
@@ -75,17 +73,15 @@ class HasHTTPHeaderMatcherImpl :
 };
 
 // Factory function for matching an HTTPHeaders that contains the given header
-inline ::testing::Matcher<const HTTPHeaders&>
-HasHTTPHeader(std::string name) {
+inline ::testing::Matcher<const HTTPHeaders&> HasHTTPHeader(std::string name) {
   return ::testing::MakeMatcher(new HasHTTPHeaderMatcherImpl(name));
 }
 
-
 // Factory function for matching an HTTPHeaders that contains the given header
 // and has it set to the specified value
-inline ::testing::Matcher<const HTTPHeaders&>
-HasHTTPHeader(std::string name, std::string value) {
+inline ::testing::Matcher<const HTTPHeaders&> HasHTTPHeader(std::string name,
+                                                            std::string value) {
   return ::testing::MakeMatcher(new HasHTTPHeaderMatcherImpl(name, value));
 }
 
-}
+} // namespace proxygen

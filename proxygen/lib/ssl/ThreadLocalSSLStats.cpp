@@ -65,7 +65,8 @@ TLSSLStats::TLSSLStats(const std::string& prefix)
       fizzHandshakeSuccesses_(prefix + "_fizz_handshake_successes", SUM),
       tfoSuccess_(prefix + "_tfo_success", SUM),
       sslServerCertExpiring_(prefix + "_ssl_server_cert_expiring", SUM),
-      sslServerCertExpiringCritical_(prefix + "_ssl_server_cert_expiring_critical", SUM),
+      sslServerCertExpiringCritical_(
+          prefix + "_ssl_server_cert_expiring_critical", SUM),
       fizzPskTypeNotSupported_(prefix + "_fizz_psktype_not_supported", SUM),
       fizzPskTypeNotAttempted_(prefix + "_fizz_psktype_not_attempted", SUM),
       fizzPskTypeRejected_(prefix + "_fizz_psktype_rejected", SUM),

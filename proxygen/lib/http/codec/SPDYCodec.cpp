@@ -26,8 +26,8 @@
 
 using folly::IOBuf;
 using folly::IOBufQueue;
-using folly::io::QueueAppender;
 using folly::io::Cursor;
+using folly::io::QueueAppender;
 using folly::io::RWPrivateCursor;
 using proxygen::compress::Header;
 using proxygen::compress::HeaderPieceList;
@@ -40,21 +40,21 @@ namespace proxygen {
 namespace {
 
 // Sizes, in bytes, of various types and parts of SPDY frames
-const size_t kFrameSizeDataCommon = 8;     // common prefix of all data frames
-const size_t kFrameSizeControlCommon = 8;  // common prefix of all ctrl frames
-const size_t kFrameSizeSynStream = 10;     // SYN_STREAM
-const size_t kFrameSizeSynReplyv3 = 4;     // SPDYv3's SYN_REPLY is shorter
-const size_t kFrameSizeRstStream = 8;      // RST_STREAM
-const size_t kFrameSizeGoawayv3 = 8;       // GOAWAY, SPDYv3
-const size_t kFrameSizeHeaders = 4;        // HEADERS
-const size_t kFrameSizePing = 4;           // PING
-const size_t kFrameSizeSettings = 4;       // SETTINGS
-const size_t kFrameSizeSettingsEntry = 8;  // Each entry in SETTINGS
-const size_t kFrameSizeWindowUpdate = 8;   // WINDOW_UPDATE
-                                           // name/value pair
-const size_t kFrameSizeNameValuev3 = 4;    // The size in bytes of a
-                                           // name/value pair
-const size_t kPriShiftv3 = 5;              // How many bits to shift pri, v3
+const size_t kFrameSizeDataCommon = 8;    // common prefix of all data frames
+const size_t kFrameSizeControlCommon = 8; // common prefix of all ctrl frames
+const size_t kFrameSizeSynStream = 10;    // SYN_STREAM
+const size_t kFrameSizeSynReplyv3 = 4;    // SPDYv3's SYN_REPLY is shorter
+const size_t kFrameSizeRstStream = 8;     // RST_STREAM
+const size_t kFrameSizeGoawayv3 = 8;      // GOAWAY, SPDYv3
+const size_t kFrameSizeHeaders = 4;       // HEADERS
+const size_t kFrameSizePing = 4;          // PING
+const size_t kFrameSizeSettings = 4;      // SETTINGS
+const size_t kFrameSizeSettingsEntry = 8; // Each entry in SETTINGS
+const size_t kFrameSizeWindowUpdate = 8;  // WINDOW_UPDATE
+                                          // name/value pair
+const size_t kFrameSizeNameValuev3 = 4;   // The size in bytes of a
+                                          // name/value pair
+const size_t kPriShiftv3 = 5;             // How many bits to shift pri, v3
 
 const size_t kMaxUncompressed = 96 * 1024; // 96kb ought be enough for anyone
 
@@ -102,27 +102,35 @@ uint32_t parseUint32(Cursor* cursor) {
 class SPDYSessionFailed : public std::exception {
  public:
   explicit SPDYSessionFailed(spdy::GoawayStatusCode inStatus)
-      : statusCode(inStatus) {}
+      : statusCode(inStatus) {
+  }
 
   spdy::GoawayStatusCode statusCode;
 };
 
 class SPDYStreamFailed : public std::exception {
  public:
-  SPDYStreamFailed(bool inIsNew, uint32_t inStreamID,
+  SPDYStreamFailed(bool inIsNew,
+                   uint32_t inStreamID,
                    uint32_t inStatus,
                    const std::string& inMsg = empty_string)
-      : isNew(inIsNew),
-        streamID(inStreamID),
-        statusCode(inStatus) {
-    message = folly::to<std::string>("new=", isNew, " streamID=", streamID,
-                                     " statusCode=", statusCode, " message=",
+      : isNew(inIsNew), streamID(inStreamID), statusCode(inStatus) {
+    message = folly::to<std::string>("new=",
+                                     isNew,
+                                     " streamID=",
+                                     streamID,
+                                     " statusCode=",
+                                     statusCode,
+                                     " message=",
                                      inMsg);
   }
 
-  ~SPDYStreamFailed() throw() override {}
+  ~SPDYStreamFailed() throw() override {
+  }
 
-  const char* what() const throw() override { return message.c_str(); }
+  const char* what() const throw() override {
+    return message.c_str();
+  }
 
   bool isNew;
   uint32_t streamID;
@@ -130,7 +138,7 @@ class SPDYStreamFailed : public std::exception {
   std::string message;
 };
 
-} // anonynous namespace
+} // namespace
 
 const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
   // XXX: We new and leak the static here intentionally so it doesn't get
@@ -138,42 +146,69 @@ const SPDYVersionSettings& SPDYCodec::getVersionSettings(SPDYVersion version) {
   // requests resulting in spurious shutdown crashes.
 
   // Indexed by SPDYVersion
-  static const auto spdyVersions = new std::vector<SPDYVersionSettings> {
-  // SPDY2 no longer supported; should it ever be added back the lines in which
-  // this codec creates compress/Header objects need to be updated as SPDY2
-  // constant header names are different from the set of common header names.
-  // SPDY3
-    {spdy::kNameVersionv3, spdy::kNameStatusv3, spdy::kNameMethodv3,
-    spdy::kNamePathv3, spdy::kNameSchemev3, spdy::kNameHostv3,
-    spdy::kSessionProtoNameSPDY3, parseUint32, appendUint32,
-    (const unsigned char*)kSPDYv3Dictionary, sizeof(kSPDYv3Dictionary),
-    0x8003, kFrameSizeSynReplyv3, kFrameSizeNameValuev3,
-     kFrameSizeGoawayv3, kPriShiftv3, 3, 0, SPDYVersion::SPDY3,
-     spdy::kVersionStrv3},
-  // SPDY3.1
-    {spdy::kNameVersionv3, spdy::kNameStatusv3, spdy::kNameMethodv3,
-    spdy::kNamePathv3, spdy::kNameSchemev3, spdy::kNameHostv3,
-    spdy::kSessionProtoNameSPDY3, parseUint32, appendUint32,
-    (const unsigned char*)kSPDYv3Dictionary, sizeof(kSPDYv3Dictionary),
-    0x8003, kFrameSizeSynReplyv3, kFrameSizeNameValuev3,
-     kFrameSizeGoawayv3, kPriShiftv3, 3, 1, SPDYVersion::SPDY3_1,
-     spdy::kVersionStrv31}
-  };
+  static const auto spdyVersions = new std::vector<SPDYVersionSettings>{
+      // SPDY2 no longer supported; should it ever be added back the lines in
+      // which
+      // this codec creates compress/Header objects need to be updated as SPDY2
+      // constant header names are different from the set of common header
+      // names.
+      // SPDY3
+      {spdy::kNameVersionv3,
+       spdy::kNameStatusv3,
+       spdy::kNameMethodv3,
+       spdy::kNamePathv3,
+       spdy::kNameSchemev3,
+       spdy::kNameHostv3,
+       spdy::kSessionProtoNameSPDY3,
+       parseUint32,
+       appendUint32,
+       (const unsigned char*)kSPDYv3Dictionary,
+       sizeof(kSPDYv3Dictionary),
+       0x8003,
+       kFrameSizeSynReplyv3,
+       kFrameSizeNameValuev3,
+       kFrameSizeGoawayv3,
+       kPriShiftv3,
+       3,
+       0,
+       SPDYVersion::SPDY3,
+       spdy::kVersionStrv3},
+      // SPDY3.1
+      {spdy::kNameVersionv3,
+       spdy::kNameStatusv3,
+       spdy::kNameMethodv3,
+       spdy::kNamePathv3,
+       spdy::kNameSchemev3,
+       spdy::kNameHostv3,
+       spdy::kSessionProtoNameSPDY3,
+       parseUint32,
+       appendUint32,
+       (const unsigned char*)kSPDYv3Dictionary,
+       sizeof(kSPDYv3Dictionary),
+       0x8003,
+       kFrameSizeSynReplyv3,
+       kFrameSizeNameValuev3,
+       kFrameSizeGoawayv3,
+       kPriShiftv3,
+       3,
+       1,
+       SPDYVersion::SPDY3_1,
+       spdy::kVersionStrv31}};
   auto intVersion = static_cast<unsigned>(version);
   CHECK_LT(intVersion, spdyVersions->size());
   return (*spdyVersions)[intVersion];
 }
 
-SPDYCodec::SPDYCodec(TransportDirection direction, SPDYVersion version,
+SPDYCodec::SPDYCodec(TransportDirection direction,
+                     SPDYVersion version,
                      int spdyCompressionLevel /* = Z_NO_COMPRESSION */)
-  : HTTPParallelCodec(direction),
-    versionSettings_(getVersionSettings(version)),
-    frameState_(FrameState::FRAME_HEADER),
-    ctrl_(false),
-    headerCodec_(spdyCompressionLevel, versionSettings_) {
+    : HTTPParallelCodec(direction),
+      versionSettings_(getVersionSettings(version)),
+      frameState_(FrameState::FRAME_HEADER),
+      ctrl_(false),
+      headerCodec_(spdyCompressionLevel, versionSettings_) {
   VLOG(4) << "creating SPDY/" << static_cast<int>(versionSettings_.majorVersion)
-          << "." << static_cast<int>(versionSettings_.minorVersion)
-          << " codec";
+          << "." << static_cast<int>(versionSettings_.minorVersion) << " codec";
 
   // Limit uncompressed headers to 128kb
   headerCodec_.setMaxUncompressed(kMaxUncompressed);
@@ -193,8 +228,10 @@ void SPDYCodec::setMaxUncompressedHeaders(uint32_t maxUncompressed) {
 
 CodecProtocol SPDYCodec::getProtocol() const {
   switch (versionSettings_.version) {
-    case SPDYVersion::SPDY3: return CodecProtocol::SPDY_3;
-    case SPDYVersion::SPDY3_1: return CodecProtocol::SPDY_3_1;
+    case SPDYVersion::SPDY3:
+      return CodecProtocol::SPDY_3;
+    case SPDYVersion::SPDY3_1:
+      return CodecProtocol::SPDY_3_1;
   };
   LOG(FATAL) << "unreachable";
   return CodecProtocol::SPDY_3_1;
@@ -210,13 +247,14 @@ bool SPDYCodec::supportsStreamFlowControl() const {
 
 bool SPDYCodec::supportsSessionFlowControl() const {
   return versionSettings_.majorVersion > 3 ||
-    (versionSettings_.majorVersion == 3 && versionSettings_.minorVersion > 0);
+         (versionSettings_.majorVersion == 3 &&
+          versionSettings_.minorVersion > 0);
 }
 
 void SPDYCodec::checkLength(uint32_t expectedLength, const std::string& msg) {
   if (length_ != expectedLength) {
     LOG_IF(ERROR, length_ == 4 && msg != "GOAWAY")
-      << msg << ": invalid length " << length_ << " != " << expectedLength;
+        << msg << ": invalid length " << length_ << " != " << expectedLength;
     throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
   }
 }
@@ -256,7 +294,7 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
       ctrl_ = (data.first[0] & CTRL_MASK);
       if (ctrl_) {
         version_ = cursor.readBE<uint16_t>() & VERSION_MASK;
-        type_  = cursor.readBE<uint16_t>();
+        type_ = cursor.readBE<uint16_t>();
         if (version_ != versionSettings_.majorVersion) {
           LOG(ERROR) << "Invalid version=" << version_;
           throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
@@ -307,13 +345,17 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
       // Data frame data.  Pass everything we have up to the frame boundary
       DCHECK(FrameState::DATA_FRAME_DATA == frameState_);
 
-      uint32_t toClone = (avail > std::numeric_limits<uint32_t>::max()) ?
-        std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(avail);
+      uint32_t toClone = (avail > std::numeric_limits<uint32_t>::max())
+                             ? std::numeric_limits<uint32_t>::max()
+                             : static_cast<uint32_t>(avail);
       toClone = std::min(toClone, length_);
       std::unique_ptr<IOBuf> chunk;
       cursor.clone(chunk, toClone);
-      deliverCallbackIfAllowed(&HTTPCodec::Callback::onBody, "onBody",
-                               streamId_, std::move(chunk), 0);
+      deliverCallbackIfAllowed(&HTTPCodec::Callback::onBody,
+                               "onBody",
+                               streamId_,
+                               std::move(chunk),
+                               0);
       length_ -= toClone;
     }
 
@@ -321,7 +363,9 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
     if (length_ == 0) {
       if (flags_ & spdy::CTRL_FLAG_FIN) {
         deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageComplete,
-                                 "onMessageComplete", streamId_, false);
+                                 "onMessageComplete",
+                                 streamId_,
+                                 false);
       }
       frameState_ = FrameState::FRAME_HEADER;
     }
@@ -331,8 +375,7 @@ size_t SPDYCodec::parseIngress(const folly::IOBuf& buf) {
 
 void SPDYCodec::onControlFrame(Cursor& cursor) {
   switch (type_) {
-    case spdy::SYN_STREAM:
-    {
+    case spdy::SYN_STREAM: {
       checkMinLength(kFrameSizeSynStream, "SYN_STREAM");
       streamId_ = cursor.readBE<uint32_t>() & STREAM_ID_MASK;
       uint32_t assocStream = cursor.readBE<uint32_t>();
@@ -341,12 +384,14 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       length_ -= kFrameSizeSynStream;
       auto result = decodeHeaders(cursor);
       checkLength(0, "SYN_STREAM");
-      onSynStream(assocStream, pri, slot,
-                  result.headers, headerCodec_.getDecodedSize());
+      onSynStream(assocStream,
+                  pri,
+                  slot,
+                  result.headers,
+                  headerCodec_.getDecodedSize());
       break;
     }
-    case spdy::SYN_REPLY:
-    {
+    case spdy::SYN_REPLY: {
       checkMinLength(versionSettings_.synReplySize, "SYN_REPLY");
       streamId_ = cursor.readBE<uint32_t>() & STREAM_ID_MASK;
       length_ -= versionSettings_.synReplySize;
@@ -356,26 +401,23 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       }
       auto result = decodeHeaders(cursor);
       checkLength(0, "SYN_REPLY");
-      onSynReply(result.headers,
-                 headerCodec_.getDecodedSize());
+      onSynReply(result.headers, headerCodec_.getDecodedSize());
       break;
     }
-    case spdy::RST_STREAM:
-    {
+    case spdy::RST_STREAM: {
       checkLength(kFrameSizeRstStream, "RST");
       streamId_ = cursor.readBE<uint32_t>() & STREAM_ID_MASK;
       uint32_t statusCode = cursor.readBE<uint32_t>();
       onRstStream(statusCode);
       break;
     }
-    case spdy::SETTINGS:
-    {
+    case spdy::SETTINGS: {
       checkMinLength(kFrameSizeSettings, "SETTINGS");
       uint32_t numSettings = cursor.readBE<uint32_t>();
       length_ -= sizeof(uint32_t);
       if (length_ / 8 < numSettings) {
-        LOG(ERROR) << "SETTINGS: number of settings to high. "
-                   << length_ << " < 8 * " << numSettings;
+        LOG(ERROR) << "SETTINGS: number of settings to high. " << length_
+                   << " < 8 * " << numSettings;
         throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
       }
       SettingList settings;
@@ -398,15 +440,13 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       VLOG(4) << "Noop received. Doing nothing.";
       checkLength(0, "NOOP");
       break;
-    case spdy::PING:
-    {
+    case spdy::PING: {
       checkLength(kFrameSizePing, "PING");
       uint32_t unique_id = cursor.readBE<uint32_t>();
       onPing(unique_id);
       break;
     }
-    case spdy::GOAWAY:
-    {
+    case spdy::GOAWAY: {
       checkLength(versionSettings_.goawaySize, "GOAWAY");
       uint32_t lastStream = cursor.readBE<uint32_t>();
       uint32_t statusCode = 0;
@@ -416,8 +456,7 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       onGoaway(lastStream, statusCode);
       break;
     }
-    case spdy::HEADERS:
-    {
+    case spdy::HEADERS: {
       // Note: this is for the HEADERS frame type, not the initial headers
       checkMinLength(kFrameSizeHeaders, "HEADERS");
       streamId_ = cursor.readBE<uint32_t>() & STREAM_ID_MASK;
@@ -432,16 +471,14 @@ void SPDYCodec::onControlFrame(Cursor& cursor) {
       onHeaders(result.headers);
       break;
     }
-    case spdy::WINDOW_UPDATE:
-    {
+    case spdy::WINDOW_UPDATE: {
       checkLength(kFrameSizeWindowUpdate, "WINDOW_UPDATE");
       streamId_ = cursor.readBE<uint32_t>() & STREAM_ID_MASK;
       uint32_t delta = cursor.readBE<uint32_t>() & DELTA_WINDOW_SIZE_MASK;
       onWindowUpdate(delta);
       break;
     }
-    case spdy::CREDENTIAL:
-    {
+    case spdy::CREDENTIAL: {
       VLOG(4) << "Skipping unsupported/deprecated CREDENTIAL frame";
       // Fall through to default case
     }
@@ -475,7 +512,9 @@ HeaderDecodeResult SPDYCodec::decodeHeaders(Cursor& cursor) {
     }
     // For other types of errors we throw a stream error
     bool newStream = (type_ != spdy::HEADERS);
-    throw SPDYStreamFailed(newStream, streamId_, spdy::RST_PROTOCOL_ERROR,
+    throw SPDYStreamFailed(newStream,
+                           streamId_,
+                           spdy::RST_PROTOCOL_ERROR,
                            "Error parsing header: " + folly::to<string>(err));
   }
 
@@ -497,50 +536,48 @@ bool SPDYCodec::isSPDYReserved(const std::string& name) {
 
 // Add the SPDY-specific header fields that hold the
 // equivalent of the HTTP/1.x request-line or status-line.
-unique_ptr<IOBuf> SPDYCodec::encodeHeaders(
-  const HTTPMessage& msg, vector<Header>& allHeaders,
-  uint32_t headroom, HTTPHeaderSize* size) {
+unique_ptr<IOBuf> SPDYCodec::encodeHeaders(const HTTPMessage& msg,
+                                           vector<Header>& allHeaders,
+                                           uint32_t headroom,
+                                           HTTPHeaderSize* size) {
 
   // We explicitly provide both the code and header name here
   // as HTTP_HEADER_OTHER does not map to kNameVersionv3 and we don't want a
   // perf penalty hash kNameVersionv3 to HTTP_HEADER_OTHER
   allHeaders.emplace_back(
-    HTTP_HEADER_OTHER, versionSettings_.versionStr, spdy::httpVersion);
+      HTTP_HEADER_OTHER, versionSettings_.versionStr, spdy::httpVersion);
 
   // Add the HTTP headers supplied by the caller, but skip
   // any per-hop headers that aren't supported in SPDY.
-  msg.getHeaders().forEachWithCode([&] (HTTPHeaderCode code,
-                                        const string& name,
-                                        const string& value) {
-    static const std::bitset<256> s_perHopHeaderCodes{
-      [] {
-        std::bitset<256> bs;
-        // SPDY per-hop headers
-        bs[HTTP_HEADER_CONNECTION] = true;
-        bs[HTTP_HEADER_HOST] = true;
-        bs[HTTP_HEADER_KEEP_ALIVE] = true;
-        bs[HTTP_HEADER_PROXY_CONNECTION] = true;
-        bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
-        bs[HTTP_HEADER_UPGRADE] = true;
-        return bs;
-      }()
-    };
+  msg.getHeaders().forEachWithCode(
+      [&](HTTPHeaderCode code, const string& name, const string& value) {
+        static const std::bitset<256> s_perHopHeaderCodes{[] {
+          std::bitset<256> bs;
+          // SPDY per-hop headers
+          bs[HTTP_HEADER_CONNECTION] = true;
+          bs[HTTP_HEADER_HOST] = true;
+          bs[HTTP_HEADER_KEEP_ALIVE] = true;
+          bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+          bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+          bs[HTTP_HEADER_UPGRADE] = true;
+          return bs;
+        }()};
 
-    if (s_perHopHeaderCodes[code] || isSPDYReserved(name)) {
-      VLOG(3) << "Dropping SPDY reserved header " << name;
-      return;
-    }
-    if (name.length() == 0) {
-      VLOG(2) << "Dropping header with empty name";
-      return;
-    }
-    if (versionSettings_.majorVersion == 2 && value.length() == 0) {
-      VLOG(2) << "Dropping header \"" << name
-              << "\" with empty value for spdy/2";
-      return;
-    }
-    allHeaders.emplace_back(code, name, value);
-  });
+        if (s_perHopHeaderCodes[code] || isSPDYReserved(name)) {
+          VLOG(3) << "Dropping SPDY reserved header " << name;
+          return;
+        }
+        if (name.length() == 0) {
+          VLOG(2) << "Dropping header with empty name";
+          return;
+        }
+        if (versionSettings_.majorVersion == 2 && value.length() == 0) {
+          VLOG(2) << "Dropping header \"" << name
+                  << "\" with empty value for spdy/2";
+          return;
+        }
+        allHeaders.emplace_back(code, name, value);
+      });
 
   headerCodec_.setEncodeHeadroom(headroom);
   auto out = headerCodec_.encode(allHeaders);
@@ -551,8 +588,9 @@ unique_ptr<IOBuf> SPDYCodec::encodeHeaders(
   return out;
 }
 
-unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(
-  const HTTPMessage& msg, uint32_t headroom, HTTPHeaderSize* size) {
+unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(const HTTPMessage& msg,
+                                                      uint32_t headroom,
+                                                      HTTPHeaderSize* size) {
 
   // Note: the header-sorting code works with pointers to strings.
   // The role of this local status string is to hold the generated
@@ -567,8 +605,8 @@ unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(
   if (msg.getStatusMessage().empty()) {
     status = folly::to<string>(msg.getStatusCode());
   } else {
-    status = folly::to<string>(msg.getStatusCode(), " ",
-                               msg.getStatusMessage());
+    status =
+        folly::to<string>(msg.getStatusCode(), " ", msg.getStatusMessage());
   }
   allHeaders.emplace_back(HTTP_HEADER_COLON_STATUS, status);
   // See comment above regarding status
@@ -581,11 +619,10 @@ unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(
   return encodeHeaders(msg, allHeaders, headroom, size);
 }
 
-unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
-  const HTTPMessage& msg,
-  bool isPushed,
-  uint32_t headroom,
-  HTTPHeaderSize* size) {
+unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(const HTTPMessage& msg,
+                                                     bool isPushed,
+                                                     uint32_t headroom,
+                                                     HTTPHeaderSize* size) {
 
   const HTTPHeaders& headers = msg.getHeaders();
   vector<Header> allHeaders;
@@ -615,7 +652,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
     // as HTTP_HEADER_OTHER does not map to kNameHostv3 and we don't want a
     // perf penalty hash kNameHostv3 to HTTP_HEADER_OTHER
     allHeaders.emplace_back(HTTP_HEADER_OTHER, versionSettings_.hostStr, host);
-}
+  }
 
   return encodeHeaders(msg, allHeaders, headroom, size);
 }
@@ -626,8 +663,8 @@ void SPDYCodec::generateHeader(folly::IOBufQueue& writeBuf,
                                bool eom,
                                HTTPHeaderSize* size) {
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "Suppressing SYN_STREAM/REPLY for stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "Suppressing SYN_STREAM/REPLY for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     if (size) {
       size->compressed = 0;
       size->uncompressed = 0;
@@ -649,8 +686,8 @@ void SPDYCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
                                     HTTPHeaderSize* size) {
   DCHECK(assocStream != NoStream);
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "Suppressing SYN_STREAM/REPLY for stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "Suppressing SYN_STREAM/REPLY for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     if (size) {
       size->compressed = 0;
       size->uncompressed = 0;
@@ -668,8 +705,9 @@ void SPDYCodec::generateSynStream(StreamID stream,
                                   HTTPHeaderSize* size) {
   // Pushed streams must have an even streamId and an odd assocStream
   CHECK((assocStream == NoStream && (stream % 2 == 1)) ||
-        ((stream % 2 == 0) && (assocStream % 2 == 1))) <<
-    "Invalid stream ids stream=" << stream << " assocStream=" << assocStream;
+        ((stream % 2 == 0) && (assocStream % 2 == 1)))
+      << "Invalid stream ids stream=" << stream
+      << " assocStream=" << assocStream;
 
   // Serialize the compressed representation of the headers
   // first because we need to write its length.  The
@@ -681,8 +719,7 @@ void SPDYCodec::generateSynStream(StreamID stream,
   uint32_t fieldsSize = kFrameSizeSynStream;
   uint32_t headroom = kFrameSizeControlCommon + fieldsSize;
   bool isPushed = (assocStream != NoStream);
-  unique_ptr<IOBuf> out(serializeRequestHeaders(msg, isPushed,
-                                                headroom, size));
+  unique_ptr<IOBuf> out(serializeRequestHeaders(msg, isPushed, headroom, size));
 
   // The length field in the SYN_STREAM header holds the number
   // of bytes that follow it.  That's the length of the fields
@@ -750,7 +787,8 @@ void SPDYCodec::generateSynReply(StreamID stream,
   cursor.writeBE(versionSettings_.controlVersion);
   cursor.writeBE(uint16_t(spdy::SYN_REPLY));
   cursor.writeBE(flagsAndLength(flags, len));
-  cursor.writeBE(uint32_t(stream)); // TODO: stream should never be bigger than 2^31
+  cursor.writeBE(uint32_t(stream)); // TODO: stream should never be bigger than
+                                    // 2^31
   if (versionSettings_.majorVersion == 2) {
     cursor.writeBE(uint16_t(0));
   }
@@ -766,8 +804,8 @@ size_t SPDYCodec::generateBody(folly::IOBufQueue& writeBuf,
                                folly::Optional<uint8_t> /*padding*/,
                                bool eom) {
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "Suppressing DATA for stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "Suppressing DATA for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
   size_t len = chain->computeChainDataLength();
@@ -807,12 +845,11 @@ size_t SPDYCodec::generateTrailers(folly::IOBufQueue& /*writeBuf*/,
   return 0;
 }
 
-size_t SPDYCodec::generateEOM(folly::IOBufQueue& writeBuf,
-                              StreamID stream) {
+size_t SPDYCodec::generateEOM(folly::IOBufQueue& writeBuf, StreamID stream) {
   VLOG(4) << "sending EOM for stream=" << stream;
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "Suppressing EOM for stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "Suppressing EOM for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
   generateDataFrame(writeBuf, uint32_t(stream), kFlagFin, 0, nullptr);
@@ -832,12 +869,12 @@ size_t SPDYCodec::generateRstStream(IOBufQueue& writeBuf,
   }
 
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "Suppressing RST_STREAM for stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "Suppressing RST_STREAM for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
 
-  const uint32_t statusCode = (uint32_t) spdy::errorCodeToReset(code);
+  const uint32_t statusCode = (uint32_t)spdy::errorCodeToReset(code);
   const size_t frameSize = kFrameSizeControlCommon + kFrameSizeRstStream;
   const size_t expectedLength = writeBuf.chainLength() + frameSize;
   QueueAppender appender(&writeBuf, frameSize);
@@ -845,8 +882,9 @@ size_t SPDYCodec::generateRstStream(IOBufQueue& writeBuf,
   appender.writeBE(uint16_t(spdy::RST_STREAM));
   appender.writeBE(flagsAndLength(0, kFrameSizeRstStream));
   appender.writeBE(uint32_t(stream));
-  appender.writeBE(rstStatusSupported(statusCode) ?
-                   statusCode : (uint32_t)spdy::RST_PROTOCOL_ERROR);
+  appender.writeBE(rstStatusSupported(statusCode)
+                       ? statusCode
+                       : (uint32_t)spdy::RST_PROTOCOL_ERROR);
   DCHECK_EQ(writeBuf.chainLength(), expectedLength);
   return frameSize;
 }
@@ -855,9 +893,9 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
                                  StreamID lastStream,
                                  ErrorCode code,
                                  std::unique_ptr<folly::IOBuf> debugData) {
-  const uint32_t statusCode = (uint32_t) spdy::errorCodeToGoaway(code);
-  const size_t frameSize = kFrameSizeControlCommon +
-    (size_t)versionSettings_.goawaySize;
+  const uint32_t statusCode = (uint32_t)spdy::errorCodeToGoaway(code);
+  const size_t frameSize =
+      kFrameSizeControlCommon + (size_t)versionSettings_.goawaySize;
 
   DCHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
   egressGoawayAck_ = lastStream;
@@ -873,12 +911,11 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
     sessionClosing_ = ClosingState::CLOSING;
   }
 
-  string debugInfo = (debugData) ?
-    folly::to<string>(" with debug info=",
-                      (char*)debugData->data()) : "";
-  VLOG(4) << "Sending GOAWAY with last acknowledged stream="
-          << lastStream << " with code=" << getErrorCodeString(code)
-          << debugInfo;
+  string debugInfo = (debugData) ? folly::to<string>(" with debug info=",
+                                                     (char*)debugData->data())
+                                 : "";
+  VLOG(4) << "Sending GOAWAY with last acknowledged stream=" << lastStream
+          << " with code=" << getErrorCodeString(code) << debugInfo;
 
   appender.writeBE(uint16_t(spdy::GOAWAY));
   appender.writeBE(flagsAndLength(0, versionSettings_.goawaySize));
@@ -939,23 +976,23 @@ size_t SPDYCodec::generatePingCommon(IOBufQueue& writeBuf, uint64_t data) {
 
 size_t SPDYCodec::generateSettings(folly::IOBufQueue& writeBuf) {
   auto numSettings = egressSettings_.getNumSettings();
-  for (const auto& setting: egressSettings_.getAllSettings()) {
+  for (const auto& setting : egressSettings_.getAllSettings()) {
     if (!spdy::httpToSpdySettingsId(setting.id)) {
       numSettings--;
     }
   }
   VLOG(4) << "generating " << (unsigned)numSettings << " settings";
   const size_t frameSize = kFrameSizeControlCommon + kFrameSizeSettings +
-    (kFrameSizeSettingsEntry * numSettings);
+                           (kFrameSizeSettingsEntry * numSettings);
   const size_t expectedLength = writeBuf.chainLength() + frameSize;
   QueueAppender appender(&writeBuf, frameSize);
   appender.writeBE(versionSettings_.controlVersion);
   appender.writeBE(uint16_t(spdy::SETTINGS));
-  appender.writeBE(flagsAndLength(spdy::FLAG_SETTINGS_CLEAR_SETTINGS,
-                                  kFrameSizeSettings +
-                                  kFrameSizeSettingsEntry * numSettings));
+  appender.writeBE(flagsAndLength(
+      spdy::FLAG_SETTINGS_CLEAR_SETTINGS,
+      kFrameSizeSettings + kFrameSizeSettingsEntry * numSettings));
   appender.writeBE(uint32_t(numSettings));
-  for (const auto& setting: egressSettings_.getAllSettings()) {
+  for (const auto& setting : egressSettings_.getAllSettings()) {
     auto settingId = spdy::httpToSpdySettingsId(setting.id);
     if (!settingId) {
       LOG(WARNING) << "Invalid SpdySetting " << (uint32_t)setting.id;
@@ -987,13 +1024,13 @@ size_t SPDYCodec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   }
 
   if (!isStreamIngressEgressAllowed(stream)) {
-    VLOG(2) << "Suppressing WINDOW_UPDATE for stream=" << stream <<
-      " ingressGoawayAck_=" << ingressGoawayAck_;
+    VLOG(2) << "Suppressing WINDOW_UPDATE for stream=" << stream
+            << " ingressGoawayAck_=" << ingressGoawayAck_;
     return 0;
   }
 
-  VLOG(4) << "generating window update for stream=" << stream
-          << ": Processed " << delta << " bytes";
+  VLOG(4) << "generating window update for stream=" << stream << ": Processed "
+          << delta << " bytes";
   const size_t frameSize = kFrameSizeControlCommon + kFrameSizeWindowUpdate;
   const size_t expectedLength = writeBuf.chainLength() + frameSize;
   QueueAppender appender(&writeBuf, frameSize);
@@ -1006,10 +1043,9 @@ size_t SPDYCodec::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   return frameSize;
 }
 
-size_t SPDYCodec::addPriorityNodes(
-    PriorityQueue& queue,
-    folly::IOBufQueue&,
-    uint8_t) {
+size_t SPDYCodec::addPriorityNodes(PriorityQueue& queue,
+                                   folly::IOBufQueue&,
+                                   uint8_t) {
   HTTPCodec::StreamID parent = 0;
   // For SPDY, we always create 8 virtual nodes regardless of maxLevel
   for (uint8_t pri = 0; pri < 8; pri++) {
@@ -1028,13 +1064,13 @@ uint8_t SPDYCodec::getMinorVersion() const {
 }
 
 size_t SPDYCodec::generateDataFrame(folly::IOBufQueue& writeBuf,
-                                    uint32_t streamID, uint8_t flags,
+                                    uint32_t streamID,
+                                    uint8_t flags,
                                     uint32_t length,
                                     unique_ptr<IOBuf> payload) {
   const size_t frameSize = kFrameSizeDataCommon;
   uint64_t payloadLength = 0;
-  if (payload && !payload->isSharedOne() &&
-      payload->headroom() >= frameSize &&
+  if (payload && !payload->isSharedOne() && payload->headroom() >= frameSize &&
       writeBuf.tailroom() < frameSize) {
     // Use the headroom in payload for the frame header.
     // Make it appear that the payload IOBuf is empty and retreat so
@@ -1054,10 +1090,11 @@ size_t SPDYCodec::generateDataFrame(folly::IOBufQueue& writeBuf,
   return kFrameSizeDataCommon + length;
 }
 
-unique_ptr<HTTPMessage>
-SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
-                        StreamID assocStreamID,
-                        const HeaderPieceList& inHeaders) {
+unique_ptr<HTTPMessage> SPDYCodec::parseHeaders(
+    TransportDirection direction,
+    StreamID streamID,
+    StreamID assocStreamID,
+    const HeaderPieceList& inHeaders) {
   unique_ptr<HTTPMessage> msg(new HTTPMessage());
   HTTPHeaders& headers = msg->getHeaders();
   bool newStream = (type_ != spdy::HEADERS);
@@ -1072,7 +1109,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     uint8_t off = 0;
     uint32_t len = inHeaders[i].str.size();
     if (len > 1 && inHeaders[i].str[0] == ':') {
-      off = 1;  // also signals control header
+      off = 1; // also signals control header
       len--;
     }
     folly::StringPiece name(inHeaders[i].str, off, len);
@@ -1085,8 +1122,8 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     if (nameOk) {
       if (name == "content-length") {
         if (hasContentLength) {
-          throw SPDYStreamFailed(false, streamID, 400,
-             "Multiple content-length headers");
+          throw SPDYStreamFailed(
+              false, streamID, 400, "Multiple content-length headers");
         }
         hasContentLength = true;
       }
@@ -1095,8 +1132,8 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
         valueOk = CodecUtil::validateURL(value);
         isPath = true;
         if (hasPath) {
-          throw SPDYStreamFailed(false, streamID, 400,
-             "Multiple paths in header");
+          throw SPDYStreamFailed(
+              false, streamID, 400, "Multiple paths in header");
         }
         hasPath = true;
       } else if ((version_ == 2 || off) && name == "method") {
@@ -1158,9 +1195,10 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
             msg->setStatusCode(0);
             headers.add(name, value);
             partialMsg_ = std::move(msg);
-            throw SPDYStreamFailed(newStream, streamID,
+            throw SPDYStreamFailed(newStream,
+                                   streamID,
                                    spdy::RST_PROTOCOL_ERROR,
-                                  "Invalid status code");
+                                   "Invalid status code");
           }
         } else if (!assocStreamID) {
           if (version_ == 2) {
@@ -1193,7 +1231,9 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
       if (!inHeaders[i].isMultiValued() && headers.exists(name)) {
         headers.add(name, value);
         partialMsg_ = std::move(msg);
-        throw SPDYStreamFailed(newStream, streamID, spdy::RST_PROTOCOL_ERROR,
+        throw SPDYStreamFailed(newStream,
+                               streamID,
+                               spdy::RST_PROTOCOL_ERROR,
                                "Duplicate header value");
       }
       headers.add(name, value);
@@ -1213,7 +1253,7 @@ SPDYCodec::parseHeaders(TransportDirection direction, StreamID streamID,
     }
 
     const string& accept_encoding =
-      headers.getSingleOrEmpty(HTTP_HEADER_ACCEPT_ENCODING);
+        headers.getSingleOrEmpty(HTTP_HEADER_ACCEPT_ENCODING);
     if (accept_encoding.empty()) {
       headers.add(HTTP_HEADER_ACCEPT_ENCODING, "gzip, deflate");
     } else {
@@ -1244,16 +1284,16 @@ void SPDYCodec::onSynCommon(StreamID streamID,
     throw SPDYSessionFailed(spdy::GOAWAY_PROTOCOL_ERROR);
   }
 
-  unique_ptr<HTTPMessage> msg = parseHeaders(transportDirection_,
-                                             streamID, assocStreamID, headers);
+  unique_ptr<HTTPMessage> msg =
+      parseHeaders(transportDirection_, streamID, assocStreamID, headers);
   msg->setIngressHeaderSize(size);
 
   msg->setAdvancedProtocolString(versionSettings_.protocolVersionString);
   // Normalize priority to 3 bits in HTTPMessage.
   pri <<= (3 - versionSettings_.majorVersion);
   msg->setPriority(pri);
-  msg->setHTTP2Priority(std::make_tuple(HTTPCodec::MAX_STREAM_ID + pri,
-                                        false, 255));
+  msg->setHTTP2Priority(
+      std::make_tuple(HTTPCodec::MAX_STREAM_ID + pri, false, 255));
   deliverOnMessageBegin(streamID, assocStreamID, msg.get());
 
   if ((flags_ & spdy::CTRL_FLAG_FIN) == 0) {
@@ -1264,18 +1304,23 @@ void SPDYCodec::onSynCommon(StreamID streamID,
     userAgent_ = msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_USER_AGENT);
   }
   deliverCallbackIfAllowed(&HTTPCodec::Callback::onHeadersComplete,
-                           "onHeadersComplete", streamID, std::move(msg));
+                           "onHeadersComplete",
+                           streamID,
+                           std::move(msg));
 }
 
-void SPDYCodec::deliverOnMessageBegin(StreamID streamID, StreamID assocStreamID,
+void SPDYCodec::deliverOnMessageBegin(StreamID streamID,
+                                      StreamID assocStreamID,
                                       HTTPMessage* msg) {
   if (assocStreamID) {
     deliverCallbackIfAllowed(&HTTPCodec::Callback::onPushMessageBegin,
-                             "onPushMessageBegin", streamID, assocStreamID,
+                             "onPushMessageBegin",
+                             streamID,
+                             assocStreamID,
                              msg);
   } else {
-    deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageBegin,
-                             "onMessageBegin", streamID, msg);
+    deliverCallbackIfAllowed(
+        &HTTPCodec::Callback::onMessageBegin, "onMessageBegin", streamID, msg);
   }
 }
 
@@ -1286,8 +1331,7 @@ void SPDYCodec::onSynStream(uint32_t assocStream,
                             const HTTPHeaderSize& size) {
   VLOG(4) << "Got SYN_STREAM, stream=" << streamId_
           << " pri=" << folly::to<int>(pri);
-  if (streamId_ == NoStream ||
-      streamId_ < lastStreamID_ ||
+  if (streamId_ == NoStream || streamId_ < lastStreamID_ ||
       (transportDirection_ == TransportDirection::UPSTREAM &&
        (streamId_ & 0x01) == 1) ||
       (transportDirection_ == TransportDirection::DOWNSTREAM &&
@@ -1315,8 +1359,7 @@ void SPDYCodec::onSynStream(uint32_t assocStream,
   if (sessionClosing_ != ClosingState::CLOSING) {
     lastStreamID_ = streamId_;
   }
-  onSynCommon(StreamID(streamId_),
-              StreamID(assocStream), headers, pri, size);
+  onSynCommon(StreamID(streamId_), StreamID(assocStream), headers, pri, size);
 }
 
 void SPDYCodec::onSynReply(const HeaderPieceList& headers,
@@ -1337,16 +1380,19 @@ void SPDYCodec::onRstStream(uint32_t statusCode) noexcept {
   VLOG(4) << "Got RST_STREAM, stream=" << streamId_
           << ", status=" << statusCode;
   StreamID streamID(streamId_);
-  deliverCallbackIfAllowed(&HTTPCodec::Callback::onAbort, "onAbort", streamID,
-                       spdy::rstToErrorCode(spdy::ResetStatusCode(statusCode)));
+  deliverCallbackIfAllowed(
+      &HTTPCodec::Callback::onAbort,
+      "onAbort",
+      streamID,
+      spdy::rstToErrorCode(spdy::ResetStatusCode(statusCode)));
 }
 
 void SPDYCodec::onSettings(const SettingList& settings) {
   VLOG(4) << "Got " << settings.size() << " settings with "
-          << "version=" << version_ << " and flags="
-          << std::hex << folly::to<unsigned int>(flags_) << std::dec;
+          << "version=" << version_ << " and flags=" << std::hex
+          << folly::to<unsigned int>(flags_) << std::dec;
   SettingsList settingsList;
-  for (const SettingData& cur: settings) {
+  for (const SettingData& cur : settings) {
     // For now, we never ask for anything to be persisted, so ignore anything
     // coming back
     if (cur.flags & spdy::ID_FLAG_SETTINGS_PERSISTED) {
@@ -1373,8 +1419,8 @@ void SPDYCodec::onSettings(const SettingList& settings) {
         break;
       default:
         LOG(ERROR) << "Received unknown setting with ID=" << cur.id
-                   << ", value=" << cur.value
-                   << ", and flags=" << std::hex << cur.flags << std::dec;
+                   << ", value=" << cur.value << ", and flags=" << std::hex
+                   << cur.flags << std::dec;
     }
     if (cur.id >= spdy::SettingsId::SETTINGS_UPLOAD_BANDWIDTH &&
         cur.id <= spdy::SettingsId::SETTINGS_CLIENT_CERTIFICATE_VECTOR_SIZE) {
@@ -1436,23 +1482,27 @@ void SPDYCodec::onHeaders(const HeaderPieceList& /*headers*/) noexcept {
 }
 
 void SPDYCodec::onWindowUpdate(uint32_t delta) noexcept {
-  deliverCallbackIfAllowed(&HTTPCodec::Callback::onWindowUpdate,
-                           "onWindowUpdate", streamId_, delta);
+  deliverCallbackIfAllowed(
+      &HTTPCodec::Callback::onWindowUpdate, "onWindowUpdate", streamId_, delta);
 }
 
-void SPDYCodec::failStream(bool newStream, StreamID streamID,
-                           uint32_t code, string excStr) {
+void SPDYCodec::failStream(bool newStream,
+                           StreamID streamID,
+                           uint32_t code,
+                           string excStr) {
   // Suppress any EOM callback for the current frame.
   if (streamID == streamId_) {
     flags_ &= ~spdy::CTRL_FLAG_FIN;
   }
 
-  HTTPException err(
-    code >= 100 ?
-    HTTPException::Direction::INGRESS :
-    HTTPException::Direction::INGRESS_AND_EGRESS,
-    folly::to<std::string>("SPDYCodec stream error: stream=",
-      streamID, " status=", code, " exception: ", excStr));
+  HTTPException err(code >= 100 ? HTTPException::Direction::INGRESS
+                                : HTTPException::Direction::INGRESS_AND_EGRESS,
+                    folly::to<std::string>("SPDYCodec stream error: stream=",
+                                           streamID,
+                                           " status=",
+                                           code,
+                                           " exception: ",
+                                           excStr));
   if (code >= 100) {
     err.setHttpStatusCode(code);
   } else {
@@ -1471,10 +1521,12 @@ void SPDYCodec::failStream(bool newStream, StreamID streamID,
 }
 
 void SPDYCodec::failSession(uint32_t code) {
-  HTTPException err(
-    HTTPException::Direction::INGRESS_AND_EGRESS,
-    folly::to<std::string>("SPDYCodec session error: "
-      "lastGoodStream=", lastStreamID_, " status=", code));
+  HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS,
+                    folly::to<std::string>("SPDYCodec session error: "
+                                           "lastGoodStream=",
+                                           lastStreamID_,
+                                           " status=",
+                                           code));
   err.setCodecStatusCode(spdy::goawayToErrorCode(spdy::GoawayStatusCode(code)));
   err.setProxygenError(kErrorParseHeader);
 
@@ -1496,8 +1548,8 @@ bool SPDYCodec::rstStatusSupported(int statusCode) const {
           statusCode <= spdy::RST_FLOW_CONTROL_ERROR);
 }
 
-folly::Optional<SPDYVersion>
-SPDYCodec::getVersion(const std::string& protocol) {
+folly::Optional<SPDYVersion> SPDYCodec::getVersion(
+    const std::string& protocol) {
   // Fail fast if it's not possible for the protocol string to define a
   // SPDY protocol. strlen("spdy/1") == 6
   if (protocol.length() < 6) {
@@ -1514,4 +1566,4 @@ SPDYCodec::getVersion(const std::string& protocol) {
   return folly::none;
 }
 
-}
+} // namespace proxygen

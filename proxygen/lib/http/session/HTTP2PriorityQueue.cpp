@@ -14,12 +14,12 @@ using std::unique_ptr;
 namespace proxygen {
 
 HTTP2PriorityQueue::Node* HTTP2PriorityQueue::nodeFromBaseNode(
-  HTTP2PriorityQueue::BaseNode* bnode) {
+    HTTP2PriorityQueue::BaseNode* bnode) {
   return
 #if DEBUG
-    CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(bnode));
+      CHECK_NOTNULL(dynamic_cast<HTTP2PriorityQueue::Node*>(bnode));
 #else
-    static_cast<HTTP2PriorityQueue::Node*>(bnode);
+      static_cast<HTTP2PriorityQueue::Node*>(bnode);
 #endif
 }
 
@@ -487,14 +487,14 @@ HTTP2PriorityQueue::Handle HTTP2PriorityQueue::addTransaction(
       if (numVirtualNodes_ < maxVirtualNodes_) {
         // The parent node hasn't arrived yet. For now setting
         // its priority fields to default.
-        parent = nodeFromBaseNode(
-            addTransaction(pri.streamDependency,
-                           {rootNodeId_,
-                            http2::DefaultPriority.exclusive,
-                            http2::DefaultPriority.weight},
-                           nullptr,
-                           permanent,
-                           depth));
+        parent =
+            nodeFromBaseNode(addTransaction(pri.streamDependency,
+                                            {rootNodeId_,
+                                             http2::DefaultPriority.exclusive,
+                                             http2::DefaultPriority.weight},
+                                            nullptr,
+                                            permanent,
+                                            depth));
         if (depth) {
           *depth += 1;
         }
@@ -553,8 +553,8 @@ HTTP2PriorityQueue::Handle HTTP2PriorityQueue::updatePriority(
       newParent =
           nodeFromBaseNode(addTransaction(pri.streamDependency,
                                           {rootNodeId_,
-                                              http2::DefaultPriority.exclusive,
-                                              http2::DefaultPriority.weight},
+                                           http2::DefaultPriority.exclusive,
+                                           http2::DefaultPriority.weight},
                                           nullptr,
                                           false));
 

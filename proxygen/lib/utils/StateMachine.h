@@ -9,8 +9,8 @@
 #pragma once
 
 #include <glog/logging.h>
-#include <tuple>
 #include <limits>
+#include <tuple>
 
 namespace proxygen {
 
@@ -58,7 +58,7 @@ class StateMachine {
  * S2 index.
  */
 template <class State, class Event>
-class TransitionTable  {
+class TransitionTable {
  private:
   size_t index(State s, Event e) const {
     return static_cast<uint64_t>(s) * nEvents_ + static_cast<uint64_t>(e);
@@ -70,17 +70,16 @@ class TransitionTable  {
 
  public:
   TransitionTable(
-    size_t nStates, size_t nEvents,
-    std::vector<std::pair<std::pair<State, Event>, State>> transitions)
-    : nStates_(nStates),
-    nEvents_(nEvents) {
+      size_t nStates,
+      size_t nEvents,
+      std::vector<std::pair<std::pair<State, Event>, State>> transitions)
+      : nStates_(nStates), nEvents_(nEvents) {
     CHECK_LT(static_cast<uint64_t>(nStates),
              std::numeric_limits<uint8_t>::max());
     // Set all transitions to invalid
-    transitions_.resize(nStates * nEvents,
-                        std::numeric_limits<uint8_t>::max());
+    transitions_.resize(nStates * nEvents, std::numeric_limits<uint8_t>::max());
 
-    for (auto t: transitions) {
+    for (auto t : transitions) {
       auto src_state = t.first.first;
       auto event = t.first.second;
       auto dst_state_idx = static_cast<uint8_t>(t.second);
@@ -92,9 +91,10 @@ class TransitionTable  {
   TransitionTable& operator=(const TransitionTable&) = delete;
   TransitionTable(const TransitionTable&) = delete;
   TransitionTable(TransitionTable&& goner)
-    : transitions_(std::move(goner.transitions_)),
-    nStates_(goner.nStates_),
-    nEvents_(goner.nEvents_) {}
+      : transitions_(std::move(goner.transitions_)),
+        nStates_(goner.nStates_),
+        nEvents_(goner.nEvents_) {
+  }
 
   std::pair<State, bool> find(State s, Event e) const {
     CHECK_LT(static_cast<uint64_t>(s), nStates_);
@@ -107,4 +107,4 @@ class TransitionTable  {
   }
 };
 
-}
+} // namespace proxygen

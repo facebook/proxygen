@@ -38,7 +38,7 @@ folly::Optional<quic::QuicCachedPsk> PersistentQuicPskCache::getPsk(
   try {
     quic::QuicCachedPsk quicCachedPsk;
     quicCachedPsk.cachedPsk =
-      fizz::client::deserializePsk(cachedPsk->fizzPsk, *factory_);
+        fizz::client::deserializePsk(cachedPsk->fizzPsk, *factory_);
 
     auto buf = folly::IOBuf::wrapBuffer(cachedPsk->quicParams.data(),
                                         cachedPsk->quicParams.length());

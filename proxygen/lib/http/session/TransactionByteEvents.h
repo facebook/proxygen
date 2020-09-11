@@ -15,16 +15,16 @@ namespace proxygen {
 
 class TransactionByteEvent : public ByteEvent {
  public:
-   TransactionByteEvent(uint64_t byteNo,
-                        EventType eventType,
-                        HTTPTransaction* txn)
-       : ByteEvent(byteNo, eventType), txn_(txn) {
-     txn_->incrementPendingByteEvents();
-   }
+  TransactionByteEvent(uint64_t byteNo,
+                       EventType eventType,
+                       HTTPTransaction* txn)
+      : ByteEvent(byteNo, eventType), txn_(txn) {
+    txn_->incrementPendingByteEvents();
+  }
 
-   ~TransactionByteEvent() {
-     txn_->decrementPendingByteEvents();
-   }
+  ~TransactionByteEvent() {
+    txn_->decrementPendingByteEvents();
+  }
 
   HTTPTransaction* getTransaction() const override {
     return txn_;

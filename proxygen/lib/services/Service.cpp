@@ -29,4 +29,4 @@ void Service::clearServiceWorkers() {
   workers_.clear();
 }
 
-} // proxygen
+} // namespace proxygen

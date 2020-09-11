@@ -28,9 +28,9 @@
 #include <proxygen/lib/http/session/HTTPTransactionEgressSM.h>
 #include <proxygen/lib/http/session/HTTPTransactionIngressSM.h>
 #include <proxygen/lib/utils/Time.h>
-#include <proxygen/lib/utils/WheelTimerInstance.h>
 #include <proxygen/lib/utils/TraceEvent.h>
 #include <proxygen/lib/utils/TraceEventObserver.h>
+#include <proxygen/lib/utils/WheelTimerInstance.h>
 #include <set>
 #include <wangle/acceptor/TransportInfo.h>
 
@@ -271,7 +271,8 @@ class HTTPTransactionHandler : public TraceEventObserver {
   /**
    * Inform the handler that unframed body is starting.
    */
-  virtual void onUnframedBodyStarted(uint64_t /* offset */) noexcept {}
+  virtual void onUnframedBodyStarted(uint64_t /* offset */) noexcept {
+  }
 
   /**
    * Inform the handler that data arrived into underlying transport's read
@@ -383,7 +384,8 @@ class HTTPTransactionTransportCallback {
   virtual void bodyBytesDeliveryCancelled(uint64_t /* bodyOffset */) noexcept {
   }
 
-  virtual void transportAppRateLimited() noexcept {}
+  virtual void transportAppRateLimited() noexcept {
+  }
 
   virtual ~HTTPTransactionTransportCallback() {
   }
@@ -413,7 +415,6 @@ class HTTPTransaction
     int64_t streamRecvOutstanding_{-1};
   };
 
-
   /**
    * Opaque token that identifies the underlying connection.
    * Transaction handlers can use this token to group different
@@ -424,7 +425,7 @@ class HTTPTransaction
 
   class Transport {
    public:
-   enum class Type : uint8_t { TCP, QUIC };
+    enum class Type : uint8_t { TCP, QUIC };
 
     virtual ~Transport() {
     }
@@ -498,9 +499,9 @@ class HTTPTransaction
     virtual bool isDraining() const = 0;
 
     virtual HTTPTransaction* newPushedTransaction(
-                           HTTPCodec::StreamID assocStreamId,
-                           HTTPTransaction::PushHandler* handler,
-                           ProxygenError* error = nullptr) noexcept = 0;
+        HTTPCodec::StreamID assocStreamId,
+        HTTPTransaction::PushHandler* handler,
+        ProxygenError* error = nullptr) noexcept = 0;
 
     virtual HTTPTransaction* newExTransaction(HTTPTransaction::Handler* handler,
                                               HTTPCodec::StreamID controlStream,
@@ -570,7 +571,8 @@ class HTTPTransaction
       folly::assume_unreachable();
     }
 
-    virtual folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const noexcept = 0;
+    virtual folly::Optional<HTTPTransaction::ConnectionToken>
+    getConnectionToken() const noexcept = 0;
   };
 
   using TransportCallback = HTTPTransactionTransportCallback;
@@ -1204,8 +1206,7 @@ class HTTPTransaction
    * transaction is impossible right now.
    */
   virtual HTTPTransaction* newPushedTransaction(
-      HTTPPushTransactionHandler* handler,
-      ProxygenError* error = nullptr) {
+      HTTPPushTransactionHandler* handler, ProxygenError* error = nullptr) {
     // Pushed transactions do support partially reliable mode, however push
     // promises should be only generated on a fully reliable transaction.
     CHECK(!partiallyReliable_)
@@ -1213,7 +1214,7 @@ class HTTPTransaction
         << ": push promises not supported in partially reliable mode.";
     if (isEgressEOMSeen()) {
       SET_PROXYGEN_ERROR_IF(error,
-        ProxygenError::kErrorEgressEOMSeenOnParentStream);
+                            ProxygenError::kErrorEgressEOMSeenOnParentStream);
       return nullptr;
     }
     auto txn = transport_.newPushedTransaction(id_, handler, error);
@@ -1515,17 +1516,16 @@ class HTTPTransaction
     return true;
   }
 
-/**
- * Allows the caller to peek into underlying transport's read buffer.
- * This, together with consume(), forms a scatter/gather API.
- *
- * @param peekCallback  A callback that will be executed on each contiguous
- *                      byte range in transport's read buffer. Number of byte
- *                      ranges is determined by the number of gaps in the
- *                      read buffer.
- */
-folly::Expected<folly::Unit, ErrorCode>
-peek(PeekCallback peekCallback);
+  /**
+   * Allows the caller to peek into underlying transport's read buffer.
+   * This, together with consume(), forms a scatter/gather API.
+   *
+   * @param peekCallback  A callback that will be executed on each contiguous
+   *                      byte range in transport's read buffer. Number of byte
+   *                      ranges is determined by the number of gaps in the
+   *                      read buffer.
+   */
+  folly::Expected<folly::Unit, ErrorCode> peek(PeekCallback peekCallback);
 
   /**
    * Allows the caller to consume bytes from the beginning of the read buffer in

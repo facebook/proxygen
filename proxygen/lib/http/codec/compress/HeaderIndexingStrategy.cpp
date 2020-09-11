@@ -19,7 +19,7 @@ bool HeaderIndexingStrategy::indexHeader(const HPACKHeaderName& name,
                                          folly::StringPiece value) const {
   // Handle all the cases where we want to return false in the switch statement
   // below; else let the code fall through and return true
-  switch(name.getHeaderCode()) {
+  switch (name.getHeaderCode()) {
     case HTTP_HEADER_COLON_PATH:
       if (value.find('=') != std::string::npos) {
         return false;
@@ -44,4 +44,4 @@ bool HeaderIndexingStrategy::indexHeader(const HPACKHeaderName& name,
   return true;
 }
 
-}
+} // namespace proxygen

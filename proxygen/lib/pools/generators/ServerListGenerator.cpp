@@ -15,7 +15,6 @@ using folly::EventBase;
 using std::vector;
 using std::chrono::milliseconds;
 
-
 namespace proxygen {
 
 void ServerListGenerator::attachEventBase(EventBase* base) {

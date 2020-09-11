@@ -8,10 +8,10 @@
 
 #pragma once
 
+#include <boost/optional/optional_io.hpp>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/utils/TestUtils.h>
-#include <boost/optional/optional_io.hpp>
 
 namespace proxygen {
 
@@ -23,7 +23,7 @@ namespace proxygen {
  * atOnce = 0: single chunk
  * atOnce > 0: use specified chunk length
  */
-template<class T>
+template <class T>
 size_t parse(T* codec,
              const uint8_t* inputData,
              uint32_t length,
@@ -41,9 +41,8 @@ size_t parse(T* codec,
 
   folly::IOBufQueue input(folly::IOBufQueue::cacheChainLength());
 
-  //allow testing of error case for length 0
-  if (length == 0)
-  {
+  // allow testing of error case for length 0
+  if (length == 0) {
     input.append(folly::IOBuf::copyBuffer(start, length));
     return codec->onIngress(*input.front());
   }
@@ -70,12 +69,14 @@ size_t parse(T* codec,
   return input.chainLength();
 }
 
-template<class T>
+template <class T>
 size_t parseUnidirectional(T* codec,
                            const uint8_t* inputData,
                            uint32_t length,
                            int32_t atOnce = 0,
-                           std::function<bool()> stopFn = [] { return false; }) {
+                           std::function<bool()> stopFn = [] {
+                             return false;
+                           }) {
 
   const uint8_t* start = inputData;
   size_t consumed = 0;
@@ -113,7 +114,8 @@ size_t parseUnidirectional(T* codec,
 
 class FakeHTTPCodecCallback : public HTTPCodec::Callback {
  public:
-  FakeHTTPCodecCallback() {}
+  FakeHTTPCodecCallback() {
+  }
 
   void onMessageBegin(HTTPCodec::StreamID /*stream*/, HTTPMessage*) override {
     messageBegin++;
@@ -181,12 +183,11 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastErrorCode = code;
   }
 
-  void onFrameHeader(
-    HTTPCodec::StreamID /*streamId*/,
-    uint8_t /*flags*/,
-    uint64_t /*length*/,
-    uint64_t /*type*/,
-    uint16_t /*version*/) override {
+  void onFrameHeader(HTTPCodec::StreamID /*streamId*/,
+                     uint8_t /*flags*/,
+                     uint64_t /*length*/,
+                     uint64_t /*type*/,
+                     uint16_t /*version*/) override {
     ++headerFrames;
   }
 
@@ -219,7 +220,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   void onSettings(const SettingsList& inSettings) override {
     settings++;
     numSettings += inSettings.size();
-    for (auto& setting: inSettings) {
+    for (auto& setting : inSettings) {
       if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
         windowSize = setting.value;
       } else if (setting.id == SettingsId::MAX_CONCURRENT_STREAMS) {
@@ -264,17 +265,19 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     return messageBegin;
   }
 
-  void expectMessage(bool eom, int32_t headerCount,
+  void expectMessage(bool eom,
+                     int32_t headerCount,
                      const std::string& url) const {
     expectMessageHelper(eom, headerCount, url, -1);
   }
-  void expectMessage(bool eom, int32_t headerCount,
-                     int32_t statusCode) const {
+  void expectMessage(bool eom, int32_t headerCount, int32_t statusCode) const {
     expectMessageHelper(eom, headerCount, "", statusCode);
   }
 
-  void expectMessageHelper(bool eom, int32_t headerCount,
-                           const std::string& url, int32_t statusCode) const {
+  void expectMessageHelper(bool eom,
+                           int32_t headerCount,
+                           const std::string& url,
+                           int32_t statusCode) const {
     EXPECT_EQ(messageBegin, 1);
     EXPECT_EQ(headersComplete, 1);
     EXPECT_EQ(messageComplete, eom ? 1 : 0);
@@ -412,7 +415,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint64_t maxStreams{0};
   uint32_t headerFrames{0};
   HTTPMessage::HTTPPriority priority{0, false, 0};
-  std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t> > windowUpdates;
+  std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t>> windowUpdates;
   folly::IOBufQueue data_;
 
   std::unique_ptr<HTTPMessage> msg;
@@ -429,11 +432,9 @@ std::unique_ptr<HTTPMessage> getPriorityMessage(uint8_t priority);
 
 std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size = 10);
 
-std::unique_ptr<testing::NiceMock<MockHTTPCodec>>
-makeDownstreamParallelCodec();
+std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeDownstreamParallelCodec();
 
-std::unique_ptr<testing::NiceMock<MockHTTPCodec>>
-makeUpstreamParallelCodec();
+std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeUpstreamParallelCodec();
 
 HTTPMessage getGetRequest(const std::string& url = std::string("/"));
 HTTPMessage getBigGetRequest(const std::string& url = std::string("/"));
@@ -449,10 +450,10 @@ std::unique_ptr<HTTPMessage> makeGetRequest();
 std::unique_ptr<HTTPMessage> makePostRequest(uint32_t contentLength = 200);
 std::unique_ptr<HTTPMessage> makeResponse(uint16_t statusCode);
 
-std::tuple<std::unique_ptr<HTTPMessage>, std::unique_ptr<folly::IOBuf> >
+std::tuple<std::unique_ptr<HTTPMessage>, std::unique_ptr<folly::IOBuf>>
 makeResponse(uint16_t statusCode, size_t len);
 
 // Takes a MockHTTPCodec and fakes out its interface
 void fakeMockCodec(MockHTTPCodec& codec);
 
-}
+} // namespace proxygen

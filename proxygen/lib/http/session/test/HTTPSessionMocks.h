@@ -222,13 +222,13 @@ class MockHTTPHandler
         .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &txn_));
   }
 
-  void expectPushedTransaction(HTTPTransactionHandler* handler=nullptr) {
+  void expectPushedTransaction(HTTPTransactionHandler* handler = nullptr) {
     EXPECT_CALL(*this, onPushedTransaction(testing::_))
-      .WillOnce(testing::Invoke([handler] (HTTPTransaction* txn) {
-            if (handler) {
-              txn->setHandler(handler);
-            }
-          }));
+        .WillOnce(testing::Invoke([handler](HTTPTransaction* txn) {
+          if (handler) {
+            txn->setHandler(handler);
+          }
+        }));
   }
 
   void expectHeaders(std::function<void()> callback = std::function<void()>()) {
@@ -452,8 +452,10 @@ class MockHTTPSessionInfoCallback : public HTTPSession::InfoCallback {
   MOCK_METHOD2(onIngressError, void(const HTTPSessionBase&, ProxygenError));
   MOCK_METHOD0(onIngressEOF, void());
   MOCK_METHOD2(onRead, void(const HTTPSessionBase&, size_t));
-  MOCK_METHOD3(onRead, void(const HTTPSessionBase&, size_t,
-                            folly::Optional<HTTPCodec::StreamID>));
+  MOCK_METHOD3(onRead,
+               void(const HTTPSessionBase&,
+                    size_t,
+                    folly::Optional<HTTPCodec::StreamID>));
   MOCK_METHOD2(onWrite, void(const HTTPSessionBase&, size_t));
   MOCK_METHOD1(onRequestBegin, void(const HTTPSessionBase&));
   MOCK_METHOD2(onRequestEnd, void(const HTTPSessionBase&, uint32_t));

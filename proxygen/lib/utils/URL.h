@@ -20,7 +20,7 @@ namespace proxygen {
 
 class URL {
  public:
-  explicit URL(const std::string& url = "", bool secure=false) noexcept {
+  explicit URL(const std::string& url = "", bool secure = false) noexcept {
     valid_ = false;
 
     ParseURL parseUrl(url);
@@ -39,15 +39,13 @@ class URL {
     } else {
       port_ = isSecure() ? 443 : 80;
     }
-
   }
 
-  static std::string createUrl(
-      const std::string& scheme,
-      const std::string& hostAndPort,
-      const std::string& path,
-      const std::string& query,
-      const std::string& fragment) noexcept {
+  static std::string createUrl(const std::string& scheme,
+                               const std::string& hostAndPort,
+                               const std::string& path,
+                               const std::string& query,
+                               const std::string& fragment) noexcept {
     std::ostringstream out;
     out << scheme << "://" << hostAndPort << '/' << path;
     if (!query.empty()) {
@@ -64,12 +62,13 @@ class URL {
       uint16_t port = 0,
       const std::string& path = "",
       const std::string& query = "",
-      const std::string& fragment = "") noexcept :
-    host_(host),
-    port_(port),
-    path_(path),
-    query_(query),
-    fragment_(fragment) {
+      const std::string& fragment = "")
+  noexcept
+      : host_(host),
+        port_(port),
+        path_(path),
+        query_(query),
+        fragment_(fragment) {
     setScheme(scheme, false);
     url_ = createUrl(scheme_, getHostAndPort(), path_, query_, fragment_);
 
@@ -124,20 +123,17 @@ class URL {
 
   std::string makeRelativeURL() const noexcept {
     return folly::to<std::string>(
-      path_.empty() ? "/" : path_,
-      query_.empty() ? "" : folly::to<std::string>('?', query_),
-      fragment_.empty() ? "" : folly::to<std::string>('#', fragment_));
-
+        path_.empty() ? "/" : path_,
+        query_.empty() ? "" : folly::to<std::string>('?', query_),
+        fragment_.empty() ? "" : folly::to<std::string>('#', fragment_));
   }
 
   friend bool operator==(const URL& lhs, const URL& rhs) {
     return lhs.getScheme() == rhs.getScheme() &&
-      lhs.getHost() == rhs.getHost() &&
-      lhs.getPort() == rhs.getPort() &&
-      lhs.getPath() == rhs.getPath() &&
-      lhs.getQuery() == rhs.getQuery() &&
-      lhs.getFragment() == rhs.getFragment() &&
-      lhs.getUrl() == rhs.getUrl();
+           lhs.getHost() == rhs.getHost() && lhs.getPort() == rhs.getPort() &&
+           lhs.getPath() == rhs.getPath() && lhs.getQuery() == rhs.getQuery() &&
+           lhs.getFragment() == rhs.getFragment() &&
+           lhs.getUrl() == rhs.getUrl();
   }
 
   friend bool operator!=(const URL& lhs, const URL& rhs) {
@@ -152,10 +148,7 @@ class URL {
     } else {
       scheme_ = std::move(scheme);
     }
-    std::transform(scheme_.begin(),
-                   scheme_.end(),
-                   scheme_.begin(),
-                   ::tolower);
+    std::transform(scheme_.begin(), scheme_.end(), scheme_.begin(), ::tolower);
 
     valid_ = (scheme_ == "http" || scheme_ == "https");
   }
@@ -173,4 +166,4 @@ class URL {
   bool valid_{false};
 };
 
-}  // namespace proxygen
+} // namespace proxygen

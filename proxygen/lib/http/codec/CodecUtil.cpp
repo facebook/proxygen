@@ -22,6 +22,7 @@ namespace proxygen {
  *                    | "/" | "[" | "]" | "?" | "="
  *                    | "{" | "}" | SP | HT
  */
+// clang-format off
 const char CodecUtil::http_tokens[256] = {
 /*   0 nul    1 soh    2 stx    3 etx    4 eot    5 enq    6 ack    7 bel  */
         0,       0,       0,       0,       0,       0,       0,       0,
@@ -56,15 +57,17 @@ const char CodecUtil::http_tokens[256] = {
 /* 120  x   121  y   122  z   123  {   124  |   125  }   126  ~   127 del */
        'x',     'y',     'z',      0,      '|',     '}',     '~',       0
 };
+// clang-format on
 
-bool CodecUtil::hasGzipAndDeflate(const std::string& value, bool& hasGzip,
-                                 bool& hasDeflate) {
+bool CodecUtil::hasGzipAndDeflate(const std::string& value,
+                                  bool& hasGzip,
+                                  bool& hasDeflate) {
   RFC2616::TokenPairVec output;
   output.reserve(RFC2616::kTokenPairVecDefaultSize);
   hasGzip = false;
   hasDeflate = false;
   RFC2616::parseQvalues(value, output);
-  for (const auto& encodingQ: output) {
+  for (const auto& encodingQ : output) {
     std::string lower(encodingQ.first.str());
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     // RFC says 3 sig figs
@@ -123,18 +126,18 @@ bool CodecUtil::appendHeaders(const HTTPHeaders& inputHeaders,
 
 const std::bitset<256>& CodecUtil::perHopHeaderCodes() {
   static const std::bitset<256> s_perHopHeaderCodes{[] {
-      std::bitset<256> bs;
-      // HTTP/1.x per-hop headers that have no meaning in HTTP/2
-      bs[HTTP_HEADER_CONNECTION] = true;
-      bs[HTTP_HEADER_HOST] = true;
-      bs[HTTP_HEADER_KEEP_ALIVE] = true;
-      bs[HTTP_HEADER_PROXY_CONNECTION] = true;
-      bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
-      bs[HTTP_HEADER_UPGRADE] = true;
-      bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
-      bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
-      return bs;
-    }()};
+    std::bitset<256> bs;
+    // HTTP/1.x per-hop headers that have no meaning in HTTP/2
+    bs[HTTP_HEADER_CONNECTION] = true;
+    bs[HTTP_HEADER_HOST] = true;
+    bs[HTTP_HEADER_KEEP_ALIVE] = true;
+    bs[HTTP_HEADER_PROXY_CONNECTION] = true;
+    bs[HTTP_HEADER_TRANSFER_ENCODING] = true;
+    bs[HTTP_HEADER_UPGRADE] = true;
+    bs[HTTP_HEADER_SEC_WEBSOCKET_KEY] = true;
+    bs[HTTP_HEADER_SEC_WEBSOCKET_ACCEPT] = true;
+    return bs;
+  }()};
   return s_perHopHeaderCodes;
 }
-}
+} // namespace proxygen

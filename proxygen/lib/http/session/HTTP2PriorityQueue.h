@@ -14,9 +14,9 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
 
-#include <unordered_map>
 #include <deque>
 #include <list>
+#include <unordered_map>
 
 namespace proxygen {
 
@@ -215,7 +215,7 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
 
   class Node
       : public BaseNode
-    , public folly::HHWheelTimer::Callback {
+      , public folly::HHWheelTimer::Callback {
    public:
     static const uint16_t kDefaultWeight = 16;
 

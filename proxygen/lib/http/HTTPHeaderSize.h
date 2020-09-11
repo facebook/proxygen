@@ -38,5 +38,4 @@ struct HTTPHeaderSize {
   uint32_t compressedBlock{0};
 };
 
-
-}
+} // namespace proxygen

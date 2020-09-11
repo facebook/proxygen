@@ -157,10 +157,9 @@ class HTTPUpstreamTest
     }
   }
 
-  virtual void onWriteChain(
-      folly::AsyncTransport::WriteCallback* callback,
-      std::shared_ptr<IOBuf> iob,
-      WriteFlags) {
+  virtual void onWriteChain(folly::AsyncTransport::WriteCallback* callback,
+                            std::shared_ptr<IOBuf> iob,
+                            WriteFlags) {
     if (pauseWrites_) {
       cbs_.push_back(callback);
       return; // let write requests timeout
@@ -586,9 +585,9 @@ TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
 
   // when this handler is resumed, re-pause the pipe
   handler1->expectEgressResumed([&] {
-      handler1->txn_->sendBody(makeBuf(4000));
-      pauseWrites_ = true;
-    });
+    handler1->txn_->sendBody(makeBuf(4000));
+    pauseWrites_ = true;
+  });
   // handler2 will get a shot
   handler2->expectEgressResumed();
 
@@ -2683,18 +2682,15 @@ TEST_F(MockHTTPUpstreamTest, ForceShutdownInSetTransaction) {
 // an injectTraceEvent call.
 TEST_F(MockHTTPUpstreamTest, InjectTraceEvent) {
   StrictMock<MockHTTPHandler> handler;
-  handler.expectTransaction([&](HTTPTransaction* txn) {
-    handler.txn_ = txn;
-  });
+  handler.expectTransaction([&](HTTPTransaction* txn) { handler.txn_ = txn; });
   // Boilerplate because the session and all handlers have to be
   // dropped and errored out.
   handler.expectError([&](const HTTPException& err) {});
   handler.expectDetachTransaction();
 
   StrictMock<MockHTTPHandler> handler2;
-  handler2.expectTransaction([&](HTTPTransaction* txn) {
-    handler2.txn_ = txn;
-  });
+  handler2.expectTransaction(
+      [&](HTTPTransaction* txn) { handler2.txn_ = txn; });
   // Boilerplate because the session and all handlers have to be
   // dropped and errored out.
   handler2.expectError([&](const HTTPException& err) {});
@@ -2702,7 +2698,6 @@ TEST_F(MockHTTPUpstreamTest, InjectTraceEvent) {
 
   EXPECT_CALL(handler, traceEventAvailable(_)).Times(1);
   EXPECT_CALL(handler2, traceEventAvailable(_)).Times(1);
-
 
   (void)httpSession_->newTransaction(&handler);
   (void)httpSession_->newTransaction(&handler2);
@@ -2882,7 +2877,8 @@ TEST_F(HTTP2UpstreamSessionTest, TestPingPreserveData) {
   serverCodec->generateSettings(output);
 
   auto pingData = std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::steady_clock::now().time_since_epoch()).count();
+                      std::chrono::steady_clock::now().time_since_epoch())
+                      .count();
   serverCodec->generatePingRequest(output, pingData);
   NiceMock<MockHTTPCodecCallback> callbacks;
   serverCodec->setCallback(&callbacks);

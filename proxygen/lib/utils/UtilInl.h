@@ -34,9 +34,8 @@ struct AsciiCaseUnderscoreInsensitive {
 };
 
 // Case-insensitive string comparison
-inline bool caseUnderscoreInsensitiveEqual(
-    folly::StringPiece s,
-    folly::StringPiece t) {
+inline bool caseUnderscoreInsensitiveEqual(folly::StringPiece s,
+                                           folly::StringPiece t) {
   if (s.size() != t.size()) {
     return false;
   }
@@ -46,11 +45,11 @@ inline bool caseUnderscoreInsensitiveEqual(
 }
 
 inline bool validateURL(folly::ByteRange url) {
-  for (auto p: url) {
+  for (auto p : url) {
     if (p <= 0x20 || p == 0x7f) {
       // no controls or unescaped spaces
       return false;
-      }
+    }
   }
   return true;
 }
@@ -63,4 +62,4 @@ inline size_t findLastOf(folly::StringPiece sp, char c) {
   return pos;
 }
 
-}
+} // namespace proxygen

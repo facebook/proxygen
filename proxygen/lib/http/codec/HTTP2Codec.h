@@ -8,12 +8,12 @@
 
 #pragma once
 
-#include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
-#include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
 #include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPParallelCodec.h>
+#include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
+#include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
 #include <bitset>
@@ -25,8 +25,10 @@ namespace proxygen {
  * An implementation of the framing layer for HTTP/2. Instances of this
  * class must not be used from multiple threads concurrently.
  */
-class HTTP2Codec: public HTTPParallelCodec, HPACK::StreamingCallback {
-public:
+class HTTP2Codec
+    : public HTTPParallelCodec
+    , HPACK::StreamingCallback {
+ public:
   void onHeader(const HPACKHeaderName& name,
                 const folly::fbstring& value) override;
   void onHeadersComplete(HTTPHeaderSize decodedSize, bool acknowledge) override;
@@ -81,20 +83,19 @@ public:
   size_t generateTrailers(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPHeaders& trailers) override;
-  size_t generateEOM(folly::IOBufQueue& writeBuf,
-                     StreamID stream) override;
+  size_t generateEOM(folly::IOBufQueue& writeBuf, StreamID stream) override;
   size_t generateRstStream(folly::IOBufQueue& writeBuf,
                            StreamID stream,
                            ErrorCode statusCode) override;
   size_t generateGoaway(
-    folly::IOBufQueue& writeBuf,
-    StreamID lastStream,
-    ErrorCode statusCode,
-    std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
-  size_t generatePingRequest(folly::IOBufQueue& writeBuf,
-                         folly::Optional<uint64_t> data = folly::none) override;
-  size_t generatePingReply(folly::IOBufQueue& writeBuf,
-                           uint64_t data) override;
+      folly::IOBufQueue& writeBuf,
+      StreamID lastStream,
+      ErrorCode statusCode,
+      std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
+  size_t generatePingRequest(
+      folly::IOBufQueue& writeBuf,
+      folly::Optional<uint64_t> data = folly::none) override;
+  size_t generatePingReply(folly::IOBufQueue& writeBuf, uint64_t data) override;
   size_t generateSettings(folly::IOBufQueue& writeBuf) override;
   size_t generateSettingsAck(folly::IOBufQueue& writeBuf) override;
   size_t generateWindowUpdate(folly::IOBufQueue& writeBuf,
@@ -113,23 +114,24 @@ public:
   const HTTPSettings* getIngressSettings() const override {
     return &ingressSettings_;
   }
-  HTTPSettings* getEgressSettings() override { return &egressSettings_; }
+  HTTPSettings* getEgressSettings() override {
+    return &egressSettings_;
+  }
   uint32_t getDefaultWindowSize() const override {
     return http2::kInitialWindow;
   }
   bool supportsPushTransactions() const override {
-    return
-      (transportDirection_ == TransportDirection::DOWNSTREAM &&
-       ingressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1)) ||
-      (transportDirection_ == TransportDirection::UPSTREAM &&
-       egressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1));
+    return (transportDirection_ == TransportDirection::DOWNSTREAM &&
+            ingressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1)) ||
+           (transportDirection_ == TransportDirection::UPSTREAM &&
+            egressSettings_.getSetting(SettingsId::ENABLE_PUSH, 1));
   }
   bool peerHasWebsockets() const {
     return ingressSettings_.getSetting(SettingsId::ENABLE_CONNECT_PROTOCOL);
   }
   bool supportsExTransactions() const override {
     return ingressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0) &&
-      egressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0);
+           egressSettings_.getSetting(SettingsId::ENABLE_EX_HEADERS, 0);
   }
   void setHeaderCodecStats(HeaderCodec::Stats* hcStats) override {
     headerCodec_.setStats(hcStats);
@@ -142,17 +144,16 @@ public:
              (id & 0x1) == 0));
   }
 
-  size_t addPriorityNodes(
-      PriorityQueue& queue,
-      folly::IOBufQueue& writeBuf,
-      uint8_t maxLevel) override;
+  size_t addPriorityNodes(PriorityQueue& queue,
+                          folly::IOBufQueue& writeBuf,
+                          uint8_t maxLevel) override;
   HTTPCodec::StreamID mapPriorityToDependency(uint8_t priority) const override;
 
   CompressionInfo getCompressionInfo() const override {
     return headerCodec_.getCompressionInfo();
   }
 
-  //HTTP2Codec specific API
+  // HTTP2Codec specific API
 
   static void requestUpgrade(HTTPMessage& request);
 
@@ -196,20 +197,20 @@ public:
                           const folly::Optional<ExAttributes>& exAttributes,
                           bool eom,
                           HTTPHeaderSize* size);
-  void encodeHeaders(
-      folly::IOBufQueue& writeBuf,
-      const HTTPHeaders& headers,
-      std::vector<compress::Header>& allHeaders,
-      HTTPHeaderSize* size);
+  void encodeHeaders(folly::IOBufQueue& writeBuf,
+                     const HTTPHeaders& headers,
+                     std::vector<compress::Header>& allHeaders,
+                     HTTPHeaderSize* size);
 
-  size_t generateHeaderCallbackWrapper(StreamID stream, http2::FrameType type, size_t length);
+  size_t generateHeaderCallbackWrapper(StreamID stream,
+                                       http2::FrameType type,
+                                       size_t length);
 
   ErrorCode parseFrame(folly::io::Cursor& cursor);
   ErrorCode parseAllData(folly::io::Cursor& cursor);
-  ErrorCode parseDataFrameData(
-    folly::io::Cursor& cursor,
-    size_t bufLen,
-    size_t& parsed);
+  ErrorCode parseDataFrameData(folly::io::Cursor& cursor,
+                               size_t bufLen,
+                               size_t& parsed);
   ErrorCode parseHeaders(folly::io::Cursor& cursor);
   ErrorCode parseExHeaders(folly::io::Cursor& cursor);
   ErrorCode parsePriority(folly::io::Cursor& cursor);
@@ -223,11 +224,11 @@ public:
   ErrorCode parseCertificateRequest(folly::io::Cursor& cursor);
   ErrorCode parseCertificate(folly::io::Cursor& cursor);
   ErrorCode parseHeadersImpl(
-    folly::io::Cursor& cursor,
-    std::unique_ptr<folly::IOBuf> headerBuf,
-    const folly::Optional<http2::PriorityUpdate>& priority,
-    const folly::Optional<uint32_t>& promisedStream,
-    const folly::Optional<ExAttributes>& exAttributes);
+      folly::io::Cursor& cursor,
+      std::unique_ptr<folly::IOBuf> headerBuf,
+      const folly::Optional<http2::PriorityUpdate>& priority,
+      const folly::Optional<uint32_t>& promisedStream,
+      const folly::Optional<ExAttributes>& exAttributes);
   folly::Optional<ErrorCode> parseHeadersDecodeFrames(
       const folly::Optional<http2::PriorityUpdate>& priority,
       const folly::Optional<uint32_t>& promisedStream,
@@ -242,14 +243,16 @@ public:
   ErrorCode handleSettings(const std::deque<SettingPair>& settings);
   void handleSettingsAck();
   size_t maxSendFrameSize() const {
-    return (uint32_t)ingressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
-                                       http2::kMaxFramePayloadLengthMin);
+    return (uint32_t)ingressSettings_.getSetting(
+        SettingsId::MAX_FRAME_SIZE, http2::kMaxFramePayloadLengthMin);
   }
   uint32_t maxRecvFrameSize() const {
-    return (uint32_t)egressSettings_.getSetting(SettingsId::MAX_FRAME_SIZE,
-                                      http2::kMaxFramePayloadLengthMin);
+    return (uint32_t)egressSettings_.getSetting(
+        SettingsId::MAX_FRAME_SIZE, http2::kMaxFramePayloadLengthMin);
   }
-  void streamError(const std::string& msg, ErrorCode error, bool newTxn=false);
+  void streamError(const std::string& msg,
+                   ErrorCode error,
+                   bool newTxn = false);
   bool parsingTrailers() const;
 
   HPACKCodec headerCodec_;
@@ -268,15 +271,15 @@ public:
 
   folly::IOBufQueue curHeaderBlock_{folly::IOBufQueue::cacheChainLength()};
   HTTPSettings ingressSettings_{
-    { SettingsId::HEADER_TABLE_SIZE, 4096 },
-    { SettingsId::ENABLE_PUSH, 1 },
-    { SettingsId::MAX_FRAME_SIZE, 16384 },
+      {SettingsId::HEADER_TABLE_SIZE, 4096},
+      {SettingsId::ENABLE_PUSH, 1},
+      {SettingsId::MAX_FRAME_SIZE, 16384},
   };
   HTTPSettings egressSettings_{
-    { SettingsId::HEADER_TABLE_SIZE, 4096 },
-    { SettingsId::ENABLE_PUSH, 0 },
-    { SettingsId::MAX_FRAME_SIZE, 16384 },
-    { SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17 }, // same as SPDYCodec
+      {SettingsId::HEADER_TABLE_SIZE, 4096},
+      {SettingsId::ENABLE_PUSH, 0},
+      {SettingsId::MAX_FRAME_SIZE, 16384},
+      {SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17}, // same as SPDYCodec
   };
 #ifndef NDEBUG
   uint64_t receivedFrameCount_{0};
@@ -288,7 +291,7 @@ public:
     FRAME_DATA = 3,
     DATA_FRAME_DATA = 4,
   };
-  FrameState frameState_:3;
+  FrameState frameState_ : 3;
   std::string userAgent_;
 
   size_t pendingDataFrameBytes_{0};
@@ -314,4 +317,4 @@ public:
   http2::FrameType headerBlockFrameType_{http2::FrameType::DATA};
 };
 
-} // proxygen
+} // namespace proxygen

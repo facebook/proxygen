@@ -8,40 +8,38 @@
 
 #pragma once
 
+#include "StructuredHeadersBuffer.h" // @manual=:structured_headers
 #include <unordered_map>
 #include <vector>
-#include "StructuredHeadersBuffer.h" // @manual=:structured_headers
 
 namespace proxygen {
 
 class StructuredHeadersDecoder {
-public:
+ public:
+  explicit StructuredHeadersDecoder(const std::string& s) : buf_(s) {
+  }
 
-  explicit StructuredHeadersDecoder(const std::string& s): buf_(s) {}
-
-  explicit StructuredHeadersDecoder(folly::StringPiece s): buf_(s) {}
+  explicit StructuredHeadersDecoder(folly::StringPiece s) : buf_(s) {
+  }
 
   StructuredHeaders::DecodeError decodeItem(StructuredHeaderItem& result);
 
-  StructuredHeaders::DecodeError
-    decodeList(std::vector<StructuredHeaderItem>& result);
+  StructuredHeaders::DecodeError decodeList(
+      std::vector<StructuredHeaderItem>& result);
 
   StructuredHeaders::DecodeError decodeDictionary(Dictionary& result);
 
-  StructuredHeaders::DecodeError
-    decodeParameterisedList(ParameterisedList& result);
+  StructuredHeaders::DecodeError decodeParameterisedList(
+      ParameterisedList& result);
 
-private:
-  enum class MapType {
-    DICTIONARY = 0,
-    PARAMETERISED_MAP = 1
-  };
+ private:
+  enum class MapType { DICTIONARY = 0, PARAMETERISED_MAP = 1 };
 
   StructuredHeaders::DecodeError decodeMap(
-    std::unordered_map<std::string, StructuredHeaderItem>& result,
-    MapType mapType);
+      std::unordered_map<std::string, StructuredHeaderItem>& result,
+      MapType mapType);
 
   StructuredHeadersBuffer buf_;
 };
 
-}
+} // namespace proxygen

@@ -24,4 +24,4 @@ extern const std::string kHttps;
 extern const std::string kWebsocketString;
 extern const std::string kStatus200;
 
-}}
+}} // namespace proxygen::headers

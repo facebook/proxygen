@@ -19,21 +19,17 @@ namespace {
 // This is required to get HTTP1xCodec ready to parse a header block
 const string kDummyGet("GET / HTTP/1.0");
 
-enum class BoundaryResult {
-  YES,
-  NO,
-  PARTIAL
-};
+enum class BoundaryResult { YES, NO, PARTIAL };
 
 BoundaryResult isBoundary(const IOBuf& buf,
                           uint32_t offset,
-                          char const *boundary,
+                          char const* boundary,
                           size_t boundarylen) {
   assert(offset <= buf.length());
-  const IOBuf *crtBuf = &buf;
+  const IOBuf* crtBuf = &buf;
   do {
     size_t crtLen = crtBuf->length() - offset;
-    const uint8_t *crtData = crtBuf->data() + offset;
+    const uint8_t* crtData = crtBuf->data() + offset;
     size_t cmplen = std::min(crtLen, boundarylen);
     if (memcmp(crtData, boundary, cmplen) == 0) {
       if (cmplen == boundarylen) {
@@ -53,13 +49,13 @@ BoundaryResult isBoundary(const IOBuf& buf,
   return BoundaryResult::PARTIAL;
 }
 
-}
+} // namespace
 
 namespace proxygen {
 
 std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
-  static auto dummyBuf = IOBuf::wrapBuffer(kDummyGet.data(),
-                                           kDummyGet.length());
+  static auto dummyBuf =
+      IOBuf::wrapBuffer(kDummyGet.data(), kDummyGet.length());
   IOBufQueue result{IOBufQueue::cacheChainLength()};
   bool foundBoundary = false;
   BoundaryResult br = BoundaryResult::NO;
@@ -69,8 +65,8 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
     switch (state_) {
       case ParserState::START:
         // first time, must start with boundary without leading \n
-        br = isBoundary(*input_.front(), 0, boundary_.data() + 1,
-                        boundary_.length() - 1);
+        br = isBoundary(
+            *input_.front(), 0, boundary_.data() + 1, boundary_.length() - 1);
         if (br == BoundaryResult::NO) {
           if (callback_) {
             LOG(ERROR) << "Invalid starting sequence";
@@ -86,38 +82,37 @@ std::unique_ptr<IOBuf> RFC1867Codec::onIngress(std::unique_ptr<IOBuf> data) {
         state_ = ParserState::HEADERS_START;
         // fall through
 
-      case ParserState::HEADERS_START:
-        {
-          if (input_.chainLength() < 3) {
-            return input_.move();
-          }
-          Cursor c(input_.front());
-          char firstTwo[2];
-          c.pull(firstTwo, 2);
-          // We have at least 3 chars available to read
-          uint8_t toTrim = 3;
-          if (memcmp(firstTwo, "--", 2) == 0) {
-            do {
-              auto ch = c.read<char>();
-              if (ch == '\n') {
-                input_.trimStart(toTrim);
-                state_ = ParserState::DONE;
-              } else if (ch == '\r') {
-                // Every \r we encounter is a char we must trim but we must
-                // make sure we have sufficient data available in input_ to
-                // keep reading (toTrim is always one pos ahead to handle the
-                // expected \n)
-                ++toTrim;
-                if (input_.chainLength() < toTrim) {
-                  return input_.move();
-                }
-              } else {
-                state_ = ParserState::ERROR;
-              }
-            } while (state_ == ParserState::HEADERS_START);
-            break;
-          }
+      case ParserState::HEADERS_START: {
+        if (input_.chainLength() < 3) {
+          return input_.move();
         }
+        Cursor c(input_.front());
+        char firstTwo[2];
+        c.pull(firstTwo, 2);
+        // We have at least 3 chars available to read
+        uint8_t toTrim = 3;
+        if (memcmp(firstTwo, "--", 2) == 0) {
+          do {
+            auto ch = c.read<char>();
+            if (ch == '\n') {
+              input_.trimStart(toTrim);
+              state_ = ParserState::DONE;
+            } else if (ch == '\r') {
+              // Every \r we encounter is a char we must trim but we must
+              // make sure we have sufficient data available in input_ to
+              // keep reading (toTrim is always one pos ahead to handle the
+              // expected \n)
+              ++toTrim;
+              if (input_.chainLength() < toTrim) {
+                return input_.move();
+              }
+            } else {
+              state_ = ParserState::ERROR;
+            }
+          } while (state_ == ParserState::HEADERS_START);
+          break;
+        }
+      }
         headerParser_.setParserPaused(false);
         headerParser_.onIngress(*dummyBuf);
         CHECK(!parseError_);
@@ -181,27 +176,29 @@ void RFC1867Codec::onHeadersComplete(HTTPCodec::StreamID /*stream*/,
   static const StringPiece kFormData("form-data", 9);
 
   const auto& contentDisp =
-    msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_DISPOSITION);
+      msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_DISPOSITION);
   string name;
   folly::Optional<string> filename; // filename is optional
   HTTPMessage::splitNameValuePieces(
-    contentDisp, ';', '=',
-    [&] (folly::StringPiece parameter, folly::StringPiece value) {
-      // TODO: Trim whitespace first
-      // Strip quotes if present
-      if (value.size() >= 2 && value[0] == '\"' &&
-          value[value.size() - 1] == '\"') {
-        value.reset(value.data() + 1, value.size() - 2);
-      }
-      if (parameter == kName) {
-        name = value.str();
-      } else if (parameter == kFilename) {
-        filename = value.str();
-      } else if (parameter != kFormData) {
-        LOG(WARNING) << "Ignoring parameter " << parameter << " value \""
-                     << value << '"';
-      }
-    });
+      contentDisp,
+      ';',
+      '=',
+      [&](folly::StringPiece parameter, folly::StringPiece value) {
+        // TODO: Trim whitespace first
+        // Strip quotes if present
+        if (value.size() >= 2 && value[0] == '\"' &&
+            value[value.size() - 1] == '\"') {
+          value.reset(value.data() + 1, value.size() - 2);
+        }
+        if (parameter == kName) {
+          name = value.str();
+        } else if (parameter == kFilename) {
+          filename = value.str();
+        } else if (parameter != kFormData) {
+          LOG(WARNING) << "Ignoring parameter " << parameter << " value \""
+                       << value << '"';
+        }
+      });
   if (name.empty()) {
     if (callback_) {
       LOG(ERROR) << "name empty";
@@ -211,10 +208,9 @@ void RFC1867Codec::onHeadersComplete(HTTPCodec::StreamID /*stream*/,
     return;
   } else {
     state_ = ParserState::FIELD_DATA;
-    if (callback_ && callback_->onFieldStart(name, filename,
-                                            std::move(msg),
-                                            bytesProcessed_) < 0) {
-    field_ = name;
+    if (callback_ && callback_->onFieldStart(
+                         name, filename, std::move(msg), bytesProcessed_) < 0) {
+      field_ = name;
       LOG(WARNING) << "Callback returned error";
       state_ = ParserState::ERROR;
     }
@@ -228,7 +224,7 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
   while (!input_.empty() && boundaryResult != BoundaryResult::PARTIAL) {
     const IOBuf* head = input_.front();
     uint64_t len = head->length();
-    const uint8_t *ptr = head->data();
+    const uint8_t* ptr = head->data();
 
     /* iterate through first character matches */
     while (len > 0 && (ptr = (const uint8_t*)memchr(ptr, boundary_[0], len))) {
@@ -236,7 +232,7 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
       uint64_t readlen = (ptr - head->data());
       len = head->length() - readlen;
       boundaryResult =
-        isBoundary(*head, readlen, boundary_.data(), boundary_.length());
+          isBoundary(*head, readlen, boundary_.data(), boundary_.length());
       if (boundaryResult == BoundaryResult::YES) {
         CHECK(readlen < head->length());
         bool hasCr = false;
@@ -268,13 +264,13 @@ IOBufQueue RFC1867Codec::readToBoundary(bool& foundBoundary) {
       }
 
       /* next character */
-      ptr++; len--;
+      ptr++;
+      len--;
     }
     uint64_t resultLen = ptr ? ptr - head->data() : head->length();
     // Put pendingCR_ in result if there was no partial match in head, or a
     // partial match starting after the first character
-    if ((boundaryResult == BoundaryResult::NO || resultLen > 0) &&
-        pendingCR_) {
+    if ((boundaryResult == BoundaryResult::NO || resultLen > 0) && pendingCR_) {
       result.append(std::move(pendingCR_));
     }
     // the boundary does not start through resultLen, append it
@@ -312,4 +308,4 @@ void RFC1867Codec::onIngressEOM() {
   state_ = ParserState::START;
 }
 
-}
+} // namespace proxygen

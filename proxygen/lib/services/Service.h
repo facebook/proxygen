@@ -47,13 +47,12 @@ class Service {
   virtual void init(folly::EventBase* mainEventBase,
                     const std::list<RequestWorkerThread*>& workers) = 0;
 
-
   /**
    * Finish any service initialization that requires the use of the worker
    * threads.
    */
-  virtual void finishInit() {}
-
+  virtual void finishInit() {
+  }
 
   /**
    * Start to accept connection on the listening sockect(s)
@@ -63,7 +62,8 @@ class Service {
    * ideally just the call of accept() on all the listening sockects.
    * Otherwise, the first accepted connection may experience high latency.
    */
-  virtual void startAccepting() {}
+  virtual void startAccepting() {
+  }
 
   /**
    * Mark the service as about to stop; invoked from main thread.
@@ -72,7 +72,8 @@ class Service {
    * and should continue to service requests but tell the healthchecker that it
    * is dying.
    */
-  virtual void failHealthChecks() {}
+  virtual void failHealthChecks() {
+  }
 
   /**
    * Stop accepting all new work; invoked from proxygen's main thread.
@@ -91,12 +92,14 @@ class Service {
    * The already accepted connections must not be affected.
    * It may or may not be followed by stopAccepting or resume listening.
    */
-  virtual void pauseListening() {}
+  virtual void pauseListening() {
+  }
 
   /**
    * Drain remaining client connections; invoked from proxygen's main thread.
    */
-  virtual void drainConnections() {}
+  virtual void drainConnections() {
+  }
 
   /**
    * Forcibly stop "pct" (0.0 to 1.0) of the remaining client connections.
@@ -105,7 +108,8 @@ class Service {
    * then proxygen might call dropConnections() several times to gradually
    * stop all processing before finally calling forceStop().
    */
-  virtual void dropConnections(double /*pct*/) {}
+  virtual void dropConnections(double /*pct*/) {
+  }
 
   /**
    * Forcibly stop the service.
@@ -119,22 +123,24 @@ class Service {
    * processing when forceStop() is called, so properly implementing
    * forceStop() isn't strictly required.)
    */
-  virtual void forceStop() {}
+  virtual void forceStop() {
+  }
 
   /**
    * Perform per-thread init.
    *
-   * This method will be called once for each RequestWorkerThread thread, just after
-   * the worker thread started.
+   * This method will be called once for each RequestWorkerThread thread, just
+   * after the worker thread started.
    */
-  virtual void initWorkerState(RequestWorkerThread*) {}
+  virtual void initWorkerState(RequestWorkerThread*) {
+  }
 
   /**
    * Perform per-thread cleanup.
    *
-   * This method will be called once for each RequestWorkerThread thread, just before
-   * that thread is about to exit.  Note that this method is called from the
-   * worker thread itself, not from the main thread.
+   * This method will be called once for each RequestWorkerThread thread, just
+   * before that thread is about to exit.  Note that this method is called from
+   * the worker thread itself, not from the main thread.
    *
    * failHealthChecks() and stopAccepting() will always be called in the main
    * thread before cleanupWorkerState() is called in any of the worker threads.
@@ -144,7 +150,8 @@ class Service {
    * cleanupWorkerState().  Once forceStop() is invoked, the remaining threads
    * will forcibly exit and then call cleanupWorkerState().)
    */
-  virtual void cleanupWorkerState(RequestWorkerThread* /*worker*/) {}
+  virtual void cleanupWorkerState(RequestWorkerThread* /*worker*/) {
+  }
 
   /**
    * Add a new ServiceWorker (subclasses should create one ServiceWorker
@@ -175,12 +182,12 @@ class Service {
 
  private:
   // Forbidden copy constructor and assignment opererator
-  Service(Service const &) = delete;
-  Service& operator=(Service const &) = delete;
+  Service(Service const&) = delete;
+  Service& operator=(Service const&) = delete;
 
   // Workers
   std::list<std::unique_ptr<ServiceWorker>> workers_;
   std::vector<folly::EventBase*> workerEvbs_;
 };
 
-} // proxygen
+} // namespace proxygen

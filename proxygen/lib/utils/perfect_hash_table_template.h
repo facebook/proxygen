@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+// clang-format off
 #pragma once
 
 #include <cstdint>
@@ -95,3 +96,4 @@ $$$$$
 };
 
 } // proxygen
+// clang-format on

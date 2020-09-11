@@ -125,6 +125,7 @@ class HQSession
   // Forward declarations
  public:
   class HQStreamTransportBase;
+
  protected:
   class HQStreamTransport;
 
@@ -177,7 +178,8 @@ class HQSession
     /**
      * Callback for the first time transport has processed a packet from peer.
      */
-    virtual void onFirstPeerPacketProcessed() {}
+    virtual void onFirstPeerPacketProcessed() {
+    }
   };
 
   virtual ~HQSession();
@@ -543,7 +545,7 @@ class HQSession
   virtual HQStreamTransportBase* findPushStream(quic::StreamId) = 0;
 
   virtual void findPushStreams(
-    std::unordered_set<HQStreamTransportBase*>& streams) = 0;
+      std::unordered_set<HQStreamTransportBase*>& streams) = 0;
 
   // Apply the function on the streams found by the two locators.
   // Note that same stream can be returned by a find-by-stream-id
@@ -596,15 +598,20 @@ class HQSession
   // Find a control stream by stream id (either ingress or egress)
   HQControlStream* findControlStream(quic::StreamId streamId);
 
-  virtual HQStreamTransportBase* createIngressPushStream(
-     quic::StreamId, hq::PushId) { return nullptr; }
+  virtual HQStreamTransportBase* createIngressPushStream(quic::StreamId,
+                                                         hq::PushId) {
+    return nullptr;
+  }
 
-  virtual void eraseUnboundStream(HQStreamTransportBase*) {}
+  virtual void eraseUnboundStream(HQStreamTransportBase*) {
+  }
 
   virtual HTTPTransaction* newPushedTransaction(
-      HTTPCodec::StreamID, /* parentRequestStreamId */
+      HTTPCodec::StreamID,           /* parentRequestStreamId */
       HTTPTransaction::PushHandler*, /* handler */
-      ProxygenError*) { return nullptr; }
+      ProxygenError*) {
+    return nullptr;
+  }
 
   /*
    * for HQ we need a read callback for unidirectional streams to read the
@@ -767,7 +774,8 @@ class HQSession
   HQControlStream* createIngressControlStream(
       quic::StreamId id, hq::UnidirectionalStreamType streamType);
 
-  virtual void cleanupUnboundPushStreams(std::vector<quic::StreamId>&) {}
+  virtual void cleanupUnboundPushStreams(std::vector<quic::StreamId>&) {
+  }
 
   // gets the ALPN from the transport and returns whether the protocol is
   // supported. Drops the connection if not supported
@@ -815,7 +823,7 @@ class HQSession
   // In both cases, maxAllowedPushId_ == folly::none means that no push id
   // is allowed. Default to kEightByteLimit assuming this session will
   // be using push.
-  folly::Optional<hq::PushId> maxAllowedPushId_ {folly::none};
+  folly::Optional<hq::PushId> maxAllowedPushId_{folly::none};
 
   // Schedule the loop callback.
   // To keep this consistent with EventBase::runInLoop run in the next loop
@@ -1270,7 +1278,6 @@ class HQSession
 
     // HTTPTransaction::Transport methods
 
-
     // For parity with H2, pause/resumeIngress now a no-op.  All transactions
     // will pause when total buffered egress exceeds the configured limit, which
     // should be equal to the recv flow control window
@@ -1376,8 +1383,8 @@ class HQSession
 
     bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) override;
 
-    void getFlowControlInfo(HTTPTransaction::FlowControlInfo* /*info*/)
-        override {
+    void getFlowControlInfo(
+        HTTPTransaction::FlowControlInfo* /*info*/) override {
       // Not implemented
     }
 
@@ -1463,10 +1470,10 @@ class HQSession
                                        hqDefaultPriority.weight);
     }
 
-    folly::Optional<HTTPTransaction::ConnectionToken>
-      getConnectionToken() const noexcept override {
-        return session_.connectionToken_;
-      }
+    folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const
+        noexcept override {
+      return session_.connectionToken_;
+    }
 
     void generateGoaway();
 
@@ -1992,8 +1999,8 @@ class HQSession
     return 100;
   }
 
-  HQStreamTransportBase* FOLLY_NULLABLE
-  getPRStream(quic::StreamId id, const char *event);
+  HQStreamTransportBase* FOLLY_NULLABLE getPRStream(quic::StreamId id,
+                                                    const char* event);
 
   using HTTPCodecPtr = std::unique_ptr<HTTPCodec>;
   struct CodecStackEntry {

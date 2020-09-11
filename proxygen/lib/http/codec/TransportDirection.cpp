@@ -14,16 +14,18 @@ namespace proxygen {
 
 const char* getTransportDirectionString(TransportDirection dir) {
   switch (dir) {
-    case TransportDirection::UPSTREAM: return "upstream";
-    case TransportDirection::DOWNSTREAM: return "downstream";
+    case TransportDirection::UPSTREAM:
+      return "upstream";
+    case TransportDirection::DOWNSTREAM:
+      return "downstream";
   }
   // unreachable
   return "";
 }
 
 TransportDirection operator!(TransportDirection dir) {
-  return dir == TransportDirection::DOWNSTREAM ?
-    TransportDirection::UPSTREAM : TransportDirection::DOWNSTREAM;
+  return dir == TransportDirection::DOWNSTREAM ? TransportDirection::UPSTREAM
+                                               : TransportDirection::DOWNSTREAM;
 }
 
 std::ostream& operator<<(std::ostream& os, const TransportDirection dir) {
@@ -31,4 +33,4 @@ std::ostream& operator<<(std::ostream& os, const TransportDirection dir) {
   return os;
 }
 
-}
+} // namespace proxygen

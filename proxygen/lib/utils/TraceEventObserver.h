@@ -19,12 +19,15 @@ namespace proxygen {
  * to a destination analytics pipeline or forward them elsewhere.
  */
 struct TraceEventObserver {
-  virtual ~TraceEventObserver() {}
+  virtual ~TraceEventObserver() {
+  }
   /**
    * Lets the handler receive an arbitrary TraceEvent.
    */
-  virtual void traceEventAvailable(TraceEvent) noexcept {}
-  virtual void emitTraceEvents(std::vector<TraceEvent>) noexcept {}
+  virtual void traceEventAvailable(TraceEvent) noexcept {
+  }
+  virtual void emitTraceEvents(std::vector<TraceEvent>) noexcept {
+  }
 };
 
-}
+} // namespace proxygen

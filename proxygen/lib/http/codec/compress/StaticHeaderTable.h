@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/HeaderTable.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <proxygen/lib/http/codec/compress/HeaderTable.h>
 
 namespace proxygen {
 
@@ -23,4 +23,4 @@ class StaticHeaderTable : public HeaderTable {
   static bool isHeaderCodeInTableWithNonEmptyValue(HTTPHeaderCode headerCode);
 };
 
-}
+} // namespace proxygen

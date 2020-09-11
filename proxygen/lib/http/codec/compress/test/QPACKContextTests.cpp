@@ -7,13 +7,13 @@
  */
 
 #include <folly/Conv.h>
-#include <glog/logging.h>
-#include <folly/portability/GTest.h>
 #include <folly/Format.h>
+#include <folly/portability/GTest.h>
+#include <glog/logging.h>
 #include <memory>
+#include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
-#include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 
 using namespace folly;
@@ -21,10 +21,11 @@ using namespace proxygen;
 using namespace std;
 
 namespace {
-std::shared_ptr<bool>
-verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
-             const std::vector<HPACKHeader>& expectedHeaders,
-             HPACK::DecodeError expectedError = HPACK::DecodeError::NONE) {
+std::shared_ptr<bool> verifyDecode(
+    QPACKDecoder& decoder,
+    QPACKEncoder::EncodeResult result,
+    const std::vector<HPACKHeader>& expectedHeaders,
+    HPACK::DecodeError expectedError = HPACK::DecodeError::NONE) {
   auto cb = std::make_shared<TestStreamingCallback>();
   auto done = std::make_shared<bool>(false);
   if (result.control) {
@@ -33,8 +34,7 @@ verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
   }
   auto length = result.stream->computeChainDataLength();
   if (expectedError == HPACK::DecodeError::NONE) {
-    cb->headersCompleteCb =
-      [&expectedHeaders, cb, done] () mutable {
+    cb->headersCompleteCb = [&expectedHeaders, cb, done]() mutable {
       std::vector<HPACKHeader> test;
       for (size_t i = 0; i < cb->headers.size(); i += 2) {
         test.emplace_back(cb->headers[i].str, cb->headers[i + 1].str);
@@ -56,16 +56,18 @@ verifyDecode(QPACKDecoder& decoder, QPACKEncoder::EncodeResult result,
 
 bool stringInOutput(IOBuf* stream, const std::string& expected) {
   stream->coalesce();
-  return memmem(stream->data(), stream->length(),
-                expected.data(), expected.length());
+  return memmem(
+      stream->data(), stream->length(), expected.data(), expected.length());
 }
 
-HPACK::DecodeError headerAck(QPACKDecoder& decoder, QPACKEncoder& encoder,
+HPACK::DecodeError headerAck(QPACKDecoder& decoder,
+                             QPACKEncoder& encoder,
                              uint64_t streamId) {
   return encoder.decodeDecoderStream(decoder.encodeHeaderAck(streamId));
 }
 
-HPACK::DecodeError cancelStream(QPACKDecoder& decoder, QPACKEncoder& encoder,
+HPACK::DecodeError cancelStream(QPACKDecoder& decoder,
+                                QPACKEncoder& encoder,
                                 uint64_t streamId) {
   return encoder.decodeDecoderStream(decoder.encodeCancelStream(streamId));
 }
@@ -74,17 +76,17 @@ std::string toFixedLengthString(uint32_t i) {
   CHECK_LT(i, 1000);
   return folly::format("{:3}", i).str();
 }
-}
+} // namespace
 
 TEST(QPACKContextTests, StaticOnly) {
   QPACKEncoder encoder(true, 128);
   QPACKDecoder decoder(128);
   vector<HPACKHeader> req;
   // testing static indexes on request streams (6 bits)
-  req.emplace_back(":authority", ""); // qpack idx=0
+  req.emplace_back(":authority", "");                    // qpack idx=0
   req.emplace_back("x-xss-protection", "1; mode=block"); // idx=62
-  req.emplace_back(":status", "100"); // idx=63
-  req.emplace_back("x-frame-options", "sameorigin"); // idx=last
+  req.emplace_back(":status", "100");                    // idx=63
+  req.emplace_back("x-frame-options", "sameorigin");     // idx=last
   auto result = encoder.encode(req, 10, 1);
   EXPECT_EQ(result.control, nullptr);
   // prefix(2) + instr(1) + instr(1) + instr(2) + instr(2)
@@ -102,7 +104,7 @@ TEST(QPACKContextTests, StaticNameIndex) {
   vector<HPACKHeader> req;
 
   // testing static name indexes on the control stream (6 bits)
-  req.emplace_back(":authority", "foo.com"); // qpack idx=0
+  req.emplace_back(":authority", "foo.com");       // qpack idx=0
   req.emplace_back("x-xss-protection", "maximum"); // idx=62
   // :status at index 63 won't be used by our encoder, it will prefer idx=24
   req.emplace_back("accept-language", "c++"); // idx=72
@@ -119,7 +121,7 @@ TEST(QPACKContextTests, StaticNameIndex) {
   encoder.onHeaderAck(1, false);
   encoder.setMaxVulnerable(0);
   req.emplace_back("set-cookie", "abc"); // idx=14
-  req.emplace_back(":method", "DUDE"); // idx=15
+  req.emplace_back(":method", "DUDE");   // idx=15
   result = encoder.encode(req, 10, 1);
   // prefix(2) + instr(1) + len(1) + abc(3) + instr(2) + len(1) + DUDE(4) = 14
   EXPECT_EQ(result.stream->computeChainDataLength(), 14);
@@ -186,7 +188,7 @@ TEST(QPACKContextTests, PostBaseNameIndexedLiteral) {
   auto result = encoder.encode(req, 10, 1);
   EXPECT_EQ(result.stream->computeChainDataLength(),
             2 /*prefix*/ + 8 /*pb indexed*/ + 2 /*name idx len*/ +
-            1 /*val len*/ + 15 /* value */);
+                1 /*val len*/ + 15 /* value */);
   verifyDecode(decoder, std::move(result), req);
 }
 
@@ -196,9 +198,8 @@ TEST(QPACKContextTests, TestOutstandingListTooLong) {
 
   for (int i = 0; i < 4; i++) {
     vector<HPACKHeader> req;
-    req.emplace_back(
-      string("monkey" + folly::to<std::string>(i)),
-      folly::to<string>(i));
+    req.emplace_back(string("monkey" + folly::to<std::string>(i)),
+                     folly::to<string>(i));
     auto result = encoder.encode(req, 10, 7);
 
     if (i == 3) {
@@ -233,11 +234,9 @@ TEST(QPACKContextTests, TestOutstandingListTooLong) {
   reqStatic2.emplace_back(":authority", "potato");
   result = encoder.encode(reqStatic2, 10, 7);
 
-  EXPECT_EQ(result.stream->computeChainDataLength(),
-            2 /*prefix*/ +
-            1 /*name index*/ +
-            1 /*value length*/ +
-            6 /*value bytes*/);
+  EXPECT_EQ(
+      result.stream->computeChainDataLength(),
+      2 /*prefix*/ + 1 /*name index*/ + 1 /*value length*/ + 6 /*value bytes*/);
 
   // Ack the header, and see that new dynamic references can be made
   encoder.onHeaderAck(7, false);
@@ -380,8 +379,8 @@ TEST(QPACKContextTests, TestTableSizeUpdateMax) {
   req.emplace_back("Blarf", "Blerg");
   req.emplace_back("Blarf", "Blingo");
   auto result = encoder.encode(req, 0, 1);
-  verifyDecode(decoder, std::move(result), req,
-               HPACK::DecodeError::INVALID_INDEX);
+  verifyDecode(
+      decoder, std::move(result), req, HPACK::DecodeError::INVALID_INDEX);
   EXPECT_EQ(decoder.getHeadersStored(), 2);
 }
 
@@ -394,8 +393,7 @@ TEST(QPACKContextTests, TestEncoderFlowControl) {
   req.emplace_back("Blarf", "Blingo");
   auto result = encoder.encode(req, 0, 1, 0);
   EXPECT_EQ(result.control, nullptr);
-  verifyDecode(decoder, std::move(result), req,
-               HPACK::DecodeError::NONE);
+  verifyDecode(decoder, std::move(result), req, HPACK::DecodeError::NONE);
   EXPECT_EQ(decoder.getHeadersStored(), 0);
 
   // There is enough room for the first header only
@@ -404,8 +402,7 @@ TEST(QPACKContextTests, TestEncoderFlowControl) {
   EXPECT_FALSE(stringInOutput(result.stream.get(), "Blah"));
   EXPECT_TRUE(stringInOutput(result.stream.get(), "Blerg"));
   EXPECT_TRUE(stringInOutput(result.stream.get(), "Blingo"));
-  verifyDecode(decoder, std::move(result), req,
-               HPACK::DecodeError::NONE);
+  verifyDecode(decoder, std::move(result), req, HPACK::DecodeError::NONE);
   EXPECT_EQ(decoder.getHeadersStored(), 1);
 
   // Blarf is name indexed, Blah is indexed, Blerg fits, Blingo is encoded but
@@ -419,8 +416,7 @@ TEST(QPACKContextTests, TestEncoderFlowControl) {
   auto controlTail = result.control->clone();
   controlTail->trimStart(10);
   result.control->trimEnd(5);
-  verifyDecode(decoder, std::move(result), req,
-               HPACK::DecodeError::NONE);
+  verifyDecode(decoder, std::move(result), req, HPACK::DecodeError::NONE);
   EXPECT_EQ(decoder.getHeadersStored(), 2);
   EXPECT_EQ(decoder.decodeEncoderStream(std::move(controlTail)),
             HPACK::DecodeError::NONE);
@@ -432,8 +428,7 @@ TEST(QPACKContextTests, TestEncoderFlowControl) {
   result = encoder.encode(req, 0, 1, 0);
   EXPECT_EQ(result.control->computeChainDataLength(), 1);
   EXPECT_TRUE(stringInOutput(result.stream.get(), "Blah"));
-  verifyDecode(decoder, std::move(result), req,
-               HPACK::DecodeError::NONE);
+  verifyDecode(decoder, std::move(result), req, HPACK::DecodeError::NONE);
 }
 
 TEST(QPACKContextTests, TestAcks) {
@@ -548,12 +543,11 @@ TEST(QPACKContextTests, TestDecodeQueueDelete) {
   req2.emplace_back("Blarf", "Blerg");
   auto result2 = encoder.encode(req2, 0, 2);
 
-
   // Decode #1, no control stream, queued
   auto cb1 = std::make_unique<TestStreamingCallback>();
   auto rawCb1 = cb1.get();
   auto rawDecoder = decoder.get();
-  cb1->headersCompleteCb = [decoder=std::move(decoder)] () mutable {
+  cb1->headersCompleteCb = [decoder = std::move(decoder)]() mutable {
     // Delete decoder from callback
     decoder.reset();
   };
@@ -585,9 +579,7 @@ TEST(QPACKContextTests, TestDecodeQueueResetSelf) {
 
   // Decode #1, no control stream, queued
   TestStreamingCallback cb1;
-  cb1.headersCompleteCb = [&] {
-    decoder.encodeCancelStream(1);
-  };
+  cb1.headersCompleteCb = [&] { decoder.encodeCancelStream(1); };
   auto length = result1.stream->computeChainDataLength();
   decoder.decodeStreaming(1, std::move(result1.stream), length, &cb1);
 
@@ -604,8 +596,8 @@ TEST(QPACKContextTests, TestDecodeMaxUncompressed) {
   vector<HPACKHeader> req;
   req.emplace_back("Blarf", "Blah");
   auto result = encoder.encode(req, 0, 1);
-  verifyDecode(decoder, std::move(result), req,
-               HPACK::DecodeError::HEADERS_TOO_LARGE);
+  verifyDecode(
+      decoder, std::move(result), req, HPACK::DecodeError::HEADERS_TOO_LARGE);
 }
 
 TEST(QPACKContextTests, TestDecoderStreamChunked) {
@@ -643,12 +635,11 @@ TEST(QPACKContextTests, TestEncoderStreamReorder) {
   req.emplace_back("dynamic", "header");
   auto result = encoder.encode(req, 0, 1);
   EXPECT_EQ(result.stream->computeChainDataLength() +
-            result.control->computeChainDataLength(), 21);
+                result.control->computeChainDataLength(),
+            21);
   TestStreamingCallback cb1;
   bool done = false;
-  cb1.headersCompleteCb = [&] {
-    done = true;
-  };
+  cb1.headersCompleteCb = [&] { done = true; };
   auto length = result.stream->computeChainDataLength();
   decoder.decodeStreaming(1, std::move(result.stream), length, &cb1);
   // Should be blocked on insert
@@ -707,14 +698,15 @@ TEST(QPACKContextTests, WrapRICBehind) {
       req.emplace_back(toFixedLengthString(decoderIC), "");
       auto result = encoder.encode(req, 10, 1);
       EXPECT_NE(result.control, nullptr)
-        << "Every encode should produce an insert";
+          << "Every encode should produce an insert";
       EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
       EXPECT_EQ(encoder.decodeDecoderStream(decoder.encodeHeaderAck(1)),
                 HPACK::DecodeError::NONE);
     }
     for (auto requiredIC =
-           std::max<int64_t>(0, int64_t(decoderIC) - realMaxEntries + 1);
-         requiredIC <= decoderIC; requiredIC++) {
+             std::max<int64_t>(0, int64_t(decoderIC) - realMaxEntries + 1);
+         requiredIC <= decoderIC;
+         requiredIC++) {
       VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
               << " requiredIC=" << requiredIC;
 
@@ -726,7 +718,7 @@ TEST(QPACKContextTests, WrapRICBehind) {
         req.emplace_back(":scheme", "https");
       }
       auto result = encoder.encode(req, 10, 2);
-      EXPECT_EQ(result.control, nullptr); // no inserts
+      EXPECT_EQ(result.control, nullptr);                   // no inserts
       CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
       // the decoder should be able to immediately decode it
       EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
@@ -748,8 +740,7 @@ TEST(QPACKContextTests, WrapRICAhead) {
   // and only run it until it actually would have made a difference in
   // the encoded size of required IC.
   CHECK_LE(realMaxEntries, 256);
-  for (uint32_t decoderIC = maxEntries;
-       decoderIC < (256 - realMaxEntries);
+  for (uint32_t decoderIC = maxEntries; decoderIC < (256 - realMaxEntries);
        decoderIC++) {
     QPACKEncoder encoder(true, tableSize);
     QPACKDecoder decoder(tableSize);
@@ -759,12 +750,11 @@ TEST(QPACKContextTests, WrapRICAhead) {
     for (uint32_t i = 1; i <= decoderIC; i++) {
       vector<HPACKHeader> req;
       // populate the encoder and decode table to decoderIC.
-      VLOG(5) << "priming decoder with h=" << i
-              << " decoderIC=" << decoderIC;
+      VLOG(5) << "priming decoder with h=" << i << " decoderIC=" << decoderIC;
       req.emplace_back(toFixedLengthString(i), "");
       auto result = encoder.encode(req, 10, 1);
       EXPECT_NE(result.control, nullptr)
-        << "Every encode should produce an insert";
+          << "Every encode should produce an insert";
       EXPECT_TRUE(*verifyDecode(decoder, std::move(result), req));
       EXPECT_EQ(encoder.decodeDecoderStream(decoder.encodeHeaderAck(1)),
                 HPACK::DecodeError::NONE);
@@ -776,7 +766,8 @@ TEST(QPACKContextTests, WrapRICAhead) {
     // encode realMaxEntries requests past decoderIC, and queue the decodes
     // but don't process the inserts
     for (auto requiredIC = decoderIC + 1;
-         requiredIC <= decoderIC + realMaxEntries; requiredIC++) {
+         requiredIC <= decoderIC + realMaxEntries;
+         requiredIC++) {
       VLOG(5) << "WrapRIC test decoderIC=" << decoderIC
               << " requiredIC=" << requiredIC;
       reqs.emplace_back();
@@ -784,7 +775,7 @@ TEST(QPACKContextTests, WrapRICAhead) {
       req.emplace_back(toFixedLengthString(requiredIC), "");
       auto result = encoder.encode(req, 10, requiredIC);
       EXPECT_NE(result.control, nullptr)
-        << "Every encode should produce an insert";
+          << "Every encode should produce an insert";
       controlQueue.append(std::move(result.control));
       CHECK_EQ(result.stream->computeChainDataLength(), 3); // prefix + 1
       // the decoder has to block because the control stream is pending.
@@ -793,13 +784,14 @@ TEST(QPACKContextTests, WrapRICAhead) {
     }
     // control block should unblock all requests
     decoder.decodeEncoderStream(controlQueue.move());
-    for (const auto& done: allDone) {
+    for (const auto& done : allDone) {
       EXPECT_TRUE(*done);
     }
   }
 }
 
-void checkQError(QPACKDecoder& decoder, std::unique_ptr<IOBuf> buf,
+void checkQError(QPACKDecoder& decoder,
+                 std::unique_ptr<IOBuf> buf,
                  const HPACK::DecodeError err) {
   auto cb = std::make_unique<TestStreamingCallback>();
   auto len = buf->computeChainDataLength();
@@ -968,8 +960,10 @@ TEST(QPACKContextTests, TestEvictedNameReference) {
   req.emplace_back("x-accept-encoding", "foobarfoobar");
   auto result = encoder.encode(req, 0, 1);
   decoder.decodeEncoderStream(std::move(result.control));
-  decoder.decodeStreaming(1, result.stream->clone(),
-                          result.stream->computeChainDataLength(), nullptr);
+  decoder.decodeStreaming(1,
+                          result.stream->clone(),
+                          result.stream->computeChainDataLength(),
+                          nullptr);
   encoder.onInsertCountIncrement(1);
   req.clear();
   req.emplace_back("x-accept-encoding", "barfoobarfoo");
@@ -977,8 +971,8 @@ TEST(QPACKContextTests, TestEvictedNameReference) {
   EXPECT_TRUE(stringInOutput(result.stream.get(), "x-accept-encoding"));
   TestStreamingCallback cb;
   decoder.decodeEncoderStream(std::move(result.control));
-  decoder.decodeStreaming(2, result.stream->clone(),
-                          result.stream->computeChainDataLength(), &cb);
+  decoder.decodeStreaming(
+      2, result.stream->clone(), result.stream->computeChainDataLength(), &cb);
   EXPECT_FALSE(cb.hasError());
 }
 
@@ -1032,9 +1026,9 @@ TEST(QPACKContextTests, TestFragmentTableSizeUpdate) {
   EXPECT_EQ(headers.size() * 2, result->headers.size());
 
   size_t i = 0;
-  for (auto& h: headers) {
+  for (auto& h : headers) {
     string name = h.name.get();
-    char *mutableName = (char *)name.data();
+    char* mutableName = (char*)name.data();
     folly::toLowerAscii(mutableName, name.size());
     EXPECT_EQ(name, result->headers[i++].str);
     EXPECT_EQ(h.value, result->headers[i++].str);

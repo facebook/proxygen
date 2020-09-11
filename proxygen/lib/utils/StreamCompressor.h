@@ -21,11 +21,12 @@ namespace proxygen {
  */
 class StreamCompressor {
  public:
-  virtual ~StreamCompressor() {}
+  virtual ~StreamCompressor() {
+  }
 
   virtual std::unique_ptr<folly::IOBuf> compress(const folly::IOBuf* in,
                                                  bool trailer = true) = 0;
   virtual bool hasError() = 0;
 };
 
-}
+} // namespace proxygen

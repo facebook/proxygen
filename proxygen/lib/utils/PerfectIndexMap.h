@@ -39,47 +39,46 @@ namespace proxygen {
 //    duplicate keys.  It is mainly used for optimization purposes as the
 //    implementation of default handling adds additional useless work for such
 //    cases in which duplicates are not tolerated.
-template <
-  typename Key,
-  Key OtherKey,
-  Key NoneKey,
-  Key (*PerfectHashStrToKey)(const std::string&),
-  bool AllowDuplicates,
-  bool CaseInsensitive>
+template <typename Key,
+          Key OtherKey,
+          Key NoneKey,
+          Key (*PerfectHashStrToKey)(const std::string &),
+          bool AllowDuplicates,
+          bool CaseInsensitive>
 class PerfectIndexMap {
  public:
   static_assert(sizeof(Key) == 1, "Key must be of size 1 byte.");
-  PerfectIndexMap() {}
+  PerfectIndexMap() {
+  }
   virtual ~PerfectIndexMap() = default;
 
   // Getters into the underlying map.
 
   folly::Optional<std::string> getSingleOrNone(
-      const std::string& keyStr) const {
+      const std::string &keyStr) const {
     auto key = PerfectHashStrToKey(keyStr);
     if (key == OtherKey) {
       const std::string *result = getSingleOtherKey(keyStr);
-      return (
-        result == nullptr ? folly::none : folly::Optional<std::string>(*result)
-      );
+      return (result == nullptr ? folly::none
+                                : folly::Optional<std::string>(*result));
     } else {
       return getSingleOrNone(key);
     }
   }
 
   folly::Optional<std::string> getSingleOtherKeyOrNone(
-      const std::string& keyStr) const {
+      const std::string &keyStr) const {
     CHECK(PerfectHashStrToKey(keyStr) == OtherKey);
     const std::string *result = getSingleOtherKey(keyStr);
-    return (
-      result == nullptr ? folly::none : folly::Optional<std::string>(*result)
-    );
+    return (result == nullptr ? folly::none
+                              : folly::Optional<std::string>(*result));
   }
 
-  bool update(
-      Key key, const std::string &checkValue, const std::string &newValue) {
+  bool update(Key key,
+              const std::string &checkValue,
+              const std::string &newValue) {
     CHECK(key != OtherKey && key != NoneKey);
-    std::string* getResult = getSingleKeyForUpdate(key);
+    std::string *getResult = getSingleKeyForUpdate(key);
     if (getResult != nullptr && stringsEqual(*getResult, checkValue)) {
       *getResult = newValue;
       return true;
@@ -90,9 +89,8 @@ class PerfectIndexMap {
   folly::Optional<std::string> getSingleOrNone(Key key) const {
     CHECK(key != OtherKey && key != NoneKey);
     const std::string *result = getSingleKey(key);
-    return (
-      result == nullptr ? folly::none : folly::Optional<std::string>(*result)
-    );
+    return (result == nullptr ? folly::none
+                              : folly::Optional<std::string>(*result));
   }
 
   // Adders into the underlying map.
@@ -171,12 +169,11 @@ class PerfectIndexMap {
       addOtherKeyToIndex(keyStr, value);
     }
   }
+
  private:
-
-
   // Utility method for comparing strings private to this class as specified
   // by template parameters.
-  bool stringsEqual(const std::string& strA, const std::string& strB) const {
+  bool stringsEqual(const std::string &strA, const std::string &strB) const {
     if (CaseInsensitive) {
       // One might be tempted to merge this statement with that above
       // but that would be wrong.  If CaseInsensitive is true, we do not
@@ -192,20 +189,20 @@ class PerfectIndexMap {
   // but this way the code can effectively be reused and there is a single
   // implementation source.
 
-  const std::string * getSingleKey(Key key) const {
-    const Key* data = keys_.data();
+  const std::string *getSingleKey(Key key) const {
+    const Key *data = keys_.data();
     if (data) {
       auto offset = searchForKey(key, data);
       if (data) {
         if (AllowDuplicates && searchForKey(key, ++data) != -1) {
-            return nullptr;
+          return nullptr;
         }
         return &values_[offset];
       }
     }
     return nullptr;
   }
-  const std::string* getSingleOtherKey(const std::string &keyStr) const {
+  const std::string *getSingleOtherKey(const std::string &keyStr) const {
     size_t searchIndex = 0;
     auto index = searchForOtherKey(keyStr, searchIndex);
     if (index != -1) {
@@ -218,7 +215,7 @@ class PerfectIndexMap {
   }
 
   void setKey(Key key, const std::string &value) {
-    const Key* data = keys_.data();
+    const Key *data = keys_.data();
     bool set = false;
     std::ptrdiff_t offset;
     while (data) {
@@ -243,7 +240,7 @@ class PerfectIndexMap {
   }
 
   bool removeKey(Key key) {
-    const Key* data = keys_.data();
+    const Key *data = keys_.data();
     bool anyRemoved = false;
     std::ptrdiff_t offset;
     while (data) {
@@ -277,18 +274,18 @@ class PerfectIndexMap {
   // are passed by reference so they can be updated by the search itself.  The
   // methods return on the first occurrence found from the specified start
   // searching position.
-  std::ptrdiff_t searchForKey(Key key, const Key* &data) const {
+  std::ptrdiff_t searchForKey(Key key, const Key *&data) const {
     if (data) {
-      data = (Key*)memchr(
-        (void*)data, key, keys_.size() - (data - keys_.data()));
+      data = (Key *)memchr(
+          (void *)data, key, keys_.size() - (data - keys_.data()));
       if (data) {
         return data - keys_.data();
       }
     }
     return -1;
   }
-  std::ptrdiff_t searchForOtherKey(
-      const std::string &keyStr, size_t &startIndex) const {
+  std::ptrdiff_t searchForOtherKey(const std::string &keyStr,
+                                   size_t &startIndex) const {
     while (startIndex < otherKeyNamesKeysIndex_.size()) {
       // The key can only be OtherKey or NoneKey
       if (keys_[otherKeyNamesKeysIndex_[startIndex]] == OtherKey) {
@@ -322,13 +319,15 @@ class PerfectIndexMap {
     values_.emplace_back(value);
     ++otherKeyCount_;
   }
-  void replaceKeyAtIndex(
-      std::ptrdiff_t index, Key key, const std::string &value) {
+  void replaceKeyAtIndex(std::ptrdiff_t index,
+                         Key key,
+                         const std::string &value) {
     keys_[index] = key;
     values_[index] = value;
   }
-  void replaceOtherKeyAtIndex(
-      size_t namesIndex, const std::string &keyStr, const std::string &value) {
+  void replaceOtherKeyAtIndex(size_t namesIndex,
+                              const std::string &keyStr,
+                              const std::string &value) {
     otherKeyNames_[namesIndex] = keyStr;
     values_[otherKeyNamesKeysIndex_[namesIndex]] = value;
   }
@@ -344,13 +343,13 @@ class PerfectIndexMap {
     // We purposefully omit actually clearing some other data structures
     // as it is often useful for debugging purposes to leave this data around.
   }
-  std::string * getSingleKeyForUpdate(Key key) {
-    const Key* data = keys_.data();
+  std::string *getSingleKeyForUpdate(Key key) {
+    const Key *data = keys_.data();
     if (data) {
       auto offset = searchForKey(key, data);
       if (data) {
         if (AllowDuplicates && searchForKey(key, ++data) != -1) {
-            return nullptr;
+          return nullptr;
         }
         return &values_[offset];
       }
@@ -359,31 +358,31 @@ class PerfectIndexMap {
   }
 
   /*
-  * Illustrating the below data structures, for a map where:
-  *     otherKeyCount_ == 2
-  *     noneKeyCount_ == 1
-  *     keys_.size() == 5
-  *     using OK = OtherKey
-  *     using NK = NoneKey
-  *     using K = some key which is not OK or NK
-  *     using --- = out of bounds
-  * The above config implies the size of our map is 4, with 2 OKs and 2 Ks.
-  * Also take note from a debugging standpoint, the fact that no entry in
-  * otherKeyNames_ maps back to index 3 (via otherKeyNamesKeysIndex_) suggests
-  * the removed key (NK) was regular K, not an OK, before being removed.
-  *
-  * ------|-------|-------------------------|----------------|-----------------|
-  * Index | keys_ | otherKeyNamesKeysIndex_ | otherKeyNames_ |     values_     |
-  * ______|_______|_________________________|________________|_________________|
-  *   0   |  OK1  |           0             |   <OK1_name>   |    <OK1_value>  |
-  *   1   |  K1   |           4             |   <OK2_name>   |     <K1_value>  |
-  *   2   |  K2   |          ---            |     ---        |     <K2_value>  |
-  *   3   |  NK   |          ---            |     ---        |     <NK_value>  |
-  *   4   |  OK2  |          ---            |     ---        |    <OK2_value>  |
-  *   5   |  ---  |          ---            |     ---        |       ---       |
-  *  ...  |  ...  |          ...            |     ...        |       ...       |
-  * ----------------------------------------------------------------------------
-  */
+   * Illustrating the below data structures, for a map where:
+   *     otherKeyCount_ == 2
+   *     noneKeyCount_ == 1
+   *     keys_.size() == 5
+   *     using OK = OtherKey
+   *     using NK = NoneKey
+   *     using K = some key which is not OK or NK
+   *     using --- = out of bounds
+   * The above config implies the size of our map is 4, with 2 OKs and 2 Ks.
+   * Also take note from a debugging standpoint, the fact that no entry in
+   * otherKeyNames_ maps back to index 3 (via otherKeyNamesKeysIndex_) suggests
+   * the removed key (NK) was regular K, not an OK, before being removed.
+   *
+   * ------|-------|-------------------------|----------------|-----------------|
+   * Index | keys_ | otherKeyNamesKeysIndex_ | otherKeyNames_ |     values_ |
+   * ______|_______|_________________________|________________|_________________|
+   *   0   |  OK1  |           0             |   <OK1_name>   |    <OK1_value> |
+   *   1   |  K1   |           4             |   <OK2_name>   |     <K1_value> |
+   *   2   |  K2   |          ---            |     ---        |     <K2_value> |
+   *   3   |  NK   |          ---            |     ---        |     <NK_value> |
+   *   4   |  OK2  |          ---            |     ---        |    <OK2_value> |
+   *   5   |  ---  |          ---            |     ---        |       --- |
+   *  ...  |  ...  |          ...            |     ...        |       ... |
+   * ----------------------------------------------------------------------------
+   */
 
   size_t otherKeyCount_{0};
   size_t noneKeyCount_{0};
@@ -418,4 +417,4 @@ class PerfectIndexMap {
   folly::fbvector<std::string> values_;
 };
 
-} // proxygen
+} // namespace proxygen

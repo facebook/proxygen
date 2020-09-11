@@ -33,8 +33,10 @@ class HTTPDirectResponseHandler : public HTTPTransaction::Handler {
   void onUpgrade(UpgradeProtocol protocol) noexcept override;
   void onError(const HTTPException& error) noexcept override;
   // These are no-ops since the direct response is already in memory
-  void onEgressPaused() noexcept override {}
-  void onEgressResumed() noexcept override {}
+  void onEgressPaused() noexcept override {
+  }
+  void onEgressResumed() noexcept override {
+  }
 
  private:
   ~HTTPDirectResponseHandler() override;

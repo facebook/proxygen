@@ -10,7 +10,6 @@
 
 #include <fizz/record/Types.h>
 
-
 namespace folly {
 
 template <>

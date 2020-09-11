@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/http/HTTPMessage.h>
 #include <fcntl.h>
 #include <folly/portability/GTest.h>
-#include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <signal.h>
 #include <string.h>
@@ -44,10 +44,10 @@ TEST(HTTPMessage, TestParseCookiesSingleCookie) {
 TEST(HTTPMessage, TestParseCookiesMultipleCookies) {
   HTTPMessage msg;
 
-  msg.getHeaders().add(
-    "Cookie", "id=1256679245; data=0:1234567; same=Always; Name");
-  msg.getHeaders().add(
-    "Cookie", "id2=1256679245; data2=0:1234567; same=Always; ");
+  msg.getHeaders().add("Cookie",
+                       "id=1256679245; data=0:1234567; same=Always; Name");
+  msg.getHeaders().add("Cookie",
+                       "id2=1256679245; data2=0:1234567; same=Always; ");
   EXPECT_EQ(msg.getCookie("id"), "1256679245");
   EXPECT_EQ(msg.getCookie("id2"), "1256679245");
   EXPECT_EQ(msg.getCookie("data"), "0:1234567");
@@ -58,8 +58,9 @@ TEST(HTTPMessage, TestParseCookiesMultipleCookies) {
 
 TEST(HTTPMessage, TestParseQueryParamsSimple) {
   HTTPMessage msg;
-  string url = "/test?seq=123456&userid=1256679245&dup=1&dup=2&helloWorld"
-               "&second=was+it+clear+%28already%29%3F";
+  string url =
+      "/test?seq=123456&userid=1256679245&dup=1&dup=2&helloWorld"
+      "&second=was+it+clear+%28already%29%3F";
 
   msg.setURL(url);
   EXPECT_EQ(msg.getQueryParam("seq"), "123456");
@@ -86,13 +87,12 @@ TEST(HTTPMessage, TestParseQueryParamsSimple) {
 TEST(HTTPMessage, TestParseQueryParamsComplex) {
   HTTPMessage msg;
   std::vector<std::vector<std::string>> input = {
-    {"", "", ""},
-    {"key_and_equal_but_no_value", "=", ""},
-    {"only_key", "", ""},
-    {"key_and_value", "=", "value"},
-    {"key_and_value_2", "=", "value2"},
-    {"key_and_value_3", "=", "value3"}
-  };
+      {"", "", ""},
+      {"key_and_equal_but_no_value", "=", ""},
+      {"only_key", "", ""},
+      {"key_and_value", "=", "value"},
+      {"key_and_value_2", "=", "value2"},
+      {"key_and_value_3", "=", "value3"}};
 
   for (int i = 0; i < (1 << input.size()); ++i) {
     std::vector<std::vector<std::string>> sub;
@@ -106,7 +106,7 @@ TEST(HTTPMessage, TestParseQueryParamsComplex) {
     do {
       bool first = true;
       std::string url = "/test?";
-      for (const auto& val: sub) {
+      for (const auto& val : sub) {
         if (first) {
           first = false;
         } else {
@@ -117,7 +117,7 @@ TEST(HTTPMessage, TestParseQueryParamsComplex) {
       }
 
       msg.setURL(url);
-      for (const auto& val: sub) {
+      for (const auto& val : sub) {
         if (val[0].empty()) {
           continue;
         }
@@ -437,21 +437,19 @@ TEST(GetPathAndQuery, ParseURL) {
 
 TEST(HTTPMessage, CheckHeaderForToken) {
   HTTPMessage msg;
-  std::vector<std::pair<std::string, bool>> tests{
-    { "close", true },
-    { "xclose", false },
-    { "closex", false },
-    { "close, foo", true },
-    { "close, ", true },
-    { "foo, close", true },
-    { ", close", true },
-    { "close, close, ", true }
-  };
+  std::vector<std::pair<std::string, bool>> tests{{"close", true},
+                                                  {"xclose", false},
+                                                  {"closex", false},
+                                                  {"close, foo", true},
+                                                  {"close, ", true},
+                                                  {"foo, close", true},
+                                                  {", close", true},
+                                                  {"close, close, ", true}};
 
-  for (auto& test: tests) {
+  for (auto& test : tests) {
     msg.getHeaders().set(HTTP_HEADER_CONNECTION, test.first);
     EXPECT_TRUE(msg.checkForHeaderToken(
-                  HTTP_HEADER_CONNECTION, "close", false) == test.second);
+                    HTTP_HEADER_CONNECTION, "close", false) == test.second);
   }
 }
 
@@ -470,9 +468,8 @@ TEST(HTTPHeaders, InitializerList) {
 
   hdrs.add({{"name", "value"}});
   hdrs.add({{HTTP_HEADER_CONNECTION, "close"}});
-  hdrs.add({{"a", "b"},
-            {HTTP_HEADER_CONNECTION, "foo"},
-            {HTTP_HEADER_SERVER, "x"}});
+  hdrs.add(
+      {{"a", "b"}, {HTTP_HEADER_CONNECTION, "foo"}, {HTTP_HEADER_SERVER, "x"}});
 
   EXPECT_EQ("value", hdrs.getSingleOrEmpty("name"));
   EXPECT_EQ("close, foo", hdrs.combine(HTTP_HEADER_CONNECTION));
@@ -573,10 +570,10 @@ TEST(HTTPMessage, TestCheckForHeaderToken) {
   HTTPHeaders& headers = msg.getHeaders();
 
   headers.add(HTTP_HEADER_CONNECTION, "HTTP2-Settings");
-  EXPECT_TRUE(msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "HTTP2-Settings",
-                                      false));
-  EXPECT_FALSE(msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "http2-settings",
-                                       true));
+  EXPECT_TRUE(
+      msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "HTTP2-Settings", false));
+  EXPECT_FALSE(
+      msg.checkForHeaderToken(HTTP_HEADER_CONNECTION, "http2-settings", true));
 }
 
 TEST(HTTPMessage, TestProtocolStringHTTPVersion) {
@@ -614,9 +611,8 @@ TEST(HTTPMessage, TestMoveCopy) {
 }
 
 namespace {
-  const size_t kInitialVectorReserve = 16;
+const size_t kInitialVectorReserve = 16;
 }
-
 
 TEST(HTTPHeaders, GrowTest) {
   HTTPHeaders headers;
@@ -626,7 +622,6 @@ TEST(HTTPHeaders, GrowTest) {
   EXPECT_EQ(headers.getSingleOrEmpty("0")[0], 'a');
   EXPECT_EQ(headers.getSingleOrEmpty("25")[0], 'z');
 }
-
 
 TEST(HTTPHeaders, ClearTest) {
   HTTPHeaders headers;
@@ -641,7 +636,6 @@ TEST(HTTPHeaders, ClearTest) {
   }
   EXPECT_EQ(headers.getSingleOrEmpty("25")[0], 'Z');
 }
-
 
 void copyAndMoveTest(size_t multiplier) {
   HTTPHeaders headers;
@@ -727,10 +721,10 @@ TEST(HTTPHeaders, MoveFromTest) {
   HTTPHeaders h1;
   HTTPHeaders h2(std::move(h1));
   EXPECT_FALSE(h1.exists(HTTP_HEADER_CONNECTION));
-  h1.forEachValueOfHeader(HTTP_HEADER_HOST, [] (const std::string&) {
-      CHECK(false) << "Unreachable";
-      return false;
-    });
+  h1.forEachValueOfHeader(HTTP_HEADER_HOST, [](const std::string&) {
+    CHECK(false) << "Unreachable";
+    return false;
+  });
   h1.add(HTTP_HEADER_CONNECTION, "close");
 
   HTTPHeaders h3;

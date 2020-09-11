@@ -16,8 +16,7 @@ namespace proxygen {
 /**
  * ByteEventTracker specialized for HQSession.
  */
-class HQByteEventTracker
-    : public ByteEventTracker {
+class HQByteEventTracker : public ByteEventTracker {
  public:
   HQByteEventTracker(Callback* callback,
                      quic::QuicSocket* socket,

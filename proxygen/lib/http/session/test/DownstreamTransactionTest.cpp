@@ -173,25 +173,24 @@ TEST_F(DownstreamTransactionTest, NoWindowUpdate) {
 }
 
 TEST_F(DownstreamTransactionTest, FlowControlInfoCorrect) {
-  HTTPTransaction txn(
-    TransportDirection::DOWNSTREAM,
-    HTTPCodec::StreamID(1),
-    1,
-    transport_,
-    txnEgressQueue_,
-    transactionTimeouts_.get(),
-    std::chrono::milliseconds(157784760000),
-    nullptr,
-    true,
-    450,
-    100);
+  HTTPTransaction txn(TransportDirection::DOWNSTREAM,
+                      HTTPCodec::StreamID(1),
+                      1,
+                      transport_,
+                      txnEgressQueue_,
+                      transactionTimeouts_.get(),
+                      std::chrono::milliseconds(157784760000),
+                      nullptr,
+                      true,
+                      450,
+                      100);
 
   EXPECT_CALL(transport_, getFlowControlInfo(_))
-          .WillOnce(Invoke([=](HTTPTransaction::FlowControlInfo* info) {
-            info->flowControlEnabled_ = true;
-            info->sessionSendWindow_ = 1;
-            info->sessionRecvWindow_ = 2;
-          }));
+      .WillOnce(Invoke([=](HTTPTransaction::FlowControlInfo* info) {
+        info->flowControlEnabled_ = true;
+        info->sessionSendWindow_ = 1;
+        info->sessionRecvWindow_ = 2;
+      }));
   HTTPTransaction::FlowControlInfo info;
   txn.getCurrentFlowControlInfo(&info);
 

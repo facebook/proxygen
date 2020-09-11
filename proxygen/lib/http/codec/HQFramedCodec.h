@@ -187,8 +187,9 @@ class HQFramedCodec : public HTTPCodec {
   }
 
   // Handled at the transport layer
-  size_t generatePingRequest(folly::IOBufQueue& /*writeBuf*/,
-                 folly::Optional<uint64_t> /* data */ = folly::none) override {
+  size_t generatePingRequest(
+      folly::IOBufQueue& /*writeBuf*/,
+      folly::Optional<uint64_t> /* data */ = folly::none) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
     folly::assume_unreachable();
   }

@@ -6,13 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <string>
 #include "StructuredHeadersConstants.h"
+#include <string>
 
 #pragma once
 
-namespace proxygen {
-namespace StructuredHeaders {
+namespace proxygen { namespace StructuredHeaders {
 
 bool isLcAlpha(char c);
 
@@ -34,5 +33,4 @@ std::string decodeBase64(const std::string& encoded);
 
 std::string encodeBase64(const std::string& input);
 
-}
-}
+}} // namespace proxygen::StructuredHeaders

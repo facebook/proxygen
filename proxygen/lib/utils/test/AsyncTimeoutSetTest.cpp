@@ -6,16 +6,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/utils/AsyncTimeoutSet.h>
+#include <boost/container/flat_map.hpp>
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/EventUtil.h>
 #include <folly/io/async/test/MockTimeoutManager.h>
 #include <folly/io/async/test/UndelayedDestruction.h>
 #include <folly/io/async/test/Util.h>
 #include <folly/portability/GTest.h>
-#include <proxygen/lib/utils/AsyncTimeoutSet.h>
-#include <boost/container/flat_map.hpp>
 #include <vector>
-
 
 using namespace proxygen;
 using namespace testing;
@@ -35,19 +34,20 @@ class MockTimeoutClock : public AsyncTimeoutSet::TimeoutClock {
 
 class TestTimeout : public AsyncTimeoutSet::Callback {
  public:
-  template<typename ...Args>
-  explicit TestTimeout(Args&& ...args) {
+  template <typename... Args>
+  explicit TestTimeout(Args&&... args) {
     addTimeout(std::forward<Args>(args)...);
     _scheduleNext();
   }
-  TestTimeout() {}
+  TestTimeout() {
+  }
 
   void addTimeout(AsyncTimeoutSet* set) {
     nextSets_.push_back(set);
   }
 
-  template<typename ...Args>
-  void addTimeout(AsyncTimeoutSet* set, Args&& ...args) {
+  template <typename... Args>
+  void addTimeout(AsyncTimeoutSet* set, Args&&... args) {
     addTimeout(set);
     addTimeout(std::forward<Args>(args)...);
   }
@@ -85,51 +85,50 @@ MockTimeoutClock* TestTimeout::clock_ = nullptr;
 
 class TimeoutTest : public testing::Test {
  public:
-
   void SetUp() override {
     TestTimeout::setTimeoutClock(timeoutClock_);
     setClock(milliseconds(0));
 
     EXPECT_CALL(timeoutManager_, attachTimeoutManager(_, _))
-      .WillRepeatedly(Return());
+        .WillRepeatedly(Return());
 
     EXPECT_CALL(timeoutManager_, scheduleTimeout(_, _))
-      .WillRepeatedly(Invoke([this] (AsyncTimeout* p, milliseconds t) {
-            timeoutManager_.cancelTimeout(p);
-            folly::event_ref_flags(p->getEvent()->getEvent()) |= EVLIST_TIMEOUT;
-            timeouts_.emplace(t + timeoutClock_.millisecondsSinceEpoch(),
-                             p);
-            return true;
-          }));
+        .WillRepeatedly(Invoke([this](AsyncTimeout* p, milliseconds t) {
+          timeoutManager_.cancelTimeout(p);
+          folly::event_ref_flags(p->getEvent()->getEvent()) |= EVLIST_TIMEOUT;
+          timeouts_.emplace(t + timeoutClock_.millisecondsSinceEpoch(), p);
+          return true;
+        }));
 
     EXPECT_CALL(timeoutManager_, cancelTimeout(_))
-      .WillRepeatedly(Invoke([this] (AsyncTimeout* p) {
-            for (auto it = timeouts_.begin(); it != timeouts_.end(); it++) {
-              if (it->second == p) {
-                timeouts_.erase(it);
-                break;
-              }
+        .WillRepeatedly(Invoke([this](AsyncTimeout* p) {
+          for (auto it = timeouts_.begin(); it != timeouts_.end(); it++) {
+            if (it->second == p) {
+              timeouts_.erase(it);
+              break;
             }
-          }));
+          }
+        }));
   }
 
   void loop() {
     for (auto t = timeoutClock_.millisecondsSinceEpoch() + milliseconds(1);
-         !timeouts_.empty(); t++) {
+         !timeouts_.empty();
+         t++) {
       setClock(t);
     }
   }
 
   void setClock(milliseconds ms) {
     EXPECT_CALL(timeoutClock_, millisecondsSinceEpoch())
-      .WillRepeatedly(Return(ms));
+        .WillRepeatedly(Return(ms));
 
     while (!timeouts_.empty() &&
            timeoutClock_.millisecondsSinceEpoch() >= timeouts_.begin()->first) {
       AsyncTimeout* timeout = timeouts_.begin()->second;
       timeouts_.erase(timeouts_.begin());
-      folly::event_ref_flags(timeout->getEvent()->getEvent())
-              &= ~EVLIST_TIMEOUT;
+      folly::event_ref_flags(timeout->getEvent()->getEvent()) &=
+          ~EVLIST_TIMEOUT;
       timeout->timeoutExpired();
     }
   }
@@ -144,10 +143,10 @@ class TimeoutTest : public testing::Test {
  * Test firing some simple timeouts that are fired once and never rescheduled
  */
 TEST_F(TimeoutTest, FireOnce) {
-  StackTimeoutSet ts10(&timeoutManager_, milliseconds(10), milliseconds(0),
-                       &timeoutClock_);
-  StackTimeoutSet ts5(&timeoutManager_, milliseconds(5), milliseconds(0),
-                      &timeoutClock_);
+  StackTimeoutSet ts10(
+      &timeoutManager_, milliseconds(10), milliseconds(0), &timeoutClock_);
+  StackTimeoutSet ts5(
+      &timeoutManager_, milliseconds(5), milliseconds(0), &timeoutClock_);
 
   const AsyncTimeoutSet::Callback* nullCallback = nullptr;
   ASSERT_EQ(ts10.front(), nullCallback);
@@ -195,10 +194,10 @@ TEST_F(TimeoutTest, FireOnce) {
  * another timeout set.
  */
 TEST_F(TimeoutTest, SwitchTimeoutSet) {
-  StackTimeoutSet ts10(&timeoutManager_, milliseconds(10), milliseconds(0),
-                       &timeoutClock_);
-  StackTimeoutSet ts5(&timeoutManager_, milliseconds(5), milliseconds(0),
-                      &timeoutClock_);
+  StackTimeoutSet ts10(
+      &timeoutManager_, milliseconds(10), milliseconds(0), &timeoutClock_);
+  StackTimeoutSet ts5(
+      &timeoutManager_, milliseconds(5), milliseconds(0), &timeoutClock_);
 
   TestTimeout t1(&ts5, &ts10, &ts5);
   TestTimeout t2(&ts10, &ts10, &ts5);
@@ -231,12 +230,12 @@ TEST_F(TimeoutTest, SwitchTimeoutSet) {
  * Test cancelling a timeout when it is scheduled to be fired right away.
  */
 TEST_F(TimeoutTest, CancelTimeout) {
-  StackTimeoutSet ts5(&timeoutManager_, milliseconds(5), milliseconds(0),
-                      &timeoutClock_);
-  StackTimeoutSet ts10(&timeoutManager_, milliseconds(10), milliseconds(0),
-                       &timeoutClock_);
-  StackTimeoutSet ts20(&timeoutManager_, milliseconds(20), milliseconds(0),
-                       &timeoutClock_);
+  StackTimeoutSet ts5(
+      &timeoutManager_, milliseconds(5), milliseconds(0), &timeoutClock_);
+  StackTimeoutSet ts10(
+      &timeoutManager_, milliseconds(10), milliseconds(0), &timeoutClock_);
+  StackTimeoutSet ts20(
+      &timeoutManager_, milliseconds(20), milliseconds(0), &timeoutClock_);
 
   // Create several timeouts that will all fire in 5ms.
   TestTimeout t5_1(&ts5);
@@ -314,9 +313,9 @@ TEST_F(TimeoutTest, CancelTimeout) {
  */
 TEST_F(TimeoutTest, DestroyTimeoutSet) {
   AsyncTimeoutSet::UniquePtr ts5(new AsyncTimeoutSet(
-        &timeoutManager_, milliseconds(5), milliseconds(0), &timeoutClock_));
+      &timeoutManager_, milliseconds(5), milliseconds(0), &timeoutClock_));
   AsyncTimeoutSet::UniquePtr ts10(new AsyncTimeoutSet(
-        &timeoutManager_, milliseconds(10), milliseconds(0), &timeoutClock_));
+      &timeoutManager_, milliseconds(10), milliseconds(0), &timeoutClock_));
 
   TestTimeout t5_1(ts5.get());
   TestTimeout t5_2(ts5.get());
@@ -354,8 +353,8 @@ TEST_F(TimeoutTest, AtMostEveryN) {
   // every 6ms.
   milliseconds interval(25);
   milliseconds atMostEveryN(6);
-  StackTimeoutSet ts25(&timeoutManager_, interval, atMostEveryN,
-                       &timeoutClock_);
+  StackTimeoutSet ts25(
+      &timeoutManager_, interval, atMostEveryN, &timeoutClock_);
 
   // Create 60 timeouts to be added to ts25 at 1ms intervals.
   uint32_t numTimeouts = 60;

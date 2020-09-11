@@ -24,20 +24,9 @@ namespace proxygen {
 #endif
 
 // Ordered by frequency to minimize time spent in iteration
-#define HTTP_METHOD_GEN(x) \
-  x(GET),                  \
-  x(POST),                 \
-  x(OPTIONS),              \
-  x(DELETE),               \
-  x(HEAD),                 \
-  x(CONNECT),              \
-  x(PUT),                  \
-  x(TRACE),                \
-  x(PATCH),                \
-  x(SUB),                  \
-  x(PUB),                  \
-  x(UNSUB)
-
+#define HTTP_METHOD_GEN(x)                                             \
+  x(GET), x(POST), x(OPTIONS), x(DELETE), x(HEAD), x(CONNECT), x(PUT), \
+      x(TRACE), x(PATCH), x(SUB), x(PUB), x(UNSUB)
 
 #define HTTP_METHOD_ENUM(method) method
 
@@ -47,9 +36,7 @@ namespace proxygen {
  * is not aware of any extension methods. If you wish to support extension
  * methods, you must handle those separately from this enum.
  */
-enum class HTTPMethod {
-  HTTP_METHOD_GEN(HTTP_METHOD_ENUM)
-};
+enum class HTTPMethod { HTTP_METHOD_GEN(HTTP_METHOD_ENUM) };
 
 #undef HTTP_METHOD_ENUM
 
@@ -69,4 +56,4 @@ extern const std::string& methodToString(HTTPMethod method);
 
 std::ostream& operator<<(std::ostream& os, HTTPMethod method);
 
-}
+} // namespace proxygen

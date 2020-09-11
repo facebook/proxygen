@@ -10,22 +10,23 @@
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>
-#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
-#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
-#include <proxygen/lib/http/codec/compress/HPACKDecoderBase.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecodeBuffer.h>
+#include <proxygen/lib/http/codec/compress/HPACKDecoderBase.h>
+#include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
+#include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 
 namespace proxygen {
 
-class HPACKDecoder : public HPACKDecoderBase,
-                     public HPACKContext {
+class HPACKDecoder
+    : public HPACKDecoderBase
+    , public HPACKContext {
  public:
   explicit HPACKDecoder(
-    uint32_t tableSize=HPACK::kTableSize,
-    uint32_t maxUncompressed=HeaderCodec::kMaxUncompressed)
-      : HPACKDecoderBase(tableSize, maxUncompressed),
-        HPACKContext(tableSize) {}
+      uint32_t tableSize = HPACK::kTableSize,
+      uint32_t maxUncompressed = HeaderCodec::kMaxUncompressed)
+      : HPACKDecoderBase(tableSize, maxUncompressed), HPACKContext(tableSize) {
+  }
 
   /**
    * given a Cursor and a total amount of bytes we can consume from it,
@@ -34,7 +35,6 @@ class HPACKDecoder : public HPACKDecoderBase,
   void decodeStreaming(folly::io::Cursor& cursor,
                        uint32_t totalBytes,
                        HPACK::StreamingCallback* streamingCb);
-
 
   void setHeaderTableMaxSize(uint32_t maxSize) {
     HPACKDecoderBase::setHeaderTableMaxSize(table_, maxSize);
@@ -56,4 +56,4 @@ class HPACKDecoder : public HPACKDecoderBase,
                         headers_t* emitted);
 };
 
-}
+} // namespace proxygen

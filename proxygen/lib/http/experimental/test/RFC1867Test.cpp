@@ -9,16 +9,16 @@
 #include <proxygen/lib/http/experimental/RFC1867.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 
-#include <folly/portability/GTest.h>
 #include <folly/portability/GMock.h>
+#include <folly/portability/GTest.h>
 
 using namespace testing;
-using std::unique_ptr;
-using std::map;
-using std::string;
-using std::pair;
 using folly::IOBuf;
 using folly::IOBufQueue;
+using std::map;
+using std::pair;
+using std::string;
+using std::unique_ptr;
 
 namespace {
 
@@ -44,7 +44,7 @@ unique_ptr<IOBuf> makePost(
     result.append(kv.second);
     result.append("\r\n");
   }
-  for (const auto& kv: explicitFiles) {
+  for (const auto& kv : explicitFiles) {
     result.append("--");
     result.append(kTestBoundary);
     result.append("\r\nContent-Disposition: form-data; name=\"");
@@ -60,7 +60,7 @@ unique_ptr<IOBuf> makePost(
     result.append(IOBuf::copyBuffer(file.second.data(), file.second.length()));
     result.append("\r\n");
   }
-  for (const auto& kv: randomFiles) {
+  for (const auto& kv : randomFiles) {
     result.append("--");
     result.append(kTestBoundary);
     result.append("\r\nContent-Disposition: form-data; name=\"");
@@ -83,29 +83,34 @@ unique_ptr<IOBuf> makePost(
   return result.move();
 }
 
-} // namespace end
+} // namespace
 
 namespace proxygen {
 
 class Mock1867Callback : public RFC1867Codec::Callback {
  public:
-  MOCK_METHOD4(onFieldStartImpl, int(const string& name, const std::string& filename,
-                                std::shared_ptr<HTTPMessage> msg,
-                               uint64_t bytesProcessed));
-  int onFieldStartImpl(const string& name, const std::string& filename,
-                  std::unique_ptr<HTTPMessage> msg,
-                  uint64_t bytesProcessed) {
+  MOCK_METHOD4(onFieldStartImpl,
+               int(const string& name,
+                   const std::string& filename,
+                   std::shared_ptr<HTTPMessage> msg,
+                   uint64_t bytesProcessed));
+  int onFieldStartImpl(const string& name,
+                       const std::string& filename,
+                       std::unique_ptr<HTTPMessage> msg,
+                       uint64_t bytesProcessed) {
     std::shared_ptr<HTTPMessage> sh_msg(msg.release());
     return onFieldStartImpl(name, filename, sh_msg, bytesProcessed);
   }
-  int onFieldStart(const string& name, folly::Optional<std::string> filename,
-                  std::unique_ptr<HTTPMessage> msg,
-                  uint64_t bytesProcessed) override {
-    return onFieldStartImpl(name, filename.value_or(""), std::move(msg), bytesProcessed);
+  int onFieldStart(const string& name,
+                   folly::Optional<std::string> filename,
+                   std::unique_ptr<HTTPMessage> msg,
+                   uint64_t bytesProcessed) override {
+    return onFieldStartImpl(
+        name, filename.value_or(""), std::move(msg), bytesProcessed);
   }
   MOCK_METHOD2(onFieldData, int(std::shared_ptr<folly::IOBuf>, uint64_t));
   int onFieldData(std::unique_ptr<folly::IOBuf> data,
-                 uint64_t bytesProcessed) override {
+                  uint64_t bytesProcessed) override {
     std::shared_ptr<IOBuf> sh_data(data.release());
     return onFieldData(sh_data, bytesProcessed);
   }
@@ -116,7 +121,6 @@ class Mock1867Callback : public RFC1867Codec::Callback {
 
 class RFC1867Base {
  public:
-
   void SetUp() {
     codec_.setCallback(&callback_);
   }
@@ -147,10 +151,11 @@ class RFC1867Base {
 
   StrictMock<Mock1867Callback> callback_;
   RFC1867Codec codec_{kTestBoundary};
-
 };
 
-class RFC1867Test : public testing::Test, public RFC1867Base {
+class RFC1867Test
+    : public testing::Test
+    , public RFC1867Base {
  public:
   void SetUp() override {
     RFC1867Base::SetUp();
@@ -169,17 +174,17 @@ void RFC1867Base::testSimple(unique_ptr<IOBuf> data,
   size_t fileLength = 0;
   IOBufQueue parsedData{IOBufQueue::cacheChainLength()};
   EXPECT_CALL(callback_, onFieldStartImpl(_, _, _, _))
-          .Times(parts)
-          .WillRepeatedly(Return(0));
+      .Times(parts)
+      .WillRepeatedly(Return(0));
   EXPECT_CALL(callback_, onFieldData(_, _))
-    .WillRepeatedly(Invoke([&] (std::shared_ptr<IOBuf> data, uint64_t) {
-          fileLength += data->computeChainDataLength();
-          parsedData.append(data->clone());
-          return 0;
-        }));
+      .WillRepeatedly(Invoke([&](std::shared_ptr<IOBuf> data, uint64_t) {
+        fileLength += data->computeChainDataLength();
+        parsedData.append(data->clone());
+        return 0;
+      }));
   EXPECT_CALL(callback_, onFieldEnd(true, _))
-          .Times(parts)
-          .WillRepeatedly(Return());
+      .Times(parts)
+      .WillRepeatedly(Return());
   parse(data->clone(), splitSize);
   auto parsedDataBuf = parsedData.move();
   if (fileLength > 0) {
@@ -230,13 +235,14 @@ TEST_F(RFC1867Test, TestHeadersChunkExtraCr) {
   testSimple(std::move(data), 3 + 5 + fileSize, numCRs - 1, 3);
 }
 
-class RFC1867CR : public testing::TestWithParam<string>, public RFC1867Base {
+class RFC1867CR
+    : public testing::TestWithParam<string>
+    , public RFC1867Base {
  public:
   void SetUp() override {
     RFC1867Base::SetUp();
   }
 };
-
 
 TEST_P(RFC1867CR, Test) {
   for (size_t i = 1; i < GetParam().size(); i++) {
@@ -247,26 +253,22 @@ TEST_P(RFC1867CR, Test) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
-  ValueTest,
-  RFC1867CR,
-  ::testing::Values(
-    // embedded \r\n
-    string("zyx\r\nwvu", 8),
-    // leading \r
-    string("\rzyxwvut", 8),
-    // trailing \r
-    string("zyxwvut\r", 8),
-    // leading \n
-    string("\nzyxwvut", 8),
-    // trailing \n
-    string("zyxwvut\n", 8),
-    // all \r\n
-    string("\r\n\r\n\r\n\r\n", 8),
-    // all \r
-    string("\r\r\r\r\r\r\r\r", 8)
-  ));
+INSTANTIATE_TEST_CASE_P(ValueTest,
+                        RFC1867CR,
+                        ::testing::Values(
+                            // embedded \r\n
+                            string("zyx\r\nwvu", 8),
+                            // leading \r
+                            string("\rzyxwvut", 8),
+                            // trailing \r
+                            string("zyxwvut\r", 8),
+                            // leading \n
+                            string("\nzyxwvut", 8),
+                            // trailing \n
+                            string("zyxwvut\n", 8),
+                            // all \r\n
+                            string("\r\n\r\n\r\n\r\n", 8),
+                            // all \r
+                            string("\r\r\r\r\r\r\r\r", 8)));
 
-
-
-}
+} // namespace proxygen

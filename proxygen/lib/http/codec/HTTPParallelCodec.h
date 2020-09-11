@@ -9,8 +9,8 @@
 #pragma once
 
 #include <bitset>
-#include <folly/Optional.h>
 #include <deque>
+#include <folly/Optional.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
@@ -19,7 +19,7 @@
 
 namespace folly { namespace io {
 class Cursor;
-}}
+}} // namespace folly::io
 
 namespace proxygen {
 
@@ -27,8 +27,8 @@ namespace proxygen {
  * An implementation of common codec functionality used for multiple
  * parallel stream downloads. Currently shared by SPDY and HTTP/2
  */
-class HTTPParallelCodec: public HTTPCodec {
-public:
+class HTTPParallelCodec : public HTTPCodec {
+ public:
   explicit HTTPParallelCodec(TransportDirection direction);
 
   TransportDirection getTransportDirection() const override {
@@ -36,17 +36,33 @@ public:
   }
 
   StreamID createStream() override;
-  bool isBusy() const override { return false; }
-  bool supportsStreamFlowControl() const override { return true; }
-  bool supportsSessionFlowControl() const override { return true; }
-  bool supportsParallelRequests() const override { return true; }
-  bool closeOnEgressComplete() const override { return false; }
-  void setCallback(Callback* callback) override { callback_ = callback; }
-  void setParserPaused(bool /* paused */) override {}
-  void onIngressEOF() override {}
+  bool isBusy() const override {
+    return false;
+  }
+  bool supportsStreamFlowControl() const override {
+    return true;
+  }
+  bool supportsSessionFlowControl() const override {
+    return true;
+  }
+  bool supportsParallelRequests() const override {
+    return true;
+  }
+  bool closeOnEgressComplete() const override {
+    return false;
+  }
+  void setCallback(Callback* callback) override {
+    callback_ = callback;
+  }
+  void setParserPaused(bool /* paused */) override {
+  }
+  void onIngressEOF() override {
+  }
   bool isReusable() const override;
   bool isWaitingToDrain() const override;
-  StreamID getLastIncomingStreamID() const override { return lastStreamID_; }
+  StreamID getLastIncomingStreamID() const override {
+    return lastStreamID_;
+  }
   void enableDoubleGoawayDrain() override;
 
   bool onIngressUpgradeMessage(const HTTPMessage& msg) override;
@@ -68,10 +84,10 @@ public:
   bool isStreamIngressEgressAllowed(StreamID stream) const {
     bool isInitiated = isInitiatedStream(stream);
     return (isInitiated && stream <= ingressGoawayAck_) ||
-      (!isInitiated && stream <= egressGoawayAck_);
+           (!isInitiated && stream <= egressGoawayAck_);
   }
 
-protected:
+ protected:
   TransportDirection transportDirection_;
   StreamID nextEgressStreamID_;
   StreamID lastStreamID_{0};
@@ -85,24 +101,24 @@ protected:
     OPEN_WITH_GRACEFUL_DRAIN_ENABLED = 1,
     FIRST_GOAWAY_SENT = 2,
     CLOSING = 3, // SPDY only
-    CLOSED = 4 // HTTP2 only
+    CLOSED = 4   // HTTP2 only
   } sessionClosing_;
 
-  template<typename T, typename... Args>
-  bool deliverCallbackIfAllowed(T callbackFn, char const* cbName,
-                                StreamID stream, Args&&... args) {
+  template <typename T, typename... Args>
+  bool deliverCallbackIfAllowed(T callbackFn,
+                                char const* cbName,
+                                StreamID stream,
+                                Args&&... args) {
     if (isStreamIngressEgressAllowed(stream)) {
       if (callback_) {
         (*callback_.*callbackFn)(stream, std::forward<Args>(args)...);
       }
       return true;
     } else {
-      VLOG(2) << "Suppressing " << cbName << " for stream=" <<
-        stream << " egressGoawayAck_=" << egressGoawayAck_;
+      VLOG(2) << "Suppressing " << cbName << " for stream=" << stream
+              << " egressGoawayAck_=" << egressGoawayAck_;
     }
     return false;
   }
-
-
 };
-} // proxygen
+} // namespace proxygen

@@ -20,8 +20,10 @@ class HeaderIndexingStrategy {
   // Destructor is virtual so that a subclass can provide an implementation
   // and that it will be correctly called even when aliased by a
   // HPACKEnoderStrat* var
-  HeaderIndexingStrategy() {}
-  virtual ~HeaderIndexingStrategy() {}
+  HeaderIndexingStrategy() {
+  }
+  virtual ~HeaderIndexingStrategy() {
+  }
 
   // Virtual method for subclasses to implement as they see fit
   // Returns a bool that indicates whether the specified header should be
@@ -30,4 +32,4 @@ class HeaderIndexingStrategy {
                            folly::StringPiece value) const;
 };
 
-}
+} // namespace proxygen

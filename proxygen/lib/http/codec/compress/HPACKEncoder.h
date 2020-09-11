@@ -15,25 +15,24 @@
 
 namespace proxygen {
 
-class HPACKEncoder : public HPACKEncoderBase, public HPACKContext {
+class HPACKEncoder
+    : public HPACKEncoderBase
+    , public HPACKContext {
 
  public:
-  explicit HPACKEncoder(bool huffman,
-                        uint32_t tableSize=HPACK::kTableSize)
-      : HPACKEncoderBase(huffman)
-      , HPACKContext(tableSize) {}
+  explicit HPACKEncoder(bool huffman, uint32_t tableSize = HPACK::kTableSize)
+      : HPACKEncoderBase(huffman), HPACKContext(tableSize) {
+  }
 
   /**
    * Encode the given headers.
    */
 
-  std::unique_ptr<folly::IOBuf> encode(
-    const std::vector<HPACKHeader>& headers,
-    uint32_t headroom = 0);
+  std::unique_ptr<folly::IOBuf> encode(const std::vector<HPACKHeader>& headers,
+                                       uint32_t headroom = 0);
 
-  void encode(
-    const std::vector<HPACKHeader>& headers,
-    folly::IOBufQueue& writeBuf);
+  void encode(const std::vector<HPACKHeader>& headers,
+              folly::IOBufQueue& writeBuf);
 
   void startEncode(folly::IOBufQueue& writeBuf);
 
@@ -65,13 +64,16 @@ class HPACKEncoder : public HPACKEncoderBase, public HPACKContext {
                         folly::StringPiece value,
                         bool& indexable);
 
-  bool encodeAsLiteral(HPACKHeaderName&& name, folly::fbstring&& value,
+  bool encodeAsLiteral(HPACKHeaderName&& name,
+                       folly::fbstring&& value,
                        bool indexing);
 
-  bool encodeAsLiteral(HPACKHeaderName&& name, folly::StringPiece value,
+  bool encodeAsLiteral(HPACKHeaderName&& name,
+                       folly::StringPiece value,
                        bool indexing);
 
-  bool encodeAsLiteral(const HPACKHeaderName& name, folly::StringPiece value,
+  bool encodeAsLiteral(const HPACKHeaderName& name,
+                       folly::StringPiece value,
                        bool indexing);
 
   void encodeAsLiteralImpl(const HPACKHeaderName& name,
@@ -84,4 +86,4 @@ class HPACKEncoder : public HPACKEncoderBase, public HPACKContext {
                      const HPACK::Instruction& instruction);
 };
 
-}
+} // namespace proxygen

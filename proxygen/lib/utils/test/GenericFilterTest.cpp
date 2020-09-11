@@ -33,21 +33,23 @@ T* get_pointer(T* ptr) {
   return ptr;
 }
 
-}
+} // namespace detail
 
 class TesterInterface {
  public:
   class Callback {
    public:
-    virtual ~Callback() {}
+    virtual ~Callback() {
+    }
     virtual void onA() = 0;
   };
-  virtual ~TesterInterface() {}
+  virtual ~TesterInterface() {
+  }
   virtual void setCallback(Callback* cb) = 0;
   virtual void doA() = 0;
 };
 
-class MockTester: public TesterInterface {
+class MockTester : public TesterInterface {
  public:
   Callback* cb_{nullptr};
   void setCallback(Callback* cb) override {
@@ -56,28 +58,31 @@ class MockTester: public TesterInterface {
   MOCK_METHOD0(doA, void());
 };
 
-class MockTesterCallback: public TesterInterface::Callback {
+class MockTesterCallback : public TesterInterface::Callback {
  public:
   MOCK_METHOD0(onA, void());
 };
 
-template<bool Owned>
-class TestFilter: public GenericFilter<TesterInterface,
-                                       TesterInterface::Callback,
-                                       &TesterInterface::setCallback,
-                                       Owned> {
+template <bool Owned>
+class TestFilter
+    : public GenericFilter<TesterInterface,
+                           TesterInterface::Callback,
+                           &TesterInterface::setCallback,
+                           Owned> {
  public:
-  TestFilter():
-      GenericFilter<TesterInterface,
-                    TesterInterface::Callback,
-                    &TesterInterface::setCallback,
-                    Owned>(true, true) {}
+  TestFilter()
+      : GenericFilter<TesterInterface,
+                      TesterInterface::Callback,
+                      &TesterInterface::setCallback,
+                      Owned>(true, true) {
+  }
 
-  TestFilter(bool calls, bool callbacks):
-      GenericFilter<TesterInterface,
-                    TesterInterface::Callback,
-                    &TesterInterface::setCallback,
-                    Owned>(calls, callbacks) {}
+  TestFilter(bool calls, bool callbacks)
+      : GenericFilter<TesterInterface,
+                      TesterInterface::Callback,
+                      &TesterInterface::setCallback,
+                      Owned>(calls, callbacks) {
+  }
 
   void setCallback(TesterInterface::Callback* cb) override {
     this->setCallbackInternal(cb);
@@ -95,39 +100,42 @@ class TestFilter: public GenericFilter<TesterInterface,
   uint32_t id_{idCounter_++};
   static uint32_t idCounter_;
 };
-template<bool Owned>
+template <bool Owned>
 uint32_t TestFilter<Owned>::idCounter_ = 0;
 
-template<bool Owned>
-class TestFilterNoCallback: public TestFilter<Owned> {
+template <bool Owned>
+class TestFilterNoCallback : public TestFilter<Owned> {
  public:
-  TestFilterNoCallback(): TestFilter<Owned>(true, false) {}
+  TestFilterNoCallback() : TestFilter<Owned>(true, false) {
+  }
 };
 
-template<bool Owned>
-class TestFilterNoCall: public TestFilter<Owned> {
+template <bool Owned>
+class TestFilterNoCall : public TestFilter<Owned> {
  public:
-  TestFilterNoCall(): TestFilter<Owned>(false, true) {}
+  TestFilterNoCall() : TestFilter<Owned>(false, true) {
+  }
 };
 
-template<bool Owned>
-class TestFilterNoCallbackNoCall: public TestFilter<Owned> {
+template <bool Owned>
+class TestFilterNoCallbackNoCall : public TestFilter<Owned> {
  public:
-  TestFilterNoCallbackNoCall(): TestFilter<Owned>(false, false) {}
+  TestFilterNoCallbackNoCall() : TestFilter<Owned>(false, false) {
+  }
 };
 
-template<bool Owned>
+template <bool Owned>
 typename std::enable_if<Owned, unique_ptr<MockTester>>::type getTester() {
   return std::make_unique<MockTester>();
 }
 
-template<bool Owned>
+template <bool Owned>
 typename std::enable_if<!Owned, MockTester*>::type getTester() {
   return new MockTester();
 }
 
-template<bool Owned>
-class GenericFilterTest: public testing::Test {
+template <bool Owned>
+class GenericFilterTest : public testing::Test {
  public:
   void basicTest();
 
@@ -135,31 +143,34 @@ class GenericFilterTest: public testing::Test {
                    MockTesterCallback* expectedCb);
 
   void SetUp() override {
-    chain_ = std::make_unique<
-      FilterChain<TesterInterface, TesterInterface::Callback,
-                  TestFilter<Owned>,
-                  &TesterInterface::setCallback,
-                  Owned>>(getTester<Owned>());
+    chain_ = std::make_unique<FilterChain<TesterInterface,
+                                          TesterInterface::Callback,
+                                          TestFilter<Owned>,
+                                          &TesterInterface::setCallback,
+                                          Owned>>(getTester<Owned>());
     chain().setCallback(&callback_);
     actor_ = CHECK_NOTNULL(static_cast<MockTester*>(chain_->call()));
   }
-  FilterChain<TesterInterface, TesterInterface::Callback,
+  FilterChain<TesterInterface,
+              TesterInterface::Callback,
               TestFilter<Owned>,
-              &TesterInterface::setCallback, Owned>& chain() {
+              &TesterInterface::setCallback,
+              Owned>&
+  chain() {
     return *chain_;
   }
 
-  template<typename FilterT>
+  template <typename FilterT>
   typename std::enable_if<!Owned, FilterT*>::type getFilter() {
     return new FilterT();
   }
 
-  template<typename FilterT>
+  template <typename FilterT>
   typename std::enable_if<Owned, unique_ptr<FilterT>>::type getFilter() {
     return std::make_unique<FilterT>();
   }
 
-  template<typename FilterT>
+  template <typename FilterT>
   void addFilterToChain(std::deque<TestFilter<Owned>*>& refs) {
     auto f = getFilter<FilterT>();
     refs.push_front(::detail::get_pointer(f));
@@ -186,13 +197,16 @@ class GenericFilterTest: public testing::Test {
   }
 
   MockTesterCallback callback_;
-  unique_ptr<FilterChain<TesterInterface, TesterInterface::Callback,
+  unique_ptr<FilterChain<TesterInterface,
+                         TesterInterface::Callback,
                          TestFilter<Owned>,
-                         &TesterInterface::setCallback, Owned>> chain_;
+                         &TesterInterface::setCallback,
+                         Owned>>
+      chain_;
   MockTester* actor_{nullptr};
 };
 
-template<bool Owned>
+template <bool Owned>
 void GenericFilterTest<Owned>::basicTest() {
   InSequence enforceOrder;
 
@@ -206,10 +220,11 @@ void GenericFilterTest<Owned>::basicTest() {
   actor_->cb_->onA();
 }
 
-template<bool Owned> void GenericFilterTest<Owned>::testFilters(
+template <bool Owned>
+void GenericFilterTest<Owned>::testFilters(
     const std::deque<TestFilter<Owned>*>& filters,
     MockTesterCallback* expectedCb) {
-  for (auto f: filters) {
+  for (auto f : filters) {
     f->do_ = 0;
     f->on_ = 0;
   }
@@ -222,7 +237,7 @@ template<bool Owned> void GenericFilterTest<Owned>::testFilters(
     CHECK_NOTNULL(actor_->cb_);
     actor_->cb_->onA();
   }
-  for (auto f: filters) {
+  for (auto f : filters) {
     if (f->kWantsCalls_) {
       EXPECT_EQ(f->do_, 1);
     } else {
@@ -279,7 +294,7 @@ TEST_F(OwnedGenericFilterTest, MultiElemMultiAdd) {
     chain().addFilters(std::move(filter));
   }
   basicTest();
-  for (auto filter: filters) {
+  for (auto filter : filters) {
     EXPECT_EQ(filter->do_, 1);
     EXPECT_EQ(filter->on_, 1);
   }
@@ -294,8 +309,8 @@ TEST_F(OwnedGenericFilterTest, Wants) {
   TestFilter<true>* fp2 = f2.get();
   TestFilter<true>* fp3 = f3.get();
   TestFilter<true>* fp4 = f4.get();
-  chain().addFilters(std::move(f1), std::move(f2),
-                    std::move(f3), std::move(f4));
+  chain().addFilters(
+      std::move(f1), std::move(f2), std::move(f3), std::move(f4));
   basicTest();
   EXPECT_EQ(fp1->do_, 1);
   EXPECT_EQ(fp1->on_, 1);
@@ -378,7 +393,7 @@ TEST_F(UnownedGenericFilterTest, All) {
   auto filters = getRandomFilters(NUM_FILTERS);
   // Now check the counts on each filter
   unsigned i = 0;
-  for (auto f: filters) {
+  for (auto f : filters) {
     if (f->kWantsCalls_) {
       EXPECT_EQ(f->do_, i + 1);
     } else {
@@ -410,7 +425,7 @@ TEST_F(OwnedGenericFilterTest, SetNullCb) {
   testFilters(filters, &head);
 
   TesterInterface::Callback* cb = &head;
-  for (auto f: filters) {
+  for (auto f : filters) {
     if (f->kWantsCallbacks_) {
       cb = f;
     }
@@ -421,12 +436,14 @@ TEST_F(OwnedGenericFilterTest, SetNullCb) {
 }
 
 // This class owns itself
-class TestFilterOddDeleteDo: public TestFilter<false> {
+class TestFilterOddDeleteDo : public TestFilter<false> {
  public:
-  explicit TestFilterOddDeleteDo(int* deletions):
-      TestFilter<false>(true, true),
-      deletions_(CHECK_NOTNULL(deletions)) {}
-  ~TestFilterOddDeleteDo() override { ++*deletions_; }
+  explicit TestFilterOddDeleteDo(int* deletions)
+      : TestFilter<false>(true, true), deletions_(CHECK_NOTNULL(deletions)) {
+  }
+  ~TestFilterOddDeleteDo() override {
+    ++*deletions_;
+  }
 
   void doA() override {
     auto call = call_;
@@ -460,12 +477,15 @@ TEST_F(UnownedGenericFilterTest, DeleteDo) {
   delete actor_;
 }
 
-template<bool Owned=false>
-class TestFilterOddDeleteOn: public TestFilter<Owned> {
+template <bool Owned = false>
+class TestFilterOddDeleteOn : public TestFilter<Owned> {
  public:
-  explicit TestFilterOddDeleteOn(int* deletions):
-      deletions_(CHECK_NOTNULL(deletions)) {}
-  ~TestFilterOddDeleteOn() override { ++*deletions_; }
+  explicit TestFilterOddDeleteOn(int* deletions)
+      : deletions_(CHECK_NOTNULL(deletions)) {
+  }
+  ~TestFilterOddDeleteOn() override {
+    ++*deletions_;
+  }
 
   void onA() override {
     auto callback = this->callback_;
@@ -506,7 +526,7 @@ TEST_F(OwnedGenericFilterTest, DeleteChain) {
   int deletions = 0;
   for (unsigned i = 0; i < NUM_FILTERS; ++i) {
     chain().addFilters(
-      std::make_unique<TestFilterOddDeleteOn<true>>(&deletions));
+        std::make_unique<TestFilterOddDeleteOn<true>>(&deletions));
   }
   chain_.reset();
   EXPECT_EQ(deletions, NUM_FILTERS);
@@ -533,13 +553,15 @@ TEST_F(OwnedGenericFilterTest, SetDestination) {
 TEST_F(OwnedGenericFilterTest, Foreach) {
   auto filters = getRandomFilters(20);
   size_t count = 0;
-  chain().foreach([&count] (GenericFilter<TesterInterface,
-                            TesterInterface::Callback,
-                            &TesterInterface::setCallback, true,
-                            std::default_delete<TesterInterface> >* filter) {
-                    if (dynamic_cast<TestFilter<true>*>(filter)) {
-                      count++;
-                    }
-                  });
+  chain().foreach (
+      [&count](GenericFilter<TesterInterface,
+                             TesterInterface::Callback,
+                             &TesterInterface::setCallback,
+                             true,
+                             std::default_delete<TesterInterface>>* filter) {
+        if (dynamic_cast<TestFilter<true>*>(filter)) {
+          count++;
+        }
+      });
   EXPECT_EQ(count, 20);
 }

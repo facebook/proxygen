@@ -23,13 +23,12 @@ uint32_t HPACKDecoderBase::emit(const HPACKHeader& header,
   return header.realBytes();
 }
 
-void HPACKDecoderBase::completeDecode(
-    HeaderCodec::Type type,
-    HPACK::StreamingCallback* streamingCb,
-    uint32_t compressedSize,
-    uint32_t compressedBlockSize,
-    uint32_t emittedSize,
-    bool acknowledge) {
+void HPACKDecoderBase::completeDecode(HeaderCodec::Type type,
+                                      HPACK::StreamingCallback* streamingCb,
+                                      uint32_t compressedSize,
+                                      uint32_t compressedBlockSize,
+                                      uint32_t emittedSize,
+                                      bool acknowledge) {
   if (!streamingCb) {
     return;
   }
@@ -55,8 +54,8 @@ void HPACKDecoderBase::completeDecode(
   }
 }
 
-void HPACKDecoderBase::setHeaderTableMaxSize(
-    HeaderTable& table, uint32_t maxSize) {
+void HPACKDecoderBase::setHeaderTableMaxSize(HeaderTable& table,
+                                             uint32_t maxSize) {
   maxTableSize_ = maxSize;
   if (maxTableSize_ < table.capacity()) {
     CHECK(table.setCapacity(maxTableSize_));
@@ -85,4 +84,4 @@ void HPACKDecoderBase::handleTableSizeUpdate(HPACKDecodeBuffer& dbuf,
   table.setCapacity(arg);
 }
 
-}
+} // namespace proxygen

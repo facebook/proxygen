@@ -9,8 +9,8 @@
 #include <proxygen/lib/http/HTTPMethod.h>
 
 #include <folly/Indestructible.h>
-#include <proxygen/lib/http/HTTPHeaders.h>
 #include <ostream>
+#include <proxygen/lib/http/HTTPHeaders.h>
 #include <vector>
 
 #define HTTP_METHOD_STR(method) #method
@@ -24,12 +24,11 @@ using StringVector = std::vector<std::string>;
 
 const StringVector& getMethodStrings() {
   static const folly::Indestructible<StringVector> methodStrings{
-    StringVector{ HTTP_METHOD_GEN(HTTP_METHOD_STR) }
-  };
+      StringVector{HTTP_METHOD_GEN(HTTP_METHOD_STR)}};
   return *methodStrings;
 }
 
-}
+} // namespace
 
 namespace proxygen {
 
@@ -48,9 +47,9 @@ const std::string& methodToString(HTTPMethod method) {
   return getMethodStrings()[static_cast<unsigned>(method)];
 }
 
-std::ostream& operator <<(std::ostream& out, HTTPMethod method) {
+std::ostream& operator<<(std::ostream& out, HTTPMethod method) {
   out << methodToString(method);
   return out;
 }
 
-}
+} // namespace proxygen

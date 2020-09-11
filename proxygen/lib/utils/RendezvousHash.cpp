@@ -7,16 +7,16 @@
  */
 
 #include <proxygen/lib/utils/RendezvousHash.h>
-#include <folly/hash/Hash.h>
-#include <map>
 #include <algorithm>
-#include <vector>
+#include <folly/hash/Hash.h>
 #include <limits>
-#include <math.h>       /* pow */
+#include <map>
+#include <math.h> /* pow */
+#include <vector>
 
 namespace proxygen {
-void RendezvousHash::build(std::vector<std::pair<
-                           std::string, uint64_t> >&nodes) {
+void RendezvousHash::build(
+    std::vector<std::pair<std::string, uint64_t>>& nodes) {
   for (auto it = nodes.begin(); it != nodes.end(); ++it) {
     std::string key = it->first;
     uint64_t weight = it->second;
@@ -222,4 +222,4 @@ double RendezvousHash::getMaxErrorRate() const {
   return 0;
 }
 
-}
+} // namespace proxygen

@@ -43,9 +43,9 @@ struct CompressionInfoPart {
   CompressionInfoPart() {
   }
 
-  //copy constructor
+  // copy constructor
   CompressionInfoPart(const CompressionInfoPart&) = default;
-  //copy assignment operator
+  // copy assignment operator
   CompressionInfoPart& operator=(const CompressionInfoPart& other) {
     headerTableSize_ = other.headerTableSize_;
     bytesStored_ = other.bytesStored_;
@@ -56,14 +56,12 @@ struct CompressionInfoPart {
     staticRefs_ = other.staticRefs_;
     return *this;
   }
-  //move constructor
+  // move constructor
   CompressionInfoPart(CompressionInfoPart&&) = default;
-  //move assignment operator
+  // move assignment operator
   CompressionInfoPart& operator=(CompressionInfoPart&&) = default;
-  //destructor
+  // destructor
   ~CompressionInfoPart() = default;
-
-
 };
 
 struct CompressionInfo {

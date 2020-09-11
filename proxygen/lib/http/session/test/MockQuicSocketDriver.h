@@ -216,7 +216,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     using ReadCBResult = folly::Expected<folly::Unit, LocalErrorCode>;
     EXPECT_CALL(*sock_, setReadCallback(testing::_, testing::_, testing::_))
         .WillRepeatedly(testing::Invoke(
-            [this](StreamId id, QuicSocket::ReadCallback* cb, folly::Optional<ApplicationErrorCode> error) -> ReadCBResult {
+            [this](
+                StreamId id,
+                QuicSocket::ReadCallback* cb,
+                folly::Optional<ApplicationErrorCode> error) -> ReadCBResult {
               checkNotWriteOnlyStream(id);
               auto& stream = streams_[id];
               stream.readCB = cb;

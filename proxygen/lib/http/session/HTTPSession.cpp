@@ -509,7 +509,6 @@ void HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
       "HTTPSession - readBufferAvailable", "readSize", readSize);
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
 
-
   DestructorGuard dg(this);
   resetTimeout();
 
@@ -614,13 +613,16 @@ HTTPTransaction* HTTPSession::newPushedTransaction(
     // might be connected to N upstream hosts, each of which send M pushes,
     // which exceeds the limit.
     // should we queue?
-    SET_PROXYGEN_ERROR_IF(error,
-      ProxygenError::kErrorMaxConcurrentOutgoingStreamLimitReached);
+    SET_PROXYGEN_ERROR_IF(
+        error, ProxygenError::kErrorMaxConcurrentOutgoingStreamLimitReached);
     return nullptr;
   }
 
-  HTTPTransaction* txn = createTransaction(
-      codec_->createStream(), assocStreamId, HTTPCodec::NoExAttributes, http2::DefaultPriority, error);
+  HTTPTransaction* txn = createTransaction(codec_->createStream(),
+                                           assocStreamId,
+                                           HTTPCodec::NoExAttributes,
+                                           http2::DefaultPriority,
+                                           error);
   if (!txn) {
     return nullptr;
   }
@@ -653,10 +655,10 @@ HTTPSession::newExTransaction(HTTPTransaction::Handler* handler,
   }
   if (draining_ || (outgoingStreams_ >= maxConcurrentOutgoingStreamsRemote_)) {
     LOG(ERROR) << "cannot support any more transactions in " << *this
-            << " isDraining: " << draining_
-            << " outgoing streams: " << outgoingStreams_
-            << " max concurrent outgoing streams: "
-            << maxConcurrentOutgoingStreamsRemote_;
+               << " isDraining: " << draining_
+               << " outgoing streams: " << outgoingStreams_
+               << " max concurrent outgoing streams: "
+               << maxConcurrentOutgoingStreamsRemote_;
     return nullptr;
   }
 
@@ -755,7 +757,7 @@ void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
     // txns haven't completed yet. Pause reads until they complete
     DCHECK_GE(transactions_.size(), 2);
     std::map<HTTPCodec::StreamID, HTTPTransaction*> sortedTxns;
-    for (auto& txn: transactions_) {
+    for (auto& txn : transactions_) {
       sortedTxns.emplace(txn.first, &txn.second);
     }
     for (auto it = ++sortedTxns.rbegin(); it != sortedTxns.rend(); ++it) {
@@ -1180,9 +1182,8 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // We give the less-forceful onGoaway() first so that transactions have
   // a chance to do stat tracking before potentially getting a forceful
   // onError().
-  invokeOnAllTransactions([code] (HTTPTransaction* txn) {
-      txn->onGoaway(code);
-    });
+  invokeOnAllTransactions(
+      [code](HTTPTransaction* txn) { txn->onGoaway(code); });
 
   // Abort transactions which have been initiated but not created
   // successfully at the remote end. Upstream transactions are created
@@ -1191,8 +1192,7 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   auto firstStream = HTTPCodec::NoStream;
 
   for (const auto& id : transactionIds_) {
-    if (((bool)(id & 0x01) == isUpstream()) &&
-        (id > lastGoodStreamID)) {
+    if (((bool)(id & 0x01) == isUpstream()) && (id > lastGoodStreamID)) {
       if (firstStream == HTTPCodec::NoStream) {
         // transactions_ is a set so it should be sorted by stream id.
         // We will defer adding the firstStream to the id list until
@@ -1271,8 +1271,8 @@ void HTTPSession::onPingRequest(uint64_t data) {
     // 'bytesScheduledBeforePing'.  In the case where we're putting it at the
     // end, there will be no events with an offset as high - so it will be a
     // no-op.
-    byteEventTracker_->addPingByteEvent(pingSize, timestamp,
-                                        bytesScheduledBeforePing);
+    byteEventTracker_->addPingByteEvent(
+        pingSize, timestamp, bytesScheduledBeforePing);
   }
 
   scheduleWrite();
@@ -1489,9 +1489,9 @@ bool HTTPSession::onNativeProtocolUpgradeImpl(
 
 void HTTPSession::onSetSendWindow(uint32_t windowSize) {
   VLOG(4) << *this << " got send window size adjustment. new=" << windowSize;
-  invokeOnAllTransactions([windowSize] (HTTPTransaction* txn) {
-      txn->onIngressSetSendWindow(windowSize);
-    });
+  invokeOnAllTransactions([windowSize](HTTPTransaction* txn) {
+    txn->onIngressSetSendWindow(windowSize);
+  });
 }
 
 void HTTPSession::onSetMaxInitiatedStreams(uint32_t maxTxns) {
@@ -1891,8 +1891,7 @@ bool HTTPSession::maybeResumePausedPipelinedTransaction(size_t oldStreamCount,
                                                         uint32_t txnSeqn) {
   if (!codec_->supportsParallelRequests() && !transactions_.empty()) {
     auto pipelineStreamCount = getPipelineStreamCount();
-    if (pipelineStreamCount < oldStreamCount &&
-        pipelineStreamCount == 1) {
+    if (pipelineStreamCount < oldStreamCount && pipelineStreamCount == 1) {
       // For H1, StreamID = txnSeqn + 1
       auto curStreamId = txnSeqn + 1;
       auto txnIt = transactions_.find(curStreamId + 1);
@@ -2063,14 +2062,15 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
   return false;
 }
 
-void HTTPSession::getFlowControlInfo(
-    HTTPTransaction::FlowControlInfo* info) {
+void HTTPSession::getFlowControlInfo(HTTPTransaction::FlowControlInfo* info) {
   info->flowControlEnabled_ = connFlowControl_ != nullptr;
   if (connFlowControl_) {
     info->sessionRecvWindow_ = connFlowControl_->getRecvWindow().getCapacity();
     info->sessionSendWindow_ = connFlowControl_->getSendWindow().getSize();
-    info->sessionRecvOutstanding_ = connFlowControl_->getRecvWindow().getOutstanding();
-    info->sessionSendOutstanding_ = connFlowControl_->getSendWindow().getOutstanding();
+    info->sessionRecvOutstanding_ =
+        connFlowControl_->getRecvWindow().getOutstanding();
+    info->sessionSendOutstanding_ =
+        connFlowControl_->getSendWindow().getOutstanding();
   }
 }
 
@@ -2078,8 +2078,9 @@ HTTPTransaction::Transport::Type HTTPSession::getSessionType() const noexcept {
   return getType();
 }
 
-unique_ptr<IOBuf> HTTPSession::getNextToSend(
-    bool* cork, bool* timestampTx, bool* timestampAck) {
+unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork,
+                                             bool* timestampTx,
+                                             bool* timestampAck) {
   // limit ourselves to one outstanding write at a time (onWriteSuccess calls
   // scheduleWrite)
   if (numActiveWrites_ > 0 || writesShutdown()) {
@@ -2187,9 +2188,9 @@ void HTTPSession::runLoopCallback() noexcept {
     // This ScopeGuard needs to be under the above DestructorGuard
     updatePendingWrites();
     if (!hasMoreWrites()) {
-      invokeOnAllTransactions([] (HTTPTransaction* txn) {
-          txn->checkIfEgressRateLimitedByUpstream();
-        });
+      invokeOnAllTransactions([](HTTPTransaction* txn) {
+        txn->checkIfEgressRateLimitedByUpstream();
+      });
     }
     checkForShutdown();
   });
@@ -2198,9 +2199,9 @@ void HTTPSession::runLoopCallback() noexcept {
   for (uint32_t i = 0; i < kMaxWritesPerLoop; ++i) {
     bodyBytesPerWriteBuf_ = 0;
     if (isPrioritySampled()) {
-      invokeOnAllTransactions([this] (HTTPTransaction* txn) {
-          txn->updateContentionsCount(txnEgressQueue_.numPendingEgress());
-        });
+      invokeOnAllTransactions([this](HTTPTransaction* txn) {
+        txn->updateContentionsCount(txnEgressQueue_.numPendingEgress());
+      });
     }
 
     bool cork = true;
@@ -2214,8 +2215,7 @@ void HTTPSession::runLoopCallback() noexcept {
     }
     uint64_t len = writeBuf->computeChainDataLength();
     VLOG(11) << *this << " bytes of egress to be written: " << len
-             << " cork:" << cork
-             << " timestampTx:" << timestampTx
+             << " cork:" << cork << " timestampTx:" << timestampTx
              << " timestampAck:" << timestampAck;
     if (len == 0) {
       checkForShutdown();
@@ -2223,17 +2223,16 @@ void HTTPSession::runLoopCallback() noexcept {
     }
 
     if (isPrioritySampled()) {
-      invokeOnAllTransactions([this] (HTTPTransaction* txn) {
-          txn->updateSessionBytesSheduled(bodyBytesPerWriteBuf_);
-        });
+      invokeOnAllTransactions([this](HTTPTransaction* txn) {
+        txn->updateSessionBytesSheduled(bodyBytesPerWriteBuf_);
+      });
     }
 
     folly::WriteFlags flags = folly::WriteFlags::NONE;
     flags |= (cork) ? folly::WriteFlags::CORK : folly::WriteFlags::NONE;
     flags |= (timestampTx) ? folly::WriteFlags::TIMESTAMP_TX
-      : folly::WriteFlags::NONE;
-    flags |= (timestampAck) ? folly::WriteFlags::EOR
-      : folly::WriteFlags::NONE;
+                           : folly::WriteFlags::NONE;
+    flags |= (timestampAck) ? folly::WriteFlags::EOR : folly::WriteFlags::NONE;
     CHECK(!pendingWrite_.hasValue());
     pendingWrite_.emplace(len, DestructorGuard(this));
 
@@ -2243,8 +2242,7 @@ void HTTPSession::runLoopCallback() noexcept {
     }
     numActiveWrites_++;
     VLOG(4) << *this << " writing " << len
-            << ", activeWrites=" << numActiveWrites_
-            << " cork:" << cork
+            << ", activeWrites=" << numActiveWrites_ << " cork:" << cork
             << " timestampTx:" << timestampTx
             << " timestampAck:" << timestampAck;
     bytesScheduled_ += len;
@@ -2400,9 +2398,7 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
                                             ", ",
                                             getPeerAddress().describe()));
     ex.setProxygenError(error);
-    invokeOnAllTransactions([&ex] (HTTPTransaction* txn) {
-        txn->onError(ex);
-      });
+    invokeOnAllTransactions([&ex](HTTPTransaction* txn) { txn->onError(ex); });
   }
 
   if (readsShutdown() && writesShutdown()) {
@@ -2703,9 +2699,8 @@ bool HTTPSession::incrementNumControlMsgsInCurInterval(
     LOG(ERROR) << " dropping connection due to too many control messages, "
                << "num control messages = "
                << rateLimitingCounters_->numControlMsgsInCurrentInterval
-               << ", most recent frame type = "
-               << getFrameTypeString(frameType) << " "
-               << *this;
+               << ", most recent frame type = " << getFrameTypeString(frameType)
+               << " " << *this;
     dropConnection();
     return true;
   }
@@ -2730,8 +2725,7 @@ bool HTTPSession::incrementDirectErrorHandlingInCurInterval() {
                << " when directly handling errors,"
                << "num direct error handling cases = "
                << rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval
-               << " "
-               << *this;
+               << " " << *this;
     dropConnection();
     return true;
   }
@@ -2741,16 +2735,16 @@ bool HTTPSession::incrementDirectErrorHandlingInCurInterval() {
 
 void HTTPSession::scheduleResetNumControlMsgs() {
   auto ptr = rateLimitingCounters_;
-  sock_->getEventBase()->runAfterDelay([ptr]() {
-     ptr->numControlMsgsInCurrentInterval = 0;
-  }, controlMsgIntervalDuration_);
+  sock_->getEventBase()->runAfterDelay(
+      [ptr]() { ptr->numControlMsgsInCurrentInterval = 0; },
+      controlMsgIntervalDuration_);
 }
 
 void HTTPSession::scheduleResetDirectErrorHandling() {
   auto ptr = rateLimitingCounters_;
-  sock_->getEventBase()->runAfterDelay([ptr]() {
-     ptr->numDirectErrorHandlingInCurrentInterval = 0;
-  }, directErrorHandlingIntervalDuration_);
+  sock_->getEventBase()->runAfterDelay(
+      [ptr]() { ptr->numDirectErrorHandlingInCurrentInterval = 0; },
+      directErrorHandlingIntervalDuration_);
 }
 
 void HTTPSession::writeSuccess() noexcept {
@@ -2798,9 +2792,9 @@ void HTTPSession::writeSuccess() noexcept {
     if (numActiveWrites_ == 0 && hasMoreWrites()) {
       runLoopCallback();
     } else {
-      invokeOnAllTransactions([] (HTTPTransaction* txn) {
-          txn->checkIfEgressRateLimitedByUpstream();
-        });
+      invokeOnAllTransactions([](HTTPTransaction* txn) {
+        txn->checkIfEgressRateLimitedByUpstream();
+      });
     }
   }
   onWriteCompleted();
@@ -3100,14 +3094,13 @@ void HTTPSession::invokeOnAllTransactions(
 }
 
 void HTTPSession::injectTraceEventIntoAllTransactions(TraceEvent& event) {
-  invokeOnAllTransactions([event](HTTPTransaction *txn) mutable {
-    HTTPTransactionHandler *handler = txn->getHandler();
-    if (handler != nullptr) {;
+  invokeOnAllTransactions([event](HTTPTransaction* txn) mutable {
+    HTTPTransactionHandler* handler = txn->getHandler();
+    if (handler != nullptr) {
+      ;
       handler->traceEventAvailable(event);
     }
   });
 }
-
-
 
 } // namespace proxygen

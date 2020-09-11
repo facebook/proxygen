@@ -6,10 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <proxygen/lib/http/codec/compress/test/TestUtil.h>
-#include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <folly/Benchmark.h>
 #include <folly/Range.h>
+#include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
+#include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 
 #include <algorithm>
 
@@ -22,7 +22,8 @@ unique_ptr<IOBuf> encode(vector<HPACKHeader>& headers, HPACKEncoder& encoder) {
   return encoder.encode(headers);
 }
 
-void encodeDecode(vector<HPACKHeader>& headers, HPACKEncoder& encoder,
+void encodeDecode(vector<HPACKHeader>& headers,
+                  HPACKEncoder& encoder,
                   HPACKDecoder& decoder) {
   unique_ptr<IOBuf> encoded = encode(headers, encoder);
   CHECK(encoded);
@@ -32,7 +33,6 @@ void encodeDecode(vector<HPACKHeader>& headers, HPACKEncoder& encoder,
   CHECK(!cb.hasError());
 }
 
-
 vector<HPACKHeader> getHeaders() {
   vector<HPACKHeader> headers;
   headers.emplace_back(":authority", "www.facebook.com");
@@ -40,15 +40,15 @@ vector<HPACKHeader> getHeaders() {
   headers.emplace_back(":path", "/graphql");
   headers.emplace_back(":scheme", "https");
   headers.emplace_back(
-    "user-agent",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/60.0.3100.0 Safari/537.36");
+      "user-agent",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/60.0.3100.0 Safari/537.36");
   headers.emplace_back("accept-encoding", "gzip, deflate, br");
   headers.emplace_back("accept-language", "en-US,en;q=0.8");
   headers.emplace_back(
-    "accept",
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/"
-    "webp,image/apng,*/*;q=0.8");
+      "accept",
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/"
+      "webp,image/apng,*/*;q=0.8");
   return headers;
 }
 

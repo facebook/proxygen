@@ -9,59 +9,55 @@
 #pragma once
 
 #include "StructuredHeadersConstants.h"
+#include <boost/iostreams/device/back_inserter.hpp>
+#include <boost/iostreams/stream_buffer.hpp>
 #include <ostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <boost/iostreams/device/back_inserter.hpp>
-#include <boost/iostreams/stream_buffer.hpp>
 
 namespace proxygen {
 
 using namespace StructuredHeaders;
 
 using string_buf = boost::iostreams::stream_buffer<
-  boost::iostreams::back_insert_device<std::string> >;
+    boost::iostreams::back_insert_device<std::string>>;
 
 class StructuredHeadersEncoder {
 
  public:
+  StructuredHeadersEncoder();
 
-   StructuredHeadersEncoder();
+  EncodeError encodeParameterisedList(const ParameterisedList& input);
 
-   EncodeError encodeParameterisedList(const ParameterisedList& input);
+  EncodeError encodeDictionary(const Dictionary& input);
 
-   EncodeError encodeDictionary(const Dictionary& input);
+  EncodeError encodeList(const std::vector<StructuredHeaderItem>& input);
 
-   EncodeError encodeList(const std::vector<StructuredHeaderItem>& input);
+  EncodeError encodeItem(const StructuredHeaderItem& input);
 
-   EncodeError encodeItem(const StructuredHeaderItem& input);
+  EncodeError encodeIdentifier(const std::string& input);
 
-   EncodeError encodeIdentifier(const std::string& input);
-
-   std::string get();
+  std::string get();
 
  private:
+  EncodeError encodeBinaryContent(const std::string& input);
 
-   EncodeError encodeBinaryContent(const std::string& input);
+  EncodeError encodeString(const std::string& input);
 
-   EncodeError encodeString(const std::string& input);
+  EncodeError encodeInteger(int64_t input);
 
-   EncodeError encodeInteger(int64_t input);
+  EncodeError encodeBoolean(bool input);
 
-   EncodeError encodeBoolean(bool input);
+  EncodeError encodeFloat(double input);
 
-   EncodeError encodeFloat(double input);
+  EncodeError handleEncodeError(EncodeError err, const std::string& badContent);
 
-   EncodeError handleEncodeError(EncodeError err,
-     const std::string& badContent);
+  EncodeError handleEncodeError(EncodeError err);
 
-   EncodeError handleEncodeError(EncodeError err);
-
-   std::string output_;
-   string_buf buf_;
-   std::ostream outputStream_;
-
+  std::string output_;
+  string_buf buf_;
+  std::ostream outputStream_;
 };
 
-}
+} // namespace proxygen

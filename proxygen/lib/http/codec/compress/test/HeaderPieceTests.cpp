@@ -6,8 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <glog/logging.h>
 #include <folly/portability/GTest.h>
+#include <glog/logging.h>
 #include <proxygen/lib/http/codec/compress/HeaderPiece.h>
 
 using namespace proxygen::compress;

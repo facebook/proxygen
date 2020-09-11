@@ -20,8 +20,7 @@ UnframedBodyOffsetTracker::startBodyTracking(uint64_t streamOffset) {
         UnframedBodyOffsetTrackerError::START_OFFSET_ALREADY_SET);
   }
   bodyStartstreamOffset_ = streamOffset;
-  return folly::makeExpected<UnframedBodyOffsetTrackerError>(
-      folly::Unit());
+  return folly::makeExpected<UnframedBodyOffsetTrackerError>(folly::Unit());
 }
 
 bool UnframedBodyOffsetTracker::bodyStarted() const {
@@ -46,8 +45,8 @@ uint64_t UnframedBodyOffsetTracker::getBodyBytesProcessed() const {
   return appBodyBytesProcessed_;
 }
 
-TrackerOffsetResult
-UnframedBodyOffsetTracker::getBodyStreamStartOffset() const {
+TrackerOffsetResult UnframedBodyOffsetTracker::getBodyStreamStartOffset()
+    const {
   if (!bodyStartstreamOffset_) {
     return folly::makeUnexpected(
         UnframedBodyOffsetTrackerError::START_OFFSET_NOT_SET);
@@ -93,8 +92,8 @@ std::string toString(UnframedBodyOffsetTrackerError error) {
   return "Unknown error";
 }
 
-std::ostream& operator<<(
-    std::ostream& os, const UnframedBodyOffsetTrackerError& error) {
+std::ostream& operator<<(std::ostream& os,
+                         const UnframedBodyOffsetTrackerError& error) {
   os << toString(error);
   return os;
 }

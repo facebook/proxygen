@@ -55,8 +55,7 @@ class HQControlCodec
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        "Control stream EOF");
-      ex.setErrno(
-          uint32_t(HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM));
+      ex.setErrno(uint32_t(HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM));
       callback_->onError(streamId_, ex, false);
     }
   }

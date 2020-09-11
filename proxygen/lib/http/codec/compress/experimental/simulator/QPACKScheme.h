@@ -8,15 +8,16 @@
 
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
+#include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 
 namespace proxygen { namespace compress {
 
 class QPACKScheme : public CompressionScheme {
  public:
-  explicit QPACKScheme(CompressionSimulator* sim, uint32_t tableSize,
+  explicit QPACKScheme(CompressionSimulator* sim,
+                       uint32_t tableSize,
                        uint32_t maxBlocking)
       : CompressionScheme(sim) {
     client_.setHeaderIndexingStrategy(NoPathIndexingStrategy::getInstance());
@@ -35,11 +36,11 @@ class QPACKScheme : public CompressionScheme {
     explicit QPACKAck(uint16_t n,
                       uint16_t an,
                       std::unique_ptr<folly::IOBuf> hAck,
-                      std::unique_ptr<folly::IOBuf> cAck) :
-        seqn(n),
-        ackSeqn(an),
-        headerAck(std::move(hAck)),
-        controlAck(std::move(cAck)) {
+                      std::unique_ptr<folly::IOBuf> cAck)
+        : seqn(n),
+          ackSeqn(an),
+          headerAck(std::move(hAck)),
+          controlAck(std::move(cAck)) {
     }
     uint16_t seqn;
     uint16_t ackSeqn;
@@ -49,7 +50,8 @@ class QPACKScheme : public CompressionScheme {
 
   std::unique_ptr<Ack> getAck(uint16_t seqn) override {
     VLOG(4) << "Sending ack for seqn=" << seqn;
-    auto res = std::make_unique<QPACKAck>(seqn, sendAck_++,
+    auto res = std::make_unique<QPACKAck>(seqn,
+                                          sendAck_++,
                                           server_.encodeHeaderAck(seqn),
                                           server_.encodeInsertCountInc());
     return std::move(res);

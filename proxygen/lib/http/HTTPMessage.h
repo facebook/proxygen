@@ -37,7 +37,6 @@ namespace proxygen {
  */
 class HTTPMessage {
  public:
-
   enum WebSocketUpgrade {
     NONE,
     INGRESS,
@@ -75,14 +74,22 @@ class HTTPMessage {
   /**
    * Is this a chunked message? (fpreq, fpresp)
    */
-  void setIsChunked(bool chunked) { chunked_ = chunked; }
-  bool getIsChunked() const { return chunked_; }
+  void setIsChunked(bool chunked) {
+    chunked_ = chunked;
+  }
+  bool getIsChunked() const {
+    return chunked_;
+  }
 
   /**
    * Is this an upgraded message? (fpreq, fpresp)
    */
-  void setIsUpgraded(bool upgraded) { upgraded_ = upgraded; }
-  bool getIsUpgraded() const { return upgraded_; }
+  void setIsUpgraded(bool upgraded) {
+    upgraded_ = upgraded;
+  }
+  bool getIsUpgraded() const {
+    return upgraded_;
+  }
 
   /**
    * Set/Get client address
@@ -126,7 +133,7 @@ class HTTPMessage {
     if (!req.clientPort_ || req.clientPort_->empty()) {
       if (req.clientAddress_.isInitialized()) {
         req.clientPort_.emplace(
-          folly::to<std::string>(req.clientAddress_.getPort()));
+            folly::to<std::string>(req.clientAddress_.getPort()));
       } else {
         return empty_string;
       }
@@ -294,9 +301,7 @@ class HTTPMessage {
     return versionStr_;
   }
   void setVersionString(const std::string& ver) {
-    if (ver.size() != 3 ||
-        ver[1] != '.' ||
-        !isdigit(ver[0]) ||
+    if (ver.size() != 3 || ver[1] != '.' || !isdigit(ver[0]) ||
         !isdigit(ver[2])) {
       return;
     }
@@ -307,8 +312,12 @@ class HTTPMessage {
   /**
    * Access the headers (fpreq, fpres)
    */
-  HTTPHeaders& getHeaders() { return headers_; }
-  const HTTPHeaders& getHeaders() const { return headers_; }
+  HTTPHeaders& getHeaders() {
+    return headers_;
+  }
+  const HTTPHeaders& getHeaders() const {
+    return headers_;
+  }
 
   /**
    * Move headers out of current message (returns rvalue ref)
@@ -320,8 +329,12 @@ class HTTPMessage {
   /**
    * Access the trailers
    */
-  HTTPHeaders* getTrailers() { return trailers_.get(); }
-  const HTTPHeaders* getTrailers() const { return trailers_.get(); }
+  HTTPHeaders* getTrailers() {
+    return trailers_.get();
+  }
+  const HTTPHeaders* getTrailers() const {
+    return trailers_.get();
+  }
 
   /**
    * Set the trailers, replacing any that might already be present
@@ -357,17 +370,23 @@ class HTTPMessage {
   /**
    * Returns true if this is a 1xx response.
    */
-  bool is1xxResponse() const { return (getStatusCode() / 100) == 1; }
+  bool is1xxResponse() const {
+    return (getStatusCode() / 100) == 1;
+  }
 
   /**
    * Returns true if this is a 4xx response.
    */
-  bool is4xxResponse() const { return (getStatusCode() / 100) == 4; }
+  bool is4xxResponse() const {
+    return (getStatusCode() / 100) == 4;
+  }
 
   /**
    * Returns true if this is a 5xx response.
    */
-  bool is5xxResponse() const { return (getStatusCode() / 100) == 5; }
+  bool is5xxResponse() const {
+    return (getStatusCode() / 100) == 5;
+  }
 
   /**
    * Formats the current time appropriately for a Date header
@@ -395,7 +414,9 @@ class HTTPMessage {
    * Returns true if trailers are allowed on this message.  Trailers
    * are not allowed on responses unless the client is expecting them.
    */
-  bool trailersAllowed() const { return trailersAllowed_; }
+  bool trailersAllowed() const {
+    return trailersAllowed_;
+  }
   /**
    * Accessor to set whether trailers are allowed in the response
    */
@@ -576,13 +597,22 @@ class HTTPMessage {
     return *strippedPerHopHeaders_;
   }
 
-  void setSecure(bool secure) { secure_ = secure; }
-  bool isSecure() const { return secure_; }
-  int getSecureVersion() const { return sslVersion_; }
-  const char* getSecureCipher() const { return sslCipher_; }
+  void setSecure(bool secure) {
+    secure_ = secure;
+  }
+  bool isSecure() const {
+    return secure_;
+  }
+  int getSecureVersion() const {
+    return sslVersion_;
+  }
+  const char* getSecureCipher() const {
+    return sslCipher_;
+  }
   void setSecureInfo(int ver, const char* cipher) {
     // cipher is a static const char* provided and managed by openssl lib
-    sslVersion_ = ver; sslCipher_ = cipher;
+    sslVersion_ = ver;
+    sslCipher_ = cipher;
   }
   void setAdvancedProtocolString(const std::string& protocol) {
     protoStr_ = &protocol;
@@ -632,12 +662,13 @@ class HTTPMessage {
     pri_ = normalizePriority(pri);
     h2Pri_ = folly::none;
   }
-  uint8_t getPriority() const { return pri_; }
+  uint8_t getPriority() const {
+    return pri_;
+  }
 
   using HTTPPriority = std::tuple<uint64_t, bool, uint8_t>;
 
-  folly::Optional<HTTPPriority> getHTTP2Priority()
-    const {
+  folly::Optional<HTTPPriority> getHTTP2Priority() const {
     return h2Pri_;
   }
 
@@ -648,8 +679,12 @@ class HTTPMessage {
   /**
    * get and setter for transaction sequence number
    */
-  void setSeqNo(int32_t seqNo) { seqNo_ = seqNo; }
-  int32_t getSeqNo() const { return seqNo_; }
+  void setSeqNo(int32_t seqNo) {
+    seqNo_ = seqNo;
+  }
+  int32_t getSeqNo() const {
+    return seqNo_;
+  }
 
   /**
    * getter and setter for size in serialized form
@@ -664,8 +699,12 @@ class HTTPMessage {
   /**
    * Getter and setter for the time when the first byte of the message arrived
    */
-  TimePoint getStartTime() const { return startTime_; }
-  void setStartTime(const TimePoint& startTime) { startTime_ = startTime; }
+  TimePoint getStartTime() const {
+    return startTime_;
+  }
+  void setStartTime(const TimePoint& startTime) {
+    startTime_ = startTime;
+  }
 
   /**
    * Check if a particular token value is present in a header that consists of
@@ -770,7 +809,6 @@ class HTTPMessage {
   int32_t seqNo_;
 
  private:
-
   void parseCookies() const;
 
   template <typename T> // T = string
@@ -830,11 +868,7 @@ class HTTPMessage {
   std::string localIP_;
   std::string versionStr_;
 
-  enum class MessageType: uint8_t {
-    NONE = 0,
-    REQUEST = 1,
-    RESPONSE = 2
-  };
+  enum class MessageType : uint8_t { NONE = 0, REQUEST = 1, RESPONSE = 2 };
   struct Fields {
     Fields() = default;
     Fields(const Fields& other) {
@@ -896,8 +930,7 @@ class HTTPMessage {
           new (&data_.request) Request(std::move(other.data_.request));
           break;
         case MessageType::RESPONSE:
-          new (&data_.response) Response(
-            std::move(other.data_.response));
+          new (&data_.response) Response(std::move(other.data_.response));
           break;
         case MessageType::NONE:
           break;
@@ -906,19 +939,21 @@ class HTTPMessage {
 
     mutable MessageType which_{MessageType::NONE};
     mutable union Data {
-      Data() {}
-      ~Data() {}
+      Data() {
+      }
+      ~Data() {
+      }
       Request request;
       Response response;
     } data_;
   } fields_;
 
-  //mutable boost::variant<boost::blank, Request, Response> fields_;
+  // mutable boost::variant<boost::blank, Request, Response> fields_;
 
   Request& request() {
     DCHECK(fields_.which_ == MessageType::NONE ||
            fields_.which_ == MessageType::REQUEST)
-      << int(fields_.which_);
+        << int(fields_.which_);
     if (fields_.which_ == MessageType::NONE) {
       fields_.which_ = MessageType::REQUEST;
       new (&fields_.data_.request) Request();
@@ -935,7 +970,7 @@ class HTTPMessage {
   Response& response() {
     DCHECK(fields_.which_ == MessageType::NONE ||
            fields_.which_ == MessageType::RESPONSE)
-      << int(fields_.which_);
+        << int(fields_.which_);
     if (fields_.which_ == MessageType::NONE) {
       fields_.which_ = MessageType::RESPONSE;
       new (&fields_.data_.response) Response();
@@ -970,15 +1005,15 @@ class HTTPMessage {
   uint8_t pri_;
   folly::Optional<HTTPPriority> h2Pri_;
 
-  mutable bool parsedCookies_:1;
-  mutable bool parsedQueryParams_:1;
-  bool chunked_:1;
-  bool upgraded_:1;
-  bool wantsKeepalive_:1;
-  bool trailersAllowed_:1;
+  mutable bool parsedCookies_ : 1;
+  mutable bool parsedQueryParams_ : 1;
+  bool chunked_ : 1;
+  bool upgraded_ : 1;
+  bool wantsKeepalive_ : 1;
+  bool trailersAllowed_ : 1;
 
   // Whether the message is received in HTTPS.
-  bool secure_:1;
+  bool secure_ : 1;
 
   // Whether the message is partially reliable.
   // This is used by transaction/codec to allow/disallow certain operations on
@@ -998,7 +1033,7 @@ std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg);
  * Returns a std::string that has the control characters removed from the
  * input string.
  */
-template<typename Str>
+template <typename Str>
 std::string stripCntrlChars(const Str& str) {
   std::string res;
   res.reserve(str.size());
@@ -1010,4 +1045,4 @@ std::string stripCntrlChars(const Str& str) {
   return res;
 }
 
-} // proxygen
+} // namespace proxygen

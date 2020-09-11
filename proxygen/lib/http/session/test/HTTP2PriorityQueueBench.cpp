@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
 #include <folly/Benchmark.h>
 #include <folly/Range.h>
+#include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
 
 #include <algorithm>
 
@@ -23,15 +23,15 @@ const proxygen::HTTPCodec::StreamID kRootNodeId =
 proxygen::HTTPTransaction* makeFakeTxn(proxygen::HTTPCodec::StreamID id) {
   return (proxygen::HTTPTransaction*)(fakeTxn + id);
 }
-}
+} // namespace
 
 BENCHMARK(Encode, iters) {
   HTTP2PriorityQueue q_(WheelTimerInstance(), kRootNodeId);
   uint64_t depth = 0;
   for (size_t i = 0; i < iters; ++i) {
     HTTPCodec::StreamID id = i * 2 + 1;
-    q_.addTransaction(id, http2::DefaultPriority, makeFakeTxn(id), false,
-                      &depth);
+    q_.addTransaction(
+        id, http2::DefaultPriority, makeFakeTxn(id), false, &depth);
   }
 }
 

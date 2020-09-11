@@ -27,15 +27,15 @@ ostream& operator<<(ostream& os, const std::list<uint32_t>* refset) {
 }
 
 std::ostream& operator<<(std::ostream& os, const std::vector<HPACKHeader>& v) {
-  for (const auto &h : v) {
+  for (const auto& h : v) {
     os << h.name << ": " << h.value << std::endl;
   }
   os << std::endl;
   return os;
 }
 
-string printDelta(const vector<HPACKHeader> &v1,
-                  const vector<HPACKHeader> &v2) {
+string printDelta(const vector<HPACKHeader>& v1,
+                  const vector<HPACKHeader>& v2) {
   stringstream out;
   // similar with merge operation
   size_t i = 0;
@@ -72,4 +72,4 @@ string printDelta(const vector<HPACKHeader> &v1,
   return out.str();
 }
 
-}
+} // namespace proxygen

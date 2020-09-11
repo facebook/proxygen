@@ -11,20 +11,19 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
 
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace proxygen {
 namespace compress {
 
 // Convert an HTTPMessage into a format that can be passed to a HeaderCodec
 std::vector<Header> prepareMessageForCompression(
-    const HTTPMessage& msg,
-    std::vector<std::string>& cookies);
+    const HTTPMessage& msg, std::vector<std::string>& cookies);
 
-}
+} // namespace compress
 
 // Compare two HTTPMessage's for equality
 bool operator==(const HTTPMessage& msg1, const HTTPMessage& msg2);
 
-}
+} // namespace proxygen

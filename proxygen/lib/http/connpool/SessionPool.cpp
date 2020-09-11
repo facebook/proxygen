@@ -112,7 +112,8 @@ void SessionPool::purgeExcessIdleSessions() {
   auto thresh = std::chrono::steady_clock::now() - getTimeout();
 
   CHECK_LE(idleSessionList_.size(), std::numeric_limits<uint32_t>::max());
-  int64_t excess = static_cast<int64_t>(idleSessionList_.size()) - getMaxIdleSessions();
+  int64_t excess =
+      static_cast<int64_t>(idleSessionList_.size()) - getMaxIdleSessions();
   while (!idleSessionList_.empty()) {
     SessionHolder* holder = &idleSessionList_.front();
     if (holder->getLastUseTime() > thresh && excess <= 0) {

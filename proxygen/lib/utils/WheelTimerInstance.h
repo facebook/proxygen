@@ -26,7 +26,6 @@ namespace proxygen {
  */
 class WheelTimerInstance {
  public:
-
   // will ignore all scheduleTimeout operations, to be used instead of
   // nullptr for HHWheelTimer
   WheelTimerInstance();
@@ -61,12 +60,11 @@ class WheelTimerInstance {
   }
 
  private:
-
-  folly::HHWheelTimer* wheelTimerPtr_{nullptr};  // to support cases when
+  folly::HHWheelTimer* wheelTimerPtr_{nullptr}; // to support cases when
   // external WheelTimer is
   // specified
 
   std::chrono::milliseconds defaultTimeoutMS_;
 };
 
-}
+} // namespace proxygen

@@ -8,9 +8,9 @@
 
 #pragma once
 
+#include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
-#include <proxygen/lib/http/codec/HTTPRequestVerifier.h>
 
 namespace proxygen {
 
@@ -18,7 +18,7 @@ class HTTPMessage;
 
 class HeaderDecodeInfo {
  public:
-  void init(bool isRequestIn, bool isRequestTrailers, bool validate=true) {
+  void init(bool isRequestIn, bool isRequestTrailers, bool validate = true) {
     CHECK(!msg);
     msg.reset(new HTTPMessage());
     isRequest_ = isRequestIn;
@@ -57,4 +57,4 @@ class HeaderDecodeInfo {
   folly::Optional<uint32_t> contentLength_;
 };
 
-}
+} // namespace proxygen

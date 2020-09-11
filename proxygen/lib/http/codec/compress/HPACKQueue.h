@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <folly/io/async/DestructorCheck.h>
+#include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
 #include <deque>
 #include <memory>
@@ -19,10 +19,11 @@ namespace proxygen {
 
 class HPACKQueue : public folly::DestructorCheck {
  public:
-  explicit HPACKQueue(HPACKCodec& codec)
-    : codec_(codec) {}
+  explicit HPACKQueue(HPACKCodec& codec) : codec_(codec) {
+  }
 
-  void enqueueHeaderBlock(uint32_t seqn, std::unique_ptr<folly::IOBuf> block,
+  void enqueueHeaderBlock(uint32_t seqn,
+                          std::unique_ptr<folly::IOBuf> block,
                           size_t length,
                           HPACK::StreamingCallback* streamingCb,
                           bool oooOk) {
@@ -32,7 +33,10 @@ class HPACKQueue : public folly::DestructorCheck {
     }
     if (nextSeqn_ == seqn) {
       // common case, decode immediately
-      if (decodeBlock(seqn, std::move(block), length, streamingCb,
+      if (decodeBlock(seqn,
+                      std::move(block),
+                      length,
+                      streamingCb,
                       false /* in order */)) {
         return;
       }
@@ -53,8 +57,8 @@ class HPACKQueue : public folly::DestructorCheck {
       if (oooOk) {
         // out-of-order allowed.  Decode the block, but make an empty entry in
         // the queue
-        if (decodeBlock(seqn, std::move(block), length, streamingCb,
-                        true /* ooo */)) {
+        if (decodeBlock(
+                seqn, std::move(block), length, streamingCb, true /* ooo */)) {
           return;
         }
         length = 0;
@@ -62,8 +66,8 @@ class HPACKQueue : public folly::DestructorCheck {
       } else {
         holBlockCount_++;
       }
-      VLOG(5) << "queued block=" << seqn << " len=" << length <<
-        " placeholder=" << int32_t(oooOk);
+      VLOG(5) << "queued block=" << seqn << " len=" << length
+              << " placeholder=" << int32_t(oooOk);
       queuedBytes_ += length;
       queue_.emplace(it, seqn, std::move(block), length, streamingCb);
     }
@@ -78,11 +82,12 @@ class HPACKQueue : public folly::DestructorCheck {
   }
 
  private:
-
   // Returns true if this object was destroyed by its callback.  Callers
   // should check the result and immediately return.
-  bool decodeBlock(int32_t seqn, std::unique_ptr<folly::IOBuf> block,
-                   size_t length, HPACK::StreamingCallback* cb,
+  bool decodeBlock(int32_t seqn,
+                   std::unique_ptr<folly::IOBuf> block,
+                   size_t length,
+                   HPACK::StreamingCallback* cb,
                    bool ooo) {
     if (length > 0) {
       VLOG(5) << "decodeBlock for block=" << seqn << " len=" << length;
@@ -103,8 +108,10 @@ class HPACKQueue : public folly::DestructorCheck {
     while (!queue_.empty() && nextSeqn_ == std::get<0>(queue_.front())) {
       auto& next = queue_.front();
       auto length = std::get<2>(next);
-      if (decodeBlock(std::get<0>(next), std::move(std::get<1>(next)),
-                      length, std::get<3>(next),
+      if (decodeBlock(std::get<0>(next),
+                      std::move(std::get<1>(next)),
+                      length,
+                      std::get<3>(next),
                       false /* in order */)) {
         return;
       }
@@ -117,9 +124,12 @@ class HPACKQueue : public folly::DestructorCheck {
   size_t nextSeqn_{0};
   uint64_t holBlockCount_{0};
   uint64_t queuedBytes_{0};
-  std::deque<std::tuple<uint32_t, std::unique_ptr<folly::IOBuf>, size_t,
-    HPACK::StreamingCallback*>> queue_;
+  std::deque<std::tuple<uint32_t,
+                        std::unique_ptr<folly::IOBuf>,
+                        size_t,
+                        HPACK::StreamingCallback*>>
+      queue_;
   HPACKCodec& codec_;
 };
 
-}
+} // namespace proxygen

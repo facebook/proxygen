@@ -18,7 +18,7 @@ namespace proxygen {
  * only examines the calls and callbacks that go through it.
  */
 
-class HTTPCodecPrinter: public PassThroughHTTPCodecFilter {
+class HTTPCodecPrinter : public PassThroughHTTPCodecFilter {
  public:
   /*
    * Called from SPDYCodec::parseIngress()
@@ -87,7 +87,8 @@ class HTTPCodecPrinter: public PassThroughHTTPCodecFilter {
    * Called from SPDYCodec::onGoaway() with different arguments
    *             HTTP2Codec::parseGoaway()
    */
-  void onGoaway(uint64_t lastGoodStreamID, ErrorCode code,
+  void onGoaway(uint64_t lastGoodStreamID,
+                ErrorCode code,
                 std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
   /*
@@ -106,4 +107,4 @@ class HTTPCodecPrinter: public PassThroughHTTPCodecFilter {
   void printPing(uint64_t data);
 };
 
-}
+} // namespace proxygen

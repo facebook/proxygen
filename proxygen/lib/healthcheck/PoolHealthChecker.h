@@ -51,7 +51,8 @@ class PoolHealthChecker {
       std::shared_ptr<ServerHealthCheckerCallback> callback,
       folly::Optional<folly::SocketAddress> /* bindAddress */ = folly::none,
       folly::Optional<folly::SocketOptionMap> /*extraSockOpts */ = folly::none,
-      folly::Optional<folly::SocketAddress> /* overrideAddress */ = folly::none) = 0;
+      folly::Optional<folly::SocketAddress> /* overrideAddress */ =
+          folly::none) = 0;
 
   virtual void removeServer(const folly::SocketAddress& address) = 0;
 
@@ -62,8 +63,8 @@ class PoolHealthChecker {
    * avoid redundant local health checks.
    */
   virtual void setLastExternalUpdateTime(
-      std::vector<folly::SocketAddress>&& addresses,
-      TimePoint t) {}
+      std::vector<folly::SocketAddress>&& addresses, TimePoint t) {
+  }
 
   virtual ~PoolHealthChecker() {
   }

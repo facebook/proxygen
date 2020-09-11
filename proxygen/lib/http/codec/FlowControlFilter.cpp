@@ -17,17 +17,17 @@ HTTPException getException(const std::string& msg) {
   return ex;
 }
 
-}
+} // namespace
 
 FlowControlFilter::FlowControlFilter(Callback& callback,
                                      folly::IOBufQueue& writeBuf,
                                      HTTPCodec* codec,
-                                     uint32_t recvCapacity):
-    notify_(callback),
-    recvWindow_(codec->getDefaultWindowSize()),
-    sendWindow_(codec->getDefaultWindowSize()),
-    error_(false),
-    sendsBlocked_(false) {
+                                     uint32_t recvCapacity)
+    : notify_(callback),
+      recvWindow_(codec->getDefaultWindowSize()),
+      sendWindow_(codec->getDefaultWindowSize()),
+      error_(false),
+      sendsBlocked_(false) {
   if (recvCapacity > 0) {
     if (recvCapacity < codec->getDefaultWindowSize()) {
       VLOG(4) << "Ignoring low conn-level recv window size of " << recvCapacity;
@@ -68,8 +68,8 @@ void FlowControlFilter::setReceiveWindowSize(folly::IOBufQueue& writeBuf,
 bool FlowControlFilter::ingressBytesProcessed(folly::IOBufQueue& writeBuf,
                                               uint32_t delta) {
   toAck_ += delta;
-  bool willAck = (toAck_ > 0 &&
-                  uint32_t(toAck_) > recvWindow_.getCapacity() / 2);
+  bool willAck =
+      (toAck_ > 0 && uint32_t(toAck_) > recvWindow_.getCapacity() / 2);
   VLOG(4) << "processed " << delta << " toAck_=" << toAck_
           << " bytes, will ack=" << willAck;
   if (willAck) {
@@ -99,9 +99,10 @@ void FlowControlFilter::onBody(StreamID stream,
   if (!recvWindow_.reserve(amount + padding)) {
     error_ = true;
     HTTPException ex = getException(
-      folly::to<std::string>(
-        "Failed to reserve receive window, window size=",
-        recvWindow_.getSize(), ", amount=", amount));
+        folly::to<std::string>("Failed to reserve receive window, window size=",
+                               recvWindow_.getSize(),
+                               ", amount=",
+                               amount));
     callback_->onError(0, ex, false);
   } else {
     if (VLOG_IS_ON(4) && recvWindow_.getSize() == 0) {
@@ -116,8 +117,8 @@ void FlowControlFilter::onBody(StreamID stream,
 void FlowControlFilter::onWindowUpdate(StreamID stream, uint32_t amount) {
   if (!stream) {
     bool success = sendWindow_.free(amount);
-    VLOG(4) << "Remote side ack'd " << amount << " bytes, sendWindow=" <<
-      sendWindow_.getSize();
+    VLOG(4) << "Remote side ack'd " << amount
+            << " bytes, sendWindow=" << sendWindow_.getSize();
     if (!success) {
       LOG(WARNING) << "Remote side sent connection-level WINDOW_UPDATE "
                    << "that could not be applied. Aborting session.";
@@ -125,9 +126,10 @@ void FlowControlFilter::onWindowUpdate(StreamID stream, uint32_t amount) {
       // the entire session.
       error_ = true;
       HTTPException ex = getException(
-        folly::to<std::string>(
-          "Failed to update send window, outstanding=",
-          sendWindow_.getOutstanding(), ", amount=", amount));
+          folly::to<std::string>("Failed to update send window, outstanding=",
+                                 sendWindow_.getOutstanding(),
+                                 ", amount=",
+                                 amount));
       callback_->onError(stream, ex, false);
     }
     if (sendsBlocked_ && sendWindow_.getNonNegativeSize()) {
@@ -147,8 +149,7 @@ size_t FlowControlFilter::generateBody(folly::IOBufQueue& writeBuf,
                                        folly::Optional<uint8_t> padding,
                                        bool eom) {
   uint8_t padLen = padding ? *padding : 0;
-  bool success = sendWindow_.reserve(
-    chain->computeChainDataLength() + padLen);
+  bool success = sendWindow_.reserve(chain->computeChainDataLength() + padLen);
   VLOG(5) << "Sending " << chain->computeChainDataLength()
           << " bytes, sendWindow=" << sendWindow_.getSize();
 
@@ -163,8 +164,7 @@ size_t FlowControlFilter::generateBody(folly::IOBufQueue& writeBuf,
     notify_.onConnectionSendWindowClosed();
   }
 
-  return call_->generateBody(writeBuf, stream, std::move(chain), padding,
-                             eom);
+  return call_->generateBody(writeBuf, stream, std::move(chain), padding, eom);
 }
 
 size_t FlowControlFilter::generateWindowUpdate(folly::IOBufQueue& writeBuf,
@@ -174,4 +174,4 @@ size_t FlowControlFilter::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   return call_->generateWindowUpdate(writeBuf, stream, delta);
 }
 
-}
+} // namespace proxygen

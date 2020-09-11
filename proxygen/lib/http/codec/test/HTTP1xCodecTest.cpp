@@ -6,10 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/utils/Base64.h>
@@ -20,13 +20,16 @@ using namespace testing;
 
 class HTTP1xCodecCallback : public HTTPCodec::Callback {
  public:
-  HTTP1xCodecCallback() {}
+  HTTP1xCodecCallback() {
+  }
 
   void onMessageBegin(HTTPCodec::StreamID /*stream*/,
-                      HTTPMessage* /*msg*/) override {}
+                      HTTPMessage* /*msg*/) override {
+  }
   void onPushMessageBegin(HTTPCodec::StreamID /*stream*/,
                           HTTPCodec::StreamID /*assocStream*/,
-                          HTTPMessage* /*msg*/) override {}
+                          HTTPMessage* /*msg*/) override {
+  }
   void onHeadersComplete(HTTPCodec::StreamID /*stream*/,
                          std::unique_ptr<HTTPMessage> msg) override {
     headersComplete++;
@@ -39,8 +42,10 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
     bodyLen += chain->computeChainDataLength();
   }
   void onChunkHeader(HTTPCodec::StreamID /*stream*/,
-                     size_t /*length*/) override {}
-  void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {}
+                     size_t /*length*/) override {
+  }
+  void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {
+  }
   void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
                           std::unique_ptr<HTTPHeaders> trailers) override {
     trailersComplete++;
@@ -125,8 +130,8 @@ TEST(HTTP1xCodecTest, Test09Resp) {
   codec.setCallback(&callbacks);
   folly::IOBufQueue buf;
   codec.generateHeader(buf, id, req, true);
-  auto buffer = folly::IOBuf::copyBuffer(
-    string("iamtheverymodelofamodernmajorgeneral"));
+  auto buffer =
+      folly::IOBuf::copyBuffer(string("iamtheverymodelofamodernmajorgeneral"));
   codec.onIngress(*buffer);
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.bodyLen, buffer->computeChainDataLength());
@@ -181,30 +186,31 @@ TEST(HTTP1xCodecTest, TestKeepalive09_10) {
   codec2.generateHeader(buf, id, resp, true);
 
   EXPECT_TRUE(folly::IOBufEqualTo()(
-      *buf.front(), *folly::IOBuf::copyBuffer(
-       "HTTP/1.1 200 \r\n"
-       "Date: \r\n"
-       "Connection: close\r\n"
-       "Content-Length: 0\r\n\r\n")));
+      *buf.front(),
+      *folly::IOBuf::copyBuffer("HTTP/1.1 200 \r\n"
+                                "Date: \r\n"
+                                "Connection: close\r\n"
+                                "Content-Length: 0\r\n\r\n")));
   EXPECT_FALSE(codec2.isReusable());
   buf.move();
 
   HTTP1xCodec codec3(TransportDirection::DOWNSTREAM, true);
   HTTP1xCodecCallback callbacks3;
   codec3.setCallback(&callbacks3);
-  buffer = folly::IOBuf::copyBuffer(string("GET /yeah HTTP/1.0\r\n"
-                                           "Connection: keep-alive\r\n\r\n"));
+  buffer =
+      folly::IOBuf::copyBuffer(string("GET /yeah HTTP/1.0\r\n"
+                                      "Connection: keep-alive\r\n\r\n"));
   codec3.onIngress(*buffer);
   EXPECT_EQ(callbacks3.headersComplete, 1);
   EXPECT_EQ(callbacks3.messageComplete, 1);
   EXPECT_EQ(callbacks3.msg_->getHTTPVersion(), HTTPMessage::kHTTPVersion10);
   codec3.generateHeader(buf, id, resp, true);
   EXPECT_TRUE(folly::IOBufEqualTo()(
-      *buf.front(), *folly::IOBuf::copyBuffer(
-       "HTTP/1.1 200 \r\n"
-       "Date: \r\n"
-       "Connection: keep-alive\r\n"
-       "Content-Length: 0\r\n\r\n")));
+      *buf.front(),
+      *folly::IOBuf::copyBuffer("HTTP/1.1 200 \r\n"
+                                "Date: \r\n"
+                                "Connection: keep-alive\r\n"
+                                "Content-Length: 0\r\n\r\n")));
   EXPECT_TRUE(codec3.isReusable());
   buf.move();
 
@@ -221,10 +227,10 @@ TEST(HTTP1xCodecTest, TestKeepalive09_10) {
   resp.setIsChunked(true);
   codec4.generateHeader(buf, id, resp, true);
   EXPECT_TRUE(folly::IOBufEqualTo()(
-      *buf.front(), *folly::IOBuf::copyBuffer(
-       "HTTP/1.1 200 \r\n"
-       "Date: \r\n"
-       "Connection: close\r\n\r\n")));
+      *buf.front(),
+      *folly::IOBuf::copyBuffer("HTTP/1.1 200 \r\n"
+                                "Date: \r\n"
+                                "Connection: close\r\n\r\n")));
   EXPECT_FALSE(codec4.isReusable());
   buf.move();
 }
@@ -234,15 +240,14 @@ TEST(HTTP1xCodecTest, TestBadHeaders) {
   MockHTTPCodecCallback callbacks;
   codec.setCallback(&callbacks);
   auto buffer = folly::IOBuf::copyBuffer(
-    string("GET /yeah HTTP/1.1\nUser-Agent: Mozilla/5.0 Version/4.0 "
-           "\x10i\xC7n tho\xA1iSafari/534.30]"));
+      string("GET /yeah HTTP/1.1\nUser-Agent: Mozilla/5.0 Version/4.0 "
+             "\x10i\xC7n tho\xA1iSafari/534.30]"));
   EXPECT_CALL(callbacks, onMessageBegin(1, _));
   EXPECT_CALL(callbacks, onError(1, _, _))
-    .WillOnce(Invoke([&] (HTTPCodec::StreamID,
-                          std::shared_ptr<HTTPException> error,
-                          bool) {
-                       EXPECT_EQ(error->getHttpStatusCode(), 400);
-        }));
+      .WillOnce(Invoke(
+          [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
+            EXPECT_EQ(error->getHttpStatusCode(), 400);
+          }));
   codec.onIngress(*buffer);
 }
 
@@ -299,14 +304,14 @@ TEST(HTTP1xCodecTest, TestGetRequestChunkedResponse) {
   string resp2("");
   auto body2 = folly::IOBuf::copyBuffer(resp2);
 
-  codec.generateBody(respBuf, txnID, std::move(body1), HTTPCodec::NoPadding,
-                     false);
+  codec.generateBody(
+      respBuf, txnID, std::move(body1), HTTPCodec::NoPadding, false);
 
   auto bodyFromBuf = respBuf.split(respBuf.chainLength());
   ASSERT_EQ("5\r\nHello\r\n", bodyFromBuf->moveToFbString());
 
-  codec.generateBody(respBuf, txnID, std::move(body2), HTTPCodec::NoPadding,
-                     true);
+  codec.generateBody(
+      respBuf, txnID, std::move(body2), HTTPCodec::NoPadding, true);
 
   bodyFromBuf = respBuf.split(respBuf.chainLength());
   ASSERT_EQ("0\r\n\r\n", bodyFromBuf->moveToFbString());
@@ -365,14 +370,12 @@ TEST(HTTP1xCodecTest, TestChunkedUpstream) {
   string req2("World");
   auto body2 = folly::IOBuf::copyBuffer(req2);
 
-  codec.generateBody(buf, txnID, std::move(body1), HTTPCodec::NoPadding,
-                     false);
+  codec.generateBody(buf, txnID, std::move(body1), HTTPCodec::NoPadding, false);
 
   auto bodyFromBuf = buf.split(buf.chainLength());
   ASSERT_EQ("5\r\nHello\r\n", bodyFromBuf->moveToFbString());
 
-  codec.generateBody(buf, txnID, std::move(body2), HTTPCodec::NoPadding,
-                     true);
+  codec.generateBody(buf, txnID, std::move(body2), HTTPCodec::NoPadding, true);
   LOG(WARNING) << "len chain" << buf.chainLength();
 
   auto eomFromBuf = buf.split(buf.chainLength());
@@ -388,36 +391,34 @@ TEST(HTTP1xCodecTest, TestBadPost100) {
   InSequence enforceOrder;
   EXPECT_CALL(callbacks, onMessageBegin(1, _));
   EXPECT_CALL(callbacks, onHeadersComplete(1, _))
-    .WillOnce(InvokeWithoutArgs([&] {
-          HTTPMessage cont;
-          cont.setStatusCode(100);
-          cont.setStatusMessage("Continue");
-          codec.generateHeader(writeBuf, 1, cont);
-        }));
+      .WillOnce(InvokeWithoutArgs([&] {
+        HTTPMessage cont;
+        cont.setStatusCode(100);
+        cont.setStatusMessage("Continue");
+        codec.generateHeader(writeBuf, 1, cont);
+      }));
 
   EXPECT_CALL(callbacks, onBody(1, _, _));
   EXPECT_CALL(callbacks, onMessageComplete(1, _));
-  EXPECT_CALL(callbacks, onMessageBegin(2, _))
-    .WillOnce(InvokeWithoutArgs([&] {
-          // simulate HTTPSession's aversion to pipelining
-          codec.setParserPaused(true);
+  EXPECT_CALL(callbacks, onMessageBegin(2, _)).WillOnce(InvokeWithoutArgs([&] {
+    // simulate HTTPSession's aversion to pipelining
+    codec.setParserPaused(true);
 
-          // Trigger the response to the POST
-          HTTPMessage resp;
-          resp.setStatusCode(200);
-          resp.setStatusMessage("OK");
-          codec.generateHeader(writeBuf, 1, resp);
-          codec.generateEOM(writeBuf, 1);
-          codec.setParserPaused(false);
-        }));
-  EXPECT_CALL(callbacks, onError(2, _, _))
-    .WillOnce(InvokeWithoutArgs([&] {
-          HTTPMessage resp;
-          resp.setStatusCode(400);
-          resp.setStatusMessage("Bad");
-          codec.generateHeader(writeBuf, 2, resp);
-          codec.generateEOM(writeBuf, 2);
-        }));
+    // Trigger the response to the POST
+    HTTPMessage resp;
+    resp.setStatusCode(200);
+    resp.setStatusMessage("OK");
+    codec.generateHeader(writeBuf, 1, resp);
+    codec.generateEOM(writeBuf, 1);
+    codec.setParserPaused(false);
+  }));
+  EXPECT_CALL(callbacks, onError(2, _, _)).WillOnce(InvokeWithoutArgs([&] {
+    HTTPMessage resp;
+    resp.setStatusCode(400);
+    resp.setStatusMessage("Bad");
+    codec.generateHeader(writeBuf, 2, resp);
+    codec.generateEOM(writeBuf, 2);
+  }));
   // Generate a POST request with a bad content-length
   auto reqBuf = folly::IOBuf::copyBuffer(
       "POST /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n"
@@ -441,7 +442,6 @@ TEST(HTTP1xCodecTest, TestMultipleIdenticalContentLengthHeaders) {
   EXPECT_EQ(callbacks.streamErrors, 0);
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, 1);
-
 }
 
 TEST(HTTP1xCodecTest, TestMultipleDistinctContentLengthHeaders) {
@@ -533,8 +533,8 @@ TEST(HTTP1xCodecTest, Test1xxConnectionHeader) {
   upstream.onIngress(*writeBuf.front());
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(
-    callbacks.msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
-    "Upgrade");
+      callbacks.msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+      "Upgrade");
   resp.setStatusCode(200);
   resp.getHeaders().remove(HTTP_HEADER_CONNECTION);
   resp.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "0");
@@ -543,8 +543,8 @@ TEST(HTTP1xCodecTest, Test1xxConnectionHeader) {
   upstream.onIngress(*writeBuf.front());
   EXPECT_EQ(callbacks.headersComplete, 2);
   EXPECT_EQ(
-    callbacks.msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
-    "keep-alive");
+      callbacks.msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+      "keep-alive");
 }
 
 TEST(HTTP1xCodecTest, TestChainedBody) {
@@ -554,9 +554,10 @@ TEST(HTTP1xCodecTest, TestChainedBody) {
 
   folly::IOBufQueue bodyQueue;
   ON_CALL(callbacks, onBody(1, _, _))
-      .WillByDefault(Invoke(
-          [&bodyQueue](HTTPCodec::StreamID, std::shared_ptr<folly::IOBuf> buf,
-                       uint16_t) { bodyQueue.append(buf->clone()); }));
+      .WillByDefault(
+          Invoke([&bodyQueue](HTTPCodec::StreamID,
+                              std::shared_ptr<folly::IOBuf> buf,
+                              uint16_t) { bodyQueue.append(buf->clone()); }));
 
   folly::IOBufQueue reqQueue;
   reqQueue.append(folly::IOBuf::copyBuffer(
@@ -573,7 +574,7 @@ TEST(HTTP1xCodecTest, TestChainedBody) {
   }
 
   EXPECT_TRUE(folly::IOBufEqualTo()(*bodyQueue.front(),
-                                  *folly::IOBuf::copyBuffer("abcdefghij")));
+                                    *folly::IOBuf::copyBuffer("abcdefghij")));
 }
 
 TEST(HTTP1xCodecTest, TestIgnoreUpstreamUpgrade) {
@@ -629,7 +630,7 @@ TEST(HTTP1xCodecTest, WebsocketUpgrade) {
   EXPECT_EQ(upstreamCallbacks.headersComplete, 1);
   headers = upstreamCallbacks.msg_->getHeaders();
   auto ws_accept_header =
-    headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT);
+      headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT);
   EXPECT_NE(ws_accept_header, empty_string);
 }
 
@@ -673,7 +674,7 @@ TEST(HTTP1xCodecTest, WebsocketUpgradeHeaderSet) {
   downstreamCodec.onIngress(*buf.front());
   auto headers = callbacks.msg_->getHeaders();
   EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY),
-      empty_string);
+            empty_string);
 }
 
 TEST(HTTP1xCodecTest, WebsocketConnectionHeader) {
@@ -684,9 +685,9 @@ TEST(HTTP1xCodecTest, WebsocketConnectionHeader) {
   req.setEgressWebsocketUpgrade();
   req.getHeaders().add(proxygen::HTTP_HEADER_CONNECTION, "upgrade, keep-alive");
   req.getHeaders().add(proxygen::HTTP_HEADER_SEC_WEBSOCKET_KEY,
-      "key should change");
+                       "key should change");
   req.getHeaders().add(proxygen::HTTP_HEADER_SEC_WEBSOCKET_ACCEPT,
-      "this should not be found");
+                       "this should not be found");
 
   folly::IOBufQueue buf;
   upstreamCodec.generateHeader(buf, upstreamCodec.createStream(), req);
@@ -707,9 +708,9 @@ TEST(HTTP1xCodecTest, WebsocketConnectionHeader) {
   EXPECT_EQ(16, Base64::decode(ws_sec_key, 2).length());
 
   EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_ACCEPT),
-      empty_string);
+            empty_string);
   EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_CONNECTION),
-      "upgrade, keep-alive");
+            "upgrade, keep-alive");
 }
 
 TEST(HTTP1xCodecTest, TrailersAndEomAreNotGeneratedWhenNonChunked) {
@@ -812,8 +813,8 @@ TEST(HTTP1xCodecTest, TestHeaderValueWhiteSpaces) {
   EXPECT_EQ(headers.getSingleOrEmpty("X-FB-HEADER"), "yay");
 }
 
-class ConnectionHeaderTest:
-    public TestWithParam<std::pair<std::list<string>, string>> {
+class ConnectionHeaderTest
+    : public TestWithParam<std::pair<std::list<string>, string>> {
  public:
   using ParamType = std::pair<std::list<string>, string>;
 };
@@ -827,7 +828,7 @@ TEST_P(ConnectionHeaderTest, TestConnectionHeaders) {
   req.setMethod(HTTPMethod::GET);
   req.setURL("/");
   auto val = GetParam();
-  for (auto header: val.first) {
+  for (auto header : val.first) {
     req.getHeaders().add(HTTP_HEADER_CONNECTION, header);
   }
   folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
@@ -835,31 +836,28 @@ TEST_P(ConnectionHeaderTest, TestConnectionHeaders) {
   downstream.onIngress(*writeBuf.front());
   EXPECT_EQ(callbacks.headersComplete, 1);
   auto& headers = callbacks.msg_->getHeaders();
-  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_CONNECTION),
-            val.second);
+  EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_CONNECTION), val.second);
 }
 
-
 INSTANTIATE_TEST_CASE_P(
-  HTTP1xCodec,
-  ConnectionHeaderTest,
-  ::testing::Values(
-    // Moves close to the end
-    ConnectionHeaderTest::ParamType(
-      { "foo", "bar", "close", "baz" }, "foo, bar, baz, close"),
-    // has to resize token vector
-    ConnectionHeaderTest::ParamType(
-      { "foo", "bar, close", "baz" }, "foo, bar, baz, close"),
-    // whitespace trimming
-    ConnectionHeaderTest::ParamType(
-      { " foo", "bar, close ", " baz " }, "foo, bar, baz, close"),
-    // No close token => keep-alive
-    ConnectionHeaderTest::ParamType(
-      { "foo", "bar, boo", "baz" }, "foo, bar, boo, baz, keep-alive"),
-    // close and keep-alive => close
-    ConnectionHeaderTest::ParamType(
-      { "foo", "keep-alive, boo", "close" }, "foo, boo, close"),
-    // upgrade gets no special treatment
-    ConnectionHeaderTest::ParamType(
-      { "foo", "upgrade, boo", "baz" }, "foo, upgrade, boo, baz, keep-alive")
-  ));
+    HTTP1xCodec,
+    ConnectionHeaderTest,
+    ::testing::Values(
+        // Moves close to the end
+        ConnectionHeaderTest::ParamType({"foo", "bar", "close", "baz"},
+                                        "foo, bar, baz, close"),
+        // has to resize token vector
+        ConnectionHeaderTest::ParamType({"foo", "bar, close", "baz"},
+                                        "foo, bar, baz, close"),
+        // whitespace trimming
+        ConnectionHeaderTest::ParamType({" foo", "bar, close ", " baz "},
+                                        "foo, bar, baz, close"),
+        // No close token => keep-alive
+        ConnectionHeaderTest::ParamType({"foo", "bar, boo", "baz"},
+                                        "foo, bar, boo, baz, keep-alive"),
+        // close and keep-alive => close
+        ConnectionHeaderTest::ParamType({"foo", "keep-alive, boo", "close"},
+                                        "foo, boo, close"),
+        // upgrade gets no special treatment
+        ConnectionHeaderTest::ParamType({"foo", "upgrade, boo", "baz"},
+                                        "foo, upgrade, boo, baz, keep-alive")));

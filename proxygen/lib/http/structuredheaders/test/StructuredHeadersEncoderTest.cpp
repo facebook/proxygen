@@ -7,17 +7,16 @@
  */
 
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
-#include <unordered_map>
 #include <folly/Conv.h>
-#include <folly/portability/GTest.h>
 #include <folly/portability/GMock.h>
+#include <folly/portability/GTest.h>
+#include <unordered_map>
 
 using namespace testing;
 
 namespace proxygen {
 
-class StructuredHeadersEncoderTest : public testing::Test {
-};
+class StructuredHeadersEncoderTest : public testing::Test {};
 
 TEST_F(StructuredHeadersEncoderTest, TestInteger) {
   StructuredHeaderItem item;
@@ -305,14 +304,13 @@ TEST_F(StructuredHeadersEncoderTest, TestDictionaryManyElts) {
 
   // A dictionary is an unordered mapping, so the ordering of specific elements
   // within the dictionary doesn't matter
-  EXPECT_THAT(encoder.get(), AnyOf(
-    Eq("age=87, name=\"John Doe\", password=*cGFzc3dvcmQ=*"),
-    Eq("age=87, password=*cGFzc3dvcmQ=*, name=\"John Doe\""),
-    Eq("name=\"John Doe\", age=87, password=*cGFzc3dvcmQ=*"),
-    Eq("name=\"John Doe\", password=*cGFzc3dvcmQ=*, age=87"),
-    Eq("password=*cGFzc3dvcmQ=*, name=\"John Doe\", age=87"),
-    Eq("password=*cGFzc3dvcmQ=*, age=87, name=\"John Doe\"")
-  ));
+  EXPECT_THAT(encoder.get(),
+              AnyOf(Eq("age=87, name=\"John Doe\", password=*cGFzc3dvcmQ=*"),
+                    Eq("age=87, password=*cGFzc3dvcmQ=*, name=\"John Doe\""),
+                    Eq("name=\"John Doe\", age=87, password=*cGFzc3dvcmQ=*"),
+                    Eq("name=\"John Doe\", password=*cGFzc3dvcmQ=*, age=87"),
+                    Eq("password=*cGFzc3dvcmQ=*, name=\"John Doe\", age=87"),
+                    Eq("password=*cGFzc3dvcmQ=*, age=87, name=\"John Doe\"")));
 }
 
 TEST_F(StructuredHeadersEncoderTest, TestDictionaryEmpty) {
@@ -398,10 +396,7 @@ TEST_F(StructuredHeadersEncoderTest, TestParamListSuccessiveNulls) {
 
   EXPECT_EQ(err, EncodeError::OK);
 
-  EXPECT_THAT(encoder.get(), AnyOf(
-    Eq("foo; a; b"),
-    Eq("foo; b; a")
-  ));
+  EXPECT_THAT(encoder.get(), AnyOf(Eq("foo; a; b"), Eq("foo; b; a")));
 }
 
 TEST_F(StructuredHeadersEncoderTest, TestParamListManyElts) {
@@ -445,16 +440,16 @@ TEST_F(StructuredHeadersEncoderTest, TestParamListManyElts) {
 
   // The order of the parameters of a particular identifier doesn't matter,
   // so any of these permutations is acceptable
-  EXPECT_THAT(encoder.get(), AnyOf(
-    Eq("bar; foo=4234.234; goo=*KysrIQ==*, far; foo; goo=100"),
-    Eq("bar; foo=4234.234; goo=*KysrIQ==*, far; goo=100; foo"),
-    Eq("bar; goo=*KysrIQ==*; foo=4234.234, far; foo; goo=100"),
-    Eq("bar; goo=*KysrIQ==*; foo=4234.234, far; goo=100; foo"),
-    Eq("far; foo; goo=100, bar; foo=4234.234; goo=*KysrIQ==*"),
-    Eq("far; foo; goo=100, bar; goo=*KysrIQ==*; foo=4234.234"),
-    Eq("far; goo=100; foo, bar; foo=4234.234; goo=*KysrIQ==*"),
-    Eq("far; goo=100; foo, bar; goo=*KysrIQ==*; foo=4234.234")
-  ));
+  EXPECT_THAT(
+      encoder.get(),
+      AnyOf(Eq("bar; foo=4234.234; goo=*KysrIQ==*, far; foo; goo=100"),
+            Eq("bar; foo=4234.234; goo=*KysrIQ==*, far; goo=100; foo"),
+            Eq("bar; goo=*KysrIQ==*; foo=4234.234, far; foo; goo=100"),
+            Eq("bar; goo=*KysrIQ==*; foo=4234.234, far; goo=100; foo"),
+            Eq("far; foo; goo=100, bar; foo=4234.234; goo=*KysrIQ==*"),
+            Eq("far; foo; goo=100, bar; goo=*KysrIQ==*; foo=4234.234"),
+            Eq("far; goo=100; foo, bar; foo=4234.234; goo=*KysrIQ==*"),
+            Eq("far; goo=100; foo, bar; goo=*KysrIQ==*; foo=4234.234")));
 }
 
 TEST_F(StructuredHeadersEncoderTest, TestParamListEmpty) {
@@ -528,4 +523,4 @@ TEST_F(StructuredHeadersEncoderTest, TestParamListBadItems) {
   EXPECT_NE(err, EncodeError::OK);
 }
 
-}
+} // namespace proxygen

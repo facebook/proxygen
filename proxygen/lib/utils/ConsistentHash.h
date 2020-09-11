@@ -15,7 +15,8 @@ namespace proxygen {
 
 class ConsistentHash {
  public:
-  virtual ~ConsistentHash() {}
+  virtual ~ConsistentHash() {
+  }
 
   /**
    * build() builds the hashing pool based on a vector of nodes with their keys
@@ -25,7 +26,7 @@ class ConsistentHash {
    *
    * build() is not thread safe with get(), documented below.
    */
-  virtual void build(std::vector<std::pair<std::string, uint64_t> > &) = 0;
+  virtual void build(std::vector<std::pair<std::string, uint64_t>> &) = 0;
 
   /**
    * get(key, N) finds the node ranked N in the consistent hashing space
@@ -41,4 +42,4 @@ class ConsistentHash {
    */
   virtual double getMaxErrorRate() const = 0;
 };
-}
+} // namespace proxygen

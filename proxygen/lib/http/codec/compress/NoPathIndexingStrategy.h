@@ -16,8 +16,8 @@ class NoPathIndexingStrategy : public HeaderIndexingStrategy {
  public:
   static const NoPathIndexingStrategy* getInstance();
 
-  NoPathIndexingStrategy()
-    : HeaderIndexingStrategy() {}
+  NoPathIndexingStrategy() : HeaderIndexingStrategy() {
+  }
 
   // For compression simulations we do not want to index :path headers
   bool indexHeader(const HPACKHeaderName& name,
@@ -30,4 +30,4 @@ class NoPathIndexingStrategy : public HeaderIndexingStrategy {
   }
 };
 
-}
+} // namespace proxygen

@@ -9,15 +9,15 @@
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 
 #include <algorithm>
-#include <folly/ThreadLocal.h>
 #include <folly/String.h>
+#include <folly/ThreadLocal.h>
 #include <folly/io/Cursor.h>
-#include <proxygen/lib/http/codec/compress/HPACKCodec.h> // for prepareHeaders
-#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
+#include <iosfwd>
+#include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HeaderConstants.h>
-#include <proxygen/lib/http/HTTPMessage.h>
-#include <iosfwd>
+#include <proxygen/lib/http/codec/compress/HPACKCodec.h> // for prepareHeaders
+#include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
 using proxygen::compress::Header;
 using std::vector;
@@ -25,8 +25,8 @@ namespace proxygen {
 
 QPACKCodec::QPACKCodec()
     // by default dynamic tables are 0 size
-    : encoder_(true, 0),
-      decoder_(0, maxUncompressed_) {}
+    : encoder_(true, 0), decoder_(0, maxUncompressed_) {
+}
 
 void QPACKCodec::recordCompressedSize(const folly::IOBuf* stream,
                                       size_t controlSize) {
@@ -48,20 +48,19 @@ QPACKEncoder::EncodeResult QPACKCodec::encode(
     uint32_t maxEncoderStreamBytes) noexcept {
   std::vector<HPACKHeader> prepared;
   encodedSize_.uncompressed = compress::prepareHeaders(headers, prepared);
-  auto res = encoder_.encode(prepared, encodeHeadroom_, streamId,
-                             maxEncoderStreamBytes);
-  size_t controlSize = res.control ?
-    res.control->computeChainDataLength() : 0;
+  auto res = encoder_.encode(
+      prepared, encodeHeadroom_, streamId, maxEncoderStreamBytes);
+  size_t controlSize = res.control ? res.control->computeChainDataLength() : 0;
   recordCompressedSize(res.stream.get(), controlSize);
   return res;
 }
 
 std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
-  folly::IOBufQueue& controlQueue,
-  const HTTPMessage& msg,
-  bool includeDate,
-  uint64_t streamId,
-  uint32_t maxEncoderStreamBytes) noexcept {
+    folly::IOBufQueue& controlQueue,
+    const HTTPMessage& msg,
+    bool includeDate,
+    uint64_t streamId,
+    uint32_t maxEncoderStreamBytes) noexcept {
   auto baseIndex = encoder_.startEncode(controlQueue, 0, maxEncoderStreamBytes);
   uint32_t requiredInsertCount = 0;
   auto prevSize = controlQueue.chainLength();
@@ -69,48 +68,59 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
   auto uncompressed = 0;
   if (msg.isRequest()) {
     if (msg.isEgressWebsocketUpgrade()) {
-      uncompressed += encoder_.encodeHeaderQ(
-        HPACKHeaderName(HTTP_HEADER_COLON_METHOD),
-        methodToString(HTTPMethod::CONNECT),
-        baseIndex, requiredInsertCount);
-      uncompressed += encoder_.encodeHeaderQ(
-        HPACKHeaderName(HTTP_HEADER_COLON_PROTOCOL),
-        headers::kWebsocketString,
-        baseIndex, requiredInsertCount);
+      uncompressed +=
+          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_METHOD),
+                                 methodToString(HTTPMethod::CONNECT),
+                                 baseIndex,
+                                 requiredInsertCount);
+      uncompressed +=
+          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_PROTOCOL),
+                                 headers::kWebsocketString,
+                                 baseIndex,
+                                 requiredInsertCount);
     } else {
-      uncompressed += encoder_.encodeHeaderQ(
-        HPACKHeaderName(HTTP_HEADER_COLON_METHOD),
-        msg.getMethodString(),
-        baseIndex, requiredInsertCount);
+      uncompressed +=
+          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_METHOD),
+                                 msg.getMethodString(),
+                                 baseIndex,
+                                 requiredInsertCount);
     }
 
     if (msg.getMethod() != HTTPMethod::CONNECT ||
         msg.isEgressWebsocketUpgrade()) {
       uncompressed += encoder_.encodeHeaderQ(
-        HPACKHeaderName(HTTP_HEADER_COLON_SCHEME),
-        (msg.isSecure() ? headers::kHttps : headers::kHttp),
-        baseIndex, requiredInsertCount);
-      uncompressed += encoder_.encodeHeaderQ(
-        HPACKHeaderName(HTTP_HEADER_COLON_PATH), msg.getURL(),
-        baseIndex, requiredInsertCount);
+          HPACKHeaderName(HTTP_HEADER_COLON_SCHEME),
+          (msg.isSecure() ? headers::kHttps : headers::kHttp),
+          baseIndex,
+          requiredInsertCount);
+      uncompressed +=
+          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_PATH),
+                                 msg.getURL(),
+                                 baseIndex,
+                                 requiredInsertCount);
     }
     const HTTPHeaders& headers = msg.getHeaders();
     const std::string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
     if (!host.empty()) {
-      uncompressed += encoder_.encodeHeaderQ(
-         HPACKHeaderName(HTTP_HEADER_COLON_AUTHORITY), host,
-         baseIndex, requiredInsertCount);
+      uncompressed +=
+          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_AUTHORITY),
+                                 host,
+                                 baseIndex,
+                                 requiredInsertCount);
     }
   } else {
     if (msg.isEgressWebsocketUpgrade()) {
-      uncompressed += encoder_.encodeHeaderQ(
-        HPACKHeaderName(HTTP_HEADER_COLON_STATUS), headers::kStatus200,
-        baseIndex, requiredInsertCount);
+      uncompressed +=
+          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_STATUS),
+                                 headers::kStatus200,
+                                 baseIndex,
+                                 requiredInsertCount);
     } else {
       uncompressed += encoder_.encodeHeaderQ(
-        HPACKHeaderName(HTTP_HEADER_COLON_STATUS),
-                    folly::to<folly::fbstring>(msg.getStatusCode()),
-        baseIndex, requiredInsertCount);
+          HPACKHeaderName(HTTP_HEADER_COLON_STATUS),
+          folly::to<folly::fbstring>(msg.getStatusCode()),
+          baseIndex,
+          requiredInsertCount);
     }
     // HEADERS frames do not include a version or reason string.
   }
@@ -121,8 +131,8 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
   msg.getHeaders().forEachWithCode([&](HTTPHeaderCode code,
                                        const std::string& name,
                                        const std::string& value) {
-    if (CodecUtil::perHopHeaderCodes()[code] ||
-        name.empty() || name[0] == ':') {
+    if (CodecUtil::perHopHeaderCodes()[code] || name.empty() ||
+        name[0] == ':') {
       DCHECK(!name.empty()) << "Empty header";
       DCHECK_NE(name[0], ':') << "Invalid header=" << name;
       return;
@@ -134,25 +144,25 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
     DCHECK(name != "TE" || value == "trailers");
     if ((!name.empty() && name[0] != ':') && code != HTTP_HEADER_HOST) {
       if (code == HTTP_HEADER_OTHER) {
-        uncompressed += encoder_.encodeHeaderQ(HPACKHeaderName(name), value,
-                                               baseIndex, requiredInsertCount);
+        uncompressed += encoder_.encodeHeaderQ(
+            HPACKHeaderName(name), value, baseIndex, requiredInsertCount);
       } else {
-        uncompressed += encoder_.encodeHeaderQ(HPACKHeaderName(code), value,
-                                               baseIndex, requiredInsertCount);
+        uncompressed += encoder_.encodeHeaderQ(
+            HPACKHeaderName(code), value, baseIndex, requiredInsertCount);
       }
     }
     hasDateHeader |= ((code == HTTP_HEADER_DATE) ? 1 : 0);
   });
 
-
   if (includeDate && msg.isResponse() && !hasDateHeader) {
-    uncompressed += encoder_.encodeHeaderQ(
-      HPACKHeaderName(HTTP_HEADER_DATE), HTTPMessage::formatDateHeader(),
-      baseIndex, requiredInsertCount);
+    uncompressed += encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_DATE),
+                                           HTTPMessage::formatDateHeader(),
+                                           baseIndex,
+                                           requiredInsertCount);
   }
 
-  auto result = encoder_.completeEncode(
-    streamId, baseIndex, requiredInsertCount);
+  auto result =
+      encoder_.completeEncode(streamId, baseIndex, requiredInsertCount);
   encodedSize_.uncompressed = uncompressed;
   recordCompressedSize(result.get(), controlQueue.chainLength() - prevSize);
   return result;
@@ -179,4 +189,4 @@ std::ostream& operator<<(std::ostream& os, const QPACKCodec& codec) {
   return os;
 }
 
-}
+} // namespace proxygen

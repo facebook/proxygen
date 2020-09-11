@@ -78,8 +78,7 @@ class SessionPoolFixture
   }
 
   HTTPUpstreamSession* makeSession(std::unique_ptr<HTTPCodec> codec) {
-    auto sock =
-        folly::AsyncTransport::UniquePtr(new TestAsyncTransport(&evb_));
+    auto sock = folly::AsyncTransport::UniquePtr(new TestAsyncTransport(&evb_));
     wangle::TransportInfo tinfo;
     tinfo.acceptTime = getCurrentTime();
     return new HTTPUpstreamSession(timeouts_.get(),

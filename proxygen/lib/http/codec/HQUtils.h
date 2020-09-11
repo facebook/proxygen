@@ -49,8 +49,7 @@ HTTP3::ErrorCode toHTTP3ErrorCode(const HTTPException& ex);
  *  Transport error (must be from peer?) -> kErrorConnectionReset
  *  Local error -> kErrorShutdown
  */
-ProxygenError
-toProxygenError(quic::QuicErrorCode error, bool fromPeer=false);
+ProxygenError toProxygenError(quic::QuicErrorCode error, bool fromPeer = false);
 
 folly::Optional<hq::SettingId> httpToHqSettingsId(proxygen::SettingsId id);
 

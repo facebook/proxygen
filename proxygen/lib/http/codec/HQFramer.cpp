@@ -47,8 +47,9 @@ bool isValidPushId(folly::Optional<PushId> maxAllowedPushId, PushId pushId) {
     VLOG(3) << __func__ << "maximum push ID value has not been set";
     return false;
   } else if (!comparePushId(maxAllowedPushId.value(), pushId)) {
-    VLOG(3) << __func__ << "given pushid=" << pushId << "exceeds possible push ID value "
-      << "maxAllowedPushId_=" << maxAllowedPushId.value();
+    VLOG(3) << __func__ << "given pushid=" << pushId
+            << "exceeds possible push ID value "
+            << "maxAllowedPushId_=" << maxAllowedPushId.value();
     return false;
   }
 
@@ -221,8 +222,8 @@ WriteResult writeFrameHeader(IOBufQueue& queue,
   auto appenderOp = [appender = std::move(appender)](auto val) mutable {
     appender.writeBE(val);
   };
-  auto typeRes = quic::encodeQuicInteger(
-      static_cast<uint64_t>(type), appenderOp);
+  auto typeRes =
+      quic::encodeQuicInteger(static_cast<uint64_t>(type), appenderOp);
   if (typeRes.hasError()) {
     return typeRes;
   }

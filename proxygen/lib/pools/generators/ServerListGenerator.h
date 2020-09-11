@@ -223,8 +223,8 @@ class ServerListCallback : public ServerListGenerator::Callback {
   explicit ServerListCallback() : status(NOT_FINISHED) {
   }
 
-  void onServerListAvailable(
-      std::vector<ServerListGenerator::ServerConfig>&& results) noexcept override {
+  void onServerListAvailable(std::vector<ServerListGenerator::ServerConfig>&&
+                                 results) noexcept override {
     servers.swap(results);
     status = SUCCESS;
   }

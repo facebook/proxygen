@@ -28,8 +28,8 @@ class HPACKHeader;
 class HTTPMessage;
 
 namespace compress {
-uint32_t prepareHeaders(
-  const std::vector<Header>& headers, std::vector<HPACKHeader>& prepared);
+uint32_t prepareHeaders(const std::vector<Header>& headers,
+                        std::vector<HPACKHeader>& prepared);
 }
 
 /*
@@ -47,15 +47,12 @@ class HPACKCodec : public HeaderCodec {
   std::unique_ptr<folly::IOBuf> encode(
       std::vector<compress::Header>& headers) noexcept;
 
-  void encode(
-      std::vector<compress::Header>& headers,
-      folly::IOBufQueue& writeBuf) noexcept;
+  void encode(std::vector<compress::Header>& headers,
+              folly::IOBufQueue& writeBuf) noexcept;
 
-  void encodeHTTP(
-      const HTTPMessage& msg,
-      folly::IOBufQueue& writeBuf,
-      bool includeDate) noexcept;
-
+  void encodeHTTP(const HTTPMessage& msg,
+                  folly::IOBufQueue& writeBuf,
+                  bool includeDate) noexcept;
 
   void decodeStreaming(folly::io::Cursor& cursor,
                        uint32_t length,
@@ -81,12 +78,16 @@ class HPACKCodec : public HeaderCodec {
                            encoder_.getBytesStored(),
                            encoder_.getHeadersStored(),
                            encoder_.getInsertCount(),
-                           0, 0, encoder_.getStaticRefs(),
+                           0,
+                           0,
+                           encoder_.getStaticRefs(),
                            decoder_.getTableSize(),
                            decoder_.getBytesStored(),
                            decoder_.getHeadersStored(),
                            decoder_.getInsertCount(),
-                           0, 0, decoder_.getStaticRefs());
+                           0,
+                           0,
+                           decoder_.getStaticRefs());
   }
 
   void setHeaderIndexingStrategy(const HeaderIndexingStrategy* indexingStrat) {

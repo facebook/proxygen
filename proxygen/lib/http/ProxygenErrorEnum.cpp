@@ -11,9 +11,7 @@
 #define PROXYGEN_ERROR_STR(error) #error
 
 namespace {
-  static const char* errorStrings[] = {
-    PROXYGEN_ERROR_GEN(PROXYGEN_ERROR_STR)
-  };
+static const char* errorStrings[] = {PROXYGEN_ERROR_GEN(PROXYGEN_ERROR_STR)};
 }
 
 namespace proxygen {
@@ -33,4 +31,4 @@ const char* getErrorStringByIndex(int i) {
   return errorStrings[i];
 }
 
-}
+} // namespace proxygen

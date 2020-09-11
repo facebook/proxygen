@@ -73,15 +73,14 @@ bool containsAllHeaders(const HTTPHeaders& h1, const HTTPHeaders& h2) {
   return allValuesPresent;
 }
 
-}
+} // namespace
 
 namespace proxygen {
 
 namespace compress {
 
 std::vector<compress::Header> prepareMessageForCompression(
-    const HTTPMessage& msg,
-    std::vector<string>& cookies) {
+    const HTTPMessage& msg, std::vector<string>& cookies) {
   std::vector<compress::Header> allHeaders;
   // The encode API is pretty bad.  We should just let HPACK directly encode
   // HTTP messages
@@ -89,14 +88,15 @@ std::vector<compress::Header> prepareMessageForCompression(
   const string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
   bool isPublic = msg.getMethodString().empty();
   if (!isPublic) {
-    allHeaders.emplace_back(HTTP_HEADER_COLON_METHOD, headers::kMethod,
-                            msg.getMethodString());
+    allHeaders.emplace_back(
+        HTTP_HEADER_COLON_METHOD, headers::kMethod, msg.getMethodString());
     if (msg.getMethod() != HTTPMethod::CONNECT) {
       allHeaders.emplace_back(
-          HTTP_HEADER_COLON_SCHEME, headers::kScheme,
+          HTTP_HEADER_COLON_SCHEME,
+          headers::kScheme,
           (msg.isSecure() ? headers::kHttps : headers::kHttp));
-      allHeaders.emplace_back(HTTP_HEADER_COLON_PATH, headers::kPath,
-                              msg.getURL());
+      allHeaders.emplace_back(
+          HTTP_HEADER_COLON_PATH, headers::kPath, msg.getURL());
     }
 
     if (!host.empty()) {
@@ -126,7 +126,7 @@ std::vector<compress::Header> prepareMessageForCompression(
   return allHeaders;
 }
 
-} // end compress
+} // namespace compress
 
 bool operator==(const HTTPMessage& msg1, const HTTPMessage& msg2) {
   return (msg1.getMethodString() == msg2.getMethodString() &&
@@ -136,4 +136,4 @@ bool operator==(const HTTPMessage& msg1, const HTTPMessage& msg2) {
           containsAllHeaders(msg2.getHeaders(), msg1.getHeaders()));
 }
 
-}
+} // namespace proxygen

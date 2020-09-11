@@ -7,18 +7,16 @@
  */
 
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersUtilities.h>
-#include <string>
 #include <folly/portability/GTest.h>
+#include <string>
 
-namespace proxygen {
-namespace StructuredHeaders {
+namespace proxygen { namespace StructuredHeaders {
 
-class StructuredHeadersUtilitiesTest : public testing::Test {
-};
+class StructuredHeadersUtilitiesTest : public testing::Test {};
 
 TEST_F(StructuredHeadersUtilitiesTest, TestLcalpha) {
   for (uint32_t i = 0; i < 256; i++) {
-    uint8_t c = (uint8_t) i;
+    uint8_t c = (uint8_t)i;
     if (c >= 'a' && c <= 'z') {
       EXPECT_TRUE(isLcAlpha(c));
     } else {
@@ -29,9 +27,8 @@ TEST_F(StructuredHeadersUtilitiesTest, TestLcalpha) {
 
 TEST_F(StructuredHeadersUtilitiesTest, TestIsValidIdentifierChar) {
   for (uint32_t i = 0; i < 256; i++) {
-    uint8_t c = (uint8_t) i;
-    if ((c >= 'a' && c <= 'z') ||
-        (c >= '0' && c <= '9') ||
+    uint8_t c = (uint8_t)i;
+    if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
         (c == '_' || c == '-' || c == '*' || c == '/')) {
       EXPECT_TRUE(isValidIdentifierChar(c));
     } else {
@@ -41,7 +38,7 @@ TEST_F(StructuredHeadersUtilitiesTest, TestIsValidIdentifierChar) {
 }
 
 TEST_F(StructuredHeadersUtilitiesTest,
-   test_isValidEncodedBinaryContentChar_alphanumeric) {
+       test_isValidEncodedBinaryContentChar_alphanumeric) {
   EXPECT_TRUE(isValidEncodedBinaryContentChar('a'));
   EXPECT_TRUE(isValidEncodedBinaryContentChar('Z'));
   EXPECT_TRUE(isValidEncodedBinaryContentChar('0'));
@@ -49,14 +46,14 @@ TEST_F(StructuredHeadersUtilitiesTest,
 }
 
 TEST_F(StructuredHeadersUtilitiesTest,
-   test_isValidEncodedBinaryContentChar_allowed_symbols) {
+       test_isValidEncodedBinaryContentChar_allowed_symbols) {
   EXPECT_TRUE(isValidEncodedBinaryContentChar('+'));
   EXPECT_TRUE(isValidEncodedBinaryContentChar('/'));
   EXPECT_TRUE(isValidEncodedBinaryContentChar('='));
 }
 
 TEST_F(StructuredHeadersUtilitiesTest,
-   test_isValidEncodedBinaryContentChar_disallowed_symbols) {
+       test_isValidEncodedBinaryContentChar_disallowed_symbols) {
   EXPECT_FALSE(isValidEncodedBinaryContentChar('*'));
   EXPECT_FALSE(isValidEncodedBinaryContentChar('_'));
   EXPECT_FALSE(isValidEncodedBinaryContentChar('-'));
@@ -201,5 +198,4 @@ TEST_F(StructuredHeadersUtilitiesTest, TestItemTypeMatchesContentBad) {
   EXPECT_FALSE(itemTypeMatchesContent(item));
 }
 
-}
-}
+}} // namespace proxygen::StructuredHeaders

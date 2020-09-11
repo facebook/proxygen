@@ -55,4 +55,4 @@ enum class SettingsId : uint64_t {
 
 using SettingPair = std::pair<SettingsId, uint32_t>;
 
-}
+} // namespace proxygen

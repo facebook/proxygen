@@ -36,7 +36,7 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
   auto out = folly::IOBuf::create(outBufAllocSize);
   auto appender = folly::io::Appender(out.get(), outBufAllocSize);
 
-  for (const folly::ByteRange &range : *in) {
+  for (const folly::ByteRange& range : *in) {
     if (range.data() == nullptr) {
       continue;
     }

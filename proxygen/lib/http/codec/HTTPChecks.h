@@ -18,7 +18,7 @@ namespace proxygen {
  * only examines the calls and callbacks that go through it.
  */
 
-class HTTPChecks: public PassThroughHTTPCodecFilter {
+class HTTPChecks : public PassThroughHTTPCodecFilter {
  public:
   // HTTPCodec::Callback methods
 
@@ -34,4 +34,4 @@ class HTTPChecks: public PassThroughHTTPCodecFilter {
                       HTTPHeaderSize* sizeOut) override;
 };
 
-}
+} // namespace proxygen

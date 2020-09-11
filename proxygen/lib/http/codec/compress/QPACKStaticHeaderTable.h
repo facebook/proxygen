@@ -8,19 +8,18 @@
 
 #pragma once
 
-#include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
+#include <proxygen/lib/http/codec/compress/StaticHeaderTable.h>
 
 namespace proxygen {
 
 class QPACKStaticHeaderTable {
 
  public:
-
   static const StaticHeaderTable& get();
 
   // Not currently used
   static bool isHeaderCodeInTableWithNonEmptyValue(HTTPHeaderCode headerCode);
 };
 
-}
+} // namespace proxygen

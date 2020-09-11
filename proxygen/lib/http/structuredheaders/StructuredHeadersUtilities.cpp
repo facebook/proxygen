@@ -11,8 +11,7 @@
 
 #include "proxygen/lib/utils/Base64.h"
 
-namespace proxygen {
-namespace StructuredHeaders {
+namespace proxygen { namespace StructuredHeaders {
 
 bool isLcAlpha(char c) {
   return c >= 0x61 && c <= 0x7A;
@@ -20,22 +19,21 @@ bool isLcAlpha(char c) {
 
 bool isValidIdentifierChar(char c) {
   return isLcAlpha(c) || std::isdigit(c) || c == '_' || c == '-' || c == '*' ||
-    c == '/';
+         c == '/';
 }
 
-bool isValidEncodedBinaryContentChar(
-   char c) {
+bool isValidEncodedBinaryContentChar(char c) {
   return std::isalpha(c) || std::isdigit(c) || c == '+' || c == '/' || c == '=';
 }
 
 bool isValidStringChar(char c) {
   /*
-  * The difference between the character restriction here and that mentioned
-  * in section 3.7 of version 6 of the Structured Headers draft is that this
-  * function accepts \ and DQUOTE characters. These characters are allowed
-  * as long as they are present as a part of an escape sequence, which is
-  * checked for in the parseString() function in the StructuredHeadersBuffer.
-  */
+   * The difference between the character restriction here and that mentioned
+   * in section 3.7 of version 6 of the Structured Headers draft is that this
+   * function accepts \ and DQUOTE characters. These characters are allowed
+   * as long as they are present as a part of an escape sequence, which is
+   * checked for in the parseString() function in the StructuredHeadersBuffer.
+   */
   return c >= 0x20 && c <= 0x7E;
 }
 
@@ -62,8 +60,7 @@ bool isValidString(const std::string& s) {
   return true;
 }
 
-bool isValidEncodedBinaryContent(
-  const std::string& s) {
+bool isValidEncodedBinaryContent(const std::string& s) {
 
   if (s.size() % 4 != 0) {
     return false;
@@ -81,8 +78,7 @@ bool isValidEncodedBinaryContent(
   return true;
 }
 
-bool itemTypeMatchesContent(
-   const StructuredHeaderItem& input) {
+bool itemTypeMatchesContent(const StructuredHeaderItem& input) {
   switch (input.tag) {
     case StructuredHeaderItem::Type::BINARYCONTENT:
     case StructuredHeaderItem::Type::IDENTIFIER:
@@ -101,8 +97,7 @@ bool itemTypeMatchesContent(
   return false;
 }
 
-std::string decodeBase64(
-    const std::string& encoded) {
+std::string decodeBase64(const std::string& encoded) {
 
   if (encoded.size() == 0) {
     // special case, to prevent an integer overflow down below.
@@ -121,9 +116,7 @@ std::string decodeBase64(
 
 std::string encodeBase64(const std::string& input) {
   return Base64::encode(folly::ByteRange(
-                            reinterpret_cast<const uint8_t*>(input.c_str()),
-                            input.length()));
+      reinterpret_cast<const uint8_t*>(input.c_str()), input.length()));
 }
 
-}
-}
+}} // namespace proxygen::StructuredHeaders

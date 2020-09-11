@@ -18,8 +18,10 @@ namespace proxygen {
  */
 class HTTPCodecFactory {
  public:
-  explicit HTTPCodecFactory() {}
-  virtual ~HTTPCodecFactory() {}
+  explicit HTTPCodecFactory() {
+  }
+  virtual ~HTTPCodecFactory() {
+  }
 
   /**
    * Get a codec instance
@@ -32,4 +34,4 @@ class HTTPCodecFactory {
                                              TransportDirection direction);
 };
 
-} // proxygen
+} // namespace proxygen

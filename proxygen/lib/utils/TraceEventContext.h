@@ -24,15 +24,15 @@ class TraceEventContext {
   TraceEventContext(uint32_t pID,
                     std::vector<TraceEventObserver*> observers,
                     bool allTraceEventNeeded = false)
-      : parentID(pID)
-      , observers_(std::move(observers))
-      , allTraceEventNeeded_(allTraceEventNeeded) {}
+      : parentID(pID),
+        observers_(std::move(observers)),
+        allTraceEventNeeded_(allTraceEventNeeded) {
+  }
 
   explicit TraceEventContext(uint32_t pID = 0,
                              TraceEventObserver* observer = nullptr,
                              bool allTraceEventNeeded = false)
-      : parentID(pID)
-      , allTraceEventNeeded_(allTraceEventNeeded) {
+      : parentID(pID), allTraceEventNeeded_(allTraceEventNeeded) {
     if (observer) {
       observers_.push_back(observer);
     }
@@ -51,4 +51,4 @@ class TraceEventContext {
   bool allTraceEventNeeded_;
 };
 
-}
+} // namespace proxygen

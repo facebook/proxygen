@@ -34,20 +34,19 @@ QPACKEncoder::EncodeResult QPACKEncoder::encode(
 
   uint32_t requiredInsertCount = 0;
   for (const auto& header : headers) {
-    encodeHeaderQ(HPACKHeaderName(header.name), header.value,
-                  baseIndex, /*ref*/requiredInsertCount);
+    encodeHeaderQ(HPACKHeaderName(header.name),
+                  header.value,
+                  baseIndex,
+                  /*ref*/ requiredInsertCount);
   }
 
-  return {
-    controlQueue.move(),
-    completeEncode(streamId, baseIndex, requiredInsertCount)
-  };
+  return {controlQueue.move(),
+          completeEncode(streamId, baseIndex, requiredInsertCount)};
 }
 
-uint32_t QPACKEncoder::startEncode(
-    folly::IOBufQueue& controlQueue,
-    uint32_t headroom,
-    uint32_t maxEncoderStreamBytes) {
+uint32_t QPACKEncoder::startEncode(folly::IOBufQueue& controlQueue,
+                                   uint32_t headroom,
+                                   uint32_t maxEncoderStreamBytes) {
   controlBuffer_.setWriteBuf(&controlQueue);
   if (headroom) {
     streamBuffer_.addHeadroom(headroom);
@@ -59,11 +58,8 @@ uint32_t QPACKEncoder::startEncode(
   return table_.getInsertCount();
 }
 
-
 std::unique_ptr<folly::IOBuf> QPACKEncoder::completeEncode(
-    uint64_t streamId,
-    uint32_t baseIndex,
-    uint32_t requiredInsertCount) {
+    uint64_t streamId, uint32_t baseIndex, uint32_t requiredInsertCount) {
   auto streamBlock = streamBuffer_.release();
 
   // encode the prefix
@@ -197,8 +193,7 @@ size_t QPACKEncoder::encodeHeaderQ(HPACKHeaderName name,
 bool QPACKEncoder::shouldIndex(const HPACKHeaderName& name,
                                folly::StringPiece value) const {
   return (HPACKHeader::bytes(name.size(), value.size()) <= table_.capacity()) &&
-    (!indexingStrat_ ||
-     indexingStrat_->indexHeader(name, value)) &&
+         (!indexingStrat_ || indexingStrat_->indexHeader(name, value)) &&
          dynamicReferenceAllowed();
 }
 
@@ -266,13 +261,13 @@ size_t QPACKEncoder::encodeStreamLiteralQ(const HPACKHeaderName& name,
                           absoluteNameIndex - baseIndex,
                           HPACK::Q_LITERAL_NAME_REF_POST);
   } else {
-    return encodeLiteralQ(
-      name,
-      value,
-      isStaticName,
-      false, /* not post base */
-      isStaticName ? nameIndex : baseIndex - absoluteNameIndex + 1,
-      HPACK::Q_LITERAL_NAME_REF);
+    return encodeLiteralQ(name,
+                          value,
+                          isStaticName,
+                          false, /* not post base */
+                          isStaticName ? nameIndex
+                                       : baseIndex - absoluteNameIndex + 1,
+                          HPACK::Q_LITERAL_NAME_REF);
   }
 }
 
@@ -353,8 +348,8 @@ uint32_t QPACKEncoder::encodeLiteralQHelper(
     }
     encoded += buffer.encodeInteger(nameIndex, byte, idxInstr.prefixLength);
   } else {
-    encoded += buffer.encodeLiteral(
-        litInstr.code, litInstr.prefixLength, name.get());
+    encoded +=
+        buffer.encodeLiteral(litInstr.code, litInstr.prefixLength, name.get());
   }
   // value
   encoded += buffer.encodeLiteral(value);

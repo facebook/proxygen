@@ -77,7 +77,7 @@ class Window {
 
  private:
   int32_t outstanding_{0};
-  int32_t capacity_{0};  // always positive
+  int32_t capacity_{0}; // always positive
 };
 
-}
+} // namespace proxygen

@@ -85,7 +85,8 @@ class HQUnidirStreamDispatcher
     virtual ~Callback() = default;
   }; // Callback
 
-  explicit HQUnidirStreamDispatcher(Callback& sink, proxygen::TransportDirection direction);
+  explicit HQUnidirStreamDispatcher(Callback& sink,
+                                    proxygen::TransportDirection direction);
 
   virtual ~HQUnidirStreamDispatcher() override = default;
 

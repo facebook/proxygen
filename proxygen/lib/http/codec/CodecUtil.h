@@ -11,11 +11,11 @@
 #include <assert.h>
 #include <cctype>
 #include <folly/Range.h>
-#include <stdint.h>
-#include <string>
-#include <proxygen/lib/utils/UtilInl.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/compress/Header.h>
+#include <proxygen/lib/utils/UtilInl.h>
+#include <stdint.h>
+#include <string>
 
 namespace proxygen {
 
@@ -46,7 +46,7 @@ class CodecUtil {
   }
 
   static bool validateMethod(folly::ByteRange method) {
-    for (auto p: method) {
+    for (auto p : method) {
       if (!CodecUtil::isalpha(p)) {
         // methods are all characters
         return false;
@@ -59,7 +59,7 @@ class CodecUtil {
     if (name.size() == 0) {
       return false;
     }
-    for (auto p: name) {
+    for (auto p : name) {
       if (p < 0x80 && http_tokens[(uint8_t)p] != p) {
         return false;
       }
@@ -73,19 +73,17 @@ class CodecUtil {
    * When mode is COMPLIANT, then this is allowed.
    * When mode is STRICT, no escaped CTLs are allowed
    */
-  enum CtlEscapeMode {
-    COMPLIANT,
-    STRICT
-  };
+  enum CtlEscapeMode { COMPLIANT, STRICT };
 
-  static bool validateHeaderValue(folly::ByteRange value,
-                                  CtlEscapeMode mode) {
+  static bool validateHeaderValue(folly::ByteRange value, CtlEscapeMode mode) {
     bool escape = false;
     bool quote = false;
-    enum { lws_none,
-           lws_expect_nl,
-           lws_expect_ws1,
-           lws_expect_ws2 } state = lws_none;
+    enum {
+      lws_none,
+      lws_expect_nl,
+      lws_expect_ws1,
+      lws_expect_ws2
+    } state = lws_none;
 
     for (auto p = std::begin(value); p != std::end(value); ++p) {
       if (escape) {
@@ -152,7 +150,8 @@ class CodecUtil {
     return !escape && (state == lws_none || state == lws_expect_ws2);
   }
 
-  static bool hasGzipAndDeflate(const std::string& value, bool& hasGzip,
+  static bool hasGzipAndDeflate(const std::string& value,
+                                bool& hasGzip,
                                 bool& hasDeflate);
 
   static bool appendHeaders(const HTTPHeaders& inputHeaders,
@@ -161,4 +160,4 @@ class CodecUtil {
 
   static const std::bitset<256>& perHopHeaderCodes();
 };
-}
+} // namespace proxygen

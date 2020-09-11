@@ -13,8 +13,8 @@
 #include <proxygen/lib/http/codec/compress/Huffman.h>
 
 using folly::IOBuf;
-using std::unique_ptr;
 using proxygen::HPACK::DecodeError;
+using std::unique_ptr;
 
 namespace proxygen {
 
@@ -25,7 +25,6 @@ void HPACKDecodeBuffer::EOB_LOG(std::string msg, DecodeError code) const {
     VLOG(4) << msg;
   }
 }
-
 
 bool HPACKDecodeBuffer::empty() {
   return remainingBytes_ == 0;
@@ -72,7 +71,7 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
   }
   if (size > remainingBytes_) {
     EOB_LOG(folly::to<std::string>(
-                "size(", size, ") > remainingBytes_(", remainingBytes_, ")"));
+        "size(", size, ") > remainingBytes_(", remainingBytes_, ")"));
     return DecodeError::BUFFER_UNDERFLOW;
   }
   if (size > maxLiteralSize_) {
@@ -96,7 +95,7 @@ DecodeError HPACKDecodeBuffer::decodeLiteral(uint8_t nbit,
     static auto& huffmanTree = huffman::huffTree();
     huffmanTree.decode(data, size, literal);
   } else {
-    literal.append((const char *)data, size);
+    literal.append((const char*)data, size);
   }
   remainingBytes_ -= size;
   return DecodeError::NONE;
@@ -149,5 +148,5 @@ namespace HPACK {
 std::ostream& operator<<(std::ostream& os, DecodeError err) {
   return os << static_cast<uint32_t>(err);
 }
-}
-}
+} // namespace HPACK
+} // namespace proxygen

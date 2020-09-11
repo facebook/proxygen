@@ -14,8 +14,8 @@
 namespace proxygen {
 
 enum class TransportDirection : uint8_t {
-  DOWNSTREAM,  // toward the client
-  UPSTREAM     // toward the origin application or data
+  DOWNSTREAM, // toward the client
+  UPSTREAM    // toward the origin application or data
 };
 
 const char* getTransportDirectionString(TransportDirection dir);
@@ -24,4 +24,4 @@ TransportDirection operator!(TransportDirection dir);
 
 std::ostream& operator<<(std::ostream& os, const TransportDirection dir);
 
-} // proxygen
+} // namespace proxygen

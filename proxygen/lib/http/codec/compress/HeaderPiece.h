@@ -25,17 +25,14 @@ class HeaderPiece {
    * Construct a view around the data
    */
   HeaderPiece(const char* inData,
-             uint32_t inLen,
-             bool inOwner,
-             bool inMultiValued)
-      : str(inData, inLen),
-        owner(inOwner),
-        multiValued(inMultiValued) {}
+              uint32_t inLen,
+              bool inOwner,
+              bool inMultiValued)
+      : str(inData, inLen), owner(inOwner), multiValued(inMultiValued) {
+  }
 
   HeaderPiece(HeaderPiece&& goner) noexcept
-      : str(goner.str),
-        owner(goner.owner),
-        multiValued(goner.multiValued){
+      : str(goner.str), owner(goner.owner), multiValued(goner.multiValued) {
     goner.owner = false;
   }
 
@@ -60,4 +57,4 @@ class HeaderPiece {
 
 using HeaderPieceList = std::deque<HeaderPiece>;
 
-}}
+}} // namespace proxygen::compress

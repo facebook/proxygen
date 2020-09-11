@@ -43,7 +43,7 @@ class MockByteEventTracker : public ByteEventTracker {
 
   // passthru to callback implementation functions
   void onTxnByteEventWrittenToBuf(const ByteEvent& event) {
-      callback_->onTxnByteEventWrittenToBuf(event);
+    callback_->onTxnByteEventWrittenToBuf(event);
   }
 };
 

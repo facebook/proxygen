@@ -6,11 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/UnframedBodyOffsetTracker.h>
+#include <folly/portability/GTest.h>
 
-using UnframedBodyOffsetTracker =
-    proxygen::hq::UnframedBodyOffsetTracker;
+using UnframedBodyOffsetTracker = proxygen::hq::UnframedBodyOffsetTracker;
 
 TEST(UnframedBodyOffsetTrackerTest, TestStartBodyTracking) {
   const uint64_t streamOffset = 42;
@@ -84,7 +83,6 @@ TEST(UnframedBodyOffsetTrackerTest, TestGetBodyStreamStartOffsetError) {
   auto offset = tracker.getBodyStreamStartOffset();
   EXPECT_TRUE(offset.hasError());
 }
-
 
 TEST(UnframedBodyOffsetTrackerTest, TestAppTostreamOffset) {
   const uint64_t streamOffset = 42;

@@ -15,10 +15,9 @@ namespace proxygen {
 bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
                                 const folly::fbstring& value) {
   // Refuse decoding other headers if an error is already found
-  if (decodeError != HPACK::DecodeError::NONE
-      || parsingError != "") {
-    VLOG(4) << "Ignoring header=" << name << " value=" << value <<
-      " due to parser error=" << parsingError;
+  if (decodeError != HPACK::DecodeError::NONE || parsingError != "") {
+    VLOG(4) << "Ignoring header=" << name << " value=" << value
+            << " due to parser error=" << parsingError;
     return true;
   }
   VLOG(5) << "Processing header=" << name << " value=" << value;
@@ -87,8 +86,7 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
     }
     if (headerCode == HTTP_HEADER_CONTENT_LENGTH) {
       uint32_t cl = 0;
-      folly::tryTo<uint32_t>(valueSp).then(
-          [&cl](uint32_t num) { cl = num; });
+      folly::tryTo<uint32_t>(valueSp).then([&cl](uint32_t num) { cl = num; });
       if (contentLength_ && *contentLength_ != cl) {
         parsingError = string("Multiple content-length headers");
         return false;
@@ -96,12 +94,12 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
       contentLength_ = cl;
     }
     bool nameOk = !validate_ || headerCode != HTTP_HEADER_OTHER ||
-      CodecUtil::validateHeaderName(nameSp);
+                  CodecUtil::validateHeaderName(nameSp);
     bool valueOk = !validate_ ||
-      CodecUtil::validateHeaderValue(valueSp, CodecUtil::STRICT);
+                   CodecUtil::validateHeaderValue(valueSp, CodecUtil::STRICT);
     if (!nameOk || !valueOk) {
-      parsingError = folly::to<string>("Bad header value: name=",
-                                       nameSp, " value=", valueSp);
+      parsingError = folly::to<string>(
+          "Bad header value: name=", nameSp, " value=", valueSp);
       return false;
     }
     // Add the (name, value) pair to headers
@@ -141,4 +139,4 @@ void HeaderDecodeInfo::onHeadersComplete(HTTPHeaderSize decodedSize) {
 bool HeaderDecodeInfo::hasStatus() const {
   return hasStatus_;
 }
-}
+} // namespace proxygen

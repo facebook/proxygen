@@ -7,33 +7,32 @@
  */
 
 #include <folly/Conv.h>
-#include <glog/logging.h>
 #include <folly/portability/GTest.h>
+#include <glog/logging.h>
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKContext.h>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
+#include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/QPACKEncoder.h>
-#include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 
 using namespace folly;
 using namespace proxygen;
 using namespace std;
 
-class HPACKContextTests : public testing::TestWithParam<bool> {
-};
+class HPACKContextTests : public testing::TestWithParam<bool> {};
 
 class TestContext : public HPACKContext {
 
  public:
-  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize) {}
+  explicit TestContext(uint32_t tableSize) : HPACKContext(tableSize) {
+  }
 
   void add(const HPACKHeader& header) {
     table_.add(header.copy());
   }
-
 };
 
 TEST_F(HPACKContextTests, GetIndex) {
@@ -49,11 +48,10 @@ TEST_F(HPACKContextTests, IsStatic) {
   // add 10 headers to the table
   for (int i = 1; i <= 10; i++) {
     HPACKHeader header("name" + folly::to<string>(i),
-                      "value" + folly::to<string>(i));
+                       "value" + folly::to<string>(i));
     context.add(std::move(header));
   }
   EXPECT_EQ(context.getTable().size(), 10);
-
 
   EXPECT_EQ(context.isStatic(1), true);
   EXPECT_EQ(context.isStatic(10), true);
@@ -87,10 +85,9 @@ TEST_F(HPACKContextTests,
   auto& table = StaticHeaderTable::get();
   for (uint32_t i = 1; i <= table.size(); ++i) {
     const HPACKHeader& staticTableHeader = table.getHeader(i);
-    EXPECT_TRUE(
-      staticTableHeader.value.empty() !=
-      StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
-        staticTableHeader.name.getHeaderCode()));
+    EXPECT_TRUE(staticTableHeader.value.empty() !=
+                StaticHeaderTable::isHeaderCodeInTableWithNonEmptyValue(
+                    staticTableHeader.name.getHeaderCode()));
   }
 }
 
@@ -195,7 +192,7 @@ TEST_F(HPACKContextTests, DecodeErrors) {
   // 1. simulate an error decoding the index for an indexed header name
   // we try to encode index 65
   buf->writableData()[0] = 0x3F;
-  buf->append(1);  // intentionally omit the second byte
+  buf->append(1); // intentionally omit the second byte
   checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // 2. invalid index for indexed header name
@@ -212,7 +209,7 @@ TEST_F(HPACKContextTests, DecodeErrors) {
   checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // 3. buffer overflow when decoding literal header name
-  buf->writableData()[0] = 0x00;  // this will activate the non-indexed branch
+  buf->writableData()[0] = 0x00; // this will activate the non-indexed branch
   checkError(buf.get(), HPACK::DecodeError::BUFFER_UNDERFLOW);
 
   // 4. buffer overflow when decoding a header value
@@ -279,7 +276,6 @@ TEST_F(HPACKContextTests, EncodeToWriteBuf) {
   EXPECT_GT(writeBuf.chainLength(), 0);
 }
 
-
 TEST_P(HPACKContextTests, ContextUpdate) {
   HPACKEncoder encoder(true);
   HPACKDecoder decoder;
@@ -296,7 +292,6 @@ TEST_P(HPACKContextTests, ContextUpdate) {
 
   first->appendChain(std::move(encoded));
   auto decoded = proxygen::hpack::decode(decoder, first.get());
-
 
   EXPECT_EQ(decoder.hasError(), !setDecoderSize);
   if (setDecoderSize) {

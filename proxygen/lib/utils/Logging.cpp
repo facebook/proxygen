@@ -16,8 +16,8 @@
 #include <memory>
 #include <ostream>
 #include <sstream>
-#include <vector>
 #include <sys/stat.h>
+#include <vector>
 
 using folly::IOBuf;
 using folly::StringPiece;
@@ -33,19 +33,15 @@ proxygen::ChainInfoPrinter chainInfoPrinter;
 proxygen::BinPrinter binPrinter;
 
 vector<proxygen::IOBufPrinter*> printers = {
-  &hexFollyPrinter,
-  &hex16Printer,
-  &chainInfoPrinter,
-  &binPrinter
-};
-}
+    &hexFollyPrinter, &hex16Printer, &chainInfoPrinter, &binPrinter};
+} // namespace
 
 namespace proxygen {
 
 string hexStr(StringPiece sp) {
   string out;
   for (auto ch : sp) {
-    out.append(folly::sformat("{:02x}", (uint8_t) ch));
+    out.append(folly::sformat("{:02x}", (uint8_t)ch));
   }
   return out;
 }
@@ -73,8 +69,7 @@ string Hex16Printer::print(const IOBuf* buf) {
 
 string ChainInfoPrinter::print(const IOBuf* buf) {
   stringstream out;
-  out << "iobuf of size " << buf->length()
-      << " tailroom " << buf->tailroom();
+  out << "iobuf of size " << buf->length() << " tailroom " << buf->tailroom();
   return out.str();
 }
 
@@ -101,7 +96,7 @@ string BinPrinter::print(const IOBuf* buf) {
 string IOBufPrinter::printChain(const IOBuf* buf,
                                 Format format,
                                 bool coalesce) {
-  uint8_t index = (uint8_t) format;
+  uint8_t index = (uint8_t)format;
   if (printers.size() <= index) {
     LOG(ERROR) << "invalid format: " << index;
     return "";
@@ -145,18 +140,18 @@ void dumpBinToFile(const string& filename, const IOBuf* buf) {
   }
   const IOBuf* first = buf;
   do {
-    file.write((const char *)buf->data(), buf->length());
+    file.write((const char*)buf->data(), buf->length());
     buf = buf->next();
   } while (buf != first);
   file.close();
-  LOG(INFO) << "wrote chain " << IOBufPrinter::printChainInfo(buf)
-            << " to " << filename;
+  LOG(INFO) << "wrote chain " << IOBufPrinter::printChainInfo(buf) << " to "
+            << filename;
 }
 
 namespace logging_details {
 std::string getStackTrace() {
   return folly::detail::getSingletonStackTrace();
 }
-}
+} // namespace logging_details
 
-}
+} // namespace proxygen

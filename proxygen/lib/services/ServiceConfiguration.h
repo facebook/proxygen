@@ -17,17 +17,16 @@ namespace proxygen {
  */
 class ServiceConfiguration {
  public:
-  ServiceConfiguration()
-  : writeBufferLimit_(4096)
-, takeoverEnabled_(false) {}
+  ServiceConfiguration() : writeBufferLimit_(4096), takeoverEnabled_(false) {
+  }
 
-  virtual ~ServiceConfiguration() {}
+  virtual ~ServiceConfiguration() {
+  }
 
   /**
    * Set/get the list of acceptors that will be receiving traffic.
    */
-  void setAcceptors(
-    const std::list<AcceptorConfiguration> &acceptors) {
+  void setAcceptors(const std::list<AcceptorConfiguration> &acceptors) {
     acceptors_.clear();
     acceptors_.insert(acceptors_.begin(), acceptors.begin(), acceptors.end());
   }
@@ -39,14 +38,22 @@ class ServiceConfiguration {
    * Set/get the amount of data that we're allowed to buffer in-memory before
    * back-pressuring the other end of an HTTP connection.
    */
-  void setWriteBufferLimit(uint64_t size) { writeBufferLimit_ = size; }
-  uint64_t getWriteBufferLimit() const { return writeBufferLimit_; }
+  void setWriteBufferLimit(uint64_t size) {
+    writeBufferLimit_ = size;
+  }
+  uint64_t getWriteBufferLimit() const {
+    return writeBufferLimit_;
+  }
 
   /**
    * Set/get whether or not we should enable socket takeover
    */
-  void setTakeoverEnabled(bool enabled) { takeoverEnabled_ = enabled; }
-  bool takeoverEnabled() const { return takeoverEnabled_; }
+  void setTakeoverEnabled(bool enabled) {
+    takeoverEnabled_ = enabled;
+  }
+  bool takeoverEnabled() const {
+    return takeoverEnabled_;
+  }
 
  private:
   std::list<AcceptorConfiguration> acceptors_;
@@ -54,4 +61,4 @@ class ServiceConfiguration {
   bool takeoverEnabled_;
 };
 
-}
+} // namespace proxygen

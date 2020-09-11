@@ -76,9 +76,9 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
     trackDataPassedThrough_ = track;
   }
 
-private:
+ private:
   folly::IOBufQueue bodyDataReceived_{folly::IOBufQueue::cacheChainLength()};
   bool trackDataPassedThrough_{false};
 };
 
-}
+} // namespace proxygen

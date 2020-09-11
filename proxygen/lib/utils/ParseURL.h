@@ -22,7 +22,8 @@ namespace proxygen {
 
 class ParseURL {
  public:
-  ParseURL() {}
+  ParseURL() {
+  }
   explicit ParseURL(folly::StringPiece urlVal) noexcept {
     init(urlVal);
   }
@@ -111,4 +112,4 @@ class ParseURL {
   bool initialized_{false};
 };
 
-}
+} // namespace proxygen

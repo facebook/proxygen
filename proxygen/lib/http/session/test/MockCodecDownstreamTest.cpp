@@ -767,10 +767,9 @@ TEST_F(MockCodecDownstreamTest, Buffering) {
           InvokeWithoutArgs([&handler]() { handler.txn_->pauseIngress(); }));
 
   EXPECT_CALL(*transport_, writeChain(_, _, _))
-      .WillRepeatedly(
-          Invoke([&](folly::AsyncTransport::WriteCallback* callback,
-                     const shared_ptr<IOBuf>&,
-                     WriteFlags) { callback->writeSuccess(); }));
+      .WillRepeatedly(Invoke([&](folly::AsyncTransport::WriteCallback* callback,
+                                 const shared_ptr<IOBuf>&,
+                                 WriteFlags) { callback->writeSuccess(); }));
 
   codecCallback_->onMessageBegin(HTTPCodec::StreamID(1), req1.get());
   codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req1));
@@ -1267,13 +1266,12 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
 
   folly::AsyncTransport::WriteCallback* cb = nullptr;
   EXPECT_CALL(*transport_, writeChain(_, _, _))
-      .WillOnce(
-          Invoke([&](folly::AsyncTransport::WriteCallback* callback,
-                     const shared_ptr<IOBuf>,
-                     WriteFlags) {
-            // don't immediately flush the goaway
-            cb = callback;
-          }));
+      .WillOnce(Invoke([&](folly::AsyncTransport::WriteCallback* callback,
+                           const shared_ptr<IOBuf>,
+                           WriteFlags) {
+        // don't immediately flush the goaway
+        cb = callback;
+      }));
   if (doubleGoaway || !dropConnection) {
     // single goaway, drop connection doesn't get onIngressEOF
     EXPECT_CALL(*codec_, onIngressEOF());

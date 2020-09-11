@@ -9,8 +9,8 @@
 #pragma once
 
 #include <folly/IntrusiveList.h>
-#include <proxygen/lib/http/connpool/Endpoint.h>
 #include <proxygen/lib/http/ProxygenErrorEnum.h>
+#include <proxygen/lib/http/connpool/Endpoint.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 
 namespace proxygen {
@@ -118,7 +118,8 @@ class SessionHolder : private HTTPSessionBase::InfoCallback {
   void onIngressEOF() override {
   }
   void onRead(const HTTPSessionBase&, size_t bytesRead) override;
-  void onRead(const HTTPSessionBase& sess, size_t bytesRead,
+  void onRead(const HTTPSessionBase& sess,
+              size_t bytesRead,
               folly::Optional<HTTPCodec::StreamID> /*stream id*/) override;
   void onWrite(const HTTPSessionBase&, size_t bytesWritten) override;
   void onRequestBegin(const HTTPSessionBase&) override;

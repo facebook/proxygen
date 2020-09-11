@@ -10,7 +10,6 @@
 
 #include <folly/portability/Time.h>
 
-
 namespace proxygen {
 
 folly::Optional<int64_t> parseHTTPDateTime(const std::string& s) {
@@ -34,4 +33,4 @@ folly::Optional<int64_t> parseHTTPDateTime(const std::string& s) {
   return folly::none;
 }
 
-} // proxygen
+} // namespace proxygen

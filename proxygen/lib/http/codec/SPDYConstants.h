@@ -35,10 +35,7 @@ enum CtrlFlag {
   CTRL_FLAG_UNIDIRECTIONAL = 2
 };
 
-enum SettingsFlag {
-  FLAG_SETTINGS_NONE = 0,
-  FLAG_SETTINGS_CLEAR_SETTINGS = 1
-};
+enum SettingsFlag { FLAG_SETTINGS_NONE = 0, FLAG_SETTINGS_CLEAR_SETTINGS = 1 };
 
 enum SettingsIdFlag {
   ID_FLAG_SETTINGS_NONE = 0,
@@ -95,9 +92,9 @@ extern ErrorCode goawayToErrorCode(spdy::GoawayStatusCode);
 extern ErrorCode rstToErrorCode(uint32_t);
 
 folly::Optional<proxygen::spdy::SettingsId> httpToSpdySettingsId(
-  proxygen::SettingsId id);
+    proxygen::SettingsId id);
 folly::Optional<proxygen::SettingsId> spdyToHttpSettingsId(
-  proxygen::spdy::SettingsId id);
+    proxygen::spdy::SettingsId id);
 
 // Constants
 
@@ -128,4 +125,4 @@ extern const std::string kVersionStrv31;
 
 extern const size_t SPDY_PRIO_SHIFT_FACTOR;
 
-}}
+}} // namespace proxygen::spdy

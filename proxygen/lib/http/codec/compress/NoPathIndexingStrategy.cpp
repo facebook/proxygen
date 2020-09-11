@@ -15,4 +15,4 @@ const NoPathIndexingStrategy* NoPathIndexingStrategy::getInstance() {
   return instance;
 }
 
-}
+} // namespace proxygen

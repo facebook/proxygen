@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <string>
 #include <folly/Range.h>
+#include <string>
 
 namespace proxygen {
 
@@ -17,11 +17,11 @@ namespace proxygen {
 // around openssl, until a more optimized version lands in folly
 
 class Base64 {
-  public:
-    static std::string decode(const std::string& b64message, int padding);
-    static std::string urlDecode(const std::string& b64message);
-    static std::string encode(folly::ByteRange buffer);
-    static std::string urlEncode(folly::ByteRange buffer);
+ public:
+  static std::string decode(const std::string& b64message, int padding);
+  static std::string urlDecode(const std::string& b64message);
+  static std::string encode(folly::ByteRange buffer);
+  static std::string urlEncode(folly::ByteRange buffer);
 };
 
-}
+} // namespace proxygen

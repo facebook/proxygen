@@ -12,8 +12,8 @@ using std::vector;
 
 namespace proxygen {
 
-std::unique_ptr<folly::IOBuf>
-HPACKEncoder::encode(const vector<HPACKHeader>& headers, uint32_t headroom) {
+std::unique_ptr<folly::IOBuf> HPACKEncoder::encode(
+    const vector<HPACKHeader>& headers, uint32_t headroom) {
   if (headroom) {
     streamBuffer_.addHeadroom(headroom);
   }
@@ -24,9 +24,8 @@ HPACKEncoder::encode(const vector<HPACKHeader>& headers, uint32_t headroom) {
   return streamBuffer_.release();
 }
 
-void
-HPACKEncoder::encode(const vector<HPACKHeader>& headers,
-                     folly::IOBufQueue& writeBuf) {
+void HPACKEncoder::encode(const vector<HPACKHeader>& headers,
+                          folly::IOBufQueue& writeBuf) {
   streamBuffer_.setWriteBuf(&writeBuf);
   handlePendingContextUpdate(streamBuffer_, table_.capacity());
   for (const auto& header : headers) {
@@ -35,28 +34,26 @@ HPACKEncoder::encode(const vector<HPACKHeader>& headers,
   streamBuffer_.setWriteBuf(nullptr);
 }
 
-void
-HPACKEncoder::startEncode(folly::IOBufQueue& writeBuf) {
+void HPACKEncoder::startEncode(folly::IOBufQueue& writeBuf) {
   streamBuffer_.setWriteBuf(&writeBuf);
   handlePendingContextUpdate(streamBuffer_, table_.capacity());
 }
 
-void
-HPACKEncoder::completeEncode() {
+void HPACKEncoder::completeEncode() {
   streamBuffer_.setWriteBuf(nullptr);
 }
 
-size_t
-HPACKEncoder::encodeHeader(HTTPHeaderCode code, const std::string& value) {
+size_t HPACKEncoder::encodeHeader(HTTPHeaderCode code,
+                                  const std::string& value) {
   DCHECK_NE(code, HTTP_HEADER_OTHER);
   HPACKHeaderName name(code);
   size_t uncompressed = name.size() + value.size() + 2;
-  encodeHeader(name, value);  // const, string piece
+  encodeHeader(name, value); // const, string piece
   return uncompressed;
 }
 
-size_t
-HPACKEncoder::encodeHeader(HTTPHeaderCode code, folly::fbstring&& value) {
+size_t HPACKEncoder::encodeHeader(HTTPHeaderCode code,
+                                  folly::fbstring&& value) {
   DCHECK_NE(code, HTTP_HEADER_OTHER);
   HPACKHeaderName name(code);
   size_t uncompressed = name.size() + value.size() + 2;
@@ -64,9 +61,8 @@ HPACKEncoder::encodeHeader(HTTPHeaderCode code, folly::fbstring&& value) {
   return uncompressed;
 }
 
-size_t
-HPACKEncoder::encodeHeader(const std::string& nameStr,
-                           const std::string& value) {
+size_t HPACKEncoder::encodeHeader(const std::string& nameStr,
+                                  const std::string& value) {
   HPACKHeaderName name(nameStr);
   size_t uncompressed = name.size() + value.size() + 2;
   encodeHeader(std::move(name), folly::StringPiece(value)); // &&, StringPiece
@@ -84,14 +80,15 @@ void HPACKEncoder::encodeAsLiteralImpl(const HPACKHeaderName& name,
     indexing = false;
   }
 
-  HPACK::Instruction instruction = (indexing) ?
-    HPACK::LITERAL_INC_INDEX : HPACK::LITERAL;
+  HPACK::Instruction instruction =
+      (indexing) ? HPACK::LITERAL_INC_INDEX : HPACK::LITERAL;
 
   encodeLiteral(name, value, nameIndex(name), instruction);
 }
 
 bool HPACKEncoder::encodeAsLiteral(const HPACKHeaderName& name,
-                                   folly::StringPiece value, bool indexing) {
+                                   folly::StringPiece value,
+                                   bool indexing) {
   encodeAsLiteralImpl(name, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
@@ -101,7 +98,8 @@ bool HPACKEncoder::encodeAsLiteral(const HPACKHeaderName& name,
 }
 
 bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
-                                   folly::fbstring&& value, bool indexing) {
+                                   folly::fbstring&& value,
+                                   bool indexing) {
   encodeAsLiteralImpl(name, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
@@ -111,7 +109,8 @@ bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
 }
 
 bool HPACKEncoder::encodeAsLiteral(HPACKHeaderName&& name,
-                                   folly::StringPiece value, bool indexing) {
+                                   folly::StringPiece value,
+                                   bool indexing) {
   encodeAsLiteralImpl(name, value, indexing);
   // indexed ones need to get added to the header table
   if (indexing) {
@@ -193,4 +192,4 @@ void HPACKEncoder::encodeHeader(HPACKHeaderName&& name,
   }
 }
 
-}
+} // namespace proxygen
