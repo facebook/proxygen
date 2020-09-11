@@ -35,6 +35,8 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
 
   void sendRequests(bool closeSession = true);
 
+  void sendKnobFrame(const folly::StringPiece str);
+
   void connectSuccess() override;
 
   void onReplaySafe() override;

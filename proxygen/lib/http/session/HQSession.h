@@ -33,6 +33,7 @@
 #include <proxygen/lib/http/session/ServerPushLifecycle.h>
 #include <proxygen/lib/utils/ConditionalGate.h>
 #include <quic/api/QuicSocket.h>
+#include <quic/common/BufUtil.h>
 #include <quic/logging/QuicLogger.h>
 
 namespace proxygen {
@@ -224,6 +225,8 @@ class HQSession
   void onConnectionError(
       std::pair<quic::QuicErrorCode, std::string> code) noexcept override;
 
+  void onKnob(uint64_t knobSpace, uint64_t knobId, quic::Buf knobBlob) override;
+
   // returns false in case of failure
   bool onTransportReadyCommon() noexcept;
 
@@ -367,6 +370,14 @@ class HQSession
   size_t sendPing() override {
     sock_->sendPing(nullptr, std::chrono::milliseconds(0));
     return 0;
+  }
+
+  /**
+   * Sends a knob frame on the session.
+   */
+  folly::Expected<folly::Unit, quic::LocalErrorCode> sendKnob(
+      uint64_t knobSpace, uint64_t knobId, quic::Buf knobBlob) {
+    return sock_->setKnob(knobSpace, knobId, std::move(knobBlob));
   }
 
   /**

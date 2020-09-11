@@ -71,6 +71,7 @@ struct HQParams {
   folly::Optional<int64_t> rateLimitPerThread;
   std::chrono::milliseconds connectTimeout;
   std::string ccpConfig;
+  bool sendKnobFrame;
 
   // HTTP section
   uint16_t h2port;

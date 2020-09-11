@@ -28,6 +28,7 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/HHWheelTimer.h>
 #include <quic/QuicConstants.h>
+#include <quic/common/BufUtil.h>
 #include <quic/logging/QLoggerConstants.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
@@ -134,6 +135,16 @@ void HQSession::onStopSending(quic::StreamId id,
   if (stream) {
     handleWriteError(stream, error);
   }
+}
+
+void HQSession::onKnob(uint64_t knobSpace,
+                       uint64_t knobId,
+                       quic::Buf knobBlob) {
+  LOG(INFO) << __func__ << " sess=" << *this << " knob frame received: "
+            << " KnobSpace: " << std::hex << knobSpace << " KnobId: " << knobId
+            << " KnobBlob: "
+            << std::string(reinterpret_cast<const char*>(knobBlob->data()),
+                           knobBlob->length());
 }
 
 bool HQSession::H1QFBV1VersionUtils::checkNewStream(quic::StreamId id) {

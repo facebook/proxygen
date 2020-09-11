@@ -89,6 +89,10 @@ class HQSessionController
   // The controller instance will be destroyed after this call.
   void detachSession(const proxygen::HTTPSessionBase* /*session*/) override;
 
+  void onTransportReady(proxygen::HTTPSessionBase* /*session*/) override;
+  void onTransportReady(const proxygen::HTTPSessionBase&) override {
+  }
+
  private:
   // The owning session. NOTE: this must be a plain pointer to
   // avoid circular references
@@ -97,6 +101,8 @@ class HQSessionController
   const HQParams& params_;
   // Provider of HTTPTransactionHandler, owned by HQServerTransportFactory
   const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider_;
+
+  void sendKnobFrame(const folly::StringPiece str);
 };
 
 class HQServerTransportFactory : public quic::QuicServerTransportFactory {

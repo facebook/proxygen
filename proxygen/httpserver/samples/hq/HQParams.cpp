@@ -111,6 +111,11 @@ DEFINE_string(ccp_config,
               "",
               "Additional args to pass to ccp. Ccp disabled if empty string.");
 
+DEFINE_bool(send_knob_frame,
+            false,
+            "Send a Knob Frame to the peer when a QUIC connection is "
+            "established successfully");
+
 namespace quic { namespace samples {
 
 std::ostream& operator<<(std::ostream& o, const HTTPVersion& v) {
@@ -266,6 +271,7 @@ void initializeTransportSettings(HQParams& hqParams) {
   }
   hqParams.connectTimeout = std::chrono::milliseconds(FLAGS_connect_timeout);
   hqParams.ccpConfig = FLAGS_ccp_config;
+  hqParams.sendKnobFrame = FLAGS_send_knob_frame;
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParams& hqParams) {
