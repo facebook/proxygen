@@ -1,6 +1,7 @@
 ## Proxygen: Facebook's C++ HTTP Libraries
 
-[![Build Status](https://github.com/facebook/proxygen/workflows/CI/badge.svg)](https://github.com/facebook/proxygen/actions?workflow=CI)
+[![Linux Build Status](https://github.com/facebook/proxygen/workflows/linux/badge.svg)](https://github.com/facebook/proxygen/actions?workflow=linux)
+[![macOS Build Status](https://github.com/facebook/proxygen/workflows/mac/badge.svg)](https://github.com/facebook/proxygen/actions?workflow=mac)
 
 This project comprises the core C++ HTTP abstractions used at
 Facebook. Internally, it is used as the basis for building many HTTP
