@@ -65,7 +65,9 @@ FOLLY_TLS WorkerThread* WorkerThread::currentWorker_ = nullptr;
 WorkerThread::WorkerThread(folly::EventBaseManager* eventBaseManager,
                            const std::string& evbName)
     : eventBaseManager_(eventBaseManager),
-      eventBase_(std::make_unique<folly::EventBase>(getEventBaseBackend())) {
+      eventBase_(std::make_unique<folly::EventBase>(
+          folly::EventBase::Options().setBackendFactory(
+              [] { return getEventBaseBackend(); }))) {
   // Only set the event base name if not empty.
   // While not ideal, this preserves the previous program name inheritance
   // behavior.
