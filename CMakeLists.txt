@@ -11,6 +11,10 @@ project(
     proxygen
 )
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
   # for in-fbsource builds
@@ -68,7 +72,6 @@ find_package(Boost 1.58 REQUIRED
 
 list(APPEND
     _PROXYGEN_COMMON_COMPILE_OPTIONS
-    -std=c++14
     -Wall
     -Wextra
 )
