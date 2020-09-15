@@ -20,7 +20,6 @@ target_compile_options(
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
 target_link_libraries(testtransport PUBLIC proxygen)
-add_dependencies(testtransport googletest)
 
 add_library(testmain STATIC TestMain.cpp)
 target_include_directories(
@@ -34,4 +33,3 @@ target_compile_options(
     testmain PRIVATE
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
-add_dependencies(testmain googletest)

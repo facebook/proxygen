@@ -7,39 +7,8 @@
 option(BUILD_TESTS  "Enable tests" OFF)
 include(CTest)
 if(BUILD_TESTS)
-  include(GoogleTest)
-  include(ExternalProject)
-
-	# Download and install GoogleMock
-	ExternalProject_Add(
-		googletest
-		GIT_REPOSITORY https://github.com/google/googletest.git
-		GIT_TAG release-1.8.0
-		PREFIX googletest
-		# Disable install step
-		INSTALL_COMMAND ""
-		CMAKE_CACHE_ARGS
-			-DCMAKE_BUILD_TYPE:STRING=Release
-			-DBUILD_GMOCK:BOOL=ON
-			-DBUILD_GTEST:BOOL=ON
-			-Dgtest_force_shared_crt:BOOL=OFF
-	)
-  ExternalProject_Get_Property(googletest source_dir)
-  set(GTEST_SOURCE_DIR ${source_dir})
-  ExternalProject_Get_Property(googletest binary_dir)
-  set(GTEST_BINARY_DIR ${binary_dir})
-
-  # Setup gtest / gmock libraries and include dirs
-  set(LIBGTEST_LIBRARIES
-    "${GTEST_BINARY_DIR}/${CMAKE_CFG_INTDIR}/googlemock/gtest/${CMAKE_STATIC_LIBRARY_PREFIX}gtest${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    "${GTEST_BINARY_DIR}/${CMAKE_CFG_INTDIR}/googlemock/gtest/${CMAKE_STATIC_LIBRARY_PREFIX}gtest_main${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(LIBGMOCK_LIBRARIES
-    "${GTEST_BINARY_DIR}/${CMAKE_CFG_INTDIR}/googlemock/${CMAKE_STATIC_LIBRARY_PREFIX}gmock${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    "${GTEST_BINARY_DIR}/${CMAKE_CFG_INTDIR}/googlemock/${CMAKE_STATIC_LIBRARY_PREFIX}gmock_main${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(LIBGMOCK_INCLUDE_DIR "${source_dir}/googlemock/include")
-  set(LIBGTEST_INCLUDE_DIR "${source_dir}/googletest/include")
+  find_package(GMock 1.8.1 MODULE REQUIRED)
+  find_package(GTest 1.8.1 MODULE REQUIRED)
 endif()
 
 function(proxygen_add_test)
@@ -63,14 +32,26 @@ function(proxygen_add_test)
     add_executable(${PROXYGEN_TEST_TARGET} 
       "${PROXYGEN_TEST_SOURCES}"
     )
-    add_dependencies(${PROXYGEN_TEST_TARGET} googletest)
-    target_link_libraries(${PROXYGEN_TEST_TARGET} PRIVATE 
-      "${PROXYGEN_TEST_DEPENDS}"
-    )
-    target_include_directories(${PROXYGEN_TEST_TARGET} PRIVATE 
+
+    set_property(TARGET ${PROXYGEN_TEST_TARGET} PROPERTY ENABLE_EXPORTS true)
+
+    target_include_directories(${PROXYGEN_TEST_TARGET} PUBLIC
       "${PROXYGEN_TEST_INCLUDES}"
+      ${LIBGMOCK_INCLUDE_DIR}
+      ${LIBGTEST_INCLUDE_DIRS}
     )
-    target_compile_options(${PROXYGEN_TEST_TARGET} PRIVATE 
+
+    target_compile_definitions(${PROXYGEN_TEST_TARGET} PUBLIC
+      ${LIBGMOCK_DEFINES}
+    )
+
+    target_link_libraries(${PROXYGEN_TEST_TARGET} PUBLIC
+      "${PROXYGEN_TEST_DEPENDS}"
+      ${LIBGMOCK_LIBRARIES}
+      ${GLOG_LIBRARY}
+    )
+
+    target_compile_options(${PROXYGEN_TEST_TARGET} PRIVATE
       "${_PROXYGEN_COMMON_COMPILE_OPTIONS}"
     )
 
@@ -80,13 +61,5 @@ function(proxygen_add_test)
                     TEST_PREFIX ${PROXYGEN_TEST_PREFIX}
                     TEST_LIST PROXYGEN_TEST_CASES)
 
-    target_link_libraries(${PROXYGEN_TEST_TARGET} PRIVATE 
-      ${LIBGMOCK_LIBRARIES}
-    )
-    target_include_directories(${PROXYGEN_TEST_TARGET} SYSTEM PRIVATE 
-      ${LIBGMOCK_INCLUDE_DIR}
-      ${LIBGTEST_INCLUDE_DIR}
-    )
-    target_compile_definitions(${PROXYGEN_TEST_TARGET} PRIVATE ${LIBGMOCK_DEFINES})
     set_tests_properties(${PROXYGEN_TEST_CASES} PROPERTIES TIMEOUT 120)
 endfunction()
