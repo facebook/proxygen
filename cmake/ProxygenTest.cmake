@@ -7,8 +7,8 @@
 option(BUILD_TESTS  "Enable tests" OFF)
 include(CTest)
 if(BUILD_TESTS)
-  find_package(GMock 1.8.1 MODULE REQUIRED)
-  find_package(GTest 1.8.1 MODULE REQUIRED)
+  find_package(GMock 1.8.0 MODULE REQUIRED)
+  find_package(GTest 1.8.0 MODULE REQUIRED)
 endif()
 
 function(proxygen_add_test)
