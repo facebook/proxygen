@@ -64,13 +64,14 @@ function install_dependencies_linux() {
 
 function install_dependencies_mac() {
   # install the default dependencies from homebrew
-  brew install               \
+  brew install -f            \
     cmake                    \
     m4                       \
     boost                    \
     double-conversion        \
     gflags                   \
     glog                     \
+    gperf                    \
     libevent                 \
     lz4                      \
     snappy                   \
@@ -85,6 +86,7 @@ function install_dependencies_mac() {
     double-conversion       \
     gflags                  \
     glog                    \
+    gperf                   \
     libevent                \
     lz4                     \
     snappy                  \
