@@ -440,98 +440,96 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
     const folly::Optional<ExAttributes>& exAttributes) {
   curHeaderBlock_.append(std::move(headerBuf));
   std::unique_ptr<HTTPMessage> msg;
+  uint32_t headersCompleteStream = curHeader_.stream;
+
+  // if we're not parsing CONTINUATION, then it's start of new header block
+  if (curHeader_.type != http2::FrameType::CONTINUATION) {
+    headerBlockFrameType_ = curHeader_.type;
+    if (promisedStream) {
+      parsingReq_ = true;
+    } else if (exAttributes) {
+      parsingReq_ = isRequest(curHeader_.stream);
+    } else {
+      parsingReq_ = transportDirection_ == TransportDirection::DOWNSTREAM;
+    }
+  } else if (headerBlockFrameType_ == http2::FrameType::PUSH_PROMISE) {
+    CHECK(promisedStream_.hasValue());
+    headersCompleteStream = *promisedStream_;
+  }
+
   if (curHeader_.flags & http2::END_HEADERS) {
-    auto errorCode =
-        parseHeadersDecodeFrames(priority, promisedStream, exAttributes, msg);
+    auto errorCode = parseHeadersDecodeFrames(priority, msg);
     if (errorCode.has_value()) {
       return errorCode.value();
     }
   }
 
-  // if we're not parsing CONTINUATION, then it's start of new header block
-  if (curHeader_.type != http2::FrameType::CONTINUATION) {
-    headerBlockFrameType_ = curHeader_.type;
-  }
-
   // Report back what we've parsed
-  if (callback_) {
-    auto concurError = parseHeadersCheckConcurrentStreams(priority);
-    if (concurError.has_value()) {
-      return concurError.value();
-    }
-    uint32_t headersCompleteStream = curHeader_.stream;
-    bool trailers = parsingTrailers();
-    bool allHeaderFramesReceived =
-        (curHeader_.flags & http2::END_HEADERS) &&
-        (headerBlockFrameType_ == http2::FrameType::HEADERS);
-    if (allHeaderFramesReceived && !trailers) {
-      // Only deliver onMessageBegin once per stream.
-      // For responses with CONTINUATION, this will be delayed until
-      // the frame with the END_HEADERS flag set.
-      if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageBegin,
-                                    "onMessageBegin",
-                                    curHeader_.stream,
-                                    msg.get())) {
-        return handleEndStream();
-      }
-    } else if (curHeader_.type == http2::FrameType::EX_HEADERS) {
-      if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onExMessageBegin,
-                                    "onExMessageBegin",
-                                    curHeader_.stream,
-                                    exAttributes->controlStream,
-                                    exAttributes->unidirectional,
-                                    msg.get())) {
-        return handleEndStream();
-      }
-    } else if (curHeader_.type == http2::FrameType::PUSH_PROMISE) {
-      DCHECK(promisedStream);
-      if (!deliverCallbackIfAllowed(&HTTPCodec::Callback::onPushMessageBegin,
-                                    "onPushMessageBegin",
-                                    *promisedStream,
-                                    curHeader_.stream,
-                                    msg.get())) {
-        return handleEndStream();
-      }
-      headersCompleteStream = *promisedStream;
-    }
-
-    if (curHeader_.flags & http2::END_HEADERS && msg) {
-      if (!(curHeader_.flags & http2::END_STREAM)) {
-        // If it there are DATA frames coming, consider it chunked
-        msg->setIsChunked(true);
-      }
-      if (trailers) {
-        VLOG(4) << "Trailers complete for streamId=" << headersCompleteStream
-                << " direction=" << transportDirection_;
-        auto trailerHeaders =
-            std::make_unique<HTTPHeaders>(msg->extractHeaders());
-        msg.reset();
-        callback_->onTrailersComplete(headersCompleteStream,
-                                      std::move(trailerHeaders));
-      } else {
-        callback_->onHeadersComplete(headersCompleteStream, std::move(msg));
-      }
-    }
-    return handleEndStream();
+  auto concurError = parseHeadersCheckConcurrentStreams(priority);
+  if (concurError.has_value()) {
+    return concurError.value();
   }
-  return ErrorCode::NO_ERROR;
+  bool trailers = parsingTrailers();
+  bool allHeaderFramesReceived =
+      (curHeader_.flags & http2::END_HEADERS) &&
+      (headerBlockFrameType_ == http2::FrameType::HEADERS);
+  if (allHeaderFramesReceived && !trailers) {
+    // Only deliver onMessageBegin once per stream.
+    // For responses with CONTINUATION, this will be delayed until
+    // the frame with the END_HEADERS flag set.
+    deliverCallbackIfAllowed(&HTTPCodec::Callback::onMessageBegin,
+                             "onMessageBegin",
+                             curHeader_.stream,
+                             msg.get());
+  } else if (curHeader_.type == http2::FrameType::EX_HEADERS) {
+    deliverCallbackIfAllowed(&HTTPCodec::Callback::onExMessageBegin,
+                             "onExMessageBegin",
+                             curHeader_.stream,
+                             exAttributes->controlStream,
+                             exAttributes->unidirectional,
+                             msg.get());
+  } else if (curHeader_.type == http2::FrameType::PUSH_PROMISE) {
+    DCHECK(promisedStream);
+    deliverCallbackIfAllowed(&HTTPCodec::Callback::onPushMessageBegin,
+                             "onPushMessageBegin",
+                             *promisedStream,
+                             curHeader_.stream,
+                             msg.get());
+    promisedStream_ = *promisedStream;
+    headersCompleteStream = *promisedStream;
+  }
+
+  if (curHeader_.flags & http2::END_HEADERS && msg) {
+    if (!(curHeader_.flags & http2::END_STREAM)) {
+      // If it there are DATA frames coming, consider it chunked
+      msg->setIsChunked(true);
+    }
+    if (trailers) {
+      VLOG(4) << "Trailers complete for streamId=" << headersCompleteStream
+              << " direction=" << transportDirection_;
+      auto trailerHeaders =
+          std::make_unique<HTTPHeaders>(msg->extractHeaders());
+      msg.reset();
+      deliverCallbackIfAllowed(&HTTPCodec::Callback::onTrailersComplete,
+                               "onTrailersComplete",
+                               headersCompleteStream,
+                               std::move(trailerHeaders));
+    } else {
+      deliverCallbackIfAllowed(&HTTPCodec::Callback::onHeadersComplete,
+                               "onHeadersComplete",
+                               headersCompleteStream,
+                               std::move(msg));
+      promisedStream_ = folly::none;
+    }
+  }
+  return handleEndStream();
 }
 
 folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
     const folly::Optional<http2::PriorityUpdate>& priority,
-    const folly::Optional<uint32_t>& promisedStream,
-    const folly::Optional<ExAttributes>& exAttributes,
     std::unique_ptr<HTTPMessage>& msg) {
   // decompress headers
   Cursor headerCursor(curHeaderBlock_.front());
-  bool isReq = false;
-  if (promisedStream) {
-    isReq = true;
-  } else if (exAttributes) {
-    isReq = isRequest(curHeader_.stream);
-  } else {
-    isReq = transportDirection_ == TransportDirection::DOWNSTREAM;
-  }
 
   // Validate circular dependencies.
   if (priority && (curHeader_.stream == priority->streamDependency)) {
@@ -542,7 +540,7 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
     return ErrorCode::NO_ERROR;
   }
 
-  decodeInfo_.init(isReq, parsingDownstreamTrailers_, validateHeaders_);
+  decodeInfo_.init(parsingReq_, parsingDownstreamTrailers_, validateHeaders_);
   if (priority) {
     decodeInfo_.msg->setHTTP2Priority(std::make_tuple(
         priority->streamDependency, priority->exclusive, priority->weight));
@@ -1272,7 +1270,8 @@ void HTTP2Codec::generateHeaderImpl(
   }
 
   if (!endHeaders) {
-    generateContinuation(writeBuf, queue, stream, maxFrameSize);
+    generateContinuation(
+        writeBuf, queue, assocStream ? *assocStream : stream, maxFrameSize);
   }
 }
 
@@ -1738,7 +1737,8 @@ bool HTTP2Codec::parsingTrailers() const {
   // For UPSTREAM case, response headers are required to have status code,
   // thus if no status code we consider that trailers.
   if (curHeader_.type == http2::FrameType::HEADERS ||
-      curHeader_.type == http2::FrameType::CONTINUATION) {
+      (curHeader_.type == http2::FrameType::CONTINUATION &&
+       headerBlockFrameType_ == http2::FrameType::HEADERS)) {
     if (transportDirection_ == TransportDirection::DOWNSTREAM) {
       return parsingDownstreamTrailers_;
     } else {

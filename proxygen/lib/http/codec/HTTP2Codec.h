@@ -231,8 +231,6 @@ class HTTP2Codec
       const folly::Optional<ExAttributes>& exAttributes);
   folly::Optional<ErrorCode> parseHeadersDecodeFrames(
       const folly::Optional<http2::PriorityUpdate>& priority,
-      const folly::Optional<uint32_t>& promisedStream,
-      const folly::Optional<ExAttributes>& exAttributes,
       std::unique_ptr<HTTPMessage>& msg);
   folly::Optional<ErrorCode> parseHeadersCheckConcurrentStreams(
       const folly::Optional<http2::PriorityUpdate>& priority);
@@ -260,6 +258,9 @@ class HTTP2Codec
   // Current frame state
   http2::FrameHeader curHeader_;
   StreamID expectedContinuationStream_{0};
+  // Used for parsing PUSH_PROMISE+CONTINUATION
+  folly::Optional<StreamID> promisedStream_;
+  bool parsingReq_{false};
   bool pendingEndStreamHandling_{false};
   bool ingressWebsocketUpgrade_{false};
 

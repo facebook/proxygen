@@ -909,6 +909,30 @@ TEST_F(HTTP2CodecTest, LongData) {
   EXPECT_EQ(callbacks_.data_.move()->moveToFbString(), buf->moveToFbString());
 }
 
+TEST_F(HTTP2CodecTest, PushPromiseContinuation) {
+  auto settings = upstreamCodec_.getEgressSettings();
+  settings->setSetting(SettingsId::ENABLE_PUSH, 1);
+  upstreamCodec_.generateSettings(output_);
+
+  SetUpUpstreamTest();
+  // Hack the max frame size artificially low
+  settings = (HTTPSettings*)downstreamCodec_.getIngressSettings();
+  settings->setSetting(SettingsId::MAX_FRAME_SIZE, 5);
+  HTTPHeaderSize size;
+  HTTPMessage req = getGetRequest();
+  req.getHeaders().add("foomonkey", "george");
+  downstreamCodec_.generatePushPromise(output_, 2, req, 1, false, &size);
+
+  parseUpstream();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.pushId, 2);
+  EXPECT_EQ(callbacks_.assocStreamId, 1);
+  EXPECT_EQ(callbacks_.headersCompleteId, 2);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 TEST_F(HTTP2CodecTest, MalformedPaddingLength) {
   const uint8_t badInput[] = {0x50,
                               0x52,
