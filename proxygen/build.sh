@@ -330,7 +330,8 @@ function setup_mvfst() {
 JOBS=8
 WITH_QUIC=false
 INSTALL_DEPENDENCIES=true
-USAGE="./deps.sh [-j num_jobs] [-q|--with-quic] [-m|--no-jemalloc] [--no-install-dependencies]"
+PREFIX=""
+USAGE="./deps.sh [-j num_jobs] [-q|--with-quic] [-m|--no-jemalloc] [--no-install-dependencies] [-p|--prefix]"
 while [ "$1" != "" ]; do
   case $1 in
     -j | --jobs ) shift
@@ -350,6 +351,10 @@ while [ "$1" != "" ]; do
       ;;
     -t | --no-tests )
                   NO_BUILD_TESTS=true
+      ;;
+    -p | --prefix )
+                  shift
+                  PREFIX=$1
       ;;
     * )           echo $USAGE
                   exit 1
@@ -402,12 +407,16 @@ if [ "$BUILD_FOR_FUZZING" == true ] ; then
   MAYBE_BUILD_SHARED_LIBS="-DBUILD_SHARED_LIBS=OFF"
 fi
 
+if [ -z "$PREFIX" ]; then
+  PREFIX=$BWD
+fi
+
 # Build proxygen with cmake
 cd "$BWD" || exit
 cmake                                     \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
   -DCMAKE_PREFIX_PATH="$DEPS_DIR"         \
-  -DCMAKE_INSTALL_PREFIX="$BWD"           \
+  -DCMAKE_INSTALL_PREFIX="$PREFIX"        \
   "$MAYBE_BUILD_QUIC"                     \
   "$MAYBE_BUILD_TESTS"                    \
   "$MAYBE_BUILD_FUZZERS"                  \
