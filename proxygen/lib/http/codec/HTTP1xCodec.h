@@ -52,7 +52,7 @@ class HTTP1xCodec : public HTTPCodec {
   void onIngressEOF() override;
   bool isReusable() const override;
   bool isWaitingToDrain() const override {
-    return false;
+    return disableKeepalivePending_ && keepalive_;
   }
   // If the session has been upgraded we will send EOF (or RST if needed)
   // on egress complete
@@ -92,6 +92,13 @@ class HTTP1xCodec : public HTTPCodec {
       StreamID lastStream,
       ErrorCode statusCode,
       std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
+
+  size_t generateImmediateGoaway(folly::IOBufQueue&,
+                                 ErrorCode,
+                                 std::unique_ptr<folly::IOBuf>) override {
+    keepalive_ = false;
+    return 0;
+  }
 
   void setAllowedUpgradeProtocols(std::list<std::string> protocols);
   const std::string& getAllowedUpgradeProtocols();

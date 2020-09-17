@@ -774,7 +774,7 @@ size_t HTTP1xCodec::generateRstStream(IOBufQueue& /*writeBuf*/,
                                       ErrorCode /*statusCode*/) {
   // statusCode ignored for HTTP/1.1
   // We won't be able to send anything else on the transport after this.
-  disableKeepalivePending_ = true;
+  keepalive_ = false;
   return 0;
 }
 
@@ -784,7 +784,13 @@ size_t HTTP1xCodec::generateGoaway(IOBufQueue&,
                                    std::unique_ptr<folly::IOBuf>) {
   // statusCode ignored for HTTP/1.1
   // We won't be able to send anything else on the transport after this.
-  disableKeepalivePending_ = true;
+  // For clients, immediately mark keepalive_ false.  For servers, wait until
+  // we've flushed the next headers.
+  if (transportDirection_ == TransportDirection::UPSTREAM) {
+    keepalive_ = false;
+  } else {
+    disableKeepalivePending_ = true;
+  }
   return 0;
 }
 

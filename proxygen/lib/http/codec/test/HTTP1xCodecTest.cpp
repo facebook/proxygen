@@ -813,6 +813,50 @@ TEST(HTTP1xCodecTest, TestHeaderValueWhiteSpaces) {
   EXPECT_EQ(headers.getSingleOrEmpty("X-FB-HEADER"), "yay");
 }
 
+TEST(HTTP1xCodecTest, DownstreamGoaway) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  EXPECT_TRUE(codec.isReusable());
+  EXPECT_FALSE(codec.isWaitingToDrain());
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  codec.generateGoaway(writeBuf, 0, ErrorCode::NO_ERROR);
+  EXPECT_TRUE(codec.isReusable());
+  EXPECT_TRUE(codec.isWaitingToDrain());
+  auto buf = folly::IOBuf::copyBuffer("GET / HTTP/1.1\r\n\r\n");
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  codec.onIngress(*buf);
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  codec.generateHeader(writeBuf, 1, resp, true);
+  EXPECT_FALSE(codec.isReusable());
+  EXPECT_FALSE(codec.isWaitingToDrain());
+}
+
+TEST(HTTP1xCodecTest, DownstreamImmediateGoaway) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  codec.generateImmediateGoaway(writeBuf, ErrorCode::NO_ERROR, nullptr);
+  EXPECT_FALSE(codec.isReusable());
+  EXPECT_FALSE(codec.isWaitingToDrain());
+}
+
+TEST(HTTP1xCodecTest, GenerateRst) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  codec.generateRstStream(writeBuf, 1, ErrorCode::INTERNAL_ERROR);
+  EXPECT_FALSE(codec.isReusable());
+  EXPECT_FALSE(codec.isWaitingToDrain());
+}
+
+TEST(HTTP1xCodecTest, UpstreamGoaway) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  codec.generateGoaway(writeBuf, 0, ErrorCode::NO_ERROR);
+  EXPECT_FALSE(codec.isReusable());
+  EXPECT_FALSE(codec.isWaitingToDrain());
+}
+
 class ConnectionHeaderTest
     : public TestWithParam<std::pair<std::list<string>, string>> {
  public:
