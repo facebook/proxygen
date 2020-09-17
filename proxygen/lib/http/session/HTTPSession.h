@@ -807,11 +807,6 @@ class HTTPSession
   void onConnectionSendWindowClosed() override;
 
   /**
-   * Get the id of the stream we should ack in a graceful GOAWAY
-   */
-  HTTPCodec::StreamID getGracefulGoawayAck() const;
-
-  /**
    * Invoked when the codec processes callbacks for a stream we are no
    * longer tracking.
    */

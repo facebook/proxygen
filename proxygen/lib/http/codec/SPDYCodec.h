@@ -131,16 +131,9 @@ class SPDYCodec : public HTTPParallelCodec {
                           folly::IOBufQueue& writeBuf,
                           uint8_t maxLevel) override;
 
-  StreamID mapPriorityToDependency(uint8_t priority) const override {
-    return MAX_STREAM_ID + priority;
-  }
+  StreamID mapPriorityToDependency(uint8_t priority) const override;
 
-  int8_t mapDependencyToPriority(StreamID parent) const override {
-    if (parent >= MAX_STREAM_ID) {
-      return parent - MAX_STREAM_ID;
-    }
-    return -1;
-  }
+  int8_t mapDependencyToPriority(StreamID parent) const override;
 
   struct SettingData {
     SettingData(uint8_t inFlags, uint32_t inId, uint32_t inValue)

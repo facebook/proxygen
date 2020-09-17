@@ -1773,7 +1773,6 @@ class MockHTTPUpstreamTest : public HTTPUpstreamTest<MockHTTPCodecPair> {
                                    HTTPCodec::StreamID lastStream,
                                    ErrorCode,
                                    std::shared_ptr<folly::IOBuf>) {
-          EXPECT_LT(lastStream, std::numeric_limits<int32_t>::max());
           if (reusable_) {
             writeBuf.append("GOAWAY", 6);
             reusable_ = false;

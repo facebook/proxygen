@@ -45,6 +45,8 @@ TEST(HTTP2CodecConstantsTest, HTTPContantsAreCommonHeaders) {
 class HTTP2CodecTest : public HTTPParallelCodecTest {
  public:
   HTTP2CodecTest() : HTTPParallelCodecTest(upstreamCodec_, downstreamCodec_) {
+    upstreamCodec_.enableDoubleGoawayDrain();
+    downstreamCodec_.enableDoubleGoawayDrain();
   }
 
   void SetUp() override {
@@ -1184,16 +1186,16 @@ TEST_F(HTTP2CodecTest, BadGoaway) {
       folly::IOBuf::copyBuffer("debugData");
   upstreamCodec_.generateGoaway(
       output_, 17, ErrorCode::ENHANCE_YOUR_CALM, std::move(debugData));
-  EXPECT_DEATH_NO_CORE(
-      upstreamCodec_.generateGoaway(output_, 27, ErrorCode::ENHANCE_YOUR_CALM),
-      ".*");
+  auto bytes =
+      upstreamCodec_.generateGoaway(output_, 27, ErrorCode::ENHANCE_YOUR_CALM);
+  ;
+  EXPECT_EQ(bytes, 0);
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoaway) {
   parse();
   SetUpUpstreamTest();
-  downstreamCodec_.generateGoaway(
-      output_, std::numeric_limits<int32_t>::max(), ErrorCode::NO_ERROR);
+  downstreamCodec_.generateGoaway(output_);
   EXPECT_TRUE(downstreamCodec_.isWaitingToDrain());
   EXPECT_TRUE(downstreamCodec_.isReusable());
   EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(0));

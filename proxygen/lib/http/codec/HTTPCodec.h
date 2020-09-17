@@ -50,7 +50,7 @@ class HTTPCodec {
 
   static const folly::Optional<uint8_t> NoPadding;
 
-  static const StreamID MAX_STREAM_ID = 1u << 31;
+  static constexpr StreamID MaxStreamID = std::numeric_limits<StreamID>::max();
 
   struct ExAttributes {
     ExAttributes() {
@@ -587,14 +587,28 @@ class HTTPCodec {
                                    ErrorCode code) = 0;
 
   /**
-   * Generate any protocol framing needed to abort a connection.
+   * Generate any protocol framing needed to gracefully drain or abort a
+   * connection.
+   *
+   * Calling with lastStream = MaxStreamID and code = NO_ERROR will leave it to
+   * the codec to properly fill in the last stream ID.
+   *
    * @return number of bytes written
    */
   virtual size_t generateGoaway(
       folly::IOBufQueue& writeBuf,
-      StreamID lastStream,
-      ErrorCode code,
+      StreamID lastStream = MaxStreamID,
+      ErrorCode code = ErrorCode::NO_ERROR,
       std::unique_ptr<folly::IOBuf> debugData = nullptr) = 0;
+
+  // Generate an immediate goaway
+  virtual size_t generateImmediateGoaway(
+      folly::IOBufQueue& writeBuf,
+      ErrorCode code = ErrorCode::NO_ERROR,
+      std::unique_ptr<folly::IOBuf> debugData = nullptr) {
+    return generateGoaway(
+        writeBuf, getLastIncomingStreamID(), code, std::move(debugData));
+  }
 
   /**
    * If the protocol supports it, generate a ping message that the other

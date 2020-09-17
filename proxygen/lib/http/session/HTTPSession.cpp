@@ -256,8 +256,7 @@ void HTTPSession::startNow() {
   // shutdown before we sent a SETTINGS frame, so we defer sending a GOAWAY
   // util we've started and sent SETTINGS.
   if (draining_) {
-    codec_->generateGoaway(
-        writeBuf_, getGracefulGoawayAck(), ErrorCode::NO_ERROR);
+    codec_->generateGoaway(writeBuf_);
   }
   scheduleWrite();
   resumeReads();
@@ -409,8 +408,7 @@ void HTTPSession::closeWhenIdle() {
   // If drain() already called, this is a noop
   drain();
   // Generate the second GOAWAY now. No-op if second GOAWAY already sent.
-  if (codec_->generateGoaway(
-          writeBuf_, codec_->getLastIncomingStreamID(), ErrorCode::NO_ERROR)) {
+  if (codec_->generateGoaway(writeBuf_)) {
     scheduleWrite();
   }
   if (!isBusy() && !hasMoreWrites()) {
@@ -2340,9 +2338,8 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
   }
 
   if (shutdownWrites && !writesShutdown()) {
-    if (codec_->generateGoaway(writeBuf_,
-                               codec_->getLastIncomingStreamID(),
-                               ErrorCode::NO_ERROR)) {
+    // Need to shutdown, bypass double GOAWAY
+    if (codec_->generateImmediateGoaway(writeBuf_)) {
       scheduleWrite();
     }
     if (!hasMoreWrites() &&
@@ -2515,14 +2512,12 @@ void HTTPSession::drain() {
 }
 
 void HTTPSession::drainImpl() {
-  if (codec_->isReusable() || codec_->isWaitingToDrain()) {
-    setCloseReason(ConnectionCloseReason::SHUTDOWN);
-    // For HTTP/2, if we haven't started yet then we cannot send a GOAWAY frame
-    // since we haven't sent the initial SETTINGS frame. Defer sending that
-    // GOAWAY until the initial SETTINGS is sent.
-    if (started_) {
-      codec_->generateGoaway(
-          writeBuf_, getGracefulGoawayAck(), ErrorCode::NO_ERROR);
+  setCloseReason(ConnectionCloseReason::SHUTDOWN);
+  // For HTTP/2, if we haven't started yet then we cannot send a GOAWAY frame
+  // since we haven't sent the initial SETTINGS frame. Defer sending that
+  // GOAWAY until the initial SETTINGS is sent.
+  if (started_) {
+    if (codec_->generateGoaway(writeBuf_) > 0) {
       scheduleWrite();
     }
   }
@@ -2850,13 +2845,10 @@ void HTTPSession::onSessionParseError(const HTTPException& error) {
   if (error.hasCodecStatusCode()) {
     std::unique_ptr<folly::IOBuf> errorMsg =
         folly::IOBuf::copyBuffer(error.what());
-    codec_->generateGoaway(writeBuf_,
-                           codec_->getLastIncomingStreamID(),
-                           error.getCodecStatusCode(),
-                           isHTTP2CodecProtocol(codec_->getProtocol())
-                               ? std::move(errorMsg)
-                               : nullptr);
-    scheduleWrite();
+    if (codec_->generateImmediateGoaway(
+            writeBuf_, error.getCodecStatusCode(), std::move(errorMsg))) {
+      scheduleWrite();
+    }
   }
   setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
   shutdownTransport(true, true);
@@ -2985,17 +2977,6 @@ void HTTPSession::onConnectionSendWindowClosed() {
   } else {
     timeout_.scheduleTimeout(&flowControlTimeout_);
   }
-}
-
-HTTPCodec::StreamID HTTPSession::getGracefulGoawayAck() const {
-  if (!codec_->isReusable() || codec_->isWaitingToDrain()) {
-    // TODO: just track last stream ID inside HTTPSession since this logic
-    // is shared between HTTP/2 and SPDY
-    return codec_->getLastIncomingStreamID();
-  }
-  VLOG(4) << *this << " getGracefulGoawayAck is reusable and not draining";
-  // return the maximum possible stream id
-  return std::numeric_limits<int32_t>::max();
 }
 
 void HTTPSession::invalidStream(HTTPCodec::StreamID stream, ErrorCode code) {

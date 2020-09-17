@@ -70,6 +70,9 @@ const size_t kMaxUncompressed = 96 * 1024; // 96kb ought be enough for anyone
 // SPDY flags
 const uint8_t kFlagFin = 0x01;
 
+const HTTPCodec::StreamID kMaxStreamID = (1u << 31) - 1;
+const HTTPCodec::StreamID kVirtualPriorityStreamID = kMaxStreamID + 1;
+
 /**
  * Convenience function to pack SPDY's 8-bit flags field and
  * 24-bit length field into a single uint32_t so we can write
@@ -224,6 +227,17 @@ void SPDYCodec::setMaxFrameLength(uint32_t maxFrameLength) {
 
 void SPDYCodec::setMaxUncompressedHeaders(uint32_t maxUncompressed) {
   headerCodec_.setMaxUncompressed(maxUncompressed);
+}
+
+HTTPCodec::StreamID SPDYCodec::mapPriorityToDependency(uint8_t priority) const {
+  return kVirtualPriorityStreamID + priority;
+}
+
+int8_t SPDYCodec::mapDependencyToPriority(StreamID parent) const {
+  if (parent >= kVirtualPriorityStreamID) {
+    return parent - kVirtualPriorityStreamID;
+  }
+  return -1;
 }
 
 CodecProtocol SPDYCodec::getProtocol() const {
@@ -897,12 +911,22 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
   const size_t frameSize =
       kFrameSizeControlCommon + (size_t)versionSettings_.goawaySize;
 
-  DCHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
-  egressGoawayAck_ = lastStream;
   if (sessionClosing_ == ClosingState::CLOSING) {
     VLOG(4) << "Not sending GOAWAY for closed session";
     return 0;
   }
+  // If the caller didn't specify a last stream, choose the correct one
+  // If there's an error or this is the final GOAWAY, use last received stream
+  if (lastStream == HTTPCodec::MaxStreamID) {
+    if (code != ErrorCode::NO_ERROR || !isReusable() || isWaitingToDrain()) {
+      lastStream = getLastIncomingStreamID();
+    } else {
+      lastStream = kMaxStreamID;
+    }
+  }
+
+  DCHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
+  egressGoawayAck_ = lastStream;
   const size_t expectedLength = writeBuf.chainLength() + frameSize;
   QueueAppender appender(&writeBuf, frameSize);
   appender.writeBE(versionSettings_.controlVersion);
@@ -911,9 +935,11 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
     sessionClosing_ = ClosingState::CLOSING;
   }
 
-  string debugInfo = (debugData) ? folly::to<string>(" with debug info=",
-                                                     (char*)debugData->data())
-                                 : "";
+  string debugInfo =
+      (debugData) ? folly::to<string>(" with debug info=",
+                                      std::string((char*)debugData->data(),
+                                                  debugData->length()))
+                  : "";
   VLOG(4) << "Sending GOAWAY with last acknowledged stream=" << lastStream
           << " with code=" << getErrorCodeString(code) << debugInfo;
 
@@ -928,7 +954,7 @@ size_t SPDYCodec::generateGoaway(IOBufQueue& writeBuf,
       sessionClosing_ = ClosingState::CLOSING;
       break;
     case ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED:
-      if (lastStream == std::numeric_limits<int32_t>::max()) {
+      if (lastStream == kMaxStreamID) {
         sessionClosing_ = ClosingState::FIRST_GOAWAY_SENT;
       } else {
         // The user of this codec decided not to do the double goaway
@@ -1049,8 +1075,9 @@ size_t SPDYCodec::addPriorityNodes(PriorityQueue& queue,
   HTTPCodec::StreamID parent = 0;
   // For SPDY, we always create 8 virtual nodes regardless of maxLevel
   for (uint8_t pri = 0; pri < 8; pri++) {
-    queue.addPriorityNode(HTTPCodec::MAX_STREAM_ID + pri, parent);
-    parent = HTTPCodec::MAX_STREAM_ID + pri;
+    auto dependency = mapPriorityToDependency(pri);
+    queue.addPriorityNode(dependency, parent);
+    parent = dependency;
   }
   return 0;
 }
@@ -1293,7 +1320,7 @@ void SPDYCodec::onSynCommon(StreamID streamID,
   pri <<= (3 - versionSettings_.majorVersion);
   msg->setPriority(pri);
   msg->setHTTP2Priority(
-      std::make_tuple(HTTPCodec::MAX_STREAM_ID + pri, false, 255));
+      std::make_tuple(mapPriorityToDependency(pri), false, 255));
   deliverOnMessageBegin(streamID, assocStreamID, msg.get());
 
   if ((flags_ & spdy::CTRL_FLAG_FIN) == 0) {

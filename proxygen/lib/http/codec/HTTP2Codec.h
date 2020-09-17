@@ -89,8 +89,8 @@ class HTTP2Codec
                            ErrorCode statusCode) override;
   size_t generateGoaway(
       folly::IOBufQueue& writeBuf,
-      StreamID lastStream,
-      ErrorCode statusCode,
+      StreamID lastStream = HTTPCodec::MaxStreamID,
+      ErrorCode statusCode = ErrorCode::NO_ERROR,
       std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
   size_t generatePingRequest(
       folly::IOBufQueue& writeBuf,

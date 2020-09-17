@@ -76,8 +76,12 @@ class HTTPParallelCodec : public HTTPCodec {
   }
 
   bool isInitiatedStream(StreamID stream) const {
+    return isInitiatedStream(transportDirection_, stream);
+  }
+
+  static bool isInitiatedStream(TransportDirection direction, StreamID stream) {
     bool odd = stream & 0x01;
-    bool upstream = (transportDirection_ == TransportDirection::UPSTREAM);
+    bool upstream = (direction == TransportDirection::UPSTREAM);
     return (odd && upstream) || (!odd && !upstream);
   }
 

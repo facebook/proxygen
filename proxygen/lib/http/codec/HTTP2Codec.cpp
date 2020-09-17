@@ -1467,16 +1467,27 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
                                   StreamID lastStream,
                                   ErrorCode statusCode,
                                   std::unique_ptr<folly::IOBuf> debugData) {
-  DCHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
-  egressGoawayAck_ = lastStream;
   if (sessionClosing_ == ClosingState::CLOSED) {
     VLOG(4) << "Not sending GOAWAY for closed session";
     return 0;
   }
+
+  // If the caller didn't specify a last stream, choose the correct one
+  // If there's an error or this is the final GOAWAY, use last received stream
+  if (lastStream == HTTPCodec::MaxStreamID) {
+    if (statusCode != ErrorCode::NO_ERROR || !isReusable() ||
+        isWaitingToDrain()) {
+      lastStream = getLastIncomingStreamID();
+    } else {
+      lastStream = http2::kMaxStreamID;
+    }
+  }
+  DCHECK_LE(lastStream, egressGoawayAck_) << "Cannot increase last good stream";
+  egressGoawayAck_ = lastStream;
   switch (sessionClosing_) {
     case ClosingState::OPEN:
     case ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED:
-      if (lastStream == std::numeric_limits<int32_t>::max() &&
+      if (lastStream == http2::kMaxStreamID &&
           statusCode == ErrorCode::NO_ERROR) {
         sessionClosing_ = ClosingState::FIRST_GOAWAY_SENT;
       } else {
