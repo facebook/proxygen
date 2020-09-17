@@ -36,7 +36,6 @@ function(proxygen_add_fuzzer)
     add_executable(${PROXYGEN_FUZZ_TARGET}
       "${PROXYGEN_FUZZ_SOURCES}"
     )
-    add_dependencies(${PROXYGEN_FUZZ_TARGET} googletest)
     target_link_libraries(${PROXYGEN_FUZZ_TARGET} PRIVATE
       "${PROXYGEN_FUZZ_DEPENDS}"
     )
