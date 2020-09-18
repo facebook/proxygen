@@ -604,8 +604,11 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   /**
    * Maximum number of ingress body bytes that can be buffered across all
    * transactions for this single session/connection.
+   * While changing this value from multiple threads is supported,
+   * it is not correct since a thread can use a value changed by another thread
+   * We should change the code to avoid this
    */
-  static uint32_t kDefaultReadBufLimit;
+  static std::atomic<uint32_t> kDefaultReadBufLimit;
 
   /**
    * The maximum size of the read buffer from the socket.

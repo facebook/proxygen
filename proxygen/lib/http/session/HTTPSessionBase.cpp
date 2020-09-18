@@ -17,7 +17,7 @@ using folly::SocketAddress;
 using wangle::TransportInfo;
 
 namespace proxygen {
-uint32_t HTTPSessionBase::kDefaultReadBufLimit = 65536;
+std::atomic<uint32_t> HTTPSessionBase::kDefaultReadBufLimit{65536};
 uint32_t HTTPSessionBase::maxReadBufferSize_ = 4000;
 uint32_t HTTPSessionBase::egressBodySizeLimit_ = 4096;
 uint32_t HTTPSessionBase::kDefaultWriteBufLimit = 65536;
