@@ -9,6 +9,7 @@
 #pragma once
 
 #include <folly/SocketAddress.h>
+#include <folly/io/SocketOptionMap.h>
 #include <proxygen/lib/utils/Time.h>
 
 #include "proxygen/lib/healthcheck/ServerHealthCheckerCallback.h"
