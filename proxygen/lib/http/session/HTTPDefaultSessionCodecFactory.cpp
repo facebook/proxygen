@@ -43,7 +43,7 @@ std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
       codec->setAllowedUpgradeProtocols(
           accConfig_.allowedPlaintextUpgradeProtocols);
     }
-    return std::move(codec);
+    return codec;
   } else if (auto version = SPDYCodec::getVersion(nextProtocol)) {
     return std::make_unique<SPDYCodec>(
         direction, *version, accConfig_.spdyCompressionLevel);
