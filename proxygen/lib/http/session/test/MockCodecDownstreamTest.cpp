@@ -103,6 +103,7 @@ class MockCodecDownstreamTest : public testing::Test {
                                       HTTPCodec::StreamID /*lastStream*/,
                                       ErrorCode,
                                       std::shared_ptr<folly::IOBuf>) {
+          LOG(INFO) << "MOCK GENERATE GOAWAY";
           if (reusable_) {
             reusable_ = false;
             drainPending_ = doubleGoaway_;
@@ -619,10 +620,10 @@ TEST_F(MockCodecDownstreamTest, ServerPushClientMessage) {
 
 TEST_F(MockCodecDownstreamTest, ReadTimeout) {
   // Test read timeout path
+  codec_->enableDoubleGoawayDrain();
   MockHTTPHandler handler1;
   auto req1 = makeGetRequest();
 
-  fakeMockCodec(*codec_);
   EXPECT_CALL(*codec_, onIngressEOF()).WillRepeatedly(Return());
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
@@ -635,11 +636,9 @@ TEST_F(MockCodecDownstreamTest, ReadTimeout) {
 
   codecCallback_->onMessageBegin(HTTPCodec::StreamID(1), req1.get());
   codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req1));
-  // force the read timeout to expire, should be a no-op because the txn is
-  // still expecting EOM and has its own timer.
   httpSession_->timeoutExpired();
   EXPECT_EQ(httpSession_->getConnectionCloseReason(),
-            ConnectionCloseReason::kMAX_REASON);
+            ConnectionCloseReason::TIMEOUT);
 
   EXPECT_CALL(handler1, onEOM()).WillOnce(Invoke([&handler1]() {
     handler1.txn_->pauseIngress();
@@ -649,8 +648,6 @@ TEST_F(MockCodecDownstreamTest, ReadTimeout) {
   // upstream
   codecCallback_->onMessageComplete(HTTPCodec::StreamID(1), false);
   httpSession_->timeoutExpired();
-  EXPECT_EQ(httpSession_->getConnectionCloseReason(),
-            ConnectionCloseReason::kMAX_REASON);
 
   EXPECT_CALL(*transport_, writeChain(_, _, _))
       .WillRepeatedly(
@@ -662,16 +659,12 @@ TEST_F(MockCodecDownstreamTest, ReadTimeout) {
 
   // Send the response, timeout.  Now it's idle and should close.
   handler1.txn_->resumeIngress();
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
   handler1.sendReplyWithBody(200, 100);
-  eventBase_.loop();
-
-  httpSession_->timeoutExpired();
-  EXPECT_EQ(httpSession_->getConnectionCloseReason(),
-            ConnectionCloseReason::TIMEOUT);
-
-  // tear down the test
+  EXPECT_CALL(*codec_,
+              generateBody(_, 1, PtrBufHasLen(uint64_t(100)), _, true));
   EXPECT_CALL(mockController_, detachSession(_));
-  httpSession_->dropConnection();
+  eventBase_.loop();
 }
 
 TEST_F(MockCodecDownstreamTest, Ping) {

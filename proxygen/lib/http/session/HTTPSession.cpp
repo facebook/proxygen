@@ -329,35 +329,14 @@ void HTTPSession::setEgressBytesLimit(uint64_t bytesLimit) {
 void HTTPSession::readTimeoutExpired() noexcept {
   VLOG(3) << "session-level timeout on " << *this;
 
-  if (liveTransactions_ != 0) {
-    // There's at least one open transaction with a read timeout scheduled.
-    // We got here because the session timeout == the transaction timeout.
-    // Ignore, since the transaction is going to timeout very soon.
-    VLOG(4) << *this
-            << "ignoring session timeout, transaction timeout imminent";
-    resetTimeout();
-    return;
-  }
-
-  if (!transactions_.empty()) {
-    // There are one or more transactions, but none of them are live.
-    // That's valid if they've all received their full ingress messages
-    // and are waiting for their Handlers to process those messages.
-    VLOG(4) << *this
-            << "ignoring session timeout, no transactions awaiting reads";
-    resetTimeout();
-    return;
-  }
-
-  VLOG(4) << *this << " Timeout with nothing pending";
-
+  DestructorGuard g(this);
   setCloseReason(ConnectionCloseReason::TIMEOUT);
+  notifyPendingShutdown();
   auto controller = getController();
-  if (controller) {
+  if (controller && codec_->isWaitingToDrain()) {
     timeout_.scheduleTimeout(&drainTimeout_,
                              controller->getGracefulShutdownTimeout());
   }
-  notifyPendingShutdown();
 }
 
 void HTTPSession::writeTimeoutExpired() noexcept {

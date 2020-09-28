@@ -527,6 +527,81 @@ TEST_F(HTTPDownstreamSessionTest, ImmediateEof) {
   flushRequestsAndLoop(true, milliseconds(0));
 }
 
+TEST_F(HTTPDownstreamSessionTest, IdleTimeoutWithOpenStreamGraceful) {
+  // Send a request and simulate idle timeout.  Then send response.  Session
+  // will include Connection: close and terminate.
+  auto id = sendRequest(getGetRequest());
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM();
+
+  // Simulate a read timeout, then send response in next loop
+  eventBase_.runAfterDelay(
+      [&] {
+        httpSession_->timeoutExpired();
+        eventBase_.runInLoop(
+            [&handler] { handler->sendReplyWithBody(200, 100); });
+      },
+      transactionTimeouts_->getDefaultTimeout().count());
+  handler->expectDetachTransaction();
+  expectDetachSession();
+
+  HTTPSession::DestructorGuard g(httpSession_);
+  flushRequestsAndLoop(true, milliseconds(0));
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  clientCodec_->setCallback(&callbacks);
+
+  EXPECT_CALL(callbacks, onHeadersComplete(id, _))
+      .WillOnce(Invoke([](HTTPCodec::StreamID,
+                          std::shared_ptr<HTTPMessage> msg) {
+        EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+                  "close");
+      }));
+  parseOutput(*clientCodec_);
+}
+
+TEST_F(HTTPDownstreamSessionTest, IdleTimeoutNoStreams) {
+  httpSession_->timeoutExpired();
+  expectDetachSession();
+  eventBase_.loop();
+}
+
+TEST_F(HTTPDownstreamSessionTest, IdleTimeoutWithOpenStreamUngraceful) {
+  // Send a request, send response header, then simulate idle timeout.
+  // and send the remaining response.  Session will not include
+  // Connection: close and terminate.
+  sendRequest(getGetRequest());
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&handler] { handler->sendHeaders(200, 100); });
+  handler->expectEOM();
+
+  // Simulate a read timeout, then send response in next loop
+  eventBase_.runAfterDelay(
+      [&] {
+        httpSession_->timeoutExpired();
+        eventBase_.runInLoop([&handler] {
+          handler->sendBody(100);
+          handler->txn_->sendEOM();
+        });
+      },
+      transactionTimeouts_->getDefaultTimeout().count());
+  handler->expectDetachTransaction();
+  expectDetachSession();
+
+  HTTPSession::DestructorGuard g(httpSession_);
+  flushRequestsAndLoop(true, milliseconds(0));
+  NiceMock<MockHTTPCodecCallback> callbacks;
+  clientCodec_->setCallback(&callbacks);
+
+  EXPECT_CALL(callbacks, onHeadersComplete(1, _))
+      .WillOnce(Invoke([](HTTPCodec::StreamID,
+                          std::shared_ptr<HTTPMessage> msg) {
+        EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION),
+                  "keep-alive");
+      }));
+  parseOutput(*clientCodec_);
+}
+
 TEST_F(HTTPDownstreamSessionTest, Http10NoHeaders) {
   InSequence enforceOrder;
 
