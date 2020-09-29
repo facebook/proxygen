@@ -251,6 +251,7 @@ class HTTP2Codec
   void streamError(const std::string& msg,
                    ErrorCode error,
                    bool newTxn = false);
+  bool parsingHeaders() const;
   bool parsingTrailers() const;
 
   HPACKCodec headerCodec_;

@@ -536,7 +536,7 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
     streamError(
         folly::to<string>("Circular dependency for txn=", curHeader_.stream),
         ErrorCode::PROTOCOL_ERROR,
-        curHeader_.type == http2::FrameType::HEADERS);
+        parsingHeaders());
     return ErrorCode::NO_ERROR;
   }
 
@@ -573,19 +573,33 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersDecodeFrames(
 
   // Check parsing error
   if (decodeInfo_.parsingError != "") {
+    // This is "malformed" per the RFC
     LOG(ERROR) << "Failed parsing header list for stream=" << curHeader_.stream
                << ", error=" << decodeInfo_.parsingError << ", header block=";
     VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
-    HTTPException err(HTTPException::Direction::INGRESS,
-                      folly::to<std::string>("HTTP2Codec stream error: ",
-                                             "stream=",
-                                             curHeader_.stream,
-                                             " status=",
-                                             400,
-                                             " error: ",
-                                             decodeInfo_.parsingError));
-    err.setHttpStatusCode(400);
-    callback_->onError(curHeader_.stream, err, true);
+    if (transportDirection_ == TransportDirection::DOWNSTREAM &&
+        parsingHeaders() && !parsingTrailers()) {
+      // Downstream header parsing failed = return a 400
+      HTTPException err(HTTPException::Direction::INGRESS,
+                        folly::to<std::string>("HTTP2Codec stream error: ",
+                                               "stream=",
+                                               curHeader_.stream,
+                                               " status=",
+                                               400,
+                                               " error: ",
+                                               decodeInfo_.parsingError));
+      err.setHttpStatusCode(400);
+      if (callback_) {
+        callback_->onError(curHeader_.stream, err, true);
+      }
+    } else {
+      // Upstream, PUSH_PROMISE, EX_HEADERS or trailers parsing failed:
+      // PROTOCOL_ERROR
+      streamError(folly::to<string>("Field section parsing failed txn=",
+                                    curHeader_.stream),
+                  ErrorCode::PROTOCOL_ERROR,
+                  false);
+    }
     return ErrorCode::NO_ERROR;
   }
 
@@ -603,9 +617,10 @@ folly::Optional<ErrorCode> HTTP2Codec::parseHeadersCheckConcurrentStreams(
     }
 
     // callback checks total number of streams is smaller than settings max
-    if (callback_->numIncomingStreams() >=
-        egressSettings_.getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
-                                   std::numeric_limits<int32_t>::max())) {
+    if (callback_ &&
+        callback_->numIncomingStreams() >=
+            egressSettings_.getSetting(SettingsId::MAX_CONCURRENT_STREAMS,
+                                       std::numeric_limits<int32_t>::max())) {
       streamError(folly::to<string>("Exceeded max_concurrent_streams"),
                   ErrorCode::REFUSED_STREAM,
                   true);
@@ -1737,6 +1752,12 @@ HTTPCodec::StreamID HTTP2Codec::mapPriorityToDependency(
                    priority, uint8_t(virtualPriorityNodes_.size() - 1))];
 }
 
+bool HTTP2Codec::parsingHeaders() const {
+  return (curHeader_.type == http2::FrameType::HEADERS ||
+          (curHeader_.type == http2::FrameType::CONTINUATION &&
+           headerBlockFrameType_ == http2::FrameType::HEADERS));
+}
+
 bool HTTP2Codec::parsingTrailers() const {
   // HEADERS frame is used for request/response headers and trailers.
   // Per spec, specific role of HEADERS frame is determined by it's postion
@@ -1747,9 +1768,7 @@ bool HTTP2Codec::parsingTrailers() const {
   // (see checkNewStream).
   // For UPSTREAM case, response headers are required to have status code,
   // thus if no status code we consider that trailers.
-  if (curHeader_.type == http2::FrameType::HEADERS ||
-      (curHeader_.type == http2::FrameType::CONTINUATION &&
-       headerBlockFrameType_ == http2::FrameType::HEADERS)) {
+  if (parsingHeaders()) {
     if (transportDirection_ == TransportDirection::DOWNSTREAM) {
       return parsingDownstreamTrailers_;
     } else {

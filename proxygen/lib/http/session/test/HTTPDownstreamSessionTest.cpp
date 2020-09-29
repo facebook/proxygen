@@ -4118,6 +4118,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestDuplicateRequestStream) {
     // cleanly terminate it
     handler2->sendReplyWithBody(200, 100);
   });
+  handler2->expectError();
   handler1->expectDetachTransaction();
   handler2->expectDetachTransaction();
   flushRequestsAndLoop();
