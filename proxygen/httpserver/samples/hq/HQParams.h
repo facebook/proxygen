@@ -110,6 +110,9 @@ struct HQParams {
   std::shared_ptr<quic::QuicPskCache> pskCache;
   fizz::server::ClientAuthMode clientAuth{fizz::server::ClientAuthMode::None};
 
+  // Transport knobs
+  std::string transportKnobs;
+
   bool migrateClient{false};
 };
 

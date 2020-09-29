@@ -116,6 +116,11 @@ DEFINE_bool(send_knob_frame,
             "Send a Knob Frame to the peer when a QUIC connection is "
             "established successfully");
 
+DEFINE_string(transport_knobs,
+              "",
+              "If send_knob_frame is set, this is the default transport knobs"
+              " sent to peer");
+
 namespace quic { namespace samples {
 
 std::ostream& operator<<(std::ostream& o, const HTTPVersion& v) {
@@ -272,6 +277,11 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.connectTimeout = std::chrono::milliseconds(FLAGS_connect_timeout);
   hqParams.ccpConfig = FLAGS_ccp_config;
   hqParams.sendKnobFrame = FLAGS_send_knob_frame;
+  if (hqParams.sendKnobFrame) {
+    hqParams.transportSettings.knobs.push_back({kDefaultQuicTransportKnobSpace,
+                                                kDefaultQuicTransportKnobId,
+                                                FLAGS_transport_knobs});
+  }
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParams& hqParams) {
