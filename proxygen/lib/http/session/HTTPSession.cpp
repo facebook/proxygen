@@ -689,9 +689,6 @@ http2::PriorityUpdate HTTPSession::getMessagePriority(const HTTPMessage* msg) {
 void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
                                  HTTPMessage* msg) {
   VLOG(4) << "processing new msg streamID=" << streamID << " " << *this;
-  if (infoCallback_) {
-    infoCallback_->onRequestBegin(*this);
-  }
 
   HTTPTransaction* txn = findTransaction(streamID);
   if (txn) {
@@ -704,6 +701,10 @@ void HTTPSession::onMessageBegin(HTTPCodec::StreamID streamID,
       txn->onError(ex);
     }
     return; // If this transaction is already registered, no need to add it now
+  }
+
+  if (infoCallback_) {
+    infoCallback_->onRequestBegin(*this);
   }
 
   http2::PriorityUpdate messagePriority = getMessagePriority(msg);

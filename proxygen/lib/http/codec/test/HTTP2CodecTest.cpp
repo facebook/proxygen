@@ -383,7 +383,7 @@ TEST_F(HTTP2CodecTest, BadHeaders) {
   }
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.messageBegin, 1 + 7);
   EXPECT_EQ(callbacks_.headersComplete, 1);
   EXPECT_EQ(callbacks_.messageComplete, 1);
   EXPECT_EQ(callbacks_.streamErrors, 7);
@@ -416,7 +416,7 @@ TEST_F(HTTP2CodecTest, BadPseudoHeaders) {
                true);
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.messageBegin, 1);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 1);
@@ -451,7 +451,7 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
   }
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.messageBegin, 4);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 4);
@@ -470,7 +470,7 @@ const uint8_t kBufEmptyHeader[] = {
 TEST_F(HTTP2CodecTest, EmptyHeaderName) {
   output_.append(IOBuf::copyBuffer(kBufEmptyHeader, sizeof(kBufEmptyHeader)));
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.messageBegin, 1);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 1);
@@ -523,7 +523,7 @@ TEST_F(HTTP2CodecTest, BadConnect) {
   }
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.messageBegin, badHeaders.size());
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, badHeaders.size());
@@ -691,7 +691,7 @@ TEST_F(HTTP2CodecTest, BadHeadersReply) {
   }
 
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.messageBegin, 2);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 2);
@@ -1711,6 +1711,25 @@ TEST_F(HTTP2CodecTest, BadPushPromise) {
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
+TEST_F(HTTP2CodecTest, BadPushPromiseResets) {
+  auto settings = upstreamCodec_.getEgressSettings();
+  settings->setSetting(SettingsId::ENABLE_PUSH, 1);
+  upstreamCodec_.generateSettings(output_);
+  SetUpUpstreamTest();
+  HTTPMessage req = getGetRequest();
+  req.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "100");
+  req.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "200");
+  downstreamCodec_.generatePushPromise(output_, 2, req, 1);
+
+  parseUpstream();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.assocStreamId, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 2);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 TEST_F(HTTP2CodecTest, BasicCertificateRequest) {
   uint16_t requestId = 17;
   std::unique_ptr<folly::IOBuf> authRequest =
@@ -1952,7 +1971,7 @@ TEST_F(HTTP2CodecTest, WebsocketBadHeader) {
     parse();
   }
 
-  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.messageBegin, optionalHeaders.size());
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, optionalHeaders.size());
@@ -1980,7 +1999,7 @@ TEST_F(HTTP2CodecTest, WebsocketDupProtocol) {
                false,
                true);
   parse();
-  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.messageBegin, 1);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 1);
@@ -2290,7 +2309,9 @@ TEST_F(HTTP2CodecTest, TrailersReplyWithPseudoHeaders) {
                true);
   parseUpstream();
 
-  EXPECT_EQ(callbacks_.messageBegin, 1);
+  // Unfortunately, you get 2x messageBegin calls for parse error in
+  // upstream trailers
+  EXPECT_EQ(callbacks_.messageBegin, 2);
   EXPECT_EQ(callbacks_.headersComplete, 1);
   EXPECT_EQ(callbacks_.trailers, 0);
   EXPECT_EQ(nullptr, callbacks_.msg->getTrailers());

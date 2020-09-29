@@ -229,9 +229,24 @@ class HTTP2Codec
       const folly::Optional<http2::PriorityUpdate>& priority,
       const folly::Optional<uint32_t>& promisedStream,
       const folly::Optional<ExAttributes>& exAttributes);
-  folly::Optional<ErrorCode> parseHeadersDecodeFrames(
-      const folly::Optional<http2::PriorityUpdate>& priority,
-      std::unique_ptr<HTTPMessage>& msg);
+
+  struct DeferredParseError {
+    ErrorCode errorCode{ErrorCode::NO_ERROR};
+    bool connectionError{false};
+    std::string errorMessage;
+
+    DeferredParseError(ErrorCode ec, bool conn, std::string msg)
+        : errorCode(ec), connectionError(conn), errorMessage(std::move(msg)) {
+    }
+
+    DeferredParseError() = default;
+  };
+
+  folly::Expected<std::unique_ptr<HTTPMessage>, DeferredParseError>
+  parseHeadersDecodeFrames(
+      const folly::Optional<http2::PriorityUpdate>& priority);
+  void deliverDeferredParseError(const DeferredParseError& parseError);
+
   folly::Optional<ErrorCode> parseHeadersCheckConcurrentStreams(
       const folly::Optional<http2::PriorityUpdate>& priority);
 
@@ -250,7 +265,8 @@ class HTTP2Codec
   }
   void streamError(const std::string& msg,
                    ErrorCode error,
-                   bool newTxn = false);
+                   bool newTxn = false,
+                   folly::Optional<HTTPCodec::StreamID> streamId = folly::none);
   bool parsingHeaders() const;
   bool parsingTrailers() const;
 
