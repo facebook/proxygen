@@ -18,9 +18,9 @@ cd "$(dirname "$0")"
 
 cd _build
 # Uninstall is expected to fail the first time
-sudo make uninstall || true
-sudo make install
+make uninstall || true
+make install
 
 # Make sure the libraries are available
 # Linux only
-sudo /sbin/ldconfig || true
+/sbin/ldconfig || true
