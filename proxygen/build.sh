@@ -139,6 +139,7 @@ function setup_fmt() {
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
+    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"           \
     -DFMT_DOC=OFF                                 \
     -DFMT_TEST=OFF                                \
     ..
@@ -214,6 +215,7 @@ function setup_folly() {
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
+    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"           \
     -DBUILD_TESTS=OFF                             \
     "$MAYBE_USE_STATIC_DEPS"                      \
     "$MAYBE_USE_STATIC_BOOST"                     \
@@ -250,6 +252,7 @@ function setup_fizz() {
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
+    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"         \
     -DBUILD_TESTS=OFF                           \
     "$MAYBE_USE_STATIC_DEPS"                    \
     "$MAYBE_BUILD_SHARED_LIBS"                  \
@@ -283,6 +286,7 @@ function setup_wangle() {
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
+    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"         \
     -DBUILD_TESTS=OFF                           \
     "$MAYBE_USE_STATIC_DEPS"                    \
     "$MAYBE_BUILD_SHARED_LIBS"                  \
@@ -316,6 +320,7 @@ function setup_mvfst() {
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
+    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"         \
     -DBUILD_TESTS=OFF                           \
     "$MAYBE_USE_STATIC_DEPS"                    \
     "$MAYBE_BUILD_SHARED_LIBS"                  \
@@ -331,7 +336,8 @@ JOBS=8
 WITH_QUIC=false
 INSTALL_DEPENDENCIES=true
 PREFIX=""
-USAGE="./deps.sh [-j num_jobs] [-q|--with-quic] [-m|--no-jemalloc] [--no-install-dependencies] [-p|--prefix]"
+COMPILER_FLAGS=""
+USAGE="./build.sh [-j num_jobs] [-q|--with-quic] [-m|--no-jemalloc] [--no-install-dependencies] [-p|--prefix] [-x|--compiler-flags]"
 while [ "$1" != "" ]; do
   case $1 in
     -j | --jobs ) shift
@@ -355,6 +361,10 @@ while [ "$1" != "" ]; do
     -p | --prefix )
                   shift
                   PREFIX=$1
+      ;;
+    -x | --compiler-flags )
+                  shift
+                  COMPILER_FLAGS=$1
       ;;
     * )           echo $USAGE
                   exit 1
@@ -417,6 +427,7 @@ cmake                                     \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
   -DCMAKE_PREFIX_PATH="$DEPS_DIR"         \
   -DCMAKE_INSTALL_PREFIX="$PREFIX"        \
+  -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"     \
   "$MAYBE_BUILD_QUIC"                     \
   "$MAYBE_BUILD_TESTS"                    \
   "$MAYBE_BUILD_FUZZERS"                  \
