@@ -17,9 +17,9 @@
 #include <sys/queue.h>
 
 #ifdef HAVE_REAL_QMIN
-#include "qmin_common.h"
-#include "qmin_dec.h"
-#include "qmin_enc.h"
+#include "qmin_common.h"  // @manual
+#include "qmin_dec.h"  // @manual
+#include "qmin_enc.h"  // @manual
 #else
 /* Stub implementation for when you don't have QMIN */
 extern "C" {
