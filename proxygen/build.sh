@@ -139,7 +139,7 @@ function setup_fmt() {
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
-    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"           \
+    "$MAYBE_OVERRIDE_CXX_FLAGS"                   \
     -DFMT_DOC=OFF                                 \
     -DFMT_TEST=OFF                                \
     ..
@@ -215,11 +215,11 @@ function setup_folly() {
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"               \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"            \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo             \
-    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"           \
     -DBUILD_TESTS=OFF                             \
     "$MAYBE_USE_STATIC_DEPS"                      \
     "$MAYBE_USE_STATIC_BOOST"                     \
     "$MAYBE_BUILD_SHARED_LIBS"                    \
+    "$MAYBE_OVERRIDE_CXX_FLAGS"                   \
     $MAYBE_DISABLE_JEMALLOC                       \
     ..
   make -j "$JOBS"
@@ -252,10 +252,10 @@ function setup_fizz() {
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
-    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"         \
     -DBUILD_TESTS=OFF                           \
     "$MAYBE_USE_STATIC_DEPS"                    \
     "$MAYBE_BUILD_SHARED_LIBS"                  \
+    "$MAYBE_OVERRIDE_CXX_FLAGS"                 \
     "$MAYBE_USE_SODIUM_STATIC_LIBS"             \
     "$FIZZ_DIR/fizz"
   make -j "$JOBS"
@@ -286,10 +286,10 @@ function setup_wangle() {
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
-    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"         \
     -DBUILD_TESTS=OFF                           \
     "$MAYBE_USE_STATIC_DEPS"                    \
     "$MAYBE_BUILD_SHARED_LIBS"                  \
+    "$MAYBE_OVERRIDE_CXX_FLAGS"                 \
     "$WANGLE_DIR/wangle"
   make -j "$JOBS"
   make install
@@ -320,10 +320,10 @@ function setup_mvfst() {
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
-    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"         \
     -DBUILD_TESTS=OFF                           \
     "$MAYBE_USE_STATIC_DEPS"                    \
     "$MAYBE_BUILD_SHARED_LIBS"                  \
+    "$MAYBE_OVERRIDE_CXX_FLAGS"                 \
     "$MVFST_DIR"
   make -j "$JOBS"
   make install
@@ -378,6 +378,11 @@ if [ "$INSTALL_DEPENDENCIES" == true ] ; then
   install_dependencies
 fi
 
+MAYBE_OVERRIDE_CXX_FLAGS=""
+if [ -n "$COMPILER_FLAGS" ] ; then
+  MAYBE_OVERRIDE_CXX_FLAGS="-DCMAKE_CXX_FLAGS=$COMPILER_FLAGS"
+fi
+
 BUILD_DIR=_build
 mkdir -p $BUILD_DIR
 
@@ -427,11 +432,11 @@ cmake                                     \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
   -DCMAKE_PREFIX_PATH="$DEPS_DIR"         \
   -DCMAKE_INSTALL_PREFIX="$PREFIX"        \
-  -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"     \
   "$MAYBE_BUILD_QUIC"                     \
   "$MAYBE_BUILD_TESTS"                    \
   "$MAYBE_BUILD_FUZZERS"                  \
   "$MAYBE_BUILD_SHARED_LIBS"              \
+  "$MAYBE_OVERRIDE_CXX_FLAGS"             \
   "$MAYBE_USE_STATIC_DEPS"                \
   "$MAYBE_LIB_FUZZING_ENGINE"             \
   ../..
