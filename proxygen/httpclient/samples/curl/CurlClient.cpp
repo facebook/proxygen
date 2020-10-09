@@ -269,6 +269,9 @@ void CurlClient::onTrailers(std::unique_ptr<HTTPHeaders>) noexcept {
 
 void CurlClient::onEOM() noexcept {
   LOG_IF(INFO, loggingEnabled_) << "Got EOM";
+  if (eomFunc_) {
+    eomFunc_.value()();
+  }
 }
 
 void CurlClient::onUpgrade(UpgradeProtocol) noexcept {

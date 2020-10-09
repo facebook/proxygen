@@ -69,7 +69,7 @@ void HQClient::start() {
   if (params_.migrateClient) {
     quicClient_->onNetworkSwitch(
         std::make_unique<folly::AsyncUDPSocket>(&evb_));
-    sendRequests();
+    sendRequests(true, quicClient_->getNumOpenableBidirectionalStreams());
   }
   evb_.loop();
 }
@@ -127,23 +127,51 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
   return txn;
 }
 
-void HQClient::sendRequests(bool closeSession) {
+void HQClient::sendRequests(bool closeSession, uint64_t numOpenableStreams) {
   VLOG(10) << "http-version:" << params_.httpVersion;
-  for (const auto& path : params_.httpPaths) {
-    proxygen::URL requestUrl(path.str(), /*secure=*/true);
+  while (!httpPaths_.empty() && numOpenableStreams > 0) {
+    proxygen::URL requestUrl(httpPaths_.front().str(), /*secure=*/true);
     sendRequest(requestUrl);
+    httpPaths_.pop_front();
+    numOpenableStreams--;
   }
-  if (closeSession) {
+  if (closeSession && httpPaths_.empty()) {
     session_->drain();
     session_->closeWhenIdle();
   }
 }
+static std::function<void()> selfSchedulingRequestRunner;
 
 void HQClient::connectSuccess() {
   if (params_.sendKnobFrame) {
     sendKnobFrame("Hello, World from Client!");
   }
-  sendRequests(!params_.migrateClient);
+  uint64_t numOpenableStreams =
+      quicClient_->getNumOpenableBidirectionalStreams();
+  CHECK_GT(numOpenableStreams, 0);
+  httpPaths_.insert(
+      httpPaths_.end(), params_.httpPaths.begin(), params_.httpPaths.end());
+  sendRequests(!params_.migrateClient, numOpenableStreams);
+  // If there are still pending requests, schedule a callback on the first EOM
+  // to try to make some more. That callback will keep scheduling itself until
+  // there are no more requests.
+  if (!httpPaths_.empty()) {
+    selfSchedulingRequestRunner = [&]() {
+      uint64_t numOpenable = quicClient_->getNumOpenableBidirectionalStreams();
+      if (numOpenable > 0) {
+        sendRequests(true, numOpenable);
+      };
+      if (!httpPaths_.empty()) {
+        auto rtt = std::chrono::duration_cast<std::chrono::milliseconds>(
+            quicClient_->getTransportInfo().srtt);
+        evb_.timer().scheduleTimeoutFn(
+            selfSchedulingRequestRunner,
+            std::max(rtt, std::chrono::milliseconds(1)));
+      }
+    };
+    CHECK(!curls_.empty());
+    curls_.back()->setEOMFunc(selfSchedulingRequestRunner);
+  }
 }
 
 void HQClient::sendKnobFrame(const folly::StringPiece str) {

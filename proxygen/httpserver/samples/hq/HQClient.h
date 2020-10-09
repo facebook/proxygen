@@ -33,7 +33,7 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
  private:
   proxygen::HTTPTransaction* sendRequest(const proxygen::URL& requestUrl);
 
-  void sendRequests(bool closeSession = true);
+  void sendRequests(bool closeSession, uint64_t numOpenableStreams);
 
   void sendKnobFrame(const folly::StringPiece str);
 
@@ -58,6 +58,8 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
   proxygen::HQUpstreamSession* session_;
 
   std::list<std::unique_ptr<CurlService::CurlClient>> curls_;
+
+  std::deque<folly::StringPiece> httpPaths_;
 };
 
 void startClient(const HQParams& params);

@@ -129,6 +129,10 @@ class CurlClient
     loggingEnabled_ = enabled;
   }
 
+  void setEOMFunc(std::function<void()> eomFunc) {
+    eomFunc_ = eomFunc;
+  }
+
  protected:
   void sendBodyFromFile();
 
@@ -158,6 +162,8 @@ class CurlClient
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
   std::vector<std::unique_ptr<CurlPushHandler>> pushTxnHandlers_;
+
+  folly::Optional<std::function<void()>> eomFunc_;
 
   friend class CurlPushHandler;
 };
