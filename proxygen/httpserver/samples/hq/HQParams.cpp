@@ -39,8 +39,8 @@ DEFINE_bool(log_response,
             true,
             "Whether to log the response content to stderr");
 DEFINE_string(congestion, "cubic", "newreno/cubic/bbr/none");
-DEFINE_int32(conn_flow_control, 1024 * 1024, "Connection flow control");
-DEFINE_int32(stream_flow_control, 65 * 1024, "Stream flow control");
+DEFINE_int32(conn_flow_control, 1024 * 1024 * 10, "Connection flow control");
+DEFINE_int32(stream_flow_control, 256 * 1024, "Stream flow control");
 DEFINE_int32(max_receive_packet_size,
              quic::kDefaultUDPReadBufferSize,
              "Max UDP packet size Quic can receive");
@@ -334,6 +334,10 @@ void initializeTransportSettings(HQParams& hqParams) {
       std::chrono::seconds(FLAGS_d6d_raise_timeout_secs);
   hqParams.transportSettings.d6dConfig.advertisedProbeTimeout =
       std::chrono::seconds(FLAGS_d6d_probe_timeout_secs);
+  hqParams.transportSettings.maxRecvBatchSize = 32;
+  hqParams.transportSettings.shouldUseRecvmmsgForBatchRecv = true;
+  hqParams.transportSettings.advertisedInitialMaxStreamsBidi = 100;
+  hqParams.transportSettings.advertisedInitialMaxStreamsUni = 100;
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParams& hqParams) {
