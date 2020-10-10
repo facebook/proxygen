@@ -17,6 +17,7 @@
 #include <proxygen/lib/http/session/HQSession.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/transport/PersistentQuicPskCache.h>
+#include <quic/QuicConstants.h>
 
 DEFINE_string(host, "::1", "HQ server hostname/IP");
 DEFINE_int32(port, 6666, "HQ server port");
@@ -182,21 +183,6 @@ quic::ProbeSizeRaiserType parseRaiserType(uint32_t type) {
   }
 }
 
-folly::Optional<quic::CongestionControlType> flagsToCongestionControlType(
-    const std::string& congestionControlType) {
-  if (congestionControlType == "cubic") {
-    return quic::CongestionControlType::Cubic;
-  } else if (congestionControlType == "newreno") {
-    return quic::CongestionControlType::NewReno;
-  } else if (congestionControlType == "bbr") {
-    return quic::CongestionControlType::BBR;
-  } else if (congestionControlType == "none") {
-    return quic::CongestionControlType::None;
-  } else if (congestionControlType == "ccp") {
-    return quic::CongestionControlType::CCP;
-  }
-  return folly::none;
-}
 /*
  * Initiazliation and validation functions.
  *
@@ -274,7 +260,8 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.transportSettings.advertisedInitialUniStreamWindowSize =
       FLAGS_stream_flow_control;
   hqParams.congestionControlName = FLAGS_congestion;
-  hqParams.congestionControl = flagsToCongestionControlType(FLAGS_congestion);
+  hqParams.congestionControl =
+      quic::congestionControlStrToType(FLAGS_congestion);
   if (hqParams.congestionControl) {
     hqParams.transportSettings.defaultCongestionController =
         hqParams.congestionControl.value();
