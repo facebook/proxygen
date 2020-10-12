@@ -325,6 +325,7 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.transportSettings.shouldUseRecvmmsgForBatchRecv = true;
   hqParams.transportSettings.advertisedInitialMaxStreamsBidi = 100;
   hqParams.transportSettings.advertisedInitialMaxStreamsUni = 100;
+  hqParams.transportSettings.tokenlessPacer = true;
 } // initializeTransportSettings
 
 void initializeHttpSettings(HQParams& hqParams) {
