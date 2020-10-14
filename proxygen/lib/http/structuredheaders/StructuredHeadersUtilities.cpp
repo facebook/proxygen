@@ -8,6 +8,7 @@
 
 #include "StructuredHeadersUtilities.h"
 #include "StructuredHeadersConstants.h"
+#include <cctype>
 
 #include "proxygen/lib/utils/Base64.h"
 
