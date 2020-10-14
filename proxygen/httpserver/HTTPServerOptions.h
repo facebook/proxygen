@@ -119,6 +119,20 @@ class HTTPServerOptions {
   bool enableContentCompression{false};
 
   /**
+   * Set to true to enable zstd compression. Currently false for
+   * backwards compatibility.
+   * Only applicable if enableContentCompression is set to true.
+   */
+  bool enableZstdCompression{false};
+
+  /**
+   * Set to true to compress independent chunks for zstd.
+   * Only applicable if enableContentCompression and enableZstdCompression are
+   * set to true.
+   */
+  bool useZstdIndependentChunks{false};
+
+  /**
    * Requests smaller than the specified number of bytes will not be compressed
    */
   uint64_t contentCompressionMinimumSize{1000};

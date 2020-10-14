@@ -62,13 +62,17 @@ HTTPServer::HTTPServer(HTTPServerOptions options)
         std::make_unique<RejectConnectFilterFactory>());
   }
 
-  // Add Content Compression filter (gzip), if needed. Should be
+  // Add Content Compression filter (gzip and maybe zstd), if needed. Should be
   // final filter
   if (options_->enableContentCompression) {
     CompressionFilterFactory::Options opts;
     opts.minimumCompressionSize = options_->contentCompressionMinimumSize;
     opts.zlibCompressionLevel = options_->contentCompressionLevel;
     opts.compressibleContentTypes = options_->contentCompressionTypes;
+    if (options_->enableZstdCompression) {
+      opts.enableZstd = options_->enableZstdCompression;
+      opts.independentChunks = options_->useZstdIndependentChunks;
+    }
     options_->handlerFactories.insert(
         options_->handlerFactories.begin(),
         std::make_unique<CompressionFilterFactory>(opts));
