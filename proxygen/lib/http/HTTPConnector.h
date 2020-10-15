@@ -12,6 +12,7 @@
 #include <folly/io/async/AsyncSocket.h>
 #include <folly/io/async/HHWheelTimer.h>
 #include <folly/io/async/SSLContext.h>
+#include <folly/ssl/SSLSession.h>
 #include <proxygen/lib/http/codec/DefaultHTTPCodecFactory.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/utils/Time.h>
@@ -121,7 +122,7 @@ class HTTPConnector : protected folly::AsyncSocket::ConnectCallback {
       folly::EventBase* eventBase,
       const folly::SocketAddress& connectAddr,
       const std::shared_ptr<folly::SSLContext>& ctx,
-      SSL_SESSION* session = nullptr,
+      std::shared_ptr<folly::ssl::SSLSession> session = nullptr,
       std::chrono::milliseconds timeoutMs = std::chrono::milliseconds(0),
       const folly::SocketOptionMap& socketOptions = folly::emptySocketOptionMap,
       const folly::SocketAddress& bindAddr = folly::AsyncSocket::anyAddress(),

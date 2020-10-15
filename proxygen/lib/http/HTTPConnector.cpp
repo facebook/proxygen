@@ -74,7 +74,7 @@ void HTTPConnector::connect(EventBase* eventBase,
 void HTTPConnector::connectSSL(EventBase* eventBase,
                                const folly::SocketAddress& connectAddr,
                                const shared_ptr<SSLContext>& context,
-                               SSL_SESSION* session,
+                               std::shared_ptr<folly::ssl::SSLSession> session,
                                std::chrono::milliseconds timeoutMs,
                                const SocketOptionMap& socketOptions,
                                const folly::SocketAddress& bindAddr,
@@ -85,7 +85,7 @@ void HTTPConnector::connectSSL(EventBase* eventBase,
   transportInfo_.secure = true;
   auto sslSock = new AsyncSSLSocket(context, eventBase);
   if (session) {
-    sslSock->setSSLSession(session, true /* take ownership */);
+    sslSock->setSSLSessionV2(session);
   }
   sslSock->setServerName(serverName);
   sslSock->forceCacheAddrOnFailure(true);
