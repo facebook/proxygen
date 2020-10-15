@@ -176,7 +176,7 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
   void connectSuccess() noexcept override {
     success = true;
     reusedSession = sock_->getSSLSessionReused();
-    session.reset(sock_->getSSLSession());
+    session = sock_->getSSLSessionV2();
     if (sock_->getPeerCertificate()) {
       // keeps this alive until Cb is destroyed, even if sock is closed
       auto cert = sock_->getPeerCertificate();
@@ -198,7 +198,7 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
 
   bool success{false};
   bool reusedSession{false};
-  folly::ssl::SSLSessionUniquePtr session;
+  std::shared_ptr<folly::ssl::SSLSession> session;
   folly::AsyncSSLSocket* sock_{nullptr};
   folly::ssl::X509UniquePtr peerCert_{nullptr};
 };
@@ -399,7 +399,7 @@ TEST(SSL, TestResumptionWithTickets) {
   ASSERT_FALSE(cb.reusedSession);
 
   folly::AsyncSSLSocket::UniquePtr sock2(new folly::AsyncSSLSocket(ctx, &evb));
-  sock2->setSSLSession(cb.session.get());
+  sock2->setSSLSessionV2(cb.session);
   Cb cb2(sock2.get());
   sock2->connect(&cb2, server->addresses().front().address, 1000);
   evb.loop();
@@ -430,7 +430,7 @@ TEST(SSL, TestResumptionAfterUpdateFails) {
   server->updateTicketSeeds(newSeeds);
 
   folly::AsyncSSLSocket::UniquePtr sock2(new folly::AsyncSSLSocket(ctx, &evb));
-  sock2->setSSLSession(cb.session.get());
+  sock2->setSSLSessionV2(cb.session);
   Cb cb2(sock2.get());
   sock2->connect(&cb2, server->addresses().front().address, 1000);
   evb.loop();
@@ -439,7 +439,7 @@ TEST(SSL, TestResumptionAfterUpdateFails) {
   ASSERT_FALSE(cb2.reusedSession);
 
   folly::AsyncSSLSocket::UniquePtr sock3(new folly::AsyncSSLSocket(ctx, &evb));
-  sock3->setSSLSession(cb2.session.get());
+  sock3->setSSLSessionV2(cb2.session);
   Cb cb3(sock3.get());
   sock3->connect(&cb3, server->addresses().front().address, 1000);
   evb.loop();
