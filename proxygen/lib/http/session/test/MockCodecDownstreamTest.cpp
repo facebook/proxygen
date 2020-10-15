@@ -476,13 +476,14 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbort) {
 }
 
 TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
-  // Test that all associated push transactions are aborted when client aborts
+  // Test that associated push transactions remain alive when client aborts
   // the assoc stream
   MockHTTPHandler handler;
   MockHTTPPushHandler pushHandler1;
   MockHTTPPushHandler pushHandler2;
 
   fakeMockCodec(*codec_);
+  invokeWriteSuccess_ = true;
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
       .WillOnce(Return(&handler));
@@ -508,29 +509,15 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
         eventBase_.loop();
       }));
 
-  // Both push txns and the assoc txn should be aborted
+  // Both push txns and the assoc txn should remain alive, and in this case
+  // time out.
   EXPECT_CALL(pushHandler1, setTransaction(_))
       .WillOnce(Invoke(
           [&pushHandler1](HTTPTransaction* txn) { pushHandler1.txn_ = txn; }));
-  EXPECT_CALL(pushHandler1, onError(_))
-      .WillOnce(Invoke([&](const HTTPException& err) {
-        EXPECT_TRUE(err.hasProxygenError());
-        EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
-        ASSERT_EQ("Stream aborted, streamID=1, code=CANCEL",
-                  std::string(err.what()));
-      }));
-  EXPECT_CALL(pushHandler1, detachTransaction());
-
   EXPECT_CALL(pushHandler2, setTransaction(_))
       .WillOnce(Invoke(
           [&pushHandler2](HTTPTransaction* txn) { pushHandler2.txn_ = txn; }));
-  EXPECT_CALL(pushHandler2, onError(_))
-      .WillOnce(Invoke([&](const HTTPException& err) {
-        EXPECT_TRUE(err.hasProxygenError());
-        EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
-        ASSERT_EQ("Stream aborted, streamID=1, code=CANCEL",
-                  std::string(err.what()));
-      }));
+  EXPECT_CALL(pushHandler1, detachTransaction());
   EXPECT_CALL(pushHandler2, detachTransaction());
 
   EXPECT_CALL(handler, onError(_))
@@ -550,8 +537,15 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
   // Send client abort on assoc stream
   codecCallback_->onAbort(HTTPCodec::StreamID(1), ErrorCode::CANCEL);
 
+  // Push txns can still send body and EOM
+  pushHandler1.sendBody(200);
+  pushHandler2.sendBody(200);
+  pushHandler1.sendEOM();
+  pushHandler2.sendEOM();
+
   eventBase_.loop();
 
+  EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
   httpSession_->dropConnection();
 }

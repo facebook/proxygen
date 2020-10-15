@@ -3253,6 +3253,7 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
   StrictMock<MockHTTPPushHandler> pushHandler;
 
   InSequence handlerSequence;
+  HTTPTransaction* pushTxn;
   handler->expectHeaders([&] {
     // Generate response for the associated stream
     this->transport_->pauseWrites();
@@ -3260,30 +3261,45 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
     handler->txn_->sendBody(makeBuf(100));
     handler->txn_->pauseIngress();
 
-    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+    pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
     ASSERT_NE(pushTxn, nullptr);
     // Generate a push request (PUSH_PROMISE)
     pushTxn->sendHeaders(req);
   });
+
   EXPECT_CALL(pushHandler, setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
   EXPECT_CALL(pushHandler, onEgressPaused());
   handler->expectEgressPaused();
-  EXPECT_CALL(pushHandler, onError(_));
-  EXPECT_CALL(pushHandler, detachTransaction());
-  handler->expectError();
+
+  // Expect error on the associated stream.
+  // The push transaction can still push data.
+  handler->expectError([&](const HTTPException&) {
+    pushTxn->sendHeaders(res);
+    pushTxn->sendBody(makeBuf(100));
+    pushTxn->sendEOM();
+    resumeWritesInLoop();
+    httpSession_->closeWhenIdle();
+  });
+
+  // Associated stream is destroyed.
   handler->expectDetachTransaction();
 
+  // Push stream finishes on transaction timeout.
+  EXPECT_CALL(pushHandler, detachTransaction());
+
   transport_->addReadEvent(requests_, milliseconds(0));
-  // Cancels everything
+  // Cancels associated stream
   clientCodec_->generateRstStream(requests_, assocStreamId, ErrorCode::CANCEL);
   transport_->addReadEvent(requests_, milliseconds(10));
   transport_->startReadEvents();
   HTTPSession::DestructorGuard g(httpSession_);
+
+  expectDetachSession();
   eventBase_.loop();
 
   parseOutput(*clientCodec_);
-  expectDetachSession();
+
   EXPECT_EQ(httpSession_->getNumOutgoingStreams(), 0);
 }
 
