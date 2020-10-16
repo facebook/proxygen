@@ -44,7 +44,7 @@ ParseResult HQFramedCodec::parseFrame(Cursor& cursor) {
       break;
   }
 
-  VLOG(2) << "Skipping frame (type=" << (uint64_t)curHeader_.type << ")";
+  VLOG(3) << "Skipping frame (type=" << (uint64_t)curHeader_.type << ")";
   cursor.skip(curHeader_.length);
   return folly::none;
 }
