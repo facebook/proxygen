@@ -65,6 +65,10 @@ void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
     onSessionCreationError(ProxygenError::kErrorUnsupportedScheme);
     return;
   }
+  auto egressSettings = codec->getEgressSettings();
+  if (egressSettings && setEnableConnectProtocol_) {
+    egressSettings->setSetting(SettingsId::ENABLE_CONNECT_PROTOCOL, 1);
+  }
 
   auto controller = getController();
   SocketAddress localAddress;

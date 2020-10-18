@@ -107,6 +107,8 @@ class HTTPSessionAcceptor
 
   HTTPSessionStats* downstreamSessionStats_{nullptr};
 
+  bool setEnableConnectProtocol_{false};
+
   HTTPSession::InfoCallback* getSessionInfoCallback() {
     return sessionInfoCb_ ? sessionInfoCb_ : this;
   }
