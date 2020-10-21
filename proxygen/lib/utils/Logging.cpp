@@ -147,11 +147,4 @@ void dumpBinToFile(const string& filename, const IOBuf* buf) {
   LOG(INFO) << "wrote chain " << IOBufPrinter::printChainInfo(buf) << " to "
             << filename;
 }
-
-namespace logging_details {
-std::string getStackTrace() {
-  return folly::detail::getSingletonStackTrace();
-}
-} // namespace logging_details
-
 } // namespace proxygen
