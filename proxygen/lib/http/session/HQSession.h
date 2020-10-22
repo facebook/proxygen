@@ -502,6 +502,12 @@ class HQSession
     return createTime_;
   }
 
+  void enablePingProbes(std::chrono::seconds /*interval*/,
+                        std::chrono::seconds /*timeout*/,
+                        bool /*immediate*/) override {
+    // TODO
+  }
+
  protected:
   // Finds any transport-like stream that has not been detached
   // by quic stream id

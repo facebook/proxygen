@@ -4188,3 +4188,70 @@ TEST_F(HTTP2DownstreamSessionTest, DropAlreadyShuttingDownConnection) {
   expectDetachSession();
   httpSession_->dropConnection("Async drop");
 }
+
+TEST_F(HTTP2DownstreamSessionTest, PingProbes) {
+  // Send an immediate ping probe, and send a reply
+  httpSession_->enablePingProbes(std::chrono::seconds(1),
+                                 std::chrono::seconds(1),
+                                 /*immediate=*/true);
+  eventBase_.loopOnce();
+  uint64_t pingVal = 0;
+  EXPECT_CALL(callbacks_, onPingRequest(_)).WillOnce(SaveArg<0>(&pingVal));
+  parseOutput(*clientCodec_);
+  clientCodec_->generatePingReply(requests_, pingVal);
+  flushRequestsAndLoopN(1);
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  flushRequestsAndLoopN(1);
+}
+
+TEST_F(HTTP2DownstreamSessionTest, PingProbeTimeout) {
+  // Send an immediate ping probe, but don't reply.  Connection is dropped.
+  httpSession_->enablePingProbes(std::chrono::seconds(1),
+                                 std::chrono::seconds(1),
+                                 /*immediate=*/true);
+  eventBase_.loopOnce();
+  uint64_t pingVal = 0;
+  EXPECT_CALL(callbacks_, onPingRequest(_)).WillOnce(SaveArg<0>(&pingVal));
+  parseOutput(*clientCodec_);
+  expectDetachSession();
+  flushRequestsAndLoop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, PingProbeTimeoutRefresh) {
+  httpSession_->enablePingProbes(std::chrono::seconds(1),
+                                 std::chrono::seconds(1),
+                                 /*immediate=*/false);
+  // Don't send an immediate probe.  Send some data after 250ms. The ping probe
+  // fires at 1250 and times out at 2250.
+  proxygen::TimePoint start = getCurrentTime();
+  eventBase_.runAfterDelay(
+      [this] {
+        clientCodec_->generateWindowUpdate(requests_, 0, 100);
+        flushRequests();
+      },
+      250);
+  expectDetachSession();
+  eventBase_.loop();
+  auto duration = millisecondsBetween(getCurrentTime(), start);
+  EXPECT_GE(duration.count(), 2250);
+}
+
+TEST_F(HTTP2DownstreamSessionTest, PingProbeInvalid) {
+  // Send an immediate ping probe, send a reply with a different value.
+  // It doesn't drop the connection.
+  httpSession_->enablePingProbes(std::chrono::seconds(1),
+                                 std::chrono::seconds(1),
+                                 /*immediate=*/true);
+  eventBase_.loopOnce();
+  uint64_t pingVal = 0;
+  EXPECT_CALL(callbacks_, onPingRequest(_)).WillOnce(SaveArg<0>(&pingVal));
+  parseOutput(*clientCodec_);
+  // Send a reply for a ping the prober didn't send (we could send one with
+  // sendPing, but meh)
+  clientCodec_->generatePingReply(requests_, pingVal + 1);
+  flushRequestsAndLoopN(1);
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  eventBase_.loop();
+}

@@ -460,6 +460,9 @@ void HTTPSession::readDataAvailable(size_t readSize) noexcept {
   VLOG(10) << "read completed on " << *this << ", bytes=" << readSize;
 
   DestructorGuard dg(this);
+  if (pingProber_) {
+    pingProber_->refreshTimeout();
+  }
   resetTimeout();
 
   if (ingressError_) {
@@ -485,6 +488,10 @@ void HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
   FOLLY_SCOPED_TRACE_SECTION(
       "HTTPSession - readBufferAvailable", "readSize", readSize);
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
+
+  if (pingProber_) {
+    pingProber_->refreshTimeout();
+  }
 
   DestructorGuard dg(this);
   resetTimeout();
@@ -1248,6 +1255,9 @@ void HTTPSession::onPingRequest(uint64_t data) {
 
 void HTTPSession::onPingReply(uint64_t data) {
   VLOG(4) << *this << " got ping reply with id=" << data;
+  if (pingProber_) {
+    pingProber_->onPingReply(data);
+  }
   if (infoCallback_) {
     infoCallback_->onPingReplyReceived();
   }
@@ -2500,12 +2510,69 @@ bool HTTPSession::shouldShutdown() const {
 }
 
 size_t HTTPSession::sendPing() {
-  uint64_t data = folly::Random::rand64();
+  return sendPing(folly::Random::rand64());
+}
+
+size_t HTTPSession::sendPing(uint64_t data) {
   const size_t bytes = codec_->generatePingRequest(writeBuf_, data);
   if (bytes) {
     scheduleWrite();
   }
   return bytes;
+}
+
+void HTTPSession::enablePingProbes(std::chrono::seconds interval,
+                                   std::chrono::seconds timeout,
+                                   bool immediate) {
+  if (isHTTP2CodecProtocol(codec_->getProtocol())) {
+    pingProber_ =
+        std::make_unique<PingProber>(*this, interval, timeout, immediate);
+  }
+}
+
+HTTPSession::PingProber::PingProber(HTTPSession& session,
+                                    std::chrono::seconds interval,
+                                    std::chrono::seconds timeout,
+                                    bool immediate)
+    : session_(session), interval_(interval), timeout_(timeout) {
+  if (immediate) {
+    timeoutExpired();
+  } else {
+    refreshTimeout();
+  }
+}
+
+void HTTPSession::PingProber::refreshTimeout() {
+  if (!pingVal_) {
+    VLOG(4) << "Scheduling next ping probe for sess=" << session_;
+    session_.getEventBase()->timer().scheduleTimeout(this, interval_);
+  }
+}
+
+void HTTPSession::PingProber::timeoutExpired() noexcept {
+  if (pingVal_) {
+    LOG(ERROR) << "Ping probe timed out, dropping connection sess=" << session_;
+    session_.dropConnection("Ping probe timed out");
+  } else {
+    pingVal_ = folly::Random::rand64();
+    VLOG(4) << "Sending ping probe with value=" << *pingVal_
+            << " sess=" << session_;
+    session_.sendPing(*pingVal_);
+    session_.getEventBase()->timer().scheduleTimeout(this, timeout_);
+  }
+}
+
+void HTTPSession::PingProber::onPingReply(uint64_t pingVal) {
+  if (!pingVal_ || *pingVal_ != pingVal) {
+    // This can happen if someone calls sendPing() manually
+    VLOG(3) << "Received unexpected PING reply=" << pingVal << " expecting="
+            << ((pingVal_) ? folly::to<std::string>(*pingVal_)
+                           : std::string("none"));
+    return;
+  }
+  VLOG(4) << "Received expected ping, rescheduling";
+  pingVal_.reset();
+  refreshTimeout();
 }
 
 HTTPCodec::StreamID HTTPSession::sendPriority(http2::PriorityUpdate pri) {

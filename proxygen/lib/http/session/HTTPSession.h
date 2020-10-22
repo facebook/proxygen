@@ -312,6 +312,10 @@ class HTTPSession
     return writes_ == SocketState::SHUTDOWN;
   }
 
+  void enablePingProbes(std::chrono::seconds interval,
+                        std::chrono::seconds timeout,
+                        bool immediate = false) override;
+
  protected:
   /**
    * HTTPSession is an abstract base class and cannot be instantiated
@@ -903,6 +907,8 @@ class HTTPSession
 
   void scheduleResetDirectErrorHandling();
 
+  size_t sendPing(uint64_t data);
+
   // private members
 
   std::list<ReplaySafetyCallback*> waitingForReplaySafety_;
@@ -1067,6 +1073,30 @@ class HTTPSession
     HTTPSession* session_;
   };
   DrainTimeout drainTimeout_;
+
+  class PingProber : public folly::HHWheelTimer::Callback {
+   public:
+    PingProber(HTTPSession& session,
+               std::chrono::seconds interval,
+               std::chrono::seconds timeout,
+               bool immediate);
+
+    void refreshTimeout();
+
+    void timeoutExpired() noexcept override;
+
+    void callbackCanceled() noexcept override {
+    }
+
+    void onPingReply(uint64_t data);
+
+   private:
+    HTTPSession& session_;
+    std::chrono::seconds interval_;
+    std::chrono::seconds timeout_;
+    folly::Optional<uint64_t> pingVal_;
+  };
+  std::unique_ptr<PingProber> pingProber_;
 
   // secondary authentication manager
   std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager_;
