@@ -95,6 +95,11 @@ struct AcceptorConfiguration : public wangle::ServerSocketConfig {
    * built-in HTTPSession default (64kb)
    */
   int64_t writeBufferLimit{-1};
+
+  /**
+   * Determines if HTTP2 ping is enabled on connection
+   **/
+  bool HTTP2PingEnabled{false};
 };
 
 } // namespace proxygen
