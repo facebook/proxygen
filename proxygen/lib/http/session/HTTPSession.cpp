@@ -1133,6 +1133,19 @@ void HTTPSession::onAbort(HTTPCodec::StreamID streamID, ErrorCode code) {
   ex.setProxygenError(kErrorStreamAbort);
   ex.setCodecStatusCode(code);
   DestructorGuard dg(this);
+
+  if (abortPushesOnRST_ && isDownstream() && !txn->getAssocTxnId() &&
+      code == ErrorCode::CANCEL) {
+    VLOG(4) << "Cancel all push txns because assoc txn has been cancelled.";
+    for (auto it = txn->getPushedTransactions().begin();
+         it != txn->getPushedTransactions().end();) {
+      auto pushTxn = findTransaction(*it);
+      ++it;
+      DCHECK(pushTxn != nullptr);
+      pushTxn->onError(ex);
+    }
+  }
+
   auto exTxns = txn->getExTransactions();
   for (auto it = exTxns.begin(); it != exTxns.end(); ++it) {
     auto exTxn = findTransaction(*it);

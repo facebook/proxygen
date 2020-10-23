@@ -174,6 +174,17 @@ class HTTPSession
   void setEgressBytesLimit(uint64_t bytesLimit);
 
   /**
+   * If set to true, HTTPSession will abort the push streams when receiving
+   * a STREAM_RST on the associated stream.
+   *
+   * This applies to HTTP/2, and it's temporarily available to perform an
+   * experiment.
+   */
+  void setAbortPushesOnRST(bool value) {
+    abortPushesOnRST_ = value;
+  }
+
+  /**
    * Start reading from the transport and send any introductory messages
    * to the remote side. This function must be called once per session to
    * begin reads.
@@ -1120,6 +1131,8 @@ class HTTPSession
   bool inResume_ : 1;
   bool pendingPause_ : 1;
   bool writeBufSplit_ : 1;
+
+  bool abortPushesOnRST_{false};
 };
 
 } // namespace proxygen
