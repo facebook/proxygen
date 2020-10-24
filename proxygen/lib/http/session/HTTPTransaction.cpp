@@ -72,6 +72,8 @@ HTTPTransaction::HTTPTransaction(
       headRequest_(false),
       enableLastByteFlushedTracking_(false),
       enableBodyLastByteDeliveryTracking_(false),
+      partiallyReliable_(false),
+      egressHeadersDelivered_(false),
       transactionTimeout_(defaultTimeout),
       timer_(timer) {
 

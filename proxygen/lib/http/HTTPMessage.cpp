@@ -59,14 +59,15 @@ void HTTPMessage::stripPerHopHeaders() {
 
 HTTPMessage::HTTPMessage()
     : startTime_(getCurrentTime()),
-      seqNo_(-1),
       localIP_(),
       versionStr_("1.0"),
       fields_(),
-      version_(1, 0),
+      upgradeWebsocket_(HTTPMessage::WebSocketUpgrade::NONE),
+      seqNo_(-1),
       sslVersion_(0),
       sslCipher_(nullptr),
       protoStr_(nullptr),
+      version_(1, 0),
       pri_(0),
       parsedCookies_(false),
       parsedQueryParams_(false),
@@ -75,8 +76,7 @@ HTTPMessage::HTTPMessage()
       wantsKeepalive_(true),
       trailersAllowed_(false),
       secure_(false),
-      partiallyReliable_(false),
-      upgradeWebsocket_(HTTPMessage::WebSocketUpgrade::NONE) {
+      partiallyReliable_(false) {
 }
 
 HTTPMessage::~HTTPMessage() {
@@ -84,7 +84,6 @@ HTTPMessage::~HTTPMessage() {
 
 HTTPMessage::HTTPMessage(const HTTPMessage& message)
     : startTime_(message.startTime_),
-      seqNo_(message.seqNo_),
       dstAddress_(message.dstAddress_),
       dstIP_(message.dstIP_),
       dstPort_(message.dstPort_),
@@ -93,13 +92,15 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       fields_(message.fields_),
       cookies_(message.cookies_),
       queryParams_(message.queryParams_),
-      version_(message.version_),
       headers_(message.headers_),
+      upgradeWebsocket_(message.upgradeWebsocket_),
+      seqNo_(message.seqNo_),
       sslVersion_(message.sslVersion_),
       sslCipher_(message.sslCipher_),
       protoStr_(message.protoStr_),
-      pri_(message.pri_),
       h2Pri_(message.h2Pri_),
+      version_(message.version_),
+      pri_(message.pri_),
       parsedCookies_(message.parsedCookies_),
       parsedQueryParams_(message.parsedQueryParams_),
       chunked_(message.chunked_),
@@ -107,8 +108,7 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       wantsKeepalive_(message.wantsKeepalive_),
       trailersAllowed_(message.trailersAllowed_),
       secure_(message.secure_),
-      partiallyReliable_(message.partiallyReliable_),
-      upgradeWebsocket_(message.upgradeWebsocket_) {
+      partiallyReliable_(message.partiallyReliable_) {
   if (isRequest()) {
     setURL(request().url_);
   }
@@ -123,7 +123,6 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
 
 HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
     : startTime_(message.startTime_),
-      seqNo_(message.seqNo_),
       dstAddress_(std::move(message.dstAddress_)),
       dstIP_(std::move(message.dstIP_)),
       dstPort_(message.dstPort_),
@@ -132,15 +131,17 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       fields_(std::move(message.fields_)),
       cookies_(std::move(message.cookies_)),
       queryParams_(std::move(message.queryParams_)),
-      version_(message.version_),
       headers_(std::move(message.headers_)),
       strippedPerHopHeaders_(std::move(message.strippedPerHopHeaders_)),
+      upgradeWebsocket_(message.upgradeWebsocket_),
       trailers_(std::move(message.trailers_)),
+      seqNo_(message.seqNo_),
       sslVersion_(message.sslVersion_),
       sslCipher_(message.sslCipher_),
       protoStr_(message.protoStr_),
-      pri_(message.pri_),
       h2Pri_(message.h2Pri_),
+      version_(message.version_),
+      pri_(message.pri_),
       parsedCookies_(message.parsedCookies_),
       parsedQueryParams_(message.parsedQueryParams_),
       chunked_(message.chunked_),
@@ -148,8 +149,7 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       wantsKeepalive_(message.wantsKeepalive_),
       trailersAllowed_(message.trailersAllowed_),
       secure_(message.secure_),
-      partiallyReliable_(message.partiallyReliable_),
-      upgradeWebsocket_(message.upgradeWebsocket_) {
+      partiallyReliable_(message.partiallyReliable_) {
   if (isRequest()) {
     setURL(request().url_);
   }

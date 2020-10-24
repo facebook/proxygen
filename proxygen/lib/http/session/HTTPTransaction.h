@@ -1703,8 +1703,6 @@ class HTTPTransaction
    */
   std::unique_ptr<std::queue<HTTPEvent>> deferredIngress_;
 
-  uint32_t maxDeferredIngress_{0};
-
   /**
    * Queue to hold any body bytes to be sent out
    * while egress to the remote is supposed to be paused.
@@ -1712,14 +1710,20 @@ class HTTPTransaction
   folly::IOBufQueue deferredEgressBody_{folly::IOBufQueue::cacheChainLength()};
 
   const TransportDirection direction_;
-  HTTPCodec::StreamID id_;
-  uint32_t seqNo_;
-  Handler* handler_{nullptr};
-  Transport& transport_;
   HTTPTransactionEgressSM::State egressState_{
       HTTPTransactionEgressSM::getNewInstance()};
   HTTPTransactionIngressSM::State ingressState_{
       HTTPTransactionIngressSM::getNewInstance()};
+  /**
+   * bytes we need to acknowledge to the remote end using a window update
+   */
+  int32_t recvToAck_{0};
+
+  HTTPCodec::StreamID id_;
+  uint32_t seqNo_;
+  uint32_t maxDeferredIngress_{0};
+  Handler* handler_{nullptr};
+  Transport& transport_;
 
   HTTPSessionStats* stats_{nullptr};
 
@@ -1763,11 +1767,6 @@ class HTTPTransaction
   HTTP2PriorityQueueBase::Handle queueHandle_;
 
   /**
-   * bytes we need to acknowledge to the remote end using a window update
-   */
-  int32_t recvToAck_{0};
-
-  /**
    * ID of request transaction (for pushed txns only)
    */
   folly::Optional<HTTPCodec::StreamID> assocStreamId_;
@@ -1808,14 +1807,6 @@ class HTTPTransaction
   double cumulativeRatio_{0};
   uint64_t egressCalls_{0};
 
-  /**
-   * If this transaction represents a request (ie, it is backed by an
-   * HTTPUpstreamSession) , this field indicates the last response status
-   * received from the server. If this transaction represents a response,
-   * this field indicates the last status we've sent. For instances, this
-   * could take on multiple 1xx values, and then take on 200.
-   */
-  uint16_t lastResponseStatus_{0};
   uint64_t pendingByteEvents_{0};
   folly::Optional<uint64_t> expectedIngressContentLength_;
   folly::Optional<uint64_t> expectedIngressContentLengthRemaining_;
@@ -1842,6 +1833,23 @@ class HTTPTransaction
   bool headRequest_ : 1;
   bool enableLastByteFlushedTracking_ : 1;
   bool enableBodyLastByteDeliveryTracking_ : 1;
+  // Signals if the transaction is partially reliable.
+  // Set on first sendHeaders() call on egress or with setPartiallyReliable() on
+  // ingress.
+  bool partiallyReliable_ : 1;
+
+  // Prevents the application from calling skipBodyTo() before egress
+  // headers have been delivered.
+  bool egressHeadersDelivered_ : 1;
+
+  /**
+   * If this transaction represents a request (ie, it is backed by an
+   * HTTPUpstreamSession) , this field indicates the last response status
+   * received from the server. If this transaction represents a response,
+   * this field indicates the last status we've sent. For instances, this
+   * could take on multiple 1xx values, and then take on 200.
+   */
+  uint16_t lastResponseStatus_{0};
 
   static uint64_t egressBufferLimit_;
 
@@ -1858,15 +1866,6 @@ class HTTPTransaction
 
   class PrioritySample;
   std::unique_ptr<PrioritySample> prioritySample_;
-
-  // Signals if the transaction is partially reliable.
-  // Set on first sendHeaders() call on egress or with setPartiallyReliable() on
-  // ingress.
-  bool partiallyReliable_{false};
-
-  // Prevents the application from calling skipBodyTo() before egress
-  // headers have been delivered.
-  bool egressHeadersDelivered_{false};
 
   // Keeps track for body offset processed so far.
   // Includes skipped bytes for partially reliable transactions.

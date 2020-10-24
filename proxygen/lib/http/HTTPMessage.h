@@ -806,7 +806,6 @@ class HTTPMessage {
  protected:
   // Message start time, in msec since the epoch.
   TimePoint startTime_;
-  int32_t seqNo_;
 
  private:
   void parseCookies() const;
@@ -993,18 +992,21 @@ class HTTPMessage {
   // TODO: use StringPiece for queryParams_ and delete splitNameValue()
   mutable std::map<std::string, std::string> queryParams_;
 
-  std::pair<uint8_t, uint8_t> version_;
   HTTPHeaders headers_;
   std::unique_ptr<HTTPHeaders> strippedPerHopHeaders_;
   HTTPHeaderSize size_;
+  WebSocketUpgrade upgradeWebsocket_;
   std::unique_ptr<HTTPHeaders> trailers_;
 
+  int32_t seqNo_;
   int sslVersion_;
   const char* sslCipher_;
   const std::string* protoStr_;
-  uint8_t pri_;
+  std::unique_ptr<std::string> upgradeProtocol_;
   folly::Optional<HTTPPriority> h2Pri_;
 
+  std::pair<uint8_t, uint8_t> version_;
+  uint8_t pri_;
   mutable bool parsedCookies_ : 1;
   mutable bool parsedQueryParams_ : 1;
   bool chunked_ : 1;
@@ -1022,9 +1024,6 @@ class HTTPMessage {
 
   // used by atomicDumpMessage
   static std::mutex mutexDump_;
-
-  WebSocketUpgrade upgradeWebsocket_;
-  std::unique_ptr<std::string> upgradeProtocol_;
 };
 
 std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg);
