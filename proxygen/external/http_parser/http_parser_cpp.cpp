@@ -2413,12 +2413,27 @@ http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
   }
 
   if (u->field_set & (1 << UF_PORT)) {
-    /* Don't bother with endp; we've already validated the string */
-    unsigned long v = strtoul(buf + u->field_data[UF_PORT].off, nullptr, 10);
+    uint16_t off;
+    uint16_t len;
+    const char* portp;
+    const char* end;
+    unsigned long v;
 
-    /* Ports have a max value of 2^16 */
-    if (v > 0xffff) {
-      return 1;
+    off = u->field_data[UF_PORT].off;
+    len = u->field_data[UF_PORT].len;
+    end = buf + off + len;
+
+    /* NOTE: The characters are already validated and are in the [0-9] range */
+    assert(off + len <= buflen && "Port number overflow");
+    v = 0;
+    for (portp = buf + off; portp < end; portp++) {
+      v *= 10;
+      v += *portp - '0';
+
+      /* Ports have a max value of 2^16 */
+      if (v > 0xffff) {
+        return 1;
+      }
     }
 
     u->port = (uint16_t) v;
