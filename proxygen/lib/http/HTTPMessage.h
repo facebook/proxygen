@@ -100,14 +100,10 @@ class HTTPMessage {
     auto& req = request();
     req.clientAddress_ = addr;
     if (!ipStr.empty() && !portStr.empty()) {
-      req.clientIP_.emplace(std::move(ipStr));
-      req.clientPort_.emplace(std::move(portStr));
+      req.clientIPPort_.emplace(std::move(ipStr), std::move(portStr));
     } else {
-      if (req.clientIP_) {
-        req.clientIP_->clear();
-      }
-      if (req.clientPort_) {
-        req.clientPort_->clear();
+      if (req.clientIPPort_) {
+        req.clientIPPort_.reset();
       }
     }
   }
@@ -118,27 +114,30 @@ class HTTPMessage {
 
   const std::string& getClientIP() const {
     auto& req = request();
-    if (!req.clientIP_ || req.clientIP_->empty()) {
+    if (!req.clientIPPort_ || req.clientIPPort_->ip.empty()) {
       if (req.clientAddress_.isInitialized()) {
-        req.clientIP_.emplace(req.clientAddress_.getAddressStr());
-      } else {
-        return empty_string;
-      }
-    }
-    return *req.clientIP_;
-  }
-
-  const std::string& getClientPort() const {
-    auto& req = request();
-    if (!req.clientPort_ || req.clientPort_->empty()) {
-      if (req.clientAddress_.isInitialized()) {
-        req.clientPort_.emplace(
+        req.clientIPPort_.emplace(
+            req.clientAddress_.getAddressStr(),
             folly::to<std::string>(req.clientAddress_.getPort()));
       } else {
         return empty_string;
       }
     }
-    return *req.clientPort_;
+    return req.clientIPPort_->ip;
+  }
+
+  const std::string& getClientPort() const {
+    auto& req = request();
+    if (!req.clientIPPort_ || req.clientIPPort_->port.empty()) {
+      if (req.clientAddress_.isInitialized()) {
+        req.clientIPPort_.emplace(
+            req.clientAddress_.getAddressStr(),
+            folly::to<std::string>(req.clientAddress_.getPort()));
+      } else {
+        return empty_string;
+      }
+    }
+    return req.clientIPPort_->port;
   }
 
   /**
@@ -238,8 +237,9 @@ class HTTPMessage {
    */
   const std::string& getPath() const {
     auto& req = request();
-    if (!req.pathStr_.has_value()) {
-      req.pathStr_.emplace(req.path_.data(), req.path_.size());
+    if (!req.pathStr_) {
+      req.pathStr_ =
+          std::make_unique<std::string>(req.path_.data(), req.path_.size());
     }
     return *req.pathStr_;
   }
@@ -256,8 +256,9 @@ class HTTPMessage {
    */
   const std::string& getQueryString() const {
     auto& req = request();
-    if (!req.queryStr_.has_value()) {
-      req.queryStr_.emplace(req.query_.data(), req.query_.size());
+    if (!req.queryStr_) {
+      req.queryStr_ =
+          std::make_unique<std::string>(req.query_.data(), req.query_.size());
     }
     return *req.queryStr_;
   }
@@ -840,18 +841,44 @@ class HTTPMessage {
    * Once an accessor for either is used, that fixes the type of HTTPMessage.
    * If an access is then used for the other type, a DCHECK will fail.
    */
+  struct IPPort {
+    std::string ip;
+    std::string port;
+    IPPort(std::string inIp, std::string inPort)
+        : ip(std::move(inIp)), port(std::move(inPort)) {
+    }
+  };
   struct Request {
     folly::SocketAddress clientAddress_;
-    mutable folly::Optional<std::string> clientIP_;
-    mutable folly::Optional<std::string> clientPort_;
-    mutable boost::variant<boost::blank, std::string, HTTPMethod> method_;
+    mutable folly::Optional<IPPort> clientIPPort_;
+    mutable boost::
+        variant<boost::blank, std::unique_ptr<std::string>, HTTPMethod>
+            method_;
     folly::StringPiece path_;
     folly::StringPiece query_;
-    mutable folly::Optional<std::string> pathStr_;
-    mutable folly::Optional<std::string> queryStr_;
+    mutable std::unique_ptr<std::string> pathStr_;
+    mutable std::unique_ptr<std::string> queryStr_;
     std::string url_;
 
     uint16_t pushStatus_;
+
+    Request() = default;
+
+    Request(const Request& req)
+        : clientIPPort_(req.clientIPPort_),
+          path_(req.path_),
+          query_(req.query_),
+          pathStr_(nullptr),
+          queryStr_(nullptr),
+          url_(req.url_),
+          pushStatus_(req.pushStatus_) {
+      if (req.method_.which() == 1) {
+        method_ = std::make_unique<std::string>(
+            *boost::get<std::unique_ptr<std::string>>(req.method_));
+      } else if (req.method_.which() == 2) {
+        method_ = boost::get<HTTPMethod>(req.method_);
+      }
+    }
   };
 
   struct Response {

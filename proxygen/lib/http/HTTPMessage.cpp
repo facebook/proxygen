@@ -251,8 +251,8 @@ void HTTPMessage::setMethod(folly::StringPiece method) {
   if (result) {
     req.method_ = *result;
   } else {
-    req.method_ = method.str();
-    auto& storedMethod = boost::get<std::string>(req.method_);
+    req.method_ = std::make_unique<std::string>(method.str());
+    auto& storedMethod = *boost::get<std::unique_ptr<std::string>>(req.method_);
     std::transform(storedMethod.begin(),
                    storedMethod.end(),
                    storedMethod.begin(),
@@ -274,7 +274,7 @@ folly::Optional<HTTPMethod> HTTPMessage::getMethod() const {
 const std::string& HTTPMessage::getMethodString() const {
   const auto& req = request();
   if (req.method_.which() == 1) {
-    return boost::get<std::string>(req.method_);
+    return *boost::get<std::unique_ptr<std::string>>(req.method_);
   } else if (req.method_.which() == 2) {
     return methodToString(boost::get<HTTPMethod>(req.method_));
   }
@@ -736,15 +736,16 @@ void HTTPMessage::describe(std::ostream& os) const {
     // Request fields.
     const Request& req = request();
     pushStatusMessage = getPushStatusStr();
-    fields.insert(
-        fields.end(),
-        {{"client_ip", req.clientIP_ ? *req.clientIP_ : empty_string},
-         {"client_port", req.clientPort_ ? *req.clientPort_ : empty_string},
-         {"method", getMethodString()},
-         {"path", req.path_},
-         {"query", req.query_},
-         {"url", req.url_},
-         {"push_status", pushStatusMessage}});
+    fields.insert(fields.end(),
+                  {{"client_ip",
+                    req.clientIPPort_ ? req.clientIPPort_->ip : empty_string},
+                   {"client_port",
+                    req.clientIPPort_ ? req.clientIPPort_->port : empty_string},
+                   {"method", getMethodString()},
+                   {"path", req.path_},
+                   {"query", req.query_},
+                   {"url", req.url_},
+                   {"push_status", pushStatusMessage}});
 
   } else if (isResponse()) {
     // Response fields.
@@ -964,8 +965,8 @@ ParseURL HTTPMessage::setURLImplInternal(bool unparse) {
     req.path_.clear();
     req.query_.clear();
   }
-  req.pathStr_ = folly::none;
-  req.queryStr_ = folly::none;
+  req.pathStr_.reset();
+  req.queryStr_.reset();
   if (unparse) {
     unparseQueryParams();
   }
