@@ -144,15 +144,6 @@ FailureVerifiedCertDepthInChain, "failure_verified_cert_depth_in_chain"
 VerifiedChainFailuresOverridden, "verified_chain_failures_overridden"
 VerifiedChainFailureVerificationTime, "verified_chain_failure_verification_time"
 
-/* ---- Used in Cert Timestamp Verification ---- */
-TimestampVerifiedCertNotAfterTime, "timestamp_verified_cert_not_after_time"
-TimestampVerifiedCertNotBeforeTime, "timestamp_verified_cert_not_before_time"
-TimestampVerifiedClientTimeOverride, "timestamp_verified_client_time_override"
-TimestampVerifiedTrustedTime, "timestamp_verified_trusted_time"
-
-/* ---- Used in Cert Key Length Verification ---- */
-VerifiedKeyLengthSuccess, "verified_key_length_success"
-
 /* ---- Used in Cert Pinning ---- */
 PinningReason, "verified_pinning_reason"
 PinningRequiredHash, "verified_pinning_required_hash"
