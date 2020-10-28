@@ -140,7 +140,7 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        "Invalid HEADERS frame");
-      ex.setErrno(uint32_t(HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME));
+      ex.setErrno(uint32_t(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED));
       callback_->onError(streamId_, ex, false);
     }
     setParserPaused(true);

@@ -107,10 +107,7 @@ TEST_F(HQFramerTest, DataFrameZeroLength) {
   FrameHeader outHeader;
   std::unique_ptr<IOBuf> outBuf;
   Cursor cursor(queue_.front());
-  parse(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_DATA,
-        parseData,
-        outHeader,
-        outBuf);
+  parse(HTTP3::ErrorCode::HTTP_FRAME_ERROR, parseData, outHeader, outBuf);
 }
 
 struct FrameHeaderLengthParams {
@@ -147,12 +144,11 @@ INSTANTIATE_TEST_CASE_P(
     Values((DataOnlyFrameParams){proxygen::hq::FrameType::DATA,
                                  writeData,
                                  parseData,
-                                 HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_DATA},
-           (DataOnlyFrameParams){
-               proxygen::hq::FrameType::HEADERS,
-               writeHeaders,
-               parseHeaders,
-               HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_HEADERS}));
+                                 HTTP3::ErrorCode::HTTP_FRAME_ERROR},
+           (DataOnlyFrameParams){proxygen::hq::FrameType::HEADERS,
+                                 writeHeaders,
+                                 parseHeaders,
+                                 HTTP3::ErrorCode::HTTP_FRAME_ERROR}));
 
 TEST_F(HQFramerTest, ParsePushPromiseFrameOK) {
   auto data = makeBuf(1000);
@@ -261,20 +257,18 @@ TEST_P(HQFramerTestIdOnlyFrames, TestIdOnlyFrame) {
 INSTANTIATE_TEST_CASE_P(
     IdOnlyFrameWriteParseTests,
     HQFramerTestIdOnlyFrames,
-    Values(
-        (IdOnlyFrameParams){proxygen::hq::FrameType::CANCEL_PUSH,
-                            writeCancelPush,
-                            parseCancelPush,
-                            HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_CANCEL_PUSH},
-        (IdOnlyFrameParams){proxygen::hq::FrameType::GOAWAY,
-                            writeGoaway,
-                            parseGoaway,
-                            HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_GOAWAY},
-        (IdOnlyFrameParams){
-            proxygen::hq::FrameType::MAX_PUSH_ID,
-            writeMaxPushId,
-            parseMaxPushId,
-            HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_MAX_PUSH_ID}));
+    Values((IdOnlyFrameParams){proxygen::hq::FrameType::CANCEL_PUSH,
+                               writeCancelPush,
+                               parseCancelPush,
+                               HTTP3::ErrorCode::HTTP_FRAME_ERROR},
+           (IdOnlyFrameParams){proxygen::hq::FrameType::GOAWAY,
+                               writeGoaway,
+                               parseGoaway,
+                               HTTP3::ErrorCode::HTTP_FRAME_ERROR},
+           (IdOnlyFrameParams){proxygen::hq::FrameType::MAX_PUSH_ID,
+                               writeMaxPushId,
+                               parseMaxPushId,
+                               HTTP3::ErrorCode::HTTP_FRAME_ERROR}));
 
 TEST_F(HQFramerTest, SettingsFrameOK) {
   deque<hq::SettingPair> settings = {
@@ -351,7 +345,7 @@ TEST_P(HQFramerTestSettingsValues, ValueAllowed) {
   std::deque<hq::SettingPair> outSettings;
   ParseResult expectedParseResult = folly::none;
   if (!GetParam().allowed) {
-    expectedParseResult = HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_SETTINGS;
+    expectedParseResult = HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
   parse(expectedParseResult, &parseSettings, header, outSettings);
 
@@ -411,10 +405,8 @@ TEST_F(HQFramerTest, SettingsFrameTrailingJunk) {
 
   FrameHeader header;
   std::deque<hq::SettingPair> outSettings;
-  parse(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_SETTINGS,
-        &parseSettings,
-        header,
-        outSettings);
+  parse(
+      HTTP3::ErrorCode::HTTP_FRAME_ERROR, &parseSettings, header, outSettings);
 }
 
 TEST_F(HQFramerTest, SettingsFrameWriteError) {

@@ -66,7 +66,7 @@ ParseResult parseData(folly::io::Cursor& cursor,
   DCHECK_LE(header.length, cursor.totalLength());
   // DATA frames MUST contain a non-zero-length payload
   if (header.length == 0) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_DATA;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
   cursor.clone(outBuf, header.length);
   return folly::none;
@@ -90,12 +90,12 @@ ParseResult parseCancelPush(folly::io::Cursor& cursor,
 
   auto pushId = quic::decodeQuicInteger(cursor, frameLength);
   if (!pushId) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_CANCEL_PUSH;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
   outPushId = pushId->first | kPushIdMask;
   frameLength -= pushId->second;
   if (frameLength != 0) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_CANCEL_PUSH;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
 
   return folly::none;
@@ -109,8 +109,7 @@ decodeSettingValue(folly::io::Cursor& cursor,
   // read the setting value
   auto settingValue = quic::decodeQuicInteger(cursor, frameLength);
   if (!settingValue) {
-    return folly::makeUnexpected(
-        HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_SETTINGS);
+    return folly::makeUnexpected(HTTP3::ErrorCode::HTTP_FRAME_ERROR);
   }
   auto value = settingValue->first;
   frameLength -= settingValue->second;
@@ -136,7 +135,7 @@ ParseResult parseSettings(folly::io::Cursor& cursor,
   while (frameLength > 0) {
     auto settingIdRes = quic::decodeQuicInteger(cursor, frameLength);
     if (!settingIdRes) {
-      return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_SETTINGS;
+      return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
     }
     frameLength -= settingIdRes->second;
 
@@ -146,6 +145,7 @@ ParseResult parseSettings(folly::io::Cursor& cursor,
       return settingValue.error();
     }
 
+    // TODO: Duped id should trigger H3_SETTINGS_ERROR
     if (settingValue->has_value()) {
       settings.emplace_back(settingId, settingValue->value());
     }
@@ -163,7 +163,7 @@ ParseResult parsePushPromise(folly::io::Cursor& cursor,
 
   auto pushId = quic::decodeQuicInteger(cursor, frameLength);
   if (!pushId) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
   outPushId = pushId->first | kPushIdMask;
   frameLength -= pushId->second;
@@ -181,12 +181,12 @@ ParseResult parseGoaway(folly::io::Cursor& cursor,
 
   auto streamId = quic::decodeQuicInteger(cursor, frameLength);
   if (!streamId) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_GOAWAY;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
   outStreamId = streamId->first;
   frameLength -= streamId->second;
   if (frameLength != 0) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_GOAWAY;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
 
   return folly::none;
@@ -201,12 +201,12 @@ ParseResult parseMaxPushId(folly::io::Cursor& cursor,
 
   auto pushId = quic::decodeQuicInteger(cursor, frameLength);
   if (!pushId) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_MAX_PUSH_ID;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
   outPushId = pushId->first | kPushIdMask;
   frameLength -= pushId->second;
   if (frameLength != 0) {
-    return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_MAX_PUSH_ID;
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
 
   return folly::none;

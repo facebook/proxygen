@@ -33,19 +33,19 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
     }
     // multiple SETTINGS frames are not allowed
     if (receivedSettings_ && type == hq::FrameType::SETTINGS) {
-      return HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME;
+      return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
     // A server MUST treat receipt of a GOAWAY frame as a connection error
-    // of type HTTP_UNEXPECTED_FRAME
+    // of type HTTP_FRAME_UNEXPECTED
     if (transportDirection_ == TransportDirection::DOWNSTREAM &&
         type == hq::FrameType::GOAWAY) {
-      return HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME;
+      return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
     // A client MUST treat the receipt of a MAX_PUSH_ID frame as a connection
-    // error of type HTTP_UNEXPECTED_FRAME
+    // error of type HTTP_FRAME_UNEXPECTED
     if (transportDirection_ == TransportDirection::UPSTREAM &&
         type == hq::FrameType::MAX_PUSH_ID) {
-      return HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME;
+      return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
   }
 
@@ -53,7 +53,7 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
   if (getStreamType() == hq::UnidirectionalStreamType::H1Q_CONTROL &&
       (transportDirection_ == TransportDirection::DOWNSTREAM ||
        type != hq::FrameType::GOAWAY)) {
-    return HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME;
+    return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
   }
 
   return folly::none;

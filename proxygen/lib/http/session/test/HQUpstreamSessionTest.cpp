@@ -937,7 +937,7 @@ TEST_P(HQUpstreamSessionTestH1qv2HQ, ExtraSettings) {
   flushAndLoop();
 
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
-            HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME);
+            HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
 }
 
 using HQUpstreamSessionDeathTestH1qv2HQ = HQUpstreamSessionTestH1qv2HQ;

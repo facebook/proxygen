@@ -153,7 +153,7 @@ bool HQSession::H1QFBV1VersionUtils::checkNewStream(quic::StreamId id) {
       session_.sock_->isServerStream(id)) {
     session_.abortStream(HTTPException::Direction::INGRESS_AND_EGRESS,
                          id,
-                         HTTP3::ErrorCode::HTTP_WRONG_STREAM);
+                         HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR);
     return false;
   }
   return true;
@@ -166,7 +166,7 @@ bool HQSession::GoawayUtils::checkNewStream(HQSession& session,
       session.sock_->isServerStream(id)) {
     session.abortStream(HTTPException::Direction::INGRESS_AND_EGRESS,
                         id,
-                        HTTP3::ErrorCode::HTTP_WRONG_STREAM);
+                        HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR);
     return false;
   }
   // Cancel any stream that is out of the range allowed by GOAWAY
@@ -1572,6 +1572,8 @@ void HQSession::onGoaway(uint64_t lastGoodStreamID,
   DCHECK_EQ(direction_, TransportDirection::UPSTREAM);
   DCHECK(version_ != HQVersion::H1Q_FB_V1);
   VLOG(3) << "Got GOAWAY maxStreamID=" << lastGoodStreamID << " sess=" << *this;
+  // TODO: drop connection with HTTP_ID_ERROR when lastGoodStreamID >
+  // maxAllowedStreamId_
   maxAllowedStreamId_ = std::min(maxAllowedStreamId_, lastGoodStreamID);
   setCloseReason(ConnectionCloseReason::GOAWAY);
   // drains existing streams and prevents new streams to be created
@@ -3075,9 +3077,9 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
     constexpr auto error =
         "Received onMessageBegin in the middle of push promise";
     LOG(ERROR) << error << " streamID=" << streamID << " session=" << session_;
+    // TODO: Audit this error code
     session_.dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
-                       error),
+        std::make_pair(HTTP3::ErrorCode::HTTP_FRAME_ERROR, error),
         kErrorDropped);
     return;
   }
@@ -3380,9 +3382,9 @@ void HQSession::HQStreamTransportBase::onPushMessageBegin(
     constexpr auto error =
         "Received onPushMessageBegin in the middle of push promise";
     LOG(ERROR) << error;
+    // TODO: Audit this error code
     session_.dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE,
-                       error),
+        std::make_pair(HTTP3::ErrorCode::HTTP_FRAME_ERROR, error),
         kErrorDropped);
     return;
   }

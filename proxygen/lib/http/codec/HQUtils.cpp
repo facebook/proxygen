@@ -37,8 +37,6 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
       return ErrorCode::REFUSED_STREAM;
     case HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED:
       return ErrorCode::CANCEL;
-    case HTTP3::ErrorCode::HTTP_INCOMPLETE_REQUEST:
-      return ErrorCode::PROTOCOL_ERROR;
     case HTTP3::ErrorCode::HTTP_CONNECT_ERROR:
       return ErrorCode::CONNECT_ERROR;
     case HTTP3::ErrorCode::HTTP_EXCESSIVE_LOAD:
@@ -46,29 +44,20 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
     case HTTP3::ErrorCode::HTTP_VERSION_FALLBACK:
       return ErrorCode::INTERNAL_ERROR;
     case HTTP3::ErrorCode::HTTP_WRONG_STREAM:
-    case HTTP3::ErrorCode::HTTP_PUSH_LIMIT_EXCEEDED:
-    case HTTP3::ErrorCode::HTTP_DUPLICATE_PUSH:
     case HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE:
     case HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT:
     case HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM:
-    case HTTP3::ErrorCode::HTTP_WRONG_STREAM_DIRECTION:
-    case HTTP3::ErrorCode::HTTP_EARLY_RESPONSE:
     case HTTP3::ErrorCode::HTTP_MISSING_SETTINGS:
-    case HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME:
+    case HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED:
+    case HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR:
+    case HTTP3::ErrorCode::HTTP_FRAME_ERROR:
+    case HTTP3::ErrorCode::HTTP_ID_ERROR:
+    case HTTP3::ErrorCode::HTTP_SETTINGS_ERROR:
+    case HTTP3::ErrorCode::HTTP_INCOMPLETE_REQUEST:
       return ErrorCode::PROTOCOL_ERROR;
     case HTTP3::ErrorCode::HTTP_REQUEST_REJECTED:
       // Not sure this makes sense...
       return ErrorCode::CANCEL;
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_DATA:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_HEADERS:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PRIORITY:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_CANCEL_PUSH:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_SETTINGS:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_PUSH_PROMISE:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_GOAWAY:
-    case HTTP3::ErrorCode::HTTP_MALFORMED_FRAME_MAX_PUSH_ID:
-      return ErrorCode::PROTOCOL_ERROR;
     default:
       return ErrorCode::INTERNAL_ERROR;
   }
@@ -89,7 +78,7 @@ HTTP3::ErrorCode toHTTP3ErrorCode(proxygen::ErrorCode err) {
     case ErrorCode::STREAM_CLOSED:
       return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
     case ErrorCode::FRAME_SIZE_ERROR:
-      return HTTP3::ErrorCode::HTTP_MALFORMED_FRAME;
+      return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
     case ErrorCode::REFUSED_STREAM:
       return HTTP3::ErrorCode::HTTP_PUSH_REFUSED;
     case ErrorCode::CANCEL:

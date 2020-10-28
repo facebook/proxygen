@@ -2155,7 +2155,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, ExtraSettings) {
   flushRequestsAndLoop();
 
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
-            HTTP3::ErrorCode::HTTP_UNEXPECTED_FRAME);
+            HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
 }
 
 using HQDownstreamSessionFilterTestHQ = HQDownstreamSessionTestHQ;
