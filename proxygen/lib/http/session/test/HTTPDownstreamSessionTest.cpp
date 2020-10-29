@@ -4225,15 +4225,21 @@ TEST_F(HTTP2DownstreamSessionTest, PingProbeTimeoutRefresh) {
                                  std::chrono::seconds(1),
                                  /*extendIntervalOnIngress=*/true,
                                  /*immediate=*/false);
-  // Don't send an immediate probe.  Send some data after 250ms. The ping probe
-  // fires at 1250 and times out at 2250.
+  // Don't send an immediate probe.  Send a request after 250ms, which starts
+  // the probe interval timer. The ping probe interval fires at 1250 and times
+  // out at 2250.
   proxygen::TimePoint start = getCurrentTime();
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM();
   eventBase_.runAfterDelay(
       [this] {
-        clientCodec_->generateWindowUpdate(requests_, 0, 100);
+        sendRequest();
         flushRequests();
       },
       250);
+  handler->expectError();
+  handler->expectDetachTransaction();
   expectDetachSession();
   eventBase_.loop();
   auto duration = millisecondsBetween(getCurrentTime(), start);
@@ -4258,4 +4264,30 @@ TEST_F(HTTP2DownstreamSessionTest, PingProbeInvalid) {
   httpSession_->closeWhenIdle();
   expectDetachSession();
   eventBase_.loop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, CancelPingProbesOnRequest) {
+  // Send an immediate ping probe, don't reply, but send a request/response.
+  // When the session goes idle, the ping probe timeout should be cancelled.
+  httpSession_->enablePingProbes(std::chrono::seconds(1),
+                                 std::chrono::seconds(1),
+                                 /*extendIntervalOnIngress=*/true,
+                                 /*immediate=*/true);
+  eventBase_.loopOnce();
+  auto handler = addSimpleStrictHandler();
+  sendRequest();
+  handler->expectHeaders();
+  handler->expectEOM([&handler, this] {
+    handler->sendReplyWithBody(200, 100);
+    eventBase_.runAfterDelay([this] { httpSession_->timeoutExpired(); }, 1250);
+  });
+  handler->expectDetachTransaction();
+  HTTPSession::DestructorGuard g(httpSession_);
+  expectDetachSession();
+  flushRequestsAndLoop();
+  EXPECT_CALL(callbacks_, onPingRequest(_));
+  parseOutput(*clientCodec_);
+  // Session idle times out
+  EXPECT_EQ(httpSession_->getConnectionCloseReason(),
+            ConnectionCloseReason::TIMEOUT);
 }

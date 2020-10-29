@@ -1947,6 +1947,9 @@ void HTTPSession::detach(HTTPTransaction* txn) noexcept {
 
   if (transactions_.empty()) {
     HTTPSessionBase::setLatestActive();
+    if (pingProber_) {
+      pingProber_->cancelProbes();
+    }
     if (infoCallback_) {
       infoCallback_->onDeactivateConnection(*this);
     }
@@ -2555,9 +2558,21 @@ HTTPSession::PingProber::PingProber(HTTPSession& session,
       extendIntervalOnIngress_(extendIntervalOnIngress) {
   if (immediate) {
     timeoutExpired();
-  } else {
-    refreshTimeout(/*onIngress=*/false);
+  } else if (session_.getNumStreams() > 0) {
+    startProbes();
+  } // else session will start them when a stream is created
+}
+
+void HTTPSession::PingProber::startProbes() {
+  refreshTimeout(/*onIngress=*/false);
+}
+
+void HTTPSession::PingProber::cancelProbes() {
+  if (pingVal_) {
+    VLOG(4) << "Canceling active probe sess=" << session_;
+    pingVal_.reset();
   }
+  cancelTimeout();
 }
 
 void HTTPSession::PingProber::refreshTimeout(bool onIngress) {
@@ -2657,6 +2672,9 @@ HTTPTransaction* HTTPSession::createTransaction(
   }
 
   if (transactions_.empty()) {
+    if (pingProber_) {
+      pingProber_->startProbes();
+    }
     if (infoCallback_) {
       infoCallback_->onActivateConnection(*this);
     }

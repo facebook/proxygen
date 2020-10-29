@@ -1094,6 +1094,10 @@ class HTTPSession
                bool extendIntervalOnIngress,
                bool immediate);
 
+    void startProbes();
+
+    void cancelProbes();
+
     void refreshTimeout(bool onIngress);
 
     void timeoutExpired() noexcept override;
