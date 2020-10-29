@@ -594,8 +594,7 @@ void HQSession::GoawayUtils::sendGoaway(HQSession& session) {
 
 quic::StreamId HQSession::getGoawayStreamId() {
   if (drainState_ == DrainState::NONE || drainState_ == DrainState::PENDING) {
-    // The maximum representable stream id in a quic varint
-    return quic::kEightByteLimit;
+    return hq::kMaxClientBidiStreamId;
   }
   return maxIncomingStreamId_;
 }

@@ -11,6 +11,7 @@
 #include <proxygen/lib/http/codec/HQFramedCodec.h>
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
+#include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 
@@ -137,7 +138,7 @@ class HQControlCodec
   bool sentGoaway_{false};
   bool receivedSettings_{false};
   bool sentSettings_{false};
-  quic::StreamId maxSeenLastStream_{quic::kEightByteLimit};
+  quic::StreamId maxSeenLastStream_{kMaxClientBidiStreamId};
   HTTPSettings& settings_;
 };
 

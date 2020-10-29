@@ -180,7 +180,7 @@ void HQUpstreamSessionTest::TearDown() {
     // With control streams we may need an extra loop for proper shutdown
     if (!socketDriver_->isClosed()) {
       // Send the first GOAWAY with MAX_STREAM_ID immediately
-      sendGoaway(quic::kEightByteLimit);
+      sendGoaway(kMaxClientBidiStreamId);
       // Schedule the second GOAWAY with the last seen stream ID, after some
       // delay
       sendGoaway(socketDriver_->getMaxStreamId(), milliseconds(50));
@@ -710,7 +710,7 @@ TEST_P(HQUpstreamSessionTestH1qv2HQ, GoawayStreamsUnacknowledged) {
     }
   }
 
-  sendGoaway(quic::kEightByteLimit, milliseconds(50));
+  sendGoaway(kMaxClientBidiStreamId, milliseconds(50));
   sendGoaway(goawayId, milliseconds(100));
   flushAndLoop();
 }
@@ -972,7 +972,7 @@ TEST_P(HQUpstreamSessionTestHQNoSettings, GoawayBeforeSettings) {
   handler->expectError();
   handler->expectDetachTransaction();
 
-  sendGoaway(quic::kEightByteLimit);
+  sendGoaway(kMaxClientBidiStreamId);
   flushAndLoop();
 
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,

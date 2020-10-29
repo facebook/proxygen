@@ -2049,7 +2049,7 @@ class HQSession
   // Maximum Stream ID received so far
   quic::StreamId maxIncomingStreamId_{0};
   // Maximum Stream ID that we are allowed to open, according to the remote
-  quic::StreamId maxAllowedStreamId_{quic::kEightByteLimit};
+  quic::StreamId maxAllowedStreamId_{hq::kMaxClientBidiStreamId};
   // Whether SETTINGS have been received
   bool receivedSettings_{false};
 

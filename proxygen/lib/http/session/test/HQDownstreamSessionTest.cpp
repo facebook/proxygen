@@ -1861,7 +1861,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, TestGoawayID) {
   flushRequestsAndLoopN(3);
   EXPECT_EQ(httpCallbacks_.goaways, 2);
   EXPECT_THAT(httpCallbacks_.goawayStreamIds,
-              ElementsAre(quic::kEightByteLimit, 4));
+              ElementsAre(kMaxClientBidiStreamId, 4));
   handler->sendEOM();
   flushRequestsAndLoop();
 }
@@ -1888,7 +1888,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, TestGetGoaway) {
   flushRequestsAndLoopN(3);
   EXPECT_EQ(httpCallbacks_.goaways, 2);
   EXPECT_THAT(httpCallbacks_.goawayStreamIds,
-              ElementsAre(quic::kEightByteLimit, numStreams * 8));
+              ElementsAre(kMaxClientBidiStreamId, numStreams * 8));
 
   // Check that a new stream with id > lastStreamId gets rejected
   auto errReq = getGetRequest();
@@ -2066,7 +2066,7 @@ TEST_P(HQDownstreamSessionBeforeTransportReadyTest, NotifyPendingShutdown) {
   }
   EXPECT_EQ(httpCallbacks_.goaways, 2);
   EXPECT_THAT(httpCallbacks_.goawayStreamIds,
-              ElementsAre(quic::kEightByteLimit, 0));
+              ElementsAre(kMaxClientBidiStreamId, 0));
 }
 
 // NOTE: a failure for this test may cause an infinite loop in processReadData
