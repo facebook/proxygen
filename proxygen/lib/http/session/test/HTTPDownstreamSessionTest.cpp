@@ -4193,6 +4193,7 @@ TEST_F(HTTP2DownstreamSessionTest, PingProbes) {
   // Send an immediate ping probe, and send a reply
   httpSession_->enablePingProbes(std::chrono::seconds(1),
                                  std::chrono::seconds(1),
+                                 /*extendIntervalOnIngress=*/true,
                                  /*immediate=*/true);
   eventBase_.loopOnce();
   uint64_t pingVal = 0;
@@ -4209,6 +4210,7 @@ TEST_F(HTTP2DownstreamSessionTest, PingProbeTimeout) {
   // Send an immediate ping probe, but don't reply.  Connection is dropped.
   httpSession_->enablePingProbes(std::chrono::seconds(1),
                                  std::chrono::seconds(1),
+                                 /*extendIntervalOnIngress=*/true,
                                  /*immediate=*/true);
   eventBase_.loopOnce();
   uint64_t pingVal = 0;
@@ -4221,6 +4223,7 @@ TEST_F(HTTP2DownstreamSessionTest, PingProbeTimeout) {
 TEST_F(HTTP2DownstreamSessionTest, PingProbeTimeoutRefresh) {
   httpSession_->enablePingProbes(std::chrono::seconds(1),
                                  std::chrono::seconds(1),
+                                 /*extendIntervalOnIngress=*/true,
                                  /*immediate=*/false);
   // Don't send an immediate probe.  Send some data after 250ms. The ping probe
   // fires at 1250 and times out at 2250.
@@ -4242,6 +4245,7 @@ TEST_F(HTTP2DownstreamSessionTest, PingProbeInvalid) {
   // It doesn't drop the connection.
   httpSession_->enablePingProbes(std::chrono::seconds(1),
                                  std::chrono::seconds(1),
+                                 /*extendIntervalOnIngress=*/true,
                                  /*immediate=*/true);
   eventBase_.loopOnce();
   uint64_t pingVal = 0;

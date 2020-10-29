@@ -504,6 +504,7 @@ class HQSession
 
   void enablePingProbes(std::chrono::seconds /*interval*/,
                         std::chrono::seconds /*timeout*/,
+                        bool /*extendIntervalOnIngress*/,
                         bool /*immediate*/) override {
     // TODO
   }

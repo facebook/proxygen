@@ -325,6 +325,7 @@ class HTTPSession
 
   void enablePingProbes(std::chrono::seconds interval,
                         std::chrono::seconds timeout,
+                        bool extendIntervalOnIngress,
                         bool immediate = false) override;
 
  protected:
@@ -1090,9 +1091,10 @@ class HTTPSession
     PingProber(HTTPSession& session,
                std::chrono::seconds interval,
                std::chrono::seconds timeout,
+               bool extendIntervalOnIngress,
                bool immediate);
 
-    void refreshTimeout();
+    void refreshTimeout(bool onIngress);
 
     void timeoutExpired() noexcept override;
 
@@ -1106,6 +1108,7 @@ class HTTPSession
     std::chrono::seconds interval_;
     std::chrono::seconds timeout_;
     folly::Optional<uint64_t> pingVal_;
+    bool extendIntervalOnIngress_{true};
   };
   std::unique_ptr<PingProber> pingProber_;
 

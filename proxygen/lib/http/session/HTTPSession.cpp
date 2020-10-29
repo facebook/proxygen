@@ -461,7 +461,7 @@ void HTTPSession::readDataAvailable(size_t readSize) noexcept {
 
   DestructorGuard dg(this);
   if (pingProber_) {
-    pingProber_->refreshTimeout();
+    pingProber_->refreshTimeout(/*onIngress=*/true);
   }
   resetTimeout();
 
@@ -490,7 +490,7 @@ void HTTPSession::readBufferAvailable(std::unique_ptr<IOBuf> readBuf) noexcept {
   VLOG(5) << "read completed on " << *this << ", bytes=" << readSize;
 
   if (pingProber_) {
-    pingProber_->refreshTimeout();
+    pingProber_->refreshTimeout(/*onIngress=*/true);
   }
 
   DestructorGuard dg(this);
@@ -2536,27 +2536,32 @@ size_t HTTPSession::sendPing(uint64_t data) {
 
 void HTTPSession::enablePingProbes(std::chrono::seconds interval,
                                    std::chrono::seconds timeout,
+                                   bool extendIntervalOnIngress,
                                    bool immediate) {
   if (isHTTP2CodecProtocol(codec_->getProtocol())) {
-    pingProber_ =
-        std::make_unique<PingProber>(*this, interval, timeout, immediate);
+    pingProber_ = std::make_unique<PingProber>(
+        *this, interval, timeout, extendIntervalOnIngress, immediate);
   }
 }
 
 HTTPSession::PingProber::PingProber(HTTPSession& session,
                                     std::chrono::seconds interval,
                                     std::chrono::seconds timeout,
+                                    bool extendIntervalOnIngress,
                                     bool immediate)
-    : session_(session), interval_(interval), timeout_(timeout) {
+    : session_(session),
+      interval_(interval),
+      timeout_(timeout),
+      extendIntervalOnIngress_(extendIntervalOnIngress) {
   if (immediate) {
     timeoutExpired();
   } else {
-    refreshTimeout();
+    refreshTimeout(/*onIngress=*/false);
   }
 }
 
-void HTTPSession::PingProber::refreshTimeout() {
-  if (!pingVal_) {
+void HTTPSession::PingProber::refreshTimeout(bool onIngress) {
+  if (!pingVal_ && (!onIngress || extendIntervalOnIngress_)) {
     VLOG(4) << "Scheduling next ping probe for sess=" << session_;
     session_.getEventBase()->timer().scheduleTimeout(this, interval_);
   }
@@ -2585,7 +2590,7 @@ void HTTPSession::PingProber::onPingReply(uint64_t pingVal) {
   }
   VLOG(4) << "Received expected ping, rescheduling";
   pingVal_.reset();
-  refreshTimeout();
+  refreshTimeout(/*onIngress=*/false);
 }
 
 HTTPCodec::StreamID HTTPSession::sendPriority(http2::PriorityUpdate pri) {

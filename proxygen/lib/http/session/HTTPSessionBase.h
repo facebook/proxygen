@@ -500,11 +500,15 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   // Use the protocol's ping feature to test liveness of the peer.  Send a ping
-  // every interval seconds.  If the ping is not returned by timeout,
-  // drop the connection.  If immediate is true, send a ping immediately.
-  // Otherwise, wait one interval.
+  // every interval seconds.  If the ping is not returned by timeout, drop the
+  // connection.
+  // If extendIntervalOnIngress is true, then any ingress data will reset the
+  // timer until the next PING.
+  // If immediate is true, send a ping immediately.  Otherwise, wait one
+  // interval.
   virtual void enablePingProbes(std::chrono::seconds interval,
                                 std::chrono::seconds timeout,
+                                bool extendIntervalOnIngress,
                                 bool immediate = false) = 0;
 
  protected:
