@@ -148,7 +148,7 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
     folly::readFile(params.keyFilePath.c_str(), keyData);
   }
   auto cert = fizz::CertUtils::makeSelfCert(certData, keyData);
-  auto certManager = std::make_shared<fizz::server::CertManager>();
+  auto certManager = std::make_unique<fizz::server::CertManager>();
   certManager->addCert(std::move(cert), true);
 
   auto cert2 =
@@ -156,10 +156,9 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
   certManager->addCert(std::move(cert2), false);
 
   auto serverCtx = std::make_shared<fizz::server::FizzServerContext>();
-  serverCtx->setCertManager(certManager);
+  serverCtx->setCertManager(std::move(certManager));
   auto ticketCipher = std::make_shared<fizz::server::Aead128GCMTicketCipher<
-      fizz::server::TicketCodec<fizz::server::CertificateStorage::X509>>>(
-      serverCtx->getFactoryPtr(), std::move(certManager));
+      fizz::server::TicketCodec<fizz::server::CertificateStorage::X509>>>();
   std::array<uint8_t, 32> ticketSeed;
   folly::Random::secureRandom(ticketSeed.data(), ticketSeed.size());
   ticketCipher->setTicketSecrets({{folly::range(ticketSeed)}});
