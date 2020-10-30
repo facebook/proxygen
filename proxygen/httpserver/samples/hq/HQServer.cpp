@@ -201,6 +201,7 @@ HQServer::HQServer(
     const HQParams& params,
     HTTPTransactionHandlerProvider httpTransactionHandlerProvider)
     : params_(params), server_(quic::QuicServer::createQuicServer()) {
+  server_->setBindV6Only(false);
   server_->setCongestionControllerFactory(
       std::make_shared<ServerCongestionControllerFactory>());
   server_->setTransportSettings(params_.transportSettings);
