@@ -93,7 +93,8 @@ class CompressionFilterTest : public Test {
                             std::unique_ptr<folly::IOBuf> originalResponseBody,
                             int32_t compressionLevel = T::getCompressionLevel(),
                             uint32_t minimumCompressionSize = 1,
-                            bool sendCompressedResponse = false) {
+                            bool sendCompressedResponse = false,
+                            bool disableCompressionForThisEncoding = false) {
 
     // If there is only one IOBuf, then it's not chunked.
     bool isResponseChunked = originalResponseBody->isChained();
@@ -181,6 +182,14 @@ class CompressionFilterTest : public Test {
     opts.minimumCompressionSize = minimumCompressionSize;
     opts.compressibleContentTypes = compressibleTypes;
     opts.enableZstd = true;
+    if (disableCompressionForThisEncoding) {
+      if (CodecType::getExpectedEncoding() == "gzip") {
+        opts.enableGzip = false;
+      }
+      if (CodecType::getExpectedEncoding() == "zstd") {
+        opts.enableZstd = false;
+      }
+    }
     auto filterFactory = std::make_unique<CompressionFilterFactory>(opts);
 
     auto filter = filterFactory->onRequest(requestHandler_, &msg);
@@ -455,6 +464,23 @@ TYPED_TEST(CompressionFilterTest, MinimumCompressSizeEqualToRequestSize) {
                                folly::IOBuf::copyBuffer(requestBody),
                                Codec::getCompressionLevel(),
                                requestBody.length());
+  });
+}
+
+TYPED_TEST(CompressionFilterTest, CompressionDisabledForEncoding) {
+  using Codec = typename TestFixture::CodecType;
+  ASSERT_NO_FATAL_FAILURE({
+    this->exercise_compression(false,
+                               std::string("http://locahost/foo.compressme"),
+                               Codec::getExpectedEncoding(),
+                               Codec::getExpectedEncoding(),
+                               std::string("Hello World"),
+                               std::string("text/html"),
+                               folly::IOBuf::copyBuffer("Hello World"),
+                               1,
+                               1,
+                               false,
+                               true);
   });
 }
 

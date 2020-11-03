@@ -224,6 +224,7 @@ class CompressionFilterFactory : public RequestHandlerFactory {
     int32_t zstdCompressionLevel = 8;
     bool enableZstd = false;
     bool independentChunks = false;
+    bool enableGzip = true;
   };
 
   CompressionFilterFactory(const Options& opts)
@@ -233,7 +234,8 @@ class CompressionFilterFactory : public RequestHandlerFactory {
         compressibleContentTypes_(std::make_shared<std::set<std::string>>(
             opts.compressibleContentTypes)),
         enableZstd_(opts.enableZstd),
-        independentChunks_(opts.independentChunks) {
+        independentChunks_(opts.independentChunks),
+        enableGzip_(opts.enableGzip) {
   }
 
   virtual ~CompressionFilterFactory() {
@@ -292,8 +294,10 @@ class CompressionFilterFactory : public RequestHandlerFactory {
     auto it = std::find_if(
         output.begin(),
         output.end(),
-        [enableZstd = enableZstd_](RFC2616::TokenQPair elem) {
-          return elem.first.compare(folly::StringPiece("gzip")) == 0 ||
+        [enableZstd = enableZstd_,
+         enableGzip = enableGzip_](RFC2616::TokenQPair elem) {
+          return (enableGzip &&
+                  elem.first.compare(folly::StringPiece("gzip")) == 0) ||
                  (enableZstd &&
                   elem.first.compare(folly::StringPiece("zstd")) == 0);
         });
@@ -317,5 +321,6 @@ class CompressionFilterFactory : public RequestHandlerFactory {
   const std::shared_ptr<std::set<std::string>> compressibleContentTypes_;
   const bool enableZstd_;
   const bool independentChunks_;
+  const bool enableGzip_;
 };
 } // namespace proxygen

@@ -113,8 +113,9 @@ class HTTPServerOptions {
   uint32_t maxConcurrentIncomingStreams{100};
 
   /**
-   * Set to true to enable gzip content compression. Currently false for
-   * backwards compatibility.
+   * Set to true to enable content compression. Currently false for
+   * backwards compatibility.  If enabled, by default gzip will be enabled
+   * and zstd will be disabed.
    */
   bool enableContentCompression{false};
 
@@ -131,6 +132,13 @@ class HTTPServerOptions {
    * set to true.
    */
   bool useZstdIndependentChunks{false};
+
+  /**
+   * Set to false to disable GZIP compression.  This can be helpful for services
+   * with long-lived streams for which GZIP can result in high memory usage.
+   * NOTE: this does not override `enableContentCompression`.
+   */
+  bool enableGzipCompression{true};
 
   /**
    * Requests smaller than the specified number of bytes will not be compressed
