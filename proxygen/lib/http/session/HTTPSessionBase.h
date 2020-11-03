@@ -120,7 +120,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
                   const wangle::TransportInfo& tinfo,
                   InfoCallback* infoCallback,
                   std::unique_ptr<HTTPCodec> codec,
-                  const WheelTimerInstance& timeout,
+                  const WheelTimerInstance& wheelTimer,
                   HTTPCodec::StreamID rootNodeId);
 
   virtual ~HTTPSessionBase() {
@@ -442,7 +442,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual void attachThreadLocals(folly::EventBase* eventBase,
                                   folly::SSLContextPtr sslContext,
-                                  const WheelTimerInstance& timeout,
+                                  const WheelTimerInstance& wheelTimer,
                                   HTTPSessionStats* stats,
                                   FilterIteratorFn fn,
                                   HeaderCodec::Stats* headerCodecStats,

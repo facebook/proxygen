@@ -1086,7 +1086,7 @@ class HQSession
         TransportDirection direction,
         quic::StreamId streamId,
         uint32_t seqNo,
-        const WheelTimerInstance& timeout,
+        const WheelTimerInstance& wheelTimer,
         HTTPSessionStats* stats = nullptr,
         http2::PriorityUpdate priority = hqDefaultPriority,
         folly::Optional<HTTPCodec::StreamID> parentTxnId = HTTPCodec::NoStream,
@@ -1725,7 +1725,7 @@ class HQSession
         quic::StreamId streamId,
         uint32_t seqNo,
         std::unique_ptr<HTTPCodec> codec,
-        const WheelTimerInstance& timeout,
+        const WheelTimerInstance& wheelTimer,
         HTTPSessionStats* stats = nullptr,
         http2::PriorityUpdate priority = hqDefaultPriority,
         folly::Optional<HTTPCodec::StreamID> parentTxnId = HTTPCodec::NoStream)
@@ -1734,7 +1734,7 @@ class HQSession
                                 direction,
                                 streamId,
                                 seqNo,
-                                timeout,
+                                wheelTimer,
                                 stats,
                                 priority,
                                 parentTxnId) {

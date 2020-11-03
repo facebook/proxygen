@@ -2214,7 +2214,7 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
     TransportDirection direction,
     quic::StreamId streamId,
     uint32_t seqNo,
-    const WheelTimerInstance& timeout,
+    const WheelTimerInstance& wheelTimer,
     HTTPSessionStats* stats,
     http2::PriorityUpdate priority,
     folly::Optional<HTTPCodec::StreamID> parentTxnId,
@@ -2226,8 +2226,8 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
            seqNo,
            *this,
            *this,
-           timeout.getWheelTimer(),
-           timeout.getDefaultTimeout(),
+           wheelTimer.getWheelTimer(),
+           wheelTimer.getDefaultTimeout(),
            stats,
            false, // useFlowControl
            0,     // receiveInitialWindowSize

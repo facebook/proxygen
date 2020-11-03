@@ -33,7 +33,7 @@ class HTTPUpstreamSession final : public HTTPSession {
    *                         priority levels.
    */
   HTTPUpstreamSession(
-      const WheelTimerInstance& timeout,
+      const WheelTimerInstance& wheelTimer,
       folly::AsyncTransport::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
@@ -43,7 +43,7 @@ class HTTPUpstreamSession final : public HTTPSession {
       uint8_t maxVirtualPri = 0,
       std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
           std::shared_ptr<const PriorityMapFactory>())
-      : HTTPSession(timeout,
+      : HTTPSession(wheelTimer,
                     std::move(sock),
                     localAddr,
                     peerAddr,
@@ -64,7 +64,7 @@ class HTTPUpstreamSession final : public HTTPSession {
 
   // uses folly::HHWheelTimer instance which is used on client side & thrift
   HTTPUpstreamSession(
-      folly::HHWheelTimer* timeout,
+      folly::HHWheelTimer* wheelTimer,
       folly::AsyncTransport::UniquePtr&& sock,
       const folly::SocketAddress& localAddr,
       const folly::SocketAddress& peerAddr,
@@ -74,7 +74,7 @@ class HTTPUpstreamSession final : public HTTPSession {
       uint8_t maxVirtualPri = 0,
       std::shared_ptr<const PriorityMapFactory> priorityMapFactory =
           std::shared_ptr<const PriorityMapFactory>())
-      : HTTPUpstreamSession(WheelTimerInstance(timeout),
+      : HTTPUpstreamSession(WheelTimerInstance(wheelTimer),
                             std::move(sock),
                             localAddr,
                             peerAddr,
@@ -91,7 +91,7 @@ class HTTPUpstreamSession final : public HTTPSession {
 
   void attachThreadLocals(folly::EventBase* eventBase,
                           folly::SSLContextPtr sslContext,
-                          const WheelTimerInstance& timeout,
+                          const WheelTimerInstance& wheelTimer,
                           HTTPSessionStats* stats,
                           FilterIteratorFn fn,
                           HeaderCodec::Stats* headerCodecStats,

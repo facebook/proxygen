@@ -51,7 +51,7 @@ static constexpr folly::StringPiece kServerLabel =
 
 namespace proxygen {
 
-HTTPSession::HTTPSession(folly::HHWheelTimer* transactionTimeouts,
+HTTPSession::HTTPSession(folly::HHWheelTimer* wheelTimer,
                          AsyncTransport::UniquePtr sock,
                          const SocketAddress& localAddr,
                          const SocketAddress& peerAddr,
@@ -59,7 +59,7 @@ HTTPSession::HTTPSession(folly::HHWheelTimer* transactionTimeouts,
                          unique_ptr<HTTPCodec> codec,
                          const TransportInfo& tinfo,
                          InfoCallback* infoCallback)
-    : HTTPSession(WheelTimerInstance(transactionTimeouts),
+    : HTTPSession(WheelTimerInstance(wheelTimer),
                   std::move(sock),
                   localAddr,
                   peerAddr,
@@ -69,7 +69,7 @@ HTTPSession::HTTPSession(folly::HHWheelTimer* transactionTimeouts,
                   infoCallback) {
 }
 
-HTTPSession::HTTPSession(const WheelTimerInstance& timeout,
+HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
                          AsyncTransport::UniquePtr sock,
                          const SocketAddress& localAddr,
                          const SocketAddress& peerAddr,
@@ -83,11 +83,11 @@ HTTPSession::HTTPSession(const WheelTimerInstance& timeout,
                       tinfo,
                       infoCallback,
                       std::move(codec),
-                      timeout,
+                      wheelTimer,
                       HTTPCodec::StreamID(0)),
       writeTimeout_(this),
       sock_(std::move(sock)),
-      timeout_(timeout),
+      wheelTimer_(wheelTimer),
       draining_(false),
       started_(false),
       writesDraining_(false),
@@ -334,8 +334,8 @@ void HTTPSession::readTimeoutExpired() noexcept {
   notifyPendingShutdown();
   auto controller = getController();
   if (controller && codec_->isWaitingToDrain()) {
-    timeout_.scheduleTimeout(&drainTimeout_,
-                             controller->getGracefulShutdownTimeout());
+    wheelTimer_.scheduleTimeout(&drainTimeout_,
+                                controller->getGracefulShutdownTimeout());
   }
 }
 
@@ -2232,7 +2232,7 @@ void HTTPSession::runLoopCallback() noexcept {
 
     if (!writeTimeout_.isScheduled()) {
       // Any performance concern here?
-      timeout_.scheduleTimeout(&writeTimeout_);
+      wheelTimer_.scheduleTimeout(&writeTimeout_);
     }
     numActiveWrites_++;
     VLOG(4) << *this << " writing " << len
@@ -2692,8 +2692,8 @@ HTTPTransaction* HTTPSession::createTransaction(
                             getNumTxnServed(),
                             *this,
                             txnEgressQueue_,
-                            timeout_.getWheelTimer(),
-                            timeout_.getDefaultTimeout(),
+                            wheelTimer_.getWheelTimer(),
+                            wheelTimer_.getDefaultTimeout(),
                             sessionStats_,
                             codec_->supportsStreamFlowControl(),
                             initialReceiveWindow_,
@@ -3046,9 +3046,9 @@ void HTTPSession::onConnectionSendWindowClosed() {
   }
   auto timeout = flowControlTimeout_.getTimeoutDuration();
   if (timeout != std::chrono::milliseconds(0)) {
-    timeout_.scheduleTimeout(&flowControlTimeout_, timeout);
+    wheelTimer_.scheduleTimeout(&flowControlTimeout_, timeout);
   } else {
-    timeout_.scheduleTimeout(&flowControlTimeout_);
+    wheelTimer_.scheduleTimeout(&flowControlTimeout_);
   }
 }
 

@@ -336,7 +336,7 @@ class HTTPSession
    * requests and handle responses (act as a client), construct a
    * HTTPUpstreamSession.
    *
-   * @param transactionTimeouts  Timeout for each transaction in the session.
+   * @param wheelTimer  Shared HHWheel Timer instance for scheduling timeouts.
    * @param sock                 An open socket on which any applicable TLS
    *                               handshaking has been completed already.
    * @param localAddr            Address and port of the local end of
@@ -353,7 +353,7 @@ class HTTPSession
    * @param InfoCallback         Optional callback to be informed of session
    *                               lifecycle events.
    */
-  HTTPSession(const WheelTimerInstance& timeout,
+  HTTPSession(const WheelTimerInstance& wheelTimer,
               folly::AsyncTransport::UniquePtr sock,
               const folly::SocketAddress& localAddr,
               const folly::SocketAddress& peerAddr,
@@ -363,7 +363,7 @@ class HTTPSession
               InfoCallback* infoCallback);
 
   // thrift uses WheelTimer
-  HTTPSession(folly::HHWheelTimer* transactionTimeouts,
+  HTTPSession(folly::HHWheelTimer* wheelTimer,
               folly::AsyncTransport::UniquePtr sock,
               const folly::SocketAddress& localAddr,
               const folly::SocketAddress& peerAddr,
@@ -770,7 +770,7 @@ class HTTPSession
 
   folly::AsyncTransport::UniquePtr sock_;
 
-  WheelTimerInstance timeout_;
+  WheelTimerInstance wheelTimer_;
 
   /**
    * Number of writes submitted to the transport for which we haven't yet

@@ -180,13 +180,13 @@ void HTTPUpstreamSession::detachTransactions() {
 void HTTPUpstreamSession::attachThreadLocals(
     folly::EventBase* eventBase,
     folly::SSLContextPtr sslContext,
-    const WheelTimerInstance& timeout,
+    const WheelTimerInstance& wheelTimer,
     HTTPSessionStats* stats,
     FilterIteratorFn fn,
     HeaderCodec::Stats* headerCodecStats,
     HTTPSessionController* controller) {
-  txnEgressQueue_.attachThreadLocals(timeout);
-  timeout_ = timeout;
+  txnEgressQueue_.attachThreadLocals(wheelTimer);
+  wheelTimer_ = wheelTimer;
   setController(controller);
   setSessionStats(stats);
   if (sock_) {

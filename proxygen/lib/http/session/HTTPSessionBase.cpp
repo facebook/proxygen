@@ -28,13 +28,13 @@ HTTPSessionBase::HTTPSessionBase(const SocketAddress& localAddr,
                                  const TransportInfo& tinfo,
                                  InfoCallback* infoCallback,
                                  std::unique_ptr<HTTPCodec> codec,
-                                 const WheelTimerInstance& timeout,
+                                 const WheelTimerInstance& wheelTimer,
                                  HTTPCodec::StreamID rootNodeId)
     : infoCallback_(infoCallback),
       transportInfo_(tinfo),
       codec_(std::move(codec)),
       txnEgressQueue_(isHTTP2CodecProtocol(codec_->getProtocol())
-                          ? WheelTimerInstance(timeout)
+                          ? WheelTimerInstance(wheelTimer)
                           : WheelTimerInstance(),
                       rootNodeId),
       localAddr_(localAddr),
