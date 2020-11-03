@@ -36,7 +36,7 @@ HTTPTransaction::HTTPTransaction(
     Transport& transport,
     HTTP2PriorityQueueBase& egressQueue,
     folly::HHWheelTimer* timer,
-    const folly::Optional<std::chrono::milliseconds>& defaultTimeout,
+    const folly::Optional<std::chrono::milliseconds>& defaultIdleTimeout,
     HTTPSessionStats* stats,
     bool useFlowControl,
     uint32_t receiveInitialWindowSize,
@@ -74,7 +74,7 @@ HTTPTransaction::HTTPTransaction(
       enableBodyLastByteDeliveryTracking_(false),
       partiallyReliable_(false),
       egressHeadersDelivered_(false),
-      transactionTimeout_(defaultTimeout),
+      idleTimeout_(defaultIdleTimeout),
       timer_(timer) {
 
   if (assocStreamId_) {
@@ -1520,12 +1520,10 @@ bool HTTPTransaction::onExTransaction(HTTPTransaction* exTxn) {
   return true;
 }
 
-void HTTPTransaction::setIdleTimeout(
-    std::chrono::milliseconds transactionTimeout) {
-  transactionTimeout_ = transactionTimeout;
-  VLOG(4) << "HTTPTransaction: transaction timeout is set to  "
-          << std::chrono::duration_cast<std::chrono::milliseconds>(
-                 transactionTimeout)
+void HTTPTransaction::setIdleTimeout(std::chrono::milliseconds idleTimeout) {
+  idleTimeout_ = idleTimeout;
+  VLOG(4) << "HTTPTransaction: idle timeout is set to  "
+          << std::chrono::duration_cast<std::chrono::milliseconds>(idleTimeout)
                  .count();
   refreshTimeout();
 }

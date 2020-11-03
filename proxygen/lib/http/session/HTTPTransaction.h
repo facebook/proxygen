@@ -593,7 +593,7 @@ class HTTPTransaction
       Transport& transport,
       HTTP2PriorityQueueBase& egressQueue,
       folly::HHWheelTimer* timer = nullptr,
-      const folly::Optional<std::chrono::milliseconds>& defaultTimeout =
+      const folly::Optional<std::chrono::milliseconds>& defaultIdleTimeout =
           folly::Optional<std::chrono::milliseconds>(),
       HTTPSessionStats* stats = nullptr,
       bool useFlowControl = false,
@@ -1290,25 +1290,12 @@ class HTTPTransaction
   }
 
   /**
-   * Sets a transaction timeout value. If such a timeout was set, this
-   * timeout will be used instead of the default timeout interval configured
-   * in transactionIdleTimeouts_.
+   * Overrides the default idle timeout value.
    */
-  void setIdleTimeout(std::chrono::milliseconds transactionTimeout);
+  void setIdleTimeout(std::chrono::milliseconds idleTimeout);
 
-  /**
-   * Does this transaction have an idle timeout set?
-   */
   bool hasIdleTimeout() const {
-    return transactionTimeout_.has_value();
-  }
-
-  /**
-   * Returns the transaction timeout if exists. An OptionalEmptyException is
-   * raised if the timeout isn't set.
-   */
-  std::chrono::milliseconds getIdleTimeout() const {
-    return transactionTimeout_.value();
+    return idleTimeout_.has_value();
   }
 
   /**
@@ -1363,11 +1350,11 @@ class HTTPTransaction
   }
 
   /**
-   * Schedule or refresh the timeout for this transaction
+   * Schedule or refresh the idle timeout for this transaction
    */
   void refreshTimeout() {
     if (timer_ && hasIdleTimeout()) {
-      timer_->scheduleTimeout(this, transactionTimeout_.value());
+      timer_->scheduleTimeout(this, idleTimeout_.value());
     }
   }
 
@@ -1857,10 +1844,7 @@ class HTTPTransaction
   proxygen::TimePoint startRateLimit_;
   uint64_t numLimitedBytesEgressed_{0};
 
-  /**
-   * Optional transaction timeout value.
-   */
-  folly::Optional<std::chrono::milliseconds> transactionTimeout_;
+  folly::Optional<std::chrono::milliseconds> idleTimeout_;
 
   folly::HHWheelTimer* timer_;
 
