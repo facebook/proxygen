@@ -2044,12 +2044,17 @@ bool HTTPSession::getCurrentTransportInfo(TransportInfo* tinfo) {
     tinfo->appProtocol = transportInfo_.appProtocol;
     tinfo->sslError = transportInfo_.sslError;
 #if defined(__linux__) || defined(__FreeBSD__)
+    tinfo->recvwnd = tinfo->tcpinfo.tcpi_rcv_space
+                     << tinfo->tcpinfo.tcpi_rcv_wscale;
     // update connection transport info with the latest RTT
     if (tinfo->tcpinfo.tcpi_rtt > 0) {
       transportInfo_.tcpinfo.tcpi_rtt = tinfo->tcpinfo.tcpi_rtt;
       transportInfo_.rtt = std::chrono::microseconds(tinfo->tcpinfo.tcpi_rtt);
     }
     transportInfo_.rtx = tinfo->rtx;
+#elif defined(__APPLE__)
+    tinfo->recvwnd = tinfo->tcpinfo.tcpi_rcv_wnd
+                     << tinfo->tcpinfo.tcpi_rcv_wscale;
 #endif
     return true;
   }
