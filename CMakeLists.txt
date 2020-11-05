@@ -49,6 +49,9 @@ if(NOT PROXYGEN_GPERF)
 endif()
 
 # Dependencies
+#
+# IMPORTANT: If you change this, make the analogous update in:
+#   cmake/proxygen-config.cmake.in
 find_package(fmt REQUIRED)
 find_package(folly REQUIRED)
 find_package(wangle REQUIRED)
