@@ -64,7 +64,7 @@ class RequestHandlerAdaptor
   void refreshTimeout() noexcept override;
   void pauseIngress() noexcept override;
   void resumeIngress() noexcept override;
-  ResponseHandler* newPushedResponse(
+  folly::Expected<ResponseHandler*, ProxygenError> newPushedResponse(
       PushHandler* pushHandler) noexcept override;
   ResponseHandler* newExMessage(ExMessageHandler* exHandler,
                                 bool unidirectional) noexcept override;

@@ -125,7 +125,8 @@ class Filter
     downstream_->resumeIngress();
   }
 
-  ResponseHandler* newPushedResponse(PushHandler* handler) noexcept override {
+  folly::Expected<ResponseHandler*, ProxygenError> newPushedResponse(
+      PushHandler* handler) noexcept override {
     return downstream_->newPushedResponse(handler);
   }
 

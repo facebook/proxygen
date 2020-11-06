@@ -201,14 +201,21 @@ void RequestHandlerAdaptor::resumeIngress() noexcept {
   txn_->resumeIngress();
 }
 
-ResponseHandler* RequestHandlerAdaptor::newPushedResponse(
-    PushHandler* pushHandler) noexcept {
-  auto pushTxn = txn_->newPushedTransaction(pushHandler->getHandler());
+folly::Expected<ResponseHandler*, ProxygenError>
+RequestHandlerAdaptor::newPushedResponse(PushHandler* pushHandler) noexcept {
+  ProxygenError error;
+  auto pushTxn = txn_->newPushedTransaction(pushHandler->getHandler(), &error);
   if (!pushTxn) {
     // Codec doesn't support push
-    return nullptr;
+    VLOG(4) << "Failed to create newPushedResponse: "
+            << static_cast<uint8_t>(error) << " " << getErrorString(error);
+    return folly::makeUnexpected(error);
   }
   auto pushHandlerAdaptor = new RequestHandlerAdaptor(pushHandler);
+  if (!pushHandlerAdaptor) {
+    VLOG(4) << "Failed to create RequestHandlerAdaptor!";
+    return folly::makeUnexpected(kErrorUnknown);
+  }
   pushHandlerAdaptor->setTransaction(pushTxn);
   return pushHandlerAdaptor;
 }

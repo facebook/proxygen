@@ -41,11 +41,12 @@ void PushRequestHandler::onRequest(
     std::unique_ptr<HTTPMessage> headers) noexcept {
   stats_->recordRequest();
   if (!headers->getHeaders().getSingleOrEmpty("X-PushIt").empty()) {
-    downstreamPush_ = downstream_->newPushedResponse(new PushHandler);
-    if (!downstreamPush_) {
-      // can't push
+    const auto downstreamPush = downstream_->newPushedResponse(new PushHandler);
+    if (downstreamPush.hasError()) {
+      LOG(ERROR) << "can't push: " << getErrorString(downstreamPush.error());
       return;
     }
+    downstreamPush_ = downstreamPush.value();
 
     if (headers->getPathAsStringPiece() == "/requestLargePush") {
       LOG(INFO) << "sending large push ";

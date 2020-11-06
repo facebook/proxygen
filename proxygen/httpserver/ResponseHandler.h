@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <folly/Expected.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
@@ -74,7 +75,7 @@ class ResponseHandler {
 
   virtual void resumeIngress() noexcept = 0;
 
-  virtual ResponseHandler* newPushedResponse(
+  virtual folly::Expected<ResponseHandler*, ProxygenError> newPushedResponse(
       PushHandler* pushHandler) noexcept = 0;
 
   virtual ResponseHandler* newExMessage(
