@@ -2589,7 +2589,7 @@ void HTTPSession::PingProber::refreshTimeout(bool onIngress) {
 
 void HTTPSession::PingProber::timeoutExpired() noexcept {
   if (pingVal_) {
-    LOG(ERROR) << "Ping probe timed out, dropping connection sess=" << session_;
+    VLOG(3) << "Ping probe timed out, dropping connection sess=" << session_;
     session_.dropConnection("Ping probe timed out");
   } else {
     pingVal_ = folly::Random::rand64();
