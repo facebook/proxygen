@@ -50,11 +50,15 @@ EncodeError StructuredHeadersEncoder::encodeDictionary(
       return err;
     }
 
-    outputStream_ << "=";
-
-    err = encodeItem(it->second);
-    if (err != EncodeError::OK) {
-      return err;
+    if (!itemTypeMatchesContent(it->second)) {
+      return handleEncodeError(EncodeError::ITEM_TYPE_MISMATCH);
+    }
+    if (!skipBoolean(it->second)) {
+      outputStream_ << "=";
+      err = encodeItem(it->second);
+      if (err != EncodeError::OK) {
+        return err;
+      }
     }
 
     if (std::next(it, 1) != input.end()) {
@@ -89,8 +93,14 @@ EncodeError StructuredHeadersEncoder::encodeParameterisedList(
       }
 
       if (it2->second.tag != StructuredHeaderItem::Type::NONE) {
-        outputStream_ << "=";
-        err = encodeItem(it2->second);
+        if (!itemTypeMatchesContent(it2->second)) {
+          return handleEncodeError(EncodeError::ITEM_TYPE_MISMATCH);
+        }
+        if (!skipBoolean(it2->second)) {
+          outputStream_ << "=";
+          err = encodeItem(it2->second);
+        }
+
         if (err != EncodeError::OK) {
           return err;
         }
@@ -169,6 +179,11 @@ EncodeError StructuredHeadersEncoder::encodeInteger(int64_t input) {
   outputStream_ << input;
 
   return EncodeError::OK;
+}
+
+bool StructuredHeadersEncoder::skipBoolean(const StructuredHeaderItem& input) {
+  return input.tag == StructuredHeaderItem::Type::BOOLEAN &&
+         boost::get<bool>(input.value);
 }
 
 EncodeError StructuredHeadersEncoder::encodeBoolean(bool input) {

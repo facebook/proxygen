@@ -49,6 +49,8 @@ class StructuredHeadersEncoder {
 
   EncodeError encodeBoolean(bool input);
 
+  bool skipBoolean(const StructuredHeaderItem& input);
+
   EncodeError encodeFloat(double input);
 
   EncodeError handleEncodeError(EncodeError err, const std::string& badContent);
