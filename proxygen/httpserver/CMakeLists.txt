@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 add_library(
-    proxygenhttpserver STATIC
+    proxygenhttpserver
     RequestHandlerAdaptor.cpp
     SignalHandler.cpp
     HTTPServerAcceptor.cpp
@@ -16,6 +16,10 @@ target_compile_options(
     PRIVATE
         ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
+if (BUILD_SHARED_LIBS)
+    set_property(TARGET proxygenhttpserver PROPERTY POSITION_INDEPENDENT_CODE ON)
+endif()
+
 target_link_libraries(
     proxygenhttpserver
     PUBLIC

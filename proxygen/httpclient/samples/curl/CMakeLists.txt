@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-add_library(proxygencurl STATIC CurlClient.cpp)
+add_library(proxygencurl CurlClient.cpp)
 target_include_directories(
     proxygencurl PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

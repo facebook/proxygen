@@ -8,7 +8,7 @@ if(NOT BUILD_TESTS)
     return()
 endif()
 
-add_library(testtransport STATIC TestAsyncTransport.cpp)
+add_library(testtransport TestAsyncTransport.cpp)
 target_include_directories(
     testtransport PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
@@ -21,7 +21,7 @@ target_compile_options(
 )
 target_link_libraries(testtransport PUBLIC proxygen)
 
-add_library(testmain STATIC TestMain.cpp)
+add_library(testmain TestMain.cpp)
 target_include_directories(
     testmain PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

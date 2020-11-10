@@ -13,6 +13,11 @@ target_compile_options(
     proxygen_http_parser PRIVATE
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
+
+if (BUILD_SHARED_LIBS)
+  set_property(TARGET proxygen_http_parser PROPERTY POSITION_INDEPENDENT_CODE ON)
+endif()
+
 target_include_directories(
     proxygen_http_parser PRIVATE
     ${PROXYGEN_FBCODE_ROOT}
