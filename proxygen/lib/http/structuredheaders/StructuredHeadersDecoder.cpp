@@ -127,13 +127,10 @@ DecodeError StructuredHeadersDecoder::decodeMap(
 
     err = buf_.removeSymbol("=", mapType == MapType::DICTIONARY);
     if (err != DecodeError::OK) {
-      if (mapType == MapType::DICTIONARY) {
-        return err;
-      } else {
-        StructuredHeaderItem value;
-        value.tag = StructuredHeaderItem::Type::NONE;
-        result[thisKey] = value;
-      }
+      StructuredHeaderItem value;
+      value.tag = StructuredHeaderItem::Type::BOOLEAN;
+      value.value = true;
+      result[thisKey] = value;
     } else {
       StructuredHeaderItem value;
       err = buf_.parseItem(value);
