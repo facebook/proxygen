@@ -333,6 +333,7 @@ class MockHTTPTransaction : public HTTPTransaction {
                void(folly::AsyncTransport::ReplaySafetyCallback*));
   MOCK_METHOD1(removeWaitingForReplaySafety,
                void(folly::AsyncTransport::ReplaySafetyCallback*));
+  MOCK_METHOD2(updateAndSendPriority, void(uint8_t, bool));
 
   void enablePush() {
     EXPECT_CALL(mockCodec_, supportsPushTransactions())
