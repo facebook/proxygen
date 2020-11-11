@@ -235,7 +235,7 @@ TEST_F(StructuredHeadersDecoderTest, PriorityWithIncremental) {
   EXPECT_EQ(ret, StructuredHeaders::DecodeError::OK);
   EXPECT_EQ(2, dict.size());
   EXPECT_EQ(dict["u"].tag, StructuredHeaderItem::Type::INT64);
-  EXPECT_EQ(dict["u"], 5L);
+  EXPECT_EQ(dict["u"], (int64_t)5);
   EXPECT_EQ(dict["i"].tag, StructuredHeaderItem::Type::BOOLEAN);
   EXPECT_EQ(dict["i"], true);
 }
@@ -248,7 +248,7 @@ TEST_F(StructuredHeadersDecoderTest, PriorityWithoutIncremental) {
   EXPECT_EQ(ret, StructuredHeaders::DecodeError::OK);
   EXPECT_EQ(1, dict.size());
   EXPECT_EQ(dict["u"].tag, StructuredHeaderItem::Type::INT64);
-  EXPECT_EQ(dict["u"], 5L);
+  EXPECT_EQ(dict["u"], (int64_t)5);
   EXPECT_EQ(dict.find("i"), dict.end());
 }
 
