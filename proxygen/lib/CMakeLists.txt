@@ -233,6 +233,7 @@ target_link_libraries(
     zstd
     Boost::boost
     Boost::iostreams
+    -lz
     ${HTTP3_DEPEND_LIBS}
 )
 
