@@ -24,7 +24,7 @@ mkdir -p "$STAGE"
 
 for getdeps in "${GETDEPS_PATHS[@]}"; do
     if [[ -x "$getdeps" ]]; then
-        "$getdeps" build proxygen --current-project proxygen "$@" --install-prefix=${STAGE} "$@"
+        "$getdeps" build proxygen --current-project proxygen "$@" --install-prefix=${STAGE}
         exit 0
     fi
 done
