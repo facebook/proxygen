@@ -54,6 +54,7 @@ Max-Forwards
 Origin
 P3P
 Pragma
+Priority
 Proxy-Authenticate
 Proxy-Authorization
 Proxy-Connection
