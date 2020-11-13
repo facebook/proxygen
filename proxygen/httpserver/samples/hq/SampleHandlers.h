@@ -673,8 +673,8 @@ class RandBytesGenHandler : public BaseSampleHandler {
     error_ = true;
   }
 
-  const uint64_t kMaxAllowedLength{1000 * 1024 * 1024}; // 1 GB
-  const uint64_t kMaxChunkSize{100 * 1024};             // 100 KB
+  const uint64_t kMaxAllowedLength{1ULL * 1024 * 1024 * 1024}; // 1 GB
+  const uint64_t kMaxChunkSize{100ULL * 1024};             // 100 KB
   const std::string kErrorMsg = folly::to<std::string>(
       "More than 1GB of data requested. ", "Please request for smaller size.");
   uint64_t respBodyLen_;
