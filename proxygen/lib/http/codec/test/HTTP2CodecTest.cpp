@@ -2456,8 +2456,8 @@ TEST_F(HTTP2CodecTest, PriorityHeaderBadUrgency) {
 
   parse();
   const auto& msg = callbacks_.msg;
-  EXPECT_EQ(msg->getPriority(), 0);
-  EXPECT_FALSE(msg->getIncremental());
+  EXPECT_EQ(msg->getPriority(), kDefaultHttpPriorityUrgency);
+  EXPECT_TRUE(msg->getIncremental());
 }
 
 TEST_F(HTTP2CodecTest, PriorityHeaderBadUrgencyWithIncremental) {
@@ -2467,8 +2467,8 @@ TEST_F(HTTP2CodecTest, PriorityHeaderBadUrgencyWithIncremental) {
 
   parse();
   const auto& msg = callbacks_.msg;
-  EXPECT_EQ(msg->getPriority(), 0);
-  EXPECT_FALSE(msg->getIncremental());
+  EXPECT_EQ(msg->getPriority(), kDefaultHttpPriorityUrgency);
+  EXPECT_TRUE(msg->getIncremental());
 }
 
 TEST_F(HTTP2CodecTest, PriorityHeaderBadIncremental) {
@@ -2478,6 +2478,6 @@ TEST_F(HTTP2CodecTest, PriorityHeaderBadIncremental) {
 
   parse();
   const auto& msg = callbacks_.msg;
-  EXPECT_EQ(msg->getPriority(), 0);
-  EXPECT_FALSE(msg->getIncremental());
+  EXPECT_EQ(msg->getPriority(), kDefaultHttpPriorityUrgency);
+  EXPECT_TRUE(msg->getIncremental());
 }

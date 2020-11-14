@@ -26,6 +26,13 @@
 
 namespace proxygen {
 
+// Default urgency = 3 is from the draft. It leaves space for both higher and
+// lower urgency level which is good. We default to Incremental = True as
+// opposed to False. This is because our transport layer has been behaving
+// like that before the HTTP priority support is introduced.
+constexpr uint8_t kDefaultHttpPriorityUrgency = 3;
+constexpr bool kDefaultHttpPriorityIncremental = true;
+
 /**
  * An HTTP request or response minus the body.
  *

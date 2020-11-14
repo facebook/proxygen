@@ -921,8 +921,8 @@ TEST_F(HQCodecTest, PriorityHeaderBadUrgency) {
 
   parse();
   const auto& msg = callbacks_.msg;
-  EXPECT_EQ(msg->getPriority(), 0);
-  EXPECT_FALSE(msg->getIncremental());
+  EXPECT_EQ(msg->getPriority(), kDefaultHttpPriorityUrgency);
+  EXPECT_TRUE(msg->getIncremental());
 }
 
 TEST_F(HQCodecTest, PriorityHeaderBadUrgencyWithIncremental) {
@@ -933,8 +933,8 @@ TEST_F(HQCodecTest, PriorityHeaderBadUrgencyWithIncremental) {
 
   parse();
   const auto& msg = callbacks_.msg;
-  EXPECT_EQ(msg->getPriority(), 0);
-  EXPECT_FALSE(msg->getIncremental());
+  EXPECT_EQ(msg->getPriority(), kDefaultHttpPriorityUrgency);
+  EXPECT_TRUE(msg->getIncremental());
 }
 
 TEST_F(HQCodecTest, PriorityHeaderBadIncremental) {
@@ -945,8 +945,8 @@ TEST_F(HQCodecTest, PriorityHeaderBadIncremental) {
 
   parse();
   const auto& msg = callbacks_.msg;
-  EXPECT_EQ(msg->getPriority(), 0);
-  EXPECT_FALSE(msg->getIncremental());
+  EXPECT_EQ(msg->getPriority(), kDefaultHttpPriorityUrgency);
+  EXPECT_TRUE(msg->getIncremental());
 }
 
 struct FrameAllowedParams {
