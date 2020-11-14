@@ -865,6 +865,90 @@ TEST_F(HQCodecTest, MultipleSettingsDownstream) {
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
+TEST_F(HQCodecTest, PriorityHeaderUrgencyOnly) {
+  HTTPMessage req = getGetRequest("/pittston");
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=5");
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, req);
+
+  parse();
+  const auto& msg = callbacks_.msg;
+  EXPECT_EQ(msg->getPriority(), 5);
+  EXPECT_FALSE(msg->getIncremental());
+}
+
+TEST_F(HQCodecTest, PriorityHeaderUrgencyAndIncremental) {
+  HTTPMessage req = getGetRequest("/pittston");
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=4, i");
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, req);
+
+  parse();
+  const auto& msg = callbacks_.msg;
+  EXPECT_EQ(msg->getPriority(), 4);
+  EXPECT_TRUE(msg->getIncremental());
+}
+
+TEST_F(HQCodecTest, PriorityHeaderUrgencyAndIncrementalUppercase) {
+  HTTPMessage req = getGetRequest("/pittston");
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=4, i");
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, req);
+
+  parse();
+  const auto& msg = callbacks_.msg;
+  EXPECT_EQ(msg->getPriority(), 4);
+  EXPECT_TRUE(msg->getIncremental());
+}
+
+TEST_F(HQCodecTest, PriorityHeaderUrgencyAndIncrementalTrimSpaces) {
+  HTTPMessage req = getGetRequest("/pittston");
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=4,  i ");
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, req);
+
+  parse();
+  const auto& msg = callbacks_.msg;
+  EXPECT_EQ(msg->getPriority(), 4);
+  EXPECT_TRUE(msg->getIncremental());
+}
+
+TEST_F(HQCodecTest, PriorityHeaderBadUrgency) {
+  HTTPMessage req = getGetRequest("/pittston");
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "p=3");
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, req);
+
+  parse();
+  const auto& msg = callbacks_.msg;
+  EXPECT_EQ(msg->getPriority(), 0);
+  EXPECT_FALSE(msg->getIncremental());
+}
+
+TEST_F(HQCodecTest, PriorityHeaderBadUrgencyWithIncremental) {
+  HTTPMessage req = getGetRequest("/pittston");
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "p=3, i");
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, req);
+
+  parse();
+  const auto& msg = callbacks_.msg;
+  EXPECT_EQ(msg->getPriority(), 0);
+  EXPECT_FALSE(msg->getIncremental());
+}
+
+TEST_F(HQCodecTest, PriorityHeaderBadIncremental) {
+  HTTPMessage req = getGetRequest("/pittston");
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=3, true");
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, req);
+
+  parse();
+  const auto& msg = callbacks_.msg;
+  EXPECT_EQ(msg->getPriority(), 0);
+  EXPECT_FALSE(msg->getIncremental());
+}
+
 struct FrameAllowedParams {
   CodecType codecType;
   FrameType frameType;

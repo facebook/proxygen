@@ -67,8 +67,9 @@ HTTPMessage::HTTPMessage()
       sslVersion_(0),
       sslCipher_(nullptr),
       protoStr_(nullptr),
-      version_(1, 0),
       pri_(0),
+      incremental_(false),
+      version_(1, 0),
       parsedCookies_(false),
       parsedQueryParams_(false),
       chunked_(false),
@@ -98,9 +99,10 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       sslVersion_(message.sslVersion_),
       sslCipher_(message.sslCipher_),
       protoStr_(message.protoStr_),
+      pri_(message.pri_),
+      incremental_(message.incremental_),
       h2Pri_(message.h2Pri_),
       version_(message.version_),
-      pri_(message.pri_),
       parsedCookies_(message.parsedCookies_),
       parsedQueryParams_(message.parsedQueryParams_),
       chunked_(message.chunked_),
@@ -139,9 +141,10 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       sslVersion_(message.sslVersion_),
       sslCipher_(message.sslCipher_),
       protoStr_(message.protoStr_),
+      pri_(message.pri_),
+      incremental_(message.incremental_),
       h2Pri_(message.h2Pri_),
       version_(message.version_),
-      pri_(message.pri_),
       parsedCookies_(message.parsedCookies_),
       parsedQueryParams_(message.parsedQueryParams_),
       chunked_(message.chunked_),
@@ -184,6 +187,7 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
   pri_ = message.pri_;
+  incremental_ = message.incremental_;
   h2Pri_ = message.h2Pri_;
   parsedCookies_ = message.parsedCookies_;
   parsedQueryParams_ = message.parsedQueryParams_;
@@ -226,6 +230,7 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
   pri_ = message.pri_;
+  incremental_ = message.incremental_;
   h2Pri_ = message.h2Pri_;
   parsedCookies_ = message.parsedCookies_;
   parsedQueryParams_ = message.parsedQueryParams_;

@@ -7,6 +7,9 @@
  */
 
 #include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
+#include <folly/Conv.h>
+#include <folly/String.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 
 using std::string;
 
@@ -80,18 +83,26 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
     }
   } else {
     regularHeaderSeen_ = true;
-    if (headerCode == HTTP_HEADER_CONNECTION) {
-      parsingError = string("HTTP/2 Message with Connection header");
-      return false;
-    }
-    if (headerCode == HTTP_HEADER_CONTENT_LENGTH) {
-      uint32_t cl = 0;
-      folly::tryTo<uint32_t>(valueSp).then([&cl](uint32_t num) { cl = num; });
-      if (contentLength_ && *contentLength_ != cl) {
-        parsingError = string("Multiple content-length headers");
+    switch (headerCode) {
+      case HTTP_HEADER_CONNECTION:
+        parsingError = string("HTTP/2 Message with Connection header");
         return false;
+      case HTTP_HEADER_CONTENT_LENGTH: {
+        uint32_t cl = 0;
+        folly::tryTo<uint32_t>(valueSp).then([&cl](uint32_t num) { cl = num; });
+        if (contentLength_ && *contentLength_ != cl) {
+          parsingError = string("Multiple content-length headers");
+          return false;
+        }
+        contentLength_ = cl;
+        break;
       }
-      contentLength_ = cl;
+      case HTTP_HEADER_PRIORITY:
+        updateMessagePriorityFromPriorityString(*msg, valueSp);
+        break;
+      default:
+        // no op
+        break;
     }
     bool nameOk = !validate_ || headerCode != HTTP_HEADER_OTHER ||
                   CodecUtil::validateHeaderName(nameSp);

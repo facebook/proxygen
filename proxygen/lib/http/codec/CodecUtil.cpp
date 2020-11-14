@@ -11,6 +11,7 @@
 #include <folly/ThreadLocal.h>
 #include <proxygen/lib/http/RFC2616.h>
 #include <proxygen/lib/http/codec/HeaderConstants.h>
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
 
 namespace proxygen {
 
@@ -140,4 +141,64 @@ const std::bitset<256>& CodecUtil::perHopHeaderCodes() {
   }()};
   return s_perHopHeaderCodes;
 }
+
+void updateMessagePriorityFromPriorityString(HTTPMessage& msg) {
+  updateMessagePriorityFromPriorityString(
+      msg, msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_PRIORITY));
+}
+
+void updateMessagePriorityFromPriorityString(HTTPMessage& msg,
+                                             folly::StringPiece priority) {
+  if (priority.empty()) {
+    return;
+  }
+  bool logBadHeader = false;
+  SCOPE_EXIT {
+    if (logBadHeader) {
+      LOG(ERROR) << "Received ill-formated priority header=" << priority;
+    }
+  };
+  StructuredHeadersDecoder decoder(priority);
+  StructuredHeaders::Dictionary dict;
+  auto ret = decoder.decodeDictionary(dict);
+  if (ret != StructuredHeaders::DecodeError::OK) {
+    logBadHeader = true;
+    return;
+  }
+  if (dict.size() > 2) {
+    logBadHeader = true;
+    return;
+  }
+  bool hasUrgency = dict.find("u") != dict.end();
+  bool hasIncremental = dict.find("i") != dict.end();
+  if (dict.size() == 2 && !(hasUrgency && hasIncremental)) {
+    logBadHeader = true;
+    return;
+  }
+  if (dict.size() == 1 && !hasUrgency) {
+    logBadHeader = true;
+    return;
+  }
+  if (!hasUrgency || dict["u"].tag != StructuredHeaderItem::Type::INT64) {
+    logBadHeader = true;
+    return;
+  }
+  folly::tryTo<uint8_t>(dict["u"].get<int64_t>()).then([&](uint8_t urgency) {
+    if (urgency > HTTPMessage::kMaxPriority) {
+      logBadHeader = true;
+      return;
+    }
+    bool incremental = false;
+    if (hasIncremental) {
+      if (dict["i"].tag != StructuredHeaderItem::Type::BOOLEAN) {
+        logBadHeader = true;
+        return;
+      }
+      incremental = true;
+    }
+    msg.setPriority(urgency);
+    msg.setIncremental(incremental);
+  });
+}
+
 } // namespace proxygen

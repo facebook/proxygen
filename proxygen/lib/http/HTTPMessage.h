@@ -667,6 +667,13 @@ class HTTPMessage {
     return pri_;
   }
 
+  void setIncremental(bool val) {
+    incremental_ = val;
+  }
+  bool getIncremental() const noexcept {
+    return incremental_;
+  }
+
   using HTTPPriority = std::tuple<uint64_t, bool, uint8_t>;
 
   folly::Optional<HTTPPriority> getHTTP2Priority() const {
@@ -1030,10 +1037,11 @@ class HTTPMessage {
   const char* sslCipher_;
   const std::string* protoStr_;
   std::unique_ptr<std::string> upgradeProtocol_;
+  uint8_t pri_;
+  bool incremental_ : 1;
   folly::Optional<HTTPPriority> h2Pri_;
 
   std::pair<uint8_t, uint8_t> version_;
-  uint8_t pri_;
   mutable bool parsedCookies_ : 1;
   mutable bool parsedQueryParams_ : 1;
   bool chunked_ : 1;
