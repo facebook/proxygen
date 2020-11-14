@@ -52,6 +52,15 @@ using HQDownstreamSessionTestHQPrSkips = HQDownstreamSessionTest;
 // Use this test class for h3 server push tests
 using HQDownstreamSessionTestHQPush = HQDownstreamSessionTest;
 
+namespace {
+HTTPMessage getProgressiveGetRequest() {
+  auto req = proxygen::getGetRequest();
+  req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=1, i");
+  updateMessagePriorityFromPriorityString(req);
+  return req;
+}
+} // namespace
+
 HTTPCodec::StreamID HQDownstreamSessionTest::sendRequest(const std::string& url,
                                                          int8_t priority,
                                                          bool eom) {
@@ -323,6 +332,28 @@ TEST_P(HQDownstreamSessionTest, SimpleGet) {
     // Checks that the server response is sent using the QPACK dynamic table
     CHECK_GE(qpackCodec_.getCompressionInfo().ingress.headerTableSize_, 0);
   }
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTest, PriorityUpdateIntoTransport) {
+  if (!IS_HQ) { // H1Q tests do not support priority
+    hqSession_->closeWhenIdle();
+    return;
+  }
+  auto request = getProgressiveGetRequest();
+  sendRequest(request);
+  auto handler = addSimpleStrictHandler();
+  EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 1, true));
+  handler->expectHeaders();
+  handler->expectEOM([&]() {
+    auto resp = makeResponse(200, 0);
+    std::get<0>(resp)->getHeaders().add(HTTP_HEADER_PRIORITY, "u=2");
+    updateMessagePriorityFromPriorityString(*std::get<0>(resp), "u=2");
+    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 2, false));
+    handler->sendRequest(*std::get<0>(resp));
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
   hqSession_->closeWhenIdle();
 }
 

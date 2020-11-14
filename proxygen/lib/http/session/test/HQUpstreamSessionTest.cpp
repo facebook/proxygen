@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/test/HQUpstreamSessionTest.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 
 #include <folly/futures/Future.h>
@@ -325,6 +326,31 @@ TEST_P(HQUpstreamSessionTest, SimpleGet) {
                std::move(std::get<1>(resp)),
                true);
   flushAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTest, PriorityUpdateIntoTransport) {
+  if (IS_HQ) {
+    auto handler = openTransaction();
+    auto req = getGetRequest();
+    req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=3, i");
+    updateMessagePriorityFromPriorityString(req);
+    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 3, true));
+    handler->txn_->sendHeadersWithEOM(req);
+
+    handler->expectHeaders();
+    handler->expectBody();
+    handler->expectEOM();
+    handler->expectDetachTransaction();
+    auto resp = makeResponse(200, 100);
+    std::get<0>(resp)->getHeaders().add(HTTP_HEADER_PRIORITY, "u=5");
+    sendResponse(handler->txn_->getID(),
+                 *std::get<0>(resp),
+                 std::move(std::get<1>(resp)),
+                 true);
+    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 5, false));
+    flushAndLoop();
+  }
   hqSession_->closeWhenIdle();
 }
 

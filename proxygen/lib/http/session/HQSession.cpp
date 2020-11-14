@@ -2585,6 +2585,16 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     session_.scheduleLoopCallback();
   }
 
+  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - createdTime);
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kOnHeaders, timeDiff);
+  }
+  sock->setStreamPriority(streamId, msg->getPriority(), msg->getIncremental());
+
   // Tell the HTTPTransaction to start processing the message now
   // that the full ingress headers have arrived.
   // Depending on the push promise latch, the message is delivered to
@@ -2596,15 +2606,6 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     ingressPushId_ = folly::none;
   } else {
     txn_.onIngressHeadersComplete(std::move(msg));
-  }
-
-  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - createdTime);
-  auto sock = session_.sock_;
-  auto streamId = getStreamId();
-  if (sock && sock->getState() && sock->getState()->qLogger) {
-    sock->getState()->qLogger->addStreamStateUpdate(
-        streamId, quic::kOnHeaders, timeDiff);
   }
 }
 
@@ -2774,6 +2775,8 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
           streamId, quic::kEOM, timeDiff);
     }
   }
+  sock->setStreamPriority(
+      streamId, headers.getPriority(), headers.getIncremental());
 
   // If partial reliability is enabled, enable the callbacks.
   if (session_.isPartialReliabilityEnabled() && headers.isPartiallyReliable()) {
