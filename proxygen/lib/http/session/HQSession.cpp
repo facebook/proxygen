@@ -2593,7 +2593,10 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kOnHeaders, timeDiff);
   }
-  sock->setStreamPriority(streamId, msg->getPriority(), msg->getIncremental());
+  if (sock) {
+    sock->setStreamPriority(
+        streamId, msg->getPriority(), msg->getIncremental());
+  }
 
   // Tell the HTTPTransaction to start processing the message now
   // that the full ingress headers have arrived.
@@ -2775,8 +2778,10 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
           streamId, quic::kEOM, timeDiff);
     }
   }
-  sock->setStreamPriority(
-      streamId, headers.getPriority(), headers.getIncremental());
+  if (sock && headers.isRequest()) {
+    sock->setStreamPriority(
+        streamId, headers.getPriority(), headers.getIncremental());
+  }
 
   // If partial reliability is enabled, enable the callbacks.
   if (session_.isPartialReliabilityEnabled() && headers.isPartiallyReliable()) {
@@ -3460,6 +3465,10 @@ void HQSession::HQStreamTransport::sendPushPromise(
       sock->getState()->qLogger->addStreamStateUpdate(
           streamId, quic::kEOM, timeDiff);
     }
+  }
+  if (sock) {
+    sock->setStreamPriority(
+        streamId, headers.getPriority(), headers.getIncremental());
   }
 }
 

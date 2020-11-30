@@ -349,7 +349,9 @@ TEST_P(HQDownstreamSessionTest, PriorityUpdateIntoTransport) {
     auto resp = makeResponse(200, 0);
     std::get<0>(resp)->getHeaders().add(HTTP_HEADER_PRIORITY, "u=2");
     updateMessagePriorityFromPriorityString(*std::get<0>(resp), "u=2");
-    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 2, false));
+    // For now response doesn't update priority
+    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 2, false))
+        .Times(0);
     handler->sendRequest(*std::get<0>(resp));
   });
   handler->expectDetachTransaction();
