@@ -73,6 +73,7 @@ HTTPServer::HTTPServer(HTTPServerOptions options)
     if (options_->enableZstdCompression) {
       opts.enableZstd = options_->enableZstdCompression;
       opts.independentChunks = options_->useZstdIndependentChunks;
+      opts.zstdCompressionLevel = options_->zstdContentCompressionLevel;
     }
     options_->handlerFactories.insert(
         options_->handlerFactories.begin(),

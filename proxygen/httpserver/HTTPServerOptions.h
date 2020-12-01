@@ -152,6 +152,15 @@ class HTTPServerOptions {
   int contentCompressionLevel{-1};
 
   /**
+   * Zstd compression level, valid values are -5 to 22.
+   * As level increases, compression ratio improves at the cost
+   * of higher cpu usage.
+   * Default is 8, which was found to be a good balance
+   * between compression ratio and cpu usage.
+   */
+  int zstdContentCompressionLevel{8};
+
+  /**
    * Enable support for pub-sub extension.
    */
   bool enableExHeaders{false};
