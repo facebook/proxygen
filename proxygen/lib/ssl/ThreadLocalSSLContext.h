@@ -15,6 +15,8 @@ namespace proxygen {
 template <typename T>
 class Versioned : public T {
  public:
+  using T::T;
+
   uint64_t getVersion() const {
     return version_;
   }
