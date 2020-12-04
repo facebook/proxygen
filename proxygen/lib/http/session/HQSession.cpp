@@ -770,11 +770,12 @@ void HQSession::HQStreamTransportBase::errorOnTransaction(
   if (!errorMsg.empty()) {
     extraErrorMsg = folly::to<std::string>(". ", errorMsg);
   }
-
+  auto streamIdStr =
+      hasStreamId() ? folly::to<std::string>(getStreamId()) : "n/a";
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                    folly::to<std::string>(getErrorString(err),
                                           " on transaction id: ",
-                                          getStreamId(),
+                                          streamIdStr,
                                           extraErrorMsg));
   ex.setProxygenError(err);
   errorOnTransaction(std::move(ex));
