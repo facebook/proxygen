@@ -297,6 +297,10 @@ void initializeTransportSettings(HQParams& hqParams) {
   }
   if (FLAGS_rate_limit > 0) {
     hqParams.rateLimitPerThread = FLAGS_rate_limit;
+
+    std::array<uint8_t, kRetryTokenSecretLength> secret;
+    folly::Random::secureRandom(secret.data(), secret.size());
+    hqParams.transportSettings.retryTokenSecret = secret;
   }
   hqParams.connectTimeout = std::chrono::milliseconds(FLAGS_connect_timeout);
   hqParams.ccpConfig = FLAGS_ccp_config;
