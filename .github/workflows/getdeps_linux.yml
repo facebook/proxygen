@@ -17,14 +17,14 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install system deps
       run: sudo python3 build/fbcode_builder/getdeps.py --allow-system-packages install-system-deps --recursive proxygen
+    - name: Fetch zlib
+      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests zlib
     - name: Fetch boost
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests boost
     - name: Fetch ninja
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests ninja
     - name: Fetch cmake
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests cmake
-    - name: Fetch googletest_1_8
-      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests googletest_1_8
     - name: Fetch double-conversion
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests double-conversion
     - name: Fetch fmt
@@ -61,14 +61,14 @@ jobs:
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests mvfst
     - name: Fetch wangle
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages fetch --no-tests wangle
+    - name: Build zlib
+      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --no-tests zlib
     - name: Build boost
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --no-tests boost
     - name: Build ninja
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --no-tests ninja
     - name: Build cmake
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --no-tests cmake
-    - name: Build googletest_1_8
-      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --no-tests googletest_1_8
     - name: Build double-conversion
       run: python3 build/fbcode_builder/getdeps.py --allow-system-packages build --no-tests double-conversion
     - name: Build fmt
@@ -113,5 +113,5 @@ jobs:
       with:
         name: proxygen
         path: _artifacts
-#    - name: Test proxygen
-#      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages test --src-dir=. proxygen  --project-install-prefix proxygen:/usr/local
+    - name: Test proxygen
+      run: python3 build/fbcode_builder/getdeps.py --allow-system-packages test --src-dir=. proxygen  --project-install-prefix proxygen:/usr/local
