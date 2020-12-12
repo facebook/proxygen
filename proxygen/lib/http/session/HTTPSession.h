@@ -21,6 +21,7 @@
 #include <folly/io/async/HHWheelTimer.h>
 #include <proxygen/lib/http/HTTPConstants.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
+#include <proxygen/lib/http/codec/ControlMessageRateLimitFilter.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
@@ -42,13 +43,6 @@ class HTTPSessionStats;
 #define PROXYGEN_HTTP_SESSION_USES_BASE 1
 constexpr uint32_t kDefaultMaxConcurrentOutgoingStreamsRemote = 100000;
 constexpr uint32_t kDefaultMaxConcurrentIncomingStreams = 100;
-
-// These constants define the rate at which we limit certain events.
-constexpr uint32_t kDefaultMaxControlMsgsPerInterval = 50000;
-constexpr uint32_t kDefaultControlMsgDuration = 100; // milliseconds
-
-constexpr uint32_t kDefaultMaxDirectErrorHandlingPerInterval = 100;
-constexpr uint32_t kDefaultDirectErrorHandlingDuration = 100; // milliseconds
 
 class HTTPSession
     : public HTTPSessionBase
@@ -266,21 +260,14 @@ class HTTPSession
   void setSecondAuthManager(
       std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager);
 
-  void setMaxControlMsgsPerInterval(uint32_t val) {
-    maxControlMsgsPerInterval_ = val;
-  }
-
-  void setControlMsgIntervalDuration(uint32_t val) {
-    controlMsgIntervalDuration_ = val;
-  }
-
-  void setMaxDirectErrorHandlingPerInterval(uint32_t val) {
-    maxDirectErrorHandlingPerInterval_ = val;
-  }
-
-  void setDirectErrorHandlingIntervalDuration(uint32_t val) {
-    directErrorHandlingIntervalDuration_ = val;
-  }
+  void setControlMessageRateLimitParams(
+      uint32_t maxControlMsgsPerInterval = kDefaultMaxControlMsgsPerInterval,
+      uint32_t maxDirectErrorHandlingPerInterval =
+          kDefaultMaxDirectErrorHandlingPerInterval,
+      std::chrono::milliseconds controlMsgIntervalDuration =
+          kDefaultControlMsgDuration,
+      std::chrono::milliseconds directErrorHandlingIntervalDuration =
+          kDefaultDirectErrorHandlingDuration);
 
   /**
    * Get the SecondaryAuthManager attached to this session.
@@ -772,6 +759,8 @@ class HTTPSession
 
   WheelTimerInstance wheelTimer_;
 
+  ControlMessageRateLimitFilter* controlMessageRateLimitFilter_{nullptr};
+
   /**
    * Number of writes submitted to the transport for which we haven't yet
    * received completion or failure callbacks.
@@ -973,34 +962,6 @@ class HTTPSession
    * Number of body un-encoded bytes in the write buffer per write iteration.
    */
   uint64_t bodyBytesPerWriteBuf_{0};
-
-  struct RateLimitingCounters {
-    /**
-     * The two variables below keep track of the number of Control messages,
-     * and the number of error handling events that are handled by a newly
-     * created transaction handler seen in the current interval, respectively.
-     * These are shared_ptrs, as opposed to uint64_ts because we don't want to
-     * run into lifetime issues where the HTTPSession is destructed, and the
-     * rate limiting function is still scheduled to run on the event base.
-     */
-    uint64_t numControlMsgsInCurrentInterval{0};
-    uint64_t numDirectErrorHandlingInCurrentInterval{0};
-  };
-
-  std::shared_ptr<RateLimitingCounters> rateLimitingCounters_;
-
-  /*
-   * If the number of control messages in a controlMsgIntervalDuration_
-   * millisecond interval exceeds maxControlMsgsPerInterval_, we drop the
-   * connection
-   */
-  uint32_t maxControlMsgsPerInterval_{kDefaultMaxControlMsgsPerInterval};
-  uint32_t controlMsgIntervalDuration_{kDefaultControlMsgDuration};
-
-  uint32_t maxDirectErrorHandlingPerInterval_{
-      kDefaultMaxDirectErrorHandlingPerInterval};
-  uint32_t directErrorHandlingIntervalDuration_{
-      kDefaultDirectErrorHandlingDuration};
 
   /**
    * Container to hold the results of HTTP2PriorityQueue::nextEgress

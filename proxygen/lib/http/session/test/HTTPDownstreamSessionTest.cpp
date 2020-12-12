@@ -3669,7 +3669,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
 TEST_F(HTTP2DownstreamSessionTest, TestControlMsgRateLimitExceeded) {
   auto streamid = clientCodec_->createStream();
 
-  httpSession_->setMaxControlMsgsPerInterval(10);
+  httpSession_->setControlMessageRateLimitParams(10);
 
   // Send 7 PRIORITY, 1 SETTINGS, and 3 PING frames. This should exceed the
   // limit of 10, causing us to drop the connection.
@@ -3692,8 +3692,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgRateLimitExceeded) {
 TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
   auto streamid = clientCodec_->createStream();
 
-  httpSession_->setMaxControlMsgsPerInterval(10);
-  httpSession_->setControlMsgIntervalDuration(0);
+  httpSession_->setControlMessageRateLimitParams(10, 100, milliseconds(0));
 
   // Send 7 PRIORITY, 1 SETTINGS, and 2 PING frames. This doesn't exceed the
   // limit of 10.
@@ -3710,7 +3709,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
 
   // We should reset the number of control frames seen, enabling us to send
   // more without hitting the rate limit
-  flushRequestsAndLoopN(2);
+  flushRequestsAndLoop();
 
   // Send 10 control frames. This is just within the rate limits that we have
   // set.
@@ -3733,8 +3732,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitTouched) {
-  httpSession_->setMaxDirectErrorHandlingPerInterval(10);
-  httpSession_->setDirectErrorHandlingIntervalDuration(0);
+  httpSession_->setControlMessageRateLimitParams(100, 10, milliseconds(0));
 
   // Send ten messages, each of which cause direct error handling. Since
   // this doesn't exceed the limit, this should not cause the connection
@@ -3766,8 +3764,7 @@ TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitTouched) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, DirectErrorHandlingLimitExceeded) {
-  httpSession_->setMaxDirectErrorHandlingPerInterval(10);
-  httpSession_->setDirectErrorHandlingIntervalDuration(0);
+  httpSession_->setControlMessageRateLimitParams(100, 10, milliseconds(0));
 
   // Send eleven messages, each of which causes direct error handling. Since
   // this exceeds the limit, the connection should be dropped.

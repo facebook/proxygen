@@ -128,8 +128,6 @@ HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
   if (!sock_->isReplaySafe()) {
     sock_->setReplaySafetyCallback(this);
   }
-
-  rateLimitingCounters_ = std::make_shared<RateLimitingCounters>();
 }
 
 uint32_t HTTPSession::getCertAuthSettingVal() {
@@ -220,6 +218,13 @@ void HTTPSession::setupCodec() {
     codec_.addFilters(std::unique_ptr<FlowControlFilter>(connFlowControl_));
     // if we really support switching from spdy <-> h2, we need to update
     // existing flow control filter
+  }
+  if (codec_->supportsParallelRequests() && !controlMessageRateLimitFilter_ &&
+      sock_) {
+    controlMessageRateLimitFilter_ =
+        new ControlMessageRateLimitFilter(&getEventBase()->timer());
+    codec_.addFilters(std::unique_ptr<ControlMessageRateLimitFilter>(
+        controlMessageRateLimitFilter_));
   }
 
   codec_.setCallback(this);
@@ -1076,12 +1081,7 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
         infoCallback_->onRequestBegin(*this);
       }
       if (txn) {
-        if (incrementDirectErrorHandlingInCurInterval()) {
-          // The rate limit has been exceeded
-          return;
-        } else {
-          handleErrorDirectly(txn, error);
-        }
+        handleErrorDirectly(txn, error);
       }
     } else if (newTxn) {
       onNewTransactionParseError(streamID, error);
@@ -1094,12 +1094,7 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
 
   if (!txn->getHandler() &&
       txn->getEgressState() == HTTPTransactionEgressSM::State::Start) {
-    if (incrementDirectErrorHandlingInCurInterval()) {
-      // The rate limit has been exceeded
-      return;
-    } else {
-      handleErrorDirectly(txn, error);
-    }
+    handleErrorDirectly(txn, error);
     return;
   }
 
@@ -1114,10 +1109,6 @@ void HTTPSession::onError(HTTPCodec::StreamID streamID,
 void HTTPSession::onAbort(HTTPCodec::StreamID streamID, ErrorCode code) {
   VLOG(4) << "stream abort on " << *this << ", streamID=" << streamID
           << ", code=" << getErrorCodeString(code);
-
-  if (incrementNumControlMsgsInCurInterval(http2::FrameType::RST_STREAM)) {
-    return;
-  }
 
   HTTPTransaction* txn = findTransaction(streamID);
   if (!txn) {
@@ -1232,10 +1223,6 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
 void HTTPSession::onPingRequest(uint64_t data) {
   VLOG(4) << *this << " got ping request with data=" << data;
 
-  if (incrementNumControlMsgsInCurInterval(http2::FrameType::PING)) {
-    return;
-  }
-
   TimePoint timestamp = getCurrentTime();
 
   uint64_t bytesScheduledBeforePing = 0;
@@ -1295,9 +1282,6 @@ void HTTPSession::onWindowUpdate(HTTPCodec::StreamID streamID,
 
 void HTTPSession::onSettings(const SettingsList& settings) {
   DestructorGuard g(this);
-  if (incrementNumControlMsgsInCurInterval(http2::FrameType::SETTINGS)) {
-    return;
-  }
   for (auto& setting : settings) {
     if (setting.id == SettingsId::INITIAL_WINDOW_SIZE) {
       onSetSendWindow(setting.value);
@@ -1326,8 +1310,7 @@ void HTTPSession::onSettingsAck() {
 
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
                              const HTTPMessage::HTTPPriority& pri) {
-  if (!getHTTP2PrioritiesEnabled() ||
-      incrementNumControlMsgsInCurInterval(http2::FrameType::PRIORITY)) {
+  if (!getHTTP2PrioritiesEnabled()) {
     return;
   }
   http2::PriorityUpdate h2Pri{
@@ -1818,6 +1801,20 @@ void HTTPSession::setSecondAuthManager(
 
 SecondaryAuthManagerBase* HTTPSession::getSecondAuthManager() const {
   return secondAuthManager_.get();
+}
+
+void HTTPSession::setControlMessageRateLimitParams(
+    uint32_t maxControlMsgsPerInterval,
+    uint32_t maxDirectErrorHandlingPerInterval,
+    std::chrono::milliseconds controlMsgIntervalDuration,
+    std::chrono::milliseconds directErrorHandlingIntervalDuration) {
+  if (controlMessageRateLimitFilter_) {
+    controlMessageRateLimitFilter_->setParams(
+        maxControlMsgsPerInterval,
+        maxDirectErrorHandlingPerInterval,
+        controlMsgIntervalDuration,
+        directErrorHandlingIntervalDuration);
+  }
 }
 
 /**
@@ -2755,71 +2752,6 @@ void HTTPSession::incrementIncomingStreams(HTTPTransaction* txn) {
   txn->setIsCountedTowardsStreamLimit();
 }
 
-bool HTTPSession::incrementNumControlMsgsInCurInterval(
-    http2::FrameType frameType) {
-  if (rateLimitingCounters_->numControlMsgsInCurrentInterval == 0) {
-    // The first time we get a "control message", we schedule a
-    // function on the event base that clears out the value of
-    // numControlMsgsInCurrentInterval. Once it is cleared, the next
-    // such event that fires causes the function to be scheduled, and the
-    // cycle repeats.
-    scheduleResetNumControlMsgs();
-  }
-
-  (rateLimitingCounters_->numControlMsgsInCurrentInterval)++;
-  if (rateLimitingCounters_->numControlMsgsInCurrentInterval >
-      maxControlMsgsPerInterval_) {
-    LOG(ERROR) << " dropping connection due to too many control messages, "
-               << "num control messages = "
-               << rateLimitingCounters_->numControlMsgsInCurrentInterval
-               << ", most recent frame type = " << getFrameTypeString(frameType)
-               << " " << *this;
-    dropConnection();
-    return true;
-  }
-
-  return false;
-}
-
-bool HTTPSession::incrementDirectErrorHandlingInCurInterval() {
-  if (rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval == 0) {
-    // The first time a direct error handling event fires, we schedule a
-    // function on the event base that clears out the value of
-    // numDirectErrorHandlingInCurrentInterval. Once it is cleared, the next
-    // such event that fires causes the function to be scheduled, and the
-    // cycle repeats.
-    scheduleResetDirectErrorHandling();
-  }
-
-  (rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval)++;
-  if (rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval >
-      maxDirectErrorHandlingPerInterval_) {
-    LOG(ERROR) << " dropping connection due to too many newly created txns "
-               << " when directly handling errors,"
-               << "num direct error handling cases = "
-               << rateLimitingCounters_->numDirectErrorHandlingInCurrentInterval
-               << " " << *this;
-    dropConnection();
-    return true;
-  }
-
-  return false;
-}
-
-void HTTPSession::scheduleResetNumControlMsgs() {
-  auto ptr = rateLimitingCounters_;
-  sock_->getEventBase()->runAfterDelay(
-      [ptr]() { ptr->numControlMsgsInCurrentInterval = 0; },
-      controlMsgIntervalDuration_);
-}
-
-void HTTPSession::scheduleResetDirectErrorHandling() {
-  auto ptr = rateLimitingCounters_;
-  sock_->getEventBase()->runAfterDelay(
-      [ptr]() { ptr->numDirectErrorHandlingInCurrentInterval = 0; },
-      directErrorHandlingIntervalDuration_);
-}
-
 void HTTPSession::writeSuccess() noexcept {
   CHECK(pendingWrite_.hasValue());
   DestructorGuard dg(this);
@@ -2928,8 +2860,13 @@ void HTTPSession::onSessionParseError(const HTTPException& error) {
       scheduleWrite();
     }
   }
-  setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
-  shutdownTransport(true, true);
+  if (error.hasProxygenError() && error.getProxygenError() == kErrorDropped) {
+    // Codec is requesting a connection drop
+    dropConnection();
+  } else {
+    setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
+    shutdownTransport(true, true);
+  }
 }
 
 void HTTPSession::onNewTransactionParseError(HTTPCodec::StreamID streamID,
