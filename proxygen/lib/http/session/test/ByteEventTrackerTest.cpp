@@ -23,7 +23,7 @@ class MockByteEventTrackerCallback : public ByteEventTracker::Callback {
   MOCK_METHOD(void, onPingReplyLatency, (int64_t), (noexcept));
   GMOCK_METHOD1_(
       , noexcept, , onTxnByteEventWrittenToBuf, void(const ByteEvent&));
-  GMOCK_METHOD0_(, noexcept, , onDeleteTxnByteEvent, void());
+  MOCK_METHOD(void, onDeleteTxnByteEvent, (), (noexcept));
 };
 
 class ByteEventTrackerTest : public Test {

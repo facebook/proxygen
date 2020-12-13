@@ -31,13 +31,13 @@ class MockResponseHandler : public ResponseHandler {
   MOCK_METHOD(void, sendHeaders, (HTTPMessage&), (noexcept));
   MOCK_METHOD(void, sendChunkHeader, (size_t), (noexcept));
   MOCK_METHOD(void, sendBody, (std::shared_ptr<folly::IOBuf>), (noexcept));
-  GMOCK_METHOD0_(, noexcept, , sendChunkTerminator, void());
+  MOCK_METHOD(void, sendChunkTerminator, (), (noexcept));
   MOCK_METHOD(void, sendTrailers, (const HTTPHeaders&), (noexcept));
-  GMOCK_METHOD0_(, noexcept, , sendEOM, void());
-  GMOCK_METHOD0_(, noexcept, , sendAbort, void());
-  GMOCK_METHOD0_(, noexcept, , refreshTimeout, void());
-  GMOCK_METHOD0_(, noexcept, , pauseIngress, void());
-  GMOCK_METHOD0_(, noexcept, , resumeIngress, void());
+  MOCK_METHOD(void, sendEOM, (), (noexcept));
+  MOCK_METHOD(void, sendAbort, (), (noexcept));
+  MOCK_METHOD(void, refreshTimeout, (), (noexcept));
+  MOCK_METHOD(void, pauseIngress, (), (noexcept));
+  MOCK_METHOD(void, resumeIngress, (), (noexcept));
   GMOCK_METHOD1_(
       ,
       noexcept,
@@ -77,13 +77,13 @@ class MockRequestHandler : public RequestHandler {
   MOCK_METHOD(void, onRequest, (std::shared_ptr<HTTPMessage>), (noexcept));
   MOCK_METHOD(void, onBody, (std::shared_ptr<folly::IOBuf>), (noexcept));
   MOCK_METHOD(void, onUpgrade, (UpgradeProtocol), (noexcept));
-  GMOCK_METHOD0_(, noexcept, , onEOM, void());
-  GMOCK_METHOD0_(, noexcept, , requestComplete, void());
+  MOCK_METHOD(void, onEOM, (), (noexcept));
+  MOCK_METHOD(void, requestComplete, (), (noexcept));
   MOCK_METHOD(void, onError, (ProxygenError), (noexcept));
   MOCK_METHOD(void, onGoaway, (ErrorCode), (noexcept));
-  GMOCK_METHOD0_(, noexcept, , onEgressPaused, void());
-  GMOCK_METHOD0_(, noexcept, , onEgressResumed, void());
-  GMOCK_METHOD0_(, noexcept, , canHandleExpect, bool());
+  MOCK_METHOD(void, onEgressPaused, (), (noexcept));
+  MOCK_METHOD(void, onEgressResumed, (), (noexcept));
+  MOCK_METHOD(bool, canHandleExpect, (), (noexcept));
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif

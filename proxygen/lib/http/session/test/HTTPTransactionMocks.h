@@ -63,7 +63,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                  ,
                  sendPriority,
                  size_t(HTTPTransaction*, const http2::PriorityUpdate&));
-  GMOCK_METHOD0_(, noexcept, , notifyPendingEgress, void());
+  MOCK_METHOD(void, notifyPendingEgress, (), (noexcept));
   MOCK_METHOD(void, detach, (HTTPTransaction*), (noexcept));
   GMOCK_METHOD2_(
       , noexcept, , sendWindowUpdate, size_t(HTTPTransaction*, uint32_t));
@@ -116,7 +116,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
     return const_cast<MockHTTPTransactionTransport*>(this)
         ->getSessionTypeNonConst();
   }
-  GMOCK_METHOD0_(, noexcept, , getCodecNonConst, const HTTPCodec&());
+  MOCK_METHOD(const HTTPCodec&, getCodecNonConst, (), (noexcept));
   const HTTPCodec& getCodec() const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)->getCodecNonConst();
   }
@@ -355,20 +355,20 @@ class MockHTTPTransactionTransportCallback
  public:
   MockHTTPTransactionTransportCallback() {
   }
-  GMOCK_METHOD0_(, noexcept, , firstHeaderByteFlushed, void());
-  GMOCK_METHOD0_(, noexcept, , firstByteFlushed, void());
-  GMOCK_METHOD0_(, noexcept, , trackedByteFlushed, void());
-  GMOCK_METHOD0_(, noexcept, , lastByteFlushed, void());
+  MOCK_METHOD(void, firstHeaderByteFlushed, (), (noexcept));
+  MOCK_METHOD(void, firstByteFlushed, (), (noexcept));
+  MOCK_METHOD(void, trackedByteFlushed, (), (noexcept));
+  MOCK_METHOD(void, lastByteFlushed, (), (noexcept));
   MOCK_METHOD(void, lastByteAcked, (std::chrono::milliseconds), (noexcept));
   MOCK_METHOD(void, trackedByteEventTX, (const ByteEvent&), (noexcept));
   MOCK_METHOD(void, trackedByteEventAck, (const ByteEvent&), (noexcept));
-  GMOCK_METHOD0_(, noexcept, , egressBufferEmpty, void());
+  MOCK_METHOD(void, egressBufferEmpty, (), (noexcept));
   MOCK_METHOD(void, headerBytesGenerated, (HTTPHeaderSize&), (noexcept));
   GMOCK_METHOD1_(
       , noexcept, , headerBytesReceived, void(const HTTPHeaderSize&));
   MOCK_METHOD(void, bodyBytesGenerated, (size_t), (noexcept));
   MOCK_METHOD(void, bodyBytesReceived, (size_t), (noexcept));
-  GMOCK_METHOD0_(, noexcept, , transportAppRateLimited, void());
+  MOCK_METHOD(void, transportAppRateLimited, (), (noexcept));
 };
 
 #if defined(__clang__) && __clang_major__ >= 3 && __clang_minor__ >= 6
