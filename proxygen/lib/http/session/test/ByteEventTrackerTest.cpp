@@ -21,8 +21,7 @@ using namespace proxygen;
 class MockByteEventTrackerCallback : public ByteEventTracker::Callback {
  public:
   MOCK_METHOD(void, onPingReplyLatency, (int64_t), (noexcept));
-  GMOCK_METHOD1_(
-      , noexcept, , onTxnByteEventWrittenToBuf, void(const ByteEvent&));
+  MOCK_METHOD(void, onTxnByteEventWrittenToBuf, (const ByteEvent&), (noexcept));
   MOCK_METHOD(void, onDeleteTxnByteEvent, (), (noexcept));
 };
 

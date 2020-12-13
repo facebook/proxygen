@@ -38,12 +38,8 @@ class MockResponseHandler : public ResponseHandler {
   MOCK_METHOD(void, refreshTimeout, (), (noexcept));
   MOCK_METHOD(void, pauseIngress, (), (noexcept));
   MOCK_METHOD(void, resumeIngress, (), (noexcept));
-  GMOCK_METHOD1_(
-      ,
-      noexcept,
-      ,
-      newPushedResponse,
-      folly::Expected<ResponseHandler*, ProxygenError>(PushHandler*));
+  MOCK_METHOD((folly::Expected<ResponseHandler*, ProxygenError>),
+              newPushedResponse, (PushHandler*), (noexcept));
 
   MOCK_CONST_METHOD1(getCurrentTransportInfo, void(wangle::TransportInfo*));
 #ifdef __clang__
