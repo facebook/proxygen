@@ -20,7 +20,7 @@ using namespace proxygen;
 
 class MockByteEventTrackerCallback : public ByteEventTracker::Callback {
  public:
-  GMOCK_METHOD1_(, noexcept, , onPingReplyLatency, void(int64_t));
+  MOCK_METHOD(void, onPingReplyLatency, (int64_t), (noexcept));
   GMOCK_METHOD1_(
       , noexcept, , onTxnByteEventWrittenToBuf, void(const ByteEvent&));
   GMOCK_METHOD0_(, noexcept, , onDeleteTxnByteEvent, void());

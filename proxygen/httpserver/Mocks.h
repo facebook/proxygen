@@ -28,11 +28,11 @@ class MockResponseHandler : public ResponseHandler {
 #pragma clang diagnostic ignored "-Winconsistent-missing-override"
 #endif
 #endif
-  GMOCK_METHOD1_(, noexcept, , sendHeaders, void(HTTPMessage&));
-  GMOCK_METHOD1_(, noexcept, , sendChunkHeader, void(size_t));
-  GMOCK_METHOD1_(, noexcept, , sendBody, void(std::shared_ptr<folly::IOBuf>));
+  MOCK_METHOD(void, sendHeaders, (HTTPMessage&), (noexcept));
+  MOCK_METHOD(void, sendChunkHeader, (size_t), (noexcept));
+  MOCK_METHOD(void, sendBody, (std::shared_ptr<folly::IOBuf>), (noexcept));
   GMOCK_METHOD0_(, noexcept, , sendChunkTerminator, void());
-  GMOCK_METHOD1_(, noexcept, , sendTrailers, void(const HTTPHeaders&));
+  MOCK_METHOD(void, sendTrailers, (const HTTPHeaders&), (noexcept));
   GMOCK_METHOD0_(, noexcept, , sendEOM, void());
   GMOCK_METHOD0_(, noexcept, , sendAbort, void());
   GMOCK_METHOD0_(, noexcept, , refreshTimeout, void());
@@ -73,14 +73,14 @@ class MockRequestHandler : public RequestHandler {
 #pragma clang diagnostic ignored "-Winconsistent-missing-override"
 #endif
 #endif
-  GMOCK_METHOD1_(, noexcept, , setResponseHandler, void(ResponseHandler*));
-  GMOCK_METHOD1_(, noexcept, , onRequest, void(std::shared_ptr<HTTPMessage>));
-  GMOCK_METHOD1_(, noexcept, , onBody, void(std::shared_ptr<folly::IOBuf>));
-  GMOCK_METHOD1_(, noexcept, , onUpgrade, void(UpgradeProtocol));
+  MOCK_METHOD(void, setResponseHandler, (ResponseHandler*), (noexcept));
+  MOCK_METHOD(void, onRequest, (std::shared_ptr<HTTPMessage>), (noexcept));
+  MOCK_METHOD(void, onBody, (std::shared_ptr<folly::IOBuf>), (noexcept));
+  MOCK_METHOD(void, onUpgrade, (UpgradeProtocol), (noexcept));
   GMOCK_METHOD0_(, noexcept, , onEOM, void());
   GMOCK_METHOD0_(, noexcept, , requestComplete, void());
-  GMOCK_METHOD1_(, noexcept, , onError, void(ProxygenError));
-  GMOCK_METHOD1_(, noexcept, , onGoaway, void(ErrorCode));
+  MOCK_METHOD(void, onError, (ProxygenError), (noexcept));
+  MOCK_METHOD(void, onGoaway, (ErrorCode), (noexcept));
   GMOCK_METHOD0_(, noexcept, , onEgressPaused, void());
   GMOCK_METHOD0_(, noexcept, , onEgressResumed, void());
   GMOCK_METHOD0_(, noexcept, , canHandleExpect, bool());
