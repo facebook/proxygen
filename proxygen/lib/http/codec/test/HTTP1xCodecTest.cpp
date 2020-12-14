@@ -799,6 +799,21 @@ TEST(HTTP1xCodecTest, TestChunkResponseSerialization) {
   EXPECT_TRUE(upCallbacks.trailers_->exists("X-Test-Trailer"));
 }
 
+TEST(HTTP1xCodecTest, TestGenerateEmptyBodyWithEOM) {
+  HTTP1xCodec upstreamCodec(TransportDirection::UPSTREAM);
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::POST);
+  req.setURL("/");
+  req.setHTTPVersion(1, 1);
+  req.getHeaders().set(HTTP_HEADER_TRANSFER_ENCODING, "chunked");
+  req.setIsChunked(true);
+  folly::IOBufQueue buf;
+  auto stream = upstreamCodec.createStream();
+  upstreamCodec.generateHeader(buf, stream, req);
+  EXPECT_GT(upstreamCodec.generateBody(buf, stream, nullptr, folly::none, true),
+            0);
+}
+
 TEST(HTTP1xCodecTest, TestHeaderValueWhiteSpaces) {
   HTTP1xCodecCallback callbacks;
   auto buf = folly::IOBuf::copyBuffer(
@@ -818,7 +833,7 @@ TEST(HTTP1xCodecTest, DownstreamGoaway) {
   EXPECT_TRUE(codec.isReusable());
   EXPECT_FALSE(codec.isWaitingToDrain());
   folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
-  codec.generateGoaway(writeBuf, 0, ErrorCode::NO_ERROR);
+  codec.generateGoaway(writeBuf, HTTPCodec::MaxStreamID, ErrorCode::NO_ERROR);
   EXPECT_TRUE(codec.isReusable());
   EXPECT_TRUE(codec.isWaitingToDrain());
   auto buf = folly::IOBuf::copyBuffer("GET / HTTP/1.1\r\n\r\n");
@@ -840,6 +855,15 @@ TEST(HTTP1xCodecTest, DownstreamImmediateGoaway) {
   EXPECT_FALSE(codec.isWaitingToDrain());
 }
 
+TEST(HTTP1xCodecTest, DownstreamErrorGoaway) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  codec.generateGoaway(
+      writeBuf, HTTPCodec::MaxStreamID, ErrorCode::PROTOCOL_ERROR);
+  EXPECT_FALSE(codec.isReusable());
+  EXPECT_FALSE(codec.isWaitingToDrain());
+}
+
 TEST(HTTP1xCodecTest, GenerateRst) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
   folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
@@ -855,6 +879,51 @@ TEST(HTTP1xCodecTest, UpstreamGoaway) {
   codec.generateGoaway(writeBuf, 0, ErrorCode::NO_ERROR);
   EXPECT_FALSE(codec.isReusable());
   EXPECT_FALSE(codec.isWaitingToDrain());
+}
+
+TEST(HTTP1xCodecTest, CloseOnEgressCompleteUpstreamConnect) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  EXPECT_FALSE(codec.closeOnEgressComplete());
+  HTTPMessage req;
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("/");
+  auto id = codec.createStream();
+  codec.generateHeader(writeBuf, id, req, false);
+  EXPECT_FALSE(codec.closeOnEgressComplete());
+  codec.generateEOM(writeBuf, id);
+  EXPECT_FALSE(codec.closeOnEgressComplete());
+  auto ingress = folly::IOBuf::copyBuffer(std::string("HTTP/1.1 200 OK\r\r\n"));
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  codec.onIngress(*ingress);
+  EXPECT_TRUE(codec.closeOnEgressComplete());
+}
+
+TEST(HTTP1xCodecTest, CloseOnEgressCompleteDownstreamResponse) {
+  // 1.0 response with no content-length/no chunking
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+
+  EXPECT_FALSE(codec.closeOnEgressComplete());
+  auto ingress =
+      folly::IOBuf::copyBuffer(std::string("GET / HTTP/1.0\r\n\r\n"));
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  codec.onIngress(*ingress);
+  EXPECT_FALSE(codec.closeOnEgressComplete());
+
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  auto body = makeBuf(100);
+  auto id = 1;
+  codec.generateHeader(writeBuf, id, resp, false);
+  EXPECT_FALSE(codec.closeOnEgressComplete());
+  codec.generateBody(writeBuf, id, makeBuf(100), folly::none, false);
+  EXPECT_FALSE(codec.closeOnEgressComplete());
+  codec.generateEOM(writeBuf, id);
+  EXPECT_TRUE(codec.closeOnEgressComplete());
 }
 
 class ConnectionHeaderTest

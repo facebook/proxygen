@@ -651,11 +651,12 @@ size_t HTTP1xCodec::generateBody(IOBufQueue& writeBuf,
                                  folly::Optional<uint8_t> /*padding*/,
                                  bool eom) {
   DCHECK_EQ(txn, egressTxnID_);
-  if (!chain) {
-    return 0;
+  size_t buflen = 0;
+  size_t totLen = 0;
+  if (chain) {
+    buflen = chain->computeChainDataLength();
+    totLen = buflen;
   }
-  size_t buflen = chain->computeChainDataLength();
-  size_t totLen = buflen;
   if (totLen == 0) {
     if (eom) {
       totLen += generateEOM(writeBuf, txn);
@@ -779,14 +780,16 @@ size_t HTTP1xCodec::generateRstStream(IOBufQueue& /*writeBuf*/,
 }
 
 size_t HTTP1xCodec::generateGoaway(IOBufQueue&,
-                                   StreamID,
-                                   ErrorCode,
+                                   StreamID lastStream,
+                                   ErrorCode error,
                                    std::unique_ptr<folly::IOBuf>) {
   // statusCode ignored for HTTP/1.1
   // We won't be able to send anything else on the transport after this.
   // For clients, immediately mark keepalive_ false.  For servers, wait until
   // we've flushed the next headers.
-  if (transportDirection_ == TransportDirection::UPSTREAM) {
+  if (transportDirection_ == TransportDirection::UPSTREAM ||
+      disableKeepalivePending_ || lastStream != HTTPCodec::MaxStreamID ||
+      error != ErrorCode::NO_ERROR) {
     keepalive_ = false;
   } else {
     disableKeepalivePending_ = true;

@@ -54,10 +54,9 @@ class HTTP1xCodec : public HTTPCodec {
   bool isWaitingToDrain() const override {
     return disableKeepalivePending_ && keepalive_;
   }
-  // If the session has been upgraded we will send EOF (or RST if needed)
-  // on egress complete
+  // True if the session requires an EOF (or RST) to terminate the message
   bool closeOnEgressComplete() const override {
-    return egressUpgrade_;
+    return !isBusy() && !isReusable();
   }
   bool supportsParallelRequests() const override {
     return false;
