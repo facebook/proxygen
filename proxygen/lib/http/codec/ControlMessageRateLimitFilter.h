@@ -98,8 +98,6 @@ class ControlMessageRateLimitFilter : public PassThroughHTTPCodecFilter {
       // The first control message (or first after a reset) schedules the next
       // reset timer
       CHECK(timer_);
-      LOG(INFO) << "scheduling ctrl message reset timeout="
-                << controlMsgIntervalDuration_.count();
       timer_->scheduleTimeout(&resetControlMessages_,
                               controlMsgIntervalDuration_);
     }
@@ -152,7 +150,6 @@ class ControlMessageRateLimitFilter : public PassThroughHTTPCodecFilter {
     }
 
     void timeoutExpired() noexcept override {
-      LOG(INFO) << "resetting";
       counter_ = 0;
     }
     void callbackCanceled() noexcept override {
