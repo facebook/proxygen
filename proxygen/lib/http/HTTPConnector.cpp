@@ -85,7 +85,7 @@ void HTTPConnector::connectSSL(EventBase* eventBase,
   transportInfo_.secure = true;
   auto sslSock = new AsyncSSLSocket(context, eventBase);
   if (session) {
-    sslSock->setSSLSessionV2(session);
+    sslSock->setSSLSession(session);
   }
   sslSock->setServerName(serverName);
   sslSock->forceCacheAddrOnFailure(true);
