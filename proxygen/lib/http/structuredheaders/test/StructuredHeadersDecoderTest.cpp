@@ -228,9 +228,10 @@ TEST_F(StructuredHeadersDecoderTest, TestParamListNullValues) {
 }
 
 TEST_F(StructuredHeadersDecoderTest, PriorityWithIncremental) {
-  std::string priority = "u=5, i";
-  StructuredHeadersDecoder decoder(priority);
   StructuredHeaders::Dictionary dict;
+  std::array<char, 6> input = {'u', '=', '5', ',', ' ', 'i'};
+  StructuredHeadersDecoder decoder(
+      folly::StringPiece(input.data(), input.size()));
   auto ret = decoder.decodeDictionary(dict);
   EXPECT_EQ(ret, StructuredHeaders::DecodeError::OK);
   EXPECT_EQ(2, dict.size());

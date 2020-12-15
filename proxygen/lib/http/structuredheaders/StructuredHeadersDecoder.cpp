@@ -141,11 +141,11 @@ DecodeError StructuredHeadersDecoder::decodeMap(
       result[thisKey] = value;
     }
 
-    buf_.removeOptionalWhitespace();
-
     if (buf_.isEmpty()) {
       return DecodeError::OK;
     }
+
+    buf_.removeOptionalWhitespace();
 
     err = buf_.removeSymbol(delimiter, mapType == MapType::DICTIONARY);
     if (err != DecodeError::OK) {
