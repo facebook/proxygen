@@ -110,11 +110,11 @@ HTTP3::ErrorCode toHTTP3ErrorCode(const HTTPException& ex) {
 
 ProxygenError toProxygenError(quic::QuicErrorCode error, bool fromPeer) {
   switch (error.type()) {
-    case quic::QuicErrorCode::Type::ApplicationErrorCode_E:
+    case quic::QuicErrorCode::Type::ApplicationErrorCode:
       return fromPeer ? kErrorConnectionReset : kErrorConnection;
-    case quic::QuicErrorCode::Type::LocalErrorCode_E:
+    case quic::QuicErrorCode::Type::LocalErrorCode:
       return kErrorShutdown;
-    case quic::QuicErrorCode::Type::TransportErrorCode_E:
+    case quic::QuicErrorCode::Type::TransportErrorCode:
       return kErrorConnectionReset;
   }
   folly::assume_unreachable();

@@ -44,11 +44,11 @@ static const std::string kQUICProtocolName("QUIC");
 // HTTP_CLOSED_CRITICAL_STREAM
 quic::QuicErrorCode quicControlStreamError(quic::QuicErrorCode error) {
   switch (error.type()) {
-    case quic::QuicErrorCode::Type::ApplicationErrorCode_E:
+    case quic::QuicErrorCode::Type::ApplicationErrorCode:
       return quic::QuicErrorCode(
           proxygen::HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
-    case quic::QuicErrorCode::Type::LocalErrorCode_E:
-    case quic::QuicErrorCode::Type::TransportErrorCode_E:
+    case quic::QuicErrorCode::Type::LocalErrorCode:
+    case quic::QuicErrorCode::Type::TransportErrorCode:
       return error;
   }
   folly::assume_unreachable();
@@ -1080,7 +1080,7 @@ void HQSession::readError(
                    folly::to<std::string>("Got error=", quic::toString(error)));
 
   switch (error.first.type()) {
-    case quic::QuicErrorCode::Type::ApplicationErrorCode_E: {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode: {
       auto errorCode =
           static_cast<HTTP3::ErrorCode>(*error.first.asApplicationErrorCode());
       VLOG(3) << "readError: QUIC Application Error: " << toString(errorCode)
@@ -1097,7 +1097,7 @@ void HQSession::readError(
       }
       break;
     }
-    case quic::QuicErrorCode::Type::LocalErrorCode_E: {
+    case quic::QuicErrorCode::Type::LocalErrorCode: {
       quic::LocalErrorCode& errorCode = *error.first.asLocalErrorCode();
       VLOG(3) << "readError: QUIC Local Error: " << errorCode
               << " streamID=" << id << " sess=" << *this;
@@ -1109,7 +1109,7 @@ void HQSession::readError(
       errorOnTransactionId(id, std::move(ex));
       break;
     }
-    case quic::QuicErrorCode::Type::TransportErrorCode_E: {
+    case quic::QuicErrorCode::Type::TransportErrorCode: {
       quic::TransportErrorCode& errorCode = *error.first.asTransportErrorCode();
       VLOG(3) << "readError: QUIC Transport Error: " << errorCode
               << " streamID=" << id << " sess=" << *this;
@@ -1829,7 +1829,7 @@ void HQSession::handleSessionError(HQStreamBase* stream,
   // but there are some errors that we expect during shutdown
   bool shouldDrop = false;
   switch (err.type()) {
-    case quic::QuicErrorCode::Type::ApplicationErrorCode_E:
+    case quic::QuicErrorCode::Type::ApplicationErrorCode:
       // An ApplicationErrorCode is expected when
       //  1. The peer resets a control stream
       //  2. A control codec detects a connection error on a control stream
@@ -1838,12 +1838,12 @@ void HQSession::handleSessionError(HQStreamBase* stream,
       appError = static_cast<HTTP3::ErrorCode>(*err.asApplicationErrorCode());
       shouldDrop = true;
       break;
-    case quic::QuicErrorCode::Type::LocalErrorCode_E:
+    case quic::QuicErrorCode::Type::LocalErrorCode:
       // a LocalErrorCode::NO_ERROR is expected whenever the socket gets
       // closed without error
       shouldDrop = (*err.asLocalErrorCode() != quic::LocalErrorCode::NO_ERROR);
       break;
-    case quic::QuicErrorCode::Type::TransportErrorCode_E:
+    case quic::QuicErrorCode::Type::TransportErrorCode:
       shouldDrop = true;
       break;
   }
@@ -1893,7 +1893,7 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
                    folly::to<std::string>("Got error=", quic::toString(err)));
   // TODO: set Quic error when quic is OSS
   switch (err.type()) {
-    case quic::QuicErrorCode::Type::ApplicationErrorCode_E: {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode: {
       // If we have an application error code, it must have
       // come from the peer (most likely STOP_SENDING). This
       // is logically a stream abort, not a write error
@@ -1905,12 +1905,12 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
                               : kErrorStreamAbort);
       break;
     }
-    case quic::QuicErrorCode::Type::LocalErrorCode_E: {
+    case quic::QuicErrorCode::Type::LocalErrorCode: {
       ex.setErrno(uint32_t(*err.asLocalErrorCode()));
       ex.setProxygenError(kErrorWrite);
       break;
     }
-    case quic::QuicErrorCode::Type::TransportErrorCode_E: {
+    case quic::QuicErrorCode::Type::TransportErrorCode: {
       CHECK(false) << "Unexpected errorCode=" << *err.asTransportErrorCode();
       break;
     }

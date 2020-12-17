@@ -696,18 +696,18 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     if (cb) {
       bool noError = false;
       switch (error.first.type()) {
-        case QuicErrorCode::Type::LocalErrorCode_E: {
+        case QuicErrorCode::Type::LocalErrorCode: {
           LocalErrorCode& err = *error.first.asLocalErrorCode();
           noError = err == LocalErrorCode::NO_ERROR ||
                     err == LocalErrorCode::IDLE_TIMEOUT;
           break;
         }
-        case QuicErrorCode::Type::TransportErrorCode_E: {
+        case QuicErrorCode::Type::TransportErrorCode: {
           TransportErrorCode& err = *error.first.asTransportErrorCode();
           noError = err == TransportErrorCode::NO_ERROR;
           break;
         }
-        case QuicErrorCode::Type::ApplicationErrorCode_E: {
+        case QuicErrorCode::Type::ApplicationErrorCode: {
           noError = false;
           break;
         }
