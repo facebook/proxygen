@@ -118,6 +118,7 @@ class EnableWeakRefCountedPtr {
     return state_->count;
   }
 
+ protected:
   /**
    * Called when a WeakRefCountedPtr is destroyed.
    *
@@ -126,6 +127,13 @@ class EnableWeakRefCountedPtr {
    * is met, then no WeakRefCountedPtr remain and destruction can proceed.
    */
   virtual void onWeakRefCountedPtrDestroy() = 0;
+
+  // WeakRefCountedPtr must be a friend so that it can call
+  // onWeakRefCountedPtrDestroy()
+  //
+  // We do not care about its precise template arguments.
+  template <typename T1, typename T2>
+  friend class WeakRefCountedPtr;
 
  private:
   WeakRefCountedPtrState<T>* state_{nullptr};
