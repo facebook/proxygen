@@ -34,7 +34,8 @@ std::string base64url_decode(const std::string& str) {
 }
 
 const size_t kDefaultGrowth = 4000;
-
+constexpr auto kOkhttp2 = "okhttp/2";
+constexpr int kOkhttp2GoawayLogFreq = 1000;
 } // namespace
 
 namespace proxygen {
@@ -757,7 +758,10 @@ ErrorCode HTTP2Codec::parseRstStream(Cursor& cursor) {
                           curHeader_.stream,
                           " user-agent=",
                           userAgent_);
-    VLOG(2) << goawayErrorMessage_;
+    int logFreq = userAgent_.find(kOkhttp2) == std::string::npos
+                      ? 1
+                      : kOkhttp2GoawayLogFreq;
+    VLOG_EVERY_N(2, logFreq) << goawayErrorMessage_;
   }
   deliverCallbackIfAllowed(
       &HTTPCodec::Callback::onAbort, "onAbort", curHeader_.stream, statusCode);
