@@ -105,7 +105,7 @@ class HQDownstreamSession : public HQSession {
         : detail::singlestream::SSEgress(streamId),
           HQStreamTransportBase(session,
                                 TransportDirection::DOWNSTREAM,
-                                static_cast<HTTPCodec::StreamID>(pushId),
+                                streamId,
                                 seqNo,
                                 timeout,
                                 stats,

@@ -2639,11 +2639,10 @@ TEST_P(HQDownstreamSessionTestHQPush, SimplePush) {
   flushRequestsAndLoop();
   EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
-  auto pushIt = pushes_.find(pushStreamId & ~hq::kPushIdMask);
+  auto pushIt = pushes_.find(pushStreamId);
   ASSERT_TRUE(pushIt != pushes_.end());
-  EXPECT_GT(socketDriver_->streams_[pushIt->second].writeBuf.chainLength(),
-            110);
-  EXPECT_TRUE(socketDriver_->streams_[pushIt->second].writeEOF);
+  EXPECT_GT(socketDriver_->streams_[pushIt->first].writeBuf.chainLength(), 110);
+  EXPECT_TRUE(socketDriver_->streams_[pushIt->first].writeEOF);
   hqSession_->closeWhenIdle();
 }
 
@@ -2691,13 +2690,12 @@ TEST_P(HQDownstreamSessionTestHQPush, StopSending) {
   flushRequestsAndLoop();
   EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
-  auto pushIt = pushes_.find(pushStreamId & ~hq::kPushIdMask);
+  auto pushIt = pushes_.find(pushStreamId);
   ASSERT_TRUE(pushIt != pushes_.end());
-  EXPECT_GT(socketDriver_->streams_[pushIt->second].writeBuf.chainLength(),
-            110);
-  EXPECT_FALSE(socketDriver_->streams_[pushIt->second].writeEOF);
+  EXPECT_GT(socketDriver_->streams_[pushIt->first].writeBuf.chainLength(), 110);
+  EXPECT_FALSE(socketDriver_->streams_[pushIt->first].writeEOF);
   // Cancel the push with stop sending
-  socketDriver_->addStopSending(pushIt->second,
+  socketDriver_->addStopSending(pushIt->first,
                                 HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED);
   flushRequestsAndLoop();
   hqSession_->closeWhenIdle();

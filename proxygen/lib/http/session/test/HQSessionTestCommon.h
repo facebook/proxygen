@@ -257,16 +257,11 @@ class HQSessionTest
         case proxygen::hq::UnidirectionalStreamType::QPACK_DECODER:
           break;
         case proxygen::hq::UnidirectionalStreamType::PUSH: {
-          auto pushIt = std::find_if(
-              pushes_.begin(),
-              pushes_.end(),
-              [id](std::pair<quic::StreamId, proxygen::hq::PushId> entry) {
-                return id == entry.first;
-              });
+          auto pushIt = pushes_.find(id);
           if (pushIt == pushes_.end()) {
             auto pushId = quic::decodeQuicInteger(cursor);
             if (pushId) {
-              pushes_.emplace(pushId->first, id);
+              pushes_.emplace(id, pushId->first);
             }
           }
         }
@@ -395,5 +390,5 @@ class HQSessionTest
   quic::StreamId nextUnidirectionalStreamId_;
   // Egress Control Stream
   std::unique_ptr<proxygen::hq::HQControlCodec> egressControlCodec_;
-  folly::F14FastMap<proxygen::hq::PushId, quic::StreamId> pushes_;
+  folly::F14FastMap<quic::StreamId, proxygen::hq::PushId> pushes_;
 };
