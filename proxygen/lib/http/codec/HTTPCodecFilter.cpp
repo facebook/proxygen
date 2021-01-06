@@ -110,7 +110,7 @@ void PassThroughHTTPCodecFilter::onSettingsAck() {
 }
 
 void PassThroughHTTPCodecFilter::onPriority(
-    StreamID stream, const HTTPMessage::HTTPPriority& pri) {
+    StreamID stream, const HTTPMessage::HTTP2Priority& pri) {
   callback_->onPriority(stream, pri);
 }
 
@@ -325,7 +325,7 @@ size_t PassThroughHTTPCodecFilter::generateWindowUpdate(folly::IOBufQueue& buf,
 size_t PassThroughHTTPCodecFilter::generatePriority(
     folly::IOBufQueue& writeBuf,
     StreamID stream,
-    const HTTPMessage::HTTPPriority& pri) {
+    const HTTPMessage::HTTP2Priority& pri) {
   return call_->generatePriority(writeBuf, stream, pri);
 }
 

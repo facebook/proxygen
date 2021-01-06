@@ -472,7 +472,7 @@ class HQSession
     notifyPendingShutdown();
   }
 
-  folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+  folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
       uint8_t /*level*/) override {
     return folly::none;
   }
@@ -1272,7 +1272,7 @@ class HQSession
     }
 
     void onPriority(HTTPCodec::StreamID /* stream */,
-                    const HTTPMessage::HTTPPriority& /* priority */) override {
+                    const HTTPMessage::HTTP2Priority& /* priority */) override {
       VLOG(4) << __func__ << " txn=" << txn_;
     }
 
@@ -1480,12 +1480,12 @@ class HQSession
       return false;
     }
 
-    folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+    folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
         uint8_t /* pri */) override {
       VLOG(4) << __func__ << " txn=" << txn_;
-      return HTTPMessage::HTTPPriority(hqDefaultPriority.streamDependency,
-                                       hqDefaultPriority.exclusive,
-                                       hqDefaultPriority.weight);
+      return HTTPMessage::HTTP2Priority(hqDefaultPriority.streamDependency,
+                                        hqDefaultPriority.exclusive,
+                                        hqDefaultPriority.weight);
     }
 
     folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const

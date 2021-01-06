@@ -62,7 +62,7 @@ class ControlMessageRateLimitFilter : public PassThroughHTTPCodecFilter {
     }
   }
   void onPriority(HTTPCodec::StreamID streamID,
-                  const HTTPMessage::HTTPPriority& pri) override {
+                  const HTTPMessage::HTTP2Priority& pri) override {
     if (!incrementNumControlMsgsInCurInterval(http2::FrameType::PRIORITY)) {
       callback_->onPriority(streamID, pri);
     }

@@ -1309,7 +1309,7 @@ void HTTPSession::onSettingsAck() {
 }
 
 void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
-                             const HTTPMessage::HTTPPriority& pri) {
+                             const HTTPMessage::HTTP2Priority& pri) {
   if (!getHTTP2PrioritiesEnabled()) {
     return;
   }

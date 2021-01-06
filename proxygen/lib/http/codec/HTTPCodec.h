@@ -281,7 +281,7 @@ class HTTPCodec {
      * dynamic priority
      */
     virtual void onPriority(StreamID /* stream */,
-                            const HTTPMessage::HTTPPriority& /* pri */) {
+                            const HTTPMessage::HTTP2Priority& /* pri */) {
     }
 
     /**
@@ -662,7 +662,7 @@ class HTTPCodec {
    */
   virtual size_t generatePriority(folly::IOBufQueue& /* writeBuf */,
                                   StreamID /* stream */,
-                                  const HTTPMessage::HTTPPriority& /* pri */) {
+                                  const HTTPMessage::HTTP2Priority& /* pri */) {
     return 0;
   }
 

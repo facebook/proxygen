@@ -224,7 +224,7 @@ class HQFramedCodec : public HTTPCodec {
   // only valid for the Control Codec
   size_t generatePriority(folly::IOBufQueue& /*writeBuf*/,
                           StreamID /*stream*/,
-                          const HTTPMessage::HTTPPriority& /*pri*/) override {
+                          const HTTPMessage::HTTP2Priority& /*pri*/) override {
     LOG(FATAL) << __func__ << " not supported on this codec";
     folly::assume_unreachable();
   }

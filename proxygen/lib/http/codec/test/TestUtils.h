@@ -208,7 +208,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   }
 
   void onPriority(HTTPCodec::StreamID /*streamID*/,
-                  const HTTPMessage::HTTPPriority& pri) override {
+                  const HTTPMessage::HTTP2Priority& pri) override {
     priority = pri;
   }
 
@@ -341,7 +341,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     windowSize = 0;
     maxStreams = 0;
     headerFrames = 0;
-    priority = HTTPMessage::HTTPPriority(0, false, 0);
+    priority = HTTPMessage::HTTP2Priority(0, false, 0);
     windowUpdates.clear();
     data_.move();
     msg.reset();
@@ -414,7 +414,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint64_t windowSize{0};
   uint64_t maxStreams{0};
   uint32_t headerFrames{0};
-  HTTPMessage::HTTPPriority priority{0, false, 0};
+  HTTPMessage::HTTP2Priority priority{0, false, 0};
   std::map<proxygen::HTTPCodec::StreamID, std::vector<uint32_t>> windowUpdates;
   folly::IOBufQueue data_;
 

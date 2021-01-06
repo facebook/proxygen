@@ -135,7 +135,7 @@ class HTTPUpstreamSession final : public HTTPSession {
     HTTPSession::drain();
   }
 
-  virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+  virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
       uint8_t level) override {
     if (!priorityAdapter_) {
       return HTTPSession::getHTTPPriority(level);

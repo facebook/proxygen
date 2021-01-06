@@ -57,7 +57,7 @@ class SPDYStatsFilter : public PassThroughHTTPCodecFilter {
   void onSettingsAck() override;
 
   void onPriority(StreamID stream,
-                  const HTTPMessage::HTTPPriority& pri) override;
+                  const HTTPMessage::HTTP2Priority& pri) override;
 
   // egress
 
@@ -104,7 +104,7 @@ class SPDYStatsFilter : public PassThroughHTTPCodecFilter {
 
   size_t generatePriority(folly::IOBufQueue& writeBuf,
                           StreamID stream,
-                          const HTTPMessage::HTTPPriority& pri) override;
+                          const HTTPMessage::HTTP2Priority& pri) override;
 
  private:
   SPDYStats* counters_;

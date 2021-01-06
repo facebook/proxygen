@@ -168,7 +168,7 @@ size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
 size_t HQControlCodec::generatePriority(
     folly::IOBufQueue& /*writeBuf*/,
     StreamID /*stream*/,
-    const HTTPMessage::HTTPPriority& /*pri*/) {
+    const HTTPMessage::HTTP2Priority& /*pri*/) {
   CHECK(false) << __func__ << "not implemented yet";
   return 0;
 }

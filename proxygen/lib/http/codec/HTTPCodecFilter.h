@@ -90,7 +90,7 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
   void onSettingsAck() override;
 
   void onPriority(StreamID stream,
-                  const HTTPMessage::HTTPPriority& pri) override;
+                  const HTTPMessage::HTTP2Priority& pri) override;
 
   bool onNativeProtocolUpgrade(StreamID stream,
                                CodecProtocol protocol,
@@ -216,7 +216,7 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
 
   size_t generatePriority(folly::IOBufQueue& writeBuf,
                           StreamID stream,
-                          const HTTPMessage::HTTPPriority& pri) override;
+                          const HTTPMessage::HTTP2Priority& pri) override;
 
   size_t generateCertificateRequest(
       folly::IOBufQueue& writeBuf,

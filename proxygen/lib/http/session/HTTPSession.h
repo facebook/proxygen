@@ -417,7 +417,7 @@ class HTTPSession
                                    std::unique_ptr<HTTPCodec> codec,
                                    const std::string& protocolString);
 
-  virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+  virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
       uint8_t) override {
     return folly::none;
   }
@@ -473,7 +473,7 @@ class HTTPSession
   void onSettings(const SettingsList& settings) override;
   void onSettingsAck() override;
   void onPriority(HTTPCodec::StreamID stream,
-                  const HTTPMessage::HTTPPriority&) override;
+                  const HTTPMessage::HTTP2Priority&) override;
   void onCertificateRequest(uint16_t requestId,
                             std::unique_ptr<folly::IOBuf> authRequest) override;
   void onCertificate(uint16_t certId,

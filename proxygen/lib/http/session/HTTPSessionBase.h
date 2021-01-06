@@ -422,7 +422,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   // Implments a map from generic priority level to HTTP/2 priority.
   class PriorityAdapter {
    public:
-    virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+    virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
         uint8_t level) = 0;
     virtual ~PriorityAdapter() = default;
   };
@@ -480,7 +480,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    */
   virtual void drain() = 0;
 
-  virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+  virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
       uint8_t level) = 0;
 
   /**

@@ -681,13 +681,13 @@ class HTTPMessage {
     return incremental_;
   }
 
-  using HTTPPriority = std::tuple<uint64_t, bool, uint8_t>;
+  using HTTP2Priority = std::tuple<uint64_t, bool, uint8_t>;
 
-  folly::Optional<HTTPPriority> getHTTP2Priority() const {
+  folly::Optional<HTTP2Priority> getHTTP2Priority() const {
     return h2Pri_;
   }
 
-  void setHTTP2Priority(HTTPPriority h2Pri) {
+  void setHTTP2Priority(HTTP2Priority h2Pri) {
     h2Pri_ = h2Pri;
   }
 
@@ -1046,7 +1046,7 @@ class HTTPMessage {
   std::unique_ptr<std::string> upgradeProtocol_;
   uint8_t pri_;
   bool incremental_ : 1;
-  folly::Optional<HTTPPriority> h2Pri_;
+  folly::Optional<HTTP2Priority> h2Pri_;
 
   std::pair<uint8_t, uint8_t> version_;
   mutable bool parsedCookies_ : 1;

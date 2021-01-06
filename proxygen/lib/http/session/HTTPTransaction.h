@@ -530,7 +530,7 @@ class HTTPTransaction
 
     virtual HTTPSessionBase* getHTTPSessionBase() = 0;
 
-    virtual folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+    virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
         uint8_t level) = 0;
 
     virtual folly::Expected<folly::Unit, ErrorCode> peek(

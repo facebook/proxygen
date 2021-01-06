@@ -47,7 +47,7 @@ class TestPriorityMapBuilder : public HTTPUpstreamSession::PriorityMapFactory {
 
 class TestPriorityAdapter : public HTTPUpstreamSession::PriorityAdapter {
  public:
-  folly::Optional<const HTTPMessage::HTTPPriority> getHTTPPriority(
+  folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
       uint8_t level) override {
     if (priorityMap_.empty()) {
       return folly::none;
@@ -61,13 +61,13 @@ class TestPriorityAdapter : public HTTPUpstreamSession::PriorityAdapter {
 
   ~TestPriorityAdapter() override = default;
 
-  std::map<uint8_t, HTTPMessage::HTTPPriority> priorityMap_;
-  HTTPMessage::HTTPPriority minPriority_{std::make_tuple(0, false, 0)};
+  std::map<uint8_t, HTTPMessage::HTTP2Priority> priorityMap_;
+  HTTPMessage::HTTP2Priority minPriority_{std::make_tuple(0, false, 0)};
   HTTPCodec::StreamID parentId_{0};
   HTTPCodec::StreamID hiPriId_{0};
   HTTPCodec::StreamID loPriId_{0};
-  HTTPMessage::HTTPPriority hiPri_{std::make_tuple(0, false, 0)};
-  HTTPMessage::HTTPPriority loPri_{std::make_tuple(0, false, 0)};
+  HTTPMessage::HTTP2Priority hiPri_{std::make_tuple(0, false, 0)};
+  HTTPMessage::HTTP2Priority loPri_{std::make_tuple(0, false, 0)};
 };
 
 std::unique_ptr<HTTPUpstreamSession::PriorityAdapter>
@@ -622,7 +622,7 @@ TEST_F(HTTP2UpstreamSessionTest, TestPriority) {
 
   auto req = getGetRequest();
   // send request with maximal weight
-  req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 255));
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority(0, false, 255));
   handler1->sendRequest(req);
   handler2->sendRequest(req);
 
@@ -647,32 +647,34 @@ TEST_F(HTTP2UpstreamSessionTest, TestPriority) {
   NiceMock<MockHTTPCodecCallback> callbacks;
   serverCodec->setCallback(&callbacks);
   EXPECT_CALL(callbacks,
-              onPriority(priGroupID, HTTPMessage::HTTPPriority(0, false, 7)));
+              onPriority(priGroupID, HTTPMessage::HTTP2Priority(0, false, 7)));
   EXPECT_CALL(callbacks, onHeadersComplete(id, _))
       .WillOnce(
           Invoke([&](HTTPCodec::StreamID, std::shared_ptr<HTTPMessage> msg) {
             EXPECT_EQ(*(msg->getHTTP2Priority()),
-                      HTTPMessage::HTTPPriority(0, false, 255));
+                      HTTPMessage::HTTP2Priority(0, false, 255));
           }));
   EXPECT_CALL(callbacks, onHeadersComplete(id2, _))
       .WillOnce(
           Invoke([&](HTTPCodec::StreamID, std::shared_ptr<HTTPMessage> msg) {
             EXPECT_EQ(*(msg->getHTTP2Priority()),
-                      HTTPMessage::HTTPPriority(0, false, 255));
+                      HTTPMessage::HTTP2Priority(0, false, 255));
           }));
-  EXPECT_CALL(callbacks,
-              onPriority(id, HTTPMessage::HTTPPriority(priGroupID, false, 15)));
   EXPECT_CALL(
       callbacks,
-      onPriority(id2, HTTPMessage::HTTPPriority(priGroupID + 254, false, 15)));
+      onPriority(id, HTTPMessage::HTTP2Priority(priGroupID, false, 15)));
+  EXPECT_CALL(
+      callbacks,
+      onPriority(id2, HTTPMessage::HTTP2Priority(priGroupID + 254, false, 15)));
   EXPECT_EQ(handler1->txn_->getPriorityFallback(), false);
   EXPECT_EQ(handler2->txn_->getPriorityFallback(), false);
 
   EXPECT_EQ(std::get<1>(handler1->txn_->getPrioritySummary()), 2);
   // created virtual parent node
   EXPECT_EQ(std::get<1>(handler2->txn_->getPrioritySummary()), 2);
-  EXPECT_CALL(callbacks,
-              onPriority(priGroupID, HTTPMessage::HTTPPriority(0, false, 255)));
+  EXPECT_CALL(
+      callbacks,
+      onPriority(priGroupID, HTTPMessage::HTTP2Priority(0, false, 255)));
   parseOutput(*serverCodec);
   eventBase_.loop();
 
@@ -691,7 +693,7 @@ TEST_F(HTTP2UpstreamSessionTest, TestCircularPriority) {
 
   auto req = getGetRequest();
   // send request with circular dep
-  req.setHTTP2Priority(HTTPMessage::HTTPPriority(1, false, 255));
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority(1, false, 255));
   handler1->sendRequest(req);
   handler1->terminate();
   handler1->expectDetachTransaction();
@@ -990,10 +992,10 @@ TEST_F(HTTP2UpstreamSessionWithPriorityTree, PriorityTree) {
   // It should have built the virtual streams from the tree but not the old
   // priority levels.
   EXPECT_EQ(dependencies.size(), 0);
-  HTTPMessage::HTTPPriority hiPri =
+  HTTPMessage::HTTP2Priority hiPri =
       *httpSession_->getHTTPPriority(builder_->hiPriLevel_);
   EXPECT_EQ(std::get<2>(hiPri), builder_->hiPriWeight_);
-  HTTPMessage::HTTPPriority loPri =
+  HTTPMessage::HTTP2Priority loPri =
       *httpSession_->getHTTPPriority(builder_->loPriLevel_);
   EXPECT_EQ(std::get<2>(loPri), builder_->loPriWeight_);
 
@@ -1001,7 +1003,7 @@ TEST_F(HTTP2UpstreamSessionWithPriorityTree, PriorityTree) {
     if (level == builder_->hiPriLevel_) {
       continue;
     }
-    HTTPMessage::HTTPPriority pri = *httpSession_->getHTTPPriority(level);
+    HTTPMessage::HTTP2Priority pri = *httpSession_->getHTTPPriority(level);
     EXPECT_EQ(pri, loPri);
   }
 

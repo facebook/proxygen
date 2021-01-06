@@ -1361,7 +1361,7 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   upstreamCodec_.generateBody(
       output_, 3, makeBuf(10), HTTPCodec::NoPadding, false);
   upstreamCodec_.generatePriority(
-      output_, 3, HTTPMessage::HTTPPriority(0, true, 1));
+      output_, 3, HTTPMessage::HTTP2Priority(0, true, 1));
   upstreamCodec_.generateEOM(output_, 3);
   upstreamCodec_.generateRstStream(output_, 3, ErrorCode::CANCEL);
   EXPECT_EQ(output_.chainLength(), 0);
@@ -1382,7 +1382,7 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   parseUpstream();
 
   downstreamCodec_.generatePriority(
-      output_, 2, HTTPMessage::HTTPPriority(0, true, 1));
+      output_, 2, HTTPMessage::HTTP2Priority(0, true, 1));
   downstreamCodec_.generateEOM(output_, 2);
   downstreamCodec_.generateRstStream(output_, 2, ErrorCode::CANCEL);
 

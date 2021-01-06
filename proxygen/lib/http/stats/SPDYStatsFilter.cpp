@@ -84,7 +84,7 @@ void SPDYStatsFilter::onSettingsAck() {
 }
 
 void SPDYStatsFilter::onPriority(StreamID stream,
-                                 const HTTPMessage::HTTPPriority& pri) {
+                                 const HTTPMessage::HTTP2Priority& pri) {
   counters_->recordIngressPriority();
   callback_->onPriority(stream, pri);
 }
@@ -169,9 +169,10 @@ size_t SPDYStatsFilter::generateWindowUpdate(folly::IOBufQueue& writeBuf,
   return call_->generateWindowUpdate(writeBuf, stream, delta);
 }
 
-size_t SPDYStatsFilter::generatePriority(folly::IOBufQueue& writeBuf,
-                                         StreamID stream,
-                                         const HTTPMessage::HTTPPriority& pri) {
+size_t SPDYStatsFilter::generatePriority(
+    folly::IOBufQueue& writeBuf,
+    StreamID stream,
+    const HTTPMessage::HTTP2Priority& pri) {
   counters_->recordEgressPriority();
   return call_->generatePriority(writeBuf, stream, pri);
 }

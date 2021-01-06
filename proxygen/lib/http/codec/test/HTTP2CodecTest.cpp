@@ -297,7 +297,7 @@ TEST_F(HTTP2CodecTest, ExHeadersWithPriority) {
       output_, {{proxygen::SettingsId::ENABLE_EX_HEADERS, 1}});
 
   auto req = getGetRequest();
-  auto pri = HTTPMessage::HTTPPriority(0, false, 7);
+  auto pri = HTTPMessage::HTTP2Priority(0, false, 7);
   req.setHTTP2Priority(pri);
   upstreamCodec_.generateExHeader(
       output_, 3, req, HTTPCodec::ExAttributes(1, true));
@@ -1275,7 +1275,7 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
   upstreamCodec_.generateBody(
       output_, 3, makeBuf(10), HTTPCodec::NoPadding, false);
   upstreamCodec_.generatePriority(
-      output_, 3, HTTPMessage::HTTPPriority(0, true, 1));
+      output_, 3, HTTPMessage::HTTP2Priority(0, true, 1));
   upstreamCodec_.generateEOM(output_, 3);
   upstreamCodec_.generateRstStream(output_, 3, ErrorCode::CANCEL);
   EXPECT_EQ(output_.chainLength(), 0);
@@ -1302,7 +1302,7 @@ TEST_F(HTTP2CodecTest, GoawayHandling) {
 
   output_.append(makeBuf(10));
   downstreamCodec_.generatePriority(
-      output_, 2, HTTPMessage::HTTPPriority(0, true, 1));
+      output_, 2, HTTPMessage::HTTP2Priority(0, true, 1));
   downstreamCodec_.generateEOM(output_, 2);
   downstreamCodec_.generateRstStream(output_, 2, ErrorCode::CANCEL);
 
@@ -1523,7 +1523,7 @@ TEST_F(HTTP2CodecTest, ConcurrentStreams) {
 }
 
 TEST_F(HTTP2CodecTest, BasicPriority) {
-  auto pri = HTTPMessage::HTTPPriority(0, true, 1);
+  auto pri = HTTPMessage::HTTP2Priority(0, true, 1);
   upstreamCodec_.generatePriority(output_, 1, pri);
 
   EXPECT_TRUE(parse());
@@ -1534,7 +1534,7 @@ TEST_F(HTTP2CodecTest, BasicPriority) {
 
 TEST_F(HTTP2CodecTest, BadHeaderPriority) {
   HTTPMessage req = getGetRequest();
-  req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 7));
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority(0, false, 7));
   upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   // hack ingress with cirular dep
@@ -1550,14 +1550,14 @@ TEST_F(HTTP2CodecTest, BadHeaderPriority) {
 
 TEST_F(HTTP2CodecTest, CircularHeaderPriority) {
   HTTPMessage req = getGetRequest();
-  req.setHTTP2Priority(HTTPMessage::HTTPPriority(1, false, 7));
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority(1, false, 7));
   upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 }
 
 TEST_F(HTTP2CodecTest, DuplicateBadHeaderPriority) {
   // Sent an initial header with a circular dependency
   HTTPMessage req = getGetRequest();
-  req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 7));
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority(0, false, 7));
   upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
 
   // Hack ingress with circular dependency.
@@ -1579,7 +1579,7 @@ TEST_F(HTTP2CodecTest, DuplicateBadHeaderPriority) {
 }
 
 TEST_F(HTTP2CodecTest, BadPriority) {
-  auto pri = HTTPMessage::HTTPPriority(0, true, 1);
+  auto pri = HTTPMessage::HTTP2Priority(0, true, 1);
   upstreamCodec_.generatePriority(output_, 1, pri);
 
   // hack ingress with cirular dep
@@ -1776,7 +1776,7 @@ TEST_F(HTTP2CodecTest, Normal1024Continuation) {
   string bigval(8691, '!');
   bigval.append(8691, '@');
   req.getHeaders().add("x-headr", bigval);
-  req.setHTTP2Priority(HTTPMessage::HTTPPriority(0, false, 7));
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority(0, false, 7));
   upstreamCodec_.generateHeader(output_, 1, req);
 
   parse();
@@ -2068,7 +2068,7 @@ TEST_F(HTTP2CodecTest, TestAllEgressFrameTypeCallbacks) {
   upstreamCodec_.generateHeader(output_, 1, req, true, &size);
 
   upstreamCodec_.generatePriority(
-      output_, 3, HTTPMessage::HTTPPriority(0, true, 1));
+      output_, 3, HTTPMessage::HTTP2Priority(0, true, 1));
   upstreamCodec_.generateRstStream(output_, 2, ErrorCode::ENHANCE_YOUR_CALM);
   upstreamCodec_.generateSettings(output_);
   downstreamCodec_.generatePushPromise(output_, 2, req, 1);

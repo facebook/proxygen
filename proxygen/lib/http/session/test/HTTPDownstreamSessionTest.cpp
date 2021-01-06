@@ -3371,13 +3371,13 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeightsTinyRatio) {
   InSequence enforceOrder;
   auto req1 = getGetRequest();
   auto req2 = getGetRequest();
-  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 255});
-  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 0});
+  req1.setHTTP2Priority(HTTPMessage::HTTP2Priority{0, false, 255});
+  req2.setHTTP2Priority(HTTPMessage::HTTP2Priority{0, false, 0});
 
   sendRequest(req1);
   auto id2 = sendRequest(req2);
-  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{id2, false, 255});
-  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{id2, false, 0});
+  req1.setHTTP2Priority(HTTPMessage::HTTP2Priority{id2, false, 255});
+  req2.setHTTP2Priority(HTTPMessage::HTTP2Priority{id2, false, 0});
   sendRequest(req1);
   sendRequest(req2);
 
@@ -3498,11 +3498,11 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityDependentTransactions) {
   //       16
   InSequence enforceOrder;
   auto req1 = getGetRequest();
-  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 15});
+  req1.setHTTP2Priority(HTTPMessage::HTTP2Priority{0, false, 15});
   auto id1 = sendRequest(req1);
 
   auto req2 = getGetRequest();
-  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{id1, false, 15});
+  req2.setHTTP2Priority(HTTPMessage::HTTP2Priority{id1, false, 15});
   sendRequest(req2);
 
   auto handler1 = addSimpleStrictHandler();
@@ -3565,11 +3565,11 @@ TEST_F(HTTP2DownstreamSessionTest, TestDisablePriorities) {
 
   InSequence enforceOrder;
   HTTPMessage req1 = getGetRequest();
-  req1.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 0});
+  req1.setHTTP2Priority(HTTPMessage::HTTP2Priority{0, false, 0});
   sendRequest(req1);
 
   HTTPMessage req2 = getGetRequest();
-  req2.setHTTP2Priority(HTTPMessage::HTTPPriority{0, false, 255});
+  req2.setHTTP2Priority(HTTPMessage::HTTP2Priority{0, false, 255});
   sendRequest(req2);
 
   auto handler1 = addSimpleStrictHandler();
@@ -3595,7 +3595,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
   // virtual priority node with pri=4
   auto priGroupID = clientCodec_->createStream();
   clientCodec_->generatePriority(
-      requests_, priGroupID, HTTPMessage::HTTPPriority(0, false, 3));
+      requests_, priGroupID, HTTPMessage::HTTP2Priority(0, false, 3));
   // Both txn's are at equal pri=16
   auto id1 = sendRequest();
   auto id2 = sendRequest();
@@ -3627,7 +3627,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
 
   // update handler2 to be in the pri-group (which has lower weight)
   clientCodec_->generatePriority(
-      requests_, id2, HTTPMessage::HTTPPriority(priGroupID, false, 15));
+      requests_, id2, HTTPMessage::HTTP2Priority(priGroupID, false, 15));
 
   eventBase_.runInLoop([&] {
     handler1->txn_->sendBody(makeBuf(4 * 1024));
@@ -3643,7 +3643,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
 
   // update vnode weight to match txn1 weight
   clientCodec_->generatePriority(
-      requests_, priGroupID, HTTPMessage::HTTPPriority(0, false, 15));
+      requests_, priGroupID, HTTPMessage::HTTP2Priority(0, false, 15));
   eventBase_.runInLoop([&] {
     handler1->txn_->sendBody(makeBuf(4 * 1024));
     handler1->txn_->sendEOM();
@@ -3675,7 +3675,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgRateLimitExceeded) {
   // limit of 10, causing us to drop the connection.
   for (int i = 0; i < 7; i++) {
     clientCodec_->generatePriority(
-        requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+        requests_, streamid, HTTPMessage::HTTP2Priority(0, false, 3));
   }
 
   clientCodec_->generateSettings(requests_);
@@ -3698,7 +3698,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
   // limit of 10.
   for (int i = 0; i < 7; i++) {
     clientCodec_->generatePriority(
-        requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+        requests_, streamid, HTTPMessage::HTTP2Priority(0, false, 3));
   }
 
   clientCodec_->generateSettings(requests_);
@@ -3715,7 +3715,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
   // set.
   for (int i = 0; i < 5; i++) {
     clientCodec_->generatePriority(
-        requests_, streamid, HTTPMessage::HTTPPriority(0, false, 3));
+        requests_, streamid, HTTPMessage::HTTP2Priority(0, false, 3));
   }
 
   clientCodec_->generateSettings(requests_);
