@@ -16,6 +16,7 @@ namespace proxygen { namespace test {
 
 class TestClass : public EnableWeakRefCountedPtr<TestClass> {
  public:
+  MOCK_METHOD0(onWeakRefCountedPtrCreate, void());
   MOCK_METHOD0(onWeakRefCountedPtrDestroy, void());
 };
 
@@ -32,6 +33,7 @@ TEST(WeakRefCountedPtrTest, JustTarget) {
 
 TEST(WeakRefCountedPtrTest, DestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
   auto kaPtr = target->getWeakRefCountedPtr();
   EXPECT_TRUE(kaPtr);
   EXPECT_EQ(target.get(), kaPtr.get());
@@ -43,6 +45,7 @@ TEST(WeakRefCountedPtrTest, DestroyTarget) {
 TEST(WeakRefCountedPtrTest, DestroyPtr) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr = target->getWeakRefCountedPtr();
     EXPECT_TRUE(kaPtr);
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -51,15 +54,16 @@ TEST(WeakRefCountedPtrTest, DestroyPtr) {
   }
   Mock::VerifyAndClearExpectations(target.get());
   EXPECT_EQ(0, target->numWeakRefCountedPtrs());
-  {
-    auto kaPtr = target->getWeakRefCountedPtr();
-    EXPECT_TRUE(kaPtr);
-    EXPECT_EQ(1, target->numWeakRefCountedPtrs());
-    EXPECT_EQ(target.get(), kaPtr.get());
-    EXPECT_CALL(*target, onWeakRefCountedPtrDestroy());
-  }
-  Mock::VerifyAndClearExpectations(target.get());
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
+  auto kaPtr = target->getWeakRefCountedPtr();
+  EXPECT_TRUE(kaPtr);
+  EXPECT_EQ(1, target->numWeakRefCountedPtrs());
+  EXPECT_EQ(target.get(), kaPtr.get());
+  EXPECT_CALL(*target, onWeakRefCountedPtrDestroy());
+  kaPtr.reset();
+  EXPECT_FALSE(kaPtr);
   EXPECT_EQ(0, target->numWeakRefCountedPtrs());
+  Mock::VerifyAndClearExpectations(target.get());
 }
 
 TEST(WeakRefCountedPtrTest, JustTargetDerived) {
@@ -69,6 +73,7 @@ TEST(WeakRefCountedPtrTest, JustTargetDerived) {
 
 TEST(WeakRefCountedPtrTest, DestroyTargetDerived) {
   auto target = std::make_unique<StrictMock<TestDerivedClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
   auto kaPtr = target->getWeakRefCountedPtr<TestDerivedClass>();
   EXPECT_TRUE(kaPtr);
   CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
@@ -81,6 +86,7 @@ TEST(WeakRefCountedPtrTest, DestroyTargetDerived) {
 TEST(WeakRefCountedPtrTest, DestroyPtrDerived) {
   auto target = std::make_unique<StrictMock<TestDerivedClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr = target->getWeakRefCountedPtr<TestDerivedClass>();
     EXPECT_TRUE(kaPtr);
     CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
@@ -92,6 +98,7 @@ TEST(WeakRefCountedPtrTest, DestroyPtrDerived) {
   Mock::VerifyAndClearExpectations(target.get());
   EXPECT_EQ(0, target->numWeakRefCountedPtrs());
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr = target->getWeakRefCountedPtr<TestDerivedClass>();
     EXPECT_TRUE(kaPtr);
     CHECK_NOTNULL(kaPtr.get())->onlyDerivedFunc();
@@ -106,6 +113,7 @@ TEST(WeakRefCountedPtrTest, DestroyPtrDerived) {
 
 TEST(WeakRefCountedPtrTest, DestroyPtrMulti) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   {
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -117,6 +125,7 @@ TEST(WeakRefCountedPtrTest, DestroyPtrMulti) {
   }
   Mock::VerifyAndClearExpectations(target.get());
   EXPECT_EQ(0, target->numWeakRefCountedPtrs());
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   {
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -135,6 +144,7 @@ TEST(WeakRefCountedPtrTest, DestroyPtrMulti) {
 TEST(WeakRefCountedPtrTest, MoveConstruct) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_TRUE(kaPtr1);
     EXPECT_EQ(target.get(), kaPtr1.get());
@@ -172,6 +182,7 @@ TEST(WeakRefCountedPtrTest, MoveConstructEmpty) {
 TEST(WeakRefCountedPtrTest, MoveAssign) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_TRUE(kaPtr1);
     EXPECT_EQ(target.get(), kaPtr1.get());
@@ -190,6 +201,7 @@ TEST(WeakRefCountedPtrTest, MoveAssign) {
 
 TEST(WeakRefCountedPtrTest, MoveAssignToExistingActivePtr) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   {
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
@@ -218,6 +230,7 @@ TEST(WeakRefCountedPtrTest, MoveAssignToExistingActivePtr) {
 TEST(WeakRefCountedPtrTest, MoveAssignToExistingInactivePtr) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -238,6 +251,7 @@ TEST(WeakRefCountedPtrTest, MoveAssignToExistingInactivePtr) {
 TEST(WeakRefCountedPtrTest, MoveAssignEmptyToExistingActivePtr) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -279,6 +293,7 @@ TEST(WeakRefCountedPtrTest, MoveAssignEmptyToExistingInactivePtr) {
 
 TEST(WeakRefCountedPtrTest, MoveAssignDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
   auto kaPtr1 = target->getWeakRefCountedPtr();
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());
   EXPECT_EQ(target.get(), kaPtr1.get());
@@ -297,6 +312,7 @@ TEST(WeakRefCountedPtrTest, MoveAssignDestroyTarget) {
 
 TEST(WeakRefCountedPtrTest, MoveConstructDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
   auto kaPtr1 = target->getWeakRefCountedPtr();
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());
   EXPECT_EQ(target.get(), kaPtr1.get());
@@ -313,6 +329,7 @@ TEST(WeakRefCountedPtrTest, MoveConstructDestroyTarget) {
 
 TEST(WeakRefCountedPtrTest, MoveAssignDestroySrcDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
   auto kaPtr1 = std::make_unique<WeakRefCountedPtr<TestClass>>(
       target->getWeakRefCountedPtr());
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -333,6 +350,7 @@ TEST(WeakRefCountedPtrTest, MoveAssignDestroySrcDestroyTarget) {
 
 TEST(WeakRefCountedPtrTest, MoveConstructDestroySrcDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
   auto kaPtr1 = std::make_unique<WeakRefCountedPtr<TestClass>>(
       target->getWeakRefCountedPtr());
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -355,6 +373,7 @@ TEST(WeakRefCountedPtrTest, MoveConstructDestroySrcDestroyTarget) {
 
 TEST(WeakRefCountedPtrTest, CopyConstruct) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   {
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
@@ -391,6 +410,7 @@ TEST(WeakRefCountedPtrTest, CopyConstructEmpty) {
 TEST(WeakRefCountedPtrTest, CopyAssign) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -409,6 +429,7 @@ TEST(WeakRefCountedPtrTest, CopyAssign) {
 TEST(WeakRefCountedPtrTest, CopyAssignToExistingActivePtr) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(3);
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -435,6 +456,7 @@ TEST(WeakRefCountedPtrTest, CopyAssignToExistingActivePtr) {
 
 TEST(WeakRefCountedPtrTest, CopyAssignToExistingInactivePtr) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   {
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
@@ -456,6 +478,7 @@ TEST(WeakRefCountedPtrTest, CopyAssignToExistingInactivePtr) {
 TEST(WeakRefCountedPtrTest, CopyAssignEmptyToExistingActivePtr) {
   auto target = std::make_unique<StrictMock<TestClass>>();
   {
+    EXPECT_CALL(*target, onWeakRefCountedPtrCreate());
     auto kaPtr1 = target->getWeakRefCountedPtr();
     EXPECT_EQ(target.get(), kaPtr1.get());
     EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -494,6 +517,7 @@ TEST(WeakRefCountedPtrTest, CopyAssignEmptyToExistingInactivePtr) {
 
 TEST(WeakRefCountedPtrTest, CopyAssignDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   auto kaPtr1 = target->getWeakRefCountedPtr();
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());
   EXPECT_EQ(target.get(), kaPtr1.get());
@@ -512,6 +536,7 @@ TEST(WeakRefCountedPtrTest, CopyAssignDestroyTarget) {
 
 TEST(WeakRefCountedPtrTest, CopyConstructDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   auto kaPtr1 = target->getWeakRefCountedPtr();
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());
   EXPECT_EQ(target.get(), kaPtr1.get());
@@ -530,6 +555,7 @@ TEST(WeakRefCountedPtrTest, CopyConstructDestroyTarget) {
 
 TEST(WeakRefCountedPtrTest, CopyAssignDestroySrcDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   auto kaPtr1 = std::make_unique<WeakRefCountedPtr<TestClass>>(
       target->getWeakRefCountedPtr());
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());
@@ -553,6 +579,7 @@ TEST(WeakRefCountedPtrTest, CopyAssignDestroySrcDestroyTarget) {
 
 TEST(WeakRefCountedPtrTest, CopyConstructDestroySrcDestroyTarget) {
   auto target = std::make_unique<StrictMock<TestClass>>();
+  EXPECT_CALL(*target, onWeakRefCountedPtrCreate()).Times(2);
   auto kaPtr1 = std::make_unique<WeakRefCountedPtr<TestClass>>(
       target->getWeakRefCountedPtr());
   EXPECT_EQ(1, target->numWeakRefCountedPtrs());

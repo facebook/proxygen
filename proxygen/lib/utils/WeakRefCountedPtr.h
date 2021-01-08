@@ -120,6 +120,14 @@ class EnableWeakRefCountedPtr {
 
  protected:
   /**
+   * Called when a WeakRefCountedPtr is created.
+   *
+   * Default implementation is a no-op.
+   */
+  virtual void onWeakRefCountedPtrCreate() {
+  }
+
+  /**
    * Called when a WeakRefCountedPtr is destroyed.
    *
    * If the object has delayed destruction due to outstanding WeakRefCountedPtr,
@@ -196,6 +204,10 @@ class WeakRefCountedPtr {
     return (get());
   }
 
+  void reset() {
+    destroyPtr();
+  }
+
  private:
   WeakRefCountedPtr(WeakRefCountedPtrState<T1>* state) {
     initPtr(state);
@@ -210,6 +222,9 @@ class WeakRefCountedPtr {
     state_ = state;
     if (state_) {
       state_->count++;
+      if (state_->ptr) {
+        state_->ptr->onWeakRefCountedPtrCreate();
+      }
       CHECK_GE(state_->count, 1); // sanity if state_->count is ever unsigned
     }
   }
