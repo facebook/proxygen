@@ -7,8 +7,8 @@
 option(BUILD_TESTS  "Enable tests" OFF)
 include(CTest)
 if(BUILD_TESTS)
-  find_package(GMock 1.8.0 MODULE REQUIRED)
-  find_package(GTest 1.8.0 MODULE REQUIRED)
+  find_package(GMock 1.10.0 MODULE REQUIRED)
+  find_package(GTest 1.10.0 MODULE REQUIRED)
 endif()
 
 function(proxygen_add_test)
@@ -29,7 +29,7 @@ function(proxygen_add_test)
       set(PROXYGEN_TEST_SOURCES "${PROXYGEN_TEST_TARGET}.cpp")
     endif()
 
-    add_executable(${PROXYGEN_TEST_TARGET} 
+    add_executable(${PROXYGEN_TEST_TARGET}
       "${PROXYGEN_TEST_SOURCES}"
     )
 

@@ -25,20 +25,13 @@ class MockByteEventTracker : public ByteEventTracker {
   MOCK_METHOD0(drainByteEvents, size_t());
   MOCK_METHOD2(processByteEvents,
                bool(std::shared_ptr<ByteEventTracker>, uint64_t));
-  GMOCK_METHOD2_(
-      , noexcept, , addTrackedByteEvent, void(HTTPTransaction*, uint64_t));
-  GMOCK_METHOD2_(
-      , noexcept, , addLastByteEvent, void(HTTPTransaction*, uint64_t));
-  GMOCK_METHOD3_(,
-                 noexcept,
-                 ,
-                 addTxByteEvent,
-                 void(uint64_t, ByteEvent::EventType, HTTPTransaction*));
-  GMOCK_METHOD3_(,
-                 noexcept,
-                 ,
-                 addAckByteEvent,
-                 void(uint64_t, ByteEvent::EventType, HTTPTransaction*));
+  MOCK_METHOD(void, addTrackedByteEvent, (HTTPTransaction*, uint64_t),
+              (noexcept));
+  MOCK_METHOD(void, addLastByteEvent, (HTTPTransaction*, uint64_t), (noexcept));
+  MOCK_METHOD(void, addTxByteEvent,
+              (uint64_t, ByteEvent::EventType, HTTPTransaction*), (noexcept));
+  MOCK_METHOD(void, addAckByteEvent,
+              (uint64_t, ByteEvent::EventType, HTTPTransaction*), (noexcept));
   MOCK_METHOD4(preSend, uint64_t(bool*, bool*, bool*, uint64_t));
 
   // passthru to callback implementation functions

@@ -16,10 +16,6 @@
 #include <proxygen/lib/http/session/HTTPSessionStats.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
-#define GMOCK_NOEXCEPT_METHOD0(m, F) GMOCK_METHOD0_(, noexcept, , m, F)
-#define GMOCK_NOEXCEPT_METHOD1(m, F) GMOCK_METHOD1_(, noexcept, , m, F)
-#define GMOCK_NOEXCEPT_METHOD2(m, F) GMOCK_METHOD2_(, noexcept, , m, F)
-
 namespace proxygen {
 
 class HTTPHandlerBase {
@@ -153,63 +149,61 @@ class MockHTTPHandler
       : HTTPHandlerBase(&txn, msg) {
   }
 
-  GMOCK_NOEXCEPT_METHOD1(setTransaction, void(HTTPTransaction* txn));
-
-  GMOCK_NOEXCEPT_METHOD0(detachTransaction, void());
+  MOCK_METHOD(void, setTransaction, (HTTPTransaction* txn), (noexcept));
+  MOCK_METHOD(void, detachTransaction, (), (noexcept));
 
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
     onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
   }
 
-  GMOCK_NOEXCEPT_METHOD1(onHeadersComplete,
-                         void(std::shared_ptr<HTTPMessage> msg));
+  MOCK_METHOD(void, onHeadersComplete, (std::shared_ptr<HTTPMessage> msg),
+              (noexcept));
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  GMOCK_NOEXCEPT_METHOD1(onBody, void(std::shared_ptr<folly::IOBuf> chain));
+  MOCK_METHOD(void, onBody, (std::shared_ptr<folly::IOBuf> chain), (noexcept));
 
   void onBodyWithOffset(uint64_t bodyOffset,
                         std::unique_ptr<folly::IOBuf> chain) noexcept override {
     onBodyWithOffset(bodyOffset,
                      std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  GMOCK_NOEXCEPT_METHOD2(onBodyWithOffset,
-                         void(uint64_t bodyOffset,
-                              std::shared_ptr<folly::IOBuf> chain));
+  MOCK_METHOD(void, onBodyWithOffset, (uint64_t bodyOffset,
+              std::shared_ptr<folly::IOBuf> chain), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onChunkHeader, void(size_t length));
+  MOCK_METHOD(void, onChunkHeader, (size_t length), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD0(onChunkComplete, void());
+  MOCK_METHOD(void, onChunkComplete, (), (noexcept));
 
   void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
     onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
 
-  GMOCK_NOEXCEPT_METHOD1(onTrailers,
-                         void(std::shared_ptr<HTTPHeaders> trailers));
+  MOCK_METHOD(void, onTrailers, (std::shared_ptr<HTTPHeaders> trailers),
+              (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD0(onEOM, void());
+  MOCK_METHOD(void, onEOM, (), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onUpgrade, void(UpgradeProtocol protocol));
+  MOCK_METHOD(void, onUpgrade, (UpgradeProtocol protocol), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
+  MOCK_METHOD(void, onError, (const HTTPException& error), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
+  MOCK_METHOD(void, onGoaway, (ErrorCode), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
+  MOCK_METHOD(void, onEgressPaused, (), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
+  MOCK_METHOD(void, onEgressResumed, (), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onPushedTransaction, void(HTTPTransaction*));
+  MOCK_METHOD(void, onPushedTransaction, (HTTPTransaction*), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onExTransaction, void(HTTPTransaction*));
+  MOCK_METHOD(void, onExTransaction, (HTTPTransaction*), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
+  MOCK_METHOD(void, onBodySkipped, (uint64_t), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
+  MOCK_METHOD(void, onBodyRejected, (uint64_t), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(traceEventAvailable, void(TraceEvent));
+  MOCK_METHOD(void, traceEventAvailable, (TraceEvent), (noexcept));
 
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
     EXPECT_CALL(*this, setTransaction(testing::_))
@@ -369,21 +363,21 @@ class MockHTTPPushHandler
       : HTTPHandlerBase(&txn, msg) {
   }
 
-  GMOCK_NOEXCEPT_METHOD1(setTransaction, void(HTTPTransaction* txn));
+  MOCK_METHOD(void, setTransaction, (HTTPTransaction* txn), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD0(detachTransaction, void());
+  MOCK_METHOD(void, detachTransaction, (), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
+  MOCK_METHOD(void, onError, (const HTTPException& error), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
+  MOCK_METHOD(void, onGoaway, (ErrorCode), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
+  MOCK_METHOD(void, onEgressPaused, (), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
+  MOCK_METHOD(void, onEgressResumed, (), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
+  MOCK_METHOD(void, onBodySkipped, (uint64_t), (noexcept));
 
-  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
+  MOCK_METHOD(void, onBodyRejected, (uint64_t), (noexcept));
 
   void sendPushHeaders(const std::string& path,
                        const std::string& host,
@@ -506,13 +500,13 @@ class MockHTTPSessionStats : public DummyHTTPSessionStats {
  public:
   MockHTTPSessionStats() {
   }
-  GMOCK_NOEXCEPT_METHOD0(recordTransactionOpened, void());
-  GMOCK_NOEXCEPT_METHOD0(recordTransactionClosed, void());
-  GMOCK_NOEXCEPT_METHOD1(recordTransactionsServed, void(uint64_t));
-  GMOCK_NOEXCEPT_METHOD0(recordSessionReused, void());
-  GMOCK_NOEXCEPT_METHOD1(recordSessionIdleTime, void(std::chrono::seconds));
-  GMOCK_NOEXCEPT_METHOD0(recordTransactionStalled, void());
-  GMOCK_NOEXCEPT_METHOD0(recordSessionStalled, void());
+  MOCK_METHOD(void, recordTransactionOpened, (), (noexcept));
+  MOCK_METHOD(void, recordTransactionClosed, (), (noexcept));
+  MOCK_METHOD(void, recordTransactionsServed, (uint64_t), (noexcept));
+  MOCK_METHOD(void, recordSessionReused, (), (noexcept));
+  MOCK_METHOD(void, recordSessionIdleTime, (std::chrono::seconds), (noexcept));
+  MOCK_METHOD(void, recordTransactionStalled, (), (noexcept));
+  MOCK_METHOD(void, recordSessionStalled, (), (noexcept));
 };
 
 } // namespace proxygen

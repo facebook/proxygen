@@ -412,11 +412,8 @@ class MockHQSession : public HQSession {
 
   MOCK_METHOD2(setupOnHeadersComplete, void(HTTPTransaction*, HTTPMessage*));
 
-  GMOCK_METHOD1_(,
-                 noexcept,
-                 ,
-                 onConnectionErrorHandler,
-                 void(std::pair<quic::QuicErrorCode, std::string> error));
+  MOCK_METHOD(void, onConnectionErrorHandler,
+              (std::pair<quic::QuicErrorCode, std::string> error), (noexcept));
 
   MOCK_METHOD1(newTransaction, HTTPTransaction*(HTTPTransaction::Handler*));
 
