@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/SecondaryAuthManager.h>
+
 #include <fizz/crypto/test/TestUtil.h>
 #include <fizz/protocol/test/Mocks.h>
 #include <fizz/record/Extensions.h>

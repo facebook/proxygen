@@ -546,11 +546,12 @@ class HQSession
 
   void invokeOnIngressStreams(std::function<void(HQStreamTransportBase*)> fn,
                               bool includeDetached = false) {
-    invokeOnStreamsImpl(std::move(fn),
-                        [this, includeDetached](quic::StreamId id) {
-                          return this->findIngressStream(id, includeDetached);
-                        },
-                        true);
+    invokeOnStreamsImpl(
+        std::move(fn),
+        [this, includeDetached](quic::StreamId id) {
+          return this->findIngressStream(id, includeDetached);
+        },
+        true);
   }
 
   void invokeOnNonDetachedStreams(
@@ -1393,8 +1394,8 @@ class HQSession
       session_.describe(os);
     }
 
-    const wangle::TransportInfo& getSetupTransportInfo() const
-        noexcept override {
+    const wangle::TransportInfo& getSetupTransportInfo()
+        const noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
       return session_.transportInfo_;
     }
@@ -1453,8 +1454,8 @@ class HQSession
     }
 
     void removeWaitingForReplaySafety(
-        folly::AsyncTransport::ReplaySafetyCallback*
-            callback) noexcept override {
+        folly::AsyncTransport::ReplaySafetyCallback* callback) noexcept
+        override {
       VLOG(4) << __func__ << " txn=" << txn_;
       session_.waitingForReplaySafety_.remove(callback);
     }
@@ -1464,8 +1465,8 @@ class HQSession
       return false;
     }
 
-    const folly::AsyncTransport* getUnderlyingTransport() const
-        noexcept override {
+    const folly::AsyncTransport* getUnderlyingTransport()
+        const noexcept override {
       VLOG(4) << __func__ << " txn=" << txn_;
       return nullptr;
     }
@@ -1488,8 +1489,8 @@ class HQSession
                                         hqDefaultPriority.weight);
     }
 
-    folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const
-        noexcept override {
+    folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken()
+        const noexcept override {
       return session_.connectionToken_;
     }
 

@@ -108,9 +108,10 @@ class QueueTest : public testing::Test {
 
   void dump() {
     nodes_.clear();
-    q_.iterate(std::bind(&QueueTest::visitNode, this, std::ref(q_), _1, _2, _3),
-               [] { return false; },
-               true);
+    q_.iterate(
+        std::bind(&QueueTest::visitNode, this, std::ref(q_), _1, _2, _3),
+        [] { return false; },
+        true);
   }
 
   void dumpBFS(const std::function<bool()>& stopFn) {

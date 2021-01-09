@@ -24,11 +24,12 @@ namespace proxygen {
  * atOnce > 0: use specified chunk length
  */
 template <class T>
-size_t parse(T* codec,
-             const uint8_t* inputData,
-             uint32_t length,
-             int32_t atOnce = 0,
-             std::function<bool()> stopFn = [] { return false; }) {
+size_t parse(
+    T* codec,
+    const uint8_t* inputData,
+    uint32_t length,
+    int32_t atOnce = 0,
+    std::function<bool()> stopFn = [] { return false; }) {
 
   const uint8_t* start = inputData;
   size_t consumed = 0;
@@ -70,13 +71,12 @@ size_t parse(T* codec,
 }
 
 template <class T>
-size_t parseUnidirectional(T* codec,
-                           const uint8_t* inputData,
-                           uint32_t length,
-                           int32_t atOnce = 0,
-                           std::function<bool()> stopFn = [] {
-                             return false;
-                           }) {
+size_t parseUnidirectional(
+    T* codec,
+    const uint8_t* inputData,
+    uint32_t length,
+    int32_t atOnce = 0,
+    std::function<bool()> stopFn = [] { return false; }) {
 
   const uint8_t* start = inputData;
   size_t consumed = 0;

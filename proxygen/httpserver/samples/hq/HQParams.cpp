@@ -535,8 +535,8 @@ bool HQParamsBuilderFromCmdline::valid() const noexcept {
   return invalidParams_.empty();
 }
 
-const HQInvalidParams& HQParamsBuilderFromCmdline::invalidParams() const
-    noexcept {
+const HQInvalidParams& HQParamsBuilderFromCmdline::invalidParams()
+    const noexcept {
   return invalidParams_;
 }
 

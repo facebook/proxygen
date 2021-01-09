@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/codec/compress/QPACKDecoder.h>
+
 #include <proxygen/lib/http/codec/compress/HPACKEncodeBuffer.h>
 
 using folly::io::Cursor;

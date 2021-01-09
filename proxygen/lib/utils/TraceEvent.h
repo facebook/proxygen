@@ -251,7 +251,7 @@ class TraceEvent {
             dest = itr->second.getValueAs<T>();
             return true;
           },
-          [](auto &&) -> bool { return false; });
+          [](auto&&) -> bool { return false; });
     }
     return false;
   }

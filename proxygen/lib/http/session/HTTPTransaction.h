@@ -477,15 +477,15 @@ class HTTPTransaction
 
     virtual void describe(std::ostream&) const = 0;
 
-    virtual const wangle::TransportInfo& getSetupTransportInfo() const
-        noexcept = 0;
+    virtual const wangle::TransportInfo& getSetupTransportInfo()
+        const noexcept = 0;
 
     virtual bool getCurrentTransportInfo(wangle::TransportInfo* tinfo) = 0;
 
     virtual void getFlowControlInfo(FlowControlInfo* info) = 0;
 
-    virtual HTTPTransaction::Transport::Type getSessionType() const
-        noexcept = 0;
+    virtual HTTPTransaction::Transport::Type getSessionType()
+        const noexcept = 0;
 
     virtual const HTTPCodec& getCodec() const noexcept = 0;
 
@@ -517,8 +517,8 @@ class HTTPTransaction
 
     virtual bool needToBlockForReplaySafety() const = 0;
 
-    virtual const folly::AsyncTransport* getUnderlyingTransport() const
-        noexcept = 0;
+    virtual const folly::AsyncTransport* getUnderlyingTransport()
+        const noexcept = 0;
 
     /**
      * Returns true if the underlying transport has completed full handshake.

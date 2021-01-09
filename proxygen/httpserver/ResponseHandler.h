@@ -86,8 +86,8 @@ class ResponseHandler {
   }
 
   // Accessors for Transport/Connection information
-  virtual const wangle::TransportInfo& getSetupTransportInfo() const
-      noexcept = 0;
+  virtual const wangle::TransportInfo& getSetupTransportInfo()
+      const noexcept = 0;
 
   virtual void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const = 0;
 

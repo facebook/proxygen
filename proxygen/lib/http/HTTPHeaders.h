@@ -455,9 +455,7 @@ void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
 #define ITERATE_OVER_STRINGS(String, Block)              \
   ITERATE_OVER_CODES(HTTP_HEADER_OTHER, {                \
     if (caseInsensitiveEqual((String), *names()[pos])) { \
-      {                                                  \
-        Block                                            \
-      }                                                  \
+      { Block }                                          \
     }                                                    \
   })
 
@@ -465,9 +463,7 @@ void HTTPHeaders::add(HTTPHeaderCode code, T&& value) {
 #define ITERATE_OVER_STRINGS_ALL_VERSION(String, Block)            \
   ITERATE_OVER_CODES(HTTP_HEADER_OTHER, {                          \
     if (caseUnderscoreInsensitiveEqual((String), *names()[pos])) { \
-      {                                                            \
-        Block                                                      \
-      }                                                            \
+      { Block }                                                    \
     }                                                              \
   })
 

@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/utils/Base64.h>
+
 #include <folly/portability/GTest.h>
 
 using namespace proxygen;

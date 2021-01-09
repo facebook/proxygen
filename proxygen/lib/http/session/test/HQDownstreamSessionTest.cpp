@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
+
 #include <folly/io/async/EventBaseManager.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQStreamCodec.h>
@@ -3317,7 +3318,7 @@ TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryErr) {
           }));
 
   EXPECT_CALL(*handler, onError(_))
-      .WillOnce(Invoke([& handler = handler](const HTTPException& error) {
+      .WillOnce(Invoke([&handler = handler](const HTTPException& error) {
         EXPECT_TRUE(std::string(error.what())
                         .find("failed to register delivery callback") !=
                     std::string::npos);
@@ -3571,7 +3572,7 @@ TEST_P(HQDownstreamSessionTestHQPRDeliveryAck, TestBodyDeliveryErr) {
           }));
 
   EXPECT_CALL(*handler, onError(_))
-      .WillOnce(Invoke([& handler = handler](const HTTPException& error) {
+      .WillOnce(Invoke([&handler = handler](const HTTPException& error) {
         EXPECT_TRUE(std::string(error.what())
                         .find("failed to register delivery callback") !=
                     std::string::npos);

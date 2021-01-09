@@ -144,8 +144,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                  ,
                  getUnderlyingTransportNonConst,
                  const folly::AsyncTransport*());
-  const folly::AsyncTransport* getUnderlyingTransport() const
-      noexcept override {
+  const folly::AsyncTransport* getUnderlyingTransport()
+      const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
         ->getUnderlyingTransportNonConst();
   }
@@ -178,8 +178,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                  ,
                  getConnectionTokenNonConst,
                  folly::Optional<HTTPTransaction::ConnectionToken>());
-  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const
-      noexcept override {
+  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken()
+      const noexcept override {
     return const_cast<MockHTTPTransactionTransport*>(this)
         ->getConnectionTokenNonConst();
   }

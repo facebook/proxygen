@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
+
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 
 #include <folly/io/Cursor.h>

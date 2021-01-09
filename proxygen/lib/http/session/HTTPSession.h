@@ -133,8 +133,8 @@ class HTTPSession
     HTTPSessionBase::setHTTP2PrioritiesEnabled(enabled);
   }
 
-  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken() const
-      noexcept override {
+  folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken()
+      const noexcept override {
     return connectionToken_;
   }
 
@@ -528,8 +528,8 @@ class HTTPSession
    * Returns the underlying AsyncTransport.
    * Overrides HTTPTransaction::Transport::getUnderlyingTransport().
    */
-  const folly::AsyncTransport* getUnderlyingTransport() const
-      noexcept override {
+  const folly::AsyncTransport* getUnderlyingTransport()
+      const noexcept override {
     return sock_.get();
   }
 

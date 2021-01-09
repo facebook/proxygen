@@ -7,6 +7,7 @@
  */
 
 #include <proxygen/lib/http/session/SecondaryAuthManager.h>
+
 #include <fizz/extensions/exportedauth/ExportedAuthenticator.h>
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
