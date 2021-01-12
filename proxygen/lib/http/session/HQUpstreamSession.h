@@ -171,7 +171,7 @@ class HQUpstreamSession : public HQSession {
       // TBD: send "cancel push" here.
 
       return sendAbortImpl(
-          hq::toHTTP3ErrorCode(errorCode),
+          toHTTP3ErrorCode(errorCode),
           folly::to<std::string>("Application aborts pushed txn,"
                                  " errorCode=",
                                  getErrorCodeString(errorCode),

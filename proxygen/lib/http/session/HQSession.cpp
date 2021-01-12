@@ -1085,6 +1085,7 @@ void HQSession::readError(
           static_cast<HTTP3::ErrorCode>(*error.first.asApplicationErrorCode());
       VLOG(3) << "readError: QUIC Application Error: " << toString(errorCode)
               << " streamID=" << id << " sess=" << *this;
+      ex.setHttp3ErrorCode(errorCode);
       auto stream = findNonDetachedStream(id);
       if (stream) {
         stream->onResetStream(errorCode, std::move(ex));
@@ -1114,7 +1115,7 @@ void HQSession::readError(
       VLOG(3) << "readError: QUIC Transport Error: " << errorCode
               << " streamID=" << id << " sess=" << *this;
       ex.setProxygenError(kErrorConnectionReset);
-      // TODO: set Quic error when quic is OSS
+      // TODO: set Quic error when fbcode/quic/QuicConstants.h is OSS
       ex.setErrno(uint32_t(errorCode));
       errorOnTransactionId(id, std::move(ex));
       break;
@@ -1891,7 +1892,6 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
   // HTTPTransaction state machine.
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                    folly::to<std::string>("Got error=", quic::toString(err)));
-  // TODO: set Quic error when quic is OSS
   switch (err.type()) {
     case quic::QuicErrorCode::Type::ApplicationErrorCode: {
       // If we have an application error code, it must have
@@ -1899,6 +1899,7 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
       // is logically a stream abort, not a write error
       auto h3ErrorCode =
           static_cast<HTTP3::ErrorCode>(*err.asApplicationErrorCode());
+      ex.setHttp3ErrorCode(h3ErrorCode);
       ex.setCodecStatusCode(hqToHttpErrorCode(h3ErrorCode));
       ex.setProxygenError(h3ErrorCode == HTTP3::ErrorCode::HTTP_REQUEST_REJECTED
                               ? kErrorStreamUnacknowledged
@@ -2921,7 +2922,7 @@ void HQSession::HQControlStream::onError(HTTPCodec::StreamID streamID,
   session_.handleSessionError(
       CHECK_NOTNULL(session_.findControlStream(streamID)),
       StreamDirection::INGRESS,
-      toHTTP3ErrorCode(error),
+      error.getHttp3ErrorCode(),
       kErrorConnection);
 }
 
@@ -2938,7 +2939,7 @@ void HQSession::HQStreamTransportBase::onError(HTTPCodec::StreamID streamID,
   if (streamID == kSessionStreamId) {
     session_.handleSessionError(this,
                                 StreamDirection::INGRESS,
-                                toHTTP3ErrorCode(error),
+                                error.getHttp3ErrorCode(),
                                 kErrorConnection);
     return;
   }
@@ -2999,8 +3000,7 @@ void HQSession::HQStreamTransportBase::onResetStream(HTTP3::ErrorCode errorCode,
     // error back to transactions through onError so that they can be retried.
     ex.setProxygenError(kErrorEarlyDataFailed);
   }
-  // TODO: set Quic error when quic is OSS
-  ex.setErrno(uint32_t(errorCode));
+  ex.setHttp3ErrorCode(errorCode);
   auto msg = ex.what();
   errorOnTransaction(std::move(ex));
   sendAbortImpl(replyError, msg);

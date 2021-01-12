@@ -39,10 +39,6 @@ constexpr uint64_t kMaxClientBidiStreamId = quic::kEightByteLimit - 3;
 
 proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err);
 
-HTTP3::ErrorCode toHTTP3ErrorCode(proxygen::ErrorCode err);
-
-HTTP3::ErrorCode toHTTP3ErrorCode(const HTTPException& ex);
-
 /**
  * Conver a quic error to the appropriate proxygen error.
  *

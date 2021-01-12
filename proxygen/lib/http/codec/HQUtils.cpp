@@ -64,51 +64,6 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
   }
 }
 
-HTTP3::ErrorCode toHTTP3ErrorCode(proxygen::ErrorCode err) {
-  switch (err) {
-    case ErrorCode::NO_ERROR:
-      return HTTP3::ErrorCode::HTTP_NO_ERROR;
-    case ErrorCode::PROTOCOL_ERROR:
-      return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
-    case ErrorCode::INTERNAL_ERROR:
-      return HTTP3::ErrorCode::HTTP_INTERNAL_ERROR;
-    case ErrorCode::FLOW_CONTROL_ERROR:
-      DCHECK(false) << "ErrorCode::FLOW_CONTROL_ERROR for QUIC";
-      // fallthrough
-    case ErrorCode::SETTINGS_TIMEOUT: // maybe we should keep this?
-    case ErrorCode::STREAM_CLOSED:
-      return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
-    case ErrorCode::FRAME_SIZE_ERROR:
-      return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
-    case ErrorCode::REFUSED_STREAM:
-      return HTTP3::ErrorCode::HTTP_PUSH_REFUSED;
-    case ErrorCode::CANCEL:
-      return HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED;
-    case ErrorCode::COMPRESSION_ERROR:
-      return HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED;
-    case ErrorCode::CONNECT_ERROR:
-      return HTTP3::ErrorCode::HTTP_CONNECT_ERROR;
-    case ErrorCode::ENHANCE_YOUR_CALM:
-      return HTTP3::ErrorCode::HTTP_EXCESSIVE_LOAD;
-    case ErrorCode::INADEQUATE_SECURITY:
-    case ErrorCode::HTTP_1_1_REQUIRED:
-    default:
-      return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
-  }
-}
-
-HTTP3::ErrorCode toHTTP3ErrorCode(const HTTPException& ex) {
-  // TODO: when quic is OSS, add HTTP3ErrorCode to HTTPException
-  if (ex.hasHttpStatusCode()) {
-    return HTTP3::ErrorCode::HTTP_NO_ERROR; // does this sound right?
-  } else if (ex.hasCodecStatusCode()) {
-    return toHTTP3ErrorCode(ex.getCodecStatusCode());
-  } else if (ex.hasErrno()) {
-    return static_cast<HTTP3::ErrorCode>(ex.getErrno());
-  }
-  return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
-}
-
 ProxygenError toProxygenError(quic::QuicErrorCode error, bool fromPeer) {
   switch (error.type()) {
     case quic::QuicErrorCode::Type::ApplicationErrorCode:

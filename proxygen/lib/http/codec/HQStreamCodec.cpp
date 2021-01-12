@@ -141,7 +141,7 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
     if (callback_) {
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        "Invalid HEADERS frame");
-      ex.setErrno(uint32_t(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED));
+      ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
       callback_->onError(streamId_, ex, false);
     }
     setParserPaused(true);
@@ -447,7 +447,7 @@ void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
     auto g = folly::makeGuard(activationHook_());
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                      "Stream headers decompression error");
-    ex.setErrno(uint32_t(HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED));
+    ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
     callback_->onError(kSessionStreamId, ex, false);
   }
   decodeInfo_.msg.reset();

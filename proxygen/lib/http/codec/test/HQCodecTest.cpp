@@ -809,8 +809,8 @@ TEST_F(HQCodecTest, qpackError) {
   uint8_t bad[] = {0x00}; // LR, no delta base
   hq::writeHeaders(queue_, folly::IOBuf::wrapBuffer(bad, 1));
   downstreamCodec_->onIngress(*queue_.front());
-  EXPECT_EQ(callbacks_.lastParseError->getErrno(),
-            uint32_t(HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED));
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
   EXPECT_EQ(callbacks_.sessionErrors, 4);
 }
 

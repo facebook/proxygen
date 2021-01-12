@@ -10,11 +10,14 @@
 
 #include <folly/Memory.h>
 #include <folly/io/IOBufQueue.h>
+#include <proxygen/lib/http/HTTP3ErrorCode.h>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/ErrorCode.h>
 #include <proxygen/lib/utils/Exception.h>
 
 namespace proxygen {
+
+HTTP3::ErrorCode toHTTP3ErrorCode(proxygen::ErrorCode err);
 
 /**
  * This class encapsulates the various errors that can occur on an
@@ -76,6 +79,15 @@ class HTTPException : public proxygen::Exception {
     return httpStatusCode_;
   }
 
+  // Accessors for HTTP3 error codes
+  bool hasHttp3ErrorCode() const {
+    return http3ErrorCode_.has_value();
+  }
+  void setHttp3ErrorCode(HTTP3::ErrorCode errorCode) {
+    http3ErrorCode_ = errorCode;
+  }
+  HTTP3::ErrorCode getHttp3ErrorCode() const;
+
   // Accessors for Codec specific status codes
   bool hasCodecStatusCode() const {
     return codecStatusCode_.has_value();
@@ -116,8 +128,11 @@ class HTTPException : public proxygen::Exception {
   }
 
  private:
+  HTTP3::ErrorCode inferHTTP3ErrorCode() const;
+
   Direction dir_;
   uint32_t httpStatusCode_{0};
+  folly::Optional<HTTP3::ErrorCode> http3ErrorCode_;
   folly::Optional<ErrorCode> codecStatusCode_;
   uint32_t errno_{0};
   // current ingress buffer, may be compressed

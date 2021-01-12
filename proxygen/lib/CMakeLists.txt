@@ -62,7 +62,6 @@ if (BUILD_QUIC)
         HTTP3_SOURCES
         ${HTTP3_SOURCES}
         http/SynchronizedLruQuicPskCache.cpp
-        http/HTTP3ErrorCode.cpp
         http/HQConnector.cpp
         http/codec/HQControlCodec.cpp
         http/codec/HQFramedCodec.cpp
@@ -94,6 +93,7 @@ endif()
 add_library(
     proxygen
     healthcheck/ServerHealthCheckerCallback.cpp
+    http/HTTP3ErrorCode.cpp
     http/codec/CodecProtocol.cpp
     http/codec/CodecUtil.cpp
     http/codec/compress/GzipHeaderCodec.cpp
