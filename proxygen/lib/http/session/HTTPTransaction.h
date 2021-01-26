@@ -1565,6 +1565,11 @@ class HTTPTransaction
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
 
+  void dequeue() {
+    CHECK(isEnqueued());
+    egressQueue_.clearPendingEgress(queueHandle_);
+  }
+
   void onDelayedDestroy(bool delayed) override;
 
   /**
@@ -1617,12 +1622,7 @@ class HTTPTransaction
   bool maybeDelayForRateLimit();
 
   bool isEnqueued() const {
-    return queueHandle_->isEnqueued();
-  }
-
-  void dequeue() {
-    DCHECK(isEnqueued());
-    egressQueue_.clearPendingEgress(queueHandle_);
+    return queueHandle_ ? queueHandle_->isEnqueued() : false;
   }
 
   bool hasPendingEOM() const {
@@ -1751,7 +1751,7 @@ class HTTPTransaction
   /**
    * Handle to our position in the priority queue.
    */
-  HTTP2PriorityQueueBase::Handle queueHandle_;
+  HTTP2PriorityQueueBase::Handle queueHandle_{nullptr};
 
   /**
    * ID of request transaction (for pushed txns only)

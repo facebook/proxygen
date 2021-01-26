@@ -145,7 +145,9 @@ HTTPTransaction::~HTTPTransaction() {
   }
   // TODO: handle the case where the priority node hangs out longer than
   // the transaction
-  egressQueue_.removeTransaction(queueHandle_);
+  if (queueHandle_) {
+    egressQueue_.removeTransaction(queueHandle_);
+  }
 }
 
 void HTTPTransaction::reset(bool useFlowControl,
@@ -1404,6 +1406,7 @@ void HTTPTransaction::setEgressRateLimit(uint64_t bitsPerSecond) {
 
 void HTTPTransaction::notifyTransportPendingEgress() {
   DestructorGuard guard(this);
+  CHECK(queueHandle_);
   if (!egressRateLimited_ &&
       (deferredEgressBody_.chainLength() > 0 || isEgressEOMQueued()) &&
       (!useFlowControl_ || sendWindow_.getSize() > 0)) {
@@ -1586,7 +1589,9 @@ void HTTPTransaction::updateAndSendPriority(int8_t newPriority) {
   CHECK_GE(newPriority, 0);
   priority_.streamDependency =
       transport_.getCodec().mapPriorityToDependency(newPriority);
-  queueHandle_ = egressQueue_.updatePriority(queueHandle_, priority_);
+  if (queueHandle_) {
+    queueHandle_ = egressQueue_.updatePriority(queueHandle_, priority_);
+  }
   transport_.sendPriority(this, priority_);
 }
 
@@ -1597,8 +1602,11 @@ void HTTPTransaction::updateAndSendPriority(
 }
 
 void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
+  if (!queueHandle_) {
+    LOG(ERROR) << "Received priority update on ingress only transaction";
+    return;
+  }
   priority_ = priority;
-
   queueHandle_ =
       egressQueue_.updatePriority(queueHandle_, priority_, &currentDepth_);
   if (priority_.streamDependency != egressQueue_.getRootId() &&
@@ -1726,8 +1734,10 @@ void HTTPTransaction::setPrioritySampled(bool sampled) {
 
 void HTTPTransaction::updateContentionsCount(uint64_t contentions) {
   CHECK(prioritySample_);
-  prioritySample_->updateContentionsCount(contentions,
-                                          queueHandle_->calculateDepth(false));
+  if (LIKELY(queueHandle_ != nullptr)) {
+    prioritySample_->updateContentionsCount(
+        contentions, queueHandle_->calculateDepth(false));
+  }
 }
 
 void HTTPTransaction::updateRelativeWeight(double ratio) {
