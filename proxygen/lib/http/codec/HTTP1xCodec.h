@@ -54,9 +54,19 @@ class HTTP1xCodec : public HTTPCodec {
   bool isWaitingToDrain() const override {
     return disableKeepalivePending_ && keepalive_;
   }
+  bool isEgressBusy() const {
+    return ((transportDirection_ == TransportDirection::DOWNSTREAM &&
+             responsePending_) ||
+            // count egress busy for non-upgraded upstream codecs with a
+            // pending response.  HTTP/1.x servers are inconsistent in how they
+            // interpret an EOF with a pending response, so don't trigger one
+            // unless the connection was upgraded.
+            (transportDirection_ == TransportDirection::UPSTREAM &&
+             (requestPending_ || (!egressUpgrade_ && responsePending_))));
+  }
   // True if the session requires an EOF (or RST) to terminate the message
   bool closeOnEgressComplete() const override {
-    return !isBusy() && !isReusable();
+    return !isEgressBusy() && !isReusable();
   }
   bool supportsParallelRequests() const override {
     return false;

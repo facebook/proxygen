@@ -202,6 +202,8 @@ class HTTPUpstreamTest
         .WillRepeatedly(ReturnPointee(&transportGood_));
     EXPECT_CALL(*transport_, closeNow())
         .WillRepeatedly(Assign(&transportGood_, false));
+    EXPECT_CALL(*transport_, shutdownWriteNow())
+        .WillRepeatedly(Assign(&transportGood_, false));
     EXPECT_CALL(*transport_, isReplaySafe()).WillOnce(Return(false));
     EXPECT_CALL(*transport_, setReplaySafetyCallback(_))
         .WillRepeatedly(SaveArg<0>(&replaySafetyCallback_));
@@ -1415,17 +1417,21 @@ TEST_F(HTTPUpstreamSessionTest, 101Upgrade) {
   handler->expectEOM();
   handler->expectDetachTransaction();
 
-  handler->sendRequest(req);
+  handler->txn_->sendHeaders(req);
   eventBase_.loop();
   readAndLoop(
       "HTTP/1.1 101 Switching Protocols\r\n"
       "Upgrade: http/2.0\r\n\r\n"
       "Test Body\r\n");
+
+  handler->sendBody(100);
+  handler->sendEOM();
+  eventBase_.loopOnce();
+  eventBase_.loopOnce();
+  EXPECT_FALSE(transportGood_);
+
   readCallback_->readEOF();
   eventBase_.loop();
-
-  CHECK_EQ(httpSession_->getNumOutgoingStreams(), 0);
-  httpSession_->destroy();
 }
 
 // ===== Upgrade Tests ====

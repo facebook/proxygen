@@ -894,7 +894,7 @@ TEST(HTTP1xCodecTest, CloseOnEgressCompleteUpstreamConnect) {
   codec.generateHeader(writeBuf, id, req, false);
   EXPECT_FALSE(codec.closeOnEgressComplete());
   codec.generateEOM(writeBuf, id);
-  EXPECT_FALSE(codec.closeOnEgressComplete());
+  EXPECT_TRUE(codec.closeOnEgressComplete());
   auto ingress = folly::IOBuf::copyBuffer(std::string("HTTP/1.1 200 OK\r\r\n"));
   HTTP1xCodecCallback callbacks;
   codec.setCallback(&callbacks);

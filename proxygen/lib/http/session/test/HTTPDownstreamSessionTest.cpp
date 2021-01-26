@@ -2289,16 +2289,43 @@ TEST_F(HTTPDownstreamSessionTest, BigExplcitChunkWrite) {
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNonNative) {
   auto handler = addSimpleStrictHandler();
 
-  handler->expectHeaders([&handler] {
-    handler->sendHeaders(101, 0, true, {{"Upgrade", "blarf"}});
+  handler->expectHeaders([&handler, this] {
+    // TODO: there is serious weirdness in this case.  The HTTP parser must
+    // be paused from this point until the response headers are sent.  If we
+    // delay the 101 headers by 1 loop, the case breaks without the
+    // pause/resume
+    handler->txn_->pauseIngress();
+    eventBase_.runInLoop([&handler] {
+      handler->sendHeaders(101, 0, true, {{"Upgrade", "blarf"}});
+      handler->txn_->resumeIngress();
+    });
   });
   EXPECT_CALL(*handler, onUpgrade(UpgradeProtocol::TCP));
-  handler->expectEOM([&handler] { handler->txn_->sendEOM(); });
-  handler->expectDetachTransaction();
 
-  sendRequest(getUpgradeRequest("blarf"));
+  sendRequest(getUpgradeRequest("blarf"), /*eom=*/false);
+  // Enough to receive the request, wait a loop, send the response
+  flushRequestsAndLoopN(3);
+
+  // Now send random blarf data
+  handler->expectBody([&handler] {
+      handler->txn_->sendBody(makeBuf(100));
+      handler->txn_->sendEOM();
+  });
+
+  folly::IOBufQueue bq{folly::IOBufQueue::cacheChainLength()};
+  bq.append(makeBuf(100));
+  transport_->addReadEvent(bq, milliseconds(0));
+
+  // The server sent EOM, which means transport writes should be closed now
+  flushRequestsAndLoopN(2);
+  EXPECT_FALSE(transport_->good());
+
+  // Add EOF from the client to complete the teardown
+  handler->expectEOM();
+  handler->expectDetachTransaction();
   expectDetachSession();
-  flushRequestsAndLoop(true);
+  transport_->addReadEOF(milliseconds(0));
+  eventBase_.loop();
 }
 
 // Test upgrade to a protocol unknown to HTTPSession, but don't switch
