@@ -10,6 +10,7 @@
 
 #include <fcntl.h>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/http/HTTPPriorityFunctions.h>
 #include <proxygen/lib/utils/TestUtils.h>
 #include <signal.h>
 #include <string.h>
@@ -702,6 +703,43 @@ TEST(HTTPMessage, PrettyPrint) {
   response.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "0");
   response.getHeaders().add(HTTP_HEADER_CONTENT_TYPE, "text/plain");
   checkPrettyPrint(response.getHeaders());
+}
+
+TEST(HTTPMessage, NoDefaultHTTPPriority) {
+  HTTPMessage message;
+  EXPECT_FALSE(httpPriorityFromHTTPMessage(message).hasValue());
+}
+
+TEST(HTTPMessage, HTTPPrioritySetGet) {
+  HTTPMessage message;
+  message.setHTTPPriority(HTTPPriority(0, true));
+  EXPECT_EQ(0, httpPriorityFromHTTPMessage(message)->urgency);
+  EXPECT_TRUE(httpPriorityFromHTTPMessage(message)->incremental);
+  auto& priHeader = message.getHeaders().getSingleOrEmpty(HTTP_HEADER_PRIORITY);
+  EXPECT_EQ("u=0,i", priHeader);
+  auto priHeaderViaGetter = message.getHTTPPriority();
+  EXPECT_EQ(0, priHeaderViaGetter->urgency);
+  EXPECT_TRUE(priHeaderViaGetter->incremental);
+
+  message.setHTTPPriority(1, false);
+  EXPECT_EQ(1, httpPriorityFromHTTPMessage(message)->urgency);
+  EXPECT_FALSE(httpPriorityFromHTTPMessage(message)->incremental);
+  EXPECT_EQ("u=1", message.getHeaders().getSingleOrEmpty(HTTP_HEADER_PRIORITY));
+  priHeaderViaGetter = message.getHTTPPriority();
+  EXPECT_EQ(1, priHeaderViaGetter->urgency);
+  EXPECT_FALSE(priHeaderViaGetter->incremental);
+}
+
+TEST(HTTPMessage, HTTPPrioritySetOutRangeUrgency) {
+  HTTPMessage message;
+  message.setHTTPPriority(HTTPPriority(kMaxPriority + 10, true));
+  EXPECT_EQ(kMaxPriority, httpPriorityFromHTTPMessage(message)->urgency);
+  EXPECT_TRUE(httpPriorityFromHTTPMessage(message)->incremental);
+  auto& priHeader = message.getHeaders().getSingleOrEmpty(HTTP_HEADER_PRIORITY);
+  EXPECT_EQ("u=7,i", priHeader);
+  auto priHeaderViaGetter = message.getHTTPPriority();
+  EXPECT_EQ(7, priHeaderViaGetter->urgency);
+  EXPECT_TRUE(priHeaderViaGetter->incremental);
 }
 
 TEST(HTTPHeaders, GetSetOnResize) {

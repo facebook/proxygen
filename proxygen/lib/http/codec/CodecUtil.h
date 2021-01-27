@@ -161,8 +161,4 @@ class CodecUtil {
   static const std::bitset<256>& perHopHeaderCodes();
 };
 
-void updateMessagePriorityFromPriorityString(HTTPMessage& msg);
-void updateMessagePriorityFromPriorityString(HTTPMessage& msg,
-                                             folly::StringPiece prioritySP);
-
 } // namespace proxygen

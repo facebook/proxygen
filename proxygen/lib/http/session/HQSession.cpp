@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/session/HQSession.h>
 
+#include <proxygen/lib/http/HTTPPriorityFunctions.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
@@ -2595,9 +2596,10 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kOnHeaders, timeDiff);
   }
-  if (sock) {
+  const auto& httpPriority = httpPriorityFromHTTPMessage(*msg);
+  if (sock && httpPriority) {
     sock->setStreamPriority(
-        streamId, msg->getPriority(), msg->getIncremental());
+        streamId, httpPriority->urgency, httpPriority->incremental);
   }
 
   // Tell the HTTPTransaction to start processing the message now
@@ -2780,9 +2782,10 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
           streamId, quic::kEOM, timeDiff);
     }
   }
-  if (sock && headers.isRequest()) {
+  auto httpPriority = httpPriorityFromHTTPMessage(headers);
+  if (sock && headers.isRequest() && httpPriority) {
     sock->setStreamPriority(
-        streamId, headers.getPriority(), headers.getIncremental());
+        streamId, httpPriority->urgency, httpPriority->incremental);
   }
 
   // If partial reliability is enabled, enable the callbacks.
@@ -3467,9 +3470,10 @@ void HQSession::HQStreamTransport::sendPushPromise(
           streamId, quic::kEOM, timeDiff);
     }
   }
-  if (sock) {
+  auto httpPriority = httpPriorityFromHTTPMessage(headers);
+  if (sock && httpPriority) {
     sock->setStreamPriority(
-        streamId, headers.getPriority(), headers.getIncremental());
+        streamId, httpPriority->urgency, httpPriority->incremental);
   }
 }
 

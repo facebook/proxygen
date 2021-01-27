@@ -27,11 +27,17 @@ namespace {
  * approximately 1% of our total CPU time on temporary locale objects.)
  */
 std::locale defaultLocale;
+
+std::string httpPriorityToString(uint8_t urgency, bool incremental) {
+  return folly::to<std::string>(
+      "u=",
+      std::min(static_cast<uint8_t>(proxygen::kMaxPriority), urgency),
+      incremental ? ",i" : "");
+}
 } // namespace
 
 namespace proxygen {
 
-const int8_t HTTPMessage::kMaxPriority = 7;
 std::mutex HTTPMessage::mutexDump_;
 
 const pair<uint8_t, uint8_t> HTTPMessage::kHTTPVersion09(0, 9);
@@ -68,7 +74,6 @@ HTTPMessage::HTTPMessage()
       sslCipher_(nullptr),
       protoStr_(nullptr),
       pri_(kDefaultHttpPriorityUrgency),
-      incremental_(kDefaultHttpPriorityIncremental),
       version_(1, 0),
       parsedCookies_(false),
       parsedQueryParams_(false),
@@ -100,7 +105,6 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       sslCipher_(message.sslCipher_),
       protoStr_(message.protoStr_),
       pri_(message.pri_),
-      incremental_(message.incremental_),
       h2Pri_(message.h2Pri_),
       version_(message.version_),
       parsedCookies_(message.parsedCookies_),
@@ -142,7 +146,6 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       sslCipher_(message.sslCipher_),
       protoStr_(message.protoStr_),
       pri_(message.pri_),
-      incremental_(message.incremental_),
       h2Pri_(message.h2Pri_),
       version_(message.version_),
       parsedCookies_(message.parsedCookies_),
@@ -187,7 +190,6 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
   pri_ = message.pri_;
-  incremental_ = message.incremental_;
   h2Pri_ = message.h2Pri_;
   parsedCookies_ = message.parsedCookies_;
   parsedQueryParams_ = message.parsedQueryParams_;
@@ -230,7 +232,6 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
   pri_ = message.pri_;
-  incremental_ = message.incremental_;
   h2Pri_ = message.h2Pri_;
   parsedCookies_ = message.parsedCookies_;
   parsedQueryParams_ = message.parsedQueryParams_;
@@ -976,6 +977,17 @@ ParseURL HTTPMessage::setURLImplInternal(bool unparse) {
     unparseQueryParams();
   }
   return u;
+}
+
+void HTTPMessage::setHTTPPriority(uint8_t urgency, bool incremental) {
+  headers_.set(HTTP_HEADER_PRIORITY,
+               httpPriorityToString(urgency, incremental));
+}
+
+void HTTPMessage::setHTTPPriority(HTTPPriority httpPriority) {
+  headers_.set(
+      HTTP_HEADER_PRIORITY,
+      httpPriorityToString(httpPriority.urgency, httpPriority.incremental));
 }
 
 } // namespace proxygen

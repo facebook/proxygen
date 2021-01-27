@@ -335,7 +335,6 @@ TEST_P(HQUpstreamSessionTest, PriorityUpdateIntoTransport) {
     auto handler = openTransaction();
     auto req = getGetRequest();
     req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=3, i");
-    updateMessagePriorityFromPriorityString(req);
     EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 3, true));
     handler->txn_->sendHeadersWithEOM(req);
 

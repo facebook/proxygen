@@ -98,9 +98,6 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
         contentLength_ = cl;
         break;
       }
-      case HTTP_HEADER_PRIORITY:
-        updateMessagePriorityFromPriorityString(*msg, valueSp);
-        break;
       default:
         // no op
         break;

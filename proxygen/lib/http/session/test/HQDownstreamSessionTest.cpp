@@ -57,7 +57,6 @@ namespace {
 HTTPMessage getProgressiveGetRequest() {
   auto req = proxygen::getGetRequest();
   req.getHeaders().add(HTTP_HEADER_PRIORITY, "u=1, i");
-  updateMessagePriorityFromPriorityString(req);
   return req;
 }
 } // namespace
@@ -349,7 +348,6 @@ TEST_P(HQDownstreamSessionTest, PriorityUpdateIntoTransport) {
   handler->expectEOM([&]() {
     auto resp = makeResponse(200, 0);
     std::get<0>(resp)->getHeaders().add(HTTP_HEADER_PRIORITY, "u=2");
-    updateMessagePriorityFromPriorityString(*std::get<0>(resp), "u=2");
     // For now response doesn't update priority
     EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 2, false))
         .Times(0);

@@ -32,7 +32,29 @@ namespace proxygen {
 // like that before the HTTP priority support is introduced.
 constexpr uint8_t kDefaultHttpPriorityUrgency = 3;
 constexpr bool kDefaultHttpPriorityIncremental = true;
+constexpr int8_t kMaxPriority = 7;
 
+struct HTTPPriority {
+  uint8_t urgency : 3;
+  bool incremental : 1;
+
+  HTTPPriority()
+      : urgency(kDefaultHttpPriorityUrgency),
+        incremental(kDefaultHttpPriorityIncremental) {
+  }
+
+  HTTPPriority(uint8_t urgencyIn, bool incrementalIn)
+      : urgency(std::min(urgencyIn, static_cast<uint8_t>(kMaxPriority))),
+        incremental(incrementalIn) {
+  }
+
+  virtual ~HTTPPriority() = default;
+};
+
+class HTTPMessage;
+
+folly::Optional<HTTPPriority> httpPriorityFromHTTPMessage(
+    const HTTPMessage& message);
 /**
  * An HTTP request or response minus the body.
  *
@@ -654,8 +676,6 @@ class HTTPMessage {
    * value for this SPDY version (i.e. 3 for SPDY/2 or 7 for SPDY/3),
    * -2 the second largest (i.e. 2 for SPDY/2 or 6 for SPDY/3).
    */
-  const static int8_t kMaxPriority;
-
   static uint8_t normalizePriority(int8_t pri) {
     if (pri > kMaxPriority || pri < -kMaxPriority) {
       // outside [-7, 7] => highest priority
@@ -674,12 +694,22 @@ class HTTPMessage {
     return pri_;
   }
 
-  void setIncremental(bool val) {
-    incremental_ = val;
+  /**
+   * Set a Priority header on the HTTPMessage by urgency and incremental.
+   */
+  void setHTTPPriority(uint8_t urgency, bool incremental);
+
+  folly::Optional<HTTPPriority> getHTTPPriority() const noexcept {
+    return httpPriorityFromHTTPMessage(*this);
   }
-  bool getIncremental() const noexcept {
-    return incremental_;
-  }
+
+  /**
+   * Set a Priority header on the HTTPMessage by httpPriority.
+   *
+   * There is no getter of HTTPPriority in a HTTPMessage.
+   * Use httpPriorityFromHTTPMessage for that.
+   */
+  void setHTTPPriority(HTTPPriority httpPriority);
 
   using HTTP2Priority = std::tuple<uint64_t, bool, uint8_t>;
 
@@ -1045,7 +1075,6 @@ class HTTPMessage {
   const std::string* protoStr_;
   std::unique_ptr<std::string> upgradeProtocol_;
   uint8_t pri_;
-  bool incremental_ : 1;
   folly::Optional<HTTP2Priority> h2Pri_;
 
   std::pair<uint8_t, uint8_t> version_;
@@ -1085,5 +1114,4 @@ std::string stripCntrlChars(const Str& str) {
   }
   return res;
 }
-
 } // namespace proxygen

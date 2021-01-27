@@ -149,6 +149,7 @@ add_library(
     http/HTTPMessage.cpp
     http/HTTPMessageFilters.cpp
     http/HTTPMethod.cpp
+    http/HTTPPriorityFunctions.cpp
     http/StatusTypeEnum.cpp
     http/ProxygenErrorEnum.cpp
     http/ProxyStatus.cpp
