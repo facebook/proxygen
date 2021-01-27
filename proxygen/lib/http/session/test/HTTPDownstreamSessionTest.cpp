@@ -2308,8 +2308,8 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNonNative) {
 
   // Now send random blarf data
   handler->expectBody([&handler] {
-      handler->txn_->sendBody(makeBuf(100));
-      handler->txn_->sendEOM();
+    handler->txn_->sendBody(makeBuf(100));
+    handler->txn_->sendEOM();
   });
 
   folly::IOBufQueue bq{folly::IOBufQueue::cacheChainLength()};
