@@ -285,7 +285,6 @@ class HTTPDownstreamTest : public testing::Test {
                 EXPECT_EQ(msg->getStatusCode(), 100);
               }))
           .RetiresOnSaturation();
-      EXPECT_CALL(callbacks, onMessageComplete(_, _)).RetiresOnSaturation();
     }
     clientCodec_->setCallback(&callbacks);
     parseOutput(*clientCodec_);

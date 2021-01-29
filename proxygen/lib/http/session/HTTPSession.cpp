@@ -1008,12 +1008,7 @@ void HTTPSession::onMessageComplete(HTTPCodec::StreamID streamID,
     return;
   }
 
-  // txnIngressFinished = !1xx response
-  const bool txnIngressFinished =
-      txn->isDownstream() || !txn->extraResponseExpected();
-  if (txnIngressFinished) {
-    decrementTransactionCount(txn, true, false);
-  }
+  decrementTransactionCount(txn, true, false);
   txn->onIngressEOM();
 
   // The codec knows, based on the semantics of whatever protocol it
@@ -1035,8 +1030,7 @@ void HTTPSession::onMessageComplete(HTTPCodec::StreamID streamID,
   //
   // There may be additional checks that need to be performed that are
   // specific to requests or responses, so we call the subclass too.
-  if (!codec_->isReusable() && txnIngressFinished &&
-      !codec_->supportsParallelRequests()) {
+  if (!codec_->isReusable() && !codec_->supportsParallelRequests()) {
     VLOG(4) << *this << " cannot reuse ingress";
     shutdownTransport(true, false);
   }

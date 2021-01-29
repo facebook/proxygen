@@ -1200,6 +1200,10 @@ int HTTP1xCodec::onMessageComplete() {
     }
     case TransportDirection::UPSTREAM:
       responsePending_ = is1xxResponse_;
+      if (is1xxResponse_ && !nativeUpgrade_ && !ingressUpgrade_) {
+        // Some other 1xx status code, which doesn't terminate the message
+        return 0;
+      }
   }
 
   // For downstream, always call onMessageComplete. If native upgrade,

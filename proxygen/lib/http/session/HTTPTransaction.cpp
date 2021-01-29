@@ -446,12 +446,6 @@ void HTTPTransaction::onIngressEOM() {
     return;
   }
 
-  // TODO: change the codec to not give an EOM callback after a 100 response?
-  // We could then delete the below 'if'
-  if (isUpstream() && extraResponseExpected()) {
-    VLOG(4) << "Ignoring EOM on initial 100 response on " << *this;
-    return;
-  }
   if (!validateIngressStateTransition(HTTPTransactionIngressSM::Event::onEOM)) {
     return;
   }
