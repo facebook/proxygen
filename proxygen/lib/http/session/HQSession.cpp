@@ -1772,11 +1772,8 @@ uint64_t HQSession::controlStreamWriteImpl(HQControlStream* ctrlStream,
           << ": streamID=" << egressStreamId << " maxEgress=" << maxEgress
           << " sendWindow=" << streamSendWindow << " sendLen=" << sendLen;
 
-  auto writeRes = sock_->writeChain(egressStreamId,
-                                    std::move(tryWriteBuf),
-                                    false /*eof*/,
-                                    false /*cork*/,
-                                    nullptr);
+  auto writeRes = sock_->writeChain(
+      egressStreamId, std::move(tryWriteBuf), false /*eof*/, nullptr);
 
   if (writeRes.hasError()) {
     LOG(ERROR) << " Got error=" << writeRes.error()
@@ -1934,7 +1931,6 @@ size_t HQSession::handleWrite(HQStreamTransportBase* hqStream,
   auto writeRes = sock_->writeChain(hqStream->getEgressStreamId(),
                                     std::move(data),
                                     sendEof,
-                                    false /*cork*/,
                                     deliveryCallback);
   if (writeRes.hasError()) {
     LOG(ERROR) << " Got error=" << writeRes.error()

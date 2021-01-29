@@ -338,14 +338,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               return notifyPendingWriteImpl(quic::kConnectionStreamId, wcb);
             }));
 
-    EXPECT_CALL(
-        *sock_,
-        writeChain(testing::_, testing::_, testing::_, testing::_, testing::_))
+    EXPECT_CALL(*sock_,
+                writeChain(testing::_, testing::_, testing::_, testing::_))
         .WillRepeatedly(
             testing::Invoke([this](StreamId id,
                                    MockQuicSocket::SharedBuf data,
                                    bool eof,
-                                   bool cork,
                                    QuicSocket::DeliveryCallback* cb)
                                 -> quic::MockQuicSocket::WriteResult {
               ERROR_IF(id == kConnectionStreamId,
