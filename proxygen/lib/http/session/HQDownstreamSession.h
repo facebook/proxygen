@@ -194,7 +194,6 @@ class HQDownstreamSession : public HQSession {
   hq::PushId createNewPushId();
 
   // Value of the next pushId, used for outgoing push transactions
-  // This variable does not have the hq::kPushIdMask set
   hq::PushId nextAvailablePushId_{0};
 };
 

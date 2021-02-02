@@ -699,7 +699,7 @@ TEST_F(HQCodecTest, DataFrameStreaming) {
 }
 
 TEST_F(HQCodecTest, PushPromiseFrame) {
-  hq::PushId pushId = 1234 | kPushIdMask;
+  hq::PushId pushId = 1234;
 
   HTTPMessage msg = getGetRequest();
   msg.getHeaders().add(HTTP_HEADER_USER_AGENT, "optimus-prime");

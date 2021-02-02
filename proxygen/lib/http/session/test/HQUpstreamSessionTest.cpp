@@ -1059,7 +1059,7 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
   hq::PushId nextPushId() {
     auto id = nextPushId_;
     nextPushId_ += kPushIdIncrement;
-    return id | hq::kPushIdMask;
+    return id;
   }
 
   // NOTE: Using odd numbers for push ids, to allow detecting
@@ -1105,13 +1105,6 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
   folly::Optional<size_t> writeUnframedPushId(quic::StreamId id,
                                               size_t maxlen,
                                               hq::PushId pushId) {
-    CHECK(hq::isInternalPushId(pushId))
-        << "Expecting the push id to be in the internal representation";
-
-    // Since this method does not use a codec, we have to clear
-    // the internal push id bit ourselves
-    pushId &= ~hq::kPushIdMask;
-
     WriteFunctor f = [=](IOBufQueue& outbuf) -> folly::Optional<size_t> {
       folly::io::QueueAppender appender(&outbuf, 8);
       uint8_t size = 1 << (folly::Random::rand32() % 4);
@@ -1237,9 +1230,6 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
       pushId = nextPushId();
     }
 
-    CHECK(hq::isInternalPushId(pushId))
-        << "Expecting the push id to be in the internal representation";
-
     auto c = makeCodec(streamId);
     auto res =
         streams_.emplace(std::piecewise_construct,
@@ -1268,11 +1258,6 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
                                      folly::Optional<hq::PushId> pushId,
                                      std::size_t len = kUnlimited,
                                      bool eom = true) {
-
-    if (pushId.has_value()) {
-      CHECK(hq::isInternalPushId(*pushId))
-          << "Expecting the push id to be in the internal representation";
-    }
 
     auto c = makeCodec(streamId);
     // Setting a push id allows us to send push preface
@@ -1304,9 +1289,6 @@ class HQUpstreamSessionTestHQPush : public HQUpstreamSessionTest {
                         const HTTPMessage& resp,
                         std::unique_ptr<folly::IOBuf> body = nullptr,
                         bool eom = true) {
-
-    CHECK(hq::isInternalPushId(pushId))
-        << "Expecting the push id to be in the internal representation";
 
     auto& stream = createPushStreamImpl(streamId, pushId, kUnlimited, eom);
 
@@ -1423,9 +1405,6 @@ TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
   });
 
   hq::PushId pushId = nextPushId();
-
-  ASSERT_TRUE(hq::isInternalPushId(pushId))
-      << "Expecting the push id to be in the internal representation";
 
   auto pushPromiseRequest = getGetRequest();
 

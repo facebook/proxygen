@@ -88,8 +88,7 @@ void HQUnidirStreamDispatcher::onDataAvailable(
       // Otherwise, continue using this callback
       if (pushId) {
         consumed += pushId->second;
-        sink_.onNewPushStream(
-            releaseOwnership(id), pushId->first | hq::kPushIdMask, consumed);
+        sink_.onNewPushStream(releaseOwnership(id), pushId->first, consumed);
       }
       return;
     }

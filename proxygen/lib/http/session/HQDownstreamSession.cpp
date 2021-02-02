@@ -238,20 +238,19 @@ size_t HQDownstreamSession::HQEgressPushStream::generateStreamPushId() {
   // reserve space for max quic interger len
   folly::io::QueueAppender appender(&writeBuf_, 8);
 
-  auto externalPushId = pushId_ & ~hq::kPushIdMask;
   auto result = quic::encodeQuicInteger(
-      externalPushId, [appender = std::move(appender)](auto val) mutable {
+      pushId_, [appender = std::move(appender)](auto val) mutable {
         appender.writeBE(val);
       });
   CHECK(!result.hasError())
-      << __func__ << " QUIC integer encoding error value=" << externalPushId;
+      << __func__ << " QUIC integer encoding error value=" << pushId_;
 
   return *result;
 }
 
 // Return a new push id that can be used for outgoing transactions
 hq::PushId HQDownstreamSession::createNewPushId() {
-  auto newPushId = nextAvailablePushId_++ | hq::kPushIdMask;
+  auto newPushId = nextAvailablePushId_++;
   return newPushId;
 }
 

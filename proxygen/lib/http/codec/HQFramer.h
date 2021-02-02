@@ -30,28 +30,9 @@ const uint64_t kMaxGreaseIdIndex = 0x210842108421083;
 // Unframed body DATA frame length.
 const size_t kUnframedDataFrameLen = 0;
 
-// PushID mask
-// to make sure push id and stream id spaces are disjoint
-const uint64_t kPushIdMask = ((uint64_t)1) << 63;
-
 //////// Types ////////
 
 using PushId = uint64_t;
-
-// Internally the push IDs have a high bit set
-// to prevent a collision with a stream id.
-bool isInternalPushId(PushId pushId);
-
-// Externally the push IDs do not have the high bit
-// set.
-bool isExternalPushId(PushId pushId);
-
-// Validate the given push ID.
-bool isValidPushId(folly::Optional<PushId> /* max valid push id value */,
-                   PushId /* push id to validate */);
-
-// Compare push IDs after stripping the kPushBitMask
-bool comparePushId(PushId /* lhs */, PushId /* rhs */);
 
 using ParseResult = folly::Optional<HTTP3::ErrorCode>;
 using WriteResult = folly::Expected<size_t, quic::TransportErrorCode>;

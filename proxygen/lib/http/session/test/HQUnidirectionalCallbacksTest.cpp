@@ -133,7 +133,7 @@ TEST_F(UnidirectionalReadDispatcherTest,
   dispatcherCallback_->expectOnNewPushStream(
       [&](quic::StreamId id, hq::PushId pushId, size_t consumed) {
         ASSERT_EQ(id, expectedId);
-        ASSERT_EQ(pushId, expectedPushId | hq::kPushIdMask);
+        ASSERT_EQ(pushId, expectedPushId);
         ASSERT_EQ(consumed, atLeastBytes + atLeastBytes);
       });
 
