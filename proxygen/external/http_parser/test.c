@@ -2559,7 +2559,7 @@ test_no_overflow_long_body (int req, size_t length)
   size_t parsed;
   size_t i;
   char buf1[3000];
-  size_t buf1len = sprintf(buf1, "%s\r\nConnection: Keep-Alive\r\nContent-Length: %zu\r\n\r\n",
+  size_t buf1len = snprintf(buf1, sizeof(buf1), "%s\r\nConnection: Keep-Alive\r\nContent-Length: %zu\r\n\r\n",
       req ? "POST / HTTP/1.0" : "HTTP/1.0 200 OK", length);
   parsed = http_parser_execute(&parser, &settings_null, buf1, buf1len);
   if (parsed != buf1len)
@@ -3009,7 +3009,7 @@ main (void)
   const char **this_method;
   for (this_method = all_methods; *this_method; this_method++) {
     char buf[200];
-    sprintf(buf, "%s / HTTP/1.1\r\n\r\n", *this_method);
+    snprintf(buf, sizeof(buf), "%s / HTTP/1.1\r\n\r\n", *this_method);
     test_simple(buf, HPE_OK);
   }
 
@@ -3019,7 +3019,7 @@ main (void)
       0 };
   for (this_method = bad_methods; *this_method; this_method++) {
     char buf[200];
-    sprintf(buf, "%s / HTTP/1.1\r\n\r\n", *this_method);
+    snprintf(buf, sizeof(buf), "%s / HTTP/1.1\r\n\r\n", *this_method);
     test_simple(buf, HPE_UNKNOWN);
   }
 
