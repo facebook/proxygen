@@ -1534,7 +1534,7 @@ class HQSession
         enqueued_ = handle->isEnqueued();
       }
 
-      HTTP2PriorityQueueBase::Handle getHandle() const {
+      HTTP2PriorityQueueBase::Handle FOLLY_NULLABLE getHandle() const {
         return egressQueueHandle_;
       }
 
@@ -1544,7 +1544,7 @@ class HQSession
 
       // HQStreamTransport is enqueued
       bool isStreamTransportEnqueued() const {
-        return egressQueueHandle_->isEnqueued();
+        return egressQueueHandle_ ? egressQueueHandle_->isEnqueued() : false;
       }
 
       bool isTransactionEnqueued() const {
@@ -1564,7 +1564,7 @@ class HQSession
       }
 
      private:
-      HTTP2PriorityQueueBase::Handle egressQueueHandle_;
+      HTTP2PriorityQueueBase::Handle egressQueueHandle_{nullptr};
       bool enqueued_;
     };
 
@@ -1584,6 +1584,7 @@ class HQSession
         http2::PriorityUpdate pri,
         uint64_t* depth) override {
       CHECK_EQ(handle, &queueHandle_);
+      CHECK(queueHandle_.getHandle());
       return session_.txnEgressQueue_.updatePriority(
           queueHandle_.getHandle(), pri, depth);
     }
@@ -1591,6 +1592,7 @@ class HQSession
     // Remove the transaction from the priority tree
     void removeTransaction(HTTP2PriorityQueueBase::Handle handle) override {
       CHECK_EQ(handle, &queueHandle_);
+      CHECK(queueHandle_.getHandle());
       session_.txnEgressQueue_.removeTransaction(queueHandle_.getHandle());
       queueHandle_.clearHandle();
     }

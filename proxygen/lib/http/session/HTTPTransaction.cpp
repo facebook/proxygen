@@ -101,8 +101,10 @@ HTTPTransaction::HTTPTransaction(
     stats_->recordTransactionOpened();
   }
 
-  queueHandle_ =
-      egressQueue_.addTransaction(id_, priority, this, false, &insertDepth_);
+  if (direction_ == TransportDirection::DOWNSTREAM || !isPushed()) {
+    queueHandle_ =
+        egressQueue_.addTransaction(id_, priority, this, false, &insertDepth_);
+  }
   if (priority.streamDependency != egressQueue_.getRootId() &&
       insertDepth_ == 1) {
     priorityFallback_ = true;
