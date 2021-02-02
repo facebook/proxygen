@@ -224,6 +224,9 @@ target_compile_options(
 
 if (BUILD_SHARED_LIBS)
     set_property(TARGET proxygen PROPERTY POSITION_INDEPENDENT_CODE ON)
+    if (DEFINED PACKAGE_VERSION)
+      set_target_properties(proxygen PROPERTIES VERSION ${PACKAGE_VERSION})
+    endif()
 endif()
 
 target_link_libraries(
