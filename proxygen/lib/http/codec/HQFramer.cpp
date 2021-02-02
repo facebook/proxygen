@@ -29,10 +29,6 @@ folly::Optional<uint64_t> getGreaseId(uint64_t n) {
   return (0x1F * n) + 0x21;
 }
 
-bool frameAffectsCompression(FrameType t) {
-  return t == FrameType::HEADERS || t == FrameType::PUSH_PROMISE;
-}
-
 ParseResult parseData(folly::io::Cursor& cursor,
                       const FrameHeader& header,
                       std::unique_ptr<folly::IOBuf>& outBuf) noexcept {

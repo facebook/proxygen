@@ -67,7 +67,6 @@ using SettingPair = std::pair<SettingId, SettingValue>;
 //////// Functions ////////
 folly::Optional<uint64_t> getGreaseId(uint64_t n);
 bool isGreaseId(uint64_t id);
-bool frameAffectsCompression(FrameType type);
 
 //// Parsing ////
 
