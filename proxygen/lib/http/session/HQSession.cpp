@@ -2717,6 +2717,13 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
     session_.versionUtils_->checkSendingGoaway(headers);
   }
 
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  auto httpPriority = httpPriorityFromHTTPMessage(headers);
+  if (sock && httpPriority) {
+    sock->setStreamPriority(
+        streamId, httpPriority->urgency, httpPriority->incremental);
+  }
   // If this is a push promise, send it on the parent stream.
   // The accounting will happen in the nested context
   if (headers.isRequest() && txn->getAssocTxnId()) {
@@ -2766,8 +2773,7 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
-  auto sock = session_.sock_;
-  auto streamId = getStreamId();
+
   if (sock && sock->getState() && sock->getState()->qLogger) {
     sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kHeaders, timeDiff);
@@ -2777,11 +2783,6 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
       sock->getState()->qLogger->addStreamStateUpdate(
           streamId, quic::kEOM, timeDiff);
     }
-  }
-  auto httpPriority = httpPriorityFromHTTPMessage(headers);
-  if (sock && headers.isRequest() && httpPriority) {
-    sock->setStreamPriority(
-        streamId, httpPriority->urgency, httpPriority->incremental);
   }
 
   // If partial reliability is enabled, enable the callbacks.
@@ -3465,11 +3466,6 @@ void HQSession::HQStreamTransport::sendPushPromise(
       sock->getState()->qLogger->addStreamStateUpdate(
           streamId, quic::kEOM, timeDiff);
     }
-  }
-  auto httpPriority = httpPriorityFromHTTPMessage(headers);
-  if (sock && httpPriority) {
-    sock->setStreamPriority(
-        streamId, httpPriority->urgency, httpPriority->incremental);
   }
 }
 

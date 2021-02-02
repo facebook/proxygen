@@ -348,11 +348,66 @@ TEST_P(HQDownstreamSessionTest, PriorityUpdateIntoTransport) {
   handler->expectEOM([&]() {
     auto resp = makeResponse(200, 0);
     std::get<0>(resp)->getHeaders().add(HTTP_HEADER_PRIORITY, "u=2");
-    // For now response doesn't update priority
     EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 2, false))
-        .Times(0);
+        .Times(1);
     handler->sendRequest(*std::get<0>(resp));
   });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQPush, PushPriority) {
+  sendRequest("/", 1);
+  HTTPMessage promiseReq, parentResp;
+  promiseReq.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
+  promiseReq.setURL("/");
+  promiseReq.setHTTPPriority(0, false);
+
+  parentResp.setStatusCode(200);
+  parentResp.setStatusMessage("Ohai");
+
+  HTTPMessage pushResp(parentResp);
+  pushResp.setHTTPPriority(1, false);
+
+  auto handler = addSimpleStrictHandler();
+  StrictMock<MockHTTPPushHandler> pushHandler;
+  handler->expectHeaders();
+  HTTPCodec::StreamID pushStreamId = 0;
+  handler->expectEOM([&] {
+    EXPECT_CALL(*socketDriver_->getSocket(),
+                setStreamPriority(handler->txn_->getID(), _, _))
+        .Times(0);
+    handler->txn_->sendHeaders(parentResp);
+    handler->txn_->sendBody(makeBuf(100));
+
+    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
+    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+    ASSERT_NE(pushTxn, nullptr);
+    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
+    // PushPromise doesn't update parent streram's priority. It does update push
+    // stream priority
+    EXPECT_CALL(*socketDriver_->getSocket(),
+                setStreamPriority(handler->txn_->getID(), _, _))
+        .Times(0);
+    EXPECT_CALL(*socketDriver_->getSocket(),
+                setStreamPriority(pushTxn->getID(), 0, false))
+        .Times(1);
+    pushTxn->sendHeaders(promiseReq);
+    pushStreamId = pushTxn->getID();
+    EXPECT_CALL(*socketDriver_->getSocket(),
+                setStreamPriority(pushStreamId, 1, false))
+        .Times(1);
+    pushTxn->sendHeaders(pushResp);
+    pushTxn->sendBody(makeBuf(200));
+    pushTxn->sendEOM();
+  });
+  EXPECT_CALL(pushHandler, setTransaction(_))
+      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
+  EXPECT_CALL(pushHandler, detachTransaction());
+
+  flushRequestsAndLoopN(1);
+  handler->txn_->sendEOM();
   handler->expectDetachTransaction();
   flushRequestsAndLoop();
   hqSession_->closeWhenIdle();
