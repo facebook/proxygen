@@ -147,21 +147,29 @@ include(ProxygenTest)
 
 add_subdirectory(proxygen)
 
+if (NOT DEFINED LIB_INSTALL_DIR)
+    set(LIB_INSTALL_DIR "lib")
+endif()
+
+if (NOT DEFINED CMAKE_INSTALL_DIR)
+    set(CMAKE_INSTALL_DIR "${LIB_INSTALL_DIR}/cmake/proxygen/")
+endif()
+
 install(
     EXPORT proxygen-exports
     FILE proxygen-targets.cmake
     NAMESPACE proxygen::
-    DESTINATION lib/cmake/proxygen/
+    DESTINATION ${CMAKE_INSTALL_DIR}
 )
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
     cmake/proxygen-config.cmake.in
     ${CMAKE_CURRENT_BINARY_DIR}/proxygen-config.cmake
-    INSTALL_DESTINATION lib/cmake/proxygen/
+    INSTALL_DESTINATION ${CMAKE_INSTALL_DIR}
 )
 install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/proxygen-config.cmake
-    DESTINATION lib/cmake/proxygen/
+    DESTINATION ${CMAKE_INSTALL_DIR}
 )
 
 # uninstall target

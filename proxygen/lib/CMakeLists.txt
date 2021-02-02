@@ -266,7 +266,7 @@ install(
 install(
     TARGETS proxygen
     EXPORT proxygen-exports
-    DESTINATION lib
+    DESTINATION ${LIB_INSTALL_DIR}
 )
 
 add_subdirectory(test)
