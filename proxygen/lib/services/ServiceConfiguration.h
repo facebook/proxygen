@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include <proxygen/lib/services/AcceptorConfiguration.h>
-
 namespace proxygen {
 
 /**
@@ -17,32 +15,10 @@ namespace proxygen {
  */
 class ServiceConfiguration {
  public:
-  ServiceConfiguration() : writeBufferLimit_(4096), takeoverEnabled_(false) {
+  ServiceConfiguration() : takeoverEnabled_(false) {
   }
 
   virtual ~ServiceConfiguration() {
-  }
-
-  /**
-   * Set/get the list of acceptors that will be receiving traffic.
-   */
-  void setAcceptors(const std::list<AcceptorConfiguration> &acceptors) {
-    acceptors_.clear();
-    acceptors_.insert(acceptors_.begin(), acceptors.begin(), acceptors.end());
-  }
-  const std::list<AcceptorConfiguration> &getAcceptors() const {
-    return acceptors_;
-  }
-
-  /**
-   * Set/get the amount of data that we're allowed to buffer in-memory before
-   * back-pressuring the other end of an HTTP connection.
-   */
-  void setWriteBufferLimit(uint64_t size) {
-    writeBufferLimit_ = size;
-  }
-  uint64_t getWriteBufferLimit() const {
-    return writeBufferLimit_;
   }
 
   /**
@@ -56,8 +32,6 @@ class ServiceConfiguration {
   }
 
  private:
-  std::list<AcceptorConfiguration> acceptors_;
-  uint64_t writeBufferLimit_;
   bool takeoverEnabled_;
 };
 
