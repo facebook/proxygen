@@ -224,4 +224,15 @@ TEST_F(QPACKHeaderTableTests, BadSync) {
   EXPECT_FALSE(table_.onInsertCountIncrement(1));
 }
 
+TEST_F(QPACKHeaderTableTests, TinyTable) {
+  // This table will tell you it can't hold any headers, but it can!
+  QPACKHeaderTable table(0, true);
+  table.setCapacity(63);
+  HPACKHeader foo("F", "");
+  EXPECT_FALSE(table.canIndex(foo.name, foo.value));
+  EXPECT_TRUE(table.add(foo.copy()));
+  EXPECT_EQ(table.size(), 1);
+  EXPECT_EQ(table.length(), 1);
+  EXPECT_TRUE(table.isDraining(1));
+}
 } // namespace proxygen

@@ -221,6 +221,8 @@ class HeaderTable {
   uint32_t getIndexImpl(const HPACKHeaderName& header,
                         folly::StringPiece value,
                         bool nameOnly) const;
+
+  uint32_t initialTableLength(uint32_t capacity);
 };
 
 std::ostream& operator<<(std::ostream& os, const HeaderTable& table);

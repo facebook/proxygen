@@ -329,4 +329,13 @@ TEST_F(HeaderTableTests, SmallTable) {
   EXPECT_EQ(table.length(), 2);
 }
 
+TEST_F(HeaderTableTests, TinyTable) {
+  // This table can only hold 1 header, but it better be able to hold it!
+  HeaderTable table(63);
+  HPACKHeader foo("Foo", "barbarbarbarbarbarbar1");
+  EXPECT_TRUE(table.add(foo.copy()));
+  EXPECT_EQ(table.size(), 1);
+  EXPECT_EQ(table.length(), 1);
+}
+
 } // namespace proxygen

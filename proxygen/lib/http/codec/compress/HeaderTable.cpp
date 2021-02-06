@@ -12,12 +12,17 @@
 
 namespace proxygen {
 
+uint32_t HeaderTable::initialTableLength(uint32_t capacity) {
+  auto maxTableLength = getMaxTableLength(capacity);
+  return (maxTableLength == 1) ? 1 : (maxTableLength / 2);
+}
+
 void HeaderTable::init(uint32_t capacityVal) {
   bytes_ = 0;
   size_ = 0;
   head_ = 0;
   capacity_ = capacityVal;
-  uint32_t initLength = getMaxTableLength(capacity_) / 2;
+  uint32_t initLength = initialTableLength(capacity_);
   table_.reserve(initLength);
   for (uint32_t i = 0; i < initLength; i++) {
     table_.emplace_back();
@@ -148,7 +153,7 @@ bool HeaderTable::setCapacity(uint32_t newCapacity) {
     // NOTE: due to the above lack of resizing, we must determine whether a
     // resize is actually appropriate (to handle cases where the underlying
     // vector is still >= to the size related to the new capacity requested)
-    uint32_t newLength = getMaxTableLength(newCapacity) / 2;
+    uint32_t newLength = initialTableLength(newCapacity);
     if (newLength > length()) {
       increaseTableLengthTo(newLength);
     }
