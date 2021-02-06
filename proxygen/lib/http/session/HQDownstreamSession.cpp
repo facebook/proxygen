@@ -101,6 +101,9 @@ HQDownstreamSession::createEgressPushStream(hq::PushId pushId,
           WheelTimerInstance(transactionsTimeout_, getEventBase())));
   incrementSeqNo();
 
+  pushIdToStreamId_[pushId] = streamId;
+  streamIdToPushId_[streamId] = pushId;
+
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
                              "existence check.";
 
@@ -191,6 +194,12 @@ HQDownstreamSession::findEgressPushStream(quic::StreamId streamId) {
 }
 
 bool HQDownstreamSession::erasePushStream(quic::StreamId streamId) {
+  auto pushIdIter = streamIdToPushId_.find(streamId);
+  if (pushIdIter != streamIdToPushId_.end()) {
+    auto pushId = pushIdIter->second;
+    pushIdToStreamId_.erase(pushId);
+    streamIdToPushId_.erase(pushIdIter);
+  }
   return egressPushStreams_.erase(streamId);
 }
 

@@ -201,6 +201,7 @@ class MockHTTPCodecCallback : public HTTPCodec::Callback {
   MOCK_METHOD0(onSettingsAck, void());
   MOCK_METHOD2(onPriority,
                void(HTTPCodec::StreamID, const HTTPMessage::HTTP2Priority&));
+  MOCK_METHOD2(onPriority, void(HTTPCodec::StreamID, const HTTPPriority&));
   MOCK_METHOD2(onCertificateRequest,
                void(uint16_t, std::shared_ptr<folly::IOBuf>));
   void onCertificateRequest(

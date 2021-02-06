@@ -1605,6 +1605,59 @@ void HQSession::onGoaway(uint64_t lastGoodStreamID,
   checkForShutdown();
 }
 
+void HQSession::onPriority(quic::StreamId streamId, const HTTPPriority& pri) {
+  CHECK_EQ(direction_, TransportDirection::DOWNSTREAM);
+  if (drainState_ != DrainState::NONE) {
+    return;
+  }
+  CHECK(sock_);
+  if (streamId > maxAllowedStreamId_) {
+    VLOG(4) << "Priority update stream id=" << streamId
+            << " greater than max allowed id=" << maxAllowedStreamId_;
+    dropConnectionAsync(
+        std::make_pair(HTTP3::ErrorCode::HTTP_ID_ERROR,
+                       "Stream id is beyond max allowed stream id"),
+        kErrorMalformedInput);
+    return;
+  }
+  // This also covers push streams:
+  auto stream = findStream(streamId);
+  if (!stream) {
+    // We are supposed to drop the connection with HTTP_ID_ERROR if the streamId
+    // points to a control stream. But why should I spend CPU looking it up?
+    return;
+  }
+  sock_->setStreamPriority(streamId, pri.urgency, pri.incremental);
+}
+
+void HQSession::onPushPriority(hq::PushId pushId, const HTTPPriority& pri) {
+  CHECK_EQ(direction_, TransportDirection::DOWNSTREAM);
+  if (drainState_ != DrainState::NONE) {
+    return;
+  }
+  CHECK(sock_);
+
+  if (maxAllowedPushId_.hasValue() && *maxAllowedPushId_ < pushId) {
+    VLOG(4) << "Priority update stream id=" << pushId
+            << " greater than max allowed push id=" << *maxAllowedPushId_;
+    dropConnectionAsync(std::make_pair(HTTP3::ErrorCode::HTTP_ID_ERROR,
+                                       "PushId is beyond max allowed push id"),
+                        kErrorMalformedInput);
+    return;
+  }
+  auto iter = pushIdToStreamId_.find(pushId);
+  if (iter == pushIdToStreamId_.end()) {
+    VLOG(4) << "Priority update of unknown push id=" << pushId;
+    return;
+  }
+  auto streamId = iter->second;
+  auto stream = findPushStream(streamId);
+  if (!stream) {
+    return;
+  }
+  sock_->setStreamPriority(streamId, pri.urgency, pri.incremental);
+}
+
 void HQSession::pauseTransactions() {
   writesPaused_ = true;
   invokeOnEgressStreams(
@@ -2592,7 +2645,7 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kOnHeaders, timeDiff);
   }
-  const auto& httpPriority = httpPriorityFromHTTPMessage(*msg);
+  const auto httpPriority = httpPriorityFromHTTPMessage(*msg);
   if (sock && httpPriority) {
     sock->setStreamPriority(
         streamId, httpPriority->urgency, httpPriority->incremental);

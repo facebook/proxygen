@@ -1319,6 +1319,9 @@ void HTTPSession::onPriority(HTTPCodec::StreamID streamID,
   }
 }
 
+void HTTPSession::onPriority(HTTPCodec::StreamID, const HTTPPriority&) {
+}
+
 void HTTPSession::onCertificateRequest(uint16_t requestId,
                                        std::unique_ptr<IOBuf> authRequest) {
   DestructorGuard dg(this);

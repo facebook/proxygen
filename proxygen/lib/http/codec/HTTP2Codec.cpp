@@ -720,8 +720,13 @@ ErrorCode HTTP2Codec::parsePriority(Cursor& cursor) {
         false);
     return ErrorCode::NO_ERROR;
   }
+  // Now we have two onPriority overloads, this function pointer has to be
+  // explicitly specified via a cast:
+  auto onPriFunc = static_cast<void (HTTPCodec::Callback::*)(
+      StreamID, const HTTPMessage::HTTP2Priority&)>(
+      &HTTPCodec::Callback::onPriority);
   deliverCallbackIfAllowed(
-      &HTTPCodec::Callback::onPriority,
+      onPriFunc,
       "onPriority",
       curHeader_.stream,
       std::make_tuple(pri.streamDependency, pri.exclusive, pri.weight));

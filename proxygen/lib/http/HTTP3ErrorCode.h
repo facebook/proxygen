@@ -24,7 +24,7 @@ enum ErrorCode : uint16_t {
   HTTP_FRAME_UNEXPECTED = 0x105,
   HTTP_FRAME_ERROR = 0x106,
   HTTP_EXCESSIVE_LOAD = 0x107,
-  HTTP_ID_ERROR = 0x108, // TODO: needs to audit the lack of use of this error.
+  HTTP_ID_ERROR = 0x108,
   HTTP_SETTINGS_ERROR = 0x109,
   HTTP_MISSING_SETTINGS = 0x10A,
   HTTP_REQUEST_REJECTED = 0x10B,

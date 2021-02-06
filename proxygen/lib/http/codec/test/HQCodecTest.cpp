@@ -865,6 +865,24 @@ TEST_F(HQCodecTest, MultipleSettingsDownstream) {
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
+TEST_F(HQCodecTest, PriorityCallback) {
+  // SETTINGS is a must have
+  writeValidFrame(queueCtrl_, FrameType::SETTINGS);
+  writeValidFrame(queueCtrl_, FrameType::PRIORITY_UPDATE);
+  parseControl(CodecType::CONTROL_DOWNSTREAM);
+  EXPECT_EQ(1, callbacks_.urgency);
+  EXPECT_TRUE(callbacks_.incremental);
+}
+
+TEST_F(HQCodecTest, PushPriorityCallback) {
+  // SETTINGS is a must have
+  writeValidFrame(queueCtrl_, FrameType::SETTINGS);
+  writeValidFrame(queueCtrl_, FrameType::PUSH_PRIORITY_UPDATE);
+  parseControl(CodecType::CONTROL_DOWNSTREAM);
+  EXPECT_EQ(1, callbacks_.urgency);
+  EXPECT_TRUE(callbacks_.incremental);
+}
+
 struct FrameAllowedParams {
   CodecType codecType;
   FrameType frameType;
@@ -914,6 +932,12 @@ std::string frameParamsToTestName(
       break;
     case FrameType::MAX_PUSH_ID:
       testName += "MaxPushID";
+      break;
+    case FrameType::PRIORITY_UPDATE:
+      testName += "PriorityUpdate";
+      break;
+    case FrameType::PUSH_PRIORITY_UPDATE:
+      testName += "PushPriorityUpdate";
       break;
     default:
       testName +=
@@ -1019,6 +1043,14 @@ INSTANTIATE_TEST_CASE_P(
         (FrameAllowedParams){CodecType::DOWNSTREAM,
                              FrameType(*getGreaseId(hq::kMaxGreaseIdIndex)),
                              true},
+        (FrameAllowedParams){
+            CodecType::DOWNSTREAM, FrameType::PRIORITY_UPDATE, false},
+        (FrameAllowedParams){
+            CodecType::DOWNSTREAM, FrameType::PUSH_PRIORITY_UPDATE, false},
+        (FrameAllowedParams){
+            CodecType::UPSTREAM, FrameType::PRIORITY_UPDATE, false},
+        (FrameAllowedParams){
+            CodecType::UPSTREAM, FrameType::PUSH_PRIORITY_UPDATE, false},
         // HQ Upstream Ingress Control Codec
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::DATA, false},
@@ -1038,6 +1070,11 @@ INSTANTIATE_TEST_CASE_P(
             CodecType::CONTROL_UPSTREAM, FrameType(*getGreaseId(12345)), true},
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType(*getGreaseId(54321)), true},
+        (FrameAllowedParams){
+            CodecType::CONTROL_UPSTREAM, FrameType::PRIORITY_UPDATE, false},
+        (FrameAllowedParams){CodecType::CONTROL_UPSTREAM,
+                             FrameType::PUSH_PRIORITY_UPDATE,
+                             false},
         // HQ Downstream Ingress Control Codec
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::DATA, false},
@@ -1058,6 +1095,11 @@ INSTANTIATE_TEST_CASE_P(
                              true},
         (FrameAllowedParams){CodecType::CONTROL_DOWNSTREAM,
                              FrameType(*getGreaseId(567879)),
+                             true},
+        (FrameAllowedParams){
+            CodecType::CONTROL_DOWNSTREAM, FrameType::PRIORITY_UPDATE, true},
+        (FrameAllowedParams){CodecType::CONTROL_DOWNSTREAM,
+                             FrameType::PUSH_PRIORITY_UPDATE,
                              true}),
     frameParamsToTestName);
 

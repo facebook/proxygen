@@ -70,6 +70,21 @@ void writeValidFrame(folly::IOBufQueue& queue, proxygen::hq::FrameType type) {
       queue.append(std::move(data));
       break;
     }
+    case proxygen::hq::FrameType::PRIORITY_UPDATE:
+    case proxygen::hq::FrameType::PUSH_PRIORITY_UPDATE: {
+      quic::StreamId prioritizedId = 123;
+      auto prioritizedIdSize = quic::getQuicIntegerSize(prioritizedId);
+      auto data = folly::IOBuf::copyBuffer("u=1, i");
+      writeFrameHeaderManual(
+          queue,
+          static_cast<uint64_t>(type),
+          *prioritizedIdSize + data->computeChainDataLength());
+      folly::io::QueueAppender appender(&queue, *prioritizedIdSize);
+      auto appenderOp = [&](auto val) { appender.writeBE(val); };
+      quic::encodeQuicInteger(prioritizedId, appenderOp);
+      queue.append(std::move(data));
+      break;
+    }
     default: {
       // all the other frames (DATA, GREASE_*, ...) just
       // have a binary blob as payload

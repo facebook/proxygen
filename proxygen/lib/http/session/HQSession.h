@@ -18,6 +18,7 @@
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
+#include <proxygen/lib/http/codec/HTTP2Framer.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
@@ -280,6 +281,9 @@ class HQSession
                 std::unique_ptr<folly::IOBuf> debugData = nullptr);
 
   void onSettings(const SettingsList& settings);
+
+  void onPriority(quic::StreamId streamId, const HTTPPriority& pri);
+  void onPushPriority(hq::PushId pushId, const HTTPPriority& pri);
 
   folly::AsyncTransport* getTransport() override {
     return nullptr;
@@ -1069,6 +1073,15 @@ class HQSession
 
     void onSettings(const SettingsList& settings) override {
       session_.onSettings(settings);
+    }
+
+    void onPriority(HTTPCodec::StreamID id, const HTTPPriority& pri) override {
+      session_.onPriority(id, pri);
+    }
+
+    void onPushPriority(HTTPCodec::StreamID id,
+                        const HTTPPriority& pri) override {
+      session_.onPushPriority(id, pri);
     }
 
     std::unique_ptr<hq::HQUnidirectionalCodec> ingressCodec_;
@@ -2102,6 +2115,10 @@ class HQSession
   // Creation time (for handshake time tracking)
   std::chrono::steady_clock::time_point createTime_;
 
+  // Lookup maps for matching PushIds to StreamIds
+  folly::F14FastMap<hq::PushId, quic::StreamId> pushIdToStreamId_;
+  // Lookup maps for matching ingress push streams to push ids
+  folly::F14FastMap<quic::StreamId, hq::PushId> streamIdToPushId_;
 }; // HQSession
 
 std::ostream& operator<<(std::ostream& os, HQSession::DrainState drainState);

@@ -68,6 +68,12 @@ class ControlMessageRateLimitFilter : public PassThroughHTTPCodecFilter {
     }
   }
 
+  void onPriority(StreamID, const HTTPPriority&) override {
+    // This isn't HTTP/2 priority. An excessive amount of priority updates in
+    // HTTP/2 is expensive to handle. The new HTTP priority imple has a much
+    // cheaper priority update cost.
+  }
+
   void onError(HTTPCodec::StreamID streamID,
                const HTTPException& error,
                bool newTxn) override {

@@ -285,6 +285,20 @@ class HTTPCodec {
     }
 
     /**
+     * Experimental: this is the new HTTP Priority draft format of priority
+     * update. This is called when a PRIORITY_UPDATE frame is received.
+     */
+    virtual void onPriority(StreamID, const HTTPPriority& /* pri */) {
+    }
+
+    /**
+     * Experimental: this is the new HTTP Priority draft format of priority
+     * update. This is called when a PUSH_PRIORITY_UPDATE frame is received.
+     */
+    virtual void onPushPriority(StreamID, const HTTPPriority& /* pri */) {
+    }
+
+    /**
      * Called upon receipt of a valid protocol switch.  Return false if
      * protocol switch could not be completed.
      */

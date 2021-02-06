@@ -262,10 +262,6 @@ class HQUpstreamSession : public HQSession {
   std::chrono::milliseconds connectTimeoutMs_;
   ConnectTimeout connectTimeout_;
   ConnCallbackState connCbState_{ConnCallbackState::NONE};
-
-  // Lookup maps for matching ingress push streams to push ids
-  folly::F14FastMap<hq::PushId, quic::StreamId> pushIdToStreamId_;
-  folly::F14FastMap<quic::StreamId, hq::PushId> streamIdToPushId_;
 };
 
 } // namespace proxygen

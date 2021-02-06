@@ -89,6 +89,12 @@ void SPDYStatsFilter::onPriority(StreamID stream,
   callback_->onPriority(stream, pri);
 }
 
+void SPDYStatsFilter::onPriority(StreamID stream,
+                                 const HTTPPriority& priority) {
+  counters_->recordIngressPriority();
+  callback_->onPriority(stream, priority);
+}
+
 void SPDYStatsFilter::generateHeader(folly::IOBufQueue& writeBuf,
                                      StreamID stream,
                                      const HTTPMessage& msg,

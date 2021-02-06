@@ -336,6 +336,18 @@ class HQFramedCodec : public HTTPCodec {
     folly::assume_unreachable();
   }
 
+  virtual ParseResult parsePushPriorityUpdate(folly::io::Cursor&,
+                                              const FrameHeader&) {
+    LOG(FATAL) << __func__ << " not supported on this codec";
+    folly::assume_unreachable();
+  }
+
+  virtual ParseResult parsePriorityUpdate(folly::io::Cursor&,
+                                          const FrameHeader&) {
+    LOG(FATAL) << __func__ << " not supported on this codec";
+    folly::assume_unreachable();
+  }
+
   virtual ParseResult parsePartiallyReliableData(
       folly::io::Cursor& /* cursor */) {
     LOG(FATAL) << __func__ << " not supported on this codec";

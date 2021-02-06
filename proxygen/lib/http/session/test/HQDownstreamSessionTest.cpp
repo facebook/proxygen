@@ -413,6 +413,26 @@ TEST_P(HQDownstreamSessionTestHQPush, PushPriority) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTest, OnPriorityCallback) {
+  if (!IS_HQ) { // H1Q tests do not support priority
+    hqSession_->closeWhenIdle();
+    return;
+  }
+  auto id = sendRequest(getGetRequest());
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders([&]() {
+    handler->sendHeaders(200, 1000);
+    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(id, 4, true));
+    hqSession_->onPriority(id, HTTPPriority(4, true));
+    handler->sendBody(1000);
+    handler->sendEOM();
+  });
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTest, GetStopSending) {
   auto id = sendRequest(getGetRequest());
   auto handler = addSimpleStrictHandler();
@@ -2688,6 +2708,60 @@ TEST_P(HQDownstreamSessionTestHQPush, SimplePush) {
   EXPECT_CALL(pushHandler, detachTransaction());
 
   flushRequestsAndLoopN(1);
+  handler->txn_->sendEOM();
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 110);
+  EXPECT_TRUE(socketDriver_->streams_[id].writeEOF);
+  auto pushIt = pushes_.find(pushStreamId);
+  ASSERT_TRUE(pushIt != pushes_.end());
+  EXPECT_GT(socketDriver_->streams_[pushIt->first].writeBuf.chainLength(), 110);
+  EXPECT_TRUE(socketDriver_->streams_[pushIt->first].writeEOF);
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTestHQPush, PushPriorityCallback) {
+  auto id = sendRequest("/", 1);
+  HTTPMessage promiseReq, res;
+  promiseReq.getHeaders().set(HTTP_HEADER_HOST, "www.foo.com");
+  promiseReq.setURL("/");
+  res.setStatusCode(200);
+  res.setStatusMessage("Ohai");
+
+  auto handler = addSimpleStrictHandler();
+  StrictMock<MockHTTPPushHandler> pushHandler;
+  handler->expectHeaders();
+  HTTPCodec::StreamID pushStreamId = 0;
+  handler->expectEOM([&] {
+    handler->txn_->sendHeaders(res);
+    handler->txn_->sendBody(makeBuf(100));
+
+    auto outgoingStreams = hqSession_->getNumOutgoingStreams();
+    auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
+    ASSERT_NE(pushTxn, nullptr);
+    EXPECT_EQ(hqSession_->getNumOutgoingStreams(), outgoingStreams + 1);
+    // Generate a push request (PUSH_PROMISE)
+    pushTxn->sendHeaders(promiseReq);
+    pushStreamId = pushTxn->getID();
+    pushTxn->sendHeaders(res);
+    pushTxn->sendBody(makeBuf(200));
+    pushTxn->sendEOM();
+  });
+  EXPECT_CALL(pushHandler, setTransaction(_))
+      .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
+  EXPECT_CALL(pushHandler, detachTransaction());
+
+  flushRequestsAndLoopN(1);
+
+  // Push stream's priority can be updated either with stream id or push id:
+  auto pushId = pushes_.find(pushStreamId)->second;
+  EXPECT_CALL(*socketDriver_->getSocket(),
+              setStreamPriority(pushStreamId, 6, true));
+  hqSession_->onPushPriority(pushId, HTTPPriority(6, true));
+  EXPECT_CALL(*socketDriver_->getSocket(),
+              setStreamPriority(pushStreamId, 5, true));
+  hqSession_->onPriority(pushStreamId, HTTPPriority(5, true));
+
   handler->txn_->sendEOM();
   handler->expectDetachTransaction();
   flushRequestsAndLoop();

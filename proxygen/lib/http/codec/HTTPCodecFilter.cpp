@@ -114,6 +114,16 @@ void PassThroughHTTPCodecFilter::onPriority(
   callback_->onPriority(stream, pri);
 }
 
+void PassThroughHTTPCodecFilter::onPriority(StreamID stream,
+                                            const HTTPPriority& pri) {
+  callback_->onPriority(stream, pri);
+}
+
+void PassThroughHTTPCodecFilter::onPushPriority(StreamID stream,
+                                                const HTTPPriority& pri) {
+  callback_->onPushPriority(stream, pri);
+}
+
 bool PassThroughHTTPCodecFilter::onNativeProtocolUpgrade(
     StreamID streamID,
     CodecProtocol protocol,

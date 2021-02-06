@@ -133,6 +133,10 @@ class HQControlCodec
                           const FrameHeader& header) override;
   ParseResult parseMaxPushId(folly::io::Cursor& cursor,
                              const FrameHeader& header) override;
+  ParseResult parsePriorityUpdate(folly::io::Cursor& cursor,
+                                  const FrameHeader& header) override;
+  ParseResult parsePushPriorityUpdate(folly::io::Cursor& cursor,
+                                      const FrameHeader& header) override;
 
  private:
   bool sentGoaway_{false};

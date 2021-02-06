@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/codec/HQControlCodec.h>
 
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 
 #include <folly/Random.h>
@@ -46,6 +47,13 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
     // error of type HTTP_FRAME_UNEXPECTED
     if (transportDirection_ == TransportDirection::UPSTREAM &&
         type == hq::FrameType::MAX_PUSH_ID) {
+      return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
+    }
+
+    // PRIORITY_UPDATE is downstream control codec only
+    if (transportDirection_ == TransportDirection::UPSTREAM &&
+        (type == hq::FrameType::PUSH_PRIORITY_UPDATE ||
+         type == hq::FrameType::PRIORITY_UPDATE)) {
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
   }
@@ -112,6 +120,32 @@ ParseResult HQControlCodec::parseMaxPushId(Cursor& cursor,
                                            const FrameHeader& header) {
   quic::StreamId outPushId;
   auto res = hq::parseMaxPushId(cursor, header, outPushId);
+  return res;
+}
+
+ParseResult HQControlCodec::parsePriorityUpdate(Cursor& cursor,
+                                                const FrameHeader& header) {
+  HTTPCodec::StreamID prioritizedElement;
+  HTTPPriority priorityUpdate;
+  auto res = hq::parsePriorityUpdate(
+      cursor, header, prioritizedElement, priorityUpdate);
+  if (!res) {
+    callback_->onPriority(folly::to<quic::StreamId>(prioritizedElement),
+                          priorityUpdate);
+  }
+  return res;
+}
+
+ParseResult HQControlCodec::parsePushPriorityUpdate(Cursor& cursor,
+                                                    const FrameHeader& header) {
+  HTTPCodec::StreamID prioritizedElement;
+  HTTPPriority priorityUpdate;
+  auto res = hq::parsePriorityUpdate(
+      cursor, header, prioritizedElement, priorityUpdate);
+  if (!res) {
+    callback_->onPushPriority(folly::to<PushId>(prioritizedElement),
+                              priorityUpdate);
+  }
   return res;
 }
 

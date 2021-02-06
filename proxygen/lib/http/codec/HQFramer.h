@@ -15,6 +15,8 @@
 #include <folly/io/Cursor.h>
 
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/SettingsId.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/codec/Types.h>
@@ -48,7 +50,11 @@ enum class FrameType : uint64_t {
   // 0x08 reserved
   // 0x09 reserved
   MAX_PUSH_ID = 0x0D,
+  PRIORITY_UPDATE = 0xF700,
+  PUSH_PRIORITY_UPDATE = 0xF701,
 };
+
+std::ostream& operator<<(std::ostream& os, FrameType type);
 
 struct FrameHeader {
   FrameType type;
@@ -175,6 +181,22 @@ ParseResult parseGoaway(folly::io::Cursor& cursor,
 ParseResult parseMaxPushId(folly::io::Cursor& cursor,
                            const FrameHeader& header,
                            PushId& outPushId) noexcept;
+
+/**
+ * This API parses PRIORITY_UPDATE or PUSH_PRIORITY_UPDATE frames.
+ *
+ * @param cursor The cursor to pull input data from.
+ * @param header The frame header for the frame being parsed.
+ * @param outId The prioritized element. It's either a stream id or a push id.
+ *              This is an output parameter.
+ * @param priorityUpdate The Priority Field Value parsed into a
+ *                       HTTPPriority struct. This is an output parameter.
+ * @return folly::none if parsing is successful, otherwise a http error code.
+ */
+ParseResult parsePriorityUpdate(folly::io::Cursor& cursor,
+                                const FrameHeader& header,
+                                HTTPCodec::StreamID& outId,
+                                HTTPPriority& priorityUpdate) noexcept;
 
 //// Egress ////
 

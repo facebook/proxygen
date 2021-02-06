@@ -38,6 +38,9 @@ ParseResult HQFramedCodec::parseFrame(Cursor& cursor) {
       return parseGoaway(cursor, curHeader_);
     case hq::FrameType::MAX_PUSH_ID:
       return parseMaxPushId(cursor, curHeader_);
+    case hq::FrameType::PRIORITY_UPDATE:
+    case hq::FrameType::PUSH_PRIORITY_UPDATE:
+      return parsePriorityUpdate(cursor, curHeader_);
     default:
       // Implementations MUST ignore and discard any frame that has a
       // type that is unknown

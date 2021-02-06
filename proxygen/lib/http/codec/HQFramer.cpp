@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <proxygen/lib/http/HTTPPriorityFunctions.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <quic/codec/QuicInteger.h>
@@ -181,6 +183,30 @@ ParseResult parseMaxPushId(folly::io::Cursor& cursor,
   return folly::none;
 }
 
+ParseResult parsePriorityUpdate(folly::io::Cursor& cursor,
+                                const FrameHeader& header,
+                                HTTPCodec::StreamID& outId,
+                                HTTPPriority& priorityUpdate) noexcept {
+  DCHECK_LE(header.length, cursor.totalLength());
+  auto length = header.length;
+  auto id = quic::decodeQuicInteger(cursor, length);
+  if (!id) {
+    return HTTP3::ErrorCode::HTTP_ID_ERROR;
+  }
+  outId = id->first;
+  auto bufferLength = length - id->second;
+  auto buf = folly::IOBuf::create(bufferLength);
+  cursor.pull((void*)(buf->data()), bufferLength);
+  buf->append(bufferLength);
+  auto httpPriority = httpPriorityFromString(
+      folly::StringPiece(folly::ByteRange(buf->data(), buf->length())));
+  if (!httpPriority) {
+    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
+  }
+  priorityUpdate = *httpPriority;
+  return folly::none;
+}
+
 /**
  * Generate just the common frame header. Returns the total frame header length
  */
@@ -348,6 +374,10 @@ const char* getFrameTypeString(FrameType type) {
       return "GOAWAY";
     case FrameType::MAX_PUSH_ID:
       return "MAX_PUSH_ID";
+    case FrameType::PRIORITY_UPDATE:
+      return "PRIORITY_UPDATE";
+    case FrameType::PUSH_PRIORITY_UPDATE:
+      return "PUSH_PRIORITY_UPDATE";
     default:
       if (isGreaseId(static_cast<uint64_t>(type))) {
         return "GREASE";
@@ -357,6 +387,11 @@ const char* getFrameTypeString(FrameType type) {
   }
   LOG(FATAL) << "Unreachable";
   return "";
+}
+
+std::ostream& operator<<(std::ostream& os, FrameType type) {
+  os << getFrameTypeString(type);
+  return os;
 }
 
 }} // namespace proxygen::hq

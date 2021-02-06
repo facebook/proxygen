@@ -31,6 +31,7 @@ namespace proxygen {
 // opposed to False. This is because our transport layer has been behaving
 // like that before the HTTP priority support is introduced.
 constexpr uint8_t kDefaultHttpPriorityUrgency = 3;
+// We default incremental to True, different from the draft
 constexpr bool kDefaultHttpPriorityIncremental = true;
 constexpr int8_t kMaxPriority = 7;
 
@@ -55,6 +56,7 @@ class HTTPMessage;
 
 folly::Optional<HTTPPriority> httpPriorityFromHTTPMessage(
     const HTTPMessage& message);
+
 /**
  * An HTTP request or response minus the body.
  *
