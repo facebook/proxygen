@@ -1597,6 +1597,13 @@ void HTTPTransaction::updateAndSendPriority(
   transport_.sendPriority(this, priority_);
 }
 
+void HTTPTransaction::updateAndSendPriority(uint8_t urgency, bool incremental) {
+  urgency = HTTPMessage::normalizePriority((int8_t)urgency);
+  CHECK_GE(urgency, 0);
+  // Note we no longer want to play with the egressQueue_ with the new API.
+  transport_.changePriority(this, HTTPPriority(urgency, incremental));
+}
+
 void HTTPTransaction::onPriorityUpdate(const http2::PriorityUpdate& priority) {
   if (!queueHandle_) {
     LOG(ERROR) << "Received priority update on ingress only transaction";

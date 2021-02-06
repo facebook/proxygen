@@ -204,8 +204,48 @@ size_t HQControlCodec::generatePriority(
     folly::IOBufQueue& /*writeBuf*/,
     StreamID /*stream*/,
     const HTTPMessage::HTTP2Priority& /*pri*/) {
-  CHECK(false) << __func__ << "not implemented yet";
+  CHECK(false) << __func__
+               << " deprecated draft. Use the other generatePriority API";
   return 0;
+}
+
+size_t HQControlCodec::generatePriority(folly::IOBufQueue& writeBuf,
+                                        StreamID stream,
+                                        HTTPPriority priority) {
+  if (priority.urgency > quic::kDefaultMaxPriority) {
+    LOG(ERROR) << "Attempt to generate invalid priority update with urgency="
+               << (uint64_t)priority.urgency;
+    return 0;
+  }
+  std::string updateString = folly::to<std::string>(
+      "u=", priority.urgency, (priority.incremental ? ",i" : ""));
+  auto writeRet = hq::writePriorityUpdate(writeBuf, stream, updateString);
+  if (writeRet.hasError()) {
+    LOG(ERROR) << "error writing priority update, stream=" << stream
+               << ", priority=" << updateString;
+    return 0;
+  }
+  return *writeRet;
+}
+
+size_t HQControlCodec::generatePushPriority(folly::IOBufQueue& writeBuf,
+                                            StreamID pushId,
+                                            HTTPPriority priority) {
+  if (priority.urgency > quic::kDefaultMaxPriority) {
+    LOG(ERROR)
+        << "Attempt to generate invalid push priority update with urgency="
+        << (uint64_t)priority.urgency;
+    return 0;
+  }
+  std::string updateString = folly::to<std::string>(
+      "u=", priority.urgency, (priority.incremental ? ",i" : ""));
+  auto writeRet = hq::writePushPriorityUpdate(writeBuf, pushId, updateString);
+  if (writeRet.hasError()) {
+    LOG(ERROR) << "error writing push priority update, pushId=" << pushId
+               << ", priority=" << updateString;
+    return 0;
+  }
+  return *writeRet;
 }
 
 size_t HQControlCodec::addPriorityNodes(PriorityQueue& /*queue*/,

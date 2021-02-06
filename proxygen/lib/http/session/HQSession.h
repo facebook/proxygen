@@ -402,6 +402,9 @@ class HQSession
     return 0;
   }
 
+  size_t sendPriority(HTTPCodec::StreamID id, HTTPPriority pri);
+  size_t sendPushPriority(hq::PushId pushId, HTTPPriority pri);
+
   /**
    * Get session-level transport info.
    * NOTE: The protocolInfo will be set to connection-level pointer.
@@ -1348,12 +1351,9 @@ class HQSession
 
     size_t sendPriority(
         HTTPTransaction* /* txn */,
-        const http2::PriorityUpdate& /* pri */) noexcept override {
-      VLOG(4) << __func__ << " txn=" << txn_;
-      CHECK(hasEgressStreamId())
-          << __func__ << " invoked on stream without egress";
-      return 0;
-    }
+        const http2::PriorityUpdate& /* pri */) noexcept override;
+    size_t changePriority(HTTPTransaction* txn,
+                          HTTPPriority pri) noexcept override;
 
     size_t sendWindowUpdate(HTTPTransaction* /* txn */,
                             uint32_t /* bytes */) noexcept override {

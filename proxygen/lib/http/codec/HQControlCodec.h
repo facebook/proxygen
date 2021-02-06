@@ -89,6 +89,14 @@ class HQControlCodec
                           StreamID stream,
                           const HTTPMessage::HTTP2Priority& pri) override;
 
+  size_t generatePriority(folly::IOBufQueue& writeBuf,
+                          StreamID stream,
+                          HTTPPriority priority) override;
+
+  size_t generatePushPriority(folly::IOBufQueue& writeBuf,
+                              StreamID pushId,
+                              HTTPPriority priority) override;
+
   const HTTPSettings* getIngressSettings() const override {
     CHECK(isIngress());
     return &settings_;

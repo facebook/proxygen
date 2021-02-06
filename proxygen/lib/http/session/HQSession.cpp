@@ -487,6 +487,69 @@ bool HQSession::getCurrentStreamTransportInfo(QuicStreamProtocolInfo* qspinfo,
   return false;
 }
 
+size_t HQSession::sendPriority(HTTPCodec::StreamID id, HTTPPriority priority) {
+  // On one hand i think this should be done inside VersionUtil.
+  // On the other hand, why are we keeping h1q?
+
+  if (streams_.find(id) == streams_.end() && !findPushStream(id)) {
+    return 0;
+  }
+  sock_->setStreamPriority(id, priority.urgency, priority.incremental);
+  auto controlStream = findControlStream(UnidirectionalStreamType::CONTROL);
+  if (!controlStream) {
+    return 0;
+  }
+  auto g = folly::makeGuard(controlStream->setActiveCodec(__func__));
+  auto ret = controlStream->codecFilterChain->generatePriority(
+      controlStream->writeBuf_, id, priority);
+  scheduleWrite();
+  return ret;
+}
+
+size_t HQSession::sendPushPriority(hq::PushId pushId, HTTPPriority priority) {
+  auto iter = pushIdToStreamId_.find(pushId);
+  if (iter == pushIdToStreamId_.end()) {
+    return 0;
+  }
+  auto streamId = iter->second;
+  if (!findPushStream(streamId)) {
+    LOG(ERROR) << "Cannot find push streamId=" << streamId
+               << " with pushId=" << pushId << " presented in id map";
+    return 0;
+  }
+  sock_->setStreamPriority(streamId, priority.urgency, priority.incremental);
+  auto controlStream = findControlStream(UnidirectionalStreamType::CONTROL);
+  if (!controlStream) {
+    return 0;
+  }
+  auto g = folly::makeGuard(controlStream->setActiveCodec(__func__));
+  auto ret = controlStream->codecFilterChain->generatePushPriority(
+      controlStream->writeBuf_, pushId, priority);
+  scheduleWrite();
+  return ret;
+}
+
+size_t HQSession::HQStreamTransportBase::changePriority(
+    HTTPTransaction* txn, HTTPPriority priority) noexcept {
+  if (session_.direction_ == TransportDirection::DOWNSTREAM) {
+    return 0;
+  }
+  CHECK_EQ(txn, &txn_);
+  if (txn->isIngressEOMSeen()) {
+    return 0;
+  }
+  if (txn->isPushed()) {
+    auto pushId = txn->getID();
+    return session_.sendPushPriority(pushId, priority);
+  }
+  return session_.sendPriority(txn->getID(), priority);
+}
+
+size_t HQSession::HQStreamTransportBase::sendPriority(
+    HTTPTransaction*, const http2::PriorityUpdate&) noexcept {
+  return 0;
+}
+
 void HQSession::HQStreamTransportBase::generateGoaway() {
   folly::IOBufQueue dummyBuf{folly::IOBufQueue::cacheChainLength()};
   if (!codecStreamId_) {

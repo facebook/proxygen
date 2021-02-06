@@ -183,4 +183,18 @@ size_t SPDYStatsFilter::generatePriority(
   return call_->generatePriority(writeBuf, stream, pri);
 }
 
+size_t SPDYStatsFilter::generatePriority(folly::IOBufQueue& writeBuf,
+                                         StreamID streamId,
+                                         HTTPPriority pri) {
+  counters_->recordEgressPriority();
+  return call_->generatePriority(writeBuf, streamId, pri);
+}
+
+size_t SPDYStatsFilter::generatePushPriority(folly::IOBufQueue& writeBuf,
+                                             StreamID pushId,
+                                             HTTPPriority pri) {
+  counters_->recordEgressPriority();
+  return call_->generatePushPriority(writeBuf, pushId, pri);
+}
+
 } // namespace proxygen

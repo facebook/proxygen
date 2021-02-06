@@ -354,6 +354,54 @@ TEST_P(HQUpstreamSessionTest, PriorityUpdateIntoTransport) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQUpstreamSessionTest, SendPriorityUpdate) {
+  if (IS_HQ) {
+    auto handler = openTransaction();
+    handler->txn_->sendHeaders(getGetRequest());
+    handler->expectHeaders();
+    handler->expectBody([&]() {
+      EXPECT_CALL(*socketDriver_->getSocket(),
+                  setStreamPriority(handler->txn_->getID(), 5, true));
+      handler->txn_->updateAndSendPriority(5, true);
+    });
+    handler->txn_->sendEOM();
+    handler->expectEOM();
+    handler->expectDetachTransaction();
+    auto resp = makeResponse(200, 100);
+    sendResponse(handler->txn_->getID(),
+                 *std::get<0>(resp),
+                 std::move(std::get<1>(resp)),
+                 true);
+    flushAndLoop();
+  }
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTest, SkipPriorityUpdateAfterSeenEOM) {
+  if (IS_HQ) {
+    auto handler = openTransaction();
+    handler->txn_->sendHeaders(getGetRequest());
+    handler->expectHeaders();
+    handler->expectBody();
+    handler->expectEOM([&]() {
+      EXPECT_CALL(*socketDriver_->getSocket(),
+                  setStreamPriority(handler->txn_->getID(), 5, true))
+          .Times(0);
+      handler->txn_->updateAndSendPriority(5, true);
+    });
+    handler->txn_->sendEOM();
+
+    handler->expectDetachTransaction();
+    auto resp = makeResponse(200, 100);
+    sendResponse(handler->txn_->getID(),
+                 *std::get<0>(resp),
+                 std::move(std::get<1>(resp)),
+                 true);
+    flushAndLoop();
+  }
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQUpstreamSessionTest, NoNewTransactionIfSockIsNotGood) {
   socketDriver_->sockGood_ = false;
   EXPECT_EQ(hqSession_->newTransaction(nullptr), nullptr);

@@ -1791,6 +1791,11 @@ size_t HTTPSession::sendPriority(HTTPTransaction* txn,
   return sendPriorityImpl(txn->getID(), pri);
 }
 
+size_t HTTPSession::changePriority(HTTPTransaction* /*txn*/,
+                                   HTTPPriority /*pri*/) noexcept {
+  return 0;
+}
+
 void HTTPSession::setSecondAuthManager(
     std::unique_ptr<SecondaryAuthManagerBase> secondAuthManager) {
   secondAuthManager_ = std::move(secondAuthManager);

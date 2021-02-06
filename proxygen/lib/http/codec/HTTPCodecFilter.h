@@ -222,6 +222,14 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
                           StreamID stream,
                           const HTTPMessage::HTTP2Priority& pri) override;
 
+  size_t generatePriority(folly::IOBufQueue& writeBuf,
+                          StreamID streamId,
+                          HTTPPriority priority) override;
+
+  size_t generatePushPriority(folly::IOBufQueue& writeBuf,
+                              StreamID pushId,
+                              HTTPPriority priority) override;
+
   size_t generateCertificateRequest(
       folly::IOBufQueue& writeBuf,
       uint16_t requestId,

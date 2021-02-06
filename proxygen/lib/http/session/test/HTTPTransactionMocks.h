@@ -63,6 +63,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                  ,
                  sendPriority,
                  size_t(HTTPTransaction*, const http2::PriorityUpdate&));
+  GMOCK_METHOD2_(
+      , noexcept, , changePriority, size_t(HTTPTransaction*, HTTPPriority));
   GMOCK_METHOD0_(, noexcept, , notifyPendingEgress, void());
   GMOCK_METHOD1_(, noexcept, , detach, void(HTTPTransaction*));
   GMOCK_METHOD2_(

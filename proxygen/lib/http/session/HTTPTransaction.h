@@ -459,6 +459,8 @@ class HTTPTransaction
 
     virtual size_t sendPriority(HTTPTransaction* txn,
                                 const http2::PriorityUpdate& pri) noexcept = 0;
+    virtual size_t changePriority(HTTPTransaction* txn,
+                                  HTTPPriority pri) noexcept = 0;
 
     virtual size_t sendWindowUpdate(HTTPTransaction* txn,
                                     uint32_t bytes) noexcept = 0;
@@ -1423,10 +1425,13 @@ class HTTPTransaction
   void describe(std::ostream& os) const;
 
   /**
-   * Change the priority of this transaction, may generate a PRIORITY frame
+   * Change the priority of this transaction, may generate a PRIORITY frame.
+   * The first variant is SPDY priority. The second is HTTP/2 priority. The
+   * third one is a new proposal in a draft for both HTTP/2 and HTTP/3.
    */
   void updateAndSendPriority(int8_t newPriority);
   void updateAndSendPriority(const http2::PriorityUpdate& pri);
+  virtual void updateAndSendPriority(uint8_t urgency, bool incremental);
 
   /**
    * Notify of priority change, will not generate a PRIORITY frame

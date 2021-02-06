@@ -339,6 +339,17 @@ size_t PassThroughHTTPCodecFilter::generatePriority(
   return call_->generatePriority(writeBuf, stream, pri);
 }
 
+size_t PassThroughHTTPCodecFilter::generatePriority(folly::IOBufQueue& writeBuf,
+                                                    StreamID streamId,
+                                                    HTTPPriority priority) {
+  return call_->generatePriority(writeBuf, streamId, priority);
+}
+
+size_t PassThroughHTTPCodecFilter::generatePushPriority(
+    folly::IOBufQueue& writeBuf, StreamID pushId, HTTPPriority priority) {
+  return call_->generatePriority(writeBuf, pushId, priority);
+}
+
 size_t PassThroughHTTPCodecFilter::generateCertificateRequest(
     folly::IOBufQueue& writeBuf,
     uint16_t requestId,

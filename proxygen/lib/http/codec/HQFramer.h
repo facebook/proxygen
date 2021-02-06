@@ -314,4 +314,18 @@ WriteResult writeGoaway(folly::IOBufQueue& writeBuf,
 WriteResult writeMaxPushId(folly::IOBufQueue& writeBuf,
                            PushId maxPushId) noexcept;
 
+/**
+ * Write a PRIORITY_UPDATE frame on the writeBuf.
+ */
+WriteResult writePriorityUpdate(folly::IOBufQueue& writeBuf,
+                                quic::StreamId streamId,
+                                folly::StringPiece priorityUpdate) noexcept;
+
+/**
+ * Write a PUSH_PRIORITY_UPDATE frame on the writeBuf.
+ */
+WriteResult writePushPriorityUpdate(folly::IOBufQueue& writeBuf,
+                                    hq::PushId pushId,
+                                    folly::StringPiece priorityUpdate) noexcept;
+
 }} // namespace proxygen::hq

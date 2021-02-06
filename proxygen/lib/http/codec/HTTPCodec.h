@@ -680,6 +680,26 @@ class HTTPCodec {
     return 0;
   }
 
+  /**
+   * Generate a PRIORITY_UPDATE frame, according to the new HTTP priority
+   * draft, if supported.
+   */
+  virtual size_t generatePriority(folly::IOBufQueue& /* writeBuf */,
+                                  StreamID /* stream */,
+                                  HTTPPriority /* priority */) {
+    return 0;
+  }
+
+  /**
+   * Generate a PUSH_PRIORITY_UPDATE frame for non push stream, according to
+   * the new HTTP priority draft, if supported.
+   */
+  virtual size_t generatePushPriority(folly::IOBufQueue& /* writeBuf */,
+                                      StreamID /* stream */,
+                                      HTTPPriority /* priority */) {
+    return 0;
+  }
+
   /*
    * Generate a CERTIFICATE_REQUEST message, if supported in the protocol
    * implemented by the codec.

@@ -674,6 +674,17 @@ TEST_F(HQPRCodecTest, TestOnEgressBodyRejectedStartWithBody) {
   EXPECT_EQ(*streamOffset, testAppOffset + bodyStreamOffset);
 }
 
+TEST_F(HQCodecTest, PriorityUpdate) {
+  // SETTINGS is a must have
+  writeValidFrame(queueCtrl_, FrameType::SETTINGS);
+  EXPECT_GT(upstreamControlCodec_.generatePriority(
+                queueCtrl_, 123, HTTPPriority(5, true)),
+            0);
+  parseControl(CodecType::CONTROL_DOWNSTREAM);
+  EXPECT_EQ(5, callbacks_.urgency);
+  EXPECT_TRUE(callbacks_.incremental);
+}
+
 TEST_F(HQCodecTest, DataFrameStreaming) {
   auto data1 = makeBuf(500);
   auto data2 = makeBuf(500);

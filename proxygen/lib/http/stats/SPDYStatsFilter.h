@@ -106,6 +106,12 @@ class SPDYStatsFilter : public PassThroughHTTPCodecFilter {
   size_t generatePriority(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage::HTTP2Priority& pri) override;
+  size_t generatePriority(folly::IOBufQueue& writeBuf,
+                          StreamID streamId,
+                          HTTPPriority pri) override;
+  size_t generatePushPriority(folly::IOBufQueue& writeBuf,
+                              StreamID pushId,
+                              HTTPPriority pri) override;
 
  private:
   SPDYStats* counters_;

@@ -358,6 +358,41 @@ WriteResult writeMaxPushId(folly::IOBufQueue& writeBuf,
   return writeSimpleFrame(writeBuf, FrameType::MAX_PUSH_ID, queue.move());
 }
 
+WriteResult writePriorityUpdate(folly::IOBufQueue& writeBuf,
+                                quic::StreamId streamId,
+                                folly::StringPiece priorityUpdate) noexcept {
+  auto type = FrameType::PRIORITY_UPDATE;
+  auto streamIdSize = quic::getQuicIntegerSize(streamId);
+  if (streamIdSize.hasError()) {
+    return streamIdSize;
+  }
+  IOBufQueue queue(IOBufQueue::cacheChainLength());
+  QueueAppender appender(&queue, *streamIdSize);
+  quic::encodeQuicInteger(streamId,
+                          [&appender](auto val) { appender.writeBE(val); });
+  appender.pushAtMost((const uint8_t*)(priorityUpdate.data()),
+                      priorityUpdate.size());
+  return writeSimpleFrame(writeBuf, type, queue.move());
+}
+
+WriteResult writePushPriorityUpdate(
+    folly::IOBufQueue& writeBuf,
+    hq::PushId pushId,
+    folly::StringPiece priorityUpdate) noexcept {
+  auto type = FrameType::PUSH_PRIORITY_UPDATE;
+  auto streamIdSize = quic::getQuicIntegerSize(pushId);
+  if (streamIdSize.hasError()) {
+    return streamIdSize;
+  }
+  IOBufQueue queue(IOBufQueue::cacheChainLength());
+  QueueAppender appender(&queue, *streamIdSize);
+  quic::encodeQuicInteger(pushId,
+                          [&appender](auto val) { appender.writeBE(val); });
+  appender.pushAtMost((const uint8_t*)(priorityUpdate.data()),
+                      priorityUpdate.size());
+  return writeSimpleFrame(writeBuf, type, queue.move());
+}
+
 const char* getFrameTypeString(FrameType type) {
   switch (type) {
     case FrameType::DATA:

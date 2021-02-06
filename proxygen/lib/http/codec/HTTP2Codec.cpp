@@ -1727,6 +1727,12 @@ size_t HTTP2Codec::generatePriority(folly::IOBufQueue& writeBuf,
           {std::get<0>(pri), std::get<1>(pri), std::get<2>(pri)}));
 }
 
+size_t HTTP2Codec::generatePriority(folly::IOBufQueue& /* writeBuf */,
+                                    StreamID /* stream */,
+                                    HTTPPriority /* priority */) {
+  return 0;
+}
+
 size_t HTTP2Codec::generateCertificateRequest(
     folly::IOBufQueue& writeBuf,
     uint16_t requestId,

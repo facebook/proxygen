@@ -440,58 +440,33 @@ TEST_F(HQFramerTest, SettingsFrameUnknownId) {
 }
 
 TEST_F(HQFramerTest, PriorityUpdate) {
-  // TODO: these manual write will  go away in next diff
-  writeValidFrame(queue_, proxygen::hq::FrameType::PRIORITY_UPDATE);
+  writePriorityUpdate(queue_, 126, "u=3, i");
   FrameHeader header;
   quic::StreamId outId;
   HTTPPriority outPriority;
   parse(folly::none, &parsePriorityUpdate, header, outId, outPriority);
 
-  EXPECT_EQ(123, outId);
+  EXPECT_EQ(126, outId);
   EXPECT_EQ(proxygen::hq::FrameType::PRIORITY_UPDATE, header.type);
-  EXPECT_EQ(1, outPriority.urgency);
+  EXPECT_EQ(3, outPriority.urgency);
   EXPECT_TRUE(outPriority.incremental);
 }
 
 TEST_F(HQFramerTest, PriorityUpdateWithoutIncremental) {
-  // TODO: these manual write will  go away in next diff
-  quic::StreamId prioritizedId = 357;
-  auto prioritizedIdSize = quic::getQuicIntegerSize(prioritizedId);
-  auto data = folly::IOBuf::copyBuffer("u=7");
-  writeFrameHeaderManual(
-      queue_,
-      static_cast<uint64_t>(proxygen::hq::FrameType::PUSH_PRIORITY_UPDATE),
-      *prioritizedIdSize + data->computeChainDataLength());
-  folly::io::QueueAppender appender(&queue_, *prioritizedIdSize);
-  auto appenderOp = [&](auto val) { appender.writeBE(val); };
-  quic::encodeQuicInteger(prioritizedId, appenderOp);
-  queue_.append(std::move(data));
-
+  writePriorityUpdate(queue_, 357, "u=7");
   FrameHeader header;
   quic::StreamId outId;
   HTTPPriority outPriority;
   parse(folly::none, &parsePriorityUpdate, header, outId, outPriority);
 
   EXPECT_EQ(357, outId);
-  EXPECT_EQ(proxygen::hq::FrameType::PUSH_PRIORITY_UPDATE, header.type);
+  EXPECT_EQ(proxygen::hq::FrameType::PRIORITY_UPDATE, header.type);
   EXPECT_EQ(7, outPriority.urgency);
   EXPECT_FALSE(outPriority.incremental);
 }
 
 TEST_F(HQFramerTest, BadPriorityUpdate) {
-  // TODO: these manual write will  go away in next diff
-  quic::StreamId prioritizedId = 357;
-  auto prioritizedIdSize = quic::getQuicIntegerSize(prioritizedId);
-  auto data = folly::IOBuf::copyBuffer("b=ad");
-  writeFrameHeaderManual(
-      queue_,
-      static_cast<uint64_t>(proxygen::hq::FrameType::PUSH_PRIORITY_UPDATE),
-      *prioritizedIdSize + data->computeChainDataLength());
-  folly::io::QueueAppender appender(&queue_, *prioritizedIdSize);
-  auto appenderOp = [&](auto val) { appender.writeBE(val); };
-  quic::encodeQuicInteger(prioritizedId, appenderOp);
-  queue_.append(std::move(data));
-
+  writePriorityUpdate(queue_, 357, "b=ad");
   FrameHeader header;
   quic::StreamId outId;
   HTTPPriority outPriority;

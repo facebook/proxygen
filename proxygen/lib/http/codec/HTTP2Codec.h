@@ -104,6 +104,10 @@ class HTTP2Codec
   size_t generatePriority(folly::IOBufQueue& writeBuf,
                           StreamID stream,
                           const HTTPMessage::HTTP2Priority& pri) override;
+  size_t generatePriority(folly::IOBufQueue& /* writeBuf */,
+                          StreamID /* stream */,
+                          HTTPPriority /* priority */) override;
+
   size_t generateCertificateRequest(
       folly::IOBufQueue& writeBuf,
       uint16_t requestId,
