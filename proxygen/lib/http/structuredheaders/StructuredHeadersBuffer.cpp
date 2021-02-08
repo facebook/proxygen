@@ -269,7 +269,7 @@ DecodeError StructuredHeadersBuffer::parseString(StructuredHeaderItem& result) {
 }
 
 DecodeError StructuredHeadersBuffer::removeOptionalWhitespace() {
-  while (peek() == ' ' || peek() == '\t') {
+  while (!isEmpty() && (peek() == ' ' || peek() == '\t')) {
     advanceCursor();
   }
   return DecodeError::OK;

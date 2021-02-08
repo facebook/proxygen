@@ -262,4 +262,12 @@ TEST_F(StructuredHeadersDecoderTest, PriorityWithoutIncrementalHasComma) {
   EXPECT_NE(ret, StructuredHeaders::DecodeError::OK);
 }
 
+TEST_F(StructuredHeadersDecoderTest, SpaceOnlyNoCrash) {
+  StructuredHeaders::Dictionary dict;
+  std::array<char, 1> input = {' '};
+  StructuredHeadersDecoder decoder(
+      folly::StringPiece(input.data(), input.size()));
+  // NO crash:
+  (void)decoder.decodeDictionary(dict);
+}
 } // namespace proxygen
