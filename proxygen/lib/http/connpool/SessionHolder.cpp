@@ -339,7 +339,7 @@ void SessionHolder::describe(std::ostream& os) const {
     }
 
     if (localAddr.isInitialized()) {
-      os << ",lp=" << localAddr.getPort();
+      os << ",local=" << localAddr;
     } else {
       os << ",lp=-1";
     }
