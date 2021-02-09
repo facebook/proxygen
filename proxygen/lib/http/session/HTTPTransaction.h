@@ -371,6 +371,7 @@ class HTTPTransactionTransportCallback {
 
   virtual void headerBytesReceived(const HTTPHeaderSize& size) noexcept = 0;
 
+  // May include extra bytes for EOF/trailers
   virtual void bodyBytesGenerated(size_t nbytes) noexcept = 0;
 
   virtual void bodyBytesReceived(size_t size) noexcept = 0;

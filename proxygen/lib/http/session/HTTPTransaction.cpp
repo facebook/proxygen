@@ -1108,7 +1108,7 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                                sendEom && !trailers_,
                                enableLastByteFlushedTracking_);
   if (sendEom && trailers_) {
-    sendEOMNow();
+    nbytes += sendEOMNow();
   }
   if (isPrioritySampled()) {
     updateTransactionBytesSent(bodyLen);
