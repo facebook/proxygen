@@ -125,7 +125,7 @@ DecodeError StructuredHeadersDecoder::decodeMap(
       return buf_.handleDecodeError(DecodeError::DUPLICATE_KEY);
     }
 
-    err = buf_.removeSymbol("=", mapType == MapType::DICTIONARY);
+    err = buf_.removeSymbol("=", false /* strict */);
     if (err != DecodeError::OK) {
       StructuredHeaderItem value;
       value.tag = StructuredHeaderItem::Type::BOOLEAN;
