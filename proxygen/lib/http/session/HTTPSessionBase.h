@@ -511,6 +511,10 @@ class HTTPSessionBase : public wangle::ManagedConnection {
                                 bool extendIntervalOnIngress,
                                 bool immediate = false) = 0;
 
+  void setIngressTimeoutAfterEom(bool setIngressTimeoutAfterEom) noexcept {
+    setIngressTimeoutAfterEom_ = setIngressTimeoutAfterEom;
+  }
+
  protected:
   bool notifyEgressBodyBuffered(int64_t bytes, bool update);
 
@@ -648,6 +652,11 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * Optional connection token associated with this session.
    */
   folly::Optional<HTTPTransaction::ConnectionToken> connectionToken_;
+
+  /**
+   * Indicates whether ingress timeout has to be scheduled after EOM is sent.
+   */
+  bool setIngressTimeoutAfterEom_{false};
 
  private:
   // Underlying controller_ is marked as private so that callers must utilize

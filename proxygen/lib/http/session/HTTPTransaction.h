@@ -605,7 +605,8 @@ class HTTPTransaction
       http2::PriorityUpdate = http2::DefaultPriority,
       folly::Optional<HTTPCodec::StreamID> assocStreamId = HTTPCodec::NoStream,
       folly::Optional<HTTPCodec::ExAttributes> exAttributes =
-          HTTPCodec::NoExAttributes);
+          HTTPCodec::NoExAttributes,
+      bool setIngressTimeoutAfterEom = false);
 
   ~HTTPTransaction() override;
 
@@ -1860,6 +1861,8 @@ class HTTPTransaction
   // Keeps track for body offset processed so far.
   // Includes skipped bytes for partially reliable transactions.
   uint64_t ingressBodyOffset_{0};
+
+  bool setIngressTimeoutAfterEom_{false};
 };
 
 /**

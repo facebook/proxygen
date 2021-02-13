@@ -2704,7 +2704,8 @@ HTTPTransaction* HTTPSession::createTransaction(
                             getCodecSendWindowSize(),
                             priority,
                             assocStreamID,
-                            exAttributes));
+                            exAttributes,
+                            setIngressTimeoutAfterEom_));
 
   CHECK(matchPair.second) << "Emplacement failed, despite earlier "
                              "existence check.";

@@ -557,6 +557,86 @@ TEST_P(HQUpstreamSessionTest, Test100Continue) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQUpstreamSessionTest, TestSetIngressTimeoutAfterSendEom) {
+  hqSession_->setIngressTimeoutAfterEom(true);
+
+  // Send EOM separately.
+  auto handler1 = openTransaction();
+  handler1->expectHeaders();
+  handler1->expectBody();
+  handler1->expectEOM();
+  handler1->expectDetachTransaction();
+
+  auto transaction1 = handler1->txn_;
+  EXPECT_TRUE(transaction1->hasIdleTimeout());
+  transaction1->setIdleTimeout(std::chrono::milliseconds(100));
+  EXPECT_FALSE(transaction1->isScheduled());
+
+  transaction1->sendHeaders(getPostRequest(10));
+  eventBase_.loopOnce();
+  EXPECT_FALSE(transaction1->isScheduled());
+
+  transaction1->sendBody(makeBuf(100) /* body */);
+  eventBase_.loopOnce();
+  EXPECT_FALSE(transaction1->isScheduled());
+
+  transaction1->sendEOM();
+  eventBase_.loopOnce();
+  EXPECT_TRUE(transaction1->isScheduled());
+
+  auto response1 = makeResponse(200, 100);
+  sendResponse(transaction1->getID(),
+               *std::get<0>(response1),
+               std::move(std::get<1>(response1)),
+               true);
+  flushAndLoop();
+
+  // Send EOM with header.
+  auto handler2 = openTransaction();
+  handler2->expectHeaders();
+  handler2->expectBody();
+  handler2->expectEOM();
+  handler2->expectDetachTransaction();
+
+  auto transaction2 = handler2->txn_;
+  EXPECT_FALSE(transaction2->isScheduled());
+  transaction2->sendHeadersWithOptionalEOM(getPostRequest(), true /* eom */);
+  eventBase_.loopOnce();
+  EXPECT_TRUE(transaction2->isScheduled());
+
+  auto response2 = makeResponse(200, 100);
+  sendResponse(transaction2->getID(),
+               *std::get<0>(response2),
+               std::move(std::get<1>(response2)),
+               true);
+  flushAndLoop();
+
+  // Send EOM with body.
+  auto handler3 = openTransaction();
+  handler3->expectHeaders();
+  handler3->expectBody();
+  handler3->expectEOM();
+  handler3->expectDetachTransaction();
+
+  auto transaction3 = handler3->txn_;
+  EXPECT_FALSE(transaction3->isScheduled());
+  transaction3->sendHeaders(getPostRequest());
+  eventBase_.loopOnce();
+  EXPECT_FALSE(transaction3->isScheduled());
+  transaction3->sendBody(makeBuf(100) /* body */);
+  transaction3->sendEOM();
+  eventBase_.loopOnce();
+  EXPECT_TRUE(transaction3->isScheduled());
+
+  auto response3 = makeResponse(200, 100);
+  sendResponse(transaction3->getID(),
+               *std::get<0>(response3),
+               std::move(std::get<1>(response3)),
+               true);
+  flushAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQUpstreamSessionTest, GetAddresses) {
   folly::SocketAddress localAddr("::", 65001);
   folly::SocketAddress remoteAddr("31.13.31.13", 3113);

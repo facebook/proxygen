@@ -2352,7 +2352,9 @@ HQSession::HQStreamTransportBase::HQStreamTransportBase(
            0,     // receiveInitialWindowSize
            0,     // sendInitialWindowSize,
            priority,
-           parentTxnId),
+           parentTxnId,
+           HTTPCodec::NoExAttributes, // exAttributes
+           session_.setIngressTimeoutAfterEom_),
       byteEventTracker_(nullptr, session.getQuicSocket(), streamId) {
   VLOG(4) << __func__ << " txn=" << txn_;
   byteEventTracker_.setTTLBAStats(session_.sessionStats_);

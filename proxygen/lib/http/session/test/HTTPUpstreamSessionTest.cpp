@@ -1312,6 +1312,78 @@ TEST_F(HTTPUpstreamTimeoutTest, WriteTimeoutAfterResponse) {
       "0\r\n\r\n");
 }
 
+TEST_F(HTTPUpstreamTimeoutTest, SetIngressTimeoutAfterSendEom) {
+  InSequence enforceOrder;
+  httpSession_->setIngressTimeoutAfterEom(true);
+
+  auto handler1 = openTransaction();
+  handler1->expectHeaders();
+  handler1->expectEOM();
+  handler1->expectDetachTransaction();
+
+  // Send EOM separately.
+  auto transaction1 = handler1->txn_;
+  EXPECT_TRUE(transaction1->hasIdleTimeout());
+  transaction1->setIdleTimeout(std::chrono::milliseconds(100));
+  EXPECT_FALSE(transaction1->isScheduled());
+
+  transaction1->sendHeaders(getPostRequest());
+  eventBase_.loopOnce();
+  EXPECT_FALSE(transaction1->isScheduled());
+
+  transaction1->sendBody(makeBuf(100) /* body */);
+  eventBase_.loopOnce();
+  EXPECT_FALSE(transaction1->isScheduled());
+
+  transaction1->sendEOM();
+  eventBase_.loopOnce();
+  EXPECT_TRUE(transaction1->isScheduled());
+  readAndLoop(
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n\r\n"
+      "0\r\n\r\n");
+
+  // Send EOM with header.
+  auto handler2 = openTransaction();
+  handler2->expectHeaders();
+  handler2->expectEOM();
+  handler2->expectDetachTransaction();
+
+  auto transaction2 = handler2->txn_;
+  EXPECT_FALSE(transaction2->isScheduled());
+  transaction2->sendHeadersWithOptionalEOM(getPostRequest(), true /* eom */);
+  eventBase_.loopOnce();
+  EXPECT_TRUE(transaction2->isScheduled());
+
+  readAndLoop(
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n\r\n"
+      "0\r\n\r\n");
+
+  // Send EOM with body.
+  auto handler3 = openTransaction();
+  handler3->expectHeaders();
+  handler3->expectEOM();
+  handler3->expectDetachTransaction();
+
+  auto transaction3 = handler3->txn_;
+  EXPECT_FALSE(transaction3->isScheduled());
+  transaction3->sendHeaders(getPostRequest());
+  eventBase_.loopOnce();
+  EXPECT_FALSE(transaction3->isScheduled());
+  transaction3->sendBody(makeBuf(100) /* body */);
+  transaction3->sendEOM();
+  eventBase_.loopOnce();
+  EXPECT_TRUE(transaction3->isScheduled());
+
+  readAndLoop(
+      "HTTP/1.1 200 OK\r\n"
+      "Transfer-Encoding: chunked\r\n\r\n"
+      "0\r\n\r\n");
+
+  httpSession_->destroy();
+}
+
 TEST_F(HTTPUpstreamSessionTest, SetTransactionTimeout) {
   // Test that setting a new timeout on the transaction will cancel
   // the old one.

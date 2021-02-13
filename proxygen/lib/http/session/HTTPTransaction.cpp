@@ -43,7 +43,8 @@ HTTPTransaction::HTTPTransaction(
     uint32_t sendInitialWindowSize,
     http2::PriorityUpdate priority,
     folly::Optional<HTTPCodec::StreamID> assocId,
-    folly::Optional<HTTPCodec::ExAttributes> exAttributes)
+    folly::Optional<HTTPCodec::ExAttributes> exAttributes,
+    bool setIngressTimeoutAfterEom)
     : deferredEgressBody_(folly::IOBufQueue::cacheChainLength()),
       direction_(direction),
       id_(id),
@@ -75,8 +76,8 @@ HTTPTransaction::HTTPTransaction(
       partiallyReliable_(false),
       egressHeadersDelivered_(false),
       idleTimeout_(defaultIdleTimeout),
-      timer_(timer) {
-
+      timer_(timer),
+      setIngressTimeoutAfterEom_(setIngressTimeoutAfterEom) {
   if (assocStreamId_) {
     if (isUpstream()) {
       egressState_ = HTTPTransactionEgressSM::State::SendingDone;
@@ -96,7 +97,7 @@ HTTPTransaction::HTTPTransaction(
     }
   }
 
-  refreshTimeout();
+  updateReadTimeout();
   if (stats_) {
     stats_->recordTransactionOpened();
   }
@@ -492,7 +493,12 @@ bool HTTPTransaction::isExpectingWindowUpdate() const {
 }
 
 bool HTTPTransaction::isExpectingIngress() const {
-  return isExpectingWindowUpdate() || (!ingressPaused_ && !isIngressEOMSeen());
+  bool upstreamSendingDone = true;
+  if (setIngressTimeoutAfterEom_) {
+    upstreamSendingDone = isDownstream() || isEgressComplete();
+  }
+  return isExpectingWindowUpdate() ||
+         (!ingressPaused_ && !isIngressEOMSeen() && upstreamSendingDone);
 }
 
 void HTTPTransaction::updateReadTimeout() {
@@ -866,6 +872,7 @@ void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
     }
     CHECK(HTTPTransactionEgressSM::transit(
         egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
+    updateReadTimeout();
   }
   flushWindowUpdate();
 }
@@ -1063,6 +1070,7 @@ size_t HTTPTransaction::sendEOMNow() {
       egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
   size_t nbytes = transport_.sendEOM(this, trailers_.get());
   trailers_.reset();
+  updateReadTimeout();
   return nbytes;
 }
 
@@ -1524,7 +1532,7 @@ void HTTPTransaction::setIdleTimeout(std::chrono::milliseconds idleTimeout) {
   VLOG(4) << "HTTPTransaction: idle timeout is set to  "
           << std::chrono::duration_cast<std::chrono::milliseconds>(idleTimeout)
                  .count();
-  refreshTimeout();
+  updateReadTimeout();
 }
 
 void HTTPTransaction::describe(std::ostream& os) const {
