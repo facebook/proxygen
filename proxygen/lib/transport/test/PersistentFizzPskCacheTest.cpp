@@ -270,4 +270,24 @@ TEST_F(PersistentFizzPskCacheTest, TestLimitedUsesSerialize) {
 
   EXPECT_FALSE(cache_->getPsk("facebook.com").has_value());
 }
+
+TEST_F(PersistentFizzPskCacheTest, TestGetPskUses) {
+  cache_->setMaxPskUses(3);
+
+  EXPECT_EQ(folly::none, cache_->getPskUses("facebook.com"));
+  cache_->putPsk("facebook.com", psk1_);
+  EXPECT_EQ(0, cache_->getPskUses("facebook.com"));
+
+  cache_->getPsk("facebook.com");
+  EXPECT_EQ(1, cache_->getPskUses("facebook.com"));
+
+  cache_->getPsk("facebook.com");
+  EXPECT_EQ(2, cache_->getPskUses("facebook.com"));
+
+  createCache();
+  cache_->setMaxPskUses(3);
+
+  cache_->getPsk("facebook.com");
+  EXPECT_EQ(folly::none, cache_->getPskUses("facebook.com"));
+}
 }} // namespace proxygen::test

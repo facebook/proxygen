@@ -36,6 +36,17 @@ class PersistentFizzPskCache : public fizz::client::PskCache {
     maxPskUses_ = maxUses;
   }
 
+  /**
+   * Returns number of times the psk has been used.
+   */
+  folly::Optional<size_t> getPskUses(const std::string& identity) {
+    auto serialized = cache_.get(identity);
+    if (serialized) {
+      return serialized->uses;
+    }
+    return folly::none;
+  }
+
   folly::Optional<fizz::client::CachedPsk> getPsk(
       const std::string& identity) override {
     auto serialized = cache_.get(identity);
