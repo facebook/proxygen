@@ -39,6 +39,11 @@ class PersistentQuicPskCache : public quic::QuicPskCache {
 
   void setMaxPskUses(size_t maxUses);
 
+  /**
+   * Returns number of times the psk has been used.
+   */
+  folly::Optional<size_t> getPskUses(const std::string& identity);
+
   folly::Optional<quic::QuicCachedPsk> getPsk(
       const std::string& identity) override;
   void putPsk(const std::string& identity,

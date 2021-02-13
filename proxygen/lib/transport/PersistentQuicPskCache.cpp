@@ -29,6 +29,15 @@ void PersistentQuicPskCache::setMaxPskUses(size_t maxUses) {
   maxPskUses_ = maxUses;
 }
 
+folly::Optional<size_t> PersistentQuicPskCache::getPskUses(
+    const std::string& identity) {
+  auto cachedPsk = cache_.get(identity);
+  if (cachedPsk) {
+    return cachedPsk->uses;
+  }
+  return folly::none;
+}
+
 folly::Optional<quic::QuicCachedPsk> PersistentQuicPskCache::getPsk(
     const std::string& identity) {
   auto cachedPsk = cache_.get(identity);
