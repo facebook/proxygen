@@ -961,15 +961,9 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
   if (chunkHeaders_.empty()) {
     curLen = canSend;
     std::unique_ptr<IOBuf> body = deferredEgressBody_.split(curLen);
-    willSendEOM = hasPendingEOM();
     DCHECK(curLen > 0 || willSendEOM);
     if (curLen > 0) {
-      if (willSendEOM) {
-        // we have to dequeue BEFORE sending the EOM =(
-        dequeue();
-      }
-      nbytes = sendBodyNow(std::move(body), curLen, willSendEOM);
-      willSendEOM = false;
+      nbytes = sendBodyNow(std::move(body), curLen, hasPendingEOM());
     } // else we got called with only a pending EOM, handled below
   } else {
     // This body is expliticly chunked
