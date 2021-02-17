@@ -810,7 +810,7 @@ class HQSession
   // Use ALPN to set the correct version utils strategy.
   void setVersionUtils();
 
-  // Used during 2-phased GOAWAY messages
+  // Used during 2-phased GOAWAY messages, and EOF sending.
   void onDeliveryAck(quic::StreamId id,
                      uint64_t offset,
                      std::chrono::microseconds rtt) override;
