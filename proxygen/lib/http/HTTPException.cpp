@@ -74,8 +74,6 @@ HTTP3::ErrorCode HTTPException::inferHTTP3ErrorCode() const {
     return HTTP3::ErrorCode::HTTP_NO_ERROR; // does this sound right?
   } else if (hasCodecStatusCode()) {
     return toHTTP3ErrorCode(getCodecStatusCode());
-  } else if (hasErrno()) {
-    return static_cast<HTTP3::ErrorCode>(getErrno());
   }
   return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
 }

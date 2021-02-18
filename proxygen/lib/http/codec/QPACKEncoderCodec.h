@@ -33,7 +33,7 @@ class QPACKEncoderCodec : public HQUnidirectionalCodec {
       LOG(ERROR) << "QPACK encoder stream decode error err=" << err;
       HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                        "Compression error on encoder stream");
-      ex.setErrno(uint32_t(HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR));
+      ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR);
       callback_.onError(kSessionStreamId, ex, false);
     }
     return nullptr;
@@ -42,7 +42,7 @@ class QPACKEncoderCodec : public HQUnidirectionalCodec {
     LOG(ERROR) << "Unexpected QPACK encoder stream EOF";
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                      "Encoder stream EOF");
-    ex.setErrno(uint32_t(HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM));
+    ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
     callback_.onError(kSessionStreamId, ex, false);
   }
 

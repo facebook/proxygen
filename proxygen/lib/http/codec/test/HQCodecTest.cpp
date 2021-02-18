@@ -792,16 +792,16 @@ TEST_F(HQCodecTest, qpackBlocked) {
 
 TEST_F(HQCodecTest, qpackError) {
   qpackEncoderCodec_.onUnidirectionalIngress(folly::IOBuf::wrapBuffer("", 1));
-  EXPECT_EQ(callbacks_.lastParseError->getErrno(),
-            uint32_t(HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR));
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR);
   EXPECT_EQ(callbacks_.sessionErrors, 1);
   qpackDecoderCodec_.onUnidirectionalIngressEOF();
-  EXPECT_EQ(callbacks_.lastParseError->getErrno(),
-            uint32_t(HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM));
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
   EXPECT_EQ(callbacks_.sessionErrors, 2);
   qpackEncoderCodec_.onUnidirectionalIngressEOF();
-  EXPECT_EQ(callbacks_.lastParseError->getErrno(),
-            uint32_t(HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM));
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM);
   EXPECT_EQ(callbacks_.sessionErrors, 3);
 
   // duplicate method in headers
