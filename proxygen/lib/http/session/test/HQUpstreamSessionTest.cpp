@@ -53,7 +53,6 @@ HQUpstreamSessionTest::makeCodec(HTTPCodec::StreamID id) {
                 encoderWriteBuf_,
                 decoderWriteBuf_,
                 [] { return std::numeric_limits<uint64_t>::max(); },
-                egressSettings_,
                 ingressSettings_,
                 GetParam().prParams.has_value())};
   } else {

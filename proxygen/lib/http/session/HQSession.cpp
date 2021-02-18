@@ -2316,7 +2316,6 @@ std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
         }
         return res->sendWindowAvailable;
       },
-      session_.egressSettings_,
       session_.ingressSettings_,
       session_.isPartialReliabilityEnabled());
   hqStreamCodecPtr_ = codec.get();

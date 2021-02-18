@@ -29,7 +29,6 @@ HQStreamCodec::HQStreamCodec(StreamID streamId,
                              folly::IOBufQueue& encoderWriteBuf,
                              folly::IOBufQueue& decoderWriteBuf,
                              folly::Function<uint64_t()> qpackEncoderMaxData,
-                             HTTPSettings& egressSettings,
                              HTTPSettings& ingressSettings,
                              bool transportSupportsPartialReliability)
     : HQFramedCodec(streamId, direction),
@@ -37,7 +36,6 @@ HQStreamCodec::HQStreamCodec(StreamID streamId,
       qpackEncoderWriteBuf_(encoderWriteBuf),
       qpackDecoderWriteBuf_(decoderWriteBuf),
       qpackEncoderMaxDataFn_(std::move(qpackEncoderMaxData)),
-      egressSettings_(egressSettings),
       ingressSettings_(ingressSettings),
       transportSupportsPartialReliability_(
           transportSupportsPartialReliability) {

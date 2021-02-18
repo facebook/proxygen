@@ -34,7 +34,6 @@ class HQStreamCodec
                 folly::IOBufQueue& encoderWriteBuf,
                 folly::IOBufQueue& decoderWriteBuf,
                 folly::Function<uint64_t()> qpackEncoderMaxData,
-                HTTPSettings& egressSettings,
                 HTTPSettings& ingressSettings,
                 bool transportSupportsPartialReliability);
   ~HQStreamCodec() override;
@@ -234,7 +233,6 @@ class HQStreamCodec
   bool finalEgressHeadersSeen_{false};
   folly::Function<folly::Function<void()>()> activationHook_{
       [] { return [] {}; }};
-  HTTPSettings& egressSettings_;
   HTTPSettings& ingressSettings_;
 
   uint64_t totalEgressBytes_{0};

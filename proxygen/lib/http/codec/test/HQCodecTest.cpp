@@ -131,7 +131,6 @@ class HQCodecTestFixture : public T {
         qpackUpEncoderWriteBuf_,
         qpackUpDecoderWriteBuf_,
         [] { return std::numeric_limits<uint64_t>::max(); },
-        egressSettings_,
         ingressSettings_,
         isTransportPartiallyReliable);
     downstreamCodec_ = std::make_unique<HQStreamCodec>(
@@ -141,7 +140,6 @@ class HQCodecTestFixture : public T {
         qpackDownEncoderWriteBuf_,
         qpackDownDecoderWriteBuf_,
         [] { return std::numeric_limits<uint64_t>::max(); },
-        egressSettings_,
         ingressSettings_,
         isTransportPartiallyReliable);
   }

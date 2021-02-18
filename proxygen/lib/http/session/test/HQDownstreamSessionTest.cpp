@@ -280,7 +280,6 @@ std::unique_ptr<proxygen::HTTPCodec> HQDownstreamSessionTest::makeCodec(
         encoderWriteBuf_,
         decoderWriteBuf_,
         [] { return std::numeric_limits<uint64_t>::max(); },
-        egressSettings_,
         ingressSettings_,
         GetParam().prParams.has_value());
   } else {
@@ -803,7 +802,6 @@ std::tuple<size_t, size_t, size_t> estimateResponseSize(bool isHq,
         encoderWriteBuf,
         decoderWriteBuf,
         [] { return std::numeric_limits<uint64_t>::max(); },
-        dummySettings,
         dummySettings,
         false);
   } else {

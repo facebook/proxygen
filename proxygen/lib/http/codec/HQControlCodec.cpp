@@ -85,6 +85,8 @@ ParseResult HQControlCodec::parseSettings(Cursor& cursor,
     return res;
   }
 
+  CHECK(isIngress());
+  auto& ingressSettings = settings_;
   SettingsList settingsList;
   for (auto& setting : outSettings) {
     switch (setting.first) {
@@ -96,8 +98,8 @@ ParseResult HQControlCodec::parseSettings(Cursor& cursor,
         continue; // ignore unknown settings
     }
     auto httpSettingId = hqToHttpSettingsId(setting.first);
-    settings_.setSetting(*httpSettingId, setting.second);
-    settingsList.push_back(*settings_.getSetting(*httpSettingId));
+    ingressSettings.setSetting(*httpSettingId, setting.second);
+    settingsList.push_back(*ingressSettings.getSetting(*httpSettingId));
   }
 
   if (callback_) {
@@ -170,11 +172,10 @@ size_t HQControlCodec::generateGoaway(
 }
 
 size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
-  CHECK(isEgress());
   CHECK(!sentSettings_);
   sentSettings_ = true;
   std::deque<hq::SettingPair> settings;
-  for (auto& setting : settings_.getAllSettings()) {
+  for (auto& setting : getEgressSettings()->getAllSettings()) {
     auto id = httpToHqSettingsId(setting.id);
     // unknown ids will return folly::none
     if (id) {
