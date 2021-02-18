@@ -98,11 +98,8 @@ size_t HQStreamBase::generateStreamPreface() {
       << "Can not generate preface on streams without a type";
   VLOG(4) << "generating stream preface for " << type_.value()
           << " stream streamID=" << getEgressStreamId() << " sess=" << session_;
-  folly::io::QueueAppender appender(&writeBuf_, sizeof(uint64_t));
-  auto res =
-      quic::encodeQuicInteger(static_cast<hq::StreamTypeType>(type_.value()),
-                              [appender = std::move(appender)](
-                                  auto val) mutable { appender.writeBE(val); });
+  auto res = hq::writeStreamPreface(
+      writeBuf_, static_cast<hq::StreamTypeType>(type_.value()));
   CHECK(!res.hasError());
   return res.value();
 }

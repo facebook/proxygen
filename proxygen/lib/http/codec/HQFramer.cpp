@@ -393,6 +393,18 @@ WriteResult writePushPriorityUpdate(
   return writeSimpleFrame(writeBuf, type, queue.move());
 }
 
+WriteResult writeStreamPreface(folly::IOBufQueue& writeBuf,
+                               uint64_t streamPreface) noexcept {
+  auto streamPrefaceSize = quic::getQuicIntegerSize(streamPreface);
+  if (streamPrefaceSize.hasError()) {
+    return streamPrefaceSize;
+  }
+  QueueAppender appender(&writeBuf, *streamPrefaceSize);
+  quic::encodeQuicInteger(streamPreface,
+                          [&appender](auto val) { appender.writeBE(val); });
+  return *streamPrefaceSize;
+}
+
 const char* getFrameTypeString(FrameType type) {
   switch (type) {
     case FrameType::DATA:

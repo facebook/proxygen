@@ -328,4 +328,7 @@ WriteResult writePushPriorityUpdate(folly::IOBufQueue& writeBuf,
                                     hq::PushId pushId,
                                     folly::StringPiece priorityUpdate) noexcept;
 
+WriteResult writeStreamPreface(folly::IOBufQueue& writeBuf,
+                               uint64_t streamPreface) noexcept;
+
 }} // namespace proxygen::hq

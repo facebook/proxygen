@@ -245,12 +245,7 @@ void HQDownstreamSession::HQEgressPushStream::sendPushPromise(
 
 size_t HQDownstreamSession::HQEgressPushStream::generateStreamPushId() {
   // reserve space for max quic interger len
-  folly::io::QueueAppender appender(&writeBuf_, 8);
-
-  auto result = quic::encodeQuicInteger(
-      pushId_, [appender = std::move(appender)](auto val) mutable {
-        appender.writeBE(val);
-      });
+  auto result = hq::writeStreamPreface(writeBuf_, pushId_);
   CHECK(!result.hasError())
       << __func__ << " QUIC integer encoding error value=" << pushId_;
 
