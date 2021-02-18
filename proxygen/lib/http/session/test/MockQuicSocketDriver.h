@@ -72,6 +72,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     bool writeEOF{false};
     QuicSocket::WriteCallback* pendingWriteCb{nullptr};
     // data written by application
+    folly::IOBufQueue unsentBuf{folly::IOBufQueue::cacheChainLength()};
+    bool pendingWriteEOF{false};
+    // data waiting to be flushed
     folly::IOBufQueue pendingWriteBuf{folly::IOBufQueue::cacheChainLength()};
     // data 'delivered' to peer
     folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
@@ -113,6 +116,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       nextUnidirectionalStreamId_ = 2;
     }
 
+    EXPECT_CALL(*sock_, setConnectionCallback(testing::_))
+        .WillRepeatedly(
+            testing::Invoke([this](QuicSocket::ConnectionCallback* callback) {
+              sock_->cb_ = callback;
+            }));
     EXPECT_CALL(*sock_, isClientStream(testing::_))
         .WillRepeatedly(testing::Invoke(
             [](quic::StreamId stream) { return (stream & 0b01) == 0; }));
@@ -228,6 +236,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               }
               if (cb && stream.readState == NEW) {
                 stream.readState = OPEN;
+              } else if (cb && stream.readState == OPEN) {
+                if (!stream.readBuf.empty()) {
+                  eventBase_->runInLoop(this, true);
+                }
               } else if (stream.readState == ERROR) {
                 return folly::makeUnexpected(
                     quic::LocalErrorCode::INTERNAL_ERROR);
@@ -366,33 +378,34 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               }
               if (!data) {
                 data = folly::IOBuf::create(0);
+              } else {
+                stream.unsentBuf.append(data->clone());
               }
               // clip to FCW
               uint64_t length = std::min(
-                  static_cast<uint64_t>(data->computeChainDataLength()),
+                  static_cast<uint64_t>(stream.unsentBuf.chainLength()),
                   stream.flowControlWindow);
               length = std::min(length, connState.flowControlWindow);
-              folly::IOBufQueue dataBuf{folly::IOBufQueue::cacheChainLength()};
-              dataBuf.append(data->clone());
-              std::unique_ptr<folly::IOBuf> readBuf =
-                  dataBuf.splitAtMost(length);
+              auto toSend = stream.unsentBuf.splitAtMost(length);
               if (localAppCb_) {
                 if (sock_->isUnidirectionalStream(id)) {
-                  localAppCb_->unidirectionalReadCallback(id, readBuf->clone());
+                  localAppCb_->unidirectionalReadCallback(id, toSend->clone());
                 } else {
-                  localAppCb_->readCallback(id, readBuf->clone());
+                  localAppCb_->readCallback(id, toSend->clone());
                 }
               }
-              stream.pendingWriteBuf.append(std::move(readBuf));
+              stream.pendingWriteBuf.append(std::move(toSend));
               setStreamFlowControlWindow(id, stream.flowControlWindow - length);
               setConnectionFlowControlWindow(connState.flowControlWindow -
                                              length);
               // handle non-zero -> 0 transition, call flowControlUpdate
               stream.writeOffset += length;
-              if (dataBuf.empty() && eof) {
+              if (stream.unsentBuf.empty() && eof) {
                 stream.writeEOF = true;
+              } else if (eof) {
+                stream.pendingWriteEOF = eof;
               }
-              if (dataBuf.empty() && cb) {
+              if (stream.unsentBuf.empty() && cb) {
                 stream.deliveryCallbacks.push_back({stream.writeOffset, cb});
               }
               eventBase_->runInLoop([this, deleted = deleted_] {
@@ -400,7 +413,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                   flushWrites();
                 }
               });
-              CHECK(dataBuf.empty());
+              CHECK(stream.unsentBuf.empty() || stream.flowControlWindow == 0 ||
+                    connState.flowControlWindow == 0);
               return folly::unit;
             }));
 
@@ -469,8 +483,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                   streams_.begin(), streams_.end(), [&](const auto& item) {
                     auto id = item.first;
                     const auto& s = item.second;
-                    return (sock_->isUnidirectionalStream(id) &&
-                            s.writeState != CLOSED);
+                    return (id != kConnectionStreamId) &&
+                           (sock_->isUnidirectionalStream(id) &&
+                            !isPeerStream(id) && s.writeState != CLOSED);
                   });
               if (activeUniStreams >= unidirectionalStreamsCredit_) {
                 return folly::makeUnexpected(
@@ -600,6 +615,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         .WillRepeatedly(testing::Invoke([this](quic::StreamId id) -> void {
           cancelDeliveryCallbacks(id, streams_[id]);
         }));
+    localAddress_.setFromIpPort("0.0.0.0", 0);
+    peerAddress_.setFromIpPort("127.0.0.0", 443);
+    EXPECT_CALL(*sock_, getLocalAddress())
+        .WillRepeatedly(testing::ReturnRef(localAddress_));
+    EXPECT_CALL(*sock_, getPeerAddress())
+        .WillRepeatedly(testing::ReturnRef(peerAddress_));
   }
 
   quic::StreamId getMaxStreamId() {
@@ -934,6 +955,15 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         streamId, std::move(buf), false, folly::none, delayFromPrevious);
   }
 
+  void addReadEvent(StreamId streamId,
+                    std::unique_ptr<folly::IOBuf> buf,
+                    bool eof,
+                    std::chrono::milliseconds delayFromPrevious =
+                        std::chrono::milliseconds(0)) {
+    addReadEventInternal(
+        streamId, std::move(buf), eof, folly::none, delayFromPrevious);
+  }
+
   void addReadEOF(StreamId streamId,
                   std::chrono::milliseconds delayFromPrevious =
                       std::chrono::milliseconds(0)) {
@@ -1080,9 +1110,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             auto bufLen = event.buf ? event.buf->computeChainDataLength() : 0;
             stream.readBufOffset += bufLen;
             stream.readBuf.append(std::move(event.buf));
-            stream.readEOF = event.eof;
+            stream.readEOF |= ((event.eof) ? 1 : 0);
             if (stream.readState == NEW) {
-              stream.readState = OPEN;
               if (sock_->cb_) {
                 if (sock_->isUnidirectionalStream(event.streamId)) {
                   if (isPeerStream(event.streamId)) {
@@ -1094,6 +1123,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 } else {
                   sock_->cb_->onNewBidirectionalStream(event.streamId);
                 }
+              }
+              if (stream.readState == NEW) {
+                stream.readState = OPEN;
               }
             }
             if (event.error && event.stopSending) {
@@ -1213,6 +1245,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       sock_->cb_->onFlowControlUpdate(streamId);
     }
     stream.pendingWriteCb = nullptr;
+    if (!stream.unsentBuf.empty()) {
+      // re-invoke write chain with the pending data
+      sock_->writeChain(
+          streamId, stream.unsentBuf.move(), stream.pendingWriteEOF, nullptr);
+    }
   }
 
   std::shared_ptr<MockQuicSocket> getSocket() {
@@ -1293,12 +1330,14 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   std::set<StreamId> flowControlAccess_;
   uint64_t nextBidirectionalStreamId_;
   uint64_t nextUnidirectionalStreamId_;
-  uint64_t unidirectionalStreamsCredit_;
+  uint64_t unidirectionalStreamsCredit_{0};
   std::shared_ptr<bool> deleted_{new bool(false)};
   LocalAppCallback* localAppCb_{nullptr};
   QuicSocket::DataExpiredCallback* dataExpiredCb_;
   QuicSocket::DataRejectedCallback* dataRejectedCb_;
   std::string alpn_;
+  folly::SocketAddress localAddress_;
+  folly::SocketAddress peerAddress_;
 }; // namespace quic
 
 } // namespace quic
