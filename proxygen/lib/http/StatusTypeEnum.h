@@ -40,10 +40,10 @@ namespace proxygen {
       x(no_server_available), x(proxy_adaptive_rate_limit),                    \
       x(sc_channel_invalid_argument), x(sc_channel_unknown_error),             \
       x(sc_eom_before_headers), x(sc_upstream_timeout),                        \
-      x(sc_runtime_exception), x(redirect_connect_error),                      \
-      x(redirect_limit_exceeded), x(redirect_pool_error),                      \
-      x(redirect_request_too_large), x(server_connection_error),               \
-      x(server_timeout), x(server_write_error),                                \
+      x(sc_runtime_exception), x(sc_content_integrity_error),                  \
+      x(redirect_connect_error), x(redirect_limit_exceeded),                   \
+      x(redirect_pool_error), x(redirect_request_too_large),                   \
+      x(server_connection_error), x(server_timeout), x(server_write_error),    \
       /* APP-SPECIFIC STATUS TYPES */ x(manifest_invalid_status),              \
       x(manifest_is_empty), x(manifest_parsing_error),                         \
       x(manifest_missing_representation), x(manifest_with_0_bitrate),          \
