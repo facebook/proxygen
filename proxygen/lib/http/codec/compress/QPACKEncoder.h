@@ -27,8 +27,8 @@ class QPACKEncoder
     , public QPACKContext {
 
  public:
-  static const uint32_t kMaxHeaderTableSize = (1u << 16);
-  static const uint32_t kDefaultMaxOutstandingListSize = (1u << 8);
+  static constexpr uint32_t kMaxHeaderTableSize = (1u << 16);
+  static constexpr uint32_t kDefaultMaxOutstandingListSize = (1u << 8);
 
   explicit QPACKEncoder(bool huffman, uint32_t tableSize = HPACK::kTableSize);
 
