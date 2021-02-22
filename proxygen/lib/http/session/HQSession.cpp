@@ -195,6 +195,8 @@ bool HQSession::GoawayUtils::checkNewStream(HQSession& session,
 bool HQSession::onTransportReadyCommon() noexcept {
   localAddr_ = sock_->getLocalAddress();
   peerAddr_ = sock_->getPeerAddress();
+  quicInfo_->clientChosenDestConnectionId =
+      sock_->getClientChosenDestConnectionId();
   quicInfo_->clientConnectionId = sock_->getClientConnectionId();
   quicInfo_->serverConnectionId = sock_->getServerConnectionId();
   // NOTE: this can drop the connection if the next protocol is not supported

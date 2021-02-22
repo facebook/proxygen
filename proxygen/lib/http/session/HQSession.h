@@ -67,6 +67,7 @@ using HQVersionType = std::underlying_type<HQVersion>::type;
 struct QuicProtocolInfo : public wangle::ProtocolInfo {
   virtual ~QuicProtocolInfo() override = default;
 
+  folly::Optional<quic::ConnectionId> clientChosenDestConnectionId;
   folly::Optional<quic::ConnectionId> clientConnectionId;
   folly::Optional<quic::ConnectionId> serverConnectionId;
   folly::Optional<quic::TransportSettings> transportSettings;
