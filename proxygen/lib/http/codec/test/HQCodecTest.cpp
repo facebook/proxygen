@@ -856,6 +856,41 @@ TEST_F(HQCodecTest, MultipleHeaders) {
   parse();
 }
 
+TEST_F(HQCodecTest, BasicConnect) {
+  std::string authority = "myhost:1234";
+  HTTPMessage request;
+  request.setMethod(HTTPMethod::CONNECT);
+  request.getHeaders().add(proxygen::HTTP_HEADER_HOST, authority);
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, request, false /* eom */);
+
+  parse();
+  callbacks_.expectMessage(false, 1, "");
+  EXPECT_EQ(HTTPMethod::CONNECT, callbacks_.msg->getMethod());
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ(authority, headers.getSingleOrEmpty(proxygen::HTTP_HEADER_HOST));
+}
+
+TEST_F(HQCodecTest, OnlyDataAfterConnect) {
+  std::string authority = "myhost:1234";
+  HTTPMessage request;
+  request.setMethod(HTTPMethod::CONNECT);
+  request.getHeaders().add(proxygen::HTTP_HEADER_HOST, authority);
+  auto streamId = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(queue_, streamId, request, false /* eom */);
+
+  parse();
+  callbacks_.expectMessage(false, 1, "");
+  EXPECT_EQ(HTTPMethod::CONNECT, callbacks_.msg->getMethod());
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ(authority, headers.getSingleOrEmpty(proxygen::HTTP_HEADER_HOST));
+
+  writeValidFrame(queue_, FrameType::HEADERS);
+  parse();
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
+}
+
 TEST_F(HQCodecTest, MultipleSettingsUpstream) {
   writeValidFrame(queueCtrl_, FrameType::SETTINGS);
   writeValidFrame(queueCtrl_, FrameType::SETTINGS);

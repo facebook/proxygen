@@ -231,6 +231,7 @@ class HQStreamCodec
   folly::Function<uint64_t()> qpackEncoderMaxDataFn_;
   bool finalIngressHeadersSeen_{false};
   bool finalEgressHeadersSeen_{false};
+  bool isConnect_{false};
   folly::Function<folly::Function<void()>()> activationHook_{
       [] { return [] {}; }};
   HTTPSettings& ingressSettings_;

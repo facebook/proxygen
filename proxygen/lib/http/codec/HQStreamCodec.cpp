@@ -47,6 +47,9 @@ HQStreamCodec::~HQStreamCodec() {
 }
 
 ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
+  if (isConnect_ && type != hq::FrameType::DATA) {
+    return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
+  }
   switch (type) {
     case hq::FrameType::SETTINGS:
     case hq::FrameType::GOAWAY:
@@ -420,6 +423,11 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
         (msg->isRequest() || !msg->is1xxResponse())) {
       finalIngressHeadersSeen_ = true;
     }
+  }
+
+  if (transportDirection_ == TransportDirection::DOWNSTREAM &&
+      msg->getMethod() == HTTPMethod::CONNECT) {
+    isConnect_ = true;
   }
 
   if (acknowledge) {
