@@ -80,7 +80,7 @@ const HPACKHeader& HPACKContext::getHeader(uint32_t index) {
 
 void HPACKContext::seedHeaderTable(std::vector<HPACKHeader>& headers) {
   for (auto& header : headers) {
-    table_.add(std::move(header));
+    CHECK(table_.add(std::move(header)));
   }
 }
 

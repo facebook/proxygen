@@ -115,7 +115,7 @@ StaticHeaderTable::StaticHeaderTable(const char* entries[][2], int size)
   init(byteCount);
   hlist.reverse();
   for (auto& header : hlist) {
-    add(std::move(header));
+    CHECK(add(std::move(header)));
   }
 }
 

@@ -90,7 +90,13 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
   uint32_t emittedSize = emit(header, streamingCb, emitted);
 
   if (indexing) {
-    table_.add(std::move(header));
+    auto headerBytes = header.bytes();
+    if (!table_.add(std::move(header))) {
+      // The only way add can return false is clearing the table with a large
+      // entry.  Any other failure would result in compression contexts out of
+      // sync.
+      CHECK_GT(headerBytes, table_.capacity());
+    }
   }
 
   return emittedSize;

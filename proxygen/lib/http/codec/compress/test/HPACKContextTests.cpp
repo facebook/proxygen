@@ -135,6 +135,25 @@ TEST_F(HPACKContextTests, DecoderLargeHeader) {
   EXPECT_EQ(decoder.getTable().size(), 0);
 }
 
+TEST_F(HPACKContextTests, DecoderLargeHeaderClear) {
+  // Decode a header larger than the table, which will clear the decoder table
+  HPACKHeader header;
+  HPACKEncoder encoder(true, 4096);
+  HPACKDecoder decoder(40);
+  vector<HPACKHeader> headers;
+  headers.push_back(HPACKHeader("foo", "bar"));
+  auto buf = encoder.encode(headers);
+  auto decoded = proxygen::hpack::decode(decoder, buf.get());
+  EXPECT_EQ(encoder.getTable().size(), 1);
+  EXPECT_EQ(decoder.getTable().size(), 1);
+  headers.clear();
+  headers.push_back(HPACKHeader("bar", "verylargeheader"));
+  buf = encoder.encode(headers);
+  decoded = proxygen::hpack::decode(decoder, buf.get());
+  EXPECT_EQ(encoder.getTable().size(), 2);
+  EXPECT_EQ(decoder.getTable().size(), 0);
+}
+
 /**
  * testing invalid memory access in the decoder; it has to always call peek()
  */
