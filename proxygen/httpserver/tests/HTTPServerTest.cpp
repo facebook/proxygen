@@ -797,7 +797,8 @@ TEST_F(ConnectionFilterTest, Test) {
       kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
   sslCfg.clientCAFile = kTestDir + "certs/client_ca_cert.pem";
   // Permissive client auth.
-  sslCfg.clientVerification = folly::SSLContext::SSLVerifyPeerEnum::VERIFY;
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
   cfg_.sslConfigs.push_back(sslCfg);
 
   auto server = createScopedServer();

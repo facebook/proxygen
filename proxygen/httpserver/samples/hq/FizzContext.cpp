@@ -206,7 +206,8 @@ FizzClientContextPtr createFizzClientContext(const HQParams& params) {
 wangle::SSLContextConfig createSSLContext(const HQParams& params) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
-  sslCfg.clientVerification = folly::SSLContext::SSLVerifyPeerEnum::VERIFY;
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
   if (!params.certificateFilePath.empty() && !params.keyFilePath.empty()) {
     sslCfg.setCertificate(params.certificateFilePath, params.keyFilePath, "");
   } else {
