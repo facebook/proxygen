@@ -181,7 +181,7 @@ void HQUpstreamSessionTest::TearDown() {
     // With control streams we may need an extra loop for proper shutdown
     if (!socketDriver_->isClosed()) {
       // Send the first GOAWAY with MAX_STREAM_ID immediately
-      sendGoaway(kMaxClientBidiStreamId);
+      sendGoaway(HTTPCodec::MaxStreamID);
       // Schedule the second GOAWAY with the last seen stream ID, after some
       // delay
       sendGoaway(socketDriver_->getMaxStreamId(), milliseconds(50));
@@ -820,14 +820,14 @@ TEST_P(HQUpstreamSessionTest, OnConnectionErrorWithOpenStreamsPause) {
 TEST_P(HQUpstreamSessionTestH1qv2HQ, GoawayStreamsUnacknowledged) {
   std::vector<std::unique_ptr<StrictMock<MockHTTPHandler>>> handlers;
   auto numStreams = 4;
-  quic::StreamId goawayId = (numStreams * 4) / 2;
+  quic::StreamId goawayId = (numStreams * 4) / 2 + 4;
   for (auto n = 1; n <= numStreams; n++) {
     handlers.emplace_back(openTransaction());
     auto handler = handlers.back().get();
     handler->txn_->sendHeaders(getGetRequest());
     handler->txn_->sendEOM();
     EXPECT_CALL(*handler, onGoaway(testing::_)).Times(2);
-    if (handler->txn_->getID() > goawayId) {
+    if (handler->txn_->getID() >= goawayId) {
       handler->expectError([hdlr = handler](const HTTPException& err) {
         EXPECT_TRUE(err.hasProxygenError());
         EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
@@ -852,7 +852,7 @@ TEST_P(HQUpstreamSessionTestH1qv2HQ, GoawayStreamsUnacknowledged) {
         // Send the responses for the acknowledged streams
         for (auto& hdlr : handlers) {
           auto id = hdlr->txn_->getID();
-          if (id <= goawayId) {
+          if (id < goawayId) {
             auto resp = makeResponse(200, 100);
             sendResponse(
                 id, *std::get<0>(resp), std::move(std::get<1>(resp)), true);
@@ -863,9 +863,26 @@ TEST_P(HQUpstreamSessionTestH1qv2HQ, GoawayStreamsUnacknowledged) {
     }
   }
 
-  sendGoaway(kMaxClientBidiStreamId, milliseconds(50));
+  sendGoaway(HTTPCodec::MaxStreamID, milliseconds(50));
   sendGoaway(goawayId, milliseconds(100));
   flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQ, GoawayIncreased) {
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  egressControlCodec_->generateGoaway(writeBuf, 12, ErrorCode::NO_ERROR);
+  socketDriver_->addReadEvent(connControlStreamId_, writeBuf.move());
+  flushAndLoopN(1);
+  proxygen::hq::HQControlCodec egressControlCodec2(
+      nextUnidirectionalStreamId_,
+      proxygen::TransportDirection::DOWNSTREAM,
+      proxygen::hq::StreamDirection::EGRESS,
+      egressSettings_);
+  egressControlCodec2.generateGoaway(writeBuf, 16, ErrorCode::NO_ERROR);
+  socketDriver_->addReadEvent(connControlStreamId_, writeBuf.move());
+  flushAndLoop();
+  EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
+            HTTP3::ErrorCode::HTTP_ID_ERROR);
 }
 
 TEST_P(HQUpstreamSessionTestHQ, DelayedQPACK) {
@@ -1125,7 +1142,7 @@ TEST_P(HQUpstreamSessionTestHQNoSettings, GoawayBeforeSettings) {
   handler->expectError();
   handler->expectDetachTransaction();
 
-  sendGoaway(kMaxClientBidiStreamId);
+  sendGoaway(HTTPCodec::MaxStreamID);
   flushAndLoop();
 
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,

@@ -2064,10 +2064,10 @@ class HQSession
       controlStreams_;
   HQUnidirStreamDispatcher unidirectionalReadDispatcher_;
 
-  // Maximum Stream ID received so far
-  quic::StreamId maxIncomingStreamId_{0};
+  // Min Stream ID we haven't seen so far
+  quic::StreamId minUnseenIncomingStreamId_{0};
   // Maximum Stream ID that we are allowed to open, according to the remote
-  quic::StreamId maxAllowedStreamId_{hq::kMaxClientBidiStreamId};
+  quic::StreamId minPeerUnseenId_{hq::kMaxClientBidiStreamId};
   // Whether SETTINGS have been received
   bool receivedSettings_{false};
 
@@ -2099,6 +2099,7 @@ class HQSession
        hq::kDefaultEgressQpackBlockedStream},
   };
   HTTPSettings ingressSettings_;
+  uint64_t minUnseenIncomingPushId_{0};
 
   std::unique_ptr<VersionUtils> versionUtils_;
   ReadyGate versionUtilsReady_;

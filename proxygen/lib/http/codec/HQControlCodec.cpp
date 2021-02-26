@@ -14,6 +14,19 @@
 
 #include <folly/Random.h>
 
+namespace {
+using namespace proxygen::hq;
+
+uint64_t drainingId(proxygen::TransportDirection dir) {
+  if (dir == proxygen::TransportDirection::DOWNSTREAM) {
+    return kMaxClientBidiStreamId;
+  } else {
+    return kMaxPushId + 1;
+  }
+}
+
+} // namespace
+
 namespace proxygen { namespace hq {
 
 using namespace folly::io;
@@ -35,12 +48,6 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
     }
     // multiple SETTINGS frames are not allowed
     if (receivedSettings_ && type == hq::FrameType::SETTINGS) {
-      return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
-    }
-    // A server MUST treat receipt of a GOAWAY frame as a connection error
-    // of type HTTP_FRAME_UNEXPECTED
-    if (transportDirection_ == TransportDirection::DOWNSTREAM &&
-        type == hq::FrameType::GOAWAY) {
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }
     // A client MUST treat the receipt of a MAX_PUSH_ID frame as a connection
@@ -152,19 +159,48 @@ ParseResult HQControlCodec::parsePushPriorityUpdate(Cursor& cursor,
 }
 
 bool HQControlCodec::isWaitingToDrain() const {
-  return sentGoaway_;
+  return (!doubleGoaway_ && !sentGoaway_) ||
+         (doubleGoaway_ && sentGoaway_ && !sentFinalGoaway_);
+}
+
+uint64_t HQControlCodec::finalGoawayId() {
+  if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+    return minUnseenStreamID_;
+  } else {
+    return minUnseenPushID_;
+  }
 }
 
 size_t HQControlCodec::generateGoaway(
     folly::IOBufQueue& writeBuf,
-    StreamID lastStream,
-    ErrorCode /*statusCode*/,
+    StreamID minUnseenId,
+    ErrorCode statusCode,
     std::unique_ptr<folly::IOBuf> /*debugData*/) {
-  DCHECK_GE(maxSeenLastStream_, lastStream);
-  maxSeenLastStream_ = lastStream;
-  auto writeRes = hq::writeGoaway(writeBuf, lastStream);
+  if (sentFinalGoaway_) {
+    return 0;
+  }
+  if (minUnseenId == HTTPCodec::MaxStreamID) {
+    if (statusCode != ErrorCode::NO_ERROR || isWaitingToDrain()) {
+      // Non-draining goaway, but the caller didn't know the ID
+      // HQSession doesn't use this path now
+      minUnseenId = finalGoawayId();
+      sentFinalGoaway_ = true;
+    } else {
+      // Draining goaway
+      minUnseenId = drainingId(transportDirection_);
+    }
+  } else {
+    // Non-draining goaway, caller supplied ID
+    sentFinalGoaway_ = true;
+  }
+  VLOG(4) << "generating GOAWAY minUnseenId=" << minUnseenId
+          << " statusCode=" << uint32_t(statusCode);
+
+  DCHECK_GE(egressGoawayAck_, minUnseenId);
+  egressGoawayAck_ = minUnseenId;
+  auto writeRes = hq::writeGoaway(writeBuf, minUnseenId);
   if (writeRes.hasError()) {
-    LOG(FATAL) << "error writing goaway with streamID=" << lastStream;
+    LOG(FATAL) << "error writing goaway with minUnseenId=" << minUnseenId;
     return 0;
   }
   sentGoaway_ = true;

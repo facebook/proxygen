@@ -36,6 +36,9 @@ class HQControlCodec
         settings_(settings) {
     VLOG(4) << "creating " << getTransportDirectionString(direction)
             << " HQ Control codec for stream " << streamId_;
+    egressGoawayAck_ = direction == TransportDirection::UPSTREAM
+                           ? kMaxPushId + 1
+                           : kMaxClientBidiStreamId;
   }
 
   ~HQControlCodec() override {
@@ -107,13 +110,13 @@ class HQControlCodec
     return &settings_;
   }
 
+  void enableDoubleGoawayDrain() override {
+    doubleGoaway_ = true;
+  }
+
   uint32_t getDefaultWindowSize() const override {
     CHECK(false) << __func__ << " not supported";
     folly::assume_unreachable();
-  }
-
-  bool peerHasWebsockets() const {
-    return false;
   }
 
   void setHeaderCodecStats(HeaderCodec::Stats* /*hcStats*/) override {
@@ -146,11 +149,17 @@ class HQControlCodec
   ParseResult parsePushPriorityUpdate(folly::io::Cursor& cursor,
                                       const FrameHeader& header) override;
 
+  uint64_t finalGoawayId();
+
  private:
+  bool doubleGoaway_{true};
   bool sentGoaway_{false};
+  bool sentFinalGoaway_{false};
   bool receivedSettings_{false};
   bool sentSettings_{false};
-  quic::StreamId maxSeenLastStream_{kMaxClientBidiStreamId};
+  quic::StreamId egressGoawayAck_;
+  quic::StreamId minUnseenStreamID_{kMaxClientBidiStreamId};
+  uint64_t minUnseenPushID_{kMaxPushId + 1};
   HTTPSettings& settings_;
 };
 

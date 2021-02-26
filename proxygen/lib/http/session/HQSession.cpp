@@ -101,7 +101,8 @@ void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
   if (ingressLimitExceeded()) {
     sock_->pauseRead(id);
   }
-  maxIncomingStreamId_ = std::max(maxIncomingStreamId_, id);
+  // checkNewStream will reject kMaxClientBidiStreamId, so id + 4 will not wrap
+  minUnseenIncomingStreamId_ = std::max(minUnseenIncomingStreamId_, id + 4);
 }
 
 void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
@@ -163,8 +164,9 @@ bool HQSession::H1QFBV1VersionUtils::checkNewStream(quic::StreamId id) {
 bool HQSession::GoawayUtils::checkNewStream(HQSession& session,
                                             quic::StreamId id) {
   // Reject all bidirectional, server-initiated streams
-  if (session.sock_->isBidirectionalStream(id) &&
-      session.sock_->isServerStream(id)) {
+  if (id == kMaxClientBidiStreamId ||
+      (session.sock_->isBidirectionalStream(id) &&
+       session.sock_->isServerStream(id))) {
     session.abortStream(HTTPException::Direction::INGRESS_AND_EGRESS,
                         id,
                         HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR);
@@ -172,16 +174,11 @@ bool HQSession::GoawayUtils::checkNewStream(HQSession& session,
   }
   // Cancel any stream that is out of the range allowed by GOAWAY
   if (session.drainState_ != DrainState::NONE) {
-    // TODO: change this in (id >= maxAllowedStreamId_)
-    // (see https://github.com/quicwg/base-drafts/issues/1717)
-    // NOTE: need to consider the downstream case as well, since streams may
-    // come out of order and we may get a new stream with lower id than
-    // advertised in the goaway, and we need to accept that
-    if ((session.direction_ == TransportDirection::UPSTREAM &&
-         id > session.maxAllowedStreamId_) ||
-        (session.direction_ == TransportDirection::DOWNSTREAM &&
-         session.sock_->isBidirectionalStream(id) &&
-         id > session.maxIncomingStreamId_)) {
+    // You can't check upstream here, because upstream GOAWAY sends PUSH IDs.
+    // It could be checked in HQUpstreamSesssion::onNewPushStream
+    if (session.direction_ == TransportDirection::DOWNSTREAM &&
+        session.sock_->isBidirectionalStream(id) &&
+        id >= session.getGoawayStreamId()) {
       session.abortStream(HTTPException::Direction::INGRESS_AND_EGRESS,
                           id,
                           HTTP3::ErrorCode::HTTP_REQUEST_REJECTED);
@@ -663,10 +660,13 @@ void HQSession::GoawayUtils::sendGoaway(HQSession& session) {
 }
 
 quic::StreamId HQSession::getGoawayStreamId() {
+  DCHECK_NE(direction_, TransportDirection::UPSTREAM);
   if (drainState_ == DrainState::NONE || drainState_ == DrainState::PENDING) {
-    return hq::kMaxClientBidiStreamId;
+    return HTTPCodec::MaxStreamID;
   }
-  return maxIncomingStreamId_;
+  // If/when we send client GOAWAYs, change this to return
+  // minUnseenIncomingPushId_ in that case.
+  return minUnseenIncomingStreamId_;
 }
 
 size_t HQSession::sendSettings() {
@@ -770,7 +770,7 @@ void HQSession::dropConnectionSync(
     // happen, under a destructod guard.
     if (sock_) {
       // this should be closeNow()
-      sock_->close(folly::none);
+      sock_->close(std::move(errorCode));
       sock_.reset();
     }
   }
@@ -1635,17 +1635,26 @@ void HQSession::HQVersionUtils::onSettings(const SettingsList& settings) {
   }
 }
 
-void HQSession::onGoaway(uint64_t lastGoodStreamID,
+void HQSession::onGoaway(uint64_t minUnseenId,
                          ErrorCode code,
                          std::unique_ptr<folly::IOBuf> /* debugData */) {
   // NOTE: This function needs to be idempotent. i.e. be a no-op if invoked
   // twice with the same lastGoodStreamID
-  DCHECK_EQ(direction_, TransportDirection::UPSTREAM);
+  if (direction_ == TransportDirection::DOWNSTREAM) {
+    VLOG(3) << "Ignoring downstream GOAWAY minUnseenId=" << minUnseenId
+            << " sess=" << *this;
+    return;
+  }
   DCHECK(version_ != HQVersion::H1Q_FB_V1);
-  VLOG(3) << "Got GOAWAY maxStreamID=" << lastGoodStreamID << " sess=" << *this;
-  // TODO: drop connection with HTTP_ID_ERROR when lastGoodStreamID >
-  // maxAllowedStreamId_
-  maxAllowedStreamId_ = std::min(maxAllowedStreamId_, lastGoodStreamID);
+  VLOG(3) << "Got GOAWAY minUnseenId=" << minUnseenId << " sess=" << *this;
+  if (minUnseenId > minPeerUnseenId_) {
+    LOG(ERROR) << "Goaway id increased=" << minUnseenId << " sess=" << *this;
+    dropConnectionAsync(
+        std::make_pair(HTTP3::ErrorCode::HTTP_ID_ERROR, "GOAWAY id increased"),
+        kErrorMalformedInput);
+    return;
+  }
+  minPeerUnseenId_ = minUnseenId;
   setCloseReason(ConnectionCloseReason::GOAWAY);
   // drains existing streams and prevents new streams to be created
   drainImpl();
@@ -1655,9 +1664,7 @@ void HQSession::onGoaway(uint64_t lastGoodStreamID,
     stream->txn_.onGoaway(code);
     // Abort transactions which have been initiated locally but not created
     // successfully at the remote end
-    // TODO: change this in (stream->getStreamId() >= maxAllowedStreamId_)
-    // (see https://github.com/quicwg/base-drafts/issues/1717)
-    if (stream->getStreamId() > maxAllowedStreamId_) {
+    if (stream->getStreamId() >= minPeerUnseenId_) {
       stream->errorOnTransaction(kErrorStreamUnacknowledged, "");
     }
   });
@@ -1676,9 +1683,9 @@ void HQSession::onPriority(quic::StreamId streamId, const HTTPPriority& pri) {
     return;
   }
   CHECK(sock_);
-  if (streamId > maxAllowedStreamId_) {
+  if (streamId >= minPeerUnseenId_) {
     VLOG(4) << "Priority update stream id=" << streamId
-            << " greater than max allowed id=" << maxAllowedStreamId_;
+            << " greater than max allowed id=" << minPeerUnseenId_;
     dropConnectionAsync(
         std::make_pair(HTTP3::ErrorCode::HTTP_ID_ERROR,
                        "Stream id is beyond max allowed stream id"),

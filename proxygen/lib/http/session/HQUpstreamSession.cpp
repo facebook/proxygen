@@ -297,6 +297,9 @@ void HQUpstreamSession::onNewPushStream(quic::StreamId pushStreamId,
                                         size_t toConsume) {
   VLOG(4) << __func__ << " streamID=" << pushStreamId << " pushId=" << pushId;
 
+  // TODO: if/when we support client goaway, reject stream if
+  // pushId >= minUnseenIncomingPushId_ after the GOAWAY is sent
+  minUnseenIncomingPushId_ = std::max(minUnseenIncomingPushId_, pushId);
   DCHECK_GT(toConsume, 0);
 
   bool eom = false;

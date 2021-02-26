@@ -122,7 +122,9 @@ class HQSessionTest
     if (!IS_H1Q_FB_V1) {
       egressControlCodec_ = std::make_unique<proxygen::hq::HQControlCodec>(
           nextUnidirectionalStreamId_,
-          direction_,
+          direction_ == proxygen::TransportDirection::DOWNSTREAM
+              ? proxygen::TransportDirection::UPSTREAM
+              : proxygen::TransportDirection::DOWNSTREAM,
           proxygen::hq::StreamDirection::EGRESS,
           egressSettings_);
     }

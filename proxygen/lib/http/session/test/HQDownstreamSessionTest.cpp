@@ -2000,9 +2000,21 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, TestGoawayID) {
   flushRequestsAndLoopN(3);
   EXPECT_EQ(httpCallbacks_.goaways, 2);
   EXPECT_THAT(httpCallbacks_.goawayStreamIds,
-              ElementsAre(kMaxClientBidiStreamId, 4));
+              ElementsAre(kMaxClientBidiStreamId, 8));
   handler->sendEOM();
   flushRequestsAndLoop();
+}
+
+TEST_P(HQDownstreamSessionTestHQ, TestReceiveGoaway) {
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  egressControlCodec_->generateGoaway(
+      writeBuf, HTTPCodec::MaxStreamID, ErrorCode::NO_ERROR, nullptr);
+  socketDriver_->addReadEvent(
+      connControlStreamId_, writeBuf.move(), std::chrono::milliseconds(0));
+  flushRequestsAndLoopN(1);
+  EXPECT_FALSE(hqSession_->isClosing());
+  hqSession_->closeWhenIdle();
+  eventBase_.loop();
 }
 
 TEST_P(HQDownstreamSessionTestH1qv2HQ, TestGetGoaway) {
@@ -2027,9 +2039,9 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ, TestGetGoaway) {
   flushRequestsAndLoopN(3);
   EXPECT_EQ(httpCallbacks_.goaways, 2);
   EXPECT_THAT(httpCallbacks_.goawayStreamIds,
-              ElementsAre(kMaxClientBidiStreamId, numStreams * 8));
+              ElementsAre(kMaxClientBidiStreamId, numStreams * 8 + 4));
 
-  // Check that a new stream with id > lastStreamId gets rejected
+  // Check that a new stream with id >= lastStreamId gets rejected
   auto errReq = getGetRequest();
   quic::StreamId errStreamId = numStreams * 8 + 4;
   sendRequest(errReq, true, errStreamId);

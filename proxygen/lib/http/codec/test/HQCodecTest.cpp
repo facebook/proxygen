@@ -144,6 +144,8 @@ class HQCodecTestFixture : public T {
         isTransportPartiallyReliable);
   }
 
+  void testGoaway(HQControlCodec& codec, uint64_t drainId);
+
  protected:
   FakeHQHTTPCodecCallback callbacks_;
   HTTPSettings egressSettings_;
@@ -931,6 +933,40 @@ TEST_F(HQCodecTest, PushPriorityCallback) {
   EXPECT_TRUE(callbacks_.incremental);
 }
 
+template <class T>
+void HQCodecTestFixture<T>::testGoaway(HQControlCodec& codec,
+                                       uint64_t drainId) {
+  writeValidFrame(queueCtrl_, FrameType::SETTINGS);
+  // Send draining goaway
+  EXPECT_FALSE(codec.isWaitingToDrain());
+  auto size = codec.generateGoaway(
+      queueCtrl_, HTTPCodec::MaxStreamID, ErrorCode::NO_ERROR, nullptr);
+  EXPECT_GT(size, 0);
+  EXPECT_TRUE(codec.isWaitingToDrain());
+
+  // HQControlCodec doesn't track the id's on it's own.  Asking for a second
+  // goaway with MaxStreamID will send a final with MAX
+  size = codec.generateGoaway(
+      queueCtrl_, HTTPCodec::MaxStreamID, ErrorCode::NO_ERROR, nullptr);
+  EXPECT_GT(size, 0);
+
+  // Ask for another GOAWAY, no-op
+  size = codec.generateGoaway(
+      queueCtrl_, HTTPCodec::MaxStreamID, ErrorCode::NO_ERROR, nullptr);
+  EXPECT_EQ(size, 0);
+  parseControl(CodecType::CONTROL_DOWNSTREAM);
+  EXPECT_EQ(callbacks_.goaways, 2);
+  EXPECT_THAT(callbacks_.goawayStreamIds, ElementsAre(drainId, drainId));
+}
+
+TEST_F(HQCodecTest, ServerGoaway) {
+  testGoaway(downstreamControlCodec_, kMaxClientBidiStreamId);
+}
+
+TEST_F(HQCodecTest, ClientGoaway) {
+  testGoaway(upstreamControlCodec_, kMaxPushId + 1);
+}
+
 struct FrameAllowedParams {
   CodecType codecType;
   FrameType frameType;
@@ -1138,8 +1174,6 @@ INSTANTIATE_TEST_CASE_P(
             CodecType::CONTROL_DOWNSTREAM, FrameType::SETTINGS, true},
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::PUSH_PROMISE, false},
-        (FrameAllowedParams){
-            CodecType::CONTROL_DOWNSTREAM, FrameType::GOAWAY, false},
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::MAX_PUSH_ID, true},
         (FrameAllowedParams){CodecType::CONTROL_DOWNSTREAM,
