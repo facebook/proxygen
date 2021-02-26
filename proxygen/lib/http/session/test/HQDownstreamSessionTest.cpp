@@ -1181,7 +1181,7 @@ TEST_P(HQDownstreamSessionTest, Cancel) {
   handler->expectDetachTransaction();
   flushRequestsAndLoop();
   EXPECT_EQ(*socketDriver_->streams_[id].error,
-            HTTP3::ErrorCode::HTTP_NO_ERROR);
+            HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED);
 }
 
 // read() returns a LocalErrorCode
@@ -2449,7 +2449,7 @@ TEST_P(HQDownstreamSessionTestH1qv2HQ,
   flushRequestsAndLoop();
 
   EXPECT_EQ(*socketDriver_->streams_[greaseStreamId].error,
-            HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE);
+            HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR);
   // Also check that the request completes correctly
   EXPECT_GT(socketDriver_->streams_[idh.first].writeBuf.chainLength(), 110);
   EXPECT_TRUE(socketDriver_->streams_[idh.first].writeEOF);
@@ -2551,7 +2551,7 @@ TEST_P(HQDownstreamSessionTestHQ, TooManyControlStreams) {
 
   flushRequestsAndLoop();
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
-            HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT);
+            HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR);
 }
 
 TEST_P(HQDownstreamSessionTest, TestUniformPauseState) {

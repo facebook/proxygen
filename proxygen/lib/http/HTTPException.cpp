@@ -30,7 +30,7 @@ HTTP3::ErrorCode toHTTP3ErrorCode(proxygen::ErrorCode err) {
     case ErrorCode::FRAME_SIZE_ERROR:
       return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
     case ErrorCode::REFUSED_STREAM:
-      return HTTP3::ErrorCode::HTTP_PUSH_REFUSED;
+      return HTTP3::ErrorCode::HTTP_REQUEST_REJECTED;
     case ErrorCode::CANCEL:
       return HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED;
     case ErrorCode::COMPRESSION_ERROR:

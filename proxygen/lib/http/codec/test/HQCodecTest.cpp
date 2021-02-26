@@ -898,6 +898,8 @@ TEST_F(HQCodecTest, MultipleSettingsUpstream) {
   EXPECT_EQ(callbacks_.headerFrames, 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
 }
 
 TEST_F(HQCodecTest, MultipleSettingsDownstream) {
@@ -907,6 +909,8 @@ TEST_F(HQCodecTest, MultipleSettingsDownstream) {
   EXPECT_EQ(callbacks_.headerFrames, 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
 }
 
 TEST_F(HQCodecTest, PriorityCallback) {
@@ -1035,6 +1039,8 @@ TEST_P(HQCodecTestFrameAllowed, FrameAllowedOnCodec) {
   // If an error was triggered, check that any additional parse call does not
   // raise another error, and that no new bytes are parsed
   if (!GetParam().allowed) {
+    EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+              HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
     auto lenBefore = 0;
     auto lenAfter = 0;
     switch (GetParam().codecType) {
@@ -1063,6 +1069,8 @@ TEST_P(HQCodecTestFrameAllowed, FrameAllowedOnCodec) {
     EXPECT_EQ(callbacks_.headerFrames, expectedFrames);
     EXPECT_EQ(callbacks_.streamErrors, 0);
     EXPECT_EQ(callbacks_.sessionErrors, 1);
+    EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+              HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
   }
 }
 
@@ -1156,6 +1164,10 @@ TEST_P(H1QCodecTestFrameAllowed, FrameAllowedOnH1qControlCodec) {
   EXPECT_EQ(callbacks_.headerFrames, GetParam().allowed ? 1 : 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, GetParam().allowed ? 0 : 1);
+  if (!GetParam().allowed) {
+    EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+              HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
+  }
 }
 
 INSTANTIATE_TEST_CASE_P(
@@ -1215,6 +1227,19 @@ TEST_P(HQCodecTestFrameBeforeSettings, FrameAllowedOnH1qControlCodec) {
   EXPECT_EQ(callbacks_.headerFrames, GetParam().allowed ? 1 : 0);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, GetParam().allowed ? 0 : 1);
+  if (!GetParam().allowed) {
+    if (GetParam().codecType == CodecType::H1Q_CONTROL_DOWNSTREAM ||
+        GetParam().codecType == CodecType::H1Q_CONTROL_UPSTREAM ||
+        GetParam().frameType == hq::FrameType::DATA ||
+        GetParam().frameType == hq::FrameType::HEADERS ||
+        GetParam().frameType == hq::FrameType::PUSH_PROMISE) {
+      EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+                HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
+    } else {
+      EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+                HTTP3::ErrorCode::HTTP_MISSING_SETTINGS);
+    }
+  }
 }
 
 INSTANTIATE_TEST_CASE_P(

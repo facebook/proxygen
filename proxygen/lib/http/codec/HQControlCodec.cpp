@@ -23,7 +23,7 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
     case hq::FrameType::DATA:
     case hq::FrameType::HEADERS:
     case hq::FrameType::PUSH_PROMISE:
-      return HTTP3::ErrorCode::HTTP_WRONG_STREAM;
+      return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     default:
       break;
   }

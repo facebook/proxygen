@@ -160,7 +160,7 @@ class HQUpstreamSession : public HQSession {
                  << " txn=" << txn_ << " pushID=" << pushId
                  << " parentTxnId=" << parentTxnId;
       session_.dropConnectionAsync(
-          std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM,
+          std::make_pair(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED,
                          "Push promise on push stream"),
           kErrorConnection);
     }

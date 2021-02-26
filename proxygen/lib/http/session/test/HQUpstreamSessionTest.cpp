@@ -1045,7 +1045,7 @@ TEST_P(HQUpstreamSessionTestHQ, TestOnStopSendingHTTPRequestRejected) {
   eventBase_.loopOnce();
   EXPECT_CALL(*socketDriver_->getSocket(),
               resetStream(streamId, HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED))
-      .Times(2) // See comment in HTTPSession::handleWriteError
+      .Times(2) // once from on stopSending and once from sendAbort
       .WillRepeatedly(
           Invoke([&](quic::StreamId id, quic::ApplicationErrorCode) {
             // setWriteError will cancaleDeliveryCallbacks which will invoke

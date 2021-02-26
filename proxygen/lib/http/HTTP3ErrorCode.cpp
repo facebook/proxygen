@@ -41,20 +41,12 @@ std::string toString(HTTP3::ErrorCode code) {
       return "HTTP: Data no longer needed";
     case HTTP3::ErrorCode::HTTP_INCOMPLETE_REQUEST:
       return "HTTP: Stream terminated early";
+    case HTTP3::ErrorCode::HTTP_MESSAGE_ERROR:
+      return "HTTP: Malformed message";
     case HTTP3::ErrorCode::HTTP_CONNECT_ERROR:
       return "HTTP: Reset or error on CONNECT request";
     case HTTP3::ErrorCode::HTTP_VERSION_FALLBACK:
       return "HTTP: Retry over HTTP/1.1";
-    case HTTP3::ErrorCode::HTTP_PUSH_REFUSED:
-      return "HTTP: Client refused pushed content";
-    case HTTP3::ErrorCode::HTTP_PUSH_ALREADY_IN_CACHE:
-      return "HTTP: Pushed content already cached";
-    case HTTP3::ErrorCode::HTTP_WRONG_STREAM:
-      return "HTTP: A frame was sent on the wrong stream";
-    case HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE:
-      return "HTTP: Unknown unidirectional stream type";
-    case HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT:
-      return "HTTP: Too many unidirectional streams";
     case HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED:
       return "HTTP: QPACK decompression failed";
     case HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR:

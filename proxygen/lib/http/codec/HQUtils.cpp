@@ -30,12 +30,10 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
   switch (err) {
     case HTTP3::ErrorCode::HTTP_NO_ERROR:
       return ErrorCode::NO_ERROR;
-    case HTTP3::ErrorCode::HTTP_PUSH_REFUSED:
+    case HTTP3::ErrorCode::HTTP_REQUEST_REJECTED:
       return ErrorCode::REFUSED_STREAM;
     case HTTP3::ErrorCode::HTTP_INTERNAL_ERROR:
       return ErrorCode::INTERNAL_ERROR;
-    case HTTP3::ErrorCode::HTTP_PUSH_ALREADY_IN_CACHE:
-      return ErrorCode::REFUSED_STREAM;
     case HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED:
       return ErrorCode::CANCEL;
     case HTTP3::ErrorCode::HTTP_CONNECT_ERROR:
@@ -44,9 +42,6 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
       return ErrorCode::ENHANCE_YOUR_CALM;
     case HTTP3::ErrorCode::HTTP_VERSION_FALLBACK:
       return ErrorCode::INTERNAL_ERROR;
-    case HTTP3::ErrorCode::HTTP_WRONG_STREAM:
-    case HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE:
-    case HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT:
     case HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM:
     case HTTP3::ErrorCode::HTTP_MISSING_SETTINGS:
     case HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED:
@@ -55,10 +50,8 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
     case HTTP3::ErrorCode::HTTP_ID_ERROR:
     case HTTP3::ErrorCode::HTTP_SETTINGS_ERROR:
     case HTTP3::ErrorCode::HTTP_INCOMPLETE_REQUEST:
+    case HTTP3::ErrorCode::HTTP_MESSAGE_ERROR:
       return ErrorCode::PROTOCOL_ERROR;
-    case HTTP3::ErrorCode::HTTP_REQUEST_REJECTED:
-      // Not sure this makes sense...
-      return ErrorCode::CANCEL;
     default:
       return ErrorCode::INTERNAL_ERROR;
   }

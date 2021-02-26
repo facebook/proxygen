@@ -284,7 +284,7 @@ HQSession::createIngressControlStream(quic::StreamId id,
   if (ctrlStream->ingressCodec_) {
     LOG(ERROR) << "Too many " << streamType << " streams for sess=" << *this;
     dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_WRONG_STREAM_COUNT,
+        std::make_pair(HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR,
                        "HTTP wrong stream count"),
         kErrorConnection);
     return nullptr;
@@ -1394,7 +1394,7 @@ void HQSession::rejectStream(quic::StreamId id) {
   // to clear the stream in the transport. It is safe to stop reading from this
   // stream. The peer is supposed to reset it on receipt of a STOP_SENDING
   sock_->setReadCallback(
-      id, nullptr, HTTP3::ErrorCode::HTTP_UNKNOWN_STREAM_TYPE);
+      id, nullptr, HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR);
   sock_->setPeekCallback(id, nullptr);
 }
 
@@ -2793,6 +2793,13 @@ void HQSession::abortStream(HTTPException::Direction dir,
                             quic::StreamId id,
                             HTTP3::ErrorCode err) {
   CHECK(sock_);
+  if (direction_ == TransportDirection::UPSTREAM &&
+      err == HTTP3::ErrorCode::HTTP_REQUEST_REJECTED) {
+    // Clients MUST NOT use the H3_REQUEST_REJECTED error code, except when a
+    // server has requested closure of the request stream with this error code
+    //  -- Safest just to never use it.
+    err = HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED;
+  }
   if (dir != HTTPException::Direction::EGRESS &&
       (sock_->isBidirectionalStream(id) || isPeerUniStream(id))) {
     // Any INGRESS abort generates a QPACK cancel
@@ -2984,7 +2991,7 @@ size_t HQSession::HQStreamTransportBase::sendAbort(
 
 size_t HQSession::HQStreamTransportBase::sendAbortImpl(HTTP3::ErrorCode code,
                                                        std::string errorMsg) {
-  VLOG(4) << __func__ << " txn=" << txn_;
+  VLOG(4) << __func__ << " txn=" << txn_ << " msg=" << errorMsg;
 
   // If the HQ stream is bound to a transport stream, abort it.
   if (hasStreamId()) {
@@ -3089,20 +3096,13 @@ void HQSession::HQStreamTransportBase::onResetStream(HTTP3::ErrorCode errorCode,
                                                      HTTPException ex) {
   // kErrorStreamAbort prevents HTTPTransaction from calling sendAbort in reply.
   // We use this code and manually call sendAbort here for appropriate cases
-  HTTP3::ErrorCode replyError;
-  if (session_.direction_ == TransportDirection::UPSTREAM) {
-    // Upstream ingress closed - cancel this request.
-    replyError = HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED;
-  } else if (!txn_.isIngressStarted()) {
+  HTTP3::ErrorCode replyError = HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED;
+  if (session_.direction_ == TransportDirection::DOWNSTREAM &&
+      !txn_.isIngressStarted()) {
     // Downstream ingress closed with no ingress yet, we can send REJECTED
     // It's actually ok if we've received headers but not made any
     // calls to the handler, but there's no API for that.
     replyError = HTTP3::ErrorCode::HTTP_REQUEST_REJECTED;
-  } else {
-    // Downstream ingress closed but we've received some ingress.
-    // TODO: This can be HTTP_REQUEST_CANCELLED also after the next release
-    // Does it require hq-04 to prevent clients from retrying accidentally?
-    replyError = HTTP3::ErrorCode::HTTP_NO_ERROR;
   }
 
   if (errorCode == HTTP3::ErrorCode::HTTP_REQUEST_REJECTED) {
