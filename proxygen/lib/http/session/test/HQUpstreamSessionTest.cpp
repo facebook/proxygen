@@ -329,6 +329,36 @@ TEST_P(HQUpstreamSessionTest, SimpleGet) {
   hqSession_->closeWhenIdle();
 }
 
+// H1Q does not support trailers, since it requires the messages to use HTTP
+// chunk encoding
+TEST_P(HQUpstreamSessionTestHQ, GetWithTrailers) {
+  auto handler = openTransaction();
+  auto req = getGetRequest();
+  handler->txn_->sendHeaders(req);
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "trailer1");
+  handler->txn_->sendTrailers(trailers);
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectTrailers();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+  auto resp = makeResponse(200, 100);
+  auto id = handler->txn_->getID();
+  sendResponse(id, *std::get<0>(resp), std::move(std::get<1>(resp)), false);
+  auto it = streams_.find(id);
+  CHECK(it != streams_.end());
+  auto& stream = it->second;
+  trailers.remove("x-trailer-1");
+  trailers.add("x-trailer-2", "trailer2");
+  stream.codec->generateTrailers(stream.buf, stream.codecId, trailers);
+  stream.codec->generateEOM(stream.buf, stream.codecId);
+  stream.readEOF = true;
+  flushAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQUpstreamSessionTest, PriorityUpdateIntoTransport) {
   if (IS_HQ) {
     auto handler = openTransaction();

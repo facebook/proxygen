@@ -158,7 +158,7 @@ class HQCodecTestFixture : public T {
   HQControlCodec downstreamControlCodec_{0x2222,
                                          TransportDirection::DOWNSTREAM,
                                          StreamDirection::INGRESS,
-                                         egressSettings_,
+                                         ingressSettings_,
                                          hq::UnidirectionalStreamType::CONTROL};
   HQControlCodec upstreamH1qControlCodec_{
       0x1111,
@@ -728,6 +728,86 @@ TEST_F(HQCodecTest, PushPromiseFrame) {
   EXPECT_EQ(callbacks_.assocStreamId, streamId_);
 }
 
+TEST_F(HQCodecTest, HeadersOverSize) {
+  // Server sends limited MAX_HEADER_LIST_SIZE, client will send anyways,
+  // server errors
+  HTTPSettings egressSettings{{SettingsId::MAX_HEADER_LIST_SIZE, 37}};
+  HQControlCodec downstreamControlEgressCodec{
+      0x2223,
+      TransportDirection::DOWNSTREAM,
+      StreamDirection::EGRESS,
+      egressSettings,
+      hq::UnidirectionalStreamType::CONTROL};
+  downstreamControlEgressCodec.generateSettings(queueCtrl_);
+  parseControl(CodecType::CONTROL_UPSTREAM);
+  // set so the stream codec sees it
+  // TODO: the downstream codec doesn't have access to the egress settings,
+  // it relies on QPACK to check this
+  qpackDownstream_.setMaxUncompressed(37);
+
+  HTTPMessage msg = getGetRequest();
+  msg.getHeaders().add(HTTP_HEADER_USER_AGENT, "optimus-prime");
+  upstreamCodec_->generateHeader(queue_, streamId_, msg, false, nullptr);
+
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo");
+  // These trailers are generated, but never parsed because it pauses after
+  // the headers error
+  upstreamCodec_->generateTrailers(queue_, streamId_, trailers);
+  parse();
+  downstreamCodec_->onIngressEOF();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
+}
+
+TEST_F(HQCodecTest, Trailers) {
+  for (auto body = 0; body <= 1; body++) {
+    HTTPMessage msg = getPostRequest(body * 5);
+    msg.getHeaders().add(HTTP_HEADER_USER_AGENT, "optimus-prime");
+    upstreamCodec_->generateHeader(queue_, streamId_, msg, false, nullptr);
+
+    if (body) {
+      std::string data("abcde");
+      auto buf = folly::IOBuf::copyBuffer(data.data(), data.length());
+      upstreamCodec_->generateBody(queue_,
+                                   streamId_,
+                                   std::move(buf),
+                                   HTTPCodec::NoPadding,
+                                   /*eom=*/false);
+    }
+    HTTPHeaders trailers;
+    trailers.add("x-trailer-1", "pico-de-gallo");
+    // stripped on generate
+    trailers.add(HTTP_HEADER_CONNECTION, "keep-alive");
+    upstreamCodec_->generateTrailers(queue_, streamId_, trailers);
+    upstreamCodec_->generateEOM(queue_, streamId_);
+    parse();
+    downstreamCodec_->onIngressEOF();
+
+    EXPECT_EQ(callbacks_.messageBegin, 1);
+    EXPECT_EQ(callbacks_.headersComplete, 1);
+    EXPECT_EQ(callbacks_.bodyCalls, body);
+    EXPECT_EQ(callbacks_.bodyLength, body * 5);
+    EXPECT_EQ(callbacks_.trailers, 1);
+    EXPECT_NE(nullptr, callbacks_.msg->getTrailers());
+    EXPECT_EQ("pico-de-gallo",
+              callbacks_.msg->getTrailers()->getSingleOrEmpty("x-trailer-1"));
+    EXPECT_EQ(callbacks_.msg->getTrailers()->size(), 1);
+    EXPECT_EQ(callbacks_.messageComplete, 1);
+    EXPECT_EQ(callbacks_.streamErrors, 0);
+    EXPECT_EQ(callbacks_.sessionErrors, 0);
+    callbacks_.reset();
+    makeCodecs(false);
+    downstreamCodec_->setCallback(&callbacks_);
+  }
+}
+
 template <class T>
 void HQCodecTestFixture<T>::qpackTest(bool blocked) {
   QPACKCodec& server = qpackDownstream_;
@@ -836,19 +916,32 @@ TEST_F(HQCodecTest, extraHeaders) {
   EXPECT_EQ(callbacks_.streamErrors, 0);
   downstreamCodec_->onIngress(*queue_.front());
   EXPECT_EQ(callbacks_.streamErrors, 1);
+  // The headers fail to parse because the codec thinks they are trailers
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_MESSAGE_ERROR);
   queue_.move();
+  callbacks_.reset();
   writeFrameHeaderManual(
       queue_, static_cast<uint64_t>(FrameType::HEADERS), simpleResp.size());
   queue_.append(simpleResp.data(), simpleResp.size());
   upstreamCodec_->onIngress(*queue_.front());
-  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
   upstreamCodec_->onIngress(*queue_.front());
-  EXPECT_EQ(callbacks_.streamErrors, 2);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  // The headers fail to parse because the codec thinks they are trailers
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_MESSAGE_ERROR);
 }
 
 /* A second HEADERS frame is unexpected, and stops the parser */
 TEST_F(HQCodecTest, MultipleHeaders) {
   writeValidFrame(queue_, FrameType::HEADERS);
+
+  // Write empty trailers, no more HEADERS frames allowed
+  std::array<uint8_t, 2> emptyHeaderBlock{0x00, 0x00};
+  hq::writeHeaders(queue_,
+                   folly::IOBuf::copyBuffer(emptyHeaderBlock.data(),
+                                            emptyHeaderBlock.size()));
 
   // Write invalid QPACK header.  It is never parsed because the frame is
   // unexpected

@@ -153,7 +153,6 @@ class HQFramedCodec : public HTTPCodec {
     folly::assume_unreachable();
   }
 
-  // HQ has no trailers
   size_t generateTrailers(folly::IOBufQueue& /*writeBuf*/,
                           StreamID /*stream*/,
                           const HTTPHeaders& /*trailers*/) override {

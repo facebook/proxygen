@@ -16,6 +16,29 @@
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/compress/QPACKCodec.h>
 
+namespace {
+
+using namespace proxygen;
+
+void logIfFieldSectionExceedsPeerMax(const HTTPHeaderSize& encodedSize,
+                                     uint32_t maxHeaderListSize,
+                                     const HTTPHeaders& fields) {
+  if (encodedSize.uncompressed > maxHeaderListSize) {
+    // The remote side told us they don't want headers this large, but try
+    // anyways
+    std::string serializedFields;
+    fields.forEach(
+        [&serializedFields](const std::string& name, const std::string& value) {
+          serializedFields =
+              folly::to<std::string>(serializedFields, "\\n", name, ":", value);
+        });
+    LOG(ERROR) << "generating HEADERS frame larger than peer maximum nHeaders="
+               << fields.size() << " all headers=" << serializedFields;
+  }
+}
+
+} // namespace
+
 namespace proxygen { namespace hq {
 
 using namespace folly;
@@ -141,30 +164,35 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
                                         const FrameHeader& header) {
   setParserPaused(true);
   if (finalIngressHeadersSeen_) {
-    // No Trailers for YOU!
-    if (callback_) {
-      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-                       "Invalid HEADERS frame");
-      ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
-      callback_->onError(streamId_, ex, false);
+    if (parsingTrailers_) {
+      VLOG(4) << "Unexpected HEADERS frame for stream=" << streamId_;
+      if (callback_) {
+        HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
+                         "Invalid HEADERS frame");
+        ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
+        callback_->onError(streamId_, ex, false);
+      }
+      return folly::none;
+    } else {
+      parsingTrailers_ = true;
     }
-    return folly::none;
   }
   std::unique_ptr<IOBuf> outHeaderData;
   auto res = hq::parseHeaders(cursor, header, outHeaderData);
   if (res) {
+    VLOG(4) << "Invalid HEADERS frame for stream=" << streamId_;
     return res;
   }
-  if (callback_) {
-    // H2 performs the decompression/semantic validation first.
-    // Also, this should really only be called once per this whole codec, not
-    // per header block -- think info status, and (shudder) trailers. This
-    // behavior mirrors HTTP2Codec at present.
+  VLOG(4) << "Parsing HEADERS frame for stream=" << streamId_
+          << " length=" << outHeaderData->computeChainDataLength();
+  if (callback_ && !parsingTrailers_) {
+    // H2 performs the decompression/semantic validation first.  Also, this
+    // should really only be called once per this whole codec, not per header
+    // block -- think info status. This behavior mirrors HTTP2Codec at present.
     callback_->onMessageBegin(streamId_, nullptr);
   }
-  // TODO: Handle HTTP trailers (T35711545)
   decodeInfo_.init(transportDirection_ == TransportDirection::DOWNSTREAM,
-                   false /* isRequestTrailers */);
+                   parsingTrailers_);
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), header.length, this);
   // decodeInfo_.msg gets moved in onHeadersComplete.  If it is still around,
@@ -415,7 +443,11 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
             400,
             decodeInfo_.parsingError)
             .str());
-    err.setHttpStatusCode(400);
+    if (parsingTrailers_) {
+      err.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_MESSAGE_ERROR);
+    } else {
+      err.setHttpStatusCode(400);
+    }
     callback_->onError(streamId_, err, true);
     resumeParser.dismiss();
     return;
@@ -440,8 +472,14 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
   }
   // Report back what we've parsed
   if (callback_) {
-    // TODO: should we treat msg as chunked like H2?
-    callback_->onHeadersComplete(streamId_, std::move(msg));
+    if (parsingTrailers_) {
+      auto trailerHeaders =
+          std::make_unique<HTTPHeaders>(msg->extractHeaders());
+      callback_->onTrailersComplete(streamId_, std::move(trailerHeaders));
+    } else {
+      // TODO: should we treat msg as chunked like H2?
+      callback_->onHeadersComplete(streamId_, std::move(msg));
+    }
   }
 }
 
@@ -528,23 +566,13 @@ void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
     *size = headerCodec_.getEncodedSize();
   }
 
-  if (headerCodec_.getEncodedSize().uncompressed >
+  logIfFieldSectionExceedsPeerMax(
+      headerCodec_.getEncodedSize(),
       ingressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE,
-                                  std::numeric_limits<uint32_t>::max())) {
-    // The remote side told us they don't want headers this large...
-    // but this function has no mechanism to fail
-    string serializedHeaders;
-    msg.getHeaders().forEach(
-        [&serializedHeaders](const string& name, const string& value) {
-          serializedHeaders =
-              folly::to<string>(serializedHeaders, "\\n", name, ":", value);
-        });
-    LOG(ERROR) << "generating HEADERS frame larger than peer maximum nHeaders="
-               << msg.getHeaders().size()
-               << " all headers=" << serializedHeaders;
-  }
+                                  std::numeric_limits<uint32_t>::max()),
+      msg.getHeaders());
 
-  // HTTP2/2 serializes priority here, but HQ priorities need to go on the
+  // HTTP/2 serializes priority here, but HQ priorities need to go on the
   // control stream
 
   WriteResult res;
@@ -611,6 +639,33 @@ size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
 
   totalEgressBytes_ += bytesWritten;
   return bytesWritten;
+}
+
+size_t HQStreamCodec::generateTrailers(folly::IOBufQueue& writeBuf,
+                                       StreamID stream,
+                                       const HTTPHeaders& trailers) {
+  DCHECK_EQ(stream, streamId_);
+  std::vector<compress::Header> allTrailers;
+  CodecUtil::appendHeaders(trailers, allTrailers, HTTP_HEADER_NONE);
+  auto encodeRes =
+      headerCodec_.encode(allTrailers, streamId_, maxEncoderStreamData());
+  qpackEncoderWriteBuf_.append(std::move(encodeRes.control));
+
+  logIfFieldSectionExceedsPeerMax(
+      headerCodec_.getEncodedSize(),
+      ingressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE,
+                                  std::numeric_limits<uint32_t>::max()),
+      trailers);
+  WriteResult res;
+  res = hq::writeHeaders(writeBuf, std::move(encodeRes.stream));
+
+  if (res.hasValue()) {
+    totalEgressBytes_ += res.value();
+  } else {
+    LOG(ERROR) << __func__ << ": failed to write trailers: " << res.error();
+    return 0;
+  }
+  return *res;
 }
 
 size_t HQStreamCodec::generateEOM(folly::IOBufQueue& /*writeBuf*/,

@@ -136,6 +136,10 @@ class HQStreamCodec
     return 0;
   }
 
+  size_t generateTrailers(folly::IOBufQueue& /*writeBuf*/,
+                          StreamID /*stream*/,
+                          const HTTPHeaders& /*trailers*/) override;
+
   size_t generateEOM(folly::IOBufQueue& writeBuf, StreamID stream) override;
 
   uint32_t getDefaultWindowSize() const override {
@@ -230,6 +234,7 @@ class HQStreamCodec
   folly::IOBufQueue& qpackDecoderWriteBuf_;
   folly::Function<uint64_t()> qpackEncoderMaxDataFn_;
   bool finalIngressHeadersSeen_{false};
+  bool parsingTrailers_{false};
   bool finalEgressHeadersSeen_{false};
   bool isConnect_{false};
   folly::Function<folly::Function<void()>()> activationHook_{
