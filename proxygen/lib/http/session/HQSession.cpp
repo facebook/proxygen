@@ -687,6 +687,7 @@ size_t HQSession::HQVersionUtils::sendSettings() {
           qpackCodec_.setMaxBlocking(setting.value);
           break;
         case hq::SettingId::MAX_HEADER_LIST_SIZE:
+          // TODO: qpackCodec_.setMaxUncompressed(setting.value)
           break;
       }
     }

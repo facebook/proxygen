@@ -35,10 +35,6 @@ ParseResult parseData(folly::io::Cursor& cursor,
                       const FrameHeader& header,
                       std::unique_ptr<folly::IOBuf>& outBuf) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
-  // DATA frames MUST contain a non-zero-length payload
-  if (header.length == 0) {
-    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
-  }
   cursor.clone(outBuf, header.length);
   return folly::none;
 }

@@ -815,14 +815,15 @@ TEST_F(HQCodecTest, qpackError) {
   downstreamCodec_->onIngress(*queue_.front());
   EXPECT_EQ(callbacks_.lastParseError->getHttpStatusCode(), 400);
   EXPECT_EQ(callbacks_.streamErrors, 1);
-  queue_.move();
+}
 
+TEST_F(HQCodecTest, qpackErrorShort) {
   uint8_t bad[] = {0x00}; // LR, no delta base
   hq::writeHeaders(queue_, folly::IOBuf::wrapBuffer(bad, 1));
   downstreamCodec_->onIngress(*queue_.front());
   EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
             HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
-  EXPECT_EQ(callbacks_.sessionErrors, 4);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
 TEST_F(HQCodecTest, extraHeaders) {
@@ -845,17 +846,74 @@ TEST_F(HQCodecTest, extraHeaders) {
   EXPECT_EQ(callbacks_.streamErrors, 2);
 }
 
-/* test that parsing multiple frame headers stops the parser */
+/* A second HEADERS frame is unexpected, and stops the parser */
 TEST_F(HQCodecTest, MultipleHeaders) {
   writeValidFrame(queue_, FrameType::HEADERS);
 
-  writeFrameHeaderManual(
-      queue_, static_cast<uint64_t>(FrameType::HEADERS), 0x08);
-
-  std::array<uint8_t, 10> data{
-      0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-  queue_.append(data.data(), data.size());
+  // Write invalid QPACK header.  It is never parsed because the frame is
+  // unexpected
+  std::array<uint8_t, 2> qpackError{0xC0, 0x00};
+  hq::writeHeaders(
+      queue_, folly::IOBuf::copyBuffer(qpackError.data(), qpackError.size()));
   parse();
+  // never seen, parser is paused
+  downstreamCodec_->onIngressEOF();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
+}
+
+/* An invalid HEADERS frame stops the parser */
+TEST_F(HQCodecTest, InvalidHeaders) {
+  // Valid but incomplete QPACK
+  std::array<uint8_t, 5> headersMissingField = {0x00, 0x00, 0xC0, 0xC1, 0xD1};
+  hq::writeHeaders(queue_,
+                   folly::IOBuf::wrapBuffer(headersMissingField.data(),
+                                            headersMissingField.size()));
+  parse();
+  // never seen, parser is paused
+  downstreamCodec_->onIngressEOF();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  EXPECT_EQ(callbacks_.lastParseError->getHttpStatusCode(), 400);
+}
+
+TEST_F(HQCodecTest, ParserStopsAfterPushPromiseError) {
+  std::array<uint8_t, 3> qpackError{0xC0, 0x00};
+  hq::writePushPromise(
+      queue_,
+      0,
+      folly::IOBuf::copyBuffer(qpackError.data(), qpackError.size()));
+
+  // push promises should be parsed by the client
+  parseUpstream();
+  // Never seen, error
+  upstreamCodec_->onIngressEOF();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
+}
+
+TEST_F(HQCodecTest, ZeroLengthData) {
+  hq::writeData(queue_, folly::IOBuf::create(1));
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.bodyCalls, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
 TEST_F(HQCodecTest, BasicConnect) {

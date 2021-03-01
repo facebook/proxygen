@@ -70,15 +70,15 @@ ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
 
 ParseResult HQStreamCodec::parseData(Cursor& cursor,
                                      const FrameHeader& header) {
+  // NOTE: If an error path is added to this method, it needs to setParserPaused
+
   // It's possible the data is in the wrong place per HTTP semantics, but it
   // will be caught by HTTPTransaction
   std::unique_ptr<IOBuf> outData;
   VLOG(10) << "parsing all frame DATA bytes for stream=" << streamId_
            << " length=" << header.length;
   auto res = hq::parseData(cursor, header, outData);
-  if (res) {
-    return res;
-  }
+  CHECK(!res);
 
   // no need to do deliverCallbackIfAllowed
   // the HQSession can trap this and stop reading.
@@ -139,6 +139,7 @@ ParseResult HQStreamCodec::parsePartiallyReliableData(Cursor& cursor) {
 
 ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
                                         const FrameHeader& header) {
+  setParserPaused(true);
   if (finalIngressHeadersSeen_) {
     // No Trailers for YOU!
     if (callback_) {
@@ -147,7 +148,6 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
       ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
       callback_->onError(streamId_, ex, false);
     }
-    setParserPaused(true);
     return folly::none;
   }
   std::unique_ptr<IOBuf> outHeaderData;
@@ -168,15 +168,16 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), header.length, this);
   // decodeInfo_.msg gets moved in onHeadersComplete.  If it is still around,
-  // parsing is incomplete, and needs to be paused.
-  if (decodeInfo_.msg) {
-    setParserPaused(true);
+  // parsing is incomplete, leave the parser paused.
+  if (!decodeInfo_.msg) {
+    setParserPaused(false);
   }
   return res;
 }
 
 ParseResult HQStreamCodec::parsePushPromise(Cursor& cursor,
                                             const FrameHeader& header) {
+  setParserPaused(true);
   PushId outPushId;
   std::unique_ptr<IOBuf> outHeaderData;
   auto res = hq::parsePushPromise(cursor, header, outPushId, outHeaderData);
@@ -197,10 +198,10 @@ ParseResult HQStreamCodec::parsePushPromise(Cursor& cursor,
   auto headerDataLength = outHeaderData->computeChainDataLength();
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), headerDataLength, this);
-  if (decodeInfo_.msg) {
-    // parsing incomplete, see comment in parseHeaders
-    setParserPaused(true);
-  }
+  if (!decodeInfo_.msg) {
+    setParserPaused(false);
+  } // else parsing incomplete, see comment in parseHeaders
+
   return res;
 }
 
@@ -395,12 +396,14 @@ HQStreamCodec::onEgressBodyReject(uint64_t bodyOffset) {
 
 void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
                                       bool acknowledge) {
+  CHECK(parserPaused_);
   decodeInfo_.onHeadersComplete(decodedSize);
-  auto g = folly::makeGuard([this] { setParserPaused(false); });
+  auto resumeParser = folly::makeGuard([this] { setParserPaused(false); });
   auto g2 = folly::makeGuard(activationHook_());
-  std::unique_ptr<HTTPMessage> msg = std::move(decodeInfo_.msg);
 
   // Check parsing error
+  DCHECK_EQ(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
+  // Leave msg in decodeInfo_ for now, to keep the parser paused
   if (decodeInfo_.parsingError != "") {
     LOG(ERROR) << "Failed parsing header list for stream=" << streamId_
                << ", error=" << decodeInfo_.parsingError;
@@ -414,8 +417,10 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
             .str());
     err.setHttpStatusCode(400);
     callback_->onError(streamId_, err, true);
+    resumeParser.dismiss();
     return;
   }
+  std::unique_ptr<HTTPMessage> msg = std::move(decodeInfo_.msg);
   msg->setAdvancedProtocolString(getCodecProtocolString(CodecProtocol::HQ));
 
   if (curHeader_.type == hq::FrameType::HEADERS) {
@@ -442,6 +447,7 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
 
 void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
   // the parser may be paused, but this codec is dead.
+  CHECK(parserPaused_);
   decodeInfo_.decodeError = decodeError;
   DCHECK_NE(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
   LOG(ERROR) << "Failed decoding header block for stream=" << streamId_;
@@ -456,9 +462,10 @@ void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                      "Stream headers decompression error");
     ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
+    // HEADERS_TOO_LARGE could be a stream error, maybe?
     callback_->onError(kSessionStreamId, ex, false);
   }
-  decodeInfo_.msg.reset();
+  // leave the partial msg in decodeInfo, it keeps the parser paused
 }
 
 void HQStreamCodec::generateHeader(folly::IOBufQueue& writeBuf,

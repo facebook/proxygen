@@ -129,7 +129,7 @@ TEST_F(HQFramerTest, DataFrameZeroLength) {
   FrameHeader outHeader;
   std::unique_ptr<IOBuf> outBuf;
   Cursor cursor(queue_.front());
-  parse(HTTP3::ErrorCode::HTTP_FRAME_ERROR, parseData, outHeader, outBuf);
+  parse(folly::none, parseData, outHeader, outBuf);
 }
 
 struct FrameHeaderLengthParams {
