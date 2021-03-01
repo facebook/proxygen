@@ -1009,6 +1009,26 @@ TEST_F(HQCodecTest, ZeroLengthData) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HQCodecTest, TruncatedStream) {
+  writeFrameHeaderManual(
+      queue_, static_cast<uint64_t>(FrameType::HEADERS), 0x10);
+  parse();
+  downstreamCodec_->onIngressEOF();
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_FRAME_ERROR);
+
+  // A second EOF goes nowhere, because the codec is in error
+  downstreamCodec_->onIngressEOF();
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
+            HTTP3::ErrorCode::HTTP_FRAME_ERROR);
+}
+
 TEST_F(HQCodecTest, BasicConnect) {
   std::string authority = "myhost:1234";
   HTTPMessage request;

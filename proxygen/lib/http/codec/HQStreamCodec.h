@@ -71,12 +71,10 @@ class HQStreamCodec
   }
 
   void onIngressEOF() override {
-    if (parserPaused_) {
-      deferredEOF_ = true;
-    } else if (callback_) {
+    if (onFramedIngressEOF() && callback_) {
       auto g = folly::makeGuard(activationHook_());
       callback_->onMessageComplete(streamId_, false);
-    }
+    } // else the conn was in error or paused
   }
 
   /**

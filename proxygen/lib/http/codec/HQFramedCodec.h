@@ -367,6 +367,8 @@ class HQFramedCodec : public HTTPCodec {
     return false;
   }
 
+  bool onFramedIngressEOF();
+
   HTTPCodec::StreamID streamId_;
   TransportDirection transportDirection_;
   HTTPCodec::Callback* callback_{nullptr};

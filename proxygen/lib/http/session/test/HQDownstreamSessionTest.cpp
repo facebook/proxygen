@@ -1184,6 +1184,25 @@ TEST_P(HQDownstreamSessionTest, Cancel) {
             HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED);
 }
 
+TEST_P(HQDownstreamSessionTestHQ, EndOfStreamWithPartialFrame) {
+  auto id = sendRequest(getPostRequest(10), false);
+  auto& request = getStream(id);
+  // generate body + EOM, but trim the last byte
+  folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+  request.codec->generateBody(
+      writeBuf, request.id, makeBuf(10), HTTPCodec::NoPadding, true);
+  request.buf.append(writeBuf.split(writeBuf.chainLength() - 1));
+  request.readEOF = true;
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectError();
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
+            HTTP3::ErrorCode::HTTP_FRAME_ERROR);
+}
+
 // read() returns a LocalErrorCode
 TEST_P(HQDownstreamSessionTest, ReadErrorSync) {
   auto id = sendRequest(getPostRequest(10), false);
