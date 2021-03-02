@@ -23,20 +23,12 @@ class HTTPAcceptor : public wangle::Acceptor {
       : Acceptor(accConfig), accConfig_(accConfig) {
   }
 
-  /**
-   * Access the general-purpose timeout manager for transactions.
-   */
-  virtual const WheelTimerInstance& getTransactionTimeoutSet() {
-    return *timer_;
-  }
-
   void init(folly::AsyncServerSocket* serverSocket,
             folly::EventBase* eventBase,
             wangle::SSLStats* /*stat*/ = nullptr,
             std::shared_ptr<const fizz::server::FizzServerContext> fizzCtx =
                 nullptr) override {
-    timer_ = std::make_unique<WheelTimerInstance>(
-        accConfig_.transactionIdleTimeout, eventBase);
+    timer_ = createTransactionTimeoutSet(eventBase);
     Acceptor::init(serverSocket, eventBase, nullptr, fizzCtx);
   }
 
@@ -47,12 +39,25 @@ class HTTPAcceptor : public wangle::Acceptor {
     return Acceptor::getConfig();
   }
 
+  /**
+   * Access the general-purpose timeout manager for transactions.
+   */
+  virtual const WheelTimerInstance& getTransactionTimeoutSet() {
+    return *timer_;
+  }
+
  protected:
   AcceptorConfiguration accConfig_;
+  std::unique_ptr<WheelTimerInstance> timer_;
+
+  virtual std::unique_ptr<WheelTimerInstance> createTransactionTimeoutSet(
+      folly::EventBase* eventBase) {
+    return std::make_unique<WheelTimerInstance>(
+        accConfig_.transactionIdleTimeout, eventBase);
+  }
 
  private:
   AsyncTimeoutSet::UniquePtr tcpEventsTimeouts_;
-  std::unique_ptr<WheelTimerInstance> timer_;
 };
 
 } // namespace proxygen
