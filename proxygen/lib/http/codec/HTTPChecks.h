@@ -27,11 +27,13 @@ class HTTPChecks : public PassThroughHTTPCodecFilter {
 
   // HTTPCodec methods
 
-  void generateHeader(folly::IOBufQueue& writeBuf,
-                      StreamID stream,
-                      const HTTPMessage& msg,
-                      bool eom,
-                      HTTPHeaderSize* sizeOut) override;
+  void generateHeader(
+      folly::IOBufQueue& writeBuf,
+      StreamID stream,
+      const HTTPMessage& msg,
+      bool eom,
+      HTTPHeaderSize* sizeOut,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
 };
 
 } // namespace proxygen

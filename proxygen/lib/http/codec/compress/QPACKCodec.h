@@ -50,8 +50,8 @@ class QPACKCodec : public HeaderCodec {
       const HTTPMessage& msg,
       bool includeDate,
       uint64_t id,
-      uint32_t maxEncoderStreamBytes =
-          std::numeric_limits<uint32_t>::max()) noexcept;
+      uint32_t maxEncoderStreamBytes = std::numeric_limits<uint32_t>::max(),
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none) noexcept;
 
   HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf) {
     // stats?

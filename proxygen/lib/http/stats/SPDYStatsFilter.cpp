@@ -95,17 +95,20 @@ void SPDYStatsFilter::onPriority(StreamID stream,
   callback_->onPriority(stream, priority);
 }
 
-void SPDYStatsFilter::generateHeader(folly::IOBufQueue& writeBuf,
-                                     StreamID stream,
-                                     const HTTPMessage& msg,
-                                     bool eom,
-                                     HTTPHeaderSize* size) {
+void SPDYStatsFilter::generateHeader(
+    folly::IOBufQueue& writeBuf,
+    StreamID stream,
+    const HTTPMessage& msg,
+    bool eom,
+    HTTPHeaderSize* size,
+    folly::Optional<HTTPHeaders> extraHeaders) {
   if (call_->getTransportDirection() == TransportDirection::UPSTREAM) {
     counters_->recordEgressSynStream();
   } else {
     counters_->recordEgressSynReply();
   }
-  return call_->generateHeader(writeBuf, stream, msg, eom, size);
+  return call_->generateHeader(
+      writeBuf, stream, msg, eom, size, std::move(extraHeaders));
 }
 
 void SPDYStatsFilter::generatePushPromise(folly::IOBufQueue& writeBuf,

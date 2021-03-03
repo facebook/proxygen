@@ -232,12 +232,13 @@ TEST_F(SessionPoolFixture, ParallelPoolLists) {
 
 TEST_F(SessionPoolFixture, OutstandingWrites) {
   auto codec = makeSerialCodec();
-  EXPECT_CALL(*codec, generateHeader(_, _, _, _, _))
+  EXPECT_CALL(*codec, generateHeader(_, _, _, _, _, _))
       .WillOnce(Invoke([](folly::IOBufQueue& writeBuf,
                           HTTPCodec::StreamID /*id*/,
                           const HTTPMessage& /*msg*/,
                           bool /*eom*/,
-                          HTTPHeaderSize* size) {
+                          HTTPHeaderSize* size,
+                          folly::Optional<HTTPHeaders>) {
         writeBuf.append("somedata");
         if (size) {
           size->uncompressed = 8;
@@ -599,12 +600,13 @@ TEST_F(SessionPoolFixture, ServerIdleSessionControllerTest) {
 
 TEST_F(SessionPoolFixture, WritePausedSessionNotMarkedAsIdle) {
   auto codec = makeParallelCodec();
-  EXPECT_CALL(*codec, generateHeader(_, _, _, _, _))
+  EXPECT_CALL(*codec, generateHeader(_, _, _, _, _, _))
       .WillOnce(Invoke([](folly::IOBufQueue& writeBuf,
                           HTTPCodec::StreamID /*id*/,
                           const HTTPMessage& /*msg*/,
                           bool /*eom*/,
-                          HTTPHeaderSize* size) {
+                          HTTPHeaderSize* size,
+                          folly::Optional<HTTPHeaders>) {
         writeBuf.append("somedata");
         if (size) {
           size->uncompressed = 8;

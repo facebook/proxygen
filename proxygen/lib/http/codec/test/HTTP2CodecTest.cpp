@@ -226,6 +226,22 @@ TEST_F(HTTP2CodecTest, BasicHeader) {
   EXPECT_EQ("www.foo.com", headers.getSingleOrEmpty(HTTP_HEADER_HOST));
 }
 
+TEST_F(HTTP2CodecTest, GenerateExtraHeaders) {
+  HTTPMessage req = getGetRequest("/fish_taco");
+  req.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "157");
+  HTTPHeaders extraHeaders;
+  extraHeaders.add(HTTP_HEADER_PRIORITY, "u=0");
+  upstreamCodec_.generateHeader(
+      output_, 1, req, true, nullptr /* headerSize */, std::move(extraHeaders));
+
+  parse();
+  // There is also a HOST header
+  callbacks_.expectMessage(true, 3, "/fish_taco");
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ("157", headers.getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH));
+  EXPECT_EQ("u=0", headers.getSingleOrEmpty(HTTP_HEADER_PRIORITY));
+}
+
 TEST_F(HTTP2CodecTest, RequestFromServer) {
   // this is to test EX_HEADERS frame, which carrys the HTTP request initiated
   // by server side

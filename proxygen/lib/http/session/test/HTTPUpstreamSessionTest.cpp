@@ -1983,12 +1983,14 @@ TEST_F(MockHTTP2UpstreamTest, ParseErrorNoTxn) {
   // Expect that the codec should be asked to generate an abort on streamID==1
 
   // Setup the codec expectations.
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _))
-      .WillOnce(Invoke([](folly::IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID,
-                          const HTTPMessage&,
-                          bool,
-                          HTTPHeaderSize*) { writeBuf.append("1", 1); }));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
+      .WillOnce(Invoke(
+          [](folly::IOBufQueue& writeBuf,
+             HTTPCodec::StreamID,
+             const HTTPMessage&,
+             bool,
+             HTTPHeaderSize*,
+             folly::Optional<HTTPHeaders>) { writeBuf.append("1", 1); }));
   EXPECT_CALL(*codecPtr_, generateEOM(_, _)).WillOnce(Return(20));
   EXPECT_CALL(*codecPtr_, generateRstStream(_, 1, _));
 
@@ -2189,13 +2191,15 @@ TEST_F(MockHTTPUpstreamTest, GoawayPreHeaders) {
   InSequence enforceOrder;
 
   handler.expectTransaction();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _))
-      .WillOnce(Invoke(
-          [&](IOBufQueue& writeBuf,
-              HTTPCodec::StreamID /*stream*/,
-              const HTTPMessage& /*msg*/,
-              bool /*eom*/,
-              HTTPHeaderSize* /*size*/) { writeBuf.append("HEADERS", 7); }));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _))
+      .WillOnce(Invoke([&](IOBufQueue& writeBuf,
+                           HTTPCodec::StreamID /*stream*/,
+                           const HTTPMessage& /*msg*/,
+                           bool /*eom*/,
+                           HTTPHeaderSize* /*size*/,
+                           folly::Optional<HTTPHeaders>) {
+        writeBuf.append("HEADERS", 7);
+      }));
   handler.expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ(200, msg->getStatusCode());
@@ -2300,7 +2304,7 @@ TEST_F(MockHTTPUpstreamTest, GetWithBody) {
 
   InSequence enforceOrder;
 
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateBody(_, _, _, _, true));
 
   auto txn = httpSession_->newTransaction(&handler);
@@ -2315,7 +2319,7 @@ TEST_F(MockHTTPUpstreamTest, GetWithBody) {
 TEST_F(MockHTTPUpstreamTest, HeaderWithEom) {
   NiceMock<MockHTTPHandler> handler;
   HTTPMessage req = getGetRequest();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, true, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, true, _, _));
 
   auto txn = httpSession_->newTransaction(&handler);
   txn->sendHeadersWithEOM(req);
@@ -2347,7 +2351,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
     std::tie(resp, respBody) = makeResponse(200, 50);
 
     handler.expectTransaction();
-    EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+    EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
     if (stage > 0) {
       handler.expectHeaders();
@@ -2443,7 +2447,7 @@ TEST_F(MockHTTPUpstreamTest, AbortUpgrade) {
   std::unique_ptr<HTTPMessage> resp = makeResponse(200);
 
   handler.expectTransaction();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
   auto txn = httpSession_->newTransaction(&handler);
   const auto streamID = txn->getID();
@@ -2473,7 +2477,7 @@ TEST_F(MockHTTPUpstreamTest, DrainBeforeSendHeaders) {
   MockHTTPHandler pushHandler;
 
   auto handler = openTransaction();
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
 
   handler->expectHeaders();
   handler->expectEOM();
@@ -2731,7 +2735,7 @@ TEST_F(MockHTTP2UpstreamTest, DelayUpstreamWindowUpdate) {
   handler->txn_->setReceiveWindow(1000000); // One miiiillion
 
   InSequence enforceOrder;
-  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codecPtr_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codecPtr_, generateWindowUpdate(_, _, _));
 
   HTTPMessage req = getGetRequest();

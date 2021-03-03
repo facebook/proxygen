@@ -351,7 +351,8 @@ void HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
                                  StreamID txn,
                                  const HTTPMessage& msg,
                                  bool eom,
-                                 HTTPHeaderSize* size) {
+                                 HTTPHeaderSize* size,
+                                 folly::Optional<HTTPHeaders> extraHeaders) {
   if (keepalive_ && disableKeepalivePending_) {
     keepalive_ = false;
   }
@@ -487,7 +488,7 @@ void HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     parser_.http_minor = 9;
     return;
   }
-  const string* deferredContentLength = nullptr;
+  folly::StringPiece deferredContentLength;
   bool hasTransferEncodingChunked = false;
   bool hasDateHeader = false;
   bool hasUpgradeHeader = false;
@@ -495,77 +496,82 @@ void HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   size_t lastConnectionToken = 0;
   bool egressWebsocketUpgrade = msg.isEgressWebsocketUpgrade();
   bool hasUpgradeTokeninConnection = false;
-  msg.getHeaders().forEachWithCode(
-      [&](HTTPHeaderCode code, const string& header, const string& value) {
-        if (code == HTTP_HEADER_CONTENT_LENGTH) {
-          // Write the Content-Length last (t1071703)
-          deferredContentLength = &value;
-          return; // continue
-        } else if (code == HTTP_HEADER_CONNECTION &&
-                   (!is1xxResponse_ || egressWebsocketUpgrade)) {
-          static const string kClose = "close";
-          static const string kKeepAlive = "keep-alive";
-          folly::split(',', value, connectionTokens);
-          for (auto curConnectionToken = lastConnectionToken;
-               curConnectionToken < connectionTokens.size();
-               curConnectionToken++) {
-            auto token = trimWhitespace(connectionTokens[curConnectionToken]);
-            if (caseInsensitiveEqual(token, "upgrade")) {
-              hasUpgradeTokeninConnection = true;
-            }
-            if (caseInsensitiveEqual(token, kClose)) {
-              keepalive_ = false;
-            } else if (!caseInsensitiveEqual(token, kKeepAlive)) {
-              connectionTokens[lastConnectionToken++] = token;
-            } // else eat the keep-alive token
-          }
-          connectionTokens.resize(lastConnectionToken);
-          // We'll generate a new Connection header based on the keepalive_
-          // state
-          return;
-        } else if (code == HTTP_HEADER_UPGRADE && txn == 1) {
-          hasUpgradeHeader = true;
-          if (upstream) {
-            // save in case we get a 101 Switching Protocols
-            upgradeHeader_ = value;
-          }
-        } else if (!hasTransferEncodingChunked &&
-                   code == HTTP_HEADER_TRANSFER_ENCODING) {
-          if (!caseInsensitiveEqual(value, kChunked)) {
-            return;
-          }
-          hasTransferEncodingChunked = true;
-          if (!mayChunkEgress_) {
-            return;
-          }
-        } else if (!hasDateHeader && code == HTTP_HEADER_DATE) {
-          hasDateHeader = true;
-        } else if (egressWebsocketUpgrade &&
-                   code == HTTP_HEADER_SEC_WEBSOCKET_KEY) {
-          // will generate our own key per hop, not client's.
-          return;
-        } else if (egressWebsocketUpgrade &&
-                   code == HTTP_HEADER_SEC_WEBSOCKET_ACCEPT) {
-          // will generate our own accept per hop, not client's.
-          return;
+  auto headerEncoder = [&](HTTPHeaderCode code,
+                           folly::StringPiece header,
+                           folly::StringPiece value) {
+    if (code == HTTP_HEADER_CONTENT_LENGTH) {
+      // Write the Content-Length last (t1071703)
+      deferredContentLength = value;
+      return; // continue
+    } else if (code == HTTP_HEADER_CONNECTION &&
+               (!is1xxResponse_ || egressWebsocketUpgrade)) {
+      static const string kClose = "close";
+      static const string kKeepAlive = "keep-alive";
+      folly::split(',', value, connectionTokens);
+      for (auto curConnectionToken = lastConnectionToken;
+           curConnectionToken < connectionTokens.size();
+           curConnectionToken++) {
+        auto token = trimWhitespace(connectionTokens[curConnectionToken]);
+        if (caseInsensitiveEqual(token, "upgrade")) {
+          hasUpgradeTokeninConnection = true;
         }
-        size_t lineLen =
-            header.length() + value.length() + 4; // 4 for ": " + CRLF
-        auto writable =
-            writeBuf.preallocate(lineLen, std::max(lineLen, size_t(2000)));
-        char* dst = (char*)writable.first;
-        memcpy(dst, header.data(), header.length());
-        dst += header.length();
-        *dst++ = ':';
-        *dst++ = ' ';
-        memcpy(dst, value.data(), value.length());
-        dst += value.length();
-        *dst++ = '\r';
-        *dst = '\n';
-        DCHECK_EQ(size_t(++dst - (char*)writable.first), lineLen);
-        writeBuf.postallocate(lineLen);
-        len += lineLen;
-      });
+        if (caseInsensitiveEqual(token, kClose)) {
+          keepalive_ = false;
+        } else if (!caseInsensitiveEqual(token, kKeepAlive)) {
+          connectionTokens[lastConnectionToken++] = token;
+        } // else eat the keep-alive token
+      }
+      connectionTokens.resize(lastConnectionToken);
+      // We'll generate a new Connection header based on the keepalive_
+      // state
+      return;
+    } else if (code == HTTP_HEADER_UPGRADE && txn == 1) {
+      hasUpgradeHeader = true;
+      if (upstream) {
+        // save in case we get a 101 Switching Protocols
+        upgradeHeader_ = value.str();
+      }
+    } else if (!hasTransferEncodingChunked &&
+               code == HTTP_HEADER_TRANSFER_ENCODING) {
+      if (!caseInsensitiveEqual(value, kChunked)) {
+        return;
+      }
+      hasTransferEncodingChunked = true;
+      if (!mayChunkEgress_) {
+        return;
+      }
+    } else if (!hasDateHeader && code == HTTP_HEADER_DATE) {
+      hasDateHeader = true;
+    } else if (egressWebsocketUpgrade &&
+               code == HTTP_HEADER_SEC_WEBSOCKET_KEY) {
+      // will generate our own key per hop, not client's.
+      return;
+    } else if (egressWebsocketUpgrade &&
+               code == HTTP_HEADER_SEC_WEBSOCKET_ACCEPT) {
+      // will generate our own accept per hop, not client's.
+      return;
+    }
+    size_t lineLen = header.size() + value.size() + 4; // 4 for ": " + CRLF
+    auto writable =
+        writeBuf.preallocate(lineLen, std::max(lineLen, size_t(2000)));
+    char* dst = (char*)writable.first;
+    memcpy(dst, header.data(), header.size());
+    dst += header.size();
+    *dst++ = ':';
+    *dst++ = ' ';
+    memcpy(dst, value.data(), value.size());
+    dst += value.size();
+    *dst++ = '\r';
+    *dst = '\n';
+    DCHECK_EQ(size_t(++dst - (char*)writable.first), lineLen);
+    writeBuf.postallocate(lineLen);
+    len += lineLen;
+  };
+  msg.getHeaders().forEachWithCode(headerEncoder);
+  if (extraHeaders) {
+    extraHeaders->forEachWithCode(headerEncoder);
+  }
+
   bool bodyCheck =
       (downstream && keepalive_ && !expectNoResponseBody_ && !egressUpgrade_) ||
       // auto chunk POSTs and any request that came to us chunked
@@ -573,7 +579,7 @@ void HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
   // TODO: 400 a 1.0 POST with no content-length
   // clear egressChunked_ if the header wasn't actually set
   egressChunked_ &= hasTransferEncodingChunked;
-  if (bodyCheck && !egressChunked_ && !deferredContentLength) {
+  if (bodyCheck && !egressChunked_ && deferredContentLength.empty()) {
     // On a connection that would otherwise be eligible for keep-alive,
     // we're being asked to send a response message with no Content-Length,
     // no chunked encoding, and no special circumstances that would eliminate
@@ -629,9 +635,9 @@ void HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
     appendLiteral(writeBuf, len, "\r\n");
   }
 
-  if (deferredContentLength) {
+  if (!deferredContentLength.empty()) {
     appendLiteral(writeBuf, len, "Content-Length: ");
-    appendString(writeBuf, len, *deferredContentLength);
+    appendString(writeBuf, len, deferredContentLength);
     appendLiteral(writeBuf, len, CRLF);
   }
   appendLiteral(writeBuf, len, CRLF);

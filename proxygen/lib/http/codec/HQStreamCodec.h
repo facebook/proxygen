@@ -101,11 +101,13 @@ class HQStreamCodec
   folly::Expected<uint64_t, UnframedBodyOffsetTrackerError> onEgressBodyReject(
       uint64_t bodyOffset);
 
-  void generateHeader(folly::IOBufQueue& writeBuf,
-                      StreamID stream,
-                      const HTTPMessage& msg,
-                      bool eom = false,
-                      HTTPHeaderSize* size = nullptr) override;
+  void generateHeader(
+      folly::IOBufQueue& writeBuf,
+      StreamID stream,
+      const HTTPMessage& msg,
+      bool eom = false,
+      HTTPHeaderSize* size = nullptr,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
 
   void generatePushPromise(folly::IOBufQueue& writeBuf,
                            StreamID stream,
@@ -205,7 +207,8 @@ class HQStreamCodec
   void generateHeaderImpl(folly::IOBufQueue& writeBuf,
                           const HTTPMessage& msg,
                           folly::Optional<StreamID> pushId,
-                          HTTPHeaderSize* size);
+                          HTTPHeaderSize* size,
+                          folly::Optional<HTTPHeaders> extraHeaders);
 
   uint64_t maxEncoderStreamData() {
     auto maxData = qpackEncoderMaxDataFn_();

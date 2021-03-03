@@ -74,11 +74,13 @@ class HTTP1xCodec : public HTTPCodec {
   bool supportsPushTransactions() const override {
     return false;
   }
-  void generateHeader(folly::IOBufQueue& writeBuf,
-                      StreamID txn,
-                      const HTTPMessage& msg,
-                      bool eom = false,
-                      HTTPHeaderSize* size = nullptr) override;
+  void generateHeader(
+      folly::IOBufQueue& writeBuf,
+      StreamID txn,
+      const HTTPMessage& msg,
+      bool eom = false,
+      HTTPHeaderSize* size = nullptr,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID txn,
                       std::unique_ptr<folly::IOBuf> chain,

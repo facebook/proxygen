@@ -309,7 +309,7 @@ TEST_F(MockCodecDownstreamTest, ServerPush) {
     eventBase_.loop(); // flush the response to the normal request
   }));
 
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
   EXPECT_CALL(*codec_,
               generateBody(_, 1, PtrBufHasLen(uint64_t(100)), _, true));
   EXPECT_CALL(handler, detachTransaction());
@@ -597,7 +597,7 @@ TEST_F(MockCodecDownstreamTest, ServerPushClientMessage) {
     handler.sendReplyWithBody(200, 100);
     eventBase_.loop(); // flush the response to the assoc request
   }));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
   EXPECT_CALL(*codec_,
               generateBody(_, 1, PtrBufHasLen(uint64_t(100)), _, true));
   EXPECT_CALL(handler, detachTransaction());
@@ -653,7 +653,7 @@ TEST_F(MockCodecDownstreamTest, ReadTimeout) {
 
   // Send the response, timeout.  Now it's idle and should close.
   handler1.txn_->resumeIngress();
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
   handler1.sendReplyWithBody(200, 100);
   EXPECT_CALL(*codec_,
               generateBody(_, 1, PtrBufHasLen(uint64_t(100)), _, true));
@@ -680,7 +680,7 @@ TEST_F(MockCodecDownstreamTest, Ping) {
   }));
 
   // Header egresses immediately
-  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _, _));
   // Ping jumps ahead of queued body in the loop callback
   EXPECT_CALL(*codec_, generatePingReply(_, _));
   EXPECT_CALL(*codec_, generateBody(_, _, _, _, true));
@@ -941,12 +941,14 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
       .WillOnce(Return(&handler1));
   EXPECT_CALL(handler1, setTransaction(_)).WillOnce(SaveArg<0>(&handler1.txn_));
   EXPECT_CALL(handler1, onHeadersComplete(_));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _))
-      .WillOnce(Invoke([](folly::IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID,
-                          const HTTPMessage&,
-                          bool,
-                          HTTPHeaderSize*) { writeBuf.append("", 1); }));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _))
+      .WillOnce(
+          Invoke([](folly::IOBufQueue& writeBuf,
+                    HTTPCodec::StreamID,
+                    const HTTPMessage&,
+                    bool,
+                    HTTPHeaderSize*,
+                    folly::Optional<HTTPHeaders>) { writeBuf.append("", 1); }));
   unsigned bodyLen = 0;
   EXPECT_CALL(*codec_, generateBody(_, 1, _, _, false))
       .WillRepeatedly(Invoke([&](folly::IOBufQueue& /*writeBuf*/,
@@ -972,12 +974,14 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
       .WillOnce(Return(&handler2));
   EXPECT_CALL(handler2, setTransaction(_)).WillOnce(SaveArg<0>(&handler2.txn_));
   EXPECT_CALL(handler2, onHeadersComplete(_));
-  EXPECT_CALL(*codec_, generateHeader(_, 3, _, _, _))
-      .WillOnce(Invoke([](folly::IOBufQueue& writeBuf,
-                          HTTPCodec::StreamID,
-                          const HTTPMessage&,
-                          bool,
-                          HTTPHeaderSize*) { writeBuf.append("", 1); }));
+  EXPECT_CALL(*codec_, generateHeader(_, 3, _, _, _, _))
+      .WillOnce(
+          Invoke([](folly::IOBufQueue& writeBuf,
+                    HTTPCodec::StreamID,
+                    const HTTPMessage&,
+                    bool,
+                    HTTPHeaderSize*,
+                    folly::Optional<HTTPHeaders>) { writeBuf.append("", 1); }));
 
   auto writeCount = writeCount_;
 
@@ -1095,7 +1099,7 @@ TEST_F(MockCodecDownstreamTest, IngressPausedWindowUpdate) {
     // Pause ingress. Make sure we process the window updates anyway
     handler1.txn_->pauseIngress();
   }));
-  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _, _));
   EXPECT_CALL(*codec_, generateBody(_, _, _, _, _))
       .WillRepeatedly(Invoke([&](folly::IOBufQueue&,
                                  HTTPCodec::StreamID,
@@ -1158,7 +1162,7 @@ TEST_F(MockCodecDownstreamTest, ShutdownThenSendPushHeaders) {
   EXPECT_CALL(*codec_, generateEOM(_, 2));
   EXPECT_CALL(pushHandler, detachTransaction());
   EXPECT_CALL(handler, onEOM()).WillOnce(Invoke([&] { handler.sendReply(); }));
-  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
   EXPECT_CALL(*codec_, generateEOM(_, 1));
   EXPECT_CALL(handler, detachTransaction());
 
@@ -1229,7 +1233,7 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
     EXPECT_CALL(handler, onEOM()).WillOnce(Invoke([&] {
       handler.sendReply();
     }));
-    EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _));
+    EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
     EXPECT_CALL(*codec_, generateEOM(_, 1));
     EXPECT_CALL(handler, detachTransaction());
 

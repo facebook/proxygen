@@ -52,11 +52,13 @@ class SPDYCodec : public HTTPParallelCodec {
   bool supportsPushTransactions() const override {
     return true;
   }
-  void generateHeader(folly::IOBufQueue& writeBuf,
-                      StreamID stream,
-                      const HTTPMessage& msg,
-                      bool eom = false,
-                      HTTPHeaderSize* size = nullptr) override;
+  void generateHeader(
+      folly::IOBufQueue& writeBuf,
+      StreamID stream,
+      const HTTPMessage& msg,
+      bool eom = false,
+      HTTPHeaderSize* size = nullptr,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
   void generatePushPromise(folly::IOBufQueue& writeBuf,
                            StreamID stream,
                            const HTTPMessage& msg,
@@ -155,20 +157,24 @@ class SPDYCodec : public HTTPParallelCodec {
   /**
    * Generates a frame of type SYN_STREAM
    */
-  void generateSynStream(StreamID stream,
-                         StreamID assocStream,
-                         folly::IOBufQueue& writeBuf,
-                         const HTTPMessage& msg,
-                         bool eom,
-                         HTTPHeaderSize* size);
+  void generateSynStream(
+      StreamID stream,
+      StreamID assocStream,
+      folly::IOBufQueue& writeBuf,
+      const HTTPMessage& msg,
+      bool eom,
+      HTTPHeaderSize* size,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
   /**
    * Generates a frame of type SYN_REPLY
    */
-  void generateSynReply(StreamID stream,
-                        folly::IOBufQueue& writeBuf,
-                        const HTTPMessage& msg,
-                        bool eom,
-                        HTTPHeaderSize* size);
+  void generateSynReply(
+      StreamID stream,
+      folly::IOBufQueue& writeBuf,
+      const HTTPMessage& msg,
+      bool eom,
+      HTTPHeaderSize* size,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
 
   /**
    * Generates the shared parts of a ping request and reply.
@@ -276,12 +282,15 @@ class SPDYCodec : public HTTPParallelCodec {
    * @param headroom Optional amount of headroom to reserve at the
    *                 front of the returned IOBuf, in case the caller
    *                 wants to put some other data there.
+   * @param extraHeaders Optional extra headers to be send together with the
+   * msg.
    */
   std::unique_ptr<folly::IOBuf> serializeRequestHeaders(
       const HTTPMessage& msg,
       bool isPushed,
       uint32_t headroom = 0,
-      HTTPHeaderSize* size = nullptr);
+      HTTPHeaderSize* size = nullptr,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
 
   /**
    * Serializes headers for responses (aka SYN_REPLY)
@@ -290,11 +299,14 @@ class SPDYCodec : public HTTPParallelCodec {
    * @param headroom Optional amount of headroom to reserve at the
    *                 front of the returned IOBuf, in case the caller
    *                 wants to put some other data there.
+   * @param extraHeaders Optional extra headers to be serialized together with
+   * the msg.
    */
   std::unique_ptr<folly::IOBuf> serializeResponseHeaders(
       const HTTPMessage& msg,
       uint32_t headroom = 0,
-      HTTPHeaderSize* size = nullptr);
+      HTTPHeaderSize* size = nullptr,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
 
   /**
    * Helper function to create the compressed Name/Value representation of
@@ -305,12 +317,14 @@ class SPDYCodec : public HTTPParallelCodec {
    * @param headroom Optional amount of headroom to reserve at the
    *                 front of the returned IOBuf, in case the caller
    *                 wants to put some other data there.
+   * @param extraHeaders Optional extra headers to encode together with the msg.
    */
   std::unique_ptr<folly::IOBuf> encodeHeaders(
       const HTTPMessage& msg,
       std::vector<compress::Header>& headers,
       uint32_t headroom = 0,
-      HTTPHeaderSize* size = nullptr);
+      HTTPHeaderSize* size = nullptr,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
 
   void failStream(bool newTxn,
                   StreamID streamID,

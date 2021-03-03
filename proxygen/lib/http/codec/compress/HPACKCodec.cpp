@@ -67,9 +67,11 @@ void HPACKCodec::encode(vector<Header>& headers,
   recordCompressedSize(writeBuf.chainLength() - prevSize);
 }
 
-void HPACKCodec::encodeHTTP(const HTTPMessage& msg,
-                            folly::IOBufQueue& writeBuf,
-                            bool includeDate) noexcept {
+void HPACKCodec::encodeHTTP(
+    const HTTPMessage& msg,
+    folly::IOBufQueue& writeBuf,
+    bool includeDate,
+    folly::Optional<HTTPHeaders> extraHeaders) noexcept {
   auto prevSize = writeBuf.chainLength();
   encoder_.startEncode(writeBuf);
 
@@ -113,9 +115,9 @@ void HPACKCodec::encodeHTTP(const HTTPMessage& msg,
   bool hasDateHeader = false;
   // Add the HTTP headers supplied by the caller, but skip
   // any per-hop headers that aren't supported in HTTP/2.
-  msg.getHeaders().forEachWithCode([&](HTTPHeaderCode code,
-                                       const std::string& name,
-                                       const std::string& value) {
+  auto headerEncodeHelper = [&](HTTPHeaderCode code,
+                                const std::string& name,
+                                const std::string& value) {
     if (CodecUtil::perHopHeaderCodes()[code] || name.empty() ||
         name[0] == ':') {
       DCHECK(!name.empty()) << "Empty header";
@@ -135,8 +137,12 @@ void HPACKCodec::encodeHTTP(const HTTPMessage& msg,
       }
     }
     hasDateHeader |= ((code == HTTP_HEADER_DATE) ? 1 : 0);
-  });
+  };
 
+  msg.getHeaders().forEachWithCode(headerEncodeHelper);
+  if (extraHeaders) {
+    extraHeaders->forEachWithCode(headerEncodeHelper);
+  }
   if (includeDate && msg.isResponse() && !hasDateHeader) {
     uncompressed += encoder_.encodeHeader(HTTP_HEADER_DATE,
                                           HTTPMessage::formatDateHeader());

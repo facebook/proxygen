@@ -221,7 +221,7 @@ TEST_F(HTTPChecksTest, SendGetBody) {
   // It is allowed to send a GET with a content-length. It is up to the
   // server to ignore it.
 
-  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _));
+  EXPECT_CALL(*codec_, generateHeader(_, _, _, _, _, _));
 
   HTTPMessage msg = getPostRequest();
   msg.setMethod("GET");

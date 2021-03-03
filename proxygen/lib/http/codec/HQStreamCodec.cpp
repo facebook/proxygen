@@ -510,14 +510,15 @@ void HQStreamCodec::generateHeader(folly::IOBufQueue& writeBuf,
                                    StreamID stream,
                                    const HTTPMessage& msg,
                                    bool /*eom*/,
-                                   HTTPHeaderSize* size) {
+                                   HTTPHeaderSize* size,
+                                   folly::Optional<HTTPHeaders> extraHeaders) {
   DCHECK_EQ(stream, streamId_);
 
   // Partial reliability might already be set by ingress.
   egressPartiallyReliable_ =
       egressPartiallyReliable_ || msg.isPartiallyReliable();
 
-  generateHeaderImpl(writeBuf, msg, folly::none, size);
+  generateHeaderImpl(writeBuf, msg, folly::none, size, std::move(extraHeaders));
 
   // For requests, set final header seen flag right away.
   // For responses, header is final only if response code is >= 200.
@@ -553,15 +554,22 @@ void HQStreamCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
   DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
   CHECK(!egressPartiallyReliable_)
       << __func__ << ": not allowed in partially reliable mode";
-  generateHeaderImpl(writeBuf, msg, pushId, size);
+  generateHeaderImpl(
+      writeBuf, msg, pushId, size, folly::none /* extraHeaders */);
 }
 
-void HQStreamCodec::generateHeaderImpl(folly::IOBufQueue& writeBuf,
-                                       const HTTPMessage& msg,
-                                       folly::Optional<StreamID> pushId,
-                                       HTTPHeaderSize* size) {
-  auto result = headerCodec_.encodeHTTP(
-      qpackEncoderWriteBuf_, msg, true, streamId_, maxEncoderStreamData());
+void HQStreamCodec::generateHeaderImpl(
+    folly::IOBufQueue& writeBuf,
+    const HTTPMessage& msg,
+    folly::Optional<StreamID> pushId,
+    HTTPHeaderSize* size,
+    folly::Optional<HTTPHeaders> extraHeaders) {
+  auto result = headerCodec_.encodeHTTP(qpackEncoderWriteBuf_,
+                                        msg,
+                                        true,
+                                        streamId_,
+                                        maxEncoderStreamData(),
+                                        std::move(extraHeaders));
   if (size) {
     *size = headerCodec_.getEncodedSize();
   }

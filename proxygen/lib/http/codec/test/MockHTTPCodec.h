@@ -37,12 +37,13 @@ class MockHTTPCodec : public HTTPCodec {
   MOCK_CONST_METHOD0(closeOnEgressComplete, bool());
   MOCK_CONST_METHOD0(supportsParallelRequests, bool());
   MOCK_CONST_METHOD0(supportsPushTransactions, bool());
-  MOCK_METHOD5(generateHeader,
+  MOCK_METHOD6(generateHeader,
                void(folly::IOBufQueue&,
                     HTTPCodec::StreamID,
                     const HTTPMessage&,
                     bool eom,
-                    HTTPHeaderSize*));
+                    HTTPHeaderSize*,
+                    folly::Optional<HTTPHeaders>));
   MOCK_METHOD6(generatePushPromise,
                void(folly::IOBufQueue&,
                     HTTPCodec::StreamID,

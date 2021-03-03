@@ -50,9 +50,11 @@ class HPACKCodec : public HeaderCodec {
   void encode(std::vector<compress::Header>& headers,
               folly::IOBufQueue& writeBuf) noexcept;
 
-  void encodeHTTP(const HTTPMessage& msg,
-                  folly::IOBufQueue& writeBuf,
-                  bool includeDate) noexcept;
+  void encodeHTTP(
+      const HTTPMessage& msg,
+      folly::IOBufQueue& writeBuf,
+      bool includeDate,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none) noexcept;
 
   void decodeStreaming(folly::io::Cursor& cursor,
                        uint32_t length,

@@ -808,6 +808,24 @@ TEST_F(HQCodecTest, Trailers) {
   }
 }
 
+TEST_F(HQCodecTest, GenerateExtraHeaders) {
+  HTTPMessage resp = getResponse(200, 2000);
+  HTTPHeaders extraHeaders;
+  extraHeaders.add(HTTP_HEADER_PRIORITY, "u=2");
+  downstreamCodec_->generateHeader(queue_,
+                                   streamId_,
+                                   resp,
+                                   true /* eom */,
+                                   nullptr /* HTTPHeaderSize */,
+                                   std::move(extraHeaders));
+
+  parseUpstream();
+
+  const auto& headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ("2000", headers.getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH));
+  EXPECT_EQ("u=2", headers.getSingleOrEmpty(HTTP_HEADER_PRIORITY));
+}
+
 template <class T>
 void HQCodecTestFixture<T>::qpackTest(bool blocked) {
   QPACKCodec& server = qpackDownstream_;

@@ -927,6 +927,38 @@ TEST(HTTP1xCodecTest, CloseOnEgressCompleteDownstreamResponse) {
   EXPECT_TRUE(codec.closeOnEgressComplete());
 }
 
+TEST(HTTP1xCodecTest, GenerateExtraHeaders) {
+  HTTP1xCodec upstream(TransportDirection::UPSTREAM);
+  HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  upstream.setCallback(&callbacks);
+
+  HTTPMessage resp;
+  resp.setHTTPVersion(1, 1);
+  resp.setStatusCode(200);
+  resp.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "1000");
+
+  folly::IOBufQueue writeBuf(folly::IOBufQueue::cacheChainLength());
+  auto id = downstream.createStream();
+  HTTPHeaders extraHeaders;
+  extraHeaders.add(HTTP_HEADER_PRIORITY, "u=1");
+  downstream.generateHeader(writeBuf,
+                            id,
+                            resp,
+                            false,
+                            nullptr /* HTTPHeaderSize */,
+                            std::move(extraHeaders));
+
+  upstream.onIngress(*writeBuf.front());
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(
+      "u=1",
+      callbacks.msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_PRIORITY));
+  EXPECT_EQ("1000",
+            callbacks.msg_->getHeaders().getSingleOrEmpty(
+                HTTP_HEADER_CONTENT_LENGTH));
+}
+
 class ConnectionHeaderTest
     : public TestWithParam<std::pair<std::list<string>, string>> {
  public:

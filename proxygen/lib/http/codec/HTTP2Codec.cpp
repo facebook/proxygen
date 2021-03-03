@@ -1156,14 +1156,16 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
                                 StreamID stream,
                                 const HTTPMessage& msg,
                                 bool eom,
-                                HTTPHeaderSize* size) {
+                                HTTPHeaderSize* size,
+                                folly::Optional<HTTPHeaders> extraHeaders) {
   generateHeaderImpl(writeBuf,
                      stream,
                      msg,
                      folly::none, /* assocStream */
                      folly::none, /* controlStream */
                      eom,
-                     size);
+                     size,
+                     std::move(extraHeaders));
 }
 
 void HTTP2Codec::generatePushPromise(folly::IOBufQueue& writeBuf,
@@ -1178,7 +1180,8 @@ void HTTP2Codec::generatePushPromise(folly::IOBufQueue& writeBuf,
                      assocStream,
                      folly::none, /* controlStream */
                      eom,
-                     size);
+                     size,
+                     folly::none /* extraHeaders */);
 }
 
 void HTTP2Codec::generateExHeader(folly::IOBufQueue& writeBuf,
@@ -1193,7 +1196,8 @@ void HTTP2Codec::generateExHeader(folly::IOBufQueue& writeBuf,
                      folly::none, /* assocStream */
                      exAttributes,
                      eom,
-                     size);
+                     size,
+                     folly::none /* extraHeaders */);
 }
 
 size_t HTTP2Codec::splitCompressed(size_t compressed,
@@ -1220,7 +1224,8 @@ void HTTP2Codec::generateHeaderImpl(
     const folly::Optional<StreamID>& assocStream,
     const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
     bool eom,
-    HTTPHeaderSize* size) {
+    HTTPHeaderSize* size,
+    folly::Optional<HTTPHeaders> extraHeaders) {
   HTTPHeaderSize localSize;
   if (!size) {
     size = &localSize;
@@ -1277,7 +1282,8 @@ void HTTP2Codec::generateHeaderImpl(
       maxFrameSize - headerSize + http2::kFrameHeaderSize;
   auto frameHeader = writeBuf.preallocate(headerSize, kDefaultGrowth);
   writeBuf.postallocate(headerSize);
-  headerCodec_.encodeHTTP(msg, writeBuf, addDateToResponse_);
+  headerCodec_.encodeHTTP(
+      msg, writeBuf, addDateToResponse_, std::move(extraHeaders));
   *size = headerCodec_.getEncodedSize();
 
   IOBufQueue queue(IOBufQueue::cacheChainLength());

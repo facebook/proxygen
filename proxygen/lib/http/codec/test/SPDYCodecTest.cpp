@@ -1397,3 +1397,20 @@ TEST_F(SPDYCodecTestF, GoawayHandling) {
   parseUpstream();
   callbacks_.expectMessage(true, 1, 200);
 }
+
+TEST_F(SPDYCodecTestF, ExtraHeadersDownstream) {
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  HTTPHeaders extraHeaders;
+  extraHeaders.add(HTTP_HEADER_PRIORITY, "u=3");
+  downstreamCodec_.generateHeader(output_,
+                                  1,
+                                  resp,
+                                  true,
+                                  nullptr /* HeaderSize */,
+                                  std::move(extraHeaders));
+  // parse the remainder
+  parseUpstream();
+  const auto headers = callbacks_.msg->getHeaders();
+  EXPECT_EQ("u=3", headers.getSingleOrEmpty(HTTP_HEADER_PRIORITY));
+}

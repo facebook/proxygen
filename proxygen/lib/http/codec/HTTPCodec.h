@@ -519,15 +519,19 @@ class HTTPCodec {
   /**
    * Write an egress message header.  For pushed streams, you must specify
    * the assocStream.
+   * @param extraHeaders Optional extra headers to be generated togetger with
+   *                     the msg.
    * @retval size the size of the generated message, both the actual size
    *              and the size of the uncompressed data.
    * @return None
    */
-  virtual void generateHeader(folly::IOBufQueue& writeBuf,
-                              StreamID stream,
-                              const HTTPMessage& msg,
-                              bool eom = false,
-                              HTTPHeaderSize* size = nullptr) = 0;
+  virtual void generateHeader(
+      folly::IOBufQueue& writeBuf,
+      StreamID stream,
+      const HTTPMessage& msg,
+      bool eom = false,
+      HTTPHeaderSize* size = nullptr,
+      folly::Optional<HTTPHeaders> extraHeaders = folly::none) = 0;
 
   virtual void generatePushPromise(folly::IOBufQueue& /* writeBuf */,
                                    StreamID /* stream */,

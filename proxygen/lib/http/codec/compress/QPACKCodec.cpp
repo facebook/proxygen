@@ -60,7 +60,8 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
     const HTTPMessage& msg,
     bool includeDate,
     uint64_t streamId,
-    uint32_t maxEncoderStreamBytes) noexcept {
+    uint32_t maxEncoderStreamBytes,
+    folly::Optional<HTTPHeaders> extraHeaders) noexcept {
   auto baseIndex = encoder_.startEncode(controlQueue, 0, maxEncoderStreamBytes);
   uint32_t requiredInsertCount = 0;
   auto prevSize = controlQueue.chainLength();
@@ -128,9 +129,9 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
   bool hasDateHeader = false;
   // Add the HTTP headers supplied by the caller, but skip
   // any per-hop headers that aren't supported in HTTP/2.
-  msg.getHeaders().forEachWithCode([&](HTTPHeaderCode code,
-                                       const std::string& name,
-                                       const std::string& value) {
+  auto headerEncodeHelper = [&](HTTPHeaderCode code,
+                                folly::StringPiece name,
+                                folly::StringPiece value) {
     if (CodecUtil::perHopHeaderCodes()[code] || name.empty() ||
         name[0] == ':') {
       DCHECK(!name.empty()) << "Empty header";
@@ -152,7 +153,11 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
       }
     }
     hasDateHeader |= ((code == HTTP_HEADER_DATE) ? 1 : 0);
-  });
+  };
+  msg.getHeaders().forEachWithCode(headerEncodeHelper);
+  if (extraHeaders) {
+    extraHeaders->forEachWithCode(headerEncodeHelper);
+  }
 
   if (includeDate && msg.isResponse() && !hasDateHeader) {
     uncompressed += encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_DATE),
