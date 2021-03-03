@@ -91,11 +91,6 @@ struct HQParams {
   bool httpServerEnableContentCompression;
   bool h2cEnabled;
 
-  // Partial reliability section
-  bool partialReliabilityEnabled{false};
-  folly::Optional<uint64_t> prChunkSize;
-  folly::Optional<uint64_t> prChunkDelayMs;
-
   // QLogger section
   std::string qLoggerPath;
   bool prettyJson;

@@ -21,7 +21,6 @@
 #include <proxygen/httpserver/samples/hq/FizzContext.h>
 #include <proxygen/httpserver/samples/hq/HQLoggerHelper.h>
 #include <proxygen/httpserver/samples/hq/InsecureVerifierDangerousDoNotUseInProduction.h>
-#include <proxygen/httpserver/samples/hq/PartiallyReliableCurlClient.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/utils/UtilInl.h>
 #include <quic/api/QuicSocket.h>
@@ -77,28 +76,15 @@ void HQClient::start() {
 proxygen::HTTPTransaction* FOLLY_NULLABLE
 HQClient::sendRequest(const proxygen::URL& requestUrl) {
   std::unique_ptr<CurlService::CurlClient> client =
-      params_.partialReliabilityEnabled
-          ? std::make_unique<PartiallyReliableCurlClient>(
-                &evb_,
-                params_.httpMethod,
-                requestUrl,
-                nullptr,
-                params_.httpHeaders,
-                params_.httpBody,
-                false,
-                params_.httpVersion.major,
-                params_.httpVersion.minor,
-                params_.prChunkDelayMs)
-          : std::make_unique<CurlService::CurlClient>(
-                &evb_,
-                params_.httpMethod,
-                requestUrl,
-                nullptr,
-                params_.httpHeaders,
-                params_.httpBody,
-                false,
-                params_.httpVersion.major,
-                params_.httpVersion.minor);
+      std::make_unique<CurlService::CurlClient>(&evb_,
+                                                params_.httpMethod,
+                                                requestUrl,
+                                                nullptr,
+                                                params_.httpHeaders,
+                                                params_.httpBody,
+                                                false,
+                                                params_.httpVersion.major,
+                                                params_.httpVersion.minor);
 
   client->setLogging(params_.logResponse);
   auto txn = session_->newTransaction(client.get());

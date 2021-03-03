@@ -281,7 +281,6 @@ void initializeTransportSettings(HQParams& hqParams) {
       std::chrono::microseconds(FLAGS_quic_thread_local_delay_us);
   hqParams.transportSettings.maxBatchSize = FLAGS_quic_batch_size;
   hqParams.transportSettings.turnoffPMTUD = true;
-  hqParams.transportSettings.partialReliabilityEnabled = FLAGS_use_pr;
   if (hqParams.mode == HQMode::CLIENT) {
     // There is no good reason to keep the socket around for a drain period for
     // a commandline client
@@ -363,13 +362,6 @@ void initializeHttpSettings(HQParams& hqParams) {
   hqParams.migrateClient = FLAGS_migrate_client;
 
 } // initializeHttpSettings
-
-void initializePartialReliabilitySettings(HQParams& hqParams) {
-  hqParams.partialReliabilityEnabled = FLAGS_use_pr;
-  hqParams.prChunkSize = folly::to<uint64_t>(FLAGS_pr_chunk_size);
-  // TODO: use chrono instead of uint64_t
-  hqParams.prChunkDelayMs = folly::to<uint64_t>(FLAGS_pr_chunk_delay_ms);
-} // initializePartialReliabilitySettings
 
 void initializeQLogSettings(HQParams& hqParams) {
   hqParams.qLoggerPath = FLAGS_qlogger_path;
@@ -517,8 +509,6 @@ HQParamsBuilderFromCmdline::HQParamsBuilderFromCmdline(
   initializeTransportSettings(hqParams_);
 
   initializeHttpSettings(hqParams_);
-
-  initializePartialReliabilitySettings(hqParams_);
 
   initializeQLogSettings(hqParams_);
 

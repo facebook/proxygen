@@ -127,7 +127,6 @@ if (BUILD_QUIC)
       samples/hq/HQServer.cpp
       samples/hq/HQParams.cpp
       samples/hq/SampleHandlers.cpp
-      samples/hq/PartiallyReliableCurlClient.cpp
   )
   target_compile_options(
       hq

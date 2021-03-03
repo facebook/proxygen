@@ -73,19 +73,8 @@ HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg,
     return new WaitReleaseHandler(
         folly::EventBaseManager::get()->getEventBase(), params);
   }
-  if (path == "/pr_cat") {
-    return new PrCatHandler(params);
-  }
   if (boost::algorithm::starts_with(path, "/push")) {
     return new ServerPushHandler(params);
-  }
-
-  if (path == "/pr_scripted_skip") {
-    return new PrSkipHandler(params);
-  }
-
-  if (path == "/pr_scripted_reject") {
-    return new PrRejectHandler(params);
   }
 
   if (!params.staticRoot.empty()) {
