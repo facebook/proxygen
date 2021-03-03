@@ -52,6 +52,9 @@ struct HTTPPriority {
   virtual ~HTTPPriority() = default;
 };
 
+// Convert Priority to a string representation in the form of "u=urgency[,i]"
+std::string httpPriorityToString(uint8_t urgency, bool incremental);
+
 class HTTPMessage;
 
 folly::Optional<HTTPPriority> httpPriorityFromHTTPMessage(

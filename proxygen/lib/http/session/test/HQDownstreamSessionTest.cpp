@@ -356,6 +356,29 @@ TEST_P(HQDownstreamSessionTest, PriorityUpdateIntoTransport) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTest, ReplyResponsePriority) {
+  if (!IS_HQ) { // H1Q tests do not support priority
+    hqSession_->closeWhenIdle();
+    return;
+  }
+  auto request = getProgressiveGetRequest();
+  sendRequest(request);
+  auto handler = addSimpleStrictHandler();
+  EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 1, true))
+      .Times(1);
+  handler->expectHeaders();
+  handler->expectEOM([&]() {
+    auto resp = makeResponse(200, 0);
+    EXPECT_CALL(*socketDriver_->getSocket(), getStreamPriority(_))
+        .Times(1)
+        .WillOnce(Return(quic::Priority(1, true)));
+    handler->sendRequest(*std::get<0>(resp));
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTestHQPush, PushPriority) {
   sendRequest("/", 1);
   HTTPMessage promiseReq, parentResp;

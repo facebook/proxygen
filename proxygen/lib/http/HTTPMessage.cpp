@@ -27,6 +27,9 @@ namespace {
  * approximately 1% of our total CPU time on temporary locale objects.)
  */
 std::locale defaultLocale;
+} // namespace
+
+namespace proxygen {
 
 std::string httpPriorityToString(uint8_t urgency, bool incremental) {
   return folly::to<std::string>(
@@ -34,9 +37,6 @@ std::string httpPriorityToString(uint8_t urgency, bool incremental) {
       std::min(static_cast<uint8_t>(proxygen::kMaxPriority), urgency),
       incremental ? ",i" : "");
 }
-} // namespace
-
-namespace proxygen {
 
 std::mutex HTTPMessage::mutexDump_;
 

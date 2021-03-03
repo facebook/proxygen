@@ -2872,8 +2872,12 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
       << headers.isRequest()
       << "; assocTxnId=" << txn->getAssocTxnId().value_or(-1)
       << "; txn=" << txn->getID();
-  codecFilterChain->generateHeader(
-      writeBuf_, *codecStreamId_, headers, includeEOM, size);
+  codecFilterChain->generateHeader(writeBuf_,
+                                   *codecStreamId_,
+                                   headers,
+                                   includeEOM,
+                                   size,
+                                   session_.getExtraHeaders(headers, streamId));
 
   const uint64_t newOffset = streamWriteByteOffset();
   egressHeadersStreamOffset_ = newOffset;

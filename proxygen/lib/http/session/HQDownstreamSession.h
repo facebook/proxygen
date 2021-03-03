@@ -75,6 +75,9 @@ class HQDownstreamSession : public HQSession {
     return static_cast<uint32_t>(streams_.size());
   }
 
+  folly::Optional<HTTPHeaders> getExtraHeaders(
+      const HTTPMessage& haeders, quic::StreamId streamId) override;
+
  private:
   ~HQDownstreamSession() override {
     CHECK_EQ(getNumStreams(), 0);

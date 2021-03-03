@@ -258,4 +258,23 @@ hq::PushId HQDownstreamSession::createNewPushId() {
   return newPushId;
 }
 
+folly::Optional<HTTPHeaders> HQDownstreamSession::getExtraHeaders(
+    const HTTPMessage& headers, quic::StreamId streamId) {
+  if (!sock_) {
+    return folly::none;
+  }
+  if (headers.getHeaders().exists(HTTP_HEADER_PRIORITY)) {
+    return folly::none;
+  }
+  auto priority = sock_->getStreamPriority(streamId);
+  if (!priority) {
+    return folly::none;
+  }
+  HTTPHeaders extraHeaders;
+  extraHeaders.add(
+      HTTP_HEADER_PRIORITY,
+      httpPriorityToString(priority->level, priority->incremental));
+  return extraHeaders;
+}
+
 } // namespace proxygen

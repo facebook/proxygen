@@ -773,6 +773,12 @@ class HQSession
                    quic::StreamId id,
                    HTTP3::ErrorCode err);
 
+  // Get extra HTTP headers we want to add to the HTTPMessage in sendHeaders.
+  virtual folly::Optional<HTTPHeaders> getExtraHeaders(const HTTPMessage&,
+                                                       quic::StreamId) {
+    return folly::none;
+  }
+
   proxygen::TransportDirection direction_;
   std::chrono::milliseconds transactionsTimeout_;
   TimePoint transportStart_;
