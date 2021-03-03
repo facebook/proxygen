@@ -43,7 +43,6 @@ class HQUpstreamSessionTest : public HQSessionTest {
                     const proxygen::HTTPMessage& resp,
                     std::unique_ptr<folly::IOBuf> body = nullptr,
                     bool eom = true);
-
   void startPartialResponse(quic::StreamId id,
                             const proxygen::HTTPMessage& resp,
                             std::unique_ptr<folly::IOBuf> body = nullptr);
@@ -51,10 +50,6 @@ class HQUpstreamSessionTest : public HQSessionTest {
   void sendPartialBody(quic::StreamId id,
                        std::unique_ptr<folly::IOBuf> body,
                        bool eom = true);
-
-  void peerSendDataExpired(quic::StreamId id, uint64_t streamOffset);
-
-  void peerReceiveDataRejected(quic::StreamId id, uint64_t streamOffset);
 
   quic::StreamId nextUnidirectionalStreamId();
 

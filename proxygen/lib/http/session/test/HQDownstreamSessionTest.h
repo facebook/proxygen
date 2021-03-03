@@ -125,9 +125,6 @@ class HQDownstreamSessionTest : public HQSessionTest {
   std::unique_ptr<testing::StrictMock<proxygen::MockHTTPHandler>>
   addSimpleStrictHandler();
 
-  std::unique_ptr<testing::StrictMock<proxygen::MockHqPrDownstreamHTTPHandler>>
-  addSimpleStrictPrHandler();
-
   std::pair<quic::StreamId,
             std::unique_ptr<testing::StrictMock<proxygen::MockHTTPHandler>>>
   checkRequest(proxygen::HTTPMessage req = proxygen::getGetRequest());

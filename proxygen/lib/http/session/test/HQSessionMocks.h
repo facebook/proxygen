@@ -98,32 +98,9 @@ class MockDispatcher : public HQUnidirStreamDispatcher::Callback {
     }
   }
 
-  void expectIsPartialReliabilityEnabled(StreamInspectF impl = nullptr) {
-    auto& exp = EXPECT_CALL(*this, isPartialReliabilityEnabled(::testing::_));
-    if (impl) {
-      exp.WillOnce(::testing::Invoke(impl));
-    }
-  }
-
   void expectPartialDataAvailable(StreamPeekF impl = nullptr) {
     auto& exp =
         EXPECT_CALL(*this, onPartialDataAvailable(::testing::_, ::testing::_));
-    if (impl) {
-      exp.WillOnce(::testing::Invoke(impl));
-    }
-  }
-
-  void expectProcessExpiredData(PRSeekF impl = nullptr) {
-    auto& exp =
-        EXPECT_CALL(*this, processExpiredData(::testing::_, ::testing::_));
-    if (impl) {
-      exp.WillOnce(::testing::Invoke(impl));
-    }
-  }
-
-  void expectProcessRejectedData(PRSeekF impl = nullptr) {
-    auto& exp =
-        EXPECT_CALL(*this, processRejectedData(::testing::_, ::testing::_));
     if (impl) {
       exp.WillOnce(::testing::Invoke(impl));
     }
@@ -140,7 +117,6 @@ class MockDispatcher : public HQUnidirStreamDispatcher::Callback {
                     hq::UnidirectionalStreamType,
                     size_t,
                     quic::QuicSocket::PeekCallback* const));
-  MOCK_METHOD1(isPartialReliabilityEnabled, bool(quic::StreamId));
   MOCK_METHOD1(parseStreamPreface,
                folly::Optional<hq::UnidirectionalStreamType>(uint64_t));
   MOCK_METHOD1(rejectStream, void(quic::StreamId));
@@ -499,56 +475,6 @@ class MockHQSession : public HQSession {
   HTTPCodec::StreamID lastStreamId_{1}; // streamID 0 is reserved
   HTTPTransaction::Handler* handler_;
 };
-
-class MockHqPrUpstreamHTTPHandler : public MockHTTPHandler {
- public:
-  MockHqPrUpstreamHTTPHandler() {
-  }
-  MockHqPrUpstreamHTTPHandler(HTTPTransaction& txn,
-                              HTTPMessage* msg,
-                              const folly::SocketAddress& addr)
-      : MockHTTPHandler(txn, msg, addr) {
-  }
-
-  void sendPrHeaders(uint32_t code,
-                     uint32_t content_length,
-                     bool keepalive = true,
-                     HeaderMap headers = HeaderMap()) {
-    HTTPMessage reply;
-    reply.setStatusCode(code);
-    reply.setHTTPVersion(1, 1);
-    reply.setWantsKeepalive(keepalive);
-    reply.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH,
-                           folly::to<std::string>(content_length));
-    for (auto& nv : headers) {
-      reply.getHeaders().add(nv.first, nv.second);
-    }
-    reply.setPartiallyReliable();
-    txn_->sendHeaders(reply);
-  }
-
-  void expectBodySkipped(std::function<void(uint64_t)> callback =
-                             std::function<void(uint64_t)>()) {
-    if (callback) {
-      EXPECT_CALL(*this, onBodySkipped(testing::_))
-          .WillOnce(testing::Invoke(callback));
-    } else {
-      EXPECT_CALL(*this, onBodySkipped(testing::_));
-    }
-  }
-
-  void expectBodyRejected(std::function<void(uint64_t)> callback =
-                              std::function<void(uint64_t)>()) {
-    if (callback) {
-      EXPECT_CALL(*this, onBodyRejected(testing::_))
-          .WillOnce(testing::Invoke(callback));
-    } else {
-      EXPECT_CALL(*this, onBodyRejected(testing::_));
-    }
-  }
-};
-
-using MockHqPrDownstreamHTTPHandler = MockHqPrUpstreamHTTPHandler;
 
 class FakeHQHTTPCodecCallback : public FakeHTTPCodecCallback {
  public:

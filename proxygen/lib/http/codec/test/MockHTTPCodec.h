@@ -163,7 +163,6 @@ class MockHTTPCodecCallback : public HTTPCodec::Callback {
               uint16_t padding) override {
     onBody(stream, std::shared_ptr<folly::IOBuf>(chain.release()), padding);
   }
-  MOCK_METHOD2(onUnframedBodyStarted, void(HTTPCodec::StreamID, uint64_t));
   MOCK_METHOD2(onChunkHeader, void(HTTPCodec::StreamID, size_t));
   MOCK_METHOD1(onChunkComplete, void(HTTPCodec::StreamID));
   MOCK_METHOD2(onTrailersComplete,

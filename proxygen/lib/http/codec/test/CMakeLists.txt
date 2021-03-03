@@ -49,7 +49,6 @@ if (BUILD_QUIC)
   proxygen_add_test(TARGET HQCodecTests
     SOURCES
       HQCodecTest.cpp
-      UnframedBodyOffsetTrackerTest.cpp
     DEPENDS
       codectestutils
       proxygen

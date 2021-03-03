@@ -167,14 +167,6 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
 
   MOCK_METHOD1(consume, folly::Expected<folly::Unit, ErrorCode>(size_t));
 
-  MOCK_METHOD2(skipBodyTo,
-               folly::Expected<folly::Optional<uint64_t>, ErrorCode>(
-                   HTTPTransaction*, uint64_t));
-
-  MOCK_METHOD2(rejectBodyTo,
-               folly::Expected<folly::Optional<uint64_t>, ErrorCode>(
-                   HTTPTransaction*, uint64_t));
-
   GMOCK_METHOD0_(,
                  noexcept,
                  ,

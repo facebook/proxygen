@@ -205,10 +205,6 @@ class MockHTTPHandler
 
   GMOCK_NOEXCEPT_METHOD1(onExTransaction, void(HTTPTransaction*));
 
-  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
-
-  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
-
   GMOCK_NOEXCEPT_METHOD1(traceEventAvailable, void(TraceEvent));
 
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
@@ -380,10 +376,6 @@ class MockHTTPPushHandler
   GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
 
   GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
-
-  GMOCK_NOEXCEPT_METHOD1(onBodySkipped, void(uint64_t));
-
-  GMOCK_NOEXCEPT_METHOD1(onBodyRejected, void(uint64_t));
 
   void sendPushHeaders(const std::string& path,
                        const std::string& host,

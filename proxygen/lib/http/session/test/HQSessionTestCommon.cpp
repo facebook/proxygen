@@ -81,12 +81,6 @@ std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript) {
 std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info) {
   std::vector<std::string> paramsV;
   folly::split("-", info.param.alpn_, paramsV);
-  if (info.param.prParams) {
-    paramsV.push_back("PR");
-    if (info.param.prParams->bodyScript.size()) {
-      paramsV.push_back(prBodyScriptToName(info.param.prParams->bodyScript));
-    }
-  }
   if (info.param.numBytesOnPushStream < kUnlimited) {
     paramsV.push_back("_" +
                       folly::to<std::string>(info.param.numBytesOnPushStream));

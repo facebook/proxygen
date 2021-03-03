@@ -52,16 +52,13 @@ HQStreamCodec::HQStreamCodec(StreamID streamId,
                              folly::IOBufQueue& encoderWriteBuf,
                              folly::IOBufQueue& decoderWriteBuf,
                              folly::Function<uint64_t()> qpackEncoderMaxData,
-                             HTTPSettings& ingressSettings,
-                             bool transportSupportsPartialReliability)
+                             HTTPSettings& ingressSettings)
     : HQFramedCodec(streamId, direction),
       headerCodec_(headerCodec),
       qpackEncoderWriteBuf_(encoderWriteBuf),
       qpackDecoderWriteBuf_(decoderWriteBuf),
       qpackEncoderMaxDataFn_(std::move(qpackEncoderMaxData)),
-      ingressSettings_(ingressSettings),
-      transportSupportsPartialReliability_(
-          transportSupportsPartialReliability) {
+      ingressSettings_(ingressSettings) {
   VLOG(4) << "creating " << getTransportDirectionString(direction)
           << " HQ stream codec for stream " << streamId_;
 }
@@ -111,53 +108,6 @@ ParseResult HQStreamCodec::parseData(Cursor& cursor,
     callback_->onBody(streamId_, std::move(outData), 0);
   }
   return res;
-}
-
-void HQStreamCodec::onIngressPartiallyReliableBodyStarted(
-    uint64_t streamOffset) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  CHECK(!ingressPrBodyTracker_.bodyStarted())
-      << ": partially realible body tracker already started";
-
-  // Starts tracking the body byte offsets.
-  // streamOffset becomes the beginning (0-offset) of the body offset.
-  ingressPrBodyTracker_.startBodyTracking(streamOffset);
-
-  ingressPartiallyReliable_ = true;
-
-  if (callback_) {
-    callback_->onUnframedBodyStarted(streamId_, streamOffset);
-  }
-}
-
-ParseResult HQStreamCodec::parsePartiallyReliableData(Cursor& cursor) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  std::unique_ptr<IOBuf> outData;
-  auto dataLength = cursor.totalLength();
-
-  VLOG(10) << "parsing all frame DATA bytes for stream=" << streamId_
-           << " length=" << dataLength;
-
-  DCHECK(ingressPrBodyTracker_.bodyStarted());
-  if (!ingressPrBodyTracker_.bodyStarted()) {
-    LOG(ERROR) << __func__ << ": body hasn't started yet";
-    return HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR;
-  }
-
-  cursor.clone(outData, dataLength);
-
-  ingressPrBodyTracker_.addBodyBytesProcessed(dataLength);
-
-  if (callback_ && outData && !outData->empty()) {
-    callback_->onBody(streamId_, std::move(outData), 0 /* padding */);
-  }
-  return folly::none;
 }
 
 ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
@@ -243,183 +193,6 @@ void HQStreamCodec::onHeader(const HPACKHeaderName& name,
     VLOG(4) << "dir=" << uint32_t(transportDirection_)
             << decodeInfo_.parsingError << " codec=" << headerCodec_;
   }
-}
-
-folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
-HQStreamCodec::onIngressDataAvailable(uint64_t streamOffset) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  if (!finalIngressHeadersSeen_ || !ingressPrBodyTracker_.bodyStarted()) {
-    // Do not raise onDataAvailable() before body starts.
-    VLOG(4) << ": suppressing " << __func__
-            << " because body did not start yet";
-    return folly::makeUnexpected(UnframedBodyOffsetTrackerError::NO_ERROR);
-  }
-
-  auto bodyStreamStart = ingressPrBodyTracker_.getBodyStreamStartOffset();
-  if (bodyStreamStart.hasError()) {
-    LOG(ERROR) << __func__ << ": error: " << bodyStreamStart.error();
-    return folly::makeUnexpected(bodyStreamStart.error());
-  }
-
-  if (streamOffset < *bodyStreamStart) {
-    LOG(ERROR) << __func__ << ": stream offset provided (" << streamOffset
-               << ") is smaller than existing body stream offset: "
-               << *bodyStreamStart;
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
-  auto bodyOffset = streamOffset - *bodyStreamStart;
-  return bodyOffset;
-}
-
-folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
-HQStreamCodec::onIngressDataExpired(uint64_t streamOffset) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  CHECK(ingressPartiallyReliable_)
-      << __func__ << ": ingressPartiallyReliable_ is false";
-
-  if (!finalIngressHeadersSeen_) {
-    // If we haven't received headers fully yet, ignore dataExpired.
-    // This is a legitimate situation that can happen with re-ordering/missing
-    // data, but we're not dealing with it right now.
-    // TODO: Cache the offset until later we receive the headers,
-    //        and raise the callback then.
-    VLOG(2)
-        << __func__
-        << ": received ingress dataExpired before HEADERS are fully received";
-    return folly::makeUnexpected(UnframedBodyOffsetTrackerError::NO_ERROR);
-  }
-
-  auto bytesParsed = getCodecTotalBytesParsed();
-  // Shouldn't happen, but still check.
-  if (streamOffset <= bytesParsed) {
-    LOG(ERROR) << "got stream offset (" << streamOffset
-               << ") <= than bytes already processed (" << bytesParsed << ")";
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
-  CHECK(ingressPrBodyTracker_.bodyStarted())
-      << ": partially realible body tracker not started";
-
-  auto bodyStreamStart = ingressPrBodyTracker_.getBodyStreamStartOffset();
-  if (bodyStreamStart.hasError()) {
-    LOG(ERROR) << __func__ << ": error: " << bodyStreamStart.error();
-    return folly::makeUnexpected(bodyStreamStart.error());
-  }
-
-  if (streamOffset <= *bodyStreamStart) {
-    LOG(ERROR) << __func__ << ": stream offset provided (" << streamOffset
-               << ") is smaller than existing body stream offset: "
-               << *bodyStreamStart;
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
-  auto bodyOffset = streamOffset - *bodyStreamStart;
-  ingressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
-  return bodyOffset;
-}
-
-folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
-HQStreamCodec::onIngressDataRejected(uint64_t streamOffset) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  if (!finalEgressHeadersSeen_) {
-    // If we haven't even sent the headers yet, ignore the dataReject.
-    LOG(ERROR) << __func__
-               << ": received DataRejected from receiver before egress headers "
-                  "are sent";
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
-  auto bytesSent = getCodecTotalEgressBytes();
-  if (!egressPrBodyTracker_.bodyStarted()) {
-    egressPrBodyTracker_.startBodyTracking(bytesSent);
-  }
-
-  auto bodyStreamStart = egressPrBodyTracker_.getBodyStreamStartOffset();
-  if (bodyStreamStart.hasError()) {
-    LOG(ERROR) << __func__ << ": error: " << bodyStreamStart.error();
-    return folly::makeUnexpected(bodyStreamStart.error());
-  }
-
-  if (streamOffset <= *bodyStreamStart) {
-    LOG(ERROR) << __func__ << ": stream offset provided (" << streamOffset
-               << ") is smaller than existing body stream offset: "
-               << *bodyStreamStart;
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
-  auto bodyOffset = streamOffset - *bodyStreamStart;
-  egressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
-  return bodyOffset;
-}
-
-folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
-HQStreamCodec::onEgressBodySkip(uint64_t bodyOffset) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  if (!finalEgressHeadersSeen_) {
-    // Application is trying to skip body data before having sent headers.
-    LOG(ERROR) << __func__ << ": egress skip before HEADERS sent";
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
-  auto bytesSent = getCodecTotalEgressBytes();
-
-  if (!egressPrBodyTracker_.bodyStarted()) {
-    egressPrBodyTracker_.startBodyTracking(bytesSent);
-  }
-
-  egressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
-  auto streamOffset = egressPrBodyTracker_.appTostreamOffset(bodyOffset);
-  if (streamOffset.hasError()) {
-    LOG(ERROR) << __func__ << ": error: " << streamOffset.error();
-    return folly::makeUnexpected(streamOffset.error());
-  }
-  return *streamOffset;
-}
-
-folly::Expected<uint64_t, UnframedBodyOffsetTrackerError>
-HQStreamCodec::onEgressBodyReject(uint64_t bodyOffset) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  if (!finalIngressHeadersSeen_) {
-    // Application is trying to skip body data before having received headers.
-    LOG(ERROR) << __func__ << ": egress reject before HEADERS received";
-    return folly::makeUnexpected(
-        UnframedBodyOffsetTrackerError::INVALID_OFFSET);
-  }
-
-  auto bytesSent = getCodecTotalEgressBytes();
-  if (!ingressPrBodyTracker_.bodyStarted()) {
-    ingressPrBodyTracker_.startBodyTracking(bytesSent);
-  }
-
-  ingressPrBodyTracker_.maybeMoveBodyBytesProcessed(bodyOffset);
-  auto streamOffset = ingressPrBodyTracker_.appTostreamOffset(bodyOffset);
-  if (streamOffset.hasError()) {
-    LOG(ERROR) << __func__ << ": error: " << streamOffset.error();
-    return folly::makeUnexpected(streamOffset.error());
-  }
-  return *streamOffset;
 }
 
 void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
@@ -514,33 +287,12 @@ void HQStreamCodec::generateHeader(folly::IOBufQueue& writeBuf,
                                    folly::Optional<HTTPHeaders> extraHeaders) {
   DCHECK_EQ(stream, streamId_);
 
-  // Partial reliability might already be set by ingress.
-  egressPartiallyReliable_ =
-      egressPartiallyReliable_ || msg.isPartiallyReliable();
-
   generateHeaderImpl(writeBuf, msg, folly::none, size, std::move(extraHeaders));
 
   // For requests, set final header seen flag right away.
   // For responses, header is final only if response code is >= 200.
   if (msg.isRequest() || (msg.isResponse() && msg.getStatusCode() >= 200)) {
     finalEgressHeadersSeen_ = true;
-  }
-
-  if (egressPartiallyReliable_ && finalEgressHeadersSeen_) {
-    // Piggyback a 0-length DATA frame to kick off partially reliable body
-    // streaming.
-    CHECK(!egressPrBodyTracker_.bodyStarted())
-        << ": egress partially relialble body tracker already started";
-    auto curBytesSent = getCodecTotalEgressBytes();
-    auto res = hq::writeFrameHeader(writeBuf, FrameType::DATA, 0);
-    if (res.hasValue()) {
-      totalEgressBytes_ += res.value();
-      auto bodyStreamOffset = curBytesSent + *res;
-      egressPrBodyTracker_.startBodyTracking(bodyStreamOffset);
-    } else {
-      LOG(ERROR) << __func__
-                 << ": failed to write 0-length DATA frame: " << res.error();
-    }
   }
 }
 
@@ -552,8 +304,6 @@ void HQStreamCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
                                         HTTPHeaderSize* size) {
   DCHECK_EQ(stream, streamId_);
   DCHECK(transportDirection_ == TransportDirection::DOWNSTREAM);
-  CHECK(!egressPartiallyReliable_)
-      << __func__ << ": not allowed in partially reliable mode";
   generateHeaderImpl(
       writeBuf, msg, pushId, size, folly::none /* extraHeaders */);
 }
@@ -585,8 +335,6 @@ void HQStreamCodec::generateHeaderImpl(
 
   WriteResult res;
   if (pushId) {
-    CHECK(!egressPartiallyReliable_)
-        << ": push promise not allowed on partially reliable message";
     res = hq::writePushPromise(writeBuf, *pushId, std::move(result));
   } else {
     res = hq::writeHeaders(writeBuf, std::move(result));
@@ -610,26 +358,6 @@ size_t HQStreamCodec::generateBodyImpl(folly::IOBufQueue& writeBuf,
   return 0;
 }
 
-size_t HQStreamCodec::generatePartiallyReliableBodyImpl(
-    folly::IOBufQueue& writeBuf, std::unique_ptr<folly::IOBuf> chain) {
-  CHECK(transportSupportsPartialReliability())
-      << __func__
-      << ": partially reliable operation on non-partially reliable transport";
-
-  auto bodyLen = chain->computeChainDataLength();
-
-  CHECK(egressPrBodyTracker_.bodyStarted())
-      << ": partially realible body tracker not started";
-  auto result = hq::writeUnframedBytes(writeBuf, std::move(chain));
-
-  if (result) {
-    egressPrBodyTracker_.addBodyBytesProcessed(bodyLen);
-    return *result;
-  }
-  CHECK(false) << "failed to write unframed data";
-  return 0;
-}
-
 size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
                                    StreamID stream,
                                    std::unique_ptr<folly::IOBuf> chain,
@@ -637,13 +365,7 @@ size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
                                    bool /*eom*/) {
   DCHECK_EQ(stream, streamId_);
 
-  size_t bytesWritten = 0;
-  if (egressPartiallyReliable_) {
-    bytesWritten =
-        generatePartiallyReliableBodyImpl(writeBuf, std::move(chain));
-  } else {
-    bytesWritten = generateBodyImpl(writeBuf, std::move(chain));
-  }
+  size_t bytesWritten = generateBodyImpl(writeBuf, std::move(chain));
 
   totalEgressBytes_ += bytesWritten;
   return bytesWritten;

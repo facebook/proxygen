@@ -40,11 +40,6 @@ void PassThroughHTTPCodecFilter::onBody(StreamID stream,
   callback_->onBody(stream, std::move(chain), padding);
 }
 
-void PassThroughHTTPCodecFilter::onUnframedBodyStarted(StreamID stream,
-                                                       uint64_t streamOffset) {
-  callback_->onUnframedBodyStarted(stream, streamOffset);
-}
-
 void PassThroughHTTPCodecFilter::onChunkHeader(StreamID stream, size_t length) {
   callback_->onChunkHeader(stream, length);
 }

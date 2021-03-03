@@ -24,15 +24,6 @@ void HQUnidirStreamDispatcher::onDataAvailable(
     return;
   }
 
-  // If this stream is operating in partially reliable mode
-  // do not attempt to parse the preface.
-  // The sink is responsible for deciding when a stream can become
-  // partially reliable.
-  if (sink_.isPartialReliabilityEnabled(id)) {
-    sink_.onPartialDataAvailable(id, peekData);
-    return;
-  }
-
   auto& peekFirst = peekData.front();
   // if not at offset 0, ignore
   if (peekFirst.offset != 0) {
@@ -95,24 +86,6 @@ void HQUnidirStreamDispatcher::onDataAvailable(
     default: {
       LOG(ERROR) << "Unrecognized type=" << static_cast<uint64_t>(type.value());
     }
-  }
-}
-
-void HQUnidirStreamDispatcher::onDataExpired(quic::StreamId id,
-                                             uint64_t offset) noexcept {
-  if (sink_.isPartialReliabilityEnabled(id)) {
-    sink_.processExpiredData(id, offset);
-  } else {
-    VLOG(4) << __func__ << " streamID=" << id << " does not uspoort PR";
-  }
-}
-
-void HQUnidirStreamDispatcher::onDataRejected(quic::StreamId id,
-                                              uint64_t offset) noexcept {
-  if (sink_.isPartialReliabilityEnabled(id)) {
-    sink_.processRejectedData(id, offset);
-  } else {
-    VLOG(4) << __func__ << " streamID=" << id << " does not uspoort PR";
   }
 }
 

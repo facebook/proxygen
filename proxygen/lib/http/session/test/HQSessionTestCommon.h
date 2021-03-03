@@ -48,7 +48,6 @@ struct PartiallyReliableTestParams {
 struct TestParams {
   std::string alpn_;
   bool shouldSendSettings_{true};
-  folly::Optional<PartiallyReliableTestParams> prParams;
   uint64_t unidirectionalStreamsCredit{kDefaultUnidirStreamCredit};
   std::size_t numBytesOnPushStream{kUnlimited};
   bool expectOnTransportReady{true};
@@ -131,12 +130,9 @@ class HQSessionTest
     socketDriver_ = std::make_unique<quic::MockQuicSocketDriver>(
         &eventBase_,
         *hqSession_,
-        hqSession_->getDispatcher(),
-        hqSession_->getDispatcher(),
         direction_ == proxygen::TransportDirection::DOWNSTREAM
             ? quic::MockQuicSocketDriver::TransportEnum::SERVER
-            : quic::MockQuicSocketDriver::TransportEnum::CLIENT,
-        GetParam().prParams.has_value());
+            : quic::MockQuicSocketDriver::TransportEnum::CLIENT);
 
     hqSession_->setSocket(socketDriver_->getSocket());
 

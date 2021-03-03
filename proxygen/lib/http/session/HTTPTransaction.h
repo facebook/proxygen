@@ -269,30 +269,11 @@ class HTTPTransactionHandler : public TraceEventObserver {
   }
 
   /**
-   * Inform the handler that unframed body is starting.
-   */
-  virtual void onUnframedBodyStarted(uint64_t /* offset */) noexcept {
-  }
-
-  /**
    * Inform the handler that data arrived into underlying transport's read
    * buffer.
    */
   virtual void onBodyPeek(uint64_t /* offset */,
                           const folly::IOBuf& /* chain */) noexcept {
-  }
-
-  /**
-   * Inform the handler that the sender skipped data below certain offset.
-   */
-  virtual void onBodySkipped(uint64_t /* offset */) noexcept {
-  }
-
-  /**
-   * Inform the handler that the receiver doesn't expect data under certain
-   * offset anymore.
-   */
-  virtual void onBodyRejected(uint64_t /* offset */) noexcept {
   }
 
   virtual ~HTTPTransactionHandler() {
@@ -544,24 +525,6 @@ class HTTPTransaction
 
     virtual folly::Expected<folly::Unit, ErrorCode> consume(
         size_t /* amount */) {
-      LOG(FATAL) << __func__ << " not supported";
-      folly::assume_unreachable();
-    }
-
-    /**
-     * Notify peer that the data below the offset isn't going to be sent.
-     */
-    virtual folly::Expected<folly::Optional<uint64_t>, ErrorCode> skipBodyTo(
-        HTTPTransaction* /* txn */, uint64_t /* nextBodyOffset */) {
-      LOG(FATAL) << __func__ << " not supported";
-      folly::assume_unreachable();
-    }
-
-    /**
-     * Notify peer that the data below the offset is not needed anymore.
-     */
-    virtual folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
-        HTTPTransaction* /* txn */, uint64_t /* nextBodyOffset */) {
       LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
@@ -824,16 +787,6 @@ class HTTPTransaction
   void onIngressSetSendWindow(uint32_t newWindowSize);
 
   /**
-   * Ivoked by the session when it gets the start of the unframed body.
-   */
-  void onIngressUnframedBodyStarted(uint64_t offset) {
-    partiallyReliable_ = true;
-    if (handler_) {
-      handler_->onUnframedBodyStarted(offset);
-    }
-  }
-
-  /**
    * Notify this transaction that it is ok to egress.  Returns true if there
    * is additional pending egress
    */
@@ -914,20 +867,6 @@ class HTTPTransaction
    * layer.
    */
   void onIngressBodyPeek(uint64_t bodyOffset, const folly::IOBuf& chain);
-
-  /**
-   * Invoked by the session when transaction receives a skip from the peer.
-   *
-   * @param nextBodyOffset      Next body offset set by the sender.
-   */
-  void onIngressBodySkipped(uint64_t nextBodyOffset);
-
-  /**
-   * Invoked by the session when transaction receives a reject from the peer.
-   *
-   * @param nextBodyOffset  Next body offset set by the receiver.
-   */
-  void onIngressBodyRejected(uint64_t nextBodyOffset);
 
   /**
    * Invoked by the handlers that are interested in tracking
@@ -1539,32 +1478,6 @@ class HTTPTransaction
    *                buffer front pointer.
    */
   folly::Expected<folly::Unit, ErrorCode> consume(size_t amount);
-
-  /**
-   * Allows the sender to skip part of the egress body. Calls can be interleaved
-   * with sendBody() calls.
-   * Upon receipt by the peer, this signals that the body up to bodyOffset shall
-   * not be expected. Note that some bytes before this new advertised offset
-   * might still be received by the peer if they were already in transmission
-   * between the peers.
-   *
-   * @param bodyOffset  New offset the sender is going to start sending the body
-   *                    from going forward.
-   */
-  folly::Expected<folly::Optional<uint64_t>, ErrorCode> skipBodyTo(
-      uint64_t nextBodyOffset);
-
-  /**
-   * Similar to skipBodyTo() above, rejectBodyTo() allows the receiver to signal
-   * to the sender that body bytes below bodyOffset are not expected anymore and
-   * the sender needs to start sending from the new offset.
-   * Note that the receiver may still receive some bytes below this new
-   * advertised offset if any were in flight between the two peers.
-   *
-   * @param bodyOffset  New offset the sender needs to start sending from.
-   */
-  folly::Expected<folly::Optional<uint64_t>, ErrorCode> rejectBodyTo(
-      uint64_t nextBodyOffset);
 
   folly::Optional<ConnectionToken> getConnectionToken() const noexcept;
 

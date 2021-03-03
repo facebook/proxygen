@@ -803,35 +803,6 @@ void HTTPTransaction::onIngressBodyPeek(uint64_t bodyOffset,
   }
 }
 
-void HTTPTransaction::onIngressBodySkipped(uint64_t nextBodyOffset) {
-  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodySkipped");
-  CHECK_LE(ingressBodyOffset_, nextBodyOffset);
-
-  uint64_t skipLen = nextBodyOffset - ingressBodyOffset_;
-  if (!updateContentLengthRemaining(skipLen)) {
-    return;
-  }
-  ingressBodyOffset_ = nextBodyOffset;
-
-  DestructorGuard g(this);
-  if (handler_) {
-    handler_->onBodySkipped(nextBodyOffset);
-  }
-}
-
-void HTTPTransaction::onIngressBodyRejected(uint64_t nextBodyOffset) {
-  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodyRejected");
-  DestructorGuard g(this);
-  if (nextBodyOffset <= *actualResponseLength_) {
-    return;
-  }
-  actualResponseLength_ = nextBodyOffset;
-
-  if (handler_) {
-    handler_->onBodyRejected(nextBodyOffset);
-  }
-}
-
 void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
                                                  bool eom) {
   CHECK(HTTPTransactionEgressSM::transit(
@@ -1225,67 +1196,6 @@ folly::Expected<folly::Unit, ErrorCode> HTTPTransaction::peek(
 folly::Expected<folly::Unit, ErrorCode> HTTPTransaction::consume(
     size_t amount) {
   return transport_.consume(amount);
-}
-
-folly::Expected<folly::Optional<uint64_t>, ErrorCode>
-HTTPTransaction::skipBodyTo(uint64_t nextBodyOffset) {
-  if (!partiallyReliable_) {
-    LOG(ERROR) << __func__
-               << ": not permitted on non-partially reliable transaction.";
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  if (!egressHeadersDelivered_) {
-    LOG(ERROR) << __func__
-               << ": cannot send data expired before egress headers have been "
-                  "delivered.";
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  // Trim buffered egress body to nextBodyOffset.
-  trimDeferredEgressBody(nextBodyOffset);
-
-  if (nextBodyOffset > actualResponseLength_.value()) {
-    actualResponseLength_ = nextBodyOffset;
-  }
-  return transport_.skipBodyTo(this, nextBodyOffset);
-}
-
-folly::Expected<folly::Optional<uint64_t>, ErrorCode>
-HTTPTransaction::rejectBodyTo(uint64_t nextBodyOffset) {
-  if (!partiallyReliable_) {
-    LOG(ERROR) << __func__
-               << ": not permitted on non-partially reliable transaction.";
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  if (expectedIngressContentLength_ && expectedIngressContentLengthRemaining_) {
-    if (nextBodyOffset > *expectedIngressContentLength_) {
-      return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-    }
-
-    auto currentBodyOffset = *expectedIngressContentLength_ -
-                             *expectedIngressContentLengthRemaining_;
-
-    if (nextBodyOffset <= currentBodyOffset) {
-      return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-    }
-
-    expectedIngressContentLengthRemaining_ =
-        *expectedIngressContentLength_ - nextBodyOffset;
-  }
-
-  if (nextBodyOffset <= ingressBodyOffset_) {
-    // Do not allow rejecting below already received body offset.
-    LOG(ERROR) << ": cannot reject body below already received offset; "
-                  "current received offset = "
-               << ingressBodyOffset_
-               << "; provided reject offset = " << nextBodyOffset;
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-  ingressBodyOffset_ = nextBodyOffset;
-
-  return transport_.rejectBodyTo(this, nextBodyOffset);
 }
 
 folly::Optional<HTTPTransaction::ConnectionToken>

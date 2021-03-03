@@ -18,10 +18,7 @@ namespace proxygen {
 
 // Base class for the unidirectional stream callbacks
 // holds the session and defines the shared error messages
-class HQUnidirStreamDispatcher
-    : public quic::QuicSocket::PeekCallback
-    , public quic::QuicSocket::DataExpiredCallback
-    , public quic::QuicSocket::DataRejectedCallback {
+class HQUnidirStreamDispatcher : public quic::QuicSocket::PeekCallback {
  public:
   // Receiver interface for the dispatched callbacks
   struct Callback {
@@ -55,12 +52,6 @@ class HQUnidirStreamDispatcher
     // Called by the dispatcher when a stream can not be recognized
     virtual void rejectStream(quic::StreamId /* id */) = 0;
 
-    // Called by the dispatcher to check whether a stream supports
-    // partial reliability
-    virtual bool isPartialReliabilityEnabled(quic::StreamId /* streamId */) {
-      return false;
-    }
-
     // Called by the dispatcher to identify a stream preface
     virtual folly::Optional<hq::UnidirectionalStreamType> parseStreamPreface(
         uint64_t preface) = 0;
@@ -71,15 +62,6 @@ class HQUnidirStreamDispatcher
     // Error on the control stream
     virtual void controlStreamReadError(quic::StreamId /* id */,
                                         const ReadError& /* error */) = 0;
-
-    virtual void onPartialDataAvailable(quic::StreamId /* id */,
-                                        const PeekData& /* peekData */) = 0;
-
-    virtual void processExpiredData(quic::StreamId /* id */,
-                                    uint64_t /* offset */) = 0;
-
-    virtual void processRejectedData(quic::StreamId /* id */,
-                                     uint64_t /* offset */) = 0;
 
    protected:
     virtual ~Callback() = default;
@@ -93,12 +75,6 @@ class HQUnidirStreamDispatcher
   virtual void onDataAvailable(
       quic::StreamId /* id */,
       const Callback::PeekData& /* data */) noexcept override;
-
-  virtual void onDataExpired(quic::StreamId /* id */,
-                             uint64_t /* offset */) noexcept override;
-
-  virtual void onDataRejected(quic::StreamId /* id */,
-                              uint64_t /* offset */) noexcept override;
 
   quic::QuicSocket::ReadCallback* controlStreamCallback() const;
 

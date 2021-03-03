@@ -79,11 +79,6 @@ void HQSession::setSessionStats(HTTPSessionStats* stats) {
   });
 }
 
-void HQSession::setPartiallyReliableCallbacks(quic::StreamId id) {
-  sock_->setDataExpiredCallback(id, &unidirectionalReadDispatcher_);
-  sock_->setDataRejectedCallback(id, &unidirectionalReadDispatcher_);
-}
-
 void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
   VLOG(4) << __func__ << " sess=" << *this << ": new streamID=" << id;
   // The transport should never call onNewBidirectionalStream before
@@ -1040,36 +1035,6 @@ void HQSession::HQVersionUtils::readDataProcessed() {
   }
 }
 
-folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
-HQSession::HQVersionUtils::onIngressPeekDataAvailable(uint64_t streamOffset) {
-  CHECK(hqStreamCodecPtr_);
-  return hqStreamCodecPtr_->onIngressDataAvailable(streamOffset);
-}
-
-folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
-HQSession::HQVersionUtils::onIngressDataExpired(uint64_t streamOffset) {
-  CHECK(hqStreamCodecPtr_);
-  return hqStreamCodecPtr_->onIngressDataExpired(streamOffset);
-}
-
-folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
-HQSession::HQVersionUtils::onIngressDataRejected(uint64_t streamOffset) {
-  CHECK(hqStreamCodecPtr_);
-  return hqStreamCodecPtr_->onIngressDataRejected(streamOffset);
-}
-
-folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
-HQSession::HQVersionUtils::onEgressBodySkip(uint64_t bodyOffset) {
-  CHECK(hqStreamCodecPtr_);
-  return hqStreamCodecPtr_->onEgressBodySkip(bodyOffset);
-}
-
-folly::Expected<uint64_t, hq::UnframedBodyOffsetTrackerError>
-HQSession::HQVersionUtils::onEgressBodyReject(uint64_t bodyOffset) {
-  CHECK(hqStreamCodecPtr_);
-  return hqStreamCodecPtr_->onEgressBodyReject(bodyOffset);
-}
-
 void HQSession::scheduleWrite() {
   // always call for the whole connection and iterate trough all the streams
   // in onWriteReady
@@ -1187,62 +1152,6 @@ void HQSession::readError(
       errorOnTransactionId(id, std::move(ex));
       break;
     }
-  }
-}
-
-bool HQSession::isPartialReliabilityEnabled(quic::StreamId id) {
-  if (!isPartialReliabilityEnabled()) {
-    VLOG(10) << __func__ << " PR disabled for the session streamID=" << id;
-    return false;
-  }
-  auto hqStream = findNonDetachedStream(id);
-  if (!hqStream) {
-    VLOG(10) << __func__ << " stream possibly detached streamID=" << id;
-    return false;
-  }
-  if (!sock_->isBidirectionalStream(id)) {
-    VLOG(10) << __func__ << " PR disabled for unidirectional streamID=" << id;
-    return false;
-  }
-
-  VLOG(10) << __func__ << " PR enabled for streamID=" << id;
-  return true;
-}
-
-HQSession::HQStreamTransportBase* FOLLY_NULLABLE
-HQSession::getPRStream(quic::StreamId id, const char* event) {
-  DCHECK(isPartialReliabilityEnabled(id))
-      << "PR not enabled prior to " << event;
-  auto hqStream = findStream(id);
-  if (hqStream) {
-    if (hqStream->detached_) {
-      LOG(ERROR) << event << " event received for detached stream " << id;
-      return nullptr;
-    }
-  }
-  return hqStream;
-}
-
-void HQSession::onPartialDataAvailable(
-    quic::StreamId id,
-    const HQUnidirStreamDispatcher::Callback::PeekData& partialData) {
-  auto hqStream = getPRStream(id, "data");
-  if (hqStream) {
-    hqStream->processPeekData(partialData);
-  }
-}
-
-void HQSession::processExpiredData(quic::StreamId id, uint64_t offset) {
-  auto hqStream = getPRStream(id, "expired");
-  if (hqStream) {
-    hqStream->processDataExpired(offset);
-  }
-}
-
-void HQSession::processRejectedData(quic::StreamId id, uint64_t offset) {
-  auto hqStream = getPRStream(id, "rejected");
-  if (hqStream) {
-    hqStream->processDataRejected(offset);
   }
 }
 
@@ -1428,10 +1337,6 @@ void HQSession::clearStreamCallbacks(quic::StreamId id) {
     sock_->setReadCallback(id, nullptr, folly::none);
     sock_->setPeekCallback(id, nullptr);
 
-    if (isPartialReliabilityEnabled()) {
-      sock_->setDataExpiredCallback(id, nullptr);
-      sock_->setDataRejectedCallback(id, nullptr);
-    }
   } else {
     VLOG(4) << "Attempt to clear callbacks on closed socket";
   }
@@ -2326,8 +2231,7 @@ std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
         }
         return res->sendWindowAvailable;
       },
-      session_.ingressSettings_,
-      session_.isPartialReliabilityEnabled());
+      session_.ingressSettings_);
   hqStreamCodecPtr_ = codec.get();
   return std::move(codec);
 }
@@ -2620,55 +2524,6 @@ bool HQSession::HQStreamTransportBase::processReadData() {
   return (readBuf_.chainLength() > 0);
 }
 
-void HQSession::HQStreamTransportBase::processPeekData(
-    const folly::Range<quic::QuicSocket::PeekIterator>& peekData) {
-  auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_);
-
-  for (auto& item : peekData) {
-    auto streamOffset = item.offset;
-    const auto& chain = item.data;
-    auto bodyOffset =
-        session_.versionUtils_->onIngressPeekDataAvailable(streamOffset);
-    if (bodyOffset.hasError()) {
-      if (bodyOffset.error() != UnframedBodyOffsetTrackerError::NO_ERROR) {
-        LOG(ERROR) << "peek: " << bodyOffset.error();
-      }
-    } else {
-      CHECK(chain.front()) << "Got peek data for an empty chain.";
-      txn_.onIngressBodyPeek(*bodyOffset, *chain.front());
-    }
-  }
-}
-
-void HQSession::HQStreamTransportBase::processDataExpired(
-    uint64_t streamOffset) {
-  auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_);
-
-  auto bodyOffset = session_.versionUtils_->onIngressDataExpired(streamOffset);
-  if (bodyOffset.hasError()) {
-    VLOG(4) << __func__ << ": got an invalid (possibly stale) skip offset: "
-            << bodyOffset.error();
-  } else {
-    txn_.onIngressBodySkipped(*bodyOffset);
-  }
-}
-
-void HQSession::HQStreamTransportBase::processDataRejected(
-    uint64_t streamOffset) {
-  auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_);
-
-  auto bodyOffset = session_.versionUtils_->onIngressDataRejected(streamOffset);
-  if (bodyOffset.hasError()) {
-    VLOG(4) << __func__ << ": got an invalid (possibly stale) reject offset:"
-            << bodyOffset.error();
-  } else {
-    txn_.onIngressBodyRejected(*bodyOffset);
-  }
-}
-
 // This method can be invoked via several paths:
 //  - last header in the response has arrived
 //  - triggered by QPACK
@@ -2920,16 +2775,6 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
     if (sock && sock->getState() && sock->getState()->qLogger) {
       sock->getState()->qLogger->addStreamStateUpdate(
           streamId, quic::kEOM, timeDiff);
-    }
-  }
-
-  // If partial reliability is enabled, enable the callbacks.
-  if (session_.isPartialReliabilityEnabled() && headers.isPartiallyReliable()) {
-    // For requests, enable right away.
-    // For responses, enable only if response code is >= 200.
-    if (headers.isRequest() ||
-        (headers.isResponse() && headers.getStatusCode() >= 200)) {
-      session_.setPartiallyReliableCallbacks(*codecStreamId_);
     }
   }
 
@@ -3240,16 +3085,6 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
   ingressPushId_ = folly::none;
 }
 
-// Partially reliable transport callbacks.
-
-void HQSession::HQStreamTransportBase::onUnframedBodyStarted(
-    HTTPCodec::StreamID streamID, uint64_t streamOffset) {
-  CHECK(session_.isPartialReliabilityEnabled())
-      << ": received " << __func__ << " but partial reliability is not enabled";
-  session_.setPartiallyReliableCallbacks(streamID);
-  txn_.onIngressUnframedBodyStarted(streamOffset);
-}
-
 folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(
     HTTPTransaction::PeekCallback peekCallback) {
   if (!codecStreamId_) {
@@ -3302,68 +3137,6 @@ uint64_t HQSession::HQStreamTransportBase::trimPendingEgressBody(
   }
 
   return trimBytes;
-}
-
-folly::Expected<folly::Optional<uint64_t>, ErrorCode>
-HQSession::HQStreamTransportBase::skipBodyTo(HTTPTransaction* txn,
-                                             uint64_t nextBodyOffset) {
-  DCHECK(txn == &txn_);
-  if (!session_.isPartialReliabilityEnabled()) {
-    LOG(ERROR) << "PR not supported";
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_);
-
-  auto streamOffset = session_.versionUtils_->onEgressBodySkip(nextBodyOffset);
-  if (streamOffset.hasError()) {
-    LOG(ERROR) << "skipBodyTo: " << streamOffset.error();
-    HTTPException ex(HTTPException::Direction::EGRESS, "failed to send a skip");
-    errorOnTransaction(std::move(ex));
-    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
-  }
-
-  bytesSkipped_ += trimPendingEgressBody(*streamOffset);
-
-  CHECK(codecStreamId_);
-  auto res = session_.sock_->sendDataExpired(*codecStreamId_, *streamOffset);
-  if (res.hasValue()) {
-    return *res;
-  } else {
-    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
-  }
-}
-
-folly::Expected<folly::Optional<uint64_t>, ErrorCode>
-HQSession::HQStreamTransportBase::rejectBodyTo(HTTPTransaction* txn,
-                                               uint64_t nextBodyOffset) {
-  VLOG(4) << __func__ << " txn=" << txn_;
-  DCHECK(txn == &txn_);
-  if (!session_.isPartialReliabilityEnabled()) {
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  auto g = folly::makeGuard(setActiveCodec(__func__));
-  CHECK(session_.versionUtils_);
-
-  auto streamOffset =
-      session_.versionUtils_->onEgressBodyReject(nextBodyOffset);
-  if (streamOffset.hasError()) {
-    LOG(ERROR) << "rejectBodyTo: " << streamOffset.error();
-    HTTPException ex(HTTPException::Direction::EGRESS,
-                     "failed to send a reject");
-    errorOnTransaction(std::move(ex));
-    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
-  }
-
-  CHECK(codecStreamId_);
-  auto res = session_.sock_->sendDataRejected(*codecStreamId_, *streamOffset);
-  if (res.hasValue()) {
-    return *res;
-  } else {
-    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
-  }
 }
 
 void HQSession::HQStreamTransportBase::trackEgressBodyDelivery(

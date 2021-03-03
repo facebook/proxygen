@@ -89,23 +89,15 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     bool isControl{false};
     uint64_t lastSkipOffset{0};
   };
-  bool partiallyReliableTransport_{false};
 
  public:
-  explicit MockQuicSocketDriver(
-      folly::EventBase* eventBase,
-      QuicSocket::ConnectionCallback& cb,
-      QuicSocket::DataExpiredCallback* dataExpiredCb,
-      QuicSocket::DataRejectedCallback* dataRejectedCb,
-      TransportEnum transportType,
-      bool partiallyReliableTransport = false,
-      std::string alpn = "h1q-fb")
-      : partiallyReliableTransport_(partiallyReliableTransport),
-        eventBase_(eventBase),
+  explicit MockQuicSocketDriver(folly::EventBase* eventBase,
+                                QuicSocket::ConnectionCallback& cb,
+                                TransportEnum transportType,
+                                std::string alpn = "h1q-fb")
+      : eventBase_(eventBase),
         transportType_(transportType),
         sock_(std::make_shared<MockQuicSocket>(eventBase, cb)),
-        dataExpiredCb_(dataExpiredCb),
-        dataRejectedCb_(dataRejectedCb),
         alpn_(alpn) {
 
     if (transportType_ == TransportEnum::SERVER) {
@@ -560,57 +552,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               return folly::unit;
             }));
 
-    EXPECT_CALL(*sock_, isPartiallyReliableTransport())
-        .WillRepeatedly(testing::Invoke(
-            [this]() -> bool { return partiallyReliableTransport_; }));
-
-    EXPECT_CALL(*sock_, sendDataExpired(testing::_, testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [this](quic::StreamId id, uint64_t streamOffset)
-                -> folly::Expected<folly::Optional<uint64_t>, LocalErrorCode> {
-              checkNotReadOnlyStream(id);
-              auto it = streams_.find(id);
-              if (it == streams_.end()) {
-                return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
-              }
-
-              ERROR_IF(
-                  it->second.writeState == CLOSED,
-                  folly::format("sendDataExpired on CLOSED streamId={}", id)
-                      .str(),
-                  return folly::makeUnexpected(
-                      LocalErrorCode::STREAM_NOT_EXISTS));
-
-              if (streamOffset > it->second.lastSkipOffset &&
-                  streamOffset > it->second.writeOffset) {
-                it->second.lastSkipOffset = streamOffset;
-              }
-
-              if (streamOffset > it->second.writeOffset) {
-                it->second.writeOffset = streamOffset;
-              }
-              return folly::makeExpected<LocalErrorCode>(streamOffset);
-            }));
-
-    EXPECT_CALL(*sock_, sendDataRejected(testing::_, testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [this](quic::StreamId id, uint64_t streamOffset)
-                -> folly::Expected<folly::Optional<uint64_t>, LocalErrorCode> {
-              checkNotReadOnlyStream(id);
-              auto it = streams_.find(id);
-              if (it == streams_.end()) {
-                return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
-              }
-              ERROR_IF(
-                  it->second.readState == CLOSED,
-                  folly::format("sendDataRejected on CLOSED streamId={}", id)
-                      .str(),
-                  return folly::makeUnexpected(
-                      LocalErrorCode::STREAM_NOT_EXISTS));
-              it->second.readOffset = streamOffset;
-              return folly::makeExpected<LocalErrorCode>(streamOffset);
-            }));
-
     EXPECT_CALL(*sock_, cancelDeliveryCallbacksForStream(testing::_))
         .WillRepeatedly(testing::Invoke([this](quic::StreamId id) -> void {
           cancelDeliveryCallbacks(id, streams_[id]);
@@ -748,40 +689,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       cb->onConnectionWriteError(std::make_pair(errorCode, folly::none));
     }
     stream.writeState = ERROR;
-  }
-
-  void deliverDataExpired(quic::StreamId id, uint64_t offset) {
-    auto it = streams_.find(id);
-    if (it == streams_.end()) {
-      return;
-    }
-
-    auto& stream = it->second;
-    if (offset > stream.readOffset) {
-      stream.readOffset = offset;
-    }
-
-    CHECK(dataExpiredCb_)
-        << folly::format("dataExpired callback not set for streamId={}", id)
-               .str();
-    dataExpiredCb_->onDataExpired(id, offset);
-  }
-
-  void deliverDataRejected(quic::StreamId id, uint64_t offset) {
-    auto it = streams_.find(id);
-    if (it == streams_.end()) {
-      return;
-    }
-
-    auto& stream = it->second;
-    if (offset > stream.writeOffset) {
-      stream.writeOffset = offset;
-    }
-
-    CHECK(dataRejectedCb_)
-        << folly::format("dataRejected callback not set for streamId={}", id)
-               .str();
-    dataRejectedCb_->onDataRejected(id, offset);
   }
 
   void cancelDeliveryCallbacks(quic::StreamId id, StreamState& stream) {
@@ -1256,22 +1163,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     return sock_;
   }
 
-  void enablePartialReliability() {
-    EXPECT_CALL(*sock_, setDataExpiredCallback(testing::_, testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [this](StreamId id, QuicSocket::DataExpiredCallback* cb) {
-              dataExpiredCb_ = cb;
-              return folly::unit;
-            }));
-
-    EXPECT_CALL(*sock_, setDataRejectedCallback(testing::_, testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [this](StreamId id, QuicSocket::DataRejectedCallback* cb) {
-              dataRejectedCb_ = cb;
-              return folly::unit;
-            }));
-  }
-
   void runLoopCallback() noexcept override {
     bool reschedule = false;
     for (auto& it : streams_) {
@@ -1333,8 +1224,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   uint64_t unidirectionalStreamsCredit_{0};
   std::shared_ptr<bool> deleted_{new bool(false)};
   LocalAppCallback* localAppCb_{nullptr};
-  QuicSocket::DataExpiredCallback* dataExpiredCb_;
-  QuicSocket::DataRejectedCallback* dataRejectedCb_;
   std::string alpn_;
   folly::SocketAddress localAddress_;
   folly::SocketAddress peerAddress_;
