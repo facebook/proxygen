@@ -61,7 +61,7 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
     bool includeDate,
     uint64_t streamId,
     uint32_t maxEncoderStreamBytes,
-    folly::Optional<HTTPHeaders> extraHeaders) noexcept {
+    const folly::Optional<HTTPHeaders>& extraHeaders) noexcept {
   auto baseIndex = encoder_.startEncode(controlQueue, 0, maxEncoderStreamBytes);
   uint32_t requiredInsertCount = 0;
   auto prevSize = controlQueue.chainLength();

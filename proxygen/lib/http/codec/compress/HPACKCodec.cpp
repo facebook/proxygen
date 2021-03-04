@@ -71,7 +71,7 @@ void HPACKCodec::encodeHTTP(
     const HTTPMessage& msg,
     folly::IOBufQueue& writeBuf,
     bool includeDate,
-    folly::Optional<HTTPHeaders> extraHeaders) noexcept {
+    const folly::Optional<HTTPHeaders>& extraHeaders) noexcept {
   auto prevSize = writeBuf.chainLength();
   encoder_.startEncode(writeBuf);
 

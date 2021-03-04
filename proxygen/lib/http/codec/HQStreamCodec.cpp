@@ -279,15 +279,15 @@ void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
   // leave the partial msg in decodeInfo, it keeps the parser paused
 }
 
-void HQStreamCodec::generateHeader(folly::IOBufQueue& writeBuf,
-                                   StreamID stream,
-                                   const HTTPMessage& msg,
-                                   bool /*eom*/,
-                                   HTTPHeaderSize* size,
-                                   folly::Optional<HTTPHeaders> extraHeaders) {
+void HQStreamCodec::generateHeader(
+    folly::IOBufQueue& writeBuf,
+    StreamID stream,
+    const HTTPMessage& msg,
+    bool /*eom*/,
+    HTTPHeaderSize* size,
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   DCHECK_EQ(stream, streamId_);
-
-  generateHeaderImpl(writeBuf, msg, folly::none, size, std::move(extraHeaders));
+  generateHeaderImpl(writeBuf, msg, folly::none, size, extraHeaders);
 
   // For requests, set final header seen flag right away.
   // For responses, header is final only if response code is >= 200.
@@ -313,13 +313,13 @@ void HQStreamCodec::generateHeaderImpl(
     const HTTPMessage& msg,
     folly::Optional<StreamID> pushId,
     HTTPHeaderSize* size,
-    folly::Optional<HTTPHeaders> extraHeaders) {
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   auto result = headerCodec_.encodeHTTP(qpackEncoderWriteBuf_,
                                         msg,
                                         true,
                                         streamId_,
                                         maxEncoderStreamData(),
-                                        std::move(extraHeaders));
+                                        extraHeaders);
   if (size) {
     *size = headerCodec_.getEncodedSize();
   }

@@ -43,7 +43,7 @@ class MockHTTPCodec : public HTTPCodec {
                     const HTTPMessage&,
                     bool eom,
                     HTTPHeaderSize*,
-                    folly::Optional<HTTPHeaders>));
+                    const folly::Optional<HTTPHeaders>&));
   MOCK_METHOD6(generatePushPromise,
                void(folly::IOBufQueue&,
                     HTTPCodec::StreamID,

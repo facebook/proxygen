@@ -80,7 +80,7 @@ class HQStreamCodec
       const HTTPMessage& msg,
       bool eom = false,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none) override;
 
   void generatePushPromise(folly::IOBufQueue& writeBuf,
                            StreamID stream,
@@ -150,7 +150,7 @@ class HQStreamCodec
                           const HTTPMessage& msg,
                           folly::Optional<StreamID> pushId,
                           HTTPHeaderSize* size,
-                          folly::Optional<HTTPHeaders> extraHeaders);
+                          const folly::Optional<HTTPHeaders>& extraHeaders);
 
   uint64_t maxEncoderStreamData() {
     auto maxData = qpackEncoderMaxDataFn_();

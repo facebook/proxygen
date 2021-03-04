@@ -347,12 +347,13 @@ void HTTP1xCodec::serializeWebsocketHeader(IOBufQueue& writeBuf,
   }
 }
 
-void HTTP1xCodec::generateHeader(IOBufQueue& writeBuf,
-                                 StreamID txn,
-                                 const HTTPMessage& msg,
-                                 bool eom,
-                                 HTTPHeaderSize* size,
-                                 folly::Optional<HTTPHeaders> extraHeaders) {
+void HTTP1xCodec::generateHeader(
+    IOBufQueue& writeBuf,
+    StreamID txn,
+    const HTTPMessage& msg,
+    bool eom,
+    HTTPHeaderSize* size,
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   if (keepalive_ && disableKeepalivePending_) {
     keepalive_ = false;
   }

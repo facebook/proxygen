@@ -80,7 +80,7 @@ class HTTP1xCodec : public HTTPCodec {
       const HTTPMessage& msg,
       bool eom = false,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none) override;
   size_t generateBody(folly::IOBufQueue& writeBuf,
                       StreamID txn,
                       std::unique_ptr<folly::IOBuf> chain,

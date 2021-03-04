@@ -101,14 +101,13 @@ void SPDYStatsFilter::generateHeader(
     const HTTPMessage& msg,
     bool eom,
     HTTPHeaderSize* size,
-    folly::Optional<HTTPHeaders> extraHeaders) {
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   if (call_->getTransportDirection() == TransportDirection::UPSTREAM) {
     counters_->recordEgressSynStream();
   } else {
     counters_->recordEgressSynReply();
   }
-  return call_->generateHeader(
-      writeBuf, stream, msg, eom, size, std::move(extraHeaders));
+  return call_->generateHeader(writeBuf, stream, msg, eom, size, extraHeaders);
 }
 
 void SPDYStatsFilter::generatePushPromise(folly::IOBufQueue& writeBuf,

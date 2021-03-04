@@ -555,7 +555,7 @@ unique_ptr<IOBuf> SPDYCodec::encodeHeaders(
     vector<Header>& allHeaders,
     uint32_t headroom,
     HTTPHeaderSize* size,
-    folly::Optional<HTTPHeaders> extraHeaders) {
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
 
   // We explicitly provide both the code and header name here
   // as HTTP_HEADER_OTHER does not map to kNameVersionv3 and we don't want a
@@ -612,7 +612,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(
     const HTTPMessage& msg,
     uint32_t headroom,
     HTTPHeaderSize* size,
-    folly::Optional<HTTPHeaders> extraHeaders) {
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
 
   // Note: the header-sorting code works with pointers to strings.
   // The role of this local status string is to hold the generated
@@ -638,8 +638,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeResponseHeaders(
     allHeaders.emplace_back(HTTP_HEADER_DATE, date);
   }
 
-  return encodeHeaders(
-      msg, allHeaders, headroom, size, std::move(extraHeaders));
+  return encodeHeaders(msg, allHeaders, headroom, size, extraHeaders);
 }
 
 unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
@@ -647,7 +646,7 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
     bool isPushed,
     uint32_t headroom,
     HTTPHeaderSize* size,
-    folly::Optional<HTTPHeaders> extraHeaders) {
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
 
   const HTTPHeaders& headers = msg.getHeaders();
   vector<Header> allHeaders;
@@ -679,16 +678,16 @@ unique_ptr<IOBuf> SPDYCodec::serializeRequestHeaders(
     allHeaders.emplace_back(HTTP_HEADER_OTHER, versionSettings_.hostStr, host);
   }
 
-  return encodeHeaders(
-      msg, allHeaders, headroom, size, std::move(extraHeaders));
+  return encodeHeaders(msg, allHeaders, headroom, size, extraHeaders);
 }
 
-void SPDYCodec::generateHeader(folly::IOBufQueue& writeBuf,
-                               StreamID stream,
-                               const HTTPMessage& msg,
-                               bool eom,
-                               HTTPHeaderSize* size,
-                               folly::Optional<HTTPHeaders> extraHeaders) {
+void SPDYCodec::generateHeader(
+    folly::IOBufQueue& writeBuf,
+    StreamID stream,
+    const HTTPMessage& msg,
+    bool eom,
+    HTTPHeaderSize* size,
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   if (!isStreamIngressEgressAllowed(stream)) {
     VLOG(2) << "Suppressing SYN_STREAM/REPLY for stream=" << stream
             << " ingressGoawayAck_=" << ingressGoawayAck_;
@@ -699,10 +698,9 @@ void SPDYCodec::generateHeader(folly::IOBufQueue& writeBuf,
     return;
   }
   if (transportDirection_ == TransportDirection::UPSTREAM) {
-    generateSynStream(
-        stream, 0, writeBuf, msg, eom, size, std::move(extraHeaders));
+    generateSynStream(stream, 0, writeBuf, msg, eom, size, extraHeaders);
   } else {
-    generateSynReply(stream, writeBuf, msg, eom, size, std::move(extraHeaders));
+    generateSynReply(stream, writeBuf, msg, eom, size, extraHeaders);
   }
 }
 
@@ -725,13 +723,14 @@ void SPDYCodec::generatePushPromise(folly::IOBufQueue& writeBuf,
   generateSynStream(stream, assocStream, writeBuf, msg, eom, size);
 }
 
-void SPDYCodec::generateSynStream(StreamID stream,
-                                  StreamID assocStream,
-                                  folly::IOBufQueue& writeBuf,
-                                  const HTTPMessage& msg,
-                                  bool eom,
-                                  HTTPHeaderSize* size,
-                                  folly::Optional<HTTPHeaders> extraHeaders) {
+void SPDYCodec::generateSynStream(
+    StreamID stream,
+    StreamID assocStream,
+    folly::IOBufQueue& writeBuf,
+    const HTTPMessage& msg,
+    bool eom,
+    HTTPHeaderSize* size,
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   // Pushed streams must have an even streamId and an odd assocStream
   CHECK((assocStream == NoStream && (stream % 2 == 1)) ||
         ((stream % 2 == 0) && (assocStream % 2 == 1)))
@@ -748,8 +747,8 @@ void SPDYCodec::generateSynStream(StreamID stream,
   uint32_t fieldsSize = kFrameSizeSynStream;
   uint32_t headroom = kFrameSizeControlCommon + fieldsSize;
   bool isPushed = (assocStream != NoStream);
-  unique_ptr<IOBuf> out(serializeRequestHeaders(
-      msg, isPushed, headroom, size, std::move(extraHeaders)));
+  unique_ptr<IOBuf> out(
+      serializeRequestHeaders(msg, isPushed, headroom, size, extraHeaders));
 
   // The length field in the SYN_STREAM header holds the number
   // of bytes that follow it.  That's the length of the fields
@@ -786,12 +785,13 @@ void SPDYCodec::generateSynStream(StreamID stream,
   writeBuf.append(std::move(out));
 }
 
-void SPDYCodec::generateSynReply(StreamID stream,
-                                 folly::IOBufQueue& writeBuf,
-                                 const HTTPMessage& msg,
-                                 bool eom,
-                                 HTTPHeaderSize* size,
-                                 folly::Optional<HTTPHeaders> extraHeaders) {
+void SPDYCodec::generateSynReply(
+    StreamID stream,
+    folly::IOBufQueue& writeBuf,
+    const HTTPMessage& msg,
+    bool eom,
+    HTTPHeaderSize* size,
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   // Serialize the compressed representation of the headers
   // first because we need to write its length.  The
   // serializeResponseHeaders() method allocates an IOBuf to
@@ -801,7 +801,7 @@ void SPDYCodec::generateSynReply(StreamID stream,
   // length.
   uint32_t headroom = kFrameSizeControlCommon + versionSettings_.synReplySize;
   unique_ptr<IOBuf> out(
-      serializeResponseHeaders(msg, headroom, size, std::move(extraHeaders)));
+      serializeResponseHeaders(msg, headroom, size, extraHeaders));
 
   // The length field in the SYN_REPLY header holds the number
   // of bytes that follow it.  That's the length of the fields

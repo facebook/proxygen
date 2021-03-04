@@ -238,9 +238,8 @@ void PassThroughHTTPCodecFilter::generateHeader(
     const HTTPMessage& msg,
     bool eom,
     HTTPHeaderSize* size,
-    folly::Optional<HTTPHeaders> extraHeaders) {
-  return call_->generateHeader(
-      writeBuf, stream, msg, eom, size, std::move(extraHeaders));
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
+  return call_->generateHeader(writeBuf, stream, msg, eom, size, extraHeaders);
 }
 
 void PassThroughHTTPCodecFilter::generatePushPromise(folly::IOBufQueue& buf,

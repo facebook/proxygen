@@ -103,7 +103,7 @@ class HQFramedCodec : public HTTPCodec {
                       const HTTPMessage& /*msg*/,
                       bool /*eom = false*/,
                       HTTPHeaderSize* /*size = nullptr*/,
-                      folly::Optional<HTTPHeaders>) override {
+                      const folly::Optional<HTTPHeaders>&) override {
     LOG(FATAL) << __func__ << " must be implemented in child class";
     folly::assume_unreachable();
   }

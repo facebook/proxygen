@@ -521,7 +521,7 @@ class HTTPCodec {
       const HTTPMessage& msg,
       bool eom = false,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none) = 0;
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none) = 0;
 
   virtual void generatePushPromise(folly::IOBufQueue& /* writeBuf */,
                                    StreamID /* stream */,

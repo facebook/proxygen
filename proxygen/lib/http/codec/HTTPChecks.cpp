@@ -32,12 +32,13 @@ void HTTPChecks::onHeadersComplete(StreamID stream,
   callback_->onHeadersComplete(stream, std::move(msg));
 }
 
-void HTTPChecks::generateHeader(folly::IOBufQueue& writeBuf,
-                                StreamID stream,
-                                const HTTPMessage& msg,
-                                bool eom,
-                                HTTPHeaderSize* sizeOut,
-                                folly::Optional<HTTPHeaders> extraHeaders) {
+void HTTPChecks::generateHeader(
+    folly::IOBufQueue& writeBuf,
+    StreamID stream,
+    const HTTPMessage& msg,
+    bool eom,
+    HTTPHeaderSize* sizeOut,
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   if (msg.isRequest() && RFC2616::bodyImplied(msg.getHeaders())) {
     CHECK(RFC2616::isRequestBodyAllowed(msg.getMethod()) !=
           RFC2616::BodyAllowed::NOT_ALLOWED);
@@ -45,8 +46,7 @@ void HTTPChecks::generateHeader(folly::IOBufQueue& writeBuf,
     // requests here too.
   }
 
-  call_->generateHeader(
-      writeBuf, stream, msg, eom, sizeOut, std::move(extraHeaders));
+  call_->generateHeader(writeBuf, stream, msg, eom, sizeOut, extraHeaders);
 }
 
 } // namespace proxygen

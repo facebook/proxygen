@@ -62,12 +62,13 @@ class SPDYStatsFilter : public PassThroughHTTPCodecFilter {
 
   // egress
 
-  void generateHeader(folly::IOBufQueue& writeBuf,
-                      StreamID stream,
-                      const HTTPMessage& msg,
-                      bool eom,
-                      HTTPHeaderSize* size,
-                      folly::Optional<HTTPHeaders> extraHeaders) override;
+  void generateHeader(
+      folly::IOBufQueue& writeBuf,
+      StreamID stream,
+      const HTTPMessage& msg,
+      bool eom,
+      HTTPHeaderSize* size,
+      const folly::Optional<HTTPHeaders>& extraHeaders) override;
 
   void generatePushPromise(folly::IOBufQueue& writeBuf,
                            StreamID stream,

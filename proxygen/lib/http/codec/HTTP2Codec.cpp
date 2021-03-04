@@ -1152,12 +1152,13 @@ bool HTTP2Codec::onIngressUpgradeMessage(const HTTPMessage& msg) {
   return true;
 }
 
-void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
-                                StreamID stream,
-                                const HTTPMessage& msg,
-                                bool eom,
-                                HTTPHeaderSize* size,
-                                folly::Optional<HTTPHeaders> extraHeaders) {
+void HTTP2Codec::generateHeader(
+    folly::IOBufQueue& writeBuf,
+    StreamID stream,
+    const HTTPMessage& msg,
+    bool eom,
+    HTTPHeaderSize* size,
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   generateHeaderImpl(writeBuf,
                      stream,
                      msg,
@@ -1165,7 +1166,7 @@ void HTTP2Codec::generateHeader(folly::IOBufQueue& writeBuf,
                      folly::none, /* controlStream */
                      eom,
                      size,
-                     std::move(extraHeaders));
+                     extraHeaders);
 }
 
 void HTTP2Codec::generatePushPromise(folly::IOBufQueue& writeBuf,
@@ -1225,7 +1226,7 @@ void HTTP2Codec::generateHeaderImpl(
     const folly::Optional<HTTPCodec::ExAttributes>& exAttributes,
     bool eom,
     HTTPHeaderSize* size,
-    folly::Optional<HTTPHeaders> extraHeaders) {
+    const folly::Optional<HTTPHeaders>& extraHeaders) {
   HTTPHeaderSize localSize;
   if (!size) {
     size = &localSize;
@@ -1282,8 +1283,7 @@ void HTTP2Codec::generateHeaderImpl(
       maxFrameSize - headerSize + http2::kFrameHeaderSize;
   auto frameHeader = writeBuf.preallocate(headerSize, kDefaultGrowth);
   writeBuf.postallocate(headerSize);
-  headerCodec_.encodeHTTP(
-      msg, writeBuf, addDateToResponse_, std::move(extraHeaders));
+  headerCodec_.encodeHTTP(msg, writeBuf, addDateToResponse_, extraHeaders);
   *size = headerCodec_.getEncodedSize();
 
   IOBufQueue queue(IOBufQueue::cacheChainLength());

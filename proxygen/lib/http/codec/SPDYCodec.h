@@ -58,7 +58,7 @@ class SPDYCodec : public HTTPParallelCodec {
       const HTTPMessage& msg,
       bool eom = false,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none) override;
   void generatePushPromise(folly::IOBufQueue& writeBuf,
                            StreamID stream,
                            const HTTPMessage& msg,
@@ -164,7 +164,7 @@ class SPDYCodec : public HTTPParallelCodec {
       const HTTPMessage& msg,
       bool eom,
       HTTPHeaderSize* size,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none);
   /**
    * Generates a frame of type SYN_REPLY
    */
@@ -174,7 +174,7 @@ class SPDYCodec : public HTTPParallelCodec {
       const HTTPMessage& msg,
       bool eom,
       HTTPHeaderSize* size,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none);
 
   /**
    * Generates the shared parts of a ping request and reply.
@@ -290,7 +290,7 @@ class SPDYCodec : public HTTPParallelCodec {
       bool isPushed,
       uint32_t headroom = 0,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none);
 
   /**
    * Serializes headers for responses (aka SYN_REPLY)
@@ -306,7 +306,7 @@ class SPDYCodec : public HTTPParallelCodec {
       const HTTPMessage& msg,
       uint32_t headroom = 0,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none);
 
   /**
    * Helper function to create the compressed Name/Value representation of
@@ -324,7 +324,7 @@ class SPDYCodec : public HTTPParallelCodec {
       std::vector<compress::Header>& headers,
       uint32_t headroom = 0,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none);
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none);
 
   void failStream(bool newTxn,
                   StreamID streamID,

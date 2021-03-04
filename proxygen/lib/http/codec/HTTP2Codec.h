@@ -55,7 +55,7 @@ class HTTP2Codec
       const HTTPMessage& msg,
       bool eom = false,
       HTTPHeaderSize* size = nullptr,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none) override;
   void generateContinuation(folly::IOBufQueue& writeBuf,
                             folly::IOBufQueue& queue,
                             StreamID stream,
@@ -203,7 +203,7 @@ class HTTP2Codec
                           const folly::Optional<ExAttributes>& exAttributes,
                           bool eom,
                           HTTPHeaderSize* size,
-                          folly::Optional<HTTPHeaders> extraHeaders);
+                          const folly::Optional<HTTPHeaders>& extraHeaders);
   void encodeHeaders(folly::IOBufQueue& writeBuf,
                      const HTTPHeaders& headers,
                      std::vector<compress::Header>& allHeaders,

@@ -33,7 +33,7 @@ class HTTPChecks : public PassThroughHTTPCodecFilter {
       const HTTPMessage& msg,
       bool eom,
       HTTPHeaderSize* sizeOut,
-      folly::Optional<HTTPHeaders> extraHeaders = folly::none) override;
+      const folly::Optional<HTTPHeaders>& extraHeaders = folly::none) override;
 };
 
 } // namespace proxygen
