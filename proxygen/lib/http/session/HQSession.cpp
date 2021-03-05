@@ -3010,17 +3010,20 @@ size_t HQSession::HQStreamTransportBase::sendBody(
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent()) {
     byteEventTracker_.addFirstBodyByteEvent(offset + 1, txn);
   }
-
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - createdTime);
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kBody, timeDiff);
+  }
   if (includeEOM) {
     session_.handleLastByteEvents(
         &byteEventTracker_, &txn_, encodedSize, streamWriteByteOffset(), true);
     VLOG(3) << "sending EOM in body for streamID=" << getStreamId()
             << " txn=" << txn_;
     pendingEOM_ = true;
-    auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - createdTime);
-    auto sock = session_.sock_;
-    auto streamId = getStreamId();
     if (sock && sock->getState() && sock->getState()->qLogger) {
       sock->getState()->qLogger->addStreamStateUpdate(
           streamId, quic::kEOM, timeDiff);
