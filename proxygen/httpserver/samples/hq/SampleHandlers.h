@@ -35,14 +35,6 @@ using random_bytes_engine =
                                  CHAR_BIT,
                                  unsigned char>;
 
-constexpr folly::StringPiece kPartiallyReliableScriptHeader{"x-pr-script"};
-constexpr folly::StringPiece kPartiallyReliableChunkDelayMsHeader{
-    "x-pr-chunk-delay-ms"};
-constexpr folly::StringPiece kPartiallyReliableChunkSizeHeader{
-    "x-pr-chunk-size"};
-constexpr folly::StringPiece kPartiallyReliableChunkDelayCapMsHeader{
-    "x-pr-chunk-delay-cap-ms"};
-
 class BaseSampleHandler : public proxygen::HTTPTransactionHandler {
  public:
   BaseSampleHandler() = delete;

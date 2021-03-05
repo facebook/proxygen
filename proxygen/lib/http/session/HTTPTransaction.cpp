@@ -73,7 +73,6 @@ HTTPTransaction::HTTPTransaction(
       headRequest_(false),
       enableLastByteFlushedTracking_(false),
       enableBodyLastByteDeliveryTracking_(false),
-      partiallyReliable_(false),
       egressHeadersDelivered_(false),
       idleTimeout_(defaultIdleTimeout),
       timer_(timer),
@@ -853,7 +852,6 @@ void HTTPTransaction::sendHeadersWithEOM(const HTTPMessage& header) {
 }
 
 void HTTPTransaction::sendHeaders(const HTTPMessage& header) {
-  partiallyReliable_ = partiallyReliable_ || header.isPartiallyReliable();
   sendHeadersWithOptionalEOM(header, false);
 }
 
@@ -938,8 +936,6 @@ size_t HTTPTransaction::sendDeferredBody(const uint32_t maxEgress) {
     } // else we got called with only a pending EOM, handled below
   } else {
     // This body is expliticly chunked
-    CHECK(!partiallyReliable_)
-        << __func__ << ": chunking not supported in partially reliable mode.";
     while (!chunkHeaders_.empty() && canSend > 0) {
       Chunk& chunk = chunkHeaders_.front();
       if (!chunk.headerSent) {

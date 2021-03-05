@@ -55,7 +55,7 @@ template <class T>
 class HQCodecTestFixture : public T {
  public:
   void SetUp() override {
-    makeCodecs(false);
+    makeCodecs();
     SetUpCodecs();
   }
 
@@ -123,7 +123,7 @@ class HQCodecTestFixture : public T {
     return n;
   }
 
-  void makeCodecs(bool isTransportPartiallyReliable) {
+  void makeCodecs() {
     upstreamCodec_ = std::make_unique<HQStreamCodec>(
         streamId_,
         TransportDirection::UPSTREAM,
@@ -327,7 +327,7 @@ TEST_F(HQCodecTest, Trailers) {
     EXPECT_EQ(callbacks_.streamErrors, 0);
     EXPECT_EQ(callbacks_.sessionErrors, 0);
     callbacks_.reset();
-    makeCodecs(false);
+    makeCodecs();
     downstreamCodec_->setCallback(&callbacks_);
   }
 }

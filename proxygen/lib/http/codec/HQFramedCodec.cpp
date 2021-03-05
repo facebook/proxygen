@@ -99,19 +99,12 @@ size_t HQFramedCodec::onFramedIngress(const IOBuf& buf) {
       pendingDataFrameBytes_ = curHeader_.length;
       // regardless of the header length we move to processing the
       // FRAME_PAYLOAD. Even if the length is 0, since this is actually
-      // allowed for some frames (HEADERS , DATA in PR mode) and disallowed
+      // allowed for some frames (HEADERS) and disallowed
       // for others (DATA) So it is up to the framer to accept/reject such
       // frames For DATA frames, payload streaming is supported.
       switch (curHeader_.type) {
         case FrameType::DATA:
-          if (transportSupportsPartialReliability() &&
-              curHeader_.length == kUnframedDataFrameLen) {
-            frameState_ =
-                FrameState::FRAME_PAYLOAD_PARTIALLY_RELIABLE_STREAMING;
-            onIngressPartiallyReliableBodyStarted(totalBytesParsed_ + parsed);
-          } else {
-            frameState_ = FrameState::FRAME_PAYLOAD_STREAMING;
-          }
+          frameState_ = FrameState::FRAME_PAYLOAD_STREAMING;
           break;
         default:
           frameState_ = FrameState::FRAME_PAYLOAD;
@@ -140,11 +133,6 @@ size_t HQFramedCodec::onFramedIngress(const IOBuf& buf) {
       if (pendingDataFrameBytes_ == 0) {
         frameState_ = FrameState::FRAME_HEADER_TYPE;
       }
-    } else if (bufLen > 0 &&
-               frameState_ ==
-                   FrameState::FRAME_PAYLOAD_PARTIALLY_RELIABLE_STREAMING) {
-      connError_ = parsePartiallyReliableData(cursor);
-      parsed += bufLen;
     }
     CHECK_GE(bufLen, parsed);
     bufLen -= parsed;
@@ -161,10 +149,7 @@ bool HQFramedCodec::onFramedIngressEOF() {
   } else if (parserPaused_) {
     deferredEOF_ = true;
     return false;
-  } else if (frameState_ != FrameState::FRAME_HEADER_TYPE &&
-             (!transportSupportsPartialReliability() ||
-              frameState_ !=
-                  FrameState::FRAME_PAYLOAD_PARTIALLY_RELIABLE_STREAMING)) {
+  } else if (frameState_ != FrameState::FRAME_HEADER_TYPE) {
     VLOG(3) << "Stream ended in the middle of a frame type=" << curHeader_.type;
     connError_ = HTTP3::ErrorCode::HTTP_FRAME_ERROR;
     checkConnectionError(connError_, nullptr);

@@ -46,8 +46,6 @@ const char* getErrorCodeString(ErrorCode error) {
       return "HTTP_1_1_REQUIRED";
     case ErrorCode::_SPDY_INVALID_STREAM:
       return "_SPDY_INVALID_STREAM";
-    case ErrorCode::_HTTP3_PR_INVALID_OFFSET:
-      return "_HTTP3_PR_INVALID_OFFSET";
   }
   LOG(FATAL) << "Unreachable";
   return "";

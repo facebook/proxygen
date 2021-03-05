@@ -42,8 +42,6 @@ GoawayStatusCode errorCodeToGoaway(ErrorCode code) {
       break;
     case ErrorCode::_SPDY_INVALID_STREAM:
       break;
-    case ErrorCode::_HTTP3_PR_INVALID_OFFSET:
-      break;
   }
   return GOAWAY_PROTOCOL_ERROR;
 }
@@ -77,8 +75,6 @@ ResetStatusCode errorCodeToReset(ErrorCode code) {
     case ErrorCode::INADEQUATE_SECURITY:
       return RST_INVALID_CREDENTIALS;
     case ErrorCode::HTTP_1_1_REQUIRED:
-      break;
-    case ErrorCode::_HTTP3_PR_INVALID_OFFSET:
       break;
     case ErrorCode::_SPDY_INVALID_STREAM:
       return RST_INVALID_STREAM;

@@ -74,8 +74,7 @@ class CurlClient
              const std::string& inputFilename,
              bool h2c = false,
              unsigned short httpMajor = 1,
-             unsigned short httpMinor = 1,
-             bool partiallyReliable = false);
+             unsigned short httpMinor = 1);
 
   virtual ~CurlClient() = default;
 
@@ -158,7 +157,6 @@ class CurlClient
   std::unique_ptr<std::ifstream> inputFile_;
   std::unique_ptr<std::ofstream> outputFile_;
   std::unique_ptr<std::ostream> outputStream_;
-  bool partiallyReliable_{false};
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
   std::vector<std::unique_ptr<CurlPushHandler>> pushTxnHandlers_;

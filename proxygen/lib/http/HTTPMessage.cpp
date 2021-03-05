@@ -81,8 +81,7 @@ HTTPMessage::HTTPMessage()
       upgraded_(false),
       wantsKeepalive_(true),
       trailersAllowed_(false),
-      secure_(false),
-      partiallyReliable_(false) {
+      secure_(false) {
 }
 
 HTTPMessage::~HTTPMessage() {
@@ -113,8 +112,7 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       upgraded_(message.upgraded_),
       wantsKeepalive_(message.wantsKeepalive_),
       trailersAllowed_(message.trailersAllowed_),
-      secure_(message.secure_),
-      partiallyReliable_(message.partiallyReliable_) {
+      secure_(message.secure_) {
   if (isRequest()) {
     setURL(request().url_);
   }
@@ -154,8 +152,8 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       upgraded_(message.upgraded_),
       wantsKeepalive_(message.wantsKeepalive_),
       trailersAllowed_(message.trailersAllowed_),
-      secure_(message.secure_),
-      partiallyReliable_(message.partiallyReliable_) {
+      secure_(message.secure_)
+      {
   if (isRequest()) {
     setURL(request().url_);
   }
@@ -726,7 +724,6 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
 void HTTPMessage::describe(std::ostream& os) const {
   os << ", chunked: " << chunked_ << ", upgraded: " << upgraded_
      << ", secure: " << secure_
-     << ", partially reliable: " << partiallyReliable_
      << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.

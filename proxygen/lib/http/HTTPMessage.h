@@ -837,22 +837,6 @@ class HTTPMessage {
   static std::string createQueryString(
       const std::map<std::string, std::string>& params, uint32_t maxSize);
 
-  /**
-   * Marks the message partially reliable.
-   * Partial reliability flag allows HTTP transaction to execute partially
-   * reliable API methods such as skipBodyTo() and rejectBodyTo().
-   *
-   * Message, once marked partially reliable, cannot go back to full
-   * reliability, hence only one set method below.
-   */
-  void setPartiallyReliable() {
-    partiallyReliable_ = true;
-  }
-
-  bool isPartiallyReliable() const {
-    return partiallyReliable_;
-  }
-
  protected:
   // Message start time, in msec since the epoch.
   TimePoint startTime_;
@@ -1092,11 +1076,6 @@ class HTTPMessage {
 
   // Whether the message is received in HTTPS.
   bool secure_ : 1;
-
-  // Whether the message is partially reliable.
-  // This is used by transaction/codec to allow/disallow certain operations on
-  // transaction.
-  bool partiallyReliable_ : 1;
 
   // used by atomicDumpMessage
   static std::mutex mutexDump_;

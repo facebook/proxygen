@@ -998,8 +998,6 @@ class HTTPTransaction
   virtual void sendChunkHeader(size_t length) {
     CHECK(HTTPTransactionEgressSM::transit(
         egressState_, HTTPTransactionEgressSM::Event::sendChunkHeader));
-    CHECK(!partiallyReliable_)
-        << __func__ << ": chunking not supported in partially reliable mode.";
     // TODO: move this logic down to session/codec
     if (!transport_.getCodec().supportsParallelRequests()) {
       chunkHeaders_.emplace_back(Chunk(length));
@@ -1015,8 +1013,6 @@ class HTTPTransaction
   virtual void sendChunkTerminator() {
     CHECK(HTTPTransactionEgressSM::transit(
         egressState_, HTTPTransactionEgressSM::Event::sendChunkTerminator));
-    CHECK(!partiallyReliable_)
-        << __func__ << ": chunking not supported in partially reliable mode.";
   }
 
   /**
@@ -1030,9 +1026,6 @@ class HTTPTransaction
   virtual void sendTrailers(const HTTPHeaders& trailers) {
     CHECK(HTTPTransactionEgressSM::transit(
         egressState_, HTTPTransactionEgressSM::Event::sendTrailers));
-    CHECK(!partiallyReliable_)
-        << __func__
-        << ": trailers are not supported in partially reliable mode.";
     trailers_.reset(new HTTPHeaders(trailers));
   }
 
@@ -1150,11 +1143,6 @@ class HTTPTransaction
    */
   virtual HTTPTransaction* newPushedTransaction(
       HTTPPushTransactionHandler* handler, ProxygenError* error = nullptr) {
-    // Pushed transactions do support partially reliable mode, however push
-    // promises should be only generated on a fully reliable transaction.
-    CHECK(!partiallyReliable_)
-        << __func__
-        << ": push promises not supported in partially reliable mode.";
     if (isEgressEOMSeen()) {
       SET_PROXYGEN_ERROR_IF(error,
                             ProxygenError::kErrorEgressEOMSeenOnParentStream);
@@ -1735,10 +1723,6 @@ class HTTPTransaction
   bool headRequest_ : 1;
   bool enableLastByteFlushedTracking_ : 1;
   bool enableBodyLastByteDeliveryTracking_ : 1;
-  // Signals if the transaction is partially reliable.
-  // Set on first sendHeaders() call on egress or with setPartiallyReliable() on
-  // ingress.
-  bool partiallyReliable_ : 1;
 
   // Prevents the application from calling skipBodyTo() before egress
   // headers have been delivered.
@@ -1767,7 +1751,6 @@ class HTTPTransaction
   std::unique_ptr<PrioritySample> prioritySample_;
 
   // Keeps track for body offset processed so far.
-  // Includes skipped bytes for partially reliable transactions.
   uint64_t ingressBodyOffset_{0};
 
   bool setIngressTimeoutAfterEom_{false};

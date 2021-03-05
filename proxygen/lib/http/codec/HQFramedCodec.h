@@ -348,24 +348,8 @@ class HQFramedCodec : public HTTPCodec {
     folly::assume_unreachable();
   }
 
-  virtual ParseResult parsePartiallyReliableData(
-      folly::io::Cursor& /* cursor */) {
-    LOG(FATAL) << __func__ << " not supported on this codec";
-    folly::assume_unreachable();
-  }
-
-  virtual void onIngressPartiallyReliableBodyStarted(
-      uint64_t /* streamOffset */) {
-    LOG(FATAL) << __func__ << " not supported on this codec";
-    folly::assume_unreachable();
-  }
-
   uint64_t getCodecTotalBytesParsed() const {
     return totalBytesParsed_;
-  }
-
-  virtual bool transportSupportsPartialReliability() const {
-    return false;
   }
 
   bool onFramedIngressEOF();
@@ -393,7 +377,6 @@ class HQFramedCodec : public HTTPCodec {
     FRAME_HEADER_LENGTH = 1,
     FRAME_PAYLOAD = 2,
     FRAME_PAYLOAD_STREAMING = 3,
-    FRAME_PAYLOAD_PARTIALLY_RELIABLE_STREAMING = 4,
   };
   FrameState frameState_ : 3;
   ParseResult connError_{folly::none};

@@ -1488,7 +1488,6 @@ class HQSession
 
     void generateGoaway();
 
-    // Partially reliable transport methods.
     folly::Expected<folly::Unit, ErrorCode> peek(
         HTTPTransaction::PeekCallback peekCallback) override;
 

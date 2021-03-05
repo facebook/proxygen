@@ -76,23 +76,6 @@ DEFINE_string(qlogger_path,
               "Path to the directory where qlog files"
               "will be written. File is called <CID>.qlog");
 DEFINE_bool(pretty_json, true, "Whether to use pretty json for QLogger output");
-
-// Partially reliable flags.
-DEFINE_bool(use_pr, false, "Use partial reliability");
-DEFINE_uint32(pr_chunk_size,
-              16,
-              "Chunk size to use for partially realible server handler");
-DEFINE_uint32(pr_chunk_delay_ms,
-              0,
-              "Max delay for the body chunks in partially reliable mode");
-// Example of starting a server streaming body in chunks in partially realible
-// mode (serve 17-byte body chunks with random delay from 0 to 500 ms):
-//    hq -mode server -use_pr -protocol="h3-20" -pr_chunk_size 17
-//    -pr_chunk_delay_ms 500
-// Example of starting a client requesting a partial reliable streaming with
-// delay cap of 150 ms:
-//    hq -mode client -use_pr -protocol="h3-20" -path="/pr_cat"
-//    -pr_chunk_delay_ms 150
 DEFINE_bool(connect_udp, false, "Whether or not to use connected udp sockets");
 DEFINE_uint32(max_cwnd_mss,
               quic::kLargeMaxCwndInMss,

@@ -38,12 +38,6 @@ constexpr uint64_t kPushIdIncrement = 1;
 constexpr uint64_t kDefaultUnidirStreamCredit = 3;
 } // namespace
 
-constexpr uint8_t PR_BODY = 0;
-constexpr uint8_t PR_SKIP = 1;
-
-struct PartiallyReliableTestParams {
-  std::vector<uint8_t> bodyScript;
-};
 
 struct TestParams {
   std::string alpn_;
