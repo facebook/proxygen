@@ -3122,26 +3122,6 @@ HQSession::HQStreamTransportBase::consume(size_t amount) {
   return folly::unit;
 }
 
-uint64_t HQSession::HQStreamTransportBase::trimPendingEgressBody(
-    uint64_t trimOffset) {
-  const auto bytesCommited = streamEgressCommittedByteOffset();
-  if (bytesCommited > trimOffset) {
-    VLOG(3)
-        << __func__ << ": trim offset requested = " << trimOffset
-        << " is below bytes already committed  to the wire = " << bytesCommited;
-    return 0;
-  }
-
-  auto trimBytes = trimOffset - bytesCommited;
-  if (trimBytes > 0) {
-    writeBuf_.trimStartAtMost(trimBytes);
-    VLOG(3) << __func__ << ": discarding " << trimBytes
-            << " from egress buffer on stream " << getEgressStreamId();
-  }
-
-  return trimBytes;
-}
-
 void HQSession::HQStreamTransportBase::trackEgressBodyDelivery(
     uint64_t bodyOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
