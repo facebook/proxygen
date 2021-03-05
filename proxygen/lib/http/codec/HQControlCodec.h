@@ -151,7 +151,7 @@ class HQControlCodec
 
   uint64_t finalGoawayId();
 
- private:
+ protected:
   bool doubleGoaway_{true};
   bool sentGoaway_{false};
   bool sentFinalGoaway_{false};

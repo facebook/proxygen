@@ -153,7 +153,7 @@ class HQStreamCodec
                           const folly::Optional<HTTPHeaders>& extraHeaders);
 
   uint64_t maxEncoderStreamData() {
-    auto maxData = qpackEncoderMaxDataFn_();
+    auto maxData = qpackEncoderMaxDataFn_ ? qpackEncoderMaxDataFn_() : 0;
     if (qpackEncoderWriteBuf_.chainLength() >= maxData) {
       return 0;
     }

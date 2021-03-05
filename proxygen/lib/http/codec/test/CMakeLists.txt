@@ -49,6 +49,7 @@ if (BUILD_QUIC)
   proxygen_add_test(TARGET HQCodecTests
     SOURCES
       HQCodecTest.cpp
+      HQMultiCodecTest.cpp
     DEPENDS
       codectestutils
       proxygen
