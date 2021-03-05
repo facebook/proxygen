@@ -211,6 +211,9 @@ TEST(SSL, SSLTest) {
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
       kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
+  sslCfg.clientCAFile = kTestDir + "/certs/ca_cert.pem";
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
   cfg.sslConfigs.push_back(sslCfg);
 
   HTTPServerOptions options;
@@ -310,6 +313,9 @@ setupServer(bool allowInsecureConnectionsOnSecureServer = false,
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
       kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
+  sslCfg.clientCAFile = kTestDir + "/certs/ca_cert.pem";
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
   cfg.sslConfigs.push_back(sslCfg);
   cfg.allowInsecureConnectionsOnSecureServer =
       allowInsecureConnectionsOnSecureServer;
@@ -384,6 +390,7 @@ TEST(SSL, DisallowInsecureOnSecureServer) {
 
 TEST(SSL, TestResumptionWithTickets) {
   std::unique_ptr<HTTPServer> server;
+
   std::unique_ptr<ServerThread> st;
   wangle::TLSTicketKeySeeds seeds;
   seeds.currentSeeds.push_back(hexlify("hello"));
@@ -479,6 +486,9 @@ TEST(SSL, TestUpdateTLSCredentials) {
   sslCfg.isDefault = true;
   copyCreds(kTestDir + "certs/test_cert1.pem",
             kTestDir + "certs/test_key1.pem");
+  sslCfg.clientCAFile = kTestDir + "/certs/ca_cert.pem";
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
   sslCfg.setCertificate(credFile.path().string(), credFile.path().string(), "");
   cfg.sslConfigs.push_back(sslCfg);
 
@@ -747,6 +757,9 @@ TEST_F(ScopedServerTest, StartSSLWithInsecure) {
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
       kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
+  sslCfg.clientCAFile = kTestDir + "/certs/ca_cert.pem";
+  sslCfg.clientVerification =
+      folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
   cfg_.sslConfigs.push_back(sslCfg);
   cfg_.allowInsecureConnectionsOnSecureServer = true;
   auto server = createScopedServer();

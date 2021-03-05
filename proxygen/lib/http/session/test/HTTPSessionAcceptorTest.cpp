@@ -74,6 +74,8 @@ class HTTPSessionAcceptorTestBase
         kTestDir + "test_cert1.pem", kTestDir + "test_cert1.key", "");
 
     sslCtxConfig_.isDefault = true;
+    sslCtxConfig_.clientVerification =
+        folly::SSLContext::VerifyClientCertificate::DO_NOT_REQUEST;
     config_->sslContextConfigs.emplace_back(sslCtxConfig_);
   }
 
