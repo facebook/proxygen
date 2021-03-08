@@ -152,8 +152,7 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       upgraded_(message.upgraded_),
       wantsKeepalive_(message.wantsKeepalive_),
       trailersAllowed_(message.trailersAllowed_),
-      secure_(message.secure_)
-      {
+      secure_(message.secure_) {
   if (isRequest()) {
     setURL(request().url_);
   }
@@ -723,8 +722,7 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
 
 void HTTPMessage::describe(std::ostream& os) const {
   os << ", chunked: " << chunked_ << ", upgraded: " << upgraded_
-     << ", secure: " << secure_
-     << ", Fields for message:" << std::endl;
+     << ", secure: " << secure_ << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.
   std::vector<std::pair<const char*, folly::StringPiece>> fields{{

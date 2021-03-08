@@ -181,7 +181,6 @@ void CurlClient::setupHeaders() {
   if (loggingEnabled_) {
     request_.dumpMessage(4);
   }
-
 }
 
 void CurlClient::sendRequest(HTTPTransaction* txn) {

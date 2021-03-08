@@ -38,7 +38,6 @@ constexpr uint64_t kPushIdIncrement = 1;
 constexpr uint64_t kDefaultUnidirStreamCredit = 3;
 } // namespace
 
-
 struct TestParams {
   std::string alpn_;
   bool shouldSendSettings_{true};
