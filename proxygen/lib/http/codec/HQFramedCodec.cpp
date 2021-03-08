@@ -97,17 +97,18 @@ size_t HQFramedCodec::onFramedIngress(const IOBuf& buf) {
       receivedFrameCount_++;
 #endif
       pendingDataFrameBytes_ = curHeader_.length;
-      // regardless of the header length we move to processing the
-      // FRAME_PAYLOAD. Even if the length is 0, since this is actually
-      // allowed for some frames (HEADERS) and disallowed
-      // for others (DATA) So it is up to the framer to accept/reject such
-      // frames For DATA frames, payload streaming is supported.
-      switch (curHeader_.type) {
-        case FrameType::DATA:
+      if (curHeader_.length == 0) {
+        // If the frame length is zero, call parseFrame immediately.  It is up
+        // to each frame to determine whether length 0 is valid.
+        connError_ = parseFrame(cursor);
+        frameState_ = FrameState::FRAME_HEADER_TYPE;
+      } else {
+        // For DATA frames, move to the streaming state
+        if (curHeader_.type == FrameType::DATA) {
           frameState_ = FrameState::FRAME_PAYLOAD_STREAMING;
-          break;
-        default:
+        } else {
           frameState_ = FrameState::FRAME_PAYLOAD;
+        }
       }
     } else if (frameState_ == FrameState::FRAME_PAYLOAD) {
       // Already parsed the common frame header

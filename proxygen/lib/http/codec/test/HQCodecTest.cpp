@@ -541,14 +541,56 @@ TEST_F(HQCodecTest, ParserStopsAfterPushPromiseError) {
 }
 
 TEST_F(HQCodecTest, ZeroLengthData) {
-  hq::writeData(queue_, folly::IOBuf::create(1));
-  parse();
-  EXPECT_EQ(callbacks_.messageBegin, 0);
-  EXPECT_EQ(callbacks_.headersComplete, 0);
-  EXPECT_EQ(callbacks_.bodyCalls, 0);
-  EXPECT_EQ(callbacks_.messageComplete, 0);
+  // 0, 1, 0, 1, 0
+  for (auto i = 0; i < 5; i++) {
+    auto data = folly::IOBuf::create(1);
+    if (i % 2 == 1) {
+      data->writableData()[0] = 'a';
+      data->append(1);
+    }
+    hq::writeData(queue_, std::move(data));
+    parse();
+    EXPECT_EQ(callbacks_.messageBegin, 0);
+    EXPECT_EQ(callbacks_.headerFrames, i + 1);
+    EXPECT_EQ(callbacks_.headersComplete, 0);
+    EXPECT_EQ(callbacks_.bodyCalls, (i + 1) / 2);
+    EXPECT_EQ(callbacks_.messageComplete, 0);
+    EXPECT_EQ(callbacks_.streamErrors, 0);
+    EXPECT_EQ(callbacks_.sessionErrors, 0);
+  }
+
+  // EOF after 0 length frame is fine
+  downstreamCodec_->onIngressEOF();
+  EXPECT_EQ(callbacks_.messageComplete, 1);
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HQCodecTest, ZeroLengthSettings) {
+  std::deque<hq::SettingPair> emptySettings;
+  hq::writeSettings(queueCtrl_, emptySettings);
+  parseControl(CodecType::CONTROL_UPSTREAM);
+  EXPECT_EQ(callbacks_.settings, 1);
+  // EOF is not mid-frame
+  upstreamControlCodec_.onIngressEOF();
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HQCodecTest, ZeroLengthTrailers) {
+  writeValidFrame(queue_, FrameType::HEADERS);
+
+  // Write empty trailers, invalid, QPACK minimum is 2 bytes
+  hq::writeHeaders(queue_, folly::IOBuf::create(1));
+
+  parse();
+  // Never seen, parser paused on error
+  downstreamCodec_->onIngressEOF();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
 TEST_F(HQCodecTest, TruncatedStream) {
