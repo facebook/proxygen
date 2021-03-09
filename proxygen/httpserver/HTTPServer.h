@@ -28,8 +28,12 @@ class HTTPServerAcceptor;
 class HTTPServer final {
  public:
   /**
-   * For each IP you can specify HTTP protocol to use.  You can use plain old
-   * HTTP/1.1 protocol or SPDY/3.1 for now.
+   * Protocol identifies the default HTTP protocol implementation that an
+   * IPConfig will use for plaintext connections.
+   *
+   * Connections established through TLS will use the protocol negotiated
+   * through ALPN. If no ALPN is given, HTTP/1 (with an option to upgrade
+   * to HTTP/2) is used, and this field is ignored.
    */
   enum class Protocol : uint8_t {
     HTTP,
