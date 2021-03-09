@@ -233,7 +233,6 @@ size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
     LOG(FATAL) << "error writing settings frame";
     return 0;
   }
-  sentSettings_ = true;
   return *writeRes;
 }
 

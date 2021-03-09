@@ -83,31 +83,6 @@ void HQUpstreamSessionTest::sendResponse(quic::StreamId id,
   }
 }
 
-void HQUpstreamSessionTest::startPartialResponse(
-    quic::StreamId id,
-    const HTTPMessage& resp,
-    std::unique_ptr<folly::IOBuf> body) {
-  auto c = makeCodec(id);
-  auto res =
-      streams_.emplace(std::piecewise_construct,
-                       std::forward_as_tuple(id),
-                       std::forward_as_tuple(c.first, std::move(c.second)));
-  auto& stream = res.first->second;
-  stream.readEOF = false;
-
-  const uint64_t frameHeaderSize = 2;
-  HTTPHeaderSize headerSize;
-  stream.codec->generateHeader(
-      stream.buf, stream.codecId, resp, false, &headerSize);
-  socketDriver_->streams_[id].writeBufOffset +=
-      (2 * frameHeaderSize) + headerSize.compressed;
-
-  if (body) {
-    socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
-        stream.buf, stream.codecId, std::move(body), folly::none, false);
-  }
-}
-
 void HQUpstreamSessionTest::sendPartialBody(quic::StreamId id,
                                             std::unique_ptr<folly::IOBuf> body,
                                             bool eom) {
@@ -259,8 +234,6 @@ StrictMock<MockController>& HQUpstreamSessionTest::getMockController() {
 using HQUpstreamSessionTestH1q = HQUpstreamSessionTest;
 // Use this test class for h1q-fb-v1 only tests
 using HQUpstreamSessionTestH1qv1 = HQUpstreamSessionTest;
-// Use this test class for h1q-fb-v2 only tests
-using HQUpstreamSessionTestH1qv2 = HQUpstreamSessionTest;
 // Use this test class for h1q-fb-v2 and hq tests
 using HQUpstreamSessionTestH1qv2HQ = HQUpstreamSessionTest;
 // Use this test class for hq only tests
@@ -1094,13 +1067,6 @@ TEST_P(HQUpstreamSessionTestH1qv2HQ, ExtraSettings) {
             HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
 }
 
-using HQUpstreamSessionDeathTestH1qv2HQ = HQUpstreamSessionTestH1qv2HQ;
-TEST_P(HQUpstreamSessionDeathTestH1qv2HQ, WriteExtraSettings) {
-  EXPECT_EXIT(sendSettings(),
-              ::testing::KilledBySignal(SIGABRT),
-              "Check failed: !sentSettings_");
-}
-
 // Test Cases for which Settings are not sent in the test SetUp
 using HQUpstreamSessionTestHQNoSettings = HQUpstreamSessionTest;
 
@@ -1521,9 +1487,6 @@ TEST_P(HQUpstreamSessionTestHQPush, DelayedQPACKPush) {
   hqSession_->closeWhenIdle();
 }
 
-// Ingress push tests have different parameters
-using HQUpstreamSessionTestIngressHQPush = HQUpstreamSessionTestHQPush;
-
 TEST_P(HQUpstreamSessionTestHQPush, TestPushPromiseCallbacksInvoked) {
   // the push promise is not followed by a push stream, and the eof is not
   // set.
@@ -1892,13 +1855,6 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                                TestParams({.alpn_ = "h3"})),
                         paramsToTestName);
 
-// Instantiate h1 only tests
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestH1q,
-                        Values(TestParams({.alpn_ = "h1q-fb"}),
-                               TestParams({.alpn_ = "h1q-fb-v2"})),
-                        paramsToTestName);
-
 // Instantiate h1q-fb-v2 and hq only tests (goaway tests)
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestH1qv2HQ,
@@ -1910,12 +1866,6 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestH1qv1,
                         Values(TestParams({.alpn_ = "h1q-fb"})),
-                        paramsToTestName);
-
-// Instantiate h1q-fb-v2 only tests
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestH1qv2,
-                        Values(TestParams({.alpn_ = "h1q-fb-v2"})),
                         paramsToTestName);
 
 // Instantiate hq only tests
@@ -1933,30 +1883,4 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                           tp.unidirectionalStreamsCredit = 4;
                           return tp;
                         }()),
-                        paramsToTestName);
-
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestIngressHQPush,
-                        Values(
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h3";
-                              tp.unidirectionalStreamsCredit = 4;
-                              tp.numBytesOnPushStream = 8;
-                              return tp;
-                            }(),
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h3";
-                              tp.unidirectionalStreamsCredit = 4;
-                              tp.numBytesOnPushStream = 15;
-                              return tp;
-                            }(),
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h3";
-                              tp.unidirectionalStreamsCredit = 4;
-                              tp.numBytesOnPushStream = 16;
-                              return tp;
-                            }()),
                         paramsToTestName);

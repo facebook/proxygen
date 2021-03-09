@@ -36,8 +36,6 @@ using namespace std::chrono;
 using HQDownstreamSessionTestH1q = HQDownstreamSessionTest;
 // Use this test class for h1q-fb-v1 only tests
 using HQDownstreamSessionTestH1qv1 = HQDownstreamSessionTest;
-// Use this test class for h1q-fb-v2 only tests
-using HQDownstreamSessionTestH1qv2 = HQDownstreamSessionTest;
 // Use this test class for h1q-fb-v2/hq common tests (goaway)
 using HQDownstreamSessionTestH1qv2HQ = HQDownstreamSessionTest;
 
@@ -2367,13 +2365,6 @@ TEST_P(HQDownstreamSessionFilterTestHQ, ControlStreamFilters) {
   hqSession_->closeWhenIdle();
 }
 
-using HQDownstreamSessionDeathTestH1qv2HQ = HQDownstreamSessionTestH1qv2HQ;
-TEST_P(HQDownstreamSessionDeathTestH1qv2HQ, WriteExtraSettings) {
-  EXPECT_EXIT(sendSettings(),
-              ::testing::KilledBySignal(SIGABRT),
-              "Check failed: !sentSettings_");
-}
-
 TEST_P(HQDownstreamSessionTest, httpPausedBuffered) {
   IOBufQueue rst{IOBufQueue::cacheChainLength()};
   auto id1 = sendRequest();
@@ -2719,12 +2710,6 @@ INSTANTIATE_TEST_CASE_P(HQDownstreamSessionBeforeTransportReadyTest,
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionTestH1qv1,
                         Values(TestParams({.alpn_ = "h1q-fb"})),
-                        paramsToTestName);
-
-// Instantiate h1q-fb-v2 only tests
-INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
-                        HQDownstreamSessionTestH1qv2,
-                        Values(TestParams({.alpn_ = "h1q-fb-v2"})),
                         paramsToTestName);
 
 // Instantiate hq only tests

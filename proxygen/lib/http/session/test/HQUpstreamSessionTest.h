@@ -43,9 +43,6 @@ class HQUpstreamSessionTest : public HQSessionTest {
                     const proxygen::HTTPMessage& resp,
                     std::unique_ptr<folly::IOBuf> body = nullptr,
                     bool eom = true);
-  void startPartialResponse(quic::StreamId id,
-                            const proxygen::HTTPMessage& resp,
-                            std::unique_ptr<folly::IOBuf> body = nullptr);
 
   void sendPartialBody(quic::StreamId id,
                        std::unique_ptr<folly::IOBuf> body,
