@@ -70,7 +70,7 @@ DEFINE_uint32(quic_batch_size,
               "Maximum number of packets that can be batched in Quic");
 DEFINE_string(cert, "", "Certificate file path");
 DEFINE_string(key, "", "Private key file path");
-DEFINE_string(client_auth_mode, "", "Client authentication mode");
+DEFINE_string(client_auth_mode, "none", "Client authentication mode");
 DEFINE_string(qlogger_path,
               "",
               "Path to the directory where qlog files"

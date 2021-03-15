@@ -207,7 +207,7 @@ wangle::SSLContextConfig createSSLContext(const HQParams& params) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.clientVerification =
-      folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
+      folly::SSLContext::VerifyClientCertificate::DO_NOT_REQUEST;
   if (!params.certificateFilePath.empty() && !params.keyFilePath.empty()) {
     sslCfg.setCertificate(params.certificateFilePath, params.keyFilePath, "");
   } else {
