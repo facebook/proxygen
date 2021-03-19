@@ -29,6 +29,8 @@ install(
     TARGETS proxygencurl
     EXPORT proxygen-exports
     DESTINATION ${LIB_INSTALL_DIR}
+    LIBRARY DESTINATION ${LIB_INSTALL_DIR}
+    ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
 )
 
 add_executable(proxygen_curl CurlClientMain.cpp)
