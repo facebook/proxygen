@@ -5,6 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 cmake_minimum_required(VERSION 3.10)
 
+if (NOT DEFINED LIB_INSTALL_DIR)
+    set(LIB_INSTALL_DIR "lib")
+endif()
+
 add_library(proxygencurl CurlClient.cpp)
 target_include_directories(
     proxygencurl PUBLIC
