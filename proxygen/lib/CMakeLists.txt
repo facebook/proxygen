@@ -265,7 +265,6 @@ install(
 install(
     TARGETS proxygen
     EXPORT proxygen-exports
-    DESTINATION ${LIB_INSTALL_DIR}
     LIBRARY DESTINATION ${LIB_INSTALL_DIR}
     ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
 )

@@ -3,6 +3,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+cmake_minimum_required(VERSION 3.10)
 
 add_library(proxygencurl CurlClient.cpp)
 target_include_directories(
@@ -28,9 +29,8 @@ target_link_libraries(proxygencurl PUBLIC proxygen)
 install(
     TARGETS proxygencurl
     EXPORT proxygen-exports
-    DESTINATION ${LIB_INSTALL_DIR}
-    LIBRARY DESTINATION ${LIB_INSTALL_DIR}
     ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
+    LIBRARY DESTINATION ${LIB_INSTALL_DIR}
 )
 
 add_executable(proxygen_curl CurlClientMain.cpp)
