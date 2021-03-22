@@ -31,7 +31,8 @@ target_link_libraries(
 install(
     TARGETS proxygenhttpserver
     EXPORT proxygen-exports
-    DESTINATION ${LIB_INSTALL_DIR}
+    ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
+    LIBRARY DESTINATION ${LIB_INSTALL_DIR}
 )
 
 add_executable(proxygen_push
