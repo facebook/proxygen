@@ -77,10 +77,10 @@ void HQConnector::connect(
   }
   quicClient->setCongestionControllerFactory(
       std::make_shared<quic::DefaultCongestionControllerFactory>());
+  quicClient->setTransportStatsCallback(std::move(quicTransportStatsCallback));
   quicClient->setTransportSettings(transportSettings_);
   quicClient->setQLogger(std::move(qLogger));
   quicClient->setLoopDetectorCallback(std::move(quicLoopDetectorCallback));
-  quicClient->setTransportStatsCallback(std::move(quicTransportStatsCallback));
   quicClient->setSocketOptions(socketOptions);
   session_ = new proxygen::HQUpstreamSession(transactionTimeout_,
                                              connectTimeout,
