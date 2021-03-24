@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/io/SocketOptionMap.h>
 #include <folly/io/async/EventBase.h>
 #include <proxygen/httpserver/HTTPServerOptions.h>
@@ -110,9 +111,17 @@ class HTTPServer final {
    *
    * `onError` callback will be invoked if some errors occurs while starting the
    * server instead of throwing exception.
+   *
+   * `acceptorfactory` will be used as the acceptor factory if it is set.
+   * Otherwise, we will create an HTTPAcceptorFactory.
+   *
+   * `ioExecutor` will be used for for IO threads if it is set. Otherwise, we
+   * will create a new IOThreadPoolExectutor for IO threads.
    */
   void start(std::function<void()> onSuccess = nullptr,
-             std::function<void(std::exception_ptr)> onError = nullptr);
+             std::function<void(std::exception_ptr)> onError = nullptr,
+             std::shared_ptr<wangle::AcceptorFactory> acceptorFactory = nullptr,
+             std::shared_ptr<folly::IOThreadPoolExecutor> ioExecutor = nullptr);
 
   /**
    * Stop listening on bound ports. (Stop accepting new work).
@@ -169,7 +178,17 @@ class HTTPServer final {
   void updateTicketSeeds(wangle::TLSTicketKeySeeds seeds);
 
  protected:
-  folly::Expected<folly::Unit, std::exception_ptr> startTcpServer();
+  /**
+   * Start TCP HTTP server.
+   *
+   * @param acceptorFactory - the acceptor factory to use. If it is null, we
+   * will create one to use.
+   * @param executor - io executor to use for IO threads. If it is null, we will
+   * create one to use.
+   */
+  folly::Expected<folly::Unit, std::exception_ptr> startTcpServer(
+      std::shared_ptr<wangle::AcceptorFactory> acceptorFactory,
+      std::shared_ptr<folly::IOThreadPoolExecutor> ioExecutor);
 
  private:
   std::shared_ptr<HTTPServerOptions> options_;

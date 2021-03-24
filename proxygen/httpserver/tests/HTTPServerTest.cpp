@@ -6,10 +6,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <proxygen/httpserver/HTTPServer.h>
+#include <memory>
 
 #include <boost/thread.hpp>
 #include <folly/FileUtil.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/experimental/TestUtil.h>
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/AsyncServerSocket.h>
@@ -18,10 +19,13 @@
 #include <folly/ssl/OpenSSLCertUtils.h>
 #include <folly/ssl/OpenSSLPtrTypes.h>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
+#include <proxygen/httpserver/HTTPServer.h>
 #include <proxygen/httpserver/ResponseBuilder.h>
 #include <proxygen/httpserver/ScopedHTTPServer.h>
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/utils/TestUtils.h>
+#include <wangle/acceptor/Acceptor.h>
+#include <wangle/acceptor/ServerSocketConfig.h>
 
 using namespace folly;
 using namespace folly::ssl;
@@ -101,7 +105,9 @@ class WaitableServerThread {
     t_.join();
   }
 
-  bool start() {
+  bool start(
+      std::shared_ptr<wangle::AcceptorFactory> acceptorFactory = nullptr,
+      std::shared_ptr<folly::IOThreadPoolExecutor> ioExecutor = nullptr) {
     bool throws = false;
     t_ = std::thread([&]() {
       server_->start([&]() { barrier_.wait(); },
@@ -109,7 +115,9 @@ class WaitableServerThread {
                        throws = true;
                        server_ = nullptr;
                        barrier_.wait();
-                     });
+                     },
+                     acceptorFactory,
+                     ioExecutor);
       baton_.wait();
     });
     barrier_.wait();
@@ -164,6 +172,41 @@ TEST(HttpServerStartStop, TestRepeatStopCalls) {
 
   server->stop();
   // Calling stop again should be benign.
+  server->stop();
+  // Let the WaitableServerThread exit
+  st->exitThread();
+}
+
+TEST(HttpServerStartStop, TestUseExistingIoExecutor) {
+  HTTPServerOptions options;
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(1);
+  auto st = std::make_unique<WaitableServerThread>(server.get());
+  EXPECT_TRUE(
+      st->start(/*acceptorFactory=*/nullptr, /*ioExecutor=*/ioExecutor));
+
+  server->stop();
+  // Let the WaitableServerThread exit
+  st->exitThread();
+}
+
+class AcceptorFactoryForTest : public wangle::AcceptorFactory {
+ public:
+  std::shared_ptr<wangle::Acceptor> newAcceptor(
+      folly::EventBase* /*eventBase*/) override {
+    wangle::ServerSocketConfig config;
+    auto acc = std::make_shared<wangle::Acceptor>(config);
+    return acc;
+  }
+};
+
+TEST(HttpServerStartStop, TestUseExistingAcceptorFactory) {
+  HTTPServerOptions options;
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto acceptorFactory = std::make_shared<AcceptorFactoryForTest>();
+  auto st = std::make_unique<WaitableServerThread>(server.get());
+  EXPECT_TRUE(st->start(acceptorFactory));
+
   server->stop();
   // Let the WaitableServerThread exit
   st->exitThread();

@@ -120,23 +120,29 @@ class HandlerCallbacks : public ThreadPoolExecutor::Observer {
   std::shared_ptr<HTTPServerOptions> options_;
 };
 
-folly::Expected<folly::Unit, std::exception_ptr> HTTPServer::startTcpServer() {
+folly::Expected<folly::Unit, std::exception_ptr> HTTPServer::startTcpServer(
+    std::shared_ptr<wangle::AcceptorFactory> acceptorFactory,
+    std::shared_ptr<folly::IOThreadPoolExecutor> ioExecutor) {
   auto accExe = std::make_shared<IOThreadPoolExecutor>(1);
-  auto exe = std::make_shared<IOThreadPoolExecutor>(
-      options_->threads,
-      std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"));
+  if (!ioExecutor) {
+    ioExecutor = std::make_shared<IOThreadPoolExecutor>(
+        options_->threads,
+        std::make_shared<folly::NamedThreadFactory>("HTTPSrvExec"));
+  }
   auto exeObserver = std::make_shared<HandlerCallbacks>(options_);
   // Observer has to be set before bind(), so onServerStart() callbacks run
-  exe->addObserver(exeObserver);
+  ioExecutor->addObserver(exeObserver);
 
   try {
     FOR_EACH_RANGE(i, 0, addresses_.size()) {
-      auto codecFactory = addresses_[i].codecFactory;
       auto accConfig = HTTPServerAcceptor::makeConfig(addresses_[i], *options_);
-      auto factory = std::make_shared<AcceptorFactory>(
-          options_, codecFactory, accConfig, sessionInfoCb_);
+      if (!acceptorFactory) {
+        auto codecFactory = addresses_[i].codecFactory;
+        acceptorFactory = std::make_shared<AcceptorFactory>(
+            options_, codecFactory, accConfig, sessionInfoCb_);
+      }
       bootstrap_.push_back(wangle::ServerBootstrap<wangle::DefaultPipeline>());
-      bootstrap_[i].childHandler(factory);
+      bootstrap_[i].childHandler(acceptorFactory);
       if (accConfig.enableTCPFastOpen) {
         // We need to do this because wangle's bootstrap has 2 acceptor configs
         // and the socketConfig gets passed to the SocketFactory. The number of
@@ -146,7 +152,7 @@ folly::Expected<folly::Unit, std::exception_ptr> HTTPServer::startTcpServer() {
         bootstrap_[i].socketConfig.fastOpenQueueSize =
             accConfig.fastOpenQueueSize;
       }
-      bootstrap_[i].group(accExe, exe);
+      bootstrap_[i].group(accExe, ioExecutor);
       if (accConfig.reusePort) {
         bootstrap_[i].setReusePort(true);
       }
@@ -165,11 +171,14 @@ folly::Expected<folly::Unit, std::exception_ptr> HTTPServer::startTcpServer() {
   return folly::unit;
 }
 
-void HTTPServer::start(std::function<void()> onSuccess,
-                       std::function<void(std::exception_ptr)> onError) {
+void HTTPServer::start(
+    std::function<void()> onSuccess,
+    std::function<void(std::exception_ptr)> onError,
+    std::shared_ptr<wangle::AcceptorFactory> acceptorFactory,
+    std::shared_ptr<folly::IOThreadPoolExecutor> ioExecutor) {
   mainEventBase_ = EventBaseManager::get()->getEventBase();
 
-  auto tcpStarted = startTcpServer();
+  auto tcpStarted = startTcpServer(acceptorFactory, ioExecutor);
   if (tcpStarted.hasError()) {
     if (onError) {
       onError(tcpStarted.error());
