@@ -136,14 +136,11 @@ class CompressionFilter : public Filter {
 
   void sendEOM() noexcept override {
 
-    if (!compressor_ || compressor_->hasError()) {
-      fail();
-    }
-
     // Need to send the trailer for compressed chunked messages
     if (compress_ && chunked_) {
 
       auto emptyBuffer = folly::IOBuf::copyBuffer("");
+      CHECK(compressor_ && !compressor_->hasError());
       auto compressed = compressor_->compress(emptyBuffer.get(), true);
 
       if (compressor_->hasError()) {
