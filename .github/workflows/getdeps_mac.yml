@@ -117,5 +117,3 @@ jobs:
       with:
         name: proxygen
         path: _artifacts
-    - name: Test proxygen
-      run: python3 build/fbcode_builder/getdeps.py test --src-dir=. proxygen  --project-install-prefix proxygen:/usr/local
