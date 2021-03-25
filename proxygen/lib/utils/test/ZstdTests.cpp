@@ -40,27 +40,32 @@ std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
 }
 
 void verify(std::unique_ptr<IOBuf> original,
-            std::unique_ptr<IOBuf> compressed) {
-  auto zd = std::make_unique<ZstdStreamDecompressor>();
+            std::unique_ptr<IOBuf> compressed,
+            bool reuseBuf) {
+  auto zd = std::make_unique<ZstdStreamDecompressor>(reuseBuf);
 
   auto decompressed = zd->decompress(compressed.get());
   ASSERT_FALSE(zd->hasError()) << "Decompression error.";
   ASSERT_TRUE(zd->finished());
 
   IOBufEqualTo eq;
-  ASSERT_TRUE(eq(original, decompressed));
+  ASSERT_TRUE(eq(original, decompressed) ||
+              (original->empty() && decompressed == nullptr));
 }
 
 void verifyPieces(std::unique_ptr<IOBuf> original,
-                  std::vector<std::unique_ptr<IOBuf>> compressed) {
-  auto zd = std::make_unique<ZstdStreamDecompressor>();
+                  std::vector<std::unique_ptr<IOBuf>> compressed,
+                  bool reuseBuf) {
+  auto zd = std::make_unique<ZstdStreamDecompressor>(reuseBuf);
 
   auto decompressed = folly::IOBuf::create(0);
 
   for (const auto& piece : compressed) {
     auto dpiece = zd->decompress(piece.get());
     ASSERT_FALSE(zd->hasError()) << "Decompression error.";
-    decompressed->prev()->appendChain(std::move(dpiece));
+    if (dpiece != nullptr) {
+      decompressed->prev()->appendChain(std::move(dpiece));
+    }
   }
 
   ASSERT_TRUE(zd->finished());
@@ -77,13 +82,13 @@ std::unique_ptr<folly::IOBuf> compress(
   return out;
 }
 
-void compressThenDecompress(unique_ptr<IOBuf> buf) {
+void compressThenDecompress(unique_ptr<IOBuf> buf, bool reuseBuf) {
   auto compressed = compress(buf);
-  verify(std::move(buf), std::move(compressed));
+  verify(std::move(buf), std::move(compressed), reuseBuf);
 }
 
 void compressThenDecompressPieces(
-    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces) {
+    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces, bool reuseBuf) {
   auto codec = folly::io::getStreamCodec(folly::io::CodecType::ZSTD);
 
   std::vector<std::unique_ptr<folly::IOBuf>> compressed_pieces;
@@ -115,11 +120,13 @@ void compressThenDecompressPieces(
     input_pieces.pop_back();
   }
 
-  verifyPieces(std::move(input), std::move(compressed_pieces));
+  verifyPieces(std::move(input), std::move(compressed_pieces), reuseBuf);
 }
 
 void compressDecompressPiecesProxygenCodec(
-    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces, bool independent) {
+    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces,
+    bool independent,
+    bool reuseBuf) {
   auto codec = std::make_unique<ZstdStreamCompressor>(
       folly::io::COMPRESSION_LEVEL_DEFAULT, independent);
 
@@ -138,73 +145,99 @@ void compressDecompressPiecesProxygenCodec(
     input_pieces.pop_back();
   }
 
-  verifyPieces(std::move(input), std::move(compressed_pieces));
+  verifyPieces(std::move(input), std::move(compressed_pieces), reuseBuf);
 }
 
 } // anonymous namespace
 
 // Try many different sizes because we've hit truncation problems before
 TEST_F(ZstdTests, CompressDecompress1M) {
-  ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(8 * 128 * 1024)); });
+  for (bool reuseBuf : {false, true}) {
+    ASSERT_NO_FATAL_FAILURE(
+        { compressThenDecompress(makeBuf(8 * 128 * 1024), reuseBuf); });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompress2000) {
-  ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(2000)); });
+  for (bool reuseBuf : {false, true}) {
+    ASSERT_NO_FATAL_FAILURE(
+        { compressThenDecompress(makeBuf(2000), reuseBuf); });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompress1024) {
-  ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(1024)); });
+  for (bool reuseBuf : {false, true}) {
+    ASSERT_NO_FATAL_FAILURE(
+        { compressThenDecompress(makeBuf(1024), reuseBuf); });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompress500) {
-  ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(500)); });
+  for (bool reuseBuf : {false, true}) {
+    ASSERT_NO_FATAL_FAILURE(
+        { compressThenDecompress(makeBuf(500), reuseBuf); });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompress50) {
-  ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(50)); });
+  for (bool reuseBuf : {false, true}) {
+    ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(50), reuseBuf); });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompressEmpty) {
-  ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(0)); });
+  for (bool reuseBuf : {false, true}) {
+    ASSERT_NO_FATAL_FAILURE({ compressThenDecompress(makeBuf(0), reuseBuf); });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompressChain) {
-  ASSERT_NO_FATAL_FAILURE({
-    auto buf = makeBuf(4);
-    buf->prependChain(makeBuf(38));
-    buf->prependChain(makeBuf(12));
-    buf->prependChain(makeBuf(0));
-    compressThenDecompress(std::move(buf));
-  });
+  for (bool reuseBuf : {false, true}) {
+    ASSERT_NO_FATAL_FAILURE({
+      auto buf = makeBuf(4);
+      buf->prependChain(makeBuf(38));
+      buf->prependChain(makeBuf(12));
+      buf->prependChain(makeBuf(0));
+      compressThenDecompress(std::move(buf), reuseBuf);
+    });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompressStreaming) {
-  std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
-  input_pieces.push_back(makeBuf(38));
-  input_pieces.push_back(makeBuf(12));
-  input_pieces.push_back(makeBuf(4096));
-  input_pieces.push_back(makeBuf(0));
+  for (bool reuseBuf : {false, true}) {
+    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
+    input_pieces.push_back(makeBuf(38));
+    input_pieces.push_back(makeBuf(12));
+    input_pieces.push_back(makeBuf(4096));
+    input_pieces.push_back(makeBuf(0));
 
-  ASSERT_NO_FATAL_FAILURE(
-      { compressThenDecompressPieces(std::move(input_pieces)); });
+    ASSERT_NO_FATAL_FAILURE(
+        { compressThenDecompressPieces(std::move(input_pieces), reuseBuf); });
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompressStreamingProxygen) {
-  std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
-  input_pieces.push_back(makeBuf(38));
-  input_pieces.push_back(makeBuf(12));
-  input_pieces.push_back(makeBuf(4096));
-  input_pieces.push_back(makeBuf(0));
+  for (bool reuseBuf : {false, true}) {
+    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
+    input_pieces.push_back(makeBuf(38));
+    input_pieces.push_back(makeBuf(12));
+    input_pieces.push_back(makeBuf(4096));
+    input_pieces.push_back(makeBuf(0));
 
-  compressDecompressPiecesProxygenCodec(std::move(input_pieces), false);
+    compressDecompressPiecesProxygenCodec(
+        std::move(input_pieces), false, reuseBuf);
+  }
 }
 
 TEST_F(ZstdTests, CompressDecompressStreamingProxygenIndependent) {
-  std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
-  input_pieces.push_back(makeBuf(38));
-  input_pieces.push_back(makeBuf(12));
-  input_pieces.push_back(makeBuf(4096));
-  input_pieces.push_back(makeBuf(0));
+  for (bool reuseBuf : {false, true}) {
+    std::vector<std::unique_ptr<folly::IOBuf>> input_pieces;
+    input_pieces.push_back(makeBuf(38));
+    input_pieces.push_back(makeBuf(12));
+    input_pieces.push_back(makeBuf(4096));
+    input_pieces.push_back(makeBuf(0));
 
-  compressDecompressPiecesProxygenCodec(std::move(input_pieces), true);
+    compressDecompressPiecesProxygenCodec(
+        std::move(input_pieces), true, reuseBuf);
+  }
 }

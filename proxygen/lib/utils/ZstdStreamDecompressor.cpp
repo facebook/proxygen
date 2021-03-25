@@ -18,8 +18,11 @@ void ZstdStreamDecompressor::freeDCtx(ZSTD_DCtx* dctx) {
   ZSTD_freeDCtx(dctx);
 }
 
-ZstdStreamDecompressor::ZstdStreamDecompressor()
-    : status_(ZstdStatusType::NONE), dctx_(ZSTD_createDCtx()) {
+ZstdStreamDecompressor::ZstdStreamDecompressor(bool reuseOutBuf)
+    : status_(ZstdStatusType::NONE),
+      dctx_(ZSTD_createDCtx()),
+      cachedIOBuf_(nullptr),
+      reuseOutBuf_(reuseOutBuf) {
 }
 
 std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
@@ -33,7 +36,9 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
 
   const size_t outBufAllocSize = ZSTD_DStreamOutSize();
 
-  auto out = folly::IOBuf::create(outBufAllocSize);
+  auto out = (reuseOutBuf_ && cachedIOBuf_ != nullptr)
+                 ? std::move(cachedIOBuf_)
+                 : folly::IOBuf::create(outBufAllocSize);
   auto appender = folly::io::Appender(out.get(), outBufAllocSize);
 
   for (const folly::ByteRange& range : *in) {
@@ -58,6 +63,11 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
 
       appender.append(obuf.pos);
     }
+  }
+
+  if (reuseOutBuf_ && out->computeChainDataLength() == 0) {
+    cachedIOBuf_ = std::move(out);
+    return nullptr;
   }
 
   return out;

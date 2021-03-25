@@ -24,15 +24,11 @@
 
 #include <proxygen/lib/utils/StreamDecompressor.h>
 
-namespace folly {
-class IOBuf;
-}
-
 namespace proxygen {
 
 class ZstdStreamDecompressor : public StreamDecompressor {
  public:
-  explicit ZstdStreamDecompressor();
+  explicit ZstdStreamDecompressor(bool reuseOutBuf = false);
 
   // May return nullptr on error / no output.
   std::unique_ptr<folly::IOBuf> decompress(const folly::IOBuf* in) override;
@@ -59,5 +55,10 @@ class ZstdStreamDecompressor : public StreamDecompressor {
   const std::unique_ptr<ZSTD_DCtx,
                         folly::static_function_deleter<ZSTD_DCtx, freeDCtx>>
       dctx_;
+
+  std::unique_ptr<folly::IOBuf> cachedIOBuf_; // For reuse when output is
+                                              // 0-sized
+
+  bool reuseOutBuf_; // Controls whether we may reuse the decompress outBuf
 };
 } // namespace proxygen
