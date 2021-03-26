@@ -59,10 +59,10 @@ class HTTP2FramerTest : public testing::Test {
 
   void dataFrameTest(uint32_t dataLen, folly::Optional<uint8_t> padLen) {
     auto body = makeBuf(dataLen);
-    dataFrameTest(body.get(), dataLen, padLen);
+    dataFrameTest(std::move(body), dataLen, padLen);
   }
 
-  void dataFrameTest(IOBuf* body,
+  void dataFrameTest(std::unique_ptr<IOBuf> body,
                      uint32_t dataLen,
                      folly::Optional<uint8_t> padLen) {
     uint32_t frameLen = uint32_t(dataLen);
@@ -105,10 +105,10 @@ TEST_F(HTTP2FramerTest, ManyDataFrameSizes) {
   dataFrameTest(0, kNoPadding);
   for (uint32_t dataLen = 1; dataLen < kMaxFramePayloadLength; dataLen <<= 1) {
     auto body = makeBuf(dataLen);
-    dataFrameTest(body.get(), dataLen, Padding(0));
+    dataFrameTest(body->clone(), dataLen, Padding(0));
     dataFrameTest(0, Padding(dataLen));
     for (uint8_t padding = 1; padding != 0; padding <<= 1) {
-      dataFrameTest(body.get(), dataLen, Padding(padding));
+      dataFrameTest(body->clone(), dataLen, Padding(padding));
     }
   }
 }
