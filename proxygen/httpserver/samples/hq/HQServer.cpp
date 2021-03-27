@@ -23,7 +23,6 @@
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
-#include <quic/congestion_control/ServerCongestionControllerFactory.h>
 #include <quic/logging/FileQLogger.h>
 #include <quic/server/QuicServer.h>
 #include <quic/server/QuicServerTransport.h>
@@ -194,6 +193,13 @@ HQServer::HQServer(
   server_->setCongestionControllerFactory(
       std::make_shared<ServerCongestionControllerFactory>());
   server_->setTransportSettings(params_.transportSettings);
+
+  if (params_.transportSettings.defaultCongestionController ==
+      quic::CongestionControlType::CCP) {
+    quicCcpThreadLauncher_.start(params_.ccpConfig);
+    server_->setCcpId(quicCcpThreadLauncher_.getCcpId());
+  }
+
   server_->setQuicServerTransportFactory(
       std::make_unique<HQServerTransportFactory>(
           params_, std::move(httpTransactionHandlerProvider)));
@@ -228,6 +234,7 @@ const folly::SocketAddress HQServer::getAddress() const {
 }
 
 void HQServer::stop() {
+  quicCcpThreadLauncher_.stop();
   server_->shutdown();
   eventbase_.terminateLoopSoon();
 }

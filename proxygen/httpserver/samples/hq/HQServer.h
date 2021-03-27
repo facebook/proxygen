@@ -20,8 +20,9 @@
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/utils/WheelTimerInstance.h>
-#include <quic/congestion_control/CongestionControllerFactory.h>
+#include <quic/congestion_control/ServerCongestionControllerFactory.h>
 #include <quic/logging/FileQLogger.h>
+#include <quic/server/QuicCcpThreadLauncher.h>
 #include <quic/server/QuicServer.h>
 #include <quic/server/QuicServerTransport.h>
 #include <quic/server/QuicSharedUDPSocketFactory.h>
@@ -158,6 +159,7 @@ class HQServer {
   folly::EventBase eventbase_;
   std::shared_ptr<quic::QuicServer> server_;
   folly::Baton<> cv_;
+  QuicCcpThreadLauncher quicCcpThreadLauncher_;
 };
 
 class H2Server {
