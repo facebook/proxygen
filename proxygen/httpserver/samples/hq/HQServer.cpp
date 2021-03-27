@@ -194,7 +194,6 @@ HQServer::HQServer(
   server_->setCongestionControllerFactory(
       std::make_shared<ServerCongestionControllerFactory>());
   server_->setTransportSettings(params_.transportSettings);
-  server_->setCcpConfig(params_.ccpConfig);
   server_->setQuicServerTransportFactory(
       std::make_unique<HQServerTransportFactory>(
           params_, std::move(httpTransactionHandlerProvider)));
