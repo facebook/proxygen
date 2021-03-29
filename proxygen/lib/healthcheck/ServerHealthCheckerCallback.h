@@ -28,11 +28,6 @@ struct ServerLoadInfo {
   }
 };
 
-enum class HealthCheckSource {
-  INTERNAL = 0,
-  EXTERNAL = 1,
-};
-
 enum ServerDownInfo {
   NONE = 0,
 
@@ -63,14 +58,12 @@ class ServerHealthCheckerCallback {
 
   virtual void processHealthCheckFailure(
       ServerDownInfo reason,
-      const std::string& extraReasonStr = std::string(),
-      HealthCheckSource source = HealthCheckSource::INTERNAL) = 0;
+      const std::string& extraReasonStr = std::string()) = 0;
 
   virtual void processHealthCheckSuccess(
       LoadType load,
       const ServerLoadInfo* serverLoadInfo = nullptr,
-      const ExtraInfo* extraInfo = nullptr,
-      HealthCheckSource source = HealthCheckSource::INTERNAL) = 0;
+      const ExtraInfo* extraInfo = nullptr) = 0;
 
   virtual ~ServerHealthCheckerCallback() {
   }
