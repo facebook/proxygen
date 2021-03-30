@@ -121,7 +121,7 @@ class HandlerCallbacks : public ThreadPoolExecutor::Observer {
 };
 
 folly::Expected<folly::Unit, std::exception_ptr> HTTPServer::startTcpServer(
-    std::shared_ptr<wangle::AcceptorFactory> acceptorFactory,
+    std::shared_ptr<wangle::AcceptorFactory> inputAcceptorFactory,
     std::shared_ptr<folly::IOThreadPoolExecutor> ioExecutor) {
   auto accExe = std::make_shared<IOThreadPoolExecutor>(1);
   if (!ioExecutor) {
@@ -136,6 +136,9 @@ folly::Expected<folly::Unit, std::exception_ptr> HTTPServer::startTcpServer(
   try {
     FOR_EACH_RANGE(i, 0, addresses_.size()) {
       auto accConfig = HTTPServerAcceptor::makeConfig(addresses_[i], *options_);
+      // If user specified an acceptor factory to use, we will use it.
+      // Otherwise, we create one for each address.
+      auto acceptorFactory = inputAcceptorFactory;
       if (!acceptorFactory) {
         auto codecFactory = addresses_[i].codecFactory;
         acceptorFactory = std::make_shared<AcceptorFactory>(
