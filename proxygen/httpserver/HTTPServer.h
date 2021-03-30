@@ -91,6 +91,8 @@ class HTTPServer final {
 
   /**
    * Configure server to bind to the following addresses.
+   * The addresses you bind manually and provide to HTTPServerOptions
+   * should be placed at the head of this vector before other addresses.
    *
    * Actual bind happens in `start` function.
    *

@@ -159,7 +159,7 @@ folly::Expected<folly::Unit, std::exception_ptr> HTTPServer::startTcpServer(
       if (accConfig.reusePort) {
         bootstrap_[i].setReusePort(true);
       }
-      if (options_->preboundSockets_.size() > 0) {
+      if (options_->preboundSockets_.size() > i) {
         bootstrap_[i].bind(std::move(options_->preboundSockets_[i]));
       } else {
         bootstrap_[i].bind(addresses_[i].address);

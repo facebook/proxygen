@@ -676,8 +676,6 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
     // This is fine because we are trying to bind to multiple ports
   }
 
-  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
-                           HTTPServer::Protocol::HTTP};
   HTTPServerOptions options;
   options.handlerFactories =
       RequestHandlerChain().addThen<TestHandlerFactory>().build();
@@ -692,8 +690,9 @@ TEST(UseExistingSocket, TestWithMultipleSocketFds) {
 
   auto server = std::make_unique<HTTPServer>(std::move(options));
   auto st = std::make_unique<ServerThread>(server.get());
-  std::vector<HTTPServer::IPConfig> ips{cfg};
-  server->bind(ips);
+  server->bind(
+      {{folly::SocketAddress("127.0.0.1", 0), HTTPServer::Protocol::HTTP},
+       {folly::SocketAddress("127.0.0.1", 0), HTTPServer::Protocol::HTTP2}});
 
   EXPECT_TRUE(st->start());
 
