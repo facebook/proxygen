@@ -37,6 +37,15 @@
 namespace proxygen {
 
 /**
+ * Experimental
+ *
+ * A sender interface to send out DSR delegated packetization requests.
+ */
+struct DSRRequestSender {
+  virtual ~DSRRequestSender() = default;
+};
+
+/**
  * An HTTPTransaction represents a single request/response pair
  * for some HTTP-like protocol.  It works with a Transport that
  * performs the network processing and wire-protocol formatting
@@ -398,6 +407,27 @@ class HTTPTransaction
   };
 
   /**
+   * Experimental.
+   *
+   * BufferMeta represents a buffer. The real data will be sourced from another
+   * place.
+   */
+  struct BufferMeta {
+    size_t length{0};
+
+    BufferMeta() = default;
+    explicit BufferMeta(size_t lengthIn) : length(lengthIn) {
+      CHECK(length);
+    }
+
+    BufferMeta split(size_t splitLen) {
+      CHECK_GE(length, splitLen);
+      length -= splitLen;
+      return BufferMeta(splitLen);
+    }
+  };
+
+  /**
    * Opaque token that identifies the underlying connection.
    * Transaction handlers can use this token to group different
    * Transport instances by the distinct underlying connections.
@@ -422,6 +452,30 @@ class HTTPTransaction
                              const HTTPMessage& headers,
                              HTTPHeaderSize* size,
                              bool eom) noexcept = 0;
+
+    /**
+     * Experimental API
+     *
+     * Send headers and a DSRRequestSender to Transport.
+     * The Transport will generate header for DATA frame.
+     *
+     * dataFrameHeaderSize: An output parameter to get the size of DATA frame
+     * header.
+     */
+    virtual bool sendHeadersWithDelegate(
+        HTTPTransaction*,
+        const HTTPMessage&,
+        HTTPHeaderSize*,
+        size_t* /* dataFrameHeaderSize */,
+        uint64_t /* contentLength */,
+        std::unique_ptr<DSRRequestSender>) noexcept {
+      return false;
+    }
+
+    // Experimental
+    virtual size_t sendBody(HTTPTransaction*,
+                            BufferMeta&&,
+                            bool /* eom */) noexcept = 0;
 
     virtual size_t sendBody(HTTPTransaction* txn,
                             std::unique_ptr<folly::IOBuf>,
@@ -975,6 +1029,15 @@ class HTTPTransaction
   virtual void sendHeadersWithOptionalEOM(const HTTPMessage& headers, bool eom);
 
   /**
+   * Experimental API
+   *
+   * Send the egress message header and a DSRRequestSender to the Transport.
+   * Handler does NOT have to explicitly sendBody and sendEOM after this.
+   */
+  virtual bool sendHeadersWithDelegate(const HTTPMessage& headers,
+                                       std::unique_ptr<DSRRequestSender>);
+
+  /**
    * Send part or all of the egress message body to the Transport. If flow
    * control is enabled, the chunk boundaries may not be respected.
    * This method does not actually write the message out on the wire
@@ -998,6 +1061,8 @@ class HTTPTransaction
   virtual void sendChunkHeader(size_t length) {
     CHECK(HTTPTransactionEgressSM::transit(
         egressState_, HTTPTransactionEgressSM::Event::sendChunkHeader));
+    CHECK_EQ(deferredBufferMeta_.length, 0)
+        << "Chunked-encoding doesn't support BufferMeta write";
     // TODO: move this logic down to session/codec
     if (!transport_.getCodec().supportsParallelRequests()) {
       chunkHeaders_.emplace_back(Chunk(length));
@@ -1013,6 +1078,8 @@ class HTTPTransaction
   virtual void sendChunkTerminator() {
     CHECK(HTTPTransactionEgressSM::transit(
         egressState_, HTTPTransactionEgressSM::Event::sendChunkTerminator));
+    CHECK_EQ(deferredBufferMeta_.length, 0)
+        << "Chunked-encoding doesn't support BufferMeta write";
   }
 
   /**
@@ -1143,6 +1210,13 @@ class HTTPTransaction
    */
   virtual HTTPTransaction* newPushedTransaction(
       HTTPPushTransactionHandler* handler, ProxygenError* error = nullptr) {
+    if (isDelegated_) {
+      LOG(ERROR)
+          << "Creating Pushed transaction on a delegated HTTPTransaction "
+          << "is not supported.";
+      return nullptr;
+    }
+
     if (isEgressEOMSeen()) {
       SET_PROXYGEN_ERROR_IF(error,
                             ProxygenError::kErrorEgressEOMSeenOnParentStream);
@@ -1164,6 +1238,11 @@ class HTTPTransaction
    */
   virtual HTTPTransaction* newExTransaction(HTTPTransactionHandler* handler,
                                             bool unidirectional = false) {
+    if (isDelegated_) {
+      LOG(ERROR) << "Creating ExTransaction on a delegated HTTPTransaction is "
+                 << "not supported.";
+      return nullptr;
+    }
     auto txn = transport_.newExTransaction(handler, id_, unidirectional);
     if (txn) {
       exTransactions_.insert(txn->getID());
@@ -1417,11 +1496,11 @@ class HTTPTransaction
   const CompressionInfo& getCompressionInfo() const;
 
   bool hasPendingBody() const {
-    return deferredEgressBody_.chainLength() > 0;
+    return getOutstandingEgressBodyBytes() > 0;
   }
 
   size_t getOutstandingEgressBodyBytes() const {
-    return deferredEgressBody_.chainLength();
+    return deferredEgressBody_.chainLength() + deferredBufferMeta_.length;
   }
 
   void setLastByteFlushedTrackingEnabled(bool enabled) {
@@ -1478,6 +1557,11 @@ class HTTPTransaction
     egressQueue_.clearPendingEgress(queueHandle_);
   }
 
+  bool delegatedTransactionChecks(const HTTPMessage& headers) noexcept;
+  bool delegatedTransactionChecks() noexcept;
+
+  void addBufferMeta() noexcept;
+
   void onDelayedDestroy(bool delayed) override;
 
   /**
@@ -1527,14 +1611,18 @@ class HTTPTransaction
 
   size_t sendDeferredBody(uint32_t maxEgress);
 
+  size_t sendDeferredBufferMeta(uint32_t maxEgress);
+
   bool maybeDelayForRateLimit();
 
   bool isEnqueued() const {
     return queueHandle_ ? queueHandle_->isEnqueued() : false;
   }
 
+  // Whther the txn has a pending EOM that can be send out (i.e., no more body
+  // bytes need to go before it.)
   bool hasPendingEOM() const {
-    return isEgressEOMQueued() && deferredEgressBody_.chainLength() == 0;
+    return isEgressEOMQueued() && getOutstandingEgressBodyBytes() == 0;
   }
 
   bool isExpectingIngress() const;
@@ -1601,6 +1689,11 @@ class HTTPTransaction
    * while egress to the remote is supposed to be paused.
    */
   folly::IOBufQueue deferredEgressBody_{folly::IOBufQueue::cacheChainLength()};
+
+  /**
+   * BufferMeta queued at this HTTPTransaction to be sent to Transport.
+   */
+  BufferMeta deferredBufferMeta_;
 
   const TransportDirection direction_;
   HTTPTransactionEgressSM::State egressState_{
@@ -1727,6 +1820,12 @@ class HTTPTransaction
   // Prevents the application from calling skipBodyTo() before egress
   // headers have been delivered.
   bool egressHeadersDelivered_ : 1;
+
+  // Whether the HTTPTransaction has sent out a 1xx response HTTPMessage.
+  bool has1xxResponse_ : 1;
+
+  // Whether this HTTPTransaction delegates body sending to another entity.
+  bool isDelegated_ : 1;
 
   /**
    * If this transaction represents a request (ie, it is backed by an

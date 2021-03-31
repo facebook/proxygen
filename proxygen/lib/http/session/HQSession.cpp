@@ -2691,21 +2691,8 @@ void HQSession::HQVersionUtils::abortStream(quic::StreamId id) {
   session_.scheduleWrite();
 }
 
-void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
-                                                   const HTTPMessage& headers,
-                                                   HTTPHeaderSize* size,
-                                                   bool includeEOM) noexcept {
-  VLOG(4) << __func__ << " txn=" << txn_;
-  CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
-  DCHECK(txn == &txn_);
-
-  if (session_.versionUtils_) {
-    // for h1q-fb-v1 initiate shutdown when sending a request
-    // a good client should always wait for onTransportReady before sending
-    // data
-    session_.versionUtils_->checkSendingGoaway(headers);
-  }
-
+void HQSession::HQStreamTransportBase::updatePriority(
+    const HTTPMessage& headers) noexcept {
   auto sock = session_.sock_;
   auto streamId = getStreamId();
   auto httpPriority = httpPriorityFromHTTPMessage(headers);
@@ -2713,20 +2700,20 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
     sock->setStreamPriority(
         streamId, httpPriority->urgency, httpPriority->incremental);
   }
-  // If this is a push promise, send it on the parent stream.
-  // The accounting will happen in the nested context
-  if (headers.isRequest() && txn->getAssocTxnId()) {
-    sendPushPromise(txn, folly::none, headers, size, includeEOM);
-    return;
-  }
+}
 
+std::pair<uint64_t, uint64_t>
+HQSession::HQStreamTransportBase::generateHeadersCommon(
+    quic::StreamId streamId,
+    const HTTPMessage& headers,
+    bool includeEOM,
+    HTTPHeaderSize* size) noexcept {
   const uint64_t oldOffset = streamWriteByteOffset();
-  auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_)
       << "Trying to send headers on an half open stream isRequest="
       << headers.isRequest()
-      << "; assocTxnId=" << txn->getAssocTxnId().value_or(-1)
-      << "; txn=" << txn->getID();
+      << "; assocTxnId=" << txn_.getAssocTxnId().value_or(-1)
+      << "; txn=" << txn_.getID();
   codecFilterChain->generateHeader(writeBuf_,
                                    *codecStreamId_,
                                    headers,
@@ -2745,9 +2732,94 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
   if (/* session_.direction_ == TransportDirection::DOWNSTREAM && */
       headers.isResponse() && newOffset > oldOffset &&
       // catch 100-ish response?
-      !txn->testAndSetFirstHeaderByteSent()) {
-    byteEventTracker_.addFirstHeaderByteEvent(newOffset, txn);
+      !txn_.testAndSetFirstHeaderByteSent()) {
+    byteEventTracker_.addFirstHeaderByteEvent(newOffset, &txn_);
   }
+
+  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - createdTime);
+
+  auto sock = session_.sock_;
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kHeaders, timeDiff);
+  }
+
+  if ((newOffset > 0) &&
+      (headers.isRequest() ||
+       (headers.isResponse() && headers.getStatusCode() >= 200))) {
+    // Track last egress header and notify the handler when the receiver acks
+    // the headers.
+    // We need to track last byte sent offset, so substract one here.
+    armEgressHeadersAckCb(newOffset - 1);
+  }
+
+  return std::make_pair(oldOffset, newOffset);
+}
+
+bool HQSession::HQStreamTransportBase::sendHeadersWithDelegate(
+    HTTPTransaction* txn,
+    const HTTPMessage& headers,
+    HTTPHeaderSize* size,
+    size_t* dataFrameHeaderSize,
+    uint64_t contentLength,
+    std::unique_ptr<DSRRequestSender> dsrSender) noexcept {
+  // TODO: Lower the log level
+  VLOG(2) << __func__ << " txn=" << *txn;
+  CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
+  CHECK_EQ(txn, &txn_);
+  CHECK(!headers.isRequest())
+      << "Delegate sending can only happen with response";
+  CHECK(!txn->getAssocTxnId()) << "Delegate sending isn't supported with push";
+  if (!contentLength) {
+    return false;
+  }
+
+  updatePriority(headers);
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  auto streamId = getStreamId();
+  generateHeadersCommon(streamId, headers, false /* includeEOM */, size);
+
+  // Write a DATA frame header with CL value
+  auto writeFrameHeaderResult =
+      hq::writeFrameHeader(writeBuf_, FrameType::DATA, contentLength);
+  if (writeFrameHeaderResult.hasError()) {
+    return false;
+  }
+  *dataFrameHeaderSize = *writeFrameHeaderResult;
+  notifyPendingEgress();
+  dsrSender_ = std::move(dsrSender);
+  return true;
+}
+
+void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
+                                                   const HTTPMessage& headers,
+                                                   HTTPHeaderSize* size,
+                                                   bool includeEOM) noexcept {
+  VLOG(4) << __func__ << " txn=" << txn_;
+  CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
+  DCHECK(txn == &txn_);
+
+  if (session_.versionUtils_) {
+    // for h1q-fb-v1 initiate shutdown when sending a request
+    // a good client should always wait for onTransportReady before sending
+    // data
+    session_.versionUtils_->checkSendingGoaway(headers);
+  }
+
+  updatePriority(headers);
+  // If this is a push promise, send it on the parent stream.
+  // The accounting will happen in the nested context
+  if (headers.isRequest() && txn->getAssocTxnId()) {
+    sendPushPromise(txn, folly::none, headers, size, includeEOM);
+    return;
+  }
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  auto streamId = getStreamId();
+  auto headerGenOffsets =
+      generateHeadersCommon(streamId, headers, includeEOM, size);
+  auto oldOffset = headerGenOffsets.first;
+  auto newOffset = headerGenOffsets.second;
 
   if (includeEOM) {
     CHECK_GE(newOffset, oldOffset);
@@ -2766,25 +2838,12 @@ void HQSession::HQStreamTransportBase::sendHeaders(HTTPTransaction* txn,
 
   auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - createdTime);
-
-  if (sock && sock->getState() && sock->getState()->qLogger) {
-    sock->getState()->qLogger->addStreamStateUpdate(
-        streamId, quic::kHeaders, timeDiff);
-  }
+  auto sock = session_.sock_;
   if (includeEOM) {
     if (sock && sock->getState() && sock->getState()->qLogger) {
       sock->getState()->qLogger->addStreamStateUpdate(
           streamId, quic::kEOM, timeDiff);
     }
-  }
-
-  if ((newOffset > 0) &&
-      (headers.isRequest() ||
-       (headers.isResponse() && headers.getStatusCode() >= 200))) {
-    // Track last egress header and notify the handler when the receiver acks
-    // the headers.
-    // We need to track last byte sent offset, so substract one here.
-    armEgressHeadersAckCb(newOffset - 1);
   }
 }
 
@@ -2991,6 +3050,59 @@ void HQSession::HQStreamTransportBase::notifyPendingEgress() noexcept {
 
 size_t HQSession::HQStreamTransportBase::sendBody(
     HTTPTransaction* txn,
+    HTTPTransaction::BufferMeta&& body,
+    bool eom) noexcept {
+  VLOG(2) << __func__ << " len=" << body.length << " eof=" << eom
+          << " txn=" << *txn;
+  CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
+  CHECK_EQ(txn, &txn_);
+
+  auto g = folly::makeGuard(setActiveCodec(__func__));
+  CHECK(codecStreamId_);
+
+  if (bufMeta_.length == 0) {
+    bufMeta_.length = body.length;
+  } else if (body.length) {
+    bufMeta_.length += body.length;
+  }
+  uint64_t offset = streamWriteByteOffset();
+
+  // TODO(yangchi) generateBody() updates totalEgressBytes_ in codec. Now we
+  // are not calling it, we need another way to update it. One way to fix it,
+  // is to actually generateBody() with BufferMetas just so the codec can update
+  // its counters.
+  if (body.length && !txn->testAndSetFirstByteSent()) {
+    byteEventTracker_.addFirstBodyByteEvent(offset + 1, txn);
+  }
+
+  if (eom) {
+    coalesceEOM(body.length);
+  }
+  notifyPendingEgress();
+  return body.length;
+}
+
+void HQSession::HQStreamTransportBase::coalesceEOM(size_t encodedBodyBytes) {
+  session_.handleLastByteEvents(&byteEventTracker_,
+                                &txn_,
+                                encodedBodyBytes,
+                                streamWriteByteOffset(),
+                                true);
+  VLOG(3) << "sending EOM in body for streamID=" << getStreamId()
+          << " txn=" << txn_;
+  pendingEOM_ = true;
+  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - createdTime);
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kEOM, timeDiff);
+  }
+}
+
+size_t HQSession::HQStreamTransportBase::sendBody(
+    HTTPTransaction* txn,
     std::unique_ptr<folly::IOBuf> body,
     bool includeEOM,
     bool /* trackLastByteFlushed */) noexcept {
@@ -2998,6 +3110,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
           << " eof=" << includeEOM << " txn=" << txn_;
   CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
   DCHECK(txn == &txn_);
+  CHECK_EQ(0, bufMeta_.length);
   uint64_t offset = streamWriteByteOffset();
 
   auto g = folly::makeGuard(setActiveCodec(__func__));
@@ -3019,15 +3132,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
         streamId, quic::kBody, timeDiff);
   }
   if (includeEOM) {
-    session_.handleLastByteEvents(
-        &byteEventTracker_, &txn_, encodedSize, streamWriteByteOffset(), true);
-    VLOG(3) << "sending EOM in body for streamID=" << getStreamId()
-            << " txn=" << txn_;
-    pendingEOM_ = true;
-    if (sock && sock->getState() && sock->getState()->qLogger) {
-      sock->getState()->qLogger->addStreamStateUpdate(
-          streamId, quic::kEOM, timeDiff);
-    }
+    coalesceEOM(encodedSize);
   }
   notifyPendingEgress();
   return encodedSize;

@@ -498,6 +498,11 @@ class HTTPSession
                   std::unique_ptr<folly::IOBuf>,
                   bool includeEOM,
                   bool trackLastByteFlushed) noexcept override;
+  size_t sendBody(HTTPTransaction*,
+                  HTTPTransaction::BufferMeta&&,
+                  bool /* eom */) noexcept override {
+    return 0;
+  }
   size_t sendChunkHeader(HTTPTransaction* txn, size_t length) noexcept override;
   size_t sendChunkTerminator(HTTPTransaction* txn) noexcept override;
   size_t sendEOM(HTTPTransaction* txn,

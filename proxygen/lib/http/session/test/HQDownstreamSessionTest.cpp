@@ -2668,6 +2668,53 @@ TEST_P(HQDownstreamSessionTest, TestUniformPauseState) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTest, DelegateResponse) {
+  if (!IS_HQ) {
+    hqSession_->closeWhenIdle();
+    return;
+  }
+  sendRequest("/cdn.thing", 0, true);
+  InSequence handlerSequence;
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  auto dsrRequestSender = std::make_unique<MockDSRRequestSender>();
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    EXPECT_TRUE(handler->sendHeadersWithDelegate(
+        200, 1000 * 20, std::move(dsrRequestSender)));
+    EXPECT_GT(transportCallback_.bodyBytesGenerated_, 0);
+    auto dataFrameHeaderSize = transportCallback_.bodyBytesGenerated_;
+    EXPECT_TRUE(handler->txn_->isEgressStarted());
+    handler->txn_->onWriteReady(10 * 1000, 1.0);
+    EXPECT_EQ(transportCallback_.bodyBytesGenerated_,
+              10 * 1000 + dataFrameHeaderSize);
+    handler->terminate();
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTest, H1QRejectsDelegate) {
+  if (IS_HQ) {
+    hqSession_->closeWhenIdle();
+    return;
+  }
+  sendRequest("/cdn.thing", 0, true);
+  InSequence handlerSequence;
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  auto dsrRequestSender = std::make_unique<MockDSRRequestSender>();
+  handler->expectEOM([&]() {
+    EXPECT_FALSE(handler->sendHeadersWithDelegate(
+        200, 1000 * 20, std::move(dsrRequestSender)));
+    handler->terminate();
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 /**
  * Instantiate the Parametrized test cases
  */

@@ -61,6 +61,17 @@ class HTTPHandlerBase {
     txn_->sendHeaders(reply);
   }
 
+  bool sendHeadersWithDelegate(uint32_t code,
+                               uint32_t content_length,
+                               std::unique_ptr<DSRRequestSender> dsrSender) {
+    HTTPMessage response;
+    response.setStatusCode(code);
+    response.setHTTPVersion(1, 1);
+    response.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH,
+                              folly::to<std::string>(content_length));
+    return txn_->sendHeadersWithDelegate(response, std::move(dsrSender));
+  }
+
   void sendReply() {
     sendReplyCode(200);
   }
@@ -505,6 +516,12 @@ class MockHTTPSessionStats : public DummyHTTPSessionStats {
   GMOCK_NOEXCEPT_METHOD1(recordSessionIdleTime, void(std::chrono::seconds));
   GMOCK_NOEXCEPT_METHOD0(recordTransactionStalled, void());
   GMOCK_NOEXCEPT_METHOD0(recordSessionStalled, void());
+};
+
+class MockDSRRequestSender : public DSRRequestSender {
+ public:
+  MockDSRRequestSender() = default;
+  MOCK_METHOD0(flush, void());
 };
 
 } // namespace proxygen

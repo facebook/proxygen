@@ -1310,10 +1310,22 @@ class HQSession
                      HTTPHeaderSize* size,
                      bool includeEOM) noexcept override;
 
+    bool sendHeadersWithDelegate(
+        HTTPTransaction* txn,
+        const HTTPMessage& headers,
+        HTTPHeaderSize* size,
+        size_t* dataFrameHeaderSize,
+        uint64_t contentLength,
+        std::unique_ptr<DSRRequestSender> dsrSender) noexcept override;
+
     size_t sendBody(HTTPTransaction* txn,
                     std::unique_ptr<folly::IOBuf> body,
                     bool includeEOM,
                     bool trackLastByteFlushed) noexcept override;
+
+    size_t sendBody(HTTPTransaction* txn,
+                    HTTPTransaction::BufferMeta&& body,
+                    bool eom) noexcept override;
 
     size_t sendChunkHeader(HTTPTransaction* txn,
                            size_t length) noexcept override;
@@ -1632,7 +1644,8 @@ class HQSession
      * queue.
      */
     uint64_t streamWriteByteOffset() const {
-      return streamEgressCommittedByteOffset() + writeBuf_.chainLength();
+      return streamEgressCommittedByteOffset() + writeBuf_.chainLength() +
+             bufMeta_.length;
     }
 
     void abortIngress();
@@ -1679,6 +1692,15 @@ class HQSession
     }
 
    private:
+    void updatePriority(const HTTPMessage& headers) noexcept;
+
+    // Return the old and new offset of the stream
+    std::pair<uint64_t, uint64_t> generateHeadersCommon(
+        quic::StreamId streamId,
+        const HTTPMessage& headers,
+        bool includeEOM,
+        HTTPHeaderSize* size) noexcept;
+    void coalesceEOM(size_t encodedBodySize);
     void handleHeadersAcked(uint64_t streamOffset);
     void handleBodyAcked(uint64_t streamOffset);
     void handleBodyCancelled(uint64_t streamOffset);
@@ -1698,6 +1720,9 @@ class HQSession
     //  - "onPushMessageBegin" (which may be abandonned / duplicate message id)
     //  - "onHeadersComplete" (not pending anymore)
     folly::Optional<hq::PushId> ingressPushId_;
+
+    std::unique_ptr<DSRRequestSender> dsrSender_;
+    HTTPTransaction::BufferMeta bufMeta_;
   }; // HQStreamTransportBase
 
  protected:

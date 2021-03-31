@@ -41,6 +41,18 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
       sendBody,
       size_t(HTTPTransaction*, std::shared_ptr<folly::IOBuf>, bool, bool));
 
+  GMOCK_METHOD3_(,
+                 noexcept,
+                 ,
+                 sendBodyMeta,
+                 size_t(HTTPTransaction*, size_t bufferMetaLength, bool));
+
+  size_t sendBody(HTTPTransaction* txn,
+                  HTTPTransaction::BufferMeta&& bufferMeta,
+                  bool eom) noexcept override {
+    return sendBodyMeta(txn, bufferMeta.length, eom);
+  }
+
   size_t sendBody(HTTPTransaction* txn,
                   std::unique_ptr<folly::IOBuf> iob,
                   bool eom,
@@ -307,9 +319,11 @@ class MockHTTPTransaction : public HTTPTransaction {
   MOCK_METHOD1(sendHeaders, void(const HTTPMessage& headers));
   MOCK_METHOD1(sendHeadersWithEOM, void(const HTTPMessage& headers));
   MOCK_METHOD1(sendBody, void(std::shared_ptr<folly::IOBuf>));
+
   void sendBody(std::unique_ptr<folly::IOBuf> iob) noexcept override {
     sendBody(std::shared_ptr<folly::IOBuf>(iob.release()));
   }
+
   MOCK_METHOD1(sendChunkHeader, void(size_t));
   MOCK_METHOD0(sendChunkTerminator, void());
   MOCK_METHOD1(sendTrailers, void(const HTTPHeaders& trailers));
