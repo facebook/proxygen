@@ -36,6 +36,8 @@ const std::string serverDownInfoStr(ServerDownInfo info) {
       return "Feedback Loop High Load";
     case ServerDownInfo::HEALTHCHECK_UNKNOWN_ERROR:
       return "Unknown HealthCheck Error";
+    case ServerDownInfo::HEALTH_UNKNOWN:
+      return "Server Health Unknown";
     default:
       return "[missing down info string!]";
   }
