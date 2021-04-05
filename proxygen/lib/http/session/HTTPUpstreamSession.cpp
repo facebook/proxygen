@@ -123,7 +123,6 @@ HTTPUpstreamSession::newTransactionWithError(
 
   DestructorGuard dg(this);
   txn->setHandler(CHECK_NOTNULL(handler));
-  setNewTransactionPauseState(txn);
   return txn;
 }
 

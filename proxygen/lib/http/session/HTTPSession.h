@@ -422,8 +422,6 @@ class HTTPSession
     return folly::none;
   }
 
-  void setNewTransactionPauseState(HTTPTransaction* txn) override;
-
   void readTimeoutExpired() noexcept;
   void writeTimeoutExpired() noexcept;
   void flowControlTimeoutExpired() noexcept;
@@ -678,10 +676,6 @@ class HTTPSession
    * they will not get the callback.
    */
   void invokeOnAllTransactions(folly::Function<void(HTTPTransaction*)> fn);
-
-  void pauseTransactions() override {
-    invokeOnAllTransactions([](HTTPTransaction* txn) { txn->pauseEgress(); });
-  }
 
   /**
    * This function invokes a callback on all transactions. It is safe,

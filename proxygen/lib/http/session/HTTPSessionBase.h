@@ -522,12 +522,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   void updatePendingWrites();
 
-  virtual void pauseTransactions() = 0;
-
-  virtual void resumeTransactions();
-
-  virtual void setNewTransactionPauseState(HTTPTransaction* txn) = 0;
-
   /**
    * Install a direct response handler for the transaction based on the
    * error.

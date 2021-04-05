@@ -52,7 +52,6 @@ void HTTPDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
 
   DestructorGuard dg(this);
   txn->setHandler(handler);
-  setNewTransactionPauseState(txn);
 }
 
 HTTPTransaction::Handler* HTTPDownstreamSession::getTransactionTimeoutHandler(

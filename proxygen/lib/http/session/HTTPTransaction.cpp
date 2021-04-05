@@ -29,6 +29,8 @@ const std::chrono::seconds kRateLimitMaxDelay(10);
 const uint64_t kMaxBufferPerTxn = 65536;
 } // namespace
 
+uint64_t HTTPTransaction::egressBufferLimit_ = kMaxBufferPerTxn;
+
 HTTPTransaction::HTTPTransaction(
     TransportDirection direction,
     HTTPCodec::StreamID id,
@@ -1451,7 +1453,7 @@ void HTTPTransaction::updateHandlerPauseState() {
     }
   }
   flowControlPaused_ = useFlowControl_ && availWindow <= 0;
-  bool bufferFull = getOutstandingEgressBodyBytes() > kMaxBufferPerTxn;
+  bool bufferFull = getOutstandingEgressBodyBytes() > egressBufferLimit_;
   bool handlerShouldBePaused =
       egressPaused_ || flowControlPaused_ || egressRateLimited_ || bufferFull;
 

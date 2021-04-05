@@ -61,6 +61,7 @@ class HTTPDownstreamTest : public testing::Test {
     }
 
     HTTPSession::setDefaultReadBufferLimit(65536);
+    HTTPTransaction::setEgressBufferLimit(65536);
     auto codec = makeServerCodec<typename C::Codec>(C::version);
     rawCodec_ = codec.get();
 
@@ -1964,43 +1965,6 @@ TEST_F(HTTPDownstreamSessionTest, EarlyAbort) {
   eventBase_.loop();
 }
 
-TEST_F(SPDY3DownstreamSessionTest, HttpPausedBuffered) {
-  IOBufQueue rst{IOBufQueue::cacheChainLength()};
-  auto s = sendRequest();
-  clientCodec_->generateRstStream(rst, s, ErrorCode::CANCEL);
-  sendRequest();
-
-  InSequence handlerSequence;
-  auto handler1 = addSimpleNiceHandler();
-  handler1->expectHeaders();
-  handler1->expectEOM([&handler1, this] {
-    transport_->pauseWrites();
-    handler1->sendHeaders(200, 65536 * 2);
-    handler1->sendBody(65536 * 2);
-  });
-  handler1->expectEgressPaused();
-  auto handler2 = addSimpleNiceHandler();
-  handler2->expectHeaders();
-  handler2->expectEOM([&] {
-    eventBase_.runInLoop(
-        [&] { transport_->addReadEvent(rst, milliseconds(0)); });
-  });
-  handler2->expectEgressPaused();
-  handler1->expectError([&](const HTTPException& ex) {
-    ASSERT_EQ(ex.getProxygenError(), kErrorStreamAbort);
-    resumeWritesInLoop();
-  });
-  handler1->expectDetachTransaction();
-  handler2->expectEgressResumed(
-      [&] { handler2->sendReplyWithBody(200, 32768); });
-  handler2->expectDetachTransaction([this] {
-    eventBase_.runInLoop([&] { transport_->addReadEOF(milliseconds(0)); });
-  });
-  expectDetachSession();
-
-  flushRequestsAndLoop();
-}
-
 TEST_F(HTTPDownstreamSessionTest, HttpWritesDrainingTimeout) {
   sendRequest();
   sendHeader();
@@ -2713,37 +2677,16 @@ void HTTPDownstreamTest<C>::testPriorities(uint32_t numPriorities) {
 // required to proceed
 TEST_F(SPDY3DownstreamSessionTest, SpdyTimeout) {
   sendRequest();
-  sendRequest();
-
-  httpSession_->setWriteBufferLimit(512);
 
   InSequence handlerSequence;
   auto handler1 = addSimpleStrictHandler();
-  handler1->expectHeaders([this] { transport_->pauseWrites(); });
+  handler1->expectHeaders();
   handler1->expectEOM([&] {
     handler1->sendHeaders(200, 1000);
     handler1->sendBody(1000);
-  });
-  handler1->expectEgressPaused();
-  auto handler2 = addSimpleStrictHandler();
-  // handler2 is paused before it gets headers
-  handler2->expectEgressPaused();
-  handler2->expectHeaders();
-  handler2->expectEOM([this] {
-    // This transaction should start egress paused.  We've received the
-    // EOM, so the timeout shouldn't be running delay 400ms and resume
-    // writes, this keeps txn1 from getting a write timeout
-    resumeWritesAfterDelay(milliseconds(400));
-  });
-  handler1->expectEgressResumed([&handler1] { handler1->txn_->sendEOM(); });
-  handler2->expectEgressResumed([&handler2, this] {
-    // delay an additional 200ms.  The total 600ms delay shouldn't fire
-    // onTimeout
-    eventBase_.tryRunAfterDelay(
-        [&handler2] { handler2->sendReplyWithBody(200, 400); }, 200);
+    eventBase_.runAfterDelay([&handler1] { handler1->txn_->sendEOM(); }, 600);
   });
   handler1->expectDetachTransaction();
-  handler2->expectDetachTransaction();
 
   flushRequestsAndLoop(false, milliseconds(0), milliseconds(10));
 
@@ -2931,11 +2874,9 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyMaxConcurrentStreams) {
     req2p.setValue();
   });
   auto handler2 = addSimpleStrictHandler();
-  handler2->expectEgressPaused();
   handler2->expectHeaders();
   handler2->expectEOM([this] { resumeWritesInLoop(); });
-  handler1->expectDetachTransaction();
-  handler2->expectEgressResumed(
+  handler1->expectDetachTransaction(
       [&handler2] { handler2->sendReplyWithBody(200, 100); });
   handler2->expectDetachTransaction();
 
@@ -2999,6 +2940,8 @@ TEST_F(SPDY3DownstreamSessionTest, TestEOFOnBlockedStream) {
 }
 
 TEST_F(SPDY31DownstreamTest, TestEOFOnBlockedSession) {
+  HTTPTransaction::setEgressBufferLimit(25000);
+  transport_->pauseWrites();
   sendRequest();
   sendRequest();
 
@@ -3035,42 +2978,42 @@ TEST_F(SPDY3DownstreamSessionTest, NewTxnEgressPaused) {
   // Send 1 request with prio=0
   // Have egress pause while sending the first response
   // Send a second request with prio=1
-  //   -- the new txn should start egress paused
   // Finish the body and eom both responses
   // Unpause egress
   // The first txn should complete first
 
-  sendRequest("/", 0);
+  auto id1 = sendRequest("/", 0);
   auto req2 = getGetRequest();
   req2.setPriority(1);
   auto req2p = sendRequestLater(req2, true);
 
+  HTTPTransaction::setEgressBufferLimit(500);
+  transport_->pauseWrites();
+
   unique_ptr<StrictMock<MockHTTPHandler>> handler1;
   unique_ptr<StrictMock<MockHTTPHandler>> handler2;
 
-  httpSession_->setWriteBufferLimit(200); // lower the per session buffer limit
   {
     InSequence handlerSequence;
     handler1 = addSimpleStrictHandler();
     handler1->expectHeaders();
-    handler1->expectEOM([&handler1, this, &req2p] {
-      this->transport_->pauseWrites();
+    handler1->expectEOM([&handler1, &req2p] {
       handler1->sendHeaders(200, 1000);
-      handler1->sendBody(100); // headers + 100 bytes - over the limit
+      handler1->sendBody(750); // over the limit
       req2p.setValue();
     });
     handler1->expectEgressPaused([] { LOG(INFO) << "paused 1"; });
 
     handler2 = addSimpleStrictHandler();
-    handler2->expectEgressPaused(); // starts paused
     handler2->expectHeaders();
     handler2->expectEOM([&] {
       // Technically shouldn't send while handler is egress paused, but meh.
-      handler1->sendBody(900);
+      handler1->sendBody(250);
       handler1->txn_->sendEOM();
       handler2->sendReplyWithBody(200, 1000);
       resumeWritesInLoop();
     });
+    handler2->expectEgressPaused();
     handler1->expectDetachTransaction();
     handler2->expectDetachTransaction();
   }
@@ -3087,6 +3030,7 @@ TEST_F(SPDY3DownstreamSessionTest, NewTxnEgressPaused) {
       }));
   parseOutput(*clientCodec_);
 
+  EXPECT_EQ(*streams.begin(), id1);
   cleanup();
 }
 
@@ -3260,12 +3204,15 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPush) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
+  HTTPTransaction::setEgressBufferLimit(500);
   // Create a dummy request and a dummy response messages
   HTTPMessage req, res;
   req.getHeaders().set("HOST", "www.foo.com");
   req.setURL("https://www.foo.com/");
   res.setStatusCode(200);
   res.setStatusMessage("Ohai");
+
+  transport_->pauseWrites();
 
   // enable server push
   clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
@@ -3282,27 +3229,28 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
   HTTPTransaction* pushTxn;
   handler->expectHeaders([&] {
     // Generate response for the associated stream
-    this->transport_->pauseWrites();
     handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(100));
+    handler->txn_->sendBody(makeBuf(1000));
     handler->txn_->pauseIngress();
 
     pushTxn = handler->txn_->newPushedTransaction(&pushHandler);
     ASSERT_NE(pushTxn, nullptr);
     // Generate a push request (PUSH_PROMISE)
     pushTxn->sendHeaders(req);
+    // Send headers and some body
+    pushTxn->sendHeaders(res);
+    pushTxn->sendBody(makeBuf(1000));
   });
 
+  handler->expectEgressPaused();
   EXPECT_CALL(pushHandler, setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
   EXPECT_CALL(pushHandler, onEgressPaused());
-  handler->expectEgressPaused();
 
   // Expect error on the associated stream.
   // The push transaction can still push data.
   handler->expectError([&](const HTTPException&) {
-    pushTxn->sendHeaders(res);
-    pushTxn->sendBody(makeBuf(100));
+    pushTxn->sendBody(makeBuf(1000));
     pushTxn->sendEOM();
     resumeWritesInLoop();
     httpSession_->closeWhenIdle();
@@ -3330,12 +3278,15 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
+  HTTPTransaction::setEgressBufferLimit(500);
   // Create a dummy request and a dummy response messages
   HTTPMessage req, res;
   req.getHeaders().set("HOST", "www.foo.com");
   req.setURL("https://www.foo.com/");
   res.setStatusCode(200);
   res.setStatusMessage("Ohai");
+
+  transport_->pauseWrites();
 
   // enable server push
   clientCodec_->getEgressSettings()->setSetting(SettingsId::ENABLE_PUSH, 1);
@@ -3351,19 +3302,21 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
   // InSequence handlerSequence;
   handler->expectHeaders([&] {
     // Generate response for the associated stream
-    this->transport_->pauseWrites();
     handler->txn_->sendHeaders(res);
-    handler->txn_->sendBody(makeBuf(100));
+    handler->txn_->sendBody(makeBuf(1000));
 
     auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler1);
     ASSERT_NE(pushTxn, nullptr);
     // Generate a push request (PUSH_PROMISE)
     pushTxn->sendHeaders(req);
+    // Send headers and some body
+    pushTxn->sendHeaders(res);
+    pushTxn->sendBody(makeBuf(1000));
   });
+  handler->expectEgressPaused();
   EXPECT_CALL(pushHandler1, setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler1.txn_ = txn; }));
   handler->expectEOM();
-  handler->expectEgressPaused();
   EXPECT_CALL(pushHandler1, onEgressPaused());
 
   EXPECT_CALL(pushHandler1, onError(_)).WillOnce(InvokeWithoutArgs([&] {
@@ -3371,9 +3324,9 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
     auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler2);
     EXPECT_EQ(pushTxn, nullptr);
   }));
-  EXPECT_CALL(pushHandler1, detachTransaction());
   handler->expectError();
   handler->expectDetachTransaction();
+  EXPECT_CALL(pushHandler1, detachTransaction());
 
   transport_->addReadEvent(requests_, milliseconds(0));
   transport_->startReadEvents();
@@ -3686,6 +3639,73 @@ TEST_F(HTTP2DownstreamSessionTest, TestPriorityWeights) {
   EXPECT_CALL(callbacks_, onBody(id2, _, _)).WillOnce(ExpectBodyLen(4 * 1024));
   EXPECT_CALL(callbacks_, onMessageComplete(id2, _));
   parseOutput(*clientCodec_);
+
+  httpSession_->closeWhenIdle();
+  expectDetachSession();
+  this->eventBase_.loop();
+}
+
+TEST_F(HTTP2DownstreamSessionTest, TestPriorityFCBlocked) {
+  // Send two requests that are not stream f/c blocked but are conn f/c blocked
+  // Send a third request with higher priority, ensure it is not blocked by
+  // any low pri bytes.
+
+  // virtual priority node
+  auto priGroupID = clientCodec_->createStream();
+  clientCodec_->generatePriority(
+      requests_, priGroupID, HTTPMessage::HTTP2Priority(0, false, 3));
+  auto req = getGetRequest();
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority{priGroupID, false, 255});
+  auto id1 = sendRequest(req);
+  auto id2 = sendRequest(req);
+
+  auto handler1 = addSimpleStrictHandler();
+  handler1->expectHeaders();
+  handler1->expectEOM([&] {
+    handler1->sendHeaders(200, 36 * 1024);
+    handler1->txn_->sendBody(makeBuf(32 * 1024));
+  });
+  auto handler2 = addSimpleStrictHandler();
+  handler2->expectHeaders();
+  handler2->expectEOM([&] {
+    handler2->sendHeaders(200, 36 * 1024);
+    handler2->txn_->sendBody(makeBuf(32 * 1024));
+  });
+  flushRequestsAndLoopN(2);
+
+  // Send high pri request.  It shouldn't pause, and send a reply
+  req.setHTTP2Priority(HTTPMessage::HTTP2Priority{0, true, 3});
+  auto id3 = sendRequest(req);
+  clientCodec_->generateWindowUpdate(requests_, 0, 64 * 1024);
+  auto handler3 = addSimpleStrictHandler();
+  handler3->expectHeaders();
+  handler3->expectEOM([&] {
+    handler3->expectDetachTransaction();
+    handler3->sendReplyWithBody(200, 32 * 1024);
+    handler1->expectDetachTransaction();
+    handler1->txn_->sendBody(makeBuf(4 * 1024));
+    handler1->txn_->sendEOM();
+    handler2->expectDetachTransaction();
+    handler2->txn_->sendBody(makeBuf(4 * 1024));
+    handler2->txn_->sendEOM();
+  });
+
+  // twice- once to send and once to receive
+  flushRequestsAndLoopN(2);
+  {
+    InSequence enforceOrder;
+    EXPECT_CALL(callbacks_, onSettings(_));
+    EXPECT_CALL(callbacks_, onMessageBegin(id1, _));
+    EXPECT_CALL(callbacks_, onHeadersComplete(id1, _));
+    EXPECT_CALL(callbacks_, onMessageBegin(id2, _));
+    EXPECT_CALL(callbacks_, onHeadersComplete(id2, _));
+    EXPECT_CALL(callbacks_, onMessageBegin(id3, _));
+    EXPECT_CALL(callbacks_, onHeadersComplete(id3, _));
+    EXPECT_CALL(callbacks_, onMessageComplete(id3, _));
+    EXPECT_CALL(callbacks_, onMessageComplete(id1, _));
+    EXPECT_CALL(callbacks_, onMessageComplete(id2, _));
+    parseOutput(*clientCodec_);
+  }
 
   httpSession_->closeWhenIdle();
   expectDetachSession();

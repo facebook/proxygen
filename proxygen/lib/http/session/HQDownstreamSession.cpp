@@ -40,7 +40,6 @@ void HQDownstreamSession::setupOnHeadersComplete(HTTPTransaction* txn,
       getController()->getRequestHandler(*txn, msg);
   CHECK(handler);
   txn->setHandler(handler);
-  setNewTransactionPauseState(txn);
   if (infoCallback_) {
     infoCallback_->onIngressMessage(*this, *msg);
   }

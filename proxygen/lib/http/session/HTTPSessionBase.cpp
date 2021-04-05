@@ -145,22 +145,6 @@ void HTTPSessionBase::updatePendingWrites() {
   }
 }
 
-void HTTPSessionBase::resumeTransactions() {
-  DestructorGuard g(this);
-  auto resumeFn = [](HTTP2PriorityQueue&,
-                     HTTPCodec::StreamID,
-                     HTTPTransaction* txn,
-                     double) {
-    if (txn && !txn->isEgressComplete()) {
-      txn->resumeEgress();
-    }
-    return false;
-  };
-  auto stopFn = [this] { return (!hasActiveTransactions()); };
-
-  txnEgressQueue_.iterateBFS(resumeFn, stopFn, true /* all */);
-}
-
 void HTTPSessionBase::handleErrorDirectly(HTTPTransaction* txn,
                                           const HTTPException& error) {
   VLOG(4) << *this << " creating direct error handler";

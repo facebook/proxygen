@@ -191,6 +191,7 @@ class HTTPUpstreamTest
   void commonSetUp(unique_ptr<HTTPCodec> codec) {
     HTTPSession::setDefaultReadBufferLimit(65536);
     HTTPSession::setDefaultWriteBufferLimit(65536);
+    HTTPTransaction::setEgressBufferLimit(65536);
     EXPECT_CALL(*transport_, writeChain(_, _, _))
         .WillRepeatedly(Invoke(this, &HTTPUpstreamTest<C>::onWriteChain));
     EXPECT_CALL(*transport_, setReadCB(_))
@@ -566,33 +567,32 @@ TEST_F(SPDY3UpstreamSessionTest, TestUnderLimitOnWriteError) {
 }
 
 TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
+  HTTPTransaction::setEgressBufferLimit(500);
   auto handler1 = openTransaction();
   auto handler2 = openTransaction();
-
-  // Disable stream flow control for this test
-  handler1->txn_->onIngressWindowUpdate(80000);
-  handler2->txn_->onIngressWindowUpdate(80000);
 
   auto req = getPostRequest();
   handler1->txn_->sendHeaders(req);
   handler2->txn_->sendHeaders(req);
   // pause writes
   pauseWrites_ = true;
+  eventBase_.loopOnce();
+
   handler1->expectEgressPaused();
   handler2->expectEgressPaused();
 
   // send body
-  handler1->txn_->sendBody(makeBuf(60000));
-  handler2->txn_->sendBody(makeBuf(60000));
-  eventBase_.loopOnce();
+  handler1->txn_->sendBody(makeBuf(1000));
+  handler2->txn_->sendBody(makeBuf(1000));
 
   // when this handler is resumed, re-pause the pipe
   handler1->expectEgressResumed([&] {
-    handler1->txn_->sendBody(makeBuf(4000));
+    handler1->txn_->sendBody(makeBuf(1000));
     pauseWrites_ = true;
   });
   // handler2 will get a shot
-  handler2->expectEgressResumed();
+  handler2->expectEgressResumed(
+      [&] { handler2->txn_->sendBody(makeBuf(1000)); });
 
   // But the handlers pause again
   handler1->expectEgressPaused();
@@ -1293,7 +1293,6 @@ TEST_F(HTTPUpstreamTimeoutTest, WriteTimeoutAfterResponse) {
     EXPECT_EQ(200, msg->getStatusCode());
   });
   handler->expectEOM();
-  handler->expectEgressPaused();
   handler->expectError([&](const HTTPException& err) {
     EXPECT_TRUE(err.hasProxygenError());
     ASSERT_EQ(err.getDirection(), HTTPException::Direction::INGRESS_AND_EGRESS);
@@ -1784,30 +1783,6 @@ class NoFlushUpstreamSessionTest : public HTTPUpstreamTest<SPDY3CodecPair> {
   uint32_t timesCalled_{0};
   std::vector<folly::AsyncTransport::WriteCallback*> cbs_;
 };
-
-TEST_F(NoFlushUpstreamSessionTest, SessionPausedStartPaused) {
-  // If the session is paused, new upstream transactions should start
-  // paused too.
-  HTTPMessage req = getGetRequest();
-
-  InSequence enforceOrder;
-
-  auto handler1 = openNiceTransaction();
-  handler1->txn_->sendHeaders(req);
-  Mock::VerifyAndClearExpectations(handler1.get());
-  // The session pauses all txns since no writeSuccess for too many bytes
-  handler1->expectEgressPaused();
-  // Send a body big enough to pause egress
-  handler1->txn_->sendBody(makeBuf(httpSession_->getWriteBufferLimit()));
-  eventBase_.loop();
-  Mock::VerifyAndClearExpectations(handler1.get());
-
-  auto handler2 = openNiceTransaction(true /* expect start paused */);
-  eventBase_.loop();
-  Mock::VerifyAndClearExpectations(handler2.get());
-
-  httpSession_->dropConnection();
-}
 
 TEST_F(NoFlushUpstreamSessionTest, DeleteTxnOnUnpause) {
   // Test where the handler gets onEgressPaused() and triggers another

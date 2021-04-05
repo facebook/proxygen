@@ -1548,6 +1548,10 @@ class HTTPTransaction
 
   folly::Optional<ConnectionToken> getConnectionToken() const noexcept;
 
+  static void setEgressBufferLimit(uint64_t limit) {
+    egressBufferLimit_ = limit;
+  }
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
@@ -1836,6 +1840,7 @@ class HTTPTransaction
    */
   uint16_t lastResponseStatus_{0};
 
+  // Maximum size of egress buffer before invoking onEgressPaused
   static uint64_t egressBufferLimit_;
 
   uint64_t egressLimitBytesPerMs_{0};
