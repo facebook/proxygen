@@ -231,7 +231,6 @@ StrictMock<MockController>& HQUpstreamSessionTest::getMockController() {
 }
 
 // Use this test class for h1q-fb only tests
-using HQUpstreamSessionTestH1q = HQUpstreamSessionTest;
 // Use this test class for h1q-fb-v1 only tests
 using HQUpstreamSessionTestH1qv1 = HQUpstreamSessionTest;
 // Use this test class for h1q-fb-v2 and hq tests

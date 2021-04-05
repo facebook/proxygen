@@ -44,8 +44,6 @@ namespace proxygen { namespace hq {
 using namespace folly;
 using namespace folly::io;
 
-using std::string;
-
 HQStreamCodec::HQStreamCodec(StreamID streamId,
                              TransportDirection direction,
                              QPACKCodec& headerCodec,

@@ -12,7 +12,6 @@
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
 
 using namespace proxygen;
-using namespace ::testing;
 
 TEST(HTTPPriorityFunctionsTest, PriorityHeaderUrgencyOnly) {
   HTTPMessage req;
