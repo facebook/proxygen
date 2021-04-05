@@ -144,7 +144,7 @@ class WorkerThread {
   std::unique_ptr<folly::EventBase> eventBase_;
 
   // A thread-local pointer to the current WorkerThread for this thread
-  static FOLLY_TLS WorkerThread* currentWorker_;
+  static thread_local WorkerThread* currentWorker_;
 };
 
 } // namespace proxygen

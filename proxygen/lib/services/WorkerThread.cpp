@@ -61,7 +61,7 @@ std::unique_ptr<folly::EventBaseBackendBase> getEventBaseBackend() {
 
 namespace proxygen {
 
-FOLLY_TLS WorkerThread* WorkerThread::currentWorker_ = nullptr;
+thread_local WorkerThread* WorkerThread::currentWorker_ = nullptr;
 
 WorkerThread::WorkerThread(folly::EventBaseManager* eventBaseManager,
                            const std::string& evbName)
