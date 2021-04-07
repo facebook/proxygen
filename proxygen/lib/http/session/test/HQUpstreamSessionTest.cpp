@@ -647,7 +647,10 @@ TEST_P(HQUpstreamSessionTest, DropConnectionWithStreamAfterCloseWhenIdle) {
   handler->txn_->sendHeaders(getGetRequest());
   hqSession_->closeWhenIdle();
   flushAndLoopN(1);
-  handler->expectError();
+  handler->expectError([&](const HTTPException& err) {
+    EXPECT_TRUE(err.hasProxygenError());
+    EXPECT_EQ(err.getHttp3ErrorCode(), HTTP3::ErrorCode::HTTP_NO_ERROR);
+  });
   handler->expectDetachTransaction();
   hqSession_->dropConnection();
 }

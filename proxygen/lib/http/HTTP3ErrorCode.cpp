@@ -56,7 +56,9 @@ std::string toString(HTTP3::ErrorCode code) {
     case HTTP3::ErrorCode::GIVEUP_ZERO_RTT:
       return "Give up Zero RTT";
   }
-  LOG(WARNING) << "toString has unhandled ErrorCode";
+  LOG(WARNING)
+      << "toString has unhandled ErrorCode: "
+      << static_cast<std::underlying_type<HTTP3::ErrorCode>::type>(code);
   return "Unknown error";
 }
 } // namespace proxygen

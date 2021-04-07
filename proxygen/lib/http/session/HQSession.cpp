@@ -811,7 +811,8 @@ void HQSession::checkForShutdown() {
   if (drainState_ == DrainState::DONE && (getNumStreams() == 0) &&
       !isLoopCallbackScheduled()) {
     if (sock_) {
-      sock_->close(folly::none);
+      auto err = HTTP3::ErrorCode::HTTP_NO_ERROR;
+      sock_->close(std::make_pair(quic::QuicErrorCode(err), toString(err)));
       sock_.reset();
     }
 
