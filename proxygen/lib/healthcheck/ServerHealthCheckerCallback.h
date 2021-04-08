@@ -13,7 +13,11 @@
 
 #include <folly/SocketAddress.h>
 
+#include "proxygen/lib/utils/Time.h"
+
 namespace proxygen {
+
+class ServerHealthChecker;
 
 using LoadType = uint32_t;
 
@@ -58,10 +62,12 @@ class ServerHealthCheckerCallback {
   using ExtraInfo = std::vector<std::pair<std::string, std::string>>;
 
   virtual void processHealthCheckFailure(
+      const TimePoint& startTime,
       ServerDownInfo reason,
       const std::string& extraReasonStr = std::string()) = 0;
 
   virtual void processHealthCheckSuccess(
+      const TimePoint& startTime,
       LoadType load,
       const ServerLoadInfo* serverLoadInfo = nullptr,
       const ExtraInfo* extraInfo = nullptr) = 0;
