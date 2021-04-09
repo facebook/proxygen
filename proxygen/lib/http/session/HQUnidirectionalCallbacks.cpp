@@ -18,6 +18,35 @@ HQUnidirStreamDispatcher::HQUnidirStreamDispatcher(
       direction_(direction) {
 }
 
+void HQUnidirStreamDispatcher::peekError(
+    quic::StreamId id,
+    std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
+        error) noexcept {
+  VLOG(4) << __func__ << ": peekError streamID=" << id << " error: " << error;
+
+  switch (error.first.type()) {
+    case quic::QuicErrorCode::Type::ApplicationErrorCode: {
+      auto errorCode =
+          static_cast<HTTP3::ErrorCode>(*error.first.asApplicationErrorCode());
+      VLOG(4) << "peekError: QUIC Application Error: " << toString(errorCode)
+              << " streamID=" << id;
+      break;
+    }
+    case quic::QuicErrorCode::Type::LocalErrorCode: {
+      quic::LocalErrorCode& errorCode = *error.first.asLocalErrorCode();
+      VLOG(4) << "peekError: QUIC Local Error: " << errorCode
+              << " streamID=" << id;
+      break;
+    }
+    case quic::QuicErrorCode::Type::TransportErrorCode: {
+      quic::TransportErrorCode& errorCode = *error.first.asTransportErrorCode();
+      VLOG(4) << "peekError: QUIC Transport Error: " << errorCode
+              << " streamID=" << id;
+      break;
+    }
+  }
+}
+
 void HQUnidirStreamDispatcher::onDataAvailable(
     quic::StreamId id, const Callback::PeekData& peekData) noexcept {
   if (peekData.empty()) {

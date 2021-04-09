@@ -76,6 +76,11 @@ class HQUnidirStreamDispatcher : public quic::QuicSocket::PeekCallback {
       quic::StreamId /* id */,
       const Callback::PeekData& /* data */) noexcept override;
 
+  virtual void peekError(
+      quic::StreamId /* id */,
+      std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
+      /* error */) noexcept override;
+
   quic::QuicSocket::ReadCallback* controlStreamCallback() const;
 
   // Take the temporary ownership of the stream.
