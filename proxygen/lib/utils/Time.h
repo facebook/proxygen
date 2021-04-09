@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cinttypes>
+#include <memory>
 #include <string>
 
 #include <folly/portability/Time.h>
@@ -202,5 +203,75 @@ class TimeUtilGeneric {
 // Typedef so as to not disrupting callers who use 'TimeUtil' before we
 // made it TimeUtilGeneric
 using TimeUtil = TimeUtilGeneric<>;
+
+template <typename Duration>
+class StopWatch {
+  /**
+   * A stopwatch that can be started and stopped. Elapsed time will continue to
+   * be accumulated until reset is called.
+   *
+   * Note: Calling a start on a running stopwatch has the effect of reseting
+   * the initial checkpoint.
+   */
+ public:
+  class TimedScope {
+   public:
+    explicit TimedScope(StopWatch<Duration>& stopWatch)
+        : stopWatch_(stopWatch) {
+      stopWatch_.start();
+    }
+
+    ~TimedScope() {
+      stopWatch_.stop();
+    }
+
+   private:
+    StopWatch<Duration>& stopWatch_;
+  };
+
+  explicit StopWatch(std::shared_ptr<TimeUtil> timeSource = nullptr) {
+    if (!timeSource) {
+      timeSource = std::make_shared<TimeUtil>();
+    }
+    timeSource_ = timeSource;
+  }
+
+  void start() {
+    start_ = timeSource_->now();
+    running_ = true;
+  }
+
+  void stop() {
+    if (!running_) {
+      return;
+    }
+    elapsed_ +=
+        std::chrono::duration_cast<Duration>(timeSource_->now() - start_);
+    running_ = false;
+  }
+
+  void reset() {
+    elapsed_ = elapsed_.zero();
+    running_ = false;
+  }
+
+  bool running() const {
+    return running_;
+  }
+
+  Duration getElapsedTime() const {
+    return elapsed_;
+  }
+
+  TimedScope createTimedScope() {
+    return TimedScope(*this);
+  }
+
+ protected:
+  bool running_{false};
+  std::shared_ptr<TimeUtil> timeSource_;
+  TimePoint start_;
+  Duration elapsed_{0};
+};
 
 } // namespace proxygen
