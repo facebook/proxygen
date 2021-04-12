@@ -1494,11 +1494,6 @@ class HQSession
 
     void generateGoaway();
 
-    folly::Expected<folly::Unit, ErrorCode> peek(
-        HTTPTransaction::PeekCallback peekCallback) override;
-
-    folly::Expected<folly::Unit, ErrorCode> consume(size_t amount) override;
-
     void trackEgressBodyDelivery(uint64_t bodyOffset) override;
 
     /**

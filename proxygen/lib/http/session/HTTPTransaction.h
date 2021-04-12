@@ -390,10 +390,6 @@ class HTTPTransaction
   using Handler = HTTPTransactionHandler;
   using PushHandler = HTTPPushTransactionHandler;
 
-  using PeekCallback =
-      const folly::Function<void(HTTPCodec::StreamID streamId,
-                                 uint64_t /* bodyOffset */,
-                                 const folly::IOBuf& /* chain */) const>&;
   struct FlowControlInfo {
     bool flowControlEnabled_{false};
     int64_t sessionSendWindow_{-1};
@@ -570,18 +566,6 @@ class HTTPTransaction
 
     virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
         uint8_t level) = 0;
-
-    virtual folly::Expected<folly::Unit, ErrorCode> peek(
-        PeekCallback /* peekCallback */) {
-      LOG(FATAL) << __func__ << " not supported";
-      folly::assume_unreachable();
-    }
-
-    virtual folly::Expected<folly::Unit, ErrorCode> consume(
-        size_t /* amount */) {
-      LOG(FATAL) << __func__ << " not supported";
-      folly::assume_unreachable();
-    }
 
     /**
      * Ask transport to track and ack body delivery.
@@ -915,12 +899,6 @@ class HTTPTransaction
    * TODO(bschlinker): Add support for QUIC.
    */
   void onEgressTransportAppRateLimited();
-
-  /**
-   * Invoked by the session when data to peek into is available on trasport
-   * layer.
-   */
-  void onIngressBodyPeek(uint64_t bodyOffset, const folly::IOBuf& chain);
 
   /**
    * Invoked by the handlers that are interested in tracking
@@ -1515,36 +1493,6 @@ class HTTPTransaction
     enableBodyLastByteDeliveryTracking_ = enabled;
     return true;
   }
-
-  /**
-   * Allows the caller to peek into underlying transport's read buffer.
-   * This, together with consume(), forms a scatter/gather API.
-   *
-   * @param peekCallback  A callback that will be executed on each contiguous
-   *                      byte range in transport's read buffer. Number of byte
-   *                      ranges is determined by the number of gaps in the
-   *                      read buffer.
-   */
-  folly::Expected<folly::Unit, ErrorCode> peek(PeekCallback peekCallback);
-
-  /**
-   * Allows the caller to consume bytes from the beginning of the read buffer in
-   * the underlying transport's read buffer.
-   * This is useful when e.g. we know that the transaction is
-   * head-of-line-blocked and we are willing to get rid of existing bytes in the
-   * buffer to allow the transaction to proceed. For example:
-   *    - read buffer pointer is at 3
-   *    - we have bytes range [5, 18] ready in the buffer
-   * If we don't want to wait to receive bytes [3, 4], we can call consume(2)
-   * and the read buffer pointer would be moved to 5 allowing read operations to
-   * proceed.
-   *
-   * @param amount  Number of bytes to consume from transport's read buffer.
-   *                Gaps will be consumed together with received bytes in the
-   *                buffer. Bytes will be always consumed from current read
-   *                buffer front pointer.
-   */
-  folly::Expected<folly::Unit, ErrorCode> consume(size_t amount);
 
   folly::Optional<ConnectionToken> getConnectionToken() const noexcept;
 

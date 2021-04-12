@@ -3137,40 +3137,6 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
   ingressPushId_ = folly::none;
 }
 
-folly::Expected<folly::Unit, ErrorCode> HQSession::HQStreamTransportBase::peek(
-    HTTPTransaction::PeekCallback peekCallback) {
-  if (!codecStreamId_) {
-    LOG(ERROR) << "codec streamId is not set yet";
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  auto cb = [&](quic::StreamId streamId,
-                const folly::Range<quic::QuicSocket::PeekIterator>& range) {
-    for (const auto& entry : range) {
-      peekCallback(streamId, entry.offset, *entry.data.front());
-    }
-  };
-  auto res = session_.sock_->peek(*codecStreamId_, std::move(cb));
-  if (res.hasError()) {
-    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
-  }
-  return folly::unit;
-}
-
-folly::Expected<folly::Unit, ErrorCode>
-HQSession::HQStreamTransportBase::consume(size_t amount) {
-  if (!codecStreamId_) {
-    LOG(ERROR) << "codec streamId is not set yet";
-    return folly::makeUnexpected(ErrorCode::PROTOCOL_ERROR);
-  }
-
-  auto res = session_.sock_->consume(*codecStreamId_, amount);
-  if (res.hasError()) {
-    return folly::makeUnexpected(ErrorCode::INTERNAL_ERROR);
-  }
-  return folly::unit;
-}
-
 void HQSession::HQStreamTransportBase::trackEgressBodyDelivery(
     uint64_t bodyOffset) {
   auto g = folly::makeGuard(setActiveCodec(__func__));

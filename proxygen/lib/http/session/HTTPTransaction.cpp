@@ -798,15 +798,6 @@ void HTTPTransaction::onEgressTransportAppRateLimited() {
   }
 }
 
-void HTTPTransaction::onIngressBodyPeek(uint64_t bodyOffset,
-                                        const folly::IOBuf& chain) {
-  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBodyPeek");
-  DestructorGuard g(this);
-  if (handler_) {
-    handler_->onBodyPeek(bodyOffset, chain);
-  }
-}
-
 void HTTPTransaction::sendHeadersWithOptionalEOM(const HTTPMessage& headers,
                                                  bool eom) {
   CHECK(HTTPTransactionEgressSM::transit(
@@ -1287,16 +1278,6 @@ void HTTPTransaction::sendAbort(ErrorCode statusCode) {
     size.uncompressed = nbytes;
     transportCallback_->headerBytesGenerated(size);
   }
-}
-
-folly::Expected<folly::Unit, ErrorCode> HTTPTransaction::peek(
-    PeekCallback peekCallback) {
-  return transport_.peek(peekCallback);
-}
-
-folly::Expected<folly::Unit, ErrorCode> HTTPTransaction::consume(
-    size_t amount) {
-  return transport_.consume(amount);
 }
 
 folly::Optional<HTTPTransaction::ConnectionToken>
