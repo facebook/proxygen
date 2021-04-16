@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "proxygen/lib/http/HTTPMessage.h"
 #include <climits>
 #include <folly/Optional.h>
 #include <folly/SocketAddress.h>
@@ -567,6 +568,10 @@ class HTTPTransaction
     virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
         uint8_t level) = 0;
 
+    virtual folly::Optional<HTTPPriority> getHTTPPriority() {
+      return folly::none;
+    }
+
     /**
      * Ask transport to track and ack body delivery.
      */
@@ -656,6 +661,10 @@ class HTTPTransaction
                            currentDepth_,
                            egressCalls_ > 0 ? cumulativeRatio_ / egressCalls_
                                             : 0);
+  }
+
+  folly::Optional<HTTPPriority> getHTTPPriority() const {
+    return transport_.getHTTPPriority();
   }
 
   bool getPriorityFallback() const {

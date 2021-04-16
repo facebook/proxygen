@@ -1487,6 +1487,16 @@ class HQSession
                                         hqDefaultPriority.weight);
     }
 
+    folly::Optional<HTTPPriority> getHTTPPriority() override {
+      if (session_.sock_ && hasStreamId()) {
+        auto sp = session_.sock_->getStreamPriority(getStreamId());
+        if (sp) {
+          return HTTPPriority(sp.value().level, sp.value().incremental);
+        }
+      }
+      return folly::none;
+    }
+
     folly::Optional<HTTPTransaction::ConnectionToken> getConnectionToken()
         const noexcept override {
       return session_.connectionToken_;

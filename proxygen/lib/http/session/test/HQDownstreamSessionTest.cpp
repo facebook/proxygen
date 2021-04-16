@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include "folly/Expected.h"
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 
 #include <folly/io/async/EventBaseManager.h>
@@ -2583,6 +2584,42 @@ TEST_P(HQDownstreamSessionTest, H1QRejectsDelegate) {
     EXPECT_FALSE(handler->sendHeadersWithDelegate(
         200, 1000 * 20, std::move(dsrRequestSender)));
     handler->terminate();
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTest, getHTTPPriority) {
+  folly::Optional<HTTPPriority> expectedResults = HTTPPriority{1, true};
+
+  auto request = getProgressiveGetRequest();
+  sendRequest(request);
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM([&]() {
+    auto resp = makeResponse(200, 0);
+
+    if (!IS_HQ) { // H1Q tests do not support priority
+      EXPECT_EQ(handler->txn_->getHTTPPriority(), folly::none);
+    } else {
+      EXPECT_CALL(*socketDriver_->getSocket(),
+                  getStreamPriority(handler->txn_->getID()))
+          .WillOnce(Return(quic::Priority(expectedResults.value().urgency,
+                                          expectedResults.value().incremental)))
+          .WillOnce(
+              Return(folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS)))
+          .WillOnce(
+              Return(quic::Priority(expectedResults.value().urgency,
+                                    expectedResults.value().incremental)));
+
+      auto urgencyIncremental = handler->txn_->getHTTPPriority().value();
+      EXPECT_EQ(urgencyIncremental.urgency, expectedResults.value().urgency);
+      EXPECT_EQ(urgencyIncremental.incremental,
+                expectedResults.value().incremental);
+      EXPECT_EQ(handler->txn_->getHTTPPriority(), folly::none);
+    }
+    handler->sendRequest(*std::get<0>(resp));
   });
   handler->expectDetachTransaction();
   flushRequestsAndLoop();

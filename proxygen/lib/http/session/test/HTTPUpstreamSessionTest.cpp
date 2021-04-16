@@ -2970,6 +2970,15 @@ TEST_F(HTTP2UpstreamSessionTest, TestConnectionToken) {
   httpSession_->dropConnection();
 }
 
+TEST_F(HTTP2UpstreamSessionTest, HTTPPriority) {
+  auto handler = openTransaction();
+  handler->expectError();
+  handler->expectDetachTransaction();
+  EXPECT_EQ(handler->txn_->getHTTPPriority(), folly::none);
+  eventBase_.loop();
+  httpSession_->dropConnection();
+}
+
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest, ImmediateEof);
 

@@ -417,6 +417,7 @@ class HTTPSession
                                    std::unique_ptr<HTTPCodec> codec,
                                    const std::string& protocolString);
 
+  using HTTPTransaction::Transport::getHTTPPriority;
   virtual folly::Optional<const HTTPMessage::HTTP2Priority> getHTTPPriority(
       uint8_t) override {
     return folly::none;

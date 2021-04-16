@@ -124,6 +124,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
   MOCK_METHOD1(getCurrentTransportInfo, bool(wangle::TransportInfo*));
   MOCK_METHOD1(getFlowControlInfo, void(HTTPTransaction::FlowControlInfo*));
 
+  MOCK_METHOD0(getHTTPPriority, folly::Optional<HTTPPriority>());
+
   GMOCK_METHOD0_(
       , noexcept, , getSessionTypeNonConst, HTTPTransaction::Transport::Type());
   HTTPTransaction::Transport::Type getSessionType() const noexcept override {
