@@ -281,6 +281,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               stream.peekCB = cb;
               if (cb && stream.readState == NEW) {
                 stream.readState = OPEN;
+              } else if (cb && stream.readState == OPEN) {
+                if (!stream.readBuf.empty()) {
+                  eventBase_->runInLoop(this, true);
+                }
               } else if (stream.readState == ERROR) {
                 return folly::makeUnexpected(
                     quic::LocalErrorCode::INTERNAL_ERROR);
@@ -632,13 +636,20 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         continue;
       }
       if (!isIdle(stream.readState)) {
-        if (stream.readCB) {
-          auto cb = stream.readCB;
+        if (stream.readCB || stream.peekCB) {
+          auto rcb = stream.readCB;
+          auto pcb = stream.peekCB;
           stream.readCB = nullptr;
           stream.peekCB = nullptr;
-          cb->readError(
-              it.first,
-              std::make_pair(error.first, folly::StringPiece(error.second)));
+          if (rcb) {
+            rcb->readError(
+                it.first,
+                std::make_pair(error.first, folly::StringPiece(error.second)));
+          } else {
+            pcb->peekError(
+                it.first,
+                std::make_pair(error.first, folly::StringPiece(error.second)));
+          }
         }
         stream.readState = ERROR;
       }
@@ -827,6 +838,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     deliverConnectionError(errorCode.value_or(std::make_pair(
         LocalErrorCode::NO_ERROR, "Closing socket with no error")));
     sock_->cb_ = nullptr;
+  }
+  folly::Optional<quic::ApplicationErrorCode> getConnErrorCode() {
+    return streams_[kConnectionStreamId].error;
   }
 
   void flushWrites(StreamId id = kConnectionStreamId) {
@@ -1045,17 +1059,25 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               }
               return;
             }
-            if (stream.peekCB && stream.readState != PAUSED &&
-                stream.readBuf.front()) {
-              std::deque<StreamBuffer> fakeReadBuffer;
-              stream.readBuf.gather(stream.readBuf.chainLength());
-              auto copyBuf = stream.readBuf.front()->clone();
-              fakeReadBuffer.emplace_back(
-                  std::move(copyBuf), stream.readOffset, false);
-              stream.peekCB->onDataAvailable(
-                  event.streamId,
-                  folly::Range<PeekIterator>(fakeReadBuffer.cbegin(),
-                                             fakeReadBuffer.size()));
+            if (stream.peekCB) {
+              if (event.error) {
+                if (!stream.readCB) {
+                  stream.peekCB->peekError(
+                      event.streamId,
+                      std::make_pair(*event.error, folly::none));
+                  stream.readState = ERROR;
+                }
+              } else if (stream.readState != PAUSED && stream.readBuf.front()) {
+                std::deque<StreamBuffer> fakeReadBuffer;
+                stream.readBuf.gather(stream.readBuf.chainLength());
+                auto copyBuf = stream.readBuf.front()->clone();
+                fakeReadBuffer.emplace_back(
+                    std::move(copyBuf), stream.readOffset, stream.readEOF);
+                stream.peekCB->onDataAvailable(
+                    event.streamId,
+                    folly::Range<PeekIterator>(fakeReadBuffer.cbegin(),
+                                               fakeReadBuffer.size()));
+              }
             }
             if (stream.readCB) {
               if (event.error) {
@@ -1178,6 +1200,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             copyBuf = it.second.readBuf.front()->clone();
             copyBufLen = copyBuf->computeChainDataLength();
           }
+          VLOG(6) << "peek onDataAvailable id=" << it.first
+                  << " len=" << copyBufLen
+                  << " offset=" << it.second.readOffset;
           ERROR_IF(it.second.readBufOffset < copyBufLen,
                    folly::format("readOffset({}) is lower than current read "
                                  "buffer offset({}) for streamId={}",
@@ -1186,7 +1211,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                                  it.first)
                        .str(),
                    continue);
-          fakeReadBuffer.emplace_back(std::move(copyBuf), copyBufLen, false);
+          fakeReadBuffer.emplace_back(
+              std::move(copyBuf), it.second.readOffset, it.second.readEOF);
           it.second.peekCB->onDataAvailable(
               it.first,
               folly::Range<PeekIterator>(fakeReadBuffer.cbegin(),
