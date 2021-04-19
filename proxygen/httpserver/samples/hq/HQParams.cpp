@@ -263,7 +263,6 @@ void initializeTransportSettings(HQParams& hqParams) {
   hqParams.transportSettings.threadLocalDelay =
       std::chrono::microseconds(FLAGS_quic_thread_local_delay_us);
   hqParams.transportSettings.maxBatchSize = FLAGS_quic_batch_size;
-  hqParams.transportSettings.turnoffPMTUD = true;
   if (hqParams.mode == HQMode::CLIENT) {
     // There is no good reason to keep the socket around for a drain period for
     // a commandline client
