@@ -89,7 +89,7 @@ class HTTPMessageFilter
     nextTransactionHandler_->onExTransaction(txn);
   }
 
-  virtual const std::string& getFilterName() noexcept {
+  virtual const std::string& getFilterName() const noexcept {
     return kMessageFilterDefaultName_;
   }
 
