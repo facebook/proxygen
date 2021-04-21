@@ -137,6 +137,7 @@ if (BUILD_QUIC)
   target_link_libraries(
       hq
       PUBLIC
+          fizz::fizz
           proxygen
           proxygencurl
           proxygenhttpserver

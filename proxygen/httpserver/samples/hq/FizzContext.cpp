@@ -8,6 +8,8 @@
 
 #include <proxygen/httpserver/samples/hq/FizzContext.h>
 
+#include <fizz/protocol/ZlibCertificateDecompressor.h>
+#include <fizz/protocol/ZstdCertificateDecompressor.h>
 #include <fizz/server/AeadTicketCipher.h>
 #include <fizz/server/CertManager.h>
 #include <fizz/server/TicketCodec.h>
@@ -200,6 +202,11 @@ FizzClientContextPtr createFizzClientContext(const HQParams& params) {
   ctx->setDefaultShares(
       {fizz::NamedGroup::x25519, fizz::NamedGroup::secp256r1});
   ctx->setSendEarlyData(params.earlyData);
+  auto mgr = std::make_shared<fizz::CertDecompressionManager>();
+  mgr->setDecompressors(
+      {std::make_shared<fizz::ZstdCertificateDecompressor>(),
+       std::make_shared<fizz::ZlibCertificateDecompressor>()});
+  ctx->setCertDecompressionManager(std::move(mgr));
   return ctx;
 }
 
