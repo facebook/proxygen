@@ -24,3 +24,7 @@ _build/
 # common editor artifacts
 *~
 *.vscode*
+
+# Generated document
+html/
+latex/
