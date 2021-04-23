@@ -542,8 +542,21 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 -> folly::Expected<folly::Unit, LocalErrorCode> {
               checkNotReadOnlyStream(id);
               auto it = streams_.find(id);
-              if (it == streams_.end() || it->second.writeOffset >= offset) {
+              if (it == streams_.end()) {
                 return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
+              }
+              if (it->second.writeOffset >= offset) {
+                // already available, fire the cb from the loop
+                eventBase_->runInLoop(
+                    [id, offset, cb] {
+                      QuicSocket::ByteEvent byteEvent = {};
+                      byteEvent.id = id;
+                      byteEvent.offset = offset;
+                      byteEvent.type = QuicSocket::ByteEvent::Type::ACK;
+                      cb->onByteEvent(byteEvent);
+                    },
+                    /*thisIteration=*/true);
+                return folly::unit;
               }
 
               ERROR_IF(it->second.writeState == CLOSED,
@@ -560,8 +573,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         .WillRepeatedly(testing::Invoke([this](quic::StreamId id) -> void {
           cancelDeliveryCallbacks(id, streams_[id]);
         }));
-    localAddress_.setFromIpPort("0.0.0.0", 0);
-    peerAddress_.setFromIpPort("127.0.0.0", 443);
+    localAddress_.setFromIpPort("0.0.0.0", folly::Random::rand32());
+    peerAddress_.setFromIpPort("127.0.0.0", folly::Random::rand32());
     EXPECT_CALL(*sock_, getLocalAddress())
         .WillRepeatedly(testing::ReturnRef(localAddress_));
     EXPECT_CALL(*sock_, getPeerAddress())
