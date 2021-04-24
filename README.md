@@ -148,7 +148,7 @@ knobs to tune both the quic transport and the http layer.
 ### Documentation
 
 We use Doxygen for Proxygen's internal documentation. You can generate a
-copy of these docs by running `Doxygen Doxyfile` from the project
+copy of these docs by running `doxygen Doxyfile` from the project
 root. You'll want to look at `html/namespaceproxygen.html` to start. This
 will also generate `folly` documentation.
 
