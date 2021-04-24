@@ -16,6 +16,9 @@ class TestFilter : public HTTPMessageFilter {
   std::unique_ptr<HTTPMessageFilter> clone() noexcept override {
     return nullptr;
   }
+  bool allowDSR() const noexcept override {
+    return true;
+  }
 };
 
 TEST(HTTPMessageFilter, TestFilterPauseResumePropagatedToFilter) {

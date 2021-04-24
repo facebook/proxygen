@@ -64,6 +64,10 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
                << this->getFilterName();
   };
 
+  bool allowDSR() const noexcept override {
+    return true;
+  }
+
   void nextOnEOMPublic() {
     nextOnEOM();
   }
