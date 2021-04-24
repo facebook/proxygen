@@ -64,8 +64,12 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
                << this->getFilterName();
   };
 
+  void setAllowDSR(bool allow) {
+    allowDSR_ = allow;
+  }
+
   bool allowDSR() const noexcept override {
-    return true;
+    return allowDSR_;
   }
 
   void nextOnEOMPublic() {
@@ -83,6 +87,7 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
  private:
   folly::IOBufQueue bodyDataReceived_{folly::IOBufQueue::cacheChainLength()};
   bool trackDataPassedThrough_{false};
+  bool allowDSR_{true};
 };
 
 } // namespace proxygen
