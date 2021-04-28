@@ -58,6 +58,10 @@ class QPACKCodec : public HeaderCodec {
     return decoder_.decodeEncoderStream(std::move(buf));
   }
 
+  HPACK::DecodeError encoderStreamEnd() {
+    return decoder_.encoderStreamEnd();
+  }
+
   // QPACK blocking decode.  The decoder may queue the block if there are
   // unsatisfied dependencies
   void decodeStreaming(uint64_t streamId,
@@ -82,6 +86,10 @@ class QPACKCodec : public HeaderCodec {
   // Process bytes on the decoder stream
   HPACK::DecodeError decodeDecoderStream(std::unique_ptr<folly::IOBuf> buf) {
     return encoder_.decodeDecoderStream(std::move(buf));
+  }
+
+  HPACK::DecodeError decoderStreamEnd() {
+    return encoder_.decoderStreamEnd();
   }
 
   // QPACK when a stream is reset.  Clears all reference counts for outstanding

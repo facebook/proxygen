@@ -38,6 +38,8 @@ class QPACKDecoder
 
   HPACK::DecodeError decodeEncoderStream(std::unique_ptr<folly::IOBuf> buf);
 
+  HPACK::DecodeError encoderStreamEnd();
+
   std::unique_ptr<folly::IOBuf> encodeInsertCountInc();
 
   std::unique_ptr<folly::IOBuf> encodeHeaderAck(uint64_t streamId) const;
@@ -127,6 +129,7 @@ class QPACKDecoder
   bool decodeBlock(uint32_t requiredInsertCount, const PendingBlock& pending);
 
   void drainQueue();
+  void errorQueue();
 
   uint32_t maxBlocking_{HPACK::kDefaultBlocking};
   uint32_t baseIndex_{0};

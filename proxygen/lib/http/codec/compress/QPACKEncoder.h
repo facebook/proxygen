@@ -54,6 +54,8 @@ class QPACKEncoder
 
   HPACK::DecodeError decodeDecoderStream(std::unique_ptr<folly::IOBuf> buf);
 
+  HPACK::DecodeError decoderStreamEnd();
+
   HPACK::DecodeError onInsertCountIncrement(uint32_t inserts);
 
   HPACK::DecodeError onHeaderAck(uint64_t streamId, bool all);

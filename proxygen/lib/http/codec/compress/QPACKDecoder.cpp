@@ -220,6 +220,19 @@ HPACK::DecodeError QPACKDecoder::decodeEncoderStream(
   }
 }
 
+HPACK::DecodeError QPACKDecoder::encoderStreamEnd() {
+  if (!ingress_.empty()) {
+    err_ = HPACK::DecodeError::BUFFER_UNDERFLOW;
+  }
+  if (!queue_.empty()) {
+    if (err_ != HPACK::DecodeError::NONE) {
+      err_ = HPACK::DecodeError::ENCODER_STREAM_CLOSED;
+    }
+    errorQueue();
+  }
+  return err_;
+}
+
 void QPACKDecoder::decodeEncoderStreamInstruction(HPACKDecodeBuffer& dbuf) {
   uint8_t byte = dbuf.peek();
   partial_.consumed = dbuf.consumedBytes();
@@ -449,7 +462,7 @@ bool QPACKDecoder::decodeBlock(uint32_t requiredInsertCount,
     folly::DestructorCheck::Safety safety(*this);
     decodeStreamingImpl(
         requiredInsertCount, pending.consumed, dbuf, pending.cb);
-    // The callback way destroy this, if so stop queue processing
+    // The callback may destroy this, if so stop queue processing
     if (safety.destroyed()) {
       return true;
     }
@@ -468,6 +481,17 @@ void QPACKDecoder::drainQueue() {
       return;
     }
     it = queue_.begin();
+  }
+}
+
+void QPACKDecoder::errorQueue() {
+  // The callback may destroy this, if so stop queue processing
+  folly::DestructorCheck::Safety safety(*this);
+  while (!safety.destroyed() && !queue_.empty()) {
+    auto it = queue_.begin();
+    PendingBlock block = std::move(it->second);
+    queue_.erase(it);
+    block.cb->onDecodeError(HPACK::DecodeError::ENCODER_STREAM_CLOSED);
   }
 }
 

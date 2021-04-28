@@ -394,6 +394,13 @@ HPACK::DecodeError QPACKEncoder::decodeDecoderStream(
   return err;
 }
 
+HPACK::DecodeError QPACKEncoder::decoderStreamEnd() {
+  if (!decoderIngress_.empty()) {
+    return HPACK::DecodeError::BUFFER_UNDERFLOW;
+  }
+  return HPACK::DecodeError::NONE;
+}
+
 HPACK::DecodeError QPACKEncoder::decodeHeaderAck(HPACKDecodeBuffer& dbuf,
                                                  uint8_t prefixLength,
                                                  bool all) {

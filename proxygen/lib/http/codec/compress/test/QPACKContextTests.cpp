@@ -588,6 +588,43 @@ TEST(QPACKContextTests, TestDecodeQueueResetSelf) {
             HPACK::DecodeError::NONE);
 }
 
+TEST(QPACKContextTests, TestEncoderStreamEndBlocked) {
+  // This test queues a blocked stream, then ends the encoder stream
+  QPACKEncoder encoder(true, 100);
+  QPACKDecoder decoder(100);
+
+  vector<HPACKHeader> req1;
+  req1.emplace_back("Blarf", "Blah");
+  auto result1 = encoder.encode(req1, 0, 1);
+
+  // Decode #1, no control stream, queued
+  TestStreamingCallback cb1;
+  auto length = result1.stream->computeChainDataLength();
+  decoder.decodeStreaming(1, std::move(result1.stream), length, &cb1);
+
+  EXPECT_EQ(decoder.encoderStreamEnd(), HPACK::DecodeError::NONE);
+  EXPECT_EQ(cb1.error, HPACK::DecodeError::ENCODER_STREAM_CLOSED);
+}
+
+TEST(QPACKContextTests, TestEncoderStreamEndUnderflow) {
+  // This test ends the encoder & decoder streams mid-instruction
+  QPACKEncoder encoder(true, 100);
+  QPACKDecoder decoder(100);
+
+  vector<HPACKHeader> req1;
+  req1.emplace_back("Blarf", "Blah");
+  auto result1 = encoder.encode(req1, 0, 1);
+
+  folly::IOBufQueue q;
+  q.append(std::move(result1.control));
+  EXPECT_EQ(decoder.decodeEncoderStream(q.split(1)), HPACK::DecodeError::NONE);
+  EXPECT_EQ(decoder.encoderStreamEnd(), HPACK::DecodeError::BUFFER_UNDERFLOW);
+  // ? = 63 insert count with all 1's filled
+  EXPECT_EQ(encoder.decodeDecoderStream(folly::IOBuf::copyBuffer("?", 1)),
+            HPACK::DecodeError::NONE);
+  EXPECT_EQ(encoder.decoderStreamEnd(), HPACK::DecodeError::BUFFER_UNDERFLOW);
+}
+
 TEST(QPACKContextTests, TestDecodeMaxUncompressed) {
   QPACKEncoder encoder(false, 64);
   QPACKDecoder decoder(64);
