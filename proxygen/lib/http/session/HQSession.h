@@ -1635,7 +1635,7 @@ class HQSession
      * skipped.
      */
     uint64_t streamEgressCommittedByteOffset() const {
-      return bytesWritten_ + bytesSkipped_;
+      return bytesWritten_;
     }
 
     /**
