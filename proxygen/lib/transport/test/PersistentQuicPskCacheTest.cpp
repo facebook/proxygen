@@ -266,13 +266,13 @@ TEST_F(PersistentQuicPskCacheTest, TestGetPskUses) {
 
   EXPECT_EQ(folly::none, cache_->getPskUses("facebook.com"));
   cache_->putPsk("facebook.com", quicPsk1_);
-  EXPECT_EQ(0, cache_->getPskUses("facebook.com"));
+  EXPECT_EQ(0u, cache_->getPskUses("facebook.com"));
 
   cache_->getPsk("facebook.com");
-  EXPECT_EQ(1, cache_->getPskUses("facebook.com"));
+  EXPECT_EQ(1u, cache_->getPskUses("facebook.com"));
 
   cache_->getPsk("facebook.com");
-  EXPECT_EQ(2, cache_->getPskUses("facebook.com"));
+  EXPECT_EQ(2u, cache_->getPskUses("facebook.com"));
 
   createCache();
   cache_->setMaxPskUses(3);
