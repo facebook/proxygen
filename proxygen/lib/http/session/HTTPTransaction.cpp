@@ -1085,7 +1085,7 @@ size_t HTTPTransaction::sendDeferredBufferMeta(uint32_t maxEgress) {
         egressState_, HTTPTransactionEgressSM::Event::eomFlushed));
   }
   updateReadTimeout();
-  nbytes = transport_.sendBody(this, std::move(bufferMeta), sendEom);
+  nbytes = transport_.sendBody(this, bufferMeta, sendEom);
   if (isPrioritySampled()) {
     updateTransactionBytesSent(bufferMeta.length);
   }

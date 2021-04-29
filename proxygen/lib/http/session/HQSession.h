@@ -1318,7 +1318,7 @@ class HQSession
                     bool trackLastByteFlushed) noexcept override;
 
     size_t sendBody(HTTPTransaction* txn,
-                    HTTPTransaction::BufferMeta&& body,
+                    const HTTPTransaction::BufferMeta& body,
                     bool eom) noexcept override;
 
     size_t sendChunkHeader(HTTPTransaction* txn,

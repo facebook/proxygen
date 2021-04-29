@@ -2994,7 +2994,7 @@ void HQSession::HQStreamTransportBase::notifyPendingEgress() noexcept {
 
 size_t HQSession::HQStreamTransportBase::sendBody(
     HTTPTransaction* txn,
-    HTTPTransaction::BufferMeta&& body,
+    const HTTPTransaction::BufferMeta& body,
     bool eom) noexcept {
   VLOG(2) << __func__ << " len=" << body.length << " eof=" << eom
           << " txn=" << *txn;

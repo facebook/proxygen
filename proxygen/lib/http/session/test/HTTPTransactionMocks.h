@@ -48,7 +48,7 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
                  size_t(HTTPTransaction*, size_t bufferMetaLength, bool));
 
   size_t sendBody(HTTPTransaction* txn,
-                  HTTPTransaction::BufferMeta&& bufferMeta,
+                  const HTTPTransaction::BufferMeta& bufferMeta,
                   bool eom) noexcept override {
     return sendBodyMeta(txn, bufferMeta.length, eom);
   }

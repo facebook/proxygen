@@ -471,7 +471,7 @@ class HTTPTransaction
 
     // Experimental
     virtual size_t sendBody(HTTPTransaction*,
-                            BufferMeta&&,
+                            const BufferMeta&,
                             bool /* eom */) noexcept = 0;
 
     virtual size_t sendBody(HTTPTransaction* txn,

@@ -498,7 +498,7 @@ class HTTPSession
                   bool includeEOM,
                   bool trackLastByteFlushed) noexcept override;
   size_t sendBody(HTTPTransaction*,
-                  HTTPTransaction::BufferMeta&&,
+                  const HTTPTransaction::BufferMeta&,
                   bool /* eom */) noexcept override {
     return 0;
   }
