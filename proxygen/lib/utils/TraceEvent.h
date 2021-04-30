@@ -246,12 +246,12 @@ class TraceEvent {
   bool readMeta(TraceFieldType key, T& dest) const {
     const auto itr = metaData_.find(key);
     if (itr != metaData_.end()) {
-      return folly::catch_exception<std::exception const&>(
+      return folly::catch_exception(
           [&]() -> bool {
             dest = itr->second.getValueAs<T>();
             return true;
           },
-          [](auto&&) -> bool { return false; });
+          +[]() -> bool { return false; });
     }
     return false;
   }
