@@ -77,6 +77,9 @@ std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info) {
     paramsV.push_back(
         "_" + folly::to<std::string>(info.param.unidirectionalStreamsCredit));
   }
+  if (!info.param.createQPACKStreams_) {
+    paramsV.push_back("_noqpack");
+  }
   return folly::join("", paramsV);
 }
 

@@ -10,6 +10,7 @@
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBufQueue.h>
+#include <folly/io/async/EventBaseManager.h>
 #include <limits>
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
@@ -40,6 +41,7 @@ constexpr uint64_t kDefaultUnidirStreamCredit = 3;
 
 struct TestParams {
   std::string alpn_;
+  bool createQPACKStreams_{true};
   bool shouldSendSettings_{true};
   uint64_t unidirectionalStreamsCredit{kDefaultUnidirStreamCredit};
   std::size_t numBytesOnPushStream{kUnlimited};
@@ -75,6 +77,9 @@ class HQSessionTest
 
  public:
   void SetUp() override {
+    folly::EventBaseManager::get()->clearEventBase();
+    proxygen::HTTPSession::setDefaultWriteBufferLimit(65536);
+    proxygen::HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
   }
   void TearDown() override {
   }
@@ -125,7 +130,8 @@ class HQSessionTest
         *hqSession_,
         direction_ == proxygen::TransportDirection::DOWNSTREAM
             ? quic::MockQuicSocketDriver::TransportEnum::SERVER
-            : quic::MockQuicSocketDriver::TransportEnum::CLIENT);
+            : quic::MockQuicSocketDriver::TransportEnum::CLIENT,
+        getProtocolString());
 
     hqSession_->setSocket(socketDriver_->getSocket());
 
@@ -141,7 +147,10 @@ class HQSessionTest
         .Times(testing::AnyNumber());
     if (!IS_H1Q_FB_V1) {
 
-      numCtrlStreams_ = (IS_H1Q_FB_V2 ? 1 : (IS_HQ ? 3 : 0));
+      size_t ctrlStreamCount = (IS_H1Q_FB_V2 || IS_HQ) ? 1 : 0;
+      size_t qpackStreamCount =
+          (IS_HQ && GetParam().createQPACKStreams_) ? 2 : 0;
+      numCtrlStreams_ = ctrlStreamCount + qpackStreamCount;
       socketDriver_->setLocalAppCallback(this);
 
       if (GetParam().unidirectionalStreamsCredit >= numCtrlStreams_) {
@@ -184,14 +193,16 @@ class HQSessionTest
       createControlStream(socketDriver_.get(),
                           connControlStreamId_,
                           proxygen::hq::UnidirectionalStreamType::CONTROL);
-      createControlStream(
-          socketDriver_.get(),
-          nextUnidirectionalStreamId(),
-          proxygen::hq::UnidirectionalStreamType::QPACK_ENCODER);
-      createControlStream(
-          socketDriver_.get(),
-          nextUnidirectionalStreamId(),
-          proxygen::hq::UnidirectionalStreamType::QPACK_DECODER);
+      if (GetParam().createQPACKStreams_) {
+        createControlStream(
+            socketDriver_.get(),
+            nextUnidirectionalStreamId(),
+            proxygen::hq::UnidirectionalStreamType::QPACK_ENCODER);
+        createControlStream(
+            socketDriver_.get(),
+            nextUnidirectionalStreamId(),
+            proxygen::hq::UnidirectionalStreamType::QPACK_DECODER);
+      }
       if (GetParam().shouldSendSettings_) {
         sendSettings();
       }
@@ -360,8 +371,6 @@ class HQSessionTest
   proxygen::HQSession* hqSession_;
   MockControllerContainer controllerContainer_;
   std::unique_ptr<quic::MockQuicSocketDriver> socketDriver_;
-  folly::SocketAddress localAddress_;
-  folly::SocketAddress peerAddress_;
   // One QPACKCodec per session, handles both encoder and decoder
   proxygen::QPACKCodec qpackCodec_;
   std::map<quic::StreamId, proxygen::hq::UnidirectionalStreamType>

@@ -118,7 +118,7 @@ void HQDownstreamSessionTest::TearDown() {
 }
 
 void HQDownstreamSessionTest::SetUpBase() {
-  folly::EventBaseManager::get()->clearEventBase();
+  HQSessionTest::SetUp();
   streamTransInfo_ = {.totalHeadOfLineBlockedTime =
                           std::chrono::milliseconds(100),
                       .holbCount = 2,
@@ -126,17 +126,6 @@ void HQDownstreamSessionTest::SetUpBase() {
 
   EXPECT_CALL(*socketDriver_->getSocket(), getStreamTransportInfo(testing::_))
       .WillRepeatedly(testing::Return(streamTransInfo_));
-
-  localAddress_.setFromIpPort("0.0.0.0", 0);
-  peerAddress_.setFromIpPort("127.0.0.0", 443);
-  EXPECT_CALL(*socketDriver_->getSocket(), getLocalAddress())
-      .WillRepeatedly(testing::ReturnRef(localAddress_));
-  EXPECT_CALL(*socketDriver_->getSocket(), getPeerAddress())
-      .WillRepeatedly(testing::ReturnRef(peerAddress_));
-  EXPECT_CALL(*socketDriver_->getSocket(), getAppProtocol())
-      .WillRepeatedly(testing::Return(getProtocolString()));
-  proxygen::HTTPSession::setDefaultWriteBufferLimit(65536);
-  proxygen::HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
 }
 
 void HQDownstreamSessionTest::SetUpOnTransportReady() {
@@ -1888,29 +1877,23 @@ TEST_P(HQDownstreamSessionTest, CurrentTransportInfo) {
 }
 
 TEST_P(HQDownstreamSessionTest, GetAddresses) {
-  folly::SocketAddress localAddr("::", 65001);
-  folly::SocketAddress remoteAddr("31.13.31.13", 3113);
-  EXPECT_CALL(*socketDriver_->getSocket(), getLocalAddress())
-      .WillRepeatedly(ReturnRef(localAddr));
-  EXPECT_CALL(*socketDriver_->getSocket(), getPeerAddress())
-      .WillRepeatedly(ReturnRef(remoteAddr));
-  EXPECT_EQ(localAddr, hqSession_->getLocalAddress());
-  EXPECT_EQ(remoteAddr, hqSession_->getPeerAddress());
+  EXPECT_EQ(socketDriver_->localAddress_, hqSession_->getLocalAddress());
+  EXPECT_EQ(socketDriver_->peerAddress_, hqSession_->getPeerAddress());
   hqSession_->dropConnection();
 }
 
 TEST_P(HQDownstreamSessionTest, GetAddressesFromBase) {
   HTTPSessionBase* sessionBase = dynamic_cast<HTTPSessionBase*>(hqSession_);
-  EXPECT_EQ(localAddress_, sessionBase->getLocalAddress());
-  EXPECT_EQ(localAddress_, sessionBase->getLocalAddress());
+  EXPECT_EQ(socketDriver_->localAddress_, sessionBase->getLocalAddress());
+  EXPECT_EQ(socketDriver_->peerAddress_, sessionBase->getPeerAddress());
   hqSession_->dropConnection();
 }
 
 TEST_P(HQDownstreamSessionTest, GetAddressesAfterDropConnection) {
   HQSession::DestructorGuard dg(hqSession_);
   hqSession_->dropConnection();
-  EXPECT_EQ(localAddress_, hqSession_->getLocalAddress());
-  EXPECT_EQ(peerAddress_, hqSession_->getPeerAddress());
+  EXPECT_EQ(socketDriver_->localAddress_, hqSession_->getLocalAddress());
+  EXPECT_EQ(socketDriver_->peerAddress_, hqSession_->getPeerAddress());
 }
 
 TEST_P(HQDownstreamSessionTest, RstCancelled) {
@@ -2655,6 +2638,7 @@ INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
 INSTANTIATE_TEST_CASE_P(HQDownstreamSessionTest,
                         HQDownstreamSessionFilterTestHQ,
                         Values(TestParams({.alpn_ = "h3",
+                                           .createQPACKStreams_ = true,
                                            .shouldSendSettings_ = false})),
                         paramsToTestName);
 

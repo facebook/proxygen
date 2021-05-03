@@ -397,6 +397,25 @@ void HQSession::onReplaySafe() noexcept {
   waitingForReplaySafety_.clear();
 }
 
+void HQSession::onConnectionEnd() noexcept {
+  VLOG(4) << __func__ << " sess=" << *this;
+  // The transport will not call onConnectionEnd after we call close(),
+  // so there is no need for us here to handle re-entrancy
+  // checkForShutdown->close->onConnectionEnd.
+  drainState_ = DrainState::DONE;
+  if (versionUtils_) {
+    versionUtils_->onConnectionEnd();
+  }
+  closeWhenIdle();
+}
+
+void HQSession::HQVersionUtils::onConnectionEnd() {
+  // Ignore any connection level decode errors from the QPACK codec, the
+  // connection is being torn down anyways.
+  qpackCodec_.encoderStreamEnd();
+  qpackCodec_.decoderStreamEnd();
+}
+
 void HQSession::onConnectionError(
     std::pair<quic::QuicErrorCode, std::string> code) noexcept {
   // the connector will drop the connection in case of connect error

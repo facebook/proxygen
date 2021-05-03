@@ -215,14 +215,7 @@ class HQSession
   void onStopSending(quic::StreamId id,
                      quic::ApplicationErrorCode error) noexcept override;
 
-  void onConnectionEnd() noexcept override {
-    VLOG(4) << __func__ << " sess=" << *this;
-    // The transport will not call onConnectionEnd after we call close(),
-    // so there is no need for us here to handle re-entrancy
-    // checkForShutdown->close->onConnectionEnd.
-    drainState_ = DrainState::DONE;
-    closeWhenIdle();
-  }
+  void onConnectionEnd() noexcept override;
 
   void onConnectionError(
       std::pair<quic::QuicErrorCode, std::string> code) noexcept override;
@@ -1807,6 +1800,8 @@ class HQSession
     }
     virtual void setHeaderCodecStats(HeaderCodec::Stats*) {
     }
+    virtual void onConnectionEnd() {
+    }
 
     HQSession& session_;
   };
@@ -1922,6 +1917,7 @@ class HQSession
     void setHeaderCodecStats(HeaderCodec::Stats* stats) override {
       qpackCodec_.setStats(stats);
     }
+    void onConnectionEnd() override;
 
    private:
     QPACKCodec qpackCodec_;

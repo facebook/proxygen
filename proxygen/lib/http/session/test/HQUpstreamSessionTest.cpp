@@ -12,7 +12,6 @@
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 
 #include <folly/futures/Future.h>
-#include <folly/io/async/EventBaseManager.h>
 #include <folly/portability/GTest.h>
 #include <limits>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
@@ -104,18 +103,7 @@ quic::StreamId HQUpstreamSessionTest::nextUnidirectionalStreamId() {
 }
 
 void HQUpstreamSessionTest::SetUp() {
-  folly::EventBaseManager::get()->clearEventBase();
-  localAddress_.setFromIpPort("0.0.0.0", 0);
-  peerAddress_.setFromIpPort("127.0.0.0", 443);
-  EXPECT_CALL(*socketDriver_->getSocket(), getLocalAddress())
-      .WillRepeatedly(ReturnRef(localAddress_));
-
-  EXPECT_CALL(*socketDriver_->getSocket(), getPeerAddress())
-      .WillRepeatedly(ReturnRef(peerAddress_));
-  EXPECT_CALL(*socketDriver_->getSocket(), getAppProtocol())
-      .WillRepeatedly(Return(getProtocolString()));
-  HTTPSession::setDefaultWriteBufferLimit(65536);
-  HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
+  HQSessionTest::SetUp();
   dynamic_cast<HQUpstreamSession*>(hqSession_)->setConnectCallback(&connectCb_);
 
   EXPECT_CALL(connectCb_, connectSuccess());
@@ -237,6 +225,8 @@ using HQUpstreamSessionTestH1qv1 = HQUpstreamSessionTest;
 using HQUpstreamSessionTestH1qv2HQ = HQUpstreamSessionTest;
 // Use this test class for hq only tests
 using HQUpstreamSessionTestHQ = HQUpstreamSessionTest;
+// Use this test class for hq only tests with qpack encoder streams on/off
+using HQUpstreamSessionTestQPACK = HQUpstreamSessionTest;
 
 TEST_P(HQUpstreamSessionTest, SimpleGet) {
   auto handler = openTransaction();
@@ -593,29 +583,23 @@ TEST_P(HQUpstreamSessionTest, TestSetIngressTimeoutAfterSendEom) {
 }
 
 TEST_P(HQUpstreamSessionTest, GetAddresses) {
-  folly::SocketAddress localAddr("::", 65001);
-  folly::SocketAddress remoteAddr("31.13.31.13", 3113);
-  EXPECT_CALL(*socketDriver_->getSocket(), getLocalAddress())
-      .WillRepeatedly(ReturnRef(localAddr));
-  EXPECT_CALL(*socketDriver_->getSocket(), getPeerAddress())
-      .WillRepeatedly(ReturnRef(remoteAddr));
-  EXPECT_EQ(localAddr, hqSession_->getLocalAddress());
-  EXPECT_EQ(remoteAddr, hqSession_->getPeerAddress());
+  EXPECT_EQ(socketDriver_->localAddress_, hqSession_->getLocalAddress());
+  EXPECT_EQ(socketDriver_->peerAddress_, hqSession_->getPeerAddress());
   hqSession_->dropConnection();
 }
 
 TEST_P(HQUpstreamSessionTest, GetAddressesFromBase) {
   HTTPSessionBase* sessionBase = dynamic_cast<HTTPSessionBase*>(hqSession_);
-  EXPECT_EQ(localAddress_, sessionBase->getLocalAddress());
-  EXPECT_EQ(localAddress_, sessionBase->getLocalAddress());
+  EXPECT_EQ(socketDriver_->localAddress_, sessionBase->getLocalAddress());
+  EXPECT_EQ(socketDriver_->peerAddress_, sessionBase->getPeerAddress());
   hqSession_->dropConnection();
 }
 
 TEST_P(HQUpstreamSessionTest, GetAddressesAfterDropConnection) {
   HQSession::DestructorGuard dg(hqSession_);
   hqSession_->dropConnection();
-  EXPECT_EQ(localAddress_, hqSession_->getLocalAddress());
-  EXPECT_EQ(peerAddress_, hqSession_->getPeerAddress());
+  EXPECT_EQ(socketDriver_->localAddress_, hqSession_->getLocalAddress());
+  EXPECT_EQ(socketDriver_->peerAddress_, hqSession_->getPeerAddress());
 }
 
 TEST_P(HQUpstreamSessionTest, DropConnectionTwice) {
@@ -1006,6 +990,28 @@ TEST_P(HQUpstreamSessionTestHQ, DelayedQPACKAfterReset) {
                               std::move(qpackData2));
   eventBase_.loopOnce();
   hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQUpstreamSessionTestQPACK, QPACKQueuedOnClose) {
+  InSequence enforceOrder;
+  auto handler = openTransaction();
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->txn_->sendEOM();
+  handler->expectError();
+  handler->expectDetachTransaction();
+  auto resp = makeResponse(200, 100);
+  std::get<0>(resp)->getHeaders().add("X-FB-Debug",
+                                      "egedljtrbullljdjjvtjkekebffefclj");
+  sendResponse(handler->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               true);
+  auto control = encoderWriteBuf_.move();
+  // Entire response is delivered from the transport to the session
+  flushAndLoopN(1);
+  // Connection end but the stream is still pending
+  socketDriver_->addOnConnectionEndEvent(0);
+  eventBase_.loop();
 }
 
 TEST_P(HQUpstreamSessionTestHQ, TestDropConnectionSynchronously) {
@@ -1896,4 +1902,12 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                           tp.unidirectionalStreamsCredit = 4;
                           return tp;
                         }()),
+                        paramsToTestName);
+
+// Instantiate tests with QPACK on/off
+INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+                        HQUpstreamSessionTestQPACK,
+                        Values(TestParams({.alpn_ = "h3"}),
+                               TestParams({.alpn_ = "h3",
+                                           .createQPACKStreams_ = false})),
                         paramsToTestName);
