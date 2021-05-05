@@ -2421,3 +2421,29 @@ TEST_F(HTTP2CodecTest, TrailersNotLatest) {
   EXPECT_EQ(callbacks_.streamErrors, 1);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
+
+class HTTP2CodecDoubleGoawayTest : public HTTPParallelCodecTest {
+ public:
+  HTTP2CodecDoubleGoawayTest()
+      : HTTPParallelCodecTest(upstreamCodec_, downstreamCodec_) {
+  }
+
+  void SetUp() override {
+    HTTPParallelCodecTest::SetUp();
+  }
+
+ protected:
+  HTTP2Codec upstreamCodec_{TransportDirection::UPSTREAM};
+  HTTP2Codec downstreamCodec_{TransportDirection::DOWNSTREAM};
+};
+
+TEST_F(HTTP2CodecDoubleGoawayTest, EnableDoubleGoawayAfterClose) {
+  SetUpUpstreamTest();
+  upstreamCodec_.generateGoaway(output_);
+  // Now a no-op
+  upstreamCodec_.enableDoubleGoawayDrain();
+  parseUpstream();
+  EXPECT_EQ(callbacks_.goaways, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}

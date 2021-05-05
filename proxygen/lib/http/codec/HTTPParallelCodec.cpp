@@ -50,8 +50,12 @@ bool HTTPParallelCodec::isReusable() const {
 }
 
 void HTTPParallelCodec::enableDoubleGoawayDrain() {
-  CHECK_EQ(sessionClosing_, ClosingState::OPEN);
-  sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
+  if (sessionClosing_ == ClosingState::OPEN) {
+    sessionClosing_ = ClosingState::OPEN_WITH_GRACEFUL_DRAIN_ENABLED;
+  } else {
+    VLOG(3) << "Cannot enable double goaway because the session is already "
+               "draining or closed";
+  }
 }
 
 bool HTTPParallelCodec::onIngressUpgradeMessage(const HTTPMessage& /*msg*/) {
