@@ -1052,7 +1052,7 @@ class HTTPTransaction
         << "Chunked-encoding doesn't support BufferMeta write";
     // TODO: move this logic down to session/codec
     if (!transport_.getCodec().supportsParallelRequests()) {
-      chunkHeaders_.emplace_back(Chunk(length));
+      chunkHeaders_.emplace_back(length);
     }
   }
 
