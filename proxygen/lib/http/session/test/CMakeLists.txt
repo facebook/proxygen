@@ -44,6 +44,7 @@ if (BUILD_QUIC)
       proxygen
       testmain
       mvfst::mvfst_codec_types
+      mvfst::mvfst_dsr_types
       mvfst::mvfst_state_machine
   )
 endif()

@@ -1713,7 +1713,6 @@ class HQSession
     //  - "onHeadersComplete" (not pending anymore)
     folly::Optional<hq::PushId> ingressPushId_;
 
-    std::unique_ptr<DSRRequestSender> dsrSender_;
     HTTPTransaction::BufferMeta bufMeta_;
   }; // HQStreamTransportBase
 

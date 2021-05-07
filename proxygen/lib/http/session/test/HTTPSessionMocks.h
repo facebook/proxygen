@@ -521,7 +521,6 @@ class MockHTTPSessionStats : public DummyHTTPSessionStats {
 class MockDSRRequestSender : public DSRRequestSender {
  public:
   MockDSRRequestSender() = default;
-  MOCK_METHOD0(flush, void());
 };
 
 } // namespace proxygen

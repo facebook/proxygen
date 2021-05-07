@@ -21,6 +21,7 @@
 #include <proxygen/lib/http/session/test/MockQuicSocketDriver.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <quic/api/test/MockQuicSocket.h>
+#include <quic/dsr/Types.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
 #include <folly/futures/Future.h>
@@ -2535,9 +2536,20 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
   InSequence handlerSequence;
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
-  auto dsrRequestSender = std::make_unique<MockDSRRequestSender>();
+  auto dsrRequestSender = std::make_unique<MockQuicDSRRequestSender>();
+  auto rawDsrSender = dsrRequestSender.get();
   handler->expectEOM([&]() {
     handler->txn_->setTransportCallback(&transportCallback_);
+    EXPECT_CALL(*socketDriver_->getSocket(),
+                setDSRPacketizationRequestSenderRef(_, _))
+        .Times(1)
+        .WillOnce(Invoke(
+            [&](StreamId,
+                const std::unique_ptr<quic::DSRPacketizationRequestSender>&
+                    sender) {
+              EXPECT_EQ(rawDsrSender, sender.get());
+              return folly::unit;
+            }));
     EXPECT_TRUE(handler->sendHeadersWithDelegate(
         200, 1000 * 20, std::move(dsrRequestSender)));
     EXPECT_GT(transportCallback_.bodyBytesGenerated_, 0);
@@ -2546,9 +2558,9 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
     handler->txn_->onWriteReady(10 * 1000, 1.0);
     EXPECT_EQ(transportCallback_.bodyBytesGenerated_,
               10 * 1000 + dataFrameHeaderSize);
+    handler->expectDetachTransaction();
     handler->terminate();
   });
-  handler->expectDetachTransaction();
   flushRequestsAndLoop();
   hqSession_->closeWhenIdle();
 }
@@ -2562,7 +2574,7 @@ TEST_P(HQDownstreamSessionTest, H1QRejectsDelegate) {
   InSequence handlerSequence;
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
-  auto dsrRequestSender = std::make_unique<MockDSRRequestSender>();
+  auto dsrRequestSender = std::make_unique<MockQuicDSRRequestSender>();
   handler->expectEOM([&]() {
     EXPECT_FALSE(handler->sendHeadersWithDelegate(
         200, 1000 * 20, std::move(dsrRequestSender)));

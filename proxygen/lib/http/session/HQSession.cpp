@@ -2741,8 +2741,29 @@ bool HQSession::HQStreamTransportBase::sendHeadersWithDelegate(
   updatePriority(headers);
   auto g = folly::makeGuard(setActiveCodec(__func__));
   auto streamId = getStreamId();
+  auto sock = session_.sock_;
+  if (!sock) {
+    LOG(ERROR) << __func__
+               << ": HQSession received delegate request without a QuicSocket";
+    return false;
+  }
+  auto quicDSRSenderRawPtr =
+      dynamic_cast<quic::DSRPacketizationRequestSender*>(dsrSender.get());
+  if (!quicDSRSenderRawPtr) {
+    LOG(ERROR) << __func__ << ": The passed in DSRSender is of wrong type";
+    return false;
+  }
+  dsrSender.release();
+  auto setSenderRet = sock->setDSRPacketizationRequestSender(
+      streamId,
+      std::unique_ptr<quic::DSRPacketizationRequestSender>(
+          quicDSRSenderRawPtr));
+  if (setSenderRet.hasError()) {
+    LOG(ERROR) << __func__ << ": failed to set DSR sender, error="
+               << toString(setSenderRet.error());
+    return false;
+  }
   generateHeadersCommon(streamId, headers, false /* includeEOM */, size);
-
   // Write a DATA frame header with CL value
   auto writeFrameHeaderResult =
       hq::writeFrameHeader(writeBuf_, FrameType::DATA, contentLength);
@@ -2751,7 +2772,6 @@ bool HQSession::HQStreamTransportBase::sendHeadersWithDelegate(
   }
   *dataFrameHeaderSize = *writeFrameHeaderResult;
   notifyPendingEgress();
-  dsrSender_ = std::move(dsrSender);
   return true;
 }
 
