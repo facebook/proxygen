@@ -91,7 +91,7 @@ void HQUpstreamSessionTest::sendPartialBody(quic::StreamId id,
 
   stream.readEOF = eom;
   if (body) {
-    socketDriver_->streams_[id].writeBufOffset += stream.codec->generateBody(
+    stream.codec->generateBody(
         stream.buf, stream.codecId, std::move(body), folly::none, eom);
   }
 }

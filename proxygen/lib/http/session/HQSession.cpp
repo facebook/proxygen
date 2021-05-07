@@ -575,8 +575,16 @@ void HQSession::HQStreamTransportBase::generateGoaway() {
   }
 }
 
+size_t HQSession::HQStreamTransportBase::writeBufferSize() const {
+  return writeBuf_.chainLength() + bufMeta_.length;
+}
+
+bool HQSession::HQStreamTransportBase::hasWriteBuffer() const {
+  return writeBuf_.chainLength() != 0 || bufMeta_.length != 0;
+}
+
 bool HQSession::HQStreamTransportBase::hasPendingBody() const {
-  return writeBuf_.chainLength() != 0 ||
+  return hasWriteBuffer() ||
          (queueHandle_.isTransactionEnqueued() && txn_.hasPendingBody());
 }
 
@@ -586,7 +594,7 @@ bool HQSession::HQStreamTransportBase::hasPendingEOM() const {
 }
 
 bool HQSession::HQStreamTransportBase::hasPendingEgress() const {
-  return writeBuf_.chainLength() > 0 || pendingEOM_ ||
+  return hasWriteBuffer() || pendingEOM_ ||
          queueHandle_.isTransactionEnqueued();
 }
 
@@ -595,7 +603,7 @@ bool HQSession::HQStreamTransportBase::wantsOnWriteReady(size_t canSend) const {
   //   a) There is available flow control and it has body OR
   //   b) All body is egressed and it has only pending EOM
   return queueHandle_.isTransactionEnqueued() &&
-         ((canSend > writeBuf_.chainLength() && txn_.hasPendingBody()) ||
+         ((canSend > writeBufferSize() && txn_.hasPendingBody()) ||
           (!txn_.hasPendingBody() && txn_.isEgressEOMQueued()));
 }
 
@@ -1916,17 +1924,18 @@ void HQSession::handleWriteError(HQStreamTransportBase* hqStream,
   hqStream->errorOnTransaction(std::move(ex));
 }
 
-size_t HQSession::handleWrite(HQStreamTransportBase* hqStream,
-                              std::unique_ptr<folly::IOBuf> data,
+template <typename WriteFunc, typename DataType>
+size_t HQSession::handleWrite(WriteFunc writeFunc,
+                              HQStreamTransportBase* hqStream,
+                              DataType dataType,
                               size_t dataChainLen,
                               bool sendEof) {
   quic::QuicSocket::DeliveryCallback* deliveryCallback =
       sendEof ? this : nullptr;
-
-  auto writeRes = sock_->writeChain(hqStream->getEgressStreamId(),
-                                    std::move(data),
-                                    sendEof,
-                                    deliveryCallback);
+  auto writeRes = writeFunc(hqStream->getEgressStreamId(),
+                            std::forward<DataType>(dataType),
+                            sendEof,
+                            deliveryCallback);
   if (writeRes.hasError()) {
     LOG(ERROR) << " Got error=" << writeRes.error()
                << " streamID=" << hqStream->getEgressStreamId();
@@ -1964,8 +1973,7 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
         << "Got error=" << flowControl.error() << " streamID=" << streamId
         << " detached=" << hqStream->detached_
         << " readBufLen=" << static_cast<int>(hqStream->readBuf_.chainLength())
-        << " writeBufLen="
-        << static_cast<int>(hqStream->writeBuf_.chainLength())
+        << " writeBufLen=" << static_cast<int>(hqStream->writeBufferSize())
         << " readEOF=" << hqStream->readEOF_
         << " ingressError_=" << static_cast<int>(hqStream->ingressError_)
         << " eomGate_=" << hqStream->eomGate_;
@@ -1983,10 +1991,10 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
   if (hqStream->wantsOnWriteReady(canSend)) {
     // Populate the write buffer by telling the transaction how much
     // room is available for body data
-    size_t maxBodySend = canSend - hqStream->writeBuf_.chainLength();
+    size_t maxBodySend = canSend - hqStream->writeBufferSize();
     VLOG(4) << __func__ << " asking txn for more bytes sess=" << *this
             << ": streamID=" << streamId << " canSend=" << canSend
-            << " remain=" << hqStream->writeBuf_.chainLength()
+            << " remain=" << hqStream->writeBufferSize()
             << " pendingEOM=" << hqStream->pendingEOM_
             << " maxBodySend=" << maxBodySend << " ratio=" << ratio;
     hqStream->txn_.onWriteReady(maxBodySend, ratio);
@@ -1994,26 +2002,60 @@ uint64_t HQSession::requestStreamWriteImpl(HQStreamTransportBase* hqStream,
     // body bytes, in case it's getting rate limited.
     // In that case the txn will get removed from the egress queue from
     // onWriteReady
-    if (hqStream->writeBuf_.empty() && !hqStream->pendingEOM_) {
+    if (!hqStream->hasWriteBuffer() && !hqStream->pendingEOM_) {
       return 0;
     }
   }
-  auto sendLen = std::min(canSend, hqStream->writeBuf_.chainLength());
+
+  auto bufWritter = [&](quic::StreamId streamId,
+                        std::unique_ptr<folly::IOBuf> data,
+                        bool sendEof,
+                        quic::QuicSocket::DeliveryCallback* deliveryCallback) {
+    return sock_->writeChain(
+        streamId, std::move(data), sendEof, deliveryCallback);
+  };
+  auto bufMetaWritter =
+      [&](quic::StreamId streamId,
+          quic::BufferMeta bufMeta,
+          bool sendEof,
+          quic::QuicSocket::DeliveryCallback* deliveryCallback) {
+        return sock_->writeBufMeta(
+            streamId, bufMeta, sendEof, deliveryCallback);
+      };
+
+  size_t sent = 0;
+  auto bufSendLen = std::min(canSend, hqStream->writeBuf_.chainLength());
   auto tryWriteBuf = hqStream->writeBuf_.splitAtMost(canSend);
   bool sendEof = (hqStream->pendingEOM_ && !hqStream->hasPendingBody());
-
-  CHECK(sendLen > 0 || sendEof);
-  VLOG(4) << __func__ << " before write sess=" << *this
-          << ": streamID=" << streamId << " maxEgress=" << maxEgress
-          << " sendWindow=" << streamSendWindow
-          << " tryToSend=" << tryWriteBuf->computeChainDataLength()
-          << " sendEof=" << sendEof;
-
-  size_t sent = handleWrite(hqStream, std::move(tryWriteBuf), sendLen, sendEof);
+  if (bufSendLen > 0 || sendEof) {
+    VLOG(4) << __func__ << " before write sess=" << *this
+            << ": streamID=" << streamId << " maxEgress=" << maxEgress
+            << " sendWindow=" << streamSendWindow
+            << " tryToSend=" << tryWriteBuf->computeChainDataLength()
+            << " sendEof=" << sendEof;
+    sent = handleWrite(std::move(bufWritter),
+                       hqStream,
+                       std::move(tryWriteBuf),
+                       bufSendLen,
+                       sendEof);
+  }
+  auto bufMetaWriteLen =
+      std::min(canSend - bufSendLen, hqStream->bufMeta_.length);
+  auto splitBufMeta = hqStream->bufMeta_.split(bufMetaWriteLen);
+  // Refresh sendEof after previous write and the bufMEta split.
+  sendEof = (hqStream->pendingEOM_ && !hqStream->hasPendingBody());
+  if (sendEof || splitBufMeta.length > 0) {
+    quic::BufferMeta quicBufMeta(splitBufMeta.length);
+    sent += handleWrite(std::move(bufMetaWritter),
+                        hqStream,
+                        quicBufMeta,
+                        quicBufMeta.length,
+                        sendEof);
+  }
 
   VLOG(4) << __func__ << " after write sess=" << *this
           << ": streamID=" << streamId << " sent=" << sent
-          << " buflen=" << static_cast<int>(hqStream->writeBuf_.chainLength())
+          << " buflen=" << hqStream->writeBufferSize()
           << " hasPendingBody=" << hqStream->txn_.hasPendingBody()
           << " EOM=" << hqStream->pendingEOM_;
   if (infoCallback_) {
@@ -2327,7 +2369,7 @@ void HQSession::startNow() {
 }
 
 void HQSession::HQStreamTransportBase::checkForDetach() {
-  if (detached_ && readBuf_.empty() && writeBuf_.empty() && !pendingEOM_ &&
+  if (detached_ && readBuf_.empty() && !hasWriteBuffer() && !pendingEOM_ &&
       !queueHandle_.isStreamTransportEnqueued()) {
     session_.detachStreamTransport(this);
   }
@@ -2926,6 +2968,7 @@ void HQSession::HQStreamTransportBase::abortEgress(bool checkForDetach) {
   VLOG(4) << "Aborting egress for " << txn_;
   byteEventTracker_.drainByteEvents();
   writeBuf_.move();
+  bufMeta_.length = 0;
   pendingEOM_ = false;
   if (queueHandle_.isStreamTransportEnqueued()) {
     VLOG(4) << "clearPendingEgress for " << txn_;
@@ -3043,11 +3086,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
 
-  if (bufMeta_.length == 0) {
-    bufMeta_.length = body.length;
-  } else if (body.length) {
-    bufMeta_.length += body.length;
-  }
+  bufMeta_.length += body.length;
   uint64_t offset = streamWriteByteOffset();
 
   // TODO(yangchi) generateBody() updates totalEgressBytes_ in codec. Now we

@@ -414,7 +414,6 @@ class HTTPTransaction
 
     BufferMeta() = default;
     explicit BufferMeta(size_t lengthIn) : length(lengthIn) {
-      CHECK(length);
     }
 
     BufferMeta split(size_t splitLen) {

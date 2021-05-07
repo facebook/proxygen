@@ -2532,7 +2532,7 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
     hqSession_->closeWhenIdle();
     return;
   }
-  sendRequest("/cdn.thing", 0, true);
+  auto streamId = sendRequest("/cdn.thing", 0, true);
   InSequence handlerSequence;
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
@@ -2558,8 +2558,17 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
     handler->txn_->onWriteReady(10 * 1000, 1.0);
     EXPECT_EQ(transportCallback_.bodyBytesGenerated_,
               10 * 1000 + dataFrameHeaderSize);
-    handler->expectDetachTransaction();
-    handler->terminate();
+    // from sendHeadersWithDelegate, to actually doing writeChain and
+    // writeBufMeta, there is an extra loop. So the verification + abort also
+    // needs to be placed in a later loop.
+    eventBase_.runInLoop([&] {
+      EXPECT_TRUE(transportCallback_.lastByteFlushed_);
+      // Both onStopSending and terminate the handler can clear the buffered
+      // BufMetas and make the transaction detachable.
+      handler->expectDetachTransaction();
+      hqSession_->onStopSending(streamId,
+                                HTTP3::ErrorCode::HTTP_REQUEST_REJECTED);
+    });
   });
   flushRequestsAndLoop();
   hqSession_->closeWhenIdle();

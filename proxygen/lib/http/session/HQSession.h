@@ -841,8 +841,10 @@ class HQSession
    * Handles the write to the socket and errors for a request stream.
    * Returns the number of bytes written from data.
    */
-  size_t handleWrite(HQStreamTransportBase* hqStream,
-                     std::unique_ptr<folly::IOBuf> data,
+  template <typename WriteFunc, typename DataType>
+  size_t handleWrite(WriteFunc writeFunc,
+                     HQStreamTransportBase* hqStream,
+                     DataType dataType,
                      size_t dataChainLen,
                      bool sendEof);
 
@@ -1503,6 +1505,8 @@ class HQSession
      * Returns whether or no we have any body bytes buffered in the stream, or
      * the txn has any body bytes buffered.
      */
+    size_t writeBufferSize() const;
+    bool hasWriteBuffer() const;
     bool hasPendingBody() const;
     bool hasPendingEOM() const;
     bool hasPendingEgress() const;
@@ -1606,7 +1610,7 @@ class HQSession
       CHECK_EQ(h, &queueHandle_);
       CHECK(queueHandle_.isTransactionEnqueued());
       queueHandle_.setEnqueued(false);
-      if (pendingEOM_ || !writeBuf_.empty()) {
+      if (pendingEOM_ || hasWriteBuffer()) {
         // no-op
         // Only HQSession can clearPendingEgress for these cases
         return;
@@ -1669,6 +1673,10 @@ class HQSession
     // Stream + session protocol info
     std::shared_ptr<QuicStreamProtocolInfo> quicStreamProtocolInfo_;
 
+    // BufferMeta represents a buffer that isn't owned by this stream but a
+    // remote entity.
+    HTTPTransaction::BufferMeta bufMeta_;
+
     void armStreamAckCb(uint64_t streamOffset);
     void armEgressHeadersAckCb(uint64_t streamOffset);
     void armEgressBodyAckCb(uint64_t streamOffset);
@@ -1712,8 +1720,6 @@ class HQSession
     //  - "onPushMessageBegin" (which may be abandonned / duplicate message id)
     //  - "onHeadersComplete" (not pending anymore)
     folly::Optional<hq::PushId> ingressPushId_;
-
-    HTTPTransaction::BufferMeta bufMeta_;
   }; // HQStreamTransportBase
 
  protected:

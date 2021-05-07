@@ -39,6 +39,7 @@ class TestTransportCallback
   }
 
   void lastByteFlushed() noexcept override {
+    lastByteFlushed_ = true;
   }
 
   void trackedByteFlushed() noexcept override {
@@ -84,6 +85,7 @@ class TestTransportCallback
   uint64_t numBodyBytesCanceledCalls_{0};
   uint64_t bodyBytesCanceledOffset_{0};
   uint64_t bodyBytesGenerated_{0};
+  bool lastByteFlushed_{false};
 };
 
 class HQDownstreamSessionTest : public HQSessionTest {
