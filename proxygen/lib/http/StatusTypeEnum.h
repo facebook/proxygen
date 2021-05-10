@@ -33,17 +33,18 @@ namespace proxygen {
       x(tls_missing_proxy_certificate), x(tls_rejected_proxy_certificate),     \
       x(tls_unexpected_peer_certificate), x(tls_unexpected_peer_identity),     \
       x(tls_untrusted_peer_certificate),                                       \
-      /* FB STATUS TYPES */ x(client_read_error), x(client_timeout),           \
-      x(http_body_before_headers), x(http_body_parsing_error),                 \
-      x(http_eom_before_headers), x(http_headers_parsing_error),               \
-      x(http_partial_reliability_disabled), x(http_trailers_before_headers),   \
-      x(no_server_available), x(proxy_adaptive_rate_limit),                    \
-      x(sc_channel_invalid_argument), x(sc_channel_unknown_error),             \
-      x(sc_eom_before_headers), x(sc_upstream_timeout),                        \
-      x(sc_runtime_exception), x(sc_content_integrity_error),                  \
-      x(redirect_connect_error), x(redirect_limit_exceeded),                   \
-      x(redirect_pool_error), x(redirect_request_too_large),                   \
-      x(server_connection_error), x(server_timeout), x(server_write_error),    \
+      /* FB STATUS TYPES */ x(async_request_error), x(client_read_error),      \
+      x(client_timeout), x(http_body_before_headers),                          \
+      x(http_body_parsing_error), x(http_eom_before_headers),                  \
+      x(http_headers_parsing_error), x(http_partial_reliability_disabled),     \
+      x(http_trailers_before_headers), x(no_server_available),                 \
+      x(proxy_adaptive_rate_limit), x(sc_channel_invalid_argument),            \
+      x(sc_channel_unknown_error), x(sc_eom_before_headers),                   \
+      x(sc_upstream_timeout), x(sc_runtime_exception),                         \
+      x(sc_content_integrity_error), x(redirect_connect_error),                \
+      x(redirect_limit_exceeded), x(redirect_pool_error),                      \
+      x(redirect_request_too_large), x(server_connection_error),               \
+      x(server_timeout), x(server_write_error),                                \
       /* APP-SPECIFIC STATUS TYPES */ x(manifest_invalid_status),              \
       x(manifest_is_empty), x(manifest_parsing_error),                         \
       x(manifest_missing_representation), x(manifest_with_0_bitrate),          \
