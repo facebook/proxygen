@@ -9,7 +9,6 @@
 #pragma once
 
 #include <quic/api/QuicSocket.h>
-#include <quic/logging/QuicLogger.h>
 
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>

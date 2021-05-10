@@ -35,7 +35,6 @@
 #include <proxygen/lib/utils/ConditionalGate.h>
 #include <quic/api/QuicSocket.h>
 #include <quic/common/BufUtil.h>
-#include <quic/logging/QuicLogger.h>
 
 namespace proxygen {
 
