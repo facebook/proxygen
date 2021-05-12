@@ -87,8 +87,6 @@ class HTTPUpstreamSession final : public HTTPSession {
 
   using FilterIteratorFn = std::function<void(HTTPCodecFilter*)>;
 
-  void detachTransactions();
-
   void attachThreadLocals(folly::EventBase* eventBase,
                           folly::SSLContextPtr sslContext,
                           const WheelTimerInstance& wheelTimer,

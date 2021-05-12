@@ -170,13 +170,6 @@ bool HTTPUpstreamSession::onNativeProtocolUpgrade(
   return ret;
 }
 
-void HTTPUpstreamSession::detachTransactions() {
-  while (!transactions_.empty()) {
-    auto txn = transactions_.begin();
-    detach(&txn->second);
-  }
-}
-
 void HTTPUpstreamSession::attachThreadLocals(
     folly::EventBase* eventBase,
     folly::SSLContextPtr sslContext,
