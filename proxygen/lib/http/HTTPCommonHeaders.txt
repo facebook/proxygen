@@ -58,6 +58,7 @@ Priority
 Proxy-Authenticate
 Proxy-Authorization
 Proxy-Connection
+Proxy-Status
 Range
 Referer
 Refresh
