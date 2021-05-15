@@ -338,9 +338,7 @@ void HQStreamCodec::generateHeaderImpl(
     res = hq::writeHeaders(writeBuf, std::move(result));
   }
 
-  if (res.hasValue()) {
-    totalEgressBytes_ += res.value();
-  } else {
+  if (res.hasError()) {
     LOG(ERROR) << __func__ << ": failed to write "
                << ((pushId) ? "push promise: " : "headers: ") << res.error();
   }
@@ -365,7 +363,6 @@ size_t HQStreamCodec::generateBody(folly::IOBufQueue& writeBuf,
 
   size_t bytesWritten = generateBodyImpl(writeBuf, std::move(chain));
 
-  totalEgressBytes_ += bytesWritten;
   return bytesWritten;
 }
 
@@ -387,9 +384,7 @@ size_t HQStreamCodec::generateTrailers(folly::IOBufQueue& writeBuf,
   WriteResult res;
   res = hq::writeHeaders(writeBuf, std::move(encodeRes.stream));
 
-  if (res.hasValue()) {
-    totalEgressBytes_ += res.value();
-  } else {
+  if (res.hasError()) {
     LOG(ERROR) << __func__ << ": failed to write trailers: " << res.error();
     return 0;
   }

@@ -163,10 +163,6 @@ class HQStreamCodec
   size_t generateBodyImpl(folly::IOBufQueue& writeBuf,
                           std::unique_ptr<folly::IOBuf> chain);
 
-  uint64_t getCodecTotalEgressBytes() const {
-    return totalEgressBytes_;
-  }
-
   std::string userAgent_;
   HeaderDecodeInfo decodeInfo_;
   QPACKCodec& headerCodec_;
@@ -180,8 +176,6 @@ class HQStreamCodec
   folly::Function<folly::Function<void()>()> activationHook_{
       [] { return [] {}; }};
   HTTPSettings& ingressSettings_;
-
-  uint64_t totalEgressBytes_{0};
 };
 } // namespace hq
 } // namespace proxygen

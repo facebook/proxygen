@@ -3089,10 +3089,6 @@ size_t HQSession::HQStreamTransportBase::sendBody(
   bufMeta_.length += body.length;
   uint64_t offset = streamWriteByteOffset();
 
-  // TODO(yangchi) generateBody() updates totalEgressBytes_ in codec. Now we
-  // are not calling it, we need another way to update it. One way to fix it,
-  // is to actually generateBody() with BufferMetas just so the codec can update
-  // its counters.
   if (body.length && !txn->testAndSetFirstByteSent()) {
     byteEventTracker_.addFirstBodyByteEvent(offset + 1, txn);
   }
