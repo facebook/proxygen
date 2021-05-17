@@ -90,6 +90,20 @@ class HQMultiCodec : public HQControlCodec {
     return qpackDecoderWriteBuf_;
   }
 
+  void encodeCancelStream(quic::StreamId id) {
+    auto cancel = qpackCodec_.encodeCancelStream(id);
+    qpackDecoderWriteBuf_.append(std::move(cancel));
+  }
+
+  bool encodeInsertCountIncrement() {
+    auto ici = qpackCodec_.encodeInsertCountInc();
+    if (ici) {
+      qpackDecoderWriteBuf_.append(std::move(ici));
+      return true;
+    }
+    return false;
+  }
+
   void setCallback(proxygen::HTTPCodec::Callback* callback) override {
     HQControlCodec::setCallback(callback);
     for (const auto& codec : codecs_) {
@@ -222,7 +236,12 @@ class HQMultiCodec : public HQControlCodec {
   }
 
   HTTPSettings ingressSettings_;
-  HTTPSettings egressSettings_;
+  // Turn peer's QPACK dynamic table on by default
+  HTTPSettings egressSettings_{
+      {SettingsId::HEADER_TABLE_SIZE, kDefaultEgressHeaderTableSize},
+      {SettingsId::MAX_HEADER_LIST_SIZE, kDefaultEgressMaxHeaderListSize},
+      {SettingsId::_HQ_QPACK_BLOCKED_STREAMS,
+       hq::kDefaultEgressQpackBlockedStream}};
   mutable StreamID currentStream_{HTTPCodec::MaxStreamID};
   folly::F14FastMap<StreamID, std::unique_ptr<HQStreamCodec>> codecs_;
   QPACKCodec qpackCodec_;

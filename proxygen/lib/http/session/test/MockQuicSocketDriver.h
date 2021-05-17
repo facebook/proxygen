@@ -94,6 +94,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   };
 
  public:
+  using StreamStateMap = std::map<StreamId, StreamState>;
+  using StreamStatePair = std::pair<const StreamId, StreamState>;
+
   explicit MockQuicSocketDriver(folly::EventBase* eventBase,
                                 QuicSocket::ConnectionCallback& cb,
                                 TransportEnum transportType,
@@ -554,7 +557,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         .WillRepeatedly(testing::Invoke([this](bool /*replaySafe*/) {
           auto streamId = nextBidirectionalStreamId_;
           nextBidirectionalStreamId_ += 4;
-          streams_[streamId];
+          streams_[streamId].readState = OPEN;
           return streamId;
         }));
     EXPECT_CALL(*sock_, createUnidirectionalStream(testing::_))
@@ -1355,7 +1358,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   TransportSettings transportSettings_;
   uint64_t bufferAvailable_{std::numeric_limits<uint64_t>::max()};
   // keeping this ordered for better debugging
-  std::map<StreamId, StreamState> streams_;
+  StreamStateMap streams_;
   std::list<folly::Func> events_;
   TransportEnum transportType_;
   std::shared_ptr<MockQuicSocket> sock_;

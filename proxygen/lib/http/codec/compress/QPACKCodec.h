@@ -74,9 +74,9 @@ class QPACKCodec : public HeaderCodec {
   // only be called once with a unique non-zero value.
   //
   // Returns false if it was previously called with a different non-zero value.
-  bool setEncoderHeaderTableSize(uint32_t size) {
+  bool setEncoderHeaderTableSize(uint32_t size, bool updateMax = true) {
     VLOG(4) << __func__ << " size=" << size;
-    return encoder_.setHeaderTableSize(size);
+    return encoder_.setHeaderTableSize(size, updateMax);
   }
 
   void setDecoderHeaderTableMaxSize(uint32_t size) {
