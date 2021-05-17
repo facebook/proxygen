@@ -48,6 +48,9 @@ class HTTP1xCodec : public HTTPCodec {
   }
   bool isBusy() const override;
   void setParserPaused(bool paused) override;
+  bool isParserPaused() const override {
+    return parserPaused_;
+  }
   size_t onIngress(const folly::IOBuf& buf) override;
   void onIngressEOF() override;
   bool isReusable() const override;

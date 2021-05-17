@@ -135,6 +135,8 @@ class PassThroughHTTPCodecFilter : public HTTPCodecFilter {
 
   void setParserPaused(bool paused) override;
 
+  bool isParserPaused() const override;
+
   size_t onIngress(const folly::IOBuf& buf) override;
 
   void onIngressEOF() override;

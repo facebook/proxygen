@@ -56,6 +56,9 @@ class HTTPParallelCodec : public HTTPCodec {
   }
   void setParserPaused(bool /* paused */) override {
   }
+  bool isParserPaused() const override {
+    return false;
+  }
   void onIngressEOF() override {
   }
   bool isReusable() const override;

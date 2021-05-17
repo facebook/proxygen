@@ -67,11 +67,22 @@ class HQFramedCodec : public HTTPCodec {
   }
 
   void setParserPaused(bool paused) override {
+    bool resumed = parserPaused_ && !paused;
     parserPaused_ = paused;
     if (!paused && deferredEOF_) {
       deferredEOF_ = false;
       onIngressEOF();
+    } else if (resumed && resumeHook_) {
+      resumeHook_();
     }
+  }
+
+  void setResumeHook(folly::Function<void()> resumeHook) {
+    resumeHook_ = std::move(resumeHook);
+  }
+
+  bool isParserPaused() const override {
+    return parserPaused_;
   }
 
   bool isReusable() const override {
@@ -381,6 +392,7 @@ class HQFramedCodec : public HTTPCodec {
   FrameState frameState_ : 3;
   ParseResult connError_{folly::none};
   uint64_t totalBytesParsed_{0};
+  folly::Function<void()> resumeHook_;
 };
 
 }} // namespace proxygen::hq

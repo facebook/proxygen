@@ -73,6 +73,11 @@ class HQMultiCodec : public HQControlCodec {
     codecs_.erase(streamId);
   }
 
+  void setResumeHook(StreamID streamId,
+                     folly::Function<void()> hook = nullptr) {
+    getCodec(streamId).setResumeHook(std::move(hook));
+  }
+
   QPACKCodec& getQPACKCodec() {
     return qpackCodec_;
   }
@@ -111,6 +116,12 @@ class HQMultiCodec : public HQControlCodec {
 
   bool isReusable() const override {
     return !sentGoaway_;
+  }
+
+  bool isParserPaused() const override {
+    auto res = getCurrentCodec().isParserPaused();
+    currentStream_ = HTTPCodec::MaxStreamID;
+    return res;
   }
 
   bool supportsParallelRequests() const override {
@@ -194,7 +205,17 @@ class HQMultiCodec : public HQControlCodec {
     return getCodec(currentStream_);
   }
 
-  HTTPCodec& getCodec(StreamID stream) {
+  const HTTPCodec& getCurrentCodec() const {
+    return getCodec(currentStream_);
+  }
+
+  HQStreamCodec& getCodec(StreamID stream) {
+    auto it = codecs_.find(stream);
+    CHECK(it != codecs_.end()) << "stream=" << stream;
+    return *it->second;
+  }
+
+  const HQStreamCodec& getCodec(StreamID stream) const {
     auto it = codecs_.find(stream);
     CHECK(it != codecs_.end()) << "stream=" << stream;
     return *it->second;
@@ -202,7 +223,7 @@ class HQMultiCodec : public HQControlCodec {
 
   HTTPSettings ingressSettings_;
   HTTPSettings egressSettings_;
-  StreamID currentStream_{HTTPCodec::MaxStreamID};
+  mutable StreamID currentStream_{HTTPCodec::MaxStreamID};
   folly::F14FastMap<StreamID, std::unique_ptr<HQStreamCodec>> codecs_;
   QPACKCodec qpackCodec_;
   folly::IOBufQueue qpackEncoderWriteBuf_{

@@ -194,6 +194,10 @@ void PassThroughHTTPCodecFilter::setParserPaused(bool paused) {
   call_->setParserPaused(paused);
 }
 
+bool PassThroughHTTPCodecFilter::isParserPaused() const {
+  return call_->isParserPaused();
+}
+
 size_t PassThroughHTTPCodecFilter::onIngress(const folly::IOBuf& buf) {
   return call_->onIngress(buf);
 }

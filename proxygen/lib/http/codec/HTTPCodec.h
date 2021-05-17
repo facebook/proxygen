@@ -430,6 +430,11 @@ class HTTPCodec {
   virtual void setParserPaused(bool paused) = 0;
 
   /**
+   * Return true if the parser is paused
+   */
+  virtual bool isParserPaused() const = 0;
+
+  /**
    * Parse ingress data.
    * @param  buf   A single IOBuf of data to parse
    * @return Number of bytes consumed.
