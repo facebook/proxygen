@@ -60,10 +60,6 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
 ProxygenError toProxygenError(quic::QuicErrorCode error, bool fromPeer) {
   switch (error.type()) {
     case quic::QuicErrorCode::Type::ApplicationErrorCode:
-      if (*error.asApplicationErrorCode() ==
-          HTTP3::ErrorCode::GIVEUP_ZERO_RTT) {
-        return kErrorEarlyDataFailed;
-      }
       return fromPeer ? kErrorConnectionReset : kErrorConnection;
     case quic::QuicErrorCode::Type::LocalErrorCode:
       return kErrorShutdown;
