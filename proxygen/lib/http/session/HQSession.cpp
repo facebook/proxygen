@@ -430,8 +430,6 @@ void HQSession::onConnectionError(
     infoCallback_->onIngressError(*this, proxygenErr);
   }
 
-  onConnectionErrorHandler(code);
-
   // force close all streams.
   // close with error won't invoke any connection callback, reentrancy safe
   dropConnectionSync(std::move(code), proxygenErr);
@@ -772,6 +770,7 @@ void HQSession::dropConnectionSync(
     return;
   }
   dropping_ = true;
+  onConnectionErrorHandler(errorCode);
   if (getNumStreams() > 0) {
     // should deliver errors to all open streams, they will all detach-
     sock_->close(std::move(errorCode));
