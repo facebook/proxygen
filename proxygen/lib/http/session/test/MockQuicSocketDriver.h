@@ -532,9 +532,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               auto& stream = streams_[id];
               stream.error = error;
               stream.writeState = ERROR;
+              stream.unsentBuf.move();
               stream.pendingWriteBuf.move();
               stream.pendingWriteCb = nullptr;
               stream.pendingBufMeta.length = 0;
+              stream.unsentBufMeta.length = 0;
               cancelDeliveryCallbacks(id, stream);
               return folly::unit;
             }));
@@ -626,7 +628,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                   return folly::makeUnexpected(
                       LocalErrorCode::STREAM_NOT_EXISTS));
               return it->second.pendingWriteBuf.chainLength() +
-                     it->second.pendingBufMeta.length;
+                     it->second.unsentBuf.chainLength() +
+                     it->second.pendingBufMeta.length +
+                     it->second.unsentBufMeta.length;
             }));
     EXPECT_CALL(*sock_,
                 registerDeliveryCallback(testing::_, testing::_, testing::_))
@@ -1225,21 +1229,44 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         (transportType_ == TransportEnum::CLIENT && sock_->isServerStream(id)));
   }
 
-  void pauseOrResumeWrites(StreamState& stream, quic::StreamId streamId) {
+  enum class PauseResumeResult {
+    NONE = 0,
+    PAUSED = 1,
+    RESUMED = 2
+  };
+  PauseResumeResult pauseOrResumeWrites(
+      StreamState& stream, quic::StreamId streamId) {
     if (stream.writeState == OPEN && stream.flowControlWindow == 0) {
       pauseWrites(streamId);
+      return PauseResumeResult::PAUSED;
     } else if (stream.writeState == PAUSED && stream.flowControlWindow > 0) {
       resumeWrites(streamId);
+      return PauseResumeResult::RESUMED;
     }
+    return PauseResumeResult::NONE;
   }
 
   void setConnectionFlowControlWindow(uint64_t windowSize) {
-    auto& stream = streams_[kConnectionStreamId];
-    ERROR_IF(stream.writeState == CLOSED,
+    auto& connStream = streams_[kConnectionStreamId];
+    ERROR_IF(connStream.writeState == CLOSED,
              "setConnectionFlowControlWindow on CLOSED connection",
              return );
-    stream.flowControlWindow = windowSize;
-    pauseOrResumeWrites(stream, kConnectionStreamId);
+    connStream.flowControlWindow = windowSize;
+    if (pauseOrResumeWrites(connStream, kConnectionStreamId) ==
+        PauseResumeResult::RESUMED) {
+      // Connection Flow control became unblocked, resume any streams that were
+      // blocked on connection flow control
+      for (auto& stream : streams_) {
+        if (stream.first == kConnectionStreamId) {
+          continue;
+        }
+        if ((!stream.second.unsentBuf.empty() ||
+             stream.second.unsentBufMeta.length > 0) &&
+            stream.second.flowControlWindow > 0) {
+          resumeWrites(stream.first, /*connFCEvent=*/true);
+        }
+      }
+    }
   }
 
   void setStreamFlowControlWindow(StreamId streamId, uint64_t windowSize) {
@@ -1270,10 +1297,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     cancelDeliveryCallbacks(streamId, stream);
   }
 
-  void resumeWrites(StreamId streamId) {
+  void resumeWrites(StreamId streamId, bool connFCEvent = false) {
     auto& stream = streams_[streamId];
     ERROR_IF(
-        stream.writeState != PAUSED,
+        stream.writeState != PAUSED && !connFCEvent,
         folly::format("resumeWrites on not PAUSED streamId={}", streamId).str(),
         return );
     stream.writeState = OPEN;
