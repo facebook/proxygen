@@ -1229,13 +1229,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
         (transportType_ == TransportEnum::CLIENT && sock_->isServerStream(id)));
   }
 
-  enum class PauseResumeResult {
-    NONE = 0,
-    PAUSED = 1,
-    RESUMED = 2
-  };
-  PauseResumeResult pauseOrResumeWrites(
-      StreamState& stream, quic::StreamId streamId) {
+  enum class PauseResumeResult { NONE = 0, PAUSED = 1, RESUMED = 2 };
+  PauseResumeResult pauseOrResumeWrites(StreamState& stream,
+                                        quic::StreamId streamId) {
     if (stream.writeState == OPEN && stream.flowControlWindow == 0) {
       pauseWrites(streamId);
       return PauseResumeResult::PAUSED;
