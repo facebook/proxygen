@@ -277,12 +277,12 @@ void CurlClient::onError(const HTTPException& error) noexcept {
 }
 
 void CurlClient::onEgressPaused() noexcept {
-  LOG_IF(INFO, loggingEnabled_) << "Egress paused";
+  VLOG_IF(1, loggingEnabled_) << "Egress paused";
   egressPaused_ = true;
 }
 
 void CurlClient::onEgressResumed() noexcept {
-  LOG_IF(INFO, loggingEnabled_) << "Egress resumed";
+  VLOG_IF(1, loggingEnabled_) << "Egress resumed";
   egressPaused_ = false;
   if (inputFile_) {
     sendBodyFromFile();
