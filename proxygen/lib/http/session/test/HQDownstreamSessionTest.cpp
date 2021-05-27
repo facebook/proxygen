@@ -1229,6 +1229,7 @@ TEST_P(HQDownstreamSessionTest, TransportErrorWithOpenStream) {
     EXPECT_EQ(ex.getProxygenError(), kErrorConnectionReset);
   });
   handler->expectDetachTransaction();
+  EXPECT_CALL(infoCb_, onConnectionError(_)).Times(0);
   flushRequestsAndLoop();
 }
 

@@ -18,6 +18,7 @@ void HQDownstreamSession::onTransportReady() noexcept {
   if (infoCallback_) {
     infoCallback_->onTransportReady(*this);
   }
+  transportReadyNotified_ = true;
 }
 
 void HQDownstreamSession::onAppRateLimited() noexcept {
@@ -29,7 +30,10 @@ void HQDownstreamSession::onAppRateLimited() noexcept {
 
 void HQDownstreamSession::onConnectionErrorHandler(
     std::pair<quic::QuicErrorCode, std::string> /* error */) noexcept {
-  if (infoCallback_) {
+  // Currently the users of this callback treat it like a connect error,
+  // not a general connection error. Since we don't have proper separation
+  // suppress the errors after onTransportReady has happened.
+  if (infoCallback_ && !transportReadyNotified_) {
     infoCallback_->onConnectionError(*this);
   }
 }

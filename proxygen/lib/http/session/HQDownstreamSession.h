@@ -198,6 +198,9 @@ class HQDownstreamSession : public HQSession {
 
   // Value of the next pushId, used for outgoing push transactions
   hq::PushId nextAvailablePushId_{0};
+
+  // Whether or not we have already received an onTransportReady callback.
+  bool transportReadyNotified_{false};
 };
 
 } // namespace proxygen
