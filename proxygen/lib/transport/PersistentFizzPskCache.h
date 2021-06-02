@@ -60,7 +60,7 @@ class PersistentFizzPskCache : public fizz::client::PskCache {
         } else {
           cache_.put(identity, *serialized);
         }
-        return std::move(deserialized);
+        return deserialized;
       } catch (const std::exception& ex) {
         LOG(ERROR) << "Error deserializing PSK: " << ex.what();
         cache_.remove(identity);
