@@ -240,6 +240,11 @@ void CurlClient::detachTransaction() noexcept {
 void CurlClient::onHeadersComplete(unique_ptr<HTTPMessage> msg) noexcept {
   response_ = std::move(msg);
   printMessageImpl(response_.get());
+  if (!headersLoggingEnabled_) {
+    return;
+  }
+  response_->describe(*outputStream_);
+  *outputStream_ << std::endl;
 }
 
 void CurlClient::onBody(std::unique_ptr<folly::IOBuf> chain) noexcept {

@@ -128,6 +128,10 @@ class CurlClient
     loggingEnabled_ = enabled;
   }
 
+  void setHeadersLogging(bool enabled) {
+    headersLoggingEnabled_ = enabled;
+  }
+
   void setEOMFunc(std::function<void()> eomFunc) {
     eomFunc_ = eomFunc;
   }
@@ -150,6 +154,7 @@ class CurlClient
   folly::SSLContextPtr sslContext_;
   int32_t recvWindow_{0};
   bool loggingEnabled_{true};
+  bool headersLoggingEnabled_{false};
   bool h2c_{false};
   unsigned short httpMajor_;
   unsigned short httpMinor_;
