@@ -10,6 +10,7 @@ proxygen_add_test(TARGET LibHTTPTests
     HTTPConnectorWithFizzTest.cpp
     HTTPMessageTest.cpp
     HTTPPriorityFunctionsTest.cpp
+    ProxyStatusTest.cpp
     RFC2616Test.cpp
     WindowTest.cpp
   DEPENDS
