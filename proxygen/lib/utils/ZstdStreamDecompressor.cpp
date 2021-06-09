@@ -34,15 +34,7 @@ std::unique_ptr<folly::IOBuf> ZstdStreamDecompressor::decompress(
     return nullptr;
   }
 
-#if defined(__APPLE__)
-  // We have measured that on iOS devices, a small allocation is better
-  // for app start performance.
-  const size_t outBufAllocSize = 4096;
-#else
-  // On the other hand, for android devices, a large allocation appears better
-  // for app start performance.
   const size_t outBufAllocSize = ZSTD_DStreamOutSize();
-#endif // __APPLE__
 
   auto out = (reuseOutBuf_ && cachedIOBuf_ != nullptr)
                  ? std::move(cachedIOBuf_)
