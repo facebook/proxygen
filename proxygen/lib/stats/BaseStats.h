@@ -28,6 +28,7 @@ class BaseStats {
   // thread safe via the use of atomics, we may only want single local
   // instance instead of wrapped (per thread) instances.
   using TLCounter = facebook::fb303::CounterWrapper;
+  using TLDynamicTimeseries = facebook::fb303::DynamicTimeseriesWrapper<1>;
   using TLTimeseries = facebook::fb303::TimeseriesPolymorphicWrapper;
   using TLTimeseriesQuarterMinuteOnly =
       facebook::fb303::QuarterMinuteOnlyTimeseriesWrapper;
