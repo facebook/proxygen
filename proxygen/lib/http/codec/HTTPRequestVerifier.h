@@ -65,7 +65,7 @@ class HTTPRequestVerifier {
       return false;
     }
     // This just checks for alpha chars
-    if (!CodecUtil::validateMethod(scheme)) {
+    if (!CodecUtil::validateScheme(scheme)) {
       error = "Invalid scheme";
       return false;
     }

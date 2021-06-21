@@ -49,6 +49,19 @@ class CodecUtil {
   }
 
   static bool validateMethod(folly::ByteRange method) {
+    for (auto p = method.begin(); p != method.end(); p++) {
+      // '-' is valid except for start and end
+      if (*p == '-' && p != method.begin() && p != method.end()) {
+        continue;
+      }
+      if (!CodecUtil::isalpha(*p)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static bool validateScheme(folly::ByteRange method) {
     for (auto p : method) {
       if (!CodecUtil::isalpha(p)) {
         // methods are all characters

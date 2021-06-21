@@ -24,7 +24,19 @@ using StringVector = std::vector<std::string>;
 
 const StringVector& getMethodStrings() {
   static const folly::Indestructible<StringVector> methodStrings{
-      StringVector{HTTP_METHOD_GEN(HTTP_METHOD_STR)}};
+      StringVector{"GET",
+                   "POST",
+                   "OPTIONS",
+                   "DELETE",
+                   "HEAD",
+                   "CONNECT",
+                   "CONNECT-UDP",
+                   "PUT",
+                   "TRACE",
+                   "PATCH",
+                   "SUB",
+                   "PUB",
+                   "UNSUB"}};
   return *methodStrings;
 }
 

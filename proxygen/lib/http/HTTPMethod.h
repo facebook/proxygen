@@ -23,22 +23,27 @@ namespace proxygen {
 #undef DELETE
 #endif
 
-// Ordered by frequency to minimize time spent in iteration
-#define HTTP_METHOD_GEN(x)                                             \
-  x(GET), x(POST), x(OPTIONS), x(DELETE), x(HEAD), x(CONNECT), x(PUT), \
-      x(TRACE), x(PATCH), x(SUB), x(PUB), x(UNSUB)
-
-#define HTTP_METHOD_ENUM(method) method
-
 /**
  * See the definitions in RFC2616 5.1.1 for the source of this
  * list. Today, proxygen only understands the methods defined in 5.1.1 and
  * is not aware of any extension methods. If you wish to support extension
  * methods, you must handle those separately from this enum.
  */
-enum class HTTPMethod { HTTP_METHOD_GEN(HTTP_METHOD_ENUM) };
-
-#undef HTTP_METHOD_ENUM
+enum class HTTPMethod {
+  GET,
+  POST,
+  OPTIONS,
+  DELETE,
+  HEAD,
+  CONNECT,
+  CONNECT_UDP,
+  PUT,
+  TRACE,
+  PATCH,
+  SUB,
+  PUB,
+  UNSUB
+};
 
 /**
  * Returns the HTTPMethod that matches the method. Although RFC2616 5.1.1

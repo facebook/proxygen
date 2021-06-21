@@ -1968,6 +1968,40 @@ TEST_P(HQDownstreamSessionTestHQ, Connect) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTestHQ, ConnectUDP) {
+  auto handler = addSimpleStrictHandler();
+  // Send HTTP 200 OK to accept the CONNECT request
+  handler->expectHeaders([&handler] { handler->sendHeaders(200, 100); });
+  handler->expectEOM([&] { handler->terminate(); });
+
+  // Data should be received using onBody
+  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+      .WillOnce(ExpectString("12345"))
+      .WillOnce(ExpectString("abcdefg"));
+  handler->expectDetachTransaction();
+
+  proxygen::HTTPMessage req;
+  req.setURL("test.net/path");
+  req.setMethod("CONNECT-UDP");
+  req.getHeaders().add(proxygen::HTTP_HEADER_HOST, "https://test.net/path");
+  auto id = sendRequest(req, /* eom */ false);
+  auto& request = getStream(id);
+
+  auto buf1 = IOBuf::copyBuffer("12345");
+  request.codec->generateBody(
+      request.buf, request.id, std::move(buf1), HTTPCodec::NoPadding, true);
+  flushRequestsAndLoopN(1);
+
+  auto buf2 = IOBuf::copyBuffer("abcdefg");
+  request.codec->generateBody(
+      request.buf, request.id, std::move(buf2), HTTPCodec::NoPadding, true);
+  flushRequestsAndLoopN(1);
+
+  request.readEOF = true;
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 // Just open a stream and send nothing
 TEST_P(HQDownstreamSessionTest, zeroBytes) {
   auto id = nextStreamId();
