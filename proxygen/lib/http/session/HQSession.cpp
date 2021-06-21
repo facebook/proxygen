@@ -871,13 +871,15 @@ void HQSession::HQStreamTransportBase::errorOnTransaction(
 }
 
 void HQSession::HQStreamTransportBase::errorOnTransaction(HTTPException ex) {
+  auto isIngressException = ex.isIngressException();
+  auto isEgressException = ex.isEgressException();
   if (!detached_) {
     txn_.onError(std::move(ex));
   }
-  if (ex.isIngressException()) {
+  if (isIngressException) {
     abortIngress();
   }
-  if (ex.isEgressException()) {
+  if (isEgressException) {
     abortEgress(true);
   }
 }
