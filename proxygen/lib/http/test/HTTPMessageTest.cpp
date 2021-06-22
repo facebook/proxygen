@@ -771,3 +771,34 @@ TEST(HTTPHeaders, MoveFromTest) {
   EXPECT_EQ(h1.size(), 0);
   EXPECT_EQ(h3.size(), 1);
 }
+
+TEST(HTTPMessage, DefaultSchemeHttp) {
+  HTTPMessage message;
+  EXPECT_EQ(message.getScheme(), "http");
+  EXPECT_FALSE(message.isSecure());
+}
+
+TEST(HTTPMessage, SchemeHttps) {
+  HTTPMessage message;
+  message.setSecure(true);
+  EXPECT_EQ(message.getScheme(), "https");
+  EXPECT_TRUE(message.isSecure());
+  message.setSecure(false);
+  EXPECT_EQ(message.getScheme(), "http");
+  EXPECT_FALSE(message.isSecure());
+}
+
+TEST(HTTPMessage, SchemeMasque) {
+  HTTPMessage message;
+  message.setMasque();
+  EXPECT_EQ(message.getScheme(), "masque");
+  EXPECT_TRUE(message.isSecure());
+  // Masque is already secure, setting secure again has no effect
+  message.setSecure(true);
+  EXPECT_EQ(message.getScheme(), "masque");
+  EXPECT_TRUE(message.isSecure());
+  // Masque must be secure, so unsetting secure falls back to http://
+  message.setSecure(false);
+  EXPECT_EQ(message.getScheme(), "http");
+  EXPECT_FALSE(message.isSecure());
+}

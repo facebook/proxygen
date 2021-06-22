@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <proxygen/lib/http/codec/HeaderConstants.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 
 namespace proxygen { namespace headers {
 
@@ -19,6 +19,7 @@ const std::string kProtocol(":protocol");
 
 const std::string kHttp("http");
 const std::string kHttps("https");
+const std::string kMasque("masque");
 
 const std::string kWebsocketString("websocket");
 const std::string kStatus200("200");

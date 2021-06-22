@@ -14,8 +14,8 @@
 #include <folly/io/Cursor.h>
 #include <iosfwd>
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
-#include <proxygen/lib/http/codec/HeaderConstants.h>
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
 using folly::IOBuf;
@@ -89,9 +89,8 @@ void HPACKCodec::encodeHTTP(
 
     if (msg.getMethod() != HTTPMethod::CONNECT ||
         msg.isEgressWebsocketUpgrade()) {
-      uncompressed += encoder_.encodeHeader(
-          HTTP_HEADER_COLON_SCHEME,
-          (msg.isSecure() ? headers::kHttps : headers::kHttp));
+      uncompressed +=
+          encoder_.encodeHeader(HTTP_HEADER_COLON_SCHEME, msg.getScheme());
       uncompressed +=
           encoder_.encodeHeader(HTTP_HEADER_COLON_PATH, msg.getURL());
     }

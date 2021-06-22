@@ -80,8 +80,7 @@ HTTPMessage::HTTPMessage()
       chunked_(false),
       upgraded_(false),
       wantsKeepalive_(true),
-      trailersAllowed_(false),
-      secure_(false) {
+      trailersAllowed_(false) {
 }
 
 HTTPMessage::~HTTPMessage() {
@@ -112,7 +111,7 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
       upgraded_(message.upgraded_),
       wantsKeepalive_(message.wantsKeepalive_),
       trailersAllowed_(message.trailersAllowed_),
-      secure_(message.secure_) {
+      scheme_(message.scheme_) {
   if (isRequest()) {
     setURL(request().url_);
   }
@@ -152,7 +151,7 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       upgraded_(message.upgraded_),
       wantsKeepalive_(message.wantsKeepalive_),
       trailersAllowed_(message.trailersAllowed_),
-      secure_(message.secure_) {
+      scheme_(message.scheme_) {
   if (isRequest()) {
     setURL(request().url_);
   }
@@ -194,7 +193,7 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   upgraded_ = message.upgraded_;
   wantsKeepalive_ = message.wantsKeepalive_;
   trailersAllowed_ = message.trailersAllowed_;
-  secure_ = message.secure_;
+  scheme_ = message.scheme_;
   upgradeWebsocket_ = message.upgradeWebsocket_;
 
   if (message.trailers_) {
@@ -236,7 +235,7 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   upgraded_ = message.upgraded_;
   wantsKeepalive_ = message.wantsKeepalive_;
   trailersAllowed_ = message.trailersAllowed_;
-  secure_ = message.secure_;
+  scheme_ = message.scheme_;
   upgradeWebsocket_ = message.upgradeWebsocket_;
   trailers_ = std::move(message.trailers_);
   return *this;
@@ -722,7 +721,7 @@ void HTTPMessage::dumpMessage(int vlogLevel) const {
 
 void HTTPMessage::describe(std::ostream& os) const {
   os << ", chunked: " << chunked_ << ", upgraded: " << upgraded_
-     << ", secure: " << secure_ << ", Fields for message:" << std::endl;
+     << ", scheme: " << getScheme() << ", Fields for message:" << std::endl;
 
   // Common fields to both requests and responses.
   std::vector<std::pair<const char*, folly::StringPiece>> fields{{

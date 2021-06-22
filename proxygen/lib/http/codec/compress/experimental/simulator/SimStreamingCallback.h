@@ -10,7 +10,7 @@
 
 #include <folly/Expected.h>
 #include <proxygen/lib/http/HTTPMessage.h>
-#include <proxygen/lib/http/codec/HeaderConstants.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/codec/compress/HPACKStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/HeaderCodec.h>
 

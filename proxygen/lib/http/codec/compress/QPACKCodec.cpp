@@ -14,8 +14,8 @@
 #include <folly/io/Cursor.h>
 #include <iosfwd>
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
-#include <proxygen/lib/http/codec/HeaderConstants.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h> // for prepareHeaders
 #include <proxygen/lib/http/codec/compress/HPACKHeader.h>
 
@@ -89,11 +89,11 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
 
     if (msg.getMethod() != HTTPMethod::CONNECT ||
         msg.isEgressWebsocketUpgrade()) {
-      uncompressed += encoder_.encodeHeaderQ(
-          HPACKHeaderName(HTTP_HEADER_COLON_SCHEME),
-          (msg.isSecure() ? headers::kHttps : headers::kHttp),
-          baseIndex,
-          requiredInsertCount);
+      uncompressed +=
+          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_SCHEME),
+                                 msg.getScheme(),
+                                 baseIndex,
+                                 requiredInsertCount);
       uncompressed +=
           encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_PATH),
                                  msg.getURL(),

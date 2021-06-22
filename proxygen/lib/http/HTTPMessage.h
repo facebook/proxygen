@@ -20,6 +20,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/HTTPMethod.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/utils/ParseURL.h>
 #include <proxygen/lib/utils/Time.h>
 #include <string>
@@ -75,6 +76,12 @@ class HTTPMessage {
     NONE,
     INGRESS,
     EGRESS,
+  };
+
+  enum class Scheme {
+    HTTP,
+    HTTPS,
+    MASQUE,
   };
 
   HTTPMessage();
@@ -633,28 +640,59 @@ class HTTPMessage {
   }
 
   void setSecure(bool secure) {
-    secure_ = secure;
+    if (secure && scheme_ != Scheme::MASQUE) {
+      scheme_ = Scheme::HTTPS;
+    } else if (!secure) {
+      scheme_ = Scheme::HTTP;
+    }
   }
+
   bool isSecure() const {
-    return secure_;
+    return (scheme_ == Scheme::HTTPS || scheme_ == Scheme::MASQUE);
   }
+
+  void setMasque() {
+    scheme_ = Scheme::MASQUE;
+  }
+
+  bool isMasque() const {
+    return scheme_ == Scheme::MASQUE;
+  }
+
+  const std::string& getScheme() const {
+    switch (scheme_) {
+      case HTTPMessage::Scheme::HTTP:
+        return headers::kHttp;
+      case HTTPMessage::Scheme::HTTPS:
+        return headers::kHttps;
+      case HTTPMessage::Scheme::MASQUE:
+        return headers::kMasque;
+    }
+    return headers::kHttp;
+  }
+
   int getSecureVersion() const {
     return sslVersion_;
   }
+
   const char* getSecureCipher() const {
     return sslCipher_;
   }
+
   void setSecureInfo(int ver, const char* cipher) {
     // cipher is a static const char* provided and managed by openssl lib
     sslVersion_ = ver;
     sslCipher_ = cipher;
   }
+
   void setAdvancedProtocolString(const std::string& protocol) {
     protoStr_ = &protocol;
   }
+
   bool isAdvancedProto() const {
     return protoStr_ != nullptr;
   }
+
   const std::string* getAdvancedProtocolString() const {
     return protoStr_;
   }
@@ -1074,8 +1112,7 @@ class HTTPMessage {
   bool wantsKeepalive_ : 1;
   bool trailersAllowed_ : 1;
 
-  // Whether the message is received in HTTPS.
-  bool secure_ : 1;
+  Scheme scheme_{Scheme::HTTP};
 
   // used by atomicDumpMessage
   static std::mutex mutexDump_;

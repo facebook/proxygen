@@ -20,6 +20,7 @@ extern const std::string kProtocol;
 
 extern const std::string kHttp;
 extern const std::string kHttps;
+extern const std::string kMasque;
 
 extern const std::string kWebsocketString;
 extern const std::string kStatus200;

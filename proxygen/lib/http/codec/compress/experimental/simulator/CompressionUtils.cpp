@@ -8,7 +8,7 @@
 
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionUtils.h>
 
-#include <proxygen/lib/http/codec/HeaderConstants.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 
 using std::string;
 using std::vector;

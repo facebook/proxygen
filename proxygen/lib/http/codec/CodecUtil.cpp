@@ -9,8 +9,8 @@
 #include <proxygen/lib/http/codec/CodecUtil.h>
 
 #include <folly/ThreadLocal.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/RFC2616.h>
-#include <proxygen/lib/http/codec/HeaderConstants.h>
 
 namespace proxygen {
 

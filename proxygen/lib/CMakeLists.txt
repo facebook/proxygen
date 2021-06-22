@@ -120,7 +120,6 @@ add_library(
     http/codec/DefaultHTTPCodecFactory.cpp
     http/codec/ErrorCode.cpp
     http/codec/FlowControlFilter.cpp
-    http/codec/HeaderConstants.cpp
     http/codec/HeaderDecodeInfo.cpp
     http/codec/HTTP1xCodec.cpp
     http/codec/HTTP2Codec.cpp
@@ -140,6 +139,7 @@ add_library(
     http/connpool/SessionPool.cpp
     http/connpool/ThreadIdleSessionController.cpp
     http/experimental/RFC1867.cpp
+    http/HeaderConstants.cpp
     http/HTTPConnector.cpp
     http/HTTPConnectorWithFizz.cpp
     http/HTTPConstants.cpp

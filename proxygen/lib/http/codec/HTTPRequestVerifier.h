@@ -9,8 +9,8 @@
 #pragma once
 
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
-#include <proxygen/lib/http/codec/HeaderConstants.h>
 
 namespace proxygen {
 
@@ -74,6 +74,9 @@ class HTTPRequestVerifier {
     if (scheme == headers::kHttps) {
       assert(msg_ != nullptr);
       msg_->setSecure(true);
+    } else if (scheme == headers::kMasque) {
+      assert(msg_ != nullptr);
+      msg_->setMasque();
     }
     return true;
   }
