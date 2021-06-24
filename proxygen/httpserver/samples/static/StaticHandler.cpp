@@ -51,7 +51,7 @@ void StaticHandler::onRequest(std::unique_ptr<HTTPMessage> headers) noexcept {
   ResponseBuilder(downstream_).status(200, "Ok").send();
   // use a CPU executor since read(2) of a file can block
   readFileScheduled_ = true;
-  folly::getCPUExecutor()->add(
+  folly::getUnsafeMutableGlobalCPUExecutor()->add(
       std::bind(&StaticHandler::readFile,
                 this,
                 folly::EventBaseManager::get()->getEventBase()));
@@ -109,7 +109,7 @@ void StaticHandler::onEgressResumed() noexcept {
   // If readFileScheduled_, it will reschedule itself
   if (!readFileScheduled_ && file_) {
     readFileScheduled_ = true;
-    folly::getCPUExecutor()->add(
+    folly::getUnsafeMutableGlobalCPUExecutor()->add(
         std::bind(&StaticHandler::readFile,
                   this,
                   folly::EventBaseManager::get()->getEventBase()));

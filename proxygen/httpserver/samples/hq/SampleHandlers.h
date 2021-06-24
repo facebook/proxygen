@@ -615,7 +615,7 @@ class StaticFileHandler : public BaseSampleHandler {
     maybeAddAltSvcHeader(resp);
     txn_->sendHeaders(resp);
     // use a CPU executor since read(2) of a file can block
-    folly::getCPUExecutor()->add(
+    folly::getUnsafeMutableGlobalCPUExecutor()->add(
         std::bind(&StaticFileHandler::readFile,
                   this,
                   folly::EventBaseManager::get()->getEventBase()));
@@ -640,7 +640,7 @@ class StaticFileHandler : public BaseSampleHandler {
   void onEgressResumed() noexcept override {
     VLOG(10) << "StaticFileHandler::onEgressResumed";
     paused_ = false;
-    folly::getCPUExecutor()->add(
+    folly::getUnsafeMutableGlobalCPUExecutor()->add(
         std::bind(&StaticFileHandler::readFile,
                   this,
                   folly::EventBaseManager::get()->getEventBase()));
