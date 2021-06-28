@@ -43,7 +43,6 @@ using HQDownstreamSessionTestH1qv2HQ = HQDownstreamSessionTest;
 
 // Use this test class for hq only tests
 using HQDownstreamSessionTestHQ = HQDownstreamSessionTest;
-// Use this test class for hq PR only tests
 using HQDownstreamSessionTestHQDeliveryAck = HQDownstreamSessionTest;
 
 // Use this test class for h3 server push tests

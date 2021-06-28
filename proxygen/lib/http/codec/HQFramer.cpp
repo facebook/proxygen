@@ -87,6 +87,7 @@ decodeSettingValue(folly::io::Cursor& cursor,
     case SettingId::HEADER_TABLE_SIZE:
     case SettingId::MAX_HEADER_LIST_SIZE:
     case SettingId::QPACK_BLOCKED_STREAMS:
+    case SettingId::H3_DATAGRAM:
       return value;
   }
   return folly::none;

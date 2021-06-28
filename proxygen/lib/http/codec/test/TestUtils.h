@@ -230,6 +230,8 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
         windowSize = setting.value;
       } else if (setting.id == SettingsId::MAX_CONCURRENT_STREAMS) {
         maxStreams = setting.value;
+      } else if (setting.id == SettingsId::_HQ_DATAGRAM) {
+        datagramEnabled = setting.value;
       }
     }
   }
@@ -342,6 +344,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     lastCertId = 0;
     windowSize = 0;
     maxStreams = 0;
+    datagramEnabled = 0;
     headerFrames = 0;
     priority = HTTPMessage::HTTP2Priority(0, false, 0);
     urgency = 0;
@@ -383,6 +386,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     VLOG(verbosity) << "lastCertId: " << lastCertId;
     VLOG(verbosity) << "windowSize: " << windowSize;
     VLOG(verbosity) << "maxStreams: " << maxStreams;
+    VLOG(verbosity) << "datagramEnabled: " << datagramEnabled;
     VLOG(verbosity) << "headerFrames: " << headerFrames;
   }
 
@@ -417,6 +421,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint16_t lastCertId{0};
   uint64_t windowSize{0};
   uint64_t maxStreams{0};
+  uint64_t datagramEnabled{0};
   uint32_t headerFrames{0};
   HTTPMessage::HTTP2Priority priority{0, false, 0};
   uint8_t urgency{0};

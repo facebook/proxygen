@@ -348,6 +348,11 @@ class HQSession
         versionUtils_->setMaxUncompressed(size);
       });
     }
+    auto datagramEnabled = egressSettings_.getSetting(SettingsId::_HQ_DATAGRAM);
+    // if enabling H3 datagrams check that the transport supports datagrams
+    if (datagramEnabled && datagramEnabled->value) {
+      datagramEnabled_ = true;
+    }
   }
 
   void setMaxConcurrentIncomingStreams(uint32_t /*num*/) override {
@@ -2022,6 +2027,7 @@ class HQSession
   bool scheduledWrite_{false};
 
   bool forceUpstream1_1_{true};
+  bool datagramEnabled_{false};
 
   /** Reads in the current loop iteration */
   uint16_t readsPerLoop_{0};

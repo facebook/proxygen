@@ -218,7 +218,6 @@ StrictMock<MockController>& HQUpstreamSessionTest::getMockController() {
   return controllerContainer_.mockController;
 }
 
-// Use this test class for h1q-fb only tests
 // Use this test class for h1q-fb-v1 only tests
 using HQUpstreamSessionTestH1qv1 = HQUpstreamSessionTest;
 // Use this test class for h1q-fb-v2 and hq tests
@@ -227,6 +226,8 @@ using HQUpstreamSessionTestH1qv2HQ = HQUpstreamSessionTest;
 using HQUpstreamSessionTestHQ = HQUpstreamSessionTest;
 // Use this test class for hq only tests with qpack encoder streams on/off
 using HQUpstreamSessionTestQPACK = HQUpstreamSessionTest;
+// Use this test class for hq only tests with Datagram support
+using HQUpstreamSessionTestHQDatagram = HQUpstreamSessionTest;
 
 TEST_P(HQUpstreamSessionTest, SimpleGet) {
   auto handler = openTransaction();
@@ -1862,6 +1863,18 @@ TEST_P(HQUpstreamSessionTestHQPush, TestOrphanedPushStream) {
   flushAndLoop();
 }
 
+TEST_P(HQUpstreamSessionTestHQ, TestNoDatagram) {
+  EXPECT_FALSE(httpCallbacks_.datagramEnabled);
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQDatagram, TestDatagramSettings) {
+  EXPECT_TRUE(httpCallbacks_.datagramEnabled);
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
 /**
  * Instantiate the Parametrized test cases
  */
@@ -1910,4 +1923,10 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         Values(TestParams({.alpn_ = "h3"}),
                                TestParams({.alpn_ = "h3",
                                            .createQPACKStreams_ = false})),
+                        paramsToTestName);
+
+// Instantiate h3 datagram tests
+INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
+                        HQUpstreamSessionTestHQDatagram,
+                        Values(TestParams({.alpn_ = "h3", .datagrams_ = true})),
                         paramsToTestName);

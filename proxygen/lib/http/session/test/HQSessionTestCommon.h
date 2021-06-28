@@ -46,6 +46,7 @@ struct TestParams {
   uint64_t unidirectionalStreamsCredit{kDefaultUnidirStreamCredit};
   std::size_t numBytesOnPushStream{kUnlimited};
   bool expectOnTransportReady{true};
+  bool datagrams_{false};
 };
 
 std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript);
@@ -114,6 +115,10 @@ class HQSessionTest
       nextUnidirectionalStreamId_ = 3;
     } else {
       LOG(FATAL) << "wrong TransportEnum";
+    }
+
+    if (GetParam().datagrams_) {
+      egressSettings_.setSetting(proxygen::SettingsId::_HQ_DATAGRAM, 1);
     }
 
     if (!IS_H1Q_FB_V1) {

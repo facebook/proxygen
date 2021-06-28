@@ -204,8 +204,14 @@ bool HQSession::onTransportReadyCommon() noexcept {
     return false;
   }
   // Apply the default settings
+  SettingsList defaultSettings = {};
+  if (datagramEnabled_) {
+    // If local supports Datagram, assume the peer does too, until receiving
+    // peer settings
+    defaultSettings.push_back({SettingsId::_HQ_DATAGRAM, 1});
+  }
   // TODO: 0-RTT settings
-  versionUtils_->applySettings({});
+  versionUtils_->applySettings(defaultSettings);
   // notifyPendingShutdown may be invoked before onTransportReady,
   // so we need to address that here by kicking the GOAWAY logic if needed
   if (drainState_ == DrainState::PENDING) {
@@ -708,6 +714,8 @@ size_t HQSession::HQVersionUtils::sendSettings() {
           break;
         case hq::SettingId::MAX_HEADER_LIST_SIZE:
           // TODO: qpackCodec_.setMaxUncompressed(setting.value)
+          break;
+        case hq::SettingId::H3_DATAGRAM:
           break;
       }
     }
@@ -1530,6 +1538,7 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
 
   uint32_t tableSize = kDefaultIngressHeaderTableSize;
   uint32_t blocked = kDefaultIngressQpackBlockedStream;
+  bool datagram = false;
   FOLLY_MAYBE_UNUSED uint32_t numPlaceholders = kDefaultIngressNumPlaceHolders;
   for (auto& setting : settings) {
     auto id = httpToHqSettingsId(setting.id);
@@ -1545,11 +1554,26 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
           // this setting is stored in ingressSettings_ and enforced in the
           // StreamCodec
           break;
+        case hq::SettingId::H3_DATAGRAM:
+          datagram = static_cast<bool>(setting.value);
+          break;
       }
     }
   }
   qpackCodec_.setEncoderHeaderTableSize(tableSize);
   qpackCodec_.setMaxVulnerable(blocked);
+
+  // If datagram was not negotiated at the transport, close the connection
+  if (datagram && session_.sock_->getDatagramSizeLimit() == 0) {
+    session_.dropConnectionAsync(
+        std::make_pair(HTTP3::ErrorCode::HTTP_SETTINGS_ERROR,
+                       "H3_DATAGRAM without transport support"),
+        kErrorConnection);
+  }
+  // H3 Datagram flows are bi-directional, enable only of local and peer
+  // support it
+  session_.datagramEnabled_ &= datagram;
+
   VLOG(3) << "Applied SETTINGS sess=" << session_ << " size=" << tableSize
           << " blocked=" << blocked;
 }

@@ -100,6 +100,7 @@ ParseResult HQControlCodec::parseSettings(Cursor& cursor,
       case hq::SettingId::HEADER_TABLE_SIZE:
       case hq::SettingId::MAX_HEADER_LIST_SIZE:
       case hq::SettingId::QPACK_BLOCKED_STREAMS:
+      case hq::SettingId::H3_DATAGRAM:
         break;
       default:
         continue; // ignore unknown settings
@@ -219,6 +220,7 @@ size_t HQControlCodec::generateSettings(folly::IOBufQueue& writeBuf) {
         case hq::SettingId::HEADER_TABLE_SIZE:
         case hq::SettingId::MAX_HEADER_LIST_SIZE:
         case hq::SettingId::QPACK_BLOCKED_STREAMS:
+        case hq::SettingId::H3_DATAGRAM:
           break;
       }
       settings.emplace_back(*id, (SettingValue)setting.value);
