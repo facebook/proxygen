@@ -55,7 +55,6 @@ DEFINE_uint32(num_gro_buffers,
               "Number of GRO buffers");
 
 DEFINE_int32(txn_timeout, 120000, "HTTP Transaction Timeout");
-DEFINE_string(httpauth, "", "HTTP Authority field, defaults to --host");
 DEFINE_string(headers, "", "List of N=V headers separated by ,");
 DEFINE_bool(pacing, false, "Whether to enable pacing on HQServer");
 DEFINE_int32(pacing_timer_tick_interval_us, 200, "Pacing timer resolution");
