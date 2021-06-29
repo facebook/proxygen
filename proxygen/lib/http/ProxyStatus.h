@@ -43,7 +43,7 @@ class ProxyStatus {
                                                const std::string& text);
 
   // Serialize ProxyStatus to std::string
-  // e.g. proxy-status: destination_unavailable; \
+  // e.g. proxy-status: destination_unavailable;
   // e_proxy="devbig623.prn2"; e_upip="fe:de:fa:ce:fe:de:fa:ce"
   std::string toString() const;
 

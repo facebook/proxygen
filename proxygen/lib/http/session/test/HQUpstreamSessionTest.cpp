@@ -1928,5 +1928,10 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
 // Instantiate h3 datagram tests
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestHQDatagram,
-                        Values(TestParams({.alpn_ = "h3", .datagrams_ = true})),
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          tp.datagrams_ = true;
+                          return tp;
+                        }()),
                         paramsToTestName);
