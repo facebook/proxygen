@@ -258,9 +258,9 @@ class HQSession
                          ? *sock_->getServerConnectionId()
                          : quic::ConnectionId({0, 0, 0, 0});
     if (direction_ == TransportDirection::DOWNSTREAM) {
-      os << ", client CID=" << clientCid << ", server CID=" << serverCid
-         << ", downstream=" << getPeerAddress() << ", " << getLocalAddress()
-         << "=local";
+      os << ", UA=" << userAgent_ << ", client CID=" << clientCid
+         << ", server CID=" << serverCid << ", downstream=" << getPeerAddress()
+         << ", " << getLocalAddress() << "=local";
     } else {
       os << ", client CID=" << clientCid << ", server CID=" << serverCid
          << ", local=" << getLocalAddress() << ", " << getPeerAddress()
@@ -2066,6 +2066,7 @@ class HQSession
   folly::F14FastMap<hq::PushId, quic::StreamId> pushIdToStreamId_;
   // Lookup maps for matching ingress push streams to push ids
   folly::F14FastMap<quic::StreamId, hq::PushId> streamIdToPushId_;
+  std::string userAgent_;
 }; // HQSession
 
 std::ostream& operator<<(std::ostream& os, HQSession::DrainState drainState);

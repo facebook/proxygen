@@ -259,7 +259,8 @@ void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
   CHECK(parserPaused_);
   decodeInfo_.decodeError = decodeError;
   DCHECK_NE(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
-  LOG(ERROR) << "Failed decoding header block for stream=" << streamId_;
+  LOG(ERROR) << "Failed decoding header block for stream=" << streamId_
+             << " decodeError=" << uint32_t(decodeError);
 
   if (decodeInfo_.msg) {
     // print the partial message
@@ -268,8 +269,10 @@ void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
 
   if (callback_) {
     auto g = folly::makeGuard(activationHook_());
-    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-                     "Stream headers decompression error");
+    HTTPException ex(
+        HTTPException::Direction::INGRESS_AND_EGRESS,
+        folly::to<std::string>("Stream headers decompression error=",
+                               uint32_t(decodeError)));
     ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
     // HEADERS_TOO_LARGE could be a stream error, maybe?
     callback_->onError(kSessionStreamId, ex, false);

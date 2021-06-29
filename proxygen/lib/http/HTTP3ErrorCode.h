@@ -42,6 +42,12 @@ enum ErrorCode : uint16_t {
   GIVEUP_ZERO_RTT = 0xF2
 };
 }
+inline bool isQPACKError(HTTP3::ErrorCode err) {
+  return err == HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED ||
+         err == HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR ||
+         err == HTTP3::ErrorCode::HTTP_QPACK_DECODER_STREAM_ERROR;
+}
+
 std::string toString(HTTP3::ErrorCode code);
 
 } // namespace proxygen

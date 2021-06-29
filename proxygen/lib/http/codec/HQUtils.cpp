@@ -60,7 +60,9 @@ proxygen::ErrorCode hqToHttpErrorCode(HTTP3::ErrorCode err) {
 ProxygenError toProxygenError(quic::QuicErrorCode error, bool fromPeer) {
   switch (error.type()) {
     case quic::QuicErrorCode::Type::ApplicationErrorCode:
-      return fromPeer ? kErrorConnectionReset : kErrorConnection;
+      return (isQPACKError(HTTP3::ErrorCode(*error.asApplicationErrorCode()))
+                  ? kErrorBadDecompress
+                  : (fromPeer ? kErrorConnectionReset : kErrorConnection));
     case quic::QuicErrorCode::Type::LocalErrorCode:
       return kErrorShutdown;
     case quic::QuicErrorCode::Type::TransportErrorCode:

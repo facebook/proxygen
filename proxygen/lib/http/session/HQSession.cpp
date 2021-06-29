@@ -40,6 +40,20 @@ static const std::string kH1QV1ProtocolString("h1q-fb");
 static const std::string kH1QV2ProtocolString("h1q-fb-v2");
 static const std::string kQUICProtocolName("QUIC");
 
+using namespace proxygen::HTTP3;
+bool noError(quic::QuicErrorCode error) {
+  return (error.type() == quic::QuicErrorCode::Type::LocalErrorCode &&
+          (*error.asLocalErrorCode() == quic::LocalErrorCode::NO_ERROR ||
+           *error.asLocalErrorCode() == quic::LocalErrorCode::IDLE_TIMEOUT)) ||
+         (error.type() == quic::QuicErrorCode::Type::ApplicationErrorCode &&
+          (proxygen::HTTP3::ErrorCode(*error.asApplicationErrorCode()) ==
+               proxygen::HTTP3::ErrorCode::HTTP_NO_ERROR ||
+           uint16_t(*error.asApplicationErrorCode()) ==
+               uint16_t(quic::GenericApplicationErrorCode::NO_ERROR))) ||
+         (error.type() == quic::QuicErrorCode::Type::TransportErrorCode &&
+          *error.asTransportErrorCode() == quic::TransportErrorCode::NO_ERROR);
+}
+
 // handleSessionError is mostly setup to process application error codes
 // that we want to send.  If we receive an application error code, convert to
 // HTTP_CLOSED_CRITICAL_STREAM
@@ -434,6 +448,17 @@ void HQSession::onConnectionError(
   auto proxygenErr = toProxygenError(code.first, /*fromPeer=*/true);
   if (infoCallback_) {
     infoCallback_->onIngressError(*this, proxygenErr);
+  }
+
+  if (code.first.type() == quic::QuicErrorCode::Type::ApplicationErrorCode &&
+      isQPACKError(static_cast<HTTP3::ErrorCode>(
+          *code.first.asApplicationErrorCode()))) {
+    LOG(ERROR) << "Peer closed with QPACK error err="
+               << static_cast<uint32_t>(*code.first.asApplicationErrorCode())
+               << " msg=" << code.second << " " << *this;
+  } else if (!noError(code.first)) {
+    LOG(ERROR) << "Peer closed with error err=" << code.first
+               << " msg=" << code.second << " " << *this;
   }
 
   // force close all streams.
@@ -1837,8 +1862,7 @@ void HQSession::handleSessionError(HQStreamBase* stream,
     auto id = (streamDir == StreamDirection::EGRESS
                    ? ctrlStream->getEgressStreamId()
                    : ctrlStream->getIngressStreamId());
-    // TODO: This happens for each control stream during shutdown, and that is
-    // too much for a LOG(ERROR)
+    // We will miss spurious control stream RST or write errors in the logs
     VLOG(3) << "Got error on control stream error=" << err << " streamID=" << id
             << " Dropping connection. sess=" << *this;
     appErrorMsg = "HTTP error on control stream";
@@ -2264,7 +2288,7 @@ std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
       },
       session_.ingressSettings_);
   hqStreamCodecPtr_ = codec.get();
-  return std::move(codec);
+  return codec;
 }
 
 void HQSession::H1QFBV1VersionUtils::sendGoawayOnRequestStream(
@@ -2570,6 +2594,10 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
   msg->setSecure(true);
   CHECK(codecStreamId_);
   CHECK_EQ(streamID, *codecStreamId_);
+
+  if (msg->isRequest() && session_.userAgent_.empty()) {
+    session_.userAgent_ = session_.codec_->getUserAgent();
+  }
 
   //  setupOnHeadersComplete is only implemented
   //  in the HQDownstreamSession, which does not
@@ -3012,6 +3040,15 @@ void HQSession::HQControlStream::onError(HTTPCodec::StreamID streamID,
   if (streamID == kSessionStreamId) {
     streamID = getIngressStreamId();
   }
+  if (session_.infoCallback_) {
+    session_.infoCallback_->onIngressError(
+        session_,
+        isQPACKError(error.getHttp3ErrorCode()) ? kErrorBadDecompress
+                                                : kErrorMessage);
+  }
+  LOG(ERROR) << "Got error on control stream error="
+             << toString(error.getHttp3ErrorCode()) << " streamID=" << streamID
+             << " sess=" << session_;
   session_.handleSessionError(
       CHECK_NOTNULL(session_.findControlStream(streamID)),
       StreamDirection::INGRESS,
@@ -3030,6 +3067,15 @@ void HQSession::HQStreamTransportBase::onError(HTTPCodec::StreamID streamID,
   ingressError_ = true;
 
   if (streamID == kSessionStreamId) {
+    if (session_.infoCallback_) {
+      session_.infoCallback_->onIngressError(
+          session_,
+          isQPACKError(error.getHttp3ErrorCode()) ? kErrorBadDecompress
+                                                  : kErrorMessage);
+    }
+    LOG(ERROR) << "Got session error error="
+               << toString(error.getHttp3ErrorCode()) << " msg=" << error
+               << " streamID=" << getIngressStreamId() << " sess=" << session_;
     session_.handleSessionError(this,
                                 StreamDirection::INGRESS,
                                 error.getHttp3ErrorCode(),

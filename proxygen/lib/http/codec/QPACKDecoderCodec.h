@@ -30,8 +30,10 @@ class QPACKDecoderCodec : public HQUnidirectionalCodec {
     auto err = qpackCodec_.decodeDecoderStream(std::move(buf));
     if (err != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "QPACK decoder stream decode error err=" << err;
-      HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-                       "Compression error on decoder stream");
+      HTTPException ex(
+          HTTPException::Direction::INGRESS_AND_EGRESS,
+          folly::to<std::string>("Compression error on decoder stream err=",
+                                 uint32_t(err)));
       ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_QPACK_DECODER_STREAM_ERROR);
       callback_.onError(kSessionStreamId, ex, false);
     }
