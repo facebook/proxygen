@@ -1882,28 +1882,58 @@ TEST_P(HQUpstreamSessionTestHQDatagram, TestDatagramSettings) {
 // Make sure all the tests keep working with all the supported protocol versions
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTest,
-                        Values(TestParams({.alpn_ = "h1q-fb"}),
-                               TestParams({.alpn_ = "h1q-fb-v2"}),
-                               TestParams({.alpn_ = "h3"})),
+                        Values(
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h1q-fb";
+                              return tp;
+                            }(),
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h1q-fb-v2";
+                              return tp;
+                            }(),
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h3";
+                              return tp;
+                            }()),
                         paramsToTestName);
 
 // Instantiate h1q-fb-v2 and hq only tests (goaway tests)
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestH1qv2HQ,
-                        Values(TestParams({.alpn_ = "h1q-fb-v2"}),
-                               TestParams({.alpn_ = "h3"})),
+                        Values(
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h1q-fb-v2";
+                              return tp;
+                            }(),
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h3";
+                              return tp;
+                            }()),
                         paramsToTestName);
 
 // Instantiate h1q-fb-v1 only tests
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestH1qv1,
-                        Values(TestParams({.alpn_ = "h1q-fb"})),
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h1q-fb";
+                          return tp;
+                        }()),
                         paramsToTestName);
 
 // Instantiate hq only tests
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestHQ,
-                        Values(TestParams({.alpn_ = "h3"})),
+                        Values([] {
+                          TestParams tp;
+                          tp.alpn_ = "h3";
+                          return tp;
+                        }()),
                         paramsToTestName);
 
 // Instantiate tests for H3 Push functionality (requires HQ)
@@ -1920,9 +1950,18 @@ INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
 // Instantiate tests with QPACK on/off
 INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
                         HQUpstreamSessionTestQPACK,
-                        Values(TestParams({.alpn_ = "h3"}),
-                               TestParams({.alpn_ = "h3",
-                                           .createQPACKStreams_ = false})),
+                        Values(
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h3";
+                              return tp;
+                            }(),
+                            [] {
+                              TestParams tp;
+                              tp.alpn_ = "h3";
+                              tp.createQPACKStreams_ = false;
+                              return tp;
+                            }()),
                         paramsToTestName);
 
 // Instantiate h3 datagram tests

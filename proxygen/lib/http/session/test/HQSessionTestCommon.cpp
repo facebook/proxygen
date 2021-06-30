@@ -80,7 +80,7 @@ std::string paramsToTestName(const testing::TestParamInfo<TestParams>& info) {
   if (!info.param.createQPACKStreams_) {
     paramsV.push_back("_noqpack");
   }
-  if (!info.param.datagrams_) {
+  if (info.param.datagrams_) {
     paramsV.push_back("_datagrams");
   }
   return folly::join("", paramsV);
