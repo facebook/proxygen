@@ -31,6 +31,7 @@
 #include <quic/QuicConstants.h>
 #include <quic/common/BufUtil.h>
 #include <quic/logging/QLoggerConstants.h>
+#include <sstream>
 #include <wangle/acceptor/ConnectionManager.h>
 
 namespace {
@@ -52,6 +53,15 @@ bool noError(quic::QuicErrorCode error) {
                uint16_t(quic::GenericApplicationErrorCode::NO_ERROR))) ||
          (error.type() == quic::QuicErrorCode::Type::TransportErrorCode &&
           *error.asTransportErrorCode() == quic::TransportErrorCode::NO_ERROR);
+}
+
+bool isVlogLevel(quic::TransportErrorCode code) {
+  return code == quic::TransportErrorCode::INVALID_MIGRATION;
+}
+
+bool isVlogLevel(quic::QuicErrorCode error) {
+  return error.type() == quic::QuicErrorCode::Type::TransportErrorCode &&
+         isVlogLevel(*error.asTransportErrorCode());
 }
 
 // handleSessionError is mostly setup to process application error codes
@@ -457,8 +467,14 @@ void HQSession::onConnectionError(
                << static_cast<uint32_t>(*code.first.asApplicationErrorCode())
                << " msg=" << code.second << " " << *this;
   } else if (!noError(code.first)) {
-    LOG(ERROR) << "Peer closed with error err=" << code.first
-               << " msg=" << code.second << " " << *this;
+    std::stringstream msgStream;
+    msgStream << "Peer closed with error err=" << code.first
+              << " msg=" << code.second << " " << *this;
+    if (isVlogLevel(code.first)) {
+      VLOG(3) << msgStream.str();
+    } else {
+      LOG(ERROR) << msgStream.str();
+    }
   }
 
   // force close all streams.
