@@ -279,11 +279,13 @@ class HTTPTransactionHandler : public TraceEventObserver {
   }
 
   /**
-   * Inform the handler that data arrived into underlying transport's read
-   * buffer.
+   * Can be called multiple times per transaction after onHeadersComplete and
+   * before detachTransaction()
+   *
+   * It does not obey pauseIngress/resumeIngress it is up to the handler
+   * to decide whether to buffer/drop datagrams
    */
-  virtual void onBodyPeek(uint64_t /* offset */,
-                          const folly::IOBuf& /* chain */) noexcept {
+  virtual void onDatagram(std::unique_ptr<folly::IOBuf> /*datagram*/) noexcept {
   }
 
   virtual ~HTTPTransactionHandler() {
@@ -569,6 +571,15 @@ class HTTPTransaction
 
     virtual folly::Optional<HTTPPriority> getHTTPPriority() {
       return folly::none;
+    }
+
+    virtual uint16_t getDatagramSizeLimit() const noexcept {
+      return 0;
+    }
+
+    virtual bool sendDatagram(std::unique_ptr<folly::IOBuf> /*datagram*/) {
+      LOG(FATAL) << __func__ << " not supported";
+      folly::assume_unreachable();
     }
 
     /**
@@ -907,6 +918,15 @@ class HTTPTransaction
    * TODO(bschlinker): Add support for QUIC.
    */
   void onEgressTransportAppRateLimited();
+
+  /**
+   * Can be called multiple times per transaction after onHeadersComplete and
+   * before detachTransaction()
+   *
+   * It does not obey pauseIngress/resumeIngress it is up to the handler
+   * to decide whether to buffer/drop datagrams
+   */
+  void onDatagram(std::unique_ptr<folly::IOBuf> datagram) noexcept;
 
   /**
    * Invoked by the handlers that are interested in tracking
@@ -1501,6 +1521,9 @@ class HTTPTransaction
     enableBodyLastByteDeliveryTracking_ = enabled;
     return true;
   }
+
+  uint16_t getDatagramSizeLimit() const noexcept;
+  virtual bool sendDatagram(std::unique_ptr<folly::IOBuf> datagram);
 
   folly::Optional<ConnectionToken> getConnectionToken() const noexcept;
 

@@ -197,6 +197,20 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
         .WillRepeatedly(testing::Return(token));
   }
 
+  GMOCK_METHOD1_(
+      , noexcept, , sendDatagram, bool(std::shared_ptr<folly::IOBuf>));
+
+  bool sendDatagram(std::unique_ptr<folly::IOBuf> datagram) override {
+    return sendDatagram(std::shared_ptr<folly::IOBuf>(datagram.release()));
+  }
+
+  GMOCK_METHOD0_(, noexcept, , getDatagramSizeLimitNonConst, uint16_t());
+
+  uint16_t getDatagramSizeLimit() const noexcept override {
+    return const_cast<MockHTTPTransactionTransport*>(this)
+        ->getDatagramSizeLimitNonConst();
+  }
+
   MockHTTPCodec mockCodec_;
 };
 

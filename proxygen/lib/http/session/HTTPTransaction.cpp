@@ -1280,6 +1280,19 @@ void HTTPTransaction::sendAbort(ErrorCode statusCode) {
   }
 }
 
+uint16_t HTTPTransaction::getDatagramSizeLimit() const noexcept {
+  return transport_.getDatagramSizeLimit();
+}
+
+bool HTTPTransaction::sendDatagram(std::unique_ptr<folly::IOBuf> datagram) {
+  CHECK(HTTPTransactionEgressSM::transit(
+      egressState_, HTTPTransactionEgressSM::Event::sendDatagram));
+  if (datagram->computeChainDataLength() > getDatagramSizeLimit()) {
+    return false;
+  }
+  return transport_.sendDatagram(std::move(datagram));
+}
+
 folly::Optional<HTTPTransaction::ConnectionToken>
 HTTPTransaction::getConnectionToken() const noexcept {
   return transport_.getConnectionToken();
@@ -1787,6 +1800,23 @@ bool HTTPTransaction::getPrioritySampleSummary(
     return true;
   }
   return false;
+}
+
+void HTTPTransaction::onDatagram(
+    std::unique_ptr<folly::IOBuf> datagram) noexcept {
+  DestructorGuard g(this);
+  if (aborted_) {
+    return;
+  }
+  VLOG(4) << "datagram received on " << *this;
+  if (!validateIngressStateTransition(
+          HTTPTransactionIngressSM::Event::onDatagram)) {
+    return;
+  }
+  refreshTimeout();
+  if (handler_ && !isIngressComplete()) {
+    handler_->onDatagram(std::move(datagram));
+  }
 }
 
 } // namespace proxygen
