@@ -18,6 +18,7 @@ class HTTPTransactionEgressSMData {
   enum class State : uint8_t {
     Start,
     HeadersSent,
+    DatagramSent,
     RegularBodySent,
     ChunkHeaderSent,
     ChunkBodySent,
@@ -33,6 +34,7 @@ class HTTPTransactionEgressSMData {
   enum class Event : uint8_t {
     // API accessible transitions
     sendHeaders,
+    sendDatagram,
     sendBody,
     sendChunkHeader,
     sendChunkTerminator,

@@ -126,6 +126,49 @@ TEST_F(EgressStateMachineFixture, WeirdEgressTransitions) {
   follow(HTTPTransactionEgressSM::Event::eomFlushed);
 }
 
+TEST_F(EgressStateMachineFixture, NormalDatagramTransitions) {
+  follow(HTTPTransactionEgressSM::Event::sendHeaders);
+  follow(HTTPTransactionEgressSM::Event::sendDatagram);
+  follow(HTTPTransactionEgressSM::Event::sendDatagram);
+  follow(HTTPTransactionEgressSM::Event::sendEOM);
+  follow(HTTPTransactionEgressSM::Event::eomFlushed);
+}
+
+TEST_F(EgressStateMachineFixture, NormalDatagramTransitionsWithTrailers) {
+  follow(HTTPTransactionEgressSM::Event::sendHeaders);
+  follow(HTTPTransactionEgressSM::Event::sendDatagram);
+  follow(HTTPTransactionEgressSM::Event::sendDatagram);
+  follow(HTTPTransactionEgressSM::Event::sendTrailers);
+  follow(HTTPTransactionEgressSM::Event::sendEOM);
+  follow(HTTPTransactionEgressSM::Event::eomFlushed);
+}
+
+TEST_F(EgressStateMachineFixture, BadDatagramTransitionBeforeHeaders) {
+  fail(HTTPTransactionEgressSM::Event::sendDatagram);
+}
+
+TEST_F(EgressStateMachineFixture, BadDatagramTransitionAfterBody) {
+  follow(HTTPTransactionEgressSM::Event::sendHeaders);
+  follow(HTTPTransactionEgressSM::Event::sendBody);
+  fail(HTTPTransactionEgressSM::Event::sendDatagram);
+}
+
+TEST_F(EgressStateMachineFixture, BadDatagramTransitionAfterTrailers) {
+  follow(HTTPTransactionEgressSM::Event::sendHeaders);
+  follow(HTTPTransactionEgressSM::Event::sendDatagram);
+  follow(HTTPTransactionEgressSM::Event::sendDatagram);
+  follow(HTTPTransactionEgressSM::Event::sendTrailers);
+  fail(HTTPTransactionEgressSM::Event::sendDatagram);
+}
+
+TEST_F(EgressStateMachineFixture, BadDatagramTransitionAfterEOM) {
+  follow(HTTPTransactionEgressSM::Event::sendHeaders);
+  follow(HTTPTransactionEgressSM::Event::sendDatagram);
+  follow(HTTPTransactionEgressSM::Event::sendEOM);
+  follow(HTTPTransactionEgressSM::Event::eomFlushed);
+  fail(HTTPTransactionEgressSM::Event::sendDatagram);
+}
+
 // Ingress tests
 
 TEST_F(IngressStateMachineFixture, BadIngressTransitions1) {
@@ -188,4 +231,44 @@ TEST_F(IngressStateMachineFixture, WeirdIngressTransitions) {
   follow(HTTPTransactionIngressSM::Event::onHeaders);
   follow(HTTPTransactionIngressSM::Event::onTrailers);
   follow(HTTPTransactionIngressSM::Event::onEOM);
+}
+
+TEST_F(IngressStateMachineFixture, NormalDatagramTransitions) {
+  follow(HTTPTransactionIngressSM::Event::onHeaders);
+  follow(HTTPTransactionIngressSM::Event::onDatagram);
+  follow(HTTPTransactionIngressSM::Event::onDatagram);
+  follow(HTTPTransactionIngressSM::Event::onEOM);
+}
+
+TEST_F(IngressStateMachineFixture, NormalDatagramTransitionsWithTrailers) {
+  follow(HTTPTransactionIngressSM::Event::onHeaders);
+  follow(HTTPTransactionIngressSM::Event::onDatagram);
+  follow(HTTPTransactionIngressSM::Event::onDatagram);
+  follow(HTTPTransactionIngressSM::Event::onTrailers);
+  follow(HTTPTransactionIngressSM::Event::onEOM);
+}
+
+TEST_F(IngressStateMachineFixture, BadDatagramTransitionBeforeHeaders) {
+  fail(HTTPTransactionIngressSM::Event::onDatagram);
+}
+
+TEST_F(IngressStateMachineFixture, BadDatagramTransitionAfterBody) {
+  follow(HTTPTransactionIngressSM::Event::onHeaders);
+  follow(HTTPTransactionIngressSM::Event::onBody);
+  fail(HTTPTransactionIngressSM::Event::onDatagram);
+}
+
+TEST_F(IngressStateMachineFixture, BadDatagramTransitionAfterTrailers) {
+  follow(HTTPTransactionIngressSM::Event::onHeaders);
+  follow(HTTPTransactionIngressSM::Event::onDatagram);
+  follow(HTTPTransactionIngressSM::Event::onDatagram);
+  follow(HTTPTransactionIngressSM::Event::onTrailers);
+  fail(HTTPTransactionIngressSM::Event::onDatagram);
+}
+
+TEST_F(IngressStateMachineFixture, BadDatagramTransitionAfterEOM) {
+  follow(HTTPTransactionIngressSM::Event::onHeaders);
+  follow(HTTPTransactionIngressSM::Event::onDatagram);
+  follow(HTTPTransactionIngressSM::Event::onEOM);
+  fail(HTTPTransactionIngressSM::Event::onDatagram);
 }

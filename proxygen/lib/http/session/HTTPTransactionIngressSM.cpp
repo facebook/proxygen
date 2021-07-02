@@ -78,6 +78,14 @@ HTTPTransactionIngressSMData::find(HTTPTransactionIngressSMData::State s,
            {{State::UpgradeComplete, Event::onBody}, State::UpgradeComplete},
            {{State::UpgradeComplete, Event::onEOM}, State::EOMQueued},
 
+           {{State::HeadersReceived, Event::onDatagram},
+            State::DatagramReceived},
+           {{State::DatagramReceived, Event::onDatagram},
+            State::DatagramReceived},
+           {{State::DatagramReceived, Event::onTrailers},
+            State::TrailersReceived},
+           {{State::DatagramReceived, Event::onEOM}, State::EOMQueued},
+
            {{State::EOMQueued, Event::eomFlushed}, State::ReceivingDone}}}};
 
   return transitions->find(s, e);
@@ -91,6 +99,9 @@ std::ostream& operator<<(std::ostream& os,
       break;
     case HTTPTransactionIngressSMData::State::HeadersReceived:
       os << "HeadersReceived";
+      break;
+    case HTTPTransactionIngressSMData::State::DatagramReceived:
+      os << "DatagramReceived";
       break;
     case HTTPTransactionIngressSMData::State::RegularBodyReceived:
       os << "RegularBodyReceived";
@@ -129,6 +140,9 @@ std::ostream& operator<<(std::ostream& os,
   switch (e) {
     case HTTPTransactionIngressSMData::Event::onHeaders:
       os << "onHeaders";
+      break;
+    case HTTPTransactionIngressSMData::Event::onDatagram:
+      os << "onDatagram";
       break;
     case HTTPTransactionIngressSMData::Event::onBody:
       os << "onBody";

@@ -60,6 +60,11 @@ HTTPTransactionEgressSMData::find(HTTPTransactionEgressSMData::State s,
 
            {{State::TrailersSent, Event::sendEOM}, State::EOMQueued},
 
+           {{State::HeadersSent, Event::sendDatagram}, State::DatagramSent},
+           {{State::DatagramSent, Event::sendDatagram}, State::DatagramSent},
+           {{State::DatagramSent, Event::sendTrailers}, State::TrailersSent},
+           {{State::DatagramSent, Event::sendEOM}, State::EOMQueued},
+
            {{State::EOMQueued, Event::eomFlushed}, State::SendingDone}}}};
 
   return transitions->find(s, e);
@@ -73,6 +78,9 @@ std::ostream& operator<<(std::ostream& os,
       break;
     case HTTPTransactionEgressSMData::State::HeadersSent:
       os << "HeadersSent";
+      break;
+    case HTTPTransactionEgressSMData::State::DatagramSent:
+      os << "DatagramSent";
       break;
     case HTTPTransactionEgressSMData::State::RegularBodySent:
       os << "RegularBodySent";
@@ -108,6 +116,9 @@ std::ostream& operator<<(std::ostream& os,
   switch (e) {
     case HTTPTransactionEgressSMData::Event::sendHeaders:
       os << "sendHeaders";
+      break;
+    case HTTPTransactionEgressSMData::Event::sendDatagram:
+      os << "sendDatagram";
       break;
     case HTTPTransactionEgressSMData::Event::sendBody:
       os << "sendBody";
