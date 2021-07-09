@@ -48,24 +48,29 @@ ParseResult parseHeaders(folly::io::Cursor& cursor,
   return folly::none;
 }
 
-ParseResult parseCancelPush(folly::io::Cursor& cursor,
-                            const FrameHeader& header,
-                            PushId& outPushId) noexcept {
+static ParseResult parseIdOnlyFrame(folly::io::Cursor& cursor,
+                                    const FrameHeader& header,
+                                    uint64_t& outId) noexcept {
   DCHECK_LE(header.length, cursor.totalLength());
-  folly::IOBuf buf;
   auto frameLength = header.length;
 
-  auto pushId = quic::decodeQuicInteger(cursor, frameLength);
-  if (!pushId) {
+  auto id = quic::decodeQuicInteger(cursor, frameLength);
+  if (!id) {
     return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
-  outPushId = pushId->first;
-  frameLength -= pushId->second;
+  outId = id->first;
+  frameLength -= id->second;
   if (frameLength != 0) {
     return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
   }
 
   return folly::none;
+}
+
+ParseResult parseCancelPush(folly::io::Cursor& cursor,
+                            const FrameHeader& header,
+                            PushId& outPushId) noexcept {
+  return parseIdOnlyFrame(cursor, header, outPushId);
 }
 
 folly::Expected<folly::Optional<SettingValue>, HTTP3::ErrorCode>
@@ -143,41 +148,13 @@ ParseResult parsePushPromise(folly::io::Cursor& cursor,
 ParseResult parseGoaway(folly::io::Cursor& cursor,
                         const FrameHeader& header,
                         quic::StreamId& outStreamId) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
-  folly::IOBuf buf;
-  auto frameLength = header.length;
-
-  auto streamId = quic::decodeQuicInteger(cursor, frameLength);
-  if (!streamId) {
-    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
-  }
-  outStreamId = streamId->first;
-  frameLength -= streamId->second;
-  if (frameLength != 0) {
-    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
-  }
-
-  return folly::none;
+  return parseIdOnlyFrame(cursor, header, outStreamId);
 }
 
 ParseResult parseMaxPushId(folly::io::Cursor& cursor,
                            const FrameHeader& header,
                            quic::StreamId& outPushId) noexcept {
-  DCHECK_LE(header.length, cursor.totalLength());
-  folly::IOBuf buf;
-  auto frameLength = header.length;
-
-  auto pushId = quic::decodeQuicInteger(cursor, frameLength);
-  if (!pushId) {
-    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
-  }
-  outPushId = pushId->first;
-  frameLength -= pushId->second;
-  if (frameLength != 0) {
-    return HTTP3::ErrorCode::HTTP_FRAME_ERROR;
-  }
-
-  return folly::none;
+  return parseIdOnlyFrame(cursor, header, outPushId);
 }
 
 ParseResult parsePriorityUpdate(folly::io::Cursor& cursor,
