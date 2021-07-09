@@ -28,6 +28,7 @@
 
 constexpr quic::StreamId kQPACKEncoderIngressStreamId = 6;
 constexpr quic::StreamId kQPACKEncoderEgressStreamId = 7;
+constexpr quic::StreamId kQPACKDecoderEgressStreamId = 11;
 
 class TestTransportCallback
     : public proxygen::HTTPTransactionTransportCallback {

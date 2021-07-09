@@ -3106,6 +3106,14 @@ void HQSession::HQStreamTransportBase::onError(HTTPCodec::StreamID streamID,
 
   if (!txn_.getHandler() &&
       txn_.getEgressState() == HTTPTransactionEgressSM::State::Start) {
+    if (error.getDirection() != HTTPException::Direction::INGRESS) {
+      // Direct error handler only process INGRESS
+      LOG(DFATAL) << "Codec gave egress error with no handler sess="
+                  << session_;
+    }
+    session_.abortStream(HTTPException::Direction::INGRESS,
+                         getIngressStreamId(),
+                         error.getHttp3ErrorCode());
     session_.handleErrorDirectly(&txn_, error);
     return;
   }

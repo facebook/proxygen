@@ -270,12 +270,16 @@ void HQStreamCodec::onDecodeError(HPACK::DecodeError decodeError) {
   if (callback_) {
     auto g = folly::makeGuard(activationHook_());
     HTTPException ex(
-        HTTPException::Direction::INGRESS_AND_EGRESS,
+        HTTPException::Direction::INGRESS,
         folly::to<std::string>("Stream headers decompression error=",
                                uint32_t(decodeError)));
     ex.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
-    // HEADERS_TOO_LARGE could be a stream error, maybe?
-    callback_->onError(kSessionStreamId, ex, false);
+    // HEADERS_TOO_LARGE is a stream error, everything else is a session error
+    callback_->onError(decodeError == HPACK::DecodeError::HEADERS_TOO_LARGE
+                           ? streamId_
+                           : kSessionStreamId,
+                       ex,
+                       false);
   }
   // leave the partial msg in decodeInfo, it keeps the parser paused
 }

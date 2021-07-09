@@ -415,6 +415,7 @@ std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeHeaderAck(
 std::unique_ptr<folly::IOBuf> QPACKDecoder::encodeCancelStream(
     uint64_t streamId) {
   // Remove this stream from the queue
+  VLOG(6) << "encodeCancelStream id=" << streamId;
   auto it = queue_.begin();
   while (it != queue_.end()) {
     if (it->second.streamID == streamId) {

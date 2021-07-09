@@ -2246,6 +2246,50 @@ TEST_P(HQDownstreamSessionTestHQ, DelayedQPACKStopSendingReset) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTestHQ, QPACKHeadersTooLarge) {
+  hqSession_->setEgressSettings({{SettingsId::MAX_HEADER_LIST_SIZE, 60}});
+  auto req = getGetRequest();
+  req.getHeaders().add("X-FB-Debug", "rfccffgvtvnenjkbtitkfdufddnvbecu");
+  auto id = sendRequest(req);
+  testing::StrictMock<MockHTTPHandler> errHandler;
+  EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
+      .WillOnce(Return(&errHandler));
+  EXPECT_CALL(errHandler, setTransaction(testing::_))
+      .WillOnce(testing::SaveArg<0>(&errHandler.txn_));
+  errHandler.expectError([&errHandler](const HTTPException& ex) {
+    EXPECT_EQ(ex.getHttp3ErrorCode(),
+              (uint32_t)HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
+    errHandler.sendReplyWithBody(400, 100);
+  });
+  errHandler.expectDetachTransaction();
+  flushRequestsAndLoopN(2);
+  // Gets a response
+  EXPECT_GT(socketDriver_->streams_[id].writeBuf.chainLength(), 30);
+  EXPECT_EQ(*socketDriver_->streams_[id].error,
+            (uint32_t)HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED);
+  auto decoderStream = socketDriver_->streams_[kQPACKDecoderEgressStreamId]
+                           .writeBuf.front()
+                           ->clone();
+  decoderStream->coalesce();
+  // preface, cancel, ici
+  EXPECT_EQ(decoderStream->computeChainDataLength(), 3);
+  EXPECT_EQ(decoderStream->data()[1], 0x40); // stream 0 cancelled
+
+  // But the conn is still usable
+  sendRequest();
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM([hdlr = handler.get(), this] {
+    HTTPMessage resp;
+    resp.setStatusCode(200);
+    hdlr->txn_->sendHeaders(resp);
+    hdlr->txn_->sendEOM();
+    hqSession_->closeWhenIdle();
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+}
+
 TEST_P(HQDownstreamSessionBeforeTransportReadyTest, NotifyPendingShutdown) {
   hqSession_->notifyPendingShutdown();
   SetUpOnTransportReady();
