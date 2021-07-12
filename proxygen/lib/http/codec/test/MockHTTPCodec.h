@@ -195,6 +195,7 @@ class MockHTTPCodecCallback : public HTTPCodec::Callback {
              code,
              std::shared_ptr<folly::IOBuf>(debugData.release()));
   }
+  MOCK_METHOD2(onUnknownFrame, void(uint64_t, uint64_t));
   MOCK_METHOD1(onPingRequest, void(uint64_t));
   MOCK_METHOD1(onPingReply, void(uint64_t));
   MOCK_METHOD2(onWindowUpdate, void(HTTPCodec::StreamID, uint32_t));

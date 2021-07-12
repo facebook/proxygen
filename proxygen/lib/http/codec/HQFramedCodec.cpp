@@ -44,6 +44,10 @@ ParseResult HQFramedCodec::parseFrame(Cursor& cursor) {
     default:
       // Implementations MUST ignore and discard any frame that has a
       // type that is unknown
+      if (callback_) {
+        callback_->onUnknownFrame(streamId_,
+                                  static_cast<uint64_t>(curHeader_.type));
+      }
       break;
   }
 

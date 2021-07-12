@@ -10,6 +10,7 @@
 
 #include <boost/optional/optional_io.hpp>
 #include <folly/portability/GTest.h>
+#include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/utils/TestUtils.h>
 
@@ -199,6 +200,13 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     data_.append(std::move(debugData));
   }
 
+  void onUnknownFrame(uint64_t /*streamId*/, uint64_t frameType) override {
+    ++unknownFrames;
+    if (proxygen::hq::isGreaseId(frameType)) {
+      ++greaseFrames;
+    }
+  }
+
   void onPingRequest(uint64_t data) override {
     recvPingRequest = data;
   }
@@ -346,6 +354,8 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     maxStreams = 0;
     datagramEnabled = 0;
     headerFrames = 0;
+    unknownFrames = 0;
+    greaseFrames = 0;
     priority = HTTPMessage::HTTP2Priority(0, false, 0);
     urgency = 0;
     incremental = false;
@@ -423,6 +433,8 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
   uint64_t maxStreams{0};
   uint64_t datagramEnabled{0};
   uint32_t headerFrames{0};
+  uint32_t greaseFrames{0};
+  uint32_t unknownFrames{0};
   HTTPMessage::HTTP2Priority priority{0, false, 0};
   uint8_t urgency{0};
   bool incremental{false};

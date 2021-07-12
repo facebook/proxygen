@@ -228,6 +228,16 @@ class HTTPCodec {
     }
 
     /**
+     * Called upon receipt of an unknown frame.
+     * @param streamID          stream ID
+     * @param frameType         frame type
+     * @note only used for quic testing
+     */
+    virtual void onUnknownFrame(uint64_t /* streamID */,
+                                uint64_t /* frameType */) {
+    }
+
+    /**
      * Called upon receipt of a ping request
      * @param data attached to the ping request
      * @note Not all protocols have pings.HTTP/2 does, but HTTP/1.1 doesn't.
