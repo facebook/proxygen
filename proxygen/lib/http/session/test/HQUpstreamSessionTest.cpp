@@ -1057,6 +1057,62 @@ TEST_P(HQUpstreamSessionTestHQ, TestOnStopSendingHTTPRequestRejected) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQUpstreamSessionTestHQ, TestGreaseFramePerSession) {
+  // a grease frame is created when creating the first transaction
+  auto handler1 = openTransaction();
+  auto streamId1 = handler1->txn_->getID();
+  handler1->txn_->sendHeaders(getGetRequest());
+  handler1->txn_->sendEOM();
+  handler1->expectHeaders();
+  handler1->expectBody();
+  handler1->expectEOM();
+  handler1->expectDetachTransaction();
+  auto resp1 = makeResponse(200, 100);
+  sendResponse(handler1->txn_->getID(),
+               *std::get<0>(resp1),
+               std::move(std::get<1>(resp1)),
+               true);
+  flushAndLoop();
+  FakeHTTPCodecCallback callback1;
+  std::unique_ptr<HQStreamCodec> downstreamCodec =
+      std::make_unique<hq::HQStreamCodec>(
+          streamId1,
+          TransportDirection::DOWNSTREAM,
+          qpackCodec_,
+          encoderWriteBuf_,
+          decoderWriteBuf_,
+          [] { return std::numeric_limits<uint64_t>::max(); },
+          ingressSettings_);
+  downstreamCodec->setCallback(&callback1);
+  downstreamCodec->onIngress(
+      *socketDriver_->streams_[streamId1].writeBuf.front());
+  EXPECT_EQ(callback1.unknownFrames, 1);
+  EXPECT_EQ(callback1.greaseFrames, 1);
+
+  // no grease frame is created when creating the second transaction
+  auto handler2 = openTransaction();
+  auto streamId2 = handler2->txn_->getID();
+  handler2->txn_->sendHeaders(getGetRequest());
+  handler2->txn_->sendEOM();
+  handler2->expectHeaders();
+  handler2->expectBody();
+  handler2->expectEOM();
+  handler2->expectDetachTransaction();
+  auto resp2 = makeResponse(200, 100);
+  sendResponse(handler2->txn_->getID(),
+               *std::get<0>(resp2),
+               std::move(std::get<1>(resp2)),
+               true);
+  flushAndLoop();
+  FakeHTTPCodecCallback callback2;
+  downstreamCodec->setCallback(&callback2);
+  downstreamCodec->onIngress(
+      *socketDriver_->streams_[streamId2].writeBuf.front());
+  EXPECT_EQ(callback2.unknownFrames, 0);
+  EXPECT_EQ(callback2.greaseFrames, 0);
+  hqSession_->closeWhenIdle();
+}
+
 // This test is checking two different scenarios for different protocol
 //   - in HQ we already have sent SETTINGS in SetUp, so tests that multiple
 //     setting frames are not allowed

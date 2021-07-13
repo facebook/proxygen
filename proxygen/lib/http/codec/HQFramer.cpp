@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <folly/Random.h>
+
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HQFramer.h>
@@ -413,6 +415,19 @@ const char* getFrameTypeString(FrameType type) {
 std::ostream& operator<<(std::ostream& os, FrameType type) {
   os << getFrameTypeString(type);
   return os;
+}
+
+WriteResult writeGreaseFrame(folly::IOBufQueue& writeBuf) noexcept {
+  auto greaseId = getGreaseId(folly::Random::rand32(16));
+  if (!greaseId) {
+    return folly::makeUnexpected(quic::TransportErrorCode::INTERNAL_ERROR);
+  }
+  uint64_t uiFrameType = *greaseId;
+  auto frameTypeSize = quic::getQuicIntegerSize(uiFrameType);
+  if (frameTypeSize.hasError()) {
+    return frameTypeSize;
+  }
+  return writeFrameHeader(writeBuf, static_cast<FrameType>(uiFrameType), 0);
 }
 
 }} // namespace proxygen::hq

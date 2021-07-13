@@ -120,6 +120,16 @@ void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
   if (ingressLimitExceeded()) {
     sock_->pauseRead(id);
   }
+
+  if (minUnseenIncomingStreamId_ == 0) {
+    // generate grease frame
+    auto writeGreaseFrameResult = hq::writeGreaseFrame(hqStream->writeBuf_);
+    if (writeGreaseFrameResult.hasError()) {
+      VLOG(2) << __func__ << " failed to create grease frame: " << *this
+              << ". Error = " << writeGreaseFrameResult.error();
+    }
+  }
+
   // checkNewStream will reject kMaxClientBidiStreamId, so id + 4 will not wrap
   minUnseenIncomingStreamId_ = std::max(minUnseenIncomingStreamId_, id + 4);
 }
@@ -2405,6 +2415,16 @@ HQSession::newTransaction(HTTPTransaction::Handler* handler) {
   }
 
   auto hqStream = createStreamTransport(quicStreamId.value());
+
+  if (quicStreamId.value() == 0) {
+    // generate grease frame
+    auto writeGreaseFrameResult = hq::writeGreaseFrame(hqStream->writeBuf_);
+    if (writeGreaseFrameResult.hasError()) {
+      VLOG(2) << __func__ << " failed to create grease frame: " << *this
+              << ". Error = " << writeGreaseFrameResult.error();
+      return nullptr;
+    }
+  }
 
   if (hqStream) {
     // DestructorGuard dg(this);

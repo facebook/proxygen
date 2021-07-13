@@ -132,6 +132,20 @@ TEST_F(HQFramerTest, DataFrameZeroLength) {
   parse(folly::none, parseData, outHeader, outBuf);
 }
 
+TEST_F(HQFramerTest, TestWriteGreaseFrame) {
+  auto res = writeGreaseFrame(queue_);
+  EXPECT_FALSE(res.hasError());
+
+  Cursor cursor(queue_.front());
+  auto type = quic::decodeQuicInteger(cursor);
+  EXPECT_TRUE(type.hasValue());
+  EXPECT_TRUE(hq::isGreaseId(type->first));
+
+  auto length = quic::decodeQuicInteger(cursor);
+  EXPECT_TRUE(length.hasValue());
+  EXPECT_EQ(length->first, 0);
+}
+
 struct FrameHeaderLengthParams {
   uint8_t headerLength;
   ParseResult error;

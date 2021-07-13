@@ -1150,7 +1150,7 @@ TEST_P(HQDownstreamSessionTest, ShutdownDropWithUnflushedResp) {
   auto id = sendRequest();
   // should be enough to trick HQSession into serializing the EOM into
   // HQStreamTransport but without enough to send it.
-  socketDriver_->setStreamFlowControlWindow(id, 206);
+  socketDriver_->setStreamFlowControlWindow(id, 209);
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler] {
@@ -1652,7 +1652,7 @@ TEST_P(HQDownstreamSessionTest, TransactionTimeoutNoCodecId) {
 TEST_P(HQDownstreamSessionTest, SendOnFlowControlPaused) {
   // 106 bytes of resp headers, 1 byte of body but 5 bytes of chunk overhead
   auto id = sendRequest();
-  socketDriver_->setStreamFlowControlWindow(id, 100);
+  socketDriver_->setStreamFlowControlWindow(id, 103);
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler] {
@@ -2426,7 +2426,7 @@ TEST_P(HQDownstreamSessionTestH1q, httpPausedBufferedDetach) {
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1, this, id1] {
-    socketDriver_->setStreamFlowControlWindow(id1, 199);
+    socketDriver_->setStreamFlowControlWindow(id1, 202);
     handler1->sendHeaders(200, 100);
     handler1->sendBody(100);
     eventBase_.runInLoop([&handler1] {
@@ -2603,6 +2603,39 @@ TEST_P(HQDownstreamSessionTestHQ, TooManyControlStreams) {
   flushRequestsAndLoop();
   EXPECT_EQ(*socketDriver_->streams_[kConnectionStreamId].error,
             HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR);
+}
+
+TEST_P(HQDownstreamSessionTestHQ, TestGreaseFramePerSession) {
+  // a grease frame will be created in the first bidir stream
+  auto idh1 = checkRequest();
+  flushRequestsAndLoop();
+  EXPECT_GT(socketDriver_->streams_[idh1.first].writeBuf.chainLength(), 110);
+  FakeHTTPCodecCallback callback1;
+  std::unique_ptr<HQStreamCodec> upstreamCodec =
+      std::make_unique<hq::HQStreamCodec>(
+          idh1.first,
+          TransportDirection::UPSTREAM,
+          qpackCodec_,
+          encoderWriteBuf_,
+          decoderWriteBuf_,
+          [] { return std::numeric_limits<uint64_t>::max(); },
+          ingressSettings_);
+  upstreamCodec->setCallback(&callback1);
+  upstreamCodec->onIngress(
+      *socketDriver_->streams_[idh1.first].writeBuf.front());
+  EXPECT_EQ(callback1.unknownFrames, 1);
+  EXPECT_EQ(callback1.greaseFrames, 1);
+
+  // no grease frame will be created in the second bidir stream
+  auto idh2 = checkRequest();
+  flushRequestsAndLoop();
+  FakeHTTPCodecCallback callback2;
+  upstreamCodec->setCallback(&callback2);
+  upstreamCodec->onIngress(
+      *socketDriver_->streams_[idh2.first].writeBuf.front());
+  EXPECT_EQ(callback2.unknownFrames, 0);
+  EXPECT_EQ(callback2.greaseFrames, 0);
+  hqSession_->closeWhenIdle();
 }
 
 TEST_P(HQDownstreamSessionTest, DelegateResponse) {

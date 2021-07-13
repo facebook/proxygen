@@ -332,4 +332,14 @@ WriteResult writePushPriorityUpdate(folly::IOBufQueue& writeBuf,
 WriteResult writeStreamPreface(folly::IOBufQueue& writeBuf,
                                uint64_t streamPreface) noexcept;
 
+/**
+ * Generate a grease frame, including the common frame header.
+ *
+ * @param writeBuf The output queue to write to. It may grow or add
+ *                 underlying buffers inside this function.
+ * @return The number of bytes written to writeBuf if successful, a quic error
+ * otherwise
+ */
+WriteResult writeGreaseFrame(folly::IOBufQueue& writeBuf) noexcept;
+
 }} // namespace proxygen::hq
