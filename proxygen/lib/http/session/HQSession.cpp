@@ -121,7 +121,7 @@ void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
     sock_->pauseRead(id);
   }
 
-  if (minUnseenIncomingStreamId_ == 0) {
+  if (minUnseenIncomingStreamId_ == 0 && version_ == HQVersion::HQ) {
     // generate grease frame
     auto writeGreaseFrameResult = hq::writeGreaseFrame(hqStream->writeBuf_);
     if (writeGreaseFrameResult.hasError()) {
@@ -2416,7 +2416,7 @@ HQSession::newTransaction(HTTPTransaction::Handler* handler) {
 
   auto hqStream = createStreamTransport(quicStreamId.value());
 
-  if (quicStreamId.value() == 0) {
+  if (quicStreamId.value() == 0 && version_ == HQVersion::HQ) {
     // generate grease frame
     auto writeGreaseFrameResult = hq::writeGreaseFrame(hqStream->writeBuf_);
     if (writeGreaseFrameResult.hasError()) {
