@@ -1150,7 +1150,8 @@ TEST_P(HQDownstreamSessionTest, ShutdownDropWithUnflushedResp) {
   auto id = sendRequest();
   // should be enough to trick HQSession into serializing the EOM into
   // HQStreamTransport but without enough to send it.
-  socketDriver_->setStreamFlowControlWindow(id, 209);
+  // HTTP/3 has an extra grease frame on the first transaction
+  socketDriver_->setStreamFlowControlWindow(id, IS_HQ ? 209 : 206);
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler] {
@@ -1652,7 +1653,9 @@ TEST_P(HQDownstreamSessionTest, TransactionTimeoutNoCodecId) {
 TEST_P(HQDownstreamSessionTest, SendOnFlowControlPaused) {
   // 106 bytes of resp headers, 1 byte of body but 5 bytes of chunk overhead
   auto id = sendRequest();
-  socketDriver_->setStreamFlowControlWindow(id, 103);
+  // HTTP/3 has an extra grease frame on the first transaction
+  socketDriver_->setStreamFlowControlWindow(id, IS_HQ ? 103 : 100);
+
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&handler] {
@@ -2426,7 +2429,8 @@ TEST_P(HQDownstreamSessionTestH1q, httpPausedBufferedDetach) {
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1, this, id1] {
-    socketDriver_->setStreamFlowControlWindow(id1, 202);
+    // HTTP/3 has an extra grease frame on the first transaction
+    socketDriver_->setStreamFlowControlWindow(id1, IS_HQ ? 202 : 199);
     handler1->sendHeaders(200, 100);
     handler1->sendBody(100);
     eventBase_.runInLoop([&handler1] {
