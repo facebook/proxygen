@@ -166,6 +166,13 @@ HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
   return req;
 }
 
+bool isH3GreaseId(uint64_t id) {
+  if (id < 0x21 || id > 0x3FFFFFFFFFFFFFFF) {
+    return false;
+  }
+  return (((id - 0x21) % 0x1F) == 0);
+}
+
 void fakeMockCodec(MockHTTPCodec& codec) {
   // For each generate* function, write some data to the chain
   EXPECT_CALL(codec, generateHeader(_, _, _, _, _, _))

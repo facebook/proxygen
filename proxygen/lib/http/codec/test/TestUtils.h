@@ -10,11 +10,12 @@
 
 #include <boost/optional/optional_io.hpp>
 #include <folly/portability/GTest.h>
-#include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/utils/TestUtils.h>
 
 namespace proxygen {
+
+bool isH3GreaseId(uint64_t id);
 
 /**
  * parse the input data using codec, using atOnce to determine how much data
@@ -202,7 +203,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
 
   void onUnknownFrame(uint64_t /*streamId*/, uint64_t frameType) override {
     ++unknownFrames;
-    if (proxygen::hq::isGreaseId(frameType)) {
+    if (isH3GreaseId(frameType)) {
       ++greaseFrames;
     }
   }
