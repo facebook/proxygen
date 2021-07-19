@@ -223,14 +223,6 @@ WriteResult writeData(IOBufQueue& queue,
   return writeSimpleFrame(queue, FrameType::DATA, std::move(data));
 }
 
-WriteResult writeUnframedBytes(IOBufQueue& queue,
-                               std::unique_ptr<folly::IOBuf> data) noexcept {
-  DCHECK(data);
-  auto payloadSize = data->computeChainDataLength();
-  queue.append(std::move(data));
-  return payloadSize;
-}
-
 WriteResult writeHeaders(IOBufQueue& queue,
                          std::unique_ptr<folly::IOBuf> data) noexcept {
   return writeSimpleFrame(queue, FrameType::HEADERS, std::move(data));

@@ -116,9 +116,9 @@ TEST_F(HQFramerTest, TestWriteFrameHeaderManual) {
 TEST_F(HQFramerTest, TestWriteUnframedBytes) {
   auto data = IOBuf::copyBuffer("I just met you and this is crazy.");
   auto dataLen = data->length();
-  auto res = writeUnframedBytes(queue_, std::move(data));
-  EXPECT_FALSE(res.hasError());
-  EXPECT_EQ(*res, dataLen);
+  auto res = data->computeChainDataLength();
+  EXPECT_EQ(res, dataLen);
+  queue_.append(std::move(data));
   EXPECT_EQ("I just met you and this is crazy.",
             queue_.front()->clone()->moveToFbString().toStdString());
 }

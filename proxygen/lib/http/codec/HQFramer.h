@@ -225,18 +225,6 @@ WriteResult writeData(folly::IOBufQueue& writeBuf,
                       std::unique_ptr<folly::IOBuf> data) noexcept;
 
 /**
- * Write unframed bytes into the buffer.
- *
- * @param writeBuf The output queue to write to. It may grow or add
- *                 underlying buffers inside this function.
- * @param data The body data to write out, cannot be nullptr
- * @return The number of bytes written to writeBuf if successful, a quic error
- * otherwise
- */
-WriteResult writeUnframedBytes(folly::IOBufQueue& writeBuf,
-                               std::unique_ptr<folly::IOBuf> data) noexcept;
-
-/**
  * Generate an entire HEADER frame, including the common frame header.
  *
  * @param writeBuf The output queue to write to. It may grow or add
