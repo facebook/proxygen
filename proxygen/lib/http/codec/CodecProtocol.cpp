@@ -8,7 +8,9 @@
 
 #include <proxygen/lib/http/codec/CodecProtocol.h>
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/trim.hpp>
+#include <boost/bind.hpp>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 
@@ -119,9 +121,13 @@ checkForProtocolUpgrade(const std::string& clientUpgrade,
   for (auto& testProtocol : serverProtocols) {
     // Get rid of leading/trailing LWS
     boost::algorithm::trim(testProtocol);
-    if (std::find(clientProtocols.begin(),
-                  clientProtocols.end(),
-                  testProtocol) == clientProtocols.end()) {
+    if (std::find_if(
+            clientProtocols.begin(),
+            clientProtocols.end(),
+            boost::bind(&boost::iequals<folly::StringPiece, folly::StringPiece>,
+                        testProtocol,
+                        _1,
+                        std::locale())) == clientProtocols.end()) {
       if (serverMode) {
         // client didn't offer this, try the next
         continue;

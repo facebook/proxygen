@@ -965,6 +965,13 @@ class ConnectionHeaderTest
   using ParamType = std::pair<std::list<string>, string>;
 };
 
+TEST(HTTP1xCodecTest, UpgradeHeaderCaseInsensitive) {
+  auto result = checkForProtocolUpgrade("h2c,WebSocket", "websocket", false);
+  ASSERT_TRUE(result.has_value());
+  // We always return the server string so compare against that.
+  EXPECT_EQ("websocket", result->second);
+}
+
 TEST_P(ConnectionHeaderTest, TestConnectionHeaders) {
   HTTP1xCodec upstream(TransportDirection::UPSTREAM);
   HTTP1xCodec downstream(TransportDirection::DOWNSTREAM);
