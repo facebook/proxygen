@@ -209,7 +209,6 @@ void initializeCommonSettings(HQParams& hqParams) {
 void initializeTransportSettings(HQParams& hqParams) {
   // Transport section
   hqParams.quicVersions = {quic::QuicVersion::MVFST,
-                           quic::QuicVersion::MVFST_D24,
                            quic::QuicVersion::MVFST_EXPERIMENTAL,
                            quic::QuicVersion::QUIC_DRAFT,
                            quic::QuicVersion::QUIC_DRAFT_LEGACY};
