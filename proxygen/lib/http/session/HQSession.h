@@ -75,6 +75,7 @@ struct QuicProtocolInfo : public wangle::ProtocolInfo {
   uint32_t totalPTOCount{0};
   uint64_t totalTransportBytesSent{0};
   uint64_t totalTransportBytesRecvd{0};
+  bool usedZeroRtt{false};
 };
 
 /**

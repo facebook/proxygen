@@ -508,6 +508,7 @@ bool HQSession::getCurrentTransportInfo(wangle::TransportInfo* tinfo) {
     quicInfo_->totalTransportBytesSent = quicInfo.bytesSent;
     quicInfo_->totalTransportBytesRecvd = quicInfo.bytesRecvd;
     quicInfo_->transportSettings = sock_->getTransportSettings();
+    quicInfo_->usedZeroRtt = quicInfo.usedZeroRtt;
     tinfo->protocolInfo = quicInfo_;
     auto flowControl = sock_->getConnectionFlowControl();
     if (!flowControl.hasError() && flowControl->sendWindowAvailable) {
