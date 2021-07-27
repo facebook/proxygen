@@ -972,6 +972,71 @@ TEST_F(HTTPDownstreamSessionTest, MultiMessage) {
   eventBase_.loop();
 }
 
+TEST_F(HTTPDownstreamSessionTest, ClientPipelined) {
+  InSequence enforceOrder;
+
+  std::vector<std::unique_ptr<testing::NiceMock<MockHTTPHandler>>> handlers;
+  for (auto i = 0; i < 4; i++) {
+    auto handler = addSimpleNiceHandler();
+    handler->expectHeaders([i](std::shared_ptr<HTTPMessage> req) {
+      EXPECT_EQ(req->getHeaders().getSingleOrEmpty("Id"),
+                folly::to<std::string>(i + 1));
+    });
+    handler->expectEOM([h = handler.get()] { h->sendReplyWithBody(200, 100); });
+    handler->expectDetachTransaction();
+    handlers.push_back(std::move(handler));
+  }
+
+  transport_->addReadEvent(
+      "GET /echo HTTP/1.1\r\n"
+      "Host: jojo\r\n"
+      "Id: 1\r\n"
+      "\r\n"
+      "GET /echo HTTP/1.1\r\n"
+      "Host: jojo\r\n"
+      "Id: 2\r\n"
+      "\r\n"
+      "GET /echo HTTP/1.1\r\n"
+      "Host: jojo\r\n"
+      "Id: 3\r\n"
+      "\r\n"
+      "GET /echo HTTP/1.1\r\n"
+      "Host: jojo\r\n"
+      "Id: 4\r\n"
+      "\r\n",
+      milliseconds(0));
+  transport_->addReadEOF(milliseconds(0));
+  transport_->startReadEvents();
+  expectDetachSession();
+  eventBase_.loop();
+}
+
+TEST_F(HTTPDownstreamSessionTest, BadContentLength) {
+  InSequence enforceOrder;
+
+  auto handler = addSimpleNiceHandler();
+  handler->expectHeaders();
+  handler->expectBody([](uint64_t, std::shared_ptr<folly::IOBuf> body) {
+    EXPECT_EQ(body->computeChainDataLength(), 6);
+  });
+  handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
+  handler->expectDetachTransaction();
+
+  // Test sending more bytes than advertised in Content-Length.  The proxy will
+  // ignore these since Connection: close was also specified.
+  //
+  // One could argue it would be better to 400 this kind of request.
+  auto req = getGetRequest();
+  req.setHTTPVersion(1, 0);
+  req.setWantsKeepalive(false);
+  req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, "6");
+  auto streamID = sendRequest(req, false);
+  clientCodec_->generateBody(
+      requests_, streamID, makeBuf(10), HTTPCodec::NoPadding, true);
+  expectDetachSession();
+  flushRequestsAndLoop();
+}
+
 TEST_F(HTTPDownstreamSessionTest, Connect) {
   InSequence enforceOrder;
 
