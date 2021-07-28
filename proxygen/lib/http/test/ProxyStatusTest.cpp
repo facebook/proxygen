@@ -145,3 +145,21 @@ TEST(ProxyStatusTest, TestSerialization) {
   EXPECT_EQ(parameterisedList[0].parameterMap["e_proxy"], std::string("proxy"));
   EXPECT_EQ(parameterisedList[0].parameterMap["a"], std::string("1"));
 }
+
+TEST(ProxyStatusTest, TestSetProxyError) {
+  ProxyStatus proxy_status{StatusType::proxy_internal_error};
+  proxy_status.setProxyError(false);
+
+  auto str = proxy_status.toString();
+  StructuredHeadersDecoder decoder(str);
+  StructuredHeaders::ParameterisedList parameterisedList;
+  decoder.decodeParameterisedList(parameterisedList);
+
+  EXPECT_EQ(parameterisedList.size(), 1);
+  EXPECT_EQ(parameterisedList[0].identifier, "proxy_internal_error");
+  EXPECT_EQ(parameterisedList[0].parameterMap.size(), 1);
+  EXPECT_EQ(parameterisedList[0].parameterMap["e_isproxyerr"].tag,
+            StructuredHeaderItem::Type::STRING);
+  EXPECT_EQ(parameterisedList[0].parameterMap["e_isproxyerr"],
+            std::string("false"));
+}

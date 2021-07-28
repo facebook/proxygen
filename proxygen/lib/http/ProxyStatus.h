@@ -39,6 +39,7 @@ class ProxyStatus {
   void setStatusType(StatusType statusType);
   ProxyStatus& setProxy(const std::string& proxy);
   ProxyStatus& setUpstreamIP(const std::string& upstreamIP);
+  ProxyStatus& setProxyError(const bool isProxyError);
   virtual ProxyStatus& setProxyStatusParameter(folly::StringPiece name,
                                                const std::string& text);
 

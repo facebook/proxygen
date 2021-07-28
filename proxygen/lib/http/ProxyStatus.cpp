@@ -14,6 +14,7 @@ namespace {
 
 constexpr folly::StringPiece kProxyParam{"e_proxy"};
 constexpr folly::StringPiece kUpstreamIPParam{"e_upip"};
+constexpr folly::StringPiece kIsProxyErrorParam{"e_isproxyerr"};
 
 } // namespace
 
@@ -49,6 +50,14 @@ ProxyStatus& ProxyStatus::setProxy(const std::string& proxy) {
 
 ProxyStatus& ProxyStatus::setUpstreamIP(const std::string& upstreamIP) {
   return setProxyStatusParameter(kUpstreamIPParam, upstreamIP);
+}
+
+ProxyStatus& ProxyStatus::setProxyError(const bool isProxyError) {
+  if (isProxyError) {
+    return setProxyStatusParameter(kIsProxyErrorParam, "true");
+  } else {
+    return setProxyStatusParameter(kIsProxyErrorParam, "false");
+  }
 }
 
 bool ProxyStatus::hasUpstreamIP() const {
