@@ -1170,9 +1170,9 @@ void HQSession::readAvailable(quic::StreamId id) noexcept {
   VLOG(4) << __func__ << " sess=" << *this
           << ": readAvailable on streamID=" << id;
   if (readsPerLoop_ >= kMaxReadsPerLoop) {
-    VLOG(2) << __func__ << " sess=" << *this
-            << ":skipping read for streamID=" << id
-            << " maximum reads per loop reached";
+    VLOG(2) << __func__ << ": skipping read for streamID=" << id
+            << " maximum reads per loop reached"
+            << " sess=" << *this;
     return;
   }
   readsPerLoop_++;
