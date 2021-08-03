@@ -142,30 +142,6 @@ TEST(HTTP1xCodecTest, Test09Resp) {
   EXPECT_EQ(callbacks.messageComplete, 1);
 }
 
-TEST(HTTP1xCodecTest, TestResponseSplit) {
-  HTTP1xCodec downcodec(TransportDirection::DOWNSTREAM);
-  HTTP1xCodec upcodec(TransportDirection::UPSTREAM);
-
-  HTTP1xCodecCallback callbacks;
-  downcodec.setCallback(&callbacks);
-  auto id = upcodec.createStream();
-
-  HTTPMessage req;
-  req.setHTTPVersion(1, 1);
-  req.setMethod("GET");
-  req.setURL("/foo");
-  req.getHeaders().set("InjectHeader", "Value\r\nx: new");
-  folly::IOBufQueue buf;
-  upcodec.generateHeader(buf, id, req);
-  downcodec.onIngress(*buf.front());
-  EXPECT_EQ(callbacks.headersComplete, 1);
-  EXPECT_EQ(callbacks.messageComplete, 1);
-  // make sure that the header is not sent on the wire.
-  // Otherwise it would be parsed as two different headers with HTTP <= 1.1
-  EXPECT_EQ(callbacks.msg_->getHeaders().getSingleOrEmpty("InjectHeader"), "");
-  EXPECT_EQ(callbacks.msg_->getHeaders().getSingleOrEmpty("x"), "");
-}
-
 TEST(HTTP1xCodecTest, TestO9NoVersion) {
   HTTP1xCodec codec(TransportDirection::UPSTREAM);
   HTTPMessage req;
