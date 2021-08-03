@@ -50,10 +50,10 @@ class PoolHealthChecker {
       const folly::SocketAddress& address,
       bool isSecure,
       std::shared_ptr<ServerHealthCheckerCallback> callback,
-      folly::Optional<folly::SocketAddress> /* bindAddress */ = folly::none,
-      folly::Optional<folly::SocketOptionMap> /*extraSockOpts */ = folly::none,
-      folly::Optional<folly::SocketAddress> /* overrideAddress */ =
-          folly::none) = 0;
+      std::optional<folly::SocketAddress> /* bindAddress */ = std::nullopt,
+      std::optional<folly::SocketOptionMap> /*extraSockOpts */ = std::nullopt,
+      std::optional<folly::SocketAddress> /* overrideAddress */ =
+          std::nullopt) = 0;
 
   virtual void removeServer(const folly::SocketAddress& address) = 0;
 
