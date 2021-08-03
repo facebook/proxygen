@@ -473,7 +473,7 @@ void HQSession::onConnectionError(
   if (code.first.type() == quic::QuicErrorCode::Type::ApplicationErrorCode &&
       isQPACKError(static_cast<HTTP3::ErrorCode>(
           *code.first.asApplicationErrorCode()))) {
-    LOG(ERROR) << "Peer closed with QPACK error err="
+    LOG(ERROR) << "Peer QPACK error err="
                << static_cast<uint32_t>(*code.first.asApplicationErrorCode())
                << " msg=" << code.second << " " << *this;
   } else if (!noError(code.first)) {
