@@ -552,6 +552,9 @@ void HTTP1xCodec::generateHeader(
       // will generate our own accept per hop, not client's.
       return;
     }
+    if (value.find_first_of("\r\n") != std::string::npos) {
+      return;
+    }
     size_t lineLen = header.size() + value.size() + 4; // 4 for ": " + CRLF
     auto writable =
         writeBuf.preallocate(lineLen, std::max(lineLen, size_t(2000)));
