@@ -169,6 +169,7 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
     folly::EventBase* evb,
     std::unique_ptr<folly::AsyncUDPSocket> socket,
     const folly::SocketAddress& /* peerAddr */,
+    quic::QuicVersion,
     std::shared_ptr<const FizzServerContext> ctx) noexcept {
   // Session controller is self owning
   auto hqSessionController =
