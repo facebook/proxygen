@@ -32,7 +32,7 @@ namespace proxygen {
       x(tls_expired_peer_certificate), x(tls_handshake_error),                 \
       x(tls_missing_proxy_certificate), x(tls_rejected_proxy_certificate),     \
       x(tls_unexpected_peer_certificate), x(tls_unexpected_peer_identity),     \
-      x(tls_untrusted_peer_certificate),                                       \
+      x(tls_untrusted_peer_certificate), x(http_response_ok),                  \
       /* FB STATUS TYPES */ x(async_request_error), x(client_read_error),      \
       x(client_timeout), x(http_body_before_headers),                          \
       x(http_body_parsing_error), x(http_eom_before_headers),                  \
