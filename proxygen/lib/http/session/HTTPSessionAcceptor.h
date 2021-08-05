@@ -94,10 +94,6 @@ class HTTPSessionAcceptor
     return accConfig_.HTTP2PrioritiesEnabled;
   }
 
-  virtual bool getHttp2PingEnabled() {
-    return accConfig_.HTTP2PingEnabled;
-  }
-
  protected:
   /**
    * This function is invoked when a new session is created to get the
