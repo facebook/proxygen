@@ -241,7 +241,7 @@ void HQServer::stop() {
 }
 
 void HQServer::rejectNewConnections(bool reject) {
-  server_->rejectNewConnections(reject);
+  server_->rejectNewConnections([reject]() { return reject; });
 }
 
 H2Server::SampleHandlerFactory::SampleHandlerFactory(
