@@ -16,7 +16,6 @@
 namespace proxygen {
 
 class HTTPSessionStats;
-class SPDYStats;
 
 class HTTPUpstreamSession final : public HTTPSession {
   using NewTransactionError = std::string;
