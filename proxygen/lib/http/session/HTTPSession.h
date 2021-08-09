@@ -819,7 +819,7 @@ class HTTPSession
    * longer tracking.
    */
   void invalidStream(HTTPCodec::StreamID stream,
-                     ErrorCode code = ErrorCode::_SPDY_INVALID_STREAM);
+                     ErrorCode code = ErrorCode::STREAM_CLOSED);
 
   http2::PriorityUpdate getMessagePriority(const HTTPMessage* msg);
 

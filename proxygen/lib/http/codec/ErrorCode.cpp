@@ -44,8 +44,6 @@ const char* getErrorCodeString(ErrorCode error) {
       return "INADEQUATE_SECURITY";
     case ErrorCode::HTTP_1_1_REQUIRED:
       return "HTTP_1_1_REQUIRED";
-    case ErrorCode::_SPDY_INVALID_STREAM:
-      return "_SPDY_INVALID_STREAM";
   }
   LOG(FATAL) << "Unreachable";
   return "";

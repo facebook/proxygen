@@ -2592,7 +2592,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeExtra) {
       "\r\n");
   flushRequestsAndLoop();
   expect101(CodecProtocol::SPDY_3, "spdy/3");
-  expectResponse(200, ErrorCode::_SPDY_INVALID_STREAM);
+  expectResponse(200, ErrorCode::STREAM_CLOSED);
   gracefulShutdown();
 }
 

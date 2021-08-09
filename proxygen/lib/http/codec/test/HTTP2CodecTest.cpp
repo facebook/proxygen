@@ -1119,7 +1119,7 @@ TEST_F(HTTP2CodecTest, BasicRst) {
 }
 
 TEST_F(HTTP2CodecTest, BasicRstInvalidCode) {
-  upstreamCodec_.generateRstStream(output_, 2, ErrorCode::_SPDY_INVALID_STREAM);
+  upstreamCodec_.generateRstStream(output_, 2, ErrorCode::STREAM_CLOSED);
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);

@@ -37,9 +37,6 @@ enum class ErrorCode : uint8_t {
   ENHANCE_YOUR_CALM = 11,
   INADEQUATE_SECURITY = 12,
   HTTP_1_1_REQUIRED = 13,
-  // This code is *NOT* to be used outside of SPDYCodec. Delete this
-  // when we deprecate SPDY.
-  _SPDY_INVALID_STREAM = 100,
 };
 
 extern const uint8_t kMaxErrorCode;

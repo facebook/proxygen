@@ -1523,11 +1523,10 @@ size_t HTTP2Codec::generateRstStream(folly::IOBufQueue& writeBuf,
     VLOG(2) << "sending RST_STREAM with code=" << getErrorCodeString(statusCode)
             << " for stream=" << stream << " user-agent=" << userAgent_;
   }
-  auto code = http2::errorCodeToReset(statusCode);
   return generateHeaderCallbackWrapper(
       stream,
       http2::FrameType::RST_STREAM,
-      http2::writeRstStream(writeBuf, stream, code));
+      http2::writeRstStream(writeBuf, stream, statusCode));
 }
 
 size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
@@ -1579,11 +1578,11 @@ size_t HTTP2Codec::generateGoaway(folly::IOBufQueue& writeBuf,
             << " user-agent=" << userAgent_;
   }
 
-  auto code = http2::errorCodeToGoaway(statusCode);
   return generateHeaderCallbackWrapper(
       0,
       http2::FrameType::GOAWAY,
-      http2::writeGoaway(writeBuf, lastStream, code, std::move(debugData)));
+      http2::writeGoaway(
+          writeBuf, lastStream, statusCode, std::move(debugData)));
 }
 
 size_t HTTP2Codec::generatePingRequest(folly::IOBufQueue& writeBuf,

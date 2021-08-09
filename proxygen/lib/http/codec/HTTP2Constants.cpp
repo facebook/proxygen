@@ -10,22 +10,6 @@
 
 namespace proxygen { namespace http2 {
 
-ErrorCode filterInvalidStream(ErrorCode code) {
-  // _SPDY_INVALID_STREAM is SPDY specific, filter it out
-  if (code == ErrorCode::_SPDY_INVALID_STREAM) {
-    return ErrorCode::STREAM_CLOSED;
-  }
-  return code;
-}
-
-ErrorCode errorCodeToGoaway(ErrorCode code) {
-  return filterInvalidStream(code);
-}
-
-ErrorCode errorCodeToReset(ErrorCode code) {
-  return filterInvalidStream(code);
-}
-
 const uint32_t kFrameHeaderSize = 9;
 
 const uint32_t kFrameHeadersBaseMaxSize = kFramePrioritySize + 1;

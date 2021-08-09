@@ -2358,7 +2358,7 @@ class TestAbortPost : public MockHTTPUpstreamTest {
       const auto id = txn->getID();
       txn->sendAbort();
       EXPECT_CALL(*codecPtr_,
-                  generateRstStream(_, id, ErrorCode::_SPDY_INVALID_STREAM))
+                  generateRstStream(_, id, ErrorCode::STREAM_CLOSED))
           .Times(AtLeast(0));
     };
 
@@ -2435,11 +2435,11 @@ TEST_F(MockHTTPUpstreamTest, AbortUpgrade) {
   EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
   handler.expectDetachTransaction();
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, streamID, ErrorCode::_SPDY_INVALID_STREAM));
+              generateRstStream(_, streamID, ErrorCode::STREAM_CLOSED));
   txn->sendAbort();
   codecCb_->onMessageComplete(streamID, true); // upgrade
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, streamID, ErrorCode::_SPDY_INVALID_STREAM));
+              generateRstStream(_, streamID, ErrorCode::STREAM_CLOSED));
   codecCb_->onMessageComplete(streamID, false); // eom
 
   eventBase_.loop();
@@ -2518,7 +2518,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushInvalidAssoc) {
   EXPECT_CALL(*codecPtr_,
               generateRstStream(_, pushID, ErrorCode::PROTOCOL_ERROR));
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
+              generateRstStream(_, pushID, ErrorCode::STREAM_CLOSED))
       .Times(2);
 
   auto resp = makeResponse(200);
@@ -2575,7 +2575,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushAfterFin) {
         return 1;
       }));
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
+              generateRstStream(_, pushID, ErrorCode::STREAM_CLOSED))
       .Times(2);
 
   resp = makeResponse(200);
@@ -2610,7 +2610,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushHandlerInstallFail) {
   EXPECT_CALL(*codecPtr_,
               generateRstStream(_, pushID, ErrorCode::REFUSED_STREAM));
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
+              generateRstStream(_, pushID, ErrorCode::STREAM_CLOSED))
       .Times(2);
 
   auto resp = std::make_unique<HTTPMessage>();
@@ -2658,7 +2658,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushUnhandledAssoc) {
   EXPECT_CALL(*codecPtr_,
               generateRstStream(_, pushID, ErrorCode::REFUSED_STREAM));
   EXPECT_CALL(*codecPtr_,
-              generateRstStream(_, pushID, ErrorCode::_SPDY_INVALID_STREAM))
+              generateRstStream(_, pushID, ErrorCode::STREAM_CLOSED))
       .Times(2);
 
   auto resp = std::make_unique<HTTPMessage>();
