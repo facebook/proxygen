@@ -2690,6 +2690,20 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
   } else {
     txn_.onIngressHeadersComplete(std::move(msg));
   }
+
+  // The stream can now receive datagrams: check for any pending datagram and
+  // deliver it to the handler
+  canReceiveDatagrams_ = true;
+  if (session_.datagramEnabled_ && !session_.datagramsBuffer_.empty()) {
+    auto itr = session_.datagramsBuffer_.find(streamId);
+    if (itr != session_.datagramsBuffer_.end()) {
+      auto& vec = itr->second;
+      for (auto& datagram : vec) {
+        txn_.onDatagram(std::move(datagram));
+      }
+      session_.datagramsBuffer_.erase(itr);
+    }
+  }
 }
 
 void HQSession::HQStreamTransportBase::transactionTimeout(
@@ -3643,16 +3657,28 @@ void HQSession::onDatagramsAvailable() noexcept {
     datagramQ.trimStart(quarterStreamId->second + ctxId->second);
 
     auto streamId = quarterStreamId->first * 4;
-
     auto stream = findNonDetachedStream(streamId);
-    if (!stream) {
-      // stream not found, discard the datagram
-      VLOG(5) << "Received datagram for unknown stream streamId=" << streamId
+
+    if (!stream || !stream->canReceiveDatagrams_) {
+      VLOG(5) << "Stream cannot receive datagrams. streamId=" << streamId
               << " ctx=" << ctxId->first << " len=" << datagramQ.chainLength()
               << " sess=" << *this;
-      datagramQ.move();
+      // TODO: a possible optimization would be to discard datagrams destined
+      // to streams that were already closed
+      auto itr = datagramsBuffer_.find(streamId);
+      if (itr == datagramsBuffer_.end()) {
+        itr = datagramsBuffer_.insert(streamId, {}).first;
+      }
+      auto& vec = itr->second;
+      if (vec.size() < vec.max_size()) {
+        vec.emplace_back(datagramQ.move());
+      } else {
+        // buffer is full: discard the datagram
+        datagramQ.move();
+      }
       continue;
     }
+
     VLOG(5) << "Received datagram for streamId=" << streamId
             << " ctx=" << ctxId->first << " len=" << datagramQ.chainLength()
             << " sess=" << *this;

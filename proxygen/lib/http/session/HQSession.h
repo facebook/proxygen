@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <folly/container/EvictingCacheMap.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/AsyncSocket.h>
 #include <folly/io/async/DelayedDestructionBase.h>
@@ -61,6 +62,10 @@ extern const proxygen::http2::PriorityUpdate hqDefaultPriority;
 using HQVersionType = std::underlying_type<HQVersion>::type;
 
 constexpr uint8_t kMaxDatagramHeaderSize = 16;
+// Maximum number of datagrams to buffer per stream
+constexpr uint8_t kDefaultMaxBufferedDatagrams = 5;
+// Maximum number of streams with datagrams buffered
+constexpr uint8_t kMaxStreamsWithBufferedDatagrams = 10;
 
 /**
  * Session-level protocol info.
@@ -1673,6 +1678,7 @@ class HQSession
     bool hasIngress_{false};
     bool detached_{false};
     bool ingressError_{false};
+    bool canReceiveDatagrams_{false};
     enum class EOMType { CODEC, TRANSPORT };
     ConditionalGate<EOMType, 2> eomGate_;
 
@@ -2063,6 +2069,14 @@ class HQSession
 
   // Bidirectional transport streams
   std::unordered_map<quic::StreamId, HQStreamTransport> streams_;
+
+  // Buffer for datagrams waiting for a stream to be assigned to
+  folly::EvictingCacheMap<
+      quic::StreamId,
+      folly::small_vector<std::unique_ptr<folly::IOBuf>,
+                          kDefaultMaxBufferedDatagrams,
+                          folly::small_vector_policy::NoHeap>>
+      datagramsBuffer_{kMaxStreamsWithBufferedDatagrams};
 
   // Creation time (for handshake time tracking)
   std::chrono::steady_clock::time_point createTime_;

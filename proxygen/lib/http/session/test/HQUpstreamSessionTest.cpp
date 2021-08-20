@@ -1984,6 +1984,74 @@ TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveDatagram) {
   flushAndLoop();
 }
 
+TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveEarlyDatagramsSingleStream) {
+  EXPECT_TRUE(httpCallbacks_.datagramEnabled);
+  auto handler = openTransaction();
+  auto id = handler->txn_->getID();
+  EXPECT_GT(handler->txn_->getDatagramSizeLimit(), 0);
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->txn_->sendEOM();
+  for (auto i = 0; i < kDefaultMaxBufferedDatagrams * 2; ++i) {
+    auto h3Datagram =
+        getH3Datagram(id, folly::IOBuf::wrapBuffer("testtest", 8));
+    socketDriver_->addDatagram(std::move(h3Datagram));
+  }
+  flushAndLoopN(1);
+  auto resp = makeResponse(200, 0);
+  sendResponse(id, *std::get<0>(resp), std::move(std::get<1>(resp)), false);
+  handler->expectHeaders();
+  EXPECT_CALL(*handler, onDatagram(testing::_))
+      .Times(kDefaultMaxBufferedDatagrams);
+  flushAndLoopN(1);
+  auto it = streams_.find(id);
+  CHECK(it != streams_.end());
+  auto& stream = it->second;
+  stream.readEOF = true;
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveEarlyDatagramsMultiStream) {
+  auto deliveredDatagrams = 0;
+  EXPECT_TRUE(httpCallbacks_.datagramEnabled);
+  std::vector<std::unique_ptr<StrictMock<MockHTTPHandler>>> handlers;
+
+  for (auto i = 0; i < kMaxStreamsWithBufferedDatagrams * 2; ++i) {
+    handlers.emplace_back(openTransaction());
+    auto handler = handlers.back().get();
+    auto id = handler->txn_->getID();
+    EXPECT_GT(handler->txn_->getDatagramSizeLimit(), 0);
+    handler->txn_->sendHeaders(getGetRequest());
+    handler->txn_->sendEOM();
+    auto h3Datagram =
+        getH3Datagram(id, folly::IOBuf::wrapBuffer("testtest", 8));
+    socketDriver_->addDatagram(std::move(h3Datagram));
+    flushAndLoopN(1);
+  }
+
+  for (const auto& handler : handlers) {
+    auto id = handler->txn_->getID();
+    auto resp = makeResponse(200, 0);
+    sendResponse(id, *std::get<0>(resp), std::move(std::get<1>(resp)), false);
+    handler->expectHeaders();
+    EXPECT_CALL(*handler, onDatagram(testing::_))
+        .WillRepeatedly(InvokeWithoutArgs([&]() { deliveredDatagrams++; }));
+    flushAndLoopN(1);
+    auto it = streams_.find(id);
+    CHECK(it != streams_.end());
+    auto& stream = it->second;
+    stream.readEOF = true;
+    handler->expectEOM();
+    handler->expectDetachTransaction();
+    flushAndLoopN(1);
+  }
+  EXPECT_EQ(deliveredDatagrams, kMaxStreamsWithBufferedDatagrams);
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
 /**
  * Instantiate the Parametrized test cases
  */
