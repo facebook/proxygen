@@ -1060,6 +1060,18 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     }
   }
 
+  void addDatagramsAvailableReadEvent(
+      std::chrono::milliseconds delayFromPrevious =
+          std::chrono::milliseconds(0)) {
+    addReadEventInternal(kConnectionStreamId,
+                         nullptr,
+                         false,
+                         folly::none,
+                         delayFromPrevious,
+                         false,
+                         true);
+  }
+
   void addReadEvent(StreamId streamId,
                     std::unique_ptr<folly::IOBuf> buf,
                     std::chrono::milliseconds delayFromPrevious =
@@ -1098,6 +1110,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     QuicErrorCode qec = error;
     addReadEventInternal(
         streamId, nullptr, false, qec, delayFromPrevious, true);
+  }
+
+  void addDatagram(std::unique_ptr<folly::IOBuf> datagram) {
+    inDatagrams_.emplace_back(std::move(datagram));
   }
 
   void setReadError(StreamId streamId) {
@@ -1229,6 +1245,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                            .str(),
                        return );
             }
+            if (event.streamId == kConnectionStreamId &&
+                event.datagramsAvailable && !event.error && datagramCB_) {
+              datagramCB_->onDatagramsAvailable();
+              continue;
+            }
             auto bufLen = event.buf ? event.buf->computeChainDataLength() : 0;
             stream.readBufOffset += bufLen;
             stream.readBuf.append(std::move(event.buf));
@@ -1289,11 +1310,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 stream.readCB->readAvailable(event.streamId);
                 eventBase_->runInLoop(this);
               } // else if PAUSED, no-op
-            }
-            if (datagramCB_ && event.datagramsAvailable &&
-                event.streamId == kConnectionStreamId && !event.error) {
-              datagramCB_->onDatagramsAvailable();
-              return;
             }
           }
         },

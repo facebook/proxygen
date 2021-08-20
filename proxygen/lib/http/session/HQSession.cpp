@@ -29,6 +29,7 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/io/async/HHWheelTimer.h>
 #include <quic/QuicConstants.h>
+#include <quic/codec/QuicInteger.h>
 #include <quic/common/BufUtil.h>
 #include <quic/logging/QLoggerConstants.h>
 #include <sstream>
@@ -243,6 +244,7 @@ bool HQSession::onTransportReadyCommon() noexcept {
     // If local supports Datagram, assume the peer does too, until receiving
     // peer settings
     defaultSettings.push_back({SettingsId::_HQ_DATAGRAM, 1});
+    sock_->setDatagramCallback(this);
   }
   // TODO: 0-RTT settings
   versionUtils_->applySettings(defaultSettings);
@@ -1615,7 +1617,8 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
   qpackCodec_.setEncoderHeaderTableSize(tableSize);
   qpackCodec_.setMaxVulnerable(blocked);
 
-  // If datagram was not negotiated at the transport, close the connection
+  // If H3 datagram is enabled but datagram was not negotiated at the
+  // transport, close the connection
   if (datagram && session_.sock_->getDatagramSizeLimit() == 0) {
     session_.dropConnectionAsync(
         std::make_pair(HTTP3::ErrorCode::HTTP_SETTINGS_ERROR,
@@ -3604,6 +3607,106 @@ void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
   // Notify the *pushed* transaction on the push promise headers
   // This has to be called AFTER "onPushedTransaction" upcall
   pushStream->txn_.onIngressHeadersComplete(std::move(msg));
+}
+
+void HQSession::onDatagramsAvailable() noexcept {
+  auto result = sock_->readDatagrams();
+  if (result.hasError()) {
+    LOG(ERROR) << "Got error while reading datagrams: error="
+               << toString(result.error());
+    dropConnectionAsync(std::make_pair(HTTP3::ErrorCode::HTTP_INTERNAL_ERROR,
+                                       "H3_DATAGRAM: internal error "),
+                        kErrorConnection);
+    return;
+  }
+  VLOG(4) << "Received " << result.value().size()
+          << " datagrams. sess=" << *this;
+  for (auto& datagram : result.value()) {
+    folly::io::Cursor cursor(datagram.get());
+    auto quarterStreamId = quic::decodeQuicInteger(cursor);
+    if (!quarterStreamId) {
+      dropConnectionAsync(
+          std::make_pair(HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
+                         "H3_DATAGRAM: error decoding stream-id"),
+          kErrorConnection);
+    }
+    auto ctxId = quic::decodeQuicInteger(cursor);
+    if (!ctxId) {
+      dropConnectionAsync(
+          std::make_pair(HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
+                         "H3_DATAGRAM: error decoding context-id"),
+          kErrorConnection);
+    }
+
+    quic::BufQueue datagramQ;
+    datagramQ.append(std::move(datagram));
+    datagramQ.trimStart(quarterStreamId->second + ctxId->second);
+
+    auto streamId = quarterStreamId->first * 4;
+
+    auto stream = findNonDetachedStream(streamId);
+    if (!stream) {
+      // stream not found, discard the datagram
+      VLOG(5) << "Received datagram for unknown stream streamId=" << streamId
+              << " ctx=" << ctxId->first << " len=" << datagramQ.chainLength()
+              << " sess=" << *this;
+      datagramQ.move();
+      continue;
+    }
+    VLOG(5) << "Received datagram for streamId=" << streamId
+            << " ctx=" << ctxId->first << " len=" << datagramQ.chainLength()
+            << " sess=" << *this;
+    stream->txn_.onDatagram(datagramQ.move());
+  }
+}
+
+uint16_t HQSession::HQStreamTransport::getDatagramSizeLimit() const noexcept {
+  if (!session_.datagramEnabled_) {
+    return 0;
+  }
+  auto transportMaxDatagramSize = session_.sock_->getDatagramSizeLimit();
+  if (transportMaxDatagramSize < kMaxDatagramHeaderSize) {
+    return 0;
+  }
+  return session_.sock_->getDatagramSizeLimit() - kMaxDatagramHeaderSize;
+}
+
+bool HQSession::HQStreamTransport::sendDatagram(
+    std::unique_ptr<folly::IOBuf> datagram) {
+  if (!streamId_.hasValue() || !session_.datagramEnabled_) {
+    return false;
+  }
+  // Prepend the H3 Datagram header to the datagram payload
+  // HTTP/3 Datagram {
+  //   Quarter Stream ID (i),
+  //   [Context ID (i)],
+  //   HTTP/3 Datagram Payload (..),
+  // }
+  quic::Buf headerBuf =
+      quic::Buf(folly::IOBuf::create(session_.sock_->getDatagramSizeLimit()));
+  quic::BufAppender appender(headerBuf.get(), kMaxDatagramHeaderSize);
+  auto streamIdRes = quic::encodeQuicInteger(
+      streamId_.value() / 4, [&](auto val) { appender.writeBE(val); });
+  if (streamIdRes.hasError()) {
+    return false;
+  }
+  // Always use context-id = 0 for now
+  auto ctxIdRes =
+      quic::encodeQuicInteger(0, [&](auto val) { appender.writeBE(val); });
+  if (ctxIdRes.hasError()) {
+    return false;
+  }
+  VLOG(5) << "Sending datagram for streamId=" << streamId_.value()
+          << " len=" << datagram->computeChainDataLength()
+          << " sess=" << session_;
+  quic::BufQueue queue(std::move(headerBuf));
+  queue.append(std::move(datagram));
+  auto writeRes = session_.sock_->writeDatagram(queue.move());
+  if (writeRes.hasError()) {
+    VLOG(5) << "Failed to send datagram for streamId=" << streamId_.value();
+    return false;
+  }
+  return true;
 }
 
 std::ostream& operator<<(std::ostream& os, const HQSession& session) {

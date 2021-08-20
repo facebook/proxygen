@@ -60,6 +60,8 @@ extern const proxygen::http2::PriorityUpdate hqDefaultPriority;
 
 using HQVersionType = std::underlying_type<HQVersion>::type;
 
+constexpr uint8_t kMaxDatagramHeaderSize = 16;
+
 /**
  * Session-level protocol info.
  */
@@ -121,10 +123,10 @@ class HQSession
     , public quic::QuicSocket::ReadCallback
     , public quic::QuicSocket::WriteCallback
     , public quic::QuicSocket::DeliveryCallback
+    , public quic::QuicSocket::DatagramCallback
     , public HTTPSessionBase
     , public folly::EventBase::LoopCallback
     , public HQUnidirStreamDispatcher::Callback {
-
   // Forward declarations
  public:
   class HQStreamTransportBase;
@@ -243,6 +245,9 @@ class HQSession
   void onConnectionWriteError(
       std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
           error) noexcept override;
+
+  // quic::QuicSocket::DatagramCallback
+  void onDatagramsAvailable() noexcept override;
 
   // Only for UpstreamSession
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
@@ -1071,7 +1076,7 @@ class HQSession
 
     std::unique_ptr<hq::HQUnidirectionalCodec> ingressCodec_;
     bool readEOF_{false};
-  };
+  }; // HQControlStream
 
  public:
   class HQStreamTransportBase
@@ -1772,6 +1777,8 @@ class HQSession
         HTTPCodec::StreamID /* assoc streamID */,
         std::unique_ptr<HTTPMessage> /* promise */) override;
 
+    uint16_t getDatagramSizeLimit() const noexcept override;
+    bool sendDatagram(std::unique_ptr<folly::IOBuf> datagram) override;
   }; // HQStreamTransport
 
 #ifdef _MSC_VER
@@ -1979,9 +1986,6 @@ class HQSession
     // need transport API
     return 100;
   }
-
-  HQStreamTransportBase* FOLLY_NULLABLE getPRStream(quic::StreamId id,
-                                                    const char* event);
 
   using HTTPCodecPtr = std::unique_ptr<HTTPCodec>;
   struct CodecStackEntry {

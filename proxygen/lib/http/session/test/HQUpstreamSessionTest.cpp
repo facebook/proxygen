@@ -202,7 +202,9 @@ bool HQUpstreamSessionTest::flush(bool eof,
       done = false;
     }
   }
-
+  if (!socketDriver_->inDatagrams_.empty()) {
+    socketDriver_->addDatagramsAvailableReadEvent(initialDelay);
+  }
   if (extraEventsFn) {
     extraEventsFn();
   }
@@ -1921,12 +1923,63 @@ TEST_P(HQUpstreamSessionTestHQPush, TestOrphanedPushStream) {
 
 TEST_P(HQUpstreamSessionTestHQ, TestNoDatagram) {
   EXPECT_FALSE(httpCallbacks_.datagramEnabled);
+  auto handler = openTransaction();
+  EXPECT_EQ(handler->txn_->getDatagramSizeLimit(), 0);
+  auto resp = makeResponse(200, 100);
+  sendResponse(handler->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               true);
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
   hqSession_->closeWhenIdle();
   flushAndLoop();
 }
 
 TEST_P(HQUpstreamSessionTestHQDatagram, TestDatagramSettings) {
   EXPECT_TRUE(httpCallbacks_.datagramEnabled);
+  auto handler = openTransaction();
+  EXPECT_GT(handler->txn_->getDatagramSizeLimit(), 0);
+  auto resp = makeResponse(200, 100);
+  sendResponse(handler->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               true);
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+  hqSession_->closeWhenIdle();
+  flushAndLoop();
+}
+
+TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveDatagram) {
+  EXPECT_TRUE(httpCallbacks_.datagramEnabled);
+  auto handler = openTransaction();
+  auto id = handler->txn_->getID();
+  EXPECT_GT(handler->txn_->getDatagramSizeLimit(), 0);
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->txn_->sendEOM();
+  auto resp = makeResponse(200, 0);
+  sendResponse(id, *std::get<0>(resp), std::move(std::get<1>(resp)), false);
+  handler->expectHeaders();
+  flushAndLoopN(1);
+  auto h3Datagram = getH3Datagram(id, folly::IOBuf::wrapBuffer("testtest", 8));
+  socketDriver_->addDatagram(std::move(h3Datagram));
+  handler->expectDatagram();
+  flushAndLoopN(1);
+  auto it = streams_.find(id);
+  CHECK(it != streams_.end());
+  auto& stream = it->second;
+  stream.readEOF = true;
+  handler->expectEOM();
+  handler->expectDetachTransaction();
   hqSession_->closeWhenIdle();
   flushAndLoop();
 }
