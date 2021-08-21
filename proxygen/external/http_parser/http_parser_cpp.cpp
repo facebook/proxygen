@@ -226,7 +226,7 @@ static const int8_t unhex[256] =
   ,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
   };
 
-#if HTTP_PARSER_STRICT
+#if HTTP_PARSER_STRICT_URL
 # define T(v) 0
 #else
 # define T(v) v
@@ -408,15 +408,20 @@ enum http_host_state
   (c) == ';' || (c) == ':' || (c) == '&' || (c) == '=' || (c) == '+' || \
   (c) == '$' || (c) == ',')
 
-#if HTTP_PARSER_STRICT
+#if HTTP_PARSER_STRICT_URL
 #define IS_URL_CHAR(c)      (normal_url_char[(unsigned char) (c)])
-#define IS_HOST_CHAR(c)     (IS_ALPHANUM(c) || (c) == '.' || (c) == '-')
 #else
 #define IS_URL_CHAR(c)                                                         \
   (normal_url_char[(unsigned char) (c)] || ((c) & 0x80))
+#endif
+
+#if HTTP_PARSER_STRICT_HOSTNAME
+#define IS_HOST_CHAR(c)     (IS_ALPHANUM(c) || (c) == '.' || (c) == '-')
+#else
 #define IS_HOST_CHAR(c)                                                        \
   (IS_ALPHANUM(c) || (c) == '.' || (c) == '-' || (c) == '_')
 #endif
+
 
 /**
  * Verify that a char is a valid visible (printable) US-ASCII
@@ -458,7 +463,7 @@ parse_url_char(enum state s, const char ch)
     return s_dead;
   }
 
-#if HTTP_PARSER_STRICT
+#if HTTP_PARSER_STRICT_URL
   if (ch == '\t' || ch == '\f') {
     return s_dead;
   }

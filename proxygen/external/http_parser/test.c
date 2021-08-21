@@ -613,7 +613,7 @@ const struct message requests[] =
   ,.body= ""
   }
 
-#if !HTTP_PARSER_STRICT
+#if !HTTP_PARSER_STRICT_URL
 #define UTF8_PATH_REQ 24
 , {.name= "utf-8 path request"
   ,.type= HTTP_REQUEST
@@ -631,7 +631,9 @@ const struct message requests[] =
              }
   ,.body= ""
   }
+#endif  /* !HTTP_PARSER_STRICT_URL */
 
+#if !HTTP_PARSER_STRICT_HOSTNAME
 #define HOSTNAME_UNDERSCORE 25
 , {.name = "hostname underscore"
   ,.type= HTTP_REQUEST
@@ -652,7 +654,7 @@ const struct message requests[] =
              }
   ,.body= ""
   }
-#endif  /* !HTTP_PARSER_STRICT */
+#endif  /* !HTTP_PARSER_STRICT_HOSTNAME */
 
 #define PATCH_REQ 26
 , {.name = "PATCH request"
@@ -2255,7 +2257,7 @@ const struct url_test url_tests[] =
   ,.rv=1 /* s_dead */
   }
 
-#if HTTP_PARSER_STRICT
+#if HTTP_PARSER_STRICT_URL
 
 , {.name="tab in URL"
   ,.url="/foo\tbar/"
@@ -2267,7 +2269,7 @@ const struct url_test url_tests[] =
   ,.rv=1 /* s_dead */
   }
 
-#else /* !HTTP_PARSER_STRICT */
+#else /* !HTTP_PARSER_STRICT_URL */
 
 , {.name="tab in URL"
   ,.url="/foo\tbar/"
@@ -2489,7 +2491,7 @@ test_simple (const char *buf, enum http_errno err_expected)
   /* In strict mode, allow us to pass with an unexpected HPE_STRICT as
    * long as the caller isn't expecting success.
    */
-#if HTTP_PARSER_STRICT
+#if HTTP_PARSER_STRICT_URL || HTTP_PARSER_STRICT_HOSTNAME
   if (err_expected != err && err_expected != HPE_OK && err != HPE_STRICT) {
 #else
   if (err_expected != err) {

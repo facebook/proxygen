@@ -45,11 +45,18 @@ typedef unsigned __int64 uint64_t;
 namespace proxygen {
 #endif /* __cplusplus */
 
-/* Compile with -DHTTP_PARSER_STRICT=1 to parse URLs and hostnames
+/* Compile with -DHTTP_PARSER_STRICT_URL=1 to parse URLs
  * strictly according to the RFCs
  */
-#ifndef HTTP_PARSER_STRICT
-# define HTTP_PARSER_STRICT 0
+#ifndef HTTP_PARSER_STRICT_URL
+# define HTTP_PARSER_STRICT_URL 0
+#endif
+
+/* Compile with -DHTTP_PARSER_STRICT_HOSTNAME=1 to parse hostnames
+ * strictly according to the RFCs
+ */
+#ifndef HTTP_PARSER_STRICT_HOSTNAME
+# define HTTP_PARSER_STRICT_HOSTNAME 0
 #endif
 
 /* Compile with -DHTTP_PARSER_DEBUG=1 to add extra debugging information to
