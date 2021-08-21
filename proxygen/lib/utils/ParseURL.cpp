@@ -106,7 +106,7 @@ void ParseURL::parseNonFully() noexcept {
   }
 
   // Check if the URL has only printable characters and no control character.
-  if (!validateURL(url_)) {
+  if (!validateURL(url_, URLValidateMode::STRICT_COMPAT)) {
     valid_ = false;
     return;
   }

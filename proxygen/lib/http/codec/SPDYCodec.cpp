@@ -1160,7 +1160,8 @@ unique_ptr<HTTPMessage> SPDYCodec::parseHeaders(
     folly::StringPiece name(inHeaders[i].str, off, len);
     folly::StringPiece value = inHeaders[i + 1].str;
     VLOG(5) << "Header " << name << ": " << value;
-    bool nameOk = CodecUtil::validateHeaderName(name);
+    bool nameOk =
+        CodecUtil::validateHeaderName(name, CodecUtil::HEADER_NAME_STRICT);
     bool valueOk = false;
     bool isPath = false;
     bool isMethod = false;
@@ -1174,7 +1175,7 @@ unique_ptr<HTTPMessage> SPDYCodec::parseHeaders(
       }
       if ((version_ == 2 && name == "url") ||
           (version_ == 3 && off && name == "path")) {
-        valueOk = CodecUtil::validateURL(value);
+        valueOk = CodecUtil::validateURL(value, URLValidateMode::STRICT);
         isPath = true;
         if (hasPath) {
           throw SPDYStreamFailed(
@@ -1189,7 +1190,8 @@ unique_ptr<HTTPMessage> SPDYCodec::parseHeaders(
           valueOk = false;
         }
       } else {
-        valueOk = CodecUtil::validateHeaderValue(value, CodecUtil::STRICT);
+        valueOk =
+            CodecUtil::validateHeaderValue(value, CodecUtil::STRICT_COMPAT);
       }
     }
     if (!nameOk || !valueOk) {

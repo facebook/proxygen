@@ -103,9 +103,10 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
         break;
     }
     bool nameOk = !validate_ || headerCode != HTTP_HEADER_OTHER ||
-                  CodecUtil::validateHeaderName(nameSp);
-    bool valueOk = !validate_ ||
-                   CodecUtil::validateHeaderValue(valueSp, CodecUtil::STRICT);
+                  CodecUtil::validateHeaderName(
+                      nameSp, CodecUtil::HEADER_NAME_STRICT_COMPAT);
+    bool valueOk = !validate_ || CodecUtil::validateHeaderValue(
+                                     valueSp, CodecUtil::STRICT_COMPAT);
     if (!nameOk || !valueOk) {
       parsingError = folly::to<string>(
           "Bad header value: name=", nameSp, " value=", valueSp);

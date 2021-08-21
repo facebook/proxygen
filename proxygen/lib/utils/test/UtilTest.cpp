@@ -32,3 +32,12 @@ TEST(UtilTest, findLastOf) {
   EXPECT_EQ(findLastOf(p4, '.'), std::string::npos);
   EXPECT_EQ(findLastOf(p5, '.'), 3);
 }
+
+folly::ByteRange input(const char *str) {
+  return folly::ByteRange(reinterpret_cast<const uint8_t *>(str), strlen(str));
+}
+
+TEST(UtilTest, validateURL) {
+  EXPECT_TRUE(validateURL(input("/foo\xff"), URLValidateMode::STRICT_COMPAT));
+  EXPECT_FALSE(validateURL(input("/foo\xff"), URLValidateMode::STRICT));
+}

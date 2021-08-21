@@ -49,7 +49,7 @@ class HTTPRequestVerifier {
       error = "Duplicate path";
       return false;
     }
-    if (!CodecUtil::validateURL(path)) {
+    if (!CodecUtil::validateURL(path, URLValidateMode::STRICT_COMPAT)) {
       error = "Invalid url";
       return false;
     }
@@ -87,7 +87,7 @@ class HTTPRequestVerifier {
       return false;
     }
     if (validate &&
-        !CodecUtil::validateHeaderValue(authority, CodecUtil::STRICT)) {
+        !CodecUtil::validateHeaderValue(authority, CodecUtil::STRICT_COMPAT)) {
       error = "Invalid authority";
       return false;
     }

@@ -15,12 +15,12 @@
 namespace proxygen {
 
 /**
- *  Tokens as defined by rfc 2616. Also lowercases them.
- *        token       = 1*<any CHAR except CTLs or separators>
- *     separators     = "(" | ")" | "<" | ">" | "@"
- *                    | "," | ";" | ":" | "\" | <">
- *                    | "/" | "[" | "]" | "?" | "="
- *                    | "{" | "}" | SP | HT
+ * RFC 7230:
+ *  token = 1*tchar
+ *  tchar = "!" / "#" / "$" / "%" / "&" / "'" / "*" / "+" / "-" / "." /
+ *          "^" / "_" / "`" / "|" / "~" / DIGIT / ALPHA
+ *
+ * Earlier versions of this table allowed ' ', '"', '/' and '}'
  */
 // clang-format off
 const char CodecUtil::http_tokens[256] = {
@@ -33,9 +33,9 @@ const char CodecUtil::http_tokens[256] = {
 /*  24 can   25 em    26 sub   27 esc   28 fs    29 gs    30 rs    31 us  */
         0,       0,       0,       0,       0,       0,       0,       0,
 /*  32 sp    33  !    34  "    35  #    36  $    37  %    38  &    39  '  */
-       ' ',      '!',     '"',     '#',     '$',     '%',     '&',    '\'',
+        1,      '!',      1,     '#',     '$',     '%',     '&',    '\'',
 /*  40  (    41  )    42  *    43  +    44  ,    45  -    46  .    47  /  */
-        0,       0,      '*',     '+',      0,      '-',     '.',     '/',
+        0,       0,      '*',     '+',      0,      '-',     '.',      1,
 /*  48  0    49  1    50  2    51  3    52  4    53  5    54  6    55  7  */
        '0',     '1',     '2',     '3',     '4',     '5',     '6',     '7',
 /*  56  8    57  9    58  :    59  ;    60  <    61  =    62  >    63  ?  */
@@ -55,7 +55,7 @@ const char CodecUtil::http_tokens[256] = {
 /* 112  p   113  q   114  r   115  s   116  t   117  u   118  v   119  w  */
        'p',     'q',     'r',     's',     't',     'u',     'v',     'w',
 /* 120  x   121  y   122  z   123  {   124  |   125  }   126  ~   127 del */
-       'x',     'y',     'z',      0,      '|',     '}',     '~',       0
+       'x',     'y',     'z',      0,      '|',      1,     '~',       0
 };
 // clang-format on
 
