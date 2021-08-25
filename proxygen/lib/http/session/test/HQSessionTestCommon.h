@@ -227,7 +227,7 @@ class HQSessionTest
 
   const std::string getProtocolString() const {
     if (GetParam().alpn_ == "h3") {
-      return proxygen::kH3FBCurrentDraft;
+      return proxygen::kH3;
     }
     return GetParam().alpn_;
   }

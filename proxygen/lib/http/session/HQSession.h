@@ -51,6 +51,8 @@ enum class HQVersion : uint8_t {
   HQ,        // The real McCoy
 };
 
+extern const std::string kH3;
+extern const std::string kHQ;
 extern const std::string kH3FBCurrentDraft;
 extern const std::string kH3CurrentDraft;
 extern const std::string kH3LegacyDraft;

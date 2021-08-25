@@ -89,6 +89,8 @@ const std::string kH3FBCurrentDraft("h3-fb-05");
 const std::string kH3LegacyDraft("h3-27");
 const std::string kH3CurrentDraft("h3-29");
 const std::string kHQCurrentDraft("hq-29");
+const std::string kH3("h3");
+const std::string kHQ("hq-interop");
 
 const http2::PriorityUpdate hqDefaultPriority{kSessionStreamId, false, 15};
 
@@ -383,12 +385,13 @@ bool HQSession::getAndCheckApplicationProtocol() {
   CHECK(sock_);
   auto alpn = sock_->getAppProtocol();
   if (alpn) {
-    if (alpn == kH1QV1ProtocolString || alpn == kHQCurrentDraft) {
+    if (alpn == kH1QV1ProtocolString || alpn == kHQCurrentDraft ||
+        alpn == kHQ) {
       version_ = HQVersion::H1Q_FB_V1;
     } else if (alpn == kH1QV2ProtocolString) {
       version_ = HQVersion::H1Q_FB_V2;
-    } else if (alpn == kH3FBCurrentDraft || alpn == kH3CurrentDraft ||
-               alpn == kH3LegacyDraft) {
+    } else if (alpn == kH3FBCurrentDraft || alpn == kH3 ||
+               alpn == kH3CurrentDraft || alpn == kH3LegacyDraft) {
       version_ = HQVersion::HQ;
     }
   }
