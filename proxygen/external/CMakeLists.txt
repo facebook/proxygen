@@ -12,6 +12,8 @@ add_library(
 target_compile_options(
     proxygen_http_parser PRIVATE
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
+    "-DHTTP_PARSER_STRICT_URL=1"
+    "-Wno-implicit-fallthrough"
 )
 
 if (BUILD_SHARED_LIBS)
