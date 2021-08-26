@@ -306,6 +306,19 @@ size_t http_parser_execute(http_parser *parser,
                            const char *data,
                            size_t len);
 
+  /* Begin Facebook */
+enum http_parser_options
+{
+  F_HTTP_PARSER_OPTIONS_URL_STRICT           = (1 << 0)
+};
+
+size_t http_parser_execute_options(http_parser *parser,
+                                   const http_parser_settings *settings,
+                                   uint8_t options,
+                                   const char *data,
+                                   size_t len);
+/* End Facebook */
+
 /* Returns a string version of the HTTP method. */
 const char *http_method_str(enum http_method m);
 
@@ -319,6 +332,19 @@ const char *http_errno_description(enum http_errno err);
 int http_parser_parse_url(const char *buf, size_t buflen,
                           int is_connect,
                           struct http_parser_url *u);
+
+/* Begin Facebook */
+enum http_parser_parse_url_options
+{
+  F_PARSE_URL_OPTIONS_URL_STRICT           = (1 << 0)
+};
+
+int http_parser_parse_url_options(
+    const char *buf, size_t buflen,
+    int is_connect,
+    struct http_parser_url *u,
+    uint8_t options);
+/* End Facebook */
 
 /* Pause or un-pause the parser; a nonzero value pauses */
 void http_parser_pause(http_parser *parser, int paused);

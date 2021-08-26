@@ -227,9 +227,18 @@ static const int8_t unhex[256] =
   };
 
 #if HTTP_PARSER_STRICT_URL
-# define T(v) 0
+/* The value here is "0b10000000" so when shifted by
+ * F_PARSE_URL_OPTIONS_URL_STRICT/F_HTTP_PARSER_OPTIONS_URL_STRICT it remains
+ * > 0 for non-strict (0) and becomes 0 for strict (1 << 0 = 1)
+ */
+static_assert(F_PARSE_URL_OPTIONS_URL_STRICT == 1, "must be 1!");
+static_assert(F_HTTP_PARSER_OPTIONS_URL_STRICT == 1, "must be 1!");
+# define T(v) 0x80
+# define IS_PARSER_STRICT(options)                                             \
+  ((options) & F_HTTP_PARSER_OPTIONS_URL_STRICT)
 #else
 # define T(v) v
+# define IS_PARSER_STRICT(options) (0)
 #endif
 
 static const uint8_t normal_url_char[256] = {
@@ -409,9 +418,11 @@ enum http_host_state
   (c) == '$' || (c) == ',')
 
 #if HTTP_PARSER_STRICT_URL
-#define IS_URL_CHAR(c)      (normal_url_char[(unsigned char) (c)])
+#define IS_URL_CHAR(c, strict)                                                 \
+  (((normal_url_char[(unsigned char) (c)] << (strict)) != 0) ||                \
+   (((c) & 0x80) && !(strict)))
 #else
-#define IS_URL_CHAR(c)                                                         \
+#define IS_URL_CHAR(c, strict)                                                 \
   (normal_url_char[(unsigned char) (c)] || ((c) & 0x80))
 #endif
 
@@ -457,7 +468,7 @@ static struct {
  * URL and non-URL states by looking for these.
  */
 static enum state
-parse_url_char(enum state s, const char ch)
+parse_url_char(enum state s, const char ch, int strict_flag)
 {
   if (ch == ' ' || ch == '\r' || ch == '\n') {
     return s_dead;
@@ -537,7 +548,7 @@ parse_url_char(enum state s, const char ch)
       break;
 
     case s_req_path:
-      if (IS_URL_CHAR(ch)) {
+      if (IS_URL_CHAR(ch, strict_flag)) {
         return s;
       }
 
@@ -553,7 +564,7 @@ parse_url_char(enum state s, const char ch)
 
     case s_req_query_string_start:
     case s_req_query_string:
-      if (IS_URL_CHAR(ch)) {
+      if (IS_URL_CHAR(ch, strict_flag)) {
         return s_req_query_string;
       }
 
@@ -569,7 +580,7 @@ parse_url_char(enum state s, const char ch)
       break;
 
     case s_req_fragment_start:
-      if (IS_URL_CHAR(ch)) {
+      if (IS_URL_CHAR(ch, strict_flag)) {
         return s_req_fragment;
       }
 
@@ -584,7 +595,7 @@ parse_url_char(enum state s, const char ch)
       break;
 
     case s_req_fragment:
-      if (IS_URL_CHAR(ch)) {
+      if (IS_URL_CHAR(ch, strict_flag)) {
         return s;
       }
 
@@ -608,6 +619,15 @@ size_t http_parser_execute (http_parser *parser,
                             const http_parser_settings *settings,
                             const char *data,
                             size_t len)
+{
+  return http_parser_execute_options(parser, settings, 0, data, len);
+}
+
+size_t http_parser_execute_options (http_parser *parser,
+                                    const http_parser_settings *settings,
+                                    uint8_t options,
+                                    const char *data,
+                                    size_t len)
 {
   char c, ch;
   int8_t unhex_val;
@@ -1148,7 +1168,7 @@ size_t http_parser_execute (http_parser *parser,
 
       case s_req_path:
       {
-        if (IS_URL_CHAR(ch)) break;
+        if (IS_URL_CHAR(ch, IS_PARSER_STRICT(options))) break;
 
         switch (ch) {
           case ' ':
@@ -1183,7 +1203,7 @@ size_t http_parser_execute (http_parser *parser,
 
       case s_req_query_string_start:
       {
-        if (IS_URL_CHAR(ch)) {
+        if (IS_URL_CHAR(ch, IS_PARSER_STRICT(options))) {
           state = s_req_query_string;
           break;
         }
@@ -1220,7 +1240,7 @@ size_t http_parser_execute (http_parser *parser,
 
       case s_req_query_string:
       {
-        if (IS_URL_CHAR(ch)) break;
+        if (IS_URL_CHAR(ch, IS_PARSER_STRICT(options))) break;
 
         switch (ch) {
           case '?':
@@ -1255,7 +1275,7 @@ size_t http_parser_execute (http_parser *parser,
 
       case s_req_fragment_start:
       {
-        if (IS_URL_CHAR(ch)) {
+        if (IS_URL_CHAR(ch, IS_PARSER_STRICT(options))) {
           state = s_req_fragment;
           break;
         }
@@ -1292,7 +1312,7 @@ size_t http_parser_execute (http_parser *parser,
 
       case s_req_fragment:
       {
-        if (IS_URL_CHAR(ch)) break;
+        if (IS_URL_CHAR(ch, IS_PARSER_STRICT(options))) break;
 
         switch (ch) {
           case ' ':
@@ -2337,6 +2357,13 @@ int
 http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
                       struct http_parser_url *u)
 {
+  return http_parser_parse_url_options(buf, buflen, is_connect, u, 0);
+}
+
+int
+http_parser_parse_url_options(const char *buf, size_t buflen, int is_connect,
+                              struct http_parser_url *u, uint8_t options)
+{
   enum state s;
   const char *p;
   enum http_parser_url_fields uf, old_uf;
@@ -2347,7 +2374,7 @@ http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
   uf = old_uf = UF_MAX;
 
   for (p = buf; p < buf + buflen; p++) {
-    s = parse_url_char(s, *p);
+    s = parse_url_char(s, *p, options & F_PARSE_URL_OPTIONS_URL_STRICT);
 
     /* Figure out the next field that we're operating on */
     switch (s) {
