@@ -23,6 +23,7 @@ DEFINE_string(host, "::1", "HQ server hostname/IP");
 DEFINE_int32(port, 6666, "HQ server port");
 DEFINE_int32(h2port, 6667, "HTTP/2 server port");
 DEFINE_string(local_address, "", "Local Address to bind to. Client only.");
+DEFINE_uint32(local_port, 0, "Local port to bind to. Client only.");
 DEFINE_string(mode, "server", "Mode to run in: 'client' or 'server'");
 DEFINE_string(body, "", "Filename to read from for POST requests");
 DEFINE_string(path,
@@ -192,6 +193,7 @@ void initializeCommonSettings(HQParams& hqParams) {
   if (FLAGS_mode == "server") {
     CHECK(FLAGS_local_address.empty())
         << "local_address only allowed in client mode";
+    CHECK_EQ(FLAGS_local_port, 0) << "local_port only allowed in client mode";
     hqParams.mode = HQMode::SERVER;
     hqParams.logprefix = "server";
     hqParams.localAddress =
@@ -203,7 +205,7 @@ void initializeCommonSettings(HQParams& hqParams) {
         folly::SocketAddress(hqParams.host, hqParams.port, true);
     if (!FLAGS_local_address.empty()) {
       hqParams.localAddress =
-          folly::SocketAddress(FLAGS_local_address, 0, true);
+          folly::SocketAddress(FLAGS_local_address, FLAGS_local_port, true);
     }
     hqParams.outdir = FLAGS_outdir;
   }
@@ -361,7 +363,6 @@ void initializeQLogSettings(HQParams& hqParams) {
 } // initializeQLogSettings
 
 void initializeStaticSettings(HQParams& hqParams) {
-
   CHECK(FLAGS_static_root.empty() || hqParams.mode == HQMode::SERVER)
       << "static_root only allowed in server mode";
   hqParams.staticRoot = FLAGS_static_root;
@@ -395,7 +396,6 @@ void initializeFizzSettings(HQParams& hqParams) {
 } // initializeFizzSettings
 
 HQInvalidParams validate(const HQParams& params) {
-
   HQInvalidParams invalidParams;
 #define INVALID_PARAM(param, error)                                           \
   do {                                                                        \
