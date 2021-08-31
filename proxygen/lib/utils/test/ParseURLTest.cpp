@@ -20,8 +20,9 @@ void testParseURL(const string& url,
                   const string& expectedHost,
                   const uint16_t expectedPort,
                   const string& expectedAuthority,
-                  const bool expectedValid = true) {
-  ParseURL u(url);
+                  const bool expectedValid = true,
+                  const bool strict = false) {
+  ParseURL u(url, strict);
 
   if (expectedValid) {
     EXPECT_EQ(url, u.url());
@@ -202,6 +203,20 @@ TEST(ParseURL, InvalidURL) {
   testParseURL("", "", "", "", "", 0, "", false);
   testParseURL("http://tel:198433511/test\n", "", "", "", "", 0, "", false);
   testParseURL("/test\n", "", "", "", "", 0, "", false);
+  testParseURL(
+      "http://foo.com/test\xff", "", "", "", "", 0, "", false, /*strict=*/true);
+  testParseURL("http://foo.com/test\xff",
+               "http",
+               "/test\xff",
+               "",
+               "foo.com",
+               0,
+               "foo.com",
+               true,
+               /*strict=*/false);
+  testParseURL("test\xff", "", "", "", "", 0, "", false, /*strict=*/true);
+  testParseURL(
+      "/test\xff", "", "/test\xff", "", "", 0, "", true, /*strict=*/false);
 }
 
 TEST(ParseURL, IsHostIPAddress) {
@@ -226,6 +241,6 @@ TEST(ParseURL, IsHostIPAddress) {
 
 TEST(ParseURL, PortOverflow) {
   std::string url("http://foo:12345");
-  ParseURL u(folly::StringPiece(url.data(), url.size() - 4));
+  ParseURL u(folly::StringPiece(url.data(), url.size() - 4), true);
   EXPECT_EQ(u.port(), 1);
 }

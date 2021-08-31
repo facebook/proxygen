@@ -24,15 +24,19 @@ class ParseURL {
  public:
   ParseURL() {
   }
-  explicit ParseURL(folly::StringPiece urlVal) noexcept {
-    init(urlVal);
+  explicit ParseURL(folly::StringPiece urlVal, bool strict = false) noexcept {
+    init(urlVal, strict);
   }
 
-  void init(folly::StringPiece urlVal) {
+  void init(folly::StringPiece urlVal, bool strict = false) {
     CHECK(!initialized_);
     url_ = urlVal;
-    parse();
+    parse(strict);
     initialized_ = true;
+  }
+
+  operator bool() const {
+    return valid();
   }
 
   folly::StringPiece url() const {
@@ -93,9 +97,9 @@ class ParseURL {
   FB_EXPORT void stripBrackets() noexcept;
 
  private:
-  FB_EXPORT void parse() noexcept;
+  FB_EXPORT void parse(bool strict) noexcept;
 
-  void parseNonFully() noexcept;
+  void parseNonFully(bool strict) noexcept;
 
   bool parseAuthority() noexcept;
 

@@ -1293,7 +1293,7 @@ unique_ptr<HTTPMessage> SPDYCodec::parseHeaders(
   }
   if (direction == TransportDirection::DOWNSTREAM) {
     if (version_ == 2 && !headers.exists(HTTP_HEADER_HOST)) {
-      ParseURL url(msg->getURL());
+      ParseURL url(msg->getURL(), /*strict=*/true);
       if (url.valid()) {
         headers.add(HTTP_HEADER_HOST, url.hostAndPort());
       }

@@ -52,7 +52,7 @@ static bool validateScheme(folly::StringPiece url) {
       scheme.begin(), scheme.end(), [](auto _) { return std::isalpha(_); });
 }
 
-void ParseURL::parse() noexcept {
+void ParseURL::parse(bool strict) noexcept {
   if (url_.size() == 1 && url_[0] == '/') {
     path_ = url_;
     valid_ = true;
@@ -61,7 +61,12 @@ void ParseURL::parse() noexcept {
   if (validateScheme(url_)) {
     struct http_parser_url u;
     memset(&u, 0, sizeof(struct http_parser_url)); // init before used
-    valid_ = !(http_parser_parse_url(url_.data(), url_.size(), 0, &u));
+    valid_ = !(http_parser_parse_url_options(
+        url_.data(),
+        url_.size(),
+        0,
+        &u,
+        strict ? F_PARSE_URL_OPTIONS_URL_STRICT : 0));
 
     if (valid_) {
       // Since we init the http_parser_url with all fields to 0, if the field
@@ -95,18 +100,20 @@ void ParseURL::parse() noexcept {
           (port_) ? folly::to<std::string>(host_, ":", port_) : host_.str();
     }
   } else {
-    parseNonFully();
+    parseNonFully(strict);
   }
 }
 
-void ParseURL::parseNonFully() noexcept {
+void ParseURL::parseNonFully(bool strict) noexcept {
   if (url_.empty()) {
     valid_ = false;
     return;
   }
 
   // Check if the URL has only printable characters and no control character.
-  if (!validateURL(url_, URLValidateMode::STRICT_COMPAT)) {
+  if (!validateURL(url_,
+                   strict ? URLValidateMode::STRICT
+                          : URLValidateMode::STRICT_COMPAT)) {
     valid_ = false;
     return;
   }
