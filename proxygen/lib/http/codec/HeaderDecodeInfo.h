@@ -18,7 +18,10 @@ class HTTPMessage;
 
 class HeaderDecodeInfo {
  public:
-  void init(bool isRequestIn, bool isRequestTrailers, bool validate = true) {
+  void init(bool isRequestIn,
+            bool isRequestTrailers,
+            bool validate,
+            bool strictValidation) {
     CHECK(!msg);
     msg.reset(new HTTPMessage());
     isRequest_ = isRequestIn;
@@ -30,6 +33,7 @@ class HeaderDecodeInfo {
     pseudoHeaderSeen_ = false;
     parsingError = "";
     decodeError = HPACK::DecodeError::NONE;
+    strictValidation_ = strictValidation;
     verifier.reset(msg.get());
   }
 
@@ -53,7 +57,8 @@ class HeaderDecodeInfo {
   bool hasStatus_{false};
   bool regularHeaderSeen_{false};
   bool pseudoHeaderSeen_{false};
-
+  // Default to false for now to match existing behavior
+  bool strictValidation_{false};
   folly::Optional<uint32_t> contentLength_;
 };
 

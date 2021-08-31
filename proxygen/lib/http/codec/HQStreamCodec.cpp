@@ -140,7 +140,9 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
     callback_->onMessageBegin(streamId_, nullptr);
   }
   decodeInfo_.init(transportDirection_ == TransportDirection::DOWNSTREAM,
-                   parsingTrailers_);
+                   parsingTrailers_,
+                   /*validate=*/true,
+                   strictValidation_);
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), header.length, this);
   // decodeInfo_.msg gets moved in onHeadersComplete.  If it is still around,
@@ -170,7 +172,10 @@ ParseResult HQStreamCodec::parsePushPromise(Cursor& cursor,
     callback_->onPushMessageBegin(outPushId, streamId_, nullptr);
   }
 
-  decodeInfo_.init(true /* isReq */, false /* isRequestTrailers */);
+  decodeInfo_.init(true /* isReq */,
+                   false /* isRequestTrailers */,
+                   /*validate=*/true,
+                   strictValidation_);
   auto headerDataLength = outHeaderData->computeChainDataLength();
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), headerDataLength, this);

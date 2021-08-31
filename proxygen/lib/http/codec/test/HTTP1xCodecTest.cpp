@@ -277,6 +277,40 @@ TEST(HTTP1xCodecTest, TestBadHeaders) {
   codec.onIngress(*buffer);
 }
 
+TEST(HTTP1xCodecTest, TestBadURL) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = folly::IOBuf::copyBuffer(string("GET /Ñoño HTTP/1.1\r\n\r\n"));
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onError(1, _, _))
+      .WillOnce(Invoke(
+          [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
+            EXPECT_EQ(error->getHttpStatusCode(), 400);
+          }));
+  codec.onIngress(*buffer);
+}
+
+TEST(HTTP1xCodecTest, TestUnderscoreAllowedInHost) {
+  // The strict mode of http_parser used to couple strict URL parsing with
+  // disallowing _ in hostnames.  We decoupled those behaviors so this should
+  // pass even in strict mode.
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = folly::IOBuf::copyBuffer(
+      "CONNECT face_book.facebook.com:443 HTTP/1.1\r\n\r\n");
+
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onHeadersComplete(1, _));
+  EXPECT_CALL(callbacks, onMessageComplete(1, _));
+  codec.onIngress(*buffer);
+}
+
 TEST(HTTP1xCodecTest, TestHeadRequestChunkedResponse) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
   HTTP1xCodecCallback callbacks;
@@ -1017,25 +1051,29 @@ TEST(HTTP1xCodecTest, HugeURL) {
 TEST(HTTP1xCodecTest, UTF8Chars) {
   // Non-ascii characters should be pct-encoded according to RFC3986. S220852
   // was caused partly due to UTF-8 characters found in the URL.
-  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
   MockHTTPCodecCallback callbacks;
   codec.setCallback(&callbacks);
   auto utf8_string = u8"Ñoño";
-  auto request =
+  auto badRequest =
       folly::to<std::string>("GET /echo?dl=", utf8_string, " HTTP/1.1\r\n\r\n");
-  // TODO(T84547894) Actually, should be an error
+  std::string uriEscapedStr;
+  folly::uriEscape(utf8_string, uriEscapedStr);
+  auto goodRequest = folly::to<std::string>(
+      "GET /echo?dl=", uriEscapedStr, " HTTP/1.1\r\n\r\n");
   EXPECT_CALL(callbacks, onMessageBegin(1, _));
   EXPECT_CALL(callbacks, onHeadersComplete(1, _));
   EXPECT_CALL(callbacks, onMessageComplete(1, _));
-  codec.onIngress(*folly::IOBuf::wrapBuffer(request.data(), request.size()));
-  std::string uriEscapedStr;
-  folly::uriEscape(utf8_string, uriEscapedStr);
-  request = folly::to<std::string>(
-      "GET /echo?dl=", uriEscapedStr, " HTTP/1.1\r\n\r\n");
+  codec.onIngress(
+      *folly::IOBuf::wrapBuffer(goodRequest.data(), goodRequest.size()));
+
   EXPECT_CALL(callbacks, onMessageBegin(2, _));
-  EXPECT_CALL(callbacks, onHeadersComplete(2, _));
-  EXPECT_CALL(callbacks, onMessageComplete(2, _));
-  codec.onIngress(*folly::IOBuf::wrapBuffer(request.data(), request.size()));
+  EXPECT_CALL(callbacks, onError(2, _, _));
+
+  codec.onIngress(
+      *folly::IOBuf::wrapBuffer(badRequest.data(), badRequest.size()));
 }
 
 TEST(HTTP1xCodecTest, ExtraCRLF) {
@@ -1309,6 +1347,76 @@ TEST(HTTP1xCodecTest, TrailersNonChunked) {
   codec.onIngress(*folly::IOBuf::wrapBuffer(response.data(), response.size()));
 }
 
+TEST(HTTP1xCodecTest, HeaderCtls) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/false);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer =
+      folly::IOBuf::copyBuffer(string("GET / HTTP/1.1\r\n"
+                                      "Foo: \"\\\r\\\n\"\r\n"
+                                      "\r\n"));
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onHeadersComplete(1, _))
+      .WillOnce(Invoke([](HTTPCodec::StreamID, std::shared_ptr<HTTPMessage> m) {
+        EXPECT_EQ(m->getHeaders().getSingleOrEmpty("Foo"), "\"\\\r\\\n\"");
+      }));
+  EXPECT_CALL(callbacks, onMessageComplete(1, _));
+  codec.onIngress(*buffer);
+
+  codec.setStrictValidation(true);
+  EXPECT_CALL(callbacks, onMessageBegin(2, _));
+  EXPECT_CALL(callbacks, onError(2, _, _))
+      .WillOnce(Invoke(
+          [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
+            EXPECT_EQ(error->getHttpStatusCode(), 400);
+          }));
+  codec.onIngress(*buffer);
+}
+
+TEST(HTTP1xCodecTest, HeaderCtlsMiddle) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer =
+      folly::IOBuf::copyBuffer(string("GET / HTTP/1.1\r\n"
+                                      "Foo: \"\\\r\\\n\"\r\n"
+                                      "Bar: b\r\n"
+                                      "\r\n"));
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onError(1, _, _))
+      .WillOnce(Invoke(
+          [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
+            EXPECT_EQ(error->getHttpStatusCode(), 400);
+          }));
+  codec.onIngress(*buffer);
+}
+
+TEST(HTTP1xCodecTest, TrailerCtls) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer =
+      folly::IOBuf::copyBuffer(string("GET / HTTP/1.1\r\n"
+                                      "Transfer-Encoding: chunked\r\n"
+                                      "\r\n"
+                                      "0\r\n"
+                                      "Foo: \"\\\r\\\n\"\r\n"
+                                      "\r\n"));
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onHeadersComplete(1, _));
+  EXPECT_CALL(callbacks, onError(1, _, _))
+      .WillOnce(Invoke(
+          [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
+            EXPECT_EQ(error->getHttpStatusCode(), 400);
+          }));
+  codec.onIngress(*buffer);
+}
 class ConnectionHeaderTest
     : public TestWithParam<std::pair<std::list<string>, string>> {
  public:

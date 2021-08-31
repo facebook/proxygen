@@ -555,7 +555,10 @@ HTTP2Codec::parseHeadersDecodeFrames(
         folly::to<string>("Circular dependency for txn=", curHeader_.stream)));
   }
 
-  decodeInfo_.init(parsingReq_, parsingDownstreamTrailers_, validateHeaders_);
+  decodeInfo_.init(parsingReq_,
+                   parsingDownstreamTrailers_,
+                   validateHeaders_,
+                   strictValidation_);
   if (priority) {
     decodeInfo_.msg->setHTTP2Priority(std::make_tuple(
         priority->streamDependency, priority->exclusive, priority->weight));

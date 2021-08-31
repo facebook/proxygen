@@ -19,7 +19,10 @@ namespace proxygen {
 
 class HTTP1xCodec : public HTTPCodec {
  public:
-  explicit HTTP1xCodec(TransportDirection direction, bool force1_1 = false);
+  // Default strictValidation to false for now to match existing behavior
+  explicit HTTP1xCodec(TransportDirection direction,
+                       bool force1_1 = false,
+                       bool strictValidation = false);
   ~HTTP1xCodec() override;
 
   HTTP1xCodec(HTTP1xCodec&&) = default;
@@ -117,6 +120,10 @@ class HTTP1xCodec : public HTTPCodec {
   void setAllowedUpgradeProtocols(std::list<std::string> protocols);
   const std::string& getAllowedUpgradeProtocols();
 
+  void setStrictValidation(bool strict) {
+    strictValidation_ = strict;
+  }
+
   /**
    * @returns true if the codec supports the given NPN protocol.
    */
@@ -168,7 +175,7 @@ class HTTP1xCodec : public HTTPCodec {
   void onParserError(const char* what = nullptr);
 
   /** Push out header name-value pair to hdrs and clear currentHeader*_ */
-  void pushHeaderNameAndValue(HTTPHeaders& hdrs);
+  bool pushHeaderNameAndValue(HTTPHeaders& hdrs);
 
   /** Serialize websocket headers into a buffer **/
   void serializeWebsocketHeader(folly::IOBufQueue& writeBuf,
@@ -209,6 +216,7 @@ class HTTP1xCodec : public HTTPCodec {
   KeepaliveRequested keepaliveRequested_; // only used in DOWNSTREAM mode
   std::pair<CodecProtocol, std::string> upgradeResult_; // DOWNSTREAM only
   bool force1_1_ : 1; // Use HTTP/1.1 even if msg is 1.0
+  bool strictValidation_ : 1;
   bool parserActive_ : 1;
   bool pendingEOF_ : 1;
   bool parserPaused_ : 1;

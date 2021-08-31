@@ -722,6 +722,56 @@ TEST_F(HQCodecTest, ClientGoaway) {
   testGoaway(upstreamControlCodec_, kMaxPushId + 1);
 }
 
+TEST_F(HQCodecTest, HighAscii) {
+  std::vector<HTTPMessage> reqs;
+  reqs.push_back(getGetRequest("/guacamole\xff"));
+
+  reqs.push_back(getGetRequest("/guacamole"));
+  reqs.back().getHeaders().set(HTTP_HEADER_HOST, std::string("foo.com\xff"));
+
+  reqs.push_back(getGetRequest("/guacamole"));
+  reqs.back().getHeaders().set(folly::StringPiece("Foo\xff"), "bar");
+
+  reqs.push_back(getGetRequest("/guacamole"));
+  reqs.back().getHeaders().set("Foo", std::string("bar\xff"));
+
+  for (auto& req : reqs) {
+    auto id = upstreamCodec_->createStream();
+    upstreamCodec_->generateHeader(
+        queue_, id, req, true, nullptr /* headerSize */);
+    HQStreamCodec downstreamCodec(
+        id,
+        TransportDirection::DOWNSTREAM,
+        qpackDownstream_,
+        qpackDownEncoderWriteBuf_,
+        qpackDownDecoderWriteBuf_,
+        [] { return std::numeric_limits<uint64_t>::max(); },
+        ingressSettings_);
+    downstreamCodec.setStrictValidation(true);
+    downstreamCodec.setCallback(&callbacks_);
+    qpackEncoderCodec_.onUnidirectionalIngress(qpackUpEncoderWriteBuf_.move());
+    auto consumed = downstreamCodec.onIngress(*queue_.front());
+    queue_.trimStart(consumed);
+  }
+
+  auto id = upstreamCodec_->createStream();
+  upstreamCodec_->generateHeader(
+      queue_, id, getGetRequest("/"), false, nullptr /* headerSize */);
+  HTTPHeaders trailers;
+  trailers.add("x-trailer-1", "pico-de-gallo\xff");
+  upstreamCodec_->generateTrailers(queue_, id, trailers);
+  auto g = folly::makeGuard(
+      [this] { downstreamCodec_->setStrictValidation(false); });
+  downstreamCodec_->setStrictValidation(true);
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 5);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 5);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 struct FrameAllowedParams {
   CodecType codecType;
   FrameType frameType;

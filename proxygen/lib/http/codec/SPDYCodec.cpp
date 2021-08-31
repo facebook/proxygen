@@ -1206,7 +1206,7 @@ unique_ptr<HTTPMessage> SPDYCodec::parseHeaders(
       if (isMethod) {
         msg->setMethod(value);
       } else if (isPath) {
-        msg->setURL(value.str());
+        msg->setURL(value.str(), /*strict=*/true);
       } else if (name == "version") {
         if (caseInsensitiveEqual(value, "http/1.0")) {
           msg->setHTTPVersion(1, 0);

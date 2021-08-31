@@ -14,6 +14,7 @@
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/RFC2616.h>
 #include <proxygen/lib/http/codec/CodecProtocol.h>
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/utils/Base64.h>
 
 using folly::IOBuf;
@@ -76,7 +77,9 @@ void appendString(IOBufQueue& queue, size_t& len, StringPiece str) {
 
 namespace proxygen {
 
-HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool force1_1)
+HTTP1xCodec::HTTP1xCodec(TransportDirection direction,
+                         bool force1_1,
+                         bool strictValidation)
     : callback_(nullptr),
       ingressTxnID_(0),
       egressTxnID_(0),
@@ -85,6 +88,7 @@ HTTP1xCodec::HTTP1xCodec(TransportDirection direction, bool force1_1)
       transportDirection_(direction),
       keepaliveRequested_(KeepaliveRequested::UNSET),
       force1_1_(force1_1),
+      strictValidation_(strictValidation),
       parserActive_(false),
       pendingEOF_(false),
       parserPaused_(false),
@@ -192,8 +196,12 @@ size_t HTTP1xCodec::onIngress(const IOBuf& buf) {
       ingressUpgradeComplete_ = true;
       return onIngress(buf);
     }
-    size_t bytesParsed = http_parser_execute(
-        &parser_, getParserSettings(), (const char*)buf.data(), buf.length());
+    size_t bytesParsed = http_parser_execute_options(
+        &parser_,
+        getParserSettings(),
+        strictValidation_ ? F_HTTP_PARSER_OPTIONS_URL_STRICT : 0,
+        (const char*)buf.data(),
+        buf.length());
     // in case we parsed a section of the headers but we're not done parsing
     // the headers we need to keep accounting of it for total header size
     if (!headersComplete_) {
@@ -854,7 +862,15 @@ int HTTP1xCodec::onReason(const char* buf, size_t len) {
   return 0;
 }
 
-void HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
+bool HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
+  // Header names are strictly validated by http_parser, however, it allows
+  // quoted+escaped CTLs so run our stricter check here.
+  if (strictValidation_ &&
+      !CodecUtil::validateHeaderValue(folly::StringPiece(currentHeaderValue_),
+                                      CodecUtil::CtlEscapeMode::STRICT)) {
+    LOG(ERROR) << "Invalid header value = " << currentHeaderValue_;
+    return false;
+  }
   if (LIKELY(currentHeaderName_.empty())) {
     hdrs.addFromCodec(currentHeaderNameStringPiece_.begin(),
                       currentHeaderNameStringPiece_.size(),
@@ -865,16 +881,21 @@ void HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
   }
   currentHeaderNameStringPiece_.clear();
   currentHeaderValue_.clear();
+  return true;
 }
 
 int HTTP1xCodec::onHeaderField(const char* buf, size_t len) {
+  bool valid = true;
   if (headerParseState_ == HeaderParseState::kParsingHeaderValue) {
-    pushHeaderNameAndValue(msg_->getHeaders());
+    valid = pushHeaderNameAndValue(msg_->getHeaders());
   } else if (headerParseState_ == HeaderParseState::kParsingTrailerValue) {
     if (!trailers_) {
       trailers_.reset(new HTTPHeaders());
     }
-    pushHeaderNameAndValue(*trailers_);
+    valid = pushHeaderNameAndValue(*trailers_);
+  }
+  if (!valid) {
+    return -1;
   }
 
   if (isParsingHeaderOrTrailerName()) {
@@ -927,7 +948,9 @@ int HTTP1xCodec::onHeaderValue(const char* buf, size_t len) {
 
 int HTTP1xCodec::onHeadersComplete(size_t len) {
   if (headerParseState_ == HeaderParseState::kParsingHeaderValue) {
-    pushHeaderNameAndValue(msg_->getHeaders());
+    if (!pushHeaderNameAndValue(msg_->getHeaders())) {
+      return -1;
+    }
   }
 
   // discard messages with folded or multiple valued Transfer-Encoding headers
@@ -974,7 +997,11 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
     // an entity-body in the response.
     headRequest_ = (msg_->getMethod() == HTTPMethod::HEAD);
 
-    ParseURL parseUrl = msg_->setURL(std::move(url_));
+    ParseURL parseUrl = msg_->setURL(std::move(url_), strictValidation_);
+    if (strictValidation_ && !parseUrl.valid()) {
+      LOG(ERROR) << "Invalid URL: " << msg_->getURL();
+      return -1;
+    }
     url_.clear();
 
     if (parseUrl.hasHost()) {
@@ -1184,7 +1211,9 @@ int HTTP1xCodec::onMessageComplete() {
     if (!trailers_) {
       trailers_.reset(new HTTPHeaders());
     }
-    pushHeaderNameAndValue(*trailers_);
+    if (!pushHeaderNameAndValue(*trailers_)) {
+      return -1;
+    }
   }
 
   headerParseState_ = HeaderParseState::kParsingHeaderIdle;

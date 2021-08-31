@@ -36,6 +36,10 @@ class HQStreamCodec
                 HTTPSettings& ingressSettings);
   ~HQStreamCodec() override;
 
+  void setStrictValidation(bool strict) {
+    strictValidation_ = strict;
+  }
+
   void setActivationHook(folly::Function<folly::Function<void()>()> hook) {
     activationHook_ = std::move(hook);
   }
@@ -169,6 +173,8 @@ class HQStreamCodec
   folly::IOBufQueue& qpackEncoderWriteBuf_;
   folly::IOBufQueue& qpackDecoderWriteBuf_;
   folly::Function<uint64_t()> qpackEncoderMaxDataFn_;
+  // Default false for now to match existing behavior
+  bool strictValidation_{false};
   bool finalIngressHeadersSeen_{false};
   bool parsingTrailers_{false};
   bool finalEgressHeadersSeen_{false};

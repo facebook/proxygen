@@ -190,6 +190,10 @@ class HTTP2Codec
     validateHeaders_ = validate;
   }
 
+  void setStrictValidation(bool strict) {
+    strictValidation_ = strict;
+  }
+
  private:
   size_t splitCompressed(size_t compressed,
                          uint32_t remainingFrameSize,
@@ -336,6 +340,8 @@ class HTTP2Codec
   bool parsingDownstreamTrailers_{false};
   bool addDateToResponse_{true};
   bool validateHeaders_{true};
+  // Default false for now to match existing behavior
+  bool strictValidation_{false};
 
   // CONTINUATION frame can follow either HEADERS or PUSH_PROMISE frames.
   // Keeps frame type of iniating frame of header block.

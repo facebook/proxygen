@@ -475,6 +475,34 @@ TEST_F(HTTP2CodecTest, BadHeaderValues) {
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
+TEST_F(HTTP2CodecTest, HighAscii) {
+  auto g =
+      folly::makeGuard([this] { downstreamCodec_.setStrictValidation(false); });
+  downstreamCodec_.setStrictValidation(true);
+  HTTPMessage req1 = getGetRequest("/guacamole\xff");
+  upstreamCodec_.generateHeader(
+      output_, 1, req1, true, nullptr /* headerSize */);
+  HTTPMessage req2 = getGetRequest("/guacamole");
+  req2.getHeaders().set(HTTP_HEADER_HOST, std::string("foo.com\xff"));
+  upstreamCodec_.generateHeader(
+      output_, 3, req2, true, nullptr /* headerSize */);
+  HTTPMessage req3 = getGetRequest("/guacamole");
+  req3.getHeaders().set(folly::StringPiece("Foo\xff"), "bar");
+  upstreamCodec_.generateHeader(
+      output_, 5, req3, true, nullptr /* headerSize */);
+  HTTPMessage req4 = getGetRequest("/guacamole");
+  req4.getHeaders().set("Foo", std::string("bar\xff"));
+  upstreamCodec_.generateHeader(
+      output_, 7, req4, true, nullptr /* headerSize */);
+
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 4);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 4);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 /**
  * Ingress bytes with an empty header name
  */
