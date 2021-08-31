@@ -538,22 +538,26 @@ const std::map<std::string, std::string>& HTTPMessage::getQueryParams() const {
   return queryParams_;
 }
 
-bool HTTPMessage::setQueryString(const std::string& query) {
-  return setQueryStringImpl(query, true);
+bool HTTPMessage::setQueryString(const std::string& query, bool strict) {
+  return setQueryStringImpl(query, true, strict);
 }
 
-bool HTTPMessage::setQueryStringImpl(const std::string& query, bool unparse) {
-  ParseURL u(request().url_);
+bool HTTPMessage::setQueryStringImpl(const std::string& query,
+                                     bool unparse,
+                                     bool strict) {
+  // No need to strictly verify the URL when reparsing it
+  ParseURL u(request().url_, /*strict=*/false);
 
   if (u.valid()) {
     // Recreate the URL by just changing the query string
-    setURLImpl(createUrl(u.scheme(),
-                         u.authority(),
-                         u.path(),
-                         query, // new query string
-                         u.fragment()),
-               unparse);
-    return true;
+    auto res = setURLImpl(createUrl(u.scheme(),
+                                    u.authority(),
+                                    u.path(),
+                                    query, // new query string
+                                    u.fragment()),
+                          unparse,
+                          strict);
+    return !strict || res.valid();
   }
 
   VLOG(4) << "Error parsing URL during setQueryString: " << request().url_;
@@ -572,11 +576,12 @@ bool HTTPMessage::removeQueryParam(const std::string& name) {
   }
 
   auto query = createQueryString(queryParams_, request().query_.size());
-  return setQueryStringImpl(query, false);
+  return setQueryStringImpl(query, false, /*strict=*/false);
 }
 
 bool HTTPMessage::setQueryParam(const std::string& name,
-                                const std::string& value) {
+                                const std::string& value,
+                                bool strict) {
   // Parse the query parameters if we haven't done so yet
   if (!parsedQueryParams_) {
     parseQueryParams();
@@ -584,7 +589,7 @@ bool HTTPMessage::setQueryParam(const std::string& name,
 
   queryParams_[name] = value;
   auto query = createQueryString(queryParams_, request().query_.size());
-  return setQueryStringImpl(query, false);
+  return setQueryStringImpl(query, false, strict);
 }
 
 std::string HTTPMessage::createQueryString(
@@ -953,9 +958,9 @@ const char* HTTPMessage::getDefaultReason(uint16_t status) {
   return "-";
 }
 
-ParseURL HTTPMessage::setURLImplInternal(bool unparse) {
+ParseURL HTTPMessage::setURLImplInternal(bool unparse, bool strict) {
   auto& req = request();
-  ParseURL u(req.url_);
+  ParseURL u(req.url_, strict);
   if (u.valid()) {
     VLOG(9) << "set path: " << u.path() << " query:" << u.query();
     req.path_ = u.path();

@@ -802,3 +802,35 @@ TEST(HTTPMessage, SchemeMasque) {
   EXPECT_EQ(message.getScheme(), "http");
   EXPECT_FALSE(message.isSecure());
 }
+
+TEST(HTTPMessage, StrictMode) {
+  HTTPMessage message;
+  EXPECT_FALSE(message.setURL("/foo\xff", /*strict=*/true));
+  EXPECT_EQ(message.getURL(), "/foo\xff");
+  EXPECT_EQ(message.getPath(), "");
+
+  message.setURL("/");
+  // Not strict mode, high ascii OK
+  EXPECT_TRUE(message.setQueryString("a=b\xff"));
+  EXPECT_EQ(message.getURL(), "/?a=b\xff");
+  EXPECT_EQ(message.getPath(), "/");
+  EXPECT_EQ(message.getQueryString(), "a=b\xff");
+
+  EXPECT_TRUE(message.setQueryString("a=b"));
+  EXPECT_EQ(message.getURL(), "/?a=b");
+  EXPECT_FALSE(message.setQueryString("a=b\xff", /*strict=*/true));
+  EXPECT_EQ(message.getURL(), "/?a=b\xff");
+  EXPECT_EQ(message.getQueryString(), "");
+
+  EXPECT_TRUE(message.setQueryString("a=b"));
+  EXPECT_FALSE(message.setQueryParam("c", "d\xff", /*strict=*/true));
+  EXPECT_EQ(message.getURL(), "/?a=b&c=d\xff");
+  EXPECT_EQ(message.getQueryString(), "");
+  EXPECT_TRUE(message.setQueryParam("c", "d\xff", /*strict=*/false));
+  EXPECT_EQ(message.getURL(), "/?a=b&c=d\xff");
+
+  // Can remove a param without failing the strict parsing
+  EXPECT_TRUE(message.setURL("/?a=b&c=d\xff"));
+  EXPECT_TRUE(message.removeQueryParam("a"));
+  EXPECT_TRUE(message.removeQueryParam("c"));
+}

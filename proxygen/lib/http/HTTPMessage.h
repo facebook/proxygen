@@ -254,14 +254,14 @@ class HTTPMessage {
    * valid, this is a full URL, not just a path.
    */
   template <typename T> // T = string
-  ParseURL setURL(T&& url) {
-    return setURLImpl(std::forward<T>(url), true);
+  ParseURL setURL(T&& url, bool strict = false) {
+    return setURLImpl(std::forward<T>(url), true, strict);
   }
 
   // The template function above doesn't work with char*,
   // so explicitly convert to a string first.
-  void setURL(const char* url) {
-    setURL(std::string(url));
+  ParseURL setURL(const char* url, bool strict = false) {
+    return setURL(std::string(url), strict);
   }
   const std::string& getURL() const {
     return request().url_;
@@ -581,7 +581,7 @@ class HTTPMessage {
    *
    * Returns true if the query string was changed successfully.
    */
-  bool setQueryString(const std::string& query);
+  bool setQueryString(const std::string& query, bool strict = false);
 
   /**
    * Remove the query parameter with the specified name.
@@ -595,7 +595,9 @@ class HTTPMessage {
    *
    * Returns true if the query parameter was successfully set.
    */
-  bool setQueryParam(const std::string& name, const std::string& value);
+  bool setQueryParam(const std::string& name,
+                     const std::string& value,
+                     bool strict = false);
 
   /**
    * Get the cookie with the specified name.
@@ -883,17 +885,19 @@ class HTTPMessage {
   void parseCookies() const;
 
   template <typename T> // T = string
-  ParseURL setURLImpl(T&& url, bool unparse) {
+  ParseURL setURLImpl(T&& url, bool unparse, bool strict) {
     VLOG(9) << "setURL: " << url;
 
     // Set the URL, path, and query string parameters
     request().url_ = std::forward<T>(url);
-    return setURLImplInternal(unparse);
+    return setURLImplInternal(unparse, strict);
   }
 
-  ParseURL setURLImplInternal(bool unparse);
+  ParseURL setURLImplInternal(bool unparse, bool strict);
 
-  bool setQueryStringImpl(const std::string& queryString, bool unparse);
+  bool setQueryStringImpl(const std::string& queryString,
+                          bool unparse,
+                          bool strict);
   void parseQueryParams() const;
   void unparseQueryParams();
 
