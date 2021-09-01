@@ -1058,6 +1058,8 @@ class HTTPMessage {
     if (fields_.which_ == MessageType::NONE) {
       fields_.which_ = MessageType::REQUEST;
       new (&fields_.data_.request) Request();
+    } else if (fields_.which_ == MessageType::RESPONSE) {
+      throw std::runtime_error("Invoked Request API on HTTP Response");
     }
 
     return fields_.data_.request;
@@ -1075,6 +1077,8 @@ class HTTPMessage {
     if (fields_.which_ == MessageType::NONE) {
       fields_.which_ = MessageType::RESPONSE;
       new (&fields_.data_.response) Response();
+    } else if (fields_.which_ == MessageType::REQUEST) {
+      throw std::runtime_error("Invoked Response API on HTTP Request");
     }
 
     return fields_.data_.response;

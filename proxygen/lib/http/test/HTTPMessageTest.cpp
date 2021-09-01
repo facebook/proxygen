@@ -834,3 +834,18 @@ TEST(HTTPMessage, StrictMode) {
   EXPECT_TRUE(message.removeQueryParam("a"));
   EXPECT_TRUE(message.removeQueryParam("c"));
 }
+
+#ifdef NDEBUG
+// This fails DCHECKs in debug mode, throws in opt
+TEST(HTTPMessage, BadAPIUsage) {
+  HTTPMessage req;
+  req.setURL("/");
+  EXPECT_THROW(req.getStatusCode(), std::runtime_error);
+  EXPECT_EQ(req.getURL(), "/");
+
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  EXPECT_THROW(resp.getQueryString(), std::runtime_error);
+  EXPECT_EQ(resp.getStatusCode(), 200);
+}
+#endif
