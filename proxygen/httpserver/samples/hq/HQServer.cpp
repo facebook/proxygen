@@ -210,7 +210,11 @@ HQServer::HQServer(
   server_->setSupportedVersion(params_.quicVersions);
   server_->setFizzContext(createFizzServerContext(params_));
   if (params_.rateLimitPerThread) {
-    server_->setRateLimit(params_.rateLimitPerThread.value(), 1s);
+    server_->setRateLimit(
+        [rateLimitPerThread = params_.rateLimitPerThread.value()]() {
+          return rateLimitPerThread;
+        },
+        1s);
   }
 }
 
