@@ -1018,6 +1018,19 @@ TEST(HTTP1xCodecTest, GenerateExtraHeaders) {
                 HTTP_HEADER_CONTENT_LENGTH));
 }
 
+TEST(HTTP1xCodecTest, WebsocketUpgradeDuplicate) {
+  HTTP1xCodec downstreamCodec(TransportDirection::DOWNSTREAM);
+  MockHTTPCodecCallback downStreamCallbacks;
+  downstreamCodec.setCallback(&downStreamCallbacks);
+
+  auto reqBuf = folly::IOBuf::copyBuffer(
+      "GET / HTTP/1.1\r\nConnection:\r\nUpgrade:websocket\r\n\r\n");
+  EXPECT_CALL(downStreamCallbacks, onError(_, _, _)).Times(1);
+
+  EXPECT_NO_THROW(downstreamCodec.onIngress(*reqBuf));
+  EXPECT_NO_THROW(downstreamCodec.onIngress(*reqBuf));
+}
+
 TEST(HTTP1xCodecTest, UpgradeHeaderCaseInsensitive) {
   auto result = checkForProtocolUpgrade("h2c,WebSocket", "websocket", false);
   ASSERT_TRUE(result.has_value());

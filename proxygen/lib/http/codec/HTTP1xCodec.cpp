@@ -1115,8 +1115,19 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
       }
     } else {
       // request.
+      // If the websockAcceptKey is already set, we error out.
+      // Currently, websockAcceptKey is never cleared, which means
+      // that only one Websocket upgrade attempt can be made on the
+      // connection. If that upgrade request is not successful for any
+      // reason, the connection is no longer usable. At some point, we
+      // may want to change this to clear the websockAcceptKey if
+      // the request doesn't succeed keeping the connection usable.
+      if (!websockAcceptKey_.empty()) {
+        LOG(ERROR) << "ws accept key already set: '" << websockAcceptKey_
+                   << "'";
+        return -1;
+      }
       auto key = hdrs.getSingleOrEmpty(HTTP_HEADER_SEC_WEBSOCKET_KEY);
-      DCHECK(websockAcceptKey_.empty());
       websockAcceptKey_ = generateWebsocketAccept(key);
     }
   }
