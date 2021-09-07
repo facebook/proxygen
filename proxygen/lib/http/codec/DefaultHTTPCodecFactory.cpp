@@ -31,7 +31,9 @@ std::unique_ptr<HTTPCodec> DefaultHTTPCodecFactory::getCodec(
              chosenProto == proxygen::http2::kProtocolCleartextString ||
              chosenProto == proxygen::http2::kProtocolDraftString ||
              chosenProto == proxygen::http2::kProtocolExperimentalString) {
-    return std::make_unique<HTTP2Codec>(direction);
+    auto codec = std::make_unique<HTTP2Codec>(direction);
+    codec->setStrictValidation(useStrictValidation());
+    return codec;
   } else {
     if (!chosenProto.empty() &&
         !HTTP1xCodec::supportsNextProtocol(chosenProto)) {
@@ -40,7 +42,8 @@ std::unique_ptr<HTTPCodec> DefaultHTTPCodecFactory::getCodec(
                  << "Attempting to use HTTP/1.1";
     }
 
-    return std::make_unique<HTTP1xCodec>(direction, forceHTTP1xCodecTo1_1_);
+    return std::make_unique<HTTP1xCodec>(
+        direction, forceHTTP1xCodecTo1_1_, useStrictValidation());
   }
 }
 } // namespace proxygen

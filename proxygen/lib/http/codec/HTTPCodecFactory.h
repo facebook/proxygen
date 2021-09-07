@@ -31,7 +31,20 @@ class HTTPCodecFactory {
                                               bool isTLS) = 0;
 
   static std::unique_ptr<HTTPCodec> getCodec(CodecProtocol protocol,
-                                             TransportDirection direction);
+                                             TransportDirection direction,
+                                             bool strictValidation = false);
+
+  void setStrictValidationFn(std::function<bool()> useStrictValidationFn) {
+    useStrictValidationFn_ = useStrictValidationFn;
+  }
+
+ protected:
+  bool useStrictValidation() {
+    return useStrictValidationFn_();
+  }
+
+  // Default to false for now to match existing behavior
+  std::function<bool()> useStrictValidationFn_{[] { return false; }};
 };
 
 } // namespace proxygen

@@ -34,11 +34,13 @@ std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
                                        alwaysUseSPDYVersion_.value(),
                                        accConfig_.spdyCompressionLevel);
   } else if (!isTLS && alwaysUseHTTP2_) {
-    return std::make_unique<HTTP2Codec>(direction);
+    auto codec = std::make_unique<HTTP2Codec>(direction);
+    codec->setStrictValidation(useStrictValidation());
+    return codec;
   } else if (nextProtocol.empty() ||
              HTTP1xCodec::supportsNextProtocol(nextProtocol)) {
-    auto codec = std::make_unique<HTTP1xCodec>(direction,
-                                               accConfig_.forceHTTP1_0_to_1_1);
+    auto codec = std::make_unique<HTTP1xCodec>(
+        direction, accConfig_.forceHTTP1_0_to_1_1, useStrictValidation());
     if (!isTLS) {
       codec->setAllowedUpgradeProtocols(
           accConfig_.allowedPlaintextUpgradeProtocols);
@@ -50,7 +52,9 @@ std::unique_ptr<HTTPCodec> HTTPDefaultSessionCodecFactory::getCodec(
   } else if (nextProtocol == http2::kProtocolString ||
              nextProtocol == http2::kProtocolDraftString ||
              nextProtocol == http2::kProtocolExperimentalString) {
-    return std::make_unique<HTTP2Codec>(direction);
+    auto codec = std::make_unique<HTTP2Codec>(direction);
+    codec->setStrictValidation(useStrictValidation());
+    return codec;
   } else {
     VLOG(2) << "Client requested unrecognized next protocol " << nextProtocol;
   }

@@ -104,8 +104,8 @@ bool HTTPDownstreamSession::onNativeProtocolUpgrade(
   CHECK(txn);
   if (txn->canSendHeaders()) {
     // Create the new Codec
-    auto codec =
-        HTTPCodecFactory::getCodec(protocol, TransportDirection::DOWNSTREAM);
+    auto codec = HTTPCodecFactory::getCodec(
+        protocol, TransportDirection::DOWNSTREAM, /*strictValidation=*/true);
     CHECK(codec);
     if (!codec->onIngressUpgradeMessage(msg)) {
       VLOG(4) << *this << " codec rejected upgrade";

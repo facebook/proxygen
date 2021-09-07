@@ -13,6 +13,7 @@
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/http/codec/SPDYCodec.h>
+#include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/services/AcceptorConfiguration.h>
 
 using namespace proxygen;
@@ -128,3 +129,55 @@ TEST(HTTPDefaultSessionCodecFactoryTest, GetCodec) {
       "not/supported", TransportDirection::DOWNSTREAM, false /* isTLS */);
   EXPECT_EQ(codec, nullptr);
 }
+
+struct TestParams {
+  bool strict;
+  std::string plaintextProto;
+};
+
+class HTTPDefaultSessionCodecFactoryValidationTest
+    : public ::testing::TestWithParam<TestParams> {};
+
+TEST_P(HTTPDefaultSessionCodecFactoryValidationTest, StrictValidation) {
+  AcceptorConfiguration conf;
+  conf.plaintextProtocol = GetParam().plaintextProto;
+  HTTPDefaultSessionCodecFactory factory(conf);
+  bool strict = GetParam().strict;
+  factory.setStrictValidationFn([strict] { return strict; });
+
+  auto codec = factory.getCodec(
+      http2::kProtocolString, TransportDirection::DOWNSTREAM, false);
+  HTTP2Codec upstream(TransportDirection::UPSTREAM);
+  HTTPMessage req;
+  folly::IOBufQueue output{folly::IOBufQueue::cacheChainLength()};
+  req.setURL("/foo\xff");
+  upstream.generateConnectionPreface(output);
+  upstream.generateSettings(output);
+  upstream.generateHeader(output, upstream.createStream(), req, true, nullptr);
+  FakeHTTPCodecCallback callbacks;
+  codec->setCallback(&callbacks);
+  codec->onIngress(*output.front());
+  EXPECT_EQ(callbacks.messageBegin, 1);
+  EXPECT_EQ(callbacks.headersComplete, strict ? 0 : 1);
+  EXPECT_EQ(callbacks.streamErrors, strict ? 1 : 0);
+  output.clear();
+
+  if (conf.plaintextProtocol.empty()) {
+    callbacks.reset();
+    codec = factory.getCodec("http/1.1", TransportDirection::DOWNSTREAM, true);
+    codec->setCallback(&callbacks);
+    codec->onIngress(
+        *folly::IOBuf::copyBuffer("GET /foo\xff HTTP/1.1\r\n\r\n"));
+    EXPECT_EQ(callbacks.messageBegin, 1);
+    EXPECT_EQ(callbacks.headersComplete, strict ? 0 : 1);
+    EXPECT_EQ(callbacks.streamErrors, strict ? 1 : 0);
+  }
+}
+
+INSTANTIATE_TEST_CASE_P(
+    HTTPDefaultSessionCodecFactoryTest,
+    HTTPDefaultSessionCodecFactoryValidationTest,
+    ::testing::Values(TestParams({true, std::string()}),
+                      TestParams({true, std::string("h2c")}),
+                      TestParams({false, std::string("")}),
+                      TestParams({false, std::string("h2c")})));

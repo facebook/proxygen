@@ -1370,6 +1370,44 @@ TEST_P(HQDownstreamSessionTestHQ, BadHttpHeaders) {
   // The QPACK error will cause the connection to get dropped
 }
 
+TEST_P(HQDownstreamSessionTest, BadHttpStrict) {
+  hqSession_->setStrictValidation(true);
+  sendRequest(getGetRequest("/foo\xff"));
+  testing::StrictMock<MockHTTPHandler> handler;
+  EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
+      .WillOnce(Return(&handler));
+  EXPECT_CALL(handler, setTransaction(testing::_))
+      .WillOnce(testing::SaveArg<0>(&handler.txn_));
+  handler.expectError([&handler](const HTTPException& ex) {
+    EXPECT_TRUE(ex.hasHttpStatusCode());
+    handler.sendReplyWithBody(ex.getHttpStatusCode(), 100);
+  });
+  handler.expectDetachTransaction();
+
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTest, BadHttpHeadersStrict) {
+  hqSession_->setStrictValidation(true);
+  auto req = getGetRequest("/foo");
+  req.getHeaders().set("Foo", "bad value\xff");
+  sendRequest(req);
+  testing::StrictMock<MockHTTPHandler> handler;
+  EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
+      .WillOnce(Return(&handler));
+  EXPECT_CALL(handler, setTransaction(testing::_))
+      .WillOnce(testing::SaveArg<0>(&handler.txn_));
+  handler.expectError([&handler](const HTTPException& ex) {
+    EXPECT_TRUE(ex.hasHttpStatusCode());
+    handler.sendReplyWithBody(ex.getHttpStatusCode(), 100);
+  });
+  handler.expectDetachTransaction();
+
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 // NOTE: this behavior is only valid for basic h1q
 TEST_P(HQDownstreamSessionTestH1qv1, ShutdownWithTwoTxn) {
   sendRequest();

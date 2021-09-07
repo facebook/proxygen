@@ -15,16 +15,23 @@
 namespace proxygen {
 
 std::unique_ptr<HTTPCodec> HTTPCodecFactory::getCodec(
-    CodecProtocol protocol, TransportDirection direction) {
+    CodecProtocol protocol,
+    TransportDirection direction,
+    bool strictValidation) {
+  // Static m
   switch (protocol) {
     case CodecProtocol::HTTP_1_1:
-      return std::make_unique<HTTP1xCodec>(direction);
+      return std::make_unique<HTTP1xCodec>(
+          direction, /*force_1_1=*/false, strictValidation);
     case CodecProtocol::SPDY_3:
       return std::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3);
     case CodecProtocol::SPDY_3_1:
       return std::make_unique<SPDYCodec>(direction, SPDYVersion::SPDY3_1);
-    case CodecProtocol::HTTP_2:
-      return std::make_unique<HTTP2Codec>(direction);
+    case CodecProtocol::HTTP_2: {
+      auto codec = std::make_unique<HTTP2Codec>(direction);
+      codec->setStrictValidation(strictValidation);
+      return codec;
+    }
     default:
       LOG(FATAL) << "Unreachable";
       return nullptr;

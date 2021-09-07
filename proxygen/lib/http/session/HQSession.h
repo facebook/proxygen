@@ -214,6 +214,9 @@ class HQSession
   void setForceUpstream1_1(bool force) {
     forceUpstream1_1_ = force;
   }
+  void setStrictValidation(bool strictValidation) {
+    strictValidation_ = strictValidation;
+  }
 
   void setSessionStats(HTTPSessionStats* stats) override;
 
@@ -2040,6 +2043,8 @@ class HQSession
   bool scheduledWrite_{false};
 
   bool forceUpstream1_1_{true};
+  // Default to false for now to match existing behavior
+  bool strictValidation_{false};
   bool datagramEnabled_{false};
 
   /** Reads in the current loop iteration */

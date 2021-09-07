@@ -2292,7 +2292,8 @@ HQSession::createStreamTransport(quic::StreamId streamId) {
 std::unique_ptr<HTTPCodec> HQSession::H1QFBV1VersionUtils::createCodec(
     quic::StreamId /*streamId*/) {
   return std::make_unique<HTTP1xCodec>(session_.direction_,
-                                       session_.forceUpstream1_1_);
+                                       session_.forceUpstream1_1_,
+                                       session_.strictValidation_);
 }
 
 std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
@@ -2320,6 +2321,7 @@ std::unique_ptr<HTTPCodec> HQSession::HQVersionUtils::createCodec(
         return res->sendWindowAvailable;
       },
       session_.ingressSettings_);
+  codec->setStrictValidation(session_.strictValidation_);
   hqStreamCodecPtr_ = codec.get();
   return codec;
 }
