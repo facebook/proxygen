@@ -939,6 +939,16 @@ const char* HTTPMessage::getDefaultReason(uint16_t status) {
       return "Expectation Failed";
     case 418:
       return "I'm a teapot";
+    case 426:
+      return "Upgrade Required";
+    case 428:
+      return "Precondition Required";
+    case 429:
+      return "Too Many Requests";
+    case 431:
+      return "Request Header Fields Too Large";
+    case 451:
+      return "Unavailable For Legal Reasons";
     case 500:
       return "Internal Server Error";
     case 501:
