@@ -546,15 +546,15 @@ bool HTTPMessage::setQueryStringImpl(const std::string& query,
                                      bool unparse,
                                      bool strict) {
   // No need to strictly verify the URL when reparsing it
-  ParseURL u(request().url_, /*strict=*/false);
+  auto u = ParseURL::parseURL(request().url_, /*strict=*/false);
 
-  if (u.valid()) {
+  if (u) {
     // Recreate the URL by just changing the query string
-    auto res = setURLImpl(createUrl(u.scheme(),
-                                    u.authority(),
-                                    u.path(),
+    auto res = setURLImpl(createUrl(u->scheme(),
+                                    u->authority(),
+                                    u->path(),
                                     query, // new query string
-                                    u.fragment()),
+                                    u->fragment()),
                           unparse,
                           strict);
     return !strict || res.valid();
@@ -970,7 +970,7 @@ const char* HTTPMessage::getDefaultReason(uint16_t status) {
 
 ParseURL HTTPMessage::setURLImplInternal(bool unparse, bool strict) {
   auto& req = request();
-  ParseURL u(req.url_, strict);
+  auto u = ParseURL::parseURLMaybeInvalid(req.url_, strict);
   if (u.valid()) {
     VLOG(9) << "set path: " << u.path() << " query:" << u.query();
     req.path_ = u.path();

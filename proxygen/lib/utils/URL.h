@@ -28,7 +28,8 @@ class URL {
                Mode strict = Mode::STRICT_COMPAT) noexcept {
     valid_ = false;
 
-    ParseURL parseUrl(url, strict == Mode::STRICT);
+    ParseURL parseUrl =
+        ParseURL::parseURLMaybeInvalid(url, strict == Mode::STRICT);
 
     scheme_ = parseUrl.scheme().str();
     host_ = parseUrl.hostNoBrackets().str();
