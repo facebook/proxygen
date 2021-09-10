@@ -28,13 +28,20 @@ class BaseStats {
   // thread safe via the use of atomics, we may only want single local
   // instance instead of wrapped (per thread) instances.
   using TLCounter = facebook::fb303::CounterWrapper;
-  using TLDynamicTimeseries = facebook::fb303::DynamicTimeseriesWrapper<1>;
+  // Please avoid adding DynamicTimeseriesWrapper if we can.
+  // At a minimum they require formatters and map lookups for
+  // operations and make it easier to violate the constraint that all counters
+  // are created at startup.
   using TLTimeseries = facebook::fb303::TimeseriesPolymorphicWrapper;
   using TLTimeseriesQuarterMinuteOnly =
       facebook::fb303::QuarterMinuteOnlyTimeseriesWrapper;
   using TLTimeseriesMinute = facebook::fb303::MinuteOnlyTimeseriesWrapper;
   using TLTimeseriesMinuteAndAllTime = facebook::fb303::MinuteTimeseriesWrapper;
   using TLHistogram = facebook::fb303::HistogramWrapper;
+  // Please avoid adding DynamicHistogramWrapper if we can.
+  // At a minimum they require formatters and map lookups for
+  // operations and make it easier to violate the constraint that all counters
+  // are created at startup.
 };
 
 } // namespace proxygen
