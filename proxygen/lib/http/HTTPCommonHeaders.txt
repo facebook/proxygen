@@ -35,6 +35,7 @@ Content-Type
 Cookie
 DNT
 Date
+Edge-Control
 ETag
 Expect
 Expires
