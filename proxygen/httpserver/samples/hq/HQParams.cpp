@@ -288,7 +288,7 @@ void initializeTransportSettings(HQParams& hqParams) {
     hqParams.transportSettings.dataPathType =
         quic::DataPathType::ContinuousMemory;
   }
-  if (FLAGS_rate_limit > 0) {
+  if (FLAGS_rate_limit >= 0) {
     hqParams.rateLimitPerThread = FLAGS_rate_limit;
 
     std::array<uint8_t, kRetryTokenSecretLength> secret;
