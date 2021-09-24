@@ -183,7 +183,8 @@ class HTTPDownstreamTest : public testing::Test {
         .RetiresOnSaturation();
 
     EXPECT_CALL(*handler, setTransaction(testing::_))
-        .WillOnce(testing::SaveArg<0>(&handler->txn_));
+        .WillOnce(testing::SaveArg<0>(&handler->txn_))
+        .RetiresOnSaturation();
 
     return handler;
   }
@@ -2215,20 +2216,17 @@ TEST_F(HTTPDownstreamSessionTest, WriteTimeoutPipeline) {
       "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
   requests_.append(buf, strlen(buf));
 
-  InSequence handlerSequence;
+  auto handler2 = addSimpleNiceHandler();
   auto handler1 = addSimpleNiceHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1, this] {
     handler1->sendHeaders(200, 100);
-    eventBase_.tryRunAfterDelay(
-        [&handler1, this] {
-          transport_->pauseWrites();
-          handler1->sendBody(100);
-          handler1->txn_->sendEOM();
-        },
-        50);
+    eventBase_.runInLoop([&handler1, this] {
+      transport_->pauseWrites();
+      handler1->sendBody(100);
+      handler1->txn_->sendEOM();
+    });
   });
-  auto handler2 = addSimpleNiceHandler();
   handler2->expectHeaders();
   handler2->expectEOM();
   handler2->expectError([&](const HTTPException& ex) {

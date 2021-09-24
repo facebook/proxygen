@@ -358,9 +358,10 @@ class MockHTTPHandler
                        std::function<void(const HTTPException& ex)>()) {
     if (callback) {
       EXPECT_CALL(*this, onError(testing::_))
-          .WillOnce(testing::Invoke(callback));
+          .WillOnce(testing::Invoke(callback))
+          .RetiresOnSaturation();
     } else {
-      EXPECT_CALL(*this, onError(testing::_));
+      EXPECT_CALL(*this, onError(testing::_)).RetiresOnSaturation();
     }
   }
 
@@ -378,9 +379,10 @@ class MockHTTPHandler
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
       EXPECT_CALL(*this, detachTransaction())
-          .WillOnce(testing::Invoke(callback));
+          .WillOnce(testing::Invoke(callback))
+          .RetiresOnSaturation();
     } else {
-      EXPECT_CALL(*this, detachTransaction());
+      EXPECT_CALL(*this, detachTransaction()).RetiresOnSaturation();
     }
   }
 };
