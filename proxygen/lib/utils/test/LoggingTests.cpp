@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+#include <folly/Format.h>
 #include <folly/io/IOBuf.h>
 #include <folly/portability/GTest.h>
 #include <glog/logging.h>
@@ -70,7 +71,7 @@ TEST_F(LoggingTests, DumpBin) {
 
 TEST_F(LoggingTests, DumpBinToFile) {
   struct stat fstat;
-  string tmpfile("/tmp/test.bin");
+  string tmpfile(folly::to<string>("/tmp/test_", getpid(), ".bin"));
 
   unlink(tmpfile.c_str());
   unique_ptr<IOBuf> buf = IOBuf::create(128);
