@@ -471,6 +471,10 @@ void HQSession::onConnectionError(
   // Map application errors here to kErrorConnectionReset: eg, the peer tore
   // down the connection
   auto proxygenErr = toProxygenError(code.first, /*fromPeer=*/true);
+  if (proxygenErr == kErrorNone && !streams_.empty()) {
+    // Peer closed with NO_ERROR but there are open streams
+    proxygenErr = kErrorEOF;
+  }
   if (infoCallback_) {
     infoCallback_->onIngressError(*this, proxygenErr);
   }

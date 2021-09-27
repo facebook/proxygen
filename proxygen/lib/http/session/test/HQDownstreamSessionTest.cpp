@@ -1974,6 +1974,30 @@ TEST_P(HQDownstreamSessionTest, LocalErrQueuedEgress) {
   flushRequestsAndLoop();
 }
 
+TEST_P(HQDownstreamSessionTest, NoErrorNoStreams) {
+  EXPECT_CALL(infoCb_, onIngressError(_, kErrorNone));
+  socketDriver_->deliverConnectionError(
+      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, ""));
+  flushRequestsAndLoop();
+}
+
+TEST_P(HQDownstreamSessionTest, NoErrorOneStreams) {
+  sendRequest();
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  handler->expectEOM();
+  flushRequestsAndLoopN(1);
+  // stream gets an error
+  handler->expectError([](const HTTPException& ex) {
+    EXPECT_EQ(ex.getProxygenError(), kErrorEOF);
+  });
+  handler->expectDetachTransaction();
+  // This is for connection level errors, maybe should be reported a
+  EXPECT_CALL(infoCb_, onIngressError(_, kErrorEOF));
+  socketDriver_->deliverConnectionError(
+      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, ""));
+}
+
 TEST_P(HQDownstreamSessionTestHQ, Connect) {
   auto handler = addSimpleStrictHandler();
   // Send HTTP 200 OK to accept the CONNECT request
