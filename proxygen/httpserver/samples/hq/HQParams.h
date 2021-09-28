@@ -53,6 +53,7 @@ struct HQParams {
   std::string outdir;
   bool logResponse;
   bool logResponseHeaders;
+  bool logRuntime;
 
   // Transport section
   std::string host;

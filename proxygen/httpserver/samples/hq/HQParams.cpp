@@ -46,6 +46,10 @@ DEFINE_bool(log_response,
 DEFINE_bool(log_response_headers,
             false,
             "Whether to log the response headers to stderr");
+DEFINE_bool(
+    log_run_time,
+    false,
+    "Whether to log the duration for which the client/server was running");
 DEFINE_string(congestion, "cubic", "newreno/cubic/bbr/none");
 DEFINE_int32(conn_flow_control, 1024 * 1024 * 10, "Connection flow control");
 DEFINE_int32(stream_flow_control, 256 * 1024, "Stream flow control");
@@ -190,6 +194,7 @@ void initializeCommonSettings(HQParams& hqParams) {
   hqParams.logdir = FLAGS_logdir;
   hqParams.logResponse = FLAGS_log_response;
   hqParams.logResponseHeaders = FLAGS_log_response_headers;
+  hqParams.logRuntime = FLAGS_log_run_time;
   if (FLAGS_mode == "server") {
     CHECK(FLAGS_local_address.empty())
         << "local_address only allowed in client mode";
