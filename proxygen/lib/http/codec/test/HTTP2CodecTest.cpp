@@ -501,6 +501,18 @@ TEST_F(HTTP2CodecTest, HighAscii) {
   EXPECT_EQ(callbacks_.messageComplete, 0);
   EXPECT_EQ(callbacks_.streamErrors, 4);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
+
+  HTTPMessage req5 = getGetRequest("/guacamole");
+  req5.getHeaders().set(HTTP_HEADER_USER_AGENT, "ꪶ𝛸ꫂ_𝐹𝛩𝑅𝐶𝛯_𝑉2");
+  upstreamCodec_.generateHeader(
+      output_, 9, req5, true, nullptr /* headerSize */);
+  callbacks_.reset();
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
 /**

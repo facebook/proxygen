@@ -277,6 +277,20 @@ TEST(HTTP1xCodecTest, TestBadHeaders) {
   codec.onIngress(*buffer);
 }
 
+TEST(HTTP1xCodecTest, TestHighAsciiUA) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
+                    /*force1_1=*/true,
+                    /*strictValidation=*/true);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = folly::IOBuf::copyBuffer(
+      string("GET /yeah HTTP/1.1\r\nUser-Agent: ꪶ𝛸ꫂ_𝐹𝛩𝑅𝐶𝛯_𝑉2\r\n\r\n"));
+  EXPECT_CALL(callbacks, onMessageBegin(1, _));
+  EXPECT_CALL(callbacks, onHeadersComplete(1, _));
+  EXPECT_CALL(callbacks, onMessageComplete(1, _));
+  codec.onIngress(*buffer);
+}
+
 TEST(HTTP1xCodecTest, TestBadURL) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM,
                     /*force1_1=*/true,

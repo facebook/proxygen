@@ -865,11 +865,21 @@ int HTTP1xCodec::onReason(const char* buf, size_t len) {
 bool HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
   // Header names are strictly validated by http_parser, however, it allows
   // quoted+escaped CTLs so run our stricter check here.
-  if (strictValidation_ &&
-      !CodecUtil::validateHeaderValue(folly::StringPiece(currentHeaderValue_),
-                                      CodecUtil::CtlEscapeMode::STRICT)) {
-    LOG(ERROR) << "Invalid header value = " << currentHeaderValue_;
-    return false;
+  if (strictValidation_) {
+    folly::StringPiece headerName(currentHeaderName_.empty()
+                                      ? currentHeaderNameStringPiece_
+                                      : currentHeaderName_);
+    HTTPHeaderCode headerCode =
+        HTTPCommonHeaders::hash(headerName.data(), headerName.size());
+    if (!CodecUtil::validateHeaderValue(
+            folly::StringPiece(currentHeaderValue_),
+            headerCode == HTTP_HEADER_USER_AGENT
+                ? CodecUtil::CtlEscapeMode::STRICT_COMPAT
+                : CodecUtil::CtlEscapeMode::STRICT)) {
+      LOG(ERROR) << "Invalid header name=" << headerName
+                 << " value=" << currentHeaderValue_;
+      return false;
+    }
   }
   if (LIKELY(currentHeaderName_.empty())) {
     hdrs.addFromCodec(currentHeaderNameStringPiece_.begin(),
