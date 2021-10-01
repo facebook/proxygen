@@ -520,6 +520,37 @@ TEST_F(HTTP2DownstreamSessionEarlyShutdownTest, EarlyShutdown) {
   parseOutput(*clientCodec_);
 }
 
+TEST_F(HTTP2DownstreamSessionEarlyShutdownTest, EarlyShutdownDoubleGoaway) {
+  folly::DelayedDestruction::DestructorGuard g(httpSession_);
+  httpSession_->enableDoubleGoawayDrain();
+
+  StrictMock<MockHTTPCodecCallback> callbacks;
+  clientCodec_->setCallback(&callbacks);
+  EXPECT_CALL(callbacks, onFrameHeader(_, _, _, _, _)).Times(3);
+  EXPECT_CALL(callbacks, onSettings(_)).Times(1);
+  EXPECT_CALL(callbacks, onGoaway(_, _, _)).Times(2);
+  expectDetachSession();
+  httpSession_->notifyPendingShutdown();
+  httpSession_->startNow();
+  eventBase_.loop();
+  parseOutput(*clientCodec_);
+}
+
+TEST_F(HTTP2DownstreamSessionTest, ShutdownDoubleGoaway) {
+  folly::DelayedDestruction::DestructorGuard g(httpSession_);
+  httpSession_->enableDoubleGoawayDrain();
+
+  StrictMock<MockHTTPCodecCallback> callbacks;
+  clientCodec_->setCallback(&callbacks);
+  EXPECT_CALL(callbacks, onFrameHeader(_, _, _, _, _)).Times(3);
+  EXPECT_CALL(callbacks, onSettings(_)).Times(1);
+  EXPECT_CALL(callbacks, onGoaway(_, _, _)).Times(2);
+  expectDetachSession();
+  httpSession_->notifyPendingShutdown();
+  eventBase_.loop();
+  parseOutput(*clientCodec_);
+}
+
 TEST_F(HTTPDownstreamSessionTest, ImmediateEof) {
   // Send EOF without any request data
   EXPECT_CALL(mockController_, getRequestHandler(_, _)).Times(0);

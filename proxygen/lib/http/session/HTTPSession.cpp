@@ -262,6 +262,11 @@ void HTTPSession::startNow() {
   // util we've started and sent SETTINGS.
   if (draining_) {
     codec_->generateGoaway(writeBuf_);
+    auto controller = getController();
+    if (controller && codec_->isWaitingToDrain()) {
+      wheelTimer_.scheduleTimeout(&drainTimeout_,
+                                  controller->getGracefulShutdownTimeout());
+    }
   }
   scheduleWrite();
   resumeReads();
@@ -337,11 +342,6 @@ void HTTPSession::readTimeoutExpired() noexcept {
   DestructorGuard g(this);
   setCloseReason(ConnectionCloseReason::TIMEOUT);
   notifyPendingShutdown();
-  auto controller = getController();
-  if (controller && codec_->isWaitingToDrain()) {
-    wheelTimer_.scheduleTimeout(&drainTimeout_,
-                                controller->getGracefulShutdownTimeout());
-  }
 }
 
 void HTTPSession::writeTimeoutExpired() noexcept {
@@ -2505,6 +2505,11 @@ void HTTPSession::drainImpl() {
   if (started_) {
     if (codec_->generateGoaway(writeBuf_) > 0) {
       scheduleWrite();
+    }
+    auto controller = getController();
+    if (controller && codec_->isWaitingToDrain()) {
+      wheelTimer_.scheduleTimeout(&drainTimeout_,
+                                  controller->getGracefulShutdownTimeout());
     }
   }
 }
