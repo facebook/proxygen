@@ -38,7 +38,7 @@ HQClient::HQClient(const HQParams& params) : params_(params) {
   }
 }
 
-void HQClient::start() {
+int HQClient::start() {
 
   initializeQuicClient();
   initializeQLogger();
@@ -71,6 +71,8 @@ void HQClient::start() {
     sendRequests(true, quicClient_->getNumOpenableBidirectionalStreams());
   }
   evb_.loop();
+
+  return failed_ ? -1 : 0;
 }
 
 proxygen::HTTPTransaction* FOLLY_NULLABLE
@@ -187,6 +189,7 @@ void HQClient::onReplaySafe() {
 void HQClient::connectError(std::pair<quic::QuicErrorCode, std::string> error) {
   LOG(ERROR) << "HQClient failed to connect, error=" << toString(error.first)
              << ", msg=" << error.second;
+  failed_ = true;
   evb_.terminateLoopSoon();
 }
 
@@ -231,9 +234,9 @@ void HQClient::initializeQLogger() {
   quicClient_->setQLogger(std::move(qLogger));
 }
 
-void startClient(const HQParams& params) {
+int startClient(const HQParams& params) {
   HQClient client(params);
-  client.start();
+  return client.start();
 }
 
 }} // namespace quic::samples

@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
 #endif
   folly::init(&argc, &argv, false);
   folly::ssl::init();
+  int err = 0;
 
   auto expectedParams = initializeParamsFromCmdline();
   if (expectedParams) {
@@ -47,7 +48,7 @@ int main(int argc, char* argv[]) {
         startServer(params);
         break;
       case HQMode::CLIENT:
-        startClient(params);
+        err = startClient(params);
         break;
       default:
         LOG(ERROR) << "Unknown mode specified: ";
@@ -61,11 +62,12 @@ int main(int argc, char* argv[]) {
                        startTime
                 << "ms";
     }
-    return 0;
+    return err;
   } else {
     for (auto& param : expectedParams.error()) {
       LOG(ERROR) << "Invalid param: " << param.name << " " << param.value << " "
                  << param.errorMsg;
     }
+    return -1;
   }
 }

@@ -28,7 +28,7 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
 
   ~HQClient() override = default;
 
-  void start();
+  int start();
 
  private:
   proxygen::HTTPTransaction* sendRequest(const proxygen::URL& requestUrl);
@@ -60,8 +60,10 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
   std::list<std::unique_ptr<CurlService::CurlClient>> curls_;
 
   std::deque<folly::StringPiece> httpPaths_;
+
+  bool failed_{false};
 };
 
-void startClient(const HQParams& params);
+int startClient(const HQParams& params);
 } // namespace samples
 } // namespace quic
