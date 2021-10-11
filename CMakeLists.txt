@@ -29,6 +29,10 @@ option(BUILD_SHARED_LIBS
   a stable ABI."
   OFF
 )
+option(BUILD_SAMPLES
+  "If enabled, proxygen will build various examples/samples"
+  ON
+)
 # Mark BUILD_SHARED_LIBS as an "advanced" option, since enabling it
 # is generally discouraged.
 mark_as_advanced(BUILD_SHARED_LIBS)
