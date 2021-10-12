@@ -208,9 +208,12 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
   // Check parsing error
   DCHECK_EQ(decodeInfo_.decodeError, HPACK::DecodeError::NONE);
   // Leave msg in decodeInfo_ for now, to keep the parser paused
-  if (decodeInfo_.parsingError != "") {
+  if (!decodeInfo_.parsingError.empty()) {
     LOG(ERROR) << "Failed parsing header list for stream=" << streamId_
                << ", error=" << decodeInfo_.parsingError;
+    if (!decodeInfo_.headerErrorValue.empty()) {
+      std::cerr << " value=" << decodeInfo_.headerErrorValue << std::endl;
+    }
     HTTPException err(
         HTTPException::Direction::INGRESS,
         folly::format(

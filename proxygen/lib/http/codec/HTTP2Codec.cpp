@@ -591,11 +591,15 @@ HTTP2Codec::parseHeadersDecodeFrames(
   }
 
   // Check parsing error
-  if (decodeInfo_.parsingError != "") {
+  if (!decodeInfo_.parsingError.empty()) {
     // This is "malformed" per the RFC
     LOG(ERROR) << "Failed parsing header list for stream=" << curHeader_.stream
-               << ", error=" << decodeInfo_.parsingError << ", header block=";
-    VLOG(3) << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
+               << ", error=" << decodeInfo_.parsingError;
+    if (!decodeInfo_.headerErrorValue.empty()) {
+      std::cerr << " value=" << decodeInfo_.headerErrorValue << std::endl;
+    }
+    VLOG(3) << "Header block="
+            << IOBufPrinter::printHexFolly(curHeaderBlock_.front(), true);
     if (transportDirection_ == TransportDirection::DOWNSTREAM &&
         parsingHeaders() && !parsingTrailers()) {
       return folly::makeUnexpected(

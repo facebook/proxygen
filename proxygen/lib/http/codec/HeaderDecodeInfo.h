@@ -31,7 +31,8 @@ class HeaderDecodeInfo {
     contentLength_ = folly::none;
     regularHeaderSeen_ = false;
     pseudoHeaderSeen_ = false;
-    parsingError = "";
+    parsingError.clear();
+    headerErrorValue.clear();
     decodeError = HPACK::DecodeError::NONE;
     strictValidation_ = strictValidation;
     verifier.reset(msg.get());
@@ -48,6 +49,7 @@ class HeaderDecodeInfo {
   std::unique_ptr<HTTPMessage> msg;
   HTTPRequestVerifier verifier;
   std::string parsingError;
+  std::string headerErrorValue;
   HPACK::DecodeError decodeError{HPACK::DecodeError::NONE};
 
  private:

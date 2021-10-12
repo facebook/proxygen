@@ -876,8 +876,8 @@ bool HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
             headerCode == HTTP_HEADER_USER_AGENT
                 ? CodecUtil::CtlEscapeMode::STRICT_COMPAT
                 : CodecUtil::CtlEscapeMode::STRICT)) {
-      LOG(ERROR) << "Invalid header name=" << headerName
-                 << " value=" << currentHeaderValue_;
+      LOG(ERROR) << "Invalid header name=" << headerName;
+      std::cerr << " value=" << currentHeaderValue_ << std::endl;
       return false;
     }
   }

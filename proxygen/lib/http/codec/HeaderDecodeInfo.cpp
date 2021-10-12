@@ -19,7 +19,7 @@ namespace proxygen {
 bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
                                 const folly::fbstring& value) {
   // Refuse decoding other headers if an error is already found
-  if (decodeError != HPACK::DecodeError::NONE || parsingError != "") {
+  if (decodeError != HPACK::DecodeError::NONE || !parsingError.empty()) {
     VLOG(4) << "Ignoring header=" << name << " value=" << value
             << " due to parser error=" << parsingError;
     return true;
@@ -115,8 +115,8 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
                 ? CodecUtil::CtlEscapeMode::STRICT
                 : CodecUtil::CtlEscapeMode::STRICT_COMPAT);
     if (!nameOk || !valueOk) {
-      parsingError = folly::to<string>(
-          "Bad header value: name=", nameSp, " value=", valueSp);
+      parsingError = folly::to<string>("Invalid header name=", nameSp);
+      headerErrorValue = valueSp;
       return false;
     }
     // Add the (name, value) pair to headers
