@@ -1073,8 +1073,7 @@ size_t HTTPTransaction::sendDeferredBufferMeta(uint32_t maxEgress) {
     return 0;
   }
   auto sendEom = hasPendingEOM();
-  // TODO: Turn this down to VLOG(4) when DSR deployement is > tiny scale.
-  VLOG(2) << "DSR transaction sending " << bufferMeta.length
+  VLOG(4) << "DSR transaction sending " << bufferMeta.length
           << " bytes of body. eom=" << ((sendEom) ? "yes" : "no") << " "
           << *this;
 

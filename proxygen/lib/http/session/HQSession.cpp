@@ -2885,8 +2885,7 @@ bool HQSession::HQStreamTransportBase::sendHeadersWithDelegate(
     size_t* dataFrameHeaderSize,
     uint64_t contentLength,
     std::unique_ptr<DSRRequestSender> dsrSender) noexcept {
-  // TODO: Lower the log level
-  VLOG(2) << __func__ << " txn=" << *txn;
+  VLOG(4) << __func__ << " txn=" << *txn;
   CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
   CHECK_EQ(txn, &txn_);
   CHECK(!headers.isRequest())
@@ -3220,7 +3219,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
     HTTPTransaction* txn,
     const HTTPTransaction::BufferMeta& body,
     bool eom) noexcept {
-  VLOG(2) << __func__ << " len=" << body.length << " eof=" << eom
+  VLOG(4) << __func__ << " len=" << body.length << " eof=" << eom
           << " txn=" << *txn;
   CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
   CHECK_EQ(txn, &txn_);
