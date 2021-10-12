@@ -10,10 +10,13 @@
 
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
+#include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
+#include <proxygen/lib/http/codec/QPACKDecoderCodec.h>
+#include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
 #include <proxygen/lib/http/session/HTTPSessionStats.h>

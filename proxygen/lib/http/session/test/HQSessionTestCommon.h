@@ -14,6 +14,8 @@
 #include <limits>
 #include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
+#include <proxygen/lib/http/codec/QPACKDecoderCodec.h>
+#include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>

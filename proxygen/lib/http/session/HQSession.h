@@ -15,7 +15,6 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/lang/Assume.h>
 #include <proxygen/lib/http/codec/HQControlCodec.h>
-#include <proxygen/lib/http/codec/HQStreamCodec.h>
 #include <proxygen/lib/http/codec/HQUnidirectionalCodec.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
@@ -24,8 +23,6 @@
 #include <proxygen/lib/http/codec/HTTPCodec.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
 #include <proxygen/lib/http/codec/HTTPSettings.h>
-#include <proxygen/lib/http/codec/QPACKDecoderCodec.h>
-#include <proxygen/lib/http/codec/QPACKEncoderCodec.h>
 #include <proxygen/lib/http/session/HQByteEventTracker.h>
 #include <proxygen/lib/http/session/HQStreamBase.h>
 #include <proxygen/lib/http/session/HQUnidirectionalCallbacks.h>
@@ -42,6 +39,10 @@ namespace proxygen {
 class HTTPSessionController;
 class HQSession;
 class VersionUtils;
+
+namespace hq {
+class HQStreamCodec;
+}
 
 std::ostream& operator<<(std::ostream& os, const HQSession& session);
 
