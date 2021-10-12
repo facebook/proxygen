@@ -78,7 +78,6 @@ find_package(Boost 1.58 REQUIRED
   COMPONENTS
     iostreams
     context
-    date_time
     filesystem
     program_options
     regex
