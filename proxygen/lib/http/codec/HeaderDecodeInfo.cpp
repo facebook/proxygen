@@ -111,9 +111,8 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
         !validate_ ||
         CodecUtil::validateHeaderValue(
             valueSp,
-            (strictValidation_ && headerCode != HTTP_HEADER_USER_AGENT)
-                ? CodecUtil::CtlEscapeMode::STRICT
-                : CodecUtil::CtlEscapeMode::STRICT_COMPAT);
+            strictValidation_ ? CodecUtil::CtlEscapeMode::STRICT
+                              : CodecUtil::CtlEscapeMode::STRICT_COMPAT);
     if (!nameOk || !valueOk) {
       parsingError = folly::to<string>("Invalid header name=", nameSp);
       headerErrorValue = valueSp;

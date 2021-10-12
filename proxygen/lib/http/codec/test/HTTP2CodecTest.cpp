@@ -509,9 +509,9 @@ TEST_F(HTTP2CodecTest, HighAscii) {
   callbacks_.reset();
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 1);
-  EXPECT_EQ(callbacks_.headersComplete, 1);
-  EXPECT_EQ(callbacks_.messageComplete, 1);
-  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 

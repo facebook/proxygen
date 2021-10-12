@@ -869,13 +869,11 @@ bool HTTP1xCodec::pushHeaderNameAndValue(HTTPHeaders& hdrs) {
     folly::StringPiece headerName(currentHeaderName_.empty()
                                       ? currentHeaderNameStringPiece_
                                       : currentHeaderName_);
-    HTTPHeaderCode headerCode =
-        HTTPCommonHeaders::hash(headerName.data(), headerName.size());
+    bool compatValidate = false;
     if (!CodecUtil::validateHeaderValue(
             folly::StringPiece(currentHeaderValue_),
-            headerCode == HTTP_HEADER_USER_AGENT
-                ? CodecUtil::CtlEscapeMode::STRICT_COMPAT
-                : CodecUtil::CtlEscapeMode::STRICT)) {
+            compatValidate ? CodecUtil::CtlEscapeMode::STRICT_COMPAT
+                           : CodecUtil::CtlEscapeMode::STRICT)) {
       LOG(ERROR) << "Invalid header name=" << headerName;
       std::cerr << " value=" << currentHeaderValue_ << std::endl;
       return false;

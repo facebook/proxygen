@@ -286,8 +286,7 @@ TEST(HTTP1xCodecTest, TestHighAsciiUA) {
   auto buffer = folly::IOBuf::copyBuffer(
       string("GET /yeah HTTP/1.1\r\nUser-Agent: ꪶ𝛸ꫂ_𝐹𝛩𝑅𝐶𝛯_𝑉2\r\n\r\n"));
   EXPECT_CALL(callbacks, onMessageBegin(1, _));
-  EXPECT_CALL(callbacks, onHeadersComplete(1, _));
-  EXPECT_CALL(callbacks, onMessageComplete(1, _));
+  EXPECT_CALL(callbacks, onError(1, _, _));
   codec.onIngress(*buffer);
 }
 
