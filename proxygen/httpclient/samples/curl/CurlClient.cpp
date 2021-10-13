@@ -108,7 +108,7 @@ void CurlClient::initializeSsl(const string& caPath,
                                const string& keyPath) {
   sslContext_ = std::make_shared<folly::SSLContext>();
   sslContext_->setOptions(SSL_OP_NO_COMPRESSION);
-  sslContext_->setCipherList(folly::ssl::SSLCommonOptions::ciphers());
+  folly::ssl::setCipherSuites<folly::ssl::SSLCommonOptions>(*sslContext_);
   if (!caPath.empty()) {
     sslContext_->loadTrustedCertificates(caPath.c_str());
   }

@@ -224,7 +224,7 @@ std::shared_ptr<folly::SSLContext> initializeSsl(
     const std::string& caPath, const std::string& nextProtos) {
   auto sslContext = std::make_shared<folly::SSLContext>();
   sslContext->setOptions(SSL_OP_NO_COMPRESSION);
-  sslContext->setCipherList(folly::ssl::SSLCommonOptions::ciphers());
+  folly::ssl::setCipherSuites<folly::ssl::SSLCommonOptions>(*sslContext);
   if (!caPath.empty()) {
     sslContext->loadTrustedCertificates(caPath.c_str());
   }
