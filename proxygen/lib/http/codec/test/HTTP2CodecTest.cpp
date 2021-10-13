@@ -314,6 +314,8 @@ TEST_F(HTTP2CodecTest, ExHeadersWithPriority) {
       output_, {{proxygen::SettingsId::ENABLE_EX_HEADERS, 1}});
 
   auto req = getGetRequest();
+  // Test empty path
+  req.setURL("");
   auto pri = HTTPMessage::HTTP2Priority(0, false, 7);
   req.setHTTP2Priority(pri);
   upstreamCodec_.generateExHeader(
@@ -507,6 +509,21 @@ TEST_F(HTTP2CodecTest, HighAscii) {
   upstreamCodec_.generateHeader(
       output_, 9, req5, true, nullptr /* headerSize */);
   callbacks_.reset();
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
+TEST_F(HTTP2CodecTest, EmptyPath) {
+  auto g =
+      folly::makeGuard([this] { downstreamCodec_.setStrictValidation(false); });
+  downstreamCodec_.setStrictValidation(true);
+  HTTPMessage req1 = getGetRequest("");
+  upstreamCodec_.generateHeader(
+      output_, 1, req1, true, nullptr /* headerSize */);
   parse();
   EXPECT_EQ(callbacks_.messageBegin, 1);
   EXPECT_EQ(callbacks_.headersComplete, 0);

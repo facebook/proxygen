@@ -21,7 +21,8 @@ class HeaderDecodeInfo {
   void init(bool isRequestIn,
             bool isRequestTrailers,
             bool validate,
-            bool strictValidation) {
+            bool strictValidation,
+            bool allowEmptyPath) {
     CHECK(!msg);
     msg.reset(new HTTPMessage());
     isRequest_ = isRequestIn;
@@ -35,6 +36,7 @@ class HeaderDecodeInfo {
     headerErrorValue.clear();
     decodeError = HPACK::DecodeError::NONE;
     strictValidation_ = strictValidation;
+    allowEmptyPath_ = allowEmptyPath;
     verifier.reset(msg.get());
   }
 
@@ -61,6 +63,7 @@ class HeaderDecodeInfo {
   bool pseudoHeaderSeen_{false};
   // Default to false for now to match existing behavior
   bool strictValidation_{false};
+  bool allowEmptyPath_{false};
   folly::Optional<uint32_t> contentLength_;
 };
 

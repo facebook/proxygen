@@ -44,7 +44,9 @@ class HTTPRequestVerifier {
     return true;
   }
 
-  bool setPath(folly::StringPiece path, bool strictValidation) {
+  bool setPath(folly::StringPiece path,
+               bool strictValidation,
+               bool allowEmptyPath) {
     if (hasPath_) {
       error = "Duplicate path";
       return false;
@@ -58,6 +60,8 @@ class HTTPRequestVerifier {
     }
     hasPath_ = true;
     assert(msg_ != nullptr);
+    // Relax strictValidation here if empty paths are allowed and it's empty
+    strictValidation &= !(allowEmptyPath && path.empty());
     auto parseUrl = msg_->setURL(path.str(), strictValidation);
     if (strictValidation && !parseUrl.valid()) {
       error = folly::to<std::string>("Invalid url: ", path);

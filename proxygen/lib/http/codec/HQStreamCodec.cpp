@@ -142,7 +142,8 @@ ParseResult HQStreamCodec::parseHeaders(Cursor& cursor,
   decodeInfo_.init(transportDirection_ == TransportDirection::DOWNSTREAM,
                    parsingTrailers_,
                    /*validate=*/true,
-                   strictValidation_);
+                   strictValidation_,
+                   /*allowEmptyPath=*/false);
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), header.length, this);
   // decodeInfo_.msg gets moved in onHeadersComplete.  If it is still around,
@@ -175,7 +176,8 @@ ParseResult HQStreamCodec::parsePushPromise(Cursor& cursor,
   decodeInfo_.init(true /* isReq */,
                    false /* isRequestTrailers */,
                    /*validate=*/true,
-                   strictValidation_);
+                   strictValidation_,
+                   /*allowEmptyPath=*/false);
   auto headerDataLength = outHeaderData->computeChainDataLength();
   headerCodec_.decodeStreaming(
       streamId_, std::move(outHeaderData), headerDataLength, this);

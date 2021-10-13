@@ -255,7 +255,8 @@ class HTTP2Codec
 
   folly::Expected<std::unique_ptr<HTTPMessage>, DeferredParseError>
   parseHeadersDecodeFrames(
-      const folly::Optional<http2::PriorityUpdate>& priority);
+      const folly::Optional<http2::PriorityUpdate>& priority,
+      const folly::Optional<ExAttributes>& exAttributes);
   void deliverDeferredParseError(const DeferredParseError& parseError);
 
   folly::Optional<ErrorCode> parseHeadersCheckConcurrentStreams(

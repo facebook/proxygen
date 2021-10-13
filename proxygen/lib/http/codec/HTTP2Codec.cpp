@@ -464,7 +464,7 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
 
   DeferredParseError parseError;
   if (curHeader_.flags & http2::END_HEADERS) {
-    auto parseRes = parseHeadersDecodeFrames(priority);
+    auto parseRes = parseHeadersDecodeFrames(priority, exAttributes);
     if (parseRes.hasError()) {
       parseError = std::move(parseRes.error());
       if (parseError.connectionError) {
@@ -543,7 +543,8 @@ ErrorCode HTTP2Codec::parseHeadersImpl(
 
 folly::Expected<std::unique_ptr<HTTPMessage>, HTTP2Codec::DeferredParseError>
 HTTP2Codec::parseHeadersDecodeFrames(
-    const folly::Optional<http2::PriorityUpdate>& priority) {
+    const folly::Optional<http2::PriorityUpdate>& priority,
+    const folly::Optional<ExAttributes>& exAttributes) {
   // decompress headers
   Cursor headerCursor(curHeaderBlock_.front());
 
@@ -558,7 +559,8 @@ HTTP2Codec::parseHeadersDecodeFrames(
   decodeInfo_.init(parsingReq_,
                    parsingDownstreamTrailers_,
                    validateHeaders_,
-                   strictValidation_);
+                   strictValidation_,
+                   exAttributes && exAttributes->controlStream != 0);
   if (priority) {
     decodeInfo_.msg->setHTTP2Priority(std::make_tuple(
         priority->streamDependency, priority->exclusive, priority->weight));

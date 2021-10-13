@@ -48,7 +48,7 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
           ok = verifier.setAuthority(valueSp, validate_, strictValidation_);
           break;
         case HTTP_HEADER_COLON_PATH:
-          ok = verifier.setPath(valueSp, strictValidation_);
+          ok = verifier.setPath(valueSp, strictValidation_, allowEmptyPath_);
           break;
         case HTTP_HEADER_COLON_PROTOCOL:
           ok = verifier.setUpgradeProtocol(valueSp, strictValidation_);
