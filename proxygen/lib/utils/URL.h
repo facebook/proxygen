@@ -121,6 +121,13 @@ class URL {
     return port_ ? folly::to<std::string>(host_, ":", port_) : host_;
   }
 
+  std::string getHostAndPortOmitDefault() const noexcept {
+    return port_ && ((isSecure() && port_ != 443) ||
+                     (!isSecure() && port_ != 80))
+               ? folly::to<std::string>(host_, ":", port_)
+               : host_;
+  }
+
   const std::string& getPath() const noexcept {
     return path_;
   }
