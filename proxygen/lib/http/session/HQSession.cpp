@@ -464,6 +464,11 @@ void HQSession::HQVersionUtils::onConnectionEnd() {
   qpackCodec_.decoderStreamEnd();
 }
 
+void HQSession::onConnectionSetupError(
+    std::pair<quic::QuicErrorCode, std::string> code) noexcept {
+  onConnectionError(std::move(code));
+}
+
 void HQSession::onConnectionError(
     std::pair<quic::QuicErrorCode, std::string> code) noexcept {
   // the connector will drop the connection in case of connect error

@@ -230,6 +230,9 @@ class HQSession
 
   void onConnectionEnd() noexcept override;
 
+  void onConnectionSetupError(
+      std::pair<quic::QuicErrorCode, std::string> code) noexcept override;
+
   void onConnectionError(
       std::pair<quic::QuicErrorCode, std::string> code) noexcept override;
 
