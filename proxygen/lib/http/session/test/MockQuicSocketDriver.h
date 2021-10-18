@@ -632,25 +632,24 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               return folly::unit;
             }));
     EXPECT_CALL(*sock_, createBidirectionalStream(testing::_))
-        .WillRepeatedly(testing::Invoke([this](bool /*replaySafe*/) {
-          auto streamId = nextBidirectionalStreamId_;
-          nextBidirectionalStreamId_ += 4;
-          streams_[streamId].readState = OPEN;
-          return streamId;
-        }));
+        .WillRepeatedly(
+            testing::Invoke([this](bool /*replaySafe*/)
+                                -> folly::Expected<StreamId, LocalErrorCode> {
+              if (nextBidirectionalStreamId_ >= maxBidiStreamID_) {
+                return folly::makeUnexpected(
+                    quic::LocalErrorCode::STREAM_LIMIT_EXCEEDED);
+              }
+
+              auto streamId = nextBidirectionalStreamId_;
+              nextBidirectionalStreamId_ += 4;
+              streams_[streamId].readState = OPEN;
+              return streamId;
+            }));
     EXPECT_CALL(*sock_, createUnidirectionalStream(testing::_))
         .WillRepeatedly(
             testing::Invoke([this](bool /*replaySafe*/)
                                 -> folly::Expected<StreamId, LocalErrorCode> {
-              uint64_t activeUniStreams = count_if(
-                  streams_.begin(), streams_.end(), [&](const auto& item) {
-                    auto id = item.first;
-                    const auto& s = item.second;
-                    return (id != kConnectionStreamId) &&
-                           (sock_->isUnidirectionalStream(id) &&
-                            !isPeerStream(id) && s.writeState != CLOSED);
-                  });
-              if (activeUniStreams >= unidirectionalStreamsCredit_) {
+              if (nextUnidirectionalStreamId_ >= maxUniStreamID_) {
                 return folly::makeUnexpected(
                     quic::LocalErrorCode::STREAM_LIMIT_EXCEEDED);
               }
@@ -663,6 +662,18 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               streams_[streamId].readState = CLOSED;
               return streamId;
             }));
+    EXPECT_CALL(*sock_, getNumOpenableBidirectionalStreams())
+        .WillRepeatedly(testing::Invoke([this] {
+          return maxBidiStreamID_ >= nextBidirectionalStreamId_
+                     ? (maxBidiStreamID_ - nextBidirectionalStreamId_) / 4
+                     : 0;
+        }));
+    EXPECT_CALL(*sock_, getNumOpenableUnidirectionalStreams())
+        .WillRepeatedly(testing::Invoke([this] {
+          return maxUniStreamID_ >= nextUnidirectionalStreamId_
+                     ? (maxUniStreamID_ - nextUnidirectionalStreamId_) / 4
+                     : 0;
+        }));
     EXPECT_CALL(*sock_, getStreamWriteOffset(testing::_))
         .WillRepeatedly(testing::Invoke(
             [this](
@@ -774,6 +785,36 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                  return a.first < b.first && b.first != kConnectionStreamId;
                })
         ->first;
+  }
+
+  void setMaxBidiStreams(uint64_t maxBidiStreams) {
+    auto maxBidiStreamID = maxBidiStreams * 4 +
+                           ((transportType_ == TransportEnum::SERVER) ? 2 : 0);
+    if (maxBidiStreamID > maxBidiStreamID_) {
+      maxBidiStreamID_ = maxBidiStreamID;
+      if (sock_->connCb_) {
+        auto openableStreams =
+            (maxBidiStreamID_ - nextBidirectionalStreamId_) / 4;
+        sock_->connCb_->onBidirectionalStreamsAvailable(openableStreams);
+      }
+    } else {
+      maxBidiStreamID_ = maxBidiStreamID;
+    }
+  }
+
+  void setMaxUniStreams(uint64_t maxUniStreams) {
+    auto maxUniStreamID =
+        maxUniStreams * 4 + ((transportType_ == TransportEnum::SERVER) ? 3 : 1);
+    if (maxUniStreamID > maxUniStreamID_) {
+      maxUniStreamID_ = maxUniStreamID;
+      if (sock_->connCb_) {
+        auto openableStreams =
+            (maxUniStreamID_ - nextUnidirectionalStreamId_) / 4;
+        sock_->connCb_->onUnidirectionalStreamsAvailable(openableStreams);
+      }
+    } else {
+      maxUniStreamID_ = maxUniStreamID;
+    }
   }
 
   bool isClosed() {
@@ -1508,7 +1549,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   std::set<StreamId> flowControlAccess_;
   uint64_t nextBidirectionalStreamId_;
   uint64_t nextUnidirectionalStreamId_;
-  uint64_t unidirectionalStreamsCredit_{0};
+  uint64_t maxBidiStreamID_{400};
+  uint64_t maxUniStreamID_{0};
   std::shared_ptr<bool> deleted_{new bool(false)};
   LocalAppCallback* localAppCb_{nullptr};
   std::string alpn_;

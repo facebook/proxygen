@@ -147,8 +147,7 @@ class HQSessionTest
     qpackCodec_.setDecoderHeaderTableMaxSize(kQPACKTestDecoderMaxTableSize);
     hqSession_->setInfoCallback(&infoCb_);
 
-    socketDriver_->unidirectionalStreamsCredit_ =
-        GetParam().unidirectionalStreamsCredit;
+    socketDriver_->setMaxUniStreams(GetParam().unidirectionalStreamsCredit);
 
     EXPECT_CALL(infoCb_, onRead(testing::_, testing::_, testing::_))
         .Times(testing::AnyNumber());
