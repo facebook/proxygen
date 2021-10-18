@@ -675,7 +675,7 @@ TEST_P(HQDownstreamSessionTest, OnFlowControlUpdateOnUnknownStream) {
   handler->expectDetachTransaction();
 
   // Call flowControlUpdate on a stream the Application doesn't know
-  socketDriver_->sock_->cb_->onFlowControlUpdate(id + 4);
+  socketDriver_->sock_->connCb_->onFlowControlUpdate(id + 4);
   flushRequestsAndLoop();
   hqSession_->closeWhenIdle();
 }
