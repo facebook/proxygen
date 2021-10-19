@@ -2062,62 +2062,86 @@ TEST_F(MockHTTPUpstreamTest, IngressGoawayDrain) {
 
 TEST_F(MockHTTPUpstreamTest, ControlStreamGoaway) {
   // Tests whether a recognized control stream is aborted
-  // when session receiving a GOAWAY
+  // when session receiving a final GOAWAY, but not on a draining GOAWAY
 
   HTTPSettings settings;
   settings.setSetting(SettingsId::ENABLE_EX_HEADERS, 1);
-  EXPECT_CALL(*codecPtr_, getEgressSettings()).WillOnce(Return(&settings));
+  EXPECT_CALL(*codecPtr_, getEgressSettings())
+      .WillRepeatedly(Return(&settings));
 
   auto handler = openTransaction();
 
   // Create a dummy request
   auto pub = getGetRequest("/sub/fyi");
-  NiceMock<MockHTTPHandler> pubHandler;
+  NiceMock<MockHTTPHandler> pubHandler1;
+  NiceMock<MockHTTPHandler> pubHandler2;
 
   {
     InSequence enforceOrder;
     handler->expectHeaders([&] {
-      auto* pubTxn = handler->txn_->newExTransaction(&pubHandler);
-      pubTxn->setHandler(&pubHandler);
-      pubHandler.txn_ = pubTxn;
+      // Txn 1 completes after draining GOAWAY
+      auto* pubTxn1 = handler->txn_->newExTransaction(&pubHandler1);
+      pubTxn1->setHandler(&pubHandler1);
+      pubHandler1.txn_ = pubTxn1;
 
-      pubTxn->sendHeaders(pub);
-      pubTxn->sendBody(makeBuf(200));
-      pubTxn->sendEOM();
+      pubTxn1->sendHeaders(pub);
+      pubTxn1->sendBody(makeBuf(200));
+      pubTxn1->sendEOM();
+
+      // Txn 2 completes after cs aborted
+      auto* pubTxn2 = handler->txn_->newExTransaction(&pubHandler2);
+      pubTxn2->setHandler(&pubHandler2);
+      pubHandler2.txn_ = pubTxn2;
+
+      pubTxn2->sendHeaders(pub);
+      pubTxn2->sendBody(makeBuf(200));
+      pubTxn2->sendEOM();
     });
-
-    pubHandler.expectHeaders();
-    pubHandler.expectEOM();
   }
+
+  // send response header to stream 1 first, triggers sending 2 dep streams
+  codecCb_->onHeadersComplete(1, makeResponse(200));
+  eventBase_.loopOnce();
 
   // expect goaway
   // transactionIds is stored in unordered set(F14FastSet), the invocation
   // order of each txn's goaway method is not deterministic
-  pubHandler.expectGoaway();
+  pubHandler1.expectGoaway();
+  pubHandler2.expectGoaway();
   handler->expectGoaway();
+
+  // Receive draining GOAWAY, no-op
+  codecCb_->onGoaway(http2::kMaxStreamID, ErrorCode::NO_ERROR);
+  eventBase_.loopOnce();
+
+  // Send a reply to finish stream 3
+  pubHandler1.expectHeaders();
+  pubHandler1.expectEOM();
+  pubHandler1.expectDetachTransaction();
+  codecCb_->onHeadersComplete(3, makeResponse(200));
+  codecCb_->onMessageComplete(3, false);
 
   {
     InSequence enforceOrder;
+    handler->expectGoaway();
     handler->expectError([&](const HTTPException& err) {
       EXPECT_TRUE(err.hasProxygenError());
       EXPECT_EQ(err.getProxygenError(), kErrorStreamAbort);
       ASSERT_EQ("StreamAbort on transaction id: 1", std::string(err.what()));
     });
     handler->expectDetachTransaction();
-    pubHandler.expectDetachTransaction();
   }
 
-  auto resp = makeResponse(200);
-  // send header to stream 1 first
-  codecCb_->onHeadersComplete(1, std::move(resp));
+  // Receive GOAWAY frame with last good stream as 5
+  pubHandler2.expectGoaway();
+  codecCb_->onGoaway(5, ErrorCode::NO_ERROR);
+  eventBase_.loop();
 
-  resp = makeResponse(200);
-  codecCb_->onHeadersComplete(3, std::move(resp));
-  codecCb_->onMessageComplete(3, false);
-
-  // Receive GOAWAY frame with last good stream as max int
-  codecCb_->onGoaway(std::numeric_limits<int32_t>::max(), ErrorCode::NO_ERROR);
-  codecCb_->onMessageComplete(1, false);
+  pubHandler2.expectError();
+  pubHandler2.expectDetachTransaction();
+  // Send a reply to finish stream 5, but it errors because of broken control
+  codecCb_->onHeadersComplete(5, makeResponse(200));
+  codecCb_->onMessageComplete(5, false);
 
   eventBase_.loop();
 }

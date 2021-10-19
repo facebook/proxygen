@@ -1189,17 +1189,19 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
 
   errorOnTransactionIds(ids, kErrorStreamUnacknowledged);
 
-  // Control stream is a long lived stream, if we gracefully shut down without
-  // notifying it, the client might believe a control stream is still valid and
-  // continue sending us ExStream, which will lead to stream abort issue.
-  std::vector<HTTPCodec::StreamID> csToBeAborted;
-  for (auto const& csId : controlStreamIds_) {
-    if (std::find(ids.begin(), ids.end(), csId) == ids.end() &&
-        csId != firstStream) {
-      csToBeAborted.emplace_back(csId);
+  if (lastGoodStreamID < http2::kMaxStreamID || code != ErrorCode::NO_ERROR) {
+    // Control stream is a long lived stream, if we gracefully shut down without
+    // notifying it, the client might believe a control stream is still valid
+    // and continue sending us ExStream, which will lead to stream abort issue.
+    std::vector<HTTPCodec::StreamID> csToBeAborted;
+    for (auto const& csId : controlStreamIds_) {
+      if (std::find(ids.begin(), ids.end(), csId) == ids.end() &&
+          csId != firstStream) {
+        csToBeAborted.emplace_back(csId);
+      }
     }
+    errorOnTransactionIds(csToBeAborted, kErrorStreamAbort);
   }
-  errorOnTransactionIds(csToBeAborted, kErrorStreamAbort);
 }
 
 void HTTPSession::onPingRequest(uint64_t data) {
