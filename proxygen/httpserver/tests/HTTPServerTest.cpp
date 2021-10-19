@@ -247,16 +247,53 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
   folly::ssl::X509UniquePtr peerCert_{nullptr};
 };
 
-TEST(SSL, SSLTest) {
-  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
-                           HTTPServer::Protocol::HTTP};
+wangle::SSLContextConfig getSslContextConfig(bool useMultiCA) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.setCertificate(
       kTestDir + "certs/test_cert1.pem", kTestDir + "certs/test_key1.pem", "");
-  sslCfg.clientCAFile = kTestDir + "/certs/ca_cert.pem";
+  if (useMultiCA) {
+    sslCfg.clientCAFiles =
+        std::vector<std::string>{kTestDir + "/certs/ca_cert.pem",
+                                 kTestDir + "/certs/client_ca_cert.pem"};
+  } else {
+    sslCfg.clientCAFile = kTestDir + "/certs/ca_cert.pem";
+  }
   sslCfg.clientVerification =
       folly::SSLContext::VerifyClientCertificate::IF_PRESENTED;
+  return sslCfg;
+}
+
+TEST(SSL, SSLTest) {
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  wangle::SSLContextConfig sslCfg = getSslContextConfig(false);
+  cfg.sslConfigs.push_back(sslCfg);
+
+  HTTPServerOptions options;
+  options.threads = 4;
+
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+
+  std::vector<HTTPServer::IPConfig> ips{cfg};
+  server->bind(ips);
+
+  ServerThread st(server.get());
+  EXPECT_TRUE(st.start());
+
+  folly::EventBase evb;
+  auto ctx = std::make_shared<SSLContext>();
+  folly::AsyncSSLSocket::UniquePtr sock(new folly::AsyncSSLSocket(ctx, &evb));
+  Cb cb(sock.get());
+  sock->connect(&cb, server->addresses().front().address, 1000);
+  evb.loop();
+  EXPECT_TRUE(cb.success);
+}
+
+TEST(SSL, SSLTestWithMultiCAs) {
+  HTTPServer::IPConfig cfg{folly::SocketAddress("127.0.0.1", 0),
+                           HTTPServer::Protocol::HTTP};
+  wangle::SSLContextConfig sslCfg = getSslContextConfig(true);
   cfg.sslConfigs.push_back(sslCfg);
 
   HTTPServerOptions options;
