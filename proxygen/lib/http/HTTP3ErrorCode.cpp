@@ -61,4 +61,31 @@ std::string toString(HTTP3::ErrorCode code) {
       << static_cast<std::underlying_type<HTTP3::ErrorCode>::type>(code);
   return "Unknown error";
 }
+
+std::vector<HTTP3::ErrorCode> getAllHTTP3ErrorCodes() {
+  std::vector<HTTP3::ErrorCode> all = {
+      HTTP3::ErrorCode::HTTP_NO_ERROR,
+      // HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
+      HTTP3::ErrorCode::HTTP_INTERNAL_ERROR,
+      HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR,
+      HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM,
+      HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED,
+      HTTP3::ErrorCode::HTTP_FRAME_ERROR,
+      HTTP3::ErrorCode::HTTP_EXCESSIVE_LOAD,
+      HTTP3::ErrorCode::HTTP_SETTINGS_ERROR,
+      HTTP3::ErrorCode::HTTP_MISSING_SETTINGS,
+      HTTP3::ErrorCode::HTTP_REQUEST_REJECTED,
+      HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED,
+      HTTP3::ErrorCode::HTTP_INCOMPLETE_REQUEST,
+      HTTP3::ErrorCode::HTTP_MESSAGE_ERROR,
+      HTTP3::ErrorCode::HTTP_CONNECT_ERROR,
+      HTTP3::ErrorCode::HTTP_VERSION_FALLBACK,
+      HTTP3::ErrorCode::HTTP_QPACK_DECOMPRESSION_FAILED,
+      HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR,
+      HTTP3::ErrorCode::HTTP_QPACK_DECODER_STREAM_ERROR,
+      HTTP3::ErrorCode::GIVEUP_ZERO_RTT,
+      HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
+  };
+  return all;
+}
 } // namespace proxygen

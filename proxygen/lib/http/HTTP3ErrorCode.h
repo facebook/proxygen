@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 namespace proxygen {
 
@@ -49,5 +50,5 @@ inline bool isQPACKError(HTTP3::ErrorCode err) {
 }
 
 std::string toString(HTTP3::ErrorCode code);
-
+std::vector<HTTP3::ErrorCode> getAllHTTP3ErrorCodes();
 } // namespace proxygen
