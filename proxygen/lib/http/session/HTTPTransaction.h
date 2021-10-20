@@ -240,6 +240,15 @@ class HTTPTransactionHandler : public TraceEventObserver {
   virtual void onError(const HTTPException& error) noexcept = 0;
 
   /**
+   * Can be called at any time before detachTransaction(). This callback is
+   * invoked in cases that violate an internal invariant that is fatal to the
+   * transaction but can be recoverable for the session or library.  One such
+   * example is mis-use of the egress APIs (sendBody() before sendHeaders()).
+   */
+  virtual void onInvariantViolation(const HTTPException& error) noexcept {
+    LOG(FATAL) << error.what();
+  }
+  /**
    * If the remote side's receive buffer fills up, this callback will be
    * invoked so you can attempt to stop sending to the remote side.
    */
@@ -1065,8 +1074,10 @@ class HTTPTransaction
    * @param length  Length in bytes of the body data to follow.
    */
   virtual void sendChunkHeader(size_t length) {
-    CHECK(HTTPTransactionEgressSM::transit(
-        egressState_, HTTPTransactionEgressSM::Event::sendChunkHeader));
+    if (!validateEgressStateTransition(
+            HTTPTransactionEgressSM::Event::sendChunkHeader)) {
+      return;
+    }
     CHECK_EQ(deferredBufferMeta_.length, 0)
         << "Chunked-encoding doesn't support BufferMeta write";
     // TODO: move this logic down to session/codec
@@ -1082,8 +1093,8 @@ class HTTPTransaction
    * Frame begun by the last call to sendChunkHeader().
    */
   virtual void sendChunkTerminator() {
-    CHECK(HTTPTransactionEgressSM::transit(
-        egressState_, HTTPTransactionEgressSM::Event::sendChunkTerminator));
+    validateEgressStateTransition(
+        HTTPTransactionEgressSM::Event::sendChunkTerminator);
     CHECK_EQ(deferredBufferMeta_.length, 0)
         << "Chunked-encoding doesn't support BufferMeta write";
   }
@@ -1097,8 +1108,10 @@ class HTTPTransaction
    * @param trailers  Message trailers.
    */
   virtual void sendTrailers(const HTTPHeaders& trailers) {
-    CHECK(HTTPTransactionEgressSM::transit(
-        egressState_, HTTPTransactionEgressSM::Event::sendTrailers));
+    if (!validateEgressStateTransition(
+            HTTPTransactionEgressSM::Event::sendTrailers)) {
+      return;
+    }
     trailers_.reset(new HTTPHeaders(trailers));
   }
 
@@ -1543,7 +1556,7 @@ class HTTPTransaction
   bool delegatedTransactionChecks(const HTTPMessage& headers) noexcept;
   bool delegatedTransactionChecks() noexcept;
 
-  void addBufferMeta() noexcept;
+  bool addBufferMeta() noexcept;
 
   void onDelayedDestroy(bool delayed) override;
 
@@ -1628,10 +1641,21 @@ class HTTPTransaction
 
   /**
    * Validates the ingress state transition. Returns false and sends an
-   * abort with PROTOCOL_ERROR if the transition fails. Otherwise it
+   * abort with INTERNAL_ERROR if the transition fails. Otherwise it
    * returns true.
    */
   bool validateIngressStateTransition(HTTPTransactionIngressSM::Event);
+
+  /**
+   * Validates the egress state transition.
+   *
+   * If the transition fails, it will invoke onInvariantViolation, and the
+   * default implementation is to CHECK/crash.  If you have a custom
+   * onInvariantViolation handler, this function can return false.
+   */
+  bool validateEgressStateTransition(HTTPTransactionEgressSM::Event);
+
+  void invariantViolation(HTTPException ex);
 
   /**
    * Flushes any pending window updates.  This can happen from setReceiveWindow

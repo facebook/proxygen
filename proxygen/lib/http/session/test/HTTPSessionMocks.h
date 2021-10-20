@@ -157,11 +157,19 @@ class MockHTTPHandler
     , public HTTPTransaction::Handler {
  public:
   MockHTTPHandler() {
+    setupInvariantViolation();
   }
   MockHTTPHandler(HTTPTransaction& txn,
                   HTTPMessage* msg,
                   const folly::SocketAddress&)
       : HTTPHandlerBase(&txn, msg) {
+    setupInvariantViolation();
+  }
+
+  void setupInvariantViolation() {
+    ON_CALL(*this, onInvariantViolation(testing::_))
+        .WillByDefault(testing::Invoke(
+            [](const HTTPException& ex) { LOG(FATAL) << ex.what(); }));
   }
 
   GMOCK_NOEXCEPT_METHOD1(setTransaction, void(HTTPTransaction* txn));
@@ -210,6 +218,9 @@ class MockHTTPHandler
   GMOCK_NOEXCEPT_METHOD1(onUpgrade, void(UpgradeProtocol protocol));
 
   GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
+
+  GMOCK_NOEXCEPT_METHOD1(onInvariantViolation,
+                         void(const HTTPException& error));
 
   GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
 
