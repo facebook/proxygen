@@ -372,6 +372,30 @@ class HTTPCodec {
   }
 
   /**
+   * Maps a stream id to its sequence number using the underlying protocol as
+   * context.
+   */
+  static size_t streamIDToSeqNo(CodecProtocol protocol,
+                                HTTPCodec::StreamID id) {
+    switch (protocol) {
+      case CodecProtocol::HTTP_1_1:
+        DCHECK_NE(id, 0);
+        return id - 1;
+      case CodecProtocol::SPDY_3:
+      case CodecProtocol::SPDY_3_1:
+      case CodecProtocol::HTTP_2:
+        return id / 2;
+      case CodecProtocol::HQ:
+      case CodecProtocol::HTTP_3:
+        // This doesn't factor out of order stream arrival...
+        return id / 4;
+      default:
+        LOG(FATAL) << "Unreachable";
+        return std::numeric_limits<size_t>::max();
+    }
+  }
+
+  /**
    * Gets both the egress and ingress header table size, bytes stored in header
    * table, and the number of headers stored in the header table
    **/
