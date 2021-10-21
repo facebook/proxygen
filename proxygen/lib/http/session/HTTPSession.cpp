@@ -1558,9 +1558,10 @@ void HTTPSession::sendHeaders(HTTPTransaction* txn,
                               bool includeEOM) noexcept {
   CHECK(started_);
   unique_ptr<IOBuf> goawayBuf;
-  if (shouldShutdown()) {
+  if (draining_ && isUpstream() && codec_->isReusable() &&
+      allTransactionsStarted()) {
     // For HTTP/1.1, add Connection: close
-    // For SPDY, save the goaway for AFTER the request
+    // For SPDY/H2, save the goaway for AFTER the request
     auto writeBuf = writeBuf_.move();
     drainImpl();
     goawayBuf = writeBuf_.move();

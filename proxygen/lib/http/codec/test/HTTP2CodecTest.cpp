@@ -1275,6 +1275,21 @@ TEST_F(HTTP2CodecTest, DoubleGoaway) {
   EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(0));
   EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(1));
   EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(2));
+
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(2));
+  EXPECT_TRUE(upstreamCodec_.isReusable());
+
+  parseUpstream();
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(0));
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(1));
+  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(2));
+  EXPECT_FALSE(upstreamCodec_.isReusable());
+  EXPECT_EQ(callbacks_.goaways, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+
   downstreamCodec_.generateGoaway(output_, 0, ErrorCode::NO_ERROR);
   EXPECT_FALSE(downstreamCodec_.isWaitingToDrain());
   EXPECT_FALSE(downstreamCodec_.isReusable());
@@ -1282,9 +1297,6 @@ TEST_F(HTTP2CodecTest, DoubleGoaway) {
   EXPECT_FALSE(downstreamCodec_.isStreamIngressEgressAllowed(1));
   EXPECT_TRUE(downstreamCodec_.isStreamIngressEgressAllowed(2));
 
-  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(0));
-  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(1));
-  EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(2));
   parseUpstream();
   EXPECT_TRUE(upstreamCodec_.isStreamIngressEgressAllowed(0));
   EXPECT_FALSE(upstreamCodec_.isStreamIngressEgressAllowed(1));

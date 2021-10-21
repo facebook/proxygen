@@ -51,7 +51,7 @@ class MockCodecDownstreamTest : public testing::Test {
       : eventBase_(),
         codec_(new StrictMock<MockHTTPCodec>()),
         transport_(new NiceMock<MockAsyncTransport>()),
-        transactionTimeouts_(makeInternalTimeoutSet(&eventBase_)) {
+        transactionTimeouts_(makeTimeoutSet(&eventBase_)) {
 
     EXPECT_CALL(*transport_, writeChain(_, _, _))
         .WillRepeatedly(Invoke(this, &MockCodecDownstreamTest::onWriteChain));
@@ -250,7 +250,7 @@ TEST_F(MockCodecDownstreamTest, OnAbortThenTimeouts) {
   codecCallback_->onMessageBegin(HTTPCodec::StreamID(3), req2.get());
   codecCallback_->onHeadersComplete(HTTPCodec::StreamID(3), std::move(req2));
   // do the write, enqeue byte event
-  eventBase_.loop();
+  eventBase_.loopOnce();
 
   // recv an abort, detach the handler from txn1 (txn1 stays around due to the
   // enqueued byte event)
@@ -293,7 +293,7 @@ TEST_F(MockCodecDownstreamTest, ServerPush) {
             "/foo", "www.foo.com", 100, handler.txn_->getPriority());
         pushHandler.sendBody(100);
         pushTxn->sendEOM();
-        eventBase_.loop(); // flush the push txn's body
+        eventBase_.loopOnce(); // flush the push txn's body
       }));
   EXPECT_CALL(pushHandler, setTransaction(_))
       .WillOnce(Invoke(
@@ -306,7 +306,7 @@ TEST_F(MockCodecDownstreamTest, ServerPush) {
 
   EXPECT_CALL(handler, onEOM()).WillOnce(Invoke([&] {
     handler.sendReplyWithBody(200, 100);
-    eventBase_.loop(); // flush the response to the normal request
+    eventBase_.loopOnce(); // flush the response to the normal request
   }));
 
   EXPECT_CALL(*codec_, generateHeader(_, 1, _, _, _, _));
@@ -499,14 +499,12 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
         pushHandler1.sendPushHeaders(
             "/foo", "www.foo.com", 100, handler.txn_->getPriority());
         pushHandler1.sendBody(100);
-        eventBase_.loop();
 
         pushTxn = handler.txn_->newPushedTransaction(&pushHandler2);
         CHECK_EQ(pushTxn->getID(), HTTPCodec::StreamID(4));
         pushHandler2.sendPushHeaders(
             "/foo", "www.foo.com", 100, handler.txn_->getPriority());
         pushHandler2.sendBody(100);
-        eventBase_.loop();
       }));
 
   // Both push txns and the assoc txn should remain alive, and in this case
@@ -533,6 +531,7 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
   auto req = makeGetRequest();
   codecCallback_->onMessageBegin(HTTPCodec::StreamID(1), req.get());
   codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req));
+  eventBase_.loopOnce();
 
   // Send client abort on assoc stream
   codecCallback_->onAbort(HTTPCodec::StreamID(1), ErrorCode::CANCEL);
@@ -543,7 +542,7 @@ TEST_F(MockCodecDownstreamTest, ServerPushAbortAssoc) {
   pushHandler1.sendEOM();
   pushHandler2.sendEOM();
 
-  eventBase_.loop();
+  eventBase_.loopOnce();
 
   EXPECT_CALL(*codec_, onIngressEOF());
   EXPECT_CALL(mockController_, detachSession(_));
@@ -967,7 +966,7 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   handler1.txn_->sendHeaders(*resp1);
   handler1.txn_->sendBody(makeBuf(wantToWrite)); // conn blocked, stream open
   handler1.txn_->sendEOM();
-  eventBase_.loop();                       // actually send (most of) the body
+  eventBase_.loopOnce();                   // actually send (most of) the body
   CHECK_EQ(bodyLen, spdy::kInitialWindow); // should have written a full window
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
@@ -990,7 +989,7 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   codecCallback_->onHeadersComplete(3, std::move(req2));
   handler2.txn_->sendHeaders(*resp2);
 
-  eventBase_.loop();
+  eventBase_.loopOnce();
 
   EXPECT_EQ(writeCount + 1, writeCount_);
 
@@ -1010,20 +1009,18 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
     // silly, the timeout set is internal and there's no fd, so hold the
     // eventBase open until the timeout can fire
     eventBase_.runAfterDelay([] {}, 500);
-
-    transactionTimeouts_->cancelAll();
   } else {
     // Give a connection level window update of 10 bytes -- this
     // should allow 10 bytes of the txn1 response to be written
     codecCallback_->onWindowUpdate(0, 10);
     EXPECT_CALL(*codec_,
                 generateBody(_, 1, PtrBufHasLen(uint64_t(10)), _, false));
-    eventBase_.loop();
+    eventBase_.loopOnce();
 
     // Just tear everything down now.
     EXPECT_CALL(handler1, detachTransaction());
     codecCallback_->onAbort(handler1.txn_->getID(), ErrorCode::INTERNAL_ERROR);
-    eventBase_.loop();
+    eventBase_.loopOnce();
 
     EXPECT_CALL(handler2, detachTransaction());
     EXPECT_CALL(mockController_, detachSession(_));
@@ -1256,13 +1253,20 @@ void MockCodecDownstreamTest::testGoaway(bool doubleGoaway,
   }
 
   folly::AsyncTransport::WriteCallback* cb = nullptr;
-  EXPECT_CALL(*transport_, writeChain(_, _, _))
-      .WillOnce(Invoke([&](folly::AsyncTransport::WriteCallback* callback,
-                           const shared_ptr<IOBuf>,
-                           WriteFlags) {
-        // don't immediately flush the goaway
-        cb = callback;
-      }));
+  {
+    InSequence enforceOrder;
+    EXPECT_CALL(*transport_, writeChain(_, _, _))
+        .WillOnce(Invoke([&](folly::AsyncTransport::WriteCallback* callback,
+                             const shared_ptr<IOBuf>,
+                             WriteFlags) {
+          // don't immediately flush the goaway
+          cb = callback;
+        }));
+    if (doubleGoaway && !dropConnection) {
+      EXPECT_CALL(*transport_, writeChain(_, _, _))
+          .WillOnce(Invoke(this, &MockCodecDownstreamTest::onWriteChain));
+    }
+  }
   if (doubleGoaway || !dropConnection) {
     // single goaway, drop connection doesn't get onIngressEOF
     EXPECT_CALL(*codec_, onIngressEOF());

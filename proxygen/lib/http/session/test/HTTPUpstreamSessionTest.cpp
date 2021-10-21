@@ -1829,11 +1829,14 @@ class MockHTTPUpstreamTest : public HTTPUpstreamTest<MockHTTPCodecPair> {
                                    HTTPCodec::StreamID lastStream,
                                    ErrorCode,
                                    std::shared_ptr<folly::IOBuf>) {
+          goawayCount_++;
+          size_t written = 0;
           if (reusable_) {
             writeBuf.append("GOAWAY", 6);
+            written = 6;
             reusable_ = false;
           }
-          return 6;
+          return written;
         }));
     EXPECT_CALL(*codec, createStream()).WillRepeatedly(Invoke([&] {
       auto ret = nextOutgoingTxn_;
@@ -1861,6 +1864,7 @@ class MockHTTPUpstreamTest : public HTTPUpstreamTest<MockHTTPCodecPair> {
   HTTPCodec::Callback* codecCb_{nullptr};
   bool reusable_{true};
   uint32_t nextOutgoingTxn_{1};
+  uint32_t goawayCount_{0};
 };
 
 TEST_F(HTTP2UpstreamSessionTest, ServerPush) {
@@ -2503,6 +2507,7 @@ TEST_F(MockHTTP2UpstreamTest, ReceiveDoubleGoaway) {
   handler1->expectGoaway();
   handler2->expectGoaway();
   codecCb_->onGoaway(101, ErrorCode::NO_ERROR);
+  reusable_ = false;
 
   // This txn should be alive since it was ack'd by the above goaway
   handler1->txn_->sendHeaders(req);
@@ -2526,6 +2531,43 @@ TEST_F(MockHTTP2UpstreamTest, ReceiveDoubleGoaway) {
   handler1->expectDetachTransaction();
   handler1->txn_->sendAbort();
   eventBase_.loop();
+}
+
+TEST_F(MockHTTP2UpstreamTest, ReceiveDoubleGoaway2) {
+  // Test that we handle receiving two goaways correctly
+  httpSession_->enableDoubleGoawayDrain();
+  auto req = getGetRequest();
+
+  // Open 2 txns but doesn't send headers yet
+  auto handler1 = openTransaction();
+  auto handler2 = openTransaction();
+
+  // Get first goaway acking many un-started txns
+  handler1->expectGoaway();
+  handler2->expectGoaway();
+  codecCb_->onGoaway(http2::kMaxStreamID, ErrorCode::NO_ERROR);
+  reusable_ = false;
+  // this doesn't trigger a goaway
+  EXPECT_EQ(goawayCount_, 0);
+
+  // Sending all unstarted headers should not send the final GOAWAY.
+  handler1->txn_->sendHeadersWithEOM(req);
+  handler2->txn_->sendHeadersWithEOM(req);
+  EXPECT_EQ(goawayCount_, 0);
+
+  handler1->expectHeaders();
+  handler1->expectEOM();
+  handler1->expectDetachTransaction();
+  handler2->expectHeaders();
+  handler2->expectEOM();
+  handler2->expectDetachTransaction();
+  codecCb_->onHeadersComplete(1, makeResponse(200));
+  codecCb_->onMessageComplete(1, false);
+  codecCb_->onHeadersComplete(3, makeResponse(200));
+  codecCb_->onMessageComplete(3, false);
+
+  eventBase_.loop();
+  EXPECT_GE(goawayCount_, 1);
 }
 
 TEST_F(MockHTTP2UpstreamTest, ServerPushInvalidAssoc) {
