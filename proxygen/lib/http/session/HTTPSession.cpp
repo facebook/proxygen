@@ -1149,59 +1149,38 @@ void HTTPSession::onGoaway(uint64_t lastGoodStreamID,
   // Abort transactions which have been initiated but not created
   // successfully at the remote end. Upstream transactions are created
   // with odd transaction IDs and downstream transactions with even IDs.
-  std::vector<HTTPCodec::StreamID> ids;
-  auto firstStream = HTTPCodec::NoStream;
+  std::vector<HTTPCodec::StreamID> refusedIds;
+  std::vector<HTTPCodec::StreamID> errorIds;
+  std::vector<HTTPCodec::StreamID> pubSubControlIds;
 
   for (const auto& id : transactionIds_) {
     if (((bool)(id & 0x01) == isUpstream()) && (id > lastGoodStreamID)) {
-      if (firstStream == HTTPCodec::NoStream) {
-        // transactions_ is a set so it should be sorted by stream id.
-        // We will defer adding the firstStream to the id list until
-        // we can determine whether we have a codec error code.
-        firstStream = id;
-        continue;
-      }
-
-      ids.push_back(id);
+      refusedIds.push_back(id);
+    } else if (code != ErrorCode::NO_ERROR) {
+      // Error goaway -> error all streams
+      errorIds.push_back(id);
+    } else if (lastGoodStreamID < http2::kMaxStreamID &&
+               (controlStreamIds_.find(id) != controlStreamIds_.end())) {
+      // Final (non-error) goaway -> error control streams
+      pubSubControlIds.push_back(id);
     }
   }
+  errorOnTransactionIds(refusedIds, kErrorStreamUnacknowledged);
 
-  if (firstStream != HTTPCodec::NoStream && code != ErrorCode::NO_ERROR) {
-    // If we get a codec error, we will attempt to blame the first stream
-    // by delivering a specific error to it and let the rest of the streams
-    // get a normal unacknowledged stream error.
-    ProxygenError err = kErrorStreamUnacknowledged;
-    string debugInfo = (debugData) ? folly::to<string>(" with debug info: ",
-                                                       (char*)debugData->data())
-                                   : "";
-    HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
-                     folly::to<std::string>(getErrorString(err),
-                                            " on transaction id: ",
-                                            *firstStream,
-                                            " with codec error: ",
-                                            getErrorCodeString(code),
-                                            debugInfo));
-    ex.setProxygenError(err);
-    errorOnTransactionId(*firstStream, std::move(ex));
-  } else if (firstStream != HTTPCodec::NoStream) {
-    ids.push_back(*firstStream);
-  }
-
-  errorOnTransactionIds(ids, kErrorStreamUnacknowledged);
-
-  if (lastGoodStreamID < http2::kMaxStreamID || code != ErrorCode::NO_ERROR) {
-    // Control stream is a long lived stream, if we gracefully shut down without
-    // notifying it, the client might believe a control stream is still valid
-    // and continue sending us ExStream, which will lead to stream abort issue.
-    std::vector<HTTPCodec::StreamID> csToBeAborted;
-    for (auto const& csId : controlStreamIds_) {
-      if (std::find(ids.begin(), ids.end(), csId) == ids.end() &&
-          csId != firstStream) {
-        csToBeAborted.emplace_back(csId);
-      }
+  if (code != ErrorCode::NO_ERROR) {
+    string debugStr;
+    if (debugData) {
+      debugData->coalesce();
+      debugStr = debugData->moveToFbString();
     }
-    errorOnTransactionIds(csToBeAborted, kErrorStreamAbort);
+    auto msg = folly::to<std::string>("GOAWAY error with codec error: ",
+                                      getErrorCodeString(code),
+                                      " with debug info: ",
+                                      debugStr);
+    errorOnTransactionIds(errorIds, kErrorConnectionReset, msg);
   }
+
+  errorOnTransactionIds(pubSubControlIds, kErrorStreamAbort);
 }
 
 void HTTPSession::onPingRequest(uint64_t data) {

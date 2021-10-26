@@ -505,36 +505,50 @@ TEST_F(SPDY3UpstreamSessionTest, IngressGoawayAbortUncreatedStreams) {
 }
 
 TEST_F(SPDY3UpstreamSessionTest, IngressGoawaySessionError) {
-  // Tests whether the session aborts the streams which are not created
-  // at the remote end which have error codes.
+  // Tests whether the session aborts non-refused stream
 
-  // Create SPDY buf for GOAWAY with last good stream as 0 (no streams created)
+  // Create SPDY buf for GOAWAY with last good stream as 1
   SPDYCodec egressCodec(TransportDirection::DOWNSTREAM, SPDYVersion::SPDY3);
   folly::IOBufQueue respBuf{IOBufQueue::cacheChainLength()};
-  egressCodec.generateGoaway(respBuf, 0, ErrorCode::PROTOCOL_ERROR);
+  egressCodec.generateGoaway(respBuf, 1, ErrorCode::PROTOCOL_ERROR);
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
 
   InSequence enforceOrder;
 
-  auto handler = openTransaction();
-  handler->expectGoaway();
-  handler->expectError([&](const HTTPException& err) {
+  auto handler1 = openTransaction();
+  auto handler2 = openTransaction();
+  handler2->expectGoaway();
+  handler1->expectGoaway();
+  // handler2 was refused
+  handler2->expectError([&](const HTTPException& err) {
     EXPECT_TRUE(err.hasProxygenError());
     EXPECT_EQ(err.getProxygenError(), kErrorStreamUnacknowledged);
     ASSERT_EQ(folly::to<std::string>("StreamUnacknowledged on transaction id: ",
-                                     handler->txn_->getID(),
-                                     " with codec error: PROTOCOL_ERROR"),
+                                     handler2->txn_->getID()),
               std::string(err.what()));
   });
-  handler->expectDetachTransaction([this] {
-    // Make sure the session can't create any more transactions.
-    MockHTTPHandler handler2;
-    EXPECT_EQ(httpSession_->newTransaction(&handler2), nullptr);
+  // handler1 wasn't refused - receives an error
+  handler1->expectError([&](const HTTPException& err) {
+    EXPECT_TRUE(err.hasProxygenError());
+    EXPECT_EQ(err.getProxygenError(), kErrorConnectionReset);
+    ASSERT_EQ(folly::to<std::string>(
+                  "ConnectionReset on transaction id: ",
+                  handler1->txn_->getID(),
+                  ". GOAWAY error with codec error: PROTOCOL_ERROR "
+                  "with debug info: "),
+              std::string(err.what()));
   });
+  handler1->expectDetachTransaction([this] {
+    // Make sure the session can't create any more transactions.
+    MockHTTPHandler handler3;
+    EXPECT_EQ(httpSession_->newTransaction(&handler3), nullptr);
+  });
+  handler2->expectDetachTransaction();
 
   // Send the GET request
-  handler->sendRequest();
+  handler1->sendRequest();
+  handler2->sendRequest();
 
   // Receive GOAWAY frame while waiting for SYN_REPLY
   readAndLoop(goawayFrame->data(), goawayFrame->length());
