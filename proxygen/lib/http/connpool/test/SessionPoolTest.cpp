@@ -520,6 +520,10 @@ TEST_F(SessionPoolFixture, MoveIdleSessionBetweenThreadsTest) {
     evb_.loopForever();
   });
 
+  // Wait for t1 to start before starting t2
+  // to ensure it is picked by popBestIdlePool()
+  t1InitBaton.wait();
+
   folly::EventBase evb2;
   std::thread t2([&] {
     folly::EventBaseManager::get()->setEventBase(&evb2, false);
@@ -533,7 +537,6 @@ TEST_F(SessionPoolFixture, MoveIdleSessionBetweenThreadsTest) {
     evb2.loopForever();
   });
 
-  t1InitBaton.wait();
   t2InitBaton.wait();
   // Simulate thread2 asking thread1 for an idle session
   evb2.runInEventBaseThread([&] {
