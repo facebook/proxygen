@@ -273,6 +273,7 @@ TEST(HTTP1xCodecTest, TestBadHeaders) {
       .WillOnce(Invoke(
           [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
             EXPECT_EQ(error->getHttpStatusCode(), 400);
+            EXPECT_EQ(error->getProxygenError(), kErrorParseHeader);
           }));
   codec.onIngress(*buffer);
 }
@@ -286,7 +287,12 @@ TEST(HTTP1xCodecTest, TestHighAsciiUA) {
   auto buffer = folly::IOBuf::copyBuffer(
       string("GET /yeah HTTP/1.1\r\nUser-Agent: ꪶ𝛸ꫂ_𝐹𝛩𝑅𝐶𝛯_𝑉2\r\n\r\n"));
   EXPECT_CALL(callbacks, onMessageBegin(1, _));
-  EXPECT_CALL(callbacks, onError(1, _, _));
+  EXPECT_CALL(callbacks, onError(1, _, _))
+      .WillOnce(Invoke(
+          [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
+            EXPECT_EQ(error->getHttpStatusCode(), 400);
+            EXPECT_EQ(error->getProxygenError(), kErrorParseHeader);
+          }));
   codec.onIngress(*buffer);
 }
 
@@ -302,6 +308,7 @@ TEST(HTTP1xCodecTest, TestBadURL) {
       .WillOnce(Invoke(
           [&](HTTPCodec::StreamID, std::shared_ptr<HTTPException> error, bool) {
             EXPECT_EQ(error->getHttpStatusCode(), 400);
+            EXPECT_EQ(error->getProxygenError(), kErrorParseHeader);
           }));
   codec.onIngress(*buffer);
 }

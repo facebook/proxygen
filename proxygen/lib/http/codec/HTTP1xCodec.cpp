@@ -280,7 +280,10 @@ void HTTP1xCodec::onParserError(const char* what) {
   } else if (parser_errno == HPE_HEADER_OVERFLOW ||
              parser_errno == HPE_INVALID_CONSTANT ||
              (parser_errno >= HPE_INVALID_VERSION &&
-              parser_errno <= HPE_HUGE_CONTENT_LENGTH)) {
+              parser_errno <= HPE_HUGE_CONTENT_LENGTH) ||
+             parser_errno == HPE_CB_header_field ||
+             parser_errno == HPE_CB_header_value ||
+             parser_errno == HPE_CB_headers_complete) {
     error.setProxygenError(kErrorParseHeader);
   } else if (parser_errno == HPE_INVALID_CHUNK_SIZE ||
              parser_errno == HPE_HUGE_CHUNK_SIZE) {

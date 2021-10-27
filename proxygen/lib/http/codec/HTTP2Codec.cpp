@@ -645,6 +645,7 @@ void HTTP2Codec::deliverDeferredParseError(
     HTTPException err(HTTPException::Direction::INGRESS,
                       parseError.errorMessage);
     err.setHttpStatusCode(400);
+    err.setProxygenError(kErrorParseHeader);
     deliverCallbackIfAllowed(&HTTPCodec::Callback::onError,
                              "onError",
                              curHeader_.stream,

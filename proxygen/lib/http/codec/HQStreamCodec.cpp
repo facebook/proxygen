@@ -229,6 +229,7 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
     } else {
       err.setHttpStatusCode(400);
     }
+    err.setProxygenError(kErrorParseHeader);
     callback_->onError(streamId_, err, true);
     resumeParser.dismiss();
     return;

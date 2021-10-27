@@ -754,21 +754,30 @@ TEST_F(HQCodecTest, HighAscii) {
     queue_.trimStart(consumed);
   }
 
+  EXPECT_EQ(callbacks_.messageBegin, 4);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.messageComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 4);
+  EXPECT_EQ(callbacks_.lastParseError->getProxygenError(), kErrorParseHeader);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+  callbacks_.reset();
+
   auto id = upstreamCodec_->createStream();
   upstreamCodec_->generateHeader(
       queue_, id, getGetRequest("/"), false, nullptr /* headerSize */);
   HTTPHeaders trailers;
   trailers.add("x-trailer-1", "pico-de-gallo\xff");
-  upstreamCodec_->generateTrailers(queue_, id, trailers);
   auto g = folly::makeGuard(
       [this] { downstreamCodec_->setStrictValidation(false); });
   downstreamCodec_->setStrictValidation(true);
+  upstreamCodec_->generateTrailers(queue_, id, trailers);
   parse();
 
-  EXPECT_EQ(callbacks_.messageBegin, 5);
+  EXPECT_EQ(callbacks_.messageBegin, 1);
   EXPECT_EQ(callbacks_.headersComplete, 1);
   EXPECT_EQ(callbacks_.messageComplete, 0);
-  EXPECT_EQ(callbacks_.streamErrors, 5);
+  EXPECT_EQ(callbacks_.streamErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getProxygenError(), kErrorParseHeader);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
