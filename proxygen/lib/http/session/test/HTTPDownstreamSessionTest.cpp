@@ -4159,7 +4159,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestSessionStallByFlowControl) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, TestTransactionStallByFlowControl) {
-  StrictMock<MockHTTPSessionStats> stats;
+  NiceMock<MockHTTPSessionStats> stats;
 
   httpSession_->setSessionStats(&stats);
 
@@ -4198,7 +4198,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestTransactionStallByFlowControl) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, TestTransactionNotStallByFlowControl) {
-  StrictMock<MockHTTPSessionStats> stats;
+  NiceMock<MockHTTPSessionStats> stats;
 
   httpSession_->setSessionStats(&stats);
 

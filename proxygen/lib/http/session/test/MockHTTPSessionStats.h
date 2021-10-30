@@ -52,6 +52,7 @@ class MockHTTPSessionStats : public DummyHTTPSessionStats {
   GMOCK_NOEXCEPT_METHOD1(recordSessionIdleTime, void(std::chrono::seconds));
   GMOCK_NOEXCEPT_METHOD0(recordTransactionStalled, void());
   GMOCK_NOEXCEPT_METHOD0(recordSessionStalled, void());
+  GMOCK_NOEXCEPT_METHOD1(recordPendingBufferedReadBytes, void(int64_t));
 };
 
 } // namespace proxygen

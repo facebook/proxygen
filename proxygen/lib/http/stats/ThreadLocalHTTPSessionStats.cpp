@@ -12,6 +12,7 @@ namespace proxygen {
 
 TLHTTPSessionStats::TLHTTPSessionStats(const std::string& prefix)
     : txnsOpen(prefix + "_transactions_open"),
+      pendingBufferedReadBytes(prefix + "_pending_buffered_read_bytes"),
       txnsOpened(
           prefix + "_txn_opened", facebook::fb303::SUM, facebook::fb303::RATE),
       txnsFromSessionReuse(prefix + "_txn_session_reuse",
@@ -154,6 +155,11 @@ void TLHTTPSessionStats::recordTransactionStalled() noexcept {
 
 void TLHTTPSessionStats::recordSessionStalled() noexcept {
   txnsSessionStalled.add(1);
+}
+
+void TLHTTPSessionStats::recordPendingBufferedReadBytes(
+    int64_t amount) noexcept {
+  pendingBufferedReadBytes.incrementValue(amount);
 }
 
 } // namespace proxygen

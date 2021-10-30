@@ -50,6 +50,24 @@ HTTPSessionBase::HTTPSessionBase(const SocketAddress& localAddr,
   setController(controller);
 }
 
+HTTPSessionBase::~HTTPSessionBase() {
+  if (sessionStats_) {
+    sessionStats_->recordPendingBufferedReadBytes(-1 *
+                                                  (int64_t)pendingReadSize_);
+  }
+}
+
+void HTTPSessionBase::setSessionStats(HTTPSessionStats* stats) {
+  if (sessionStats_ != stats && sessionStats_ != nullptr) {
+    sessionStats_->recordPendingBufferedReadBytes(-1 *
+                                                  (int64_t)pendingReadSize_);
+  }
+  sessionStats_ = stats;
+  if (sessionStats_) {
+    sessionStats_->recordPendingBufferedReadBytes(pendingReadSize_);
+  }
+}
+
 void HTTPSessionBase::runDestroyCallbacks() {
   if (infoCallback_) {
     infoCallback_->onDestroy(*this);
@@ -88,6 +106,9 @@ bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
   CHECK_LE(pendingReadSize_,
            std::numeric_limits<uint32_t>::max() - length - padding);
   pendingReadSize_ += length + padding;
+  if (sessionStats_) {
+    sessionStats_->recordPendingBufferedReadBytes(length + padding);
+  }
   txn->onIngressBody(std::move(chain), padding);
   if (oldSize < pendingReadSize_) {
     // Transaction must have buffered something and not called
@@ -108,6 +129,10 @@ bool HTTPSessionBase::notifyBodyProcessed(uint32_t bytes) {
   CHECK_GE(pendingReadSize_, bytes);
   auto oldSize = pendingReadSize_;
   pendingReadSize_ -= bytes;
+  if (sessionStats_) {
+    sessionStats_->recordPendingBufferedReadBytes(-1 * (int64_t)bytes);
+  }
+
   VLOG(4) << *this << " Dequeued " << bytes << " bytes of ingress. "
           << "Ingress buffer uses " << pendingReadSize_ << " of "
           << readBufLimit_ << " bytes.";

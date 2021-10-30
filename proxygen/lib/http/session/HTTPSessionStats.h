@@ -28,6 +28,7 @@ class HTTPSessionStats : public TTLBAStats {
   }
   virtual void recordTransactionStalled() noexcept = 0;
   virtual void recordSessionStalled() noexcept = 0;
+  virtual void recordPendingBufferedReadBytes(int64_t) noexcept = 0;
 };
 
 } // namespace proxygen

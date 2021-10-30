@@ -37,8 +37,10 @@ class TLHTTPSessionStats : public HTTPSessionStats {
   void recordSessionIdleTime(std::chrono::seconds) noexcept override;
   void recordTransactionStalled() noexcept override;
   void recordSessionStalled() noexcept override;
+  void recordPendingBufferedReadBytes(int64_t amount) noexcept override;
 
   BaseStats::TLCounter txnsOpen;
+  BaseStats::TLCounter pendingBufferedReadBytes;
   BaseStats::TLTimeseries txnsOpened;
   BaseStats::TLTimeseries txnsFromSessionReuse;
   BaseStats::TLTimeseries txnsTransactionStalled;

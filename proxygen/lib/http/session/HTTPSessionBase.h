@@ -123,8 +123,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
                   const WheelTimerInstance& wheelTimer,
                   HTTPCodec::StreamID rootNodeId);
 
-  virtual ~HTTPSessionBase() {
-  }
+  virtual ~HTTPSessionBase() override;
 
   /**
    * Set the read buffer limit to be used for all new HTTPSessionBase objects.
@@ -162,9 +161,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     return infoCallback_;
   }
 
-  virtual void setSessionStats(HTTPSessionStats* stats) {
-    sessionStats_ = stats;
-  }
+  virtual void setSessionStats(HTTPSessionStats* stats);
 
   virtual HTTPTransaction::Transport::Type getType() const noexcept = 0;
 
