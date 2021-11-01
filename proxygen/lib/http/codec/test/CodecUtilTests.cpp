@@ -10,8 +10,6 @@
 
 #include <folly/portability/GTest.h>
 
-using namespace testing;
-
 using std::string;
 
 namespace proxygen { namespace test {
