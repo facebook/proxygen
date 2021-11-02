@@ -3242,6 +3242,15 @@ size_t HQSession::HQStreamTransportBase::sendBody(
     byteEventTracker_.addFirstBodyByteEvent(offset + 1, txn);
   }
 
+  auto sock = session_.sock_;
+  auto streamId = getStreamId();
+  auto timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - createdTime);
+  if (sock && sock->getState() && sock->getState()->qLogger) {
+    sock->getState()->qLogger->addStreamStateUpdate(
+        streamId, quic::kBody, timeDiff);
+  }
+
   if (eom) {
     coalesceEOM(body.length);
   }
