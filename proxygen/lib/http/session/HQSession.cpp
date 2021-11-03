@@ -3685,7 +3685,7 @@ void HQSession::onDatagramsAvailable() noexcept {
     auto stream = findNonDetachedStream(streamId);
 
     if (!stream || !stream->canReceiveDatagrams_) {
-      VLOG(5) << "Stream cannot receive datagrams. streamId=" << streamId
+      VLOG(4) << "Stream cannot receive datagrams yet. streamId=" << streamId
               << " ctx=" << ctxId->first << " len=" << datagramQ.chainLength()
               << " sess=" << *this;
       // TODO: a possible optimization would be to discard datagrams destined
@@ -3704,7 +3704,7 @@ void HQSession::onDatagramsAvailable() noexcept {
       continue;
     }
 
-    VLOG(5) << "Received datagram for streamId=" << streamId
+    VLOG(4) << "Received datagram for streamId=" << streamId
             << " ctx=" << ctxId->first << " len=" << datagramQ.chainLength()
             << " sess=" << *this;
     stream->txn_.onDatagram(datagramQ.move());
@@ -3747,14 +3747,14 @@ bool HQSession::HQStreamTransport::sendDatagram(
   if (ctxIdRes.hasError()) {
     return false;
   }
-  VLOG(5) << "Sending datagram for streamId=" << streamId_.value()
+  VLOG(4) << "Sending datagram for streamId=" << streamId_.value()
           << " len=" << datagram->computeChainDataLength()
           << " sess=" << session_;
   quic::BufQueue queue(std::move(headerBuf));
   queue.append(std::move(datagram));
   auto writeRes = session_.sock_->writeDatagram(queue.move());
   if (writeRes.hasError()) {
-    VLOG(5) << "Failed to send datagram for streamId=" << streamId_.value();
+    LOG(ERROR) << "Failed to send datagram for streamId=" << streamId_.value();
     return false;
   }
   return true;
