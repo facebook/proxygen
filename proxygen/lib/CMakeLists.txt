@@ -26,6 +26,7 @@ add_custom_command(
         ${CMAKE_CURRENT_SOURCE_DIR}/utils/perfect_hash_table_template.cpp.gperf
     COMMENT "Generating HTTPCommonHeaders.h and HTTPCommonHeaders.cpp"
 )
+
 add_custom_command(
     OUTPUT
         ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceEventType.h
@@ -178,6 +179,7 @@ add_library(
     http/Window.cpp
     pools/generators/FileServerListGenerator.cpp
     pools/generators/ServerListGenerator.cpp
+    sampling/Sampling.cpp
     services/RequestWorkerThread.cpp
     services/Service.cpp
     services/WorkerThread.cpp
@@ -276,5 +278,6 @@ add_subdirectory(http/connpool/test)
 add_subdirectory(http/codec/test)
 add_subdirectory(http/codec/compress/test)
 add_subdirectory(http/session/test)
+add_subdirectory(sampling/test)
 add_subdirectory(services/test)
 add_subdirectory(utils/test)
