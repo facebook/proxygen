@@ -69,19 +69,17 @@ class HQCodecTestFixture : public T {
     downstreamH1qControlCodec_.setCallback(&callbacks_);
   }
 
-  std::unique_ptr<folly::IOBuf> parse() {
+  void parse() {
     auto consumed = downstreamCodec_->onIngress(*queue_.front());
     queue_.trimStart(consumed);
-    return queue_.move();
   }
 
-  std::unique_ptr<folly::IOBuf> parseUpstream() {
+  void parseUpstream() {
     auto consumed = upstreamCodec_->onIngress(*queue_.front());
     queue_.trimStart(consumed);
-    return queue_.move();
   }
 
-  std::unique_ptr<folly::IOBuf> parseControl(CodecType type) {
+  void parseControl(CodecType type) {
     HQControlCodec* codec = nullptr;
     downstreamControlCodec_.setCallback(&callbacks_);
     upstreamH1qControlCodec_.setCallback(&callbacks_);
@@ -104,7 +102,8 @@ class HQCodecTestFixture : public T {
         LOG(FATAL) << "Unknown Control Codec type";
         break;
     }
-    return codec->onUnidirectionalIngress(queueCtrl_.move());
+    auto ret = codec->onUnidirectionalIngress(queueCtrl_.move());
+    queueCtrl_.append(std::move(ret));
   }
 
   void qpackTest(bool blocked);
@@ -889,6 +888,7 @@ TEST_P(HQCodecTestFrameAllowed, FrameAllowedOnCodec) {
   // If an error was triggered, check that any additional parse call does not
   // raise another error, and that no new bytes are parsed
   if (!GetParam().allowed) {
+    CHECK(queueCtrl_.chainLength() != 0 || queue_.chainLength() != 0);
     EXPECT_EQ(callbacks_.lastParseError->getHttp3ErrorCode(),
               HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
     auto lenBefore = 0;

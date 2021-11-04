@@ -47,6 +47,7 @@ class HQControlCodec
   // HQ Unidirectional Codec API
   std::unique_ptr<folly::IOBuf> onUnidirectionalIngress(
       std::unique_ptr<folly::IOBuf> buf) override {
+    CHECK(buf);
     auto consumed = onFramedIngress(*buf);
     folly::IOBufQueue q;
     q.append(std::move(buf));
