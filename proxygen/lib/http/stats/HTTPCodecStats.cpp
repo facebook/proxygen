@@ -39,6 +39,8 @@ TLHTTPCodecStats::TLHTTPCodecStats(const std::string& prefix)
     : openConn_(prefix + "_conn.sum"),
       ingressSynStream_(prefix + "_ingress_syn_stream", SUM, RATE),
       ingressSynReply_(prefix + "_ingress_syn_reply", SUM, RATE),
+      ingressPushPromise_(prefix + "_ingress_push_promise", SUM, RATE),
+      ingressExStream_(prefix + "_ingress_ex_stream", SUM, RATE),
       ingressData_(prefix + "_ingress_data", SUM, RATE),
       ingressRst_(prefix + "_ingress_rst", SUM, RATE),
       ingressSettings_(prefix + "_ingress_settings", SUM, RATE),
@@ -50,6 +52,8 @@ TLHTTPCodecStats::TLHTTPCodecStats(const std::string& prefix)
       ingressPriority_(prefix + "_ingress_priority", SUM, RATE),
       egressSynStream_(prefix + "_egress_syn_stream", SUM, RATE),
       egressSynReply_(prefix + "_egress_syn_reply", SUM, RATE),
+      egressPushPromise_(prefix + "_egress_push_promise", SUM, RATE),
+      egressExStream_(prefix + "_egress_ex_stream", SUM, RATE),
       egressData_(prefix + "_egress_data", SUM, RATE),
       egressRst_(prefix + "_egress_rst", SUM, RATE),
       egressSettings_(prefix + "_egress_settings", SUM, RATE),
@@ -81,6 +85,12 @@ void TLHTTPCodecStats::recordIngressSynStream() {
 }
 void TLHTTPCodecStats::recordIngressSynReply() {
   ingressSynReply_.add(1);
+}
+void TLHTTPCodecStats::recordIngressPushPromise() {
+  ingressPushPromise_.add(1);
+}
+void TLHTTPCodecStats::recordIngressExStream() {
+  ingressExStream_.add(1);
 }
 void TLHTTPCodecStats::recordIngressData() {
   ingressData_.add(1);
@@ -126,6 +136,12 @@ void TLHTTPCodecStats::recordEgressSynStream() {
 }
 void TLHTTPCodecStats::recordEgressSynReply() {
   egressSynReply_.add(1);
+}
+void TLHTTPCodecStats::recordEgressPushPromise() {
+  egressPushPromise_.add(1);
+}
+void TLHTTPCodecStats::recordEgressExStream() {
+  egressExStream_.add(1);
 }
 void TLHTTPCodecStats::recordEgressData() {
   egressData_.add(1);

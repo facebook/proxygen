@@ -26,6 +26,8 @@ class HTTPCodecStats {
 
   virtual void recordIngressSynStream() = 0;
   virtual void recordIngressSynReply() = 0;
+  virtual void recordIngressPushPromise() = 0;
+  virtual void recordIngressExStream() = 0;
   virtual void recordIngressData() = 0;
   virtual void recordIngressRst(ErrorCode statusCode) = 0;
   virtual void recordIngressSettings() = 0;
@@ -38,6 +40,8 @@ class HTTPCodecStats {
 
   virtual void recordEgressSynStream() = 0;
   virtual void recordEgressSynReply() = 0;
+  virtual void recordEgressPushPromise() = 0;
+  virtual void recordEgressExStream() = 0;
   virtual void recordEgressData() = 0;
   virtual void recordEgressRst(ErrorCode statusCode) = 0;
   virtual void recordEgressSettings() = 0;
@@ -63,6 +67,8 @@ class TLHTTPCodecStats : public HTTPCodecStats {
 
   void recordIngressSynStream() override;
   void recordIngressSynReply() override;
+  void recordIngressPushPromise() override;
+  void recordIngressExStream() override;
   void recordIngressData() override;
   void recordIngressRst(ErrorCode statusCode) override;
   void recordIngressSettings() override;
@@ -75,6 +81,8 @@ class TLHTTPCodecStats : public HTTPCodecStats {
 
   void recordEgressSynStream() override;
   void recordEgressSynReply() override;
+  void recordEgressPushPromise() override;
+  void recordEgressExStream() override;
   void recordEgressData() override;
   void recordEgressRst(ErrorCode statusCode) override;
   void recordEgressSettings() override;
@@ -89,6 +97,8 @@ class TLHTTPCodecStats : public HTTPCodecStats {
   BaseStats::TLCounter openConn_;
   BaseStats::TLTimeseries ingressSynStream_;
   BaseStats::TLTimeseries ingressSynReply_;
+  BaseStats::TLTimeseries ingressPushPromise_;
+  BaseStats::TLTimeseries ingressExStream_;
   BaseStats::TLTimeseries ingressData_;
   BaseStats::TLTimeseries ingressRst_;
   std::vector<BaseStats::TLTimeseries> ingressRstStatus_;
@@ -103,6 +113,8 @@ class TLHTTPCodecStats : public HTTPCodecStats {
 
   BaseStats::TLTimeseries egressSynStream_;
   BaseStats::TLTimeseries egressSynReply_;
+  BaseStats::TLTimeseries egressPushPromise_;
+  BaseStats::TLTimeseries egressExStream_;
   BaseStats::TLTimeseries egressData_;
   BaseStats::TLTimeseries egressRst_;
   std::vector<BaseStats::TLTimeseries> egressRstStatus_;

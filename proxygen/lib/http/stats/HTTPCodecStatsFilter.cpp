@@ -23,10 +23,26 @@ HTTPCodecStatsFilter::~HTTPCodecStatsFilter() {
   counters_->incrementParallelConn(-1);
 }
 
+void HTTPCodecStatsFilter::onPushMessageBegin(StreamID stream,
+                                              StreamID assocStream,
+                                              HTTPMessage* msg) {
+  counters_->recordIngressPushPromise();
+  callback_->onPushMessageBegin(stream, assocStream, msg);
+}
+
+void HTTPCodecStatsFilter::onExMessageBegin(StreamID stream,
+                                            StreamID controlStream,
+                                            bool unidirectional,
+                                            HTTPMessage* msg) {
+  counters_->recordIngressExStream();
+  callback_->onExMessageBegin(stream, controlStream, unidirectional, msg);
+}
+
 void HTTPCodecStatsFilter::onHeadersComplete(StreamID stream,
                                              std::unique_ptr<HTTPMessage> msg) {
   if (call_->getTransportDirection() == TransportDirection::DOWNSTREAM ||
-      (stream % 2 == 0 && msg->isRequest())) {
+      msg->isRequest()) {
+    // Request or PUSH_PROMISE, recordIngressPushPromise already called
     counters_->recordIngressSynStream();
   } else {
     counters_->recordIngressSynReply();
@@ -118,9 +134,20 @@ void HTTPCodecStatsFilter::generatePushPromise(folly::IOBufQueue& writeBuf,
                                                StreamID assocStream,
                                                bool eom,
                                                HTTPHeaderSize* size) {
-  counters_->recordEgressSynStream();
+  counters_->recordEgressPushPromise();
   return call_->generatePushPromise(
       writeBuf, stream, msg, assocStream, eom, size);
+}
+
+void HTTPCodecStatsFilter::generateExHeader(
+    folly::IOBufQueue& writeBuf,
+    StreamID stream,
+    const HTTPMessage& msg,
+    const HTTPCodec::ExAttributes& exAttributes,
+    bool eom,
+    HTTPHeaderSize* size) {
+  counters_->recordEgressExStream();
+  call_->generateExHeader(writeBuf, stream, msg, exAttributes, eom, size);
 }
 
 size_t HTTPCodecStatsFilter::generateBody(folly::IOBufQueue& writeBuf,
