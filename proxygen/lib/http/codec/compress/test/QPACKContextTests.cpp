@@ -74,7 +74,7 @@ HPACK::DecodeError cancelStream(QPACKDecoder& decoder,
 
 std::string toFixedLengthString(uint32_t i) {
   CHECK_LT(i, 1000);
-  return folly::format("{:3}", i).str();
+  return fmt::format("{:3}", i);
 }
 } // namespace
 

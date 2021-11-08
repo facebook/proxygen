@@ -683,12 +683,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               if (it == streams_.end()) {
                 return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
               }
-              ERROR_IF(it->second.writeState == CLOSED,
-                       folly::format(
-                           "getStreamWriteOffset on CLOSED streamId={}", id)
-                           .str(),
-                       return folly::makeUnexpected(
-                           LocalErrorCode::STREAM_NOT_EXISTS));
+              ERROR_IF(
+                  it->second.writeState == CLOSED,
+                  fmt::format("getStreamWriteOffset on CLOSED streamId={}", id),
+                  return folly::makeUnexpected(
+                      LocalErrorCode::STREAM_NOT_EXISTS));
               // TODO: :/ sigh. BufMeta breaks this.
               return it->second.writeOffset -
                      it->second.pendingWriteBuf.chainLength();
@@ -705,9 +704,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
               ERROR_IF(
                   it->second.writeState == CLOSED,
-                  folly::format(
-                      "getStreamWriteBufferedBytes on CLOSED streamId={}", id)
-                      .str(),
+                  fmt::format(
+                      "getStreamWriteBufferedBytes on CLOSED streamId={}", id),
                   return folly::makeUnexpected(
                       LocalErrorCode::STREAM_NOT_EXISTS));
               return it->second.pendingWriteBuf.chainLength() +
@@ -739,12 +737,12 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               if (it == streams_.end()) {
                 return folly::makeUnexpected(LocalErrorCode::STREAM_NOT_EXISTS);
               }
-              ERROR_IF(it->second.writeState == CLOSED,
-                       folly::format(
-                           "registerDeliveryCallback on CLOSED streamId={}", id)
-                           .str(),
-                       return folly::makeUnexpected(
-                           LocalErrorCode::STREAM_NOT_EXISTS));
+              ERROR_IF(
+                  it->second.writeState == CLOSED,
+                  fmt::format("registerDeliveryCallback on CLOSED streamId={}",
+                              id),
+                  return folly::makeUnexpected(
+                      LocalErrorCode::STREAM_NOT_EXISTS));
               cb->onByteEventRegistered({id, offset, type});
               if (it->second.writeOffset >= offset) {
                 // already available, fire the cb from the loop
@@ -960,8 +958,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       // Be a bit more unforgiving than the real transport of logical errors.
       ERROR_IF(
           stream.pendingWriteCb,
-          folly::format("called notifyPendingWrite twice for streamId={}", id)
-              .str(),
+          fmt::format("called notifyPendingWrite twice for streamId={}", id),
           return folly::unit);
 
       if (wcb == nullptr) {
@@ -981,10 +978,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               return;
             }
             ERROR_IF(!stream.pendingWriteCb,
-                     folly::format("write callback not set when calling "
-                                   "onConnectionWriteReady for streamId={}",
-                                   id)
-                         .str(),
+                     fmt::format("write callback not set when calling "
+                                 "onConnectionWriteReady for streamId={}",
+                                 id),
                      return );
             auto writeCb = stream.pendingWriteCb;
             stream.pendingWriteCb = nullptr;
@@ -1288,16 +1284,14 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             auto& stream = streams_[event.streamId];
             if (!event.error) {
               ERROR_IF(stream.readState == CLOSED,
-                       folly::format("scheduling event on CLOSED streamId={}",
-                                     event.streamId)
-                           .str(),
+                       fmt::format("scheduling event on CLOSED streamId={}",
+                                   event.streamId),
                        return );
             } else {
               ERROR_IF((event.buf && !event.buf->empty()) || event.eof,
-                       folly::format("scheduling an error event with either a "
-                                     "buffer or eof on streamId={}",
-                                     event.streamId)
-                           .str(),
+                       fmt::format("scheduling an error event with either a "
+                                   "buffer or eof on streamId={}",
+                                   event.streamId),
                        return );
             }
             if (event.streamId == kConnectionStreamId &&
@@ -1426,10 +1420,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   void pauseWrites(StreamId streamId) {
     auto& stream = streams_[streamId];
-    ERROR_IF(
-        stream.writeState != OPEN,
-        folly::format("pauseWrites on not OPEN streamId={}", streamId).str(),
-        return );
+    ERROR_IF(stream.writeState != OPEN,
+             fmt::format("pauseWrites on not OPEN streamId={}", streamId),
+             return );
     stream.writeState = PAUSED;
   }
 
@@ -1444,10 +1437,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   void resumeWrites(StreamId streamId, bool connFCEvent = false) {
     auto& stream = streams_[streamId];
-    ERROR_IF(
-        stream.writeState != PAUSED && !connFCEvent,
-        folly::format("resumeWrites on not PAUSED streamId={}", streamId).str(),
-        return );
+    ERROR_IF(stream.writeState != PAUSED && !connFCEvent,
+             fmt::format("resumeWrites on not PAUSED streamId={}", streamId),
+             return );
     stream.writeState = OPEN;
     // first flush any buffered writes
     flushWrites(streamId);
@@ -1506,12 +1498,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                   << " len=" << copyBufLen
                   << " offset=" << it.second.readOffset;
           ERROR_IF(it.second.readBufOffset < copyBufLen,
-                   folly::format("readOffset({}) is lower than current read "
-                                 "buffer offset({}) for streamId={}",
-                                 it.second.readBufOffset,
-                                 copyBufLen,
-                                 it.first)
-                       .str(),
+                   fmt::format("readOffset({}) is lower than current read "
+                               "buffer offset({}) for streamId={}",
+                               it.second.readBufOffset,
+                               copyBufLen,
+                               it.first),
                    continue);
           fakeReadBuffer.emplace_back(
               std::move(copyBuf), it.second.readOffset, it.second.readEOF);

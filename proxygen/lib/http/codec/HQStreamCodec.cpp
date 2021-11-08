@@ -218,12 +218,10 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
     }
     HTTPException err(
         HTTPException::Direction::INGRESS,
-        folly::format(
-            "HQStreamCodec stream error: stream={} status={} error:{}",
-            streamId_,
-            400,
-            decodeInfo_.parsingError)
-            .str());
+        fmt::format("HQStreamCodec stream error: stream={} status={} error:{}",
+                    streamId_,
+                    400,
+                    decodeInfo_.parsingError));
     if (parsingTrailers_) {
       err.setHttp3ErrorCode(HTTP3::ErrorCode::HTTP_MESSAGE_ERROR);
     } else {

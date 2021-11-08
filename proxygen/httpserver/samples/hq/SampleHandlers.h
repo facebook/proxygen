@@ -75,8 +75,7 @@ class BaseSampleHandler : public proxygen::HTTPTransactionHandler {
     }
     msg.getHeaders().add(
         proxygen::HTTP_HEADER_ALT_SVC,
-        folly::format("{}=\":{}\"; ma=3600", params_.protocol, params_.port)
-            .str());
+        fmt::format("{}=\":{}\"; ma=3600", params_.protocol, params_.port));
   }
 
   // clang-format off
