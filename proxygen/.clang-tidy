@@ -6,6 +6,12 @@
 ---
 InheritParentConfig: true
 Checks: '
+boost-*,
+bugprone-*,
+clang-analyzer-*,
+modernize-*,
+performance-*,
+-modernize-use-trailing-return-type,
 facebook-hte-BadCall-mlock,
 facebook-hte-PortabilityInclude-WinSock2.h,
 facebook-hte-PortabilityInclude-Windows.h,
