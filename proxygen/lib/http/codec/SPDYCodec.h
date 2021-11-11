@@ -376,7 +376,7 @@ class SPDYCodec : public HTTPParallelCodec {
   uint8_t flags_{0};
 
   // SPDY Frame parsing state
-  enum FrameState {
+  enum class FrameState : uint8_t {
     FRAME_HEADER = 0,
     CTRL_FRAME_DATA = 1,
     DATA_FRAME_DATA = 2,

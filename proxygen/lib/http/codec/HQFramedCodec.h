@@ -383,7 +383,7 @@ class HQFramedCodec : public HTTPCodec {
   uint64_t receivedFrameCount_{0};
 #endif
 
-  enum FrameState {
+  enum class FrameState : uint8_t {
     FRAME_HEADER_TYPE = 0,
     FRAME_HEADER_LENGTH = 1,
     FRAME_PAYLOAD = 2,

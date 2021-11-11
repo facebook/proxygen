@@ -314,7 +314,7 @@ class HTTP2Codec
 #ifndef NDEBUG
   uint64_t receivedFrameCount_{0};
 #endif
-  enum FrameState {
+  enum class FrameState : uint8_t {
     UPSTREAM_CONNECTION_PREFACE = 0,
     DOWNSTREAM_CONNECTION_PREFACE = 1,
     FRAME_HEADER = 2,
