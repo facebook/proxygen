@@ -221,10 +221,9 @@ class Cb : public folly::AsyncSocket::ConnectCallback {
     success = true;
     reusedSession = sock_->getSSLSessionReused();
     session = sock_->getSSLSession();
-    if (sock_->getPeerCertificate()) {
+    if (auto cert = sock_->getPeerCertificate()) {
       // keeps this alive until Cb is destroyed, even if sock is closed
-      auto cert = sock_->getPeerCertificate();
-      peerCert_ = cert->getX509();
+      peerCert_ = folly::OpenSSLTransportCertificate::tryExtractX509(cert);
     }
     sock_->close();
   }
@@ -353,7 +352,7 @@ class TestHandlerFactory : public RequestHandlerFactory {
       auto& transport = txn->getTransport();
       if (auto cert =
               transport.getUnderlyingTransport()->getPeerCertificate()) {
-        auto x509 = cert->getX509();
+        auto x509 = folly::OpenSSLTransportCertificate::tryExtractX509(cert);
         if (x509) {
           certHeader = OpenSSLCertUtils::getCommonName(*x509).value_or("");
         }
@@ -872,7 +871,7 @@ class ConnectionFilterTest : public ScopedServerTest {
           if (!cert) {
             throw std::runtime_error("Client cert is missing");
           }
-          auto x509 = cert->getX509();
+          auto x509 = folly::OpenSSLTransportCertificate::tryExtractX509(cert);
           if (!x509 || OpenSSLCertUtils::getCommonName(*x509).value_or("") !=
                            "testuser1") {
             throw std::runtime_error("Client cert is invalid.");
