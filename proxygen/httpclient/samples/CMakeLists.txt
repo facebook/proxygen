@@ -5,3 +5,4 @@
 # LICENSE file in the root directory of this source tree.
 
 add_subdirectory(curl)
+add_subdirectory(H3Datagram)

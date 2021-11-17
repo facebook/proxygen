@@ -76,6 +76,7 @@ if (BUILD_QUIC)
         http/session/HQStreamBase.cpp
         http/session/HQUnidirectionalCallbacks.cpp
         http/session/HQUpstreamSession.cpp
+        transport/H3DatagramAsyncSocket.cpp
         transport/PersistentQuicPskCache.cpp
     )
   set(
@@ -94,6 +95,7 @@ add_library(
     proxygen
     healthcheck/ServerHealthCheckerCallback.cpp
     http/HTTP3ErrorCode.cpp
+    http/Window.cpp
     http/codec/CodecProtocol.cpp
     http/codec/CodecUtil.cpp
     http/codec/compress/GzipHeaderCodec.cpp
@@ -176,7 +178,6 @@ add_library(
     http/structuredheaders/StructuredHeadersDecoder.cpp
     http/structuredheaders/StructuredHeadersEncoder.cpp
     http/structuredheaders/StructuredHeadersUtilities.cpp
-    http/Window.cpp
     pools/generators/FileServerListGenerator.cpp
     pools/generators/ServerListGenerator.cpp
     sampling/Sampling.cpp
@@ -280,4 +281,5 @@ add_subdirectory(http/codec/compress/test)
 add_subdirectory(http/session/test)
 add_subdirectory(sampling/test)
 add_subdirectory(services/test)
+add_subdirectory(transport/test)
 add_subdirectory(utils/test)

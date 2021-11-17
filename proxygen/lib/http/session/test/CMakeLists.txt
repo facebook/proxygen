@@ -8,6 +8,20 @@ if(NOT BUILD_TESTS)
     return()
 endif()
 
+add_library(sessiontestutils TestUtils.cpp)
+target_include_directories(
+    sessiontestutils PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    ${LIBGMOCK_INCLUDE_DIR}
+    ${LIBGTEST_INCLUDE_DIR}
+)
+target_compile_options(
+    sessiontestutils PRIVATE
+    ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
+)
+target_link_libraries(sessiontestutils PUBLIC proxygen)
+
+
 proxygen_add_test(TARGET SessionTests
   SOURCES
     ByteEventTrackerTest.cpp
@@ -19,9 +33,9 @@ proxygen_add_test(TARGET SessionTests
     HTTP2PriorityQueueTest.cpp
     HTTPDefaultSessionCodecFactoryTest.cpp
     HTTPTransactionSMTest.cpp
-    TestUtils.cpp
   DEPENDS
     codectestutils
+    sessiontestutils
     testtransport
     proxygen
     testmain
@@ -37,9 +51,9 @@ if (BUILD_QUIC)
       HQStreamBaseTest.cpp
       HQUnidirectionalCallbacksTest.cpp
       HQUpstreamSessionTest.cpp
-      TestUtils.cpp
     DEPENDS
       codectestutils
+      sessiontestutils
       testtransport
       proxygen
       testmain
