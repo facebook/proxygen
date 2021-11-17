@@ -1099,7 +1099,6 @@ class HTTPSession
   bool resetSocketOnShutdown_ : 1;
   // indicates a fatal error that prevents further ingress data processing
   bool inLoopCallback_ : 1;
-  bool inResume_ : 1;
   bool pendingPause_ : 1;
   bool writeBufSplit_ : 1;
 

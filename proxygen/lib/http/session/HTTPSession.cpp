@@ -100,7 +100,6 @@ HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
       ingressUpgraded_(false),
       resetSocketOnShutdown_(false),
       inLoopCallback_(false),
-      inResume_(false),
       pendingPause_(false),
       writeBufSplit_(false) {
   byteEventTracker_ = std::make_shared<ByteEventTracker>(this);
