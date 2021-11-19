@@ -23,7 +23,7 @@ class URL {
   URL() = default;
 
   enum class Mode { STRICT_COMPAT, STRICT };
-  explicit URL(const std::string& url,
+  explicit URL(folly::StringPiece url,
                bool secure = false,
                Mode strict = Mode::STRICT_COMPAT) noexcept {
     valid_ = false;
