@@ -123,7 +123,6 @@ class HTTPHeaders {
   template <typename T> // T = string
   void add(HTTPHeaderCode code, T&& value);
   void add(headers_initializer_list l);
-  void rawAdd(const std::string& name, const std::string& value);
 
   void addFromCodec(const char* str, size_t len, std::string&& value);
 
@@ -131,17 +130,14 @@ class HTTPHeaders {
    * For the header 'name', set its value to the single header 'value',
    * removing any other instances of this header.
    */
-  void set(folly::StringPiece name, const std::string& value) {
+  void set(folly::StringPiece name, folly::StringPiece value) {
     // this could be somewhat optimized but probably not an issue yet
     remove(name);
     add(name, value);
   }
-  void set(HTTPHeaderCode code, const std::string& value) {
+  void set(HTTPHeaderCode code, folly::StringPiece value) {
     remove(code);
     add(code, value);
-  }
-  void rawSet(const std::string& name, const std::string& value) {
-    set(name, value);
   }
   /**
    * This method will set only one version of the header, it will first
@@ -151,7 +147,7 @@ class HTTPHeaders {
    */
   void setOneVersion(folly::StringPiece name,
                      HTTPHeaderCode code,
-                     const std::string& value) {
+                     folly::StringPiece value) {
     removeAllVersions(code, name);
     add(name, value);
   }
@@ -161,16 +157,13 @@ class HTTPHeaders {
    */
   bool exists(folly::StringPiece name) const;
   bool exists(HTTPHeaderCode code) const;
-  bool rawExists(std::string& name) const {
-    return exists(name);
-  }
 
   /**
    * combine all the value for this header into a string
    */
   template <typename T>
   std::string combine(const T& header,
-                      const std::string& separator = COMBINE_SEPARATOR) const;
+                      folly::StringPiece separator = COMBINE_SEPARATOR) const;
 
   /**
    * Process the list of all headers, in the order that they were seen:
@@ -223,9 +216,6 @@ class HTTPHeaders {
    */
   template <typename T> // either uint8_t or string
   const std::string& getSingleOrEmpty(const T& nameOrCode) const;
-  const std::string rawGet(const std::string& header) const {
-    return getSingleOrEmpty(header);
-  }
 
   /**
    * Get the number of values corresponding to a given header name.
@@ -256,9 +246,6 @@ class HTTPHeaders {
    */
   bool remove(folly::StringPiece name);
   bool remove(HTTPHeaderCode code);
-  void rawRemove(const std::string& name) {
-    remove(name);
-  }
 
   /**
    * Remove all possible versions of header eg. if x-y-z is the
@@ -292,6 +279,25 @@ class HTTPHeaders {
    * which should be stripped by stripPerHopHeaders().
    */
   static std::bitset<256>& perHopHeaderCodes();
+
+  /*
+   * The raw* functions accept `const std::string&` rather than the
+   * `folly::StringPiece` variants above, and only exist for legacy reasons.
+   * Callers should use the non-raw versions above instead.
+   */
+  const std::string rawGet(const std::string& header) const {
+    return getSingleOrEmpty(header);
+  }
+  bool rawExists(const std::string& name) const {
+    return exists(name);
+  }
+  void rawAdd(const std::string& name, const std::string& value);
+  void rawSet(const std::string& name, const std::string& value) {
+    set(name, value);
+  }
+  void rawRemove(const std::string& name) {
+    remove(name);
+  }
 
  private:
   std::unique_ptr<uint8_t[]> memory_;
@@ -519,13 +525,13 @@ bool HTTPHeaders::forEachValueOfHeader(HTTPHeaderCode code, LAMBDA func) const {
 
 template <typename T>
 std::string HTTPHeaders::combine(const T& header,
-                                 const std::string& separator) const {
+                                 folly::StringPiece separator) const {
   std::string combined = "";
   forEachValueOfHeader(header, [&](const std::string& value) -> bool {
     if (combined.empty()) {
       combined.append(value);
     } else {
-      combined.append(separator).append(value);
+      combined.append(separator.data(), separator.size()).append(value);
     }
     return false;
   });
