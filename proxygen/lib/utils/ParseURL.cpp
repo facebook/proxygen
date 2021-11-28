@@ -207,4 +207,20 @@ void ParseURL::stripBrackets() noexcept {
   }
 }
 
+folly::Optional<folly::StringPiece> ParseURL::getQueryParam(
+    folly::StringPiece name) const noexcept {
+  auto params = query_;
+  while (!params.empty()) {
+    auto param = params.split_step('&');
+    if (!param.removePrefix(name)) {
+      continue;
+    }
+    if (!param.removePrefix('=') && !param.empty()) {
+      continue;
+    }
+    return param;
+  }
+  return {};
+}
+
 } // namespace proxygen

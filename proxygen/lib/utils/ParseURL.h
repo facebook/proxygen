@@ -11,6 +11,9 @@
 #include <glog/logging.h>
 
 #include <folly/Conv.h>
+#include <folly/Optional.h>
+#include <folly/Portability.h>
+#include <folly/Range.h>
 #include <folly/String.h>
 #include <proxygen/lib/utils/Export.h>
 #include <string>
@@ -146,6 +149,9 @@ class ParseURL {
   bool hostIsIPAddress();
 
   FB_EXPORT void stripBrackets() noexcept;
+
+  FOLLY_NODISCARD folly::Optional<folly::StringPiece> getQueryParam(
+      folly::StringPiece name) const noexcept;
 
  private:
   void moveHostAndAuthority(ParseURL&& goner) {
