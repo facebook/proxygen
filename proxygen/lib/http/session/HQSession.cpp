@@ -1704,12 +1704,8 @@ void HQSession::onPriority(quic::StreamId streamId, const HTTPPriority& pri) {
   }
   CHECK(sock_);
   if (streamId >= minPeerUnseenId_) {
-    VLOG(4) << "Priority update stream id=" << streamId
-            << " greater than max allowed id=" << minPeerUnseenId_;
-    dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_ID_ERROR,
-                       "Stream id is beyond max allowed stream id"),
-        kErrorMalformedInput);
+    VLOG(4) << "Priority update unseen stream id=" << streamId
+            << " minPeerUnseenId_=" << minPeerUnseenId_;
     return;
   }
   // This also covers push streams:
