@@ -65,13 +65,14 @@ std::string toString(HTTP3::ErrorCode code) {
 std::vector<HTTP3::ErrorCode> getAllHTTP3ErrorCodes() {
   std::vector<HTTP3::ErrorCode> all = {
       HTTP3::ErrorCode::HTTP_NO_ERROR,
-      // HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
+      HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
       HTTP3::ErrorCode::HTTP_INTERNAL_ERROR,
       HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR,
       HTTP3::ErrorCode::HTTP_CLOSED_CRITICAL_STREAM,
       HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED,
       HTTP3::ErrorCode::HTTP_FRAME_ERROR,
       HTTP3::ErrorCode::HTTP_EXCESSIVE_LOAD,
+      HTTP3::ErrorCode::HTTP_ID_ERROR,
       HTTP3::ErrorCode::HTTP_SETTINGS_ERROR,
       HTTP3::ErrorCode::HTTP_MISSING_SETTINGS,
       HTTP3::ErrorCode::HTTP_REQUEST_REJECTED,
@@ -84,7 +85,6 @@ std::vector<HTTP3::ErrorCode> getAllHTTP3ErrorCodes() {
       HTTP3::ErrorCode::HTTP_QPACK_ENCODER_STREAM_ERROR,
       HTTP3::ErrorCode::HTTP_QPACK_DECODER_STREAM_ERROR,
       HTTP3::ErrorCode::GIVEUP_ZERO_RTT,
-      HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
   };
   return all;
 }
