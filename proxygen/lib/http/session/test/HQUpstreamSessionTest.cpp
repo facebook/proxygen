@@ -1964,6 +1964,9 @@ TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveDatagram) {
   auto handler = openTransaction();
   auto id = handler->txn_->getID();
   EXPECT_GT(handler->txn_->getDatagramSizeLimit(), 0);
+  MockHTTPTransactionTransportCallback transportCallback_;
+  handler->txn_->setTransportCallback(&transportCallback_);
+  EXPECT_CALL(transportCallback_, datagramBytesReceived(::testing::_)).Times(1);
   handler->txn_->sendHeaders(getGetRequest());
   handler->txn_->sendEOM();
   auto resp = makeResponse(200, 0);

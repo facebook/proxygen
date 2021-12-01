@@ -390,6 +390,11 @@ class HTTPTransactionTransportCallback {
   virtual void transportAppRateLimited() noexcept {
   }
 
+  virtual void datagramBytesGenerated(size_t /* nbytes */) noexcept {
+  }
+  virtual void datagramBytesReceived(size_t /* size */) noexcept {
+  }
+
   virtual ~HTTPTransactionTransportCallback() {
   }
 };

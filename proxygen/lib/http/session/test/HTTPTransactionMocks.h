@@ -522,6 +522,8 @@ class MockHTTPTransactionTransportCallback
   MOCK_METHOD((void), bodyBytesGenerated, (size_t), (noexcept));
   MOCK_METHOD((void), bodyBytesReceived, (size_t), (noexcept));
   MOCK_METHOD((void), transportAppRateLimited, (), (noexcept));
+  MOCK_METHOD((void), datagramBytesGenerated, (size_t), (noexcept));
+  MOCK_METHOD((void), datagramBytesReceived, (size_t), (noexcept));
 #else
   GMOCK_METHOD0_(, noexcept, , firstHeaderByteFlushed, void());
   GMOCK_METHOD0_(, noexcept, , firstByteFlushed, void());
@@ -537,6 +539,8 @@ class MockHTTPTransactionTransportCallback
   GMOCK_METHOD1_(, noexcept, , bodyBytesGenerated, void(size_t));
   GMOCK_METHOD1_(, noexcept, , bodyBytesReceived, void(size_t));
   GMOCK_METHOD0_(, noexcept, , transportAppRateLimited, void());
+  GMOCK_METHOD1_(, noexcept, , datagramBytesGenerated, void(size_t));
+  GMOCK_METHOD1_(, noexcept, , datagramBytesReceived, void(size_t));
 #endif
 };
 

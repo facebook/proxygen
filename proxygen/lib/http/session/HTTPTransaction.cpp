@@ -1366,10 +1366,19 @@ bool HTTPTransaction::sendDatagram(std::unique_ptr<folly::IOBuf> datagram) {
           HTTPTransactionEgressSM::Event::sendDatagram)) {
     return false;
   }
-  if (datagram->computeChainDataLength() > getDatagramSizeLimit()) {
+
+  auto size = datagram->computeChainDataLength();
+  if (size > getDatagramSizeLimit()) {
     return false;
   }
-  return transport_.sendDatagram(std::move(datagram));
+
+  auto sent = transport_.sendDatagram(std::move(datagram));
+
+  if (sent && transportCallback_) {
+    transportCallback_->datagramBytesGenerated(size);
+  }
+
+  return sent;
 }
 
 folly::Optional<HTTPTransaction::ConnectionToken>
@@ -1896,6 +1905,12 @@ void HTTPTransaction::onDatagram(
     return;
   }
   refreshTimeout();
+  auto size = datagram->computeChainDataLength();
+
+  if (transportCallback_) {
+    transportCallback_->datagramBytesReceived(size);
+  }
+
   if (handler_ && !isIngressComplete()) {
     handler_->onDatagram(std::move(datagram));
   }
