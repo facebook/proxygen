@@ -1703,16 +1703,12 @@ void HQSession::onPriority(quic::StreamId streamId, const HTTPPriority& pri) {
     return;
   }
   CHECK(sock_);
-  if (streamId >= minPeerUnseenId_) {
-    VLOG(4) << "Priority update unseen stream id=" << streamId
-            << " minPeerUnseenId_=" << minPeerUnseenId_;
-    return;
-  }
   // This also covers push streams:
   auto stream = findStream(streamId);
-  if (!stream) {
+  if (!stream || (!stream->txn_.isPushed() && !stream->hasHeaders_)) {
     // We are supposed to drop the connection with HTTP_ID_ERROR if the streamId
     // points to a control stream. But why should I spend CPU looking it up?
+    priorityUpdatesBuffer_.insert(streamId, pri);
     return;
   }
   sock_->setStreamPriority(streamId, pri.urgency, pri.incremental);
@@ -2652,6 +2648,7 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     session_.userAgent_ = session_.codec_->getUserAgent();
   }
 
+  hasHeaders_ = true;
   //  setupOnHeadersComplete is only implemented
   //  in the HQDownstreamSession, which does not
   //  receive push promises. Will only be called once
@@ -2685,10 +2682,21 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
     sock->getState()->qLogger->addStreamStateUpdate(
         streamId, quic::kOnHeaders, timeDiff);
   }
-  const auto httpPriority = httpPriorityFromHTTPMessage(*msg);
-  if (sock && httpPriority) {
-    sock->setStreamPriority(
-        streamId, httpPriority->urgency, httpPriority->incremental);
+
+  // In case a priority update was received on the control stream before
+  // getting here that overrides the initial priority received in the headers
+  if (sock) {
+    auto itr = session_.priorityUpdatesBuffer_.find(streamId);
+    if (itr != session_.priorityUpdatesBuffer_.end()) {
+      sock->setStreamPriority(
+          streamId, itr->second.urgency, itr->second.incremental);
+    } else {
+      const auto httpPriority = httpPriorityFromHTTPMessage(*msg);
+      if (httpPriority) {
+        sock->setStreamPriority(
+            streamId, httpPriority->urgency, httpPriority->incremental);
+      }
+    }
   }
 
   // Tell the HTTPTransaction to start processing the message now
@@ -2706,7 +2714,6 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
 
   // The stream can now receive datagrams: check for any pending datagram and
   // deliver it to the handler
-  canReceiveDatagrams_ = true;
   if (session_.datagramEnabled_ && !session_.datagramsBuffer_.empty()) {
     auto itr = session_.datagramsBuffer_.find(streamId);
     if (itr != session_.datagramsBuffer_.end()) {
@@ -3680,7 +3687,7 @@ void HQSession::onDatagramsAvailable() noexcept {
     auto streamId = quarterStreamId->first * 4;
     auto stream = findNonDetachedStream(streamId);
 
-    if (!stream || !stream->canReceiveDatagrams_) {
+    if (!stream || !stream->hasHeaders_) {
       VLOG(4) << "Stream cannot receive datagrams yet. streamId=" << streamId
               << " ctx=" << ctxId->first << " len=" << datagramQ.chainLength()
               << " sess=" << *this;

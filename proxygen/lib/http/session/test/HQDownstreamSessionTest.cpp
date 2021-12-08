@@ -419,14 +419,17 @@ TEST_P(HQDownstreamSessionTest, OnPriorityCallback) {
     return;
   }
   // Simulate priority arriving too early, connection still valid
-  hqSession_->onPriority(0, HTTPPriority(4, true));
-  auto id = sendRequest(getGetRequest());
+  // this is going to be stored and applied when receiving headers
+  hqSession_->onPriority(0, HTTPPriority(3, false));
+  EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(0, 3, false));
+  auto id = sendRequest(getProgressiveGetRequest());
+  CHECK_EQ(id, 0);
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&]() {
     handler->sendHeaders(200, 1000);
-    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(id, 4, true));
-    // Priority on a stream we can't find
-    hqSession_->onPriority(id, HTTPPriority(4, true));
+    // Priority update on the stream
+    EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(0, 2, true));
+    hqSession_->onPriority(id, HTTPPriority(2, true));
     handler->sendBody(1000);
     handler->sendEOM();
   });

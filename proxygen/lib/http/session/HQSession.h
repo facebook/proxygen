@@ -69,6 +69,8 @@ constexpr uint8_t kMaxDatagramHeaderSize = 16;
 constexpr uint8_t kDefaultMaxBufferedDatagrams = 5;
 // Maximum number of streams with datagrams buffered
 constexpr uint8_t kMaxStreamsWithBufferedDatagrams = 10;
+// Maximum number of priority updates received when stream is not available
+constexpr uint8_t kMaxBufferedPriorityUpdates = 10;
 
 /**
  * Session-level protocol info.
@@ -1687,7 +1689,7 @@ class HQSession
     bool hasIngress_{false};
     bool detached_{false};
     bool ingressError_{false};
-    bool canReceiveDatagrams_{false};
+    bool hasHeaders_{false};
     enum class EOMType { CODEC, TRANSPORT };
     ConditionalGate<EOMType, 2> eomGate_;
 
@@ -2088,6 +2090,10 @@ class HQSession
                           kDefaultMaxBufferedDatagrams,
                           folly::small_vector_policy::NoHeap>>
       datagramsBuffer_{kMaxStreamsWithBufferedDatagrams};
+
+  // Buffer for priority updates without an active stream
+  folly::EvictingCacheMap<quic::StreamId, HTTPPriority> priorityUpdatesBuffer_{
+      kMaxBufferedPriorityUpdates};
 
   // Creation time (for handshake time tracking)
   std::chrono::steady_clock::time_point createTime_;
