@@ -65,7 +65,7 @@ TEST_P(DefaultHTTPCodecFactoryValidationTest, StrictValidation) {
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, strict ? 0 : 1);
   EXPECT_EQ(callbacks.streamErrors, strict ? 1 : 0);
-  output.clear();
+  output.reset();
 
   callbacks.reset();
   codec = factory.getCodec("http/1.1", TransportDirection::DOWNSTREAM, true);

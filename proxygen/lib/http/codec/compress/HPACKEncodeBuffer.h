@@ -33,10 +33,6 @@ class HPACKEncodeBuffer {
     return bufQueuePtr_->move();
   }
 
-  void clear() {
-    bufQueuePtr_->clear();
-  }
-
   /**
    * Add headroom at the beginning of the IOBufQueue
    * Meant to be called before encoding anything.

@@ -1081,7 +1081,7 @@ TEST_F(HTTP2CodecTest, MalformedPaddingLength) {
                               0x35,
                               0xa7,
                               0xd7};
-  output_.clear();
+  output_.reset();
   output_.append(badInput, sizeof(badInput));
   EXPECT_EQ(output_.chainLength(), sizeof(badInput));
 
@@ -1102,7 +1102,7 @@ TEST_F(HTTP2CodecTest, NoAppByte) {
       0x50, 0x52, 0x49, 0x20, 0x2a, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x32,
       0x2e, 0x30, 0x0d, 0x0a, 0x0d, 0x0a, 0x53, 0x4d, 0x0d, 0x0a, 0x0d, 0x0a,
       0x00, 0x00, 0x56, 0x00, 0x5d, 0x00, 0x00, 0x00, 0x01, 0x55, 0x00};
-  output_.clear();
+  output_.reset();
   output_.append(noAppByte, sizeof(noAppByte));
   EXPECT_EQ(output_.chainLength(), sizeof(noAppByte));
 
@@ -1852,7 +1852,7 @@ TEST_F(HTTP2CodecTest, BasicCertificate) {
 }
 
 TEST_F(HTTP2CodecTest, BadServerPreface) {
-  output_.move();
+  output_.reset();
   downstreamCodec_.generateWindowUpdate(output_, 0, 10);
   parseUpstream();
   EXPECT_EQ(callbacks_.messageBegin, 0);
@@ -2099,7 +2099,7 @@ TEST_F(HTTP2CodecTest, WebsocketDupProtocol) {
 }
 
 TEST_F(HTTP2CodecTest, WebsocketIncorrectResponse) {
-  output_.clear();
+  output_.reset();
   HTTPMessage resp;
   resp.setStatusCode(400);
   resp.setStatusMessage("Bad Request");

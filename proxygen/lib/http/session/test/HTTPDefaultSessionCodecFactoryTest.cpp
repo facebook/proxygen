@@ -160,7 +160,7 @@ TEST_P(HTTPDefaultSessionCodecFactoryValidationTest, StrictValidation) {
   EXPECT_EQ(callbacks.messageBegin, 1);
   EXPECT_EQ(callbacks.headersComplete, strict ? 0 : 1);
   EXPECT_EQ(callbacks.streamErrors, strict ? 1 : 0);
-  output.clear();
+  output.reset();
 
   if (conf.plaintextProtocol.empty()) {
     callbacks.reset();

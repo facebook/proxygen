@@ -1071,7 +1071,7 @@ ErrorCode HTTP2Codec::parseCertificate(Cursor& cursor) {
     if (callback_) {
       callback_->onCertificate(certId, std::move(authenticator));
     } else {
-      curAuthenticatorBlock_.clear();
+      curAuthenticatorBlock_.reset();
     }
   }
   return ErrorCode::NO_ERROR;

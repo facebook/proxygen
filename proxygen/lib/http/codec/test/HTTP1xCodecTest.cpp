@@ -218,7 +218,7 @@ TEST(HTTP1xCodecTest, TestKeepalive09_10) {
                                 "Connection: close\r\n"
                                 "Content-Length: 0\r\n\r\n")));
   EXPECT_FALSE(codec2.isReusable());
-  buf.move();
+  buf.reset();
 
   HTTP1xCodec codec3(TransportDirection::DOWNSTREAM, true);
   HTTP1xCodecCallback callbacks3;
@@ -238,7 +238,7 @@ TEST(HTTP1xCodecTest, TestKeepalive09_10) {
                                 "Connection: keep-alive\r\n"
                                 "Content-Length: 0\r\n\r\n")));
   EXPECT_TRUE(codec3.isReusable());
-  buf.move();
+  buf.reset();
 
   HTTP1xCodec codec4(TransportDirection::DOWNSTREAM, true);
   HTTP1xCodecCallback callbacks4;
@@ -258,7 +258,7 @@ TEST(HTTP1xCodecTest, TestKeepalive09_10) {
                                 "Date: \r\n"
                                 "Connection: close\r\n\r\n")));
   EXPECT_FALSE(codec4.isReusable());
-  buf.move();
+  buf.reset();
 }
 
 TEST(HTTP1xCodecTest, TestBadHeaders) {
@@ -618,7 +618,7 @@ TEST(HTTP1xCodecTest, Test1xxConnectionHeader) {
   resp.setStatusCode(200);
   resp.getHeaders().remove(HTTP_HEADER_CONNECTION);
   resp.getHeaders().add(HTTP_HEADER_CONTENT_LENGTH, "0");
-  writeBuf.move();
+  writeBuf.reset();
   downstream.generateHeader(writeBuf, streamID, resp);
   upstream.onIngress(*writeBuf.front());
   EXPECT_EQ(callbacks.headersComplete, 2);
@@ -704,7 +704,7 @@ TEST(HTTP1xCodecTest, WebsocketUpgrade) {
   resp.setHTTPVersion(1, 1);
   resp.setStatusCode(101);
   resp.setEgressWebsocketUpgrade();
-  buf.clear();
+  buf.reset();
   downstreamCodec.generateHeader(buf, streamID, resp);
   upstreamCodec.onIngress(*buf.front());
   EXPECT_EQ(upstreamCallbacks.headersComplete, 1);
@@ -1200,7 +1200,7 @@ TEST(HTTP1xCodecTest, Dechunk) {
   HTTP1xCodecCallback callbacks;
   codec.setCallback(&callbacks);
   codec.onIngress(*buf.front());
-  buf.move();
+  buf.reset();
 
   HTTPMessage resp;
   resp.setStatusCode(200);
@@ -1253,7 +1253,7 @@ TEST(HTTP1xCodecTest, Chunkify) {
   HTTP1xCodecCallback callbacks;
   codec.setCallback(&callbacks);
   codec.onIngress(*buf.front());
-  buf.move();
+  buf.reset();
 
   HTTPMessage resp;
   resp.setStatusCode(200);
@@ -1305,7 +1305,7 @@ TEST(HTTP1xCodecTest, Chunkify100) {
   HTTP1xCodecCallback callbacks;
   codec.setCallback(&callbacks);
   codec.onIngress(*buf.front());
-  buf.move();
+  buf.reset();
 
   HTTPMessage resp;
   resp.setStatusCode(100);
