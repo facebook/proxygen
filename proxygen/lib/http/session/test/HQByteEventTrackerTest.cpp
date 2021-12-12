@@ -36,13 +36,35 @@ class HQByteEventTrackerTest : public Test {
   /**
    * Setup an EXPECT_CALL for QuicSocket::registerTxCallback.
    */
-  void expectRegisterTxCallback(
+  std::unique_ptr<quic::QuicSocket::ByteEventCallback*>
+  expectRegisterTxCallback(const uint64_t offset,
+                           folly::Expected<folly::Unit, quic::LocalErrorCode>
+                               returnVal = folly::Unit()) const {
+    auto capturedCallbackPtr =
+        std::make_unique<quic::QuicSocket::ByteEventCallback*>(nullptr);
+    EXPECT_CALL(*socket_, registerTxCallback(streamId_, offset, _))
+        .WillOnce(
+            DoAll(SaveArg<2>(&*capturedCallbackPtr.get()), Return(returnVal)));
+    return capturedCallbackPtr;
+  }
+
+  /**
+   * Setup an EXPECT_CALL for QuicSocket::registerDeliveryCallback.
+   *
+   * Returns a unique_ptr<ptr*> where the inner pointer will be populated to
+   * point to the callback handler passed to registerDeliveryCallback.
+   */
+  std::unique_ptr<quic::QuicSocket::ByteEventCallback*>
+  expectRegisterDeliveryCallback(
       const uint64_t offset,
-      quic::QuicSocket::ByteEventCallback** capturedCallbackPtr,
       folly::Expected<folly::Unit, quic::LocalErrorCode> returnVal =
           folly::Unit()) const {
-    EXPECT_CALL(*socket_, registerTxCallback(streamId_, offset, _))
-        .WillOnce(DoAll(SaveArg<2>(&*capturedCallbackPtr), Return(returnVal)));
+    auto capturedCallbackPtr =
+        std::make_unique<quic::QuicSocket::ByteEventCallback*>(nullptr);
+    EXPECT_CALL(*socket_, registerDeliveryCallback(streamId_, offset, _))
+        .WillOnce(
+            DoAll(SaveArg<2>(&*capturedCallbackPtr.get()), Return(returnVal)));
+    return capturedCallbackPtr;
   }
 
   /**
@@ -76,102 +98,211 @@ class HQByteEventTrackerTest : public Test {
 };
 
 /**
- * Test when first and last body byte are written in the same buffer
+ * Test when first and last body byte are written in the same buffer.
  */
 TEST_F(HQByteEventTrackerTest, FirstLastBodyByteSingleWrite) {
-  uint64_t firstBodyByteOffset = 1;
-  uint64_t lastBodyByteOffset = 10;
+  const uint64_t firstBodyByteOffset = 1;
+  const uint64_t lastBodyByteOffset = 10;
 
-  EXPECT_EQ(0, txn_.getNumPendingByteEvents());
+  InSequence s;
+
+  // first and last byte events created
   byteEventTracker_->addFirstBodyByteEvent(firstBodyByteOffset, &txn_);
   byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
   EXPECT_EQ(2, txn_.getNumPendingByteEvents());
 
+  // first and last byte written
   EXPECT_CALL(transportCallback_, firstByteFlushed());
-  quic::QuicSocket::ByteEventCallback* fbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(firstBodyByteOffset, &fbbTxQuicByteEventCallback);
-
+  auto fbbTxCbHandler = expectRegisterTxCallback(firstBodyByteOffset);
+  auto fbbAckCbHandler = expectRegisterDeliveryCallback(firstBodyByteOffset);
   EXPECT_CALL(transportCallback_, lastByteFlushed());
-  quic::QuicSocket::ByteEventCallback* lbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(lastBodyByteOffset, &lbbTxQuicByteEventCallback);
+  auto lbbTxCbHandler = expectRegisterTxCallback(lastBodyByteOffset);
+  auto lbbAckCbHandler = expectRegisterDeliveryCallback(lastBodyByteOffset);
 
   byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
-  ASSERT_THAT(fbbTxQuicByteEventCallback, NotNull());
-  ASSERT_THAT(lbbTxQuicByteEventCallback, NotNull());
+  ASSERT_THAT(fbbTxCbHandler, NotNull());
+  ASSERT_THAT(fbbAckCbHandler, NotNull());
+  ASSERT_THAT(lbbTxCbHandler, NotNull());
+  ASSERT_THAT(lbbAckCbHandler, NotNull());
   Mock::VerifyAndClearExpectations(&socket_);
   Mock::VerifyAndClearExpectations(&transportCallback_);
-  EXPECT_EQ(2, txn_.getNumPendingByteEvents());
+  EXPECT_EQ(4, txn_.getNumPendingByteEvents());
 
   EXPECT_CALL(transportCallback_,
               trackedByteEventTX(getByteEventMatcher(
                   ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
-  fbbTxQuicByteEventCallback->onByteEvent(
-      QuicByteEvent{.id = streamId_,
-                    .offset = firstBodyByteOffset,
-                    .type = QuicByteEventType::TX});
-  Mock::VerifyAndClearExpectations(&transportCallback_);
+  (*fbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
+  (*fbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
 
   EXPECT_CALL(transportCallback_,
               trackedByteEventTX(getByteEventMatcher(
                   ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
-  lbbTxQuicByteEventCallback->onByteEvent(
-      QuicByteEvent{.id = streamId_,
-                    .offset = lastBodyByteOffset,
-                    .type = QuicByteEventType::TX});
-  Mock::VerifyAndClearExpectations(&transportCallback_);
+  (*lbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
+  (*lbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
 
   EXPECT_EQ(0, txn_.getNumPendingByteEvents());
 }
 
 /**
- * Test when first and last body byte are written in separate buffers
+ * Test when first and last body byte are written in separate buffers.
  */
 TEST_F(HQByteEventTrackerTest, FirstLastBodyByteSeparateWrites) {
-  uint64_t firstBodyByteOffset = 1;
-  uint64_t lastBodyByteOffset = 10;
-  uint64_t firstWriteBytes = 5; // bytes written on first write
+  const uint64_t firstBodyByteOffset = 1;
+  const uint64_t lastBodyByteOffset = 10;
+  const uint64_t firstWriteBytes = 5; // bytes written on first write
 
-  EXPECT_EQ(0, txn_.getNumPendingByteEvents());
+  InSequence s;
+
+  // first and last byte events created
   byteEventTracker_->addFirstBodyByteEvent(firstBodyByteOffset, &txn_);
   byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
   EXPECT_EQ(2, txn_.getNumPendingByteEvents());
 
+  // first byte written
   EXPECT_CALL(transportCallback_, firstByteFlushed());
-  quic::QuicSocket::ByteEventCallback* fbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(firstBodyByteOffset, &fbbTxQuicByteEventCallback);
+  auto fbbTxCbHandler = expectRegisterTxCallback(firstBodyByteOffset);
+  auto fbbAckCbHandler = expectRegisterDeliveryCallback(firstBodyByteOffset);
+  byteEventTracker_->processByteEvents(byteEventTracker_, firstWriteBytes);
+  Mock::VerifyAndClearExpectations(&socket_);
+  Mock::VerifyAndClearExpectations(&transportCallback_);
+  EXPECT_EQ(3, txn_.getNumPendingByteEvents());
+  ASSERT_THAT(fbbTxCbHandler, NotNull());
+  ASSERT_THAT(fbbAckCbHandler, NotNull());
+
+  // last byte written
+  EXPECT_CALL(transportCallback_, lastByteFlushed());
+  auto lbbTxCbHandler = expectRegisterTxCallback(lastBodyByteOffset);
+  auto lbbAckCbHandler = expectRegisterDeliveryCallback(lastBodyByteOffset);
+  byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
+  Mock::VerifyAndClearExpectations(&socket_);
+  Mock::VerifyAndClearExpectations(&transportCallback_);
+  EXPECT_EQ(4, txn_.getNumPendingByteEvents());
+  ASSERT_THAT(lbbTxCbHandler, NotNull());
+  ASSERT_THAT(lbbAckCbHandler, NotNull());
+
+  // TX of first and last byte
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventTX(getByteEventMatcher(
+                  ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
+  (*fbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventTX(getByteEventMatcher(
+                  ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
+  (*lbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+
+  // ACK of first and last byte
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
+  (*fbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
+  (*lbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
+
+  EXPECT_EQ(0, txn_.getNumPendingByteEvents());
+}
+
+/**
+ * Test when first and last body byte are written in separate buffers.
+ *
+ * TX and ACK events are interleaved and extra bytes beyond the last byte
+ * are reported written.
+ */
+TEST_F(HQByteEventTrackerTest,
+       FirstLastBodyByteSeparateWritesInterleavedExtraBytes) {
+  const uint64_t firstBodyByteOffset = 1;
+  const uint64_t lastBodyByteOffset = 10;
+  const uint64_t firstWriteBytes = 5; // bytes written on first write
+
+  // first byte event created and byte written
+  byteEventTracker_->addFirstBodyByteEvent(firstBodyByteOffset, &txn_);
+  EXPECT_CALL(transportCallback_, firstByteFlushed());
+  auto fbbTxCbHandler = expectRegisterTxCallback(firstBodyByteOffset);
+  auto fbbAckCbHandler = expectRegisterDeliveryCallback(firstBodyByteOffset);
   byteEventTracker_->processByteEvents(byteEventTracker_, firstWriteBytes);
   Mock::VerifyAndClearExpectations(&socket_);
   Mock::VerifyAndClearExpectations(&transportCallback_);
   EXPECT_EQ(2, txn_.getNumPendingByteEvents());
+  ASSERT_THAT(fbbTxCbHandler, NotNull());
+  ASSERT_THAT(fbbAckCbHandler, NotNull());
 
-  EXPECT_CALL(transportCallback_, lastByteFlushed());
-  quic::QuicSocket::ByteEventCallback* lbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(lastBodyByteOffset, &lbbTxQuicByteEventCallback);
-  byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
-  Mock::VerifyAndClearExpectations(&socket_);
-  Mock::VerifyAndClearExpectations(&transportCallback_);
-  EXPECT_EQ(2, txn_.getNumPendingByteEvents());
-
-  ASSERT_THAT(fbbTxQuicByteEventCallback, NotNull());
-  ASSERT_THAT(lbbTxQuicByteEventCallback, NotNull());
-
+  // TX and ACK of first byte
   EXPECT_CALL(transportCallback_,
               trackedByteEventTX(getByteEventMatcher(
                   ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
-  fbbTxQuicByteEventCallback->onByteEvent(
-      QuicByteEvent{.id = streamId_,
-                    .offset = firstBodyByteOffset,
-                    .type = QuicByteEventType::TX});
-  Mock::VerifyAndClearExpectations(&transportCallback_);
+  (*fbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
+  (*fbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
 
+  // last byte event created and byte written
+  byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
+  EXPECT_CALL(transportCallback_, lastByteFlushed());
+  auto lbbTxCbHandler = expectRegisterTxCallback(lastBodyByteOffset);
+  auto lbbAckCbHandler = expectRegisterDeliveryCallback(lastBodyByteOffset);
+  byteEventTracker_->processByteEvents(byteEventTracker_,
+                                       lastBodyByteOffset + 40);
+  Mock::VerifyAndClearExpectations(&socket_);
+  Mock::VerifyAndClearExpectations(&transportCallback_);
+  EXPECT_EQ(2, txn_.getNumPendingByteEvents());
+  ASSERT_THAT(lbbTxCbHandler, NotNull());
+  ASSERT_THAT(lbbAckCbHandler, NotNull());
+
+  // TX and ACK of last byte
   EXPECT_CALL(transportCallback_,
               trackedByteEventTX(getByteEventMatcher(
                   ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
-  lbbTxQuicByteEventCallback->onByteEvent(
-      QuicByteEvent{.id = streamId_,
-                    .offset = lastBodyByteOffset,
-                    .type = QuicByteEventType::TX});
-  Mock::VerifyAndClearExpectations(&transportCallback_);
+  (*lbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
+  (*lbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
 
   EXPECT_EQ(0, txn_.getNumPendingByteEvents());
 }
@@ -180,48 +311,130 @@ TEST_F(HQByteEventTrackerTest, FirstLastBodyByteSeparateWrites) {
  * Test when the first and last body byte have the same offset (single byte txn)
  */
 TEST_F(HQByteEventTrackerTest, FirstLastBodyByteSingleByte) {
-  uint64_t firstBodyByteOffset = 1;
-  uint64_t lastBodyByteOffset = firstBodyByteOffset;
+  const uint64_t firstBodyByteOffset = 1;
+  const uint64_t lastBodyByteOffset = firstBodyByteOffset;
 
-  EXPECT_EQ(0, txn_.getNumPendingByteEvents());
+  InSequence s; // required due to same EXPECT_CALL triggered twice
+
+  // first byte event created and byte written
   byteEventTracker_->addFirstBodyByteEvent(firstBodyByteOffset, &txn_);
   byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
   EXPECT_EQ(2, txn_.getNumPendingByteEvents());
 
-  InSequence s; // required due to same EXPECT_CALL triggered twice
-
   EXPECT_CALL(transportCallback_, firstByteFlushed());
-  quic::QuicSocket::ByteEventCallback* fbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(firstBodyByteOffset, &fbbTxQuicByteEventCallback);
-
+  auto fbbTxCbHandler = expectRegisterTxCallback(firstBodyByteOffset);
+  auto fbbAckCbHandler = expectRegisterDeliveryCallback(firstBodyByteOffset);
   EXPECT_CALL(transportCallback_, lastByteFlushed());
-  quic::QuicSocket::ByteEventCallback* lbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(lastBodyByteOffset, &lbbTxQuicByteEventCallback);
+  auto lbbTxCbHandler = expectRegisterTxCallback(lastBodyByteOffset);
+  auto lbbAckCbHandler = expectRegisterDeliveryCallback(lastBodyByteOffset);
 
   byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
-  ASSERT_THAT(fbbTxQuicByteEventCallback, NotNull());
-  ASSERT_THAT(lbbTxQuicByteEventCallback, NotNull());
+  EXPECT_EQ(4, txn_.getNumPendingByteEvents());
   Mock::VerifyAndClearExpectations(&socket_);
   Mock::VerifyAndClearExpectations(&transportCallback_);
-  EXPECT_EQ(2, txn_.getNumPendingByteEvents());
+  ASSERT_THAT(fbbTxCbHandler, NotNull());
+  ASSERT_THAT(fbbAckCbHandler, NotNull());
+  ASSERT_THAT(lbbTxCbHandler, NotNull());
+  ASSERT_THAT(lbbAckCbHandler, NotNull());
 
+  // TX of first and last byte
   EXPECT_CALL(transportCallback_,
               trackedByteEventTX(getByteEventMatcher(
                   ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
-  fbbTxQuicByteEventCallback->onByteEvent(
-      QuicByteEvent{.id = streamId_,
-                    .offset = firstBodyByteOffset,
-                    .type = QuicByteEventType::TX});
-  Mock::VerifyAndClearExpectations(&transportCallback_);
-
+  (*fbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
   EXPECT_CALL(transportCallback_,
               trackedByteEventTX(getByteEventMatcher(
                   ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
-  lbbTxQuicByteEventCallback->onByteEvent(
-      QuicByteEvent{.id = streamId_,
-                    .offset = lastBodyByteOffset,
-                    .type = QuicByteEventType::TX});
+  (*lbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+
+  // ACK of first and last byte
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
+  (*fbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
+  (*lbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
+
+  EXPECT_EQ(0, txn_.getNumPendingByteEvents());
+}
+
+/**
+ * Test when the first and last body byte have the same offset (single byte txn)
+ *
+ * Offset is zero.
+ */
+TEST_F(HQByteEventTrackerTest, FirstLastBodyByteSingleByteZeroOffset) {
+  const uint64_t firstBodyByteOffset = 0;
+  const uint64_t lastBodyByteOffset = firstBodyByteOffset;
+
+  InSequence s; // required due to same EXPECT_CALL triggered twice
+
+  // first byte event created and byte written
+  byteEventTracker_->addFirstBodyByteEvent(firstBodyByteOffset, &txn_);
+  byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
+  EXPECT_EQ(2, txn_.getNumPendingByteEvents());
+
+  EXPECT_CALL(transportCallback_, firstByteFlushed());
+  auto fbbTxCbHandler = expectRegisterTxCallback(firstBodyByteOffset);
+  auto fbbAckCbHandler = expectRegisterDeliveryCallback(firstBodyByteOffset);
+  EXPECT_CALL(transportCallback_, lastByteFlushed());
+  auto lbbTxCbHandler = expectRegisterTxCallback(lastBodyByteOffset);
+  auto lbbAckCbHandler = expectRegisterDeliveryCallback(lastBodyByteOffset);
+
+  byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
+  EXPECT_EQ(4, txn_.getNumPendingByteEvents());
+  Mock::VerifyAndClearExpectations(&socket_);
   Mock::VerifyAndClearExpectations(&transportCallback_);
+  ASSERT_THAT(fbbTxCbHandler, NotNull());
+  ASSERT_THAT(fbbAckCbHandler, NotNull());
+  ASSERT_THAT(lbbTxCbHandler, NotNull());
+  ASSERT_THAT(lbbAckCbHandler, NotNull());
+
+  // TX of first and last byte
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventTX(getByteEventMatcher(
+                  ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
+  (*fbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventTX(getByteEventMatcher(
+                  ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
+  (*lbbTxCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::TX});
+
+  // ACK of first and last byte
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::FIRST_BYTE, firstBodyByteOffset)));
+  (*fbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = firstBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
+  EXPECT_CALL(transportCallback_,
+              trackedByteEventAck(getByteEventMatcher(
+                  ByteEvent::EventType::LAST_BYTE, lastBodyByteOffset)));
+  (*lbbAckCbHandler)
+      ->onByteEvent(QuicByteEvent{.id = streamId_,
+                                  .offset = lastBodyByteOffset,
+                                  .type = QuicByteEventType::ACK});
 
   EXPECT_EQ(0, txn_.getNumPendingByteEvents());
 }
@@ -230,65 +443,95 @@ TEST_F(HQByteEventTrackerTest, FirstLastBodyByteSingleByte) {
  * Test when the QUIC byte events are canceled after registration
  */
 TEST_F(HQByteEventTrackerTest, FirstLastBodyByteCancellation) {
-  uint64_t firstBodyByteOffset = 1;
-  uint64_t lastBodyByteOffset = 10;
+  const uint64_t firstBodyByteOffset = 1;
+  const uint64_t lastBodyByteOffset = 10;
 
-  EXPECT_EQ(0, txn_.getNumPendingByteEvents());
+  InSequence s;
+
+  // first byte event created and byte written
   byteEventTracker_->addFirstBodyByteEvent(firstBodyByteOffset, &txn_);
-  byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
-  EXPECT_EQ(2, txn_.getNumPendingByteEvents());
+  EXPECT_EQ(1, txn_.getNumPendingByteEvents());
 
   EXPECT_CALL(transportCallback_, firstByteFlushed());
-  quic::QuicSocket::ByteEventCallback* fbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(firstBodyByteOffset, &fbbTxQuicByteEventCallback);
-
-  EXPECT_CALL(transportCallback_, lastByteFlushed());
-  quic::QuicSocket::ByteEventCallback* lbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(lastBodyByteOffset, &lbbTxQuicByteEventCallback);
-
-  byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
-  ASSERT_THAT(fbbTxQuicByteEventCallback, NotNull());
-  ASSERT_THAT(lbbTxQuicByteEventCallback, NotNull());
+  auto fbbTxCbHandler = expectRegisterTxCallback(firstBodyByteOffset);
+  auto fbbAckCbHandler = expectRegisterDeliveryCallback(firstBodyByteOffset);
+  byteEventTracker_->processByteEvents(byteEventTracker_, firstBodyByteOffset);
   Mock::VerifyAndClearExpectations(&socket_);
   Mock::VerifyAndClearExpectations(&transportCallback_);
   EXPECT_EQ(2, txn_.getNumPendingByteEvents());
+  ASSERT_THAT(fbbTxCbHandler, NotNull());
+  ASSERT_THAT(fbbAckCbHandler, NotNull());
+
+  // last byte event created and byte written
+  byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
+  EXPECT_EQ(3, txn_.getNumPendingByteEvents());
+
+  EXPECT_CALL(transportCallback_, lastByteFlushed());
+  auto lbbTxCbHandler = expectRegisterTxCallback(lastBodyByteOffset);
+  auto lbbAckCbHandler = expectRegisterDeliveryCallback(lastBodyByteOffset);
+  byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
+  Mock::VerifyAndClearExpectations(&socket_);
+  Mock::VerifyAndClearExpectations(&transportCallback_);
+  EXPECT_EQ(4, txn_.getNumPendingByteEvents());
+  ASSERT_THAT(lbbTxCbHandler, NotNull());
+  ASSERT_THAT(lbbAckCbHandler, NotNull());
 
   EXPECT_CALL(transportCallback_, trackedByteEventTX(_)).Times(0);
-  fbbTxQuicByteEventCallback->onByteEventCanceled(QuicByteEvent{
-      .id = streamId_, .offset = 1, .type = QuicByteEventType::TX});
+  (*fbbTxCbHandler)
+      ->onByteEventCanceled(QuicByteEvent{.id = streamId_,
+                                          .offset = firstBodyByteOffset,
+                                          .type = QuicByteEventType::TX});
   Mock::VerifyAndClearExpectations(&transportCallback_);
 
   EXPECT_CALL(transportCallback_, trackedByteEventTX(_)).Times(0);
-  lbbTxQuicByteEventCallback->onByteEventCanceled(QuicByteEvent{
-      .id = streamId_, .offset = 1, .type = QuicByteEventType::TX});
+  (*lbbTxCbHandler)
+      ->onByteEventCanceled(QuicByteEvent{.id = streamId_,
+                                          .offset = lastBodyByteOffset,
+                                          .type = QuicByteEventType::TX});
+  Mock::VerifyAndClearExpectations(&transportCallback_);
+
+  EXPECT_CALL(transportCallback_, trackedByteEventAck(_)).Times(0);
+  (*fbbAckCbHandler)
+      ->onByteEventCanceled(QuicByteEvent{.id = streamId_,
+                                          .offset = firstBodyByteOffset,
+                                          .type = QuicByteEventType::ACK});
+  Mock::VerifyAndClearExpectations(&transportCallback_);
+
+  EXPECT_CALL(transportCallback_, trackedByteEventAck(_)).Times(0);
+  (*lbbAckCbHandler)
+      ->onByteEventCanceled(QuicByteEvent{.id = streamId_,
+                                          .offset = lastBodyByteOffset,
+                                          .type = QuicByteEventType::ACK});
   Mock::VerifyAndClearExpectations(&transportCallback_);
 
   EXPECT_EQ(0, txn_.getNumPendingByteEvents());
 }
 
 /**
- * Test when registration of QUIC byte events fails
+ * Test when registration of QUIC byte events fails.
+ *
+ * Callbacks should be deleted, and thus there should be no error about leaks.
  */
 TEST_F(HQByteEventTrackerTest, FirstLastBodyByteErrorOnRegistration) {
-  uint64_t firstBodyByteOffset = 1;
-  uint64_t lastBodyByteOffset = 10;
+  const uint64_t firstBodyByteOffset = 1;
+  const uint64_t lastBodyByteOffset = 10;
 
-  EXPECT_EQ(0, txn_.getNumPendingByteEvents());
+  // first and last byte events created
   byteEventTracker_->addFirstBodyByteEvent(firstBodyByteOffset, &txn_);
   byteEventTracker_->addLastByteEvent(&txn_, lastBodyByteOffset);
   EXPECT_EQ(2, txn_.getNumPendingByteEvents());
 
+  // first and last byte written
   EXPECT_CALL(transportCallback_, firstByteFlushed());
-  quic::QuicSocket::ByteEventCallback* fbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(firstBodyByteOffset,
-                           &fbbTxQuicByteEventCallback,
-                           folly::makeUnexpected(quic::LocalErrorCode()));
-
+  auto fbbTxCbHandler = expectRegisterTxCallback(
+      firstBodyByteOffset, folly::makeUnexpected(quic::LocalErrorCode()));
+  auto fbbAckCbHandler = expectRegisterDeliveryCallback(
+      firstBodyByteOffset, folly::makeUnexpected(quic::LocalErrorCode()));
   EXPECT_CALL(transportCallback_, lastByteFlushed());
-  quic::QuicSocket::ByteEventCallback* lbbTxQuicByteEventCallback = nullptr;
-  expectRegisterTxCallback(lastBodyByteOffset,
-                           &lbbTxQuicByteEventCallback,
-                           folly::makeUnexpected(quic::LocalErrorCode()));
+  auto lbbTxCbHandler = expectRegisterTxCallback(
+      lastBodyByteOffset, folly::makeUnexpected(quic::LocalErrorCode()));
+  auto lbbAckCbHandler = expectRegisterDeliveryCallback(
+      lastBodyByteOffset, folly::makeUnexpected(quic::LocalErrorCode()));
 
   byteEventTracker_->processByteEvents(byteEventTracker_, lastBodyByteOffset);
   Mock::VerifyAndClearExpectations(&socket_);

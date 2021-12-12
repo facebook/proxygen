@@ -51,6 +51,7 @@ void HQByteEventTracker::onByteEventWrittenToSocket(const ByteEvent& event) {
   const auto& streamOffset = event.getByteOffset();
   switch (event.eventType_) {
     case ByteEvent::FIRST_BYTE:
+      FOLLY_FALLTHROUGH;
     case ByteEvent::LAST_BYTE: {
       // install TX callback
       {
@@ -61,7 +62,16 @@ void HQByteEventTracker::onByteEventWrittenToSocket(const ByteEvent& event) {
           delete cb;
         }
       }
-      // TODO(bschlinker): install ACK/delivery callbacks here
+      // install ACK callback
+      {
+        auto cb = new HQTransportByteEvent(streamOffset, event.eventType_, txn);
+        auto ret =
+            socket_->registerDeliveryCallback(streamId_, streamOffset, cb);
+        if (ret.hasError()) {
+          // failed to install callback; destroy
+          delete cb;
+        }
+      }
       break;
     }
     default:
