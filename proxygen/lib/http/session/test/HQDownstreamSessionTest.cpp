@@ -837,7 +837,7 @@ std::tuple<size_t, size_t, size_t> estimateResponseSize(bool isHq,
     }
     codec->generateBody(estimateSizeBuf,
                         txn,
-                        folly::IOBuf::copyBuffer(folly::range(buf)),
+                        folly::IOBuf::copyBuffer(buf),
                         HTTPCodec::NoPadding,
                         false);
     if (chunking) {
