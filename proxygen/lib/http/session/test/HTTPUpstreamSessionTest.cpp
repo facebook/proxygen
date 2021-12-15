@@ -514,8 +514,6 @@ TEST_F(SPDY3UpstreamSessionTest, IngressGoawaySessionError) {
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
 
-  InSequence enforceOrder;
-
   auto handler1 = openTransaction();
   auto handler2 = openTransaction();
   handler2->expectGoaway();
