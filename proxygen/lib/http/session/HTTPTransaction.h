@@ -946,7 +946,7 @@ class HTTPTransaction
    * Invoked by the handlers that are interested in tracking
    * performance stats.
    */
-  void setTransportCallback(TransportCallback* cb) {
+  virtual void setTransportCallback(TransportCallback* cb) {
     transportCallback_ = cb;
   }
 

@@ -481,6 +481,7 @@ class MockHTTPTransaction : public HTTPTransaction {
                HTTPTransaction*(HTTPPushTransactionHandler*, ProxygenError*));
   MOCK_METHOD1(setReceiveWindow, void(uint32_t));
   MOCK_CONST_METHOD0(getReceiveWindow, const Window&());
+  MOCK_METHOD1(setTransportCallback, void(HTTPTransaction::TransportCallback*));
 
   MOCK_METHOD1(addWaitingForReplaySafety,
                void(folly::AsyncTransport::ReplaySafetyCallback*));
