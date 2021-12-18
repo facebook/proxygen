@@ -120,6 +120,9 @@ class HTTPSessionAcceptor
                        wangle::SecureTransportType secureTransportType,
                        const wangle::TransportInfo& tinfo) override;
 
+  virtual void startSession(HTTPSessionBase& session) {
+    session.startNow();
+  }
   virtual size_t dropIdleConnections(size_t num);
 
   virtual void onSessionCreationError(ProxygenError /*error*/) {

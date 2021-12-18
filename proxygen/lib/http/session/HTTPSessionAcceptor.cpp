@@ -121,7 +121,7 @@ void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
   }
   session->setSessionStats(downstreamSessionStats_);
   Acceptor::addConnection(session);
-  session->startNow();
+  startSession(*session);
 }
 
 size_t HTTPSessionAcceptor::dropIdleConnections(size_t num) {
