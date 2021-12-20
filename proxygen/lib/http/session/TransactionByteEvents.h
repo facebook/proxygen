@@ -17,8 +17,9 @@ class TransactionByteEvent : public ByteEvent {
  public:
   TransactionByteEvent(uint64_t byteNo,
                        EventType eventType,
-                       HTTPTransaction* txn)
-      : ByteEvent(byteNo, eventType), txn_(txn) {
+                       HTTPTransaction* txn,
+                       ByteEvent::Callback callback = nullptr)
+      : ByteEvent(byteNo, eventType, callback), txn_(txn) {
     txn_->incrementPendingByteEvents();
   }
 
@@ -58,24 +59,25 @@ class TimestampByteEvent
     virtual void timeoutExpired(TimestampByteEvent* event) noexcept = 0;
   };
 
-  TimestampByteEvent(TimestampByteEvent::Callback* callback,
+  TimestampByteEvent(TimestampByteEvent::Callback* asyncTimeoutCallback,
                      TimestampType timestampType,
                      uint64_t byteNo,
                      EventType eventType,
-                     HTTPTransaction* txn)
-      : TransactionByteEvent(byteNo, eventType, txn),
+                     HTTPTransaction* txn,
+                     ByteEvent::Callback callback = nullptr)
+      : TransactionByteEvent(byteNo, eventType, txn, callback),
         timestampType_(timestampType),
-        callback_(callback) {
+        asyncTimeoutCallback_(asyncTimeoutCallback) {
   }
 
   void timeoutExpired() noexcept override {
-    callback_->timeoutExpired(this);
+    asyncTimeoutCallback_->timeoutExpired(this);
   }
 
   const TimestampType timestampType_;
 
  private:
-  Callback* callback_;
+  Callback* asyncTimeoutCallback_;
 };
 
 } // namespace proxygen

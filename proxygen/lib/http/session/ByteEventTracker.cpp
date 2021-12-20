@@ -68,7 +68,9 @@ bool ByteEventTracker::processByteEvents(std::shared_ptr<ByteEventTracker> self,
     if (callback_) {
       callback_->onTxnByteEventWrittenToBuf(event);
     }
-
+    if (event.callback_) {
+      event.callback_(event);
+    }
     VLOG(5) << " removing ByteEvent " << event;
     // explicitly remove from the list, in case delete event triggers a
     // callback that would absorb this ByteEventTracker.
@@ -89,24 +91,28 @@ size_t ByteEventTracker::drainByteEvents() {
 }
 
 void ByteEventTracker::addLastByteEvent(HTTPTransaction* txn,
-                                        uint64_t byteNo) noexcept {
+                                        uint64_t byteNo,
+                                        ByteEvent::Callback callback) noexcept {
   VLOG(5) << " adding last byte event for " << byteNo;
   TransactionByteEvent* event =
-      new TransactionByteEvent(byteNo, ByteEvent::LAST_BYTE, txn);
+      new TransactionByteEvent(byteNo, ByteEvent::LAST_BYTE, txn, callback);
   byteEvents_.push_back(*event);
 }
 
-void ByteEventTracker::addTrackedByteEvent(HTTPTransaction* txn,
-                                           uint64_t byteNo) noexcept {
+void ByteEventTracker::addTrackedByteEvent(
+    HTTPTransaction* txn,
+    uint64_t byteNo,
+    ByteEvent::Callback callback) noexcept {
   VLOG(5) << " adding tracked byte event for " << byteNo;
   TransactionByteEvent* event =
-      new TransactionByteEvent(byteNo, ByteEvent::TRACKED_BYTE, txn);
+      new TransactionByteEvent(byteNo, ByteEvent::TRACKED_BYTE, txn, callback);
   byteEvents_.push_back(*event);
 }
 
 void ByteEventTracker::addPingByteEvent(size_t pingSize,
                                         TimePoint timestamp,
-                                        uint64_t bytesScheduled) {
+                                        uint64_t bytesScheduled,
+                                        ByteEvent::Callback callback) {
   // register a byte event on ping reply sent, and adjust the byteOffset_
   // for others by one ping size
   uint64_t offset = bytesScheduled + pingSize;
@@ -121,7 +127,7 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
     }
   }
 
-  ByteEvent* be = new PingByteEvent(offset, timestamp);
+  ByteEvent* be = new PingByteEvent(offset, timestamp, callback);
   if (i == byteEvents_.rend()) {
     byteEvents_.push_front(*be);
   } else if (i == byteEvents_.rbegin()) {
@@ -134,17 +140,19 @@ void ByteEventTracker::addPingByteEvent(size_t pingSize,
 }
 
 void ByteEventTracker::addFirstBodyByteEvent(uint64_t offset,
-                                             HTTPTransaction* txn) {
+                                             HTTPTransaction* txn,
+                                             ByteEvent::Callback callback) {
   byteEvents_.push_back(
-      *new TransactionByteEvent(offset, ByteEvent::FIRST_BYTE, txn));
+      *new TransactionByteEvent(offset, ByteEvent::FIRST_BYTE, txn, callback));
 }
 
 void ByteEventTracker::addFirstHeaderByteEvent(uint64_t offset,
-                                               HTTPTransaction* txn) {
+                                               HTTPTransaction* txn,
+                                               ByteEvent::Callback callback) {
   // onWriteSuccess() is called after the entire header has been written.
   // It does not catch partial write case.
-  byteEvents_.push_back(
-      *new TransactionByteEvent(offset, ByteEvent::FIRST_HEADER_BYTE, txn));
+  byteEvents_.push_back(*new TransactionByteEvent(
+      offset, ByteEvent::FIRST_HEADER_BYTE, txn, callback));
 }
 
 } // namespace proxygen

@@ -53,13 +53,20 @@ class ByteEventTrackerTest : public Test {
 };
 
 TEST_F(ByteEventTrackerTest, Ping) {
-  byteEventTracker_->addPingByteEvent(10, proxygen::getCurrentTime(), 0);
+  auto pingByteEventCb = [](ByteEvent& event) {
+    EXPECT_EQ(event.getType(), ByteEvent::PING_REPLY_SENT);
+  };
+  byteEventTracker_->addPingByteEvent(
+      10, proxygen::getCurrentTime(), 0, pingByteEventCb);
   EXPECT_CALL(callback_, onPingReplyLatency(_));
   byteEventTracker_->processByteEvents(byteEventTracker_, 10);
 }
 
 TEST_F(ByteEventTrackerTest, Ttlb) {
-  byteEventTracker_->addLastByteEvent(&txn_, 10);
+  auto lastBodyByteEventCb = [](ByteEvent& event) {
+    EXPECT_EQ(event.getType(), ByteEvent::LAST_BYTE);
+  };
+  byteEventTracker_->addLastByteEvent(&txn_, 10, lastBodyByteEventCb);
   EXPECT_CALL(transportCallback_, headerBytesGenerated(_)); // sendAbort calls?
   txn_.sendAbort(); // put it in a state for detach
   EXPECT_CALL(transportCallback_, lastByteFlushed());
@@ -69,5 +76,24 @@ TEST_F(ByteEventTrackerTest, Ttlb) {
           Property(&ByteEvent::getByteOffset, 10),
           Property(&ByteEvent::getType, ByteEvent::EventType::LAST_BYTE))));
   EXPECT_CALL(transport_, detach(_));
+  byteEventTracker_->processByteEvents(byteEventTracker_, 10);
+}
+
+class MockTrackedByteEventCb {
+ public:
+  MockTrackedByteEventCb() = default;
+  MOCK_METHOD1(onEventByteCallback, void(const ByteEvent&));
+};
+
+TEST_F(ByteEventTrackerTest, TrackBytes) {
+  MockTrackedByteEventCb mockCB;
+  EXPECT_CALL(mockCB, onEventByteCallback(_)).Times(2);
+  auto trackedByteEventCb = [&](ByteEvent& event) {
+    EXPECT_EQ(event.getType(), ByteEvent::TRACKED_BYTE);
+    mockCB.onEventByteCallback(event);
+  };
+  byteEventTracker_->addTrackedByteEvent(&txn_, 10, trackedByteEventCb);
+  byteEventTracker_->addTrackedByteEvent(
+      &txn_, 10, trackedByteEventCb); // same offset
   byteEventTracker_->processByteEvents(byteEventTracker_, 10);
 }

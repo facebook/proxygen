@@ -55,7 +55,8 @@ void HQByteEventTracker::onByteEventWrittenToSocket(const ByteEvent& event) {
     case ByteEvent::LAST_BYTE: {
       // install TX callback
       {
-        auto cb = new HQTransportByteEvent(streamOffset, event.eventType_, txn);
+        auto cb = new HQTransportByteEvent(
+            streamOffset, event.eventType_, txn, nullptr);
         auto ret = socket_->registerTxCallback(streamId_, streamOffset, cb);
         if (ret.hasError()) {
           // failed to install callback; destroy
@@ -64,7 +65,8 @@ void HQByteEventTracker::onByteEventWrittenToSocket(const ByteEvent& event) {
       }
       // install ACK callback
       {
-        auto cb = new HQTransportByteEvent(streamOffset, event.eventType_, txn);
+        auto cb = new HQTransportByteEvent(
+            streamOffset, event.eventType_, txn, nullptr);
         auto ret =
             socket_->registerDeliveryCallback(streamId_, streamOffset, cb);
         if (ret.hasError()) {

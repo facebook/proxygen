@@ -19,26 +19,41 @@ class MockByteEventTracker : public ByteEventTracker {
       : ByteEventTracker(callback) {
   }
 
-  MOCK_METHOD3(addPingByteEvent, void(size_t, TimePoint, uint64_t));
-  MOCK_METHOD2(addFirstBodyByteEvent, void(uint64_t, HTTPTransaction*));
-  MOCK_METHOD2(addFirstHeaderByteEvent, void(uint64_t, HTTPTransaction*));
+  MOCK_METHOD4(addPingByteEvent,
+               void(size_t, TimePoint, uint64_t, ByteEvent::Callback));
+  MOCK_METHOD3(addFirstBodyByteEvent,
+               void(uint64_t, HTTPTransaction*, ByteEvent::Callback));
+  MOCK_METHOD3(addFirstHeaderByteEvent,
+               void(uint64_t, HTTPTransaction*, ByteEvent::Callback));
   MOCK_METHOD0(drainByteEvents, size_t());
   MOCK_METHOD2(processByteEvents,
                bool(std::shared_ptr<ByteEventTracker>, uint64_t));
-  GMOCK_METHOD2_(
-      , noexcept, , addTrackedByteEvent, void(HTTPTransaction*, uint64_t));
-  GMOCK_METHOD2_(
-      , noexcept, , addLastByteEvent, void(HTTPTransaction*, uint64_t));
   GMOCK_METHOD3_(,
+                 noexcept,
+                 ,
+                 addTrackedByteEvent,
+                 void(HTTPTransaction*, uint64_t, ByteEvent::Callback));
+  GMOCK_METHOD3_(,
+                 noexcept,
+                 ,
+                 addLastByteEvent,
+                 void(HTTPTransaction*, uint64_t, ByteEvent::Callback));
+  GMOCK_METHOD4_(,
                  noexcept,
                  ,
                  addTxByteEvent,
-                 void(uint64_t, ByteEvent::EventType, HTTPTransaction*));
-  GMOCK_METHOD3_(,
+                 void(uint64_t,
+                      ByteEvent::EventType,
+                      HTTPTransaction*,
+                      ByteEvent::Callback));
+  GMOCK_METHOD4_(,
                  noexcept,
                  ,
                  addAckByteEvent,
-                 void(uint64_t, ByteEvent::EventType, HTTPTransaction*));
+                 void(uint64_t,
+                      ByteEvent::EventType,
+                      HTTPTransaction*,
+                      ByteEvent::Callback));
   MOCK_METHOD4(preSend, uint64_t(bool*, bool*, bool*, uint64_t));
 
   // passthru to callback implementation functions

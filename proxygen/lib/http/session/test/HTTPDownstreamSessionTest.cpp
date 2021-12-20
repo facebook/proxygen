@@ -1233,10 +1233,11 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTiming) {
     handler1->sendChunkedReplyWithBody(200, 100, 100, false);
   });
   // Hold a pending byte event
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
-      .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
-        txn->incrementPendingByteEvents();
-      }));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+      .WillOnce(Invoke(
+          [](HTTPTransaction* txn, uint64_t /*byteNo*/, ByteEvent::Callback) {
+            txn->incrementPendingByteEvents();
+          }));
   sendRequest();
   flushRequestsAndLoop();
   expectResponse();
@@ -1249,7 +1250,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTiming) {
     handler2->sendChunkedReplyWithBody(200, 100, 100, false);
   });
   // This txn processed and destroyed before txn1
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
   handler2->expectDetachTransaction();
 
   sendRequest();
@@ -1305,17 +1306,18 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipeline) {
   handler1->expectEOM([&handler1]() {
     handler1->sendChunkedReplyWithBody(200, 100, 100, false);
   });
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
-      .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
-        txn->incrementPendingByteEvents();
-      }));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+      .WillOnce(Invoke(
+          [](HTTPTransaction* txn, uint64_t /*byteNo*/, ByteEvent::Callback) {
+            txn->incrementPendingByteEvents();
+          }));
   sendRequest();
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
   handler2->expectEOM([&handler2]() {
     handler2->sendChunkedReplyWithBody(200, 100, 100, false);
   });
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
   handler2->expectDetachTransaction();
 
   sendRequest();
@@ -1325,7 +1327,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipeline) {
   handler3->expectEOM([&handler3]() {
     handler3->sendChunkedReplyWithBody(200, 100, 100, false);
   });
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
   handler3->expectDetachTransaction();
   flushRequestsAndLoop();
   expectResponses(3);
@@ -1348,10 +1350,11 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipelineError) {
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1]() { handler1->sendReplyWithBody(200, 100); });
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
-      .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
-        txn->incrementPendingByteEvents();
-      }));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+      .WillOnce(Invoke(
+          [](HTTPTransaction* txn, uint64_t /*byteNo*/, ByteEvent::Callback) {
+            txn->incrementPendingByteEvents();
+          }));
   auto handler2 = addSimpleStrictHandler();
   handler2->expectHeaders();
   handler2->expectEOM();
@@ -1374,7 +1377,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingPipelineError) {
 
   // Now send a reply to 2.  Reads will be resumed and we'll get a 400 for the
   // garbage character
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _));
   handler2->expectDetachTransaction();
   handler2->sendReplyWithBody(200, 100);
   HTTPSession::DestructorGuard g(httpSession_);
@@ -1398,10 +1401,11 @@ TEST_F(HTTPDownstreamSessionTest, HttpWithAckTimingConnError) {
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1]() { handler1->sendReplyWithBody(200, 100); });
-  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _))
-      .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
-        txn->incrementPendingByteEvents();
-      }));
+  EXPECT_CALL(*byteEventTracker, addLastByteEvent(_, _, _))
+      .WillOnce(Invoke(
+          [](HTTPTransaction* txn, uint64_t /*byteNo*/, ByteEvent::Callback) {
+            txn->incrementPendingByteEvents();
+          }));
 
   // send first request
   sendRequest();
@@ -1822,10 +1826,11 @@ TEST_F(HTTPDownstreamSessionTest, TestTrackedByteEventTracker) {
   });
 
   EXPECT_CALL(*byteEventTracker,
-              addTrackedByteEvent(_, expectedTrackedByteOffset))
-      .WillOnce(Invoke([](HTTPTransaction* txn, uint64_t /*byteNo*/) {
-        txn->incrementPendingByteEvents();
-      }));
+              addTrackedByteEvent(_, expectedTrackedByteOffset, _))
+      .WillOnce(Invoke(
+          [](HTTPTransaction* txn, uint64_t /*byteNo*/, ByteEvent::Callback) {
+            txn->incrementPendingByteEvents();
+          }));
   sendRequest();
   flushRequestsAndLoop();
   handler1->expectDetachTransaction();
@@ -1890,19 +1895,21 @@ TEST_P(OnTxnByteEventWrittenToBufTest, TestOnTxnByteEventWrittenToBuf) {
   transport_->setRawBytesWritten(params.byteOffset);
   if (params.timestampTx) {
     EXPECT_CALL(*byteEventTracker,
-                addTxByteEvent(params.byteOffset, params.eventType, &txn))
+                addTxByteEvent(params.byteOffset, params.eventType, &txn, _))
         .WillOnce(Invoke([&](uint64_t /*offset*/,
                              ByteEvent::EventType /*eventType*/,
-                             HTTPTransaction* /*txn*/) {
+                             HTTPTransaction* /*txn*/,
+                             ByteEvent::Callback) {
           // do nothing
         }));
   }
   if (params.timestampAck) {
     EXPECT_CALL(*byteEventTracker,
-                addAckByteEvent(params.byteOffset, params.eventType, &txn))
+                addAckByteEvent(params.byteOffset, params.eventType, &txn, _))
         .WillOnce(Invoke([&](uint64_t /*offset*/,
                              ByteEvent::EventType /*eventType*/,
-                             HTTPTransaction* /*txn*/) {
+                             HTTPTransaction* /*txn*/,
+                             ByteEvent::Callback) {
           // do nothing
         }));
   }

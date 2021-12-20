@@ -78,15 +78,25 @@ class ByteEventTracker {
    */
   void addPingByteEvent(size_t pingSize,
                         TimePoint timestamp,
-                        uint64_t bytesScheduledBeforePing);
+                        uint64_t bytesScheduledBeforePing,
+                        ByteEvent::Callback callback = nullptr);
 
-  virtual void addFirstBodyByteEvent(uint64_t offset, HTTPTransaction* txn);
+  virtual void addFirstBodyByteEvent(uint64_t offset,
+                                     HTTPTransaction* txn,
+                                     ByteEvent::Callback callback = nullptr);
 
-  virtual void addFirstHeaderByteEvent(uint64_t offset, HTTPTransaction* txn);
+  virtual void addFirstHeaderByteEvent(uint64_t offset,
+                                       HTTPTransaction* txn,
+                                       ByteEvent::Callback callback = nullptr);
 
-  virtual void addLastByteEvent(HTTPTransaction* txn, uint64_t byteNo) noexcept;
-  virtual void addTrackedByteEvent(HTTPTransaction* txn,
-                                   uint64_t byteNo) noexcept;
+  virtual void addLastByteEvent(
+      HTTPTransaction* txn,
+      uint64_t byteNo,
+      ByteEvent::Callback callback = nullptr) noexcept;
+  virtual void addTrackedByteEvent(
+      HTTPTransaction* txn,
+      uint64_t byteNo,
+      ByteEvent::Callback callback = nullptr) noexcept;
 
   /**
    * Disables socket timestamp tracking and drains any related events.
@@ -102,13 +112,15 @@ class ByteEventTracker {
   /** The base ByteEventTracker cannot track NIC TX. */
   virtual void addTxByteEvent(uint64_t /*offset*/,
                               ByteEvent::EventType /*eventType*/,
-                              HTTPTransaction* /*txn*/) {
+                              HTTPTransaction* /*txn*/,
+                              ByteEvent::Callback = nullptr) {
   }
 
   /** The base ByteEventTracker cannot track ACKs. */
   virtual void addAckByteEvent(uint64_t /*offset*/,
                                ByteEvent::EventType /*eventType*/,
-                               HTTPTransaction* /*txn*/) {
+                               HTTPTransaction* /*txn*/,
+                               ByteEvent::Callback = nullptr) {
   }
 
   /**

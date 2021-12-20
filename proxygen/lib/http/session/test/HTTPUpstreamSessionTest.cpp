@@ -1086,10 +1086,11 @@ TEST_F(HTTPUpstreamSessionTest, 10Requests) {
 TEST_F(HTTPUpstreamSessionTest, TestFirstHeaderByteEventTracker) {
   auto byteEventTracker = setMockByteEventTracker();
 
-  EXPECT_CALL(*byteEventTracker, addFirstHeaderByteEvent(_, _))
-      .WillOnce(Invoke([](uint64_t /*byteNo*/, HTTPTransaction* txn) {
-        txn->incrementPendingByteEvents();
-      }));
+  EXPECT_CALL(*byteEventTracker, addFirstHeaderByteEvent(_, _, _))
+      .WillOnce(Invoke(
+          [](uint64_t /*byteNo*/, HTTPTransaction* txn, ByteEvent::Callback) {
+            txn->incrementPendingByteEvents();
+          }));
 
   InSequence enforceOrder;
 

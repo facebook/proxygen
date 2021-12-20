@@ -26,14 +26,17 @@ class ByteEvent {
     TRACKED_BYTE,
     SECOND_TO_LAST_PACKET,
   };
-
+  typedef std::function<void(ByteEvent&)> Callback;
   FOLLY_PUSH_WARNING
   FOLLY_CLANG_DISABLE_WARNING("-Wsigned-enum-bitfield")
-  ByteEvent(uint64_t byteOffset, EventType eventType)
+  ByteEvent(uint64_t byteOffset,
+            EventType eventType,
+            Callback callback = nullptr)
       : eventType_(eventType),
         timestampTx_(false),
         timestampAck_(false),
-        byteOffset_(byteOffset) {
+        byteOffset_(byteOffset),
+        callback_(callback) {
   }
   FOLLY_POP_WARNING
   virtual ~ByteEvent() {
@@ -67,14 +70,17 @@ class ByteEvent {
   bool timestampTx_ : 1;  // packed w/ byteOffset_
   bool timestampAck_ : 1; // packed w/ byteOffset_
   uint64_t byteOffset_ : (8 * sizeof(uint64_t) - 5);
+  Callback callback_{nullptr};
 };
 
 std::ostream& operator<<(std::ostream& os, const ByteEvent& txn);
 
 class PingByteEvent : public ByteEvent {
  public:
-  PingByteEvent(uint64_t byteOffset, TimePoint pingRequestReceivedTime)
-      : ByteEvent(byteOffset, PING_REPLY_SENT),
+  PingByteEvent(uint64_t byteOffset,
+                TimePoint pingRequestReceivedTime,
+                ByteEvent::Callback callback)
+      : ByteEvent(byteOffset, PING_REPLY_SENT, callback),
         pingRequestReceivedTime_(pingRequestReceivedTime) {
   }
 
