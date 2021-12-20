@@ -9,7 +9,7 @@
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 
-#include <proxygen/lib/http/session/ByteEventTracker.h>
+#include <proxygen/lib/http/session/test/ByteEventTrackerMocks.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 
@@ -17,14 +17,6 @@
 
 using namespace testing;
 using namespace proxygen;
-
-class MockByteEventTrackerCallback : public ByteEventTracker::Callback {
- public:
-  GMOCK_METHOD1_(, noexcept, , onPingReplyLatency, void(int64_t));
-  GMOCK_METHOD1_(
-      , noexcept, , onTxnByteEventWrittenToBuf, void(const ByteEvent&));
-  GMOCK_METHOD0_(, noexcept, , onDeleteTxnByteEvent, void());
-};
 
 class ByteEventTrackerTest : public Test {
  public:

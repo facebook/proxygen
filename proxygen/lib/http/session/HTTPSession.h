@@ -27,6 +27,7 @@
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPEvent.h>
+#include <proxygen/lib/http/session/HTTPSessionActivityTracker.h>
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/http/session/SecondaryAuthManagerBase.h>
@@ -61,6 +62,15 @@ class HTTPSession
 
   HTTPTransaction::Transport::Type getType() const noexcept override {
     return HTTPTransaction::Transport::Type::TCP;
+  }
+
+  void setHTTPSessionActivityTracker(std::unique_ptr<HTTPSessionActivityTracker>
+                                         httpSessionActivityTracker) override {
+    if (!getByteEventTracker()) {
+      setByteEventTracker(std::make_shared<ByteEventTracker>(this));
+    }
+    HTTPSessionBase::setHTTPSessionActivityTracker(
+        std::move(httpSessionActivityTracker));
   }
 
   folly::AsyncTransport* getTransport() override {
@@ -972,6 +982,8 @@ class HTTPSession
   HTTP2PriorityQueue::NextEgressResult nextEgressResults_;
 
   std::shared_ptr<ByteEventTracker> byteEventTracker_{nullptr};
+
+  std::unique_ptr<HTTPSessionActivityTracker> httpSessionActivityTracker_;
 
   HTTPTransaction* lastTxn_{nullptr};
 

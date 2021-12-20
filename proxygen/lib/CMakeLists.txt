@@ -166,6 +166,7 @@ add_library(
     http/session/HTTPErrorPage.cpp
     http/session/HTTPEvent.cpp
     http/session/HTTPSessionAcceptor.cpp
+    http/session/HTTPSessionActivityTracker.cpp
     http/session/HTTPSessionBase.cpp
     http/session/HTTPSession.cpp
     http/session/HTTPTransaction.cpp

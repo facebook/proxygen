@@ -126,7 +126,7 @@ void HTTPSessionAcceptor::onNewConnection(folly::AsyncTransport::UniquePtr sock,
 
 size_t HTTPSessionAcceptor::dropIdleConnections(size_t num) {
   // release in batch for more efficiency
-  VLOG(6) << "attempt to release resource";
+  VLOG(6) << "attempt to drop downstream idle connections";
   return downstreamConnectionManager_->dropIdleConnections(num);
 }
 

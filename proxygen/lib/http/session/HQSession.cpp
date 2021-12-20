@@ -2711,6 +2711,10 @@ void HQSession::HQStreamTransportBase::onHeadersComplete(
   } else {
     txn_.onIngressHeadersComplete(std::move(msg));
   }
+  if (auto httpSessionActivityTracker =
+          session_.getHTTPSessionActivityTracker()) {
+    httpSessionActivityTracker->reportActivity();
+  }
 
   // The stream can now receive datagrams: check for any pending datagram and
   // deliver it to the handler
@@ -3241,6 +3245,12 @@ size_t HQSession::HQStreamTransportBase::sendBody(
   bufMeta_.length += body.length;
   uint64_t offset = streamWriteByteOffset();
 
+  if (auto httpSessionActivityTracker =
+          session_.getHTTPSessionActivityTracker()) {
+    httpSessionActivityTracker->addTrackedEgressByteEvent(
+        offset, body.length, &byteEventTracker_, txn);
+  }
+
   if (body.length && !txn->testAndSetFirstByteSent()) {
     byteEventTracker_.addFirstBodyByteEvent(offset + 1, txn);
   }
@@ -3299,6 +3309,11 @@ size_t HQSession::HQStreamTransportBase::sendBody(
                                                       std::move(body),
                                                       HTTPCodec::NoPadding,
                                                       includeEOM);
+  if (auto httpSessionActivityTracker =
+          session_.getHTTPSessionActivityTracker()) {
+    httpSessionActivityTracker->addTrackedEgressByteEvent(
+        offset, encodedSize, &byteEventTracker_, txn);
+  }
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent()) {
     byteEventTracker_.addFirstBodyByteEvent(offset + 1, txn);
   }

@@ -106,6 +106,9 @@ bool HTTPSessionBase::onBodyImpl(std::unique_ptr<folly::IOBuf> chain,
   CHECK_LE(pendingReadSize_,
            std::numeric_limits<uint32_t>::max() - length - padding);
   pendingReadSize_ += length + padding;
+  if (httpSessionActivityTracker_) {
+    httpSessionActivityTracker_->onIngressBody(length + padding);
+  }
   if (sessionStats_) {
     sessionStats_->recordPendingBufferedReadBytes(length + padding);
   }

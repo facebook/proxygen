@@ -102,7 +102,7 @@ HTTPSession::HTTPSession(const WheelTimerInstance& wheelTimer,
       inLoopCallback_(false),
       pendingPause_(false),
       writeBufSplit_(false) {
-  byteEventTracker_ = std::make_shared<ByteEventTracker>(this);
+  setByteEventTracker(std::make_shared<ByteEventTracker>(this));
   initialReceiveWindow_ = receiveStreamWindowSize_ = receiveSessionWindowSize_ =
       codec_->getDefaultWindowSize();
 
@@ -901,6 +901,9 @@ void HTTPSession::onHeadersComplete(HTTPCodec::StreamID streamID,
   // Tell the Transaction to start processing the message now
   // that the full ingress headers have arrived.
   txn->onIngressHeadersComplete(std::move(msg));
+  if (httpSessionActivityTracker_) {
+    httpSessionActivityTracker_->reportActivity();
+  }
 }
 
 void HTTPSession::onBody(HTTPCodec::StreamID streamID,
@@ -1627,6 +1630,10 @@ size_t HTTPSession::sendBody(HTTPTransaction* txn,
                                             includeEOM);
   CHECK(inLoopCallback_);
   bodyBytesPerWriteBuf_ += bodyLen;
+  if (httpSessionActivityTracker_) {
+    httpSessionActivityTracker_->addTrackedEgressByteEvent(
+        offset, encodedSize, byteEventTracker_.get(), txn);
+  }
   if (encodedSize > 0 && !txn->testAndSetFirstByteSent() && byteEventTracker_) {
     byteEventTracker_->addFirstBodyByteEvent(offset + 1, txn);
   }

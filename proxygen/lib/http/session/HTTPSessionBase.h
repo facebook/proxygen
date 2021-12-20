@@ -13,6 +13,7 @@
 #include <folly/io/async/AsyncUDPSocket.h>
 #include <folly/io/async/SSLContext.h>
 #include <proxygen/lib/http/codec/HTTPCodecFilter.h>
+#include <proxygen/lib/http/session/HTTPSessionActivityTracker.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <proxygen/lib/utils/Time.h>
 #include <wangle/acceptor/ManagedConnection.h>
@@ -125,6 +126,15 @@ class HTTPSessionBase : public wangle::ManagedConnection {
 
   virtual ~HTTPSessionBase() override;
 
+  virtual void setHTTPSessionActivityTracker(
+      std::unique_ptr<HTTPSessionActivityTracker> httpSessionActivityTracker) {
+    httpSessionActivityTracker_ = std::move(httpSessionActivityTracker);
+  }
+
+  [[nodiscard]] HTTPSessionActivityTracker* getHTTPSessionActivityTracker()
+      const {
+    return httpSessionActivityTracker_.get();
+  }
   /**
    * Set the read buffer limit to be used for all new HTTPSessionBase objects.
    */
@@ -648,6 +658,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
    * Indicates whether ingress timeout has to be scheduled after EOM is sent.
    */
   bool setIngressTimeoutAfterEom_{false};
+
+  std::unique_ptr<HTTPSessionActivityTracker> httpSessionActivityTracker_;
 
  private:
   // Underlying controller_ is marked as private so that callers must utilize
