@@ -297,7 +297,7 @@ class HTTPTransactionHandler : public TraceEventObserver {
   virtual void onDatagram(std::unique_ptr<folly::IOBuf> /*datagram*/) noexcept {
   }
 
-  virtual ~HTTPTransactionHandler() {
+  virtual ~HTTPTransactionHandler() override {
   }
 };
 

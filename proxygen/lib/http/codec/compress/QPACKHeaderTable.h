@@ -26,7 +26,7 @@ class QPACKHeaderTable : public HeaderTable {
 
   QPACKHeaderTable(uint32_t capacityVal, bool trackReferences);
 
-  ~QPACKHeaderTable() {
+  ~QPACKHeaderTable() override {
   }
   QPACKHeaderTable(const QPACKHeaderTable&) = delete;
   QPACKHeaderTable& operator=(const QPACKHeaderTable&) = delete;

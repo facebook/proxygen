@@ -23,7 +23,7 @@ class TransactionByteEvent : public ByteEvent {
     txn_->incrementPendingByteEvents();
   }
 
-  ~TransactionByteEvent() {
+  ~TransactionByteEvent() override {
     txn_->decrementPendingByteEvents();
   }
 
