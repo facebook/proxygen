@@ -294,8 +294,6 @@ class HTTPSession
     return draining_;
   }
 
-  virtual void injectTraceEventIntoAllTransactions(TraceEvent& event) override;
-
   bool readsUnpaused() const {
     return reads_ == SocketState::UNPAUSED;
   }

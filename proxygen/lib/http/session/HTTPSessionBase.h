@@ -499,8 +499,6 @@ class HTTPSessionBase : public wangle::ManagedConnection {
     return exHeadersEnabled_;
   }
 
-  virtual void injectTraceEventIntoAllTransactions(TraceEvent&) = 0;
-
   void setConnectionToken(
       const HTTPTransaction::ConnectionToken& token) noexcept {
     connectionToken_ = token;

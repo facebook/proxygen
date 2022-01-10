@@ -454,8 +454,6 @@ class HQSession
   void dumpConnectionState(uint8_t /*loglevel*/) override {
   }
 
-  virtual void injectTraceEventIntoAllTransactions(TraceEvent& event) override;
-
   /*
    * dropConnectionSync drops the connection immediately.
    * This means that when invoked internally may need a destructor guard and
