@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -13,16 +13,17 @@
 #include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <wangle/ssl/SSLContextConfig.h>
 
-namespace quic { namespace samples {
+namespace quic::samples {
 
 using FizzServerContextPtr =
     std::shared_ptr<const fizz::server::FizzServerContext>;
 
 using FizzClientContextPtr = std::shared_ptr<fizz::client::FizzClientContext>;
 
-FizzServerContextPtr createFizzServerContext(const HQParams& params);
+FizzServerContextPtr createFizzServerContext(const HQServerParams& params);
 
-FizzClientContextPtr createFizzClientContext(const HQParams& params);
+FizzClientContextPtr createFizzClientContext(const HQBaseParams& params,
+                                             bool earlyData);
 
-wangle::SSLContextConfig createSSLContext(const HQParams& params);
-}} // namespace quic::samples
+wangle::SSLContextConfig createSSLContext(const HQBaseParams& params);
+} // namespace quic::samples

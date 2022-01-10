@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -29,9 +29,9 @@
 #include <quic/fizz/client/handshake/FizzClientQuicHandshakeContext.h>
 #include <quic/logging/FileQLogger.h>
 
-namespace quic { namespace samples {
+namespace quic::samples {
 
-HQClient::HQClient(const HQParams& params) : params_(params) {
+HQClient::HQClient(const HQToolClientParams& params) : params_(params) {
   if (params_.transportSettings.pacingEnabled) {
     pacingTimer_ = TimerHighRes::newTimer(
         &evb_, params_.transportSettings.pacingTimerTickInterval);
@@ -199,7 +199,8 @@ void HQClient::initializeQuicClient() {
       &evb_,
       std::move(sock),
       quic::FizzClientQuicHandshakeContext::Builder()
-          .setFizzClientContext(createFizzClientContext(params_))
+          .setFizzClientContext(
+              createFizzClientContext(params_, params_.earlyData))
           .setCertificateVerifier(
               std::make_unique<
                   proxygen::InsecureVerifierDangerousDoNotUseInProduction>())
@@ -234,9 +235,9 @@ void HQClient::initializeQLogger() {
   quicClient_->setQLogger(std::move(qLogger));
 }
 
-int startClient(const HQParams& params) {
+int startClient(const HQToolClientParams& params) {
   HQClient client(params);
   return client.start();
 }
 
-}} // namespace quic::samples
+} // namespace quic::samples

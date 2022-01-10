@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -12,7 +12,55 @@
 #include <boost/algorithm/string/split.hpp>
 #include <string>
 
-namespace quic { namespace samples {
+namespace {
+std::atomic<bool> shouldPassHealthChecks{true};
+}
+
+DEFINE_string(static_root,
+              "",
+              "Path to serve static files from. Disabled if empty.");
+
+namespace quic::samples {
+
+using namespace proxygen;
+
+HTTPTransactionHandler* Dispatcher::getRequestHandler(HTTPMessage* msg) {
+  DCHECK(msg);
+  auto path = msg->getPathAsStringPiece();
+  if (path == "/" || path == "/echo") {
+    return new EchoHandler(params_);
+  }
+  if (path == "/continue") {
+    return new ContinueHandler(params_);
+  }
+  if (path.size() > 1 && path[0] == '/' && std::isdigit(path[1])) {
+    return new RandBytesGenHandler(params_);
+  }
+  if (path == "/status") {
+    return new HealthCheckHandler(shouldPassHealthChecks, params_);
+  }
+  if (path == "/status_ok") {
+    shouldPassHealthChecks = true;
+    return new HealthCheckHandler(true, params_);
+  }
+  if (path == "/status_fail") {
+    shouldPassHealthChecks = false;
+    return new HealthCheckHandler(true, params_);
+  }
+  if (path == "/wait" || path == "/release") {
+    return new WaitReleaseHandler(
+        folly::EventBaseManager::get()->getEventBase(), params_);
+  }
+  if (boost::algorithm::starts_with(path, "/push")) {
+    return new ServerPushHandler(params_);
+  }
+
+  if (!FLAGS_static_root.empty()) {
+    return new StaticFileHandler(params_, FLAGS_static_root);
+  }
+
+  return new DummyHandler(params_);
+}
 
 class WaitReleaseHandler;
 
@@ -241,4 +289,4 @@ void ServerPushHandler::onEOM() noexcept {
 void ServerPushHandler::onError(const proxygen::HTTPException& error) noexcept {
   VLOG(10) << "ServerPushHandler::onError error=" << error.what();
 }
-}} // namespace quic::samples
+} // namespace quic::samples

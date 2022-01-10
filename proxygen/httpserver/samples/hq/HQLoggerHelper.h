@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -17,7 +17,7 @@
  * Allows adding FileQLogger objects to transport, which will output logs
  * prior to destrution
  */
-namespace quic { namespace samples {
+namespace quic::samples {
 
 class HQLoggerHelper : public ::quic::FileQLogger {
  public:
@@ -31,4 +31,4 @@ class HQLoggerHelper : public ::quic::FileQLogger {
   std::string outputPath_;
   bool pretty_;
 };
-}} // namespace quic::samples
+} // namespace quic::samples

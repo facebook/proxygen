@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -13,6 +13,8 @@
 #include <fizz/server/AeadTicketCipher.h>
 #include <fizz/server/CertManager.h>
 #include <fizz/server/TicketCodec.h>
+#include <folly/FileUtil.h>
+#include <folly/Random.h>
 #include <string>
 
 namespace {
@@ -138,8 +140,8 @@ VnFqMCnjdeFhc/LA6rx3ALn2jfDj9jQR0QGRouFA7NbYZFx7Uj3HOw0/
 )";
 }; // namespace
 
-namespace quic { namespace samples {
-FizzServerContextPtr createFizzServerContext(const HQParams& params) {
+namespace quic::samples {
+FizzServerContextPtr createFizzServerContext(const HQServerParams& params) {
 
   std::string certData = kDefaultCertData;
   if (!params.certificateFilePath.empty()) {
@@ -185,7 +187,8 @@ FizzServerContextPtr createFizzServerContext(const HQParams& params) {
   return serverCtx;
 }
 
-FizzClientContextPtr createFizzClientContext(const HQParams& params) {
+FizzClientContextPtr createFizzClientContext(const HQBaseParams& params,
+                                             bool earlyData) {
   auto ctx = std::make_shared<fizz::client::FizzClientContext>();
 
   std::string certData = kDefaultCertData;
@@ -201,7 +204,7 @@ FizzClientContextPtr createFizzClientContext(const HQParams& params) {
   ctx->setSupportedAlpns(params.supportedAlpns);
   ctx->setDefaultShares(
       {fizz::NamedGroup::x25519, fizz::NamedGroup::secp256r1});
-  ctx->setSendEarlyData(params.earlyData);
+  ctx->setSendEarlyData(earlyData);
   auto mgr = std::make_shared<fizz::CertDecompressionManager>();
   mgr->setDecompressors(
       {std::make_shared<fizz::ZstdCertificateDecompressor>(),
@@ -210,7 +213,7 @@ FizzClientContextPtr createFizzClientContext(const HQParams& params) {
   return ctx;
 }
 
-wangle::SSLContextConfig createSSLContext(const HQParams& params) {
+wangle::SSLContextConfig createSSLContext(const HQBaseParams& params) {
   wangle::SSLContextConfig sslCfg;
   sslCfg.isDefault = true;
   sslCfg.clientVerification =
@@ -224,4 +227,4 @@ wangle::SSLContextConfig createSSLContext(const HQParams& params) {
   return sslCfg;
 }
 
-}} // namespace quic::samples
+} // namespace quic::samples

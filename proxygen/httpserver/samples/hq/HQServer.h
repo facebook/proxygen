@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,139 +11,29 @@
 #include <iostream>
 #include <string>
 
-#include <folly/io/async/EventBaseManager.h>
-#include <proxygen/httpserver/HTTPServer.h>
-#include <proxygen/httpserver/HTTPTransactionHandlerAdaptor.h>
-#include <proxygen/httpserver/RequestHandlerFactory.h>
 #include <proxygen/httpserver/samples/hq/HQParams.h>
-#include <proxygen/httpserver/samples/hq/SampleHandlers.h>
-#include <proxygen/lib/http/session/HQDownstreamSession.h>
-#include <proxygen/lib/http/session/HTTPSessionController.h>
-#include <proxygen/lib/utils/WheelTimerInstance.h>
-#include <quic/congestion_control/ServerCongestionControllerFactory.h>
-#include <quic/logging/FileQLogger.h>
+#include <proxygen/lib/http/session/HTTPTransaction.h>
 #include <quic/server/QuicCcpThreadLauncher.h>
 #include <quic/server/QuicServer.h>
-#include <quic/server/QuicServerTransport.h>
-#include <quic/server/QuicSharedUDPSocketFactory.h>
 
-namespace quic { namespace samples {
+namespace proxygen {
+class HQSession;
+}
+
+namespace quic::samples {
 
 using HTTPTransactionHandlerProvider =
-    std::function<proxygen::HTTPTransactionHandler*(proxygen::HTTPMessage*,
-                                                    const HQParams&)>;
-
-/**
- * The Dispatcher object is responsible for spawning
- * new request handlers, based on the path.
- */
-class Dispatcher {
- public:
-  static proxygen::HTTPTransactionHandler* getRequestHandler(
-      proxygen::HTTPMessage* /* msg */, const HQParams& /* params */);
-};
-
-/**
- * HQSessionController creates new HQSession objects
- *
- * Each HQSessionController object can create only a single session
- * object. TODO: consider changing it.
- *
- * Once the created session object finishes (and detaches), the
- * associated HQController is destroyed. There is no need to
- * explicitly keep track of these objects.
- */
-class HQSessionController
-    : public proxygen::HTTPSessionController
-    , proxygen::HTTPSession::InfoCallback {
- public:
-  using StreamData = std::pair<folly::IOBufQueue, bool>;
-
-  explicit HQSessionController(const HQParams& /* params */,
-                               const HTTPTransactionHandlerProvider&);
-
-  ~HQSessionController() override = default;
-
-  // Creates new HQDownstreamSession object, initialized with params_
-  proxygen::HQSession* createSession();
-
-  // Starts the newly created session. createSession must have been called.
-  void startSession(std::shared_ptr<quic::QuicSocket> /* sock */);
-
-  void onDestroy(const proxygen::HTTPSessionBase& /* session*/) override;
-
-  proxygen::HTTPTransactionHandler* getRequestHandler(
-      proxygen::HTTPTransaction& /*txn*/,
-      proxygen::HTTPMessage* /* msg */) override;
-
-  proxygen::HTTPTransactionHandler* getParseErrorHandler(
-      proxygen::HTTPTransaction* /*txn*/,
-      const proxygen::HTTPException& /*error*/,
-      const folly::SocketAddress& /*localAddress*/) override;
-
-  proxygen::HTTPTransactionHandler* getTransactionTimeoutHandler(
-      proxygen::HTTPTransaction* /*txn*/,
-      const folly::SocketAddress& /*localAddress*/) override;
-
-  void attachSession(proxygen::HTTPSessionBase* /*session*/) override;
-
-  // The controller instance will be destroyed after this call.
-  void detachSession(const proxygen::HTTPSessionBase* /*session*/) override;
-
-  void onTransportReady(proxygen::HTTPSessionBase* /*session*/) override;
-  void onTransportReady(const proxygen::HTTPSessionBase&) override {
-  }
-
- private:
-  // The owning session. NOTE: this must be a plain pointer to
-  // avoid circular references
-  proxygen::HQSession* session_{nullptr};
-  // Configuration params
-  const HQParams& params_;
-  // Provider of HTTPTransactionHandler, owned by HQServerTransportFactory
-  const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider_;
-
-  void sendKnobFrame(const folly::StringPiece str);
-};
-
-class HQServerTransportFactory : public quic::QuicServerTransportFactory {
- public:
-  explicit HQServerTransportFactory(
-      const HQParams& params,
-      const HTTPTransactionHandlerProvider& httpTransactionHandlerProvider);
-  ~HQServerTransportFactory() override = default;
-
-  // Creates new quic server transport
-  quic::QuicServerTransport::Ptr make(
-      folly::EventBase* evb,
-      std::unique_ptr<folly::AsyncUDPSocket> socket,
-      const folly::SocketAddress& /* peerAddr */,
-      quic::QuicVersion quicVersion,
-      std::shared_ptr<const fizz::server::FizzServerContext> ctx) noexcept
-      override;
-
- private:
-  // Configuration params
-  const HQParams& params_;
-  // Provider of HTTPTransactionHandler
-  HTTPTransactionHandlerProvider httpTransactionHandlerProvider_;
-};
+    std::function<proxygen::HTTPTransactionHandler*(proxygen::HTTPMessage*)>;
 
 class HQServer {
  public:
   explicit HQServer(
-      const HQParams& params,
-      HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
-
-  //  TODO is this needed? can it be invoked in constructor?
-  //  TODO is the params argument needed? why not params_ field?
-  void setTlsSettings(const HQParams& params);
+      HQServerParams params,
+      HTTPTransactionHandlerProvider httpTransactionHandlerProvider,
+      std::function<void(proxygen::HQSession*)> onTransportReadyFn = nullptr);
 
   // Starts the QUIC transport in background thread
   void start();
-
-  // Starts the HTTP server handling loop on the current EVB
-  void run();
 
   // Returns the listening address of the server
   // NOTE: can block until the server has started
@@ -156,46 +46,35 @@ class HQServer {
   void rejectNewConnections(bool reject);
 
  private:
-  const HQParams& params_;
-  folly::EventBase eventbase_;
+  HQServerParams params_;
   std::shared_ptr<quic::QuicServer> server_;
-  folly::Baton<> cv_;
   QuicCcpThreadLauncher quicCcpThreadLauncher_;
 };
 
-class H2Server {
-  class SampleHandlerFactory : public proxygen::RequestHandlerFactory {
-   public:
-    explicit SampleHandlerFactory(
-        const HQParams& params,
-        HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
-
-    void onServerStart(folly::EventBase* /*evb*/) noexcept override;
-
-    void onServerStop() noexcept override;
-
-    proxygen::RequestHandler* onRequest(
-        proxygen::RequestHandler* /* handler */,
-        proxygen::HTTPMessage* /* msg */) noexcept override;
-
-   private:
-    const HQParams& params_;
-    HTTPTransactionHandlerProvider httpTransactionHandlerProvider_;
-  }; // SampleHandlerFactory
-
+class ScopedHQServer {
  public:
-  static std::unique_ptr<proxygen::HTTPServerOptions> createServerOptions(
-      const HQParams& /* params */,
-      HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
-  using AcceptorConfig = std::vector<proxygen::HTTPServer::IPConfig>;
-  static std::unique_ptr<AcceptorConfig> createServerAcceptorConfig(
-      const HQParams& /* params */);
-  // Starts H2 server in a background thread
-  static std::thread run(
-      const HQParams& params,
-      HTTPTransactionHandlerProvider httpTransactionHandlerProvider);
+  static std::unique_ptr<ScopedHQServer> start(
+      const HQServerParams& params,
+      HTTPTransactionHandlerProvider handlerProvider) {
+    return std::make_unique<ScopedHQServer>(params, std::move(handlerProvider));
+  }
+
+  ScopedHQServer(HQServerParams params,
+                 HTTPTransactionHandlerProvider handlerProvider)
+      : server_(std::move(params), std::move(handlerProvider)) {
+    server_.start();
+  }
+
+  ~ScopedHQServer() {
+    server_.stop();
+  }
+
+  [[nodiscard]] const folly::SocketAddress getAddress() const {
+    return server_.getAddress();
+  }
+
+ private:
+  HQServer server_;
 };
 
-void startServer(const HQParams& params);
-
-}} // namespace quic::samples
+} // namespace quic::samples

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -10,8 +10,8 @@
 
 #include <algorithm>
 #include <climits>
+#include <cmath>
 #include <functional>
-#include <math.h>
 #include <mutex>
 #include <random>
 #include <vector>
@@ -25,10 +25,35 @@
 #include <folly/executors/GlobalExecutor.h>
 #include <folly/io/async/AsyncTimeout.h>
 #include <folly/io/async/EventBaseManager.h>
-#include <proxygen/httpserver/samples/hq/HQParams.h>
+#include <proxygen/httpserver/samples/hq/HQServer.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
-namespace quic { namespace samples {
+namespace quic::samples {
+
+/**
+ * The Dispatcher object is responsible for spawning
+ * new request handlers, based on the path.
+ */
+struct HandlerParams {
+  std::string protocol;
+  uint16_t port;
+  std::string httpVersion;
+
+  HandlerParams(std::string pro, uint16_t po, std::string h)
+      : protocol(std::move(pro)), port(po), httpVersion(std::move(h)) {
+  }
+};
+
+class Dispatcher {
+ public:
+  explicit Dispatcher(HandlerParams params) : params_(std::move(params)) {
+  }
+
+  proxygen::HTTPTransactionHandler* getRequestHandler(
+      proxygen::HTTPMessage* /* msg */);
+
+  HandlerParams params_;
+};
 
 using random_bytes_engine =
     std::independent_bits_engine<std::default_random_engine,
@@ -39,7 +64,7 @@ class BaseSampleHandler : public proxygen::HTTPTransactionHandler {
  public:
   BaseSampleHandler() = delete;
 
-  explicit BaseSampleHandler(const HQParams& params) : params_(params) {
+  explicit BaseSampleHandler(const HandlerParams& params) : params_(params) {
   }
 
   void setTransaction(proxygen::HTTPTransaction* txn) noexcept override {
@@ -117,17 +142,18 @@ class BaseSampleHandler : public proxygen::HTTPTransactionHandler {
   }
 
  protected:
-  const std::string& getHttpVersion() const {
-    return params_.httpVersion.canonical;
+  [[nodiscard]] const std::string& getHttpVersion() const {
+    return params_.httpVersion;
   }
 
   proxygen::HTTPTransaction* txn_{nullptr};
-  const HQParams& params_;
+  const HandlerParams& params_;
 };
 
 class EchoHandler : public BaseSampleHandler {
  public:
-  explicit EchoHandler(const HQParams& params) : BaseSampleHandler(params) {
+  explicit EchoHandler(const HandlerParams& params)
+      : BaseSampleHandler(params) {
   }
 
   EchoHandler() = delete;
@@ -208,7 +234,7 @@ class TransportCallbackBase
 
 class ContinueHandler : public EchoHandler {
  public:
-  explicit ContinueHandler(const HQParams& params) : EchoHandler(params) {
+  explicit ContinueHandler(const HandlerParams& params) : EchoHandler(params) {
   }
 
   ContinueHandler() = delete;
@@ -232,7 +258,7 @@ class ContinueHandler : public EchoHandler {
 
 class RandBytesGenHandler : public BaseSampleHandler {
  public:
-  explicit RandBytesGenHandler(const HQParams& params)
+  explicit RandBytesGenHandler(const HandlerParams& params)
       : BaseSampleHandler(params) {
   }
 
@@ -363,7 +389,8 @@ class RandBytesGenHandler : public BaseSampleHandler {
 
 class DummyHandler : public BaseSampleHandler {
  public:
-  explicit DummyHandler(const HQParams& params) : BaseSampleHandler(params) {
+  explicit DummyHandler(const HandlerParams& params)
+      : BaseSampleHandler(params) {
   }
 
   DummyHandler() = delete;
@@ -408,7 +435,7 @@ class DummyHandler : public BaseSampleHandler {
 
 class HealthCheckHandler : public BaseSampleHandler {
  public:
-  HealthCheckHandler(bool healthy, const HQParams& params)
+  HealthCheckHandler(bool healthy, const HandlerParams& params)
       : BaseSampleHandler(params), healthy_(healthy) {
   }
 
@@ -453,7 +480,7 @@ class HealthCheckHandler : public BaseSampleHandler {
 
 class WaitReleaseHandler : public BaseSampleHandler {
  public:
-  WaitReleaseHandler(folly::EventBase* evb, const HQParams& params)
+  WaitReleaseHandler(folly::EventBase* evb, const HandlerParams& params)
       : BaseSampleHandler(params), evb_(evb) {
   }
 
@@ -545,7 +572,7 @@ class ServerPushHandler : public BaseSampleHandler {
   };
 
  public:
-  explicit ServerPushHandler(const HQParams& params)
+  explicit ServerPushHandler(const HandlerParams& params)
       : BaseSampleHandler(params) {
   }
 
@@ -580,8 +607,8 @@ class ServerPushHandler : public BaseSampleHandler {
 
 class StaticFileHandler : public BaseSampleHandler {
  public:
-  explicit StaticFileHandler(const HQParams& params)
-      : BaseSampleHandler(params), staticRoot_(params.staticRoot) {
+  StaticFileHandler(const HandlerParams& params, std::string staticRoot)
+      : BaseSampleHandler(params), staticRoot_(std::move(staticRoot)) {
   }
 
   void onHeadersComplete(
@@ -689,7 +716,7 @@ class StaticFileHandler : public BaseSampleHandler {
 
   std::unique_ptr<folly::File> file_;
   std::atomic<bool> paused_{false};
-  const std::string staticRoot_;
+  std::string staticRoot_;
 };
 
-}} // namespace quic::samples
+} // namespace quic::samples

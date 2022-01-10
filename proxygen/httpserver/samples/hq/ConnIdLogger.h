@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -13,11 +13,10 @@
 #include <cctype>
 #include <folly/Conv.h>
 #include <folly/File.h>
+#include <folly/String.h>
 #include <folly/Synchronized.h>
 #include <memory>
 #include <string>
-
-#include <proxygen/httpserver/samples/hq/HQParams.h>
 
 namespace proxygen {
 
@@ -25,8 +24,8 @@ struct ConnIdLogSink : google::LogSink {
   using FileEntry =
       std::pair<folly::File, std::chrono::system_clock::time_point>;
 
-  ConnIdLogSink(const quic::samples::HQParams& params)
-      : logDir_(params.logdir), prefix_(params.logprefix) {
+  ConnIdLogSink(std::string logDir, std::string logPrefix)
+      : logDir_(std::move(logDir)), prefix_(std::move(logPrefix)) {
   }
 
   void send(google::LogSeverity severity,
@@ -91,7 +90,7 @@ struct ConnIdLogSink : google::LogSink {
     } // else, not for a specific CID
   }
 
-  bool isValid() const {
+  [[nodiscard]] bool isValid() const {
     return !logDir_.empty() && ::access(logDir_.c_str(), W_OK) == 0;
   }
 

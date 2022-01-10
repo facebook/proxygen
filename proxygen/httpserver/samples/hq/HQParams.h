@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -13,22 +13,21 @@
 #include <string>
 #include <vector>
 
+#include <fizz/server/FizzServerContext.h>
 #include <folly/Optional.h>
 #include <folly/SocketAddress.h>
-#include <proxygen/httpclient/samples/curl/CurlClient.h>
-#include <proxygen/httpserver/HTTPServerOptions.h>
-#include <proxygen/httpserver/samples/hq/HQParams.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <proxygen/lib/http/HTTPMethod.h>
+#include <proxygen/lib/http/session/HQSession.h>
 #include <quic/QuicConstants.h>
 #include <quic/fizz/client/handshake/QuicPskCache.h>
-#include <quic/server/QuicServerTransport.h>
+#include <quic/state/TransportSettings.h>
 
-namespace quic { namespace samples {
+namespace quic::samples {
 
 struct HTTPVersion {
-  std::string version;
-  std::string canonical;
+  std::string version{"1.1"};
+  std::string canonical{"http/1.1"};
   uint16_t major{1};
   uint16_t minor{1};
   bool parse(const std::string&);
@@ -36,69 +35,40 @@ struct HTTPVersion {
 
 std::ostream& operator<<(std::ostream& o, const HTTPVersion& v);
 
-enum class HQMode { INVALID, CLIENT, SERVER };
-
-std::ostream& operator<<(std::ostream& o, const HQMode& m);
-
 /**
- * Struct to hold both HTTP/3 and HTTP/2 settings for HQ
- *
- * TODO: Split h2 and h3
+ * Params for both clients and servers
  */
-struct HQParams {
-  // General section
-  HQMode mode;
-  std::string logprefix;
-  std::string logdir;
-  std::string outdir;
-  bool logResponse;
-  bool logResponseHeaders;
-  bool logRuntime;
-
+struct HQBaseParams {
   // Transport section
   std::string host;
-  uint16_t port;
-  std::string protocol;
+  uint16_t port{0};
   folly::Optional<folly::SocketAddress> localAddress;
-  folly::Optional<folly::SocketAddress> remoteAddress;
-  std::string transportVersion;
-  std::vector<quic::QuicVersion> quicVersions;
-  std::vector<std::string> supportedAlpns;
-  std::string localHostname;
-  std::string httpProtocol;
+  std::vector<quic::QuicVersion> quicVersions{
+      quic::QuicVersion::MVFST,
+      quic::QuicVersion::MVFST_EXPERIMENTAL,
+      quic::QuicVersion::QUIC_V1,
+      quic::QuicVersion::QUIC_DRAFT,
+      quic::QuicVersion::QUIC_DRAFT_LEGACY};
+  std::vector<std::string> supportedAlpns{proxygen::kH3,
+                                          proxygen::kHQ,
+                                          proxygen::kH3FBCurrentDraft,
+                                          proxygen::kH3CurrentDraft,
+                                          proxygen::kH3LegacyDraft,
+                                          proxygen::kHQCurrentDraft};
   quic::TransportSettings transportSettings;
   std::string congestionControlName;
   folly::Optional<quic::CongestionControlType> congestionControl;
-  bool earlyData;
-  folly::Optional<int64_t> rateLimitPerThread;
-  std::chrono::milliseconds connectTimeout;
-  std::string ccpConfig;
-  bool sendKnobFrame;
+  bool sendKnobFrame{false};
 
   // HTTP section
-  uint16_t h2port;
-  folly::Optional<folly::SocketAddress> localH2Address;
+  std::string protocol{"h3"};
   HTTPVersion httpVersion;
-  std::string httpHeadersString;
-  proxygen::HTTPHeaders httpHeaders;
-  std::string httpBody;
-  proxygen::HTTPMethod httpMethod;
-  std::vector<folly::StringPiece> httpPaths;
 
-  std::chrono::milliseconds txnTimeout;
-
-  size_t httpServerThreads;
-  std::chrono::milliseconds httpServerIdleTimeout;
-  std::vector<int> httpServerShutdownOn;
-  bool httpServerEnableContentCompression;
-  bool h2cEnabled;
+  std::chrono::milliseconds txnTimeout{std::chrono::seconds(5)};
 
   // QLogger section
   std::string qLoggerPath;
-  bool prettyJson;
-
-  // Static options
-  std::string staticRoot;
+  bool prettyJson{false};
 
   // Fizz options
   std::string certificateFilePath;
@@ -109,8 +79,12 @@ struct HQParams {
 
   // Transport knobs
   std::string transportKnobs;
+};
 
-  bool migrateClient{false};
+struct HQServerParams : public HQBaseParams {
+  size_t serverThreads{0};
+  std::string ccpConfig;
+  folly::Optional<int64_t> rateLimitPerThread;
 };
 
 struct HQInvalidParam {
@@ -121,37 +95,4 @@ struct HQInvalidParam {
 
 using HQInvalidParams = std::vector<HQInvalidParam>;
 
-/**
- * A Builder class for HQParams that will build HQParams from command line
- * parameters processed by GFlag.
- */
-class HQParamsBuilderFromCmdline {
- public:
-  using value_type = std::map<std::string, std::string>::value_type;
-  using initializer_list = std::initializer_list<value_type>;
-
-  explicit HQParamsBuilderFromCmdline(initializer_list);
-
-  bool valid() const noexcept;
-
-  explicit operator bool() const noexcept {
-    return valid();
-  }
-
-  const HQInvalidParams& invalidParams() const noexcept;
-
-  HQParams build() noexcept;
-
- private:
-  HQInvalidParams invalidParams_;
-  HQParams hqParams_;
-};
-
-// Output convenience
-std::ostream& operator<<(std::ostream&, HQParams&);
-
-// Initialized the parameters from the cmdline flags
-const folly::Expected<HQParams, HQInvalidParams> initializeParamsFromCmdline(
-    HQParamsBuilderFromCmdline::initializer_list initial = {});
-
-}} // namespace quic::samples
+} // namespace quic::samples

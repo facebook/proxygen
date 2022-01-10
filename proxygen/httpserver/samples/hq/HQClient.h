@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -11,7 +11,7 @@
 #include <list>
 #include <memory>
 #include <proxygen/httpclient/samples/curl/CurlClient.h>
-#include <proxygen/httpserver/samples/hq/HQParams.h>
+#include <proxygen/httpserver/samples/hq/HQCommandLine.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 #include <quic/common/Timers.h>
 
@@ -24,7 +24,7 @@ namespace samples {
 
 class HQClient : private proxygen::HQSession::ConnectCallback {
  public:
-  explicit HQClient(const HQParams& params);
+  explicit HQClient(const HQToolClientParams& params);
 
   ~HQClient() override = default;
 
@@ -47,7 +47,7 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
 
   void initializeQLogger();
 
-  const HQParams& params_;
+  const HQToolClientParams& params_;
 
   std::shared_ptr<quic::QuicClientTransport> quicClient_;
 
@@ -64,6 +64,6 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
   bool failed_{false};
 };
 
-int startClient(const HQParams& params);
+int startClient(const HQToolClientParams& params);
 } // namespace samples
 } // namespace quic
