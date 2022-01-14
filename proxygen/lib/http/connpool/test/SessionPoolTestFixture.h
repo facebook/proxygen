@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -32,7 +32,7 @@ std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeCodecCommon() {
       .WillRepeatedly(testing::InvokeWithoutArgs([&]() { return txnIdx++; }));
   EXPECT_CALL(*codec, isReusable()).WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(testing::Return(CodecProtocol::SPDY_3_1));
+      .WillRepeatedly(testing::Return(CodecProtocol::HTTP_2));
   return codec;
 }
 
@@ -52,7 +52,7 @@ std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeParallelCodec() {
   EXPECT_CALL(*codec, generateRstStream(testing::_, testing::_, testing::_))
       .WillRepeatedly(testing::Return(1));
   EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(testing::Return(CodecProtocol::SPDY_3_1));
+      .WillRepeatedly(testing::Return(CodecProtocol::HTTP_2));
   return codec;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -292,6 +292,7 @@ class HTTPDownstreamTest : public testing::Test {
     parseOutput(*clientCodec_);
     clientCodec_ = HTTPCodecFactory::getCodec(expectedProtocol,
                                               TransportDirection::UPSTREAM);
+    clientCodec_->setCallback(&callbacks_);
   }
   void expectResponse(uint32_t code, bool expectBody, bool stopParsing = true) {
     expectResponse(
@@ -459,7 +460,6 @@ class HTTPDownstreamTest : public testing::Test {
 
 // Uses TestAsyncTransport
 using HTTPDownstreamSessionTest = HTTPDownstreamTest<HTTP1xCodecPair>;
-using SPDY3DownstreamSessionTest = HTTPDownstreamTest<SPDY3CodecPair>;
 namespace {
 class HTTP2DownstreamSessionTest : public HTTPDownstreamTest<HTTP2CodecPair> {
  public:
@@ -2135,7 +2135,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpRateLimitNormal) {
   cleanup();
 }
 
-TEST_F(SPDY3DownstreamSessionTest, SpdyRateLimitNormal) {
+TEST_F(HTTP2DownstreamSessionTest, RateLimitNormal) {
   // The rate-limiting code grabs the event base from the EventBaseManager,
   // so we need to set it.
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
@@ -2143,6 +2143,7 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyRateLimitNormal) {
   clientCodec_->getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                                                 100000);
   clientCodec_->generateSettings(requests_);
+  clientCodec_->generateWindowUpdate(requests_, 0, 10000);
   sendRequest();
 
   InSequence handlerSequence;
@@ -2180,7 +2181,7 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyRateLimitNormal) {
  * This test will reset the connection while the server is waiting around
  * to send more bytes (so as to keep under the rate limit).
  */
-TEST_F(SPDY3DownstreamSessionTest, SpdyRateLimitRst) {
+TEST_F(HTTP2DownstreamSessionTest, RateLimitRst) {
   // The rate-limiting code grabs the event base from the EventBaseManager,
   // so we need to set it.
   folly::EventBaseManager::get()->setEventBase(&eventBase_, false);
@@ -2481,16 +2482,6 @@ void HTTPDownstreamTest<C>::testSimpleUpgrade(
   gracefulShutdown();
 }
 
-// Upgrade to SPDY/3
-TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNative3) {
-  testSimpleUpgrade("spdy/3", CodecProtocol::SPDY_3, "spdy/3");
-}
-
-// Upgrade to SPDY/3.1
-TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNative31) {
-  testSimpleUpgrade("spdy/3.1", CodecProtocol::SPDY_3_1, "spdy/3.1");
-}
-
 // Upgrade to HTTP/2
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeH2) {
   testSimpleUpgrade("h2c", CodecProtocol::HTTP_2, "h2c");
@@ -2509,29 +2500,27 @@ TEST_F(HTTPDownstreamSessionUpgradeFlowControlTest, UpgradeH2Flowcontrol) {
   testSimpleUpgrade("h2c", CodecProtocol::HTTP_2, "h2c");
 }
 
-// Upgrade to SPDY/3.1 with a non-native proto in the list
+// Upgrade to H2 with a non-native proto in the list
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeUnknown) {
   // This is maybe weird, the client asked for non-native as first choice,
   // but we go native
-  testSimpleUpgrade(
-      "blarf, spdy/3.1, spdy/3", CodecProtocol::SPDY_3_1, "spdy/3.1");
+  testSimpleUpgrade("blarf, h2c, spdy/3", CodecProtocol::HTTP_2, "h2c");
 }
 
 // Upgrade header with extra whitespace
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeWhitespace) {
-  testSimpleUpgrade(
-      " \tspdy/3.1\t , spdy/3", CodecProtocol::SPDY_3_1, "spdy/3.1");
+  testSimpleUpgrade(" \th2c\t , spdy/3", CodecProtocol::HTTP_2, "h2c");
 }
 
 // Upgrade header with random junk
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeJunk) {
   testSimpleUpgrade(
-      ",,,,   ,,\t~^%$(*&@(@$^^*(,spdy/3", CodecProtocol::SPDY_3, "spdy/3");
+      ",,,,   ,,\t~^%$(*&@(@$^^*(,h2c", CodecProtocol::HTTP_2, "h2c");
 }
 
 // Attempt to upgrade on second txn
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeTxn2) {
-  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler1 = addSimpleStrictHandler();
   handler1->expectHeaders();
   handler1->expectEOM([&handler1] { handler1->sendReplyWithBody(200, 100); });
@@ -2545,7 +2534,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeTxn2) {
   handler2->expectEOM([&handler2] { handler2->sendReplyWithBody(200, 100); });
   handler2->expectDetachTransaction();
 
-  sendRequest(getUpgradeRequest("spdy/3"));
+  sendRequest(getUpgradeRequest("h2c"));
   flushRequestsAndLoop();
   expectResponse();
   gracefulShutdown();
@@ -2553,7 +2542,9 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeTxn2) {
 
 // Upgrade on POST
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost) {
-  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  EXPECT_CALL(mockController_, getHeaderIndexingStrategy())
+      .WillOnce(Return(HeaderIndexingStrategy::getDefaultInstance()));
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectBody();
@@ -2561,27 +2552,27 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost) {
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectDetachTransaction();
 
-  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(
       requests_, streamID, makeBuf(10), HTTPCodec::NoPadding, true);
   // cheat and not sending EOM, it's a no-op
   flushRequestsAndLoop();
-  expect101(CodecProtocol::SPDY_3, "spdy/3");
+  expect101(CodecProtocol::HTTP_2, "h2c");
   expectResponse();
   gracefulShutdown();
 }
 
 // Upgrade on POST with a reply that comes before EOM, don't switch protocols
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePostEarlyResp) {
-  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectBody();
   handler->expectEOM();
   handler->expectDetachTransaction();
 
-  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(
       requests_, streamID, makeBuf(10), HTTPCodec::NoPadding, true);
@@ -2591,7 +2582,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePostEarlyResp) {
 }
 
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePostEarlyPartialResp) {
-  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] { handler->sendHeaders(200, 100); });
   handler->expectBody();
@@ -2601,7 +2592,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePostEarlyPartialResp) {
   });
   handler->expectDetachTransaction();
 
-  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(
       requests_, streamID, makeBuf(10), HTTPCodec::NoPadding, true);
@@ -2610,35 +2601,43 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePostEarlyPartialResp) {
   gracefulShutdown();
 }
 
-// Upgrade but with a pipelined HTTP request.  It is parsed as SPDY and
+// Upgrade but with a pipelined HTTP request.  It is parsed as H2 and
 // rejected
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativeExtra) {
-  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  EXPECT_CALL(mockController_, getHeaderIndexingStrategy())
+      .WillOnce(Return(HeaderIndexingStrategy::getDefaultInstance()));
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   EXPECT_CALL(mockController_, onSessionCodecChange(httpSession_));
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
+  handler->expectError();
   handler->expectDetachTransaction();
 
-  sendRequest(getUpgradeRequest("spdy/3"));
+  sendRequest(getUpgradeRequest("h2c"));
+  flushRequests();
   // It's a fatal to send this out on the HTTP1xCodec, so hack it manually
   transport_->addReadEvent(
       "GET / HTTP/1.1\r\n"
-      "Upgrade: spdy/3\r\n"
+      "Upgrade: h2c\r\n"
       "\r\n");
+  HTTPSession::DestructorGuard g(httpSession_);
   flushRequestsAndLoop();
-  expect101(CodecProtocol::SPDY_3, "spdy/3");
-  expectResponse(200, ErrorCode::STREAM_CLOSED);
-  gracefulShutdown();
+  expect101(CodecProtocol::HTTP_2, "h2c");
+  EXPECT_CALL(callbacks_, onGoaway(_, _, _));
+  parseOutput(*clientCodec_);
+  expectDetachSession();
 }
 
 // Upgrade on POST with Expect: 100-Continue.  If the 100 goes out
 // before the EOM is parsed, the 100 will be in HTTP.  This should be the normal
 // case since the client *should* wait a bit for the 100 continue to come back
 // before sending the POST.  But if the 101 is delayed beyond EOM, the 101
-// will come via SPDY.
+// will come via H2.
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost100) {
-  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  EXPECT_CALL(mockController_, getHeaderIndexingStrategy())
+      .WillOnce(Return(HeaderIndexingStrategy::getDefaultInstance()));
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders([&handler] { handler->sendHeaders(100, 0); });
   handler->expectBody();
@@ -2646,19 +2645,21 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost100) {
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectDetachTransaction();
 
-  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
   req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(
       requests_, streamID, makeBuf(10), HTTPCodec::NoPadding, true);
   flushRequestsAndLoop();
-  expect101(CodecProtocol::SPDY_3, "spdy/3", true /* expect 100 continue */);
+  expect101(CodecProtocol::HTTP_2, "h2c", true /* expect 100 continue */);
   expectResponse();
   gracefulShutdown();
 }
 
 TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost100Late) {
-  this->rawCodec_->setAllowedUpgradeProtocols({"spdy/3"});
+  EXPECT_CALL(mockController_, getHeaderIndexingStrategy())
+      .WillOnce(Return(HeaderIndexingStrategy::getDefaultInstance()));
+  this->rawCodec_->setAllowedUpgradeProtocols({"h2c"});
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectBody();
@@ -2669,21 +2670,15 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNativePost100Late) {
   });
   handler->expectDetachTransaction();
 
-  HTTPMessage req = getUpgradeRequest("spdy/3", HTTPMethod::POST, 10);
+  HTTPMessage req = getUpgradeRequest("h2c", HTTPMethod::POST, 10);
   req.getHeaders().add(HTTP_HEADER_EXPECT, "100-continue");
   auto streamID = sendRequest(req, false);
   clientCodec_->generateBody(
       requests_, streamID, makeBuf(10), HTTPCodec::NoPadding, true);
   flushRequestsAndLoop();
-  expect101(CodecProtocol::SPDY_3, "spdy/3");
-  expectResponse(200, ErrorCode::NO_ERROR, true /* expect 100 via SPDY */);
+  expect101(CodecProtocol::HTTP_2, "h2c");
+  expectResponse(200, ErrorCode::NO_ERROR, true /* expect 100 via H2 */);
   gracefulShutdown();
-}
-
-TEST_F(SPDY3DownstreamSessionTest, SpdyPrio) {
-  testPriorities(8);
-
-  cleanup();
 }
 
 // Test sending a GOAWAY while the downstream session is still processing
@@ -2776,7 +2771,7 @@ void HTTPDownstreamTest<C>::testPriorities(uint32_t numPriorities) {
 
 // Verifies that the read timeout is not running when no ingress is expected/
 // required to proceed
-TEST_F(SPDY3DownstreamSessionTest, SpdyTimeout) {
+TEST_F(HTTP2DownstreamSessionTest, H2Timeout) {
   sendRequest();
 
   InSequence handlerSequence;
@@ -2796,7 +2791,7 @@ TEST_F(SPDY3DownstreamSessionTest, SpdyTimeout) {
 
 // Verifies that the read timer is running while a transaction is blocked
 // on a window update
-TEST_F(SPDY3DownstreamSessionTest, SpdyTimeoutWin) {
+TEST_F(HTTP2DownstreamSessionTest, H2TimeoutWin) {
   clientCodec_->getEgressSettings()->setSetting(SettingsId::INITIAL_WINDOW_SIZE,
                                                 500);
   clientCodec_->generateSettings(requests_);
@@ -2953,11 +2948,11 @@ TYPED_TEST_P(HTTPDownstreamTest, TestMaxTxns) {
 }
 
 // Set max streams=1
-// send two spdy requests a few ms apart.
+// send two h2 requests a few ms apart.
 // Block writes
 // generate a complete response for txn=1 before parsing txn=3
 // HTTPSession should allow the txn=3 to be served rather than refusing it
-TEST_F(SPDY3DownstreamSessionTest, SpdyMaxConcurrentStreams) {
+TEST_F(HTTP2DownstreamSessionTest, H2MaxConcurrentStreams) {
   HTTPMessage req = getGetRequest();
   req.setHTTPVersion(1, 0);
   req.setWantsKeepalive(false);
@@ -2992,32 +2987,31 @@ REGISTER_TYPED_TEST_CASE_P(HTTPDownstreamTest,
                            TestMaxTxns,
                            TestMaxTxnOverriding);
 
-typedef ::testing::Types<SPDY3CodecPair, SPDY3_1CodecPair, HTTP2CodecPair>
-    ParallelCodecs;
+using ParallelCodecs = ::testing::Types<HTTP2CodecPair>;
 INSTANTIATE_TYPED_TEST_CASE_P(ParallelCodecs,
                               HTTPDownstreamTest,
                               ParallelCodecs);
 
-class SPDY31DownstreamTest : public HTTPDownstreamTest<SPDY3_1CodecPair> {
+class HTTP2DownstreamSessionFCTest : public HTTPDownstreamTest<HTTP2CodecPair> {
  public:
-  SPDY31DownstreamTest()
-      : HTTPDownstreamTest<SPDY3_1CodecPair>(
-            {-1, -1, 2 * spdy::kInitialWindow}) {
+  HTTP2DownstreamSessionFCTest()
+      : HTTPDownstreamTest<HTTP2CodecPair>(
+            {-1, -1, 2 * http2::kInitialWindow}) {
   }
 };
 
-TEST_F(SPDY31DownstreamTest, TestSessionFlowControl) {
+TEST_F(HTTP2DownstreamSessionFCTest, TestSessionFlowControl) {
   eventBase_.loopOnce();
 
   InSequence sequence;
   EXPECT_CALL(callbacks_, onSettings(_));
-  EXPECT_CALL(callbacks_, onWindowUpdate(0, spdy::kInitialWindow));
+  EXPECT_CALL(callbacks_, onWindowUpdate(0, http2::kInitialWindow));
   parseOutput(*clientCodec_);
 
   cleanup();
 }
 
-TEST_F(SPDY3DownstreamSessionTest, TestEOFOnBlockedStream) {
+TEST_F(HTTP2DownstreamSessionTest, TestEOFOnBlockedStream) {
   sendRequest();
 
   auto handler1 = addSimpleStrictHandler();
@@ -3031,7 +3025,7 @@ TEST_F(SPDY3DownstreamSessionTest, TestEOFOnBlockedStream) {
     // Not optimal to have a different error code here than the session
     // flow control case, but HTTPException direction is immutable and
     // building another one seems not future proof.
-    EXPECT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
+    EXPECT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS_AND_EGRESS);
   });
   handler1->expectDetachTransaction();
 
@@ -3040,7 +3034,7 @@ TEST_F(SPDY3DownstreamSessionTest, TestEOFOnBlockedStream) {
   flushRequestsAndLoop(true, milliseconds(10));
 }
 
-TEST_F(SPDY31DownstreamTest, TestEOFOnBlockedSession) {
+TEST_F(HTTP2DownstreamSessionFCTest, TestEOFOnBlockedSession) {
   HTTPTransaction::setEgressBufferLimit(25000);
   transport_->pauseWrites();
   sendRequest();
@@ -3075,7 +3069,7 @@ TEST_F(SPDY31DownstreamTest, TestEOFOnBlockedSession) {
   flushRequestsAndLoop();
 }
 
-TEST_F(SPDY3DownstreamSessionTest, NewTxnEgressPaused) {
+TEST_F(HTTP2DownstreamSessionTest, NewTxnEgressPaused) {
   // Send 1 request with prio=0
   // Have egress pause while sending the first response
   // Send a second request with prio=1

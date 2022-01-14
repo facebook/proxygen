@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -14,7 +14,6 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
-#include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
 #include <proxygen/lib/http/session/HTTPSession.h>
 
@@ -34,16 +33,6 @@ testing::NiceMock<folly::test::MockAsyncTransport>* newMockTransport(
 struct HTTP1xCodecPair {
   using Codec = HTTP1xCodec;
   static const int version = 1;
-};
-
-struct SPDY3CodecPair {
-  using Codec = SPDYCodec;
-  static const SPDYVersion version = SPDYVersion::SPDY3;
-};
-
-struct SPDY3_1CodecPair {
-  using Codec = SPDYCodec;
-  static const SPDYVersion version = SPDYVersion::SPDY3_1;
 };
 
 struct HTTP2CodecPair {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -9,7 +9,6 @@
 #pragma once
 
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
-#include <proxygen/lib/http/codec/SPDYVersion.h>
 #include <proxygen/lib/services/AcceptorConfiguration.h>
 
 namespace proxygen {
@@ -30,7 +29,6 @@ class HTTPDefaultSessionCodecFactory : public HTTPCodecFactory {
 
  protected:
   const AcceptorConfiguration& accConfig_;
-  folly::Optional<SPDYVersion> alwaysUseSPDYVersion_{};
   folly::Optional<bool> alwaysUseHTTP2_{};
 };
 

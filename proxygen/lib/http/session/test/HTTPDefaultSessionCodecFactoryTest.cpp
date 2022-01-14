@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -12,53 +12,10 @@
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
-#include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 #include <proxygen/lib/services/AcceptorConfiguration.h>
 
 using namespace proxygen;
-
-TEST(HTTPDefaultSessionCodecFactoryTest, GetCodecSPDY) {
-  AcceptorConfiguration conf;
-  // If set directly on the acceptor, we should always return the SPDY version.
-  conf.plaintextProtocol = "spdy/3.1";
-
-  HTTPDefaultSessionCodecFactory factory(conf);
-  auto codec = factory.getCodec(
-      "http/1.1", TransportDirection::UPSTREAM, false /* isTLS */);
-  SPDYCodec* spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());
-  EXPECT_NE(spdyCodec, nullptr);
-  EXPECT_EQ(spdyCodec->getProtocol(), CodecProtocol::SPDY_3_1);
-
-  codec = factory.getCodec(
-      "spdy/3", TransportDirection::UPSTREAM, false /* isTLS */);
-  spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());
-  EXPECT_NE(spdyCodec, nullptr);
-  EXPECT_EQ(spdyCodec->getProtocol(), CodecProtocol::SPDY_3_1);
-
-  conf.plaintextProtocol = "spdy/3";
-
-  HTTPDefaultSessionCodecFactory secondFactory(conf);
-  codec = secondFactory.getCodec(
-      "http/1.1", TransportDirection::UPSTREAM, false /* isTLS */);
-  spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());
-  EXPECT_NE(spdyCodec, nullptr);
-  EXPECT_EQ(spdyCodec->getProtocol(), CodecProtocol::SPDY_3);
-
-  codec = secondFactory.getCodec(
-      "spdy/3.1", TransportDirection::UPSTREAM, false /* isTLS */);
-  spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());
-  EXPECT_NE(spdyCodec, nullptr);
-  EXPECT_EQ(spdyCodec->getProtocol(), CodecProtocol::SPDY_3);
-
-  // On a somewhat contrived example, if TLS we should return the version
-  // negotiated through ALPN.
-  codec = secondFactory.getCodec(
-      "h2", TransportDirection::DOWNSTREAM, true /* isTLS */);
-  HTTP2Codec* httpCodec = dynamic_cast<HTTP2Codec*>(codec.get());
-  EXPECT_NE(httpCodec, nullptr);
-  EXPECT_EQ(httpCodec->getProtocol(), CodecProtocol::HTTP_2);
-}
 
 TEST(HTTPDefaultSessionCodecFactoryTest, GetCodecH2) {
   AcceptorConfiguration conf;
@@ -111,12 +68,6 @@ TEST(HTTPDefaultSessionCodecFactoryTest, GetCodec) {
   HTTP1xCodec* http1Codec = dynamic_cast<HTTP1xCodec*>(codec.get());
   EXPECT_NE(http1Codec, nullptr);
   EXPECT_EQ(http1Codec->getProtocol(), CodecProtocol::HTTP_1_1);
-
-  codec = factory.getCodec(
-      "spdy/3.1", TransportDirection::UPSTREAM, false /* isTLS */);
-  SPDYCodec* spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());
-  EXPECT_NE(spdyCodec, nullptr);
-  EXPECT_EQ(spdyCodec->getProtocol(), CodecProtocol::SPDY_3_1);
 
   codec =
       factory.getCodec("h2", TransportDirection::DOWNSTREAM, false /* isTLS */);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -39,7 +39,7 @@ using namespace std;
 using namespace testing;
 
 const HTTPSettings kDefaultIngressSettings{
-    {SettingsId::INITIAL_WINDOW_SIZE, 65536}};
+    {SettingsId::INITIAL_WINDOW_SIZE, http2::kInitialWindow}};
 const HTTPSettings kIngressCertAuthSettings{
     {SettingsId::SETTINGS_HTTP_CERT_AUTH, 128}};
 HTTPSettings kEgressCertAuthSettings{
@@ -53,6 +53,7 @@ class MockCodecDownstreamTest : public testing::Test {
         transport_(new NiceMock<MockAsyncTransport>()),
         transactionTimeouts_(makeTimeoutSet(&eventBase_)) {
 
+    HTTP2PriorityQueue::setNodeLifetime(std::chrono::milliseconds(2));
     EXPECT_CALL(*transport_, writeChain(_, _, _))
         .WillRepeatedly(Invoke(this, &MockCodecDownstreamTest::onWriteChain));
     EXPECT_CALL(*transport_, good())
@@ -79,11 +80,11 @@ class MockCodecDownstreamTest : public testing::Test {
     EXPECT_CALL(*codec_, supportsStreamFlowControl())
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*codec_, getProtocol())
-        .WillRepeatedly(Return(CodecProtocol::SPDY_3_1));
+        .WillRepeatedly(Return(CodecProtocol::HTTP_2));
     EXPECT_CALL(*codec_, getUserAgent()).WillRepeatedly(ReturnRef(userAgent_));
     EXPECT_CALL(*codec_, setParserPaused(_)).WillRepeatedly(Return());
     EXPECT_CALL(*codec_, supportsSessionFlowControl())
-        .WillRepeatedly(Return(true)); // simulate spdy 3.1
+        .WillRepeatedly(Return(true));
     EXPECT_CALL(*codec_, getIngressSettings())
         .WillRepeatedly(Return(&kDefaultIngressSettings));
     EXPECT_CALL(*codec_, isReusable())
@@ -91,7 +92,8 @@ class MockCodecDownstreamTest : public testing::Test {
     EXPECT_CALL(*codec_, isWaitingToDrain())
         .WillRepeatedly(ReturnPointee(&drainPending_));
     EXPECT_CALL(*codec_, generateSettings(_));
-    EXPECT_CALL(*codec_, getDefaultWindowSize()).WillRepeatedly(Return(65536));
+    EXPECT_CALL(*codec_, getDefaultWindowSize())
+        .WillRepeatedly(Return(http2::kInitialWindow));
     EXPECT_CALL(*codec_, createStream()).WillRepeatedly(InvokeWithoutArgs([&] {
       return pushStreamID_ += 2;
     }));
@@ -718,12 +720,12 @@ TEST_F(MockCodecDownstreamTest, FlowControlAbort) {
 
   codecCallback_->onMessageBegin(HTTPCodec::StreamID(1), req1.get());
   codecCallback_->onHeadersComplete(HTTPCodec::StreamID(1), std::move(req1));
-  EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, spdy::kInitialWindow));
+  EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, http2::kInitialWindow));
   codecCallback_->onBody(
-      HTTPCodec::StreamID(1), makeBuf(spdy::kInitialWindow), 0);
-  EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, spdy::kInitialWindow));
+      HTTPCodec::StreamID(1), makeBuf(http2::kInitialWindow), 0);
+  EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, http2::kInitialWindow));
   codecCallback_->onBody(
-      HTTPCodec::StreamID(1), makeBuf(spdy::kInitialWindow), 0);
+      HTTPCodec::StreamID(1), makeBuf(http2::kInitialWindow), 0);
 
   eventBase_.loop();
 
@@ -785,7 +787,7 @@ TEST_F(MockCodecDownstreamTest, Buffering) {
   eventBase_.loop();
 }
 
-TEST_F(MockCodecDownstreamTest, SpdyWindow) {
+TEST_F(MockCodecDownstreamTest, FlowControlWindow) {
   // Test window updates
   MockHTTPHandler handler1;
   auto req1 = makeGetRequest();
@@ -870,7 +872,7 @@ TEST_F(MockCodecDownstreamTest, SpdyWindow) {
 }
 
 TEST_F(MockCodecDownstreamTest, DoubleResume) {
-  // Test spdy ping mechanism and egress re-ordering
+  // Test ping mechanism and egress re-ordering
   MockHTTPHandler handler1;
   auto req1 = makePostRequest(5);
   auto buf = makeBuf(5);
@@ -926,7 +928,7 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   // control frames still can be processed
   NiceMock<MockHTTPHandler> handler1;
   NiceMock<MockHTTPHandler> handler2;
-  auto wantToWrite = spdy::kInitialWindow + 50000;
+  auto wantToWrite = http2::kInitialWindow + 50000;
   auto wantToWriteStr = folly::to<string>(wantToWrite);
   auto req1 = makeGetRequest();
   auto req2 = makeGetRequest();
@@ -966,8 +968,8 @@ void MockCodecDownstreamTest::testConnFlowControlBlocked(bool timeout) {
   handler1.txn_->sendHeaders(*resp1);
   handler1.txn_->sendBody(makeBuf(wantToWrite)); // conn blocked, stream open
   handler1.txn_->sendEOM();
-  eventBase_.loopOnce();                   // actually send (most of) the body
-  CHECK_EQ(bodyLen, spdy::kInitialWindow); // should have written a full window
+  eventBase_.loopOnce();                    // actually send (most of) the body
+  CHECK_EQ(bodyLen, http2::kInitialWindow); // should have written a full window
 
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
       .WillOnce(Return(&handler2));
@@ -1044,7 +1046,7 @@ TEST_F(MockCodecDownstreamTest, UnpausedLargePost) {
   InSequence enforceOrder;
   NiceMock<MockHTTPHandler> handler1;
   unsigned kNumChunks = 10;
-  auto wantToWrite = spdy::kInitialWindow * kNumChunks;
+  auto wantToWrite = http2::kInitialWindow * kNumChunks;
   auto wantToWriteStr = folly::to<string>(wantToWrite);
   auto req1 = makePostRequest(wantToWrite);
   auto req1Body = makeBuf(wantToWrite);
@@ -1055,10 +1057,10 @@ TEST_F(MockCodecDownstreamTest, UnpausedLargePost) {
 
   EXPECT_CALL(handler1, onHeadersComplete(_));
   for (unsigned i = 0; i < kNumChunks; ++i) {
-    EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, spdy::kInitialWindow));
+    EXPECT_CALL(*codec_, generateWindowUpdate(_, 0, http2::kInitialWindow));
     EXPECT_CALL(handler1,
-                onBodyWithOffset(_, PtrBufHasLen(spdy::kInitialWindow)));
-    EXPECT_CALL(*codec_, generateWindowUpdate(_, 1, spdy::kInitialWindow));
+                onBodyWithOffset(_, PtrBufHasLen(http2::kInitialWindow)));
+    EXPECT_CALL(*codec_, generateWindowUpdate(_, 1, http2::kInitialWindow));
   }
   EXPECT_CALL(handler1, onEOM());
 
@@ -1067,7 +1069,7 @@ TEST_F(MockCodecDownstreamTest, UnpausedLargePost) {
   // Give kNumChunks chunks, each of the maximum window size. We should generate
   // window update for each chunk
   for (unsigned i = 0; i < kNumChunks; ++i) {
-    codecCallback_->onBody(1, makeBuf(spdy::kInitialWindow), 0);
+    codecCallback_->onBody(1, makeBuf(http2::kInitialWindow), 0);
   }
   codecCallback_->onMessageComplete(1, false);
 
@@ -1082,7 +1084,7 @@ TEST_F(MockCodecDownstreamTest, IngressPausedWindowUpdate) {
   InSequence enforceOrder;
   NiceMock<MockHTTPHandler> handler1;
   auto req = makeGetRequest();
-  size_t respSize = spdy::kInitialWindow * 10;
+  size_t respSize = http2::kInitialWindow * 10;
   unique_ptr<HTTPMessage> resp;
   unique_ptr<folly::IOBuf> respBody;
   tie(resp, respBody) = makeResponse(200, respSize);

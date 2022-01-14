@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -21,7 +21,7 @@ namespace proxygen {
 class HTTPCodecPrinter : public PassThroughHTTPCodecFilter {
  public:
   /*
-   * Called from SPDYCodec::parseIngress()
+   * Called from HTTP2Codec::parseIngress()
    *             HTTP2Codec::onIngress()
    * when SPDY and HTTP/2 frame headers are parsed
    */
@@ -32,7 +32,7 @@ class HTTPCodecPrinter : public PassThroughHTTPCodecFilter {
                      uint16_t version = 0) override;
 
   /*
-   * Called from SPDYCodec::failSession()
+   * Called from HTTP2Codec::failSession()
    *             HTTP2Codec::checkConnectionError()
    */
   void onError(StreamID stream,
@@ -40,7 +40,7 @@ class HTTPCodecPrinter : public PassThroughHTTPCodecFilter {
                bool newStream = false) override;
 
   /*
-   * Called from SPDYCodec::parseIngress()
+   * Called from HTTP2Codec::parseIngress()
    *             HTTP2Codec::parseData()
    */
   void onBody(StreamID stream,
@@ -48,32 +48,32 @@ class HTTPCodecPrinter : public PassThroughHTTPCodecFilter {
               uint16_t padding) override;
 
   /*
-   * Called from SPDYCodec::parseIngress()
+   * Called from HTTP2Codec::parseIngress()
    *             HTTP2Codec::handleEndStream()
    */
   void onMessageComplete(StreamID stream, bool upgrade) override;
 
   /*
-   * Called from SPDYCodec::onSynCommon()
+   * Called from HTTP2Codec::onSynCommon()
    *             HTTP2Codec::HTTP2Codec::parseHeadersImpl()
    */
   void onHeadersComplete(StreamID stream,
                          std::unique_ptr<HTTPMessage> msg) override;
 
   /*
-   * Called from SPDYCodec::onRstStream()
+   * Called from HTTP2Codec::onRstStream()
    *             HTTP2Codec::parseRstStream()
    */
   void onAbort(StreamID stream, ErrorCode code) override;
 
   /*
-   * Called from SPDYCodec::onWindowUpdate() with different arguments
+   * Called from HTTP2Codec::onWindowUpdate() with different arguments
    *             HTTP2Codec::parseWindowUpdate()
    */
   void onWindowUpdate(StreamID stream, uint32_t amount) override;
 
   /*
-   * Called from SPDYCodec::onSettings()
+   * Called from HTTP2Codec::onSettings()
    *             HTTP2Codec::parseSettings()
    */
   void onSettings(const SettingsList& settings) override;
@@ -84,7 +84,7 @@ class HTTPCodecPrinter : public PassThroughHTTPCodecFilter {
   void onSettingsAck() override;
 
   /*
-   * Called from SPDYCodec::onGoaway() with different arguments
+   * Called from HTTP2Codec::onGoaway() with different arguments
    *             HTTP2Codec::parseGoaway()
    */
   void onGoaway(uint64_t lastGoodStreamID,
@@ -92,13 +92,13 @@ class HTTPCodecPrinter : public PassThroughHTTPCodecFilter {
                 std::unique_ptr<folly::IOBuf> debugData = nullptr) override;
 
   /*
-   * Called from SPDYCodec::onPing()
+   * Called from HTTP2Codec::onPing()
    *             HTTP2Codec::parsePing()
    */
   void onPingRequest(uint64_t data) override;
 
   /*
-   * Called from SPDYCodec::onPing()
+   * Called from HTTP2Codec::onPing()
    *             HTTP2Codec::parsePing()
    */
   void onPingReply(uint64_t data) override;

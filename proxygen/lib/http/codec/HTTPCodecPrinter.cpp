@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -18,22 +18,6 @@ void HTTPCodecPrinter::onFrameHeader(StreamID stream_id,
                                      uint64_t type,
                                      uint16_t version) {
   switch (call_->getProtocol()) {
-    case CodecProtocol::SPDY_3:
-    case CodecProtocol::SPDY_3_1:
-      if (version > 0) {
-        // Print frame header info of SPDY control frames
-        std::cout << "[CTRL FRAME] version=" << version
-                  << ", flags=" << std::hex << folly::to<unsigned int>(flags)
-                  << std::dec << ", length=" << length << ", type=" << type
-                  << std::endl;
-      } else {
-        // Print frame header info of SPDY data frames and HTTP/2 frames
-        std::cout << "[DATA FRAME] stream_id=" << stream_id
-                  << ", flags=" << std::hex << folly::to<unsigned int>(flags)
-                  << std::dec << ", length=" << length << ", type=" << type
-                  << std::endl;
-      }
-      break;
     case CodecProtocol::HTTP_2:
       std::cout << "[FRAME] stream_id=" << stream_id << ", flags=" << std::hex
                 << folly::to<unsigned int>(flags) << std::dec

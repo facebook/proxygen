@@ -1,4 +1,4 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -98,7 +98,6 @@ add_library(
     http/Window.cpp
     http/codec/CodecProtocol.cpp
     http/codec/CodecUtil.cpp
-    http/codec/compress/GzipHeaderCodec.cpp
     http/codec/compress/HeaderIndexingStrategy.cpp
     http/codec/compress/HeaderTable.cpp
     http/codec/compress/HPACKCodec.cpp
@@ -134,8 +133,6 @@ add_library(
     http/codec/HTTPCodecPrinter.cpp
     http/codec/HTTPParallelCodec.cpp
     http/codec/HTTPSettings.cpp
-    http/codec/SPDYCodec.cpp
-    http/codec/SPDYConstants.cpp
     http/codec/TransportDirection.cpp
     http/connpool/ServerIdleSessionController.cpp
     http/connpool/SessionHolder.cpp

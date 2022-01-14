@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -10,7 +10,6 @@
 
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
-#include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 #include <proxygen/lib/http/session/HTTPErrorPage.h>
 #include <proxygen/lib/http/session/SimpleController.h>

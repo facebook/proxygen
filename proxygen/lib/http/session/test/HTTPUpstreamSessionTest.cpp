@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -403,77 +403,16 @@ class TimeoutableHTTPUpstreamTest : public HTTPUpstreamTest<C> {
 };
 
 using HTTPUpstreamSessionTest = HTTPUpstreamTest<HTTP1xCodecPair>;
-using SPDY3UpstreamSessionTest = HTTPUpstreamTest<SPDY3CodecPair>;
 using HTTP2UpstreamSessionTest = HTTPUpstreamTest<HTTP2CodecPair>;
 
-TEST_F(SPDY3UpstreamSessionTest, ServerPush) {
-  SPDYCodec egressCodec(TransportDirection::DOWNSTREAM, SPDYVersion::SPDY3);
-  folly::IOBufQueue output(folly::IOBufQueue::cacheChainLength());
-
-  HTTPMessage push;
-  push.getHeaders().set("HOST", "www.foo.com");
-  push.setURL("https://www.foo.com/");
-  egressCodec.generatePushPromise(output, 2, push, 1, false, nullptr);
-  auto buf = makeBuf(100);
-  egressCodec.generateBody(
-      output, 2, std::move(buf), HTTPCodec::NoPadding, true /* eom */);
-
-  HTTPMessage resp;
-  resp.setStatusCode(200);
-  resp.setStatusMessage("Ohai");
-  egressCodec.generateHeader(output, 1, resp, false, nullptr);
-  buf = makeBuf(100);
-  egressCodec.generateBody(
-      output, 1, std::move(buf), HTTPCodec::NoPadding, true /* eom */);
-
-  std::unique_ptr<folly::IOBuf> input = output.move();
-  input->coalesce();
-
-  MockHTTPHandler pushHandler;
-
-  InSequence enforceOrder;
-
-  auto handler = openTransaction();
-  EXPECT_CALL(*handler, onPushedTransaction(_))
-      .WillOnce(Invoke([&pushHandler](HTTPTransaction* pushTxn) {
-        pushTxn->setHandler(&pushHandler);
-      }));
-  EXPECT_CALL(pushHandler, setTransaction(_));
-  EXPECT_CALL(pushHandler, onHeadersComplete(_))
-      .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> msg) {
-        EXPECT_EQ(httpSession_->getNumIncomingStreams(), 1);
-        EXPECT_TRUE(msg->getIsChunked());
-        EXPECT_FALSE(msg->getIsUpgraded());
-        EXPECT_EQ(msg->getPathAsStringPiece(), "/");
-        EXPECT_EQ(msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST),
-                  "www.foo.com");
-      }));
-  EXPECT_CALL(pushHandler, onBodyWithOffset(_, _));
-  EXPECT_CALL(pushHandler, onEOM());
-  EXPECT_CALL(pushHandler, detachTransaction());
-
-  handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
-    EXPECT_FALSE(msg->getIsUpgraded());
-    EXPECT_EQ(200, msg->getStatusCode());
-  });
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _));
-  handler->expectEOM();
-  handler->expectDetachTransaction();
-
-  handler->sendRequest();
-  readAndLoop(input->data(), input->length());
-
-  EXPECT_EQ(httpSession_->getNumIncomingStreams(), 0);
-  httpSession_->destroy();
-}
-
-TEST_F(SPDY3UpstreamSessionTest, IngressGoawayAbortUncreatedStreams) {
+TEST_F(HTTP2UpstreamSessionTest, IngressGoawayAbortUncreatedStreams) {
   // Tests whether the session aborts the streams which are not created
   // at the remote end.
 
-  // Create SPDY buf for GOAWAY with last good stream as 0 (no streams created)
-  SPDYCodec egressCodec(TransportDirection::DOWNSTREAM, SPDYVersion::SPDY3);
+  // Create buf for GOAWAY with last good stream as 0 (no streams created)
+  HTTP2Codec egressCodec(TransportDirection::DOWNSTREAM);
   folly::IOBufQueue respBuf{IOBufQueue::cacheChainLength()};
+  egressCodec.generateSettings(respBuf);
   egressCodec.generateGoaway(respBuf, 0, ErrorCode::NO_ERROR);
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
@@ -504,12 +443,13 @@ TEST_F(SPDY3UpstreamSessionTest, IngressGoawayAbortUncreatedStreams) {
   // Session will delete itself after the abort
 }
 
-TEST_F(SPDY3UpstreamSessionTest, IngressGoawaySessionError) {
+TEST_F(HTTP2UpstreamSessionTest, IngressGoawaySessionError) {
   // Tests whether the session aborts non-refused stream
 
-  // Create SPDY buf for GOAWAY with last good stream as 1
-  SPDYCodec egressCodec(TransportDirection::DOWNSTREAM, SPDYVersion::SPDY3);
+  // Create buf for GOAWAY with last good stream as 1
+  HTTP2Codec egressCodec(TransportDirection::DOWNSTREAM);
   folly::IOBufQueue respBuf{IOBufQueue::cacheChainLength()};
+  egressCodec.generateSettings(respBuf);
   egressCodec.generateGoaway(respBuf, 1, ErrorCode::PROTOCOL_ERROR);
   std::unique_ptr<folly::IOBuf> goawayFrame = respBuf.move();
   goawayFrame->coalesce();
@@ -554,7 +494,7 @@ TEST_F(SPDY3UpstreamSessionTest, IngressGoawaySessionError) {
   // Session will delete itself after the abort
 }
 
-TEST_F(SPDY3UpstreamSessionTest, TestUnderLimitOnWriteError) {
+TEST_F(HTTP2UpstreamSessionTest, TestUnderLimitOnWriteError) {
   InSequence enforceOrder;
   auto handler = openTransaction();
 
@@ -578,7 +518,7 @@ TEST_F(SPDY3UpstreamSessionTest, TestUnderLimitOnWriteError) {
   EXPECT_EQ(this->sessionDestroyed_, true);
 }
 
-TEST_F(SPDY3UpstreamSessionTest, TestOverlimitResume) {
+TEST_F(HTTP2UpstreamSessionTest, TestOverlimitResume) {
   HTTPTransaction::setEgressBufferLimit(500);
   auto handler1 = openTransaction();
   auto handler2 = openTransaction();
@@ -1577,7 +1517,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgradeNativeH2) {
   testSimpleUpgrade("h2c", "h2c", CodecProtocol::HTTP_2);
 }
 
-// Upgrade to SPDY/3.1 with a non-native proto in the list
+// Upgrade to h2 with a non-native proto in the list
 TEST_F(HTTPUpstreamSessionTest, HttpUpgradeNativeUnknown) {
   testSimpleUpgrade("blarf, h2c", "h2c", CodecProtocol::HTTP_2);
 }
@@ -1604,7 +1544,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101Unexpected) {
   eventBase_.loop();
   readAndLoop(
       folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
-                        "Upgrade: spdy/3\r\n"
+                        "Upgrade: h2c\r\n"
                         "\r\n"));
   EXPECT_EQ(readCallback_, nullptr);
   EXPECT_TRUE(sessionDestroyed_);
@@ -1617,7 +1557,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101MissingUpgrade) {
   EXPECT_CALL(*handler, onError(_));
   handler->expectDetachTransaction();
 
-  handler->sendRequest(getUpgradeRequest("spdy/3"));
+  handler->sendRequest(getUpgradeRequest("h2c"));
   readAndLoop(
       folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
                         "\r\n"));
@@ -1632,7 +1572,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101BogusHeader) {
   EXPECT_CALL(*handler, onError(_));
   handler->expectDetachTransaction();
 
-  handler->sendRequest(getUpgradeRequest("spdy/3"));
+  handler->sendRequest(getUpgradeRequest("h2c"));
   eventBase_.loop();
   readAndLoop(
       folly::to<string>("HTTP/1.1 101 Switching Protocols\r\n"
@@ -1717,7 +1657,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgradeOnTxn2) {
   handler1->expectDetachTransaction();
 
   auto txn = handler1->txn_;
-  HTTPMessage req = getUpgradeRequest("spdy/3");
+  HTTPMessage req = getUpgradeRequest("h2c");
   txn->sendHeaders(req);
   txn->sendEOM();
   readAndLoop(
@@ -1772,7 +1712,7 @@ TEST_F(HTTPUpstreamRecvStreamTest, UpgradeFlowControl) {
   parseOutput(serverCodec);
 }
 
-class NoFlushUpstreamSessionTest : public HTTPUpstreamTest<SPDY3CodecPair> {
+class NoFlushUpstreamSessionTest : public HTTPUpstreamTest<HTTP2CodecPair> {
  public:
   void onWriteChain(folly::AsyncTransport::WriteCallback* callback,
                     std::shared_ptr<IOBuf>,
@@ -1836,7 +1776,7 @@ class MockHTTPUpstreamTest : public HTTPUpstreamTest<MockHTTPCodecPair> {
         .WillRepeatedly(ReturnPointee(&reusable_));
     EXPECT_CALL(*codec, getDefaultWindowSize()).WillRepeatedly(Return(65536));
     EXPECT_CALL(*codec, getProtocol())
-        .WillRepeatedly(Return(CodecProtocol::SPDY_3_1));
+        .WillRepeatedly(Return(CodecProtocol::HTTP_2));
     EXPECT_CALL(*codec, generateGoaway(_, _, _, _))
         .WillRepeatedly(Invoke([&](IOBufQueue& writeBuf,
                                    HTTPCodec::StreamID lastStream,
@@ -1959,7 +1899,7 @@ class MockHTTP2UpstreamTest : public MockHTTPUpstreamTest {
   void SetUp() override {
     MockHTTPUpstreamTest::SetUp();
 
-    // This class assumes we are doing a test for SPDY or HTTP/2+ where
+    // This class assumes we are doing a test for HTTP/2+ where
     // this function is *not* a no-op. Indicate this via a positive number
     // of bytes being generated for writing RST_STREAM.
 
@@ -3042,5 +2982,5 @@ TEST_F(HTTP2UpstreamSessionTest, HTTPPriority) {
 // Register and instantiate all our type-paramterized tests
 REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest, ImmediateEof);
 
-using AllTypes = ::testing::Types<HTTP1xCodecPair, SPDY3CodecPair>;
+using AllTypes = ::testing::Types<HTTP1xCodecPair, HTTP2CodecPair>;
 INSTANTIATE_TYPED_TEST_CASE_P(AllTypesPrefix, HTTPUpstreamTest, AllTypes);

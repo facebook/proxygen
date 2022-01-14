@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -91,9 +91,11 @@ void HTTPSessionBase::initCodecHeaderIndexingStrategy() {
   // This is done here so that the strategy could be dynamic depending on the
   // session
   if (controller_ && isHTTP2CodecProtocol(codec_->getProtocol())) {
-    HTTP2Codec* h2Codec = static_cast<HTTP2Codec*>(codec_.getChainEndPtr());
-    h2Codec->setHeaderIndexingStrategy(
-        controller_->getHeaderIndexingStrategy());
+    auto* h2Codec = dynamic_cast<HTTP2Codec*>(codec_.getChainEndPtr());
+    if (h2Codec) {
+      h2Codec->setHeaderIndexingStrategy(
+          controller_->getHeaderIndexingStrategy());
+    }
   }
 }
 

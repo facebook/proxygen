@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -381,8 +381,6 @@ class HTTPCodec {
       case CodecProtocol::HTTP_1_1:
         DCHECK_NE(id, 0);
         return id - 1;
-      case CodecProtocol::SPDY_3:
-      case CodecProtocol::SPDY_3_1:
       case CodecProtocol::HTTP_2:
         return id / 2;
       case CodecProtocol::HQ:

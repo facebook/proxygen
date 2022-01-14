@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -309,7 +309,7 @@ class HTTP2Codec
       {SettingsId::HEADER_TABLE_SIZE, 4096},
       {SettingsId::ENABLE_PUSH, 0},
       {SettingsId::MAX_FRAME_SIZE, 16384},
-      {SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17}, // same as SPDYCodec
+      {SettingsId::MAX_HEADER_LIST_SIZE, 1 << 17},
   };
 #ifndef NDEBUG
   uint64_t receivedFrameCount_{0};

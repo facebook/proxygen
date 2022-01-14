@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -12,7 +12,6 @@
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 #include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
-#include <proxygen/lib/http/codec/SPDYCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 
 using namespace proxygen;
@@ -20,11 +19,7 @@ using namespace proxygen;
 TEST(DefaultHTTPCodecFactoryTest, GetCodec) {
   DefaultHTTPCodecFactory factory(false);
 
-  auto codec = factory.getCodec("spdy/3.1", TransportDirection::UPSTREAM, true);
-  SPDYCodec* spdyCodec = dynamic_cast<SPDYCodec*>(codec.get());
-  EXPECT_NE(spdyCodec, nullptr);
-
-  codec = factory.getCodec(
+  auto codec = factory.getCodec(
       http2::kProtocolString, TransportDirection::UPSTREAM, true);
   HTTP2Codec* http2Codec = dynamic_cast<HTTP2Codec*>(codec.get());
   EXPECT_NE(http2Codec, nullptr);

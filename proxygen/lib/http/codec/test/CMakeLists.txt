@@ -1,4 +1,4 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -29,7 +29,6 @@ proxygen_add_test(TARGET CodecTests
     HTTP1xCodecTest.cpp
     HTTP2CodecTest.cpp
     HTTP2FramerTest.cpp
-    SPDYCodecTest.cpp
   DEPENDS
     codectestutils
     proxygen

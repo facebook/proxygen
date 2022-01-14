@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -2075,8 +2075,7 @@ unique_ptr<IOBuf> HTTPSession::getNextToSend(bool* cork,
       }
       toSend = std::min(toSend, connFlowControl_->getAvailableSend());
     }
-    txnEgressQueue_.nextEgress(nextEgressResults_,
-                               isSpdyCodecProtocol(codec_->getProtocol()));
+    txnEgressQueue_.nextEgress(nextEgressResults_, false);
     CHECK(!nextEgressResults_.empty()); // Queue was non empty, so this must be
     // The maximum we will send for any transaction in this loop
     uint32_t txnMaxToSend = toSend * nextEgressResults_.front().second;

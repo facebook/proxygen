@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -400,7 +400,7 @@ TEST_F(SessionPoolFixture, CloseNotReusable) {
   EXPECT_CALL(*codec, isReusable()).WillRepeatedly(ReturnPointee(&reusable));
   EXPECT_CALL(*codec, supportsParallelRequests()).WillRepeatedly(Return(false));
   EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(Return(CodecProtocol::SPDY_3_1));
+      .WillRepeatedly(Return(CodecProtocol::HTTP_2));
 
   p.putSession(makeSession(std::move(codec)));
   ASSERT_EQ(p.getNumSessions(), 1);

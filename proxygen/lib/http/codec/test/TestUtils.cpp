@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -8,8 +8,8 @@
 
 #include <proxygen/lib/http/codec/test/TestUtils.h>
 
+#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
-#include <proxygen/lib/http/codec/SPDYConstants.h>
 
 #include <boost/optional/optional_io.hpp>
 #include <folly/Random.h>
@@ -23,13 +23,6 @@ namespace proxygen {
 
 const HTTPSettings kDefaultIngressSettings{
     {SettingsId::INITIAL_WINDOW_SIZE, 65536}};
-
-std::unique_ptr<HTTPMessage> getPriorityMessage(uint8_t priority) {
-  auto ret = std::make_unique<HTTPMessage>();
-  ret->setAdvancedProtocolString(spdy::kVersionStrv2);
-  ret->setPriority(priority);
-  return ret;
-}
 
 std::unique_ptr<folly::IOBuf> makeBuf(uint32_t size) {
   auto out = folly::IOBuf::create(size);
@@ -51,7 +44,7 @@ std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeMockParallelCodec(
   EXPECT_CALL(*codec, supportsParallelRequests())
       .WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*codec, getProtocol())
-      .WillRepeatedly(testing::Return(CodecProtocol::SPDY_3_1));
+      .WillRepeatedly(testing::Return(CodecProtocol::HTTP_2));
   EXPECT_CALL(*codec, isReusable()).WillRepeatedly(testing::Return(true));
   EXPECT_CALL(*codec, getTransportDirection())
       .WillRepeatedly(testing::Return(dir));
@@ -158,6 +151,10 @@ HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
                               uint32_t bodyLen) {
   HTTPMessage req = getGetRequest();
   req.setMethod(method);
+  if (upgradeHeader.find(http2::kProtocolCleartextString) !=
+      std::string::npos) {
+    HTTP2Codec::requestUpgrade(req);
+  }
   req.getHeaders().set(HTTP_HEADER_UPGRADE, upgradeHeader);
   if (bodyLen > 0) {
     req.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH,

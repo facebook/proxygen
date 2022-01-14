@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -102,13 +102,11 @@ std::unique_ptr<folly::IOBuf> QPACKCodec::encodeHTTP(
     }
     const HTTPHeaders& headers = msg.getHeaders();
     const std::string& host = headers.getSingleOrEmpty(HTTP_HEADER_HOST);
-    if (!host.empty()) {
-      uncompressed +=
-          encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_AUTHORITY),
-                                 host,
-                                 baseIndex,
-                                 requiredInsertCount);
-    }
+    uncompressed +=
+        encoder_.encodeHeaderQ(HPACKHeaderName(HTTP_HEADER_COLON_AUTHORITY),
+                               host,
+                               baseIndex,
+                               requiredInsertCount);
   } else {
     if (msg.isEgressWebsocketUpgrade()) {
       uncompressed +=
