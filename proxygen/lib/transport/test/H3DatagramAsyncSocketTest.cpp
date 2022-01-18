@@ -13,11 +13,9 @@
 #include <folly/portability/GTest.h>
 
 using namespace proxygen;
-using namespace proxygen::hq;
 using namespace quic;
 using namespace folly;
 using namespace testing;
-using namespace std::chrono;
 
 void H3DatagramAsyncSocketTest::SetUp() {
   // Create the socket
