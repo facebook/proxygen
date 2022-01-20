@@ -47,13 +47,11 @@ struct HQBaseParams {
       quic::QuicVersion::MVFST,
       quic::QuicVersion::MVFST_EXPERIMENTAL,
       quic::QuicVersion::QUIC_V1,
-      quic::QuicVersion::QUIC_DRAFT,
-      quic::QuicVersion::QUIC_DRAFT_LEGACY};
+      quic::QuicVersion::QUIC_DRAFT};
   std::vector<std::string> supportedAlpns{proxygen::kH3,
                                           proxygen::kHQ,
                                           proxygen::kH3FBCurrentDraft,
                                           proxygen::kH3CurrentDraft,
-                                          proxygen::kH3LegacyDraft,
                                           proxygen::kHQCurrentDraft};
   quic::TransportSettings transportSettings;
   std::string congestionControlName;

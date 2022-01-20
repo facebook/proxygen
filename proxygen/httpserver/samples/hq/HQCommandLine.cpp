@@ -214,8 +214,7 @@ void initializeTransportSettings(HQToolParams& hqUberParams) {
   hqParams.quicVersions = {quic::QuicVersion::MVFST,
                            quic::QuicVersion::MVFST_EXPERIMENTAL,
                            quic::QuicVersion::QUIC_V1,
-                           quic::QuicVersion::QUIC_DRAFT,
-                           quic::QuicVersion::QUIC_DRAFT_LEGACY};
+                           quic::QuicVersion::QUIC_DRAFT};
   if (FLAGS_quic_version != 0) {
     auto quicVersion =
         FLAGS_quic_version > 25
@@ -240,7 +239,6 @@ void initializeTransportSettings(HQToolParams& hqUberParams) {
                                proxygen::kHQ,
                                proxygen::kH3FBCurrentDraft,
                                proxygen::kH3CurrentDraft,
-                               proxygen::kH3LegacyDraft,
                                proxygen::kHQCurrentDraft};
   }
 
