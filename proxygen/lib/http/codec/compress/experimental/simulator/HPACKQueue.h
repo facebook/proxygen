@@ -73,11 +73,11 @@ class HPACKQueue : public folly::DestructorCheck {
     }
   }
 
-  uint64_t getHolBlockCount() const {
+  [[nodiscard]] uint64_t getHolBlockCount() const {
     return holBlockCount_;
   }
 
-  uint64_t getQueuedBytes() const {
+  [[nodiscard]] uint64_t getQueuedBytes() const {
     return queuedBytes_;
   }
 

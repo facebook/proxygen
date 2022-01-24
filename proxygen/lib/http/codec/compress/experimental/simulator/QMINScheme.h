@@ -11,7 +11,6 @@
 #include <assert.h>
 #include <folly/String.h>
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
-#include <proxygen/lib/http/codec/compress/HPACKQueue.h>
 #include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 #include <sys/queue.h>
