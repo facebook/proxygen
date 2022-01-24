@@ -423,19 +423,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               return retDatagrams;
             }));
 
-    EXPECT_CALL(*sock_, setPingCallback(testing::_))
-        .WillRepeatedly(testing::Invoke(
-            [this](QuicSocket::PingCallback* cb)
-                -> folly::Expected<folly::Unit, quic::LocalErrorCode> {
-              auto& connStream = streams_[kConnectionStreamId];
-              if (connStream.writeState == CLOSED) {
-                return folly::makeUnexpected(
-                    quic::LocalErrorCode::CONNECTION_CLOSED);
-              }
-              pingCB_ = cb;
-              return folly::unit;
-            }));
-
     EXPECT_CALL(*sock_,
                 writeChain(testing::_, testing::_, testing::_, testing::_))
         .WillRepeatedly(
@@ -1132,19 +1119,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                          folly::none,
                          delayFromPrevious,
                          false,
-                         true,
-                         false);
-  }
-
-  void addPingReceivedReadEvent(std::chrono::milliseconds delayFromPrevious =
-                                    std::chrono::milliseconds(0)) {
-    addReadEventInternal(kConnectionStreamId,
-                         nullptr,
-                         false,
-                         folly::none,
-                         delayFromPrevious,
-                         false,
-                         false,
                          true);
   }
 
@@ -1255,15 +1229,13 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               bool e,
               folly::Optional<QuicErrorCode> er,
               bool ss,
-              bool da = false,
-              bool pr = false)
+              bool da = false)
         : streamId(s),
           buf(std::move(b)),
           eof(e),
           error(er),
           stopSending(ss),
-          datagramsAvailable(da),
-          pingReceived(pr) {
+          datagramsAvailable(da) {
     }
 
     StreamId streamId;
@@ -1272,7 +1244,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     folly::Optional<QuicErrorCode> error;
     bool stopSending;
     bool datagramsAvailable;
-    bool pingReceived;
   };
 
   void addReadEventInternal(StreamId streamId,
@@ -1282,16 +1253,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                             std::chrono::milliseconds delayFromPrevious =
                                 std::chrono::milliseconds(0),
                             bool stopSending = false,
-                            bool datagramsAvailable = false,
-                            bool pingReceived = false) {
+                            bool datagramsAvailable = false) {
     std::vector<ReadEvent> events;
-    events.emplace_back(streamId,
-                        std::move(buf),
-                        eof,
-                        error,
-                        stopSending,
-                        datagramsAvailable,
-                        pingReceived);
+    events.emplace_back(
+        streamId, std::move(buf), eof, error, stopSending, datagramsAvailable);
     addReadEvents(std::move(events), delayFromPrevious);
   }
 
@@ -1332,11 +1297,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             if (event.streamId == kConnectionStreamId &&
                 event.datagramsAvailable && !event.error && datagramCB_) {
               datagramCB_->onDatagramsAvailable();
-              continue;
-            }
-            if (event.streamId == kConnectionStreamId && event.pingReceived &&
-                !event.error && pingCB_) {
-              pingCB_->onPing();
               continue;
             }
             auto bufLen = event.buf ? event.buf->computeChainDataLength() : 0;
@@ -1588,7 +1548,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   QuicSocket::DatagramCallback* datagramCB_{nullptr};
   std::vector<quic::BufQueue> outDatagrams_{};
   std::vector<quic::BufQueue> inDatagrams_{};
-  QuicSocket::PingCallback* pingCB_{nullptr};
   folly::SocketAddress localAddress_;
   folly::SocketAddress peerAddress_;
 }; // namespace quic

@@ -133,7 +133,6 @@ class HQSession
     , public quic::QuicSocket::WriteCallback
     , public quic::QuicSocket::DeliveryCallback
     , public quic::QuicSocket::DatagramCallback
-    , public quic::QuicSocket::PingCallback
     , public HTTPSessionBase
     , public folly::EventBase::LoopCallback
     , public HQUnidirStreamDispatcher::Callback {
@@ -265,15 +264,6 @@ class HQSession
   // quic::QuicSocket::DatagramCallback
   void onDatagramsAvailable() noexcept override;
 
-  // quic::QuicSocket::PingCallback
-  void pingAcknowledged() noexcept override {
-  }
-  void pingTimeout() noexcept override {
-  }
-  void onPing() noexcept override {
-    resetTimeout();
-  }
-
   // Only for UpstreamSession
   HTTPTransaction* newTransaction(HTTPTransaction::Handler* handler) override;
 
@@ -401,7 +391,7 @@ class HQSession
    * the number of bytes written on the transport to send the ping.
    */
   size_t sendPing() override {
-    sock_->sendPing(std::chrono::milliseconds(0));
+    sock_->sendPing(nullptr, std::chrono::milliseconds(0));
     return 0;
   }
 

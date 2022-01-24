@@ -250,7 +250,6 @@ bool HQSession::onTransportReadyCommon() noexcept {
     defaultSettings.push_back({SettingsId::_HQ_DATAGRAM, 1});
     sock_->setDatagramCallback(this);
   }
-  sock_->setPingCallback(this);
   // TODO: 0-RTT settings
   versionUtils_->applySettings(defaultSettings);
   // notifyPendingShutdown may be invoked before onTransportReady,

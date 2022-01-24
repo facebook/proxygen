@@ -2815,37 +2815,6 @@ TEST_P(HQDownstreamSessionTest, getHTTPPriority) {
   hqSession_->closeWhenIdle();
 }
 
-TEST_P(HQDownstreamSessionTest, IdleTimeoutNoStreams) {
-  std::chrono::milliseconds connIdleTimeout{200};
-  auto connManager = wangle::ConnectionManager::makeUnique(
-      &eventBase_, connIdleTimeout, nullptr);
-  connManager->addConnection(hqSession_, true);
-  // Just run the loop, the session will timeout, drain and close
-  auto start = std::chrono::steady_clock::now();
-  eventBase_.loop();
-  auto end = std::chrono::steady_clock::now();
-  EXPECT_GE(std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-                .count(),
-            connIdleTimeout.count());
-}
-
-TEST_P(HQDownstreamSessionTest, IdleTimeoutResetWithPing) {
-  std::chrono::milliseconds connIdleTimeout{200};
-  auto connManager = wangle::ConnectionManager::makeUnique(
-      &eventBase_, connIdleTimeout, nullptr);
-  connManager->addConnection(hqSession_, true);
-  for (int i = 1; i <= 4; i++) {
-    socketDriver_->addPingReceivedReadEvent(std::chrono::milliseconds(100));
-  }
-  // Just run the loop, the session will timeout, drain and close
-  auto start = std::chrono::steady_clock::now();
-  flushRequestsAndLoop();
-  auto end = std::chrono::steady_clock::now();
-  EXPECT_GE(std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-                .count(),
-            connIdleTimeout.count() * 2);
-}
-
 /**
  * Instantiate the Parametrized test cases
  */
