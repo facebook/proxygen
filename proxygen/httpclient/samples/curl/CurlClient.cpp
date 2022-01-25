@@ -184,8 +184,11 @@ void CurlClient::setupHeaders() {
 }
 
 void CurlClient::sendRequest(HTTPTransaction* txn) {
+  LOG_IF(INFO, loggingEnabled_)
+      << fmt::format("Sending request for {}", url_.getUrl());
   txn_ = txn;
   setupHeaders();
+  txnStartTime_ = std::chrono::steady_clock::now();
   txn_->sendHeaders(request_);
 
   if (httpMethod_ == HTTPMethod::POST) {
@@ -267,7 +270,12 @@ void CurlClient::onTrailers(std::unique_ptr<HTTPHeaders>) noexcept {
 }
 
 void CurlClient::onEOM() noexcept {
-  LOG_IF(INFO, loggingEnabled_) << "Got EOM";
+  LOG_IF(INFO, loggingEnabled_)
+      << fmt::format("Got EOM for {}. Txn Time= {} ms",
+                     url_.getUrl(),
+                     std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::steady_clock::now() - txnStartTime_)
+                         .count());
   if (eomFunc_) {
     eomFunc_.value()();
   }

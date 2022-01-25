@@ -165,6 +165,7 @@ class CurlClient
 
   std::unique_ptr<proxygen::HTTPMessage> response_;
   std::vector<std::unique_ptr<CurlPushHandler>> pushTxnHandlers_;
+  std::chrono::time_point<std::chrono::steady_clock> txnStartTime_;
 
   folly::Optional<std::function<void()>> eomFunc_;
 
