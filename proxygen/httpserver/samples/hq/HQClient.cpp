@@ -118,15 +118,29 @@ HQClient::sendRequest(const proxygen::URL& requestUrl) {
 
 void HQClient::sendRequests(bool closeSession, uint64_t numOpenableStreams) {
   VLOG(10) << "http-version:" << params_.httpVersion;
-  while (!httpPaths_.empty() && numOpenableStreams > 0) {
+  do {
     proxygen::URL requestUrl(httpPaths_.front().str(), /*secure=*/true);
     sendRequest(requestUrl);
     httpPaths_.pop_front();
     numOpenableStreams--;
-  }
+  } while (!params_.sendRequestsSequentially && !httpPaths_.empty() &&
+           numOpenableStreams > 0);
   if (closeSession && httpPaths_.empty()) {
     session_->drain();
     session_->closeWhenIdle();
+  }
+  // If there are still pending requests to be sent sequentially, schedule a
+  // callback on the first EOM to try to make one more request. That callback
+  // will keep scheduling itself until there are no more requests.
+  if (params_.sendRequestsSequentially && !httpPaths_.empty()) {
+    auto sendOneMoreRequest = [&]() {
+      uint64_t numOpenable = quicClient_->getNumOpenableBidirectionalStreams();
+      if (numOpenable > 0) {
+        sendRequests(true, numOpenable);
+      };
+    };
+    CHECK(!curls_.empty());
+    curls_.back()->setEOMFunc(sendOneMoreRequest);
   }
 }
 static std::function<void()> selfSchedulingRequestRunner;
@@ -141,10 +155,10 @@ void HQClient::connectSuccess() {
   httpPaths_.insert(
       httpPaths_.end(), params_.httpPaths.begin(), params_.httpPaths.end());
   sendRequests(!params_.migrateClient, numOpenableStreams);
-  // If there are still pending requests, schedule a callback on the first EOM
-  // to try to make some more. That callback will keep scheduling itself until
-  // there are no more requests.
-  if (!httpPaths_.empty()) {
+  // If there are still pending requests to be send in parallel, schedule a
+  // callback on the first EOM to try to make some more. That callback will keep
+  // scheduling itself until there are no more requests.
+  if (!params_.sendRequestsSequentially && !httpPaths_.empty()) {
     selfSchedulingRequestRunner = [&]() {
       uint64_t numOpenable = quicClient_->getNumOpenableBidirectionalStreams();
       if (numOpenable > 0) {
