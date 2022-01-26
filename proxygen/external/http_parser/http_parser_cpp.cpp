@@ -2414,7 +2414,7 @@ http_parser_parse_url_options(const char *buf, size_t buflen, int is_connect,
         break;
 
       default:
-        assert(!"Unexpected state");
+        assert(false && "Unexpected state");
         return 1;
     }
 
