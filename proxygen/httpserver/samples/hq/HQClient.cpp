@@ -60,7 +60,7 @@ int HQClient::start() {
 
   LOG(INFO) << "HQClient connecting to " << params_.remoteAddress->describe();
   session_->startNow();
-  quicClient_->start(session_);
+  quicClient_->start(session_, session_);
 
   // This is to flush the CFIN out so the server will see the handshake as
   // complete.

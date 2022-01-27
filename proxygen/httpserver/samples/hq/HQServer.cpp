@@ -198,7 +198,7 @@ QuicServerTransport::Ptr HQServerTransportFactory::make(
   auto session = hqSessionController->createSession();
   CHECK_EQ(evb, socket->getEventBase());
   auto transport =
-      QuicServerTransport::make(evb, std::move(socket), *session, ctx);
+      QuicServerTransport::make(evb, std::move(socket), session, session, ctx);
   if (!params_.qLoggerPath.empty()) {
     transport->setQLogger(std::make_shared<HQLoggerHelper>(
         params_.qLoggerPath, params_.prettyJson, quic::VantagePoint::Server));
