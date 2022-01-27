@@ -39,7 +39,8 @@ void H3DatagramAsyncSocketTest::SetUp() {
 
   socketDriver_ = std::make_unique<MockQuicSocketDriver>(
       &eventBase_,
-      *session_,
+      session_,
+      session_,
       MockQuicSocketDriver::TransportEnum::CLIENT,
       "h3");
   socketDriver_->setMaxUniStreams(3);

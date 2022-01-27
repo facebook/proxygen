@@ -134,7 +134,8 @@ class HQSessionTest
     }
     socketDriver_ = std::make_unique<quic::MockQuicSocketDriver>(
         &eventBase_,
-        *hqSession_,
+        hqSession_,
+        hqSession_,
         direction_ == proxygen::TransportDirection::DOWNSTREAM
             ? quic::MockQuicSocketDriver::TransportEnum::SERVER
             : quic::MockQuicSocketDriver::TransportEnum::CLIENT,
