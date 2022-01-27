@@ -59,7 +59,9 @@ ParseResult HQControlCodec::checkFrameAllowed(FrameType type) {
 
     // PRIORITY_UPDATE is downstream control codec only
     if (transportDirection_ == TransportDirection::UPSTREAM &&
-        (type == hq::FrameType::PUSH_PRIORITY_UPDATE ||
+        (type == hq::FrameType::RFC_PRIORITY_UPDATE ||
+         type == hq::FrameType::RFC_PUSH_PRIORITY_UPDATE ||
+         type == hq::FrameType::PUSH_PRIORITY_UPDATE ||
          type == hq::FrameType::PRIORITY_UPDATE)) {
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     }

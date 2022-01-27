@@ -669,6 +669,24 @@ TEST_F(HQCodecTest, MultipleSettingsDownstream) {
             HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED);
 }
 
+TEST_F(HQCodecTest, RfcPriorityCallback) {
+  // SETTINGS is a must have
+  writeValidFrame(queueCtrl_, FrameType::SETTINGS);
+  writeValidFrame(queueCtrl_, FrameType::RFC_PRIORITY_UPDATE);
+  parseControl(CodecType::CONTROL_DOWNSTREAM);
+  EXPECT_EQ(1, callbacks_.urgency);
+  EXPECT_TRUE(callbacks_.incremental);
+}
+
+TEST_F(HQCodecTest, RfcPushPriorityCallback) {
+  // SETTINGS is a must have
+  writeValidFrame(queueCtrl_, FrameType::SETTINGS);
+  writeValidFrame(queueCtrl_, FrameType::RFC_PUSH_PRIORITY_UPDATE);
+  parseControl(CodecType::CONTROL_DOWNSTREAM);
+  EXPECT_EQ(1, callbacks_.urgency);
+  EXPECT_TRUE(callbacks_.incremental);
+}
+
 TEST_F(HQCodecTest, PriorityCallback) {
   // SETTINGS is a must have
   writeValidFrame(queueCtrl_, FrameType::SETTINGS);
@@ -830,6 +848,12 @@ std::string frameParamsToTestName(
     case FrameType::MAX_PUSH_ID:
       testName += "MaxPushID";
       break;
+    case FrameType::RFC_PRIORITY_UPDATE:
+      testName += "RfcPriorityUpdate";
+      break;
+    case FrameType::RFC_PUSH_PRIORITY_UPDATE:
+      testName += "RfcPushPriorityUpdate";
+      break;
     case FrameType::PRIORITY_UPDATE:
       testName += "PriorityUpdate";
       break;
@@ -946,6 +970,10 @@ INSTANTIATE_TEST_CASE_P(
                              FrameType(*getGreaseId(hq::kMaxGreaseIdIndex)),
                              true},
         (FrameAllowedParams){
+            CodecType::DOWNSTREAM, FrameType::RFC_PRIORITY_UPDATE, false},
+        (FrameAllowedParams){
+            CodecType::DOWNSTREAM, FrameType::RFC_PUSH_PRIORITY_UPDATE, false},
+        (FrameAllowedParams){
             CodecType::DOWNSTREAM, FrameType::PRIORITY_UPDATE, false},
         (FrameAllowedParams){
             CodecType::DOWNSTREAM, FrameType::PUSH_PRIORITY_UPDATE, false},
@@ -973,6 +1001,11 @@ INSTANTIATE_TEST_CASE_P(
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType(*getGreaseId(54321)), true},
         (FrameAllowedParams){
+            CodecType::CONTROL_UPSTREAM, FrameType::RFC_PRIORITY_UPDATE, false},
+        (FrameAllowedParams){CodecType::CONTROL_UPSTREAM,
+                             FrameType::RFC_PUSH_PRIORITY_UPDATE,
+                             false},
+        (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::PRIORITY_UPDATE, false},
         (FrameAllowedParams){CodecType::CONTROL_UPSTREAM,
                              FrameType::PUSH_PRIORITY_UPDATE,
@@ -995,6 +1028,12 @@ INSTANTIATE_TEST_CASE_P(
                              true},
         (FrameAllowedParams){CodecType::CONTROL_DOWNSTREAM,
                              FrameType(*getGreaseId(567879)),
+                             true},
+        (FrameAllowedParams){CodecType::CONTROL_DOWNSTREAM,
+                             FrameType::RFC_PRIORITY_UPDATE,
+                             true},
+        (FrameAllowedParams){CodecType::CONTROL_DOWNSTREAM,
+                             FrameType::RFC_PUSH_PRIORITY_UPDATE,
                              true},
         (FrameAllowedParams){
             CodecType::CONTROL_DOWNSTREAM, FrameType::PRIORITY_UPDATE, true},
