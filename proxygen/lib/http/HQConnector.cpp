@@ -95,7 +95,7 @@ void HQConnector::connect(
 
   VLOG(4) << "connecting to " << connectAddr.describe();
   connectStart_ = getCurrentTime();
-  quicClient->start(session_);
+  quicClient->start(session_, session_);
 }
 
 void HQConnector::onReplaySafe() noexcept {

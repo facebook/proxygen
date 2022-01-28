@@ -128,7 +128,8 @@ struct QuicStreamProtocolInfo : public QuicProtocolInfo {
 };
 
 class HQSession
-    : public quic::QuicSocket::ConnectionCallback
+    : public quic::QuicSocket::ConnectionSetupCallback
+    , public quic::QuicSocket::ConnectionCallbackNew
     , public quic::QuicSocket::ReadCallback
     , public quic::QuicSocket::WriteCallback
     , public quic::QuicSocket::DeliveryCallback

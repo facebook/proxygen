@@ -216,7 +216,7 @@ void H3DatagramAsyncSocket::startClient() {
 
     VLOG(4) << "connecting to " << connectAddress_.describe();
     upstreamSession_->startNow();
-    client->start(upstreamSession_);
+    client->start(upstreamSession_, upstreamSession_);
   }
 }
 

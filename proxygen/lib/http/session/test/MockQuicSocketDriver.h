@@ -117,12 +117,6 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       nextUnidirectionalStreamId_ = 2;
     }
 
-    EXPECT_CALL(*sock_, setConnectionCallback(testing::_))
-        .WillRepeatedly(
-            testing::Invoke([this](QuicSocket::ConnectionCallback* callback) {
-              sock_->connCb_ = callback;
-              sock_->setupCb_ = callback;
-            }));
     EXPECT_CALL(*sock_, setConnectionSetupCallback(testing::_))
         .WillRepeatedly(
             testing::Invoke([this](QuicSocket::ConnectionSetupCallback* cb) {
