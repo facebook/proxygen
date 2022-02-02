@@ -105,8 +105,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
       std::string alpn = "h1q-fb")
       : eventBase_(eventBase),
         transportType_(transportType),
-        sock_(
-            std::make_shared<MockQuicSocket>(eventBase, *connSetupCb, connCb)),
+        sock_(std::make_shared<MockQuicSocket>(eventBase, connSetupCb, connCb)),
         alpn_(alpn) {
 
     if (transportType_ == TransportEnum::SERVER) {

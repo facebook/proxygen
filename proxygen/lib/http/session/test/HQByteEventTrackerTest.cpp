@@ -26,8 +26,8 @@ using QuicByteEventType = quic::QuicSocket::ByteEvent::Type;
 class HQByteEventTrackerTest : public Test {
  public:
   void SetUp() override {
-    socket_ =
-        std::make_shared<quic::MockQuicSocket>(nullptr, connectionCallback_);
+    socket_ = std::make_shared<quic::MockQuicSocket>(
+        nullptr, &connectionSetupCallback_, &connectionCallback_);
     byteEventTracker_ =
         std::make_shared<HQByteEventTracker>(nullptr, socket_.get(), streamId_);
     txn_.setTransportCallback(&transportCallback_);
@@ -78,7 +78,8 @@ class HQByteEventTrackerTest : public Test {
 
  protected:
   const HTTPCodec::StreamID streamId_{1};
-  quic::MockConnectionCallback connectionCallback_;
+  quic::MockConnectionSetupCallback connectionSetupCallback_;
+  quic::MockConnectionCallbackNew connectionCallback_;
   std::shared_ptr<quic::MockQuicSocket> socket_;
   folly::EventBase eventBase_;
   WheelTimerInstance transactionTimeouts_{std::chrono::milliseconds(500),
