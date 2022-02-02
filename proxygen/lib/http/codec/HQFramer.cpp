@@ -389,10 +389,10 @@ const char* getFrameTypeString(FrameType type) {
       return "GOAWAY";
     case FrameType::MAX_PUSH_ID:
       return "MAX_PUSH_ID";
-    case FrameType::RFC_PRIORITY_UPDATE:
+    case FrameType::PRIORITY_UPDATE:
     case FrameType::FB_PRIORITY_UPDATE:
       return "PRIORITY_UPDATE";
-    case FrameType::RFC_PUSH_PRIORITY_UPDATE:
+    case FrameType::PUSH_PRIORITY_UPDATE:
     case FrameType::FB_PUSH_PRIORITY_UPDATE:
       return "PUSH_PRIORITY_UPDATE";
     default:

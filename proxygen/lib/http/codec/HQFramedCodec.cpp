@@ -38,8 +38,8 @@ ParseResult HQFramedCodec::parseFrame(Cursor& cursor) {
       return parseGoaway(cursor, curHeader_);
     case hq::FrameType::MAX_PUSH_ID:
       return parseMaxPushId(cursor, curHeader_);
-    case hq::FrameType::RFC_PRIORITY_UPDATE:
-    case hq::FrameType::RFC_PUSH_PRIORITY_UPDATE:
+    case hq::FrameType::PRIORITY_UPDATE:
+    case hq::FrameType::PUSH_PRIORITY_UPDATE:
     case hq::FrameType::FB_PRIORITY_UPDATE:
     case hq::FrameType::FB_PUSH_PRIORITY_UPDATE:
       return parsePriorityUpdate(cursor, curHeader_);

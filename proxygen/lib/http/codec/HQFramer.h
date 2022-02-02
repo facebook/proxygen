@@ -50,8 +50,8 @@ enum class FrameType : uint64_t {
   // 0x08 reserved
   // 0x09 reserved
   MAX_PUSH_ID = 0x0D,
-  RFC_PRIORITY_UPDATE = 0xF0700,
-  RFC_PUSH_PRIORITY_UPDATE = 0xF0701,
+  PRIORITY_UPDATE = 0xF0700,
+  PUSH_PRIORITY_UPDATE = 0xF0701,
   // TODO T110695366: clean these up once clients have sufficiently migrated to
   // the RFC compliant frame types.
   FB_PRIORITY_UPDATE = 0xF700,
