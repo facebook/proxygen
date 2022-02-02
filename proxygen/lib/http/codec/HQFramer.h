@@ -54,8 +54,8 @@ enum class FrameType : uint64_t {
   RFC_PUSH_PRIORITY_UPDATE = 0xF0701,
   // TODO T110695366: clean these up once clients have sufficiently migrated to
   // the RFC compliant frame types.
-  PRIORITY_UPDATE = 0xF700,
-  PUSH_PRIORITY_UPDATE = 0xF701,
+  FB_PRIORITY_UPDATE = 0xF700,
+  FB_PUSH_PRIORITY_UPDATE = 0xF701,
 };
 
 std::ostream& operator<<(std::ostream& os, FrameType type);

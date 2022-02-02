@@ -329,7 +329,7 @@ WriteResult writeMaxPushId(folly::IOBufQueue& writeBuf,
 WriteResult writePriorityUpdate(folly::IOBufQueue& writeBuf,
                                 quic::StreamId streamId,
                                 folly::StringPiece priorityUpdate) noexcept {
-  auto type = FrameType::PRIORITY_UPDATE;
+  auto type = FrameType::FB_PRIORITY_UPDATE;
   auto streamIdSize = quic::getQuicIntegerSize(streamId);
   if (streamIdSize.hasError()) {
     return streamIdSize;
@@ -347,7 +347,7 @@ WriteResult writePushPriorityUpdate(
     folly::IOBufQueue& writeBuf,
     hq::PushId pushId,
     folly::StringPiece priorityUpdate) noexcept {
-  auto type = FrameType::PUSH_PRIORITY_UPDATE;
+  auto type = FrameType::FB_PUSH_PRIORITY_UPDATE;
   auto streamIdSize = quic::getQuicIntegerSize(pushId);
   if (streamIdSize.hasError()) {
     return streamIdSize;
@@ -390,10 +390,10 @@ const char* getFrameTypeString(FrameType type) {
     case FrameType::MAX_PUSH_ID:
       return "MAX_PUSH_ID";
     case FrameType::RFC_PRIORITY_UPDATE:
-    case FrameType::PRIORITY_UPDATE:
+    case FrameType::FB_PRIORITY_UPDATE:
       return "PRIORITY_UPDATE";
     case FrameType::RFC_PUSH_PRIORITY_UPDATE:
-    case FrameType::PUSH_PRIORITY_UPDATE:
+    case FrameType::FB_PUSH_PRIORITY_UPDATE:
       return "PUSH_PRIORITY_UPDATE";
     default:
       if (isGreaseId(static_cast<uint64_t>(type))) {

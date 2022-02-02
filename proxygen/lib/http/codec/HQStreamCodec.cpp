@@ -75,8 +75,8 @@ ParseResult HQStreamCodec::checkFrameAllowed(FrameType type) {
     case hq::FrameType::CANCEL_PUSH:
     case hq::FrameType::RFC_PRIORITY_UPDATE:
     case hq::FrameType::RFC_PUSH_PRIORITY_UPDATE:
-    case hq::FrameType::PRIORITY_UPDATE:
-    case hq::FrameType::PUSH_PRIORITY_UPDATE:
+    case hq::FrameType::FB_PRIORITY_UPDATE:
+    case hq::FrameType::FB_PUSH_PRIORITY_UPDATE:
       return HTTP3::ErrorCode::HTTP_FRAME_UNEXPECTED;
     case hq::FrameType::PUSH_PROMISE:
       if (transportDirection_ == TransportDirection::DOWNSTREAM) {

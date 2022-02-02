@@ -461,7 +461,7 @@ TEST_F(HQFramerTest, PriorityUpdate) {
   parse(folly::none, &parsePriorityUpdate, header, outId, outPriority);
 
   EXPECT_EQ(126, outId);
-  EXPECT_EQ(proxygen::hq::FrameType::PRIORITY_UPDATE, header.type);
+  EXPECT_EQ(proxygen::hq::FrameType::FB_PRIORITY_UPDATE, header.type);
   EXPECT_EQ(3, outPriority.urgency);
   EXPECT_TRUE(outPriority.incremental);
 }
@@ -474,7 +474,7 @@ TEST_F(HQFramerTest, PriorityUpdateWithoutIncremental) {
   parse(folly::none, &parsePriorityUpdate, header, outId, outPriority);
 
   EXPECT_EQ(357, outId);
-  EXPECT_EQ(proxygen::hq::FrameType::PRIORITY_UPDATE, header.type);
+  EXPECT_EQ(proxygen::hq::FrameType::FB_PRIORITY_UPDATE, header.type);
   EXPECT_EQ(7, outPriority.urgency);
   EXPECT_FALSE(outPriority.incremental);
 }

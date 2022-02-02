@@ -72,8 +72,8 @@ void writeValidFrame(folly::IOBufQueue& queue, proxygen::hq::FrameType type) {
     }
     case proxygen::hq::FrameType::RFC_PRIORITY_UPDATE:
     case proxygen::hq::FrameType::RFC_PUSH_PRIORITY_UPDATE:
-    case proxygen::hq::FrameType::PRIORITY_UPDATE:
-    case proxygen::hq::FrameType::PUSH_PRIORITY_UPDATE: {
+    case proxygen::hq::FrameType::FB_PRIORITY_UPDATE:
+    case proxygen::hq::FrameType::FB_PUSH_PRIORITY_UPDATE: {
       quic::StreamId prioritizedId = 123;
       auto prioritizedIdSize = quic::getQuicIntegerSize(prioritizedId);
       auto data = folly::IOBuf::copyBuffer("u=1, i");

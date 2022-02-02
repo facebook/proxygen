@@ -690,7 +690,7 @@ TEST_F(HQCodecTest, RfcPushPriorityCallback) {
 TEST_F(HQCodecTest, PriorityCallback) {
   // SETTINGS is a must have
   writeValidFrame(queueCtrl_, FrameType::SETTINGS);
-  writeValidFrame(queueCtrl_, FrameType::PRIORITY_UPDATE);
+  writeValidFrame(queueCtrl_, FrameType::FB_PRIORITY_UPDATE);
   parseControl(CodecType::CONTROL_DOWNSTREAM);
   EXPECT_EQ(1, callbacks_.urgency);
   EXPECT_TRUE(callbacks_.incremental);
@@ -699,7 +699,7 @@ TEST_F(HQCodecTest, PriorityCallback) {
 TEST_F(HQCodecTest, PushPriorityCallback) {
   // SETTINGS is a must have
   writeValidFrame(queueCtrl_, FrameType::SETTINGS);
-  writeValidFrame(queueCtrl_, FrameType::PUSH_PRIORITY_UPDATE);
+  writeValidFrame(queueCtrl_, FrameType::FB_PUSH_PRIORITY_UPDATE);
   parseControl(CodecType::CONTROL_DOWNSTREAM);
   EXPECT_EQ(1, callbacks_.urgency);
   EXPECT_TRUE(callbacks_.incremental);
@@ -854,10 +854,10 @@ std::string frameParamsToTestName(
     case FrameType::RFC_PUSH_PRIORITY_UPDATE:
       testName += "RfcPushPriorityUpdate";
       break;
-    case FrameType::PRIORITY_UPDATE:
+    case FrameType::FB_PRIORITY_UPDATE:
       testName += "PriorityUpdate";
       break;
-    case FrameType::PUSH_PRIORITY_UPDATE:
+    case FrameType::FB_PUSH_PRIORITY_UPDATE:
       testName += "PushPriorityUpdate";
       break;
     default:
@@ -974,13 +974,13 @@ INSTANTIATE_TEST_CASE_P(
         (FrameAllowedParams){
             CodecType::DOWNSTREAM, FrameType::RFC_PUSH_PRIORITY_UPDATE, false},
         (FrameAllowedParams){
-            CodecType::DOWNSTREAM, FrameType::PRIORITY_UPDATE, false},
+            CodecType::DOWNSTREAM, FrameType::FB_PRIORITY_UPDATE, false},
         (FrameAllowedParams){
-            CodecType::DOWNSTREAM, FrameType::PUSH_PRIORITY_UPDATE, false},
+            CodecType::DOWNSTREAM, FrameType::FB_PUSH_PRIORITY_UPDATE, false},
         (FrameAllowedParams){
-            CodecType::UPSTREAM, FrameType::PRIORITY_UPDATE, false},
+            CodecType::UPSTREAM, FrameType::FB_PRIORITY_UPDATE, false},
         (FrameAllowedParams){
-            CodecType::UPSTREAM, FrameType::PUSH_PRIORITY_UPDATE, false},
+            CodecType::UPSTREAM, FrameType::FB_PUSH_PRIORITY_UPDATE, false},
         // HQ Upstream Ingress Control Codec
         (FrameAllowedParams){
             CodecType::CONTROL_UPSTREAM, FrameType::DATA, false},
@@ -1006,9 +1006,9 @@ INSTANTIATE_TEST_CASE_P(
                              FrameType::RFC_PUSH_PRIORITY_UPDATE,
                              false},
         (FrameAllowedParams){
-            CodecType::CONTROL_UPSTREAM, FrameType::PRIORITY_UPDATE, false},
+            CodecType::CONTROL_UPSTREAM, FrameType::FB_PRIORITY_UPDATE, false},
         (FrameAllowedParams){CodecType::CONTROL_UPSTREAM,
-                             FrameType::PUSH_PRIORITY_UPDATE,
+                             FrameType::FB_PUSH_PRIORITY_UPDATE,
                              false},
         // HQ Downstream Ingress Control Codec
         (FrameAllowedParams){
@@ -1036,9 +1036,9 @@ INSTANTIATE_TEST_CASE_P(
                              FrameType::RFC_PUSH_PRIORITY_UPDATE,
                              true},
         (FrameAllowedParams){
-            CodecType::CONTROL_DOWNSTREAM, FrameType::PRIORITY_UPDATE, true},
+            CodecType::CONTROL_DOWNSTREAM, FrameType::FB_PRIORITY_UPDATE, true},
         (FrameAllowedParams){CodecType::CONTROL_DOWNSTREAM,
-                             FrameType::PUSH_PRIORITY_UPDATE,
+                             FrameType::FB_PUSH_PRIORITY_UPDATE,
                              true}),
     frameParamsToTestName);
 

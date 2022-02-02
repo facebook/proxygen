@@ -40,8 +40,8 @@ ParseResult HQFramedCodec::parseFrame(Cursor& cursor) {
       return parseMaxPushId(cursor, curHeader_);
     case hq::FrameType::RFC_PRIORITY_UPDATE:
     case hq::FrameType::RFC_PUSH_PRIORITY_UPDATE:
-    case hq::FrameType::PRIORITY_UPDATE:
-    case hq::FrameType::PUSH_PRIORITY_UPDATE:
+    case hq::FrameType::FB_PRIORITY_UPDATE:
+    case hq::FrameType::FB_PUSH_PRIORITY_UPDATE:
       return parsePriorityUpdate(cursor, curHeader_);
     default:
       // Implementations MUST ignore and discard any frame that has a
