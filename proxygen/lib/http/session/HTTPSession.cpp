@@ -2270,7 +2270,8 @@ void HTTPSession::updateWriteCount() {
 
 void HTTPSession::shutdownTransport(bool shutdownReads,
                                     bool shutdownWrites,
-                                    const std::string& errorMsg) {
+                                    const std::string& errorMsg,
+                                    ProxygenError error) {
   DestructorGuard guard(this);
 
   // shutdowns not accounted for, shouldn't see any
@@ -2283,7 +2284,6 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
   bool notifyEgressShutdown = false;
   bool notifyIngressShutdown = false;
 
-  ProxygenError error;
   if (!transportInfo_.sslError.empty()) {
     error = kErrorSSL;
   } else if (sock_->error()) {
@@ -2297,8 +2297,6 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
     shutdownWrites = true;
   } else if (getConnectionCloseReason() == ConnectionCloseReason::TIMEOUT) {
     error = kErrorTimeout;
-  } else {
-    error = kErrorEOF;
   }
 
   if (shutdownReads && !shutdownWrites && flowControlTimeout_.isScheduled()) {
@@ -2341,7 +2339,7 @@ void HTTPSession::shutdownTransport(bool shutdownReads,
     // TODO: send an RST if readBuf_ is non empty?
     shutdownRead();
     if (!transactions_.empty() && error == kErrorConnectionReset) {
-      if (infoCallback_ != nullptr) {
+      if (infoCallback_) {
         infoCallback_->onIngressError(*this, error);
       }
     } else if (error == kErrorEOF) {
@@ -2846,7 +2844,11 @@ void HTTPSession::onSessionParseError(const HTTPException& error) {
     dropConnection();
   } else {
     setCloseReason(ConnectionCloseReason::SESSION_PARSE_ERROR);
-    shutdownTransport(true, true);
+    shutdownTransport(true,
+                      true,
+                      "",
+                      error.hasProxygenError() ? error.getProxygenError()
+                                               : kErrorMalformedInput);
   }
 }
 

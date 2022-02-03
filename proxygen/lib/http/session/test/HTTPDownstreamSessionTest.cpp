@@ -2856,9 +2856,10 @@ TYPED_TEST_P(HTTPDownstreamTest, TestWritesDraining) {
   handler1->expectHeaders();
   handler1->expectEOM();
   handler1->expectError([&](const HTTPException& ex) {
-    ASSERT_EQ(ex.getProxygenError(), kErrorEOF);
-    ASSERT_TRUE(
-        folly::StringPiece(ex.what()).startsWith("Shutdown transport: EOF"))
+    ASSERT_EQ(ex.getProxygenError(), kErrorMalformedInput);
+
+    ASSERT_TRUE(folly::StringPiece(ex.what()).startsWith(
+        "Shutdown transport: MalformedInput"))
         << ex.what();
   });
   handler1->expectDetachTransaction();

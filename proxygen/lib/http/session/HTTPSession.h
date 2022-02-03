@@ -569,7 +569,8 @@ class HTTPSession
    */
   void shutdownTransport(bool shutdownReads = true,
                          bool shutdownWrites = true,
-                         const std::string& errorMsg = "");
+                         const std::string& errorMsg = "",
+                         ProxygenError error = kErrorEOF);
 
   /**
    * Immediately close the socket in both directions, discarding any
