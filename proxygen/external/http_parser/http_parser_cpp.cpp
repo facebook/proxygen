@@ -37,6 +37,7 @@ namespace proxygen {
 #endif
 
 #else
+#include <stdbool.h>
 #define nullptr NULL
 
 #endif /* __cplusplus */
