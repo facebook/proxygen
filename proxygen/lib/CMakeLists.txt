@@ -78,6 +78,7 @@ if (BUILD_QUIC)
         http/session/HQUpstreamSession.cpp
         transport/H3DatagramAsyncSocket.cpp
         transport/PersistentQuicPskCache.cpp
+        transport/PersistentQuicTokenCache.cpp
     )
   set(
       HTTP3_DEPEND_LIBS
