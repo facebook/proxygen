@@ -20,7 +20,7 @@ class Sampling {
   static const uint32_t kErrTolerance = 1000000;
 
   explicit Sampling(double rate = 1.0);
-  virtual ~Sampling() = default;
+  virtual ~Sampling();
 
   static uint32_t rateToWeight(double rate);
 

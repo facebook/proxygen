@@ -21,6 +21,8 @@ Sampling::Sampling(double rate) {
   updateRate(rate);
 }
 
+Sampling::~Sampling() = default;
+
 void Sampling::updateRate(double rate) {
   CHECK(rate >= 0.0 && rate <= 1.0);
   rate_ = rate;
