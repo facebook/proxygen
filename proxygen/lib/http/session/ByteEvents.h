@@ -18,6 +18,8 @@ namespace proxygen {
 class HTTPTransaction;
 class ByteEvent {
  public:
+  enum class EventFlags : uint8_t { ACK = 0x01, TX = 0x02 };
+
   enum EventType {
     FIRST_BYTE,
     LAST_BYTE,
@@ -72,6 +74,19 @@ class ByteEvent {
   uint64_t byteOffset_ : (8 * sizeof(uint64_t) - 5);
   Callback callback_{nullptr};
 };
+
+constexpr ByteEvent::EventFlags operator|(const ByteEvent::EventFlags& lhs,
+                                          const ByteEvent::EventFlags& rhs) {
+  return static_cast<ByteEvent::EventFlags>(
+      std::underlying_type<ByteEvent::EventFlags>::type(lhs) |
+      std::underlying_type<ByteEvent::EventFlags>::type(rhs));
+}
+
+constexpr bool operator&(const ByteEvent::EventFlags& lhs,
+                         const ByteEvent::EventFlags& rhs) {
+  return (std::underlying_type<ByteEvent::EventFlags>::type(lhs) &
+          std::underlying_type<ByteEvent::EventFlags>::type(rhs));
+}
 
 std::ostream& operator<<(std::ostream& os, const ByteEvent& txn);
 

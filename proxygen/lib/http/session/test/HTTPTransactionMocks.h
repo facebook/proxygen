@@ -339,6 +339,8 @@ class MockHTTPTransactionTransport : public HTTPTransaction::Transport {
         ->getDatagramSizeLimitNonConst();
   }
 
+  MOCK_METHOD2(trackEgressBodyOffset, void(uint64_t, ByteEvent::EventFlags));
+
   MockHTTPCodec mockCodec_;
 };
 

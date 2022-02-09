@@ -48,6 +48,7 @@ class TestTransportCallback
 
   void lastByteAcked(
       std::chrono::milliseconds /* latency */) noexcept override {
+    lastByteAcked_ = true;
   }
 
   void headerBytesGenerated(proxygen::HTTPHeaderSize& size) noexcept override {
@@ -69,6 +70,11 @@ class TestTransportCallback
     lastEgressHeadersByteDelivered_ = true;
   }
 
+  void bodyBytesTx(uint64_t bodyOffset) noexcept override {
+    numBodyBytesTxCalls_++;
+    bodyBytesTxOffset_ = bodyOffset;
+  }
+
   void bodyBytesDelivered(uint64_t bodyOffset) noexcept override {
     numBodyBytesDeliveredCalls_++;
     bodyBytesDeliveredOffset_ = bodyOffset;
@@ -83,10 +89,13 @@ class TestTransportCallback
   bool lastEgressHeadersByteDelivered_{false};
   uint64_t numBodyBytesDeliveredCalls_{0};
   uint64_t bodyBytesDeliveredOffset_{0};
+  uint64_t numBodyBytesTxCalls_{0};
+  uint64_t bodyBytesTxOffset_{0};
   uint64_t numBodyBytesCanceledCalls_{0};
   uint64_t bodyBytesCanceledOffset_{0};
   uint64_t bodyBytesGenerated_{0};
   bool lastByteFlushed_{false};
+  bool lastByteAcked_{false};
 };
 
 class HQDownstreamSessionTest : public HQSessionTest {

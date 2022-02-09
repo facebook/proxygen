@@ -100,7 +100,6 @@ HTTPTransaction::HTTPTransaction(
       priorityFallback_(false),
       headRequest_(false),
       enableLastByteFlushedTracking_(false),
-      enableBodyLastByteDeliveryTracking_(false),
       egressHeadersDelivered_(false),
       has1xxResponse_(false),
       isDelegated_(false),
@@ -820,6 +819,14 @@ void HTTPTransaction::onEgressBodyBytesAcked(uint64_t bodyOffset) {
   }
 }
 
+void HTTPTransaction::onEgressBodyBytesTx(uint64_t bodyOffset) {
+  FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onEgressBodyBytesTx");
+  DestructorGuard g(this);
+  if (transportCallback_) {
+    transportCallback_->bodyBytesTx(bodyOffset);
+  }
+}
+
 void HTTPTransaction::onEgressBodyDeliveryCanceled(uint64_t bodyOffset) {
   FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onEgressBodyDeliveryCanceled");
   DestructorGuard g(this);
@@ -1017,9 +1024,6 @@ void HTTPTransaction::sendBody(std::unique_ptr<folly::IOBuf> body) {
           << "Sent body longer than chunk header ";
     }
     deferredEgressBody_.append(std::move(body));
-    if (*actualResponseLength_ && enableBodyLastByteDeliveryTracking_) {
-      transport_.trackEgressBodyDelivery(*actualResponseLength_);
-    }
     if (isEnqueued()) {
       transport_.notifyEgressBodyBuffered(bodyLen);
     }
@@ -1039,9 +1043,6 @@ bool HTTPTransaction::addBufferMeta() noexcept {
   deferredBufferMeta_.length = bufferMetaLen;
   actualResponseLength_ = bufferMetaLen;
 
-  if (enableBodyLastByteDeliveryTracking_) {
-    transport_.trackEgressBodyDelivery(bufferMetaLen);
-  }
   if (isEnqueued()) {
     transport_.notifyEgressBodyBuffered(bufferMetaLen);
   }
@@ -1157,6 +1158,13 @@ size_t HTTPTransaction::sendDeferredBufferMeta(uint32_t maxEgress) {
   }
   updateReadTimeout();
   nbytes = transport_.sendBody(this, bufferMeta, sendEom);
+  bodyBytesEgressed_ += bufferMeta.length;
+  for (auto it = egressBodyOffsetsToTrack_.begin();
+       it != egressBodyOffsetsToTrack_.end() && it->first < bodyBytesEgressed_;
+       it = egressBodyOffsetsToTrack_.begin()) {
+    transport_.trackEgressBodyOffset(it->first, it->second);
+    egressBodyOffsetsToTrack_.erase(it);
+  }
   if (isPrioritySampled()) {
     updateTransactionBytesSent(bufferMeta.length);
   }
@@ -1276,6 +1284,13 @@ size_t HTTPTransaction::sendBodyNow(std::unique_ptr<folly::IOBuf> body,
                                std::move(body),
                                sendEom && !trailers_,
                                enableLastByteFlushedTracking_);
+  bodyBytesEgressed_ += bodyLen;
+  for (auto it = egressBodyOffsetsToTrack_.begin();
+       it != egressBodyOffsetsToTrack_.end() && it->first < bodyBytesEgressed_;
+       it = egressBodyOffsetsToTrack_.begin()) {
+    transport_.trackEgressBodyOffset(it->first, it->second);
+    egressBodyOffsetsToTrack_.erase(it);
+  }
   if (sendEom && trailers_) {
     nbytes += sendEOMNow();
   }
@@ -1355,6 +1370,21 @@ void HTTPTransaction::sendAbort(ErrorCode statusCode) {
     size.uncompressed = nbytes;
     transportCallback_->headerBytesGenerated(size);
   }
+}
+
+bool HTTPTransaction::trackEgressBodyOffset(uint64_t offset,
+                                            ByteEvent::EventFlags flags) {
+  if (transport_.getSessionType() != Transport::Type::QUIC) {
+    // for now
+    return false;
+  }
+  if (offset < bodyBytesEgressed_) {
+    // we've egressed this byte already, ask transport to track it
+    transport_.trackEgressBodyOffset(offset, flags);
+  } else {
+    egressBodyOffsetsToTrack_.emplace(offset, flags);
+  }
+  return true;
 }
 
 uint16_t HTTPTransaction::getDatagramSizeLimit() const noexcept {

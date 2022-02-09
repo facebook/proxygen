@@ -381,6 +381,9 @@ class HTTPTransactionTransportCallback {
   virtual void lastEgressHeaderByteAcked() noexcept {
   }
 
+  virtual void bodyBytesTx(uint64_t /* bodyOffset */) noexcept {
+  }
+
   virtual void bodyBytesDelivered(uint64_t /* bodyOffset */) noexcept {
   }
 
@@ -599,7 +602,8 @@ class HTTPTransaction
     /**
      * Ask transport to track and ack body delivery.
      */
-    virtual void trackEgressBodyDelivery(uint64_t /* bodyOffset */) {
+    virtual void trackEgressBodyOffset(uint64_t /* bodyOffset */,
+                                       ByteEvent::EventFlags /*flags*/) {
       LOG(FATAL) << __func__ << " not supported";
       folly::assume_unreachable();
     }
@@ -903,14 +907,20 @@ class HTTPTransaction
   void onLastEgressHeaderByteAcked();
 
   /**
+   * Invoked by the session when egress body has been transmitted to the
+   * peer. Called for each sendBody() call if body bytes tracking is enabled.
+   */
+  void onEgressBodyBytesTx(uint64_t bodyOffset);
+
+  /**
    * Invoked by the session when egress body has been acked by the
    * peer. Called for each sendBody() call if body bytes tracking is enabled.
    */
   void onEgressBodyBytesAcked(uint64_t bodyOffset);
 
   /**
-   * Invoked by the session when egress body delivery has been cancelled by the
-   * peer.
+   * Invoked by the session when egress body tx or delivery has been cancelled
+   * by the peer.
    */
   void onEgressBodyDeliveryCanceled(uint64_t bodyOffset);
 
@@ -1070,6 +1080,13 @@ class HTTPTransaction
    *             chunk headers.
    */
   virtual void sendBody(std::unique_ptr<folly::IOBuf> body);
+
+  /**
+   * Returns the cumulative size of body passed to sendBody so far
+   */
+  size_t bodyBytesSent() const {
+    return actualResponseLength_.value_or(0);
+  }
 
   /**
    * Write any protocol framing required for the subsequent call(s)
@@ -1531,14 +1548,17 @@ class HTTPTransaction
     enableLastByteFlushedTracking_ = enabled;
   }
 
-  bool setBodyLastByteDeliveryTrackingEnabled(bool enabled) {
-    if (transport_.getSessionType() != Transport::Type::QUIC) {
-      return false;
-    }
-
-    enableBodyLastByteDeliveryTracking_ = enabled;
-    return true;
-  }
+  // Use this API to track TX or Ack for a particular offset of the HTTP body,
+  // if the underlying transport is capable of tracking.
+  // It will generate a callback to HTTPTransactionTransportCallback either
+  // trackedByteEventTx or trackedByteEventAck.  The the event does not happen,
+  // there is no cancellation callback.
+  //
+  // You can call this API before you have egressed the given bodyOffset.
+  // Last byte ack is already tracked implicity and delivered via lastByteAcked.
+  bool trackEgressBodyOffset(
+      uint64_t bodyOffset,
+      ByteEvent::EventFlags flags = ByteEvent::EventFlags::ACK);
 
   uint16_t getDatagramSizeLimit() const noexcept;
   virtual bool sendDatagram(std::unique_ptr<folly::IOBuf> datagram);
@@ -1810,6 +1830,8 @@ class HTTPTransaction
   folly::Optional<uint64_t> expectedIngressContentLengthRemaining_;
   folly::Optional<uint64_t> expectedResponseLength_;
   folly::Optional<uint64_t> actualResponseLength_{0};
+  uint64_t bodyBytesEgressed_{0};
+  std::map<uint64_t, ByteEvent::EventFlags> egressBodyOffsetsToTrack_;
 
   bool ingressPaused_ : 1;
   bool egressPaused_ : 1;
@@ -1827,7 +1849,6 @@ class HTTPTransaction
   bool priorityFallback_ : 1;
   bool headRequest_ : 1;
   bool enableLastByteFlushedTracking_ : 1;
-  bool enableBodyLastByteDeliveryTracking_ : 1;
 
   // Prevents the application from calling skipBodyTo() before egress
   // headers have been delivered.

@@ -1107,7 +1107,7 @@ class HQSession
       : public HQStreamBase
       , public HTTPTransaction::Transport
       , public HTTP2PriorityQueueBase
-      , public quic::QuicSocket::DeliveryCallback {
+      , public quic::QuicSocket::ByteEventCallback {
    protected:
     HQStreamTransportBase(
         HQSession& session,
@@ -1148,11 +1148,9 @@ class HQSession
         const folly::Range<quic::QuicSocket::PeekIterator>& peekData);
 
     // QuicSocket::DeliveryCallback
-    void onDeliveryAck(quic::StreamId id,
-                       uint64_t offset,
-                       std::chrono::microseconds rtt) override;
-
-    void onCanceled(quic::StreamId id, uint64_t offset) override;
+    void onByteEvent(quic::QuicSocket::ByteEvent byteEvent) override;
+    void onByteEventCanceled(
+        quic::QuicSocket::ByteEventCancellation cancellation) override;
 
     // HTTPCodec::Callback methods
     void onMessageBegin(HTTPCodec::StreamID streamID,
@@ -1533,7 +1531,8 @@ class HQSession
 
     void generateGoaway();
 
-    void trackEgressBodyDelivery(uint64_t bodyOffset) override;
+    void trackEgressBodyOffset(uint64_t bodyOffset,
+                               proxygen::ByteEvent::EventFlags flags) override;
 
     /**
      * Returns whether or no we have any body bytes buffered in the stream, or
@@ -1712,14 +1711,28 @@ class HQSession
     // remote entity.
     HTTPTransaction::BufferMeta bufMeta_;
 
-    void armStreamAckCb(uint64_t streamOffset);
+    void armStreamByteEventCb(uint64_t streamOffset,
+                              quic::QuicSocket::ByteEvent::Type type);
     void armEgressHeadersAckCb(uint64_t streamOffset);
-    void armEgressBodyAckCb(uint64_t streamOffset);
+    void armEgressBodyCallbacks(uint64_t bodyOffset,
+                                uint64_t streamOffset,
+                                proxygen::ByteEvent::EventFlags eventFlags);
     void resetEgressHeadersAckOffset() {
       egressHeadersAckOffset_ = folly::none;
     }
-    void resetEgressBodyAckOffset(uint64_t offset) {
-      egressBodyAckOffsets_.erase(offset);
+    folly::Optional<uint64_t> resetEgressBodyEventOffset(
+        uint64_t streamOffset) {
+      auto it = egressBodyByteEventOffsets_.find(streamOffset);
+      if (it != egressBodyByteEventOffsets_.end()) {
+        CHECK_GT(it->second.callbacks, 0);
+        it->second.callbacks--;
+        auto bodyOffset = it->second.bodyOffset;
+        if (it->second.callbacks == 0) {
+          egressBodyByteEventOffsets_.erase(it);
+        }
+        return bodyOffset;
+      }
+      return folly::none;
     }
 
     uint64_t numActiveDeliveryCallbacks() const {
@@ -1737,14 +1750,21 @@ class HQSession
         HTTPHeaderSize* size) noexcept;
     void coalesceEOM(size_t encodedBodySize);
     void handleHeadersAcked(uint64_t streamOffset);
-    void handleBodyAcked(uint64_t streamOffset);
-    void handleBodyCancelled(uint64_t streamOffset);
-    // Egress headers offset.
-    // This is updated every time we send headers. Needed for body delivery
-    // callbacks to calculate body offset properly.
-    uint64_t egressHeadersStreamOffset_{0};
+    void handleBodyEvent(uint64_t streamOffset,
+                         quic::QuicSocket::ByteEvent::Type type);
+    void handleBodyEventCancelled(uint64_t streamOffset,
+                                  quic::QuicSocket::ByteEvent::Type type);
+    uint64_t bodyBytesEgressed_{0};
     folly::Optional<uint64_t> egressHeadersAckOffset_;
-    std::unordered_set<uint64_t> egressBodyAckOffsets_;
+    struct BodyByteOffset {
+      uint64_t bodyOffset;
+      uint64_t callbacks;
+      BodyByteOffset(uint64_t bo, uint64_t c) : bodyOffset(bo), callbacks(c) {
+      }
+    };
+    // We allow random insert/removal in this map, but removal should be
+    // sequential
+    folly::F14FastMap<uint64_t, BodyByteOffset> egressBodyByteEventOffsets_;
     // Track number of armed QUIC delivery callbacks.
     uint64_t numActiveDeliveryCallbacks_{0};
 

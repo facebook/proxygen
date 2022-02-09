@@ -2849,7 +2849,6 @@ HQSession::HQStreamTransportBase::generateHeadersCommon(
                                    session_.getExtraHeaders(headers, streamId));
 
   const uint64_t newOffset = streamWriteByteOffset();
-  egressHeadersStreamOffset_ = newOffset;
   if (size) {
     VLOG(4) << "sending headers, size=" << size->compressed
             << ", uncompressedSize=" << size->uncompressed << " txn=" << txn_;
@@ -3234,6 +3233,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
   CHECK(codecStreamId_);
 
   bufMeta_.length += body.length;
+  bodyBytesEgressed_ += body.length;
   uint64_t offset = streamWriteByteOffset();
 
   if (auto httpSessionActivityTracker =
@@ -3286,8 +3286,9 @@ size_t HQSession::HQStreamTransportBase::sendBody(
     std::unique_ptr<folly::IOBuf> body,
     bool includeEOM,
     bool /* trackLastByteFlushed */) noexcept {
-  VLOG(4) << __func__ << " len=" << body->computeChainDataLength()
-          << " eof=" << includeEOM << " txn=" << txn_;
+  auto bodyLength = body->computeChainDataLength();
+  VLOG(4) << __func__ << " len=" << bodyLength << " eof=" << includeEOM
+          << " txn=" << txn_;
   CHECK(hasEgressStreamId()) << __func__ << " invoked on stream without egress";
   DCHECK(txn == &txn_);
   CHECK_EQ(0, bufMeta_.length);
@@ -3300,6 +3301,7 @@ size_t HQSession::HQStreamTransportBase::sendBody(
                                                       std::move(body),
                                                       HTTPCodec::NoPadding,
                                                       includeEOM);
+  bodyBytesEgressed_ += bodyLength;
   if (auto httpSessionActivityTracker =
           session_.getHTTPSessionActivityTracker()) {
     httpSessionActivityTracker->addTrackedEgressByteEvent(
@@ -3378,24 +3380,30 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
   ingressPushId_ = folly::none;
 }
 
-void HQSession::HQStreamTransportBase::trackEgressBodyDelivery(
-    uint64_t bodyOffset) {
+void HQSession::HQStreamTransportBase::trackEgressBodyOffset(
+    uint64_t bodyOffset, proxygen::ByteEvent::EventFlags eventFlags) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
-  uint64_t streamOffset = egressHeadersStreamOffset_ + bodyOffset;
+  // This calculation is only accurate for a body offset in the most recently
+  // generated DATA frame.  Any earlier offsets will skew large by factoring in
+  // more recent frame headers or non-DATA frames.  Any later offsets will skew
+  // small because the number of non-body bytes is not known.
+  uint64_t streamOffset =
+      (streamWriteByteOffset() - bodyBytesEgressed_) + bodyOffset;
   // We need to track last byte sent offset, so substract one here.
   auto offset = streamOffset - 1;
-  armEgressBodyAckCb(offset);
-  VLOG(4) << __func__ << ": armed body delivery callback for offset=" << offset
-          << "; last egress headers offset=" << egressHeadersStreamOffset_
-          << "; txn=" << txn_;
+  armEgressBodyCallbacks(bodyOffset, offset, eventFlags);
+  VLOG(4) << __func__ << ": armed body byte event cb for offset=" << offset
+          << "; body offset=" << bodyOffset
+          << "; flags=" << uint32_t(eventFlags) << "; txn=" << txn_;
 }
 
-void HQSession::HQStreamTransportBase::armStreamAckCb(uint64_t streamOffset) {
-  auto res = session_.sock_->registerDeliveryCallback(
-      getEgressStreamId(), streamOffset, this);
+void HQSession::HQStreamTransportBase::armStreamByteEventCb(
+    uint64_t streamOffset, quic::QuicSocket::ByteEvent::Type type) {
+  auto res = session_.sock_->registerByteEventCallback(
+      type, getEgressStreamId(), streamOffset, this);
   if (res.hasError()) {
     auto errStr = folly::to<std::string>(
-        "failed to register delivery callback: ", toString(res.error()));
+        "failed to register byte event callback: ", toString(res.error()));
     LOG(ERROR) << errStr;
     HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, errStr);
     ex.setProxygenError(kErrorNetwork);
@@ -3408,25 +3416,42 @@ void HQSession::HQStreamTransportBase::armStreamAckCb(uint64_t streamOffset) {
   // and ack/cancel from transport here.
   txn_.incrementPendingByteEvents();
 
-  VLOG(4) << __func__
-          << ": registered ack callback for offset = " << streamOffset
-          << "; sess=" << session_ << "; txn=" << txn_;
+  VLOG(4) << __func__ << ": registered type=" << uint32_t(type)
+          << " callback for offset=" << streamOffset << "; sess=" << session_
+          << "; txn=" << txn_;
 }
 
 void HQSession::HQStreamTransportBase::armEgressHeadersAckCb(
     uint64_t streamOffset) {
-  VLOG(4) << __func__ << ": registering headers delivery callback for offset = "
+  VLOG(4) << __func__ << ": registering headers delivery callback for offset="
           << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
-  armStreamAckCb(streamOffset);
+  armStreamByteEventCb(streamOffset, quic::QuicSocket::ByteEvent::Type::ACK);
   egressHeadersAckOffset_ = streamOffset;
 }
 
-void HQSession::HQStreamTransportBase::armEgressBodyAckCb(
-    uint64_t streamOffset) {
-  VLOG(4) << __func__ << ": registering body delivery callback for offset = "
-          << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
-  armStreamAckCb(streamOffset);
-  egressBodyAckOffsets_.insert(streamOffset);
+void HQSession::HQStreamTransportBase::armEgressBodyCallbacks(
+    uint64_t bodyOffset,
+    uint64_t streamOffset,
+    proxygen::ByteEvent::EventFlags eventFlags) {
+  VLOG(4) << __func__ << ": registering body byte event callback for offset="
+          << streamOffset << "; flags=" << uint32_t(eventFlags)
+          << "; sess=" << session_ << "; txn=" << txn_;
+  if (eventFlags & proxygen::ByteEvent::EventFlags::TX) {
+    armStreamByteEventCb(streamOffset, quic::QuicSocket::ByteEvent::Type::TX);
+    auto res = egressBodyByteEventOffsets_.try_emplace(
+        streamOffset, BodyByteOffset(bodyOffset, 1));
+    if (!res.second) {
+      res.first->second.callbacks++;
+    }
+  }
+  if (eventFlags & proxygen::ByteEvent::EventFlags::ACK) {
+    armStreamByteEventCb(streamOffset, quic::QuicSocket::ByteEvent::Type::ACK);
+    auto res = egressBodyByteEventOffsets_.try_emplace(
+        streamOffset, BodyByteOffset(bodyOffset, 1));
+    if (!res.second) {
+      res.first->second.callbacks++;
+    }
+  }
 }
 
 void HQSession::HQStreamTransportBase::handleHeadersAcked(
@@ -3439,89 +3464,96 @@ void HQSession::HQStreamTransportBase::handleHeadersAcked(
     return;
   }
 
-  VLOG(4) << __func__
-          << ": got delivery ack for egress headers, stream offset = "
+  VLOG(4) << __func__ << ": got delivery ack for egress headers, stream offset="
           << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
 
   resetEgressHeadersAckOffset();
   txn_.onLastEgressHeaderByteAcked();
 }
 
-void HQSession::HQStreamTransportBase::handleBodyAcked(uint64_t streamOffset) {
+void HQSession::HQStreamTransportBase::handleBodyEvent(
+    uint64_t streamOffset, quic::QuicSocket::ByteEvent::Type type) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(session_.versionUtils_);
 
-  CHECK_GE(streamOffset, egressHeadersStreamOffset_);
-  uint64_t bodyOffset = streamOffset - egressHeadersStreamOffset_;
-
-  VLOG(4) << __func__
-          << ": got delivery ack for egress body, bodyOffset = " << bodyOffset
+  auto bodyOffset = resetEgressBodyEventOffset(streamOffset);
+  if (!bodyOffset) {
+    LOG(DFATAL) << __func__ << ": received an unexpected byte event at offset "
+                << streamOffset << "; sess=" << session_ << "; txn=" << txn_;
+    return;
+  }
+  VLOG(4) << __func__ << ": got byte event type=" << uint32_t(type)
+          << " for egress body, bodyOffset=" << *bodyOffset
           << "; sess=" << session_ << "; txn=" << txn_;
 
-  resetEgressBodyAckOffset(streamOffset);
-  txn_.onEgressBodyBytesAcked(bodyOffset);
+  if (type == quic::QuicSocket::ByteEvent::Type::ACK) {
+    txn_.onEgressBodyBytesAcked(*bodyOffset);
+  } else if (type == quic::QuicSocket::ByteEvent::Type::TX) {
+    txn_.onEgressBodyBytesTx(*bodyOffset);
+  }
 }
 
-void HQSession::HQStreamTransportBase::handleBodyCancelled(
-    uint64_t streamOffset) {
+void HQSession::HQStreamTransportBase::handleBodyEventCancelled(
+    uint64_t streamOffset, quic::QuicSocket::ByteEvent::Type) {
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(session_.versionUtils_);
 
-  CHECK_GE(streamOffset, egressHeadersStreamOffset_);
-  uint64_t bodyOffset = streamOffset - egressHeadersStreamOffset_;
-
-  resetEgressBodyAckOffset(streamOffset);
-  txn_.onEgressBodyDeliveryCanceled(bodyOffset);
+  auto bodyOffset = resetEgressBodyEventOffset(streamOffset);
+  if (!bodyOffset) {
+    LOG(DFATAL) << __func__
+                << ": received an unexpected onCanceled event at offset "
+                << streamOffset;
+    return;
+  }
+  // Use the same callback whether the body did not TX or did not ACK.  Caller
+  // may received this more than once if they asked to track both.
+  txn_.onEgressBodyDeliveryCanceled(*bodyOffset);
 }
 
-void HQSession::HQStreamTransportBase::onDeliveryAck(
-    quic::StreamId /* id */,
-    uint64_t offset,
-    std::chrono::microseconds /* rtt */) {
-  VLOG(4) << __func__ << ": got delivery ack for offset = " << offset
-          << "; sess=" << session_ << "; txn=" << txn_;
+void HQSession::HQStreamTransportBase::onByteEvent(
+    quic::QuicSocket::ByteEvent byteEvent) {
+  VLOG(4) << __func__ << ": got byte event type=" << uint32_t(byteEvent.type)
+          << " for offset=" << byteEvent.offset << "; sess=" << session_
+          << "; txn=" << txn_;
 
   DCHECK_GT(numActiveDeliveryCallbacks_, 0);
   numActiveDeliveryCallbacks_--;
   txn_.decrementPendingByteEvents();
 
+  // For a given type (ACK|TX), onByteEvent calls will be called from QuicSocket
+  // with monotonically increasing offsets.
   if (egressHeadersAckOffset_) {
-    handleHeadersAcked(offset);
-    return;
+    if (byteEvent.type == quic::QuicSocket::ByteEvent::Type::ACK) {
+      handleHeadersAcked(byteEvent.offset);
+      return;
+    }
+    // else we don't track header byte tx (yet), but it could be a body TX
   }
 
-  if (egressBodyAckOffsets_.find(offset) != egressBodyAckOffsets_.end()) {
-    handleBodyAcked(offset);
-    return;
-  }
-
-  LOG(DFATAL) << __func__
-              << ": received an unexpected onDeliveryAck event at offset "
-              << offset << "; sess=" << session_ << "; txn=" << txn_;
+  handleBodyEvent(byteEvent.offset, byteEvent.type);
 }
 
-void HQSession::HQStreamTransportBase::onCanceled(quic::StreamId id,
-                                                  uint64_t offset) {
-  VLOG(3) << __func__ << ": data cancelled on stream = " << id
-          << ", offset = " << offset << "; sess=" << session_
+void HQSession::HQStreamTransportBase::onByteEventCanceled(
+    quic::QuicSocket::ByteEventCancellation cancellation) {
+  VLOG(3) << __func__ << ": data cancelled on stream=" << cancellation.id
+          << ", type=" << uint32_t(cancellation.type)
+          << ", offset=" << cancellation.offset << "; sess=" << session_
           << "; txn=" << txn_;
   DCHECK_GT(numActiveDeliveryCallbacks_, 0);
   numActiveDeliveryCallbacks_--;
   txn_.decrementPendingByteEvents();
 
+  // Are byte events of a given type always cancelled in offset order?
+
   if (egressHeadersAckOffset_) {
-    resetEgressHeadersAckOffset();
-    return;
+    if (cancellation.type == quic::QuicSocket::ByteEvent::Type::ACK) {
+      resetEgressHeadersAckOffset();
+      return;
+    }
+    // else we don't track header byte tx (yet), but it could be a body TX
   }
 
-  if (egressBodyAckOffsets_.find(offset) != egressBodyAckOffsets_.end()) {
-    handleBodyCancelled(offset);
-    return;
-  }
-
-  LOG(DFATAL) << __func__
-              << ": received an unexpected onCanceled event at offset "
-              << offset;
+  handleBodyEventCancelled(cancellation.offset, cancellation.type);
 }
 
 // Methods specific to StreamTransport subclasses
