@@ -96,7 +96,7 @@ TEST(SecondaryAuthManagerTest, Authenticator) {
             SignatureScheme::ecdsa_secp256r1_sha256};
         return schemes;
       }));
-  EXPECT_CALL(fizzBase, getExportedKeyingMaterial(_, _, _))
+  EXPECT_CALL(fizzBase, _getExportedKeyingMaterial(_, _, _))
       .WillRepeatedly(InvokeWithoutArgs(
           []() { return folly::IOBuf::copyBuffer("exportedmaterial"); }));
   auto authenticatorPair =
