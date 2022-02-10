@@ -2212,7 +2212,7 @@ TEST_F(MockHTTPUpstreamTest, NoWindowUpdateOnDrain) {
   httpSession_->setSessionStats(&stats);
 
   // Below is expected to be called by httpSession_ destructor
-  EXPECT_CALL(stats, recordPendingBufferedReadBytes(0));
+  EXPECT_CALL(stats, _recordPendingBufferedReadBytes(0));
 
   // We'll get exactly one window update because we are draining
   EXPECT_CALL(*codecPtr_, generateWindowUpdate(_, _, _))
@@ -2222,8 +2222,8 @@ TEST_F(MockHTTPUpstreamTest, NoWindowUpdateOnDrain) {
         EXPECT_EQ(delta, sendWindow);
         outstanding -= delta;
         uint32_t len = std::min(toSend, sendWindow - outstanding);
-        EXPECT_CALL(stats, recordPendingBufferedReadBytes(len));
-        EXPECT_CALL(stats, recordPendingBufferedReadBytes(-1 * (int32_t)len));
+        EXPECT_CALL(stats, _recordPendingBufferedReadBytes(len));
+        EXPECT_CALL(stats, _recordPendingBufferedReadBytes(-1 * (int32_t)len));
         EXPECT_LT(len, sendWindow);
         toSend -= len;
         EXPECT_EQ(toSend, 0);
@@ -2252,8 +2252,8 @@ TEST_F(MockHTTPUpstreamTest, NoWindowUpdateOnDrain) {
     uint32_t len = std::min(toSend, uint32_t(36000));
     // limited by the available window
     len = std::min(len, sendWindow - outstanding);
-    EXPECT_CALL(stats, recordPendingBufferedReadBytes(len));
-    EXPECT_CALL(stats, recordPendingBufferedReadBytes(-1 * (int32_t)len));
+    EXPECT_CALL(stats, _recordPendingBufferedReadBytes(len));
+    EXPECT_CALL(stats, _recordPendingBufferedReadBytes(-1 * (int32_t)len));
     auto respBody = makeBuf(len);
     toSend -= len;
     outstanding += len;

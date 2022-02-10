@@ -4143,7 +4143,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestSessionStallByFlowControl) {
   handler2->expectHeaders();
   handler2->expectEOM([&] { handler2->sendReplyWithBody(200, 32 * 1024); });
 
-  EXPECT_CALL(stats, recordSessionStalled()).Times(1);
+  EXPECT_CALL(stats, _recordSessionStalled()).Times(1);
 
   handler1->expectDetachTransaction();
 
@@ -4174,14 +4174,14 @@ TEST_F(HTTP2DownstreamSessionTest, TestTransactionStallByFlowControl) {
 
   auto streamID = sendRequest();
 
-  EXPECT_CALL(stats, recordTransactionOpened());
+  EXPECT_CALL(stats, _recordTransactionOpened());
 
   InSequence handlerSequence;
   auto handler = addSimpleStrictHandler();
   handler->expectHeaders();
   handler->expectEOM([&] { handler->sendReplyWithBody(200, 1000); });
 
-  EXPECT_CALL(stats, recordTransactionStalled());
+  EXPECT_CALL(stats, _recordTransactionStalled());
   handler->expectEgressPaused();
 
   handler->expectError([&](const HTTPException& ex) {
@@ -4193,7 +4193,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestTransactionStallByFlowControl) {
 
   handler->expectDetachTransaction();
 
-  EXPECT_CALL(stats, recordTransactionClosed());
+  EXPECT_CALL(stats, _recordTransactionClosed());
 
   flushRequestsAndLoop();
   gracefulShutdown();
@@ -4210,7 +4210,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestTransactionNotStallByFlowControl) {
 
   sendRequest();
 
-  EXPECT_CALL(stats, recordTransactionOpened());
+  EXPECT_CALL(stats, _recordTransactionOpened());
 
   InSequence handlerSequence;
   auto handler = addSimpleStrictHandler();
@@ -4224,7 +4224,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestTransactionNotStallByFlowControl) {
 
   handler->expectDetachTransaction();
 
-  EXPECT_CALL(stats, recordTransactionClosed());
+  EXPECT_CALL(stats, _recordTransactionClosed());
 
   flushRequestsAndLoop();
   gracefulShutdown();

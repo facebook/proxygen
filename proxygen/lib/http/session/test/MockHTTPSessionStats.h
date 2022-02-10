@@ -13,10 +13,6 @@
 
 namespace proxygen {
 
-#define GMOCK_NOEXCEPT_METHOD0(m, F) GMOCK_METHOD0_(, noexcept, , m, F)
-#define GMOCK_NOEXCEPT_METHOD1(m, F) GMOCK_METHOD1_(, noexcept, , m, F)
-#define GMOCK_NOEXCEPT_METHOD2(m, F) GMOCK_METHOD2_(, noexcept, , m, F)
-
 class DummyHTTPSessionStats : public HTTPSessionStats {
  public:
   void recordTransactionOpened() noexcept override{};
@@ -45,14 +41,38 @@ class MockHTTPSessionStats : public DummyHTTPSessionStats {
  public:
   MockHTTPSessionStats() {
   }
-  GMOCK_NOEXCEPT_METHOD0(recordTransactionOpened, void());
-  GMOCK_NOEXCEPT_METHOD0(recordTransactionClosed, void());
-  GMOCK_NOEXCEPT_METHOD1(recordTransactionsServed, void(uint64_t));
-  GMOCK_NOEXCEPT_METHOD0(recordSessionReused, void());
-  GMOCK_NOEXCEPT_METHOD1(recordSessionIdleTime, void(std::chrono::seconds));
-  GMOCK_NOEXCEPT_METHOD0(recordTransactionStalled, void());
-  GMOCK_NOEXCEPT_METHOD0(recordSessionStalled, void());
-  GMOCK_NOEXCEPT_METHOD1(recordPendingBufferedReadBytes, void(int64_t));
+  void recordTransactionOpened() noexcept override {
+    _recordTransactionOpened();
+  }
+  MOCK_METHOD0(_recordTransactionOpened, void());
+  void recordTransactionClosed() noexcept override {
+    _recordTransactionClosed();
+  }
+  MOCK_METHOD0(_recordTransactionClosed, void());
+  void recordTransactionsServed(uint64_t num) noexcept override {
+    _recordTransactionsServed(num);
+  }
+  MOCK_METHOD1(_recordTransactionsServed, void(uint64_t));
+  void recordSessionReused() noexcept override {
+    _recordSessionReused();
+  }
+  MOCK_METHOD0(_recordSessionReused, void());
+  void recordSessionIdleTime(std::chrono::seconds param) noexcept override {
+    _recordSessionIdleTime(param);
+  }
+  MOCK_METHOD1(_recordSessionIdleTime, void(std::chrono::seconds));
+  void recordTransactionStalled() noexcept override {
+    _recordTransactionStalled();
+  }
+  MOCK_METHOD0(_recordTransactionStalled, void());
+  void recordSessionStalled() noexcept override {
+    _recordSessionStalled();
+  }
+  MOCK_METHOD0(_recordSessionStalled, void());
+  void recordPendingBufferedReadBytes(int64_t num) noexcept override {
+    _recordPendingBufferedReadBytes(num);
+  }
+  MOCK_METHOD1(_recordPendingBufferedReadBytes, void(int64_t));
 };
 
 } // namespace proxygen
