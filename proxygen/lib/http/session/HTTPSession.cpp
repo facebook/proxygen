@@ -141,7 +141,7 @@ uint32_t HTTPSession::getCertAuthSettingVal() {
   }
   auto fizzBase = getTransport()->getUnderlyingTransport<AsyncFizzBase>();
   if (fizzBase) {
-    ekm = fizzBase->getEkm(label, nullptr, settingLen);
+    ekm = fizzBase->getExportedKeyingMaterial(label, nullptr, settingLen);
   } else {
     VLOG(4) << "Underlying transport does not support secondary "
                "authentication.";
@@ -167,7 +167,7 @@ bool HTTPSession::verifyCertAuthSetting(uint32_t value) {
   }
   auto fizzBase = getTransport()->getUnderlyingTransport<AsyncFizzBase>();
   if (fizzBase) {
-    ekm = fizzBase->getEkm(label, nullptr, settingLen);
+    ekm = fizzBase->getExportedKeyingMaterial(label, nullptr, settingLen);
   } else {
     VLOG(4) << "Underlying transport does not support secondary "
                "authentication.";
