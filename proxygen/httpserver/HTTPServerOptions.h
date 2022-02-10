@@ -39,12 +39,10 @@ class HTTPServerOptions {
 
   /**
    * Number of threads to start to handle requests. Note that this excludes
-   * the thread you call `HTTPServer.start()` in.
+   * the thread you call `HTTPServer.start()` in. 0 means 1 thread per-cpu.
    *
    * XXX: Put some perf numbers to help user decide how many threads to
    *      create.
-   * XXX: Maybe support not creating any more worker threads and doing all
-   *      the work in same thread when `threads == 0`.
    */
   size_t threads = 1;
 

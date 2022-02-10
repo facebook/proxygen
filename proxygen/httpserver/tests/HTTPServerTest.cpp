@@ -15,6 +15,7 @@
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/AsyncServerSocket.h>
 #include <folly/io/async/EventBaseManager.h>
+#include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <folly/ssl/OpenSSLCertUtils.h>
 #include <folly/ssl/OpenSSLPtrTypes.h>
@@ -184,6 +185,39 @@ TEST(HttpServerStartStop, TestUseExistingIoExecutor) {
   auto st = std::make_unique<WaitableServerThread>(server.get());
   EXPECT_TRUE(
       st->start(/*acceptorFactory=*/nullptr, /*ioExecutor=*/ioExecutor));
+
+  server->stop();
+  // Let the WaitableServerThread exit
+  st->exitThread();
+}
+
+class MockRequestHandlerFactory : public RequestHandlerFactory {
+ public:
+  GMOCK_METHOD1_(, noexcept, , onServerStart, void(folly::EventBase* evb));
+  GMOCK_METHOD0_(, noexcept, , onServerStop, void());
+  GMOCK_METHOD2_(
+      , noexcept, , onRequest, RequestHandler*(RequestHandler*, HTTPMessage*));
+};
+
+TEST(HttpServerStartStop, TestZeroThreadsMeansNumCPUs) {
+  // Create a handler factory whose callback will
+  // be called for each worker thread.
+  std::unique_ptr<MockRequestHandlerFactory> handlerFactory =
+      std::make_unique<MockRequestHandlerFactory>();
+  MockRequestHandlerFactory* rawHandlerFactory = handlerFactory.get();
+
+  HTTPServerOptions options;
+  options.threads = 0;
+  options.handlerFactories.push_back(std::move(handlerFactory));
+
+  // threads = 0 should start num of CPUs threads
+  // each calling the handlerFactory onServerStart()
+  EXPECT_CALL(*rawHandlerFactory, onServerStart(testing::_))
+      .Times(std::thread::hardware_concurrency());
+
+  auto server = std::make_unique<HTTPServer>(std::move(options));
+  auto st = std::make_unique<WaitableServerThread>(server.get());
+  EXPECT_TRUE(st->start());
 
   server->stop();
   // Let the WaitableServerThread exit

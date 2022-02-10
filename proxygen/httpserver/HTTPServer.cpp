@@ -55,6 +55,10 @@ class AcceptorFactory : public wangle::AcceptorFactory {
 HTTPServer::HTTPServer(HTTPServerOptions options)
     : options_(std::make_shared<HTTPServerOptions>(std::move(options))) {
 
+  if (options_->threads == 0) {
+    options_->threads = std::thread::hardware_concurrency();
+  }
+
   // Insert a filter to fail all the CONNECT request, if required
   if (!options_->supportsConnect) {
     options_->handlerFactories.insert(
