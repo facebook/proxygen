@@ -164,84 +164,119 @@ class MockHTTPHandler
   }
 
   void setupInvariantViolation() {
-    ON_CALL(*this, onInvariantViolation(testing::_))
+    ON_CALL(*this, _onInvariantViolation(testing::_))
         .WillByDefault(testing::Invoke(
             [](const HTTPException& ex) { LOG(FATAL) << ex.what(); }));
   }
 
-  GMOCK_NOEXCEPT_METHOD1(setTransaction, void(HTTPTransaction* txn));
+  void setTransaction(HTTPTransaction* txn) noexcept override {
+    _setTransaction(txn);
+  }
+  MOCK_METHOD1(_setTransaction, void(HTTPTransaction*));
 
-  GMOCK_NOEXCEPT_METHOD0(detachTransaction, void());
+  void detachTransaction() noexcept override {
+    _detachTransaction();
+  }
+  MOCK_METHOD0(_detachTransaction, void());
 
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
-    onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
+    _onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
   }
 
-  GMOCK_NOEXCEPT_METHOD1(onHeadersComplete,
-                         void(std::shared_ptr<HTTPMessage> msg));
+  MOCK_METHOD1(_onHeadersComplete, void(std::shared_ptr<HTTPMessage>));
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
-    onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
+    _onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  GMOCK_NOEXCEPT_METHOD1(onBody, void(std::shared_ptr<folly::IOBuf> chain));
+  MOCK_METHOD1(_onBody, void(std::shared_ptr<folly::IOBuf>));
 
   void onBodyWithOffset(uint64_t bodyOffset,
                         std::unique_ptr<folly::IOBuf> chain) noexcept override {
-    onBodyWithOffset(bodyOffset,
-                     std::shared_ptr<folly::IOBuf>(chain.release()));
+    _onBodyWithOffset(bodyOffset,
+                      std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  GMOCK_NOEXCEPT_METHOD2(onBodyWithOffset,
-                         void(uint64_t bodyOffset,
-                              std::shared_ptr<folly::IOBuf> chain));
+  MOCK_METHOD2(_onBodyWithOffset,
+               void(uint64_t, std::shared_ptr<folly::IOBuf>));
 
   void onDatagram(std::unique_ptr<folly::IOBuf> chain) noexcept override {
-    onDatagram(std::shared_ptr<folly::IOBuf>(chain.release()));
+    _onDatagram(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  GMOCK_NOEXCEPT_METHOD1(onDatagram, void(std::shared_ptr<folly::IOBuf> chain));
+  MOCK_METHOD1(_onDatagram, void(std::shared_ptr<folly::IOBuf>));
 
-  GMOCK_NOEXCEPT_METHOD1(onChunkHeader, void(size_t length));
+  void onChunkHeader(size_t length) noexcept override {
+    _onChunkHeader(length);
+  }
+  MOCK_METHOD1(_onChunkHeader, void(size_t));
 
-  GMOCK_NOEXCEPT_METHOD0(onChunkComplete, void());
+  void onChunkComplete() noexcept override {
+    _onChunkComplete();
+  }
+  MOCK_METHOD0(_onChunkComplete, void());
 
   void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
-    onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
+    _onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
 
-  GMOCK_NOEXCEPT_METHOD1(onTrailers,
-                         void(std::shared_ptr<HTTPHeaders> trailers));
+  MOCK_METHOD1(_onTrailers, void(std::shared_ptr<HTTPHeaders>));
 
-  GMOCK_NOEXCEPT_METHOD0(onEOM, void());
+  void onEOM() noexcept override {
+    _onEOM();
+  }
+  MOCK_METHOD0(_onEOM, void());
 
-  GMOCK_NOEXCEPT_METHOD1(onUpgrade, void(UpgradeProtocol protocol));
+  void onUpgrade(UpgradeProtocol protocol) noexcept override {
+    _onUpgrade(protocol);
+  }
+  MOCK_METHOD1(_onUpgrade, void(UpgradeProtocol));
 
-  GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
+  void onError(const HTTPException& error) noexcept override {
+    _onError(error);
+  }
+  MOCK_METHOD1(_onError, void(const HTTPException&));
 
-  GMOCK_NOEXCEPT_METHOD1(onInvariantViolation,
-                         void(const HTTPException& error));
+  void onInvariantViolation(const HTTPException& error) noexcept override {
+    _onInvariantViolation(error);
+  }
+  MOCK_METHOD1(_onInvariantViolation, void(const HTTPException&));
 
-  GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
+  void onGoaway(ErrorCode errCode) noexcept override {
+    _onGoaway(errCode);
+  }
+  MOCK_METHOD1(_onGoaway, void(ErrorCode));
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
+  void onEgressPaused() noexcept override {
+    _onEgressPaused();
+  }
+  MOCK_METHOD0(_onEgressPaused, void());
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
+  void onEgressResumed() noexcept override {
+    _onEgressResumed();
+  }
+  MOCK_METHOD0(_onEgressResumed, void());
 
-  GMOCK_NOEXCEPT_METHOD1(onPushedTransaction, void(HTTPTransaction*));
+  void onPushedTransaction(HTTPTransaction* txn) noexcept override {
+    _onPushedTransaction(txn);
+  }
+  MOCK_METHOD1(_onPushedTransaction, void(HTTPTransaction*));
 
-  GMOCK_NOEXCEPT_METHOD1(onExTransaction, void(HTTPTransaction*));
+  void onExTransaction(HTTPTransaction* txn) noexcept override {
+    _onExTransaction(txn);
+  }
+  MOCK_METHOD1(_onExTransaction, void(HTTPTransaction*));
 
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
-    EXPECT_CALL(*this, setTransaction(testing::_))
+    EXPECT_CALL(*this, _setTransaction(testing::_))
         .WillOnce(testing::Invoke(callback))
         .RetiresOnSaturation();
   }
 
   void expectTransaction(HTTPTransaction** pTxn = nullptr) {
-    EXPECT_CALL(*this, setTransaction(testing::_))
+    EXPECT_CALL(*this, _setTransaction(testing::_))
         .WillOnce(testing::SaveArg<0>(pTxn ? pTxn : &txn_));
   }
 
   void expectPushedTransaction(HTTPTransactionHandler* handler = nullptr) {
-    EXPECT_CALL(*this, onPushedTransaction(testing::_))
+    EXPECT_CALL(*this, _onPushedTransaction(testing::_))
         .WillOnce(testing::Invoke([handler](HTTPTransaction* txn) {
           if (handler) {
             txn->setHandler(handler);
@@ -251,16 +286,16 @@ class MockHTTPHandler
 
   void expectHeaders(std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onHeadersComplete(testing::_))
+      EXPECT_CALL(*this, _onHeadersComplete(testing::_))
           .WillOnce(testing::InvokeWithoutArgs(callback))
           .RetiresOnSaturation();
     } else {
-      EXPECT_CALL(*this, onHeadersComplete(testing::_));
+      EXPECT_CALL(*this, _onHeadersComplete(testing::_));
     }
   }
 
   void expectHeaders(std::function<void(std::shared_ptr<HTTPMessage>)> cb) {
-    EXPECT_CALL(*this, onHeadersComplete(testing::_))
+    EXPECT_CALL(*this, _onHeadersComplete(testing::_))
         .WillOnce(testing::Invoke(cb))
         .RetiresOnSaturation();
   }
@@ -268,17 +303,17 @@ class MockHTTPHandler
   void expectTrailers(
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onTrailers(testing::_))
+      EXPECT_CALL(*this, _onTrailers(testing::_))
           .WillOnce(testing::InvokeWithoutArgs(callback))
           .RetiresOnSaturation();
     } else {
-      EXPECT_CALL(*this, onTrailers(testing::_));
+      EXPECT_CALL(*this, _onTrailers(testing::_));
     }
   }
 
   void expectTrailers(
       std::function<void(std::shared_ptr<HTTPHeaders> trailers)> cb) {
-    EXPECT_CALL(*this, onTrailers(testing::_))
+    EXPECT_CALL(*this, _onTrailers(testing::_))
         .WillOnce(testing::Invoke(cb))
         .RetiresOnSaturation();
   }
@@ -286,109 +321,110 @@ class MockHTTPHandler
   void expectChunkHeader(
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onChunkHeader(testing::_))
+      EXPECT_CALL(*this, _onChunkHeader(testing::_))
           .WillOnce(testing::InvokeWithoutArgs(callback));
     } else {
-      EXPECT_CALL(*this, onChunkHeader(testing::_));
+      EXPECT_CALL(*this, _onChunkHeader(testing::_));
     }
   }
 
   void expectBody(std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_))
+      EXPECT_CALL(*this, _onBodyWithOffset(testing::_, testing::_))
           .WillOnce(testing::InvokeWithoutArgs(callback));
     } else {
-      EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_));
+      EXPECT_CALL(*this, _onBodyWithOffset(testing::_, testing::_));
     }
   }
 
   void expectBody(
       std::function<void(uint64_t, std::shared_ptr<folly::IOBuf>)> callback) {
-    EXPECT_CALL(*this, onBodyWithOffset(testing::_, testing::_))
+    EXPECT_CALL(*this, _onBodyWithOffset(testing::_, testing::_))
         .WillOnce(testing::Invoke(callback));
   }
 
   void expectDatagram(
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onDatagram(testing::_))
+      EXPECT_CALL(*this, _onDatagram(testing::_))
           .WillOnce(testing::InvokeWithoutArgs(callback));
     } else {
-      EXPECT_CALL(*this, onDatagram(testing::_));
+      EXPECT_CALL(*this, _onDatagram(testing::_));
     }
   }
 
   void expectDatagram(
       std::function<void(std::shared_ptr<folly::IOBuf>)> callback) {
-    EXPECT_CALL(*this, onDatagram(testing::_))
+    EXPECT_CALL(*this, _onDatagram(testing::_))
         .WillOnce(testing::Invoke(callback));
   }
 
   void expectChunkComplete(
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onChunkComplete())
+      EXPECT_CALL(*this, _onChunkComplete())
           .WillOnce(testing::InvokeWithoutArgs(callback));
     } else {
-      EXPECT_CALL(*this, onChunkComplete());
+      EXPECT_CALL(*this, _onChunkComplete());
     }
   }
 
   void expectEOM(std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onEOM()).WillOnce(testing::Invoke(callback));
+      EXPECT_CALL(*this, _onEOM()).WillOnce(testing::Invoke(callback));
     } else {
-      EXPECT_CALL(*this, onEOM());
+      EXPECT_CALL(*this, _onEOM());
     }
   }
 
   void expectEgressPaused(
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onEgressPaused()).WillOnce(testing::Invoke(callback));
+      EXPECT_CALL(*this, _onEgressPaused()).WillOnce(testing::Invoke(callback));
     } else {
-      EXPECT_CALL(*this, onEgressPaused());
+      EXPECT_CALL(*this, _onEgressPaused());
     }
   }
 
   void expectEgressResumed(
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, onEgressResumed()).WillOnce(testing::Invoke(callback));
+      EXPECT_CALL(*this, _onEgressResumed())
+          .WillOnce(testing::Invoke(callback));
     } else {
-      EXPECT_CALL(*this, onEgressResumed());
+      EXPECT_CALL(*this, _onEgressResumed());
     }
   }
 
   void expectError(std::function<void(const HTTPException& ex)> callback =
                        std::function<void(const HTTPException& ex)>()) {
     if (callback) {
-      EXPECT_CALL(*this, onError(testing::_))
+      EXPECT_CALL(*this, _onError(testing::_))
           .WillOnce(testing::Invoke(callback))
           .RetiresOnSaturation();
     } else {
-      EXPECT_CALL(*this, onError(testing::_)).RetiresOnSaturation();
+      EXPECT_CALL(*this, _onError(testing::_)).RetiresOnSaturation();
     }
   }
 
   void expectGoaway(std::function<void(ErrorCode)> callback =
                         std::function<void(ErrorCode)>()) {
     if (callback) {
-      EXPECT_CALL(*this, onGoaway(testing::_))
+      EXPECT_CALL(*this, _onGoaway(testing::_))
           .WillOnce(testing::Invoke(callback));
     } else {
-      EXPECT_CALL(*this, onGoaway(testing::_));
+      EXPECT_CALL(*this, _onGoaway(testing::_));
     }
   }
 
   void expectDetachTransaction(
       std::function<void()> callback = std::function<void()>()) {
     if (callback) {
-      EXPECT_CALL(*this, detachTransaction())
+      EXPECT_CALL(*this, _detachTransaction())
           .WillOnce(testing::Invoke(callback))
           .RetiresOnSaturation();
     } else {
-      EXPECT_CALL(*this, detachTransaction()).RetiresOnSaturation();
+      EXPECT_CALL(*this, _detachTransaction()).RetiresOnSaturation();
     }
   }
 };
@@ -405,17 +441,35 @@ class MockHTTPPushHandler
       : HTTPHandlerBase(&txn, msg) {
   }
 
-  GMOCK_NOEXCEPT_METHOD1(setTransaction, void(HTTPTransaction* txn));
+  void setTransaction(HTTPTransaction* txn) noexcept override {
+    _setTransaction(txn);
+  }
+  MOCK_METHOD1(_setTransaction, void(HTTPTransaction*));
 
-  GMOCK_NOEXCEPT_METHOD0(detachTransaction, void());
+  void detachTransaction() noexcept override {
+    _detachTransaction();
+  }
+  MOCK_METHOD0(_detachTransaction, void());
 
-  GMOCK_NOEXCEPT_METHOD1(onError, void(const HTTPException& error));
+  void onError(const HTTPException& error) noexcept override {
+    _onError(error);
+  }
+  MOCK_METHOD1(_onError, void(const HTTPException&));
 
-  GMOCK_NOEXCEPT_METHOD1(onGoaway, void(ErrorCode));
+  void onGoaway(ErrorCode errCode) noexcept override {
+    _onGoaway(errCode);
+  }
+  MOCK_METHOD1(_onGoaway, void(ErrorCode));
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressPaused, void());
+  void onEgressPaused() noexcept override {
+    _onEgressPaused();
+  }
+  MOCK_METHOD0(_onEgressPaused, void());
 
-  GMOCK_NOEXCEPT_METHOD0(onEgressResumed, void());
+  void onEgressResumed() noexcept override {
+    _onEgressResumed();
+  }
+  MOCK_METHOD0(_onEgressResumed, void());
 
   void sendPushHeaders(const std::string& path,
                        const std::string& host,

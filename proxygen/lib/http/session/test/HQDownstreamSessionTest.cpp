@@ -151,7 +151,7 @@ HQDownstreamSessionTest::addSimpleStrictHandlerBase() {
       .WillOnce(testing::Return(rawHandler))
       .RetiresOnSaturation();
 
-  EXPECT_CALL(*handler, setTransaction(testing::_))
+  EXPECT_CALL(*handler, _setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&handler->txn_));
 
   return handler;
@@ -279,7 +279,7 @@ void HQDownstreamSessionTest::expectTransactionTimeout(
   EXPECT_CALL(getMockController(),
               getTransactionTimeoutHandler(testing::_, testing::_))
       .WillOnce(testing::Return(&handler));
-  EXPECT_CALL(handler, setTransaction(testing::_))
+  EXPECT_CALL(handler, _setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&handler.txn_));
   handler.expectError(
       [&handler, &fn](const proxygen::HTTPException& ex) mutable {
@@ -402,9 +402,9 @@ TEST_P(HQDownstreamSessionTestHQPush, PushPriority) {
     pushTxn->sendBody(makeBuf(200));
     pushTxn->sendEOM();
   });
-  EXPECT_CALL(pushHandler, setTransaction(_))
+  EXPECT_CALL(pushHandler, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, detachTransaction());
+  EXPECT_CALL(pushHandler, _detachTransaction());
 
   flushRequestsAndLoopN(1);
   handler->txn_->sendEOM();
@@ -481,7 +481,7 @@ TEST_P(HQDownstreamSessionTest, HttpRateLimitNormal) {
     handler1->sendHeaders(200, rspLengthBytes);
     handler1->sendBody(rspLengthBytes);
   });
-  EXPECT_CALL(*handler1, onEgressPaused()).Times(AtLeast(1));
+  EXPECT_CALL(*handler1, _onEgressPaused()).Times(AtLeast(1));
   handler1->expectEgressResumed([&handler1] { handler1->txn_->sendEOM(); });
   handler1->expectDetachTransaction();
   flushRequestsAndLoop();
@@ -1324,7 +1324,7 @@ TEST_P(HQDownstreamSessionTestH1q, BadHttp) {
   testing::StrictMock<MockHTTPHandler> handler;
   EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
       .WillOnce(Return(&handler));
-  EXPECT_CALL(handler, setTransaction(testing::_))
+  EXPECT_CALL(handler, _setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&handler.txn_));
   handler.expectError([&handler](const HTTPException& ex) {
     EXPECT_TRUE(ex.hasHttpStatusCode());
@@ -1347,7 +1347,7 @@ TEST_P(HQDownstreamSessionTestH1q, BadHttpHeaders) {
   testing::StrictMock<MockHTTPHandler> handler;
   EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
       .WillOnce(Return(&handler));
-  EXPECT_CALL(handler, setTransaction(testing::_))
+  EXPECT_CALL(handler, _setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&handler.txn_));
   handler.expectError([&handler](const HTTPException& ex) {
     EXPECT_TRUE(ex.hasHttpStatusCode());
@@ -1384,7 +1384,7 @@ TEST_P(HQDownstreamSessionTest, BadHttpStrict) {
   testing::StrictMock<MockHTTPHandler> handler;
   EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
       .WillOnce(Return(&handler));
-  EXPECT_CALL(handler, setTransaction(testing::_))
+  EXPECT_CALL(handler, _setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&handler.txn_));
   handler.expectError([&handler](const HTTPException& ex) {
     EXPECT_TRUE(ex.hasHttpStatusCode());
@@ -1404,7 +1404,7 @@ TEST_P(HQDownstreamSessionTest, BadHttpHeadersStrict) {
   testing::StrictMock<MockHTTPHandler> handler;
   EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
       .WillOnce(Return(&handler));
-  EXPECT_CALL(handler, setTransaction(testing::_))
+  EXPECT_CALL(handler, _setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&handler.txn_));
   handler.expectError([&handler](const HTTPException& ex) {
     EXPECT_TRUE(ex.hasHttpStatusCode());
@@ -1507,7 +1507,7 @@ TEST_P(HQDownstreamSessionTest, PauseResume) {
   hqSession_->closeWhenIdle();
 
   // After resume, body (2 calls) and EOM delivered
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _)).Times(2);
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _)).Times(2);
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectDetachTransaction();
   handler2->expectHeaders(
@@ -1580,7 +1580,7 @@ TEST_P(HQDownstreamSessionTestH1q, ManagedTimeoutReadReset) {
       250);
   handler->expectEOM([&handler] { handler->sendReplyWithBody(200, 100); });
   handler->expectHeaders();
-  EXPECT_CALL(*handler, onBodyWithOffset(testing::_, testing::_)).Times(3);
+  EXPECT_CALL(*handler, _onBodyWithOffset(testing::_, testing::_)).Times(3);
   handler->expectDetachTransaction();
   flushRequestsAndLoop();
 }
@@ -2013,7 +2013,7 @@ TEST_P(HQDownstreamSessionTestHQ, Connect) {
   handler->expectEOM([&] { handler->terminate(); });
 
   // Data should be received using onBody
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("12345"))
       .WillOnce(ExpectString("abcdefg"));
   handler->expectDetachTransaction();
@@ -2047,7 +2047,7 @@ TEST_P(HQDownstreamSessionTestHQ, ConnectUDP) {
   handler->expectEOM([&] { handler->terminate(); });
 
   // Data should be received using onBody
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("12345"))
       .WillOnce(ExpectString("abcdefg"));
   handler->expectDetachTransaction();
@@ -2327,7 +2327,7 @@ TEST_P(HQDownstreamSessionTestHQ, QPACKHeadersTooLarge) {
   testing::StrictMock<MockHTTPHandler> errHandler;
   EXPECT_CALL(getMockController(), getParseErrorHandler(_, _, _))
       .WillOnce(Return(&errHandler));
-  EXPECT_CALL(errHandler, setTransaction(testing::_))
+  EXPECT_CALL(errHandler, _setTransaction(testing::_))
       .WillOnce(testing::SaveArg<0>(&errHandler.txn_));
   errHandler.expectError([&errHandler](const HTTPException& ex) {
     EXPECT_EQ(ex.getHttp3ErrorCode(),
@@ -2982,9 +2982,9 @@ TEST_P(HQDownstreamSessionTestHQPush, SimplePush) {
     pushTxn->sendBody(makeBuf(200));
     pushTxn->sendEOM();
   });
-  EXPECT_CALL(pushHandler, setTransaction(_))
+  EXPECT_CALL(pushHandler, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, detachTransaction());
+  EXPECT_CALL(pushHandler, _detachTransaction());
 
   flushRequestsAndLoopN(1);
   handler->txn_->sendEOM();
@@ -3026,9 +3026,9 @@ TEST_P(HQDownstreamSessionTestHQPush, PushPriorityCallback) {
     pushTxn->sendBody(makeBuf(200));
     pushTxn->sendEOM();
   });
-  EXPECT_CALL(pushHandler, setTransaction(_))
+  EXPECT_CALL(pushHandler, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, detachTransaction());
+  EXPECT_CALL(pushHandler, _detachTransaction());
 
   flushRequestsAndLoopN(1);
 
@@ -3086,10 +3086,10 @@ TEST_P(HQDownstreamSessionTestHQPush, StopSending) {
     pushTxn->sendBody(makeBuf(200));
     // NO EOM
   });
-  EXPECT_CALL(pushHandler, setTransaction(_))
+  EXPECT_CALL(pushHandler, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, onError(_));
-  EXPECT_CALL(pushHandler, detachTransaction());
+  EXPECT_CALL(pushHandler, _onError(_));
+  EXPECT_CALL(pushHandler, _detachTransaction());
 
   flushRequestsAndLoopN(1);
   handler->txn_->sendEOM();
@@ -3212,7 +3212,7 @@ TEST_P(HQDownstreamSessionTestHQDeliveryAck,
             return folly::unit;
           }));
 
-  EXPECT_CALL(*handler, onError(_))
+  EXPECT_CALL(*handler, _onError(_))
       .WillOnce(Invoke([](const HTTPException& error) {
         EXPECT_TRUE(std::string(error.what())
                         .find("failed to register byte event callback") !=
@@ -3371,7 +3371,7 @@ TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryErr) {
             return folly::unit;
           }));
 
-  EXPECT_CALL(*handler, onError(_))
+  EXPECT_CALL(*handler, _onError(_))
       .WillOnce(Invoke([&handler = handler](const HTTPException& error) {
         EXPECT_TRUE(std::string(error.what())
                         .find("failed to register byte event callback") !=
@@ -3405,7 +3405,7 @@ TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryCancel) {
 
   flushRequestsAndLoopN(1);
 
-  EXPECT_CALL(*handler, onError(_)).Times(1);
+  EXPECT_CALL(*handler, _onError(_)).Times(1);
   handler->expectDetachTransaction();
   socketDriver_->deliverErrorOnAllStreams(
       std::make_pair(LocalErrorCode::INVALID_OPERATION, "fake error"));

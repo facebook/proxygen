@@ -766,7 +766,7 @@ TEST_F(HTTP2UpstreamSessionTest, ExheaderFromServer) {
     EXPECT_EQ(200, msg->getStatusCode());
   });
 
-  EXPECT_CALL(*cHandler, onExTransaction(_))
+  EXPECT_CALL(*cHandler, _onExTransaction(_))
       .WillOnce(Invoke([&pubHandler](HTTPTransaction* pubTxn) {
         pubTxn->setHandler(&pubHandler);
         pubHandler.txn_ = pubTxn;
@@ -814,7 +814,7 @@ TEST_F(HTTP2UpstreamSessionTest, InvalidControlStream) {
   cHandler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
     EXPECT_EQ(200, msg->getStatusCode());
   });
-  EXPECT_CALL(*cHandler, onExTransaction(_)).Times(0);
+  EXPECT_CALL(*cHandler, _onExTransaction(_)).Times(0);
   cHandler->expectEOM();
   cHandler->expectDetachTransaction();
 
@@ -1071,7 +1071,7 @@ void HTTPUpstreamTest<CodecPair>::testBasicRequestHttp10(bool keepalive) {
     EXPECT_EQ(keepalive ? "keep-alive" : "close",
               msg->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONNECTION));
   });
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _));
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _));
   handler->expectEOM();
   handler->expectDetachTransaction();
 
@@ -1105,7 +1105,7 @@ TEST_F(HTTPUpstreamSessionTest, BasicTrailers) {
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ(200, msg->getStatusCode());
   });
-  EXPECT_CALL(*handler, onTrailers(_));
+  EXPECT_CALL(*handler, _onTrailers(_));
   handler->expectEOM();
   handler->expectDetachTransaction();
 
@@ -1435,8 +1435,8 @@ TEST_F(HTTPUpstreamSessionTest, 101Upgrade) {
     EXPECT_FALSE(msg->getIsChunked());
     EXPECT_EQ(101, msg->getStatusCode());
   });
-  EXPECT_CALL(*handler, onUpgrade(_));
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler, _onUpgrade(_));
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("Test Body\r\n"));
   handler->expectEOM();
   handler->expectDetachTransaction();
@@ -1537,7 +1537,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101Unexpected) {
   InSequence dummy;
   auto handler = openTransaction();
 
-  EXPECT_CALL(*handler, onError(_));
+  EXPECT_CALL(*handler, _onError(_));
   handler->expectDetachTransaction();
 
   handler->sendRequest();
@@ -1554,7 +1554,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101MissingUpgrade) {
   InSequence dummy;
   auto handler = openTransaction();
 
-  EXPECT_CALL(*handler, onError(_));
+  EXPECT_CALL(*handler, _onError(_));
   handler->expectDetachTransaction();
 
   handler->sendRequest(getUpgradeRequest("h2c"));
@@ -1569,7 +1569,7 @@ TEST_F(HTTPUpstreamSessionTest, HttpUpgrade101BogusHeader) {
   InSequence dummy;
   auto handler = openTransaction();
 
-  EXPECT_CALL(*handler, onError(_));
+  EXPECT_CALL(*handler, _onError(_));
   handler->expectDetachTransaction();
 
   handler->sendRequest(getUpgradeRequest("h2c"));
@@ -1857,11 +1857,11 @@ TEST_F(HTTP2UpstreamSessionTest, ServerPush) {
   InSequence enforceOrder;
 
   auto handler = openTransaction();
-  EXPECT_CALL(*handler, onPushedTransaction(_))
+  EXPECT_CALL(*handler, _onPushedTransaction(_))
       .WillOnce(Invoke([&pushHandler](HTTPTransaction* pushTxn) {
         pushTxn->setHandler(&pushHandler);
       }));
-  EXPECT_CALL(pushHandler, setTransaction(_));
+  EXPECT_CALL(pushHandler, _setTransaction(_));
   pushHandler.expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
     EXPECT_EQ(httpSession_->getNumIncomingStreams(), 1);
     EXPECT_TRUE(msg->getIsChunked());
@@ -1983,7 +1983,7 @@ TEST_F(MockHTTPUpstreamTest, IngressGoawayDrain) {
   InSequence enforceOrder;
 
   auto handler = openTransaction();
-  EXPECT_CALL(*handler, onGoaway(ErrorCode::NO_ERROR));
+  EXPECT_CALL(*handler, _onGoaway(ErrorCode::NO_ERROR));
   handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ(200, msg->getStatusCode());
@@ -2193,12 +2193,12 @@ TEST_F(MockHTTPUpstreamTest, NoWindowUpdateOnDrain) {
   httpSession_->drain();
   auto streamID = handler->txn_->getID();
 
-  EXPECT_CALL(*handler, onGoaway(ErrorCode::NO_ERROR));
+  EXPECT_CALL(*handler, _onGoaway(ErrorCode::NO_ERROR));
   handler->expectHeaders([&](std::shared_ptr<HTTPMessage> msg) {
     EXPECT_FALSE(msg->getIsUpgraded());
     EXPECT_EQ(200, msg->getStatusCode());
   });
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _)).Times(3);
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _)).Times(3);
   handler->expectEOM();
 
   handler->expectDetachTransaction();
@@ -2324,16 +2324,16 @@ class TestAbortPost : public MockHTTPUpstreamTest {
       handler.expectHeaders();
     }
     if (stage > 1) {
-      EXPECT_CALL(handler, onChunkHeader(_));
+      EXPECT_CALL(handler, _onChunkHeader(_));
     }
     if (stage > 2) {
-      EXPECT_CALL(handler, onBodyWithOffset(_, _));
+      EXPECT_CALL(handler, _onBodyWithOffset(_, _));
     }
     if (stage > 3) {
-      EXPECT_CALL(handler, onChunkComplete());
+      EXPECT_CALL(handler, _onChunkComplete());
     }
     if (stage > 4) {
-      EXPECT_CALL(handler, onTrailers(_));
+      EXPECT_CALL(handler, _onTrailers(_));
     }
     if (stage > 5) {
       handler.expectEOM();
@@ -2569,7 +2569,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushInvalidAssoc) {
 
   // Cleanup
   EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
-  EXPECT_CALL(*handler, detachTransaction());
+  EXPECT_CALL(*handler, _detachTransaction());
   handler->terminate();
 
   EXPECT_TRUE(!httpSession_->hasActiveTransactions());
@@ -2615,7 +2615,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushAfterFin) {
 
   // Cleanup
   EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
-  EXPECT_CALL(*handler, detachTransaction());
+  EXPECT_CALL(*handler, _detachTransaction());
   handler->terminate();
 
   EXPECT_TRUE(!httpSession_->hasActiveTransactions());
@@ -2632,7 +2632,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushHandlerInstallFail) {
   int streamID = handler->txn_->getID();
   int pushID = streamID + 1;
 
-  EXPECT_CALL(*handler, onPushedTransaction(_))
+  EXPECT_CALL(*handler, _onPushedTransaction(_))
       .WillOnce(Invoke([](HTTPTransaction* txn) {
         // Intentionally unset the handler on the upstream push txn
         txn->setHandler(nullptr);
@@ -2665,7 +2665,7 @@ TEST_F(MockHTTP2UpstreamTest, ServerPushHandlerInstallFail) {
 
   // Cleanup
   EXPECT_CALL(*codecPtr_, generateRstStream(_, streamID, _));
-  EXPECT_CALL(*handler, detachTransaction());
+  EXPECT_CALL(*handler, _detachTransaction());
   handler->terminate();
 
   EXPECT_TRUE(!httpSession_->hasActiveTransactions());
@@ -2712,7 +2712,7 @@ TEST_F(MockHTTPUpstreamTest, HeadersThenBodyThenHeaders) {
   handler->txn_->sendHeaders(req);
 
   handler->expectHeaders();
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _));
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _));
   // After getting the second headers, transaction will detach the handler
   handler->expectError([&](const HTTPException& err) {
     EXPECT_TRUE(err.hasProxygenError());

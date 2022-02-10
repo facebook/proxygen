@@ -32,13 +32,13 @@ class DownstreamTransactionTest : public testing::Test {
   void setupRequestResponseFlow(HTTPTransaction* txn,
                                 uint32_t size,
                                 bool delayResponse = false) {
-    EXPECT_CALL(handler_, setTransaction(txn));
-    EXPECT_CALL(handler_, detachTransaction());
+    EXPECT_CALL(handler_, _setTransaction(txn));
+    EXPECT_CALL(handler_, _detachTransaction());
     EXPECT_CALL(transport_, detach(txn));
     if (delayResponse) {
-      EXPECT_CALL(handler_, onHeadersComplete(_));
+      EXPECT_CALL(handler_, _onHeadersComplete(_));
     } else {
-      EXPECT_CALL(handler_, onHeadersComplete(_))
+      EXPECT_CALL(handler_, _onHeadersComplete(_))
           .WillOnce(Invoke([=](std::shared_ptr<HTTPMessage> /*msg*/) {
             auto response = makeResponse(200);
             txn->sendHeaders(*response.get());
@@ -69,12 +69,12 @@ class DownstreamTransactionTest : public testing::Test {
             return 5;
           }));
     }
-    EXPECT_CALL(handler_, onBodyWithOffset(_, _))
+    EXPECT_CALL(handler_, _onBodyWithOffset(_, _))
         .WillRepeatedly(
             Invoke([=](uint64_t, std::shared_ptr<folly::IOBuf> body) {
               received_ += body->computeChainDataLength();
             }));
-    EXPECT_CALL(handler_, onEOM()).WillOnce(InvokeWithoutArgs([=] {
+    EXPECT_CALL(handler_, _onEOM()).WillOnce(InvokeWithoutArgs([=] {
       CHECK_EQ(received_, size);
     }));
     EXPECT_CALL(transport_, notifyPendingEgress())
@@ -145,8 +145,8 @@ TEST_F(DownstreamTransactionTest, SimpleCallbackForwarding) {
 TEST_F(DownstreamTransactionTest, InvariantViolationHandler) {
   auto& txn = makeTxn();
 
-  EXPECT_CALL(handler_, setTransaction(&txn));
-  EXPECT_CALL(handler_, onInvariantViolation(_))
+  EXPECT_CALL(handler_, _setTransaction(&txn));
+  EXPECT_CALL(handler_, _onInvariantViolation(_))
       .WillOnce(Invoke([](const HTTPException& ex) {
         EXPECT_EQ(ex.getDirection(),
                   HTTPException::Direction::INGRESS_AND_EGRESS);
@@ -156,7 +156,7 @@ TEST_F(DownstreamTransactionTest, InvariantViolationHandler) {
                   "event=sendBody, streamID=1");
       }));
   EXPECT_CALL(transport_, sendAbort(_, _));
-  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
   txn.setHandler(&handler_);
@@ -317,8 +317,8 @@ TEST_F(DownstreamTransactionTest, ParseErrorCbs) {
 
   InSequence dummy;
 
-  EXPECT_CALL(handler_, setTransaction(&txn));
-  EXPECT_CALL(handler_, onError(_))
+  EXPECT_CALL(handler_, _setTransaction(&txn));
+  EXPECT_CALL(handler_, _onError(_))
       .WillOnce(Invoke([](const HTTPException& ex) {
         ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
         ASSERT_EQ(std::string(ex.what()), "test");
@@ -326,7 +326,7 @@ TEST_F(DownstreamTransactionTest, ParseErrorCbs) {
   // onBody() is suppressed since ingress is complete after ingress onError()
   // onEOM() is suppressed since ingress is complete after ingress onError()
   EXPECT_CALL(transport_, sendAbort(_, _));
-  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
   txn.setHandler(&handler_);
@@ -347,8 +347,8 @@ TEST_F(DownstreamTransactionTest, DetachFromNotify) {
 
   InSequence dummy;
 
-  EXPECT_CALL(*handler, setTransaction(&txn));
-  EXPECT_CALL(*handler, onHeadersComplete(_))
+  EXPECT_CALL(*handler, _setTransaction(&txn));
+  EXPECT_CALL(*handler, _onHeadersComplete(_))
       .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> /*msg*/) {
         auto response = makeResponse(200);
         txn.sendHeaders(*response.get());
@@ -381,8 +381,8 @@ TEST_F(DownstreamTransactionTest, DeferredEgress) {
 
   InSequence dummy;
 
-  EXPECT_CALL(handler_, setTransaction(&txn));
-  EXPECT_CALL(handler_, onHeadersComplete(_))
+  EXPECT_CALL(handler_, _setTransaction(&txn));
+  EXPECT_CALL(handler_, _onHeadersComplete(_))
       .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> /*msg*/) {
         auto response = makeResponse(200);
         txn.sendHeaders(*response.get());
@@ -396,7 +396,7 @@ TEST_F(DownstreamTransactionTest, DeferredEgress) {
 
   // when enqueued
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(10));
-  EXPECT_CALL(handler_, onEgressPaused());
+  EXPECT_CALL(handler_, _onEgressPaused());
   // sendBody
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(20));
 
@@ -416,8 +416,8 @@ TEST_F(DownstreamTransactionTest, DeferredEgress) {
 
   // Buffer released on error
   EXPECT_CALL(transport_, notifyEgressBodyBuffered(-20));
-  EXPECT_CALL(handler_, onError(_));
-  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(handler_, _onError(_));
+  EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
   HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS, "test");
@@ -432,8 +432,8 @@ TEST_F(DownstreamTransactionTest, InternalError) {
 
   InSequence dummy;
 
-  EXPECT_CALL(*handler, setTransaction(&txn));
-  EXPECT_CALL(*handler, onHeadersComplete(_))
+  EXPECT_CALL(*handler, _setTransaction(&txn));
+  EXPECT_CALL(*handler, _onHeadersComplete(_))
       .WillOnce(Invoke([&](std::shared_ptr<HTTPMessage> /*msg*/) {
         auto response = makeResponse(200);
         txn.sendHeaders(*response.get());
@@ -443,7 +443,7 @@ TEST_F(DownstreamTransactionTest, InternalError) {
         EXPECT_EQ(headers.getStatusCode(), 200);
       }));
   EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::INTERNAL_ERROR));
-  EXPECT_CALL(*handler, detachTransaction());
+  EXPECT_CALL(*handler, _detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
   HTTPException err(HTTPException::Direction::INGRESS_AND_EGRESS, "test");
@@ -461,10 +461,10 @@ TEST_F(DownstreamTransactionTest, UnpausedFlowControlViolation) {
                       400,
                       http2::kInitialWindow);
 
-  EXPECT_CALL(handler, setTransaction(&txn));
-  EXPECT_CALL(handler, onHeadersComplete(_));
+  EXPECT_CALL(handler, _setTransaction(&txn));
+  EXPECT_CALL(handler, _onHeadersComplete(_));
   EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::FLOW_CONTROL_ERROR));
-  EXPECT_CALL(handler, detachTransaction());
+  EXPECT_CALL(handler, _detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
   txn.setHandler(&handler);
@@ -480,8 +480,8 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnUnidirectional) {
 
   InSequence dummy;
 
-  EXPECT_CALL(handler_, setTransaction(&exTxn));
-  EXPECT_CALL(handler_, onError(_))
+  EXPECT_CALL(handler_, _setTransaction(&exTxn));
+  EXPECT_CALL(handler_, _onError(_))
       .WillOnce(Invoke([](const HTTPException& ex) {
         ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
         ASSERT_EQ(std::string(ex.what()), "test");
@@ -489,7 +489,7 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnUnidirectional) {
   // onBody() is suppressed since ingress is complete after ingress onError()
   // onEOM() is suppressed since ingress is complete after ingress onError()
   EXPECT_CALL(transport_, sendAbort(_, _));
-  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&exTxn));
 
   exTxn.setHandler(&handler_);
@@ -510,17 +510,17 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnNonUnidirectional) {
 
   InSequence dummy;
 
-  EXPECT_CALL(handler_, setTransaction(&exTxn));
+  EXPECT_CALL(handler_, _setTransaction(&exTxn));
   // Ingress error will propagate
   // even if INGRESS state is completed for unidrectional ex_txn
-  EXPECT_CALL(handler_, onError(_))
+  EXPECT_CALL(handler_, _onError(_))
       .WillOnce(Invoke([](const HTTPException& ex) {
         ASSERT_EQ(ex.getDirection(), HTTPException::Direction::INGRESS);
         ASSERT_EQ(std::string(ex.what()), "test");
       }));
 
   EXPECT_CALL(transport_, sendAbort(_, _));
-  EXPECT_CALL(handler_, detachTransaction());
+  EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&exTxn));
 
   exTxn.setHandler(&handler_);

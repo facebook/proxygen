@@ -166,7 +166,7 @@ class HTTPDownstreamTest : public testing::Test {
         .WillOnce(testing::Return(rawHandler))
         .RetiresOnSaturation();
 
-    EXPECT_CALL(*handler, setTransaction(testing::_))
+    EXPECT_CALL(*handler, _setTransaction(testing::_))
         .WillOnce(testing::SaveArg<0>(&handler->txn_));
 
     return handler;
@@ -182,7 +182,7 @@ class HTTPDownstreamTest : public testing::Test {
         .WillOnce(testing::Return(rawHandler))
         .RetiresOnSaturation();
 
-    EXPECT_CALL(*handler, setTransaction(testing::_))
+    EXPECT_CALL(*handler, _setTransaction(testing::_))
         .WillOnce(testing::SaveArg<0>(&handler->txn_))
         .RetiresOnSaturation();
 
@@ -724,7 +724,7 @@ TEST_F(HTTPDownstreamSessionTest, SingleBytesWithBody) {
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("1"))
       .WillOnce(ExpectString("2"))
       .WillOnce(ExpectString("3"))
@@ -752,7 +752,7 @@ TEST_F(HTTPDownstreamSessionTest, SplitBody) {
     const HTTPHeaders& hdrs = msg->getHeaders();
     EXPECT_EQ(2, hdrs.size());
   });
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("12345"))
       .WillOnce(ExpectString("abcde"));
   onEOMTerminateHandlerExpectShutdown(*handler);
@@ -914,16 +914,16 @@ TEST_F(HTTPDownstreamSessionTest, PostChunked) {
     EXPECT_EQ(1, msg->getHTTPVersion().first);
     EXPECT_EQ(1, msg->getHTTPVersion().second);
   });
-  EXPECT_CALL(*handler, onChunkHeader(3));
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _)).WillOnce(ExpectString("bar"));
-  EXPECT_CALL(*handler, onChunkComplete());
-  EXPECT_CALL(*handler, onChunkHeader(0x22));
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler, _onChunkHeader(3));
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _)).WillOnce(ExpectString("bar"));
+  EXPECT_CALL(*handler, _onChunkComplete());
+  EXPECT_CALL(*handler, _onChunkHeader(0x22));
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("0123456789abcdef\nfedcba9876543210\n"));
-  EXPECT_CALL(*handler, onChunkComplete());
-  EXPECT_CALL(*handler, onChunkHeader(3));
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _)).WillOnce(ExpectString("foo"));
-  EXPECT_CALL(*handler, onChunkComplete());
+  EXPECT_CALL(*handler, _onChunkComplete());
+  EXPECT_CALL(*handler, _onChunkHeader(3));
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _)).WillOnce(ExpectString("foo"));
+  EXPECT_CALL(*handler, _onChunkComplete());
   onEOMTerminateHandlerExpectShutdown(*handler);
 
   transport_->addReadEvent(
@@ -961,7 +961,7 @@ TEST_F(HTTPDownstreamSessionTest, MultiMessage) {
 
   auto handler1 = addSimpleNiceHandler();
   handler1->expectHeaders();
-  EXPECT_CALL(*handler1, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler1, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("foo"))
       .WillOnce(ExpectString("bar9876"));
   handler1->expectEOM([&] { handler1->sendReply(); });
@@ -969,11 +969,11 @@ TEST_F(HTTPDownstreamSessionTest, MultiMessage) {
 
   auto handler2 = addSimpleNiceHandler();
   handler2->expectHeaders();
-  EXPECT_CALL(*handler2, onChunkHeader(0xa));
-  EXPECT_CALL(*handler2, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler2, _onChunkHeader(0xa));
+  EXPECT_CALL(*handler2, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("some "))
       .WillOnce(ExpectString("data\n"));
-  EXPECT_CALL(*handler2, onChunkComplete());
+  EXPECT_CALL(*handler2, _onChunkComplete());
   onEOMTerminateHandlerExpectShutdown(*handler2);
 
   transport_->addReadEvent(
@@ -1076,10 +1076,10 @@ TEST_F(HTTPDownstreamSessionTest, Connect) {
   // Send HTTP 200 OK to accept the CONNECT request
   handler->expectHeaders([&handler] { handler->sendHeaders(200, 100); });
 
-  EXPECT_CALL(*handler, onUpgrade(_));
+  EXPECT_CALL(*handler, _onUpgrade(_));
 
   // Data should be received using onBody
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _))
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _))
       .WillOnce(ExpectString("12345"))
       .WillOnce(ExpectString("abcde"));
   onEOMTerminateHandlerExpectShutdown(*handler);
@@ -1123,7 +1123,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgrade) {
   handler->expectHeaders([&handler] { handler->sendHeaders(101, 100); });
 
   // Send the response in the new protocol after upgrade
-  EXPECT_CALL(*handler, onUpgrade(_))
+  EXPECT_CALL(*handler, _onUpgrade(_))
       .WillOnce(Invoke([&handler](UpgradeProtocol /*protocol*/) {
         handler->sendReplyCode(100);
       }));
@@ -1534,7 +1534,7 @@ TEST_F(HTTP2DownstreamSessionTest, ExheaderFromServer) {
     pubTxn->sendEOM();
   });
 
-  EXPECT_CALL(pubHandler, setTransaction(_));
+  EXPECT_CALL(pubHandler, _setTransaction(_));
   EXPECT_CALL(callbacks_, onSettings(_)).WillOnce(InvokeWithoutArgs([&] {
     clientCodec_->generateSettingsAck(requests_);
   }));
@@ -1544,12 +1544,12 @@ TEST_F(HTTP2DownstreamSessionTest, ExheaderFromServer) {
   EXPECT_CALL(callbacks_, onHeadersComplete(2, _));
   EXPECT_CALL(callbacks_, onMessageComplete(2, _));
 
-  EXPECT_CALL(pubHandler, onHeadersComplete(_));
-  EXPECT_CALL(pubHandler, onEOM());
-  EXPECT_CALL(pubHandler, detachTransaction());
+  EXPECT_CALL(pubHandler, _onHeadersComplete(_));
+  EXPECT_CALL(pubHandler, _onEOM());
+  EXPECT_CALL(pubHandler, _detachTransaction());
 
-  EXPECT_CALL(*cHandler, onEOM());
-  EXPECT_CALL(*cHandler, detachTransaction());
+  EXPECT_CALL(*cHandler, _onEOM());
+  EXPECT_CALL(*cHandler, _detachTransaction());
 
   transport_->addReadEvent(requests_, milliseconds(0));
   transport_->startReadEvents();
@@ -1605,23 +1605,23 @@ TEST_F(HTTP2DownstreamSessionTest, ExheaderFromClient) {
     // send back the response for control stream, but EOM
     cHandler->txn_->sendHeaders(getResponse(200, 0));
   });
-  EXPECT_CALL(*cHandler, onEOM());
+  EXPECT_CALL(*cHandler, _onEOM());
 
   StrictMock<MockHTTPHandler> pubHandler;
-  EXPECT_CALL(*cHandler, onExTransaction(_))
+  EXPECT_CALL(*cHandler, _onExTransaction(_))
       .WillOnce(Invoke([&pubHandler](HTTPTransaction* exTxn) {
         exTxn->setHandler(&pubHandler);
         pubHandler.txn_ = exTxn;
       }));
 
   InSequence handlerSequence;
-  EXPECT_CALL(pubHandler, setTransaction(_));
+  EXPECT_CALL(pubHandler, _setTransaction(_));
   pubHandler.expectHeaders([&] {
     // send back the response for the pub request
     pubHandler.txn_->sendHeadersWithEOM(getResponse(200, 0));
   });
-  EXPECT_CALL(pubHandler, onEOM());
-  EXPECT_CALL(pubHandler, detachTransaction());
+  EXPECT_CALL(pubHandler, _onEOM());
+  EXPECT_CALL(pubHandler, _detachTransaction());
   cHandler->expectDetachTransaction();
 
   EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
@@ -1666,10 +1666,10 @@ TEST_F(HTTP2DownstreamSessionTest, UnidirectionalExTransaction) {
     cHandler->txn_->sendHeadersWithEOM(getResponse(200, 0));
   });
 
-  EXPECT_CALL(uniHandler, setTransaction(_));
-  EXPECT_CALL(*cHandler, onEOM());
-  EXPECT_CALL(uniHandler, detachTransaction());
-  EXPECT_CALL(*cHandler, detachTransaction());
+  EXPECT_CALL(uniHandler, _setTransaction(_));
+  EXPECT_CALL(*cHandler, _onEOM());
+  EXPECT_CALL(uniHandler, _detachTransaction());
+  EXPECT_CALL(*cHandler, _detachTransaction());
 
   transport_->addReadEvent(requests_, milliseconds(0));
   transport_->startReadEvents();
@@ -1699,23 +1699,23 @@ TEST_F(HTTP2DownstreamSessionTest, PauseResumeControlStream) {
     // send back the response for control stream, but EOM
     cHandler->txn_->sendHeaders(getResponse(200, 0));
   });
-  EXPECT_CALL(*cHandler, onEOM());
+  EXPECT_CALL(*cHandler, _onEOM());
 
   StrictMock<MockHTTPHandler> pubHandler;
-  EXPECT_CALL(*cHandler, onExTransaction(_))
+  EXPECT_CALL(*cHandler, _onExTransaction(_))
       .WillOnce(Invoke([&pubHandler](HTTPTransaction* exTxn) {
         exTxn->setHandler(&pubHandler);
         pubHandler.txn_ = exTxn;
       }));
 
   InSequence handlerSequence;
-  EXPECT_CALL(pubHandler, setTransaction(_));
+  EXPECT_CALL(pubHandler, _setTransaction(_));
   pubHandler.expectHeaders([&] {
     // send back the response for the pub request
     pubHandler.txn_->sendHeadersWithEOM(getResponse(200, 0));
   });
-  EXPECT_CALL(pubHandler, onEOM());
-  EXPECT_CALL(pubHandler, detachTransaction());
+  EXPECT_CALL(pubHandler, _onEOM());
+  EXPECT_CALL(pubHandler, _detachTransaction());
   cHandler->expectDetachTransaction();
 
   EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
@@ -1756,8 +1756,8 @@ TEST_F(HTTP2DownstreamSessionTest, InvalidControlStream) {
     // send back the response for control stream, but EOM
     cHandler->txn_->sendHeaders(getResponse(200, 0));
   });
-  EXPECT_CALL(*cHandler, onExTransaction(_)).Times(0);
-  EXPECT_CALL(*cHandler, onEOM());
+  EXPECT_CALL(*cHandler, _onExTransaction(_)).Times(0);
+  EXPECT_CALL(*cHandler, _onEOM());
   cHandler->expectDetachTransaction();
 
   EXPECT_CALL(callbacks_, onMessageBegin(cStreamId, _));
@@ -1797,8 +1797,8 @@ TEST_F(HTTP2DownstreamSessionTest, SetByteEventTracker) {
   eventBase_.runInLoop([this] { transport_->resumeWrites(); });
 
   // Graceful shutdown will notify of GOAWAY
-  EXPECT_CALL(*handler1, onGoaway(ErrorCode::NO_ERROR));
-  EXPECT_CALL(*handler2, onGoaway(ErrorCode::NO_ERROR));
+  EXPECT_CALL(*handler1, _onGoaway(ErrorCode::NO_ERROR));
+  EXPECT_CALL(*handler2, _onGoaway(ErrorCode::NO_ERROR));
   // The original byteEventTracker will process the last byte event of the
   // first transaction, and detach by deleting the event.  Swap out the tracker.
   handler1->expectDetachTransaction([this] {
@@ -2051,7 +2051,7 @@ TEST_F(HTTPDownstreamSessionTest, EarlyAbort) {
   EXPECT_CALL(mockController_, getRequestHandler(_, _))
       .WillOnce(Return(&handler));
 
-  EXPECT_CALL(handler, setTransaction(_))
+  EXPECT_CALL(handler, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) {
         handler.txn_ = txn;
         handler.txn_->sendAbort();
@@ -2365,7 +2365,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeNonNative) {
       handler->txn_->resumeIngress();
     });
   });
-  EXPECT_CALL(*handler, onUpgrade(UpgradeProtocol::TCP));
+  EXPECT_CALL(*handler, _onUpgrade(UpgradeProtocol::TCP));
 
   sendRequest(getUpgradeRequest("blarf"), /*eom=*/false);
   // Enough to receive the request, wait a loop, send the response
@@ -2929,7 +2929,7 @@ TYPED_TEST_P(HTTPDownstreamTest, TestMaxTxns) {
     this->clientCodec_->generateGoaway(this->requests_, 0, ErrorCode::NO_ERROR);
 
     for (auto& handler : handlers) {
-      EXPECT_CALL(*handler, onGoaway(ErrorCode::NO_ERROR));
+      EXPECT_CALL(*handler, _onGoaway(ErrorCode::NO_ERROR));
     }
 
     this->flushRequestsAndLoop();
@@ -3171,7 +3171,7 @@ TEST_F(HTTP2DownstreamSessionTest, PaddingFlowControl) {
     handler->txn_->pauseIngress();
     eventBase_.runAfterDelay([&] { handler->txn_->resumeIngress(); }, 100);
   });
-  EXPECT_CALL(*handler, onBodyWithOffset(_, _)).Times(129);
+  EXPECT_CALL(*handler, _onBodyWithOffset(_, _)).Times(129);
   handler->expectError();
   handler->expectDetachTransaction();
 
@@ -3273,9 +3273,9 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPush) {
 
     eventBase_.runAfterDelay([&] { handler->txn_->resumeIngress(); }, 100);
   });
-  EXPECT_CALL(pushHandler, setTransaction(_))
+  EXPECT_CALL(pushHandler, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, detachTransaction());
+  EXPECT_CALL(pushHandler, _detachTransaction());
   handler->expectError();
   handler->expectDetachTransaction();
 
@@ -3339,9 +3339,9 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
   });
 
   handler->expectEgressPaused();
-  EXPECT_CALL(pushHandler, setTransaction(_))
+  EXPECT_CALL(pushHandler, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler.txn_ = txn; }));
-  EXPECT_CALL(pushHandler, onEgressPaused());
+  EXPECT_CALL(pushHandler, _onEgressPaused());
 
   // Expect error on the associated stream.
   // The push transaction can still push data.
@@ -3356,7 +3356,7 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAbortPaused) {
   handler->expectDetachTransaction();
 
   // Push stream finishes on transaction timeout.
-  EXPECT_CALL(pushHandler, detachTransaction());
+  EXPECT_CALL(pushHandler, _detachTransaction());
 
   transport_->addReadEvent(requests_, milliseconds(0));
   // Cancels associated stream
@@ -3410,19 +3410,19 @@ TEST_F(HTTP2DownstreamSessionTest, ServerPushAfterWriteTimeout) {
     pushTxn->sendBody(makeBuf(1000));
   });
   handler->expectEgressPaused();
-  EXPECT_CALL(pushHandler1, setTransaction(_))
+  EXPECT_CALL(pushHandler1, _setTransaction(_))
       .WillOnce(Invoke([&](HTTPTransaction* txn) { pushHandler1.txn_ = txn; }));
   handler->expectEOM();
-  EXPECT_CALL(pushHandler1, onEgressPaused());
+  EXPECT_CALL(pushHandler1, _onEgressPaused());
 
-  EXPECT_CALL(pushHandler1, onError(_)).WillOnce(InvokeWithoutArgs([&] {
+  EXPECT_CALL(pushHandler1, _onError(_)).WillOnce(InvokeWithoutArgs([&] {
     StrictMock<MockHTTPPushHandler> pushHandler2;
     auto* pushTxn = handler->txn_->newPushedTransaction(&pushHandler2);
     EXPECT_EQ(pushTxn, nullptr);
   }));
   handler->expectError();
   handler->expectDetachTransaction();
-  EXPECT_CALL(pushHandler1, detachTransaction());
+  EXPECT_CALL(pushHandler1, _detachTransaction());
 
   transport_->addReadEvent(requests_, milliseconds(0));
   transport_->startReadEvents();
@@ -4108,7 +4108,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpShortContentLength) {
   auto handler1 = addSimpleStrictHandler();
 
   handler1->expectHeaders();
-  EXPECT_CALL(*handler1, onChunkHeader(20));
+  EXPECT_CALL(*handler1, _onChunkHeader(20));
 
   handler1->expectError([&handler1](const HTTPException& ex) {
     EXPECT_EQ(ex.getProxygenError(), kErrorParseBody);

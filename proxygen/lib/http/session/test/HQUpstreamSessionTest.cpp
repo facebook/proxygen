@@ -361,7 +361,7 @@ TEST_P(HQUpstreamSessionTest, DropConnectionWithEarlyDataFailedError) {
   handler->txn_->sendHeaders(getGetRequest());
   handler->txn_->sendEOM();
 
-  EXPECT_CALL(*handler, onError(_))
+  EXPECT_CALL(*handler, _onError(_))
       .WillOnce(Invoke([](const HTTPException& error) {
         EXPECT_EQ(error.getProxygenError(), kErrorEarlyDataFailed);
         EXPECT_TRUE(std::string(error.what()).find("quic loses race") !=
@@ -760,7 +760,7 @@ TEST_P(HQUpstreamSessionTestH1qv2HQ, GoawayStreamsUnacknowledged) {
     auto handler = handlers.back().get();
     handler->txn_->sendHeaders(getGetRequest());
     handler->txn_->sendEOM();
-    EXPECT_CALL(*handler, onGoaway(testing::_)).Times(2);
+    EXPECT_CALL(*handler, _onGoaway(testing::_)).Times(2);
     if (handler->txn_->getID() >= goawayId) {
       handler->expectError([hdlr = handler](const HTTPException& err) {
         EXPECT_TRUE(err.hasProxygenError());
@@ -1026,7 +1026,7 @@ TEST_P(HQUpstreamSessionTestHQ, TestOnStopSendingHTTPRequestRejected) {
             socketDriver_->setWriteError(id);
             return folly::unit;
           }));
-  EXPECT_CALL(*handler, onError(_))
+  EXPECT_CALL(*handler, _onError(_))
       .Times(1)
       .WillOnce(Invoke([](HTTPException ex) {
         EXPECT_EQ(kErrorStreamUnacknowledged, ex.getProxygenError());
@@ -1868,7 +1868,7 @@ TEST_P(HQUpstreamSessionTestHQPush, TestCloseDroppedConnection) {
   // Two "onError" calls are expected:
   // the first when MockQuicSocketDriver closes the socket
   // the second when the error is propagated to the stream
-  EXPECT_CALL(*assocHandler_, onError(testing::_)).Times(2);
+  EXPECT_CALL(*assocHandler_, _onError(testing::_)).Times(2);
 
   // Create a nascent push stream with a preface only
   createNascentPushStream(1111 /* streamId */, folly::none /* pushId */);
@@ -1980,7 +1980,7 @@ TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveEarlyDatagramsSingleStream) {
   auto resp = makeResponse(200, 0);
   sendResponse(id, *std::get<0>(resp), std::move(std::get<1>(resp)), false);
   handler->expectHeaders();
-  EXPECT_CALL(*handler, onDatagram(testing::_))
+  EXPECT_CALL(*handler, _onDatagram(testing::_))
       .Times(kDefaultMaxBufferedDatagrams);
   flushAndLoopN(1);
   auto it = streams_.find(id);
@@ -2016,7 +2016,7 @@ TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveEarlyDatagramsMultiStream) {
     auto resp = makeResponse(200, 0);
     sendResponse(id, *std::get<0>(resp), std::move(std::get<1>(resp)), false);
     handler->expectHeaders();
-    EXPECT_CALL(*handler, onDatagram(testing::_))
+    EXPECT_CALL(*handler, _onDatagram(testing::_))
         .WillRepeatedly(InvokeWithoutArgs([&]() { deliveredDatagrams++; }));
     flushAndLoopN(1);
     auto it = streams_.find(id);

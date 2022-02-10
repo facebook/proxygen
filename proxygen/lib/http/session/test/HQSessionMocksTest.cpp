@@ -47,7 +47,7 @@ TEST_F(MocksTest, MockHQSessionNewTransaction) {
   // Capture the transaction object that HQSession will pass to the
   // handler
   HTTPTransaction* txn;
-  EXPECT_CALL(*handler_, setTransaction(_)).WillOnce(SaveArg<0>(&txn));
+  EXPECT_CALL(*handler_, _setTransaction(_)).WillOnce(SaveArg<0>(&txn));
 
   hqSession_->newTransaction(handler_.get());
 
@@ -68,7 +68,7 @@ TEST_F(MocksTest, MockHQSessionPropagatesQuickProtocolInfo) {
   // Capture the transaction object that HQSession will pass to the
   // handler
   HTTPTransaction* txn;
-  EXPECT_CALL(*handler_, setTransaction(_)).WillOnce(SaveArg<0>(&txn));
+  EXPECT_CALL(*handler_, _setTransaction(_)).WillOnce(SaveArg<0>(&txn));
 
   hqSession_->newTransaction(handler_.get());
 
