@@ -1920,7 +1920,9 @@ void HQSession::handleSessionError(HQStreamBase* stream,
     case quic::QuicErrorCode::Type::LocalErrorCode:
       // a LocalErrorCode::NO_ERROR is expected whenever the socket gets
       // closed without error
-      shouldDrop = (*err.asLocalErrorCode() != quic::LocalErrorCode::NO_ERROR);
+      shouldDrop =
+          (*err.asLocalErrorCode() != quic::LocalErrorCode::NO_ERROR &&
+           *err.asLocalErrorCode() != quic::LocalErrorCode::SHUTTING_DOWN);
       break;
     case quic::QuicErrorCode::Type::TransportErrorCode:
       shouldDrop = true;
