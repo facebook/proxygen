@@ -21,20 +21,20 @@ namespace proxygen {
       x(connection_timeout), x(connection_write_timeout),                      \
       x(connnection_limit_reached), x(destination_ip_prohibited),              \
       x(destination_ip_unroutable), x(destination_not_found),                  \
-      x(destination_unavailable), x(dns_error), x(dns_timeout),                \
-      x(http_protocol_error), x(http_request_denied), x(http_request_error),   \
-      x(http_response_body_size), x(http_response_content_coding),             \
-      x(http_response_header_block_size), x(http_response_header_size),        \
-      x(http_response_incomplete), x(http_response_status),                    \
-      x(http_response_timeout), x(http_response_transfer_coding),              \
-      x(http_upgrade_failed), x(proxy_internal_response),                      \
-      x(proxy_internal_error), x(proxy_loop_detected), x(tls_error),           \
-      x(tls_expired_peer_certificate), x(tls_handshake_error),                 \
-      x(tls_missing_proxy_certificate), x(tls_rejected_proxy_certificate),     \
-      x(tls_unexpected_peer_certificate), x(tls_unexpected_peer_identity),     \
-      x(tls_untrusted_peer_certificate), x(http_response_ok),                  \
-      /* FB STATUS TYPES */ x(async_request_error), x(client_read_error),      \
-      x(client_timeout), x(http_body_before_headers),                          \
+      x(destination_unavailable), x(dns_resolution_error), x(dns_error),       \
+      x(dns_timeout), x(http_protocol_error), x(http_request_denied),          \
+      x(http_request_error), x(http_response_body_size),                       \
+      x(http_response_content_coding), x(http_response_header_block_size),     \
+      x(http_response_header_size), x(http_response_incomplete),               \
+      x(http_response_status), x(http_response_timeout),                       \
+      x(http_response_transfer_coding), x(http_upgrade_failed),                \
+      x(proxy_internal_response), x(proxy_internal_error),                     \
+      x(proxy_loop_detected), x(tls_error), x(tls_expired_peer_certificate),   \
+      x(tls_handshake_error), x(tls_missing_proxy_certificate),                \
+      x(tls_rejected_proxy_certificate), x(tls_unexpected_peer_certificate),   \
+      x(tls_unexpected_peer_identity), x(tls_untrusted_peer_certificate),      \
+      x(http_response_ok), /* FB STATUS TYPES */ x(async_request_error),       \
+      x(client_read_error), x(client_timeout), x(http_body_before_headers),    \
       x(http_body_parsing_error), x(http_eom_before_headers),                  \
       x(http_headers_parsing_error), x(http_partial_reliability_disabled),     \
       x(http_trailers_before_headers), x(no_server_available),                 \
