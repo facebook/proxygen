@@ -3692,7 +3692,7 @@ void HQSession::HQStreamTransport::onPushPromiseHeadersComplete(
 }
 
 void HQSession::onDatagramsAvailable() noexcept {
-  auto result = sock_->readDatagrams();
+  auto result = sock_->readDatagramBufs();
   if (result.hasError()) {
     LOG(ERROR) << "Got error while reading datagrams: error="
                << toString(result.error());
