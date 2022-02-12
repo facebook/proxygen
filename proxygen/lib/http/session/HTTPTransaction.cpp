@@ -260,7 +260,7 @@ bool HTTPTransaction::updateContentLengthRemaining(size_t len) {
           expectedIngressContentLengthRemaining_.value() - len;
     } else {
       auto errorMsg = folly::to<std::string>(
-          "Content-Length/body mismatch: received=",
+          "Content-Length/body mismatch onIngressBody: received=",
           len,
           " expecting no more than ",
           expectedIngressContentLengthRemaining_.value());
@@ -466,7 +466,7 @@ void HTTPTransaction::onIngressEOM() {
   if (expectedIngressContentLengthRemaining_.has_value() &&
       expectedIngressContentLengthRemaining_.value() > 0) {
     auto errorMsg = folly::to<std::string>(
-        "Content-Length/body mismatch: expecting another ",
+        "Content-Length/body mismatch onIngressEOM: expecting another ",
         expectedIngressContentLengthRemaining_.value());
     LOG(ERROR) << errorMsg << " " << *this;
     if (handler_) {
@@ -1310,11 +1310,11 @@ void HTTPTransaction::sendEOM() {
   }
   if (expectedResponseLength_ && actualResponseLength_ &&
       (*expectedResponseLength_ != *actualResponseLength_)) {
-    auto errorMsg =
-        folly::to<std::string>("Content-Length/body mismatch: expected= ",
-                               *expectedResponseLength_,
-                               ", actual= ",
-                               *actualResponseLength_);
+    auto errorMsg = folly::to<std::string>(
+        "Content-Length/body mismatch sendEOM: expected=",
+        *expectedResponseLength_,
+        ", actual= ",
+        *actualResponseLength_);
     LOG(ERROR) << errorMsg << " " << *this;
   }
 
