@@ -1089,7 +1089,7 @@ TEST(HTTP1xCodecTest, UTF8Chars) {
                     /*strictValidation=*/true);
   MockHTTPCodecCallback callbacks;
   codec.setCallback(&callbacks);
-  auto utf8_string = u8"Ñoño";
+  auto utf8_string = std::string("Ñoño");
   auto badRequest =
       folly::to<std::string>("GET /echo?dl=", utf8_string, " HTTP/1.1\r\n\r\n");
   std::string uriEscapedStr;
