@@ -40,8 +40,7 @@ class HQDownstreamSession : public HQSession {
 
   void setupOnHeadersComplete(HTTPTransaction* txn, HTTPMessage* msg) override;
 
-  void onConnectionErrorHandler(
-      std::pair<quic::QuicErrorCode, std::string>) noexcept override;
+  void onConnectionErrorHandler(quic::QuicError) noexcept override;
 
   bool isDetachable(bool) const override;
 

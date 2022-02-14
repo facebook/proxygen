@@ -107,12 +107,11 @@ void HQConnector::onReplaySafe() noexcept {
   }
 }
 
-void HQConnector::connectError(
-    std::pair<quic::QuicErrorCode, std::string> error) noexcept {
+void HQConnector::connectError(quic::QuicError error) noexcept {
   CHECK(session_);
   reset();
   if (cb_) {
-    cb_->connectError(error.first);
+    cb_->connectError(error.code);
   }
 }
 

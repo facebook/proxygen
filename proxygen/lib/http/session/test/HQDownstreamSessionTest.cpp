@@ -1230,7 +1230,7 @@ TEST_P(HQDownstreamSessionTest, TransportErrorWithOpenStream) {
     eventBase_.runInLoop([this] {
       // This should error out the stream first, then destroy the session
       socketDriver_->deliverConnectionError(
-          std::make_pair(quic::TransportErrorCode::PROTOCOL_VIOLATION, ""));
+          quic::QuicError(quic::TransportErrorCode::PROTOCOL_VIOLATION, ""));
     });
   });
   handler->expectError([](const HTTPException& ex) {
@@ -1303,7 +1303,7 @@ TEST_P(HQDownstreamSessionTest, WriteErrorFlowControl) {
 // Connection error on idle connection
 TEST_P(HQDownstreamSessionTest, ConnectionErrorIdle) {
   socketDriver_->deliverConnectionError(
-      std::make_pair(quic::TransportErrorCode::PROTOCOL_VIOLATION, ""));
+      quic::QuicError(quic::TransportErrorCode::PROTOCOL_VIOLATION, ""));
   eventBase_.loopOnce();
 }
 
@@ -1978,14 +1978,14 @@ TEST_P(HQDownstreamSessionTest, LocalErrQueuedEgress) {
   });
   handler->expectDetachTransaction();
   socketDriver_->deliverConnectionError(
-      std::make_pair(quic::LocalErrorCode::CONNECTION_RESET, ""));
+      quic::QuicError(quic::LocalErrorCode::CONNECTION_RESET, ""));
   flushRequestsAndLoop();
 }
 
 TEST_P(HQDownstreamSessionTest, NoErrorNoStreams) {
   EXPECT_CALL(infoCb_, onIngressError(_, kErrorNone));
   socketDriver_->deliverConnectionError(
-      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, ""));
+      quic::QuicError(HTTP3::ErrorCode::HTTP_NO_ERROR, ""));
   flushRequestsAndLoop();
 }
 
@@ -2003,7 +2003,7 @@ TEST_P(HQDownstreamSessionTest, NoErrorOneStreams) {
   // This is for connection level errors, maybe should be reported a
   EXPECT_CALL(infoCb_, onIngressError(_, kErrorEOF));
   socketDriver_->deliverConnectionError(
-      std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, ""));
+      quic::QuicError(HTTP3::ErrorCode::HTTP_NO_ERROR, ""));
 }
 
 TEST_P(HQDownstreamSessionTestHQ, Connect) {
@@ -2395,7 +2395,7 @@ TEST_P(HQDownstreamSessionTest, ProcessReadDataOnDetachedStream) {
           stream.readCB->readAvailable(id);
           // now send an error so that the stream gets marked for detach
           stream.readCB->readError(
-              id, std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, folly::none));
+              id, quic::QuicError(HTTP3::ErrorCode::HTTP_NO_ERROR));
           // then closeWhenIdle (like during shutdown), this calls
           // checkForShutdown that calls checkForDetach and may detach a
           // transaction that was added to the pendingProcessReadSet in the same
@@ -3408,7 +3408,7 @@ TEST_P(HQDownstreamSessionTestHQDeliveryAck, TestBodyDeliveryCancel) {
   EXPECT_CALL(*handler, _onError(_)).Times(1);
   handler->expectDetachTransaction();
   socketDriver_->deliverErrorOnAllStreams(
-      std::make_pair(LocalErrorCode::INVALID_OPERATION, "fake error"));
+      quic::QuicError(LocalErrorCode::INVALID_OPERATION, "fake error"));
   flushRequestsAndLoop();
 
   EXPECT_EQ(transportCallback_.numBodyBytesCanceledCalls_, 2);

@@ -41,7 +41,7 @@ class HQClient : private proxygen::HQSession::ConnectCallback {
 
   void onReplaySafe() override;
 
-  void connectError(std::pair<quic::QuicErrorCode, std::string> error) override;
+  void connectError(quic::QuicError error) override;
 
   void initializeQuicClient();
 

@@ -188,8 +188,7 @@ class HQSession
     /**
      * Terminal callback.
      */
-    virtual void connectError(
-        std::pair<quic::QuicErrorCode, std::string> code) = 0;
+    virtual void connectError(quic::QuicError code) = 0;
 
     /**
      * Callback for the first time transport has processed a packet from peer.
@@ -233,11 +232,9 @@ class HQSession
 
   void onConnectionEnd() noexcept override;
 
-  void onConnectionSetupError(
-      std::pair<quic::QuicErrorCode, std::string> code) noexcept override;
+  void onConnectionSetupError(quic::QuicError code) noexcept override;
 
-  void onConnectionError(
-      std::pair<quic::QuicErrorCode, std::string> code) noexcept override;
+  void onConnectionError(quic::QuicError code) noexcept override;
 
   void onKnob(uint64_t knobSpace, uint64_t knobId, quic::Buf knobBlob) override;
 
@@ -251,17 +248,12 @@ class HQSession
   // quic::QuicSocket::ReadCallback
   void readAvailable(quic::StreamId id) noexcept override;
 
-  void readError(
-      quic::StreamId id,
-      std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-          error) noexcept override;
+  void readError(quic::StreamId id, quic::QuicError error) noexcept override;
 
   // quic::QuicSocket::WriteCallback
   void onConnectionWriteReady(uint64_t maxToSend) noexcept override;
 
-  void onConnectionWriteError(
-      std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-          error) noexcept override;
+  void onConnectionWriteError(quic::QuicError error) noexcept override;
 
   // quic::QuicSocket::DatagramCallback
   void onDatagramsAvailable() noexcept override;
@@ -473,13 +465,12 @@ class HQSession
    *
    * proxygenError is delivered to open transactions
    */
-  void dropConnectionSync(std::pair<quic::QuicErrorCode, std::string> errorCode,
+  void dropConnectionSync(quic::QuicError errorCode,
                           ProxygenError proxygenError);
 
   // Invokes dropConnectionSync at the beginning of the next loopCallback
-  void dropConnectionAsync(
-      std::pair<quic::QuicErrorCode, std::string> errorCode,
-      ProxygenError proxygenError);
+  void dropConnectionAsync(quic::QuicError errorCode,
+                           ProxygenError proxygenError);
 
   bool getCurrentTransportInfoWithoutUpdate(
       wangle::TransportInfo* /*tinfo*/) const override;
@@ -751,8 +742,7 @@ class HQSession
   virtual void setupOnHeadersComplete(HTTPTransaction* txn,
                                       HTTPMessage* msg) = 0;
 
-  virtual void onConnectionErrorHandler(
-      std::pair<quic::QuicErrorCode, std::string> error) noexcept = 0;
+  virtual void onConnectionErrorHandler(quic::QuicError error) noexcept = 0;
 
   void applySettings(const SettingsList& settings);
 
@@ -986,9 +976,7 @@ class HQSession
   bool started_ : 1;
   bool dropping_ : 1;
   bool inLoopCallback_ : 1;
-  folly::Optional<
-      std::pair<std::pair<quic::QuicErrorCode, std::string>, ProxygenError>>
-      dropInNextLoop_;
+  folly::Optional<std::pair<quic::QuicError, ProxygenError>> dropInNextLoop_;
 
 #ifdef _MSC_VER
 #pragma warning(push)

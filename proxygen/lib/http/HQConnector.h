@@ -74,8 +74,7 @@ class HQConnector : public HQSession::ConnectCallback {
 
   // HQSession::ConnectCallback
   void onReplaySafe() noexcept override;
-  void connectError(
-      std::pair<quic::QuicErrorCode, std::string> error) noexcept override;
+  void connectError(quic::QuicError error) noexcept override;
 
  private:
   Callback* cb_;

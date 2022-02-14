@@ -74,7 +74,7 @@ class UnidirectionalReadDispatcherTest : public Test {
 TEST_F(UnidirectionalReadDispatcherTest, TestControlStreamCallback) {
   quic::StreamId expectedId = 5;
   ReadError readError =
-      std::make_pair(quic::GenericApplicationErrorCode::NO_ERROR, folly::none);
+      quic::QuicError(quic::GenericApplicationErrorCode::NO_ERROR);
   dispatcherCallback_->expectUnidirectionalReadAvailable(
       [&](quic::StreamId id) { ASSERT_EQ(id, expectedId); });
 

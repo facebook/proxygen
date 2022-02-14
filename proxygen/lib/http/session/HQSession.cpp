@@ -291,8 +291,9 @@ bool HQSession::createEgressControlStream(UnidirectionalStreamType streamType) {
   if (id.hasError()) {
     LOG(ERROR) << "Failed to create " << streamType
                << " unidirectional stream. error='" << id.error() << "'";
-    onConnectionError(std::make_pair(quic::LocalErrorCode::CONNECT_FAILED,
-                                     "Failed to create unidirectional stream"));
+    onConnectionError(
+        quic::QuicError(quic::LocalErrorCode::CONNECT_FAILED,
+                        "Failed to create unidirectional stream"));
     return false;
   }
 
@@ -323,8 +324,8 @@ HQSession::createIngressControlStream(quic::StreamId id,
   if (ctrlStream->ingressCodec_) {
     LOG(ERROR) << "Too many " << streamType << " streams for sess=" << *this;
     dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR,
-                       "HTTP wrong stream count"),
+        quic::QuicError(HTTP3::ErrorCode::HTTP_STREAM_CREATION_ERROR,
+                        "HTTP wrong stream count"),
         kErrorConnection);
     return nullptr;
   }
@@ -404,8 +405,8 @@ bool HQSession::getAndCheckApplicationProtocol() {
     LOG(ERROR) << "next protocol not supported: "
                << (alpn ? *alpn : "no protocol") << " sess=" << *this;
 
-    onConnectionError(std::make_pair(quic::LocalErrorCode::CONNECT_FAILED,
-                                     "ALPN not supported"));
+    onConnectionError(quic::QuicError(quic::LocalErrorCode::CONNECT_FAILED,
+                                      "ALPN not supported"));
     return false;
   }
   alpn_ = *alpn;
@@ -464,21 +465,19 @@ void HQSession::HQVersionUtils::onConnectionEnd() {
   qpackCodec_.decoderStreamEnd();
 }
 
-void HQSession::onConnectionSetupError(
-    std::pair<quic::QuicErrorCode, std::string> code) noexcept {
+void HQSession::onConnectionSetupError(quic::QuicError code) noexcept {
   onConnectionError(std::move(code));
 }
 
-void HQSession::onConnectionError(
-    std::pair<quic::QuicErrorCode, std::string> code) noexcept {
+void HQSession::onConnectionError(quic::QuicError code) noexcept {
   // the connector will drop the connection in case of connect error
   HQSession::DestructorGuard dg(this);
   VLOG(4) << __func__ << " sess=" << *this
-          << ": connection error=" << code.second;
+          << ": connection error=" << code.message;
 
   // Map application errors here to kErrorConnectionReset: eg, the peer tore
   // down the connection
-  auto proxygenErr = toProxygenError(code.first, /*fromPeer=*/true);
+  auto proxygenErr = toProxygenError(code.code, /*fromPeer=*/true);
   if (proxygenErr == kErrorNone && !streams_.empty()) {
     // Peer closed with NO_ERROR but there are open streams
     proxygenErr = kErrorEOF;
@@ -487,17 +486,17 @@ void HQSession::onConnectionError(
     infoCallback_->onIngressError(*this, proxygenErr);
   }
 
-  if (code.first.type() == quic::QuicErrorCode::Type::ApplicationErrorCode &&
-      isQPACKError(static_cast<HTTP3::ErrorCode>(
-          *code.first.asApplicationErrorCode()))) {
+  if (code.code.type() == quic::QuicErrorCode::Type::ApplicationErrorCode &&
+      isQPACKError(
+          static_cast<HTTP3::ErrorCode>(*code.code.asApplicationErrorCode()))) {
     LOG(ERROR) << "Peer QPACK error err="
-               << static_cast<uint32_t>(*code.first.asApplicationErrorCode())
-               << " msg=" << code.second << " " << *this;
-  } else if (!noError(code.first)) {
+               << static_cast<uint32_t>(*code.code.asApplicationErrorCode())
+               << " msg=" << code.message << " " << *this;
+  } else if (!noError(code.code)) {
     std::stringstream msgStream;
-    msgStream << "Peer closed with error err=" << code.first
-              << " msg=" << code.second << " " << *this;
-    if (isVlogLevel(code.first)) {
+    msgStream << "Peer closed with error err=" << code.code
+              << " msg=" << code.message << " " << *this;
+    if (isVlogLevel(code.code)) {
       VLOG(3) << msgStream.str();
     } else {
       LOG(ERROR) << msgStream.str();
@@ -817,13 +816,12 @@ void HQSession::closeWhenIdle() {
 
 void HQSession::dropConnection(const std::string& errorMsg) {
   auto msg = errorMsg.empty() ? "Stopping" : errorMsg;
-  dropConnectionSync(std::make_pair(HTTP3::ErrorCode::HTTP_NO_ERROR, msg),
+  dropConnectionSync(quic::QuicError(HTTP3::ErrorCode::HTTP_NO_ERROR, msg),
                      kErrorDropped);
 }
 
-void HQSession::dropConnectionAsync(
-    std::pair<quic::QuicErrorCode, std::string> errorCode,
-    ProxygenError proxygenError) {
+void HQSession::dropConnectionAsync(quic::QuicError errorCode,
+                                    ProxygenError proxygenError) {
   if (!dropInNextLoop_.has_value()) {
     dropInNextLoop_ = std::make_pair(errorCode, proxygenError);
     scheduleLoopCallback(true);
@@ -832,9 +830,8 @@ void HQSession::dropConnectionAsync(
   }
 }
 
-void HQSession::dropConnectionSync(
-    std::pair<quic::QuicErrorCode, std::string> errorCode,
-    ProxygenError proxygenError) {
+void HQSession::dropConnectionSync(quic::QuicError errorCode,
+                                   ProxygenError proxygenError) {
   VLOG(4) << __func__ << " sess=" << *this;
   HQSession::DestructorGuard dg(this);
   // dropping_ is used to guard against dropConnection->onError->dropConnection
@@ -915,7 +912,7 @@ void HQSession::checkForShutdown() {
       !isLoopCallbackScheduled()) {
     if (sock_) {
       auto err = HTTP3::ErrorCode::HTTP_NO_ERROR;
-      sock_->close(std::make_pair(quic::QuicErrorCode(err), toString(err)));
+      sock_->close(quic::QuicError(quic::QuicErrorCode(err), toString(err)));
       sock_.reset();
     }
 
@@ -1189,20 +1186,17 @@ void HQSession::readAvailable(quic::StreamId id) noexcept {
   scheduleLoopCallback(true);
 }
 
-void HQSession::readError(
-    quic::StreamId id,
-    std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-        error) noexcept {
+void HQSession::readError(quic::StreamId id, quic::QuicError error) noexcept {
   VLOG(4) << __func__ << " sess=" << *this << ": readError streamID=" << id
           << " error: " << error;
 
   HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS,
                    folly::to<std::string>("Got error=", quic::toString(error)));
 
-  switch (error.first.type()) {
+  switch (error.code.type()) {
     case quic::QuicErrorCode::Type::ApplicationErrorCode: {
       auto errorCode =
-          static_cast<HTTP3::ErrorCode>(*error.first.asApplicationErrorCode());
+          static_cast<HTTP3::ErrorCode>(*error.code.asApplicationErrorCode());
       VLOG(3) << "readError: QUIC Application Error: " << toString(errorCode)
               << " streamID=" << id << " sess=" << *this;
       ex.setHttp3ErrorCode(errorCode);
@@ -1219,7 +1213,7 @@ void HQSession::readError(
       break;
     }
     case quic::QuicErrorCode::Type::LocalErrorCode: {
-      quic::LocalErrorCode& errorCode = *error.first.asLocalErrorCode();
+      quic::LocalErrorCode& errorCode = *error.code.asLocalErrorCode();
       VLOG(3) << "readError: QUIC Local Error: " << errorCode
               << " streamID=" << id << " sess=" << *this;
       if (errorCode == quic::LocalErrorCode::CONNECT_FAILED) {
@@ -1231,7 +1225,7 @@ void HQSession::readError(
       break;
     }
     case quic::QuicErrorCode::Type::TransportErrorCode: {
-      quic::TransportErrorCode& errorCode = *error.first.asTransportErrorCode();
+      quic::TransportErrorCode& errorCode = *error.code.asTransportErrorCode();
       VLOG(3) << "readError: QUIC Transport Error: " << errorCode
               << " streamID=" << id << " sess=" << *this;
       ex.setProxygenError(kErrorConnectionReset);
@@ -1311,7 +1305,7 @@ void HQSession::readControlStream(HQControlStream* ctrlStream) {
   if (readRes.hasError()) {
     LOG(ERROR) << "Got synchronous read error=" << readRes.error();
     readError(ctrlStream->getIngressStreamId(),
-              {readRes.error(), folly::StringPiece("sync read error")});
+              quic::QuicError(readRes.error(), "sync read error"));
     return;
   }
   resetTimeout();
@@ -1450,7 +1444,7 @@ void HQSession::controlStreamReadError(
   auto ctrlStream = findControlStream(id);
 
   if (!ctrlStream) {
-    const quic::LocalErrorCode* err = error.first.asLocalErrorCode();
+    const quic::LocalErrorCode* err = error.code.asLocalErrorCode();
     bool shouldLog = !err || (*err != quic::LocalErrorCode::NO_ERROR);
     LOG_IF(ERROR, shouldLog)
         << __func__ << " received read error=" << error
@@ -1460,8 +1454,8 @@ void HQSession::controlStreamReadError(
 
   handleSessionError(ctrlStream,
                      StreamDirection::INGRESS,
-                     quicControlStreamError(error.first),
-                     toProxygenError(error.first));
+                     quicControlStreamError(error.code),
+                     toProxygenError(error.code));
 }
 
 void HQSession::readRequestStream(quic::StreamId id) noexcept {
@@ -1476,7 +1470,7 @@ void HQSession::readRequestStream(quic::StreamId id) noexcept {
 
   if (readRes.hasError()) {
     LOG(ERROR) << "Got synchronous read error=" << readRes.error();
-    readError(id, {readRes.error(), folly::StringPiece("sync read error")});
+    readError(id, quic::QuicError(readRes.error(), "sync read error"));
     return;
   }
 
@@ -1627,8 +1621,8 @@ void HQSession::HQVersionUtils::applySettings(const SettingsList& settings) {
   // transport, close the connection
   if (datagram && session_.sock_->getDatagramSizeLimit() == 0) {
     session_.dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_SETTINGS_ERROR,
-                       "H3_DATAGRAM without transport support"),
+        quic::QuicError(HTTP3::ErrorCode::HTTP_SETTINGS_ERROR,
+                        "H3_DATAGRAM without transport support"),
         kErrorConnection);
   }
   // H3 Datagram flows are bi-directional, enable only of local and peer
@@ -1661,7 +1655,7 @@ void HQSession::onGoaway(uint64_t minUnseenId,
   if (minUnseenId > minPeerUnseenId_) {
     LOG(ERROR) << "Goaway id increased=" << minUnseenId << " sess=" << *this;
     dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_ID_ERROR, "GOAWAY id increased"),
+        quic::QuicError(HTTP3::ErrorCode::HTTP_ID_ERROR, "GOAWAY id increased"),
         kErrorMalformedInput);
     return;
   }
@@ -1715,8 +1709,8 @@ void HQSession::onPushPriority(hq::PushId pushId, const HTTPPriority& pri) {
   if (maxAllowedPushId_.hasValue() && *maxAllowedPushId_ < pushId) {
     VLOG(4) << "Priority update stream id=" << pushId
             << " greater than max allowed push id=" << *maxAllowedPushId_;
-    dropConnectionAsync(std::make_pair(HTTP3::ErrorCode::HTTP_ID_ERROR,
-                                       "PushId is beyond max allowed push id"),
+    dropConnectionAsync(quic::QuicError(HTTP3::ErrorCode::HTTP_ID_ERROR,
+                                        "PushId is beyond max allowed push id"),
                         kErrorMalformedInput);
     return;
   }
@@ -1802,9 +1796,7 @@ void HQSession::onConnectionWriteReady(uint64_t maxToSend) noexcept {
   scheduleLoopCallback(true);
 }
 
-void HQSession::onConnectionWriteError(
-    std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-        error) noexcept {
+void HQSession::onConnectionWriteError(quic::QuicError error) noexcept {
   scheduledWrite_ = false;
   VLOG(4) << __func__ << " sess=" << *this << ": writeError error=" << error;
   // Leave this as a no-op.  We will most likely get onConnectionError soon
@@ -1940,7 +1932,7 @@ void HQSession::handleSessionError(HQStreamBase* stream,
   // close received from the remote, we may have other readError callbacks on
   // other streams after this one. So run in the next loop callback, in this
   // same loop
-  dropConnectionAsync(std::make_pair(appError, appErrorMsg), proxygenError);
+  dropConnectionAsync(quic::QuicError(appError, appErrorMsg), proxygenError);
 }
 
 uint64_t HQSession::writeRequestStreams(uint64_t maxEgress) noexcept {
@@ -3364,7 +3356,7 @@ void HQSession::HQStreamTransportBase::onMessageBegin(
     LOG(ERROR) << error << " streamID=" << streamID << " session=" << session_;
     // TODO: Audit this error code
     session_.dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_FRAME_ERROR, error),
+        quic::QuicError(HTTP3::ErrorCode::HTTP_FRAME_ERROR, error),
         kErrorDropped);
     return;
   }
@@ -3573,7 +3565,7 @@ void HQSession::HQStreamTransportBase::onPushMessageBegin(
     LOG(ERROR) << error;
     // TODO: Audit this error code
     session_.dropConnectionAsync(
-        std::make_pair(HTTP3::ErrorCode::HTTP_FRAME_ERROR, error),
+        quic::QuicError(HTTP3::ErrorCode::HTTP_FRAME_ERROR, error),
         kErrorDropped);
     return;
   }
@@ -3696,8 +3688,8 @@ void HQSession::onDatagramsAvailable() noexcept {
   if (result.hasError()) {
     LOG(ERROR) << "Got error while reading datagrams: error="
                << toString(result.error());
-    dropConnectionAsync(std::make_pair(HTTP3::ErrorCode::HTTP_INTERNAL_ERROR,
-                                       "H3_DATAGRAM: internal error "),
+    dropConnectionAsync(quic::QuicError(HTTP3::ErrorCode::HTTP_INTERNAL_ERROR,
+                                        "H3_DATAGRAM: internal error "),
                         kErrorConnection);
     return;
   }
@@ -3708,15 +3700,15 @@ void HQSession::onDatagramsAvailable() noexcept {
     auto quarterStreamId = quic::decodeQuicInteger(cursor);
     if (!quarterStreamId) {
       dropConnectionAsync(
-          std::make_pair(HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
-                         "H3_DATAGRAM: error decoding stream-id"),
+          quic::QuicError(HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
+                          "H3_DATAGRAM: error decoding stream-id"),
           kErrorConnection);
     }
     auto ctxId = quic::decodeQuicInteger(cursor);
     if (!ctxId) {
       dropConnectionAsync(
-          std::make_pair(HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
-                         "H3_DATAGRAM: error decoding context-id"),
+          quic::QuicError(HTTP3::ErrorCode::HTTP_GENERAL_PROTOCOL_ERROR,
+                          "H3_DATAGRAM: error decoding context-id"),
           kErrorConnection);
     }
 

@@ -301,7 +301,7 @@ class MockConnectCallback : public HQSession::ConnectCallback {
  public:
   MOCK_METHOD0(connectSuccess, void());
   MOCK_METHOD0(onReplaySafe, void());
-  MOCK_METHOD1(connectError, void(std::pair<quic::QuicErrorCode, std::string>));
+  MOCK_METHOD1(connectError, void(quic::QuicError));
   MOCK_METHOD0(onFirstPeerPacketProcessed, void());
 };
 
@@ -389,11 +389,8 @@ class MockHQSession : public HQSession {
 
   MOCK_METHOD2(setupOnHeadersComplete, void(HTTPTransaction*, HTTPMessage*));
 
-  GMOCK_METHOD1_(,
-                 noexcept,
-                 ,
-                 onConnectionErrorHandler,
-                 void(std::pair<quic::QuicErrorCode, std::string> error));
+  GMOCK_METHOD1_(
+      , noexcept, , onConnectionErrorHandler, void(quic::QuicError error));
 
   MOCK_METHOD1(newTransaction, HTTPTransaction*(HTTPTransaction::Handler*));
 

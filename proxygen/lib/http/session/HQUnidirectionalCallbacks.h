@@ -21,8 +21,7 @@ class HQUnidirStreamDispatcher : public quic::QuicSocket::PeekCallback {
  public:
   // Receiver interface for the dispatched callbacks
   struct Callback {
-    using ReadError =
-        std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>;
+    using ReadError = quic::QuicError;
     // Avoid pulling dependent names into ostensibly innocent templates...
     using PeekData = folly::Range<quic::QuicSocket::PeekIterator>;
 
@@ -75,10 +74,8 @@ class HQUnidirStreamDispatcher : public quic::QuicSocket::PeekCallback {
       quic::StreamId /* id */,
       const Callback::PeekData& /* data */) noexcept override;
 
-  virtual void peekError(
-      quic::StreamId /* id */,
-      std::pair<quic::QuicErrorCode, folly::Optional<folly::StringPiece>>
-      /* error */) noexcept override;
+  virtual void peekError(quic::StreamId /* id */, quic::QuicError
+                         /* error */) noexcept override;
 
   quic::QuicSocket::ReadCallback* controlStreamCallback() const;
 

@@ -98,7 +98,7 @@ TEST_F(H3DatagramAsyncSocketTest, ConnectAndReady) {
 
 TEST_F(H3DatagramAsyncSocketTest, ConnectErrorBeforeReadCallbackSet) {
   datagramSocket_->connect(getRemoteAddress());
-  connectError(std::make_pair(LocalErrorCode::CONNECT_FAILED, "unreachable"));
+  connectError(quic::QuicError(LocalErrorCode::CONNECT_FAILED, "unreachable"));
   EXPECT_CALL(readCallbacks_, onReadError_(_))
       .Times(1)
       .WillOnce(Invoke([&](auto err) {
@@ -123,7 +123,7 @@ TEST_F(H3DatagramAsyncSocketTest, ConnectErrorAfterReadCallbackSet) {
       }));
   EXPECT_CALL(readCallbacks_, onReadClosed_()).Times(1);
   datagramSocket_->resumeRead(&readCallbacks_);
-  connectError(std::make_pair(LocalErrorCode::CONNECT_FAILED, "unreachable"));
+  connectError(quic::QuicError(LocalErrorCode::CONNECT_FAILED, "unreachable"));
 }
 
 TEST_F(H3DatagramAsyncSocketTest, HTTPNon200Response) {

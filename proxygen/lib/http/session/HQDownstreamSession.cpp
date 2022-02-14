@@ -29,7 +29,7 @@ void HQDownstreamSession::onAppRateLimited() noexcept {
 }
 
 void HQDownstreamSession::onConnectionErrorHandler(
-    std::pair<quic::QuicErrorCode, std::string> /* error */) noexcept {
+    quic::QuicError /* error */) noexcept {
   // Currently the users of this callback treat it like a connect error,
   // not a general connection error. Since we don't have proper separation
   // suppress the errors after onTransportReady has happened.
@@ -237,8 +237,8 @@ void HQDownstreamSession::HQEgressPushStream::sendPushPromise(
   auto parentStream = session.findNonDetachedStream(*parentStreamId);
   if (!parentStream) {
     session_.dropConnectionAsync(
-        std::make_pair(quic::TransportErrorCode::STREAM_STATE_ERROR,
-                       "Send push promise on a stream without a parent"),
+        quic::QuicError(quic::TransportErrorCode::STREAM_STATE_ERROR,
+                        "Send push promise on a stream without a parent"),
         kErrorConnection);
     return;
   }

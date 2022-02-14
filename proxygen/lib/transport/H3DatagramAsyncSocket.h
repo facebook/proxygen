@@ -234,7 +234,7 @@ class H3DatagramAsyncSocket
    */
   void connectSuccess() override;
   void onReplaySafe() override;
-  void connectError(std::pair<quic::QuicErrorCode, std::string> error) override;
+  void connectError(quic::QuicError error) override;
 
   // HTTPTransactionHandler methods
   void setTransaction(proxygen::HTTPTransaction* txn) noexcept override;

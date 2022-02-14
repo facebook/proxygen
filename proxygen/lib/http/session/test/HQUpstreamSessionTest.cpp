@@ -686,8 +686,8 @@ TEST_P(HQUpstreamSessionTest, TestConnectionToken) {
 
   // Clean up the session and the transaction.
   hqSession_->onConnectionError(
-      std::make_pair(quic::LocalErrorCode::CONNECT_FAILED,
-                     "Connect Failure with Open streams"));
+      quic::QuicError(quic::LocalErrorCode::CONNECT_FAILED,
+                      "Connect Failure with Open streams"));
   eventBase_.loop();
   EXPECT_EQ(hqSession_->getConnectionCloseReason(),
             ConnectionCloseReason::SHUTDOWN);
@@ -699,8 +699,8 @@ TEST_P(HQUpstreamSessionTest, OnConnectionErrorWithOpenStreams) {
   handler->expectError();
   handler->expectDetachTransaction();
   hqSession_->onConnectionError(
-      std::make_pair(quic::LocalErrorCode::CONNECT_FAILED,
-                     "Connect Failure with Open streams"));
+      quic::QuicError(quic::LocalErrorCode::CONNECT_FAILED,
+                      "Connect Failure with Open streams"));
   eventBase_.loop();
   EXPECT_EQ(hqSession_->getConnectionCloseReason(),
             ConnectionCloseReason::SHUTDOWN);
@@ -727,8 +727,8 @@ TEST_P(HQUpstreamSessionTest, OnConnectionErrorWithOpenStreamsPause) {
   flush();
   eventBase_.runInLoop([&] {
     hqSession_->onConnectionError(
-        std::make_pair(quic::LocalErrorCode::CONNECT_FAILED,
-                       "Connect Failure with Open streams"));
+        quic::QuicError(quic::LocalErrorCode::CONNECT_FAILED,
+                        "Connect Failure with Open streams"));
   });
   handler1->expectError(
       [&](const HTTPException&) { handler2->txn_->pauseIngress(); });

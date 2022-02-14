@@ -72,7 +72,7 @@ class H3DatagramAsyncSocketTest : public testing::Test {
   void onDatagram(std::unique_ptr<folly::IOBuf> datagram) {
     datagramSocket_->onDatagram(std::move(datagram));
   }
-  void connectError(std::pair<quic::QuicErrorCode, std::string> error) {
+  void connectError(quic::QuicError error) {
     datagramSocket_->connectError(std::move(error));
   }
   void onHeadersComplete(std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {

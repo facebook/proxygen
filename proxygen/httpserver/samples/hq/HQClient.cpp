@@ -200,9 +200,9 @@ void HQClient::onReplaySafe() {
   evb_.terminateLoopSoon();
 }
 
-void HQClient::connectError(std::pair<quic::QuicErrorCode, std::string> error) {
-  LOG(ERROR) << "HQClient failed to connect, error=" << toString(error.first)
-             << ", msg=" << error.second;
+void HQClient::connectError(quic::QuicError error) {
+  LOG(ERROR) << "HQClient failed to connect, error=" << toString(error.code)
+             << ", msg=" << error.message;
   failed_ = true;
   evb_.terminateLoopSoon();
 }

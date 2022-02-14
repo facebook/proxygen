@@ -74,10 +74,9 @@ void H3DatagramAsyncSocket::connectSuccess() {
 void H3DatagramAsyncSocket::onReplaySafe() {
 }
 
-void H3DatagramAsyncSocket::connectError(
-    std::pair<quic::QuicErrorCode, std::string> error) {
+void H3DatagramAsyncSocket::connectError(quic::QuicError error) {
   closeWithError({AsyncSocketException::NETWORK_ERROR,
-                  fmt::format("connectError: '{}'", error.second)});
+                  fmt::format("connectError: '{}'", error.message)});
 }
 
 void H3DatagramAsyncSocket::setTransaction(
