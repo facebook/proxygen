@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "StructuredHeadersConstants.h"
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersConstants.h>
 #include <string>
 
 #pragma once

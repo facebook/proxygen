@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "StructuredHeadersDecoder.h"
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
 
 namespace proxygen {
 

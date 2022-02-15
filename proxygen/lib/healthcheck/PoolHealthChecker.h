@@ -12,7 +12,7 @@
 #include <folly/io/SocketOptionMap.h>
 #include <proxygen/lib/utils/Time.h>
 
-#include "proxygen/lib/healthcheck/ServerHealthCheckerCallback.h"
+#include <proxygen/lib/healthcheck/ServerHealthCheckerCallback.h>
 
 namespace proxygen {
 

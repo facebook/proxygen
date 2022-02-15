@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "proxygen/lib/pools/generators/ServerListGenerator.h"
+#include <proxygen/lib/pools/generators/ServerListGenerator.h>
 #include <proxygen/lib/utils/Exception.h>
 #include <sys/stat.h>
 

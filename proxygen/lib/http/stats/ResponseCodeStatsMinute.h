@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "proxygen/lib/stats/BaseStats.h"
+#include <proxygen/lib/stats/BaseStats.h>
 
 namespace proxygen {
 

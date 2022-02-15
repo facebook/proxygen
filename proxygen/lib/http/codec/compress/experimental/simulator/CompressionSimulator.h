@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h"
-#include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionTypes.h"
+#include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
+#include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionTypes.h>
 
 #include <chrono>
 #include <folly/Random.h>

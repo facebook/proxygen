@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "folly/Expected.h"
+#include <folly/Expected.h>
 #include <proxygen/lib/http/session/HQDownstreamSession.h>
 
 #include <folly/io/async/EventBaseManager.h>

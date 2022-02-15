@@ -6,13 +6,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "StructuredHeadersBuffer.h"
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersBuffer.h>
 
 #include <boost/lexical_cast.hpp>
 #include <cctype>
 #include <glog/logging.h>
 
-#include "StructuredHeadersUtilities.h" // @manual=:utils
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersUtilities.h>
 
 namespace proxygen {
 

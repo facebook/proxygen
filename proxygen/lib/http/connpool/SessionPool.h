@@ -10,7 +10,7 @@
 
 #include <folly/io/async/EventBase.h>
 
-#include "proxygen/lib/http/connpool/SessionHolder.h"
+#include <proxygen/lib/http/connpool/SessionHolder.h>
 
 namespace proxygen {
 

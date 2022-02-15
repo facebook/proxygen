@@ -8,10 +8,10 @@
 
 #pragma once
 
-#include "StructuredHeadersConstants.h"
 #include <boost/iostreams/device/back_inserter.hpp>
 #include <boost/iostreams/stream_buffer.hpp>
 #include <ostream>
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersConstants.h>
 #include <string>
 #include <unordered_map>
 #include <vector>

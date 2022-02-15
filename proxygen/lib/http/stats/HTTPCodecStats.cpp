@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/http/stats/HTTPCodecStats.h"
+#include <proxygen/lib/http/stats/HTTPCodecStats.h>
 
 using facebook::fb303::RATE;
 using facebook::fb303::SUM;

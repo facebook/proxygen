@@ -6,11 +6,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "StructuredHeadersEncoder.h"
-#include "StructuredHeadersUtilities.h" // @manual=:utils
 #include <boost/lexical_cast.hpp>
 #include <boost/variant.hpp>
 #include <glog/logging.h>
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersEncoder.h>
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersUtilities.h>
 
 namespace proxygen {
 

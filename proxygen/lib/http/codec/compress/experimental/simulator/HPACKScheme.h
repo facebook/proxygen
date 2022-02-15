@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h"
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 #include <proxygen/lib/http/codec/compress/NoPathIndexingStrategy.h>
+#include <proxygen/lib/http/codec/compress/experimental/simulator/CompressionScheme.h>
 #include <proxygen/lib/http/codec/compress/experimental/simulator/HPACKQueue.h>
 
 namespace proxygen { namespace compress {

@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "StructuredHeadersBuffer.h" // @manual=:structured_headers
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersBuffer.h>
 #include <unordered_map>
 #include <vector>
 

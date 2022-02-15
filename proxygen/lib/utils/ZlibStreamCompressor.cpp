@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/utils/ZlibStreamCompressor.h"
+#include <proxygen/lib/utils/ZlibStreamCompressor.h>
 
 #include <folly/io/Cursor.h>
 #include <folly/lang/Bits.h>

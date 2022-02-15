@@ -6,12 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/http/connpool/test/SessionPoolTestFixture.h"
+#include <proxygen/lib/http/connpool/test/SessionPoolTestFixture.h>
 
-#include "proxygen/lib/http/connpool/ServerIdleSessionController.h"
-#include "proxygen/lib/http/connpool/SessionHolder.h"
-#include "proxygen/lib/http/connpool/SessionPool.h"
-#include "proxygen/lib/http/connpool/ThreadIdleSessionController.h"
+#include <proxygen/lib/http/connpool/ServerIdleSessionController.h>
+#include <proxygen/lib/http/connpool/SessionHolder.h>
+#include <proxygen/lib/http/connpool/SessionPool.h>
+#include <proxygen/lib/http/connpool/ThreadIdleSessionController.h>
 
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/portability/GFlags.h>

@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/http/stats/ConnectionStats.h"
+#include <proxygen/lib/http/stats/ConnectionStats.h>
 
 using namespace facebook::fb303;
 

@@ -16,7 +16,7 @@
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
 
-#include "proxygen/lib/http/connpool/SessionHolder.h"
+#include <proxygen/lib/http/connpool/SessionHolder.h>
 
 namespace proxygen {
 

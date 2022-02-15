@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/utils/ZstdStreamCompressor.h"
+#include <proxygen/lib/utils/ZstdStreamCompressor.h>
 
 #include <folly/compression/Compression.h>
 

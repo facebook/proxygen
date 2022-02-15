@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/http/stats/ResponseCodeStatsMinute.h"
+#include <proxygen/lib/http/stats/ResponseCodeStatsMinute.h>
 
 using facebook::fb303::COUNT;
 

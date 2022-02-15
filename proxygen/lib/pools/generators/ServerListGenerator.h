@@ -18,7 +18,7 @@
 #include <folly/io/async/AsyncTimeout.h>
 #include <glog/logging.h>
 
-#include "proxygen/lib/pools/generators/MemberGroupConfig.h"
+#include <proxygen/lib/pools/generators/MemberGroupConfig.h>
 
 namespace proxygen {
 

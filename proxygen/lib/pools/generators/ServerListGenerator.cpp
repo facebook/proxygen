@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/pools/generators/ServerListGenerator.h"
+#include <proxygen/lib/pools/generators/ServerListGenerator.h>
 
 #include <folly/Conv.h>
 #include <folly/io/async/EventBase.h>

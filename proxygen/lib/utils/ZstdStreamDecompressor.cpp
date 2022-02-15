@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "ZstdStreamDecompressor.h"
+#include <proxygen/lib/utils/ZstdStreamDecompressor.h>
 
 #include <folly/io/Cursor.h>
 #include <folly/io/IOBuf.h>

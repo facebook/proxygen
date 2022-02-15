@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/ssl/ThreadLocalSSLStats.h"
+#include <proxygen/lib/ssl/ThreadLocalSSLStats.h>
 
 using facebook::fb303::AVG;
 using facebook::fb303::PERCENT;

@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "proxygen/lib/http/HTTPMessage.h"
 #include <climits>
 #include <folly/Optional.h>
 #include <folly/SocketAddress.h>

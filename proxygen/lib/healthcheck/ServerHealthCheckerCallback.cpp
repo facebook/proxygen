@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/healthcheck/ServerHealthCheckerCallback.h"
+#include <proxygen/lib/healthcheck/ServerHealthCheckerCallback.h>
 
 namespace proxygen {
 

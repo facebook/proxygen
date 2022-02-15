@@ -8,7 +8,7 @@
 
 #include <folly/portability/GTest.h>
 
-#include "proxygen/lib/utils/ConditionalGate.h"
+#include <proxygen/lib/utils/ConditionalGate.h>
 
 using namespace proxygen;
 

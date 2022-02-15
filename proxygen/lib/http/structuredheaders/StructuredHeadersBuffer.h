@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "StructuredHeadersConstants.h"
 #include <folly/Range.h>
+#include <proxygen/lib/http/structuredheaders/StructuredHeadersConstants.h>
 #include <string>
 
 namespace proxygen {

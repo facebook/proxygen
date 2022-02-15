@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "proxygen/lib/http/connpool/SessionHolder.h"
-#include "proxygen/lib/http/connpool/SessionPool.h"
+#include <proxygen/lib/http/connpool/SessionHolder.h>
+#include <proxygen/lib/http/connpool/SessionPool.h>
 
 /**
  * ThreadIdleSessionController keeps track of all idle sessions in a set of

@@ -6,10 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include "proxygen/lib/http/session/test/HQSessionMocks.h"
-#include "proxygen/lib/http/session/test/HQSessionTestCommon.h"
 #include <deque>
 #include <folly/io/Cursor.h>
+#include <proxygen/lib/http/session/test/HQSessionMocks.h>
+#include <proxygen/lib/http/session/test/HQSessionTestCommon.h>
 #include <quic/api/test/MockQuicSocket.h>
 
 using namespace proxygen;
