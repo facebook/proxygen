@@ -315,7 +315,7 @@ TEST_F(DownstreamTransactionTest, ParseErrorCbs) {
   HTTPException err(HTTPException::Direction::INGRESS, "test");
   err.setHttpStatusCode(400);
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   EXPECT_CALL(handler_, _setTransaction(&txn));
   EXPECT_CALL(handler_, _onError(_))
@@ -326,6 +326,18 @@ TEST_F(DownstreamTransactionTest, ParseErrorCbs) {
   // onBody() is suppressed since ingress is complete after ingress onError()
   // onEOM() is suppressed since ingress is complete after ingress onError()
   EXPECT_CALL(transport_, sendAbort(_, _));
+
+  // New-ish: onError can be delivered more than once if the first error was
+  // unidirectional and the other direction isn't closed before the second error
+  // occurs.  Is this OK?
+  EXPECT_CALL(handler_, _onError(_))
+      .WillOnce(Invoke([](const HTTPException& ex) {
+        EXPECT_EQ(ex.getDirection(),
+                  HTTPException::Direction::INGRESS_AND_EGRESS);
+        EXPECT_NE(
+            std::string(ex.what()).find("onIngressBody after ingress closed"),
+            std::string::npos);
+      }));
   EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
@@ -345,7 +357,7 @@ TEST_F(DownstreamTransactionTest, DetachFromNotify) {
 
   auto& txn = makeTxn();
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   EXPECT_CALL(*handler, _setTransaction(&txn));
   EXPECT_CALL(*handler, _onHeadersComplete(_))
@@ -379,7 +391,7 @@ TEST_F(DownstreamTransactionTest, DeferredEgress) {
 
   auto& txn = makeTxn(true, 10, 10);
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   EXPECT_CALL(handler_, _setTransaction(&txn));
   EXPECT_CALL(handler_, _onHeadersComplete(_))
@@ -430,7 +442,7 @@ TEST_F(DownstreamTransactionTest, InternalError) {
 
   auto& txn = makeTxn();
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   EXPECT_CALL(*handler, _setTransaction(&txn));
   EXPECT_CALL(*handler, _onHeadersComplete(_))
@@ -454,20 +466,25 @@ TEST_F(DownstreamTransactionTest, InternalError) {
 }
 
 TEST_F(DownstreamTransactionTest, UnpausedFlowControlViolation) {
-  StrictMock<MockHTTPHandler> handler;
-
   InSequence enforceOrder;
   auto& txn = makeTxn(true, // flow control enabled
                       400,
                       http2::kInitialWindow);
 
-  EXPECT_CALL(handler, _setTransaction(&txn));
-  EXPECT_CALL(handler, _onHeadersComplete(_));
+  EXPECT_CALL(handler_, _setTransaction(&txn));
+  EXPECT_CALL(handler_, _onHeadersComplete(_));
   EXPECT_CALL(transport_, sendAbort(&txn, ErrorCode::FLOW_CONTROL_ERROR));
-  EXPECT_CALL(handler, _detachTransaction());
+  EXPECT_CALL(handler_, _onError(_))
+      .WillOnce(Invoke([](const HTTPException& ex) {
+        EXPECT_EQ(ex.getDirection(),
+                  HTTPException::Direction::INGRESS_AND_EGRESS);
+        EXPECT_NE(std::string(ex.what()).find("reserve failed"),
+                  std::string::npos);
+      }));
+  EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&txn));
 
-  txn.setHandler(&handler);
+  txn.setHandler(&handler_);
   txn.onIngressHeadersComplete(makePostRequest(401));
   txn.onIngressBody(makeBuf(401), 0);
 }
@@ -478,7 +495,7 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnUnidirectional) {
   HTTPException err(HTTPException::Direction::INGRESS, "test");
   err.setHttpStatusCode(400);
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   EXPECT_CALL(handler_, _setTransaction(&exTxn));
   EXPECT_CALL(handler_, _onError(_))
@@ -489,6 +506,14 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnUnidirectional) {
   // onBody() is suppressed since ingress is complete after ingress onError()
   // onEOM() is suppressed since ingress is complete after ingress onError()
   EXPECT_CALL(transport_, sendAbort(_, _));
+  EXPECT_CALL(handler_, _onError(_))
+      .WillOnce(Invoke([](const HTTPException& ex) {
+        EXPECT_EQ(ex.getDirection(),
+                  HTTPException::Direction::INGRESS_AND_EGRESS);
+        EXPECT_NE(
+            std::string(ex.what()).find("onIngressBody after ingress closed"),
+            std::string::npos);
+      }));
   EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&exTxn));
 
@@ -508,7 +533,7 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnNonUnidirectional) {
   HTTPException err(HTTPException::Direction::INGRESS, "test");
   err.setHttpStatusCode(400);
 
-  InSequence dummy;
+  InSequence enforceOrder;
 
   EXPECT_CALL(handler_, _setTransaction(&exTxn));
   // Ingress error will propagate
@@ -520,6 +545,14 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnNonUnidirectional) {
       }));
 
   EXPECT_CALL(transport_, sendAbort(_, _));
+  EXPECT_CALL(handler_, _onError(_))
+      .WillOnce(Invoke([](const HTTPException& ex) {
+        EXPECT_EQ(ex.getDirection(),
+                  HTTPException::Direction::INGRESS_AND_EGRESS);
+        EXPECT_NE(
+            std::string(ex.what()).find("onIngressBody after ingress closed"),
+            std::string::npos);
+      }));
   EXPECT_CALL(handler_, _detachTransaction());
   EXPECT_CALL(transport_, detach(&exTxn));
 
@@ -530,5 +563,42 @@ TEST_F(DownstreamTransactionTest, ParseIngressErrorExTxnNonUnidirectional) {
   // immediately.
   exTxn.onIngressBody(makeBuf(10), 0);
 
+  eventBase_.loop();
+}
+
+TEST_F(DownstreamTransactionTest, IngressStateViolationWithByteEvents) {
+  auto& txn = makeTxn();
+
+  EXPECT_CALL(handler_, _setTransaction(&txn));
+  txn.setHandler(&handler_);
+  EXPECT_CALL(handler_, _onHeadersComplete(_));
+  txn.onIngressHeadersComplete(makeGetRequest());
+  EXPECT_CALL(handler_, _onEOM());
+  txn.onIngressEOM();
+
+  // When headers are sent, hold a byte event
+  EXPECT_CALL(transport_, sendHeaders(&txn, _, _, _))
+      .WillOnce(
+          InvokeWithoutArgs([&txn] { txn.incrementPendingByteEvents(); }));
+  txn.sendHeaders(getResponse(200));
+
+  EXPECT_CALL(transport_, sendAbort(_, _));
+  // The error is delivered immediately after abort is sent
+  EXPECT_CALL(handler_, _onError(_))
+      .WillOnce(Invoke([](const HTTPException& ex) {
+        EXPECT_EQ(ex.getDirection(),
+                  HTTPException::Direction::INGRESS_AND_EGRESS);
+        EXPECT_NE(
+            std::string(ex.what()).find("onIngressEOM after ingress closed"),
+            std::string::npos);
+      }));
+
+  // Double EOM
+  txn.onIngressEOM();
+
+  // The transaction detaches after the byte event is released
+  EXPECT_CALL(handler_, _detachTransaction());
+  EXPECT_CALL(transport_, detach(&txn));
+  txn.decrementPendingByteEvents();
   eventBase_.loop();
 }

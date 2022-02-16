@@ -280,7 +280,11 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain, uint16_t padding) {
   FOLLY_SCOPED_TRACE_SECTION("HTTPTransaction - onIngressBody");
   DestructorGuard g(this);
   if (isIngressEOMSeen()) {
-    sendAbort(ErrorCode::STREAM_CLOSED);
+    std::stringstream ss;
+    // Use stringstream to invoke operator << for this
+    ss << "onIngressBody after ingress closed " << *this;
+    VLOG(4) << ss.str();
+    abortAndDeliverError(ErrorCode::STREAM_CLOSED, ss.str());
     return;
   }
   auto len = chain->computeChainDataLength();
@@ -300,11 +304,13 @@ void HTTPTransaction::onIngressBody(unique_ptr<IOBuf> chain, uint16_t padding) {
   }
   // register the bytes in the receive window
   if (!recvWindow_.reserve(len + padding, useFlowControl_)) {
-    LOG(ERROR)
-        << "recvWindow_.reserve failed with len=" << len
-        << " padding=" << padding << " capacity=" << recvWindow_.getCapacity()
-        << " outstanding=" << recvWindow_.getOutstanding() << " " << *this;
-    sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+    std::stringstream ss;
+    // Use stringstream to invoke operator << for this
+    ss << "recvWindow_.reserve failed with len=" << len
+       << " padding=" << padding << " capacity=" << recvWindow_.getCapacity()
+       << " outstanding=" << recvWindow_.getOutstanding() << " " << *this;
+    LOG(ERROR) << ss.str();
+    abortAndDeliverError(ErrorCode::FLOW_CONTROL_ERROR, ss.str());
     return;
   } else {
     INVARIANT(recvWindow_.free(padding));
@@ -460,7 +466,11 @@ void HTTPTransaction::processIngressUpgrade(UpgradeProtocol protocol) {
 void HTTPTransaction::onIngressEOM() {
   if (isIngressEOMSeen()) {
     // This can happen when HTTPSession calls onIngressEOF()
-    sendAbort(ErrorCode::STREAM_CLOSED);
+    std::stringstream ss;
+    // Use stringstream to invoke operator << for this
+    ss << "onIngressEOM after ingress closed " << *this;
+    VLOG(4) << ss.str();
+    abortAndDeliverError(ErrorCode::STREAM_CLOSED, ss.str());
     return;
   }
   if (expectedIngressContentLengthRemaining_.has_value() &&
@@ -595,12 +605,23 @@ bool HTTPTransaction::validateEgressStateTransition(
 }
 
 void HTTPTransaction::invariantViolation(HTTPException ex) {
+  LOG(ERROR) << "invariantViolation msg=" << ex.what()
+             << " aborted_=" << uint32_t(aborted_) << " " << *this;
   sendAbort();
   if (handler_) {
     handler_->onInvariantViolation(ex);
   } else {
     LOG(FATAL) << "Invariant violation with no handler; ex=" << ex.what();
   }
+}
+
+void HTTPTransaction::abortAndDeliverError(ErrorCode codecError,
+                                           const std::string& msg) {
+  HTTPException ex(HTTPException::Direction::INGRESS_AND_EGRESS, msg);
+  ex.setCodecStatusCode(codecError);
+  // onError will call sendAbort if there is a codec status code and no
+  // proxygen error code.  It will *also* notify the handler.
+  onError(ex);
 }
 
 void HTTPTransaction::onError(const HTTPException& error) {
@@ -730,11 +751,13 @@ void HTTPTransaction::onIngressWindowUpdate(const uint32_t amount) {
   if (sendWindow_.free(amount)) {
     notifyTransportPendingEgress();
   } else {
-    LOG(ERROR) << "sendWindow_.free failed with amount=" << amount
-               << " capacity=" << sendWindow_.getCapacity()
-               << " outstanding=" << sendWindow_.getOutstanding() << " "
-               << *this;
-    sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+    std::stringstream ss;
+    // Use stringstream to invoke operator << for this
+    ss << "sendWindow_.free failed with amount=" << amount
+       << " capacity=" << sendWindow_.getCapacity()
+       << " outstanding=" << sendWindow_.getOutstanding() << " " << *this;
+    LOG(ERROR) << ss.str();
+    abortAndDeliverError(ErrorCode::FLOW_CONTROL_ERROR, ss.str());
   }
 }
 
@@ -746,11 +769,13 @@ void HTTPTransaction::onIngressSetSendWindow(const uint32_t newWindowSize) {
   if (sendWindow_.setCapacity(newWindowSize)) {
     notifyTransportPendingEgress();
   } else {
-    LOG(ERROR)
-        << "sendWindow_.setCapacity failed with newWindowSize=" << newWindowSize
-        << " capacity=" << sendWindow_.getCapacity()
-        << " outstanding=" << sendWindow_.getOutstanding() << " " << *this;
-    sendAbort(ErrorCode::FLOW_CONTROL_ERROR);
+    std::stringstream ss;
+    // Use stringstream to invoke operator << for this
+    ss << "sendWindow_.setCapacity failed with newWindowSize=" << newWindowSize
+       << " capacity=" << sendWindow_.getCapacity()
+       << " outstanding=" << sendWindow_.getOutstanding() << " " << *this;
+    LOG(ERROR) << ss.str();
+    abortAndDeliverError(ErrorCode::FLOW_CONTROL_ERROR, ss.str());
   }
 }
 

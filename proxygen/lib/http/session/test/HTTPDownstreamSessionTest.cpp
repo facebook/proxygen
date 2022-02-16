@@ -4259,8 +4259,8 @@ TEST_F(HTTP2DownstreamSessionTest, TestDuplicateRequestStream) {
   auto streamID2 = sendRequest();
   HTTPHeaders trailers;
   trailers.add("Foo", "Bar");
+  // generate trailers includes FIN=true
   clientCodec_->generateTrailers(requests_, streamID1, trailers);
-  clientCodec_->generateEOM(requests_, streamID1);
 
   clientCodec_->generateHeader(requests_, streamID2, getGetRequest(), false);
   handler1->expectHeaders();

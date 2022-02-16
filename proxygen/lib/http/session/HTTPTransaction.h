@@ -1582,6 +1582,8 @@ class HTTPTransaction
 
   bool addBufferMeta() noexcept;
 
+  void abortAndDeliverError(ErrorCode codecErorr, const std::string& msg);
+
   void onDelayedDestroy(bool delayed) override;
 
   /**
