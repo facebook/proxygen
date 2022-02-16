@@ -12,7 +12,6 @@
 
 #include <folly/portability/GTest.h>
 
-using namespace folly::io;
 using namespace folly;
 using namespace proxygen::compress;
 using namespace proxygen;
