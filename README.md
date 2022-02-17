@@ -16,6 +16,9 @@ We have a Google group for general discussions at https://groups.google.com/d/fo
 The [original blog post](https://engineering.fb.com/production-engineering/introducing-proxygen-facebook-s-c-http-framework/)
 also has more background on the project.
 
+## Learn More in This Intro Video
+[![Explain Like I’m 5: Proxygen](https://img.youtube.com/vi/OsrBYHIYCYk/0.jpg)](https://www.youtube.com/watch?v=OsrBYHIYCYk)
+
 ### Installing
 
 Note that currently this project has been tested on Ubuntu 18.04 and Mac OSX
