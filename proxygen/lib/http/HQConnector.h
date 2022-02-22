@@ -37,8 +37,11 @@ class HQConnector : public HQSession::ConnectCallback {
   };
 
   explicit HQConnector(Callback* callback,
-                       std::chrono::milliseconds transactionTimeout)
-      : cb_(CHECK_NOTNULL(callback)), transactionTimeout_(transactionTimeout) {
+                       std::chrono::milliseconds transactionTimeout,
+                       bool useConnectionEndWithErrorCallback = false)
+      : cb_(CHECK_NOTNULL(callback)),
+        transactionTimeout_(transactionTimeout),
+        useConnectionEndWithErrorCallback_(useConnectionEndWithErrorCallback) {
   }
 
   ~HQConnector() override {
@@ -83,6 +86,7 @@ class HQConnector : public HQSession::ConnectCallback {
   HQUpstreamSession* session_{nullptr};
   quic::TransportSettings transportSettings_;
   std::shared_ptr<quic::QuicPskCache> quicPskCache_;
+  bool useConnectionEndWithErrorCallback_{false};
 };
 
 } // namespace proxygen
