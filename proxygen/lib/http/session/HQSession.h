@@ -742,7 +742,11 @@ class HQSession
   virtual void setupOnHeadersComplete(HTTPTransaction* txn,
                                       HTTPMessage* msg) = 0;
 
-  virtual void onConnectionErrorHandler(quic::QuicError error) noexcept = 0;
+  /**
+   * Executed on connection setup failure.
+   */
+  virtual void onConnectionSetupErrorHandler(
+      quic::QuicError error) noexcept = 0;
 
   void applySettings(const SettingsList& settings);
 

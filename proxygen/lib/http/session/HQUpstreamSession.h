@@ -71,7 +71,7 @@ class HQUpstreamSession : public HQSession {
                               HTTPMessage* /* msg */) override {
   }
 
-  void onConnectionErrorHandler(quic::QuicError code) noexcept override;
+  void onConnectionSetupErrorHandler(quic::QuicError code) noexcept override;
 
   bool isDetachable(bool checkSocket) const override;
 

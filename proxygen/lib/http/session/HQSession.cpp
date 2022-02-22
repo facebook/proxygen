@@ -844,7 +844,7 @@ void HQSession::dropConnectionSync(quic::QuicError errorCode,
     return;
   }
   dropping_ = true;
-  onConnectionErrorHandler(errorCode);
+  onConnectionSetupErrorHandler(errorCode);
   if (getNumStreams() > 0) {
     // should deliver errors to all open streams, they will all detach-
     sock_->close(std::move(errorCode));

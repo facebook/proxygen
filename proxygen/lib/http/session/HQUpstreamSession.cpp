@@ -89,13 +89,13 @@ void HQUpstreamSession::onConnectionEnd() noexcept {
 
   HQSession::DestructorGuard dg(this);
   if (connectCb_) {
-    onConnectionErrorHandler(quic::QuicError(
+    onConnectionSetupErrorHandler(quic::QuicError(
         quic::LocalErrorCode::CONNECT_FAILED, "session destroyed"));
   }
   HQSession::onConnectionEnd();
 }
 
-void HQUpstreamSession::onConnectionErrorHandler(
+void HQUpstreamSession::onConnectionSetupErrorHandler(
     quic::QuicError code) noexcept {
   // For an upstream connection, any error before onTransportReady gets
   // notified as a connect error.
