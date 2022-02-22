@@ -696,10 +696,7 @@ class HQSession
             HTTPSessionController* controller,
             proxygen::TransportDirection direction,
             const wangle::TransportInfo& tinfo,
-            InfoCallback* sessionInfoCb,
-            folly::Function<void(HTTPCodecFilterChain& chain)>
-            /* codecFilterCallbackFn */
-            = nullptr)
+            InfoCallback* sessionInfoCb)
       : HTTPSessionBase(folly::SocketAddress(),
                         folly::SocketAddress(),
                         controller,

@@ -86,8 +86,7 @@ void HQConnector::connect(
                                              connectTimeout,
                                              nullptr, // controller
                                              wangle::TransportInfo(),
-                                             nullptr,  // InfoCallback
-                                             nullptr); // codecfiltercallback
+                                             nullptr); // InfoCallback
 
   session_->setSocket(quicClient);
   session_->setConnectCallback(this);
