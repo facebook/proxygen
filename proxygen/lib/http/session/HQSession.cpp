@@ -446,6 +446,14 @@ void HQSession::onReplaySafe() noexcept {
   waitingForReplaySafety_.clear();
 }
 
+void HQSession::onConnectionEnd(quic::QuicError error) noexcept {
+  if (noError(error.code)) {
+    onConnectionEnd();
+  } else {
+    onConnectionError(std::move(error));
+  }
+}
+
 void HQSession::onConnectionEnd() noexcept {
   VLOG(4) << __func__ << " sess=" << *this;
   // The transport will not call onConnectionEnd after we call close(),

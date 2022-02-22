@@ -232,6 +232,8 @@ class HQSession
 
   void onConnectionEnd() noexcept override;
 
+  void onConnectionEnd(quic::QuicError error) noexcept override;
+
   void onConnectionSetupError(quic::QuicError code) noexcept override;
 
   void onConnectionError(quic::QuicError code) noexcept override;
