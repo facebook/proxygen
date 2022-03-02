@@ -403,6 +403,8 @@ class MockHQSession : public HQSession {
 
   MOCK_METHOD0(drain, void());
 
+  MOCK_CONST_METHOD0(getQuicSocket, quic::QuicSocket*());
+
   MockHTTPTransaction* makeMockTransaction(HTTPCodec::StreamID id) {
     LOG(INFO) << "Creating mocked transaction on stream " << id;
 

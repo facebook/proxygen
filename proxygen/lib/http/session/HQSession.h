@@ -505,7 +505,7 @@ class HQSession
     return folly::none;
   }
 
-  quic::QuicSocket* getQuicSocket() const {
+  virtual quic::QuicSocket* getQuicSocket() const {
     return sock_.get();
   }
 
