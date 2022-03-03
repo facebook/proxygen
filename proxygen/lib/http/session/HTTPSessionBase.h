@@ -352,7 +352,8 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   }
 
   std::chrono::seconds getLatestIdleTime() const {
-    DCHECK_GT(transactionSeqNo_, 0) << "No idle time for the first transaction";
+    DCHECK_GT(transactionSeqNo_, 0u)
+        << "No idle time for the first transaction";
     DCHECK(latestActive_ > TimePoint::min());
     return latestIdleDuration_;
   }
