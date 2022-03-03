@@ -28,7 +28,7 @@ void HQDownstreamSession::onAppRateLimited() noexcept {
                         false /* includeDetached */);
 }
 
-void HQDownstreamSession::onConnectionErrorHandler(
+void HQDownstreamSession::onConnectionSetupErrorHandler(
     quic::QuicError /* error */) noexcept {
   // Currently the users of this callback treat it like a connect error,
   // not a general connection error. Since we don't have proper separation

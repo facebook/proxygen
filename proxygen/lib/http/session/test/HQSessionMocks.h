@@ -389,12 +389,21 @@ class MockHQSession : public HQSession {
 
   MOCK_METHOD2(setupOnHeadersComplete, void(HTTPTransaction*, HTTPMessage*));
 
+#if defined(MOCK_METHOD)
+  MOCK_METHOD((void),
+              onConnectionSetupErrorHandler,
+              (quic::QuicError),
+              (noexcept));
+#else
   GMOCK_METHOD1_(
-      , noexcept, , onConnectionErrorHandler, void(quic::QuicError error));
+      , noexcept, , onConnectionSetupErrorHandler, void(quic::QuicError error));
+#endif
 
   MOCK_METHOD1(newTransaction, HTTPTransaction*(HTTPTransaction::Handler*));
 
   MOCK_METHOD0(drain, void());
+
+  MOCK_CONST_METHOD0(getQuicSocket, quic::QuicSocket*());
 
   MockHTTPTransaction* makeMockTransaction(HTTPCodec::StreamID id) {
     LOG(INFO) << "Creating mocked transaction on stream " << id;

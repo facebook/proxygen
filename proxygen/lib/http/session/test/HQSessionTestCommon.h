@@ -103,7 +103,6 @@ class HQSessionTest
           std::chrono::milliseconds(kTransactionTimeout),
           &controllerContainer_.mockController,
           proxygen::mockTransportInfo,
-          nullptr,
           nullptr);
       nextUnidirectionalStreamId_ = 2;
     } else if (direction_ == proxygen::TransportDirection::UPSTREAM) {
@@ -112,7 +111,6 @@ class HQSessionTest
           std::chrono::milliseconds(kConnectTimeout),
           &controllerContainer_.mockController,
           proxygen::mockTransportInfo,
-          nullptr,
           nullptr);
       nextUnidirectionalStreamId_ = 3;
     } else {

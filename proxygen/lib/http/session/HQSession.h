@@ -129,7 +129,7 @@ struct QuicStreamProtocolInfo : public QuicProtocolInfo {
 
 class HQSession
     : public quic::QuicSocket::ConnectionSetupCallback
-    , public quic::QuicSocket::ConnectionCallbackNew
+    , public quic::QuicSocket::ConnectionCallback
     , public quic::QuicSocket::ReadCallback
     , public quic::QuicSocket::WriteCallback
     , public quic::QuicSocket::DeliveryCallback
@@ -231,6 +231,8 @@ class HQSession
                      quic::ApplicationErrorCode error) noexcept override;
 
   void onConnectionEnd() noexcept override;
+
+  void onConnectionEnd(quic::QuicError error) noexcept override;
 
   void onConnectionSetupError(quic::QuicError code) noexcept override;
 
@@ -503,7 +505,7 @@ class HQSession
     return folly::none;
   }
 
-  quic::QuicSocket* getQuicSocket() const {
+  virtual quic::QuicSocket* getQuicSocket() const {
     return sock_.get();
   }
 
@@ -696,10 +698,7 @@ class HQSession
             HTTPSessionController* controller,
             proxygen::TransportDirection direction,
             const wangle::TransportInfo& tinfo,
-            InfoCallback* sessionInfoCb,
-            folly::Function<void(HTTPCodecFilterChain& chain)>
-            /* codecFilterCallbackFn */
-            = nullptr)
+            InfoCallback* sessionInfoCb)
       : HTTPSessionBase(folly::SocketAddress(),
                         folly::SocketAddress(),
                         controller,
@@ -742,7 +741,11 @@ class HQSession
   virtual void setupOnHeadersComplete(HTTPTransaction* txn,
                                       HTTPMessage* msg) = 0;
 
-  virtual void onConnectionErrorHandler(quic::QuicError error) noexcept = 0;
+  /**
+   * Executed on connection setup failure.
+   */
+  virtual void onConnectionSetupErrorHandler(
+      quic::QuicError error) noexcept = 0;
 
   void applySettings(const SettingsList& settings);
 

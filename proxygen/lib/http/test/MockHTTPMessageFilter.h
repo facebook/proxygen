@@ -18,33 +18,49 @@ static const std::string kMockFilterName = "MockFilter";
 
 class MockHTTPMessageFilter : public HTTPMessageFilter {
  public:
-  MOCK_QUALIFIED_METHOD1(onHeadersComplete,
-                         noexcept,
-                         void(std::shared_ptr<HTTPMessage>));
+#if defined(MOCK_METHOD)
+  MOCK_METHOD((void),
+              onHeadersComplete,
+              (std::shared_ptr<HTTPMessage>),
+              (noexcept));
+  MOCK_METHOD((void), onBody, (std::shared_ptr<folly::IOBuf>), (noexcept));
+  MOCK_METHOD((void), pause, (), (noexcept));
+  MOCK_METHOD((void), onChunkHeader, (size_t), (noexcept));
+  MOCK_METHOD((void), resume, (uint64_t), (noexcept));
+  MOCK_METHOD((void), onChunkComplete, (), (noexcept));
+  MOCK_METHOD((void), onTrailers, (std::shared_ptr<HTTPHeaders>), (noexcept));
+  MOCK_METHOD((void), onEOM, (), (noexcept));
+  MOCK_METHOD((void), onUpgrade, (UpgradeProtocol), (noexcept));
+  MOCK_METHOD((void), onError, (const HTTPException&), (noexcept));
+#else
+  GMOCK_METHOD1_(
+      , noexcept, , onHeadersComplete, void(std::shared_ptr<HTTPMessage>));
+  GMOCK_METHOD1_(, noexcept, , onBody, void(std::shared_ptr<folly::IOBuf>));
+  GMOCK_METHOD0_(, noexcept, , pause, void());
+  GMOCK_METHOD1_(, noexcept, , onChunkHeader, void(size_t));
+  GMOCK_METHOD1_(, noexcept, , resume, void(uint64_t));
+  GMOCK_METHOD0_(, noexcept, , onChunkComplete, void());
+  GMOCK_METHOD1_(
+      , noexcept, , onTrailers, void(std::shared_ptr<HTTPHeaders> trailers));
+  GMOCK_METHOD0_(, noexcept, , onEOM, void());
+  GMOCK_METHOD1_(, noexcept, , onUpgrade, void(UpgradeProtocol));
+  GMOCK_METHOD1_(, noexcept, , onError, void(const HTTPException&));
+#endif
+
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
     onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
   }
 
-  MOCK_QUALIFIED_METHOD1(onBody, noexcept, void(std::shared_ptr<folly::IOBuf>));
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     if (trackDataPassedThrough_) {
       bodyDataReceived_.append(chain->clone());
     }
     onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  MOCK_QUALIFIED_METHOD0(pause, noexcept, void());
-  MOCK_QUALIFIED_METHOD1(onChunkHeader, noexcept, void(size_t));
-  MOCK_QUALIFIED_METHOD1(resume, noexcept, void(uint64_t));
-  MOCK_QUALIFIED_METHOD0(onChunkComplete, noexcept, void());
-  MOCK_QUALIFIED_METHOD1(onTrailers,
-                         noexcept,
-                         void(std::shared_ptr<HTTPHeaders> trailers));
+
   void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
     onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
-  MOCK_QUALIFIED_METHOD0(onEOM, noexcept, void());
-  MOCK_QUALIFIED_METHOD1(onUpgrade, noexcept, void(UpgradeProtocol));
-  MOCK_QUALIFIED_METHOD1(onError, noexcept, void(const HTTPException&));
 
   void nextOnHeadersCompletePublic(std::shared_ptr<HTTPMessage> msg) {
     std::unique_ptr<HTTPMessage> msgU(new HTTPMessage(*msg));

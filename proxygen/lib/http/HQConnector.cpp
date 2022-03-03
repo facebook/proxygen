@@ -69,7 +69,8 @@ void HQConnector::connect(
           .setFizzClientContext(fizzContext)
           .setCertificateVerifier(std::move(verifier))
           .setPskCache(quicPskCache_)
-          .build());
+          .build(),
+      useConnectionEndWithErrorCallback_);
   quicClient->setHostname(sni.value_or(connectAddr.getAddressStr()));
   quicClient->addNewPeerAddress(connectAddr);
   if (localAddr.hasValue()) {
@@ -86,8 +87,7 @@ void HQConnector::connect(
                                              connectTimeout,
                                              nullptr, // controller
                                              wangle::TransportInfo(),
-                                             nullptr,  // InfoCallback
-                                             nullptr); // codecfiltercallback
+                                             nullptr); // InfoCallback
 
   session_->setSocket(quicClient);
   session_->setConnectCallback(this);

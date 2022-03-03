@@ -101,7 +101,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
   explicit MockQuicSocketDriver(
       folly::EventBase* eventBase,
       QuicSocket::ConnectionSetupCallback* connSetupCb,
-      QuicSocket::ConnectionCallbackNew* connCb,
+      QuicSocket::ConnectionCallback* connCb,
       TransportEnum transportType,
       std::string alpn = "h1q-fb")
       : eventBase_(eventBase),
@@ -122,9 +122,9 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             testing::Invoke([this](QuicSocket::ConnectionSetupCallback* cb) {
               sock_->setupCb_ = cb;
             }));
-    EXPECT_CALL(*sock_, setConnectionCallbackNew(testing::_))
+    EXPECT_CALL(*sock_, setConnectionCallback(testing::_))
         .WillRepeatedly(
-            testing::Invoke([this](QuicSocket::ConnectionCallbackNew* cb) {
+            testing::Invoke([this](QuicSocket::ConnectionCallback* cb) {
               sock_->connCb_ = cb;
             }));
     EXPECT_CALL(*sock_, isClientStream(testing::_))

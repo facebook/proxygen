@@ -446,6 +446,14 @@ void HQSession::onReplaySafe() noexcept {
   waitingForReplaySafety_.clear();
 }
 
+void HQSession::onConnectionEnd(quic::QuicError error) noexcept {
+  if (noError(error.code)) {
+    onConnectionEnd();
+  } else {
+    onConnectionError(std::move(error));
+  }
+}
+
 void HQSession::onConnectionEnd() noexcept {
   VLOG(4) << __func__ << " sess=" << *this;
   // The transport will not call onConnectionEnd after we call close(),
@@ -844,7 +852,7 @@ void HQSession::dropConnectionSync(quic::QuicError errorCode,
     return;
   }
   dropping_ = true;
-  onConnectionErrorHandler(errorCode);
+  onConnectionSetupErrorHandler(errorCode);
   if (getNumStreams() > 0) {
     // should deliver errors to all open streams, they will all detach-
     sock_->close(std::move(errorCode));

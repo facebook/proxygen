@@ -4076,9 +4076,10 @@ TEST_F(HTTP2DownstreamSessionTest, TestHeadContentLength) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, Test304ContentLength) {
+  // This test covers egress, where we log, but don't fail or crash,
   InSequence enforceOrder;
   auto req = getGetRequest();
-  req.setMethod(HTTPMethod::HEAD);
+  req.setMethod(HTTPMethod::GET);
   sendRequest(req);
   auto handler1 = addSimpleStrictHandler();
 

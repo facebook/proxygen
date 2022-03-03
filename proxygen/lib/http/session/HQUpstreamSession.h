@@ -23,10 +23,7 @@ class HQUpstreamSession : public HQSession {
                     const std::chrono::milliseconds connectTimeoutMs,
                     HTTPSessionController* controller,
                     const wangle::TransportInfo& tinfo,
-                    InfoCallback* sessionInfoCb,
-                    folly::Function<void(HTTPCodecFilterChain& chain)>
-                    /* codecFilterCallbackFn */
-                    = nullptr)
+                    InfoCallback* sessionInfoCb)
       : HQSession(transactionsTimeout,
                   controller,
                   proxygen::TransportDirection::UPSTREAM,
@@ -71,7 +68,7 @@ class HQUpstreamSession : public HQSession {
                               HTTPMessage* /* msg */) override {
   }
 
-  void onConnectionErrorHandler(quic::QuicError code) noexcept override;
+  void onConnectionSetupErrorHandler(quic::QuicError code) noexcept override;
 
   bool isDetachable(bool checkSocket) const override;
 

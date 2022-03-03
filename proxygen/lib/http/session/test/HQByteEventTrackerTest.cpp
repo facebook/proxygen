@@ -79,7 +79,7 @@ class HQByteEventTrackerTest : public Test {
  protected:
   const HTTPCodec::StreamID streamId_{1};
   quic::MockConnectionSetupCallback connectionSetupCallback_;
-  quic::MockConnectionCallbackNew connectionCallback_;
+  quic::MockConnectionCallback connectionCallback_;
   std::shared_ptr<quic::MockQuicSocket> socket_;
   folly::EventBase eventBase_;
   WheelTimerInstance transactionTimeouts_{std::chrono::milliseconds(500),
