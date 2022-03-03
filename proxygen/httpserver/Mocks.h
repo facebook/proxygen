@@ -29,8 +29,6 @@ class MockResponseHandler : public ResponseHandler {
 #endif
 #endif
 
-// googletest switched APIs between multiple versions we target
-#if defined(MOCK_METHOD)
   MOCK_METHOD((void), pauseIngress, (), (noexcept));
   MOCK_METHOD((void), refreshTimeout, (), (noexcept));
   MOCK_METHOD((void), resumeIngress, (), (noexcept));
@@ -45,26 +43,8 @@ class MockResponseHandler : public ResponseHandler {
               newPushedResponse,
               (PushHandler*),
               (noexcept));
-#else
-  GMOCK_METHOD0_(, noexcept, , pauseIngress, void());
-  GMOCK_METHOD0_(, noexcept, , refreshTimeout, void());
-  GMOCK_METHOD0_(, noexcept, , resumeIngress, void());
-  GMOCK_METHOD0_(, noexcept, , sendAbort, void());
-  GMOCK_METHOD0_(, noexcept, , sendChunkTerminator, void());
-  GMOCK_METHOD0_(, noexcept, , sendEOM, void());
-  GMOCK_METHOD1_(, noexcept, , sendBody, void(std::shared_ptr<folly::IOBuf>));
-  GMOCK_METHOD1_(, noexcept, , sendChunkHeader, void(size_t));
-  GMOCK_METHOD1_(, noexcept, , sendHeaders, void(HTTPMessage&));
-  GMOCK_METHOD1_(, noexcept, , sendTrailers, void(const HTTPHeaders&));
-  GMOCK_METHOD1_(
-      ,
-      noexcept,
-      ,
-      newPushedResponse,
-      folly::Expected<ResponseHandler*, ProxygenError>(PushHandler*));
-#endif
+  MOCK_METHOD(void, getCurrentTransportInfo, (wangle::TransportInfo*), (const));
 
-  MOCK_CONST_METHOD1(getCurrentTransportInfo, void(wangle::TransportInfo*));
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
@@ -92,7 +72,6 @@ class MockRequestHandler : public RequestHandler {
 #pragma clang diagnostic ignored "-Winconsistent-missing-override"
 #endif
 #endif
-#if defined(MOCK_METHOD)
   MOCK_METHOD((bool), canHandleExpect, (), (noexcept));
   MOCK_METHOD((void), onBody, (std::shared_ptr<folly::IOBuf>), (noexcept));
   MOCK_METHOD((void), onEOM, (), (noexcept));
@@ -104,19 +83,7 @@ class MockRequestHandler : public RequestHandler {
   MOCK_METHOD((void), onUpgrade, (UpgradeProtocol), (noexcept));
   MOCK_METHOD((void), requestComplete, (), (noexcept));
   MOCK_METHOD((void), setResponseHandler, (ResponseHandler*), (noexcept));
-#else
-  GMOCK_METHOD0_(, noexcept, , onEOM, void());
-  GMOCK_METHOD0_(, noexcept, , onEgressPaused, void());
-  GMOCK_METHOD0_(, noexcept, , requestComplete, void());
-  GMOCK_METHOD1_(, noexcept, , onBody, void(std::shared_ptr<folly::IOBuf>));
-  GMOCK_METHOD1_(, noexcept, , onError, void(ProxygenError));
-  GMOCK_METHOD1_(, noexcept, , onGoaway, void(ErrorCode));
-  GMOCK_METHOD1_(, noexcept, , onRequest, void(std::shared_ptr<HTTPMessage>));
-  GMOCK_METHOD1_(, noexcept, , onUpgrade, void(UpgradeProtocol));
-  GMOCK_METHOD1_(, noexcept, , setResponseHandler, void(ResponseHandler*));
-  GMOCK_METHOD0_(, noexcept, , onEgressResumed, void());
-  GMOCK_METHOD0_(, noexcept, , canHandleExpect, bool());
-#endif
+
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif

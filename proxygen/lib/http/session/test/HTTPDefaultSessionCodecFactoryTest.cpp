@@ -125,7 +125,7 @@ TEST_P(HTTPDefaultSessionCodecFactoryValidationTest, StrictValidation) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     HTTPDefaultSessionCodecFactoryTest,
     HTTPDefaultSessionCodecFactoryValidationTest,
     ::testing::Values(TestParams({true, std::string()}),

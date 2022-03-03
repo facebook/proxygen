@@ -150,4 +150,4 @@ TEST_P(HPACKQueueTests, QueueDeleted) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(Queue, HPACKQueueTests, ::testing::Values(0, 1, 2, 3));
+INSTANTIATE_TEST_SUITE_P(Queue, HPACKQueueTests, ::testing::Values(0, 1, 2, 3));

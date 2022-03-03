@@ -71,6 +71,6 @@ TEST_P(DefaultHTTPCodecFactoryValidationTest, StrictValidation) {
   EXPECT_EQ(callbacks.streamErrors, strict ? 1 : 0);
 }
 
-INSTANTIATE_TEST_CASE_P(DefaultHTTPCodecFactoryTest,
-                        DefaultHTTPCodecFactoryValidationTest,
-                        ::testing::Values(true, false));
+INSTANTIATE_TEST_SUITE_P(DefaultHTTPCodecFactoryTest,
+                         DefaultHTTPCodecFactoryValidationTest,
+                         ::testing::Values(true, false));

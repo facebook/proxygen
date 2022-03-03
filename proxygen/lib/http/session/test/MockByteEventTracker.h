@@ -19,18 +19,21 @@ class MockByteEventTracker : public ByteEventTracker {
       : ByteEventTracker(callback) {
   }
 
-  MOCK_METHOD4(addPingByteEvent,
-               void(size_t, TimePoint, uint64_t, ByteEvent::Callback));
-  MOCK_METHOD3(addFirstBodyByteEvent,
-               void(uint64_t, HTTPTransaction*, ByteEvent::Callback));
-  MOCK_METHOD3(addFirstHeaderByteEvent,
-               void(uint64_t, HTTPTransaction*, ByteEvent::Callback));
-  MOCK_METHOD0(drainByteEvents, size_t());
-  MOCK_METHOD2(processByteEvents,
-               bool(std::shared_ptr<ByteEventTracker>, uint64_t));
-  MOCK_METHOD4(preSend, uint64_t(bool*, bool*, bool*, uint64_t));
+  MOCK_METHOD(void,
+              addPingByteEvent,
+              (size_t, TimePoint, uint64_t, ByteEvent::Callback));
+  MOCK_METHOD(void,
+              addFirstBodyByteEvent,
+              (uint64_t, HTTPTransaction*, ByteEvent::Callback));
+  MOCK_METHOD(void,
+              addFirstHeaderByteEvent,
+              (uint64_t, HTTPTransaction*, ByteEvent::Callback));
+  MOCK_METHOD(size_t, drainByteEvents, ());
+  MOCK_METHOD(bool,
+              processByteEvents,
+              (std::shared_ptr<ByteEventTracker>, uint64_t));
+  MOCK_METHOD(uint64_t, preSend, (bool*, bool*, bool*, uint64_t));
 
-#if defined(MOCK_METHOD)
   MOCK_METHOD((void),
               addTrackedByteEvent,
               (HTTPTransaction*, uint64_t, ByteEvent::Callback),
@@ -49,34 +52,6 @@ class MockByteEventTracker : public ByteEventTracker {
       addAckByteEvent,
       (uint64_t, ByteEvent::EventType, HTTPTransaction*, ByteEvent::Callback),
       (noexcept));
-#else
-  GMOCK_METHOD3_(,
-                 noexcept,
-                 ,
-                 addTrackedByteEvent,
-                 void(HTTPTransaction*, uint64_t, ByteEvent::Callback));
-  GMOCK_METHOD3_(,
-                 noexcept,
-                 ,
-                 addLastByteEvent,
-                 void(HTTPTransaction*, uint64_t, ByteEvent::Callback));
-  GMOCK_METHOD4_(,
-                 noexcept,
-                 ,
-                 addTxByteEvent,
-                 void(uint64_t,
-                      ByteEvent::EventType,
-                      HTTPTransaction*,
-                      ByteEvent::Callback));
-  GMOCK_METHOD4_(,
-                 noexcept,
-                 ,
-                 addAckByteEvent,
-                 void(uint64_t,
-                      ByteEvent::EventType,
-                      HTTPTransaction*,
-                      ByteEvent::Callback));
-#endif
 
   // passthru to callback implementation functions
   void onTxnByteEventWrittenToBuf(const ByteEvent& event) {

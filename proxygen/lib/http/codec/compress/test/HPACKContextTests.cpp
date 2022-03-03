@@ -320,6 +320,6 @@ TEST_P(HPACKContextTests, ContextUpdate) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(Context,
-                        HPACKContextTests,
-                        ::testing::Values(true, false));
+INSTANTIATE_TEST_SUITE_P(Context,
+                         HPACKContextTests,
+                         ::testing::Values(true, false));

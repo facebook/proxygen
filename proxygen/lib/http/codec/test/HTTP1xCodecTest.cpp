@@ -1476,7 +1476,7 @@ TEST_P(ConnectionHeaderTest, TestConnectionHeaders) {
   EXPECT_EQ(headers.getSingleOrEmpty(HTTP_HEADER_CONNECTION), val.second);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     HTTP1xCodec,
     ConnectionHeaderTest,
     ::testing::Values(

@@ -261,7 +261,7 @@ class CompressionFilterTest : public Test {
 
 typedef ::testing::Types<ZlibTest, ZstdTest> CompressionCodecs;
 
-TYPED_TEST_CASE(CompressionFilterTest, CompressionCodecs);
+TYPED_TEST_SUITE(CompressionFilterTest, CompressionCodecs);
 
 // Basic smoke test
 TYPED_TEST(CompressionFilterTest, NonchunkedCompression) {

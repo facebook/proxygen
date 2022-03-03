@@ -18,7 +18,6 @@ static const std::string kMockFilterName = "MockFilter";
 
 class MockHTTPMessageFilter : public HTTPMessageFilter {
  public:
-#if defined(MOCK_METHOD)
   MOCK_METHOD((void),
               onHeadersComplete,
               (std::shared_ptr<HTTPMessage>),
@@ -32,20 +31,6 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
   MOCK_METHOD((void), onEOM, (), (noexcept));
   MOCK_METHOD((void), onUpgrade, (UpgradeProtocol), (noexcept));
   MOCK_METHOD((void), onError, (const HTTPException&), (noexcept));
-#else
-  GMOCK_METHOD1_(
-      , noexcept, , onHeadersComplete, void(std::shared_ptr<HTTPMessage>));
-  GMOCK_METHOD1_(, noexcept, , onBody, void(std::shared_ptr<folly::IOBuf>));
-  GMOCK_METHOD0_(, noexcept, , pause, void());
-  GMOCK_METHOD1_(, noexcept, , onChunkHeader, void(size_t));
-  GMOCK_METHOD1_(, noexcept, , resume, void(uint64_t));
-  GMOCK_METHOD0_(, noexcept, , onChunkComplete, void());
-  GMOCK_METHOD1_(
-      , noexcept, , onTrailers, void(std::shared_ptr<HTTPHeaders> trailers));
-  GMOCK_METHOD0_(, noexcept, , onEOM, void());
-  GMOCK_METHOD1_(, noexcept, , onUpgrade, void(UpgradeProtocol));
-  GMOCK_METHOD1_(, noexcept, , onError, void(const HTTPException&));
-#endif
 
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
     onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));

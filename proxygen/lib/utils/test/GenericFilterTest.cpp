@@ -55,12 +55,12 @@ class MockTester : public TesterInterface {
   void setCallback(Callback* cb) override {
     cb_ = cb;
   }
-  MOCK_METHOD0(doA, void());
+  MOCK_METHOD(void, doA, ());
 };
 
 class MockTesterCallback : public TesterInterface::Callback {
  public:
-  MOCK_METHOD0(onA, void());
+  MOCK_METHOD(void, onA, ());
 };
 
 template <bool Owned>

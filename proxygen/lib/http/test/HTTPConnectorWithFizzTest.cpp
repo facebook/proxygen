@@ -25,8 +25,8 @@ using namespace fizz::server;
 class MockHTTPConnectorCallback : public HTTPConnector::Callback {
  public:
   ~MockHTTPConnectorCallback() override = default;
-  MOCK_METHOD1(connectSuccess, void(HTTPUpstreamSession* session));
-  MOCK_METHOD1(connectError, void(const folly::AsyncSocketException& ex));
+  MOCK_METHOD(void, connectSuccess, (HTTPUpstreamSession * session));
+  MOCK_METHOD(void, connectError, (const folly::AsyncSocketException& ex));
 };
 
 class HTTPConnectorWithFizzTest : public testing::Test {

@@ -387,7 +387,7 @@ class HTTPUpstreamTest
   bool pauseWrites_{false};
   bool writeInLoop_{false};
 };
-TYPED_TEST_CASE_P(HTTPUpstreamTest);
+TYPED_TEST_SUITE_P(HTTPUpstreamTest);
 
 template <class C>
 class TimeoutableHTTPUpstreamTest : public HTTPUpstreamTest<C> {
@@ -2980,7 +2980,7 @@ TEST_F(HTTP2UpstreamSessionTest, HTTPPriority) {
 }
 
 // Register and instantiate all our type-paramterized tests
-REGISTER_TYPED_TEST_CASE_P(HTTPUpstreamTest, ImmediateEof);
+REGISTER_TYPED_TEST_SUITE_P(HTTPUpstreamTest, ImmediateEof);
 
 using AllTypes = ::testing::Types<HTTP1xCodecPair, HTTP2CodecPair>;
-INSTANTIATE_TYPED_TEST_CASE_P(AllTypesPrefix, HTTPUpstreamTest, AllTypes);
+INSTANTIATE_TYPED_TEST_SUITE_P(AllTypesPrefix, HTTPUpstreamTest, AllTypes);
