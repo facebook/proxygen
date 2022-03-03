@@ -15,9 +15,10 @@ namespace proxygen {
 
 class MockSecondaryAuthManager : public SecondaryAuthManager {
  public:
-  MOCK_METHOD((std::pair<uint16_t, std::unique_ptr<folly::IOBuf>>),
-              createAuthRequest,
-              (std::shared_ptr<folly::IOBuf>, std::vector<fizz::Extension>&));
+  MOCK_METHOD2(createAuthRequest,
+               std::pair<uint16_t, std::unique_ptr<folly::IOBuf>>(
+                   std::shared_ptr<folly::IOBuf>,
+                   std::vector<fizz::Extension>&));
   std::pair<uint16_t, std::unique_ptr<folly::IOBuf>> createAuthRequest(
       std::unique_ptr<folly::IOBuf> certRequestContext,
       std::vector<fizz::Extension> extensions) override {
@@ -25,12 +26,12 @@ class MockSecondaryAuthManager : public SecondaryAuthManager {
         std::shared_ptr<folly::IOBuf>(certRequestContext.release()),
         extensions);
   }
-  MOCK_METHOD((std::pair<uint16_t, std::unique_ptr<folly::IOBuf>>),
-              getAuthenticator,
-              (const fizz::AsyncFizzBase&,
-               TransportDirection,
-               uint16_t,
-               std::shared_ptr<folly::IOBuf>));
+  MOCK_METHOD4(getAuthenticator,
+               std::pair<uint16_t, std::unique_ptr<folly::IOBuf>>(
+                   const fizz::AsyncFizzBase&,
+                   TransportDirection,
+                   uint16_t,
+                   std::shared_ptr<folly::IOBuf>));
   std::pair<uint16_t, std::unique_ptr<folly::IOBuf>> getAuthenticator(
       const fizz::AsyncFizzBase& transport,
       TransportDirection dir,
@@ -42,12 +43,11 @@ class MockSecondaryAuthManager : public SecondaryAuthManager {
         requestId,
         std::shared_ptr<folly::IOBuf>(authRequest.release()));
   }
-  MOCK_METHOD(bool,
-              validateAuthenticator,
-              (const fizz::AsyncFizzBase&,
-               TransportDirection,
-               uint16_t,
-               std::shared_ptr<folly::IOBuf>));
+  MOCK_METHOD4(validateAuthenticator,
+               bool(const fizz::AsyncFizzBase&,
+                    TransportDirection,
+                    uint16_t,
+                    std::shared_ptr<folly::IOBuf>));
   bool validateAuthenticator(
       const fizz::AsyncFizzBase& transport,
       TransportDirection dir,

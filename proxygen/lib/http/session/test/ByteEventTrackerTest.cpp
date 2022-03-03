@@ -74,7 +74,7 @@ TEST_F(ByteEventTrackerTest, Ttlb) {
 class MockTrackedByteEventCb {
  public:
   MockTrackedByteEventCb() = default;
-  MOCK_METHOD(void, onEventByteCallback, (const ByteEvent&));
+  MOCK_METHOD1(onEventByteCallback, void(const ByteEvent&));
 };
 
 TEST_F(ByteEventTrackerTest, TrackBytes) {

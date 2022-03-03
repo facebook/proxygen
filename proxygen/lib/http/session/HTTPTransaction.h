@@ -492,7 +492,7 @@ class HTTPTransaction
                             bool /* eom */) noexcept = 0;
 
     virtual size_t sendBody(HTTPTransaction* txn,
-                            std::unique_ptr<folly::IOBuf> iobuf,
+                            std::unique_ptr<folly::IOBuf>,
                             bool eom,
                             bool trackLastByteFlushed) noexcept = 0;
 

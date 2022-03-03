@@ -30,7 +30,7 @@ class MockTimeoutClock : public AsyncTimeoutSet::TimeoutClock {
   MockTimeoutClock() {
   }
 
-  MOCK_METHOD(std::chrono::milliseconds, millisecondsSinceEpoch, ());
+  MOCK_METHOD0(millisecondsSinceEpoch, std::chrono::milliseconds());
 };
 
 class TestTimeout : public AsyncTimeoutSet::Callback {

@@ -22,7 +22,7 @@ class MockHTTPSessionActivityTracker : public HTTPSessionActivityTracker {
   MockHTTPSessionActivityTracker(size_t ingressTH, size_t egressTH)
       : HTTPSessionActivityTracker(nullptr, ingressTH, egressTH) {
   }
-  MOCK_METHOD(void, reportActivity, ());
+  MOCK_METHOD0(reportActivity, void());
 };
 
 class HTTPSessionActivityTrackerTest : public Test {

@@ -17,8 +17,8 @@ namespace proxygen { namespace test {
 
 class TestClass : public EnableWeakRefCountedPtr<TestClass> {
  public:
-  MOCK_METHOD(void, onWeakRefCountedPtrCreate, ());
-  MOCK_METHOD(void, onWeakRefCountedPtrDestroy, ());
+  MOCK_METHOD0(onWeakRefCountedPtrCreate, void());
+  MOCK_METHOD0(onWeakRefCountedPtrDestroy, void());
 };
 
 class TestDerivedClass : public TestClass {

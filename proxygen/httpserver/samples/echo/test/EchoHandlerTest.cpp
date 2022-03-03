@@ -19,8 +19,8 @@ using namespace testing;
 
 class MockEchoStats : public EchoStats {
  public:
-  MOCK_METHOD(void, recordRequest, ());
-  MOCK_METHOD(uint64_t, getRequestCount, ());
+  MOCK_METHOD0(recordRequest, void());
+  MOCK_METHOD0(getRequestCount, uint64_t());
 };
 
 class EchoHandlerFixture : public testing::Test {

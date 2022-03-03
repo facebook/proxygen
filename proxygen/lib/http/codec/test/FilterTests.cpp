@@ -26,8 +26,8 @@ const uint32_t kInitialCapacity = 12345;
 
 class MockFlowControlCallback : public FlowControlFilter::Callback {
  public:
-  MOCK_METHOD(void, onConnectionSendWindowOpen, ());
-  MOCK_METHOD(void, onConnectionSendWindowClosed, ());
+  MOCK_METHOD0(onConnectionSendWindowOpen, void());
+  MOCK_METHOD0(onConnectionSendWindowClosed, void());
 };
 
 class FilterTest : public testing::Test {

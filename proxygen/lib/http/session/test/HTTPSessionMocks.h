@@ -172,98 +172,97 @@ class MockHTTPHandler
   void setTransaction(HTTPTransaction* txn) noexcept override {
     _setTransaction(txn);
   }
-  MOCK_METHOD(void, _setTransaction, (HTTPTransaction*));
+  MOCK_METHOD1(_setTransaction, void(HTTPTransaction*));
 
   void detachTransaction() noexcept override {
     _detachTransaction();
   }
-  MOCK_METHOD(void, _detachTransaction, ());
+  MOCK_METHOD0(_detachTransaction, void());
 
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
     _onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
   }
 
-  MOCK_METHOD(void, _onHeadersComplete, (std::shared_ptr<HTTPMessage>));
+  MOCK_METHOD1(_onHeadersComplete, void(std::shared_ptr<HTTPMessage>));
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     _onBody(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  MOCK_METHOD(void, _onBody, (std::shared_ptr<folly::IOBuf>));
+  MOCK_METHOD1(_onBody, void(std::shared_ptr<folly::IOBuf>));
 
   void onBodyWithOffset(uint64_t bodyOffset,
                         std::unique_ptr<folly::IOBuf> chain) noexcept override {
     _onBodyWithOffset(bodyOffset,
                       std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  MOCK_METHOD(void,
-              _onBodyWithOffset,
-              (uint64_t, std::shared_ptr<folly::IOBuf>));
+  MOCK_METHOD2(_onBodyWithOffset,
+               void(uint64_t, std::shared_ptr<folly::IOBuf>));
 
   void onDatagram(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     _onDatagram(std::shared_ptr<folly::IOBuf>(chain.release()));
   }
-  MOCK_METHOD(void, _onDatagram, (std::shared_ptr<folly::IOBuf>));
+  MOCK_METHOD1(_onDatagram, void(std::shared_ptr<folly::IOBuf>));
 
   void onChunkHeader(size_t length) noexcept override {
     _onChunkHeader(length);
   }
-  MOCK_METHOD(void, _onChunkHeader, (size_t));
+  MOCK_METHOD1(_onChunkHeader, void(size_t));
 
   void onChunkComplete() noexcept override {
     _onChunkComplete();
   }
-  MOCK_METHOD(void, _onChunkComplete, ());
+  MOCK_METHOD0(_onChunkComplete, void());
 
   void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
     _onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
 
-  MOCK_METHOD(void, _onTrailers, (std::shared_ptr<HTTPHeaders>));
+  MOCK_METHOD1(_onTrailers, void(std::shared_ptr<HTTPHeaders>));
 
   void onEOM() noexcept override {
     _onEOM();
   }
-  MOCK_METHOD(void, _onEOM, ());
+  MOCK_METHOD0(_onEOM, void());
 
   void onUpgrade(UpgradeProtocol protocol) noexcept override {
     _onUpgrade(protocol);
   }
-  MOCK_METHOD(void, _onUpgrade, (UpgradeProtocol));
+  MOCK_METHOD1(_onUpgrade, void(UpgradeProtocol));
 
   void onError(const HTTPException& error) noexcept override {
     _onError(error);
   }
-  MOCK_METHOD(void, _onError, (const HTTPException&));
+  MOCK_METHOD1(_onError, void(const HTTPException&));
 
   void onInvariantViolation(const HTTPException& error) noexcept override {
     _onInvariantViolation(error);
   }
-  MOCK_METHOD(void, _onInvariantViolation, (const HTTPException&));
+  MOCK_METHOD1(_onInvariantViolation, void(const HTTPException&));
 
   void onGoaway(ErrorCode errCode) noexcept override {
     _onGoaway(errCode);
   }
-  MOCK_METHOD(void, _onGoaway, (ErrorCode));
+  MOCK_METHOD1(_onGoaway, void(ErrorCode));
 
   void onEgressPaused() noexcept override {
     _onEgressPaused();
   }
-  MOCK_METHOD(void, _onEgressPaused, ());
+  MOCK_METHOD0(_onEgressPaused, void());
 
   void onEgressResumed() noexcept override {
     _onEgressResumed();
   }
-  MOCK_METHOD(void, _onEgressResumed, ());
+  MOCK_METHOD0(_onEgressResumed, void());
 
   void onPushedTransaction(HTTPTransaction* txn) noexcept override {
     _onPushedTransaction(txn);
   }
-  MOCK_METHOD(void, _onPushedTransaction, (HTTPTransaction*));
+  MOCK_METHOD1(_onPushedTransaction, void(HTTPTransaction*));
 
   void onExTransaction(HTTPTransaction* txn) noexcept override {
     _onExTransaction(txn);
   }
-  MOCK_METHOD(void, _onExTransaction, (HTTPTransaction*));
+  MOCK_METHOD1(_onExTransaction, void(HTTPTransaction*));
 
   void expectTransaction(std::function<void(HTTPTransaction* txn)> callback) {
     EXPECT_CALL(*this, _setTransaction(testing::_))
@@ -445,32 +444,32 @@ class MockHTTPPushHandler
   void setTransaction(HTTPTransaction* txn) noexcept override {
     _setTransaction(txn);
   }
-  MOCK_METHOD(void, _setTransaction, (HTTPTransaction*));
+  MOCK_METHOD1(_setTransaction, void(HTTPTransaction*));
 
   void detachTransaction() noexcept override {
     _detachTransaction();
   }
-  MOCK_METHOD(void, _detachTransaction, ());
+  MOCK_METHOD0(_detachTransaction, void());
 
   void onError(const HTTPException& error) noexcept override {
     _onError(error);
   }
-  MOCK_METHOD(void, _onError, (const HTTPException&));
+  MOCK_METHOD1(_onError, void(const HTTPException&));
 
   void onGoaway(ErrorCode errCode) noexcept override {
     _onGoaway(errCode);
   }
-  MOCK_METHOD(void, _onGoaway, (ErrorCode));
+  MOCK_METHOD1(_onGoaway, void(ErrorCode));
 
   void onEgressPaused() noexcept override {
     _onEgressPaused();
   }
-  MOCK_METHOD(void, _onEgressPaused, ());
+  MOCK_METHOD0(_onEgressPaused, void());
 
   void onEgressResumed() noexcept override {
     _onEgressResumed();
   }
-  MOCK_METHOD(void, _onEgressResumed, ());
+  MOCK_METHOD0(_onEgressResumed, void());
 
   void sendPushHeaders(const std::string& path,
                        const std::string& host,
@@ -489,46 +488,37 @@ class MockHTTPPushHandler
 
 class MockController : public HTTPSessionController {
  public:
-  MOCK_METHOD(HTTPTransactionHandler*,
-              getRequestHandler,
-              (HTTPTransaction&, HTTPMessage* msg));
+  MOCK_METHOD2(getRequestHandler,
+               HTTPTransactionHandler*(HTTPTransaction&, HTTPMessage* msg));
 
-  MOCK_METHOD(HTTPTransactionHandler*,
-              getParseErrorHandler,
-              (HTTPTransaction*,
-               const HTTPException&,
-               const folly::SocketAddress&));
+  MOCK_METHOD3(getParseErrorHandler,
+               HTTPTransactionHandler*(HTTPTransaction*,
+                                       const HTTPException&,
+                                       const folly::SocketAddress&));
 
-  MOCK_METHOD(HTTPTransactionHandler*,
-              getTransactionTimeoutHandler,
-              (HTTPTransaction * txn, const folly::SocketAddress&));
+  MOCK_METHOD2(getTransactionTimeoutHandler,
+               HTTPTransactionHandler*(HTTPTransaction* txn,
+                                       const folly::SocketAddress&));
 
-  MOCK_METHOD(void, attachSession, (HTTPSessionBase*));
-  MOCK_METHOD(void, detachSession, (const HTTPSessionBase*));
-  MOCK_METHOD(void, onSessionCodecChange, (HTTPSessionBase*));
-  MOCK_METHOD(void, onTransportReady, (HTTPSessionBase*));
+  MOCK_METHOD1(attachSession, void(HTTPSessionBase*));
+  MOCK_METHOD1(detachSession, void(const HTTPSessionBase*));
+  MOCK_METHOD1(onSessionCodecChange, void(HTTPSessionBase*));
+  MOCK_METHOD1(onTransportReady, void(HTTPSessionBase*));
 
-  MOCK_METHOD(std::chrono::milliseconds,
-              getGracefulShutdownTimeout,
-              (),
-              (const));
+  MOCK_CONST_METHOD0(getGracefulShutdownTimeout, std::chrono::milliseconds());
 
-  MOCK_METHOD(const HeaderIndexingStrategy*,
-              getHeaderIndexingStrategy,
-              (),
-              (const));
+  MOCK_CONST_METHOD0(getHeaderIndexingStrategy,
+                     const HeaderIndexingStrategy*());
 };
 
 class MockUpstreamController : public HTTPUpstreamSessionController {
  public:
-  MOCK_METHOD(void, attachSession, (HTTPSessionBase*));
-  MOCK_METHOD(void, detachSession, (const HTTPSessionBase*));
-  MOCK_METHOD(void, onSessionCodecChange, (HTTPSessionBase*));
+  MOCK_METHOD1(attachSession, void(HTTPSessionBase*));
+  MOCK_METHOD1(detachSession, void(const HTTPSessionBase*));
+  MOCK_METHOD1(onSessionCodecChange, void(HTTPSessionBase*));
 
-  MOCK_METHOD(const HeaderIndexingStrategy*,
-              getHeaderIndexingStrategy,
-              (),
-              (const));
+  MOCK_CONST_METHOD0(getHeaderIndexingStrategy,
+                     const HeaderIndexingStrategy*());
 };
 
 ACTION_P(ExpectString, expected) {
@@ -542,38 +532,36 @@ ACTION_P(ExpectBodyLen, expectedLen) {
 
 class MockHTTPSessionInfoCallback : public HTTPSession::InfoCallback {
  public:
-  MOCK_METHOD(void, onCreate, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onTransportReady, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onConnectionError, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onIngressError, (const HTTPSessionBase&, ProxygenError));
-  MOCK_METHOD(void, onIngressEOF, ());
-  MOCK_METHOD(void, onRead, (const HTTPSessionBase&, size_t));
-  MOCK_METHOD(void,
-              onRead,
-              (const HTTPSessionBase&,
-               size_t,
-               folly::Optional<HTTPCodec::StreamID>));
-  MOCK_METHOD(void, onWrite, (const HTTPSessionBase&, size_t));
-  MOCK_METHOD(void, onRequestBegin, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onRequestEnd, (const HTTPSessionBase&, uint32_t));
-  MOCK_METHOD(void, onActivateConnection, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onDeactivateConnection, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onDestroy, (const HTTPSessionBase&));
-  MOCK_METHOD(void,
-              onIngressMessage,
-              (const HTTPSessionBase&, const HTTPMessage&));
-  MOCK_METHOD(void, onIngressLimitExceeded, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onIngressPaused, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onTransactionDetached, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onPingReplySent, (int64_t));
-  MOCK_METHOD(void, onPingReplyReceived, ());
-  MOCK_METHOD(void, onSettingsOutgoingStreamsFull, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onSettingsOutgoingStreamsNotFull, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onFlowControlWindowClosed, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onEgressBuffered, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onEgressBufferCleared, (const HTTPSessionBase&));
-  MOCK_METHOD(void, onSettings, (const HTTPSessionBase&, const SettingsList&));
-  MOCK_METHOD(void, onSettingsAck, (const HTTPSessionBase&));
+  MOCK_METHOD1(onCreate, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onTransportReady, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onConnectionError, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onIngressError, void(const HTTPSessionBase&, ProxygenError));
+  MOCK_METHOD0(onIngressEOF, void());
+  MOCK_METHOD2(onRead, void(const HTTPSessionBase&, size_t));
+  MOCK_METHOD3(onRead,
+               void(const HTTPSessionBase&,
+                    size_t,
+                    folly::Optional<HTTPCodec::StreamID>));
+  MOCK_METHOD2(onWrite, void(const HTTPSessionBase&, size_t));
+  MOCK_METHOD1(onRequestBegin, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onRequestEnd, void(const HTTPSessionBase&, uint32_t));
+  MOCK_METHOD1(onActivateConnection, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onDeactivateConnection, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onDestroy, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onIngressMessage,
+               void(const HTTPSessionBase&, const HTTPMessage&));
+  MOCK_METHOD1(onIngressLimitExceeded, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onIngressPaused, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onTransactionDetached, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onPingReplySent, void(int64_t));
+  MOCK_METHOD0(onPingReplyReceived, void());
+  MOCK_METHOD1(onSettingsOutgoingStreamsFull, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onSettingsOutgoingStreamsNotFull, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onFlowControlWindowClosed, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onEgressBuffered, void(const HTTPSessionBase&));
+  MOCK_METHOD1(onEgressBufferCleared, void(const HTTPSessionBase&));
+  MOCK_METHOD2(onSettings, void(const HTTPSessionBase&, const SettingsList&));
+  MOCK_METHOD1(onSettingsAck, void(const HTTPSessionBase&));
 };
 
 class MockDSRRequestSender : public DSRRequestSender {
