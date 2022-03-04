@@ -163,7 +163,7 @@ class PeriodicStats {
   void modifyData(T* newData, bool sync = false) {
     auto* oldData = data_.exchange(newData);
     if (sync) {
-      folly::synchronize_rcu();
+      folly::rcu_synchronize();
       delete oldData;
     } else {
       folly::rcu_retire(oldData);
