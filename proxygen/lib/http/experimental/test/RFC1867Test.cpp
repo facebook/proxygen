@@ -90,11 +90,12 @@ namespace proxygen {
 
 class Mock1867Callback : public RFC1867Codec::Callback {
  public:
-  MOCK_METHOD4(onFieldStartImpl,
-               int(const string& name,
-                   const std::string& filename,
-                   std::shared_ptr<HTTPMessage> msg,
-                   uint64_t bytesProcessed));
+  MOCK_METHOD(int,
+              onFieldStartImpl,
+              (const string& name,
+               const std::string& filename,
+               std::shared_ptr<HTTPMessage> msg,
+               uint64_t bytesProcessed));
   int onFieldStartImpl(const string& name,
                        const std::string& filename,
                        std::unique_ptr<HTTPMessage> msg,
@@ -109,15 +110,15 @@ class Mock1867Callback : public RFC1867Codec::Callback {
     return onFieldStartImpl(
         name, filename.value_or(""), std::move(msg), bytesProcessed);
   }
-  MOCK_METHOD2(onFieldData, int(std::shared_ptr<folly::IOBuf>, uint64_t));
+  MOCK_METHOD(int, onFieldData, (std::shared_ptr<folly::IOBuf>, uint64_t));
   int onFieldData(std::unique_ptr<folly::IOBuf> data,
                   uint64_t bytesProcessed) override {
     std::shared_ptr<IOBuf> sh_data(data.release());
     return onFieldData(sh_data, bytesProcessed);
   }
 
-  MOCK_METHOD2(onFieldEnd, void(bool, uint64_t));
-  MOCK_METHOD0(onError, void());
+  MOCK_METHOD(void, onFieldEnd, (bool, uint64_t));
+  MOCK_METHOD(void, onError, ());
 };
 
 class RFC1867Base {
@@ -254,22 +255,22 @@ TEST_P(RFC1867CR, Test) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(ValueTest,
-                        RFC1867CR,
-                        ::testing::Values(
-                            // embedded \r\n
-                            string("zyx\r\nwvu", 8),
-                            // leading \r
-                            string("\rzyxwvut", 8),
-                            // trailing \r
-                            string("zyxwvut\r", 8),
-                            // leading \n
-                            string("\nzyxwvut", 8),
-                            // trailing \n
-                            string("zyxwvut\n", 8),
-                            // all \r\n
-                            string("\r\n\r\n\r\n\r\n", 8),
-                            // all \r
-                            string("\r\r\r\r\r\r\r\r", 8)));
+INSTANTIATE_TEST_SUITE_P(ValueTest,
+                         RFC1867CR,
+                         ::testing::Values(
+                             // embedded \r\n
+                             string("zyx\r\nwvu", 8),
+                             // leading \r
+                             string("\rzyxwvut", 8),
+                             // trailing \r
+                             string("zyxwvut\r", 8),
+                             // leading \n
+                             string("\nzyxwvut", 8),
+                             // trailing \n
+                             string("zyxwvut\n", 8),
+                             // all \r\n
+                             string("\r\n\r\n\r\n\r\n", 8),
+                             // all \r
+                             string("\r\r\r\r\r\r\r\r", 8)));
 
 } // namespace proxygen

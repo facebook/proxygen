@@ -193,20 +193,12 @@ TEST(HttpServerStartStop, TestUseExistingIoExecutor) {
 
 class MockRequestHandlerFactory : public RequestHandlerFactory {
  public:
-// googletest switched APIs between multiple versions we target
-#if defined(MOCK_METHOD)
   MOCK_METHOD((void), onServerStart, (folly::EventBase*), (noexcept));
   MOCK_METHOD((void), onServerStop, (), (noexcept));
   MOCK_METHOD((RequestHandler*),
               onRequest,
               (RequestHandler*, HTTPMessage*),
               (noexcept));
-#else
-  GMOCK_METHOD1_(, noexcept, , onServerStart, void(folly::EventBase* evb));
-  GMOCK_METHOD0_(, noexcept, , onServerStop, void());
-  GMOCK_METHOD2_(
-      , noexcept, , onRequest, RequestHandler*(RequestHandler*, HTTPMessage*));
-#endif
 };
 
 TEST(HttpServerStartStop, TestZeroThreadsMeansNumCPUs) {

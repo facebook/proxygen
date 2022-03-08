@@ -22,7 +22,7 @@ using namespace proxygen;
  */
 class MockResources : public Resources {
  public:
-  MOCK_METHOD0(getCurrentData, ResourceData());
+  MOCK_METHOD(ResourceData, getCurrentData, ());
 
   void expectNextCallsToReturnValue(const ResourceData& data, uint64_t times) {
     EXPECT_CALL(*this, getCurrentData())

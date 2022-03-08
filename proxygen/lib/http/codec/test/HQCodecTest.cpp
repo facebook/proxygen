@@ -948,7 +948,7 @@ TEST_P(HQCodecTestFrameAllowed, FrameAllowedOnCodec) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     FrameAllowedTests,
     HQCodecTestFrameAllowed,
     Values(
@@ -1056,7 +1056,7 @@ TEST_P(H1QCodecTestFrameAllowed, FrameAllowedOnH1qControlCodec) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     H1QFrameAllowedTests,
     H1QCodecTestFrameAllowed,
     Values(
@@ -1128,7 +1128,7 @@ TEST_P(HQCodecTestFrameBeforeSettings, FrameAllowedOnH1qControlCodec) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     FrameBeforeSettingsTests,
     HQCodecTestFrameBeforeSettings,
     Values(

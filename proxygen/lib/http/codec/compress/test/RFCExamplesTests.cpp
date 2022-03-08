@@ -142,7 +142,7 @@ TEST_P(RFCRequestTest, RfcExampleRequest) {
   EXPECT_EQ(encoder.getTable().size(), 3);
 }
 
-INSTANTIATE_TEST_CASE_P(Huffman, RFCRequestTest, ::testing::Values(d3, d4));
+INSTANTIATE_TEST_SUITE_P(Huffman, RFCRequestTest, ::testing::Values(d3, d4));
 
 TEST_P(RFCResponseTest, RfcExampleResponse) {
   // this test does some evictions
@@ -172,4 +172,4 @@ TEST_P(RFCResponseTest, RfcExampleResponse) {
   EXPECT_EQ(encoder.getTable().bytes(), 215);
 }
 
-INSTANTIATE_TEST_CASE_P(Huffman, RFCResponseTest, ::testing::Values(d5, d6));
+INSTANTIATE_TEST_SUITE_P(Huffman, RFCResponseTest, ::testing::Values(d5, d6));

@@ -1125,15 +1125,15 @@ TEST_P(HQUpstreamSessionTestH1qv2HQ, ExtraSettings) {
 // Test Cases for which Settings are not sent in the test SetUp
 using HQUpstreamSessionTestHQNoSettings = HQUpstreamSessionTest;
 
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestHQNoSettings,
-                        Values([] {
-                          TestParams tp;
-                          tp.alpn_ = "h3";
-                          tp.shouldSendSettings_ = false;
-                          return tp;
-                        }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTestHQNoSettings,
+                         Values([] {
+                           TestParams tp;
+                           tp.alpn_ = "h3";
+                           tp.shouldSendSettings_ = false;
+                           return tp;
+                         }()),
+                         paramsToTestName);
 TEST_P(HQUpstreamSessionTestHQNoSettings, SimpleGet) {
   EXPECT_CALL(connectCb_, connectError(_)).Times(1);
   socketDriver_->deliverConnectionError(
@@ -2037,97 +2037,97 @@ TEST_P(HQUpstreamSessionTestHQDatagram, TestReceiveEarlyDatagramsMultiStream) {
  */
 
 // Make sure all the tests keep working with all the supported protocol versions
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTest,
-                        Values(
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h1q-fb";
-                              return tp;
-                            }(),
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h1q-fb-v2";
-                              return tp;
-                            }(),
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h3";
-                              return tp;
-                            }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTest,
+                         Values(
+                             [] {
+                               TestParams tp;
+                               tp.alpn_ = "h1q-fb";
+                               return tp;
+                             }(),
+                             [] {
+                               TestParams tp;
+                               tp.alpn_ = "h1q-fb-v2";
+                               return tp;
+                             }(),
+                             [] {
+                               TestParams tp;
+                               tp.alpn_ = "h3";
+                               return tp;
+                             }()),
+                         paramsToTestName);
 
 // Instantiate h1q-fb-v2 and hq only tests (goaway tests)
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestH1qv2HQ,
-                        Values(
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h1q-fb-v2";
-                              return tp;
-                            }(),
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h3";
-                              return tp;
-                            }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTestH1qv2HQ,
+                         Values(
+                             [] {
+                               TestParams tp;
+                               tp.alpn_ = "h1q-fb-v2";
+                               return tp;
+                             }(),
+                             [] {
+                               TestParams tp;
+                               tp.alpn_ = "h3";
+                               return tp;
+                             }()),
+                         paramsToTestName);
 
 // Instantiate h1q-fb-v1 only tests
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestH1qv1,
-                        Values([] {
-                          TestParams tp;
-                          tp.alpn_ = "h1q-fb";
-                          return tp;
-                        }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTestH1qv1,
+                         Values([] {
+                           TestParams tp;
+                           tp.alpn_ = "h1q-fb";
+                           return tp;
+                         }()),
+                         paramsToTestName);
 
 // Instantiate hq only tests
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestHQ,
-                        Values([] {
-                          TestParams tp;
-                          tp.alpn_ = "h3";
-                          return tp;
-                        }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTestHQ,
+                         Values([] {
+                           TestParams tp;
+                           tp.alpn_ = "h3";
+                           return tp;
+                         }()),
+                         paramsToTestName);
 
 // Instantiate tests for H3 Push functionality (requires HQ)
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestHQPush,
-                        Values([] {
-                          TestParams tp;
-                          tp.alpn_ = "h3";
-                          tp.unidirectionalStreamsCredit = 4;
-                          return tp;
-                        }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTestHQPush,
+                         Values([] {
+                           TestParams tp;
+                           tp.alpn_ = "h3";
+                           tp.unidirectionalStreamsCredit = 4;
+                           return tp;
+                         }()),
+                         paramsToTestName);
 
 // Instantiate tests with QPACK on/off
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestQPACK,
-                        Values(
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h3";
-                              return tp;
-                            }(),
-                            [] {
-                              TestParams tp;
-                              tp.alpn_ = "h3";
-                              tp.createQPACKStreams_ = false;
-                              return tp;
-                            }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTestQPACK,
+                         Values(
+                             [] {
+                               TestParams tp;
+                               tp.alpn_ = "h3";
+                               return tp;
+                             }(),
+                             [] {
+                               TestParams tp;
+                               tp.alpn_ = "h3";
+                               tp.createQPACKStreams_ = false;
+                               return tp;
+                             }()),
+                         paramsToTestName);
 
 // Instantiate h3 datagram tests
-INSTANTIATE_TEST_CASE_P(HQUpstreamSessionTest,
-                        HQUpstreamSessionTestHQDatagram,
-                        Values([] {
-                          TestParams tp;
-                          tp.alpn_ = "h3";
-                          tp.datagrams_ = true;
-                          return tp;
-                        }()),
-                        paramsToTestName);
+INSTANTIATE_TEST_SUITE_P(HQUpstreamSessionTest,
+                         HQUpstreamSessionTestHQDatagram,
+                         Values([] {
+                           TestParams tp;
+                           tp.alpn_ = "h3";
+                           tp.datagrams_ = true;
+                           return tp;
+                         }()),
+                         paramsToTestName);

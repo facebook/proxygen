@@ -128,9 +128,9 @@ TEST_P(HTTPSessionAcceptorTestNPN, Npn) {
 }
 
 std::array<char const*, 4> protos1{"h2-14", "h2", "http/1.1", ""};
-INSTANTIATE_TEST_CASE_P(NPNPositive,
-                        HTTPSessionAcceptorTestNPN,
-                        ::testing::ValuesIn(protos1));
+INSTANTIATE_TEST_SUITE_P(NPNPositive,
+                         HTTPSessionAcceptorTestNPN,
+                         ::testing::ValuesIn(protos1));
 
 // Verify HTTPSessionAcceptor creates the correct plaintext codec
 TEST_P(HTTPSessionAcceptorTestNPNPlaintext, PlaintextProtocols) {
@@ -152,9 +152,9 @@ TEST_P(HTTPSessionAcceptorTestNPNPlaintext, PlaintextProtocols) {
 }
 
 std::array<char const*, 1> protos2{"h2c"};
-INSTANTIATE_TEST_CASE_P(NPNPlaintext,
-                        HTTPSessionAcceptorTestNPNPlaintext,
-                        ::testing::ValuesIn(protos2));
+INSTANTIATE_TEST_SUITE_P(NPNPlaintext,
+                         HTTPSessionAcceptorTestNPNPlaintext,
+                         ::testing::ValuesIn(protos2));
 
 // Verify HTTPSessionAcceptor closes the socket on invalid NPN
 TEST_F(HTTPSessionAcceptorTestNPNJunk, Npn) {

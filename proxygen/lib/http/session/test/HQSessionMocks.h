@@ -107,78 +107,91 @@ class MockDispatcher : public HQUnidirStreamDispatcher::Callback {
     }
   }
 
-  MOCK_METHOD3(onNewPushStream, void(quic::StreamId, hq::PushId, size_t));
-  MOCK_METHOD4(assignReadCallback,
-               void(quic::StreamId,
-                    hq::UnidirectionalStreamType,
-                    size_t,
-                    quic::QuicSocket::ReadCallback* const));
-  MOCK_METHOD4(assignPeekCallback,
-               void(quic::StreamId,
-                    hq::UnidirectionalStreamType,
-                    size_t,
-                    quic::QuicSocket::PeekCallback* const));
-  MOCK_METHOD1(parseStreamPreface,
-               folly::Optional<hq::UnidirectionalStreamType>(uint64_t));
-  MOCK_METHOD1(rejectStream, void(quic::StreamId));
-  MOCK_METHOD1(controlStreamReadAvailable, void(quic::StreamId));
-  MOCK_METHOD2(controlStreamReadError, void(quic::StreamId, const ReadError&));
-  MOCK_METHOD2(onPartialDataAvailable, void(quic::StreamId, const PeekData&));
-  MOCK_METHOD2(processExpiredData, void(quic::StreamId, uint64_t));
-  MOCK_METHOD2(processRejectedData, void(quic::StreamId, uint64_t));
+  MOCK_METHOD(void, onNewPushStream, (quic::StreamId, hq::PushId, size_t));
+  MOCK_METHOD(void,
+              assignReadCallback,
+              (quic::StreamId,
+               hq::UnidirectionalStreamType,
+               size_t,
+               quic::QuicSocket::ReadCallback* const));
+  MOCK_METHOD(void,
+              assignPeekCallback,
+              (quic::StreamId,
+               hq::UnidirectionalStreamType,
+               size_t,
+               quic::QuicSocket::PeekCallback* const));
+  MOCK_METHOD(folly::Optional<hq::UnidirectionalStreamType>,
+              parseStreamPreface,
+              (uint64_t));
+  MOCK_METHOD(void, rejectStream, (quic::StreamId));
+  MOCK_METHOD(void, controlStreamReadAvailable, (quic::StreamId));
+  MOCK_METHOD(void, controlStreamReadError, (quic::StreamId, const ReadError&));
+  MOCK_METHOD(void, onPartialDataAvailable, (quic::StreamId, const PeekData&));
+  MOCK_METHOD(void, processExpiredData, (quic::StreamId, uint64_t));
+  MOCK_METHOD(void, processRejectedData, (quic::StreamId, uint64_t));
 };
 
 class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
  public:
   virtual ~MockServerPushLifecycleCallback() = default;
 
-  MOCK_METHOD2(onPushPromiseBegin,
-               void(HTTPCodec::StreamID /* parent streamID */,
-                    hq::PushId /* pushID */));
+  MOCK_METHOD(void,
+              onPushPromiseBegin,
+              (HTTPCodec::StreamID /* parent streamID */,
+               hq::PushId /* pushID */));
 
-  MOCK_METHOD3(onPushPromise,
-               void(HTTPCodec::StreamID /* parent streamID */,
-                    hq::PushId /* pushID */,
-                    HTTPMessage* /* msg */));
+  MOCK_METHOD(void,
+              onPushPromise,
+              (HTTPCodec::StreamID /* parent streamID */,
+               hq::PushId /* pushID */,
+               HTTPMessage* /* msg */));
 
-  MOCK_METHOD2(onNascentPushStreamBegin,
-               void(HTTPCodec::StreamID /* push stream ID */, bool /* eom */));
+  MOCK_METHOD(void,
+              onNascentPushStreamBegin,
+              (HTTPCodec::StreamID /* push stream ID */, bool /* eom */));
 
-  MOCK_METHOD3(onNascentPushStream,
-               void(HTTPCodec::StreamID /* push stream ID */,
-                    hq::PushId /* server push id */,
-                    bool /* eom */));
+  MOCK_METHOD(void,
+              onNascentPushStream,
+              (HTTPCodec::StreamID /* push stream ID */,
+               hq::PushId /* server push id */,
+               bool /* eom */));
 
-  MOCK_METHOD2(onNascentEof,
-               void(HTTPCodec::StreamID /* push stream ID */,
-                    folly::Optional<hq::PushId> /* push id */));
+  MOCK_METHOD(void,
+              onNascentEof,
+              (HTTPCodec::StreamID /* push stream ID */,
+               folly::Optional<hq::PushId> /* push id */));
 
-  MOCK_METHOD2(onOrphanedNascentStream,
-               void(HTTPCodec::StreamID /* push stream ID */,
-                    folly::Optional<hq::PushId> /* push id */));
+  MOCK_METHOD(void,
+              onOrphanedNascentStream,
+              (HTTPCodec::StreamID /* push stream ID */,
+               folly::Optional<hq::PushId> /* push id */));
 
-  MOCK_METHOD4(onHalfOpenPushedTxn,
-               void(const HTTPTransaction* /* txn */,
-                    hq::PushId /* push id */,
-                    HTTPCodec::StreamID /* assoc stream id */,
-                    bool /* eom */));
+  MOCK_METHOD(void,
+              onHalfOpenPushedTxn,
+              (const HTTPTransaction* /* txn */,
+               hq::PushId /* push id */,
+               HTTPCodec::StreamID /* assoc stream id */,
+               bool /* eom */));
 
-  MOCK_METHOD5(onPushedTxn,
-               void(const HTTPTransaction* /* txn */,
-                    HTTPCodec::StreamID /* push stream id */,
-                    hq::PushId /* push id */,
-                    HTTPCodec::StreamID /* assoc stream id */,
-                    bool /* eom */));
+  MOCK_METHOD(void,
+              onPushedTxn,
+              (const HTTPTransaction* /* txn */,
+               HTTPCodec::StreamID /* push stream id */,
+               hq::PushId /* push id */,
+               HTTPCodec::StreamID /* assoc stream id */,
+               bool /* eom */));
 
-  MOCK_METHOD1(onPushedTxnTimeout, void(const HTTPTransaction* /* txn */));
+  MOCK_METHOD(void, onPushedTxnTimeout, (const HTTPTransaction* /* txn */));
 
-  MOCK_METHOD1(onOrphanedHalfOpenPushedTxn,
-               void(const HTTPTransaction* /* txn */));
+  MOCK_METHOD(void,
+              onOrphanedHalfOpenPushedTxn,
+              (const HTTPTransaction* /* txn */));
 
-  MOCK_METHOD3(onPushIdLimitExceeded,
-               void(hq::PushId /* incoming push id */,
-                    folly::Optional<hq::PushId> /* max allowed push id */,
-                    folly::Optional<HTTPCodec::StreamID> /* stream */));
+  MOCK_METHOD(void,
+              onPushIdLimitExceeded,
+              (hq::PushId /* incoming push id */,
+               folly::Optional<hq::PushId> /* max allowed push id */,
+               folly::Optional<HTTPCodec::StreamID> /* stream */));
 
   using PushPromiseBeginF =
       std::function<void(HTTPCodec::StreamID, hq::PushId)>;
@@ -299,10 +312,10 @@ class MockServerPushLifecycleCallback : public ServerPushLifecycleCallback {
 
 class MockConnectCallback : public HQSession::ConnectCallback {
  public:
-  MOCK_METHOD0(connectSuccess, void());
-  MOCK_METHOD0(onReplaySafe, void());
-  MOCK_METHOD1(connectError, void(quic::QuicError));
-  MOCK_METHOD0(onFirstPeerPacketProcessed, void());
+  MOCK_METHOD(void, connectSuccess, ());
+  MOCK_METHOD(void, onReplaySafe, ());
+  MOCK_METHOD(void, connectError, (quic::QuicError));
+  MOCK_METHOD(void, onFirstPeerPacketProcessed, ());
 };
 
 class MockHQSession : public HQSession {
@@ -382,26 +395,22 @@ class MockHQSession : public HQSession {
     onHeadersComplete(streamID, std::move(resp), eom);
   }
 
-  MOCK_CONST_METHOD0(isReplaySafe, bool());
+  MOCK_METHOD(bool, isReplaySafe, (), (const));
 
-  MOCK_METHOD1(getTransactionTimeoutHandler,
-               HTTPTransaction::Handler*(HTTPTransaction*));
+  MOCK_METHOD(HTTPTransaction::Handler*,
+              getTransactionTimeoutHandler,
+              (HTTPTransaction*));
 
-  MOCK_METHOD2(setupOnHeadersComplete, void(HTTPTransaction*, HTTPMessage*));
+  MOCK_METHOD(void, setupOnHeadersComplete, (HTTPTransaction*, HTTPMessage*));
 
-#if defined(MOCK_METHOD)
   MOCK_METHOD((void),
               onConnectionSetupErrorHandler,
               (quic::QuicError),
               (noexcept));
-#else
-  GMOCK_METHOD1_(
-      , noexcept, , onConnectionSetupErrorHandler, void(quic::QuicError error));
-#endif
 
-  MOCK_METHOD1(newTransaction, HTTPTransaction*(HTTPTransaction::Handler*));
+  MOCK_METHOD(HTTPTransaction*, newTransaction, (HTTPTransaction::Handler*));
 
-  MOCK_METHOD0(drain, void());
+  MOCK_METHOD(void, drain, ());
 
   MOCK_CONST_METHOD0(getQuicSocket, quic::QuicSocket*());
 

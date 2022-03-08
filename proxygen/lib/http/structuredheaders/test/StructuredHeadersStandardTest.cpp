@@ -254,29 +254,29 @@ TEST_P(IllegalListTest, IllegalList) {
   EXPECT_NE(err, StructuredHeaders::DecodeError::OK);
 }
 
-INSTANTIATE_TEST_CASE_P(TestLegalStrings,
-                        LegalStringTests,
-                        ::testing::ValuesIn(kLegalStringTests));
+INSTANTIATE_TEST_SUITE_P(TestLegalStrings,
+                         LegalStringTests,
+                         ::testing::ValuesIn(kLegalStringTests));
 
-INSTANTIATE_TEST_CASE_P(TestLegalBinaryContent,
-                        LegalBinaryContentTests,
-                        ::testing::ValuesIn(kLegalBinContentTests));
+INSTANTIATE_TEST_SUITE_P(TestLegalBinaryContent,
+                         LegalBinaryContentTests,
+                         ::testing::ValuesIn(kLegalBinContentTests));
 
-INSTANTIATE_TEST_CASE_P(TestLegalInts,
-                        LegalIntegerTests,
-                        ::testing::ValuesIn(kLegalIntTests));
+INSTANTIATE_TEST_SUITE_P(TestLegalInts,
+                         LegalIntegerTests,
+                         ::testing::ValuesIn(kLegalIntTests));
 
-INSTANTIATE_TEST_CASE_P(TestLegalFloats,
-                        LegalFloatTests,
-                        ::testing::ValuesIn(kLegalFloatTests));
+INSTANTIATE_TEST_SUITE_P(TestLegalFloats,
+                         LegalFloatTests,
+                         ::testing::ValuesIn(kLegalFloatTests));
 
-INSTANTIATE_TEST_CASE_P(TestIllegalItems,
-                        IllegalItemTest,
-                        ::testing::ValuesIn(kIllegalItemTests));
+INSTANTIATE_TEST_SUITE_P(TestIllegalItems,
+                         IllegalItemTest,
+                         ::testing::ValuesIn(kIllegalItemTests));
 
-INSTANTIATE_TEST_CASE_P(TestIllegalLists,
-                        IllegalListTest,
-                        ::testing::ValuesIn(kIllegalListTests));
+INSTANTIATE_TEST_SUITE_P(TestIllegalLists,
+                         IllegalListTest,
+                         ::testing::ValuesIn(kIllegalListTests));
 
 TEST_F(StructuredHeadersStandardTest, TestBasicList) {
   std::string input("1, 42");

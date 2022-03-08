@@ -174,7 +174,7 @@ TEST_P(HQFramerTestDataOnlyFrames, TestDataOnlyFrame) {
   EXPECT_EQ(outBuf->moveToFbString(), data->moveToFbString());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     DataOnlyFrameWriteParseTests,
     HQFramerTestDataOnlyFrames,
     Values((DataOnlyFrameParams){proxygen::hq::FrameType::DATA,
@@ -278,7 +278,7 @@ TEST_P(HQFramerTestIdOnlyFrames, TestIdOnlyFrame) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     IdOnlyFrameWriteParseTests,
     HQFramerTestIdOnlyFrames,
     Values((IdOnlyFrameParams){proxygen::hq::FrameType::CANCEL_PUSH,
@@ -380,7 +380,7 @@ TEST_P(HQFramerTestSettingsValues, ValueAllowed) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SettingsValuesAllowedTests,
     HQFramerTestSettingsValues,
     Values((SettingsValuesParams){hq::SettingId::MAX_HEADER_LIST_SIZE, 0, true},
