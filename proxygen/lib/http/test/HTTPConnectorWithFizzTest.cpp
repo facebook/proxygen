@@ -19,7 +19,6 @@
 
 using namespace proxygen;
 using namespace testing;
-using namespace folly;
 using namespace fizz::server;
 
 class MockHTTPConnectorCallback : public HTTPConnector::Callback {
@@ -38,10 +37,10 @@ class HTTPConnectorWithFizzTest : public testing::Test {
   void SetUp() override {
     folly::ssl::init();
 
-    timer_ = HHWheelTimer::newTimer(
+    timer_ = folly::HHWheelTimer::newTimer(
         &evb_,
-        std::chrono::milliseconds(HHWheelTimer::DEFAULT_TICK_INTERVAL),
-        AsyncTimeout::InternalEnum::NORMAL,
+        std::chrono::milliseconds(folly::HHWheelTimer::DEFAULT_TICK_INTERVAL),
+        folly::AsyncTimeout::InternalEnum::NORMAL,
         std::chrono::milliseconds(5000));
   }
 
@@ -79,11 +78,11 @@ class HTTPConnectorWithFizzTest : public testing::Test {
           FAIL() << "Client error handler called: " << ex.what();
         }));
   }
-  EventBase evb_;
+  folly::EventBase evb_;
   fizz::server::test::MockHandshakeCallback handshakeCb_;
   DummyCallbackFactory factory_;
   fizz::server::test::FizzTestServer server_;
-  HHWheelTimer::UniquePtr timer_;
+  folly::HHWheelTimer::UniquePtr timer_;
   MockHTTPConnectorCallback cb_;
 };
 
