@@ -41,8 +41,16 @@ namespace proxygen {
  *
  * A sender interface to send out DSR delegated packetization requests.
  */
-struct DSRRequestSender {
+class DSRRequestSender {
+ public:
   virtual ~DSRRequestSender() = default;
+
+  // This is called back when the underlying session has generated the header
+  // bytes for the transaction. At this point it is the responsibility of the
+  // DSRRequestSender to call addBufferMeta and sendEOM so that the buffer meta
+  // data can start flowing through the transport.
+  virtual void onHeaderBytesGenerated(size_t /*headerBytes*/) {
+  }
 };
 
 /**
@@ -1568,6 +1576,8 @@ class HTTPTransaction
     egressBufferLimit_ = limit;
   }
 
+  virtual bool addBufferMeta() noexcept;
+
  private:
   HTTPTransaction(const HTTPTransaction&) = delete;
   HTTPTransaction& operator=(const HTTPTransaction&) = delete;
@@ -1579,8 +1589,6 @@ class HTTPTransaction
 
   bool delegatedTransactionChecks(const HTTPMessage& headers) noexcept;
   bool delegatedTransactionChecks() noexcept;
-
-  bool addBufferMeta() noexcept;
 
   void abortAndDeliverError(ErrorCode codecErorr, const std::string& msg);
 

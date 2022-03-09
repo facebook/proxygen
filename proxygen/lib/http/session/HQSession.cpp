@@ -2911,8 +2911,9 @@ bool HQSession::HQStreamTransportBase::sendHeadersWithDelegate(
                << ": HQSession received delegate request without a QuicSocket";
     return false;
   }
-  auto quicDSRSenderRawPtr =
-      dynamic_cast<quic::DSRPacketizationRequestSender*>(dsrSender.get());
+  auto dsrRequestSenderRawPtr = CHECK_NOTNULL(dsrSender.get());
+  auto quicDSRSenderRawPtr = dynamic_cast<quic::DSRPacketizationRequestSender*>(
+      dsrRequestSenderRawPtr);
   if (!quicDSRSenderRawPtr) {
     LOG(ERROR) << __func__ << ": The passed in DSRSender is of wrong type";
     return false;
@@ -2936,6 +2937,7 @@ bool HQSession::HQStreamTransportBase::sendHeadersWithDelegate(
   }
   *dataFrameHeaderSize = *writeFrameHeaderResult;
   notifyPendingEgress();
+  dsrRequestSenderRawPtr->onHeaderBytesGenerated(*dataFrameHeaderSize);
   return true;
 }
 

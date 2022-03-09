@@ -376,7 +376,7 @@ class MockHTTPTransaction : public HTTPTransaction {
               removeWaitingForReplaySafety,
               (folly::AsyncTransport::ReplaySafetyCallback*));
   MOCK_METHOD(void, updateAndSendPriority, (uint8_t, bool));
-
+  MOCK_METHOD((bool), addBufferMeta, (), (noexcept));
   void enablePush() {
     EXPECT_CALL(mockCodec_, supportsPushTransactions())
         .WillRepeatedly(testing::Return(true));

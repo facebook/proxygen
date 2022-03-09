@@ -579,6 +579,7 @@ class MockHTTPSessionInfoCallback : public HTTPSession::InfoCallback {
 class MockDSRRequestSender : public DSRRequestSender {
  public:
   MockDSRRequestSender() = default;
+  MOCK_METHOD1(onHeaderBytesGenerated, void(size_t));
 };
 
 } // namespace proxygen

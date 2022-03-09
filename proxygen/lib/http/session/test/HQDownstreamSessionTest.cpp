@@ -2723,18 +2723,27 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
   handler->expectHeaders();
   auto dsrRequestSender = std::make_unique<MockQuicDSRRequestSender>();
   auto rawDsrSender = dsrRequestSender.get();
+  std::unique_ptr<quic::DSRPacketizationRequestSender> senderStorage;
   handler->expectEOM([&]() {
     handler->txn_->setTransportCallback(&transportCallback_);
+    auto mockDsrRequestSender =
+        dynamic_cast<MockDSRRequestSender*>(rawDsrSender);
+    CHECK(mockDsrRequestSender);
     EXPECT_CALL(*socketDriver_->getSocket(),
-                setDSRPacketizationRequestSenderRef(_, _))
+                setDSRPacketizationRequestSender(_, _))
         .Times(1)
         .WillOnce(Invoke(
             [&](StreamId,
-                const std::unique_ptr<quic::DSRPacketizationRequestSender>&
-                    sender) {
+                std::unique_ptr<quic::DSRPacketizationRequestSender> sender) {
               EXPECT_EQ(rawDsrSender, sender.get());
+              senderStorage = std::move(sender);
               return folly::unit;
             }));
+    EXPECT_CALL(*mockDsrRequestSender, onHeaderBytesGenerated(_))
+        .WillOnce(Invoke([&](auto) {
+          handler->txn_->addBufferMeta();
+          handler->txn_->sendEOM();
+        }));
     EXPECT_TRUE(handler->sendHeadersWithDelegate(
         200, 1000 * 20, std::move(dsrRequestSender)));
     EXPECT_GT(transportCallback_.bodyBytesGenerated_, 0);

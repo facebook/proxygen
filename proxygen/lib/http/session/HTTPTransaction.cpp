@@ -995,24 +995,20 @@ bool HTTPTransaction::sendHeadersWithDelegate(
   lastResponseStatus_ = headers.getStatusCode();
   HTTPHeaderSize size;
   size_t dataFrameHeaderSize = 0;
-  transport_.sendHeadersWithDelegate(this,
-                                     headers,
-                                     &size,
-                                     &dataFrameHeaderSize,
-                                     *expectedResponseLength_,
-                                     std::move(sender));
+  if (!transport_.sendHeadersWithDelegate(this,
+                                          headers,
+                                          &size,
+                                          &dataFrameHeaderSize,
+                                          *expectedResponseLength_,
+                                          std::move(sender))) {
+    return false;
+  }
   if (transportCallback_) {
     transportCallback_->headerBytesGenerated(size);
     transportCallback_->bodyBytesGenerated(dataFrameHeaderSize);
   }
   updateEgressCompressionInfo(transport_.getCodec().getCompressionInfo());
-
-  if (addBufferMeta()) {
-    sendEOM();
-    return true;
-  } else {
-    return false;
-  }
+  return true;
 }
 
 void HTTPTransaction::sendHeadersWithEOM(const HTTPMessage& header) {
