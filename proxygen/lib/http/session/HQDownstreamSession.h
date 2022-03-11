@@ -27,6 +27,8 @@ class HQDownstreamSession : public HQSession {
 
   void onTransportReady() noexcept override;
 
+  void onFullHandshakeDone() noexcept override;
+
   void onAppRateLimited() noexcept override;
 
   HTTPTransaction::Handler* getTransactionTimeoutHandler(

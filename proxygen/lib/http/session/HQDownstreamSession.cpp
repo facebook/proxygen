@@ -21,6 +21,13 @@ void HQDownstreamSession::onTransportReady() noexcept {
   transportReadyNotified_ = true;
 }
 
+void HQDownstreamSession::onFullHandshakeDone() noexcept {
+  HQDownstreamSession::DestructorGuard dg(this);
+  if (infoCallback_) {
+    infoCallback_->onFullHandshakeCompletion(*this);
+  }
+}
+
 void HQDownstreamSession::onAppRateLimited() noexcept {
   invokeOnEgressStreams(([](HQStreamTransportBase* stream) {
                           stream->txn_.onEgressTransportAppRateLimited();
