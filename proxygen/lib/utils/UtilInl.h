@@ -9,6 +9,7 @@
 #pragma once
 
 #include <folly/Range.h>
+#include <folly/portability/Windows.h> // for windows compatibility: STRICT maybe defined by some win headers
 
 namespace proxygen {
 

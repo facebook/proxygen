@@ -10,6 +10,7 @@
 
 #include <sstream>
 
+#include <folly/portability/Windows.h> // for windows compatibility: STRICT maybe defined by some win headers
 #include <proxygen/lib/utils/ParseURL.h>
 
 namespace proxygen {
