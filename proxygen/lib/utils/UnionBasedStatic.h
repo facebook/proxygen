@@ -51,17 +51,45 @@
 
 // The const_casts are only needed if creating a const union but it's a
 // no-op otherwise so keep it to avoid creating even more macro helpers.
+#if defined(_MSC_VER) && !defined(__clang__)
+#define DEFINE_UNION_STATIC_CONSTRUCTOR_IMPL(type, name, var) \
+  ATTRIBUTE_CONSTRUCTOR                                       \
+  void init##name##Union() {                                  \
+    new (const_cast<type*>(&var.data)) type();                \
+  }                                                           \
+                                                              \
+  static struct staticInit##name##UnionStruct {               \
+    staticInit##name##UnionStruct() {                         \
+      init##name##Union();                                    \
+    }                                                         \
+  } staticInit##name##Union;
+#else
 #define DEFINE_UNION_STATIC_CONSTRUCTOR_IMPL(type, name, var) \
   ATTRIBUTE_CONSTRUCTOR                                       \
   void init##name##Union() {                                  \
     new (const_cast<type*>(&var.data)) type();                \
   }
+#endif
 
+#if defined(_MSC_VER) && !defined(__clang__)
+#define DEFINE_UNION_STATIC_CONSTRUCTOR_ARG_IMPL(type, name, var, ...) \
+  ATTRIBUTE_CONSTRUCTOR                                                \
+  void init##name##Union() {                                           \
+    new (const_cast<type*>(&var.data)) type(__VA_ARGS__);              \
+  }                                                                    \
+                                                                       \
+  static struct staticInit##name##UnionStruct {                        \
+    staticInit##name##UnionStruct() {                                  \
+      init##name##Union();                                             \
+    }                                                                  \
+  } staticInit##name##Union;
+#else
 #define DEFINE_UNION_STATIC_CONSTRUCTOR_ARG_IMPL(type, name, var, ...) \
   ATTRIBUTE_CONSTRUCTOR                                                \
   void init##name##Union() {                                           \
     new (const_cast<type*>(&var.data)) type(__VA_ARGS__);              \
   }
+#endif
 // END IMPLEMENTATION MACROS
 
 // Use var.data to access the actual member of interest. Zero and argument
