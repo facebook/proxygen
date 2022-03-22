@@ -18,6 +18,8 @@
 #include <folly/synchronization/Baton.h>
 #include <wangle/acceptor/ConnectionManager.h>
 
+#include <proxygen/lib/http/session/test/HQSessionMocks.h>
+
 using namespace proxygen;
 using namespace std;
 using namespace testing;
@@ -717,6 +719,17 @@ TEST_F(SessionPoolFixture, ThreadIdleSessionControllerTrackSessionPoolChanges) {
   EXPECT_EQ(controller.getTotalIdleSessions(), 2);
   EXPECT_EQ(p1.getNumIdleSessions(), 1);
   EXPECT_EQ(p2.getNumIdleSessions(), 1);
+}
+
+TEST_F(SessionPoolFixture, DescribeWithNullTransport) {
+  MockHQSession session;
+  MockSessionHolderCallback cb;
+  SessionHolder sessionHolder(&session, &cb);
+
+  // This should not crash.
+  LOG(INFO) << sessionHolder;
+  // This is to appease mock session destructor.
+  session.setInfoCallback(nullptr);
 }
 
 // So we can have -v work

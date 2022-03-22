@@ -23,6 +23,17 @@ namespace proxygen {
 folly::SocketAddress local("127.0.0.1", 80);
 folly::SocketAddress peer("127.0.0.1", 12345);
 
+class MockSessionHolderCallback : public SessionHolder::Callback {
+ public:
+  MOCK_METHOD(void, detachIdle, (SessionHolder*), ());
+  MOCK_METHOD(void, detachPartiallyFilled, (SessionHolder*), ());
+  MOCK_METHOD(void, detachFilled, (SessionHolder*), ());
+  MOCK_METHOD(void, attachIdle, (SessionHolder*), ());
+  MOCK_METHOD(void, attachPartiallyFilled, (SessionHolder*), ());
+  MOCK_METHOD(void, attachFilled, (SessionHolder*), ());
+  MOCK_METHOD(void, addDrainingSession, (HTTPSessionBase*), ());
+};
+
 std::unique_ptr<testing::NiceMock<MockHTTPCodec>> makeCodecCommon() {
   static int txnIdx = 1;
   auto codec = std::make_unique<testing::NiceMock<MockHTTPCodec>>();
