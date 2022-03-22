@@ -325,8 +325,12 @@ void SessionHolder::onSettingsAck(const HTTPSessionBase& sess) {
 }
 
 void SessionHolder::describe(std::ostream& os) const {
-  const AsyncSocket* sock =
-      session_->getTransport()->getUnderlyingTransport<AsyncSocket>();
+  const auto transport = session_->getTransport();
+  if (!transport) {
+    os << "(nullptr)";
+    return;
+  }
+  const AsyncSocket* sock = transport->getUnderlyingTransport<AsyncSocket>();
   if (sock) {
     os << "fd=" << sock->getNetworkSocket().toFd();
 
