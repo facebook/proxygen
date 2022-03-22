@@ -370,7 +370,8 @@ void initializeHttpClientSettings(HQToolClientParams& hqParams) {
   hqParams.earlyData = FLAGS_early_data;
   hqParams.migrateClient = FLAGS_migrate_client;
   hqParams.txnTimeout = std::chrono::milliseconds(FLAGS_txn_timeout);
-} // initializeHttpServerSettings
+  hqParams.httpVersion.parse(FLAGS_httpversion);
+} // initializeHttpClientSettings
 
 void initializeQLogSettings(HQBaseParams& hqParams) {
   hqParams.qLoggerPath = FLAGS_qlogger_path;
