@@ -48,8 +48,9 @@ class DSRRequestSender {
   // This is called back when the underlying session has generated the header
   // bytes for the transaction. At this point it is the responsibility of the
   // DSRRequestSender to call addBufferMeta and sendEOM so that the buffer meta
-  // data can start flowing through the transport.
-  virtual void onHeaderBytesGenerated(size_t /*headerBytes*/) {
+  // data can start flowing through the transport. The parameter is the offset
+  // at which the DSR data begins.
+  virtual void onHeaderBytesGenerated(size_t /*dsrDataStartingOffset*/) {
   }
 };
 

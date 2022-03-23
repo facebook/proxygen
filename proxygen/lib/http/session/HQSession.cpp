@@ -2937,7 +2937,7 @@ bool HQSession::HQStreamTransportBase::sendHeadersWithDelegate(
   }
   *dataFrameHeaderSize = *writeFrameHeaderResult;
   notifyPendingEgress();
-  dsrRequestSenderRawPtr->onHeaderBytesGenerated(*dataFrameHeaderSize);
+  dsrRequestSenderRawPtr->onHeaderBytesGenerated(streamWriteByteOffset());
   return true;
 }
 

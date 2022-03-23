@@ -2739,15 +2739,22 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
               senderStorage = std::move(sender);
               return folly::unit;
             }));
+    folly::Optional<size_t> headerBytes;
     EXPECT_CALL(*mockDsrRequestSender, onHeaderBytesGenerated(_))
-        .WillOnce(Invoke([&](auto) {
+        .WillOnce(Invoke([&](auto bytes) {
           handler->txn_->addBufferMeta();
           handler->txn_->sendEOM();
+          headerBytes = bytes;
         }));
     EXPECT_TRUE(handler->sendHeadersWithDelegate(
         200, 1000 * 20, std::move(dsrRequestSender)));
     EXPECT_GT(transportCallback_.bodyBytesGenerated_, 0);
     auto dataFrameHeaderSize = transportCallback_.bodyBytesGenerated_;
+    ASSERT_TRUE(headerBytes.hasValue());
+    // TODO is + 5 really the best way to encode this?
+    EXPECT_EQ(
+        *headerBytes,
+        dataFrameHeaderSize + transportCallback_.headerBytesGenerated_ + 5);
     EXPECT_TRUE(handler->txn_->isEgressStarted());
     handler->txn_->onWriteReady(10 * 1000, 1.0);
     EXPECT_EQ(transportCallback_.bodyBytesGenerated_,
