@@ -1191,6 +1191,20 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                          true);
   }
 
+  void addPingAcknowledgedReadEvent(
+      std::chrono::milliseconds delayFromPrevious =
+          std::chrono::milliseconds(0)) {
+    addReadEventInternal(kConnectionStreamId,
+                         nullptr,
+                         false,
+                         folly::none,
+                         delayFromPrevious,
+                         false,
+                         false,
+                         false,
+                         true);
+  }
+
   void addReadEvent(StreamId streamId,
                     std::unique_ptr<folly::IOBuf> buf,
                     std::chrono::milliseconds delayFromPrevious =
@@ -1304,14 +1318,16 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               folly::Optional<QuicErrorCode> er,
               bool ss,
               bool da = false,
-              bool pr = false)
+              bool pr = false,
+              bool pa = false)
         : streamId(s),
           buf(std::move(b)),
           eof(e),
           error(er),
           stopSending(ss),
           datagramsAvailable(da),
-          pingReceived(pr) {
+          pingReceived(pr),
+          pingAcknowledged(pa) {
     }
 
     StreamId streamId;
@@ -1321,6 +1337,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     bool stopSending;
     bool datagramsAvailable;
     bool pingReceived;
+    bool pingAcknowledged;
   };
 
   void addReadEventInternal(StreamId streamId,
@@ -1331,7 +1348,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                                 std::chrono::milliseconds(0),
                             bool stopSending = false,
                             bool datagramsAvailable = false,
-                            bool pingReceived = false) {
+                            bool pingReceived = false,
+                            bool pingAcknowledged = false) {
     std::vector<ReadEvent> events;
     events.emplace_back(streamId,
                         std::move(buf),
@@ -1339,7 +1357,8 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                         error,
                         stopSending,
                         datagramsAvailable,
-                        pingReceived);
+                        pingReceived,
+                        pingAcknowledged);
     addReadEvents(std::move(events), delayFromPrevious);
   }
 
@@ -1385,6 +1404,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             if (event.streamId == kConnectionStreamId && event.pingReceived &&
                 !event.error && pingCB_) {
               pingCB_->onPing();
+              continue;
+            }
+            if (event.streamId == kConnectionStreamId &&
+                event.pingAcknowledged && !event.error && pingCB_) {
+              pingCB_->pingAcknowledged();
               continue;
             }
             auto bufLen = event.buf ? event.buf->computeChainDataLength() : 0;

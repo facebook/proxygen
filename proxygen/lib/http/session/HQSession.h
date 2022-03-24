@@ -262,6 +262,7 @@ class HQSession
 
   // quic::QuicSocket::PingCallback
   void pingAcknowledged() noexcept override {
+    resetTimeout();
   }
   void pingTimeout() noexcept override {
   }
