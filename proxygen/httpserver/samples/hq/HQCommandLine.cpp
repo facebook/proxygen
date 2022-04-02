@@ -34,10 +34,7 @@ DEFINE_string(path,
 DEFINE_int32(connect_timeout, 2000, "(HQClient) connect timeout in ms");
 DEFINE_string(httpversion, "1.1", "HTTP version string");
 DEFINE_string(protocol, "", "HQ protocol version e.g. h3-29 or hq-fb-05");
-DEFINE_int32(quic_version,
-             0,
-             "QUIC version to use. Numbers > 25 are treated as draft versions. "
-             "0 is default");
+DEFINE_int64(quic_version, 0, "QUIC version to use. 0 is default");
 DEFINE_bool(use_version, true, "Use set QUIC version as first version");
 DEFINE_string(logdir, "/tmp/logs", "Directory to store connection logs");
 DEFINE_string(outdir, "", "Directory to store responses");
@@ -220,11 +217,7 @@ void initializeTransportSettings(HQToolParams& hqUberParams) {
                            quic::QuicVersion::QUIC_V1,
                            quic::QuicVersion::QUIC_DRAFT};
   if (FLAGS_quic_version != 0) {
-    auto quicVersion =
-        FLAGS_quic_version > 25
-            ? static_cast<quic::QuicVersion>(0xff000000 | FLAGS_quic_version)
-            : static_cast<quic::QuicVersion>(FLAGS_quic_version);
-
+    auto quicVersion = static_cast<quic::QuicVersion>(FLAGS_quic_version);
     bool useVersionFirst = FLAGS_use_version;
     if (useVersionFirst) {
       hqParams.quicVersions.insert(hqParams.quicVersions.begin(), quicVersion);
