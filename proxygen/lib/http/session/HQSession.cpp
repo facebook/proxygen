@@ -2521,9 +2521,15 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
     eraseUnboundStream(hqStream);
   }
 
-  // If there are no established streams left, close the connection
   if (getNumStreams() == 0) {
-    cleanupPendingStreams();
+    folly::Optional<quic::QuicVersion> quicVersion;
+    if (sock_ && sock_->getState() && sock_->getState()->version.has_value()) {
+      quicVersion = sock_->getState()->version.value();
+    }
+    if (quicVersion.has_value() &&
+        (quicVersion.value() != quic::QuicVersion::MVFST_ALIAS2)) {
+      cleanupPendingStreams();
+    }
     if (infoCallback_) {
       infoCallback_->onDeactivateConnection(*this);
     }

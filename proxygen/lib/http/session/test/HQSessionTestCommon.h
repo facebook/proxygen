@@ -49,6 +49,7 @@ struct TestParams {
   std::size_t numBytesOnPushStream{kUnlimited};
   bool expectOnTransportReady{true};
   bool datagrams_{false};
+  bool checkUniridStreamCallbacks{true};
 };
 
 std::string prBodyScriptToName(const std::vector<uint8_t>& bodyScript);
@@ -158,7 +159,8 @@ class HQSessionTest
       numCtrlStreams_ = ctrlStreamCount + qpackStreamCount;
       socketDriver_->setLocalAppCallback(this);
 
-      if (GetParam().unidirectionalStreamsCredit >= numCtrlStreams_) {
+      if (GetParam().checkUniridStreamCallbacks &&
+          GetParam().unidirectionalStreamsCredit >= numCtrlStreams_) {
         auto dirModifier =
             (direction_ == proxygen::TransportDirection::DOWNSTREAM) ? 0 : 1;
         EXPECT_CALL(infoCb_, onWrite(testing::_, testing::_))

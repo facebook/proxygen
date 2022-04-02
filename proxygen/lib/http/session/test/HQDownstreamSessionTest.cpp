@@ -2319,6 +2319,53 @@ TEST_P(HQDownstreamSessionTestHQ, DelayedQPACKStopSendingReset) {
   hqSession_->closeWhenIdle();
 }
 
+using ControlStreamsStallTest = HQDownstreamSessionBeforeTransportReadyTest;
+
+TEST_P(ControlStreamsStallTest, StalledQpackStream) {
+  // This test does not pre-setup any control streams for a reason.
+  // We want to be able to control unidirectional (QPACK) stream lifetime to
+  // perform the test.
+
+  QuicConnectionStateBase state(quic::QuicNodeType::Server);
+  state.version = quic::QuicVersion::MVFST_ALIAS2;
+  EXPECT_CALL(*(socketDriver_->sock_), getState())
+      .WillRepeatedly(testing::Invoke(
+          [&state]() -> QuicConnectionStateBase* { return &state; }));
+
+  // Get a request going.
+  auto req = getGetRequest();
+  req.getHeaders().add("X-FB-Debug", "rfccffgvtvnenjkbtitkfdufddnvbecu");
+  auto id = sendRequest(req);
+
+  // Add data to the control stream 6 with fake stream offset 42.
+  // This is to ensure unidirectional stream dispatcher in session does not
+  // instantiate an actual full blown control stream object, but only create a
+  // pending tmp stream placeholder and attach a peek callback to it to wait for
+  // the preface.
+  std::array<uint8_t, 1> data1{0b00100111};
+  auto buf1 = folly::IOBuf::copyBuffer(data1.data(), data1.size());
+  socketDriver_->addReadEvent(6, std::move(buf1), milliseconds(0), 42);
+
+  // Let the sesion roll.
+  hqSession_->onTransportReady();
+
+  // Now cancel the request we queded up in the beginning.
+  socketDriver_->addStopSending(id, HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED);
+  socketDriver_->addReadError(id,
+                              HTTP3::ErrorCode::HTTP_REQUEST_CANCELLED,
+                              std::chrono::milliseconds(0));
+
+  // Roll the event base. Once session loops, the expectation is that the
+  // pending control stream is alive and well and has its peek callback
+  // attached.
+  flushRequestsAndLoopN(1);
+
+  EXPECT_NE(socketDriver_->streams_[6].peekCB, nullptr);
+
+  // Close the session; all good.
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTestHQ, QPACKHeadersTooLarge) {
   hqSession_->setEgressSettings({{SettingsId::MAX_HEADER_LIST_SIZE, 60}});
   auto req = getGetRequest();
@@ -3143,6 +3190,16 @@ TEST_P(HQDownstreamSessionTestHQPush, StopSending) {
 
 using DropConnectionInTransportReadyTest =
     HQDownstreamSessionBeforeTransportReadyTest;
+
+INSTANTIATE_TEST_SUITE_P(ControlStreamsStallTest,
+                         ControlStreamsStallTest,
+                         Values([] {
+                           TestParams tp;
+                           tp.alpn_ = "h3";
+                           tp.checkUniridStreamCallbacks = false;
+                           return tp;
+                         }()),
+                         paramsToTestName);
 
 INSTANTIATE_TEST_SUITE_P(DropConnectionInTransportReadyTest,
                          DropConnectionInTransportReadyTest,
