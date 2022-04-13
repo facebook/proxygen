@@ -2522,14 +2522,6 @@ void HQSession::detachStreamTransport(HQStreamTransportBase* hqStream) {
   }
 
   if (getNumStreams() == 0) {
-    folly::Optional<quic::QuicVersion> quicVersion;
-    if (sock_ && sock_->getState() && sock_->getState()->version.has_value()) {
-      quicVersion = sock_->getState()->version.value();
-    }
-    if (quicVersion.has_value() &&
-        (quicVersion.value() != quic::QuicVersion::MVFST_ALIAS2)) {
-      cleanupPendingStreams();
-    }
     if (infoCallback_) {
       infoCallback_->onDeactivateConnection(*this);
     }

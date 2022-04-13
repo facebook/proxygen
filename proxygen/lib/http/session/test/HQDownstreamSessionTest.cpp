@@ -2327,7 +2327,6 @@ TEST_P(ControlStreamsStallTest, StalledQpackStream) {
   // perform the test.
 
   QuicConnectionStateBase state(quic::QuicNodeType::Server);
-  state.version = quic::QuicVersion::MVFST_ALIAS2;
   EXPECT_CALL(*(socketDriver_->sock_), getState())
       .WillRepeatedly(testing::Invoke(
           [&state]() -> QuicConnectionStateBase* { return &state; }));
