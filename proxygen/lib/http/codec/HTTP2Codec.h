@@ -345,7 +345,7 @@ class HTTP2Codec
   bool strictValidation_{false};
 
   // CONTINUATION frame can follow either HEADERS or PUSH_PROMISE frames.
-  // Keeps frame type of iniating frame of header block.
+  // Keeps frame type of initiating frame of header block.
   http2::FrameType headerBlockFrameType_{http2::FrameType::DATA};
 };
 
