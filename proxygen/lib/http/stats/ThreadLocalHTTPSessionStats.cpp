@@ -24,6 +24,10 @@ TLHTTPSessionStats::TLHTTPSessionStats(const std::string& prefix)
       txnsSessionStalled(prefix + "_txn_session_stall",
                          facebook::fb303::SUM,
                          facebook::fb303::RATE),
+      egressContentLengthMismatches(
+          prefix + "_egress_content_length_mismatches",
+          facebook::fb303::SUM,
+          facebook::fb303::RATE),
       presendIoSplit(prefix + "_presend_io_split",
                      facebook::fb303::SUM,
                      facebook::fb303::RATE),
@@ -155,6 +159,10 @@ void TLHTTPSessionStats::recordTransactionStalled() noexcept {
 
 void TLHTTPSessionStats::recordSessionStalled() noexcept {
   txnsSessionStalled.add(1);
+}
+
+void TLHTTPSessionStats::recordEgressContentLengthMismatches() noexcept {
+  egressContentLengthMismatches.add(1);
 }
 
 void TLHTTPSessionStats::recordPendingBufferedReadBytes(

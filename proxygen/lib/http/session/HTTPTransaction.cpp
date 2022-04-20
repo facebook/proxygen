@@ -1331,6 +1331,9 @@ void HTTPTransaction::sendEOM() {
   }
   if (expectedResponseLength_ && actualResponseLength_ &&
       (*expectedResponseLength_ != *actualResponseLength_)) {
+    if (stats_) {
+      stats_->recordEgressContentLengthMismatches();
+    }
     auto errorMsg = folly::to<std::string>(
         "Content-Length/body mismatch sendEOM: expected=",
         *expectedResponseLength_,

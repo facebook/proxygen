@@ -1269,6 +1269,11 @@ TEST_F(HTTPDownstreamSessionTest, TestOnContentMismatch) {
   // is different from the actual length of the body.
   // The expectation is simply to log the behavior, such as:
   // ".. HTTPTransaction.cpp ] Content-Length/body mismatch: expected: .. "
+
+  NiceMock<MockHTTPSessionStats> stats;
+  httpSession_->setSessionStats(&stats);
+  EXPECT_CALL(stats, _recordEgressContentLengthMismatches()).Times(2);
+
   folly::EventBase base;
   InSequence enforceOrder;
   auto handler1 = addSimpleNiceHandler();

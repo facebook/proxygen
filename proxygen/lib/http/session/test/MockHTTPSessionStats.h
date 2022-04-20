@@ -22,6 +22,8 @@ class DummyHTTPSessionStats : public HTTPSessionStats {
   // virtual void recordSessionIdleTime(std::chrono::seconds) noexcept {};
   void recordTransactionStalled() noexcept override{};
   void recordSessionStalled() noexcept override{};
+  void recordEgressContentLengthMismatches() noexcept override {
+  }
 
   void recordPresendIOSplit() noexcept override{};
   void recordPresendExceedLimit() noexcept override{};
@@ -69,6 +71,10 @@ class MockHTTPSessionStats : public DummyHTTPSessionStats {
     _recordSessionStalled();
   }
   MOCK_METHOD(void, _recordSessionStalled, ());
+  void recordEgressContentLengthMismatches() noexcept override {
+    _recordEgressContentLengthMismatches();
+  }
+  MOCK_METHOD(void, _recordEgressContentLengthMismatches, ());
   void recordPendingBufferedReadBytes(int64_t num) noexcept override {
     _recordPendingBufferedReadBytes(num);
   }
