@@ -925,6 +925,27 @@ TEST_F(HTTP2CodecTest, FrameTooLarge) {
             ErrorCode::FRAME_SIZE_ERROR);
 }
 
+TEST_F(HTTP2CodecTest, DataFrameZeroLengthWithEOM) {
+  HTTPMessage req = getGetRequest();
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
+
+  upstreamCodec_.generateHeader(output_, 1, req);
+  // Write Zero length Data frame (just a Frame header) with end of stream set
+  writeFrameHeaderManual(output_,
+                         0,
+                         (uint8_t)http2::FrameType::DATA,
+                         (uint8_t)http2::Flags::END_STREAM,
+                         1);
+
+  parse();
+
+  EXPECT_EQ(callbacks_.messageBegin, 1);
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.messageComplete, 1);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
+}
+
 TEST_F(HTTP2CodecTest, UnknownFrameType) {
   HTTPMessage req = getGetRequest();
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
