@@ -13,7 +13,6 @@
 #include <proxygen/lib/utils/PerfectIndexMap.h>
 #include <unordered_map>
 
-using namespace folly;
 using namespace proxygen;
 
 // buck build @mode/opt proxygen/lib/utils/test:perfect_index_map_benchmark
