@@ -292,7 +292,8 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
         return 1.0;
       }
 
-      return static_cast<double>(weight_) / parent_->totalChildWeight_;
+      return static_cast<double>(weight_) /
+             static_cast<double>(parent_->totalChildWeight_);
     }
 
     double getRelativeEnqueuedWeight() const {
@@ -304,7 +305,8 @@ class HTTP2PriorityQueue : public HTTP2PriorityQueueBase {
         return 0.0;
       }
 
-      return static_cast<double>(weight_) / parent_->totalEnqueuedWeight_;
+      return static_cast<double>(weight_) /
+             static_cast<double>(parent_->totalEnqueuedWeight_);
     }
 
     /* Execute the given function on this node and all child nodes presently

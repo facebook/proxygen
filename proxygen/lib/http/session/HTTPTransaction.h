@@ -693,10 +693,11 @@ class HTTPTransaction
   }
 
   std::tuple<uint64_t, uint64_t, double> getPrioritySummary() const {
-    return std::make_tuple(insertDepth_,
-                           currentDepth_,
-                           egressCalls_ > 0 ? cumulativeRatio_ / egressCalls_
-                                            : 0);
+    return std::make_tuple(
+        insertDepth_,
+        currentDepth_,
+        egressCalls_ > 0 ? cumulativeRatio_ / static_cast<double>(egressCalls_)
+                         : 0);
   }
 
   folly::Optional<HTTPPriority> getHTTPPriority() const {
