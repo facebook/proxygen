@@ -41,7 +41,7 @@ class ZlibStreamDecompressor : public StreamDecompressor {
 
   ZlibStreamDecompressor() = default;
 
-  ~ZlibStreamDecompressor();
+  ~ZlibStreamDecompressor() override;
 
   void init(CompressionType type);
 

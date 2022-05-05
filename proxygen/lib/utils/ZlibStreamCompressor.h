@@ -26,7 +26,7 @@ class ZlibStreamCompressor : public StreamCompressor {
  public:
   explicit ZlibStreamCompressor(CompressionType type, int level);
 
-  ~ZlibStreamCompressor();
+  ~ZlibStreamCompressor() override;
 
   void init();
 
