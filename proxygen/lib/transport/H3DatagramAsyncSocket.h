@@ -262,7 +262,7 @@ class H3DatagramAsyncSocket
   /*
    * HTTPSessionBase::InfoCallback
    */
-  void onDeactivateConnection(const HTTPSessionBase&) override {
+  void onDestroy(const HTTPSessionBase&) override {
     upstreamSession_ = nullptr;
   }
 
