@@ -56,6 +56,13 @@ void H3DatagramAsyncSocket::connectSuccess() {
     closeWithError({AsyncSocketException::BAD_ARGS, "No HTTP Request"});
     return;
   }
+
+  if (!upstreamSession_) {
+    closeWithError({AsyncSocketException::INTERNAL_ERROR,
+                    "ConnectSuccess with invalid session"});
+    return;
+  }
+
   // Send the HTTPMessage
   txn_ = upstreamSession_->newTransaction(this);
   if (!txn_ || !txn_->canSendHeaders()) {
