@@ -128,7 +128,7 @@ class PeriodicStats {
    */
   virtual const T& getCurrentData() const {
     {
-      folly::rcu_reader guard;
+      std::scoped_lock guard(folly::rcu_default_domain());
       auto* loadedData = data_.load();
       if (loadedData->getLastUpdateTime() != tlData_->getLastUpdateTime()) {
         // Should be fine using the default assignment operator the compiler
