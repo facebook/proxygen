@@ -85,6 +85,14 @@ class HQUpstreamSession : public HQSession {
   void onNetworkSwitch(
       std::unique_ptr<folly::AsyncUDPSocket>) noexcept override;
 
+  /**
+   * Returns true iff a new outgoing transaction can be made on this session
+   */
+  bool supportsMoreTransactions() const override {
+    return sock_ && sock_->getNumOpenableBidirectionalStreams() &&
+           HTTPSessionBase::supportsMoreTransactions();
+  }
+
   uint32_t getNumOutgoingStreams() const override {
     // need transport API
     return static_cast<uint32_t>(streams_.size());

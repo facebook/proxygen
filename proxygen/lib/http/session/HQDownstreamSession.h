@@ -63,6 +63,14 @@ class HQDownstreamSession : public HQSession {
       HTTPTransaction::PushHandler*, /* handler */
       ProxygenError* error = nullptr) override;
 
+  /**
+   * Returns true iff a new outgoing transaction can be made on this session
+   */
+  bool supportsMoreTransactions() const override {
+    return sock_ && sock_->getNumOpenableUnidirectionalStreams() &&
+           HTTPSessionBase::supportsMoreTransactions();
+  }
+
   uint32_t getNumOutgoingStreams() const override {
     // need transport API
     return static_cast<uint32_t>(numberOfEgressPushStreams());

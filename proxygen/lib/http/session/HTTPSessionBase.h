@@ -193,7 +193,7 @@ class HTTPSessionBase : public wangle::ManagedConnection {
   /**
    * Returns true iff a new outgoing transaction can be made on this session
    */
-  bool supportsMoreTransactions() const {
+  virtual bool supportsMoreTransactions() const {
     return (getNumOutgoingStreams() < getMaxConcurrentOutgoingStreams());
   }
 

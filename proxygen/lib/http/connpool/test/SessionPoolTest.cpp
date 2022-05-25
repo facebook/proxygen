@@ -31,14 +31,16 @@ TEST_F(SessionPoolFixture, ParallelPoolChangedMaxSessions) {
   EXPECT_CALL(*codec, setCallback(_)).WillRepeatedly(SaveArg<0>(&cb));
   p.putSession(makeSession(std::move(codec)));
 
+  // inserted session should be in IDLE state
   EXPECT_EQ(p.getNumSessions(), 1);
+  EXPECT_EQ(p.getNumIdleSessions(), 1);
+
+  // blocked on opening streams should transition the session to filled state
   cb->onSettings({{SettingsId::MAX_CONCURRENT_STREAMS, 0}});
   evb_.loop();
-  EXPECT_EQ(p.getNumSessions(), 0);
 
-  // Clear the pool
-  p.setMaxIdleSessions(0);
-  evb_.loop();
+  EXPECT_EQ(p.getNumSessions(), 1);
+  EXPECT_EQ(p.getNumFullSessions(), 1);
 }
 
 TEST_F(SessionPoolFixture, SerialPoolBasic) {

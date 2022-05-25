@@ -302,6 +302,44 @@ TEST_P(HQUpstreamSessionTest, PriorityUpdateIntoTransport) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQUpstreamSessionTest, TestSupportsMoreTransactions) {
+  auto infoCb = std::make_unique<
+      testing::NiceMock<proxygen::MockHTTPSessionInfoCallback>>();
+  hqSession_->setInfoCallback(infoCb.get());
+
+  auto resp = makeResponse(200, 100);
+  // set the max number of bidirectional streams = 1.
+  socketDriver_->setMaxBidiStreams(1);
+
+  // we should be able to open only one transaction
+  EXPECT_TRUE(hqSession_->supportsMoreTransactions());
+  auto handler = openTransaction();
+  handler->txn_->sendHeaders(getGetRequest());
+  handler->txn_->sendEOM();
+  handler->expectHeaders();
+  handler->expectBody();
+  handler->expectEOM();
+  handler->expectDetachTransaction();
+  sendResponse(handler->txn_->getID(),
+               *std::get<0>(resp),
+               std::move(std::get<1>(resp)),
+               true);
+  flushAndLoop();
+
+  // unable to create more transactions, should return nullptr
+  EXPECT_FALSE(hqSession_->supportsMoreTransactions());
+  auto* txn = hqSession_->newTransaction(handler.get());
+  EXPECT_FALSE(txn);
+
+  // receiving stream credits from peer should invoke
+  // onSettingsOutgoingStreamsNotFull cb
+  EXPECT_CALL(*infoCb, onSettingsOutgoingStreamsNotFull).Times(1);
+  socketDriver_->setMaxBidiStreams(2);
+  EXPECT_TRUE(hqSession_->supportsMoreTransactions());
+
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQUpstreamSessionTest, SendPriorityUpdate) {
   if (IS_HQ) {
     auto handler = openTransaction();

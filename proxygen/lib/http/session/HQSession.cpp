@@ -139,6 +139,17 @@ void HQSession::onNewBidirectionalStream(quic::StreamId id) noexcept {
   minUnseenIncomingStreamId_ = std::max(minUnseenIncomingStreamId_, id + 4);
 }
 
+void HQSession::onBidirectionalStreamsAvailable(
+    uint64_t numStreamsAvailable) noexcept {
+  if (direction_ == TransportDirection::UPSTREAM) {
+    VLOG(4) << "Got new max number of concurrent streams we can initiate: "
+            << numStreamsAvailable << " sess=" << *this;
+    if (infoCallback_ && supportsMoreTransactions()) {
+      infoCallback_->onSettingsOutgoingStreamsNotFull(*this);
+    }
+  }
+}
+
 void HQSession::onNewUnidirectionalStream(quic::StreamId id) noexcept {
   // This is where a new unidirectional ingress stream is available
   // Try to check whether this is a push

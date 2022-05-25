@@ -227,6 +227,9 @@ class HQSession
 
   void onNewUnidirectionalStream(quic::StreamId id) noexcept override;
 
+  void onBidirectionalStreamsAvailable(
+      uint64_t /*numStreamsAvailable*/) noexcept override;
+
   void onStopSending(quic::StreamId id,
                      quic::ApplicationErrorCode error) noexcept override;
 

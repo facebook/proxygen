@@ -140,15 +140,16 @@ void SessionHolder::link() {
   }
   lastUseTime_ = std::chrono::steady_clock::now();
   auto curTxnCount = session_->getNumOutgoingStreams();
-  if (curTxnCount == 0 && session_->isDetachable(/*checkSocket=*/false)) {
-    state_ = ListState::IDLE;
-    parent_->attachIdle(this);
-  } else if (curTxnCount < session_->getMaxConcurrentOutgoingStreams()) {
-    state_ = ListState::PARTIAL;
-    parent_->attachPartiallyFilled(this);
-  } else {
+  if (!session_->supportsMoreTransactions()) {
     state_ = ListState::FULL;
     parent_->attachFilled(this);
+  } else if (curTxnCount == 0 &&
+             session_->isDetachable(/*checkSocket=*/false)) {
+    state_ = ListState::IDLE;
+    parent_->attachIdle(this);
+  } else {
+    state_ = ListState::PARTIAL;
+    parent_->attachPartiallyFilled(this);
   }
 }
 
