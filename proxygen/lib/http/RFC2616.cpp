@@ -78,21 +78,20 @@ double parseQvalue(const EncodingParams& params) {
 
 bool parseQvalues(folly::StringPiece value, TokenPairVec& output) {
   bool success = true;
-  try {
-    auto encodings = parseEncoding(value);
+  auto encodings = parseEncoding(value);
+  if (encodings.hasException()) {
+    return false;
+  }
 
-    for (const auto& pair : encodings) {
-      double qvalue = 1.0;
-      try {
-        qvalue = parseQvalue(pair.second);
-      } catch (const std::range_error&) {
-        // q=<some garbage>
-        success = false;
-      }
-      output.emplace_back(pair.first, qvalue);
+  for (const auto& pair : encodings.value()) {
+    double qvalue = 1.0;
+    try {
+      qvalue = parseQvalue(pair.second);
+    } catch (const std::range_error&) {
+      // q=<some garbage>
+      success = false;
     }
-  } catch (const std::exception& /*ex*/) {
-    success = false;
+    output.emplace_back(pair.first, qvalue);
   }
 
   return success;
@@ -165,13 +164,15 @@ bool parseByteRangeSpec(folly::StringPiece value,
   return true;
 }
 
-EncodingList parseEncoding(const folly::StringPiece header) {
+folly::Try<EncodingList> parseEncoding(const folly::StringPiece header) {
   EncodingList result;
   std::vector<folly::StringPiece> topLevelTokens;
   folly::split(',', header, topLevelTokens, true /*ignore empty*/);
 
   if (topLevelTokens.empty()) {
-    throw std::runtime_error("Header value mustn't be empty.");
+    return folly::Try<EncodingList>(
+        folly::make_exception_wrapper<std::runtime_error>(
+            "Header value mustn't be empty."));
   }
 
   for (auto topLevelToken : topLevelTokens) {
@@ -179,12 +180,15 @@ EncodingList parseEncoding(const folly::StringPiece header) {
     folly::split(';', topLevelToken, secondLevelTokens, true /*ignore empty*/);
 
     if (secondLevelTokens.empty()) {
-      throw std::runtime_error("Encoding must have name.");
+      return folly::Try<EncodingList>(
+          folly::make_exception_wrapper<std::runtime_error>(
+              "Encoding must have name."));
     }
 
     auto encoding = folly::trimWhitespace(secondLevelTokens.front());
     if (encoding.empty()) {
-      throw std::runtime_error("Empty encoding!");
+      return folly::Try<EncodingList>(
+          folly::make_exception_wrapper<std::runtime_error>("Empty encoding!"));
     }
     EncodingParams params;
     params.reserve(secondLevelTokens.size() - 1);
@@ -197,24 +201,25 @@ EncodingList parseEncoding(const folly::StringPiece header) {
       val = folly::trimWhitespace(val);
 
       if (key.empty()) {
-        throw std::runtime_error("Param key must not be empty!");
+        return folly::Try<EncodingList>(
+            folly::make_exception_wrapper<std::runtime_error>(
+                "Param key must not be empty!"));
       }
 
       params.emplace_back(key, val);
     }
     result.emplace_back(encoding, std::move(params));
   }
-  return result;
+  return folly::Try<EncodingList>(result);
 }
 
 bool acceptsEncoding(const folly::StringPiece header,
                      const folly::StringPiece encoding) {
-  try {
-    auto encodings = parseEncoding(header);
-    return acceptsEncoding(encodings, encoding);
-  } catch (const std::exception&) {
+  auto encodings = parseEncoding(header);
+  if (encodings.hasException()) {
     return false;
   }
+  return acceptsEncoding(encodings.value(), encoding);
 }
 
 bool acceptsEncoding(const EncodingList& encodings,

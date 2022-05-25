@@ -130,7 +130,8 @@ TEST(QvalueTest, Invalids) {
 TEST(ParseEncodingTest, Simple) {
   string test("zstd;q=1.0;wl=20,gzip;q=0.0");
   auto encodings = RFC2616::parseEncoding(test);
-  EXPECT_EQ(encodings,
+  EXPECT_FALSE(encodings.hasException());
+  EXPECT_EQ(encodings.value(),
             (RFC2616::EncodingList{{"zstd", {{"q", "1.0"}, {"wl", "20"}}},
                                    {"gzip", {{"q", "0.0"}}}}));
 }
@@ -138,28 +139,29 @@ TEST(ParseEncodingTest, Simple) {
 TEST(ParseEncodingTest, Whitespace) {
   string test("zstd ; q =\t1.0 ; wl = 20 , gzip ;\t q = 0.0");
   auto encodings = RFC2616::parseEncoding(test);
-  EXPECT_EQ(encodings,
+  EXPECT_FALSE(encodings.hasException());
+  EXPECT_EQ(encodings.value(),
             (RFC2616::EncodingList{{"zstd", {{"q", "1.0"}, {"wl", "20"}}},
                                    {"gzip", {{"q", "0.0"}}}}));
 }
 
 TEST(ParseEncodingTest, Invalid) {
-  EXPECT_THROW(RFC2616::parseEncoding(""), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" "), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(","), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" ,"), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(", "), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" , "), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" , , "), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(";"), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" ;"), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding("; "), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" ; "), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" ; ; "), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding(" ; ; , ; ;"), std::runtime_error);
+  EXPECT_TRUE(RFC2616::parseEncoding("").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" ").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(",").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" ,").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(", ").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" , ").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" , , ").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(";").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" ;").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding("; ").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" ; ").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" ; ; ").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding(" ; ; , ; ;").hasException());
 
-  EXPECT_THROW(RFC2616::parseEncoding("zstd;=,gzip"), std::runtime_error);
-  EXPECT_THROW(RFC2616::parseEncoding("zstd;=wat,gzip"), std::runtime_error);
+  EXPECT_TRUE(RFC2616::parseEncoding("zstd;=,gzip").hasException());
+  EXPECT_TRUE(RFC2616::parseEncoding("zstd;=wat,gzip").hasException());
 }
 
 TEST(AcceptEncodingTest, Simple) {

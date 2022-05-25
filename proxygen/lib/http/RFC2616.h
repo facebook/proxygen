@@ -16,6 +16,7 @@
 
 #include <folly/Optional.h>
 #include <folly/Range.h>
+#include <folly/Try.h>
 #include <proxygen/lib/http/HTTPMethod.h>
 #include <string>
 
@@ -97,7 +98,7 @@ using EncodingList = std::vector<std::pair<folly::StringPiece, EncodingParams>>;
  *   ("*", [])
  * ]
  */
-EncodingList parseEncoding(const folly::StringPiece header);
+folly::Try<EncodingList> parseEncoding(const folly::StringPiece header);
 
 /*
  * For given Accept-Encoding header, returns if encoding is accepted (is in
