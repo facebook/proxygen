@@ -28,13 +28,13 @@ class ResourceStats : public PeriodicStats<ResourceData> {
    * proc loadavg.
    */
   explicit ResourceStats(std::unique_ptr<Resources> resources);
-  ~ResourceStats();
+  ~ResourceStats() override;
 
  protected:
   /**
    * Override getNewData so that we can return an instance of ResourceData.
    */
-  ResourceData* getNewData() const;
+  ResourceData* getNewData() const override;
 
   /**
    * Abstraction that enables callers to provide their own implementations
