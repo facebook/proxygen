@@ -29,6 +29,7 @@ proxygen_add_test(TARGET CodecTests
     HTTP1xCodecTest.cpp
     HTTP2CodecTest.cpp
     HTTP2FramerTest.cpp
+    HTTPBinaryCodecTest.cpp
   DEPENDS
     codectestutils
     proxygen

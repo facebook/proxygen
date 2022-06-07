@@ -109,6 +109,18 @@ class HTTPBinaryCodec : public HTTPCodec {
   size_t generateEOM(folly::IOBufQueue& writeBuf, StreamID txn) override;
 
  protected:
+  /* The format of Binary HTTP Messages is the following:
+   *
+   * Message with Known-Length {
+   *    Framing Indicator (i) = 0..1,
+   *    Known-Length Informational Response (..),
+   *    Control Data (..),
+   *    Known-Length Field Section (..),
+   *    Known-Length Content (..),
+   *    Known-Length Field Section (..),
+   *    Padding (..),
+   *  }
+   */
   ParseResult parseFramingIndicator(folly::io::Cursor& cursor,
                                     bool& request,
                                     bool& knownLength);
