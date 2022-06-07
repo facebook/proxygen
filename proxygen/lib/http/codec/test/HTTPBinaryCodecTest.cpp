@@ -39,8 +39,8 @@ class HTTPBinaryCodecForTest : public HTTPBinaryCodec {
 
   ParseResult parseHeaders(folly::io::Cursor& cursor,
                            size_t remaining,
-                           HTTPMessage& msg) {
-    return HTTPBinaryCodec::parseHeaders(cursor, remaining, msg);
+                           HeaderDecodeInfo& decodeInfo) {
+    return HTTPBinaryCodec::parseHeaders(cursor, remaining, decodeInfo);
   }
 
   ParseResult parseContent(folly::io::Cursor& cursor,
@@ -52,6 +52,52 @@ class HTTPBinaryCodecForTest : public HTTPBinaryCodec {
   folly::IOBuf& getMsgBody() {
     return *msgBody_;
   }
+};
+
+class HTTPBinaryCodecCallback : public HTTPCodec::Callback {
+ public:
+  HTTPBinaryCodecCallback() = default;
+
+  void onMessageBegin(HTTPCodec::StreamID /*stream*/,
+                      HTTPMessage* /*msg*/) override {
+  }
+  void onPushMessageBegin(HTTPCodec::StreamID /*stream*/,
+                          HTTPCodec::StreamID /*assocStream*/,
+                          HTTPMessage* /*msg*/) override {
+  }
+  void onHeadersComplete(HTTPCodec::StreamID /*stream*/,
+                         std::unique_ptr<HTTPMessage> msg) override {
+    msg_ = std::move(msg);
+  }
+  void onBody(HTTPCodec::StreamID /*stream*/,
+              std::unique_ptr<folly::IOBuf> chain,
+              uint16_t /*padding*/) override {
+    if (chain) {
+      body_ = chain->clone();
+    }
+  }
+  void onChunkHeader(HTTPCodec::StreamID /*stream*/,
+                     size_t /*length*/) override {
+  }
+  void onChunkComplete(HTTPCodec::StreamID /*stream*/) override {
+  }
+  void onTrailersComplete(HTTPCodec::StreamID /*stream*/,
+                          std::unique_ptr<HTTPHeaders> trailers) override {
+    trailers_ = std::move(trailers);
+  }
+  void onMessageComplete(HTTPCodec::StreamID /*stream*/,
+                         bool /*upgrade*/) override {
+  }
+  void onError(HTTPCodec::StreamID /*stream*/,
+               const HTTPException& error,
+               bool /*newTxn*/) override {
+    error_ = std::make_unique<HTTPException>(error);
+  }
+
+  std::unique_ptr<HTTPMessage> msg_;
+  std::unique_ptr<folly::IOBuf> body_;
+  std::unique_ptr<HTTPHeaders> trailers_;
+  std::unique_ptr<HTTPException> error_;
 };
 
 class HTTPBinaryCodecTest : public ::testing::Test {
@@ -223,6 +269,20 @@ TEST_F(HTTPBinaryCodecTest, testParseResponseControlDataFailure) {
       downstreamBinaryCodec_->parseResponseControlData(cursor, parsedBytes, msg)
           .error(),
       "Invalid response status code: 600");
+
+  folly::IOBufQueue controlInvalidDataInformationalResponseIOBuf;
+  appender = folly::io::QueueAppender(
+      &controlInvalidDataInformationalResponseIOBuf, 0);
+  parsedBytes = quic::encodeQuicInteger(101, [&appender](auto val) {
+                  appender.writeBE(val);
+                }).value();
+  cursor =
+      folly::io::Cursor(controlInvalidDataInformationalResponseIOBuf.front());
+
+  EXPECT_EQ(
+      downstreamBinaryCodec_->parseResponseControlData(cursor, parsedBytes, msg)
+          .error(),
+      "Invalid response status code: 101");
 }
 
 TEST_F(HTTPBinaryCodecTest, testParseHeadersSuccess) {
@@ -246,12 +306,18 @@ TEST_F(HTTPBinaryCodecTest, testParseHeadersSuccess) {
       folly::ByteRange(headers.data(), headers.size()));
   folly::io::Cursor cursor(headersIOBuf.get());
 
-  HTTPMessage msg;
+  HeaderDecodeInfo decodeInfo;
+  decodeInfo.init(true /* request */,
+                  false /* isRequestTrailers */,
+                  true /* validate */,
+                  false /* strictValidation */,
+                  false /* allowEmptyPath */);
   EXPECT_EQ(
-      downstreamBinaryCodec_->parseHeaders(cursor, headers.size(), msg).value(),
+      downstreamBinaryCodec_->parseHeaders(cursor, headers.size(), decodeInfo)
+          .value(),
       headers.size());
 
-  HTTPHeaders httpHeaders = msg.getHeaders();
+  HTTPHeaders httpHeaders = decodeInfo.msg->getHeaders();
   EXPECT_EQ(httpHeaders.exists("user-agent"), true);
   EXPECT_EQ(httpHeaders.exists("host"), true);
   EXPECT_EQ(httpHeaders.exists("accept-language"), true);
@@ -268,10 +334,15 @@ TEST_F(HTTPBinaryCodecTest, testParseHeadersFailure) {
       folly::ByteRange(invalidHeadersCount.data(), invalidHeadersCount.size()));
   folly::io::Cursor cursor(headersIOBuf.get());
 
-  HTTPMessage msg;
+  HeaderDecodeInfo decodeInfo;
+  decodeInfo.init(true /* request */,
+                  false /* isRequestTrailers */,
+                  true /* validate */,
+                  false /* strictValidation */,
+                  false /* allowEmptyPath */);
   EXPECT_EQ(
       downstreamBinaryCodec_
-          ->parseHeaders(cursor, invalidHeadersCount.size(), msg)
+          ->parseHeaders(cursor, invalidHeadersCount.size(), decodeInfo)
           .error(),
       "Number of headers (key value pairs) should be >= 1. Header count is 0");
 
@@ -294,7 +365,7 @@ TEST_F(HTTPBinaryCodecTest, testParseHeadersFailure) {
   cursor = folly::io::Cursor(headersIOBuf.get());
 
   EXPECT_EQ(downstreamBinaryCodec_
-                ->parseHeaders(cursor, invalidHeadersLength.size(), msg)
+                ->parseHeaders(cursor, invalidHeadersLength.size(), decodeInfo)
                 .error(),
             "Failure to parse: headerValue");
 
@@ -305,11 +376,12 @@ TEST_F(HTTPBinaryCodecTest, testParseHeadersFailure) {
       invalidHeadersUnderflow.data(), invalidHeadersUnderflow.size()));
   cursor = folly::io::Cursor(headersIOBuf.get());
 
-  EXPECT_EQ(downstreamBinaryCodec_
-                ->parseHeaders(cursor, invalidHeadersUnderflow.size(), msg)
-                .error(),
-            "Header parsing underflowed! Headers length in bytes (9) is "
-            "inconsistent with remaining buffer length (4)");
+  EXPECT_EQ(
+      downstreamBinaryCodec_
+          ->parseHeaders(cursor, invalidHeadersUnderflow.size(), decodeInfo)
+          .error(),
+      "Header parsing underflowed! Headers length in bytes (9) is "
+      "inconsistent with remaining buffer length (4)");
 
   // Format is `.` where the first `.` represents an underflowed quic integer
   const std::vector<uint8_t> invalidHeadersUnderflowQuic{0x99};
@@ -317,10 +389,11 @@ TEST_F(HTTPBinaryCodecTest, testParseHeadersFailure) {
       invalidHeadersUnderflowQuic.data(), invalidHeadersUnderflowQuic.size()));
   cursor = folly::io::Cursor(headersIOBuf.get());
 
-  EXPECT_EQ(downstreamBinaryCodec_
-                ->parseHeaders(cursor, invalidHeadersUnderflowQuic.size(), msg)
-                .error(),
-            "Failure to parse number of headers");
+  EXPECT_EQ(
+      downstreamBinaryCodec_
+          ->parseHeaders(cursor, invalidHeadersUnderflowQuic.size(), decodeInfo)
+          .error(),
+      "Failure to parse number of headers");
 }
 
 TEST_F(HTTPBinaryCodecTest, testParseContentSuccess) {
@@ -352,6 +425,83 @@ TEST_F(HTTPBinaryCodecTest, testParseContentFailure) {
       downstreamBinaryCodec_->parseContent(cursor, contentInvalid.size(), msg)
           .error(),
       "Failure to parse content");
+}
+
+TEST_F(HTTPBinaryCodecTest, testOnIngressSuccess) {
+  // Format is `..GET.https.www.example.com./hello.txt..user-agent.curl/7.16.3
+  // libcurl/7.16.3 OpenSSL/0.9.7l
+  // zlib/1.2.3.host.www.example.com.accept-language.en, mi`
+  const std::vector<uint8_t> binaryHTTPMessage{
+      0x00, 0x03, 0x47, 0x45, 0x54, 0x05, 0x68, 0x74, 0x74, 0x70, 0x73, 0x0f,
+      0x77, 0x77, 0x77, 0x2e, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x2e,
+      0x63, 0x6f, 0x6d, 0x0a, 0x2f, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e, 0x74,
+      0x78, 0x74, 0x40, 0x6c, 0x0a, 0x75, 0x73, 0x65, 0x72, 0x2d, 0x61, 0x67,
+      0x65, 0x6e, 0x74, 0x34, 0x63, 0x75, 0x72, 0x6c, 0x2f, 0x37, 0x2e, 0x31,
+      0x36, 0x2e, 0x33, 0x20, 0x6c, 0x69, 0x62, 0x63, 0x75, 0x72, 0x6c, 0x2f,
+      0x37, 0x2e, 0x31, 0x36, 0x2e, 0x33, 0x20, 0x4f, 0x70, 0x65, 0x6e, 0x53,
+      0x53, 0x4c, 0x2f, 0x30, 0x2e, 0x39, 0x2e, 0x37, 0x6c, 0x20, 0x7a, 0x6c,
+      0x69, 0x62, 0x2f, 0x31, 0x2e, 0x32, 0x2e, 0x33, 0x04, 0x68, 0x6f, 0x73,
+      0x74, 0x0f, 0x77, 0x77, 0x77, 0x2e, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c,
+      0x65, 0x2e, 0x63, 0x6f, 0x6d, 0x0f, 0x61, 0x63, 0x63, 0x65, 0x70, 0x74,
+      0x2d, 0x6c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x06, 0x65, 0x6e,
+      0x2c, 0x20, 0x6d, 0x69, 0x00, 0x00};
+  auto binaryHTTPMessageIOBuf = folly::IOBuf::wrapBuffer(
+      folly::ByteRange(binaryHTTPMessage.data(), binaryHTTPMessage.size()));
+  folly::io::Cursor cursor(binaryHTTPMessageIOBuf.get());
+
+  HTTPBinaryCodecCallback callback;
+  downstreamBinaryCodec_->setCallback(&callback);
+  downstreamBinaryCodec_->onIngress(*binaryHTTPMessageIOBuf);
+  downstreamBinaryCodec_->onIngressEOF();
+
+  // Check onError was not called for the callback
+  EXPECT_EQ(callback.error_, nullptr);
+
+  // Check msg and header fields
+  EXPECT_EQ(callback.msg_->isSecure(), true);
+  EXPECT_EQ(callback.msg_->getMethod(), proxygen::HTTPMethod::GET);
+  EXPECT_EQ(callback.msg_->getURL(), "/hello.txt");
+  HTTPHeaders httpHeaders = callback.msg_->getHeaders();
+  EXPECT_EQ(httpHeaders.exists("user-agent"), true);
+  EXPECT_EQ(httpHeaders.exists("host"), true);
+  EXPECT_EQ(httpHeaders.exists("accept-language"), true);
+  EXPECT_EQ(httpHeaders.getSingleOrEmpty("user-agent"),
+            "curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3");
+  EXPECT_EQ(httpHeaders.getSingleOrEmpty("host"), "www.example.com");
+  EXPECT_EQ(httpHeaders.getSingleOrEmpty("accept-language"), "en, mi");
+}
+
+TEST_F(HTTPBinaryCodecTest, testOnIngressFailure) {
+  // Format is `..GET.https.www.example.com./hello.txt..user-agent.curl/7.16.3
+  // libcurl/7.16.3 OpenSSL/0.9.7l
+  // zlib/1.2.3.host.www.example.com.accept-language.en, mi` where the last `.`
+  // is value 10 instead of 6
+  const std::vector<uint8_t> binaryInvalidHTTPMessage{
+      0x00, 0x03, 0x47, 0x45, 0x54, 0x05, 0x68, 0x74, 0x74, 0x70, 0x73, 0x0f,
+      0x77, 0x77, 0x77, 0x2e, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x2e,
+      0x63, 0x6f, 0x6d, 0x0a, 0x2f, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e, 0x74,
+      0x78, 0x74, 0x40, 0x6c, 0x0a, 0x75, 0x73, 0x65, 0x72, 0x2d, 0x61, 0x67,
+      0x65, 0x6e, 0x74, 0x34, 0x63, 0x75, 0x72, 0x6c, 0x2f, 0x37, 0x2e, 0x31,
+      0x36, 0x2e, 0x33, 0x20, 0x6c, 0x69, 0x62, 0x63, 0x75, 0x72, 0x6c, 0x2f,
+      0x37, 0x2e, 0x31, 0x36, 0x2e, 0x33, 0x20, 0x4f, 0x70, 0x65, 0x6e, 0x53,
+      0x53, 0x4c, 0x2f, 0x30, 0x2e, 0x39, 0x2e, 0x37, 0x6c, 0x20, 0x7a, 0x6c,
+      0x69, 0x62, 0x2f, 0x31, 0x2e, 0x32, 0x2e, 0x33, 0x04, 0x68, 0x6f, 0x73,
+      0x74, 0x0f, 0x77, 0x77, 0x77, 0x2e, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c,
+      0x65, 0x2e, 0x63, 0x6f, 0x6d, 0x0f, 0x61, 0x63, 0x63, 0x65, 0x70, 0x74,
+      0x2d, 0x6c, 0x61, 0x6e, 0x67, 0x75, 0x61, 0x67, 0x65, 0x0a, 0x65, 0x6e,
+      0x2c, 0x20, 0x6d, 0x69, 0x00, 0x00};
+  auto binaryHTTPMessageIOBuf = folly::IOBuf::wrapBuffer(folly::ByteRange(
+      binaryInvalidHTTPMessage.data(), binaryInvalidHTTPMessage.size()));
+  folly::io::Cursor cursor(binaryHTTPMessageIOBuf.get());
+
+  HTTPBinaryCodecCallback callback;
+  downstreamBinaryCodec_->setCallback(&callback);
+  downstreamBinaryCodec_->onIngress(*binaryHTTPMessageIOBuf);
+  downstreamBinaryCodec_->onIngressEOF();
+
+  // Check onError was called with the correct error
+  EXPECT_EQ(std::string(callback.error_.get()->what()),
+            "Invalid Message: Failure to parse: headerValue");
 }
 
 } // namespace proxygen::test

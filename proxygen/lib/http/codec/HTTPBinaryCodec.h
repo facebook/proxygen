@@ -10,6 +10,7 @@
 
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/http/codec/HeaderDecodeInfo.h>
 #include <proxygen/lib/http/codec/TransportDirection.h>
 #include <string>
 
@@ -136,16 +137,16 @@ class HTTPBinaryCodec : public HTTPCodec {
                                        HTTPMessage& msg);
   ParseResult parseHeaders(folly::io::Cursor& cursor,
                            size_t remaining,
-                           HTTPMessage& msg);
+                           HeaderDecodeInfo& decodeInfo);
   ParseResult parseContent(folly::io::Cursor& cursor,
                            size_t remaining,
                            HTTPMessage& msg);
   ParseResult parseTrailers(folly::io::Cursor& cursor,
                             size_t remaining,
-                            HTTPMessage& msg);
+                            HeaderDecodeInfo& decodeInfo);
   ParseResult parseHeadersHelper(folly::io::Cursor& cursor,
                                  size_t remaining,
-                                 HTTPMessage& msg,
+                                 HeaderDecodeInfo& decodeInfo,
                                  bool isTrailers);
 
   bool request_{true};
@@ -177,9 +178,13 @@ class HTTPBinaryCodec : public HTTPCodec {
 
   StreamID ingressTxnID_;
 
-  std::unique_ptr<folly::IOBuf> bufferedIngress_;
+  folly::IOBufQueue bufferedIngress_{folly::IOBufQueue::cacheChainLength()};
+  // We don't need to use an IOBufQueue for msgBody_ since we are writing a
+  // complete message to it and don't need to rely on the efficient size
+  // computation provided by IOBufQueue
   std::unique_ptr<folly::IOBuf> msgBody_;
 
+  HeaderDecodeInfo decodeInfo_;
   std::unique_ptr<HTTPMessage> msg_;
   std::unique_ptr<HTTPHeaders> trailers_;
   std::string userAgent_;

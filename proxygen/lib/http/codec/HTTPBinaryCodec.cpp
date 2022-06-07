@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/codec/HTTPBinaryCodec.h>
 
+#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <quic/codec/QuicInteger.h>
 
 namespace proxygen {
@@ -170,7 +171,7 @@ ParseResult HTTPBinaryCodec::parseResponseControlData(folly::io::Cursor& cursor,
 
 ParseResult HTTPBinaryCodec::parseHeadersHelper(folly::io::Cursor& cursor,
                                                 size_t remaining,
-                                                HTTPMessage& msg,
+                                                HeaderDecodeInfo& decodeInfo,
                                                 bool isTrailers) {
   size_t parsed = 0;
 
@@ -199,14 +200,6 @@ ParseResult HTTPBinaryCodec::parseHeadersHelper(folly::io::Cursor& cursor,
         remaining));
   }
 
-  // Retrieve the HTTPHeaders from msg and mutate them directly
-  HTTPHeaders* headers = nullptr;
-  if (isTrailers) {
-    trailers_ = std::make_unique<HTTPHeaders>();
-    headers = trailers_.get();
-  } else {
-    headers = &msg.getHeaders();
-  }
   auto numHeaders = 0;
   while (parsed < lengthOfHeaders->first) {
     std::string headerName;
@@ -227,7 +220,12 @@ ParseResult HTTPBinaryCodec::parseHeadersHelper(folly::io::Cursor& cursor,
     parsed += *headerValueRes;
     remaining -= *headerValueRes;
 
-    headers->set(headerName, headerValue);
+    if (!decodeInfo.onHeader(proxygen::HPACKHeaderName(headerName),
+                             headerValue) ||
+        !decodeInfo.parsingError.empty()) {
+      return folly::makeUnexpected(fmt::format(
+          "Error parsing field section (Error: {})", decodeInfo.parsingError));
+    }
     numHeaders++;
   }
   if (numHeaders < 1 && !isTrailers) {
@@ -242,8 +240,8 @@ ParseResult HTTPBinaryCodec::parseHeadersHelper(folly::io::Cursor& cursor,
 
 ParseResult HTTPBinaryCodec::parseHeaders(folly::io::Cursor& cursor,
                                           size_t remaining,
-                                          HTTPMessage& msg) {
-  return parseHeadersHelper(cursor, remaining, msg, false);
+                                          HeaderDecodeInfo& decodeInfo) {
+  return parseHeadersHelper(cursor, remaining, decodeInfo, false);
 }
 
 ParseResult HTTPBinaryCodec::parseContent(folly::io::Cursor& cursor,
@@ -259,6 +257,9 @@ ParseResult HTTPBinaryCodec::parseContent(folly::io::Cursor& cursor,
   }
   // Increase parsed by the number of bytes read
   parsed += contentLength->second;
+  if (contentLength->first == 0) {
+    return parsed;
+  }
   // Check that we have not gone beyond "remaining"
   if (contentLength->first > remaining - parsed) {
     return folly::makeUnexpected(std::string("Failure to parse content"));
@@ -275,18 +276,157 @@ ParseResult HTTPBinaryCodec::parseContent(folly::io::Cursor& cursor,
 
 ParseResult HTTPBinaryCodec::parseTrailers(folly::io::Cursor& cursor,
                                            size_t remaining,
-                                           HTTPMessage& msg) {
-  return parseHeadersHelper(cursor, remaining, msg, true);
+                                           HeaderDecodeInfo& decodeInfo) {
+  return parseHeadersHelper(cursor, remaining, decodeInfo, true);
 }
 
 size_t HTTPBinaryCodec::onIngress(const folly::IOBuf& buf) {
-  // TODO(T118289674) - Implement HTTPBinaryCodec
-  return 0;
+  auto len = bufferedIngress_.chainLength();
+  bufferedIngress_.append(buf.clone());
+  return bufferedIngress_.chainLength() - len;
 }
 
 void HTTPBinaryCodec::onIngressEOF() {
-  // TODO(T118289674) - Implement HTTPBinaryCodec
-  return;
+  size_t parsedTot = 0;
+  folly::io::Cursor cursor(bufferedIngress_.front());
+  auto bufLen = bufferedIngress_.chainLength();
+  if (!bufLen) {
+    parseError_ = "Empty buffer provided!";
+  }
+
+  while (!parseError_ && parsedTot < bufLen && !parserPaused_) {
+    size_t parsed = 0;
+    ParseResult parseResult;
+    switch (state_) {
+      case ParseState::FRAMING_INDICATOR:
+        // FRAMING_INDICATOR should be the first item that is parsed
+        parseResult = parseFramingIndicator(cursor, request_, knownLength_);
+        if (parseResult.hasError()) {
+          parseError_ = parseResult.error();
+          break;
+        }
+        parsed += *parseResult;
+        // If the framing indicator is for a request, then the
+        // TransportDirection should be DOWNSTREAM and vice versa.
+        if ((transportDirection_ == TransportDirection::DOWNSTREAM) !=
+            request_) {
+          parseError_ =
+              fmt::format("Invalid Framing Indicator '{}' for {} codec",
+                          request_ ? "request" : "response",
+                          transportDirection_);
+          break;
+        }
+        if (!request_) {
+          // If it's a response, then the next item to parse is the
+          // INFORMATIONAL_RESPONSE
+          state_ = ParseState::INFORMATIONAL_RESPONSE;
+        } else {
+          // else we parse the control data
+          state_ = ParseState::CONTROL_DATA;
+        }
+        break;
+
+      case ParseState::INFORMATIONAL_RESPONSE:
+        // TODO(T118289674) - Currently, the OHAI protocol doesn't support
+        // informational responses
+        // (https://ietf-wg-ohai.github.io/oblivious-http/draft-ietf-ohai-ohttp.html#name-informational-responses).
+        // Since we are primarily building this codec for an MVP 3rd Party OHAI
+        // proxy, we will skip parsing the INFORMATIONAL_RESPONSE for now and we
+        // can implement this later for complete functionality.
+        state_ = ParseState::CONTROL_DATA;
+        break;
+
+      case ParseState::CONTROL_DATA:
+        decodeInfo_.init(request_,
+                         false /* isRequestTrailers */,
+                         true /* validate */,
+                         true /* strictValidation */,
+                         false /* allowEmptyPath */);
+        // The control data has a different format based on request/response
+        if (request_) {
+          parseResult = parseRequestControlData(
+              cursor, bufLen - parsedTot, *decodeInfo_.msg);
+        } else {
+          parseResult = parseResponseControlData(
+              cursor, bufLen - parsedTot, *decodeInfo_.msg);
+        }
+        if (parseResult.hasError()) {
+          parseError_ = parseResult.error();
+          break;
+        }
+        parsed += *parseResult;
+        state_ = ParseState::HEADERS_SECTION;
+        break;
+
+      case ParseState::HEADERS_SECTION:
+        CHECK(decodeInfo_.msg);
+        parseResult = parseHeaders(cursor, bufLen - parsedTot, decodeInfo_);
+        if (parseResult.hasError()) {
+          parseError_ = parseResult.error();
+          break;
+        }
+        parsed += *parseResult;
+        state_ = ParseState::CONTENT;
+        msg_ = std::move(decodeInfo_.msg);
+        break;
+
+      case ParseState::CONTENT:
+        CHECK(msg_);
+        parseResult = parseContent(cursor, bufLen - parsedTot, *msg_);
+        if (parseResult.hasError()) {
+          parseError_ = parseResult.error();
+          break;
+        }
+        parsed += *parseResult;
+        state_ = ParseState::TRAILERS_SECTION;
+        break;
+
+      case ParseState::TRAILERS_SECTION:
+        decodeInfo_.init(request_,
+                         true /* isRequestTrailers */,
+                         true /* validate */,
+                         true /* strictValidation */,
+                         false /* allowEmptyPath */);
+        parseResult = parseTrailers(cursor, bufLen - parsedTot, decodeInfo_);
+        if (parseResult.hasError()) {
+          parseError_ = parseResult.error();
+          break;
+        }
+        trailers_ =
+            std::make_unique<HTTPHeaders>(decodeInfo_.msg->getHeaders());
+        parsed += *parseResult;
+        state_ = ParseState::PADDING;
+        break;
+
+      case ParseState::PADDING:
+        // This needs to be the last section
+        parsed = bufLen - parsedTot;
+        cursor.advanceToEnd();
+        break;
+
+      default:
+        CHECK(false);
+        break;
+    }
+    parsedTot += parsed;
+  }
+
+  if (parseError_) {
+    callback_->onError(
+        ingressTxnID_,
+        HTTPException(HTTPException::Direction::INGRESS,
+                      fmt::format("Invalid Message: {}", *parseError_)));
+  } else {
+    CHECK(msg_);
+    callback_->onHeadersComplete(ingressTxnID_, std::move(msg_));
+    if (msgBody_) {
+      callback_->onBody(ingressTxnID_, std::move(msgBody_), 0);
+    }
+    if (trailers_) {
+      callback_->onTrailersComplete(ingressTxnID_, std::move(trailers_));
+    }
+    callback_->onMessageComplete(ingressTxnID_, false);
+  }
 }
 
 void HTTPBinaryCodec::generateHeader(
