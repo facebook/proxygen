@@ -504,4 +504,111 @@ TEST_F(HTTPBinaryCodecTest, testOnIngressFailure) {
             "Invalid Message: Failure to parse: headerValue");
 }
 
+TEST_F(HTTPBinaryCodecTest, testGenerateHeaders) {
+  // Create HTTPMessage and encode it to a buffer
+  HTTPMessage msgEncoded;
+  msgEncoded.setMethod("GET");
+  msgEncoded.setSecure(true);
+  msgEncoded.setURL("/hello.txt");
+  HTTPHeaders& headersEncoded = msgEncoded.getHeaders();
+  headersEncoded.set("user-agent",
+                     "curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3");
+  headersEncoded.set("host", "www.example.com");
+  headersEncoded.set("accept-language", "en, mi");
+
+  folly::IOBufQueue writeBuffer;
+  downstreamBinaryCodec_->generateHeader(writeBuffer, 0, msgEncoded);
+
+  // Now, decode the HTTPMessage from the buffer and check values
+  HTTPBinaryCodecCallback callback;
+  downstreamBinaryCodec_->setCallback(&callback);
+  downstreamBinaryCodec_->onIngress(*writeBuffer.front());
+  downstreamBinaryCodec_->onIngressEOF();
+
+  EXPECT_EQ(callback.msg_->getMethod(), msgEncoded.getMethod());
+  EXPECT_EQ(callback.msg_->isSecure(), msgEncoded.isSecure());
+  EXPECT_EQ(callback.msg_->getURL(), msgEncoded.getURL());
+  auto headersDecoded = callback.msg_->getHeaders();
+  EXPECT_EQ(headersDecoded.size(), headersEncoded.size());
+  headersEncoded.forEach([&headersDecoded](const std::string& headerName,
+                                           const std::string& headerValue) {
+    EXPECT_EQ(headersDecoded.exists(headerName), true);
+    EXPECT_EQ(headersDecoded.getSingleOrEmpty(headerName), headerValue);
+  });
+}
+
+TEST_F(HTTPBinaryCodecTest, testGenerateBody) {
+  // Create Test Body and encode
+  std::string body = "Sample Test Body!";
+  std::unique_ptr<folly::IOBuf> testBody =
+      folly::IOBuf::wrapBuffer(body.data(), body.size());
+
+  folly::IOBufQueue writeBuffer;
+  downstreamBinaryCodec_->generateBody(writeBuffer, 0, std::move(testBody));
+
+  // Decode Test Body and check
+  folly::io::Cursor cursor(writeBuffer.front());
+  HTTPMessage msg;
+  EXPECT_EQ(downstreamBinaryCodec_->parseContent(cursor, 18, msg).value(), 18);
+  EXPECT_EQ(downstreamBinaryCodec_->getMsgBody().moveToFbString().toStdString(),
+            "Sample Test Body!");
+}
+
+TEST_F(HTTPBinaryCodecTest, testEncodeAndDecodeRequest) {
+  // Create full request encode it to a buffer
+  folly::IOBufQueue writeBuffer;
+
+  // Encode Framing Indicator, Control Data, and Headers
+  HTTPMessage msgEncoded;
+  msgEncoded.setMethod("POST");
+  msgEncoded.setSecure(false);
+  msgEncoded.setURL("/hello.txt");
+  HTTPHeaders& headersEncoded = msgEncoded.getHeaders();
+  headersEncoded.set("user-agent",
+                     "curl/7.16.3 libcurl/7.16.3 OpenSSL/0.9.7l zlib/1.2.3");
+  headersEncoded.set("host", "www.example.com");
+  headersEncoded.set("accept-language", "en, mi");
+  downstreamBinaryCodec_->generateHeader(writeBuffer, 0, msgEncoded);
+
+  // Encode Body
+  std::string body = "Sample Test Body!";
+  std::unique_ptr<folly::IOBuf> testBody =
+      folly::IOBuf::wrapBuffer(body.data(), body.size());
+  downstreamBinaryCodec_->generateBody(writeBuffer, 0, std::move(testBody));
+
+  // Encode Trailing Headers
+  std::unique_ptr<HTTPHeaders> trailersEncoded =
+      std::make_unique<HTTPHeaders>();
+  trailersEncoded->set("test-trailer", "test-trailer-value");
+  msgEncoded.setTrailers(std::move(trailersEncoded));
+  downstreamBinaryCodec_->generateTrailers(
+      writeBuffer, 0, *msgEncoded.getTrailers());
+
+  // Now, decode the request and check values
+  HTTPBinaryCodecCallback callback;
+  downstreamBinaryCodec_->setCallback(&callback);
+  downstreamBinaryCodec_->onIngress(*writeBuffer.front());
+  downstreamBinaryCodec_->onIngressEOF();
+
+  EXPECT_EQ(callback.msg_->getMethod(), msgEncoded.getMethod());
+  EXPECT_EQ(callback.msg_->isSecure(), msgEncoded.isSecure());
+  EXPECT_EQ(callback.msg_->getURL(), msgEncoded.getURL());
+  auto headersDecoded = callback.msg_->getHeaders();
+  EXPECT_EQ(headersDecoded.size(), headersEncoded.size());
+  headersEncoded.forEach([&headersDecoded](const std::string& headerName,
+                                           const std::string& headerValue) {
+    EXPECT_EQ(headersDecoded.exists(headerName), true);
+    EXPECT_EQ(headersDecoded.getSingleOrEmpty(headerName), headerValue);
+  });
+
+  EXPECT_EQ(callback.body_->moveToFbString().toStdString(),
+            "Sample Test Body!");
+
+  auto trailersDecoded = *callback.trailers_;
+  EXPECT_EQ(trailersDecoded.size(), 1);
+  EXPECT_EQ(trailersDecoded.exists("test-trailer"), true);
+  EXPECT_EQ(trailersDecoded.getSingleOrEmpty("test-trailer"),
+            "test-trailer-value");
+}
+
 } // namespace proxygen::test

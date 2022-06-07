@@ -13,6 +13,18 @@
 
 namespace proxygen {
 
+namespace {
+folly::Expected<size_t, quic::TransportErrorCode> encodeInteger(
+    uint64_t i, folly::io::QueueAppender& appender) {
+  return quic::encodeQuicInteger(i, [&](auto val) { appender.writeBE(val); });
+}
+
+void encodeString(folly::StringPiece str, folly::io::QueueAppender& appender) {
+  encodeInteger(str.size(), appender);
+  appender.pushAtMost((const uint8_t*)str.data(), str.size());
+}
+} // namespace
+
 HTTPBinaryCodec::HTTPBinaryCodec(TransportDirection direction) {
   transportDirection_ = direction;
   state_ = ParseState::FRAMING_INDICATOR;
@@ -429,6 +441,28 @@ void HTTPBinaryCodec::onIngressEOF() {
   }
 }
 
+size_t HTTPBinaryCodec::generateHeaderHelper(folly::io::QueueAppender& appender,
+                                             const HTTPHeaders& headers) {
+  // Calculate the number of bytes it will take to encode all the headers
+  size_t headersLength = 0;
+  headers.forEach([&](folly::StringPiece name, folly::StringPiece value) {
+    auto nameSize = name.size();
+    auto valueSize = value.size();
+    headersLength += quic::getQuicIntegerSize(nameSize).value() + nameSize +
+                     quic::getQuicIntegerSize(valueSize).value() + valueSize;
+  });
+
+  // Encode all the headers
+  auto lengthOfAllHeaders = encodeInteger(headersLength, appender);
+  headersLength += lengthOfAllHeaders.value();
+  headers.forEach([&](folly::StringPiece name, folly::StringPiece value) {
+    encodeString(name, appender);
+    encodeString(value, appender);
+  });
+
+  return headersLength;
+}
+
 void HTTPBinaryCodec::generateHeader(
     folly::IOBufQueue& writeBuf,
     StreamID txn,
@@ -436,8 +470,25 @@ void HTTPBinaryCodec::generateHeader(
     bool eom,
     HTTPHeaderSize* size,
     const folly::Optional<HTTPHeaders>& extraHeaders) {
-  // TODO(T118289674) - Implement HTTPBinaryCodec
-  return;
+  folly::io::QueueAppender appender(&writeBuf, queueAppenderMaxGrowth);
+  if (transportDirection_ == TransportDirection::DOWNSTREAM) {
+    // Encode Framing Indicator for Request
+    encodeInteger(folly::to<uint64_t>(
+                      HTTPBinaryCodec::FramingIndicator::REQUEST_KNOWN_LENGTH),
+                  appender);
+    // Encode Request Control Data
+    encodeString(msg.getMethodString(), appender);
+    encodeString(msg.isSecure() ? "https" : "http", appender);
+    encodeString(msg.getHeaders().getSingleOrEmpty(HTTP_HEADER_HOST), appender);
+    encodeString(msg.getPath(), appender);
+  } else {
+    encodeInteger(folly::to<uint64_t>(
+                      HTTPBinaryCodec::FramingIndicator::RESPONSE_KNOWN_LENGTH),
+                  appender);
+    // Response Control Data
+    encodeInteger(msg.getStatusCode(), appender);
+  }
+  generateHeaderHelper(appender, msg.getHeaders());
 }
 
 size_t HTTPBinaryCodec::generateBody(folly::IOBufQueue& writeBuf,
@@ -445,19 +496,32 @@ size_t HTTPBinaryCodec::generateBody(folly::IOBufQueue& writeBuf,
                                      std::unique_ptr<folly::IOBuf> chain,
                                      folly::Optional<uint8_t> padding,
                                      bool eom) {
-  // TODO(T118289674) - Implement HTTPBinaryCodec
-  return 0;
+  folly::io::QueueAppender appender(&writeBuf, queueAppenderMaxGrowth);
+  size_t lengthWritten = 0;
+  if (chain) {
+    lengthWritten = chain->computeChainDataLength();
+    encodeInteger(lengthWritten, appender);
+    appender.insert(std::move(chain));
+  }
+  if (eom) {
+    lengthWritten += generateEOM(writeBuf, txn);
+  }
+
+  return lengthWritten;
 }
 
 size_t HTTPBinaryCodec::generateTrailers(folly::IOBufQueue& writeBuf,
                                          StreamID txn,
                                          const HTTPHeaders& trailers) {
-  // TODO(T118289674) - Implement HTTPBinaryCodec
-  return 0;
+  folly::io::QueueAppender appender(&writeBuf, queueAppenderMaxGrowth);
+  auto trailersLengthWritten = generateHeaderHelper(appender, trailers);
+  encodeInteger(0, appender);
+  trailersLengthWritten++;
+
+  return trailersLengthWritten;
 }
 
 size_t HTTPBinaryCodec::generateEOM(folly::IOBufQueue& writeBuf, StreamID txn) {
-  // TODO(T118289674) - Implement HTTPBinaryCodec
   return 0;
 }
 

@@ -148,6 +148,8 @@ class HTTPBinaryCodec : public HTTPCodec {
                                  size_t remaining,
                                  HeaderDecodeInfo& decodeInfo,
                                  bool isTrailers);
+  size_t generateHeaderHelper(folly::io::QueueAppender& appender,
+                              const HTTPHeaders& headers);
 
   bool request_{true};
   bool knownLength_{true};
