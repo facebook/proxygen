@@ -20,6 +20,7 @@ enum class CodecProtocol : uint8_t {
   HTTP_2,
   HQ,
   HTTP_3,
+  HTTP_BINARY,
 };
 
 /**
@@ -47,6 +48,11 @@ extern bool isHTTP2CodecProtocol(CodecProtocol protocol);
  * Check if the given protocol is HQ
  */
 extern bool isHQCodecProtocol(CodecProtocol protocol);
+
+/**
+ * Check if the given protocol is HTTP_BINARY
+ */
+extern bool isHTTPBinaryCodecProtocol(CodecProtocol protocol);
 
 /**
  * Check if the given protocol supports paraellel requests

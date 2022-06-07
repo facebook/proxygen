@@ -23,6 +23,7 @@ static const std::string http_1_1 = "http/1.1";
 static const std::string http_2 = "http/2";
 static const std::string hq = "hq";
 static const std::string h3 = "h3";
+static const std::string http_binary = "bhttp";
 static const std::string empty = "";
 
 extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
@@ -35,6 +36,8 @@ extern CodecProtocol getCodecProtocolFromStr(folly::StringPiece protocolStr) {
     return CodecProtocol::HQ;
   } else if (protocolStr.find(h3) == 0) {
     return CodecProtocol::HTTP_3;
+  } else if (protocolStr.find(http_binary) == 0) {
+    return CodecProtocol::HTTP_BINARY;
   } else {
     // return default protocol
     return CodecProtocol::HTTP_1_1;
@@ -53,6 +56,8 @@ extern const std::string& getCodecProtocolString(CodecProtocol proto) {
       return h3;
     case CodecProtocol::HQ:
       return hq;
+    case CodecProtocol::HTTP_BINARY:
+      return http_binary;
   }
   LOG(FATAL) << "Unreachable";
   return empty;
@@ -61,7 +66,8 @@ extern const std::string& getCodecProtocolString(CodecProtocol proto) {
 extern bool isValidCodecProtocolStr(const std::string& protocolStr) {
   return protocolStr == http_1_1 || protocolStr == http2::kProtocolString ||
          protocolStr == http2::kProtocolCleartextString ||
-         protocolStr == http_2 || protocolStr == hq;
+         protocolStr == http_2 || protocolStr == hq ||
+         protocolStr == http_binary;
 }
 
 extern CodecProtocol getCodecProtocolFromStr(const std::string& protocolStr) {
@@ -74,6 +80,10 @@ extern bool isHTTP2CodecProtocol(CodecProtocol protocol) {
 
 extern bool isHQCodecProtocol(CodecProtocol protocol) {
   return protocol == CodecProtocol::HQ;
+}
+
+extern bool isHTTPBinaryCodecProtocol(CodecProtocol protocol) {
+  return protocol == CodecProtocol::HTTP_BINARY;
 }
 
 extern bool isParallelCodecProtocol(CodecProtocol protocol) {
