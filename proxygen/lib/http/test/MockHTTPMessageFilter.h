@@ -33,6 +33,10 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
   MOCK_METHOD((void), onError, (const HTTPException&), (noexcept));
 
   void onHeadersComplete(std::unique_ptr<HTTPMessage> msg) noexcept override {
+    if (trackHeadersPassedThrough_) {
+      requestHeadersCopy_ =
+          std::make_shared<const HTTPHeaders>(msg->getHeaders());
+    }
     onHeadersComplete(std::shared_ptr<HTTPMessage>(msg.release()));
   }
 
@@ -85,9 +89,19 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
     trackDataPassedThrough_ = track;
   }
 
+  void setTrackHeadersPassedThrough(bool track = true) {
+    trackHeadersPassedThrough_ = track;
+  }
+
+  std::shared_ptr<const HTTPHeaders> getRequestHeadersCopy() {
+    return requestHeadersCopy_;
+  }
+
  private:
   folly::IOBufQueue bodyDataReceived_{folly::IOBufQueue::cacheChainLength()};
   bool trackDataPassedThrough_{false};
+  bool trackHeadersPassedThrough_{false};
+  std::shared_ptr<const HTTPHeaders> requestHeadersCopy_;
   bool allowDSR_{true};
 };
 
