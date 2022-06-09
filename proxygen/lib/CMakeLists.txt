@@ -64,6 +64,7 @@ if (BUILD_QUIC)
         ${HTTP3_SOURCES}
         http/SynchronizedLruQuicPskCache.cpp
         http/HQConnector.cpp
+        http/codec/HTTPBinaryCodec.cpp
         http/codec/HQControlCodec.cpp
         http/codec/HQFramedCodec.cpp
         http/codec/HQFramer.cpp
@@ -128,7 +129,6 @@ add_library(
     http/codec/HTTP2Codec.cpp
     http/codec/HTTP2Constants.cpp
     http/codec/HTTP2Framer.cpp
-    http/codec/HTTPBinaryCodec.cpp
     http/codec/HTTPChecks.cpp
     http/codec/HTTPCodecFactory.cpp
     http/codec/HTTPCodecFilter.cpp
