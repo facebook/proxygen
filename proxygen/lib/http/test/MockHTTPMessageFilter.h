@@ -48,6 +48,10 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
   }
 
   void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
+    if (trackTrailersPassedThrough_) {
+      requestTrailersCopy_ =
+          std::make_shared<const HTTPHeaders>(*trailers.get());
+    }
     onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
 
@@ -93,15 +97,25 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
     trackHeadersPassedThrough_ = track;
   }
 
+  void setTrackTrailersPassedThrough(bool track = true) {
+    trackTrailersPassedThrough_ = track;
+  }
+
   std::shared_ptr<const HTTPHeaders> getRequestHeadersCopy() {
     return requestHeadersCopy_;
+  }
+
+  std::shared_ptr<const HTTPHeaders> getRequestTrailersCopy() {
+    return requestTrailersCopy_;
   }
 
  private:
   folly::IOBufQueue bodyDataReceived_{folly::IOBufQueue::cacheChainLength()};
   bool trackDataPassedThrough_{false};
   bool trackHeadersPassedThrough_{false};
+  bool trackTrailersPassedThrough_{false};
   std::shared_ptr<const HTTPHeaders> requestHeadersCopy_;
+  std::shared_ptr<const HTTPHeaders> requestTrailersCopy_;
   bool allowDSR_{true};
 };
 
