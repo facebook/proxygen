@@ -212,11 +212,6 @@ void initializeCommonSettings(HQToolParams& hqParams) {
 
 void initializeTransportSettings(HQToolParams& hqUberParams) {
   HQBaseParams& hqParams = hqUberParams.baseParams();
-  // Transport section
-  hqParams.quicVersions = {quic::QuicVersion::MVFST,
-                           quic::QuicVersion::MVFST_EXPERIMENTAL,
-                           quic::QuicVersion::QUIC_V1,
-                           quic::QuicVersion::QUIC_DRAFT};
   if (FLAGS_quic_version != 0) {
     auto quicVersion = static_cast<quic::QuicVersion>(FLAGS_quic_version);
     bool useVersionFirst = FLAGS_use_version;
