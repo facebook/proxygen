@@ -2763,6 +2763,69 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
     hqSession_->closeWhenIdle();
     return;
   }
+  // Send a request but use DSR to delegate the response.
+  // This test exits normally.
+  sendRequest("/cdn.thing", 0, true);
+  InSequence handlerSequence;
+  auto handler = addSimpleStrictHandler();
+  handler->expectHeaders();
+  auto dsrRequestSender = std::make_unique<MockQuicDSRRequestSender>();
+  auto rawDsrSender = dsrRequestSender.get();
+  std::unique_ptr<quic::DSRPacketizationRequestSender> senderStorage;
+  handler->expectEOM([&]() {
+    handler->txn_->setTransportCallback(&transportCallback_);
+    auto mockDsrRequestSender =
+        dynamic_cast<MockDSRRequestSender*>(rawDsrSender);
+    CHECK(mockDsrRequestSender);
+    EXPECT_CALL(*socketDriver_->getSocket(),
+                setDSRPacketizationRequestSender(_, _))
+        .Times(1)
+        .WillOnce(Invoke(
+            [&](StreamId,
+                std::unique_ptr<quic::DSRPacketizationRequestSender> sender) {
+              EXPECT_EQ(rawDsrSender, sender.get());
+              senderStorage = std::move(sender);
+              return folly::unit;
+            }));
+    folly::Optional<size_t> headerBytes;
+    EXPECT_CALL(*mockDsrRequestSender, onHeaderBytesGenerated(_))
+        .WillOnce(Invoke([&](auto bytes) {
+          handler->txn_->addBufferMeta();
+          handler->txn_->sendEOM();
+          headerBytes = bytes;
+        }));
+    EXPECT_TRUE(handler->sendHeadersWithDelegate(
+        200, 1000 * 10, std::move(dsrRequestSender)));
+    EXPECT_GT(transportCallback_.bodyBytesGenerated_, 0);
+    auto dataFrameHeaderSize = transportCallback_.bodyBytesGenerated_;
+    ASSERT_TRUE(headerBytes.hasValue());
+    // TODO is + 5 really the best way to encode this?
+    EXPECT_EQ(
+        *headerBytes,
+        dataFrameHeaderSize + transportCallback_.headerBytesGenerated_ + 5);
+    EXPECT_TRUE(handler->txn_->isEgressStarted());
+    handler->txn_->onWriteReady(10 * 1000, 1.0);
+    EXPECT_EQ(transportCallback_.bodyBytesGenerated_,
+              10 * 1000 + dataFrameHeaderSize);
+    // from sendHeadersWithDelegate, to actually doing writeChain and
+    // writeBufMeta, there is an extra loop. So the verification + abort also
+    // needs to be placed in a later loop.
+    eventBase_.runInLoop([&] {
+      ASSERT_TRUE(transportCallback_.lastByteFlushed_);
+      handler->expectDetachTransaction();
+    });
+  });
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
+TEST_P(HQDownstreamSessionTest, DelegateResponseError) {
+  if (!IS_HQ) {
+    hqSession_->closeWhenIdle();
+    return;
+  }
+  // Send a request but use DSR to delegate the response.
+  // This test exits via the error path on the DSR request.
   auto streamId = sendRequest("/cdn.thing", 0, true);
   InSequence handlerSequence;
   auto handler = addSimpleStrictHandler();
@@ -2793,7 +2856,7 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
           headerBytes = bytes;
         }));
     EXPECT_TRUE(handler->sendHeadersWithDelegate(
-        200, 1000 * 20, std::move(dsrRequestSender)));
+        200, 1000 * 10, std::move(dsrRequestSender)));
     EXPECT_GT(transportCallback_.bodyBytesGenerated_, 0);
     auto dataFrameHeaderSize = transportCallback_.bodyBytesGenerated_;
     ASSERT_TRUE(headerBytes.hasValue());
@@ -2809,7 +2872,7 @@ TEST_P(HQDownstreamSessionTest, DelegateResponse) {
     // writeBufMeta, there is an extra loop. So the verification + abort also
     // needs to be placed in a later loop.
     eventBase_.runInLoop([&] {
-      EXPECT_TRUE(transportCallback_.lastByteFlushed_);
+      ASSERT_TRUE(transportCallback_.lastByteFlushed_);
       // Both onStopSending and terminate the handler can clear the buffered
       // BufMetas and make the transaction detachable.
       handler->expectDetachTransaction();

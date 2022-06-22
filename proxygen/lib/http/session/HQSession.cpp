@@ -3245,9 +3245,9 @@ size_t HQSession::HQStreamTransportBase::sendBody(
   auto g = folly::makeGuard(setActiveCodec(__func__));
   CHECK(codecStreamId_);
 
+  uint64_t offset = streamWriteByteOffset();
   bufMeta_.length += body.length;
   bodyBytesEgressed_ += body.length;
-  uint64_t offset = streamWriteByteOffset();
 
   if (auto httpSessionActivityTracker =
           session_.getHTTPSessionActivityTracker()) {

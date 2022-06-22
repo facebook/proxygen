@@ -567,6 +567,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
               }
               if (stream.unsentBufMeta.offset == 0) {
                 stream.unsentBufMeta.offset = bufMetaStartingOffset;
+                stream.pendingBufMeta.offset = bufMetaStartingOffset;
               }
               stream.unsentBufMeta.length += data.length;
               if (eof) {
@@ -1071,6 +1072,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   void writePendingDataAndAck(StreamState& stream, StreamId id) {
     stream.writeBuf.append(stream.pendingWriteBuf.move());
+    stream.pendingBufMeta.offset += stream.pendingBufMeta.length;
     stream.pendingBufMeta.length = 0;
     if (stream.writeEOF) {
       stream.writeState = CLOSED;
