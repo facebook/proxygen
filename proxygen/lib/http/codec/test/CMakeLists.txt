@@ -29,7 +29,6 @@ proxygen_add_test(TARGET CodecTests
     HTTP1xCodecTest.cpp
     HTTP2CodecTest.cpp
     HTTP2FramerTest.cpp
-    HTTPBinaryCodecTest.cpp
   DEPENDS
     codectestutils
     proxygen
@@ -58,4 +57,13 @@ if (BUILD_QUIC)
       mvfst::mvfst_codec_types
       mvfst::mvfst_state_machine
   )
+
+  proxygen_add_test(TARGET BinaryCodecTests
+    SOURCES
+      HTTPBinaryCodecTest.cpp
+    DEPENDS
+      codectestutils
+      proxygen
+      testmain
+)
 endif()
