@@ -50,7 +50,8 @@ class MockHTTPMessageFilter : public HTTPMessageFilter {
   void onTrailers(std::unique_ptr<HTTPHeaders> trailers) noexcept override {
     if (trackTrailersPassedThrough_) {
       requestTrailersCopy_ =
-          std::make_shared<const HTTPHeaders>(*trailers.get());
+          trailers ? std::make_shared<const HTTPHeaders>(*trailers.get())
+                   : nullptr;
     }
     onTrailers(std::shared_ptr<HTTPHeaders>(trailers.release()));
   }
