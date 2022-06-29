@@ -43,6 +43,9 @@ class ProxygenSSLStats : public wangle::SSLStats {
   virtual void recordServerCertExpiring() noexcept = 0;
 
   virtual void recordServerCertExpiringCritical() noexcept = 0;
+
+  // TLS usage
+  virtual void recordTLSVersion(fizz::ProtocolVersion tlsVersion) noexcept = 0;
 };
 
 class TLSSLStats : public ProxygenSSLStats {
@@ -92,6 +95,8 @@ class TLSSLStats : public ProxygenSSLStats {
 
   void recordServerCertExpiringCritical() noexcept override;
 
+  void recordTLSVersion(fizz::ProtocolVersion tlsVersion) noexcept override;
+
  private:
   // Forbidden copy constructor and assignment operator
   TLSSLStats(TLSSLStats const&) = delete;
@@ -136,6 +141,13 @@ class TLSSLStats : public ProxygenSSLStats {
   BaseStats::TLTimeseries tfoSuccess_;
   BaseStats::TLTimeseries sslServerCertExpiring_;
   BaseStats::TLTimeseries sslServerCertExpiringCritical_;
+  // tlsUnknown_ is to track and make sure that we do not
+  // support a TLS versions that is unintented. This is
+  // also used for audits.
+  BaseStats::TLTimeseries tlsUnknown_;
+  BaseStats::TLTimeseries tlsVersion_1_0_;
+  BaseStats::TLTimeseries tlsVersion_1_1_;
+  BaseStats::TLTimeseries tlsVersion_1_2_;
 
   // PskTypes counters
   BaseStats::TLTimeseries fizzPskTypeNotSupported_;
