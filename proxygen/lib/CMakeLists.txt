@@ -155,6 +155,7 @@ add_library(
     http/ProxygenErrorEnum.cpp
     http/ProxyStatus.cpp
     http/RFC2616.cpp
+    http/sink/HTTPTransactionSink.cpp
     http/session/ByteEvents.cpp
     http/session/ByteEventTracker.cpp
     http/session/CodecErrorResponseHandler.cpp
