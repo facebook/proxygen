@@ -23,7 +23,7 @@ void HTTPMessageFilter::pause() noexcept {
       prev->pause();
     }
   } else {
-    auto prev = boost::get<HTTPTransaction*>(prev_);
+    auto prev = boost::get<HTTPSink*>(prev_);
     if (prev) {
       prev->pauseIngress();
     }
@@ -38,7 +38,7 @@ void HTTPMessageFilter::resume(uint64_t offset) noexcept {
       prev->resume(offset);
     }
   } else {
-    auto prev = boost::get<HTTPTransaction*>(prev_);
+    auto prev = boost::get<HTTPSink*>(prev_);
     if (prev) {
       prev->resumeIngress();
     }

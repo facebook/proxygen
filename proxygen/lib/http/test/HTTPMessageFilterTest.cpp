@@ -8,6 +8,7 @@
 
 #include <proxygen/lib/http/HTTPMessageFilters.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
+#include <proxygen/lib/http/sink/HTTPTransactionSink.h>
 #include <proxygen/lib/http/test/MockHTTPMessageFilter.h>
 
 using namespace proxygen;
@@ -49,8 +50,9 @@ TEST(HTTPMessageFilter, TestFilterPauseResumePropagatedToTxn) {
   HTTP2PriorityQueue q;
   MockHTTPTransaction mockTxn(TransportDirection::UPSTREAM, 1, 0, q);
 
+  auto sink = std::make_unique<HTTPTransactionSink>(&mockTxn);
   testFilter2.setPrevFilter(&testFilter1);
-  testFilter1.setPrevTxn(&mockTxn);
+  testFilter1.setPrevSink(sink.get());
 
   EXPECT_CALL(mockTxn, pauseIngress());
   testFilter2.pause();
@@ -105,9 +107,10 @@ TEST(HTTPMessageFilter, TestFilterPauseResumeAfterTxnDetached) {
   HTTP2PriorityQueue q;
   MockHTTPTransaction mockTxn(TransportDirection::UPSTREAM, 1, 0, q);
 
+  auto sink = std::make_unique<HTTPTransactionSink>(&mockTxn);
   testFilter2.setPrevFilter(&mockFilter);
   mockFilter.setPrevFilter(&testFilter1);
-  testFilter1.setPrevTxn(&mockTxn);
+  testFilter1.setPrevSink(sink.get());
 
   testFilter1.setNextTransactionHandler(&mockFilter);
   mockFilter.setNextTransactionHandler(&testFilter2);
@@ -133,8 +136,9 @@ TEST(HTTPMessageFilter, TestFilterDetachHandlerFromTransaction) {
   HTTP2PriorityQueue q;
   MockHTTPTransaction mockTxn(TransportDirection::UPSTREAM, 1, 0, q);
 
+  auto sink = std::make_unique<HTTPTransactionSink>(&mockTxn);
   testFilter2.setPrevFilter(&testFilter1);
-  testFilter1.setPrevTxn(&mockTxn);
+  testFilter1.setPrevSink(sink.get());
 
   EXPECT_CALL(mockTxn, setHandler(nullptr));
   testFilter2.detachHandlerFromTransaction();

@@ -12,6 +12,8 @@
 #include <folly/io/async/DestructorCheck.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>
 
+#include <proxygen/lib/http/sink/HTTPSink.h>
+
 namespace proxygen {
 
 static const std::string kMessageFilterDefaultName_ = "Unknown";
@@ -26,7 +28,7 @@ class HTTPMessageFilter
   virtual void setPrevFilter(HTTPMessageFilter* prev) noexcept {
     prev_ = CHECK_NOTNULL(prev);
   }
-  virtual void setPrevTxn(HTTPTransaction* prev) noexcept {
+  virtual void setPrevSink(HTTPSink* prev) noexcept {
     prev_ = CHECK_NOTNULL(prev);
   }
   HTTPTransaction::Handler* getNextTransactionHandler() {
@@ -78,7 +80,7 @@ class HTTPMessageFilter
     if (prev_.which() == 1) {
       // After detachTransaction(), the HTTPTransaction will destruct itself.
       // Set it to nullptr to avoid holding a stale pointer.
-      prev_ = static_cast<HTTPTransaction*>(nullptr);
+      prev_ = static_cast<HTTPSink*>(nullptr);
     }
     if (nextTransactionHandler_) {
       nextTransactionHandler_->detachTransaction();
@@ -117,15 +119,15 @@ class HTTPMessageFilter
         prev->detachHandlerFromTransaction();
       }
     } else {
-      auto prev = boost::get<HTTPTransaction*>(prev_);
+      auto prev = boost::get<HTTPSink*>(prev_);
       if (prev) {
         // prev points to the transaction, detach the handler from the
         // transaction.
-        prev->setHandler(nullptr);
+        prev->detachHandler();
         // Set the pointer to nullptr. It is not safe to use the pointer since
         // after this the transaction can be destroyed without notifying the
         // filter.
-        prev_ = static_cast<HTTPTransaction*>(nullptr);
+        prev_ = static_cast<HTTPSink*>(nullptr);
       }
     }
   }
@@ -154,8 +156,8 @@ class HTTPMessageFilter
   }
   HTTPTransaction::Handler* nextTransactionHandler_{nullptr};
 
-  boost::variant<HTTPMessageFilter*, HTTPTransaction*> prev_ =
-      static_cast<HTTPTransaction*>(nullptr);
+  boost::variant<HTTPMessageFilter*, HTTPSink*> prev_ =
+      static_cast<HTTPSink*>(nullptr);
 
   bool nextElementIsPaused_{false};
 };

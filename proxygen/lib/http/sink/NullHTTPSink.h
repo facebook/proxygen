@@ -35,6 +35,8 @@ class NullHTTPSink : public HTTPSink {
   [[nodiscard]] HTTPTransaction* FOLLY_NULLABLE getHTTPTxn() const override {
     return nullptr;
   }
+  void detachHandler() override {
+  }
   // Sending data
   void sendHeaders(const HTTPMessage& /*headers*/) override {
     XLOG(ERR) << "sendHeaders event is not expected for NullHTTPSink";

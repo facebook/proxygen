@@ -29,6 +29,10 @@ class HTTPTransactionSink : public HTTPSink {
   [[nodiscard]] HTTPTransaction* FOLLY_NULLABLE getHTTPTxn() const override {
     return httpTransaction_;
   }
+  void detachHandler() override {
+    httpTransaction_->setHandler(nullptr);
+  }
+
   // Sending data
   void sendHeaders(const HTTPMessage& headers) override {
     httpTransaction_->sendHeaders(headers);
