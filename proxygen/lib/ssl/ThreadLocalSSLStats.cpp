@@ -233,13 +233,13 @@ void TLSSLStats::recordTLSVersion(fizz::ProtocolVersion tlsVersion) noexcept {
   switch (tlsVersion) {
     case fizz::ProtocolVersion::tls_1_0:
       tlsVersion_1_0_.add(1);
-      break;
+      return;
     case fizz::ProtocolVersion::tls_1_1:
       tlsVersion_1_1_.add(1);
-      break;
+      return;
     case fizz::ProtocolVersion::tls_1_2:
       tlsVersion_1_2_.add(1);
-      break;
+      return;
     case fizz::ProtocolVersion::tls_1_3:
     case fizz::ProtocolVersion::tls_1_3_23:
     case fizz::ProtocolVersion::tls_1_3_23_fb:
@@ -247,7 +247,7 @@ void TLSSLStats::recordTLSVersion(fizz::ProtocolVersion tlsVersion) noexcept {
     case fizz::ProtocolVersion::tls_1_3_26_fb:
     case fizz::ProtocolVersion::tls_1_3_28:
       // (SLB|tunnel).fizz_handshake_successes.sum.60 is an equivalent counter
-      break;
+      return;
   }
   tlsUnknown_.add(1);
 }
