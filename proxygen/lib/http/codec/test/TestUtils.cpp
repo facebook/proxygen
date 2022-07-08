@@ -163,6 +163,14 @@ HTTPMessage getUpgradeRequest(const std::string& upgradeHeader,
   return req;
 }
 
+HTTPMessage getResponseWithInvalidBodyLength() {
+  HTTPMessage resp;
+  resp.setStatusCode(200);
+  auto bodyLen = "invalid";
+  resp.getHeaders().set(HTTP_HEADER_CONTENT_LENGTH, bodyLen);
+  return resp;
+}
+
 bool isH3GreaseId(uint64_t id) {
   if (id < 0x21 || id > 0x3FFFFFFFFFFFFFFF) {
     return false;
