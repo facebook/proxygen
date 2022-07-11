@@ -47,9 +47,17 @@ class HTTPSink {
   virtual void sendTrailers(const HTTPHeaders& trailers) = 0;
   virtual void sendEOM() = 0;
   virtual void sendAbort() = 0;
+  virtual void sendAbortIfIncomplete() = 0;
+  virtual HTTPTransaction* newPushedTransaction(
+      HTTPPushTransactionHandler* handler, ProxygenError* error = nullptr) = 0;
+  virtual HTTPTransaction* newExTransaction(HTTPTransaction::Handler* handler,
+                                            bool unidirectional) = 0;
   // Check state
   [[nodiscard]] virtual bool canSendHeaders() const = 0;
   [[nodiscard]] virtual bool extraResponseExpected() const = 0;
+  virtual const wangle::TransportInfo& getSetupTransportInfo()
+      const noexcept = 0;
+  virtual void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const = 0;
   // Flow control
   virtual void pauseIngress() = 0;
   virtual void pauseEgress() = 0;
@@ -60,9 +68,12 @@ class HTTPSink {
   virtual void setEgressRateLimit(uint64_t bitsPerSecond) = 0;
   // Client timeout
   virtual void timeoutExpired() = 0;
+  virtual void setIdleTimeout(std::chrono::milliseconds timeout) = 0;
   // Capabilities
   virtual bool safeToUpgrade(HTTPMessage* req) const = 0;
   [[nodiscard]] virtual bool supportsPush() const = 0;
+  // Logging
+  virtual void describe(std::ostream& os) = 0;
 };
 
 } // namespace proxygen

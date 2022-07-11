@@ -71,8 +71,32 @@ class HTTPTransactionSink : public HTTPSink {
   [[nodiscard]] bool canSendHeaders() const override {
     return httpTransaction_->canSendHeaders();
   }
+  void sendAbortIfIncomplete() override {
+    // TODO: this reveals warts in the txn api. If egress and ingress are
+    // complete, we really should have gotten detachTransaction() already.
+    if (!(httpTransaction_->isEgressComplete() ||
+          httpTransaction_->isEgressEOMQueued()) ||
+        !httpTransaction_->isIngressComplete()) {
+      sendAbort();
+    }
+  }
+  HTTPTransaction* newPushedTransaction(
+      HTTPPushTransactionHandler* handler,
+      ProxygenError* error = nullptr) override {
+    return httpTransaction_->newPushedTransaction(handler, error);
+  }
+  HTTPTransaction* newExTransaction(HTTPTransaction::Handler* handler,
+                                    bool unidirectional) override {
+    return httpTransaction_->newExTransaction(handler, unidirectional);
+  }
   [[nodiscard]] bool extraResponseExpected() const override {
     return httpTransaction_->extraResponseExpected();
+  }
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
+    return httpTransaction_->getSetupTransportInfo();
+  }
+  void getCurrentTransportInfo(wangle::TransportInfo* tinfo) const override {
+    httpTransaction_->getCurrentTransportInfo(tinfo);
   }
   // Flow control
   void pauseIngress() override {
@@ -100,10 +124,17 @@ class HTTPTransactionSink : public HTTPSink {
   void timeoutExpired() override {
     httpTransaction_->timeoutExpired();
   }
+  void setIdleTimeout(std::chrono::milliseconds timeout) override {
+    httpTransaction_->setIdleTimeout(timeout);
+  }
   // Capabilities
   bool safeToUpgrade(HTTPMessage* req) const override;
   [[nodiscard]] bool supportsPush() const override {
     return true;
+  }
+  // Logging
+  void describe(std::ostream& os) override {
+    os << *httpTransaction_;
   }
 
  private:

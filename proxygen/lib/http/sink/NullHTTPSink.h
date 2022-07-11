@@ -77,9 +77,34 @@ class NullHTTPSink : public HTTPSink {
     XLOG(ERR) << "canSendHeaders event is not expected for NullHTTPSink";
     return false;
   }
+  void sendAbortIfIncomplete() override {
+    LOG(ERROR) << "sendAbortIfIncomplete event is not expected for "
+                  "NullHTTPSink";
+  }
+  HTTPTransaction* newPushedTransaction(HTTPPushTransactionHandler* /*handler*/,
+                                        ProxygenError* /*error*/) override {
+    LOG(ERROR) << "newPushedTransaction event is not expected for NullHTTPSink";
+    return nullptr;
+  }
+  HTTPTransaction* newExTransaction(HTTPTransaction::Handler* /*handler*/,
+                                    bool /*unidirectional*/) override {
+    LOG(ERROR) << "newExTransaction event is not expected for NullHTTPSink";
+    return nullptr;
+  }
   [[nodiscard]] bool extraResponseExpected() const override {
     XLOG(ERR) << "extraResponseExpected event is not expected for NullHTTPSink";
     return false;
+  }
+  const wangle::TransportInfo& getSetupTransportInfo() const noexcept override {
+    static wangle::TransportInfo dummy;
+    LOG(ERROR)
+        << "getSetupTransportInfo event is not expected for NullHTTPSink";
+    return dummy;
+  }
+  void getCurrentTransportInfo(
+      wangle::TransportInfo* /*tinfo*/) const override {
+    LOG(ERROR)
+        << "getCurrentTransportInfo event is not expected for NullHTTPSink";
   }
   // Flow control (no-op)
   void pauseIngress() override {
@@ -111,12 +136,21 @@ class NullHTTPSink : public HTTPSink {
     XLOG(ERR) << "timeoutExpired is not expected for NullHTTPSink";
   }
 
+  void setIdleTimeout(std::chrono::milliseconds /*timeout*/) override {
+    LOG(ERROR) << "setIdleTimeout is not expected for NullHTTPSink";
+  }
+
   // Capabilities
   bool safeToUpgrade(HTTPMessage* /*req*/) const override {
     return true;
   }
   [[nodiscard]] bool supportsPush() const override {
     return false;
+  }
+
+  // Logging
+  void describe(std::ostream& os) override {
+    os << "NullSink";
   }
 
  private:
