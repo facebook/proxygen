@@ -357,6 +357,37 @@ TEST_P(HQDownstreamSessionTest, ReplyResponsePriority) {
   hqSession_->closeWhenIdle();
 }
 
+TEST_P(HQDownstreamSessionTest, SetLocalPriority) {
+  uint8_t urgency = 5;
+  bool incremental = false;
+  if (!IS_HQ) { // H1Q tests do not support priority
+    hqSession_->closeWhenIdle();
+    return;
+  }
+  auto request = getProgressiveGetRequest();
+  sendRequest(request);
+  auto handler = addSimpleStrictHandler();
+  // Check that the priority is set from the request headers
+  EXPECT_CALL(*socketDriver_->getSocket(), setStreamPriority(_, 1, true))
+      .Times(1);
+  // Check that the priority is set from the local update
+  EXPECT_CALL(*socketDriver_->getSocket(),
+              setStreamPriority(_, urgency, incremental))
+      .Times(1);
+  handler->expectHeaders(
+      [&]() { handler->txn_->updateAndSendPriority(urgency, incremental); });
+  handler->expectEOM([&]() {
+    auto resp = makeResponse(200, 0);
+    EXPECT_CALL(*socketDriver_->getSocket(), getStreamPriority(_))
+        .Times(1)
+        .WillOnce(Return(quic::Priority(urgency, incremental)));
+    handler->sendRequest(*std::get<0>(resp));
+  });
+  handler->expectDetachTransaction();
+  flushRequestsAndLoop();
+  hqSession_->closeWhenIdle();
+}
+
 TEST_P(HQDownstreamSessionTestHQPush, PushPriority) {
   sendRequest("/", 1);
   HTTPMessage promiseReq, parentResp;

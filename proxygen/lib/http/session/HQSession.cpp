@@ -599,6 +599,11 @@ size_t HQSession::sendPriority(HTTPCodec::StreamID id, HTTPPriority priority) {
     return 0;
   }
   sock_->setStreamPriority(id, priority.urgency, priority.incremental);
+  // PRIORITY_UPDATE frames are sent by clients on the control stream.
+  // Servers do not send PRIORITY_UPDATE
+  if (direction_ == TransportDirection::DOWNSTREAM) {
+    return 0;
+  }
   auto controlStream = findControlStream(UnidirectionalStreamType::CONTROL);
   if (!controlStream) {
     return 0;
@@ -635,9 +640,6 @@ size_t HQSession::sendPushPriority(hq::PushId pushId, HTTPPriority priority) {
 
 size_t HQSession::HQStreamTransportBase::changePriority(
     HTTPTransaction* txn, HTTPPriority priority) noexcept {
-  if (session_.direction_ == TransportDirection::DOWNSTREAM) {
-    return 0;
-  }
   CHECK_EQ(txn, &txn_);
   if (txn->isIngressEOMSeen()) {
     return 0;
