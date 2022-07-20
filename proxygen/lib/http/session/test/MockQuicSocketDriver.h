@@ -70,6 +70,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     bool readEOF{false};
     bool writeEOF{false};
     QuicSocket::WriteCallback* pendingWriteCb{nullptr};
+    bool isPendingWriteCbStreamNotif{false};
     // data written by application
     folly::IOBufQueue unsentBuf{folly::IOBufQueue::cacheChainLength()};
     // BufMeta written by application
@@ -93,6 +94,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     bool isControl{false};
     uint64_t lastSkipOffset{0};
     uint64_t fakePeekOffset{0};
+    uint64_t numWriteChainInvocations{0};
   };
 
  public:
@@ -208,6 +210,23 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                    stream.writeOffset + stream.flowControlWindow,
                    0,
                    0});
+            }));
+    EXPECT_CALL(*sock_, getMaxWritableOnStream(testing::_))
+        .WillRepeatedly(testing::Invoke(
+            [this](StreamId id)
+                -> folly::Expected<uint64_t, quic::LocalErrorCode> {
+              auto streamFCW = sock_->getStreamFlowControl(id);
+              if (!streamFCW) {
+                return folly::makeUnexpected(streamFCW.error());
+              }
+              auto connFCW = sock_->getConnectionFlowControl();
+              if (!connFCW) {
+                return folly::makeUnexpected(connFCW.error());
+              }
+
+              auto fcAvailable = std::min(streamFCW->sendWindowAvailable,
+                                          connFCW->sendWindowAvailable);
+              return std::min(fcAvailable, bufferAvailable_);
             }));
 
     EXPECT_CALL(*sock_, setConnectionFlowControlWindow(testing::_))
@@ -351,7 +370,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
             [this](StreamId id, QuicSocket::WriteCallback* wcb)
                 -> folly::Expected<folly::Unit, quic::LocalErrorCode> {
               checkNotReadOnlyStream(id);
-              return notifyPendingWriteImpl(id, wcb);
+              return notifyPendingWriteImpl(id, wcb, /* isStreamNotif */ true);
             }));
 
     EXPECT_CALL(*sock_, notifyPendingWriteOnConnection(testing::_))
@@ -486,6 +505,7 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                 return folly::makeUnexpected(
                     quic::LocalErrorCode::INTERNAL_ERROR);
               }
+              stream.numWriteChainInvocations++;
               if (!data) {
                 data = folly::IOBuf::create(0);
               } else {
@@ -973,7 +993,11 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     if (stream.pendingWriteCb) {
       auto cb = stream.pendingWriteCb;
       stream.pendingWriteCb = nullptr;
-      cb->onConnectionWriteError(QuicError(errorCode));
+      if (stream.isPendingWriteCbStreamNotif) {
+        cb->onStreamWriteError(id, QuicError(errorCode));
+      } else {
+        cb->onConnectionWriteError(QuicError(errorCode));
+      }
     }
     stream.writeState = ERROR;
   }
@@ -995,24 +1019,28 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     }
   }
 
+  uint64_t maxConnWritable() {
+    return streams_[kConnectionStreamId].flowControlWindow;
+  }
+
+  uint64_t maxStreamWritable(StreamId id) {
+    return std::min(streams_[id].flowControlWindow, maxConnWritable());
+  }
+
   folly::Expected<folly::Unit, quic::LocalErrorCode> notifyPendingWriteImpl(
-      StreamId id, QuicSocket::WriteCallback* wcb) {
+      StreamId id, QuicSocket::WriteCallback* wcb, bool streamNotif = false) {
     auto& stream = streams_[id];
     if (stream.writeState == PAUSED) {
       stream.pendingWriteCb = wcb;
+      stream.isPendingWriteCbStreamNotif = streamNotif;
       return folly::unit;
     } else if (stream.writeState == OPEN) {
-      // Be a bit more unforgiving than the real transport of logical errors.
-      ERROR_IF(
-          stream.pendingWriteCb,
-          fmt::format("called notifyPendingWrite twice for streamId={}", id),
-          return folly::unit);
-
       if (wcb == nullptr) {
         return folly::makeUnexpected(LocalErrorCode::INVALID_WRITE_CALLBACK);
       }
 
       stream.pendingWriteCb = wcb;
+      stream.isPendingWriteCbStreamNotif = streamNotif;
       eventBase_->runInLoop(
           [this, id, &stream, deleted = deleted_] {
             if (*deleted) {
@@ -1029,13 +1057,19 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
                                  "onConnectionWriteReady for streamId={}",
                                  id),
                      return );
+            auto maxStreamToWrite = maxStreamWritable(id);
+            auto maxConnToWrite = maxConnWritable();
+            if (!maxConnToWrite && !maxStreamToWrite) {
+              return;
+            }
+
             auto writeCb = stream.pendingWriteCb;
             stream.pendingWriteCb = nullptr;
-            auto window = streams_[id].flowControlWindow;
-            // TODO: support stream write ready calls as well. Currently the
-            // only consumer of MockQuicSocketDriver is HQSession which only
-            // notifies the connection ready call.
-            writeCb->onConnectionWriteReady(window);
+            if (stream.isPendingWriteCbStreamNotif) {
+              writeCb->onStreamWriteReady(id, maxStreamToWrite);
+            } else {
+              writeCb->onConnectionWriteReady(maxConnToWrite);
+            }
           },
           true);
     } else {
@@ -1577,17 +1611,28 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
     stream.writeState = OPEN;
     // first flush any buffered writes
     flushWrites(streamId);
-    // now check onConnectionWriteReady call is warranted.
-    if (stream.writeState == OPEN && stream.pendingWriteCb &&
-        streams_[kConnectionStreamId].flowControlWindow > 0) {
+    // now check onConnectionWriteReady/onStreamWriteReady call is warranted.
+    uint64_t maxWritableOnStream = maxStreamWritable(streamId);
+    uint64_t maxWritableOnConn = maxConnWritable();
+    bool shouldResume = stream.writeState == OPEN && stream.pendingWriteCb &&
+                        (maxWritableOnConn > 0 || maxWritableOnStream > 0);
+
+    if (shouldResume) {
+      uint64_t window = stream.isPendingWriteCbStreamNotif ? maxWritableOnStream
+                                                           : maxWritableOnConn;
+
       eventBase_->runInLoop(
-          [this, wcb = stream.pendingWriteCb, deleted = deleted_] {
+          [wcb = stream.pendingWriteCb,
+           deleted = deleted_,
+           streamId,
+           window,
+           streamNotif = stream.isPendingWriteCbStreamNotif] {
             if (!*deleted) {
-              // TODO: support stream write ready calls as well. Currently the
-              // only consumer of MockQuicSocketDriver is HQSession which only
-              // notifies the connection ready call.
-              wcb->onConnectionWriteReady(
-                  streams_[kConnectionStreamId].flowControlWindow);
+              if (streamNotif) {
+                wcb->onStreamWriteReady(streamId, window);
+              } else {
+                wcb->onConnectionWriteReady(window);
+              }
             }
           },
           true);
@@ -1661,6 +1706,10 @@ class MockQuicSocketDriver : public folly::EventBase::LoopCallback {
 
   void setStrictErrorCheck(bool strict) {
     strictErrorCheck_ = strict;
+  }
+
+  uint64_t getNumWriteChainInvocations(StreamId id) {
+    return streams_[id].numWriteChainInvocations;
   }
 
   bool strictErrorCheck_{true};
