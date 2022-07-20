@@ -55,6 +55,7 @@ class HTTP1xCodec : public HTTPCodec {
     return parserPaused_;
   }
   size_t onIngress(const folly::IOBuf& buf) override;
+  size_t onIngressImpl(const folly::IOBuf& buf);
   void onIngressEOF() override;
   bool isReusable() const override;
   bool isWaitingToDrain() const override {

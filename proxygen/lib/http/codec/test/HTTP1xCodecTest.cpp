@@ -79,6 +79,15 @@ unique_ptr<folly::IOBuf> getSimpleRequestData() {
   return folly::IOBuf::copyBuffer(req);
 }
 
+unique_ptr<folly::IOBuf> getSimpleRequestDataQueue() {
+  string req1("GET /yeah HTTP/1.1\nHost: www.facebook.com\n\n");
+  auto buf1 = folly::IOBuf::copyBuffer(req1);
+  string req2("GET /yeah2 HTTP/1.1\nHost: www.facebook.com\n\n");
+  auto buf2 = folly::IOBuf::copyBuffer(req2);
+  buf1->appendToChain(std::move(buf2));
+  return buf1;
+}
+
 TEST(HTTP1xCodecTest, TestSimpleHeaders) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
   HTTP1xCodecCallback callbacks;
@@ -90,6 +99,32 @@ TEST(HTTP1xCodecTest, TestSimpleHeaders) {
   EXPECT_EQ(callbacks.headersComplete, 2);
   EXPECT_EQ(buffer->length(), callbacks.headerSize.uncompressed);
   EXPECT_EQ(callbacks.headerSize.compressed, callbacks.headerSize.uncompressed);
+}
+
+TEST(HTTP1xCodecTest, TestSimpleHeadersQueue) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  HTTP1xCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = getSimpleRequestDataQueue();
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 2);
+  EXPECT_EQ(callbacks.headerSize.compressed, callbacks.headerSize.uncompressed);
+}
+
+TEST(HTTP1xCodecTest, TestSimpleHeadersQueueWithPause) {
+  HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
+  MockHTTPCodecCallback callbacks;
+  codec.setCallback(&callbacks);
+  auto buffer = getSimpleRequestDataQueue();
+
+  EXPECT_CALL(callbacks, onMessageComplete(_, _))
+      .Times(1)
+      .WillOnce(InvokeWithoutArgs([&] { codec.setParserPaused(true); }));
+  size_t bytesParsed = codec.onIngress(*buffer);
+  codec.setParserPaused(false);
+  buffer->trimStart(bytesParsed);
+  EXPECT_CALL(callbacks, onMessageComplete(_, _)).Times(1);
+  codec.onIngress(*buffer);
 }
 
 TEST(HTTP1xCodecTest, Test09Req) {
@@ -644,15 +679,7 @@ TEST(HTTP1xCodecTest, TestChainedBody) {
       "POST /test.php HTTP/1.1\r\nHost: www.test.com\r\n"
       "Content-Length: 10\r\n\r\nabcde"));
   reqQueue.append(folly::IOBuf::copyBuffer("fghij"));
-
-  while (!reqQueue.empty()) {
-    auto processed = codec.onIngress(*reqQueue.front());
-    if (processed == 0) {
-      break;
-    }
-    reqQueue.trimStart(processed);
-  }
-
+  codec.onIngress(*reqQueue.front());
   EXPECT_TRUE(folly::IOBufEqualTo()(*bodyQueue.front(),
                                     *folly::IOBuf::copyBuffer("abcdefghij")));
 }
@@ -1230,10 +1257,7 @@ TEST(HTTP1xCodecTest, Dechunk) {
                   "close");
       }));
   EXPECT_CALL(upCallbacks, onBody(1, _, _));
-  while (!buf.empty()) {
-    upCodec.onIngress(*buf.front());
-    buf.pop_front();
-  }
+  upCodec.onIngress(*buf.front());
   EXPECT_CALL(upCallbacks, onMessageComplete(1, _));
   upCodec.onIngressEOF();
 }
@@ -1283,10 +1307,7 @@ TEST(HTTP1xCodecTest, Chunkify) {
   EXPECT_CALL(upCallbacks, onBody(1, _, _));
   EXPECT_CALL(upCallbacks, onChunkComplete(1));
   EXPECT_CALL(upCallbacks, onMessageComplete(1, _));
-  while (!buf.empty()) {
-    upCodec.onIngress(*buf.front());
-    buf.pop_front();
-  }
+  upCodec.onIngress(*buf.front());
 }
 
 TEST(HTTP1xCodecTest, Chunkify100) {
@@ -1344,10 +1365,7 @@ TEST(HTTP1xCodecTest, Chunkify100) {
   EXPECT_CALL(upCallbacks, onBody(1, _, _));
   EXPECT_CALL(upCallbacks, onChunkComplete(1));
   EXPECT_CALL(upCallbacks, onMessageComplete(1, _));
-  while (!buf.empty()) {
-    upCodec.onIngress(*buf.front());
-    buf.pop_front();
-  }
+  upCodec.onIngress(*buf.front());
 }
 
 TEST(HTTP1xCodecTest, TrailersNonChunked) {
