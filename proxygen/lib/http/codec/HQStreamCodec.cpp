@@ -230,6 +230,8 @@ void HQStreamCodec::onHeadersComplete(HTTPHeaderSize decodedSize,
       err.setHttpStatusCode(400);
     }
     err.setProxygenError(kErrorParseHeader);
+    // Have to clone it
+    err.setPartialMsg(std::make_unique<HTTPMessage>(*decodeInfo_.msg));
     callback_->onError(streamId_, err, true);
     resumeParser.dismiss();
     return;

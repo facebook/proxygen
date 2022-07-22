@@ -10,6 +10,7 @@
 #include <limits>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/HTTPMessage.h>
+#include <proxygen/lib/http/codec/DebugFilter.h>
 #include <proxygen/lib/http/codec/FlowControlFilter.h>
 #include <proxygen/lib/http/codec/HTTPChecks.h>
 #include <proxygen/lib/http/codec/test/MockHTTPCodec.h>
@@ -22,7 +23,11 @@ using namespace testing;
 
 namespace {
 const uint32_t kInitialCapacity = 12345;
+
+std::unique_ptr<folly::IOBuf> makeIOBuf(const std::string& str) {
+  return folly::IOBuf::copyBuffer(str);
 }
+} // namespace
 
 class MockFlowControlCallback : public FlowControlFilter::Callback {
  public:
@@ -52,6 +57,20 @@ class HTTPChecksTest : public FilterTest {
   void SetUp() override {
     chain_.add<HTTPChecks>();
   }
+};
+
+class DebugFilterTest : public FilterTest {
+ public:
+  void SetUp() override {
+    chain_.add<DebugFilter>(
+        "trace-header", 200, [this](std::unique_ptr<folly::IOBuf> ingress) {
+          dumpedIngress_.append(std::move(ingress));
+        });
+  }
+
+ protected:
+  folly::IOBufQueue dumpedIngress_{folly::IOBufQueue::cacheChainLength()};
+  folly::IOBufQueue writeBuf_{folly::IOBufQueue::cacheChainLength()};
 };
 
 template <int initSize>
@@ -245,4 +264,80 @@ TEST_F(HTTPChecksTest, RecvTraceBody) {
   msg->setMethod("TRACE");
 
   callbackStart_->onHeadersComplete(0, std::move(msg));
+}
+
+TEST_F(DebugFilterTest, NoError) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  chain_->onIngressEOF();
+  callbackStart_->onMessageBegin(1, nullptr);
+  callbackStart_->onHeadersComplete(1, makeGetRequest());
+  callbackStart_->onMessageComplete(1, false);
+  EXPECT_TRUE(dumpedIngress_.empty());
+}
+
+TEST_F(DebugFilterTest, NoErrorGoaway) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  callbackStart_->onGoaway(0, ErrorCode::NO_ERROR, makeIOBuf("bar"));
+  EXPECT_TRUE(dumpedIngress_.empty());
+}
+
+TEST_F(DebugFilterTest, IngressGoaway) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  callbackStart_->onGoaway(0, ErrorCode::PROTOCOL_ERROR, makeIOBuf("bar"));
+  EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
+}
+
+TEST_F(DebugFilterTest, EgressGoaway) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  chain_->generateGoaway(
+      writeBuf_, 0, ErrorCode::PROTOCOL_ERROR, makeIOBuf("bar"));
+  EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
+}
+
+TEST_F(DebugFilterTest, IngressRstTrackedStream) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  callbackStart_->onMessageBegin(1, nullptr);
+  auto req = makeGetRequest();
+  req->getHeaders().add("trace-header", "true");
+  callbackStart_->onHeadersComplete(1, std::move(req));
+  callbackStart_->onAbort(1, ErrorCode::INTERNAL_ERROR);
+  EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
+}
+
+TEST_F(DebugFilterTest, EgressRstTrackedStream) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  callbackStart_->onMessageBegin(1, nullptr);
+  auto req = makeGetRequest();
+  req->getHeaders().add("trace-header", "true");
+  callbackStart_->onHeadersComplete(1, std::move(req));
+  chain_->generateRstStream(writeBuf_, 1, ErrorCode::INTERNAL_ERROR);
+  EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
+}
+
+TEST_F(DebugFilterTest, OnSessionError) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  HTTPException ex(HTTPException::Direction::INGRESS, "error");
+  callbackStart_->onError(0, ex, false);
+  EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
+}
+
+TEST_F(DebugFilterTest, OnStreamErrorTracked) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  callbackStart_->onMessageBegin(1, nullptr);
+  auto req = makeGetRequest();
+  req->getHeaders().add("trace-header", "true");
+  callbackStart_->onHeadersComplete(1, std::move(req));
+  HTTPException ex(HTTPException::Direction::INGRESS, "error");
+  callbackStart_->onError(1, ex, false);
+  EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
+}
+
+TEST_F(DebugFilterTest, OnStreamErrorPartialMsg) {
+  chain_->onIngress(*makeIOBuf("foo"));
+  auto req = makeGetRequest();
+  req->getHeaders().add("trace-header", "true");
+  HTTPException ex(HTTPException::Direction::INGRESS, "error");
+  ex.setPartialMsg(std::move(req));
+  callbackStart_->onError(1, ex, false);
+  EXPECT_EQ(dumpedIngress_.move()->moveToFbString(), std::string("foo"));
 }

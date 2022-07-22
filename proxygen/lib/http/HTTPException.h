@@ -127,6 +127,10 @@ class HTTPException : public proxygen::Exception {
     return std::move(partialMsg_);
   }
 
+  HTTPMessage* getPartialMsg() const {
+    return partialMsg_.get();
+  }
+
  private:
   HTTP3::ErrorCode inferHTTP3ErrorCode() const;
 

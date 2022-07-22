@@ -245,12 +245,30 @@ class HTTP2Codec
     ErrorCode errorCode{ErrorCode::NO_ERROR};
     bool connectionError{false};
     std::string errorMessage;
+    mutable std::unique_ptr<HTTPMessage> partialMessage;
 
-    DeferredParseError(ErrorCode ec, bool conn, std::string msg)
-        : errorCode(ec), connectionError(conn), errorMessage(std::move(msg)) {
+    DeferredParseError(ErrorCode ec,
+                       bool conn,
+                       std::string msg,
+                       std::unique_ptr<HTTPMessage> partialMsg = nullptr)
+        : errorCode(ec),
+          connectionError(conn),
+          errorMessage(std::move(msg)),
+          partialMessage(std::move(partialMsg)) {
     }
 
     DeferredParseError() = default;
+    DeferredParseError(DeferredParseError&& goner) = default;
+    DeferredParseError& operator=(DeferredParseError&& goner) = default;
+    DeferredParseError(const DeferredParseError& other)
+        : errorCode(other.errorCode),
+          connectionError(other.connectionError),
+
+          errorMessage(other.errorMessage),
+          partialMessage(other.partialMessage ? std::make_unique<HTTPMessage>(
+                                                    *other.partialMessage)
+                                              : nullptr) {
+    }
   };
 
   folly::Expected<std::unique_ptr<HTTPMessage>, DeferredParseError>
@@ -278,7 +296,8 @@ class HTTP2Codec
   void streamError(const std::string& msg,
                    ErrorCode error,
                    bool newTxn = false,
-                   folly::Optional<HTTPCodec::StreamID> streamId = folly::none);
+                   folly::Optional<HTTPCodec::StreamID> streamId = folly::none,
+                   std::unique_ptr<HTTPMessage> partialMsg = nullptr);
   bool parsingHeaders() const;
   bool parsingTrailers() const;
 

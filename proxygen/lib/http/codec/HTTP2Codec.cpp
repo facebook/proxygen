@@ -588,8 +588,8 @@ HTTP2Codec::parseHeadersDecodeFrames(
       // print the partial message
       msg->dumpMessage(3);
     }
-    return folly::makeUnexpected(
-        DeferredParseError(ErrorCode::COMPRESSION_ERROR, true, empty_string));
+    return folly::makeUnexpected(DeferredParseError(
+        ErrorCode::COMPRESSION_ERROR, true, empty_string, std::move(msg)));
   }
 
   // Check parsing error
@@ -613,7 +613,8 @@ HTTP2Codec::parseHeadersDecodeFrames(
                                                     " status=",
                                                     400,
                                                     " error: ",
-                                                    decodeInfo_.parsingError)));
+                                                    decodeInfo_.parsingError),
+                             std::move(msg)));
     } else {
       // Upstream, PUSH_PROMISE, EX_HEADERS or trailers parsing failed:
       // PROTOCOL_ERROR
@@ -621,7 +622,8 @@ HTTP2Codec::parseHeadersDecodeFrames(
           ErrorCode::PROTOCOL_ERROR,
           false,
           folly::to<string>("Field section parsing failed txn=",
-                            curHeader_.stream)));
+                            curHeader_.stream),
+          std::move(msg)));
     }
   }
 
@@ -632,8 +634,11 @@ void HTTP2Codec::deliverDeferredParseError(
     const DeferredParseError& parseError) {
   CHECK(!parseError.connectionError);
   if (parseError.errorCode != ErrorCode::NO_ERROR) {
-    streamError(
-        parseError.errorMessage, parseError.errorCode, parsingHeaders());
+    streamError(parseError.errorMessage,
+                parseError.errorCode,
+                parsingHeaders(),
+                folly::none,
+                std::move(parseError.partialMessage));
     if (promisedStream_) {
       streamError("Malformed PUSH_PROMISE",
                   ErrorCode::REFUSED_STREAM,
@@ -646,6 +651,7 @@ void HTTP2Codec::deliverDeferredParseError(
                       parseError.errorMessage);
     err.setHttpStatusCode(400);
     err.setProxygenError(kErrorParseHeader);
+    err.setPartialMsg(std::move(parseError.partialMessage));
     deliverCallbackIfAllowed(&HTTPCodec::Callback::onError,
                              "onError",
                              curHeader_.stream,
@@ -1801,9 +1807,13 @@ bool HTTP2Codec::checkConnectionError(ErrorCode err, const folly::IOBuf* buf) {
 void HTTP2Codec::streamError(const std::string& msg,
                              ErrorCode code,
                              bool newTxn,
-                             folly::Optional<HTTPCodec::StreamID> streamId) {
+                             folly::Optional<HTTPCodec::StreamID> streamId,
+                             std::unique_ptr<HTTPMessage> partialMessage) {
   HTTPException error(HTTPException::Direction::INGRESS_AND_EGRESS, msg);
   error.setCodecStatusCode(code);
+  if (partialMessage) {
+    error.setPartialMsg(std::move(partialMessage));
+  }
   deliverCallbackIfAllowed(&HTTPCodec::Callback::onError,
                            "onError",
                            streamId ? *streamId : curHeader_.stream,
