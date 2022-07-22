@@ -560,7 +560,7 @@ bool HTTPMessage::setQueryStringImpl(const std::string& query,
     return !strict || res.valid();
   }
 
-  VLOG(4) << "Error parsing URL during setQueryString: " << request().url_;
+  DVLOG(4) << "Error parsing URL during setQueryString: " << request().url_;
   return false;
 }
 
@@ -721,7 +721,7 @@ std::ostream& operator<<(std::ostream& os, const HTTPMessage& msg) {
 }
 
 void HTTPMessage::dumpMessage(int vlogLevel) const {
-  VLOG(vlogLevel) << *this;
+  DVLOG(vlogLevel) << *this;
 }
 
 void HTTPMessage::describe(std::ostream& os) const {
@@ -972,11 +972,11 @@ ParseURL HTTPMessage::setURLImplInternal(bool unparse, bool strict) {
   auto& req = request();
   auto u = ParseURL::parseURLMaybeInvalid(req.url_, strict);
   if (u.valid()) {
-    VLOG(9) << "set path: " << u.path() << " query:" << u.query();
+    DVLOG(9) << "set path: " << u.path() << " query:" << u.query();
     req.path_ = u.path();
     req.query_ = u.query();
   } else {
-    VLOG(4) << "Error in parsing URL: " << req.url_;
+    DVLOG(4) << "Error in parsing URL: " << req.url_;
     req.path_.clear();
     req.query_.clear();
   }

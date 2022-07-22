@@ -24,7 +24,7 @@ bool HeaderDecodeInfo::onHeader(const HPACKHeaderName& name,
             << " due to parser error=" << parsingError;
     return true;
   }
-  VLOG(5) << "Processing header=" << name << " value=" << value;
+  DVLOG(5) << "Processing header=" << name << " value=" << value;
   auto headerCode = name.getHeaderCode();
   folly::StringPiece nameSp(name.get());
   folly::StringPiece valueSp(value);

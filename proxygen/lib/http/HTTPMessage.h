@@ -886,7 +886,7 @@ class HTTPMessage {
 
   template <typename T> // T = string
   ParseURL setURLImpl(T&& url, bool unparse, bool strict) {
-    VLOG(9) << "setURL: " << url;
+    DVLOG(9) << "setURL: " << std::forward<T>(url);
 
     // Set the URL, path, and query string parameters
     request().url_ = std::forward<T>(url);

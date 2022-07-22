@@ -48,7 +48,7 @@ bool QPACKHeaderTable::add(HPACKHeader header) {
     return false;
   }
 
-  VLOG(6) << "Adding header=" << header;
+  DVLOG(6) << "Adding header=" << header;
   if (!HeaderTable::add(std::move(header))) {
     return false;
   }
@@ -204,8 +204,8 @@ bool QPACKHeaderTable::canEvict(uint32_t needed) {
     i = next(i);
   }
   if (freeable < needed) {
-    VLOG(5) << "header=" << table_[i].name << ":" << table_[i].value
-            << " blocked eviction, recount=" << (*refCount_)[i];
+    DVLOG(5) << "header=" << table_[i].name << ":" << table_[i].value
+             << " blocked eviction, recount=" << (*refCount_)[i];
     return false;
   }
   return true;
