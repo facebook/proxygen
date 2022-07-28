@@ -174,26 +174,25 @@ const http_parser_settings* HTTP1xCodec::getParserSettings() {
 }
 
 size_t HTTP1xCodec::onIngress(const IOBuf& buf) {
-  const folly::IOBuf* currentReadBuf;
-  folly::IOBufQueue queue;
-  queue.append(buf);
+  folly::io::Cursor cursor(&buf);
 
   size_t totalBytesParsed = 0;
-  while ((currentReadBuf = queue.front()) != nullptr) {
-    if (currentReadBuf->length() == 0) {
-      queue.pop_front();
-    } else {
-      size_t bytesParsed = onIngressImpl(*currentReadBuf);
-      if (bytesParsed == 0) {
-        // If the codec didn't make any progress with current input, we
-        // wait for more data until this is called again
-        break;
-      }
-      totalBytesParsed += bytesParsed;
-      queue.trimStart(bytesParsed);
-      if (isParserPaused()) {
-        break;
-      }
+  while (!cursor.isAtEnd()) {
+    folly::IOBuf currentReadBuf;
+    auto bufSize = cursor.peekBytes().size();
+    cursor.cloneAtMost(currentReadBuf, bufSize);
+    size_t bytesParsed = onIngressImpl(currentReadBuf);
+    if (bytesParsed == 0) {
+      // If the codec didn't make any progress with current input, we
+      // wait for more data until this is called again
+      break;
+    }
+    totalBytesParsed += bytesParsed;
+    if (bufSize > bytesParsed) {
+      cursor.retreat(bufSize - bytesParsed);
+    }
+    if (isParserPaused()) {
+      break;
     }
   }
   return totalBytesParsed;
