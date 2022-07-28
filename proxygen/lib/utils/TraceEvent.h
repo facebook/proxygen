@@ -197,7 +197,7 @@ class TraceEvent {
   }
 
   void setMetaData(MetaDataMap&& input) {
-    metaData_ = input;
+    metaData_ = std::move(input);
   }
 
   const MetaDataMap& getMetaData() const {
