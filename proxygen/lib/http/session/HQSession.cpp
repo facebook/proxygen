@@ -641,7 +641,10 @@ size_t HQSession::sendPushPriority(hq::PushId pushId, HTTPPriority priority) {
 size_t HQSession::HQStreamTransportBase::changePriority(
     HTTPTransaction* txn, HTTPPriority priority) noexcept {
   CHECK_EQ(txn, &txn_);
-  if (txn->isIngressEOMSeen()) {
+  // For a client there is no point in changing priority if the response has
+  // been fully received
+  if (session_.direction_ == TransportDirection::UPSTREAM &&
+      txn->isIngressEOMSeen()) {
     return 0;
   }
   if (txn->isPushed()) {
