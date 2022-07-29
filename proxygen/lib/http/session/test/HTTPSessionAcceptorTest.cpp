@@ -11,7 +11,6 @@
 #include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/io/async/test/MockAsyncServerSocket.h>
 #include <folly/io/async/test/MockAsyncSocket.h>
-#include <proxygen/facebook/lib/utils/test/FbcodeUtils.h>
 #include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/utils/TestUtils.h>
 
@@ -22,6 +21,12 @@ using folly::AsyncSocket;
 using folly::AsyncSSLSocket;
 using folly::SocketAddress;
 using folly::test::MockAsyncSocket;
+
+namespace {
+
+const std::string kTestDir = getContainingDirectory(__FILE__).str();
+
+}
 
 class HTTPTargetSessionAcceptor : public HTTPSessionAcceptor {
  public:
@@ -66,11 +71,7 @@ class HTTPSessionAcceptorTestBase
  public:
   virtual void setupSSL() {
     sslCtxConfig_.setCertificate(
-        facebook::testing::FbcodeUtils::getResourcePath(__FILE__,
-                                                        "test_cert1.pem"),
-        facebook::testing::FbcodeUtils::getResourcePath(__FILE__,
-                                                        "test_cert1.key"),
-        "");
+        kTestDir + "test_cert1.pem", kTestDir + "test_cert1.key", "");
 
     sslCtxConfig_.isDefault = true;
     sslCtxConfig_.clientVerification =
