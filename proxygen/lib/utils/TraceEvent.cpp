@@ -72,7 +72,7 @@ bool TraceEvent::addMetaInternal(TraceFieldType key, MetaData&& value) {
 
   // replace if key already exist
   if (!rc.second) {
-    rc.first->second = value;
+    rc.first->second = std::move(value);
   }
 
   return rc.second;
