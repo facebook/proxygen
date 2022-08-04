@@ -52,6 +52,7 @@ struct HQBaseParams {
   std::vector<std::string> supportedAlpns{proxygen::kH3,
                                           proxygen::kHQ,
                                           proxygen::kH3FBCurrentDraft,
+                                          proxygen::kH3AliasV1,
                                           proxygen::kH3CurrentDraft,
                                           proxygen::kHQCurrentDraft};
   quic::TransportSettings transportSettings;

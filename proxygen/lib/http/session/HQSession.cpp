@@ -89,6 +89,7 @@ using namespace proxygen::hq;
 namespace proxygen {
 
 const std::string kH3FBCurrentDraft("h3-fb-05");
+const std::string kH3AliasV1("h3-alias-01");
 const std::string kH3CurrentDraft("h3-29");
 const std::string kHQCurrentDraft("hq-29");
 const std::string kH3("h3");
@@ -405,7 +406,7 @@ bool HQSession::getAndCheckApplicationProtocol() {
       version_ = HQVersion::H1Q_FB_V1;
     } else if (alpn == kH1QV2ProtocolString) {
       version_ = HQVersion::H1Q_FB_V2;
-    } else if (alpn == kH3FBCurrentDraft || alpn == kH3 ||
+    } else if (alpn == kH3FBCurrentDraft || alpn == kH3AliasV1 || alpn == kH3 ||
                alpn == kH3CurrentDraft) {
       version_ = HQVersion::HQ;
     }
