@@ -130,7 +130,7 @@ function setup_fmt() {
   fi
   cd "$FMT_DIR"
   git fetch --tags
-  git checkout 6.2.1
+  git checkout 8.0.1
   echo -e "${COLOR_GREEN}Building fmt ${COLOR_OFF}"
   mkdir -p "$FMT_BUILD_DIR"
   cd "$FMT_BUILD_DIR" || exit
