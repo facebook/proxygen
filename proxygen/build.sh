@@ -159,7 +159,7 @@ function setup_googletest() {
   fi
   cd "$GTEST_DIR"
   git fetch --tags
-  git checkout release-1.10.0
+  git checkout release-1.12.1
   echo -e "${COLOR_GREEN}Building googletest ${COLOR_OFF}"
   mkdir -p "$GTEST_BUILD_DIR"
   cd "$GTEST_BUILD_DIR" || exit
