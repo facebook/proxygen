@@ -46,7 +46,7 @@ HTTP2Codec::HTTP2Codec(TransportDirection direction)
       headerCodec_(direction),
       frameState_(direction == TransportDirection::DOWNSTREAM
                       ? FrameState::UPSTREAM_CONNECTION_PREFACE
-                      : FrameState::DOWNSTREAM_CONNECTION_PREFACE) {
+                      : FrameState::EXPECT_FIRST_SETTINGS) {
 
   const auto maxHeaderListSize =
       egressSettings_.getSetting(SettingsId::MAX_HEADER_LIST_SIZE);
@@ -82,17 +82,17 @@ size_t HTTP2Codec::onIngress(const folly::IOBuf& buf) {
           VLOG(4) << goawayErrorMessage_;
           connError = ErrorCode::PROTOCOL_ERROR;
         }
-        frameState_ = FrameState::FRAME_HEADER;
+        frameState_ = FrameState::EXPECT_FIRST_SETTINGS;
       } else {
         break;
       }
     } else if (frameState_ == FrameState::FRAME_HEADER ||
-               frameState_ == FrameState::DOWNSTREAM_CONNECTION_PREFACE) {
+               frameState_ == FrameState::EXPECT_FIRST_SETTINGS) {
       // Waiting to parse the common frame header
       if (remaining >= http2::kFrameHeaderSize) {
         connError = parseFrameHeader(cursor, curHeader_);
         parsed += http2::kFrameHeaderSize;
-        if (frameState_ == FrameState::DOWNSTREAM_CONNECTION_PREFACE &&
+        if (frameState_ == FrameState::EXPECT_FIRST_SETTINGS &&
             curHeader_.type != http2::FrameType::SETTINGS) {
           goawayErrorMessage_ = folly::to<string>(
               "GOAWAY error: got invalid connection preface frame type=",
@@ -1684,15 +1684,12 @@ size_t HTTP2Codec::generateSettings(folly::IOBufQueue& writeBuf) {
 }
 
 void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
-  HTTP2Codec defaultCodec{TransportDirection::UPSTREAM};
-
   auto& headers = request.getHeaders();
   headers.set(HTTP_HEADER_UPGRADE, http2::kProtocolCleartextString);
   bool addUpgrade =
       !request.checkForHeaderToken(HTTP_HEADER_CONNECTION, "Upgrade", false);
   IOBufQueue writeBuf{IOBufQueue::cacheChainLength()};
-  // TODO staatic generateSettings
-  defaultCodec.generateSettings(writeBuf);
+  generateDefaultSettings(writeBuf);
   writeBuf.trimStart(http2::kFrameHeaderSize);
   auto buf = writeBuf.move();
   buf->coalesce();
@@ -1708,6 +1705,11 @@ void HTTP2Codec::requestUpgrade(HTTPMessage& request) {
   } else if (addSettings) {
     headers.add(HTTP_HEADER_CONNECTION, http2::kProtocolSettingsHeader);
   }
+}
+
+size_t HTTP2Codec::generateDefaultSettings(folly::IOBufQueue& writeBuf) {
+  static HTTP2Codec defaultCodec{TransportDirection::UPSTREAM};
+  return defaultCodec.generateSettings(writeBuf);
 }
 
 size_t HTTP2Codec::generateSettingsAck(folly::IOBufQueue& writeBuf) {

@@ -52,6 +52,10 @@ class HTTP2CodecTest : public HTTPParallelCodecTest {
 
   void SetUp() override {
     HTTPParallelCodecTest::SetUp();
+    // make it transparent to the tests that we've received a settings frame
+    upstreamCodec_.generateSettings(output_);
+    parse();
+    callbacks_.reset();
   }
   void testHeaderListSize(bool oversized);
   void testFrameSizeLimit(bool oversized);
@@ -99,6 +103,14 @@ TEST_F(HTTP2CodecTest, IgnoreUnknownSettings) {
   EXPECT_EQ(numSettings,
             downstreamCodec_.getIngressSettings()->getNumSettings());
 }
+
+// Some tests rely on the fact that we haven't flushed and parsed the preface
+// and settings frame.
+class HTTP2CodecTestOmitParsePreface : public HTTP2CodecTest {
+  void SetUp() override {
+    HTTPParallelCodecTest::SetUp();
+  }
+};
 
 TEST_F(HTTP2CodecTest, NoExHeaders) {
   // do not emit ENABLE_EX_HEADERS setting, if disabled
@@ -272,6 +284,20 @@ TEST_F(HTTP2CodecTest, RequestFromServer) {
   EXPECT_EQ("coolio", headers.getSingleOrEmpty(HTTP_HEADER_USER_AGENT));
   EXPECT_EQ("coolio\tv2", headers.getSingleOrEmpty("tab-hdr"));
   EXPECT_EQ("www.foo.com", headers.getSingleOrEmpty(HTTP_HEADER_HOST));
+}
+
+TEST_F(HTTP2CodecTestOmitParsePreface, OmitSettingsAfterConnPrefaceError) {
+  HTTPMessage req = getGetRequest("/test");
+  req.getHeaders().add(HTTP_HEADER_USER_AGENT, "rand-user");
+  req.setSecure(true);
+  upstreamCodec_.generateHeader(output_, 1, req, true, /*headerSize=*/nullptr);
+
+  parse();
+  EXPECT_EQ(callbacks_.settings, 0);
+  EXPECT_EQ(callbacks_.numSettings, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+  EXPECT_EQ(callbacks_.lastParseError->getCodecStatusCode(),
+            ErrorCode::PROTOCOL_ERROR);
 }
 
 TEST_F(HTTP2CodecTest, ResponseFromClient) {
@@ -635,7 +661,6 @@ void HTTP2CodecTest::testFrameSizeLimit(bool oversized) {
   HTTPMessage req = getBigGetRequest("/guacamole");
   auto settings = downstreamCodec_.getEgressSettings();
 
-  parse(); // consume preface
   if (oversized) {
     // trick upstream for sending a 2x bigger HEADERS frame
     settings->setSetting(SettingsId::MAX_FRAME_SIZE,
@@ -680,7 +705,6 @@ TEST_F(HTTP2CodecTest, BigHeaderCompressed) {
   downstreamCodec_.generateSettings(output_);
   parseUpstream();
 
-  SetUp();
   HTTPMessage req = getGetRequest("/guacamole");
   req.getHeaders().add(HTTP_HEADER_USER_AGENT, "coolio");
   upstreamCodec_.generateHeader(output_, 1, req, true /* eom */);
@@ -863,7 +887,8 @@ TEST_F(HTTP2CodecTest, MissingContinuation) {
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 #ifndef NDEBUG
-  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 2);
+  // frames = 3 to account for settings frame after H2 conn preface
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
 #endif
 }
 
@@ -887,7 +912,8 @@ TEST_F(HTTP2CodecTest, MissingContinuationBadFrame) {
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 #ifndef NDEBUG
-  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 2);
+  // frames = 3 to account for settings frame after H2 conn preface
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
 #endif
 }
 
@@ -907,7 +933,8 @@ TEST_F(HTTP2CodecTest, BadContinuationStream) {
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 #ifndef NDEBUG
-  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 2);
+  // frames = 3 to account for settings frame after H2 conn preface
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
 #endif
 }
 
@@ -1118,16 +1145,19 @@ TEST_F(HTTP2CodecTest, MalformedPadding) {
   EXPECT_FALSE(parse());
 }
 
-TEST_F(HTTP2CodecTest, NoAppByte) {
+TEST_F(HTTP2CodecTestOmitParsePreface, NoAppByte) {
   const uint8_t noAppByte[] = {
-      0x50, 0x52, 0x49, 0x20, 0x2a, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x32,
-      0x2e, 0x30, 0x0d, 0x0a, 0x0d, 0x0a, 0x53, 0x4d, 0x0d, 0x0a, 0x0d, 0x0a,
+      0x50, 0x52, 0x49, 0x20, 0x2a, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f,
+      0x32, 0x2e, 0x30, 0x0d, 0x0a, 0x0d, 0x0a, 0x53, 0x4d, 0x0d, 0x0a,
+      0x0d, 0x0a, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x56, 0x00, 0x5d, 0x00, 0x00, 0x00, 0x01, 0x55, 0x00};
   output_.reset();
   output_.append(noAppByte, sizeof(noAppByte));
   EXPECT_EQ(output_.chainLength(), sizeof(noAppByte));
 
   EXPECT_TRUE(parse());
+  EXPECT_EQ(callbacks_.settings, 1);
+  EXPECT_EQ(callbacks_.numSettings, 0);
   EXPECT_EQ(callbacks_.messageBegin, 0);
   EXPECT_EQ(callbacks_.headersComplete, 0);
   EXPECT_EQ(callbacks_.messageComplete, 0);
@@ -1146,7 +1176,8 @@ TEST_F(HTTP2CodecTest, DataFramePartialDataOnFrameHeaderCall) {
   auto buf = makeBuf(bufSize);
   const size_t padding = 10;
   upstreamCodec_.generateBody(output_, 1, buf->clone(), padding, true);
-  EXPECT_EQ(output_.chainLength(), 54);
+  // 9 (frame header) + 1 (padding length) + 10 (body) + 10 (padding)
+  EXPECT_EQ(output_.chainLength(), 30);
 
   downstreamCodec_.setCallback(&mockCallback);
 
@@ -1162,17 +1193,18 @@ TEST_F(HTTP2CodecTest, DataFramePartialDataWithNoAppByte) {
   auto buf = makeBuf(bufSize);
   const size_t padding = 10;
   upstreamCodec_.generateBody(output_, 1, buf->clone(), padding, true);
-  EXPECT_EQ(output_.chainLength(), 54);
+  // 9 (frame header) + 1 (padding length) + 10 (body) + 10 (padding)
+  EXPECT_EQ(output_.chainLength(), 30);
 
   auto ingress = output_.move();
   ingress->coalesce();
   // Copy up to the padding length byte to a new buffer
-  auto ingress1 = IOBuf::copyBuffer(ingress->data(), 34);
+  auto ingress1 = IOBuf::copyBuffer(ingress->data(), 10);
   size_t parsed = downstreamCodec_.onIngress(*ingress1);
-  // The 34th byte is the padding length byte which should not be parsed
-  EXPECT_EQ(parsed, 33);
+  // The 10th byte is the padding length byte which should not be parsed
+  EXPECT_EQ(parsed, 9);
   // Copy from the padding length byte to the end
-  auto ingress2 = IOBuf::copyBuffer(ingress->data() + 33, 21);
+  auto ingress2 = IOBuf::copyBuffer(ingress->data() + 9, 21);
   parsed = downstreamCodec_.onIngress(*ingress2);
   // The padding length byte should be parsed this time along with 10 bytes of
   // application data and 10 bytes of padding
@@ -1221,7 +1253,7 @@ TEST_F(HTTP2CodecTest, BasicPing) {
   uint64_t pingReq;
   parse([&](IOBuf* ingress) {
     folly::io::Cursor c(ingress);
-    c.skip(http2::kFrameHeaderSize + http2::kConnectionPreface.length());
+    c.skip(http2::kFrameHeaderSize);
     pingReq = c.read<uint64_t>();
   });
 
@@ -1294,7 +1326,6 @@ TEST_F(HTTP2CodecTest, BadGoaway) {
 }
 
 TEST_F(HTTP2CodecTest, DoubleGoaway) {
-  parse();
   SetUpUpstreamTest();
   downstreamCodec_.generateGoaway(output_);
   EXPECT_TRUE(downstreamCodec_.isWaitingToDrain());
@@ -1482,7 +1513,7 @@ TEST_F(HTTP2CodecTest, BadSettings) {
   EXPECT_EQ(callbacks_.sessionErrors, 1);
 }
 
-TEST_F(HTTP2CodecTest, BadPushSettings) {
+TEST_F(HTTP2CodecTestOmitParsePreface, BadPushSettings) {
   auto settings = downstreamCodec_.getEgressSettings();
   settings->clearSettings();
   settings->setSetting(SettingsId::ENABLE_PUSH, 0);
@@ -1528,7 +1559,7 @@ TEST_F(HTTP2CodecTest, SettingsTableSize) {
   EXPECT_EQ("x-coolio", headers.getSingleOrEmpty(HTTP_HEADER_CONTENT_TYPE));
 }
 
-TEST_F(HTTP2CodecTest, BadSettingsTableSize) {
+TEST_F(HTTP2CodecTestOmitParsePreface, BadSettingsTableSize) {
   auto settings = upstreamCodec_.getEgressSettings();
   settings->setSetting(SettingsId::HEADER_TABLE_SIZE, 8192);
   // This sets the max decoder table size to 8k
@@ -1653,7 +1684,7 @@ TEST_F(HTTP2CodecTest, BadHeaderPriority) {
   // hack ingress with cirular dep
   EXPECT_TRUE(parse([&](IOBuf* ingress) {
     folly::io::RWPrivateCursor c(ingress);
-    c.skip(http2::kFrameHeaderSize + http2::kConnectionPreface.length());
+    c.skip(http2::kFrameHeaderSize);
     c.writeBE<uint32_t>(1);
   }));
 
@@ -1676,7 +1707,7 @@ TEST_F(HTTP2CodecTest, DuplicateBadHeaderPriority) {
   // Hack ingress with circular dependency.
   EXPECT_TRUE(parse([&](IOBuf* ingress) {
     folly::io::RWPrivateCursor c(ingress);
-    c.skip(http2::kFrameHeaderSize + http2::kConnectionPreface.length());
+    c.skip(http2::kFrameHeaderSize);
     c.writeBE<uint32_t>(1);
   }));
 
@@ -1698,7 +1729,7 @@ TEST_F(HTTP2CodecTest, BadPriority) {
   // hack ingress with cirular dep
   EXPECT_TRUE(parse([&](IOBuf* ingress) {
     folly::io::RWPrivateCursor c(ingress);
-    c.skip(http2::kFrameHeaderSize + http2::kConnectionPreface.length());
+    c.skip(http2::kFrameHeaderSize);
     c.writeBE<uint32_t>(1);
   }));
 
@@ -2234,7 +2265,8 @@ TEST_F(HTTP2CodecTest, Trailers) {
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 #ifndef NDEBUG
-  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
+  // frames = 4 to account for settings frame after H2 conn preface
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 4);
 #endif
 }
 
@@ -2296,7 +2328,8 @@ TEST_F(HTTP2CodecTest, TrailersNoBody) {
   EXPECT_EQ(callbacks_.streamErrors, 0);
   EXPECT_EQ(callbacks_.sessionErrors, 0);
 #ifndef NDEBUG
-  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 2);
+  // frames = 3 to account for settings frame after H2 conn preface
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
 #endif
 }
 
@@ -2325,7 +2358,8 @@ TEST_F(HTTP2CodecTest, TrailersContinuation) {
   EXPECT_EQ(std::string(http2::kMaxFramePayloadLengthMin, '!'),
             callbacks_.msg->getTrailers()->getSingleOrEmpty("x-huge-trailer"));
 #ifndef NDEBUG
-  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
+  // frames = 4 to account for settings frame after H2 conn preface
+  EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 4);
 #endif
 }
 

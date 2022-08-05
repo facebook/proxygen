@@ -163,6 +163,8 @@ class HTTP2Codec
 
   static void requestUpgrade(HTTPMessage& request);
 
+  static size_t generateDefaultSettings(folly::IOBufQueue& writeBuf);
+
 #ifndef NDEBUG
   uint64_t getReceivedFrameCount() const {
     return receivedFrameCount_;
@@ -335,7 +337,7 @@ class HTTP2Codec
 #endif
   enum class FrameState : uint8_t {
     UPSTREAM_CONNECTION_PREFACE = 0,
-    DOWNSTREAM_CONNECTION_PREFACE = 1,
+    EXPECT_FIRST_SETTINGS = 1,
     FRAME_HEADER = 2,
     FRAME_DATA = 3,
     DATA_FRAME_DATA = 4,

@@ -346,6 +346,7 @@ class FakeHTTPCodecCallback : public HTTPCodec::Callback {
     recvPingReply = 0;
     windowUpdateCalls = 0;
     settings = 0;
+    numSettings = 0;
     settingsAcks = 0;
     certificateRequests = 0;
     lastCertRequestId = 0;

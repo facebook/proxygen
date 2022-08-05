@@ -109,6 +109,7 @@ class HTTPDownstreamTest : public testing::Test {
           SettingsId::ENABLE_EX_HEADERS, 1);
     }
     clientCodec_->generateConnectionPreface(requests_);
+    clientCodec_->generateSettings(requests_);
     clientCodec_->setCallback(&callbacks_);
   }
 
@@ -2712,6 +2713,7 @@ TEST_F(HTTPDownstreamSessionTest, HttpUpgradeGoawayDrain) {
   flushRequestsAndLoop();
   expect101(CodecProtocol::HTTP_2, "h2c");
   clientCodec_->generateConnectionPreface(requests_);
+  clientCodec_->generateSettings(requests_);
   clientCodec_->generateGoaway(requests_, 0, ErrorCode::NO_ERROR);
   flushRequestsAndLoop();
   eventBase_.runInLoop([&handler] { handler->sendReplyWithBody(200, 100); });
@@ -3837,6 +3839,9 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgRateLimitExceeded) {
 }
 
 TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
+  // clear pending settings frame
+  flushRequestsAndLoop();
+
   auto streamid = clientCodec_->createStream();
 
   httpSession_->setControlMessageRateLimitParams(10, 100, milliseconds(0));
@@ -3853,6 +3858,7 @@ TEST_F(HTTP2DownstreamSessionTest, TestControlMsgResetRateLimitTouched) {
   for (int i = 0; i < 2; i++) {
     clientCodec_->generatePingRequest(requests_);
   }
+  //
 
   // We should reset the number of control frames seen, enabling us to send
   // more without hitting the rate limit
