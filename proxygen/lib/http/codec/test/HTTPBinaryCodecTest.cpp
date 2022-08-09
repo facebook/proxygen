@@ -471,6 +471,30 @@ TEST_F(HTTPBinaryCodecTest, testOnIngressSuccess) {
   EXPECT_EQ(httpHeaders.getSingleOrEmpty("accept-language"), "en, mi");
 }
 
+TEST_F(HTTPBinaryCodecTest, testOnIngressSuccessForControlData) {
+  // Format is `..GET.https.www.example.com./`
+  const std::vector<uint8_t> binaryHTTPMessage{
+      0x00, 0x03, 0x47, 0x45, 0x54, 0x05, 0x68, 0x74, 0x74,
+      0x70, 0x73, 0x0b, 0x65, 0x78, 0x61, 0x6d, 0x70, 0x6c,
+      0x65, 0x2e, 0x63, 0x6f, 0x6d, 0x01, 0x2f};
+  auto binaryHTTPMessageIOBuf = folly::IOBuf::wrapBuffer(
+      folly::ByteRange(binaryHTTPMessage.data(), binaryHTTPMessage.size()));
+  folly::io::Cursor cursor(binaryHTTPMessageIOBuf.get());
+
+  HTTPBinaryCodecCallback callback;
+  downstreamBinaryCodec_->setCallback(&callback);
+  downstreamBinaryCodec_->onIngress(*binaryHTTPMessageIOBuf);
+  downstreamBinaryCodec_->onIngressEOF();
+
+  // Check onError was not called for the callback
+  EXPECT_EQ(callback.error_, nullptr);
+
+  // Check msg and header fields
+  EXPECT_EQ(callback.msg_->isSecure(), true);
+  EXPECT_EQ(callback.msg_->getMethod(), proxygen::HTTPMethod::GET);
+  EXPECT_EQ(callback.msg_->getURL(), "/");
+}
+
 TEST_F(HTTPBinaryCodecTest, testOnIngressFailure) {
   // Format is `..GET.https.www.example.com./hello.txt..user-agent.curl/7.16.3
   // libcurl/7.16.3 OpenSSL/0.9.7l

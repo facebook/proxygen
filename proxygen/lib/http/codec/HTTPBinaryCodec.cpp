@@ -429,6 +429,10 @@ void HTTPBinaryCodec::onIngressEOF() {
         HTTPException(HTTPException::Direction::INGRESS,
                       fmt::format("Invalid Message: {}", *parseError_)));
   } else {
+    // Case where the sent message only contains control data
+    if (!msg_ && state_ == ParseState::HEADERS_SECTION) {
+      msg_ = std::move(decodeInfo_.msg);
+    }
     CHECK(msg_);
     callback_->onHeadersComplete(ingressTxnID_, std::move(msg_));
     if (msgBody_) {
