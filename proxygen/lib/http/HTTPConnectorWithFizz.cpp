@@ -34,7 +34,7 @@ void HTTPConnectorWithFizz::connectFizz(
   socket_.reset(fizzClient);
 
   connectStart_ = getCurrentTime();
-
+  cb_->preConnect(fizzClient);
   fizzClient->connect(connectAddr,
                       this,
                       std::move(verifier),

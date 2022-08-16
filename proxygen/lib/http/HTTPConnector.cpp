@@ -67,6 +67,7 @@ void HTTPConnector::connect(EventBase* eventBase,
   auto sock = new AsyncSocket(eventBase);
   socket_.reset(sock);
   connectStart_ = getCurrentTime();
+  cb_->preConnect(sock);
   sock->connect(this, connectAddr, timeoutMs.count(), socketOptions, bindAddr);
 }
 
@@ -90,6 +91,7 @@ void HTTPConnector::connectSSL(EventBase* eventBase,
   sslSock->forceCacheAddrOnFailure(true);
   socket_.reset(sslSock);
   connectStart_ = getCurrentTime();
+  cb_->preConnect(sslSock);
   sslSock->connect(
       this, connectAddr, timeoutMs.count(), socketOptions, bindAddr);
 }
