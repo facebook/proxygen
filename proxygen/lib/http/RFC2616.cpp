@@ -58,7 +58,11 @@ BodyAllowed isRequestBodyAllowed(folly::Optional<HTTPMethod> method) {
 }
 
 bool responseBodyMustBeEmpty(unsigned status) {
-  return (status == 304 || status == 204 || (100 <= status && status < 200));
+  return (status == 304 ||
+#ifndef ALLOW_NONEMPTY_204_RESPONSE
+          status == 204 ||
+#endif
+          (100 <= status && status < 200));
 }
 
 bool bodyImplied(const HTTPHeaders& headers) {

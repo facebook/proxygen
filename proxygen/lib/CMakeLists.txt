@@ -224,6 +224,9 @@ target_compile_options(
     proxygen PRIVATE
     ${_PROXYGEN_COMMON_COMPILE_OPTIONS}
 )
+if (ALLOW_NONEMPTY_204_RESPONSE)
+  target_compile_definitions(proxygen PRIVATE ALLOW_NONEMPTY_204_RESPONSE)
+endif()
 
 if (BUILD_SHARED_LIBS)
     set_property(TARGET proxygen PROPERTY POSITION_INDEPENDENT_CODE ON)
