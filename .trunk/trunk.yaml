@@ -1,0 +1,39 @@
+version: 0.1
+actions:
+  disabled:
+    - trunk-announce
+    - trunk-check-pre-push
+    - trunk-fmt-pre-commit
+  enabled:
+    - trunk-cache-prune
+    - trunk-upgrade-available
+runtimes:
+  enabled:
+    - go@1.18.3
+    - node@16.14.2
+    - python@3.10.3
+cli:
+  version: 0.18.0-beta
+plugins:
+  sources:
+    - id: trunk
+      ref: v0.0.4
+      uri: https://github.com/trunk-io/plugins
+lint:
+  compile_commands: json
+  enabled:
+    - clang-tidy@14.0.0
+    - actionlint@1.6.18
+    - black@22.8.0
+    - flake8@5.0.4
+    - git-diff-check@SYSTEM
+    - gitleaks@8.12.0
+    - isort@5.10.1
+    - markdownlint@0.32.2
+    - prettier@2.7.1
+    - shellcheck@0.8.0
+    - shfmt@3.5.0
+  ignore:
+    - linters: [clang-tidy]
+      paths:
+        - proxygen/lib/http/session/HQDownstreamSession.cpp

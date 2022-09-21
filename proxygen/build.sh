@@ -464,6 +464,7 @@ cmake                                     \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
   -DCMAKE_PREFIX_PATH="$DEPS_DIR"         \
   -DCMAKE_INSTALL_PREFIX="$PREFIX"        \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON      \
   "$MAYBE_BUILD_QUIC"                     \
   "$MAYBE_BUILD_TESTS"                    \
   "$MAYBE_BUILD_FUZZERS"                  \
