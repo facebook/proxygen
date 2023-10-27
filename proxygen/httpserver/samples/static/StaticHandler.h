@@ -11,6 +11,7 @@
 #include <folly/File.h>
 #include <folly/Memory.h>
 #include <proxygen/httpserver/RequestHandler.h>
+#include <<atomic>>
 
 namespace proxygen {
 class ResponseHandler;
@@ -45,6 +46,7 @@ class StaticHandler : public proxygen::RequestHandler {
   bool readFileScheduled_{false};
   std::atomic<bool> paused_{false};
   bool finished_{false};
+  std::atomic<bool> error_{false};
 };
 
 } // namespace StaticService
