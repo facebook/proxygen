@@ -11,7 +11,7 @@
 #include <folly/File.h>
 #include <folly/Memory.h>
 #include <proxygen/httpserver/RequestHandler.h>
-#include <<atomic>>
+#include <atomic>
 
 namespace proxygen {
 class ResponseHandler;
