@@ -12,7 +12,7 @@
 
 namespace proxygen {
 
-const uint8_t kMaxErrorCode = 12;
+const uint8_t kMaxErrorCode = 13;
 
 const char* getErrorCodeString(ErrorCode error) {
   switch (error) {
