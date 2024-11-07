@@ -1198,7 +1198,10 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
     ignoreBody = false;
   } else {
     is1xxResponse_ = msg_->is1xxResponse();
-    if (expectNoResponseBody_) {
+    if (connectRequest_ && (msg_->is4xxResponse() || msg_->is5xxResponse())) {
+      ignoreBody = false;
+    }
+    else if (expectNoResponseBody_) {
       ignoreBody = true;
     } else {
       ignoreBody = RFC2616::responseBodyMustBeEmpty(msg_->getStatusCode());
