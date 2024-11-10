@@ -1530,6 +1530,55 @@ TEST(HTTP1xCodecTest, AbsoluteURLNoPath) {
   EXPECT_EQ(callbacks.msg_->getPathAsStringPiece(), string("/"));
 }
 
+TEST(HTTP1xCodecTest, ConnectRequestSuccess) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  HTTPMessage req;
+  auto id = codec.createStream();
+  req.setHTTPVersion(1, 1);
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("facebook.com:443");
+  codec.setCallback(&callbacks);
+  folly::IOBufQueue buf;
+  codec.generateHeader(buf, id, req, true);
+  auto buffer = folly::IOBuf::copyBuffer(
+      string("HTTP/1.1 200 Connection established\r\n\r\n"));
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.bodyLen, 0);
+  EXPECT_EQ(callbacks.errors, 0);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+}
+
+TEST(HTTP1xCodecTest, ConnectRequestError) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  HTTPMessage req;
+  auto id = codec.createStream();
+  req.setHTTPVersion(1, 1);
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("facebook.com:443");
+  codec.setCallback(&callbacks);
+  folly::IOBufQueue buf;
+  codec.generateHeader(buf, id, req, true);
+  auto buffer = folly::IOBuf::copyBuffer(string("HTTP/1.1 407 Proxy Authentication Required\r\n"
+                                                "Content-Type: text/html;charset=utf-8\r\n"
+                                                "Content-Length: 165\r\n"
+                                                "Proxy-Authenticate: Basic\r\n"
+                                                "Proxy-Authenticate: NTLM\r\n"
+                                                "Connection: keep-alive\r\n"
+                                                "\r\n"
+                                                "<!DOCTYPE html><html><head><title>ERROR: "
+                                                "Cache Access Denied</title></head><body id"
+                                                "=ERR_CACHE_ACCESS_DENIED><h1>ERROR</h1><h2>"
+                                                "Cache Access Denied.</h2></body></html>"));
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.bodyLen, 165);
+  EXPECT_EQ(callbacks.errors, 0);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+}
+
 class ConnectionHeaderTest
     : public TestWithParam<std::pair<std::list<string>, string>> {
  public:
