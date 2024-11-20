@@ -1579,6 +1579,30 @@ TEST(HTTP1xCodecTest, ConnectRequestError) {
   EXPECT_EQ(callbacks.messageComplete, 1);
 }
 
+TEST(HTTP1xCodecTest, ConnectRequestErrorWithoutBody) {
+  HTTP1xCodec codec(TransportDirection::UPSTREAM);
+  HTTP1xCodecCallback callbacks;
+  HTTPMessage req;
+  auto id = codec.createStream();
+  req.setHTTPVersion(1, 1);
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setURL("facebook.com:443");
+  codec.setCallback(&callbacks);
+  folly::IOBufQueue buf;
+  codec.generateHeader(buf, id, req, true);
+  auto buffer = folly::IOBuf::copyBuffer(string("HTTP/1.1 407 Proxy Authentication Required\r\n"
+    "Content-Type: text/html;charset=utf-8\r\n"
+    "Proxy-Authenticate: Basic\r\n"
+    "Proxy-Authenticate: NTLM\r\n"
+    "Connection: keep-alive\r\n"
+    "\r\n"));
+  codec.onIngress(*buffer);
+  EXPECT_EQ(callbacks.headersComplete, 1);
+  EXPECT_EQ(callbacks.bodyLen, 0);
+  EXPECT_EQ(callbacks.errors, 0);
+  EXPECT_EQ(callbacks.messageComplete, 1);
+}
+
 class ConnectionHeaderTest
     : public TestWithParam<std::pair<std::list<string>, string>> {
  public:
