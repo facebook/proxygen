@@ -440,7 +440,13 @@ class InstallSysDepsCmd(ProjectCmdBase):
         elif manager == "deb":
             packages = sorted(set(all_packages["deb"]))
             if packages:
-                cmd_args = ["sudo", "apt", "install", "-y"] + packages
+                cmd_args = [
+                    "sudo",
+                    "--preserve-env=http_proxy",
+                    "apt",
+                    "install",
+                    "-y",
+                ] + packages
         elif manager == "homebrew":
             packages = sorted(set(all_packages["homebrew"]))
             if packages:
@@ -1155,11 +1161,11 @@ jobs:
                 build_opts.allow_system_packages
                 and build_opts.host_type.get_package_manager()
             ):
-                sudo_arg = "sudo "
+                sudo_arg = "sudo --preserve-env=http_proxy "
                 allow_sys_arg = " --allow-system-packages"
                 if build_opts.host_type.get_package_manager() == "deb":
                     out.write("    - name: Update system package info\n")
-                    out.write(f"      run: {sudo_arg}apt-get update\n")
+                    out.write(f"      run: {sudo_arg}apt update\n")
 
                 out.write("    - name: Install system deps\n")
                 if build_opts.is_darwin():
@@ -1180,7 +1186,7 @@ jobs:
                 ):
                     # ubuntu doesn't include this by default
                     out.write("    - name: Install locale-gen\n")
-                    out.write(f"      run: {sudo_arg}apt-get install locales\n")
+                    out.write(f"      run: {sudo_arg}apt install locales\n")
                     for loc in required_locales.split():
                         out.write(f"    - name: Ensure {loc} locale present\n")
                         out.write(f"      run: {sudo_arg}locale-gen {loc}\n")
