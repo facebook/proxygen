@@ -1197,7 +1197,10 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
     ignoreBody = false;
   } else {
     is1xxResponse_ = msg_->is1xxResponse();
-    if (expectNoResponseBody_) {
+    std::string contentLengthHeader = msg_->getHeaders().getSingleOrEmpty(HTTP_HEADER_CONTENT_LENGTH);
+    if (connectRequest_ && (msg_->is4xxResponse() || msg_->is5xxResponse()) && !contentLengthHeader.empty() && std::stol(contentLengthHeader) != 0) {
+      ignoreBody = false;
+    } else if (expectNoResponseBody_) {
       ignoreBody = true;
     } else {
       ignoreBody = RFC2616::responseBodyMustBeEmpty(msg_->getStatusCode());
