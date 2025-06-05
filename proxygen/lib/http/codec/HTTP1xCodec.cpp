@@ -12,6 +12,8 @@
 #include <folly/Random.h>
 #include <folly/base64.h>
 #include <folly/ssl/OpenSSLHash.h>
+#include <proxygen/external/lhttp/api.h>
+#include <proxygen/external/lhttp/llhttp.h>
 #include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/RFC2616.h>
 #include <proxygen/lib/http/codec/CodecProtocol.h>
@@ -116,17 +118,21 @@ HTTP1xCodec::HTTP1xCodec(TransportDirection direction,
       nativeUpgrade_(false),
       headersComplete_(false),
       releaseEgressAfterRequest_(false) {
-  switch (direction) {
-    case TransportDirection::DOWNSTREAM:
-      http_parser_init(&parser_, HTTP_REQUEST);
-      break;
-    case TransportDirection::UPSTREAM:
-      http_parser_init(&parser_, HTTP_RESPONSE);
-      break;
-    default:
-      LOG(FATAL) << "Unknown transport direction.";
-  }
+  // Initialize the llhttp parser
+  llhttp_settings_init(&llhttpSettings_);
+  initParserSettings();
+  llhttp_init(&parser_,
+              direction == TransportDirection::DOWNSTREAM ? HTTP_REQUEST
+                                                          : HTTP_RESPONSE,
+              &llhttpSettings_);
   parser_.data = this;
+
+  // Enable lenient handling of HTTP versions to support HTTP/0.9
+  llhttp_set_lenient_version(&parser_, 1);
+
+  // Enable lenient handling of line separators for HTTP/0.9
+  llhttp_set_lenient_optional_cr_before_lf(&parser_, 1);
+  llhttp_set_lenient_optional_lf_after_cr(&parser_, 1);
 }
 
 HTTP1xCodec::~HTTP1xCodec() {
@@ -147,35 +153,34 @@ void HTTP1xCodec::setParserPaused(bool paused) {
   if ((paused == parserPaused_) || parserError_) {
     // If we're bailing early, we better be paused already
     DCHECK(parserError_ ||
-           (HTTP_PARSER_ERRNO(&parser_) == HPE_PAUSED) == paused);
+           (llhttp_get_errno(&parser_) == HPE_PAUSED) == paused);
     return;
   }
   if (paused) {
-    if (HTTP_PARSER_ERRNO(&parser_) == HPE_OK) {
-      http_parser_pause(&parser_, 1);
+    // Only pause if we're not already in a paused state
+    if (llhttp_get_errno(&parser_) != HPE_PAUSED) {
+      llhttp_pause(&parser_);
     }
   } else {
-    http_parser_pause(&parser_, 0);
+    // Only resume if we're currently paused
+    if (llhttp_get_errno(&parser_) == HPE_PAUSED) {
+      llhttp_resume(&parser_);
+    }
   }
   parserPaused_ = paused;
 }
 
-const http_parser_settings* HTTP1xCodec::getParserSettings() {
-  static http_parser_settings parserSettings = [] {
-    http_parser_settings st;
-    st.on_message_begin = HTTP1xCodec::onMessageBeginCB;
-    st.on_url = HTTP1xCodec::onUrlCB;
-    st.on_header_field = HTTP1xCodec::onHeaderFieldCB;
-    st.on_header_value = HTTP1xCodec::onHeaderValueCB;
-    st.on_headers_complete = HTTP1xCodec::onHeadersCompleteCB;
-    st.on_body = HTTP1xCodec::onBodyCB;
-    st.on_message_complete = HTTP1xCodec::onMessageCompleteCB;
-    st.on_reason = HTTP1xCodec::onReasonCB;
-    st.on_chunk_header = HTTP1xCodec::onChunkHeaderCB;
-    st.on_chunk_complete = HTTP1xCodec::onChunkCompleteCB;
-    return st;
-  }();
-  return &parserSettings;
+void HTTP1xCodec::initParserSettings() {
+  llhttpSettings_.on_message_begin = HTTP1xCodec::onMessageBeginCB;
+  llhttpSettings_.on_url = HTTP1xCodec::onUrlCB;
+  llhttpSettings_.on_header_field = HTTP1xCodec::onHeaderFieldCB;
+  llhttpSettings_.on_header_value = HTTP1xCodec::onHeaderValueCB;
+  llhttpSettings_.on_headers_complete = HTTP1xCodec::onHeadersCompleteCB;
+  llhttpSettings_.on_body = HTTP1xCodec::onBodyCB;
+  llhttpSettings_.on_message_complete = HTTP1xCodec::onMessageCompleteCB;
+  llhttpSettings_.on_status = HTTP1xCodec::onReasonCB;
+  llhttpSettings_.on_chunk_header = HTTP1xCodec::onChunkHeaderCB;
+  llhttpSettings_.on_chunk_complete = HTTP1xCodec::onChunkCompleteCB;
 }
 
 size_t HTTP1xCodec::onIngress(const IOBuf& buf) {
@@ -226,12 +231,42 @@ size_t HTTP1xCodec::onIngressImpl(const IOBuf& buf) {
       ingressUpgradeComplete_ = true;
       return onIngressImpl(buf);
     }
-    size_t bytesParsed = http_parser_execute_options(
-        &parser_,
-        getParserSettings(),
-        strictValidation_ ? F_HTTP_PARSER_OPTIONS_URL_STRICT : 0,
-        (const char*)buf.data(),
-        buf.length());
+
+    // Set URL strictness if requested
+    if (strictValidation_) {
+      llhttp_set_lenient_headers(&parser_, 0);
+      llhttp_set_lenient_chunked_length(&parser_, 0);
+      llhttp_set_lenient_keep_alive(&parser_, 0);
+    }
+
+    size_t bytesParsed = 0;
+    llhttp_errno_t err =
+        llhttp_execute(&parser_, (const char*)buf.data(), buf.length());
+
+    if (err == HPE_OK || err == HPE_PAUSED) {
+      if (err == HPE_PAUSED) {
+        // If paused, we might not have consumed all the data
+        const char* errorPos = llhttp_get_error_pos(&parser_);
+        if (errorPos >= (const char*)buf.data() &&
+            errorPos <= (const char*)buf.data() + buf.length()) {
+          bytesParsed = errorPos - (const char*)buf.data();
+        } else {
+          bytesParsed = buf.length();
+        }
+      } else {
+        bytesParsed = buf.length();
+      }
+    } else {
+      // Error occurred
+      const char* errorPos = llhttp_get_error_pos(&parser_);
+      if (errorPos >= (const char*)buf.data() &&
+          errorPos <= (const char*)buf.data() + buf.length()) {
+        bytesParsed = errorPos - (const char*)buf.data();
+      } else {
+        bytesParsed = 0;
+      }
+    }
+
     // in case we parsed a section of the headers but we're not done parsing
     // the headers we need to keep accounting of it for total header size
     if (!headersComplete_) {
@@ -239,8 +274,8 @@ size_t HTTP1xCodec::onIngressImpl(const IOBuf& buf) {
       headerSize_.compressed += bytesParsed;
     }
     parserActive_ = false;
-    parserError_ = (HTTP_PARSER_ERRNO(&parser_) != HPE_OK) &&
-                   (HTTP_PARSER_ERRNO(&parser_) != HPE_PAUSED);
+    parserError_ = (llhttp_get_errno(&parser_) != HPE_OK) &&
+                   (llhttp_get_errno(&parser_) != HPE_PAUSED);
     if (parserError_) {
       onParserError();
     }
@@ -273,12 +308,8 @@ void HTTP1xCodec::onIngressEOF() {
     return;
   }
   parserActive_ = true;
-  if (http_parser_execute(&parser_, getParserSettings(), nullptr, 0) != 0) {
-    parserError_ = true;
-  } else {
-    parserError_ = (HTTP_PARSER_ERRNO(&parser_) != HPE_OK) &&
-                   (HTTP_PARSER_ERRNO(&parser_) != HPE_PAUSED);
-  }
+  llhttp_errno_t err = llhttp_finish(&parser_);
+  parserError_ = (err != HPE_OK) && (err != HPE_PAUSED);
   parserActive_ = false;
   if (parserError_) {
     onParserError();
@@ -287,12 +318,12 @@ void HTTP1xCodec::onIngressEOF() {
 
 void HTTP1xCodec::onParserError(const char* what) {
   inRecvLastChunk_ = false;
-  http_errno parser_errno = HTTP_PARSER_ERRNO(&parser_);
+  llhttp_errno_t parser_errno = llhttp_get_errno(&parser_);
   HTTPException error(
       HTTPException::Direction::INGRESS,
       what ? what
            : folly::to<std::string>("Error parsing message: ",
-                                    http_errno_description(parser_errno)));
+                                    llhttp_errno_name(parser_errno)));
   // generate a string of parsed headers so that we can pass it to callback
   if (msg_) {
     error.setPartialMsg(std::move(msg_));
@@ -308,16 +339,16 @@ void HTTP1xCodec::onParserError(const char* what) {
   // See http_parser.h for what these error codes mean
   if (parser_errno == HPE_INVALID_EOF_STATE) {
     error.setProxygenError(kErrorEOF);
-  } else if (parser_errno == HPE_HEADER_OVERFLOW ||
+  } else if (parser_errno == HPE_INVALID_HEADER_TOKEN ||
              parser_errno == HPE_INVALID_CONSTANT ||
-             (parser_errno >= HPE_INVALID_VERSION &&
-              parser_errno <= HPE_HUGE_CONTENT_LENGTH) ||
-             parser_errno == HPE_CB_header_field ||
-             parser_errno == HPE_CB_header_value ||
-             parser_errno == HPE_CB_headers_complete) {
+             parser_errno == HPE_INVALID_VERSION ||
+             parser_errno == HPE_UNEXPECTED_CONTENT_LENGTH ||
+             parser_errno == HPE_CB_HEADER_FIELD_COMPLETE ||
+             parser_errno == HPE_CB_HEADER_VALUE_COMPLETE ||
+             parser_errno == HPE_CB_HEADERS_COMPLETE ||
+             parser_errno == HPE_INVALID_URL) {
     error.setProxygenError(validationError_.value_or(kErrorParseHeader));
-  } else if (parser_errno == HPE_INVALID_CHUNK_SIZE ||
-             parser_errno == HPE_HUGE_CHUNK_SIZE) {
+  } else if (parser_errno == HPE_INVALID_CHUNK_SIZE) {
     error.setProxygenError(kErrorParseBody);
   } else {
     error.setProxygenError(kErrorUnknown);
@@ -1038,7 +1069,8 @@ int HTTP1xCodec::onHeadersComplete(size_t len) {
 
   if (transportDirection_ == TransportDirection::DOWNSTREAM) {
     // Set the method type
-    msg_->setMethod(http_method_str(static_cast<http_method>(parser_.method)));
+    msg_->setMethod(
+        llhttp_method_name(static_cast<llhttp_method_t>(parser_.method)));
 
     connectRequest_ = (msg_->getMethod() == HTTPMethod::CONNECT);
 
@@ -1326,7 +1358,7 @@ int HTTP1xCodec::onMessageComplete() {
   return 0;
 }
 
-int HTTP1xCodec::onMessageBeginCB(http_parser* parser) {
+int HTTP1xCodec::onMessageBeginCB(llhttp_t* parser) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);
@@ -1339,7 +1371,7 @@ int HTTP1xCodec::onMessageBeginCB(http_parser* parser) {
   }
 }
 
-int HTTP1xCodec::onUrlCB(http_parser* parser, const char* buf, size_t len) {
+int HTTP1xCodec::onUrlCB(llhttp_t* parser, const char* buf, size_t len) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);
@@ -1352,7 +1384,7 @@ int HTTP1xCodec::onUrlCB(http_parser* parser, const char* buf, size_t len) {
   }
 }
 
-int HTTP1xCodec::onReasonCB(http_parser* parser, const char* buf, size_t len) {
+int HTTP1xCodec::onReasonCB(llhttp_t* parser, const char* buf, size_t len) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);
@@ -1365,7 +1397,7 @@ int HTTP1xCodec::onReasonCB(http_parser* parser, const char* buf, size_t len) {
   }
 }
 
-int HTTP1xCodec::onHeaderFieldCB(http_parser* parser,
+int HTTP1xCodec::onHeaderFieldCB(llhttp_t* parser,
                                  const char* buf,
                                  size_t len) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
@@ -1380,7 +1412,7 @@ int HTTP1xCodec::onHeaderFieldCB(http_parser* parser,
   }
 }
 
-int HTTP1xCodec::onHeaderValueCB(http_parser* parser,
+int HTTP1xCodec::onHeaderValueCB(llhttp_t* parser,
                                  const char* buf,
                                  size_t len) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
@@ -1395,22 +1427,20 @@ int HTTP1xCodec::onHeaderValueCB(http_parser* parser,
   }
 }
 
-int HTTP1xCodec::onHeadersCompleteCB(http_parser* parser,
-                                     const char* /*buf*/,
-                                     size_t len) {
+int HTTP1xCodec::onHeadersCompleteCB(llhttp_t* parser) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);
 
   try {
-    return codec->onHeadersComplete(len);
+    return codec->onHeadersComplete(0);
   } catch (const std::exception& ex) {
     codec->onParserError(ex.what());
     return 3;
   }
 }
 
-int HTTP1xCodec::onBodyCB(http_parser* parser, const char* buf, size_t len) {
+int HTTP1xCodec::onBodyCB(llhttp_t* parser, const char* buf, size_t len) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);
@@ -1418,18 +1448,12 @@ int HTTP1xCodec::onBodyCB(http_parser* parser, const char* buf, size_t len) {
   try {
     return codec->onBody(buf, len);
   } catch (const std::exception& ex) {
-    // Note: http_parser appears to completely ignore the return value from the
-    // on_body() callback.  There seems to be no way to abort parsing after an
-    // error in on_body().
-    //
-    // We handle this by checking if error_ is set after each call to
-    // http_parser_execute().
     codec->onParserError(ex.what());
     return 1;
   }
 }
 
-int HTTP1xCodec::onChunkHeaderCB(http_parser* parser) {
+int HTTP1xCodec::onChunkHeaderCB(llhttp_t* parser) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);
@@ -1442,7 +1466,7 @@ int HTTP1xCodec::onChunkHeaderCB(http_parser* parser) {
   }
 }
 
-int HTTP1xCodec::onChunkCompleteCB(http_parser* parser) {
+int HTTP1xCodec::onChunkCompleteCB(llhttp_t* parser) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);
@@ -1455,7 +1479,7 @@ int HTTP1xCodec::onChunkCompleteCB(http_parser* parser) {
   }
 }
 
-int HTTP1xCodec::onMessageCompleteCB(http_parser* parser) {
+int HTTP1xCodec::onMessageCompleteCB(llhttp_t* parser) {
   HTTP1xCodec* codec = static_cast<HTTP1xCodec*>(parser->data);
   DCHECK(codec != nullptr);
   DCHECK_EQ(&codec->parser_, parser);

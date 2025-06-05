@@ -14,7 +14,8 @@
 #include <proxygen/lib/http/codec/TransportDirection.h>
 #include <string>
 
-#include <proxygen/external/http_parser/http_parser.h>
+#include <proxygen/external/lhttp/api.h>
+#include <proxygen/external/lhttp/llhttp.h>
 
 namespace proxygen {
 
@@ -210,7 +211,8 @@ class HTTP1xCodec : public HTTPCodec {
   HTTPCodec::Callback* callback_;
   StreamID ingressTxnID_;
   StreamID egressTxnID_;
-  http_parser parser_;
+  llhttp_t parser_;
+  llhttp_settings_t llhttpSettings_;
   const folly::IOBuf* currentIngressBuf_;
   std::unique_ptr<HTTPMessage> msg_;
   std::unique_ptr<HTTPMessage> upgradeRequest_;
@@ -256,23 +258,20 @@ class HTTP1xCodec : public HTTPCodec {
   bool headersComplete_ : 1;
   bool releaseEgressAfterRequest_ : 1;
 
-  // C-callable wrappers for the http_parser callbacks
-  static int onMessageBeginCB(http_parser* parser);
-  static int onPathCB(http_parser* parser, const char* buf, size_t len);
-  static int onQueryStringCB(http_parser* parser, const char* buf, size_t len);
-  static int onUrlCB(http_parser* parser, const char* buf, size_t len);
-  static int onReasonCB(http_parser* parser, const char* buf, size_t len);
-  static int onHeaderFieldCB(http_parser* parser, const char* buf, size_t len);
-  static int onHeaderValueCB(http_parser* parser, const char* buf, size_t len);
-  static int onHeadersCompleteCB(http_parser* parser,
-                                 const char* buf,
-                                 size_t len);
-  static int onBodyCB(http_parser* parser, const char* buf, size_t len);
-  static int onChunkHeaderCB(http_parser* parser);
-  static int onChunkCompleteCB(http_parser* parser);
-  static int onMessageCompleteCB(http_parser* parser);
+  // Initialize the parser settings
+  void initParserSettings();
 
-  static const http_parser_settings* getParserSettings();
+  // C-callable wrappers for the llhttp callbacks
+  static int onMessageBeginCB(llhttp_t* parser);
+  static int onUrlCB(llhttp_t* parser, const char* buf, size_t len);
+  static int onReasonCB(llhttp_t* parser, const char* buf, size_t len);
+  static int onHeaderFieldCB(llhttp_t* parser, const char* buf, size_t len);
+  static int onHeaderValueCB(llhttp_t* parser, const char* buf, size_t len);
+  static int onHeadersCompleteCB(llhttp_t* parser);
+  static int onBodyCB(llhttp_t* parser, const char* buf, size_t len);
+  static int onChunkHeaderCB(llhttp_t* parser);
+  static int onChunkCompleteCB(llhttp_t* parser);
+  static int onMessageCompleteCB(llhttp_t* parser);
 };
 
 } // namespace proxygen

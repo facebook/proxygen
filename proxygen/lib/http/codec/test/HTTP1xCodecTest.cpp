@@ -75,14 +75,14 @@ class HTTP1xCodecCallback : public HTTPCodec::Callback {
 };
 
 unique_ptr<folly::IOBuf> getSimpleRequestData() {
-  string req("GET /yeah HTTP/1.1\nHost: www.facebook.com\n\n");
+  string req("GET /yeah HTTP/1.1\r\nHost: www.facebook.com\r\n\r\n");
   return folly::IOBuf::copyBuffer(req);
 }
 
 unique_ptr<folly::IOBuf> getSimpleRequestDataQueue() {
-  string req1("GET /yeah HTTP/1.1\nHost: www.facebook.com\n\n");
+  string req1("GET /yeah HTTP/1.1\r\nHost: www.facebook.com\r\n\r\n");
   auto buf1 = folly::IOBuf::copyBuffer(req1);
-  string req2("GET /yeah2 HTTP/1.1\nHost: www.facebook.com\n\n");
+  string req2("GET /yeah2 HTTP/1.1\r\nHost: www.facebook.com\r\n\r\n");
   auto buf2 = folly::IOBuf::copyBuffer(req2);
   buf1->appendToChain(std::move(buf2));
   return buf1;
@@ -148,7 +148,7 @@ TEST(HTTP1xCodecTest, Test09ReqVers) {
   HTTP1xCodec codec(TransportDirection::DOWNSTREAM);
   HTTP1xCodecCallback callbacks;
   codec.setCallback(&callbacks);
-  auto buffer = folly::IOBuf::copyBuffer(string("GET /yeah HTTP/0.9\r\n"));
+  auto buffer = folly::IOBuf::copyBuffer(string("GET /yeah\r\n"));
   codec.onIngress(*buffer);
   EXPECT_EQ(callbacks.headersComplete, 1);
   EXPECT_EQ(callbacks.messageComplete, 1);
@@ -218,7 +218,7 @@ TEST(HTTP1xCodecTest, TestKeepalive09_10) {
   HTTP1xCodec codec1(TransportDirection::DOWNSTREAM, true);
   HTTP1xCodecCallback callbacks1;
   codec1.setCallback(&callbacks1);
-  auto buffer = folly::IOBuf::copyBuffer(string("GET /yeah\r\n"));
+  auto buffer = folly::IOBuf::copyBuffer(string("GET /yeah HTTP/0.9\r\n\r\n"));
   codec1.onIngress(*buffer);
   EXPECT_EQ(callbacks1.headersComplete, 1);
   EXPECT_EQ(callbacks1.messageComplete, 1);
@@ -374,7 +374,7 @@ TEST(HTTP1xCodecTest, TestHeadRequestChunkedResponse) {
 
   // Generate a HEAD request
   auto reqBuf = folly::IOBuf::copyBuffer(
-      "HEAD /www.facebook.com HTTP/1.1\nHost: www.facebook.com\n\n");
+      "HEAD /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n\r\n");
   codec.onIngress(*reqBuf);
   EXPECT_EQ(callbacks.headersComplete, 1);
 
@@ -398,7 +398,7 @@ TEST(HTTP1xCodecTest, TestGetRequestChunkedResponse) {
 
   // Generate a GET request
   auto reqBuf = folly::IOBuf::copyBuffer(
-      "GET /www.facebook.com HTTP/1.1\nHost: www.facebook.com\n\n");
+      "GET /www.facebook.com HTTP/1.1\r\nHost: www.facebook.com\r\n\r\n");
   codec.onIngress(*reqBuf);
   EXPECT_EQ(callbacks.headersComplete, 1);
 
@@ -433,12 +433,12 @@ TEST(HTTP1xCodecTest, TestGetRequestChunkedResponse) {
 }
 
 unique_ptr<folly::IOBuf> getChunkedRequest1st() {
-  string req("GET /aha HTTP/1.1\n");
+  string req("GET /aha HTTP/1.1\r\n");
   return folly::IOBuf::copyBuffer(req);
 }
 
 unique_ptr<folly::IOBuf> getChunkedRequest2nd() {
-  string req("Host: m.facebook.com\nAccept-Encoding: meflate\n\n");
+  string req("Host: m.facebook.com\r\nAccept-Encoding: meflate\r\n\r\n");
   return folly::IOBuf::copyBuffer(req);
 }
 
