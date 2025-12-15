@@ -565,15 +565,18 @@ Result WtStreamManager::enqueue(WtReadHandle& rh, StreamData data) noexcept {
 
 StreamData WtStreamManager::dequeue(WtWriteHandle& wh,
                                     uint64_t atMost) noexcept {
+  // Save stream ID before dequeue, in case wh gets removed from writableStreams
+  uint64_t streamId = wh.getID();
   // we're limited by conn egress fc
-  atMost = std::min(atMost, connSendFc_.getAvailable());
+  uint64_t connAvail = connSendFc_.getAvailable();
+  atMost = std::min(atMost, connAvail);
   auto res = writehandle_ref_cast(wh).dequeue(atMost);
   // TODO(@damlaj): return len to elide unnecessarily computing chain len
   auto len = computeChainLength(res.data);
   // commit len bytes to conn window
   connSendFc_.commit(len);
-  XLOG(DBG8) << __func__ << "; atMost=" << atMost << "; len=" << len
-             << "; fin=" << res.fin;
+  XLOG(DBG8) << __func__ << "; stream=" << streamId << "; len=" << len
+             << "; fin=" << res.fin << "; atMost=" << atMost;
   return res;
 }
 
@@ -581,18 +584,26 @@ WtStreamManager::WtWriteHandle* WtStreamManager::nextWritable() const noexcept {
   WriteHandle* wh = !writableStreams_.empty()
                         ? writehandle_ptr_cast(*writableStreams_.begin())
                         : nullptr;
+  uint64_t connAvail = connSendFc_.getAvailable();
+  bool onlyFin = wh && wh->bufferedSendData_.onlyFinPending();
   // streams with only a pending fin should be yielded even if connection-level
   // flow control window is blocked
-  return (wh && (connSendFc_.getAvailable() > 0 ||
-                 wh->bufferedSendData_.onlyFinPending()))
-             ? wh
-             : nullptr;
+  auto result = (wh && (connAvail > 0 || onlyFin)) ? wh : nullptr;
+  XLOG(DBG6) << __func__ << "; size=" << writableStreams_.size()
+             << "; connAvail=" << connAvail
+             << "; result=" << (result ? result->getID() : 999999)
+             << "; onlyFin=" << onlyFin;
+  return result;
 }
 
 void WtStreamManager::onStreamWritable(WtWriteHandle& wh) noexcept {
   bool wasEmpty = !hasEvent();
   writableStreams_.insert(&wh);
+  XLOG(DBG6) << __func__ << "; stream=" << wh.getID()
+             << "; wasEmpty=" << wasEmpty
+             << "; size=" << writableStreams_.size();
   if (wasEmpty && hasEvent()) {
+    XLOG(DBG6) << __func__ << "; calling eventsAvailable()";
     egressCb_.eventsAvailable();
   }
 }
@@ -821,8 +832,8 @@ WriteHandle::writeStreamData(std::unique_ptr<folly::IOBuf> data,
   XLOG_IF(ERR, !(len || fin)) << "no-op writeStreamData";
   bool connBlocked = smAccessor_.connSend().buffer(len);
   bool streamBlocked = bufferedSendData_.enqueue(std::move(data), fin);
-  XLOG(DBG6) << __func__ << "; len=" << len << "; fin=" << fin
-             << "; connBlocked=" << connBlocked
+  XLOG(DBG6) << __func__ << "; stream=" << getID() << "; len=" << len
+             << "; fin=" << fin << "; connBlocked=" << connBlocked
              << "; streamBlocked=" << streamBlocked;
   if (bufferedSendData_.canSendData()) {
     smAccessor_.onStreamWritable(*this); // stream is now writable
@@ -840,7 +851,7 @@ folly::Expected<folly::Unit, WriteHandle::ErrCode> WriteHandle::resetStream(
 
 folly::Expected<folly::Unit, WriteHandle::ErrCode> WriteHandle::setPriority(
     uint8_t level, uint32_t order, bool incremental) {
-  XLOG(FATAL) << "not implemented";
+  return folly::unit;
 }
 
 Result WriteHandle::onMaxData(uint64_t offset) {
@@ -874,12 +885,17 @@ StreamData WriteHandle::dequeue(uint64_t atMost) noexcept {
   XCHECK_NE(state_, Closed) << "dequeue after close";
   auto res = bufferedSendData_.dequeue(atMost);
   const auto bufferAvailable = bufferedSendData_.window().getBufferAvailable();
+  XLOG(DBG6) << __func__ << "; stream=" << getID()
+             << "; len=" << computeChainLength(res.data) << "; fin=" << res.fin
+             << "; bufferAvail=" << bufferAvailable;
   if (bufferAvailable > 0) {
     if (auto p = resetPromise(); p.valid()) {
       p.setValue(bufferAvailable);
     }
   }
   if (!bufferedSendData_.canSendData()) {
+    XLOG(DBG6) << __func__ << "; stream=" << getID()
+               << "; removing from writableStreams";
     smAccessor_.writableStreams().erase(this);
   }
   finish(res.fin);

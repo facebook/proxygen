@@ -109,23 +109,27 @@ class WtBufferedStreamData {
   }
 
   bool hasData() const {
-    return !data_.empty() || fin_;
+    return !data_.empty() || (fin_ && !finSent_);
   }
 
   // we can send data if there is either data & available stream fc, or only fin
   // pending
   bool canSendData() const {
-    return (hasData() && window_.getAvailable()) || (data_.empty() && fin_);
+    return hasData() && (window_.getAvailable() || data_.empty());
   }
 
-  // returns true if there's only a pending fin
+  // returns true if there's only a pending fin (or fin already sent)
+  // NOTE: This is used by Compare function in WtStreamManager - must remain
+  // stable during dequeue to avoid corrupting the std::set
   bool onlyFinPending() const {
-    return data_.empty() && fin_;
+    return data_.empty() && (fin_ || finSent_);
   }
 
  private:
   folly::IOBufQueue data_{folly::IOBufQueue::cacheChainLength()};
   bool fin_{false};
+  bool finSent_{false}; // Track if FIN has been sent (keep fin_ stable for
+                        // Compare)
   BufferedFlowController window_;
 };
 
