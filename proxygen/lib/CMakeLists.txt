@@ -69,6 +69,35 @@ add_custom_target(
         ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/stats/StatsWrapper.h
 )
 
+# =============================================================================
+# Granular library for generated code (HTTPCommonHeaders, TraceEventType, etc.)
+# This library compiles the generated sources and provides them to other targets
+# =============================================================================
+proxygen_add_library(proxygen_http_http_common_headers
+  SRCS
+    ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/http/HTTPCommonHeaders.cpp
+  EXPORTED_DEPS
+    proxygen-generated
+    Folly::folly_range
+)
+
+proxygen_add_library(proxygen_utils_trace_event_types
+  SRCS
+    ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceEventType.cpp
+    ${PROXYGEN_GENERATED_ROOT}/proxygen/lib/utils/TraceFieldType.cpp
+  EXPORTED_DEPS
+    proxygen-generated
+    Folly::folly_conv
+)
+
+# Granular library for http_parser
+proxygen_add_library(proxygen_external_http_parser
+  SRCS
+    ${PROXYGEN_FBCODE_ROOT}/proxygen/external/http_parser/http_parser_cpp.cpp
+  EXPORTED_DEPS
+    Folly::folly_portability_string
+)
+
 set(
     HTTP3_SOURCES
     ${HTTP3_SOURCES}
@@ -247,6 +276,7 @@ add_library(
     http/structuredheaders/StructuredHeadersEncoder.cpp
     http/structuredheaders/StructuredHeadersUtilities.cpp
     http/webtransport/HTTPWebTransport.cpp
+    http/webtransport/QuicWebTransport.cpp
     http/webtransport/WebTransport.cpp
     http/webtransport/WebTransportImpl.cpp
     http/webtransport/WtEgressContainer.cpp
@@ -348,16 +378,19 @@ install(
 )
 
 add_subdirectory(test)
-add_subdirectory(http/test)
 add_subdirectory(http/coro/client/samples/cocurl)
-add_subdirectory(http/structuredheaders/test)
-add_subdirectory(http/connpool/test)
-add_subdirectory(http/codec/test)
-add_subdirectory(http/codec/compress/test)
-add_subdirectory(http/session/test)
-add_subdirectory(http/webtransport)
-add_subdirectory(http/webtransport/test)
-add_subdirectory(sampling/test)
-add_subdirectory(services/test)
-add_subdirectory(transport/test)
-add_subdirectory(utils/test)
+
+# =============================================================================
+# Granular library subdirectories
+# Auto-generated CMakeLists.txt using proxygen_add_library()
+# These include their own test subdirectories via BUILD_TESTS conditional
+# =============================================================================
+add_subdirectory(dns)
+add_subdirectory(healthcheck)
+add_subdirectory(http)
+add_subdirectory(pools/generators)
+add_subdirectory(sampling)
+add_subdirectory(services)
+add_subdirectory(ssl)
+add_subdirectory(transport)
+add_subdirectory(utils)
