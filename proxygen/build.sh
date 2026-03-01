@@ -272,6 +272,7 @@ function setup_zstd() {
   mkdir -p "$ZSTD_BUILD_DIR"
   cd "$ZSTD_BUILD_DIR" || exit
   cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo           \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.10             \
     -DBUILD_TESTS=OFF                               \
     -DCMAKE_PREFIX_PATH="$ZSTD_INSTALL_DIR"         \
     -DCMAKE_INSTALL_PREFIX="$ZSTD_INSTALL_DIR"      \
@@ -361,6 +362,7 @@ function setup_fizz() {
     -DCMAKE_PREFIX_PATH="$DEPS_DIR"             \
     -DCMAKE_INSTALL_PREFIX="$DEPS_DIR"          \
     -DBUILD_TESTS=OFF                           \
+    -DBUILD_EXAMPLES=OFF                        \
     "$MAYBE_USE_STATIC_DEPS"                    \
     "$MAYBE_BUILD_SHARED_LIBS"                  \
     "$MAYBE_OVERRIDE_CXX_FLAGS"                 \
