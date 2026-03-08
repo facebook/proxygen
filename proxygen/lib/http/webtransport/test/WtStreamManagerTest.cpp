@@ -1118,6 +1118,7 @@ TEST(WtStreamManager, DeliveryCallback) {
   EXPECT_EQ(deq1.data->computeChainDataLength(), 100);
   EXPECT_TRUE(deq1.fin);
   EXPECT_EQ(deq1.deliveryCallback, &cb1);
+  EXPECT_EQ(deq1.lastByteStreamOffset, 99);
 
   // multiple writes with different callbacks
   auto* h2 = CHECK_NOTNULL(streamManager.createEgressHandle());
@@ -1128,15 +1129,18 @@ TEST(WtStreamManager, DeliveryCallback) {
   auto d2a = streamManager.dequeue(*h2, 100);
   EXPECT_EQ(d2a.data->computeChainDataLength(), 100);
   EXPECT_EQ(d2a.deliveryCallback, &cb1);
+  EXPECT_EQ(d2a.lastByteStreamOffset, 99);
 
   auto d2b = streamManager.dequeue(*h2, 100);
   EXPECT_EQ(d2b.data->computeChainDataLength(), 50);
   EXPECT_EQ(d2b.deliveryCallback, &cb2);
+  EXPECT_EQ(d2b.lastByteStreamOffset, 149);
 
   auto d2c = streamManager.dequeue(*h2, 100);
   EXPECT_EQ(d2c.data->computeChainDataLength(), 75);
   EXPECT_TRUE(d2c.fin);
   EXPECT_EQ(d2c.deliveryCallback, &cb3);
+  EXPECT_EQ(d2c.lastByteStreamOffset, 224);
 
   // writes without callbacks coalesce with final callback write
   auto* h3 = CHECK_NOTNULL(streamManager.createEgressHandle());
@@ -1148,6 +1152,7 @@ TEST(WtStreamManager, DeliveryCallback) {
   EXPECT_EQ(deq3.data->computeChainDataLength(), 250);
   EXPECT_TRUE(deq3.fin);
   EXPECT_EQ(deq3.deliveryCallback, &cb4);
+  EXPECT_EQ(deq3.lastByteStreamOffset, 249);
 
   // callback delivered only when write completes
   auto* h4 = CHECK_NOTNULL(streamManager.createEgressHandle());
@@ -1156,11 +1161,13 @@ TEST(WtStreamManager, DeliveryCallback) {
   auto d4a = streamManager.dequeue(*h4, 60);
   EXPECT_EQ(d4a.data->computeChainDataLength(), 60);
   EXPECT_EQ(d4a.deliveryCallback, nullptr);
+  EXPECT_EQ(d4a.lastByteStreamOffset, 0); // not set when write is incomplete
 
   auto d4b = streamManager.dequeue(*h4, 60);
   EXPECT_EQ(d4b.data->computeChainDataLength(), 40);
   EXPECT_TRUE(d4b.fin);
   EXPECT_EQ(d4b.deliveryCallback, &cb5);
+  EXPECT_EQ(d4b.lastByteStreamOffset, 99);
 
   // fin-only write with callback
   auto* h5 = CHECK_NOTNULL(streamManager.createEgressHandle());
@@ -1168,12 +1175,14 @@ TEST(WtStreamManager, DeliveryCallback) {
   auto d5a = streamManager.dequeue(*h5, 100);
   EXPECT_EQ(d5a.data->computeChainDataLength(), 50);
   EXPECT_EQ(d5a.deliveryCallback, nullptr);
+  EXPECT_EQ(d5a.lastByteStreamOffset, 49);
 
   h5->writeStreamData(nullptr, /*fin=*/true, &cb1);
   auto d5b = streamManager.dequeue(*h5, 100);
   EXPECT_EQ(d5b.data->computeChainDataLength(), 0);
   EXPECT_TRUE(d5b.fin);
   EXPECT_EQ(d5b.deliveryCallback, &cb1);
+  EXPECT_EQ(d5b.lastByteStreamOffset, 50);
 }
 
 TEST(WtStreamManager, ByteEventCancellation) {

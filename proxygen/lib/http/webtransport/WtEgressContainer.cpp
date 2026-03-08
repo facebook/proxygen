@@ -71,6 +71,7 @@ WtBufferedStreamData::DequeueResult WtBufferedStreamData::dequeue(
     }
 
     res.deliveryCallback = frontWrite.deliveryCallback;
+    res.lastByteStreamOffset = frontWrite.offset;
     res.fin = frontWrite.fin;
     pendingWrites_.pop_front();
   }
