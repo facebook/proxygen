@@ -1,6 +1,5 @@
 ## Proxygen: Facebook's C++ HTTP Libraries
 
-[![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.facebook.com/support-ukraine)
 [![Linux Build Status](https://github.com/facebook/proxygen/actions/workflows/getdeps_linux.yml/badge.svg)](https://github.com/facebook/proxygen/actions/workflows/getdeps_linux.yml)
 [![macOS Build Status](https://github.com/facebook/proxygen/actions/workflows/getdeps_mac.yml/badge.svg)](https://github.com/facebook/proxygen/actions/workflows/getdeps_mac.yml)
 
