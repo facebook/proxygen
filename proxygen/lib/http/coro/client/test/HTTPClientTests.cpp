@@ -1439,7 +1439,7 @@ TEST_P(HTTPCoroSessionPoolTests, LastOutstandingConnectFailed) {
    * Tests the following edgecase:
    *
    * If the last outstanding connection fails, we should not cancel waiters if a
-   * session already exists. To acheive this we need a special EventBaseBackend
+   * session already exists. To achieve this we need a special EventBaseBackend
    * that fails AsyncSocket connect
    */
   struct FailConnectionEvb : public EventBaseBackend {
