@@ -140,18 +140,14 @@ folly::coro::Task<void> makeRequestReadResponse(
     Logger::SampledLoggerPtr logFn = HTTPClient::getDefaultLogImpl()) {
   Logger logger(session->acquireKeepAlive(), logFn);
 
-  auto respSource = co_await co_awaitTry(session->sendRequest(
+  auto respSource = co_await co_nothrow(session->sendRequest(
       logger.getRequestFilter(std::move(reqSource)), std::move(reservation)));
 
-  if (respSource.hasException()) {
-    co_yield co_error(std::move(respSource.exception()));
-  }
   if (timeout.count() > 0) {
-    respSource->setReadTimeout(timeout);
+    respSource.setReadTimeout(timeout);
   }
   auto maybe = co_await co_awaitTry(
-      reader.setSource(logger.getResponseFilter(std::move(*respSource)))
-          .read());
+      reader.setSource(logger.getResponseFilter(std::move(respSource))).read());
   // Logger goes out of scope before reader, clear the reference
   reader.setSource(nullptr);
   // Wait for the log to happen even when cancelled
@@ -241,7 +237,6 @@ folly::coro::Task<HTTPCoroSession*> HTTPClient::getHTTPSession(
     std::string clientCertPath,
     std::string clientKeyPath,
     folly::Optional<std::string> serverAddress) {
-
   folly::SocketAddress serverAddr;
   folly::Optional<folly::SocketAddress> fallbackAddress;
 
@@ -249,8 +244,8 @@ folly::coro::Task<HTTPCoroSession*> HTTPClient::getHTTPSession(
   if (serverAddress.has_value()) {
     serverAddr.setFromIpPort(serverAddress.value(), port);
   } else {
-    auto serverAddresses =
-        co_await CoroDNSResolver::resolveHost(evb, host, connectTimeout);
+    auto serverAddresses = co_await co_nothrow(
+        CoroDNSResolver::resolveHost(evb, host, connectTimeout));
     serverAddr = std::move(serverAddresses.primary);
     fallbackAddress = std::move(serverAddresses.fallback);
     serverAddr.setPort(port);
@@ -271,21 +266,21 @@ folly::coro::Task<HTTPCoroSession*> HTTPClient::getHTTPSession(
                     tlsParams);
   auto sessParams = getSessionParams(readTimeout);
   if (useQuic) {
-    co_return co_await HTTPCoroConnector::connect(
-        evb, serverAddr, connectTimeout, qconnParams, sessParams);
-  } else if (fallbackAddress.has_value()) {
+    co_return co_await co_nothrow(HTTPCoroConnector::connect(
+        evb, serverAddr, connectTimeout, qconnParams, sessParams));
+  }
+  if (fallbackAddress.has_value()) {
     fallbackAddress.value().setPort(port);
-    co_return co_await HTTPCoroConnector::happyEyeballsConnect(
+    co_return co_await co_nothrow(HTTPCoroConnector::happyEyeballsConnect(
         evb,
         std::move(serverAddr),
         std::move(fallbackAddress.value()),
         connectTimeout,
         connParams,
-        sessParams);
-  } else {
-    co_return co_await HTTPCoroConnector::connect(
-        evb, serverAddr, connectTimeout, connParams, sessParams);
+        sessParams));
   }
+  co_return co_await co_nothrow(HTTPCoroConnector::connect(
+      evb, serverAddr, connectTimeout, connParams, sessParams));
 }
 
 folly::coro::Task<HTTPCoroSession*> HTTPClient::getHTTPSessionViaProxy(
@@ -306,14 +301,14 @@ folly::coro::Task<HTTPCoroSession*> HTTPClient::getHTTPSessionViaProxy(
   if (reservation.hasException()) {
     co_yield co_error(std::move(reservation.exception()));
   }
-  auto res = co_await HTTPCoroConnector::proxyConnect(
-      proxySession,
-      std::move(*reservation),
-      folly::to<std::string>(host, ":", port),
-      connectUnique,
-      connectTimeout,
-      connParams,
-      getSessionParams(readTimeout));
+  auto res = co_await co_nothrow(
+      HTTPCoroConnector::proxyConnect(proxySession,
+                                      std::move(*reservation),
+                                      folly::to<std::string>(host, ":", port),
+                                      connectUnique,
+                                      connectTimeout,
+                                      connParams,
+                                      getSessionParams(readTimeout)));
   co_return res;
 }
 
@@ -324,12 +319,12 @@ folly::coro::Task<HTTPClient::Response> HTTPClient::get(
     bool useQuic,
     RequestHeaderMap requestHeaders) {
   Response resp;
-  co_await get(evb,
-               std::move(urlStr),
-               timeout,
-               makeDefaultReader(resp),
-               useQuic,
-               std::move(requestHeaders));
+  co_await co_nothrow(get(evb,
+                          std::move(urlStr),
+                          timeout,
+                          makeDefaultReader(resp),
+                          useQuic,
+                          std::move(requestHeaders)));
   co_return resp;
 }
 
@@ -339,11 +334,11 @@ folly::coro::Task<HTTPClient::Response> HTTPClient::get(
     std::chrono::milliseconds timeout,
     RequestHeaderMap requestHeaders) {
   Response resp;
-  co_await get(session,
-               std::move(url),
-               makeDefaultReader(resp),
-               timeout,
-               std::move(requestHeaders));
+  co_await co_nothrow(get(session,
+                          std::move(url),
+                          makeDefaultReader(resp),
+                          timeout,
+                          std::move(requestHeaders)));
   co_return resp;
 }
 
@@ -354,12 +349,12 @@ folly::coro::Task<HTTPClient::Response> HTTPClient::get(
     std::chrono::milliseconds timeout,
     RequestHeaderMap requestHeaders) {
   Response resp;
-  co_await get(session,
-               std::move(reservation),
-               std::move(url),
-               makeDefaultReader(resp),
-               timeout,
-               std::move(requestHeaders));
+  co_await co_nothrow(get(session,
+                          std::move(reservation),
+                          std::move(url),
+                          makeDefaultReader(resp),
+                          timeout,
+                          std::move(requestHeaders)));
   co_return resp;
 }
 
@@ -376,12 +371,12 @@ folly::coro::Task<void> HTTPClient::get(HTTPCoroSession* session,
   if (reservation.hasException()) {
     co_yield co_error(std::move(reservation.exception()));
   }
-  co_await makeRequestReadResponse(
+  co_await co_nothrow(makeRequestReadResponse(
       session,
       std::move(*reservation),
       makeHTTPRequestSource(url, std::move(requestHeaders)),
       std::move(reader),
-      timeout);
+      timeout));
 }
 
 folly::coro::Task<void> HTTPClient::get(
@@ -395,12 +390,12 @@ folly::coro::Task<void> HTTPClient::get(
     co_yield co_error(std::runtime_error(
         folly::to<std::string>("Invalid url: ", url.getUrl())));
   }
-  co_await makeRequestReadResponse(
+  co_await co_nothrow(makeRequestReadResponse(
       session,
       std::move(reservation),
       makeHTTPRequestSource(url, std::move(requestHeaders)),
       std::move(reader),
-      timeout);
+      timeout));
 }
 
 folly::coro::Task<void> HTTPClient::get(folly::EventBase* evb,
@@ -425,13 +420,10 @@ folly::coro::Task<void> HTTPClient::get(folly::EventBase* evb,
 
   auto sessionHolder = session->acquireKeepAlive();
   SCOPE_EXIT {
-    auto weakSession = sessionHolder.get();
-    if (weakSession) {
-      weakSession->initiateDrain();
-    }
+    sessionHolder->initiateDrain();
   };
-  co_await get(
-      session, url, std::move(reader), timeout, std::move(requestHeaders));
+  co_await co_nothrow(
+      get(session, url, std::move(reader), timeout, std::move(requestHeaders)));
 }
 
 folly::coro::Task<HTTPClient::Response> HTTPClient::post(
@@ -442,13 +434,13 @@ folly::coro::Task<HTTPClient::Response> HTTPClient::post(
     bool useQuic,
     RequestHeaderMap requestHeaders) {
   Response resp;
-  co_await post(evb,
-                std::move(urlStr),
-                std::move(body),
-                timeout,
-                makeDefaultReader(resp),
-                useQuic,
-                std::move(requestHeaders));
+  co_await co_nothrow(post(evb,
+                           std::move(urlStr),
+                           std::move(body),
+                           timeout,
+                           makeDefaultReader(resp),
+                           useQuic,
+                           std::move(requestHeaders)));
   co_return resp;
 }
 
@@ -459,12 +451,12 @@ folly::coro::Task<HTTPClient::Response> HTTPClient::post(
     std::chrono::milliseconds timeout,
     RequestHeaderMap requestHeaders) {
   Response resp;
-  co_await post(session,
-                std::move(url),
-                std::move(body),
-                makeDefaultReader(resp),
-                timeout,
-                std::move(requestHeaders));
+  co_await co_nothrow(post(session,
+                           std::move(url),
+                           std::move(body),
+                           makeDefaultReader(resp),
+                           timeout,
+                           std::move(requestHeaders)));
   co_return resp;
 }
 
@@ -481,31 +473,28 @@ folly::coro::Task<void> HTTPClient::post(folly::EventBase* evb,
         std::runtime_error(folly::to<std::string>("Invalid url: ", urlStr)));
   }
 
-  auto session = co_await getHTTPSession(evb,
-                                         url.getHost(),
-                                         url.getPort(),
-                                         url.isSecure(),
-                                         useQuic,
-                                         timeout,
-                                         timeout);
+  auto session = co_await co_nothrow(getHTTPSession(evb,
+                                                    url.getHost(),
+                                                    url.getPort(),
+                                                    url.isSecure(),
+                                                    useQuic,
+                                                    timeout,
+                                                    timeout));
 
   auto sessionHolder = session->acquireKeepAlive();
   SCOPE_EXIT {
-    auto weakSession = sessionHolder.get();
-    if (weakSession) {
-      weakSession->initiateDrain();
-    }
+    sessionHolder->initiateDrain();
   };
   auto reservation = session->reserveRequest();
   if (reservation.hasException()) {
     co_yield co_error(std::move(reservation.exception()));
   }
-  co_await makeRequestReadResponse(
+  co_await co_nothrow(makeRequestReadResponse(
       session,
       std::move(*reservation),
       makeHTTPRequestSource(url, std::move(requestHeaders), std::move(body)),
       std::move(reader),
-      timeout);
+      timeout));
 }
 
 folly::coro::Task<void> HTTPClient::post(HTTPCoroSession* session,
@@ -522,12 +511,12 @@ folly::coro::Task<void> HTTPClient::post(HTTPCoroSession* session,
   if (reservation.hasException()) {
     co_yield co_error(std::move(reservation.exception()));
   }
-  co_await makeRequestReadResponse(
+  co_await co_nothrow(makeRequestReadResponse(
       session,
       std::move(*reservation),
       makeHTTPRequestSource(url, std::move(requestHeaders), std::move(body)),
       std::move(reader),
-      timeout);
+      timeout));
 }
 
 folly::coro::Task<HTTPClient::Response> HTTPClient::readResponse(
