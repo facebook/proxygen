@@ -19,7 +19,7 @@ class FilterFactory {
   /**
    * Returns a pair of filters representing the request and response filters
    * respectively. The server installs these filters into the request and
-   * reponse paths in order. Any of the pair of filters can be nullptr and will
+   * response paths in order. Any of the pair of filters can be nullptr and will
    * omit installing that filter in the chain.
    */
   using HTTPSourceFilter = proxygen::coro::HTTPSourceFilter;
