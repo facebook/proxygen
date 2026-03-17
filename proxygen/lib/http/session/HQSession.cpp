@@ -1161,7 +1161,10 @@ void HQSession::scheduleWrite() {
 
   scheduledWrite_ = true;
   if (auto* evb = getEventBase()) {
-    evb->runInLoop(&writeScheduler_, /*thisIteration=*/true);
+    // Pass nullptr for RequestContext. The write scheduler handles writes for
+    // all streams on this connection; its CPU cost should not be attributed to
+    // any single request.
+    evb->runInLoop(&writeScheduler_, /*thisIteration=*/true, /*rctx=*/nullptr);
   } else {
     sock_->notifyPendingWriteOnConnection(this);
   }
@@ -1176,7 +1179,10 @@ void HQSession::WriteScheduler::runLoopCallback() noexcept {
 void HQSession::scheduleLoopCallback(bool thisIteration) {
   if (sock_ && sock_->getEventBase()) {
     if (!isLoopCallbackScheduled()) {
-      getEventBase()->runInLoop(this, thisIteration);
+      // Pass nullptr for RequestContext. Session-level callbacks handle work
+      // for all streams; their cost should not be attributed to any single
+      // request.
+      getEventBase()->runInLoop(this, thisIteration, /*rctx=*/nullptr);
     }
   }
 }
