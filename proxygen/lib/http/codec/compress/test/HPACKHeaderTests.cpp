@@ -144,7 +144,7 @@ TEST_F(HPACKHeaderNameTest, TestAssignmentOperators) {
   name1 = std::move(name3);
   EXPECT_EQ(name1.get(), testHeaderName);
 
-  name1 = otherHeaderName;
+  name1 = HPACKHeaderName{otherHeaderName};
   EXPECT_EQ(name1.get(), otherHeaderName);
 }
 

@@ -8,15 +8,14 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
-#include <folly/Range.h>
 #include <folly/String.h>
 #include <functional>
 #include <glog/logging.h>
 #include <iostream>
 #include <proxygen/lib/http/HTTPCommonHeaders.h>
 #include <string>
+#include <string_view>
 
 namespace proxygen {
 
@@ -29,8 +28,7 @@ namespace proxygen {
 class HPACKHeaderName {
  public:
   HPACKHeaderName() = default;
-
-  explicit HPACKHeaderName(folly::StringPiece name) {
+  explicit HPACKHeaderName(std::string_view name) {
     storeAddress(name);
   }
   explicit HPACKHeaderName(HTTPHeaderCode headerCode) {
@@ -43,12 +41,7 @@ class HPACKHeaderName {
     copyAddress(headerName);
   }
   HPACKHeaderName(HPACKHeaderName&& goner) noexcept {
-    moveAddress(goner);
-  }
-  HPACKHeaderName& operator=(folly::StringPiece name) {
-    resetAddress();
-    storeAddress(name);
-    return *this;
+    moveAddress(std::move(goner));
   }
   HPACKHeaderName& operator=(const HPACKHeaderName& headerName) {
     if (this != &headerName) {
@@ -60,7 +53,7 @@ class HPACKHeaderName {
   HPACKHeaderName& operator=(HPACKHeaderName&& goner) noexcept {
     if (this != &goner) {
       resetAddress();
-      moveAddress(goner);
+      moveAddress(std::move(goner));
     }
     return *this;
   }
@@ -85,18 +78,16 @@ class HPACKHeaderName {
       // Common header tables are aligned alphabetically (unit tested as well
       // to ensure it isn't accidentally changed)
       return address_ > headerName.address_;
-    } else {
-      return *address_ > *(headerName.address_);
     }
+    return *address_ > *(headerName.address_);
   }
   bool operator<(const HPACKHeaderName& headerName) const {
     if (!isAllocated() && !headerName.isAllocated()) {
       // Common header tables are aligned alphabetically (unit tested as well
       // to ensure it isn't accidentally changed)
       return address_ < headerName.address_;
-    } else {
-      return *address_ < *(headerName.address_);
     }
+    return *address_ < *(headerName.address_);
   }
   bool operator>=(const HPACKHeaderName& headerName) const {
     // Utilize existing < overloaded operator
@@ -144,7 +135,7 @@ class HPACKHeaderName {
   /*
    * Store a reference to either a common header or newly allocated string
    */
-  void storeAddress(folly::StringPiece name) {
+  void storeAddress(std::string_view name) {
     HTTPHeaderCode headerCode =
         HTTPCommonHeaders::hash(name.data(), name.size());
     if (headerCode == HTTPHeaderCode::HTTP_HEADER_NONE ||
@@ -172,9 +163,8 @@ class HPACKHeaderName {
   /*
    * Move the address_ from another HPACKHeaderName
    */
-  void moveAddress(HPACKHeaderName& goner) {
-    address_ = goner.address_;
-    goner.address_ = nullptr;
+  void moveAddress(HPACKHeaderName&& goner) {
+    address_ = std::exchange(goner.address_, nullptr);
   }
 
   /*
@@ -194,10 +184,9 @@ class HPACKHeaderName {
   [[nodiscard]] bool isAllocated() const {
     if (address_ == nullptr) {
       return false;
-    } else {
-      return !HTTPCommonHeaders::isNameFromTable(
-          address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
     }
+    return !HTTPCommonHeaders::isNameFromTable(
+        address_, HTTPCommonHeaderTableType::TABLE_LOWERCASE);
   }
 
   /*

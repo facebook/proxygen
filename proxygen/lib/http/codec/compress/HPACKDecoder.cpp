@@ -73,7 +73,7 @@ uint32_t HPACKDecoder::decodeLiteralHeader(
     dbuf.next();
     folly::fbstring headerName;
     err_ = dbuf.decodeLiteral(headerName);
-    header.name = headerName;
+    header.name = HPACKHeaderName{headerName};
     if (err_ != HPACK::DecodeError::NONE) {
       LOG(ERROR) << "Error decoding header name err_=" << err_;
       return 0;

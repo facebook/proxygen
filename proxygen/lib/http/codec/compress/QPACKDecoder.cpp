@@ -314,7 +314,7 @@ uint32_t QPACKDecoder::decodeLiteralHeaderQ(
         LOG(ERROR) << "Error decoding header name err_=" << err_;
         return 0;
       }
-      partial->header.name = headerName;
+      partial->header.name = HPACKHeaderName{headerName};
     }
     partial->state = Partial::VALUE;
     partial->consumed = dbuf.consumedBytes();

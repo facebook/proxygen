@@ -13,7 +13,7 @@
 #include <glog/logging.h>
 #include <ostream>
 #include <proxygen/lib/http/codec/compress/HPACKHeaderName.h>
-#include <string>
+#include <string_view>
 
 namespace proxygen {
 
@@ -23,7 +23,7 @@ class HPACKHeader {
 
   HPACKHeader() = default;
 
-  HPACKHeader(const HPACKHeaderName& name_, folly::StringPiece value_)
+  HPACKHeader(const HPACKHeaderName& name_, std::string_view value_)
       : name(name_), value(value_.data(), value_.size()) {
   }
 
@@ -36,11 +36,11 @@ class HPACKHeader {
       : name(std::move(name_)), value(std::move(value_)) {
   }
 
-  HPACKHeader(HPACKHeaderName&& name_, folly::StringPiece value_)
+  HPACKHeader(HPACKHeaderName&& name_, std::string_view value_)
       : name(std::move(name_)), value(value_.data(), value_.size()) {
   }
 
-  HPACKHeader(folly::StringPiece name_, folly::StringPiece value_)
+  HPACKHeader(std::string_view name_, std::string_view value_)
       : name(name_), value(value_.data(), value_.size()) {
   }
 
