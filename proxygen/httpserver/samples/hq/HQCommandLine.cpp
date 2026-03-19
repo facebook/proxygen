@@ -151,6 +151,9 @@ DEFINE_uint32(key_update_interval,
               "Number of packets to be sent before initiating a key update (if "
               "initiate_key_updates is true)");
 DEFINE_bool(use_l4s_ecn, false, "Whether to use L4S for ECN marking");
+DEFINE_bool(enable_scone,
+            false,
+            "Enable SCONE (RFC draft-ietf-scone-protocol)");
 DEFINE_bool(read_ecn,
             false,
             "Whether to read and echo ecn marking from ingress packets");
@@ -332,6 +335,8 @@ void initializeTransportSettings(HQToolParams& hqUberParams) {
       FLAGS_advertise_extended_ack_features;
   hqParams.transportSettings.enableExtendedAckFeatures =
       FLAGS_enable_extended_ack_features;
+
+  hqParams.transportSettings.enableScone = FLAGS_enable_scone;
 } // initializeTransportSettings
 
 void initializeHttpServerSettings(HQToolServerParams& hqParams) {
