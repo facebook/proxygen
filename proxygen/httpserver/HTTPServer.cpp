@@ -105,7 +105,7 @@ class HandlerCallbacks : public IOThreadPoolExecutorBase::IOObserver {
       : options_(options) {
   }
 
-  void registerEventBase(folly::EventBase& evb) override {
+  void registerEventBase(folly::EventBase& evb) noexcept override {
     evb.runInEventBaseThread([&evb, this]() {
       for (auto& factory : options_->handlerFactories) {
         factory->onServerStart(&evb);
@@ -113,7 +113,7 @@ class HandlerCallbacks : public IOThreadPoolExecutorBase::IOObserver {
     });
   }
 
-  void unregisterEventBase(folly::EventBase& evb) override {
+  void unregisterEventBase(folly::EventBase& evb) noexcept override {
     evb.runInEventBaseThread([this]() {
       for (auto& factory : options_->handlerFactories) {
         factory->onServerStop();

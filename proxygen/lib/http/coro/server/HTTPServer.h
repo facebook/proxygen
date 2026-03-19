@@ -296,7 +296,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
     explicit InternalThreadObserver(HTTPServer* server) : server_(server) {
     }
 
-    void registerEventBase(folly::EventBase& evb) override {
+    void registerEventBase(folly::EventBase& evb) noexcept override {
       evb.runInEventBaseThread([this, &evb]() {
         server_->deliverObserverEvent(&HTTPServer::Observer::onThreadStart,
                                       &evb);
@@ -306,7 +306,7 @@ class HTTPServer : public quic::QuicHandshakeSocketHolder::Callback {
       });
     }
 
-    void unregisterEventBase(folly::EventBase& evb) override {
+    void unregisterEventBase(folly::EventBase& evb) noexcept override {
       evb.runInEventBaseThread([this, &evb]() {
         server_->deliverObserverEvent(&HTTPServer::Observer::onThreadStop,
                                       &evb);
