@@ -18,7 +18,7 @@ proxygen_add_library(proxygen_services_http_acceptor
 proxygen_add_library(proxygen_services_acceptor_configuration
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
-    wangle::wangle_acceptor_server_socket_config
+    wangle::wangle_acceptor
     Folly::folly_io_async_async_socket
     Folly::folly_string
     ZLIB::ZLIB
@@ -37,8 +37,7 @@ proxygen_add_library(proxygen_services
     proxygen_services_worker
     proxygen_utils_acceptor_address
     wangle::wangle_acceptor
-    wangle::wangle_acceptor_connection_counter
-    wangle::wangle_acceptor_load_shed_configuration
+    wangle::wangle_acceptor_acceptor_core
     Folly::folly_io_async_async_base
     Folly::folly_io_async_server_socket
 )

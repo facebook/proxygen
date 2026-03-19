@@ -133,6 +133,13 @@ class Service {
   }
 
   /**
+   * Doesn't delete all memory claimed by this service, but prepares for object
+   * destruction. For example threads/event loops that should be stopped prior
+   * to object destruction.
+   */
+  virtual void cleanup() = 0;
+
+  /**
    * Perform per-thread init.
    *
    * This method will be called once for each RequestWorkerThread thread, just
