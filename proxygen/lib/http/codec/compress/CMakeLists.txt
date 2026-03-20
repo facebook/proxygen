@@ -67,7 +67,6 @@ proxygen_add_library(proxygen_http_codec_compress_qpack
     proxygen_http_header_constants
     proxygen_http_message
     Folly::folly_indestructible
-    Folly::folly_thread_local
   EXPORTED_DEPS
     proxygen_http_codec_compress_header_codec
     proxygen_http_codec_compress_hpack
