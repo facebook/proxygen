@@ -24,7 +24,6 @@ proxygen_add_library(proxygen_http_codec_util
   DEPS
     proxygen_http_http_headers
     Folly::folly_string
-    Folly::folly_thread_local
   EXPORTED_DEPS
     proxygen_http_codec_compress_header_codec
     proxygen_http_message
