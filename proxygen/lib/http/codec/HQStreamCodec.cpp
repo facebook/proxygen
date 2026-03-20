@@ -10,7 +10,6 @@
 
 #include <folly/Format.h>
 #include <folly/ScopeGuard.h>
-#include <folly/SingletonThreadLocal.h>
 #include <folly/io/Cursor.h>
 #include <proxygen/lib/http/HTTP3ErrorCode.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>

@@ -161,7 +161,6 @@ proxygen_add_library(proxygen_http_codec_hq_codec
     Folly::folly_overload
     Folly::folly_random
     Folly::folly_scope_guard
-    Folly::folly_singleton_thread_local
     Folly::folly_tracing_scoped_trace_section
   EXPORTED_DEPS
     proxygen_http_codec_codec_common
