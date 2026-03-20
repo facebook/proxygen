@@ -193,6 +193,19 @@ ErrorCode HTTP2Codec::parseFrame(folly::io::Cursor& cursor) {
     return ErrorCode::PROTOCOL_ERROR;
   }
 
+  if (curHeader_.type == http2::FrameType::CONTINUATION) {
+    if (continuationFramesLeftInHeaderBlock_ == 0) {
+      goawayErrorMessage_ = folly::to<string>(
+          "GOAWAY error: too many CONTINUATION frames for stream=",
+          curHeader_.stream);
+      LOG(ERROR) << goawayErrorMessage_;
+      return ErrorCode::ENHANCE_YOUR_CALM;
+    }
+    --continuationFramesLeftInHeaderBlock_;
+  } else {
+    continuationFramesLeftInHeaderBlock_ = kMaxContinuationFramesPerHeaderBlock;
+  }
+
   expectedContinuationStream_ = (frameAffectsCompression(curHeader_.type) &&
                                  !(curHeader_.flags & http2::END_HEADERS))
                                     ? curHeader_.stream

@@ -786,7 +786,7 @@ TEST_F(HTTP2CodecTest, BasicContinuation) {
 
 TEST_F(HTTP2CodecTest, ContinuationChain) {
   auto settings = (HTTPSettings*)upstreamCodec_.getIngressSettings();
-  settings->setSetting(SettingsId::MAX_FRAME_SIZE, 3);
+  settings->setSetting(SettingsId::MAX_FRAME_SIZE, 500);
 
   HTTPMessage req = getBigGetRequest();
   auto id = upstreamCodec_.createStream();
@@ -908,6 +908,39 @@ TEST_F(HTTP2CodecTest, BadContinuationStream) {
   // frames = 3 to account for settings frame after H2 conn preface
   EXPECT_EQ(downstreamCodec_.getReceivedFrameCount(), 3);
 #endif
+}
+
+TEST_F(HTTP2CodecTest, ContinuationLimit) {
+  auto fakeHeaders = makeBuf(10);
+  writeHeaders(output_,
+               std::move(fakeHeaders),
+               1,
+               folly::none,
+               false /* endStream */,
+               false /* endHeaders */);
+
+  for (uint32_t i = 0; i < 150; i++) {
+    http2::writeContinuation(output_, 1, false, makeBuf(0));
+  }
+
+  parse();
+  EXPECT_EQ(callbacks_.messageBegin, 0);
+  EXPECT_EQ(callbacks_.headersComplete, 0);
+  EXPECT_EQ(callbacks_.streamErrors, 0);
+  EXPECT_EQ(callbacks_.sessionErrors, 1);
+}
+
+TEST_F(HTTP2CodecTest, ContinuationUnderLimit) {
+  // getBigGetRequest generates ~2 CONTINUATION frames at default
+  // MAX_FRAME_SIZE (16384), well under kMaxContinuationFramesPerHeaderBlock.
+  HTTPMessage req = getBigGetRequest();
+  auto id = upstreamCodec_.createStream();
+  upstreamCodec_.generateHeader(output_, id, req);
+
+  parse();
+  callbacks_.expectMessage(false, -1, "/");
+  EXPECT_EQ(callbacks_.headersComplete, 1);
+  EXPECT_EQ(callbacks_.sessionErrors, 0);
 }
 
 TEST_F(HTTP2CodecTest, FrameTooLarge) {
