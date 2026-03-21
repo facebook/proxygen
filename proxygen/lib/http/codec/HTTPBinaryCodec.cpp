@@ -8,7 +8,6 @@
 
 #include <proxygen/lib/http/codec/HTTPBinaryCodec.h>
 
-#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>
 

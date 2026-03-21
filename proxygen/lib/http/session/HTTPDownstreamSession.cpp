@@ -8,9 +8,7 @@
 
 #include <proxygen/lib/http/session/HTTPDownstreamSession.h>
 
-#include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
-#include <proxygen/lib/http/session/HTTPTransaction.h>
 
 namespace proxygen {
 

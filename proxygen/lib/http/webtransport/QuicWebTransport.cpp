@@ -7,7 +7,6 @@
  */
 
 #include <proxygen/lib/http/webtransport/QuicWebTransport.h>
-#include <quic/priority/HTTPPriorityQueue.h>
 
 using FCState = proxygen::WebTransport::FCState;
 

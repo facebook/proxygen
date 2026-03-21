@@ -6,10 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <proxygen/lib/http/session/HQSession.h>
 #include <proxygen/lib/http/sink/HTTPTransactionSink.h>
 
-#include <proxygen/lib/http/RFC2616.h>
+#include <proxygen/lib/http/session/HQSession.h>
 
 namespace proxygen {
 

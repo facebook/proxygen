@@ -6,9 +6,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <string>
-#include <vector>
-
 #include <folly/Conv.h>
 #include <folly/Range.h>
 #include <folly/futures/Promise.h>

@@ -10,7 +10,6 @@ proxygen_add_library(proxygen_http_sink_client_sink
   SRCS
     HTTPTransactionSink.cpp
   DEPS
-    proxygen_http_http_headers
     proxygen_http_session_hq_session
   EXPORTED_DEPS
     proxygen_http_session_http_transaction

@@ -9,7 +9,6 @@
 proxygen_add_library(proxygen_http_codec_compress_fast_header_name
   EXPORTED_DEPS
     proxygen_http_http_headers
-    Folly::folly_range
     Folly::folly_string
     glog::glog
 )

@@ -22,9 +22,6 @@
 #include <proxygen/lib/http/session/test/MockSecondaryAuthManager.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
-#include <sstream>
-#include <string>
-#include <vector>
 
 using folly::test::MockAsyncTransport;
 

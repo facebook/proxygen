@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPSessionActivityTracker.h>
-#include <proxygen/lib/http/session/HTTPTransaction.h>
+
+#include <proxygen/lib/http/session/ByteEventTracker.h>
 
 namespace proxygen {
 

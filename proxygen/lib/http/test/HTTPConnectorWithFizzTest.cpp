@@ -12,7 +12,6 @@
 #include <fizz/server/AsyncFizzServer.h>
 #include <fizz/server/test/Mocks.h>
 #include <fizz/server/test/Utils.h>
-#include <folly/io/async/AsyncServerSocket.h>
 #include <proxygen/lib/http/HTTPConnectorWithFizz.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 

@@ -6,9 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <glog/logging.h>
 #include <proxygen/lib/http/observer/HTTPTransactionObserverInterface.h>
-#include <utility>
 
 namespace proxygen {
 

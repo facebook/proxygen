@@ -7,10 +7,8 @@
  */
 
 #include <folly/portability/GTest.h>
-#include <memory>
 #include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/http/codec/compress/QPACKHeaderTable.h>
-#include <sstream>
 
 namespace proxygen {
 

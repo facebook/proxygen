@@ -10,7 +10,6 @@
 
 #include <folly/base64.h>
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
-#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HTTP2Constants.h>
 #include <proxygen/lib/utils/Logging.h>
 
@@ -19,7 +18,6 @@
 #include <folly/Try.h>
 #include <folly/io/Cursor.h>
 #include <folly/tracing/ScopedTraceSection.h>
-#include <type_traits>
 
 using namespace folly::io;
 using namespace folly;

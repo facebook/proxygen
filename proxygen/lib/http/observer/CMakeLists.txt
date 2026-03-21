@@ -29,8 +29,6 @@ proxygen_add_library(proxygen_http_observer_http_transaction_observer_container
 proxygen_add_library(proxygen_http_observer_http_transaction_observer_interface
   SRCS
     HTTPTransactionObserverInterface.cpp
-  DEPS
-    glog::glog
   EXPORTED_DEPS
     proxygen_http_message
     proxygen_utils_time_util

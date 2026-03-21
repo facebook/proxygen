@@ -10,7 +10,6 @@
 #include <folly/io/async/EventBase.h>
 #include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
-#include <memory>
 #include <proxygen/lib/http/session/ByteEvents.h>
 #include <proxygen/lib/http/session/HTTP2PriorityQueue.h>
 #include <proxygen/lib/http/session/HTTPTransaction.h>

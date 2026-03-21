@@ -9,7 +9,6 @@
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersDecoder.h>
 
 #include <folly/portability/GTest.h>
-#include <string>
 
 namespace proxygen {
 

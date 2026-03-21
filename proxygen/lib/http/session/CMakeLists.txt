@@ -16,7 +16,6 @@ proxygen_add_library(proxygen_http_session_session
     fizz::fizz
     Folly::folly_conv
     Folly::folly_cpp_attributes
-    Folly::folly_logging_logging
     Folly::folly_random
     Folly::folly_tracing_scoped_trace_section
   EXPORTED_DEPS
@@ -36,6 +35,7 @@ proxygen_add_library(proxygen_http_session_session
     proxygen_utils_shared_wheel_timer
     proxygen_utils_time_util
     wangle::wangle_acceptor_acceptor_core
+    wangle::wangle_acceptor_managed
     fizz::fizz
     Folly::folly_container_f14_hash
     Folly::folly_intrusive_list
@@ -58,11 +58,10 @@ proxygen_add_library(proxygen_http_session_server
     HTTPSessionAcceptor.cpp
     SimpleController.cpp
   DEPS
-    proxygen_http_codec_http1x_codec
-    proxygen_http_codec_http2_codec
     proxygen_http_session_http_session_codec_factory
     Folly::folly_conv
     Folly::folly_io_iobuf
+    glog::glog
   EXPORTED_DEPS
     proxygen_error
     proxygen_http_codec_codec_factory
@@ -78,10 +77,9 @@ proxygen_add_library(proxygen_http_session_http_session_activity_tracker
   SRCS
     HTTPSessionActivityTracker.cpp
   DEPS
-    proxygen_http_session_http_transaction
     proxygen_http_session_transaction_byte_events
   EXPORTED_DEPS
-    wangle::wangle_acceptor_acceptor_core
+    wangle::wangle_acceptor_managed
 )
 
 proxygen_add_library(proxygen_http_session_byte_events
@@ -186,9 +184,7 @@ proxygen_add_library(proxygen_http_session_http_upstream_session
   SRCS
     HTTPUpstreamSession.cpp
   DEPS
-    proxygen_http_codec_http2_codec
-    proxygen_http_session_http_transaction
-    wangle::wangle_acceptor_acceptor_core
+    wangle::wangle_acceptor_managed
     Folly::folly_io_async_async_ssl_socket
   EXPORTED_DEPS
     proxygen_http_codec_compress_header_codec
@@ -244,7 +240,7 @@ proxygen_add_library(proxygen_http_session_hq_session
     proxygen_http_webtransport_httpwebtransport
     mvfst::mvfst_folly_utils
     mvfst::mvfst_logging_qlogger_constants
-    wangle::wangle_acceptor_acceptor_core
+    wangle::wangle_acceptor_managed
     Folly::folly_cpp_attributes
     Folly::folly_io_async_async_transport
     Folly::folly_scope_guard
@@ -281,7 +277,7 @@ proxygen_add_library(proxygen_http_session_hq_upstream_session
   SRCS
     HQUpstreamSession.cpp
   DEPS
-    wangle::wangle_acceptor_acceptor_core
+    wangle::wangle_acceptor_managed
   EXPORTED_DEPS
     proxygen_http_session_hq_session
     mvfst::mvfst_common_events_folly_eventbase

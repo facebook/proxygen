@@ -7,7 +7,6 @@
  */
 
 #include "proxygen/lib/http/coro/transport/test/TestCoroTransport.h"
-#include <folly/logging/xlog.h>
 
 using TransportErrorCode = folly::coro::TransportIf::ErrorCode;
 

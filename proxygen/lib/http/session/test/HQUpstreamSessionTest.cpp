@@ -11,7 +11,6 @@
 #include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/session/HQUpstreamSession.h>
 
-#include <folly/futures/Future.h>
 #include <folly/portability/GTest.h>
 #include <limits>
 #include <proxygen/lib/http/HTTPHeaderSize.h>

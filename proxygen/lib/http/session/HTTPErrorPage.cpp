@@ -9,6 +9,7 @@
 #include <proxygen/lib/http/session/HTTPErrorPage.h>
 
 #include <folly/io/IOBuf.h>
+#include <glog/logging.h>
 
 using std::string;
 

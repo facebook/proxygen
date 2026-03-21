@@ -6,14 +6,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/coro/DetachOnCancel.h>
-
+#include "proxygen/lib/http/coro/HTTPTransactionAdaptorSource.h"
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
 #include "proxygen/lib/http/coro/HTTPSourceReader.h"
-#include "proxygen/lib/http/coro/HTTPTransactionAdaptorSource.h"
 #include "proxygen/lib/http/coro/client/test/HTTPClientTestsCommon.h"
 #include "proxygen/lib/http/coro/test/Mocks.h"
 #include "proxygen/lib/http/coro/util/test/TestHelpers.h"
+#include <folly/coro/DetachOnCancel.h>
 
 using namespace proxygen::coro;
 using namespace testing;

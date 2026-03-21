@@ -11,9 +11,7 @@
 
 #include <folly/coro/BlockingWait.h>
 #include <folly/coro/Sleep.h>
-#include <folly/coro/Task.h>
 #include <folly/futures/ThreadWheelTimekeeper.h>
-#include <folly/io/async/ScopedEventBaseThread.h>
 
 #include <folly/portability/GTest.h>
 

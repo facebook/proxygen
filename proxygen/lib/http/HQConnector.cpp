@@ -9,7 +9,6 @@
 #include <proxygen/lib/http/HQConnector.h>
 
 #include <folly/io/SocketOptionMap.h>
-#include <folly/io/async/AsyncSSLSocket.h>
 #include <folly/logging/xlog.h>
 #include <proxygen/lib/http/session/HQSession.h>
 #include <quic/api/QuicSocket.h>

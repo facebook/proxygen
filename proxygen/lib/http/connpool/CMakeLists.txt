@@ -12,7 +12,6 @@ proxygen_add_library(proxygen_http_connpool_session_holder
   DEPS
     Folly::folly_io_async_async_socket
     Folly::folly_random
-    glog::glog
   EXPORTED_DEPS
     proxygen_error
     proxygen_http_session_session

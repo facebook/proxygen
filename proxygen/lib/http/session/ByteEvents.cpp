@@ -9,10 +9,7 @@
 #include <proxygen/lib/http/session/ByteEvents.h>
 
 #include <folly/Conv.h>
-
-#include <ostream>
 #include <proxygen/lib/utils/Time.h>
-#include <string>
 
 namespace proxygen {
 

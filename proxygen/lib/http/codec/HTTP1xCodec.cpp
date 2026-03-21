@@ -8,16 +8,11 @@
 
 #include <proxygen/lib/http/codec/HTTP1xCodec.h>
 
-#include <folly/Memory.h>
 #include <folly/Random.h>
 #include <folly/base64.h>
 #include <folly/ssl/OpenSSLHash.h>
-#include <proxygen/lib/http/HTTPHeaderSize.h>
 #include <proxygen/lib/http/RFC2616.h>
-#include <proxygen/lib/http/codec/CodecProtocol.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>
-
-#include <memory>
 
 using folly::IOBuf;
 using folly::IOBufQueue;

@@ -6,7 +6,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/portability/GMock.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/codec/HQMultiCodec.h>
 #include <proxygen/lib/http/codec/test/TestUtils.h>

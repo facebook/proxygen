@@ -6,11 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/Random.h>
-
-#include <proxygen/lib/http/HTTPPriorityFunctions.h>
-#include <proxygen/lib/http/codec/CodecUtil.h>
 #include <proxygen/lib/http/codec/HQFramer.h>
+
+#include <folly/Random.h>
+#include <proxygen/lib/http/HTTPPriorityFunctions.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <quic/codec/QuicInteger.h>
 #include <quic/folly_utils/Utils.h>

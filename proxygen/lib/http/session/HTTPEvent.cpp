@@ -8,8 +8,6 @@
 
 #include <proxygen/lib/http/session/HTTPEvent.h>
 
-#include <ostream>
-
 namespace proxygen {
 
 std::ostream& operator<<(std::ostream& os, HTTPEvent::Type e) {

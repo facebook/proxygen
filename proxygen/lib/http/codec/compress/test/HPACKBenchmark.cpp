@@ -11,8 +11,6 @@
 #include <proxygen/lib/http/codec/compress/test/TestStreamingCallback.h>
 #include <proxygen/lib/http/codec/compress/test/TestUtil.h>
 
-#include <algorithm>
-
 using namespace std;
 using namespace folly;
 using namespace proxygen;

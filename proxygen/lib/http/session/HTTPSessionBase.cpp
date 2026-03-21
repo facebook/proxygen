@@ -8,11 +8,8 @@
 
 #include <proxygen/lib/http/session/HTTPSessionBase.h>
 
-#include <folly/logging/xlog.h>
-#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 #include <proxygen/lib/http/session/HTTPSessionController.h>
-#include <proxygen/lib/http/session/HTTPSessionStats.h>
 
 using folly::SocketAddress;
 using wangle::TransportInfo;

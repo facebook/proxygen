@@ -6,11 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <algorithm>
 #include <folly/String.h>
 #include <folly/portability/GTest.h>
-#include <list>
-#include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKDecoder.h>
 #include <proxygen/lib/http/codec/compress/HPACKEncoder.h>
 #include <proxygen/lib/http/codec/compress/Logging.h>

@@ -9,7 +9,6 @@
 #include "proxygen/lib/http/coro/transport/CoroSSLTransport.h"
 #include <folly/init/Init.h>
 #include <folly/io/async/EventBase.h>
-#include <folly/logging/xlog.h>
 #include <folly/portability/GFlags.h>
 #include <iostream>
 

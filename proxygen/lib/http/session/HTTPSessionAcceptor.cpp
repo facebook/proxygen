@@ -8,10 +8,7 @@
 
 #include <proxygen/lib/http/session/HTTPSessionAcceptor.h>
 
-#include <proxygen/lib/http/codec/HTTP1xCodec.h>
-#include <proxygen/lib/http/codec/HTTP2Codec.h>
 #include <proxygen/lib/http/session/HTTPDefaultSessionCodecFactory.h>
-#include <proxygen/lib/http/session/HTTPDirectResponseHandler.h>
 
 using folly::SocketAddress;
 using std::string;

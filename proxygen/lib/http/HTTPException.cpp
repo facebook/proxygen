@@ -7,7 +7,6 @@
  */
 
 #include <sstream>
-#include <string>
 
 #include <proxygen/lib/http/HTTPException.h>
 

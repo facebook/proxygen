@@ -7,7 +7,6 @@
  */
 
 #include <proxygen/lib/http/session/test/HQSessionMocks.h>
-#include <proxygen/lib/http/session/test/HTTPSessionMocks.h>
 #include <proxygen/lib/http/session/test/HTTPTransactionMocks.h>
 
 using namespace proxygen;

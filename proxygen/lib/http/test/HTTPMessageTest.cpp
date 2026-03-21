@@ -11,7 +11,6 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/HTTPPriorityFunctions.h>
 #include <proxygen/lib/utils/TestUtils.h>
-#include <string.h>
 
 using namespace proxygen;
 using namespace std;

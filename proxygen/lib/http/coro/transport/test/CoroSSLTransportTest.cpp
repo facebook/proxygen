@@ -7,9 +7,6 @@
  */
 
 #include "proxygen/lib/http/coro/transport/CoroSSLTransport.h"
-#include <folly/logging/xlog.h>
-
-#include <folly/Portability.h>
 
 #include <folly/coro/BlockingWait.h>
 #include <folly/coro/Collect.h>

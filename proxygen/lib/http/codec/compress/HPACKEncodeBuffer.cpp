@@ -10,7 +10,6 @@
 
 #include <memory>
 #include <proxygen/lib/http/codec/compress/HPACKConstants.h>
-#include <proxygen/lib/http/codec/compress/Logging.h>
 #include <proxygen/lib/utils/Logging.h>
 
 using folly::IOBuf;

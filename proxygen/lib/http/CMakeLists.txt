@@ -92,7 +92,6 @@ proxygen_add_library(proxygen_http_hq_connector
     mvfst::mvfst_common_udpsocket_folly_async_udp_socket
     mvfst::mvfst_congestion_control_congestion_controller_factory
     mvfst::mvfst_fizz_client_handshake
-    Folly::folly_io_async_async_ssl_socket
     Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_session_hq_upstream_session

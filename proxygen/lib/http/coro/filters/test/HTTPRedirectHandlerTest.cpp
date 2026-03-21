@@ -7,7 +7,6 @@
  */
 
 #include "proxygen/lib/http/coro/filters/HTTPRedirectHandler.h"
-#include "proxygen/lib/http/codec/test/TestUtils.h"
 #include "proxygen/lib/http/coro/HTTPFixedSource.h"
 #include "proxygen/lib/http/coro/HTTPSourceReader.h"
 #include "proxygen/lib/http/coro/test/HTTPTestSources.h"

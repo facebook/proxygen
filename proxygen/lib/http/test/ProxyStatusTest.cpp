@@ -11,8 +11,6 @@
 
 #include <folly/portability/GTest.h>
 
-#include <string>
-
 using namespace proxygen;
 
 TEST(ProxyStatusTest, TestUpdatingStatusType) {

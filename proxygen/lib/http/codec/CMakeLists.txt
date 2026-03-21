@@ -73,10 +73,8 @@ proxygen_add_library(proxygen_http_codec_http1x_codec
     HTTPChecks.cpp
   DEPS
     proxygen_http_codec_util
-    proxygen_http_http_header_size
     proxygen_http_http_headers
     Folly::folly_base64
-    Folly::folly_memory
     Folly::folly_random
     Folly::folly_ssl_openssl_hash
   EXPORTED_DEPS
@@ -158,7 +156,6 @@ proxygen_add_library(proxygen_http_codec_hq_codec
     proxygen_http_priority_functions
     proxygen_utils_logging
     Folly::folly_format
-    Folly::folly_overload
     Folly::folly_random
     Folly::folly_scope_guard
     Folly::folly_tracing_scoped_trace_section
@@ -183,7 +180,6 @@ proxygen_add_library(proxygen_http_codec_http_binary_codec
   SRCS
     HTTPBinaryCodec.cpp
   DEPS
-    proxygen_http_codec_util
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
   EXPORTED_DEPS

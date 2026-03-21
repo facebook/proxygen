@@ -9,8 +9,6 @@
 #include <proxygen/lib/http/HTTPConnectorWithFizz.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 
-#include <folly/io/SocketOptionMap.h>
-
 using namespace fizz::client;
 
 namespace proxygen {

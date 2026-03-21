@@ -7,7 +7,6 @@
  */
 
 #include "proxygen/lib/http/coro/test/HTTPCoroSessionTests.h"
-#include <folly/logging/xlog.h>
 
 #include <proxygen/lib/http/codec/HTTPCodecFactory.h>
 

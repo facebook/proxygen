@@ -9,7 +9,6 @@
 #include "proxygen/lib/http/coro/util/TimedBaton.h"
 #include "proxygen/lib/http/coro/util/test/TestHelpers.h"
 #include <folly/coro/BlockingWait.h>
-#include <folly/coro/Task.h>
 #include <folly/io/async/ScopedEventBaseThread.h>
 #include <folly/portability/GTest.h>
 

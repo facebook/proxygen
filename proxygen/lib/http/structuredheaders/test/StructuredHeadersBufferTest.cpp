@@ -11,7 +11,6 @@
 #include <folly/Conv.h>
 #include <folly/portability/GTest.h>
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersConstants.h>
-#include <string>
 
 namespace proxygen {
 

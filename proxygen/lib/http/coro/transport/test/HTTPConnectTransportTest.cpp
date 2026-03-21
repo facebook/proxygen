@@ -9,10 +9,8 @@
 #include "proxygen/lib/http/coro/transport/test/HTTPConnectTransportTest.h"
 #include <proxygen/lib/http/session/test/MockHTTPSessionStats.h>
 
-#include <folly/Portability.h>
 #include <folly/coro/BlockingWait.h>
 #include <folly/coro/Collect.h>
-#include <folly/logging/xlog.h>
 
 using namespace std::chrono_literals;
 using namespace folly;

@@ -8,8 +8,6 @@
 
 #include <proxygen/lib/http/codec/HQUtils.h>
 
-#include <folly/Overload.h>
-
 namespace proxygen::hq {
 
 const quic::StreamId kSessionStreamId = std::numeric_limits<uint64_t>::max();

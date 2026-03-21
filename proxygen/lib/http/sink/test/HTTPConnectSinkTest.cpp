@@ -12,8 +12,6 @@
 #include <folly/portability/GTest.h>
 #include <proxygen/facebook/lib/http/sink/HTTPConnectSink.h>
 
-#include <memory>
-
 #include "proxygen/facebook/revproxy/test/MockHTTPTransactionHandler.h"
 
 namespace proxygen {

@@ -9,7 +9,6 @@
 #include <array>
 #include <list>
 #include <map>
-#include <thread>
 
 #include <folly/Random.h>
 #include <folly/io/async/test/MockTimeoutManager.h>

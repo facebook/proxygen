@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <folly/logging/xlog.h>
 #include <proxygen/lib/http/sink/HTTPTunnelSink.h>
-#include <utility>
+
+#include <folly/logging/xlog.h>
 
 namespace proxygen {
 

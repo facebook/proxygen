@@ -50,8 +50,6 @@ proxygen_add_library(proxygen_http_webtransport_webtransportimpl
 proxygen_add_library(proxygen_http_webtransport_quicwebtransport
   SRCS
     QuicWebTransport.cpp
-  DEPS
-    mvfst::mvfst_priority_http_priority_queue
   EXPORTED_DEPS
     proxygen_http_webtransport_webtransportimpl
     mvfst::mvfst_api_transport

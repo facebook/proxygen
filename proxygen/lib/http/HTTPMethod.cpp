@@ -11,7 +11,6 @@
 #include <folly/Indestructible.h>
 #include <ostream>
 #include <proxygen/lib/http/HTTPHeaders.h>
-#include <vector>
 
 #define HTTP_METHOD_STR(method) #method
 

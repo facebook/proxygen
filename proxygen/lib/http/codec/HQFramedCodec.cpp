@@ -8,7 +8,6 @@
 
 #include <proxygen/lib/http/codec/HQFramedCodec.h>
 
-#include <proxygen/lib/http/codec/HQFramer.h>
 #include <proxygen/lib/http/codec/HQUtils.h>
 #include <proxygen/lib/utils/Logging.h>
 

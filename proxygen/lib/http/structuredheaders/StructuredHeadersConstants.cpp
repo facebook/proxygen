@@ -7,7 +7,6 @@
  */
 
 #include <proxygen/lib/http/structuredheaders/StructuredHeadersConstants.h>
-#include <string_view>
 
 namespace proxygen::StructuredHeaders {
 

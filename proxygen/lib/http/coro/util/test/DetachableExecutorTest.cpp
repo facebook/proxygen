@@ -7,7 +7,6 @@
  */
 
 #include "proxygen/lib/http/coro/util/DetachableExecutor.h"
-#include <folly/io/async/ScopedEventBaseThread.h>
 #include <folly/portability/GTest.h>
 
 using namespace proxygen::coro::detail;

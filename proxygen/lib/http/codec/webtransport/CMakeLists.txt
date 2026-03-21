@@ -12,7 +12,6 @@ proxygen_add_library(proxygen_http_codec_webtransport_webtransport_framer
   DEPS
     mvfst::mvfst_codec_types
     mvfst::mvfst_folly_utils
-    Folly::folly_io_iobuf
   EXPORTED_DEPS
     proxygen_http_codec_capsule_codec
 )

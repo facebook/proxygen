@@ -12,8 +12,6 @@
 #include <folly/Range.h>
 #include <folly/SingletonThreadLocal.h>
 #include <folly/String.h>
-#include <string>
-#include <vector>
 
 using folly::StringPiece;
 using std::pair;

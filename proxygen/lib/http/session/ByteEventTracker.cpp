@@ -8,8 +8,6 @@
 
 #include <proxygen/lib/http/session/ByteEventTracker.h>
 
-#include <string>
-
 namespace proxygen {
 
 ByteEventTracker::~ByteEventTracker() {

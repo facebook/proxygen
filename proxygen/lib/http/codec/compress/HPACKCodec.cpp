@@ -8,10 +8,8 @@
 
 #include <proxygen/lib/http/codec/compress/HPACKCodec.h>
 
-#include <algorithm>
 #include <folly/ThreadLocal.h>
 #include <folly/io/Cursor.h>
-#include <iosfwd>
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <proxygen/lib/http/HeaderConstants.h>
 #include <proxygen/lib/http/codec/CodecUtil.h>

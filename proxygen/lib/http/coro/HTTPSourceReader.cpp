@@ -7,7 +7,6 @@
  */
 
 #include "proxygen/lib/http/coro/HTTPSourceReader.h"
-#include <folly/logging/xlog.h>
 
 namespace proxygen::coro {
 

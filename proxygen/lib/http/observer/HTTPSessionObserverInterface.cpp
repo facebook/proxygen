@@ -6,7 +6,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#include <cstdint>
 #include <proxygen/lib/http/observer/HTTPSessionObserverInterface.h>
 
 namespace proxygen {

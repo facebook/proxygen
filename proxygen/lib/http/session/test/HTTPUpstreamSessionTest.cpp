@@ -22,8 +22,6 @@
 #include <proxygen/lib/http/session/test/MockSessionObserver.h>
 #include <proxygen/lib/http/session/test/TestUtils.h>
 #include <proxygen/lib/test/TestAsyncTransport.h>
-#include <string>
-#include <vector>
 #include <wangle/acceptor/ConnectionManager.h>
 
 using folly::test::MockAsyncTransport;

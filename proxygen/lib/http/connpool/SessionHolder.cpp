@@ -10,7 +10,6 @@
 
 #include <folly/Random.h>
 #include <folly/io/async/AsyncSocket.h>
-#include <glog/logging.h>
 
 using folly::AsyncSocket;
 using folly::SocketAddress;
