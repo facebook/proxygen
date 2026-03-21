@@ -722,8 +722,11 @@ class HTTPCodec {
    * The below interfaces need only be implemented if the codec supports
    * settings
    */
-  virtual HTTPSettings* getEgressSettings() {
+  [[nodiscard]] virtual HTTPSettings* getEgressSettings() {
     return nullptr;
+  }
+  [[nodiscard]] const HTTPSettings* getEgressSettings() const {
+    return const_cast<HTTPCodec*>(this)->getEgressSettings();
   }
 
   [[nodiscard]] virtual const HTTPSettings* getIngressSettings() const {
