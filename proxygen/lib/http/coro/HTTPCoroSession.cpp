@@ -89,6 +89,15 @@ class CoroWtSessionImpl : public CoroWtSession {
   }
 };
 
+constexpr std::string_view kWtNotSupported = "WebTransport not supported";
+constexpr std::string_view kInvalidWtReq = "Invalid WebTransport request";
+
+using WtReqResult = HTTPCoroSession::WtReqResult;
+folly::coro::Task<WtReqResult> makeInternalEx(std::string_view err) {
+  return folly::coro::makeErrorTask<WtReqResult>(
+      HTTPError{HTTPErrorCode::INTERNAL_ERROR, std::string(err)});
+}
+
 } // namespace
 
 using folly::coro::co_error;
@@ -149,6 +158,8 @@ struct HTTPCoroSession::StreamState {
   // Egress State
   bool egressStarted_ : 1;
 
+  bool isWtConnectStream_ : 1;
+
   enum class Upgrade : uint8_t {
     NONE,
     PENDING,
@@ -195,6 +206,7 @@ struct HTTPCoroSession::StreamState {
     deferredStopSending_ = false;
     pendingEgressEOM_ = false;
     egressStarted_ = false;
+    isWtConnectStream_ = false;
   }
 
   HTTPCodec::StreamID getID() const {
@@ -259,6 +271,7 @@ struct HTTPCoroSession::StreamState {
 
   // Returns true if there is an upgrade in progress or completed
   bool checkForUpgrade(const HTTPMessage& msg, bool isIngress) {
+    isWtConnectStream_ |= HTTPWebTransport::isConnectMessage(msg);
     bool isWebSocketUpgrade = (isIngress && msg.isIngressWebsocketUpgrade()) ||
                               (!isIngress && msg.isEgressWebsocketUpgrade());
     if (msg.isRequest() &&
@@ -269,6 +282,8 @@ struct HTTPCoroSession::StreamState {
                (msg.getStatusCode() == 200 || isWebSocketUpgrade)) {
       upgrade_ = Upgrade::UPGRADED;
     }
+    XLOG(DBG8) << __func__ << "; upgrade=" << int(upgrade_)
+               << "; isWtConnectStream=" << isWtConnectStream_;
     return upgrade_ != Upgrade::NONE;
   }
 
@@ -423,6 +438,10 @@ struct HTTPCoroSession::StreamState {
 
   bool getDeferredStopSending() const {
     return deferredStopSending_;
+  }
+
+  bool isWtConnectStream() const {
+    return isWtConnectStream_;
   }
 };
 
@@ -1865,6 +1884,22 @@ HTTPCoroSession::ResponseState HTTPCoroSession::processResponseHeaderEvent(
   if (headerEvent->eom) {
     return ResponseState::DONE;
   }
+
+  const bool wtConnectStream =
+      upgrade && stream.isWtConnectStream() && headerEvent->wtHandler;
+  XLOG(DBG8) << "wtConnectStream=" << wtConnectStream;
+  if (wtConnectStream) { // must be a 200 since upgrade is true
+    WtHelper wtHelper{*this};
+    auto egress = wtHelper.createEgressSource();
+    egress->validateHeadersAndSkip(*headerEvent->headers);
+    stream.setEgressSource(egress.get()); // hijack egress source
+    auto transport = wtHelper.createHttpSourceTransport(std::move(egress),
+                                                        &stream.streamSource);
+    auto wtSess = wtHelper.createWtSession(std::move(transport),
+                                           std::move(headerEvent->wtHandler));
+    return ResponseState::BODY;
+  }
+
   return !headerEvent->isFinal() ? ResponseState::HEADERS : ResponseState::BODY;
 }
 
@@ -3746,20 +3781,6 @@ std::ostream& operator<<(std::ostream& os, const HTTPCoroSession& session) {
   session.describe(os);
   return os;
 }
-
-// WebTransport related functions below
-namespace {
-
-constexpr std::string_view kWtNotSupported = "WebTransport not supported";
-constexpr std::string_view kInvalidWtReq = "Invalid WebTransport request";
-using WtReqResult = HTTPCoroSession::WtReqResult;
-
-folly::coro::Task<WtReqResult> makeInternalEx(std::string_view err) {
-  return folly::coro::makeErrorTask<WtReqResult>(
-      HTTPError{HTTPErrorCode::INTERNAL_ERROR, std::string(err)});
-}
-
-}; // namespace
 
 /**
  * Common logic that can be used by derived classes to validate both that

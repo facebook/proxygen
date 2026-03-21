@@ -12,7 +12,9 @@
 #include "proxygen/lib/http/coro/test/HTTPTestSources.h"
 #include "proxygen/lib/http/coro/test/Mocks.h"
 #include "proxygen/lib/http/coro/util/test/TestHelpers.h"
+#include <proxygen/lib/http/coro/util/CoroWtSession.h>
 #include <proxygen/lib/http/session/test/MockHTTPSessionStats.h>
+#include <proxygen/lib/http/webtransport/test/Mocks.h>
 
 #include "folly/coro/GmockHelpers.h"
 #include <folly/coro/Sleep.h>
@@ -20,6 +22,7 @@
 #include <quic/priority/HTTPPriorityQueue.h>
 
 using namespace proxygen;
+using namespace proxygen::test;
 using namespace testing;
 using TransportErrorCode = folly::coro::TransportIf::ErrorCode;
 
@@ -4267,6 +4270,146 @@ TEST_P(HQDownstreamSessionDatagramTest, RxStreamPriorToDatagrams) {
   parseOutputHQ();
 }
 
+// simple server-side specific webtransport flow tests, comprehensive tests are
+// located in proxygen/lib/http/coro/test/HttpWtUpstreamTests.cpp
+class H2DownstreamWtTest : public HTTPDownstreamSessionTest {
+  void SetUp() override {
+    // need to set wt settings before HTTPCoroSession is constructed
+    initSelfCodec_ = [this](HTTPCodec &) { setWtSupport(true); };
+    HTTPDownstreamSessionTest::SetUp();
+  }
+
+ protected:
+  // hacks to enable/disable wt
+  std::array<HTTPSettings *, 2> getHttpSettings() {
+    return {const_cast<HTTPSettings *>(codec_->getIngressSettings()),
+            codec_->getEgressSettings()};
+  }
+
+  void setWtSupport(bool enabled) {
+    static constexpr auto kWtSettings = {SettingsId::ENABLE_CONNECT_PROTOCOL,
+                                         SettingsId::WT_MAX_SESSIONS};
+    for (auto httpSettings : getHttpSettings()) {
+      for (const auto wtSetting : kWtSettings) {
+        httpSettings->setSetting(wtSetting, int(enabled));
+      }
+    }
+  }
+};
+
+CO_TEST_P_X(H2DownstreamWtTest, BypassWebTransportTermination) {
+  /**
+   * Verifies that if we pass in WebTransportHandler=nullptr, we do not
+   * terminate WebTransport – we simply go into bypass mode and both ingress &
+   * egress source yields the expected raw bytes. This is useful for cases where
+   * we want to enable tunneling http/2 CONNECT wt streams directly to an
+   * upstream origin server.
+   */
+
+  // send wt req
+  auto req = getGetRequest("/");
+  req.setMethod(HTTPMethod::CONNECT);
+  req.setUpgradeProtocol("webtransport");
+  constexpr std::string_view kBody{"abcdefjklmnopqrstuvwxyz"};
+  auto id = sendRequest(req,
+                        /*body=*/folly::IOBuf::fromString(std::string(kBody)),
+                        /*eom=*/true,
+                        /*eof=*/false);
+  HTTPSource *reqSource{nullptr};
+  folly::coro::Baton waitForHandler;
+  auto handler =
+      addSimpleStrictHandler([&](folly::EventBase *evb,
+                                 HTTPSessionContextPtr /*ctx*/,
+                                 HTTPSourceHolder requestSource)
+                                 -> folly::coro::Task<HTTPSourceHolder> {
+        waitForHandler.post();
+        co_await expectRequest(
+            requestSource, HTTPMethod::CONNECT, /*path=*/"/", /*eom=*/false);
+        reqSource = requestSource.release(); // ensure ::stopReading not invoked
+        co_return HTTPFixedSource::makeFixedResponse(
+            200, folly::IOBuf::fromString(std::string(kBody)));
+      });
+
+  co_await waitForHandler;
+  // expected ingress eventType=BODY, equal to kBody, and eom=true
+  auto ingressBody = co_await co_nothrow(reqSource->readBodyEvent());
+  CHECK_EQ(ingressBody.eventType, HTTPBodyEvent::BODY);
+  EXPECT_EQ(ingressBody.event.body.move()->toString(), kBody);
+  EXPECT_TRUE(ingressBody.eom);
+
+  co_await rescheduleN(2);
+  expectResponse(
+      id, /*statusCode=*/200, /*headers=*/nullptr, /*expectBody=*/true);
+  parseOutput();
+  co_return;
+}
+
+CO_TEST_P_X(H2DownstreamWtTest, WebTransportTest) {
+  /**
+   * Verifies that if we pass in a non-null WebTransportHandler, we terminate
+   * WebTransport. WebTransportHandler will be called into when WebTransport
+   * events are parsed on the CONNECT stream.
+   *
+   * We also test several implementation details:
+   *  - ingress source is paused (i.e. ingress wt data is buffered) until the
+   * handler yields 200 resp headers
+   *  - if server yields 200 resp headers, a wt handler & eom=true, we simply
+   *    discard eom
+   */
+
+  // send wt req headers & wt stream w/ fin in the same flight
+  auto req = getGetRequest("/");
+  req.setUpgradeProtocol("webtransport");
+
+  auto id = sendRequest(req,
+                        /*body=*/nullptr,
+                        /*eom=*/false,
+                        /*eof=*/false);
+  // serialize one wt stream w/ fin
+  folly::IOBufQueue wtEgress{folly::IOBufQueue::cacheChainLength()};
+  writeWTStream(wtEgress, {/*streamId=*/0, makeBuf(100), /*fin=*/false});
+  sendBody(id, wtEgress.move(), /*eom=*/true, /*flush=*/true);
+
+  folly::coro::Baton waitForRespSource;
+  MockHTTPSource respSource;
+  auto wtHandler = DummyWtHandler::make();
+  auto wtHandlerCtx = wtHandler->ctx;
+
+  EXPECT_CALL(respSource, readHeaderEvent())
+      .WillOnce(Return(
+          folly::coro::co_invoke([&]() -> folly::coro::Task<HTTPHeaderEvent> {
+            // wait for wt body ingress to buffer
+            co_await folly::coro::sleep(std::chrono::milliseconds(50));
+            HTTPHeaderEvent ev{makeResponse(200), /*inEOM=*/false};
+            ev.wtHandler = std::move(wtHandler);
+            waitForRespSource.post();
+            co_return ev;
+          })));
+  EXPECT_CALL(respSource, readBodyEvent(_)).Times(0);
+  EXPECT_CALL(respSource, stopReading(_));
+
+  auto handler =
+      addSimpleStrictHandler([&](folly::EventBase *evb,
+                                 HTTPSessionContextPtr /*ctx*/,
+                                 HTTPSourceHolder requestSource)
+                                 -> folly::coro::Task<HTTPSourceHolder> {
+        co_await expectRequest(
+            requestSource, HTTPMethod::CONNECT, /*path=*/"/", /*eom=*/false);
+        requestSource.release(); // ensure ::stopReading not invoked
+        co_return &respSource;
+      });
+
+  co_await waitForRespSource;
+  // wait for wt session to parse
+  co_await folly::coro::sleep(std::chrono::milliseconds(50));
+  EXPECT_FALSE(wtHandlerCtx->peerStreams.empty());
+
+  expectResponse(
+      id, /*statusCode=*/200, /*headers=*/nullptr, /*expectBody=*/true);
+  parseOutput();
+  co_return;
+}
+
 INSTANTIATE_TEST_SUITE_P(
     HTTPDownstreamSessionTest,
     HTTPDownstreamSessionTest,
@@ -4317,6 +4460,12 @@ INSTANTIATE_TEST_SUITE_P(
     H2QDownstreamSessionTest,
     Values(TestParams({.codecProtocol = CodecProtocol::HTTP_2}),
            TestParams({.codecProtocol = CodecProtocol::HQ})),
+    paramsToTestName);
+
+INSTANTIATE_TEST_SUITE_P(
+    H2DownstreamWtTest,
+    H2DownstreamWtTest,
+    Values(TestParams({.codecProtocol = CodecProtocol::HTTP_2})),
     paramsToTestName);
 
 } // namespace proxygen::coro::test

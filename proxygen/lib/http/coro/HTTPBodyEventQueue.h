@@ -50,7 +50,6 @@ class HTTPBodyEventQueue {
   virtual ~HTTPBodyEventQueue() = default;
 
   void setSource(HTTPSource* source) {
-    XCHECK(!source_);
     source_.setSource(source);
   }
 
