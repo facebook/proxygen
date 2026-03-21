@@ -28,9 +28,6 @@ using folly::coro::co_reschedule_on_current_executor;
 
 namespace proxygen::coro::test {
 
-constexpr auto kWtSettings = {SettingsId::ENABLE_CONNECT_PROTOCOL,
-                              SettingsId::WT_MAX_SESSIONS};
-
 struct WtCapsuleCodecCallback : public WebTransportCapsuleCodec::Callback {
   ~WtCapsuleCodecCallback() override = default;
   void onWTResetStreamCapsule(WTResetStreamCapsule capsule) noexcept override {
@@ -126,25 +123,11 @@ class HttpWtUpstreamSessionTest : public HTTPCoroSessionTest {
 
   void SetUp() override {
     // need to set wt settings before HTTPCoroSession is constructed
-    initSelfCodec_ = [this](HTTPCodec&) { setWtSupport(true); };
+    initSelfCodec_ = enableCodecWtSettings;
     HTTPCoroSessionTest::setUp();
   }
 
  protected:
-  // hacks to enable/disable wt
-  std::array<HTTPSettings*, 2> getHttpSettings() {
-    return {const_cast<HTTPSettings*>(codec_->getIngressSettings()),
-            codec_->getEgressSettings()};
-  }
-
-  void setWtSupport(bool enabled) {
-    for (auto httpSettings : getHttpSettings()) {
-      for (const auto wtSetting : kWtSettings) {
-        httpSettings->setSetting(wtSetting, int(enabled));
-      }
-    }
-  }
-
   // TODO(@damlaj): derive from HTTPUpstreamSessionTest to reduce code
   // duplication
   HTTPMessage makeResponse(uint16_t statusCode) {
@@ -268,7 +251,7 @@ CO_TEST_P_X(H2WtUpstreamSessionTest, SendInvalidWtReq) {
   }
 
   {
-    setWtSupport(false);
+    setCodecWtSettings(*codec_, /*enabled=*/false);
     // unsupported webtransport (settings not set)
     msg.setMethod(HTTPMethod::CONNECT);
     msg.setUpgradeProtocol("webtransport");

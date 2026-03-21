@@ -4275,25 +4275,8 @@ TEST_P(HQDownstreamSessionDatagramTest, RxStreamPriorToDatagrams) {
 class H2DownstreamWtTest : public HTTPDownstreamSessionTest {
   void SetUp() override {
     // need to set wt settings before HTTPCoroSession is constructed
-    initSelfCodec_ = [this](HTTPCodec &) { setWtSupport(true); };
+    initSelfCodec_ = enableCodecWtSettings;
     HTTPDownstreamSessionTest::SetUp();
-  }
-
- protected:
-  // hacks to enable/disable wt
-  std::array<HTTPSettings *, 2> getHttpSettings() {
-    return {const_cast<HTTPSettings *>(codec_->getIngressSettings()),
-            codec_->getEgressSettings()};
-  }
-
-  void setWtSupport(bool enabled) {
-    static constexpr auto kWtSettings = {SettingsId::ENABLE_CONNECT_PROTOCOL,
-                                         SettingsId::WT_MAX_SESSIONS};
-    for (auto httpSettings : getHttpSettings()) {
-      for (const auto wtSetting : kWtSettings) {
-        httpSettings->setSetting(wtSetting, int(enabled));
-      }
-    }
   }
 };
 

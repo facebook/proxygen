@@ -9,6 +9,8 @@
 #pragma once
 
 #include <folly/portability/GMock.h>
+#include <proxygen/lib/http/codec/HTTPCodec.h>
+#include <proxygen/lib/http/codec/HTTPSettings.h>
 #include <proxygen/lib/http/webtransport/WebTransport.h>
 
 namespace proxygen::test {
@@ -170,7 +172,8 @@ struct DummyWtHandler : public WebTransportHandler {
   }
   void onWebTransportSession(
       std::shared_ptr<WebTransport> wtSession) noexcept override {
-    this->wtSession = std::move(wtSession);
+    CHECK(wtSession);
+    ctx->wtSession = std::move(wtSession);
   }
 
   static std::unique_ptr<DummyWtHandler> make() {
@@ -180,9 +183,27 @@ struct DummyWtHandler : public WebTransportHandler {
   struct Ctx {
     std::vector<WebTransport::BidiStreamHandle> peerStreams;
     folly::Optional<uint32_t> err;
+    std::shared_ptr<WebTransport> wtSession;
   };
   std::shared_ptr<Ctx> ctx = std::make_shared<Ctx>();
-  std::shared_ptr<WebTransport> wtSession;
 };
+
+// test utils
+static constexpr auto kWtSettings = {SettingsId::ENABLE_CONNECT_PROTOCOL,
+                                     SettingsId::WT_MAX_SESSIONS};
+
+// hack to enable/disable wt on codec for tests
+inline void setCodecWtSettings(HTTPCodec& codec, bool enabled) noexcept {
+  for (auto* settings : {const_cast<HTTPSettings*>(codec.getIngressSettings()),
+                         codec.getEgressSettings()}) {
+    for (const auto wtSetting : kWtSettings) {
+      settings->setSetting(wtSetting, int(enabled));
+    }
+  }
+}
+
+inline void enableCodecWtSettings(HTTPCodec& codec) noexcept {
+  setCodecWtSettings(codec, /*enabled=*/true);
+}
 
 } // namespace proxygen::test
