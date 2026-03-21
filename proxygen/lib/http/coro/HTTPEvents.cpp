@@ -8,20 +8,33 @@
 
 #include "proxygen/lib/http/coro/HTTPEvents.h"
 #include "proxygen/lib/http/coro/HTTPSource.h"
+#include "proxygen/lib/http/webtransport/WebTransport.h"
 
 namespace proxygen::coro {
+
+HTTPHeaderEvent::HTTPHeaderEvent(std::unique_ptr<HTTPMessage> inHeaders,
+                                 bool inEOM) noexcept
+    : headers(std::move(inHeaders)), eom(inEOM) {
+  XCHECK(headers->isFinal() || !eom);
+}
+
+HTTPHeaderEvent::~HTTPHeaderEvent() noexcept = default;
+
+HTTPHeaderEvent::HTTPHeaderEvent(HTTPHeaderEvent&& goner) noexcept = default;
+HTTPHeaderEvent& HTTPHeaderEvent::operator=(HTTPHeaderEvent&& goner) noexcept =
+    default;
+
+void HTTPHeaderEvent::describe(std::ostream& os) const {
+  os << "HTTPHeaderEvent, final=" << ((isFinal()) ? "true" : "false")
+     << ", eom=" << (eom ? "true" : "false");
+  os << *headers;
+}
 
 HTTPPushEvent::~HTTPPushEvent() {
   if (pushSource_) {
     pushSource_->stopReading(folly::none);
     pushSource_ = nullptr;
   }
-}
-
-void HTTPHeaderEvent::describe(std::ostream& os) const {
-  os << "HTTPHeaderEvent, final=" << ((isFinal()) ? "true" : "false")
-     << ", eom=" << (eom ? "true" : "false");
-  os << *headers;
 }
 
 void HTTPPushEvent::describe(std::ostream& os) const {

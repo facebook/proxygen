@@ -17,6 +17,10 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include <quic/common/BufUtil.h>
 
+namespace proxygen {
+class WebTransportHandler;
+};
+
 namespace proxygen::coro {
 
 class HTTPSource;
@@ -33,18 +37,18 @@ struct HTTPHeaderEvent {
   std::unique_ptr<HTTPMessage> headers;
   bool eom{false};
   std::vector<HTTPByteEventRegistration> byteEventRegistrations;
+  std::unique_ptr<proxygen::WebTransportHandler> wtHandler{nullptr};
 
   // Placeholder until real ByteEvent callbacks are implemented
   folly::Function<void(HTTPHeaderSize headerSize) noexcept> egressHeadersFn{
       nullptr};
 
-  HTTPHeaderEvent(std::unique_ptr<HTTPMessage> inHeaders, bool inEOM)
-      : headers(std::move(inHeaders)), eom(inEOM) {
-    XCHECK(headers->isFinal() || !eom);
-  }
+  HTTPHeaderEvent(std::unique_ptr<HTTPMessage> inHeaders, bool inEOM) noexcept;
 
-  HTTPHeaderEvent(HTTPHeaderEvent&& goner) = default;
-  HTTPHeaderEvent& operator=(HTTPHeaderEvent&& goner) = default;
+  ~HTTPHeaderEvent() noexcept;
+
+  HTTPHeaderEvent(HTTPHeaderEvent&& goner) noexcept;
+  HTTPHeaderEvent& operator=(HTTPHeaderEvent&& goner) noexcept;
 
   bool isFinal() const noexcept {
     return headers->isFinal();

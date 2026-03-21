@@ -30,6 +30,7 @@ proxygen_add_library(proxygen_coro_source
     HTTPSourceFilter.cpp
   DEPS
     proxygen_http_http_utils
+    proxygen_http_webtransport
     Folly::folly_container_f14_hash
   EXPORTED_DEPS
     proxygen_error
