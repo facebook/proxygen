@@ -105,6 +105,9 @@ HTTPMessage::HTTPMessage(const HTTPMessage& message)
   if (isRequest()) {
     setURL(request().url_);
   }
+  if (message.upgradeProtocol_) {
+    upgradeProtocol_ = std::make_unique<std::string>(*message.upgradeProtocol_);
+  }
   if (message.strippedPerHopHeaders_) {
     strippedPerHopHeaders_ =
         std::make_unique<HTTPHeaders>(*message.strippedPerHopHeaders_);
@@ -132,6 +135,7 @@ HTTPMessage::HTTPMessage(HTTPMessage&& message) noexcept
       sslVersion_(message.sslVersion_),
       sslCipher_(message.sslCipher_),
       protoStr_(message.protoStr_),
+      upgradeProtocol_(std::move(message.upgradeProtocol_)),
       pri_(message.pri_),
       version_(message.version_),
       parsedCookies_(message.parsedCookies_),
@@ -165,12 +169,6 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   queryParams_ = message.queryParams_;
   version_ = message.version_;
   headers_ = message.headers_;
-  if (message.strippedPerHopHeaders_) {
-    strippedPerHopHeaders_ =
-        std::make_unique<HTTPHeaders>(*message.strippedPerHopHeaders_);
-  } else {
-    strippedPerHopHeaders_.reset();
-  }
   sslVersion_ = message.sslVersion_;
   sslCipher_ = message.sslCipher_;
   protoStr_ = message.protoStr_;
@@ -184,11 +182,22 @@ HTTPMessage& HTTPMessage::operator=(const HTTPMessage& message) {
   scheme_ = message.scheme_;
   upgradeWebsocket_ = message.upgradeWebsocket_;
 
+  strippedPerHopHeaders_.reset();
+  if (message.strippedPerHopHeaders_) {
+    strippedPerHopHeaders_ =
+        std::make_unique<HTTPHeaders>(*message.strippedPerHopHeaders_);
+  }
+
+  trailers_.reset();
   if (message.trailers_) {
     trailers_ = std::make_unique<HTTPHeaders>(*message.trailers_);
-  } else {
-    trailers_.reset();
   }
+
+  upgradeProtocol_.reset();
+  if (message.upgradeProtocol_) {
+    upgradeProtocol_ = std::make_unique<std::string>(*message.upgradeProtocol_);
+  }
+
   return *this;
 }
 
@@ -225,6 +234,7 @@ HTTPMessage& HTTPMessage::operator=(HTTPMessage&& message) {
   scheme_ = message.scheme_;
   upgradeWebsocket_ = message.upgradeWebsocket_;
   trailers_ = std::move(message.trailers_);
+  upgradeProtocol_ = std::move(message.upgradeProtocol_);
   return *this;
 }
 
