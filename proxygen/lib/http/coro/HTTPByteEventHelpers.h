@@ -29,32 +29,7 @@ class PendingByteEvent : public folly::HHWheelTimer::Callback {
         callback(std::move(inCallback)) {
   }
 
-  ~PendingByteEvent() override {
-    if (callback) {
-      XLOG(DFATAL) << "Cancelled PendingByteEvent with active callback";
-      HTTPError err(HTTPErrorCode::CANCEL, "ByteEvent Cancelled");
-      callback->onByteEventCanceled(byteEvent, std::move(err));
-    }
-  }
-
-  void timeoutExpired() noexcept override {
-    XLOG(DBG4) << "Timed out waiting for ByteEvent";
-    if (auto cb = std::move(callback)) {
-      cb->onByteEventCanceled(byteEvent,
-                              HTTPError(HTTPErrorCode::READ_TIMEOUT,
-                                        "Timed out waiting for ByteEvent"));
-    }
-    XCHECK(refcount);
-    // incRef called when timeout scheduled in scheduleOrFireTxAckEvent
-    refcount->decRef();
-    refcount = nullptr;
-  }
-
-  void callbackCanceled() noexcept override {
-    XCHECK(refcount);
-    refcount->decRef();
-    refcount = nullptr;
-  }
+  ~PendingByteEvent() noexcept override;
 
   static size_t fireEvents(std::list<PendingByteEvent>& events,
                            uint64_t offset);
@@ -62,11 +37,25 @@ class PendingByteEvent : public folly::HHWheelTimer::Callback {
   static void cancelEvents(std::list<PendingByteEvent>& events,
                            const HTTPError& error);
 
-  uint64_t sessionOffset;
+  const uint64_t sessionOffset;
+  Refcount* refcount{nullptr};
+
+ private:
+  void fireEvent() noexcept;
+  void onError(HTTPError&& err) noexcept;
+  void decRef() noexcept;
+  // HHWheelTimer::Callback overrides
+  void callbackCanceled() noexcept override {
+    onError(HTTPError{HTTPErrorCode::CANCEL, "ByteEvent Cancelled"});
+  }
+  void timeoutExpired() noexcept override {
+    // incRef called when timeout scheduled in scheduleOrFireTxAckEvent
+    XLOG(DBG4) << "ByteEvent Timeout";
+    onError(HTTPError{HTTPErrorCode::READ_TIMEOUT, "ByteEvent Timeout"});
+  }
   HTTPByteEvent byteEvent;
   HTTPByteEventCallbackPtr callback;
   // Initialized in scheduleOrFireTxAckEvent
-  Refcount* refcount{nullptr};
 };
 
 // Holds byte events discovered during an iteration of writeLoop, and
@@ -273,12 +262,6 @@ class AsyncSocketByteEventObserver
   bool canRegister(uint8_t nEvents) const;
 
   void scheduleOrFireTxAckEvent(RegAndEvent regAndEvent);
-
-  void decRef(size_t nEvents) {
-    while (nEvents-- > 0) {
-      refCount_.decRef();
-    }
-  }
 
   folly::HHWheelTimer* timer_{nullptr};
   size_t maxTransportWriteOffset_{0};

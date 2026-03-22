@@ -14,15 +14,36 @@ constexpr uint32_t kMaxTxAckEvents = 96;
 
 namespace proxygen::coro {
 
+PendingByteEvent::~PendingByteEvent() noexcept {
+  XLOG_IF(DFATAL, callback) << "~PendingByteEvent with active callback";
+  onError(HTTPError{HTTPErrorCode::CANCEL, "ByteEvent Cancelled"});
+}
+
+void PendingByteEvent::fireEvent() noexcept {
+  if (auto cb = std::move(callback)) {
+    cb->onByteEvent(std::move(byteEvent));
+  }
+  decRef();
+}
+
+void PendingByteEvent::onError(HTTPError&& err) noexcept {
+  if (auto cb = std::move(callback)) {
+    cb->onByteEventCanceled(byteEvent, std::move(err));
+  }
+  decRef();
+}
+
+void PendingByteEvent::decRef() noexcept {
+  if (auto* ref = std::exchange(refcount, nullptr)) {
+    ref->decRef();
+  }
+}
+
 size_t PendingByteEvent::fireEvents(std::list<PendingByteEvent>& events,
                                     uint64_t offset) {
   size_t nEvents = 0;
   while (!events.empty() && events.front().sessionOffset <= offset) {
-    auto& event = events.front();
-    auto cb = std::move(event.callback);
-    if (cb) {
-      cb->onByteEvent(std::move(event.byteEvent));
-    }
+    events.front().fireEvent();
     events.pop_front();
     nEvents++;
   }
@@ -31,14 +52,10 @@ size_t PendingByteEvent::fireEvents(std::list<PendingByteEvent>& events,
 
 void PendingByteEvent::cancelEvents(std::list<PendingByteEvent>& events,
                                     const HTTPError& error) {
-  while (!events.empty()) {
-    auto& event = events.front();
-    auto cb = std::move(event.callback);
-    if (cb) {
-      cb->onByteEventCanceled(std::move(event.byteEvent), error);
-    }
-    events.pop_front();
+  for (auto& event : events) {
+    event.onError(HTTPError{error});
   }
+  events.clear();
 }
 
 folly::WriteFlags AsyncSocketByteEventObserver::TxAckEvent::writeFlags() {
@@ -81,7 +98,6 @@ bool AsyncSocketByteEventObserver::canRegister(uint8_t nEvents) const {
 void AsyncSocketByteEventObserver::byteEvent(
     folly::AsyncSocket* /* socket */,
     const folly::AsyncSocketObserverInterface::ByteEvent& event) noexcept {
-  size_t nEvents = 0;
   // Note: if there are other observers on this socket that register for TX or
   // ACK events, this observer will also fire, even if it did _not_ register.
   XLOG(DBG5) << "byteEvent type=" << uint32_t(event.type)
@@ -92,13 +108,12 @@ void AsyncSocketByteEventObserver::byteEvent(
   } else if (event.type ==
              folly::AsyncSocketObserverInterface::ByteEvent::Type::TX) {
     maxTransportTxOffset_ = event.offset;
-    nEvents = PendingByteEvent::fireEvents(txEvents_, event.offset);
+    PendingByteEvent::fireEvents(txEvents_, event.offset);
   } else if (event.type ==
              folly::AsyncSocketObserverInterface::ByteEvent::Type::ACK) {
     maxTransportAckOffset_ = event.offset;
-    nEvents = PendingByteEvent::fireEvents(ackEvents_, event.offset);
+    PendingByteEvent::fireEvents(ackEvents_, event.offset);
   }
-  decRef(nEvents);
 }
 
 /* scheduleOrFireTxAckEvent will emplace the TX/ACK event, and fire it if
