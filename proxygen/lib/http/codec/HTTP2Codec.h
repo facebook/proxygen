@@ -290,9 +290,6 @@ class HTTP2Codec
   // Current frame state
   http2::FrameHeader curHeader_;
   StreamID expectedContinuationStream_{0};
-  static constexpr uint32_t kMaxContinuationFramesPerHeaderBlock{100};
-  uint32_t continuationFramesLeftInHeaderBlock_{
-      kMaxContinuationFramesPerHeaderBlock};
   // Used for parsing PUSH_PROMISE+CONTINUATION
   folly::Optional<StreamID> promisedStream_;
   bool parsingReq_{false};
@@ -348,6 +345,9 @@ class HTTP2Codec
   bool validateHeaders_{true};
   // Default false for now to match existing behavior
   bool strictValidation_{false};
+  static constexpr uint8_t kMaxContinuationFramesPerHeaderBlock{100};
+  uint8_t continuationFramesLeftInHeaderBlock_{
+      kMaxContinuationFramesPerHeaderBlock};
   uint8_t debugLevel_{0};
 
   // CONTINUATION frame can follow either HEADERS or PUSH_PROMISE frames.
