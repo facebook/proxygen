@@ -353,6 +353,16 @@ struct ResourceData : public PeriodicStatsDataBase {
     return nicUtilRatio_ > 0.0;
   }
 
+  // Gets the container-level NIC utilization ratio [0, 1.0]
+  [[nodiscard]] double getContainerNicUtilRatio() const {
+    return containerNicUtilRatio_;
+  }
+
+  // Returns True if container-level NIC utilization was successfully collected
+  [[nodiscard]] bool containerNicStatsCollected() const {
+    return containerNicUtilRatio_ > 0.0;
+  }
+
   void setCpuStats(CpuStats&& cpuStats) {
     cpuRatioUtil_ = cpuStats.cpuUsageRatio;
     cpuCoreUsageRatios_ = std::move(cpuStats.cpuCoreUsageRatios);
@@ -429,6 +439,13 @@ struct ResourceData : public PeriodicStatsDataBase {
     nicUtilRatio_ = utilRatio;
   }
 
+  /**
+   * Sets the container-level NIC utilization ratio [0, 1.0].
+   */
+  void setContainerNicStats(double utilRatio) {
+    containerNicUtilRatio_ = utilRatio;
+  }
+
  protected:
   // Convert an absolute integer value and max limit to a float point ratio.
   [[nodiscard]] double calculateRatio(uint64_t value, uint64_t maxLimit) const {
@@ -458,6 +475,9 @@ struct ResourceData : public PeriodicStatsDataBase {
 
   // NIC utilization
   double nicUtilRatio_{0.0};
+
+  // Container-level NIC utilization
+  double containerNicUtilRatio_{0.0};
 
   // Pressure metrics (experimental)
   double cpuPressureAvg10Pct_{0};
