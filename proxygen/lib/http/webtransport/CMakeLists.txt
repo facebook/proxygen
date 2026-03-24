@@ -62,6 +62,7 @@ proxygen_add_library(proxygen_http_webtransport_quic_wt_session
   EXPORTED_DEPS
     proxygen_http_webtransport
     proxygen_http_webtransport_wt_stream_manager
+    proxygen_http_webtransport_wt_util
     mvfst::mvfst_api_transport
     mvfst::mvfst_priority_http_priority_queue
     Folly::folly_logging_logging
@@ -69,19 +70,25 @@ proxygen_add_library(proxygen_http_webtransport_quic_wt_session
 
 proxygen_add_library(proxygen_http_webtransport_wt_stream_manager
   SRCS
-    WtEgressContainer.cpp
     WtStreamManager.cpp
+  DEPS
+    Folly::folly_logging_logging
+  EXPORTED_DEPS
+    proxygen_http_webtransport
+    proxygen_http_webtransport_wt_egress_container
+    mvfst::mvfst_priority_priority_queue
+    Folly::folly_container_f14_hash
+)
+
+proxygen_add_library(proxygen_http_webtransport_wt_util
+  SRCS
     WtUtils.cpp
   DEPS
     proxygen_http_codec_codec_common
     Folly::folly_logging_logging
   EXPORTED_DEPS
     proxygen_http_codec_webtransport_webtransport_capsule_codec
-    proxygen_http_webtransport
-    proxygen_http_webtransport_flow_controller
-    mvfst::mvfst_priority_priority_queue
-    Folly::folly_container_f14_hash
-    Folly::folly_io_iobuf
+    proxygen_http_webtransport_wt_stream_manager
 )
 
 proxygen_add_library(proxygen_http_webtransport_wt_egress_container

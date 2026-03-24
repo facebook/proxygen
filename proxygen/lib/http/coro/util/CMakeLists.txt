@@ -77,5 +77,6 @@ proxygen_add_library(proxygen_http_coro_util_CoroWtSession
     proxygen_http_coro_coro_stream_source
     proxygen_http_coro_util_cancellable_baton
     proxygen_http_webtransport_wt_stream_manager
+    proxygen_http_webtransport_wt_util
     mvfst::mvfst_priority_http_priority_queue
 )
