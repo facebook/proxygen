@@ -250,7 +250,7 @@ void QuicWtSession::onDatagramsAvailable() noexcept {
 // -- WtStreamManager::ReadCallback overrides --
 void QuicWtSession::readReady(
     detail::WtStreamManager::WtReadHandle& rh) noexcept {
-  maybeResumeIngress(rh.getID());
+  maybeResumeIngress(rh);
 }
 
 // -- WtStreamManager::EgressCallback overrides --
@@ -363,14 +363,11 @@ void QuicWtSession::maybePauseIngress(uint64_t id) noexcept {
   }
 }
 
-void QuicWtSession::maybeResumeIngress(uint64_t id) noexcept {
+void QuicWtSession::maybeResumeIngress(
+    detail::WtStreamManager::WtReadHandle& handle) noexcept {
   XCHECK(quicSocket_);
-  auto* handle = sm_.getBidiHandle(id).readHandle;
-  if (!handle) {
-    XLOG(DBG4) << "No read handle created for stream " << id;
-    return;
-  }
-  if (sm_.bufferedBytes(*handle) < kMaxWtIngressBuf) {
+  const auto id = handle.getID();
+  if (sm_.bufferedBytes(handle) < kMaxWtIngressBuf) {
     XLOG(DBG4) << "Resuming ingress for stream " << id;
     auto res = quicSocket_->resumeRead(id);
     if (res.hasError()) {

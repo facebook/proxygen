@@ -107,7 +107,8 @@ class QuicWtSession
       folly::Optional<uint32_t> error);
   void onConnectionEndImpl(const folly::Optional<quic::QuicError>& error);
   void maybePauseIngress(uint64_t id) noexcept;
-  void maybeResumeIngress(uint64_t id) noexcept;
+  void maybeResumeIngress(
+      detail::WtStreamManager::WtReadHandle& handle) noexcept;
 
   std::shared_ptr<quic::QuicSocket> quicSocket_{nullptr};
   std::unique_ptr<WebTransportHandler> wtHandler_;
