@@ -73,8 +73,8 @@ QuicWtSession::QuicWtSession(std::shared_ptr<quic::QuicSocket> quicSocket,
               ? detail::WtDir::Server
               : detail::WtDir::Client,
           createConfig(),
-          *this,
-          *this,
+          smCb_,
+          smCb_,
           *priorityQueue_} {
   quicSocket_->setConnectionCallback(&connCb_);
   quicSocket_->setDatagramCallback(this);
@@ -105,7 +105,7 @@ QuicWtSession::createBidiStream() noexcept {
   }
   auto bidiHandle = sm_.getOrCreateBidiHandle(*id);
   XCHECK(bidiHandle.readHandle && bidiHandle.writeHandle);
-  sm_.setReadCb(*bidiHandle.readHandle, this);
+  sm_.setReadCb(*bidiHandle.readHandle, &smCb_);
   quicSocket_->setReadCallback(*id, &readCb_);
   return bidiHandle;
 }
@@ -190,7 +190,7 @@ void QuicWtSession::QuicConnectionCallback::onNewBidirectionalStream(
   XCHECK(sess.wtHandler_);
   auto bidiHandle = sess.sm_.getOrCreateBidiHandle(id);
   XCHECK(bidiHandle.readHandle && bidiHandle.writeHandle);
-  sess.sm_.setReadCb(*bidiHandle.readHandle, &sess);
+  sess.sm_.setReadCb(*bidiHandle.readHandle, &sess.smCb_);
   sess.quicSocket_->setReadCallback(id, &sess.readCb_);
   sess.wtHandler_->onNewBidiStream(bidiHandle);
 }
@@ -199,7 +199,7 @@ void QuicWtSession::QuicConnectionCallback::onNewUnidirectionalStream(
     StreamId id) noexcept {
   XCHECK(sess.wtHandler_);
   auto* rh = CHECK_NOTNULL(sess.sm_.getOrCreateIngressHandle(id));
-  sess.sm_.setReadCb(*rh, &sess);
+  sess.sm_.setReadCb(*rh, &sess.smCb_);
   sess.quicSocket_->setReadCallback(id, &sess.readCb_);
   sess.wtHandler_->onNewUniStream(rh);
 }
@@ -256,46 +256,45 @@ void QuicWtSession::onDatagramsAvailable() noexcept {
   }
 }
 
-// -- WtStreamManager::ReadCallback overrides --
-void QuicWtSession::readReady(
+// -- StreamManagerCallback overrides --
+void QuicWtSession::StreamManagerCallback::readReady(
     detail::WtStreamManager::WtReadHandle& rh) noexcept {
-  maybeResumeIngress(rh);
+  sess.maybeResumeIngress(rh);
 }
 
-// -- WtStreamManager::EgressCallback overrides --
-void QuicWtSession::eventsAvailable() noexcept {
-  XCHECK(quicSocket_);
+void QuicWtSession::StreamManagerCallback::eventsAvailable() noexcept {
+  XCHECK(sess.quicSocket_);
   // process control events first
-  auto events = sm_.moveEvents();
+  auto events = sess.sm_.moveEvents();
   for (auto& event : events) {
-    std::visit(QuicWtEventVisitor{*quicSocket_}, event);
+    std::visit(QuicWtEventVisitor{*sess.quicSocket_}, event);
   }
   // then process writable streams
-  while (!priorityQueue_->empty()) {
-    auto id = priorityQueue_->getNextScheduledID(std::nullopt);
+  while (!sess.priorityQueue_->empty()) {
+    auto id = sess.priorityQueue_->getNextScheduledID(std::nullopt);
     if (!id.isStreamID()) { // skip datagrams
       break;
     }
     auto streamId = id.asStreamID();
-    auto maxData = quicSocket_->getMaxWritableOnStream(streamId);
-    auto* wh = sm_.getBidiHandle(streamId).writeHandle;
+    auto maxData = sess.quicSocket_->getMaxWritableOnStream(streamId);
+    auto* wh = sess.sm_.getBidiHandle(streamId).writeHandle;
     if (!wh || !maxData) {
       XLOG(DBG4) << "Write handle or stream not found for " << streamId;
-      priorityQueue_->erase(id);
+      sess.priorityQueue_->erase(id);
       continue;
     }
     if (*maxData == 0) {
       XLOG(DBG4) << "Blocked on QUIC flow control for stream " << streamId;
-      priorityQueue_->erase(id);
-      quicSocket_->notifyPendingWriteOnStream(streamId, this);
+      sess.priorityQueue_->erase(id);
+      sess.quicSocket_->notifyPendingWriteOnStream(streamId, &sess);
       continue;
     }
-    auto streamData = sm_.dequeue(*wh, *maxData);
+    auto streamData = sess.sm_.dequeue(*wh, *maxData);
     if (streamData.data || streamData.fin) {
-      auto res = quicSocket_->writeChain(streamId,
-                                         std::move(streamData.data),
-                                         streamData.fin,
-                                         streamData.deliveryCallback);
+      auto res = sess.quicSocket_->writeChain(streamId,
+                                              std::move(streamData.data),
+                                              streamData.fin,
+                                              streamData.deliveryCallback);
       if (res.hasError()) {
         XLOG(ERR) << "Failed to write to stream " << streamId;
         wh->resetStream(WebTransport::kInternalError);
@@ -304,8 +303,8 @@ void QuicWtSession::eventsAvailable() noexcept {
   }
 }
 
-// -- WtStreamManager::IngressCallback overrides --
-void QuicWtSession::onNewPeerStream(uint64_t /*streamId*/) noexcept {
+void QuicWtSession::StreamManagerCallback::onNewPeerStream(
+    uint64_t /*streamId*/) noexcept {
 }
 
 // -- StreamWriteCallback overrides --
@@ -316,7 +315,7 @@ void QuicWtSession::onStreamWriteReady(quic::StreamId streamId,
     priorityQueue_->insertOrUpdate(
         quic::PriorityQueue::Identifier::fromStreamID(wh->getID()),
         wh->getPriority());
-    eventsAvailable();
+    smCb_.eventsAvailable();
   }
 }
 

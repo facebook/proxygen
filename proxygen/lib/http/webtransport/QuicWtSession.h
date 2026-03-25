@@ -24,10 +24,7 @@ using QuicError = quic::QuicError;
 class QuicWtSession
     : public detail::WtSessionBase
     , private QuicSocket::DatagramCallback
-    , private quic::StreamWriteCallback
-    , private detail::WtStreamManager::ReadCallback
-    , public detail::WtStreamManager::EgressCallback
-    , public detail::WtStreamManager::IngressCallback {
+    , private quic::StreamWriteCallback {
 
  public:
   explicit QuicWtSession(std::shared_ptr<QuicSocket> quicSocket,
@@ -76,15 +73,6 @@ class QuicWtSession
   void onStreamWriteReady(StreamId id, uint64_t maxToSend) noexcept override;
   void onStreamWriteError(StreamId id, QuicError error) noexcept override;
 
-  // -- WtStreamManager::ReadCallback overrides --
-  void readReady(detail::WtStreamManager::WtReadHandle& rh) noexcept override;
-
-  // -- WtStreamManager::EgressCallback overrides --
-  void eventsAvailable() noexcept override;
-
-  // -- WtStreamManager::IngressCallback overrides --
-  void onNewPeerStream(uint64_t streamId) noexcept override;
-
   folly::Expected<folly::Unit, ErrorCode> closeSessionImpl(
       folly::Optional<uint32_t> error);
   void onConnectionEndImpl(const folly::Optional<QuicError>& error);
@@ -92,10 +80,6 @@ class QuicWtSession
       detail::WtStreamManager::WtReadHandle& handle) noexcept;
   void maybeResumeIngress(
       detail::WtStreamManager::WtReadHandle& handle) noexcept;
-
-  std::shared_ptr<quic::QuicSocket> quicSocket_{nullptr};
-  std::unique_ptr<WebTransportHandler> wtHandler_;
-  std::unique_ptr<quic::HTTPPriorityQueue> priorityQueue_;
 
   struct QuicReadCallback : public quic::QuicSocket::ReadCallback {
     QuicWtSession& sess;
@@ -122,6 +106,21 @@ class QuicWtSession
         uint64_t numStreamsAvailable) noexcept override;
   } connCb_{*this};
 
+  struct StreamManagerCallback
+      : public detail::WtStreamManager::ReadCallback
+      , public detail::WtStreamManager::EgressCallback
+      , public detail::WtStreamManager::IngressCallback {
+    QuicWtSession& sess;
+    explicit StreamManagerCallback(QuicWtSession& session) : sess(session) {
+    }
+    void readReady(detail::WtStreamManager::WtReadHandle& rh) noexcept override;
+    void eventsAvailable() noexcept override;
+    void onNewPeerStream(uint64_t streamId) noexcept override;
+  } smCb_{*this};
+
+  std::shared_ptr<quic::QuicSocket> quicSocket_{nullptr};
+  std::unique_ptr<WebTransportHandler> wtHandler_;
+  std::unique_ptr<quic::HTTPPriorityQueue> priorityQueue_;
   detail::WtStreamManager sm_;
 };
 
